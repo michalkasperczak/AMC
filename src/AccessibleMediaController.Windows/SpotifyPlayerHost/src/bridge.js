@@ -133,6 +133,22 @@ export function startSpotifyBridge(Sdk, host, schedule = setInterval, now = () =
     }
     try {
       switch (command.type) {
+        // ZGLOSZENIE Michala 18.09.2026: "Spotify - cisza, czasu nie odtwarza".
+        //
+        // ZAKLESZCZENIE, ktore to powodowalo: AMC nie wysylalo polecenia "graj",
+        // dopoki mostek nie zglosi gotowosci, a gotowosc ('ready') zglaszal
+        // dopiero player.connect() wewnatrz ensurePlayer() - wolany TYLKO z
+        // obslugi polecenia "graj". Obie strony czekaly na siebie, AMC mowilo po
+        // 45 sekundach "odtwarzacz nie odpowiedzial". Cisza bez zadnego bledu.
+        //
+        // Dlatego AMC wysyla najpierw "prepare" (samo logowanie, bez utworu) -
+        // to podlacza odtwarzacz i wyzwala 'ready'. Utwor idzie dopiero potem.
+        // Poswiadczenia sa konieczne juz tutaj, bo SDK wola getOAuthToken przy
+        // podlaczaniu, a nie przy odtwarzaniu.
+        case 'prepare':
+          replaceCredentials(command.credentials);
+          await ensurePlayer();
+          break;
         case 'play': {
           const queueMs = Math.max(0, now() - queuedAt);
           active = request;
@@ -177,6 +193,14 @@ export function startSpotifyBridge(Sdk, host, schedule = setInterval, now = () =
           break;
       }
     } catch (error) {
+      // Blad polecenia "prepare" nie ma zadnego utworu, do ktorego mozna go
+      // przypisac, a reportFailure takie zdarzenia pomija. Zglaszamy go wiec
+      // wprost - inaczej nieudane podlaczenie odtwarzacza znow konczyloby sie
+      // cisza az do wyczerpania limitu czasu, zamiast konkretnym komunikatem.
+      if (command.type === 'prepare') {
+        send({ type: 'error', ...usefulError(error) });
+        return;
+      }
       reportFailure(error, request);
     }
   }

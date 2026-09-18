@@ -17006,6 +17006,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     configuredFields)
                 .ToArray();
         }
+        // ZGLOSZENIE Michala 18.09.2026: "Enter otwiera album, ale wpierw jak
+        // w Tidal powinien wyswietlac tytuly utworow". W albumie tytul utworu
+        // JEST informacja rozpoznawcza wiersza, a wykonawca powtarza sie w
+        // kazdym wierszu - czytnik czytal wiec najpierw to samo co wszedzie.
+        // Regula jest ta sama co w TIDAL i zalezy od RODZAJU kontenera, nie od
+        // nazwy usługi, wiec uzywamy tej samej polityki.
+        else if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyContainer))
+        {
+            configuredFields = TidalNavigationPolicy.OrderFieldsForContainer(
+                    spotifyContainer.Container.Kind,
+                    item.Kind,
+                    configuredFields)
+                .ToArray();
+        }
         return MediaItemFormatter.OrderFieldsForItem(item, configuredFields);
     }
 

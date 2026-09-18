@@ -130,6 +130,8 @@ var tests = new (string Name, Action Test)[]
     ("Zapamietana biblioteka nie traci adresu odtwarzania", TestCacheZachowujeSource),
     ("Odswiezenie tokenu nie kasuje wiedzy o zakresie", TestOdswiezenieNieKasujeZakresu),
     ("Skladniki odtwarzacza Spotify sa w paczce", TestSkladnikiOdtwarzaczaSpotify),
+    ("Odtwarzacz Spotify nie zakleszcza sie na gotowosci", TestOdtwarzaczSpotifyNieZakleszczaSieNaGotowosci),
+    ("Paczka zawiera silnik odtwarzania Spotify", TestPaczkaZawieraSilnikSpotify),
     ("Nieznany zakres uprawnien nie blokuje pobierania", TestNieznanyZakresNieBlokuje),
     ("Odcinek podcastu ma wlasny adres odtwarzania", TestOdcinekMaWlasnyAdres)
 };
@@ -7040,6 +7042,66 @@ static void TestOdswiezenieNieKasujeZakresu()
     if (!zrodlo.Contains("IsNullOrWhiteSpace(refreshed.Scope)", StringComparison.Ordinal))
         throw new Exception("Brak zabezpieczenia pustego zakresu przy odswiezeniu tokenu Spotify.");
     Console.WriteLine("OK: odswiezenie tokenu nie kasuje wiedzy o zakresie uprawnien");
+}
+
+static void TestOdtwarzaczSpotifyNieZakleszczaSieNaGotowosci()
+{
+    // ZGLOSZENIE Michala 18.09.2026: "Spotify - cisza, czasu nie odtwarza".
+    //
+    // BLAD, ktory to wywolal - zakleszczenie kolejnosci:
+    // - AMC czekalo na gotowosc mostka, zanim wyslalo polecenie "graj",
+    // - a mostek zglaszal gotowosc dopiero po podlaczeniu odtwarzacza, ktore
+    //   robil TYLKO w obsludze polecenia "graj".
+    // Zadna strona nie mogla ruszyc pierwsza: AMC czekalo 45 sekund i konczylo
+    // komunikatem "odtwarzacz nie odpowiedzial". Cisza bez zadnego bledu.
+    var mostek = File.ReadAllText(Path.Combine(
+        Path.GetDirectoryName(ZnajdzPlikZrodlowy("AccessibleMediaController.Windows.csproj"))!,
+        "SpotifyPlayerHost", "src", "bridge.js"));
+    if (!mostek.Contains("case 'prepare':", StringComparison.Ordinal))
+        throw new Exception("Mostek Spotify nie obsluguje polecenia przygotowania odtwarzacza.");
+
+    var wyjscie = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyMediaOutput.cs"));
+    if (!wyjscie.Contains("SendPrepareAsync", StringComparison.Ordinal))
+        throw new Exception("AMC nie wysyla polecenia przygotowania odtwarzacza Spotify.");
+
+    // Kolejnosc jest tu calym sednem poprawki: przygotowanie MUSI poprzedzac
+    // czekanie na gotowosc, inaczej zakleszczenie wraca.
+    var przygotowanie = wyjscie.IndexOf(
+        "await SendPrepareAsync(poswiadczenia", StringComparison.Ordinal);
+    var czekanie = wyjscie.IndexOf(
+        "await PrepareBridgeAsync(cancellationToken)", StringComparison.Ordinal);
+    if (przygotowanie < 0 || czekanie < 0 || przygotowanie > czekanie)
+        throw new Exception("AMC czeka na gotowosc odtwarzacza Spotify, zanim ja wywola.");
+
+    // Blad przygotowania nie ma utworu - musi i tak dotrzec do uzytkownika
+    // oraz przerwac czekanie, zamiast konczyc sie cisza do limitu czasu.
+    if (!wyjscie.Contains("?? CurrentItem()", StringComparison.Ordinal))
+        throw new Exception("Blad przygotowania odtwarzacza Spotify nie dociera do uzytkownika.");
+    Console.WriteLine("OK: odtwarzacz Spotify nie zakleszcza sie na gotowosci");
+}
+
+static void TestPaczkaZawieraSilnikSpotify()
+{
+    // BLAD, ktory to wywolal: skrypt budujacy kopiowal do paczki tylko silnik
+    // TIDAL, a silnik Spotify pomijal - u uzytkownika Spotify milczalo.
+    // build.ps1 lezy w korzeniu repozytorium, a nie w src, wiec ZnajdzPlikZrodlowy
+    // (ktory szuka tylko w src) go nie znajdzie - szukamy w gore od katalogu src.
+    var korzen = new DirectoryInfo(Path.GetDirectoryName(
+        ZnajdzPlikZrodlowy("AccessibleMediaController.Windows.csproj"))!);
+    string? skryptSciezka = null;
+    while (korzen is not null)
+    {
+        var kandydat = Path.Combine(korzen.FullName, "build.ps1");
+        if (File.Exists(kandydat)) { skryptSciezka = kandydat; break; }
+        korzen = korzen.Parent;
+    }
+    if (skryptSciezka is null)
+        throw new Exception("Nie znaleziono skryptu budujacego build.ps1.");
+
+    var skrypt = File.ReadAllText(skryptSciezka);
+    if (!skrypt.Contains("spotify-player", StringComparison.Ordinal))
+        throw new Exception("Skrypt budujacy nie sprawdza silnika Spotify w paczce.");
+    Console.WriteLine("OK: paczka zawiera silnik odtwarzania Spotify");
 }
 
 static void TestSkladnikiOdtwarzaczaSpotify()

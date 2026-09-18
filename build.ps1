@@ -85,6 +85,18 @@ if ($Publish) {
             throw "Brak oficjalnego modułu odtwarzacza TIDAL."
         }
         Copy-Item -LiteralPath $tidalPlayerDirectory -Destination (Join-Path $packageDirectory "tidal-player") -Recurse -Force
+        # ZGLOSZENIE Michala 18.09.2026: "Spotify - cisza, czasu nie odtwarza".
+        # Przyczyna: pakiet NIE zawieral modulu odtwarzacza Spotify wcale, choc
+        # projekt go buduje. Program uruchamial WebView2 na nieistniejacym
+        # pliku, wiec nie bylo ani dzwieku, ani postepu czasu - i ani jednego
+        # bledu, bo brak strony nie jest wyjatkiem.  Ten katalog jest tak samo
+        # obowiazkowy jak tidal-player: bez niego Spotify NIE ZAGRA, wiec
+        # brak konczy budowanie bledem zamiast wydac ciche wydanie.
+        $spotifyPlayerDirectory = Join-Path $staging "spotify-player"
+        if (-not (Test-Path -LiteralPath $spotifyPlayerDirectory)) {
+            throw "Brak modułu odtwarzacza Spotify."
+        }
+        Copy-Item -LiteralPath $spotifyPlayerDirectory -Destination (Join-Path $packageDirectory "spotify-player") -Recurse -Force
     }
     finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }

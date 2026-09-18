@@ -194,6 +194,7 @@ var tests = new (string Name, Action Test)[]
     ("Pobieranie biblioteki Spotify trafia do sesji", TestSpotifyBibliotekaTrafiaDoSesji),
     ("Czesciowa awaria pobierania Spotify nie kasuje wyniku", TestSpotifyCzesciowyWynikZachowany),
     ("Obsluga listy Spotify jest taka jak w TIDAL", TestSpotifyObslugaListyJakTidal),
+    ("Album Spotify pokazuje tytuly utworow", TestSpotifyAlbumPokazujeTytulyUtworow),
 };
 
 var failures = new List<string>();
@@ -6793,6 +6794,26 @@ static void TestTidalDesktopCzasMowiSamaLiczbe()
     }
 
     Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
+}
+
+static void TestSpotifyAlbumPokazujeTytulyUtworow()
+{
+    // ZGLOSZENIE Michala 18.09.2026: "Enter otwiera album, ale wpierw jak
+    // w Tidal powinien wyswietlac tytuly utworow".
+    //
+    // BLAD, ktory to wywolal: kolejnosc pol ustawiana byla TYLKO dla widokow
+    // TIDAL. W albumie Spotify czytnik czytal wiec najpierw wykonawce - ten sam
+    // w kazdym wierszu - zamiast tytulu utworu, ktory jedyny rozroznia wiersze.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var fragment = zrodlo.IndexOf("OrderFieldsForContainer", StringComparison.Ordinal);
+    if (fragment < 0)
+        throw new Exception("Brak ustawiania kolejnosci pol w kontenerze.");
+
+    // Kolejnosc pol musi byc ustawiana takze dla widokow Spotify, nie tylko TIDAL.
+    var okolica = zrodlo.Substring(fragment, Math.Min(2000, zrodlo.Length - fragment));
+    if (!okolica.Contains("_spotifyContainerViews", StringComparison.Ordinal))
+        throw new Exception("Album Spotify nie ustawia tytulu utworu na pierwszym miejscu.");
+    Console.WriteLine("OK: album Spotify pokazuje tytuly utworow jak w TIDAL");
 }
 
 static void TestSpotifyObslugaListyJakTidal()

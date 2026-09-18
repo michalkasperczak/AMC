@@ -231,10 +231,8 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
         try
         {
             var startedAt = Stopwatch.GetTimestamp();
-            var readyTask = PrepareBridgeAsync(cancellationToken);
-            var credentialsTask = integration.GetPlaybackCredentialsAsync(cancellationToken);
-            await Task.WhenAll(readyTask, credentialsTask).ConfigureAwait(false);
-            var credentials = await credentialsTask.ConfigureAwait(false);
+            var credentials = await integration
+                .GetPlaybackCredentialsAsync(cancellationToken).ConfigureAwait(false);
             if (!IsCurrentRequest(version, item.Id)) return;
 
             // Konto darmowe: powiedz to wprost, zamiast czekac na ogolny blad SDK.
@@ -246,6 +244,29 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                 return;
             }
 
+            var poswiadczenia = new
+            {
+                token = credentials.AccessToken,
+                expires = credentials.ExpiresAtUtc.ToUnixTimeMilliseconds()
+            };
+
+            // ZGLOSZENIE Michala 18.09.2026: "Spotify - cisza, czasu nie odtwarza".
+            //
+            // ZAKLESZCZENIE KOLEJNOSCI, ktore to powodowalo: czekalismy tu na
+            // gotowosc mostka, a mostek zglaszal gotowosc dopiero po podlaczeniu
+            // odtwarzacza, ktore robil w obsludze polecenia "graj" - czyli nigdy,
+            // bo polecenia jeszcze nie wyslalismy. AMC czekalo 45 sekund i mowilo
+            // "odtwarzacz nie odpowiedzial", zadnego bledu w dzienniku.
+            //
+            // Dlatego najpierw wysylamy "prepare" (samo logowanie), ktore kaze
+            // mostkowi podlaczyc odtwarzacz, a DOPIERO POTEM czekamy na gotowosc.
+            // Poswiadczenia musza byc gotowe wczesniej, bo SDK wola je wlasnie
+            // przy podlaczaniu.
+            await SendPrepareAsync(poswiadczenia, version, item.Id, cancellationToken)
+                .ConfigureAwait(false);
+            await PrepareBridgeAsync(cancellationToken).ConfigureAwait(false);
+            if (!IsCurrentRequest(version, item.Id)) return;
+
             DiagnosticLog.Info("spotify-player-timing",
                 $"Przygotowanie hosta i poświadczeń; próba: {version}; czas: {Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:F0} ms.");
 
@@ -256,11 +277,7 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                 trackUri = PlaybackTrackUri(item),
                 position = Math.Max(0, startPosition.TotalSeconds),
                 volume = Math.Clamp(volume, 0, 100),
-                credentials = new
-                {
-                    token = credentials.AccessToken,
-                    expires = credentials.ExpiresAtUtc.ToUnixTimeMilliseconds()
-                }
+                credentials = poswiadczenia
             };
             await webView.Dispatcher.InvokeAsync(
                 () =>
@@ -282,6 +299,30 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                     HandleFailure(item, FriendlyFailure(exception.Message));
             });
         }
+    }
+
+    // Wysyla polecenie "prepare" POMIJAJAC PostCommand. PostCommand milczy,
+    // dopoki mostek nie jest gotowy (bridgeReady) - a wlasnie to polecenie ma
+    // te gotowosc wywolac, wiec przez PostCommand nigdy by nie wyszlo.
+    // Host WebView2 musi juz istniec, dlatego najpierw EnsureInitialization.
+    private async Task SendPrepareAsync(
+        object credentials,
+        int version,
+        string itemId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureInitialization().ConfigureAwait(false);
+        if (bridgeReady.Task.IsCompletedSuccessfully) return;
+        var command = new { type = "prepare", requestVersion = version, credentials };
+        var json = JsonSerializer.Serialize(command);
+        await webView.Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (!disposed && IsCurrentRequest(version, itemId))
+                    webView.CoreWebView2.PostWebMessageAsJson(json);
+            },
+            DispatcherPriority.Send,
+            cancellationToken);
     }
 
     private async Task PrepareBridgeAsync(CancellationToken cancellationToken)
@@ -350,7 +391,14 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
             var type = Text(root, "type");
             // Sam identyfikator utworu nie wystarcza, gdy ten sam utwor otwarto
             // ponownie. Odpowiedz na poprzednie polecenie nie moze wplywac na nowe.
-            if (type != "ready" && !MatchesBridgeRequest(root)) return;
+            //
+            // Wyjatki: "ready" dotyczy calego mostka, a nie utworu. Blad zgloszony
+            // w odpowiedzi na "prepare" tez nie ma utworu (podlaczanie odtwarzacza
+            // idzie przed wyborem utworu) - gdybysmy go tu odrzucili, nieudane
+            // podlaczenie znow konczyloby sie cisza az do limitu 45 sekund.
+            var bezUtworu = type == "ready"
+                || (type == "error" && !root.TryGetProperty("trackUri", out _));
+            if (!bezUtworu && !MatchesBridgeRequest(root)) return;
             switch (type)
             {
                 case "ready":
@@ -372,8 +420,6 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                     ApplyEnded(root);
                     break;
                 case "error":
-                    var failedItem = CurrentItemMatching(Text(root, "trackUri"));
-                    if (failedItem is null) break;
                     var rawFailure = string.Join(
                         ' ',
                         new[]
@@ -382,9 +428,20 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                             Text(root, "code"),
                             Text(root, "id")
                         }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                    // Blad z "prepare" nie ma utworu. Zglaszamy go dla biezacego
+                    // elementu, zeby uzytkownik uslyszal przyczyne (np. brak
+                    // Premium albo wygasle logowanie) zamiast czekac w ciszy.
+                    var failedItem = CurrentItemMatching(Text(root, "trackUri"))
+                        ?? CurrentItem();
+                    if (failedItem is null) break;
                     DiagnosticLog.Warning(
                         "spotify-player-detail",
                         $"Szczegóły błędu SDK; element: {failedItem.ExternalId}; {SafeDiagnostic(rawFailure)}");
+                    // Nieudane przygotowanie odtwarzacza musi tez przerwac
+                    // czekanie na gotowosc - inaczej PrepareBridgeAsync wisi
+                    // az do limitu 45 sekund, mimo ze przyczyne juz znamy.
+                    bridgeReady.TrySetException(
+                        new InvalidOperationException(FriendlyFailure(rawFailure)));
                     HandleFailure(failedItem, FriendlyFailure(rawFailure));
                     break;
             }
