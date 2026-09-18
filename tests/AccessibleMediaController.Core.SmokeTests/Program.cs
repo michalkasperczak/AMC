@@ -126,7 +126,10 @@ var tests = new (string Name, Action Test)[]
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
     ("Trzy rodzaje eksportu", TestExports),
-    ("Zapis stanu nie wymazuje zadnej sekcji ustawien", TestZapisNieGubiSekcji)
+    ("Zapis stanu nie wymazuje zadnej sekcji ustawien", TestZapisNieGubiSekcji),
+    ("Zapamietana biblioteka nie traci adresu odtwarzania", TestCacheZachowujeSource),
+    ("Odswiezenie tokenu nie kasuje wiedzy o zakresie", TestOdswiezenieNieKasujeZakresu),
+    ("Skladniki odtwarzacza Spotify sa w paczce", TestSkladnikiOdtwarzaczaSpotify)
 };
 
 static void TestTidalIntegrationFoundation()
@@ -6988,6 +6991,78 @@ static void TestZapisNieGubiSekcji()
                 + string.Join(", ", brakujace));
     }
     Console.WriteLine("OK: zapis stanu przepisuje wszystkie sekcje ustawien");
+}
+
+static void TestCacheZachowujeSource()
+{
+    // BLAD, ktory to wywolal: zapamietana biblioteka Spotify NIE zapisywala pola
+    // Source ("spotify:track:..."). Po ponownym uruchomieniu AMC lista byla pelna,
+    // ale nie bylo czym odtwarzac - Enter nic nie robil.
+    var utwor = new MediaItem
+    {
+        Id = "spotify:probny",
+        Kind = MediaItemKind.Track,
+        Title = "Probny",
+        Artist = "Wykonawca",
+        ExternalId = "4aBcDeF",
+        Duration = TimeSpan.FromSeconds(213),
+        Source = "spotify:track:4aBcDeF"
+    };
+
+    var zapisany = TidalCachedCollectionItemSettings.From(utwor);
+    var odczytany = zapisany.ToMediaItem();
+
+    if (!string.Equals(odczytany.Source, utwor.Source, StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "Zapamietana biblioteka traci adres odtwarzania (Source), wiec po restarcie "
+                + $"nie ma czym odtwarzac. Oczekiwano: {utwor.Source}; jest: {odczytany.Source ?? "brak"}.");
+    }
+    if (odczytany.Duration != utwor.Duration)
+        throw new Exception("Zapamietana biblioteka traci czas utworu.");
+    Console.WriteLine("OK: zapamietana biblioteka zachowuje adres odtwarzania i czas");
+}
+
+static void TestOdswiezenieNieKasujeZakresu()
+{
+    // BLAD, ktory to wywolal: Spotify przy odswiezeniu tokenu czesto NIE powtarza
+    // listy zakresow. Bezwarunkowe przypisanie kasowalo wiedze o zakresie
+    // "streaming" i odtwarzanie oglaszalo nieprawdziwe "konto bez Premium".
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyIntegrationService.cs"));
+    if (zrodlo.Contains("\n        settings.GrantedScope = refreshed.Scope;", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "Odswiezenie tokenu nadpisuje GrantedScope bezwarunkowo. Puste pole z odpowiedzi "
+                + "Spotify wymaze wiedze o zakresie streaming i odtwarzanie zglosi brak Premium.");
+    }
+    if (!zrodlo.Contains("IsNullOrWhiteSpace(refreshed.Scope)", StringComparison.Ordinal))
+        throw new Exception("Brak zabezpieczenia pustego zakresu przy odswiezeniu tokenu Spotify.");
+    Console.WriteLine("OK: odswiezenie tokenu nie kasuje wiedzy o zakresie uprawnien");
+}
+
+static void TestSkladnikiOdtwarzaczaSpotify()
+{
+    // BLAD, ktory to wywolal: pliki silnika odtwarzania nie byly wpisane do
+    // projektu, wiec NIE trafialy do paczki - brak wychodzil dopiero u uzytkownika
+    // jako "brakuje skladnikow odtwarzacza".
+    var projekt = File.ReadAllText(ZnajdzPlikZrodlowy("AccessibleMediaController.Windows.csproj"));
+    foreach (var plik in new[] { "spotify-player\\index.html", "spotify-player\\bridge.js" })
+    {
+        if (!projekt.Contains(plik, StringComparison.Ordinal))
+            throw new Exception($"Projekt nie kopiuje do paczki: {plik}.");
+    }
+
+    var katalog = Path.GetDirectoryName(ZnajdzPlikZrodlowy("AccessibleMediaController.Windows.csproj"))!;
+    foreach (var plik in new[]
+             {
+                 Path.Combine(katalog, "SpotifyPlayerHost", "index.html"),
+                 Path.Combine(katalog, "SpotifyPlayerHost", "src", "bridge.js")
+             })
+    {
+        if (!File.Exists(plik))
+            throw new Exception($"Brak pliku silnika odtwarzania: {plik}.");
+    }
+    Console.WriteLine("OK: skladniki odtwarzacza Spotify sa wpisane do paczki");
 }
 
 static void TestExports()

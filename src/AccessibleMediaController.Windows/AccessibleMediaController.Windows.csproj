@@ -118,6 +118,20 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <!-- Silnik Spotify. Bez tych dwoch wpisow pliki NIE trafiaja do paczki
+         i odtwarzanie zglasza brak skladnikow dopiero u uzytkownika.
+         Mostek Spotify nie przechodzi przez bundler: SDK jest wczytywane ze
+         strony Spotify, wiec zrodlo idzie do paczki bez przetwarzania. -->
+    <None Include="SpotifyPlayerHost\index.html"
+          Link="spotify-player\index.html"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="SpotifyPlayerHost\src\bridge.js"
+          Link="spotify-player\bridge.js"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
   </ItemGroup>
   <Target Name="ExcludeReplaceableSoundTouchAssembliesFromSingleFile"
           BeforeTargets="_ComputeFilesToBundle">
