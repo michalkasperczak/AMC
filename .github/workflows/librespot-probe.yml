@@ -3,7 +3,9 @@ name: Librespot Windows probe
 on:
   push:
     branches: [hermes/librespot-probe]
-    paths: [.github/workflows/librespot-probe.yml]
+    paths:
+      - .github/workflows/librespot-probe.yml
+      - native/AmcSpotifyLibrespotHost/**
   workflow_dispatch:
 
 permissions:
@@ -56,5 +58,117 @@ jobs:
         with:
           name: librespot-windows-probe
           path: out/
+          if-no-files-found: error
+          retention-days: 14
+
+  amc-host:
+    name: AMC Spotify Librespot host (Rust, Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout branch with the wrapper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          rustc +stable --version
+          cargo +stable --version
+      - name: Cache cargo registry and git checkouts
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/AmcSpotifyLibrespotHost/target
+          key: amchost-${{ runner.os }}-${{ hashFiles('native/AmcSpotifyLibrespotHost/Cargo.toml', 'native/AmcSpotifyLibrespotHost/Cargo.lock') }}
+      - name: Build release binary
+        shell: pwsh
+        working-directory: native/AmcSpotifyLibrespotHost
+        run: |
+          cargo +stable build --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run protocol tests (no Spotify account, no network playback)
+        shell: pwsh
+        working-directory: native/AmcSpotifyLibrespotHost
+        run: |
+          # -- nocapture: chcemy widzieć realne wyniki, nie tylko podsumowanie.
+          cargo +stable test --release --target x86_64-pc-windows-msvc -- --nocapture --test-threads=2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prove stdout is JSON lines only (live process, PowerShell driver)
+        shell: pwsh
+        working-directory: native/AmcSpotifyLibrespotHost
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'target/x86_64-pc-windows-msvc/release/amc_spotify_librespot_host.exe'
+          if (-not (Test-Path $exe)) { Write-Error "brak pliku: $exe"; exit 1 }
+
+          $commands = @(
+            '{"command":"ping","requestId":1,"sessionId":"spotifyLibrespot"}'
+            '{"command":"devices","requestId":2,"sessionId":"spotifyLibrespot"}'
+            '{"command":"ping","requestId":3,"sessionId":"nieTaSesja"}'
+            'to nie jest json'
+            '{"command":"pause","requestId":4,"sessionId":"spotifyLibrespot"}'
+            '{"command":"shutdown","requestId":5,"sessionId":"spotifyLibrespot"}'
+          )
+          $commands | & $exe 2> stderr.txt | Tee-Object -FilePath stdout.txt | Out-Null
+          $code = $LASTEXITCODE
+          Write-Host "kod wyjscia procesu: $code"
+          Write-Host '--- stdout ---'
+          Get-Content stdout.txt
+          Write-Host '--- stderr (logi, nie protokol) ---'
+          Get-Content stderr.txt -ErrorAction SilentlyContinue
+
+          if ($code -ne 0) { Write-Error "proces zakonczyl sie kodem $code"; exit 1 }
+
+          $lines = Get-Content stdout.txt | Where-Object { $_.Trim().Length -gt 0 }
+          $parsed = @()
+          foreach ($line in $lines) {
+            try { $parsed += ($line | ConvertFrom-Json) }
+            catch { Write-Error "linia stdout nie jest JSON-em: $line"; exit 1 }
+          }
+          if ($parsed.Count -lt 6) { Write-Error "za malo zdarzen: $($parsed.Count)"; exit 1 }
+
+          if ($parsed[0].type -ne 'ready') { Write-Error "pierwsze zdarzenie musi byc ready"; exit 1 }
+          if ($parsed[0].protocolVersion -ne 1) { Write-Error "protocolVersion musi byc 1"; exit 1 }
+          if ($parsed[1].type -ne 'ack' -or $parsed[1].requestId -ne 1) { Write-Error "brak ack dla ping"; exit 1 }
+          if ($parsed[2].type -notin @('devices','error')) { Write-Error "devices: nieoczekiwany typ $($parsed[2].type)"; exit 1 }
+          if ($parsed[3].type -ne 'error' -or $parsed[3].code -ne 'badSessionId') { Write-Error "zla sesja miala byc odrzucona"; exit 1 }
+          if ($parsed[4].type -ne 'error' -or $parsed[4].code -ne 'badJson') { Write-Error "zepsuty JSON mial byc odrzucony"; exit 1 }
+          if ($parsed[5].type -ne 'error' -or $parsed[5].code -ne 'notInitialized') { Write-Error "pause przed initialize mial byc odrzucony"; exit 1 }
+          Write-Host 'Kontrakt stdout potwierdzony na zywym procesie.'
+      - name: Package binary with SHA256 receipt
+        shell: pwsh
+        working-directory: native/AmcSpotifyLibrespotHost
+        run: |
+          $exe = 'target/x86_64-pc-windows-msvc/release/amc_spotify_librespot_host.exe'
+          New-Item -ItemType Directory -Path out -Force | Out-Null
+          Copy-Item $exe out/amc_spotify_librespot_host.exe
+          Copy-Item stdout.txt out/protocol-stdout-sample.jsonl -ErrorAction SilentlyContinue
+          if (Test-Path Cargo.lock) { Copy-Item Cargo.lock out/Cargo.lock }
+          $hash = (Get-FileHash out/amc_spotify_librespot_host.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $receipt = [ordered]@{
+            binary            = 'amc_spotify_librespot_host.exe'
+            sha256            = $hash
+            target            = 'x86_64-pc-windows-msvc'
+            librespotRev      = 'd36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d'
+            librespotVersion  = '0.8.0'
+            features          = 'native-tls, rodio-backend (bez discovery/Spirc)'
+            protocolVersion   = 1
+            sessionId         = 'spotifyLibrespot'
+            amcCommit         = (git rev-parse HEAD)
+            runUrl            = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            rustc             = (& rustc +stable --version | Out-String).Trim()
+            niezmierzone      = 'Odtwarzanie na koncie Spotify: NIE mierzone (brak konta i tokenu w CI). Przyjecie tokenu AMC przez Librespot: nie sprawdzone. Slyszalny dzwiek i realny poziom glosnosci na urzadzeniu: nie mierzone (runner bez karty dzwiekowej).'
+          }
+          $receipt | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 out/provenance-amc-host.json
+          Write-Host "SHA256 = $hash"
+          Get-Content out/provenance-amc-host.json
+      - name: Upload AMC host binary and receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: amc-spotify-librespot-host-windows
+          path: native/AmcSpotifyLibrespotHost/out/
           if-no-files-found: error
           retention-days: 14
