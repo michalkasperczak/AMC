@@ -9495,7 +9495,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // ponownego pobrania.
         // Przy zmianie ustawien SDK nadal gra. Zachowujemy tozsamosc sesji,
         // biezacy utwor i kolejke bez ponownego Play ani zerowania czasu.
-        if (previousSpotify is null) RestoreSpotifyCachedItems();
+        if (previousSpotify is null)
+        {
+            // W rzeczywistym oknie brak katalogu oznacza pusta sesje, nie
+            // przykladowe dane fabryki demonstracyjnej SessionManager.
+            _sessions.FindSession("spotify")?.ReplaceItems([]);
+            RestoreSpotifyCachedItems();
+        }
         if (_sessions.FindSession("tidal") is { } restoredTidal)
         {
             var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>

@@ -15,6 +15,7 @@ internal static class SpotifyStartupEngineTests
 {
     internal static void Run()
     {
+        PustaBibliotekaNieTworzyDemonstracji();
         JednaSesjaISilnikZZapisu(SpotifyPlaybackEngine.Librespot);
         JednaSesjaISilnikZZapisu(SpotifyPlaybackEngine.Sdk);
         MigracjaPrzedSesjamiINieNadpisana();
@@ -169,6 +170,25 @@ internal static class SpotifyStartupEngineTests
         catch (Exception exception)
         {
             throw new Exception($"Zywa kolejka po migracji - przypadek '{przypadek}'.", exception);
+        }
+    }
+
+    private static void PustaBibliotekaNieTworzyDemonstracji()
+    {
+        foreach (var engine in new[] { SpotifyPlaybackEngine.Librespot, SpotifyPlaybackEngine.Sdk })
+        {
+            WOknie(state =>
+            {
+                state.Settings.SpotifyEngine = engine;
+                state.Settings.LastSessionId = "spotifyLibrespot";
+                state.Spotify.CachedCollectionItems.Clear();
+                state.RemoteQueues.ItemsBySession.Clear();
+            }, (window, _) =>
+            {
+                var spotify = Sesje(window).FindSession("spotify")!;
+                if (spotify.Items.Count != 0 || spotify.HasCurrentItem)
+                    throw new Exception("Pusta sesja Spotify pokazuje utwory demonstracyjne zamiast pustej biblioteki.");
+            });
         }
     }
 
