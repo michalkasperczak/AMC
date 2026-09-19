@@ -254,7 +254,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// i pod Alt+D, wiec predkosc nie moze uzywac innej - inaczej program
     /// mowilby "na zywo", a jednak pozwalal zmieniac tempo (albo odwrotnie).
     /// </summary>
-    private static readonly TimeSpan RadioLiveThreshold = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan RadioLiveThreshold = TimeSpan.FromSeconds(TimeshiftTempoStage.LiveReserveSeconds);
     private static readonly string AppDisplayVersion =
         typeof(MainWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -363,6 +363,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
         _radioOutput.NowPlayingChanged += RadioOutput_NowPlayingChanged;
+        _radioOutput.NormalTempoResumed += RadioOutput_NormalTempoResumed;
         NormalizeTransientBookmarkViewsAtStartup();
         NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
@@ -10443,6 +10444,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AnnounceEssential(e.Message);
 
 
+    private void RadioOutput_NormalTempoResumed(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(() => RadioOutput_NormalTempoResumed(sender, e)));
+            return;
+        }
+        if (_isClosing || !ReferenceEquals(sender, _radioOutput)) return;
+        AnnounceEssential("Radio: przywrócono normalną prędkość. Odtwarzanie jest blisko transmisji na żywo.");
+        if (_playerViewActive && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+    }
+
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
     {
         if (_state.Settings.Messages.LoadingMessages)
@@ -11181,13 +11195,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
                 return new CommandExecutionResult(true);
             }
-            // ZGLOSZENIE Michala 17.09.2026: regulacja predkosci stala tu razem z
-            // funkcjami, ktore na zywo naprawde nie maja sensu - i przez to nie
-            // dzialala TAKZE w buforze transmisji, choc tam jest to zwykle
-            // odtwarzanie zapisanego dzwieku. Silnik radia umie zmieniac tempo
-            // (SoundTouch w RadioMediaOutput), wiec blokada byla tylko tutaj.
-            // W buforze predkosc dziala tymi samymi skrotami co w kazdej innej
-            // sesji: Shift+przecinek, Shift+kropka, Ctrl+kropka.
+            // Na żywo nie ma zapasu do zmiany tempa. Po cofnięciu polecenie
+            // przechodzi do zwykłej obsługi tempa; sama ta bramka nie dowodzi,
+            // że wyjście dźwięku zastosowało żądaną prędkość.
             if (commandId is CommandIds.PlaybackRateDown
                 or CommandIds.PlaybackRateUp
                 or CommandIds.PlaybackRateReset)

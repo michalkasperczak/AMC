@@ -22,9 +22,15 @@ using AccessibleMediaController.Core.Tidal;
 // testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
 if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
     return LibrespotHostFixture.Run(args);
+if (args.Length == 1 && args[0] == "--playback-rate-state")
+{
+    try { PlaybackRateStateTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
+    ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
     ("Domyślny profil", TestDefaultProfile),
     ("F11 sprawdza aktualizacje AMC", ApplicationUpdateShortcutTests.Run),

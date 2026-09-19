@@ -28,7 +28,8 @@ internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeS
 /// accessible interface. The same ring provides pause and time-shift without
 /// creating unbounded temporary files.
 /// </summary>
-public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) : IMediaOutput, IDisposable
+public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
+    : IMediaOutput, IPlaybackRateStateOutput, IDisposable
 {
     // Gorna granica bufora transmisji. ZGLOSZENIE Michala 15.09.2026: "10 min
     // to za malo". Dawny limit 256 MB pamieci pozwalal na ~24 minuty i to on,
@@ -61,6 +62,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
     public event EventHandler<RadioNowPlayingChangedEventArgs>? NowPlayingChanged;
     public event EventHandler? RecordingFailed;
+    public event EventHandler? NormalTempoResumed;
 
     public string? LoadedItemId
     {
@@ -79,7 +81,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     }
 
     // Predkosc dziala na buforze transmisji (TimeShift), nie na dzwieku na zywo.
-    public bool SupportsPlaybackRate => true;
+    public bool SupportsPlaybackRate
+    {
+        get { lock (_gate) return _pipeline?.TempoStage is not null; }
+    }
 
     public void ConfigureOutputDevice(string? deviceId)
     {
@@ -336,30 +341,32 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             // Czesc dekoderow (starsze radio ICY, MediaFoundation) podaje PCM
             // 16-bit, wiec stacja padala przy samym otwieraniu. Regulacja tempa
             // jest dodatkiem - brak wsparcia formatu NIE MOZE blokowac sluchania.
+            //
+            // POPRAWKA 396: tempo liczy sie ZA buforem, w osobnym etapie
+            // TimeshiftTempoStage. Tam PCM 16-bit jest przeliczany na float
+            // (dekoder, bufor i nagrywanie zostaja nietkniete), a przy braku
+            // zapasu etap sam wraca do 1,0x, zeby nie "przyspieszac ciszy".
             var timeshiftStream = new TimeshiftWaveStream(buffer);
-            SoundTouchWaveStream? tempoStream = null;
-            if (reader.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat)
+            var tempoStage = TimeshiftTempoStage.TryCreate(
+                timeshiftStream,
+                () => buffer.BehindLive);
+            if (tempoStage is not null)
             {
-                tempoStream = new SoundTouchWaveStream(timeshiftStream)
-                {
-                    Tempo = 1d,
-                    Pitch = 1d,
-                    Rate = 1d
-                };
+                tempoStage.NormalTempoResumed += TempoStage_NormalTempoResumed;
                 double initialRate;
                 lock (_gate) initialRate = _playbackRate;
-                if (Math.Abs(initialRate - 1d) > 0.001d) tempoStream.Tempo = initialRate;
+                if (Math.Abs(initialRate - 1d) > 0.001d) tempoStage.SetTempo(initialRate);
             }
             else
             {
                 DiagnosticLog.Info(
                     "radio",
-                    $"Format {reader.WaveFormat.Encoding} nie obsługuje regulacji prędkości; "
-                    + "stacja gra bez tej regulacji.");
+                    $"Format {reader.WaveFormat.Encoding} {reader.WaveFormat.BitsPerSample}-bit "
+                    + "nie obsługuje regulacji prędkości; stacja gra bez tej regulacji.");
             }
             var volume = new VolumeSampleProvider(
-                tempoStream is not null
-                    ? tempoStream.ToSampleProvider()
+                tempoStage is not null
+                    ? tempoStage.ToSampleProvider()
                     : timeshiftStream.ToSampleProvider())
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
@@ -382,7 +389,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 openedReader.Source
                     ?? new ResolvedRadioSource(item.Source!, RadioStreamResolver.IsHlsSource(item.Source!), false),
                 buffer,
-                tempoStream,
+                tempoStage,
                 volume,
                 preparedOutputLease,
                 cancellation,
@@ -976,12 +983,33 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
 
     public void Seek(TimeSpan position)
     {
-        lock (_gate) _pipeline?.Buffer.Seek(position);
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            pipeline = _pipeline;
+            if (pipeline?.TempoStage is null)
+            {
+                pipeline?.Buffer.Seek(position);
+                return;
+            }
+        }
+        pipeline.TempoStage.Reposition(() => pipeline.Buffer.Seek(position), returnToLive: false);
     }
 
     public void JumpToLive()
     {
-        lock (_gate) _pipeline?.Buffer.JumpToLive();
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            _playbackRate = 1d;
+            pipeline = _pipeline;
+            if (pipeline?.TempoStage is null)
+            {
+                pipeline?.Buffer.JumpToLive();
+                return;
+            }
+        }
+        pipeline.TempoStage.Reposition(pipeline.Buffer.JumpToLive, returnToLive: true);
     }
 
     public void SetVolume(int volume)
@@ -1010,16 +1038,24 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             pipeline = _pipeline;
         }
         if (pipeline is null) return;
-        // Brak regulacji tempa dla formatow innych niz IEEE float - stacja gra
-        // normalnie, tylko bez zmiany predkosci.
-        if (pipeline.TempoStream is null)
+        // Etap obsluguje float32 i PCM16. Inne formaty zachowuja zwykly tor
+        // odtwarzania bez zmiany tempa.
+        if (pipeline.TempoStage is null)
         {
             DiagnosticLog.Info(
                 "radio-playback",
                 "Format dźwięku tej stacji nie obsługuje regulacji prędkości.");
             return;
         }
-        try { pipeline.TempoStream.Tempo = resolved; }
+        try
+        {
+            pipeline.TempoStage.SetTempo(resolved);
+            var actual = pipeline.TempoStage.EffectiveTempo;
+            lock (_gate)
+            {
+                if (ReferenceEquals(_pipeline, pipeline)) _playbackRate = actual;
+            }
+        }
         catch (Exception exception) when (exception is InvalidOperationException
             or ObjectDisposedException)
         {
@@ -1030,9 +1066,22 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
     }
 
+    /// <summary>
+    /// Tempo FAKTYCZNIE stosowane do dzwieku, a nie samo zyczenie uzytkownika.
+    /// Zwraca 1,0 gdy nic nie gra, gdy format nie ma regulacji tempa oraz gdy
+    /// etap sam wrocil do normy po dogonieniu czola transmisji - dzieki temu
+    /// sesja moze powiedziec prawde zamiast powtarzac zapamietana wartosc.
+    /// </summary>
     public double PlaybackRate
     {
-        get { lock (_gate) return _playbackRate; }
+        get
+        {
+            RadioPipeline? pipeline;
+            lock (_gate) pipeline = _pipeline;
+            if (pipeline?.TempoStage is null) return 1d;
+            try { return pipeline.TempoStage.EffectiveTempo; }
+            catch (ObjectDisposedException) { return 1d; }
+        }
     }
 
     public string StartRecording(
@@ -1210,6 +1259,21 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         RaiseOnCapturedContext(() => RecordingFailed?.Invoke(this, EventArgs.Empty));
     }
 
+    private void TempoStage_NormalTempoResumed(object? sender, EventArgs e)
+    {
+        if (sender is not TimeshiftTempoStage stage) return;
+        RaiseOnCapturedContext(() =>
+        {
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline?.TempoStage, stage)
+                    || Math.Abs(stage.EffectiveTempo - 1d) > 0.001d) return;
+                _playbackRate = 1d;
+            }
+            NormalTempoResumed?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
     private void RaiseOnCapturedContext(Action action)
     {
         if (_synchronizationContext is null || SynchronizationContext.Current == _synchronizationContext)
@@ -1245,7 +1309,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         IDisposable readerLifetime,
         ResolvedRadioSource resolvedSource,
         RadioTimeshiftWaveProvider buffer,
-        SoundTouchWaveStream? tempoStream,
+        TimeshiftTempoStage? tempoStage,
         VolumeSampleProvider volume,
         AudioOutputDeviceLease? outputLease,
         CancellationTokenSource cancellation,
@@ -1275,7 +1339,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
-        public SoundTouchWaveStream? TempoStream { get; } = tempoStream;
+        public TimeshiftTempoStage? TempoStage { get; } = tempoStage;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut? Output => outputLease?.Output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
@@ -1358,6 +1422,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             // Zwolnienie bufora transmisji USUWA plik na dysku (gdy bufor jest
             // duzy i lezy w pliku). Bez tego pliki odkladalyby sie przy kazdej
             // zmianie stacji - dokladnie to, o co pytal Michal 15.09.2026.
+            try { TempoStage?.Dispose(); } catch (Exception) { }
             try { Buffer.Dispose(); } catch (Exception) { }
             try { currentLifetime?.Dispose(); } catch (Exception) { }
             try { outputLease?.Dispose(); } catch (Exception) { }

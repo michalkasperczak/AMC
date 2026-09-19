@@ -169,7 +169,7 @@
                                 <TextBlock x:Name="RadioTimeshiftWarningText" Margin="0,8,0,0" TextWrapping="Wrap"
                                            automation:AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Text="Podczas słuchania z buforu działa regulacja prędkości: Ctrl+Shift+strzałka w prawo przyspiesza, w lewo zwalnia, a Ctrl+Shift+strzałka w dół wraca do normalnej prędkości. Szybsze tempo pozwala dogonić transmisję na żywo. Na żywo prędkości zmienić nie można." />
+                                           Text="Podczas słuchania z buforu działa regulacja prędkości: Shift+kropka przyspiesza, Shift+przecinek zwalnia, a Ctrl+kropka przywraca normalną prędkość. Szybsze tempo pozwala dogonić transmisję na żywo. Na żywo prędkości zmienić nie można." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">

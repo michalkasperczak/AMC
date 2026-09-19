@@ -23,6 +23,14 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - `Core/Spotify/LibrespotHostClient.cs`, `Windows/Services/SpotifyLibrespotMediaOutput.cs`, `native/AmcSpotifyLibrespotHost`: transport, adapter sesji i proces odtwarzania Rust; scenariusze cyklu życia i regresji są w testach Windows.
 - `SPOTIFY-LOSSLESS-I-MONITORING.md`: źródła, granice Lossless i Librespot; harmonogram i kolejność wdrożenia pozostają w `PLAN-16-09-2026.md`.
 
+## Uzupełnienie: tempo TimeShift, alfa 396
+
+- `Core/Playback/IPlaybackRateStateOutput.cs`: opcjonalny odczyt przyjętego tempa; `DemoMediaSession` korzysta z niego zamiast potwierdzać samo żądanie.
+- `Windows/Services/TimeshiftTempoStage.cs`: zmiana tempa za buforem, konwersja PCM16 do float32, ochrona zapasu, natychmiastowy odczyt ustawienia oraz wspólna blokada odczytu, przewijania i zwalniania zasobów.
+- `Windows/Services/RadioMediaOutput.cs`: wpięcie etapu bez zmian dekoderów; możliwości zależne od rzeczywistego potoku, wyczyszczenie starych próbek po Seek/End i przekazanie powiadomienia o normalnym tempie.
+- `Windows/MainWindow.xaml.cs`: wspólny próg live i komunikat `NormalTempoResumed`; `SettingsWindow.xaml`: rzeczywiste skróty TimeShift.
+- Testy: `PlaybackRateStateTests`, `TimeshiftRateHelpTests`, `TimeshiftTempoAudioTests`, `TimeshiftRateIntegrationTests` i `TimeshiftTempoLifetimeTests`. Ostatnie mierzą blokady oraz długie okno po rozgrzewce; testy integracyjne używają rzeczywistego bufora radia.
+
 ## 1. Rozmiar i podział
 
 Dwa projekty C# plus dodatek NVDA w Pythonie.

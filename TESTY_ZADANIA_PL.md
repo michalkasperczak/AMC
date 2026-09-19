@@ -1,9 +1,9 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-395`
-- Tytuł zestawu: Aktualizacje, F11 i albumy wykonawcy Spotify
-- Wersja programu: `0.1.0-alpha.395`
-- Bieżące scenariusze: `TESTY_0.1.0-alpha.395_PL.md`
+- Numer zestawu: `AMC-TEST-396`
+- Tytuł zestawu: Rzeczywista regulacja tempa TimeShift
+- Wersja programu: `0.1.0-alpha.396`
+- Bieżące scenariusze: `TESTY_0.1.0-alpha.396_PL.md`
 
 ## Wcześniejsze zestawy
 

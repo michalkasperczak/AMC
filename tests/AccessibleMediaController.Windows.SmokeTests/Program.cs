@@ -62,6 +62,22 @@ if (args.Contains("--librespot-review-regressions", StringComparer.Ordinal))
     try { SpotifyLibrespotLifecycleTests.RunReviewRegressions(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--timeshift-rate-integration", StringComparer.Ordinal))
+{
+    TimeshiftRateIntegrationTests.Run(); return 0;
+}
+if (args.Contains("--timeshift-lifetime", StringComparer.Ordinal))
+{
+    AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run(); return 0;
+}
+if (args.Contains("--timeshift-audio", StringComparer.Ordinal))
+{
+    return AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoAudioTests.Run();
+}
+if (args.Contains("--timeshift-rate-help", StringComparer.Ordinal))
+{
+    TimeshiftRateHelpTests.Run(); return 0;
+}
 if (args.Contains("--application-update-main-gui", StringComparer.Ordinal))
 {
     ApplicationUpdateRoutingTests.ShowForNvda(); return 0;
@@ -256,6 +272,8 @@ var tests = new (string Name, Action Test)[]
     ("Transmisja z obrazem i dzwiekiem daje dzwiek", TestTransmisjaZObrazemDajeDzwiek),
     ("Duzy bufor transmisji lezy na dysku, maly w pamieci", TestBuforTransmisjiLezyNaDyskuGdyDuzy),
     ("Bufor transmisji ma regulacje predkosci", TestBuforTransmisjiMaRegulacjePredkosci),
+    ("Pomoc TimeShift podaje właściwe skróty", TimeshiftRateHelpTests.Run),
+    ("TimeShift: bezpieczne zatrzymanie i długie okno tempa", AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run),
     ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
     ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
@@ -6473,20 +6491,8 @@ static void TestBuforTransmisjiLezyNaDyskuGdyDuzy()
 
 static void TestBuforTransmisjiMaRegulacjePredkosci()
 {
-    // ZGLOSZENIE Michala 15.09.2026: "Regulacja predkosci oczywiscie w time
-    // shift, bo wiadomo w radiu na zywo sie nie da".
-    //
-    // Wczesniej radio zwracalo SupportsPlaybackRate = false i SetPlaybackRate
-    // nic nie robilo. Teraz predkosc dziala na dzwieku wyjmowanym z bufora.
-    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
-
-    Assert(zrodlo.Contains("SupportsPlaybackRate => true", StringComparison.Ordinal),
-        "Radio nadal zglasza brak regulacji predkosci.");
-
-    // Sama flaga nic nie daje - predkosc musi trafiac do przetwarzania dzwieku.
-    Assert(zrodlo.Contains("SoundTouchWaveStream", StringComparison.Ordinal)
-        && zrodlo.Contains("TempoStream", StringComparison.Ordinal),
-        "Brak realnej zmiany tempa dzwieku w buforze transmisji.");
+    if (AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoAudioTests.Run() != 0)
+        throw new Exception("Pomiar tempa rzeczywistych próbek audio nie przeszedł.");
 }
 
 static void TestLogRadiaZapisujeTrescBledu()
@@ -6515,36 +6521,7 @@ static void TestLogRadiaZapisujeTrescBledu()
 
 static void TestStacjaGraGdyFormatBezRegulacjiPredkosci()
 {
-    // ZGLOSZENIE Michala 15.09.2026: "wiekszosc stacji radiowych sie nie
-    // otwarza, to juz w poprzedniej wersji tak bylo". Log: dziesiatki
-    // "Nie udalo sie otworzyc stacji ...; blad ArgumentException".
-    //
-    // PRZYCZYNA: v375 wpuscila SoundTouch (regulacja predkosci w buforze) na
-    // KAZDA stacje. SoundTouch przyjmuje WYLACZNIE dzwiek 32-bit IEEE float i
-    // przy innym formacie rzuca ArgumentException JUZ W KONSTRUKTORZE
-    // ("Input wave provider must be IEEE float"). Zmierzone u zrodla na
-    // SoundTouch.Net.NAudioSupport 2.3.2: float32 OK, PCM 16-bit i 8-bit
-    // ArgumentException. Czesc dekoderow (starsze radio ICY) daje PCM 16-bit.
-    var radio = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
-
-    // 1. SoundTouch tworzony WARUNKOWO, tylko dla IEEE float.
-    var indeksSoundTouch = radio.IndexOf("new SoundTouchWaveStream(", StringComparison.Ordinal);
-    Assert(indeksSoundTouch > 0, "Nie znaleziono tworzenia strumienia regulacji predkosci.");
-    var przedSoundTouchem = radio[Math.Max(0, indeksSoundTouch - 700)..indeksSoundTouch];
-    Assert(przedSoundTouchem.Contains("WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat", StringComparison.Ordinal),
-        "Regulacja predkosci musi byc tworzona TYLKO dla formatu IEEE float - "
-        + "inaczej stacja o formacie PCM pada na ArgumentException przy otwieraniu.");
-
-    // 2. Brak regulacji NIE MOZE przerywac odtwarzania - dzwiek musi isc
-    // prosto z bufora.
-    Assert(radio.Contains("timeshiftStream.ToSampleProvider()", StringComparison.Ordinal),
-        "Gdy regulacji predkosci nie ma, dzwiek musi isc wprost z bufora transmisji.");
-
-    // 3. Zmiana predkosci na takiej stacji nie moze wywalac programu.
-    Assert(radio.Contains("pipeline.TempoStream is null", StringComparison.Ordinal),
-        "Zmiana predkosci musi bezpiecznie odpuscic, gdy stacja nie ma regulacji tempa.");
-    Assert(radio.Contains("SoundTouchWaveStream? TempoStream", StringComparison.Ordinal),
-        "Regulacja tempa musi byc opcjonalna w potoku odtwarzania radia.");
+    TimeshiftRateIntegrationTests.Run();
 }
 
 static void TestOknoStacjiBezMartwychPolOdtwarzania()

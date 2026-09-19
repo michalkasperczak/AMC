@@ -11,6 +11,7 @@ public sealed class DemoMediaSession
     private static readonly double[] PlaybackRates = [0.50d, 0.75d, 1.00d, 1.25d, 1.50d, 1.75d, 2.00d];
     private int _currentIndex;
     private TimeSpan _position;
+    private double _playbackRate = 1d;
     private readonly IMediaOutput? _output;
     private Func<MediaItem, bool> _rememberPosition;
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
@@ -74,7 +75,9 @@ public sealed class DemoMediaSession
     public bool IsSessionMuted { get; private set; }
     public bool IsGloballyMuted { get; private set; }
     public bool IsMuted => IsSessionMuted || IsGloballyMuted;
-    public double PlaybackRate { get; private set; } = 1d;
+    public double PlaybackRate => _output is IPlaybackRateStateOutput state
+        ? state.PlaybackRate
+        : _playbackRate;
     public double DefaultPlaybackRate { get; private set; } = 1d;
     public bool SupportsPlaybackRate => _output?.SupportsPlaybackRate == true;
     public PlaybackAudioProcessingCapabilities AudioProcessingCapabilities =>
@@ -369,9 +372,9 @@ public sealed class DemoMediaSession
     {
         if (!SupportsPlaybackRate) return false;
         var resolved = PlaybackRates.MinBy(rate => Math.Abs(rate - playbackRate));
-        PlaybackRate = resolved;
         _output!.SetPlaybackRate(resolved);
-        return true;
+        _playbackRate = _output is IPlaybackRateStateOutput state ? state.PlaybackRate : resolved;
+        return Math.Abs(_playbackRate - resolved) < 0.001d;
     }
 
     public bool SetDefaultPlaybackRate(double playbackRate)
