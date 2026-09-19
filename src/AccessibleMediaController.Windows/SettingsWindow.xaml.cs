@@ -11,6 +11,7 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
 using Microsoft.Win32;
 
@@ -139,6 +140,7 @@ public partial class SettingsWindow : Window
             ? "Polski — zmiana języka jest planowana"
             : _workingState.Settings.InterfaceLanguage;
         SelectComboByTag(StartupTargetCombo, _workingState.Settings.StartupTarget.ToString());
+        SelectComboByTag(SpotifyEngineCombo, SpotifyPlaybackEngineRules.Normalize(_workingState.Settings.SpotifyEngine).ToString());
         PausePlaybackWhenLeavingPlayerCheck.IsChecked = _workingState.Settings.PausePlaybackWhenLeavingPlayer;
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
@@ -267,6 +269,8 @@ public partial class SettingsWindow : Window
         {
             _workingState.Settings.StartupTarget = startupTarget;
         }
+        _workingState.Settings.SpotifyEngine = SpotifyPlaybackEngineRules.Parse(
+            SelectedTag(SpotifyEngineCombo, nameof(SpotifyPlaybackEngine.Librespot)));
         _workingState.Settings.PrefixChord = _selectedPrefix.Canonical;
         _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
@@ -376,8 +380,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.Updates.Channel = SelectedTag(UpdateChannelCombo, "stable");
         _workingState.Settings.Lists.FieldOrder = _mediaFieldRows.Select(row => row.Field).ToList();
         _workingState.Settings.SessionSlots = _sessionOrderRows
-            .Select((row, index) => (Slot: index + 1, row.SessionId))
-            .ToDictionary(entry => entry.Slot, entry => entry.SessionId);
+            .ToDictionary(row => row.Slot, row => row.SessionId);
     }
 
     private void LoadSessionOrder()
@@ -422,9 +425,10 @@ public partial class SettingsWindow : Window
 
     private void UpdateSessionOrderSlots()
     {
+        var slots = _sessionOrderRows.Select(row => row.Slot).Order().ToArray();
         for (var index = 0; index < _sessionOrderRows.Count; index++)
         {
-            _sessionOrderRows[index].Slot = index + 1;
+            _sessionOrderRows[index].Slot = slots[index];
         }
     }
 

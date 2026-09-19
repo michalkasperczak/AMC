@@ -69,6 +69,18 @@
                             </ComboBox>
                         </StackPanel>
                     </GroupBox>
+                    <GroupBox Header="Spotify" Margin="0,2,0,14">
+                        <StackPanel Margin="8">
+                            <Label Target="{Binding ElementName=SpotifyEngineCombo}">Odtwarzacz Spotify:</Label>
+                            <ComboBox x:Name="SpotifyEngineCombo" Margin="0,0,0,8" SelectedIndex="0"
+                                      automation:AutomationProperties.Name="Silnik odtwarzania Spotify"
+                                      automation:AutomationProperties.HelpText="Zmiana zacznie działać po ponownym uruchomieniu AMC.">
+                                <ComboBoxItem Tag="Librespot" automation:AutomationProperties.Name="Librespot — zalecany">Librespot — zalecany</ComboBoxItem>
+                                <ComboBoxItem Tag="Sdk" automation:AutomationProperties.Name="Oficjalny odtwarzacz Spotify — awaryjny">Oficjalny odtwarzacz Spotify — awaryjny</ComboBoxItem>
+                            </ComboBox>
+                            <TextBlock TextWrapping="Wrap" Text="Zmiana zacznie działać po ponownym uruchomieniu AMC. Zapis ustawień nie przerywa bieżącego odtwarzania." />
+                        </StackPanel>
+                    </GroupBox>
                     <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">
                         <StackPanel Margin="8">
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"

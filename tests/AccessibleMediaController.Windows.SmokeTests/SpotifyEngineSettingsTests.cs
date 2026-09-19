@@ -39,6 +39,23 @@ internal static class SpotifyEngineSettingsTests
                 combo = (ComboBox)window.FindName("SpotifyEngineCombo");
                 Check(((ComboBoxItem)combo.SelectedItem).Tag?.ToString() == "Librespot", "Anulowanie nie zachowało poprzedniego silnika.");
                 combo.SelectedItem = combo.Items.OfType<ComboBoxItem>().Single(item => item.Tag?.ToString() == "Sdk");
+                // Arrange a gap left by a removed session. This tests the UI's
+                // save boundary separately from startup's slot normalization.
+                var rows = ((ListBox)window.FindName("SessionOrderList")).Items.Cast<object>().ToArray();
+                foreach (var row in rows.Skip(1))
+                {
+                    var slot = row.GetType().GetProperty("Slot")!;
+                    slot.SetValue(row, (int)slot.GetValue(row)! + 1);
+                }
+                var displayedSlots = rows.ToDictionary(
+                    row => (int)row.GetType().GetProperty("Slot")!.GetValue(row)!,
+                    row => (string)row.GetType().GetProperty("SessionId")!.GetValue(row)!);
+                var move = typeof(SettingsWindow).GetMethod("MoveSession", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                ((ListBox)window.FindName("SessionOrderList")).SelectedIndex = 0;
+                move.Invoke(window, new object[] { 1 });
+                move.Invoke(window, new object[] { -1 });
+                Check(rows.Select(row => (int)row.GetType().GetProperty("Slot")!.GetValue(row)!).Order().SequenceEqual(displayedSlots.Keys.Order()),
+                    "Przeniesienie sesji i cofnięcie ruchu skasowało przerwę w numerach skrótów.");
                 var save = Walk(window).OfType<Button>().Single(button => button.Content?.ToString() == "_Zapisz");
                 var shown = window;
                 shown.ContentRendered += (_, _) => shown.Dispatcher.BeginInvoke(new Action(() =>
@@ -50,6 +67,8 @@ internal static class SpotifyEngineSettingsTests
                 if (failure is not null) throw failure;
                 var result = window.ResultState ?? throw new Exception("Brak wyniku ustawień.");
                 Check(property.GetValue(result.Settings)?.ToString() == "Sdk", "Okno nie przekazało wyboru SDK.");
+                Check(result.Settings.SessionSlots.OrderBy(pair => pair.Key).SequenceEqual(displayedSlots.OrderBy(pair => pair.Key)),
+                    "Zapis wyboru silnika przenumerował niezmieniane skróty innych sesji.");
                 store.Save(result);
                 var reloaded = store.LoadOrCreate();
                 Check(property.GetValue(reloaded.Settings)?.ToString() == "Sdk", "Zapis i odczyt zgubił wybór SDK.");
