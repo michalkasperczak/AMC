@@ -108,7 +108,9 @@ internal static class YouTubeMediaDownloader
                 DiagnosticLog.Warning(
                     "youtube-download",
                     $"yt-dlp zakończył pobieranie kodem {process.ExitCode}; komunikat: {TrimDiagnostic(error)}");
-                throw new InvalidDataException("YouTube nie udostępnił materiału do zapisania jako MP3.");
+                throw new InvalidDataException(
+                    YouTubeErrorTranslator.DescribePremiere(error)
+                    ?? "YouTube nie udostępnił materiału do zapisania jako MP3.");
             }
             var length = new FileInfo(expectedStagingPath).Length;
             if (length <= 0) throw new InvalidDataException("Pobrany plik YouTube jest pusty.");

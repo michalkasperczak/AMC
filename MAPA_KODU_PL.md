@@ -184,6 +184,9 @@ i 21000–22000). Serwisy:
 - YouTube: `YouTubeSearchClient.cs`, `YouTubeChannelFeedClient.cs`,
   `YouTubeCollectionClient.cs`, `YouTubeSourceResolver.cs`,
   `YouTubeMediaDownloader.cs`, `YouTubeErrorTranslator.cs`.
+  Premiery: `YouTubeErrorTranslator.DescribePremiere`, zachowanie tego komunikatu
+  w `WindowsMediaOutput.FriendlyPlaybackError`; regresja i jawne próby żywe
+  w `tests/AccessibleMediaController.Windows.SmokeTests/YouTubePremiereTests.cs`.
 - Okna: `PodcastSourceWindow`, `PodcastOpmlImportWindow`.
 
 ## 9. TIDAL

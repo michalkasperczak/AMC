@@ -5,6 +5,15 @@
 - Wersja programu: `0.1.0-alpha.396`
 - Bieżące scenariusze: `TESTY_0.1.0-alpha.396_PL.md`
 
+## Przygotowana poprawka — komunikat premiery YouTube (niewydana)
+
+- Przed rozpoczęciem premiery link pozostaje na liście.
+- Enter i Ctrl+D mają przekazać do NVDA: „Ten materiał oczekuje na premierę. Nie można go jeszcze odtworzyć ani pobrać.” Nie zastępować tego błędem formatu dźwięku.
+- Nie zmieniono wyboru formatów, dekoderów, argumentów yt-dlp ani filtrowania listy.
+- Automatyczna próba bez sieci: runner Windows z `--youtube-premiere`; obejmuje odpowiedzi EN/PL, komunikat odtwarzacza oraz inne przyczyny niedostępności.
+- Ręczne próby `--youtube-premiere-live-play`, `--youtube-premiere-live-download` i `--youtube-premiere-gui` korzystają z rzeczywistego adresu `Wo9LmGPN6ko`, którego premiera była zaplanowana na 20.09.2026 o 19:00 czasu polskiego. Po tym terminie nie dowodzą oczekiwania na premierę; trzeba podać w próbie inny, sprawdzony przyszły materiał. Nie należą do normalnego zestawu automatycznego.
+- Próba GUI uruchamia rzeczywiste MainWindow na osobnych danych tymczasowych, bez kont i ze swoją głośnością 0. Odczyt potwierdzać w prawdziwym podglądzie mowy NVDA po Enter oraz osobno po Ctrl+D.
+
 ## Wcześniejsze zestawy
 
 Alfa 339: najpierw przypisz dwa niekolidujące klawisze w NVDA i sprawdź odczyt

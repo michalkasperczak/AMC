@@ -25,10 +25,13 @@ namespace AccessibleMediaController.Windows.Services;
 /// </summary>
 internal static class YouTubeErrorTranslator
 {
+    internal const string PremiereNotice = "Ten materiał oczekuje na premierę. Nie można go jeszcze odtworzyć ani pobrać.";
+
     /// <summary>Komunikat dla uzytkownika na podstawie tego, co powiedzial yt-dlp.</summary>
     internal static string Describe(string ytDlpError)
     {
         var text = ytDlpError ?? string.Empty;
+        if (DescribePremiere(text) is { } premiere) return premiere;
 
         // Kolejnosc ma znaczenie: frazy szczegolowe PRZED ogolnymi.
         // "This live stream recording is not available" to DOKLADNIE ten
@@ -113,6 +116,12 @@ internal static class YouTubeErrorTranslator
             ? $"YouTube nie udostępnił tego nagrania. Powód: {szczegol}"
             : "YouTube nie udostępnił tego nagrania.";
     }
+
+    internal static string? DescribePremiere(string? ytDlpError) =>
+        Has(ytDlpError ?? string.Empty, "Premieres in")
+            || Has(ytDlpError ?? string.Empty, "Premiera za")
+            ? PremiereNotice
+            : null;
 
     private static bool Has(string text, string fragment) =>
         text.Contains(fragment, StringComparison.OrdinalIgnoreCase);

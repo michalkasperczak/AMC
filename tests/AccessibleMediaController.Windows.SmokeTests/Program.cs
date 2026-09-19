@@ -81,6 +81,22 @@ if (args.Contains("--spotify-podcasts", StringComparer.Ordinal))
     try { SpotifyPodcastsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--youtube-premiere-gui", StringComparer.Ordinal))
+{
+    YouTubePremiereTests.ShowForNvda(); return 0;
+}
+if (args.Contains("--youtube-premiere", StringComparer.Ordinal))
+{
+    YouTubePremiereTests.Run(); return 0;
+}
+if (args.Contains("--youtube-premiere-live-play", StringComparer.Ordinal))
+{
+    YouTubePremiereTests.RunLive(includeDownload: false); return 0;
+}
+if (args.Contains("--youtube-premiere-live-download", StringComparer.Ordinal))
+{
+    YouTubePremiereTests.RunLive(includeDownload: true); return 0;
+}
 if (args.Contains("--status-read-once", StringComparer.Ordinal))
 {
     try { TestAccessiblePlaybackStatusStrip(); return 0; }
@@ -217,6 +233,7 @@ var tests = new (string Name, Action Test)[]
     ("Audio Output Pause Race Guard", TestAudioOutputPauseRaceGuard),
     ("Track Change Silences Previous Pipeline", TestTrackChangeSilencesPreviousPipeline),
     ("Podcast Network Source Policy", TestPodcastNetworkSourcePolicy),
+    ("Komunikat oczekiwania na premierę YouTube", YouTubePremiereTests.Run),
     ("You Tube Channel Feed Addresses", TestYouTubeChannelFeedAddresses),
     ("You Tube Channel Feed Parsing", TestYouTubeChannelFeedParsing),
     ("Podcast Feed Client", TestPodcastFeedClient),

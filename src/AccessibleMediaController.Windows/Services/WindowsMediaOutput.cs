@@ -1870,6 +1870,11 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     internal static string FriendlyPlaybackError(Exception exception)
     {
+        if (exception is InvalidDataException
+            && string.Equals(exception.Message, YouTubeErrorTranslator.PremiereNotice, StringComparison.Ordinal))
+        {
+            return YouTubeErrorTranslator.PremiereNotice;
+        }
         if (exception is FileNotFoundException or DirectoryNotFoundException)
         {
             // 15.09.2026: rozdzielone dwa rozne przypadki, ktore wczesniej mowily
