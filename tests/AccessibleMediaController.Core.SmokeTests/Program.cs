@@ -22,6 +22,11 @@ using AccessibleMediaController.Core.Tidal;
 // testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
 if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
     return LibrespotHostFixture.Run(args);
+if (args.Length == 1 && args[0] == "--spotify-migration-review")
+{
+    try { SpotifyMigrationReviewTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--playback-rate-state")
 {
     try { PlaybackRateStateTests.Run(); return 0; }
@@ -32,6 +37,7 @@ var tests = new (string Name, Action Test)[]
 {
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
+    ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
     ("Domyślny profil", TestDefaultProfile),
     ("F11 sprawdza aktualizacje AMC", ApplicationUpdateShortcutTests.Run),
@@ -46,7 +52,8 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
     ("Odbudowa zachowuje grające Spotify", SpotifySessionRebuildTests.Run),
-    ("Dwie niezależne sesje Spotify bez zmiany skrótów", SpotifySeparateSessionsTests.Run),
+    ("Numery sesji z dziurami i silnik Spotify wg wyjścia", SessionSlotGapsAndEngineTests.Run),
+    ("Jedna sesja Spotify i silnik Librespot/SDK z zapisu", SpotifySingleSessionEngineTests.Run),
     ("Zapis Ulubionych, Biblioteki i usuwania Spotify na API konta", SpotifyMembershipWriteTests.Run),
     ("Transport osobnego procesu hosta Librespot", LibrespotHostClientTests.Run),
     ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
@@ -5928,7 +5935,8 @@ static void TestCommandPalette()
     var itemProperties = entries.Single(entry => entry.CommandId == CommandIds.ItemProperties);
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
-    Equal("Alt+D (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
+    Equal("Alt+D (Podcasty i YouTube oraz Spotify)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
+    Equal("Ctrl+Alt+O (Spotify)", entries.Single(entry => entry.CommandId == CommandIds.ViewSpotifyPodcasts).LocalShortcut);
     Equal("Alt+D (Radio internetowe i WiiM)", entries.Single(entry => entry.CommandId == CommandIds.CurrentBroadcastInformation).LocalShortcut);
     var goToPodcast = entries.Single(entry => entry.CommandId == CommandIds.GoToPodcast);
     Equal("Przejdź do podcastu tego odcinka", goToPodcast.DisplayName);
@@ -7957,6 +7965,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowTidalAccountManager() { }
 
     public void ShowSpotifyAccountManager() { }
+    public void ShowSpotifyPodcasts() { }
     public void RefreshWiiMDevices() { }
     public void RenameLibraryItem() => LibraryItemRenameShown = true;
     public void RenameLocalFile() => LocalFileRenameShown = true;

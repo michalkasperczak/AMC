@@ -26,8 +26,12 @@ public partial class MainWindow
     // Opisy podcastow i odcinkow po adresie spotify:. Trzymane obok modelu, bo
     // opis ma czesto kilka tysiecy znakow i nie moze trafic do etykiety wiersza
     // ani do zapisywanych ustawien.
-    private readonly Dictionary<string, string> _spotifyPodcastDescriptions =
-        new(StringComparer.Ordinal);
+    //
+    // Slownik wspolbiezny, bo zapis idzie z watku puli (ConfigureAwait(false) w
+    // pobieraniu), a odczyt z watku GUI przy Alt+D. Zwykly Dictionary psul by
+    // sie przy pobieraniu w tle i jednoczesnym czytaniu opisu.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>
+        _spotifyPodcastDescriptions = new(StringComparer.Ordinal);
 
     /// <summary>Nazwa widoku podcastow danej sesji Spotify.</summary>
     internal static string SpotifyPodcastsViewName(string sessionId) => sessionId == "spotify"
@@ -89,7 +93,7 @@ public partial class MainWindow
     /// sesji Spotify. Skrotu ani pozycji menu ten plik NIE rejestruje - robi to
     /// okno glowne, zeby kolizje klawiszy byly rozstrzygane w jednym miejscu.
     /// </summary>
-    private void ShowSpotifyPodcasts()
+    public void ShowSpotifyPodcasts()
     {
         _ = ShowSpotifyPodcastsAsync();
     }
@@ -141,7 +145,14 @@ public partial class MainWindow
             if (widok.Count == 0)
             {
                 FocusMediaList();
-                Announce("Nie masz zapisanych podcastów ani odcinków w Spotify");
+                // Ostrzezenia PRZED werdyktem o pustym koncie. Spotify potrafi
+                // odmowic jednej z dwoch list (podcasty albo zapisane odcinki) -
+                // wtedy "nie masz zapisanych podcastow" byloby nieprawda, a
+                // uzytkownik nie mialby zadnego sladu po odmowie.
+                foreach (var warning in library.Warnings) Announce(warning);
+                Announce(library.Warnings.Count > 0
+                    ? "Spotify nie podało pełnej listy. Nie wiadomo, czy masz zapisane podcasty"
+                    : "Nie masz zapisanych podcastów ani odcinków w Spotify");
                 return;
             }
 
@@ -160,6 +171,36 @@ public partial class MainWindow
             if (CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
                 Announce($"Nie udało się wczytać podcastów Spotify. {exception.Message}");
         }
+    }
+
+    /// <summary>
+    /// Alt+D w sesji Spotify. Opis pochodzi z katalogu Spotify, nie z kanalu RSS
+    /// - odcinek Spotify nie ma adresu RSS, wiec sciezka podcastow AMC nie ma
+    /// czego szukac.
+    /// </summary>
+    private void ShowSpotifyPodcastDescription(MediaItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        var description = SpotifyPodcastDescription(_spotifyPodcastDescriptions, item);
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            Announce(item.Kind == MediaItemKind.Podcast
+                ? "Spotify nie podało opisu tego podcastu"
+                : "Spotify nie podało opisu tego odcinka");
+            return;
+        }
+        var links = new List<InformationLink>();
+        if (!string.IsNullOrWhiteSpace(item.PublicUri))
+        {
+            links.Add(new InformationLink(
+                item.Kind == MediaItemKind.Podcast ? "Otwórz podcast w Spotify" : "Otwórz odcinek w Spotify",
+                item.PublicUri));
+        }
+        var dialog = new InformationWindow(description, links, preferTextMode: true) { Owner = this };
+        dialog.ShowDialog();
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
     }
 
     private async Task<SpotifyPodcastLibrary?> LoadSpotifyPodcastLibraryAsync()
@@ -183,6 +224,16 @@ public partial class MainWindow
         var owned = items.Select(item => sessionId == "spotify"
             ? item : SpotifySessionItemCopies.ForSession(item, sessionId)).ToArray();
         session.AddItemsById(owned);
+        // Ta sama regula, co przy albumach i playlistach: jesli pozycja o tym ID
+        // jest JUZ w sesji, do widoku wchodzi obiekt z sesji, nie swiezy z API.
+        // Bez tego wiersz w widoku podcastow bylby innym obiektem niz ten w
+        // kolejce - flaga "w kolejce" i pamiec czasu nie odczytywalyby sie.
+        var registered = session.Items
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var widokPozycje = owned
+            .Select(item => registered.TryGetValue(item.Id, out var istniejacy) ? istniejacy : item)
+            .ToArray();
         var viewName = SpotifyPodcastsViewName(sessionId);
         // Widok podcastow jest pojemnikiem samym w sobie, wiec zapisujemy go
         // tym samym mechanizmem co album czy playliste - dzieki temu Escape,
@@ -194,7 +245,7 @@ public partial class MainWindow
                 Title = "Podcasty Spotify",
                 ExternalId = SpotifyPodcastsViewSuffix
             },
-            owned);
+            widokPozycje);
         RestoreSpotifyRememberedPositions();
         return viewName;
     }

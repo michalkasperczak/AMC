@@ -82,11 +82,17 @@ public partial class SessionSelectionWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Numery pochodza ze SLOWNIKA sesji, nie z pozycji na liscie. Numery moga
+    /// miec dziury (po scaleniu sesji Spotify), a index+1 przenumerowywal w UI
+    /// sesje, ktorych nikt nie ruszal, i Enter wybieral wtedy inna sesje.
+    /// </summary>
     private void UpdateSlots()
     {
-        for (var index = 0; index < _rows.Count; index++)
+        foreach (var row in _rows)
         {
-            _rows[index].Slot = index + 1;
+            var slot = _sessions.FindSlot(row.SessionId);
+            if (slot.HasValue) row.Slot = slot.Value;
         }
     }
 

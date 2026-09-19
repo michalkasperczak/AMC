@@ -192,9 +192,13 @@ internal static class SpotifyPodcastsTests
             "Widok podcastow drugiej sesji nie jest rozpoznawany");
 
         // Metoda do podpiecia przez menu i skrot musi istniec w oknie glownym.
+        // Jest publiczna, bo tej samej metody wola router polecen (Ctrl+Alt+O)
+        // przez IApplicationActions - szukamy wiec obu widocznosci.
         var hook = typeof(MainWindow).GetMethod(
             "ShowSpotifyPodcasts",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            System.Reflection.BindingFlags.Instance
+            | System.Reflection.BindingFlags.NonPublic
+            | System.Reflection.BindingFlags.Public);
         Check(hook is not null,
             "Brak metody ShowSpotifyPodcasts() do podpiecia pod menu i skrot");
 

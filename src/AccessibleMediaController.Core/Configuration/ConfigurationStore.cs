@@ -8,6 +8,7 @@ using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Core.Tidal;
 using Microsoft.Data.Sqlite;
 
@@ -1408,14 +1409,19 @@ public sealed class ConfigurationStore
         }
     }
 
+    // LoadOrCreate runs before MainWindow can merge Spotify, and library data
+    // is loaded from SQLite later. Keep valid legacy audio keys until that merge.
+    private static bool IsPersistedAudioSession(AppSettings settings, string sessionId) =>
+        SessionSlotOrder.DefaultSessionIds.Contains(sessionId, StringComparer.OrdinalIgnoreCase)
+        || (settings.SpotifySessionUnificationVersion < SpotifySessionMigration.Version
+            && string.Equals(sessionId, SpotifySessionMigration.LegacySessionId, StringComparison.OrdinalIgnoreCase));
+
     private static void MigrateSettings(AppSettings settings, int schemaVersion)
     {
         settings.Audio ??= new PlaybackAudioSettings();
         settings.Audio.OutputDeviceIdsBySession =
             (settings.Audio.OutputDeviceIdsBySession ?? new Dictionary<string, string>())
-            .Where(pair => SessionSlotOrder.DefaultSessionIds.Contains(
-                pair.Key,
-                StringComparer.OrdinalIgnoreCase))
+            .Where(pair => IsPersistedAudioSession(settings, pair.Key))
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
             .ToDictionary(
                 pair => pair.Key.Trim(),
@@ -1424,9 +1430,7 @@ public sealed class ConfigurationStore
         settings.Audio.SessionMutedById =
             (settings.Audio.SessionMutedById ?? new Dictionary<string, bool>())
             .Where(pair => pair.Value)
-            .Where(pair => SessionSlotOrder.DefaultSessionIds.Contains(
-                pair.Key,
-                StringComparer.OrdinalIgnoreCase))
+            .Where(pair => IsPersistedAudioSession(settings, pair.Key))
             .ToDictionary(
                 pair => pair.Key.Trim(),
                 _ => true,
@@ -1566,9 +1570,7 @@ public sealed class ConfigurationStore
                 "Cisza między utworami musi mieć jedną z wartości dostępnych w Ustawieniach.");
         }
         if (settings.Audio.OutputDeviceIdsBySession.Any(pair =>
-                !SessionSlotOrder.DefaultSessionIds.Contains(
-                    pair.Key,
-                    StringComparer.OrdinalIgnoreCase)
+                !IsPersistedAudioSession(settings, pair.Key)
                 || string.IsNullOrWhiteSpace(pair.Value)
                 || pair.Value.Length > 2048))
         {
@@ -1576,9 +1578,7 @@ public sealed class ConfigurationStore
         }
         if (settings.Audio.SessionMutedById.Any(pair =>
                 !pair.Value
-                || !SessionSlotOrder.DefaultSessionIds.Contains(
-                    pair.Key,
-                    StringComparer.OrdinalIgnoreCase)))
+                || !IsPersistedAudioSession(settings, pair.Key)))
         {
             throw new InvalidDataException("Zapamiętane wyciszenia sesji są nieprawidłowe.");
         }

@@ -17,18 +17,53 @@ public sealed class SessionManager
     private readonly List<DemoMediaSession> _sessions;
     private readonly Dictionary<int, string> _sessionSlots;
 
+    /// <summary>
+    /// Silnik, ktorym JEDYNA sesja Spotify faktycznie gra w tym uruchomieniu.
+    /// Utrwalony w konstruktorze: zapis ustawien w czasie sluchania nie moze
+    /// przelaczyc wyjscia pod grajacym utworem, bo host Librespot i SDK to dwa
+    /// rozne procesy i przelaczenie w locie przerwaloby dzwiek.
+    /// </summary>
+    public Spotify.SpotifyPlaybackEngine ActiveSpotifyEngine { get; }
+
     public SessionManager(
         AppSettings settings,
         IMediaOutput? tidalOutput = null,
         IMediaOutput? spotifyOutput = null,
-        DemoMediaSession? existingSpotifySession = null)
+        DemoMediaSession? existingSpotifySession = null,
+        IMediaOutput? spotifyLibrespotOutput = null)
     {
         if (existingSpotifySession is not null && existingSpotifySession.Id != "spotify")
             throw new ArgumentException("Oczekiwano sesji Spotify.", nameof(existingSpotifySession));
         _settings = settings;
+        var zapisany = Spotify.SpotifyPlaybackEngineRules.Normalize(settings.SpotifyEngine);
+        // Librespot jest domyslny, SDK awaryjny. Gdy wybrany silnik nie ma
+        // swojego wyjscia (brak skladnika), spadamy na drugi zamiast zostawiac
+        // sesje bez toru odtwarzania - cisza bez powodu jest gorsza niz inny silnik.
+        // ActiveSpotifyEngine MUSI opisywac wyjscie, ktorym sesja FAKTYCZNIE gra:
+        // po awaryjnym zejsciu na drugi silnik i po odbudowie z zachowana sesja
+        // raportowanie samego zapisu bylo klamstwem o torze dzwieku.
+        var librespotWybrany = zapisany == Spotify.SpotifyPlaybackEngine.Librespot;
+        var activeSpotifyOutput = librespotWybrany
+            ? spotifyLibrespotOutput ?? spotifyOutput
+            : spotifyOutput ?? spotifyLibrespotOutput;
+        var faktyczny = zapisany;
+        if (librespotWybrany && spotifyLibrespotOutput is null && spotifyOutput is not null)
+            faktyczny = Spotify.SpotifyPlaybackEngine.Sdk;
+        else if (!librespotWybrany && spotifyOutput is null && spotifyLibrespotOutput is not null)
+            faktyczny = Spotify.SpotifyPlaybackEngine.Librespot;
+        // Odbudowa z ZACHOWANA sesja: sesja dalej gra swoim starym wyjsciem,
+        // wiec zmieniony zapis nie moze udawac nowego silnika pod grajacym utworem.
+        if (existingSpotifySession?.Output is { } zachowaneWyjscie)
+        {
+            if (ReferenceEquals(zachowaneWyjscie, spotifyLibrespotOutput))
+                faktyczny = Spotify.SpotifyPlaybackEngine.Librespot;
+            else if (ReferenceEquals(zachowaneWyjscie, spotifyOutput))
+                faktyczny = Spotify.SpotifyPlaybackEngine.Sdk;
+        }
+        ActiveSpotifyEngine = faktyczny;
         existingSpotifySession?.ConfigureRememberPositionPolicy(
             item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item));
-        _sessions = CreateDemoSessions(settings, tidalOutput, spotifyOutput, existingSpotifySession).ToList();
+        _sessions = CreateDemoSessions(settings, tidalOutput, activeSpotifyOutput, existingSpotifySession).ToList();
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
@@ -42,30 +77,6 @@ public sealed class SessionManager
     public IReadOnlyList<DemoMediaSession> Sessions => _sessions;
 
     /// <summary>Adds the independent native Spotify output without rebuilding the SDK session.</summary>
-    public DemoMediaSession RegisterSpotifyLibrespotSession(
-        IMediaOutput output,
-        DemoMediaSession? existingSession = null)
-    {
-        ArgumentNullException.ThrowIfNull(output);
-        const string id = "spotifyLibrespot";
-        if (existingSession is not null && existingSession.Id != id)
-            throw new ArgumentException("Oczekiwano sesji Spotify — Librespot.", nameof(existingSession));
-        var session = existingSession ?? FindSession(id) ?? new DemoMediaSession(
-            id, "Spotify — Librespot", [], output,
-            rememberPosition: item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(_settings, item, id));
-        session.ConfigureRememberPositionPolicy(item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(_settings, item, id));
-        var registered = FindSession(id);
-        if (registered is not null && !ReferenceEquals(registered, session))
-            throw new InvalidOperationException("Sesja Spotify — Librespot jest już zarejestrowana.");
-        if (registered is null)
-        {
-            ApplyRememberedMute(session);
-            _sessions.Add(session);
-        }
-        var preferredSlot = Math.Clamp(_sessionSlots.Keys.DefaultIfEmpty(0).Max() + 1, 1, 9);
-        AddOrUpdateTransientSession(id, session.DisplayName, [], output, preferredSlot);
-        return session;
-    }
     public IReadOnlyDictionary<int, string> SessionSlots => _sessionSlots;
     public DemoMediaSession Current { get; private set; }
     public bool AllSessionsMuted { get; private set; }
@@ -135,8 +146,13 @@ public sealed class SessionManager
 
         var sessionName = FindSession(sessionId)?.DisplayName
             ?? SessionSlotOrder.GetDisplayName(sessionId);
-        var targetSlot = slot + direction;
-        if (!_sessionSlots.TryGetValue(targetSlot, out var neighborId))
+        // Numery moga miec DZIURY (po scaleniu sesji Spotify). Sasiadem jest
+        // NAJBLIZSZY ISTNIEJACY numer, nie slot+1 - inaczej ruch w stronę dziury
+        // udawalby "juz ostatnia", a zageszczanie przenumerowalo by inne sesje.
+        var targetSlot = direction < 0
+            ? _sessionSlots.Keys.Where(candidate => candidate < slot).DefaultIfEmpty(0).Max()
+            : _sessionSlots.Keys.Where(candidate => candidate > slot).DefaultIfEmpty(0).Min();
+        if (targetSlot == 0 || !_sessionSlots.TryGetValue(targetSlot, out var neighborId))
             return new SessionSlotMoveResult(false, slot, sessionId, sessionName, null);
 
         var neighborName = FindSession(neighborId)?.DisplayName

@@ -191,9 +191,9 @@ public partial class MainWindow
         var credentials = await _spotifyIntegration
             .GetPlaybackCredentialsAsync(CancellationToken.None)
             .ConfigureAwait(false);
-        var client = new SpotifyApiClient();
+        using var client = new SpotifyApiClient();
         var id = container.ExternalId ?? string.Empty;
-        return container.Kind switch
+        var items = container.Kind switch
         {
             MediaItemKind.Album => await client
                 .GetAlbumTracksAsync(credentials.AccessToken, id, CancellationToken.None)
@@ -209,6 +209,12 @@ public partial class MainWindow
                 .ConfigureAwait(false),
             _ => null
         };
+        // Opisy przychodza TYM SAMYM zapytaniem co odcinki. Bez przeniesienia
+        // ich z klienta Alt+D na odcinku otwartym z podcastu nie mialby czego
+        // przeczytac, mimo ze opis wlasnie przyszedl z Spotify.
+        foreach (var pair in client.PodcastDescriptions)
+            _spotifyPodcastDescriptions[pair.Key] = pair.Value;
+        return items;
     }
 
     /// <summary>

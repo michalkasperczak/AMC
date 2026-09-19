@@ -27,7 +27,7 @@ public partial class MainWindow
                     },
                     () =>
                     {
-                        _sessions.FindSession(SpotifyLibrespotSessionId)?.StopPlayback();
+                        _sessions.FindSession(SpotifySessionId)?.StopPlayback();
                         _spotifyLibrespotAuthentication.Disconnect();
                     }) { Owner = this };
                 dialog.ShowDialog();

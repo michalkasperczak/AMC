@@ -13,6 +13,13 @@ public sealed class DemoMediaSession
     private TimeSpan _position;
     private double _playbackRate = 1d;
     private readonly IMediaOutput? _output;
+
+    /// <summary>
+    /// Tor odtwarzania, ktorym ta sesja FAKTYCZNIE gra. Potrzebny, by po
+    /// odbudowie rozpoznac silnik zachowanej sesji Spotify po tozsamosci
+    /// wyjscia, a nie po zapisie ustawien.
+    /// </summary>
+    public IMediaOutput? Output => _output;
     private Func<MediaItem, bool> _rememberPosition;
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
     private int? _resumeAfterQueueIndex;

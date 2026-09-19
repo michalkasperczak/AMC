@@ -12,3 +12,4 @@ node_modules/
 *.amcbackup.json
 AMC-NVDA-*.nvda-addon
 __pycache__/
+.smoke-out/

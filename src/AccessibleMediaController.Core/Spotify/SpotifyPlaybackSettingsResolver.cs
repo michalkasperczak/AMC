@@ -30,10 +30,12 @@ public static class SpotifyPlaybackSettingsResolver
 
     public static bool IsSpotifySession(string? sessionId) => sessionId is SessionId or LibrespotSessionId;
 
+    // Po scaleniu sesji stary identyfikator NIE ma wlasnego profilu: wskazuje ten
+    // sam, kanoniczny zapis. Inaczej kod, ktory gdzies jeszcze poda "spotifyLibrespot",
+    // zapisze pozycje i tryby w miejscu, ktorego nikt nie czyta.
     private static SpotifyPlaybackSettings Profile(AppSettings settings, string sessionId) => sessionId switch
     {
-        SessionId => settings.SpotifyPlayback,
-        LibrespotSessionId => settings.SpotifyLibrespotPlayback,
+        SessionId or LibrespotSessionId => settings.SpotifyPlayback,
         _ => throw new ArgumentException("Nieznana sesja Spotify.", nameof(sessionId))
     };
 

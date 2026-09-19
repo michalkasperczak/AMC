@@ -13,9 +13,9 @@ namespace AccessibleMediaController.Core.Spotify;
 ///
 /// 1. NIEUSUWAJACA. Zrodlowe dane starej sesji ida w calosci do
 ///    <see cref="AppSettings.SpotifyLegacySession"/>. Nawet to, co scalenie
-///    odrzucilo jako konflikt, daje sie potem odczytac. Poswiadczen i cache
-///    biblioteki ta klasa NIE DOTYKA - siedza poza stanem (DPAPI / Credential
-///    Manager) albo w sekcji konta, ktorej nie czytamy.
+///    odrzucilo jako konflikt, daje sie potem odczytac. Ta klasa nie zmienia
+///    poswiadczen ani cache biblioteki. Cache czyta tylko po to, by dopasowac
+///    identyfikatory przenoszonych elementow do istniejacego katalogu.
 /// 2. WERSJONOWANA i IDEMPOTENTNA.
 ///    <see cref="AppSettings.SpotifySessionUnificationVersion"/> rowne
 ///    <see cref="Version"/> zatrzymuje kolejne wywolanie natychmiast. Bez tego
@@ -24,7 +24,7 @@ namespace AccessibleMediaController.Core.Spotify;
 /// 3. TOZSAMOSCIOWA, nie pozycyjna. Elementy scalamy po STABILNYM kluczu
 ///    uslugi (adres "spotify:track:...", nie losowe MediaItem.Id, ktore zmienia
 ///    sie przy kazdym pobraniu biblioteki). Identyfikatory kopii Librespot
-///    ("spotifyLibrespot:&lt;id&gt;") przepisujemy na kanoniczny prefiks.
+///    ("spotifyLibrespot:&lt;id&gt;") odwracamy do identyfikatora oryginalu.
 ///
 /// DETERMINISTYCZNA REGULA KONFLIKTU (ta sama dla pozycji, trybow pamieci
 /// pozycji, wyciszenia, wyjscia audio, odstepstw dzwieku, widoku i sortowan):
@@ -44,8 +44,8 @@ namespace AccessibleMediaController.Core.Spotify;
 /// wiec dwa uruchomienia na tym samym pliku daja ten sam wynik.
 ///
 /// Numery slotow innych sesji zostaja NIETKNIETE. Slot zwolniony przez
-/// Librespot jest po prostu usuwany; <see cref="SessionSlotOrder.Normalize"/>
-/// przy nastepnym odczycie domknie numeracje, nie przestawiajac sesji 1-6.
+/// Librespot jest po prostu usuwany. Pozostale warstwy odczytu i zapisu
+/// musza zachowac powstala luke zamiast przesuwac numery innych sesji.
 /// </summary>
 public static class SpotifySessionMigration
 {
@@ -53,7 +53,6 @@ public static class SpotifySessionMigration
     public const string CanonicalSessionId = SpotifyPlaybackSettingsResolver.SessionId;
     public const string LegacySessionId = SpotifyPlaybackSettingsResolver.LibrespotSessionId;
 
-    private const string CanonicalPrefix = CanonicalSessionId + ":";
     private const string LegacyPrefix = LegacySessionId + ":";
 
     public sealed record Result(
@@ -103,13 +102,14 @@ public static class SpotifySessionMigration
         };
         var notes = new List<string>();
 
+        var remapItemId = CreateItemIdMapper(state);
         var mergedPositions = ArchiveAndMergePlayback(settings, archive, notes, legacyWins);
         ArchiveAndMergeSessionScalars(settings, archive, notes, legacyWins);
-        var mergedQueue = ArchiveAndMergeRemoteQueue(state, archive, notes, legacyWins);
-        ArchiveAndMergeNavigation(state, archive, notes, legacyWins);
-        ArchiveAndMergeCollectionOrders(state, archive, notes);
-        ArchiveAndMergeHistories(state, archive);
-        ArchiveAndMergeSessionScopedLists(state, archive);
+        var mergedQueue = ArchiveAndMergeRemoteQueue(state, archive, notes, legacyWins, remapItemId);
+        ArchiveAndMergeNavigation(state, archive, notes, legacyWins, remapItemId);
+        ArchiveAndMergeCollectionOrders(state, archive, notes, remapItemId);
+        ArchiveAndMergeHistories(state, archive, remapItemId);
+        ArchiveAndMergeSessionScopedLists(state, archive, remapItemId);
         ReleaseLegacySlot(settings, archive);
 
         archive.ConflictNotes = notes;
@@ -120,14 +120,15 @@ public static class SpotifySessionMigration
 
     /// <summary>
     /// Przepisuje identyfikator elementu skopiowanego do sesji Librespot na
-    /// kanoniczny prefiks Spotify. Identyfikatory bez prefiksu zostaja bez zmian:
-    /// element wspolny obu sesjom ma ten sam klucz uslugi w Source/ExternalId.
+    /// identyfikator oryginalu: usuwa wylacznie prefiks dodany przez
+    /// SpotifySessionItemCopies.ForSession. Ewentualny prefiks oryginalu
+    /// pozostaje, bo katalog zawiera zarowno surowe, jak i prefiksowane ID.
     /// </summary>
     public static string CanonicalItemId(string? itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return string.Empty;
         return itemId.StartsWith(LegacyPrefix, StringComparison.Ordinal)
-            ? CanonicalPrefix + itemId[LegacyPrefix.Length..]
+            ? itemId[LegacyPrefix.Length..]
             : itemId;
     }
 
@@ -143,6 +144,32 @@ public static class SpotifySessionMigration
         var key = SpotifyPlaybackSettingsResolver.StorageKey(item.ToMediaItem());
         if (key.Length > 0 && key.StartsWith("spotify:", StringComparison.Ordinal)) return key;
         return CanonicalItemId(item.Id);
+    }
+
+    private static Func<string?, string> CreateItemIdMapper(PersistedState state)
+    {
+        var targetByIdentity = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in state.RemoteQueues?.ItemsBySession?.GetValueOrDefault(CanonicalSessionId) ?? [])
+            targetByIdentity.TryAdd(QueueIdentity(item), item.Id);
+        foreach (var cached in state.Spotify?.CachedCollectionItems ?? [])
+        {
+            var item = RemoteQueueItemSettings.FromMediaItem(CanonicalSessionId, cached.ToMediaItem());
+            targetByIdentity.TryAdd(QueueIdentity(item), item.Id);
+        }
+
+        var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in state.RemoteQueues?.ItemsBySession?.GetValueOrDefault(LegacySessionId) ?? [])
+        {
+            var identity = QueueIdentity(item);
+            if (!targetByIdentity.TryGetValue(identity, out var target))
+            {
+                target = CanonicalItemId(item.Id);
+                targetByIdentity.Add(identity, target);
+            }
+            aliases.TryAdd(item.Id, target);
+        }
+        return id => id is not null && aliases.TryGetValue(id, out var target)
+            ? target : CanonicalItemId(id);
     }
 
     private static int ArchiveAndMergePlayback(
@@ -310,7 +337,8 @@ public static class SpotifySessionMigration
         PersistedState state,
         SpotifyLegacySessionArchive archive,
         List<string> notes,
-        bool legacyWins)
+        bool legacyWins,
+        Func<string?, string> remapItemId)
     {
         var queues = (state.RemoteQueues ??= new RemoteQueueCacheSettings());
         queues.ItemsBySession ??= new Dictionary<string, List<RemoteQueueItemSettings>>(StringComparer.OrdinalIgnoreCase);
@@ -342,7 +370,7 @@ public static class SpotifySessionMigration
                 // potem doklejone wiersze Librespot w ich wlasnej kolejnosci.
                 // Deterministyczna i niezalezna od iteracji slownika.
                 var copy = CloneQueueItem(legacyItem);
-                copy.Id = CanonicalItemId(copy.Id);
+                copy.Id = remapItemId(copy.Id);
                 canonicalQueue.Add(copy);
                 byIdentity[identity] = copy;
                 merged++;
@@ -376,7 +404,8 @@ public static class SpotifySessionMigration
         PersistedState state,
         SpotifyLegacySessionArchive archive,
         List<string> notes,
-        bool legacyWins)
+        bool legacyWins,
+        Func<string?, string> remapItemId)
     {
         var navigation = (state.SessionNavigation ??= new SessionNavigationSettings());
         navigation.Sessions ??= new Dictionary<string, SessionNavigationState>(StringComparer.OrdinalIgnoreCase);
@@ -387,7 +416,7 @@ public static class SpotifySessionMigration
 
         if (!navigation.Sessions.TryGetValue(CanonicalSessionId, out var canonical) || canonical is null)
         {
-            navigation.Sessions[CanonicalSessionId] = RemapNavigation(legacy);
+            navigation.Sessions[CanonicalSessionId] = RemapNavigation(legacy, remapItemId);
             return;
         }
 
@@ -421,14 +450,14 @@ public static class SpotifySessionMigration
         {
             if (!canonical.SelectedItemIds.ContainsKey(pair.Key))
             {
-                canonical.SelectedItemIds[pair.Key] = CanonicalItemIdOrNull(pair.Value);
+                canonical.SelectedItemIds[pair.Key] = CanonicalItemIdOrNull(pair.Value, remapItemId);
             }
         }
 
         if (canonical.PlaybackContextItemIds.Count == 0 && legacy.PlaybackContextItemIds.Count > 0)
         {
             canonical.PlaybackContextItemIds = legacy.PlaybackContextItemIds
-                .Select(CanonicalItemId)
+                .Select(remapItemId)
                 .Where(id => id.Length > 0)
                 .ToList();
             canonical.PlaybackContextView = legacy.PlaybackContextView;
@@ -438,7 +467,8 @@ public static class SpotifySessionMigration
     private static void ArchiveAndMergeCollectionOrders(
         PersistedState state,
         SpotifyLegacySessionArchive archive,
-        List<string> notes)
+        List<string> notes,
+        Func<string?, string> remapItemId)
     {
         var orders = state.CollectionOrders ??= new CollectionOrderSettings();
         var maps = new (string Name, Dictionary<string, List<string>> Map)[]
@@ -465,7 +495,7 @@ public static class SpotifySessionMigration
             var appended = 0;
             foreach (var id in legacyOrder)
             {
-                var canonicalId = CanonicalItemId(id);
+                var canonicalId = remapItemId(id);
                 if (canonicalId.Length == 0 || !known.Add(canonicalId)) continue;
                 // Kolejnosc uzytkownika w sesji kanonicznej zostaje; wiersze
                 // znane tylko Librespotowi ida na koniec, nie przeplataja sie.
@@ -479,7 +509,7 @@ public static class SpotifySessionMigration
         }
     }
 
-    private static void ArchiveAndMergeHistories(PersistedState state, SpotifyLegacySessionArchive archive)
+    private static void ArchiveAndMergeHistories(PersistedState state, SpotifyLegacySessionArchive archive, Func<string?, string> remapItemId)
     {
         var playback = state.PlaybackHistory ??= new PlaybackHistorySettings();
         playback.ItemIdsBySession ??= new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -493,7 +523,7 @@ public static class SpotifySessionMigration
             var known = canonicalHistory.ToHashSet(StringComparer.Ordinal);
             foreach (var id in legacyHistory)
             {
-                var canonicalId = CanonicalItemId(id);
+                var canonicalId = remapItemId(id);
                 if (canonicalId.Length > 0 && known.Add(canonicalId)) canonicalHistory.Add(canonicalId);
             }
         }
@@ -514,13 +544,13 @@ public static class SpotifySessionMigration
         }
     }
 
-    private static void ArchiveAndMergeSessionScopedLists(PersistedState state, SpotifyLegacySessionArchive archive)
+    private static void ArchiveAndMergeSessionScopedLists(PersistedState state, SpotifyLegacySessionArchive archive, Func<string?, string> remapItemId)
     {
         var presets = state.SessionPresets ??= new SessionPresetSettings();
         presets.EntriesBySession ??= new Dictionary<string, List<SessionPresetEntry>>(StringComparer.OrdinalIgnoreCase);
         if (presets.EntriesBySession.TryGetValue(LegacySessionId, out var legacyPresets) && legacyPresets is not null)
         {
-            archive.Presets = [.. legacyPresets];
+            archive.Presets = legacyPresets.Select(ClonePreset).ToList();
             presets.EntriesBySession.Remove(LegacySessionId);
             var canonicalPresets = presets.EntriesBySession.TryGetValue(CanonicalSessionId, out var existing) && existing is not null
                 ? existing
@@ -531,7 +561,7 @@ public static class SpotifySessionMigration
             foreach (var preset in legacyPresets)
             {
                 if (!takenSlots.Add(preset.Slot)) continue;
-                preset.TargetId = CanonicalItemId(preset.TargetId);
+                preset.TargetId = remapItemId(preset.TargetId);
                 canonicalPresets.Add(preset);
             }
         }
@@ -547,7 +577,7 @@ public static class SpotifySessionMigration
             foreach (var entry in legacyPlaylists)
             {
                 entry.SessionId = CanonicalSessionId;
-                entry.ItemIds = entry.ItemIds.Select(CanonicalItemId).Where(id => id.Length > 0).ToList();
+                entry.ItemIds = entry.ItemIds.Select(remapItemId).Where(id => id.Length > 0).ToList();
             }
         }
 
@@ -563,7 +593,7 @@ public static class SpotifySessionMigration
             {
                 entry.SessionId = CanonicalSessionId;
                 entry.SessionName = SessionSlotOrder.GetDisplayName(CanonicalSessionId);
-                entry.ItemId = CanonicalItemId(entry.ItemId);
+                entry.ItemId = remapItemId(entry.ItemId);
             }
         }
 
@@ -583,7 +613,7 @@ public static class SpotifySessionMigration
             }).ToList();
             foreach (var entry in legacyVolumes)
             {
-                var canonicalContext = CanonicalItemId(entry.ContextId);
+                var canonicalContext = remapItemId(entry.ContextId);
                 var alreadyThere = volumes.Entries.Any(other =>
                     string.Equals(other.SessionId, CanonicalSessionId, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(other.ContextId, canonicalContext, StringComparison.Ordinal)
@@ -603,7 +633,7 @@ public static class SpotifySessionMigration
     {
         if (settings.SessionSlots is null || archive.Slot == 0) return;
         // Tylko wpis Librespot. Numery pozostalych sesji zostaja dokladnie tam,
-        // gdzie byly - skroty Alt+cyfra, ktore uzytkownik zna na pamiec.
+        // gdzie byly - skroty Ctrl+cyfra, ktore uzytkownik zna na pamiec.
         if (settings.SessionSlots.TryGetValue(archive.Slot, out var occupant)
             && string.Equals(occupant, LegacySessionId, StringComparison.OrdinalIgnoreCase))
         {
@@ -616,26 +646,26 @@ public static class SpotifySessionMigration
     /// kanoniczne. Uzywana, gdy sesja kanoniczna nie ma wlasnego stanu - wtedy
     /// nie ma czego rozstrzygac i przejmujemy widok Librespot w calosci.
     /// </summary>
-    private static SessionNavigationState RemapNavigation(SessionNavigationState source) => new()
+    private static SessionNavigationState RemapNavigation(SessionNavigationState source, Func<string?, string> remapItemId) => new()
     {
         CurrentView = source.CurrentView,
         LastLibraryView = source.LastLibraryView,
         SelectedItemIds = source.SelectedItemIds.ToDictionary(
             pair => pair.Key,
-            pair => CanonicalItemIdOrNull(pair.Value),
+            pair => CanonicalItemIdOrNull(pair.Value, remapItemId),
             StringComparer.OrdinalIgnoreCase),
         Filters = new Dictionary<string, string>(source.Filters, StringComparer.OrdinalIgnoreCase),
         CollectionSortModes = new Dictionary<string, CollectionSortMode>(source.CollectionSortModes, StringComparer.OrdinalIgnoreCase),
         PlaybackContextView = source.PlaybackContextView,
         PlaybackContextItemIds = source.PlaybackContextItemIds
-            .Select(CanonicalItemId)
+            .Select(remapItemId)
             .Where(id => id.Length > 0)
             .ToList(),
         PlayerActive = source.PlayerActive
     };
 
-    private static string? CanonicalItemIdOrNull(string? itemId) =>
-        string.IsNullOrEmpty(itemId) ? itemId : CanonicalItemId(itemId);
+    private static string? CanonicalItemIdOrNull(string? itemId, Func<string?, string> remapItemId) =>
+        string.IsNullOrEmpty(itemId) ? itemId : remapItemId(itemId);
 
     private static SpotifyPlaybackSettings ClonePlayback(SpotifyPlaybackSettings source) => new()
     {
@@ -647,6 +677,15 @@ public static class SpotifySessionMigration
     {
         ResumePositionMode = source.ResumePositionMode,
         PositionTicks = source.PositionTicks
+    };
+
+    private static SessionPresetEntry ClonePreset(SessionPresetEntry source) => new()
+    {
+        Slot = source.Slot,
+        TargetId = source.TargetId,
+        TargetKind = source.TargetKind,
+        TargetTitle = source.TargetTitle,
+        TargetLocation = source.TargetLocation
     };
 
     private static PlaylistEntry ClonePlaylist(PlaylistEntry source) => new()

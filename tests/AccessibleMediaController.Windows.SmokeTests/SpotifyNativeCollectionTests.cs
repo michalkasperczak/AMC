@@ -6,76 +6,79 @@ using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows;
 
+/// <summary>
+/// Kolekcja Spotify po scaleniu: JEDNA sesja, jeden model, jedna kolejka. Dawna
+/// wersja tego testu sprawdzala, ze dwie sesje maja niezalezne modele - teraz
+/// sprawdzamy, ze model jest jeden i ze oba silniki korzystaja z tych samych
+/// danych, bez dublowania wierszy.
+/// </summary>
 internal static class SpotifyNativeCollectionTests
 {
     internal static void Run()
     {
         var state = new PersistedState();
-        var webOutput = new ProbeOutput();
-        var nativeOutput = new ProbeOutput();
-        var manager = new SessionManager(state.Settings, spotifyOutput: webOutput);
-        var web = manager.FindSession("spotify")!;
-        var native = manager.RegisterSpotifyLibrespotSession(nativeOutput);
+        var sdkOutput = new ProbeOutput();
+        var librespotOutput = new ProbeOutput();
+        state.Settings.SpotifyEngine = SpotifyPlaybackEngine.Librespot;
+        var manager = new SessionManager(
+            state.Settings, spotifyOutput: sdkOutput, spotifyLibrespotOutput: librespotOutput);
+        var spotify = manager.FindSession("spotify")!;
         var source = new MediaItem { Id="spotify:track:A", ExternalId="A", Source="spotify:track:A",
             Title="A", Kind=MediaItemKind.Track };
-        var webItem = SpotifySessionItemCopies.ForSession(source,"spotify");
-        var nativeItem = SpotifySessionItemCopies.ForSession(source,"spotifyLibrespot");
-        web.ReplaceItems([webItem]);
-        native.ReplaceItems([nativeItem]);
-        web.Play(webItem);
-        native.Play(nativeItem);
-        nativeItem.IsInQueue = true;
-        var webStops = webOutput.Stops;
-        var nativeStops = nativeOutput.Stops;
+        var item = SpotifySessionItemCopies.ForSession(source,"spotify");
+        spotify.ReplaceItems([item]);
+        spotify.Play(item);
+        item.IsInQueue = true;
+        var librespotStops = librespotOutput.Stops;
         var window = (MainWindow)RuntimeHelpers.GetUninitializedObject(typeof(MainWindow));
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Set(string name, object value) => typeof(MainWindow).GetField(name, flags)!.SetValue(window,value);
         Set("_state",state);
         Set("_sessions",manager);
+        Set("_activeSpotifyEngine",SpotifyPlaybackEngine.Librespot);
         Set("_spotifyItems",new List<MediaItem> { source });
         var views = typeof(MainWindow).GetField("_spotifyContainerViews",flags)!;
         views.SetValue(window,Activator.CreateInstance(views.FieldType));
         var sync = typeof(MainWindow).GetMethod("SynchronizeSpotifyCachedMembership",flags)!;
         sync.Invoke(window,[new[]{source},true]);
-        if (!webItem.IsFavorite || !nativeItem.IsFavorite)
-            throw new Exception("Potwierdzone polubienie na wspólnym koncie nie dociera do obu sesji Spotify.");
-        if (webItem.IsInQueue || !nativeItem.IsInQueue || webStops!=webOutput.Stops || nativeStops!=nativeOutput.Stops)
-            throw new Exception("Synchronizacja konta zmieniła kolejkę lub przerwała odtwarzanie jednej z sesji.");
+        if (!item.IsFavorite)
+            throw new Exception("Potwierdzone polubienie na koncie nie dociera do sesji Spotify.");
+        if (!item.IsInQueue || librespotOutput.Stops != librespotStops)
+            throw new Exception("Synchronizacja konta zmienila kolejke lub przerwala odtwarzanie.");
         var b = new MediaItem { Id="spotify:track:B", ExternalId="B", Source="spotify:track:B",
             Title="B", Kind=MediaItemKind.Track };
         sync.Invoke(window,[new[]{b},true]);
         sync.Invoke(window,[new[]{b},true]);
-        var webB = web.Items.Single(x=>x.ExternalId=="B");
-        var nativeB = native.Items.Single(x=>x.ExternalId=="B");
-        if (ReferenceEquals(webB,nativeB) || nativeB.Id==webB.Id)
-            throw new Exception("Dodany utwór współdzieli obiekt lub identyfikator obu sesji.");
+        if (spotify.Items.Count(x=>x.ExternalId=="B") != 1)
+            throw new Exception("Dodany utwor pojawil sie w jedynej sesji Spotify dwa razy.");
         sync.Invoke(window,[new[]{source},false]);
-        if (webItem.IsFavorite || nativeItem.IsFavorite || !nativeItem.IsInQueue)
-            throw new Exception("Usunięcie polubienia nie dociera do obu sesji albo usuwa niezależną kolejkę.");
-        manager.SelectSession("spotifyLibrespot");
+        if (item.IsFavorite || !item.IsInQueue)
+            throw new Exception("Usuniecie polubienia nie dotarlo do sesji albo skasowalo kolejke.");
+        manager.SelectSession("spotify");
         var visible = (bool)typeof(MainWindow).GetMethod("CommandVisibleInPalette",flags)!.Invoke(window,
             [AccessibleMediaController.Core.Commands.CommandIds.ManageSpotifyConnection])!;
-        if (!visible) throw new Exception("Konto Spotify znika z palety drugiej sesji.");
+        if (!visible) throw new Exception("Konto Spotify znika z palety jedynej sesji.");
         var collections = (bool)typeof(MainWindow).GetMethod("UsesTidalStyleCollections",BindingFlags.Static|BindingFlags.NonPublic)!
-            .Invoke(null,["spotifyLibrespot"])!;
-        if (!collections) throw new Exception("Druga sesja nie rozróżnia Ulubionych i Biblioteki Spotify.");
+            .Invoke(null,["spotify"])!;
+        if (!collections) throw new Exception("Sesja Spotify nie rozroznia Ulubionych i Biblioteki.");
         var cache = typeof(MainWindow).GetMethod("StoreSpotifyContainerForSession", flags);
-        if (cache is null) throw new Exception("Brak oddzielnego zapisu zawartości albumu dla obu sesji.");
+        if (cache is null) throw new Exception("Brak zapisu zawartosci albumu dla sesji Spotify.");
         var container = new MediaItem { Id="spotify:album:ALB", ExternalId="ALB", Title="Album", Kind=MediaItemKind.Album };
         var c = new MediaItem { Id="spotify:track:C", ExternalId="C", Source="spotify:track:C", Title="C", Kind=MediaItemKind.Track };
-        var webView = (string)cache.Invoke(window,["spotify",container,new[]{c}])!;
-        var nativeView = (string)cache.Invoke(window,["spotifyLibrespot",container,new[]{c}])!;
-        if (webView == nativeView) throw new Exception("Obie sesje nadpisują tę samą zawartość albumu.");
-        var webC = web.Items.Single(x=>x.ExternalId=="C");
-        var nativeC = native.Items.Single(x=>x.ExternalId=="C");
-        if (ReferenceEquals(webC,nativeC)) throw new Exception("Album przenosi wspólny obiekt do dwóch kolejek.");
-        nativeC.IsInQueue = true;
-        cache.Invoke(window,["spotifyLibrespot",container,new[]{c}]);
-        if (!nativeC.IsInQueue || webC.IsInQueue)
-            throw new Exception("Ponowne otwarcie albumu miesza lub zeruje kolejkę.");
+        var viewName = (string)cache.Invoke(window,["spotify",container,new[]{c}])!;
+        // Ten sam album otwarty ponownie w tej samej sesji musi trafic w TEN SAM
+        // widok, inaczej wracaja dwie rozne listy tego samego albumu.
+        if ((string)cache.Invoke(window,["spotify",container,new[]{c}])! != viewName)
+            throw new Exception("Ponowne otwarcie albumu tworzy nowy widok zamiast odswiezyc istniejacy.");
+        var trackC = spotify.Items.Single(x=>x.ExternalId=="C");
+        trackC.IsInQueue = true;
+        cache.Invoke(window,["spotify",container,new[]{c}]);
+        if (!spotify.Items.Single(x=>x.ExternalId=="C").IsInQueue)
+            throw new Exception("Ponowne otwarcie albumu zeruje kolejke.");
         VerifyNativeDeviceDialog();
-        Console.WriteLine("OK: wspólna kolekcja Spotify, niezależne modele i kolejki SDK/Librespot");
+        Console.WriteLine("OK: jedna kolekcja Spotify, jeden model i kolejka dla obu silnikow");
     }
+
 
     private static void VerifyNativeDeviceDialog()
     {

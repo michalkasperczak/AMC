@@ -46,6 +46,9 @@ public interface IApplicationActions
     void ShowWiiMDeviceManager();
     void ShowTidalAccountManager();
     void ShowSpotifyAccountManager();
+
+    /// <summary>Widok zapisanych podcastow Spotify (Ctrl+Alt+O w sesji Spotify).</summary>
+    void ShowSpotifyPodcasts();
     void RefreshWiiMDevices();
     void RenameLibraryItem();
     void RenameLocalFile();
@@ -147,6 +150,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ManageSpotifyConnection:
                 application.ShowSpotifyAccountManager();
+                return new(true);
+            case CommandIds.ViewSpotifyPodcasts:
+                application.ShowSpotifyPodcasts();
                 return new(true);
             case CommandIds.RefreshWiiMDevices:
                 application.RefreshWiiMDevices();

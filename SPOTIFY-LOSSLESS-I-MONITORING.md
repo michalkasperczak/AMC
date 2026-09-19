@@ -66,7 +66,7 @@ Connect: kontrolowanie zewnętrznego urządzenia przez oficjalne GET/me/player/d
 
 TIDAL: Shift+A nie dopuszcza obecnie sesji tidal, a wybór wyjścia nie jest podłączony do sterowania oryginalną aplikacją. Istnienie pamięci wyjść dla torów AMC nie dowodzi przełączania cudzego procesu. Możliwość przełączenia w oryginalnym TIDAL-u wymaga sondy; nie ogłaszać ani gotowego wsparcia, ani technicznej niemożliwości. Denon używany przez USB to wyjście Windows, nie TIDAL Connect.
 
-Monitoring: odczytano pełny zapis zadania18380ffea4c7. Jest włączone co miesiąc, obejmuje oficjalny SDK/API, jakość i ograniczenia; nie obejmuje upstream Librespot. Nie wykonano jeszcze zmiany harmonogramu. Rozszerzenie powinno objąć wydania i niezgodne zmiany Librespot, logowanie, metadane, Player API oraz próby zgodności przed świadomą aktualizacją, bez automatycznej wymiany działającego silnika.
+Monitoring: zadanie18380ffea4c7 jest włączone co poniedziałek o10:00; najbliższy termin z harmonogramu21.09.2026+02:00. Ponowny odczyt pełnego promptu potwierdził Web API, oficjalny SDK, jakość/Lossless, podcasty, playlisty, Player API/Connect oraz wydania, logowanie i niezgodne zmiany Librespot względem rewizji przypiętej w Cargo.toml/Cargo.lock. Wyniki prywatnie w amc_pomoc/monitoring-spotify, powiadomienia w bieżącym wątku Telegrama. Bez automatycznej aktualizacji zależności, odtwarzania ani prób na koncie. To zaplanowany monitoring, nie wykonany już przegląd pierwszego tygodnia.
 
 Źródła uzupełnienia:
 - https://developer.spotify.com/documentation/web-api/references/changes/february-2026

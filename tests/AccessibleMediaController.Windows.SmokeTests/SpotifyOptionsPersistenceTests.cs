@@ -52,14 +52,17 @@ internal static class SpotifyOptionsPersistenceTests
         if (session.Items.Count(x => x.ExternalId == first.ExternalId && x.Kind == first.Kind) != 1)
             throw new Exception("Dodanie z wyszukiwania tworzy drugi wiersz tego samego utworu Spotify.");
 
-        var native = manager.RegisterSpotifyLibrespotSession(new SilentFixtureOutput());
-        var nativeItem = SpotifySessionItemCopies.ForSession(first, "spotifyLibrespot");
-        native.ReplaceItems([nativeItem]);
-        native.SelectItem(nativeItem);
-        native.SetPosition(TimeSpan.FromSeconds(23));
+        // Po scaleniu przechwytywanie pozycji dotyczy JEDNEJ sesji Spotify i
+        // zapisuje ja pod kanonicznym kluczem - niezaleznie od silnika.
+        var nativeItem = SpotifySessionItemCopies.ForSession(first, "spotify");
+        session.ReplaceItems([nativeItem]);
+        session.SelectItem(nativeItem);
+        session.SetPosition(TimeSpan.FromSeconds(23));
         typeof(MainWindow).GetMethod("CaptureSpotifyPlaybackPosition",flags)!.Invoke(window,null);
+        if(SpotifyPlaybackSettingsResolver.ResolvePosition(state.Settings,nativeItem,"spotify")!=TimeSpan.FromSeconds(23))
+            throw new Exception("Okno główne nie przechwytuje pozycji sesji Spotify.");
         if(SpotifyPlaybackSettingsResolver.ResolvePosition(state.Settings,nativeItem,"spotifyLibrespot")!=TimeSpan.FromSeconds(23))
-            throw new Exception("Okno główne nie przechwytuje pozycji drugiej sesji Spotify.");
+            throw new Exception("Stary identyfikator Librespot ma nadal osobną pamięć pozycji.");
     }
 
     private sealed class SilentFixtureOutput : AccessibleMediaController.Core.Playback.IMediaOutput

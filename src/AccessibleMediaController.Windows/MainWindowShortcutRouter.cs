@@ -223,6 +223,28 @@ internal static class MainWindowShortcutRouter
         };
     }
 
+    /// <summary>
+    /// Alt+D = pelny opis. Sesja Spotify ma podcasty bez RSS, wiec opis dotyczy
+    /// JEJ TEZ - jedna decyzja dla obu faktycznych handlerow, zeby skrot i menu
+    /// nie rozjechaly sie znowu. Edycja tekstu i otwarty dialog blokuja skrot.
+    /// </summary>
+    public static bool IsPodcastDescriptionSession(string? sessionId) =>
+        string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+        || AccessibleMediaController.Core.Spotify.SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
+
+    public static string? ResolvePodcastDescription(
+        Key key,
+        ModifierKeys modifiers,
+        string? sessionId,
+        bool itemContext,
+        bool textEditingActive,
+        bool dialogActive)
+    {
+        if (modifiers != ModifierKeys.Alt || key != Key.D) return null;
+        if (!itemContext || textEditingActive || dialogActive) return null;
+        return IsPodcastDescriptionSession(sessionId) ? CommandIds.PodcastDescription : null;
+    }
+
     public static string? ResolveRadioRecordingBookmark(
         Key key,
         ModifierKeys modifiers,

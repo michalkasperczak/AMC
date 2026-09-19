@@ -127,7 +127,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly TidalIntegrationService _tidalIntegration;
     private readonly SpotifyIntegrationService _spotifyIntegration;
     private readonly List<MediaItem> _spotifyItems = [];
-    private bool _spotifyCatalogSynchronized;
     private readonly TidalMediaOutput _tidalOutput;
     private readonly SpotifyMediaOutput _spotifyOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
@@ -323,6 +322,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         _podcastRefreshTimer.Tick += PodcastRefreshTimer_Tick;
         _state = state;
+        // Scalenie dwoch sesji Spotify w jedna MUSI sie stac przed czymkolwiek,
+        // co czyta ustawienia sesji - slotami, wyjsciami dzwieku i sesjami z
+        // SessionManager wlacznie. Inaczej pierwszy zapis stanu utrwalilby
+        // nieprzeniesione dane starej sesji Librespot i migracja przepadlaby.
+        var spotifyMigration = SpotifySessionMigration.Apply(_state);
+        if (spotifyMigration.Applied)
+        {
+            DiagnosticLog.Info(
+                "spotify-migration",
+                "Scalono dane sesji Spotify w jedna; przeniesiono pozycji kolejki: "
+                + $"{spotifyMigration.MergedQueueItems}; zapamietanych czasow: {spotifyMigration.MergedPositions}; "
+                + $"rozstrzygnietych sprzecznosci: {spotifyMigration.Conflicts}.");
+        }
         _store = store;
         _tidalIntegration = new TidalIntegrationService(_state.Tidal);
         _spotifyIntegration = new SpotifyIntegrationService(_state.Spotify);
@@ -343,6 +355,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // RebuildCore mial czym ja zarejestrowac, ale host procesu NIE startuje:
         // adapter tworzy transport leniwie, przy pierwszym uzyciu.
         _spotifyLibrespotOutput = CreateSpotifyLibrespotOutput();
+        // Silnik na CALE uruchomienie. Zapis w Ustawieniach zmienia plik, ale NIE
+        // przelacza toru pod grajacym utworem - inaczej zapis czegokolwiek w
+        // czasie sluchania przerwalby dzwiek w polowie piosenki.
+        _activeSpotifyEngine = SpotifyPlaybackEngineRules.Normalize(_state.Settings.SpotifyEngine);
         LoadPersistedTidalCatalog();
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
@@ -3825,6 +3841,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var spotify = SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id);
         if (commandId == CommandIds.ManageTidalConnection) return tidal;
         if (commandId == CommandIds.ManageSpotifyConnection) return spotify;
+        if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
         if (commandId == CommandIds.ViewRecordedRadioFiles) return radio || local;
@@ -3856,19 +3873,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
             or CommandIds.ViewPodcastInbox
-            or CommandIds.ViewPodcastInProgress
-            or CommandIds.PodcastDescription
-            or CommandIds.GoToPodcast)
+            or CommandIds.ViewPodcastInProgress)
         {
             return false;
         }
+        // Alt+D dziala tez dla podcastow Spotify: opis bierze sie z katalogu
+        // Spotify, a nie z kanalu RSS, wiec warunek nie moze zadac sesji
+        // "podcasts".
+        if (commandId == CommandIds.PodcastDescription && !podcasts && !spotify) return false;
         if (commandId == CommandIds.PodcastDescription
             && ActionItem?.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
         {
             return false;
         }
         if (commandId == CommandIds.GoToPodcast
-            && FindRelatedPodcast(ActionItem) is null)
+            && !CanGoToRelatedPodcast(ActionItem))
         {
             return false;
         }
@@ -3973,6 +3992,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ShowPodcastDescription()
     {
         var item = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+        // Spotify ma podcasty bez RSS, wiec jego opis MUSI byc rozstrzygniety
+        // przed sciezka subskrypcji RSS - inaczej szukalibysmy odcinka Spotify
+        // w kanalach, ktorych tam nie ma, i konczylo sie "brak opisu".
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id)
+            && item?.Kind is MediaItemKind.Podcast or MediaItemKind.Episode)
+        {
+            ShowSpotifyPodcastDescription(item);
+            return;
+        }
         if (!string.Equals(ActionSession.Id, "podcasts", StringComparison.Ordinal)
             || item?.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
         {
@@ -4271,8 +4299,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(subscription.Id, podcastId, StringComparison.Ordinal));
     }
 
+    private bool CanGoToRelatedPodcast(MediaItem? item) =>
+        SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id)
+            ? CreateRelatedSpotifyContainer(item, MediaItemKind.Podcast) is not null
+            : FindRelatedPodcast(item) is not null;
+
     private void GoToRelatedPodcast(MediaItem? episode)
     {
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id))
+        {
+            if (CreateRelatedSpotifyContainer(episode, MediaItemKind.Podcast) is { } spotifyPodcast)
+                _ = OpenSpotifyContainerAsync(spotifyPodcast);
+            else
+                Announce("Spotify nie podało podcastu nadrzędnego tego odcinka");
+            return;
+        }
         var podcast = FindRelatedPodcast(episode);
         if (podcast is null || episode is null)
         {
@@ -6288,7 +6329,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
-        ManageSpotifyConnectionMenuItem.Visibility =
+        ManageSpotifyConnectionMenuItem.Visibility =            SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        SpotifyPodcastsMenuItem.Visibility =
             SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -6371,8 +6415,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastDownloadsViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
-        PlaybackPodcastDescriptionMenuItem.Visibility = podcasts
-            && ActionItem?.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+        // Menu MUSI pokazywac to samo, co robi Alt+D. Sesja Spotify ma podcasty
+        // bez RSS i ShowPodcastDescription je obsluguje, wiec pozycja nie moze
+        // byc "tylko podcasts" - inaczej skrot dziala, a menu klamie.
+        var descriptionItem = ActionItem
+            ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+        PlaybackPodcastDescriptionMenuItem.Visibility =
+            MainWindowShortcutRouter.IsPodcastDescriptionSession(_sessions.Current.Id)
+            && descriptionItem?.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         PlaybackCurrentBroadcastInformationMenuItem.Visibility = radio || wiiM
@@ -6793,7 +6843,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private bool CurrentSessionSupportsAudioOutputSelection() =>
-        _sessions.Current.Id is "local" or "radio" or "podcasts" or SpotifyLibrespotSessionId;
+        _sessions.Current.Id is "local" or "radio" or "podcasts"
+        // Spotify udostepnia wybor wyjscia TYLKO gdy gra przez Librespot: tor SDK
+        // siedzi w WebView2 i wyjscia nie wybiera.
+        || CurrentSessionIsLibrespotSpotify;
 
     private void ConfigureOutputDevice(string sessionId, string? deviceId)
     {
@@ -6822,7 +6875,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         // Librespot nie korzysta z naszego toru NAudio: wyjscie wybiera sam
         // proces hosta, wiec ten sam skrot prowadzi do wlasnego okna wyboru.
-        if (string.Equals(session.Id, SpotifyLibrespotSessionId, StringComparison.Ordinal))
+        // Decyduje AKTYWNY silnik, nie identyfikator sesji - sesja Spotify jest
+        // jedna i moze grac takze przez SDK.
+        if (CurrentSessionIsLibrespotSpotify)
         {
             _ = ChooseSpotifyLibrespotDeviceAsync();
             return;
@@ -9403,11 +9458,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         var previousSpotify = _sessions?.FindSession("spotify");
-        // Grajaca sesja Librespot przezywa zmiane ustawien tak samo jak SDK:
-        // przenosimy ten SAM obiekt sesji, wiec kolejka, biezacy utwor i czas
-        // zostaja, a proces hosta nie jest restartowany.
-        var previousSpotifyLibrespot = _sessions?.FindSession(SpotifyLibrespotSessionId);
-        _sessions = new SessionManager(_state.Settings, _tidalOutput, _spotifyOutput, previousSpotify);
+        // JEDNA sesja Spotify. Silnik (Librespot albo SDK) wybiera SessionManager
+        // z ustawien: przekazujemy oba wyjscia, a nie dwie sesje.
+        _sessions = new SessionManager(
+            _state.Settings,
+            _tidalOutput,
+            _spotifyOutput,
+            previousSpotify,
+            _spotifyLibrespotOutput);
         if (_sessions.FindSession("tidal") is { } tidalSession
             && _tidalIntegration.IsConfigured
             && (_tidalIntegration.HasStoredLogin || _tidalItems.Count > 0))
@@ -9438,18 +9496,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Przy zmianie ustawien SDK nadal gra. Zachowujemy tozsamosc sesji,
         // biezacy utwor i kolejke bez ponownego Play ani zerowania czasu.
         if (previousSpotify is null) RestoreSpotifyCachedItems();
-        // Druga sesja Spotify dopisuje sie PO zbudowaniu listy, wiec nie rusza
-        // slotow ani kolejnosci sesji, ktore Michal ma wyuczone. Przy zmianie
-        // ustawien wraca ten sam obiekt sesji: grajacy utwor i kolejka zostaja.
-        var librespotSession = _sessions.RegisterSpotifyLibrespotSession(
-            _spotifyLibrespotOutput,
-            previousSpotifyLibrespot);
-        PopulateSpotifyLibrespotCatalog(restoreQueue: previousSpotifyLibrespot is null);
-        if (previousSpotifyLibrespot is null
-            && string.Equals(desiredSessionId, SpotifyLibrespotSessionId, StringComparison.Ordinal))
-        {
-            _sessions.SelectSession(librespotSession.Id);
-        }
         if (_sessions.FindSession("tidal") is { } restoredTidal)
         {
             var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>
@@ -12698,7 +12744,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.CollectionOrders.QueueItemIdsBySession[session.Id] = snapshot.StorageOrder.ToList();
         _state.CollectionOrders.QueueRegularItemIdsBySession[session.Id] = snapshot.RegularItemIds.ToList();
         _state.CollectionOrders.QueuePlayNextItemIdsBySession[session.Id] = snapshot.PlayNextItemIds.ToList();
-        if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase))
+        // Sesje usług zdalnych trzymaja kopie kolejki w RemoteQueues, bo po
+        // restarcie ich katalog nie musi byc jeszcze pobrany. Kopia MUSI byc
+        // odswiezana przy kazdej zmianie kolejki, inaczej usunieta pozycja albo
+        // stara flaga "odtworz nastepne" wracaja z nieaktualnego zapisu.
+        if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(session.Id, "spotify", StringComparison.OrdinalIgnoreCase))
         {
             var queuedItems = items
                 .Where(item => item.IsInQueue || item.IsPlayNext)
@@ -17530,6 +17581,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// </summary>
     private static MediaItem? CreateRelatedSpotifyContainer(MediaItem? item, MediaItemKind kind)
     {
+        if (item?.Kind == MediaItemKind.Episode && (kind is MediaItemKind.Album or MediaItemKind.Podcast))
+        {
+            if (string.IsNullOrWhiteSpace(item.RelatedAlbumExternalId)) return null;
+            var showId = item.RelatedAlbumExternalId;
+            return new MediaItem
+            {
+                Id = $"spotify:show:{showId}", ExternalId = showId,
+                Title = string.IsNullOrWhiteSpace(item.RelatedAlbumTitle) ? "Powiązany podcast" : item.RelatedAlbumTitle,
+                Artist = item.Artist, Kind = MediaItemKind.Podcast,
+                Source = $"spotify:show:{showId}", PublicUri = $"https://open.spotify.com/show/{Uri.EscapeDataString(showId)}"
+            };
+        }
         if (item is null || kind is not (MediaItemKind.Album or MediaItemKind.Artist)) return null;
         var externalId = kind == MediaItemKind.Album
             ? item.RelatedAlbumExternalId
@@ -17645,7 +17708,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowSpotifyAccountManager()
     {
-        if (_sessions.Current.Id == SpotifyLibrespotSessionId)
+        // Konto zalezy od AKTYWNEGO silnika: Librespot ma wlasne parowanie
+        // urzadzenia, SDK - logowanie w WebView2. Sesja jest jedna, wiec po
+        // identyfikatorze nie da sie tego rozstrzygnac.
+        if (SpotifyUsesLibrespotEngine)
         {
             ShowSpotifyLibrespotAccountManager();
             return;
@@ -17668,7 +17734,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (dialog.Disconnected)
         {
-            _spotifyCatalogSynchronized = false;
             _spotifyItems.Clear();
             _state.Spotify.CachedCollectionItems.Clear();
             _sessions.FindSession("spotify")?.ReplaceItems(
@@ -17895,7 +17960,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         CaptureSpotifyPlaybackPosition();
         var session = _sessions.FindSession("spotify");
-        var retainedQueuedItems = _spotifyCatalogSynchronized && session is not null
+        // Kolejka jest praca uzytkownika, nie pochodna cache katalogu. Przy
+        // pierwszym pobraniu po starcie bez cache znacznik synchronizacji jest
+        // jeszcze falszywy, a kolejka ZYJE w sesji - warunkowanie nia gubilo
+        // pozycje spoza pobranej biblioteki.
+        var retainedQueuedItems = session is not null
             ? session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray()
             : [];
         _spotifyItems.Clear();
@@ -17903,7 +17972,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Spotify.CachedCollectionItems = _spotifyItems
             .Select(TidalCachedCollectionItemSettings.FromMediaItem)
             .ToList();
-        _spotifyCatalogSynchronized = true;
         if (session is null) return;
         var replacementItems = _spotifyItems
             .Concat(retainedQueuedItems)
@@ -17925,20 +17993,53 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     /// <summary>
     /// Odtwarza zapamietana biblioteke Spotify przy starcie, zeby sesja nie
-    /// byla pusta przed pierwszym pobraniem w danym uruchomieniu.
+    /// byla pusta przed pierwszym pobraniem w danym uruchomieniu. Doczytuje tez
+    /// ZAPISANA kolejke tej sesji (w tym przeniesiona przez migracje starej
+    /// sesji Librespot) - bez tego kolejka zostawala tylko w pliku, a zywa
+    /// sesja po restarcie byla pusta. Pasujemy WYLACZNIE po identyfikatorze
+    /// wiersza; zadnego odgadywania tozsamosci z tytulu.
     /// </summary>
     private void RestoreSpotifyCachedItems()
     {
-        if (_state.Spotify.CachedCollectionItems.Count == 0) return;
-        var items = _state.Spotify.CachedCollectionItems
+        var persistedQueuedItems = _state.RemoteQueues.ItemsBySession
+            .GetValueOrDefault("spotify")?
+            .Select(item => item.ToMediaItem())
+            .ToArray() ?? [];
+        if (_state.Spotify.CachedCollectionItems.Count == 0 && persistedQueuedItems.Length == 0) return;
+        var cachedItems = _state.Spotify.CachedCollectionItems
             .Select(item => item.ToMediaItem())
             .ToArray();
-        _spotifyItems.Clear();
-        _spotifyItems.AddRange(items);
-        _spotifyCatalogSynchronized = true;
+        if (cachedItems.Length > 0)
+        {
+            _spotifyItems.Clear();
+            _spotifyItems.AddRange(cachedItems);
+        }
         var session = _sessions.FindSession("spotify");
         if (session is null) return;
+        var items = (cachedItems.Length > 0 ? cachedItems : session.Items.ToArray())
+            .Concat(persistedQueuedItems)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
         RestorePersistedQueueMembership(session.Id, items);
+        // Wiersz kolejki o tym samym Id co pozycja katalogu zostaje odrzucony
+        // przez DistinctBy, wiec przynaleznosc do kolejki nakladamy wprost -
+        // ale TYLKO dla wierszy, ktorych nie opisuje zapisana kolejnosc kolejki.
+        // Zapisana kolejnosc jest zrodlem prawdy o ostatniej decyzji uzytkownika;
+        // nadpisywanie jej kopia RemoteQueues przywracalo usuniete pozycje
+        // i stare flagi "odtworz nastepne".
+        var storedOrder = _state.CollectionOrders.QueueItemIdsBySession
+            .GetValueOrDefault(session.Id) ?? [];
+        var describedByStoredOrder = storedOrder.ToHashSet(StringComparer.Ordinal);
+        var queuedById = persistedQueuedItems
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var item in items)
+        {
+            if (describedByStoredOrder.Contains(item.Id)) continue;
+            if (!queuedById.TryGetValue(item.Id, out var queued)) continue;
+            item.IsInQueue = queued.IsInQueue;
+            item.IsPlayNext = queued.IsPlayNext;
+        }
         session.ReplaceItems(items);
         EnsureQueueOrder(session);
         // Pamiec pozycji po restarcie. Bez tego wznowienie po ponownym
@@ -20296,8 +20397,47 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return $"{spokenShortcut}: brak polecenia w tym miejscu. Kontekst: {context}";
     }
 
+    /// <summary>
+    /// JEDNA decyzja o Alt+D dla OBU faktycznych handlerow (pomoc/rozpoznanie
+    /// skrotu i akcja na elemencie). Sesja Spotify tez ma opis podcastu, a
+    /// edycja tekstu i obcy dialog nie moga przechwycic Alt+D.
+    /// </summary>
+    private bool TryResolvePodcastDescriptionShortcut(
+        Key key,
+        ModifierKeys modifiers,
+        bool itemContext,
+        bool textEditingActive,
+        bool dialogActive,
+        out string commandId)
+    {
+        var resolved = MainWindowShortcutRouter.ResolvePodcastDescription(
+            key,
+            modifiers,
+            _sessions.Current.Id,
+            itemContext,
+            textEditingActive,
+            dialogActive);
+        commandId = resolved ?? string.Empty;
+        return resolved is not null;
+    }
+
+    private static bool IsTextEditingFocused() =>
+        Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+            or System.Windows.Controls.PasswordBox;
+
+    private bool IsForeignDialogActive() =>
+        Application.Current?.Windows
+            .OfType<Window>()
+            .Any(window => !ReferenceEquals(window, this) && window.IsActive) == true;
+
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (key == Key.O && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
+        {
+            commandId = CommandIds.ViewSpotifyPodcasts;
+            return true;
+        }
         var transientRadioViewCommand = MainWindowShortcutRouter.ResolveTransientRadioView(
             key,
             modifiers,
@@ -20558,12 +20698,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
 
-        if (modifiers == ModifierKeys.Alt
-            && key == Key.D
-            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-            && (_playerViewActive || MediaList.IsKeyboardFocusWithin))
+        if (TryResolvePodcastDescriptionShortcut(
+                key,
+                modifiers,
+                _playerViewActive || MediaList.IsKeyboardFocusWithin,
+                IsTextEditingFocused(),
+                IsForeignDialogActive(),
+                out var descriptionCommand))
         {
-            commandId = CommandIds.PodcastDescription;
+            commandId = descriptionCommand;
             return true;
         }
 
@@ -20933,6 +21076,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (recordedFilesCommand is not null)
         {
             ExecuteCommand(recordedFilesCommand);
+            return true;
+        }
+        // Ctrl+Alt+O: zapisane podcasty Spotify. Osobny skrot od Ctrl+O (strumienie
+        // WiiM), bo widok jest wlasna sciezka Spotify bez RSS.
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.O)
+        {
+            if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
+                ExecuteCommand(CommandIds.ViewSpotifyPodcasts);
+            else
+                Announce("Podcasty Spotify są dostępne w sesji Spotify");
             return true;
         }
         if (Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5)
@@ -21430,11 +21583,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(podcastFileAction);
             return true;
         }
-        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-            && modifiers == ModifierKeys.Alt
-            && key == Key.D)
+        if (TryResolvePodcastDescriptionShortcut(
+                key,
+                modifiers,
+                itemContext: true,
+                IsTextEditingFocused(),
+                IsForeignDialogActive(),
+                out var descriptionCommand))
         {
-            ExecuteCommand(CommandIds.PodcastDescription);
+            ExecuteCommand(descriptionCommand);
             return true;
         }
         if ((_sessions.Current.Id is "radio" or "wiim")
@@ -22241,6 +22398,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private static bool HasSpotifyRelations(MediaItem? item) =>
         item is not null
         && (CanOpenSpotifyContainer(item)
+            || CreateRelatedSpotifyContainer(item, MediaItemKind.Podcast) is not null
             || TidalNavigationPolicy.CanOpenRelatedAlbum(item)
             || TidalNavigationPolicy.CanOpenRelatedArtist(item));
 
@@ -22271,6 +22429,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
             actions.Add((label, () => _ = OpenSpotifyContainerAsync(item)));
         }
+        if (CreateRelatedSpotifyContainer(item, MediaItemKind.Podcast) is not null)
+            actions.Add(("Przejdź do podcastu", () => ExecuteCommand(CommandIds.GoToPodcast)));
         if (TidalNavigationPolicy.CanOpenRelatedAlbum(item))
             actions.Add(("Przejdź do albumu", () => ExecuteCommand(CommandIds.GoToAlbum)));
         if (TidalNavigationPolicy.CanOpenRelatedArtist(item))
@@ -22928,7 +23088,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CurrentBroadcastInformationMenuItem.Visibility = radioSession || wiiMSession
             ? Visibility.Visible
             : Visibility.Collapsed;
-        GoToPodcastMenuItem.Visibility = FindRelatedPodcast(actionItem) is not null
+        GoToPodcastMenuItem.Visibility = CanGoToRelatedPodcast(actionItem)
             ? Visibility.Visible
             : Visibility.Collapsed;
         var playNextActive = membershipItems.Count > 0
@@ -23423,7 +23583,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerCurrentBroadcastInformationMenuItem.Visibility = radioSession
             ? Visibility.Visible
             : Visibility.Collapsed;
-        PlayerGoToPodcastMenuItem.Visibility = FindRelatedPodcast(item) is not null
+        PlayerGoToPodcastMenuItem.Visibility = CanGoToRelatedPodcast(item)
             ? Visibility.Visible
             : Visibility.Collapsed;
         var podcastEpisode = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
@@ -24318,6 +24478,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ManageTidalConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageTidalConnection);
 
     private void ManageSpotifyConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSpotifyConnection);
+
+    private void SpotifyPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewSpotifyPodcasts);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);

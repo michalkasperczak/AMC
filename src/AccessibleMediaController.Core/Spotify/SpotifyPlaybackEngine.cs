@@ -57,7 +57,14 @@ public sealed class SpotifyPlaybackEngineJsonConverter : JsonConverter<SpotifyPl
     public override SpotifyPlaybackEngine Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
-        JsonSerializerOptions options) => reader.TokenType switch
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+        {
+            reader.Skip();
+            return SpotifyPlaybackEngineRules.Default;
+        }
+        return reader.TokenType switch
         {
             JsonTokenType.String => SpotifyPlaybackEngineRules.Parse(reader.GetString()),
             JsonTokenType.Null => SpotifyPlaybackEngineRules.Default,
@@ -67,6 +74,7 @@ public sealed class SpotifyPlaybackEngineJsonConverter : JsonConverter<SpotifyPl
                     : SpotifyPlaybackEngineRules.Default,
             _ => SpotifyPlaybackEngineRules.Default
         };
+    }
 
     public override void Write(
         Utf8JsonWriter writer,

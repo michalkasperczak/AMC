@@ -7,9 +7,36 @@ namespace AccessibleMediaController.Windows;
 
 public partial class MainWindow
 {
-    private const string SpotifyLibrespotSessionId = "spotifyLibrespot";
+    /// <summary>
+    /// Jedyna sesja Spotify. Host Librespot nie ma wlasnej sesji od czasu
+    /// scalenia: jest jednym z dwoch silnikow TEJ sesji, wiec wszystkie
+    /// zdarzenia i zapisy ida na kanoniczny identyfikator.
+    /// </summary>
+    private const string SpotifySessionId = SpotifyPlaybackSettingsResolver.SessionId;
+
     private readonly SpotifyLibrespotMediaOutput _spotifyLibrespotOutput;
+
+    /// <summary>
+    /// Silnik, ktorym sesja Spotify GRA w tym uruchomieniu. Ustalany raz w
+    /// konstruktorze okna. Zmiana w Ustawieniach zapisuje sie do pliku i dziala
+    /// po restarcie - swiadomie, zeby zapis ustawien nie przerywal odtwarzania.
+    /// </summary>
+    private readonly SpotifyPlaybackEngine _activeSpotifyEngine;
+
     private bool _choosingSpotifyLibrespotDevice;
+
+    /// <summary>Czy sesja Spotify gra przez wbudowany host Librespot.</summary>
+    private bool SpotifyUsesLibrespotEngine =>
+        _activeSpotifyEngine == SpotifyPlaybackEngine.Librespot;
+
+    /// <summary>
+    /// Czy BIEZACA sesja to Spotify grajace przez Librespot. Warunki urzadzen i
+    /// zdarzen musza pytac o SILNIK, nie tylko o identyfikator sesji: po
+    /// scaleniu jeden identyfikator obsluguje oba tory odtwarzania.
+    /// </summary>
+    private bool CurrentSessionIsLibrespotSpotify =>
+        SpotifyUsesLibrespotEngine
+        && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id);
 
     private SpotifyLibrespotMediaOutput CreateSpotifyLibrespotOutput()
     {
@@ -24,47 +51,32 @@ public partial class MainWindow
                 Dispatcher.BeginInvoke(() => { if (!_isClosing) action(); });
             },
             _state.Settings.SpotifyLibrespotDeviceName);
-        output.DurationAvailable += (_, e) => StreamingOutput_DurationAvailable(SpotifyLibrespotSessionId, e);
-        output.PlaybackPreparing += (_, e) => StreamingOutput_PlaybackPreparing(SpotifyLibrespotSessionId, e);
-        output.PlaybackStarted += (_, e) => StreamingOutput_PlaybackStarted(SpotifyLibrespotSessionId, e);
-        output.PlaybackEnded += (_, e) => StreamingOutput_PlaybackEnded(SpotifyLibrespotSessionId, e);
-        output.PlaybackFailed += (_, e) => StreamingOutput_PlaybackFailed(
-            SpotifyLibrespotSessionId, "Spotify — Librespot", output.Position, e);
+        // Zdarzenia hosta trafiaja do KANONICZNEJ sesji Spotify. Adapter zyje
+        // takze wtedy, gdy wybrano SDK (nie startuje procesu), wiec kazde
+        // zdarzenie jest dodatkowo odsiane po aktywnym silniku - sesja nie moze
+        // dostac powiadomienia od toru, ktorym w tym uruchomieniu nie gra.
+        output.DurationAvailable += (_, e) =>
+        {
+            if (SpotifyUsesLibrespotEngine) StreamingOutput_DurationAvailable(SpotifySessionId, e);
+        };
+        output.PlaybackPreparing += (_, e) =>
+        {
+            if (SpotifyUsesLibrespotEngine) StreamingOutput_PlaybackPreparing(SpotifySessionId, e);
+        };
+        output.PlaybackStarted += (_, e) =>
+        {
+            if (SpotifyUsesLibrespotEngine) StreamingOutput_PlaybackStarted(SpotifySessionId, e);
+        };
+        output.PlaybackEnded += (_, e) =>
+        {
+            if (SpotifyUsesLibrespotEngine) StreamingOutput_PlaybackEnded(SpotifySessionId, e);
+        };
+        output.PlaybackFailed += (_, e) =>
+        {
+            if (SpotifyUsesLibrespotEngine)
+                StreamingOutput_PlaybackFailed(SpotifySessionId, "Spotify", output.Position, e);
+        };
         return output;
-    }
-
-    private void PopulateSpotifyLibrespotCatalog(bool restoreQueue = false)
-    {
-        var session = _sessions.FindSession(SpotifyLibrespotSessionId);
-        if (session is null) return;
-        var catalogue = _spotifyItems.Select(item =>
-            SpotifySessionItemCopies.ForSession(item, SpotifyLibrespotSessionId)).ToArray();
-        var byIdentity = catalogue.Where(item => !string.IsNullOrWhiteSpace(item.ExternalId))
-            .GroupBy(item => (item.Kind, item.ExternalId))
-            .ToDictionary(group => group.Key, group => group.First());
-        foreach (var registered in session.Items)
-        {
-            if (byIdentity.TryGetValue((registered.Kind, registered.ExternalId), out var current))
-            {
-                registered.IsFavorite = current.IsFavorite;
-                registered.IsInLibrary = current.IsInLibrary;
-            }
-            else
-            {
-                registered.IsFavorite = false;
-                registered.IsInLibrary = false;
-            }
-        }
-        session.AddItemsById(catalogue);
-        if (restoreQueue)
-        {
-            var saved = _state.RemoteQueues.ItemsBySession.GetValueOrDefault(SpotifyLibrespotSessionId)?
-                .Select(item => item.ToMediaItem()).ToArray() ?? [];
-            session.AddItemsById(saved);
-            RestorePersistedQueueMembership(SpotifyLibrespotSessionId, session.Items);
-            EnsureQueueOrder(session);
-        }
-        RestoreSpotifyRememberedPositions();
     }
 
     private async Task ChooseSpotifyLibrespotDeviceAsync()

@@ -31,6 +31,16 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - `Windows/MainWindow.xaml.cs`: wspólny próg live i komunikat `NormalTempoResumed`; `SettingsWindow.xaml`: rzeczywiste skróty TimeShift.
 - Testy: `PlaybackRateStateTests`, `TimeshiftRateHelpTests`, `TimeshiftTempoAudioTests`, `TimeshiftRateIntegrationTests` i `TimeshiftTempoLifetimeTests`. Ostatnie mierzą blokady oraz długie okno po rozgrzewce; testy integracyjne używają rzeczywistego bufora radia.
 
+## Uzupełnienie robocze: jedna sesja Spotify i podcasty
+
+- `Core/Spotify/SpotifySessionMigration.cs`: wersjonowane scalenie danych i identyfikatorów; `SpotifyPlaybackEngine.cs`: wybór Librespot/SDK i konwerter JSON. `ConfigurationStore.IsPersistedAudioSession` zachowuje stare klucze wyjścia i wyciszenia do tej migracji. `MainWindow.RestoreSpotifyCachedItems` odtwarza także zapisaną kolejkę, nie tylko katalog.
+- `Core/Sessions/SessionManager.cs`: jedna sesja `spotify`, wybór rzeczywistego wyjścia, zachowanie numerów i ruch przez luki. `SessionSelectionWindow.xaml.cs`: numery wierszy pobrane ze słownika sesji.
+- `Windows/SettingsWindow.xaml(.cs)`: wybór odtwarzacza Spotify obowiązujący po restarcie.
+- `Windows/MainWindow.SpotifyPodcasts.cs`: widok zapisanych podcastów i tekst opisu; `MainWindow.xaml.cs`: Ctrl+Alt+O, Alt+D, powrót od odcinka przez kontener Podcast i polecenie GoToPodcast.
+- `Windows/MainWindowShortcutRouter.cs`: wspólna decyzja Alt+D; `Core/Presentation/CommandPaletteSearch.cs`: skróty widoczne w pomocy i palecie.
+- Testy: `SpotifySingleSessionEngineTests`, `SessionSlotGapsAndEngineTests`, `SpotifyStartupEngineTests`, `SpotifyDescriptionAndSlotUiTests`, `SpotifyPodcastParentTests`, `SpotifyMigrationReviewTests` oraz `SpotifyEngineSettingsTests`.
+- Stan odbioru, w tym otwarta kontrola przywracania kolejki: `PLAN-16-09-2026.md`. Ta sekcja opisuje kod roboczy, nie opublikowane wydanie.
+
 ## 1. Rozmiar i podział
 
 Dwa projekty C# plus dodatek NVDA w Pythonie.

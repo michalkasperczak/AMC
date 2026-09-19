@@ -66,6 +66,16 @@ if (args.Contains("--timeshift-rate-integration", StringComparer.Ordinal))
 {
     TimeshiftRateIntegrationTests.Run(); return 0;
 }
+if (args.Contains("--spotify-description-slots", StringComparer.Ordinal))
+{
+    try { SpotifyDescriptionAndSlotUiTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--spotify-podcast-parent", StringComparer.Ordinal))
+{
+    try { SpotifyPodcastParentTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-podcasts", StringComparer.Ordinal))
 {
     try { SpotifyPodcastsTests.Run(); return 0; }
@@ -122,9 +132,14 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--spotify-queue-lifecycle", StringComparer.Ordinal))
+{
+    try { SpotifyQueueLifecycleTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
 {
-    try { SpotifyNativeStartupTests.Run(); return 0; }
+    try { SpotifyStartupEngineTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
 if (args.Contains("--spotify-native-collection", StringComparer.Ordinal))
@@ -298,9 +313,12 @@ var tests = new (string Name, Action Test)[]
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Albumy wykonawcy Spotify w granicach limitu endpointu", SpotifyArtistAlbumPagingTests.Run),
     ("Podcasty Spotify: zapisane podcasty, odcinki i oba silniki", SpotifyPodcastsTests.Run),
+    ("Odcinek Spotify prowadzi do podcastu zamiast albumu", SpotifyPodcastParentTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
-    ("Wspólna kolekcja i oddzielne kolejki Spotify SDK/Librespot", SpotifyNativeCollectionTests.Run),
-    ("Dwie sesje Spotify w rzeczywistym oknie głównym", SpotifyNativeStartupTests.Run),
+    ("Jedna kolekcja i kolejka Spotify dla obu silników", SpotifyNativeCollectionTests.Run),
+    ("Jedna sesja Spotify i silnik z zapisu w rzeczywistym oknie", SpotifyStartupEngineTests.Run),
+    ("Cykl zycia kolejki Spotify: zmiana, zapis, restart, pierwsza synchronizacja", SpotifyQueueLifecycleTests.Run),
+    ("Alt+D w obu handlerach i numery sesji z dziurami w UI", SpotifyDescriptionAndSlotUiTests.Run),
     ("F11 otwiera aktualizacje z głównego okna", ApplicationUpdateRoutingTests.Run),
     ("Dostępne okno aktualizacji AMC", ApplicationUpdateWindowTests.Run),
     ("Sprawdzona paczka i cykl instalatora AMC", ApplicationUpdateManagerTests.Run),
@@ -7078,15 +7096,21 @@ static void TestSpotifyObslugaListyJakTidal()
             throw new Exception($"Przejscie do {opis} w Spotify nie otwiera zawartosci.");
     }
 
-    // Powiazany element MUSI miec przedrostek "spotify:", inaczej sesja nie
-    // rozpozna wlasnej pozycji i Enter na utworze nie mialby czego odtworzyc.
-    var fabryka = glowne.IndexOf("CreateRelatedSpotifyContainer(MediaItem? item", StringComparison.Ordinal);
-    if (fabryka < 0)
-        throw new Exception("Brak CreateRelatedSpotifyContainer w oknie glownym.");
-    if (!glowne.AsSpan(fabryka, Math.Min(1200, glowne.Length - fabryka))
-            .Contains("$\"spotify:{externalId}\"", StringComparison.Ordinal))
+    // Mierz wynik fabryki zamiast szukac napisu w arbitralnym oknie znakow.
+    var fabryka = typeof(MainWindow).GetMethod("CreateRelatedSpotifyContainer",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+        ?? throw new Exception("Brak CreateRelatedSpotifyContainer w oknie glownym.");
+    var pozycja = new MediaItem
     {
-        throw new Exception("Powiazany element Spotify nie ma przedrostka spotify: w identyfikatorze.");
+        Kind = MediaItemKind.Track, RelatedAlbumExternalId = "probe-album",
+        RelatedArtistExternalId = "probe-artist", RelatedAlbumTitle = "Album probny",
+        RelatedArtistName = "Wykonawca probny"
+    };
+    foreach (var rodzaj in new[] { MediaItemKind.Album, MediaItemKind.Artist })
+    {
+        var powiazany = fabryka.Invoke(null, new object[] { pozycja, rodzaj }) as MediaItem;
+        if (powiazany?.Kind != rodzaj || !powiazany.Id.StartsWith("spotify:", StringComparison.Ordinal))
+            throw new Exception("Fabryka nie utworzyla powiazania Spotify w zadanym rodzaju.");
     }
 
     // Dane powiazan musza faktycznie przychodzic z Spotify, inaczej przejscia

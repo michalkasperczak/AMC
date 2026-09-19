@@ -705,10 +705,12 @@ public partial class SearchWindow : Window
         SearchCopyLocationMenuItem.InputGestureText = "Ctrl+Shift+C";
         AutomationProperties.SetAcceleratorKey(SearchCopyLocationMenuItem, "Ctrl+Shift+C");
         SearchGoToPodcastMenuItem.Visibility = selected.Length == 1
-            && string.Equals(selected[0].SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
             && selected[0].Item.Kind == MediaItemKind.Episode
-            && !youtubeOnly
-            && !string.IsNullOrWhiteSpace(selected[0].Item.ExternalId)
+            && ((AccessibleMediaController.Core.Spotify.SpotifyPlaybackSettingsResolver.IsSpotifySession(selected[0].SessionId)
+                    && !string.IsNullOrWhiteSpace(selected[0].Item.RelatedAlbumExternalId))
+                || (string.Equals(selected[0].SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+                    && !youtubeOnly
+                    && !string.IsNullOrWhiteSpace(selected[0].Item.ExternalId)))
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }

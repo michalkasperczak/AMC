@@ -61,12 +61,12 @@ internal static class SpotifySessionUnificationTests
         Check(queue.Any(item => item.ExternalId == "tylko-sdk"),
             "Utwor z kolejki SDK zaginal przy scalaniu.");
 
-        // Identyfikator kopii Librespot dopasowany do kanonicznej sesji.
+        // Identyfikator kopii Librespot wraca do oryginalu, bez nowego prefiksu.
         var przeniesiony = queue.Single(item => item.ExternalId == "tylko-librespot");
         Check(!przeniesiony.Id.StartsWith("spotifyLibrespot:", StringComparison.Ordinal),
             "Przeniesiony wiersz nadal ma identyfikator starej sesji.");
-        Check(przeniesiony.Id.StartsWith("spotify:", StringComparison.Ordinal),
-            "Przeniesiony wiersz nie dostal kanonicznego identyfikatora Spotify.");
+        Check(przeniesiony.Id == "tylko-librespot",
+            "Przeniesiony wiersz nie odzyskal identyfikatora oryginalu.");
 
         // Pozycja obecna tylko w Librespot przechodzi zawsze (regula c).
         var tylkoLibrespot = new MediaItem { Source = "spotify:track:tylko-librespot" };
@@ -99,7 +99,7 @@ internal static class SpotifySessionUnificationTests
             "Konflikt sortowania nie zostal opisany w archiwum.");
 
         var queueOrder = state.CollectionOrders.QueueItemIdsBySession["spotify"];
-        Check(queueOrder.Count == 3 && queueOrder[0] == "spotify:tylko-sdk",
+        Check(queueOrder.Count == 3 && queueOrder[0] == "tylko-sdk",
             "Scalenie kolejnosci listy przestawilo wiersze sesji kanonicznej.");
         Check(queueOrder.All(id => !id.StartsWith("spotifyLibrespot:", StringComparison.Ordinal)),
             "Kolejnosc listy nadal wskazuje identyfikatory starej sesji.");
@@ -272,7 +272,7 @@ internal static class SpotifySessionUnificationTests
 
             var result = SpotifySessionMigration.Apply(state);
             Check(result.Applied, "Migracja pominela stary plik bez nowego pola.");
-            Check(state.RemoteQueues.ItemsBySession["spotify"].Single().Id == "spotify:stary",
+            Check(state.RemoteQueues.ItemsBySession["spotify"].Single().Id == "stary",
                 "Wiersz kolejki ze starego pliku nie dostal kanonicznego identyfikatora.");
             Check(SpotifyPlaybackSettingsResolver.ResolvePosition(
                     state.Settings, new MediaItem { Source = "spotify:track:stary" }, "spotify").Ticks == 230000000,
@@ -464,20 +464,26 @@ internal static class SpotifySessionUnificationTests
         state.Spotify.ClientId = "probny-identyfikator-aplikacji";
         state.Spotify.AccountDisplayName = "Konto probne";
         state.Spotify.CachedCollectionItems.Add(new TidalCachedCollectionItemSettings
-        { Id = "cache-1", ExternalId = "wspolny", Title = "Utwor probny", Source = "spotify:track:wspolny" });
+        { Id = "wspolny", ExternalId = "wspolny", Title = "Utwor probny", Source = "spotify:track:wspolny" });
         state.Tidal.ClientId = "probny-tidal";
         state.Tidal.CachedCollectionItems.Add(new TidalCachedCollectionItemSettings { Id = "tidal-cache-1", Title = "Inny serwis" });
 
         // Obie kolejki: jeden utwor wspolny, po jednym wlasnym.
         state.RemoteQueues.ItemsBySession["spotify"] =
         [
-            new RemoteQueueItemSettings { Id = "spotify:tylko-sdk", ExternalId = "tylko-sdk", Title = "Tylko SDK", PublicUri = "spotify:track:tylko-sdk", IsInQueue = true },
-            new RemoteQueueItemSettings { Id = "spotify:wspolny", ExternalId = "wspolny", Title = "Wspolny", PublicUri = "spotify:track:wspolny", IsInQueue = true }
+            new RemoteQueueItemSettings { Id = "tylko-sdk", ExternalId = "tylko-sdk", Title = "Tylko SDK", PublicUri = "spotify:track:tylko-sdk", IsInQueue = true },
+            new RemoteQueueItemSettings { Id = "wspolny", ExternalId = "wspolny", Title = "Wspolny", PublicUri = "spotify:track:wspolny", IsInQueue = true }
         ];
+        var legacyCommon = SpotifySessionItemCopies.ForSession(
+            state.RemoteQueues.ItemsBySession["spotify"][1].ToMediaItem(), "spotifyLibrespot");
+        legacyCommon.IsInQueue = legacyCommon.IsPlayNext = true;
+        var legacyOwn = SpotifySessionItemCopies.ForSession(new MediaItem
+        { Id = "tylko-librespot", ExternalId = "tylko-librespot", Title = "Tylko Librespot", PublicUri = "spotify:track:tylko-librespot" }, "spotifyLibrespot");
+        legacyOwn.IsInQueue = true;
         state.RemoteQueues.ItemsBySession["spotifyLibrespot"] =
         [
-            new RemoteQueueItemSettings { Id = "spotifyLibrespot:wspolny", ExternalId = "wspolny", Title = "Wspolny", PublicUri = "spotify:track:wspolny", IsInQueue = true, IsPlayNext = true },
-            new RemoteQueueItemSettings { Id = "spotifyLibrespot:tylko-librespot", ExternalId = "tylko-librespot", Title = "Tylko Librespot", PublicUri = "spotify:track:tylko-librespot", IsInQueue = true }
+            RemoteQueueItemSettings.FromMediaItem("spotifyLibrespot", legacyCommon),
+            RemoteQueueItemSettings.FromMediaItem("spotifyLibrespot", legacyOwn)
         ];
         state.RemoteQueues.ItemsBySession["radio"] =
         [
@@ -489,7 +495,7 @@ internal static class SpotifySessionUnificationTests
         {
             CurrentView = "Biblioteka",
             CollectionSortModes = { ["Biblioteka"] = CollectionSortMode.Alphabetical },
-            SelectedItemIds = { ["Biblioteka"] = "spotify:tylko-sdk" }
+            SelectedItemIds = { ["Biblioteka"] = "tylko-sdk" }
         };
         state.SessionNavigation.Sessions["spotifyLibrespot"] = new SessionNavigationState
         {
@@ -500,7 +506,7 @@ internal static class SpotifySessionUnificationTests
         };
         state.SessionNavigation.Sessions["tidal"] = new SessionNavigationState { CurrentView = "Biblioteka" };
 
-        state.CollectionOrders.QueueItemIdsBySession["spotify"] = ["spotify:tylko-sdk", "spotify:wspolny"];
+        state.CollectionOrders.QueueItemIdsBySession["spotify"] = ["tylko-sdk", "wspolny"];
         state.CollectionOrders.QueueItemIdsBySession["spotifyLibrespot"] =
             ["spotifyLibrespot:wspolny", "spotifyLibrespot:tylko-librespot"];
         state.CollectionOrders.LibraryItemIdsBySession["spotifyLibrespot"] = ["spotifyLibrespot:tylko-librespot"];
@@ -510,7 +516,7 @@ internal static class SpotifySessionUnificationTests
 
         state.SessionPresets.EntriesBySession["spotify"] =
         [
-            new SessionPresetEntry { Slot = 1, TargetId = "spotify:tylko-sdk", TargetTitle = "Preset SDK" }
+            new SessionPresetEntry { Slot = 1, TargetId = "tylko-sdk", TargetTitle = "Preset SDK" }
         ];
         state.SessionPresets.EntriesBySession["spotifyLibrespot"] =
         [

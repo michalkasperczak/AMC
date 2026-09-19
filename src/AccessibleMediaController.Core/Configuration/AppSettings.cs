@@ -338,26 +338,36 @@ public static class SessionSlotOrder
 
     public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
     {
-        var orderedIds = (slots ?? new Dictionary<int, string>())
-            .Where(pair => pair.Key is >= 1 and <= 9 && !string.IsNullOrWhiteSpace(pair.Value))
-            .OrderBy(pair => pair.Key)
-            .Select(pair => pair.Value.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(9)
-            .ToList();
-
-        foreach (var session in KnownSessions)
+        // Numery slotow to skroty Alt+cyfra, ktore uzytkownik zna na pamiec.
+        // ZACHOWUJEMY wlasny numer kazdego zapisanego wpisu - nie wolno ich
+        // przenumerowac "po kolei". Gdyby scalenie sesji Spotify zwolnilo numer
+        // ze srodka (stara sesja Librespot), zageszczanie przesunelo by WSZYSTKIE
+        // dalsze sesje i zmienilo znaczenie klawiszy, ktorych nikt nie zmienial.
+        var zajete = new Dictionary<int, string>();
+        var znaneId = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in (slots ?? new Dictionary<int, string>())
+                 .Where(pair => pair.Key is >= 1 and <= 9 && !string.IsNullOrWhiteSpace(pair.Value))
+                 .OrderBy(pair => pair.Key))
         {
-            if (orderedIds.Count >= 9) break;
-            if (!orderedIds.Contains(session.Id, StringComparer.OrdinalIgnoreCase))
-            {
-                orderedIds.Add(session.Id);
-            }
+            var sessionId = pair.Value.Trim();
+            // Ten sam identyfikator dwa razy: zostaje przy NIZSZYM numerze.
+            if (!znaneId.Add(sessionId)) continue;
+            zajete[pair.Key] = sessionId;
         }
 
-        return orderedIds
-            .Select((sessionId, index) => (Slot: index + 1, SessionId: sessionId))
-            .ToDictionary(entry => entry.Slot, entry => entry.SessionId);
+        // Sesje, ktore nigdzie nie maja numeru, dostaja pierwszy wolny.
+        foreach (var session in KnownSessions)
+        {
+            if (znaneId.Contains(session.Id)) continue;
+            var wolny = Enumerable.Range(1, 9).FirstOrDefault(slot => !zajete.ContainsKey(slot));
+            if (wolny == 0) break;
+            zajete[wolny] = session.Id;
+            znaneId.Add(session.Id);
+        }
+
+        return zajete
+            .OrderBy(pair => pair.Key)
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
     public static string GetDisplayName(string sessionId) =>

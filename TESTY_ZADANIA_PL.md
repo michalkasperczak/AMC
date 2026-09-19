@@ -1,7 +1,7 @@
 # Zadania testowe AMC
 
 - Numer zestawu: `AMC-TEST-396`
-- Tytuł zestawu: Rzeczywista regulacja tempa TimeShift
+- Tytuł zestawu: Jedna sesja Spotify, podcasty i rzeczywiste tempo TimeShift
 - Wersja programu: `0.1.0-alpha.396`
 - Bieżące scenariusze: `TESTY_0.1.0-alpha.396_PL.md`
 
