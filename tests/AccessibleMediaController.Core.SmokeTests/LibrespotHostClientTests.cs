@@ -674,18 +674,31 @@ internal static class LibrespotHostClientTests
             });
         try
         {
-            client.StartAsync().GetAwaiter().GetResult();
+            // Subskrypcja MUSI byc przed StartAsync. Atrapa wysyla gotowosc i
+            // zaraz po niej 200 000 znakow bez konca wiersza, wiec petla czytania
+            // moze zglosic awarie jeszcze w trakcie StartAsync. Podlaczenie
+            // zdarzenia po starcie gubilo to zgloszenie i test czekal do limitu -
+            // padal na maszynie obciazonej calym zestawem, a przechodzil solo.
             using var failed = new ManualResetEventSlim(false);
             string? code = null;
             client.HostFailed += (_, e) =>
             {
-                code = e.Code;
+                code ??= e.Code;
                 failed.Set();
             };
+
+            // Awaria zbyt dlugiej linii przerywa tez oczekiwanie na gotowosc,
+            // wiec start moze sie nie udac wlasnie tym bledem - to nie porazka.
+            var startError = Throws(() => client.StartAsync().GetAwaiter().GetResult());
+            if (startError is not null)
+                Check(startError.Code == LibrespotHostErrorCodes.LineTooLong,
+                    $"Start mógł się nie udać tylko zbyt długą linią; otrzymano: {startError.Code}");
+
+            Thread.Sleep(750); // Pokrywa okno wyscigu: zdarzenie nie moze zginac.
             Check(failed.Wait(TimeSpan.FromSeconds(15)),
                 "Zbyt długa linia musi zgłosić awarię, a nie rosnąć w pamięci");
             Check(code == LibrespotHostErrorCodes.LineTooLong,
-                "Awaria musi mieć kod zbyt długiej linii");
+                $"Awaria musi mieć kod zbyt długiej linii; otrzymano: {code ?? "brak"}");
         }
         finally
         {
