@@ -99,6 +99,30 @@ public sealed class AppSettings
     public SpotifyPlaybackSettings SpotifyPlayback { get; set; } = new();
     public SpotifyPlaybackSettings SpotifyLibrespotPlayback { get; set; } = new();
     public string? SpotifyLibrespotDeviceName { get; set; }
+
+    /// <summary>
+    /// Silnik odtwarzania JEDNEJ sesji Spotify. Domyslnie Librespot, bo to on
+    /// gra cale utwory. Nieznana albo uszkodzona wartosc w pliku ustawien NIE
+    /// przerywa odczytu konfiguracji - wraca Librespot
+    /// (<see cref="Spotify.SpotifyPlaybackEngineJsonConverter"/>).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(Spotify.SpotifyPlaybackEngineJsonConverter))]
+    public Spotify.SpotifyPlaybackEngine SpotifyEngine { get; set; } =
+        Spotify.SpotifyPlaybackEngine.Librespot;
+
+    /// <summary>
+    /// Znacznik wersji scalenia dwoch sesji Spotify w jedna. Zero oznacza plik
+    /// sprzed scalenia. Wartosc pilnuje, by migracja wykonala sie DOKLADNIE raz:
+    /// powtorne zlozenie kolejek albo prefsow zdublowalo by wpisy uzytkownika.
+    /// </summary>
+    public int SpotifySessionUnificationVersion { get; set; }
+
+    /// <summary>
+    /// Archiwum danych starej, osobnej sesji Librespot. Migracja jest
+    /// NIEUSUWAJACA: zrodlowe kolejki, pozycje i listy zostaja tutaj w calosci,
+    /// nawet gdy scalenie odrzucilo je jako konfliktowe.
+    /// </summary>
+    public SpotifyLegacySessionArchive? SpotifyLegacySession { get; set; }
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
@@ -629,6 +653,50 @@ public sealed class SpotifyItemPlaybackSettings
     /// trafial w to samo miejsce, w ktorym uzytkownik przerwal.
     /// </summary>
     public long PositionTicks { get; set; }
+}
+
+/// <summary>
+/// Pelny zapis danych starej, osobnej sesji Librespot ("spotifyLibrespot")
+/// zachowany PRZED scaleniem. Migracja nie usuwa niczego: wszystko, czego nie
+/// dalo sie bezkonfliktowo wniesc do kanonicznej sesji "spotify", zostaje tutaj
+/// i nadal daje sie odczytac. To jest archiwum, nie zrodlo dla odtwarzacza.
+/// </summary>
+public sealed class SpotifyLegacySessionArchive
+{
+    /// <summary>Identyfikator sesji, z ktorej pochodza dane ("spotifyLibrespot").</summary>
+    public string SessionId { get; set; } = string.Empty;
+
+    /// <summary>Numer slotu, ktory sesja zajmowala przed scaleniem, albo zero.</summary>
+    public int Slot { get; set; }
+
+    public long ArchivedUtcTicks { get; set; }
+
+    /// <summary>Czy stara sesja Librespot byla ostatnio uzywana. To ona wygrywa prefsy.</summary>
+    public bool WasLastSession { get; set; }
+
+    public SpotifyPlaybackSettings Playback { get; set; } = new();
+    public ResumePositionMode SessionResumePositionMode { get; set; } = ResumePositionMode.Inherit;
+    public bool? Muted { get; set; }
+    public string? OutputDeviceId { get; set; }
+    public SessionPlaybackAudioOverrides? AudioOverrides { get; set; }
+    public string? DeviceName { get; set; }
+
+    public List<RemoteQueueItemSettings> RemoteQueue { get; set; } = [];
+    public SessionNavigationState? Navigation { get; set; }
+    public Dictionary<string, List<string>> CollectionOrders { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public List<string> PlaybackHistoryItemIds { get; set; } = [];
+    public List<string> SearchHistory { get; set; } = [];
+    public List<SessionPresetEntry> Presets { get; set; } = [];
+    public List<PlaylistEntry> Playlists { get; set; } = [];
+    public List<BookmarkEntry> Bookmarks { get; set; } = [];
+    public List<PlaybackVolumeMemoryEntry> Volumes { get; set; } = [];
+
+    /// <summary>
+    /// Czytelny zapis tego, co scalenie odrzucilo z powodu konfliktu. Sluzy do
+    /// odpowiedzi na pytanie "gdzie sie podziala moja pozycja", bez zagadywania.
+    /// </summary>
+    public List<string> ConflictNotes { get; set; } = [];
 }
 
 public sealed class TidalCachedCollectionItemSettings
