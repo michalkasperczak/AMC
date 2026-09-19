@@ -12,6 +12,17 @@ internal sealed record SpotifyCollectionResult(
     IReadOnlyList<string> Warnings,
     IReadOnlyList<MediaItemKind> UpdatedKinds);
 
+/// <summary>
+/// Zapisane podcasty i zapisane odcinki. Trzymamy je OSOBNO, bo to dwie rozne
+/// rzeczy: podcast jest kontenerem (wchodzi sie do niego po odcinki), a odcinek
+/// jest nagraniem (odtwarza sie go). Wrzucenie ich do jednej listy kazaloby
+/// widokowi zgadywac, co jest czym.
+/// </summary>
+internal sealed record SpotifyPodcastLibrary(
+    IReadOnlyList<MediaItem> Shows,
+    IReadOnlyList<MediaItem> Episodes,
+    IReadOnlyList<string> Warnings);
+
 internal sealed class SpotifyApiException(string message, HttpStatusCode statusCode)
     : Exception(message)
 {
@@ -53,6 +64,19 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
 
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
+
+    private readonly Dictionary<string, string> podcastDescriptions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Opisy podcastow i odcinkow zebrane przy ostatnim odczycie, po adresie
+    /// "spotify:show:..." albo "spotify:episode:...".
+    ///
+    /// Opis NIE jedzie w <see cref="MediaItem"/>: model jest zapisywany do
+    /// ustawien i czytany przez czytnik ekranu, a opis odcinka ma czesto
+    /// kilka tysiecy znakow z HTML-em. Wiersz listy czytalby sie wtedy minute.
+    /// Widok bierze go stad tylko na zadanie (Alt+D).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> PodcastDescriptions => podcastDescriptions;
 
     /// <summary>
     /// Pobiera bibliotekę. Częściowa awaria NIE przerywa całości: gdy padnie
@@ -142,6 +166,95 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     }
 
     /// <summary>
+    /// Zapisane podcasty i zapisane odcinki użytkownika, do widoku podcastów.
+    /// Zwraca null tylko wtedy, gdy Spotify odmówił dostępu do OBU kolekcji -
+    /// wtedy nie ma czego pokazać. Padnięcie jednej z nich zostaje
+    /// ostrzeżeniem, bo druga jest dla użytkownika użyteczna.
+    /// </summary>
+    public async Task<SpotifyPodcastLibrary?> GetSavedPodcastsAsync(
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var warnings = new List<string>();
+        var shows = await ZbierzStronamiAsync(
+            accessToken,
+            $"{ApiRoot}/me/shows?limit={PageSize}",
+            ReadSavedShow,
+            "Zapisane podcasty",
+            warnings,
+            cancellationToken).ConfigureAwait(false);
+        var episodes = await ZbierzStronamiAsync(
+            accessToken,
+            $"{ApiRoot}/me/episodes?limit={PageSize}",
+            ReadSavedEpisode,
+            "Zapisane odcinki",
+            warnings,
+            cancellationToken).ConfigureAwait(false);
+
+        if (shows is null && episodes is null) return null;
+        return new SpotifyPodcastLibrary(
+            shows ?? [],
+            episodes ?? [],
+            warnings);
+    }
+
+    /// <summary>
+    /// Stronicowanie po adresie "next" z odpowiedzi. Nie składamy offsetów sami:
+    /// Spotify zmieniał rozmiary stron, a własna arytmetyka gubiła albo dublowała
+    /// pozycje na granicy strony.
+    /// </summary>
+    private async Task<List<MediaItem>?> ZbierzStronamiAsync(
+        string accessToken,
+        string firstUrl,
+        Func<JsonElement, MediaItem?> reader,
+        string opis,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<MediaItem>();
+        var next = firstUrl;
+        var pages = 0;
+        try
+        {
+            while (!string.IsNullOrEmpty(next) && pages++ < MaxPages)
+            {
+                using var document = await GetJsonAsync(accessToken, next, cancellationToken)
+                    .ConfigureAwait(false);
+                var root = document.RootElement;
+                if (root.TryGetProperty("items", out var array) && array.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var entry in array.EnumerateArray())
+                    {
+                        var item = reader(entry);
+                        if (item is not null) items.Add(item);
+                    }
+                }
+                next = root.TryGetProperty("next", out var nextElement)
+                    && nextElement.ValueKind == JsonValueKind.String
+                        ? nextElement.GetString()
+                        : null;
+            }
+            return items;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            if (items.Count > 0)
+            {
+                warnings.Add($"{opis}: {SkrocBlad(exception)} Pobrano {items.Count} pozycji.");
+                return items;
+            }
+            warnings.Add($"{opis}: {SkrocBlad(exception)}");
+            return null;
+        }
+    }
+
+    private void ZapiszOpis(string uri, string? opis)
+    {
+        if (string.IsNullOrWhiteSpace(opis)) return;
+        podcastDescriptions[uri] = opis.Trim();
+    }
+
+    /// <summary>
     /// Utwory z playlisty. Zwraca null, gdy Spotify odmawia dostępu do
     /// zawartości - to normalne dla playlist redakcyjnych Spotify i playlist
     /// innych osób, więc wywołujący ma o tym powiedzieć spokojnie, nie jako
@@ -202,6 +315,10 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
                 $"{ApiRoot}/shows/{Uri.EscapeDataString(showId)}",
                 cancellationToken).ConfigureAwait(false);
             nazwaPodcastu = Tekst(header.RootElement, "name");
+            // Opis samego podcastu: użytkownik otwiera odcinki, żeby zobaczyć
+            // "co to za podcast", a nagłówek jest jedynym miejscem, gdzie
+            // Spotify go podaje przy tym endpoincie.
+            ZapiszOpis($"spotify:show:{showId}", Tekst(header.RootElement, "description"));
         }
         catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
             || exception.StatusCode == HttpStatusCode.Forbidden)
@@ -237,6 +354,14 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
                         // nazwy przy każdym wierszu, więc dopisujemy ją z nagłówka.
                         if (string.IsNullOrWhiteSpace(item.Artist) && !string.IsNullOrWhiteSpace(nazwaPodcastu))
                             item.Artist = nazwaPodcastu;
+                        // Rodzic odcinka: przy tym endpoincie Spotify go nie
+                        // powtarza, a bez niego "przejdź do podcastu" i ustawienie
+                        // pojemnika nie działają na odcinku otwartym z podcastu.
+                        if (string.IsNullOrWhiteSpace(item.RelatedAlbumExternalId))
+                        {
+                            item.RelatedAlbumExternalId = showId;
+                            item.RelatedAlbumTitle = nazwaPodcastu;
+                        }
                         items.Add(item);
                     }
                 }
@@ -634,7 +759,7 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     /// Zapisany podcast. Podcast jest kontenerem - nie odtwarza się sam,
     /// wchodzi się do niego strzałką w prawo po listę odcinków.
     /// </summary>
-    private static MediaItem? ReadSavedShow(JsonElement entry)
+    private MediaItem? ReadSavedShow(JsonElement entry)
     {
         if (!entry.TryGetProperty("show", out var show) || show.ValueKind != JsonValueKind.Object) return null;
         var id = Tekst(show, "id");
@@ -652,6 +777,7 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             PublicUri = $"https://open.spotify.com/show/{id}",
             IsInLibrary = true
         };
+        ZapiszOpis($"spotify:show:{id}", Tekst(show, "description"));
         if (entry.TryGetProperty("added_at", out var added)
             && added.ValueKind == JsonValueKind.String
             && DateTimeOffset.TryParse(added.GetString(), out var kiedy))
@@ -664,7 +790,7 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     /// <summary>
     /// Zapisany odcinek podcastu - to już się odtwarza.
     /// </summary>
-    private static MediaItem? ReadSavedEpisode(JsonElement entry)
+    private MediaItem? ReadSavedEpisode(JsonElement entry)
     {
         var odcinek = entry.TryGetProperty("episode", out var e) && e.ValueKind == JsonValueKind.Object
             ? e
@@ -681,15 +807,14 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
         return item;
     }
 
-    private static MediaItem? ReadEpisode(JsonElement odcinek)
+    private MediaItem? ReadEpisode(JsonElement odcinek)
     {
         var id = Tekst(odcinek, "id");
         var nazwa = Tekst(odcinek, "name");
         if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(nazwa)) return null;
 
-        var wydawca = odcinek.TryGetProperty("show", out var show) && show.ValueKind == JsonValueKind.Object
-            ? Tekst(show, "name")
-            : null;
+        var maPodcast = odcinek.TryGetProperty("show", out var show) && show.ValueKind == JsonValueKind.Object;
+        var wydawca = maPodcast ? Tekst(show, "name") : null;
 
         var item = new MediaItem
         {
@@ -700,6 +825,19 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             PublicUri = $"https://open.spotify.com/episode/{id}",
             Source = $"spotify:episode:{id}"
         };
+        // PODCAST NADRZEDNY. Bez niego "przejdź do podcastu" na zapisanym
+        // odcinku jest martwe, a ustawienie zrobione na podcaście nie obejmuje
+        // jego odcinków, bo klucz pojemnika bierze się właśnie z tego pola.
+        if (maPodcast)
+        {
+            var idPodcastu = Tekst(show, "id");
+            if (!string.IsNullOrWhiteSpace(idPodcastu))
+            {
+                item.RelatedAlbumExternalId = idPodcastu;
+                item.RelatedAlbumTitle = wydawca;
+            }
+        }
+        ZapiszOpis($"spotify:episode:{id}", Tekst(odcinek, "description"));
         if (odcinek.TryGetProperty("duration_ms", out var ms) && ms.TryGetInt64(out var msWartosc))
             item.Duration = TimeSpan.FromMilliseconds(msWartosc);
         // Odcinek wycofany z regionu zostaje na liście - użytkownik pamięta,

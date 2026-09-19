@@ -167,15 +167,15 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     {
         ArgumentNullException.ThrowIfNull(item);
         var uri = SpotifyMediaOutput.PlaybackTrackUri(item);
-        if (item.Kind is not MediaItemKind.Track || string.IsNullOrWhiteSpace(uri))
+        // Ta sama bramka co w sesji SDK: odcinek podcastu gra, kontener nie.
+        // Dwie kopie warunku rozjechaly sie wczesniej i odcinek dzialal w jednym
+        // silniku, a w drugim nie.
+        var rejection = SpotifyMediaOutput.PlaybackRejection(item);
+        if (rejection is not null)
         {
             RaiseOnUi(() => PlaybackFailed?.Invoke(
                 this,
-                new MediaOutputFailedEventArgs(
-                    item,
-                    item.Kind is MediaItemKind.Album or MediaItemKind.Artist or MediaItemKind.Playlist
-                        ? "To jest album, wykonawca lub playlista. Otwórz ją strzałką w prawo i wybierz utwór."
-                        : "Tego elementu Spotify nie można odtworzyć w sesji Librespot.")));
+                new MediaOutputFailedEventArgs(item, rejection)));
             return;
         }
 

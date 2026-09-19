@@ -31,6 +31,7 @@ if (args.Length == 1 && args[0] == "--playback-rate-state")
 var tests = new (string Name, Action Test)[]
 {
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
+    ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
     ("Domyślny profil", TestDefaultProfile),
     ("F11 sprawdza aktualizacje AMC", ApplicationUpdateShortcutTests.Run),

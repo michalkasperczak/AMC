@@ -26,7 +26,9 @@ public sealed class AccessiblePlaybackStatusStrip : StatusStrip
             var normalized = value ?? string.Empty;
             if (string.Equals(_spokenText, normalized, StringComparison.Ordinal)) return;
             _spokenText = normalized;
-            AccessibleName = normalized;
+            // NVDA joins the container name and its children's text for
+            // NVDA+End. Keep the content only on the text item, once.
+            AccessibleName = string.Empty;
             foreach (ToolStripStatusLabel label in Items.OfType<ToolStripStatusLabel>())
             {
                 label.Text = normalized;

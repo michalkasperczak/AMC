@@ -66,6 +66,21 @@ if (args.Contains("--timeshift-rate-integration", StringComparer.Ordinal))
 {
     TimeshiftRateIntegrationTests.Run(); return 0;
 }
+if (args.Contains("--spotify-podcasts", StringComparer.Ordinal))
+{
+    try { SpotifyPodcastsTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--status-read-once", StringComparer.Ordinal))
+{
+    try { TestAccessiblePlaybackStatusStrip(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--spotify-engine-settings", StringComparer.Ordinal))
+{
+    try { SpotifyEngineSettingsTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--timeshift-lifetime", StringComparer.Ordinal))
 {
     AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run(); return 0;
@@ -274,6 +289,7 @@ var tests = new (string Name, Action Test)[]
     ("Bufor transmisji ma regulacje predkosci", TestBuforTransmisjiMaRegulacjePredkosci),
     ("Pomoc TimeShift podaje właściwe skróty", TimeshiftRateHelpTests.Run),
     ("TimeShift: bezpieczne zatrzymanie i długie okno tempa", AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run),
+    ("Spotify: trwały wybór odtwarzacza w ustawieniach", SpotifyEngineSettingsTests.Run),
     ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
     ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
@@ -281,6 +297,7 @@ var tests = new (string Name, Action Test)[]
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Albumy wykonawcy Spotify w granicach limitu endpointu", SpotifyArtistAlbumPagingTests.Run),
+    ("Podcasty Spotify: zapisane podcasty, odcinki i oba silniki", SpotifyPodcastsTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
     ("Wspólna kolekcja i oddzielne kolejki Spotify SDK/Librespot", SpotifyNativeCollectionTests.Run),
     ("Dwie sesje Spotify w rzeczywistym oknie głównym", SpotifyNativeStartupTests.Run),
@@ -3383,7 +3400,31 @@ static void TestAccessiblePlaybackStatusStrip()
         "Pasek stanu nie udostępnia dokładnie jednego tekstowego dziecka.");
     Assert(status.AccessibilityObject.GetChild(0)?.Name == status.SpokenText,
         "Tekst paska nie jest osiągalny przez standardowe drzewo dostępności.");
-    Console.WriteLine("OK: standardowy dostępny tekst paska stanu");
+    // NVDA api.getStatusBarText combines the bar name with every child's
+    // name/value. Read those real accessibility objects, not a source string.
+    foreach (var text in new[]
+    {
+        "pauza, 0:17 z 2:46, Mirafiori, Spotify — Librespot",
+        "odtwarzanie, 0:18 z 2:46, Mirafiori, Spotify",
+        "AAC, 192 kb/s, odtwarzanie, Radio 357"
+    })
+    {
+        status.SpokenText = text;
+        var parts = new List<string>();
+        var accessible = status.AccessibilityObject;
+        if (!string.IsNullOrWhiteSpace(accessible.Name)) parts.Add(accessible.Name);
+        for (var index = 0; index < accessible.GetChildCount(); index++)
+        {
+            var child = accessible.GetChild(index);
+            if (!string.IsNullOrWhiteSpace(child?.Name)) parts.Add(child.Name);
+            if (!string.IsNullOrWhiteSpace(child?.Value)) parts.Add(child.Value);
+        }
+        var spoken = string.Join(" ", parts);
+        Assert(spoken == text, "NVDA otrzymuje treść paska więcej niż raz: " + spoken);
+        Assert(label.Text == text, "Zmiana dostępności usunęła widoczny tekst paska.");
+        Assert(!status.TabStop, "Aktualizacja paska nie może przejmować tabulacji.");
+    }
+    Console.WriteLine("OK: standardowy pasek stanu udostępnia aktualną treść dokładnie raz");
 }
 
 static void TestRadioPresetAccessibleLabels()

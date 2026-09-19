@@ -76,15 +76,12 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
     {
         ArgumentNullException.ThrowIfNull(item);
         var trackUri = PlaybackTrackUri(item);
-        if (item.Kind is not MediaItemKind.Track || string.IsNullOrWhiteSpace(trackUri))
+        var rejection = PlaybackRejection(item);
+        if (rejection is not null)
         {
             RaiseOnUi(() => PlaybackFailed?.Invoke(
                 this,
-                new MediaOutputFailedEventArgs(
-                    item,
-                    item.Kind is MediaItemKind.Album or MediaItemKind.Artist or MediaItemKind.Playlist
-                        ? "To jest album, wykonawca lub playlista. Otwórz ją strzałką w prawo i wybierz utwór."
-                        : "Tego elementu Spotify nie można odtworzyć w AMC.")));
+                new MediaOutputFailedEventArgs(item, rejection)));
             return;
         }
 
@@ -553,6 +550,34 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
                     ? currentItem
                     : null;
         }
+    }
+
+    /// <summary>
+    /// Wspolna bramka odtwarzania OBU silnikow Spotify (SDK i Librespot).
+    /// Zwraca komunikat dla uzytkownika, gdy pozycji nie wolno wyslac do silnika,
+    /// albo null gdy wolno.
+    ///
+    /// Odtwarzalne sa TYLKO utwor i ODCINEK PODCASTU. Album, wykonawca,
+    /// playlista i podcast to KONTENERY - Enter na nich nie moze zaczac
+    /// niechcianego odtwarzania czegokolwiek, bo uzytkownik nie wybral jeszcze
+    /// nagrania. Komunikat musi powiedziec, co zrobic, a nie tylko ze sie nie da.
+    /// </summary>
+    internal static string? PlaybackRejection(MediaItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (item.Kind is MediaItemKind.Album or MediaItemKind.Artist
+            or MediaItemKind.Playlist or MediaItemKind.Podcast)
+        {
+            return item.Kind == MediaItemKind.Podcast
+                ? "To jest podcast. Otwórz go strzałką w prawo i wybierz odcinek."
+                : "To jest album, wykonawca lub playlista. Otwórz ją strzałką w prawo i wybierz utwór.";
+        }
+        if (item.Kind is not (MediaItemKind.Track or MediaItemKind.Episode)
+            || string.IsNullOrWhiteSpace(PlaybackTrackUri(item)))
+        {
+            return "Tego elementu Spotify nie można odtworzyć w AMC.";
+        }
+        return null;
     }
 
     /// <summary>
