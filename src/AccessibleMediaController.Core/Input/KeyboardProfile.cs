@@ -97,6 +97,7 @@ public sealed class KeyboardProfile
         Bind("O", CommandIds.ViewOutputs);
         Bind("D", CommandIds.DownloadInService);
         Bind("Shift+D", CommandIds.DownloadToDisk);
+        Bind("F11", CommandIds.CheckApplicationUpdates);
         Bind("F1", CommandIds.Help);
         Bind("Shift+F1", CommandIds.ContextHelp);
 

@@ -104,6 +104,7 @@ public static class CommandCatalog
             CommandIds.SearchAll => "Szukaj we wszystkich usługach",
             CommandIds.FilterCurrent => "Filtruj bieżącą listę",
             CommandIds.CommandPalette => "Paleta poleceń",
+            CommandIds.CheckApplicationUpdates => "Sprawdź aktualizacje AMC",
             CommandIds.ViewLibrary => "Pokaż bibliotekę",
             CommandIds.SortCollectionByAdded => "Uporządkuj według dodania, najnowsze na początku",
             CommandIds.SortCollectionAlphabetically => "Uporządkuj alfabetycznie",

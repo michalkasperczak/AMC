@@ -1,0 +1,57 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.ApplicationUpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        x:ClassModifier="internal"
+        Title="Aktualizacja AMC" Width="720" Height="520"
+        MinWidth="560" MinHeight="440" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <!-- Kolejnosc czytania: najpierw tresc wyniku i wersje, potem postep,
+         dopiero na koncu przyciski. Czytnik przechodzi Tabem po polach
+         tylko do odczytu (z kursorem, mozna czytac linia po linii i kopiowac),
+         a nie po TextBlockach, ktorych kursor czytnika nie obejmuje. -->
+    <StackPanel Margin="16">
+        <Label Target="{Binding ElementName=UpdateText}">_Stan aktualizacji:</Label>
+        <TextBox x:Name="UpdateText" IsReadOnly="True" TextWrapping="Wrap"
+                 AcceptsReturn="True" MinHeight="96" MaxHeight="180"
+                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                 AutomationProperties.Name="Stan aktualizacji AMC"
+                 AutomationProperties.HelpText="Wynik sprawdzenia aktualizacji. Możesz czytać ten opis wierszami i kopiować go." />
+        <Label Target="{Binding ElementName=InstalledVersionBox}">Wersja _zainstalowana:</Label>
+        <TextBox x:Name="InstalledVersionBox" IsReadOnly="True" Margin="0,0,0,8"
+                 AutomationProperties.Name="Zainstalowana wersja AMC" />
+        <Label Target="{Binding ElementName=AvailableVersionBox}">Wersja _dostępna:</Label>
+        <TextBox x:Name="AvailableVersionBox" IsReadOnly="True" Margin="0,0,0,8"
+                 AutomationProperties.Name="Dostępna wersja AMC" />
+        <Label Target="{Binding ElementName=ProgressBox}">_Postęp:</Label>
+        <TextBox x:Name="ProgressBox" IsReadOnly="True" Margin="0,0,0,12"
+                 AutomationProperties.Name="Postęp pobierania aktualizacji"
+                 AutomationProperties.HelpText="Wartość odczytasz kursorem czytnika wtedy, kiedy chcesz — postęp nie jest zgłaszany mową samoczynnie." />
+        <WrapPanel>
+            <Button x:Name="CheckButton" Content="Sprawdź _ponownie" Margin="0,0,8,8" MinWidth="150"
+                    AutomationProperties.Name="Sprawdź ponownie dostępność aktualizacji"
+                    Click="Check_Click" />
+            <Button x:Name="DownloadButton" Content="Po_bierz i zainstaluj" Margin="0,0,8,8" MinWidth="150"
+                    IsEnabled="False"
+                    AutomationProperties.Name="Pobierz i zainstaluj aktualizację AMC"
+                    AutomationProperties.HelpText="Pobiera paczkę i po sprawdzeniu sumy kontrolnej przekazuje ją do instalacji."
+                    Click="Download_Click" />
+            <Button x:Name="InstallButton" Content="Zainstaluj _teraz" Margin="0,0,8,8" MinWidth="150"
+                    IsEnabled="False"
+                    AutomationProperties.Name="Zainstaluj teraz pobraną aktualizację AMC"
+                    AutomationProperties.HelpText="Dotyczy paczki, która jest już pobrana i ma potwierdzoną sumę kontrolną."
+                    Click="Install_Click" />
+            <Button x:Name="CancelButton" Content="_Anuluj" Margin="0,0,8,8" MinWidth="110"
+                    IsEnabled="False"
+                    AutomationProperties.Name="Anuluj trwającą operację aktualizacji"
+                    Click="Cancel_Click" />
+        </WrapPanel>
+        <controls:AccessibleStatusTextBlock x:Name="OperationStatusText" TextWrapping="Wrap"
+                 Margin="0,8,0,12" AutomationProperties.Name="Komunikat operacji aktualizacji"
+                 AutomationProperties.LiveSetting="Assertive" />
+        <Button x:Name="CloseButton" Content="Za_mknij" IsCancel="True"
+                HorizontalAlignment="Right" MinWidth="110"
+                AutomationProperties.Name="Zamknij okno aktualizacji"
+                Click="Close_Click" />
+    </StackPanel>
+</controls:AccessibleWindow>

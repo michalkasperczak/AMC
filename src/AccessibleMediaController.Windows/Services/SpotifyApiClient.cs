@@ -46,6 +46,10 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     // Dokumentacja "Search for Item": limit dotyczy kazdego rodzaju osobno i
     // konczy sie na 10. Wpisanie wiecej daje blad 400, nie dluzsza liste.
     private const int SearchLimitPerType = 10;
+    // Ten endpoint dopuszcza najwyzej 10 pozycji w zapytaniu:
+    // https://developer.spotify.com/documentation/web-api/reference/get-an-artists-albums
+    // Kolejne strony pobieramy adresem "next" z odpowiedzi.
+    private const int ArtistAlbumsPageSize = 10;
 
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
@@ -319,7 +323,7 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
         var items = new List<MediaItem>();
         var widziane = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var next = $"{ApiRoot}/artists/{Uri.EscapeDataString(artistId)}"
-            + $"/albums?include_groups=album,single&limit={PageSize}";
+            + $"/albums?include_groups=album,single&limit={ArtistAlbumsPageSize}";
         var pages = 0;
         while (!string.IsNullOrEmpty(next) && pages++ < MaxPages)
         {

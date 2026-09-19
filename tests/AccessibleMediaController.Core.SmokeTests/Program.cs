@@ -27,6 +27,8 @@ var tests = new (string Name, Action Test)[]
 {
     ("Normalizacja skrótów", TestKeyChords),
     ("Domyślny profil", TestDefaultProfile),
+    ("F11 sprawdza aktualizacje AMC", ApplicationUpdateShortcutTests.Run),
+    ("Aktualizacja zamyka AMC przed instalacją", ApplicationUpdateInstallFlowTests.Run),
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
@@ -7888,6 +7890,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public MediaItem? ActionItem => SelectedItem;
     public IReadOnlyList<MediaItem> ActionItems => actionItems ?? (SelectedItem is null ? [] : [SelectedItem]);
     public bool CommandPaletteShown { get; private set; }
+    public int ApplicationUpdatesShown { get; private set; }
+    public void ShowApplicationUpdates() => ApplicationUpdatesShown++;
     public bool KeyboardHelpToggled { get; private set; }
     public SettingsTarget? LastSettingsTarget { get; private set; }
     public bool MessagesToggled { get; private set; }

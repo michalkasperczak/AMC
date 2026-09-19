@@ -62,6 +62,35 @@ if (args.Contains("--librespot-review-regressions", StringComparer.Ordinal))
     try { SpotifyLibrespotLifecycleTests.RunReviewRegressions(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--application-update-main-gui", StringComparer.Ordinal))
+{
+    ApplicationUpdateRoutingTests.ShowForNvda(); return 0;
+}
+if (args.Contains("--application-update-manager", StringComparer.Ordinal))
+{
+    ApplicationUpdateManagerTests.Run(); return 0;
+}
+if (args.Contains("--application-update-window-gui", StringComparer.Ordinal))
+{
+    ApplicationUpdateWindowTests.ShowForNvda(); return 0;
+}
+if (args.Contains("--application-update-window", StringComparer.Ordinal))
+{
+    ApplicationUpdateWindowTests.Run(); return 0;
+}
+if (args.Contains("--application-update-routing", StringComparer.Ordinal))
+{
+    ApplicationUpdateRoutingTests.Run(); return 0;
+}
+if (args.Contains("--application-update-save-failure-gui", StringComparer.Ordinal))
+{
+    ApplicationUpdateSaveFailureTests.ShowForNvda(args.Contains("--late-failure", StringComparer.Ordinal)); return 0;
+}
+if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
+{
+    try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
 {
     try { SpotifyNativeStartupTests.Run(); return 0; }
@@ -233,9 +262,14 @@ var tests = new (string Name, Action Test)[]
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
+    ("Albumy wykonawcy Spotify w granicach limitu endpointu", SpotifyArtistAlbumPagingTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
     ("Wspólna kolekcja i oddzielne kolejki Spotify SDK/Librespot", SpotifyNativeCollectionTests.Run),
     ("Dwie sesje Spotify w rzeczywistym oknie głównym", SpotifyNativeStartupTests.Run),
+    ("F11 otwiera aktualizacje z głównego okna", ApplicationUpdateRoutingTests.Run),
+    ("Dostępne okno aktualizacji AMC", ApplicationUpdateWindowTests.Run),
+    ("Sprawdzona paczka i cykl instalatora AMC", ApplicationUpdateManagerTests.Run),
+    ("Nieudany zapis stanu nie zamyka AMC po cichu przy aktualizacji", ApplicationUpdateSaveFailureTests.Run),
     ("Librespot: pauza, stop i nowy utwór podczas ustawiania głośności", SpotifyLibrespotPreparationRaceTests.Run),
     ("Librespot: cykl życia hosta, wyjście dźwięku i straż przygotowania", SpotifyLibrespotLifecycleTests.Run),
     ("Librespot: regresje odbioru cyklu życia", SpotifyLibrespotLifecycleTests.RunReviewRegressions),

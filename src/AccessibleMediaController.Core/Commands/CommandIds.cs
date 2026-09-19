@@ -160,6 +160,7 @@ public static class CommandIds
     public const string DownloadInService = "action.download.inService";
     public const string DownloadToDisk = "action.download.toDisk";
     public const string SavePodcastAs = "podcast.episode.saveAs";
+    public const string CheckApplicationUpdates = "application.checkUpdates";
     public const string Help = "view.help";
     // Pomoc kontekstowa: sekcja pasujaca do biezacego widoku idzie pierwsza.
     public const string ContextHelp = "view.contextHelp";

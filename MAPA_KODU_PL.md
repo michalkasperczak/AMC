@@ -262,8 +262,20 @@ Metody `*_Click` na końcu pliku prowadzą prosto do właściwej funkcji.
 
 ## 14. Aktualizacje programu i składników
 
-- `Windows/Services/ApplicationUpdateManager.cs` (37 KB) — sprawdzanie wydań
-  GitHub, pobieranie, weryfikacja sumy SHA-256 z opisu wydania.
+- `Windows/Services/ApplicationUpdateManager.cs` — sprawdzanie wydań GitHub,
+  pobieranie, SHA-256, osobny pomocnik instalujący po wyjściu AMC i wznawiający
+  program po sukcesie. Ręczne odłożenie paczki jest oddzielone od zgody na
+  automatyczną instalację przy zamknięciu.
+- `Windows/ApplicationUpdateWindow.xaml/.cs` — dostępne okno aktualizacji:
+  treść i wersje z kursorem, sprawdzenie, pobranie, anulowanie, jawna zgoda.
+- `Windows/MainWindow.ApplicationUpdates.cs` — F11/menu, modalne okno, powrót
+  fokusu oraz połączenie aktualizacji z końcowym zapisem i zamykaniem.
+- `Core/Updates/ApplicationUpdateInstallFlow.cs` — żądanie zamknięcia, cofnięcie
+  zgody po odmowie/wyjątku i instalacja tylko po poprawnym zapisie.
+- Testy aktualizacji: Core `ApplicationUpdateShortcutTests` i
+  `ApplicationUpdateInstallFlowTests`; Windows `ApplicationUpdateRoutingTests`,
+  `ApplicationUpdateWindowTests`, `ApplicationUpdateSaveFailureTests` i
+  `ApplicationUpdateManagerTests`.
 - `Core/Updates/ApplicationUpdatePolicy.cs` — `ReadChecksumFor` czyta sumę
   z opisu. Format opisu jest dwuwierszowy i pilnuje go test
   `ReleaseNotesChecksumTests`; zmiana formatu w `scripts/wydaj.sh` bez zmiany

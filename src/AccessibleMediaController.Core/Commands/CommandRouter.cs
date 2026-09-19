@@ -19,6 +19,7 @@ public interface IApplicationActions
     void ShowSessionList();
     void ShowPlaylistManager();
     void ShowCommandPalette();
+    void ShowApplicationUpdates();
     void ShowItemProperties();
     void ShowPodcastDescription();
     void AnnounceCurrentBroadcastInformation();
@@ -108,6 +109,9 @@ public sealed class CommandRouter(
 
         switch (commandId)
         {
+            case CommandIds.CheckApplicationUpdates:
+                application.ShowApplicationUpdates();
+                return new(true);
             case CommandIds.SessionList:
                 application.ShowSessionList();
                 return new(true);

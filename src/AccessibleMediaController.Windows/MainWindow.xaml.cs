@@ -182,7 +182,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private int _podcastRefreshInProgress;
     private bool _podcastReloadPending;
     private bool _isClosing;
-    private bool _installUpdateOnExit;
     private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
     private bool _keyboardHelpActive;
@@ -263,8 +262,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ?? typeof(MainWindow).Assembly.GetName().Version?.ToString()
         ?? "wersja nieznana";
 
-    public MainWindow(PersistedState state, ConfigurationStore store)
+    private readonly Action? _showApplicationUpdatesOverride;
+
+    public MainWindow(PersistedState state, ConfigurationStore store) : this(state, store, null) { }
+
+    internal MainWindow(PersistedState state, ConfigurationStore store, Action? showApplicationUpdates)
     {
+        _showApplicationUpdatesOverride = showApplicationUpdates;
         DiagnosticLog.Info("startup", "Tworzenie głównego okna.");
         InitializeComponent();
         MenuAccessibility.NormalizeMainMenu(MainMenu);
@@ -433,21 +437,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             // Opoznienie, zeby sprawdzanie nie konkurowalo z odczytem
             // interfejsu w pierwszych sekundach po uruchomieniu.
-            await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(true);
-            if (_isClosing) return;
+            await Task.Delay(TimeSpan.FromSeconds(20), _applicationUpdateCancellation.Token).ConfigureAwait(true);
+            if (_isClosing || _applicationUpdateWindow is not null) return;
 
             var status = await ApplicationUpdateManager.CheckAsync(
                 _state.Settings.Updates.Channel,
                 _state.Settings.Updates.DownloadAutomatically,
                 progress: null,
-                CancellationToken.None).ConfigureAwait(true);
+                _applicationUpdateCancellation.Token,
+                allowInstallOnExit: _state.Settings.Updates.InstallOnExit).ConfigureAwait(true);
 
-            if (_isClosing) return;
+            if (_isClosing || _applicationUpdateWindow is not null) return;
             if (status.Decision != ApplicationUpdateDecision.UpdateAvailable) return;
 
-            Announce(status.ReadyToInstall
-                ? $"{status.Message} Aktualizacja zainstaluje się po zamknięciu AMC."
-                : status.Message);
+            Announce(status.Message);
+        }
+        catch (OperationCanceledException) when (_isClosing)
+        {
+            DiagnosticLog.Info("aktualizacja-amc", "Anulowano sprawdzanie aktualizacji przy zamykaniu programu.");
         }
         catch (Exception exception)
         {
@@ -5491,6 +5498,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ShowHelp() => ShowHelp(contextual: false);
 
     public void ShowContextHelp() => ShowHelp(contextual: true);
+
+    public void ShowApplicationUpdates()
+    {
+        if (_showApplicationUpdatesOverride is not null) _showApplicationUpdatesOverride();
+        else ShowApplicationUpdateDialog();
+    }
 
     /// <summary>
     /// Spis skrotow. F1 pokazuje wszystko w stalej kolejnosci; Shift+F1 stawia
@@ -19655,6 +19668,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (windowKey == Key.F11 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            ExecuteCommand(CommandIds.CheckApplicationUpdates);
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.Alt && windowKey == Key.F4)
         {
             e.Handled = true;
@@ -20643,6 +20663,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         commandId = (modifiers, key) switch
         {
+            (ModifierKeys.None, Key.F11) => CommandIds.CheckApplicationUpdates,
             (ModifierKeys.None, Key.F1) => CommandIds.Help,
             (ModifierKeys.Shift, Key.F1) => CommandIds.ContextHelp,
             (ModifierKeys.Shift, Key.A) => CommandIds.SelectAudioOutput,
@@ -22416,6 +22437,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         _isClosing = true;
+        _applicationUpdateCancellation.Cancel();
         _radioRecognitionMonitoring = false;
         _trackRecognitionCancellation.Cancel();
         _podcastCancellation.Cancel();
@@ -22523,7 +22545,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // przepadalaby dokladnie przy zamknieciu programu - czyli w najczestszym
         // momencie przerwania sluchania.
         CaptureSpotifyPlaybackPosition();
-        if (!_statePersistence.Flush(_state, TimeSpan.FromSeconds(15), out var saveFailure))
+        var stateSaved = _statePersistence.Flush(_state, TimeSpan.FromSeconds(15), out var saveFailure);
+        if (!stateSaved)
         {
             DiagnosticLog.Error(
                 "storage",
@@ -22534,11 +22557,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Podmiana plikow programu MUSI byc po koncowym zapisie stanu. Odwrotna
         // kolejnosc dalaby nowej wersji szanse wystartowac, gdy stara jeszcze
         // pisze ustawienia - i zapis przepadlby albo uszkodzil plik.
-        if (_installUpdateOnExit || _state.Settings.Updates.InstallOnExit)
-        {
-            if (ApplicationUpdateManager.HasPendingUpdate(out _))
-                ApplicationUpdateManager.TryStartPendingInstall(relaunch: _installUpdateOnExit);
-        }
+        LaunchUpdateAfterStateSave(stateSaved);
+        _applicationUpdateCancellation.Dispose();
     }
 
     private void FilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -24340,92 +24360,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce($"FFmpeg: {ffmpegResult.Message} yt-dlp: {ytDlpResult.Message}");
     }
 
-    private async void ApplicationUpdate_Click(object sender, RoutedEventArgs e)
-    {
-        Announce("Sprawdzanie aktualizacji AMC");
-        var progress = new Progress<double>(value =>
-        {
-            if (value is > 0.05d and < 0.98d)
-            {
-                var status = $"Pobieranie AMC: {Math.Round(value * 100d):0}%";
-                _playbackStatusBar.SpokenText = status;
-                _playbackStatusLabel.Text = status;
-                _playbackStatusLabel.AccessibleName = status;
-            }
-        });
-
-        var status = await ApplicationUpdateManager.CheckAsync(
-            _state.Settings.Updates.Channel,
-            _state.Settings.Updates.DownloadAutomatically,
-            progress,
-            CancellationToken.None);
-
-        UpdatePlaybackStatusBar();
-        Announce(status.Message);
-
-        // Gdy paczka jest gotowa, pytamy wprost, jak w EdSharpie: "czy chcesz
-        // zainstalowac". Po "Tak" instalator ma wejsc OD RAZU i na pierwszym
-        // planie - Michal zglosil 15.09.2026, ze komunikat "zainstaluje sie po
-        // zamknieciu programu" jest niejasny, bo nie wiadomo, kiedy to nastapi.
-        if (status.ReadyToInstall && !_state.Settings.Updates.InstallOnExit)
-        {
-            // Instalator zamyka AMC przelacznikiem /CLOSEAPPLICATIONS, wiec
-            // OMIJA pytanie z Window_Closing o trwajace nagrania. Bez tego
-            // ostrzezenia aktualizacja urwalaby nagranie bez slowa.
-            var activeRecordings =
-                _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count;
-            if (activeRecordings > 0)
-            {
-                var recordingAnswer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
-                    this,
-                    $"Aktywne nagrania: {activeRecordings}. Instalacja aktualizacji zamknie AMC, "
-                    + "zakończy nagrywanie i zapisze odebrane fragmenty. Przerwane nagrania nie "
-                    + "zostaną wznowione po ponownym uruchomieniu. Zainstalować teraz?",
-                    "Trwające nagrania",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning,
-                    MessageBoxResult.No);
-                if (recordingAnswer != MessageBoxResult.Yes)
-                {
-                    // Odmowa nie moze znaczyc "zapomnij o aktualizacji" ani
-                    // "zainstaluj po cichu przy zamknieciu bez wiedzy uzytkownika".
-                    Announce("Aktualizacja zaczeka. Zainstaluje się po zakończeniu nagrań "
-                             + "i zamknięciu AMC.");
-                    _installUpdateOnExit = true;
-                    return;
-                }
-            }
-
-            var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
-                $"{status.Message}\n\nZainstalować teraz? AMC zostanie zamknięte, "
-                + "pojawi się okno instalatora, a po instalacji program uruchomi się ponownie.",
-                "Aktualizacja AMC",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            if (answer == MessageBoxResult.Yes)
-            {
-                // Instalator startuje TERAZ, widoczny, z ponownym uruchomieniem
-                // AMC po wymianie plikow. Sam zamyka program przelacznikiem
-                // /CLOSEAPPLICATIONS, wiec nie czekamy na zamkniecie okna.
-                if (ApplicationUpdateManager.TryStartPendingInstall(relaunch: true, visible: true))
-                {
-                    Announce("Instalator aktualizacji został uruchomiony.");
-                }
-                else
-                {
-                    // Start nieudany: NIE zostawiamy ciszy ani falszywej
-                    // obietnicy. Wracamy do drogi odlozonej na zamkniecie.
-                    _installUpdateOnExit = true;
-                    AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
-                        "Nie udało się uruchomić instalatora teraz. Aktualizacja zostanie "
-                        + "zainstalowana po zamknięciu AMC.",
-                        "Aktualizacja AMC",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                }
-            }
-        }
-    }
+    private void ApplicationUpdate_Click(object sender, RoutedEventArgs e) => ShowApplicationUpdates();
 
     private void ReportProblem_Click(object sender, RoutedEventArgs e) => ShowProblemReport();
 
