@@ -150,7 +150,7 @@ internal static class LocalFolderPresetAnnouncementTests
     private static void AktywujPreset(MainWindow window, int slot) =>
         typeof(MainWindow)
             .GetMethod("ActivatePreset", Flags, null, [typeof(int), typeof(bool), typeof(bool)], null)!
-            .Invoke(window, [slot, false, false]);
+            .Invoke(window, [slot, true, false]);
 
     /// <summary>Tekst, ktory produkcja dokleja przed pozycja listy dla czytnika.</summary>
     private static string? KontekstFokusu(MainWindow window) =>
@@ -164,23 +164,19 @@ internal static class LocalFolderPresetAnnouncementTests
     }
 
     /// <summary>
-    /// To, co czytnik naprawde uslyszy na wierszu. Gdy okno nie jest pokazane,
-    /// kontener wiersza moze jeszcze nie istniec - wtedy uzywamy tego samego
-    /// PRODUKCYJNEGO formatera, ktorego uzywa ApplyFocusContext.
+    /// Etykieta dostepnosci rzeczywistego kontenera; nie transkrypcja mowy NVDA.
     /// </summary>
     private static string EfektywnaEtykietaFokusu(MainWindow window, string etykietaWiersza)
     {
+        window.MediaList.ApplyTemplate();
+        window.MediaList.Measure(new System.Windows.Size(800, 600));
+        window.MediaList.Arrange(new System.Windows.Rect(0, 0, 800, 600));
         window.MediaList.UpdateLayout();
-        if (window.MediaList.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem container)
-        {
-            typeof(MainWindow).GetMethod("ApplyFocusContext", Flags)!.Invoke(window, [container]);
-            var nazwa = System.Windows.Automation.AutomationProperties.GetName(container);
-            if (!string.IsNullOrEmpty(nazwa)) return nazwa;
-        }
-
-        var prefiks = KontekstFokusu(window);
-        var sufiks = (string?)typeof(MainWindow).GetField("_focusContextSuffix", Flags)!.GetValue(window);
-        return MainWindowNavigationPolicy.FormatFocusedListEntry(etykietaWiersza, prefiks, sufiks);
+        Sprawdz(window.MediaList.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem,
+            "Brak rzeczywistego kontenera wiersza: pomiar etykiety nie zostal wykonany.");
+        var container = (ListBoxItem)window.MediaList.ItemContainerGenerator.ContainerFromIndex(0);
+        typeof(MainWindow).GetMethod("ApplyFocusContext", Flags)!.Invoke(window, [container]);
+        return System.Windows.Automation.AutomationProperties.GetName(container);
     }
 
     private static void SprawdzNienaruszonePresety(PersistedState state)
