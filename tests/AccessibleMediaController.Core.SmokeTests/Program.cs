@@ -117,6 +117,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwała kolejność Kolejki", TestQueueOrder),
     ("Kolejka zachowana po odświeżeniu katalogu usługi", TestTransientQueuePersistence),
     ("Trwały zapis zdalnej Kolejki bez danych demonstracyjnych", TestRemoteQueueCachePersistence),
+    ("Flagi Kolejki z różnych wystąpień utworu TIDAL", QueueFlagsAcrossOccurrencesTests.Run),
     ("Nawigacja Page Up i Page Down w Kolejce", TestQueuePlaybackNavigation),
     ("Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania", TestMissingCurrentItemRecovery),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),

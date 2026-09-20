@@ -45,6 +45,21 @@ public static class TransientQueuePersistence
                 group => group.FirstOrDefault(item => string.Equals(item.Id, group.Key, StringComparison.Ordinal))
                     ?? group.First(),
                 StringComparer.Ordinal);
+        // Jeden utwor TIDAL ma wiele wierszy o roznych Id (wiersz kolekcji i
+        // wiersze wpisow playlist), a wszystkie maja ten sam klucz magazynu.
+        // Uzytkownik moze nadac zwykla przynaleznosc jednemu wierszowi, a
+        // priorytet DRUGIEMU - filtr kolejki przepuszcza wtedy oba. Czlonkostwo
+        // liczymy wiec z CALEJ grupy; branie flag samego reprezentanta gubilo
+        // flage lezaca na innym wystapieniu (zapis PlayNext=[] przy nadanym
+        // priorytecie). Reprezentant nadal wyznacza kolejnosc wykonawcza.
+        var membership = items
+            .GroupBy(item => StorageItemId(sessionId, item), StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => (
+                    IsInQueue: group.Any(item => item.IsInQueue),
+                    IsPlayNext: group.Any(item => item.IsPlayNext)),
+                StringComparer.Ordinal);
         var normalized = new List<string>();
         foreach (var storedId in storedOrder ?? [])
         {
@@ -65,8 +80,8 @@ public static class TransientQueuePersistence
 
         return new QueuePersistenceSnapshot(
             normalized,
-            normalized.Where(key => representatives[key].IsInQueue).ToArray(),
-            normalized.Where(key => representatives[key].IsPlayNext).ToArray(),
+            normalized.Where(key => membership[key].IsInQueue).ToArray(),
+            normalized.Where(key => membership[key].IsPlayNext).ToArray(),
             normalized.Select(key => representatives[key].Id).ToArray());
     }
 
