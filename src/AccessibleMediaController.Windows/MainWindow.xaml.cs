@@ -3444,6 +3444,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
 
+            if (!_playerViewActive && _currentView == FolderViewName
+                && _state.LocalMedia.CurrentFolderPath is { Length: > 0 } currentFolder
+                && string.Equals(NormalizeLocalFolderPath(currentFolder), NormalizeLocalFolderPath(folderPath!), StringComparison.OrdinalIgnoreCase))
+            {
+                Announce(preset.TargetTitle);
+                return;
+            }
             CaptureCurrentSessionNavigationState();
             HidePlayerForBrowserNavigation();
             _state.LocalMedia.LibraryView = FolderViewName;

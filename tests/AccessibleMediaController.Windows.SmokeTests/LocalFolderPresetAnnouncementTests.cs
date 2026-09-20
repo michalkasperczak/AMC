@@ -29,6 +29,7 @@ internal static class LocalFolderPresetAnnouncementTests
     {
         PresetFolderuNieMowiNumeruPresetu();
         PowtorzonaAktywacjaMowiToSamo();
+        PowtorzenieNiePrzebudowujeListy();
         PustyFolderPresetuMowiNazweFolderuIPustaListe();
         Console.WriteLine(
             "OK: preset folderu lokalnego zapowiada sam folder (sloty 3 i 5, powtorzenie, folder pusty)");
@@ -115,6 +116,25 @@ internal static class LocalFolderPresetAnnouncementTests
     /// Folder presetu bez plikow: nazwa folderu nadal musi wybrzmiec, razem z
     /// informacja o pustej liscie. Numeru presetu nadal nie mowimy.
     /// </summary>
+    private static void PowtorzenieNiePrzebudowujeListy()
+    {
+        WOknie((window, state, katalogi) =>
+        {
+            AktywujPreset(window, 5);
+            var rows = window.MediaList.Items.Cast<object>().ToArray();
+            var selected = window.MediaList.SelectedItem;
+            typeof(MainWindow).GetField("_captureAnnouncements", Flags)!.SetValue(window, true);
+            AktywujPreset(window, 5);
+            Sprawdz(rows.SequenceEqual(window.MediaList.Items.Cast<object>())
+                && ReferenceEquals(selected, window.MediaList.SelectedItem),
+                "Powtorzony preset folderu przebudowal liste lub zmienil zaznaczenie.");
+            Sprawdz((string?)typeof(MainWindow).GetField("_capturedAnnouncement", Flags)!.GetValue(window) == "Audiobooki",
+                "Powtorzony preset folderu nie powiedzial samej nazwy.");
+            AktywujPreset(window, 3);
+            Sprawdz(state.LocalMedia.CurrentFolderPath == katalogi.Koncerty, "Inny preset nie zmienil folderu.");
+        });
+    }
+
     private static void PustyFolderPresetuMowiNazweFolderuIPustaListe()
     {
         WOknie((window, state, katalogi) =>
