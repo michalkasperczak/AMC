@@ -1,11 +1,11 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-396`
-- Tytuł zestawu: Jedna sesja Spotify, podcasty i rzeczywiste tempo TimeShift
-- Wersja programu: `0.1.0-alpha.396`
-- Bieżące scenariusze: `TESTY_0.1.0-alpha.396_PL.md`
+- Numer zestawu: `AMC-TEST-397`
+- Tytuł zestawu: Informacja o premierach YouTube
+- Wersja programu: `0.1.0-alpha.397`
+- Bieżące scenariusze: `TESTY_0.1.0-alpha.397_PL.md`
 
-## Przygotowana poprawka — komunikat premiery YouTube (niewydana)
+## Alfa 397 — komunikat premiery YouTube
 
 - Przed rozpoczęciem premiery link pozostaje na liście.
 - Enter i Ctrl+D mają przekazać do NVDA: „Ten materiał oczekuje na premierę. Nie można go jeszcze odtworzyć ani pobrać.” Nie zastępować tego błędem formatu dźwięku.
