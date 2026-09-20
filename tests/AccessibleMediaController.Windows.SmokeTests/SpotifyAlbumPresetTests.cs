@@ -27,7 +27,9 @@ using AccessibleMediaController.Windows;
 /// 1. preset albumu ODTWARZA pierwszy utwor albumu,
 /// 2. widok, zaznaczenie listy i pozycja NIE zmieniaja sie,
 /// 3. kontekst "nastepny utwor" to utwory albumu w KOLEJNOSCI albumu,
-/// 4. dwa presety pod rzad: spozniona odpowiedz pierwszego NIE gra,
+/// 4. dwa presety pod rzad: spozniona odpowiedz pierwszego NIE gra; to samo
+///    dotyczy ZWYKLYCH decyzji uzytkownika w trakcie pobierania (Enter na
+///    wierszu, nastepny, poprzedni),
 /// 5. pusty album i odmowa Spotify nie przerywaja tego, co gra,
 /// 6. preset UTWORU i preset PLAYLISTY zachowuja stare zachowanie.
 /// </summary>
@@ -50,6 +52,8 @@ internal static class SpotifyAlbumPresetTests
         DwaPresetyPodRzadGrajaTylkoNowszy();
         CzekajacyAlbumNiePrzebijaPresetuUtworu();
         CzekajacyAlbumNiePrzebijaPowtorzonegoAlbumu();
+        CzekajacyAlbumNiePrzebijaEnteraNaWierszu();
+        CzekajacyAlbumNiePrzebijaNastepnegoIPoprzedniego();
         PustyAlbumIOdmowaNiePrzerywajaOdtwarzania();
         PresetUtworuIPlaylistyBezZmian();
         Console.WriteLine(
@@ -431,6 +435,107 @@ internal static class SpotifyAlbumPresetTests
         });
     }
 
+    /// <summary>
+    /// Album czeka na siec, a uzytkownik wlacza ZWYKLY utwor Enterem na
+    /// wierszu listy. To jest droga produkcyjna <c>ActivateSelected</c>
+    /// (MainWindow.xaml.cs), a nie preset - i ona tez jest NOWSZA decyzja
+    /// uzytkownika. Spozniona odpowiedz albumu nie ma prawa jej przebic ani
+    /// przebudowac kontekstu, ktory ta decyzja ustawila.
+    /// </summary>
+    private static void CzekajacyAlbumNiePrzebijaEnteraNaWierszu()
+    {
+        WOknie((window, session, output) =>
+        {
+            var wolny = new AlbumTracksHandler { Gate = new TaskCompletionSource(), TrackPrefix = "STARY" };
+            Przypisz(window, session, slot: 5);
+            Szew(window, wolny);
+            Wykonaj(window, 5);
+            Drain(window.Dispatcher);
+
+            var utwor = session.Items.First(item => item is { Kind: MediaItemKind.Track, IsAvailable: true });
+            EnterNaWierszu(window, utwor.Id);
+            Drain(window.Dispatcher);
+            Check(output.Played.Count == 1 && output.Played[0].Id == utwor.Id,
+                $"Przygotowanie: Enter na wierszu nie zagral utworu ({output.Played.Count} wywolan).");
+            var kontekstPoEnterze = string.Join(",", session.PlaybackContextItemIds);
+
+            wolny.Gate!.SetResult();
+            for (var i = 0; i < 60; i++) { Thread.Sleep(25); Drain(window.Dispatcher); }
+
+            Check(output.Played.Count == 1,
+                $"Spozniona odpowiedz albumu przebila ZWYKLY Enter na wierszu ({output.Played.Count} wywolan odtwarzania).");
+            Check(session.CurrentItem.Id == utwor.Id,
+                $"Po spoznionej odpowiedzi gra \"{session.CurrentItem.ExternalId}\" zamiast utworu wlaczonego Enterem.");
+            Check(string.Join(",", session.PlaybackContextItemIds) == kontekstPoEnterze,
+                "Spozniona odpowiedz albumu przebudowala kontekst ustawiony Enterem na wierszu.");
+        });
+    }
+
+    /// <summary>
+    /// Album czeka na siec, a uzytkownik wciska NASTEPNY albo POPRZEDNI.
+    /// Oba ida prawdziwym dyspozytorem polecen i tez sa nowsza decyzja
+    /// uzytkownika o tym, co ma grac.
+    /// </summary>
+    private static void CzekajacyAlbumNiePrzebijaNastepnegoIPoprzedniego()
+    {
+        foreach (var polecenie in new[]
+                 {
+                     AccessibleMediaController.Core.Commands.CommandIds.Next,
+                     AccessibleMediaController.Core.Commands.CommandIds.Previous
+                 })
+        {
+            WOknie((window, session, output) =>
+            {
+                Przypisz(window, session, slot: 5);
+                var utwory = session.Items
+                    .Where(item => item is { Kind: MediaItemKind.Track, IsAvailable: true })
+                    .Take(2)
+                    .ToArray();
+                Check(utwory.Length == 2,
+                    "Przygotowanie: sesja nie ma dwoch grywalnych utworow do przeskoku.");
+
+                // Uzytkownik gra cos zwyklego z listy - stad bierze sie kontekst
+                // dla nastepnego i poprzedniego.
+                var start = polecenie == AccessibleMediaController.Core.Commands.CommandIds.Next
+                    ? utwory[0]
+                    : utwory[1];
+                var cel = polecenie == AccessibleMediaController.Core.Commands.CommandIds.Next
+                    ? utwory[1]
+                    : utwory[0];
+                EnterNaWierszu(window, start.Id);
+                Drain(window.Dispatcher);
+                Check(session.CurrentItem.Id == start.Id,
+                    "Przygotowanie: Enter na wierszu nie ustawil biezacej pozycji.");
+
+                // Album rusza i wisi na sieci.
+                var wolny = new AlbumTracksHandler { Gate = new TaskCompletionSource(), TrackPrefix = "STARY" };
+                Szew(window, wolny);
+                Wykonaj(window, 5);
+                Drain(window.Dispatcher);
+
+                Polecenie(window, polecenie);
+                Drain(window.Dispatcher);
+                Check(session.CurrentItem.Id == cel.Id,
+                    $"Przygotowanie: {polecenie} nie przeszlo na sasiedni utwor "
+                    + $"(gra \"{session.CurrentItem.Id}\", mial \"{cel.Id}\").");
+                var zagranychPrzed = output.Played.Count;
+                var kontekstPrzed = string.Join(",", session.PlaybackContextItemIds);
+
+                wolny.Gate!.SetResult();
+                for (var i = 0; i < 60; i++) { Thread.Sleep(25); Drain(window.Dispatcher); }
+
+                Check(output.Played.Count == zagranychPrzed,
+                    $"Spozniona odpowiedz albumu przebila polecenie {polecenie} "
+                    + $"({output.Played.Count - zagranychPrzed} dodatkowych wywolan odtwarzania).");
+                Check(session.CurrentItem.Id == cel.Id,
+                    $"Po spoznionej odpowiedzi gra \"{session.CurrentItem.ExternalId}\" zamiast utworu "
+                    + $"wybranego poleceniem {polecenie}.");
+                Check(string.Join(",", session.PlaybackContextItemIds) == kontekstPrzed,
+                    $"Spozniona odpowiedz albumu przebudowala kontekst po poleceniu {polecenie}.");
+            });
+        }
+    }
+
     // ---------- 5. Pusty album i odmowa ----------
 
     private static void PustyAlbumIOdmowaNiePrzerywajaOdtwarzania()
@@ -562,8 +667,42 @@ internal static class SpotifyAlbumPresetTests
     /// PRAWDZIWA droga skrotu Ctrl+Shift+cyfra: router polecen aplikacji.
     /// </summary>
     private static void Wykonaj(MainWindow window, int slot) =>
+        Polecenie(window, AccessibleMediaController.Core.Commands.CommandIds.RadioPreset(slot));
+
+    /// <summary>Prawdziwy dyspozytor polecen aplikacji dla dowolnego polecenia.</summary>
+    private static void Polecenie(MainWindow window, string commandId) =>
         typeof(MainWindow).GetMethod("ExecuteCommand", Flags, null, [typeof(string)], null)!
-            .Invoke(window, [AccessibleMediaController.Core.Commands.CommandIds.RadioPreset(slot)]);
+            .Invoke(window, [commandId]);
+
+    /// <summary>
+    /// ZWYKLY Enter na wierszu listy: zaznacza wiersz i wola PRODUKCYJNA
+    /// metode <c>ActivateSelected</c> - dokladnie to, co robi klawisz Enter
+    /// (MediaList_PreviewKeyDown -> ActivateSelected). Bez podstawiania
+    /// zdarzen i bez rekurencji.
+    /// </summary>
+    private static void EnterNaWierszu(MainWindow window, string itemId)
+    {
+        var list = (ListBox)typeof(MainWindow)
+            .GetField("MediaList", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!
+            .GetValue(window)!;
+        object? docelowy = null;
+        foreach (var row in list.Items)
+        {
+            var element = (MediaItem?)row!.GetType()
+                .GetProperty("Item", BindingFlags.Public | BindingFlags.Instance)!
+                .GetValue(row);
+            if (string.Equals(element?.Id, itemId, StringComparison.Ordinal))
+            {
+                docelowy = row;
+                break;
+            }
+        }
+        if (docelowy is null)
+            throw new Exception($"Na liscie nie ma wiersza o identyfikatorze \"{itemId}\".");
+        list.SelectedItem = docelowy;
+        typeof(MainWindow).GetMethod("ActivateSelected", Flags, null, Type.EmptyTypes, null)!
+            .Invoke(window, null);
+    }
 
     private static string Widok(MainWindow window) =>
         (string)typeof(MainWindow).GetField("_currentView", Flags)!.GetValue(window)!;

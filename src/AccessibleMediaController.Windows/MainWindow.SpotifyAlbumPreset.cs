@@ -1,3 +1,4 @@
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
@@ -44,8 +45,18 @@ namespace AccessibleMediaController.Windows;
 ///   album A. Dlatego kazdy preset pozycji w sesji Spotify podbija wlasny
 ///   licznik <c>_spotifyPresetPlaybackVersion</c> (tez powtorzenie i preset
 ///   utworu), a spozniona odpowiedz sprawdza dodatkowo, ze sesja jest wciaz ta
-///   sama i ze kontekst odtwarzania nie zmienil sie pod nami - to lapie takze
-///   zwykle wlaczenie czegos z listy w trakcie pobierania.
+///   sama. To NIE WYSTARCZA na ZWYKLE wlaczenie czegos w trakcie pobierania:
+///   droga Entera na wierszu, nastepnego i poprzedniego nie dotyka zadnego z
+///   tych licznikow, wiec czekajaca odpowiedz albumu przestawilaby to, co
+///   uzytkownik wlasnie wybral. Dlatego RECZNA decyzja odtwarzania w sesji
+///   Spotify podbija licznik presetu w DWOCH miejscach, bo droga jest dwie:
+///   zwykly Enter na wierszu idzie wprost do <c>ActivateSelected</c>, a skroty
+///   nastepny/poprzedni/odtwarzanie-pauza przez <c>ExecuteCommand</c>.
+///   Mierzymy DECYZJE, nie
+///   skutek: odcisk stanu (co gra, czy gra) nie rozroznia wlaczenia tego samego
+///   utworu od naturalnego przejscia na nastepny, wiec albo przepuszczalby
+///   spozniona odpowiedz, albo polykal zamierzony album. Tykniecia czasu i
+///   naturalne przejscie nie ida przez <c>ExecuteCommand</c>, wiec album gra.
 ///   Tu NIE wolno uzyc <c>CanPresentSpotifyResponse</c>: ono slusznie pilnuje
 ///   widoku i zaznaczenia przed RUSZENIEM listy, a preset ma zagrac wlasnie
 ///   wtedy, gdy uzytkownik chodzi po liscie.
@@ -80,6 +91,41 @@ public partial class MainWindow
     /// presetu w sesji Spotify, takze preset utworu.
     /// </summary>
     private long InvalidatePendingSpotifyPresetPlayback() => ++_spotifyPresetPlaybackVersion;
+
+    /// <summary>
+    /// Polecenia, ktorymi uzytkownik RECZNIE decyduje, co ma grac. Tykniecia
+    /// czasu, odswiezenia stanu i naturalne przejscie na nastepny utwor tu NIE
+    /// naleza, wiec zamierzony album presetu nadal zagra - inaczej straz
+    /// polykalaby wlasny album przy zwyklym postepie odtwarzania.
+    /// </summary>
+    private static bool IsUserPlaybackIntentCommand(string commandId) =>
+        commandId is CommandIds.ActivateSelected
+            or CommandIds.PlayPause
+            or CommandIds.Previous
+            or CommandIds.Next;
+
+    /// <summary>
+    /// Uniewaznia czekajace pobranie albumu presetu, gdy uzytkownik RECZNIE
+    /// zdecydowal, co ma grac w sesji Spotify. Mierzymy DECYZJE (polecenie
+    /// uzytkownika), nie skutek: odcisk stanu (co gra, czy gra) nie rozroznia
+    /// wlaczenia tego samego utworu od naturalnego przejscia na nastepny, wiec
+    /// albo przepuszczalby spozniona odpowiedz, albo polykal zamierzony album.
+    /// </summary>
+    private void InvalidatePendingSpotifyPresetPlaybackForUserCommand(string commandId)
+    {
+        if (!IsUserPlaybackIntentCommand(commandId)) return;
+        InvalidatePendingSpotifyPresetPlaybackForUserIntent();
+    }
+
+    /// <summary>
+    /// To samo dla drog, ktore NIE ida przez <c>ExecuteCommand</c> - zwykly
+    /// Enter na wierszu listy wola <c>ActivateSelected</c> wprost.
+    /// </summary>
+    private void InvalidatePendingSpotifyPresetPlaybackForUserIntent()
+    {
+        if (!SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)) return;
+        InvalidatePendingSpotifyPresetPlayback();
+    }
 
     /// <summary>
     /// Czy preset wskazuje album Spotify, ktory trzeba ZAGRAC zamiast otworzyc.

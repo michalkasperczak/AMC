@@ -11353,6 +11353,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return new CommandExecutionResult(true);
         }
         var sessionBeforeCommand = _sessions.Current;
+        // ZWYKLE wlaczenie czegos przez uzytkownika jest NOWSZA decyzja niz
+        // czekajace pobranie albumu presetu.
+        InvalidatePendingSpotifyPresetPlaybackForUserCommand(commandId);
         if (commandId == CommandIds.ActivateSelected
             && !_playerViewActive
             && !_preservePreparedPlaybackContext
@@ -13582,6 +13585,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)
         {
             var session = _sessions.Current;
+            // ZWYKLY Enter na utworze jest NOWSZA decyzja niz czekajace
+            // pobranie albumu presetu.
+            InvalidatePendingSpotifyPresetPlaybackForUserIntent();
             var opensFromQueue = string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
             PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
