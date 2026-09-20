@@ -3455,7 +3455,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             navigation.Filters[FolderViewName] = string.Empty;
             RestoreFilterForCurrentView(navigation);
             RefreshCurrentView();
-            PrepareViewFocusContext($"Preset {slotLabel}, folder {preset.TargetTitle}");
+            // Zapowiadamy sam folder, tak samo jak zwykle wejscie w folder
+            // (OpenFolderPath). Numeru presetu nie powtarzamy - uzytkownik wlasnie
+            // go nacisnal, a radio i WiiM tez go nie mowia. Gdy z jakiegos powodu
+            // nie mamy sciezki, mowimy zapisany tytul presetu, nie pusty tekst.
+            var folderLabel = string.IsNullOrWhiteSpace(folderPath)
+                ? preset.TargetTitle
+                : GetFolderDisplayName(folderPath);
+            PrepareViewFocusContext($"Foldery, {folderLabel}");
             TrySaveLocalMediaState(false);
             RestoreMediaListFocusAfterRefresh();
             return;
