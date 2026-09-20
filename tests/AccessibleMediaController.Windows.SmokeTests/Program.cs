@@ -38,31 +38,6 @@ if (args.Contains("--nvda-bridge-smoke", StringComparer.Ordinal))
     NvdaBridgeSmokeTests.Run();
     return 0;
 }
-if (args.Length >= 2 && args[0] == "--capture-bench")
-{
-    var powtorzenia = args.Length >= 3 && int.TryParse(args[2], out var podane) ? podane : 7;
-    return RunCaptureBenchOnSta(args[1], powtorzenia);
-
-    static int RunCaptureBenchOnSta(string katalog, int powtorzenia)
-    {
-        var kod = 1;
-        Exception? blad = null;
-        var watek = new Thread(() =>
-        {
-            try { kod = CaptureLocalMediaStateBench.Run(katalog, powtorzenia); }
-            catch (Exception wyjatek) { blad = wyjatek; }
-        });
-        watek.SetApartmentState(ApartmentState.STA);
-        watek.Start();
-        watek.Join();
-        if (blad is not null)
-        {
-            Console.Error.WriteLine(blad);
-            return 1;
-        }
-        return kod;
-    }
-}
 if (args.Length == 1 && args[0] == "--smoke-runner-self-test")
 {
     SmokeTestRunnerTests.Run();

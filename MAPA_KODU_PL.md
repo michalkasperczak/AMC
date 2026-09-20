@@ -170,12 +170,15 @@ i 21000–22000). Serwisy:
 
 ## 7. Pliki lokalne
 
-- `Core/LocalMedia/` — 15 plików reguł: wykrywanie plików
+- `Core/LocalMedia/` — reguły wykrywania plików
   (`LocalAudioFileDiscovery.cs`), import (`LocalLibraryImporter.cs`),
   synchronizacja folderów (`LocalLibrarySynchronizer.cs`), wnioskowanie albumu
   (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs`),
   pliki w chmurze niepobrane (`CloudFileAvailability.cs`), sonda kontenera
   (`MediaContainerProbe.cs`, `Mp3StructureProbe.cs`).
+- `LocalFolderPathNormalizer.cs` — jawna pamięć normalizacji ograniczona do jednego
+  przebiegu `MainWindow.CaptureLocalMediaState`; używana przez
+  `LocalFolderSourcePolicy.IsSameOrDescendant` przy rozstrzyganiu opcji folderu.
 - `Core/Configuration/LocalLibraryDatabase.cs` (40 KB) — baza SQLite biblioteki.
 - Okna: `LocalSourcesWindow`, `RenameLocalItemWindow`, `UnavailableLocalItemsWindow`.
 
