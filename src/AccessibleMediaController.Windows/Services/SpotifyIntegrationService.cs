@@ -58,9 +58,15 @@ internal sealed record SpotifyPlaybackCredentials(
 /// - Każda operacja przechodzi przez jedną bramkę, żeby dwa równoległe
 ///   odświeżenia nie unieważniły sobie wzajemnie tokenów.
 /// </summary>
+/// <param name="tokenProvider">
+/// Wąskie wejście dla testów: skąd wziąć poświadczenie. Produkcja zostawia null
+/// i czyta Menedżer poświadczeń Windows — test NIE może tam zaglądać ani nic tam
+/// zapisywać, a bez tego szwu nie da się zmierzyć prawdziwego pisarza HTTP.
+/// </param>
 internal sealed class SpotifyIntegrationService(
     SpotifySettings settings,
-    HttpClient? httpClient = null) : IDisposable
+    HttpClient? httpClient = null,
+    Func<CancellationToken, Task<SpotifyTokenSet>>? tokenProvider = null) : IDisposable
 {
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
 
@@ -73,7 +79,9 @@ internal sealed class SpotifyIntegrationService(
 
     private readonly SpotifyOAuthClient oauth = new();
     private readonly SpotifyApiClient api = new();
-    private readonly SpotifyLibraryWriteClient writer = new();
+    // Pisarz dostaje TEN SAM transport co reszta serwisu: inaczej test z atrapą
+    // HTTP mierzyłby wszystko poza jedynym miejscem, które faktycznie zapisuje.
+    private readonly SpotifyLibraryWriteClient writer = new(httpClient);
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -378,6 +386,10 @@ internal sealed class SpotifyIntegrationService(
 
     private async Task<SpotifyTokenSet> EnsureValidTokensAsync(CancellationToken cancellationToken)
     {
+        // Szew testowy: gdy podano źródło poświadczenia, nie dotykamy Menedżera
+        // poświadczeń Windows w ogóle.
+        if (tokenProvider is not null)
+            return await tokenProvider(cancellationToken).ConfigureAwait(false);
         if (!SpotifyCredentialStore.TryRead(out var stored) || stored is null)
             throw new InvalidOperationException("Nie ma zapisanego logowania Spotify. Zaloguj się w oknie konta Spotify.");
         // Identyfikator aplikacji zmieniony w ustawieniach unieważnia token:

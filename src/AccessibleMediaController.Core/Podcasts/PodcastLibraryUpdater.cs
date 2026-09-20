@@ -19,11 +19,12 @@ public static class PodcastLibraryUpdater
         DateTime refreshUtc,
         BookmarkSettings? bookmarks = null,
         PodcastSourceKind sourceKind = PodcastSourceKind.Rss,
-        // Otwarcie wyniku wyszukiwania sprowadza kanal i jego odcinki, ale
-        // domyslnie NIE zapisuje go do Biblioteki (ustalenie Michala
-        // 20.09.2026). Zastane sciezki - odswiezanie, OPML, reczne dodanie -
-        // wolaja bez tego parametru i dalej zapisuja Biblioteke.
-        bool addToLibrary = true)
+        // Domyslnie NIE dopisujemy do Biblioteki. Wczesniej bylo tu true, wiec
+        // produkcyjne odswiezanie (F5, Ctrl+F5, timer), ktore wola bez tego
+        // parametru, milczaco zapisywalo do Biblioteki kanal otwarty wcześniej
+        // bez zapisu. Zapis nalezy do jawnych wejsc: recznego dodania, importu
+        // OPML oraz Ctrl+Shift+L - one podaja addToLibrary: true wprost.
+        bool addToLibrary = false)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(feed);

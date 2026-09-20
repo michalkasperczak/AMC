@@ -89,6 +89,11 @@ if (args.Contains("--spotify-podcasts", StringComparer.Ordinal))
     try { SpotifyPodcastsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--search-result-open-without-library", StringComparer.Ordinal))
+{
+    try { SearchResultOpenWithoutLibraryTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--youtube-premiere-gui", StringComparer.Ordinal))
 {
     YouTubePremiereTests.ShowForNvda(); return 0;
@@ -166,6 +171,11 @@ if (args.Contains("--preset-announcements", StringComparer.Ordinal))
     try { LocalFolderPresetAnnouncementTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--queue-remote-copy", StringComparer.Ordinal))
+{
+    try { QueueRemoteCopyConsistencyTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
 {
     try { SpotifyStartupEngineTests.Run(); return 0; }
@@ -206,6 +216,11 @@ if (args.Contains("--tidal-interaction-smoke", StringComparer.Ordinal))
     TidalInteractionSmokeTests.Run();
     return 0;
 }
+if (args.Contains("--opened-search-result-library", StringComparer.Ordinal))
+{
+    try { OpenedSearchResultLibraryTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-artist-rows", StringComparer.Ordinal))
 {
     try { SpotifyArtistRowsTests.Run(); return 0; }
@@ -230,6 +245,7 @@ const long VorbisLiveStreamSampleOffset = 2_256_060_119_296;
 // Tak samo dziala zestaw Core (tests/AccessibleMediaController.Core.SmokeTests).
 var tests = new (string Name, Action Test)[]
 {
+    ("Enter na wyniku: otwieranie bez Biblioteki na prawdziwym oknie", SearchResultOpenWithoutLibraryTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),
@@ -263,6 +279,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Refresh Request", TestTidalRefreshRequest),
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Zapowiedz presetu folderu lokalnego bez numeru presetu", LocalFolderPresetAnnouncementTests.Run),
@@ -339,6 +356,7 @@ var tests = new (string Name, Action Test)[]
     ("Duzy bufor transmisji lezy na dysku, maly w pamieci", TestBuforTransmisjiLezyNaDyskuGdyDuzy),
     ("Bufor transmisji ma regulacje predkosci", TestBuforTransmisjiMaRegulacjePredkosci),
     ("Pomoc TimeShift podaje właściwe skróty", TimeshiftRateHelpTests.Run),
+    ("Koszt i zgodnosc zapisu lokalnego stanu", CaptureLocalMediaStateCostTests.Run),
     ("TimeShift: bezpieczne zatrzymanie i długie okno tempa", AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run),
     ("Spotify: trwały wybór odtwarzacza w ustawieniach", SpotifyEngineSettingsTests.Run),
     ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
@@ -355,6 +373,7 @@ var tests = new (string Name, Action Test)[]
     ("Jedna kolekcja i kolejka Spotify dla obu silników", SpotifyNativeCollectionTests.Run),
     ("Jedna sesja Spotify i silnik z zapisu w rzeczywistym oknie", SpotifyStartupEngineTests.Run),
     ("Cykl zycia kolejki Spotify: zmiana, zapis, restart, pierwsza synchronizacja", SpotifyQueueLifecycleTests.Run),
+    ("Druga kopia kolejki zgodna ze snapshotem Capture w rzeczywistym EnsureQueueOrder", QueueRemoteCopyConsistencyTests.Run),
     ("Alt+D w obu handlerach i numery sesji z dziurami w UI", SpotifyDescriptionAndSlotUiTests.Run),
     ("F11 otwiera aktualizacje z głównego okna", ApplicationUpdateRoutingTests.Run),
     ("Dostępne okno aktualizacji AMC", ApplicationUpdateWindowTests.Run),

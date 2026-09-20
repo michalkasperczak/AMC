@@ -109,11 +109,33 @@ public partial class MainWindow
                 return true;
             }
             if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
-                && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyView)
-                && (spotifyView.ArtistSection is not null || spotifyView.IsArtistOverview))
+                && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyView))
             {
-                _ = OpenSpotifyContainerAsync(spotifyView.Container, spotifyView.ArtistSection);
-                return true;
+                // PRZEGLAD kategorii nie ma czego pobrac z sieci - to staly spis
+                // dwoch pozycji. Ponowne otwarcie przestawialo fokus na pierwszy
+                // wiersz, wiec uzytkownik tracil miejsce, w ktorym stal, i nie
+                // dowiadywal sie, ze nic sie nie zmienilo. Zostajemy na wierszu i
+                // mowimy, ze lista kategorii jest gotowa.
+                if (spotifyView.IsArtistOverview)
+                {
+                    var kategoria = SelectedArtistSection?.Label();
+                    Announce(kategoria is null
+                        ? $"Lista kategorii wykonawcy {spotifyView.Container.Title} jest gotowa. "
+                            + "Nie ma tu czego odświeżać z Spotify"
+                        : $"Lista kategorii wykonawcy {spotifyView.Container.Title} jest gotowa. "
+                            + $"Pozostajesz na kategorii {kategoria}");
+                    return true;
+                }
+                if (spotifyView.ArtistSection is not null)
+                {
+                    // Kategoria PRAWDZIWIE pobiera pierwsza strone od nowa -
+                    // razem z wyzerowaniem doladowanych stron, zeby po odswiezeniu
+                    // licznik i wiersz "Wczytaj wiecej" zgadzaly sie z tym, co
+                    // faktycznie jest w widoku.
+                    _spotifyTracksLoading.Remove(_currentView);
+                    _ = OpenSpotifyContainerAsync(spotifyView.Container, spotifyView.ArtistSection);
+                    return true;
+                }
             }
         }
         if (!IsArtistOverviewView) return false;

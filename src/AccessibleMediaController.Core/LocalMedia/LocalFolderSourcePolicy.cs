@@ -124,11 +124,26 @@ public static class LocalFolderSourcePolicy
         return source is not null && sources.Remove(source);
     }
 
-    public static bool IsSameOrDescendant(string candidatePath, string rootPath)
+    public static bool IsSameOrDescendant(string candidatePath, string rootPath) =>
+        IsSameOrDescendant(candidatePath, rootPath, null);
+
+    /// <summary>
+    /// Wariant z jawnym normalizatorem o zasięgu jednego przebiegu wywołującego.
+    /// <paramref name="normalizer"/> równy <c>null</c> zachowuje dotychczasowe zachowanie
+    /// znak w znak: normalizacja liczona jest za każdym razem od nowa.
+    /// </summary>
+    public static bool IsSameOrDescendant(
+        string candidatePath,
+        string rootPath,
+        LocalFolderPathNormalizer? normalizer)
     {
         if (string.IsNullOrWhiteSpace(candidatePath) || string.IsNullOrWhiteSpace(rootPath)) return false;
-        var candidate = NormalizeFolderPath(candidatePath);
-        var root = NormalizeFolderPath(rootPath);
+        var candidate = normalizer is null
+            ? NormalizeFolderPath(candidatePath)
+            : normalizer.Normalize(candidatePath);
+        var root = normalizer is null
+            ? NormalizeFolderPath(rootPath)
+            : normalizer.Normalize(rootPath);
         if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase)) return true;
         var rootWithSeparator = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
         return candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);

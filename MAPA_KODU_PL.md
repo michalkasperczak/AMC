@@ -7,6 +7,14 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie robocze: Enter a Biblioteka usług
+
+- `Core/Podcasts/OpenedSearchResultLibraryPlan.cs`: wspólna decyzja o dodaniu otwartego wyniku radia, TIDAL i Spotify; tryb bez dodawania nie uruchamia zapisów, ponowne otwarcie nie usuwa członkostwa.
+- `Windows/MainWindow.OpenedSearchResultLibrary.cs`: wykonanie planu przez zapis stacji lub istniejących klientów kolekcji usług; publiczny odcinek YouTube awansuje z podglądu dopiero po zaakceptowanym otwarciu, nie podczas przygotowania wyniku ani pauzy. `SearchResultOpenWithoutLibraryTests` obejmuje rzeczywiste polecenia pauzy, wznowienia ON/OFF i zachowania wcześniejszego członkostwa.
+- `Windows/MainWindow.xaml.cs`: podłączenie w `ShowSearch` i `ExecuteSearchResultAction`; odmowa aktywacji i pauza już grającego wyniku nie uruchamiają automatycznego dodania.
+- `OpenedSearchResultLibraryTests`: rzeczywiste okno wyszukiwania, oba ustawienia dla trzech usług, odróżnienie rozpoczęcia od pauzy i odmowy. Sieć zastąpiona transportem testowym, dane i integracja pulpitu odizolowane.
+- To kod kandydata, nie opis zainstalowanego wydania.
+
 ## Uzupełnienie: konto Spotify, alfa 398
 
 - `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.
@@ -170,12 +178,15 @@ i 21000–22000). Serwisy:
 
 ## 7. Pliki lokalne
 
-- `Core/LocalMedia/` — 15 plików reguł: wykrywanie plików
+- `Core/LocalMedia/` — reguły wykrywania plików
   (`LocalAudioFileDiscovery.cs`), import (`LocalLibraryImporter.cs`),
   synchronizacja folderów (`LocalLibrarySynchronizer.cs`), wnioskowanie albumu
   (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs`),
   pliki w chmurze niepobrane (`CloudFileAvailability.cs`), sonda kontenera
   (`MediaContainerProbe.cs`, `Mp3StructureProbe.cs`).
+- `LocalFolderPathNormalizer.cs` — jawna pamięć normalizacji ograniczona do jednego
+  przebiegu `MainWindow.CaptureLocalMediaState`; używana przez
+  `LocalFolderSourcePolicy.IsSameOrDescendant` przy rozstrzyganiu opcji folderu.
 - `Core/Configuration/LocalLibraryDatabase.cs` (40 KB) — baza SQLite biblioteki.
 - Okna: `LocalSourcesWindow`, `RenameLocalItemWindow`, `UnavailableLocalItemsWindow`.
 

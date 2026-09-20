@@ -302,13 +302,19 @@ internal static class NvdaBridgeSmokeTests
         typeof(MainWindow).GetField("_sessions", fields)!.SetValue(window, sessions);
         var rowType = typeof(MainWindow).GetNestedType("MediaItemRow", BindingFlags.NonPublic)!;
         var wrongItem = new MediaItem { Id = "hidden-selection", Title = "Niewybrany do odtwarzania" };
-        // Liczba wartosci MUSI zgadzac sie z liczba parametrow MediaItemRow:
-        // wywolanie jest pozycyjne przez refleksje, wiec dodanie pola w klasie
-        // (tu: wpis historii nagrywania na koncu) wywala ten test na
-        // MissingMethodException, a nie na czytelnej roznicy. Ostatnie null to
-        // recordingHistoryEntry - wiersz zwyklego pliku nie pochodzi z historii.
-        var row = Activator.CreateInstance(rowType, fields, null,
-            [wrongItem, wrongItem.Title, wrongItem.Title, null, null, "X:\\fictional-folder", null, null, null, null, null], null)!;
+        // Podstaw znane argumenty po nazwach, a nowe opcjonalne pola pozostaw
+        // z deklarowanymi wartosciami domyslnymi. Nie przywiazuj testu wyboru
+        // biezacego pliku do liczby niezaleznych rodzajow wierszy listy.
+        var constructor = rowType.GetConstructors(fields).Single();
+        var rowArguments = constructor.GetParameters().Select(parameter => parameter.Name switch
+        {
+            "item" => (object)wrongItem,
+            "label" or "navigationText" => wrongItem.Title,
+            "folderPath" => "X:\\fictional-folder",
+            _ when parameter.HasDefaultValue => parameter.DefaultValue,
+            _ => throw new InvalidOperationException("Nowy wymagany parametr wiersza: " + parameter.Name)
+        }).ToArray();
+        var row = constructor.Invoke(rowArguments);
         var list = new ListBox { SelectionMode = SelectionMode.Extended };
         list.Items.Add(row);
         list.SelectedIndex = 0;

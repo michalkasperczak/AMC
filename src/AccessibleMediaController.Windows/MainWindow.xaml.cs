@@ -560,6 +560,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (IsArtistOverviewView) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
+                || row?.LoadMoreSpotifyTracksViewName is not null
                 || row?.ArtistSection is not null) return null;
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
@@ -577,6 +578,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
                 .Where(row => row.PlaylistId is null && row.LoadMorePodcastViewName is null
+                    && row.LoadMoreSpotifyTracksViewName is null
                     && row.ArtistSection is null)
                 .OrderBy(row => MediaList.Items.IndexOf(row))
                 .Select(row => row.ActionItem)
@@ -766,6 +768,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AddPublicInternetMedia(
                     CreateResolvedYouTubeSearchResult(result.Item),
                     titleOverride: null,
+                    openAfterImport: true,
                     addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
                         _state.Settings.SearchResultEnterBehavior,
                         explicitLibraryRequest: false));
@@ -785,7 +788,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             var originalSelectedResults = dialog.SelectedResults.ToArray();
             var effectiveResults = originalSelectedResults
-                .Select(MaterializeYouTubeSearchResult)
+                .Select(selected => MaterializeYouTubeSearchResult(selected))
                 .ToArray();
             var selectedIndex = Array.FindIndex(
                 originalSelectedResults,
@@ -827,6 +830,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ShowPlaylistManager(items, selectedSession);
                 return;
             }
+            // Enter OTWORZYL wynik. Globalne ustawienie decyduje, czy otwarcie ma
+            // go takze dopisac do Biblioteki uslugi - jeden punkt dla radia,
+            // TIDAL, Spotify i przyszlych uslug. Zapis startuje PRZED przywroceniem
+            // fokusu i nie jest oczekiwany: fokus nie moze czekac na siec.
+            if (dialog.SelectedAction == SearchResultAction.Open)
+                _ = MaybeAddOpenedSearchResultToLibrary(effectiveResult);
             RestoreMediaListFocusAfterRefresh();
             return;
         }
@@ -7678,11 +7687,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave();
     }
 
+    // Diagnostyka kosztu JEDNEGO przebiegu CaptureLocalMediaState. Liczniki są
+    // wyłącznie obserwacją: nie zmieniają decyzji ani zapisywanych pól.
+    private int _captureFindSettingsScans;
+    private int _captureFolderNormalizations;
+
     private void CaptureLocalMediaState()
     {
         var local = _sessions?.FindSession("local");
         if (local is not null) local.RememberCurrentPosition();
         EnsureLocalCustomOrder();
+
+        // Pamięć normalizacji korzeni folderów o zasięgu TYLKO tego przebiegu: obiekt
+        // żyje w zmiennej lokalnej i ginie razem z metodą, więc kolejne wywołanie
+        // widzi aktualny stan systemu plików. Ta sama lista korzeni jest sprawdzana
+        // dla każdej z tysięcy pozycji, a Path.GetFullPath na Windows wchodzi przy
+        // ścieżkach z tyldą w TryExpandShortFileName.
+        var folderNormalizer = new LocalFolderPathNormalizer();
 
         var savedById = _state.LocalMedia.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var savedByPath = _state.LocalMedia.Items
@@ -7702,7 +7723,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var (fileLength, lastWriteUtcTicks) = previous is null
                 ? GetFileFingerprint(item.Source)
                 : (previous.FileLength, previous.LastWriteUtcTicks);
-            var position = ShouldRememberLocalPosition(item)
+            // `previous` to DOKŁADNIE ten rekord, który zwróciłoby
+            // FindLocalItemSettings(item): najpierw dopasowanie po Id (Ordinal),
+            // potem po znormalizowanej ścieżce (OrdinalIgnoreCase). Ponowny skan
+            // liniowy po całej liście dla każdej pozycji jest więc zbędny.
+            var position = ShouldRememberLocalPosition(previous, item, folderNormalizer)
                 ? rememberedPositions?.GetValueOrDefault(item.Id)
                   ?? (previous is null ? TimeSpan.Zero : TimeSpan.FromTicks(previous.ResumePositionTicks))
                 : TimeSpan.Zero;
@@ -7737,6 +7762,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RadioRecordingCompletedUtcTicks = previous?.RadioRecordingCompletedUtcTicks ?? 0
             };
         }).ToList();
+
+        _captureFolderNormalizations = folderNormalizer.ComputeCount;
 
         if (local is not null && local.HasCurrentItem)
         {
@@ -8105,7 +8132,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (dialog.InternetMedia is { } internetMedia)
         {
-            AddPublicInternetMedia(internetMedia, dialog.CustomTitle);
+            AddPublicInternetMedia(internetMedia, dialog.CustomTitle, openAfterImport: true, addToLibrary: true);
             return;
         }
 
@@ -8116,7 +8143,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             dialog.CustomTitle,
             DateTime.UtcNow,
             _state.Bookmarks,
-            dialog.SourceKind);
+            dialog.SourceKind,
+            // Reczne dodanie kanalu to jawne zadanie zapisu.
+            addToLibrary: true);
         if (result.AddedSubscription)
         {
             // Wczesniej odstep dostawal TYLKO YouTube, wiec kanaly RSS nigdy nie
@@ -8143,32 +8172,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private MediaItem AddPublicInternetMedia(
         ResolvedYouTubeAudioSource media,
         string? titleOverride,
-        bool openAfterImport = true,
-        bool addToLibrary = true)
+        bool openAfterImport,
+        bool addToLibrary)
     {
-        const string collectionId = "internet-media:public";
-        const string collectionAddress = "https://amc.invalid/public-internet-media";
+        // Kazdy caller musi jawnie wybrac intencje zapisu.
+        // Dwie kolekcje, nie jedna. Wczesniej wszystkie publiczne materialy
+        // dzielily internet-media:public; gdy ta kolekcja raz weszla do
+        // Biblioteki, KAZDY nastepny podglad ladowal w kolekcji zapisanej.
+        // Material tymczasowy trzyma kolekcja podgladow (nigdy w Bibliotece),
+        // a jawne dodanie PRZENOSI odcinek do kolekcji zapisanej bez zmiany
+        // jego identyfikatora - odtwarzanie, powrot fokusu, historia, kolejka
+        // i zakladki wisza na identyfikatorze odcinka i przezywaja promocje.
+        var collectionId = PublicInternetMediaCollections.ResolveId(addToLibrary);
+        var collectionAddress = addToLibrary
+            ? "https://amc.invalid/public-internet-media"
+            : "https://amc.invalid/public-internet-media-preview";
         CapturePodcastState();
-        var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
-            string.Equals(subscription.Id, collectionId, StringComparison.Ordinal));
-        if (collection is null)
-        {
-            collection = new PodcastSubscriptionSettings
-            {
-                Id = collectionId,
-                Title = "Media internetowe",
-                Description = "Publiczne materiały internetowe dodane bez logowania do usług.",
-                FeedUrl = collectionAddress,
-                SourceKind = PodcastSourceKind.PublicInternetMedia,
-                RefreshIntervalMinutes = 0,
-                IsInLibrary = addToLibrary
-            };
-            _state.Podcasts.Subscriptions.Add(collection);
-        }
-        // Czlonkostwa NIE zdejmujemy: kolekcja raz zapisana zostaje w
-        // Bibliotece takze przy otwarciu wyniku bez dodawania.
-        if (addToLibrary) collection.IsInLibrary = true;
-        collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+        var collection = EnsurePublicInternetMediaCollection(collectionId, collectionAddress, addToLibrary);
 
         var stableAddress = media.PageUrl.Trim();
         var episodeId = $"internet-media:{StableInternetMediaId(stableAddress)}";
@@ -8187,7 +8207,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
             _state.Podcasts.Episodes.Add(episode);
         }
-        episode.SubscriptionId = collectionId;
+        // Czlonkostwo zmieniamy TYLKO w gore. Zwykle otwarcie (addToLibrary
+        // false) materialu JUZ zapisanego nie moze go cicho zdemotowac do
+        // podgladow - uzytkownik zapisal go jawnym Ctrl+Shift+L, a otwarcie nie
+        // jest wycofaniem tej decyzji.
+        if (addToLibrary || !PublicInternetMediaCollections.IsCollection(episode.SubscriptionId))
+            episode.SubscriptionId = collectionId;
+        // Otwieramy kolekcje, w ktorej material FAKTYCZNIE jest.
+        collection = EnsurePublicInternetMediaCollection(
+            episode.SubscriptionId,
+            PublicInternetMediaCollections.IsSaved(episode.SubscriptionId)
+                ? "https://amc.invalid/public-internet-media"
+                : "https://amc.invalid/public-internet-media-preview",
+            PublicInternetMediaCollections.IsSaved(episode.SubscriptionId));
         episode.SourceIdentifier = stableAddress;
         episode.Title = string.IsNullOrWhiteSpace(titleOverride)
             ? media.Title
@@ -8216,6 +8248,121 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
         }
         return item;
+    }
+
+    /// <summary>
+    /// Zaklada kolekcje publicznych materialow, jesli jeszcze jej nie ma.
+    /// Kolekcja podgladow NIGDY nie dostaje czlonkostwa w Bibliotece; kolekcji
+    /// zapisanej czlonkostwa nie zdejmujemy.
+    /// </summary>
+    private PodcastSubscriptionSettings EnsurePublicInternetMediaCollection(
+        string collectionId,
+        string collectionAddress,
+        bool inLibrary)
+    {
+        var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(subscription.Id, collectionId, StringComparison.Ordinal));
+        if (collection is null)
+        {
+            collection = new PodcastSubscriptionSettings
+            {
+                Id = collectionId,
+                Title = inLibrary
+                    ? PublicInternetMediaCollections.SavedTitle
+                    : PublicInternetMediaCollections.PreviewTitle,
+                Description = inLibrary
+                    ? "Publiczne materiały internetowe zapisane w Bibliotece."
+                    : "Publiczne materiały internetowe otwarte bez zapisu do Biblioteki.",
+                FeedUrl = collectionAddress,
+                SourceKind = PodcastSourceKind.PublicInternetMedia,
+                RefreshIntervalMinutes = 0,
+                IsInLibrary = inLibrary
+            };
+            _state.Podcasts.Subscriptions.Add(collection);
+        }
+        collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+        // Kolekcja zapisana: czlonkostwa NIE zdejmujemy. Kolekcja podgladow:
+        // czlonkostwa NIE nadajemy, inaczej wrocilby blad wspolnej kolekcji.
+        if (inLibrary) collection.IsInLibrary = true;
+        else if (PublicInternetMediaCollections.IsPreview(collectionId)) collection.IsInLibrary = false;
+        return collection;
+    }
+
+    /// <summary>
+    /// Przenosi publiczny material miedzy kolekcja podgladow i zapisana.
+    /// Identyfikator odcinka zostaje nietkniety, wiec odtwarzanie, powrot
+    /// fokusu, historia, kolejka i zakladki przezywaja zmiane czlonkostwa.
+    /// Zdjecie czlonkostwa NIE usuwa pozycji - wraca do podgladow.
+    /// </summary>
+    private bool TryMovePublicInternetMediaMembership(PodcastEpisodeSettings episode, bool addToLibrary)
+    {
+        if (!PublicInternetMediaCollections.IsCollection(episode.SubscriptionId)) return false;
+        var targetId = PublicInternetMediaCollections.ResolveId(addToLibrary);
+        if (string.Equals(episode.SubscriptionId, targetId, StringComparison.Ordinal)) return true;
+        var target = EnsurePublicInternetMediaCollection(
+            targetId,
+            addToLibrary
+                ? "https://amc.invalid/public-internet-media"
+                : "https://amc.invalid/public-internet-media-preview",
+            addToLibrary);
+        episode.SubscriptionId = target.Id;
+        // Pustej kolekcji NIE usuwamy. Wczesniej zmiana czlonkostwa OSTATNIEGO
+        // materialu kasowala cala kolekcje razem z jej metadanymi (wlasna
+        // nazwa, ulubiona, folder pobran). Pusta kolekcja jest nieszkodliwa,
+        // a utracone ustawienia uzytkownika juz nie.
+        return true;
+    }
+
+    /// <summary>
+    /// Ctrl+Shift+L na publicznym materiale internetowym: awansuje podglad do
+    /// kolekcji zapisanej albo zdejmuje czlonkostwo i wraca do podgladow.
+    /// Zwraca false, gdy zaznaczenie nie jest publicznym materialem - wtedy
+    /// polecenie idzie zwykla sciezka podcastowa.
+    /// </summary>
+    private bool TryTogglePublicInternetMediaMembership()
+    {
+        var selected = ActionItems.ToArray();
+        var episodes = selected
+            .Where(item => item.Kind == MediaItemKind.Episode)
+            .Select(item => _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal)))
+            .Where(episode => episode is not null
+                && PublicInternetMediaCollections.IsCollection(episode.SubscriptionId))
+            .Select(episode => episode!)
+            .ToArray();
+        if (episodes.Length == 0) return false;
+        // MIESZANE zaznaczenie (publiczne materialy razem z podcastami RSS) nie
+        // idzie ani ta sciezka, ani zwykla podcastowa: kazda z nich cicho
+        // pomijala CZESC zaznaczenia. Nic nie zmieniamy i mowimy wprost, co
+        // zrobic, zeby uzytkownik nie zostal z polowicznym skutkiem.
+        if (episodes.Length != selected.Length)
+        {
+            Announce(
+                "Materiały internetowe i podcasty zaznaczaj osobno - "
+                + "dla mieszanego zaznaczenia nie zmieniono Biblioteki");
+            return true;
+        }
+
+        CapturePodcastState();
+        var promoting = episodes.Any(episode =>
+            PublicInternetMediaCollections.IsPreview(episode.SubscriptionId));
+        foreach (var episode in episodes)
+            TryMovePublicInternetMediaMembership(episode, promoting);
+
+        ReloadPodcastSessionItems();
+        var saved = QueueStateSave(announceFailure: true);
+        RefreshCurrentView();
+        // Po nieudanym zapisie NIE meldujemy dodania jako faktu - komunikat o
+        // awarii zapisu poszedl juz z QueueStateSave.
+        if (!saved) return true;
+        Announce(promoting
+            ? episodes.Length == 1
+                ? $"Dodano do Biblioteki: {episodes[0].Title}"
+                : $"Dodano do Biblioteki materiałów: {episodes.Length}"
+            : episodes.Length == 1
+                ? $"Usunięto z Biblioteki: {episodes[0].Title}. Materiał został w podglądach"
+                : $"Usunięto z Biblioteki materiałów: {episodes.Length}. Zostały w podglądach");
+        return true;
     }
 
     private static ResolvedYouTubeAudioSource CreateResolvedYouTubeSearchResult(MediaItem item)
@@ -8327,7 +8474,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 item.Feed!,
                 item.Entry.Title,
                 DateTime.UtcNow,
-                _state.Bookmarks);
+                _state.Bookmarks,
+                // Import OPML to jawne zadanie zapisu subskrypcji.
+                addToLibrary: true);
             imported++;
         }
         ReloadPodcastSessionItems();
@@ -8621,7 +8770,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         subscription.HasCustomTitle ? subscription.Title : null,
                         DateTime.UtcNow,
                         _state.Bookmarks,
-                        subscription.SourceKind);
+                        subscription.SourceKind,
+                        // Odswiezanie NIE zmienia czlonkostwa: kanal otwarty bez
+                        // zapisu zostaje poza Biblioteka, a zapisany w niej.
+                        addToLibrary: false);
                     addedEpisodes += result.AddedEpisodes;
                     retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
                     success++;
@@ -9216,15 +9368,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private bool ShouldRememberLocalPosition(MediaItem item) =>
-        FindLocalItemSettings(item)?.ResumePositionMode switch
+        ShouldRememberLocalPosition(FindLocalItemSettings(item), item, null);
+
+    /// <summary>
+    /// Wariant przyjmujący JUŻ znaleziony rekord ustawień oraz opcjonalny normalizator
+    /// ścieżek o zasięgu jednego przebiegu wywołującego. <paramref name="saved"/> musi być
+    /// dokładnie tym, co zwróciłoby <see cref="FindLocalItemSettings(MediaItem)"/> dla
+    /// tego elementu — wtedy werdykt jest identyczny, a odpada powtórny skan liniowy
+    /// po całej liście lokalnych pozycji.
+    /// </summary>
+    private bool ShouldRememberLocalPosition(
+        LocalMediaItemSettings? saved,
+        MediaItem item,
+        LocalFolderPathNormalizer? normalizer) =>
+        saved?.ResumePositionMode switch
         {
             ResumePositionMode.Remember => true,
             ResumePositionMode.StartFromBeginning => false,
-            _ => ShouldRememberLocalPosition(item.Source)
+            _ => ShouldRememberLocalPosition(item.Source, normalizer)
         };
 
     private LocalMediaItemSettings? FindLocalItemSettings(MediaItem item)
     {
+        _captureFindSettingsScans++;
         var byId = _state.LocalMedia.Items.FirstOrDefault(saved =>
             string.Equals(saved.Id, item.Id, StringComparison.Ordinal));
         if (byId is not null || !TryGetLocalPath(item.Source, out var itemPath)) return byId;
@@ -9310,7 +9476,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return "według prędkości sesji";
     }
 
-    private bool ShouldRememberLocalPosition(string? path)
+    private bool ShouldRememberLocalPosition(string? path) =>
+        ShouldRememberLocalPosition(path, null);
+
+    private bool ShouldRememberLocalPosition(string? path, LocalFolderPathNormalizer? normalizer)
     {
         // Kolejność: opcja folderu, źródło folderu, ustawienie sesji, globalne.
         // Ustawienie sesji wchodzi PONIŻEJ folderu (folder jest szczegółowszy),
@@ -9325,7 +9494,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var folderMode = _state.LocalMedia.FolderPlaybackOptions
             .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
-                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path))
+                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path, normalizer))
             .OrderByDescending(option => option.Path.Length)
             .Select(option => (ResumePositionMode?)option.ResumePositionMode)
             .FirstOrDefault();
@@ -9335,7 +9504,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var source = _state.LocalMedia.FolderSources
-            .Where(candidate => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, candidate.Path))
+            .Where(candidate => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, candidate.Path, normalizer))
             .OrderByDescending(candidate => candidate.Path.Length)
             .FirstOrDefault();
         return source?.ResumePositionMode switch
@@ -9420,9 +9589,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Path.TrimEndingDirectorySeparator(normalized);
     }
 
+    // Tests of the real modal UI must not compete for the installed app's
+    // NVDA pipe or global keyboard registration. Never stored in user settings.
+    internal bool SuppressDesktopIntegrationForTests { get; init; }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        if (SuppressDesktopIntegrationForTests) return;
         _nvdaCommandServer = new NvdaCommandServer(ExecuteNvdaCommandAsync);
         var handle = new WindowInteropHelper(this).Handle;
         try
@@ -10145,7 +10319,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         && YouTubeSearchClient.IsSearchResult(result.Item);
 
     private SearchWindow.SearchResult MaterializeYouTubeSearchResult(
-        SearchWindow.SearchResult result) =>
+        SearchWindow.SearchResult result,
+        bool addToLibrary = false) =>
         !IsYouTubeSearchResult(result)
             ? result
             : new SearchWindow.SearchResult(
@@ -10154,12 +10329,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     CreateResolvedYouTubeSearchResult(result.Item),
                     titleOverride: null,
                     openAfterImport: false,
-                    // Przygotowanie materialu do odtworzenia albo kolejki to nie
-                    // swiadome dodanie do Biblioteki - o zapisie decyduje jedno
-                    // globalne ustawienie.
-                    addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
-                        _state.Settings.SearchResultEnterBehavior,
-                        explicitLibraryRequest: false)));
+                    // Samo przygotowanie wyniku (kolejka, pobranie, preset)
+                    // nie jest otwarciem. Tryb zapisu przekazuje akcja otwierania.
+                    addToLibrary: addToLibrary));
 
     private PodcastSubscriptionSettings? FindPodcastSubscriptionByFeed(string? feedAddress)
     {
@@ -10738,6 +10910,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (commandId == CommandIds.ToggleLibrary && HasSelectedFolderRow())
         {
             Announce("Folder jest już częścią Biblioteki. Otwórz go Enterem, aby zmieniać przynależność pojedynczych plików");
+            return new CommandExecutionResult(true);
+        }
+        else if (commandId == CommandIds.ToggleLibrary
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && TryTogglePublicInternetMediaMembership())
+        {
+            // Publiczny material (YouTube bez logowania) ma WLASNE czlonkostwo:
+            // przenosimy odcinek miedzy kolekcja podgladow i zapisana. Bez tego
+            // skrot szedlby na kolekcje nadrzedna i - jak przed poprawka -
+            // wciagal do Biblioteki wszystkie pozostale podglady razem z nim.
             return new CommandExecutionResult(true);
         }
         else if (commandId == CommandIds.ToggleLibrary
@@ -11870,13 +12052,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             // Album zachowuje kolejnosc wydania; sortowanie alfabetyczne tylko
             // wtedy, gdy uzytkownik sam je wybral (Alt+1).
-            _unfilteredItems = (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
-                    ? spotifyContainer.Items
-                        .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
-                        .ToList()
-                    : spotifyContainer.Items.ToList())
-                .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
-                .ToList();
+            _unfilteredItems = AppendSpotifyTracksLoadMoreRow(
+                (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
+                        ? spotifyContainer.Items
+                            .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
+                            .ToList()
+                        : spotifyContainer.Items.ToList())
+                    .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                    .ToList(),
+                spotifyContainer,
+                _currentView);
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -12798,6 +12983,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase)
             || string.Equals(session.Id, "spotify", StringComparison.OrdinalIgnoreCase))
         {
+            // Flagi bierzemy z JUZ policzonego snapshotu, a nie powtarzamy tu
+            // reguly czlonkostwa. Reprezentant grupy nosi flagi tylko swojego
+            // wiersza, a jeden utwor TIDAL ma wiele wierszy o roznych Id
+            // (kolekcja i wpisy playlist): zwykla kolejka moze lezec na
+            // wierszu kolekcji, a priorytet na wpisie playlisty. Branie flag
+            // samego reprezentanta zapisywalo wtedy w RemoteQueues
+            // IsPlayNext=false, choc ta sama zmiana zapisywala priorytet w
+            // CollectionOrders - dwie kopie tego samego faktu przeczyly sobie.
+            var regularStorageIds = snapshot.RegularItemIds.ToHashSet(StringComparer.Ordinal);
+            var playNextStorageIds = snapshot.PlayNextItemIds.ToHashSet(StringComparer.Ordinal);
             var queuedItems = items
                 .Where(item => item.IsInQueue || item.IsPlayNext)
                 .GroupBy(
@@ -12806,7 +13001,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Select(group => group.FirstOrDefault(item =>
                         string.Equals(item.Id, group.Key, StringComparison.Ordinal))
                     ?? group.First())
-                .Select(item => RemoteQueueItemSettings.FromMediaItem(session.Id, item))
+                .Select(item =>
+                {
+                    var queued = RemoteQueueItemSettings.FromMediaItem(session.Id, item);
+                    queued.IsInQueue = regularStorageIds.Contains(queued.Id);
+                    queued.IsPlayNext = playNextStorageIds.Contains(queued.Id);
+                    return queued;
+                })
                 .ToList();
             if (queuedItems.Count == 0)
             {
@@ -13253,6 +13454,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_restoringSessionNavigation
             && !_playerViewActive
             && selectedRow?.LoadMorePodcastViewName is null
+            && selectedRow?.LoadMoreSpotifyTracksViewName is null
             && SelectedItem is { } selected)
         {
             GetSessionNavigationState(_sessions.Current.Id).SelectedItemIds[_currentView] = selected.Id;
@@ -13482,6 +13684,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (row?.LoadMorePodcastViewName is { } loadMorePodcastViewName)
         {
             LoadMorePodcastEpisodes(loadMorePodcastViewName);
+            return;
+        }
+        if (row?.LoadMoreSpotifyTracksViewName is { } loadMoreSpotifyTracksView)
+        {
+            _ = LoadMoreSpotifyArtistTracksAsync(loadMoreSpotifyTracksView);
             return;
         }
         if (row?.PlaylistId is { } playlistId)
@@ -13745,12 +13952,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private ServiceInteractionContext CaptureServiceInteractionContext() => new(
-        _tidalNavigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
+    private ServiceInteractionContext CaptureServiceInteractionContext() =>
+        CaptureServiceInteractionContext(_tidalNavigationVersion);
 
-    private bool CanPresentTidalResponse => !_isClosing && IsActive
+    /// <summary>
+    /// Kontekst interakcji dla PODANEGO licznika nawigacji. Spotify ma wlasny
+    /// licznik, ale NIE swoja kopie bramki - jedno miejsce decyduje, kiedy
+    /// spozniona odpowiedz nie ma prawa przestawic listy.
+    ///
+    /// Tozsamosc wiersza bierzemy z <see cref="SelectedItem"/>: ten getter oddaje
+    /// Row.Item, a wiersz kategorii wykonawcy ma wlasny, trwaly Id
+    /// (artist-category:...), wiec porownanie dziala tez na kategoriach. Null jest
+    /// tam ActionItem, a nie SelectedItem - zmierzone testem zywego UI.
+    /// </summary>
+    private ServiceInteractionContext CaptureServiceInteractionContext(long navigationVersion) => new(
+        navigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
+
+    private bool CanPresentServiceResponse => !_isClosing && IsActive
         && !OwnedWindows.Cast<Window>().Any(window => window.IsActive)
         && !IsMenuInteractionActive(Keyboard.FocusedElement);
+
+    private bool CanPresentTidalResponse => CanPresentServiceResponse;
 
     private string? BeginTidalCollectionToggle(IReadOnlyList<MediaItem> items, bool favorites)
     {
@@ -22094,23 +22316,52 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (results.All(IsPublicInternetMediaSearchResult)
             && action == SearchResultAction.Library)
         {
-            var newResults = results.Where(IsYouTubeSearchResult).ToArray();
-            foreach (var selected in newResults)
+            // Biblioteka to JAWNE dodanie, wiec addToLibrary MUSI byc true -
+            // domyslne false tylko otwieralo podglad i dzialanie nic nie dawalo.
+            // Liczymy RZECZYWISTY efekt (czy material wszedl do kolekcji
+            // zapisanej), a nie „czy wynik byl nowy”: material otwarty wczesniej
+            // jako podglad nie jest nowy, ale wlasnie jego trzeba awansowac.
+            var dodane = new List<string>();
+            var jużZapisane = new List<string>();
+            foreach (var selected in results)
             {
-                AddPublicInternetMedia(
-                    CreateResolvedYouTubeSearchResult(selected.Item),
-                    titleOverride: null,
-                    openAfterImport: false);
+                if (IsYouTubeSearchResult(selected))
+                {
+                    var item = AddPublicInternetMedia(
+                        CreateResolvedYouTubeSearchResult(selected.Item),
+                        titleOverride: null,
+                        openAfterImport: false,
+                        addToLibrary: true);
+                    dodane.Add(item.Title);
+                    continue;
+                }
+                var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, selected.Item.Id, StringComparison.Ordinal));
+                if (episode is null) continue;
+                if (PublicInternetMediaCollections.IsSaved(episode.SubscriptionId))
+                {
+                    jużZapisane.Add(episode.Title);
+                    continue;
+                }
+                if (TryMovePublicInternetMediaMembership(episode, addToLibrary: true))
+                    dodane.Add(episode.Title);
             }
-            if (newResults.Length == 0)
+            if (dodane.Count == 0)
             {
-                return results.Count == 1
-                    ? $"Materiał jest już w Mediach internetowych: {results[0].Item.Title}"
-                    : "Wybrane materiały są już w Mediach internetowych";
+                return jużZapisane.Count == 1
+                    ? $"Materiał jest już w Mediach internetowych: {jużZapisane[0]}"
+                    : jużZapisane.Count > 1
+                        ? "Wybrane materiały są już w Mediach internetowych"
+                        : "Nie udało się dodać wybranych materiałów do Mediów internetowych";
             }
-            return newResults.Length == 1
-                ? $"Dodano do Mediów internetowych: {newResults[0].Item.Title}"
-                : $"Dodano do Mediów internetowych: {FormatItemCount(newResults.Length)}";
+            ReloadPodcastSessionItems();
+            if (!QueueStateSave(announceFailure: true))
+            {
+                return "Dodano do Mediów internetowych, ale nie udało się zapisać stanu programu";
+            }
+            return dodane.Count == 1
+                ? $"Dodano do Mediów internetowych: {dodane[0]}"
+                : $"Dodano do Mediów internetowych: {FormatItemCount(dodane.Count)}";
         }
         if (results.All(IsPublicInternetMediaSearchResult)
             && action is SearchResultAction.TogglePlayback
@@ -22120,8 +22371,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or SearchResultAction.Download
                 or SearchResultAction.SaveAs)
         {
+            // Materializacja jest tylko PODGLADEM. Decyzje o dodaniu do
+            // Biblioteki podejmuje wspolna bramka MaybeAddOpenedSearchResultToLibrary
+            // PO zaakceptowanym otwarciu. Wczesniej ta linia promowala material
+            // juz przy przygotowaniu wyniku, wiec Ctrl+Enter, ktory tylko
+            // WSTRZYMYWAL grajacy material, przy globalnym ON i tak awansowal go
+            // do kolekcji zapisanej - pauza nie jest otwarciem.
             results = results
-                .Select(MaterializeYouTubeSearchResult)
+                .Select(selected => MaterializeYouTubeSearchResult(selected))
                 .ToArray();
             visibleResults = results;
         }
@@ -22240,15 +22497,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         .Distinct(StringComparer.Ordinal)
                         .ToArray();
                     session.SetPlaybackContext(playbackContextItemIds);
+                    var wasPlayingSelectedResult = session.IsPlaying
+                        && session.HasCurrentItem
+                        && string.Equals(session.CurrentItem.Id, result.Item.Id, StringComparison.Ordinal);
+                    CommandExecutionResult activation;
                     _preservePreparedPlaybackContext = true;
                     try
                     {
-                        ExecuteCommand(CommandIds.ActivateSelected);
+                        activation = ExecuteCommand(CommandIds.ActivateSelected);
                     }
                     finally
                     {
                         _preservePreparedPlaybackContext = false;
                     }
+                    // ActivateSelected potrafi takze odmowic albo wstrzymac juz
+                    // grajacy element. Zaden z tych przypadkow nie jest otwarciem.
+                    // Handled obejmuje rowniez zaakceptowane otwarcie kontenera
+                    // i zewnetrznego odtwarzacza, ktore nie musi od razu grac tutaj.
+                    var pausedSelectedResult = wasPlayingSelectedResult
+                        && session.IsPaused && !session.IsPlaying
+                        && session.HasCurrentItem
+                        && string.Equals(session.CurrentItem.Id, result.Item.Id, StringComparison.Ordinal);
+                    if (activation.Handled && !pausedSelectedResult)
+                        _ = MaybeAddOpenedSearchResultToLibrary(result);
                     break;
                 case SearchResultAction.PlayNext:
                     ExecuteCommand(CommandIds.TogglePlayNext);
@@ -22362,6 +22633,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.Left)
         {
             Announce("Załaduj więcej odcinków. Naciśnij Enter");
+            e.Handled = true;
+            return;
+        }
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMoreSpotifyTracksViewName is not null
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key is Key.Left or Key.Right)
+        {
+            Announce("Wczytaj więcej utworów. Naciśnij Enter");
             e.Handled = true;
             return;
         }
@@ -22632,6 +22911,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 || row.AlbumFolderPath is not null
                 || row.PlaylistId is not null
                 || row.LoadMorePodcastViewName is not null
+                || row.LoadMoreSpotifyTracksViewName is not null
                 || row.ArtistSection is not null
                     ? row.NavigationText
                     : NavigationTextForItem(
@@ -22684,6 +22964,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastCancellation.Cancel();
         _wiiMCancellation.Cancel();
         _tidalCancellation.Cancel();
+        // Odczyt katalogu Spotify z doladowywaniem stron jest dluga sciezka -
+        // przy zamykaniu okna nie moze zostac wiecznie pracujace zadanie.
+        CancelSpotifyWork();
         foreach (var session in _sessions.Sessions)
         {
             if (!ShouldDeferQueueNormalization(session)) EnsureQueueOrder(session);
@@ -23019,6 +23302,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (sender is ContextMenu contextMenu) contextMenu.IsOpen = false;
             Announce("Naciśnij Enter, aby załadować więcej odcinków");
+            return;
+        }
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMoreSpotifyTracksViewName is not null)
+        {
+            if (sender is ContextMenu tracksMenu) tracksMenu.IsOpen = false;
+            Announce("Naciśnij Enter, aby wczytać więcej utworów");
             return;
         }
         var items = ActionItems;
@@ -24658,6 +24947,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string? albumFolderPath = null,
         string? playlistId = null,
         string? loadMorePodcastViewName = null,
+        string? loadMoreSpotifyTracksViewName = null,
         ArtistBrowseSection? artistSection = null,
         RadioRecordingHistorySettings? recordingHistoryEntry = null) : INotifyPropertyChanged
     {
@@ -24668,6 +24958,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public string? AlbumFolderPath { get; } = albumFolderPath;
         public string? PlaylistId { get; } = playlistId;
         public string? LoadMorePodcastViewName { get; } = loadMorePodcastViewName;
+
+        /// <summary>
+        /// Widok kategorii Utwory Spotify, gdy wiersz doładowuje NASTĘPNĄ stronę
+        /// katalogu. Osobno od podcastowego, bo doładowanie podcastu odsłania
+        /// odcinki już pobrane lokalnie, a tu leci nowe zapytanie do Spotify.
+        /// </summary>
+        public string? LoadMoreSpotifyTracksViewName { get; } = loadMoreSpotifyTracksViewName;
         public ArtistBrowseSection? ArtistSection { get; } = artistSection;
         /// <summary>
         /// Wpis historii nagrywania, gdy wiersz pochodzi z widoku historii.
