@@ -48,6 +48,14 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
     SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
     throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
 }
+if (args.Contains("--spotify-account-routing-gui", StringComparer.Ordinal))
+{
+    SpotifyAccountRoutingTests.ShowForNvda(); return 0;
+}
+if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
+{
+    SpotifyAccountRoutingTests.Run(); return 0;
+}
 if (args.Contains("--librespot-account-window-gui", StringComparer.Ordinal))
 {
     SpotifyLibrespotAccountWindowTests.ShowForNvda(); return 0;
@@ -345,6 +353,7 @@ var tests = new (string Name, Action Test)[]
     ("Librespot: regresje odbioru cyklu życia", SpotifyLibrespotLifecycleTests.RunReviewRegressions),
     ("Librespot: oddzielne logowanie natywnej sesji Spotify", SpotifyLibrespotAuthenticationTests.Run),
     ("Librespot: dostępne okno parowania i anulowanie", SpotifyLibrespotAccountWindowTests.Run),
+    ("Spotify: logowanie biblioteki bezpośrednio i osobne parowanie odtwarzacza", SpotifyAccountRoutingTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),

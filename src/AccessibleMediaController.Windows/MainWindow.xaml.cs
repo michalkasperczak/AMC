@@ -17714,14 +17714,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowSpotifyAccountManager()
     {
-        // Konto zalezy od AKTYWNEGO silnika: Librespot ma wlasne parowanie
-        // urzadzenia, SDK - logowanie w WebView2. Sesja jest jedna, wiec po
-        // identyfikatorze nie da sie tego rozstrzygnac.
-        if (SpotifyUsesLibrespotEngine)
-        {
-            ShowSpotifyLibrespotAccountManager();
-            return;
-        }
+        // Biblioteka używa tego samego logowania niezależnie od odtwarzacza.
+        // Osobne parowanie Librespot pozostaje jawną akcją w oknie konta.
         ShowSpotifyCatalogAccountManager();
     }
 
@@ -17732,6 +17726,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Owner = this
         };
+        dialog.ConfigurePlaybackPairing(SpotifyUsesLibrespotEngine);
+        dialog.PlaybackAccountRequested += (_, _) => ShowSpotifyLibrespotAccountManager(dialog);
         dialog.SettingsApplied += (_, _) => QueueStateSave(announceFailure: true);
         dialog.ShowDialog();
         if (dialog.SynchronizedItems is { } spotifyItems)

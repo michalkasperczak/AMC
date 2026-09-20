@@ -49,13 +49,15 @@ public partial class SpotifyLibrespotAccountWindow : Controls.AccessibleWindow
     {
         var paired = hasLogin();
         AccountText.Text = (paired
-            ? "Parowanie Spotify — Librespot jest zapisane. Nie trzeba powtarzać logowania. "
-            : "Spotify — Librespot wymaga osobnego, jednorazowego parowania. ")
-            + "Ta sesja odtwarza przez Librespot i pozwala wybrać wyjście dźwięku. "
-            + "Dotychczasowa sesja Spotify pozostaje bez zmian. Bibliotekę i wyszukiwanie "
-            + "obsługuje wspólne konto katalogu Spotify. Paruj to samo konto Premium. "
+            ? "Parowanie odtwarzacza Spotify — Librespot jest zapisane. "
+            : "Odtwarzacz Spotify — Librespot wymaga jednorazowego parowania. ")
+            + "Biblioteka i wyszukiwanie korzystają z oddzielnego logowania. "
+            + "Aby zalogować bibliotekę lub rozszerzyć zgodę na jej zmienianie, wybierz "
+            + "Konto katalogu i biblioteka, a następnie Zaloguj w przeglądarce. "
+            + "Parowanie odtwarzacza nie zmienia zgody na zapis biblioteki. "
+            + "Odtwarzacz i biblioteka powinny korzystać z tego samego konta Premium. "
             + "Hasło wpisujesz wyłącznie na stronie Spotify; AMC go nie otrzymuje. "
-            + "Librespot nie obsługuje Spotify Lossless.";
+            + "Librespot pozwala wybrać wyjście dźwięku, ale nie obsługuje Spotify Lossless.";
         DisconnectButton.IsEnabled = paired && pairingCancellation is null;
     }
 

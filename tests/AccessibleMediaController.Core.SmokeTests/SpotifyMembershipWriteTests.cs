@@ -185,6 +185,13 @@ internal static class SpotifyMembershipWriteTests
         Assert(
             wyjatek.Message.Contains("Ctrl+F5", StringComparison.Ordinal),
             "komunikat kieruje do okna konta, a nie otwiera przeglądarki sam");
+        Assert(
+            wyjatek.Message.Contains("Otwórz Ctrl+F5 i wybierz Zaloguj w przeglądarce", StringComparison.Ordinal)
+                && !wyjatek.Message.Contains("Konto katalogu i biblioteka", StringComparison.Ordinal),
+            "brak zgody prowadzi bezpośrednio do logowania w pierwszym oknie konta");
+        Assert(
+            wyjatek.Message.Contains("Parowanie odtwarzacza nie zmienia tej zgody", StringComparison.Ordinal),
+            "komunikat odróżnia zgodę biblioteki od parowania odtwarzacza");
         Assert(atrapa.Writes.Count == 0 && atrapa.Reads.Count == 0, "nie poszło żadne zapytanie");
     }
 

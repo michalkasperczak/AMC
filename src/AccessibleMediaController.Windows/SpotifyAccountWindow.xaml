@@ -27,6 +27,9 @@
                         Click="Save_Click" />
                 <Button x:Name="LoginButton" Content="Za_loguj w przeglądarce" Margin="0,0,8,8"
                         Click="Login_Click" />
+                <Button x:Name="PlaybackAccountButton" Content="Parowanie odtwarzacza…" Margin="0,0,8,8"
+                        Visibility="Collapsed" Click="PlaybackAccount_Click"
+                        automation:AutomationProperties.HelpText="Dotyczy odtwarzania przez Librespot. Parowanie nie nadaje zgody na zmiany w bibliotece." />
                 <Button x:Name="CheckAccountButton" Content="_Sprawdź konto" Margin="0,0,8,8"
                         automation:AutomationProperties.HelpText="Odczytuje nazwę konta i rodzaj abonamentu, bez ponownego logowania."
                         Click="CheckAccount_Click" />

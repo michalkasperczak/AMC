@@ -7,6 +7,14 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: konto Spotify, alfa 398
+
+- `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.
+- `Windows/SpotifyAccountWindow.xaml(.cs)`: osobny przycisk parowania wyłącznie dla Librespot, blokowany podczas operacji konta.
+- `Windows/MainWindow.SpotifyLibrespotAccount.cs`: parowanie jako okno podrzędne konta katalogu; powrót bez ponownego tworzenia konta i bez przestawiania fokusu na główne okno.
+- `Core/Spotify/SpotifyLibraryWriteClient.cs`: komunikat braku zgody kieruje do rzeczywiście dostępnego logowania i odróżnia je od parowania.
+- Testy: `SpotifyAccountRoutingTests` (obie implementacje odtwarzacza, rzeczywiste okna i powrót), `SpotifyLibrespotAccountWindowTests` i `SpotifyMembershipWriteTests`.
+
 ## Uzupełnienie: Spotify, alfa 394
 
 Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.

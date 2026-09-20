@@ -153,8 +153,9 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
             throw new SpotifyWriteBlockedException(
                 brakujace.Length == 0
                     ? "Spotify nie pozwala AMC zapisywać tego rodzaju pozycji."
-                    : "Zapis do biblioteki Spotify wymaga ponownego zalogowania po aktualizacji AMC. "
-                        + "Otwórz Ctrl+F5 i wybierz Zaloguj w przeglądarce.",
+                    : "Brakuje zgody Spotify na zmiany w bibliotece. "
+                        + "Otwórz Ctrl+F5 i wybierz Zaloguj w przeglądarce. "
+                        + "Parowanie odtwarzacza nie zmienia tej zgody.",
                 brakujace.Length == 0
                     ? SpotifyWriteBlockReason.UnsupportedKind
                     : SpotifyWriteBlockReason.MissingScope);

@@ -47,6 +47,17 @@ public partial class SpotifyAccountWindow : Controls.AccessibleWindow
     internal IReadOnlyList<MediaItem>? SynchronizedItems { get; private set; }
     public bool SynchronizedCatalogComplete { get; private set; }
     public event EventHandler? SettingsApplied;
+    public event EventHandler? PlaybackAccountRequested;
+
+    internal void ConfigurePlaybackPairing(bool available) =>
+        PlaybackAccountButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+
+    internal void AnnouncePlaybackAccountResult(string message) => OperationStatusText.Announce(message);
+
+    private void PlaybackAccount_Click(object sender, RoutedEventArgs e)
+    {
+        if (!busy) PlaybackAccountRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -300,6 +311,7 @@ public partial class SpotifyAccountWindow : Controls.AccessibleWindow
     {
         SaveButton.IsEnabled = enabled;
         LoginButton.IsEnabled = enabled;
+        PlaybackAccountButton.IsEnabled = enabled;
         CheckAccountButton.IsEnabled = enabled;
         DisconnectButton.IsEnabled = enabled;
         DeveloperPanelButton.IsEnabled = enabled;

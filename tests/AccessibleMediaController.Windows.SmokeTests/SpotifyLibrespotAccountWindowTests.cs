@@ -25,6 +25,7 @@ internal static class SpotifyLibrespotAccountWindowTests
 
     private static void RunSta()
     {
+        TestPairedPlayerStillExplainsLibraryLogin();
         var type = typeof(MainWindow).Assembly.GetType(
             "AccessibleMediaController.Windows.SpotifyLibrespotAccountWindow")
             ?? throw new Exception("Brakuje osobnego dostępnego okna parowania Librespot.");
@@ -90,6 +91,33 @@ internal static class SpotifyLibrespotAccountWindowTests
         if (!cancelled || cancelWindow.CompletionAnnouncement != "Anulowano parowanie Spotify — Librespot")
             throw new Exception("Zamknięcie nie anuluje oczekiwania z komunikatem.");
         Console.WriteLine("OK: okno parowania, pola z kursorem, świadome otwarcie strony, potwierdzenie i anulowanie; bez sieci i konta");
+    }
+
+    private static void TestPairedPlayerStillExplainsLibraryLogin()
+    {
+        var requests = 0;
+        var disconnected = 0;
+        var browserOpened = 0;
+        var paired = true;
+        var window = new SpotifyLibrespotAccountWindow(() => paired,
+            (_, _) => { requests++; return Task.CompletedTask; },
+            () => { disconnected++; paired = false; },
+            _ => browserOpened++);
+        try
+        {
+            var text = ((TextBox)window.FindName("AccountText")).Text;
+            if (!text.Contains("Konto katalogu i biblioteka", StringComparison.Ordinal)
+                || !text.Contains("Zaloguj w przeglądarce", StringComparison.Ordinal))
+                throw new Exception("Sparowany odtwarzacz nie wskazuje drogi do logowania biblioteki.");
+            if (!text.Contains("Parowanie odtwarzacza nie zmienia zgody na zapis biblioteki", StringComparison.Ordinal)
+                || text.Contains("Dotychczasowa sesja Spotify", StringComparison.Ordinal))
+                throw new Exception("Opis konta myli parowanie ze zgodą biblioteki albo nadal opisuje dwie sesje.");
+            Click(window, "CatalogAccountButton");
+            if (!window.OpenCatalogRequested || !paired || requests != 0
+                || disconnected != 0 || browserOpened != 0)
+                throw new Exception("Przejście do konta katalogu narusza parowanie lub samo otwiera stronę.");
+        }
+        finally { window.Close(); }
     }
 
     private static void Click(Window window, string name) => ((Button)window.FindName(name)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
