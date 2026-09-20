@@ -12791,6 +12791,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase)
             || string.Equals(session.Id, "spotify", StringComparison.OrdinalIgnoreCase))
         {
+            // Flagi bierzemy z JUZ policzonego snapshotu, a nie powtarzamy tu
+            // reguly czlonkostwa. Reprezentant grupy nosi flagi tylko swojego
+            // wiersza, a jeden utwor TIDAL ma wiele wierszy o roznych Id
+            // (kolekcja i wpisy playlist): zwykla kolejka moze lezec na
+            // wierszu kolekcji, a priorytet na wpisie playlisty. Branie flag
+            // samego reprezentanta zapisywalo wtedy w RemoteQueues
+            // IsPlayNext=false, choc ta sama zmiana zapisywala priorytet w
+            // CollectionOrders - dwie kopie tego samego faktu przeczyly sobie.
+            var regularStorageIds = snapshot.RegularItemIds.ToHashSet(StringComparer.Ordinal);
+            var playNextStorageIds = snapshot.PlayNextItemIds.ToHashSet(StringComparer.Ordinal);
             var queuedItems = items
                 .Where(item => item.IsInQueue || item.IsPlayNext)
                 .GroupBy(
@@ -12799,7 +12809,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Select(group => group.FirstOrDefault(item =>
                         string.Equals(item.Id, group.Key, StringComparison.Ordinal))
                     ?? group.First())
-                .Select(item => RemoteQueueItemSettings.FromMediaItem(session.Id, item))
+                .Select(item =>
+                {
+                    var queued = RemoteQueueItemSettings.FromMediaItem(session.Id, item);
+                    queued.IsInQueue = regularStorageIds.Contains(queued.Id);
+                    queued.IsPlayNext = playNextStorageIds.Contains(queued.Id);
+                    return queued;
+                })
                 .ToList();
             if (queuedItems.Count == 0)
             {
