@@ -161,6 +161,11 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--session-menu-scope", StringComparer.Ordinal))
+{
+    try { SessionMenuScopeTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-queue-lifecycle", StringComparer.Ordinal))
 {
     try { SpotifyQueueLifecycleTests.Run(); return 0; }
@@ -269,6 +274,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Refresh Request", TestTidalRefreshRequest),
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),

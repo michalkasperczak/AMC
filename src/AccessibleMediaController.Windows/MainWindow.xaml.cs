@@ -6378,7 +6378,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && ActionItems.Count == 1
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-        FileActionsSeparator.Visibility = local || radio || podcasts || wiiM || tidal ? Visibility.Visible : Visibility.Collapsed;
+        OpenStreamMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        FileActionsSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        FileSettingsSeparator.Visibility = local || radio || podcasts || wiiM || tidal || _sessions.Current.Id == "spotify"
+            ? Visibility.Visible : Visibility.Collapsed;
         var collectionSorting = CurrentViewSupportsCollectionSorting();
         var localLibraryLayouts = local && !collectionSorting;
         FoldersViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
