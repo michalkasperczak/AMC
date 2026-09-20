@@ -211,6 +211,11 @@ if (args.Contains("--tidal-interaction-smoke", StringComparer.Ordinal))
     TidalInteractionSmokeTests.Run();
     return 0;
 }
+if (args.Contains("--opened-search-result-library", StringComparer.Ordinal))
+{
+    try { OpenedSearchResultLibraryTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-artist-rows", StringComparer.Ordinal))
 {
     try { SpotifyArtistRowsTests.Run(); return 0; }
@@ -269,6 +274,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Refresh Request", TestTidalRefreshRequest),
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),

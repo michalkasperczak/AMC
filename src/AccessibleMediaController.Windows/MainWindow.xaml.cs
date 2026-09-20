@@ -830,6 +830,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ShowPlaylistManager(items, selectedSession);
                 return;
             }
+            // Enter OTWORZYL wynik. Globalne ustawienie decyduje, czy otwarcie ma
+            // go takze dopisac do Biblioteki uslugi - jeden punkt dla radia,
+            // TIDAL, Spotify i przyszlych uslug. Zapis startuje PRZED przywroceniem
+            // fokusu i nie jest oczekiwany: fokus nie moze czekac na siec.
+            if (dialog.SelectedAction == SearchResultAction.Open)
+                _ = MaybeAddOpenedSearchResultToLibrary(effectiveResult);
             RestoreMediaListFocusAfterRefresh();
             return;
         }
@@ -9576,9 +9582,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Path.TrimEndingDirectorySeparator(normalized);
     }
 
+    // Tests of the real modal UI must not compete for the installed app's
+    // NVDA pipe or global keyboard registration. Never stored in user settings.
+    internal bool SuppressDesktopIntegrationForTests { get; init; }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        if (SuppressDesktopIntegrationForTests) return;
         _nvdaCommandServer = new NvdaCommandServer(ExecuteNvdaCommandAsync);
         var handle = new WindowInteropHelper(this).Handle;
         try
@@ -22478,15 +22489,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         .Distinct(StringComparer.Ordinal)
                         .ToArray();
                     session.SetPlaybackContext(playbackContextItemIds);
+                    var wasPlayingSelectedResult = session.IsPlaying
+                        && session.HasCurrentItem
+                        && string.Equals(session.CurrentItem.Id, result.Item.Id, StringComparison.Ordinal);
+                    CommandExecutionResult activation;
                     _preservePreparedPlaybackContext = true;
                     try
                     {
-                        ExecuteCommand(CommandIds.ActivateSelected);
+                        activation = ExecuteCommand(CommandIds.ActivateSelected);
                     }
                     finally
                     {
                         _preservePreparedPlaybackContext = false;
                     }
+                    // ActivateSelected potrafi takze odmowic albo wstrzymac juz
+                    // grajacy element. Zaden z tych przypadkow nie jest otwarciem.
+                    // Handled obejmuje rowniez zaakceptowane otwarcie kontenera
+                    // i zewnetrznego odtwarzacza, ktore nie musi od razu grac tutaj.
+                    var pausedSelectedResult = wasPlayingSelectedResult
+                        && session.IsPaused && !session.IsPlaying
+                        && session.HasCurrentItem
+                        && string.Equals(session.CurrentItem.Id, result.Item.Id, StringComparison.Ordinal);
+                    if (activation.Handled && !pausedSelectedResult)
+                        _ = MaybeAddOpenedSearchResultToLibrary(result);
                     break;
                 case SearchResultAction.PlayNext:
                     ExecuteCommand(CommandIds.TogglePlayNext);
