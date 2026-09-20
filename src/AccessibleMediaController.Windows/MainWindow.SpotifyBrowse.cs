@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net.Http;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
@@ -28,6 +29,15 @@ public partial class MainWindow
         new(StringComparer.Ordinal);
 
     private long _spotifyNavigationVersion;
+
+    // Szew pomiarowy: testy podstawiaja TRANSPORT HTTP, a nie metode pobierania.
+    // Klient Spotify, parsowanie odpowiedzi i cala droga pobierania zostaja
+    // produkcyjne - inaczej test nie mierzylby tego, co dziala u uzytkownika.
+    internal Func<HttpClient>? SpotifyApiHttpClientFactoryForTests { get; set; }
+
+    // Szew pomiarowy tokenu. Bez niego kazdy test musialby miec PRAWDZIWE
+    // logowanie Spotify w Menedzerze powiadczen Windows.
+    internal Func<string>? SpotifyAccessTokenForTests { get; set; }
 
     private sealed record SpotifyContainerViewState(
         MediaItem Container,
@@ -244,17 +254,21 @@ public partial class MainWindow
     private async Task<IReadOnlyList<MediaItem>?> LoadSpotifyContainerItemsAsync(
         MediaItem container, ArtistBrowseSection? artistSection = null)
     {
-        var credentials = await _spotifyIntegration
-            .GetPlaybackCredentialsAsync(CancellationToken.None)
-            .ConfigureAwait(false);
-        using var client = new SpotifyApiClient();
+        var accessToken = SpotifyAccessTokenForTests is { } tokenOverride
+            ? tokenOverride()
+            : (await _spotifyIntegration
+                .GetPlaybackCredentialsAsync(CancellationToken.None)
+                .ConfigureAwait(false)).AccessToken;
+        using var client = SpotifyApiHttpClientFactoryForTests is { } factory
+            ? new SpotifyApiClient(factory())
+            : new SpotifyApiClient();
         var id = container.ExternalId ?? string.Empty;
         // Kategoria "Utwory" ma wlasna droge, bo Get Artist's Top Tracks zostalo
         // usuniete (luty 2026) - szczegoly w GetArtistTracksAsync.
         if (container.Kind == MediaItemKind.Artist && artistSection == ArtistBrowseSection.Tracks)
         {
             return await client.GetArtistTracksAsync(
-                credentials.AccessToken,
+                accessToken,
                 _spotifyIntegration.CountryCode,
                 id,
                 container.Title ?? string.Empty,
@@ -263,16 +277,16 @@ public partial class MainWindow
         var items = container.Kind switch
         {
             MediaItemKind.Album => await client
-                .GetAlbumTracksAsync(credentials.AccessToken, id, CancellationToken.None)
+                .GetAlbumTracksAsync(accessToken, id, CancellationToken.None)
                 .ConfigureAwait(false),
             MediaItemKind.Playlist => await client
-                .GetPlaylistTracksAsync(credentials.AccessToken, id, CancellationToken.None)
+                .GetPlaylistTracksAsync(accessToken, id, CancellationToken.None)
                 .ConfigureAwait(false),
             MediaItemKind.Artist => await client
-                .GetArtistAlbumsAsync(credentials.AccessToken, id, CancellationToken.None)
+                .GetArtistAlbumsAsync(accessToken, id, CancellationToken.None)
                 .ConfigureAwait(false),
             MediaItemKind.Podcast => await client
-                .GetShowEpisodesAsync(credentials.AccessToken, id, CancellationToken.None)
+                .GetShowEpisodesAsync(accessToken, id, CancellationToken.None)
                 .ConfigureAwait(false),
             _ => null
         };

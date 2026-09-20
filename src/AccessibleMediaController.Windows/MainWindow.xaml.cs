@@ -3500,6 +3500,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        // Album Spotify ma ZAGRAĆ, nie otworzyć się na liście: szczegóły i
+        // powód w MainWindow.SpotifyAlbumPreset.cs.
+        if (IsSpotifyAlbumPresetTarget(session.Id, item))
+        {
+            _ = PlaySpotifyAlbumPresetAsync(session, item, slotLabel);
+            return;
+        }
+
         if (item.Kind is not (MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode))
         {
             SelectSessionBrowserItem(session.Id, item.Id);
@@ -3507,6 +3515,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce($"{item.KindLabel}: {item.Title}");
             return;
         }
+
+        // Preset UTWORU w sesji Spotify jest nowszą decyzją użytkownika niż
+        // czekające pobranie albumu: unieważnia je, żeby spóźniona odpowiedź
+        // albumu nie przestawiła tego, co właśnie włączamy.
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id))
+            InvalidatePendingSpotifyPresetPlayback();
 
         var presetPlayableIds = SessionPresetEntries(session.Id)
             .OrderBy(entry => entry.Slot)
