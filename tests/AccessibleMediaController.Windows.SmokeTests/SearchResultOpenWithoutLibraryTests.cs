@@ -34,7 +34,15 @@ internal static class SearchResultOpenWithoutLibraryTests
         ZdjęcieCzłonkostwaNieUsuwaMateriału();
         OdświeżenieNieZapisujeCzłonkostwa();
         PełnyObiegZapisOdczyt();
-        Console.WriteLine("OK: otwieranie wyniku bez Biblioteki (podgląd, awans, odświeżenie, obieg zapisu)");
+        // Cztery poprawki z przegladu YouTube mierzymy RAZEM, zeby jedna wpadka
+        // nie zaslaniala pozostalych trzech - inaczej kazdy przebieg pokazuje
+        // tylko pierwszy blad i reszta wychodzi dopiero po kolejnej poprawce.
+        WszystkieNaraz(
+            ("brak cichej democji", PonowneOtwarcieZapisanegoNieZdejmujeCzłonkostwa),
+            ("jawne dodanie z wyszukiwania", BibliotekaZWyszukiwaniaDodajeNowyIPodgląd),
+            ("metadane kolekcji", MetadaneKolekcjiPrzeżywajązmianęOstatniegoOdcinka),
+            ("mieszane zaznaczenie", MieszaneZaznaczenieNiczegoNieZmienia));
+        Console.WriteLine("OK: otwieranie wyniku bez Biblioteki (podgląd, awans, odświeżenie, obieg zapisu, brak democji, jawne Library, metadane kolekcji, mieszane zaznaczenie)");
     }
 
     /// <summary>
@@ -288,6 +296,256 @@ internal static class SearchResultOpenWithoutLibraryTests
             });
     }
 
+    /// <summary>
+    /// L1 z review YouTube: ponowne otwarcie materialu JUZ zapisanego w
+    /// Bibliotece przy globalnym OFF nie moze go cicho zdemotowac do podgladow.
+    /// Mierzymy prawdziwe AddPublicInternetMedia, nie helper bool.
+    /// </summary>
+    private static void PonowneOtwarcieZapisanegoNieZdejmujeCzłonkostwa()
+    {
+        const string adres = "https://www.youtube.com/watch?v=ZAPISANY2";
+        WOknie(
+            state =>
+            {
+                Podstawa(state, SearchResultEnterBehavior.OpenWithoutLibrary);
+                state.Podcasts.Subscriptions.Add(new PodcastSubscriptionSettings
+                {
+                    Id = PublicInternetMediaCollections.SavedId,
+                    Title = PublicInternetMediaCollections.SavedTitle,
+                    FeedUrl = "https://amc.invalid/public-internet-media",
+                    SourceKind = PodcastSourceKind.PublicInternetMedia,
+                    IsInLibrary = true
+                });
+                state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
+                {
+                    Id = "internet-media:zapisany-wcesniej-2",
+                    SubscriptionId = PublicInternetMediaCollections.SavedId,
+                    Title = "Zapisany materiał",
+                    MediaUrl = adres,
+                    PageUrl = adres,
+                    MediaType = "video/youtube"
+                });
+            },
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var item = DodajPodgląd(window, adres, "Zapisany materiał ponownie");
+                var odcinek = Odcinek(state, item.Id);
+                Sprawdź(
+                    PublicInternetMediaCollections.IsSaved(odcinek.SubscriptionId),
+                    "Otwarcie zapisanego materiału bez Biblioteki ZDEMOTOWAŁO go do podglądów "
+                    + $"(kolekcja: {odcinek.SubscriptionId}).");
+            });
+    }
+
+    /// <summary>
+    /// L2 z review: dzialanie Biblioteka z okna wyszukiwania musi JAWNIE dodac
+    /// material do kolekcji zapisanej - i nowy wynik YouTube, i material juz
+    /// otwarty jako podglad. Mierzymy prawdziwe ExecuteSearchResultAction.
+    /// </summary>
+    private static void BibliotekaZWyszukiwaniaDodajeNowyIPodgląd()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.OpenWithoutLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var podgląd = DodajPodgląd(window, "https://www.youtube.com/watch?v=LIB_PODGLAD", "Podgląd do dodania");
+                var nowy = WynikWyszukiwaniaYouTube("LIB_NOWY", "Nowy wynik");
+
+                var komunikat = DziałanieWyniku(
+                    window,
+                    [nowy, podgląd],
+                    SearchResultAction.Library);
+
+                Sprawdź(
+                    PublicInternetMediaCollections.IsSaved(Odcinek(state, podgląd.Id).SubscriptionId),
+                    "Biblioteka nie dodała materiału otwartego wcześniej jako podgląd "
+                    + $"(kolekcja: {Odcinek(state, podgląd.Id).SubscriptionId}).");
+                var dodany = state.Podcasts.Episodes.FirstOrDefault(episode =>
+                    string.Equals(episode.MediaUrl, AdresYouTube("LIB_NOWY"), StringComparison.OrdinalIgnoreCase))
+                    ?? throw new Exception("Biblioteka nie utworzyła w ogóle nowego materiału.");
+                Sprawdź(
+                    PublicInternetMediaCollections.IsSaved(dodany.SubscriptionId),
+                    "Biblioteka dodała NOWY wynik YouTube do podglądów, nie do kolekcji zapisanej "
+                    + $"(kolekcja: {dodany.SubscriptionId}).");
+                Sprawdź(
+                    Subskrypcja(state, PublicInternetMediaCollections.SavedId).IsInLibrary,
+                    "Kolekcja zapisana nie ma członkostwa w Bibliotece po jawnym dodaniu.");
+                Sprawdź(
+                    komunikat is not null && komunikat.Contains("Dodano", StringComparison.Ordinal),
+                    $"Jawne dodanie nie zameldowało dodania (komunikat: {komunikat ?? "brak"}).");
+            });
+    }
+
+    /// <summary>
+    /// L3 z review: zmiana czlonkostwa OSTATNIEGO materialu w kolekcji nie moze
+    /// kasowac kolekcji razem z jej metadanymi (wlasna nazwa, ulubiona).
+    /// </summary>
+    private static void MetadaneKolekcjiPrzeżywajązmianęOstatniegoOdcinka()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.OpenWithoutLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var item = DodajPodgląd(window, "https://www.youtube.com/watch?v=METADANE1", "Metadane 1");
+                // Metadane ustawiamy tak, jak robi to uzytkownik: na ZYWYM
+                // wierszu kolekcji. CapturePodcastState przepisuje wlasnie z
+                // niego stan trwaly, wiec ustawienie samego rekordu nie
+                // odwzorowywaloby produkcji.
+                var wierszKolekcji = PozycjeSesji(window).FirstOrDefault(row =>
+                    string.Equals(
+                        row.Id,
+                        PublicInternetMediaCollections.PreviewId,
+                        StringComparison.Ordinal));
+                if (wierszKolekcji is not null)
+                {
+                    wierszKolekcji.Title = "Moje podglądy";
+                    wierszKolekcji.HasCustomTitle = true;
+                    wierszKolekcji.IsFavorite = true;
+                }
+                var podglądy = Subskrypcja(state, PublicInternetMediaCollections.PreviewId);
+                podglądy.Title = "Moje podglądy";
+                podglądy.HasCustomTitle = true;
+                podglądy.IsFavorite = true;
+
+                Polecenie(window, item, AccessibleMediaController.Core.Commands.CommandIds.ToggleLibrary);
+
+                var poAwansie = state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                    string.Equals(
+                        subscription.Id,
+                        PublicInternetMediaCollections.PreviewId,
+                        StringComparison.Ordinal));
+                Sprawdź(
+                    poAwansie is not null,
+                    "Awans ostatniego materiału USUNĄŁ kolekcję podglądów razem z jej metadanymi.");
+                Sprawdź(
+                    poAwansie!.HasCustomTitle
+                    && string.Equals(poAwansie.Title, "Moje podglądy", StringComparison.Ordinal),
+                    $"Własna nazwa kolekcji przepadła (tytuł: {poAwansie.Title}, własny: {poAwansie.HasCustomTitle}).");
+                Sprawdź(
+                    poAwansie.IsFavorite,
+                    "Kolekcja przestała być ulubiona po awansie ostatniego materiału.");
+            });
+    }
+
+    /// <summary>
+    /// L4 z review: Ctrl+Shift+L na MIESZANYM zaznaczeniu (publiczny material +
+    /// zwykly podcast RSS) nie moze cicho pominac czesci zaznaczenia. Nic nie
+    /// mutujemy i mowimy wprost, ze trzeba osobnych zaznaczen.
+    /// </summary>
+    private static void MieszaneZaznaczenieNiczegoNieZmienia()
+    {
+        WOknie(
+            state =>
+            {
+                Podstawa(state, SearchResultEnterBehavior.OpenWithoutLibrary);
+                state.Podcasts.Subscriptions.Add(new PodcastSubscriptionSettings
+                {
+                    Id = "kanal-rss-mieszany",
+                    Title = "Kanał RSS",
+                    FeedUrl = "https://example.test/rss-mieszany.xml",
+                    SourceKind = PodcastSourceKind.Rss,
+                    IsInLibrary = true
+                });
+                state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
+                {
+                    Id = "odcinek-rss-mieszany",
+                    SubscriptionId = "kanal-rss-mieszany",
+                    Title = "Odcinek RSS",
+                    MediaUrl = "https://example.test/rss-mieszany/1.mp3",
+                    MediaType = "audio/mpeg"
+                });
+            },
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var publiczny = DodajPodgląd(window, "https://www.youtube.com/watch?v=MIESZANE1", "Mieszane 1");
+                var rss = PozycjeSesji(window).FirstOrDefault(row =>
+                    string.Equals(row.Id, "odcinek-rss-mieszany", StringComparison.Ordinal))
+                    ?? throw new Exception("Brak pozycji odcinka RSS w żywej sesji.");
+
+                var komunikat = PoleceniePrzechwytująceKomunikat(
+                    window,
+                    [publiczny, rss],
+                    AccessibleMediaController.Core.Commands.CommandIds.ToggleLibrary);
+
+                Sprawdź(
+                    PublicInternetMediaCollections.IsPreview(Odcinek(state, publiczny.Id).SubscriptionId),
+                    "Mieszane zaznaczenie zmieniło członkostwo publicznego materiału "
+                    + $"(kolekcja: {Odcinek(state, publiczny.Id).SubscriptionId}).");
+                Sprawdź(
+                    Subskrypcja(state, "kanal-rss-mieszany").IsInLibrary,
+                    "Mieszane zaznaczenie zmieniło członkostwo kanału RSS.");
+                Sprawdź(
+                    komunikat is not null
+                    && komunikat.Contains("osobno", StringComparison.OrdinalIgnoreCase),
+                    "Mieszane zaznaczenie nie powiedziało, że materiały internetowe i podcasty "
+                    + $"trzeba zaznaczać osobno (komunikat: {komunikat ?? "brak"}).");
+            });
+    }
+
+    private static string AdresYouTube(string identyfikator) =>
+        $"https://www.youtube.com/watch?v={identyfikator}";
+
+    /// <summary>Wynik wyszukiwania YouTube taki, jaki daje okno wyszukiwania.</summary>
+    private static MediaItem WynikWyszukiwaniaYouTube(string identyfikator, string title) =>
+        new()
+        {
+            Id = $"internet-media-search:youtube:{identyfikator}",
+            Kind = MediaItemKind.Episode,
+            Title = title,
+            Artist = "Kanał testowy",
+            Duration = TimeSpan.FromMinutes(3),
+            PublicUri = AdresYouTube(identyfikator),
+            Source = AdresYouTube(identyfikator)
+        };
+
+    /// <summary>
+    /// Prawdziwe ExecuteSearchResultAction - ta sama metoda, ktora wola okno
+    /// wyszukiwania po wybraniu dzialania na zaznaczonych wynikach.
+    /// </summary>
+    private static string? DziałanieWyniku(
+        MainWindow window,
+        MediaItem[] items,
+        SearchResultAction action)
+    {
+        var results = items
+            .Select(item => new SearchWindow.SearchResult("podcasts", item))
+            .ToArray();
+        return (string?)typeof(MainWindow)
+            .GetMethod("ExecuteSearchResultAction", Flags)!
+            .Invoke(window, [results, results, action, false]);
+    }
+
+    /// <summary>Prawdziwe polecenie na kilku zaznaczonych pozycjach z komunikatem.</summary>
+    private static string? PoleceniePrzechwytująceKomunikat(
+        MainWindow window,
+        MediaItem[] items,
+        string commandId)
+    {
+        var sesje = (SessionManager)typeof(MainWindow).GetField("_sessions", Flags)!.GetValue(window)!;
+        sesje.SelectSession("podcasts");
+        var override_ = typeof(MainWindow).GetField("_actionItemsOverride", Flags)!;
+        var capture = typeof(MainWindow).GetField("_captureAnnouncements", Flags)!;
+        var captured = typeof(MainWindow).GetField("_capturedAnnouncement", Flags)!;
+        override_.SetValue(window, items);
+        capture.SetValue(window, true);
+        captured.SetValue(window, null);
+        try
+        {
+            typeof(MainWindow).GetMethod("ExecuteCommand", Flags, null, [typeof(string)], null)!
+                .Invoke(window, [commandId]);
+            return (string?)captured.GetValue(window);
+        }
+        finally
+        {
+            capture.SetValue(window, false);
+            override_.SetValue(window, null);
+        }
+    }
+
     private const string StubFeedAddress = "https://example.test/stub-kanal.xml";
     private const string SavedStubFeedAddress = "https://example.test/stub-kanal-zapisany.xml";
 
@@ -425,6 +683,28 @@ internal static class SearchResultOpenWithoutLibraryTests
         state.Settings.Updates.CheckAutomatically = false;
         state.Settings.SearchResultEnterBehavior = behavior;
         state.Settings.LastSessionId = "podcasts";
+    }
+
+    /// <summary>
+    /// Uruchamia wszystkie podane sprawdzenia i dopiero na koncu zglasza
+    /// zbiorcza wpadke - raport pokazuje KAZDY niespelniony warunek.
+    /// </summary>
+    private static void WszystkieNaraz(params (string Nazwa, Action Sprawdzenie)[] sprawdzenia)
+    {
+        var wpadki = new List<string>();
+        foreach (var (nazwa, sprawdzenie) in sprawdzenia)
+        {
+            try
+            {
+                sprawdzenie();
+            }
+            catch (Exception exception)
+            {
+                wpadki.Add($"[{nazwa}] {exception.InnerException?.Message ?? exception.Message}");
+            }
+        }
+        if (wpadki.Count > 0)
+            throw new Exception(string.Join(Environment.NewLine, wpadki));
     }
 
     private static void Sprawdź(bool warunek, string opis)

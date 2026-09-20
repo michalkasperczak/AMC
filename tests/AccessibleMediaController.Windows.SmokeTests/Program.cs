@@ -89,6 +89,11 @@ if (args.Contains("--spotify-podcasts", StringComparer.Ordinal))
     try { SpotifyPodcastsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--search-result-open-without-library", StringComparer.Ordinal))
+{
+    try { SearchResultOpenWithoutLibraryTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--youtube-premiere-gui", StringComparer.Ordinal))
 {
     YouTubePremiereTests.ShowForNvda(); return 0;

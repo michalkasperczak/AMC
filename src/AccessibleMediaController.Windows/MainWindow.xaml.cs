@@ -8192,7 +8192,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
             _state.Podcasts.Episodes.Add(episode);
         }
-        episode.SubscriptionId = collectionId;
+        // Czlonkostwo zmieniamy TYLKO w gore. Zwykle otwarcie (addToLibrary
+        // false) materialu JUZ zapisanego nie moze go cicho zdemotowac do
+        // podgladow - uzytkownik zapisal go jawnym Ctrl+Shift+L, a otwarcie nie
+        // jest wycofaniem tej decyzji.
+        if (addToLibrary || !PublicInternetMediaCollections.IsCollection(episode.SubscriptionId))
+            episode.SubscriptionId = collectionId;
+        // Otwieramy kolekcje, w ktorej material FAKTYCZNIE jest.
+        collection = EnsurePublicInternetMediaCollection(
+            episode.SubscriptionId,
+            PublicInternetMediaCollections.IsSaved(episode.SubscriptionId)
+                ? "https://amc.invalid/public-internet-media"
+                : "https://amc.invalid/public-internet-media-preview",
+            PublicInternetMediaCollections.IsSaved(episode.SubscriptionId));
         episode.SourceIdentifier = stableAddress;
         episode.Title = string.IsNullOrWhiteSpace(titleOverride)
             ? media.Title
@@ -8279,20 +8291,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : "https://amc.invalid/public-internet-media-preview",
             addToLibrary);
         episode.SubscriptionId = target.Id;
-        DropEmptyPublicInternetMediaCollections();
+        // Pustej kolekcji NIE usuwamy. Wczesniej zmiana czlonkostwa OSTATNIEGO
+        // materialu kasowala cala kolekcje razem z jej metadanymi (wlasna
+        // nazwa, ulubiona, folder pobran). Pusta kolekcja jest nieszkodliwa,
+        // a utracone ustawienia uzytkownika juz nie.
         return true;
-    }
-
-    /// <summary>
-    /// Sprzata kolekcje publiczne, w ktorych nie zostal zaden material. Bez tego
-    /// puste „Podglądy internetowe” zostawalyby w widoku po awansie materialu.
-    /// </summary>
-    private void DropEmptyPublicInternetMediaCollections()
-    {
-        _state.Podcasts.Subscriptions.RemoveAll(subscription =>
-            PublicInternetMediaCollections.IsCollection(subscription.Id)
-            && !_state.Podcasts.Episodes.Any(episode =>
-                string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal)));
     }
 
     /// <summary>
@@ -8303,7 +8306,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// </summary>
     private bool TryTogglePublicInternetMediaMembership()
     {
-        var episodes = ActionItems
+        var selected = ActionItems.ToArray();
+        var episodes = selected
             .Where(item => item.Kind == MediaItemKind.Episode)
             .Select(item => _state.Podcasts.Episodes.FirstOrDefault(episode =>
                 string.Equals(episode.Id, item.Id, StringComparison.Ordinal)))
@@ -8312,6 +8316,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Select(episode => episode!)
             .ToArray();
         if (episodes.Length == 0) return false;
+        // MIESZANE zaznaczenie (publiczne materialy razem z podcastami RSS) nie
+        // idzie ani ta sciezka, ani zwykla podcastowa: kazda z nich cicho
+        // pomijala CZESC zaznaczenia. Nic nie zmieniamy i mowimy wprost, co
+        // zrobic, zeby uzytkownik nie zostal z polowicznym skutkiem.
+        if (episodes.Length != selected.Length)
+        {
+            Announce(
+                "Materiały internetowe i podcasty zaznaczaj osobno - "
+                + "dla mieszanego zaznaczenia nie zmieniono Biblioteki");
+            return true;
+        }
 
         CapturePodcastState();
         var promoting = episodes.Any(episode =>
@@ -8320,8 +8335,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             TryMovePublicInternetMediaMembership(episode, promoting);
 
         ReloadPodcastSessionItems();
-        QueueStateSave(announceFailure: true);
+        var saved = QueueStateSave(announceFailure: true);
         RefreshCurrentView();
+        // Po nieudanym zapisie NIE meldujemy dodania jako faktu - komunikat o
+        // awarii zapisu poszedl juz z QueueStateSave.
+        if (!saved) return true;
         Announce(promoting
             ? episodes.Length == 1
                 ? $"Dodano do Biblioteki: {episodes[0].Title}"
@@ -22280,23 +22298,52 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (results.All(IsPublicInternetMediaSearchResult)
             && action == SearchResultAction.Library)
         {
-            var newResults = results.Where(IsYouTubeSearchResult).ToArray();
-            foreach (var selected in newResults)
+            // Biblioteka to JAWNE dodanie, wiec addToLibrary MUSI byc true -
+            // domyslne false tylko otwieralo podglad i dzialanie nic nie dawalo.
+            // Liczymy RZECZYWISTY efekt (czy material wszedl do kolekcji
+            // zapisanej), a nie „czy wynik byl nowy”: material otwarty wczesniej
+            // jako podglad nie jest nowy, ale wlasnie jego trzeba awansowac.
+            var dodane = new List<string>();
+            var jużZapisane = new List<string>();
+            foreach (var selected in results)
             {
-                AddPublicInternetMedia(
-                    CreateResolvedYouTubeSearchResult(selected.Item),
-                    titleOverride: null,
-                    openAfterImport: false);
+                if (IsYouTubeSearchResult(selected))
+                {
+                    var item = AddPublicInternetMedia(
+                        CreateResolvedYouTubeSearchResult(selected.Item),
+                        titleOverride: null,
+                        openAfterImport: false,
+                        addToLibrary: true);
+                    dodane.Add(item.Title);
+                    continue;
+                }
+                var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, selected.Item.Id, StringComparison.Ordinal));
+                if (episode is null) continue;
+                if (PublicInternetMediaCollections.IsSaved(episode.SubscriptionId))
+                {
+                    jużZapisane.Add(episode.Title);
+                    continue;
+                }
+                if (TryMovePublicInternetMediaMembership(episode, addToLibrary: true))
+                    dodane.Add(episode.Title);
             }
-            if (newResults.Length == 0)
+            if (dodane.Count == 0)
             {
-                return results.Count == 1
-                    ? $"Materiał jest już w Mediach internetowych: {results[0].Item.Title}"
-                    : "Wybrane materiały są już w Mediach internetowych";
+                return jużZapisane.Count == 1
+                    ? $"Materiał jest już w Mediach internetowych: {jużZapisane[0]}"
+                    : jużZapisane.Count > 1
+                        ? "Wybrane materiały są już w Mediach internetowych"
+                        : "Nie udało się dodać wybranych materiałów do Mediów internetowych";
             }
-            return newResults.Length == 1
-                ? $"Dodano do Mediów internetowych: {newResults[0].Item.Title}"
-                : $"Dodano do Mediów internetowych: {FormatItemCount(newResults.Length)}";
+            ReloadPodcastSessionItems();
+            if (!QueueStateSave(announceFailure: true))
+            {
+                return "Dodano do Mediów internetowych, ale nie udało się zapisać stanu programu";
+            }
+            return dodane.Count == 1
+                ? $"Dodano do Mediów internetowych: {dodane[0]}"
+                : $"Dodano do Mediów internetowych: {FormatItemCount(dodane.Count)}";
         }
         if (results.All(IsPublicInternetMediaSearchResult)
             && action is SearchResultAction.TogglePlayback
