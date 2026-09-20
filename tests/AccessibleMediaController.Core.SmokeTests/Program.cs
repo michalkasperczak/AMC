@@ -131,6 +131,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie Folderami Biblioteki", TestLocalFolderSourcePolicy),
+    ("Normalizacja korzeni folderów w jednym przebiegu", LocalFolderPathNormalizerTests.Run),
     ("Ręczne zapominanie niedostępnych rekordów", TestUnavailableLocalItemPolicy),
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),

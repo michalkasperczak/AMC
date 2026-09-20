@@ -7673,11 +7673,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave();
     }
 
+    // Diagnostyka kosztu JEDNEGO przebiegu CaptureLocalMediaState. Liczniki są
+    // wyłącznie obserwacją: nie zmieniają decyzji ani zapisywanych pól.
+    private int _captureFindSettingsScans;
+    private int _captureFolderNormalizations;
+
     private void CaptureLocalMediaState()
     {
         var local = _sessions?.FindSession("local");
         if (local is not null) local.RememberCurrentPosition();
         EnsureLocalCustomOrder();
+
+        // Pamięć normalizacji korzeni folderów o zasięgu TYLKO tego przebiegu: obiekt
+        // żyje w zmiennej lokalnej i ginie razem z metodą, więc kolejne wywołanie
+        // widzi aktualny stan systemu plików. Ta sama lista korzeni jest sprawdzana
+        // dla każdej z tysięcy pozycji, a Path.GetFullPath na Windows wchodzi przy
+        // ścieżkach z tyldą w TryExpandShortFileName.
+        var folderNormalizer = new LocalFolderPathNormalizer();
 
         var savedById = _state.LocalMedia.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var savedByPath = _state.LocalMedia.Items
@@ -7697,7 +7709,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var (fileLength, lastWriteUtcTicks) = previous is null
                 ? GetFileFingerprint(item.Source)
                 : (previous.FileLength, previous.LastWriteUtcTicks);
-            var position = ShouldRememberLocalPosition(item)
+            // `previous` to DOKŁADNIE ten rekord, który zwróciłoby
+            // FindLocalItemSettings(item): najpierw dopasowanie po Id (Ordinal),
+            // potem po znormalizowanej ścieżce (OrdinalIgnoreCase). Ponowny skan
+            // liniowy po całej liście dla każdej pozycji jest więc zbędny.
+            var position = ShouldRememberLocalPosition(previous, item, folderNormalizer)
                 ? rememberedPositions?.GetValueOrDefault(item.Id)
                   ?? (previous is null ? TimeSpan.Zero : TimeSpan.FromTicks(previous.ResumePositionTicks))
                 : TimeSpan.Zero;
@@ -7732,6 +7748,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RadioRecordingCompletedUtcTicks = previous?.RadioRecordingCompletedUtcTicks ?? 0
             };
         }).ToList();
+
+        _captureFolderNormalizations = folderNormalizer.ComputeCount;
 
         if (local is not null && local.HasCurrentItem)
         {
@@ -9211,15 +9229,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private bool ShouldRememberLocalPosition(MediaItem item) =>
-        FindLocalItemSettings(item)?.ResumePositionMode switch
+        ShouldRememberLocalPosition(FindLocalItemSettings(item), item, null);
+
+    /// <summary>
+    /// Wariant przyjmujący JUŻ znaleziony rekord ustawień oraz opcjonalny normalizator
+    /// ścieżek o zasięgu jednego przebiegu wywołującego. <paramref name="saved"/> musi być
+    /// dokładnie tym, co zwróciłoby <see cref="FindLocalItemSettings(MediaItem)"/> dla
+    /// tego elementu — wtedy werdykt jest identyczny, a odpada powtórny skan liniowy
+    /// po całej liście lokalnych pozycji.
+    /// </summary>
+    private bool ShouldRememberLocalPosition(
+        LocalMediaItemSettings? saved,
+        MediaItem item,
+        LocalFolderPathNormalizer? normalizer) =>
+        saved?.ResumePositionMode switch
         {
             ResumePositionMode.Remember => true,
             ResumePositionMode.StartFromBeginning => false,
-            _ => ShouldRememberLocalPosition(item.Source)
+            _ => ShouldRememberLocalPosition(item.Source, normalizer)
         };
 
     private LocalMediaItemSettings? FindLocalItemSettings(MediaItem item)
     {
+        _captureFindSettingsScans++;
         var byId = _state.LocalMedia.Items.FirstOrDefault(saved =>
             string.Equals(saved.Id, item.Id, StringComparison.Ordinal));
         if (byId is not null || !TryGetLocalPath(item.Source, out var itemPath)) return byId;
@@ -9305,7 +9337,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return "według prędkości sesji";
     }
 
-    private bool ShouldRememberLocalPosition(string? path)
+    private bool ShouldRememberLocalPosition(string? path) =>
+        ShouldRememberLocalPosition(path, null);
+
+    private bool ShouldRememberLocalPosition(string? path, LocalFolderPathNormalizer? normalizer)
     {
         // Kolejność: opcja folderu, źródło folderu, ustawienie sesji, globalne.
         // Ustawienie sesji wchodzi PONIŻEJ folderu (folder jest szczegółowszy),
@@ -9320,7 +9355,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var folderMode = _state.LocalMedia.FolderPlaybackOptions
             .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
-                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path))
+                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path, normalizer))
             .OrderByDescending(option => option.Path.Length)
             .Select(option => (ResumePositionMode?)option.ResumePositionMode)
             .FirstOrDefault();
@@ -9330,7 +9365,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var source = _state.LocalMedia.FolderSources
-            .Where(candidate => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, candidate.Path))
+            .Where(candidate => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, candidate.Path, normalizer))
             .OrderByDescending(candidate => candidate.Path.Length)
             .FirstOrDefault();
         return source?.ResumePositionMode switch
