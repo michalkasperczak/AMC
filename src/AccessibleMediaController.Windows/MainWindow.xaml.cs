@@ -3508,16 +3508,40 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var presetPlayableIds = SessionPresetEntries(session.Id)
+        if (session.Id != "tidal" && session.HasCurrentItem
+            && session.CurrentItem.Id == item.Id && (session.IsPlaying || session.IsPaused))
+        {
+            if (session.IsPaused) session.TogglePlayback();
+            RefreshPlaybackIndicators();
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            Announce(preset.TargetTitle);
+            return;
+        }
+
+        var presetPlayableItems = SessionPresetEntries(session.Id)
             .OrderBy(entry => entry.Slot)
             .Select(entry => session.Items.FirstOrDefault(candidate => string.Equals(
                 candidate.Id,
                 entry.TargetId,
                 StringComparison.Ordinal)))
             .Where(candidate => candidate?.Kind is MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)
-            .Select(candidate => candidate!.Id)
-            .Distinct(StringComparer.Ordinal)
+            .Select(candidate => candidate!)
+            .DistinctBy(candidate => candidate.Id, StringComparer.Ordinal)
             .ToArray();
+        var presetPlayableIds = presetPlayableItems.Select(candidate => candidate.Id).ToArray();
+        if (TryPlayTrackInTidalDesktop(session, item, presetPlayableItems, "Presety", fromGlobalShortcut,
+            isPreset: true, afterPlay: result =>
+            {
+                if (!result.WasAlreadyCurrent)
+                {
+                    session.SetPlaybackContext(presetPlayableIds);
+                    var navigation = GetSessionNavigationState(session.Id);
+                    navigation.PlaybackContextView = "Presety";
+                    navigation.PlaybackContextItemIds = presetPlayableIds.ToList();
+                }
+                SavePresetState(session.Id);
+            })) return;
         session.SetPlaybackContext(presetPlayableIds);
         var playbackNavigation = GetSessionNavigationState(session.Id);
         playbackNavigation.PlaybackContextView = "Presety";
@@ -13522,6 +13546,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.OpenOnWiiM);
             return;
         }
+        if (TryPlayTrackInTidalDesktop(_sessions.Current, item, null, _currentView))
+            return;
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && item.ExternalId is { Length: > 0 })
         {
@@ -13531,16 +13557,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
 
-            // Utwor TIDALa oddajemy oryginalnemu programowi: wlasny silnik
-            // dostaje z TIDALa tylko 30-sekundowa probke, a TIDAL desktop gra
-            // caly utwor w jakosci ustawionej przez uzytkownika.
-            if (item.Kind == MediaItemKind.Track)
-            {
-                // Podajemy CALA widoczna liste w jej kolejnosci, zeby nastepny
-                // i poprzedni szly po niej, a nie po kolejce TIDALa.
-                PlayTrackInTidalDesktop(item, CurrentTidalTrackListInOrder(), _currentView);
-                return;
-            }
         }
         // ZGLOSZENIE Michala 18.09.2026: "enter na albumie srednio dziala, cos mi
         // strzalka w prawo odtworzyla".  Przyczyna: sesja Spotify NIE MIALA tu

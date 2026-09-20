@@ -24,6 +24,7 @@ internal static class TidalDesktopPlaybackTests
         TrackExpressionClicksRowButton();
         PlayAllAvoidsShuffle();
         FailureReasonsBecomeSentences();
+        CurrentItemAnswerIsReadTheSameWayEverywhere();
     }
 
     private static void TrackUsesAlbumPage()
@@ -222,6 +223,12 @@ internal static class TidalDesktopPlaybackTests
         Check(TidalDesktopPlaybackPlan.IsSuccess("ok", "Kayleigh", out var brak),
             "Odpowiedź ok musi być uznana za powodzenie");
         Check(brak is null, "Powodzenie nie może dawać komunikatu o błędzie");
+        Check(TidalDesktopPlaybackPlan.IsSuccess("ok-current", "Kayleigh", out var currentMessage)
+            && currentMessage is null, "Juz biezacy utwor jest poprawnym wynikiem, nie bledem.");
+        TidalDesktopPlaybackPlan.IsSuccess("brak-przycisku-w-wierszu", "Kayleigh", out var missingButton);
+        Check(missingButton!.Contains("Nie znaleziono przycisku", StringComparison.Ordinal)
+            && !missingButton.Contains("nie pozwala", StringComparison.Ordinal),
+            "Brak kontrolki nie moze byc przedstawiany jako odmowa TIDALa.");
 
         foreach (var answer in new[] { "brak-listy-utworow", "brak-utworu", "brak-przycisku-w-wierszu", "brak-przycisku", "", "cos-nieznanego" })
         {
@@ -231,6 +238,33 @@ internal static class TidalDesktopPlaybackTests
                 $"Nieudana próba musi mieć komunikat dla użytkownika: {answer}");
             Check(!message!.Contains('-', StringComparison.Ordinal) || message.Contains(' ', StringComparison.Ordinal),
                 $"Komunikat musi być zdaniem, nie kodem technicznym: {answer}");
+        }
+    }
+
+    /// <summary>
+    /// Kontrakt: odpowiedz o JUZ BIEZACYM utworze musi byc czytana identycznie
+    /// przez oba odczyty tej samej odpowiedzi - uznanie powodzenia i ustalenie
+    /// "utwor juz gral". Rozjazd normalizacji dawalby powodzenie z fałszywym
+    /// WasAlreadyCurrent = false, a warstwa wywolujaca zerowalaby wtedy kontekst
+    /// odtwarzania. To wymaganie spojnosci, nie zapis zmierzonej wady CDP.
+    /// </summary>
+    private static void CurrentItemAnswerIsReadTheSameWayEverywhere()
+    {
+        Check(TidalDesktopPlaybackPlan.IsCurrentItemSuccess("ok-current"),
+            "Odpowiedź ok-current musi oznaczać już bieżący utwór");
+
+        foreach (var answer in new[] { " ok-current", "ok-current ", "\tok-current\r\n" })
+        {
+            Check(TidalDesktopPlaybackPlan.IsSuccess(answer, "Kayleigh", out var message) && message is null,
+                $"Odpowiedź z białymi znakami musi być powodzeniem: \"{answer}\"");
+            Check(TidalDesktopPlaybackPlan.IsCurrentItemSuccess(answer),
+                $"Ta sama odpowiedź nie może być powodzeniem i jednocześnie NIE być już bieżącym utworem: \"{answer}\"");
+        }
+
+        foreach (var answer in new[] { "ok", " ok ", "cos-nieznanego", "", "  ", null })
+        {
+            Check(!TidalDesktopPlaybackPlan.IsCurrentItemSuccess(answer),
+                $"Tylko ok-current oznacza już bieżący utwór, nie: \"{answer ?? "null"}\"");
         }
     }
 

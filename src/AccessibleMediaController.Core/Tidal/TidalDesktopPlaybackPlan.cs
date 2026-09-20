@@ -122,9 +122,16 @@ public static class TidalDesktopPlaybackPlan
             + "if(!w) w=wiersze.find(r=>norm(r.textContent).includes(szukany));"
             + "if(!w) return 'brak-utworu';"
             + "const b=w.querySelector('[data-test=\"play-button\"]');"
-            + "if(!b) return 'brak-przycisku-w-wierszu';"
-            + "b.click();"
-            + "return 'ok';"
+            + "if(b){b.click();return 'ok';}"
+            + "const id=w.getAttribute('data-track-id');"
+            + "const f=document.querySelector('#footerPlayer');"
+            + "const a=f?.querySelector('a[href^=\"/track/\"]');"
+            + "if(!id||w.getAttribute('data-test-is-playing')!=='true'||a?.getAttribute('href')!=='/track/'+id) return 'brak-przycisku-w-wierszu';"
+            + "const play=f.querySelector('[data-test=\"play\"]');"
+            + "if(play&&!play.disabled){play.click();return 'ok-current';}"
+            + "const pause=f.querySelector('[data-test=\"pause\"]');"
+            + "if(pause&&!pause.disabled)return 'ok-current';"
+            + "return 'brak-przycisku-w-wierszu';"
             + "})()";
     }
 
@@ -150,13 +157,23 @@ public static class TidalDesktopPlaybackPlan
         => $"document.querySelectorAll('{TrackRowSelector}').length";
 
     /// <summary>
+    /// Rozstrzyga, czy odpowiedz wyrazenia mowi, ze utwor BYL JUZ biezacy
+    /// ("ok-current"). Jedno miejsce dla calego programu, bo warstwa sterujaca
+    /// i <see cref="IsSuccess"/> musza czytac te sama odpowiedz identycznie:
+    /// rozjazd normalizacji dawalby powodzenie bez informacji o tym, ze utwor
+    /// juz gral, a wtedy warstwa wywolujaca zerowalaby kontekst odtwarzania.
+    /// </summary>
+    public static bool IsCurrentItemSuccess(string? answer)
+        => string.Equals((answer ?? string.Empty).Trim(), "ok-current", StringComparison.Ordinal);
+
+    /// <summary>
     /// Czyta odpowiedz wyrazenia sterujacego i zamienia powod techniczny na
     /// zdanie dla uzytkownika. Cisza po nieudanej probie jest niedopuszczalna.
     /// </summary>
     public static bool IsSuccess(string? answer, string displayName, out string? message)
     {
         var value = (answer ?? string.Empty).Trim();
-        if (string.Equals(value, "ok", StringComparison.Ordinal))
+        if (value is "ok" || IsCurrentItemSuccess(value))
         {
             message = null;
             return true;
@@ -166,7 +183,7 @@ public static class TidalDesktopPlaybackPlan
         {
             "brak-listy-utworow" => "TIDAL nie zdążył wczytać listy utworów",
             "brak-utworu" => $"Nie znalazłem w TIDALu utworu {displayName}",
-            "brak-przycisku-w-wierszu" => $"TIDAL nie pozwala odtworzyć {displayName} z listy",
+            "brak-przycisku-w-wierszu" => $"Nie znaleziono przycisku odtwarzania utworu {displayName} w oryginalnym TIDALu",
             "brak-przycisku" => "TIDAL nie pokazuje przycisku odtwarzania całości",
             "" => "TIDAL nie odpowiedział",
             _ => $"TIDAL odmówił odtworzenia: {value}"

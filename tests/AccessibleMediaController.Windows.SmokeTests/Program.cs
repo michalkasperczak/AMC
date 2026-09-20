@@ -156,6 +156,16 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--tidal-presets", StringComparer.Ordinal))
+{
+    try { TidalPresetRoutingTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Length == 2 && args[0] == "--tidal-track-expression")
+{
+    File.WriteAllText(args[1], AccessibleMediaController.Core.Tidal.TidalDesktopPlaybackPlan.PlayTrackExpression("Hard Times"));
+    return 0;
+}
 if (args.Contains("--spotify-queue-lifecycle", StringComparer.Ordinal))
 {
     try { SpotifyQueueLifecycleTests.Run(); return 0; }
@@ -258,6 +268,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Refresh Request", TestTidalRefreshRequest),
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),
