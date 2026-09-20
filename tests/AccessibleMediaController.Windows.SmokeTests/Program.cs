@@ -191,6 +191,11 @@ if (args.Contains("--queue-remote-copy", StringComparer.Ordinal))
     try { QueueRemoteCopyConsistencyTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--spotify-album-preset", StringComparer.Ordinal))
+{
+    try { SpotifyAlbumPresetTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
 {
     try { SpotifyStartupEngineTests.Run(); return 0; }
@@ -391,6 +396,7 @@ var tests = new (string Name, Action Test)[]
     ("Jedna sesja Spotify i silnik z zapisu w rzeczywistym oknie", SpotifyStartupEngineTests.Run),
     ("Cykl zycia kolejki Spotify: zmiana, zapis, restart, pierwsza synchronizacja", SpotifyQueueLifecycleTests.Run),
     ("Druga kopia kolejki zgodna ze snapshotem Capture w rzeczywistym EnsureQueueOrder", QueueRemoteCopyConsistencyTests.Run),
+    ("Preset albumu Spotify gra album bez ruszania listy", SpotifyAlbumPresetTests.Run),
     ("Alt+D w obu handlerach i numery sesji z dziurami w UI", SpotifyDescriptionAndSlotUiTests.Run),
     ("F11 otwiera aktualizacje z głównego okna", ApplicationUpdateRoutingTests.Run),
     ("Dostępne okno aktualizacji AMC", ApplicationUpdateWindowTests.Run),

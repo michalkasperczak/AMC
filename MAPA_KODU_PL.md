@@ -29,6 +29,13 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `Core/Tidal/TidalDesktopPlaybackPlan.cs`: aktualny wiersz bez przycisku może korzystać ze stopki tylko po zgodności identyfikatorów. Play wznawia, Pause nie jest klikane; brak kontrolki nie oznacza odmowy usługi.
 - Testy: `TidalPresetRoutingTests`, `TidalDesktopPlaybackTests` oraz `tests/tidal-preset-dom.test.cjs`. Ten ostatni przyjmuje plik wyrażenia wyeksportowany przez runner Windows z `--tidal-track-expression <plik>` i wykonuje je w Node na jawnym kontrakcie DOM; nie zastępuje próby oryginalnego TIDAL-a.
 
+## Uzupełnienie robocze: preset albumu Spotify
+
+- `Windows/MainWindow.SpotifyAlbumPreset.cs`: odtwarzanie albumu z presetu przez istniejące pobieranie i rejestrację kontenera, bez nawigacji do jego widoku; filtr grywalności, potwierdzenie nazwy oraz wznowienie już aktywnego albumu.
+- `Windows/MainWindow.xaml.cs`, `ActivatePreset`: osobna gałąź albumu Spotify i unieważnienie starszego pobrania albumu przez nowy preset utworu.
+- `Windows/MainWindow.SpotifyBrowse.cs`: domyślnie nieaktywne punkty podstawienia HTTP i tokenu do testów, bez zastępowania parsowania klienta. Po scaleniu istnieją oba szwy: gotowy transport i token (`SpotifyHttpClientForTests`, `SpotifyAccessTokenForTests`) oraz ich odpowiedniki fabryczne (`SpotifyApiHttpClientFactoryForTests`, `SpotifyAccessTokenFactoryForTests`) dla testów wielu kolejnych pobrań na wspólnym handlerze.
+- `Windows.SmokeTests/SpotifyAlbumPresetTests.cs`: rzeczywisty handler, jawne atrapy HTTP/dźwięku, powtórzenie, pauza, brak grywalnych utworów oraz spóźnione odpowiedzi. Nie zastępuje pomiaru rzeczywistego fokusu, mowy NVDA ani konta Spotify.
+
 ## Uzupełnienie: konto Spotify, alfa 398
 
 - `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.

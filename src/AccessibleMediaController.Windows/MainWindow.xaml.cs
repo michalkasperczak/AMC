@@ -3516,6 +3516,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        // Album Spotify ma ZAGRAĆ, nie otworzyć się na liście: szczegóły i
+        // powód w MainWindow.SpotifyAlbumPreset.cs.
+        if (IsSpotifyAlbumPresetTarget(session.Id, item))
+        {
+            _ = PlaySpotifyAlbumPresetAsync(session, item, slotLabel);
+            return;
+        }
+
         if (item.Kind is not (MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode))
         {
             SelectSessionBrowserItem(session.Id, item.Id);
@@ -3523,6 +3531,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce($"{item.KindLabel}: {item.Title}");
             return;
         }
+
+        // Preset UTWORU w sesji Spotify jest nowszą decyzją użytkownika niż
+        // czekające pobranie albumu: unieważnia je, żeby spóźniona odpowiedź
+        // albumu nie przestawiła tego, co właśnie włączamy. MUSI stać PRZED
+        // wczesnym powrotem dla już bieżącego utworu: powtórzony preset
+        // grającego utworu też jest nowszą decyzją, a po powrocie nie byłoby
+        // już gdzie unieważnić czekającego albumu.
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id))
+            InvalidatePendingSpotifyPresetPlayback();
 
         if (session.Id != "tidal" && session.HasCurrentItem
             && session.CurrentItem.Id == item.Id && (session.IsPlaying || session.IsPaused))
@@ -11555,6 +11572,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return new CommandExecutionResult(true);
         }
         var sessionBeforeCommand = _sessions.Current;
+        // ZWYKLE wlaczenie czegos przez uzytkownika jest NOWSZA decyzja niz
+        // czekajace pobranie albumu presetu.
+        InvalidatePendingSpotifyPresetPlaybackForUserCommand(commandId);
         if (commandId == CommandIds.ActivateSelected
             && !_playerViewActive
             && !_preservePreparedPlaybackContext
@@ -13801,6 +13821,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)
         {
             var session = _sessions.Current;
+            // ZWYKLY Enter na utworze jest NOWSZA decyzja niz czekajace
+            // pobranie albumu presetu.
+            InvalidatePendingSpotifyPresetPlaybackForUserIntent();
             var opensFromQueue = string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
             PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
