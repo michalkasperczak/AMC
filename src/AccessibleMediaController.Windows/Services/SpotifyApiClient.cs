@@ -61,6 +61,10 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     // https://developer.spotify.com/documentation/web-api/reference/get-an-artists-albums
     // Kolejne strony pobieramy adresem "next" z odpowiedzi.
     private const int ArtistAlbumsPageSize = 10;
+    // Kategoria "Utwory" idzie przez wyszukiwanie (top-tracks usuniete w lutym
+    // 2026), a limit wyszukiwania to 10 na rodzaj. Trzy strony to 30 pozycji -
+    // podglad katalogu, ktory wchodzi od razu, bez setek zapytan przy otwarciu.
+    private const int ArtistTrackPages = 3;
 
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
@@ -485,6 +489,111 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             }
         }
         return items;
+    }
+
+    /// <summary>
+    /// Utwory wykonawcy do kategorii "Utwory" w przegladzie wykonawcy.
+    ///
+    /// GRANICA DOSTAWCY, sprawdzona u zrodla: changelog "Web API - February 2026"
+    /// wymienia [REMOVED] Get Artist's Top Tracks (GET /artists/{id}/top-tracks).
+    /// Changelog z marca 2026 cofa wylacznie usuniecie pol external_ids, nie ten
+    /// endpoint. Related-artists jest niedostepne od listopada 2024. Dlatego
+    /// jedyna udokumentowana, dostepna droga do utworow wykonawcy prowadzi przez
+    /// "Search for Item" z filtrem pola artist:.
+    ///
+    /// Konsekwencje, ktorych NIE WOLNO ukrywac przed uzytkownikiem:
+    /// - limit wyszukiwania to 0-10 na rodzaj (obnizony w lutym 2026 z 50), wiec
+    ///   wynik jest PODGLADEM katalogu, nie pelna dyskografia; okno mowi to wprost,
+    /// - wyszukiwarka oddaje rowniez utwory INNYCH wykonawcow o podobnej nazwie,
+    ///   wiec zostawiamy wylacznie pozycje, w ktorych ktorys z entry.artists ma
+    ///   DOKLADNIE ten identyfikator - dopasowanie po tekscie nazwy klamie,
+    /// - rynek jest obowiazkowy; bez niego Spotify uznaje tresc za niedostepna,
+    /// - wynik to katalog, nie konto: zadna pozycja nie moze wrocic z
+    ///   IsInLibrary/IsFavorite.
+    ///
+    /// Zwraca null przy odmowie (403) i braku danych (404), tak samo jak
+    /// <see cref="GetArtistAlbumsAsync"/> - pusta lista oznaczalaby wtedy
+    /// "wykonawca nie ma utworow", co bylo by nieprawda.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>?> GetArtistTracksAsync(
+        string accessToken,
+        string market,
+        string artistId,
+        string artistName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(artistId)) return null;
+        var rynek = string.IsNullOrWhiteSpace(market) ? "PL" : market.Trim().ToUpperInvariant();
+        var nazwa = artistName?.Trim() ?? string.Empty;
+        // Cudzyslow wiaze cala nazwe z filtrem pola; bez niego "Budka Suflera"
+        // rozpada sie na dwa niezalezne slowa i filtr przestaje zawezac.
+        var zapytanie = nazwa.Length > 0 ? $"artist:\"{nazwa.Replace("\"", string.Empty)}\"" : artistId;
+        var items = new List<MediaItem>();
+        var widziane = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var next = $"{ApiRoot}/search?q={Uri.EscapeDataString(zapytanie)}"
+            + "&type=track"
+            + $"&market={Uri.EscapeDataString(rynek)}"
+            + $"&limit={SearchLimitPerType}";
+        var pages = 0;
+        while (!string.IsNullOrEmpty(next) && pages++ < ArtistTrackPages)
+        {
+            JsonDocument document;
+            try
+            {
+                document = await GetJsonAsync(accessToken, next, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
+                || exception.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return null;
+            }
+            using (document)
+            {
+                if (!document.RootElement.TryGetProperty("tracks", out var grupa)
+                    || grupa.ValueKind != JsonValueKind.Object)
+                {
+                    break;
+                }
+                if (grupa.TryGetProperty("items", out var array) && array.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var entry in array.EnumerateArray())
+                    {
+                        if (entry.ValueKind != JsonValueKind.Object) continue;
+                        if (!TrackBelongsToArtist(entry, artistId)) continue;
+                        var item = ReadTrack(entry);
+                        if (item is null || item.ExternalId is not { Length: > 0 }) continue;
+                        if (!widziane.Add(item.ExternalId)) continue;
+                        item.IsInLibrary = false;
+                        item.IsFavorite = false;
+                        item.RelatedArtistExternalId = artistId;
+                        if (nazwa.Length > 0) item.RelatedArtistName = nazwa;
+                        items.Add(item);
+                    }
+                }
+                next = grupa.TryGetProperty("next", out var nextElement)
+                    && nextElement.ValueKind == JsonValueKind.String
+                    ? nextElement.GetString()
+                    : null;
+            }
+        }
+        return items;
+    }
+
+    /// <summary>
+    /// Czy utwor NAPRAWDE nalezy do tego wykonawcy. Wyszukiwarka dopasowuje
+    /// tekstowo, wiec bez porownania identyfikatorow na liscie "Utwory"
+    /// wyladowalyby coverki i inni wykonawcy o podobnej nazwie.
+    /// </summary>
+    private static bool TrackBelongsToArtist(JsonElement track, string artistId)
+    {
+        if (!track.TryGetProperty("artists", out var artysci) || artysci.ValueKind != JsonValueKind.Array)
+            return false;
+        foreach (var artysta in artysci.EnumerateArray())
+        {
+            if (artysta.ValueKind != JsonValueKind.Object) continue;
+            if (string.Equals(Tekst(artysta, "id"), artistId, StringComparison.Ordinal)) return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -79,7 +79,7 @@ internal static class TidalInteractionSmokeTests
 
     private static void TestContext()
     {
-        var context = new TidalInteractionContext(7, "tidal", "Album", "one", false);
+        var context = new ServiceInteractionContext(7, "tidal", "Album", "one", false);
         Check(context.CanPresent(context, true), "Bieżąca odpowiedź została odrzucona.");
         foreach (var changed in new[] { context with { NavigationVersion = 8 }, context with { SessionId = "radio" },
                      context with { View = "Kolejka" }, context with { ItemId = "two" }, context with { PlayerActive = true } })
@@ -101,7 +101,7 @@ internal static class TidalInteractionSmokeTests
         long version = 7;
         void Invalidate() => version++;
         string? SelectedId() => (list.SelectedItem as MediaItem)?.Id;
-        TidalInteractionContext Context() => new(version, "tidal", "Album", SelectedId(), false);
+        ServiceInteractionContext Context() => new(version, "tidal", "Album", SelectedId(), false);
         list.SelectionChanged += (_, _) => refresh.SelectionChanged(Invalidate);
         void ReplaceRows()
         {

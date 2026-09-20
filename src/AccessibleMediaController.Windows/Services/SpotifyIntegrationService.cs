@@ -63,6 +63,14 @@ internal sealed class SpotifyIntegrationService(
     HttpClient? httpClient = null) : IDisposable
 {
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Rynek konta. Spotify wymaga go przy odczycie katalogu - bez niego uzna
+    /// tresc za niedostepna i lista przyjdzie pusta.
+    /// </summary>
+    internal string CountryCode =>
+        string.IsNullOrWhiteSpace(settings.CountryCode) ? "PL" : settings.CountryCode;
+
     private readonly SpotifyOAuthClient oauth = new();
     private readonly SpotifyApiClient api = new();
     private readonly SpotifyLibraryWriteClient writer = new();

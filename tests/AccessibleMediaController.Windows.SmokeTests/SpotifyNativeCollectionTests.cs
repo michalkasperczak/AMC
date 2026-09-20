@@ -65,14 +65,14 @@ internal static class SpotifyNativeCollectionTests
         if (cache is null) throw new Exception("Brak zapisu zawartosci albumu dla sesji Spotify.");
         var container = new MediaItem { Id="spotify:album:ALB", ExternalId="ALB", Title="Album", Kind=MediaItemKind.Album };
         var c = new MediaItem { Id="spotify:track:C", ExternalId="C", Source="spotify:track:C", Title="C", Kind=MediaItemKind.Track };
-        var viewName = (string)cache.Invoke(window,["spotify",container,new[]{c}])!;
+        var viewName = (string)cache.Invoke(window,["spotify",container,new[]{c},null])!;
         // Ten sam album otwarty ponownie w tej samej sesji musi trafic w TEN SAM
         // widok, inaczej wracaja dwie rozne listy tego samego albumu.
-        if ((string)cache.Invoke(window,["spotify",container,new[]{c}])! != viewName)
+        if ((string)cache.Invoke(window,["spotify",container,new[]{c},null])! != viewName)
             throw new Exception("Ponowne otwarcie albumu tworzy nowy widok zamiast odswiezyc istniejacy.");
         var trackC = spotify.Items.Single(x=>x.ExternalId=="C");
         trackC.IsInQueue = true;
-        cache.Invoke(window,["spotify",container,new[]{c}]);
+        cache.Invoke(window,["spotify",container,new[]{c},null]);
         if (!spotify.Items.Single(x=>x.ExternalId=="C").IsInQueue)
             throw new Exception("Ponowne otwarcie albumu zeruje kolejke.");
         VerifyNativeDeviceDialog();

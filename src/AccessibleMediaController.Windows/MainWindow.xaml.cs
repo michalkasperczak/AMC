@@ -557,7 +557,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         get
         {
             if (_playerViewActive || _nvdaCurrentItemTarget) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
-            if (IsTidalArtistOverview) return null;
+            if (IsArtistOverviewView) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
                 || row?.ArtistSection is not null) return null;
@@ -11851,6 +11851,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyContainer))
         {
+            // Przeglad wykonawcy to SPIS kategorii, nie lista utworow - wiersze
+            // buduje wspolna fabryka, ta sama co w TIDAL.
+            if (spotifyContainer.IsArtistOverview)
+            {
+                _unfilteredItems = CreateArtistSectionRows(
+                    spotifyContainer.Container,
+                    ArtistSectionsForSession(_sessions.Current.Id));
+                ApplyFilter(preferredItemId, fallbackIndex);
+                return;
+            }
             // Album zachowuje kolejnosc wydania; sortowanie alfabetyczne tylko
             // wtedy, gdy uzytkownik sam je wybral (Alt+1).
             _unfilteredItems = (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
@@ -13444,10 +13454,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var row = MediaList.SelectedItem as MediaItemRow;
-        if (row?.ArtistSection is { } artistSection
-            && _tidalContainerViews.TryGetValue(_currentView, out var artistView))
+        if (row?.ArtistSection is { } artistSection)
         {
-            _ = OpenTidalContainerAsync(artistView.Container, artistSection);
+            // Enter na kategorii otwiera JEJ zawartosc - ta sama sciezka w obu
+            // uslugach, tylko klient jest inny.
+            if (_tidalContainerViews.TryGetValue(_currentView, out var artistView))
+            {
+                _ = OpenTidalContainerAsync(artistView.Container, artistSection);
+                return;
+            }
+            if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
+                && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyArtistView))
+            {
+                _ = OpenSpotifyContainerAsync(spotifyArtistView.Container, artistSection);
+                return;
+            }
+            Announce("Tej kategorii wykonawcy nie można teraz otworzyć");
             return;
         }
         if (row?.LoadMorePodcastViewName is { } loadMorePodcastViewName)
@@ -13716,7 +13738,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private TidalInteractionContext CaptureTidalInteractionContext() => new(
+    private ServiceInteractionContext CaptureServiceInteractionContext() => new(
         _tidalNavigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
 
     private bool CanPresentTidalResponse => !_isClosing && IsActive
@@ -13747,7 +13769,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         _tidalNavigationVersion++;
-        var context = CaptureTidalInteractionContext();
+        var context = CaptureServiceInteractionContext();
         var started = Stopwatch.StartNew();
         DiagnosticLog.Info("tidal-navigation", $"Rozpoczęto otwieranie {container.ExternalId}; żądanie: {context.NavigationVersion}.");
         TidalCollectionSemantics.ApplyMembership(container,
@@ -13762,7 +13784,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400), _tidalCancellation.Token);
             if (await Task.WhenAny(loadTask, progressDelay) == progressDelay
                 && !_tidalCancellation.IsCancellationRequested
-                && context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
+                && context.CanPresent(CaptureServiceInteractionContext(), CanPresentTidalResponse))
             {
                 Announce($"Wczytywanie {label.ToLower(CultureInfo.CurrentCulture)}: {container.Title}");
             }
@@ -13792,9 +13814,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
             // A slow network response must not pull the focus away after the
             // user has meanwhile changed the session, view or selection.
-            if (!context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
+            if (!context.CanPresent(CaptureServiceInteractionContext(), CanPresentTidalResponse))
             {
-                var current = CaptureTidalInteractionContext();
+                var current = CaptureServiceInteractionContext();
                 DiagnosticLog.Info("tidal-navigation",
                     $"Zachowano dane bez zmiany widoku; żądanie: {context.NavigationVersion}; "
                     + $"aktualne: {current.NavigationVersion}; czas: {started.ElapsedMilliseconds} ms; "
@@ -13826,7 +13848,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var httpStatus = exception is TidalApiException apiException ? $" HTTP {(int)apiException.StatusCode}." : string.Empty;
             DiagnosticLog.Error("tidal-container", $"Nie otwarto elementu {container.ExternalId}.{httpStatus}", exception);
-            if (context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
+            if (context.CanPresent(CaptureServiceInteractionContext(), CanPresentTidalResponse))
             {
                 Announce($"Nie udało się otworzyć: {label}, {container.Title}. {exception.Message}");
             }
@@ -13837,7 +13859,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<MediaItem> items,
         bool? add)
     {
-        var context = CaptureTidalInteractionContext();
+        var context = CaptureServiceInteractionContext();
         var searchWindow = _activeSearchWindow;
         var ownsGate = false;
         try
@@ -13851,7 +13873,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 add,
                 _tidalCancellation.Token);
             if (_isClosing) return;
-            var mayAnnounce = context.CanAnnounceCollectionOutcome(CaptureTidalInteractionContext(), CanPresentTidalResponse);
+            var mayAnnounce = context.CanAnnounceCollectionOutcome(CaptureServiceInteractionContext(), CanPresentTidalResponse);
             ApplyTidalItems(result.Items);
             QueueStateSave();
             var subject = items.Count == 1
@@ -13887,7 +13909,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
                     searchWindow.AnnounceActionCompletion($"Nie zmieniono kolekcji TIDAL. {exception.Message}", restoreResultFocus: false);
             }
-            else if (context.CanAnnounceCollectionOutcome(CaptureTidalInteractionContext(), CanPresentTidalResponse))
+            else if (context.CanAnnounceCollectionOutcome(CaptureServiceInteractionContext(), CanPresentTidalResponse))
                 Announce($"Nie zmieniono kolekcji TIDAL. {exception.Message}");
         }
         finally
@@ -14119,7 +14141,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (ActionItem is { Kind: MediaItemKind.Artist, ExternalId: { Length: > 0 } } spotifyArtist)
             {
-                _ = OpenSpotifyContainerAsync(spotifyArtist);
+                OpenSpotifyArtistOverview(spotifyArtist);
+                SelectMediaItem(ArtistSectionRowId(spotifyArtist, ArtistBrowseSection.Albums));
+                _ = OpenSpotifyContainerAsync(spotifyArtist, ArtistBrowseSection.Albums);
                 return;
             }
             if (CreateRelatedSpotifyContainer(ActionItem, MediaItemKind.Album) is { } spotifyAlbum)
@@ -14314,7 +14338,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RemoveSelected()
     {
-        if (IsTidalArtistOverview)
+        if (IsArtistOverviewView)
         {
             Announce("To kategoria wykonawcy. Naciśnij Enter, aby otworzyć jej elementy");
             return;
@@ -17532,7 +17556,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyView))
         {
-            return $"{SpotifyContainerLabel(spotifyView.Container.Kind)} — {spotifyView.Container.Title}";
+            return $"{spotifyView.ArtistSection?.Label() ?? SpotifyContainerLabel(spotifyView.Container.Kind)}"
+                + $" — {spotifyView.Container.Title}";
         }
         return BaseCurrentViewDisplayName();
     }
@@ -20396,6 +20421,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (key == Key.F5 && modifiers == ModifierKeys.None && _sessions.Current.Id == "tidal"
             && _tidalContainerViews.ContainsKey(_currentView))
             return $"{spokenShortcut}: odśwież zawartość TIDAL. Kontekst: {context}";
+        if (key == Key.F5 && modifiers == ModifierKeys.None
+            && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
+            && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyRefreshView)
+            && (spotifyRefreshView.ArtistSection is not null || spotifyRefreshView.IsArtistOverview))
+            return $"{spokenShortcut}: odśwież kategorię wykonawcy Spotify. Kontekst: {context}";
 
         if (TryDescribeDirectShortcut(key, modifiers, out var directDescription))
         {
@@ -22443,7 +22473,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var actions = new List<(string Label, Action Invoke)>();
         if (TidalNavigationPolicy.CanShowArtistAlbums(item))
-            actions.Add(("Pokaż albumy wykonawcy", () => _ = OpenSpotifyContainerAsync(item)));
+        {
+            // Przeglad daje wybor miedzy wydaniami i utworami; osobna pozycja
+            // "albumy" zostaje, bo tam wlasnie wiekszosc osob chce trafic.
+            actions.Add(("Pokaż kategorie wykonawcy", () => _ = OpenSpotifyContainerAsync(item)));
+            actions.Add(("Pokaż albumy wykonawcy",
+                () => _ = OpenSpotifyContainerAsync(item, ArtistBrowseSection.Albums)));
+            actions.Add(("Pokaż utwory wykonawcy",
+                () => _ = OpenSpotifyContainerAsync(item, ArtistBrowseSection.Tracks)));
+        }
         else if (CanOpenSpotifyContainer(item))
         {
             var label = item.Kind switch

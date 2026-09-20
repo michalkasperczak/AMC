@@ -1,4 +1,5 @@
 using System.Globalization;
+using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
@@ -30,10 +31,21 @@ public partial class MainWindow
 
     private sealed record SpotifyContainerViewState(
         MediaItem Container,
-        IReadOnlyList<MediaItem> Items);
+        IReadOnlyList<MediaItem> Items,
+        ArtistBrowseSection? ArtistSection = null,
+        bool IsArtistOverview = false);
 
     private static string SpotifyContentsView(MediaItem container) =>
         $"{SpotifyContentsViewPrefix}{container.ExternalId}";
+
+    /// <summary>
+    /// Nazwa widoku kontenera dla KONKRETNEJ sesji Spotify. Druga sesja
+    /// (Librespot) ma wlasny prefiks, inaczej nadpisalaby widok pierwszej.
+    /// </summary>
+    private static string SpotifyContainerViewName(string sessionId, MediaItem container) =>
+        string.Equals(sessionId, "spotify", StringComparison.Ordinal)
+            ? SpotifyContentsView(container)
+            : $"{SpotifyContentsViewPrefix}{sessionId}:{container.ExternalId}";
 
     private static bool IsSpotifyContentsView(string viewName) =>
         viewName.StartsWith(SpotifyContentsViewPrefix, StringComparison.Ordinal);
@@ -55,7 +67,13 @@ public partial class MainWindow
             or MediaItemKind.Podcast }
         && item.ExternalId is { Length: > 0 };
 
-    private async Task OpenSpotifyContainerAsync(MediaItem container)
+    /// <summary>
+    /// Otwiera kontener Spotify. Dla wykonawcy bez wskazanej sekcji pokazuje
+    /// PRZEGLAD (kategorie) tym samym mechanizmem co TIDAL - nie od razu albumy,
+    /// bo uzytkownik ma wybrac, czy chce wydania czy utwory.
+    /// </summary>
+    private async Task OpenSpotifyContainerAsync(
+        MediaItem container, ArtistBrowseSection? artistSection = null)
     {
         if (!CanOpenSpotifyContainer(container))
         {
@@ -65,7 +83,13 @@ public partial class MainWindow
             return;
         }
 
-        var label = SpotifyContainerLabel(container.Kind);
+        if (container.Kind == MediaItemKind.Artist && artistSection is null)
+        {
+            OpenSpotifyArtistOverview(container);
+            return;
+        }
+
+        var label = artistSection?.Label() ?? SpotifyContainerLabel(container.Kind);
         var requestVersion = ++_spotifyNavigationVersion;
         var sessionAtStart = _sessions.Current.Id;
         var viewAtStart = _currentView;
@@ -73,7 +97,7 @@ public partial class MainWindow
 
         try
         {
-            var loadTask = LoadSpotifyContainerItemsAsync(container);
+            var loadTask = LoadSpotifyContainerItemsAsync(container, artistSection);
             var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400));
             if (await Task.WhenAny(loadTask, progressDelay).ConfigureAwait(true) == progressDelay
                 && CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
@@ -93,7 +117,9 @@ public partial class MainWindow
                     Announce(container.Kind == MediaItemKind.Playlist
                         ? $"Spotify nie udostępnia zawartości tej playlisty: {container.Title}. "
                             + "Dotyczy playlist redakcyjnych Spotify i playlist innych osób"
-                        : $"Spotify nie udostępnia zawartości: {label}, {container.Title}");
+                        : artistSection is not null
+                            ? $"Spotify nie udostępnia kategorii {label} wykonawcy {container.Title}"
+                            : $"Spotify nie udostępnia zawartości: {label}, {container.Title}");
                 }
                 return;
             }
@@ -113,7 +139,7 @@ public partial class MainWindow
                 }
             }
 
-            var viewName = StoreSpotifyContainerForSession(sessionAtStart, container, items);
+            var viewName = StoreSpotifyContainerForSession(sessionAtStart, container, items, artistSection);
 
             if (!CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
             {
@@ -126,13 +152,23 @@ public partial class MainWindow
             {
                 NavigateTo(viewName);
                 FocusMediaList();
-                Announce($"{label} {container.Title} nie zawiera dostępnych elementów");
+                Announce(artistSection is not null
+                    ? $"Kategoria {label}: Spotify nie zwrócił elementów dla wykonawcy {container.Title}"
+                    : $"{label} {container.Title} nie zawiera dostępnych elementów");
                 return;
             }
 
             NavigateTo(viewName);
             PrepareViewFocusContext($"{label}, {container.Title}");
             FocusMediaList();
+            // Kategoria "Utwory" idzie przez wyszukiwanie katalogu (top-tracks
+            // usuniete w lutym 2026), wiec lista jest PODGLADEM. Przemilczenie
+            // tego kazaloby uznac niepelna liste za cala dyskografie.
+            if (artistSection == ArtistBrowseSection.Tracks)
+            {
+                Announce($"Utwory wykonawcy {container.Title}: {items.Count}. "
+                    + "Spotify udostępnia wybór z katalogu, nie pełną listę utworów");
+            }
             DiagnosticLog.Info("spotify-navigation",
                 $"Otwarto {container.ExternalId}; elementów: {items.Count}.");
         }
@@ -150,8 +186,27 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// Pokazuje kategorie wykonawcy Spotify (przeglad). Widok przegladu jest
+    /// SPISEM kategorii - nie ma w nim elementow multimedialnych, wiec lista
+    /// pozycji zostaje pusta i wiersze buduje wspolna fabryka kategorii.
+    /// </summary>
+    private void OpenSpotifyArtistOverview(MediaItem artist)
+    {
+        var sessionId = _sessions.Current.Id;
+        if (!SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId)) return;
+        var view = SpotifyContainerViewName(sessionId, artist);
+        _spotifyContainerViews[view] = new SpotifyContainerViewState(artist, [], IsArtistOverview: true);
+        NavigateTo(view);
+        PrepareViewFocusContext($"Wykonawca, {artist.Title}");
+        FocusMediaList();
+    }
+
     private string StoreSpotifyContainerForSession(
-        string sessionId, MediaItem container, IReadOnlyList<MediaItem> items)
+        string sessionId,
+        MediaItem container,
+        IReadOnlyList<MediaItem> items,
+        ArtistBrowseSection? artistSection = null)
     {
         if (!SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId))
             throw new ArgumentException("Nieznana sesja Spotify.", nameof(sessionId));
@@ -179,20 +234,32 @@ public partial class MainWindow
             owned[index] = registered;
         }
         session.AddItemsById(owned);
-        var viewName = sessionId == "spotify" ? SpotifyContentsView(container)
-            : $"{SpotifyContentsViewPrefix}{sessionId}:{container.ExternalId}";
-        _spotifyContainerViews[viewName] = new SpotifyContainerViewState(container, owned);
+        var viewName = SpotifySectionViewName(sessionId, container, artistSection);
+        _spotifyContainerViews[viewName] =
+            new SpotifyContainerViewState(container, owned, artistSection);
         RestoreSpotifyRememberedPositions();
         return viewName;
     }
 
-    private async Task<IReadOnlyList<MediaItem>?> LoadSpotifyContainerItemsAsync(MediaItem container)
+    private async Task<IReadOnlyList<MediaItem>?> LoadSpotifyContainerItemsAsync(
+        MediaItem container, ArtistBrowseSection? artistSection = null)
     {
         var credentials = await _spotifyIntegration
             .GetPlaybackCredentialsAsync(CancellationToken.None)
             .ConfigureAwait(false);
         using var client = new SpotifyApiClient();
         var id = container.ExternalId ?? string.Empty;
+        // Kategoria "Utwory" ma wlasna droge, bo Get Artist's Top Tracks zostalo
+        // usuniete (luty 2026) - szczegoly w GetArtistTracksAsync.
+        if (container.Kind == MediaItemKind.Artist && artistSection == ArtistBrowseSection.Tracks)
+        {
+            return await client.GetArtistTracksAsync(
+                credentials.AccessToken,
+                _spotifyIntegration.CountryCode,
+                id,
+                container.Title ?? string.Empty,
+                CancellationToken.None).ConfigureAwait(false);
+        }
         var items = container.Kind switch
         {
             MediaItemKind.Album => await client

@@ -201,6 +201,11 @@ if (args.Contains("--tidal-interaction-smoke", StringComparer.Ordinal))
     TidalInteractionSmokeTests.Run();
     return 0;
 }
+if (args.Contains("--spotify-artist-rows", StringComparer.Ordinal))
+{
+    try { SpotifyArtistRowsTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--tidal-playback-smoke", StringComparer.Ordinal))
 {
     TidalPlaybackSmokeTests.Run();
@@ -337,6 +342,7 @@ var tests = new (string Name, Action Test)[]
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Albumy wykonawcy Spotify w granicach limitu endpointu", SpotifyArtistAlbumPagingTests.Run),
+    ("Przeglad wykonawcy Spotify: kategorie, utwory z katalogu, powrot i guardy", SpotifyArtistRowsTests.Run),
     ("Podcasty Spotify: zapisane podcasty, odcinki i oba silniki", SpotifyPodcastsTests.Run),
     ("Odcinek Spotify prowadzi do podcastu zamiast albumu", SpotifyPodcastParentTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
