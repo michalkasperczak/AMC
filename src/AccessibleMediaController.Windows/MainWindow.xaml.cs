@@ -560,6 +560,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (IsArtistOverviewView) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
+                || row?.LoadMoreSpotifyTracksViewName is not null
                 || row?.ArtistSection is not null) return null;
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
@@ -577,6 +578,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
                 .Where(row => row.PlaylistId is null && row.LoadMorePodcastViewName is null
+                    && row.LoadMoreSpotifyTracksViewName is null
                     && row.ArtistSection is null)
                 .OrderBy(row => MediaList.Items.IndexOf(row))
                 .Select(row => row.ActionItem)
@@ -11863,13 +11865,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             // Album zachowuje kolejnosc wydania; sortowanie alfabetyczne tylko
             // wtedy, gdy uzytkownik sam je wybral (Alt+1).
-            _unfilteredItems = (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
-                    ? spotifyContainer.Items
-                        .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
-                        .ToList()
-                    : spotifyContainer.Items.ToList())
-                .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
-                .ToList();
+            _unfilteredItems = AppendSpotifyTracksLoadMoreRow(
+                (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
+                        ? spotifyContainer.Items
+                            .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
+                            .ToList()
+                        : spotifyContainer.Items.ToList())
+                    .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                    .ToList(),
+                spotifyContainer,
+                _currentView);
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -13262,6 +13267,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_restoringSessionNavigation
             && !_playerViewActive
             && selectedRow?.LoadMorePodcastViewName is null
+            && selectedRow?.LoadMoreSpotifyTracksViewName is null
             && SelectedItem is { } selected)
         {
             GetSessionNavigationState(_sessions.Current.Id).SelectedItemIds[_currentView] = selected.Id;
@@ -13491,6 +13497,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (row?.LoadMorePodcastViewName is { } loadMorePodcastViewName)
         {
             LoadMorePodcastEpisodes(loadMorePodcastViewName);
+            return;
+        }
+        if (row?.LoadMoreSpotifyTracksViewName is { } loadMoreSpotifyTracksView)
+        {
+            _ = LoadMoreSpotifyArtistTracksAsync(loadMoreSpotifyTracksView);
             return;
         }
         if (row?.PlaylistId is { } playlistId)
@@ -13754,12 +13765,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private ServiceInteractionContext CaptureServiceInteractionContext() => new(
-        _tidalNavigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
+    private ServiceInteractionContext CaptureServiceInteractionContext() =>
+        CaptureServiceInteractionContext(_tidalNavigationVersion);
 
-    private bool CanPresentTidalResponse => !_isClosing && IsActive
+    /// <summary>
+    /// Kontekst interakcji dla PODANEGO licznika nawigacji. Spotify ma wlasny
+    /// licznik, ale NIE swoja kopie bramki - jedno miejsce decyduje, kiedy
+    /// spozniona odpowiedz nie ma prawa przestawic listy.
+    ///
+    /// Tozsamosc wiersza bierzemy z <see cref="SelectedItem"/>: ten getter oddaje
+    /// Row.Item, a wiersz kategorii wykonawcy ma wlasny, trwaly Id
+    /// (artist-category:...), wiec porownanie dziala tez na kategoriach. Null jest
+    /// tam ActionItem, a nie SelectedItem - zmierzone testem zywego UI.
+    /// </summary>
+    private ServiceInteractionContext CaptureServiceInteractionContext(long navigationVersion) => new(
+        navigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
+
+    private bool CanPresentServiceResponse => !_isClosing && IsActive
         && !OwnedWindows.Cast<Window>().Any(window => window.IsActive)
         && !IsMenuInteractionActive(Keyboard.FocusedElement);
+
+    private bool CanPresentTidalResponse => CanPresentServiceResponse;
 
     private string? BeginTidalCollectionToggle(IReadOnlyList<MediaItem> items, bool favorites)
     {
@@ -22374,6 +22400,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             e.Handled = true;
             return;
         }
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMoreSpotifyTracksViewName is not null
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key is Key.Left or Key.Right)
+        {
+            Announce("Wczytaj więcej utworów. Naciśnij Enter");
+            e.Handled = true;
+            return;
+        }
         if (Keyboard.Modifiers == ModifierKeys.None
             && SelectedItem is { } item
             && key == Key.Left)
@@ -22641,6 +22675,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 || row.AlbumFolderPath is not null
                 || row.PlaylistId is not null
                 || row.LoadMorePodcastViewName is not null
+                || row.LoadMoreSpotifyTracksViewName is not null
                 || row.ArtistSection is not null
                     ? row.NavigationText
                     : NavigationTextForItem(
@@ -22693,6 +22728,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastCancellation.Cancel();
         _wiiMCancellation.Cancel();
         _tidalCancellation.Cancel();
+        // Odczyt katalogu Spotify z doladowywaniem stron jest dluga sciezka -
+        // przy zamykaniu okna nie moze zostac wiecznie pracujace zadanie.
+        CancelSpotifyWork();
         foreach (var session in _sessions.Sessions)
         {
             if (!ShouldDeferQueueNormalization(session)) EnsureQueueOrder(session);
@@ -23028,6 +23066,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (sender is ContextMenu contextMenu) contextMenu.IsOpen = false;
             Announce("Naciśnij Enter, aby załadować więcej odcinków");
+            return;
+        }
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMoreSpotifyTracksViewName is not null)
+        {
+            if (sender is ContextMenu tracksMenu) tracksMenu.IsOpen = false;
+            Announce("Naciśnij Enter, aby wczytać więcej utworów");
             return;
         }
         var items = ActionItems;
@@ -24667,6 +24711,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string? albumFolderPath = null,
         string? playlistId = null,
         string? loadMorePodcastViewName = null,
+        string? loadMoreSpotifyTracksViewName = null,
         ArtistBrowseSection? artistSection = null,
         RadioRecordingHistorySettings? recordingHistoryEntry = null) : INotifyPropertyChanged
     {
@@ -24677,6 +24722,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public string? AlbumFolderPath { get; } = albumFolderPath;
         public string? PlaylistId { get; } = playlistId;
         public string? LoadMorePodcastViewName { get; } = loadMorePodcastViewName;
+
+        /// <summary>
+        /// Widok kategorii Utwory Spotify, gdy wiersz doładowuje NASTĘPNĄ stronę
+        /// katalogu. Osobno od podcastowego, bo doładowanie podcastu odsłania
+        /// odcinki już pobrane lokalnie, a tu leci nowe zapytanie do Spotify.
+        /// </summary>
+        public string? LoadMoreSpotifyTracksViewName { get; } = loadMoreSpotifyTracksViewName;
         public ArtistBrowseSection? ArtistSection { get; } = artistSection;
         /// <summary>
         /// Wpis historii nagrywania, gdy wiersz pochodzi z widoku historii.

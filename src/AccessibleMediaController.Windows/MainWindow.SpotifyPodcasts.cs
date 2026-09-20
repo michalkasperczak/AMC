@@ -107,16 +107,15 @@ public partial class MainWindow
             return;
         }
 
-        var requestVersion = ++_spotifyNavigationVersion;
-        var viewAtStart = _currentView;
-        var itemAtStart = SelectedItem?.Id;
+        _spotifyNavigationVersion++;
+        var startContext = CaptureServiceInteractionContext(_spotifyNavigationVersion);
 
         try
         {
             var loadTask = LoadSpotifyPodcastLibraryAsync();
             var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400));
             if (await Task.WhenAny(loadTask, progressDelay).ConfigureAwait(true) == progressDelay
-                && CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
+                && CanPresentSpotifyResponse(startContext))
             {
                 Announce("Wczytywanie zapisanych podcastów Spotify");
             }
@@ -126,7 +125,7 @@ public partial class MainWindow
 
             if (library is null)
             {
-                if (CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
+                if (CanPresentSpotifyResponse(startContext))
                     Announce("Spotify nie udostępnia zapisanych podcastów tego konta");
                 return;
             }
@@ -134,10 +133,10 @@ public partial class MainWindow
             var widok = BuildSpotifyPodcastsView([.. library.Shows, .. library.Episodes]);
             var viewName = StoreSpotifyPodcastsForSession(sessionAtStart, widok);
 
-            if (!CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
+            if (!CanPresentSpotifyResponse(startContext))
             {
                 DiagnosticLog.Info("spotify-navigation",
-                    $"Zachowano podcasty bez zmiany widoku; żądanie: {requestVersion}; pozycji: {widok.Count}.");
+                    $"Zachowano podcasty bez zmiany widoku; żądanie: {startContext.NavigationVersion}; pozycji: {widok.Count}.");
                 return;
             }
 
@@ -168,7 +167,7 @@ public partial class MainWindow
         catch (Exception exception)
         {
             DiagnosticLog.Error("spotify-podcasts", "Nie otwarto widoku podcastów Spotify.", exception);
-            if (CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
+            if (CanPresentSpotifyResponse(startContext))
                 Announce($"Nie udało się wczytać podcastów Spotify. {exception.Message}");
         }
     }

@@ -23,6 +23,39 @@ internal sealed record SpotifyPodcastLibrary(
     IReadOnlyList<MediaItem> Episodes,
     IReadOnlyList<string> Warnings);
 
+/// <summary>Dlaczego utwory wykonawcy nie przyszly. Cisza mylilaby z pustym katalogiem.</summary>
+internal enum SpotifyArtistTracksFailure
+{
+    /// <summary>Spotify odmowilo (403) albo nie zna wykonawcy (404).</summary>
+    Denied,
+
+    /// <summary>
+    /// Nie da sie ustalic NAZWY wykonawcy, a wyszukiwanie katalogu potrzebuje jej
+    /// do filtra artist:. Szukanie po surowym identyfikatorze oddawaloby utwory
+    /// bez zwiazku z wykonawca, wiec wolimy powiedziec prawde.
+    /// </summary>
+    UnknownArtistName
+}
+
+/// <summary>
+/// JEDNA PARTIA utworow wykonawcy z katalogu Spotify.
+///
+/// <paramref name="Next"/> to dostarczony przez Spotify adres kolejnej strony.
+/// Niepusty znaczy: w katalogu jest WIECEJ, niz tu widzisz. Sam licznik
+/// <c>Items.Count</c> nie wolno przedstawiac jako "wszystkie utwory wykonawcy".
+/// </summary>
+internal sealed record SpotifyArtistTracksBatch(
+    IReadOnlyList<MediaItem> Items,
+    string? Next,
+    string ArtistName,
+    SpotifyArtistTracksFailure? Failure)
+{
+    internal bool HasMore => !string.IsNullOrEmpty(Next);
+
+    internal static SpotifyArtistTracksBatch Failed(SpotifyArtistTracksFailure failure) =>
+        new([], null, string.Empty, failure);
+}
+
 internal sealed class SpotifyApiException(string message, HttpStatusCode statusCode)
     : Exception(message)
 {
@@ -62,9 +95,13 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     // Kolejne strony pobieramy adresem "next" z odpowiedzi.
     private const int ArtistAlbumsPageSize = 10;
     // Kategoria "Utwory" idzie przez wyszukiwanie (top-tracks usuniete w lutym
-    // 2026), a limit wyszukiwania to 10 na rodzaj. Trzy strony to 30 pozycji -
-    // podglad katalogu, ktory wchodzi od razu, bez setek zapytan przy otwarciu.
-    private const int ArtistTrackPages = 3;
+    // 2026), a limit wyszukiwania to 10 na rodzaj. JEDNA PARTIA to trzy strony,
+    // czyli do 30 pozycji - tyle wchodzi od razu, bez setek zapytan przy
+    // otwarciu. To NIE JEST caly zbior: adres kolejnej strony wraca razem z
+    // wynikiem i nastepna partie pobiera dopiero zadanie uzytkownika
+    // ("Wczytaj wiecej utworow"). Ciche obciecie na trzech stronach gubilo
+    // reszte katalogu na zawsze i kazalo uznac 30 pozycji za cala liste.
+    private const int ArtistTrackPagesPerBatch = 3;
 
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
@@ -503,7 +540,10 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     ///
     /// Konsekwencje, ktorych NIE WOLNO ukrywac przed uzytkownikiem:
     /// - limit wyszukiwania to 0-10 na rodzaj (obnizony w lutym 2026 z 50), wiec
-    ///   wynik jest PODGLADEM katalogu, nie pelna dyskografia; okno mowi to wprost,
+    ///   jedno otwarcie pobiera PARTIE (<see cref="ArtistTrackPagesPerBatch"/>
+    ///   stron), a nie caly katalog. Adres nastepnej strony wraca w
+    ///   <see cref="SpotifyArtistTracksBatch.Next"/> - dzieki temu reszta NIE
+    ///   ginie i uzytkownik moze ja doladowac swiadoma decyzja,
     /// - wyszukiwarka oddaje rowniez utwory INNYCH wykonawcow o podobnej nazwie,
     ///   wiec zostawiamy wylacznie pozycje, w ktorych ktorys z entry.artists ma
     ///   DOKLADNIE ten identyfikator - dopasowanie po tekscie nazwy klamie,
@@ -511,31 +551,63 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     /// - wynik to katalog, nie konto: zadna pozycja nie moze wrocic z
     ///   IsInLibrary/IsFavorite.
     ///
-    /// Zwraca null przy odmowie (403) i braku danych (404), tak samo jak
-    /// <see cref="GetArtistAlbumsAsync"/> - pusta lista oznaczalaby wtedy
-    /// "wykonawca nie ma utworow", co bylo by nieprawda.
+    /// NAZWA WYKONAWCY JEST WYMAGANA. Wczesniej brak nazwy podstawial surowy
+    /// identyfikator jako tresc zapytania (q=4KY9rCNHZ...), co jest zwyklym
+    /// szukaniem tekstu i oddaje przypadkowe utwory bez zwiazku z wykonawca.
+    /// Przy pustej nazwie dociagamy ja przez GET /artists/{id}; gdy i to sie nie
+    /// uda, zwracamy <see cref="SpotifyArtistTracksFailure.UnknownArtistName"/>,
+    /// zeby okno powiedzialo prawde zamiast pokazac cudze utwory.
+    ///
+    /// Zwraca <see cref="SpotifyArtistTracksFailure.Denied"/> przy odmowie (403)
+    /// i braku danych (404), tak samo jak <see cref="GetArtistAlbumsAsync"/> -
+    /// pusta lista oznaczalaby wtedy "wykonawca nie ma utworow", co bylo by
+    /// nieprawda.
     /// </summary>
-    public async Task<IReadOnlyList<MediaItem>?> GetArtistTracksAsync(
+    /// <param name="continuationUrl">
+    /// Adres "next" z poprzedniej partii. Null oznacza pierwsza partie.
+    /// Podanie go pomija budowanie zapytania od nowa, wiec kolejne strony ida
+    /// DOSLOWNIE tam, gdzie wskazalo Spotify.
+    /// </param>
+    public async Task<SpotifyArtistTracksBatch> GetArtistTracksAsync(
         string accessToken,
         string market,
         string artistId,
         string artistName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? continuationUrl = null)
     {
-        if (string.IsNullOrWhiteSpace(artistId)) return null;
+        if (string.IsNullOrWhiteSpace(artistId))
+            return SpotifyArtistTracksBatch.Failed(SpotifyArtistTracksFailure.Denied);
         var rynek = string.IsNullOrWhiteSpace(market) ? "PL" : market.Trim().ToUpperInvariant();
         var nazwa = artistName?.Trim() ?? string.Empty;
-        // Cudzyslow wiaze cala nazwe z filtrem pola; bez niego "Budka Suflera"
-        // rozpada sie na dwa niezalezne slowa i filtr przestaje zawezac.
-        var zapytanie = nazwa.Length > 0 ? $"artist:\"{nazwa.Replace("\"", string.Empty)}\"" : artistId;
+        string? next;
+        if (!string.IsNullOrWhiteSpace(continuationUrl))
+        {
+            next = continuationUrl;
+        }
+        else
+        {
+            if (nazwa.Length == 0)
+            {
+                // Brak nazwy zdarza sie przy przejsciu z utworu, ktory ma tylko
+                // identyfikator wykonawcy. Dociagamy nazwe u zrodla - jedno
+                // tanie zapytanie - zamiast szukac po surowym ID.
+                nazwa = await TryGetArtistNameAsync(accessToken, artistId, cancellationToken)
+                    .ConfigureAwait(false) ?? string.Empty;
+            }
+            if (nazwa.Length == 0)
+                return SpotifyArtistTracksBatch.Failed(SpotifyArtistTracksFailure.UnknownArtistName);
+            // Cudzyslow wiaze cala nazwe z filtrem pola; bez niego "Budka Suflera"
+            // rozpada sie na dwa niezalezne slowa i filtr przestaje zawezac.
+            var zapytanie = $"artist:\"{nazwa.Replace("\"", string.Empty)}\"";
+            next = $"{ApiRoot}/search?q={Uri.EscapeDataString(zapytanie)}"
+                + "&type=track"
+                + $"&market={Uri.EscapeDataString(rynek)}"
+                + $"&limit={SearchLimitPerType}";
+        }
         var items = new List<MediaItem>();
-        var widziane = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var next = $"{ApiRoot}/search?q={Uri.EscapeDataString(zapytanie)}"
-            + "&type=track"
-            + $"&market={Uri.EscapeDataString(rynek)}"
-            + $"&limit={SearchLimitPerType}";
         var pages = 0;
-        while (!string.IsNullOrEmpty(next) && pages++ < ArtistTrackPages)
+        while (!string.IsNullOrEmpty(next) && pages++ < ArtistTrackPagesPerBatch)
         {
             JsonDocument document;
             try
@@ -545,13 +617,14 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
                 || exception.StatusCode == HttpStatusCode.Forbidden)
             {
-                return null;
+                return SpotifyArtistTracksBatch.Failed(SpotifyArtistTracksFailure.Denied);
             }
             using (document)
             {
                 if (!document.RootElement.TryGetProperty("tracks", out var grupa)
                     || grupa.ValueKind != JsonValueKind.Object)
                 {
+                    next = null;
                     break;
                 }
                 if (grupa.TryGetProperty("items", out var array) && array.ValueKind == JsonValueKind.Array)
@@ -562,7 +635,6 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
                         if (!TrackBelongsToArtist(entry, artistId)) continue;
                         var item = ReadTrack(entry);
                         if (item is null || item.ExternalId is not { Length: > 0 }) continue;
-                        if (!widziane.Add(item.ExternalId)) continue;
                         item.IsInLibrary = false;
                         item.IsFavorite = false;
                         item.RelatedArtistExternalId = artistId;
@@ -576,7 +648,36 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
                     : null;
             }
         }
-        return items;
+        // Deduplikacja zostaje po stronie WOLAJACEGO (widok zna juz pobrane
+        // pozycje). Tu odsiewamy tylko powtorki wewnatrz jednej partii, zeby
+        // nie oddac tego samego ExternalId dwa razy z dwoch stron.
+        var widziane = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var unikalne = items.Where(item => widziane.Add(item.ExternalId!)).ToArray();
+        return new SpotifyArtistTracksBatch(unikalne, next, ArtistName: nazwa, Failure: null);
+    }
+
+    /// <summary>
+    /// Nazwa wykonawcy po identyfikatorze. Uzywana WYLACZNIE, gdy wolajacy nie
+    /// ma tytulu - producent (biblioteka, wyszukiwanie) zwykle go ma i wtedy to
+    /// zapytanie w ogole nie leci.
+    /// </summary>
+    private async Task<string?> TryGetArtistNameAsync(
+        string accessToken, string artistId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = await GetJsonAsync(
+                    accessToken,
+                    $"{ApiRoot}/artists/{Uri.EscapeDataString(artistId)}",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var nazwa = Tekst(document.RootElement, "name");
+            return string.IsNullOrWhiteSpace(nazwa) ? null : nazwa.Trim();
+        }
+        catch (SpotifyApiException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
