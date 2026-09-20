@@ -43,6 +43,10 @@ internal static class SearchResultOpenWithoutLibraryTests
             ("metadane kolekcji", MetadaneKolekcjiPrzeżywajązmianęOstatniegoOdcinka),
             ("mieszane zaznaczenie", MieszaneZaznaczenieNiczegoNieZmienia),
             ("kolejka nie jest Enterem", KolejkaNieDodajePrzyWłączonymEnter),
+            ("pauza przy ON nie promuje", PauzaOtwartegoPodgląduNiePromujePrzyWłączonymEnter),
+            ("start przy ON promuje", StartPrzyWłączonymEnterPromuje),
+            ("start przy OFF nie promuje", StartPrzyWyłączonymEnterNiePromuje),
+            ("pauza zapisanego zachowuje członkostwo", PauzaZapisanegoZachowujeCzłonkostwo),
             ("jawna intencja dodania", DodanieNieMaDomyślnejIntencji));
         Console.WriteLine("OK: otwieranie wyniku bez Biblioteki (podgląd, awans, odświeżenie, obieg zapisu, brak democji, jawne Library, metadane kolekcji, mieszane zaznaczenie)");
     }
@@ -505,6 +509,168 @@ internal static class SearchResultOpenWithoutLibraryTests
             });
     }
 
+    /// <summary>
+    /// LUKA PAUZY przy globalnym ON. Material JUZ otwarty jako podglad i GRAJACY;
+    /// Ctrl+Enter na tym samym SUROWYM wyniku YouTube ma go WSTRZYMAC. Pauza nie
+    /// jest otwarciem, wiec nie moze awansowac materialu do kolekcji zapisanej.
+    ///
+    /// Mierzymy prawdziwe ExecuteSearchResultAction na surowym wyniku (takim, jaki
+    /// daje okno wyszukiwania), bo wlasnie materializacja tego wyniku promowala
+    /// czlonkostwo PRZED poznaniem skutku aktywacji. Zadnego dekodera ani sieci:
+    /// wyjscie sesji jest wyzerowane, wiec dziala sam automat stanu odtwarzania.
+    /// </summary>
+    private static void PauzaOtwartegoPodgląduNiePromujePrzyWłączonymEnter()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.AddToLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var (sesja, żywy, odcinek) = PodglądGrający(window, state, "PAUZA_ON", "Pauza przy ON");
+                Sprawdź(sesja.IsPlaying, "Próba nie odtwarza materiału przed pauzą.");
+
+                // Ctrl+Enter na SUROWYM wyniku YouTube - ta sama droga co u uzytkownika.
+                DziałanieWyniku(
+                    window,
+                    [WynikWyszukiwaniaYouTube("PAUZA_ON", "Pauza przy ON")],
+                    SearchResultAction.TogglePlayback);
+
+                Sprawdź(
+                    !sesja.IsPlaying && sesja.IsPaused,
+                    "Ctrl+Enter na grającym materiale go nie wstrzymał; cel: " + sesja.CurrentItem.Id);
+                var poPauzie = Odcinek(state, odcinek.Id);
+                Sprawdź(
+                    PublicInternetMediaCollections.IsPreview(poPauzie.SubscriptionId),
+                    "Pauza awansowała materiał do Biblioteki przy globalnym ON "
+                    + $"(kolekcja: {poPauzie.SubscriptionId}).");
+                Sprawdź(
+                    string.Equals(poPauzie.Id, żywy.Id, StringComparison.Ordinal),
+                    "Pauza zmieniła identyfikator odcinka, więc odtwarzanie i zakładki się rozjechały.");
+            });
+    }
+
+    /// <summary>
+    /// Kontrolka DODATNIA do luki pauzy: rzeczywiste PODJECIE odtwarzania przy
+    /// globalnym ON nadal awansuje material do kolekcji zapisanej. Bez tego
+    /// warunku poprawka mogla po prostu wylaczyc dodawanie, a test pauzy
+    /// przeszedlby falszywie. Wznowienie JEST zaakceptowanym otwarciem.
+    /// </summary>
+    private static void StartPrzyWłączonymEnterPromuje()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.AddToLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var (sesja, żywy, odcinek) = PodglądGrający(window, state, "START_ON", "Start przy ON");
+                Sprawdź(
+                    sesja.IsPlaying
+                    && string.Equals(sesja.CurrentItem.Id, żywy.Id, StringComparison.Ordinal),
+                    "Próba nie odtwarza rzeczywiście uruchomionego materiału.");
+
+                sesja.TogglePlayback();
+                Sprawdź(!sesja.IsPlaying && sesja.IsPaused, "Kontrolka nie zaczyna od pauzy.");
+                DziałanieWyniku(window,
+                    [WynikWyszukiwaniaYouTube("START_ON", "Start przy ON")],
+                    SearchResultAction.TogglePlayback);
+                Sprawdź(sesja.IsPlaying && sesja.CurrentItem.Id == żywy.Id,
+                    "Polecenie wyniku nie wznowilo wybranego odcinka; cel: " + sesja.CurrentItem.Id);
+                var poStarcie = Odcinek(state, odcinek.Id);
+                Sprawdź(
+                    PublicInternetMediaCollections.IsSaved(poStarcie.SubscriptionId),
+                    "Rzeczywiste uruchomienie przy globalnym ON nie dodało materiału do Biblioteki "
+                    + $"(kolekcja: {poStarcie.SubscriptionId}).");
+                Sprawdź(
+                    Subskrypcja(state, PublicInternetMediaCollections.SavedId).IsInLibrary,
+                    "Zapisana kolekcja nie ma członkostwa w Bibliotece po uruchomieniu przy ON.");
+                Sprawdź(
+                    string.Equals(poStarcie.Id, żywy.Id, StringComparison.Ordinal),
+                    "Awans zmienił identyfikator odcinka, więc odtwarzanie i zakładki się rozjechały.");
+            });
+    }
+
+    /// <summary>
+    /// Publiczny material zaimportowany jako PODGLAD i faktycznie odtwarzany
+    /// prawdziwym automatem stanu sesji, bez audio: wyjscie sesji jest
+    /// wyzerowane, wiec zaden dekoder ani adres sieciowy nie jest ruszany.
+    /// </summary>
+    private static (DemoMediaSession Sesja, MediaItem Żywy, PodcastEpisodeSettings Odcinek) PodglądGrający(
+        MainWindow window,
+        PersistedState state,
+        string identyfikator,
+        string tytuł)
+    {
+        // Najpierw rzeczywiste otwarcie przy OFF, potem wlaczenie opcji.
+        // Nie przenosimy recznie samego rekordu bez odswiezenia jego zywych kopii.
+        var zachowanie = state.Settings.SearchResultEnterBehavior;
+        MediaItem podgląd;
+        try
+        {
+            state.Settings.SearchResultEnterBehavior = SearchResultEnterBehavior.OpenWithoutLibrary;
+            podgląd = DodajPodgląd(window, AdresYouTube(identyfikator), tytuł);
+        }
+        finally
+        {
+            state.Settings.SearchResultEnterBehavior = zachowanie;
+        }
+        Sprawdź(
+            PublicInternetMediaCollections.IsPreview(Odcinek(state, podgląd.Id).SubscriptionId),
+            "Próba nie zaczyna się od podglądu, więc nie mierzy luki pauzy.");
+
+        var sesje = (SessionManager)typeof(MainWindow).GetField("_sessions", Flags)!.GetValue(window)!;
+        var sesja = sesje.FindSession("podcasts")!;
+        typeof(DemoMediaSession)
+            .GetField("_output", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(sesja, null);
+        sesje.SelectSession("podcasts");
+        var żywy = PozycjeSesji(window).First(row =>
+            string.Equals(row.Id, podgląd.Id, StringComparison.Ordinal));
+        sesja.Play(żywy);
+        return (sesja, żywy, Odcinek(state, podgląd.Id));
+    }
+
+    private static void StartPrzyWyłączonymEnterNiePromuje()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.OpenWithoutLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var (sesja, żywy, odcinek) = PodglądGrający(window, state, "START_OFF", "Start przy OFF");
+                sesja.TogglePlayback();
+                Sprawdź(sesja.IsPaused && !sesja.IsPlaying, "Kontrolka OFF nie zaczyna od pauzy.");
+                DziałanieWyniku(window,
+                    [WynikWyszukiwaniaYouTube("START_OFF", "Start przy OFF")],
+                    SearchResultAction.TogglePlayback);
+                Sprawdź(sesja.IsPlaying && sesja.CurrentItem.Id == żywy.Id,
+                    "Start przy OFF nie wznowił wybranego odcinka.");
+                Sprawdź(PublicInternetMediaCollections.IsPreview(Odcinek(state, odcinek.Id).SubscriptionId),
+                    "Start przy OFF awansował materiał do Biblioteki.");
+            });
+    }
+
+    private static void PauzaZapisanegoZachowujeCzłonkostwo()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.AddToLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var (sesja, żywy, odcinek) = PodglądGrający(window, state, "SAVED_PAUSE", "Pauza zapisanego");
+                var wynik = WynikWyszukiwaniaYouTube("SAVED_PAUSE", "Pauza zapisanego");
+                DziałanieWyniku(window, [wynik], SearchResultAction.Library);
+                Sprawdź(PublicInternetMediaCollections.IsSaved(Odcinek(state, odcinek.Id).SubscriptionId),
+                    "Jawne dodanie w przygotowaniu próby nie zapisało materiału.");
+                Sprawdź(sesja.IsPlaying && sesja.CurrentItem.Id == żywy.Id,
+                    "Jawne dodanie przerwało przygotowane odtwarzanie.");
+                DziałanieWyniku(window, [wynik], SearchResultAction.TogglePlayback);
+                Sprawdź(sesja.IsPaused && !sesja.IsPlaying && sesja.CurrentItem.Id == żywy.Id,
+                    "Pauza zapisanego nie trafiła w wybrany odcinek.");
+                Sprawdź(PublicInternetMediaCollections.IsSaved(Odcinek(state, odcinek.Id).SubscriptionId),
+                    "Pauza zdjęła wcześniej zapisane członkostwo.");
+            });
+    }
+
     private static void DodanieNieMaDomyślnejIntencji()
     {
         // Wymóg strukturalny: każdy caller musi jawnie wybrać dodanie/podgląd.
@@ -772,7 +938,10 @@ internal static class SearchResultOpenWithoutLibraryTests
                 state = store.LoadOrCreate();
                 for (var restart = 0; restart < 2; restart++)
                 {
-                    window = new MainWindow(state, store);
+                    // Integracja pulpitu (pasek zadan, ikona, skroty globalne) nie
+                    // moze ruszac srodowiska uzytkownika w tescie.
+                    window = new MainWindow(state, store)
+                    { SuppressDesktopIntegrationForTests = true };
                     sprawdz(window, state, restart);
                     window.Close();
                     window = null;

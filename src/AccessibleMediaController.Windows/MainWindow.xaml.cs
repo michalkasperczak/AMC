@@ -22364,13 +22364,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or SearchResultAction.Download
                 or SearchResultAction.SaveAs)
         {
+            // Materializacja jest tylko PODGLADEM. Decyzje o dodaniu do
+            // Biblioteki podejmuje wspolna bramka MaybeAddOpenedSearchResultToLibrary
+            // PO zaakceptowanym otwarciu. Wczesniej ta linia promowala material
+            // juz przy przygotowaniu wyniku, wiec Ctrl+Enter, ktory tylko
+            // WSTRZYMYWAL grajacy material, przy globalnym ON i tak awansowal go
+            // do kolekcji zapisanej - pauza nie jest otwarciem.
             results = results
-                .Select(selected => MaterializeYouTubeSearchResult(
-                    selected,
-                    addToLibrary: action == SearchResultAction.TogglePlayback
-                        && SearchResultEnterPolicy.ShouldAddToLibrary(
-                            _state.Settings.SearchResultEnterBehavior,
-                            explicitLibraryRequest: false)))
+                .Select(selected => MaterializeYouTubeSearchResult(selected))
                 .ToArray();
             visibleResults = results;
         }

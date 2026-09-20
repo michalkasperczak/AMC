@@ -10,7 +10,7 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 ## Uzupełnienie robocze: Enter a Biblioteka usług
 
 - `Core/Podcasts/OpenedSearchResultLibraryPlan.cs`: wspólna decyzja o dodaniu otwartego wyniku radia, TIDAL i Spotify; tryb bez dodawania nie uruchamia zapisów, ponowne otwarcie nie usuwa członkostwa.
-- `Windows/MainWindow.OpenedSearchResultLibrary.cs`: wykonanie planu przez zapis stacji lub istniejących klientów kolekcji usług.
+- `Windows/MainWindow.OpenedSearchResultLibrary.cs`: wykonanie planu przez zapis stacji lub istniejących klientów kolekcji usług; publiczny odcinek YouTube awansuje z podglądu dopiero po zaakceptowanym otwarciu, nie podczas przygotowania wyniku ani pauzy. `SearchResultOpenWithoutLibraryTests` obejmuje rzeczywiste polecenia pauzy, wznowienia ON/OFF i zachowania wcześniejszego członkostwa.
 - `Windows/MainWindow.xaml.cs`: podłączenie w `ShowSearch` i `ExecuteSearchResultAction`; odmowa aktywacji i pauza już grającego wyniku nie uruchamiają automatycznego dodania.
 - `OpenedSearchResultLibraryTests`: rzeczywiste okno wyszukiwania, oba ustawienia dla trzech usług, odróżnienie rozpoczęcia od pauzy i odmowy. Sieć zastąpiona transportem testowym, dane i integracja pulpitu odizolowane.
 - To kod kandydata, nie opis zainstalowanego wydania.

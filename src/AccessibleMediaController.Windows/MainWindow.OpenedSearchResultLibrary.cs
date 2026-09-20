@@ -27,6 +27,12 @@ public partial class MainWindow
     private Task MaybeAddOpenedSearchResultToLibrary(SearchWindow.SearchResult result)
     {
         var item = result.Item;
+        // Publiczny material internetowy (YouTube) trzyma czlonkostwo we WLASNEJ
+        // parze kolekcji, nie na koncie uslugi. Awans robimy TUTAJ, bo tylko ta
+        // sciezka wie, ze otwarcie zostalo ZAAKCEPTOWANE: materializacja wyniku
+        // przygotowuje wylacznie podglad, a pauza i odmowa wcale tu nie trafiaja.
+        if (string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+            && TryAddOpenedPublicInternetMediaToLibrary(item)) return Task.CompletedTask;
         var plan = OpenedSearchResultLibraryPolicy.ResolveForOpenedResult(
             _state.Settings.SearchResultEnterBehavior,
             result.SessionId,
@@ -40,6 +46,50 @@ public partial class MainWindow
             () => AddOpenedRadioStationToLibrary(item),
             () => ChangeTidalCollectionMembershipAsync([item], add: true),
             () => ChangeSpotifyCollectionMembershipAsync([item], add: true));
+    }
+
+    /// <summary>
+    /// Awansuje OTWARTY publiczny material internetowy z podgladow do kolekcji
+    /// zapisanej, gdy globalne ustawienie tak mowi. Wylacznie w GORE: uzywa tego
+    /// samego add-only mechanizmu co jawne Ctrl+Shift+L, wiec identyfikator
+    /// odcinka, historia, kolejka, zakladki i metadane kolekcji zostaja
+    /// nietkniete, a zadne czlonkostwo nie jest zdejmowane.
+    ///
+    /// Zwraca true, gdy element JEST publicznym materialem internetowym — wtedy
+    /// sciezki radia, TIDALa i Spotify nie maja tu nic do zrobienia.
+    /// </summary>
+    private bool TryAddOpenedPublicInternetMediaToLibrary(MediaItem item)
+    {
+        if (item.Kind != MediaItemKind.Episode) return false;
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        if (episode is null
+            || !PublicInternetMediaCollections.IsCollection(episode.SubscriptionId))
+        {
+            return false;
+        }
+        if (!SearchResultEnterPolicy.ShouldAddToLibrary(
+                _state.Settings.SearchResultEnterBehavior,
+                explicitLibraryRequest: false))
+        {
+            DiagnosticLog.Info(
+                "search-enter-library",
+                $"Otwarty materiał internetowy {episode.Id}; ustawienie: "
+                + $"{_state.Settings.SearchResultEnterBehavior}; plan: podgląd bez zapisu.");
+            return true;
+        }
+        // Juz zapisany zostaje zapisany: intencja to DODANIE, nie przelacznik.
+        if (PublicInternetMediaCollections.IsSaved(episode.SubscriptionId)) return true;
+        CapturePodcastState();
+        if (!TryMovePublicInternetMediaMembership(episode, addToLibrary: true)) return true;
+        ReloadPodcastSessionItems();
+        QueueStateSave(announceFailure: true);
+        DiagnosticLog.Info(
+            "search-enter-library",
+            $"Otwarty materiał internetowy {episode.Id} awansowany do kolekcji zapisanej.");
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            RefreshCurrentView(preferredItemId: episode.Id);
+        return true;
     }
 
     /// <summary>
