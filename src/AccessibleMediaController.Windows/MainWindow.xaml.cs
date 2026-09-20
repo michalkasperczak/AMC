@@ -768,6 +768,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AddPublicInternetMedia(
                     CreateResolvedYouTubeSearchResult(result.Item),
                     titleOverride: null,
+                    openAfterImport: true,
                     addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
                         _state.Settings.SearchResultEnterBehavior,
                         explicitLibraryRequest: false));
@@ -787,7 +788,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             var originalSelectedResults = dialog.SelectedResults.ToArray();
             var effectiveResults = originalSelectedResults
-                .Select(MaterializeYouTubeSearchResult)
+                .Select(selected => MaterializeYouTubeSearchResult(selected))
                 .ToArray();
             var selectedIndex = Array.FindIndex(
                 originalSelectedResults,
@@ -8118,7 +8119,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (dialog.InternetMedia is { } internetMedia)
         {
-            AddPublicInternetMedia(internetMedia, dialog.CustomTitle);
+            AddPublicInternetMedia(internetMedia, dialog.CustomTitle, openAfterImport: true, addToLibrary: true);
             return;
         }
 
@@ -8158,9 +8159,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private MediaItem AddPublicInternetMedia(
         ResolvedYouTubeAudioSource media,
         string? titleOverride,
-        bool openAfterImport = true,
-        bool addToLibrary = false)
+        bool openAfterImport,
+        bool addToLibrary)
     {
+        // Kazdy caller musi jawnie wybrac intencje zapisu.
         // Dwie kolekcje, nie jedna. Wczesniej wszystkie publiczne materialy
         // dzielily internet-media:public; gdy ta kolekcja raz weszla do
         // Biblioteki, KAZDY nastepny podglad ladowal w kolekcji zapisanej.
@@ -10299,7 +10301,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         && YouTubeSearchClient.IsSearchResult(result.Item);
 
     private SearchWindow.SearchResult MaterializeYouTubeSearchResult(
-        SearchWindow.SearchResult result) =>
+        SearchWindow.SearchResult result,
+        bool addToLibrary = false) =>
         !IsYouTubeSearchResult(result)
             ? result
             : new SearchWindow.SearchResult(
@@ -10308,12 +10311,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     CreateResolvedYouTubeSearchResult(result.Item),
                     titleOverride: null,
                     openAfterImport: false,
-                    // Przygotowanie materialu do odtworzenia albo kolejki to nie
-                    // swiadome dodanie do Biblioteki - o zapisie decyduje jedno
-                    // globalne ustawienie.
-                    addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
-                        _state.Settings.SearchResultEnterBehavior,
-                        explicitLibraryRequest: false)));
+                    // Samo przygotowanie wyniku (kolejka, pobranie, preset)
+                    // nie jest otwarciem. Tryb zapisu przekazuje akcja otwierania.
+                    addToLibrary: addToLibrary));
 
     private PodcastSubscriptionSettings? FindPodcastSubscriptionByFeed(string? feedAddress)
     {
@@ -22354,7 +22354,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or SearchResultAction.SaveAs)
         {
             results = results
-                .Select(MaterializeYouTubeSearchResult)
+                .Select(selected => MaterializeYouTubeSearchResult(
+                    selected,
+                    addToLibrary: action == SearchResultAction.TogglePlayback
+                        && SearchResultEnterPolicy.ShouldAddToLibrary(
+                            _state.Settings.SearchResultEnterBehavior,
+                            explicitLibraryRequest: false)))
                 .ToArray();
             visibleResults = results;
         }

@@ -41,7 +41,9 @@ internal static class SearchResultOpenWithoutLibraryTests
             ("brak cichej democji", PonowneOtwarcieZapisanegoNieZdejmujeCzłonkostwa),
             ("jawne dodanie z wyszukiwania", BibliotekaZWyszukiwaniaDodajeNowyIPodgląd),
             ("metadane kolekcji", MetadaneKolekcjiPrzeżywajązmianęOstatniegoOdcinka),
-            ("mieszane zaznaczenie", MieszaneZaznaczenieNiczegoNieZmienia));
+            ("mieszane zaznaczenie", MieszaneZaznaczenieNiczegoNieZmienia),
+            ("kolejka nie jest Enterem", KolejkaNieDodajePrzyWłączonymEnter),
+            ("jawna intencja dodania", DodanieNieMaDomyślnejIntencji));
         Console.WriteLine("OK: otwieranie wyniku bez Biblioteki (podgląd, awans, odświeżenie, obieg zapisu, brak democji, jawne Library, metadane kolekcji, mieszane zaznaczenie)");
     }
 
@@ -484,6 +486,32 @@ internal static class SearchResultOpenWithoutLibraryTests
                     "Mieszane zaznaczenie nie powiedziało, że materiały internetowe i podcasty "
                     + $"trzeba zaznaczać osobno (komunikat: {komunikat ?? "brak"}).");
             });
+    }
+
+    private static void KolejkaNieDodajePrzyWłączonymEnter()
+    {
+        WOknie(
+            state => Podstawa(state, SearchResultEnterBehavior.AddToLibrary),
+            (window, state, przejscie) =>
+            {
+                if (przejscie != 0) return;
+                var wynik = WynikWyszukiwaniaYouTube("QUEUE_WITH_ENTER_ON", "Tylko do kolejki");
+                DziałanieWyniku(window, [wynik], SearchResultAction.Queue);
+                var episode = state.Podcasts.Episodes.Single(e => e.MediaUrl == wynik.Source);
+                Sprawdź(PublicInternetMediaCollections.IsPreview(episode.SubscriptionId),
+                    "Kolejka dodała materiał do Biblioteki przez opcję przeznaczoną dla Enter.");
+                Sprawdź(PozycjeSesji(window).Any(i => i.Id == episode.Id && i.IsInQueue),
+                    "Próba nie wykonała rzeczywistego dodania do kolejki.");
+            });
+    }
+
+    private static void DodanieNieMaDomyślnejIntencji()
+    {
+        // Wymóg strukturalny: każdy caller musi jawnie wybrać dodanie/podgląd.
+        // Kompilator blokuje wtedy pominięcie flagi w ręcznym Dodaj podcast/YouTube.
+        var method = typeof(MainWindow).GetMethod("AddPublicInternetMedia", Flags)!;
+        Sprawdź(!method.GetParameters().Single(p => p.Name == "addToLibrary").HasDefaultValue,
+            "Ręczne dodanie nadal może niejawnie odziedziczyć tryb podglądu.");
     }
 
     private static string AdresYouTube(string identyfikator) =>
