@@ -8129,7 +8129,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             dialog.CustomTitle,
             DateTime.UtcNow,
             _state.Bookmarks,
-            dialog.SourceKind);
+            dialog.SourceKind,
+            // Reczne dodanie kanalu to jawne zadanie zapisu.
+            addToLibrary: true);
         if (result.AddedSubscription)
         {
             // Wczesniej odstep dostawal TYLKO YouTube, wiec kanaly RSS nigdy nie
@@ -8157,31 +8159,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ResolvedYouTubeAudioSource media,
         string? titleOverride,
         bool openAfterImport = true,
-        bool addToLibrary = true)
+        bool addToLibrary = false)
     {
-        const string collectionId = "internet-media:public";
-        const string collectionAddress = "https://amc.invalid/public-internet-media";
+        // Dwie kolekcje, nie jedna. Wczesniej wszystkie publiczne materialy
+        // dzielily internet-media:public; gdy ta kolekcja raz weszla do
+        // Biblioteki, KAZDY nastepny podglad ladowal w kolekcji zapisanej.
+        // Material tymczasowy trzyma kolekcja podgladow (nigdy w Bibliotece),
+        // a jawne dodanie PRZENOSI odcinek do kolekcji zapisanej bez zmiany
+        // jego identyfikatora - odtwarzanie, powrot fokusu, historia, kolejka
+        // i zakladki wisza na identyfikatorze odcinka i przezywaja promocje.
+        var collectionId = PublicInternetMediaCollections.ResolveId(addToLibrary);
+        var collectionAddress = addToLibrary
+            ? "https://amc.invalid/public-internet-media"
+            : "https://amc.invalid/public-internet-media-preview";
         CapturePodcastState();
-        var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
-            string.Equals(subscription.Id, collectionId, StringComparison.Ordinal));
-        if (collection is null)
-        {
-            collection = new PodcastSubscriptionSettings
-            {
-                Id = collectionId,
-                Title = "Media internetowe",
-                Description = "Publiczne materiały internetowe dodane bez logowania do usług.",
-                FeedUrl = collectionAddress,
-                SourceKind = PodcastSourceKind.PublicInternetMedia,
-                RefreshIntervalMinutes = 0,
-                IsInLibrary = addToLibrary
-            };
-            _state.Podcasts.Subscriptions.Add(collection);
-        }
-        // Czlonkostwa NIE zdejmujemy: kolekcja raz zapisana zostaje w
-        // Bibliotece takze przy otwarciu wyniku bez dodawania.
-        if (addToLibrary) collection.IsInLibrary = true;
-        collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+        var collection = EnsurePublicInternetMediaCollection(collectionId, collectionAddress, addToLibrary);
 
         var stableAddress = media.PageUrl.Trim();
         var episodeId = $"internet-media:{StableInternetMediaId(stableAddress)}";
@@ -8229,6 +8221,115 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
         }
         return item;
+    }
+
+    /// <summary>
+    /// Zaklada kolekcje publicznych materialow, jesli jeszcze jej nie ma.
+    /// Kolekcja podgladow NIGDY nie dostaje czlonkostwa w Bibliotece; kolekcji
+    /// zapisanej czlonkostwa nie zdejmujemy.
+    /// </summary>
+    private PodcastSubscriptionSettings EnsurePublicInternetMediaCollection(
+        string collectionId,
+        string collectionAddress,
+        bool inLibrary)
+    {
+        var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(subscription.Id, collectionId, StringComparison.Ordinal));
+        if (collection is null)
+        {
+            collection = new PodcastSubscriptionSettings
+            {
+                Id = collectionId,
+                Title = inLibrary
+                    ? PublicInternetMediaCollections.SavedTitle
+                    : PublicInternetMediaCollections.PreviewTitle,
+                Description = inLibrary
+                    ? "Publiczne materiały internetowe zapisane w Bibliotece."
+                    : "Publiczne materiały internetowe otwarte bez zapisu do Biblioteki.",
+                FeedUrl = collectionAddress,
+                SourceKind = PodcastSourceKind.PublicInternetMedia,
+                RefreshIntervalMinutes = 0,
+                IsInLibrary = inLibrary
+            };
+            _state.Podcasts.Subscriptions.Add(collection);
+        }
+        collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+        // Kolekcja zapisana: czlonkostwa NIE zdejmujemy. Kolekcja podgladow:
+        // czlonkostwa NIE nadajemy, inaczej wrocilby blad wspolnej kolekcji.
+        if (inLibrary) collection.IsInLibrary = true;
+        else if (PublicInternetMediaCollections.IsPreview(collectionId)) collection.IsInLibrary = false;
+        return collection;
+    }
+
+    /// <summary>
+    /// Przenosi publiczny material miedzy kolekcja podgladow i zapisana.
+    /// Identyfikator odcinka zostaje nietkniety, wiec odtwarzanie, powrot
+    /// fokusu, historia, kolejka i zakladki przezywaja zmiane czlonkostwa.
+    /// Zdjecie czlonkostwa NIE usuwa pozycji - wraca do podgladow.
+    /// </summary>
+    private bool TryMovePublicInternetMediaMembership(PodcastEpisodeSettings episode, bool addToLibrary)
+    {
+        if (!PublicInternetMediaCollections.IsCollection(episode.SubscriptionId)) return false;
+        var targetId = PublicInternetMediaCollections.ResolveId(addToLibrary);
+        if (string.Equals(episode.SubscriptionId, targetId, StringComparison.Ordinal)) return true;
+        var target = EnsurePublicInternetMediaCollection(
+            targetId,
+            addToLibrary
+                ? "https://amc.invalid/public-internet-media"
+                : "https://amc.invalid/public-internet-media-preview",
+            addToLibrary);
+        episode.SubscriptionId = target.Id;
+        DropEmptyPublicInternetMediaCollections();
+        return true;
+    }
+
+    /// <summary>
+    /// Sprzata kolekcje publiczne, w ktorych nie zostal zaden material. Bez tego
+    /// puste „Podglądy internetowe” zostawalyby w widoku po awansie materialu.
+    /// </summary>
+    private void DropEmptyPublicInternetMediaCollections()
+    {
+        _state.Podcasts.Subscriptions.RemoveAll(subscription =>
+            PublicInternetMediaCollections.IsCollection(subscription.Id)
+            && !_state.Podcasts.Episodes.Any(episode =>
+                string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// Ctrl+Shift+L na publicznym materiale internetowym: awansuje podglad do
+    /// kolekcji zapisanej albo zdejmuje czlonkostwo i wraca do podgladow.
+    /// Zwraca false, gdy zaznaczenie nie jest publicznym materialem - wtedy
+    /// polecenie idzie zwykla sciezka podcastowa.
+    /// </summary>
+    private bool TryTogglePublicInternetMediaMembership()
+    {
+        var episodes = ActionItems
+            .Where(item => item.Kind == MediaItemKind.Episode)
+            .Select(item => _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal)))
+            .Where(episode => episode is not null
+                && PublicInternetMediaCollections.IsCollection(episode.SubscriptionId))
+            .Select(episode => episode!)
+            .ToArray();
+        if (episodes.Length == 0) return false;
+
+        CapturePodcastState();
+        var promoting = episodes.Any(episode =>
+            PublicInternetMediaCollections.IsPreview(episode.SubscriptionId));
+        foreach (var episode in episodes)
+            TryMovePublicInternetMediaMembership(episode, promoting);
+
+        ReloadPodcastSessionItems();
+        QueueStateSave(announceFailure: true);
+        RefreshCurrentView();
+        Announce(promoting
+            ? episodes.Length == 1
+                ? $"Dodano do Biblioteki: {episodes[0].Title}"
+                : $"Dodano do Biblioteki materiałów: {episodes.Length}"
+            : episodes.Length == 1
+                ? $"Usunięto z Biblioteki: {episodes[0].Title}. Materiał został w podglądach"
+                : $"Usunięto z Biblioteki materiałów: {episodes.Length}. Zostały w podglądach");
+        return true;
     }
 
     private static ResolvedYouTubeAudioSource CreateResolvedYouTubeSearchResult(MediaItem item)
@@ -8340,7 +8441,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 item.Feed!,
                 item.Entry.Title,
                 DateTime.UtcNow,
-                _state.Bookmarks);
+                _state.Bookmarks,
+                // Import OPML to jawne zadanie zapisu subskrypcji.
+                addToLibrary: true);
             imported++;
         }
         ReloadPodcastSessionItems();
@@ -8634,7 +8737,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         subscription.HasCustomTitle ? subscription.Title : null,
                         DateTime.UtcNow,
                         _state.Bookmarks,
-                        subscription.SourceKind);
+                        subscription.SourceKind,
+                        // Odswiezanie NIE zmienia czlonkostwa: kanal otwarty bez
+                        // zapisu zostaje poza Biblioteka, a zapisany w niej.
+                        addToLibrary: false);
                     addedEpisodes += result.AddedEpisodes;
                     retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
                     success++;
@@ -10768,6 +10874,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (commandId == CommandIds.ToggleLibrary && HasSelectedFolderRow())
         {
             Announce("Folder jest już częścią Biblioteki. Otwórz go Enterem, aby zmieniać przynależność pojedynczych plików");
+            return new CommandExecutionResult(true);
+        }
+        else if (commandId == CommandIds.ToggleLibrary
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && TryTogglePublicInternetMediaMembership())
+        {
+            // Publiczny material (YouTube bez logowania) ma WLASNE czlonkostwo:
+            // przenosimy odcinek miedzy kolekcja podgladow i zapisana. Bez tego
+            // skrot szedlby na kolekcje nadrzedna i - jak przed poprawka -
+            // wciagal do Biblioteki wszystkie pozostale podglady razem z nim.
             return new CommandExecutionResult(true);
         }
         else if (commandId == CommandIds.ToggleLibrary

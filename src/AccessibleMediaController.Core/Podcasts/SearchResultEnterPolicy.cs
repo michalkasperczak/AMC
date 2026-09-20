@@ -22,20 +22,4 @@ public static class SearchResultEnterPolicy
         SearchResultEnterBehavior behavior,
         bool explicitLibraryRequest) =>
         explicitLibraryRequest || behavior == SearchResultEnterBehavior.AddToLibrary;
-
-    /// <summary>
-    /// Ustala czlonkostwo w Bibliotece dla kanalu/kolekcji sprowadzonej przez
-    /// otwarcie wyniku. Nigdy nie ZDEJMUJE czlonkostwa: element, ktory
-    /// uzytkownik kiedys zapisal, zostaje w Bibliotece takze przy domyslnym
-    /// otwieraniu bez dodawania.
-    /// </summary>
-    public static void ApplyOpenedResultMembership(
-        PodcastSubscriptionSettings subscription,
-        SearchResultEnterBehavior behavior,
-        bool explicitLibraryRequest)
-    {
-        ArgumentNullException.ThrowIfNull(subscription);
-        if (ShouldAddToLibrary(behavior, explicitLibraryRequest))
-            subscription.IsInLibrary = true;
-    }
 }

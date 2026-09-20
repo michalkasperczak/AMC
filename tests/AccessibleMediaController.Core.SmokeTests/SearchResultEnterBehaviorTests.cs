@@ -19,6 +19,45 @@ internal static class SearchResultEnterBehaviorTests
         ChoiceSurvivesSaveAndLoad();
         PolicyDecidesLibraryWrite();
         OpeningFromSearchDoesNotWriteLibrary();
+        RefreshNeverChangesMembership();
+    }
+
+    /// <summary>
+    /// L1 z review: PRODUKCYJNE odswiezanie (F5, Ctrl+F5, timer) wolalo
+    /// <see cref="PodcastLibraryUpdater.Apply"/> bez parametru, czyli z
+    /// domyslnym addToLibrary=true, i zapisywalo do Biblioteki kanal otwarty
+    /// wczesniej bez zapisu. Aktualizator NIE moze juz milczaco dopisywac:
+    /// domyslne wywolanie zachowuje czlonkostwo takie, jakie bylo.
+    /// </summary>
+    private static void RefreshNeverChangesMembership()
+    {
+        var feed = SampleFeed();
+
+        // Kanal otwarty bez zapisu. Odswiezenie sprowadza odcinki i NIE dopisuje.
+        var opened = new PodcastSettings();
+        PodcastLibraryUpdater.Apply(opened, feed, null, DateTime.UtcNow, addToLibrary: false);
+        var refreshed = PodcastLibraryUpdater.Apply(opened, feed, null, DateTime.UtcNow);
+        Check(!refreshed.Subscription.IsInLibrary,
+            "Domyślne odświeżenie nie wpisuje do Biblioteki kanału otwartego bez zapisu");
+        Check(opened.Episodes.Count == 1,
+            "Odświeżenie sprowadziło odcinki mimo braku członkostwa");
+
+        // Kanal jawnie zapisany. Odswiezenie czlonkostwa NIE zdejmuje.
+        var saved = new PodcastSettings();
+        PodcastLibraryUpdater.Apply(saved, feed, null, DateTime.UtcNow, addToLibrary: true);
+        Check(PodcastLibraryUpdater.Apply(saved, feed, null, DateTime.UtcNow)
+                .Subscription.IsInLibrary,
+            "Odświeżenie nie zdejmuje członkostwa kanału zapisanego");
+
+        // NOWY kanal bez wskazania: reczne dodanie i OPML dalej maja zapisywac,
+        // wiec wolaja z addToLibrary: true wprost.
+        var fresh = new PodcastSettings();
+        Check(!PodcastLibraryUpdater.Apply(fresh, feed, null, DateTime.UtcNow)
+                .Subscription.IsInLibrary,
+            "Nowy kanał bez jawnego żądania nie wchodzi do Biblioteki");
+        Check(PodcastLibraryUpdater.Apply(new PodcastSettings(), feed, null, DateTime.UtcNow, addToLibrary: true)
+                .Subscription.IsInLibrary,
+            "Jawne dodanie (ręczne, OPML) nadal zapisuje Bibliotekę");
     }
 
     /// <summary>
@@ -55,13 +94,6 @@ internal static class SearchResultEnterBehaviorTests
             addToLibrary: true);
         Check(addedResult.Subscription.IsInLibrary,
             "Świadome dodanie wpisuje kanał do Biblioteki");
-
-        // Zastane wywolania bez nowego parametru (odswiezanie, OPML, reczne
-        // dodanie) musza dalej zapisywac Biblioteke.
-        var legacy = new PodcastSettings();
-        Check(PodcastLibraryUpdater.Apply(legacy, feed, null, DateTime.UtcNow)
-                .Subscription.IsInLibrary,
-            "Domyślne wywołanie aktualizatora nadal zapisuje Bibliotekę");
 
         // Czlonkostwa NIE zdejmujemy: kanal juz zapisany zostaje w Bibliotece,
         // nawet gdy uzytkownik otworzy go ponownie z wyszukiwania.
@@ -119,30 +151,23 @@ internal static class SearchResultEnterBehaviorTests
                 explicitLibraryRequest: true),
             "Ctrl+Shift+L dodaje do Biblioteki również przy automatycznym dodawaniu");
 
-        // Istniejacego czlonkostwa NIE zdejmujemy. Kanal juz w Bibliotece
-        // zostaje w niej takze wtedy, gdy Enter otwiera bez dodawania.
-        var existing = new PodcastSubscriptionSettings { Id = "kanal", IsInLibrary = true };
-        SearchResultEnterPolicy.ApplyOpenedResultMembership(
-            existing,
-            SearchResultEnterBehavior.OpenWithoutLibrary,
-            explicitLibraryRequest: false);
-        Check(existing.IsInLibrary,
-            "Wcześniej zapisany wynik zostaje w Bibliotece po zwykłym otwarciu");
-
-        var fresh = new PodcastSubscriptionSettings { Id = "nowy", IsInLibrary = false };
-        SearchResultEnterPolicy.ApplyOpenedResultMembership(
-            fresh,
-            SearchResultEnterBehavior.OpenWithoutLibrary,
-            explicitLibraryRequest: false);
-        Check(!fresh.IsInLibrary,
-            "Nowy wynik otwarty domyślnie nie wchodzi do Biblioteki");
-
-        SearchResultEnterPolicy.ApplyOpenedResultMembership(
-            fresh,
-            SearchResultEnterBehavior.OpenWithoutLibrary,
-            explicitLibraryRequest: true);
-        Check(fresh.IsInLibrary,
-            "Świadome Ctrl+Shift+L wpisuje nowy wynik do Biblioteki");
+        // Istniejacego czlonkostwa NIE zdejmujemy - to sprawdza teraz
+        // RefreshNeverChangesMembership na prawdziwym aktualizatorze, a nie
+        // martwy helper. Tutaj zostaje sama decyzja o kierowaniu materialu
+        // publicznego do kolekcji podgladow albo zapisanej.
+        Check(PublicInternetMediaCollections.ResolveId(addToLibrary: false)
+                == PublicInternetMediaCollections.PreviewId,
+            "Domyślne otwarcie kieruje materiał do kolekcji podglądów");
+        Check(PublicInternetMediaCollections.ResolveId(addToLibrary: true)
+                == PublicInternetMediaCollections.SavedId,
+            "Świadome dodanie kieruje materiał do kolekcji zapisanej");
+        Check(PublicInternetMediaCollections.PreviewId != PublicInternetMediaCollections.SavedId,
+            "Podgląd i materiał zapisany to DWIE osobne kolekcje");
+        Check(PublicInternetMediaCollections.IsPreview(PublicInternetMediaCollections.PreviewId)
+                && !PublicInternetMediaCollections.IsPreview(PublicInternetMediaCollections.SavedId)
+                && PublicInternetMediaCollections.IsSaved(PublicInternetMediaCollections.SavedId)
+                && !PublicInternetMediaCollections.IsSaved(PublicInternetMediaCollections.PreviewId),
+            "Rozpoznawanie kolekcji publicznych nie myli podglądu z zapisanym");
     }
 
     private static void DefaultOpensWithoutLibrary()

@@ -230,6 +230,7 @@ const long VorbisLiveStreamSampleOffset = 2_256_060_119_296;
 // Tak samo dziala zestaw Core (tests/AccessibleMediaController.Core.SmokeTests).
 var tests = new (string Name, Action Test)[]
 {
+    ("Enter na wyniku: otwieranie bez Biblioteki na prawdziwym oknie", SearchResultOpenWithoutLibraryTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),
