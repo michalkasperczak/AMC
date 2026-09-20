@@ -24,10 +24,10 @@ namespace AccessibleMediaController.Windows;
 /// </summary>
 public partial class MainWindow
 {
-    private TidalDesktopController? _tidalDesktop;
+    private ITidalDesktopPlayback? _tidalDesktop;
     private CancellationTokenSource? _tidalDesktopCancellation;
 
-    private TidalDesktopController TidalDesktop =>
+    private ITidalDesktopPlayback TidalDesktop =>
         _tidalDesktop ??= new TidalDesktopController(
             message => DiagnosticLog.Info("tidal-desktop", message));
 
@@ -55,10 +55,32 @@ public partial class MainWindow
     /// przez uzytkownika. Zapamietujemy ja, zeby nastepny i poprzedni szly PO
     /// NIEJ, a nie kolejka wymyslona przez TIDALa - zgloszenie z 16.09.2026.
     /// </summary>
+    private bool TryPlayTrackInTidalDesktop(
+        DemoMediaSession session,
+        MediaItem track,
+        IReadOnlyList<MediaItem>? listInOrder,
+        string sourceName,
+        bool fromGlobalShortcut = false,
+        bool isPreset = false,
+        Action<TidalDesktopPlayResult>? afterPlay = null)
+    {
+        if (session.Id != "tidal" || track.Kind != MediaItemKind.Track) return false;
+        if (string.IsNullOrWhiteSpace(track.ExternalId))
+        {
+            Announce("Ten utwór nie ma identyfikatora TIDAL. Nie można go przekazać do oryginalnego programu");
+            return true;
+        }
+        PlayTrackInTidalDesktop(track, listInOrder ?? CurrentTidalTrackListInOrder(), sourceName, !fromGlobalShortcut, isPreset, afterPlay);
+        return true;
+    }
+
     private void PlayTrackInTidalDesktop(
         MediaItem track,
         IReadOnlyList<MediaItem>? listInOrder = null,
-        string? sourceName = null)
+        string? sourceName = null,
+        bool allowRestartPrompt = true,
+        bool isPreset = false,
+        Action<TidalDesktopPlayResult>? afterPlay = null)
     {
         if (!TidalDesktopPlaybackPlan.TryBuildRequest(
                 TidalDesktopPlayKind.Track,
@@ -76,20 +98,22 @@ public partial class MainWindow
             return;
         }
 
-        if (listInOrder is { Count: > 0 })
+        void CaptureContext()
         {
-            _tidalTrackQueue.Capture(listInOrder, track, sourceName ?? string.Empty);
-            DiagnosticLog.Info("tidal-desktop",
-                $"Kolejka AMC: {_tidalTrackQueue.Count} utworów z listy \"{_tidalTrackQueue.SourceName}\", grający numer {_tidalTrackQueue.HumanPosition}.");
+            if (listInOrder is { Count: > 0 })
+            {
+                _tidalTrackQueue.Capture(listInOrder, track, sourceName ?? string.Empty);
+                DiagnosticLog.Info("tidal-desktop",
+                    $"Kolejka AMC: {_tidalTrackQueue.Count} utworów z listy {_tidalTrackQueue.SourceName}, grający numer {_tidalTrackQueue.HumanPosition}.");
+            }
+            else _tidalTrackQueue.Clear();
         }
-        else
+        if (!isPreset) CaptureContext();
+        _ = RunTidalDesktopPlaybackAsync(request!, allowRestartPrompt, isPreset, result =>
         {
-            // Bez listy nie ma po czym chodzic - lepiej zapomniec stara kolejke
-            // niz przeskakiwac po liscie, ktorej uzytkownik juz nie slucha.
-            _tidalTrackQueue.Clear();
-        }
-
-        _ = RunTidalDesktopPlaybackAsync(request!);
+            if (isPreset && !result.WasAlreadyCurrent) CaptureContext();
+            afterPlay?.Invoke(result);
+        });
     }
 
     /// <summary>
@@ -118,7 +142,11 @@ public partial class MainWindow
         _ = RunTidalDesktopPlaybackAsync(request!);
     }
 
-    private async Task RunTidalDesktopPlaybackAsync(TidalDesktopPlayRequest request)
+    private async Task RunTidalDesktopPlaybackAsync(
+        TidalDesktopPlayRequest request,
+        bool allowRestartPrompt = true,
+        bool isPreset = false,
+        Action<TidalDesktopPlayResult>? afterPlay = null)
     {
         // Kolejne wywolanie przerywa poprzednie: uzytkownik moze szybko
         // przeskakiwac miedzy utworami, a dwa rownolegle sterowania tym samym
@@ -132,7 +160,7 @@ public partial class MainWindow
 
         try
         {
-            Announce($"{request.DisplayName}: przekazuję do oryginalnego TIDALa");
+            Announce(isPreset ? request.DisplayName : $"{request.DisplayName}: przekazuję do oryginalnego TIDALa");
 
             var result = await TidalDesktop.PlayAsync(request, restartConsent: false, token)
                 .ConfigureAwait(true);
@@ -141,6 +169,11 @@ public partial class MainWindow
 
             if (result.NeedsRestartConsent)
             {
+                if (!allowRestartPrompt)
+                {
+                    Announce(result.Message + ". Otwórz AMC, aby potwierdzić ponowne uruchomienie TIDALa");
+                    return;
+                }
                 // Pytanie zadajemy PO komunikacie o stanie, nie zamiast niego -
                 // przy czytniku ekranu okno wychodzace na wierzch zjadloby
                 // wcześniejszą zapowiedź.
@@ -167,10 +200,11 @@ public partial class MainWindow
                 if (token.IsCancellationRequested) return;
             }
 
-            Announce(result.Message);
+            if (!isPreset || !result.Success) Announce(result.Message);
 
             if (result.Success)
             {
+                afterPlay?.Invoke(result);
                 // OD TEJ CHWILI transport idzie do oryginalnego TIDALa. Bez tego
                 // spacja i strzalki trafialyby do wbudowanego odtwarzacza, czyli
                 // do 30-sekundowych probek.

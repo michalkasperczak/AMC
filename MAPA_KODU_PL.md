@@ -21,6 +21,14 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `Windows/MainWindow.xaml.cs`, `UpdateFileMenuForCurrentSession`: zwykły strumień widoczny tylko w Radiu internetowym; brak pustych i podwójnych separatorów w pozostałych sesjach.
 - `Windows.SmokeTests/SessionMenuScopeTests.cs`: rzeczywiste menu WPF wszystkich sesji, rodzic pozycji podcastów, widoczność, separatory oraz brak skrótu w nazwie UIA; runner `--session-menu-scope`.
 
+## Uzupełnienie robocze: presety i powtórne uruchomienie
+
+- `Windows/MainWindow.xaml.cs`, `ActivatePreset`: bieżący utwór/stacja/odcinek zachowuje kolejkę, a pauza wznawia pozycję. Wyjątek TIDAL jest kierowany do oryginalnego programu, nie do SDK próbek.
+- `Windows/MainWindow.TidalDesktop.cs`, `TryPlayTrackInTidalDesktop`: wspólna bramka Enter/preset. Potwierdzone ponowienie bieżącego utworu nie nadpisuje kontekstu presetów. Skrót w tle nie otwiera pytania o restart.
+- `Windows/Services/TidalDesktopController.cs`, `ITidalDesktopPlayback`: granica sterowania używana również przez izolowane testy okna; wynik odróżnia nowy start od już załadowanego utworu.
+- `Core/Tidal/TidalDesktopPlaybackPlan.cs`: aktualny wiersz bez przycisku może korzystać ze stopki tylko po zgodności identyfikatorów. Play wznawia, Pause nie jest klikane; brak kontrolki nie oznacza odmowy usługi.
+- Testy: `TidalPresetRoutingTests`, `TidalDesktopPlaybackTests` oraz `tests/tidal-preset-dom.test.cjs`. Ten ostatni przyjmuje plik wyrażenia wyeksportowany przez runner Windows z `--tidal-track-expression <plik>` i wykonuje je w Node na jawnym kontrakcie DOM; nie zastępuje próby oryginalnego TIDAL-a.
+
 ## Uzupełnienie: konto Spotify, alfa 398
 
 - `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.
