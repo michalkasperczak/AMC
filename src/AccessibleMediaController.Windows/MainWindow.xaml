@@ -66,11 +66,6 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Visibility="Collapsed"
                           Click="ManageSpotifyConnection_Click" />
-                <MenuItem x:Name="SpotifyPodcastsMenuItem" Header="Zapisane p_odcasty Spotify" InputGestureText="Ctrl+Alt+O"
-                          automation:AutomationProperties.Name="Zapisane podcasty Spotify, Ctrl+Alt+O"
-                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+O"
-                          Visibility="Collapsed"
-                          Click="SpotifyPodcasts_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
@@ -133,10 +128,10 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+S"
                           Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                 <Separator x:Name="FileActionsSeparator" />
-                <MenuItem Header="Otwórz s_trumień…"
+                <MenuItem x:Name="OpenStreamMenuItem" Header="Otwórz s_trumień…"
                           automation:AutomationProperties.Name="Otwórz strumień z adresu"
                           Click="OpenStream_Click" />
-                <Separator />
+                <Separator x:Name="FileSettingsSeparator" />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
                 <MenuItem Header="_Zakończ" InputGestureText="Alt+F4" Click="Exit_Click" />
@@ -409,6 +404,11 @@
                           Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                 <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+L" Click="LibraryView_Click" />
+                <MenuItem x:Name="SpotifyPodcastsMenuItem" Header="Zapisane p_odcasty Spotify" InputGestureText="Ctrl+Alt+O"
+                          automation:AutomationProperties.Name="Zapisane podcasty Spotify, Ctrl+Alt+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+O"
+                          Visibility="Collapsed"
+                          Click="SpotifyPodcasts_Click" />
                 <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki i materiały" InputGestureText="Ctrl+I"
                           automation:AutomationProperties.Name="Nowe odcinki i materiały, Ctrl+I"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+I"

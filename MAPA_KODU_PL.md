@@ -15,6 +15,12 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `OpenedSearchResultLibraryTests`: rzeczywiste okno wyszukiwania, oba ustawienia dla trzech usług, odróżnienie rozpoczęcia od pauzy i odmowy. Sieć zastąpiona transportem testowym, dane i integracja pulpitu odizolowane.
 - To kod kandydata, nie opis zainstalowanego wydania.
 
+## Uzupełnienie robocze: zakres menu sesji
+
+- `Windows/MainWindow.xaml`: „Zapisane podcasty Spotify” przeniesione do Widok, z zachowaniem handlera i Ctrl+Alt+O; nazwane pole strumienia i separator przed Ustawieniami.
+- `Windows/MainWindow.xaml.cs`, `UpdateFileMenuForCurrentSession`: zwykły strumień widoczny tylko w Radiu internetowym; brak pustych i podwójnych separatorów w pozostałych sesjach.
+- `Windows.SmokeTests/SessionMenuScopeTests.cs`: rzeczywiste menu WPF wszystkich sesji, rodzic pozycji podcastów, widoczność, separatory oraz brak skrótu w nazwie UIA; runner `--session-menu-scope`.
+
 ## Uzupełnienie: konto Spotify, alfa 398
 
 - `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.
