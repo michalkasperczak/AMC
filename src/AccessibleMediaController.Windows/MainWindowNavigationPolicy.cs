@@ -201,6 +201,18 @@ internal static class MainWindowNavigationPolicy
         return PodcastLibraryView;
     }
 
+    /// <summary>
+    /// Czy widok kanalu podcastu da sie jeszcze pokazac. Michal ustalil 20.09.2026:
+    /// otwarcie wyniku wyszukiwania domyslnie nie dopisuje kanalu do Biblioteki,
+    /// wiec o osiagalnosci widoku decyduje OBECNOSC kanalu w biezacej sesji, a nie
+    /// czlonkostwo w Bibliotece. Inaczej otwarty wynik traci miejsce powrotu.
+    /// </summary>
+    public static bool IsPodcastViewStillReachable(
+        string podcastId,
+        IEnumerable<string> presentPodcastIds) =>
+        !string.IsNullOrWhiteSpace(podcastId)
+        && presentPodcastIds.Contains(podcastId, StringComparer.Ordinal);
+
     public static string ResolveRadioSearchLandingView(MediaItem item) =>
         item.IsFavorite
             ? "Ulubione"

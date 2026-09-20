@@ -66,6 +66,7 @@ var tests = new (string Name, Action Test)[]
     ("Pokaż w folderze dla plików i folderów", ShowInFolderTests.Run),
     ("Suma kontrolna czytana z opisu wydania", ReleaseNotesChecksumTests.Run),
     ("Przeskok o czas ustawiony przez użytkownika", CustomSeekLengthTests.Run),
+    ("Enter na wyniku wyszukiwania: otwieranie bez Biblioteki", SearchResultEnterBehaviorTests.Run),
     ("Przekazywanie utworów i całości oryginalnemu TIDALowi", TidalDesktopPlaybackTests.Run),
     ("Kolejka utworów TIDALa prowadzona przez AMC", TidalDesktopTrackQueueTests.Run),
     ("Czas utworu z windowsowej sesji multimediów", ExternalPlaybackTimeTests.Run),

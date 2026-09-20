@@ -765,13 +765,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 AddPublicInternetMedia(
                     CreateResolvedYouTubeSearchResult(result.Item),
-                    titleOverride: null);
+                    titleOverride: null,
+                    addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
+                        _state.Settings.SearchResultEnterBehavior,
+                        explicitLibraryRequest: false));
                 return;
             }
             if (IsPodcastDirectoryResult(result)
                 && dialog.SelectedAction == SearchResultAction.Open)
             {
-                _ = AddPodcastDirectoryResultAsync(result.Item, openAfterImport: true, markFavorite: false);
+                _ = AddPodcastDirectoryResultAsync(
+                    result.Item,
+                    openAfterImport: true,
+                    markFavorite: false,
+                    addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
+                        _state.Settings.SearchResultEnterBehavior,
+                        explicitLibraryRequest: false));
                 return;
             }
             var originalSelectedResults = dialog.SelectedResults.ToArray();
@@ -887,9 +896,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             targetView = MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
                 result.Item,
-                _state.Podcasts.Subscriptions
-                    .Where(subscription => subscription.IsInLibrary)
-                    .Select(subscription => subscription.Id));
+                // Kanal otwarty z wyszukiwania bez zapisu do Biblioteki jest obecny
+                // w sesji i ma byc poprawnym celem powrotu.
+                _state.Podcasts.Subscriptions.Select(subscription => subscription.Id));
         }
         else if (string.Equals(result.SessionId, "radio", StringComparison.OrdinalIgnoreCase))
         {
@@ -1713,9 +1722,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             navigation.CurrentView = "Biblioteka";
         }
         else if (TryGetPodcastIdFromView(navigation.CurrentView, out var podcastId)
-            && !_state.Podcasts.Subscriptions.Any(subscription =>
-                string.Equals(subscription.Id, podcastId, StringComparison.Ordinal)
-                && subscription.IsInLibrary))
+            && !MainWindowNavigationPolicy.IsPodcastViewStillReachable(
+                podcastId,
+                // O powrocie decyduje obecnosc kanalu w sesji, nie czlonkostwo
+                // w Bibliotece - wynik otwarty bez zapisu tez ma dokad wrocic.
+                _state.Podcasts.Subscriptions.Select(subscription => subscription.Id)))
         {
             navigation.CurrentView = "Biblioteka";
         }
@@ -8125,7 +8136,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private MediaItem AddPublicInternetMedia(
         ResolvedYouTubeAudioSource media,
         string? titleOverride,
-        bool openAfterImport = true)
+        bool openAfterImport = true,
+        bool addToLibrary = true)
     {
         const string collectionId = "internet-media:public";
         const string collectionAddress = "https://amc.invalid/public-internet-media";
@@ -8142,11 +8154,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 FeedUrl = collectionAddress,
                 SourceKind = PodcastSourceKind.PublicInternetMedia,
                 RefreshIntervalMinutes = 0,
-                IsInLibrary = true
+                IsInLibrary = addToLibrary
             };
             _state.Podcasts.Subscriptions.Add(collection);
         }
-        collection.IsInLibrary = true;
+        // Czlonkostwa NIE zdejmujemy: kolekcja raz zapisana zostaje w
+        // Bibliotece takze przy otwarciu wyniku bez dodawania.
+        if (addToLibrary) collection.IsInLibrary = true;
         collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
 
         var stableAddress = media.PageUrl.Trim();
@@ -10132,7 +10146,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AddPublicInternetMedia(
                     CreateResolvedYouTubeSearchResult(result.Item),
                     titleOverride: null,
-                    openAfterImport: false));
+                    openAfterImport: false,
+                    // Przygotowanie materialu do odtworzenia albo kolejki to nie
+                    // swiadome dodanie do Biblioteki - o zapisie decyduje jedno
+                    // globalne ustawienie.
+                    addToLibrary: SearchResultEnterPolicy.ShouldAddToLibrary(
+                        _state.Settings.SearchResultEnterBehavior,
+                        explicitLibraryRequest: false)));
 
     private PodcastSubscriptionSettings? FindPodcastSubscriptionByFeed(string? feedAddress)
     {
@@ -10192,7 +10212,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private async Task AddPodcastDirectoryResultAsync(
         MediaItem item,
         bool openAfterImport,
-        bool markFavorite)
+        bool markFavorite,
+        bool addToLibrary = true)
     {
         if (!Uri.TryCreate(item.Source, UriKind.Absolute, out var feedUri))
         {
@@ -10222,7 +10243,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 null,
                 DateTime.UtcNow,
                 _state.Bookmarks,
-                youtubeCollection?.SourceKind ?? PodcastSourceKind.Rss);
+                youtubeCollection?.SourceKind ?? PodcastSourceKind.Rss,
+                addToLibrary);
             if (result.AddedSubscription)
             {
                 // Ten sam blad co przy dodawaniu recznym: importowane kanaly RSS
@@ -10244,7 +10266,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var itemLabel = youtubeChannel ? "kanał YouTube" : "podcast";
             AnnounceEssential(markFavorite
                 ? $"Dodano {itemLabel} do ulubionych: {result.Subscription.Title}"
-                : $"Dodano {itemLabel} do Biblioteki: {result.Subscription.Title}");
+                : addToLibrary
+                    ? $"Dodano {itemLabel} do Biblioteki: {result.Subscription.Title}"
+                    : $"Otwarto {itemLabel}: {result.Subscription.Title}");
         }
         catch (Exception exception) when (exception is HttpRequestException
             or InvalidDataException

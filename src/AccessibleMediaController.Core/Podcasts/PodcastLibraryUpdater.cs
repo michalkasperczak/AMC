@@ -18,7 +18,12 @@ public static class PodcastLibraryUpdater
         string? titleOverride,
         DateTime refreshUtc,
         BookmarkSettings? bookmarks = null,
-        PodcastSourceKind sourceKind = PodcastSourceKind.Rss)
+        PodcastSourceKind sourceKind = PodcastSourceKind.Rss,
+        // Otwarcie wyniku wyszukiwania sprowadza kanal i jego odcinki, ale
+        // domyslnie NIE zapisuje go do Biblioteki (ustalenie Michala
+        // 20.09.2026). Zastane sciezki - odswiezanie, OPML, reczne dodanie -
+        // wolaja bez tego parametru i dalej zapisuja Biblioteke.
+        bool addToLibrary = true)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(feed);
@@ -28,13 +33,13 @@ public static class PodcastLibraryUpdater
             ?? settings.Subscriptions.FirstOrDefault(candidate =>
                 string.Equals(candidate.Id, feed.Id, StringComparison.Ordinal));
         var addedSubscription = subscription is null;
-        var restoredSubscription = subscription is { IsInLibrary: false };
+        var restoredSubscription = addToLibrary && subscription is { IsInLibrary: false };
         if (subscription is null)
         {
             subscription = new PodcastSubscriptionSettings
             {
                 Id = feed.Id,
-                IsInLibrary = true
+                IsInLibrary = addToLibrary
             };
             settings.Subscriptions.Add(subscription);
         }
@@ -54,7 +59,9 @@ public static class PodcastLibraryUpdater
         subscription.SourceKind = sourceKind;
         subscription.HomepageUrl = feed.HomepageUri?.AbsoluteUri;
         subscription.LastRefreshUtcTicks = refreshUtc.ToUniversalTime().Ticks;
-        subscription.IsInLibrary = true;
+        // NIGDY nie zdejmujemy istniejacego czlonkostwa - kanal zapisany
+        // wczesniej zostaje w Bibliotece takze przy otwarciu z wyszukiwania.
+        if (addToLibrary) subscription.IsInLibrary = true;
 
         var initialInboxEpisodeId = addedSubscription
             ? feed.Episodes

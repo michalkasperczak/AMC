@@ -57,9 +57,38 @@ public static class RadioRecognitionScopeRules
     };
 }
 
+/// <summary>
+/// Co ma zrobic Enter na wyniku wyszukiwania. Michal ustalil 20.09.2026:
+/// domyslnie wynik ma sie OTWORZYC i zagrac, bez dopisywania go do Biblioteki.
+/// Swiadome dodanie zostaje pod Ctrl+Shift+L. Jedno ustawienie dla wszystkich
+/// serwisow (radio, podcasty, YouTube, TIDAL, Spotify i przyszle sesje) - nie
+/// osobne per serwis, bo uzytkownik chce jednego przewidywalnego zachowania.
+/// </summary>
+public enum SearchResultEnterBehavior
+{
+    /// <summary>
+    /// Otwiera albo odtwarza wynik bez zapisu do Biblioteki. Cache, historia i
+    /// pozycja w sesji potrzebne do odtworzenia oraz powrotu fokusu NIE sa
+    /// czlonkostwem w Bibliotece.
+    /// </summary>
+    OpenWithoutLibrary = 0,
+
+    /// <summary>
+    /// Dawne zachowanie: Enter dodatkowo dopisuje wynik do Biblioteki.
+    /// </summary>
+    AddToLibrary = 1
+}
+
 public sealed class AppSettings
 {
     public string InterfaceLanguage { get; set; } = "pl-PL";
+
+    /// <summary>
+    /// Zachowanie Enter na wynikach wyszukiwania. Domyslnie otwieranie bez
+    /// dodawania do Biblioteki.
+    /// </summary>
+    public SearchResultEnterBehavior SearchResultEnterBehavior { get; set; } =
+        SearchResultEnterBehavior.OpenWithoutLibrary;
     public string PrefixChord { get; set; } = "Ctrl+Alt+Windows+F12";
     public int PrefixTimeoutMilliseconds { get; set; } = 3000;
     public int SessionContinuationMilliseconds { get; set; } = 2000;

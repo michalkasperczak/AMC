@@ -48,6 +48,15 @@
                             <ComboBox x:Name="CustomSeekSecondsCombo" Margin="0,0,0,12" IsEditable="True"
                                       automation:AutomationProperties.Name="Długość przeskoku pod Alt+Ctrl+strzałka w lewo i w prawo"
                                       automation:AutomationProperties.HelpText="Osobny, dłuższy przeskok do chodzenia po długich nagraniach. Nie zmienia strzałek bez modyfikatorów ani skrótów z Shift i Ctrl, które nadal przewijają o 10, 30 i 60 sekund. Można wybrać wartość z listy albo wpisać własną liczbę minut lub sekund. Dopuszczalny zakres to od 5 sekund do 30 minut." />
+                            <Label Target="{Binding ElementName=SearchResultEnterBehaviorCombo}">Enter na wyniku wy_szukiwania:</Label>
+                            <ComboBox x:Name="SearchResultEnterBehaviorCombo" Width="440" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                      automation:AutomationProperties.Name="Zachowanie klawisza Enter na wyniku wyszukiwania"
+                                      automation:AutomationProperties.HelpText="Dotyczy wszystkich serwisów: radia, podcastów, YouTube, TIDAL i Spotify. Świadome dodanie wyniku do Biblioteki zawsze jest dostępne pod Ctrl+Shift+L. Ustawienie nie usuwa z Biblioteki elementów już w niej zapisanych.">
+                                <ComboBoxItem Tag="OpenWithoutLibrary"
+                                              automation:AutomationProperties.Name="Otwiera i odtwarza bez dodawania do Biblioteki">Otwiera i odtwarza bez dodawania do Biblioteki</ComboBoxItem>
+                                <ComboBoxItem Tag="AddToLibrary"
+                                              automation:AutomationProperties.Name="Otwiera i dodaje wynik do Biblioteki">Otwiera i dodaje wynik do Biblioteki</ComboBoxItem>
+                            </ComboBox>
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
                                        Text="Dodatkowe przetwarzanie działa w sesjach, których tor odtwarzania je obsługuje lokalnie albo przez oficjalne API. Obecnie obejmuje Pliki lokalne. Nie zmienia zawartości plików ani zapisanej wartości głośności." />
                             <CheckBox x:Name="LoudnessNormalizationCheck" Margin="0,0,0,8"

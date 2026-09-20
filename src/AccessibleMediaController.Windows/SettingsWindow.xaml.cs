@@ -200,6 +200,9 @@ public partial class SettingsWindow : Window
         SelectComboByTag(
             PercentageSeekAnnouncementCombo,
             _workingState.Settings.Messages.PercentageSeekAnnouncement.ToString());
+        SelectComboByTag(
+            SearchResultEnterBehaviorCombo,
+            _workingState.Settings.SearchResultEnterBehavior.ToString());
         _messageRows.Clear();
         foreach (var pair in _workingState.Settings.Messages.Templates
                      .OrderBy(pair => MessageTemplateSortOrder(pair.Key))
@@ -367,6 +370,14 @@ public partial class SettingsWindow : Window
                 out var percentageSeekAnnouncement))
         {
             _workingState.Settings.Messages.PercentageSeekAnnouncement = percentageSeekAnnouncement;
+        }
+        if (Enum.TryParse<SearchResultEnterBehavior>(
+                SelectedTag(
+                    SearchResultEnterBehaviorCombo,
+                    nameof(SearchResultEnterBehavior.OpenWithoutLibrary)),
+                out var searchResultEnterBehavior))
+        {
+            _workingState.Settings.SearchResultEnterBehavior = searchResultEnterBehavior;
         }
         _workingState.Settings.Messages.Templates = _messageRows.ToDictionary(
             row => row.EventId,

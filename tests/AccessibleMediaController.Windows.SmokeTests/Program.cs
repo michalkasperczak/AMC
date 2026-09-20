@@ -1190,6 +1190,34 @@ static void TestSearchNavigation()
             "Multimedia",
             "Podcast:audycja-1") == "Podcast:audycja-1",
         "Techniczny agregat Podcastów nie został zastąpiony ostatnim miejscem Biblioteki.");
+
+    // Michal ustalil 20.09.2026: otwarcie wyniku wyszukiwania domyslnie NIE dopisuje
+    // kanalu do Biblioteki, a mimo to odcinek ma sie otworzyc i miec dokad wrocic.
+    // Widok kanalu obecnego w sesji jest wiec poprawnym celem takze bez czlonkostwa.
+    var transientEpisode = new MediaItem
+    {
+        Id = "odcinek-1",
+        Title = "Gość poranka",
+        Kind = MediaItemKind.Episode,
+        ExternalId = podcast.Id,
+        // Wynik otwarty z wyszukiwania bez dopisania do Biblioteki.
+        IsInLibrary = false
+    };
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
+            transientEpisode,
+            [podcast.Id]) == "Podcast:audycja-1",
+        "Otwarty wynik bez zapisu w Bibliotece nie prowadzi do widoku swojego kanału.");
+    Assert(
+        MainWindowNavigationPolicy.IsPodcastViewStillReachable(
+            "audycja-1",
+            presentPodcastIds: [podcast.Id]),
+        "Widok kanału obecnego w sesji został uznany za nieosiągalny bez Biblioteki.");
+    Assert(
+        !MainWindowNavigationPolicy.IsPodcastViewStillReachable(
+            "audycja-1",
+            presentPodcastIds: []),
+        "Widok usuniętego z sesji kanału został uznany za osiągalny.");
     Assert(
         MainWindowNavigationPolicy.ResolveSafeSessionView(
             "radio",
