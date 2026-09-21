@@ -7,6 +7,11 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: dynamiczne nazwy menu bez powtarzania skrótów
+
+- `Windows/MainWindow.xaml.cs`: `SetMenuItemNameAndShortcut` zachowuje osobny Header, Name oraz AcceleratorKey/InputGestureText. `UpdateFileMenuForCurrentSession` i gałąź WiiM w `PlayerContextMenu_Opened` nie wpisują skrótu ponownie do nazwy po normalizacji.
+- `Windows.SmokeTests/DynamicMenuShortcutNameTests.cs`: rzeczywiste końcowe właściwości czterech pozycji, wszystkie sesje i jawny powrót WiiM → Pliki lokalne; dokładne nazwy/etykiety, zachowane skróty, zbiorczy wynik. Runner `--dynamic-menu-shortcut-names` oraz pełny zestaw.
+
 ## Uzupełnienie robocze: Enter a Biblioteka usług
 
 - `Core/Podcasts/OpenedSearchResultLibraryPlan.cs`: wspólna decyzja o dodaniu otwartego wyniku radia, TIDAL i Spotify; tryb bez dodawania nie uruchamia zapisów, ponowne otwarcie nie usuwa członkostwa.
