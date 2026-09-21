@@ -4585,84 +4585,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var saved = FindSessionPlaybackOverrides(session.Id);
-        var dspSupported = SessionSupportsAudioProcessing(session.Id);
-        var rateSupported = SessionSupportsPlaybackRate(session.Id);
-        var dialog = new ItemPlaybackOptionsWindow(
-            $"Sesja: {session.DisplayName}",
-            ResumePositionPolicy.GetSessionMode(_state.Settings, session.Id),
-            null,
-            saved?.LoudnessNormalizationOverride,
-            saved?.SmoothTrackTransitionsOverride,
-            saved?.InterTrackSilenceMillisecondsOverride,
-            target: ItemPlaybackOptionsTarget.Session,
-            pausePlaybackWhenLeavingPlayerOverride:
-                saved?.PausePlaybackWhenLeavingPlayerOverride,
-            globalPausePlaybackWhenLeavingPlayer:
-                _state.Settings.PausePlaybackWhenLeavingPlayer,
-            // WiiM to autonomiczny odtwarzacz sieciowy - wyjscie z jego
-            // kontrolera NIGDY nie zatrzymuje muzyki w pokoju, wiec ta pozycja
-            // bylaby obietnica bez pokrycia.
-            showPlayerExitPauseOption:
-                !string.Equals(session.Id, "wiim", StringComparison.Ordinal),
-            // ZGLOSZENIE Michala 18.09.2026: sesja, ktorej wyjscie nie
-            // przetwarza dzwieku (Spotify), nie moze obiecywac normalizacji,
-            // lagodnych przejsc ani ciszy miedzy nagraniami.
-            showAudioProcessingOptions: dspSupported,
-            showPlaybackRateOption: rateSupported)
+        // Ta sama regula tworzenia i zapisu, ktorej uzywaja glowne Ustawienia
+        // przy wyborze sesji z listy. Kopia tego kodu w Ustawieniach dalaby dwa
+        // zachowania rozjezdzajace sie przy kazdej poprawce.
+        if (!SessionPlaybackOptionsEditor.Describe(session.Id).HasOptions)
         {
-            Owner = this
-        };
+            Announce($"Sesja {session.DisplayName} nie ma konfigurowalnych opcji odtwarzania w AMC");
+            RestoreItemActionFocus();
+            return;
+        }
+        var dialog = SessionPlaybackOptionsEditor.CreateDialog(
+            _state.Settings,
+            session.Id,
+            session.DisplayName);
+        dialog.Owner = this;
         if (dialog.ShowDialog() != true)
         {
             RestoreItemActionFocus();
             return;
         }
 
-        ResumePositionPolicy.SetSessionMode(
-            _state.Settings,
-            session.Id,
-            dialog.SelectedResumePositionMode);
+        var overrides = SessionPlaybackOptionsEditor.Apply(_state.Settings, session.Id, dialog);
 
-        var overrides = new SessionPlaybackAudioOverrides
-        {
-            // Gdy okno nie pokazalo pol DSP (Spotify - wyjscie uslugi nie
-            // przechodzi przez nasz lancuch), zapisane wczesniej wybory zostaja
-            // nietkniete. Inaczej otwarcie i zapisanie opcji sesji wymazalo by
-            // je bez ostrzezenia.
-            LoudnessNormalizationOverride = dspSupported
-                ? dialog.SelectedLoudnessNormalizationOverride
-                : SpotifySessionAudioOverrides(session.Id)?.LoudnessNormalizationOverride,
-            SmoothTrackTransitionsOverride = dspSupported
-                ? dialog.SelectedSmoothTrackTransitionsOverride
-                : SpotifySessionAudioOverrides(session.Id)?.SmoothTrackTransitionsOverride,
-            InterTrackSilenceMillisecondsOverride = dspSupported
-                ? dialog.SelectedInterTrackSilenceMillisecondsOverride
-                : SpotifySessionAudioOverrides(session.Id)?.InterTrackSilenceMillisecondsOverride,
-            // Gdy okno nie pokazalo tej pozycji (WiiM), nie wolno zetrzec
-            // wcześniejszego wyboru uzytkownika - zostawiamy zapisany.
-            PausePlaybackWhenLeavingPlayerOverride =
-                string.Equals(session.Id, "wiim", StringComparison.Ordinal)
-                    ? saved?.PausePlaybackWhenLeavingPlayerOverride
-                    : dialog.SelectedPausePlaybackWhenLeavingPlayerOverride
-        };
-
-        // Pusty wpis usuwamy, zeby w zapisanych ustawieniach nie zostawaly
-        // wartosci nieodrozninalne od braku decyzji uzytkownika.
-        if (overrides.IsEmpty)
-        {
-            _state.Settings.Audio.OverridesBySession.Remove(session.Id);
-        }
-        else
-        {
-            _state.Settings.Audio.OverridesBySession[session.Id] = overrides;
-        }
-
-        if (session.HasCurrentItem)
-        {
-            _localOutput.ConfigureAudioProcessing(
-                GetEffectiveLocalAudioSettings(session.CurrentItem));
-        }
+        if (session.HasCurrentItem && session.Id == "local")
+            _localOutput.ConfigureAudioProcessing(GetEffectiveLocalAudioSettings(session.CurrentItem));
+        else if (session.HasCurrentItem && session.Id == "podcasts")
+            _podcastOutput.ConfigureAudioProcessing(GetEffectivePodcastAudioSettings(session.CurrentItem));
 
         var persisted = QueueStateSave(announceFailure: true);
         UpdatePlaybackStatusBar();
@@ -4671,12 +4619,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Announce(
                 $"Zapisano opcje sesji: {session.DisplayName}. "
-                + FormatAudioOverrides(
-                    overrides.LoudnessNormalizationOverride,
-                    overrides.SmoothTrackTransitionsOverride,
-                    overrides.InterTrackSilenceMillisecondsOverride)
-                + "; "
-                + PlayerExitPausePolicy.DescribeSessionMode(_state.Settings, session.Id));
+                + SessionPlaybackOptionsEditor.DescribeSession(_state.Settings, session.Id, overrides));
         }
         RestoreItemActionFocus();
     }
@@ -8127,9 +8070,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             episode.IsInQueue = item.IsInQueue;
             episode.IsPlayNext = item.IsPlayNext;
             subscriptionsById.TryGetValue(episode.SubscriptionId, out var parentSubscription);
+            // TA SAMA polityka co przy odtwarzaniu (ShouldRememberPodcastPosition):
+            // bez _state.Settings pomijalismy warstwe sesji Podcasty, wiec
+            // "Zawsze od poczatku" nie usuwalo zapisanych pozycji odcinkow
+            // innych niz biezacy i po restarcie AMC wracaly.
             episode.ResumePositionTicks = PodcastPlaybackSettingsResolver.ShouldRememberPosition(
                     episode,
-                    parentSubscription)
+                    parentSubscription,
+                    _state.Settings)
                 ? Math.Max(
                     0,
                     session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
@@ -9598,7 +9546,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return item.Kind == MediaItemKind.Episode
             && PodcastPlaybackSettingsResolver.ShouldRememberPosition(
                 episode,
-                FindPodcastSubscriptionSettings(item));
+                FindPodcastSubscriptionSettings(item),
+                _state.Settings);
     }
 
     private double? GetPodcastPlaybackRateOverride(MediaItem item) =>

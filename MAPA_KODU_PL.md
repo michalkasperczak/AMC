@@ -78,6 +78,15 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - Testy: `SpotifySingleSessionEngineTests`, `SessionSlotGapsAndEngineTests`, `SpotifyStartupEngineTests`, `SpotifyDescriptionAndSlotUiTests`, `SpotifyPodcastParentTests`, `SpotifyMigrationReviewTests` oraz `SpotifyEngineSettingsTests`.
 - Stan odbioru, w tym otwarta kontrola przywracania kolejki: `PLAN-16-09-2026.md`. Ta sekcja opisuje kod roboczy, nie opublikowane wydanie.
 
+## Uzupełnienie robocze: opcje każdej sesji z Ustawień
+
+- `Windows/SessionPlaybackOptionsEditor.cs`: wspólne możliwości, utworzenie okna i zapis opcji dla bezpośredniego Ctrl+Alt+Enter oraz sesji zaznaczonej w Ustawieniach.
+- `Windows/SettingsWindow.xaml(.cs)`: wybór sesji bez jej aktywacji, edycja na roboczej kopii, zewnętrzne Zapisz i Anuluj.
+- `Core/Podcasts/PodcastPlaybackSettingsResolver.cs`: pamięć odcinka → podcastu → jawna opcja sesji → dotychczasowe domyślne pamiętanie; przetwarzanie dźwięku uwzględnia sesję przed ustawieniami ogólnymi.
+- `MainWindow.CapturePodcastState` i `ShouldRememberPodcastPosition` stosują tę samą regułę; `ItemPlaybackOptionsWindow` opisuje rzeczywiste dziedziczenie.
+- Testy: `SessionOptionsInSettingsTests`, `PodcastSessionResumeCaptureTests` oraz przypadek niezależności podcastów od przełącznika lokalnych plików w Core.
+- To mapa kodu roboczego, nie potwierdzenie wydania. Odbiór prowadzi `PLAN-16-09-2026.md`.
+
 ## 1. Rozmiar i podział
 
 Dwa projekty C# plus dodatek NVDA w Pythonie.

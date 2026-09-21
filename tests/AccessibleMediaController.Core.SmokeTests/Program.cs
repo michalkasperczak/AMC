@@ -85,6 +85,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja skrzynki Podcastów po starszym imporcie", TestPodcastLegacyInboxMigration),
     ("Stany odsłuchania odcinków Podcastów", TestPodcastEpisodeProgress),
     ("Dziedziczenie opcji odtwarzania Podcastów", TestPodcastPlaybackSettings),
+    ("Pozycja podcastów nie zależy od znacznika plików lokalnych", TestPodcastResumeDoesNotFollowLocalFilesFlag),
     ("Odwracanie Biblioteki i ulubionych z katalogu Podcastów", TestPodcastMembershipToggle),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Bezpieczna migracja Podcastów do SQLite", TestPodcastSqliteMigration),
@@ -1838,6 +1839,56 @@ static void TestPodcastPlaybackSettings()
     Equal(
         @"D:\Podcasty",
         PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(@"D:\Podcasty", podcast));
+}
+
+// Nowa warstwa "opcje odtwarzania sesji" nie moze wylaczac pamieci pozycji
+// podcastow tylko dlatego, ze uzytkownik wylaczyl pamiec pozycji PLIKOW
+// LOKALNYCH. Podcasty zawsze pamietaly pozycje domyslnie.
+static void TestPodcastResumeDoesNotFollowLocalFilesFlag()
+{
+    var settings = new AppSettings { RememberLocalPlaybackPositions = false };
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+    settings.RememberLocalPlaybackPositions = true;
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+
+    // Jawny wybor Inherit w oknie opcji sesji usuwa wpis, wiec nadal obowiazuje
+    // domysl podcastow, a nie znacznik plikow lokalnych.
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.Inherit);
+    settings.RememberLocalPlaybackPositions = false;
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+
+    // Jawne ustawienie sesji Podcasty dziala w obie strony.
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.StartFromBeginning);
+    Equal(false, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+    settings.RememberLocalPlaybackPositions = true;
+    Equal(false, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.Remember);
+    settings.RememberLocalPlaybackPositions = false;
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null, settings));
+
+    // Pierwszenstwo: odcinek, potem podcast, potem sesja.
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.StartFromBeginning);
+    var subscription = new PodcastSubscriptionSettings { ResumePositionMode = ResumePositionMode.Remember };
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, subscription, settings));
+    var episode = new PodcastEpisodeSettings { ResumePositionMode = ResumePositionMode.StartFromBeginning };
+    Equal(false, PodcastPlaybackSettingsResolver.ShouldRememberPosition(episode, subscription, settings));
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.Remember);
+    subscription.ResumePositionMode = ResumePositionMode.StartFromBeginning;
+    Equal(false, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, subscription, settings));
+    Equal(
+        true,
+        PodcastPlaybackSettingsResolver.ShouldRememberPosition(
+            new PodcastEpisodeSettings { ResumePositionMode = ResumePositionMode.Remember },
+            subscription,
+            settings));
+
+    // Wywolanie bez ustawien (dwa argumenty) zachowuje wczesniejsze zachowanie.
+    Equal(true, PodcastPlaybackSettingsResolver.ShouldRememberPosition(null, null));
+    Equal(
+        false,
+        PodcastPlaybackSettingsResolver.ShouldRememberPosition(
+            null,
+            new PodcastSubscriptionSettings { ResumePositionMode = ResumePositionMode.StartFromBeginning }));
 }
 
 static void TestPodcastMembershipToggle()

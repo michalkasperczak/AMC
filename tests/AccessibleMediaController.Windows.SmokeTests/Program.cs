@@ -171,6 +171,26 @@ if (args.Contains("--tidal-presets", StringComparer.Ordinal))
     try { TidalPresetRoutingTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--podcast-session-resume-capture", StringComparer.Ordinal))
+{
+    try { PodcastSessionResumeCaptureTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--session-options-consumer", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunConsumer();
+    return 0;
+}
+if (args.Contains("--session-options-headless", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunHeadless();
+    return 0;
+}
+if (args.Contains("--session-options-settings", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.Run();
+    return 0;
+}
 if (args.Length == 2 && args[0] == "--tidal-track-expression")
 {
     File.WriteAllText(args[1], AccessibleMediaController.Core.Tidal.TidalDesktopPlaybackPlan.PlayTrackExpression("Hard Times"));
@@ -302,6 +322,8 @@ var tests = new (string Name, Action Test)[]
     ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
     ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
+    ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),
+    ("Zapis Podcastów stosuje politykę pamięci pozycji sesji", PodcastSessionResumeCaptureTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Zapowiedz presetu folderu lokalnego bez numeru presetu", LocalFolderPresetAnnouncementTests.Run),
