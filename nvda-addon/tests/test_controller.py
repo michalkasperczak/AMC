@@ -13,9 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "nvda-addon/addon/globalPlugins/amcController"
 APP_MODULE = ROOT / "nvda-addon/addon/appModules/accessiblemediacontroller.py"
 
-# Polecenia obslugiwane w MODULE APLIKACJI, nie w globalPlugin.  Ich gesty
-# naleza do samego NVDA, wiec moga obowiazywac wylacznie w oknach AMC.
-APP_MODULE_COMMANDS = frozenset(("nowPlaying",))
+# Odczyt diagnostyczny potoku, bez skryptu ani gestu w dodatku.
+# Polecenia samego NVDA pozostaja w czytniku, nie w appModule AMC.
+DIAGNOSTIC_COMMANDS = frozenset(("nowPlaying",))
 
 
 def load(name):
@@ -83,11 +83,9 @@ class ControllerTests(unittest.TestCase):
         tree = ast.parse((PLUGIN / "__init__.py").read_text(encoding="utf-8"))
         scripts = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
-        # nowPlaying NIE moze byc w globalPlugin: jego gest (Insert plus
-        # strzalka w gore) nalezy do samego NVDA i globalne przypisanie
-        # nadpisaloby czytanie linii w KAZDYM programie.  Ten skrot zyje
-        # w module aplikacji, wiec obowiazuje tylko w oknach AMC.
-        self.assertEqual(len(scripts), len(transport.COMMANDS) - len(APP_MODULE_COMMANDS))
+        # nowPlaying pozostaje dostepne diagnostyce potoku, ale dodatek
+        # nie ma dla niego gestu: natywne polecenia NVDA nie sa przejmowane.
+        self.assertEqual(len(scripts), len(transport.COMMANDS) - len(DIAGNOSTIC_COMMANDS))
         gestures = set()
         for method in scripts:
             decorator = method.decorator_list[0]
@@ -136,38 +134,12 @@ class ControllerTests(unittest.TestCase):
         for digit in "0123456789":
             self.assertNotIn("kb:control+windows+shift+" + digit, gestures)
 
-    def test_app_module_owns_nvda_reserved_gesture(self):
-        # Insert plus strzalka w gore to gest CZYTNIKA (czytanie biezacej linii).
-        # Musi byc w module aplikacji AMC i nigdzie indziej - inaczej dodatek
-        # zabralby uzytkownikowi podstawowa funkcje NVDA w kazdym programie.
-        tree = ast.parse(APP_MODULE.read_text(encoding="utf-8"))
-        scripts = [node for node in ast.walk(tree)
-                   if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
-        self.assertEqual(len(scripts), len(APP_MODULE_COMMANDS))
-        gesty = []
-        for method in scripts:
-            decorator = method.decorator_list[0]
-            self.assertEqual(decorator.func.id, "script")
-            properties = {keyword.arg: keyword.value for keyword in decorator.keywords}
-            self.assertGreater(len(properties["description"].value), 12)
-            # NVDA przyjmuje liste gestow pod kluczem "gestures".
-            gesty.extend(element.value for element in properties["gestures"].elts)
-        # KLUCZOWE: modyfikator NVDA zapisuje sie jako "NVDA". Zapis
-        # "kb:insert+upArrow" NVDA po cichu ignoruje - skrot sie nie przypina
-        # i czytnik dalej czyta biezaca linie zamiast wywolac AMC.
-        self.assertEqual(gesty, ["kb(desktop):NVDA+upArrow", "kb(laptop):NVDA+upArrow"])
-        for gest in gesty:
-            self.assertNotIn("insert+", gest.lower())
-        # Nazwa pliku modulu musi odpowiadac nazwie procesu AMC, inaczej NVDA
-        # nigdy go nie wczyta i skrot po cichu nie zadziala.
-        self.assertEqual(APP_MODULE.stem, "accessiblemediacontroller")
-        # I ten sam gest NIE moze wystepowac w globalPlugin. Sprawdzamy oba
-        # zapisy: "NVDA+upArrow" i historyczny bledny "insert+upArrow".
-        # Samo "upArrow" wystepuje legalnie w Ctrl+Windows+strzalki (glosnosc).
+    def test_native_nvda_gestures_are_not_overridden(self):
+        self.assertFalse(APP_MODULE.exists(), "Dodatek nie instaluje appModule AMC")
         globalny = (PLUGIN / "__init__.py").read_text(encoding="utf-8").lower()
         self.assertNotIn("nvda+uparrow", globalny)
         self.assertNotIn("insert+uparrow", globalny)
-        self.assertIn("nowPlaying", APP_MODULE.read_text(encoding="utf-8"))
+        self.assertNotIn("script_nowplaying", globalny)
         self.assertIn("nowPlaying", transport.COMMANDS)
 
     def test_foreground_permission_is_only_for_explicit_ui_commands(self):

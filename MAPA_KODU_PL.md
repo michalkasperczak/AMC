@@ -58,7 +58,7 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - `Windows/MainWindow.SpotifyBrowse.cs`: zawartości oraz menu relacji pod strzałką w prawo.
 - `Core/Spotify/SpotifyLibraryWriteClient.cs`, `SpotifyCollectionSemantics.cs`: zapis biblioteki, odczyt potwierdzający, uprawnienia i częściowe awarie.
 - `SessionManager` może zachować istniejącą sesję Spotify przy odbudowie ustawień; `DemoMediaSession.ConfigureRememberPositionPolicy` przepina wyłącznie regułę pamięci.
-- `InformationWindow`: właściwości domyślnie z natywnym kursorem, przełącznik tekst/dokument; `nvda-addon/addon/appModules/accessiblemediacontroller.py`: ograniczenie NVDA+góra do okna głównego.
+- `InformationWindow`: właściwości domyślnie z natywnym kursorem, przełącznik tekst/dokument. Standardowe polecenia NVDA pozostają w czytniku; dodatek AMC nie instaluje appModule.
 - `Windows/MainWindow.SpotifyLibrespot.cs`: podłączenie dodatkowego silnika, kolekcji i okna wyjścia; `MainWindow.SpotifyLibrespotAccount.cs`: odrębne parowanie oraz przejście do wspólnego konta katalogu.
 - `Windows/Services/SpotifyLibrespotAuthenticationService.cs` i `SpotifyLibrespotCredentialStore.cs`: device flow, odświeżanie i osobny zapis poświadczeń, bez zastępowania tokenów SDK.
 - `Windows/SpotifyLibrespotAccountWindow.xaml(.cs)`: dostępne okno kodu, adresu, potwierdzenia i anulowania; testy w `SpotifyLibrespotAccountWindowTests.cs`.
@@ -288,7 +288,7 @@ Po stronie NVDA (`nvda-addon/addon/`):
 - `globalPlugins/amcController/transport.py` — klient potoku, czyste `ctypes`,
   bez importów NVDA, dzięki czemu da się go testować poza czytnikiem.
 - `globalPlugins/amcController/worker.py` — wątek roboczy.
-- `appModules/accessiblemediacontroller.py` — moduł aplikacji.
+- Dodatek nie zawiera appModule i przypisuje wyłącznie skróty Ctrl+Win; `tests/test_gesture_scope.py` sprawdza ten zakres.
 - `manifest.ini` — wersja dodatku; `build.ps1` buduje paczkę `.nvda-addon`.
 
 Dostępność samego interfejsu: `Windows/Controls/AccessibleWindow.cs`,
