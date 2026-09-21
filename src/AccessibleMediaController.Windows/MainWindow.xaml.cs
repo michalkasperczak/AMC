@@ -3453,6 +3453,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
 
+            if (!_playerViewActive && _currentView == FolderViewName
+                && _state.LocalMedia.CurrentFolderPath is { Length: > 0 } currentFolder
+                && string.Equals(NormalizeLocalFolderPath(currentFolder), NormalizeLocalFolderPath(folderPath!), StringComparison.OrdinalIgnoreCase))
+            {
+                Announce(preset.TargetTitle);
+                return;
+            }
             CaptureCurrentSessionNavigationState();
             HidePlayerForBrowserNavigation();
             _state.LocalMedia.LibraryView = FolderViewName;
@@ -3464,7 +3471,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             navigation.Filters[FolderViewName] = string.Empty;
             RestoreFilterForCurrentView(navigation);
             RefreshCurrentView();
-            PrepareViewFocusContext($"Preset {slotLabel}, folder {preset.TargetTitle}");
+            PrepareViewFocusContext($"Foldery, {preset.TargetTitle}");
             TrySaveLocalMediaState(false);
             RestoreMediaListFocusAfterRefresh();
             return;
@@ -3509,6 +3516,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        // Album Spotify ma ZAGRAĆ, nie otworzyć się na liście: szczegóły i
+        // powód w MainWindow.SpotifyAlbumPreset.cs.
+        if (IsSpotifyAlbumPresetTarget(session.Id, item))
+        {
+            _ = PlaySpotifyAlbumPresetAsync(session, item, slotLabel);
+            return;
+        }
+
         if (item.Kind is not (MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode))
         {
             SelectSessionBrowserItem(session.Id, item.Id);
@@ -3517,16 +3532,49 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var presetPlayableIds = SessionPresetEntries(session.Id)
+        // Preset UTWORU w sesji Spotify jest nowszą decyzją użytkownika niż
+        // czekające pobranie albumu: unieważnia je, żeby spóźniona odpowiedź
+        // albumu nie przestawiła tego, co właśnie włączamy. MUSI stać PRZED
+        // wczesnym powrotem dla już bieżącego utworu: powtórzony preset
+        // grającego utworu też jest nowszą decyzją, a po powrocie nie byłoby
+        // już gdzie unieważnić czekającego albumu.
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id))
+            InvalidatePendingSpotifyPresetPlayback();
+
+        if (session.Id != "tidal" && session.HasCurrentItem
+            && session.CurrentItem.Id == item.Id && (session.IsPlaying || session.IsPaused))
+        {
+            if (session.IsPaused) session.TogglePlayback();
+            RefreshPlaybackIndicators();
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            Announce(preset.TargetTitle);
+            return;
+        }
+
+        var presetPlayableItems = SessionPresetEntries(session.Id)
             .OrderBy(entry => entry.Slot)
             .Select(entry => session.Items.FirstOrDefault(candidate => string.Equals(
                 candidate.Id,
                 entry.TargetId,
                 StringComparison.Ordinal)))
             .Where(candidate => candidate?.Kind is MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)
-            .Select(candidate => candidate!.Id)
-            .Distinct(StringComparer.Ordinal)
+            .Select(candidate => candidate!)
+            .DistinctBy(candidate => candidate.Id, StringComparer.Ordinal)
             .ToArray();
+        var presetPlayableIds = presetPlayableItems.Select(candidate => candidate.Id).ToArray();
+        if (TryPlayTrackInTidalDesktop(session, item, presetPlayableItems, "Presety", fromGlobalShortcut,
+            isPreset: true, afterPlay: result =>
+            {
+                if (!result.WasAlreadyCurrent)
+                {
+                    session.SetPlaybackContext(presetPlayableIds);
+                    var navigation = GetSessionNavigationState(session.Id);
+                    navigation.PlaybackContextView = "Presety";
+                    navigation.PlaybackContextItemIds = presetPlayableIds.ToList();
+                }
+                SavePresetState(session.Id);
+            })) return;
         session.SetPlaybackContext(presetPlayableIds);
         var playbackNavigation = GetSessionNavigationState(session.Id);
         playbackNavigation.PlaybackContextView = "Presety";
@@ -4537,84 +4585,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var saved = FindSessionPlaybackOverrides(session.Id);
-        var dspSupported = SessionSupportsAudioProcessing(session.Id);
-        var rateSupported = SessionSupportsPlaybackRate(session.Id);
-        var dialog = new ItemPlaybackOptionsWindow(
-            $"Sesja: {session.DisplayName}",
-            ResumePositionPolicy.GetSessionMode(_state.Settings, session.Id),
-            null,
-            saved?.LoudnessNormalizationOverride,
-            saved?.SmoothTrackTransitionsOverride,
-            saved?.InterTrackSilenceMillisecondsOverride,
-            target: ItemPlaybackOptionsTarget.Session,
-            pausePlaybackWhenLeavingPlayerOverride:
-                saved?.PausePlaybackWhenLeavingPlayerOverride,
-            globalPausePlaybackWhenLeavingPlayer:
-                _state.Settings.PausePlaybackWhenLeavingPlayer,
-            // WiiM to autonomiczny odtwarzacz sieciowy - wyjscie z jego
-            // kontrolera NIGDY nie zatrzymuje muzyki w pokoju, wiec ta pozycja
-            // bylaby obietnica bez pokrycia.
-            showPlayerExitPauseOption:
-                !string.Equals(session.Id, "wiim", StringComparison.Ordinal),
-            // ZGLOSZENIE Michala 18.09.2026: sesja, ktorej wyjscie nie
-            // przetwarza dzwieku (Spotify), nie moze obiecywac normalizacji,
-            // lagodnych przejsc ani ciszy miedzy nagraniami.
-            showAudioProcessingOptions: dspSupported,
-            showPlaybackRateOption: rateSupported)
+        // Ta sama regula tworzenia i zapisu, ktorej uzywaja glowne Ustawienia
+        // przy wyborze sesji z listy. Kopia tego kodu w Ustawieniach dalaby dwa
+        // zachowania rozjezdzajace sie przy kazdej poprawce.
+        if (!SessionPlaybackOptionsEditor.Describe(session.Id).HasOptions)
         {
-            Owner = this
-        };
+            Announce($"Sesja {session.DisplayName} nie ma konfigurowalnych opcji odtwarzania w AMC");
+            RestoreItemActionFocus();
+            return;
+        }
+        var dialog = SessionPlaybackOptionsEditor.CreateDialog(
+            _state.Settings,
+            session.Id,
+            session.DisplayName);
+        dialog.Owner = this;
         if (dialog.ShowDialog() != true)
         {
             RestoreItemActionFocus();
             return;
         }
 
-        ResumePositionPolicy.SetSessionMode(
-            _state.Settings,
-            session.Id,
-            dialog.SelectedResumePositionMode);
+        var overrides = SessionPlaybackOptionsEditor.Apply(_state.Settings, session.Id, dialog);
 
-        var overrides = new SessionPlaybackAudioOverrides
-        {
-            // Gdy okno nie pokazalo pol DSP (Spotify - wyjscie uslugi nie
-            // przechodzi przez nasz lancuch), zapisane wczesniej wybory zostaja
-            // nietkniete. Inaczej otwarcie i zapisanie opcji sesji wymazalo by
-            // je bez ostrzezenia.
-            LoudnessNormalizationOverride = dspSupported
-                ? dialog.SelectedLoudnessNormalizationOverride
-                : SpotifySessionAudioOverrides(session.Id)?.LoudnessNormalizationOverride,
-            SmoothTrackTransitionsOverride = dspSupported
-                ? dialog.SelectedSmoothTrackTransitionsOverride
-                : SpotifySessionAudioOverrides(session.Id)?.SmoothTrackTransitionsOverride,
-            InterTrackSilenceMillisecondsOverride = dspSupported
-                ? dialog.SelectedInterTrackSilenceMillisecondsOverride
-                : SpotifySessionAudioOverrides(session.Id)?.InterTrackSilenceMillisecondsOverride,
-            // Gdy okno nie pokazalo tej pozycji (WiiM), nie wolno zetrzec
-            // wcześniejszego wyboru uzytkownika - zostawiamy zapisany.
-            PausePlaybackWhenLeavingPlayerOverride =
-                string.Equals(session.Id, "wiim", StringComparison.Ordinal)
-                    ? saved?.PausePlaybackWhenLeavingPlayerOverride
-                    : dialog.SelectedPausePlaybackWhenLeavingPlayerOverride
-        };
-
-        // Pusty wpis usuwamy, zeby w zapisanych ustawieniach nie zostawaly
-        // wartosci nieodrozninalne od braku decyzji uzytkownika.
-        if (overrides.IsEmpty)
-        {
-            _state.Settings.Audio.OverridesBySession.Remove(session.Id);
-        }
-        else
-        {
-            _state.Settings.Audio.OverridesBySession[session.Id] = overrides;
-        }
-
-        if (session.HasCurrentItem)
-        {
-            _localOutput.ConfigureAudioProcessing(
-                GetEffectiveLocalAudioSettings(session.CurrentItem));
-        }
+        if (session.HasCurrentItem && session.Id == "local")
+            _localOutput.ConfigureAudioProcessing(GetEffectiveLocalAudioSettings(session.CurrentItem));
+        else if (session.HasCurrentItem && session.Id == "podcasts")
+            _podcastOutput.ConfigureAudioProcessing(GetEffectivePodcastAudioSettings(session.CurrentItem));
 
         var persisted = QueueStateSave(announceFailure: true);
         UpdatePlaybackStatusBar();
@@ -4623,12 +4619,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Announce(
                 $"Zapisano opcje sesji: {session.DisplayName}. "
-                + FormatAudioOverrides(
-                    overrides.LoudnessNormalizationOverride,
-                    overrides.SmoothTrackTransitionsOverride,
-                    overrides.InterTrackSilenceMillisecondsOverride)
-                + "; "
-                + PlayerExitPausePolicy.DescribeSessionMode(_state.Settings, session.Id));
+                + SessionPlaybackOptionsEditor.DescribeSession(_state.Settings, session.Id, overrides));
         }
         RestoreItemActionFocus();
     }
@@ -6384,7 +6375,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && ActionItems.Count == 1
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-        FileActionsSeparator.Visibility = local || radio || podcasts || wiiM || tidal ? Visibility.Visible : Visibility.Collapsed;
+        OpenStreamMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        FileActionsSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        FileSettingsSeparator.Visibility = local || radio || podcasts || wiiM || tidal || _sessions.Current.Id == "spotify"
+            ? Visibility.Visible : Visibility.Collapsed;
         var collectionSorting = CurrentViewSupportsCollectionSorting();
         var localLibraryLayouts = local && !collectionSorting;
         FoldersViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
@@ -8076,9 +8070,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             episode.IsInQueue = item.IsInQueue;
             episode.IsPlayNext = item.IsPlayNext;
             subscriptionsById.TryGetValue(episode.SubscriptionId, out var parentSubscription);
+            // TA SAMA polityka co przy odtwarzaniu (ShouldRememberPodcastPosition):
+            // bez _state.Settings pomijalismy warstwe sesji Podcasty, wiec
+            // "Zawsze od poczatku" nie usuwalo zapisanych pozycji odcinkow
+            // innych niz biezacy i po restarcie AMC wracaly.
             episode.ResumePositionTicks = PodcastPlaybackSettingsResolver.ShouldRememberPosition(
                     episode,
-                    parentSubscription)
+                    parentSubscription,
+                    _state.Settings)
                 ? Math.Max(
                     0,
                     session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
@@ -9547,7 +9546,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return item.Kind == MediaItemKind.Episode
             && PodcastPlaybackSettingsResolver.ShouldRememberPosition(
                 episode,
-                FindPodcastSubscriptionSettings(item));
+                FindPodcastSubscriptionSettings(item),
+                _state.Settings);
     }
 
     private double? GetPodcastPlaybackRateOverride(MediaItem item) =>
@@ -11521,6 +11521,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return new CommandExecutionResult(true);
         }
         var sessionBeforeCommand = _sessions.Current;
+        // ZWYKLE wlaczenie czegos przez uzytkownika jest NOWSZA decyzja niz
+        // czekajace pobranie albumu presetu.
+        InvalidatePendingSpotifyPresetPlaybackForUserCommand(commandId);
         if (commandId == CommandIds.ActivateSelected
             && !_playerViewActive
             && !_preservePreparedPlaybackContext
@@ -13729,6 +13732,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.OpenOnWiiM);
             return;
         }
+        if (TryPlayTrackInTidalDesktop(_sessions.Current, item, null, _currentView))
+            return;
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && item.ExternalId is { Length: > 0 })
         {
@@ -13738,16 +13743,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
 
-            // Utwor TIDALa oddajemy oryginalnemu programowi: wlasny silnik
-            // dostaje z TIDALa tylko 30-sekundowa probke, a TIDAL desktop gra
-            // caly utwor w jakosci ustawionej przez uzytkownika.
-            if (item.Kind == MediaItemKind.Track)
-            {
-                // Podajemy CALA widoczna liste w jej kolejnosci, zeby nastepny
-                // i poprzedni szly po niej, a nie po kolejce TIDALa.
-                PlayTrackInTidalDesktop(item, CurrentTidalTrackListInOrder(), _currentView);
-                return;
-            }
         }
         // ZGLOSZENIE Michala 18.09.2026: "enter na albumie srednio dziala, cos mi
         // strzalka w prawo odtworzyla".  Przyczyna: sesja Spotify NIE MIALA tu
@@ -13775,6 +13770,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)
         {
             var session = _sessions.Current;
+            // ZWYKLY Enter na utworze jest NOWSZA decyzja niz czekajace
+            // pobranie albumu presetu.
+            InvalidatePendingSpotifyPresetPlaybackForUserIntent();
             var opensFromQueue = string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
             PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)

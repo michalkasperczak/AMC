@@ -15,6 +15,27 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `OpenedSearchResultLibraryTests`: rzeczywiste okno wyszukiwania, oba ustawienia dla trzech usług, odróżnienie rozpoczęcia od pauzy i odmowy. Sieć zastąpiona transportem testowym, dane i integracja pulpitu odizolowane.
 - To kod kandydata, nie opis zainstalowanego wydania.
 
+## Uzupełnienie robocze: zakres menu sesji
+
+- `Windows/MainWindow.xaml`: „Zapisane podcasty Spotify” przeniesione do Widok, z zachowaniem handlera i Ctrl+Alt+O; nazwane pole strumienia i separator przed Ustawieniami.
+- `Windows/MainWindow.xaml.cs`, `UpdateFileMenuForCurrentSession`: zwykły strumień widoczny tylko w Radiu internetowym; brak pustych i podwójnych separatorów w pozostałych sesjach.
+- `Windows.SmokeTests/SessionMenuScopeTests.cs`: rzeczywiste menu WPF wszystkich sesji, rodzic pozycji podcastów, widoczność, separatory oraz brak skrótu w nazwie UIA; runner `--session-menu-scope`.
+
+## Uzupełnienie robocze: presety i powtórne uruchomienie
+
+- `Windows/MainWindow.xaml.cs`, `ActivatePreset`: bieżący utwór/stacja/odcinek zachowuje kolejkę, a pauza wznawia pozycję. Wyjątek TIDAL jest kierowany do oryginalnego programu, nie do SDK próbek.
+- `Windows/MainWindow.TidalDesktop.cs`, `TryPlayTrackInTidalDesktop`: wspólna bramka Enter/preset. Potwierdzone ponowienie bieżącego utworu nie nadpisuje kontekstu presetów. Skrót w tle nie otwiera pytania o restart.
+- `Windows/Services/TidalDesktopController.cs`, `ITidalDesktopPlayback`: granica sterowania używana również przez izolowane testy okna; wynik odróżnia nowy start od już załadowanego utworu.
+- `Core/Tidal/TidalDesktopPlaybackPlan.cs`: aktualny wiersz bez przycisku może korzystać ze stopki tylko po zgodności identyfikatorów. Play wznawia, Pause nie jest klikane; brak kontrolki nie oznacza odmowy usługi.
+- Testy: `TidalPresetRoutingTests`, `TidalDesktopPlaybackTests` oraz `tests/tidal-preset-dom.test.cjs`. Ten ostatni przyjmuje plik wyrażenia wyeksportowany przez runner Windows z `--tidal-track-expression <plik>` i wykonuje je w Node na jawnym kontrakcie DOM; nie zastępuje próby oryginalnego TIDAL-a.
+
+## Uzupełnienie robocze: preset albumu Spotify
+
+- `Windows/MainWindow.SpotifyAlbumPreset.cs`: odtwarzanie albumu z presetu przez istniejące pobieranie i rejestrację kontenera, bez nawigacji do jego widoku; filtr grywalności, potwierdzenie nazwy oraz wznowienie już aktywnego albumu.
+- `Windows/MainWindow.xaml.cs`, `ActivatePreset`: osobna gałąź albumu Spotify i unieważnienie starszego pobrania albumu przez nowy preset utworu.
+- `Windows/MainWindow.SpotifyBrowse.cs`: domyślnie nieaktywne punkty podstawienia HTTP i tokenu do testów, bez zastępowania parsowania klienta. Po scaleniu istnieją oba szwy: gotowy transport i token (`SpotifyHttpClientForTests`, `SpotifyAccessTokenForTests`) oraz ich odpowiedniki fabryczne (`SpotifyApiHttpClientFactoryForTests`, `SpotifyAccessTokenFactoryForTests`) dla testów wielu kolejnych pobrań na wspólnym handlerze.
+- `Windows.SmokeTests/SpotifyAlbumPresetTests.cs`: rzeczywisty handler, jawne atrapy HTTP/dźwięku, powtórzenie, pauza, brak grywalnych utworów oraz spóźnione odpowiedzi. Nie zastępuje pomiaru rzeczywistego fokusu, mowy NVDA ani konta Spotify.
+
 ## Uzupełnienie: konto Spotify, alfa 398
 
 - `Windows/MainWindow.xaml.cs`: Ctrl+F5 otwiera bezpośrednio `SpotifyAccountWindow`, niezależnie od aktywnego silnika.
@@ -56,6 +77,15 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - `Windows/MainWindowShortcutRouter.cs`: wspólna decyzja Alt+D; `Core/Presentation/CommandPaletteSearch.cs`: skróty widoczne w pomocy i palecie.
 - Testy: `SpotifySingleSessionEngineTests`, `SessionSlotGapsAndEngineTests`, `SpotifyStartupEngineTests`, `SpotifyDescriptionAndSlotUiTests`, `SpotifyPodcastParentTests`, `SpotifyMigrationReviewTests` oraz `SpotifyEngineSettingsTests`.
 - Stan odbioru, w tym otwarta kontrola przywracania kolejki: `PLAN-16-09-2026.md`. Ta sekcja opisuje kod roboczy, nie opublikowane wydanie.
+
+## Uzupełnienie robocze: opcje każdej sesji z Ustawień
+
+- `Windows/SessionPlaybackOptionsEditor.cs`: wspólne możliwości, utworzenie okna i zapis opcji dla bezpośredniego Ctrl+Alt+Enter oraz sesji zaznaczonej w Ustawieniach.
+- `Windows/SettingsWindow.xaml(.cs)`: wybór sesji bez jej aktywacji, edycja na roboczej kopii, zewnętrzne Zapisz i Anuluj.
+- `Core/Podcasts/PodcastPlaybackSettingsResolver.cs`: pamięć odcinka → podcastu → jawna opcja sesji → dotychczasowe domyślne pamiętanie; przetwarzanie dźwięku uwzględnia sesję przed ustawieniami ogólnymi.
+- `MainWindow.CapturePodcastState` i `ShouldRememberPodcastPosition` stosują tę samą regułę; `ItemPlaybackOptionsWindow` opisuje rzeczywiste dziedziczenie.
+- Testy: `SessionOptionsInSettingsTests`, `PodcastSessionResumeCaptureTests` oraz przypadek niezależności podcastów od przełącznika lokalnych plików w Core.
+- To mapa kodu roboczego, nie potwierdzenie wydania. Odbiór prowadzi `PLAN-16-09-2026.md`.
 
 ## 1. Rozmiar i podział
 

@@ -49,6 +49,8 @@ public partial class SettingsWindow : Window
         ListFieldOrderList.ItemsSource = _mediaFieldRows;
         SessionOrderList.ItemsSource = _sessionOrderRows;
         LoadControls();
+        SessionOrderList.SelectionChanged += (_, _) => UpdateSessionPlaybackOptionsAvailability();
+        UpdateSessionPlaybackOptionsAvailability();
     }
 
     public PersistedState? ResultState { get; private set; }
@@ -753,6 +755,73 @@ public partial class SettingsWindow : Window
     }
     private void MoveSessionUp_Click(object sender, RoutedEventArgs e) => MoveSession(-1);
     private void MoveSessionDown_Click(object sender, RoutedEventArgs e) => MoveSession(1);
+
+    /// <summary>
+    /// Opcje odtwarzania ZAZNACZONEJ na liście sesji - te same, ktore daje
+    /// Ctrl+Alt+Enter w sesji biezacej.
+    ///
+    /// ZGLOSZENIE Michala 20.09.2026: dotad te opcje istnialy WYLACZNIE dla
+    /// sesji aktualnie wlaczonej. Zeby zmienic ustawienie innej sesji, trzeba
+    /// bylo sie na nia przelaczyc. Tutaj NIE przelaczamy sesji i niczego nie
+    /// odtwarzamy - edytujemy sam zapis w roboczej kopii ustawien.
+    ///
+    /// Zapis idzie do _workingState, nie do stanu rzeczywistego. Dzieki temu
+    /// zewnetrzne Anuluj tego okna cofa takze zmiane zatwierdzona w podoknie.
+    /// Wolanie MainWindow.ShowSessionPlaybackOptions zapisywaloby od razu i
+    /// zlamalo ten kontrakt.
+    /// </summary>
+    private void UpdateSessionPlaybackOptionsAvailability()
+    {
+        var row = SessionOrderList.SelectedItem as SessionOrderRow;
+        SessionPlaybackOptionsButton.IsEnabled = row is not null && SessionPlaybackOptionsEditor.Describe(row.SessionId).HasOptions;
+        SessionOrderStatus.Text = row is not null && !SessionPlaybackOptionsButton.IsEnabled
+            ? $"Sesja {row.DisplayName} nie ma konfigurowalnych opcji odtwarzania w AMC"
+            : "Gotowy do zmiany kolejności lub opcji sesji";
+    }
+
+    private void SessionPlaybackOptions_Click(object sender, RoutedEventArgs e)
+    {
+        if (SessionOrderList.SelectedItem is not SessionOrderRow row)
+        {
+            SessionOrderStatus.Announce("Najpierw zaznacz sesję na liście");
+            SessionOrderList.Focus();
+            Keyboard.Focus(SessionOrderList);
+            return;
+        }
+
+        if (!SessionPlaybackOptionsEditor.Describe(row.SessionId).HasOptions)
+        {
+            UpdateSessionPlaybackOptionsAvailability();
+            return;
+        }
+        // Podokno pokazuje bieżący wybór ogólny, również przed zewnętrznym Zapisz.
+        _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
+        _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        var dialog = SessionPlaybackOptionsEditor.CreateDialog(
+            _workingState.Settings,
+            row.SessionId,
+            row.DisplayName);
+        dialog.Owner = this;
+        if (dialog.ShowDialog() == true)
+        {
+            var overrides = SessionPlaybackOptionsEditor.Apply(
+                _workingState.Settings, row.SessionId, dialog);
+            SessionOrderStatus.Announce(
+                $"Opcje sesji {row.DisplayName}: "
+                + SessionPlaybackOptionsEditor.DescribeSession(
+                    _workingState.Settings, row.SessionId, overrides)
+                + ". Zmiana zostanie zapisana po naciśnięciu Zapisz w oknie Ustawień.");
+        }
+        else
+        {
+            SessionOrderStatus.Announce($"Anulowano opcje sesji {row.DisplayName}");
+        }
+
+        // Fokus wraca na przycisk, z ktorego wyszlo podokno - tak jak w innych
+        // miejscach tego okna. Zaznaczenie na liscie zostaje nietkniete.
+        SessionPlaybackOptionsButton.Focus();
+        Keyboard.Focus(SessionPlaybackOptionsButton);
+    }
 
     private void RestoreSessionOrder_Click(object sender, RoutedEventArgs e)
     {

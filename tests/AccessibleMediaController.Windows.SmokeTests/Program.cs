@@ -161,14 +161,59 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--session-menu-scope", StringComparer.Ordinal))
+{
+    try { SessionMenuScopeTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--tidal-presets", StringComparer.Ordinal))
+{
+    try { TidalPresetRoutingTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--podcast-session-resume-capture", StringComparer.Ordinal))
+{
+    try { PodcastSessionResumeCaptureTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--session-options-consumer", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunConsumer();
+    return 0;
+}
+if (args.Contains("--session-options-headless", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunHeadless();
+    return 0;
+}
+if (args.Contains("--session-options-settings", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.Run();
+    return 0;
+}
+if (args.Length == 2 && args[0] == "--tidal-track-expression")
+{
+    File.WriteAllText(args[1], AccessibleMediaController.Core.Tidal.TidalDesktopPlaybackPlan.PlayTrackExpression("Hard Times"));
+    return 0;
+}
 if (args.Contains("--spotify-queue-lifecycle", StringComparer.Ordinal))
 {
     try { SpotifyQueueLifecycleTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--preset-announcements", StringComparer.Ordinal))
+{
+    try { LocalFolderPresetAnnouncementTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--queue-remote-copy", StringComparer.Ordinal))
 {
     try { QueueRemoteCopyConsistencyTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--spotify-album-preset", StringComparer.Ordinal))
+{
+    try { SpotifyAlbumPresetTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
 if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
@@ -275,8 +320,13 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
     ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
+    ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
+    ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
+    ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),
+    ("Zapis Podcastów stosuje politykę pamięci pozycji sesji", PodcastSessionResumeCaptureTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
+    ("Zapowiedz presetu folderu lokalnego bez numeru presetu", LocalFolderPresetAnnouncementTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),
         ("Kolejnosc odczytu w okienkach", AccessibleDialogOrderTests.Run),
     ("TIDAL Playlist Picker Accessibility", TestTidalPlaylistPickerAccessibility),
@@ -368,6 +418,7 @@ var tests = new (string Name, Action Test)[]
     ("Jedna sesja Spotify i silnik z zapisu w rzeczywistym oknie", SpotifyStartupEngineTests.Run),
     ("Cykl zycia kolejki Spotify: zmiana, zapis, restart, pierwsza synchronizacja", SpotifyQueueLifecycleTests.Run),
     ("Druga kopia kolejki zgodna ze snapshotem Capture w rzeczywistym EnsureQueueOrder", QueueRemoteCopyConsistencyTests.Run),
+    ("Preset albumu Spotify gra album bez ruszania listy", SpotifyAlbumPresetTests.Run),
     ("Alt+D w obu handlerach i numery sesji z dziurami w UI", SpotifyDescriptionAndSlotUiTests.Run),
     ("F11 otwiera aktualizacje z głównego okna", ApplicationUpdateRoutingTests.Run),
     ("Dostępne okno aktualizacji AMC", ApplicationUpdateWindowTests.Run),

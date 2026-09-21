@@ -34,6 +34,7 @@ public enum TidalDesktopReadiness
 public sealed class TidalDesktopPlayResult
 {
     public bool Success { get; init; }
+    public bool WasAlreadyCurrent { get; init; }
 
     /// <summary>Zdanie dla uzytkownika. Nigdy puste - operacja nie moze konczyc sie cisza.</summary>
     public string Message { get; init; } = string.Empty;
@@ -57,7 +58,15 @@ public sealed class TidalDesktopPlayResult
 /// reke. TIDAL wstaje ok. 20 sekund, a uzytkownik moze wlasnie czegos sluchac -
 /// dlatego brak portu sterowania konczy sie pytaniem, nie restartem.
 /// </summary>
-public sealed class TidalDesktopController
+public interface ITidalDesktopPlayback
+{
+    Task<TidalDesktopPlayResult> PlayAsync(
+        TidalDesktopPlayRequest request,
+        bool restartConsent = false,
+        CancellationToken token = default);
+}
+
+public sealed class TidalDesktopController : ITidalDesktopPlayback
 {
     private const string ProcessName = "TIDAL";
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(45);
@@ -201,6 +210,7 @@ public sealed class TidalDesktopController
         return new TidalDesktopPlayResult
         {
             Success = true,
+            WasAlreadyCurrent = TidalDesktopPlaybackPlan.IsCurrentItemSuccess(answer),
             Message = request.Kind == TidalDesktopPlayKind.Track
                 ? $"{request.DisplayName}: odtwarzanie w oryginalnym TIDALu"
                 : $"{request.DisplayName}: odtwarzanie całości w oryginalnym TIDALu"

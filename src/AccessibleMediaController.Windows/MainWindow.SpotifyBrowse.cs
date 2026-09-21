@@ -71,10 +71,38 @@ public partial class MainWindow
     /// </summary>
     internal HttpClient? SpotifyHttpClientForTests { get; set; }
 
-    // Token podany wprost przez test UI: zadnego czytania poswiadczen konta.
+    /// <summary>
+    /// Szew pomiarowy: testy podstawiaja FABRYKE transportu HTTP, a nie metode
+    /// pobierania. Klient Spotify, parsowanie odpowiedzi i cala droga pobierania
+    /// zostaja produkcyjne - inaczej test nie mierzylby tego, co dziala u
+    /// uzytkownika. Fabryka jest potrzebna obok gotowego <see
+    /// cref="SpotifyHttpClientForTests"/>, bo <c>SpotifyApiClient</c> NIE
+    /// zamyka podanego transportu tylko wtedy, gdy sam go nie stworzyl: test
+    /// wielu kolejnych pobran potrzebuje SWIEZEGO HttpClient na ten sam
+    /// handler, a test jednego przebiegu - jednego, wspolnego.
+    /// </summary>
+    internal Func<HttpClient>? SpotifyApiHttpClientFactoryForTests { get; set; }
+
+    /// <summary>
+    /// Token podany wprost przez test UI: zadnego czytania poswiadczen konta.
+    /// Wariant funkcyjny obsluguje testy, ktore token wyliczaja przy kazdym
+    /// zapytaniu; oba szwy sa rownowazne i produkcja zostawia je null.
+    /// </summary>
     internal string? SpotifyAccessTokenForTests { get; set; }
 
-    private SpotifyApiClient CreateSpotifyApiClient() => new(SpotifyHttpClientForTests);
+    internal Func<string>? SpotifyAccessTokenFactoryForTests { get; set; }
+
+    /// <summary>
+    /// Token dla testu, niezaleznie od uzytego szwu. Produkcyjnie null.
+    /// </summary>
+    private string? ResolveSpotifyAccessTokenForTests() =>
+        SpotifyAccessTokenForTests
+            ?? (SpotifyAccessTokenFactoryForTests is { } factory ? factory() : null);
+
+    private SpotifyApiClient CreateSpotifyApiClient() =>
+        SpotifyApiHttpClientFactoryForTests is { } httpFactory
+            ? new SpotifyApiClient(httpFactory())
+            : new SpotifyApiClient(SpotifyHttpClientForTests);
 
     private sealed record SpotifyContainerViewState(
         MediaItem Container,
@@ -511,7 +539,7 @@ public partial class MainWindow
         // Test UI podaje token JAWNIE, zeby nie dotykac danych konta ani sieci
         // autoryzacji. Produkcyjnie ta wlasciwosc jest null i token pochodzi z
         // normalnej sciezki poswiadczen.
-        var accessToken = SpotifyAccessTokenForTests;
+        var accessToken = ResolveSpotifyAccessTokenForTests();
         if (accessToken is null)
         {
             var credentials = await _spotifyIntegration

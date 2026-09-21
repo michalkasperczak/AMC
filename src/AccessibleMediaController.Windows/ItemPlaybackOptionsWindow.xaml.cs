@@ -58,7 +58,12 @@ public partial class ItemPlaybackOptionsWindow : Window
         // IPlaybackAudioProcessingOutput, wiec zapisane "wlaczone" niczego nie
         // wlaczalo. Te dwa przelaczniki pozwalaja ukryc pola bez pokrycia.
         bool showAudioProcessingOptions = true,
-        bool showPlaybackRateOption = true)
+        bool showPlaybackRateOption = true,
+        // Sesja Podcasty ma WLASNY domysl pamieci pozycji (pamietaj), nie
+        // znacznik plikow lokalnych. Bez tego okno obiecywaloby zgodnosc z
+        // ustawieniem globalnym, ktorego ta sesja nie czyta.
+        string? resumeInheritedLabelOverride = null,
+        string? resumeInheritedHelpText = null)
     {
         InitializeComponent();
         var folderTarget = target == ItemPlaybackOptionsTarget.LocalFolder;
@@ -239,8 +244,10 @@ public partial class ItemPlaybackOptionsWindow : Window
             AutomationProperties.SetHelpText(
                 ResumeModeBox,
                 podcastTarget
-                    ? "Wybierz ustawienie dla wszystkich odcinków tego podcastu albo ustawienie globalne."
-                    : "Wybierz ustawienie dla tego odcinka albo dziedziczenie z podcastu i ustawienia globalnego.");
+                    ? "Wybierz ustawienie dla wszystkich odcinków tego podcastu albo dziedziczenie "
+                      + "z sesji Podcasty, która domyślnie pamięta pozycję odtwarzania."
+                    : "Wybierz ustawienie dla tego odcinka albo dziedziczenie z podcastu i sesji "
+                      + "Podcasty, która domyślnie pamięta pozycję odtwarzania.");
             AutomationProperties.SetHelpText(
                 LoudnessNormalizationBox,
                 podcastTarget
@@ -301,10 +308,14 @@ public partial class ItemPlaybackOptionsWindow : Window
         [
             new ResumeChoice(ResumePositionMode.Remember, "Pamiętaj pozycję odtwarzania"),
             new ResumeChoice(ResumePositionMode.StartFromBeginning, "Zawsze od początku"),
-            new ResumeChoice(ResumePositionMode.Inherit, ResumeInheritedLabel(target))
+            new ResumeChoice(
+                ResumePositionMode.Inherit,
+                resumeInheritedLabelOverride ?? ResumeInheritedLabel(target))
         ];
         ResumeModeBox.ItemsSource = resumeChoices;
         ResumeModeBox.SelectedItem = resumeChoices.First(choice => choice.Value == resumePositionMode);
+        if (!string.IsNullOrWhiteSpace(resumeInheritedHelpText))
+            AutomationProperties.SetHelpText(ResumeModeBox, resumeInheritedHelpText);
 
         var rateChoices = new List<RateChoice>
         {
@@ -516,7 +527,8 @@ public partial class ItemPlaybackOptionsWindow : Window
     {
         ItemPlaybackOptionsTarget.LocalFolder => "Zgodnie z folderem nadrzędnym, sesją lub ustawieniem globalnym",
         ItemPlaybackOptionsTarget.LocalItem => "Zgodnie z ustawieniem folderu, sesji lub globalnym",
-        ItemPlaybackOptionsTarget.PodcastEpisode => "Zgodnie z ustawieniem podcastu, sesji lub globalnym",
+        ItemPlaybackOptionsTarget.PodcastEpisode => "Zgodnie z ustawieniem podcastu lub sesji Podcasty",
+        ItemPlaybackOptionsTarget.Podcast => "Zgodnie z ustawieniem sesji Podcasty",
         ItemPlaybackOptionsTarget.SpotifyItem => "Zgodnie z ustawieniem albumu, podcastu, sesji Spotify lub globalnym",
         ItemPlaybackOptionsTarget.SpotifyContainer => "Zgodnie z ustawieniem sesji Spotify lub globalnym",
         ItemPlaybackOptionsTarget.Session => "Zgodnie z ustawieniem globalnym",
