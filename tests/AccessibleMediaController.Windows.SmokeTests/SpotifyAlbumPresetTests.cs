@@ -51,6 +51,7 @@ internal static class SpotifyAlbumPresetTests
         InnyKontekstNiePolykaNowegoAlbumu();
         DwaPresetyPodRzadGrajaTylkoNowszy();
         CzekajacyAlbumNiePrzebijaPresetuUtworu();
+        CzekajacyAlbumNiePrzebijaPowtorzonegoPresetuUtworu();
         CzekajacyAlbumNiePrzebijaPowtorzonegoAlbumu();
         CzekajacyAlbumNiePrzebijaEnteraNaWierszu();
         CzekajacyAlbumNiePrzebijaNastepnegoIPoprzedniego();
@@ -60,7 +61,8 @@ internal static class SpotifyAlbumPresetTests
             "OK: preset albumu Spotify - odtwarzanie pierwszego GRYWALNEGO utworu, sama nazwa albumu w mowie,"
             + " nienaruszony widok/zaznaczenie, kolejnosc albumu w kontekscie, powtorzenie bez restartu i bez sieci,"
             + " wznowienie z pauzy, inny kontekst gra normalnie, spozniona odpowiedz nie przebija presetu utworu"
-            + " ani powtorzonego albumu, pusty album i odmowa, niezmienione presety utworu i playlisty");
+            + " ani POWTORZONEGO presetu utworu, ani powtorzonego albumu, pusty album i odmowa,"
+            + " niezmienione presety utworu i playlisty");
     }
 
     // ---------- Mowa: sama nazwa albumu ----------
@@ -394,6 +396,85 @@ internal static class SpotifyAlbumPresetTests
                 $"Po spoznionej odpowiedzi gra \"{session.CurrentItem.ExternalId}\" zamiast utworu z presetu.");
             Check(string.Join(",", session.PlaybackContextItemIds) == kontekstPoUtworze,
                 "Spozniona odpowiedz albumu przebudowala kontekst ustawiony presetem utworu.");
+        });
+    }
+
+    /// <summary>
+    /// POLACZENIE dwoch juz mierzonych spraw, ktorego zaden z osobnych testow
+    /// nie pokrywa: album B czeka na siec, a uzytkownik wciska POWTORZONY
+    /// preset JUZ GRAJACEGO UTWORU (nie albumu).
+    ///
+    /// Osobno mierzymy tylko ZIMNY preset utworu
+    /// (<c>CzekajacyAlbumNiePrzebijaPresetuUtworu</c>) i powtorzony preset ALBUMU
+    /// (<c>CzekajacyAlbumNiePrzebijaPowtorzonegoAlbumu</c>). Powtorzony preset
+    /// UTWORU idzie TRZECIA droga: ogolna galaz <c>ActivatePreset</c> w
+    /// MainWindow.xaml.cs ma WLASNE wczesne wyjscie dla pozycji, ktora juz jest
+    /// biezaca i gra (<c>session.CurrentItem.Id == item.Id</c>). Zimny preset
+    /// utworu tego wyjscia NIE dotyka, bo utwor jeszcze nie gra.
+    ///
+    /// Dlatego <c>InvalidatePendingSpotifyPresetPlayback()</c> musi stac PRZED
+    /// tym wyjsciem. Gdy stoi PONIZEJ, powtorzenie wraca, nie podbiwszy
+    /// licznika, <c>_spotifyPresetPlaybackVersion</c> zostaje rowny temu, ktory
+    /// zlapal album B, i spozniona odpowiedz B przestawia grajacy utwor A -
+    /// mimo ze uzytkownik wlasnie potwierdzil, ze chce sluchac A.
+    /// <c>_spotifyNavigationVersion</c> na to nie pomaga: preset utworu go nie
+    /// rusza.
+    /// </summary>
+    private static void CzekajacyAlbumNiePrzebijaPowtorzonegoPresetuUtworu()
+    {
+        WOknie((window, session, output) =>
+        {
+            // Preset UTWORU A: zwykla pozycja z kolekcji, ogolna droga
+            // ActivatePreset. Pierwsze wcisniecie jest ZIMNE - utwor zaczyna grac.
+            var utwor = session.Items.First(item => item is { Kind: MediaItemKind.Track, IsAvailable: true });
+            var entries = Entries(window, session.Id);
+            entries.RemoveAll(entry => entry.Slot == 8);
+            entries.Add(new SessionPresetEntry
+            {
+                Slot = 8, TargetId = utwor.Id, TargetKind = "track", TargetTitle = utwor.Title
+            });
+
+            Wykonaj(window, 8);
+            Drain(window.Dispatcher);
+            Check(output.Played.Count == 1 && output.Played[0].Id == utwor.Id,
+                $"Przygotowanie: zimny preset utworu nie zagral ({output.Played.Count} wywolan).");
+            Check(session.IsPlaying, "Przygotowanie: po presecie utworu sesja nie gra.");
+
+            // Album B rusza i WISI na sieci (oba zapytania: naglowek i utwory).
+            var wolny = new AlbumTracksHandler { Gate = new TaskCompletionSource(), TrackPrefix = "POZNY" };
+            Przypisz(window, session, slot: 6, albumId: "6DrugiAlbum", itemId: "spotify:album:6DrugiAlbum");
+            Szew(window, wolny);
+            Wykonaj(window, 6);
+            Drain(window.Dispatcher);
+
+            // POWTORZONY preset grajacego utworu A - wczesne wyjscie ogolnej
+            // galezi ActivatePreset. To jest NOWSZA decyzja uzytkownika.
+            Wykonaj(window, 8);
+            Drain(window.Dispatcher);
+
+            var zagranychPrzed = output.Played.Count;
+            var granyPrzed = session.CurrentItem.Id;
+            var kontekstPrzed = string.Join(",", session.PlaybackContextItemIds);
+            Check(zagranychPrzed == 1,
+                $"Przygotowanie: powtorzony preset utworu przestawil odtwarzanie ({zagranychPrzed} wywolan) "
+                + "- mial trafic we wczesne wyjscie dla juz grajacej pozycji.");
+            Check(granyPrzed == utwor.Id,
+                "Przygotowanie: po powtorzonym presecie utworu gra co innego niz utwor A.");
+
+            // Dopiero teraz siec oddaje OBIE odpowiedzi albumu B naraz.
+            wolny.Gate!.SetResult();
+            for (var i = 0; i < 60; i++) { Thread.Sleep(25); Drain(window.Dispatcher); }
+
+            Check(output.Played.Count == zagranychPrzed,
+                $"Czekajacy album B przebil POWTORZONY preset UTWORU A "
+                + $"({output.Played.Count - zagranychPrzed} dodatkowych wywolan odtwarzania).");
+            Check(session.CurrentItem.Id == granyPrzed,
+                $"Po spoznionej odpowiedzi albumu B gra \"{session.CurrentItem.ExternalId}\" "
+                + "zamiast dalej utworu A potwierdzonego powtorzonym presetem.");
+            Check(session.IsPlaying, "Spozniona odpowiedz albumu B zatrzymala granie utworu A.");
+            Check(string.Join(",", session.PlaybackContextItemIds) == kontekstPrzed,
+                "Czekajacy album B przebudowal kontekst ustawiony presetem utworu A: "
+                + $"przed \"{kontekstPrzed}\", po \"{string.Join(",", session.PlaybackContextItemIds)}\".");
         });
     }
 
