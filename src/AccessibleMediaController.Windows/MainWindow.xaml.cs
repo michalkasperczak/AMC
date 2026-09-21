@@ -6499,29 +6499,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         NowPlayingViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         FavoritesViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         PlaylistsViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
+        // Skrotu NIE doklejamy do AutomationProperties.Name: czytnik czyta go sam
+        // z AcceleratorKey, wiec doklejony wychodzil drugi raz ("Ctrl+P ... Ctrl+ P").
+        // Zgloszenie Michala 19.09.2026: normalizacja w konstruktorze czyscila
+        // nazwy poprawnie, a to odswiezenie wpisywalo skrot z powrotem.
         PlaylistsViewMenuItem.Header = "Playlisty";
-        PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
-        AutomationProperties.SetName(
-            PlaylistsViewMenuItem,
-            "Playlisty, Ctrl+P");
+        SetMenuItemNameAndShortcut(PlaylistsViewMenuItem, "Playlisty", "Ctrl+P");
         var presetsAvailable = CurrentSessionSupportsPresets();
         RadioPresetsViewMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
         RadioPresetsViewMenuItem.Header = wiiM ? "Presety urządzenia WiiM…" : "Presety…";
-        AutomationProperties.SetName(
+        SetMenuItemNameAndShortcut(
             RadioPresetsViewMenuItem,
             wiiM
-                ? "Presety urządzenia WiiM, Ctrl+Alt+P"
-                : $"Presety, {_sessions.Current.DisplayName}, Ctrl+Alt+P");
+                ? "Presety urządzenia WiiM"
+                : $"Presety, {_sessions.Current.DisplayName}",
+            "Ctrl+Alt+P");
         RadioAssignPresetMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
         RadioAssignPresetMenuItem.Header = wiiM
             ? "Przypisz skrót AMC do gotowego presetu WiiM…"
             : "Utwórz lub przypisz preset…";
-        RadioAssignPresetMenuItem.InputGestureText = "Ctrl+Alt+Shift+P";
-        AutomationProperties.SetName(
+        SetMenuItemNameAndShortcut(
             RadioAssignPresetMenuItem,
             wiiM
-                ? "Przypisz skrót AMC do gotowego presetu WiiM, Ctrl+Alt+Shift+P"
-                : $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}");
+                ? "Przypisz skrót AMC do gotowego presetu WiiM"
+                : $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}",
+            "Ctrl+Alt+Shift+P");
         AlbumsViewMenuItem.Visibility = radio || podcasts || wiiM ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio || wiiM ? Visibility.Collapsed : Visibility.Visible;
         HistoryViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
@@ -23777,11 +23779,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerAudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        MenuAccessibility.SetPresentation(
-            PlayerAudioOutputDeviceMenuItem,
-            wiiMSession
-                ? "Wybierz aktywne urządzenie WiiM, Shift+A"
-                : $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
+        // Skrot idzie WYLACZNIE do AcceleratorKey/InputGestureText - dopisany do
+        // Name wychodzil u czytnika drugi raz ("Shift+A ... Shift+ A").
+        if (wiiMSession)
+        {
+            SetContextMenuItemPresentation(
+                PlayerAudioOutputDeviceMenuItem,
+                "Wybierz aktywne urządzenie WiiM",
+                "Shift+A");
+        }
+        else
+        {
+            MenuAccessibility.SetPresentation(
+                PlayerAudioOutputDeviceMenuItem,
+                $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
+        }
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         SetContextMenuItemPresentation(
             PlayerPlayPauseMenuItem,
@@ -24082,6 +24094,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string shortcut)
     {
         MenuAccessibility.SetPresentation(menuItem, label);
+        menuItem.InputGestureText = shortcut;
+        AutomationProperties.SetAcceleratorKey(menuItem, shortcut);
+    }
+
+    /// <summary>
+    /// Ustawia nazwe dla czytnika i skrot, NIE ruszajac widocznej etykiety
+    /// (Header). Uzywane tam, gdzie widoczny napis ma wlasny kszalt z wielokropkiem,
+    /// a nazwa dla czytnika brzmi inaczej. Skrot idzie WYLACZNIE do
+    /// AcceleratorKey/InputGestureText: doklejony do Name czytnik wymawia dwa razy.
+    /// </summary>
+    private static void SetMenuItemNameAndShortcut(
+        MenuItem menuItem,
+        string accessibleName,
+        string shortcut)
+    {
+        AutomationProperties.SetName(menuItem, accessibleName);
         menuItem.InputGestureText = shortcut;
         AutomationProperties.SetAcceleratorKey(menuItem, shortcut);
     }

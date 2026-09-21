@@ -166,6 +166,11 @@ if (args.Contains("--session-menu-scope", StringComparer.Ordinal))
     try { SessionMenuScopeTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--dynamic-menu-shortcut-names", StringComparer.Ordinal))
+{
+    try { DynamicMenuShortcutNameTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--tidal-presets", StringComparer.Ordinal))
 {
     try { TidalPresetRoutingTests.Run(); return 0; }
@@ -321,6 +326,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
     ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
     ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
+    ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),
     ("Zapis Podcastów stosuje politykę pamięci pozycji sesji", PodcastSessionResumeCaptureTests.Run),
