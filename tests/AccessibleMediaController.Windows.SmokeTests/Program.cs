@@ -33,6 +33,11 @@ if (args.Length == 2 && args[0] == "--nvda-interop-host")
     NvdaBridgeSmokeTests.RunInteropHost(args[1]);
     return 0;
 }
+if (args.Contains("--reader-native-gestures", StringComparer.Ordinal))
+{
+    NativeReaderGesturePassThroughTests.Run();
+    return 0;
+}
 if (args.Contains("--nvda-bridge-smoke", StringComparer.Ordinal))
 {
     NvdaBridgeSmokeTests.Run();
@@ -410,7 +415,7 @@ var tests = new (string Name, Action Test)[]
     ("TimeShift: bezpieczne zatrzymanie i długie okno tempa", AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run),
     ("Spotify: trwały wybór odtwarzacza w ustawieniach", SpotifyEngineSettingsTests.Run),
     ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
-    ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
+    ("Natywne gesty czytnika nie uruchamiają poleceń AMC", NativeReaderGesturePassThroughTests.Run),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
@@ -6833,32 +6838,6 @@ static void TestPomocKontekstowaPodShiftF1()
     var pelny = ShortcutHelpCatalog.Create(profil, ustawienia).Select(s => s.Id).ToArray();
     Assert(pelny.Contains("podcasts") && pelny.Contains("library"),
         "Pelny spis skrotow musi dalej zawierac wszystkie sekcje.");
-}
-
-static void TestCzytnikStrzalkaWGoreCzytaCoLeci()
-{
-    // ZGLOSZENIE Michala 15.09.2026: "NVDA-w gore czyta to co w WiiM, czyli
-    // radio, piosenke odtwarzana, informacje".
-    //
-    // Pulapka: strzalki w gore/dol reguluja glosnosc. Z klawiszem czytnika
-    // musi zadzialac odczyt informacji, a NIE glosnosc - dlatego ten warunek
-    // stoi PRZED obsluga glosnosci.
-    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
-
-    Assert(okno.Contains("IsNativeScreenReaderModifierDown", StringComparison.Ordinal),
-        "Brak rozpoznawania klawisza czytnika ekranu.");
-
-    var pozycjaOdczytu = okno.IndexOf("CommandIds.CurrentBroadcastInformation)", StringComparison.Ordinal);
-    var pozycjaGlosnosci = okno.IndexOf("ResolvePlayerVolumeFromVirtualKey", StringComparison.Ordinal);
-    Assert(pozycjaOdczytu > 0 && pozycjaGlosnosci > 0,
-        "Nie znaleziono obslugi odczytu informacji albo glosnosci.");
-
-    // Odczyt informacji z klawiszem czytnika musi byc rozpatrywany zanim
-    // strzalka w gore zostanie potraktowana jako glosnosc.
-    var fragment = okno.Substring(0, pozycjaGlosnosci);
-    Assert(fragment.Contains("IsNativeScreenReaderModifierDown()", StringComparison.Ordinal)
-        && fragment.Contains("CommandIds.CurrentBroadcastInformation", StringComparison.Ordinal),
-        "Czytnik + strzalka w gore nadal trafia w regulacje glosnosci.");
 }
 
 static void TestZywaTransmisjaMaZapasDzwieku()

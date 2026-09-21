@@ -68,39 +68,14 @@ internal static class NvdaBridgeSmokeTests
             source.Contains("kb:control+windows+f5", StringComparison.Ordinal),
             "Global podcast refresh keeps its documented gesture");
 
-        // Modul aplikacji (Insert plus strzalka w gore) to trzecie miejsce,
-        // z ktorego wtyczka wola mostek. Bez tego sprawdzenia rozjazd nazw
-        // objawilby sie CISZA po nacisnieciu skrotu.
-        var appModuleFile = FindAddonFile("appModules", "accessiblemediacontroller.py");
-        if (appModuleFile is null)
-        {
-            Console.WriteLine("NVDA: pominieto sprawdzenie modulu aplikacji - brak zrodla obok testow.");
-            return;
-        }
+        Check(FindAddonFile("appModules", "accessiblemediacontroller.py") is null,
+            "AMC must not install an app module that overrides native reader gestures");
+        var gestures = System.Text.RegularExpressions.Regex.Matches(source, @"kb:[^""\r\n]+")
+            .Select(match => match.Value).ToArray();
+        Check(gestures.Length > 0 && gestures.All(gesture =>
+                gesture.StartsWith("kb:control+windows+", StringComparison.OrdinalIgnoreCase)),
+            "All default addon gestures stay within Ctrl+Windows");
 
-        var appSource = File.ReadAllText(appModuleFile);
-        var appCommands = System.Text.RegularExpressions.Regex
-            .Matches(appSource, @"exchange\(""(?<name>[A-Za-z0-9_]+)""\)")
-            .Select(match => match.Groups["name"].Value)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        Check(appCommands.Length > 0, "App module exposes commands");
-        foreach (var command in appCommands)
-        {
-            Check(
-                NvdaCommands.IsAllowed(command),
-                $"Bridge understands app module command '{command}'");
-        }
-        Check(
-            appCommands.Contains("nowPlaying", StringComparer.Ordinal),
-            "App module offers the now playing shortcut");
-        Check(
-            appSource.Contains("kb:insert+upArrow", StringComparison.Ordinal),
-            "Now playing keeps its documented gesture");
-        // Gest czytnika NIE moze byc przypisany globalnie.
-        Check(
-            !source.Contains("insert+upArrow", StringComparison.OrdinalIgnoreCase),
-            "Reader gesture is not hijacked globally");
     }
 
     private static string? FindPluginFile() =>

@@ -7,6 +7,12 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: natywne polecenia czytnika, alfa 401
+
+- `Windows/MainWindow.xaml.cs`: wspólne `IsNativeReaderReadingKey` pozostawia NVDA+góra i NVDA+End czytnikowi w trzech ścieżkach klawiatury. Nie wywołuje informacji o odtwarzaniu i nie zmienia głośności. Zwykła strzałka w odtwarzaczu pozostaje aktywna.
+- `Windows.SmokeTests/NativeReaderGesturePassThroughTests.cs`: rzeczywiste handlery okna, WPF i transportu, siedem sesji, brak zapowiedzi i zmian stanu po gestach czytnika; oddzielna kontrolka zwykłej strzałki. Argument `--reader-native-gestures` i pełny zestaw.
+- `nvda-addon/tests/test_gesture_scope.py`: wyłącznie kombinacje Ctrl+Windows w dodatku; brak appModule zastępującego polecenia NVDA. Testy kodu nie zastępują zapisu rzeczywistej mowy czytnika.
+
 ## Uzupełnienie: dynamiczne nazwy menu bez powtarzania skrótów
 
 - `Windows/MainWindow.xaml.cs`: `SetMenuItemNameAndShortcut` zachowuje osobny Header, Name oraz AcceleratorKey/InputGestureText. `UpdateFileMenuForCurrentSession` i gałąź WiiM w `PlayerContextMenu_Opened` nie wpisują skrótu ponownie do nazwy po normalizacji.

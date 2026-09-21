@@ -19857,6 +19857,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // w niektórych układach klawiatury i przy aktywnym czytniku ekranu. Stan
         // klawiszy odczytujemy bezpośrednio z Win32, bo ten hook już pracuje na
         // granicy komunikatów okna.
+        if (IsNativeReaderReadingKey(KeyInterop.KeyFromVirtualKey(virtualKey)))
+            return IntPtr.Zero;
+
         var modifiers = ReadEffectiveModifierKeys();
         var audioProcessingCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
             virtualKey,
@@ -19875,19 +19878,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return IntPtr.Zero;
         }
         var menuActive = IsMenuInteractionActive(Keyboard.FocusedElement);
-        // Czytnik + strzalka w gore = odczyt tego, co leci (jak w WiiM).
-        // ZGLOSZENIE Michala 15.09.2026. Lapiemy to na granicy okna, PRZED
-        // obsluga glosnosci, bo NVDA potrafi zabrac klawisz zanim dojdzie do WPF.
-        if (virtualKey == 0x26 // strzalka w gore
-            && !menuActive
-            && IsNativeScreenReaderModifierDown())
-        {
-            handled = true;
-            Dispatcher.BeginInvoke(
-                () => ExecuteCommand(CommandIds.CurrentBroadcastInformation),
-                DispatcherPriority.Input);
-            return IntPtr.Zero;
-        }
         var playerVolumeCommand = MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
             virtualKey,
             modifiers,
@@ -20008,10 +19998,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private static bool IsNativeKeyDown(int virtualKey) =>
         (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
 
-    private static bool IsNativeScreenReaderModifierDown() =>
-        IsNativeKeyDown(0x2D) // Insert
-        || IsNativeKeyDown(0x60) // Numpad Insert / Numpad 0
-        || IsNativeKeyDown(0x14); // Caps Lock held as an NVDA modifier
+    // Reading commands belong to the screen reader, not to AMC's transport.
+    private bool IsNativeReaderReadingKey(Key key) =>
+        (key is Key.Up or Key.End) && IsNativeScreenReaderModifierDown();
+
+    // Nullable input seam: normal windows always read the real keyboard state.
+    internal bool? ScreenReaderModifierDownForTests { get; set; }
+
+    private bool IsNativeScreenReaderModifierDown() =>
+        ScreenReaderModifierDownForTests
+        ?? (IsNativeKeyDown(0x2D) // Insert
+            || IsNativeKeyDown(0x60) // Numpad Insert / Numpad 0
+            || IsNativeKeyDown(0x14)); // Caps Lock held as an NVDA modifier
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
@@ -20022,6 +20020,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var windowKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (IsNativeReaderReadingKey(windowKey)) return;
         // If WPF left focus on the window itself after an asynchronous player
         // update, repair it before routing this very key. The user must not
         // need an extra Escape merely to make transport shortcuts work again.
@@ -20496,16 +20495,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // Pomoc KONTEKSTOWA - sekcja pasujaca do biezacego widoku idzie
             // pierwsza. ZGLOSZENIE Michala 15.09.2026.
             ShowHelp(contextual: true);
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Up
-                 && modifiers == ModifierKeys.None
-                 && IsNativeScreenReaderModifierDown())
-        {
-            // Czytnik + strzalka w gore = co teraz leci (jak w WiiM).
-            // ZGLOSZENIE Michala 15.09.2026. Dziala takze na liscie stacji,
-            // nie tylko w widoku odtwarzacza.
-            ExecuteCommand(CommandIds.CurrentBroadcastInformation);
             e.Handled = true;
         }
         else if (MediaList.IsKeyboardFocusWithin
@@ -21657,6 +21646,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (IsNativeReaderReadingKey(key)) return false;
         var effectiveModifiers = ReadEffectiveModifierKeys();
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
@@ -21769,18 +21759,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (effectiveModifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
         {
             ExecuteCommand(CommandIds.SeekPercent(digit * 10));
-            return true;
-        }
-
-        // NVDA (lub inny czytnik) + strzalka w gore = odczyt informacji o tym,
-        // co leci: stacja, utwor, audycja. ZGLOSZENIE Michala 15.09.2026 - ma
-        // dzialac jak w WiiM. Klawisz czytnika NIE steruje wtedy gloscia, wiec
-        // ten warunek musi stac PRZED ResolvePlayerVolume.
-        if (effectiveModifiers == ModifierKeys.None
-            && key == Key.Up
-            && IsNativeScreenReaderModifierDown())
-        {
-            ExecuteCommand(CommandIds.CurrentBroadcastInformation);
             return true;
         }
 
