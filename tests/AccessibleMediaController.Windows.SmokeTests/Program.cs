@@ -161,6 +161,26 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--podcast-session-resume-capture", StringComparer.Ordinal))
+{
+    try { PodcastSessionResumeCaptureTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--session-options-consumer", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunConsumer();
+    return 0;
+}
+if (args.Contains("--session-options-headless", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.RunHeadless();
+    return 0;
+}
+if (args.Contains("--session-options-settings", StringComparer.Ordinal))
+{
+    SessionOptionsInSettingsTests.Run();
+    return 0;
+}
 if (args.Contains("--spotify-queue-lifecycle", StringComparer.Ordinal))
 {
     try { SpotifyQueueLifecycleTests.Run(); return 0; }
@@ -269,6 +289,8 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Refresh Request", TestTidalRefreshRequest),
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),
+    ("Zapis Podcastów stosuje politykę pamięci pozycji sesji", PodcastSessionResumeCaptureTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
     ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),

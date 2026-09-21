@@ -31,7 +31,7 @@ public partial class MainWindow
     /// osadzonej przegladarce), nie przez nasz lancuch DSP.
     /// </summary>
     private bool SessionSupportsAudioProcessing(string? sessionId) =>
-        !SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
+        SessionPlaybackOptionsEditor.Describe(sessionId).SupportsAudioProcessing;
 
     /// <summary>
     /// Czy sesja obsluguje zmiane predkosci. Spotify: NIE - Web Playback SDK

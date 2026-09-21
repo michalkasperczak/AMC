@@ -90,14 +90,14 @@
                             <TextBlock TextWrapping="Wrap" Text="Zmiana zacznie działać po ponownym uruchomieniu AMC. Zapis ustawień nie przerywa bieżącego odtwarzania." />
                         </StackPanel>
                     </GroupBox>
-                    <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">
+                    <GroupBox Header="Sesje: kolejność, skróty Ctrl+1–9 i opcje odtwarzania" Margin="0,2,0,14">
                         <StackPanel Margin="8">
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
-                                       Text="Kolejność na tej liście określa skróty Ctrl+1–9 oraz przechodzenie przez sesje skrótami Ctrl+Page Up i Ctrl+Page Down." />
+                                       Text="Kolejność na tej liście określa skróty Ctrl+1–9 oraz przechodzenie przez sesje skrótami Ctrl+Page Up i Ctrl+Page Down. Zaznaczona sesja jest też sesją, której opcje odtwarzania otwiera przycisk poniżej." />
                             <ListBox x:Name="SessionOrderList" Height="120" DisplayMemberPath="Label"
                                      TextSearch.TextPath="DisplayName"
-                                     automation:AutomationProperties.Name="Kolejność sesji i skrótów Control od 1 do 9"
-                                     automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonej sesji."
+                                     automation:AutomationProperties.Name="Sesje: kolejność, skróty Control od 1 do 9 i opcje odtwarzania"
+                                     automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonej sesji. Przycisk Opcje odtwarzania sesji otwiera ustawienia zaznaczonej sesji bez jej przełączania."
                                      PreviewKeyDown="SessionOrderList_PreviewKeyDown">
                                 <ListBox.ItemContainerStyle>
                                     <Style TargetType="ListBoxItem">
@@ -109,9 +109,19 @@
                                 <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _wyżej" Click="MoveSessionUp_Click" />
                                 <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _niżej" Click="MoveSessionDown_Click" />
                                 <Button MinWidth="155" Margin="0,0,8,8" Content="Przywróć _domyślną" Click="RestoreSessionOrder_Click" />
+                                <!-- ZGLOSZENIE Michala 20.09.2026: te same opcje, ktore daje
+                                     Ctrl+Alt+Enter dla sesji BIEZACEJ, musza byc dostepne z
+                                     glownych Ustawien dla KAZDEJ sesji - bez przelaczania sie
+                                     na nia. Przycisk stoi przy liscie sesji, bo to jej
+                                     zaznaczenie wyznacza edytowana sesje. -->
+                                <Button x:Name="SessionPlaybackOptionsButton" MinWidth="205" Margin="0,0,8,8"
+                                        Content="Opcje odtwarzania sesji…"
+                                        automation:AutomationProperties.Name="Opcje odtwarzania zaznaczonej sesji"
+                                        automation:AutomationProperties.HelpText="Pokazuje opcje obsługiwane przez zaznaczoną sesję — te same co pod Ctrl+Alt+Enter. Zmiana czeka na Zapisz w tym oknie; Anuluj ją cofa."
+                                        Click="SessionPlaybackOptions_Click" />
                             </WrapPanel>
                             <controls:AccessibleStatusTextBlock x:Name="SessionOrderStatus" Margin="0,2,0,0"
-                                automation:AutomationProperties.Name="Wynik zmiany kolejności sesji"
+                                automation:AutomationProperties.Name="Wynik zmiany kolejności i opcji sesji"
                                 automation:AutomationProperties.LiveSetting="Assertive"
                                 Text="Gotowy do zmiany kolejności sesji" TextWrapping="Wrap" />
                         </StackPanel>
