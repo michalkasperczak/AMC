@@ -33,6 +33,11 @@ if (args.Length == 2 && args[0] == "--nvda-interop-host")
     NvdaBridgeSmokeTests.RunInteropHost(args[1]);
     return 0;
 }
+if (args.Contains("--periodic-playback-checkpoint", StringComparer.Ordinal))
+{
+    PeriodicPlaybackCheckpointTests.Run();
+    return 0;
+}
 if (args.Contains("--reader-native-gestures", StringComparer.Ordinal))
 {
     NativeReaderGesturePassThroughTests.Run();
@@ -305,6 +310,7 @@ var tests = new (string Name, Action Test)[]
     ("Segmented Date Time Digit Entry", TestSegmentedDateTimeDigitEntry),
     ("Radio Schedule Accessibility", TestRadioScheduleAccessibility),
     ("State Persistence Queue", TestStatePersistenceQueue),
+    ("Periodic Playback Checkpoints", PeriodicPlaybackCheckpointTests.Run),
     ("Radio Recognition Announcement Policy", TestRadioRecognitionAnnouncementPolicy),
     ("Radio Recognition Scheduling Policy", TestRadioRecognitionSchedulingPolicy),
     ("Radio Recognition Setting Accessibility", TestRadioRecognitionSettingAccessibility),

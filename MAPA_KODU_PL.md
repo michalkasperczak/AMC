@@ -7,6 +7,15 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: okresowy zapis pozycji, alfa 402
+
+- `Windows/Services/StatePersistenceQueue.cs`: odłączona migawka pełnego stanu należąca wyłącznie do workera; pełny zapis unieważnia wcześniejsze oczekujące checkpointy. `Flush` nadal wykonuje końcowy pełny zapis i zgłasza jego błąd.
+- `Windows/Services/PlaybackStateCheckpoint.cs`: odłączone pozycje lokalne, postęp odcinków roboczych i opcje/pozycje Spotify, bez kopiowania katalogów. Nakładanie nie tworzy usuniętych rekordów; scalanie zachowuje wcześniejsze odcinki spoza najnowszego zestawu roboczego.
+- `Windows/MainWindow.PlaybackCheckpoint.cs`, `MainWindow.xaml.cs` i `MainWindow.SpotifyOptions.cs`: okresowe zapisy nadal z progiem15s; lokalny zapis nie przebudowuje niezmienionej listy rekordów. Zmiany katalogów i końcowe zamykanie zachowują pełną ścieżkę.
+- `Core/Configuration/ConfigurationStore.cs`: wspólne `CreateStateShell` pomija dane SQLite przed serializacją JSON, bez dodatkowej głębokiej kopii już odłączonego stanu. `CloneState` nadal daje niezależną pełną kopię.
+- `PeriodicPlaybackCheckpointTests`, `PlaybackCheckpointQueueTests`: rzeczywiste handlery timerów i kolejka, porównanie całości danych po zapisie/odczycie, usuwanie, przeplatanie, awarie i zamknięcie kolejki. Argument `--periodic-playback-checkpoint` oraz pełny zestaw Windows.
+- `scripts/test-playback-checkpoint-mutations.py`: odizolowane celowe uszkodzenia i niezmienny licznik przypadków; nie modyfikuje repozytorium wejściowego.
+
 ## Uzupełnienie: natywne polecenia czytnika, alfa 401
 
 - `Windows/MainWindow.xaml.cs`: wspólne `IsNativeReaderReadingKey` pozostawia NVDA+góra i NVDA+End czytnikowi w trzech ścieżkach klawiatury. Nie wywołuje informacji o odtwarzaniu i nie zmienia głośności. Zwykła strzałka w odtwarzaczu pozostaje aktywna.

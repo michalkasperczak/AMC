@@ -7802,6 +7802,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private bool QueuePlaybackCheckpoint(PlaybackStateCheckpoint checkpoint)
+    {
+        try
+        {
+            _statePersistence.QueueCheckpoint(_state, checkpoint);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("storage", "Nie udało się przygotować pozycji do zapisu w tle.", exception);
+            return false;
+        }
+    }
+
     private void LoadPersistedPodcasts()
     {
         var subscriptionsById = _state.Podcasts.Subscriptions
@@ -9257,7 +9271,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (currentTicks == _lastSavedLocalPositionTicks) return;
         if (DateTime.UtcNow - _lastLocalStateSaveUtc < TimeSpan.FromSeconds(15)) return;
 
-        TrySaveLocalMediaState(false);
+        if (!SaveLocalPlaybackCheckpoint(local)) return;
+        _lastSavedLocalPositionTicks = currentTicks;
+        _lastLocalStateSaveUtc = DateTime.UtcNow;
     }
 
     private void SavePodcastStateIfDue()
@@ -9269,7 +9285,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (DateTime.UtcNow - _lastPodcastStateSaveUtc < TimeSpan.FromSeconds(15)) return;
 
         CapturePodcastState();
-        if (!QueueStateSave()) return;
+        if (!QueuePlaybackCheckpoint(PlaybackStateCheckpoint.CapturePodcasts(
+                _state, _podcastItems.Where(item => item.Kind == MediaItemKind.Episode).Select(item => item.Id)))) return;
         _lastSavedPodcastPositionTicks = currentTicks;
         _lastPodcastStateSaveUtc = DateTime.UtcNow;
     }

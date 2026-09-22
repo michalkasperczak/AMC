@@ -275,40 +275,7 @@ public sealed class ConfigurationStore
         // another copy of every string on the WPF thread. Serialize the compact
         // state shell and copy podcast records as plain objects whose strings are
         // immutable and can therefore be shared safely.
-        var shell = new PersistedState
-        {
-            SchemaVersion = state.SchemaVersion,
-            Settings = state.Settings,
-            SearchHistory = state.SearchHistory,
-            PlaybackHistory = state.PlaybackHistory,
-            Bookmarks = state.Bookmarks,
-            SessionNavigation = state.SessionNavigation,
-            CollectionOrders = state.CollectionOrders,
-            Playlists = state.Playlists,
-            SessionPresets = state.SessionPresets,
-            PlaybackVolumes = state.PlaybackVolumes,
-            LocalMedia = state.LocalMedia,
-            Radio = state.Radio,
-            WiiM = state.WiiM,
-            Tidal = state.Tidal,
-            // Spotify MUSI byc tutaj wypisane. Ta kopia stanu przepisuje sekcje
-            // po jednej, wiec sekcja pominieta nie jest "domyslna" - jest
-            // WYMAZYWANA przy kazdym zapisie. Wlasnie tak ginal identyfikator
-            // aplikacji Spotify wpisany przez uzytkownika.
-            Spotify = state.Spotify,
-            RemoteQueues = state.RemoteQueues,
-            Podcasts = new PodcastSettings
-            {
-                DownloadsFolder = state.Podcasts.DownloadsFolder,
-                CurrentItemId = state.Podcasts.CurrentItemId,
-                Volume = state.Podcasts.Volume,
-                PlaybackRate = state.Podcasts.PlaybackRate,
-                RssRefreshIntervalMinutes = state.Podcasts.RssRefreshIntervalMinutes,
-                YouTubeRefreshIntervalMinutes = state.Podcasts.YouTubeRefreshIntervalMinutes,
-                AutomaticRefreshBatchSize = state.Podcasts.AutomaticRefreshBatchSize
-            },
-            KeyboardProfiles = state.KeyboardProfiles
-        };
+        var shell = CreateStateShell(state, includeLibraryPayload: true);
         var copy = JsonSerializer.Deserialize<PersistedState>(
                 JsonSerializer.Serialize(shell, JsonOptions),
                 JsonOptions)
@@ -323,6 +290,39 @@ public sealed class ConfigurationStore
             .ToList();
         return copy;
     }
+
+    // Borrowed only for synchronous serialization, never returned as a detached
+    // snapshot. Exclude SQLite payloads BEFORE serializing the compact JSON file.
+    private static PersistedState CreateStateShell(PersistedState state, bool includeLibraryPayload) => new()
+    {
+        SchemaVersion = state.SchemaVersion,
+        Settings = state.Settings,
+        SearchHistory = state.SearchHistory,
+        PlaybackHistory = includeLibraryPayload ? state.PlaybackHistory : new(),
+        Bookmarks = includeLibraryPayload ? state.Bookmarks : new(),
+        SessionNavigation = state.SessionNavigation,
+        CollectionOrders = includeLibraryPayload ? state.CollectionOrders : new(),
+        Playlists = includeLibraryPayload ? state.Playlists : new(),
+        SessionPresets = state.SessionPresets,
+        PlaybackVolumes = state.PlaybackVolumes,
+        LocalMedia = includeLibraryPayload ? state.LocalMedia : new(),
+        Radio = state.Radio,
+        WiiM = state.WiiM,
+        Tidal = state.Tidal,
+        Spotify = state.Spotify,
+        RemoteQueues = state.RemoteQueues,
+        Podcasts = new PodcastSettings
+        {
+            DownloadsFolder = state.Podcasts.DownloadsFolder,
+            CurrentItemId = state.Podcasts.CurrentItemId,
+            Volume = state.Podcasts.Volume,
+            PlaybackRate = state.Podcasts.PlaybackRate,
+            RssRefreshIntervalMinutes = state.Podcasts.RssRefreshIntervalMinutes,
+            YouTubeRefreshIntervalMinutes = state.Podcasts.YouTubeRefreshIntervalMinutes,
+            AutomaticRefreshBatchSize = state.Podcasts.AutomaticRefreshBatchSize
+        },
+        KeyboardProfiles = state.KeyboardProfiles
+    };
 
     private static PodcastSubscriptionSettings ClonePodcastSubscription(
         PodcastSubscriptionSettings item) => new()
@@ -408,13 +408,7 @@ public sealed class ConfigurationStore
 
     private PersistedState CreateSettingsOnlyState(PersistedState state)
     {
-        var copy = CloneStateCore(state, includePodcastPayload: false);
-        copy.LocalMedia = new LocalMediaSettings();
-        copy.Bookmarks = new BookmarkSettings();
-        copy.PlaybackHistory = new PlaybackHistorySettings();
-        copy.CollectionOrders = new CollectionOrderSettings();
-        copy.Playlists = new PlaylistSettings();
-        return copy;
+        return CreateStateShell(state, includeLibraryPayload: false);
     }
 
     private static bool HasPodcastPayload(PersistedState state) =>

@@ -1,9 +1,9 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-401`
-- Tytuł zestawu: Natywne polecenia NVDA na listach i w odtwarzaczu
-- Wersja programu: `0.1.0-alpha.401`
-- Bieżące scenariusze: `TESTY_0.1.0-alpha.401_PL.md`
+- Numer zestawu: `AMC-TEST-402`
+- Tytuł zestawu: Okresowy zapis pozycji bez kopiowania bibliotek
+- Wersja programu: `0.1.0-alpha.402`
+- Bieżące scenariusze: `TESTY_0.1.0-alpha.402_PL.md`
 
 ## Alfa 397 — komunikat premiery YouTube
 

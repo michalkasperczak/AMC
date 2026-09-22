@@ -7186,7 +7186,7 @@ static void TestZapisNieGubiSekcji()
     // Test porownuje liste wlasciwosci PersistedState z tym, co kopia faktycznie
     // przepisuje, zeby nastepna dodana sekcja nie zniknela w ten sam sposob.
     var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("ConfigurationStore.cs"));
-    var poczatek = zrodlo.IndexOf("var shell = new PersistedState", StringComparison.Ordinal);
+    var poczatek = zrodlo.IndexOf("private static PersistedState CreateStateShell(", StringComparison.Ordinal);
     if (poczatek < 0)
         throw new Exception("Nie znaleziono kopii stanu w ConfigurationStore.");
     var koniec = zrodlo.IndexOf("KeyboardProfiles = state.KeyboardProfiles", poczatek, StringComparison.Ordinal);

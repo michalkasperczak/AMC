@@ -14,6 +14,10 @@ internal sealed class StatePersistenceQueue
     private readonly Action<PersistedState> _save;
     private readonly Action<Exception>? _saveFailed;
     private PersistedState? _pending;
+    private readonly Dictionary<string, PlaybackStateCheckpoint> _pendingCheckpoints = new(StringComparer.Ordinal);
+    private bool _hasSnapshot;
+    // Only ProcessQueue accesses this detached state, including after a failed save.
+    private PersistedState? _snapshot;
     private Task? _worker;
     private Exception? _lastFailure;
 
@@ -41,11 +45,33 @@ internal sealed class StatePersistenceQueue
         lock (_gate)
         {
             _pending = snapshot;
+            _hasSnapshot = true;
+            _pendingCheckpoints.Clear();
             if (_worker is null || _worker.IsCompleted)
             {
                 _worker = Task.Run(ProcessQueue);
             }
         }
+    }
+
+    // Like Queue, called by the state-owning UI thread, after updating live state.
+    public void QueueCheckpoint(PersistedState state, PlaybackStateCheckpoint checkpoint)
+    {
+        lock (_gate)
+        {
+            if (_hasSnapshot)
+            {
+                _pendingCheckpoints[checkpoint.SessionId] = _pendingCheckpoints.TryGetValue(checkpoint.SessionId, out var older)
+                    ? checkpoint.MergeEarlier(older)
+                    : checkpoint;
+                if (_worker is null || _worker.IsCompleted)
+                    _worker = Task.Run(ProcessQueue);
+                return;
+            }
+        }
+        // The first checkpoint also seeds the full detached state. Never start
+        // with an empty catalogue or read the live state from the worker.
+        Queue(state);
     }
 
     public bool Flush(
@@ -80,23 +106,26 @@ internal sealed class StatePersistenceQueue
     {
         while (true)
         {
-            PersistedState snapshot;
+            PlaybackStateCheckpoint[] checkpoints;
             lock (_gate)
             {
-                if (_pending is null)
+                if (_pending is null && _pendingCheckpoints.Count == 0)
                 {
                     _worker = null;
                     return;
                 }
 
-                snapshot = _pending;
+                if (_pending is not null) _snapshot = _pending;
                 _pending = null;
+                checkpoints = _pendingCheckpoints.Values.ToArray();
+                _pendingCheckpoints.Clear();
             }
 
             Exception? failure = null;
             try
             {
-                _save(snapshot);
+                foreach (var checkpoint in checkpoints) checkpoint.Apply(_snapshot!);
+                _save(_snapshot!);
             }
             catch (Exception exception)
             {

@@ -231,7 +231,7 @@ public partial class MainWindow
         if (DateTime.UtcNow - _lastSpotifyStateSaveUtc < TimeSpan.FromSeconds(15)) return;
 
         CaptureSpotifyPlaybackPosition();
-        if (!QueueStateSave()) return;
+        if (!QueuePlaybackCheckpoint(Services.PlaybackStateCheckpoint.CaptureSpotify(_state))) return;
         _lastSavedSpotifyPositions = current;
         _lastSpotifyStateSaveUtc = DateTime.UtcNow;
     }
