@@ -72,6 +72,9 @@ public partial class RadioSchedulesWindow : Window
             ?? rows.FirstOrDefault();
     }
 
+    private static string DisplayName(RadioRecordingScheduleSettings schedule) =>
+        string.IsNullOrWhiteSpace(schedule.Name) ? schedule.StationName : schedule.Name.Trim();
+
     private static string BuildLabel(RadioRecordingScheduleSettings schedule, bool active)
     {
         var utc = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
@@ -96,7 +99,7 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, długość nagrania: {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
+        return $"{DisplayName(schedule)}, {state}, {local:dd.MM.yyyy HH:mm}, długość nagrania: {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
     }
 
     internal static string BuildRecurrenceLabel(RadioRecordingScheduleSettings schedule)
@@ -191,6 +194,45 @@ public partial class RadioSchedulesWindow : Window
 
     private void Edit_Click(object sender, RoutedEventArgs e) => EditSelected();
 
+    private void Duplicate_Click(object sender, RoutedEventArgs e) => DuplicateSelected();
+
+    private string NextCopyName(RadioRecordingScheduleSettings source)
+    {
+        var basis = string.IsNullOrWhiteSpace(source.Name) ? source.StationName : source.Name.Trim();
+        if (!string.IsNullOrWhiteSpace(source.Name))
+        {
+            var suffix = System.Text.RegularExpressions.Regex.Match(basis, @" \((\d+)\)$");
+            if (suffix.Success && int.TryParse(suffix.Groups[1].Value, out var suffixNumber) && suffixNumber >= 2)
+                basis = basis[..suffix.Index];
+        }
+        var used = _schedules.Select(schedule => string.IsNullOrWhiteSpace(schedule.Name)
+            ? schedule.StationName : schedule.Name.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var number = 2; ; number = checked(number + 1))
+        {
+            var candidate = $"{basis} ({number})";
+            if (!used.Contains(candidate)) return candidate;
+        }
+    }
+
+    private bool DuplicateSelected()
+    {
+        if (SchedulesList.SelectedItem is not ScheduleRow row) return false;
+        var copy = Clone(row.Schedule);
+        copy.Id = Guid.NewGuid().ToString("N");
+        copy.Name = NextCopyName(row.Schedule);
+        copy.Enabled = false;
+        copy.SuppressedOccurrenceStartUtcTicks = null;
+        copy.LastFailureUtcTicks = null;
+        copy.LastFailureMessage = string.Empty;
+        copy.LastFailureAcknowledged = true;
+        _schedules.Add(copy);
+        CommitChanges();
+        RefreshRows(copy.Id);
+        FocusSelectedSchedule();
+        ScheduleStatus.Announce($"Powielono plan {copy.Name}. Kopia jest wyłączona. Enter edytuje, Spacja włącza.");
+        return true;
+    }
+
     private void ToggleEnabled_Click(object sender, RoutedEventArgs e) => ToggleSelectedEnabled();
 
     internal bool ToggleSelectedEnabled()
@@ -252,8 +294,8 @@ public partial class RadioSchedulesWindow : Window
         var result = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             _activeIds.Contains(row.Schedule.Id)
-                ? $"Zatrzymać nagrywanie i usunąć plan {row.Schedule.StationName}?"
-                : $"Usunąć plan nagrywania {row.Schedule.StationName}?",
+                ? $"Zatrzymać nagrywanie i usunąć plan {DisplayName(row.Schedule)}?"
+                : $"Usunąć plan nagrywania {DisplayName(row.Schedule)}?",
             "Usuń plan nagrywania",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
@@ -296,6 +338,11 @@ public partial class RadioSchedulesWindow : Window
 
     private void SchedulesList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.D)
+        {
+            e.Handled = DuplicateSelected();
+            return;
+        }
         if (Keyboard.Modifiers != ModifierKeys.None) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key == Key.Enter)
@@ -337,6 +384,7 @@ public partial class RadioSchedulesWindow : Window
     private static RadioRecordingScheduleSettings Clone(RadioRecordingScheduleSettings schedule) => new()
     {
         Id = schedule.Id,
+        Name = schedule.Name,
         StationId = schedule.StationId,
         StationName = schedule.StationName,
         StreamUrl = schedule.StreamUrl,
@@ -368,7 +416,7 @@ public partial class RadioSchedulesWindow : Window
 
         public RadioRecordingScheduleSettings Schedule { get; } = schedule;
         public string Label => _label;
-        public string NavigationText => Schedule.StationName;
+        public string NavigationText => DisplayName(Schedule);
         public bool IsEnabled => Schedule.Enabled;
         public string AccessibleLabel => Label;
 

@@ -1264,6 +1264,7 @@ public enum RadioScheduleRecurrence
 
 public sealed class RadioRecordingScheduleSettings
 {
+    public string Name { get; set; } = string.Empty;
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string StationId { get; set; } = string.Empty;
     public string StationName { get; set; } = string.Empty;

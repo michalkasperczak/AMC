@@ -24,7 +24,13 @@
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Stacja:" Margin="0,0,0,4"/>
+        <StackPanel Grid.Row="0">
+            <Label Target="{Binding ElementName=ScheduleNameBox}" Content="Nazwa planu:"/>
+            <TextBox x:Name="ScheduleNameBox" Margin="0,0,0,10"
+                     automation:AutomationProperties.Name="Nazwa planu"
+                     automation:AutomationProperties.HelpText="Nazwa tylko tego planu. Puste pole używa nazwy stacji. Nie zmienia stacji ani nazwy pliku nagrania."/>
+            <TextBlock Text="Stacja:" Margin="0,0,0,4"/>
+        </StackPanel>
         <ComboBox x:Name="StationCombo" Grid.Row="1" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   automation:AutomationProperties.Name="Stacja do nagrania"/>

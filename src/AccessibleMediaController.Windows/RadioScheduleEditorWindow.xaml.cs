@@ -99,6 +99,7 @@ public partial class RadioScheduleEditorWindow : Window
             RebuildOutputFolderChoices();
         };
         _existing = existing;
+        ScheduleNameBox.Text = existing?.Name ?? string.Empty;
         _followStartDateWithDefaultDay = existing is null;
         var choices = stations
             .Where(item => item.Kind == MediaItemKind.Station
@@ -274,6 +275,7 @@ public partial class RadioScheduleEditorWindow : Window
         var schedule = new RadioRecordingScheduleSettings
         {
             Id = _existing?.Id ?? Guid.NewGuid().ToString("N"),
+            Name = ScheduleNameBox.Text.Trim(),
             StationId = station.Id,
             StationName = station.Label,
             StreamUrl = station.StreamUrl,

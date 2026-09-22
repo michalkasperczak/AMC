@@ -1,5 +1,14 @@
 # AMC — mapa kodu
 
+## Powielanie harmonogramu (alfa407)
+
+- `Core/Configuration/AppSettings.cs`: opcjonalna nazwa planu `RadioRecordingScheduleSettings.Name`, niezależna od stacji i szablonu pliku. Stary zapis bez nazwy nadal używa nazwy stacji.
+- `RadioSchedulesWindow.xaml(.cs)`: Ctrl+D tylko na liście i przycisk Powiel; `DuplicateSelected`, `NextCopyName`, `DisplayName`; nowy ID i wyłączona kopia, głębokie ActiveDays.
+- `RadioScheduleEditorWindow.xaml(.cs)`: pole Nazwa planu, zapis i odtworzenie. `MainWindow.CloneRadioSchedule` przenosi nazwę w rzeczywistym zapisie menedżera.
+- `RadioScheduleCopyTests`: prawdziwe okna i klawisze, stary JSON, edycja, zapis i ponowny start, brak powrotu usuniętej kopii. `--schedule-copy-nvda <katalog>` jest izolowaną sondą samego okna bez silnika nagrywania.
+- `scripts/test-schedule-copy-mutations.py`: kontrolowane błędy dla sprawdzenia skuteczności testów.
+
+
 ## Powiązania Spotify (alfa406)
 
 `MainWindow.xaml.cs`, `ShowSpotifyRelationsMenu`: album pod prawą strzałką prowadzi bezpośrednio do wykonawcy; wykonawca pokazuje Albumy/Utwory. Enter albumu pozostaje osobną drogą otwarcia zawartości. `SpotifyRelationsAcceptanceTests` mierzy prawdziwe handlery, API z transportem próbnym i powrót. `--spotify-relations-nvda <katalog>` otwiera izolowane prawdziwe okno na jawnych danych próbnych. `scripts/test-spotify-relations-mutations.py` sprawdza rozróżnianie błędnych tras.

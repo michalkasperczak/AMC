@@ -175,6 +175,14 @@ if (args.Length == 2 && args[0] == "--spotify-relations-nvda")
 {
     SpotifyRelationsAcceptanceTests.RunInteractive(args[1]); return 0;
 }
+if (args.Length == 2 && args[0] == "--schedule-copy-nvda")
+{
+    RadioScheduleCopyTests.RunInteractive(args[1]); return 0;
+}
+if (args.Contains("--schedule-copy", StringComparer.Ordinal))
+{
+    RadioScheduleCopyTests.Run(); return 0;
+}
 if (args.Contains("--spotify-relations", StringComparer.Ordinal))
 {
     SpotifyRelationsAcceptanceTests.Run(); return 0;
@@ -371,6 +379,7 @@ var tests = new (string Name, Action Test)[]
     ("Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji", TransientPreviewShortcutTests.Run),
     ("Powrot z podgladu, fokus i ochrona odsluchu", TransientPreviewAcceptanceTests.Run),
     ("Historia nagran po zmianie plikow i ponownym starcie", RecordingFilesAcceptanceTests.Run),
+    ("Bezpieczne powielanie planu nagrywania", RadioScheduleCopyTests.Run),
     ("Proste powiązania Spotify z klawiatury", SpotifyRelationsAcceptanceTests.Run),
     ("Skróty i eksport zaznaczonego audio", AudioClipShortcutAcceptanceTests.Run),
     ("Bezpieczne dopisanie fragmentu do istniejącego audio", () => Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult()),

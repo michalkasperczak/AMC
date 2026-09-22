@@ -17045,6 +17045,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RadioRecordingScheduleSettings schedule) => new()
     {
         Id = schedule.Id,
+        Name = schedule.Name,
         StationId = schedule.StationId,
         StationName = schedule.StationName,
         StreamUrl = schedule.StreamUrl,

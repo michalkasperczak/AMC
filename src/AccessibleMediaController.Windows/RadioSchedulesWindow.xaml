@@ -8,7 +8,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="16">
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" TextWrapping="Wrap"
-                   Text="Insert dodaje plan, Enter go edytuje, Spacja włącza lub wyłącza, a Delete usuwa. Każda zmiana jest zapisywana od razu. Nagrania są tworzone w tle i nie zmieniają słuchanej stacji."/>
+                   Text="Insert dodaje plan, Ctrl+D powiela wybrany plan jako wyłączoną kopię, Enter go edytuje, Spacja włącza lub wyłącza, a Delete usuwa. Każda zmiana jest zapisywana od razu. Nagrania są tworzone w tle i nie zmieniają słuchanej stacji."/>
         <CheckBox x:Name="GlobalWakeCheckBox" DockPanel.Dock="Bottom" Margin="0,10,0,8"
                   Content="Domyślnie wybudzaj komputer przed zaplanowanym nagraniem"
                   automation:AutomationProperties.Name="Domyślnie wybudzaj komputer przed zaplanowanym nagraniem"
@@ -16,6 +16,9 @@
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="_Nowy…" MinWidth="90" Margin="0,0,8,0" Click="New_Click"/>
             <Button Content="_Edytuj…" MinWidth="90" Margin="0,0,8,0" Click="Edit_Click"/>
+            <Button x:Name="DuplicateButton" Content="_Powiel" MinWidth="90" Margin="0,0,8,0" Click="Duplicate_Click"
+                    automation:AutomationProperties.Name="Powiel" automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                    automation:AutomationProperties.HelpText="Tworzy osobny, wyłączony plan z kolejnym numerem w nazwie. Enter edytuje kopię, Spacja ją włącza."/>
             <Button Content="Włącz lub w_yłącz" MinWidth="120" Margin="0,0,8,0" Click="ToggleEnabled_Click"
                     automation:AutomationProperties.Name="Włącz lub wyłącz zaznaczony plan"/>
             <Button Content="_Usuń" MinWidth="90" Margin="0,0,16,0" Click="Delete_Click"/>
@@ -28,7 +31,7 @@
         <ListBox x:Name="SchedulesList" SelectionMode="Single"
                  TextSearch.TextPath="NavigationText"
                  automation:AutomationProperties.Name="Zaplanowane nagrania radia"
-                 automation:AutomationProperties.HelpText="Strzałki wybierają plan. Spacja włącza lub wyłącza go bez otwierania edytora."
+                 automation:AutomationProperties.HelpText="Strzałki wybierają plan. Ctrl+D powiela go jako wyłączoną kopię. Enter edytuje. Spacja włącza lub wyłącza bez otwierania edytora."
                  PreviewKeyDown="SchedulesList_PreviewKeyDown"
                  MouseDoubleClick="SchedulesList_MouseDoubleClick">
             <ListBox.ItemTemplate>
