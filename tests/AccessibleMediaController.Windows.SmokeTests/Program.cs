@@ -171,6 +171,11 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--recording-files-acceptance", StringComparer.Ordinal))
+{
+    try { RecordingFilesAcceptanceTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--transient-preview-acceptance", StringComparer.Ordinal))
 {
     try { TransientPreviewAcceptanceTests.Run(); return 0; }
@@ -349,6 +354,7 @@ var tests = new (string Name, Action Test)[]
     ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
     ("Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji", TransientPreviewShortcutTests.Run),
     ("Powrot z podgladu, fokus i ochrona odsluchu", TransientPreviewAcceptanceTests.Run),
+    ("Historia nagran po zmianie plikow i ponownym starcie", RecordingFilesAcceptanceTests.Run),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),

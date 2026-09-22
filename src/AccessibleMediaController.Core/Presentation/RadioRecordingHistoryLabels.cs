@@ -43,12 +43,21 @@ public static class RadioRecordingHistoryLabels
     /// Wiersz listy. Skutek na poczatku, potem stacja, czas i - gdy jest -
     /// powod niepowodzenia. Bez nazwy pliku, bo ta bywa dluga i zaglusza reszte.
     /// </summary>
-    public static string Describe(RadioRecordingHistorySettings entry, DateTime nowUtc)
+    public static string Describe(RadioRecordingHistorySettings entry, DateTime nowUtc, bool fileMissing = false, bool fileUnavailable = false)
     {
         ArgumentNullException.ThrowIfNull(entry);
+        var outcome = OutcomeLabel(entry.Outcome);
+        if (fileMissing && HasPlayableFile(entry))
+            outcome = entry.Outcome == RadioRecordingOutcome.Completed
+                ? "Brak pliku nagrania"
+                : $"{outcome}, brak pliku nagrania";
+        if (fileUnavailable && HasPlayableFile(entry))
+            outcome = entry.Outcome == RadioRecordingOutcome.Completed
+                ? "Plik nagrania niedostępny"
+                : $"{outcome}, plik nagrania niedostępny";
         var parts = new List<string>
         {
-            OutcomeLabel(entry.Outcome),
+            outcome,
             string.IsNullOrWhiteSpace(entry.StationName) ? "Nieznana stacja" : entry.StationName
         };
 
@@ -85,7 +94,7 @@ public static class RadioRecordingHistoryLabels
             : $"Brak pliku nagrania {station}. {reason}";
     }
 
-    private static string FormatWhen(DateTime finishedLocal, DateTime nowLocal)
+    public static string FormatWhen(DateTime finishedLocal, DateTime nowLocal)
     {
         var date = finishedLocal.Date;
         var today = nowLocal.Date;

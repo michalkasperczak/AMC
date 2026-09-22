@@ -7135,6 +7135,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public async void RefreshLocalLibrary()
     {
+        // Reczne odswiezenie (F5): user wyraznie prosi o ponowne spojrzenie na
+        // dysk, wiec czyscimy pamiec obserwacji sciezek nagran.
+        ResetRecordingPathObservations();
         await SynchronizeLocalSourcesAsync(announceResult: true);
     }
 
@@ -7389,8 +7392,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         });
     }
 
-    private void LocalSourceWatcher_Changed(object sender, FileSystemEventArgs e) =>
+    private void LocalSourceWatcher_Changed(object sender, FileSystemEventArgs e)
+    {
+        // Obserwacja dotyczy tylko tej ścieżki. Nowe powiązanie historii
+        // wymaga znanej pary stara/nowa w zdarzeniu Renamed; sama nazwa
+        // pliku utworzonego w innym folderze nie potwierdza przeniesienia.
+        if (e.ChangeType is WatcherChangeTypes.Deleted or WatcherChangeTypes.Created)
+        {
+            Dispatcher.BeginInvoke(
+                () =>
+                {
+                    if (_isClosing) return;
+                    if (e.ChangeType == WatcherChangeTypes.Deleted)
+                        MarkRecordingPathMissing(e.FullPath);
+                    else
+                        _recordingPathProbe.Invalidate(e.FullPath);
+                    if (_unfilteredItems.Any(row => string.Equals(
+                            NormalizeLocalFilePath(row.Item.Source ?? string.Empty), NormalizeLocalFilePath(e.FullPath), StringComparison.OrdinalIgnoreCase)))
+                        RefreshRecordedRadioFilesRowsQuietly();
+                },
+                DispatcherPriority.Background);
+        }
         ScheduleLocalSourceSync();
+    }
 
     private void LocalSourceWatcher_Renamed(object sender, RenamedEventArgs e)
     {
@@ -7456,9 +7480,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             changed = true;
         }
 
+        // Nagranie zmienilo miejsce w obrebie obserwowanych folderow: przepisujemy
+        // odwolania historii na nowa sciezke, zamiast zostawiac martwa stara
+        // (zgloszenie punkt3). Nie tworzymy drugiego wpisu - to to samo nagranie.
+        if (RewriteRecordingHistoryPath(normalizedOld, normalizedNew))
+        {
+            changed = true;
+            QueueStateSave();
+        }
+
         if (!changed) return;
         RefreshLocalSessionItems();
         TrySaveLocalMediaState(false);
+        RefreshRecordedRadioFilesRowsQuietly();
     }
 
     private void LocalSourceWatcher_Error(object sender, ErrorEventArgs e) =>
@@ -12477,8 +12511,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Where(item => item.IsRadioRecording)
             .GroupBy(item => item.Id, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var interruptedPaths = _state.Radio.RecordingHistory
+            .Where(entry => entry.Outcome is RadioRecordingOutcome.Stopped or RadioRecordingOutcome.Interrupted)
+            .Select(entry => NormalizeLocalFilePath(entry.Path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var fileRows = ActiveLocalItems()
-            .Where(item => recordedById.ContainsKey(item.Id))
+            .Where(item => recordedById.ContainsKey(item.Id)
+                && !interruptedPaths.Contains(NormalizeLocalFilePath(item.Source ?? string.Empty))
+                && !_recordingPathProbe.IsMissing(item.Source ?? string.Empty))
             .Select(item => (
                 Item: item,
                 Ticks: recordedById[item.Id].RadioRecordingCompletedUtcTicks,
@@ -12495,7 +12535,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var nowUtc = DateTime.UtcNow;
         var historyRows = _state.Radio.RecordingHistory
-            .Where(entry => entry.Path.Length == 0
+            .Where(entry => entry.Outcome == RadioRecordingOutcome.Failed
+                || entry.Path.Length == 0
                 || !filePaths.Contains(NormalizeLocalFilePath(entry.Path)))
             .Select(entry => (
                 Entry: entry,
@@ -12504,9 +12545,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var rows = new List<(long Ticks, MediaItemRow Row)>();
         foreach (var (item, ticks, _) in fileRows)
-            rows.Add((ticks, new MediaItemRow(item, FormatListItem(item), item.PrimaryText)));
+        {
+            if (_recordingPathProbe.IsUnavailable(item.Source))
+            {
+                // Wpis tylko do podglądu; nie dopisujemy historii, której nie było.
+                var entry = new RadioRecordingHistorySettings
+                {
+                    Id = item.Id, StationName = item.PrimaryText, Path = item.Source ?? string.Empty,
+                    Outcome = RadioRecordingOutcome.Completed, FinishedUtcTicks = ticks
+                };
+                rows.Add((ticks, CreateRecordingHistoryRowWithFolder(entry, nowUtc)));
+                continue;
+            }
+            // Folder docelowy na koncu takze dla pliku z biblioteki, zeby wpis
+            // biblioteczny i historyczny czytaly sie spojnie (zgloszenie punkt4).
+            rows.Add((
+                ticks,
+                AppendRecordingFolderToRow(
+                    new MediaItemRow(item, FormatListItem(item), item.PrimaryText), ticks, nowUtc)));
+        }
         foreach (var (entry, ticks) in historyRows)
-            rows.Add((ticks, CreateRecordingHistoryRow(entry, nowUtc)));
+            rows.Add((ticks, CreateRecordingHistoryRowWithFolder(entry, nowUtc)));
 
         return rows
             .OrderByDescending(row => row.Ticks)
@@ -12519,23 +12578,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// Wiersz dla wpisu historii bez odpowiednika w bibliotece. Skutek jest
     /// czytany PIERWSZY, zeby czytnik ekranu od razu odroznil nagranie gotowe
     /// od przerwanego, bez dosluchiwania do konca wiersza.
+    ///
+    /// Folder docelowy i uczciwy stan brakujacego pliku dokleja
+    /// <see cref="CreateRecordingHistoryRowWithFolder"/> w MainWindow.RecordingFiles.cs.
     /// </summary>
-    private static MediaItemRow CreateRecordingHistoryRow(
+    private MediaItemRow CreateRecordingHistoryRow(
         RadioRecordingHistorySettings entry,
-        DateTime nowUtc)
-    {
-        var label = RadioRecordingHistoryLabels.Describe(entry, nowUtc);
-        var item = new MediaItem
-        {
-            Id = $"radio-recording-history:{entry.Id}",
-            Title = label,
-            Kind = MediaItemKind.Track,
-            Source = entry.Path,
-            IsAvailable = RadioRecordingHistoryLabels.HasPlayableFile(entry),
-            IsInLibrary = false
-        };
-        return new MediaItemRow(item, label, label, recordingHistoryEntry: entry);
-    }
+        DateTime nowUtc) => CreateRecordingHistoryRowWithFolder(entry, nowUtc);
 
     private void ShowRecordedRadioFiles()
     {
@@ -12546,6 +12595,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        _recordingPathProbe.Clear();
         BeginTransientPreview(TransientPreviewKind.RecordedRadioFiles);
         CaptureCurrentSessionNavigationState();
         HidePlayerForBrowserNavigation();
@@ -13543,6 +13593,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Window_Activated(object? sender, EventArgs e)
     {
         ReconcileCompletedExternalMoves();
+        RefreshRecordingAvailabilityOnActivation();
         if (!_initialFocusApplied) return;
         ScheduleMainWindowFocusRecovery("ponowne uaktywnienie okna");
         Dispatcher.BeginInvoke(AnnouncePendingRadioScheduleFailures, DispatcherPriority.ContextIdle);
@@ -13737,16 +13788,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (row?.RecordingHistoryEntry is { } historyEntry)
         {
-            // Wpis nieudany nie ma pliku - Enter mowi, co sie stalo, zamiast milczec.
-            if (!RadioRecordingHistoryLabels.HasPlayableFile(historyEntry))
+            // Walidacja PRZED Enterem: jeden File.Exists na aktywacje. Bez tego
+            // Enter szedl w martwa stara sciezke po przeniesieniu pliku poza AMC
+            // (zgloszenie punkt3). Nie skanujemy tu calej biblioteki.
+            if (!CanActivateRecordingHistoryEntry(historyEntry, out var blockedMessage))
             {
-                AnnounceEssential(RadioRecordingHistoryLabels.DescribeUnplayable(historyEntry));
-                return;
-            }
-            if (!File.Exists(historyEntry.Path))
-            {
-                AnnounceEssential(
-                    $"Plik nagrania {historyEntry.StationName} nie istnieje już na dysku");
+                AnnounceEssential(blockedMessage);
+                // Wiersz nadal mowil „Nagrano” - odswiezamy go delikatnie, bez
+                // przenoszenia fokusu i bez skanu biblioteki.
+                RefreshRecordedRadioFilesRowsQuietly();
                 return;
             }
         }
@@ -24755,11 +24805,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToHashSet(StringComparer.Ordinal);
         if (movedIds.Count == 0) return;
 
+        // Plik zniknal ze starej sciezki, a nowego miejsca NIE znamy (wklejony
+        // poza AMC). Wpis historii ZOSTAJE - kasowanie zgubiloby historie, a
+        // chwilowo niedostepny dysk wygladalby jak celowe przeniesienie.
+        // Zapamietujemy tylko, ze pliku tam nie ma, zeby wiersz przestal mowic
+        // „Nagrano … gotowy”, a Enter nie szedl w martwa sciezke (punkt3).
+        foreach (var pending in _pendingExternalMoves.Where(entry => movedIds.Contains(entry.Key)))
+        {
+            MarkRecordingPathMissing(pending.Value);
+        }
+
         var movedItems = _localItems
             .Where(item => movedIds.Contains(item.Id))
             .ToArray();
         foreach (var id in movedIds) _pendingExternalMoves.Remove(id);
-        if (movedItems.Length == 0) return;
+        if (movedItems.Length == 0)
+        {
+            // Zaden element biblioteki nie pasuje, ale wpis historii moze nadal
+            // wskazywac te sciezke - wiersz trzeba odswiezyc, inaczej zostanie
+            // „Nagrano nazwa” dla pliku, ktorego tam nie ma.
+            RefreshRecordedRadioFilesRowsQuietly();
+            return;
+        }
 
         var localSession = _sessions.FindSession("local");
         if (localSession is not null

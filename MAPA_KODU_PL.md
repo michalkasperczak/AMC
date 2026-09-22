@@ -7,6 +7,15 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: pliki historii nagrań, alfa 404
+
+- `Windows/MainWindow.RecordingFiles.cs`: dostępność i odczyt nagrania, kontrola Enter, odświeżenie tylko podglądu po zmianie pliku lub powrocie do okna.
+- `Core/Presentation/RecordingPathProbe.cs`: pamięć obserwacji ścieżek, wspólny klucz dla równoważnych ścieżek; odróżnienie braku pliku od niedostępnego folderu. Używana w wątku UI.
+- `RadioRecordingHistoryPathRewriter.cs` aktualizuje znaną parę stara/nowa ścieżka bez zgadywania po nazwie; `RadioRecordingRowLabels.cs` podaje nazwę, datę i folder na końcu.
+- `MainWindow.xaml.cs`: zdarzenia obserwatora przez Dispatcher, deduplikacja bez ukrywania przerwanego lub nieudanego nagrania oraz ponowna kontrola po otwarciu historii.
+- `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach; runner `--recording-files-acceptance` i pełny zestaw Windows.
+- `scripts/test-recording-files-mutations.py`: izolowane celowe uszkodzenia reguł z pełnym licznikiem wykonanych przypadków.
+
 ## Uzupełnienie: okresowy zapis pozycji, alfa 402
 
 - `Windows/Services/StatePersistenceQueue.cs`: odłączona migawka pełnego stanu należąca wyłącznie do workera; pełny zapis unieważnia wcześniejsze oczekujące checkpointy. `Flush` nadal wykonuje końcowy pełny zapis i zgłasza jego błąd.

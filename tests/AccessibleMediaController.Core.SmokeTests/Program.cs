@@ -54,6 +54,8 @@ var tests = new (string Name, Action Test)[]
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Historia nagrywania radia z próbami nieudanymi", TestRadioRecordingHistory),
+    ("Przeniesienie nagrania: odświeżenie list i folder w wierszu",
+        RecordingMoveAndFolderRowTests.Run),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
     ("Odbudowa zachowuje grające Spotify", SpotifySessionRebuildTests.Run),
