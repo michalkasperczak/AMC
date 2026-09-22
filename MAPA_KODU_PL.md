@@ -1,5 +1,10 @@
 # AMC — mapa kodu
 
+## Powiązania Spotify (alfa406)
+
+`MainWindow.xaml.cs`, `ShowSpotifyRelationsMenu`: album pod prawą strzałką prowadzi bezpośrednio do wykonawcy; wykonawca pokazuje Albumy/Utwory. Enter albumu pozostaje osobną drogą otwarcia zawartości. `SpotifyRelationsAcceptanceTests` mierzy prawdziwe handlery, API z transportem próbnym i powrót. `--spotify-relations-nvda <katalog>` otwiera izolowane prawdziwe okno na jawnych danych próbnych. `scripts/test-spotify-relations-mutations.py` sprawdza rozróżnianie błędnych tras.
+
+
 ## Fragmenty audio (alfa405)
 
 - `MainWindow.xaml.cs`: `TryResolveClipFileShortcut`, `AppendClip`, `ExportClip`; I/O zaznacza, Ctrl+S eksportuje, Ctrl+D dopisuje.

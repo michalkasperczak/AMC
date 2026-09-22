@@ -22862,19 +22862,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var actions = new List<(string Label, Action Invoke)>();
         if (TidalNavigationPolicy.CanShowArtistAlbums(item))
         {
-            // Przeglad daje wybor miedzy wydaniami i utworami; osobna pozycja
-            // "albumy" zostaje, bo tam wlasnie wiekszosc osob chce trafic.
-            actions.Add(("Pokaż kategorie wykonawcy", () => _ = OpenSpotifyContainerAsync(item)));
-            actions.Add(("Pokaż albumy wykonawcy",
+            actions.Add(("Albumy",
                 () => _ = OpenSpotifyContainerAsync(item, ArtistBrowseSection.Albums)));
-            actions.Add(("Pokaż utwory wykonawcy",
+            actions.Add(("Utwory",
                 () => _ = OpenSpotifyContainerAsync(item, ArtistBrowseSection.Tracks)));
         }
-        else if (CanOpenSpotifyContainer(item))
+        else if (CanOpenSpotifyContainer(item) && item.Kind != MediaItemKind.Album)
         {
             var label = item.Kind switch
             {
-                MediaItemKind.Album => "Pokaż utwory albumu",
                 MediaItemKind.Playlist => "Pokaż zawartość playlisty",
                 MediaItemKind.Podcast => "Pokaż odcinki podcastu",
                 _ => "Pokaż zawartość"
