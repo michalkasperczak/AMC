@@ -43,7 +43,7 @@ internal static class AudioClipOriginalEditor
         {
             throw new NotSupportedException(
                 "Usuwanie fragmentu z oryginału nie jest jeszcze dostępne dla plików wideo. "
-                + "Klawisz X może zapisać ich ścieżkę audio do nowego pliku.");
+                + "Ctrl+S może zapisać ich ścieżkę audio do nowego pliku.");
         }
 
         var executable = FfmpegRadioWaveProvider.FindExecutable()

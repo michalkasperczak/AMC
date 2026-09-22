@@ -48,6 +48,7 @@ public static class CommandIds
     public const string PreviousClipBoundary = "editing.clip.previousBoundary";
     public const string NextClipBoundary = "editing.clip.nextBoundary";
     public const string ExportClip = "editing.clip.export";
+    public const string AppendClip = "editing.clip.append";
     public const string RemoveClipFromOriginal = "editing.clip.removeFromOriginal";
     public const string ClearClipSelection = "editing.clip.clear";
 

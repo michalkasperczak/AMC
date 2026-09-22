@@ -1915,6 +1915,51 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private bool TryResolveClipFileShortcut(Key key, ModifierKeys modifiers, out string commandId)
+    {
+        commandId = string.Empty;
+        if (key is not (Key.S or Key.D) || modifiers != ModifierKeys.Control || !_playerViewActive
+            || IsTextEditingFocused() || IsForeignDialogActive()) return false;
+        if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                || !TryGetLocalClipContext(out _, out _, out _, out _)
+                || !_audioClipSelection.IsComplete)) return false;
+        commandId = key == Key.S ? CommandIds.ExportClip : CommandIds.AppendClip;
+        return true;
+    }
+
+    private void AppendClip()
+    {
+        if (!TryGetLocalClipContext(out _, out var item, out var path, out var error))
+        {
+            Announce(error); return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path) || !_audioClipSelection.IsComplete)
+        {
+            Announce("Zaznacz początek klawiszem I i koniec klawiszem O"); return;
+        }
+        var dialog = new AudioClipAppendWindow(path, item.Title, _audioClipSelection.Start!.Value, _audioClipSelection.End!.Value) { Owner = this };
+        var appended = dialog.ShowDialog() == true;
+        FocusPlayerView();
+        if (appended && dialog.Result is { } result && dialog.ResultPath is { } target)
+        {
+            var normalized = NormalizeLocalFilePath(target);
+            foreach (var saved in _state.LocalMedia.Items.Where(saved =>
+                string.Equals(NormalizeLocalFilePath(saved.Path), normalized, StringComparison.OrdinalIgnoreCase)))
+                saved.DurationTicks = result.TargetDurationAfter.Ticks;
+            foreach (var known in _localItems.Where(known =>
+                string.Equals(NormalizeLocalFilePath(known.Source ?? string.Empty), normalized, StringComparison.OrdinalIgnoreCase)))
+                known.Duration = result.TargetDurationAfter;
+            QueueStateSave();
+            AnnounceEssential($"Fragment dopisany na końcu: {Path.GetFileName(target)}. Kopia poprzedniej wersji: {Path.GetFileName(result.BackupPath)}");
+        }
+        else
+        {
+            DiagnosticLog.Info("audio-clip", "Anulowano okno dopisywania fragmentu.");
+            Announce("Dopisywanie fragmentu anulowane");
+        }
+    }
+
     private void ExportClip()
     {
         if (!TryGetLocalClipContext(out _, out var item, out var path, out var error))
@@ -1962,7 +2007,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (!string.Equals(session.Id, "local", StringComparison.Ordinal))
         {
-            Announce("Pobrany odcinek podcastu pozostaje niezmieniony. Klawisz X zapisuje zaznaczony fragment do nowego pliku");
+            Announce("Pobrany odcinek podcastu pozostaje niezmieniony. Ctrl+S zapisuje zaznaczony fragment do nowego pliku");
             return;
         }
         if (!_audioClipSelection.Matches(item.Id, path) || !_audioClipSelection.IsComplete)
@@ -1985,7 +2030,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             AnnounceEssential(
                 "Usuwanie fragmentu z oryginału nie jest jeszcze dostępne dla plików wideo. "
-                + "Klawisz X może zapisać ich ścieżkę audio do nowego pliku");
+                + "Ctrl+S może zapisać ich ścieżkę audio do nowego pliku");
             return;
         }
 
@@ -3977,7 +4022,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (commandId.StartsWith("editing.clip.", StringComparison.Ordinal))
         {
-            return local && _playerViewActive;
+            return _playerViewActive && (local || (podcasts
+                && (commandId is CommandIds.ExportClip or CommandIds.AppendClip)
+                && _sessions.Current.HasCurrentItem
+                && TryGetLocalPath(_sessions.Current.CurrentItem.Source, out _)));
         }
         if (!radio)
         {
@@ -6335,6 +6383,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackExportClipMenuItem.Visibility = clipVisibility;
+        PlaybackAppendClipMenuItem.Visibility = clipVisibility;
         PlaybackRemoveClipMenuItem.Visibility = currentLocalItem is null ? Visibility.Collapsed : Visibility.Visible;
         PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -11235,6 +11284,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.NextClipBoundary)
         {
             NavigateClipBoundary(1);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.AppendClip)
+        {
+            AppendClip();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ExportClip)
@@ -20807,6 +20861,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (TryResolveClipFileShortcut(key, modifiers, out commandId)) return true;
         if (key == Key.O && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
             && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
         {
@@ -21098,7 +21153,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
                 (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
                 (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
-                (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
                 (ModifierKeys.Control, Key.X) => CommandIds.RemoveClipFromOriginal,
                 (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -21721,6 +21775,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (IsNativeReaderReadingKey(key)) return false;
         var effectiveModifiers = ReadEffectiveModifierKeys();
+        if (TryResolveClipFileShortcut(key, effectiveModifiers, out var clipFileCommand))
+        {
+            ExecuteCommand(clipFileCommand);
+            return true;
+        }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
             var wiiMCommand = (effectiveModifiers, key) switch
@@ -21854,7 +21913,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
             (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
             (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
-            (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
             (ModifierKeys.Control, Key.X) => CommandIds.RemoveClipFromOriginal,
             (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -23208,6 +23266,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PreviousClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousClipBoundary);
     private void NextClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextClipBoundary);
     private void ExportClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportClip);
+    private void AppendClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AppendClip);
     private void RemoveClipFromOriginal_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.RemoveClipFromOriginal);
     private void ClearClipSelection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ClearClipSelection);
@@ -24073,6 +24132,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerExportClipMenuItem.Visibility = clipVisibility;
+        PlayerAppendClipMenuItem.Visibility = clipVisibility;
         PlayerRemoveClipMenuItem.Visibility = localPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
         var podcastPlaybackOptions = string.Equals(

@@ -1,5 +1,14 @@
 # AMC — mapa kodu
 
+## Fragmenty audio (alfa405)
+
+- `MainWindow.xaml.cs`: `TryResolveClipFileShortcut`, `AppendClip`, `ExportClip`; I/O zaznacza, Ctrl+S eksportuje, Ctrl+D dopisuje.
+- `AudioClipAppendWindow.xaml/.cs`: wybór istniejącego celu, zgoda na ponowną kompresję, postęp i anulowanie.
+- `Services/AudioClipAppender.cs`: eksport zakresu, dopisanie, sprawdzenie długości/zmiany celu, kopia i podmiana; korzysta z istniejącego eksportera.
+- `AudioClipShortcutAcceptanceTests.cs`, `AudioClipAppendTests.cs`: rzeczywisty routing okna i pliki audio. `scripts/test-audio-clips-mutations.py` sprawdza dyskryminację testów.
+- `TESTY_FRAGMENTY_AUDIO_405_PL.md`: instrukcja sprawdzenia klawiszami.
+
+
 Ten plik odpowiada na jedno pytanie: **gdzie w kodzie leży dana funkcja programu**.
 Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.md`,
 `PROJEKT_TIDAL_PL.md`, `PROJEKT_NVDA_PL.md` i pozostałych `PROJEKT_*`.

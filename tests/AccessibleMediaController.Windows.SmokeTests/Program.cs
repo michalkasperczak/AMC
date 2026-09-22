@@ -171,6 +171,14 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--audio-clip-append", StringComparer.Ordinal))
+{
+    Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult(); return 0;
+}
+if (args.Contains("--audio-clip-shortcuts", StringComparer.Ordinal))
+{
+    AudioClipShortcutAcceptanceTests.Run(); return 0;
+}
 if (args.Contains("--recording-files-acceptance", StringComparer.Ordinal))
 {
     try { RecordingFilesAcceptanceTests.Run(); return 0; }
@@ -355,6 +363,8 @@ var tests = new (string Name, Action Test)[]
     ("Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji", TransientPreviewShortcutTests.Run),
     ("Powrot z podgladu, fokus i ochrona odsluchu", TransientPreviewAcceptanceTests.Run),
     ("Historia nagran po zmianie plikow i ponownym starcie", RecordingFilesAcceptanceTests.Run),
+    ("Skróty i eksport zaznaczonego audio", AudioClipShortcutAcceptanceTests.Run),
+    ("Bezpieczne dopisanie fragmentu do istniejącego audio", () => Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult()),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),

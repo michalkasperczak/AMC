@@ -335,10 +335,14 @@
                           automation:AutomationProperties.Name="Przejdź do następnej granicy fragmentu, Alt+Page Down, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
                           Click="NextClipBoundary_Click" />
-                <MenuItem x:Name="PlaybackExportClipMenuItem" Header="_Zapisz zaznaczony fragment…" InputGestureText="X"
-                          automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X, tylko w odtwarzaczu lokalnego pliku"
-                          automation:AutomationProperties.AcceleratorKey="X"
+                <MenuItem x:Name="PlaybackExportClipMenuItem" Header="_Zapisz zaznaczony fragment…" InputGestureText="Ctrl+S"
+                          automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+S"
                           Click="ExportClip_Click" />
+                <MenuItem x:Name="PlaybackAppendClipMenuItem" Header="Dopisz fragment na _końcu pliku…" InputGestureText="Ctrl+D"
+                          automation:AutomationProperties.Name="Dopisz fragment na końcu istniejącego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                          Click="AppendClip_Click" />
                 <MenuItem x:Name="PlaybackRemoveClipMenuItem" Header="_Usuń zaznaczony fragment z oryginału…" InputGestureText="Ctrl+X"
                           automation:AutomationProperties.Name="Usuń zaznaczony fragment z oryginalnego pliku, Ctrl+X, tylko w odtwarzaczu lokalnego pliku; wymaga potwierdzenia i tworzy kopię bezpieczeństwa"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+X"
@@ -842,10 +846,14 @@
                               automation:AutomationProperties.Name="Przejdź do następnej granicy fragmentu, Alt+Page Down"
                               automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
                               Click="NextClipBoundary_Click" />
-                    <MenuItem x:Name="PlayerExportClipMenuItem" Header="Zapisz zaznaczony fragment…" InputGestureText="X"
-                              automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X"
-                              automation:AutomationProperties.AcceleratorKey="X"
+                    <MenuItem x:Name="PlayerExportClipMenuItem" Header="Zapisz zaznaczony fragment…" InputGestureText="Ctrl+S"
+                              automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+S"
                               Click="ExportClip_Click" />
+                <MenuItem x:Name="PlayerAppendClipMenuItem" Header="Dopisz fragment na _końcu pliku…" InputGestureText="Ctrl+D"
+                          automation:AutomationProperties.Name="Dopisz fragment na końcu istniejącego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                          Click="AppendClip_Click" />
                     <MenuItem x:Name="PlayerRemoveClipMenuItem" Header="Usuń zaznaczony fragment z oryginału…" InputGestureText="Ctrl+X"
                               automation:AutomationProperties.Name="Usuń zaznaczony fragment z oryginalnego pliku, Ctrl+X; wymaga potwierdzenia i tworzy kopię bezpieczeństwa"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+X"
