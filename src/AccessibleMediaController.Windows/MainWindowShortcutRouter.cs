@@ -51,27 +51,9 @@ internal static class MainWindowShortcutRouter
         };
     }
 
-    public static string? ResolveTransientRadioView(
-        Key key,
-        ModifierKeys modifiers,
-        string sessionId) =>
-        modifiers == ModifierKeys.Alt
-        && key == Key.R
-        && string.Equals(sessionId, "radio", StringComparison.Ordinal)
-            ? CommandIds.ViewActiveRadioRecordings
-            : null;
-
-    // DECYZJA Michala 15.09.2026: historia nagrywania jest dostepna WSZEDZIE,
-    // jak Ctrl+I - nie tylko w sesjach "radio" i "local".  Sesja nie jest wiec
-    // juz brana pod uwage; parametr zostaje, bo wywolania go podaja.
-    public static string? ResolveRecordedRadioFilesView(
-        Key key,
-        ModifierKeys modifiers,
-        string sessionId) =>
-        modifiers == (ModifierKeys.Alt | ModifierKeys.Shift)
-        && key == Key.R
-            ? CommandIds.ViewRecordedRadioFiles
-            : null;
+    // Alt+R, Alt+Shift+R i Ctrl+I rozwiazuje teraz jeden router wspolnych
+    // podgladow: MainWindow.TransientPreviews.cs. Dzieki temu dostepnosc,
+    // opisy i powrot Escape maja JEDNO zrodlo prawdy dla wszystkich sesji.
 
     public static string? ResolvePlayerAudioProcessing(
         Key key,

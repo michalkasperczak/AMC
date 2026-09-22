@@ -410,7 +410,8 @@
                           Visibility="Collapsed"
                           Click="SpotifyPodcasts_Click" />
                 <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki i materiały" InputGestureText="Ctrl+I"
-                          automation:AutomationProperties.Name="Nowe odcinki i materiały, Ctrl+I"
+                          automation:AutomationProperties.Name="Nowe odcinki i materiały"
+                          automation:AutomationProperties.HelpText="Podgląd dostępny ze wszystkich sesji. Escape wraca tam, skąd go otwarto."
                           automation:AutomationProperties.AcceleratorKey="Ctrl+I"
                           Visibility="Collapsed" Click="PodcastInboxView_Click" />
                 <MenuItem x:Name="PodcastInProgressViewMenuItem" Header="W _trakcie słuchania" InputGestureText="Ctrl+Shift+I"
@@ -446,10 +447,12 @@
                           automation:AutomationProperties.AcceleratorKey="Alt+3"
                           Click="CollectionSortCustom_Click" />
                 <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+R" Click="ActiveRadioRecordingsView_Click"
-                          automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+R. Escape wraca do wcześniejszego widoku"
+                          automation:AutomationProperties.Name="Aktualnie nagrywane stacje"
+                          automation:AutomationProperties.HelpText="Podgląd dostępny ze wszystkich sesji. Escape wraca tam, skąd go otwarto."
                           automation:AutomationProperties.AcceleratorKey="Alt+R" Visibility="Collapsed" />
                 <MenuItem x:Name="RecordedRadioFilesViewMenuItem" Header="_Historia nagrywania" InputGestureText="Alt+Shift+R" Click="RecordedRadioFilesView_Click"
                           automation:AutomationProperties.Name="Historia nagrywania radia"
+                          automation:AutomationProperties.HelpText="Podgląd dostępny ze wszystkich sesji. Escape wraca tam, skąd go otwarto."
                           automation:AutomationProperties.AcceleratorKey="Alt+Shift+R" Visibility="Collapsed" />
                 <MenuItem x:Name="RadioRecognitionHistoryViewMenuItem" Header="_Rozpoznane utwory…" InputGestureText="Ctrl+Alt+S"
                           automation:AutomationProperties.Name="Rozpoznane utwory, Ctrl+Alt+S"

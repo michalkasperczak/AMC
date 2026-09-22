@@ -88,6 +88,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.SessionOrder => (GeneralTab, SessionOrderList),
             SettingsTarget.PausePlaybackWhenLeavingPlayer => (GeneralTab, PausePlaybackWhenLeavingPlayerCheck),
             SettingsTarget.FollowPlaybackOnPlayerExit => (GeneralTab, FollowPlaybackOnPlayerExitCheck),
+            SettingsTarget.GlobalTransientPreviews => (GeneralTab, GlobalTransientPreviewsCheck),
             SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
             SettingsTarget.CustomSeekLength => (GeneralTab, CustomSeekSecondsCombo),
@@ -145,6 +146,7 @@ public partial class SettingsWindow : Window
         SelectComboByTag(SpotifyEngineCombo, SpotifyPlaybackEngineRules.Normalize(_workingState.Settings.SpotifyEngine).ToString());
         PausePlaybackWhenLeavingPlayerCheck.IsChecked = _workingState.Settings.PausePlaybackWhenLeavingPlayer;
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
+        GlobalTransientPreviewsCheck.IsChecked = _workingState.Settings.GlobalTransientPreviews;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
         LoadCustomSeekChoices();
@@ -279,6 +281,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.PrefixChord = _selectedPrefix.Canonical;
         _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
+        _workingState.Settings.GlobalTransientPreviews = GlobalTransientPreviewsCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
         _workingState.Settings.CustomSeekSeconds = ReadCustomSeekSeconds();

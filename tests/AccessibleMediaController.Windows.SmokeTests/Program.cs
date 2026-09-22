@@ -171,6 +171,16 @@ if (args.Contains("--application-update-save-failure", StringComparer.Ordinal))
     try { ApplicationUpdateSaveFailureTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--transient-preview-acceptance", StringComparer.Ordinal))
+{
+    try { TransientPreviewAcceptanceTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--transient-previews", StringComparer.Ordinal))
+{
+    try { TransientPreviewShortcutTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--session-menu-scope", StringComparer.Ordinal))
 {
     try { SessionMenuScopeTests.Run(); return 0; }
@@ -337,6 +347,8 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
     ("Enter na wyniku: Biblioteka radia, TIDAL i Spotify w obu trybach", OpenedSearchResultLibraryTests.Run),
     ("Widocznosc polecen menu wedlug sesji", SessionMenuScopeTests.Run),
+    ("Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji", TransientPreviewShortcutTests.Run),
+    ("Powrot z podgladu, fokus i ochrona odsluchu", TransientPreviewAcceptanceTests.Run),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),
@@ -3760,37 +3772,28 @@ static void TestMainWindowDigitShortcutRouting()
         MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio", "Biblioteka")
             == CommandIds.SortCollectionAlphabetically,
         "Alt+2 nie wybiera alfabetu w Bibliotece radia.");
+    // ZGLOSZENIE Michala 16.09.2026: Alt+R, Alt+Shift+R i Ctrl+I sa WSPOLNE i
+    // dostepne ze WSZYSTKICH sesji AMC, wiec routing nie zalezy juz od sesji, a
+    // od przelacznika Ustawien. Polityka mieszka w Core i ma wlasny pomiar
+    // (TransientPreviewNavigationTests), a faktyczne handlery okna mierzy
+    // TransientPreviewShortcutTests. Tutaj pilnujemy tylko odwzorowania skrotu
+    // na polecenie, zeby trzy skroty nie rozjechaly sie miedzy warstwami.
     Assert(
-        MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "radio")
+        TransientPreviewPolicy.ToCommandId(TransientPreviewKind.ActiveRadioRecordings)
             == CommandIds.ViewActiveRadioRecordings
-        && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "local") is null
-        && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.None, "radio") is null,
-        "Alt+R nie otwiera tymczasowego widoku Nagrywane wyłącznie w Radiu.");
-    // DECYZJA Michala 15.09.2026: historia nagrywania dostepna WSZEDZIE, jak Ctrl+I.
-    // Wczesniej test WYMAGAL, by w sesji "podcasts" skrot nie dzialal - dlatego
-    // sprawdzamy teraz odwrotnie, na sesjach spoza radia i plikow lokalnych.
+        && TransientPreviewPolicy.ToCommandId(TransientPreviewKind.RecordedRadioFiles)
+            == CommandIds.ViewRecordedRadioFiles
+        && TransientPreviewPolicy.ToCommandId(TransientPreviewKind.PodcastInbox)
+            == CommandIds.ViewPodcastInbox,
+        "Odwzorowanie wspólnych podglądów na polecenia rozjechało się między warstwami.");
     Assert(
-        MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            Key.R,
-            ModifierKeys.Alt | ModifierKeys.Shift,
-            "radio") == CommandIds.ViewRecordedRadioFiles
-        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            Key.R,
-            ModifierKeys.Alt | ModifierKeys.Shift,
-            "local") == CommandIds.ViewRecordedRadioFiles
-        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            Key.R,
-            ModifierKeys.Alt | ModifierKeys.Shift,
-            "podcasts") == CommandIds.ViewRecordedRadioFiles
-        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            Key.R,
-            ModifierKeys.Alt | ModifierKeys.Shift,
-            "tidal") == CommandIds.ViewRecordedRadioFiles
-        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            Key.R,
-            ModifierKeys.Alt,
-            "radio") is null,
-        "Alt+Shift+R nie otwiera historii nagrywania w KAZDEJ sesji.");
+        TransientPreviewPolicy.IsAvailable(
+            TransientPreviewKind.ActiveRadioRecordings, "tidal", globalPreviews: true)
+        && TransientPreviewPolicy.IsAvailable(
+            TransientPreviewKind.PodcastInbox, "local", globalPreviews: true)
+        && TransientPreviewPolicy.IsAvailable(
+            TransientPreviewKind.RecordedRadioFiles, "spotify", globalPreviews: true),
+        "Wspólne podglądy nie są dostępne ze wszystkich sesji przy włączonym przełączniku.");
     Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio", "Biblioteka")
             == CommandIds.SortCollectionCustom,
@@ -6443,7 +6446,7 @@ static void TestSkrotHistoriiNagrywaniaJestWywolywany()
     var od = 0;
     while (true)
     {
-        var i = zrodlo.IndexOf("ResolveRecordedRadioFilesView", od, StringComparison.Ordinal);
+        var i = zrodlo.IndexOf("TryResolveTransientPreviewShortcut", od, StringComparison.Ordinal);
         if (i < 0) break;
         wywolania.Add(i);
         od = i + 1;

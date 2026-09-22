@@ -1,9 +1,9 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-402`
-- Tytuł zestawu: Okresowy zapis pozycji bez kopiowania bibliotek
-- Wersja programu: `0.1.0-alpha.402`
-- Bieżące scenariusze: `TESTY_0.1.0-alpha.402_PL.md`
+- Numer zestawu: `AMC-TEST-403`
+- Tytuł zestawu: Wspólne podglądy i powrót do miejsca pracy
+- Wersja programu: `0.1.0-alpha.403`
+- Bieżące scenariusze: `TESTY_0.1.0-alpha.403_PL.md`
 
 ## Alfa 397 — komunikat premiery YouTube
 

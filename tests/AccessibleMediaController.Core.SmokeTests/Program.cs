@@ -174,6 +174,7 @@ var tests = new (string Name, Action Test)[]
     ("Opcje sesji Spotify nie obiecuja DSP", TestOpcjeSesjiSpotifyNieObiecujaDsp),
     ("Sesja Spotify pyta o pamiec pozycji", TestSesjaSpotifyPytaOPamiecPozycji),
     ("Pozycja Spotify przezywa restart", TestPozycjaSpotifyPrzezywaRestart),
+    ("Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji", TransientPreviewNavigationTests.Run),
     ("Strzalka w prawo w Spotify daje menu powiazan jak TIDAL", TestStrzalkaWPrawoSpotifyMenuPowiazan)
 };
 
@@ -5969,7 +5970,7 @@ static void TestCommandPalette()
     Equal("Ctrl+E (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ExportWiiMNetworkStreams).LocalShortcut);
     Equal("F5 (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
     Equal("Ctrl+F5 (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
-    Equal("Ctrl+I (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
+    Equal("Ctrl+I", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
     Equal("Ctrl+Shift+I (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInProgress).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");

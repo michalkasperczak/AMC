@@ -97,6 +97,13 @@ public sealed class AppSettings
     public bool RememberLastSession { get; set; } = true;
     public bool PausePlaybackWhenLeavingPlayer { get; set; } = true;
     public bool FollowPlaybackOnPlayerExit { get; set; } = true;
+
+    /// <summary>
+    /// Wspolne podglady Alt+R (nagrywane stacje), Alt+Shift+R (historia
+    /// nagrywania) i Ctrl+I (nowe odcinki) dostepne ze WSZYSTKICH sesji AMC.
+    /// Wylaczenie zostawia kazdy z nich w sesji macierzystej.
+    /// </summary>
+    public bool GlobalTransientPreviews { get; set; } = true;
     public bool OpenPlayerWhenActivatingPreset { get; set; }
     public bool RememberLocalPlaybackPositions { get; set; } = true;
 

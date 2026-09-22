@@ -444,6 +444,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsPausePlaybackWhenLeavingPlayer => SettingsTarget.PausePlaybackWhenLeavingPlayer,
             CommandIds.SettingsCustomSeekLength => SettingsTarget.CustomSeekLength,
             CommandIds.SettingsFollowPlaybackOnPlayerExit => SettingsTarget.FollowPlaybackOnPlayerExit,
+            CommandIds.SettingsGlobalTransientPreviews => SettingsTarget.GlobalTransientPreviews,
             CommandIds.SettingsOpenPlayerWhenActivatingPreset => SettingsTarget.OpenPlayerWhenActivatingPreset,
             CommandIds.SettingsRememberLocalPlaybackPositions => SettingsTarget.RememberLocalPlaybackPositions,
             CommandIds.SettingsLoudnessNormalization => SettingsTarget.LoudnessNormalization,

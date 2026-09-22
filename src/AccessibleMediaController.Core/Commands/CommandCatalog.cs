@@ -198,6 +198,7 @@ public static class CommandCatalog
             CommandIds.SettingsPausePlaybackWhenLeavingPlayer => "Ustawienia: wstrzymuj po wyjściu z odtwarzacza",
             CommandIds.SettingsCustomSeekLength => "Ustawienia: długość przeskoku Alt+Ctrl+strzałki",
             CommandIds.SettingsFollowPlaybackOnPlayerExit => "Ustawienia: fokus podąża za odtwarzaniem",
+            CommandIds.SettingsGlobalTransientPreviews => "Ustawienia: wspólne podglądy ze wszystkich sesji",
             CommandIds.SettingsOpenPlayerWhenActivatingPreset => "Ustawienia: otwieraj odtwarzacz po uruchomieniu presetu",
             CommandIds.SettingsRememberLocalPlaybackPositions => "Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików",
             CommandIds.SettingsLoudnessNormalization => "Ustawienia: globalna normalizacja głośności",

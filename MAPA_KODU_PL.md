@@ -156,6 +156,18 @@ Jedna komenda ma identyfikator tekstowy, a skrót to tylko przypisanie do niego.
   i głośność itd.).
 - `Windows/MainWindowShortcutRouter.cs` — skróty zależne od kontekstu: co robi
   Alt+cyfra w zależności od bieżącej sesji i widoku.
+- `Windows/MainWindow.TransientPreviews.cs` — **wspólne podglądy** Alt+R
+  (nagrywane stacje), Alt+Shift+R (historia nagrywania) i Ctrl+I (nowe odcinki).
+  Jeden router dla wszystkich trzech: routing skrótu, dostępność w sesji, opis
+  pomocy, zapamiętanie miejsca wywołania i powrót Escape. To NIE są skróty
+  systemowe (`RegisterHotKey`) — działają w obrębie okna, ale ze WSZYSTKICH
+  sesji AMC, gdy włączony jest przełącznik `AppSettings.GlobalTransientPreviews`.
+  Czysta polityka i pamięć powrotu siedzą w
+  `Core/Presentation/TransientPreviewNavigation.cs` (testowalne bez WPF).
+  Odbiór prawdziwych poleceń, powrotu, fokusu oraz ochrony odsłuchu:
+  `Windows.SmokeTests/TransientPreviewAcceptanceTests.cs`; świadome mutacje:
+  `scripts/test-transient-preview-mutations.py`. Samo badanie polityki nie
+  zastępuje sprawdzenia wcześniejszych bramek WiiM i pól edycji.
 - `Windows/Services/WindowsKeyMap.cs` — tłumaczenie nazw klawiszy na kody Windows.
 - `Windows/Services/GlobalPrefixService.cs` — skróty globalne poza oknem programu:
   `RegisterHotKey` plus niskopoziomowy hak klawiatury. Obsługa: `HandleGlobalChord`

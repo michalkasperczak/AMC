@@ -178,6 +178,7 @@ public static class CommandIds
     public const string SettingsPausePlaybackWhenLeavingPlayer = "settings.playback.pauseWhenLeavingPlayer";
     public const string SettingsCustomSeekLength = "settings.playback.customSeekLength";
     public const string SettingsFollowPlaybackOnPlayerExit = "settings.playback.followOnPlayerExit";
+    public const string SettingsGlobalTransientPreviews = "settings.previews.global";
     public const string SettingsOpenPlayerWhenActivatingPreset = "settings.playback.openPlayerForPreset";
     public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";
     public const string SettingsLoudnessNormalization = "settings.playback.loudnessNormalization";

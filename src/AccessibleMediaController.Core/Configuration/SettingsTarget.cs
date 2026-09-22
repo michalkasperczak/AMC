@@ -8,6 +8,7 @@ public enum SettingsTarget
     SessionOrder,
     PausePlaybackWhenLeavingPlayer,
     FollowPlaybackOnPlayerExit,
+    GlobalTransientPreviews,
     OpenPlayerWhenActivatingPreset,
     RememberLocalPlaybackPositions,
     CustomSeekLength,

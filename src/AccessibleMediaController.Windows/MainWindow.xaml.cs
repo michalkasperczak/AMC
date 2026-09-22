@@ -2195,6 +2195,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (!_playerViewActive)
         {
+            // Swiadome uruchomienie odtwarzania z podgladu: Escape wroci
+            // najpierw do podgladu, a powrot do zrodla nie wskrzesi dawnego
+            // sluchania.
+            NoteTransientPreviewPlayback();
             CaptureCurrentSessionNavigationState();
             _playerViewActive = true;
             BrowserHeaderPanel.Visibility = Visibility.Collapsed;
@@ -3912,7 +3916,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
-        if (commandId == CommandIds.ViewRecordedRadioFiles) return radio || local;
+        if (IsTransientPreviewCommand(commandId)) return IsTransientPreviewAvailable(commandId);
         if (commandId == CommandIds.OpenOnWiiM)
             return ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
         if (commandId is CommandIds.ManageWiiMDevices
@@ -3940,7 +3944,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ExportYouTubeSubscriptions
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
-            or CommandIds.ViewPodcastInbox
             or CommandIds.ViewPodcastInProgress)
         {
             return false;
@@ -3987,7 +3990,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or CommandIds.StopAllRadioRecordings
                 or CommandIds.AddRadioSchedule
                 or CommandIds.ManageRadioSchedules
-                or CommandIds.ViewActiveRadioRecordings
                 or CommandIds.RadioJumpLive
                 or CommandIds.RecognizeRadioTrack
                 or CommandIds.ToggleRadioRecognitionMonitoring
@@ -6420,13 +6422,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && collectionSortMode == CollectionSortMode.Alphabetical;
         CollectionSortCustomMenuItem.IsChecked = collectionSorting
             && collectionSortMode == CollectionSortMode.Custom;
-        ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
-        // DECYZJA Michala 15.09.2026: historia nagrywania jest dostepna WSZEDZIE,
-        // jak Ctrl+I - wiec pozycja menu tez musi byc widoczna w kazdej sesji.
-        // Inaczej skrot dziala, a menu go nie pokazuje i program klamie.
-        RecordedRadioFilesViewMenuItem.Visibility = Visibility.Visible;
+        // Wspolne podglady: menu MUSI pokazywac dokladnie to, co robia skroty.
+        // Przy wlaczonym przelaczniku wszystkie trzy sa widoczne w kazdej sesji,
+        // przy wylaczonym - tylko w sesjach macierzystych. Inaczej program klamie.
+        ActiveRadioRecordingsViewMenuItem.Visibility =
+            IsTransientPreviewAvailable(CommandIds.ViewActiveRadioRecordings)
+                ? Visibility.Visible : Visibility.Collapsed;
+        RecordedRadioFilesViewMenuItem.Visibility =
+            IsTransientPreviewAvailable(CommandIds.ViewRecordedRadioFiles)
+                ? Visibility.Visible : Visibility.Collapsed;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
-        PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        PodcastInboxViewMenuItem.Visibility =
+            IsTransientPreviewAvailable(CommandIds.ViewPodcastInbox)
+                ? Visibility.Visible : Visibility.Collapsed;
         PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastDownloadsViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         // Menu MUSI pokazywac to samo, co robi Alt+D. Sesja Spotify ma podcasty
@@ -11290,25 +11298,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (commandId == CommandIds.ViewPodcastInbox)
         {
-            if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            if (!IsTransientPreviewAvailable(commandId))
             {
-                Announce("Nowe odcinki i materiały są dostępne w sesji Podcasty i YouTube");
+                Announce(TransientPreviewPolicy.DescribeUnavailable(TransientPreviewKind.PodcastInbox));
                 return new CommandExecutionResult(false);
             }
-            // A background refresh can update persisted episode flags while
-            // the Podcasts session still contains the previous item snapshot.
-            ReloadPodcastSessionItems();
-            NavigateTo(PodcastInboxViewName);
-            PrepareViewFocusContext(MediaList.Items.Count == 0
-                ? $"{PodcastInboxDisplayName}, brak nowych materiałów"
-                : PodcastInboxDisplayName);
-            RestoreMediaListFocusAfterRefresh();
-            if (MediaList.Items.Count == 0)
-            {
-                Dispatcher.BeginInvoke(
-                    () => Announce("Brak nowych odcinków i materiałów. F5 odświeża wszystkie źródła z Biblioteki"),
-                    DispatcherPriority.ContextIdle);
-            }
+            ShowPodcastInboxPreview();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ViewPodcastInProgress)
@@ -11350,6 +11345,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (commandId == CommandIds.ViewRadio)
         {
+            NoteExplicitNavigationAwayFromPreview();
             CaptureCurrentSessionNavigationState();
             HidePlayerForBrowserNavigation();
             var radio = _sessions.SelectSession("radio");
@@ -11404,18 +11400,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (commandId == CommandIds.ViewActiveRadioRecordings)
         {
-            if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            if (!IsTransientPreviewAvailable(commandId))
             {
-                Announce("Widok nagrywanych stacji jest dostępny w sesji Radio internetowe");
+                Announce(TransientPreviewPolicy.DescribeUnavailable(
+                    TransientPreviewKind.ActiveRadioRecordings));
                 return new CommandExecutionResult(false);
             }
-            NavigateTo(ActiveRadioRecordingsViewName);
-            PrepareViewFocusContext(ActiveRadioRecordingsViewName);
-            RestoreMediaListFocusAfterRefresh();
+            ShowActiveRadioRecordingsPreview();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ViewRecordedRadioFiles)
         {
+            if (!IsTransientPreviewAvailable(commandId))
+            {
+                Announce(TransientPreviewPolicy.DescribeUnavailable(
+                    TransientPreviewKind.RecordedRadioFiles));
+                return new CommandExecutionResult(false);
+            }
             ShowRecordedRadioFiles();
             return new CommandExecutionResult(true);
         }
@@ -11559,6 +11560,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             IsMenuInteractionActive(Keyboard.FocusedElement));
         var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
             || commandId.StartsWith("session.slot.", StringComparison.Ordinal);
+        // Jawna nawigacja uzytkownika (Ctrl+cyfra, lista sesji, inny widok)
+        // uniewaznia cel powrotu ze wspolnego podgladu: Escape nie moze potem
+        // skakac w nieaktualne miejsce.
+        if (!IsTransientPreviewCommand(commandId)
+            && (navigatesSession
+                || commandId is CommandIds.SessionList
+                    or CommandIds.ViewFolders
+                    or CommandIds.ViewAllLocalFiles
+                    or CommandIds.ViewCustomLocalOrder
+                    or CommandIds.ViewLibrary
+                    or CommandIds.ViewFavorites
+                    or CommandIds.ViewQueue
+                    or CommandIds.ViewPodcastInProgress))
+        {
+            NoteExplicitNavigationAwayFromPreview();
+        }
         var mergeSessionAnnouncementWithFocus = navigatesSession;
         var changesListMembership = commandId is CommandIds.ToggleFavorite
             or CommandIds.ToggleLibrary
@@ -12529,6 +12546,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        BeginTransientPreview(TransientPreviewKind.RecordedRadioFiles);
         CaptureCurrentSessionNavigationState();
         HidePlayerForBrowserNavigation();
         _sessions.SelectSession(local.Id);
@@ -12667,7 +12685,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private static bool CommandAvailableInWiiM(string commandId) =>
-        CommandIds.TryParseRadioPreset(commandId, out _)
+        IsTransientPreviewCommand(commandId)
+        || CommandIds.TryParseRadioPreset(commandId, out _)
         || commandId.StartsWith("session.", StringComparison.Ordinal)
         || commandId.StartsWith("settings.", StringComparison.Ordinal)
         || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal)
@@ -17581,6 +17600,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void NavigateTo(string viewName)
     {
+        var previewDestination = _transientPreviews.ActivePreview switch
+        {
+            TransientPreviewKind.ActiveRadioRecordings =>
+                _sessions.Current.Id == "radio" && viewName == ActiveRadioRecordingsViewName,
+            TransientPreviewKind.RecordedRadioFiles =>
+                _sessions.Current.Id == "local" && viewName == RecordedRadioFilesViewName,
+            TransientPreviewKind.PodcastInbox =>
+                _sessions.Current.Id == "podcasts" && viewName == PodcastInboxViewName,
+            _ => false
+        };
+        if (!previewDestination) NoteExplicitNavigationAwayFromPreview();
         _tidalNavigationVersion++;
         CaptureCurrentSessionNavigationState();
         HidePlayerForBrowserNavigation();
@@ -20172,24 +20202,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        // Alt+Shift+R - historia nagrywania. DECYZJA Michala 15.09.2026: dostepna
-        // WSZEDZIE, jak Ctrl+I. Obsluga stoi TUTAJ, przed sprawdzeniami sesji i
-        // przed TryHandleLocalLibraryViewShortcut, bo tamta sciezka odpada przy
-        // aktywnym odtwarzaczu (_playerViewActive) - a skrot ma dzialac takze tam.
+        // Wspolne podglady: Alt+R (nagrywane stacje), Alt+Shift+R (historia
+        // nagrywania) i Ctrl+I (nowe odcinki). DECYZJA Michala: dostepne ze
+        // WSZYSTKICH sesji AMC, gdy wlaczony jest przelacznik w Ustawieniach.
+        // Obsluga stoi TUTAJ, przed sprawdzeniami sesji i przed
+        // TryHandleLocalLibraryViewShortcut, bo tamta sciezka odpada przy
+        // aktywnym odtwarzaczu (_playerViewActive) - a skroty maja dzialac takze tam.
         {
             var windowKeyForHistory = e.Key == Key.System ? e.SystemKey : e.Key;
-            if (Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase)
-            {
-                var historyCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            if ((ReferenceEquals(Keyboard.FocusedElement, FilterBox)
+                    || Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase)
+                && TryResolveTransientPreviewShortcut(
                     windowKeyForHistory,
                     ReadEffectiveModifierKeys(),
-                    _sessions.Current.Id);
-                if (historyCommand is not null)
-                {
-                    ExecuteCommand(historyCommand);
-                    e.Handled = true;
-                    return;
-                }
+                    out var previewCommandFromWindow))
+            {
+                ExecuteCommand(previewCommandFromWindow);
+                e.Handled = true;
+                return;
             }
         }
 
@@ -20258,7 +20288,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (_playerViewActive)
             {
                 e.Handled = true;
+                // Escape z odtwarzacza otwartego z podgladu wraca NAJPIERW do
+                // podgladu, a dopiero kolejny Escape do miejsca wywolania.
+                if (TryHandleTransientPreviewEscape()) return;
                 ReturnFromPlayerToList();
+                return;
+            }
+
+            // Podglad wywolany z innej sesji wraca dokladnie tam, skad przyszedl:
+            // ta sama sesja, widok, filtr, element i odtwarzacz.
+            if (FilterBox.Text.Length == 0 && TryHandleTransientPreviewEscape())
+            {
+                e.Handled = true;
                 return;
             }
 
@@ -20722,15 +20763,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ViewSpotifyPodcasts;
             return true;
         }
-        var transientRadioViewCommand = MainWindowShortcutRouter.ResolveTransientRadioView(
-            key,
-            modifiers,
-            _sessions.Current.Id);
-        if (transientRadioViewCommand is not null)
-        {
-            commandId = transientRadioViewCommand;
-            return true;
-        }
         var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
             key,
             modifiers,
@@ -20929,20 +20961,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.OpenOnWiiM;
             return true;
         }
-        var recordedFilesCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            key,
-            modifiers,
-            _sessions.Current.Id);
-        if (recordedFilesCommand is not null)
+        if (TryResolveTransientPreviewShortcut(key, modifiers, out var previewCommand))
         {
-            commandId = recordedFilesCommand;
-            return true;
-        }
-        if (modifiers == ModifierKeys.Control
-            && key == Key.I
-            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
-        {
-            commandId = CommandIds.ViewPodcastInbox;
+            commandId = previewCommand;
             return true;
         }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
@@ -21163,6 +21184,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"uruchom preset {RadioPresetSlots.Label(presetSlot)} aktywnej sesji";
         else if (modifiers == ModifierKeys.Alt && key == Key.F4)
             description = "zamknij aplikację";
+        else if (TryDescribeTransientPreviewShortcut(key, modifiers, out var previewDescription))
+            description = previewDescription;
         else if (modifiers == ModifierKeys.None && key == Key.Escape)
             description = _playerViewActive
                 ? "wyjdź z odtwarzacza"
@@ -21338,28 +21361,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive || Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var effectiveModifiers = ReadEffectiveModifierKeys();
-        var transientRadioViewCommand = MainWindowShortcutRouter.ResolveTransientRadioView(
-            key,
-            effectiveModifiers,
-            _sessions.Current.Id);
-        if (transientRadioViewCommand is not null)
+        // Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I maja jeden router w
+        // MainWindow.TransientPreviews.cs, wiec kazda warstwa wpuszcza je tak samo.
+        if (TryResolveTransientPreviewShortcut(key, effectiveModifiers, out var previewCommandFromLibrary))
         {
-            ExecuteCommand(transientRadioViewCommand);
-            return true;
-        }
-        // Alt+Shift+R (historia nagrywania). BLAD ZMIERZONY 15.09.2026: ten skrot
-        // byl podpiety WYLACZNIE do TryResolveKeyboardHelpCommand, czyli do trybu
-        // pomocy, ktory tylko OPISUJE, co robi klawisz. Zadna sciezka nie wywolywala
-        // go naprawde, wiec w trybie pomocy skrot mowil "Pokaz historie nagrywania",
-        // a nacisniety zwyczajnie nie robil nic. Menu, paleta polecen i katalog
-        // pomocy caly czas go zapowiadaly.
-        var recordedFilesCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
-            key,
-            effectiveModifiers,
-            _sessions.Current.Id);
-        if (recordedFilesCommand is not null)
-        {
-            ExecuteCommand(recordedFilesCommand);
+            ExecuteCommand(previewCommandFromLibrary);
             return true;
         }
         // Ctrl+Alt+O: zapisane podcasty Spotify. Osobny skrot od Ctrl+O (strumienie
