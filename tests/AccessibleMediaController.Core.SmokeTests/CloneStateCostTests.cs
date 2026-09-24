@@ -11,8 +11,8 @@ using AccessibleMediaController.Core.Input;
 /// zmierzone zaciecia braly sie z tego, ze pelny model byl serializowany do
 /// JSON i parsowany z powrotem. Stoper na maszynie budujacej jest kruchy
 /// (rdzenie, throttling, GC innych testow), natomiast liczba zaalokowanych
-/// bajtow dla ustalonego modelu jest powtarzalna co do dziesiatych czesci
-/// megabajta. Dlatego budzet jest wyrazony w bajtach na alokacjach watku.
+/// bajtow dla ustalonego modelu jest powtarzalna co do dziesiatych czesci MiB.
+/// Dlatego budzet jest wyrazony w bajtach na alokacjach watku.
 ///
 /// Ten zestaw NIE twierdzi, ze usuwa wszystkie zaciecia interfejsu. Mierzy
 /// wylacznie koszt samego CloneState dla modelu zbudowanego w tescie.
@@ -43,6 +43,8 @@ internal static class CloneStateCostTests
         TestDeepIndependenceBothDirections();
         TestDictionaryComparersSurvive();
         TestEveryPropertyIsCopied();
+        TestModelHasNoHiddenState();
+        TestUnsupportedShapesAreRefused();
         TestSaveReloadRoundTripMatches();
     }
 
@@ -77,15 +79,15 @@ internal static class CloneStateCostTests
         var median = samples[samples.Length / 2];
 
         // Zmierzone na tym modelu na tej samej maszynie: stara implementacja
-        // (pelny obieg JSON) alokuje 13,4 MB, nowa 1,7 MB, za kazdym razem z
-        // powtarzalnoscia do 0,1 MB. Budzet 6 MB lezy miedzy nimi z zapasem
+        // (pelny obieg JSON) alokuje 13,4 MiB, nowa 1,7 MiB, za kazdym razem z
+        // powtarzalnoscia do 0,1 MiB. Budzet 6 MiB lezy miedzy nimi z zapasem
         // ponad dwukrotnym w obie strony, wiec test nie jest ani kruchy, ani
         // pusty: stara implementacja przekracza go ponad dwukrotnie.
         const long Budget = 6L * 1024 * 1024;
         Check(
             median < Budget,
-            $"CloneState alokuje {median / 1048576.0:F1} MB na modelu testowym, " +
-            $"budzet to {Budget / 1048576.0:F1} MB. Pelny JSON w obie strony na watku UI " +
+            $"CloneState alokuje {median / 1048576.0:F1} MiB na modelu testowym, " +
+            $"budzet to {Budget / 1048576.0:F1} MiB. Pelny JSON w obie strony na watku UI " +
             "jest wlasnie tym kosztem, ktory ta zmiana usuwa.");
     }
 
@@ -230,7 +232,15 @@ internal static class CloneStateCostTests
         var state = ConfigurationStore.CreateDefaultState();
         var filled = new List<string>();
         FillDistinctively(state, typeof(PersistedState), "PersistedState", filled, 0);
-        Check(filled.Count > 150, $"straznik pol wypelnil tylko {filled.Count} wlasciwosci, model powinien miec ich znacznie wiecej");
+
+        // ROZLICZENIE, nie prog. Kazda wlasciwosc modelu z publicznym ustawiaczem
+        // musi trafic na liste wypelnionych; wlasciwosci bez ustawiacza musza byc
+        // wymienione swiadomie. Sam prog "wiecej niz 150" przepuszczal cala
+        // galez modelu pominieta po cichu przez pomocnika.
+        Check(
+            filled.Contains("PersistedState.Settings.SessionSlots{}"),
+            "straznik nie wypelnil slownika o kluczu nie-string (Settings.SessionSlots, Dictionary<int, string>); " +
+            "pomocnik cicho pomijal takie slowniki, wiec ich wartosci i komparator nie byly sprawdzane");
 
         var expected = JsonSerializer.Serialize(state, Json);
         var actual = JsonSerializer.Serialize(store.CloneState(state), Json);
@@ -240,6 +250,174 @@ internal static class CloneStateCostTests
             throw new InvalidOperationException(
                 "klon zgubil lub zmienil wartosc wlasciwosci modelu. Pierwsza roznica: " + at);
         }
+    }
+
+    // ----------------------------------------------- brak ukrytego stanu w modelu
+
+    /// <summary>
+    /// TEST KSZTALTU MODELU, nie zachowania kopii. Zamyka luke, ktorej nie widzi
+    /// ani porownanie JSON, ani straznik wlasciwosci: PUBLICZNE POLE.
+    ///
+    /// Domyslny System.Text.Json NIE serializuje publicznych pol (bez
+    /// IncludeFields albo [JsonInclude]), a StateSnapshotCopier kopiuje tylko
+    /// wlasciwosci. Publiczne pole byloby wiec pominiete PO OBU STRONACH
+    /// porownania i nie zglosilby go zaden inny test - a mimo to gubiloby stan
+    /// migawki. Dlatego sprawdzamy sam kszalt typow modelu: zadne publiczne pole
+    /// (poza stalymi, ktore nie maja stanu instancji).
+    ///
+    /// Osobno pilnujemy [JsonInclude] i [JsonPropertyName] na polach: takie pole
+    /// WESZLOBY do zapisu, ale nie do kopii. Test NIE zmienia formatu zapisu,
+    /// tylko wymaga swiadomej decyzji, gdy ktos taki ksztalt wprowadzi.
+    /// </summary>
+    private static void TestModelHasNoHiddenState()
+    {
+        var visited = new HashSet<Type>();
+        var offenders = new List<string>();
+        CollectHiddenState(typeof(PersistedState), visited, offenders, "PersistedState");
+
+        Check(
+            offenders.Count == 0,
+            "model migawki zawiera stan, ktorego kopia nie przenosi: " + string.Join("; ", offenders) +
+            ". StateSnapshotCopier kopiuje WYLACZNIE publiczne wlasciwosci z ustawiaczem. " +
+            "Zamien takie pole na wlasciwosc { get; set; } albo swiadomie ogranicz gwarancje migawki.");
+    }
+
+    private static void CollectHiddenState(Type type, HashSet<Type> visited, List<string> offenders, string path)
+    {
+        if (!visited.Add(type)) return;
+
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+        {
+            // Pola generowane przez kompilator (backing fields) sa prywatne, wiec
+            // tu nie trafiaja. Liczy sie tylko pole napisane recznie.
+            var marked = field.GetCustomAttributes()
+                .Any(attribute => attribute.GetType().Name is "JsonIncludeAttribute" or "JsonPropertyNameAttribute");
+            offenders.Add($"{path}.{field.Name} ({field.FieldType.Name}) to publiczne POLE, nie wlasciwosc" +
+                (marked ? " i jest oznaczone atrybutem JSON, czyli trafia do zapisu, ale nie do kopii" : string.Empty));
+        }
+
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetIndexParameters().Length > 0) continue;
+            foreach (var candidate in RelevantModelTypes(property.PropertyType))
+            {
+                CollectHiddenState(candidate, visited, offenders, path + "." + property.Name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Typy warte dalszego zejscia: wlasne klasy modelu oraz argumenty list i
+    /// slownikow. Typy wbudowane i niezmienne pomijamy - nie maja wlasnego stanu
+    /// modelu do zgubienia.
+    /// </summary>
+    private static IEnumerable<Type> RelevantModelTypes(Type type)
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+        if (underlying.IsGenericType)
+        {
+            foreach (var argument in underlying.GetGenericArguments())
+            {
+                foreach (var nested in RelevantModelTypes(argument)) yield return nested;
+            }
+            yield break;
+        }
+        if (underlying.IsClass && underlying != typeof(string)
+            && underlying.Namespace?.StartsWith("AccessibleMediaController", StringComparison.Ordinal) == true)
+        {
+            yield return underlying;
+        }
+    }
+
+    // -------------------------------------------- odmowa nieobslugiwanych ksztaltow
+
+    /// <summary>
+    /// Kopiowacz ma ODMAWIAC jawnie, a nie oddawac cicho plytka albo pusta
+    /// kopie. Aktualny model nie zawiera zadnego z ponizszych ksztaltow, wiec
+    /// bez tego testu kontrakt bylby wylacznie deklaracja w komentarzu.
+    ///
+    /// Dlaczego wlasnie te trzy: <c>HashSet&lt;T&gt;</c> byl obslugiwany plytko
+    /// (elementy wspoldzielone), slownik o kluczu mutowalnym wspoldzielilby
+    /// klucz miedzy stanem zywym a migawka, a kazda inna kolekcja
+    /// (<c>IList</c>, <c>ObservableCollection</c>, tablica) trafialaby do
+    /// sciezki obiektu i dawala pusty wynik zamiast bledu.
+    /// </summary>
+    private static void TestUnsupportedShapesAreRefused()
+    {
+        ExpectRefusal(
+            () => StateSnapshotCopier.Copy(new SetHolder { Tags = new HashSet<string> { "a" } }),
+            "HashSet",
+            "HashSet nie jest odrzucany: plytka kopia zbioru z mutowalnym elementem zlamalaby niezaleznosc migawki po cichu");
+
+        ExpectRefusal(
+            () => StateSnapshotCopier.Copy(new MutableKeyHolder
+            {
+                Map = new Dictionary<MutableKey, string> { [new MutableKey()] = "x" }
+            }),
+            "klucz",
+            "slownik o mutowalnym kluczu nie jest odrzucany: klucz bylby WSPOLDZIELONY miedzy stanem zywym a migawka");
+
+        ExpectRefusal(
+            () => StateSnapshotCopier.Copy(new OtherCollectionHolder { Items = new Stack<string>() }),
+            "Stack",
+            "nieobslugiwana kolekcja nie jest odrzucana: trafia do sciezki obiektu i daje pusta kolekcje zamiast bledu");
+
+        // Kontrola pozytywna: ksztalty, ktore model UZYWA, nadal przechodza.
+        // Bez niej odmowa mogloby byc zrealizowana przez odrzucenie wszystkiego.
+        var supported = StateSnapshotCopier.Copy(new SupportedShapes
+        {
+            ByString = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["A"] = "1" },
+            ByInt = new Dictionary<int, string> { [3] = "trzy" },
+            Items = new List<string> { "a" }
+        });
+        Check(supported.ByString.ContainsKey("a"), "kontrola pozytywna: slownik o kluczu string zgubil komparator");
+        Check(supported.ByInt[3] == "trzy", "kontrola pozytywna: slownik o kluczu int nie przetrwal kopiowania");
+        Check(supported.Items[0] == "a", "kontrola pozytywna: lista napisow nie przetrwala kopiowania");
+    }
+
+    /// <summary>
+    /// Sprawdza, ze operacja ODMAWIA z czytelnym powodem. Odmowa powstaje przy
+    /// budowie planu typu, czyli w statycznym konstruktorze — CLR opakowuje ja
+    /// wtedy w <see cref="TypeInitializationException"/>. Szukamy wiec powodu
+    /// takze w lancuchu wyjatkow wewnetrznych, bo to opakowanie jest faktem
+    /// o kopiowaczu, nie luka w tescie.
+    /// </summary>
+    private static void ExpectRefusal(Action action, string expectedFragment, string failureMessage)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception)
+        {
+            for (var current = exception; current is not null; current = current.InnerException)
+            {
+                if (current is InvalidOperationException
+                    && current.Message.Contains(expectedFragment, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+            throw new InvalidOperationException(
+                failureMessage + $" (zamiast jasnej odmowy z '{expectedFragment}' padlo: {exception.GetType().Name}: {exception.Message})",
+                exception);
+        }
+        throw new InvalidOperationException(failureMessage);
+    }
+
+    private sealed class SetHolder { public HashSet<string> Tags { get; set; } = new(); }
+
+    private sealed class MutableKey { public string Name { get; set; } = string.Empty; }
+
+    private sealed class MutableKeyHolder { public Dictionary<MutableKey, string> Map { get; set; } = new(); }
+
+    private sealed class OtherCollectionHolder { public Stack<string> Items { get; set; } = new(); }
+
+    private sealed class SupportedShapes
+    {
+        public Dictionary<string, string> ByString { get; set; } = new();
+        public Dictionary<int, string> ByInt { get; set; } = new();
+        public List<string> Items { get; set; } = new();
     }
 
     // ------------------------------------------------------- zapis i odczyt
@@ -280,7 +458,11 @@ internal static class CloneStateCostTests
 
     private static PersistedState CopyIntoFreshStore(ConfigurationStore store, PersistedState template)
     {
-        var target = store.LoadOrCreate();
+        // Wolanie potrzebne dla EFEKTU: zaklada pliki stanu i bazy w nowym
+        // katalogu roboczym, zeby pozniejszy Save trafil w przygotowane
+        // srodowisko. Zwrocony model jest celowo nieuzywany - testujemy kopie
+        // TEGO SAMEGO szablonu w obu magazynach.
+        store.LoadOrCreate();
         var json = JsonSerializer.Serialize(template, Json);
         return JsonSerializer.Deserialize<PersistedState>(json, Json)
             ?? throw new InvalidOperationException("nie udalo sie przygotowac modelu testowego");
@@ -370,15 +552,50 @@ internal static class CloneStateCostTests
     /// <summary>
     /// Rekurencyjnie wpisuje w model wartosci rozne od domyslnych, zeby zadna
     /// wlasciwosc nie przeszla testu tylko dlatego, ze i tu, i tam jest zero.
+    ///
+    /// ZAKRES JEST JAWNY, NIE DOMYSLNY. Pomocnik umie wypelnic dokladnie te
+    /// ksztalty, ktore wystepuja w AKTUALNYM modelu: napisy, wartosci logiczne,
+    /// wyliczenia, int/long/double (takze w wersji Nullable), listy tych typow i
+    /// obiektow, slowniki o kluczu <c>string</c> albo <c>int</c> oraz zagniezdzone
+    /// obiekty danych. KAZDY inny ksztalt i przekroczenie glebokosci ZGLASZA BLAD
+    /// z pelna sciezka wlasciwosci - nie jest po cichu pomijany. Dzieki temu
+    /// pierwsze pole nowego rodzaju (np. <c>DateTime</c>, <c>Guid</c>, tablica,
+    /// slownik o kluczu obiektowym) wywali ten test z nazwy, zamiast wpisac
+    /// falszywa zielen. To swiadomie NIE jest uniwersalny generator modelu.
     /// </summary>
+    private const int MaxFillDepth = 8;
+
     private static void FillDistinctively(object target, Type type, string path, List<string> filled, int depth)
     {
-        if (depth > 6) return;
+        // Najglebsza sciezka aktualnego modelu ma 5 poziomow. Przekroczenie
+        // limitu to sygnal, ze model sie poglebil i straznik przestal go
+        // obchodzic - wtedy ma padac, a nie milczaco wracac.
+        if (depth > MaxFillDepth)
+        {
+            throw new InvalidOperationException(
+                $"straznik pol przekroczyl limit glebokosci {MaxFillDepth} na sciezce {path}. " +
+                "Model sie poglebil: podnies limit swiadomie, zamiast pozwolic na cichy skip galezi.");
+        }
+
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (property.GetMethod is null || property.SetMethod is null || !property.SetMethod.IsPublic) continue;
             if (property.GetIndexParameters().Length > 0) continue;
             var propertyPath = path + "." + property.Name;
+
+            // Wlasciwosci bez publicznego ustawiacza omija zarowno kopiowacz,
+            // jak i ten straznik. Musza byc wymienione SWIADOMIE - inaczej
+            // pierwsza nowa wlasciwosc { get; } albo { get; init; } zniknelaby
+            // z pola widzenia po obu stronach porownania JSON.
+            if (property.GetMethod is null || property.SetMethod is null || !property.SetMethod.IsPublic)
+            {
+                if (IsAccountedReadOnly(property)) continue;
+                throw new InvalidOperationException(
+                    $"wlasciwosc {propertyPath} ({property.PropertyType.Name}) nie ma publicznego ustawiacza, " +
+                    "wiec nie kopiuje jej StateSnapshotCopier ani nie sprawdza ten straznik. " +
+                    "Dopisz ja do AccountedReadOnlyProperties, jesli jest wyliczana z innych pol, " +
+                    "albo daj jej publiczny ustawiacz.");
+            }
+
             var propertyType = property.PropertyType;
             var underlying = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 
@@ -396,22 +613,32 @@ internal static class CloneStateCostTests
             {
                 var values = Enum.GetValues(underlying);
                 var current = property.GetValue(target);
+                var changed = false;
                 foreach (var value in values)
                 {
                     if (current is not null && value.Equals(current)) continue;
                     property.SetValue(target, value);
                     filled.Add(propertyPath);
+                    changed = true;
                     break;
                 }
+                if (!changed)
+                {
+                    throw new InvalidOperationException(
+                        $"wlasciwosc {propertyPath} typu wyliczeniowego {underlying.Name} nie dostala wartosci " +
+                        "innej od domyslnej (wyliczenie ma tylko jedna wartosc), wiec jej zgubienie przeszloby niezauwazone.");
+                }
             }
-            else if (underlying == typeof(int) || underlying == typeof(long)
-                || underlying == typeof(double) || underlying == typeof(decimal))
+            else if (underlying == typeof(int) || underlying == typeof(long) || underlying == typeof(double))
             {
                 var seed = 7 + filled.Count;
-                object value = underlying == typeof(int) ? seed
-                    : underlying == typeof(long) ? (long)seed
-                    : underlying == typeof(double) ? seed + 0.25d
-                    : (decimal)seed;
+                // Kazda galez pudelkowana OSOBNO. Wspolny typ wyrazenia
+                // warunkowego sprowadzilby int i long do double i refleksja
+                // odrzucilaby wartosc przy ustawianiu wlasciwosci int.
+                object value;
+                if (underlying == typeof(int)) value = seed;
+                else if (underlying == typeof(long)) value = (long)seed;
+                else value = seed + 0.25d;
                 property.SetValue(target, value);
                 filled.Add(propertyPath);
             }
@@ -425,15 +652,22 @@ internal static class CloneStateCostTests
                     property.SetValue(target, list);
                 }
                 var add = propertyType.GetMethod("Add")!;
-                var item = CreateElement(element, filled.Count);
+                var item = CreateElement(element, filled.Count, propertyPath + "[]");
                 add.Invoke(list, new[] { item });
                 filled.Add(propertyPath + "[]");
-                if (item is not null && !IsLeaf(element)) FillDistinctively(item, element, propertyPath + "[0]", filled, depth + 1);
+                RecurseInto(item, element, propertyPath + "[0]", filled, depth + 1);
             }
             else if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
             {
                 var args = propertyType.GetGenericArguments();
-                if (args[0] != typeof(string)) continue;
+                // Aktualny model ma klucze string oraz jeden slownik o kluczu int
+                // (AppSettings.SessionSlots). Kazdy inny rodzaj klucza ma padac.
+                object key = args[0] == typeof(string) ? "klucz-" + filled.Count
+                    : args[0] == typeof(int) ? 900 + filled.Count
+                    : throw new InvalidOperationException(
+                        $"slownik {propertyPath} ma klucz {args[0].Name}, ktorego ten straznik nie umie wypelnic. " +
+                        "Kopiowanie migawki wspiera wylacznie klucze niezmienne (string, int); dopisz obsluge " +
+                        "swiadomie albo odrzuc taki klucz w modelu.");
                 var map = property.GetValue(target);
                 if (map is null)
                 {
@@ -441,26 +675,71 @@ internal static class CloneStateCostTests
                     property.SetValue(target, map);
                 }
                 var indexer = propertyType.GetProperty("Item")!;
-                var value = CreateElement(args[1], filled.Count);
-                indexer.SetValue(map, value, new object[] { "klucz-" + filled.Count });
+                var value = CreateElement(args[1], filled.Count, propertyPath + "{}");
+                indexer.SetValue(map, value, new[] { key });
                 filled.Add(propertyPath + "{}");
-                if (value is not null && !IsLeaf(args[1])) FillDistinctively(value, args[1], propertyPath + "{0}", filled, depth + 1);
+                RecurseInto(value, args[1], propertyPath + "{0}", filled, depth + 1);
             }
-            else if (!IsLeaf(underlying) && underlying.IsClass)
+            else if (!IsLeaf(underlying) && underlying.IsClass && underlying.GetConstructor(Type.EmptyTypes) is not null)
             {
                 var child = property.GetValue(target);
                 if (child is null)
                 {
                     child = Activator.CreateInstance(underlying);
-                    if (child is null) continue;
+                    if (child is null)
+                    {
+                        throw new InvalidOperationException(
+                            $"nie udalo sie utworzyc obiektu dla wlasciwosci {propertyPath} typu {underlying.FullName}.");
+                    }
                     property.SetValue(target, child);
                 }
                 FillDistinctively(child, underlying, propertyPath, filled, depth + 1);
             }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"straznik pol nie umie wypelnic wlasciwosci {propertyPath} typu {propertyType.FullName}. " +
+                    "Cichy skip zamienilby ten test w falszywa zielen: dopisz obsluge tego ksztaltu " +
+                    "razem z polem, ktore go wprowadza.");
+            }
         }
     }
 
-    private static object? CreateElement(Type type, int seed)
+    /// <summary>
+    /// Wchodzi w element listy albo wartosc slownika. Liscie zostaja bez zmian
+    /// (maja juz wartosc z <see cref="CreateElement"/>), a KOLEKCJA w srodku
+    /// kolekcji nie jest obchodzona jak obiekt danych - inaczej straznik
+    /// probowalby wypelniac <c>List&lt;T&gt;.Count</c> i <c>Capacity</c>.
+    /// </summary>
+    private static void RecurseInto(object? value, Type type, string path, List<string> filled, int depth)
+    {
+        if (value is null || IsLeaf(type)) return;
+        if (type.IsGenericType)
+        {
+            var definition = type.GetGenericTypeDefinition();
+            // Zagniezdzona kolekcja: jej element powstal juz w CreateElement.
+            if (definition == typeof(List<>) || definition == typeof(Dictionary<,>)) return;
+        }
+        FillDistinctively(value, type, path, filled, depth);
+    }
+
+    /// <summary>
+    /// KONTROLOWANA lista wlasciwosci bez publicznego ustawiacza. Kazda pozycja
+    /// jest wyliczana z innych pol i nie ma wlasnego stanu do przeniesienia,
+    /// wiec ani kopiowacz, ani straznik nie musza jej odwiedzac. Lista jest
+    /// zamknieta celowo: nowa wlasciwosc tylko do odczytu ma wywalic test,
+    /// zamiast zniknac z obu stron porownania.
+    /// </summary>
+    private static readonly (string Type, string Property)[] AccountedReadOnlyProperties =
+    [
+        (nameof(SessionPlaybackAudioOverrides), nameof(SessionPlaybackAudioOverrides.IsEmpty))
+    ];
+
+    private static bool IsAccountedReadOnly(PropertyInfo property) =>
+        AccountedReadOnlyProperties.Any(entry =>
+            entry.Type == property.DeclaringType?.Name && entry.Property == property.Name);
+
+    private static object? CreateElement(Type type, int seed, string path)
     {
         if (type == typeof(string)) return "element-" + seed;
         if (type == typeof(int)) return seed;
@@ -472,10 +751,13 @@ internal static class CloneStateCostTests
         {
             var list = Activator.CreateInstance(type)!;
             var element = type.GetGenericArguments()[0];
-            type.GetMethod("Add")!.Invoke(list, new[] { CreateElement(element, seed + 1) });
+            type.GetMethod("Add")!.Invoke(list, new[] { CreateElement(element, seed + 1, path + "[]") });
             return list;
         }
-        return Activator.CreateInstance(type);
+        if (type.IsClass && type.GetConstructor(Type.EmptyTypes) is not null) return Activator.CreateInstance(type);
+        throw new InvalidOperationException(
+            $"straznik pol nie umie utworzyc elementu typu {type.FullName} dla {path}. " +
+            "Dopisz obsluge razem z polem, ktore ten ksztalt wprowadza.");
     }
 
     private static bool IsLeaf(Type type) =>

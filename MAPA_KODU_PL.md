@@ -39,6 +39,11 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach; runner `--recording-files-acceptance` i pełny zestaw Windows.
 - `scripts/test-recording-files-mutations.py`: izolowane celowe uszkodzenia reguł z pełnym licznikiem wykonanych przypadków.
 
+## Uzupełnienie: tańsza migawka stanu (CloneState), alfa 407
+
+- `Core/Configuration/StateSnapshotCopier.cs`: odłączona kopia modelu konfiguracji bez obiegu JSON. Dla każdego typu raz buduje i zapamiętuje skompilowany plan: głęboko dla obiektów, list i słowników (z zachowaniem komparatora), wprost dla wartości niezmiennych. Obsługuje DOKŁADNIE kształty aktualnego modelu — klasy danych z konstruktorem bezparametrowym, `List<T>`, `Dictionary<TKey, TValue>` o niezmiennym kluczu. Inna kolekcja, tablica, słownik o mutowalnym kluczu i typ bez konstruktora bezparametrowego są ODRZUCANE wyjątkiem, nie kopiowane płytko. Brak cykli jest założeniem o modelu pilnowanym testem, nie ochroną w czasie działania.
+- `Core.SmokeTests/CloneStateCostTests.cs`: budżet alokacji `CloneState` (mediana z 5 prób, 6 MiB), pełna zgodność JSON na bogatym i pustym modelu, niezależność w OBU kierunkach, zachowanie komparatorów, odmowa nieobsługiwanych kształtów z kontrolą pozytywną oraz zapis i ponowny odczyt z usunięciami i kolejnością. Strażnik przechodzi cały model refleksyjnie i ZGŁASZA BŁĄD (nie cichy skip) przy nieznanym kształcie, nieznanym kluczu słownika, przekroczeniu głębokości i właściwości bez publicznego ustawiacza spoza kontrolowanej listy. Argument `--clone-state-cost` oraz pełny zestaw Core.
+
 ## Uzupełnienie: okresowy zapis pozycji, alfa 402
 
 - `Windows/Services/StatePersistenceQueue.cs`: odłączona migawka pełnego stanu należąca wyłącznie do workera; pełny zapis unieważnia wcześniejsze oczekujące checkpointy. `Flush` nadal wykonuje końcowy pełny zapis i zgłasza jego błąd.

@@ -266,11 +266,13 @@ public sealed class ConfigurationStore
     public PersistedState CloneState(PersistedState state)
     {
         // Migawka powstaje na wątku interfejsu, więc jej koszt jest odczuwalny
-        // jako zacięcie. Wcześniej cały model przechodził pełny obieg JSON
+        // jako zacięcie. Wcześniej model przechodził pełny obieg JSON
         // (serializacja i ponowne parsowanie) tylko po to, by odłączyć obiekty.
-        // Przy dużym katalogu plików lokalnych, Spotify i TIDAL-a kosztowało to
-        // setki milisekund i alokowało nowe kopie wszystkich napisów, choć
-        // napisy są niezmienne i można je współdzielić bez ryzyka.
+        // Archiwum podcastów było z tego obiegu WYŁĄCZONE (kopiowane ręcznie
+        // wypisanymi polami), ale cała reszta — pliki lokalne, katalogi Spotify
+        // i TIDAL-a, zakładki, historia — szła przez JSON i kosztowała setki
+        // milisekund oraz nowe kopie swoich napisów, choć napisy są niezmienne
+        // i można je współdzielić bez ryzyka.
         //
         // Kopiujemy więc obiekty wprost, właściwość po właściwości, planem
         // budowanym z typu w czasie działania: głęboko dla wszystkiego, co
