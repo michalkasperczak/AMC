@@ -265,9 +265,9 @@ internal static class CloneStateCostTests
     /// migawki. Dlatego sprawdzamy sam kszalt typow modelu: zadne publiczne pole
     /// (poza stalymi, ktore nie maja stanu instancji).
     ///
-    /// Osobno pilnujemy [JsonInclude] i [JsonPropertyName] na polach: takie pole
-    /// WESZLOBY do zapisu, ale nie do kopii. Test NIE zmienia formatu zapisu,
-    /// tylko wymaga swiadomej decyzji, gdy ktos taki ksztalt wprowadzi.
+    /// Atrybuty JSON przy polu pokazujemy dodatkowo w diagnostyce; sama nazwa
+    /// atrybutu nie rozstrzyga, czy serializer wlaczy pole do zapisu. Test NIE
+    /// zmienia formatu, tylko wymaga swiadomej decyzji o nowym ksztalcie.
     /// </summary>
     private static void TestModelHasNoHiddenState()
     {
@@ -293,7 +293,7 @@ internal static class CloneStateCostTests
             var marked = field.GetCustomAttributes()
                 .Any(attribute => attribute.GetType().Name is "JsonIncludeAttribute" or "JsonPropertyNameAttribute");
             offenders.Add($"{path}.{field.Name} ({field.FieldType.Name}) to publiczne POLE, nie wlasciwosc" +
-                (marked ? " i jest oznaczone atrybutem JSON, czyli trafia do zapisu, ale nie do kopii" : string.Empty));
+                (marked ? " i jest oznaczone atrybutem JSON, co wymaga sprawdzenia kontraktu zapisu" : string.Empty));
         }
 
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
@@ -584,7 +584,7 @@ internal static class CloneStateCostTests
 
             // Wlasciwosci bez publicznego ustawiacza omija zarowno kopiowacz,
             // jak i ten straznik. Musza byc wymienione SWIADOMIE - inaczej
-            // pierwsza nowa wlasciwosc { get; } albo { get; init; } zniknelaby
+            // pierwsza nowa wlasciwosc { get; } albo { get; private set; } zniknelaby
             // z pola widzenia po obu stronach porownania JSON.
             if (property.GetMethod is null || property.SetMethod is null || !property.SetMethod.IsPublic)
             {

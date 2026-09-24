@@ -24,9 +24,10 @@ namespace AccessibleMediaController.Core.Configuration;
 /// CZEGO PILNUJE. Kopiowane są wszystkie publiczne właściwości z PUBLICZNYM
 /// ustawiaczem (także `init`), odczytane z typu w czasie działania. Dodanie
 /// nowego pola z publicznym ustawiaczem NIE wymaga zmian w tym pliku. Pola
-/// publiczne oraz właściwości bez publicznego ustawiacza są POMIJANE — dziś
-/// model ich nie ma, a strażnik testowy (CloneStateCostTests) wywala się na
-/// pierwszej takiej właściwości, żeby pominięcie nie było ciche.
+/// publiczne oraz właściwości bez publicznego ustawiacza są POMIJANE. Obecny
+/// model nie przechowuje w nich własnego stanu; wyliczana właściwość IsEmpty
+/// jest jawnie dopuszczona w strażniku testowym. Pozostałe takie właściwości
+/// i pola strażnik odrzuca, żeby pominięcie nie było ciche.
 /// Słowniki zachowują swój komparator, więc migawka rozpoznaje klucze tak samo
 /// jak stan żywy.
 ///
