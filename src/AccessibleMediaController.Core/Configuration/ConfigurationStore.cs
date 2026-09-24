@@ -265,30 +265,22 @@ public sealed class ConfigurationStore
 
     public PersistedState CloneState(PersistedState state)
     {
-        return CloneStateCore(state, includePodcastPayload: true);
-    }
-
-    private static PersistedState CloneStateCore(PersistedState state, bool includePodcastPayload)
-    {
-        // Podcast archives can contain tens of thousands of long descriptions.
-        // Serializing them merely to prepare a background save used to allocate
-        // another copy of every string on the WPF thread. Serialize the compact
-        // state shell and copy podcast records as plain objects whose strings are
-        // immutable and can therefore be shared safely.
-        var shell = CreateStateShell(state, includeLibraryPayload: true);
-        var copy = JsonSerializer.Deserialize<PersistedState>(
-                JsonSerializer.Serialize(shell, JsonOptions),
-                JsonOptions)
-            ?? throw new InvalidOperationException("Nie udało się skopiować konfiguracji.");
-        if (!includePodcastPayload) return copy;
-
-        copy.Podcasts.Subscriptions = state.Podcasts.Subscriptions
-            .Select(ClonePodcastSubscription)
-            .ToList();
-        copy.Podcasts.Episodes = state.Podcasts.Episodes
-            .Select(ClonePodcastEpisode)
-            .ToList();
-        return copy;
+        // Migawka powstaje na wątku interfejsu, więc jej koszt jest odczuwalny
+        // jako zacięcie. Wcześniej cały model przechodził pełny obieg JSON
+        // (serializacja i ponowne parsowanie) tylko po to, by odłączyć obiekty.
+        // Przy dużym katalogu plików lokalnych, Spotify i TIDAL-a kosztowało to
+        // setki milisekund i alokowało nowe kopie wszystkich napisów, choć
+        // napisy są niezmienne i można je współdzielić bez ryzyka.
+        //
+        // Kopiujemy więc obiekty wprost, właściwość po właściwości, planem
+        // budowanym z typu w czasie działania: głęboko dla wszystkiego, co
+        // mutowalne (obiekty, listy, słowniki wraz z ich komparatorami), a
+        // wprost dla wartości niezmiennych. Wynik pozostaje pełną, odłączoną
+        // migawką o tej samej treści i tym samym publicznym kontrakcie.
+        //
+        // Zapis pliku ustawień idzie osobną drogą (CreateSettingsOnlyState),
+        // bo tam celowo pomijamy dane leżące w bazach SQLite.
+        return StateSnapshotCopier.Copy(state);
     }
 
     // Borrowed only for synchronous serialization, never returned as a detached
@@ -322,65 +314,6 @@ public sealed class ConfigurationStore
             AutomaticRefreshBatchSize = state.Podcasts.AutomaticRefreshBatchSize
         },
         KeyboardProfiles = state.KeyboardProfiles
-    };
-
-    private static PodcastSubscriptionSettings ClonePodcastSubscription(
-        PodcastSubscriptionSettings item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        HasCustomTitle = item.HasCustomTitle,
-        Author = item.Author,
-        Description = item.Description,
-        FeedUrl = item.FeedUrl,
-        SourceKind = item.SourceKind,
-        HomepageUrl = item.HomepageUrl,
-        LastRefreshUtcTicks = item.LastRefreshUtcTicks,
-        RefreshIntervalMinutes = item.RefreshIntervalMinutes,
-        DownloadsFolder = item.DownloadsFolder,
-        ResumePositionMode = item.ResumePositionMode,
-        PlaybackRateOverride = item.PlaybackRateOverride,
-        LoudnessNormalizationOverride = item.LoudnessNormalizationOverride,
-        SmoothTrackTransitionsOverride = item.SmoothTrackTransitionsOverride,
-        InterTrackSilenceMillisecondsOverride = item.InterTrackSilenceMillisecondsOverride,
-        IsFavorite = item.IsFavorite,
-        IsInLibrary = item.IsInLibrary
-    };
-
-    private static PodcastEpisodeSettings ClonePodcastEpisode(PodcastEpisodeSettings item) => new()
-    {
-        Id = item.Id,
-        SubscriptionId = item.SubscriptionId,
-        SourceIdentifier = item.SourceIdentifier,
-        Title = item.Title,
-        Author = item.Author,
-        Description = item.Description,
-        MediaUrl = item.MediaUrl,
-        PageUrl = item.PageUrl,
-        MediaType = item.MediaType,
-        MediaLength = item.MediaLength,
-        ProviderChaptersUrl = item.ProviderChaptersUrl,
-        ProviderChaptersLoadedUrl = item.ProviderChaptersLoadedUrl,
-        EmbeddedChaptersSignature = item.EmbeddedChaptersSignature,
-        HasFeedChapters = item.HasFeedChapters,
-        PublishedUtcTicks = item.PublishedUtcTicks,
-        FeedOrdinal = item.FeedOrdinal,
-        DurationTicks = item.DurationTicks,
-        ResumePositionTicks = item.ResumePositionTicks,
-        ResumePositionMode = item.ResumePositionMode,
-        PlaybackRateOverride = item.PlaybackRateOverride,
-        LoudnessNormalizationOverride = item.LoudnessNormalizationOverride,
-        SmoothTrackTransitionsOverride = item.SmoothTrackTransitionsOverride,
-        InterTrackSilenceMillisecondsOverride = item.InterTrackSilenceMillisecondsOverride,
-        DownloadPath = item.DownloadPath,
-        IsNew = item.IsNew,
-        IsStarted = item.IsStarted,
-        IsPlayed = item.IsPlayed,
-        IsFavorite = item.IsFavorite,
-        IsInQueue = item.IsInQueue,
-        IsPlayNext = item.IsPlayNext,
-        ClipStartTicks = item.ClipStartTicks,
-        ClipEndTicks = item.ClipEndTicks
     };
 
     public static PersistedState CreateDefaultState() => new()

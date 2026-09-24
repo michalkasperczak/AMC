@@ -32,6 +32,11 @@ if (args.Length == 1 && args[0] == "--spotify-migration-review")
     try { SpotifyMigrationReviewTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--clone-state-cost")
+{
+    try { CloneStateCostTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--playback-rate-state")
 {
     try { PlaybackRateStateTests.Run(); return 0; }
@@ -40,6 +45,7 @@ if (args.Length == 1 && args[0] == "--playback-rate-state")
 
 var tests = new (string Name, Action Test)[]
 {
+    ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
