@@ -1584,7 +1584,10 @@ builds the two retained parts without re-encoding, preserving quality while
 allowing lossy-codec boundaries to align to the nearest frame. The completed
 file is scanned and its duration validated before it can replace the source.
 Replacement creates a complete byte-identical sibling backup with an
-`.amc-backup` suffix. Pre-publication failure leaves the source untouched and a
+`.amc-backup` suffix. From `alpha.409`, that new backup is removed after the
+actual saved file is verified, unless Keep backups after editing is enabled.
+Errors or uncertain results retain it; earlier backups are not cleaned up.
+Pre-publication failure leaves the source untouched and a
 fallback publication failure rolls it back from that backup. This command does
 not hydrate an iCloud, OneDrive, Google Drive or other cloud placeholder. Video
 sources are currently rejected so that destructive audio editing cannot discard
@@ -1679,8 +1682,11 @@ them during an FFmpeg operation. Cleanup retries for several seconds to handle
 delayed file-handle release by cloud providers and antivirus software, and any
 persistent failure is logged. Startup must not blindly delete a leftover when
 the intended source file is absent, because that part may be the only
-recoverable audio. The full `.amc-backup` safety copy is intentional and is not
-temporary cleanup material.
+recoverable audio. The `.amc-backup` safety copy is separate from temporary
+working files. From `alpha.409`, only the backup created by the current
+successful edit is removed by default, after the saved destination is verified.
+Keep backups after editing retains it; errors or uncertain results also retain
+it. Earlier backups are never swept.
 
 ### 7.15. Accessible schedule duration
 

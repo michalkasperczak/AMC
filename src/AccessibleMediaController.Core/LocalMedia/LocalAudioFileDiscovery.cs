@@ -46,9 +46,14 @@ public static class LocalAudioFileDiscovery
         var fileName = Path.GetFileName(path);
         if (!fileName.StartsWith(".", StringComparison.Ordinal)) return false;
         return fileName.Contains(".amc-cut-", StringComparison.OrdinalIgnoreCase)
+            || fileName.Contains(".amc-append-", StringComparison.OrdinalIgnoreCase)
             || fileName.StartsWith(".amc-youtube-", StringComparison.OrdinalIgnoreCase)
             || fileName.StartsWith(".amc-download-", StringComparison.OrdinalIgnoreCase);
     }
+
+    // Kept separately from working files: backups may be deliberately retained.
+    public static bool IsAudioEditBackupFile(string path) =>
+        string.Equals(Path.GetExtension(path), ".amc-backup", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsVideoFile(string path) =>
         VideoExtensions.Contains(Path.GetExtension(path));

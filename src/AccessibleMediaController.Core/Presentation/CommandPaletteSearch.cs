@@ -100,6 +100,8 @@ public static class CommandPaletteSearch
                 $"Oznajmianie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: przełącz",
             CommandIds.SettingsRadioRecognitionScope =>
                 $"Zakres automatycznego rozpoznawania radia: {RadioRecognitionScopeRules.GetLabel(radioSettings?.AutomaticTrackRecognitionScope ?? RadioRecognitionScope.CurrentStation)}. Enter: ustawienia",
+            CommandIds.SettingsKeepAudioEditBackups =>
+                $"Zachowuj kopie po edycji: {OnOff(settings.KeepAudioEditBackups)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
                 $"Globalna normalizacja głośności: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
             CommandIds.SettingsSmoothTrackTransitions =>

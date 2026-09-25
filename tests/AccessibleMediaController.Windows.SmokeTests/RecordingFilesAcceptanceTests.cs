@@ -26,6 +26,7 @@ internal static class RecordingFilesAcceptanceTests
     internal static void Run()
     {
         var tests = new (string Name, Action<Fixture> Test)[] {
+            ("podmiana audio nie przepisuje wykluczeń ani historii na kopię", BackupRenameDoesNotChangeReferences),
             ("wiersz nagrania zawiera czas i folder na końcu", LibraryRowIncludesTime),
             ("obcy plik o tej samej nazwie nie przejmuje historii", SameNameDoesNotProveMove),
             ("obserwator usuwa plik przez kolejkę UI", WatcherUsesUiThread),
@@ -97,6 +98,24 @@ internal static class RecordingFilesAcceptanceTests
         }
         Console.WriteLine($"NAGRANIA: {tests.Length - failures.Count} OK / {failures.Count} BLAD / razem {tests.Length}");
         if (failures.Count != 0) throw new Exception("Nagrania: " + string.Join("; ", failures));
+    }
+
+    private static void BackupRenameDoesNotChangeReferences(Fixture fixture)
+    {
+        var state=(PersistedState)typeof(MainWindow).GetField("_state",Private)!.GetValue(fixture.Window)!;
+        var old=fixture.RecordingPath; var backup=old+".20260925-120000.amc-backup";
+        state.LocalMedia.ExcludedPaths.Add(old);
+        var item=state.LocalMedia.Items.Single();item.IsInLibrary=false;
+        File.Copy(old,backup);
+        Call(fixture.Window,"ApplyRenamedLocalPath",old,backup);
+        Check(state.Radio.RecordingHistory.Single().Path==old,"Historia wskazuje kopię po callbacku MainWindow");
+        Check(state.LocalMedia.ExcludedPaths.Contains(old) && !state.LocalMedia.ExcludedPaths.Contains(backup),
+            "Podmiana pliku przepisała wykluczenie biblioteki na kopię");
+        var renamed=Path.Combine(Path.GetDirectoryName(old)!,"nowa nazwa.wav");File.Move(old,renamed);
+        Call(fixture.Window,"ApplyRenamedLocalPath",old,renamed);
+        Check(state.Radio.RecordingHistory.Single().Path==renamed,"Zwykła zmiana nazwy nie aktualizuje historii");
+        Check(state.LocalMedia.ExcludedPaths.Contains(renamed) && !state.LocalMedia.ExcludedPaths.Contains(old),
+            "Zwykła zmiana nazwy nie przeniosła wykluczenia");
     }
 
     private static void InterruptedRecordingRetainsOutcome(Fixture fixture)

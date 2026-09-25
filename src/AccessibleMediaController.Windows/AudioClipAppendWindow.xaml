@@ -9,10 +9,9 @@
         <TextBlock x:Name="SelectionText" TextWrapping="Wrap" Margin="0,0,0,12" />
         <Label Target="{Binding ElementName=TargetPathBox}" Content="Istniejący _plik docelowy:" />
         <TextBox x:Name="TargetPathBox" Margin="0,0,0,8"
-            AutomationProperties.Name="Istniejący plik docelowy"
-            AutomationProperties.HelpText="Fragment zostanie dopisany na końcu. Źródło nie zmieni się. Poprzednia wersja celu zostanie zachowana jako kopia zapasowa." />
+            AutomationProperties.Name="Istniejący plik docelowy" />
         <Button x:Name="BrowseButton" Content="_Wybierz plik…" Click="Browse_Click" HorizontalAlignment="Left" MinWidth="150" Margin="0,0,0,12" />
-        <TextBox Text="Dopisanie zachowuje dotychczasowy dźwięk na początku pliku. WAV i FLAC są bezstratne. W formatach MP3, M4A, AAC, Ogg i Opus całość zostanie ponownie skompresowana; przed rozpoczęciem pojawi się pytanie o zgodę. Kopia poprzedniego pliku pozostanie obok niego."
+        <TextBox x:Name="BackupRulesText"
             IsReadOnly="True" TextWrapping="Wrap" AutomationProperties.Name="Zasady dopisywania i kopii zapasowej" Margin="0,0,0,12" />
         <ProgressBar x:Name="AppendProgress" Minimum="0" Maximum="100" Height="22" Visibility="Collapsed" AutomationProperties.Name="Postęp dopisywania fragmentu" />
         <TextBlock x:Name="AppendStatus" TextWrapping="Wrap" Margin="0,8,0,12" AutomationProperties.LiveSetting="Assertive" />

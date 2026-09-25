@@ -1938,7 +1938,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Announce("Zaznacz początek klawiszem I i koniec klawiszem O"); return;
         }
-        var dialog = new AudioClipAppendWindow(path, item.Title, _audioClipSelection.Start!.Value, _audioClipSelection.End!.Value) { Owner = this };
+        var keepBackup = _state.Settings.KeepAudioEditBackups;
+        var dialog = new AudioClipAppendWindow(path, item.Title, _audioClipSelection.Start!.Value, _audioClipSelection.End!.Value,
+            keepBackup: keepBackup) { Owner = this };
         var appended = dialog.ShowDialog() == true;
         FocusPlayerView();
         if (appended && dialog.Result is { } result && dialog.ResultPath is { } target)
@@ -1951,7 +1953,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.Equals(NormalizeLocalFilePath(known.Source ?? string.Empty), normalized, StringComparison.OrdinalIgnoreCase)))
                 known.Duration = result.TargetDurationAfter;
             QueueStateSave();
-            AnnounceEssential($"Fragment dopisany na końcu: {Path.GetFileName(target)}. Kopia poprzedniej wersji: {Path.GetFileName(result.BackupPath)}");
+            var backupMessage = AudioClipAppendWindow.DescribeBackupOutcome(keepBackup, result.BackupPath);
+            if (!string.IsNullOrEmpty(result.BackupPath)) backupMessage += " " + Path.GetFileName(result.BackupPath);
+            AnnounceEssential($"Fragment dopisany na końcu: {Path.GetFileName(target)}. {backupMessage}");
         }
         else
         {
@@ -2036,10 +2040,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var start = _audioClipSelection.Start!.Value;
         var end = _audioClipSelection.End!.Value;
+        var keepBackup = _state.Settings.KeepAudioEditBackups;
+        var backupNotice = keepBackup
+            ? "Kopia bezpieczeństwa zostanie zachowana po edycji. "
+            : "Kopia bezpieczeństwa zostanie usunięta po sprawdzeniu zapisanego pliku. Nie będzie można z niej cofnąć cięcia. ";
         var confirmation = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             $"Czy usunąć z oryginalnego pliku fragment od {FormatClipTime(start)} do {FormatClipTime(end)}?\n\n"
-            + "AMC zatrzyma odtwarzanie, zachowa jakość bez ponownej kompresji i utworzy kopię bezpieczeństwa. "
+            + "AMC zatrzyma odtwarzanie i zachowa jakość bez ponownej kompresji. "
+            + backupNotice
             + "W formatach stratnych granice mogą zostać dopasowane do najbliższej ramki kodeka.",
             "Usuń fragment z oryginalnego pliku",
             MessageBoxButton.YesNo,
@@ -2066,7 +2075,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var result = await AudioClipOriginalEditor.RemoveAsync(
                 new AudioClipRemovalRequest(path, start, end, item.Duration),
                 progress,
-                CancellationToken.None);
+                CancellationToken.None,
+                keepBackup: keepBackup);
 
             item.Duration = result.Duration;
             item.SampleRateHz = result.SampleRateHz > 0 ? result.SampleRateHz : item.SampleRateHz;
@@ -2096,11 +2106,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             UpdatePlaybackStatusBar();
             UpdateWindowTitle();
             FocusPlayerView();
+            var backupLog = string.IsNullOrEmpty(result.BackupPath)
+                ? "usunięta po sprawdzeniu zapisanego pliku"
+                : result.BackupPath;
             DiagnosticLog.Info(
                 "audio-clip",
-                $"Usunięto fragment z oryginału: {path}; od {start} do {end}; kopia: {result.BackupPath}.");
-            AnnounceEssential(
-                $"Fragment usunięty. Kopia bezpieczeństwa: {Path.GetFileName(result.BackupPath)}");
+                $"Usunięto fragment z oryginału: {path}; od {start} do {end}; kopia: {backupLog}.");
+            var backupMessage = AudioClipAppendWindow.DescribeBackupOutcome(keepBackup, result.BackupPath);
+            if (!string.IsNullOrEmpty(result.BackupPath)) backupMessage += " " + Path.GetFileName(result.BackupPath);
+            AnnounceEssential($"Fragment usunięty. {backupMessage}");
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -7519,7 +7533,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 replacement = Path.Combine(normalizedNew, Path.GetRelativePath(normalizedOld, excludedPath));
             }
-            if (replacement is null) continue;
+            if (replacement is null
+                || LocalAudioFileDiscovery.IsAudioEditBackupFile(replacement)
+                || LocalAudioFileDiscovery.IsInternalWorkingFile(replacement)) continue;
             _state.LocalMedia.ExcludedPaths.RemoveAll(path =>
                 string.Equals(path, excludedPath, StringComparison.OrdinalIgnoreCase));
             if (!_state.LocalMedia.ExcludedPaths.Contains(replacement, StringComparer.OrdinalIgnoreCase))

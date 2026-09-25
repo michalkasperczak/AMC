@@ -447,6 +447,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsGlobalTransientPreviews => SettingsTarget.GlobalTransientPreviews,
             CommandIds.SettingsOpenPlayerWhenActivatingPreset => SettingsTarget.OpenPlayerWhenActivatingPreset,
             CommandIds.SettingsRememberLocalPlaybackPositions => SettingsTarget.RememberLocalPlaybackPositions,
+            CommandIds.SettingsKeepAudioEditBackups => SettingsTarget.KeepAudioEditBackups,
             CommandIds.SettingsLoudnessNormalization => SettingsTarget.LoudnessNormalization,
             CommandIds.SettingsSmoothTrackTransitions => SettingsTarget.SmoothTrackTransitions,
             CommandIds.SettingsInterTrackSilence => SettingsTarget.InterTrackSilence,

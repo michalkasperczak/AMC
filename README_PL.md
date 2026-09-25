@@ -1,5 +1,24 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Zachowuj kopie po edycji
+
+Ustawienia → Ogólne zawierają pole wyboru **Zachowuj kopie po edycji**,
+domyślnie **wyłączone**. Dotyczy edycji istniejącego nagrania: usunięcia
+zaznaczonego fragmentu z oryginału (`Ctrl+X`) oraz dopisania fragmentu na końcu
+istniejącego pliku (`Ctrl+D`). Nie dotyczy zapisu fragmentu do **nowego** pliku
+(`Ctrl+S`), bo tam nic nie jest nadpisywane.
+
+Wyłączone (domyślnie): kopia powstaje na czas operacji, a po udanej edycji i
+sprawdzeniu pliku wynikowego zostaje usunięta — dysk nie zapełnia się
+duplikatami wielkości całego nagrania. Włączone: kopia zostaje na dysku.
+
+Niezależnie od ustawienia kopia jest **zachowywana przy błędzie albo
+niepewności** — plik wynikowy musi się najpierw obronić. Ustawienie nie usuwa
+kopii utworzonych wcześniej i nie sprząta niczego przy starcie programu;
+dotyczy wyłącznie kopii powstającej w danej edycji. Komunikat po edycji mówi, co
+realnie stało się z kopią, a nie co było zamierzone: jeżeli kopii nie udało się
+usunąć przy wyłączonym ustawieniu, program powie to wprost.
+
 Wersja `alpha.342` i dodatek **NVDA 0.2.1**: 65 poleceń,
 12 bezpośrednich presetów Ctrl+Windows+Alt+1–9/0/-/=, sesje na Tab/Shift+Tab,
 prędkość na przecinku/kropce, urządzenie na A (z Ctrl+Windows).
@@ -301,8 +320,10 @@ tworzonymi podczas usuwania fragmentu audio. Pliki `.amc-cut-*` nie są już
 indeksowane ani pokazywane jako zwykłe nagrania, nawet gdy iCloud, OneDrive,
 Google Drive albo program antywirusowy chwilowo blokuje ich usunięcie. AMC
 ponawia sprzątanie po zwolnieniu pliku, a trwałe niepowodzenie zapisuje w logu
-zamiast je przemilczeć. Pełna kopia bezpieczeństwa `.amc-backup` pozostaje
-celowo zachowana.
+zamiast je przemilczeć. Pełna kopia bezpieczeństwa `.amc-backup` pozostawała w
+tej wersji celowo zachowana; od czasu ustawienia **Zachowuj kopie po edycji**
+decyduje o niej to ustawienie (domyślnie kopia z udanej edycji jest usuwana po
+sprawdzeniu pliku wynikowego).
 
 Wersja `alpha.300` ujednolica ręczne sterowanie nagraniem uruchomionym przez
 harmonogram. `T` nadal zapisuje bieżącą część i rozpoczyna następną w tym samym
@@ -821,7 +842,7 @@ polecenia „Otwórz w domyślnej aplikacji”. `Ctrl+I` otwiera **Nowe odcinki*
 
 Wersja `alpha.201` zabezpiecza podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. Od `alpha.295` dotyczy to również nagrania uruchomionego przez harmonogram. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
 
-Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.
+Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. O tym, czy kopia zostaje po udanej edycji, decyduje ustawienie **Zachowuj kopie po edycji** (domyślnie wyłączone). Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.
 
 Wersja `alpha.199` zapamiętuje osobne zaznaczenie fragmentu dla każdego lokalnego pliku w bazie Biblioteki SQLite. Początek i koniec wracają po zmianie pliku oraz ponownym uruchomieniu AMC. `Shift+X` usuwa wyłącznie zaznaczenie bieżącego pliku; plik źródłowy pozostaje nietknięty.
 
@@ -1420,7 +1441,7 @@ Lewo i prawo nadal określa wybraną część, na przykład „Minuty: 45”. Po
 
 Ręczne nagranie Radia korzysta z osobnego, niesłyszalnego połączenia. `R` steruje bieżącą stacją w odtwarzaczu, `Ctrl+Alt+R` działa na zaznaczonej stacji listy, a Page Up, Page Down, Enter i presety zmieniają odsłuch bez kończenia trwającego zapisu. Różne stacje mogą być nagrywane równolegle. `Alt+2` w sesji Radia pokazuje widok **Nagrywane** z ręcznymi nagraniami i aktywnymi harmonogramami; `R` zatrzymuje tam wybrane nagranie ręczne. Powrót Escape z odtwarzacza jawnie kotwiczy fokus na liście. Tryb Oryginalny pozwala FFmpeg samodzielnie wybrać ścieżkę audio, dzięki czemu bezpośredni strumień ICY bez wczesnego indeksu `0:a:0` nie jest odrzucany.
 
-Od `alpha.202` bezstratne usuwanie fragmentu przez `Ctrl+X` sprawdza rzeczywistą oś czasu pakietów FFmpeg zarówno przed operacją, jak i po niej. Jest to istotne dla długich nagrań MP3 bez wiarygodnego nagłówka Xing: czas szacowany przez Windows może być krótszy od zawartości o kilkanaście sekund. AMC zachowuje cały koniec pliku, kontroluje wynik i dopiero potem atomowo podmienia oryginał, nadal pozostawiając pełną kopię `.amc-backup`.
+Od `alpha.202` bezstratne usuwanie fragmentu przez `Ctrl+X` sprawdza rzeczywistą oś czasu pakietów FFmpeg zarówno przed operacją, jak i po niej. Jest to istotne dla długich nagrań MP3 bez wiarygodnego nagłówka Xing: czas szacowany przez Windows może być krótszy od zawartości o kilkanaście sekund. AMC zachowuje cały koniec pliku, kontroluje wynik i dopiero potem atomowo podmienia oryginał. O losie pełnej kopii `.amc-backup` decyduje ustawienie **Zachowuj kopie po edycji**; domyślnie po sprawdzeniu wyniku kopia jest usuwana, a przy błędzie albo niepewności zostaje.
 
 ## Przewidywalny bitrate niskich częstotliwości w alpha 154
 

@@ -108,6 +108,19 @@ public sealed class AppSettings
     public bool RememberLocalPlaybackPositions { get; set; } = true;
 
     /// <summary>
+    /// Zachowywanie kopii pliku po UDANEJ edycji istniejacego nagrania: usuniecia
+    /// zaznaczonego fragmentu z oryginalu oraz dopisania fragmentu na koncu
+    /// istniejacego pliku. Domyslnie WYLACZONE, bo po sprawdzeniu pliku wynikowego
+    /// kopia jest juz tylko duplikatem zajmujacym miejsce. Przy bledzie albo
+    /// niepewnosci kopia zostaje zachowana NIEZALEZNIE od tego ustawienia.
+    ///
+    /// Ustawienie nie dotyczy zapisu fragmentu do NOWEGO pliku (tam nie ma czego
+    /// nadpisac) i NIE sprzata kopii utworzonych wczesniej ani przy starcie —
+    /// dotyczy wylacznie kopii powstajacej w danej edycji.
+    /// </summary>
+    public bool KeepAudioEditBackups { get; set; }
+
+    /// <summary>
     /// Dlugosc przeskoku pod Alt+Ctrl+strzalka w lewo i w prawo, w sekundach.
     /// Osobna od stalych krokow 10/30/60 s - sluzy do przechodzenia po dlugich
     /// nagraniach (audycja, mecz, sluchowisko), dlatego domyslnie 5 minut.

@@ -152,10 +152,13 @@ internal static class AudioClipAppendTests
         var clipDuration = ReferenceClipDuration(root, source, start, end);
         var expectedTailBytes = FrameBytes(target, clipDuration);
 
+        // Kopia MUSI tu zostac: ten przypadek sprawdza jej wiernosc, wiec
+        // wybiera zachowanie jawnie, zamiast polegac na domyslnej polityce.
         var result = Wait(AudioClipAppender.AppendAsync(
             new AudioClipAppendRequest(source, target, start, end),
             null,
-            CancellationToken.None));
+            CancellationToken.None,
+            keepBackup: true));
 
         Check(
             Hash(File.ReadAllBytes(source)) == sourceHashBefore,
@@ -362,7 +365,7 @@ internal static class AudioClipAppendTests
                 firstEntered.Set();
                 if (!releaseFirst.Wait(TimeSpan.FromSeconds(15)))
                     throw new TimeoutException("Próba nie zwolniła pierwszego zapisu.");
-            }), CancellationToken.None));
+            }), CancellationToken.None, keepBackup: true));
         Task<AudioClipAppendResult>? secondTask = null;
         var overlapped = false;
         try
@@ -373,7 +376,7 @@ internal static class AudioClipAppendTests
                 secondStarted.Set();
                 return AudioClipAppender.AppendAsync(
                     new AudioClipAppendRequest(second, target, TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                    new InlineProgress(value => secondEntered.Set()), CancellationToken.None);
+                    new InlineProgress(value => secondEntered.Set()), CancellationToken.None, keepBackup: true);
             });
             Check(secondStarted.Wait(TimeSpan.FromSeconds(10)), "Drugie wywołanie nie wystartowało.");
             overlapped = secondEntered.Wait(TimeSpan.FromMilliseconds(500));
@@ -415,7 +418,8 @@ internal static class AudioClipAppendTests
             var result = Wait(AudioClipAppender.AppendAsync(
                 new AudioClipAppendRequest(source, target, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3)),
                 null,
-                CancellationToken.None));
+                CancellationToken.None,
+                keepBackup: true));
             var head = Encoding.ASCII.GetString(File.ReadAllBytes(target).Take(12).ToArray());
             Check(
                 !head.StartsWith("RIFF", StringComparison.Ordinal),

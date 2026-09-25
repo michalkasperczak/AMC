@@ -14,6 +14,11 @@ internal sealed record AudioClipAppendRequest(
     TimeSpan Start,
     TimeSpan End);
 
+/// <param name="BackupPath">
+/// Empty when this operation's backup was removed after the saved file had been
+/// checked; otherwise the path of the backup that was kept, either on request or
+/// because removing it failed.
+/// </param>
 internal sealed record AudioClipAppendResult(
     string BackupPath,
     TimeSpan TargetDurationBefore,
@@ -45,7 +50,8 @@ internal static class AudioClipAppender
     internal static async Task<AudioClipAppendResult> AppendAsync(
         AudioClipAppendRequest request,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool keepBackup = false)
     {
         var sourcePath = Validate(request);
         var targetPath = Path.GetFullPath(request.TargetPath);
@@ -53,7 +59,7 @@ internal static class AudioClipAppender
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await AppendCoreAsync(request, sourcePath, targetPath, progress, cancellationToken)
+            return await AppendCoreAsync(request, sourcePath, targetPath, progress, keepBackup, cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
@@ -67,6 +73,7 @@ internal static class AudioClipAppender
         string sourcePath,
         string targetPath,
         IProgress<double>? progress,
+        bool keepBackup,
         CancellationToken cancellationToken)
     {
         var directory = Path.GetDirectoryName(targetPath)
@@ -128,12 +135,13 @@ internal static class AudioClipAppender
                 await ConcatenateAsync(executable, targetPath, clipPath, listPath, resultPath, cancellationToken)
                     .ConfigureAwait(false);
                 reencoded = true;
+                // Whether a backup still exists is only known after the commit,
+                // so the sentence about it is added there. This text must never
+                // point at a copy that the retention policy has already removed.
                 warning = IsLossy(extension)
                     ? "Cały plik został zakodowany ponownie w stratnym formacie, "
-                      + "więc jakość dotychczasowej treści może być nieco niższa niż wcześniej. "
-                      + "Poprzednia wersja jest w kopii zapasowej."
-                    : "Plik został zapisany ponownie w tym samym, bezstratnym formacie. "
-                      + "Poprzednia wersja jest w kopii zapasowej.";
+                      + "więc jakość dotychczasowej treści może być nieco niższa niż wcześniej."
+                    : "Plik został zapisany ponownie w tym samym, bezstratnym formacie.";
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -150,13 +158,29 @@ internal static class AudioClipAppender
 
             cancellationToken.ThrowIfCancellationRequested();
             var backupPath = AudioClipOriginalEditor.BuildBackupPath(targetPath);
-            ReplaceWithBackup(resultPath, targetPath, backupPath);
+            var keptBackupPath = await AudioEditBackupRetention.CommitAsync(
+                    resultPath,
+                    targetPath,
+                    backupPath,
+                    keepBackup,
+                    ReplaceWithBackup,
+                    "audio-clip",
+                    cancellationToken)
+                .ConfigureAwait(false);
             progress?.Report(1d);
+            if (warning is not null && keptBackupPath.Length != 0)
+            {
+                warning += " Poprzednia wersja jest w kopii zapasowej "
+                    + Path.GetFileName(keptBackupPath) + ".";
+            }
             DiagnosticLog.Info(
                 "audio-clip",
                 $"Dołączono {appended:c} na koniec pliku {Path.GetFileName(targetPath)} "
-                + $"({targetBefore:c} -> {actual:c}). Kopia: {Path.GetFileName(backupPath)}.");
-            return new AudioClipAppendResult(backupPath, targetBefore, appended, actual, reencoded, warning);
+                + $"({targetBefore:c} -> {actual:c}). "
+                + (keptBackupPath.Length == 0
+                    ? "Kopia usunięta po sprawdzeniu zapisanego pliku."
+                    : $"Kopia: {Path.GetFileName(keptBackupPath)}."));
+            return new AudioClipAppendResult(keptBackupPath, targetBefore, appended, actual, reencoded, warning);
         }
         finally
         {

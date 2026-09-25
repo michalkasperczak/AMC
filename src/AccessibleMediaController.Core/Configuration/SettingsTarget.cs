@@ -11,6 +11,7 @@ public enum SettingsTarget
     GlobalTransientPreviews,
     OpenPlayerWhenActivatingPreset,
     RememberLocalPlaybackPositions,
+    KeepAudioEditBackups,
     CustomSeekLength,
     LoudnessNormalization,
     SmoothTrackTransitions,

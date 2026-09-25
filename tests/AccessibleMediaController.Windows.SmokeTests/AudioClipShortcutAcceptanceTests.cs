@@ -16,7 +16,10 @@ internal static class AudioClipShortcutAcceptanceTests
             ("Ctrl+S otwiera istniejący eksport po I/O", ExportShortcut),
             ("Ctrl+S podcastu eksportuje tylko w kontekście fragmentu", PodcastShortcut),
             ("Ctrl+D otwiera wybór istniejącego celu i bezpiecznie anuluje", AppendShortcut),
-            ("Ctrl+D zapisuje prawdziwy plik przez przycisk Dopisz", AppendThroughWindow),
+            ("Ctrl+D domyślnie usuwa nową kopię", (w,s,p)=>AppendThroughWindow(w,s,p,false)),
+            ("Ctrl+D respektuje zachowanie kopii", (w,s,p)=>AppendThroughWindow(w,s,p,true)),
+            ("Cięcie domyślnie usuwa nową kopię", (w,s,p)=>CutThroughWindow(w,s,p,false)),
+            ("Cięcie respektuje zachowanie kopii", (w,s,p)=>CutThroughWindow(w,s,p,true)),
             ("Menu, pomoc i paleta podają nowe skróty bez X", ShortcutDescriptions),
             ("Uszkodzony WAV daje dostępny błąd bez wyjątku dyspozytora", (w,s,p)=>CorruptTargetIsReported(w,s,p,".wav")),
             ("Błąd FFmpeg daje dostępny komunikat bez wyjątku dyspozytora", (w,s,p)=>CorruptTargetIsReported(w,s,p,".flac")),
@@ -122,8 +125,9 @@ internal static class AudioClipShortcutAcceptanceTests
         Check(HelpCommand(window,Key.X,ModifierKeys.None)!=export.CommandId,"Pozostawiono stary alias X");
     }
 
-    private static void AppendThroughWindow(MainWindow window, DemoMediaSession session, string source)
+    private static void AppendThroughWindow(MainWindow window, DemoMediaSession session, string source, bool keepBackup)
     {
+        ((PersistedState)typeof(MainWindow).GetField("_state",Private)!.GetValue(window)!).Settings.KeepAudioEditBackups = keepBackup;
         var target=Path.Combine(Path.GetDirectoryName(source)!,"cel okna.wav");
         var format=new NAudio.Wave.WaveFormat(8000,16,1);
         using(var writer=new NAudio.Wave.WaveFileWriter(target,format))writer.Write(new byte[format.AverageBytesPerSecond*2]);
@@ -147,9 +151,64 @@ internal static class AudioClipShortcutAcceptanceTests
         using var reader=new NAudio.Wave.WaveFileReader(target);
         Check(Math.Abs(reader.TotalTime.TotalSeconds-5)<0.04,"Okno nie dopisało trzech sekund do dwóch sekund celu");
         Check(sourceBefore.SequenceEqual(File.ReadAllBytes(source)),"Okno zmieniło źródło");
-        Check(before.SequenceEqual(File.ReadAllBytes(seen!.Result!.BackupPath)),"Okno nie zachowało wiernej kopii celu");
+        if (keepBackup)
+        {
+            Check(!string.IsNullOrEmpty(seen!.Result!.BackupPath),"MainWindow zgubił włączone zachowanie kopii dopisywania");
+            Check(before.SequenceEqual(File.ReadAllBytes(seen.Result.BackupPath)),"Okno nie zachowało wiernej kopii celu");
+        }
+        else Check(string.IsNullOrEmpty(seen!.Result!.BackupPath) && Directory.GetFiles(Path.GetDirectoryName(target)!,"*.amc-backup").Length==0,
+            "Okno zostawiło kopię mimo wyłączonej opcji");
         Check(session.IsPlaying && session.Position==TimeSpan.FromSeconds(5) && output.Calls==calls,"Dopisanie zmieniło słuchanie źródła");
         Check(window.PlayerPanel.IsKeyboardFocusWithin,"Dopisanie zgubiło fokus odtwarzacza");
+    }
+
+    private static void CutThroughWindow(MainWindow window, DemoMediaSession session, string source, bool keepBackup)
+    {
+        ((PersistedState)typeof(MainWindow).GetField("_state",Private)!.GetValue(window)!).Settings.KeepAudioEditBackups = keepBackup;
+        var before=File.ReadAllBytes(source); var confirmed=false; string? prompt=null; string? error=null;
+        session.SetPosition(TimeSpan.FromSeconds(2));Send(window,Key.I,ModifierKeys.None);
+        session.SetPosition(TimeSpan.FromSeconds(5));Send(window,Key.O,ModifierKeys.None);
+        var timer=new DispatcherTimer(DispatcherPriority.Background){Interval=TimeSpan.FromMilliseconds(20)};
+        timer.Tick+=(_,_)=>{
+            var dialog=window.OwnedWindows.OfType<Window>().FirstOrDefault();
+            if(dialog is null)return;
+            if(dialog.Title=="Usuń fragment z oryginalnego pliku")
+            {
+                prompt=string.Join(" ",Walk(dialog).OfType<System.Windows.Controls.TextBox>().Select(x=>x.Text));
+                var yes=Walk(dialog).OfType<System.Windows.Controls.Button>().Single(x=>x.Content?.ToString()?.Replace("_","")=="Tak");
+                confirmed=true;typeof(System.Windows.Controls.Button).GetMethod("OnClick",Private)!.Invoke(yes,null);
+            }
+            else {error=string.Join(" ",Walk(dialog).OfType<System.Windows.Controls.TextBox>().Select(x=>x.Text));dialog.Close();}
+        };
+        timer.Start();
+        try
+        {
+            Call(window,"RemoveClipFromOriginal");
+            var clock=System.Diagnostics.Stopwatch.StartNew();
+            while((bool)typeof(MainWindow).GetField("_audioClipEditInProgress",Private)!.GetValue(window)!)
+            {
+                Pump();Thread.Sleep(10);
+                Check(clock.Elapsed<TimeSpan.FromSeconds(25),"Cięcie przez okno przekroczyło czas");
+            }
+            Pump();
+        }
+        finally{timer.Stop();}
+        Check(confirmed,"Nie wykonano potwierdzenia cięcia");
+        Check(error is null,"Błąd cięcia przez okno: "+error);
+        using(var reader=new NAudio.Wave.WaveFileReader(source))
+            Check(Math.Abs(reader.TotalTime.TotalSeconds-7)<0.1,"Cięcie przez okno nie zapisało właściwego wyniku");
+        var backups=Directory.GetFiles(Path.GetDirectoryName(source)!,"*.amc-backup");
+        Check(backups.Length==(keepBackup?1:0),"MainWindow zgubił wybór zachowania kopii cięcia");
+        if(keepBackup)Check(before.SequenceEqual(File.ReadAllBytes(backups.Single())),"Kopia cięcia nie jest wierna");
+        Check(prompt?.Contains(keepBackup?"zachowana po edycji":"usunięta po sprawdzeniu",StringComparison.Ordinal)==true,
+            "Potwierdzenie nie opisuje wybranej polityki kopii: "+prompt);
+    }
+
+    private static IEnumerable<DependencyObject> Walk(DependencyObject root)
+    {
+        yield return root;
+        foreach(var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            foreach(var descendant in Walk(child))yield return descendant;
     }
 
     private static void AppendShortcut(MainWindow window, DemoMediaSession session, string source)

@@ -44,9 +44,13 @@
                             <CheckBox x:Name="OpenPlayerWhenActivatingPresetCheck" Margin="0,0,0,8"
                                       Content="Po uruchomieniu presetu _otwieraj odtwarzacz"
                                       automation:AutomationProperties.HelpText="Wyłączone: preset rozpoczyna odtwarzanie w tle, a fokus pozostaje w bieżącym widoku. Jeżeli odtwarzacz jest już otwarty, pozostaje otwarty niezależnie od tego ustawienia." />
-                            <CheckBox x:Name="RememberLocalPlaybackPositionsCheck" Margin="0,0,0,12"
+                            <CheckBox x:Name="RememberLocalPlaybackPositionsCheck" Margin="0,0,0,8"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />
+                            <CheckBox x:Name="KeepAudioEditBackupsCheck" Margin="0,0,0,12"
+                                      Content="Zachowuj kopie po edycji"
+                                      automation:AutomationProperties.Name="Zachowuj kopie po edycji"
+                                      automation:AutomationProperties.HelpText="Dotyczy edycji istniejącego nagrania: usunięcia zaznaczonego fragmentu z oryginału oraz dopisania fragmentu na końcu istniejącego pliku. Nie dotyczy zapisu fragmentu do nowego pliku. Wyłączone (domyślnie): po udanej edycji i sprawdzeniu pliku wynikowego kopia utworzona w tej edycji jest usuwana. Włączone: kopia zostaje na dysku. Przy błędzie albo niepewności kopia zostaje zachowana niezależnie od tego ustawienia. Ustawienie nie usuwa kopii utworzonych wcześniej ani nie sprząta ich przy starcie programu." />
                             <Label Target="{Binding ElementName=CustomSeekSecondsCombo}">Przeskok pod Alt+Ctrl+strzałka w le_wo i w prawo:</Label>
                             <ComboBox x:Name="CustomSeekSecondsCombo" Margin="0,0,0,12" IsEditable="True"
                                       automation:AutomationProperties.Name="Długość przeskoku pod Alt+Ctrl+strzałka w lewo i w prawo"

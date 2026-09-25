@@ -191,6 +191,21 @@ if (args.Contains("--audio-clip-append", StringComparer.Ordinal))
 {
     Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult(); return 0;
 }
+if (args.Contains("--audio-edit-backup-settings", StringComparer.Ordinal))
+{
+    AudioEditBackupSettingsTests.Run(); return 0;
+}
+if (args.Contains("--audio-edit-backups", StringComparer.Ordinal))
+{
+    return Task.Run(AudioEditBackupRetentionTests.Run).GetAwaiter().GetResult();
+}
+// Pozwala zmierzyc same proby ciecia oryginalu bez uruchamiania calego zestawu
+// z okienkami WPF.
+if (args.Contains("--audio-clip-original", StringComparer.Ordinal))
+{
+    try { TestAudioClipOriginalEditor(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--audio-clip-shortcuts", StringComparer.Ordinal))
 {
     AudioClipShortcutAcceptanceTests.Run(); return 0;
@@ -381,6 +396,11 @@ var tests = new (string Name, Action Test)[]
     ("Historia nagran po zmianie plikow i ponownym starcie", RecordingFilesAcceptanceTests.Run),
     ("Bezpieczne powielanie planu nagrywania", RadioScheduleCopyTests.Run),
     ("Proste powiązania Spotify z klawiatury", SpotifyRelationsAcceptanceTests.Run),
+    ("Ustawienie kopii po edycji i jego dostępność", AudioEditBackupSettingsTests.Run),
+    ("Bezpieczne sprzątanie nowych kopii po edycji", () => {
+        if (Task.Run(AudioEditBackupRetentionTests.Run).GetAwaiter().GetResult() != 0)
+            throw new Exception("Nie przeszły testy kopii po edycji");
+    }),
     ("Skróty i eksport zaznaczonego audio", AudioClipShortcutAcceptanceTests.Run),
     ("Bezpieczne dopisanie fragmentu do istniejącego audio", () => Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult()),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
@@ -1806,7 +1826,8 @@ static void TestAudioClipOriginalEditor()
                     TimeSpan.FromSeconds(2),
                     TimeSpan.FromSeconds(3)),
                 progress: null,
-                CancellationToken.None)
+                CancellationToken.None,
+                keepBackup: true)
             .GetAwaiter()
             .GetResult();
 
@@ -1852,7 +1873,8 @@ static void TestAudioClipOriginalEditor()
                     TimeSpan.FromSeconds(2),
                     originalMp3Duration),
                 progress: null,
-                CancellationToken.None)
+                CancellationToken.None,
+                keepBackup: true)
             .GetAwaiter()
             .GetResult();
         Assert(originalMp3.SequenceEqual(File.ReadAllBytes(mp3Result.BackupPath)),

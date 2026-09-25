@@ -1,4 +1,5 @@
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.LocalMedia;
 
 namespace AccessibleMediaController.Core.Presentation;
 
@@ -61,6 +62,8 @@ public static class RadioRecordingHistoryPathRewriter
             }
 
             if (replacement is null
+                || LocalAudioFileDiscovery.IsAudioEditBackupFile(replacement)
+                || LocalAudioFileDiscovery.IsInternalWorkingFile(replacement)
                 || string.Equals(replacement, current, StringComparison.OrdinalIgnoreCase))
             {
                 continue;

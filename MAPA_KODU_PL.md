@@ -1,5 +1,16 @@
 # AMC — mapa kodu
 
+## Zachowuj kopie po edycji (ustawienie globalne)
+
+- `Core/Configuration/AppSettings.cs`: `KeepAudioEditBackups`, domyślnie `false`. Stary zapis bez tej własności też daje `false`, więc aktualizacja niczego nie włącza po cichu.
+- `Core/Configuration/SettingsTarget.cs`, `Commands/CommandIds.cs` (`settings.editing.keepBackups`), `Commands/CommandCatalog.cs`, `Commands/CommandRouter.cs`, `Presentation/CommandPaletteSearch.cs`: ustawienie jest do znalezienia w palecie i prowadzi wprost do własnego pola, a opis pokazuje bieżący stan.
+- `SettingsWindow.xaml(.cs)`: `KeepAudioEditBackupsCheck` w zakładce Ogólne, między pamięcią pozycji a długością przeskoku. `AutomationProperties.Name`/`HelpText` mówią, czego ustawienie dotyczy (cięcie i dopisywanie do istniejącego pliku), czego NIE dotyczy (zapis do nowego pliku) i że nie sprząta kopii utworzonych wcześniej ani przy starcie.
+- `AudioClipAppendWindow.xaml.cs`: ostatni opcjonalny `bool keepBackup = false` w konstruktorze, przekazany do `AudioClipAppender.AppendAsync` argumentem nazwanym `keepBackup`. `DescribeBackupOutcome` buduje komunikat z RZECZYWISTEGO `BackupPath`, więc nie obiecuje kopii, której nie ma; niepusta ścieżka przy wyłączonej opcji jest opisana jako kopia, której nie usunięto.
+- `AudioEditBackupSettingsTests`: domyślna wartość również przy starym JSON, zapis i odczyt obu wartości, `CloneState`, wyszukiwalność, kontrolka odtwarzająca wartość, dostępność i kolejność tabulacji, prawdziwy Zapisz i Anuluj. Tryby `RunModel` (bez okien) i `RunControls` (okno bez `ShowDialog`) pozwalają mierzyć część twierdzeń poza pełnym GUI.
+
+Bez tego ustawienia kopia z danej edycji jest usuwana po sprawdzeniu pliku wynikowego. Przy błędzie albo niepewności zostaje NIEZALEŻNIE od ustawienia.
+
+
 ## Powielanie harmonogramu (alfa407)
 
 - `Core/Configuration/AppSettings.cs`: opcjonalna nazwa planu `RadioRecordingScheduleSettings.Name`, niezależna od stacji i szablonu pliku. Stary zapis bez nazwy nadal używa nazwy stacji.

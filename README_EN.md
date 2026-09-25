@@ -1,5 +1,24 @@
 # Accessible Media Controller — Windows prototype
 
+## Keep backups after editing
+
+Settings → General has a **Zachowuj kopie po edycji** ("Keep backups after
+editing") check box, **off by default**. It applies when an existing recording is
+edited in place: removing the selected range from the original (`Ctrl+X`) and
+appending a range to the end of an existing file (`Ctrl+D`). It does not apply to
+saving a range into a **new** file (`Ctrl+S`), where nothing is overwritten.
+
+Off (default): the backup exists for the duration of the operation and is deleted
+after the edit succeeds and the resulting file has been verified, so full-size
+duplicates do not accumulate. On: the backup stays on disk.
+
+Regardless of the setting, the backup is **kept on error or uncertainty** — the
+resulting file has to prove itself first. The setting never deletes backups
+created earlier and performs no cleanup at startup; it only governs the backup
+created by that one edit. The message shown after an edit reports what actually
+happened to the backup rather than what was intended: if deletion failed while
+the setting was off, the program says so explicitly.
+
 Version `alpha.342` and **NVDA add-on 0.2.1** provide 65 commands:
 12 per-session direct presets on Ctrl+Windows+Alt+1–9/0/-/=, session switching
 on Tab/Shift+Tab, speed on comma/period and output selection on A (with Ctrl+Windows).
@@ -64,7 +83,9 @@ into the Library. `.amc-cut-*` files are never indexed as ordinary recordings,
 even when iCloud, OneDrive, Google Drive, or antivirus software briefly locks
 their deletion. AMC retries cleanup after the handle is released and records a
 persistent failure in its diagnostic log instead of silently ignoring it. The
-complete `.amc-backup` safety copy remains intentionally preserved.
+complete `.amc-backup` safety copy was intentionally preserved in that version;
+since the **Zachowuj kopie po edycji** setting exists, that setting decides (by
+default the backup from a successful edit is deleted once the result is verified).
 
 Version `alpha.300` makes manual control of an active scheduled recording
 consistent. `T` keeps the schedule's folder, format, bitrate, and naming rule
@@ -363,7 +384,7 @@ handle the item. Ctrl+I opens **New episodes**.
 
 Version `alpha.201` protects manual Radio recording splits from a rapid double press of `T`. The first press finalises the current part and immediately continues into a new file; another `T` during the first five seconds of that new part is safely ignored instead of stopping the recording. Every finalised part is added to the Local Library immediately while the next part continues recording. `Shift+T` keeps its existing meaning and is not a second split command.
 
-Version `alpha.200` adds explicit removal of the marked interval from the original audio file through `Ctrl+X` in the player. The operation requires a confirmation whose default is No, stops playback, does not re-encode the audio, validates the completed result and only then replaces the source. A complete byte-identical copy receives an `.amc-backup` suffix; failure leaves the original unchanged. Cloud placeholders and video files are safely rejected.
+Version `alpha.200` adds explicit removal of the marked interval from the original audio file through `Ctrl+X` in the player. The operation requires a confirmation whose default is No, stops playback, does not re-encode the audio, validates the completed result and only then replaces the source. A complete byte-identical copy receives an `.amc-backup` suffix; failure leaves the original unchanged. Whether the copy survives a successful edit is decided by the **Zachowuj kopie po edycji** setting (off by default). Cloud placeholders and video files are safely rejected.
 
 Version `alpha.199` stores a separate fragment selection for every local file in the SQLite Library database. Start and end marks return after changing files or restarting AMC. `Shift+X` removes only the current file's selection; the source file remains untouched.
 
@@ -500,7 +521,7 @@ Since `alpha.77`, session order is editable under **Settings → General**. The 
 
 Since `alpha.78`, the **Local Files** session exists from startup even when its library is empty, so `Ctrl+1` no longer resolves to an unassigned session. After choosing a directory with `Ctrl+Shift+O`, AMC immediately switches to the local Folders view and stays there while scanning instead of displaying another service's demonstration list.
 
-Since `alpha.202`, lossless interval removal with `Ctrl+X` verifies the real FFmpeg packet timeline before and after the operation. Long MP3 recordings without a reliable Xing header may be reported by Windows as several seconds shorter than their actual content; AMC now preserves the real end of the file, validates the result, and only then atomically replaces the source while retaining the complete `.amc-backup` copy.
+Since `alpha.202`, lossless interval removal with `Ctrl+X` verifies the real FFmpeg packet timeline before and after the operation. Long MP3 recordings without a reliable Xing header may be reported by Windows as several seconds shorter than their actual content; AMC now preserves the real end of the file, validates the result, and only then atomically replaces the source. The fate of the complete `.amc-backup` copy is decided by the **Zachowuj kopie po edycji** setting; by default it is deleted once the result is verified, and it is retained on error or uncertainty.
 
 ## Podcasts subscriptions in alpha 205 and playback in alpha 206
 

@@ -91,6 +91,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.GlobalTransientPreviews => (GeneralTab, GlobalTransientPreviewsCheck),
             SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
+            SettingsTarget.KeepAudioEditBackups => (GeneralTab, KeepAudioEditBackupsCheck),
             SettingsTarget.CustomSeekLength => (GeneralTab, CustomSeekSecondsCombo),
             SettingsTarget.LoudnessNormalization => (GeneralTab, LoudnessNormalizationCheck),
             SettingsTarget.SmoothTrackTransitions => (GeneralTab, SmoothTrackTransitionsCheck),
@@ -149,6 +150,7 @@ public partial class SettingsWindow : Window
         GlobalTransientPreviewsCheck.IsChecked = _workingState.Settings.GlobalTransientPreviews;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
+        KeepAudioEditBackupsCheck.IsChecked = _workingState.Settings.KeepAudioEditBackups;
         LoadCustomSeekChoices();
         LoudnessNormalizationCheck.IsChecked = _workingState.Settings.Audio.LoudnessNormalizationEnabled;
         SmoothTrackTransitionsCheck.IsChecked = _workingState.Settings.Audio.SmoothTrackTransitionsEnabled;
@@ -284,6 +286,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.GlobalTransientPreviews = GlobalTransientPreviewsCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        _workingState.Settings.KeepAudioEditBackups = KeepAudioEditBackupsCheck.IsChecked == true;
         _workingState.Settings.CustomSeekSeconds = ReadCustomSeekSeconds();
         _workingState.Settings.Audio.LoudnessNormalizationEnabled = LoudnessNormalizationCheck.IsChecked == true;
         _workingState.Settings.Audio.SmoothTrackTransitionsEnabled = SmoothTrackTransitionsCheck.IsChecked == true;

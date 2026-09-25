@@ -12,6 +12,11 @@ internal sealed record AudioClipRemovalRequest(
     TimeSpan End,
     TimeSpan SourceDuration);
 
+/// <param name="BackupPath">
+/// Empty when this operation's backup was removed after the saved file had been
+/// checked; otherwise the path of the backup that was kept, either on request or
+/// because removing it failed.
+/// </param>
 internal sealed record AudioClipRemovalResult(
     string BackupPath,
     TimeSpan Duration,
@@ -31,7 +36,8 @@ internal static class AudioClipOriginalEditor
     internal static async Task<AudioClipRemovalResult> RemoveAsync(
         AudioClipRemovalRequest request,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool keepBackup = false)
     {
         Validate(request);
         if (CloudFileAvailability.MayRequireRemoteAccess(request.SourcePath))
@@ -141,9 +147,17 @@ internal static class AudioClipOriginalEditor
             cancellationToken.ThrowIfCancellationRequested();
             await WaitForExclusiveAccessAsync(sourcePath, FileReleaseTimeout, cancellationToken)
                 .ConfigureAwait(false);
-            ReplaceWithBackup(resultPath, sourcePath, backupPath);
+            var keptBackupPath = await AudioEditBackupRetention.CommitAsync(
+                    resultPath,
+                    sourcePath,
+                    backupPath,
+                    keepBackup,
+                    ReplaceWithBackup,
+                    "audio-clip",
+                    cancellationToken)
+                .ConfigureAwait(false);
             progress?.Report(1d);
-            return new AudioClipRemovalResult(backupPath, metadata.Duration, metadata.SampleRateHz);
+            return new AudioClipRemovalResult(keptBackupPath, metadata.Duration, metadata.SampleRateHz);
         }
         finally
         {
