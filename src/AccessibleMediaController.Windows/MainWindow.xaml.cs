@@ -11577,6 +11577,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
                 return new CommandExecutionResult(true);
             }
+            if (CommandIds.TryParseSeekPercent(commandId, out var bufferPercentage))
+            {
+                if (!_sessions.Current.HasCurrentItem
+                    || !_radioOutput.TryGetBufferedSeekPosition(bufferPercentage, out var bufferTargetPosition))
+                {
+                    Announce("Skok procentowy niedostępny: bufor transmisji jest pusty lub niegotowy");
+                    return new CommandExecutionResult(true);
+                }
+                _sessions.Current.SetPosition(bufferTargetPosition);
+                if (_state.Settings.Messages.SeekMessages && _state.Settings.Messages.PercentageSeekMessages)
+                {
+                    var offset = TimeSpan.FromTicks((long)Math.Round(
+                        _radioOutput.BufferedDuration.Ticks * (bufferPercentage / 100d)));
+                    Announce(_state.Settings.Messages.PercentageSeekAnnouncement switch
+                    {
+                        PercentageSeekAnnouncementMode.Time => $"Pozycja w buforze: {CommandRouter.FormatTime(offset)}",
+                        PercentageSeekAnnouncementMode.PercentAndTime => $"{bufferPercentage}% bufora, {CommandRouter.FormatTime(offset)}",
+                        _ => $"{bufferPercentage}% bufora"
+                    });
+                }
+                return new CommandExecutionResult(true);
+            }
             // Na żywo nie ma zapasu do zmiany tempa. Po cofnięciu polecenie
             // przechodzi do zwykłej obsługi tempa; sama ta bramka nie dowodzi,
             // że wyjście dźwięku zastosowało żądaną prędkość.
@@ -11595,8 +11617,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or CommandIds.PreviousBookmark
                 or CommandIds.NextBookmark
                 or CommandIds.SeekToTime
-                or CommandIds.SeekToPercentage
-                || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal))
+                or CommandIds.SeekToPercentage)
             {
                 Announce("Ta funkcja nie dotyczy transmisji radiowej na żywo");
                 return new CommandExecutionResult(true);

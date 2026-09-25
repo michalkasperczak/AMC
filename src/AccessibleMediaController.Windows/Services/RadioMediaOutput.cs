@@ -981,6 +981,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         }
     }
 
+    internal bool TryGetBufferedSeekPosition(int percentage, out TimeSpan position)
+    {
+        lock (_gate)
+        {
+            position = TimeSpan.Zero;
+            return !_disposed && !_preparing && _pipeline is not null
+                && _pipeline.Buffer.TryGetBufferedSeekPosition(percentage, out position);
+        }
+    }
+
     public void Seek(TimeSpan position)
     {
         RadioPipeline? pipeline;
@@ -1730,6 +1740,20 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 }
                 if (available < count) Array.Clear(buffer, offset + available, count - available);
                 return count;
+            }
+        }
+
+        public bool TryGetBufferedSeekPosition(int percentage, out TimeSpan position)
+        {
+            lock (_gate)
+            {
+                position = TimeSpan.Zero;
+                var available = Math.Min(_totalWritten, _ring.Length);
+                if (percentage < 0 || percentage > 100 || available <= 0) return false;
+                var oldest = _totalWritten - available;
+                var target = oldest + (long)Math.Round(available * (percentage / 100d));
+                position = BytesToTime(Align(target));
+                return true;
             }
         }
 

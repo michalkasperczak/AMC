@@ -1,5 +1,11 @@
 # AMC — mapa kodu
 
+## Procenty bufora transmisji (TimeShift)
+
+- `RadioMediaOutput.TryGetBufferedSeekPosition` odczytuje pod blokadą rzeczywisty zakres bufora i zwraca bezwzględną pozycję strumienia. Uwzględnia częściowe zapełnienie oraz nadpisanie najstarszych danych.
+- `MainWindow.ExecuteCommandCore` kieruje istniejące polecenia `transport.seekPercent.*` radia przez `DemoMediaSession.SetPosition` i zwykły tor przewijania/tempa. Nie zmienia mapowania klawiszy ani dekoderów.
+- `TimeshiftPercentageTests` sprawdza próbki dźwięku i rzeczywiste okno; `--timeshift-percent`, `--timeshift-percent-ui`. Prywatna sonda `--timeshift-percent-nvda <katalog>` oczekuje na klawisze żywego czytnika i zapisuje pozycję bez nagrywania ani dostępu do kont.
+
 ## Zachowuj kopie po edycji (ustawienie globalne)
 
 - `Core/Configuration/AppSettings.cs`: `KeepAudioEditBackups`, domyślnie `false`. Stary zapis bez tej własności też daje `false`, więc aktualizacja niczego nie włącza po cichu.

@@ -260,6 +260,7 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Zaznacz stacje do przeniesienia", "Ctrl+X", "Ulubione radia internetowego");
         yield return Info("radio", "Przenieś zaznaczone stacje przed bieżącą", "Ctrl+V", "Ulubione radia internetowego");
         yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
+        yield return Info("radio", "Przejdź do 0–90% aktualnego bufora transmisji", "0–9", "odtwarzacz radia");
         yield return Info("radio", "Przejdź do początku bufora transmisji", "Home", "odtwarzacz radia");
         yield return Info("radio", "Wróć do transmisji na żywo", "End", "odtwarzacz radia");
         yield return Info("radio", "Wycisz sam odsłuch, bez przerywania odbioru ani nagrania", "Ctrl+M", "odtwarzacz radia");

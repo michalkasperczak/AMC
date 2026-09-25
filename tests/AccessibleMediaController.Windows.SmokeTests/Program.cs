@@ -80,6 +80,18 @@ if (args.Contains("--librespot-review-regressions", StringComparer.Ordinal))
     try { SpotifyLibrespotLifecycleTests.RunReviewRegressions(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--timeshift-percent-nvda", StringComparer.Ordinal))
+{
+    TimeshiftPercentageTests.RunNvda(args[Array.IndexOf(args, "--timeshift-percent-nvda") + 1]); return 0;
+}
+if (args.Contains("--timeshift-percent-ui", StringComparer.Ordinal))
+{
+    TimeshiftPercentageTests.RunUi(); return 0;
+}
+if (args.Contains("--timeshift-percent", StringComparer.Ordinal))
+{
+    TimeshiftPercentageTests.Run(); return 0;
+}
 if (args.Contains("--timeshift-rate-integration", StringComparer.Ordinal))
 {
     TimeshiftRateIntegrationTests.Run(); return 0;
@@ -484,6 +496,8 @@ var tests = new (string Name, Action Test)[]
     ("Bufor transmisji ma regulacje predkosci", TestBuforTransmisjiMaRegulacjePredkosci),
     ("Pomoc TimeShift podaje właściwe skróty", TimeshiftRateHelpTests.Run),
     ("Koszt i zgodnosc zapisu lokalnego stanu", CaptureLocalMediaStateCostTests.Run),
+    ("TimeShift: procent aktualnego bufora", TimeshiftPercentageTests.Run),
+    ("TimeShift: cyfry w oknie odtwarzacza", TimeshiftPercentageTests.RunUi),
     ("TimeShift: bezpieczne zatrzymanie i długie okno tempa", AccessibleMediaController.Windows.SmokeTests.TimeshiftTempoLifetimeTests.Run),
     ("Spotify: trwały wybór odtwarzacza w ustawieniach", SpotifyEngineSettingsTests.Run),
     ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
