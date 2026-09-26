@@ -269,7 +269,18 @@ public sealed class SonosLoginClient : IDisposable
 
         if (read.HttpStatus != HttpStatusCode.OK)
         {
-            return SonosRefreshOutcome.Failure(MapRefreshFailure(read));
+            // Kod bledu to rowniez TEKST z odpowiedzi: wadliwe Unicode (np.
+            // samotny surogat) parsuje sie jako dokument, ale rzuca dopiero przy
+            // dekodowaniu. Taka odpowiedz jest NIEZGODNA - nigdy nie wolno z niej
+            // wyprowadzic zadania ponownego logowania ani wypuscic wyjatku.
+            try
+            {
+                return SonosRefreshOutcome.Failure(MapRefreshFailure(read));
+            }
+            catch (InvalidOperationException)
+            {
+                return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+            }
         }
 
         if (!TryParseObject(read.Body, out var document))
@@ -277,7 +288,12 @@ public sealed class SonosLoginClient : IDisposable
             return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
         }
 
+        // Granica DEKODOWANIA odpowiedzi. Transport, deadline i anulowanie sa
+        // rozstrzygniete WYZEJ i zostaja poza tym blokiem. Tu lapiemy wylacznie
+        // InvalidOperationException z JsonElement.GetString dla wadliwego UTF-16;
+        // bez echa tresci ciala i bez tekstu wyjatku.
         using (document)
+        try
         {
             var root = document!.RootElement;
             var accessToken = ReadString(root, "access_token");
@@ -348,6 +364,12 @@ public sealed class SonosLoginClient : IDisposable
                 expiresIn,
                 rotated,
                 scope));
+        }
+        catch (InvalidOperationException)
+        {
+            // Wadliwy UTF-16 w tekstowym polu odpowiedzi. Zwracamy bezpieczny
+            // wynik: brak tokenow i BRAK zadania ponownego logowania.
+            return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
         }
     }
 

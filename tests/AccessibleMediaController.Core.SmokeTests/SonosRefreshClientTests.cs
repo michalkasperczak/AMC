@@ -79,7 +79,15 @@ internal static class SonosRefreshClientTests
             ("R-47 marker ze zlosliwej odpowiedzi nie wycieka do komunikatu", TestBrakWyciekuMarkera),
             ("R-48 cialo zadania ma DOKLADNIE jedno pole, bez sekretu aplikacji", TestCialoJednoPoleBezSekretu),
             ("R-49 RefreshUri to zaufany origin i sciezka login/refresh", TestRefreshUriZaufany),
-            ("R-50 opis wyniku i tokenow nie wypisuje wartosci", TestOpisBezWartosci)
+            ("R-50 opis wyniku i tokenow nie wypisuje wartosci", TestOpisBezWartosci),
+            ("R-51 wadliwy surogat w access_token to InvalidResponse, nie wyjatek", TestSurogatWAccessToken),
+            ("R-52 wadliwy surogat w refresh_token to InvalidResponse, nie wyjatek", TestSurogatWRefreshToken),
+            ("R-53 wadliwy surogat w token_type to InvalidResponse, nie wyjatek", TestSurogatWTokenType),
+            ("R-54 wadliwy surogat w scope to InvalidResponse, nie wyjatek", TestSurogatWScope),
+            ("R-55 wadliwy surogat w error przy 401 NIE domaga sie ponownego logowania", TestSurogatWError401),
+            ("R-56 niski surogat i tekst wokol niego tez nie rzucaja", TestNiskiSurogatWPolach),
+            ("R-57 poprawna para surogatow w scope to nadal sukces", TestPoprawnaParaSurogatow),
+            ("R-58 401 reauthorization_required nadal dziala po zabezpieczeniu", TestDokladne401PoNaprawie)
         };
 
         var bledy = new List<string>();
@@ -520,6 +528,98 @@ internal static class SonosRefreshClientTests
         Assert(!opis.Contains(NowyToken, StringComparison.Ordinal), "opis nie wypisuje tokenu odswiezania");
         Assert(!opis.Contains("ACCESS-XYZ", StringComparison.Ordinal), "opis nie wypisuje access tokenu");
         Assert(!opis.Contains(StaryToken, StringComparison.Ordinal), "opis nie wypisuje starego tokenu");
+    }
+
+    // ---------------- wadliwe Unicode w odpowiedzi (RAW JSON) ----------------
+    // Ciala budujemy RECZNIE, jako surowy tekst z sekwencja \ud800 / \udc00.
+    // JsonSerializer podmienilby taki znak na U+FFFD i przypadek przestalby
+    // istniec - dlatego tu NIE MA serializacji. JSON parsuje sie poprawnie,
+    // dopiero dekodowanie tekstu w JsonElement.GetString rzuca.
+    private const string SamotnyWysokiSurogat = "\\ud800";
+    private const string SamotnyNiskiSurogat = "\\udc00";
+
+    /// <summary>Cialo 200 z JEDNYM polem podmienionym na wadliwy tekst.</summary>
+    private static string SurowyOkBody(string pole, string zepsutaWartosc)
+    {
+        var pola = new Dictionary<string, string>
+        {
+            ["access_token"] = "\"ACCESS-XYZ\"",
+            ["token_type"] = "\"Bearer\"",
+            ["refresh_token"] = "\"" + NowyToken + "\"",
+            ["scope"] = "\"playback-control-all\""
+        };
+        pola[pole] = "\"" + zepsutaWartosc + "\"";
+        return "{" + string.Join(",", pola.Select(p => "\"" + p.Key + "\":" + p.Value)) + "}";
+    }
+
+    private static void AssertZepsuteUnicode(string pole, string sekwencja)
+    {
+        var body = SurowyOkBody(pole, sekwencja);
+        // Kontrola zalozenia: sam DOKUMENT musi sie parsowac - blad jest pozniej.
+        using (JsonDocument.Parse(body)) { }
+        var wynik = OdnowZOdpowiedzia(HttpStatusCode.OK, body);
+        Assert(wynik.Status == SonosRefreshStatus.InvalidResponse,
+            pole + " z wadliwym surogatem to InvalidResponse (otrzymano " + wynik.Status + ")");
+        Assert(wynik.Tokens is null, pole + ": zepsuta odpowiedz nie wydaje tokenow");
+        Assert(!wynik.RequiresReauthorization,
+            pole + ": zepsute Unicode NIGDY nie domaga sie kasowania poswiadczen");
+    }
+
+    private static void TestSurogatWAccessToken() =>
+        AssertZepsuteUnicode("access_token", SamotnyWysokiSurogat);
+
+    private static void TestSurogatWRefreshToken() =>
+        AssertZepsuteUnicode("refresh_token", SamotnyWysokiSurogat);
+
+    private static void TestSurogatWTokenType() =>
+        AssertZepsuteUnicode("token_type", SamotnyWysokiSurogat);
+
+    private static void TestSurogatWScope() =>
+        AssertZepsuteUnicode("scope", SamotnyWysokiSurogat);
+
+    private static void TestSurogatWError401()
+    {
+        var body = "{\"error\":\"" + SamotnyWysokiSurogat + "\"}";
+        using (JsonDocument.Parse(body)) { }
+        var wynik = OdnowZOdpowiedzia(HttpStatusCode.Unauthorized, body);
+        Assert(wynik.Status == SonosRefreshStatus.InvalidResponse,
+            "401 z wadliwym error to niezgodna odpowiedz (otrzymano " + wynik.Status + ")");
+        Assert(!wynik.RequiresReauthorization,
+            "zepsute Unicode przy 401 NIGDY nie domaga sie ponownego logowania");
+        Assert(wynik.Tokens is null, "401 nie wydaje tokenow");
+    }
+
+    private static void TestNiskiSurogatWPolach()
+    {
+        foreach (var pole in new[] { "access_token", "refresh_token", "token_type", "scope" })
+        {
+            AssertZepsuteUnicode(pole, "PRE-" + SamotnyNiskiSurogat + "-POST");
+        }
+
+        var body = "{\"error\":\"PRE-" + SamotnyNiskiSurogat + "\"}";
+        var wynik = OdnowZOdpowiedzia(HttpStatusCode.Unauthorized, body);
+        Assert(wynik.Status == SonosRefreshStatus.InvalidResponse, "niski surogat w error: InvalidResponse");
+        Assert(!wynik.RequiresReauthorization, "niski surogat w error nie kasuje poswiadczen");
+    }
+
+    /// <summary>Kontrola POZYTYWNA: poprawna para surogatow ma dalej przechodzic.</summary>
+    private static void TestPoprawnaParaSurogatow()
+    {
+        var body = SurowyOkBody("scope", "playback-\\ud83c\\udfb5-all");
+        var wynik = OdnowZOdpowiedzia(HttpStatusCode.OK, body);
+        Assert(wynik.Status == SonosRefreshStatus.Success,
+            "poprawna para surogatow to nadal sukces (otrzymano " + wynik.Status + ")");
+        Assert(wynik.Tokens!.Scope == "playback-\ud83c\udfb5-all", "scope przepisany bajt w bajt");
+        Assert(wynik.Tokens.RefreshToken == NowyToken, "rotowany token nietkniety");
+    }
+
+    /// <summary>Kontrola POZYTYWNA: zabezpieczenie nie psuje znanego 401.</summary>
+    private static void TestDokladne401PoNaprawie()
+    {
+        var wynik = OdnowZOdpowiedzia(HttpStatusCode.Unauthorized, "{\"error\":\"reauthorization_required\"}");
+        Assert(wynik.Status == SonosRefreshStatus.ReauthorizationRequired,
+            "kontraktowe 401 nadal wymaga ponownego logowania (otrzymano " + wynik.Status + ")");
+        Assert(wynik.RequiresReauthorization, "flaga nadal ustawiona dla kontraktowego 401");
     }
 
     // ---------------- pomocnicze (syntetyczne) ----------------
