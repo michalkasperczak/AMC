@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -52,8 +54,336 @@ internal static class SonosLoginClientTests
         TestBrakAutomatycznychPonowienJednorazowegoOdbioru();
         TestMutacyjnyKontrolnyOdmowaKontraToken();
         TestNullowePolaOpcjonalneWgKontraktuBackendu();
-        Console.WriteLine("Sonos: 24 testy klienta pierwszego logowania zaliczone.");
+        UruchomPrzypadkiPoprawek();
+        Console.WriteLine("Sonos: 35 testow klienta pierwszego logowania zaliczonych.");
     }
+
+    /// <summary>
+    /// Przypadki czterech zweryfikowanych blokad odbioru (B1 deadline calej
+    /// operacji HTTP, B2 zakaz nieskonczonego budzetu, B3 bezpieczny token_type,
+    /// B4 prawdziwa semantyka bledow). KAZDY przypadek jest lapany OSOBNO, zeby
+    /// jedna awaria nie ukryla pozostalych.
+    /// </summary>
+    private static void UruchomPrzypadkiPoprawek()
+    {
+        var przypadki = new (string Nazwa, Action Test)[]
+        {
+            ("B1.1 zatrzymane cialo odpowiedzi przy starcie ma skonczony deadline", TestB1StartZatrzymaneCialo),
+            ("B1.2 opoznione cialo przy odbiorze wyniku nie daje Success po deadline", TestB1WynikOpoznioneCialo),
+            ("B1.3 szybka sciezka pozytywna z cialem strumieniowym nadal dziala", TestB1SzybkaKontrolaPozytywna),
+            ("B1.4 anulowanie wolajacego w fazie ciala to Canceled, nie timeout", TestB1AnulowanieWFazieCiala),
+            ("B1.5 saczone cialo ma LACZNY deadline, nie limit na odczyt", TestB1SaczoneCialoLacznyDeadline),
+            ("B2 nieskonczony i niepoprawny budzet odrzucony przed zasobami", TestB2ZakazNieskonczonegoBudzetu),
+            ("B3.1 token_type walidowany i kanonizowany, zly odrzucony bez echa", TestB3TokenTypeWalidowany),
+            ("B3.2 model tokenow nie przyjmuje dowolnego typu do ToString", TestB3ModelNiePrzyjmujeDowolnegoTypu),
+            ("B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos", TestB4ProofMismatchOsobnyStatus),
+            ("B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos", TestB4CzterystaBezObwinianiaSonos),
+            ("B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success", TestB4GotowyWynikPoExpiresAt)
+        };
+
+        var bledy = new List<string>();
+        foreach (var (nazwa, test) in przypadki)
+        {
+            try
+            {
+                test();
+                Console.WriteLine("  [OK]   " + nazwa);
+            }
+            catch (Exception exception)
+            {
+                bledy.Add(nazwa + " => " + exception.Message);
+                Console.WriteLine("  [FAIL] " + nazwa + " => " + exception.Message);
+            }
+        }
+
+        if (bledy.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Sonos: nieprzeszle przypadki poprawek: " + bledy.Count + "/" + przypadki.Length
+                + Environment.NewLine + string.Join(Environment.NewLine, bledy));
+        }
+    }
+
+    // ---------------- B1: skonczony deadline CALEJ operacji HTTP ----------------
+    private static void TestB1StartZatrzymaneCialo()
+    {
+        var strumien = new SterowaneCialo(StartBody("sesja-zatrzymana"), TimeSpan.Zero, zawieszNaKoncu: true);
+        var handler = new FakeBrokerHandler();
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(HttpStatusCode.OK, strumien));
+        using var client = new SonosLoginClient(Konfiguracja(), handler, TimeSpan.FromMilliseconds(200));
+        var zegar = Stopwatch.StartNew();
+        var zadanie = Task.Run(() => client.StartAsync(CancellationToken.None).GetAwaiter().GetResult());
+        Assert(zadanie.Wait(TimeSpan.FromSeconds(5)),
+            "start z zatrzymanym cialem MUSI wrocic w skonczonym czasie (deadline 200 ms)");
+        zegar.Stop();
+        Assert(zadanie.Result.Status == SonosLoginStatus.BrokerUnreachable,
+            "zatrzymane cialo to bezpieczny blad transportu, dostano: " + zadanie.Result.Status);
+        Assert(zadanie.Result.Session is null, "zatrzymane cialo nie tworzy sesji");
+        Assert(zegar.Elapsed < TimeSpan.FromSeconds(3),
+            "odczyt ciala musi zostac przerwany blisko deadline, minelo " + zegar.ElapsedMilliseconds + " ms");
+        Assert(strumien.Zwolniony, "strumien odpowiedzi musi zostac zwolniony (ograniczone sprzatanie)");
+    }
+
+    private static void TestB1WynikOpoznioneCialo()
+    {
+        var handler = new FakeBrokerHandler();
+        handler.Enqueue(HttpStatusCode.OK, StartBody("sesja-opozniona"));
+        var strumien = new SterowaneCialo(
+            "{\"access_token\": \"NIE-WOLNO-PO-DEADLINE\", \"token_type\": \"Bearer\"}",
+            TimeSpan.FromMilliseconds(1500),
+            zawieszNaKoncu: false);
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(HttpStatusCode.OK, strumien));
+        using var client = new SonosLoginClient(
+            Konfiguracja(), handler, TimeSpan.FromMilliseconds(200), () => Zegar);
+        var sesja = client.StartAsync(CancellationToken.None).GetAwaiter().GetResult().Session!;
+        var zegar = Stopwatch.StartNew();
+        var zadanie = Task.Run(() => client.FetchResultAsync(sesja, CancellationToken.None).GetAwaiter().GetResult());
+        Assert(zadanie.Wait(TimeSpan.FromSeconds(5)), "odbior wyniku musi wrocic w skonczonym czasie");
+        zegar.Stop();
+        Assert(zadanie.Result.Status == SonosLoginStatus.BrokerUnreachable,
+            "cialo poza deadline to blad transportu, dostano: " + zadanie.Result.Status);
+        Assert(zadanie.Result.Tokens is null, "token z ciala po deadline NIE moze zostac wydany");
+        Assert(zegar.Elapsed < TimeSpan.FromSeconds(1),
+            "deadline 200 ms nie moze czekac na cialo 1500 ms, minelo " + zegar.ElapsedMilliseconds + " ms");
+    }
+
+    private static void TestB1SzybkaKontrolaPozytywna()
+    {
+        var handler = new FakeBrokerHandler();
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(
+            HttpStatusCode.OK,
+            new SterowaneCialo(StartBody("sesja-szybka"), TimeSpan.FromMilliseconds(30), zawieszNaKoncu: false)));
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(
+            HttpStatusCode.OK,
+            new SterowaneCialo(
+                "{\"access_token\": \"SYNTETYCZNY-SZYBKI\", \"token_type\": \"Bearer\", \"expires_in\": 3600}",
+                TimeSpan.FromMilliseconds(30),
+                zawieszNaKoncu: false)));
+        using var client = new SonosLoginClient(
+            Konfiguracja(), handler, TimeSpan.FromSeconds(5), () => Zegar);
+        var start = client.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        Assert(start.Succeeded, "skonczony deadline nie moze psuc normalnego startu");
+        var wynik = client.FetchResultAsync(start.Session!, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(wynik.Status == SonosLoginStatus.Success, "normalny odbior w budzecie nadal daje Success");
+        Assert(wynik.Tokens!.AccessToken == "SYNTETYCZNY-SZYBKI", "tokeny odczytane ze strumienia");
+    }
+
+    private static void TestB1AnulowanieWFazieCiala()
+    {
+        var handler = new FakeBrokerHandler();
+        handler.Enqueue(HttpStatusCode.OK, StartBody("sesja-anulowana-cialo"));
+        var strumien = new SterowaneCialo(
+            "{\"access_token\": \"NIE-WOLNO-PO-ANULOWANIU\"}",
+            TimeSpan.FromMilliseconds(1500),
+            zawieszNaKoncu: false);
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(HttpStatusCode.OK, strumien));
+        using var client = new SonosLoginClient(
+            Konfiguracja(), handler, TimeSpan.FromSeconds(10), () => Zegar);
+        var sesja = client.StartAsync(CancellationToken.None).GetAwaiter().GetResult().Session!;
+        using var zrodlo = new CancellationTokenSource();
+        zrodlo.CancelAfter(TimeSpan.FromMilliseconds(100));
+        var zegar = Stopwatch.StartNew();
+        var zadanie = Task.Run(() => client.FetchResultAsync(sesja, zrodlo.Token).GetAwaiter().GetResult());
+        Assert(zadanie.Wait(TimeSpan.FromSeconds(5)), "anulowanie w fazie ciala musi zakonczyc operacje");
+        zegar.Stop();
+        Assert(zadanie.Result.Status == SonosLoginStatus.Canceled,
+            "anulowanie wolajacego w fazie ciala to Canceled, nie timeout, dostano: " + zadanie.Result.Status);
+        Assert(zadanie.Result.Tokens is null, "anulowanie nie wydaje tokenu");
+        Assert(zegar.Elapsed < TimeSpan.FromSeconds(1),
+            "anulowanie ma dzialac od razu, minelo " + zegar.ElapsedMilliseconds + " ms");
+    }
+
+    private static void TestB1SaczoneCialoLacznyDeadline()
+    {
+        // 60 ms na KAZDY odczyt: pojedynczy odczyt miesci sie w budzecie, ale
+        // laczny czas nie. Limit nie moze byc resetowany co odczyt.
+        var tresc = "{\"access_token\": \"" + new string('S', 80) + "\"}";
+        var strumien = new SterowaneCialo(tresc, TimeSpan.FromMilliseconds(60), zawieszNaKoncu: false, bajtowNaOdczyt: 1);
+        var handler = new FakeBrokerHandler();
+        handler.EnqueueCustom(_ => OdpowiedzZeStrumieniem(HttpStatusCode.OK, strumien));
+        using var client = new SonosLoginClient(Konfiguracja(), handler, TimeSpan.FromMilliseconds(400));
+        var zegar = Stopwatch.StartNew();
+        var zadanie = Task.Run(() => client.StartAsync(CancellationToken.None).GetAwaiter().GetResult());
+        Assert(zadanie.Wait(TimeSpan.FromSeconds(10)), "saczone cialo musi wrocic w skonczonym czasie");
+        zegar.Stop();
+        Assert(zadanie.Result.Status == SonosLoginStatus.BrokerUnreachable,
+            "saczone cialo poza lacznym deadline to blad transportu, dostano: " + zadanie.Result.Status);
+        Assert(zegar.Elapsed < TimeSpan.FromSeconds(2),
+            "laczny deadline 400 ms, a nie limit na odczyt; minelo " + zegar.ElapsedMilliseconds + " ms");
+        Assert(strumien.Odczyty < tresc.Length,
+            "odczyt musi zostac przerwany przed przeczytaniem calego saczonego ciala, odczytow: " + strumien.Odczyty);
+    }
+
+    // ---------------- B2: zakaz nieskonczonego budzetu ----------------
+    private static void TestB2ZakazNieskonczonegoBudzetu()
+    {
+        var zle = new (string Opis, TimeSpan Budzet)[]
+        {
+            ("Timeout.InfiniteTimeSpan", Timeout.InfiniteTimeSpan),
+            ("-1 ms (rowne Infinite)", TimeSpan.FromMilliseconds(-1)),
+            ("zero", TimeSpan.Zero),
+            ("-2 ms", TimeSpan.FromMilliseconds(-2)),
+            ("TimeSpan.MaxValue", TimeSpan.MaxValue),
+            ("ponad zakres CTS/HttpClient", TimeSpan.FromMilliseconds((double)int.MaxValue + 1))
+        };
+
+        foreach (var (opis, budzet) in zle)
+        {
+            var handler = new FakeBrokerHandler();
+            var zlapany = false;
+            try
+            {
+                using var odrzucony = new SonosLoginClient(Konfiguracja(), handler, budzet);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                zlapany = true;
+                Assert(exception.ParamName == "timeout",
+                    "budzet ma byc odrzucony PRZED utworzeniem HttpClient (ParamName timeout, nie "
+                    + exception.ParamName + "): " + opis);
+            }
+
+            Assert(zlapany, "niepoprawny budzet musi zostac odrzucony: " + opis);
+            Assert(handler.Requests.Count == 0, "odrzucony budzet nie wysyla zadan: " + opis);
+        }
+
+        var dobryHandler = new FakeBrokerHandler();
+        dobryHandler.Enqueue(HttpStatusCode.OK, StartBody("sesja-budzet-ok"));
+        using var client = new SonosLoginClient(Konfiguracja(), dobryHandler, TimeSpan.FromMilliseconds(100));
+        Assert(client.StartAsync(CancellationToken.None).GetAwaiter().GetResult().Succeeded,
+            "poprawny skonczony budzet 100 ms nadal dziala");
+    }
+
+    // ---------------- B3: bezpieczny token_type ----------------
+    private static void TestB3TokenTypeWalidowany()
+    {
+        foreach (var wariant in new[] { "Bearer", "bearer", "BEARER", " Bearer " })
+        {
+            var wynik = WynikPo(
+                HttpStatusCode.OK,
+                "{\"access_token\": \"SYNTETYCZNY-TT\", \"token_type\": \"" + wariant + "\"}");
+            Assert(wynik.Status == SonosLoginStatus.Success, "Bearer w dowolnej wielkosci liter: " + wariant);
+            Assert(wynik.Tokens!.TokenType == "Bearer",
+                "typ tokenu kanonizowany do Bearer, dostano: " + wynik.Tokens.TokenType);
+        }
+
+        foreach (var zly in new[] { "MAC", SekretMarker, "Bearer " + SekretMarker, "" })
+        {
+            var wynik = WynikPo(
+                HttpStatusCode.OK,
+                JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    ["access_token"] = "SYNTETYCZNY-TT-ZLY",
+                    ["token_type"] = zly
+                }));
+            Assert(wynik.Status == SonosLoginStatus.InvalidResponse,
+                "nieobslugiwany token_type to fail-closed, dostano: " + wynik.Status + " dla '" + zly + "'");
+            Assert(wynik.Tokens is null, "nieobslugiwany token_type nie wydaje tokenow");
+            Assert(!wynik.Message.Contains(SekretMarker, StringComparison.Ordinal)
+                   && !wynik.ToString().Contains(SekretMarker, StringComparison.Ordinal),
+                "typ tokenu z odpowiedzi NIE moze byc echem w komunikacie");
+        }
+
+        // Brak pola i JSON null zachowuja sie wg kontraktu backendu (domyslny Bearer).
+        var brak = WynikPo(HttpStatusCode.OK, "{\"access_token\": \"TYLKO-ACCESS-TT\"}");
+        Assert(brak.Status == SonosLoginStatus.Success && brak.Tokens!.TokenType == "Bearer",
+            "brak token_type to domyslny Bearer wg kontraktu");
+        var nullowy = WynikPo(HttpStatusCode.OK, "{\"access_token\": \"NULL-TT\", \"token_type\": null}");
+        Assert(nullowy.Status == SonosLoginStatus.Success && nullowy.Tokens!.TokenType == "Bearer",
+            "null token_type to domyslny Bearer wg kontraktu");
+    }
+
+    private static void TestB3ModelNiePrzyjmujeDowolnegoTypu()
+    {
+        var zlapany = false;
+        try
+        {
+            var przeciek = new SonosTokens("ACCESS-SYNTETYCZNY-TT", SekretMarker, null, null, null);
+            Assert(!przeciek.ToString().Contains(SekretMarker, StringComparison.Ordinal),
+                "publiczny model NIE moze wypisywac dowolnego tekstu z konstruktora");
+        }
+        catch (ArgumentException exception)
+        {
+            zlapany = true;
+            Assert(!exception.Message.Contains(SekretMarker, StringComparison.Ordinal),
+                "komunikat wyjatku modelu nie cytuje wartosci z odpowiedzi");
+        }
+
+        Assert(zlapany, "model tokenow musi odrzucic nieobslugiwany typ tokenu");
+        var poprawny = new SonosTokens("ACCESS-SYNTETYCZNY-TT", "bearer", 3600, null, null);
+        Assert(poprawny.TokenType == "Bearer", "model kanonizuje typ tokenu");
+        Assert(!poprawny.ToString().Contains("ACCESS-SYNTETYCZNY-TT", StringComparison.Ordinal),
+            "ToString nadal nie wypisuje tokenu");
+    }
+
+    // ---------------- B4: prawdziwa semantyka bledow ----------------
+    private static void TestB4ProofMismatchOsobnyStatus()
+    {
+        var handler = new FakeBrokerHandler();
+        handler.Enqueue(HttpStatusCode.OK, StartBody("sesja-403"));
+        handler.Enqueue(HttpStatusCode.Forbidden, "{\"error\": \"verifier_mismatch\"}");
+        using var client = new SonosLoginClient(Konfiguracja(), handler, clock: () => Zegar);
+        var sesja = client.StartAsync(CancellationToken.None).GetAwaiter().GetResult().Session!;
+        var wynik = client.FetchResultAsync(sesja, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(wynik.Status == SonosLoginStatus.ProofMismatch,
+            "403 verifier_mismatch to blad LOKALNEGO dowodu klienta, dostano: " + wynik.Status);
+        Assert(wynik.Status != SonosLoginStatus.Denied, "403 nie jest odmowa Sonos");
+        Assert(wynik.Tokens is null, "403 nie daje tokenow");
+        Assert(!wynik.Message.Contains("Sonos nie przyznał", StringComparison.Ordinal),
+            "komunikat 403 nie moze obwiniac Sonos: " + wynik.Message);
+        Assert(!wynik.Message.Contains("verifier_mismatch", StringComparison.Ordinal),
+            "komunikat 403 nie cytuje kodu z ciala");
+        Assert(handler.Requests.Count == 2,
+            "przy 403 broker NIE konsumuje wyniku, ale klient nie ponawia automatycznie");
+        Assert(SonosLoginMessages.Describe(SonosLoginStatus.ProofMismatch)
+               != SonosLoginMessages.Describe(SonosLoginStatus.Denied),
+            "ProofMismatch ma wlasny staly komunikat");
+    }
+
+    private static void TestB4CzterystaBezObwinianiaSonos()
+    {
+        var odmowa = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"access_denied\"}");
+        Assert(odmowa.Status == SonosLoginStatus.Denied, "TYLKO access_denied pozostaje odmowa Sonos");
+
+        foreach (var kod in new[] { "invalid_callback", "token_exchange_failed", "login_failed" })
+        {
+            var wynik = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"" + kod + "\"}");
+            Assert(wynik.Status != SonosLoginStatus.Denied,
+                kod + " to blad po stronie brokera/wymiany, NIE decyzja Sonos, dostano: " + wynik.Status);
+            Assert(wynik.Status == SonosLoginStatus.BrokerError,
+                kod + " ma dostac ogolny blad brokera, dostano: " + wynik.Status);
+            Assert(wynik.Tokens is null, kod + " nie daje tokenow");
+            Assert(!wynik.Message.Contains("Sonos nie przyznał", StringComparison.Ordinal),
+                "komunikat dla " + kod + " nie moze obwiniac Sonos: " + wynik.Message);
+            Assert(!wynik.Message.Contains(kod, StringComparison.Ordinal), "komunikat nie cytuje kodu z ciala");
+        }
+
+        var nierozpoznane = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"invalid_code_verifier\"}");
+        Assert(nierozpoznane.Status == SonosLoginStatus.InvalidResponse,
+            "400 invalid_code_verifier to nadal niezgodnosc kontraktu");
+    }
+
+    private static void TestB4GotowyWynikPoExpiresAt()
+    {
+        // Backend ma OSOBNE TTL: gotowy wynik zyje result_ttl_s od callbacku, wiec
+        // moze przyjsc PO lokalnym ExpiresAt. Klient nie moze go wtedy zgubic.
+        var wynik = WynikPo(
+            HttpStatusCode.OK,
+            "{\"access_token\": \"SYNTETYCZNY-PO-DEADLINE\", \"token_type\": \"Bearer\", \"expires_in\": 86400}",
+            zegarPrzesuniecieSekund: 3600);
+        Assert(wynik.Status == SonosLoginStatus.Success,
+            "gotowy wynik po lokalnym ExpiresAt nadal jest sukcesem, dostano: " + wynik.Status);
+        Assert(wynik.Tokens!.AccessToken == "SYNTETYCZNY-PO-DEADLINE", "tokeny odebrane po lokalnym deadline");
+
+        var brak = WynikPo(
+            HttpStatusCode.NotFound,
+            "{\"error\": \"unknown_session\"}",
+            zegarPrzesuniecieSekund: 3600);
+        Assert(brak.Status == SonosLoginStatus.Expired, "brak wyniku po ExpiresAt to nadal Expired");
+    }
+
+    private static HttpResponseMessage OdpowiedzZeStrumieniem(HttpStatusCode status, SterowaneCialo cialo) =>
+        new(status) { Content = new StreamContent(cialo) };
 
     // ---------------- PKCE ----------------
     private static void TestPkceZgodnyZKontraktemBrokera()
@@ -250,12 +580,22 @@ internal static class SonosLoginClientTests
 
     private static void TestWynikPoprawnaOdmowaNieDajeTokenu()
     {
-        foreach (var kod in new[] { "access_denied", "invalid_callback", "token_exchange_failed", "login_failed" })
+        // TYLKO access_denied jest rzeczywista odmowa Sonos (core.py 267-270).
+        // Oczekiwanie dla pozostalych kodow POPRAWIONE wg zrodla backendu:
+        // invalid_callback i token_exchange_failed to blad brokera/wymiany, nie
+        // decyzja Sonos - patrz TestB4CzterystaBezObwinianiaSonos.
+        var odmowa = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"access_denied\"}");
+        Assert(odmowa.Status == SonosLoginStatus.Denied, "rozpoznana odmowa access_denied to Denied");
+        Assert(odmowa.Tokens is null, "odmowa NIGDY nie moze nosic tokenu");
+        Assert(!odmowa.Succeeded, "odmowa nie jest sukcesem");
+
+        foreach (var kod in new[] { "invalid_callback", "token_exchange_failed", "login_failed" })
         {
             var wynik = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"" + kod + "\"}");
-            Assert(wynik.Status == SonosLoginStatus.Denied, "rozpoznana odmowa " + kod + " to Denied");
-            Assert(wynik.Tokens is null, "odmowa NIGDY nie moze nosic tokenu: " + kod);
-            Assert(!wynik.Succeeded, "odmowa nie jest sukcesem: " + kod);
+            Assert(wynik.Status == SonosLoginStatus.BrokerError,
+                "blad brokera/wymiany " + kod + " to BrokerError, nie odmowa Sonos");
+            Assert(wynik.Tokens is null, "blad NIGDY nie moze nosic tokenu: " + kod);
+            Assert(!wynik.Succeeded, "blad nie jest sukcesem: " + kod);
         }
 
         var nierozpoznane = WynikPo(HttpStatusCode.BadRequest, "{\"error\": \"invalid_code_verifier\"}");
@@ -265,8 +605,11 @@ internal static class SonosLoginClientTests
 
     private static void TestWynikVerifierMismatchToOdmowa()
     {
+        // Oczekiwanie POPRAWIONE: 403 verifier_mismatch (core.py 338-340) to blad
+        // LOKALNEGO dowodu klienta, a broker nie konsumuje wtedy wyniku.
         var wynik = WynikPo(HttpStatusCode.Forbidden, "{\"error\": \"verifier_mismatch\"}");
-        Assert(wynik.Status == SonosLoginStatus.Denied, "403 verifier_mismatch to odmowa wydania tokenu");
+        Assert(wynik.Status == SonosLoginStatus.ProofMismatch,
+            "403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos");
         Assert(wynik.Tokens is null, "403 nie daje tokenow");
     }
 
@@ -621,6 +964,9 @@ internal static class SonosLoginClientTests
         public void EnqueueThrow(Exception exception) =>
             planned.Enqueue(_ => throw exception);
 
+        public void EnqueueCustom(Func<HttpRequestMessage, HttpResponseMessage> factory) =>
+            planned.Enqueue(factory);
+
         public void EnqueueRedirect(HttpStatusCode status, string location)
         {
             planned.Enqueue(_ =>
@@ -673,5 +1019,104 @@ internal static class SonosLoginClientTests
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
             };
+    }
+
+    /// <summary>
+    /// Syntetyczne cialo odpowiedzi z REALNYM opoznieniem fazy ciala. Zero sieci:
+    /// opoznienie jest zwyklym Task.Delay honorujacym token anulowania, dzieki
+    /// czemu test mierzy rzeczywisty czas powrotu operacji, a nie atrape zegara.
+    /// </summary>
+    private sealed class SterowaneCialo : Stream
+    {
+        private readonly byte[] dane;
+        private readonly TimeSpan opoznienieNaOdczyt;
+        private readonly bool zawieszNaKoncu;
+        private readonly int bajtowNaOdczyt;
+        private int pozycja;
+
+        public SterowaneCialo(
+            string tresc,
+            TimeSpan opoznienieNaOdczyt,
+            bool zawieszNaKoncu,
+            int bajtowNaOdczyt = int.MaxValue)
+        {
+            dane = Encoding.UTF8.GetBytes(tresc);
+            this.opoznienieNaOdczyt = opoznienieNaOdczyt;
+            this.zawieszNaKoncu = zawieszNaKoncu;
+            this.bajtowNaOdczyt = bajtowNaOdczyt;
+        }
+
+        /// <summary>Liczba faktycznie wykonanych odczytow - dowod, ze odczyt zostal przerwany.</summary>
+        public int Odczyty { get; private set; }
+
+        /// <summary>Czy strumien zostal zwolniony (ograniczone sprzatanie po deadline).</summary>
+        public bool Zwolniony { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => pozycja;
+            set => throw new NotSupportedException();
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            Odczyty++;
+            if (opoznienieNaOdczyt > TimeSpan.Zero)
+            {
+                await Task.Delay(opoznienieNaOdczyt, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (pozycja >= dane.Length)
+            {
+                if (zawieszNaKoncu)
+                {
+                    // Serwer przestal nadawac i NIE zamyka polaczenia.
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                }
+
+                return 0;
+            }
+
+            var ile = Math.Min(Math.Min(buffer.Length, bajtowNaOdczyt), dane.Length - pozycja);
+            dane.AsMemory(pozycja, ile).CopyTo(buffer);
+            pozycja += ile;
+            return ile;
+        }
+
+        public override Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            Zwolniony = true;
+            base.Dispose(disposing);
+        }
     }
 }

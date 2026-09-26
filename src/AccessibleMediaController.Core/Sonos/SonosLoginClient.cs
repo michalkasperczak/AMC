@@ -34,7 +34,15 @@ public sealed class SonosLoginClient : IDisposable
 
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(20);
 
+    /// <summary>
+    /// Gorny zakres budzetu wynika z CancellationTokenSource/HttpClient: oba
+    /// przyjmuja najwyzej int.MaxValue milisekund. Nie jest to dobrany "limit
+    /// produktowy", tylko granica uzywanych mechanizmow.
+    /// </summary>
+    public static readonly TimeSpan MaxOperationTimeout = TimeSpan.FromMilliseconds(int.MaxValue);
+
     private readonly SonosLoginBrokerConfiguration configuration;
+    private readonly TimeSpan operationTimeout;
     private readonly HttpClient http;
     private readonly bool ownsHttpClient;
     private readonly Func<DateTimeOffset> clock;
@@ -46,6 +54,12 @@ public sealed class SonosLoginClient : IDisposable
         Func<DateTimeOffset>? clock = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+
+        // NAJPIERW budzet: niepoprawny albo nieskonczony limit jest odrzucany
+        // PRZED utworzeniem HttpClient i handlera, zeby zadne zasoby nie zostaly
+        // po odrzuconym wywolaniu.
+        operationTimeout = ValidateTimeout(timeout ?? DefaultTimeout);
+
         this.configuration = configuration;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
         if (handler is null)
@@ -66,10 +80,28 @@ public sealed class SonosLoginClient : IDisposable
             ownsHttpClient = true;
         }
 
-        http.Timeout = timeout ?? DefaultTimeout;
+        http.Timeout = operationTimeout;
         http.DefaultRequestHeaders.Accept.Clear();
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         http.MaxResponseContentBufferSize = MaxResponseBytes + 1;
+    }
+
+    /// <summary>
+    /// Budzet CALEJ operacji musi byc skonczony i dodatni. Timeout.InfiniteTimeSpan
+    /// (-1 ms) oraz kazda inna wartosc <= 0 lub ponad zakres CTS/HttpClient jest
+    /// odrzucana - nieskonczony budzet znaczy, ze zawieszona odpowiedz blokuje
+    /// logowanie bez konca.
+    /// </summary>
+    private static TimeSpan ValidateTimeout(TimeSpan timeout)
+    {
+        if (timeout <= TimeSpan.Zero || timeout > MaxOperationTimeout)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(timeout),
+                "Budżet operacji logowania Sonos musi być skończony i dodatni.");
+        }
+
+        return timeout;
     }
 
     /// <summary>
@@ -165,11 +197,18 @@ public sealed class SonosLoginClient : IDisposable
                     return SonosLoginResultOutcome.Failure(SonosLoginStatus.InvalidResponse);
                 }
 
-                var tokenType = ReadString(root, "token_type") ?? "Bearer";
+                var tokenType = ReadString(root, "token_type");
+                if (!SonosTokens.TryCanonicalizeTokenType(tokenType, out var canonicalTokenType))
+                {
+                    // Nieobslugiwany typ tokenu: fail-closed i STALY komunikat.
+                    // Wartosci z odpowiedzi nie wolno zwrocic ani wypisac.
+                    return SonosLoginResultOutcome.Failure(SonosLoginStatus.InvalidResponse);
+                }
+
                 int? expiresIn = TryReadPositiveInt(root, "expires_in", out var seconds) ? seconds : null;
                 return SonosLoginResultOutcome.Ok(new SonosTokens(
                     accessToken!,
-                    tokenType,
+                    canonicalTokenType,
                     expiresIn,
                     ReadString(root, "refresh_token"),
                     ReadString(root, "scope")));
@@ -196,10 +235,17 @@ public sealed class SonosLoginClient : IDisposable
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
+
+        // JEDEN skonczony deadline na CALA operacje: wyslanie, odczyt naglowkow,
+        // odczyt ciala i zwolnienie strumienia. HttpClient.Timeout przy
+        // ResponseHeadersRead nie obejmuje fazy ciala, wiec bez tego zawieszony
+        // strumien blokowalby logowanie bez konca.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(operationTimeout);
         try
         {
             using var response = await http
-                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
                 .ConfigureAwait(false);
 
             // Fail-closed: ani przekierowanie, ani cudzy host nie dostana payloadu.
@@ -214,7 +260,7 @@ public sealed class SonosLoginClient : IDisposable
                 return ReadResponse.Rejected(SonosLoginStatus.RedirectRefused);
             }
 
-            var body = await ReadBoundedAsync(response, cancellationToken).ConfigureAwait(false);
+            var body = await ReadBoundedAsync(response, deadline.Token).ConfigureAwait(false);
             if (body is null)
             {
                 return ReadResponse.Rejected(SonosLoginStatus.InvalidResponse);
@@ -224,6 +270,8 @@ public sealed class SonosLoginClient : IDisposable
         }
         catch (OperationCanceledException)
         {
+            // Anulowanie WOLAJACEGO odrozniamy od wlasnego deadline. Oba moga
+            // wystapic w fazie ciala, ale znacza dla uzytkownika co innego.
             return ReadResponse.Rejected(
                 cancellationToken.IsCancellationRequested
                     ? SonosLoginStatus.Canceled
@@ -239,42 +287,52 @@ public sealed class SonosLoginClient : IDisposable
         }
     }
 
-    /// <summary>Czyta NAJWYZEJ MaxResponseBytes. Wieksza odpowiedz jest odrzucana, nie obcinana.</summary>
+    /// <summary>
+    /// Czyta NAJWYZEJ MaxResponseBytes w ramach TEGO SAMEGO deadline calej
+    /// operacji - limit NIE jest odnawiany po kazdym odczycie, wiec saczone
+    /// cialo tez sie w nim miesci albo zostaje przerwane. Wieksza odpowiedz jest
+    /// odrzucana, nie obcinana.
+    /// </summary>
     private static async Task<string?> ReadBoundedAsync(
         HttpResponseMessage response,
-        CancellationToken cancellationToken)
+        CancellationToken deadlineToken)
     {
         if (response.Content.Headers.ContentLength is { } declared && declared > MaxResponseBytes)
         {
             return null;
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var buffer = new byte[8192];
-        using var accumulated = new MemoryStream();
-        while (true)
+        // Jawne, ograniczone sprzatanie: strumien jest zwalniany takze wtedy, gdy
+        // deadline przerwie odczyt w polowie ciala.
+        var stream = await response.Content.ReadAsStreamAsync(deadlineToken).ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
         {
-            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            if (read <= 0)
+            var buffer = new byte[8192];
+            using var accumulated = new MemoryStream();
+            while (true)
             {
-                break;
+                var read = await stream.ReadAsync(buffer, deadlineToken).ConfigureAwait(false);
+                if (read <= 0)
+                {
+                    break;
+                }
+
+                if (accumulated.Length + read > MaxResponseBytes)
+                {
+                    return null;
+                }
+
+                accumulated.Write(buffer, 0, read);
             }
 
-            if (accumulated.Length + read > MaxResponseBytes)
+            try
+            {
+                return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(accumulated.ToArray());
+            }
+            catch (DecoderFallbackException)
             {
                 return null;
             }
-
-            accumulated.Write(buffer, 0, read);
-        }
-
-        try
-        {
-            return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(accumulated.ToArray());
-        }
-        catch (DecoderFallbackException)
-        {
-            return null;
         }
     }
 
@@ -299,13 +357,23 @@ public sealed class SonosLoginClient : IDisposable
                 // Rozstrzyga lokalny, znany czas zycia sesji z /login/start.
                 return sessionAlreadyExpired ? SonosLoginStatus.Expired : SonosLoginStatus.Pending;
             case HttpStatusCode.Forbidden:
-                return SonosLoginStatus.Denied;
+                // 403 verifier_mismatch: broker odrzucil NASZ lokalny dowod PKCE i
+                // NIE skonsumowal gotowego wyniku. Sonos nie podjal tu zadnej
+                // decyzji, wiec nie wolno go obwiniac.
+                return SonosLoginStatus.ProofMismatch;
             case HttpStatusCode.BadRequest:
                 return ReadErrorCode(read.Body) switch
                 {
-                    // Poprawnie zgloszona ODMOWA - nigdy nie wolno jej pomylic z tokenem.
-                    "access_denied" or "invalid_callback" or "token_exchange_failed" or "login_failed" =>
-                        SonosLoginStatus.Denied,
+                    // TYLKO to jest rzeczywista odmowa: core.py zapisuje
+                    // access_denied wtedy, gdy dostawca zglosil provider_error.
+                    "access_denied" => SonosLoginStatus.Denied,
+                    // invalid_callback to brak/niepoprawna dlugosc parametru code
+                    // w callbacku (core.py 271-273), a token_exchange_failed to
+                    // WYJATEK wymiany kodu po stronie brokera (core.py 274-277:
+                    // timeout, zly JSON, status dostawcy). Ani jedno, ani drugie
+                    // nie jest decyzja Sonos.
+                    "invalid_callback" or "token_exchange_failed" or "login_failed" =>
+                        SonosLoginStatus.BrokerError,
                     _ => SonosLoginStatus.InvalidResponse
                 };
             case HttpStatusCode.TooManyRequests:

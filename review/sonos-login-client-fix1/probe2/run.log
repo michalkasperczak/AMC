@@ -1,0 +1,155 @@
+{
+  "failures": 0,
+  "cases": [
+    {
+      "id": "K1-kontrola-szybkie-cialo",
+      "spec": "operacja bez opoznien konczy sie Success",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "status": "Success",
+        "elapsed_ms": 45
+      }
+    },
+    {
+      "id": "B1-timeout-calej-operacji",
+      "spec": "skuteczny skonczony timeout CALEJ operacji (naglowki \u002B cialo)",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "timeout_ms": 100,
+        "body_delay_ms": 1500,
+        "elapsed_ms": 105,
+        "status": "BrokerUnreachable",
+        "oczekiwano": "BrokerUnreachable w \u003C 1000 ms"
+      }
+    },
+    {
+      "id": "B2-timeout-nieskonczony-odrzucony",
+      "spec": "API nie pozwala skonfigurowac operacji bez skonczonego limitu czasu",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "infinite_timespan_zaakceptowany": false,
+        "wyjatek": "ArgumentOutOfRangeException"
+      }
+    },
+    {
+      "id": "B3-brak-echa-tekstu-serwera-w-diagnostyce",
+      "spec": "diagnostyka nie cytuje niezwalidowanego tekstu z odpowiedzi serwera",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "status": "InvalidResponse",
+        "wartosc_access_token_w_ToString": false,
+        "niezwalidowany_token_type_w_ToString": false,
+        "ToString_dlugosc": 0
+      }
+    },
+    {
+      "id": "S1-pending-i-expiry",
+      "spec": "404 brokera rozdzielone na Pending oraz Expired",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "sesja_zywa": "Pending",
+        "sesja_wygasla": "Expired"
+      }
+    },
+    {
+      "id": "S2-odmowa-429-503-5xx",
+      "spec": "rozdzielne statusy odmowy, 429, braku konfiguracji i bledu serwera",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "b400_access_denied": "Denied",
+        "b400_token_exchange_failed": "BrokerError",
+        "b429": "RateLimited",
+        "b503_server_not_configured": "BrokerNotConfigured",
+        "b503_bez_json": "BrokerError",
+        "b500": "BrokerError"
+      }
+    },
+    {
+      "id": "S3-403-nie-jest-odmowa-sonos",
+      "spec": "403 verifier_mismatch nie jest raportowane jako odmowa dostepu przez Sonos",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "status": "ProofMismatch",
+        "komunikat": "Dow\u00F3d logowania Sonos nie zgadza si\u0119 z rozpocz\u0119t\u0105 sesj\u0105. Rozpocznij logowanie ponownie.",
+        "uwaga": "core.py login_result: przy 403 result_taken NIE jest ustawiane"
+      }
+    },
+    {
+      "id": "S4-limit-ciala",
+      "spec": "odpowiedz ponad 64 KiB odrzucona, nie obcieta",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "rozmiar_b": 71699,
+        "status": "InvalidResponse"
+      }
+    },
+    {
+      "id": "S5-fail-closed-redirect",
+      "spec": "3xx oraz obcy finalny host nie dostaja payloadu",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "odpowiedz_302": "RedirectRefused",
+        "obcy_final_uri": "RedirectRefused"
+      }
+    },
+    {
+      "id": "S6-anulowanie",
+      "spec": "anulowanie wolajacego daje status Canceled",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "status": "Canceled"
+      }
+    },
+    {
+      "id": "S7-pkce",
+      "spec": "32 B CSPRNG, 43 znaki base64url, S256, osobna para per operacja",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "unikalne": 200,
+        "entropia_b": 32,
+        "s256_zgodne": true
+      }
+    },
+    {
+      "id": "S8-start-swiezy-verifier",
+      "spec": "kazdy start wysyla nowe wyzwanie S256 i nie wysyla verifiera",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "start1": "Success",
+        "start2": "Success",
+        "wyzwania_rozne": true,
+        "verifier_w_ciele_start": false
+      }
+    },
+    {
+      "id": "S9-authorize-url",
+      "spec": "authorize_url weryfikowany po hoscie I sciezce Sonos, nie po prefiksie https",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "poprawny": "Success",
+        "obcy_host": "InvalidResponse",
+        "obca_sciezka": "InvalidResponse",
+        "http": "InvalidResponse",
+        "userinfo": "InvalidResponse"
+      }
+    },
+    {
+      "id": "S10-origin-brokera",
+      "spec": "zaufany origin brokera wymaga HTTPS, bez userinfo/query",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "niezgodne": []
+      }
+    },
+    {
+      "id": "S11-diagnostyka-sesji",
+      "spec": "ToString sesji nie ujawnia session_id, verifiera ani query z client_id",
+      "verdict": "SPEC_PASS",
+      "detail": {
+        "sesja": "Sesja logowania Sonos (identyfikator i weryfikator ukryte), adres autoryzacji https://api.sonos.com/login/v3/oauth.",
+        "start": "Start logowania Sonos: RateLimited, Serwer logowania Sonos jest chwilowo przeci\u0105\u017Cony. Spr\u00F3buj p\u00F3\u017Aniej."
+      }
+    }
+  ]
+}
+PROBE_RESULT=SPEC_PASS

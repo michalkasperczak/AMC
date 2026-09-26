@@ -198,8 +198,14 @@ public enum SonosLoginStatus
     Pending,
     /// <summary>Sesja logowania wygasla po stronie klienta albo brokera.</summary>
     Expired,
-    /// <summary>Poprawnie zgloszona ODMOWA (HTTP 400 z rozpoznanym kodem) - NIE ma tokenow.</summary>
+    /// <summary>Poprawnie zgloszona ODMOWA (HTTP 400 access_denied) - NIE ma tokenow.</summary>
     Denied,
+    /// <summary>
+    /// HTTP 403 verifier_mismatch: LOKALNY dowod PKCE klienta nie pasuje do
+    /// wyzwania sesji. To blad po naszej stronie, NIE decyzja Sonos. Broker nie
+    /// konsumuje wtedy gotowego wyniku.
+    /// </summary>
+    ProofMismatch,
     /// <summary>Limit sesji/zapytan (HTTP 429).</summary>
     RateLimited,
     /// <summary>Broker dziala, ale nie ma skonfigurowanych kluczy Sonos (503 server_not_configured).</summary>
@@ -229,6 +235,8 @@ public static class SonosLoginMessages
             [SonosLoginStatus.Pending] = "Logowanie Sonos jeszcze nie zostało ukończone w przeglądarce.",
             [SonosLoginStatus.Expired] = "Sesja logowania Sonos wygasła. Rozpocznij logowanie ponownie.",
             [SonosLoginStatus.Denied] = "Sonos nie przyznał dostępu. Logowanie zostało odrzucone.",
+            [SonosLoginStatus.ProofMismatch] =
+                "Dowód logowania Sonos nie zgadza się z rozpoczętą sesją. Rozpocznij logowanie ponownie.",
             [SonosLoginStatus.RateLimited] = "Serwer logowania Sonos jest chwilowo przeciążony. Spróbuj później.",
             [SonosLoginStatus.BrokerNotConfigured] = "Serwer logowania Sonos nie ma skonfigurowanego dostępu do Sonos.",
             [SonosLoginStatus.BrokerError] = "Serwer logowania Sonos zgłosił błąd.",
@@ -248,6 +256,9 @@ public static class SonosLoginMessages
 /// </summary>
 public sealed class SonosTokens
 {
+    /// <summary>Jedyny obslugiwany typ tokenu Sonos (backend domysla go w core.py).</summary>
+    public const string BearerTokenType = "Bearer";
+
     public SonosTokens(
         string accessToken,
         string tokenType,
@@ -256,11 +267,39 @@ public sealed class SonosTokens
         string? scope)
     {
         ArgumentException.ThrowIfNullOrEmpty(accessToken);
+        if (!TryCanonicalizeTokenType(tokenType, out var canonical))
+        {
+            // Bez echa: komunikat NIE cytuje odrzuconej wartosci, zeby dowolny
+            // tekst od serwera nie trafil do logu ani do ToString.
+            throw new ArgumentException(
+                "Nieobsługiwany typ tokenu Sonos.",
+                nameof(tokenType));
+        }
+
         AccessToken = accessToken;
-        TokenType = string.IsNullOrWhiteSpace(tokenType) ? "Bearer" : tokenType;
+        TokenType = canonical;
         ExpiresInSeconds = expiresInSeconds;
         RefreshToken = refreshToken;
         Scope = scope;
+    }
+
+    /// <summary>
+    /// Brak pola i JSON null to wg kontraktu backendu domyslny Bearer. Kazda
+    /// wartosc rowna "bearer" bez wzgledu na wielkosc liter i otaczajace biale
+    /// znaki jest kanonizowana do "Bearer". Cokolwiek innego jest ODRZUCANE -
+    /// klient nie wypisuje dowolnego tekstu z odpowiedzi.
+    /// </summary>
+    public static bool TryCanonicalizeTokenType(string? tokenType, out string canonical)
+    {
+        canonical = BearerTokenType;
+        if (tokenType is null)
+        {
+            return true;
+        }
+
+        var trimmed = tokenType.Trim();
+        return trimmed.Length > 0
+            && string.Equals(trimmed, BearerTokenType, StringComparison.OrdinalIgnoreCase);
     }
 
     public string AccessToken { get; }
