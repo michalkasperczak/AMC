@@ -83,6 +83,7 @@ public sealed class SonosLoginBrokerConfiguration
         Origin = origin;
         StartUri = new Uri(origin, "login/start");
         ResultUri = new Uri(origin, "login/result");
+        RefreshUri = new Uri(origin, "login/refresh");
     }
 
     public Uri Origin { get; }
@@ -90,6 +91,12 @@ public sealed class SonosLoginBrokerConfiguration
     public Uri StartUri { get; }
 
     public Uri ResultUri { get; }
+
+    /// <summary>
+    /// ZAUFANY adres odnawiania dostepu. Jak pozostale: wyprowadzony z
+    /// SKONFIGUROWANEGO origin, nigdy z odpowiedzi serwera.
+    /// </summary>
+    public Uri RefreshUri { get; }
 
     public static bool TryCreate(string? origin, out SonosLoginBrokerConfiguration? configuration)
     {

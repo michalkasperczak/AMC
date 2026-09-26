@@ -218,6 +218,187 @@ public sealed class SonosLoginClient : IDisposable
         return SonosLoginResultOutcome.Failure(MapResultFailure(read, expired));
     }
 
+
+    /// <summary>
+    /// ODNOWIENIE dostepu: JEDNO zadanie POST /login/refresh na SKONFIGUROWANY,
+    /// zaufany origin, tym samym ograniczonym transportem, co Start/Fetch (bez
+    /// przekierowan, bez ciasteczek, jeden skonczony deadline na naglowki i
+    /// cialo, limit 64 KiB). Zadnego pollingu i ZADNEGO automatycznego
+    /// ponowienia po niejednoznacznym wyniku.
+    ///
+    /// Token jest NIEPRZEZROCZYSTY: idzie dokladnie tak, jak przyszedl (bez
+    /// trim, normalizacji i wzorcow). Cialo ma DOKLADNIE jedno pole
+    /// refresh_token - klient nie zna i nie wysyla sekretu aplikacji.
+    ///
+    /// Ta metoda NIGDY nie kasuje poswiadczen. Zwraca rozpoznany wynik; jedynie
+    /// 401 z kontraktowym reauthorization_required ustawia
+    /// RequiresReauthorization, a decyzja nalezy do warstwy wyzszej.
+    /// </summary>
+    public async Task<SonosRefreshOutcome> RefreshAsync(
+        string? refreshToken,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return SonosRefreshOutcome.Failure(SonosRefreshStatus.Canceled);
+        }
+
+        // NASZA polityka zadania sprawdzana LOKALNIE: zle wejscie nie generuje
+        // ZADNEGO zapytania HTTP i nie jest wyrokiem o waznosci poswiadczen.
+        if (!SonosRefreshTokenPolicy.IsAcceptable(refreshToken))
+        {
+            return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidLocalToken);
+        }
+
+        var payload = JsonSerializer.Serialize(
+            new SonosRefreshTokenPolicy.RefreshRequestBody(refreshToken!));
+
+        // Druga, NIEZALEZNA kontrola: liczymy RZECZYWISTE bajty ciala, ktore
+        // wyslemy. Model budzetu jest zachowawczy, ale to pomiar decyduje - bez
+        // niego mozna by wyslac cialo, ktore broker odrzuci przez 413.
+        if (Encoding.UTF8.GetByteCount(payload) > SonosRefreshTokenPolicy.MaxRequestBodyBytes)
+        {
+            return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidLocalToken);
+        }
+
+        var read = await SendAsync(configuration.RefreshUri, payload, cancellationToken).ConfigureAwait(false);
+        if (read.Status is not null)
+        {
+            return SonosRefreshOutcome.Failure(MapRefreshTransport(read.Status.Value));
+        }
+
+        if (read.HttpStatus != HttpStatusCode.OK)
+        {
+            return SonosRefreshOutcome.Failure(MapRefreshFailure(read));
+        }
+
+        if (!TryParseObject(read.Body, out var document))
+        {
+            return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+        }
+
+        using (document)
+        {
+            var root = document!.RootElement;
+            var accessToken = ReadString(root, "access_token");
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+            }
+
+            // token_type jest tu WYMAGANY (backend gwarantuje go w kazdym 200
+            // /login/refresh). Brak pola, null i zly typ to trzy rozne wady tej
+            // samej odpowiedzi - zadnej z nich NIE domyslamy sie na Bearer, bo
+            // wtedy zepsuta odpowiedz wygladalaby na sukces. To NIE zmienia
+            // semantyki /login/result, gdzie brak pola jest kontraktowy.
+            if (!root.TryGetProperty("token_type", out var tokenTypeElement)
+                || tokenTypeElement.ValueKind != JsonValueKind.String
+                || !SonosTokens.TryCanonicalizeTokenType(tokenTypeElement.GetString(), out var canonicalTokenType)
+                || tokenTypeElement.GetString() is null)
+            {
+                return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+            }
+
+            // refresh_token jest ZAWSZE obecny w kontraktowym 200 (broker sam
+            // realizuje dopuszczalny nawrot do dotychczasowej wartosci). Gdy go
+            // nie ma, jest nullem, nie-tekstem albo nie przechodzi TEJ SAMEJ
+            // polityki co nasze wejscie - to zepsuta odpowiedz, a NIE zgoda na
+            // ciche zatrzymanie starej wartosci.
+            if (!root.TryGetProperty("refresh_token", out var refreshElement)
+                || refreshElement.ValueKind != JsonValueKind.String)
+            {
+                return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+            }
+
+            var rotated = refreshElement.GetString();
+            if (!SonosRefreshTokenPolicy.IsAcceptable(rotated))
+            {
+                return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+            }
+
+            // expires_in jest OPCJONALNE, ale obecne musi byc dodatnia liczba
+            // calkowita. Obecna, niepoprawna wartosc to zepsuta odpowiedz.
+            int? expiresIn = null;
+            if (root.TryGetProperty("expires_in", out var expiresElement)
+                && expiresElement.ValueKind != JsonValueKind.Undefined)
+            {
+                if (!TryReadPositiveInt(root, "expires_in", out var seconds))
+                {
+                    return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+                }
+
+                expiresIn = seconds;
+            }
+
+            // scope jest OPCJONALNE i musi byc tekstem, gdy jest obecne.
+            string? scope = null;
+            if (root.TryGetProperty("scope", out var scopeElement))
+            {
+                if (scopeElement.ValueKind != JsonValueKind.String)
+                {
+                    return SonosRefreshOutcome.Failure(SonosRefreshStatus.InvalidResponse);
+                }
+
+                scope = scopeElement.GetString();
+            }
+
+            return SonosRefreshOutcome.Ok(new SonosTokens(
+                accessToken!,
+                canonicalTokenType,
+                expiresIn,
+                rotated,
+                scope));
+        }
+    }
+
+    /// <summary>Wyniki rozstrzygniete w transporcie (przed odczytem ciala).</summary>
+    private static SonosRefreshStatus MapRefreshTransport(SonosLoginStatus status) => status switch
+    {
+        SonosLoginStatus.Canceled => SonosRefreshStatus.Canceled,
+        SonosLoginStatus.RedirectRefused => SonosRefreshStatus.RedirectRefused,
+        SonosLoginStatus.BrokerUnreachable => SonosRefreshStatus.BrokerUnreachable,
+        _ => SonosRefreshStatus.InvalidResponse
+    };
+
+    /// <summary>
+    /// Mapowanie statusow /login/refresh BEZ echa ciala. Kasowania poswiadczen
+    /// domaga sie WYLACZNIE 401 z kontraktowym kodem reauthorization_required -
+    /// HTML, nieznany kod i zepsuty JSON przy 401 to niezgodna odpowiedz.
+    /// </summary>
+    private static SonosRefreshStatus MapRefreshFailure(ReadResponse read)
+    {
+        switch (read.HttpStatus)
+        {
+            case HttpStatusCode.Unauthorized:
+                return ReadErrorCode(read.Body) == "reauthorization_required"
+                    ? SonosRefreshStatus.ReauthorizationRequired
+                    : SonosRefreshStatus.InvalidResponse;
+            case HttpStatusCode.BadRequest:
+                // invalid_body / invalid_json / invalid_refresh_token: broker NIE
+                // wolal dostawcy, wiec nic nie wiemy o waznosci tokenu.
+                return ReadErrorCode(read.Body) is "invalid_body" or "invalid_json" or "invalid_refresh_token"
+                    ? SonosRefreshStatus.RequestRejected
+                    : SonosRefreshStatus.InvalidResponse;
+            case HttpStatusCode.MethodNotAllowed:
+            case HttpStatusCode.RequestEntityTooLarge:
+                return SonosRefreshStatus.RequestRejected;
+            case HttpStatusCode.TooManyRequests:
+                return SonosRefreshStatus.RateLimited;
+            case HttpStatusCode.ServiceUnavailable:
+                return ReadErrorCode(read.Body) switch
+                {
+                    "server_not_configured" => SonosRefreshStatus.BrokerNotConfigured,
+                    "refresh_unavailable" => SonosRefreshStatus.RefreshUnavailable,
+                    _ => SonosRefreshStatus.BrokerError
+                };
+            default:
+                // 404 nigdy nie znaczy "trwa" - to niezgodna odpowiedz.
+                return (int)read.HttpStatus >= 500
+                    ? SonosRefreshStatus.BrokerError
+                    : SonosRefreshStatus.InvalidResponse;
+        }
+    }
+
     // ---------- warstwa transportu ----------
     private async Task<ReadResponse> SendAsync(Uri target, string json, CancellationToken cancellationToken)
     {
