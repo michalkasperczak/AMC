@@ -236,8 +236,9 @@ public sealed class SonosLoginClient : IDisposable
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
 
-        // JEDEN skonczony deadline na CALA operacje: wyslanie, odczyt naglowkow,
-        // odczyt ciala i zwolnienie strumienia. HttpClient.Timeout przy
+        // JEDEN skonczony deadline na wyslanie, odczyt naglowkow i odczyt ciala.
+        // Nie obejmuje samego Dispose odpowiedzi/strumienia - to robi blok
+        // using po wyjsciu z operacji i deadline go nie przerywa. HttpClient.Timeout przy
         // ResponseHeadersRead nie obejmuje fazy ciala, wiec bez tego zawieszony
         // strumien blokowalby logowanie bez konca.
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -353,7 +354,20 @@ public sealed class SonosLoginClient : IDisposable
         switch (read.HttpStatus)
         {
             case HttpStatusCode.NotFound:
-                // Broker nie rozroznia "jeszcze nie ma wyniku" od "wygasla".
+                // TYLKO kontraktowe 404 {"error": "unknown_session"} (core.py
+                // 328/337) znaczy "broker nie ma dla nas wyniku". Broker oddaje
+                // 404 {"error": "not_found"} takze dla nieznanej sciezki
+                // (server.py 299), a obcy serwer, proxy lub blad konfiguracji
+                // moga zwrocic 404 z dowolnym cialem. Takie 404 NIE jest
+                // dowodem, ze logowanie trwa, wiec nie wolno go tlumaczyc na
+                // Pending/Expired - to byloby ciche zapraszanie do czekania na
+                // wynik, ktory nigdy nie przyjdzie.
+                if (ReadErrorCode(read.Body) != "unknown_session")
+                {
+                    return SonosLoginStatus.InvalidResponse;
+                }
+
+                // Sam broker nie rozroznia "jeszcze nie ma wyniku" od "wygasla".
                 // Rozstrzyga lokalny, znany czas zycia sesji z /login/start.
                 return sessionAlreadyExpired ? SonosLoginStatus.Expired : SonosLoginStatus.Pending;
             case HttpStatusCode.Forbidden:

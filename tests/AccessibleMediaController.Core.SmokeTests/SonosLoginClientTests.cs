@@ -55,7 +55,7 @@ internal static class SonosLoginClientTests
         TestMutacyjnyKontrolnyOdmowaKontraToken();
         TestNullowePolaOpcjonalneWgKontraktuBackendu();
         UruchomPrzypadkiPoprawek();
-        Console.WriteLine("Sonos: 35 testow klienta pierwszego logowania zaliczonych.");
+        Console.WriteLine("Sonos: 36 testow klienta pierwszego logowania zaliczonych.");
     }
 
     /// <summary>
@@ -78,7 +78,9 @@ internal static class SonosLoginClientTests
             ("B3.2 model tokenow nie przyjmuje dowolnego typu do ToString", TestB3ModelNiePrzyjmujeDowolnegoTypu),
             ("B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos", TestB4ProofMismatchOsobnyStatus),
             ("B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos", TestB4CzterystaBezObwinianiaSonos),
-            ("B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success", TestB4GotowyWynikPoExpiresAt)
+            ("B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success", TestB4GotowyWynikPoExpiresAt),
+            ("I-1 404 unknown_session odrozniony od 404 not_found/niepoprawnej odpowiedzi",
+                TestI1CzterystaCztery404RozroznioneOdBledu)
         };
 
         var bledy = new List<string>();
@@ -380,6 +382,64 @@ internal static class SonosLoginClientTests
             "{\"error\": \"unknown_session\"}",
             zegarPrzesuniecieSekund: 3600);
         Assert(brak.Status == SonosLoginStatus.Expired, "brak wyniku po ExpiresAt to nadal Expired");
+    }
+
+    /// <summary>
+    /// I-1: 404 z /login/result NIE jest jednorodne. Broker zwraca
+    /// {"error": "unknown_session"} tylko dla wlasnego, kontraktowego braku
+    /// wyniku (core.py 328/337), a osobno oddaje 404 {"error": "not_found"} dla
+    /// nieznanej sciezki (server.py 299). Kazde inne 404 (obcy serwer, proxy,
+    /// HTML, puste cialo, zly JSON) NIE jest dowodem, ze logowanie trwa, wiec
+    /// nie wolno go tlumaczyc na Pending/Expired.
+    /// </summary>
+    private static void TestI1CzterystaCztery404RozroznioneOdBledu()
+    {
+        // Kontrola DODATNIA: kontraktowy kod zostaje Pending (sesja zywa)
+        // i Expired (po lokalnym expires_in) - zachowanie sie nie zmienia.
+        var zywa = WynikPo(HttpStatusCode.NotFound, "{\"error\": \"unknown_session\"}", zegarPrzesuniecieSekund: 0);
+        Assert(zywa.Status == SonosLoginStatus.Pending,
+            "404 unknown_session w zywej sesji musi zostac Pending, dostano: " + zywa.Status);
+        Assert(zywa.Tokens is null, "Pending nie daje tokenow");
+        var pozniej = WynikPo(HttpStatusCode.NotFound, "{\"error\": \"unknown_session\"}", zegarPrzesuniecieSekund: 601);
+        Assert(pozniej.Status == SonosLoginStatus.Expired,
+            "404 unknown_session po expires_in musi zostac Expired, dostano: " + pozniej.Status);
+        Assert(pozniej.Tokens is null, "Expired nie daje tokenow");
+
+        // Kazde INNE 404 to niezgodnosc kontraktu, w obu stanach zegara.
+        var obce = new (string Nazwa, string Cialo)[]
+        {
+            ("404 not_found z nieznanej sciezki (server.py 299)", "{\"error\": \"not_found\"}"),
+            ("404 z pustym obiektem JSON", "{}"),
+            ("404 z calkiem pustym cialem", ""),
+            ("404 z HTML zamiast JSON", "<html><body>404 Not Found</body></html>"),
+            ("404 z nietekstowym polem error", "{\"error\": 404}"),
+            ("404 z error jako obiektem", "{\"error\": {\"code\": \"unknown_session\"}}"),
+            ("404 z uciętym/zlym JSON", "{\"error\": \"unknown_session\""),
+            ("404 ze zlosliwym kodem bledu", "{\"error\": \"unknown_session " + SekretMarker + "\"}")
+        };
+
+        string? wzorcowyKomunikat = null;
+        foreach (var (nazwa, cialo) in obce)
+        {
+            foreach (var przesuniecie in new[] { 0, 601 })
+            {
+                var wynik = WynikPo(HttpStatusCode.NotFound, cialo, przesuniecie);
+                Assert(wynik.Status == SonosLoginStatus.InvalidResponse,
+                    nazwa + " (przesuniecie " + przesuniecie + " s) musi dac InvalidResponse, dostano: " + wynik.Status);
+                Assert(wynik.Status is not (SonosLoginStatus.Pending or SonosLoginStatus.Expired),
+                    nazwa + " nie moze udawac kontraktowego braku wyniku");
+                Assert(wynik.Tokens is null, nazwa + " nie moze nosic tokenow");
+                Assert(!wynik.Message.Contains(SekretMarker, StringComparison.Ordinal),
+                    nazwa + " nie moze cytowac ciala odpowiedzi: " + wynik.Message);
+                Assert(!wynik.Message.Contains("not_found", StringComparison.Ordinal),
+                    nazwa + " nie moze cytowac kodu bledu: " + wynik.Message);
+                Assert(!wynik.Message.Contains("html", StringComparison.OrdinalIgnoreCase),
+                    nazwa + " nie moze cytowac HTML: " + wynik.Message);
+                wzorcowyKomunikat ??= wynik.Message;
+                Assert(wynik.Message == wzorcowyKomunikat,
+                    "komunikat InvalidResponse musi byc STALY dla kazdego 404 poza kontraktem, dostano: " + wynik.Message);
+            }
+        }
     }
 
     private static HttpResponseMessage OdpowiedzZeStrumieniem(HttpStatusCode status, SterowaneCialo cialo) =>
