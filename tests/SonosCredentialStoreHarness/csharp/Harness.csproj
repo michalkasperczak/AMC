@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Harness TYLKO do testu trwalego magazynu poswiadczen Sonos (DPAPI
+       biezacego uzytkownika). Nie nalezy do produktu, nie jest przez produkt
+       widziany, nie buduje AccessibleMediaController.Core, SmokeTests ani
+       projektu WPF (zero ProjectReference). Pliki produktowe sa LINKOWANE
+       (Compile Include) z worktree i NIE sa kopiowane ani modyfikowane.
+       Zero pakietow NuGet. Uruchomienie: runtime Windows 8.0.31. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SonosCredentialStoreHarness</AssemblyName>
+    <RootNamespace>SonosCredentialStoreHarness</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosLoginContract.cs">
+      <Link>Linked/SonosLoginContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosRefreshContract.cs">
+      <Link>Linked/SonosRefreshContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosCredentialStoreContract.cs">
+      <Link>Linked/SonosCredentialStoreContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Windows/Services/SonosDpapiCredentialStore.cs">
+      <Link>Linked/SonosDpapiCredentialStore.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+</Project>

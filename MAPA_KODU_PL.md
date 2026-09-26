@@ -1,5 +1,54 @@
 # AMC — mapa kodu
 
+## Sonos: trwały magazyn poświadczeń (DPAPI bieżącego użytkownika)
+
+- `Core/Sonos/SonosCredentialStoreContract.cs` — wyłącznie kontrakt i model,
+  bez I/O i bez szyfrowania: `SonosCredentialPolicy` (limity, m.in.
+  `MaxEncryptedFileBytes` 512 KiB sprawdzane PRZED alokacją bufora),
+  `SonosStoredCredentials` (cały zestaw `SonosTokens`, moment otrzymania w UTC,
+  `BrokerOrigin`, jawny `FormatVersion`), `SonosCredentialSerializer`
+  (serializacja JSON o jawnej wersji i ścisła walidacja),
+  `ISonosCredentialStore` oraz rozdzielne wyniki `SonosCredentialReadStatus`
+  (`Success`/`Missing`/`Invalid`/`BrokerMismatch`/`ReadFailure`) i
+  `SonosCredentialWriteStatus` (`Success`/`InvalidRecord`/`WriteFailure`).
+  Termin ważności jest WYLICZANY z `expires_in`; jego brak zostaje stanem
+  nieznanym — żadnego domyślnego TTL. Brak refresh tokenu po pierwszym
+  logowaniu jest zapisywany jak jest, bez produkowania fałszywego RT. RT, jeśli
+  obecny, musi przejść istniejącą `SonosRefreshTokenPolicy`. Nierozpoznana
+  wersja formatu i nieprzewidziane pola to `Invalid`, nigdy cichy sukces.
+  `ToString` modeli i wyników nie wypisuje tokenów, scope ani origin.
+- `Windows/Services/SonosDpapiCredentialStore.cs` — JEDEN plik zaszyfrowany
+  natywnym DPAPI (P/Invoke `crypt32`, bez nowych pakietów) w zakresie
+  BIEŻĄCEGO UŻYTKOWNIKA, nigdy `LocalMachine`, zawsze
+  `CRYPTPROTECT_UI_FORBIDDEN`, ze stałą entropią domeny
+  `AccessibleMediaController/Sonos/credentials/v1`. Wybór pliku zamiast
+  Menedżera poświadczeń (wzorzec `TidalCredentialStore`,
+  `SpotifyLibrespotCredentialStore`) wynika z możliwego dużego zestawu tokenów
+  Sonos i limitu rozmiaru bloba `CredWrite`. Domyślna ścieżka
+  `LocalAppData/AccessibleMediaController/credentials/sonos.bin` jest osobno od
+  `state.json` i jego kopii; konstruktor nie czyta zapisanych kont. Zapis:
+  szyfrowanie PRZED I/O, unikalny plik tymczasowy w tym samym folderze, pełny
+  flush, `File.Replace` istniejącego albo `File.Move` pierwszego — nigdy
+  Delete+Write, więc nieudany zapis zachowuje poprzedni plik; bez plaintextu na
+  dysku, bez pliku `.bak`. Odczyt i walidacja NIE kasują zepsutego pliku
+  (świadome odejście od kasowania w `TidalCredentialStore`); usuwa tylko jawne,
+  idempotentne `Delete()`. Bufory native zwalniane w `finally`, plaintextowe
+  tablice bajtów zerowane; niemutowalnych stringów C# nie obiecujemy wymazać.
+  Zero PowerShella, CLI i zmiennych środowiskowych z tokenami.
+- `tests/SonosCredentialStoreHarness/` — `run.sh` buduje w WSL minimalny
+  harness `net8.0` (linkuje pliki produktowe, bez `ProjectReference` do WPF) i
+  uruchamia go NATYWNIE na Windows przez
+  `powershell.exe -NoProfile -NonInteractive -File`, więc DPAPI jest prawdziwe.
+  15 scenariuszy (roundtrip, brak markerów plaintext w pliku, literalne
+  Unicode/spacje, brak RT i nieznana ważność, odczyt w NOWYM procesie, rotacja
+  RT, brak pliku, uszkodzony ciphertext, nieobsługiwany format, obcy broker,
+  złe wejście i błąd zapisu zachowujące poprzedni rekord, limit rozmiaru,
+  `ToString` bez sekretów). Wyłącznie wartości syntetyczne i własny, świeży
+  katalog w Windows TEMP; żaden istniejący plik danych nie jest czytany.
+- Koordynator generacji i wyścigów, polling, UI i sesja Sonos to DALSZE kroki —
+  nie ma ich w tym przyroście. Magazyn nie ma blokad wieloprocesowych: jego
+  właścicielem będzie JEDNA instancja przyszłego koordynatora.
+
 ## Procenty bufora transmisji (TimeShift)
 
 - `RadioMediaOutput.TryGetBufferedSeekPosition` odczytuje pod blokadą rzeczywisty zakres bufora i zwraca bezwzględną pozycję strumienia. Uwzględnia częściowe zapełnienie oraz nadpisanie najstarszych danych.
