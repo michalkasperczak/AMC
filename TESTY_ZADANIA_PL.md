@@ -1,5 +1,22 @@
 # Zadania testowe AMC
 
+## Robocze podłączenie konta Sonos — jeszcze bez wydania i instalacji
+
+Odbiór lokalny źródeł `2ebe6eb`: `review/sonos-account-wiring/ACCEPTANCE.md`.
+Sama obecność komendy nie oznacza gotowego odtwarzacza Sonos. Ten etap udostępnia konto bez dodawania sesji, zmiany jej numeracji ani zajmowania Ctrl+F5.
+
+Próba użytkowa po przygotowaniu testowej wersji AMC i serwera:
+
+1. W menu **Plik** wybierz **Konto Sonos…**. NVDA powinien odczytać stan konta i instrukcję; można ją przeglądać strzałkami.
+2. Wybierz **Zaloguj w przeglądarce**. Hasło wpisuj wyłącznie na oficjalnej stronie Sonos. W AMC nie ma pól kluczy aplikacji ani hasła.
+3. Po zakończeniu logowania wróć do okna AMC i wybierz **Sprawdź logowanie**. Samo otwarcie przeglądarki nie jest zalogowaniem.
+4. Zamknij okno klawiszem Escape. Ctrl+Shift+K otwiera paletę; wpisz **sonos**, wybierz **Konto Sonos** i Enter. Stan konta ma zostać zachowany.
+5. **Wyloguj z Sonos…** pokazuje pytanie. Najpierw czytana jest treść, następnie Tab prowadzi do **Nie**, kolejny Tab do **Tak**. Escape, Alt+F4 lub Nie nie kasują konta; wyłącznie Tak potwierdza wylogowanie.
+6. Gdy program zgłosi, że konto działa, ale nie zostało zapisane, można zamknąć i ponownie otworzyć okno, a następnie wybrać **Ponów zapis logowania**. To ponowienie zapisu, nie nowego logowania.
+
+Na Hermesie rodzic wykonał rzeczywistą drogę menu/palety, potwierdzenia i ponownego zapisu, także żywym NVDA, ale z syntetycznymi gateway/store/browser. Automat z rzeczywistymi oknami zaliczył49/49 asercji; kontrola z odłączonym wywołaniem z routera została prawidłowo odrzucona. Pełny zakres i pozostałe ograniczenia opisuje raport odbioru. Nie jest to jeszcze test rzeczywistego konta ani zainstalowana aktualizacja.
+
+
 - Numer zestawu: `AMC-TEST-404`
 - Tytuł zestawu: Historia nagrań po zmianie plików
 - Wersja programu: `0.1.0-alpha.404`
