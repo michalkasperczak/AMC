@@ -21,7 +21,9 @@ Wzorcem jest istniejąca sesja WiiM, nie osobny, niepowiązany sposób obsługi 
 - wyjście z kontrolera nie zatrzymuje samoczynnie muzyki na autonomicznym urządzeniu;
 - brak zmian numerów i skrótów dotychczasowych sesji AMC.
 
-Podobieństwo obsługi nie oznacza kopiowania protokołu WiiM. Nie przenosimy w ciemno dodawania urządzeń po IP, komend sieci lokalnej ani ograniczeń usług muzycznych właściwych dla WiiM. Transport, głośność, ulubione, wejścia i korektor Sonosa wymagają osobnego potwierdzenia możliwości dostawcy. Nie należy pokazywać martwych odpowiedników funkcji WiiM.
+Podobieństwo obsługi nie oznacza kopiowania protokołu WiiM. Nie przenosimy w ciemno dodawania urządzeń po IP, komend sieci lokalnej ani ograniczeń usług muzycznych właściwych dla WiiM. Nie należy pokazywać martwych odpowiedników funkcji WiiM.
+
+Oficjalna dokumentacja Sonosa potwierdza sterowanie odtwarzaniem grupy, przewijanie, odczyt metadanych oraz regulację głośności i wyciszenia. Istnieją także odczyt ulubionych i obsługa wejścia liniowego na odpowiednim sprzęcie. Dostępności pełnego korektora nie ustalono. [Szczegóły, źródła i ograniczenia](SONOS_CONTROL_API_PL.md) zapisano oddzielnie — potwierdzenie dokumentacji nie oznacza jeszcze wdrożenia ani pomiaru na rzeczywistym urządzeniu.
 
 Okno **Konto Sonos → Głośniki i grupy** jest przyrostem pomocniczym. Samo jego przygotowanie nie kończy całej integracji.
 
