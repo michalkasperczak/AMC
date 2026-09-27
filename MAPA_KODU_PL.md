@@ -62,6 +62,63 @@
   nie ma ich w tym przyroście. Magazyn nie ma blokad wieloprocesowych: jego
   właścicielem będzie JEDNA instancja przyszłego koordynatora.
 
+## Sonos: koordynator konta (odtworzenie, logowanie, odnawianie, wylogowanie)
+
+- `Core/Sonos/SonosAccountContract.cs` — wyłącznie kontrakt i niemutowalne
+  wyniki: `SonosAccountState`
+  (`NoAccount`/`AwaitingBrowser`/`Connected`/`NeedsLogin`/`StoreFailure`),
+  rozdzielna PRZYCZYNA `SonosAccountIssue` (`ReadFailure`,
+  `InvalidStoredRecord`, `BrokerMismatch`, `WriteFailure`, `InvalidRecord`,
+  `Reauthorization`, `DeleteFailure`), stałe komunikaty
+  `SonosAccountMessages` oraz `SonosAccountSnapshot` i wyniki operacji
+  (`RestoreResult`, `LoginStartResult`, `LoginCheckResult`, `RefreshResult`,
+  `PersistRetryResult`, `DisconnectResult`). Migawka NIE zawiera tokenów, scope,
+  origin ani identyfikatora sesji — ani w polach, ani w `ToString`. `IsPersisted`
+  mówi o UTRWALENIU, a `IsAwaitingBrowser` jest NIEZALEŻNE od stanu; nieznana
+  ważność zostaje nieznana.
+- `Core/Sonos/SonosAccountCoordinator.cs` — właściciel stanu konta w procesie.
+  `ISonosLoginGateway` to NAJMNIEJSZY szew na odebrany `SonosLoginClient`
+  (`SonosLoginClientGateway` nie owija jego zachowań). `RestoreOnce` czyta
+  magazyn DOKŁADNIE raz; `Missing` nie jest błędem, a `Invalid`, `BrokerMismatch`
+  i `ReadFailure` nie kasują ani nie nadpisują pliku. `BeginLoginAsync` nie
+  uruchamia przeglądarki — oddaje zaufany `AuthorizeUri` warstwie UI.
+  `CheckLoginAsync` wykonuje DOKŁADNIE jedno `FetchResult`, bez pollingu, timera
+  i powtórek HTTP; `Pending` zostawia próbę oczekującą. DWIE NIEZALEŻNE
+  GENERACJE: generacja ZESTAWU rośnie przy zmianie użytecznego zestawu, a
+  generacja PRÓBY LOGOWANIA przy jej rozpoczęciu i anulowaniu — dlatego samo
+  `BeginLogin`/`CancelPendingLogin` nie porzuca trwającego odnowienia konta.
+  Spóźnioną odpowiedź logowania odrzuca porównanie generacji ORAZ tożsamości
+  sesji (`ReferenceEquals` z `pendingSession`), więc późny `Pending` po sukcesie
+  nie wskrzesza oczekiwania na przeglądarkę. `ClearPendingLoginLocked` zdejmuje
+  `AwaitingBrowser` i wraca do stanu sprzed oczekiwania, żeby zakończona próba
+  nie kazała kończyć logowania w przeglądarce, której już nie ma.
+  `RefreshAsync` to SINGLE-FLIGHT w obrębie generacji: wspólny placeholder
+  (`TaskCompletionSource`) publikujemy pod blokadą, a samo zapytanie startuje
+  POZA nią (`StartRefreshOutsideGate`), więc bramka wykonana synchronicznie do
+  pierwszego `await` nie biegnie pod lockiem. Wołający, który zrezygnował PRZED
+  startem, dostaje `Canceled` bez żadnego zapytania; rezygnacja jednego
+  wołającego NIE anuluje wspólnej operacji pozostałym, a trwającego zapytania
+  innego wołającego nie przerywamy. Unieważnić poświadczenia może WYŁĄCZNIE
+  dokładne 401 `ReauthorizationRequired` tej samej generacji — 429, 502, 503,
+  transport, niezgodny JSON i anulowanie nie kasują niczego. `WriteFailure`
+  zostawia NOWY zestaw w pamięci jako niezapisany (bez powrotu do starego RT),
+  a `RetryPersist` ponawia SAM zapis bez ani jednego zapytania. `InvalidRecord`
+  nie udaje działającego konta. `Disconnect` z nieudanym `Delete` nie udaje
+  potwierdzonego wylogowania (`StoreFailure` + `DeleteFailure` +
+  `PersistedRecordMayRemain`). Świadomie NIE MA tu UI, uruchamiania
+  przeglądarki, timerów, pollingu, planowania odnowień, workerów w tle, powtórek
+  HTTP ani frameworka DI.
+- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 18 przypadków zachowania na
+  małych atrapach (magazyn z licznikami i kontrolowanym `WriteStatus`/`Delete`,
+  bramka z kolejkami i barierami `TaskCompletionSource`
+  `RunContinuationsAsynchronously`, bez usypiania wątku). Sesja logowania
+  pochodzi z PRAWDZIWEGO `SonosLoginClient.StartAsync` z syntetycznym
+  `HttpMessageHandler`, więc do produkcji nie dodano publicznego szwu ani
+  Reflection do `SonosLoginSession`. Argument `--sonos-account-coordinator` oraz
+  pełny zestaw Core. Testy napisano PO drafcie, dlatego dyskryminację
+  udowodniono siedmioma mutacjami w kopii pliku produkcyjnego (raport:
+  `amc_pomoc/sonos-account-coordinator-recovery1/`).
+
 ## Procenty bufora transmisji (TimeShift)
 
 - `RadioMediaOutput.TryGetBufferedSeekPosition` odczytuje pod blokadą rzeczywisty zakres bufora i zwraca bezwzględną pozycję strumienia. Uwzględnia częściowe zapełnienie oraz nadpisanie najstarszych danych.

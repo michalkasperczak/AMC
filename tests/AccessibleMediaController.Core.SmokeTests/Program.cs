@@ -57,6 +57,11 @@ if (args.Length == 1 && args[0] == "--sonos-refresh-client")
     try { SonosRefreshClientTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-account-coordinator")
+{
+    try { SonosAccountCoordinatorTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
@@ -65,6 +70,8 @@ var tests = new (string Name, Action Test)[]
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
     ("Klient pierwszego logowania Sonos wobec brokera AMC", SonosLoginClientTests.Run),
     ("Klient odnawiania dostępu Sonos wobec brokera AMC", SonosRefreshClientTests.Run),
+    ("Koordynator konta Sonos: odtworzenie, logowanie, odnawianie i wylogowanie",
+        SonosAccountCoordinatorTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
