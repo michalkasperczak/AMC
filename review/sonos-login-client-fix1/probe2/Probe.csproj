@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SonosSpecProbe</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="/home/michal/projekty/amc-sonos-login-client-after410/src/AccessibleMediaController.Core/Sonos/SonosLoginContract.cs" Link="SonosLoginContract.cs" />
+    <Compile Include="/home/michal/projekty/amc-sonos-login-client-after410/src/AccessibleMediaController.Core/Sonos/SonosLoginClient.cs" Link="SonosLoginClient.cs" />
+  </ItemGroup>
+</Project>

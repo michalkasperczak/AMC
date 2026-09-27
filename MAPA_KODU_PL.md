@@ -9,6 +9,251 @@
 - `SettingsWindow.xaml(.cs)`: `StayOnListAfterRadioEnterCheck` w zakładce Ogólne, między opcją presetu a pamięcią pozycji plików. `AutomationProperties.Name`/`HelpText` mówią, czego dotyczy (sesja radia, Enter na liście), że odtwarzanie mimo wszystko startuje, że do odtwarzacza przechodzi się F6 oraz że presety mają własną opcję.
 - Dojście z palety: `CommandIds.SettingsStayOnListAfterRadioEnter` = `settings.radio.stayOnListAfterEnter`, nazwa w `CommandCatalog`, stan włączone/wyłączone w `CommandPaletteSearch`, cel `SettingsTarget.StayOnListAfterRadioEnter` w `CommandRouter` — ten sam wzorzec co `KeepAudioEditBackups`.
 - `RadioEnterStaysOnListTests` mierzy obie wartości; `--radio-enter-stay-model`, `--radio-enter-stay-controls`, `--radio-enter-stay`.
+## Sonos: trwały magazyn poświadczeń (DPAPI bieżącego użytkownika)
+
+- `Core/Sonos/SonosCredentialStoreContract.cs` — wyłącznie kontrakt i model,
+  bez I/O i bez szyfrowania: `SonosCredentialPolicy` (limity, m.in.
+  `MaxEncryptedFileBytes` 512 KiB sprawdzane PRZED alokacją bufora),
+  `MaxOpaqueValueBytes` = `SonosLoginClient.MaxResponseBytes` (64 KiB) dla
+  access tokenu i scope — magazyn NIE może być węższy od warstwy, która te
+  wartości już przyjęła, więc limit pola to limit CAŁEJ odpowiedzi brokera, a
+  nie osobna dobrana liczba; `MaxPlaintextBytes` WYLICZANE z limitów pól
+  (współczynnik doboru budżetu i zapas), nadal skończone. To NIE gwarancja
+  narzutu enkodera 2×; rzeczywista długość JSON-a jest sprawdzana po zapisie.
+  Zapis JSON-a używa `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — plik idzie
+  pod DPAPI na własny dysk, nie do HTML, więc domyślne escapowanie HTML-owe
+  (`<` → 6 B) tylko zjadałoby budżet. Scope PUSTY jest jawnie pusty
+  (`IsStorableScopeValue`): zapisywany i oddawany jako `""`, nigdy jako `null`
+  i nigdy przez trim.
+  `SonosStoredCredentials` (cały zestaw `SonosTokens`, moment otrzymania w UTC,
+  `BrokerOrigin`, jawny `FormatVersion`), `SonosCredentialSerializer`
+  (serializacja JSON o jawnej wersji i ścisła walidacja),
+  `ISonosCredentialStore` oraz rozdzielne wyniki `SonosCredentialReadStatus`
+  (`Success`/`Missing`/`Invalid`/`BrokerMismatch`/`ReadFailure`) i
+  `SonosCredentialWriteStatus` (`Success`/`InvalidRecord`/`WriteFailure`).
+  Termin ważności jest WYLICZANY z `expires_in`; jego brak zostaje stanem
+  nieznanym — żadnego domyślnego TTL. Brak refresh tokenu po pierwszym
+  logowaniu jest zapisywany jak jest, bez produkowania fałszywego RT. RT, jeśli
+  obecny, musi przejść istniejącą `SonosRefreshTokenPolicy`. Nierozpoznana
+  wersja formatu i nieprzewidziane pola to `Invalid`, nigdy cichy sukces.
+  `ToString` modeli i wyników nie wypisuje tokenów, scope ani origin.
+  `Write` porównuje `BrokerOrigin` rekordu ze SKONFIGUROWANYM brokerem PRZED
+  szyfrowaniem i przed I/O: poświadczenia obcego brokera to `InvalidRecord`, a
+  poprzedni ciphertext zostaje bit w bit.
+- `Windows/Services/SonosDpapiCredentialStore.cs` — JEDEN plik zaszyfrowany
+  natywnym DPAPI (P/Invoke `crypt32`, bez nowych pakietów) w zakresie
+  BIEŻĄCEGO UŻYTKOWNIKA, nigdy `LocalMachine`, zawsze
+  `CRYPTPROTECT_UI_FORBIDDEN`, ze stałą entropią domeny
+  `AccessibleMediaController/Sonos/credentials/v1`. Wybór pliku zamiast
+  Menedżera poświadczeń (wzorzec `TidalCredentialStore`,
+  `SpotifyLibrespotCredentialStore`) wynika z możliwego dużego zestawu tokenów
+  Sonos i limitu rozmiaru bloba `CredWrite`. Domyślna ścieżka
+  `LocalAppData/AccessibleMediaController/credentials/sonos.bin` jest osobno od
+  `state.json` i jego kopii; konstruktor nie czyta zapisanych kont. Zapis:
+  szyfrowanie PRZED I/O, unikalny plik tymczasowy w tym samym folderze, pełny
+  flush, `File.Replace` istniejącego albo `File.Move` pierwszego — nigdy
+  Delete+Write, więc nieudany zapis zachowuje poprzedni plik; bez plaintextu na
+  dysku, bez pliku `.bak`. Odczyt i walidacja NIE kasują zepsutego pliku
+  (świadome odejście od kasowania w `TidalCredentialStore`); usuwa tylko jawne,
+  idempotentne `Delete()`. Bufory native zwalniane w `finally`, plaintextowe
+  tablice bajtów zerowane; niemutowalnych stringów C# nie obiecujemy wymazać.
+  Zero PowerShella, CLI i zmiennych środowiskowych z tokenami.
+- `tests/SonosCredentialStoreHarness/` — `run.sh` buduje w WSL minimalny
+  harness `net8.0` (linkuje pliki produktowe, bez `ProjectReference` do WPF) i
+  uruchamia go NATYWNIE na Windows przez
+  `powershell.exe -NoProfile -NonInteractive -File`, więc DPAPI jest prawdziwe.
+  Scenariusze obejmują roundtrip, brak markerów plaintext w pliku, literalne
+  Unicode/spacje, brak RT i nieznana ważność, odczyt w NOWYM procesie, rotacja
+  RT, brak pliku, uszkodzony ciphertext, nieobsługiwany format, obcy broker,
+  złe wejście i błąd zapisu zachowujące poprzedni rekord, limit rozmiaru,
+  `ToString` bez sekretów. Wyłącznie wartości syntetyczne i własny, świeży
+  katalog w Windows TEMP; żaden istniejący plik danych nie jest czytany.
+- Magazyn nie zawiera pollingu ani UI. Właścicielem jego operacji jest jedna
+  instancja koordynatora opisanego poniżej; brak blokad wieloprocesowych.
+
+## Sonos: koordynator konta (odtworzenie, logowanie, odnawianie, wylogowanie)
+
+- `Core/Sonos/SonosAccountContract.cs` — wyłącznie kontrakt i niemutowalne
+  wyniki: `SonosAccountState`
+  (`NoAccount`/`AwaitingBrowser`/`Connected`/`NeedsLogin`/`StoreFailure`),
+  rozdzielna PRZYCZYNA `SonosAccountIssue` (`ReadFailure`,
+  `InvalidStoredRecord`, `BrokerMismatch`, `WriteFailure`, `InvalidRecord`,
+  `Reauthorization`, `DeleteFailure`), stałe komunikaty
+  `SonosAccountMessages` oraz `SonosAccountSnapshot` i wyniki operacji
+  (`RestoreResult`, `LoginStartResult`, `LoginCheckResult`, `RefreshResult`,
+  `PersistRetryResult`, `DisconnectResult`). Migawka NIE zawiera tokenów, scope,
+  origin ani identyfikatora sesji — ani w polach, ani w `ToString`. `IsPersisted`
+  mówi o UTRWALENIU, a `IsAwaitingBrowser` jest NIEZALEŻNE od stanu; nieznana
+  ważność zostaje nieznana.
+- `Core/Sonos/SonosAccountCoordinator.cs` — właściciel stanu konta w procesie.
+  `ISonosLoginGateway` to NAJMNIEJSZY szew na odebrany `SonosLoginClient`
+  (`SonosLoginClientGateway` nie owija jego zachowań). `RestoreOnce` czyta
+  magazyn DOKŁADNIE raz; `Missing` nie jest błędem, a `Invalid`, `BrokerMismatch`
+  i `ReadFailure` nie kasują ani nie nadpisują pliku. `BeginLoginAsync` nie
+  uruchamia przeglądarki — oddaje zaufany `AuthorizeUri` warstwie UI.
+  `CheckLoginAsync` wykonuje DOKŁADNIE jedno `FetchResult`, bez pollingu, timera
+  i powtórek HTTP; `Pending` zostawia próbę oczekującą. DWIE NIEZALEŻNE
+  GENERACJE: generacja ZESTAWU rośnie przy zmianie użytecznego zestawu, a
+  generacja PRÓBY LOGOWANIA przy jej rozpoczęciu i anulowaniu — dlatego samo
+  `BeginLogin`/`CancelPendingLogin` nie porzuca trwającego odnowienia konta.
+  Spóźnioną odpowiedź logowania odrzuca porównanie generacji ORAZ tożsamości
+  sesji (`ReferenceEquals` z `pendingSession`), więc późny `Pending` po sukcesie
+  nie wskrzesza oczekiwania na przeglądarkę. `ClearPendingLoginLocked` zdejmuje
+  `AwaitingBrowser` i wraca do stanu sprzed oczekiwania, żeby zakończona próba
+  nie kazała kończyć logowania w przeglądarce, której już nie ma.
+  `RefreshAsync` to SINGLE-FLIGHT w obrębie generacji: wspólny placeholder
+  (`TaskCompletionSource`) publikujemy pod blokadą, a samo zapytanie startuje
+  POZA nią (`StartRefreshOutsideGate`), więc bramka wykonana synchronicznie do
+  pierwszego `await` nie biegnie pod lockiem. Wołający, który zrezygnował PRZED
+  startem, dostaje `Canceled` bez żadnego zapytania; rezygnacja jednego
+  wołającego NIE anuluje wspólnej operacji pozostałym, a trwającego zapytania
+  innego wołającego nie przerywamy. Unieważnić poświadczenia może WYŁĄCZNIE
+  dokładne 401 `ReauthorizationRequired` tej samej generacji — 429, 502, 503,
+  transport, niezgodny JSON i anulowanie nie kasują niczego. `WriteFailure`
+  zostawia NOWY zestaw w pamięci jako niezapisany (bez powrotu do starego RT),
+  a `RetryPersist` ponawia SAM zapis bez ani jednego zapytania. `InvalidRecord`
+  nie udaje działającego konta. `Disconnect` z nieudanym `Delete` nie udaje
+  potwierdzonego wylogowania (`StoreFailure` + `DeleteFailure` +
+  `PersistedRecordMayRemain`). Świadomie NIE MA tu UI, uruchamiania
+  przeglądarki, timerów, pollingu, planowania odnowień, workerów w tle, powtórek
+  HTTP ani frameworka DI.
+- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 26 przypadków zachowania na
+  małych atrapach (magazyn z licznikami i kontrolowanym `WriteStatus`/`Delete`,
+  bramka z kolejkami i barierami `TaskCompletionSource`
+  `RunContinuationsAsynchronously`, bez usypiania wątku). Sesja logowania
+  pochodzi z PRAWDZIWEGO `SonosLoginClient.StartAsync` z syntetycznym
+  `HttpMessageHandler`, więc do produkcji nie dodano publicznego szwu ani
+  Reflection do `SonosLoginSession`. Argument `--sonos-account-coordinator` oraz
+  pełny zestaw Core. Testy napisano PO drafcie, dlatego dyskryminację
+  udowodniono siedmioma mutacjami w kopii pliku produkcyjnego (raport:
+  `amc_pomoc/sonos-account-coordinator-recovery1/`).
+
+- `Core.SmokeTests/SonosAccountCoordinatorStateTests.cs` — dodatkowe przypadki
+  podłączone do tego samego zestawu: odnowienie zachowuje niezakończoną próbę
+  logowania; przejściowy błąd Fetch pozwala ponowić odbiór bez nowego Start;
+  origin normalizowany przez istniejącą konfigurację jest zgodny z rzeczywistą
+  polityką magazynu. Ponadto: BrokerMismatch, odwrotna kolejność Start,
+  anulowana próba, stare 401 po nowym logowaniu i Dispose w trakcie refresh.
+  Walidacja formatu magazynu pochodzi z produkcyjnego serializatora, nie tylko
+  z atrapy zawsze przyjmującej dane. Trzy naprawy rodzica mają RED 23/26,
+  GREEN 26/26. Nie wykonywano testu prawdziwego konta ani GUI.
+
+## Sonos: okno konta (UI na odebranym koordynatorze)
+
+Uzupełnienie odbioru: `RescueFocusBefore` chroni przed ukryciem ORAZ wyłączeniem
+skupionego przycisku. `SetAvailability(..., allowWhileBusy: true)` utrzymuje
+Anuluj bez chwilowego wyłączenia. `ownLoginAttempt` powstaje przed await Start,
+a `RunSynchronous` osłania trzy synchroniczne przyciski po Dispose właściciela.
+`LifecycleCases.cs` jest w domyślnym przebiegu harnessu (łącznie116sprawdzeń).
+`--focus-cases --busy-only` mierzy oczekiwanie z prawdziwym Keyboard.FocusedElement.
+Żywy NVDA na próbnym modalu zweryfikował pojedyncze komunikaty, Tab/Enter/Escape,
+powrót do właściciela oraz brak odebrania fokusu innemu oknu przy zakończeniu
+w tle. To nie test konta Sonos ani docelowego MainWindow; integracja nadal osobno.
+
+## Sonos: podłączenie okna konta do AMC (menu, paleta, właściciel)
+
+`Windows/Services/SonosAccountOwner.cs` to JEDEN aplikacyjny właściciel trójki
+klient+koordynator+magazyn DPAPI na całe uruchomienie. Jest LENIWY: `MainWindow`
+tworzy sam obiekt właściciela, ale koordynator, klient HTTP i magazyn powstają
+dopiero przy JAWNYM otwarciu konta, więc start AMC i cudze testy nie czytają
+konta ani nie wysyłają żądań. `EnsureCoordinator` robi `RestoreOnce` PRZED
+pierwszym pokazaniem okna i tylko raz — drugie otwarcie dostaje TEN SAM
+koordynator bez ponownego Restore. Zamknięcie okna nie woła Dispose ani Delete;
+zwolnienie następuje wyłącznie w faktycznym zakończeniu AMC (obok
+`_tidalIntegration.Dispose()`), więc ANULOWANE zamykanie (np. ochrona
+nagrywania) nic nie zwalnia. `RebuildCore` i zapis ustawień właściciela nie
+odtwarzają.
+
+`SonosAccountPresenter` w tym samym pliku buduje okno i pilnuje, żeby drugie
+polecenie NIE zbudowało drugiego okna na tym samym właścicielu (guard bez
+drugiego Start i Restore, wraca do otwartego okna). Potwierdzenie wylogowania
+idzie przez istniejące `Services/AccessibleDialog.Show(owner, …, YesNo,
+Question, MessageBoxResult.No)` z ownerem WŁAŚCIWEGO `SonosAccountWindow`, nie
+nieaktywnego okna głównego pod modalem — Nie, Escape i Alt+F4 nie usuwają
+konta. Pojedyncza informacja po operacji zostaje w oknie konta; `MainWindow` jej
+nie powtarza własnym Announce.
+
+Domyślny zaufany broker to ROOT `https://hermes.tail6caad7.ts.net/`
+(`SonosAccountOwner.DefaultBrokerOrigin`); ścieżki `/login/start|result|refresh`
+wyprowadza `SonosLoginBrokerConfiguration`. Magazyn używa istniejącego kontraktu
+`SonosDpapiCredentialStore.DefaultFilePath`. Żadna wartość konta nie idzie do
+`AppSettings`, `state.json` ani logów.
+
+Wejścia użytkownika: pozycja `Plik -> Konto Sonos…` (`ManageSonosConnectionMenuItem`,
+bez skrótu i bez litery dostępu — dochodzi się strzałkami) oraz polecenie
+`CommandIds.ManageSonosConnection` w istniejącej palecie, przechodzące
+prawdziwym routerem i katalogiem. Sesji Sonos jeszcze nie ma, więc nie ruszono
+`SessionSlotOrder`, numeracji sesji ani `Ctrl+F5`.
+
+Pomiary: `Core.SmokeTests --sonos-account-command` (droga router/katalog/paleta)
+i `Windows.SmokeTests --sonos-account-wiring` (właściciel, RestoreRead 1 przy
+2 otwarciach, brak Delete/Dispose po Close, guard, potwierdzenie budowane przez
+`AccessibleDialog.CreateForMeasurement` BEZ Show). Oba bez pokazywania GUI.
+
+
+- `Windows/SonosAccountWindow.xaml(.cs)` — `Controls.AccessibleWindow` na
+  ODEBRANYM `SonosAccountCoordinator`. ZERO pól deweloperskich: żadnego Client
+  ID, sekretu ani adresu powrotu (`TidalAccountWindow` posłużył za wzór
+  STYLISTYKI, jego pola deweloperskie NIE zostały przeniesione). Jedyne pole
+  tekstowe okna to instrukcja — mierzone asercją, nie deklaracją.
+- Kolejność mowy z BUDOWY okna, nie z opóźnienia: treść stanu i instrukcji to
+  `TextBox IsReadOnly` (przeglądalny strzałkami, kopiowalny), `TabIndex=0`,
+  fokus startowy ustawiony w konstruktorze przez `FocusManager.SetFocusedElement`
+  — nie wiązaniem `FocusedElement`, żeby dał się zmierzyć BEZ `Show`. Przyciski
+  mają `TabIndex` 10..70. Żadnego `sleep` ani timera ustawiającego kolejność.
+- `AutomationProperties.Name` przycisków BEZ skrótu i bez podkreślnika (czytnik
+  ogłasza klawisz dostępu sam; dopisek brzmiałby jak podwojenie).
+- Logowanie: `BeginLoginAsync` → `AuthorizeUri` z WYNIKU Start → wstrzyknięty
+  `Func<Uri,bool>`; domyślny otwieracz przepuszcza tylko adres zgodny z
+  ISTNIEJĄCĄ `SonosAuthorizeUrlPolicy` (nigdy adresu od użytkownika) i nie
+  cytuje URI w komunikacie. Potem jawne `Sprawdź logowanie` — DOKŁADNIE jedno
+  `CheckLoginAsync` na kliknięcie, bez pollingu i timera.
+- `DescribeCheck` nie zamienia każdego `StillWaiting` w „dokończ w
+  przeglądarce”: `Pending` kieruje do przeglądarki, ale `ProofMismatch` i błąd
+  przejściowy ogłaszają WŁASNĄ przyczynę plus możliwość ponowienia. `WriteFailure`
+  to „działa, ale nie zapisane” + `Ponów zapis logowania` (0 HTTP), nigdy
+  „Wylogowano”. Nieudane `Delete` to jawnie NIEDOKOŃCZONE wylogowanie.
+- Przycisk bez warunków jest `Collapsed`, nie martwy: nie kosztuje tabulacji.
+  `Zamknij` i `Anuluj logowanie` działają także w trakcie zajętości; `busy`
+  blokuje wyłącznie duplikaty operacji.
+- WŁAŚCICIELEM koordynatora jest aplikacja: `ShutdownOwnWork` anuluje TYLKO
+  własną próbę logowania i własny token okna — bez `Dispose` i bez `Disconnect`,
+  więc tokeny we wspólnym koordynatorze zostają. `windowLifetime` jest
+  anulowany, ale ROZMYŚLNIE nie zwalniany (trwająca operacja trzyma token
+  powiązany z tym źródłem). Spóźniona kontynuacja po zamknięciu nie rusza UI,
+  nie ogłasza i nie wskrzesza okna; wynik async nigdy nie odbiera fokusu
+  przeglądarce. Brak `Wait`/`Result`.
+- Caller woła `RestoreOnce` PRZED otwarciem; okno czyta tylko `Snapshot` i NIE
+  sięga do produkcyjnego magazynu z bezparametrowego konstruktora (takiego
+  konstruktora nie ma). Potwierdzenie wylogowania to wstrzyknięty `Func<bool>`
+  (bez wstrzyknięcia = BRAK zgody), nie nowy dialog ogólny; wylogowanie nie jest
+  domyślną akcją Enter.
+- `tests/SonosAccountWindowHarness/` — `run.sh` buduje w WSL (`UseWPF`,
+  `EnableWindowsTargeting`, `net8.0-windows`) i uruchamia na Windows. Projekt
+  LINKUJE źródła (`Core/Sonos/*.cs`, `Controls/AccessibleWindow.cs`,
+  `Controls/AccessibleStatusTextBlock.cs`, nowe XAML i kod) — bez
+  `ProjectReference` do Core/SQLite i bez `MainWindow`. Przy
+  `EnableDefaultCompileItems=false` SDK nie dołącza `GlobalUsings.g.cs`, dlatego
+  jest własny `GlobalUsings.cs`; wewnętrzne fabryki wyników i `SonosLoginSession`
+  są tworzone Reflection, żeby NIE poszerzać widoczności produktu dla pomiaru.
+- Pierwotne 94 sprawdzenia, 94 zaliczone na prawdziwym Windows (kod 0), BEZ `Show`,
+  `ShowDialog`, `Activate` i `EnsureHandle`, z testowym sinkiem ogłoszeń zamiast
+  czytnika i atrapami przeglądarki/potwierdzenia. Test async w STA ustawia
+  `DispatcherSynchronizationContext` i pompuje `DispatcherFrame` z limitem,
+  zamiast blokować wątek. Dyskryminację udowodniono: celowe zepsucie okna
+  (treść jako edytowalne pole z `TabIndex=99`, skrót dopisany do nazwy) dało
+  RED 10 niezaliczonych i kod 1, po cofnięciu znów GREEN 94/94. Pomiar NIE
+  dowodzi żywego NVDA ani pierwszej wypowiedzi — okna nie pokazywano.
+- `--show-fixture`: pokazuje rzeczywiste okno na
+  jawnie nazwanych danych próbnych (`Fakes`, origin `.invalid`), właściciel
+  stub, syntetyczna bramka i magazyn w pamięci, testowy `shellOpen` tylko
+  zapisujący adres; zero IPC, aktualizacji, audio i sieci. Tytuł jednoznaczny
+  („AMC PROBA A11Y…”), `ShowInTaskbar=true` bez ownera, kwity PID/HWND/gotowe i
+  liczniki operacji w NOWYM katalogu na każde odtworzenie (nie kasuje
+  poprzednich), watchdog zamyka WYŁĄCZNIE swoje okno.
+- Okno NIE jest jeszcze podłączone do `MainWindow`, menu, skrótów globalnych ani
+  konfiguracji produkcyjnej — to osobny następny krok. Instrukcja użytkownika:
+  `TESTY_SONOS_KONTO_PL.md`.
 
 ## Procenty bufora transmisji (TimeShift)
 

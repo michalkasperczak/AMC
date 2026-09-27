@@ -1,0 +1,7 @@
+# Artefakty przebiegu, nie zrodla: powstaja przy kazdym uruchomieniu run.sh.
+bin/
+obj/
+build.log
+run.log
+status.txt
+sha256.txt

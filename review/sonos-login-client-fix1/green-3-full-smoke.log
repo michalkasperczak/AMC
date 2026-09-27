@@ -1,0 +1,208 @@
+OK: kopia nie przejmuje historii
+OK: nieistniejąca już kopia i wielkość liter
+OK: plik roboczy cięcia nie przejmuje historii
+OK: plik roboczy dopisywania nie przejmuje historii
+OK: zwykła zmiana nazwy pozostaje dozwolona
+OK: zmiana folderu sprawdza końcową ścieżkę pliku
+OK: ręczne odzyskanie starego wpisu z kopii pozostaje dozwolone
+dwie natywne podmiany, zmiana nazwy i zapis/odczyt: System.InvalidOperationException: Sonda nie odebrała natywnego rename do pierwszej kopii
+   at AudioEditRenameTests.Check(Boolean condition, String message) in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/AudioEditRenameTests.cs:line 141
+   at AudioEditRenameTests.NativeReplacementSequence() in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/AudioEditRenameTests.cs:line 121
+   at AudioEditRenameTests.Run() in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/AudioEditRenameTests.cs:line 26
+AUDIO EDIT RENAME: 7 OK / 1 BLAD / razem 8
+OK: Koszt i wierność migawki stanu
+OK: sesja podaje faktyczne tempo wyjścia, nie potwierdza odmowy i zachowuje starsze adaptery
+OK: Sesja podaje rzeczywiste tempo wyjścia
+  [OK]   B1.1 zatrzymane cialo odpowiedzi przy starcie ma skonczony deadline
+  [OK]   B1.2 opoznione cialo przy odbiorze wyniku nie daje Success po deadline
+  [OK]   B1.3 szybka sciezka pozytywna z cialem strumieniowym nadal dziala
+  [OK]   B1.4 anulowanie wolajacego w fazie ciala to Canceled, nie timeout
+  [OK]   B1.5 saczone cialo ma LACZNY deadline, nie limit na odczyt
+  [OK]   B2 nieskonczony i niepoprawny budzet odrzucony przed zasobami
+  [OK]   B3.1 token_type walidowany i kanonizowany, zly odrzucony bez echa
+  [OK]   B3.2 model tokenow nie przyjmuje dowolnego typu do ToString
+  [OK]   B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos
+  [OK]   B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos
+  [OK]   B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success
+Sonos: 35 testow klienta pierwszego logowania zaliczonych.
+OK: Klient pierwszego logowania Sonos wobec brokera AMC
+OK: Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza
+OK: niepoprawny typ odtwarzacza nie przerywa odczytu danych
+OK: kopie, kolejki, zaznaczenie, zakladki i playlisty wskazuja rzeczywiste ID katalogu
+OK: archiwum presetu pozostaje oryginalem niezaleznym od biezacej sesji
+OK: referencje ida za reprezentantem kolejki o tej samej tozsamosci Spotify
+OK: Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory
+OK: Normalizacja skrótów
+OK: Domyślny profil
+OK: F11 sprawdza aktualizacje AMC
+OK: Aktualizacja zamyka AMC przed instalacją
+OK: Odświeżanie profilu wbudowanego
+OK: Czytelne nazwy poleceń
+OK: Migracja presetów radia do wspólnego magazynu
+OK: Trwały i odporny harmonogram radia
+OK: Szablony nazw zaplanowanych nagrań
+OK: Trwałe ustawienia i historia rozpoznawania utworów
+OK: Historia nagrywania radia z próbami nieudanymi
+OK: po przeniesieniu nagrania listy nie pokazuja martwej sciezki, a wiersz czyta folder na koncu
+OK: Przeniesienie nagrania: odświeżenie list i folder w wierszu
+OK: Trwałe presety wszystkich sesji
+OK: Odbudowa zachowuje grające Spotify
+OK: numery sesji z dziurami i silnik Spotify wg rzeczywistego wyjscia
+OK: Numery sesji z dziurami i silnik Spotify wg wyjścia
+OK: jedna sesja Spotify, silnik z zapisu (Librespot/Sdk), sloty innych sesji bez zmian
+OK: Jedna sesja Spotify i silnik Librespot/SDK z zapisu
+OK: Zapis Ulubionych, Biblioteki i usuwania Spotify na API konta
+OK: Transport osobnego procesu hosta Librespot
+OK: Oddzielony tor oficjalnego odtwarzania TIDAL
+OK: Suma kontrolna czytana z opisu wydania
+OK: Przeskok o czas ustawiony przez użytkownika
+OK: Domyślnie Enter na wyniku otwiera bez dodawania do Biblioteki
+OK: Nowy stan konfiguracji ma domyślne otwieranie bez dodawania
+OK: Pierwsze uruchomienie czyta otwieranie bez dodawania
+OK: Wybór automatycznego dodawania przetrwał zapis i ponowny odczyt
+OK: Domyślne otwarcie wyniku nie dopisuje go do Biblioteki
+OK: Drugi wybór przywraca automatyczne dodawanie przy otwarciu
+OK: Ctrl+Shift+L dodaje do Biblioteki także przy domyślnym otwieraniu
+OK: Ctrl+Shift+L dodaje do Biblioteki również przy automatycznym dodawaniu
+OK: Domyślne otwarcie kieruje materiał do kolekcji podglądów
+OK: Świadome dodanie kieruje materiał do kolekcji zapisanej
+OK: Podgląd i materiał zapisany to DWIE osobne kolekcje
+OK: Rozpoznawanie kolekcji publicznych nie myli podglądu z zapisanym
+OK: Otwarcie wyniku z wyszukiwania nie wpisuje kanału do Biblioteki
+OK: Otwarty kanał ma odcinek do odtworzenia mimo braku w Bibliotece
+OK: Otwarty kanał jest w pamięci sesji, więc fokus ma dokąd wrócić
+OK: Świadome dodanie wpisuje kanał do Biblioteki
+OK: Ponowne otwarcie z wyszukiwania nie usuwa kanału z Biblioteki
+OK: Domyślne odświeżenie nie wpisuje do Biblioteki kanału otwartego bez zapisu
+OK: Odświeżenie sprowadziło odcinki mimo braku członkostwa
+OK: Odświeżenie nie zdejmuje członkostwa kanału zapisanego
+OK: Nowy kanał bez jawnego żądania nie wchodzi do Biblioteki
+OK: Jawne dodanie (ręczne, OPML) nadal zapisuje Bibliotekę
+OK: Enter na wyniku wyszukiwania: otwieranie bez Biblioteki
+OK: Przekazywanie utworów i całości oryginalnemu TIDALowi
+OK: Kolejka utworów TIDALa prowadzona przez AMC
+OK: Czas utworu z windowsowej sesji multimediów
+OK: Bezpieczny klient i parser urządzeń WiiM
+OK: Migracja kolejności strumieni WiiM
+OK: Bezpieczne parsowanie kanałów podcastów
+OK: Rozdziały dostawcy podcastu
+OK: Zwięzłe autorstwo podcastów
+OK: Sortowanie skrzynki Podcastów
+OK: Kolejność materiałów kanałów YouTube
+OK: Stronicowanie dużych list Podcastów
+OK: Kopiowanie opisów i adresów Podcastów
+OK: Bezpieczne nazwy pobranych odcinków Podcastów
+OK: Bezpieczny import list podcastów OPML
+OK: Aktualizacja biblioteki Podcastów
+OK: Migracja skrzynki Podcastów po starszym imporcie
+OK: Stany odsłuchania odcinków Podcastów
+OK: Dziedziczenie opcji odtwarzania Podcastów
+OK: Pozycja podcastów nie zależy od znacznika plików lokalnych
+OK: Odwracanie Biblioteki i ulubionych z katalogu Podcastów
+OK: Trwały model Podcastów
+OK: Bezpieczna migracja Podcastów do SQLite
+OK: Konfigurowana kolejność odczytu
+OK: Zwięzłe parametry audio
+OK: Uzupełniające informacje o multimediach
+OK: Trwałe opcje przetwarzania dźwięku
+OK: Głośność materiału zależna od wyjścia audio
+OK: Trwałe wyciszenia sesji
+OK: Możliwości przetwarzania dźwięku adaptera
+OK: Dziedziczenie przetwarzania dźwięku plików lokalnych
+OK: Aktualizacja aplikacji i treść zgłoszenia błędu
+OK: Migracja starszych ustawień
+OK: Migracja ustawień alpha.4
+OK: Migracja komunikatów alpha.5
+OK: Migracja krótkich komunikatów alpha.7
+OK: Migracja komunikatów z nazwą elementu alpha.8
+OK: Migracja nazw w komunikatach Ulubionych alpha.18
+OK: Migracja wspólnego wyciszenia alpha.40
+OK: Migracja kategorii komunikatów alpha.41
+OK: Przełączanie sesji
+OK: Doładowywanie odcinków według stabilnego identyfikatora
+OK: Konfigurowana kolejność sesji
+OK: Pusta sesja lokalna
+OK: Oddzielony tor lokalnego odtwarzania
+OK: Pauza przetrwa przeskok elementu
+OK: Zapamiętywanie pozycji osobno dla sesji
+OK: Wstrzymywanie po wyjściu z odtwarzacza osobno dla sesji
+OK: Kontekst listy odtwarzania
+OK: Pamięć domyślnej prędkości po ponownym otwarciu
+OK: Trwała kolejność Kolejki
+OK: Kolejka zachowana po odświeżeniu katalogu usługi
+OK: Trwały zapis zdalnej Kolejki bez danych demonstracyjnych
+OK: Flagi Kolejki z różnych wystąpień utworu TIDAL
+OK: Nawigacja Page Up i Page Down w Kolejce
+OK: Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania
+OK: Polityka pamiętania pozycji
+OK: Ograniczone sprawdzanie struktury MP3
+OK: Strumień ogromnego pliku bez kopiowania
+OK: Ograniczone rozpoznawanie kontenerów multimedialnych
+OK: Ponowne włączanie folderu do biblioteki
+OK: Synchronizacja źródeł lokalnej biblioteki
+OK: Integracyjny cykl zmian folderu
+OK: Bezpieczne zarządzanie Folderami Biblioteki
+OK: normalizacja korzeni folderów w jednym przebiegu nie zmienia wyniku i nie powtarza pracy
+OK: Normalizacja korzeni folderów w jednym przebiegu
+OK: Ręczne zapominanie niedostępnych rekordów
+OK: Trwała kolejność własna Biblioteki
+OK: Albumy rozpoznawane ze struktury folderów
+OK: Migracja i trwałość Biblioteki SQLite
+OK: Serializacja równoległych zapisów stanu
+OK: Migracja biblioteki alpha.79
+OK: Naprawa pustego źródła po alpha.80
+OK: Wyszukiwanie w katalogu
+OK: Historia wyszukiwania
+OK: Historia odtwarzania
+OK: Trwałe zakładki
+OK: Trwałe i chronologiczne rozdziały
+OK: Pamięć widoków sesji
+OK: Pamięć lokalnej biblioteki
+OK: Trwałe playlisty
+OK: Paleta poleceń
+OK: Dostępny spis skrótów
+OK: Cofanie zmian przynależności
+OK: Zbiorowe zmiany przynależności
+OK: Folder nie staje się fałszywym elementem kolekcji
+OK: Częściowy stan folderu w kolekcjach
+OK: Eksport kanałów YouTube do subskrypcji i OPML
+OK: Domyślne odstępy odświeżania obejmują też podcasty RSS
+OK: Przeskok wtyczką NVDA nie zapowiada stanu wstrzymania
+OK: Odcinek podcastu czytany tytułem przed nazwą kanału
+OK: Krótkie komunikaty czasu
+OK: Skok wpisanym czasem i procentem
+OK: Niedestrukcyjne zaznaczanie fragmentu audio
+OK: Trzy rodzaje eksportu
+OK: zapis stanu przepisuje wszystkie sekcje ustawien
+OK: Zapis stanu nie wymazuje zadnej sekcji ustawien
+OK: zapamietana biblioteka zachowuje adres odtwarzania i czas
+OK: Zapamietana biblioteka nie traci adresu odtwarzania
+OK: odswiezenie tokenu nie kasuje wiedzy o zakresie uprawnien
+OK: Odswiezenie tokenu nie kasuje wiedzy o zakresie
+OK: skladniki odtwarzacza Spotify sa wpisane do paczki
+OK: Skladniki odtwarzacza Spotify sa w paczce
+OK: odtwarzacz Spotify nie zakleszcza sie na gotowosci
+OK: Odtwarzacz Spotify nie zakleszcza sie na gotowosci
+OK: paczka zawiera silnik odtwarzania Spotify
+OK: Paczka zawiera silnik odtwarzania Spotify
+OK: nieznany zakres uprawnien nie blokuje pobierania biblioteki
+OK: Nieznany zakres uprawnien nie blokuje pobierania
+OK: odcinek podcastu ma wlasny adres odtwarzania
+OK: Odcinek podcastu ma wlasny adres odtwarzania
+OK: opcje elementu Spotify nie sa zaslepka
+OK: Opcje elementu Spotify nie sa zaslepka
+OK: opcje sesji Spotify nie obiecuja nieobslugiwanych DSP
+OK: Opcje sesji Spotify nie obiecuja DSP
+OK: sesja Spotify respektuje wybrana pamiec pozycji
+OK: Sesja Spotify pyta o pamiec pozycji
+OK: pamiec pozycji Spotify przezywa restart i odswiezenie cache
+OK: Pozycja Spotify przezywa restart
+OK: Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I ze wszystkich sesji
+OK: strzalka w prawo w Spotify daje menu powiazan, Enter otwiera zawartosc
+OK: Strzalka w prawo w Spotify daje menu powiazan jak TIDAL
+BŁĄD: Edycja nagrań nie kieruje historii na kopię bezpieczeństwa: dwie natywne podmiany, zmiana nazwy i zapis/odczyt
+BŁĄD: Bezpieczne ustawienia i PKCE TIDAL: Odrzucono nieprawidłowy adres kolejnej strony TIDAL.
+BŁĄD: Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów: Odrzucono nieprawidłowy adres kolejnej strony TIDAL.
+BŁĄD: Pokaż w folderze dla plików i folderów: Plik na dysku ma dostac pozycje Pokaz w folderze
+BŁĄD: Odkrywanie lokalnych plików audio: Oczekiwano „Placeholder”, otrzymano „Local”.
+BŁĄD: Bezpieczna zmiana nazwy lokalnego pliku: Nazwa nie może zawierać ścieżki.

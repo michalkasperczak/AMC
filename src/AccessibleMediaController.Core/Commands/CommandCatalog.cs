@@ -63,6 +63,7 @@ public static class CommandCatalog
             CommandIds.ToggleMuteAllSessions => "Wycisz lub przywróć dźwięk wszystkich sesji AMC",
             CommandIds.ManageTidalConnection => "Konto i synchronizacja TIDAL",
             CommandIds.ManageSpotifyConnection => "Konto Spotify",
+            CommandIds.ManageSonosConnection => "Konto Sonos",
             CommandIds.ViewSpotifyPodcasts => "Zapisane podcasty Spotify",
             CommandIds.ToggleLoudnessNormalization => "Przełącz globalną normalizację głośności",
             CommandIds.ToggleSmoothTrackTransitions => "Przełącz łagodne przejścia między utworami",

@@ -1,0 +1,12 @@
+  [OK]   B1.1 zatrzymane cialo odpowiedzi przy starcie ma skonczony deadline
+  [OK]   B1.2 opoznione cialo przy odbiorze wyniku nie daje Success po deadline
+  [OK]   B1.3 szybka sciezka pozytywna z cialem strumieniowym nadal dziala
+  [OK]   B1.4 anulowanie wolajacego w fazie ciala to Canceled, nie timeout
+  [OK]   B1.5 saczone cialo ma LACZNY deadline, nie limit na odczyt
+  [OK]   B2 nieskonczony i niepoprawny budzet odrzucony przed zasobami
+  [OK]   B3.1 token_type walidowany i kanonizowany, zly odrzucony bez echa
+  [OK]   B3.2 model tokenow nie przyjmuje dowolnego typu do ToString
+  [OK]   B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos
+  [OK]   B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos
+  [OK]   B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success
+Sonos: 35 testow klienta pierwszego logowania zaliczonych.

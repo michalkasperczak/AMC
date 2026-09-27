@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Harness TYLKO do pomiaru kontrolek okna konta Sonos. Nie nalezy do
+       produktu i nie jest przez produkt widziany: zero ProjectReference (ani
+       Core, ani SmokeTests, ani duzego projektu WPF), zero pakietow NuGet.
+       Pliki produktowe sa LINKOWANE (Compile/Page Include) wprost z worktree i
+       NIE sa kopiowane ani modyfikowane.
+
+       Zrodla Core sa kompilowane DO TEJ SAMEJ assembly, wiec wewnetrzne fabryki
+       wynikow (SonosLoginStartOutcome.Ok i podobne) sa dostepne dla atrap bez
+       dodawania InternalsVisibleTo do produktu.
+
+       UseWPF + EnableWindowsTargeting pozwalaja zbudowac XAML z WSL; uruchomienie
+       wymaga Windows (runtime 8.0.31). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SonosAccountWindowHarness</AssemblyName>
+    <RootNamespace>SonosAccountWindowHarness</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="LifecycleCases.cs" />
+    <Compile Include="Fixture.cs" />
+    <Compile Include="FocusCases.cs" />
+
+    <!-- Koordynator i kontrakty Sonos (ODEBRANE, niezmieniane). -->
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosLoginContract.cs">
+      <Link>Linked/SonosLoginContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosRefreshContract.cs">
+      <Link>Linked/SonosRefreshContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosLoginClient.cs">
+      <Link>Linked/SonosLoginClient.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosCredentialStoreContract.cs">
+      <Link>Linked/SonosCredentialStoreContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosAccountContract.cs">
+      <Link>Linked/SonosAccountContract.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosAccountCoordinator.cs">
+      <Link>Linked/SonosAccountCoordinator.cs</Link>
+    </Compile>
+
+    <!-- Dwie istniejace kontrolki dostepnosci, obie self-contained. -->
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Windows/Controls/AccessibleWindow.cs">
+      <Link>Linked/AccessibleWindow.cs</Link>
+    </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Windows/Controls/AccessibleStatusTextBlock.cs">
+      <Link>Linked/AccessibleStatusTextBlock.cs</Link>
+    </Compile>
+
+    <!-- MIERZONE okno: XAML i jego kod. -->
+    <Page Include="$(AmcWorktree)/src/AccessibleMediaController.Windows/SonosAccountWindow.xaml">
+      <Link>SonosAccountWindow.xaml</Link>
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Windows/SonosAccountWindow.xaml.cs">
+      <Link>SonosAccountWindow.xaml.cs</Link>
+      <DependentUpon>SonosAccountWindow.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

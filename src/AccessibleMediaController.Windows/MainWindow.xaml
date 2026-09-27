@@ -66,6 +66,13 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Visibility="Collapsed"
                           Click="ManageSpotifyConnection_Click" />
+                <!-- Konto Sonos: JAWNA pozycja bez skrotu i bez litery dostepu.
+                     Do tej pozycji dochodzi sie strzalkami; kolejna zajeta litera
+                     w Plik byloby kosztem bez zysku, a Ctrl+F5 nalezy do sesji,
+                     ktorej Sonos na tym przyroscie jeszcze nie ma. -->
+                <MenuItem x:Name="ManageSonosConnectionMenuItem" Header="Konto Sonos…"
+                          automation:AutomationProperties.Name="Konto Sonos"
+                          Click="ManageSonosConnection_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"

@@ -1,0 +1,23 @@
+  [FAIL] B1.1 zatrzymane cialo odpowiedzi przy starcie ma skonczony deadline => Sonos: start z zatrzymanym cialem MUSI wrocic w skonczonym czasie (deadline 200 ms)
+  [FAIL] B1.2 opoznione cialo przy odbiorze wyniku nie daje Success po deadline => Sonos: cialo poza deadline to blad transportu, dostano: Success
+  [OK]   B1.3 szybka sciezka pozytywna z cialem strumieniowym nadal dziala
+  [OK]   B1.4 anulowanie wolajacego w fazie ciala to Canceled, nie timeout
+  [FAIL] B1.5 saczone cialo ma LACZNY deadline, nie limit na odczyt => Sonos: saczone cialo poza lacznym deadline to blad transportu, dostano: InvalidResponse
+  [FAIL] B2 nieskonczony i niepoprawny budzet odrzucony przed zasobami => Sonos: niepoprawny budzet musi zostac odrzucony: Timeout.InfiniteTimeSpan
+  [FAIL] B3.1 token_type walidowany i kanonizowany, zly odrzucony bez echa => Sonos: typ tokenu kanonizowany do Bearer, dostano: bearer
+  [FAIL] B3.2 model tokenow nie przyjmuje dowolnego typu do ToString => Sonos: publiczny model NIE moze wypisywac dowolnego tekstu z konstruktora
+  [FAIL] B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos => Sonos: 403 verifier_mismatch to blad LOKALNEGO dowodu klienta, dostano: Denied
+  [FAIL] B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos => Sonos: invalid_callback to blad po stronie brokera/wymiany, NIE decyzja Sonos, dostano: Denied
+  [OK]   B4.3 gotowy wynik po lokalnym ExpiresAt nadal daje Success
+System.InvalidOperationException: Sonos: nieprzeszle przypadki poprawek: 8/11
+B1.1 zatrzymane cialo odpowiedzi przy starcie ma skonczony deadline => Sonos: start z zatrzymanym cialem MUSI wrocic w skonczonym czasie (deadline 200 ms)
+B1.2 opoznione cialo przy odbiorze wyniku nie daje Success po deadline => Sonos: cialo poza deadline to blad transportu, dostano: Success
+B1.5 saczone cialo ma LACZNY deadline, nie limit na odczyt => Sonos: saczone cialo poza lacznym deadline to blad transportu, dostano: InvalidResponse
+B2 nieskonczony i niepoprawny budzet odrzucony przed zasobami => Sonos: niepoprawny budzet musi zostac odrzucony: Timeout.InfiniteTimeSpan
+B3.1 token_type walidowany i kanonizowany, zly odrzucony bez echa => Sonos: typ tokenu kanonizowany do Bearer, dostano: bearer
+B3.2 model tokenow nie przyjmuje dowolnego typu do ToString => Sonos: publiczny model NIE moze wypisywac dowolnego tekstu z konstruktora
+B4.1 403 verifier_mismatch to blad lokalnego dowodu, nie odmowa Sonos => Sonos: 403 verifier_mismatch to blad LOKALNEGO dowodu klienta, dostano: Denied
+B4.2 400 invalid_callback/token_exchange_failed nie obwinia Sonos => Sonos: invalid_callback to blad po stronie brokera/wymiany, NIE decyzja Sonos, dostano: Denied
+   at SonosLoginClientTests.UruchomPrzypadkiPoprawek() in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/SonosLoginClientTests.cs:line 101
+   at SonosLoginClientTests.Run() in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/SonosLoginClientTests.cs:line 57
+   at Program.<Main>$(String[] args) in /home/michal/projekty/amc-sonos-login-client-after410/tests/AccessibleMediaController.Core.SmokeTests/Program.cs:line 52
