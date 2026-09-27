@@ -47,26 +47,25 @@ public static class SonosCredentialPolicy
     public static readonly int MaxOpaqueValueBytes = SonosLoginClient.MaxResponseBytes;
 
     /// <summary>
-    /// Najgorsze rozdmuchanie jednego bajtu przez NASZ enkoder zapisu. Uzywamy
-    /// enkodera MNIEJ escapujacego (UnsafeRelaxedJsonEscaping), bo JSON idzie
-    /// pod DPAPI na wlasny dysk, nie do HTML ani do przegladarki: escapuje tylko
-    /// cudzyslow i odwrotny ukosnik, po 2 B, a znaki sterujace i tak odrzuca
-    /// polityka. Domyslny enkoder zamienialby np. "&lt;" na 6 B, wiec sam
-    /// podniesiony cap pola nie wystarczyl.
+    /// Wspolczynnik doboru budzetu magazynu, NIE gorna granica escapowania.
+    /// Pomiar enkodera wykazal m.in. U+00A0: 2 bajty UTF-8 -> 6 bajtow JSON.
+    /// Nie wolno z tej stalej wyprowadzac gwarancji obslugi kazdej kombinacji
+    /// pol o maksymalnej dlugosci. Rzeczywisty rozmiar JSON-a jest sprawdzany
+    /// po serializacji, a caly zaszyfrowany plik ma osobny limit.
     /// </summary>
-    private const int WorstCaseEscapeExpansion = 2;
+    private const int BudgetSizingFactor = 2;
 
     /// <summary>Zapas na klucze JSON-a, wersje formatu, znacznik czasu i separatory.</summary>
     private const int EnvelopeHeadroomBytes = 4 * 1024;
 
     /// <summary>
-    /// NASZ limit zdeszyfrowanego JSON-a, WYLICZONY z limitow pol, a nie dobrany
-    /// na oko: dwie nieprzezroczyste wartosci + refresh token, kazda w
-    /// najgorszym escapowaniu, plus koperta. Nadal skonczony.
+    /// Skonczony limit zdeszyfrowanego JSON-a, wyznaczony z limitow pol
+    /// i zapasu. To ograniczenie alokacji i zapisu, nie dowod najgorszego
+    /// narzutu enkodera; o przyjeciu decyduje tez rzeczywista dlugosc JSON-a.
     /// </summary>
     public static readonly int MaxPlaintextBytes =
         EnvelopeHeadroomBytes
-        + (WorstCaseEscapeExpansion
+        + (BudgetSizingFactor
             * ((2 * MaxOpaqueValueBytes) + SonosRefreshTokenPolicy.MaxDecodedBytes));
 
     /// <summary>
@@ -319,8 +318,8 @@ public static class SonosCredentialSerializer
 
         // JSON trafia pod DPAPI do WLASNEGO pliku, nie do HTML ani do
         // przegladarki, wiec escapowanie HTML-owe jest zbedne i tylko
-        // rozdmuchuje budzet ("<" -> 6 B). Relaxed escapuje to, co JSON
-        // wymaga; znaki sterujace odrzuca wczesniej polityka.
+        // rozdmuchuje budzet ("<" -> 6 B). Relaxed nadal escapuje niektore
+        // inne znaki Unicode; rozmiar sprawdzamy po serializacji.
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
