@@ -288,7 +288,7 @@ public sealed class SonosAccountLoginCheckResult
 
     public bool Connected { get; }
 
-    /// <summary>Uzytkownik jeszcze nie skonczyl w przegladarce - proba ZOSTAJE.</summary>
+    /// <summary>Proba pozostaje czynna: wynik jest Pending albo jego odbior mozna ponowic po bledzie przejsciowym.</summary>
     public bool StillWaiting { get; }
 
     public bool Discarded { get; }

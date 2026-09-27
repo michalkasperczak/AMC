@@ -111,14 +111,14 @@ public sealed class SonosAccountCoordinator : IDisposable
     {
         ArgumentNullException.ThrowIfNull(gateway);
         ArgumentNullException.ThrowIfNull(store);
-        if (string.IsNullOrWhiteSpace(brokerOrigin))
+        if (!SonosLoginBrokerConfiguration.TryCreate(brokerOrigin, out var configuration) || configuration is null)
         {
-            throw new ArgumentException("Origin brokera jest wymagany.", nameof(brokerOrigin));
+            throw new ArgumentException("Nieprawidłowy adres serwera logowania Sonos.", nameof(brokerOrigin));
         }
 
         this.gateway = gateway;
         this.store = store;
-        this.brokerOrigin = brokerOrigin;
+        this.brokerOrigin = configuration.Origin.AbsoluteUri;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
@@ -326,12 +326,19 @@ public sealed class SonosAccountCoordinator : IDisposable
 
             if (!outcome.Succeeded || outcome.Tokens is null)
             {
-                // Konczymy PROBE, nie konto: Pending/Denied/Canceled nie kasuja zestawu.
-                ClearPendingLoginLocked();
+                // Tylko zakonczona lub anulowana proba traci sesje. Przy
+                // przejsciowym bledzie odbioru zachowujemy dowod, aby uzytkownik
+                // mogl ponowic Fetch bez ponownego logowania w przegladarce.
+                var terminal = outcome.Status is SonosLoginStatus.Denied
+                    or SonosLoginStatus.Canceled or SonosLoginStatus.Expired;
+                if (terminal)
+                {
+                    ClearPendingLoginLocked();
+                }
                 return new SonosAccountLoginCheckResult(
                     outcome.Status,
                     connected: false,
-                    stillWaiting: false,
+                    stillWaiting: !terminal,
                     discarded: false,
                     hadPendingLogin: true,
                     writeStatus: null,
@@ -690,7 +697,8 @@ public sealed class SonosAccountCoordinator : IDisposable
 
         credentialGeneration++;
         current = record;
-        awaitingBrowser = false;
+        // Odnowienie konta nie konczy niezaleznej proby nowego logowania.
+        // CheckLoginAsync sam usuwa swoja sesje przed instalacja jej wyniku.
         ApplyWriteLocked(write.Status);
         return write.Status;
     }

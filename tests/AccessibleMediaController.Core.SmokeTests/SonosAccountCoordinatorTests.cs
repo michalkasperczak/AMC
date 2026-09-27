@@ -53,7 +53,15 @@ internal static class SonosAccountCoordinatorTests
             ("Odrzucony rekord nie udaje polaczonego konta", TestInvalidRecordNieUdajeKonta),
             ("Brak tokenu odswiezania nie powoduje zapytania ani kasacji", TestBrakRefreshTokenu),
             ("Samo rozpoczecie i anulowanie logowania nie porzuca odnowienia konta",
-                TestLogowanieNiePorzucaOdnowienia)
+                TestLogowanieNiePorzucaOdnowienia),
+            ("Odnowienie nie ukrywa niezakończonej próby logowania", SonosAccountCoordinatorStateTests.RefreshPreservesPendingLogin),
+            ("Przejściowy błąd odbioru można ponowić bez nowego logowania", SonosAccountCoordinatorStateTests.TemporaryFetchFailureCanBeRetried),
+            ("Origin koordynatora jest zgodny z konfiguracją klienta i magazynu", SonosAccountCoordinatorStateTests.BrokerOriginMatchesAcceptedConfiguration),
+            ("Odczyt obcego brokera nie zmienia magazynu", SonosAccountCoordinatorStateTests.RestoreBrokerMismatchDoesNotMutateStore),
+            ("Starty wracające odwrotnie zachowują nowszą próbę", SonosAccountCoordinatorStateTests.ReverseStartKeepsNewerAttempt),
+            ("Anulowane logowanie odrzuca późny sukces", SonosAccountCoordinatorStateTests.CanceledLoginIgnoresLateSuccess),
+            ("Stare 401 nie kasuje nowego logowania", SonosAccountCoordinatorStateTests.Stale401CannotDeleteNewLogin),
+            ("Dispose kończy własne odnowienie bez zapisu", SonosAccountCoordinatorStateTests.DisposeCancelsOwnedRefreshWithoutWriting)
         };
 
         var bledy = new List<string>();

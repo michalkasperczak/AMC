@@ -9,7 +9,8 @@
   access tokenu i scope — magazyn NIE może być węższy od warstwy, która te
   wartości już przyjęła, więc limit pola to limit CAŁEJ odpowiedzi brokera, a
   nie osobna dobrana liczba; `MaxPlaintextBytes` WYLICZANE z limitów pól
-  (dwie wartości + RT × najgorsze escapowanie 2 B + koperta), nadal skończone.
+  (współczynnik doboru budżetu i zapas), nadal skończone. To NIE gwarancja
+  narzutu enkodera 2×; rzeczywista długość JSON-a jest sprawdzana po zapisie.
   Zapis JSON-a używa `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — plik idzie
   pod DPAPI na własny dysk, nie do HTML, więc domyślne escapowanie HTML-owe
   (`<` → 6 B) tylko zjadałoby budżet. Scope PUSTY jest jawnie pusty
@@ -52,15 +53,14 @@
   harness `net8.0` (linkuje pliki produktowe, bez `ProjectReference` do WPF) i
   uruchamia go NATYWNIE na Windows przez
   `powershell.exe -NoProfile -NonInteractive -File`, więc DPAPI jest prawdziwe.
-  15 scenariuszy (roundtrip, brak markerów plaintext w pliku, literalne
+  Scenariusze obejmują roundtrip, brak markerów plaintext w pliku, literalne
   Unicode/spacje, brak RT i nieznana ważność, odczyt w NOWYM procesie, rotacja
   RT, brak pliku, uszkodzony ciphertext, nieobsługiwany format, obcy broker,
   złe wejście i błąd zapisu zachowujące poprzedni rekord, limit rozmiaru,
-  `ToString` bez sekretów). Wyłącznie wartości syntetyczne i własny, świeży
+  `ToString` bez sekretów. Wyłącznie wartości syntetyczne i własny, świeży
   katalog w Windows TEMP; żaden istniejący plik danych nie jest czytany.
-- Koordynator generacji i wyścigów, polling, UI i sesja Sonos to DALSZE kroki —
-  nie ma ich w tym przyroście. Magazyn nie ma blokad wieloprocesowych: jego
-  właścicielem będzie JEDNA instancja przyszłego koordynatora.
+- Magazyn nie zawiera pollingu ani UI. Właścicielem jego operacji jest jedna
+  instancja koordynatora opisanego poniżej; brak blokad wieloprocesowych.
 
 ## Sonos: koordynator konta (odtworzenie, logowanie, odnawianie, wylogowanie)
 
@@ -108,7 +108,7 @@
   `PersistedRecordMayRemain`). Świadomie NIE MA tu UI, uruchamiania
   przeglądarki, timerów, pollingu, planowania odnowień, workerów w tle, powtórek
   HTTP ani frameworka DI.
-- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 18 przypadków zachowania na
+- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 26 przypadków zachowania na
   małych atrapach (magazyn z licznikami i kontrolowanym `WriteStatus`/`Delete`,
   bramka z kolejkami i barierami `TaskCompletionSource`
   `RunContinuationsAsynchronously`, bez usypiania wątku). Sesja logowania
@@ -118,6 +118,16 @@
   pełny zestaw Core. Testy napisano PO drafcie, dlatego dyskryminację
   udowodniono siedmioma mutacjami w kopii pliku produkcyjnego (raport:
   `amc_pomoc/sonos-account-coordinator-recovery1/`).
+
+- `Core.SmokeTests/SonosAccountCoordinatorStateTests.cs` — dodatkowe przypadki
+  podłączone do tego samego zestawu: odnowienie zachowuje niezakończoną próbę
+  logowania; przejściowy błąd Fetch pozwala ponowić odbiór bez nowego Start;
+  origin normalizowany przez istniejącą konfigurację jest zgodny z rzeczywistą
+  polityką magazynu. Ponadto: BrokerMismatch, odwrotna kolejność Start,
+  anulowana próba, stare 401 po nowym logowaniu i Dispose w trakcie refresh.
+  Walidacja formatu magazynu pochodzi z produkcyjnego serializatora, nie tylko
+  z atrapy zawsze przyjmującej dane. Trzy naprawy rodzica mają RED 23/26,
+  GREEN 26/26. Nie wykonywano testu prawdziwego konta ani GUI.
 
 ## Procenty bufora transmisji (TimeShift)
 
