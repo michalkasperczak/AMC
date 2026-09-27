@@ -131,6 +131,17 @@
 
 ## Sonos: okno konta (UI na odebranym koordynatorze)
 
+Uzupełnienie odbioru: `RescueFocusBefore` chroni przed ukryciem ORAZ wyłączeniem
+skupionego przycisku. `SetAvailability(..., allowWhileBusy: true)` utrzymuje
+Anuluj bez chwilowego wyłączenia. `ownLoginAttempt` powstaje przed await Start,
+a `RunSynchronous` osłania trzy synchroniczne przyciski po Dispose właściciela.
+`LifecycleCases.cs` jest w domyślnym przebiegu harnessu (łącznie116sprawdzeń).
+`--focus-cases --busy-only` mierzy oczekiwanie z prawdziwym Keyboard.FocusedElement.
+Żywy NVDA na próbnym modalu zweryfikował pojedyncze komunikaty, Tab/Enter/Escape,
+powrót do właściciela oraz brak odebrania fokusu innemu oknu przy zakończeniu
+w tle. To nie test konta Sonos ani docelowego MainWindow; integracja nadal osobno.
+
+
 - `Windows/SonosAccountWindow.xaml(.cs)` — `Controls.AccessibleWindow` na
   ODEBRANYM `SonosAccountCoordinator`. ZERO pól deweloperskich: żadnego Client
   ID, sekretu ani adresu powrotu (`TidalAccountWindow` posłużył za wzór
@@ -176,7 +187,7 @@
   `EnableDefaultCompileItems=false` SDK nie dołącza `GlobalUsings.g.cs`, dlatego
   jest własny `GlobalUsings.cs`; wewnętrzne fabryki wyników i `SonosLoginSession`
   są tworzone Reflection, żeby NIE poszerzać widoczności produktu dla pomiaru.
-- 94 sprawdzenia, 94 zaliczone na prawdziwym Windows (kod 0), BEZ `Show`,
+- Pierwotne 94 sprawdzenia, 94 zaliczone na prawdziwym Windows (kod 0), BEZ `Show`,
   `ShowDialog`, `Activate` i `EnsureHandle`, z testowym sinkiem ogłoszeń zamiast
   czytnika i atrapami przeglądarki/potwierdzenia. Test async w STA ustawia
   `DispatcherSynchronizationContext` i pompuje `DispatcherFrame` z limitem,
@@ -184,7 +195,7 @@
   (treść jako edytowalne pole z `TabIndex=99`, skrót dopisany do nazwy) dało
   RED 10 niezaliczonych i kod 1, po cofnięciu znów GREEN 94/94. Pomiar NIE
   dowodzi żywego NVDA ani pierwszej wypowiedzi — okna nie pokazywano.
-- `--show-fixture` (PRZYGOTOWANY, nieuruchamiany): pokazuje rzeczywiste okno na
+- `--show-fixture`: pokazuje rzeczywiste okno na
   jawnie nazwanych danych próbnych (`Fakes`, origin `.invalid`), właściciel
   stub, syntetyczna bramka i magazyn w pamięci, testowy `shellOpen` tylko
   zapisujący adres; zero IPC, aktualizacji, audio i sieci. Tytuł jednoznaczny

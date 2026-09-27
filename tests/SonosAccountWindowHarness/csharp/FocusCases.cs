@@ -78,13 +78,20 @@ internal static class FocusCases
 
         try
         {
-            MeasureCheckSuccess();
-            MeasureCancelLogin();
-            MeasureRetryPersist();
-            MeasureDisconnect();
-            MeasureForeignFocusDuringLateCompletion();
-            MeasureInactiveWindowIsNotForced();
-            MeasureNormalTabAndEscape();
+            if (args.Contains("--busy-only", StringComparer.Ordinal))
+            {
+                MeasureForeignFocusDuringLateCompletion();
+            }
+            else
+            {
+                MeasureCheckSuccess();
+                MeasureCancelLogin();
+                MeasureRetryPersist();
+                MeasureDisconnect();
+                MeasureForeignFocusDuringLateCompletion();
+                MeasureInactiveWindowIsNotForced();
+                MeasureNormalTabAndEscape();
+            }
         }
         catch (Exception exception)
         {
@@ -185,6 +192,12 @@ internal static class FocusCases
             var check = Program.Button(ctx.Window, "CheckLoginButton");
             GiveFocus(ctx, check, "obcy-fokus-late/fokus-na-sprawdz");
             SendOrClick(ctx, check, "obcy-fokus-late/klik");
+            Check("busy/operacja-rzeczywiscie-czeka", ctx.Window.IsBusy);
+            var during = Keyboard.FocusedElement as FrameworkElement;
+            Check("busy/fokus-na-uzywalnej-kontrolce",
+                during is not null && IsInsideWindow(during, ctx.Window) && CanHoldFocus(during),
+                Describe(during));
+            Check("busy/anuluj-nadal-czynny", Program.Button(ctx.Window, "CancelLoginButton").IsEnabled);
 
             // UZYTKOWNIK przechodzi gdzie indziej, jeszcze przed zakonczeniem.
             // Celowo na Zamknij: jest ZAWSZE widoczny i jest kontrolka INNA niz

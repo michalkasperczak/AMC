@@ -71,6 +71,7 @@ internal static class Program
             MeasureWriteFailureThenRetryPersistWithoutHttp();
             MeasureDisconnectDeleteSuccessAndFailure();
             MeasureCloseDoesNotDisposeOrDeleteAccount();
+            LifecycleCases.Run(Check);
         }
         catch (Exception exception)
         {

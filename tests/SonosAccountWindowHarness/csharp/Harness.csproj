@@ -31,6 +31,7 @@
   <ItemGroup>
     <Compile Include="GlobalUsings.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="LifecycleCases.cs" />
     <Compile Include="Fixture.cs" />
     <Compile Include="FocusCases.cs" />
 

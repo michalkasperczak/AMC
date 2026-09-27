@@ -143,19 +143,18 @@ public partial class SonosAccountWindow
     {
         SetAvailability(LoginButton, applicable: true);
         SetAvailability(CheckLoginButton, current.IsAwaitingBrowser);
-        SetAvailability(CancelLoginButton, current.IsAwaitingBrowser);
+        SetAvailability(CancelLoginButton, current.IsAwaitingBrowser, allowWhileBusy: true);
         SetAvailability(RefreshButton, current.HasCredentials && current.HasRefreshToken);
         SetAvailability(RetryPersistButton, current.CanRetryPersist);
         SetAvailability(DisconnectButton, current.HasCredentials || current.PersistedRecordMayRemain);
 
         // Klawisze wyjscia i odwolania nie moga zniknac przy zajetosci.
-        CancelLoginButton.IsEnabled = CancelLoginButton.Visibility == Visibility.Visible;
         CloseButton.IsEnabled = true;
         CloseButton.Visibility = Visibility.Visible;
     }
 
     /// <summary>
-    /// Ukrycie przycisku, ktory WLASNIE ma fokus, zostawia fokus na samym oknie:
+    /// Ukrycie lub wylaczenie przycisku z fokusem moze oddac fokus samemu oknu:
     /// czytnik ekranu oglasza wtedy rolne "okno dialogowe" i czyta CALY dialog od
     /// nowa, a klawiatura traci punkt zaczepienia. Dlatego przed schowaniem
     /// takiego przycisku fokus przechodzi na sasiednia UZYWALNA kontrolke.
@@ -166,16 +165,16 @@ public partial class SonosAccountWindow
     /// Gdy fokus jest poza tym oknem, poprawiamy WYLACZNIE punkt powrotu okna,
     /// wiec nieaktywne okno niczego nie zabiera pierwszemu planowi.
     /// </summary>
-    private void SetAvailability(Button button, bool applicable)
+    private void SetAvailability(Button button, bool applicable, bool allowWhileBusy = false)
     {
-        var hides = !applicable && button.Visibility == Visibility.Visible;
-        if (hides)
+        var enabled = applicable && (!busy || allowWhileBusy);
+        if ((!applicable || !enabled) && button.Visibility == Visibility.Visible)
         {
             RescueFocusBefore(button);
         }
 
         button.Visibility = applicable ? Visibility.Visible : Visibility.Collapsed;
-        button.IsEnabled = applicable && !busy;
+        button.IsEnabled = enabled;
     }
 
     /// <summary>
@@ -356,6 +355,9 @@ public partial class SonosAccountWindow
 
     private async Task BeginLoginAsync(CancellationToken cancellationToken)
     {
+        // Okno posiada probe od jej rozpoczecia, nie dopiero po odpowiedzi.
+        // Close musi uniewaznic ja takze przed powrotem kontynuacji na UI.
+        ownLoginAttempt = true;
         var result = await coordinator.BeginLoginAsync(cancellationToken).ConfigureAwait(true);
         if (closed)
         {
@@ -365,11 +367,11 @@ public partial class SonosAccountWindow
         Apply(result.Snapshot);
         if (!result.Started || result.AuthorizeUri is null)
         {
+            ownLoginAttempt = false;
             Announce(result.Message);
             return;
         }
 
-        ownLoginAttempt = true;
         if (openBrowser(result.AuthorizeUri))
         {
             Announce("Dokończ logowanie Sonos w przeglądarce, potem wybierz Sprawdź logowanie.");
@@ -435,6 +437,20 @@ public partial class SonosAccountWindow
             : text + " Rozpocznij logowanie na nowo.";
     }
 
+    private void RunSynchronous(Action operation)
+    {
+        try
+        {
+            operation();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Wlasciciel mogl zakonczyc obsluge konta przed zamknieciem okna.
+            // Taka sama bezpieczna odmowa dla wszystkich przyciskow synchronicznych.
+            Announce("Obsługa konta Sonos jest niedostępna. Zamknij to okno.");
+        }
+    }
+
     private void CancelLogin_Click(object sender, RoutedEventArgs e)
     {
         if (closed)
@@ -444,9 +460,12 @@ public partial class SonosAccountWindow
 
         // Anulowanie MUSI dzialac takze w trakcie zajetosci - inaczej uzytkownik
         // zostaje uwieziony w czekaniu.
-        Apply(coordinator.CancelPendingLogin());
-        ownLoginAttempt = false;
-        Announce("Logowanie Sonos zostało anulowane.");
+        RunSynchronous(() =>
+        {
+            Apply(coordinator.CancelPendingLogin());
+            ownLoginAttempt = false;
+            Announce("Logowanie Sonos zostało anulowane.");
+        });
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) =>
@@ -479,17 +498,20 @@ public partial class SonosAccountWindow
             return;
         }
 
-        var result = coordinator.RetryPersist();
-        Apply(result.Snapshot);
-        if (!result.Attempted)
+        RunSynchronous(() =>
         {
-            Announce("Nie ma czego zapisywać.");
-            return;
-        }
+            var result = coordinator.RetryPersist();
+            Apply(result.Snapshot);
+            if (!result.Attempted)
+            {
+                Announce("Nie ma czego zapisywać.");
+                return;
+            }
 
-        Announce(result.Succeeded
-            ? "Logowanie Sonos zostało zapisane."
-            : SonosCredentialMessages.Describe(result.WriteStatus ?? SonosCredentialWriteStatus.WriteFailure));
+            Announce(result.Succeeded
+                ? "Logowanie Sonos zostało zapisane."
+                : SonosCredentialMessages.Describe(result.WriteStatus ?? SonosCredentialWriteStatus.WriteFailure));
+        });
     }
 
     private void Disconnect_Click(object sender, RoutedEventArgs e)
@@ -499,18 +521,21 @@ public partial class SonosAccountWindow
             return;
         }
 
-        if (!confirmDisconnect())
+        RunSynchronous(() =>
         {
-            Announce("Wylogowanie z Sonos zostało odwołane.");
-            return;
-        }
+            if (!confirmDisconnect())
+            {
+                Announce("Wylogowanie z Sonos zostało odwołane.");
+                return;
+            }
 
-        var result = coordinator.Disconnect();
-        Apply(result.Snapshot);
-        ownLoginAttempt = false;
-        Announce(result.Disconnected
-            ? "Wylogowano z Sonos; zapisane logowanie zostało usunięte."
-            : "Wylogowanie z Sonos nie zostało dokończone: zapisane logowanie mogło pozostać. Spróbuj ponownie.");
+            var result = coordinator.Disconnect();
+            Apply(result.Snapshot);
+            ownLoginAttempt = false;
+            Announce(result.Disconnected
+                ? "Wylogowano z Sonos; zapisane logowanie zostało usunięte."
+                : "Wylogowanie z Sonos nie zostało dokończone: zapisane logowanie mogło pozostać. Spróbuj ponownie.");
+        });
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

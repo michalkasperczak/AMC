@@ -1,8 +1,8 @@
 # Testy okna "Konto Sonos" — instrukcja dla użytkownika
 
-Dotyczy nowego okna **Konto Sonos** w AMC. Okno jest gotowe i zmierzone bez
-pokazywania obrazu; test z żywym NVDA jest osobnym krokiem i wykonuje go
-właściciel pulpitu.
+Dotyczy nowego okna **Konto Sonos** w AMC. Zmierzono kontrolki oraz osobno
+obsługę prawdziwego okna klawiaturą i żywym NVDA na próbnych danych.
+Okno nie jest jeszcze podłączone do menu głównego aplikacji.
 
 ## Co to okno robi
 
@@ -80,7 +80,7 @@ Komunikaty są dobrane tak, by nie kłamały o stanie konta:
 
 ## Co zostało zmierzone bez pokazywania okna
 
-94 sprawdzenia, wszystkie zaliczone, na prawdziwym Windows (kod wyjścia 0):
+116 sprawdzeń, wszystkie zaliczone, na prawdziwym Windows (kod wyjścia 0):
 
 - treść jako pole tylko do odczytu, fokusowalne, z fokusem startowym i najniższym
   numerem tabulacji; przyciski po niej,
@@ -93,14 +93,30 @@ Komunikaty są dobrane tak, by nie kłamały o stanie konta:
 - wylogowanie udane i nieudane usunięcie,
 - zamknięcie okna nie zwalnia wspólnego koordynatora i nie kasuje konta.
 
-Pomiar sprawdzono też **od strony błędu**: po celowym zepsuciu okna (treść jako
+Pierwotny zestaw 94 sprawdzeń przetestowano też **od strony błędu**: po celowym zepsuciu okna (treść jako
 edytowalne pole na końcu tabulacji, skrót dopisany do nazwy) te same testy dały
 10 niezaliczonych i kod wyjścia 1. Bez tego nie byłoby wiadomo, czy w ogóle
 odróżniają dobry układ od złego.
 
-**Czego ten pomiar NIE dowodzi:** nie jest testem żywego NVDA. Okno nie było
-pokazywane, więc pierwszej wypowiedzi czytnika i rzeczywistej kolejności mowy
-nikt jeszcze nie słyszał. To osobny krok.
+Ten zestaw sprawdza także zamknięcie w trakcie rozpoczynania logowania oraz
+bezpieczną odmowę przycisków, gdy właściciel zakończył już obsługę konta.
+Przed poprawką nowe testy wykazały 11 niezaliczonych sprawdzeń.
+
+## Osobny pomiar żywym NVDA
+
+Na Hermesie sprawdzono rzeczywiste okno modalne z własnym próbnym właścicielem.
+Instrukcja jest pierwszym punktem fokusu, Tab przechodzi po przyciskach,
+a Escape wraca do właściciela. Sukces logowania, anulowanie, wylogowanie
+i ponowienie zapisu są odczytywane pojedynczo, bez ponownego czytania całego
+okna po zniknięciu przycisku.
+
+Sprawdzono również rzeczywiste oczekiwanie na spóźnioną odpowiedź: wyłączenie
+przycisku nie gubi fokusu, Anuluj nadal działa. Zakończenie w tle nie odbiera
+fokusu innemu własnemu oknu użytemu w próbie zamiast przeglądarki.
+
+Były to dane próbne. Nie jest to dowód zalogowania do Sonosa ani działania
+okna z menu głównego AMC. Rzeczywiste potwierdzenie wylogowania w aplikacji
+wymaga jeszcze podłączenia i osobnego sprawdzenia.
 
 ## Jak uruchomić
 
