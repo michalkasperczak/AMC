@@ -35,6 +35,8 @@ internal static class SonosDeviceReadTests
             ("HTTP poza blokada: Snapshot z drugiego watku", SnapshotDuringRead),
             ("po Disconnect wynik porzucony", DiscardedAfterDisconnect),
             ("po Dispose wynik porzucony", DiscardedAfterDispose),
+            ("stary 401 nie odnawia NOWEGO konta", StaleUnauthorizedNeverTouchesNewAccount),
+            ("stary wygasly odczyt nie odnawia NOWEGO konta", StaleExpiredReadNeverTouchesNewAccount),
             ("nieznana waznosc nie odnawia", UnknownExpiryDoesNotRenew),
             ("znana miniona waznosc: jedno odnowienie", ExpiredRenewsOnce),
             ("401: jedno odnowienie i jedno powtorzenie", UnauthorizedRenewsOnceAndRetriesOnce),
@@ -184,6 +186,101 @@ internal static class SonosDeviceReadTests
         }
     }
 
+    /// <summary>
+    /// POTWIERDZONY BLAD: stare 401 wpadalo w odnowienie JUZ PO nowym logowaniu,
+    /// odnawialo dostep NOWEGO konta i zwracalo jego dane jako wynik starego
+    /// odczytu. Tu stare zapytanie ma zostac PORZUCONE, a konto B nietkniete.
+    ///
+    /// Nowe konto wchodzi PRAWDZIWA droga logowania (BeginLogin + CheckLogin),
+    /// a nie zadnym pomocnikiem pomiarowym.
+    /// </summary>
+    private static void StaleUnauthorizedNeverTouchesNewAccount()
+    {
+        using var entered = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        var tokensSeen = new List<string?>();
+        using var fixture = Fixture.Connected(request =>
+        {
+            tokensSeen.Add(request.Headers.Authorization?.Parameter);
+            entered.Set();
+            release.Wait(TimeSpan.FromSeconds(5));
+            // Stare zadanie wraca z 401 - dopiero to uruchamialo bledne odnowienie.
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            };
+        });
+        fixture.Gateway.AllowLogin("SYNTHETIC-ACCESS-B");
+
+        var task = StartHouseholds(fixture);
+        Check(entered.Wait(TimeSpan.FromSeconds(5)));
+
+        // W TRAKCIE wiszacego zadania uzytkownik loguje sie na NOWE konto.
+        LogInAsNewAccount(fixture);
+        var refreshesAfterLogin = fixture.Refreshes;
+
+        release.Set();
+        var result = task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+
+        Check(result.Discarded && result.Households.Count == 0);
+        // ZERO odnowien z tej starej operacji: swieza generacja nie legalizuje
+        // starego zadania.
+        Check(fixture.Refreshes == refreshesAfterLogin);
+        // Tylko JEDNO zapytanie i to STARYM tokenem: dane konta B nie zostaly
+        // ani odczytane, ani opublikowane.
+        Check(fixture.Requests == 1);
+        Check(tokensSeen.Count == 1 && tokensSeen[0] == Fixture.Access);
+        // Konto B zyje - nie zostalo skasowane ani nadpisane.
+        Check(result.Snapshot.HasCredentials);
+        Check(fixture.StoredAccessToken == "SYNTHETIC-ACCESS-B");
+        Check(fixture.Deletes == 0);
+    }
+
+    /// <summary>
+    /// Ten sam blad wejsciem przez WYGASLY token: stary odczyt odnawial dostep
+    /// dopiero po nowym logowaniu i wysylal GET juz na nowym koncie.
+    /// </summary>
+    private static void StaleExpiredReadNeverTouchesNewAccount()
+    {
+        using var refreshEntered = new ManualResetEventSlim(false);
+        using var refreshRelease = new ManualResetEventSlim(false);
+        var requests = 0;
+        using var fixture = Fixture.Connected(
+            _ => { requests++; return Json("{\"households\":[]}"); },
+            expiresInSeconds: 60,
+            receivedShift: TimeSpan.FromHours(-2));
+        fixture.Gateway.AllowLogin("SYNTHETIC-ACCESS-B");
+        fixture.Gateway.HoldRefresh(refreshEntered, refreshRelease);
+
+        // Odczyt widzi MINIONA waznosc, wiec najpierw idzie odnowic dostep.
+        var task = StartHouseholds(fixture);
+        Check(refreshEntered.Wait(TimeSpan.FromSeconds(5)));
+
+        LogInAsNewAccount(fixture);
+
+        refreshRelease.Set();
+        var result = task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+
+        Check(result.Discarded && result.Households.Count == 0);
+        // Wynik odnowienia dla STAREGO konta nie moze zostac przypisany do
+        // konta B ani wyslany w zapytaniu.
+        Check(requests == 0);
+        Check(result.Snapshot.HasCredentials);
+        Check(fixture.StoredAccessToken == "SYNTHETIC-ACCESS-B");
+        Check(fixture.Deletes == 0);
+    }
+
+    /// <summary>PRAWDZIWA droga nowego logowania, bez pomocnika pomiarowego.</summary>
+    private static void LogInAsNewAccount(Fixture fixture)
+    {
+        fixture.Coordinator.BeginLoginAsync(CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        var login = fixture.Coordinator.CheckLoginAsync(CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        Check(login.Snapshot.HasCredentials);
+        Check(fixture.StoredAccessToken == "SYNTHETIC-ACCESS-B");
+    }
+
     private static void UnknownExpiryDoesNotRenew()
     {
         using var fixture = Fixture.Connected(_ => Json("{\"households\":[]}"), expiresInSeconds: null);
@@ -320,13 +417,15 @@ internal static class SonosDeviceReadTests
 
         private readonly Handler _handler;
         private readonly SonosControlApiClient _client;
+        private readonly Store _store;
         private bool _coordinatorDisposed;
 
-        private Fixture(SonosAccountCoordinator coordinator, Handler handler, SonosControlApiClient client, Gateway gateway)
+        private Fixture(SonosAccountCoordinator coordinator, Handler handler, SonosControlApiClient client, Gateway gateway, Store store)
         {
             Coordinator = coordinator;
             _handler = handler;
             _client = client;
+            _store = store;
             Gateway = gateway;
             Api = new SonosControlApiDeviceApi(client);
         }
@@ -340,6 +439,12 @@ internal static class SonosDeviceReadTests
         internal int Requests => _handler.Count;
 
         internal int Refreshes => Gateway.RefreshCalls;
+
+        /// <summary>Token ZAPISANY w magazynie - kwit, ze konto B zyje.</summary>
+        internal string? StoredAccessToken => _store.AccessToken;
+
+        /// <summary>Ile razy magazyn skasowano - kwit, ze konta B nie usunieto.</summary>
+        internal int Deletes => _store.Deletes;
 
         internal static Fixture Connected(
             Func<HttpRequestMessage, HttpResponseMessage> reply,
@@ -376,7 +481,7 @@ internal static class SonosDeviceReadTests
 
             var handler = new Handler(reply);
             var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
-            return new Fixture(coordinator, handler, client, gateway);
+            return new Fixture(coordinator, handler, client, gateway, store);
         }
 
         internal SonosHouseholdsReadResult ReadHouseholds() =>
@@ -409,17 +514,42 @@ internal static class SonosDeviceReadTests
     /// <summary>Atrapa bramki logowania: zero sieci, policzone odnowienia.</summary>
     internal sealed class Gateway(int? expiresInSeconds, string? refreshToken) : ISonosLoginGateway
     {
+        private string? _loginAccessToken;
+        private ManualResetEventSlim? _refreshEntered;
+        private ManualResetEventSlim? _refreshRelease;
+
         public int RefreshCalls { get; private set; }
 
+        /// <summary>Wlacza PRAWDZIWA droge logowania na NOWE konto.</summary>
+        internal void AllowLogin(string accessToken) => _loginAccessToken = accessToken;
+
+        /// <summary>Zatrzymuje odnowienie, zeby dalo sie zmierzyc stan w toku.</summary>
+        internal void HoldRefresh(ManualResetEventSlim entered, ManualResetEventSlim release)
+        {
+            _refreshEntered = entered;
+            _refreshRelease = release;
+        }
+
         public Task<SonosLoginStartOutcome> StartAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(SonosLoginStartOutcome.Failure(SonosLoginStatus.BrokerUnreachable));
+            Task.FromResult(_loginAccessToken is null
+                ? SonosLoginStartOutcome.Failure(SonosLoginStatus.BrokerUnreachable)
+                : SonosLoginStartOutcome.Ok(new SonosLoginSession(
+                    "synthetic-session",
+                    new string('a', 48),
+                    new Uri("https://api.sonos.com/login/v3/oauth"),
+                    DateTimeOffset.UtcNow.AddMinutes(5))));
 
         public Task<SonosLoginResultOutcome> FetchResultAsync(SonosLoginSession session, CancellationToken cancellationToken) =>
-            Task.FromResult(SonosLoginResultOutcome.Failure(SonosLoginStatus.BrokerUnreachable));
+            Task.FromResult(_loginAccessToken is null
+                ? SonosLoginResultOutcome.Failure(SonosLoginStatus.BrokerUnreachable)
+                : SonosLoginResultOutcome.Ok(new SonosTokens(
+                    _loginAccessToken, "Bearer", 3600, "SYNTHETIC-REFRESH-B", "playback-control-all")));
 
         public Task<SonosRefreshOutcome> RefreshAsync(string? token, CancellationToken cancellationToken)
         {
             RefreshCalls++;
+            _refreshEntered?.Set();
+            _refreshRelease?.Wait(TimeSpan.FromSeconds(5));
             return Task.FromResult(SonosRefreshOutcome.Ok(new SonosTokens(
                 "SYNTHETIC-ACCESS-RENEWED", "Bearer", expiresInSeconds ?? 3600, refreshToken, "playback-control-all")));
         }
@@ -431,6 +561,10 @@ internal static class SonosDeviceReadTests
         private SonosStoredCredentials? _record;
 
         internal void Seed(SonosStoredCredentials record) => _record = record;
+
+        internal string? AccessToken => _record?.Tokens.AccessToken;
+
+        internal int Deletes { get; private set; }
 
         public SonosCredentialReadOutcome Read() => _record is null
             ? SonosCredentialReadOutcome.Failure(SonosCredentialReadStatus.Missing)
@@ -444,6 +578,7 @@ internal static class SonosDeviceReadTests
 
         public bool Delete()
         {
+            Deletes++;
             _record = null;
             return true;
         }

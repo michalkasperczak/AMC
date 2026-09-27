@@ -1,5 +1,14 @@
 # AMC — mapa kodu
 
+## Sonos: lista urządzeń — poprawki po alfa412 (bez wydania)
+
+- `Core/Sonos/SonosAccountCoordinator.cs`: odnawianie ma jedną, wspólną drogę `RefreshCoreAsync(oczekiwanaGeneracja)`. Wewnętrzny wynik `RefreshRun` niesie GENERACJĘ, dla której odnowienie faktycznie zaszło, więc świeża generacja nie legalizuje starej operacji. Weryfikacja oczekiwanej generacji jest atomowa: pod tą samą blokadą, która decyduje o starcie/dołączeniu do odnowienia, więc nie ma okienka między sprawdzeniem a startem. Bez dodatkowego zewnętrznego locka na I/O — pojedynczy przelot (single-flight), nieprzerywanie cudzego odnowienia, anulowanie waitera i kasowanie konta wyłącznie przy dokładnym 401 brokera zostają bez zmian.
+- `Core/Sonos/SonosAccountCoordinator.DeviceRead.cs`: `RenewForReadAsync` przekazuje KOTWICĘ generacji do centralnej logiki i porównuje zestaw poświadczeń z DOKŁADNYM wynikiem odnowienia, nie z dowolną bieżącą migawką. Skutek: odczyt starego konta nie odnawia nowego, nie czyta danych konta B i ich nie publikuje; spóźniona operacja kończy się `Discarded`, a konto B zostaje nietknięte (bez `Delete`).
+- `Windows/SonosDevicesWindow.xaml.cs`: zajętość nie gubi już fokusu — przed wyłączeniem skupionej kontrolki fokus przechodzi na włączone pole instrukcji, a po zakończeniu wraca na poprzednią kontrolkę, o ile użytkownik sam nie wybrał innej (np. Zamknij). Odświeżanie ogłasza JEDEN jawny komunikat oczekiwania przed każdym czekaniem i jeden wynik po nim (bez podwójnego czytania „lista domów + topologia”). Wybrany dom wraca PO IDENTYFIKATORZE, także po zmianie kolejności listy; powrót do pierwszego domu następuje dopiero, gdy wybrany dom zniknie. Nowe kwity: `LoadingAnnouncementCount`, `FocusedControlName`.
+- `Windows/SonosDevicesWindow.xaml`: usunięta kolizja klawiszy dostępu — `Głośni_ki` zamiast drugiego Alt+G przy `_Grupy`. Skróty programu nietknięte.
+- `Core/Sonos/SonosDeviceLabels.cs`: `DescribeTopology` nie dubluje już przedimka („Dom Dom Sonos 1”); nowe stałe `LoadingHouseholds` i `LoadingTopology`. Nazwy modeli bez zmian.
+- Testy: `SonosDeviceReadTests` (`--sonos-device-read`) o dwa przypadki wyścigu przez PRAWDZIWĄ drogę logowania; `SonosDevicesWindowTests` (`--sonos-devices-window`) o fokus w zajętości, komunikaty ładowania i zachowanie wybranego domu.
+
 ## Sonos Control API: odczyt domów, grup i głośników (jeszcze bez UI)
 
 - `Core/Sonos/SonosControlApiContract.cs`: niemutowalne modele i rozdzielne wyniki, stały adres Sonosa, publiczny klucz integracji przekazywany jawnie, lokalna polityka segmentu ID.

@@ -57,6 +57,9 @@ internal static class SonosDevicesWindowTests
                 checks += MeasureSingleHouseholdAndRefresh();
                 checks += MeasureNoPlaybackControls();
                 checks += MeasureBusyKeepsButtonsVisible();
+                checks += MeasureBusyKeepsFocusUsable();
+                checks += MeasureLoadingAnnouncedOnce();
+                checks += MeasureRefreshKeepsHouseholdById();
                 checks += MeasureStaleResultIgnored();
                 checks += MeasureCloseCancelsOwnWorkOnly();
                 checks += MeasureAccountButtonWiring();
@@ -321,6 +324,234 @@ internal static class SonosDevicesWindowTests
 
         window.ShutdownOwnWork();
         return 4;
+    }
+
+    // ================= 4b. zajetosc NIE GUBI fokusu =================
+
+    /// <summary>
+    /// ZYWY NVDA rodzica pokazal, ze po odswiezeniu fokus byl PUSTY, a czytnik
+    /// czytal caly dialog. Powod: wylaczenie skupionego przycisku oddaje fokus
+    /// oknu. Tu mierzymy, ze fokus zostaje na uzywalnej kontrolce w czasie
+    /// czekania i WRACA na przycisk po zakonczeniu.
+    /// </summary>
+    private static int MeasureBusyKeepsFocusUsable()
+    {
+        var gate = new ManualResetEventSlim(false);
+        var reached = new ManualResetEventSlim(false);
+        var reader = new LiczacyOdczyt
+        {
+            BeforeHouseholds = () =>
+            {
+                reached.Set();
+                gate.Wait(TimeSpan.FromSeconds(5));
+            }
+        };
+
+        var window = Build(reader);
+        Pump(window.LoadAsync());
+
+        var refreshButton = (Button)window.FindName("RefreshButton")!;
+        var closeButton = (Button)window.FindName("CloseButton")!;
+        var instruction = (TextBox)window.FindName("InstructionBox")!;
+
+        // Uzytkownik stoi na Odswiez i go uruchamia - jak przy zywym pomiarze.
+        System.Windows.Input.FocusManager.SetFocusedElement(window, refreshButton);
+        reached.Reset();
+        gate.Reset();
+        var task = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+
+        var busyFocus = window.FocusedControlName;
+        if (busyFocus.Length == 0)
+        {
+            throw new Exception("W czasie odświeżania fokus jest PUSTY - czytnik czyta cały dialog od nowa.");
+        }
+        if (busyFocus != "InstructionBox")
+        {
+            throw new Exception($"W czasie odświeżania fokus trafił na \"{busyFocus}\" zamiast na czytelną instrukcję.");
+        }
+        if (!instruction.IsEnabled || !instruction.IsReadOnly)
+        {
+            throw new Exception("Pole instrukcji musi zostać włączone i tylko do odczytu.");
+        }
+
+        gate.Set();
+        Pump(task);
+        if (window.FocusedControlName != "RefreshButton")
+        {
+            throw new Exception($"Po odświeżeniu fokus nie wrócił na Odśwież (jest \"{window.FocusedControlName}\").");
+        }
+
+        // Gdy uzytkownik sam przeszedl na Zamknij, okno NIE kradnie mu fokusu.
+        reached.Reset();
+        gate.Reset();
+        var second = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+        System.Windows.Input.FocusManager.SetFocusedElement(window, closeButton);
+        gate.Set();
+        Pump(second);
+        if (window.FocusedControlName != "CloseButton")
+        {
+            throw new Exception("Okno ukradło fokus z przycisku Zamknij wybranego przez użytkownika.");
+        }
+
+        window.ShutdownOwnWork();
+        return 5;
+    }
+
+    // ================= 4c. JEDEN komunikat o ladowaniu =================
+
+    /// <summary>
+    /// Slad z zywego NVDA: ZERO komunikatow o ladowaniu i PODWOJNY komunikat
+    /// koncowy (lista domow + topologia). Tu mierzymy jawne "czekaj" PRZED
+    /// oczekiwaniem i JEDEN komunikat wynikowy po nim.
+    /// </summary>
+    private static int MeasureLoadingAnnouncedOnce()
+    {
+        var gate = new ManualResetEventSlim(false);
+        var reached = new ManualResetEventSlim(false);
+        var reader = new LiczacyOdczyt
+        {
+            BeforeHouseholds = () =>
+            {
+                reached.Set();
+                gate.Wait(TimeSpan.FromSeconds(5));
+            }
+        };
+
+        var window = Build(reader);
+        var task = window.LoadAsync();
+        PumpUntil(() => reached.IsSet);
+
+        if (window.LoadingAnnouncementCount != 1)
+        {
+            throw new Exception(
+                $"Przed czekaniem okno ogłosiło ładowanie {window.LoadingAnnouncementCount} razy zamiast raz.");
+        }
+        if (window.LastAnnouncement != SonosDeviceLabels.LoadingHouseholds)
+        {
+            throw new Exception($"W czasie czekania czytnik dostał \"{window.LastAnnouncement}\" zamiast komunikatu ładowania.");
+        }
+        if (!window.InstructionText.Contains("Czekaj", StringComparison.Ordinal))
+        {
+            throw new Exception("Instrukcja w czasie czekania nie mówi o oczekiwaniu.");
+        }
+        // Pierwsze zdanie instrukcji - jawnie tylko do odczytu - zostaje.
+        if (!window.InstructionText.Contains(SonosDeviceLabels.ViewIntroduction, StringComparison.Ordinal))
+        {
+            throw new Exception("Komunikat ładowania zgubił pierwsze zdanie o braku wpływu na odtwarzanie.");
+        }
+
+        gate.Set();
+        Pump(task);
+
+        // Wynik: JEDEN komunikat koncowy o topologii, nie dwa.
+        if (window.LastAnnouncement == SonosDeviceLabels.LoadingHouseholds)
+        {
+            throw new Exception("Po zakończeniu okno zostało na komunikacie ładowania - wynik nie został ogłoszony.");
+        }
+        if (!window.LastAnnouncement.Contains("głośników", StringComparison.Ordinal))
+        {
+            throw new Exception($"Ostatni komunikat \"{window.LastAnnouncement}\" nie jest wynikiem odczytu urządzeń.");
+        }
+        // Dwa oczekiwania (domy + topologia) i DWA wyniki na tej samej drodze:
+        // wynik listy domow NIE jest juz czytany osobno przy niepustej liscie.
+        if (window.LoadingAnnouncementCount != 2)
+        {
+            throw new Exception($"Ładowanie ogłoszono {window.LoadingAnnouncementCount} razy zamiast dwóch (domy, topologia).");
+        }
+        if (window.AnnouncementCount != 3)
+        {
+            throw new Exception(
+                $"Okno wypowiedziało {window.AnnouncementCount} komunikatów zamiast trzech (2 czekaj + 1 wynik).");
+        }
+
+        // Podwojny przedimek "Dom Dom Sonos 1" nie wraca przy domu bez nazwy.
+        var unnamed = SonosDeviceLabels.DescribeTopology(
+            SonosGroupsReadResult.Success(Topology()),
+            SonosDeviceLabels.DescribeHousehold(new SonosHousehold("Sonos_9.z", null, null), 1));
+        if (unnamed.Contains("Dom Dom", StringComparison.Ordinal))
+        {
+            throw new Exception($"Podsumowanie ma podwójny przedimek: \"{unnamed}\".");
+        }
+        if (!unnamed.StartsWith("Dom Sonos 1:", StringComparison.Ordinal))
+        {
+            throw new Exception($"Podsumowanie domu bez nazwy brzmi \"{unnamed}\".");
+        }
+
+        window.ShutdownOwnWork();
+        return 8;
+    }
+
+    // ================= 4d. odswiezenie ZACHOWUJE wybrany dom =================
+
+    /// <summary>
+    /// Slad z zywego NVDA: po odswiezeniu wybor wracal z domu 2 na dom 1. Tu
+    /// mierzymy, ze wybrany dom wraca PO IDENTYFIKATORZE takze po ZMIANIE
+    /// KOLEJNOSCI listy, a gdy dom zniknie - dopiero wtedy fallback.
+    /// </summary>
+    private static int MeasureRefreshKeepsHouseholdById()
+    {
+        var first = new SonosHousehold("Sonos_1.a", "Dom na Kwiatowej", null);
+        var second = new SonosHousehold("Sonos_2.b", "Domek letni", null);
+        var reader = new LiczacyOdczyt { Households = new[] { first, second } };
+
+        var window = Build(reader);
+        Pump(window.LoadAsync());
+        Pump(window.InvokeSelectHouseholdAsync(1));
+        if (window.SelectedHouseholdId != "Sonos_2.b")
+        {
+            throw new Exception("Wybór drugiego domu nie zadziałał - dalszy pomiar nie miałby sensu.");
+        }
+
+        // 1) TA SAMA kolejnosc: stary kod zerowal wybor na pierwszy dom.
+        Pump(window.InvokeRefreshAsync());
+        if (window.SelectedHouseholdId != "Sonos_2.b")
+        {
+            throw new Exception(
+                $"Odświeżenie przestawiło wybór na \"{window.SelectedHouseholdId}\" zamiast zachować wybrany dom.");
+        }
+        if (reader.LastHouseholdId != "Sonos_2.b")
+        {
+            throw new Exception("Po odświeżeniu grupy odczytano dla INNEGO domu niż wybrany.");
+        }
+
+        // 2) Sonos zwraca te same domy w INNEJ kolejnosci - wybor idzie PO ID,
+        //    wiec zaznaczenie musi przeskoczyc na nowa pozycje tego samego domu.
+        reader.Households = new[] { second, first };
+        Pump(window.InvokeRefreshAsync());
+        if (window.SelectedHouseholdId != "Sonos_2.b")
+        {
+            throw new Exception("Po zmianie kolejności listy wybór domu nie został zachowany po identyfikatorze.");
+        }
+        var box = (ComboBox)window.FindName("HouseholdBox")!;
+        if (box.SelectedIndex != 0)
+        {
+            throw new Exception("Zaznaczenie na liście domów nie wskazuje wybranego domu po zmianie kolejności.");
+        }
+        if (window.HouseholdChoices[0] != "Domek letni")
+        {
+            throw new Exception("Etykiety listy domów nie odwzorowują nowej kolejności.");
+        }
+
+        // Dopiero ZNIKNIECIE wybranego domu cofa wybor na pierwszy dostepny.
+        reader.Households = new[] { first };
+        Pump(window.InvokeRefreshAsync());
+        if (window.SelectedHouseholdId != "Sonos_1.a")
+        {
+            throw new Exception("Po zniknięciu wybranego domu okno nie wróciło do pierwszego dostępnego.");
+        }
+
+        // Pusta lista nie zostawia martwego wyboru.
+        reader.Households = Array.Empty<SonosHousehold>();
+        Pump(window.InvokeRefreshAsync());
+        if (window.SelectedHouseholdId is not null)
+        {
+            throw new Exception("Pusta lista domów zostawiła wybrany dom.");
+        }
+
+        window.ShutdownOwnWork();
+        return 6;
     }
 
     // ================= 5. spozniony wynik nie podmienia listy =================

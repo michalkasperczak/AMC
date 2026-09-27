@@ -40,6 +40,19 @@ public partial class SonosDevicesWindow
     private bool suppressSelectionReload;
 
     /// <summary>
+    /// Kontrolka, ktora miala fokus w chwili wejscia w zajetosc. Po zakonczeniu
+    /// operacji fokus wraca DOKLADNIE do niej - o ile uzytkownik w miedzyczasie
+    /// sam nie wybral czegos innego (np. Zamknij).
+    /// </summary>
+    private IInputElement? focusBeforeBusy;
+
+    /// <summary>
+    /// Identyfikator domu WYBRANEGO przez uzytkownika. Odswiezenie ma go
+    /// odtworzyc PO ID, nawet gdy Sonos zwroci domy w innej kolejnosci.
+    /// </summary>
+    private string? requestedHouseholdId;
+
+    /// <summary>
     /// Numer NAJNOWSZEGO zadania odczytu. Wynik ze starszym numerem jest
     /// porzucany, wiec przeterminowana odpowiedz po starym wyborze domu nie
     /// podmienia listy.
@@ -49,6 +62,9 @@ public partial class SonosDevicesWindow
     public string LastAnnouncement { get; private set; } = string.Empty;
 
     public int AnnouncementCount { get; private set; }
+
+    /// <summary>Ile razy okno oglosilo OCZEKIWANIE (kwit dla testow).</summary>
+    public int LoadingAnnouncementCount { get; private set; }
 
     /// <summary>Identyfikator WYBRANEGO domu. Nigdy nie pokazywany w zwyklej etykiecie.</summary>
     internal string? SelectedHouseholdId { get; private set; }
@@ -76,6 +92,18 @@ public partial class SonosDevicesWindow
 
     // ================= widok =================
 
+    /// <summary>
+    /// Komunikat OCZEKIWANIA. Idzie ta sama droga co wynik, ale jest liczony
+    /// osobno, zeby test widzial, ze ladowanie zostalo ogloszone RAZ i PRZED
+    /// czekaniem - a nie zamiast wyniku.
+    /// </summary>
+    private void AnnounceLoading(string message)
+    {
+        LoadingAnnouncementCount++;
+        SetInstruction(message);
+        Announce(message);
+    }
+
     private void Announce(string message)
     {
         LastAnnouncement = message;
@@ -93,9 +121,19 @@ public partial class SonosDevicesWindow
     /// <summary>
     /// Zajetosc WYLACZA przyciski, ale ich NIE CHOWA: schowanie kontrolki z
     /// fokusem kaze czytnikowi czytac cale okno od nowa.
+    ///
+    /// SAMO WYLACZENIE skupionej kontrolki tez gubi fokus (WPF oddaje go oknu,
+    /// a czytnik czyta caly dialog). Dlatego PRZED wylaczeniem przenosimy fokus
+    /// na pole instrukcji - zostaje wlaczone i czytelne - a po zakonczeniu
+    /// przywracamy poprzednia kontrolke, o ile uzytkownik nie wybral innej.
     /// </summary>
     private void ApplyBusy()
     {
+        if (busy)
+        {
+            RescueFocusBeforeDisabling();
+        }
+
         RefreshButton.IsEnabled = !busy;
         HouseholdBox.IsEnabled = !busy && households.Count > 1;
         GroupsList.IsEnabled = !busy;
@@ -105,6 +143,74 @@ public partial class SonosDevicesWindow
         CloseButton.IsEnabled = true;
         CloseButton.Visibility = Visibility.Visible;
         RefreshButton.Visibility = Visibility.Visible;
+
+        if (!busy)
+        {
+            RestoreFocusAfterBusy();
+        }
+    }
+
+    /// <summary>
+    /// Zapamietuje skupiona kontrolke i przenosi fokus na instrukcje, ZANIM
+    /// wylaczenie zabierze go oknu. Fokus na Zamknij zostaje tam, gdzie jest -
+    /// ten przycisk dziala takze w czasie oczekiwania.
+    /// </summary>
+    private void RescueFocusBeforeDisabling()
+    {
+        if (focusBeforeBusy is not null)
+        {
+            return;
+        }
+
+        var focused = FocusManager.GetFocusedElement(this);
+        if (focused is null || ReferenceEquals(focused, CloseButton) || ReferenceEquals(focused, InstructionBox))
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(focused, RefreshButton)
+            && !ReferenceEquals(focused, HouseholdBox)
+            && !ReferenceEquals(focused, GroupsList)
+            && !ReferenceEquals(focused, PlayersList))
+        {
+            return;
+        }
+
+        focusBeforeBusy = focused;
+        FocusManager.SetFocusedElement(this, InstructionBox);
+    }
+
+    /// <summary>
+    /// Wraca fokusem na kontrolke sprzed oczekiwania. NIE kradnie fokusu, gdy
+    /// uzytkownik przeszedl w miedzyczasie gdzie indziej (np. na Zamknij).
+    /// </summary>
+    private void RestoreFocusAfterBusy()
+    {
+        var target = focusBeforeBusy;
+        focusBeforeBusy = null;
+        if (target is null || closed)
+        {
+            return;
+        }
+
+        var focused = FocusManager.GetFocusedElement(this);
+        if (focused is not null && !ReferenceEquals(focused, InstructionBox))
+        {
+            // Uzytkownik sam wybral inna kontrolke: to jego wybor wygrywa.
+            return;
+        }
+
+        if (target is UIElement element
+            && (!element.IsEnabled || element.Visibility != Visibility.Visible))
+        {
+            // Kontrolka zniknela wraz z wynikiem (np. lista domow przy jednym
+            // domu): zostaje czytelna instrukcja, nie puste okno. Sprawdzamy
+            // Visibility, a nie IsVisible - to drugie jest falszywe takze w
+            // oknie jeszcze nie pokazanym, wiec zablokowaloby powrot fokusu.
+            return;
+        }
+
+        FocusManager.SetFocusedElement(this, target);
     }
 
     private void SetInstruction(string headline)
@@ -178,6 +284,10 @@ public partial class SonosDevicesWindow
 
     private async Task LoadHouseholdsAsync(CancellationToken cancellationToken, long sequence)
     {
+        // JEDEN jawny komunikat PRZED czekaniem. Bez niego dlugie oczekiwanie
+        // wyglada jak zawieszenie, a czytnik powtarza STARY wynik jak nowy.
+        AnnounceLoading(SonosDeviceLabels.LoadingHouseholds);
+
         var result = await readHouseholds(cancellationToken).ConfigureAwait(true);
         if (closed || sequence != requestSequence)
         {
@@ -209,23 +319,33 @@ public partial class SonosDevicesWindow
             HouseholdBox.Items.Add(label);
         }
 
-        // Jeden dom jest naturalnie domyslny; przy wielu tez zaczynamy od
-        // pierwszego, zeby lista grup nie byla pusta bez powodu.
-        HouseholdBox.SelectedIndex = households.Count > 0 ? 0 : -1;
+        // ODSWIEZENIE NIE GUBI WYBORU: dom wskazany przez uzytkownika wraca PO
+        // IDENTYFIKATORZE, takze gdy Sonos zwrocil domy w innej kolejnosci.
+        // Dopiero gdy ten dom faktycznie zniknal, wracamy do pierwszego.
+        var restored = requestedHouseholdId is null
+            ? -1
+            : households.FindIndex(h => string.Equals(h.Id, requestedHouseholdId, StringComparison.Ordinal));
+        HouseholdBox.SelectedIndex = households.Count == 0
+            ? -1
+            : restored >= 0 ? restored : 0;
         suppressSelectionReload = false;
 
         HouseholdPanel.Visibility = households.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         var summary = SonosDeviceLabels.DescribeHouseholds(result);
         SetInstruction(summary);
-        Announce(summary);
 
         if (households.Count == 0)
         {
+            // Pusta lista to KONIEC operacji, wiec tutaj wynik trzeba oglosic.
+            Announce(summary);
             SelectedHouseholdId = null;
+            requestedHouseholdId = null;
             ClearLists();
             return;
         }
 
+        // Nie oglaszamy tu nic wiecej: operacja trwa dalej i konczy sie JEDNYM
+        // komunikatem o topologii wybranego domu (bez podwojnego czytania).
         await LoadGroupsForSelectionAsync(cancellationToken, sequence).ConfigureAwait(true);
     }
 
@@ -240,6 +360,12 @@ public partial class SonosDevicesWindow
         var household = households[index];
         var label = SonosDeviceLabels.DescribeHousehold(household, index + 1);
         SelectedHouseholdId = household.Id;
+
+        // Wybor uzytkownika zapisany PO ID: odswiezenie ma go odtworzyc.
+        requestedHouseholdId = household.Id;
+
+        // Oczekiwanie na topologie tez jest jawne.
+        AnnounceLoading(SonosDeviceLabels.LoadingTopology);
 
         var result = await readGroups(household.Id, cancellationToken).ConfigureAwait(true);
         if (closed || sequence != requestSequence)
@@ -345,6 +471,10 @@ public partial class SonosDevicesWindow
     internal IReadOnlyList<string> HouseholdChoices => Snapshot(HouseholdBox.Items);
 
     internal bool IsHouseholdChoiceVisible => HouseholdPanel.Visibility == Visibility.Visible;
+
+    /// <summary>Nazwa kontrolki z fokusem - kwit fokusu dla testow bez GUI.</summary>
+    internal string FocusedControlName =>
+        FocusManager.GetFocusedElement(this) is FrameworkElement element ? element.Name : string.Empty;
 
     private static IReadOnlyList<string> Snapshot(ListBox list) => Snapshot(list.Items);
 

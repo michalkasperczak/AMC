@@ -26,6 +26,25 @@ public static class SonosDeviceLabels
 
     public const string PlaybackUnknown = "stan odtwarzania nieznany";
 
+    /// <summary>
+    /// Komunikat OCZEKIWANIA na liste domow. Jawny, zeby dlugie czekanie nie
+    /// wygladalo jak zawieszenie i nie udawalo starego wyniku.
+    /// </summary>
+    public const string LoadingHouseholds = "Odczytuję domy Sonos. Czekaj.";
+
+    /// <summary>Komunikat OCZEKIWANIA na grupy i glosniki wybranego domu.</summary>
+    public const string LoadingTopology = "Odczytuję grupy i głośniki Sonos. Czekaj.";
+
+    /// <summary>
+    /// Etykieta domu z PRZEDIMKIEM "Dom" - do zdan podsumowania. Nazwa wlasna
+    /// dostaje przedimek, ale zastepcze "Dom Sonos 2" juz go ma, wiec nie
+    /// dokladamy drugiego ("Dom Dom Sonos 2").
+    /// </summary>
+    private static string WithHouseholdPrefix(string householdLabel) =>
+        householdLabel.StartsWith("Dom ", StringComparison.Ordinal) || householdLabel == "Dom"
+            ? householdLabel
+            : "Dom " + householdLabel;
+
     /// <summary>Nazwa domu do ZWYKLEJ etykiety. Bez householdId.</summary>
     public static string DescribeHousehold(SonosHousehold household, int ordinal)
     {
@@ -111,10 +130,10 @@ public static class SonosDeviceLabels
         var topology = result.Topology;
         if (topology.IsEmpty)
         {
-            return "Dom " + householdLabel + " nie ma podłączonych głośników Sonos.";
+            return WithHouseholdPrefix(householdLabel) + " nie ma podłączonych głośników Sonos.";
         }
 
-        var text = "Dom " + householdLabel
+        var text = WithHouseholdPrefix(householdLabel)
             + ": grup " + topology.Groups.Count.ToString(CultureInfo.InvariantCulture)
             + ", głośników " + topology.Players.Count.ToString(CultureInfo.InvariantCulture)
             + ".";

@@ -78,7 +78,7 @@
 
             <StackPanel Grid.Column="1" Margin="6,0,0,0">
                 <Label x:Name="PlayersLabel" Target="{Binding ElementName=PlayersList}"
-                       Content="_Głośniki" />
+                       Content="Głośni_ki" />
                 <ListBox x:Name="PlayersList" Height="180" TabIndex="30"
                          automation:AutomationProperties.Name="Głośniki Sonos i udział w grupie" />
             </StackPanel>

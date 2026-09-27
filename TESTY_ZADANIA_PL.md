@@ -1,5 +1,13 @@
 # Zadania testowe AMC
 
+## Sonos: lista urządzeń — poprawki wyścigu kont, fokusu i wyboru domu (po alfa412)
+
+- Zmierzone, nie deklarowane: przed poprawkami runner `--sonos-device-read` dawał 16/18 (dwa nowe przypadki wyścigu na czerwono), po poprawkach 18/18. Runner Windows `--sonos-devices-window` 56/56 (było 47/47 bez nowych pomiarów). Pozostałe zestawy zielone bez zmian: `--sonos-control-api` 69/69, `--sonos-account-coordinator` 26/26, `--sonos-account-wiring` 19/19.
+- Każda z czterech poprawek sprawdzona na rozróżnialność: po punktowym cofnięciu samej poprawki odpowiedni test faktycznie pada (stary wybór domu → „Odświeżenie przestawiło wybór na Sonos_1.a”; brak komunikatu → „ogłosiło ładowanie 0 razy”; brak ratunku fokusu → fokus zostaje na wyłączanym przycisku; stary przedimek → „Dom Dom Sonos 1”).
+- Wyścig kont mierzony PRAWDZIWĄ drogą nowego logowania (`BeginLoginAsync` + `CheckLoginAsync`), bez pomocnika pomiarowego: stara operacja kończy się jako porzucona, nie odnawia dostępu nowego konta, nie wysyła żądania jego tokenem i nie kasuje jego poświadczeń. Osobna sonda poza repozytorium potwierdza także wariant, w którym błędne odnowienie skończyłoby się żądaniem ponownego logowania od brokera.
+- Zakres pomiarów UI: prawdziwe kontrolki WPF konstruowane na wątku STA, bez `Show`, `ShowDialog`, `Activate` i `EnsureHandle`; HTTP i magazyn syntetyczne. Zero kont, zero sieci, zero nagrań.
+- CZEGO TO NIE DOWODZI: nie jest to pomiar żywej mowy NVDA po tych poprawkach. Do potwierdzenia u właściciela pulpitu pozostaje wypowiadany komunikat ładowania, faktyczny fokus po odświeżeniu oraz Escape/ponowne otwarcie i powrót na przycisk urządzeń — ten ostatni przebieg nie został zmierzony także wcześniej (watchdog przerwał pomiar). Nie ma tu wydania, instalacji ani publikacji.
+
 ## Sonos: odczyt urządzeń — warstwa Core, bez UI
 
 - Runner Core: `--sonos-control-api`; ten sam zestaw jest w pełnej tabeli testów. Wszystkie odpowiedzi są syntetyczne, bez użycia konta lub rzeczywistego API.

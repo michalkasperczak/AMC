@@ -280,16 +280,23 @@ public sealed partial class SonosAccountCoordinator
     }
 
     /// <summary>
-    /// Uzywa ISTNIEJACEGO <see cref="RefreshAsync"/> - bez wlasnej kopii logiki
-    /// odnawiania. Po powrocie ponownie bierze bilet, bo odnowienie zmienia
-    /// generacje zestawu.
+    /// Uzywa ISTNIEJACEJ, centralnej logiki odnawiania (<see cref="RefreshCoreAsync"/>)
+    /// - bez wlasnej kopii i bez dodatkowego zewnetrznego locka na I/O.
+    ///
+    /// <paramref name="generation"/> jest WARUNKIEM WSTEPNYM sprawdzanym ATOMOWO
+    /// pod ta sama blokada, pod ktora odnowienie startuje albo dolacza. Jesli
+    /// konto zmienilo sie wczesniej (nowe logowanie, Disconnect), NIE leci zadne
+    /// zapytanie odnowienia i odczyt konczy sie PORZUCENIEM. Po powrocie wynik
+    /// jest kotwiczony w DOKLADNYM zestawie zainstalowanym TYM odnowieniem, nie
+    /// w dowolnej biezacej migawce - swieza generacja nie legalizuje starej
+    /// operacji.
     /// </summary>
     private async Task<RenewOutcome> RenewForReadAsync(long generation, CancellationToken cancellationToken)
     {
-        SonosAccountRefreshResult refresh;
+        RefreshRun run;
         try
         {
-            refresh = await RefreshAsync(cancellationToken).ConfigureAwait(false);
+            run = await RefreshCoreAsync(generation, cancellationToken).ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
@@ -305,10 +312,29 @@ public sealed partial class SonosAccountCoordinator
                 false, null, generation, false);
         }
 
+        if (run.GenerationMismatch)
+        {
+            // Konto zmienilo sie PRZED naszym odnowieniem: zero zapytan do bramki,
+            // zero odczytu nowego konta.
+            return new RenewOutcome(
+                new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, false, run.Result.Snapshot),
+                false, null, generation, false);
+        }
+
+        var refresh = run.Result;
         if (refresh.RefreshStatus == SonosRefreshStatus.Canceled)
         {
             return new RenewOutcome(
                 new ReadAttempt(SonosDeviceReadStatus.Canceled, null, null, false, refresh.Snapshot),
+                false, null, generation, false);
+        }
+
+        if (refresh.Discarded)
+        {
+            // Odpowiedz odnowienia byla SPOZNIONA wobec nowszego zestawu: nasza
+            // operacja tez jest stara.
+            return new RenewOutcome(
+                new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, false, refresh.Snapshot),
                 false, null, generation, false);
         }
 
@@ -317,15 +343,16 @@ public sealed partial class SonosAccountCoordinator
             if (disposed)
             {
                 return new RenewOutcome(
-                    new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, refresh.Renewed, refresh.Snapshot),
+                    new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, false, EmptySnapshot()),
                     false, null, generation, false);
             }
 
-            if (current is null)
+            if (run.Invalidated || current is null)
             {
                 // Odnowienie skonczylo sie wylogowaniem (dokladne 401 brokera)
                 // albo konto zniklo w trakcie.
-                var status = refresh.RefreshStatus == SonosRefreshStatus.ReauthorizationRequired
+                var status = run.Invalidated
+                    || refresh.RefreshStatus == SonosRefreshStatus.ReauthorizationRequired
                     ? SonosDeviceReadStatus.Unauthorized
                     : SonosDeviceReadStatus.NoAccount;
                 return new RenewOutcome(
@@ -333,14 +360,33 @@ public sealed partial class SonosAccountCoordinator
                     false, null, generation, false);
             }
 
-            if (!refresh.Renewed)
+            if (run.InstalledCredentials is null)
             {
-                // Nie udalo sie odnowic, ale konto zyje: wolajacy zdecyduje, czy
-                // to koniec (brak powtorzenia).
-                return new RenewOutcome(null, false, current.Tokens.AccessToken, credentialGeneration, false);
+                // Nie udalo sie odnowic, ale konto zyje i to NADAL nasz zestaw:
+                // wolajacy zdecyduje, czy to koniec (brak powtorzenia).
+                if (credentialGeneration != generation)
+                {
+                    return new RenewOutcome(
+                        new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, false, CreateSnapshot()),
+                        false, null, generation, false);
+                }
+
+                return new RenewOutcome(null, false, current.Tokens.AccessToken, generation, false);
             }
 
-            return new RenewOutcome(null, true, current.Tokens.AccessToken, credentialGeneration, CanRenewLocked());
+            // KOTWICA: legalny jest WYLACZNIE zestaw zainstalowany TYM odnowieniem
+            // i tylko dopoki nadal obowiazuje. Cokolwiek innego (nowe logowanie w
+            // czasie odnawiania) oznacza porzucenie starej operacji.
+            if (!ReferenceEquals(current, run.InstalledCredentials)
+                || credentialGeneration != run.InstalledGeneration)
+            {
+                return new RenewOutcome(
+                    new ReadAttempt(SonosDeviceReadStatus.Discarded, null, null, false, CreateSnapshot()),
+                    false, null, generation, false);
+            }
+
+            return new RenewOutcome(
+                null, true, run.InstalledCredentials.Tokens.AccessToken, run.InstalledGeneration, CanRenewLocked());
         }
     }
 
