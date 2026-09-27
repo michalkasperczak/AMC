@@ -66,7 +66,7 @@ public sealed class SonosLoginClientGateway : ISonosLoginGateway
 /// tylko "sprawdzone przed awaitem". Pod blokada nie wolamy niczyich callbackow,
 /// a na zewnatrz oddajemy wylacznie niemutowalne migawki.
 /// </summary>
-public sealed class SonosAccountCoordinator : IDisposable
+public sealed partial class SonosAccountCoordinator : IDisposable
 {
     private readonly ISonosLoginGateway gateway;
     private readonly ISonosCredentialStore store;

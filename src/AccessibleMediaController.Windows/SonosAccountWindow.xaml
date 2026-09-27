@@ -54,6 +54,10 @@
                         TabIndex="60"
                         automation:AutomationProperties.Name="Wyloguj z Sonos"
                         Click="Disconnect_Click" />
+                <Button x:Name="DevicesButton" Content="_Głośniki i grupy…" Margin="0,0,8,8"
+                        TabIndex="65"
+                        automation:AutomationProperties.Name="Głośniki i grupy"
+                        Click="Devices_Click" />
                 <Button x:Name="CloseButton" Content="Za_mknij" IsCancel="True" Margin="0,0,0,8"
                         TabIndex="70"
                         automation:AutomationProperties.Name="Zamknij"

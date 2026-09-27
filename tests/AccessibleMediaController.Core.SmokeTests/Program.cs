@@ -72,6 +72,11 @@ if (args.Length == 1 && args[0] == "--sonos-account-command")
     try { SonosAccountCommandRoutingTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-device-read")
+{
+    try { SonosDeviceReadTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
@@ -85,6 +90,7 @@ var tests = new (string Name, Action Test)[]
         SonosAccountCoordinatorTests.Run),
     ("Polecenie konta Sonos w routerze, katalogu i palecie",
         SonosAccountCommandRoutingTests.Run),
+    ("Odczyt domow, grup i glosnikow Sonos przez konto", SonosDeviceReadTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
