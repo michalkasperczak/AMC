@@ -32,6 +32,7 @@
     <Compile Include="GlobalUsings.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Fixture.cs" />
+    <Compile Include="FocusCases.cs" />
 
     <!-- Koordynator i kontrakty Sonos (ODEBRANE, niezmieniane). -->
     <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosLoginContract.cs">

@@ -51,6 +51,13 @@ internal static class Program
             return FixtureMode.Run(args);
         }
 
+        // POKAZANY pomiar prawdziwego fokusu klawiatury po znikniecu przycisku.
+        // Osobny tryb, bo wymaga ShowDialog i wlasnego okna pierwszego planu.
+        if (args.Contains("--focus-cases", StringComparer.Ordinal))
+        {
+            return FocusCases.Run(args);
+        }
+
         try
         {
             MeasureInstructionAndTabOrder();

@@ -97,6 +97,13 @@ internal sealed class FakeGateway : ISonosLoginGateway
     /// <summary>Bramka CZASOWA: pozwala zamknac okno w trakcie trwajacej operacji.</summary>
     internal Task? StartBarrier { get; set; }
 
+    /// <summary>
+    /// Bramka CZASOWA sprawdzenia: pozwala przeniesc fokus gdzie indziej, ZANIM
+    /// wynik wroci i schowa przycisk. Bez niej nie da sie zmierzyc ochrony fokusu
+    /// uzytkownika przy spoznionym zakonczeniu.
+    /// </summary>
+    internal Task? FetchBarrier { get; set; }
+
     internal int StartCalls { get; private set; }
 
     internal int FetchCalls { get; private set; }
@@ -121,12 +128,17 @@ internal sealed class FakeGateway : ISonosLoginGateway
         return StartResult ?? Outcomes.StartFailure(SonosLoginStatus.BrokerUnreachable);
     }
 
-    public Task<SonosLoginResultOutcome> FetchResultAsync(
+    public async Task<SonosLoginResultOutcome> FetchResultAsync(
         SonosLoginSession session,
         CancellationToken cancellationToken)
     {
         FetchCalls++;
-        return Task.FromResult(FetchResult ?? Outcomes.FetchFailure(SonosLoginStatus.Pending));
+        if (FetchBarrier is not null)
+        {
+            await FetchBarrier.ConfigureAwait(false);
+        }
+
+        return FetchResult ?? Outcomes.FetchFailure(SonosLoginStatus.Pending);
     }
 
     public Task<SonosRefreshOutcome> RefreshAsync(string? refreshToken, CancellationToken cancellationToken)
@@ -383,6 +395,12 @@ internal static class FixtureMode
         var application = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
 
         // Otwieracz TESTOWY: zapisuje adres do kwitu, nie uruchamia przegladarki.
+        //
+        // APARATURA: w trybie WIDOCZNYM sink jest NULL, wiec komunikaty ida
+        // PRAWDZIWYM announcerem produkcji (UIA notification). Testowy sink
+        // polykal je i przez to podglad mowy nie mogl niczego pokazac. Licznik i
+        // tresc bierzemy z OBSERWACJI zmian Text, nie ze sterowania mowa.
+        // Tryb domyslny (bez GUI) nadal uzywa atrapy odbiornika.
         var window = new SonosAccountWindow(
             coordinator,
             uri =>
@@ -391,7 +409,12 @@ internal static class FixtureMode
                 return true;
             },
             () => true,
-            message => announcements.Add(message));
+            announcementSink: null);
+
+        var status = (System.Windows.Controls.TextBlock)window.FindName("OperationStatusText");
+        System.ComponentModel.DependencyPropertyDescriptor
+            .FromProperty(System.Windows.Controls.TextBlock.TextProperty, typeof(System.Windows.Controls.TextBlock))
+            .AddValueChanged(status, (_, _) => announcements.Add(status.Text));
 
         window.Title = FixtureTitle;
 

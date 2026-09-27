@@ -154,11 +154,107 @@ public partial class SonosAccountWindow
         CloseButton.Visibility = Visibility.Visible;
     }
 
+    /// <summary>
+    /// Ukrycie przycisku, ktory WLASNIE ma fokus, zostawia fokus na samym oknie:
+    /// czytnik ekranu oglasza wtedy rolne "okno dialogowe" i czyta CALY dialog od
+    /// nowa, a klawiatura traci punkt zaczepienia. Dlatego przed schowaniem
+    /// takiego przycisku fokus przechodzi na sasiednia UZYWALNA kontrolke.
+    ///
+    /// Zamierzone granice: ruszamy fokus TYLKO wtedy, gdy znikajacy przycisk sam
+    /// go trzyma (kiedy uzytkownik odszedl gdzie indziej - nie dotykamy), i tylko
+    /// wewnatrz tego okna, bez Activate, bez Focus() na oknie i bez opoznien.
+    /// Gdy fokus jest poza tym oknem, poprawiamy WYLACZNIE punkt powrotu okna,
+    /// wiec nieaktywne okno niczego nie zabiera pierwszemu planowi.
+    /// </summary>
     private void SetAvailability(Button button, bool applicable)
     {
+        var hides = !applicable && button.Visibility == Visibility.Visible;
+        if (hides)
+        {
+            RescueFocusBefore(button);
+        }
+
         button.Visibility = applicable ? Visibility.Visible : Visibility.Collapsed;
         button.IsEnabled = applicable && !busy;
     }
+
+    /// <summary>
+    /// Przenosi punkt fokusu z przycisku, ktory zaraz zniknie, na pierwsza
+    /// UZYWALNA kontrolke tego okna. Nie wymusza aktywacji okna: gdy fokus
+    /// klawiatury jest gdzie indziej, zmieniany jest tylko punkt powrotu.
+    /// </summary>
+    private void RescueFocusBefore(Button vanishing)
+    {
+        var keyboardHere = ReferenceEquals(Keyboard.FocusedElement, vanishing);
+        var logicalHere = ReferenceEquals(FocusManager.GetFocusedElement(this), vanishing);
+        if (!keyboardHere && !logicalHere)
+        {
+            return;
+        }
+
+        var fallback = FocusFallbackFor(vanishing);
+        if (fallback is null)
+        {
+            return;
+        }
+
+        // Punkt powrotu okna ustawiany zawsze - to on decyduje, gdzie wroci
+        // uzytkownik, i nie przejmuje pierwszego planu.
+        FocusManager.SetFocusedElement(this, fallback);
+
+        // Prawdziwy fokus klawiatury ruszamy WYLACZNIE wtedy, gdy trzymal go
+        // znikajacy przycisk, czyli gdy i tak zaraz by go stracil.
+        if (keyboardHere)
+        {
+            Keyboard.Focus(fallback);
+        }
+    }
+
+    /// <summary>
+    /// Wybiera stabilny punkt zapasowy: najpierw widoczny i wlaczony przycisk
+    /// SASIEDNI w tej samej kolejnosci tabulacji, a gdy takiego nie ma - pole
+    /// instrukcji, ktore jest dostepne i zawsze obecne.
+    /// </summary>
+    private IInputElement? FocusFallbackFor(Button vanishing)
+    {
+        // Kolejnosc odpowiada kolejnosci tabulacji w oknie - punkt zapasowy jest
+        // wiec przewidywalny, a nie zalezny od chwilowego stanu.
+        Button[] order =
+        {
+            LoginButton,
+            CheckLoginButton,
+            CancelLoginButton,
+            RefreshButton,
+            RetryPersistButton,
+            DisconnectButton,
+            CloseButton,
+        };
+
+        var index = Array.IndexOf(order, vanishing);
+        if (index >= 0)
+        {
+            for (var next = index + 1; next < order.Length; next++)
+            {
+                if (IsUsableFocusTarget(order[next]))
+                {
+                    return order[next];
+                }
+            }
+
+            for (var previous = index - 1; previous >= 0; previous--)
+            {
+                if (IsUsableFocusTarget(order[previous]))
+                {
+                    return order[previous];
+                }
+            }
+        }
+
+        return InstructionBox;
+    }
+
+    private static bool IsUsableFocusTarget(Button candidate) =>
+        candidate.Visibility == Visibility.Visible && candidate.IsEnabled;
 
     private void Apply(SonosAccountSnapshot updated)
     {
