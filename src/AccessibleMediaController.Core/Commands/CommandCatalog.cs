@@ -203,6 +203,8 @@ public static class CommandCatalog
             CommandIds.SettingsOpenPlayerWhenActivatingPreset => "Ustawienia: otwieraj odtwarzacz po uruchomieniu presetu",
             CommandIds.SettingsRememberLocalPlaybackPositions => "Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików",
             CommandIds.SettingsKeepAudioEditBackups => "Ustawienia: zachowuj kopie po edycji",
+            CommandIds.SettingsStayOnListAfterRadioEnter =>
+                "Ustawienia: pozostawaj na liście po uruchomieniu stacji Enterem",
             CommandIds.SettingsLoudnessNormalization => "Ustawienia: globalna normalizacja głośności",
             CommandIds.SettingsSmoothTrackTransitions => "Ustawienia: łagodne przejścia między utworami",
             CommandIds.SettingsInterTrackSilence => "Ustawienia: cisza między utworami",

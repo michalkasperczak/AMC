@@ -44,6 +44,10 @@
                             <CheckBox x:Name="OpenPlayerWhenActivatingPresetCheck" Margin="0,0,0,8"
                                       Content="Po uruchomieniu presetu _otwieraj odtwarzacz"
                                       automation:AutomationProperties.HelpText="Wyłączone: preset rozpoczyna odtwarzanie w tle, a fokus pozostaje w bieżącym widoku. Jeżeli odtwarzacz jest już otwarty, pozostaje otwarty niezależnie od tego ustawienia." />
+                            <CheckBox x:Name="StayOnListAfterRadioEnterCheck" Margin="0,0,0,8"
+                                      Content="Pozostawaj na li_ście po uruchomieniu stacji Enterem"
+                                      automation:AutomationProperties.Name="Pozostawaj na liście po uruchomieniu stacji Enterem"
+                                      automation:AutomationProperties.HelpText="Dotyczy sesji Radio internetowe. Włączone: Enter na stacji rozpoczyna odtwarzanie, ale nie otwiera odtwarzacza — lista, zaznaczenie i fokus zostają na miejscu, a do grającego odtwarzacza przechodzisz klawiszem F6. Wyłączone: Enter jak dotąd od razu pokazuje odtwarzacz. Ustawienie nie zmienia Spacji, menu, innych sesji ani presetów, które mają własną opcję otwierania odtwarzacza." />
                             <CheckBox x:Name="RememberLocalPlaybackPositionsCheck" Margin="0,0,0,8"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />

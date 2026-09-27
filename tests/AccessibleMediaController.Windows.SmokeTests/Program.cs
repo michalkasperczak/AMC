@@ -207,6 +207,21 @@ if (args.Contains("--audio-edit-backup-settings", StringComparer.Ordinal))
 {
     AudioEditBackupSettingsTests.Run(); return 0;
 }
+// Waskie przelaczniki opcji „Pozostawaj na liscie po uruchomieniu stacji
+// Enterem”: --radio-enter-stay-model mierzy model, zapis i palete bez okien,
+// --radio-enter-stay-controls samo okno Ustawien, --radio-enter-stay komplet.
+if (args.Contains("--radio-enter-stay-model", StringComparer.Ordinal))
+{
+    RadioEnterStaysOnListTests.RunModel(); return 0;
+}
+if (args.Contains("--radio-enter-stay-controls", StringComparer.Ordinal))
+{
+    RadioEnterStaysOnListTests.RunControls(); return 0;
+}
+if (args.Contains("--radio-enter-stay", StringComparer.Ordinal))
+{
+    RadioEnterStaysOnListTests.Run(); return 0;
+}
 if (args.Contains("--audio-edit-backups", StringComparer.Ordinal))
 {
     return Task.Run(AudioEditBackupRetentionTests.Run).GetAwaiter().GetResult();
@@ -409,6 +424,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczne powielanie planu nagrywania", RadioScheduleCopyTests.Run),
     ("Proste powiązania Spotify z klawiatury", SpotifyRelationsAcceptanceTests.Run),
     ("Ustawienie kopii po edycji i jego dostępność", AudioEditBackupSettingsTests.Run),
+    ("Pozostawanie na liście po uruchomieniu stacji Enterem", RadioEnterStaysOnListTests.Run),
     ("Bezpieczne sprzątanie nowych kopii po edycji", () => {
         if (Task.Run(AudioEditBackupRetentionTests.Run).GetAwaiter().GetResult() != 0)
             throw new Exception("Nie przeszły testy kopii po edycji");

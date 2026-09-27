@@ -13968,12 +13968,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     QueueStateSave();
             }
             RefreshPlaybackIndicators();
-            ShowPlayerView();
+            // Opcja „Pozostawaj na liscie po uruchomieniu stacji Enterem”:
+            // odtwarzanie wyzej JUZ sie rozpoczelo, wiec pomijamy tylko zmiane
+            // widoku. Lista, zaznaczenie i fokus zostaja nietkniete, a do
+            // grajacego odtwarzacza prowadzi F6. Dotyczy WYLACZNIE stacji w
+            // sesji radia; utwory, odcinki, inne sesje i presety bez zmian.
+            if (!ShouldStayOnListAfterRadioEnter(session, item))
+            {
+                ShowPlayerView();
+            }
             return;
         }
         NavigateTo(item.Title);
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
     }
+
+    /// <summary>
+    /// Czy Enter na tym elemencie ma zostac na liscie zamiast otwierac widok
+    /// odtwarzacza. Warunek jest waski celowo: sesja radia, rodzaj Station i
+    /// wlaczone ustawienie. Odtwarzanie rozpoczyna sie NIEZALEZNIE od tego -
+    /// ta metoda decyduje wylacznie o zmianie widoku.
+    /// </summary>
+    private bool ShouldStayOnListAfterRadioEnter(DemoMediaSession session, MediaItem item) =>
+        _state.Settings.StayOnListAfterRadioEnter
+        && item.Kind == MediaItemKind.Station
+        && string.Equals(session.Id, "radio", StringComparison.Ordinal);
 
     private void PreparePlaybackContextForCurrentView(DemoMediaSession session, MediaItem selectedItem)
     {

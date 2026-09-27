@@ -102,6 +102,8 @@ public static class CommandPaletteSearch
                 $"Zakres automatycznego rozpoznawania radia: {RadioRecognitionScopeRules.GetLabel(radioSettings?.AutomaticTrackRecognitionScope ?? RadioRecognitionScope.CurrentStation)}. Enter: ustawienia",
             CommandIds.SettingsKeepAudioEditBackups =>
                 $"Zachowuj kopie po edycji: {OnOff(settings.KeepAudioEditBackups)}. Enter: ustawienia",
+            CommandIds.SettingsStayOnListAfterRadioEnter =>
+                $"Pozostawaj na liście po uruchomieniu stacji Enterem: {OnOff(settings.StayOnListAfterRadioEnter)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
                 $"Globalna normalizacja głośności: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
             CommandIds.SettingsSmoothTrackTransitions =>

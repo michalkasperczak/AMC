@@ -12,6 +12,7 @@ public enum SettingsTarget
     OpenPlayerWhenActivatingPreset,
     RememberLocalPlaybackPositions,
     KeepAudioEditBackups,
+    StayOnListAfterRadioEnter,
     CustomSeekLength,
     LoudnessNormalization,
     SmoothTrackTransitions,

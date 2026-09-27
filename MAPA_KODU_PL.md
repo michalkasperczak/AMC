@@ -1,5 +1,15 @@
 # AMC — mapa kodu
 
+## Pozostawaj na liście po uruchomieniu stacji Enterem (ustawienie globalne)
+
+- `Core/Configuration/AppSettings.cs`: `StayOnListAfterRadioEnter`, domyślnie `false`. Stary zapis bez tej własności też daje `false`, więc aktualizacja niczego nie włącza po cichu.
+- `MainWindow.ActivateSelected` (gałąź `Track or Station or Episode`) rozpoczyna odtwarzanie jak dotąd; zmieniona jest WYŁĄCZNIE jedna linia — `ShowPlayerView()` stoi teraz pod `!ShouldStayOnListAfterRadioEnter(session, item)`. Lista, jej zaznaczenie i fokus nie są dotykane, bo nic poza widokiem się nie zmienia.
+- `MainWindow.ShouldStayOnListAfterRadioEnter` to cały warunek: włączone ustawienie ORAZ `MediaItemKind.Station` ORAZ sesja o identyfikatorze `radio`. Utwory i odcinki (także w sesji radia), inne sesje, Spacja, gesty i menu idą starą drogą.
+- Presety mają własne `OpenPlayerWhenActivatingPreset` w `ActivatePreset` i nowa opcja ich nie dotyka — to osobne pole, osobny `SettingsTarget` i osobne polecenie.
+- `SettingsWindow.xaml(.cs)`: `StayOnListAfterRadioEnterCheck` w zakładce Ogólne, między opcją presetu a pamięcią pozycji plików. `AutomationProperties.Name`/`HelpText` mówią, czego dotyczy (sesja radia, Enter na liście), że odtwarzanie mimo wszystko startuje, że do odtwarzacza przechodzi się F6 oraz że presety mają własną opcję.
+- Dojście z palety: `CommandIds.SettingsStayOnListAfterRadioEnter` = `settings.radio.stayOnListAfterEnter`, nazwa w `CommandCatalog`, stan włączone/wyłączone w `CommandPaletteSearch`, cel `SettingsTarget.StayOnListAfterRadioEnter` w `CommandRouter` — ten sam wzorzec co `KeepAudioEditBackups`.
+- `RadioEnterStaysOnListTests` mierzy obie wartości; `--radio-enter-stay-model`, `--radio-enter-stay-controls`, `--radio-enter-stay`.
+
 ## Procenty bufora transmisji (TimeShift)
 
 - `RadioMediaOutput.TryGetBufferedSeekPosition` odczytuje pod blokadą rzeczywisty zakres bufora i zwraca bezwzględną pozycję strumienia. Uwzględnia częściowe zapełnienie oraz nadpisanie najstarszych danych.

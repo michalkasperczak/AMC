@@ -121,6 +121,18 @@ public sealed class AppSettings
     public bool KeepAudioEditBackups { get; set; }
 
     /// <summary>
+    /// Enter na stacji w sesji Radio internetowe ROZPOCZYNA odtwarzanie, ale nie
+    /// otwiera widoku odtwarzacza: lista, jej zaznaczenie i fokus zostaja tam,
+    /// gdzie byly. Do grajacego odtwarzacza przechodzi sie wtedy F6.
+    ///
+    /// Domyslnie WYLACZONE - bez tego ustawienia Enter dziala dokladnie jak
+    /// dotad (gra i pokazuje odtwarzacz). Ustawienie dotyczy WYLACZNIE sesji
+    /// radia i wylacznie Entera na liscie; Spacja, gesty, menu, inne sesje oraz
+    /// presety (te maja wlasne OpenPlayerWhenActivatingPreset) sa nietkniete.
+    /// </summary>
+    public bool StayOnListAfterRadioEnter { get; set; }
+
+    /// <summary>
     /// Dlugosc przeskoku pod Alt+Ctrl+strzalka w lewo i w prawo, w sekundach.
     /// Osobna od stalych krokow 10/30/60 s - sluzy do przechodzenia po dlugich
     /// nagraniach (audycja, mecz, sluchowisko), dlatego domyslnie 5 minut.

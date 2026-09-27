@@ -92,6 +92,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
             SettingsTarget.KeepAudioEditBackups => (GeneralTab, KeepAudioEditBackupsCheck),
+            SettingsTarget.StayOnListAfterRadioEnter => (GeneralTab, StayOnListAfterRadioEnterCheck),
             SettingsTarget.CustomSeekLength => (GeneralTab, CustomSeekSecondsCombo),
             SettingsTarget.LoudnessNormalization => (GeneralTab, LoudnessNormalizationCheck),
             SettingsTarget.SmoothTrackTransitions => (GeneralTab, SmoothTrackTransitionsCheck),
@@ -150,6 +151,7 @@ public partial class SettingsWindow : Window
         GlobalTransientPreviewsCheck.IsChecked = _workingState.Settings.GlobalTransientPreviews;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
+        StayOnListAfterRadioEnterCheck.IsChecked = _workingState.Settings.StayOnListAfterRadioEnter;
         KeepAudioEditBackupsCheck.IsChecked = _workingState.Settings.KeepAudioEditBackups;
         LoadCustomSeekChoices();
         LoudnessNormalizationCheck.IsChecked = _workingState.Settings.Audio.LoudnessNormalizationEnabled;
@@ -286,6 +288,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.GlobalTransientPreviews = GlobalTransientPreviewsCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        _workingState.Settings.StayOnListAfterRadioEnter = StayOnListAfterRadioEnterCheck.IsChecked == true;
         _workingState.Settings.KeepAudioEditBackups = KeepAudioEditBackupsCheck.IsChecked == true;
         _workingState.Settings.CustomSeekSeconds = ReadCustomSeekSeconds();
         _workingState.Settings.Audio.LoudnessNormalizationEnabled = LoudnessNormalizationCheck.IsChecked == true;

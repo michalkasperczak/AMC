@@ -5,6 +5,15 @@
 - Wersja programu: `0.1.0-alpha.404`
 - Bieżące scenariusze: `TESTY_0.1.0-alpha.404_PL.md`
 
+## Pozostawanie na liście po uruchomieniu stacji Enterem
+
+- Ustawienie domyślnie wyłączone: Enter na stacji działa jak dotąd — gra i pokazuje odtwarzacz. Stary `state.json` bez tej własności też ma ją wyłączoną.
+- Po włączeniu w Ustawieniach → Ogólne: Enter na stacji w sesji Radio internetowe rozpoczyna odtwarzanie, ale zostaje na liście. Zaznaczenie i fokus bez zmian, odtwarzacz się nie otwiera.
+- F6 przechodzi do grającego odtwarzacza i nie zmienia odtwarzania.
+- Bez zmian: Spacja, gesty, menu, utwory i odcinki, inne sesje oraz presety (te mają własną opcję „Po uruchomieniu presetu otwieraj odtwarzacz”).
+- Automatyczne próby bez sieci, kont i dźwięku: runner Windows z `--radio-enter-stay` (komplet), `--radio-enter-stay-model` (model, zapis, paleta, bez okien), `--radio-enter-stay-controls` (samo okno Ustawień). Pełny runner zawiera pozycję „Pozostawanie na liście po uruchomieniu stacji Enterem”.
+- NIEODEBRANE ręcznie: wygląd i odczyt nowego pola w żywym NVDA oraz `Window.Activate()` przy F6 (w trybie bez GUI aktywacji okna nie sprawdzamy — mierzone jest samo przełączenie widoku).
+
 ## Alfa 397 — komunikat premiery YouTube
 
 - Przed rozpoczęciem premiery link pozostaje na liście.

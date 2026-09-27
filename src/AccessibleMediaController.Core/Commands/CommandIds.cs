@@ -183,6 +183,7 @@ public static class CommandIds
     public const string SettingsOpenPlayerWhenActivatingPreset = "settings.playback.openPlayerForPreset";
     public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";
     public const string SettingsKeepAudioEditBackups = "settings.editing.keepBackups";
+    public const string SettingsStayOnListAfterRadioEnter = "settings.radio.stayOnListAfterEnter";
     public const string SettingsLoudnessNormalization = "settings.playback.loudnessNormalization";
     public const string SettingsSmoothTrackTransitions = "settings.playback.smoothTrackTransitions";
     public const string SettingsInterTrackSilence = "settings.playback.interTrackSilence";
