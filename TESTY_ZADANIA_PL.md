@@ -1,5 +1,13 @@
 # Zadania testowe AMC
 
+## Sonos: odczyt urządzeń — warstwa Core, bez UI
+
+- Runner Core: `--sonos-control-api`; ten sam zestaw jest w pełnej tabeli testów. Wszystkie odpowiedzi są syntetyczne, bez użycia konta lub rzeczywistego API.
+- Sprawdza dwa żądania GET i nagłówki, pełne/puste/częściowe listy, brak nazw domów, zachowanie liczności, błędne odpowiedzi, odmowę dostępu i limity, brak ponowień i echa danych w błędach.
+- Sprawdza stały host, brak przekierowań, budżet całego odczytu oraz anulowanie podczas ciała, limit danych, UTF-8 i niedozwolone wejście bez wysłania HTTP.
+- Odbiór lokalny po poprawkach: 69/69 na Windows i WSL; pełny Core na Windows z dołączonymi źródłami i build.ps1 zakończony kodem 0. Testy logowania/odnawiania/koordynatora/routera również zielone. Dwie kompilujące się mutacje kopii źródeł wykryte; produkt nietknięty.
+- Nie jest to jeszcze test prawdziwego konta, UI, żywego NVDA ani aktualizacja instalacji.
+
 ## Robocze podłączenie konta Sonos — jeszcze bez wydania i instalacji
 
 Odbiór lokalny źródeł `2ebe6eb`: `review/sonos-account-wiring/ACCEPTANCE.md`.

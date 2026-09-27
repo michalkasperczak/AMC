@@ -1,5 +1,13 @@
 # AMC — mapa kodu
 
+## Sonos Control API: odczyt domów, grup i głośników (jeszcze bez UI)
+
+- `Core/Sonos/SonosControlApiContract.cs`: niemutowalne modele i rozdzielne wyniki, stały adres Sonosa, publiczny klucz integracji przekazywany jawnie, lokalna polityka segmentu ID.
+- `Core/Sonos/SonosControlApiClient.cs`: tylko dwa GET-y: households i groups. Token tylko w nagłówku pojedynczego wywołania; brak zapisu, odnawiania, wylogowania i sterowania głośnikami. Bez automatycznych redirectów i cookies; wspólny skończony deadline wysłania i całego odczytu, limit rozmiaru, ścisły UTF-8/JSON, bez surowych błędów w diagnostyce.
+- `docs/SONOS_CONTROL_READ_PL.md`: źródła Sonosa oraz wyraźnie oddzielone lokalne polityki AMC.
+- `SonosControlApiClientTests`: `--sonos-control-api` i wpis w pełnej tabeli Core; syntetyczny transport, bez sieci/kont/GUI.
+- Brak podłączenia do koordynatora konta i listy w oknie: sama klasa nie daje jeszcze listy urządzeń użytkownikowi.
+
 ## Pozostawaj na liście po uruchomieniu stacji Enterem (ustawienie globalne)
 
 - `Core/Configuration/AppSettings.cs`: `StayOnListAfterRadioEnter`, domyślnie `false`. Stary zapis bez tej własności też daje `false`, więc aktualizacja niczego nie włącza po cichu.
