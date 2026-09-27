@@ -91,6 +91,13 @@ public static class CommandIds
     public const string ManageTidalConnection = "tidal.connection.manage";
     public const string ManageSpotifyConnection = "spotify.connection.manage";
 
+    /// <summary>
+    /// Konto Sonos. Na tym przyroscie to TYLKO logowanie: nie ma sesji Sonos,
+    /// odtwarzania ani wykrywania urzadzen, wiec polecenie NIE dostaje skrotu
+    /// klawiszowego i nie wchodzi do zajetego Ctrl+F5.
+    /// </summary>
+    public const string ManageSonosConnection = "sonos.connection.manage";
+
     /// <summary>Zapisane podcasty Spotify. Wlasna sciezka, bo Spotify nie ma RSS.</summary>
     public const string ViewSpotifyPodcasts = "spotify.podcasts.saved";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";

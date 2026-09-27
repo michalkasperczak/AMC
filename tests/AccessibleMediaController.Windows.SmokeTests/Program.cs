@@ -62,6 +62,11 @@ if (args.Contains("--spotify-account-routing-gui", StringComparer.Ordinal))
 {
     SpotifyAccountRoutingTests.ShowForNvda(); return 0;
 }
+if (args.Contains("--sonos-account-wiring", StringComparer.Ordinal))
+{
+    SonosAccountWiringTests.Run(); return 0;
+}
+
 if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
 {
     SpotifyAccountRoutingTests.Run(); return 0;

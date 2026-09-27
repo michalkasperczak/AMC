@@ -141,6 +141,46 @@ a `RunSynchronous` osłania trzy synchroniczne przyciski po Dispose właściciel
 powrót do właściciela oraz brak odebrania fokusu innemu oknu przy zakończeniu
 w tle. To nie test konta Sonos ani docelowego MainWindow; integracja nadal osobno.
 
+## Sonos: podłączenie okna konta do AMC (menu, paleta, właściciel)
+
+`Windows/Services/SonosAccountOwner.cs` to JEDEN aplikacyjny właściciel trójki
+klient+koordynator+magazyn DPAPI na całe uruchomienie. Jest LENIWY: `MainWindow`
+tworzy sam obiekt właściciela, ale koordynator, klient HTTP i magazyn powstają
+dopiero przy JAWNYM otwarciu konta, więc start AMC i cudze testy nie czytają
+konta ani nie wysyłają żądań. `EnsureCoordinator` robi `RestoreOnce` PRZED
+pierwszym pokazaniem okna i tylko raz — drugie otwarcie dostaje TEN SAM
+koordynator bez ponownego Restore. Zamknięcie okna nie woła Dispose ani Delete;
+zwolnienie następuje wyłącznie w faktycznym zakończeniu AMC (obok
+`_tidalIntegration.Dispose()`), więc ANULOWANE zamykanie (np. ochrona
+nagrywania) nic nie zwalnia. `RebuildCore` i zapis ustawień właściciela nie
+odtwarzają.
+
+`SonosAccountPresenter` w tym samym pliku buduje okno i pilnuje, żeby drugie
+polecenie NIE zbudowało drugiego okna na tym samym właścicielu (guard bez
+drugiego Start i Restore, wraca do otwartego okna). Potwierdzenie wylogowania
+idzie przez istniejące `Services/AccessibleDialog.Show(owner, …, YesNo,
+Question, MessageBoxResult.No)` z ownerem WŁAŚCIWEGO `SonosAccountWindow`, nie
+nieaktywnego okna głównego pod modalem — Nie, Escape i Alt+F4 nie usuwają
+konta. Pojedyncza informacja po operacji zostaje w oknie konta; `MainWindow` jej
+nie powtarza własnym Announce.
+
+Domyślny zaufany broker to ROOT `https://hermes.tail6caad7.ts.net/`
+(`SonosAccountOwner.DefaultBrokerOrigin`); ścieżki `/login/start|result|refresh`
+wyprowadza `SonosLoginBrokerConfiguration`. Magazyn używa istniejącego kontraktu
+`SonosDpapiCredentialStore.DefaultFilePath`. Żadna wartość konta nie idzie do
+`AppSettings`, `state.json` ani logów.
+
+Wejścia użytkownika: pozycja `Plik -> Konto Sonos…` (`ManageSonosConnectionMenuItem`,
+bez skrótu i bez litery dostępu — dochodzi się strzałkami) oraz polecenie
+`CommandIds.ManageSonosConnection` w istniejącej palecie, przechodzące
+prawdziwym routerem i katalogiem. Sesji Sonos jeszcze nie ma, więc nie ruszono
+`SessionSlotOrder`, numeracji sesji ani `Ctrl+F5`.
+
+Pomiary: `Core.SmokeTests --sonos-account-command` (droga router/katalog/paleta)
+i `Windows.SmokeTests --sonos-account-wiring` (właściciel, RestoreRead 1 przy
+2 otwarciach, brak Delete/Dispose po Close, guard, potwierdzenie budowane przez
+`AccessibleDialog.CreateForMeasurement` BEZ Show). Oba bez pokazywania GUI.
+
 
 - `Windows/SonosAccountWindow.xaml(.cs)` — `Controls.AccessibleWindow` na
   ODEBRANYM `SonosAccountCoordinator`. ZERO pól deweloperskich: żadnego Client

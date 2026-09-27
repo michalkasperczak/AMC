@@ -47,6 +47,12 @@ public interface IApplicationActions
     void ShowTidalAccountManager();
     void ShowSpotifyAccountManager();
 
+    /// <summary>
+    /// Okno konta Sonos. OSOBNA metoda, nie gałąź konta innej usługi: konto
+    /// Sonos ma wlasnego wlasciciela koordynatora i wlasne okno.
+    /// </summary>
+    void ShowSonosAccountManager();
+
     /// <summary>Widok zapisanych podcastow Spotify (Ctrl+Alt+O w sesji Spotify).</summary>
     void ShowSpotifyPodcasts();
     void RefreshWiiMDevices();
@@ -150,6 +156,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ManageSpotifyConnection:
                 application.ShowSpotifyAccountManager();
+                return new(true);
+            case CommandIds.ManageSonosConnection:
+                application.ShowSonosAccountManager();
                 return new(true);
             case CommandIds.ViewSpotifyPodcasts:
                 application.ShowSpotifyPodcasts();

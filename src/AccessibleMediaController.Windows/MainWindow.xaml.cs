@@ -263,6 +263,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private readonly Action? _showApplicationUpdatesOverride;
 
+    /// <summary>
+    /// JEDEN aplikacyjny wlasciciel logowania Sonos na CALE uruchomienie. Leniwy:
+    /// koordynator i magazyn powstaja przy pierwszym jawnym otwarciu konta, a
+    /// RebuildCore ani zapis ustawien go nie odtwarza.
+    /// </summary>
+    private readonly SonosAccountOwner _sonosAccount;
+
+    /// <summary>
+    /// Producent okna konta Sonos. Trzymany, zeby drugie polecenie wracalo do
+    /// OTWARTEGO okna, a nie budowalo drugiego na tym samym wlascicielu.
+    /// </summary>
+    private SonosAccountPresenter? _sonosAccountPresenter;
+
     public MainWindow(PersistedState state, ConfigurationStore store) : this(state, store, null) { }
 
     internal MainWindow(PersistedState state, ConfigurationStore store, Action? showApplicationUpdates)
@@ -336,6 +349,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 + $"rozstrzygnietych sprzecznosci: {spotifyMigration.Conflicts}.");
         }
         _store = store;
+        // Konto Sonos: sam WLASCICIEL powstaje teraz, ale NIC nie tworzy
+        // leniwie - koordynator, klient HTTP i magazyn DPAPI powstaja dopiero
+        // przy JAWNYM otwarciu konta. Start AMC nie czyta konta Sonos i nie
+        // wysyla zadnego zapytania.
+        _sonosAccount = new SonosAccountOwner();
         _tidalIntegration = new TidalIntegrationService(_state.Tidal);
         _spotifyIntegration = new SpotifyIntegrationService(_state.Spotify);
         _tidalOutput = new TidalMediaOutput(_tidalIntegration, TidalPlayerWebView);
@@ -3972,6 +3990,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var spotify = SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id);
         if (commandId == CommandIds.ManageTidalConnection) return tidal;
         if (commandId == CommandIds.ManageSpotifyConnection) return spotify;
+        // Konto Sonos nie ma jeszcze sesji, wiec nie da sie go ograniczyc do
+        // sesji. Jest dostepne wszedzie - jak sama pozycja w menu Plik.
+        if (commandId == CommandIds.ManageSonosConnection) return true;
         if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
@@ -18172,6 +18193,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    /// <summary>
+    /// Konto Sonos. Wzorzec dzialania jak przy TIDAL i Spotify: dialog jest
+    /// MODALNY z Owner = this, a po zamknieciu wracamy do poprzedniej listy albo
+    /// odtwarzacza TYLKO gdy nasza aplikacja jest aktywna - inaczej zabralibysmy
+    /// fokus przegladarce, w ktorej uzytkownik wlasnie sie logowal.
+    ///
+    /// Roznice wobec TIDAL/Spotify, swiadome na tym przyroscie: nie ma sesji ani
+    /// katalogu Sonos, wiec nie ma tu ApplyItems, nie ruszamy sesji, widoku,
+    /// zaznaczenia ani dzwieku i NIE zapisujemy niczego do stanu. Pojedyncza
+    /// informacja po operacji zostaje w OKNIE konta - MainWindow nie powtarza
+    /// jej wlasnym Announce, bo czytnik ekranu przeczytalby ja dwa razy.
+    /// </summary>
+    public void ShowSonosAccountManager()
+    {
+        var returnToPlayer = _playerViewActive;
+        _sonosAccountPresenter ??= new SonosAccountPresenter(_sonosAccount);
+        _sonosAccountPresenter.Show(this);
+        if (returnToPlayer && _playerViewActive && _sessions.Current.HasCurrentItem && IsActive)
+        {
+            UpdatePlayerView(true);
+            FocusPlayerView();
+        }
+        else if (IsActive) RestoreMediaListFocusAfterRefresh();
+    }
+
     public void ShowSpotifyAccountManager()
     {
         // Biblioteka używa tego samego logowania niezależnie od odtwarzacza.
@@ -23190,6 +23236,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _spotifyLibrespotAuthentication.Dispose();
         _wiiMClient.Dispose();
         _wiiMCancellation.Dispose();
+        // FAKTYCZNE zakonczenie wlasciciela konta Sonos. Jest tu, a nie w
+        // bramce potwierdzenia nagrywania: ANULOWANE zamykanie AMC nie dochodzi
+        // do tego miejsca, wiec nie zwalnia tokenow konta.
+        _sonosAccount.Dispose();
         _tidalIntegration.Dispose();
         _tidalCancellation.Dispose();
         _radioCatalog.Dispose();
@@ -25019,6 +25069,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ManageTidalConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageTidalConnection);
 
     private void ManageSpotifyConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSpotifyConnection);
+    private void ManageSonosConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSonosConnection);
 
     private void SpotifyPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewSpotifyPodcasts);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
