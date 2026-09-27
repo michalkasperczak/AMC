@@ -152,6 +152,14 @@ internal sealed class SonosDpapiCredentialStore : ISonosCredentialStore
             return SonosCredentialWriteOutcome.Failure(SonosCredentialWriteStatus.InvalidRecord);
         }
 
+        // Poswiadczenia OBCEGO brokera nie moga nadpisac naszego rekordu. Kontrola
+        // PRZED szyfrowaniem i PRZED jakimkolwiek I/O, wiec poprzedni ciphertext
+        // zostaje bit w bit. Komunikat nie wypisuje zadnego origin.
+        if (!string.Equals(credentials.BrokerOrigin, _broker.Origin.AbsoluteUri, StringComparison.Ordinal))
+        {
+            return SonosCredentialWriteOutcome.Failure(SonosCredentialWriteStatus.InvalidRecord);
+        }
+
         var plaintext = SonosCredentialSerializer.TrySerialize(credentials);
         if (plaintext is null)
         {

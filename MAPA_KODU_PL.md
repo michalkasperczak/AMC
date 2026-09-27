@@ -5,6 +5,16 @@
 - `Core/Sonos/SonosCredentialStoreContract.cs` — wyłącznie kontrakt i model,
   bez I/O i bez szyfrowania: `SonosCredentialPolicy` (limity, m.in.
   `MaxEncryptedFileBytes` 512 KiB sprawdzane PRZED alokacją bufora),
+  `MaxOpaqueValueBytes` = `SonosLoginClient.MaxResponseBytes` (64 KiB) dla
+  access tokenu i scope — magazyn NIE może być węższy od warstwy, która te
+  wartości już przyjęła, więc limit pola to limit CAŁEJ odpowiedzi brokera, a
+  nie osobna dobrana liczba; `MaxPlaintextBytes` WYLICZANE z limitów pól
+  (dwie wartości + RT × najgorsze escapowanie 2 B + koperta), nadal skończone.
+  Zapis JSON-a używa `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — plik idzie
+  pod DPAPI na własny dysk, nie do HTML, więc domyślne escapowanie HTML-owe
+  (`<` → 6 B) tylko zjadałoby budżet. Scope PUSTY jest jawnie pusty
+  (`IsStorableScopeValue`): zapisywany i oddawany jako `""`, nigdy jako `null`
+  i nigdy przez trim.
   `SonosStoredCredentials` (cały zestaw `SonosTokens`, moment otrzymania w UTC,
   `BrokerOrigin`, jawny `FormatVersion`), `SonosCredentialSerializer`
   (serializacja JSON o jawnej wersji i ścisła walidacja),
@@ -17,6 +27,9 @@
   obecny, musi przejść istniejącą `SonosRefreshTokenPolicy`. Nierozpoznana
   wersja formatu i nieprzewidziane pola to `Invalid`, nigdy cichy sukces.
   `ToString` modeli i wyników nie wypisuje tokenów, scope ani origin.
+  `Write` porównuje `BrokerOrigin` rekordu ze SKONFIGUROWANYM brokerem PRZED
+  szyfrowaniem i przed I/O: poświadczenia obcego brokera to `InvalidRecord`, a
+  poprzedni ciphertext zostaje bit w bit.
 - `Windows/Services/SonosDpapiCredentialStore.cs` — JEDEN plik zaszyfrowany
   natywnym DPAPI (P/Invoke `crypt32`, bez nowych pakietów) w zakresie
   BIEŻĄCEGO UŻYTKOWNIKA, nigdy `LocalMachine`, zawsze

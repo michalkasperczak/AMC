@@ -89,6 +89,9 @@ internal static class Program
             Run("13.delete-idempotentny", ExplicitDeleteThenMissingInNewProcess, root);
             Run("14.limit-rozmiaru", OversizedFileRejected, root);
             Run("15.tostring-bez-sekretow", ToStringHidesSecrets, root);
+            Run("16.zgodnosc-z-klientem", ClientAcceptedValuesAreStorable, root);
+            Run("17.granica-odpowiedzi-i-escape", EscapeHeavyValueAtResponseLimit, root);
+            Run("18.obcy-broker-nie-zapisze", ForeignBrokerWriteRejected, root);
         }
         catch (Exception ex)
         {
@@ -617,6 +620,137 @@ internal static class Program
     }
 
     // ---- narzedzia ----
+
+    // 16. ZGODNOSC z wartosciami, ktore klient logowania/odnawiania JUZ przyjal
+    // z odpowiedzi brokera: cokolwiek klient zwrocil jako Success, magazyn musi
+    // umiec zapisac i oddac BAJT W BAJT. Cztery wartosci zmierzone na kliencie.
+    private static void ClientAcceptedValuesAreStorable(string path)
+    {
+        var broker = Broker(BrokerOrigin);
+
+        // scope pusty JAWNIE - klient oddaje "", nie null.
+        StorableRoundtrip(path, broker, "16.scope-pusty", BaseAccessToken, string.Empty);
+        // access i scope ponad dotychczasowe arbitralne capy 8 KiB / 4 KiB.
+        StorableRoundtrip(path, broker, "16.access-8193", new string('a', 8193), BaseScope);
+        StorableRoundtrip(path, broker, "16.scope-4097", BaseAccessToken, new string('s', 4097));
+        // wartosc, ktora DOMYSLNY enkoder System.Text.Json rozdmuchuje 6x.
+        StorableRoundtrip(path, broker, "16.access-escapowany", new string('<', 23000), BaseScope);
+    }
+
+    private static void StorableRoundtrip(
+        string path,
+        SonosLoginBrokerConfiguration broker,
+        string label,
+        string accessToken,
+        string? scope)
+    {
+        var store = new SonosDpapiCredentialStore(broker, path);
+        var record = new SonosStoredCredentials(
+            broker.Origin.AbsoluteUri,
+            new SonosTokens(accessToken, "Bearer", BaseExpiresIn, BaseRefreshToken, scope),
+            BaseReceivedAt);
+
+        Check(label + ".zapis", store.Write(record).Status == SonosCredentialWriteStatus.Success);
+
+        var read = store.Read();
+        if (!read.Succeeded || read.Credentials is null)
+        {
+            Fail(label + ".odczyt", "rekord nie wrocil");
+            return;
+        }
+
+        Check(label + ".access-bajt-w-bajt",
+            string.Equals(read.Credentials.Tokens.AccessToken, accessToken, StringComparison.Ordinal));
+        Check(label + ".scope-bajt-w-bajt",
+            string.Equals(read.Credentials.Tokens.Scope, scope, StringComparison.Ordinal));
+        Check(label + ".brak-tempow", CountFiles(Path.GetDirectoryName(path)!) == 1);
+    }
+
+    // 17. Duzy przypadek kontrolny BLISKO limitu calej odpowiedzi (64 KiB),
+    // zlozony ze znakow wymagajacych escapowania, zeby naprawa nie konczyla sie
+    // na pojedynczej zmierzonej liczbie. Jeden bajt ponad limit to nadal
+    // InvalidRecord i poprzedni ciphertext zostaje nietkniety.
+    private static void EscapeHeavyValueAtResponseLimit(string path)
+    {
+        var broker = Broker(BrokerOrigin);
+        var store = new SonosDpapiCredentialStore(broker, path);
+        var utf8 = new UTF8Encoding(false, throwOnInvalidBytes: true);
+        var limit = SonosLoginClient.MaxResponseBytes;
+
+        const string pattern = "<>&\"\\/\u0105\u00df\u20ac";
+        var patternBytes = utf8.GetByteCount(pattern);
+        var builder = new StringBuilder(limit);
+        var bytes = 0;
+        while (bytes + patternBytes <= limit)
+        {
+            builder.Append(pattern);
+            bytes += patternBytes;
+        }
+
+        while (bytes < limit)
+        {
+            builder.Append('<');
+            bytes++;
+        }
+
+        var huge = builder.ToString();
+        Check("17.wartosc-rowna-limitowi", utf8.GetByteCount(huge) == limit);
+
+        var record = new SonosStoredCredentials(
+            broker.Origin.AbsoluteUri,
+            new SonosTokens(huge, "Bearer", BaseExpiresIn, BaseRefreshToken, huge),
+            BaseReceivedAt);
+        Check("17.zapis", store.Write(record).Status == SonosCredentialWriteStatus.Success);
+
+        var read = store.Read();
+        if (!read.Succeeded || read.Credentials is null)
+        {
+            Fail("17.odczyt", "rekord nie wrocil");
+            return;
+        }
+
+        Check("17.access-bajt-w-bajt",
+            string.Equals(read.Credentials.Tokens.AccessToken, huge, StringComparison.Ordinal));
+        Check("17.scope-bajt-w-bajt",
+            string.Equals(read.Credentials.Tokens.Scope, huge, StringComparison.Ordinal));
+
+        var before = File.ReadAllBytes(path);
+        var tooLong = new SonosStoredCredentials(
+            broker.Origin.AbsoluteUri,
+            new SonosTokens(huge + "<", "Bearer", BaseExpiresIn, BaseRefreshToken, BaseScope),
+            BaseReceivedAt);
+        Check("17.ponad-limit-odrzucony",
+            store.Write(tooLong).Status == SonosCredentialWriteStatus.InvalidRecord);
+        Check("17.ciphertext-bez-zmian", ByteEquals(File.ReadAllBytes(path), before));
+        Check("17.brak-tempow", CountFiles(Path.GetDirectoryName(path)!) == 1);
+    }
+
+    // 18. ZAPIS poswiadczen OBCEGO brokera przez magazyn skonfigurowany na
+    // naszego jest odrzucany PRZED szyfrowaniem i I/O, a poprzedni rekord
+    // zostaje bit w bit i dalej sie czyta.
+    private static void ForeignBrokerWriteRejected(string path)
+    {
+        var owner = Broker(BrokerOrigin);
+        var other = Broker(OtherBrokerOrigin);
+        var store = new SonosDpapiCredentialStore(owner, path);
+        Check("18.zapis-wlasciciela", store.Write(BaseRecord(owner)).Succeeded);
+        var before = File.ReadAllBytes(path);
+
+        var foreign = new SonosStoredCredentials(
+            other.Origin.AbsoluteUri,
+            new SonosTokens(BaseAccessToken + "-obcy", "Bearer", BaseExpiresIn, BaseRefreshToken, BaseScope),
+            BaseReceivedAt);
+        Check("18.obcy-zapis-odrzucony",
+            store.Write(foreign).Status == SonosCredentialWriteStatus.InvalidRecord);
+        Check("18.ciphertext-bit-w-bit", ByteEquals(File.ReadAllBytes(path), before));
+        Check("18.brak-tempow", CountFiles(Path.GetDirectoryName(path)!) == 1);
+
+        var read = store.Read();
+        Check("18.wlasciciel-nadal-czyta",
+            read.Succeeded
+            && read.Credentials is not null
+            && string.Equals(read.Credentials.Tokens.AccessToken, BaseAccessToken, StringComparison.Ordinal));
+    }
 
     /// <summary>
     /// DPAPI biezacego uzytkownika z ta sama entropia co magazyn - wylacznie po

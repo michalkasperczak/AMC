@@ -38,6 +38,17 @@ cudzych magazynów (`TidalCredentialStore`, `SpotifyLibrespotCredentialStore`,
   przełącza adresu na zapisany w pliku.
 - **Limit rozmiaru** `MaxEncryptedFileBytes` = 512 KiB, sprawdzany PRZED
   alokacją bufora (również dla wyjścia DPAPI).
+- **Zgodność z warstwą odbioru.** `MaxOpaqueValueBytes` = 64 KiB
+  (`SonosLoginClient.MaxResponseBytes`) dla access tokenu i scope; wcześniejsze
+  8 KiB / 4 KiB odrzucały tokeny, które klient już przyjął jako `Success`.
+  `MaxPlaintextBytes` jest WYLICZANE z limitów pól, nie dobrane. JSON pisany
+  enkoderem `UnsafeRelaxedJsonEscaping` (plik pod DPAPI, nie HTML), więc `<` to
+  1 B, nie 6 B. Scope pusty = jawnie `""`, nigdy `null`, nigdy trim. Wartości
+  nadal bez trim i bez normalizacji; UTF-8/surogaty i znaki sterujące dalej
+  odrzucane, a jeden bajt ponad limit to `InvalidRecord`.
+- **Zapis obcego brokera.** `Write` porównuje `BrokerOrigin` ze SKONFIGUROWANYM
+  brokerem PRZED szyfrowaniem i I/O → `InvalidRecord`, stary ciphertext bit w
+  bit, właściciel dalej czyta swój rekord.
 - **Atomowość:** szyfrowanie przed I/O → unikalny temp w tym samym folderze →
   `Flush(flushToDisk: true)` → `File.Replace` istniejącego albo `File.Move`
   pierwszego. Nigdy Delete+Write, bez `.bak`, bez plaintextowych tempów.
@@ -49,6 +60,15 @@ cudzych magazynów (`TidalCredentialStore`, `SpotifyLibrespotCredentialStore`,
    `WYNIK: porazek 3`, `EXITCODE=1`.
 2. **GREEN.** Implementacja DPAPI — ten sam test: 12/12, `EXITCODE=0`.
 3. **Rozbudowa RED/GREEN** do 15 scenariuszy, 111 kontroli.
+4. **RED zgodności i zapisu obcego brokera** (scenariusze 16–18, dodane do TEGO
+   harnessu, bez nowego): `WYNIK: porazek 13`, `EXITCODE=1` na prawdziwym
+   Windows DPAPI — cztery wartości, które klient zwraca jako `Success`
+   (`scope=""`, access 8193 B, scope 4097 B, 23000× `<`), magazyn odrzucał; duża
+   wartość równa `MaxResponseBytes` też; zapis rekordu obcego brokera KOŃCZYŁ
+   SIĘ sukcesem i podmieniał ciphertext.
+5. **GREEN:** limity pól przestawione na limit całej odpowiedzi brokera,
+   enkoder zapisu mniej escapujący, jawnie pusty scope, kontrola origin w
+   `Write` przed szyfrowaniem. 18 scenariuszy, **139 kontroli**, `EXITCODE=0`.
 
 ## Wynik końcowy (rzeczywisty Windows, runtime 8.0.31)
 
@@ -59,7 +79,7 @@ EXITCODE=0
 STATUS=0
 ```
 
-111 kontroli `OK`, 0 `BLAD`. Liczone programatycznie z `run.log`; kod wyjścia 1
+139 kontroli `OK`, 0 `BLAD`. Liczone programatycznie z `run.log`; kod wyjścia 1
 dla dowolnej porażki. Żaden komunikat — także przy porażce — nie wypisuje
 tokenu, scope ani origin.
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -34,14 +35,39 @@ public static class SonosCredentialPolicy
     /// </summary>
     public const int MaxEncryptedFileBytes = 512 * 1024;
 
-    /// <summary>NASZ limit zdeszyfrowanego JSON-a (z zapasem na duzy zestaw tokenow).</summary>
-    public const int MaxPlaintextBytes = 128 * 1024;
+    /// <summary>
+    /// Limit JEDNEJ nieprzezroczystej wartosci (access token, scope). NIE jest
+    /// osobna, wymyslona liczba: to limit CALEJ odpowiedzi brokera, ktory nasz
+    /// klient JUZ przyjal (<see cref="SonosLoginClient.MaxResponseBytes"/>).
+    /// Wezsze capy 8 KiB / 4 KiB odrzucalyby tokeny, ktore klient zwrocil jako
+    /// Success - magazyn nie moze byc bardziej wybredny od warstwy odbioru.
+    /// Pojedyncze pole i tak nie zmiesci sie w wiekszej liczbie bajtow niz cala
+    /// odpowiedz, w ktorej przyszlo.
+    /// </summary>
+    public static readonly int MaxOpaqueValueBytes = SonosLoginClient.MaxResponseBytes;
 
-    /// <summary>NASZ limit wartosci access tokenu (Sonos nie dokumentuje dlugosci).</summary>
-    public const int MaxAccessTokenBytes = 8 * 1024;
+    /// <summary>
+    /// Najgorsze rozdmuchanie jednego bajtu przez NASZ enkoder zapisu. Uzywamy
+    /// enkodera MNIEJ escapujacego (UnsafeRelaxedJsonEscaping), bo JSON idzie
+    /// pod DPAPI na wlasny dysk, nie do HTML ani do przegladarki: escapuje tylko
+    /// cudzyslow i odwrotny ukosnik, po 2 B, a znaki sterujace i tak odrzuca
+    /// polityka. Domyslny enkoder zamienialby np. "&lt;" na 6 B, wiec sam
+    /// podniesiony cap pola nie wystarczyl.
+    /// </summary>
+    private const int WorstCaseEscapeExpansion = 2;
 
-    /// <summary>NASZ limit wartosci scope.</summary>
-    public const int MaxScopeBytes = 4 * 1024;
+    /// <summary>Zapas na klucze JSON-a, wersje formatu, znacznik czasu i separatory.</summary>
+    private const int EnvelopeHeadroomBytes = 4 * 1024;
+
+    /// <summary>
+    /// NASZ limit zdeszyfrowanego JSON-a, WYLICZONY z limitow pol, a nie dobrany
+    /// na oko: dwie nieprzezroczyste wartosci + refresh token, kazda w
+    /// najgorszym escapowaniu, plus koperta. Nadal skonczony.
+    /// </summary>
+    public static readonly int MaxPlaintextBytes =
+        EnvelopeHeadroomBytes
+        + (WorstCaseEscapeExpansion
+            * ((2 * MaxOpaqueValueBytes) + SonosRefreshTokenPolicy.MaxDecodedBytes));
 
     /// <summary>
     /// Czy NIEPRZEZROCZYSTA wartosc da sie u nas trwale zapisac: niepusta,
@@ -73,6 +99,15 @@ public static class SonosCredentialPolicy
             return false;
         }
     }
+
+    /// <summary>
+    /// Scope wymaga OSOBNEJ reguly: broker zwraca rowniez scope PUSTY, a klient
+    /// przyjmuje to jako Success. Pusty scope jest JAWNIE pusty - zapisujemy go
+    /// jako "" i oddajemy jako "", nigdy jako null i nigdy przez trim.
+    /// </summary>
+    public static bool IsStorableScopeValue(string? scope) =>
+        scope is not null
+        && (scope.Length == 0 || IsStorableOpaqueValue(scope, MaxOpaqueValueBytes));
 }
 
 /// <summary>Rozpoznane, rozdzielne wyniki ODCZYTU trwalego magazynu.</summary>
@@ -280,7 +315,13 @@ public static class SonosCredentialSerializer
 
     private static readonly JsonSerializerOptions Options = new()
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+
+        // JSON trafia pod DPAPI do WLASNEGO pliku, nie do HTML ani do
+        // przegladarki, wiec escapowanie HTML-owe jest zbedne i tylko
+        // rozdmuchuje budzet ("<" -> 6 B). Relaxed escapuje to, co JSON
+        // wymaga; znaki sterujace odrzuca wczesniej polityka.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     /// <summary>
@@ -342,7 +383,7 @@ public static class SonosCredentialSerializer
         }
 
         var tokens = credentials.Tokens;
-        if (!SonosCredentialPolicy.IsStorableOpaqueValue(tokens.AccessToken, SonosCredentialPolicy.MaxAccessTokenBytes))
+        if (!SonosCredentialPolicy.IsStorableOpaqueValue(tokens.AccessToken, SonosCredentialPolicy.MaxOpaqueValueBytes))
         {
             return false;
         }
@@ -357,8 +398,7 @@ public static class SonosCredentialSerializer
             return false;
         }
 
-        if (tokens.Scope is not null
-            && !SonosCredentialPolicy.IsStorableOpaqueValue(tokens.Scope, SonosCredentialPolicy.MaxScopeBytes))
+        if (tokens.Scope is not null && !SonosCredentialPolicy.IsStorableScopeValue(tokens.Scope))
         {
             return false;
         }
@@ -464,7 +504,7 @@ public static class SonosCredentialSerializer
 
         if (!SonosCredentialPolicy.IsStorableOpaqueValue(
                 payload.AccessToken,
-                SonosCredentialPolicy.MaxAccessTokenBytes))
+                SonosCredentialPolicy.MaxOpaqueValueBytes))
         {
             return SonosCredentialReadStatus.Invalid;
         }
@@ -474,8 +514,7 @@ public static class SonosCredentialSerializer
             return SonosCredentialReadStatus.Invalid;
         }
 
-        if (payload.Scope is not null
-            && !SonosCredentialPolicy.IsStorableOpaqueValue(payload.Scope, SonosCredentialPolicy.MaxScopeBytes))
+        if (payload.Scope is not null && !SonosCredentialPolicy.IsStorableScopeValue(payload.Scope))
         {
             return SonosCredentialReadStatus.Invalid;
         }

@@ -27,6 +27,9 @@
     <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosRefreshContract.cs">
       <Link>Linked/SonosRefreshContract.cs</Link>
     </Compile>
+    <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosLoginClient.cs">
+      <Link>Linked/SonosLoginClient.cs</Link>
+    </Compile>
     <Compile Include="$(AmcWorktree)/src/AccessibleMediaController.Core/Sonos/SonosCredentialStoreContract.cs">
       <Link>Linked/SonosCredentialStoreContract.cs</Link>
     </Compile>
