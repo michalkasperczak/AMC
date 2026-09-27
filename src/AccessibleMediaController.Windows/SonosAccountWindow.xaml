@@ -1,0 +1,76 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.SonosAccountWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Konto Sonos" Width="680" Height="470"
+        MinWidth="560" MinHeight="380" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Closing="Window_Closing">
+    <!--
+      OKNO KONTA SONOS. Zwykle logowanie kontem uzytkownika - swiadomie NIE MA tu
+      zadnych pol deweloperskich (client id, sekret, adres powrotu). Sonos oddaje
+      te dane brokerowi AMC, wiec uzytkownik nie ma czego wpisywac.
+
+      Kolejnosc odczytu wynika z BUDOWY okna, nie z opoznienia: tresc stoi w polu
+      tylko do odczytu, ma fokus startowy i najnizszy numer tabulacji, przyciski
+      ida po niej. Zadnego sleep ani timera ustawiajacego kolejnosc mowy.
+
+      AutomationProperties.Name przyciskow NIE zawiera skrotu - czytnik odczytuje
+      klawisz dostepu sam, a doklejony "Alt+L" brzmi jak podwojenie.
+    -->
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="Konto Sonos" FontSize="18" FontWeight="SemiBold"
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="OperationStatusText" Margin="0,0,0,10"
+                                                TextWrapping="Wrap"
+                                                automation:AutomationProperties.Name="Ostatni komunikat konta Sonos" />
+            <WrapPanel>
+                <Button x:Name="LoginButton" Content="Za_loguj w przeglądarce" Margin="0,0,8,8"
+                        TabIndex="10"
+                        automation:AutomationProperties.Name="Zaloguj w przeglądarce"
+                        Click="Login_Click" />
+                <Button x:Name="CheckLoginButton" Content="_Sprawdź logowanie" Margin="0,0,8,8"
+                        TabIndex="20"
+                        automation:AutomationProperties.Name="Sprawdź logowanie"
+                        Click="CheckLogin_Click" />
+                <Button x:Name="CancelLoginButton" Content="_Anuluj logowanie" Margin="0,0,8,8"
+                        TabIndex="30"
+                        automation:AutomationProperties.Name="Anuluj logowanie"
+                        Click="CancelLogin_Click" />
+                <Button x:Name="RefreshButton" Content="_Odnów dostęp" Margin="0,0,8,8"
+                        TabIndex="40"
+                        automation:AutomationProperties.Name="Odnów dostęp"
+                        Click="Refresh_Click" />
+                <Button x:Name="RetryPersistButton" Content="Ponów za_pis logowania" Margin="0,0,8,8"
+                        TabIndex="50"
+                        automation:AutomationProperties.Name="Ponów zapis logowania"
+                        Click="RetryPersist_Click" />
+                <Button x:Name="DisconnectButton" Content="_Wyloguj z Sonos…" Margin="0,0,8,8"
+                        TabIndex="60"
+                        automation:AutomationProperties.Name="Wyloguj z Sonos"
+                        Click="Disconnect_Click" />
+                <Button x:Name="CloseButton" Content="Za_mknij" IsCancel="True" Margin="0,0,0,8"
+                        TabIndex="70"
+                        automation:AutomationProperties.Name="Zamknij"
+                        Click="Close_Click" />
+            </WrapPanel>
+        </StackPanel>
+
+        <!--
+          Tresc jako POLE tylko do odczytu, nie napis: czytnik czyta ja, bo tam
+          stoi kursor, a uzytkownik moze ja przejrzec strzalkami i skopiowac.
+        -->
+        <TextBox x:Name="InstructionBox"
+                 IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                 AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 TabIndex="0"
+                 BorderThickness="1"
+                 automation:AutomationProperties.Name="Stan konta Sonos i instrukcja" />
+    </DockPanel>
+</controls:AccessibleWindow>

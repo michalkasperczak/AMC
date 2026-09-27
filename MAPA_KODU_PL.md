@@ -129,6 +129,72 @@
   z atrapy zawsze przyjmującej dane. Trzy naprawy rodzica mają RED 23/26,
   GREEN 26/26. Nie wykonywano testu prawdziwego konta ani GUI.
 
+## Sonos: okno konta (UI na odebranym koordynatorze)
+
+- `Windows/SonosAccountWindow.xaml(.cs)` — `Controls.AccessibleWindow` na
+  ODEBRANYM `SonosAccountCoordinator`. ZERO pól deweloperskich: żadnego Client
+  ID, sekretu ani adresu powrotu (`TidalAccountWindow` posłużył za wzór
+  STYLISTYKI, jego pola deweloperskie NIE zostały przeniesione). Jedyne pole
+  tekstowe okna to instrukcja — mierzone asercją, nie deklaracją.
+- Kolejność mowy z BUDOWY okna, nie z opóźnienia: treść stanu i instrukcji to
+  `TextBox IsReadOnly` (przeglądalny strzałkami, kopiowalny), `TabIndex=0`,
+  fokus startowy ustawiony w konstruktorze przez `FocusManager.SetFocusedElement`
+  — nie wiązaniem `FocusedElement`, żeby dał się zmierzyć BEZ `Show`. Przyciski
+  mają `TabIndex` 10..70. Żadnego `sleep` ani timera ustawiającego kolejność.
+- `AutomationProperties.Name` przycisków BEZ skrótu i bez podkreślnika (czytnik
+  ogłasza klawisz dostępu sam; dopisek brzmiałby jak podwojenie).
+- Logowanie: `BeginLoginAsync` → `AuthorizeUri` z WYNIKU Start → wstrzyknięty
+  `Func<Uri,bool>`; domyślny otwieracz przepuszcza tylko adres zgodny z
+  ISTNIEJĄCĄ `SonosAuthorizeUrlPolicy` (nigdy adresu od użytkownika) i nie
+  cytuje URI w komunikacie. Potem jawne `Sprawdź logowanie` — DOKŁADNIE jedno
+  `CheckLoginAsync` na kliknięcie, bez pollingu i timera.
+- `DescribeCheck` nie zamienia każdego `StillWaiting` w „dokończ w
+  przeglądarce”: `Pending` kieruje do przeglądarki, ale `ProofMismatch` i błąd
+  przejściowy ogłaszają WŁASNĄ przyczynę plus możliwość ponowienia. `WriteFailure`
+  to „działa, ale nie zapisane” + `Ponów zapis logowania` (0 HTTP), nigdy
+  „Wylogowano”. Nieudane `Delete` to jawnie NIEDOKOŃCZONE wylogowanie.
+- Przycisk bez warunków jest `Collapsed`, nie martwy: nie kosztuje tabulacji.
+  `Zamknij` i `Anuluj logowanie` działają także w trakcie zajętości; `busy`
+  blokuje wyłącznie duplikaty operacji.
+- WŁAŚCICIELEM koordynatora jest aplikacja: `ShutdownOwnWork` anuluje TYLKO
+  własną próbę logowania i własny token okna — bez `Dispose` i bez `Disconnect`,
+  więc tokeny we wspólnym koordynatorze zostają. `windowLifetime` jest
+  anulowany, ale ROZMYŚLNIE nie zwalniany (trwająca operacja trzyma token
+  powiązany z tym źródłem). Spóźniona kontynuacja po zamknięciu nie rusza UI,
+  nie ogłasza i nie wskrzesza okna; wynik async nigdy nie odbiera fokusu
+  przeglądarce. Brak `Wait`/`Result`.
+- Caller woła `RestoreOnce` PRZED otwarciem; okno czyta tylko `Snapshot` i NIE
+  sięga do produkcyjnego magazynu z bezparametrowego konstruktora (takiego
+  konstruktora nie ma). Potwierdzenie wylogowania to wstrzyknięty `Func<bool>`
+  (bez wstrzyknięcia = BRAK zgody), nie nowy dialog ogólny; wylogowanie nie jest
+  domyślną akcją Enter.
+- `tests/SonosAccountWindowHarness/` — `run.sh` buduje w WSL (`UseWPF`,
+  `EnableWindowsTargeting`, `net8.0-windows`) i uruchamia na Windows. Projekt
+  LINKUJE źródła (`Core/Sonos/*.cs`, `Controls/AccessibleWindow.cs`,
+  `Controls/AccessibleStatusTextBlock.cs`, nowe XAML i kod) — bez
+  `ProjectReference` do Core/SQLite i bez `MainWindow`. Przy
+  `EnableDefaultCompileItems=false` SDK nie dołącza `GlobalUsings.g.cs`, dlatego
+  jest własny `GlobalUsings.cs`; wewnętrzne fabryki wyników i `SonosLoginSession`
+  są tworzone Reflection, żeby NIE poszerzać widoczności produktu dla pomiaru.
+- 94 sprawdzenia, 94 zaliczone na prawdziwym Windows (kod 0), BEZ `Show`,
+  `ShowDialog`, `Activate` i `EnsureHandle`, z testowym sinkiem ogłoszeń zamiast
+  czytnika i atrapami przeglądarki/potwierdzenia. Test async w STA ustawia
+  `DispatcherSynchronizationContext` i pompuje `DispatcherFrame` z limitem,
+  zamiast blokować wątek. Dyskryminację udowodniono: celowe zepsucie okna
+  (treść jako edytowalne pole z `TabIndex=99`, skrót dopisany do nazwy) dało
+  RED 10 niezaliczonych i kod 1, po cofnięciu znów GREEN 94/94. Pomiar NIE
+  dowodzi żywego NVDA ani pierwszej wypowiedzi — okna nie pokazywano.
+- `--show-fixture` (PRZYGOTOWANY, nieuruchamiany): pokazuje rzeczywiste okno na
+  jawnie nazwanych danych próbnych (`Fakes`, origin `.invalid`), właściciel
+  stub, syntetyczna bramka i magazyn w pamięci, testowy `shellOpen` tylko
+  zapisujący adres; zero IPC, aktualizacji, audio i sieci. Tytuł jednoznaczny
+  („AMC PROBA A11Y…”), `ShowInTaskbar=true` bez ownera, kwity PID/HWND/gotowe i
+  liczniki operacji w NOWYM katalogu na każde odtworzenie (nie kasuje
+  poprzednich), watchdog zamyka WYŁĄCZNIE swoje okno.
+- Okno NIE jest jeszcze podłączone do `MainWindow`, menu, skrótów globalnych ani
+  konfiguracji produkcyjnej — to osobny następny krok. Instrukcja użytkownika:
+  `TESTY_SONOS_KONTO_PL.md`.
+
 ## Procenty bufora transmisji (TimeShift)
 
 - `RadioMediaOutput.TryGetBufferedSeekPosition` odczytuje pod blokadą rzeczywisty zakres bufora i zwraca bezwzględną pozycję strumienia. Uwzględnia częściowe zapełnienie oraz nadpisanie najstarszych danych.
