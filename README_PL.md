@@ -1,5 +1,15 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Aktualny stan i dokumentacja rozwoju
+
+- [Wydania i opisy zmian](https://github.com/michalkasperczak/AMC/releases).
+- [Zmiany alfa412 — obsługa konta Sonos](ZMIANY_0.1.0-alpha.412_PL.md).
+- [Sonos: wytyczne, prace w toku i otwarte sprawy](PROJEKT_SONOS_PL.md). Docelowa obsługa ma być możliwie zgodna z sesją WiiM; lista głośników jest etapem, nie końcem integracji.
+- [Zasady projektu](AGENTS.md), [scenariusze testów](TESTY_ZADANIA_PL.md) i [rejestr ryzyk](REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md).
+
+Opisy starszych wersji poniżej są historią tych wydań, nie samodzielną informacją o obecnym stanie każdej funkcji. Prace oznaczone jako niewydane nie są jeszcze dostępne w instalatorze.
+
+
 ## Zachowuj kopie po edycji
 
 Ustawienia → Ogólne zawierają pole wyboru **Zachowuj kopie po edycji**,

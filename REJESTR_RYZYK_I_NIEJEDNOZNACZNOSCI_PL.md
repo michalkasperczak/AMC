@@ -11,6 +11,12 @@ nagrywanie, wyszukiwanie, ustawienia, dostępność, zapis danych oraz integracj
 systemowe. Wpis dodany podczas pracy nad jednym modułem nie ogranicza testów
 wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
+## Sonos po alfa412 — stan z 28 września 2026 r.
+
+Wytyczne obsługi na wzór WiiM, rozdzielenie wydania od prac roboczych oraz sprawy S-01–S-04 są opisane w [PROJEKT_SONOS_PL.md](PROJEKT_SONOS_PL.md). Dotyczą niewydanego przyrostu listy urządzeń, nie funkcji przypisanej instalatorowi alfa412.
+
+Automatycznie sprawdzono korekty ochrony konta, wyboru domu i komunikatów. Ponowny odbiór żywym NVDA oraz rzeczywisty odczyt urządzeń nadal są osobnymi, niedomkniętymi warunkami. Nie utożsamiać kompilacji ani testów syntetycznych z ich zaliczeniem.
+
 ## Zasady prowadzenia rejestru
 
 ### TIDAL alpha.335 — próbki, opóźnienia i urządzenia (otwarte)
