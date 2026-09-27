@@ -12,7 +12,7 @@
 - F6 przechodzi do grającego odtwarzacza i nie zmienia odtwarzania.
 - Bez zmian: Spacja, gesty, menu, utwory i odcinki, inne sesje oraz presety (te mają własną opcję „Po uruchomieniu presetu otwieraj odtwarzacz”).
 - Automatyczne próby bez sieci, kont i dźwięku: runner Windows z `--radio-enter-stay` (komplet), `--radio-enter-stay-model` (model, zapis, paleta, bez okien), `--radio-enter-stay-controls` (samo okno Ustawień). Pełny runner zawiera pozycję „Pozostawanie na liście po uruchomieniu stacji Enterem”.
-- NIEODEBRANE ręcznie: wygląd i odczyt nowego pola w żywym NVDA oraz `Window.Activate()` przy F6 (w trybie bez GUI aktywacji okna nie sprawdzamy — mierzone jest samo przełączenie widoku).
+- Odbiór alfa411 na Hermesie: pełny zestaw Windows 168/168 i Core zakończone poprawnie; odrębny przegląd kodu bez blokad. Żywy NVDA potwierdził nazwę, opis i stan pola, zachowanie fokusu po rzeczywistym Enterze przy ON oraz przeniesienie na przycisk odtwarzacza dopiero F6. OFF zachowuje dotychczasowe przejście. Prawdziwy strumień radiowy przeszedł przez dekoder i odtwarzacz; pozycja dźwięku rosła przy pozostawieniu fokusu na liście. Zapis Zapisz, Anuluj i odtworzenie ON w nowym procesie sprawdzone na osobnym profilu. Nie był to pomiar wypowiadanej historii mowy ani odsłuch jakości dźwięku. Próbną instalację411 i rzeczywisty start na Hermesie także potwierdzono.
 
 ## Alfa 397 — komunikat premiery YouTube
 
