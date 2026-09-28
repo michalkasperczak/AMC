@@ -68,7 +68,11 @@ internal static class SonosAccountCoordinatorTests
             ("Odnowienie i rotacja zestawu nie zmieniaja znacznika podlaczenia", TestOdnowienieNieZmieniaZnacznika),
             ("Odlaczenie i usuniecie konta zmieniaja znacznik podlaczenia", TestOdlaczenieZmieniaZnacznik),
             ("Spoznione wyniki nie udaja zastapienia konta", TestSpoznioneWynikiNieUdajaZastapienia),
-            ("Znacznik podlaczenia nie niesie tokenow ani sekretow", TestZnacznikNieNiesieSekretow)
+            ("Znacznik podlaczenia nie niesie tokenow ani sekretow", TestZnacznikNieNiesieSekretow),
+            ("Parent: odrzucenie bez konta nie tworzy zmiany podlaczenia", () => ParentInvalidRecord(false, false)),
+            ("Parent: odrzucenie nowego logowania usuwa stare podlaczenie", () => ParentInvalidRecord(true, false)),
+            ("Parent: odrzucenie odnowienia usuwa stare podlaczenie", () => ParentInvalidRecord(true, true)),
+            ("Parent: ponowienie zapisu nie zmienia podlaczenia", ParentRetryPersistKeepsBinding)
         };
 
         var bledy = new List<string>();
@@ -759,6 +763,55 @@ internal static class SonosAccountCoordinatorTests
             "kontrola: migawka nadal nie cytuje tokenow");
         Assert(magazyn.LiczbaZapisow == 1,
             "znacznik nie dokłada zadnego nowego zapisu do magazynu konta");
+    }
+
+    // Pomiary rodzica: prawdziwe publiczne operacje, tylko dane syntetyczne.
+    private static void ParentInvalidRecord(bool existing, bool refresh)
+    {
+        var gateway = new AtrapaBramki();
+        var store = new AtrapaMagazynu();
+        using var coordinator = Koordynator(gateway, store);
+        if (existing) Polacz(coordinator, gateway, "FIXTURE-OLD", "FIXTURE-REFRESH");
+        var before = coordinator.Snapshot;
+        store.Zapis = SonosCredentialWriteStatus.InvalidRecord;
+        if (refresh)
+        {
+            gateway.PlanujOdnowienie(SonosRefreshOutcome.Ok(Tokeny("FIXTURE-INVALID-RECORD")));
+            var result = Czekaj(coordinator.RefreshAsync(CancellationToken.None));
+            Assert(!result.Renewed, "kontrola: nie zainstalowano odrzuconego odnowienia");
+        }
+        else
+        {
+            gateway.PlanujStart(SonosLoginStartOutcome.Ok(Sesja("parent-invalid-record")));
+            Assert(Czekaj(coordinator.BeginLoginAsync(CancellationToken.None)).Started, "kontrola: start login");
+            gateway.PlanujWynik(SonosLoginResultOutcome.Ok(Tokeny("FIXTURE-INVALID-RECORD")));
+            var result = Czekaj(coordinator.CheckLoginAsync(CancellationToken.None));
+            Assert(!result.Connected, "kontrola: odrzucony zapis nie polaczyl konta");
+        }
+        var after = coordinator.Snapshot;
+        Assert(!after.HasCredentials && after.Issue == SonosAccountIssue.InvalidRecord,
+            "kontrola: brak konta i rzeczywisty InvalidRecord");
+        if (existing)
+            Assert(after.AccountBindingGeneration > before.AccountBindingGeneration,
+                "Realna utrata starego konta przez InvalidRecord musi zmienic znacznik.");
+        else
+            Assert(after.AccountBindingGeneration == before.AccountBindingGeneration,
+                "InvalidRecord bez dotychczasowego konta i bez instalacji nowego zglosil zmiane podlaczenia.");
+    }
+
+    private static void ParentRetryPersistKeepsBinding()
+    {
+        var gateway = new AtrapaBramki();
+        var store = new AtrapaMagazynu { Zapis = SonosCredentialWriteStatus.WriteFailure };
+        using var coordinator = Koordynator(gateway, store);
+        Polacz(coordinator, gateway, "FIXTURE-MEMORY", "FIXTURE-REFRESH");
+        var before = coordinator.Snapshot;
+        Assert(before.HasCredentials && !before.IsPersisted, "kontrola: konto tylko w pamieci");
+        store.Zapis = SonosCredentialWriteStatus.Success;
+        var result = coordinator.RetryPersist();
+        Assert(result.Attempted && result.Succeeded, "kontrola: prawdziwe ponowienie zapisu");
+        Assert(coordinator.Snapshot.AccountBindingGeneration == before.AccountBindingGeneration,
+            "Samo ponowienie zapisu zmienilo podlaczenie.");
     }
 
     // ================= pomocnicze (syntetyczne) =================

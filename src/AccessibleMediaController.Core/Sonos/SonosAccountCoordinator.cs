@@ -798,8 +798,9 @@ public sealed partial class SonosAccountCoordinator : IDisposable
         if (write.Status == SonosCredentialWriteStatus.InvalidRecord)
         {
             // Odrzucony rekord przy odnowieniu USUWA dzialajace konto - to tez koniec
-            // biezacego podlaczenia, a nie zwykla rotacja zestawu.
-            if (replacesAccount || current is not null)
+            // biezacego podlaczenia, a nie zwykla rotacja zestawu. Gdy konta NIE bylo,
+            // odrzucone pierwsze logowanie niczego nie podlaczylo ani nie odlaczylo.
+            if (current is not null)
             {
                 accountBindingGeneration++;
             }
