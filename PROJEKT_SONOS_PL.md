@@ -37,7 +37,7 @@ Kod tych przyrostów jest obecnie w lokalnych gałęziach roboczych, a nie w opu
 - poprawki ochrony przed wynikiem starej operacji po zmianie konta;
 - poprawki komunikatów wczytywania, fokusu i zachowania wybranego domu.
 
-Te elementy przeszły testy automatyczne. Pierwszy pomiar poprzedniego kandydata żywym NVDA wykrył problemy, których testy kontrolek nie wychwyciły. Poprawiony kandydat wymaga jeszcze zakończenia ponownego odbioru klawiaturą i NVDA. Nie traktujemy zielonej kompilacji jako potwierdzenia dostępności ani odczytu rzeczywistych urządzeń.
+Te elementy przeszły testy automatyczne. Ponowna próba klawiaturą i żywym NVDA na poprawce `f1801bb` potwierdziła zachowanie wybranego domu, komunikaty w prawdziwym Podglądzie mowy, zamknięcie podczas odczytu i powrót do okna konta. Nadal wykazała utratę fokusu po odświeżeniu uruchomionym z rzeczywistego wiersza obu list — S-02 pozostaje blokadą wydania. Próba używała rzeczywistych okien i syntetycznych odpowiedzi; nie jest odczytem urządzeń użytkownika.
 
 ## Rejestr spraw tego przyrostu
 
@@ -51,19 +51,19 @@ Stan: poprawka i testy automatyczne potwierdzają odrzucenie starej operacji ora
 
 Fakt: żywy NVDA po wolnym odświeżeniu wskazywał całe okno zamiast kontrolki.
 
-Stan: korekta w kodzie i testach jest gotowa; ponowny pomiar rzeczywistego fokusu, także z wiersza listy, pozostaje warunkiem odbioru.
+Stan: poprawka `f1801bb` działa przy odświeżaniu z przycisku oraz z samego kontenera listy. Ponowny pomiar NVDA wykazał, że **Alt+O z rzeczywistego wiersza grupy lub głośnika nadal gubi fokus**, w trakcie i po odczycie. Czytnik powtarza wtedy treść całego dialogu. Przyczyną jest pominięcie elementu `ListBoxItem` w ochronie fokusu; sam test kontenera listy nie wykrywa tego przypadku. Punktowa naprawa i testy wierszy są w realizacji; ponowna próba obu list jest warunkiem odbioru.
 
 ### S-03. Odświeżanie zmieniało wybrany dom
 
 Fakt: odświeżenie drugiego domu wybierało pierwszy mimo dalszej obecności wybranego domu.
 
-Stan: poprawka zachowuje wybór po identyfikatorze, a nie pozycji na liście. Testy obejmują również zmianę kolejności. Do domknięcia pozostaje pełna próba użytkowa wraz z powrotem fokusu.
+Stan: poprawka `f1801bb` zachowuje wybór po identyfikatorze, a nie pozycji na liście. Testy automatyczne obejmują zmianę kolejności. Ponowna próba z żywym NVDA potwierdziła zachowanie drugiego domu po wolnym odświeżeniu z przycisku, wraz z powrotem na przycisk. Nie zamyka to odrębnego problemu wierszy S-02.
 
 ### S-04. Brakowało informacji o trwającym odczycie
 
 Fakt: podczas oczekiwania pozostawał poprzedni wynik, bez komunikatu o wczytywaniu.
 
-Stan: dodano komunikaty rozpoczęcia i wyniku. Trzeba jeszcze sprawdzić wypowiedzi w rzeczywistym podglądzie mowy NVDA, nie tylko tekst kontrolek lub licznik wywołań programu.
+Stan: na poprawce `f1801bb` potwierdzono wypowiedzi rozpoczęcia odczytu domów, odczytu grup oraz wyniku w rzeczywistym Podglądzie mowy NVDA. Pomiar dotyczy pierwszego otwarcia i wolnego odświeżania z przycisku. Ponowny odczyt całego dialogu przy utracie fokusu z wiersza jest nadal otwartym problemem S-02.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
