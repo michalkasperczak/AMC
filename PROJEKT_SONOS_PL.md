@@ -8,7 +8,7 @@ Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Następny etap Core — stan, metadane, głośność i podstawowe polecenia — został już odebrany na danych próbnych. Nadal nie jest częścią tego instalatora. Rozpoczęto powiązanie tych operacji z istniejącym właścicielem konta; nie wymaga to teraz ponownego logowania użytkownika.
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Następny etap Core — stan, metadane, głośność i podstawowe polecenia — oraz jego powiązanie z mechanizmem obsługi konta zostały już odebrane na danych próbnych. Nadal nie są częścią tego instalatora. Rozpoczęto budowę sesji użytkowej: wyboru grupy, listy, odtwarzacza i sterowania na wzór WiiM. Nie wymaga to teraz ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -83,13 +83,19 @@ W roboczym kodzie wynik POST mówił o zakończonym odczycie, a niektóre błęd
 
 Końcowy plik testów uruchomiony niezależnie na kodzie sprzed poprawki dawał **71/79** i osiem właściwych awarii tekstu; na poprawce daje **79/79**. Końcowy przegląd nie znalazł uwag blokujących. Był to błąd niewydanego kodu, nie działającej wersji alfa413.
 
+### S-06. Odebrane operacje grupy przez obsługę konta
+
+Kod `bbfb5b5` łączy odczyty i polecenia grupy z istniejącym właścicielem konta w Core. Własne testy na Windows: **18/18** nowej warstwy, **26/26** właściciela konta, **79/79** transportu grupy, **69/69** klienta odczytu i **18/18** odczytu przez konto. Pełny Core na Windows również przeszedł. Sprawdzono spóźnione wyniki po zmianie konta, odnawianie przed operacją, pojedynczy POST bez automatycznej powtórki oraz działanie dostępu pozostającego w pamięci po błędzie zapisu. Testy nie korzystały z rzeczywistego konta.
+
+Dwa błędy komunikatów przy porzuceniu polecenia zostały odtworzone i poprawione: próba wysłania nie jest gwarancją dostarczenia, a potwierdzone zero prób oznacza komunikat „nie zostało wysłane”, nie „skutek nieznany”. Niezależny test tych samych scenariuszy zmienił wynik z **16/18** na **18/18**. Celowe wyłączenie ochrony przed spóźnionym wynikiem dało **17/18** z właściwą awarią; po odtworzeniu ochrony ponownie **18/18**. Końcowy przegląd nie zgłosił uwag blokujących.
+
 ### Granice tego odbioru i kolejny krok
 
-Nie ma jeszcze podłączenia nowej warstwy do konta i sesji użytkowej, odświeżania stanu w tle, weryfikacji skutku po poleceniu, presetów ani próby rzeczywistego sprzętu. Najbliższy krok to operacje grupy wykonywane przez istniejącego właściciela konta, z ochroną przed spóźnionymi odpowiedziami po zmianie konta. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
+Mechanizm operacji przez konto jest gotowy w Core. Pozostaje jego podłączenie do części Windows i sesji użytkowej, odświeżanie stanu, weryfikacja skutku po poleceniu oraz odbiór klawiaturą i żywym NVDA. Prace nad wyborem aktywnej grupy, listą i odtwarzaczem na wzór WiiM są rozpoczęte. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
 
 Jedna wcześniejsza pełna próba zgłosiła błąd asercji zdarzenia procesu Librespot. Nie odtworzono go w 60 izolowanych próbach, pięciu pełnych przebiegach czystej alfa413 ani w końcowym pełnym przebiegu poprawki. Przyczyna pozostaje nierozstrzygnięta; nie uznajemy tego błędu za naprawiony i nie przypisujemy go bez dowodu zmianom Sonosa.
 
-Kod pozostaje na gałęzi roboczej. Ta aktualizacja dokumentacji nie jest nowym wydaniem aplikacji ani potwierdzeniem działania sterowania na koncie użytkownika.
+Odebrane fundamenty są zachowane na [gałęzi roboczej Sonosa](https://github.com/michalkasperczak/AMC/tree/hermes/sonos-group-account-messages), commit `908b0c5` (wyłącznie uzupełnienie dokumentacji po kodzie `bbfb5b5`). Kompilacja aplikacji WPF i projektu jej testów na Windows zakończyła się bez błędów i ostrzeżeń; nie uruchamiano przy tym okien. Numer wersji i instalator nie zostały zmienione, ponieważ ten etap nie daje jeszcze nowej funkcji w interfejsie. Ta aktualizacja dokumentacji nie jest nowym wydaniem aplikacji ani potwierdzeniem działania sterowania na koncie użytkownika.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
