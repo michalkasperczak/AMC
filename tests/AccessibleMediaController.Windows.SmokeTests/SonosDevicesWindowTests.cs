@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
@@ -22,7 +23,10 @@ using AccessibleMediaController.Windows.Services;
 ///   * pusty dom, lista NIEPELNA, blad i anulowanie NIE sa ciche,
 ///   * ZERO sterowania odtwarzaniem: zaden przycisk i zadne Enter/strzalki,
 ///   * jedna operacja w toku; przy zajetosci przyciski sa WYLACZONE, nie
-///     schowane, wiec fokus nie ucieka spod czytnika,
+///     schowane - ale SAMO wylaczenie tez gubi fokus, wiec osobno mierzymy, ze
+///     fokus jest RATOWANY przed wylaczeniem i wraca po wyniku, takze z
+///     PRAWDZIWEGO WIERSZA obu list (zmierzone zywym NVDA: z wiersza czytnik
+///     czytal caly dialog),
 ///   * wynik SPOZNIONY po zmianie domu i po zamknieciu NIE podmienia listy,
 ///   * zamkniecie okna anuluje WLASNY odczyt i NIE zwalnia zasobow wlasciciela,
 ///   * ponowne otwarcie dziala, a guard nie tworzy drugiego okna.
@@ -58,6 +62,7 @@ internal static class SonosDevicesWindowTests
                 checks += MeasureNoPlaybackControls();
                 checks += MeasureBusyKeepsButtonsVisible();
                 checks += MeasureBusyKeepsFocusUsable();
+                checks += MeasureBusyKeepsRealRowFocus();
                 checks += MeasureLoadingAnnouncedOnce();
                 checks += MeasureRefreshKeepsHouseholdById();
                 checks += MeasureStaleResultIgnored();
@@ -398,6 +403,223 @@ internal static class SonosDevicesWindowTests
         window.ShutdownOwnWork();
         return 5;
     }
+
+    // ================= 4bb. fokus z PRAWDZIWEGO WIERSZA listy =================
+
+    /// <summary>
+    /// ZYWY NVDA rodzica: Tab na wiersz grupy (rola 15, ListBoxItem o pustej
+    /// nazwie), potem Odswiez - i czytnik czytal CALY DIALOG (rola 4), takze po
+    /// zakonczeniu. Stary ratunek fokusu porownywal skupiona kontrolke tylko z
+    /// samymi listami, wiec WIERSZA nie rozpoznawal. Tu mierzymy:
+    ///   * fokus z prawdziwego, WYGENEROWANEGO wiersza idzie na instrukcje PRZED
+    ///     wylaczeniem listy,
+    ///   * po wyniku wraca na SWIEZY kontener TEGO SAMEGO elementu (po ID),
+    ///     takze po zmianie kolejnosci i etykiety - nie na liste, nie na
+    ///     instrukcje, nie na stary, odlaczony kontener,
+    ///   * to samo dla listy glosnikow,
+    ///   * gdy element zniknal, zostaje czytelna instrukcja,
+    ///   * swiadome przejscie uzytkownika na Zamknij ma pierwszenstwo.
+    /// </summary>
+    private static int MeasureBusyKeepsRealRowFocus()
+    {
+        var salon = new SonosGroup("GRUP_1", "Salon", "RINCON_A", new[] { "RINCON_A" }, SonosPlaybackState.Playing);
+        var kuchnia = new SonosGroup("GRUP_2", "Kuchnia", "RINCON_C", new[] { "RINCON_C" }, SonosPlaybackState.Paused);
+        var kuchniaNowa = new SonosGroup("GRUP_2", "Kuchnia nowa", "RINCON_C", new[] { "RINCON_C" }, SonosPlaybackState.Playing);
+        var playerA = new SonosPlayer("RINCON_A", "Salon lewy", null, null, null);
+        var playerC = new SonosPlayer("RINCON_C", "Kuchnia głośnik", null, null, null);
+        var playerCNowy = new SonosPlayer("RINCON_C", "Kuchnia głośnik nowy", null, null, null);
+
+        var gate = new ManualResetEventSlim(false);
+        var reached = new ManualResetEventSlim(false);
+        var reader = new LiczacyOdczyt
+        {
+            Topology = new SonosHouseholdTopology(new[] { salon, kuchnia }, new[] { playerA, playerC }, false)
+        };
+
+        var window = Build(reader);
+        Pump(window.LoadAsync());
+
+        var groups = (ListBox)window.FindName("GroupsList")!;
+        var players = (ListBox)window.FindName("PlayersList")!;
+        var instruction = (TextBox)window.FindName("InstructionBox")!;
+        var closeButton = (Button)window.FindName("CloseButton")!;
+
+        // 1) GRUPY: fokus na PRAWDZIWYM wierszu "Kuchnia" (indeks 1).
+        var rowBefore = RealRow(groups, 1);
+        if (rowBefore.Content as string != SonosDeviceLabels.DescribeGroup(kuchnia))
+        {
+            throw new Exception("Aparatura wzięła nie ten wiersz grupy - dalszy pomiar nie miałby sensu.");
+        }
+
+        System.Windows.Input.FocusManager.SetFocusedElement(window, rowBefore);
+        if (!ReferenceEquals(System.Windows.Input.FocusManager.GetFocusedElement(window), rowBefore))
+        {
+            throw new Exception("Nie udało się ustawić fokusu na prawdziwym wierszu listy grup.");
+        }
+
+        reader.BeforeGroups = () =>
+        {
+            reached.Set();
+            gate.Wait(TimeSpan.FromSeconds(5));
+        };
+        // Odswiezenie zwraca ten sam dom, ale grupy w INNEJ kolejnosci i z INNA
+        // etykieta tego samego GRUP_2: tozsamosc moze isc tylko po ID.
+        reader.Topology = new SonosHouseholdTopology(
+            new[] { kuchniaNowa, salon }, new[] { playerC, playerA }, false);
+
+        var task = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+
+        var during = System.Windows.Input.FocusManager.GetFocusedElement(window);
+        if (during is ListBoxItem)
+        {
+            throw new Exception(
+                "W czasie odświeżania fokus został na WIERSZU listy, którą właśnie wyłączono - "
+                + "czytnik czyta wtedy cały dialog.");
+        }
+        if (!ReferenceEquals(during, instruction))
+        {
+            throw new Exception(
+                $"W czasie odświeżania fokus z wiersza grupy trafił na \"{Describe(during)}\" zamiast na czytelną instrukcję.");
+        }
+
+        gate.Set();
+        Pump(task);
+
+        var after = System.Windows.Input.FocusManager.GetFocusedElement(window);
+        if (after is not ListBoxItem restoredGroup)
+        {
+            throw new Exception(
+                $"Po odświeżeniu fokus nie wrócił na WIERSZ listy grup (jest \"{Describe(after)}\").");
+        }
+        if (ReferenceEquals(restoredGroup, rowBefore))
+        {
+            throw new Exception("Fokus trafił na STARY, odłączony kontener wiersza - lista została przebudowana.");
+        }
+        if (!ReferenceEquals(ItemsControl.ItemsControlFromItemContainer(restoredGroup), groups))
+        {
+            throw new Exception("Przywrócony wiersz nie należy do listy grup.");
+        }
+        if (restoredGroup.Content as string != SonosDeviceLabels.DescribeGroup(kuchniaNowa))
+        {
+            throw new Exception(
+                $"Po zmianie kolejności i etykiety fokus wrócił na \"{restoredGroup.Content}\" zamiast na ten sam dom/grupę po identyfikatorze.");
+        }
+
+        // 2) GLOSNIKI: ta sama droga na drugiej liscie.
+        var playerRowBefore = RealRow(players, 0);
+        var expectedPlayerId = playerRowBefore.Content as string == SonosDeviceLabels.DescribePlayer(playerC, reader.Topology!)
+            ? "RINCON_C"
+            : throw new Exception("Aparatura wzięła nie ten wiersz głośnika.");
+
+        System.Windows.Input.FocusManager.SetFocusedElement(window, playerRowBefore);
+        reached.Reset();
+        gate.Reset();
+        var afterTopology = new SonosHouseholdTopology(
+            new[] { salon, kuchniaNowa }, new[] { playerA, playerCNowy }, false);
+        reader.Topology = afterTopology;
+        var playersTask = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+
+        if (System.Windows.Input.FocusManager.GetFocusedElement(window) is ListBoxItem)
+        {
+            throw new Exception("W czasie odświeżania fokus został na WIERSZU listy głośników.");
+        }
+
+        gate.Set();
+        Pump(playersTask);
+
+        if (System.Windows.Input.FocusManager.GetFocusedElement(window) is not ListBoxItem restoredPlayer)
+        {
+            throw new Exception(
+                $"Po odświeżeniu fokus nie wrócił na WIERSZ listy głośników (jest \"{Describe(System.Windows.Input.FocusManager.GetFocusedElement(window))}\").");
+        }
+        if (!ReferenceEquals(ItemsControl.ItemsControlFromItemContainer(restoredPlayer), players))
+        {
+            throw new Exception("Przywrócony wiersz nie należy do listy głośników.");
+        }
+        if (restoredPlayer.Content as string != SonosDeviceLabels.DescribePlayer(playerCNowy, afterTopology))
+        {
+            throw new Exception(
+                $"Fokus na liście głośników wrócił na \"{restoredPlayer.Content}\" zamiast na głośnik {expectedPlayerId} po identyfikatorze.");
+        }
+
+        // 3) ELEMENT ZNIKNAL: zostaje czytelna instrukcja, nie odlaczony kontener.
+        var vanishing = RealRow(players, players.Items.Count - 1);
+        System.Windows.Input.FocusManager.SetFocusedElement(window, vanishing);
+        reached.Reset();
+        gate.Reset();
+        reader.Topology = new SonosHouseholdTopology(new[] { salon }, new[] { playerA }, false);
+        var vanishTask = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+        gate.Set();
+        Pump(vanishTask);
+
+        var afterVanish = System.Windows.Input.FocusManager.GetFocusedElement(window);
+        if (afterVanish is ListBoxItem stale)
+        {
+            throw new Exception(
+                $"Po zniknięciu elementu fokus celuje w wiersz \"{stale.Content}\" - kontener jest odłączony od listy.");
+        }
+        if (!ReferenceEquals(afterVanish, instruction))
+        {
+            throw new Exception(
+                $"Po zniknięciu elementu fokus trafił na \"{Describe(afterVanish)}\" zamiast na czytelną instrukcję.");
+        }
+
+        // 4) ZAMKNIJ ma pierwszenstwo takze wtedy, gdy zajetosc zaczela sie z wiersza.
+        reader.Topology = new SonosHouseholdTopology(new[] { salon, kuchnia }, new[] { playerA, playerC }, false);
+        reached.Reset();
+        gate.Reset();
+        var rebuild = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+        gate.Set();
+        Pump(rebuild);
+
+        var rowAgain = RealRow(groups, 1);
+        System.Windows.Input.FocusManager.SetFocusedElement(window, rowAgain);
+        reached.Reset();
+        gate.Reset();
+        var withClose = window.InvokeRefreshAsync();
+        PumpUntil(() => reached.IsSet);
+        System.Windows.Input.FocusManager.SetFocusedElement(window, closeButton);
+        gate.Set();
+        Pump(withClose);
+        if (!ReferenceEquals(System.Windows.Input.FocusManager.GetFocusedElement(window), closeButton))
+        {
+            throw new Exception("Okno ukradło fokus z przycisku Zamknij wybranego przez użytkownika w czasie czekania.");
+        }
+
+        window.ShutdownOwnWork();
+        return 12;
+    }
+
+    /// <summary>
+    /// PRAWDZIWY, wygenerowany kontener wiersza - bez pokazywania okna. Sam
+    /// szablon nie wystarcza: kontenery powstaja dopiero po przebiegu ukladu.
+    /// </summary>
+    private static ListBoxItem RealRow(ListBox list, int index)
+    {
+        list.ApplyTemplate();
+        list.Measure(new Size(360, 600));
+        list.Arrange(new Rect(0, 0, 360, 600));
+        list.UpdateLayout();
+        if (list.ItemContainerGenerator.ContainerFromIndex(index) is not ListBoxItem row)
+        {
+            throw new Exception(
+                $"Aparatura nie wygenerowała prawdziwego wiersza {index} listy {list.Name} - pomiar fokusu wiersza byłby pozorny.");
+        }
+
+        return row;
+    }
+
+    private static string Describe(IInputElement? element) => element switch
+    {
+        null => "<brak fokusu>",
+        ListBoxItem row => $"wiersz \"{row.Content}\"",
+        FrameworkElement named when named.Name.Length > 0 => named.Name,
+        _ => element.GetType().Name
+    };
 
     // ================= 4c. JEDEN komunikat o ladowaniu =================
 

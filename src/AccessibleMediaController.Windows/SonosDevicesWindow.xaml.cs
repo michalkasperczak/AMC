@@ -20,8 +20,11 @@ namespace AccessibleMediaController.Windows;
 ///   * JEDNA operacja w toku. Zaden timer, zaden polling, zaden sleep,
 ///   * wynik SPOZNIONY - po zmianie wyboru domu albo po zamknieciu - NIE
 ///     podmienia listy. Pilnuje tego wlasny licznik zadan,
-///   * przy zajetosci przyciski NIE znikaja: zostaja wylaczone, wiec fokus nie
-///     ucieka spod czytnika ekranu,
+///   * przy zajetosci przyciski NIE znikaja: zostaja wylaczone - ale SAMO
+///     wylaczenie skupionej kontrolki albo WIERSZA listy tez oddaje fokus oknu
+///     (zmierzone zywym NVDA: czytnik czytal caly dialog). Dlatego przed
+///     wylaczeniem fokus jest RATOWANY na pole instrukcji, a po wyniku wraca na
+///     ten sam element - wiersz odszukany PO IDENTYFIKATORZE,
 ///   * pusty dom, lista NIEPELNA, blad i anulowanie mowia to WPROST.
 /// </summary>
 public partial class SonosDevicesWindow
@@ -35,6 +38,16 @@ public partial class SonosDevicesWindow
 
     private readonly List<SonosHousehold> households = new();
 
+    /// <summary>
+    /// TOZSAMOSCI wierszy obu list, w kolejnosci elementow. Etykiety pozostaja
+    /// czystym tekstem, wiec identyfikator nie ma prawa trafic do czytnika -
+    /// ale bez niego nie da sie wrocic fokusem na TEN SAM glosnik albo grupe po
+    /// przebudowie listy.
+    /// </summary>
+    private readonly List<string> groupIds = new();
+
+    private readonly List<string> playerIds = new();
+
     private bool busy;
     private bool closed;
     private bool suppressSelectionReload;
@@ -45,6 +58,16 @@ public partial class SonosDevicesWindow
     /// sam nie wybral czegos innego (np. Zamknij).
     /// </summary>
     private IInputElement? focusBeforeBusy;
+
+    /// <summary>
+    /// WIERSZ listy, ktory mial fokus przed zajetoscia, zapamietany PO
+    /// IDENTYFIKATORZE. Kontenery wierszy sa niszczone przy przebudowie listy,
+    /// wiec sam obiekt kontrolki nie nadaje sie do powrotu.
+    /// </summary>
+    private RowFocusTarget? rowBeforeBusy;
+
+    /// <summary>Wiersz listy wskazany przez dom i identyfikator elementu, nie przez pozycje ani etykiete.</summary>
+    private sealed record RowFocusTarget(string ListName, string HouseholdId, string ItemId);
 
     /// <summary>
     /// Identyfikator domu WYBRANEGO przez uzytkownika. Odswiezenie ma go
@@ -157,7 +180,7 @@ public partial class SonosDevicesWindow
     /// </summary>
     private void RescueFocusBeforeDisabling()
     {
-        if (focusBeforeBusy is not null)
+        if (focusBeforeBusy is not null || rowBeforeBusy is not null)
         {
             return;
         }
@@ -165,6 +188,16 @@ public partial class SonosDevicesWindow
         var focused = FocusManager.GetFocusedElement(this);
         if (focused is null || ReferenceEquals(focused, CloseButton) || ReferenceEquals(focused, InstructionBox))
         {
+            return;
+        }
+
+        // WIERSZ listy tez ma fokus, ktory trzeba uratowac: ZYWY NVDA pokazal,
+        // ze po wylaczeniu listy czytnik czyta caly dialog. Kontener wiersza
+        // ginie przy przebudowie, wiec zapamietujemy TOZSAMOSC elementu.
+        if (DescribeFocusedRow(focused) is { } row)
+        {
+            rowBeforeBusy = row;
+            FocusManager.SetFocusedElement(this, InstructionBox);
             return;
         }
 
@@ -181,14 +214,53 @@ public partial class SonosDevicesWindow
     }
 
     /// <summary>
+    /// Tozsamosc wiersza pod fokusem: ktora lista, ktory dom i ktory element.
+    /// Zwraca null dla wszystkiego, co nie jest wierszem NASZYCH dwoch list.
+    /// </summary>
+    private RowFocusTarget? DescribeFocusedRow(IInputElement focused)
+    {
+        if (focused is not DependencyObject candidate)
+        {
+            return null;
+        }
+
+        var container = candidate as ListBoxItem
+            ?? ItemsControl.ContainerFromElement(GroupsList, candidate) as ListBoxItem
+            ?? ItemsControl.ContainerFromElement(PlayersList, candidate) as ListBoxItem;
+        if (container is null || SelectedHouseholdId is null)
+        {
+            return null;
+        }
+
+        var list = ItemsControl.ItemsControlFromItemContainer(container) as ListBox;
+        var ids = ReferenceEquals(list, GroupsList) ? groupIds
+            : ReferenceEquals(list, PlayersList) ? playerIds
+            : null;
+        if (list is null || ids is null)
+        {
+            return null;
+        }
+
+        var index = list.ItemContainerGenerator.IndexFromContainer(container);
+        if (index < 0 || index >= ids.Count)
+        {
+            return null;
+        }
+
+        return new RowFocusTarget(list.Name, SelectedHouseholdId, ids[index]);
+    }
+
+    /// <summary>
     /// Wraca fokusem na kontrolke sprzed oczekiwania. NIE kradnie fokusu, gdy
     /// uzytkownik przeszedl w miedzyczasie gdzie indziej (np. na Zamknij).
     /// </summary>
     private void RestoreFocusAfterBusy()
     {
         var target = focusBeforeBusy;
+        var row = rowBeforeBusy;
         focusBeforeBusy = null;
-        if (target is null || closed)
+        rowBeforeBusy = null;
+        if ((target is null && row is null) || closed)
         {
             return;
         }
@@ -197,6 +269,18 @@ public partial class SonosDevicesWindow
         if (focused is not null && !ReferenceEquals(focused, InstructionBox))
         {
             // Uzytkownik sam wybral inna kontrolke: to jego wybor wygrywa.
+            return;
+        }
+
+        if (row is not null)
+        {
+            // SWIEZY kontener tego samego elementu; gdy element albo dom
+            // zniknal, zostaje czytelna instrukcja - nigdy odlaczony wiersz.
+            if (FindFreshRow(row) is { } fresh)
+            {
+                FocusManager.SetFocusedElement(this, fresh);
+            }
+
             return;
         }
 
@@ -211,6 +295,39 @@ public partial class SonosDevicesWindow
         }
 
         FocusManager.SetFocusedElement(this, target);
+    }
+
+    /// <summary>
+    /// Kontener wiersza ZBUDOWANY PO przebudowie listy, odszukany po
+    /// identyfikatorze elementu. Null, gdy dom sie zmienil, element zniknal,
+    /// lista jest pusta albo kontener jeszcze nie istnieje.
+    /// </summary>
+    private ListBoxItem? FindFreshRow(RowFocusTarget row)
+    {
+        if (!string.Equals(SelectedHouseholdId, row.HouseholdId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var list = row.ListName == GroupsList.Name
+            ? GroupsList
+            : row.ListName == PlayersList.Name ? PlayersList : null;
+        var ids = list is null ? null : ReferenceEquals(list, GroupsList) ? groupIds : playerIds;
+        if (list is null || ids is null || !list.IsEnabled || list.Visibility != Visibility.Visible)
+        {
+            return null;
+        }
+
+        var index = ids.IndexOf(row.ItemId);
+        if (index < 0 || index >= list.Items.Count)
+        {
+            return null;
+        }
+
+        // Kontener powstaje dopiero przy przebiegu ukladu - wymuszamy go tutaj,
+        // bez pokazywania okna, zadnego timera i zadnej aktywacji.
+        list.UpdateLayout();
+        return list.ItemContainerGenerator.ContainerFromIndex(index) as ListBoxItem;
     }
 
     private void SetInstruction(string headline)
@@ -385,15 +502,19 @@ public partial class SonosDevicesWindow
 
         var topology = result.Topology;
         GroupsList.Items.Clear();
+        groupIds.Clear();
         foreach (var group in topology.Groups)
         {
             GroupsList.Items.Add(SonosDeviceLabels.DescribeGroup(group));
+            groupIds.Add(group.Id);
         }
 
         PlayersList.Items.Clear();
+        playerIds.Clear();
         foreach (var player in topology.Players)
         {
             PlayersList.Items.Add(SonosDeviceLabels.DescribePlayer(player, topology));
+            playerIds.Add(player.Id);
         }
 
         SetInstruction(summary);
@@ -404,6 +525,8 @@ public partial class SonosDevicesWindow
     {
         GroupsList.Items.Clear();
         PlayersList.Items.Clear();
+        groupIds.Clear();
+        playerIds.Clear();
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) =>
