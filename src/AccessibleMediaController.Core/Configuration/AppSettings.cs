@@ -376,7 +376,10 @@ public static class SessionSlotOrder
         ("spotify", "Spotify"),
         ("appleMusic", "Apple Music"),
         ("radio", "Radio internetowe"),
-        ("podcasts", "Podcasty i YouTube")
+        ("podcasts", "Podcasty i YouTube"),
+        // Sonos dopisany na KONCU - jak Spotify. Wstawienie go w srodek
+        // przesunelo by numery Alt+cyfra wyuczone przez uzytkownika.
+        ("sonos", "Sonos")
     ];
 
     public static IReadOnlyList<string> DefaultSessionIds =>
@@ -394,7 +397,8 @@ public static class SessionSlotOrder
         [4] = "appleMusic",
         [5] = "radio",
         [6] = "podcasts",
-        [7] = "spotify"
+        [7] = "spotify",
+        [8] = "sonos"
     };
 
     public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
@@ -416,12 +420,23 @@ public static class SessionSlotOrder
             zajete[pair.Key] = sessionId;
         }
 
-        // Sesje, ktore nigdzie nie maja numeru, dostaja pierwszy wolny.
+        // Sesje, ktore nigdzie nie maja numeru (np. dopisane w nowej wersji),
+        // ida ZA NAJWYZSZY zajety numer - NIGDY w dziure w srodku. Dziura w
+        // zapisie znaczy, ze numer sie ZWOLNIL (scalenie starej sesji Spotify),
+        // a nie ze czeka na pierwsza nowa sesje: wepchniecie tam Sonosa zmienilo
+        // by Alt+cyfra, ktorego uzytkownik nie ruszal.
+        //
+        // Gdy nad szczytem nie ma juz wolnego numeru, nowa sesja zostaje BEZ
+        // numeru. Jest wtedy nadal na liscie i osiagalna przechodzeniem miedzy
+        // sesjami - tylko bez skrotu Alt+cyfra. To swiadomy wybor: zaden
+        // wyuczony skrot nie moze zmienic znaczenia przez sam fakt aktualizacji.
         foreach (var session in KnownSessions)
         {
             if (znaneId.Contains(session.Id)) continue;
-            var wolny = Enumerable.Range(1, 9).FirstOrDefault(slot => !zajete.ContainsKey(slot));
-            if (wolny == 0) break;
+            var szczyt = zajete.Count == 0 ? 0 : zajete.Keys.Max();
+            var wolny = Enumerable.Range(1, 9)
+                .FirstOrDefault(slot => slot > szczyt && !zajete.ContainsKey(slot));
+            if (wolny == 0) continue;
             zajete[wolny] = session.Id;
             znaneId.Add(session.Id);
         }
@@ -544,6 +559,7 @@ public sealed class PersistedState
     public RadioSettings Radio { get; set; } = new();
     public PodcastSettings Podcasts { get; set; } = new();
     public WiiMSettings WiiM { get; set; } = new();
+    public SonosSessionSettings Sonos { get; set; } = new();
     public TidalSettings Tidal { get; set; } = new();
     public SpotifySettings Spotify { get; set; } = new();
     public RemoteQueueCacheSettings RemoteQueues { get; set; } = new();
@@ -852,6 +868,24 @@ public sealed class TidalCachedCollectionItemSettings
         IsInLibrary = IsInLibrary,
         IsAvailable = IsAvailable
     };
+}
+
+/// <summary>
+/// Pamiec WYBORU sesji Sonos: dom i grupa. CELOWO nie ma tu zadnego tokenu,
+/// scope ani sciezki - poswiadczenia zostaja w osobnym magazynie DPAPI
+/// wlasciciela konta, a ten plik jest zwyklymi ustawieniami uzytkownika.
+///
+/// To jest SEMANTYKA WYBORU, nie cache danych konta: nazwy grup, topologia i
+/// stan odtwarzania NIE sa tu zapisywane, bo po restarcie moga byc inne i
+/// pokazanie ich jako biezacych byloby klamstwem o stanie domu.
+/// </summary>
+public sealed class SonosSessionSettings
+{
+    /// <summary>Identyfikator wybranego domu (household.id) albo null.</summary>
+    public string? SelectedHouseholdId { get; set; }
+
+    /// <summary>Identyfikator wybranej grupy (group.id) albo null.</summary>
+    public string? SelectedGroupId { get; set; }
 }
 
 public sealed class WiiMSettings

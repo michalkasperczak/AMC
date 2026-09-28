@@ -46,6 +46,7 @@ internal sealed class SonosAccountOwner : IDisposable
 
     private SonosControlApiClient? _controlApi;
     private SonosControlApiDeviceApi? _deviceApi;
+    private SonosControlApiGroupApi? _groupApi;
 
     private readonly object _gate = new();
 
@@ -156,6 +157,7 @@ internal sealed class SonosAccountOwner : IDisposable
 
             _controlApi = new SonosControlApiClient(configuration);
             _deviceApi = new SonosControlApiDeviceApi(_controlApi);
+            _groupApi = new SonosControlApiGroupApi(_controlApi);
             ControlApiCreations++;
             return _controlApi;
         }
@@ -181,6 +183,63 @@ internal sealed class SonosAccountOwner : IDisposable
     /// <summary>ODCZYT grup i glosnikow wybranego domu. Tez tylko GET.</summary>
     internal Task<SonosGroupsReadResult> ReadGroupsAsync(string householdId, CancellationToken cancellationToken) =>
         EnsureCoordinator().ReadGroupsAsync(EnsureDeviceApi(), householdId, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs GRUP nad tym SAMYM klientem i tym SAMYM koordynatorem.
+    /// Leniwy jak reszta: powstaje razem z klientem Control API.
+    /// </summary>
+    internal ISonosGroupApi EnsureGroupApi()
+    {
+        EnsureControlApiClient();
+        lock (_gate)
+        {
+            return _groupApi ?? throw new InvalidOperationException("Klient Control API Sonos nie został utworzony.");
+        }
+    }
+
+    /// <summary>ODCZYT stanu odtwarzania GRUPY. Poswiadczenia zostaja tutaj.</summary>
+    internal Task<SonosGroupReadResult<SonosGroupPlaybackStatus>> ReadGroupPlaybackAsync(
+        string? groupId,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadGroupPlaybackAsync(EnsureGroupApi(), groupId, cancellationToken);
+
+    /// <summary>ODCZYT metadanych GRUPY (tytul, wykonawca, zrodlo, radio).</summary>
+    internal Task<SonosGroupReadResult<SonosGroupMetadata>> ReadGroupMetadataAsync(
+        string? groupId,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadGroupMetadataAsync(EnsureGroupApi(), groupId, cancellationToken);
+
+    /// <summary>ODCZYT glosnosci i wyciszenia GRUPY.</summary>
+    internal Task<SonosGroupReadResult<SonosGroupVolume>> ReadGroupVolumeAsync(
+        string? groupId,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadGroupVolumeAsync(EnsureGroupApi(), groupId, cancellationToken);
+
+    /// <summary>POLECENIE grupy bez parametrow. Guardy transportu bez zmian.</summary>
+    internal Task<SonosGroupCommandResult> SendGroupCommandAsync(
+        string? groupId,
+        SonosGroupCommand command,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().SendGroupCommandAsync(EnsureGroupApi(), groupId, command, cancellationToken);
+
+    internal Task<SonosGroupCommandResult> SeekRelativeAsync(
+        string? groupId,
+        int deltaMillis,
+        string? itemId,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().SeekRelativeAsync(EnsureGroupApi(), groupId, deltaMillis, itemId, cancellationToken);
+
+    internal Task<SonosGroupCommandResult> SetGroupVolumeAsync(
+        string? groupId,
+        int volume,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().SetGroupVolumeAsync(EnsureGroupApi(), groupId, volume, cancellationToken);
+
+    internal Task<SonosGroupCommandResult> SetGroupMuteAsync(
+        string? groupId,
+        bool muted,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().SetGroupMuteAsync(EnsureGroupApi(), groupId, muted, cancellationToken);
 
     /// <summary>
     /// WASKI interfejs odczytu nad odebranym klientem. Osobna metoda, zeby

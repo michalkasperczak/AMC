@@ -102,14 +102,26 @@ internal static class SonosAccountCommandRoutingTests
                 "Polecenie konta Sonos ma przypisany skrót: "
                 + sonosEntry.LocalShortcut + " / " + sonosEntry.PrefixShortcut);
         }
-        if (sessions.Sessions.Any(session => session.Id.Contains("sonos", StringComparison.OrdinalIgnoreCase)))
+        // Sesja Sonos JEST na liscie, ale nie wolno jej byc atrapa: zadnych
+        // utworow demonstracyjnych. Lista sesji Sonos pokazuje GRUPY odczytane
+        // z konta, a przy braku konta - pusty stan z droga do konta.
+        var sonosSession = sessions.Sessions.FirstOrDefault(
+            session => session.Id.Equals("sonos", StringComparison.OrdinalIgnoreCase));
+        if (sonosSession is null)
         {
-            throw new Exception("Ten przyrost dodał atrapę sesji Sonos.");
+            throw new Exception("Brak sesji Sonos na liscie sesji.");
+        }
+        if (sonosSession.Items.Count > 0)
+        {
+            throw new Exception(
+                "Sesja Sonos ma utwory demonstracyjne (atrapa): " + sonosSession.Items.Count);
         }
         // ZMIERZONA kolejnosc gniazd sesji na domyslnych ustawieniach PRZED tym
         // przyrostem. Nowe polecenie nie ma prawa jej zmienic ani przenumerowac.
+        // Sonos jest dopisany NA KONCU. Kolejnosc dotychczasowych sesji i ich
+        // numery musza zostac nietkniete - tego pilnuje ten warunek.
         var slots = string.Join(", ", sessions.Sessions.Select(session => session.Id));
-        if (slots != "wiim, tidal, appleMusic, spotify")
+        if (slots != "wiim, tidal, appleMusic, spotify, sonos")
         {
             throw new Exception("Kolejność gniazd sesji się zmieniła: " + slots);
         }

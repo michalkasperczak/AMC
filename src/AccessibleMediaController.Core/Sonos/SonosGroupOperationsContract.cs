@@ -132,6 +132,18 @@ public sealed class SonosGroupReadResult<TValue>
 
     public bool Succeeded => Status == SonosDeviceReadStatus.Success && Value is not null;
 
+    /// <summary>
+    /// Wynik UDANEGO odczytu bez udzialu koordynatora - dla zaplecza sesji
+    /// podstawianego na granicy API (pomiar UI bez konta i bez sieci).
+    /// Nie tworzy poswiadczen: snapshot jest PUSTY.
+    /// </summary>
+    public static SonosGroupReadResult<TValue> Success(TValue value) =>
+        new(SonosDeviceReadStatus.Success, value, false, SonosAccountSnapshots.Empty);
+
+    /// <summary>Wynik NIEUDANY: brak danych, jasny status, zaden sukces z przeszlosci.</summary>
+    public static SonosGroupReadResult<TValue> Failure(SonosDeviceReadStatus status) =>
+        new(status, null, false, SonosAccountSnapshots.Empty);
+
     /// <summary>Wynik SPOZNIONY: nie podmienia tego, co widzi uzytkownik.</summary>
     public bool Discarded => Status == SonosDeviceReadStatus.Discarded;
 
@@ -249,6 +261,20 @@ public sealed class SonosGroupCommandResult
     public SonosGroupOperationStatus Status { get; }
 
     public SonosGroupCommand Command { get; }
+
+    /// <summary>
+    /// Polecenie PODJETE i przyjete przez transport - bez udzialu koordynatora.
+    /// Sluzy zapleczu podstawianemu na granicy API. Nadal znaczy tylko
+    /// PRZYJECIE: o skutku rozstrzyga dopiero jawny odczyt.
+    /// </summary>
+    public static SonosGroupCommandResult CreateAcceptedForMeasurement(SonosGroupCommand command) =>
+        new(
+            SonosGroupOperationStatus.Attempted,
+            command,
+            SonosGroupCommandOutcome.FromStatus(command, SonosControlApiStatus.Success, true),
+            true,
+            false,
+            SonosAccountSnapshots.Empty);
 
     /// <summary>
     /// Wynik warstwy transportu, gdy polecenie zostalo podjete. Null znaczy, ze

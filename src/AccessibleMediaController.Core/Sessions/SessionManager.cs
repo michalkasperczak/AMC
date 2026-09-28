@@ -305,7 +305,14 @@ public sealed class SessionManager
                 CreateDemonstrationItems("spotify"),
                 spotifyOutput,
                 rememberPosition: item =>
-                    Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item))
+                    Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item)),
+            // Sonos NA KONCU, po Spotify: kolejnosc tej tablicy wyznacza
+            // przechodzenie miedzy sesjami, a Michal ma wyuczone numery i
+            // kolejnosc dotychczasowych sesji. Dopisanie na koniec nie przesuwa
+            // zadnej z nich. Zadnych utworow demonstracyjnych - Sonos jest
+            // URZADZENIEM AUTONOMICZNYM jak WiiM: lista pokazuje GRUPY odczytane
+            // z konta, a sesja nigdy nie gra wlasnym torem audio AMC.
+            new DemoMediaSession("sonos", "Sonos", [])
         ];
     }
 

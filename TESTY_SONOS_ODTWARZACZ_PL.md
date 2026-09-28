@@ -1,0 +1,130 @@
+# Sesja Sonos: obsługa i granice (stan tego przyrostu)
+
+Sonos jest w AMC **urządzeniem autonomicznym**, dokładnie jak WiiM. AMC nie
+przesyła do niego dźwięku i nie ma własnego silnika odtwarzania Sonosa —
+steruje tylko **grupą** przez Sonos Control API i **odczytuje** jej stan.
+
+## Jak się tym obsługuje
+
+### Wejście do sesji
+
+- Sonos jest sesją na liście sesji, **dopisaną na końcu** (domyślnie numer 8).
+  Numery i kolejność dotychczasowych sesji są nietknięte — żaden wyuczony
+  Alt+cyfra nie zmienił znaczenia.
+- Jeżeli w zapisanych ustawieniach numery 1–9 są już zajęte, Sonos zostaje
+  **bez numeru**: nadal jest na liście i dojdzie się do niego przechodzeniem
+  między sesjami, ale nie zabiera skrótu innej sesji.
+- Wejście do sesji Sonos (jawne — wybór sesji) dopiero wtedy inicjuje
+  właściciela konta. **Start programu ani odbudowa menu nie czytają konta
+  Sonos i nie ruszają sieci.**
+
+### Lista
+
+- Lista sesji Sonos pokazuje **grupy** z aktywnego domu, nie utwory
+  demonstracyjne. Każda pozycja to grupa (nazwa + liczba głośników + stan).
+- Brak konta albo brak grup daje **czytelny pusty stan z drogą do konta**
+  („Nie ma konta Sonos…” / „Konto Sonos nie ma grup…”), nie pustą listę bez
+  wyjaśnienia.
+- Konto i lista grup są dostępne **z samej sesji**, nie tylko z historycznego
+  Plik → Konto Sonos.
+
+### Aktywna grupa
+
+- Enter (wybór pozycji) czyni grupę **aktywną** i otwiera istniejący widok
+  odtwarzacza.
+- **Sam wybór grupy nie zmienia muzyki**: żadnego POST przy wyborze. Zmienia
+  się tylko to, czym steruje AMC.
+- Dom i grupa są pamiętane **po identyfikatorze** (nie po indeksie ani
+  nazwie), w ustawieniach, **bez żadnych tokenów** (`PersistedState.Sonos`).
+- Gdy aktywna grupa **zniknie** z topologii, AMC **nie wybiera po cichu
+  innej**: mówi, że grupa zniknęła, i czeka na wybór.
+
+### Wyjście z odtwarzacza
+
+- Wyjście z odtwarzacza, zmiana sesji i zamknięcie AMC **nie zatrzymują i nie
+  pauzują** Sonosa — zero POST. Muzyka gra dalej, jak przy WiiM.
+- AMC kończy tylko **swoje** liczniki i oczekujące odczyty.
+
+### Polecenia (istniejąca droga `ExecuteCommand`, bez nowych skrótów)
+
+| Polecenie | Zachowanie |
+|---|---|
+| Odtwórz / Pauza / Przełącz | POST, potem **jawny odczyt stanu** |
+| Następny / Poprzedni | POST, potem odczyt **stanu i metadanych** |
+| Przewijanie (bezwzględne i względne) | POST, potem odczyt stanu |
+| Głośność, wyciszenie | POST, potem odczyt **głośności** |
+
+Zasady, których te polecenia trzymają się twardo:
+
+- **Accepted 200 ≠ wykonane.** Po każdym poleceniu idzie jawny GET w rodzaju
+  polecenia i dopiero on rozstrzyga, co powiedzieć.
+- **Żadnego ponawiania POST**, nawet po 401. Wynik nieznany = „nie
+  potwierdzono”, nigdy „zrobione”.
+- Jeśli stan **już był docelowy**, komunikat mówi o **odczytanym stanie**, a
+  nie o skutku naszego polecenia.
+- Przy Następny/Poprzedni **udany GET sam nie jest potwierdzeniem**: bez
+  porównywalnego materiału (poprzedni i nowy tytuł) wynik jest
+  „niepotwierdzony”.
+- **Jeden przelot poleceniowy naraz** dla aktywnej grupy. Drugie polecenie
+  dostaje jawną, bezpieczną odmowę zajętości — nie ma niejawnej kolejki
+  przełączeń.
+- Dostępność bierze się z odczytanych `availablePlaybackActions`
+  (`CanPlay` / `CanPause` / `CanSkip` / `SkipToPreviousAllowed` / `CanSeek`).
+  Niedostępne polecenie daje **czytelną odmowę bez POST**.
+- `volume.Fixed` **blokuje poziom** (odmowa zamiast POST).
+- **Nieznane wyciszenie** prowadzi do odczytu albo odmowy — nigdy do
+  zgadywania wartości logicznej.
+
+### Odczyt stanu
+
+- Tytuł, wykonawca, źródło, stan, głośność i wyciszenie pochodzą z
+  rzeczywistych odczytów (`ReadGroupPlayback` / `ReadGroupMetadata` /
+  `ReadGroupVolume`) przez tego samego właściciela konta.
+- **Brak pozycji lub długości nie jest zerem ani fałszem** — to „brak
+  informacji”.
+- **Nie ma zegara demonstracyjnego.** Pokazywana jest ostatnia odczytana
+  pozycja. Czas jest ekstrapolowany **tylko** gdy stan jest znany i to
+  `Playing`, z jawną świeżością, i nigdy poza wygasły odczyt.
+- **Radio bez `currentItem`** pozostaje poprawnym stanem (źródło bez utworu).
+- **Nieudany odczyt niesie jasny stan** — nie udaje sukcesu na danych z
+  poprzedniego odczytu.
+
+### Odczyt w tle
+
+- Jeden **oszczędny** odczyt w tle dla używanej grupy; interwał to **polityka
+  AMC**, nie rzekomy limit Sonosa. Błąd i 429 dają backoff, pollowanie się nie
+  nakłada.
+- Odczyt w tle **nie mówi przy każdym cyklu** i **nie zabiera fokusu**.
+- Zmiana grupy, zmiana domu i wyjście **unieważniają własne oczekujące
+  wyniki** (osobny bilet celu ponad generacją konta): spóźniona odpowiedź dla
+  grupy A nie nadpisze grupy B i nie wyczyści nowszego oczekiwania.
+
+## Granice tego przyrostu (świadomie poza zakresem)
+
+- Presety, ulubione, EQ, wejścia, kolejka i webhooki — **poza etapem**.
+  Martwych przycisków tych funkcji **nie ma**.
+- Brak `stop` / `repeat` / ładowania URI po HTTP: te polecenia nie są tu
+  wymyślane.
+- Sonos nie dostaje żadnego nowego globalnego skrótu klawiszowego.
+
+## Czym to zmierzone
+
+| Pomiar | Co sprawdza |
+|---|---|
+| `Core.SmokeTests -- --sonos-session-presentation` | formatery, pusty stan, pamięć wyboru po ID, pełny roundtrip starych ustawień, bramka dostępności, werdykty po odczycie, brak zegara demo |
+| `Windows.SmokeTests -- --sonos-session-ui` | **prawdziwy `MainWindow`** bez pokazywania okna: lista grup, aktywna grupa bez POST, wyjście bez stop/pause, polecenia przez `ExecuteCommand`, odmowa zajętości, unieważnianie spóźnionych odczytów |
+
+Pomiar Windows buduje się i uruchamia **bez GUI** (żadnego `Show`,
+`ShowDialog`, `Activate`). Używa `SuppressDesktopIntegrationForTests`,
+własnego magazynu ustawień z pustymi kontami/podcastami/urządzeniami
+WiiM/harmonogramami, wyłączonych aktualizacji i odmowy uruchomienia
+instalatora.
+
+### Czego tu NIE zmierzono
+
+- **Odsłuch NVDA** i **prawdziwa klawiatura** — nie były uruchamiane.
+  Komunikaty są sprawdzone jako tekst, który trafia do `Announce`, nie jako
+  mowa.
+- **Żadnego prawdziwego konta ani sieci Sonos.** Zaplecze grupy jest
+  podstawione na faktycznej granicy API (domyślnie `null`), poświadczenia
+  zostają wyłącznie u właściciela konta.

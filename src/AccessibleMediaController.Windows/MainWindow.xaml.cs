@@ -23,6 +23,7 @@ using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.Core.Updates;
@@ -612,6 +613,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!Dispatcher.CheckAccess())
         {
             Dispatcher.Invoke(() => Announce(message));
+            return;
+        }
+        // POMIAROWE ujscie: gdy jest podstawione, komunikat jest zapisywany
+        // zamiast wypowiadany. Produkcyjnie null, wiec sciezka mowy bez zmian.
+        if (AnnouncementSinkForTests is { } sink)
+        {
+            sink(message);
             return;
         }
         if (_captureAnnouncements)
@@ -2368,6 +2376,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // WiiM is an autonomous network player. Leaving its controller must not
         // stop music in the room; transport is changed only by an explicit command.
         if (string.Equals(session.Id, "wiim", StringComparison.Ordinal)) return;
+        // Sonos jest takim samym autonomicznym urzadzeniem sieciowym jak WiiM:
+        // wyjscie z odtwarzacza, zmiana sesji i zamkniecie AMC NIE zatrzymuja
+        // muzyki w pokoju. Transport zmienia wylacznie JAWNE polecenie.
+        if (IsSonosSession(session.Id)) return;
         if (!MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(reason)) return;
         // Ustawienie sesji ma pierwszenstwo nad ogolnym: radio moze grac dalej
         // po Escape, a pliki lokalne zatrzymywac sie - ZGLOSZENIE Michala.
@@ -2412,6 +2424,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(session.Id, "wiim", StringComparison.Ordinal))
         {
             UpdateWiiMPlayerView(item, updateAccessibleName);
+            return;
+        }
+        if (IsSonosSession(session.Id))
+        {
+            UpdateSonosPlayerView(updateAccessibleName);
             return;
         }
         var position = session.Position;
@@ -3137,6 +3154,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var item = session.CurrentItem;
         if (string.Equals(session.Id, "wiim", StringComparison.Ordinal))
             return BuildWiiMPlaybackStatusText(item);
+        if (IsSonosSession(session.Id))
+        {
+            var sonos = BuildSonosPlayerView(DateTime.UtcNow);
+            return sonos.Title + ". " + sonos.StateText + ". " + sonos.VolumeText + ". " + sonos.PositionText;
+        }
         var position = session.Position;
         var isRadio = string.Equals(session.Id, "radio", StringComparison.Ordinal);
         var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
@@ -11203,6 +11225,38 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExportRadioFavorites();
             return new CommandExecutionResult(true);
         }
+        if (IsSonosSession(_sessions.Current.Id))
+        {
+            if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
+            {
+                // Enter na LISCIE czyni grupe aktywna i otwiera odtwarzacz.
+                // To sam WYBOR celu: zaden POST nie idzie, muzyka bez zmian.
+                var selectedGroup = ActionItem
+                    ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+                if (selectedGroup is null)
+                {
+                    Announce(SonosSessionListPresentation.DescribeEmptyState(SonosEmptyReason));
+                    return new CommandExecutionResult(false);
+                }
+
+                _ = ActivateSonosGroupThenShowPlayerAsync(selectedGroup.Id);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId is CommandIds.PlayPause
+                or CommandIds.ActivateSelected
+                or CommandIds.Next
+                or CommandIds.Previous
+                or CommandIds.ToggleMuteCurrentSession
+                or CommandIds.VolumeUp5
+                or CommandIds.VolumeDown5
+                or CommandIds.VolumeUp1
+                or CommandIds.VolumeDown1
+                || SonosCommandGating.IsSeek(commandId))
+            {
+                _ = ExecuteSonosCommandAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
+        }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
             if (commandId == CommandIds.ActivateSelected)
@@ -11883,6 +11937,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     () => _ = RefreshActiveWiiMDeviceOnEntryAsync(),
                     DispatcherPriority.Background);
             }
+            // JAWNE wejscie do sesji Sonos - tu wolno obudzic wlasciciela konta.
+            // Wyjscie z sesji uniewaznia WLASNE oczekujace wyniki, ale nie wysyla
+            // zadnego POST: muzyka gra dalej.
+            if (IsSonosSession(sessionBeforeCommand.Id) && !IsSonosSession(_sessions.Current.Id))
+            {
+                CancelSonosPendingWork();
+            }
+            if (IsSonosSession(_sessions.Current.Id))
+            {
+                Dispatcher.BeginInvoke(
+                    () => _ = EnterSonosSessionAsync(),
+                    DispatcherPriority.Background);
+            }
             if (string.Equals(sessionBeforeCommand.Id, "local", StringComparison.Ordinal))
             {
                 TrySaveLocalMediaState(false);
@@ -12558,6 +12625,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
             && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal))
+        {
+            items = items.Where(item => item.Kind == MediaItemKind.Device);
+        }
+        // Lista sesji Sonos to GRUPY odczytane z konta - nigdy demo material.
+        if (IsSonosSession(_sessions.Current.Id))
         {
             items = items.Where(item => item.Kind == MediaItemKind.Device);
         }
@@ -23258,6 +23330,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // FAKTYCZNE zakonczenie wlasciciela konta Sonos. Jest tu, a nie w
         // bramce potwierdzenia nagrywania: ANULOWANE zamykanie AMC nie dochodzi
         // do tego miejsca, wiec nie zwalnia tokenow konta.
+        // Wlasne timery i oczekujace odczyty Sonos koncza sie tutaj. Konto NIE
+        // jest kasowane, a juz wyslanych polecen nie obiecujemy cofnac.
+        CancelSonosPendingWork();
         _sonosAccount.Dispose();
         _tidalIntegration.Dispose();
         _tidalCancellation.Dispose();

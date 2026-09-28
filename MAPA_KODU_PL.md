@@ -1,5 +1,48 @@
 # AMC — mapa kodu
 
+## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
+
+Sesja Sonos wzorowana na WiiM: **urządzenie autonomiczne**, bez własnego
+silnika odtwarzania w AMC. Pełny opis obsługi i granic:
+`TESTY_SONOS_ODTWARZACZ_PL.md`.
+
+- `Core/Sonos/ISonosGroupSessionBackend.cs` — WĄSKA granica API/transportu dla
+  UI: trzy odczyty (playback/metadata/volume), polecenia grupy, seek
+  bezwzględny i względny, głośność, wyciszenie, odczyt domów i grup.
+  **Domyślnie `null`** w `MainWindow` — produkcyjnie podstawia go właściciel
+  konta, w pomiarze zaplecze syntetyczne. Poświadczenia nie wychodzą poza
+  właściciela.
+- `Core/Sonos/SonosSessionPresentation.cs` — Core sesji bez WPF: pozycje listy
+  z grup, pusty stan z drogą do konta, formatery tytułu/wykonawcy/źródła/
+  stanu/głośności, bramka dostępności z `availablePlaybackActions` i
+  `volume.Fixed`, werdykty po jawnym odczycie (potwierdzone / niepotwierdzone /
+  odczytany stan), brak zegara demonstracyjnego, ekstrapolacja czasu tylko dla
+  `Known + Playing` z jawną świeżością.
+- `Core/Configuration/AppSettings.cs` — `SonosSessionSettings` w
+  `PersistedState.Sonos`: pamięć **domu i grupy po identyfikatorze, BEZ
+  tokenów**; oddzielony cache topologii od danych konta. `SessionSlotOrder`:
+  Sonos dopisany na końcu (`sonos`, numer 8), a nowa sesja **nigdy nie wchodzi
+  w zwolniony numer w środku** — przy braku miejsca ponad szczytem zostaje bez
+  numeru, żeby nie zmienić wyuczonego Alt+cyfra.
+- `Core/Sessions/SessionManager.cs` — `sonos` dopisany jako OSTATNIA sesja
+  (po Spotify), bez utworów demonstracyjnych.
+- `Windows/MainWindow.Sonos.cs` — cała obsługa sesji poza monolitem: wejście do
+  sesji (leniwa inicjalizacja właściciela — **start programu nie czyta konta
+  ani sieci**), lista grup, uczynienie grupy aktywną **bez POST**, odczyt stanu
+  na widoku odtwarzacza, mapowanie wspólnych poleceń na operacje grupy z jawnym
+  GET-em po każdym POST, jeden przelot poleceniowy naraz (jawna odmowa
+  zajętości), oszczędny pojedynczy odczyt w tle z backoffem, bilet celu
+  unieważniający spóźnione odpowiedzi, zakończenie własnych liczników na Close.
+- `Windows/MainWindow.xaml.cs` — tylko PODPIĘCIE: `ApplyPlaybackPolicyWhenLeavingPlayer`
+  traktuje Sonos jak WiiM (**zero stop/pause** przy wyjściu, zmianie sesji i
+  zamykaniu AMC), gałąź Sonos w `ExecuteCommand`, ujście komunikatów do pomiaru.
+- `Windows/Services/SonosAccountOwner.cs` — wąskie operacje grupy na TYM SAMYM
+  leniwym właścicielu (wspólny koordynator i klient), bez wyciągania tokenów.
+
+Pomiary: `Core.SmokeTests --sonos-session-presentation` (WSL) oraz
+`Windows.SmokeTests --sonos-session-ui` — **prawdziwy `MainWindow` bez
+pokazywania okna**. Odsłuchu NVDA i prawdziwej klawiatury tu NIE było.
+
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
 
 Wąskie powiązanie trzech GET-ów i dziesięciu POST-ów grupy z ISTNIEJĄCYM

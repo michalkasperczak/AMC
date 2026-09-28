@@ -87,6 +87,11 @@ if (args.Length == 1 && args[0] == "--sonos-group-account")
     try { SonosGroupAccountOperationsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-session-presentation")
+{
+    try { SonosSessionPresentationTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
@@ -104,6 +109,8 @@ var tests = new (string Name, Action Test)[]
     ("Odczyt stanu, metadanych i głośności grupy Sonos oraz polecenia grupy",
         SonosGroupPlaybackTests.Run),
     ("Autoryzowane operacje grupy Sonos przez konto", SonosGroupAccountOperationsTests.Run),
+    ("Sesja Sonos: pamiec wyboru, lista grup, odtwarzacz, bramka i werdykt",
+        SonosSessionPresentationTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
@@ -3740,10 +3747,10 @@ static void TestSessions()
     var manager = new SessionManager(settings);
     Equal("TIDAL", manager.Current.DisplayName);
     Equal("WiiM", manager.SelectSlot(2)?.DisplayName);
-    // Spotify, nie Apple Music: doszla sesja Spotify na numerze 7, wiec to
-    // ona jest ostatnia, a cofniecie z pierwszej sesji zawija sie na nia.
-    // Numery 1-6 sa nietkniete, czego pilnuje TestSessionOrder.
-    Equal("Spotify", manager.MoveSession(-1).DisplayName);
+    // Sonos, nie Spotify: sesja Sonos jest dopisana NA KONIEC (numer 8), wiec
+    // to ona jest ostatnia i cofniecie z pierwszej sesji zawija sie na nia.
+    // Numery 1-7 sa nietkniete, czego pilnuje TestSessionOrder.
+    Equal("Sonos", manager.MoveSession(-1).DisplayName);
     Equal("WiiM", manager.MoveSession(1).DisplayName);
     Equal("TIDAL", manager.SelectSession("tidal")?.DisplayName);
     Equal("tidal", settings.LastSessionId);
@@ -3803,7 +3810,10 @@ static void TestSessionOrder()
     // Spotify dopisany jako 7. Numery 1-6 musza zostac takie, jak byly:
     // Michal ma je wyuczone jako skroty Alt+cyfra.
     Equal("spotify", defaults[7]);
-    Equal(7, defaults.Count);
+    // Sonos dopisany jako 8, po Spotify. Numery 1-7 musza zostac takie, jak byly:
+    // Michal ma je wyuczone, a sesja Sonos nie moze przesunac zadnej z nich.
+    Equal("sonos", defaults[8]);
+    Equal(8, defaults.Count);
 
     var settings = new AppSettings
     {
@@ -7554,7 +7564,8 @@ static void TestExports()
         var importedBackup = store.ImportFullBackup(backupPath);
         // 7, nie 6: doszla sesja Spotify na numerze 7. Numery 1-6 zostaly
         // nietkniete, czego pilnuje osobny test kolejnosci sesji.
-        Equal(7, importedBackup.Settings.SessionSlots.Count);
+        // Osiem sesji po dopisaniu Sonosa na koncu listy (numery 1-7 bez zmian).
+        Equal(8, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);

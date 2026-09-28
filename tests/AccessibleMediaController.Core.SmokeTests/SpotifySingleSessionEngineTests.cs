@@ -217,8 +217,20 @@ internal static class SpotifySingleSessionEngineTests
                 throw new Exception($"Scalenie Spotify przestawilo numer sesji {pair.Key}.");
             }
         }
-        if (manager.SessionSlots.Count != oczekiwane.Count)
-            throw new Exception("Scalenie Spotify dopisalo albo usunelo numer sesji.");
+        // Zapis ma numery 1-7. Sesja Sonos, dopisana w nowej wersji, dostaje
+        // numer 8 - PONAD szczytem, wiec zadnego z numerow 1-7 nie rusza
+        // (sprawdza to petla wyzej). Bez tego Sonos nie mial by skrotu wcale.
+        if (manager.SessionSlots.Count != oczekiwane.Count + 1)
+        {
+            throw new Exception(
+                "Scalenie Spotify zmienilo liczbe numerow sesji inaczej niz o dopisany Sonos: "
+                + manager.SessionSlots.Count);
+        }
+        if (!manager.SessionSlots.TryGetValue(8, out var osmy)
+            || !string.Equals(osmy, "sonos", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception("Sonos nie dostal numeru 8 ponad szczytem zapisu.");
+        }
     }
 
     /// <summary>

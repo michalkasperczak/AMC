@@ -179,6 +179,7 @@ public sealed class ConfigurationStore
         NormalizeRadio(state);
         NormalizePodcasts(state);
         NormalizeWiiM(state);
+        NormalizeSonos(state);
         NormalizeTidal(state);
         ValidateState(state);
         return state;
@@ -206,6 +207,7 @@ public sealed class ConfigurationStore
             NormalizeRadio(state);
             NormalizePodcasts(state);
             NormalizeWiiM(state);
+            NormalizeSonos(state);
             ValidateState(state);
             try
             {
@@ -302,6 +304,7 @@ public sealed class ConfigurationStore
         LocalMedia = includeLibraryPayload ? state.LocalMedia : new(),
         Radio = state.Radio,
         WiiM = state.WiiM,
+        Sonos = state.Sonos,
         Tidal = state.Tidal,
         Spotify = state.Spotify,
         RemoteQueues = state.RemoteQueues,
@@ -436,11 +439,35 @@ public sealed class ConfigurationStore
         NormalizeRadio(state);
         NormalizePodcasts(state);
         NormalizeWiiM(state);
+        NormalizeSonos(state);
         MigrateLegacyWiiMNetworkStreamOrder(state, sourceSchemaVersion);
         MigrateLegacyPodcastInbox(state, sourceSchemaVersion);
         MigrateLegacyRadioPresets(state, sourceSchemaVersion);
         NormalizeSessionPresets(state);
         state.SchemaVersion = CurrentSchemaVersion;
+    }
+
+    /// <summary>
+    /// Wybor sesji Sonos. Identyfikator, ktorego NIE da sie bezpiecznie wstawic
+    /// w sciezke Control API, jest USUWANY: zapamietany smiec zamienilby sie
+    /// pozniej w zapytanie o cudzy zasob albo w bledne zadanie bez powodu.
+    /// Tokenow tu nie ma, wiec nie ma tez czego czyscic.
+    /// </summary>
+    private static void NormalizeSonos(PersistedState state)
+    {
+        state.Sonos ??= new SonosSessionSettings();
+        var household = state.Sonos.SelectedHouseholdId?.Trim();
+        state.Sonos.SelectedHouseholdId =
+            !string.IsNullOrEmpty(household) && Sonos.SonosHouseholdIdPolicy.IsAcceptable(household)
+                ? household
+                : null;
+        var group = state.Sonos.SelectedGroupId?.Trim();
+        state.Sonos.SelectedGroupId =
+            !string.IsNullOrEmpty(group) && Sonos.SonosGroupIdPolicy.IsAcceptable(group)
+                ? group
+                : null;
+        // Grupa bez domu nie ma sensu: odczyt grup idzie PRZEZ dom.
+        if (state.Sonos.SelectedHouseholdId is null) state.Sonos.SelectedGroupId = null;
     }
 
     private static void NormalizeWiiM(PersistedState state)
