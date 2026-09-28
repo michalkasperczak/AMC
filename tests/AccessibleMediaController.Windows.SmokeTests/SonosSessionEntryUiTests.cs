@@ -203,6 +203,19 @@ internal static class SonosSessionEntryUiTests
 
     private static int MeasureStaleActivationDoesNotStealFocus()
     {
+        var checks = MeasureStaleActivationAfterSessionChange();
+        checks += MeasureStaleActivationAfterGroupChange();
+        return checks;
+    }
+
+    /// <summary>
+    /// SWIADOME wyjscie do INNEJ, NIEPUSTEJ sesji w trakcie odczytu. Cel musi
+    /// miec BIEZACY element: przy pustej sesji odtwarzacz i tak by sie nie
+    /// otworzyl (!HasCurrentItem), wiec taki pomiar nie dotyka ochrony po await.
+    /// Czekamy na RZECZYWISTE zakonczenie zadania aktywacji, nie na staly czas.
+    /// </summary>
+    private static int MeasureStaleActivationAfterSessionChange()
+    {
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.ShowOwnWindow();
@@ -210,21 +223,56 @@ internal static class SonosSessionEntryUiTests
         harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed pomiarem B3");
 
         // Odczyt po aktywacji zostaje WSTRZYMANY: w tym czasie uzytkownik
-        // swiadomie wychodzi z sesji (Ctrl+7).
+        // swiadomie wychodzi z sesji.
         var release = new TaskCompletionSource();
         harness.Backend.ReadGate = release.Task;
-        harness.SelectAndFocusRow(0);
-        harness.PressKey(Key.Enter);
-        harness.PumpUntil(
-            () => harness.Backend.PlaybackReads > 0,
-            "aktywacja grupy nie zaczęła odczytu");
+        try
+        {
+            harness.SelectAndFocusRow(0);
+            harness.PressKey(Key.Enter);
+            harness.PumpUntil(
+                () => harness.Backend.PlaybackReads > 0,
+                "aktywacja grupy nie zaczęła odczytu");
 
-        var otherSlot = window.SessionsForTests.SessionSlots
-            .First(pair => !string.Equals(pair.Value, "sonos", StringComparison.Ordinal)).Key;
-        harness.ExecuteCommand(CommandIds.SessionSlot(otherSlot));
-        release.SetResult();
-        harness.Backend.ReadGate = null;
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            var started = window.LastSonosActivationTaskForTests
+                ?? throw new Exception("Enter nie rozpoczął zadania aktywacji grupy Sonos.");
+            if (started.IsCompleted)
+            {
+                throw new Exception(
+                    "Zadanie aktywacji zakończyło się mimo wstrzymanego odczytu; "
+                    + "pomiar spóźnionej odpowiedzi byłby pozorny.");
+            }
+
+            // Cel wyjscia musi byc NIEPUSTA sesja z biezacym elementem.
+            var otherSlot = window.SessionsForTests.SessionSlots
+                .Where(pair => !string.Equals(pair.Value, "sonos", StringComparison.Ordinal))
+                .Select(pair => (int?)pair.Key)
+                .FirstOrDefault(slot =>
+                    window.SessionsForTests.FindSession(
+                        window.SessionsForTests.SessionSlots[slot!.Value])?.HasCurrentItem == true)
+                ?? throw new Exception("Brak niepustej obcej sesji; pomiar B3 nie mierzyłby ochrony.");
+            harness.ExecuteCommand(CommandIds.SessionSlot(otherSlot));
+            if (!window.SessionsForTests.Current.HasCurrentItem)
+            {
+                throw new Exception(
+                    "Sesja docelowa nie ma bieżącego elementu; odtwarzacz odmówiłby niezależnie od ochrony.");
+            }
+            if (harness.PlayerViewActive)
+            {
+                throw new Exception("Odtwarzacz był otwarty jeszcze przed zwolnieniem odczytu.");
+            }
+
+            release.SetResult();
+            harness.Backend.ReadGate = null;
+
+            // OBSERWUJEMY wynik rzeczywistego zadania, nie odczekany czas.
+            harness.Pump(started);
+        }
+        finally
+        {
+            harness.Backend.ReadGate = null;
+            release.TrySetResult();
+        }
 
         if (SonosSessionUiTestsBridge.IsSonos(window.SessionsForTests.Current.Id))
         {
@@ -238,7 +286,79 @@ internal static class SonosSessionEntryUiTests
         {
             throw new Exception("Wyjście z sesji w trakcie odczytu wysłało polecenie do Sonosa.");
         }
+        return 5;
+    }
+
+    /// <summary>
+    /// Zmiana GRUPY A-&gt;B w trakcie odczytu: spozniona odpowiedz grupy A nie
+    /// moze przestawic zaznaczenia ani kontekstu odtwarzacza na porzucony cel.
+    /// </summary>
+    private static int MeasureStaleActivationAfterGroupChange()
+    {
+        using var harness = Harness.Create();
+        var window = harness.Window;
+        harness.ShowOwnWindow();
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zmianą grupy");
+
+        var release = new TaskCompletionSource();
+        harness.Backend.ReadGate = release.Task;
+        Task first;
+        Task second;
+        try
+        {
+            harness.SelectAndFocusRow(IndexOfGroup(harness, "Salon"));
+            harness.PressKey(Key.Enter);
+            harness.PumpUntil(() => harness.Backend.PlaybackReads > 0, "grupa A nie zaczęła odczytu");
+            first = window.LastSonosActivationTaskForTests
+                ?? throw new Exception("Enter na grupie A nie rozpoczął zadania.");
+            if (first.IsCompleted) throw new Exception("Zadanie grupy A zakończyło się mimo wstrzymanego odczytu.");
+
+            // Uzytkownik w trakcie odczytu wybiera DRUGA grupe.
+            harness.SelectAndFocusRow(IndexOfGroup(harness, "Kuchnia"));
+            harness.PressKey(Key.Enter);
+            harness.PumpUntil(
+                () => window.LastSonosActivationTaskForTests is not null
+                    && !ReferenceEquals(window.LastSonosActivationTaskForTests, first),
+                "Enter na grupie B nie rozpoczął nowego zadania");
+            second = window.LastSonosActivationTaskForTests!;
+
+            release.SetResult();
+            harness.Backend.ReadGate = null;
+            harness.Pump(first);
+            harness.Pump(second);
+        }
+        finally
+        {
+            harness.Backend.ReadGate = null;
+            release.TrySetResult();
+        }
+
+        if (window.SonosActiveGroup?.Id != "GRUPA-KUCHNIA")
+        {
+            throw new Exception(
+                "Po zmianie grupy w trakcie odczytu aktywna jest "
+                + (window.SonosActiveGroup?.Id ?? "null") + ", nie wybrana GRUPA-KUCHNIA.");
+        }
+        var session = SonosSession(window);
+        if (!session.HasCurrentItem || session.CurrentItem.Id != "GRUPA-KUCHNIA")
+        {
+            throw new Exception("Spóźniona grupa A przestawiła bieżący element sesji na porzucony cel.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Zmiana grupy w trakcie odczytu wysłała polecenie do Sonosa.");
+        }
         return 3;
+    }
+
+    private static int IndexOfGroup(Harness harness, string groupName)
+    {
+        var list = harness.MediaList;
+        return Enumerable.Range(0, list.Items.Count).First(candidate =>
+            (list.Items[candidate].GetType().GetProperty("Label", Instance)!
+                .GetValue(list.Items[candidate]) as string ?? string.Empty)
+                .Contains(groupName, StringComparison.Ordinal));
     }
 
     private static DemoMediaSession SonosSession(MainWindow window) =>
@@ -264,7 +384,6 @@ internal static class SonosSessionEntryUiTests
 
         private readonly string _directory;
         private readonly Dispatcher _dispatcher;
-        private bool _shown;
 
         private Harness(string directory, MainWindow window, FakeBackend backend, List<string> announcements)
         {
@@ -330,7 +449,6 @@ internal static class SonosSessionEntryUiTests
             Window.ContentRendered -= rendered;
             Window.ShowInTaskbar = false;
             Window.Show();
-            _shown = true;
             PumpUntil(() => Window.IsLoaded && PresentationSource.FromVisual(Window) is not null,
                 "własne okno się nie pokazało");
             MediaList.Focus();
@@ -446,20 +564,33 @@ internal static class SonosSessionEntryUiTests
         public void Dispose()
         {
             Window.CancelSonosPendingWork();
-            if (_shown)
-            {
-                // Zamykamy WYLACZNIE wlasne okno.
-                try
-                {
-                    Window.Close();
-                }
-                catch (InvalidOperationException)
-                {
-                }
 
-                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-                while (Window.IsVisible && DateTime.UtcNow < deadline) DoEvents();
+            // Zamykamy WYLACZNIE wlasne okno - takze gdy nigdy nie bylo Show.
+            // IsVisible=false niepokazanego okna NIE dowodzi zamkniecia, wiec
+            // bramka jest na zdarzeniu Closed.
+            var closed = false;
+            void OnClosed(object? sender, EventArgs e) => closed = true;
+            Window.Closed += OnClosed;
+            try
+            {
+                Window.Close();
             }
+            catch (InvalidOperationException)
+            {
+                closed = true;
+            }
+
+            var deadline = DateTime.UtcNow + Limit;
+            while (!closed)
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    Window.Closed -= OnClosed;
+                    throw new Exception("Limit czasu: własne okno pomiaru się nie zamknęło.");
+                }
+                DoEvents();
+            }
+            Window.Closed -= OnClosed;
 
             // Zaplanowane zadania okna konczymy PRZED usunieciem konfiguracji,
             // zeby zaden zapis nie trafil w usuniety katalog.

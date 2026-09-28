@@ -259,17 +259,22 @@ public partial class MainWindow
     /// Enter na grupie: grupa staje sie AKTYWNA i otwiera sie odtwarzacz. Sam
     /// wybor NIE wysyla zadnego POST, wiec muzyka w pokoju sie nie zmienia.
     /// </summary>
-    internal async Task ActivateSonosGroupAsync(string groupId)
+    /// <returns>
+    /// Bilet WYSTAWIONY przez te aktywacje albo <c>null</c>, gdy grupy nie ma.
+    /// Wolajacy po await musi porownac GO z biezacym biletem: wartosc sprzed
+    /// await nalezy jeszcze do poprzedniego celu.
+    /// </returns>
+    internal async Task<int?> ActivateSonosGroupAsync(string groupId)
     {
         if (SonosActiveGroupPolicy.Resolve(groupId, _sonosTopology) is not { } group)
         {
             Announce("Ta grupa Sonos już nie istnieje. Odśwież listę grup");
-            return;
+            return null;
         }
 
         // Zmiana celu: stary bilet przestaje byc wazny, spoznione odpowiedzi
         // poprzedniej grupy nie nadpisza tej.
-        _sonosTargetTicket++;
+        var ticket = ++_sonosTargetTicket;
         _state.Sonos.SelectedGroupId = group.Id;
         _sonosPlayback = null;
         _sonosMetadata = null;
@@ -277,6 +282,7 @@ public partial class MainWindow
         _sonosNextBackgroundReadUtc = DateTime.MinValue;
         QueueStateSave(announceFailure: true);
         await ReadSonosGroupStateAsync().ConfigureAwait(true);
+        return ticket;
     }
 
     /// <summary>
@@ -493,14 +499,36 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// OSTATNIA rozpoczeta aktywacja grupy Sonos. WASKA obserwowalnosc dla
+    /// pomiaru: test moze poczekac na RZECZYWISTE zakonczenie zadania zamiast
+    /// pompowac stala liczbe milisekund. Nic w logice produkcyjnej tego nie
+    /// czyta i nie czeka na to zadanie.
+    /// </summary>
+    internal Task? LastSonosActivationTaskForTests { get; private set; }
+
+    /// <summary>
     /// Enter na liscie: grupa aktywna, a POTEM istniejacy wzorzec widoku
     /// odtwarzacza. Odtwarzacz otwiera sie nawet gdy odczyt nie dal danych -
     /// pokazuje wtedy "Brak informacji", a nie wymyslony stan.
     /// </summary>
     private async Task ActivateSonosGroupThenShowPlayerAsync(string groupId)
     {
-        await ActivateSonosGroupAsync(groupId).ConfigureAwait(true);
-        if (_isClosing || SonosActiveGroup is not { } group) return;
+        var ticket = await ActivateSonosGroupAsync(groupId).ConfigureAwait(true);
+        if (_isClosing || ticket is not { } issued) return;
+
+        // SPOZNIONA aktywacja nie moze otworzyc odtwarzacza. Miedzy naszym
+        // await a tym miejscem uzytkownik mogl SWIADOMIE wyjsc z sesji Sonos
+        // albo wybrac inna grupe. Sam SonosActiveGroup tego NIE wykrywa:
+        // po wyjsciu z sesji zapamietany wybor grupy dalej sie rozwiazuje,
+        // wiec porzucony cel ukradlby fokus obcej sesji.
+        if (issued != _sonosTargetTicket) return;
+        if (_sessions is null || !IsSonosSession(_sessions.Current.Id)) return;
+        if (SonosActiveGroup is not { } group
+            || !string.Equals(group.Id, groupId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         var session = _sessions.FindSession(SonosSessionId);
         var row = session?.Items.FirstOrDefault(item =>
             string.Equals(item.Id, group.Id, StringComparison.Ordinal));
@@ -508,6 +536,14 @@ public partial class MainWindow
         _playerFocusContextPrefix = "Wybrano grupę " + group.Name;
         ShowPlayerView();
     }
+
+    /// <summary>
+    /// Wejscie wolajacych: zapamietuje ZADANIE aktywacji, zeby pomiar mogl
+    /// poczekac na jego rzeczywiste zakonczenie. Logika pozostaje "fire and
+    /// forget" - nikt tego zadania nie awaituje w produkcji.
+    /// </summary>
+    private void StartSonosGroupActivationThenPlayer(string groupId) =>
+        LastSonosActivationTaskForTests = ActivateSonosGroupThenShowPlayerAsync(groupId);
 
     private static SonosVerdictCommand ResolveSonosVerdictCommand(string commandId) => commandId switch
     {

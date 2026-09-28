@@ -11241,7 +11241,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     return new CommandExecutionResult(false);
                 }
 
-                _ = ActivateSonosGroupThenShowPlayerAsync(selectedGroup.Id);
+                StartSonosGroupActivationThenPlayer(selectedGroup.Id);
                 return new CommandExecutionResult(true);
             }
             if (commandId is CommandIds.PlayPause
@@ -14002,7 +14002,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // nie leciał. Wchodzimy w ISTNIEJACA droge wyboru grupy - wprost, bez
             // ExecuteCommand(ActivateSelected), zeby nie robic rekurencji z
             // galezia sesji Sonos. Sam wybor nie wysyla POST.
-            _ = ActivateSonosGroupThenShowPlayerAsync(item.Id);
+            StartSonosGroupActivationThenPlayer(item.Id);
             return;
         }
         if (item.Kind == MediaItemKind.Device

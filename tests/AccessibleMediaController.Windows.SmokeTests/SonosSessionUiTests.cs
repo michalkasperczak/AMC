@@ -297,11 +297,15 @@ internal static class SonosSessionUiTests
 
     private sealed class Harness : IDisposable
     {
+        private static readonly TimeSpan Limit = TimeSpan.FromSeconds(15);
+
         private readonly string _directory;
+        private readonly Dispatcher _dispatcher;
 
         private Harness(string directory, MainWindow window, FakeBackend backend, List<string> announcements)
         {
             _directory = directory;
+            _dispatcher = Dispatcher.CurrentDispatcher;
             Window = window;
             Backend = backend;
             Announcements = announcements;
@@ -315,6 +319,12 @@ internal static class SonosSessionUiTests
 
         internal static Harness Create()
         {
+            // JAWNY kontekst synchronizacji PRZED konstrukcja okna: bez tego
+            // await w kodzie okna wracalby na pule watkow, a pompa dispatchera
+            // nigdy by go nie dokonczyla.
+            var dispatcher = Dispatcher.CurrentDispatcher;
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
+
             var directory = Path.Combine(Path.GetTempPath(), "amc-sonos-ui-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             var store = new ConfigurationStore(Path.Combine(directory, "settings.json"));
@@ -339,33 +349,89 @@ internal static class SonosSessionUiTests
             return new Harness(directory, window, backend, announcements);
         }
 
+        /// <summary>
+        /// Pompa czekajaca na ZAKONCZENIE zadania i OBSERWUJACA jego wynik.
+        /// Po limicie RZUCA: nieskonczone zadanie nie moze udawac zaliczenia
+        /// tylko dlatego, ze IsFaulted jest false.
+        /// </summary>
         internal void Pump(Task task)
         {
-            var frame = new DispatcherFrame();
-            task.ContinueWith(_ => frame.Continue = false, TaskScheduler.Default);
-            var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (frame.Continue && DateTime.UtcNow < deadline)
+            var deadline = DateTime.UtcNow + Limit;
+            while (!task.IsCompleted)
             {
-                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
-                Thread.Sleep(1);
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new Exception("Limit czasu: zadanie sesji Sonos się nie zakończyło.");
+                }
+                DoEvents();
             }
 
-            if (task.IsFaulted) throw task.Exception!.GetBaseException();
+            task.GetAwaiter().GetResult();
         }
 
+        /// <summary>Pompa oczekujaca na WARUNEK; po limicie RZUCA.</summary>
         internal void PumpUntil(Func<bool> condition)
         {
-            var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (!condition() && DateTime.UtcNow < deadline)
+            var deadline = DateTime.UtcNow + Limit;
+            while (!condition())
             {
-                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
-                Thread.Sleep(1);
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new Exception("Limit czasu: warunek pomiaru sesji Sonos nie zaszedł.");
+                }
+                DoEvents();
             }
+        }
+
+        /// <summary>Pompa bez warunku: pozwala dokonczyc zaplanowane zadania.</summary>
+        private void PumpQuietly(TimeSpan duration)
+        {
+            var deadline = DateTime.UtcNow + duration;
+            while (DateTime.UtcNow < deadline) DoEvents();
+        }
+
+        /// <summary>RZECZYWISTA pompa: PushFrame, nie samo Invoke(() => {}).</summary>
+        private void DoEvents()
+        {
+            var frame = new DispatcherFrame();
+            _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+            Dispatcher.PushFrame(frame);
+            Thread.Sleep(1);
         }
 
         public void Dispose()
         {
             Window.CancelSonosPendingWork();
+
+            // Okno tego pomiaru NIGDY nie bylo pokazane, ale i tak trzeba je
+            // ZAMKNAC: IsVisible=false niepokazanego okna nie jest dowodem
+            // zamkniecia, wiec bramka jest na zdarzeniu Closed.
+            var closed = false;
+            void OnClosed(object? sender, EventArgs e) => closed = true;
+            Window.Closed += OnClosed;
+            try
+            {
+                Window.Close();
+            }
+            catch (InvalidOperationException)
+            {
+                closed = true;
+            }
+
+            var deadline = DateTime.UtcNow + Limit;
+            while (!closed)
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    Window.Closed -= OnClosed;
+                    throw new Exception("Limit czasu: własne okno pomiaru się nie zamknęło.");
+                }
+                DoEvents();
+            }
+            Window.Closed -= OnClosed;
+
+            // Zaplanowane zapisy konczymy PRZED usunieciem wlasnej konfiguracji.
+            PumpQuietly(TimeSpan.FromMilliseconds(200));
             try
             {
                 Directory.Delete(_directory, true);

@@ -401,6 +401,7 @@ var tests = new (string Name, Action Test)[]
     ("Enter na wyniku: otwieranie bez Biblioteki na prawdziwym oknie", SearchResultOpenWithoutLibraryTests.Run),
     ("Sonos: lista głośników i grup w oknie konta", SonosDevicesWindowTests.Run),
     ("Sonos: sesja, aktywna grupa, odtwarzacz i polecenia", SonosSessionUiTests.Run),
+    ("Sonos: wejście do sesji rzeczywistą drogą użytkownika", SonosSessionEntryUiTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),
