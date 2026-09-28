@@ -518,6 +518,9 @@ internal static class SonosGroupPlaybackTests
                 // polecenie dotarlo do Sonosa ani ze zostalo wykonane.
                 Check(!result.Message.Contains("dostarcz", StringComparison.OrdinalIgnoreCase));
                 Check(!result.Message.Contains("wykonane", StringComparison.OrdinalIgnoreCase));
+                // Ani ze "zostalo wyslane": Sent mowi tylko o przekazaniu zadania
+                // do HttpClient, a to nie dowod opuszczenia maszyny.
+                Check(!result.Message.Contains("wysłane", StringComparison.OrdinalIgnoreCase));
             }
 
             using var seekHandler = new Handler(_ => throw new HttpRequestException(Token));
@@ -526,6 +529,65 @@ internal static class SonosGroupPlaybackTests
                 .GetAwaiter().GetResult();
             Check(relative.EffectAmbiguous);
             Check(relative.Message.Contains("skutek nieznany", StringComparison.OrdinalIgnoreCase));
+        }));
+        tests.Add(("komunikat zerwanego polecenia bezwzglednego: bez werdyktu o nieprzyjeciu", () =>
+        {
+            // Zadanie POST poszlo, a potem padlo polaczenie. Odpowiedz mogla zginac
+            // PO tym, jak Sonos polecenie przyjal i wykonal, wiec transport nie ma
+            // dowodu ani na przyjecie, ani na nieprzyjecie.
+            using var handler = new Handler(request =>
+            {
+                Check(request.Method == HttpMethod.Post);
+                throw new HttpRequestException(Token);
+            });
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var result = client.SendGroupCommandAsync(Token, Group, SonosGroupCommand.Play, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Check(result.Status == SonosControlApiStatus.Unreachable && result.Sent
+                && !result.EffectAmbiguous && handler.Count == 1);
+            CheckMessageIsAboutCommand(result);
+            CheckNoUnprovenVerdict(result);
+        }));
+        tests.Add(("komunikat 500 i odrzuconej odpowiedzi polecenia: wynik niepotwierdzony", () =>
+        {
+            using var serviceHandler = new Handler(_ =>
+                Json("{\"errorCode\":\"" + Token + "\"}", HttpStatusCode.InternalServerError));
+            using var serviceClient = new SonosControlApiClient(
+                SonosControlApiConfiguration.CreateDefault(Key), serviceHandler);
+            var service = serviceClient.SetGroupVolumeAsync(Token, Group, 30, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Check(service.Status == SonosControlApiStatus.ServiceError && service.Sent && serviceHandler.Count == 1);
+            CheckMessageIsAboutCommand(service);
+            // 500 oznacza blad po stronie uslugi, nie dowod, ze polecenie nie
+            // zostalo przyjete wewnatrz Sonosa przed tym bledem.
+            CheckNoUnprovenVerdict(service);
+
+            using var redirectHandler = new Handler(_ => Json("{}"), attachRequest: false);
+            using var redirectClient = new SonosControlApiClient(
+                SonosControlApiConfiguration.CreateDefault(Key), redirectHandler);
+            var redirect = redirectClient.SendGroupCommandAsync(Token, Group, SonosGroupCommand.Play,
+                CancellationToken.None).GetAwaiter().GetResult();
+            Check(redirect.Status == SonosControlApiStatus.RedirectRefused && redirect.Sent && redirectHandler.Count == 1);
+            CheckMessageIsAboutCommand(redirect);
+            // Odrzucamy WLASNA ocene odpowiedzi; o losie samego polecenia nic nie wiemy.
+            CheckNoUnprovenVerdict(redirect);
+        }));
+        tests.Add(("komunikat anulowania po wyslaniu: anulowane oczekiwanie, nie polecenie", () =>
+        {
+            using var caller = new CancellationTokenSource();
+            using var handler = new Handler(_ =>
+            {
+                caller.Cancel();
+                throw new OperationCanceledException();
+            });
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var result = client.SetGroupVolumeAsync(Token, Group, 20, caller.Token).GetAwaiter().GetResult();
+            Check(result.Status == SonosControlApiStatus.Canceled && result.Sent
+                && !result.EffectAmbiguous && handler.Count == 1);
+            CheckMessageIsAboutCommand(result);
+            // Anulowano OCZEKIWANIE wolajacego; Sonos mogl polecenie wykonac.
+            Check(result.Message.Contains("oczekiwan", StringComparison.OrdinalIgnoreCase));
+            CheckNoUnprovenVerdict(result);
         }));
         tests.Add(("komunikaty odczytu zostaja odczytami", () =>
         {
@@ -542,6 +604,20 @@ internal static class SonosGroupPlaybackTests
         Check(!result.Message.Contains(Token) && !result.Message.Contains(Key));
         Check(!result.ToString().Contains(Token) && !result.ToString().Contains(Key));
         Check(result.Message.Contains("Sonos", StringComparison.Ordinal));
+    }
+
+    // Po niepewnym wyniku transportu (zerwanie, 5xx, odrzucona odpowiedz, anulowane
+    // oczekiwanie po przekazaniu zadania) NIE MAMY dowodu ani na wyslanie, ani na
+    // nieprzyjecie: odpowiedz mogla zginac PO tym, jak Sonos polecenie wykonal.
+    // Komunikat musi mowic "niepotwierdzone", a nie orzekac za Sonosa.
+    private static void CheckNoUnprovenVerdict(SonosGroupCommandOutcome result)
+    {
+        Check(!result.Message.Contains("nie zostało przyjęte", StringComparison.OrdinalIgnoreCase));
+        Check(!result.Message.Contains("nie przyjęte", StringComparison.OrdinalIgnoreCase));
+        Check(!result.Message.Contains("nie zostało wysłane", StringComparison.OrdinalIgnoreCase));
+        Check(!result.Message.Contains("nie zostało wykonane", StringComparison.OrdinalIgnoreCase));
+        Check(!result.Message.Contains("zostało anulowane", StringComparison.OrdinalIgnoreCase));
+        Check(result.Message.Contains("niepotwierdzon", StringComparison.OrdinalIgnoreCase));
     }
 
     private static void AddSafetyTests(List<(string Name, Action Test)> tests)

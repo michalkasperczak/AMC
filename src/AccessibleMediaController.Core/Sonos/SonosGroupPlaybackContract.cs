@@ -596,9 +596,20 @@ public sealed class SonosGroupCommandOutcome
 /// </summary>
 public static class SonosGroupCommandMessages
 {
-    /// <summary>Skutek nierozstrzygniety - ma pierwszenstwo nad tekstem samego statusu.</summary>
+    /// <summary>
+    /// Skutek nierozstrzygniety - ma pierwszenstwo nad tekstem samego statusu.
+    /// Nie oglasza wyslania: Sent to proba przekazania do HttpClient, a nie dowod,
+    /// ze zadanie opuscilo maszyne.
+    /// </summary>
     public const string EffectAmbiguousText =
-        "Polecenie Sonos zostało wysłane, ale odpowiedź nie wróciła: skutek nieznany. Sprawdź stan odtwarzania.";
+        "Nie otrzymano odpowiedzi na polecenie Sonos: skutek nieznany. Sprawdź stan odtwarzania.";
+
+    /// <summary>
+    /// Anulowanie PO przekazaniu zadania: anulowano oczekiwanie wolajacego, a nie
+    /// dzialanie Sonosa - polecenie moglo sie wykonac, tylko odpowiedzi nie czekamy.
+    /// </summary>
+    public const string CanceledAfterSendText =
+        "Anulowano oczekiwanie na odpowiedź Sonos; wynik polecenia niepotwierdzony.";
 
     private static readonly IReadOnlyDictionary<SonosControlApiStatus, string> Texts =
         new Dictionary<SonosControlApiStatus, string>
@@ -619,16 +630,18 @@ public static class SonosGroupCommandMessages
                 "Sonos chwilowo ogranicza liczbę żądań; polecenie nie zostało przyjęte. Spróbuj później.",
             [SonosControlApiStatus.CommandFailed] =
                 "Sonos przyjął polecenie, ale zgłosił, że go nie wykonał.",
+            // 5xx, zerwane polaczenie i odrzucona odpowiedz NIE dowodza, ze Sonos
+            // polecenia nie przyjal: odpowiedz mogla zginac PO jego wykonaniu.
             [SonosControlApiStatus.ServiceError] =
-                "Usługa Sonos zgłosiła błąd; polecenie nie zostało przyjęte.",
+                "Usługa Sonos zgłosiła błąd; wynik polecenia niepotwierdzony.",
             [SonosControlApiStatus.Unreachable] =
-                "Nie udało się połączyć z usługą Sonos; polecenie nie zostało przyjęte.",
+                "Nie otrzymano potwierdzenia przyjęcia polecenia Sonos; wykonanie niepotwierdzone.",
             [SonosControlApiStatus.Canceled] =
-                "Polecenie Sonos zostało anulowane.",
+                "Polecenie anulowano.",
             [SonosControlApiStatus.InvalidResponse] =
                 "Odpowiedź Sonos na polecenie była niezgodna z oczekiwaną; przyjęcie niepotwierdzone.",
             [SonosControlApiStatus.RedirectRefused] =
-                "Sonos próbował przekierować polecenie; zostało zatrzymane i nie przyjęte."
+                "Odrzucono nieoczekiwaną odpowiedź na polecenie Sonos; wynik niepotwierdzony."
         };
 
     /// <summary>
@@ -642,6 +655,14 @@ public static class SonosGroupCommandMessages
         if (effectAmbiguous)
         {
             return EffectAmbiguousText;
+        }
+
+        // Anulowanie PO przekazaniu zadania dotyczy naszego oczekiwania, nie
+        // dzialania Sonosa; anulowanie PRZED wyslaniem to zupelnie inne zdarzenie
+        // i zostaje przy tekscie "nie zostalo wyslane".
+        if (sent && status == SonosControlApiStatus.Canceled)
+        {
+            return CanceledAfterSendText;
         }
 
         var text = Texts.TryGetValue(status, out var found)
