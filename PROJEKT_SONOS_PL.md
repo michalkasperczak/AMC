@@ -51,7 +51,7 @@ Stan: poprawka i testy automatyczne potwierdzają odrzucenie starej operacji ora
 
 Fakt: żywy NVDA po wolnym odświeżeniu wskazywał całe okno zamiast kontrolki.
 
-Stan: poprawka `f1801bb` działa przy odświeżaniu z przycisku oraz z samego kontenera listy. Ponowny pomiar NVDA wykazał, że **Alt+O z rzeczywistego wiersza grupy lub głośnika nadal gubi fokus**, w trakcie i po odczycie. Czytnik powtarza wtedy treść całego dialogu. Przyczyną jest pominięcie elementu `ListBoxItem` w ochronie fokusu; sam test kontenera listy nie wykrywa tego przypadku. Punktowa naprawa i testy wierszy są w realizacji; ponowna próba obu list jest warunkiem odbioru.
+Stan: poprawka `f1801bb` działa przy odświeżaniu z przycisku oraz z samego kontenera listy. Ponowny pomiar NVDA wykazał, że **Alt+O z rzeczywistego wiersza grupy lub głośnika nadal gubi fokus**, w trakcie i po odczycie. Czytnik powtarza wtedy treść całego dialogu. Przyczyną jest pominięcie elementu `ListBoxItem` w ochronie fokusu; sam test kontenera listy nie wykrywa tego przypadku. Kolejny lokalny kandydat `a067dd8` przeszedł już żywy NVDA dla zwykłego odświeżenia obu list oraz ostatnich wierszy list 20-elementowych. Osobna próba wykazała jeszcze brak powrotu na ten sam element, gdy zmiana kolejności przesuwa go poza wcześniej widoczną część listy: fokus pozostaje na instrukcji. Trwa punktowa korekta utworzenia właściwego wiersza poza tym obszarem; po niej trzeba powtórzyć identyczny przypadek. Nadal nie jest to funkcja wydana w instalatorze.
 
 ### S-03. Odświeżanie zmieniało wybrany dom
 
