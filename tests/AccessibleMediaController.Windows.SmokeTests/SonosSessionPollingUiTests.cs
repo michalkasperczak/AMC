@@ -703,6 +703,13 @@ internal static class SonosSessionPollingUiTests
     {
         private readonly List<TaskCompletionSource> _gates = [];
 
+        /// <summary>
+        /// ZATRZASK tytulu per przelot odczytu: pozwala rozpoznac, CZYJE dane
+        /// zostaly opublikowane. Bez tego kazdy odczyt oddawal aktualne pole i
+        /// nadpisanie bylo niewidoczne.
+        /// </summary>
+        private readonly Stack<string> _titleLatch = new();
+
         internal List<SonosGroupCommand> Commands { get; } = [];
 
         internal List<string?> CommandGroupIds { get; } = [];
@@ -760,6 +767,12 @@ internal static class SonosSessionPollingUiTests
         {
             PlaybackReads++;
             ReadGroupIds.Add(groupId);
+            // ZATRZASK tytulu na POCZATKU przelotu odczytu: bez tego spozniony
+            // odczyt tla oddawal AKTUALNA wartosc pola i wygladal na swiezy, wiec
+            // pomiar nie odroznialby nadpisania od poprawnej kolejnosci.
+            // Korelacja LIFO: przelot, ktory ZACZAL sie pozniej, konczy swoje
+            // metadane wczesniej w mierzonym scenariuszu.
+            _titleLatch.Push(NextTrackTitle);
             if (PlaybackGate is { } gate) await gate.ConfigureAwait(false);
             if (PlaybackThrows is { } failure) throw failure;
             if (PlaybackFailure is { } status)
@@ -782,8 +795,10 @@ internal static class SonosSessionPollingUiTests
                 return Task.FromResult(SonosGroupReadResult<SonosGroupMetadata>.Failure(status));
             }
 
+            // Tytul z ZATRZASKU tego przelotu, nie biezaca wartosc pola.
+            var title = _titleLatch.Count > 0 ? _titleLatch.Pop() : NextTrackTitle;
             var track = new SonosTrackMetadata(
-                "track", NextTrackTitle, "Chopin", "Nokturny", null,
+                "track", title, "Chopin", "Nokturny", null,
                 new SonosMetadataService("Sonos Radio", "9"), 180_000);
             var metadata = new SonosGroupMetadata(
                 null, new SonosQueueItem(NextItemId, track, null), null, null, null);
