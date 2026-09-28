@@ -203,8 +203,10 @@ internal static class SonosSessionEntryUiTests
 
     private static int MeasureStaleActivationDoesNotStealFocus()
     {
-        var checks = MeasureStaleActivationAfterSessionChange();
-        checks += MeasureStaleActivationAfterGroupChange();
+        // Najpierw niezalezna kontrola grup: mutacja guarda musi upasc TUTAJ,
+        // nie wczesniej na odrebnym przypadku zmiany sesji.
+        var checks = MeasureStaleActivationAfterGroupChange();
+        checks += MeasureStaleActivationAfterSessionChange();
         return checks;
     }
 
@@ -301,8 +303,11 @@ internal static class SonosSessionEntryUiTests
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
         harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zmianą grupy");
 
-        var release = new TaskCompletionSource();
-        harness.Backend.ReadGate = release.Task;
+        // ODDZIELNE bariery: konczymy A, gdy B NADAL czeka. Sam koncowy stan
+        // po obu odpowiedziach nie wykrywal przedwczesnego otwarcia przez A.
+        var releaseFirst = new TaskCompletionSource();
+        var releaseSecond = new TaskCompletionSource();
+        harness.Backend.ReadGate = releaseFirst.Task;
         Task first;
         Task second;
         try
@@ -314,7 +319,9 @@ internal static class SonosSessionEntryUiTests
                 ?? throw new Exception("Enter na grupie A nie rozpoczął zadania.");
             if (first.IsCompleted) throw new Exception("Zadanie grupy A zakończyło się mimo wstrzymanego odczytu.");
 
-            // Uzytkownik w trakcie odczytu wybiera DRUGA grupe.
+            // A przechwycilo juz swoja bariere w ReadGroupPlaybackAsync.
+            // Nowe wywolanie B przechwyci druga, nadal zamknieta bariere.
+            harness.Backend.ReadGate = releaseSecond.Task;
             harness.SelectAndFocusRow(IndexOfGroup(harness, "Kuchnia"));
             harness.PressKey(Key.Enter);
             harness.PumpUntil(
@@ -322,18 +329,33 @@ internal static class SonosSessionEntryUiTests
                     && !ReferenceEquals(window.LastSonosActivationTaskForTests, first),
                 "Enter na grupie B nie rozpoczął nowego zadania");
             second = window.LastSonosActivationTaskForTests!;
+            if (second.IsCompleted || harness.PlayerViewActive)
+            {
+                throw new Exception("Nieprawidłowa kontrolka: grupa B powinna nadal czekać na odczyt bez otwartego odtwarzacza.");
+            }
 
-            release.SetResult();
-            harness.Backend.ReadGate = null;
+            releaseFirst.SetResult();
             harness.Pump(first);
+            if (second.IsCompleted || harness.PlayerViewActive)
+            {
+                throw new Exception("Porzucona aktywacja grupy A otworzyła odtwarzacz, gdy grupa B nadal czeka na odczyt.");
+            }
+
+            releaseSecond.SetResult();
+            harness.Backend.ReadGate = null;
             harness.Pump(second);
         }
         finally
         {
             harness.Backend.ReadGate = null;
-            release.TrySetResult();
+            releaseFirst.TrySetResult();
+            releaseSecond.TrySetResult();
         }
 
+        if (!harness.PlayerViewActive)
+        {
+            throw new Exception("Prawidłowa aktywacja grupy B nie otworzyła odtwarzacza po zakończeniu jej odczytu.");
+        }
         if (window.SonosActiveGroup?.Id != "GRUPA-KUCHNIA")
         {
             throw new Exception(
@@ -349,7 +371,7 @@ internal static class SonosSessionEntryUiTests
         {
             throw new Exception("Zmiana grupy w trakcie odczytu wysłała polecenie do Sonosa.");
         }
-        return 3;
+        return 6;
     }
 
     private static int IndexOfGroup(Harness harness, string groupName)
