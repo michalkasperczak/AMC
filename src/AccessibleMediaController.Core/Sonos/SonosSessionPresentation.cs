@@ -449,8 +449,10 @@ public sealed class SonosVerdict
     }
 
     /// <summary>
-    /// true TYLKO gdy odczyt pokazal ZMIANE wywolana naszym poleceniem. Stan juz
-    /// docelowy przed poleceniem nie jest dowodem skutku POST.
+    /// true TYLKO gdy ZNANY stan sprzed polecenia i ZNANY odczyt po nim pokazuja
+    /// ZMIANE. Stan juz docelowy przed poleceniem nie jest dowodem skutku POST, a
+    /// nieznany stan przed poleceniem nie pozwala porownac. false nie znaczy
+    /// odmowy ani braku skutku - znaczy BRAK DOWODU.
     /// </summary>
     public bool Confirmed { get; }
 
@@ -473,9 +475,14 @@ public static class SonosCommandVerdict
         string? beforeItemId,
         string? afterItemId)
     {
+        // accepted=false NIE znaczy odmowy. Ten sam bool powstaje z timeoutu, 5xx i
+        // utraconej odpowiedzi PO wyslaniu POST, wiec nie dowodzi ani niewyslania,
+        // ani odrzucenia, ani braku skutku w pokoju.
         if (!accepted)
         {
-            return new SonosVerdict(false, "Sonos nie przyjął polecenia. Stan pozostaje bez zmian po naszej stronie.");
+            return new SonosVerdict(
+                false,
+                "Brak potwierdzenia od Sonos: nie wiadomo, czy polecenie zostało wykonane. Odśwież stan grupy.");
         }
 
         if (!stateReadSucceeded)
@@ -499,7 +506,11 @@ public static class SonosCommandVerdict
 
                 if (command == SonosVerdictCommand.Toggle)
                 {
-                    return after != before && after != SonosPlaybackState.Unknown
+                    // Bez ZNANEGO stanu sprzed polecenia nie ma z czym porownac:
+                    // "zmieniony" byloby wymyslone, choc odczyt PO poleceniu sie udal.
+                    return after != before
+                        && after != SonosPlaybackState.Unknown
+                        && before != SonosPlaybackState.Unknown
                         ? new SonosVerdict(true, "Stan zmieniony: " + Word(after) + ".")
                         : new SonosVerdict(
                             false,
@@ -511,6 +522,15 @@ public static class SonosCommandVerdict
                     return new SonosVerdict(
                         false,
                         "Odczytany stan Sonos: " + Word(after) + ". Wykonanie niepotwierdzone.");
+                }
+
+                if (before == SonosPlaybackState.Unknown)
+                {
+                    // Stan docelowy mogl trwac juz przed poleceniem - nie wiemy.
+                    return new SonosVerdict(
+                        false,
+                        "Odczytany stan Sonos: " + Word(after)
+                        + ". Stan sprzed polecenia nieznany, więc wykonanie niepotwierdzone.");
                 }
 
                 return before == target
@@ -551,9 +571,13 @@ public static class SonosCommandVerdict
         int? requestedVolume,
         bool? requestedMute)
     {
+        // Jak wyzej: brak potwierdzenia nie jest odmowa Sonosa.
         if (!accepted)
         {
-            return new SonosVerdict(false, "Sonos nie przyjął polecenia głośności.");
+            return new SonosVerdict(
+                false,
+                "Brak potwierdzenia od Sonos dla polecenia głośności: nie wiadomo, czy zostało wykonane. "
+                + "Odśwież stan grupy.");
         }
 
         if (!readSucceeded || after is null)
@@ -572,6 +596,16 @@ public static class SonosCommandVerdict
                     "Odczytane wyciszenie: " + Mute(after.Muted) + ". Wykonanie niepotwierdzone.");
             }
 
+            // Brak odczytu SPRZED polecenia (albo nieznane wyciszenie) nie dowodzi,
+            // ze to nasze polecenie zmienilo stan - mogl byc taki juz wczesniej.
+            if (before?.Muted is null)
+            {
+                return new SonosVerdict(
+                    false,
+                    "Odczytane wyciszenie: " + Mute(after.Muted)
+                    + ". Stan sprzed polecenia nieznany, więc wykonanie niepotwierdzone.");
+            }
+
             return before?.Muted == mute
                 ? new SonosVerdict(
                     false,
@@ -587,6 +621,14 @@ public static class SonosCommandVerdict
                     false,
                     "Odczytana głośność: " + after.Volume.ToString(CultureInfo.CurrentCulture)
                     + " procent. Wykonanie niepotwierdzone.");
+            }
+
+            if (before is null)
+            {
+                return new SonosVerdict(
+                    false,
+                    "Odczytana głośność: " + after.Volume.ToString(CultureInfo.CurrentCulture)
+                    + " procent. Poziom sprzed polecenia nieznany, więc wykonanie niepotwierdzone.");
             }
 
             return before?.Volume == target

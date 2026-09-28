@@ -27,6 +27,7 @@ internal static class SonosSessionPresentationTests
         PositionNeverInvented();
         CommandGatingFromCapabilities();
         VerdictAfterExplicitRead();
+        VerdictNeverInventsChangeOrRejection();
         ActiveGroupFollowsIdentifier();
         Console.WriteLine("Sesja Sonos: pamiec wyboru, lista grup, odtwarzacz, bramka i werdykt - OK.");
     }
@@ -329,6 +330,115 @@ internal static class SonosSessionPresentationTests
             before: SonosPlaybackState.Playing, after: SonosPlaybackState.Playing,
             beforeItemId: "it1", afterItemId: "it1");
         True(!notAccepted.Confirmed, "Nieprzyjete polecenie nie jest potwierdzone.");
+    }
+
+    // 9b. Bool nie niesie przyczyny. accepted=false powstaje TAKZE z timeoutu, 5xx
+    // i utraconej odpowiedzi po wyslanym POST, wiec nie dowodzi ani odmowy Sonosa,
+    // ani niewyslania, ani braku skutku. Osobno: nieznany stan PRZED poleceniem
+    // nie dowodzi zmiany, choc odczyt PO poleceniu sie udal.
+    private static void VerdictNeverInventsChangeOrRejection()
+    {
+        // B) accepted=false to BRAK POTWIERDZENIA, nie odrzucenie. Zaden z tych
+        // tekstow nie moze twierdzic odmowy, niewyslania ani braku skutku.
+        var falseVerdicts = new[]
+        {
+            SonosCommandVerdict.Describe(
+                SonosVerdictCommand.Toggle, accepted: false, stateReadSucceeded: true,
+                before: SonosPlaybackState.Playing, after: SonosPlaybackState.Paused,
+                beforeItemId: "it1", afterItemId: "it1"),
+            SonosCommandVerdict.Describe(
+                SonosVerdictCommand.Pause, accepted: false, stateReadSucceeded: true,
+                before: SonosPlaybackState.Playing, after: SonosPlaybackState.Paused,
+                beforeItemId: "it1", afterItemId: "it1"),
+            SonosCommandVerdict.Describe(
+                SonosVerdictCommand.Play, accepted: false, stateReadSucceeded: true,
+                before: SonosPlaybackState.Paused, after: SonosPlaybackState.Playing,
+                beforeItemId: "it1", afterItemId: "it1"),
+            SonosCommandVerdict.DescribeVolume(
+                accepted: false, readSucceeded: true,
+                before: new SonosGroupVolume(10, muted: false, fixedVolume: false),
+                after: new SonosGroupVolume(40, muted: false, fixedVolume: false),
+                requestedVolume: 40, requestedMute: null)
+        };
+
+        foreach (var verdict in falseVerdicts)
+        {
+            True(!verdict.Confirmed, "Brak potwierdzenia nie jest potwierdzeniem: " + verdict.Text);
+            True(!verdict.Text.Contains("nie przyjął", StringComparison.OrdinalIgnoreCase)
+                && !verdict.Text.Contains("nie przyjal", StringComparison.OrdinalIgnoreCase)
+                && !verdict.Text.Contains("odrzuc", StringComparison.OrdinalIgnoreCase)
+                && !verdict.Text.Contains("nie zostało wysłane", StringComparison.OrdinalIgnoreCase)
+                && !verdict.Text.Contains("nie zostalo wyslane", StringComparison.OrdinalIgnoreCase)
+                && !verdict.Text.Contains("bez zmian", StringComparison.OrdinalIgnoreCase),
+                "Sam accepted=false nie dowodzi odmowy, niewyslania ani braku zmian: " + verdict.Text);
+            True(verdict.Text.Contains("niepotwierdzon", StringComparison.OrdinalIgnoreCase)
+                || verdict.Text.Contains("nie wiadomo", StringComparison.OrdinalIgnoreCase)
+                || verdict.Text.Contains("nieznan", StringComparison.OrdinalIgnoreCase),
+                "Tekst ma nazywac brak potwierdzenia: " + verdict.Text);
+        }
+
+        // A) Toggle: before nieznany, after Playing. Nie wiemy, co bylo, wiec
+        // "Stan zmieniony" byloby wymyslone.
+        var toggleFromUnknown = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Toggle, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Unknown, after: SonosPlaybackState.Playing,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!toggleFromUnknown.Confirmed,
+            "Nieznany stan przed poleceniem nie dowodzi zmiany: " + toggleFromUnknown.Text);
+        True(!toggleFromUnknown.Text.Contains("zmienion", StringComparison.OrdinalIgnoreCase),
+            "Bez znanego before nie wolno mowic o zmianie stanu: " + toggleFromUnknown.Text);
+
+        // Kontrolki: znane before/after dalej potwierdzaja w obie strony.
+        var togglePlayingToPaused = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Toggle, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Paused,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(togglePlayingToPaused.Confirmed, "Znane Playing->Paused to potwierdzona zmiana.");
+        var togglePausedToPlaying = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Toggle, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Paused, after: SonosPlaybackState.Playing,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(togglePausedToPlaying.Confirmed, "Znane Paused->Playing to potwierdzona zmiana.");
+        var toggleSameState = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Toggle, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Playing,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!toggleSameState.Confirmed, "Ten sam stan po poleceniu nie jest zmiana.");
+        var toggleToUnknown = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Toggle, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Unknown,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!toggleToUnknown.Confirmed, "Nieznany stan PO poleceniu nie potwierdza niczego.");
+
+        // A) Play/Pause bezwzgledne: after == target, ale before nieznany.
+        var playFromUnknown = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Play, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Unknown, after: SonosPlaybackState.Playing,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!playFromUnknown.Confirmed,
+            "Bez znanego before nie wolno gwarantowac, ze to nasze polecenie zagralo: " + playFromUnknown.Text);
+        var pauseFromUnknown = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Pause, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Unknown, after: SonosPlaybackState.Paused,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!pauseFromUnknown.Confirmed,
+            "Nieznany stan przed Pause nie dowodzi wstrzymania przez nas: " + pauseFromUnknown.Text);
+
+        // A) Glosnosc i wyciszenie: brak before to brak dowodu zmiany.
+        var volumeBeforeUnknown = SonosCommandVerdict.DescribeVolume(
+            accepted: true, readSucceeded: true, before: null,
+            after: new SonosGroupVolume(40, muted: false, fixedVolume: false),
+            requestedVolume: 40, requestedMute: null);
+        True(!volumeBeforeUnknown.Confirmed,
+            "Nieodczytana glosnosc przed poleceniem nie dowodzi zmiany: " + volumeBeforeUnknown.Text);
+        var muteBeforeUnknown = SonosCommandVerdict.DescribeVolume(
+            accepted: true, readSucceeded: true,
+            before: new SonosGroupVolume(40, muted: null, fixedVolume: false),
+            after: new SonosGroupVolume(40, muted: true, fixedVolume: false),
+            requestedVolume: null, requestedMute: true);
+        True(!muteBeforeUnknown.Confirmed,
+            "Nieznane wyciszenie przed poleceniem nie dowodzi wyciszenia przez nas: " + muteBeforeUnknown.Text);
+
     }
 
     // 10. Aktywna grupa trzymana po IDENTYFIKATORZE. Zniknieta grupa nie jest po
