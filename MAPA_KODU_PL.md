@@ -1,5 +1,58 @@
 # AMC — mapa kodu
 
+## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
+
+Wąskie powiązanie trzech GET-ów i dziesięciu POST-ów grupy z ISTNIEJĄCYM
+`SonosAccountCoordinator`. Nadal BEZ UI, pollingu, weryfikacji skutku, parsera
+kodów błędu, `MediaOutput`, EQ, ulubionych i kolejki — to kolejne etapy.
+
+- `Core/Sonos/SonosGroupOperationsContract.cs`:
+  - `ISonosGroupApi` — wąski szew analogiczny do `ISonosDeviceApi`: dokładnie
+    trzy odczyty i polecenia grupy, token jako ARGUMENT jednego wywołania.
+    Implementacja go nie zapisuje i nie oddaje na zewnątrz;
+  - `SonosControlApiGroupApi` — CIENKI adapter PRAWDZIWEGO
+    `SonosControlApiClient`: bez własnej logiki, bez zapamiętywania tokenu,
+    bez ponowień. Nie przejmuje własności klienta. Żadnej zaślepki;
+  - `SonosGroupReadResult<T>` — publiczny wynik ODCZYTU: status, dane tylko
+    przy sukcesie, `Renewed` i bezpieczna `Snapshot`. Żadnego tokenu, gettera
+    tokenu ani callbacku tokenu do UI;
+  - `SonosGroupOperationStatus` + `SonosGroupCommandResult` — co zrobiło KONTO
+    (`NoAccount`, `Attempted`, `Discarded`, `Canceled`, `Unauthorized`) jest
+    ODDZIELONE od odpowiedzi usługi (`Outcome`) i od skutku
+    (`EffectConfirmed` zawsze `false`). `Accepted` nigdy nie znaczy „wykonane”;
+  - `SonosGroupOperationMessages` — osobny słownik PL dla wyniku KONTA, bez
+    tokenu, klucza i treści odpowiedzi. Porzucenie PO wysłaniu ma własne
+    zdanie o NIEZNANYM skutku: nie obiecuje cofnięcia i nie twierdzi, że
+    polecenia nie było.
+- `Core/Sonos/SonosAccountCoordinator.GroupOperations.cs` (część `partial`
+  istniejącego koordynatora):
+  - bilet konta (token + generacja) czytany RAZEM pod tą samą blokadą przez
+    ISTNIEJĄCY `TryTakeReadTicketLocked`; HTTP i cudze callbacki zawsze POZA
+    blokadą. Po KAŻDYM `await` weryfikowana jest ORYGINALNA generacja;
+  - ODCZYT: znana MINIONA ważność → jedno odnowienie PRZED zapytaniem;
+    nieznana ważność nie odnawia niczego; 401 → najwyżej JEDNO odnowienie i
+    JEDNO powtórzenie GET, dokładnie jak w `DeviceRead`. Zero pętli reauth;
+  - POLECENIE: odnowienie TYLKO PRZED wysłaniem i tylko przy znanej minionej
+    ważności, następnie DOKŁADNIE JEDEN POST. Retry GET-a NIE jest kopiowane
+    do POST — ani po 401, ani po 429/5xx, ani po utraconej odpowiedzi.
+    Polecenie nie kasuje konta i nie niesie w sobie kolejnej autoryzacji;
+    jawne późniejsze odnowienie to OSOBNA operacja;
+  - jedna wspólna centralna logika odnawiania: `RenewForReadAsync` nad
+    `RefreshCoreAsync` z KOTWICĄ generacji. Żadnej kopii refresh, tokenów ani
+    blokady; I/O nie jest zamknięte zewnętrznym reentrant lockiem;
+  - dawna operacja po nowym logowaniu, `Disconnect` albo `Dispose` kończy się
+    `Discarded`: nie odnawia konta B, nie używa jego biletu, nie publikuje
+    spóźnionych danych ani komunikatu sukcesu. Konto B zostaje nietknięte
+    (bez `Delete`). Konto działające w pamięci po błędzie zapisu ma sprawne
+    operacje, bez ponownego logowania.
+- Testy: `SonosGroupAccountOperationsTests` (`--sonos-group-account`,
+  sprawdzany dosłownie w `Program.cs`, plus wpis w pełnej tabeli Core) —
+  18 przypadków na PRAWDZIWYM `SonosControlApiClient` ze sztucznym
+  `HttpMessageHandler` i PRAWDZIWEJ drodze `BeginLoginAsync`/`CheckLoginAsync`
+  (bez podstawiania prywatnych pól). Blokady zdarzeniowe na
+  `TaskCompletionSource` z `RunContinuationsAsynchronously`. Tokeny wyłącznie
+  syntetyczne; zero sieci, konta, DPAPI i GUI.
+
 ## Sonos Control API: odczyt odtwarzania grupy i podstawowe polecenia (Core, po alfa413)
 
 Warstwa WYŁĄCZNIE niskopoziomowa: klient, modele i testy. Nie ma tu
