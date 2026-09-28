@@ -115,7 +115,13 @@ Własny pełny Core na Windows oraz wąskie zestawy Windows zakończyły się po
 
 W widocznej próbie rzeczywisty timer sam odczytał zmieniony tytuł, a fokus NVDA pozostał na miejscu. Sprawdzono wolną odpowiedź, zmianę grupy, wyjście do innej sesji, zakończenie starego polecenia podczas nowszego oraz zamknięcie okna z trwającym odczytem. Pomiar obejmował obiekty i fokus NVDA, nie transkrypt wypowiedzianej mowy. Dane i polecenia były syntetyczne — nie jest to potwierdzenie działania na rzeczywistym głośniku.
 
-Następny przyrost rozróżni zastąpienie lub odłączenie konta od zwykłego odnowienia dostępu. Samo odnowienie nie powinno kasować świadomie wybranej grupy. Później zostaną podłączone wybór domu i jawne odświeżanie grup. Cały opis tej sekcji dotyczy prac roboczych; wersja wydana pozostaje alfa413.
+### S-09. Rozróżnienie zmiany konta od odnowienia dostępu — odebrane w Core
+
+Kod roboczy `8295935` udostępnia bezpieczny, lokalny znacznik zastąpienia lub utraty konta. Zwykłe odnowienie dostępu go nie zmienia. Znacznik nie zawiera poświadczeń, nie jest identyfikatorem użytkownika Sonosa i nie jest zapisywany do ustawień. Pierwszy odczyt po uruchomieniu stanowi punkt odniesienia, a nie zdarzenie zmiany konta.
+
+Własny test dodatkowy wykrył i następnie potwierdził usunięcie jednego błędu: odrzucone pierwsze podłączenie nie może zgłaszać zmiany konta, którego wcześniej nie było. Ten sam zestaw testów dał **36/37 przed poprawką i 37/37 po niej**. Niezależny przebieg na Windows potwierdził **37/37**, pełny Core oraz regresje Sonosa. Końcowy przegląd poprawki nie wskazał blokad.
+
+Trwa podłączanie tego znacznika do sesji, aby zmiana lub odłączenie konta porzucały stare grupy, dane odtwarzacza i oczekujące operacje, a zwykłe odnowienie zachowywało wybór. **Sam odbiór Core nie oznacza jeszcze wykonania tej reakcji w interfejsie.** Później zostaną podłączone wybór domu i jawne odświeżanie grup. Nadal nie wykonano nowego wydania ani próby sterowania rzeczywistym sprzętem; wersja wydana pozostaje alfa413.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
