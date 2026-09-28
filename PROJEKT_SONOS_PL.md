@@ -8,7 +8,7 @@ Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Następny etap Core — stan, metadane, głośność i podstawowe polecenia — oraz jego powiązanie z mechanizmem obsługi konta zostały już odebrane na danych próbnych. Nadal nie są częścią tego instalatora. Rozpoczęto budowę sesji użytkowej: wyboru grupy, listy, odtwarzacza i sterowania na wzór WiiM. Nie wymaga to teraz ponownego logowania użytkownika.
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano już Core, jego powiązanie z kontem, wejście do sesji użytkowej oraz automatyczne odświeżanie stanu. Nadal nie są częścią tego instalatora. Trwają prace nad reakcją sesji na zmianę konta i wyborem domu. Nie wymaga to teraz ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -91,11 +91,31 @@ Dwa błędy komunikatów przy porzuceniu polecenia zostały odtworzone i poprawi
 
 ### Granice tego odbioru i kolejny krok
 
-Mechanizm operacji przez konto jest gotowy w Core. Pozostaje jego podłączenie do części Windows i sesji użytkowej, odświeżanie stanu, weryfikacja skutku po poleceniu oraz odbiór klawiaturą i żywym NVDA. Prace nad wyborem aktywnej grupy, listą i odtwarzaczem na wzór WiiM są rozpoczęte. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
+Mechanizm operacji przez konto został podłączony do roboczej sesji Windows. Odbiór wejścia i automatycznego odświeżania opisano poniżej w S-07 i S-08. Nie oznacza to jeszcze zakończenia całej sesji: pozostają obsługa zmiany konta, wybór domu, jawne odświeżanie topologii oraz pełny odbiór odtwarzacza. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
 
 Jedna wcześniejsza pełna próba zgłosiła błąd asercji zdarzenia procesu Librespot. Nie odtworzono go w 60 izolowanych próbach, pięciu pełnych przebiegach czystej alfa413 ani w końcowym pełnym przebiegu poprawki. Przyczyna pozostaje nierozstrzygnięta; nie uznajemy tego błędu za naprawiony i nie przypisujemy go bez dowodu zmianom Sonosa.
 
 Odebrane fundamenty są zachowane na [gałęzi roboczej Sonosa](https://github.com/michalkasperczak/AMC/tree/hermes/sonos-group-account-messages), commit `908b0c5` (wyłącznie uzupełnienie dokumentacji po kodzie `bbfb5b5`). Kompilacja aplikacji WPF i projektu jej testów na Windows zakończyła się bez błędów i ostrzeżeń; nie uruchamiano przy tym okien. Numer wersji i instalator nie zostały zmienione, ponieważ ten etap nie daje jeszcze nowej funkcji w interfejsie. Ta aktualizacja dokumentacji nie jest nowym wydaniem aplikacji ani potwierdzeniem działania sterowania na koncie użytkownika.
+
+## Odebrana część roboczej sesji użytkowej — jeszcze niewydana
+
+### S-07. Wejście do sesji i spóźniona aktywacja
+
+Kod roboczy `4bfcf72` zamyka puste pierwsze wejście na listę oraz Enter, który wcześniej nie otwierał odtwarzacza wybranej grupy. Spóźniona odpowiedź nie może otworzyć odtwarzacza po świadomej zmianie sesji albo grupy. Wyjście do listy lub innej sesji nie wysyła polecenia zatrzymującego muzykę.
+
+Potwierdzono rzeczywistą drogę klawiatury i fokus żywego NVDA na izolowanej kopii z syntetycznymi danymi. Test wejścia obejmuje **29 sprawdzeń**. Celowe usunięcie zabezpieczenia powoduje konkretną awarię przy zakończeniu starej aktywacji, kiedy nowa grupa nadal czeka na odczyt; po przywróceniu zabezpieczenia test przechodzi. Ochrona zapisu ustawień pozwala zachować identyfikatory domu i grupy, ale nie poświadczenia.
+
+### S-08. Automatyczne odświeżanie i zakończenie polecenia po zmianie grupy
+
+Kod roboczy `4376b34` podłącza odczyt do rzeczywistego licznika odtwarzacza. Trwający odczyt nie powoduje mnożenia zapytań przy kolejnych tyknięciach. Błąd stanu, metadanych lub głośności wydłuża odstęp do następnej próby. Starsza odpowiedź nie nadpisuje nowszych danych, również gdy oba odczyty dotyczą tej samej grupy.
+
+Zakończenie polecenia po zmianie grupy nie pozostawia sterowania trwale zablokowanego. Jednocześnie stare polecenie nie może odblokować jeszcze trwającego, nowszego polecenia. Nie dodano automatycznego powtarzania poleceń.
+
+Własny pełny Core na Windows oraz wąskie zestawy Windows zakończyły się poprawnie: **27 sprawdzeń odświeżania, 29 wejścia, 24 pomocniczej obsługi sesji i 24 podłączenia konta**. Niezależny przegląd zgodności i jakości nie wskazał blokad. Nie był to pełny zestaw testów Windows ani przygotowanie instalatora.
+
+W widocznej próbie rzeczywisty timer sam odczytał zmieniony tytuł, a fokus NVDA pozostał na miejscu. Sprawdzono wolną odpowiedź, zmianę grupy, wyjście do innej sesji, zakończenie starego polecenia podczas nowszego oraz zamknięcie okna z trwającym odczytem. Pomiar obejmował obiekty i fokus NVDA, nie transkrypt wypowiedzianej mowy. Dane i polecenia były syntetyczne — nie jest to potwierdzenie działania na rzeczywistym głośniku.
+
+Następny przyrost rozróżni zastąpienie lub odłączenie konta od zwykłego odnowienia dostępu. Samo odnowienie nie powinno kasować świadomie wybranej grupy. Później zostaną podłączone wybór domu i jawne odświeżanie grup. Cały opis tej sekcji dotyczy prac roboczych; wersja wydana pozostaje alfa413.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
