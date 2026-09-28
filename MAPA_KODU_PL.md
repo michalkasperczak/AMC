@@ -41,7 +41,24 @@ silnika odtwarzania w AMC. Pełny opis obsługi i granic:
 
 Pomiary: `Core.SmokeTests --sonos-session-presentation` (WSL) oraz
 `Windows.SmokeTests --sonos-session-ui` — **prawdziwy `MainWindow` bez
-pokazywania okna**. Odsłuchu NVDA i prawdziwej klawiatury tu NIE było.
+pokazywania okna**, ale mierzy POMOCNICZE metody sesji, nie drogę klawiatury.
+Wejście rzeczywistą drogą użytkownika mierzy osobny
+`Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
+Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
+
+Dwie usterki WEJŚCIA naprawione po alfa413 (zmiana CALLERA, nie nowa ścieżka):
+
+- `ApplySonosGroupRows` (`MainWindow.Sonos.cs`) po asynchronicznym wejściu
+  odświeża **PRAWDZIWY widok** (`RefreshCurrentView` z zachowaniem wyboru po
+  identyfikatorze), tylko gdy Sonos jest bieżącą sesją i widać listę. Wcześniej
+  `ReplaceItems` kończył się po odświeżeniu widoku, więc **pierwsze Ctrl+8**
+  dawało pustą kontrolkę listy przy odczytanych grupach.
+- `ActivateSelected` (`MainWindow.xaml.cs`) dla wiersza grupy w sesji Sonos
+  wchodzi w istniejące `ActivateSonosGroupThenShowPlayerAsync`. Fizyczny Enter
+  szedł wcześniej do `NavigateTo(item.Title)` — widok nazywał się jak grupa,
+  grupa nie stawała się aktywna, odtwarzacz się nie otwierał. Gałąź
+  `ExecuteCommand(ActivateSelected)` bierze cel WYŁĄCZNIE z zaznaczonego wiersza,
+  żeby nie aktywować niewidocznej grupy przy pustej liście.
 
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
 

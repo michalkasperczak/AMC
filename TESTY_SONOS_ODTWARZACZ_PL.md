@@ -112,19 +112,25 @@ Zasady, których te polecenia trzymają się twardo:
 | Pomiar | Co sprawdza |
 |---|---|
 | `Core.SmokeTests -- --sonos-session-presentation` | formatery, pusty stan, pamięć wyboru po ID, pełny roundtrip starych ustawień, bramka dostępności, werdykty po odczycie, brak zegara demo |
-| `Windows.SmokeTests -- --sonos-session-ui` | **prawdziwy `MainWindow`** bez pokazywania okna: lista grup, aktywna grupa bez POST, wyjście bez stop/pause, polecenia przez `ExecuteCommand`, odmowa zajętości, unieważnianie spóźnionych odczytów |
+| `Windows.SmokeTests -- --sonos-session-ui` | **prawdziwy `MainWindow`** bez pokazywania okna: lista grup, aktywna grupa bez POST, wyjście bez stop/pause, polecenia przez `ExecuteCommand`, odmowa zajętości, unieważnianie spóźnionych odczytów. **Mierzy pomocnicze metody sesji, NIE drogę klawiatury** — Enter i wypełnienie kontrolki listy sprawdza dopiero pomiar poniżej |
+| `Windows.SmokeTests -- --sonos-session-entry-ui` | **WEJŚCIE rzeczywistą drogą użytkownika, na POKAZANYM własnym oknie**: prawdziwe `ExecuteCommand("session.slot.8")` (to, co robi Ctrl+8) i pompa dispatchera → **kontrolka `MediaList` ma 2 wiersze** (nie sama `session.Items`); prawdziwy routed `PreviewKeyDown`/Enter na **zaznaczonym wierszu** → `_playerViewActive`, `SelectedGroupId`, aktualny element sesji, jawne odczyty stanu i głośności, **zero POST z samego wyboru**; Escape wraca na listę bez transportu; druga grupa tą samą drogą; spóźniona aktywacja po świadomym wyjściu z sesji nie kradnie fokusu. Bez NVDA i bez klawiszy systemowych |
 
-Pomiar Windows buduje się i uruchamia **bez GUI** (żadnego `Show`,
-`ShowDialog`, `Activate`). Używa `SuppressDesktopIntegrationForTests`,
+Pomiar `--sonos-session-ui` buduje się i uruchamia **bez GUI** (żadnego `Show`,
+`ShowDialog`, `Activate`) — to się NIE zmieniło. Osobny `--sonos-session-entry-ui`
+**świadomie POKAZUJE własne okno**, bo drogi klawiatury (routed `PreviewKeyDown`)
+i zawartości kontrolki listy nie da się zmierzyć bez powierzchni prezentacji;
+startowe źródła z `ContentRendered` są przy tym odłączone, a okno zamykane w
+`Dispose`. Oba używają `SuppressDesktopIntegrationForTests`,
 własnego magazynu ustawień z pustymi kontami/podcastami/urządzeniami
 WiiM/harmonogramami, wyłączonych aktualizacji i odmowy uruchomienia
 instalatora.
 
 ### Czego tu NIE zmierzono
 
-- **Odsłuch NVDA** i **prawdziwa klawiatura** — nie były uruchamiane.
-  Komunikaty są sprawdzone jako tekst, który trafia do `Announce`, nie jako
-  mowa.
+- **Odsłuch NVDA** i **fizyczna klawiatura** — nie były uruchamiane.
+  `--sonos-session-entry-ui` wysyła routed `KeyEventArgs` na element z fokusem we
+  **własnym** oknie, nie klawisze systemowe. Komunikaty są sprawdzone jako tekst,
+  który trafia do `Announce`, nie jako mowa.
 - **Żadnego prawdziwego konta ani sieci Sonos.** Zaplecze grupy jest
   podstawione na faktycznej granicy API (domyślnie `null`), poświadczenia
   zostają wyłącznie u właściciela konta.

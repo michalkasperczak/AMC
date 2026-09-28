@@ -11231,9 +11231,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // Enter na LISCIE czyni grupe aktywna i otwiera odtwarzacz.
                 // To sam WYBOR celu: zaden POST nie idzie, muzyka bez zmian.
-                var selectedGroup = ActionItem
-                    ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
-                if (selectedGroup is null)
+                // Cel bierzemy WYLACZNIE z zaznaczonego wiersza. Fallback na
+                // CurrentItem aktywowalby grupe, ktorej uzytkownik NIE widzi na
+                // pustej liscie, wiec go tu nie ma.
+                var selectedGroup = (MediaList.SelectedItem as MediaItemRow)?.Item;
+                if (selectedGroup is null || MediaList.Items.Count == 0)
                 {
                     Announce(SonosSessionListPresentation.DescribeEmptyState(SonosEmptyReason));
                     return new CommandExecutionResult(false);
@@ -13992,6 +13994,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var item = row?.Item;
         if (item is null) return;
+        if (item.Kind == MediaItemKind.Device && IsSonosSession(_sessions.Current.Id))
+        {
+            // FIZYCZNY Enter na wierszu grupy szedl DALEJ i konczyl na
+            // NavigateTo(item.Title): widok nazywal sie "Salon", grupa NIE
+            // stawala sie aktywna, odtwarzacz sie nie otwieral i zaden odczyt
+            // nie leciał. Wchodzimy w ISTNIEJACA droge wyboru grupy - wprost, bez
+            // ExecuteCommand(ActivateSelected), zeby nie robic rekurencji z
+            // galezia sesji Sonos. Sam wybor nie wysyla POST.
+            _ = ActivateSonosGroupThenShowPlayerAsync(item.Id);
+            return;
+        }
         if (item.Kind == MediaItemKind.Device
             && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {

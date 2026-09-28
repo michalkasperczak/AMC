@@ -240,6 +240,19 @@ public partial class MainWindow
                 Kind = MediaItemKind.Device
             })
             .ToList());
+
+        // Wejscie do sesji jest ASYNCHRONICZNE: ReplaceItems konczy sie DLUGO po
+        // tym, jak przelaczenie sesji odswiezylo widok. Bez odswiezenia TERAZ
+        // kontrolka listy zostawala pusta az do ponownego wejscia - uzytkownik
+        // slyszal "lista pusta" przy PIERWSZYM Ctrl+8, mimo odczytanych grup.
+        // Odswiezamy WYLACZNIE gdy Sonos jest biezaca sesja i widac liste:
+        // obcej sesji ani otwartego odtwarzacza nie ruszamy.
+        if (_isClosing || !IsSonosSession(_sessions?.Current.Id) || _playerViewActive) return;
+        // Zaznaczenie uzytkownika jest SWIADOME: zachowujemy je po identyfikatorze,
+        // a nie po indeksie, bo topologia mogla sie przestawic.
+        var selectedGroupId = (MediaList.SelectedItem as MediaItemRow)?.Item.Id
+            ?? _state.Sonos.SelectedGroupId;
+        RefreshCurrentView(preferredItemId: selectedGroupId);
     }
 
     /// <summary>

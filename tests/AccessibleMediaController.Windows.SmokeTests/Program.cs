@@ -70,6 +70,10 @@ if (args.Contains("--sonos-session-ui", StringComparer.Ordinal))
 {
     SonosSessionUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-session-entry-ui", StringComparer.Ordinal))
+{
+    SonosSessionEntryUiTests.Run(); return 0;
+}
 if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;
