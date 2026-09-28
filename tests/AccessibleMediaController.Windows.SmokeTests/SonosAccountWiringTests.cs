@@ -1,8 +1,10 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Services;
@@ -23,7 +25,9 @@ using AccessibleMediaController.Windows.Services;
 ///   * potwierdzenie wylogowania jest zbudowane przez ISTNIEJACE
 ///     <see cref="AccessibleDialog"/> z ownerem OKNA KONTA, odpowiedz domyslna Nie;
 ///     brak potwierdzenia NIE usuwa konta,
-///   * zaden token nie trafia do stanu aplikacji,
+///   * zaden token nie trafia do stanu aplikacji, ale wybor domu i grupy Sonos
+///     PRZEZYWA zapis i odczyt ustawien (prawdziwy ConfigurationStore, katalog
+///     tymczasowy testu),
 ///   * menu Plik ma pozycje konta Sonos bez skrotu i bez zmiany Ctrl+F5.
 ///
 /// SCISLA BRAMKA PULPITU: zero Show, ShowDialog, Activate i EnsureHandle. Okno
@@ -53,6 +57,7 @@ internal static class SonosAccountWiringTests
                 checks += MeasureGuardAgainstSecondWindow();
                 checks += MeasureDisconnectConfirmation();
                 checks += MeasureMenuAndShortcuts();
+                checks += MeasureSettingsKeepSelectionWithoutCredentials();
             }
             catch (Exception exception)
             {
@@ -296,14 +301,132 @@ internal static class SonosAccountWiringTests
         {
             throw new Exception("Konto Sonos weszło do zajętego Ctrl+F5.");
         }
-        var stateSource = File.ReadAllText(
-            LocateRepositoryFile("src/AccessibleMediaController.Core/Configuration/AppSettings.cs"));
-        if (stateSource.Contains("Sonos", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new Exception("Ustawienia aplikacji zaczęły przechowywać dane konta Sonos.");
-        }
         return 4;
     }
+
+    // ================= 6. ustawienia: WYBOR tak, POSWIADCZENIA nie =================
+
+    // Zastepuje dawny zakaz samego slowa "Sonos" w AppSettings.cs. Ten zakaz byl
+    // przestarzaly i mierzyl tekst zrodla, nie zachowanie: wybor domu i grupy MUSI
+    // trafic do ustawien, inaczej AMC zapominalby go po restarcie. Zakaz
+    // poswiadczen zostaje, ale sprawdzalny na tym, co naprawde jest zapisywane:
+    // KSZTALCIE SonosSessionSettings i PRAWDZIWEJ serializacji przez
+    // ConfigurationStore do wlasnego katalogu tymczasowego.
+    //
+    // Celowo mierzony jest tylko wezel Sonos: AppSettings przechowuje takze inne
+    // konta (TIDAL, Spotify), wiec globalny zakaz slowa "token" w pliku stanu
+    // banowalby cudze, poprawne pola.
+    private static int MeasureSettingsKeepSelectionWithoutCredentials()
+    {
+        const string household = "Sonos_household.9000000001";
+        const string group = "RINCON_00012345678001400:9";
+        string[] allowedProperties = ["SelectedGroupId", "SelectedHouseholdId"];
+        string[] allowedJsonKeys = ["selectedGroupId", "selectedHouseholdId"];
+
+        // 6a. KSZTALT typu: dokladnie dwa pola wyboru, oba tekstowe. Dopisanie
+        // tokenu, scope, URI brokera czy sciezki magazynu wpada tu jako ASERCJA,
+        // nie jako blad kompilacji testu.
+        var properties = typeof(SonosSessionSettings)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .ToArray();
+        var unexpected = properties
+            .Select(property => property.Name)
+            .Where(name => !allowedProperties.Contains(name, StringComparer.Ordinal))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        if (unexpected.Length > 0)
+        {
+            throw new Exception(
+                "Ustawienia sesji Sonos zyskały pole poza wyborem domu i grupy (poświadczenia należą "
+                + "do osobnego magazynu właściciela konta): " + string.Join(", ", unexpected));
+        }
+        foreach (var expected in allowedProperties)
+        {
+            var property = properties.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, expected, StringComparison.Ordinal))
+                ?? throw new Exception("Ustawienia sesji Sonos przestały pamiętać " + expected + ".");
+            if (property.PropertyType != typeof(string))
+            {
+                throw new Exception(
+                    $"Pole {expected} przestało być identyfikatorem tekstowym (jest {property.PropertyType.Name}).");
+            }
+        }
+
+        var folder = Path.Combine(Path.GetTempPath(), "amc-sonos-guard-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var statePath = Path.Combine(folder, "state.json");
+            var state = ConfigurationStore.CreateDefaultState();
+            state.Sonos.SelectedHouseholdId = household;
+            state.Sonos.SelectedGroupId = group;
+            NewSettingsStore(statePath).Save(state);
+
+            var json = File.ReadAllText(statePath);
+            using var document = JsonDocument.Parse(json);
+
+            // 6b. Wybór NAPRAWDE idzie na dysk (zapis ustawien ma wlasna powloke,
+            // wiec pominiecie Sonosa po cichu gubiloby dom i grupe).
+            if (!document.RootElement.TryGetProperty("sonos", out var sonos))
+            {
+                throw new Exception("Zapis ustawień pominął węzeł sonos - wybór domu i grupy nie przeżyłby restartu.");
+            }
+            var sonosText = sonos.GetRawText();
+            if (!sonosText.Contains(household, StringComparison.Ordinal)
+                || !sonosText.Contains(group, StringComparison.Ordinal))
+            {
+                throw new Exception("Zapisane ustawienia nie pamiętają wybranego domu i grupy Sonos.");
+            }
+
+            // 6c. W wezle Sonos sa DOKLADNIE klucze wyboru - nic wiecej.
+            var extraKeys = sonos.EnumerateObject()
+                .Select(property => property.Name)
+                .Where(name => !allowedJsonKeys.Contains(name, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            if (extraKeys.Length > 0)
+            {
+                throw new Exception(
+                    "Serializowane ustawienia Sonos mają klucz poza wyborem domu i grupy: "
+                    + string.Join(", ", extraKeys));
+            }
+
+            // 6d. Zaden inny wezel stanu nie zaczyna przechowywac danych konta Sonos
+            // (np. sonosTokens, sonosCredentials obok wezla sonos).
+            var strayRoots = document.RootElement.EnumerateObject()
+                .Select(property => property.Name)
+                .Where(name => name.Contains("sonos", StringComparison.OrdinalIgnoreCase)
+                    && !name.Equals("sonos", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (strayRoots.Length > 0)
+            {
+                throw new Exception(
+                    "Stan aplikacji zyskał osobny węzeł danych konta Sonos: " + string.Join(", ", strayRoots));
+            }
+
+            // 6e. PRAWDZIWY odczyt przywraca wybor - zakaz poswiadczen nie moze
+            // byc osiagniety przez wyrzucenie wyboru.
+            var reloaded = NewSettingsStore(statePath).LoadOrCreate();
+            if (!string.Equals(reloaded.Sonos.SelectedHouseholdId, household, StringComparison.Ordinal)
+                || !string.Equals(reloaded.Sonos.SelectedGroupId, group, StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    "Po ponownym odczycie ustawień wybór domu i grupy Sonos nie wrócił: "
+                    + $"dom={reloaded.Sonos.SelectedHouseholdId ?? "(brak)"}, "
+                    + $"grupa={reloaded.Sonos.SelectedGroupId ?? "(brak)"}.");
+            }
+            return 5;
+        }
+        finally
+        {
+            try { Directory.Delete(folder, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static ConfigurationStore NewSettingsStore(string statePath) =>
+        new(statePath,
+            Path.ChangeExtension(statePath, ".library.db"),
+            Path.ChangeExtension(statePath, ".podcasts.db"));
 
     private static string LocateRepositoryFile(string relativePath)
     {
