@@ -1,5 +1,36 @@
 # Zadania testowe AMC
 
+## Sonos: operacje grupy przez konto — odebrany Core, bez sesji UI
+
+- Odebrany kod `bbfb5b51e0e1c7d8836a396e5926bb585957595d` powstał na
+  `4432ceb`. Własne testy na Windows: `--sonos-group-account` **18/18**,
+  koordynator konta **26/26**, transport grupy **79/79**, klient odczytu
+  urządzeń **69/69**, odczyt przez konto **18/18**; wszystkie exit0.
+  Pełny Core na Windows również zakończył się kodem 0.
+- Trzy odczyty i podstawowe polecenia korzystają z tego samego właściciela
+  konta. GET może raz odnowić dostęp i raz się powtórzyć; POST nie jest
+  automatycznie powtarzany po 401, 429, 5xx ani utracie odpowiedzi.
+- Sprawdzono porzucenie starego wyniku po zmianie konta lub zamknięciu
+  właściciela, brak użycia nowego konta przez dawną operację, odnowienie przed
+  poleceniem przy znanym wygaśnięciu, pracę po nieudanym zapisie dostępu,
+  brak HTTP pod blokadą oraz anulowanie jednego oczekującego bez przerwania
+  wspólnego odnowienia.
+- Własna kompilowalna mutacja bramki generacji po POST daje **17/18** z
+  właściwą awarią przypadku Disconnect w trakcie; po odtworzeniu źródła
+  i pełnym przebudowaniu tej kopii jest **18/18**.
+- Dwa błędy komunikatów odtworzono niezależnie: ten sam plik testów daje
+  **16/18** na `4432ceb`, a **18/18** po podłożeniu poprawionego kontraktu.
+  Próba wysłania nie jest już gwarancją dostarczenia; zero prób daje jasny
+  komunikat, że polecenia nie wysłano. Pola, statusy i mechanizm operacji
+  pozostały bez zmian. Oba przeglądy zamknięte bez uwag blokujących.
+- Wszystkie odpowiedzi i poświadczenia w pomiarach są syntetyczne. To nie
+  pomiar rzeczywistego konta, głośnika, widoku odtwarzacza ani żywego NVDA.
+  Do podłączenia pozostaje właściciel w części Windows i sesja użytkowa,
+  odświeżanie stanu oraz jawny odczyt skutku po poleceniu. Bez wydania
+  nowego instalatora na tym etapie.
+
+
+
 ## Sonos: końcowy odbiór warstwy poleceń — Core po alfa413, jeszcze bez UI
 
 - Odebrany kod: `e27ba780165ad213c46ac31e256293bdc4be6f84`.
