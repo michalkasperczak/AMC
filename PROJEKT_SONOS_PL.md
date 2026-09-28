@@ -4,6 +4,12 @@ Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 ## Co jest wydane
 
+[AMC 0.1.0-alpha.413](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.413) jest opublikowane z instalatorem i ZIP-em. Dostarcza listę domów, grup i głośników przez **Plik → Konto Sonos → Głośniki i grupy**. [Opis zmian alfa413](ZMIANY_0.1.0-alpha.413_PL.md).
+
+Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
+
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Trwają odseparowane prace nad następnym etapem Core: stan, metadane, głośność i podstawowe polecenia; nie są częścią tego instalatora.
+
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
 Pierwsze rzeczywiste logowanie zostało potwierdzone po publikacji tego wydania. Nie oznacza to jeszcze potwierdzenia sterowania głośnikami ani wszystkich przebiegów odnawiania dostępu na rzeczywistym koncie.
@@ -27,9 +33,9 @@ Oficjalna dokumentacja Sonosa potwierdza sterowanie odtwarzaniem grupy, przewija
 
 Okno **Konto Sonos → Głośniki i grupy** jest przyrostem pomocniczym. Samo jego przygotowanie nie kończy całej integracji.
 
-## Przygotowanie alfa413 — lista urządzeń
+## Zakres wydanego alfa413 — lista urządzeń
 
-Zakres kandydata alfa413, oddzielony od późniejszej sesji odtwarzania:
+Zakres alfa413, oddzielony od późniejszej sesji odtwarzania:
 
 - klient odczytu domów, grup i głośników z oficjalnego Control API;
 - odczyt przez wspólnego właściciela konta, bez przekazywania tokenów do modeli okna;
@@ -37,7 +43,7 @@ Zakres kandydata alfa413, oddzielony od późniejszej sesji odtwarzania:
 - poprawki ochrony przed wynikiem starej operacji po zmianie konta;
 - poprawki komunikatów wczytywania, fokusu i zachowania wybranego domu.
 
-Końcowy kod `cf04f9a` przeszedł ponowną próbę żywym NVDA oraz wąskie testy Windows: 68 sprawdzeń okna urządzeń i 19 podłączenia konta. Sprawdzono rzeczywiste otwarcie, mówione komunikaty, odświeżenie z wierszy, zmianę kolejności list 20-elementowych, nawigację strzałkami, pierwszeństwo wyboru użytkownika, brak przejmowania obcego okna oraz Escape i ponowne otwarcie. Dane pochodziły z syntetycznego transportu i magazynu. Nie jest to jeszcze próba odpowiedzi rzeczywistych urządzeń ani potwierdzenie publikacji instalatora.
+Końcowy kod `cf04f9a` przeszedł ponowną próbę żywym NVDA oraz wąskie testy Windows: 68 sprawdzeń okna urządzeń i 19 podłączenia konta. Sprawdzono rzeczywiste otwarcie, mówione komunikaty, odświeżenie z wierszy, zmianę kolejności list 20-elementowych, nawigację strzałkami, pierwszeństwo wyboru użytkownika, brak przejmowania obcego okna oraz Escape i ponowne otwarcie. Dane pochodziły z syntetycznego transportu i magazynu. Był to pomiar syntetyczny. Późniejsza próba z zainstalowanego alfa413 potwierdziła również rzeczywisty odczyt grupy i głośnika; publikację i instalację potwierdzono oddzielnie.
 
 ## Rejestr spraw tego przyrostu
 
@@ -51,7 +57,7 @@ Stan: poprawka i testy automatyczne potwierdzają odrzucenie starej operacji ora
 
 Fakt: żywy NVDA po wolnym odświeżeniu wskazywał całe okno zamiast kontrolki.
 
-Stan: zamknięte w kodzie `a067dd8` + `cf04f9a`, potwierdzone żywym NVDA. Fokus w zajętości przechodzi na instrukcję, a po wyniku wraca na świeży wiersz tego samego ID w tym samym domu, także po przeniesieniu poza dawny widok. Przy zniknięciu elementu pozostaje instrukcja. Strzałki działają od przywróconego wiersza; świadomy wybór innej kontrolki i obce okno mają pierwszeństwo. Nie jest to jeszcze stwierdzenie aktualizacji instalacji użytkownika.
+Stan: zamknięte w kodzie `a067dd8` + `cf04f9a`, potwierdzone żywym NVDA. Fokus w zajętości przechodzi na instrukcję, a po wyniku wraca na świeży wiersz tego samego ID w tym samym domu, także po przeniesieniu poza dawny widok. Przy zniknięciu elementu pozostaje instrukcja. Strzałki działają od przywróconego wiersza; świadomy wybór innej kontrolki i obce okno mają pierwszeństwo. Poprawka jest zawarta w opublikowanym i zainstalowanym alfa413.
 
 ### S-03. Odświeżanie zmieniało wybrany dom
 

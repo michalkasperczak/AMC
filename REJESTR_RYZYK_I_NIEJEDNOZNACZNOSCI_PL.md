@@ -13,9 +13,9 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 ## Sonos po alfa412 — stan z 28 września 2026 r.
 
-Wytyczne obsługi na wzór WiiM, rozdzielenie wydania od prac roboczych oraz sprawy S-01–S-04 są opisane w [PROJEKT_SONOS_PL.md](PROJEKT_SONOS_PL.md). Dotyczą niewydanego przyrostu listy urządzeń, nie funkcji przypisanej instalatorowi alfa412.
+Wytyczne obsługi na wzór WiiM, rozdzielenie wydania od prac roboczych oraz sprawy S-01–S-04 są opisane w [PROJEKT_SONOS_PL.md](PROJEKT_SONOS_PL.md). Dotyczyły przyrostu listy urządzeń wydanego następnie w alfa413, nie funkcji przypisanej instalatorowi alfa412.
 
-Automatycznie sprawdzono korekty ochrony konta, wyboru domu i komunikatów. Ponowny odbiór żywym NVDA oraz rzeczywisty odczyt urządzeń nadal są osobnymi, niedomkniętymi warunkami. Nie utożsamiać kompilacji ani testów syntetycznych z ich zaliczeniem.
+Korekty ochrony konta, wyboru domu i komunikatów przeszły testy automatyczne. Ponowny żywy NVDA zamknął również problem fokusu rzeczywistych wierszy i zmiany kolejności długiej listy (`cf04f9a`). Alfa413 opublikowano i zainstalowano; odczyt rzeczywistych urządzeń przez połączone konto potwierdzono osobno. Sterowanie odtwarzaniem i sesja jak WiiM pozostają następnym, niewydanym etapem.
 
 ## Zasady prowadzenia rejestru
 
