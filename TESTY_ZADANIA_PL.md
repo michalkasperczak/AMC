@@ -1,6 +1,37 @@
 # Zadania testowe AMC
 
-## Sonos: odczyt odtwarzania grupy i podstawowe polecenia — Core, po alfa413
+## Sonos: końcowy odbiór warstwy poleceń — Core po alfa413, jeszcze bez UI
+
+- Odebrany kod: `e27ba780165ad213c46ac31e256293bdc4be6f84`.
+  Własny przebieg na Windows: `--sonos-group-playback` **79/79**,
+  `--sonos-control-api` **69/69**, `--sonos-device-read` **18/18**;
+  wszystkie z kodem 0. Pełny Core na Windows również zakończył się kodem 0.
+  Wąskie zestawy przechodzą także na WSL. To odpowiedzi syntetyczne,
+  nie połączenie z rzeczywistym kontem ani głośnikiem.
+- Rozróżnialność poprawki komunikatów sprawdzona niezależnie: ten sam końcowy
+  plik testów na `2d86d34` kompiluje się i daje **71/79, exit 1** (osiem
+  właściwych awarii tekstu), a na `e27ba78` daje **79/79, exit 0**.
+  Nie jest to tylko błąd brakującej metody na etapie kompilacji.
+- Końcowy wąski przegląd poprawki komunikatów: brak blokujących usterek.
+  Nie wykonywano sugerowanych opcjonalnych porządków w odebranym kodzie.
+- Po 200 komunikat potwierdza przyjęcie, nie wykonanie. Utrata odpowiedzi,
+  błąd 5xx i odrzucenie nieoczekiwanej odpowiedzi nie są dowodem nieprzyjęcia.
+  Anulowanie przed wysłaniem jest odróżnione od anulowania samego oczekiwania.
+  Transport nie powtarza POST ani nie kasuje konta po błędzie sterowania.
+- Uwaga stabilności: jeden wcześniejszy pełny przebieg na `2d86d34` zgłosił
+  błąd oczekiwania na zdarzenie w `LibrespotHostClientTests`.
+  Nie powtórzył się w 60 izolowanych próbach oraz pięciu pełnych przebiegach
+  czystej alfa413 ani w końcowym pełnym przebiegu `e27ba78`.
+  Przyczyna pozostaje nierozstrzygnięta; nie przedstawiamy go jako naprawionego.
+- To nie jest wydanie odtwarzacza Sonosa. Brak jeszcze połączenia tej warstwy
+  z kontem i sesją UI, pollingu, odczytu skutku po poleceniu, presetów i próby
+  rzeczywistego sprzętu. Nie zmieniono instalacji ani konta użytkownika.
+  Żywy NVDA zostanie zmierzony przy podłączeniu interfejsu.
+
+### Historia pierwszego przyrostu Core i pierwszej poprawki komunikatów
+
+Niższe liczniki i ograniczenia opisują wcześniejsze przebiegi, nie końcowy odbiór powyżej.
+
 
 - Runner Core: `--sonos-group-playback` (dosłownie sprawdzony w `Program.cs`),
   ten sam zestaw dodany do pełnej tabeli testów Core. Wynik po poprawce
