@@ -15,7 +15,7 @@ ulubionych, kolejki ani EQ — to kolejne etapy.
   - `artist` i `album` są OBIEKTAMI z wymaganym `name`; napis w tym miejscu to
     niezgodna odpowiedź, nie nazwa wykonawcy;
   - `canSkipBack` jest przeterminowane i zastępowane przez `canSkipToPrevious`;
-    `CanSkipToPreviousEffective` daje pierwszeństwo nowemu polu. `skipBack`
+    `SkipToPreviousAllowed` daje pierwszeństwo nowemu polu. `skipBack`
     (powrót na początek utworu) to NIE `skipToPreviousTrack`.
   Modele nie trzymają tokenów i nie ujawniają ich w `ToString`.
 - `Core/Sonos/SonosControlApiClient.GroupPlayback.cs` (część `partial` istniejącego
@@ -28,10 +28,22 @@ ulubionych, kolejki ani EQ — to kolejne etapy.
 - `SonosGroupCommandOutcome` rozdziela PRZYJĘCIE zlecenia od jego SKUTKU:
   HTTP 200 znaczy tylko, że Sonos przyjął polecenie. Po utracie odpowiedzi
   polecenie PRZEŁĄCZAJĄCE (`togglePlayPause`) lub WZGLĘDNE (`seekRelative`,
-  `groupVolume/relative`) ma skutek NIEROZSTRZYGNIĘTY (`EffectUndetermined`).
+  `groupVolume/relative`) ma skutek NIEROZSTRZYGNIĘTY (`EffectAmbiguous`).
   Żadnego automatycznego ponawiania POST — powtórzenie dałoby inny skutek.
   Jawny odczyt stanu i weryfikacja skutku należą do przyszłego koordynatora,
   nie do transportu; nie ma tego po cichu w kliencie.
+- `SonosGroupCommandMessages` to OSOBNY, mały stały słownik komunikatów WYNIKU
+  POLECENIA. `SonosGroupCommandOutcome.Message` bierze tekst z niego, nie ze
+  wspólnego `SonosControlApiMessages` (słownika ODCZYTU) — po `POST` nie ma
+  żadnego odczytu, więc tekst „Odczyt z Sonos zakończony.” po `pause` byłby
+  fałszywym opisem zdarzenia, a 400 nie dotyczy „zapytania o urządzenia”.
+  Rozgraniczenie słów: HTTP 200 → „przyjął polecenie; wykonanie
+  niepotwierdzone”, brak żądania (anulowanie przed wysłaniem, lokalnie
+  odrzucony argument albo `groupId`) → „nie zostało wysłane” BEZ obwiniania
+  identyfikatora domu, zerwane polecenie przełączające/względne → „skutek
+  nieznany”. Komunikaty ODCZYTU zostają bez zmian. `Sent` nadal znaczy tylko
+  „przekazane do `HttpClient`”, więc żaden tekst nie ogłasza dostarczenia do
+  Sonosa ani wykonania.
 - Błąd polecenia NIE odświeża tokenu i NIE kasuje konta — to warstwa
   koordynatora. Treść błędu sterowana przez serwer nie trafia do diagnostyki.
 - `capabilities`/`fixed` będą bramką UI; tutaj jest tylko wierny odczyt i

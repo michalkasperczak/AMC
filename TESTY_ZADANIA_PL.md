@@ -3,16 +3,23 @@
 ## Sonos: odczyt odtwarzania grupy i podstawowe polecenia — Core, po alfa413
 
 - Runner Core: `--sonos-group-playback` (dosłownie sprawdzony w `Program.cs`),
-  ten sam zestaw dodany do pełnej tabeli testów Core. Wynik: **70/70, exit 0**.
+  ten sam zestaw dodany do pełnej tabeli testów Core. Wynik po poprawce
+  komunikatów poleceń: **76/76, exit 0** (wcześniej 70/70; sześć nowych
+  przypadków dotyczy wyłącznie `SonosGroupCommandOutcome.Message`).
   Wszystkie odpowiedzi HTTP są sztuczne (własny handler); ZERO konta, ZERO
   DPAPI, ZERO sieci Sonosa, ZERO GUI i NVDA. Zmierzone na WSL.
 - Brak regresji na dojrzałych zestawach: `--sonos-control-api` 69/69 exit 0,
   `--sonos-device-read` 18/18 exit 0 — te same liczniki co przed zmianą.
-- Pełna tabela Core: przed zmianą 191 pozycji OK i 6 BŁĘDÓW, po zmianie
-  192 OK i te same 6 BŁĘDÓW (lista błędów porównana wiersz w wiersz, identyczna).
-  Te sześć to wady PREEGZYSTUJĄCE, niezwiązane z Sonosem (edycja nagrań, adres
-  kolejnej strony TIDAL ×2, „Pokaż w folderze”, odkrywanie plików lokalnych,
-  zmiana nazwy pliku) — zmierzone na czystym `git stash`, nie wprowadzone tutaj.
+- Pełna tabela Core: 192 pozycje OK i 6 BŁĘDÓW, exit 1 (lista błędów porównana
+  wiersz w wiersz z bazą, identyczna). Te sześć to HISTORYCZNY WYNIK WSL,
+  powtarzalny również na CZYSTYM worktree bez żadnych zmian z tej poprawki
+  (własny pomiar właściciela zadania na `4683333` i `2d86d34`, kwit
+  `amc_pomoc/sonos-playback-api-parent/wsl-baseline-comparison.json`): te same
+  sześć wierszy i ten sam exit 1 przed zmianą i po niej. Zależność od systemu
+  operacyjnego pozostaje TUTAJ NIEWYJAŚNIONA — nie jest to ani stwierdzona wada
+  produktu, ani wada Windows; pomiar Windows biegnie osobno i nie jest tu
+  zaliczony. Dotyczą edycji nagrań, adresu kolejnej strony TIDAL ×2, „Pokaż w
+  folderze”, odkrywania plików lokalnych i zmiany nazwy pliku — nic z Sonosa.
 - RED przed kodem: pierwszy przebieg kompilacji padł na `error CS1061` —
   `SonosControlApiClient` nie miał `GetGroupPlaybackAsync`,
   `GetGroupMetadataAsync` ani `GetGroupVolumeAsync`. GREEN po dodaniu części
@@ -46,6 +53,38 @@
   Sonos. Nie objęte celowo: koordynator uwierzytelnienia dla zapisu, polling i
   callback, `MainWindow`, nowa sesja, ulubione, kolejka, EQ, bramka UI na
   `capabilities`/`fixed`. Brak wydania, instalacji, push i publikacji.
+
+### Poprawka: komunikat WYNIKU POLECENIA zamiast komunikatu ODCZYTU
+
+- Naprawiony JEDEN zgłoszony błąd: `SonosGroupCommandOutcome.Message` brał tekst
+  ze wspólnego słownika ODCZYTU, więc po `POST` mówił „Odczyt z Sonos
+  zakończony.”, przy 400 „Sonos odrzucił zapytanie o urządzenia.”, a przy
+  lokalnym odrzuceniu argumentu obwiniał „identyfikator domu”. Zmiana dotyczy
+  wyłącznie `Message` i nowego małego stałego słownika
+  `SonosGroupCommandMessages`; transport, statusy, `Sent`, `Accepted`,
+  `EffectAmbiguous` i komunikaty ODCZYTU są nietknięte.
+- RED (behawioralny, przed poprawką): `--sonos-group-playback` **71/76, exit 1**
+  — pięć nowych przypadków padło na rzeczywistym tekście `Message`, szósty
+  (komunikaty odczytu zostają odczytami) przechodził od początku. Kwit:
+  `amc_pomoc/sonos-command-messages-fix/RED-sonos-group-playback.txt`.
+- GREEN (po poprawce): `--sonos-group-playback` **76/76, exit 0**. Kwit:
+  `GREEN-sonos-group-playback.txt`. Brak regresji: `--sonos-control-api` 69/69
+  exit 0 i `--sonos-device-read` 18/18 exit 0 (`GREEN-regresje-sonos.txt`),
+  pełna tabela Core 192 OK / 6 BŁĘDÓW exit 1 (`GREEN-pelna-tabela-core.txt`) —
+  ta sama szóstka co w bazie WSL.
+- Asercje idą przez PRAWDZIWEGO `SonosControlApiClient` z syntetycznym
+  `HttpMessageHandler`; handler sprawdza otrzymany `HttpRequestMessage` i liczy
+  żądania. Zmierzone: 200 mówi tylko „przyjął polecenie; wykonanie
+  niepotwierdzone” (bez słowa „Odczyt”), 400 mówi o odrzuconym POLECENIU, a nie
+  o „zapytaniu o urządzenia”, lokalne odrzucenie argumentu i złego `groupId` daje
+  zero HTTP i NIE obwinia domu, anulowanie przed wysłaniem mówi „nie zostało
+  wysłane”, zerwane polecenie przełączające/względne mówi „skutek nieznany”.
+  Sprawdzone też, że komunikaty ODCZYTU nadal mówią o odczycie.
+- CZEGO TO NIE DOWODZI: `Sent` nadal znaczy tylko PRÓBĘ przekazania żądania do
+  `HttpClient`, a nie że opuściło maszynę — testy wprost zabraniają
+  komunikatowi twierdzić „dostarczone” lub „wykonane”. Nie ma tu pomiaru
+  Windows, żywego NVDA, prawdziwego konta ani sprzętu Sonos. Nie ruszano
+  sugestii opcjonalnych z recenzji ani `itemId`.
 
 ## Sonos: końcowy odbiór listy do alfa413
 

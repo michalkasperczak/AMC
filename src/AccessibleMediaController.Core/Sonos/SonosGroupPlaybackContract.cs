@@ -557,7 +557,13 @@ public sealed class SonosGroupCommandOutcome
     /// <summary>Czy warto, by koordynator zrobil jawny odczyt stanu po tym poleceniu.</summary>
     public bool StateReadRecommended => Accepted || EffectAmbiguous;
 
-    public string Message => SonosControlApiMessages.Describe(Status);
+    /// <summary>
+    /// Tekst dla uzytkownika opisujacy POLECENIE, nie odczyt. Wprost z tabeli
+    /// polecen: slownik odczytu klamalby tu o tym, co sie stalo (po POST 200
+    /// ogloszony "zakonczony odczyt", po 400 "zapytanie o urzadzenia", a przy
+    /// lokalnym odrzuceniu argumentu obwiniony identyfikator domu).
+    /// </summary>
+    public string Message => SonosGroupCommandMessages.Describe(Status, Sent, EffectAmbiguous);
 
     internal static SonosGroupCommandOutcome FromStatus(
         SonosGroupCommand command, SonosControlApiStatus status, bool sent) =>
@@ -572,6 +578,88 @@ public sealed class SonosGroupCommandOutcome
         + (EffectAmbiguous ? ", skutek nierozstrzygnięty" : string.Empty)
         + ", "
         + Message;
+}
+
+/// <summary>
+/// Stale, bezpieczne komunikaty WYNIKU POLECENIA grupy. Osobne od slownika
+/// ODCZYTU, bo opisuja inne zdarzenie: tu nic nie zostalo odczytane, a HTTP 200
+/// jest tylko PRZYJECIEM zlecenia. Zadny tekst nie zawiera tokenu, klucza API
+/// ani fragmentu ciala odpowiedzi.
+///
+/// Granice slow sa scisle:
+///  * "przyjete" nigdy nie znaczy "wykonane" - stad jawne "wykonanie niepotwierdzone",
+///  * "nie zostalo wyslane" opisuje przypadki bez zadnego zadania HTTP,
+///  * "skutek nieznany" opisuje polecenie przelaczajace/wzgledne, dla ktorego
+///    odpowiedz nie wrocila; nie twierdzimy ani ze dotarlo, ani ze przepadlo.
+/// Sent mowi tylko, ze zadanie zostalo przekazane do HttpClient, wiec zaden
+/// komunikat nie oglasza dostarczenia do Sonosa.
+/// </summary>
+public static class SonosGroupCommandMessages
+{
+    /// <summary>Skutek nierozstrzygniety - ma pierwszenstwo nad tekstem samego statusu.</summary>
+    public const string EffectAmbiguousText =
+        "Polecenie Sonos zostało wysłane, ale odpowiedź nie wróciła: skutek nieznany. Sprawdź stan odtwarzania.";
+
+    private static readonly IReadOnlyDictionary<SonosControlApiStatus, string> Texts =
+        new Dictionary<SonosControlApiStatus, string>
+        {
+            [SonosControlApiStatus.Success] =
+                "Sonos przyjął polecenie; wykonanie niepotwierdzone.",
+            [SonosControlApiStatus.InvalidConfiguration] =
+                "Polecenie Sonos nie zostało wysłane: brak klucza integracji albo niepoprawny argument polecenia.",
+            [SonosControlApiStatus.Unauthorized] =
+                "Sonos nie przyjął dostępu do konta, więc polecenie nie zostało wykonane. Odśwież dostęp albo zaloguj się ponownie.",
+            [SonosControlApiStatus.Forbidden] =
+                "Konto Sonos nie ma uprawnień do tego polecenia.",
+            [SonosControlApiStatus.NotFound] =
+                "Sonos nie znalazł wskazanej grupy; polecenie nie zostało wykonane.",
+            [SonosControlApiStatus.RequestRejected] =
+                "Sonos odrzucił polecenie jako niepoprawne.",
+            [SonosControlApiStatus.RateLimited] =
+                "Sonos chwilowo ogranicza liczbę żądań; polecenie nie zostało przyjęte. Spróbuj później.",
+            [SonosControlApiStatus.CommandFailed] =
+                "Sonos przyjął polecenie, ale zgłosił, że go nie wykonał.",
+            [SonosControlApiStatus.ServiceError] =
+                "Usługa Sonos zgłosiła błąd; polecenie nie zostało przyjęte.",
+            [SonosControlApiStatus.Unreachable] =
+                "Nie udało się połączyć z usługą Sonos; polecenie nie zostało przyjęte.",
+            [SonosControlApiStatus.Canceled] =
+                "Polecenie Sonos zostało anulowane.",
+            [SonosControlApiStatus.InvalidResponse] =
+                "Odpowiedź Sonos na polecenie była niezgodna z oczekiwaną; przyjęcie niepotwierdzone.",
+            [SonosControlApiStatus.RedirectRefused] =
+                "Sonos próbował przekierować polecenie; zostało zatrzymane i nie przyjęte."
+        };
+
+    /// <summary>
+    /// Tekst wyniku polecenia. <paramref name="sent"/> rozdziela przypadki, w
+    /// ktorych zadania NIE BYLO wcale (anulowanie przed wyslaniem, lokalne
+    /// odrzucenie argumentu) od tych, w ktorych poszlo i zawiodlo pozniej -
+    /// dwa rozne zdarzenia nie moga mowic tym samym zdaniem.
+    /// </summary>
+    public static string Describe(SonosControlApiStatus status, bool sent, bool effectAmbiguous)
+    {
+        if (effectAmbiguous)
+        {
+            return EffectAmbiguousText;
+        }
+
+        var text = Texts.TryGetValue(status, out var found)
+            ? found
+            : Texts[SonosControlApiStatus.InvalidResponse];
+        return sent || status == SonosControlApiStatus.Success
+            ? text
+            : NotSent(status, text);
+    }
+
+    /// <summary>
+    /// Zadnego zadania nie bylo: mowimy to wprost, zamiast sugerowac, ze Sonos
+    /// cokolwiek zobaczyl. Tekst InvalidConfiguration juz to zawiera.
+    /// </summary>
+    private static string NotSent(SonosControlApiStatus status, string text) =>
+        status == SonosControlApiStatus.InvalidConfiguration
+            ? text
+            : "Polecenie Sonos nie zostało wysłane. " + text;
 }
 
 /// <summary>Wynik GET /groups/{groupId}/playback.</summary>

@@ -41,6 +41,7 @@ internal static class SonosGroupPlaybackTests
         AddPolicyTests(tests);
         AddReadTests(tests);
         AddCommandTests(tests);
+        AddCommandMessageTests(tests);
         AddSafetyTests(tests);
         var failures = 0;
         foreach (var (name, test) in tests)
@@ -417,6 +418,130 @@ internal static class SonosGroupPlaybackTests
             Check(result.Status == SonosControlApiStatus.Unauthorized && handler.Count == 1);
             Check(!result.ToString().Contains(Token) && !result.ToString().Contains(Key));
         }));
+    }
+
+    // Komunikat WYNIKU POLECENIA jest jedyna nadajaca sie do wypowiedzenia trescia,
+    // ktora transport daje wolajacemu, wiec musi opisywac POLECENIE, a nie odczyt.
+    // Wszystko idzie przez PRAWDZIWEGO SonosControlApiClient z syntetycznym
+    // handlerem; sprawdzamy tylko tekst i liczbe zadan, bez wzmacniania gwarancji
+    // Sent (Sent to proba przekazania do HttpClient, nie dowod opuszczenia maszyny).
+    private static void AddCommandMessageTests(List<(string Name, Action Test)> tests)
+    {
+        tests.Add(("komunikat polecenia po HTTP 200: przyjete, wykonanie niepotwierdzone", () =>
+        {
+            foreach (var command in new[] { SonosGroupCommand.Play, SonosGroupCommand.Pause,
+                SonosGroupCommand.TogglePlayPause, SonosGroupCommand.SkipToNextTrack })
+            {
+                using var handler = new Handler(request =>
+                {
+                    Check(request.Method == HttpMethod.Post);
+                    return Json("{}");
+                });
+                using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+                var result = client.SendGroupCommandAsync(Token, Group, command, CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                Check(result.Accepted && handler.Count == 1);
+                CheckMessageIsAboutCommand(result);
+                // Nie wolno oglaszac zakonczonego ODCZYTU po wyslaniu polecenia.
+                Check(!result.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+                Check(!result.Message.Contains("zakończony", StringComparison.OrdinalIgnoreCase));
+                Check(result.Message.Contains("przyj", StringComparison.OrdinalIgnoreCase));
+                Check(result.Message.Contains("niepotwierdzon", StringComparison.OrdinalIgnoreCase));
+            }
+
+            using var muteHandler = new Handler(_ => Json("{}"));
+            using var muteClient = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), muteHandler);
+            var mute = muteClient.SetGroupMuteAsync(Token, Group, true, CancellationToken.None).GetAwaiter().GetResult();
+            Check(mute.Accepted && !mute.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+            Check(mute.Message.Contains("niepotwierdzon", StringComparison.OrdinalIgnoreCase));
+        }));
+        tests.Add(("komunikat polecenia po HTTP 400: polecenie odrzucone, nie zapytanie o urzadzenia", () =>
+        {
+            using var handler = new Handler(_ => Json("{\"errorCode\":\"" + Token + "\"}", HttpStatusCode.BadRequest));
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var result = client.SetRelativeGroupVolumeAsync(Token, Group, 5, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Check(result.Status == SonosControlApiStatus.RequestRejected && handler.Count == 1);
+            CheckMessageIsAboutCommand(result);
+            Check(!result.Message.Contains("zapytanie o urządzenia", StringComparison.OrdinalIgnoreCase));
+            Check(!result.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+            Check(result.Message.Contains("polecenie", StringComparison.OrdinalIgnoreCase));
+            Check(result.Message.Contains("odrzuc", StringComparison.OrdinalIgnoreCase));
+        }));
+        tests.Add(("komunikat lokalnego odrzucenia: zero HTTP i bez obwiniania domu", () =>
+        {
+            using var handler = new Handler(_ => Json("{}"));
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var outcomes = new[]
+            {
+                client.SetGroupVolumeAsync(Token, Group, 101, CancellationToken.None).GetAwaiter().GetResult(),
+                client.SeekAsync(Token, Group, -1, null, CancellationToken.None).GetAwaiter().GetResult(),
+                client.SendGroupCommandAsync(Token, "a/b", SonosGroupCommand.Play, CancellationToken.None)
+                    .GetAwaiter().GetResult()
+            };
+            Check(handler.Count == 0);
+            foreach (var result in outcomes)
+            {
+                Check(result.Status == SonosControlApiStatus.InvalidConfiguration && !result.Sent);
+                CheckMessageIsAboutCommand(result);
+                // Powodem jest argument albo groupId, a NIE identyfikator domu.
+                Check(!result.Message.Contains("domu", StringComparison.OrdinalIgnoreCase));
+                Check(!result.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+                Check(result.Message.Contains("nie zostało wysłane", StringComparison.OrdinalIgnoreCase));
+            }
+        }));
+        tests.Add(("komunikat anulowania przed wyslaniem: nie wyslane, nie anulowany odczyt", () =>
+        {
+            using var handler = new Handler(_ => Json("{}"));
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var result = client.SendGroupCommandAsync(Token, Group, SonosGroupCommand.Pause, new CancellationToken(true))
+                .GetAwaiter().GetResult();
+            Check(result.Status == SonosControlApiStatus.Canceled && !result.Sent && handler.Count == 0);
+            CheckMessageIsAboutCommand(result);
+            Check(!result.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+            Check(result.Message.Contains("nie zostało wysłane", StringComparison.OrdinalIgnoreCase));
+            Check(result.Message.Contains("anulowan", StringComparison.OrdinalIgnoreCase));
+        }));
+        tests.Add(("komunikat zerwanego polecenia przelaczajacego/wzglednego: skutek nieznany", () =>
+        {
+            foreach (var command in new[] { SonosGroupCommand.TogglePlayPause, SonosGroupCommand.SkipToPreviousTrack })
+            {
+                using var handler = new Handler(_ => throw new HttpRequestException(Token));
+                using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+                var result = client.SendGroupCommandAsync(Token, Group, command, CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                Check(result.EffectAmbiguous && handler.Count == 1);
+                CheckMessageIsAboutCommand(result);
+                Check(!result.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+                Check(result.Message.Contains("skutek nieznany", StringComparison.OrdinalIgnoreCase));
+                // Sent to PROBA przekazania, wiec komunikat nie moze twierdzic, ze
+                // polecenie dotarlo do Sonosa ani ze zostalo wykonane.
+                Check(!result.Message.Contains("dostarcz", StringComparison.OrdinalIgnoreCase));
+                Check(!result.Message.Contains("wykonane", StringComparison.OrdinalIgnoreCase));
+            }
+
+            using var seekHandler = new Handler(_ => throw new HttpRequestException(Token));
+            using var seekClient = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), seekHandler);
+            var relative = seekClient.SeekRelativeAsync(Token, Group, -5000, null, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Check(relative.EffectAmbiguous);
+            Check(relative.Message.Contains("skutek nieznany", StringComparison.OrdinalIgnoreCase));
+        }));
+        tests.Add(("komunikaty odczytu zostaja odczytami", () =>
+        {
+            using var handler = new Handler(_ => Json("{\"volume\":10}"));
+            using var client = new SonosControlApiClient(SonosControlApiConfiguration.CreateDefault(Key), handler);
+            var read = client.GetGroupVolumeAsync(Token, Group, CancellationToken.None).GetAwaiter().GetResult();
+            Check(read.Succeeded && read.Message.Contains("Odczyt", StringComparison.OrdinalIgnoreCase));
+        }));
+    }
+
+    private static void CheckMessageIsAboutCommand(SonosGroupCommandOutcome result)
+    {
+        Check(!string.IsNullOrWhiteSpace(result.Message));
+        Check(!result.Message.Contains(Token) && !result.Message.Contains(Key));
+        Check(!result.ToString().Contains(Token) && !result.ToString().Contains(Key));
+        Check(result.Message.Contains("Sonos", StringComparison.Ordinal));
     }
 
     private static void AddSafetyTests(List<(string Name, Action Test)> tests)
