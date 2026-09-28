@@ -164,13 +164,81 @@ public partial class MainWindow
     internal bool SonosOwnerInitialized => _sonosOwnerInitialized;
 
     /// <summary>
+    /// ODNIESIENIE znacznika podlaczenia konta dla tej sesji. <c>null</c> znaczy
+    /// NIEZNANE: nic jeszcze nie bylo powiazane, wiec PIERWSZY odczyt jest
+    /// punktem odniesienia, a nie zdarzeniem zmiany. Nie porownujemy tego
+    /// miedzy instancjami ani procesami.
+    /// </summary>
+    private long? _sonosBoundAccountGeneration;
+
+    /// <summary>Ile razy sesja porzucila dane po RZECZYWISTEJ zmianie konta. Kwit pomiaru.</summary>
+    internal int SonosAccountChangeDropsForTests { get; private set; }
+
+    internal long? SonosBoundAccountGenerationForTests => _sonosBoundAccountGeneration;
+
+    /// <summary>
+    /// GRANICA konta przed odczytem albo poleceniem sesji: gdy obserwowane konto
+    /// zostalo RZECZYWISCIE zastapione albo odlaczone, porzucamy dane i zadania
+    /// STAREGO konta. Zwykla rotacja poswiadczen tego nie robi, bo znacznik
+    /// podlaczenia sie nie zmienia.
+    ///
+    /// Migawka <c>null</c> (zaplecze bez konta, konto niezainicjowane) to
+    /// NIEZNANE, a NIE odlaczenie: stare syntetyczne zaplecza dzialaja dalej.
+    /// Sam odczyt NIE budzi konta - migawka jest lokalna, bez sieci.
+    /// </summary>
+    /// <returns><c>true</c>, gdy stan starego konta wlasnie porzucono.</returns>
+    internal bool ApplySonosAccountBinding()
+    {
+        var backend = _sonosBackend as ISonosAccountBoundBackend
+            ?? SonosBackendOverride as ISonosAccountBoundBackend;
+        if (backend?.AccountSnapshot is not { } snapshot) return false;
+
+        var generation = snapshot.AccountBindingGeneration;
+        if (_sonosBoundAccountGeneration is not { } bound_generation)
+        {
+            // PIERWSZY odczyt jest ODNIESIENIEM. Zero nie znaczy "konta nie ma":
+            // odtworzony zapis ma znacznik 0 i jego wybor musi przezyc.
+            _sonosBoundAccountGeneration = generation;
+            return false;
+        }
+
+        if (generation == bound_generation) return false;
+
+        // RZECZYWISTA zmiana albo odlaczenie: dane i cele starego konta przestaja
+        // cokolwiek znaczyc. Najpierw uniewazniamy operacje w locie odebrana
+        // sciezka, potem czyscimy zapamietany stan - inaczej spozniony GET
+        // odtworzylby stara liste.
+        _sonosBoundAccountGeneration = generation;
+        SonosAccountChangeDropsForTests++;
+        CancelSonosPendingWork();
+        _sonosHouseholds = [];
+        _sonosTopology = null;
+        _sonosGroupRows = [];
+        _state.Sonos.SelectedHouseholdId = null;
+        _state.Sonos.SelectedGroupId = null;
+        _sonosPlayback = null;
+        _sonosMetadata = null;
+        _sonosVolume = null;
+        _sonosReadUtc = default;
+        _sonosNextBackgroundReadUtc = DateTime.MinValue;
+        _sonosEmptyReason = SonosSessionEmptyReason.NotRead;
+        // Zadnego POST: nie zatrzymujemy muzyki i nie ruszamy innych sesji.
+        QueueStateSave(announceFailure: false);
+        return true;
+    }
+
+    /// <summary>
     /// JAWNE wejscie do sesji Sonos: wolno tu obudzic wlasciciela konta i
     /// odczytac domy oraz grupy. Wybor grupy NIE dotyka muzyki.
     /// </summary>
     internal async Task EnterSonosSessionAsync()
     {
-        var ticket = _sonosTargetTicket;
         var backend = EnsureSonosBackend();
+        // GRANICA konta PRZED uzyciem zapamietanej listy domow: po rzeczywistej
+        // zmianie konta stare domy i wybor nie moga wrocic. Bilet bierzemy PO
+        // niej, bo porzucenie podnosi bilet celu.
+        ApplySonosAccountBinding();
+        var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
         try
         {
@@ -319,6 +387,9 @@ public partial class MainWindow
     /// </summary>
     internal async Task<bool> ReadSonosGroupStateAsync()
     {
+        // GRANICA konta PRZED odczytem: po rzeczywistej zmianie konta nie ma
+        // czego odczytywac, a stary cel nie moze pojsc przez nowe konto.
+        if (ApplySonosAccountBinding()) return false;
         if (SonosActiveGroup is not { } group) return false;
         var ticket = _sonosTargetTicket;
         // KOLEJNOSC odczytow tej SAMEJ grupy: nowszy odczyt uniewaznia starszy.
@@ -419,6 +490,14 @@ public partial class MainWindow
     /// </summary>
     internal async Task ExecuteSonosCommandAsync(string commandId)
     {
+        // GRANICA konta PRZED poleceniem: stary groupId nie ma prawa pojsc przez
+        // NOWE konto tylko dlatego, ze nastepny tick jeszcze nie odswiezyl UI.
+        if (ApplySonosAccountBinding())
+        {
+            Announce("Konto Sonos się zmieniło. Wejdź do sesji Sonos i wybierz grupę na nowo");
+            return;
+        }
+
         if (SonosActiveGroup is not { } group)
         {
             Announce("Nie ma aktywnej grupy Sonos. Wybierz grupę na liście i potwierdź Enterem");
@@ -729,7 +808,7 @@ public partial class MainWindow
 /// konta. Nie ma tu wlasnego klienta HTTP, wlasnego magazynu ani zadnego gettera
 /// tokenu - tylko przekazanie identyfikatora grupy.
 /// </summary>
-internal sealed class SonosAccountOwnerGroupBackend : ISonosGroupSessionBackend
+internal sealed class SonosAccountOwnerGroupBackend : ISonosGroupSessionBackend, ISonosAccountBoundBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -738,6 +817,13 @@ internal sealed class SonosAccountOwnerGroupBackend : ISonosGroupSessionBackend
         ArgumentNullException.ThrowIfNull(owner);
         _owner = owner;
     }
+
+    /// <summary>
+    /// BEZPIECZNA migawka konta albo <c>null</c>, gdy konta nie zainicjowano.
+    /// Cienkie przekazanie do TEGO SAMEGO wlasciciela: zero tokenow, zero
+    /// magazynu, zero sieci. <c>null</c> to NIEZNANE, nie odlaczenie.
+    /// </summary>
+    public SonosAccountSnapshot? AccountSnapshot => _owner.AccountSnapshot;
 
     public Task<SonosGroupReadResult<SonosGroupPlaybackStatus>> ReadGroupPlaybackAsync(
         string? groupId, CancellationToken cancellationToken) =>

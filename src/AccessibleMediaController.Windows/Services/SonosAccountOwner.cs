@@ -85,6 +85,23 @@ internal sealed class SonosAccountOwner : IDisposable
     }
 
     /// <summary>
+    /// BEZPIECZNA migawka konta albo <c>null</c>, gdy konta jeszcze NIE
+    /// zainicjowano. Czyta TYLKO gotowy koordynator: sam odczyt nie budzi konta,
+    /// nie rusza magazynu i nie idzie do sieci. <c>null</c> znaczy NIEZNANE, a
+    /// NIE odlaczone - inaczej zaplecze bez konta udawaloby utrate konta.
+    /// </summary>
+    internal SonosAccountSnapshot? AccountSnapshot
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _coordinator?.Snapshot;
+            }
+        }
+    }
+
+    /// <summary>
     /// Zwraca WSPOLNY koordynator, tworzac go przy pierwszym wywolaniu i
     /// odtwarzajac konto z magazynu JEDEN raz - zawsze przed oddaniem go oknu.
     /// </summary>

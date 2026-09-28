@@ -5,3 +5,8 @@ using System.Runtime.CompilerServices;
 // pozwala sprawdzac takze ksztalty nieobecne w aktualnym modelu, bez
 // refleksyjnego wywolywania wewnetrznych metod w testach.
 [assembly: InternalsVisibleTo("AccessibleMediaController.Core.SmokeTests")]
+
+// Zestaw testow Windows mierzy sesje Sonos na PRAWDZIWYM MainWindow i musi
+// zaplanowac UDANE odnowienie dostepu przez syntetyczna bramke. Fabryki wynikow
+// odnowienia sa wewnetrzne, zeby produkcyjne warstwy nie tworzyly ich z niczego.
+[assembly: InternalsVisibleTo("AccessibleMediaController.Windows.SmokeTests")]

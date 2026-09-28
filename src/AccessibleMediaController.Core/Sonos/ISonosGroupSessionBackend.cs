@@ -42,3 +42,17 @@ public interface ISonosGroupSessionBackend
 
     Task<SonosGroupsReadResult> ReadGroupsAsync(string householdId, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// WASKIE, OPCJONALNE rozszerzenie zaplecza: BEZPIECZNA migawka konta bez
+/// tokenow, wylacznie po to, zeby sesja rozpoznala RZECZYWISTA zmiane albo
+/// odlaczenie obserwowanego konta. Nie ma tu zadnej operacji na koncie: sesja
+/// tego nie loguje, nie odnawia i nie wylogowuje.
+///
+/// Zaplecze, ktore tego NIE implementuje, oraz migawka <c>null</c> znacza
+/// NIEZNANE, a NIE odlaczenie - stare syntetyczne zaplecza dzialaja dalej.
+/// </summary>
+public interface ISonosAccountBoundBackend
+{
+    SonosAccountSnapshot? AccountSnapshot { get; }
+}

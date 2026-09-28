@@ -78,6 +78,10 @@ if (args.Contains("--sonos-session-polling-ui", StringComparer.Ordinal))
 {
     SonosSessionPollingUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-session-account-ui", StringComparer.Ordinal))
+{
+    SonosSessionAccountUiTests.Run(); return 0;
+}
 if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;

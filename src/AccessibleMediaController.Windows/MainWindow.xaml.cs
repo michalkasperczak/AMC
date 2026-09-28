@@ -18321,6 +18321,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var returnToPlayer = _playerViewActive;
         _sonosAccountPresenter ??= new SonosAccountPresenter(_sonosAccount);
         _sonosAccountPresenter.Show(this);
+        // PRZEJSCIE Z okna konta: konto moglo sie RZECZYWISCIE zmienic podczas
+        // modala, gdy Dispatcher i licznik dalej pracowaly. Granica porzuca dane
+        // starego konta, zeby nastepne polecenie nie poszlo ze starym celem.
+        // Nie inicjuje konta i nie mowi nic sama - okno konta juz to powiedzialo.
+        ApplySonosAccountBinding();
         if (returnToPlayer && _playerViewActive && _sessions.Current.HasCurrentItem && IsActive)
         {
             UpdatePlayerView(true);
