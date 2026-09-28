@@ -150,7 +150,8 @@ public static class SonosAccountSnapshots
         expiresAtUtc: null,
         isExpiryKnown: false,
         credentialGeneration: 0,
-        loginGeneration: 0);
+        loginGeneration: 0,
+        accountBindingGeneration: 0);
 }
 
 /// <summary>Wynik odczytu DOMOW. ToString bez tokenu i klucza - tylko status i liczniki.</summary>

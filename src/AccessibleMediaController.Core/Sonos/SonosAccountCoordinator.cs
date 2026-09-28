@@ -82,6 +82,14 @@ public sealed partial class SonosAccountCoordinator : IDisposable
     private SonosAccountIssue issue = SonosAccountIssue.None;
     private long credentialGeneration;
     private long loginGeneration;
+
+    /// <summary>
+    /// Znacznik LOKALNEGO CYKLU PODLACZENIA konta (B2a). Rosnie WYLACZNIE przy
+    /// zastapieniu konta (udane nowe logowanie instalujace zestaw) i przy realnym
+    /// odlaczeniu biezacego konta. Zwykle odnowienie i rotacja zestawu go nie ruszaja.
+    /// Nie jest utrwalany: zakres zycia to jedna instancja koordynatora.
+    /// </summary>
+    private long accountBindingGeneration;
     private bool restoreAttempted;
     private SonosLoginSession? pendingSession;
     private long pendingSessionLoginGeneration = -1;
@@ -346,7 +354,8 @@ public sealed partial class SonosAccountCoordinator : IDisposable
             }
 
             ClearPendingLoginLocked();
-            var write = InstallLocked(outcome.Tokens);
+            // NOWE logowanie zastepuje dotychczasowe podlaczenie konta.
+            var write = InstallLocked(outcome.Tokens, replacesAccount: true);
             return new SonosAccountLoginCheckResult(
                 outcome.Status,
                 connected: current is not null,
@@ -597,7 +606,8 @@ public sealed partial class SonosAccountCoordinator : IDisposable
 
                 if (outcome.Succeeded && outcome.Tokens is not null)
                 {
-                    var write = InstallLocked(outcome.Tokens);
+                    // ODNOWIENIE tego samego konta: nowy zestaw, to samo podlaczenie.
+                    var write = InstallLocked(outcome.Tokens, replacesAccount: false);
                     var installed = current;
                     return new RefreshRun(
                         new SonosAccountRefreshResult(
@@ -740,6 +750,13 @@ public sealed partial class SonosAccountCoordinator : IDisposable
         lock (gate)
         {
             ThrowIfDisposed();
+            if (current is not null)
+            {
+                // JAWNE odlaczenie dzialajacego konta konczy biezace podlaczenie -
+                // takze wtedy, gdy Delete zawiedzie i rekord moze zostac na dysku.
+                accountBindingGeneration++;
+            }
+
             credentialGeneration++;
             loginGeneration++;
             ClearPendingLoginLocked();
@@ -774,18 +791,30 @@ public sealed partial class SonosAccountCoordinator : IDisposable
     /// dysku: takiego rekordu nie instalujemy jako dzialajacego konta, a decyduje o
     /// tym ISTNIEJACA polityka magazynu, nie kopia walidatorow.
     /// </summary>
-    private SonosCredentialWriteStatus InstallLocked(SonosTokens tokens)
+    private SonosCredentialWriteStatus InstallLocked(SonosTokens tokens, bool replacesAccount)
     {
         var record = new SonosStoredCredentials(brokerOrigin, tokens, clock().ToUniversalTime());
         var write = store.Write(record);
         if (write.Status == SonosCredentialWriteStatus.InvalidRecord)
         {
+            // Odrzucony rekord przy odnowieniu USUWA dzialajace konto - to tez koniec
+            // biezacego podlaczenia, a nie zwykla rotacja zestawu.
+            if (replacesAccount || current is not null)
+            {
+                accountBindingGeneration++;
+            }
+
             credentialGeneration++;
             current = null;
             persisted = false;
             state = SonosAccountState.NeedsLogin;
             issue = SonosAccountIssue.InvalidRecord;
             return write.Status;
+        }
+
+        if (replacesAccount)
+        {
+            accountBindingGeneration++;
         }
 
         credentialGeneration++;
@@ -830,6 +859,12 @@ public sealed partial class SonosAccountCoordinator : IDisposable
     /// </summary>
     private void InvalidateLocked()
     {
+        if (current is not null)
+        {
+            // REALNE usuniecie biezacego konta po dokladnym 401 tej samej generacji.
+            accountBindingGeneration++;
+        }
+
         credentialGeneration++;
         var deleted = store.Delete();
         current = null;
@@ -879,7 +914,8 @@ public sealed partial class SonosAccountCoordinator : IDisposable
             current?.ExpiresAtUtc,
             current?.IsExpiryKnown ?? false,
             credentialGeneration,
-            loginGeneration);
+            loginGeneration,
+            accountBindingGeneration);
 
     private CancellationTokenSource Link(CancellationToken cancellationToken) =>
         CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, cancellationToken);

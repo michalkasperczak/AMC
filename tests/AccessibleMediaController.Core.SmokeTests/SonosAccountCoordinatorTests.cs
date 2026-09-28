@@ -61,7 +61,14 @@ internal static class SonosAccountCoordinatorTests
             ("Starty wracające odwrotnie zachowują nowszą próbę", SonosAccountCoordinatorStateTests.ReverseStartKeepsNewerAttempt),
             ("Anulowane logowanie odrzuca późny sukces", SonosAccountCoordinatorStateTests.CanceledLoginIgnoresLateSuccess),
             ("Stare 401 nie kasuje nowego logowania", SonosAccountCoordinatorStateTests.Stale401CannotDeleteNewLogin),
-            ("Dispose kończy własne odnowienie bez zapisu", SonosAccountCoordinatorStateTests.DisposeCancelsOwnedRefreshWithoutWriting)
+            ("Dispose kończy własne odnowienie bez zapisu", SonosAccountCoordinatorStateTests.DisposeCancelsOwnedRefreshWithoutWriting),
+            ("Nowy i odtworzony stan ma stabilny znacznik podlaczenia", TestZnacznikPoczatkowyJestStabilny),
+            ("Nieudane nowe logowanie nie zmienia znacznika podlaczenia", TestNieudaneLogowanieNieZmieniaZnacznika),
+            ("Udane nowe logowanie zmienia znacznik podlaczenia", TestUdaneNoweLogowanieZmieniaZnacznik),
+            ("Odnowienie i rotacja zestawu nie zmieniaja znacznika podlaczenia", TestOdnowienieNieZmieniaZnacznika),
+            ("Odlaczenie i usuniecie konta zmieniaja znacznik podlaczenia", TestOdlaczenieZmieniaZnacznik),
+            ("Spoznione wyniki nie udaja zastapienia konta", TestSpoznioneWynikiNieUdajaZastapienia),
+            ("Znacznik podlaczenia nie niesie tokenow ani sekretow", TestZnacznikNieNiesieSekretow)
         };
 
         var bledy = new List<string>();
@@ -563,6 +570,195 @@ internal static class SonosAccountCoordinatorTests
         Assert(wynik.RefreshStatus == SonosRefreshStatus.Success, "odnowienie konczy sie sukcesem");
         Assert(magazyn.Ostatni?.Tokens.RefreshToken == "RT-R2", "odnowiony zestaw zostal zapisany");
         Assert(koordynator.Snapshot.State == SonosAccountState.Connected, "konto pozostaje polaczone");
+    }
+
+    // ================= znacznik podlaczenia konta (B2a) =================
+
+    /// <summary>
+    /// Pusty koordynator ma rozpoznawalny punkt wyjscia, a JEDNORAZOWE odtworzenie
+    /// poprawnego zapisu daje STABILNY poczatkowy stan podlaczenia: odczyt wlasnego
+    /// konta z dysku to nie zastapienie wczesniejszego konta.
+    /// </summary>
+    private static void TestZnacznikPoczatkowyJestStabilny()
+    {
+        var zapisany = new SonosStoredCredentials(BrokerOrigin, Tokeny("ACCESS-ODTWORZONY"), Zegar);
+        var magazyn = new AtrapaMagazynu { Odczyt = SonosCredentialReadOutcome.Ok(zapisany) };
+        using var koordynator = Koordynator(new AtrapaBramki(), magazyn);
+
+        var puste = koordynator.Snapshot;
+        Assert(puste.State == SonosAccountState.NoAccount, "nowy koordynator jest rozpoznawalnie pusty");
+        var odniesienie = puste.AccountBindingGeneration;
+
+        var pierwsze = koordynator.RestoreOnce();
+        Assert(pierwsze.Snapshot.State == SonosAccountState.Connected, "kontrola: odtworzenie daje konto polaczone");
+        Assert(pierwsze.Snapshot.AccountBindingGeneration == odniesienie,
+            "odtworzenie WLASNEGO zapisu nie udaje zastapienia konta");
+
+        var drugie = koordynator.RestoreOnce();
+        Assert(!drugie.Performed, "kontrola: drugie odtworzenie nie czyta magazynu");
+        Assert(drugie.Snapshot.AccountBindingGeneration == odniesienie,
+            "powtorzone odtworzenie nie zmienia znacznika podlaczenia");
+    }
+
+    /// <summary>
+    /// Rozpoczecie, anulowanie i NIEUDANE nowe logowanie nie zastepuja dzialajacego
+    /// konta, wiec nie ruszaja jego znacznika podlaczenia.
+    /// </summary>
+    private static void TestNieudaneLogowanieNieZmieniaZnacznika()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-1", "RT-1");
+        var podlaczenie = koordynator.Snapshot.AccountBindingGeneration;
+
+        bramka.PlanujStart(SonosLoginStartOutcome.Ok(Sesja("proba-anulowana")));
+        Assert(Czekaj(koordynator.BeginLoginAsync(CancellationToken.None)).Started, "kontrola: nowa proba ruszyla");
+        Assert(koordynator.Snapshot.AccountBindingGeneration == podlaczenie,
+            "samo rozpoczecie nowego logowania nie zastepuje konta");
+
+        koordynator.CancelPendingLogin();
+        Assert(koordynator.Snapshot.AccountBindingGeneration == podlaczenie,
+            "anulowanie nowego logowania nie zastepuje konta");
+
+        bramka.PlanujStart(SonosLoginStartOutcome.Ok(Sesja("proba-odmowiona")));
+        Czekaj(koordynator.BeginLoginAsync(CancellationToken.None));
+        bramka.PlanujWynik(SonosLoginResultOutcome.Failure(SonosLoginStatus.Denied));
+        var odmowa = Czekaj(koordynator.CheckLoginAsync(CancellationToken.None));
+        Assert(odmowa.LoginStatus == SonosLoginStatus.Denied && !odmowa.Connected, "kontrola: proba odmowiona");
+        Assert(koordynator.Snapshot.HasCredentials, "kontrola: stare konto dziala dalej");
+        Assert(koordynator.Snapshot.AccountBindingGeneration == podlaczenie,
+            "nieudane nowe logowanie nie zastepuje dzialajacego konta");
+    }
+
+    /// <summary>UDANE nowe logowanie przy JUZ istniejacym koncie to zastapienie konta.</summary>
+    private static void TestUdaneNoweLogowanieZmieniaZnacznik()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-1", "RT-1");
+        var podlaczenie = koordynator.Snapshot.AccountBindingGeneration;
+
+        Polacz(koordynator, bramka, "ACCESS-2", "RT-2");
+        Assert(koordynator.Snapshot.State == SonosAccountState.Connected, "kontrola: nowe konto jest polaczone");
+        Assert(koordynator.Snapshot.AccountBindingGeneration != podlaczenie,
+            "udane nowe logowanie instalujace zestaw zmienia znacznik podlaczenia");
+        Assert(koordynator.Snapshot.AccountBindingGeneration > podlaczenie,
+            "znacznik podlaczenia jest monotoniczny");
+    }
+
+    /// <summary>
+    /// ZWYKLE odnowienie dostepu i rotacja zestawu NIE sa zmiana konta, choc
+    /// CredentialGeneration zgodnie ze starym kontraktem rosnie.
+    /// </summary>
+    private static void TestOdnowienieNieZmieniaZnacznika()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-1", "RT-1");
+        var przed = koordynator.Snapshot;
+
+        bramka.PlanujOdnowienie(SonosRefreshOutcome.Ok(Tokeny("ACCESS-R1", 3600, "RT-R1")));
+        var pierwsze = Czekaj(koordynator.RefreshAsync(CancellationToken.None));
+        Assert(pierwsze.Renewed, "kontrola: odnowienie sie udalo");
+        Assert(pierwsze.Snapshot.CredentialGeneration != przed.CredentialGeneration,
+            "kontrola: stary kontrakt generacji zestawu dziala bez zmian");
+        Assert(pierwsze.Snapshot.AccountBindingGeneration == przed.AccountBindingGeneration,
+            "zwykle odnowienie dostepu nie zmienia znacznika podlaczenia");
+
+        bramka.PlanujOdnowienie(SonosRefreshOutcome.Ok(Tokeny("ACCESS-R2", 3600, "RT-R2")));
+        var drugie = Czekaj(koordynator.RefreshAsync(CancellationToken.None));
+        Assert(drugie.Renewed && magazyn.Ostatni?.Tokens.RefreshToken == "RT-R2", "kontrola: rotacja zestawu doszla");
+        Assert(drugie.Snapshot.AccountBindingGeneration == przed.AccountBindingGeneration,
+            "rotacja tokenu odswiezania nie zmienia znacznika podlaczenia");
+    }
+
+    /// <summary>
+    /// JAWNE wylogowanie i REALNE usuniecie konta po dokladnym 401 zmieniaja znacznik,
+    /// a spozniona odpowiedz starszej generacji NIE udaje zastapienia konta.
+    /// </summary>
+    private static void TestOdlaczenieZmieniaZnacznik()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-1", "RT-1");
+        var poLogowaniu = koordynator.Snapshot.AccountBindingGeneration;
+
+        bramka.PlanujOdnowienie(SonosRefreshOutcome.Failure(SonosRefreshStatus.ReauthorizationRequired));
+        var reauth = Czekaj(koordynator.RefreshAsync(CancellationToken.None));
+        Assert(reauth.Snapshot.State == SonosAccountState.NeedsLogin && !reauth.Snapshot.HasCredentials,
+            "kontrola: 401 biezacej generacji usuwa konto");
+        var poUniewaznieniu = reauth.Snapshot.AccountBindingGeneration;
+        Assert(poUniewaznieniu > poLogowaniu, "realne usuniecie konta po 401 zmienia znacznik podlaczenia");
+
+        var pusteWylogowanie = koordynator.Disconnect();
+        Assert(pusteWylogowanie.Snapshot.AccountBindingGeneration == poUniewaznieniu,
+            "wylogowanie bez konta nie udaje zastapienia konta");
+
+        Polacz(koordynator, bramka, "ACCESS-2", "RT-2");
+        var poDrugimLogowaniu = koordynator.Snapshot.AccountBindingGeneration;
+        var wylogowanie = koordynator.Disconnect();
+        Assert(wylogowanie.Disconnected, "kontrola: wylogowanie potwierdzone");
+        Assert(wylogowanie.Snapshot.AccountBindingGeneration > poDrugimLogowaniu,
+            "jawne wylogowanie zmienia znacznik podlaczenia");
+    }
+
+    /// <summary>
+    /// Nieudane Delete NIE odwraca odlaczenia: konto przestaje byc uzywane, wiec
+    /// znacznik i tak sie zmienia; spoznione 401 starszej generacji - nie.
+    /// </summary>
+    private static void TestSpoznioneWynikiNieUdajaZastapienia()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-1", "RT-1");
+
+        var brama = NowaBrama();
+        bramka.PlanujOdnowienie(SonosRefreshOutcome.Failure(SonosRefreshStatus.ReauthorizationRequired), brama);
+        var odnowienie = koordynator.RefreshAsync(CancellationToken.None);
+        Assert(bramka.PoczekajNaOdnowienia(1, Limit), "kontrola: odnowienie doszlo do bramki");
+
+        Polacz(koordynator, bramka, "ACCESS-2", "RT-2");
+        var poNowymLogowaniu = koordynator.Snapshot.AccountBindingGeneration;
+
+        brama.TrySetResult(true);
+        var spoznione = Czekaj(odnowienie);
+        Assert(spoznione.Discarded, "kontrola: 401 starszej generacji jest odrzucone");
+        Assert(koordynator.Snapshot.AccountBindingGeneration == poNowymLogowaniu,
+            "spoznione 401 nie udaje zastapienia nowego konta");
+
+        magazyn.UsuniecieUdane = false;
+        var wylogowanie = koordynator.Disconnect();
+        Assert(!wylogowanie.Disconnected && wylogowanie.Snapshot.PersistedRecordMayRemain,
+            "kontrola: nieudane Delete nie potwierdza wylogowania");
+        Assert(wylogowanie.Snapshot.AccountBindingGeneration > poNowymLogowaniu,
+            "porzucone konto przy nieudanym Delete i tak konczy biezace podlaczenie");
+    }
+
+    /// <summary>Znacznik jest BEZPIECZNY: to sam licznik, bez tokenow i sekretow.</summary>
+    private static void TestZnacznikNieNiesieSekretow()
+    {
+        var bramka = new AtrapaBramki();
+        var magazyn = new AtrapaMagazynu();
+        using var koordynator = Koordynator(bramka, magazyn);
+        Polacz(koordynator, bramka, "ACCESS-TAJNY", "RT-TAJNY");
+        var migawka = koordynator.Snapshot;
+        var tekst = migawka.AccountBindingGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        Assert(!tekst.Contains("ACCESS-TAJNY", StringComparison.Ordinal)
+            && !tekst.Contains("RT-TAJNY", StringComparison.Ordinal)
+            && !tekst.Contains(BrokerOrigin, StringComparison.Ordinal)
+            && !tekst.Contains("playback-control-all", StringComparison.Ordinal),
+            "znacznik podlaczenia nie cytuje tokenu, origin ani scope");
+        Assert(!migawka.ToString().Contains("ACCESS-TAJNY", StringComparison.Ordinal)
+            && !migawka.ToString().Contains("RT-TAJNY", StringComparison.Ordinal),
+            "kontrola: migawka nadal nie cytuje tokenow");
+        Assert(magazyn.LiczbaZapisow == 1,
+            "znacznik nie dokłada zadnego nowego zapisu do magazynu konta");
     }
 
     // ================= pomocnicze (syntetyczne) =================

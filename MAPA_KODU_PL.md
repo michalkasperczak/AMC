@@ -329,17 +329,41 @@ ulubionych, kolejki ani EQ — to kolejne etapy.
   a `RetryPersist` ponawia SAM zapis bez ani jednego zapytania. `InvalidRecord`
   nie udaje działającego konta. `Disconnect` z nieudanym `Delete` nie udaje
   potwierdzonego wylogowania (`StoreFailure` + `DeleteFailure` +
-  `PersistedRecordMayRemain`). Świadomie NIE MA tu UI, uruchamiania
+  `PersistedRecordMayRemain`). TRZECIA, NIEZALEŻNA GENERACJA (B2a):
+  `SonosAccountSnapshot.AccountBindingGeneration` — monotoniczny licznik LOKALNEGO
+  CYKLU PODŁĄCZENIA konta w polu `accountBindingGeneration`. Rośnie WYŁĄCZNIE gdy
+  konto zostało ZASTĄPIONE albo REALNIE ODŁĄCZONE: udane `CheckLoginAsync`
+  (`InstallLocked(..., replacesAccount: true)`), `Disconnect` przy istniejącym
+  koncie (także przy nieudanym `Delete`, bo zestaw przestaje być używany),
+  `InvalidateLocked` po dokładnym 401 bieżącej generacji oraz `InvalidRecord`,
+  który usuwa działające konto. NIE rośnie przy zwykłym odnowieniu i rotacji
+  zestawu (`InstallLocked(..., replacesAccount: false)`), przy `RestoreOnce`
+  własnego zapisu, przy `RetryPersist`, przy rozpoczęciu/anulowaniu/nieudanym
+  logowaniu ani przy spóźnionych odpowiedziach starszej generacji —
+  `CredentialGeneration` zgodnie ze starym kontraktem zmienia się wtedy nadal.
+  Znacznik NIE jest identyfikatorem użytkownika po stronie Sonosa: nie zawiera
+  tokenów, scope, origin, proof ani ID i NIE trafia do `AppSettings`, DPAPI ani
+  pliku konta, więc jego zakres życia to JEDNA instancja koordynatora — między
+  procesami nie jest stabilny. Konsument porównuje PIERWSZĄ odczytaną migawkę jako
+  punkt odniesienia; pierwszy odczyt po starcie nie jest zmianą konta. Samego
+  konsumenta (UI, porzucanie grup/odczytów) tu NIE MA. Świadomie NIE MA tu UI, uruchamiania
   przeglądarki, timerów, pollingu, planowania odnowień, workerów w tle, powtórek
   HTTP ani frameworka DI.
-- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 26 przypadków zachowania na
+- `Core.SmokeTests/SonosAccountCoordinatorTests.cs` — 33 przypadki zachowania na
   małych atrapach (magazyn z licznikami i kontrolowanym `WriteStatus`/`Delete`,
   bramka z kolejkami i barierami `TaskCompletionSource`
   `RunContinuationsAsynchronously`, bez usypiania wątku). Sesja logowania
   pochodzi z PRAWDZIWEGO `SonosLoginClient.StartAsync` z syntetycznym
   `HttpMessageHandler`, więc do produkcji nie dodano publicznego szwu ani
   Reflection do `SonosLoginSession`. Argument `--sonos-account-coordinator` oraz
-  pełny zestaw Core. Testy napisano PO drafcie, dlatego dyskryminację
+  pełny zestaw Core. Siedem ostatnich przypadków (B2a) mierzy
+  `AccountBindingGeneration` PRAWDZIWYMI operacjami koordynatora: stabilny punkt
+  odniesienia pustego i odtworzonego stanu, brak zmiany po
+  rozpoczęciu/anulowaniu/odmowie logowania, zmiana po udanym nowym logowaniu przy
+  już istniejącym koncie, brak zmiany po odnowieniu i rotacji zestawu (przy
+  zmienionej `CredentialGeneration`), zmiana po 401 i po jawnym wylogowaniu,
+  odrzucenie spóźnionego 401 jako zastąpienia oraz brak tokenów w samym
+  znaczniku. Testy napisano PO drafcie, dlatego dyskryminację
   udowodniono siedmioma mutacjami w kopii pliku produkcyjnego (raport:
   `amc_pomoc/sonos-account-coordinator-recovery1/`).
 

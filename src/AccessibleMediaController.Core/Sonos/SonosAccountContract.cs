@@ -128,7 +128,8 @@ public sealed class SonosAccountSnapshot
         DateTimeOffset? expiresAtUtc,
         bool isExpiryKnown,
         long credentialGeneration,
-        long loginGeneration)
+        long loginGeneration,
+        long accountBindingGeneration)
     {
         State = state;
         Issue = issue;
@@ -142,6 +143,7 @@ public sealed class SonosAccountSnapshot
         IsExpiryKnown = isExpiryKnown;
         CredentialGeneration = credentialGeneration;
         LoginGeneration = loginGeneration;
+        AccountBindingGeneration = accountBindingGeneration;
     }
 
     public SonosAccountState State { get; }
@@ -181,6 +183,23 @@ public sealed class SonosAccountSnapshot
 
     /// <summary>Generacja PROBY LOGOWANIA. Rosnie tylko przy rozpoczeciu/anulowaniu proby.</summary>
     public long LoginGeneration { get; }
+
+    /// <summary>
+    /// Znacznik LOKALNEGO CYKLU PODLACZENIA konta. Rosnie tylko wtedy, gdy konto
+    /// zostalo ZASTAPIONE (udane nowe logowanie instalujace zestaw) albo REALNIE
+    /// ODLACZONE (jawne wylogowanie, usuniecie po dokladnym 401 biezacej generacji,
+    /// odrzucenie rekordu kasujace dotychczasowe konto). ZWYKLE odnowienie dostepu
+    /// i rotacja zestawu go NIE zmieniaja, choc
+    /// <see cref="CredentialGeneration"/> zgodnie ze starym kontraktem rosnie.
+    ///
+    /// To NIE identyfikator uzytkownika ani niczego po stronie Sonosa: sam licznik,
+    /// bez tokenow, scope, origin i proof. Nie jest zapisywany w AppSettings, DPAPI
+    /// ani pliku konta, wiec jego zakres zycia to JEDNA instancja koordynatora -
+    /// miedzy procesami nie jest stabilny. Konsument porownuje PIERWSZA odczytana
+    /// migawke jako punkt odniesienia: pierwszy odczyt po starcie nie jest zmiana
+    /// wczesniejszego konta.
+    /// </summary>
+    public long AccountBindingGeneration { get; }
 
     /// <summary>Czy ma sens ponowienie SAMEGO zapisu, bez zadnego zapytania HTTP.</summary>
     public bool CanRetryPersist => HasCredentials && !IsPersisted;
