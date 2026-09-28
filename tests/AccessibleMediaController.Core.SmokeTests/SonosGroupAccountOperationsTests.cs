@@ -258,6 +258,12 @@ internal static class SonosGroupAccountOperationsTests
         Check(result.Message.Contains("nieznany", StringComparison.Ordinal));
         Check(!result.Message.Contains("cofni", StringComparison.Ordinal));
         Check(!result.Message.Contains("nie zostało wysłane", StringComparison.Ordinal));
+        // RequestSent mowi tylko o PROBIE wyslania (wywolanie HttpClient), nie o
+        // dowodzie opuszczenia maszyny: zaden tekst nie moze tego gwarantowac.
+        Check(result.Message.Contains("próbie wysłania", StringComparison.Ordinal));
+        Check(!result.Message.Contains("po wysłaniu", StringComparison.Ordinal));
+        Check(result.ToString().Contains("podjęto próbę wysłania", StringComparison.Ordinal));
+        Check(!result.ToString().Contains("żądanie wysłane", StringComparison.Ordinal));
         Check(fixture.Requests == 1);
     }
 
@@ -305,6 +311,11 @@ internal static class SonosGroupAccountOperationsTests
         Check(result.Status == SonosGroupOperationStatus.Discarded);
         // Stare polecenie NIE poszlo wcale - ani starym, ani nowym biletem.
         Check(!result.RequestSent && fixture.Requests == 0);
+        // ZERO wywolan POST, wiec komunikat ma mowic wprost o niewyslaniu,
+        // a nie o nieznanym skutku.
+        Check(result.Message.Contains("nie zostało wysłane", StringComparison.Ordinal));
+        Check(!result.Message.Contains("nieznany", StringComparison.Ordinal));
+        Check(result.ToString().Contains("żądania nie wysłano", StringComparison.Ordinal));
         Check(fixture.StoredAccessToken == "SYNTHETIC-ACCESS-B" && fixture.Deletes == 0);
     }
 

@@ -187,12 +187,12 @@ public enum SonosGroupOperationStatus
 public static class SonosGroupOperationMessages
 {
     /// <summary>
-    /// Porzucenie PO wyslaniu zadania. Nie oglasza cofniecia i nie twierdzi,
-    /// ze polecenia nie bylo: zadanie moglo sie wykonac, tylko wynik jest
-    /// nieaktualny wobec biezacego konta.
+    /// Porzucenie po PODJETEJ PROBIE wyslania zadania. Nie oglasza cofniecia,
+    /// nie twierdzi, ze polecenia nie bylo, ale tez NIE gwarantuje, ze zadanie
+    /// opuscilo maszyne: wiemy tylko, ze proba byla, a skutek pozostaje nieznany.
     /// </summary>
     public const string DiscardedAfterSendText =
-        "Konto Sonos zmieniło się po wysłaniu polecenia: skutek nieznany i niepotwierdzony. "
+        "Zakończono obsługę polecenia Sonos po próbie wysłania; skutek pozostaje nieznany. "
         + "Sprawdź stan odtwarzania.";
 
     private static readonly IReadOnlyDictionary<SonosGroupOperationStatus, string> Texts =
@@ -202,8 +202,11 @@ public static class SonosGroupOperationMessages
                 "Nie ma połączonego konta Sonos, więc polecenie nie zostało wysłane.",
             [SonosGroupOperationStatus.Attempted] =
                 "Polecenie Sonos zostało podjęte; wynik opisuje odpowiedź usługi.",
+            // Ten tekst obsluguje porzucenie PRZED jakakolwiek proba wyslania
+            // (zero wywolan POST). Nie obwinia zmiany konta, bo przyczyna moze
+            // byc rowniez zwolnienie wlasciciela.
             [SonosGroupOperationStatus.Discarded] =
-                "Konto Sonos zmieniło się w trakcie: skutek polecenia nieznany i niepotwierdzony.",
+                "Polecenie Sonos nie zostało wysłane, ponieważ operacja nie jest już aktualna.",
             [SonosGroupOperationStatus.Canceled] =
                 "Polecenie Sonos nie zostało wysłane: anulowano przed wysłaniem.",
             [SonosGroupOperationStatus.Unauthorized] =
@@ -254,8 +257,11 @@ public sealed class SonosGroupCommandResult
     public SonosGroupCommandOutcome? Outcome { get; }
 
     /// <summary>
-    /// Czy zadanie HTTP opuscilo aplikacje. True takze przy porzuceniu - i
-    /// wlasnie dlatego porzucenie nie oglasza cofniecia.
+    /// Czy PODJETO PROBE wyslania zadania HTTP (warstwa transportu zostala
+    /// wywolana). To NIE jest dowod, ze zadanie opuscilo maszyne, ani tym
+    /// bardziej ze dotarlo do Sonos: proba mogla padnac na gniazdku. True takze
+    /// przy porzuceniu - i wlasnie dlatego porzucenie nie oglasza cofniecia.
+    /// False znaczy natomiast jednoznacznie ZERO prob.
     /// </summary>
     public bool RequestSent { get; }
 
@@ -286,10 +292,10 @@ public sealed class SonosGroupCommandResult
     public bool StateReadRecommended => Accepted || EffectAmbiguous;
 
     /// <summary>
-    /// Tekst dla uzytkownika. Porzucenie PO wyslaniu ma wlasne zdanie o
-    /// nieznanym skutku; porzucenie PRZED wyslaniem mowi o niewyslanym
-    /// poleceniu. Przy zwyklej probie glos ma slownik transportu, bo to on zna
-    /// odpowiedz uslugi.
+    /// Tekst dla uzytkownika. Porzucenie po PROBIE wyslania ma wlasne zdanie o
+    /// nieznanym skutku i nie obiecuje wysylki; porzucenie bez zadnej proby
+    /// mowi WPROST, ze polecenie nie zostalo wyslane. Przy zwyklej probie glos
+    /// ma slownik transportu, bo to on zna odpowiedz uslugi.
     /// </summary>
     public string Message => Status switch
     {
@@ -300,7 +306,7 @@ public sealed class SonosGroupCommandResult
 
     public override string ToString() =>
         "Polecenie grupy Sonos przez konto: " + Command + ", " + Status
-        + (RequestSent ? ", żądanie wysłane" : ", żądania nie wysłano")
+        + (RequestSent ? ", podjęto próbę wysłania" : ", żądania nie wysłano")
         + (Accepted ? ", przyjęte (skutek niepotwierdzony)" : string.Empty)
         + (EffectAmbiguous ? ", skutek nieznany" : string.Empty)
         + (Renewed ? ", po odnowieniu dostępu" : string.Empty);
