@@ -46,6 +46,32 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 `Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
+ODŚWIEŻANIE sesji (etap B1) mierzy `Windows.SmokeTests --sonos-session-polling-ui`
+na POKAZANYM własnym oknie i na **prawdziwym `PlayerUiTimer_Tick`**, nie na samym
+helperze. Podpięcie i bezpieczniki:
+
+- `PlayerUiTimer_Tick` (`MainWindow.xaml.cs`) woła `PollSonosGroupFromPlayerTimer`,
+  gdy odtwarzacz jest otwarty w sesji Sonos. Termin i barierę rozstrzyga sam
+  `PollSonosGroupIfDueAsync`; odczyt tła **nic nie mówi i nie zabiera fokusu**.
+- `_sonosBackgroundRead` — PRAWDZIWA bariera `Task`: dopóki odczyt (stan +
+  metadane + głośność) się nie domknie, kolejne tyknięcia **nie wysyłają ani
+  jednego GET-u**. Bilet aktywacji zostaje nietknięty, więc Enter po przebudzeniu
+  licznika dalej działa.
+- `_sonosReadSequence` + `IsSonosReadStale` — kolejność odczytów TEJ SAMEJ grupy.
+  Sam bilet celu tego nie łapał: odczyt tła i odczyt potwierdzający polecenie mają
+  ten sam bilet celu, więc **starszy odczyt tła nadpisywał świeższy wynik**.
+- `_sonosCommandGateTicket` + `ReleaseSonosCommandGate` — właściciel bramki
+  polecenia. Wcześniej zwolnienie sprawdzało bilet CELU, więc po zmianie grupy w
+  trakcie polecenia bramka zostawała **trwale zajęta** i następne polecenie nie
+  docierało do backendu. Spóźnione `finally` starszego przelotu nie zwalnia bramki
+  nowszego. Nadal **brak kolejki i brak ponowienia POST**.
+- Decyzja o pełnym odczycie obejmuje też METADANE (`playback && metadata &&
+  volume`); wcześniej brak metadanych udawał potwierdzony odczyt. Wyjątek odczytu
+  (np. timeout) zapisuje backoff i **leci dalej** — nie ginie cicho.
+
+Interwały (10 s / 60 s backoff) to **polityka AMC, nie deklarowany limit API
+Sonosa**. Odsłuchu NVDA, prawdziwego konta i odbioru produktu tu NIE było.
+
 Dwie usterki WEJŚCIA naprawione po alfa413 (zmiana CALLERA, nie nowa ścieżka):
 
 - `ApplySonosGroupRows` (`MainWindow.Sonos.cs`) po asynchronicznym wejściu

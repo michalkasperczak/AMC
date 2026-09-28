@@ -74,6 +74,10 @@ if (args.Contains("--sonos-session-entry-ui", StringComparer.Ordinal))
 {
     SonosSessionEntryUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-session-polling-ui", StringComparer.Ordinal))
+{
+    SonosSessionPollingUiTests.Run(); return 0;
+}
 if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;
@@ -402,6 +406,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: lista głośników i grup w oknie konta", SonosDevicesWindowTests.Run),
     ("Sonos: sesja, aktywna grupa, odtwarzacz i polecenia", SonosSessionUiTests.Run),
     ("Sonos: wejście do sesji rzeczywistą drogą użytkownika", SonosSessionEntryUiTests.Run),
+    ("Sonos: odświeżanie sesji prawdziwym licznikiem odtwarzacza", SonosSessionPollingUiTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

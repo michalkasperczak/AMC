@@ -70,6 +70,33 @@ public partial class MainWindow
     /// <summary>JEDEN przelot polecenia naraz. Brak ukrytej kolejki.</summary>
     private bool _sonosCommandInFlight;
 
+    /// <summary>
+    /// BILET WLASCICIELA bramki polecenia. Bilet celu (<see cref="_sonosTargetTicket"/>)
+    /// NIE nadaje sie na wlasciciela: zmiana grupy w trakcie polecenia A podnosi
+    /// bilet celu, wiec spoznione <c>finally</c> A nie rozpoznawalo sie jako
+    /// wlasciciel i zostawialo bramke ZAMKNIETA na zawsze - kolejne polecenie
+    /// grupy B slyszalo "poprzednie jeszcze sie nie zakonczylo" i nie szlo do
+    /// backendu. Rosnie przy KAZDYM wzieciu bramki, wiec spoznione finally
+    /// starszego przelotu nie zwolni bramki nalezacej do NOWSZEGO polecenia.
+    /// </summary>
+    private int _sonosCommandGateTicket;
+
+    /// <summary>
+    /// ZADANIE odczytu w tle w locie albo null. PRAWDZIWA bariera, nie sam
+    /// termin: dopoki pierwszy odczyt (stan + metadane + glosnosc) sie nie
+    /// domknie, kolejne tykniecia licznika NIE wysylaja ani jednego GET.
+    /// </summary>
+    private Task? _sonosBackgroundRead;
+
+    /// <summary>
+    /// ZNACZNIK KOLEJNOSCI odczytu. Rosnie przy kazdym wejsciu do
+    /// <see cref="ReadSonosGroupStateAsync"/>, a publikacja wynikow sprawdza, czy
+    /// nadal jest NAJNOWSZA. Bilet celu tego NIE lapie: odczyt tla i odczyt po
+    /// poleceniu TEJ SAMEJ grupy maja ten sam bilet celu, wiec starszy odczyt
+    /// tla nadpisywal swiezszy wynik potwierdzajacy polecenie.
+    /// </summary>
+    private int _sonosReadSequence;
+
     private DateTime _sonosNextBackgroundReadUtc;
 
     /// <summary>
@@ -294,22 +321,28 @@ public partial class MainWindow
     {
         if (SonosActiveGroup is not { } group) return false;
         var ticket = _sonosTargetTicket;
+        // KOLEJNOSC odczytow tej SAMEJ grupy: nowszy odczyt uniewaznia starszy.
+        var sequence = ++_sonosReadSequence;
         var backend = EnsureSonosBackend();
         var token = EnsureSonosCancellation().Token;
         try
         {
             var playback = await backend.ReadGroupPlaybackAsync(group.Id, token).ConfigureAwait(true);
-            if (ticket != _sonosTargetTicket || _isClosing) return false;
+            if (IsSonosReadStale(ticket, sequence)) return false;
             var metadata = await backend.ReadGroupMetadataAsync(group.Id, token).ConfigureAwait(true);
-            if (ticket != _sonosTargetTicket || _isClosing) return false;
+            if (IsSonosReadStale(ticket, sequence)) return false;
             var volume = await backend.ReadGroupVolumeAsync(group.Id, token).ConfigureAwait(true);
-            if (ticket != _sonosTargetTicket || _isClosing) return false;
+            if (IsSonosReadStale(ticket, sequence)) return false;
 
             _sonosPlayback = playback.Succeeded ? playback.Value : null;
             _sonosMetadata = metadata.Succeeded ? metadata.Value : null;
             _sonosVolume = volume.Succeeded ? volume.Value : null;
             _sonosReadUtc = DateTime.UtcNow;
-            var ok = playback.Succeeded && volume.Succeeded;
+            // PELNY odczyt to WSZYSTKIE trzy czesci. Metadane byly wczesniej
+            // pominiete w tej decyzji, wiec brak tytulu przy udanym stanie
+            // planowal zwykly termin i udawal potwierdzony odczyt. Czesciowe
+            // dane nie potwierdzaja calosci; zera ani czasu nie wymyslamy.
+            var ok = playback.Succeeded && metadata.Succeeded && volume.Succeeded;
             _sonosNextBackgroundReadUtc = _sonosReadUtc
                 + (ok ? SonosBackgroundReadInterval : SonosBackoffAfterFailure);
             if (_playerViewActive && IsSonosSession(_sessions.Current.Id)) UpdatePlayerView();
@@ -319,6 +352,35 @@ public partial class MainWindow
         {
             return false;
         }
+        catch (Exception) when (RegisterSonosReadFailureBackoff(ticket, sequence))
+        {
+            // Wyjatek transportu (np. timeout) NIE moze przejsc cicho ani
+            // zostawic starych danych jako biezacych: backoff jest zapisany w
+            // filtrze powyzej, a wyjatek leci dalej do obserwujacego zadania.
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Czy TEN odczyt jest juz NIEAKTUALNY: zmieniony cel, zamykanie okna albo
+    /// NOWSZY odczyt tej samej grupy (np. potwierdzenie polecenia po odczycie
+    /// tla). Sam bilet celu tego nie rozstrzygal.
+    /// </summary>
+    private bool IsSonosReadStale(int ticket, int sequence) =>
+        ticket != _sonosTargetTicket || sequence != _sonosReadSequence || _isClosing;
+
+    /// <summary>
+    /// Zapisuje BACKOFF po wyjatku odczytu, nie tlumiac wyjatku (filtr zwraca
+    /// false dla nieaktualnego przelotu, wiec cudzego terminu nie ruszamy).
+    /// </summary>
+    private bool RegisterSonosReadFailureBackoff(int ticket, int sequence)
+    {
+        if (IsSonosReadStale(ticket, sequence)) return false;
+        _sonosPlayback = null;
+        _sonosMetadata = null;
+        _sonosVolume = null;
+        _sonosNextBackgroundReadUtc = DateTime.UtcNow + SonosBackoffAfterFailure;
+        return true;
     }
 
     /// <summary>Widok odtwarzacza dla aktywnej grupy, wylacznie z ODCZYTU.</summary>
@@ -384,6 +446,11 @@ public partial class MainWindow
         }
 
         var ticket = _sonosTargetTicket;
+        // WLASNY bilet bramki: zmiana grupy podnosi bilet CELU, wiec on nie moze
+        // decydowac o zwolnieniu bramki. Inaczej po zmianie celu spoznione
+        // finally nie rozpoznawalo sie jako wlasciciel, bramka zostawala
+        // zamknieta i nastepne polecenie nie doszlo do backendu.
+        var gateTicket = ++_sonosCommandGateTicket;
         var backend = EnsureSonosBackend();
         var token = EnsureSonosCancellation().Token;
         var beforeState = state;
@@ -493,10 +560,32 @@ public partial class MainWindow
         }
         finally
         {
-            // Wlasny przelot, wlasne zwolnienie: nie czyscimy czyjegos nowszego.
-            if (ticket == _sonosTargetTicket) _sonosCommandInFlight = false;
+            ReleaseSonosCommandGate(gateTicket);
         }
     }
+
+    /// <summary>
+    /// Zwolnienie bramki polecenia przez WLASCICIELA. Kryterium jest bilet
+    /// BRAMKI, nie celu: po zmianie grupy bilet celu juz nie pasuje, a bramka i
+    /// tak musi zostac zwolniona. Spozniony przelot z nieaktualnym biletem NIE
+    /// zwalnia bramki nalezacej do nowszego polecenia.
+    /// </summary>
+    private void ReleaseSonosCommandGate(int gateTicket)
+    {
+        if (gateTicket == _sonosCommandGateTicket) _sonosCommandInFlight = false;
+    }
+
+    /// <summary>
+    /// WASKI hook pomiarowy: ta sama PRODUKCYJNA droga zwolnienia bramki, zeby
+    /// pomiar mogl sprawdzic spozniony przelot bez wlasnej kopii warunku.
+    /// </summary>
+    internal void ReleaseSonosCommandGateForTests(int gateTicket) => ReleaseSonosCommandGate(gateTicket);
+
+    /// <summary>WASKI hook pomiarowy: polecenie PRAWDZIWA droga sesji Sonos.</summary>
+    internal Task ExecuteSonosCommandForTests(string commandId) => ExecuteSonosCommandAsync(commandId);
+
+    /// <summary>WASKI hook pomiarowy: aktywacja grupy PRAWDZIWA droga.</summary>
+    internal Task ActivateSonosGroupForTests(string groupId) => ActivateSonosGroupAsync(groupId);
 
     /// <summary>
     /// OSTATNIA rozpoczeta aktywacja grupy Sonos. WASKA obserwowalnosc dla
@@ -569,8 +658,38 @@ public partial class MainWindow
             return;
         }
 
-        await ReadSonosGroupStateAsync().ConfigureAwait(true);
+        // PRAWDZIWA bariera, nie sam termin: dopoki poprzedni odczyt tla nie
+        // domknal sie w CALOSCI (stan + metadane + glosnosc), nie wysylamy
+        // drugiego GET-u. Bez tego wolna odpowiedz mnozyla ruch przy kazdym
+        // tyknieciu licznika.
+        if (_sonosBackgroundRead is { IsCompleted: false }) return;
+
+        var read = ReadSonosGroupStateAsync();
+        _sonosBackgroundRead = read;
+        try
+        {
+            await read.ConfigureAwait(true);
+        }
+        finally
+        {
+            // Zwalniamy WLASNA bariere: nowszego odczytu nie ruszamy.
+            if (ReferenceEquals(_sonosBackgroundRead, read)) _sonosBackgroundRead = null;
+        }
     }
+
+    /// <summary>
+    /// Wejscie PRAWDZIWEGO licznika odtwarzacza. Zadanie jest ZAPAMIETANE, zeby
+    /// pomiar mogl poczekac na jego rzeczywiste zakonczenie i ZOBACZYC wyjatek;
+    /// zaden wyjatek nie ginie cicho w "fire and forget".
+    /// </summary>
+    private void PollSonosGroupFromPlayerTimer(DateTime nowUtc) =>
+        LastSonosBackgroundPollTaskForTests = PollSonosGroupIfDueAsync(nowUtc);
+
+    /// <summary>
+    /// OSTATNI rozpoczety odczyt w tle. WASKA obserwowalnosc dla pomiaru;
+    /// domyslnie neutralna - nic w produkcji tego nie czyta i nie awaituje.
+    /// </summary>
+    internal Task? LastSonosBackgroundPollTaskForTests { get; private set; }
 
     private CancellationTokenSource EnsureSonosCancellation() =>
         _sonosCancellation ??= new CancellationTokenSource();
@@ -583,7 +702,14 @@ public partial class MainWindow
     internal void CancelSonosPendingWork()
     {
         _sonosTargetTicket++;
+        // Bramke polecenia zwalniamy JAWNIE i uniewazniamy jej wlasciciela, zeby
+        // spoznione finally starego przelotu nie zamknelo bramki nowszego.
+        _sonosCommandGateTicket++;
         _sonosCommandInFlight = false;
+        // Uniewazniamy tez WSZYSTKIE wyniki odczytow w locie i barierę tla:
+        // po wyjsciu/zamknieciu zaden stary GET nie ma czego nadpisywac.
+        _sonosReadSequence++;
+        _sonosBackgroundRead = null;
         var cancellation = _sonosCancellation;
         _sonosCancellation = null;
         try

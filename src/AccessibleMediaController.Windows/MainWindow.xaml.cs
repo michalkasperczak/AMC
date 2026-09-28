@@ -2768,6 +2768,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(3);
             _ = PollActiveWiiMDeviceAsync();
         }
+        // Sesja Sonos ma WLASNY, oszczedny termin (polityka AMC, nie rzekomy limit
+        // Sonosa) i wlasna bariere - sam helper decyduje, czy odczyt jest
+        // wymagalny. Odczyt tla NIC nie mowi i nie zabiera fokusu.
+        if (_playerViewActive && IsSonosSession(_sessions.Current.Id))
+        {
+            PollSonosGroupFromPlayerTimer(DateTime.UtcNow);
+        }
         UpdatePlaybackStatusBar();
         RecoverMainWindowFocusIfNeeded("cykliczna aktualizacja odtwarzania");
         SaveLocalMediaStateIfDue();
