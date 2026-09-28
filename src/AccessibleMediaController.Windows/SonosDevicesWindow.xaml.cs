@@ -324,6 +324,13 @@ public partial class SonosDevicesWindow
             return null;
         }
 
+        // Przy wirtualizacji sam przebieg ukladu NIE zbuduje kontenera, ktory po
+        // przebudowie listy wypadl poza widok (np. gdy odswiezenie odwrocilo
+        // kolejnosc tych samych elementow). Najpierw wiec doprowadzamy cel do
+        // widoku, aby panel go zrealizowal; zaznaczenia NIE zmieniamy, bo
+        // wymaganiem jest wylacznie fokus.
+        list.ScrollIntoView(list.Items[index]);
+
         // Kontener powstaje dopiero przy przebiegu ukladu - wymuszamy go tutaj,
         // bez pokazywania okna, zadnego timera i zadnej aktywacji.
         list.UpdateLayout();
