@@ -8,7 +8,7 @@ Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Trwają odseparowane prace nad następnym etapem Core: stan, metadane, głośność i podstawowe polecenia; nie są częścią tego instalatora.
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. Następny etap Core — stan, metadane, głośność i podstawowe polecenia — został już odebrany na danych próbnych. Nadal nie jest częścią tego instalatora. Rozpoczęto powiązanie tych operacji z istniejącym właścicielem konta; nie wymaga to teraz ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -70,6 +70,26 @@ Stan: poprawka `f1801bb` zachowuje wybór po identyfikatorze, a nie pozycji na l
 Fakt: podczas oczekiwania pozostawał poprzedni wynik, bez komunikatu o wczytywaniu.
 
 Stan: na poprawce `f1801bb` potwierdzono wypowiedzi rozpoczęcia odczytu domów, odczytu grup oraz wyniku w rzeczywistym Podglądzie mowy NVDA. Pomiar dotyczy pierwszego otwarcia i wolnego odświeżania z przycisku. Po `cf04f9a` potwierdzono także komunikaty przy odświeżeniu z wiersza bez ponownego odczytu całego dialogu.
+
+## Odebrany roboczy Core po alfa413 — jeszcze bez odtwarzacza
+
+Przygotowano odczyt stanu, metadanych i głośności grupy oraz podstawowe polecenia: odtwarzaj, pauza, przełączanie, następny/poprzedni utwór, przewijanie bezwzględne i względne, poziom głośności, wyciszenie i względna zmiana poziomu.
+
+Końcowy kod roboczy `e27ba78` przeszedł niezależne testy na Windows: **79/79** nowej warstwy poleceń, **69/69** klienta odczytu urządzeń i **18/18** odczytu przez konto. Pełny Core na Windows także zakończył się kodem 0. Wąskie zestawy są zielone również na WSL. Wszystkie odpowiedzi Sonosa w tych testach były syntetyczne; nie sterowano rzeczywistym głośnikiem.
+
+### S-05. Wynik polecenia używał mylącego komunikatu odczytu
+
+W roboczym kodzie wynik POST mówił o zakończonym odczycie, a niektóre błędy o niepoprawnym identyfikatorze domu zamiast argumencie polecenia. Osobny słownik komunikatów usuwa tę pomyłkę. Po przyjęciu polecenia nie ogłasza jego wykonania. Po utracie odpowiedzi, błędzie usługi lub odrzuceniu odpowiedzi nie twierdzi bez dowodu, że polecenie nie zostało przyjęte. Anulowanie samego oczekiwania jest odróżnione od anulowania przed wysłaniem.
+
+Końcowy plik testów uruchomiony niezależnie na kodzie sprzed poprawki dawał **71/79** i osiem właściwych awarii tekstu; na poprawce daje **79/79**. Końcowy przegląd nie znalazł uwag blokujących. Był to błąd niewydanego kodu, nie działającej wersji alfa413.
+
+### Granice tego odbioru i kolejny krok
+
+Nie ma jeszcze podłączenia nowej warstwy do konta i sesji użytkowej, odświeżania stanu w tle, weryfikacji skutku po poleceniu, presetów ani próby rzeczywistego sprzętu. Najbliższy krok to operacje grupy wykonywane przez istniejącego właściciela konta, z ochroną przed spóźnionymi odpowiedziami po zmianie konta. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
+
+Jedna wcześniejsza pełna próba zgłosiła błąd asercji zdarzenia procesu Librespot. Nie odtworzono go w 60 izolowanych próbach, pięciu pełnych przebiegach czystej alfa413 ani w końcowym pełnym przebiegu poprawki. Przyczyna pozostaje nierozstrzygnięta; nie uznajemy tego błędu za naprawiony i nie przypisujemy go bez dowodu zmianom Sonosa.
+
+Kod pozostaje na gałęzi roboczej. Ta aktualizacja dokumentacji nie jest nowym wydaniem aplikacji ani potwierdzeniem działania sterowania na koncie użytkownika.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
