@@ -31,6 +31,13 @@ public partial class SonosAccountWindow
     private readonly SonosAccountCoordinator coordinator;
     private readonly Func<Uri, bool> openBrowser;
     private readonly Func<bool> confirmDisconnect;
+
+    /// <summary>
+    /// OTWARCIE listy urzadzen. Callback od wlasciciela konta: okno konta nie
+    /// zna ani klienta Control API, ani tokenow - podaje tylko "teraz".
+    /// Brak callbacku znaczy: przycisku nie ma, a nie martwy przycisk.
+    /// </summary>
+    private readonly Action? showDevices;
     private readonly Action<string>? announcementSink;
 
     /// <summary>Anuluje WYLASNIE operacje tego okna. Nie dotyka zycia koordynatora.</summary>
@@ -53,7 +60,8 @@ public partial class SonosAccountWindow
         SonosAccountCoordinator coordinator,
         Func<Uri, bool>? openBrowser = null,
         Func<bool>? confirmDisconnect = null,
-        Action<string>? announcementSink = null)
+        Action<string>? announcementSink = null,
+        Action? showDevices = null)
     {
         ArgumentNullException.ThrowIfNull(coordinator);
         this.coordinator = coordinator;
@@ -62,6 +70,7 @@ public partial class SonosAccountWindow
         // nieodwracalne, wiec domyslna odpowiedzia nie moze byc "tak".
         this.confirmDisconnect = confirmDisconnect ?? (() => false);
         this.announcementSink = announcementSink;
+        this.showDevices = showDevices;
 
         InitializeComponent();
         snapshot = coordinator.Snapshot;
@@ -108,6 +117,10 @@ public partial class SonosAccountWindow
     /// </summary>
     internal void RefreshView()
     {
+        // Migawka jest pobierana PONOWNIE: stan konta mogl sie zmienic poza oknem
+        // (np. odnowienie dostepu przy odczycie urzadzen), a odswiezenie widoku na
+        // nieaktualnej kopii pokazywaloby niedostepne przyciski dla dzialajacego konta.
+        snapshot = coordinator.Snapshot;
         InstructionBox.Text = BuildInstructionText(snapshot);
         ApplyButtonAvailability(snapshot);
     }
@@ -147,6 +160,11 @@ public partial class SonosAccountWindow
         SetAvailability(RefreshButton, current.HasCredentials && current.HasRefreshToken);
         SetAvailability(RetryPersistButton, current.CanRetryPersist);
         SetAvailability(DisconnectButton, current.HasCredentials || current.PersistedRecordMayRemain);
+
+        // GLOSNIKI I GRUPY: dostepne, gdy konto DZIALA, czyli gdy sa wazne dane
+        // logowania - takze wtedy, gdy zapis do magazynu sie nie udal. Konto
+        // dziala w pamieci, wiec odczyt urzadzen ma dzialac.
+        SetAvailability(DevicesButton, showDevices is not null && current.HasCredentials);
 
         // Klawisze wyjscia i odwolania nie moga zniknac przy zajetosci.
         CloseButton.IsEnabled = true;
@@ -350,6 +368,12 @@ public partial class SonosAccountWindow
 
     internal void InvokeDisconnect() => Disconnect_Click(this, new RoutedEventArgs());
 
+    internal void InvokeShowDevices() => Devices_Click(this, new RoutedEventArgs());
+
+    /// <summary>Kwit dla testow: czy droga do listy urzadzen jest w ogole dostepna.</summary>
+    internal bool IsDevicesAvailable =>
+        DevicesButton.Visibility == Visibility.Visible && DevicesButton.IsEnabled;
+
     private async void Login_Click(object sender, RoutedEventArgs e) =>
         await RunAsync(BeginLoginAsync, "Nie udało się rozpocząć logowania Sonos.");
 
@@ -536,6 +560,29 @@ public partial class SonosAccountWindow
                 ? "Wylogowano z Sonos; zapisane logowanie zostało usunięte."
                 : "Wylogowanie z Sonos nie zostało dokończone: zapisane logowanie mogło pozostać. Spróbuj ponownie.");
         });
+    }
+
+    /// <summary>
+    /// Przejscie do LISTY URZADZEN. Nie jest to operacja konta: nie zajmuje
+    /// blokady zajetosci okna konta, nie loguje, nie wylogowuje i nie dotyka
+    /// magazynu. Cala praca (i zasoby) sa po stronie wlasciciela.
+    /// </summary>
+    private void Devices_Click(object sender, RoutedEventArgs e)
+    {
+        if (closed || showDevices is null)
+        {
+            return;
+        }
+
+        try
+        {
+            showDevices();
+        }
+        catch (Exception)
+        {
+            // Nieudane otwarcie listy NIE psuje okna konta i nie milczy.
+            Announce("Nie udało się otworzyć listy głośników i grup Sonos.");
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

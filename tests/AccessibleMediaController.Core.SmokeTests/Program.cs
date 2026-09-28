@@ -47,6 +47,11 @@ if (args.Length == 1 && args[0] == "--playback-rate-state")
     try { PlaybackRateStateTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-control-api")
+{
+    try { SonosControlApiClientTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-login-client")
 {
     try { SonosLoginClientTests.Run(); return 0; }
@@ -67,18 +72,25 @@ if (args.Length == 1 && args[0] == "--sonos-account-command")
     try { SonosAccountCommandRoutingTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-device-read")
+{
+    try { SonosDeviceReadTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
     ("Edycja nagrań nie kieruje historii na kopię bezpieczeństwa", AudioEditRenameTests.Run),
     ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
+    ("Odczyt domow, grup i glosnikow Sonos", SonosControlApiClientTests.Run),
     ("Klient pierwszego logowania Sonos wobec brokera AMC", SonosLoginClientTests.Run),
     ("Klient odnawiania dostępu Sonos wobec brokera AMC", SonosRefreshClientTests.Run),
     ("Koordynator konta Sonos: odtworzenie, logowanie, odnawianie i wylogowanie",
         SonosAccountCoordinatorTests.Run),
     ("Polecenie konta Sonos w routerze, katalogu i palecie",
         SonosAccountCommandRoutingTests.Run),
+    ("Odczyt domow, grup i glosnikow Sonos przez konto", SonosDeviceReadTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),

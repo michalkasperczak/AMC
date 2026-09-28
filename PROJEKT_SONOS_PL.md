@@ -27,9 +27,9 @@ Oficjalna dokumentacja Sonosa potwierdza sterowanie odtwarzaniem grupy, przewija
 
 Okno **Konto Sonos → Głośniki i grupy** jest przyrostem pomocniczym. Samo jego przygotowanie nie kończy całej integracji.
 
-## Prace po alfa412 — jeszcze niewydane
+## Przygotowanie alfa413 — lista urządzeń
 
-Kod tych przyrostów jest obecnie w lokalnych gałęziach roboczych, a nie w opublikowanym instalatorze:
+Zakres kandydata alfa413, oddzielony od późniejszej sesji odtwarzania:
 
 - klient odczytu domów, grup i głośników z oficjalnego Control API;
 - odczyt przez wspólnego właściciela konta, bez przekazywania tokenów do modeli okna;
@@ -37,7 +37,7 @@ Kod tych przyrostów jest obecnie w lokalnych gałęziach roboczych, a nie w opu
 - poprawki ochrony przed wynikiem starej operacji po zmianie konta;
 - poprawki komunikatów wczytywania, fokusu i zachowania wybranego domu.
 
-Te elementy przeszły testy automatyczne. Ponowna próba klawiaturą i żywym NVDA na poprawce `f1801bb` potwierdziła zachowanie wybranego domu, komunikaty w prawdziwym Podglądzie mowy, zamknięcie podczas odczytu i powrót do okna konta. Nadal wykazała utratę fokusu po odświeżeniu uruchomionym z rzeczywistego wiersza obu list — S-02 pozostaje blokadą wydania. Próba używała rzeczywistych okien i syntetycznych odpowiedzi; nie jest odczytem urządzeń użytkownika.
+Końcowy kod `cf04f9a` przeszedł ponowną próbę żywym NVDA oraz wąskie testy Windows: 68 sprawdzeń okna urządzeń i 19 podłączenia konta. Sprawdzono rzeczywiste otwarcie, mówione komunikaty, odświeżenie z wierszy, zmianę kolejności list 20-elementowych, nawigację strzałkami, pierwszeństwo wyboru użytkownika, brak przejmowania obcego okna oraz Escape i ponowne otwarcie. Dane pochodziły z syntetycznego transportu i magazynu. Nie jest to jeszcze próba odpowiedzi rzeczywistych urządzeń ani potwierdzenie publikacji instalatora.
 
 ## Rejestr spraw tego przyrostu
 
@@ -51,19 +51,19 @@ Stan: poprawka i testy automatyczne potwierdzają odrzucenie starej operacji ora
 
 Fakt: żywy NVDA po wolnym odświeżeniu wskazywał całe okno zamiast kontrolki.
 
-Stan: poprawka `f1801bb` działa przy odświeżaniu z przycisku oraz z samego kontenera listy. Ponowny pomiar NVDA wykazał, że **Alt+O z rzeczywistego wiersza grupy lub głośnika nadal gubi fokus**, w trakcie i po odczycie. Czytnik powtarza wtedy treść całego dialogu. Przyczyną jest pominięcie elementu `ListBoxItem` w ochronie fokusu; sam test kontenera listy nie wykrywa tego przypadku. Kolejny lokalny kandydat `a067dd8` przeszedł już żywy NVDA dla zwykłego odświeżenia obu list oraz ostatnich wierszy list 20-elementowych. Osobna próba wykazała jeszcze brak powrotu na ten sam element, gdy zmiana kolejności przesuwa go poza wcześniej widoczną część listy: fokus pozostaje na instrukcji. Trwa punktowa korekta utworzenia właściwego wiersza poza tym obszarem; po niej trzeba powtórzyć identyczny przypadek. Nadal nie jest to funkcja wydana w instalatorze.
+Stan: zamknięte w kodzie `a067dd8` + `cf04f9a`, potwierdzone żywym NVDA. Fokus w zajętości przechodzi na instrukcję, a po wyniku wraca na świeży wiersz tego samego ID w tym samym domu, także po przeniesieniu poza dawny widok. Przy zniknięciu elementu pozostaje instrukcja. Strzałki działają od przywróconego wiersza; świadomy wybór innej kontrolki i obce okno mają pierwszeństwo. Nie jest to jeszcze stwierdzenie aktualizacji instalacji użytkownika.
 
 ### S-03. Odświeżanie zmieniało wybrany dom
 
 Fakt: odświeżenie drugiego domu wybierało pierwszy mimo dalszej obecności wybranego domu.
 
-Stan: poprawka `f1801bb` zachowuje wybór po identyfikatorze, a nie pozycji na liście. Testy automatyczne obejmują zmianę kolejności. Ponowna próba z żywym NVDA potwierdziła zachowanie drugiego domu po wolnym odświeżeniu z przycisku, wraz z powrotem na przycisk. Nie zamyka to odrębnego problemu wierszy S-02.
+Stan: poprawka `f1801bb` zachowuje wybór po identyfikatorze, a nie pozycji na liście. Testy automatyczne obejmują zmianę kolejności. Ponowna próba z żywym NVDA potwierdziła zachowanie drugiego domu po wolnym odświeżeniu z przycisku, wraz z powrotem na przycisk. Końcowy pomiar `cf04f9a` potwierdził ten przypadek ponownie; osobne zamknięcie fokusu wierszy opisano w S-02.
 
 ### S-04. Brakowało informacji o trwającym odczycie
 
 Fakt: podczas oczekiwania pozostawał poprzedni wynik, bez komunikatu o wczytywaniu.
 
-Stan: na poprawce `f1801bb` potwierdzono wypowiedzi rozpoczęcia odczytu domów, odczytu grup oraz wyniku w rzeczywistym Podglądzie mowy NVDA. Pomiar dotyczy pierwszego otwarcia i wolnego odświeżania z przycisku. Ponowny odczyt całego dialogu przy utracie fokusu z wiersza jest nadal otwartym problemem S-02.
+Stan: na poprawce `f1801bb` potwierdzono wypowiedzi rozpoczęcia odczytu domów, odczytu grup oraz wyniku w rzeczywistym Podglądzie mowy NVDA. Pomiar dotyczy pierwszego otwarcia i wolnego odświeżania z przycisku. Po `cf04f9a` potwierdzono także komunikaty przy odświeżeniu z wiersza bez ponownego odczytu całego dialogu.
 
 ## Warunki przed publikacją kolejnego przyrostu
 

@@ -1,5 +1,32 @@
 # Zadania testowe AMC
 
+## Sonos: końcowy odbiór listy do alfa413
+
+- Na `cf04f9a`: własny przebieg Windows `--sonos-devices-window` 68 sprawdzeń i `--sonos-account-wiring` 19 sprawdzeń, oba exit0. Historyczne liczniki niżej dotyczą wcześniejszych etapów.
+- Rzeczywisty Owner → Presenter → Konto → lista, klawiatura i żywy NVDA z prawdziwym Podglądem mowy. Tylko odpowiedzi HTTP i magazyn są syntetyczne; nie jest to pomiar rzeczywistego konta.
+- RED przed korektą: wiersz listy oddawał fokus całemu dialogowi; po pierwszej poprawce odwrócenie listy20 nadal nie przywracało wiersza przeniesionego poza widok. GREEN na końcowym kodzie: w obu listach ten sam ID wraca jako świeży wiersz, a strzałki góra/dół idą od niego.
+- Potwierdzone również: komunikaty loading/wynik, dom zachowany po odświeżeniu, brak ponownego czytania całego okna, zniknięcie celu → instrukcja, świadome przejście na Zamknij, brak aktywacji nad innym oknem, Escape podczas odczytu i powrót na rzeczywisty przycisk wywołujący, ponowne otwarcie bez zapisu lub kasacji konta.
+- Do próby na koncie po instalacji: Plik → Konto Sonos → Głośniki i grupy. Sprawdzić odpowiedź domu, grupy, głośniki i Odśwież. Nie wybierać wylogowania i nie traktować Enter jako odtwarzania — to okno wyłącznie odczytowe.
+
+## Historia wcześniejszych pomiarów
+
+
+## Sonos: lista urządzeń — poprawki wyścigu kont, fokusu i wyboru domu (po alfa412)
+
+- Zmierzone, nie deklarowane: przed poprawkami runner `--sonos-device-read` dawał 16/18 (dwa nowe przypadki wyścigu na czerwono), po poprawkach 18/18. Runner Windows `--sonos-devices-window` 56/56 (było 47/47 bez nowych pomiarów). Pozostałe zestawy zielone bez zmian: `--sonos-control-api` 69/69, `--sonos-account-coordinator` 26/26, `--sonos-account-wiring` 19/19.
+- Każda z czterech poprawek sprawdzona na rozróżnialność: po punktowym cofnięciu samej poprawki odpowiedni test faktycznie pada (stary wybór domu → „Odświeżenie przestawiło wybór na Sonos_1.a”; brak komunikatu → „ogłosiło ładowanie 0 razy”; brak ratunku fokusu → fokus zostaje na wyłączanym przycisku; stary przedimek → „Dom Dom Sonos 1”).
+- Wyścig kont mierzony PRAWDZIWĄ drogą nowego logowania (`BeginLoginAsync` + `CheckLoginAsync`), bez pomocnika pomiarowego: stara operacja kończy się jako porzucona, nie odnawia dostępu nowego konta, nie wysyła żądania jego tokenem i nie kasuje jego poświadczeń. Osobna sonda poza repozytorium potwierdza także wariant, w którym błędne odnowienie skończyłoby się żądaniem ponownego logowania od brokera.
+- Zakres pomiarów UI: prawdziwe kontrolki WPF konstruowane na wątku STA, bez `Show`, `ShowDialog`, `Activate` i `EnsureHandle`; HTTP i magazyn syntetyczne. Zero kont, zero sieci, zero nagrań.
+- CZEGO TO NIE DOWODZI: nie jest to pomiar żywej mowy NVDA po tych poprawkach. Do potwierdzenia u właściciela pulpitu pozostaje wypowiadany komunikat ładowania, faktyczny fokus po odświeżeniu oraz Escape/ponowne otwarcie i powrót na przycisk urządzeń — ten ostatni przebieg nie został zmierzony także wcześniej (watchdog przerwał pomiar). Nie ma tu wydania, instalacji ani publikacji.
+
+## Sonos: odczyt urządzeń — warstwa Core, bez UI
+
+- Runner Core: `--sonos-control-api`; ten sam zestaw jest w pełnej tabeli testów. Wszystkie odpowiedzi są syntetyczne, bez użycia konta lub rzeczywistego API.
+- Sprawdza dwa żądania GET i nagłówki, pełne/puste/częściowe listy, brak nazw domów, zachowanie liczności, błędne odpowiedzi, odmowę dostępu i limity, brak ponowień i echa danych w błędach.
+- Sprawdza stały host, brak przekierowań, budżet całego odczytu oraz anulowanie podczas ciała, limit danych, UTF-8 i niedozwolone wejście bez wysłania HTTP.
+- Odbiór lokalny po poprawkach: 69/69 na Windows i WSL; pełny Core na Windows z dołączonymi źródłami i build.ps1 zakończony kodem 0. Testy logowania/odnawiania/koordynatora/routera również zielone. Dwie kompilujące się mutacje kopii źródeł wykryte; produkt nietknięty.
+- Nie jest to jeszcze test prawdziwego konta, UI, żywego NVDA ani aktualizacja instalacji.
+
 ## Robocze podłączenie konta Sonos — jeszcze bez wydania i instalacji
 
 Odbiór lokalny źródeł `2ebe6eb`: `review/sonos-account-wiring/ACCEPTANCE.md`.

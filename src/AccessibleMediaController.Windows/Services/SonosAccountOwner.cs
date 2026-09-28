@@ -33,6 +33,20 @@ internal sealed class SonosAccountOwner : IDisposable
     /// </summary>
     internal const string DefaultBrokerOrigin = "https://hermes.tail6caad7.ts.net/";
 
+    /// <summary>
+    /// JAWNY identyfikator klienta tej integracji Sonos. To ta sama publiczna
+    /// wartosc, ktora idzie w adresie autoryzacji i w naglowku X-Sonos-Api-Key -
+    /// NIE jest sekretem i nie jest tokenem. Sekret zostaje w brokerze i do
+    /// Control API nie jest potrzebny.
+    ///
+    /// Jest STALA KONFIGURACJI programu, a nie polem w interfejsie: tester ani
+    /// uzytkownik nie ma wpisywac zadnych kluczy, zeby zobaczyc swoje glosniki.
+    /// </summary>
+    internal const string IntegrationApiKey = "b051a8f0-499c-4deb-9f66-843a752c36e4";
+
+    private SonosControlApiClient? _controlApi;
+    private SonosControlApiDeviceApi? _deviceApi;
+
     private readonly object _gate = new();
 
     private SonosLoginClient? _client;
@@ -119,6 +133,69 @@ internal sealed class SonosAccountOwner : IDisposable
     }
 
     /// <summary>
+    /// WSPOLNY klient Control API tej integracji, tworzony LENIWIE przy
+    /// pierwszym odczycie urzadzen i zyjacy tak dlugo jak wlasciciel - nie jak
+    /// okno. Klucz integracji jest wbudowany, wiec zadne okno go nie dostaje i
+    /// nikt go nie wpisuje.
+    ///
+    /// Klient jest TYLKO DO ODCZYTU: umie wylacznie GET domow i grup.
+    /// </summary>
+    internal SonosControlApiClient EnsureControlApiClient()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_controlApi is not null)
+            {
+                return _controlApi;
+            }
+
+            var configuration = ControlApiConfigurationFactory is { } factory
+                ? factory()
+                : SonosControlApiConfiguration.CreateDefault(IntegrationApiKey);
+
+            _controlApi = new SonosControlApiClient(configuration);
+            _deviceApi = new SonosControlApiDeviceApi(_controlApi);
+            ControlApiCreations++;
+            return _controlApi;
+        }
+    }
+
+    /// <summary>
+    /// TESTOWY punkt podstawienia konfiguracji Control API - produkcyjnie null,
+    /// czyli stale wbudowane ustawienia. Testy kieruja go na atrape transportu,
+    /// zeby nie bylo ani sieci, ani prawdziwego konta.
+    /// </summary>
+    internal Func<SonosControlApiConfiguration>? ControlApiConfigurationFactory { get; set; }
+
+    /// <summary>Ile klientow Control API powstalo. Leniwosc znaczy: najwyzej jeden.</summary>
+    internal int ControlApiCreations { get; private set; }
+
+    /// <summary>
+    /// ODCZYT domow przez wspolny koordynator i wspolny klient. Oddawane oknu
+    /// jako zwykly callback, wiec okno nie widzi ani koordynatora, ani tokenow.
+    /// </summary>
+    internal Task<SonosHouseholdsReadResult> ReadHouseholdsAsync(CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadHouseholdsAsync(EnsureDeviceApi(), cancellationToken);
+
+    /// <summary>ODCZYT grup i glosnikow wybranego domu. Tez tylko GET.</summary>
+    internal Task<SonosGroupsReadResult> ReadGroupsAsync(string householdId, CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadGroupsAsync(EnsureDeviceApi(), householdId, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs odczytu nad odebranym klientem. Osobna metoda, zeby
+    /// koordynator nie zalezal od typu klienta HTTP.
+    /// </summary>
+    internal ISonosDeviceApi EnsureDeviceApi()
+    {
+        EnsureControlApiClient();
+        lock (_gate)
+        {
+            return _deviceApi ?? throw new InvalidOperationException("Klient Control API Sonos nie został utworzony.");
+        }
+    }
+
+    /// <summary>
     /// FAKTYCZNE zakonczenie wlasciciela. Wolane tylko przy prawdziwym zamykaniu
     /// AMC - nie przy zamknieciu okna konta i nie przy anulowanym zamknieciu.
     /// </summary>
@@ -126,6 +203,7 @@ internal sealed class SonosAccountOwner : IDisposable
     {
         SonosAccountCoordinator? coordinator;
         SonosLoginClient? client;
+        SonosControlApiClient? controlApi;
         lock (_gate)
         {
             if (_disposed)
@@ -136,12 +214,16 @@ internal sealed class SonosAccountOwner : IDisposable
             _disposed = true;
             coordinator = _coordinator;
             client = _client;
+            controlApi = _controlApi;
             _coordinator = null;
             _client = null;
+            _controlApi = null;
+            _deviceApi = null;
         }
 
         coordinator?.Dispose();
         client?.Dispose();
+        controlApi?.Dispose();
     }
 }
 
@@ -215,7 +297,8 @@ internal sealed class SonosAccountPresenter
         SonosAccountWindow? created = null;
         var window = new SonosAccountWindow(
             coordinator,
-            confirmDisconnect: () => Confirm(created));
+            confirmDisconnect: () => Confirm(created),
+            showDevices: () => ShowDevices(created));
         created = window;
         if (mainWindow is not null)
         {
@@ -238,6 +321,79 @@ internal sealed class SonosAccountPresenter
         finally
         {
             OpenWindow = null;
+        }
+
+        return true;
+    }
+
+    /// <summary>Otwarte okno urzadzen albo null. Jedno na jednego wlasciciela.</summary>
+    internal SonosDevicesWindow? OpenDevicesWindow { get; private set; }
+
+    /// <summary>Ile okien urzadzen powstalo. Guard nie ma prawa tego podniesc drugi raz.</summary>
+    internal int DevicesWindowsCreated { get; private set; }
+
+    /// <summary>
+    /// TESTOWY punkt podstawienia POKAZANIA okna urzadzen. Produkcyjnie null,
+    /// czyli prawdziwe modalne ShowDialog na oknie konta.
+    /// </summary>
+    internal Action<SonosDevicesWindow>? PresentDevicesOverride { get; set; }
+
+    /// <summary>
+    /// LISTA URZADZEN: okno dostaje WYLACZNIE dwa waskie callbacki odczytu od
+    /// wlasciciela. Nie widzi koordynatora, klienta ani tokenow, a klucz
+    /// integracji zostaje w warstwie uslug.
+    ///
+    /// Zwraca true, gdy powstalo NOWE okno; false gdy zadzialal guard.
+    /// </summary>
+    internal bool ShowDevices(Window? accountWindow)
+    {
+        if (OpenDevicesWindow is { } existing)
+        {
+            if (PresentDevicesOverride is null)
+            {
+                existing.Activate();
+            }
+
+            return false;
+        }
+
+        var window = new SonosDevicesWindow(
+            readHouseholds: _owner.ReadHouseholdsAsync,
+            readGroups: _owner.ReadGroupsAsync);
+        // WLASCICIEL OKNA: WPF przyjmuje Owner tylko dla okna, ktore JUZ zostalo
+        // pokazane. Brak wlasciciela nie moze wywrocic drogi do listy, wiec
+        // nieudane powiazanie jest pomijane - lista dziala dalej jako osobne okno.
+        if (accountWindow is not null && accountWindow.IsVisible)
+        {
+            try
+            {
+                window.Owner = accountWindow;
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        OpenDevicesWindow = window;
+        DevicesWindowsCreated++;
+        try
+        {
+            if (PresentDevicesOverride is { } present)
+            {
+                present(window);
+            }
+            else
+            {
+                // Pierwsze wczytanie startuje PRZED pokazaniem, ale jest
+                // asynchroniczne: okno pojawia sie z instrukcja i komunikatem
+                // "wczytywanie", a nie zamrozone na czas HTTP.
+                _ = window.LoadAsync();
+                window.ShowDialog();
+            }
+        }
+        finally
+        {
+            OpenDevicesWindow = null;
         }
 
         return true;

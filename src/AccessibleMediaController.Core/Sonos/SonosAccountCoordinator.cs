@@ -66,7 +66,7 @@ public sealed class SonosLoginClientGateway : ISonosLoginGateway
 /// tylko "sprawdzone przed awaitem". Pod blokada nie wolamy niczyich callbackow,
 /// a na zewnatrz oddajemy wylacznie niemutowalne migawki.
 /// </summary>
-public sealed class SonosAccountCoordinator : IDisposable
+public sealed partial class SonosAccountCoordinator : IDisposable
 {
     private readonly ISonosLoginGateway gateway;
     private readonly ISonosCredentialStore store;
@@ -96,7 +96,7 @@ public sealed class SonosAccountCoordinator : IDisposable
     private bool disposed;
 
     // Wspolne odnowienie: JEDNO zapytanie na generacje zestawu.
-    private Task<SonosAccountRefreshResult>? inflightRefresh;
+    private Task<RefreshRun>? inflightRefresh;
     private long inflightRefreshGeneration = -1;
     private CancellationTokenSource? inflightRefreshCts;
 
@@ -386,32 +386,101 @@ public sealed class SonosAccountCoordinator : IDisposable
     /// dla TEJ SAMEJ generacji. Wszystko inne (413, 429, 503, 502, transport,
     /// niezgodny JSON, anulowanie) NIE kasuje niczego.
     /// </summary>
-    public Task<SonosAccountRefreshResult> RefreshAsync(CancellationToken cancellationToken)
+    public async Task<SonosAccountRefreshResult> RefreshAsync(CancellationToken cancellationToken) =>
+        (await RefreshCoreAsync(null, cancellationToken).ConfigureAwait(false)).Result;
+
+    /// <summary>
+    /// ATRYBUOWALNY wynik JEDNEGO przebiegu odnowienia. Obok publicznego wyniku
+    /// niesie fakty przypisane DOKLADNIE temu odnowieniu: dla jakiej generacji
+    /// wystartowalo, jaki zestaw ZAINSTALOWALO i czy to ono uniewaznilo konto.
+    /// Dzieki temu wolajacy nie legalizuje swojej operacji dowolna, biezaca
+    /// migawka konta ani heurystyka "generacja+1".
+    /// </summary>
+    private readonly struct RefreshRun
     {
-        Task<SonosAccountRefreshResult> shared;
+        internal RefreshRun(
+            SonosAccountRefreshResult result,
+            long startedGeneration,
+            SonosStoredCredentials? installed,
+            long installedGeneration,
+            bool invalidated,
+            bool generationMismatch)
+        {
+            Result = result;
+            StartedGeneration = startedGeneration;
+            InstalledCredentials = installed;
+            InstalledGeneration = installedGeneration;
+            Invalidated = invalidated;
+            GenerationMismatch = generationMismatch;
+        }
+
+        internal SonosAccountRefreshResult Result { get; }
+
+        internal long StartedGeneration { get; }
+
+        /// <summary>DOKLADNY zestaw zainstalowany TYM odnowieniem; null, gdy nic nie zainstalowano.</summary>
+        internal SonosStoredCredentials? InstalledCredentials { get; }
+
+        internal long InstalledGeneration { get; }
+
+        /// <summary>TO odnowienie uniewaznilo konto (dokladne 401 tej samej generacji).</summary>
+        internal bool Invalidated { get; }
+
+        /// <summary>
+        /// Oczekiwana generacja NIE obowiazywala w chwili sprawdzenia pod blokada:
+        /// nie wystartowalo ani nie dolaczylo zadne odnowienie.
+        /// </summary>
+        internal bool GenerationMismatch { get; }
+    }
+
+    /// <summary>
+    /// Wspolna logika odnowienia - JEDNA, bez kopii dla odczytu urzadzen.
+    ///
+    /// <paramref name="expectedGeneration"/> to WARUNEK WSTEPNY sprawdzany
+    /// ATOMOWO pod ta sama blokada, pod ktora odnowienie startuje albo dolacza
+    /// do trwajacego. Gdy generacja zestawu jest juz inna, NIE leci zadne
+    /// zapytanie do bramki i nie ma dolaczenia - zamyka to okienko miedzy
+    /// sprawdzeniem a startem. Null = zwykle, reczne odnowienie biezacego
+    /// zestawu, bez warunku.
+    /// </summary>
+    private Task<RefreshRun> RefreshCoreAsync(long? expectedGeneration, CancellationToken cancellationToken)
+    {
+        Task<RefreshRun> shared;
         bool joined;
-        TaskCompletionSource<SonosAccountRefreshResult>? owned = null;
+        TaskCompletionSource<RefreshRun>? owned = null;
         var generation = 0L;
         string? refreshToken = null;
         CancellationTokenSource? cts = null;
         lock (gate)
         {
             ThrowIfDisposed();
+            if (expectedGeneration is { } expected && credentialGeneration != expected)
+            {
+                // SWIEZA generacja NIE legalizuje starszej operacji: jej wlasciciel
+                // dostaje jawne porzucenie, a konto nie widzi zadnego zapytania.
+                return Task.FromResult(new RefreshRun(
+                    new SonosAccountRefreshResult(
+                        SonosRefreshStatus.Canceled,
+                        renewed: false, discarded: true, joined: false, waiterCanceled: false,
+                        writeStatus: null, CreateSnapshot()),
+                    expected, null, expected, invalidated: false, generationMismatch: true));
+            }
+
             if (current is null)
             {
-                return Task.FromResult(new SonosAccountRefreshResult(
+                return Task.FromResult(Plain(new SonosAccountRefreshResult(
                     SonosRefreshStatus.InvalidLocalToken,
                     renewed: false, discarded: false, joined: false, waiterCanceled: false,
-                    writeStatus: null, CreateSnapshot()));
+                    writeStatus: null, CreateSnapshot()), credentialGeneration));
             }
 
             if (!current.HasRefreshToken)
             {
                 // Brak RT to nie awaria sieci: zadnego zapytania HTTP i zadnej kasacji.
-                return Task.FromResult(new SonosAccountRefreshResult(
+                return Task.FromResult(Plain(new SonosAccountRefreshResult(
                     SonosRefreshStatus.InvalidLocalToken,
                     renewed: false, discarded: false, joined: false, waiterCanceled: false,
-                    writeStatus: null, CreateSnapshot()));
+                    writeStatus: null, CreateSnapshot()), credentialGeneration));
             }
 
             if (inflightRefresh is not null && inflightRefreshGeneration == credentialGeneration)
@@ -425,10 +494,10 @@ public sealed class SonosAccountCoordinator : IDisposable
             {
                 // Wolajacy zrezygnowal JESZCZE PRZED startem: nie zakladamy zadnego
                 // nowego zapytania do bramki.
-                return Task.FromResult(new SonosAccountRefreshResult(
+                return Task.FromResult(Plain(new SonosAccountRefreshResult(
                     SonosRefreshStatus.Canceled,
                     renewed: false, discarded: false, joined: false, waiterCanceled: true,
-                    writeStatus: null, CreateSnapshot()));
+                    writeStatus: null, CreateSnapshot()), credentialGeneration));
             }
             else
             {
@@ -440,7 +509,7 @@ public sealed class SonosAccountCoordinator : IDisposable
                 // bramka wykonana synchronicznie do pierwszego awaitu nie moze ani
                 // wolac naszych callbackow pod lock, ani spowodowac drugiego
                 // zapytania tej samej generacji.
-                owned = new TaskCompletionSource<SonosAccountRefreshResult>(
+                owned = new TaskCompletionSource<RefreshRun>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 inflightRefreshCts = cts;
                 inflightRefreshGeneration = generation;
@@ -463,12 +532,12 @@ public sealed class SonosAccountCoordinator : IDisposable
     /// opublikowanego wczesniej placeholdera.
     /// </summary>
     private void StartRefreshOutsideGate(
-        TaskCompletionSource<SonosAccountRefreshResult> owned,
+        TaskCompletionSource<RefreshRun> owned,
         long generation,
         string? refreshToken,
         CancellationTokenSource cts)
     {
-        Task<SonosAccountRefreshResult> work;
+        Task<RefreshRun> work;
         try
         {
             work = RunRefreshAsync(generation, refreshToken, cts);
@@ -482,7 +551,7 @@ public sealed class SonosAccountCoordinator : IDisposable
         work.ContinueWith(
             static (finished, state) =>
             {
-                var target = (TaskCompletionSource<SonosAccountRefreshResult>)state!;
+                var target = (TaskCompletionSource<RefreshRun>)state!;
                 if (finished.IsFaulted)
                 {
                     target.TrySetException(finished.Exception!.InnerExceptions);
@@ -502,7 +571,7 @@ public sealed class SonosAccountCoordinator : IDisposable
             TaskScheduler.Default);
     }
 
-    private async Task<SonosAccountRefreshResult> RunRefreshAsync(
+    private async Task<RefreshRun> RunRefreshAsync(
         long generation,
         string? refreshToken,
         CancellationTokenSource cts)
@@ -518,36 +587,45 @@ public sealed class SonosAccountCoordinator : IDisposable
                 {
                     // SPOZNIONA odpowiedz starszej generacji: ani sukces nie zapisze
                     // starszego zestawu, ani 401 nie skasuje nowszego.
-                    return new SonosAccountRefreshResult(
-                        outcome.Status,
-                        renewed: false, discarded: true, joined: false, waiterCanceled: false,
-                        writeStatus: null, CreateSnapshot());
+                    return new RefreshRun(
+                        new SonosAccountRefreshResult(
+                            outcome.Status,
+                            renewed: false, discarded: true, joined: false, waiterCanceled: false,
+                            writeStatus: null, CreateSnapshot()),
+                        generation, null, generation, invalidated: false, generationMismatch: false);
                 }
 
                 if (outcome.Succeeded && outcome.Tokens is not null)
                 {
                     var write = InstallLocked(outcome.Tokens);
-                    return new SonosAccountRefreshResult(
-                        outcome.Status,
-                        renewed: current is not null && credentialGeneration != generation,
-                        discarded: false, joined: false, waiterCanceled: false,
-                        write, CreateSnapshot());
+                    var installed = current;
+                    return new RefreshRun(
+                        new SonosAccountRefreshResult(
+                            outcome.Status,
+                            renewed: current is not null && credentialGeneration != generation,
+                            discarded: false, joined: false, waiterCanceled: false,
+                            write, CreateSnapshot()),
+                        generation, installed, credentialGeneration, invalidated: false, generationMismatch: false);
                 }
 
                 if (outcome.Status == SonosRefreshStatus.ReauthorizationRequired)
                 {
                     InvalidateLocked();
-                    return new SonosAccountRefreshResult(
-                        outcome.Status,
-                        renewed: false, discarded: false, joined: false, waiterCanceled: false,
-                        writeStatus: null, CreateSnapshot());
+                    return new RefreshRun(
+                        new SonosAccountRefreshResult(
+                            outcome.Status,
+                            renewed: false, discarded: false, joined: false, waiterCanceled: false,
+                            writeStatus: null, CreateSnapshot()),
+                        generation, null, credentialGeneration, invalidated: true, generationMismatch: false);
                 }
 
                 // Przejsciowe i kontraktowe bledy ZACHOWUJA zestaw bez zmian.
-                return new SonosAccountRefreshResult(
-                    outcome.Status,
-                    renewed: false, discarded: false, joined: false, waiterCanceled: false,
-                    writeStatus: null, CreateSnapshot());
+                return new RefreshRun(
+                    new SonosAccountRefreshResult(
+                        outcome.Status,
+                        renewed: false, discarded: false, joined: false, waiterCanceled: false,
+                        writeStatus: null, CreateSnapshot()),
+                    generation, null, credentialGeneration, invalidated: false, generationMismatch: false);
             }
         }
         finally
@@ -571,12 +649,12 @@ public sealed class SonosAccountCoordinator : IDisposable
     /// wolajacego NIE anuluje operacji pozostalym - wspolne zapytanie idzie dalej.
     /// Rejestracja i pomocniczy Task sa zawsze zwalniane.
     /// </summary>
-    private async Task<SonosAccountRefreshResult> AwaitSharedAsync(
-        Task<SonosAccountRefreshResult> shared,
+    private async Task<RefreshRun> AwaitSharedAsync(
+        Task<RefreshRun> shared,
         bool joined,
         CancellationToken cancellationToken)
     {
-        SonosAccountRefreshResult result;
+        RefreshRun result;
         if (!cancellationToken.CanBeCanceled)
         {
             result = await shared.ConfigureAwait(false);
@@ -590,19 +668,34 @@ public sealed class SonosAccountCoordinator : IDisposable
         var finished = await Task.WhenAny(shared, abandoned.Task).ConfigureAwait(false);
         if (!ReferenceEquals(finished, shared))
         {
-            return new SonosAccountRefreshResult(
-                SonosRefreshStatus.Canceled,
-                renewed: false, discarded: false, joined: joined, waiterCanceled: true,
-                writeStatus: null, Snapshot);
+            // Rezygnacja WOLAJACEGO: nic nie zostalo zainstalowane z jego punktu
+            // widzenia, wiec nie dostaje zadnego zestawu do legalizacji.
+            return Plain(
+                new SonosAccountRefreshResult(
+                    SonosRefreshStatus.Canceled,
+                    renewed: false, discarded: false, joined: joined, waiterCanceled: true,
+                    writeStatus: null, Snapshot),
+                Snapshot.CredentialGeneration);
         }
 
         result = await shared.ConfigureAwait(false);
         return joined ? WithJoined(result) : result;
     }
 
-    private static SonosAccountRefreshResult WithJoined(SonosAccountRefreshResult result) =>
-        new(result.RefreshStatus, result.Renewed, result.Discarded, joined: true, waiterCanceled: false,
-            result.WriteStatus, result.Snapshot);
+    /// <summary>Wynik bez wlasnego odnowienia: nic nie zainstalowano, nic nie uniewazniono.</summary>
+    private static RefreshRun Plain(SonosAccountRefreshResult result, long generation) =>
+        new(result, generation, null, generation, invalidated: false, generationMismatch: false);
+
+    private static RefreshRun WithJoined(RefreshRun run) =>
+        new(
+            new SonosAccountRefreshResult(
+                run.Result.RefreshStatus, run.Result.Renewed, run.Result.Discarded, joined: true,
+                waiterCanceled: false, run.Result.WriteStatus, run.Result.Snapshot),
+            run.StartedGeneration,
+            run.InstalledCredentials,
+            run.InstalledGeneration,
+            run.Invalidated,
+            run.GenerationMismatch);
 
     // ================= 5. ponowienie samego zapisu =================
 
