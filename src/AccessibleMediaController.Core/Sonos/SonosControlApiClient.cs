@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace AccessibleMediaController.Core.Sonos;
 
 /// <summary>Odczyt Control API. Token tylko na czas wywolania, bez zapisu i logowania.</summary>
-public sealed class SonosControlApiClient : IDisposable
+public sealed partial class SonosControlApiClient : IDisposable
 {
     public const int MaxResponseBytes = 256 * 1024;
     private readonly SonosControlApiConfiguration _configuration;

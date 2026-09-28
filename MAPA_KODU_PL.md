@@ -1,5 +1,47 @@
 # AMC — mapa kodu
 
+## Sonos Control API: odczyt odtwarzania grupy i podstawowe polecenia (Core, po alfa413)
+
+Warstwa WYŁĄCZNIE niskopoziomowa: klient, modele i testy. Nie ma tu
+koordynatora uwierzytelnienia dla zapisu, `MainWindow`, nowej sesji, pollingu,
+ulubionych, kolejki ani EQ — to kolejne etapy.
+
+- `Core/Sonos/SonosGroupPlaybackContract.cs`: niemutowalne modele odczytu
+  (`SonosGroupPlaybackStatus`, `SonosGroupMetadata`, `SonosQueueItem`,
+  `SonosTrackMetadata`, `SonosGroupVolume`, `SonosPlaybackActions`,
+  `SonosPlayModes`) oraz rozdzielne wyniki. Trzy rzeczy pilnowane wprost:
+  - `bool?` zachowuje różnicę BRAK pola kontra `false`, a `int?` różnicę
+    „pozycja nieznana” kontra `0` — DTO nie wymyśla czasu ani uprawnień;
+  - `artist` i `album` są OBIEKTAMI z wymaganym `name`; napis w tym miejscu to
+    niezgodna odpowiedź, nie nazwa wykonawcy;
+  - `canSkipBack` jest przeterminowane i zastępowane przez `canSkipToPrevious`;
+    `CanSkipToPreviousEffective` daje pierwszeństwo nowemu polu. `skipBack`
+    (powrót na początek utworu) to NIE `skipToPreviousTrack`.
+  Modele nie trzymają tokenów i nie ujawniają ich w `ToString`.
+- `Core/Sonos/SonosControlApiClient.GroupPlayback.cs` (część `partial` istniejącego
+  klienta, bez duplikowania dojrzałych zabezpieczeń): trzy GET-y
+  (`playback`, `playbackMetadata`, `groupVolume`) i polecenia POST na GRUPIE —
+  `play`, `pause`, `togglePlayPause`, `skipToNextTrack`, `skipToPreviousTrack`,
+  `seek`, `seekRelative`, `groupVolume`, `groupVolume/mute`,
+  `groupVolume/relative`. `seek` NIE wymaga sesji odtwarzania. Nie ma
+  niepotwierdzonego `/stop` ani odtwarzania URI.
+- `SonosGroupCommandOutcome` rozdziela PRZYJĘCIE zlecenia od jego SKUTKU:
+  HTTP 200 znaczy tylko, że Sonos przyjął polecenie. Po utracie odpowiedzi
+  polecenie PRZEŁĄCZAJĄCE (`togglePlayPause`) lub WZGLĘDNE (`seekRelative`,
+  `groupVolume/relative`) ma skutek NIEROZSTRZYGNIĘTY (`EffectUndetermined`).
+  Żadnego automatycznego ponawiania POST — powtórzenie dałoby inny skutek.
+  Jawny odczyt stanu i weryfikacja skutku należą do przyszłego koordynatora,
+  nie do transportu; nie ma tego po cichu w kliencie.
+- Błąd polecenia NIE odświeża tokenu i NIE kasuje konta — to warstwa
+  koordynatora. Treść błędu sterowana przez serwer nie trafia do diagnostyki.
+- `capabilities`/`fixed` będą bramką UI; tutaj jest tylko wierny odczyt i
+  walidacja argumentów (zakres `volume` 0..100, `volumeDelta` -100..100,
+  nieujemny `positionMillis`, `itemId` do 128 znaków ze spec) — bez martwych
+  funkcji i bez zaślepek.
+- Testy: `SonosGroupPlaybackTests` (`--sonos-group-playback`, sprawdzany
+  dosłownie w `Program.cs`) plus wpis w pełnej tabeli Core. Tylko sztuczny
+  handler, bez sieci, konta, DPAPI i GUI.
+
 ## Sonos: lista urządzeń — zakres kandydata alfa413
 
 - `SonosAccountPresenter.ShowDevices` otwiera `SonosDevicesWindow` z okna konta i uruchamia asynchroniczne `LoadAsync` bezpośrednio przed `ShowDialog`. Właściciel konta przekazuje bezpieczne operacje odczytu; modele UI nie przejmują poświadczeń.

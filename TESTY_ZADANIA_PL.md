@@ -1,5 +1,52 @@
 # Zadania testowe AMC
 
+## Sonos: odczyt odtwarzania grupy i podstawowe polecenia — Core, po alfa413
+
+- Runner Core: `--sonos-group-playback` (dosłownie sprawdzony w `Program.cs`),
+  ten sam zestaw dodany do pełnej tabeli testów Core. Wynik: **70/70, exit 0**.
+  Wszystkie odpowiedzi HTTP są sztuczne (własny handler); ZERO konta, ZERO
+  DPAPI, ZERO sieci Sonosa, ZERO GUI i NVDA. Zmierzone na WSL.
+- Brak regresji na dojrzałych zestawach: `--sonos-control-api` 69/69 exit 0,
+  `--sonos-device-read` 18/18 exit 0 — te same liczniki co przed zmianą.
+- Pełna tabela Core: przed zmianą 191 pozycji OK i 6 BŁĘDÓW, po zmianie
+  192 OK i te same 6 BŁĘDÓW (lista błędów porównana wiersz w wiersz, identyczna).
+  Te sześć to wady PREEGZYSTUJĄCE, niezwiązane z Sonosem (edycja nagrań, adres
+  kolejnej strony TIDAL ×2, „Pokaż w folderze”, odkrywanie plików lokalnych,
+  zmiana nazwy pliku) — zmierzone na czystym `git stash`, nie wprowadzone tutaj.
+- RED przed kodem: pierwszy przebieg kompilacji padł na `error CS1061` —
+  `SonosControlApiClient` nie miał `GetGroupPlaybackAsync`,
+  `GetGroupMetadataAsync` ani `GetGroupVolumeAsync`. GREEN po dodaniu części
+  `partial` klienta; kolejne przyrosty (metadane, głośność, polecenia, błędy)
+  dokładane pionowo.
+- Odczyty sprawdzone wobec definicji: `playbackState` jest JEDYNYM wymaganym
+  polem (jego brak = niezgodna odpowiedź, nieznana wartość enuma = `Unknown`,
+  ale odpowiedź zostaje), `positionMillis` nieobecne to NIE zero, brak całego
+  `availablePlaybackActions` to NIE zestaw samych `false`, brak `durationMillis`
+  to NIE zero, `volume` wymagane i sprawdzane na 0..100.
+- Metadane: brak `currentItem` jest LEGALNY — potwierdzone osobno dla radia
+  (`container.type = "station"`) i dla pustego głośnika. `artist`/`album` jako
+  napis zamiast obiektu są odrzucane jako niezgodna odpowiedź.
+- Polecenia: sprawdzone ścieżki i ciała wszystkich dziesięciu operacji wprost
+  z definicji, `seek` BEZ nagłówka sesji odtwarzania, `positionMillis` ujemny i
+  `itemId` powyżej 128 znaków odrzucane LOKALNIE (zero HTTP), `volume` poza
+  0..100 i `volumeDelta` poza -100..100 również bez żądania.
+- Rozdzielenie przyjęcia od skutku: HTTP 200 daje „przyjęte”, nie
+  „potwierdzone”. Po zerwaniu połączenia polecenie przełączające/względne daje
+  skutek NIEROZSTRZYGNIĘTY, a bezwzględne nie. Zmierzone wprost, że błąd
+  polecenia NIE powoduje ponowienia POST (licznik żądań handlera) ani nie
+  odświeża tokenu / nie kasuje konta.
+- Zachowane dojrzałe bezpieczniki, sprawdzone również dla POST: stały host
+  HTTPS, odrzucony obcy końcowy adres odpowiedzi, odrzucona odpowiedź bez
+  `RequestMessage`, brak echa treści sterowanej serwerem dla kodów 400, 401,
+  403, 404, 429, 499, 500, 503, 302 i 204, deadline obejmujący nagłówki i ciało,
+  anulowanie odróżnione od przekroczenia czasu, handler wołającego żyje po
+  `Dispose` klienta, limity długości pól wzięte ze spec.
+- CZEGO TO NIE DOWODZI: nie ma tu pomiaru na Windows (własną weryfikację
+  wykonuje właściciel pulpitu), żywego NVDA, prawdziwego konta ani sprzętu
+  Sonos. Nie objęte celowo: koordynator uwierzytelnienia dla zapisu, polling i
+  callback, `MainWindow`, nowa sesja, ulubione, kolejka, EQ, bramka UI na
+  `capabilities`/`fixed`. Brak wydania, instalacji, push i publikacji.
+
 ## Sonos: końcowy odbiór listy do alfa413
 
 - Na `cf04f9a`: własny przebieg Windows `--sonos-devices-window` 68 sprawdzeń i `--sonos-account-wiring` 19 sprawdzeń, oba exit0. Historyczne liczniki niżej dotyczą wcześniejszych etapów.
