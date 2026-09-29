@@ -321,8 +321,10 @@ public partial class MainWindow
 
             if (household is null)
             {
+                // UDANY odczyt zero domow to BRAK DOMU, nie brak konta: inaczej
+                // Enter na pustej liscie kazalby sie logowac na podlaczonym koncie.
                 _sonosEmptyReason = _sonosHouseholds.Count == 0
-                    ? SonosSessionEmptyReason.NoAccount
+                    ? SonosSessionEmptyReason.NoHouseholds
                     : SonosSessionEmptyReason.NotRead;
                 ApplySonosGroupRows();
                 return;
@@ -410,7 +412,7 @@ public partial class MainWindow
                 // go po cichu na inny, uniewazniamy caly cel.
                 InvalidateSonosTargetAfterConfirmedDisappearance(
                     _sonosHouseholds.Count == 0
-                        ? SonosSessionEmptyReason.NoAccount
+                        ? SonosSessionEmptyReason.NoHouseholds
                         : SonosSessionEmptyReason.NotRead,
                     "Wybrany dom Sonos już nie istnieje. Wybór został wyczyszczony");
                 return;
@@ -422,7 +424,7 @@ public partial class MainWindow
                 // uniewazniamy (nie ma czego), nie wybieramy domu za uzytkownika
                 // i nie podsuwamy nazwy - dostepne okno wyboru to B2c2. Zaden POST.
                 _sonosEmptyReason = _sonosHouseholds.Count == 0
-                    ? SonosSessionEmptyReason.NoAccount
+                    ? SonosSessionEmptyReason.NoHouseholds
                     : SonosSessionEmptyReason.NotRead;
                 ApplySonosGroupRows();
                 Announce(_sonosHouseholds.Count == 0

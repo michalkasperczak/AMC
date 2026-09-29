@@ -20,7 +20,14 @@ public enum SonosSessionEmptyReason
     NoGroups,
 
     /// <summary>Konto jest, grup jeszcze nie odczytano (albo odczyt padl).</summary>
-    NotRead
+    NotRead,
+
+    /// <summary>
+    /// Odczyt domow SIE UDAL i oddal ZERO domow. Konto jest podlaczone, wiec
+    /// droga NIE prowadzi do logowania; brakuje samego domu. Wartosc dopisana na
+    /// KONCU, zeby nie przenumerowac istniejacych stanow zapisanych wczesniej.
+    /// </summary>
+    NoHouseholds
 }
 
 /// <summary>Jeden wiersz listy sesji Sonos: GRUPA, nie utwor demonstracyjny.</summary>
@@ -99,6 +106,11 @@ public static class SonosSessionListPresentation
             + "aby zobaczyć swoje grupy.",
         SonosSessionEmptyReason.NoGroups =>
             "Konto Sonos jest połączone, ale ten dom nie zgłosił żadnej grupy. Sprawdź głośniki w aplikacji Sonos.",
+        // Udany odczyt ZERO domow: NIE mowimy o logowaniu (konto jest) i NIE
+        // mowimy o grupach (zaden dom nie jest wybrany, wiec nie ma czyich grup).
+        SonosSessionEmptyReason.NoHouseholds =>
+            "Konto Sonos jest połączone, ale nie udostępnia żadnego domu. Dodaj system Sonos w aplikacji Sonos, "
+            + "aby zobaczyć swoje grupy.",
         _ => "Grupy Sonos nie zostały jeszcze odczytane. Odśwież sesję, aby spróbować ponownie."
     };
 }

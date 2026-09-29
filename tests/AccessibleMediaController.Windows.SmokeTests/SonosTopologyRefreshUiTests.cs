@@ -503,6 +503,7 @@ internal static class SonosTopologyRefreshUiTests
             harness.ExecuteCommand(CommandIds.SessionSlot(8));
             harness.PumpUntil(() => harness.Backend.HouseholdReads > 0, "wejście nie odczytało domów");
             harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+            checks += MeasureEnterOnEmptyHouseholdsIsNotSignedOut(harness, "po wejściu");
 
             var before = harness.Announcements.Count;
             harness.ExecuteCommand(RefreshCommandId);
@@ -522,6 +523,7 @@ internal static class SonosTopologyRefreshUiTests
             }
             if (harness.Backend.Commands.Count != 0) throw new Exception("Odświeżenie wysłało POST do Sonosa.");
             checks += 3;
+            checks += MeasureEnterOnEmptyHouseholdsIsNotSignedOut(harness, "po odświeżeniu");
         }
 
         // (c) JEDEN dom, ZERO wyboru - start pozostaje jednoznaczny.
@@ -587,6 +589,45 @@ internal static class SonosTopologyRefreshUiTests
         }
 
         return checks;
+    }
+
+    /// <summary>
+    /// C9: PUSTA lista po POTWIERDZONYM udanym odczycie ZERO domow. Enter musi
+    /// powiedziec prawde o braku dostepnych domow - nie wolno mu udawac, ze
+    /// konto jest wylogowane i kazac sie zalogowac. Mierzone PRAWDZIWA droga
+    /// uzytkownika: ExecuteCommand(ActivateSelected) na widocznej pustej liscie.
+    /// </summary>
+    private static int MeasureEnterOnEmptyHouseholdsIsNotSignedOut(Harness harness, string stage)
+    {
+        if (harness.MediaList.Items.Count != 0)
+        {
+            throw new Exception($"Kontrolka pomiaru ({stage}): lista nie jest pusta.");
+        }
+
+        var before = harness.Announcements.Count;
+        harness.ExecuteCommand(CommandIds.ActivateSelected);
+        harness.PumpUntil(
+            () => harness.Announcements.Count > before,
+            $"Enter na pustej liście Sonos ({stage}) nic nie powiedział");
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(100));
+        var added = harness.Announcements.Skip(before).ToArray();
+        var spoken = added[^1];
+        if (spoken.Contains("zaloguj", StringComparison.OrdinalIgnoreCase)
+            || spoken.Contains("Nie ma połączonego konta", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                $"Udany odczyt 0 domów ({stage}) udaje wylogowane konto pod Enterem: " + spoken);
+        }
+        if (!spoken.Contains("dom", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception($"Enter ({stage}) nie nazwał braku dostępnych domów: " + spoken);
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception($"Enter na pustej liście ({stage}) wysłał POST do Sonosa.");
+        }
+
+        return 2;
     }
 
     // ===== C6: menu, paleta i podlaczenie polecenia =====
