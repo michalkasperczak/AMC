@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AccessibleMediaController.Core.Commands;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows.Services;
@@ -176,6 +177,36 @@ public partial class MainWindow
 
     internal long? SonosBoundAccountGenerationForTests => _sonosBoundAccountGeneration;
 
+    /// <summary>Kwity pomiaru L2: co zostalo z odczytow grupy po zmianie konta.</summary>
+    internal SonosGroupPlaybackStatus? SonosPlaybackForTests => _sonosPlayback;
+
+    internal SonosGroupMetadata? SonosMetadataForTests => _sonosMetadata;
+
+    internal SonosGroupVolume? SonosVolumeForTests => _sonosVolume;
+
+    /// <summary>Stan aplikacji tego okna - kwit pomiaru zapisanego wyboru.</summary>
+    internal PersistedState StateForTests => _state;
+
+    /// <summary>PRAWDZIWY prezenter okna konta tego okna. Tworzy go leniwie, jak produkcja.</summary>
+    internal SonosAccountPresenter SonosAccountPresenterForTests =>
+        _sonosAccountPresenter ??= new SonosAccountPresenter(_sonosAccount);
+
+    /// <summary>
+    /// Ustala ODNIESIENIE znacznika podlaczenia konta, gdy jeszcze go nie ma, i
+    /// NIE porzuca przy tym niczego. Wolane tam, gdzie konto i tak zostanie
+    /// zainicjowane (okno konta), zeby pozniejsza RZECZYWISTA zmiana miala z czym
+    /// sie porownac. Zero znacznika to prawidlowa wartosc odniesienia, nie brak
+    /// konta. Poza ta droga leniwosc zostaje nietknieta.
+    /// </summary>
+    internal void EstablishSonosAccountBindingReference()
+    {
+        if (_sonosBoundAccountGeneration is not null) return;
+        var backend = EnsureSonosBackend() as ISonosAccountBoundBackend
+            ?? SonosBackendOverride as ISonosAccountBoundBackend;
+        if (backend?.AccountSnapshot is not { } snapshot) return;
+        _sonosBoundAccountGeneration = snapshot.AccountBindingGeneration;
+    }
+
     /// <summary>
     /// GRANICA konta przed odczytem albo poleceniem sesji: gdy obserwowane konto
     /// zostalo RZECZYWISCIE zastapione albo odlaczone, porzucamy dane i zadania
@@ -213,7 +244,6 @@ public partial class MainWindow
         CancelSonosPendingWork();
         _sonosHouseholds = [];
         _sonosTopology = null;
-        _sonosGroupRows = [];
         _state.Sonos.SelectedHouseholdId = null;
         _state.Sonos.SelectedGroupId = null;
         _sonosPlayback = null;
@@ -222,6 +252,13 @@ public partial class MainWindow
         _sonosReadUtc = default;
         _sonosNextBackgroundReadUtc = DateTime.MinValue;
         _sonosEmptyReason = SonosSessionEmptyReason.NotRead;
+        // JEDNA istniejaca droga publikacji, nie druga kopia czyszczenia: samo
+        // zerowanie prywatnego _sonosGroupRows nie ruszalo RZECZYWISTEJ
+        // DemoMediaSession ani kontrolki listy, wiec czytnik dalej czytal pokoje
+        // STAREGO konta, a HasCurrentItem dalej wskazywal jego wiersz.
+        // ApplySonosGroupRows robi ReplaceItems i RefreshCurrentView - po
+        // wyzerowanej topologii wierszy grup nie ma, zostaje uczciwy pusty stan.
+        ApplySonosGroupRows();
         // Zadnego POST: nie zatrzymujemy muzyki i nie ruszamy innych sesji.
         QueueStateSave(announceFailure: false);
         return true;
@@ -245,6 +282,10 @@ public partial class MainWindow
             if (_sonosHouseholds.Count == 0)
             {
                 var households = await backend.ReadHouseholdsAsync(token).ConfigureAwait(true);
+                // GRANICA konta PO await (L2): wynik STAREGO konta odrzucamy, a
+                // porzucenie podnosi bilet, wiec odczyt grup starego household
+                // ID nizej w ogole nie wyjdzie.
+                if (ApplySonosAccountBinding()) return;
                 if (ticket != _sonosTargetTicket || _isClosing) return;
                 if (!households.Succeeded || households.Households is null)
                 {
@@ -279,6 +320,7 @@ public partial class MainWindow
             }
 
             var groups = await backend.ReadGroupsAsync(household.Id, token).ConfigureAwait(true);
+            if (ApplySonosAccountBinding()) return;
             if (ticket != _sonosTargetTicket || _isClosing) return;
             if (!groups.Succeeded || groups.Topology is null)
             {
@@ -399,11 +441,11 @@ public partial class MainWindow
         try
         {
             var playback = await backend.ReadGroupPlaybackAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStale(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
             var metadata = await backend.ReadGroupMetadataAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStale(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
             var volume = await backend.ReadGroupVolumeAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStale(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
 
             _sonosPlayback = playback.Succeeded ? playback.Value : null;
             _sonosMetadata = metadata.Succeeded ? metadata.Value : null;
@@ -439,6 +481,17 @@ public partial class MainWindow
     /// </summary>
     private bool IsSonosReadStale(int ticket, int sequence) =>
         ticket != _sonosTargetTicket || sequence != _sonosReadSequence || _isClosing;
+
+    /// <summary>
+    /// To samo co <see cref="IsSonosReadStale"/> PLUS granica konta PO await.
+    /// L2 z przegladu 680: sprawdzenie tylko przed await przepuszczalo wynik
+    /// GET-a, ktory wrocil juz po RZECZYWISTEJ zmianie konta, i ten wynik trafial
+    /// do sesji. <see cref="ApplySonosAccountBinding"/> samo porzuca dane i
+    /// podnosi bilet celu, wiec kolejny GET ze STARYM identyfikatorem nie wyjdzie
+    /// - nie potrzeba dodatkowego odpytania ani polecenia.
+    /// </summary>
+    private bool IsSonosReadStaleOrAccountChanged(int ticket, int sequence) =>
+        ApplySonosAccountBinding() || IsSonosReadStale(ticket, sequence);
 
     /// <summary>
     /// Zapisuje BACKOFF po wyjatku odczytu, nie tlumiac wyjatku (filtr zwraca
@@ -484,6 +537,17 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// INSTRUKCJA po rzeczywistej zmianie konta. L4 z przegladu 680: poprzednie
+    /// brzmienie kazalo "wejść do sesji Sonos", a uzytkownik JUZ w niej byl -
+    /// powtorne wybranie tej samej sesji nie przechodzi przez galaz zmiany sesji,
+    /// wiec nic sie nie odswiezalo. Tu opisujemy ZMIERZONA dzialajaca droge.
+    /// Pelne odswiezanie w miejscu nalezy do zakresu B2c.
+    /// </summary>
+    internal const string SonosAccountChangedInstruction =
+        "Konto Sonos się zmieniło. Przejdź do innej sesji i wróć do sesji Sonos, "
+        + "a potem wybierz grupę na nowo";
+
+    /// <summary>
     /// PODSTAWOWE polecenia sesji Sonos ISTNIEJACA droga ExecuteCommand. Sposob
     /// mapowania przepisany z WiiM (te same identyfikatory, te same skroty), ale
     /// nie jego HTTP: tu ida wylacznie polecenia Control API grupy.
@@ -494,7 +558,7 @@ public partial class MainWindow
         // NOWE konto tylko dlatego, ze nastepny tick jeszcze nie odswiezyl UI.
         if (ApplySonosAccountBinding())
         {
-            Announce("Konto Sonos się zmieniło. Wejdź do sesji Sonos i wybierz grupę na nowo");
+            Announce(SonosAccountChangedInstruction);
             return;
         }
 

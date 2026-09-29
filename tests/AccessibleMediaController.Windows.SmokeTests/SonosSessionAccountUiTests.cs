@@ -47,6 +47,12 @@ internal static class SonosSessionAccountUiTests
                 checks += MeasureOrdinaryRefreshKeepsSelection();
                 checks += MeasureLateReadAfterAccountSwapIsDiscarded();
                 checks += MeasureFailedNewLoginKeepsWorkingAccount();
+                checks += MeasureAccountChangeDropsRealSessionListAndCurrentItem();
+                checks += MeasureAccountSwapDuringEachReadStepDiscardsOldResult();
+                checks += MeasureAccountSwapDuringHouseholdReadStopsGroupRead();
+                checks += MeasureColdStartAccountSwapInsideModalIsDetected();
+                checks += MeasureColdStartRestoreWithoutSwapKeepsSelection();
+                checks += MeasureAccountChangeMessageDescribesWorkingPath();
             }
             catch (Exception exception)
             {
@@ -65,7 +71,8 @@ internal static class SonosSessionAccountUiTests
 
         Console.WriteLine(
             "OK: sesja Sonos reaguje na rzeczywista zmiane konta - odlaczenie porzuca dane i wybor, "
-            + $"zwykle odnowienie ich nie rusza ({checks} sprawdzeń, bez pokazywania GUI)");
+            + $"zwykle odnowienie ich nie rusza ({checks} sprawdzeń; dwa pomiary zimnego startu "
+            + "pokazują WŁASNE izolowane okno, bo WPF wymaga tego do Owner modala)");
     }
 
     // ===== ODLACZENIE prawdziwego, obserwowanego konta porzuca stan sesji =====
@@ -161,6 +168,467 @@ internal static class SonosSessionAccountUiTests
             throw new Exception("Sesja w ogóle nie zauważyła rzeczywistej zmiany konta.");
         }
         return 9;
+    }
+
+    // ===== L1: porzucenie czysci RZECZYWISTA liste i biezacy element sesji =====
+
+    /// <summary>
+    /// L1 z przegladu 680: po rzeczywistym odlaczeniu konta prywatne
+    /// <c>SonosGroupRows</c> bylo puste, ale DemoMediaSession sesji sonos dalej
+    /// trzymala MediaItem-y STAREGO konta, <c>HasCurrentItem</c> bylo true, a
+    /// kontrolka MediaList nie byla odswiezona - czytnik dalej czytal pokoje
+    /// poprzedniego konta.
+    ///
+    /// Kryterium jest BRAK STARYCH identyfikatorow, nie konkretna liczba
+    /// wszystkich wierszy: uczciwy pusty stan albo wiersz-instrukcja sesji to
+    /// poprawny wynik, bo nie nalezy do zadnego konta.
+    /// </summary>
+    private static int MeasureAccountChangeDropsRealSessionListAndCurrentItem()
+    {
+        using var harness = Harness.Create();
+        var window = harness.Window;
+        var coordinator = harness.AccountOwner.EnsureCoordinator();
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpUntil(() => window.SonosGroupRows.Count == 2, "wejście do sesji Sonos nie odczytało grup");
+        harness.Pump(window.ActivateSonosGroupAsync("GRUPA-SALON"));
+
+        var session = SonosSession(window);
+        if (!session.HasCurrentItem || session.Items.Count != 2)
+        {
+            throw new Exception(
+                "Przygotowanie: sesja Sonos nie ma rzeczywistej listy grup i bieżącego elementu ("
+                + session.Items.Count + " elementów, bieżący " + session.HasCurrentItem + ").");
+        }
+        if (!SonosRowIds(session).Contains("GRUPA-SALON", StringComparer.Ordinal))
+        {
+            throw new Exception("Przygotowanie: rzeczywista lista sesji nie zawiera wybranej grupy.");
+        }
+
+        // RZECZYWISTE odlaczenie PUBLICZNA operacja prawdziwego koordynatora.
+        var disconnect = coordinator.Disconnect();
+        if (!disconnect.Disconnected)
+        {
+            throw new Exception("Przygotowanie: syntetyczny magazyn nie potwierdził wylogowania.");
+        }
+
+        // PRODUKCYJNA granica: tykniecie licznika odtwarzacza. Bez wlasnej kopii
+        // czyszczenia i bez wolania zadnego callbacka.
+        harness.Pump(window.PollSonosGroupIfDueAsync(DateTime.UtcNow.AddHours(1)));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+        var stare = SonosRowIds(session)
+            .Where(id => id.StartsWith("GRUPA-", StringComparison.Ordinal))
+            .ToList();
+        if (stare.Count != 0)
+        {
+            throw new Exception(
+                "Po zmianie konta RZECZYWISTA lista sesji Sonos nadal ma grupy starego konta: "
+                + string.Join(", ", stare) + ".");
+        }
+        if (session.HasCurrentItem)
+        {
+            throw new Exception(
+                "Po zmianie konta sesja Sonos nadal ma bieżący element starego konta: "
+                + session.CurrentItem.Id + ".");
+        }
+
+        // KONTROLKA listy, nie tylko model: czytnik czyta wlasnie ja. Wiersz
+        // kontrolki jest typem prywatnym MainWindow, wiec czytamy jego wlasnosc
+        // Item tak samo jak istniejace pomiary list.
+        var widoczne = harness.MediaList.Items
+            .Cast<object>()
+            .Select(row => (row.GetType().GetProperty("Item")?.GetValue(row) as MediaItem)?.Id)
+            .Where(id => id is not null && id.StartsWith("GRUPA-", StringComparison.Ordinal))
+            .ToList();
+        if (widoczne.Count != 0)
+        {
+            throw new Exception(
+                "Po zmianie konta kontrolka listy nadal pokazuje grupy starego konta: "
+                + string.Join(", ", widoczne) + ".");
+        }
+        if (window.SonosAccountChangeDropsForTests == 0)
+        {
+            throw new Exception("Sesja w ogóle nie zauważyła rzeczywistej zmiany konta.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Porzucenie danych starego konta wysłało polecenie do Sonosa.");
+        }
+        return 6;
+    }
+
+    private static IReadOnlyList<string> SonosRowIds(DemoMediaSession session) =>
+        session.Items.Select(item => item.Id).ToList();
+
+    // ===== L2: zmiana konta odrzuca wynik KAZDEGO kroku odczytu =====
+
+    /// <summary>
+    /// L2 z przegladu 680: sprawdzenie migawki konta bylo tylko PRZED await,
+    /// wiec wynik GET-a, ktory wrocil PO zmianie konta, byl przyjmowany.
+    /// Mierzymy trzy kroki osobno (playback, metadata, volume): kazdy wstrzymany
+    /// GET zwalniamy PO realnej zmianie konta i zadamy odrzucenia jego wyniku
+    /// BEZ dodatkowego poll-a i bez wyslania polecenia.
+    /// </summary>
+    private static int MeasureAccountSwapDuringEachReadStepDiscardsOldResult()
+    {
+        var checks = 0;
+        foreach (var krok in new[] { "playback", "metadata", "volume" })
+        {
+            using var harness = Harness.Create();
+            var window = harness.Window;
+            var coordinator = harness.AccountOwner.EnsureCoordinator();
+
+            harness.ExecuteCommand(CommandIds.SessionSlot(8));
+            harness.PumpUntil(() => window.SonosGroupRows.Count == 2, "wejście do sesji Sonos nie odczytało grup");
+            harness.Pump(window.ActivateSonosGroupAsync("GRUPA-SALON"));
+
+            var session = SonosSession(window);
+            if (!session.HasCurrentItem)
+            {
+                throw new Exception("Przygotowanie kroku " + krok + ": sesja nie ma bieżącego elementu.");
+            }
+
+            // Zatrzymujemy DOKLADNIE jeden krok odczytu.
+            var brama = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            switch (krok)
+            {
+                case "playback": harness.Backend.ReadGate = brama.Task; break;
+                case "metadata": harness.Backend.MetadataGate = brama.Task; break;
+                default: harness.Backend.VolumeGate = brama.Task; break;
+            }
+
+            var odczyt = window.PollSonosGroupIfDueAsync(DateTime.UtcNow.AddHours(1));
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+            var przedIds = harness.Backend.ReadGroupIds.Count;
+
+            // REALNA zmiana konta PUBLICZNA droga produkcyjnego koordynatora,
+            // w trakcie trwajacego GET-a.
+            if (!coordinator.Disconnect().Disconnected)
+            {
+                throw new Exception("Przygotowanie kroku " + krok + ": wylogowanie nie potwierdzone.");
+            }
+
+            // Zwalniamy TEN GET - bez wymuszania dodatkowego poll-a przed release.
+            brama.SetResult(true);
+            harness.Pump(odczyt);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+            // Spozniony wynik NIE moze wrocic do sesji.
+            var stare = session.Items
+                .Select(item => item.Id)
+                .Where(id => id.StartsWith("GRUPA-", StringComparison.Ordinal))
+                .ToList();
+            if (stare.Count != 0)
+            {
+                throw new Exception(
+                    "Krok " + krok + ": spóźniony wynik starego konta wrócił na listę sesji: "
+                    + string.Join(", ", stare) + ".");
+            }
+            if (session.HasCurrentItem)
+            {
+                throw new Exception(
+                    "Krok " + krok + ": po zmianie konta sesja nadal ma bieżący element "
+                    + session.CurrentItem.Id + ".");
+            }
+            if (window.SonosPlaybackForTests is not null
+                || window.SonosMetadataForTests is not null
+                || window.SonosVolumeForTests is not null)
+            {
+                throw new Exception(
+                    "Krok " + krok + ": spóźniony wynik starego konta zapisał playback/metadata/volume.");
+            }
+
+            // Zadne kolejne GET ze STARYM identyfikatorem nie moze wyjsc.
+            var poZmianie = harness.Backend.ReadGroupIds.Skip(przedIds)
+                .Where(id => id is not null && id.StartsWith("GRUPA-", StringComparison.Ordinal))
+                .ToList();
+            if (poZmianie.Count != 0)
+            {
+                throw new Exception(
+                    "Krok " + krok + ": po zmianie konta wyszedł GET ze starym identyfikatorem: "
+                    + string.Join(", ", poZmianie) + ".");
+            }
+            if (harness.Backend.Commands.Count != 0)
+            {
+                throw new Exception("Krok " + krok + ": odrzucenie wyniku wysłało polecenie do Sonosa.");
+            }
+            checks += 5;
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// L2, czesc households/groups: wynik odczytu domow/topologii, ktory wrocil
+    /// po zmianie konta, nie moze zostac uzyty, a odczyt grup STAREGO household
+    /// ID nie moze w ogole wyjsc.
+    /// </summary>
+    private static int MeasureAccountSwapDuringHouseholdReadStopsGroupRead()
+    {
+        using var harness = Harness.Create();
+        var window = harness.Window;
+        var coordinator = harness.AccountOwner.EnsureCoordinator();
+
+        var brama = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Backend.HouseholdGate = brama.Task;
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+        if (harness.Backend.HouseholdReads != 1)
+        {
+            throw new Exception(
+                "Przygotowanie: wejście do sesji nie rozpoczęło odczytu domów ("
+                + harness.Backend.HouseholdReads + ").");
+        }
+        if (harness.Backend.GroupsReads != 0)
+        {
+            throw new Exception("Przygotowanie: odczyt grup wyszedł przed odczytem domów.");
+        }
+
+        if (!coordinator.Disconnect().Disconnected)
+        {
+            throw new Exception("Przygotowanie: wylogowanie nie potwierdzone.");
+        }
+
+        brama.SetResult(true);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        if (harness.Backend.GroupsReads != 0)
+        {
+            throw new Exception(
+                "Po zmianie konta wyszedł odczyt grup dla household starego konta ("
+                + harness.Backend.GroupsReads + " odczytów).");
+        }
+        if (window.SonosGroupRows.Count != 0)
+        {
+            throw new Exception(
+                "Po zmianie konta lista grup ma wiersze starego konta ("
+                + window.SonosGroupRows.Count + ").");
+        }
+        var stare = SonosSession(window).Items
+            .Select(item => item.Id)
+            .Where(id => id.StartsWith("GRUPA-", StringComparison.Ordinal))
+            .ToList();
+        if (stare.Count != 0)
+        {
+            throw new Exception(
+                "Po zmianie konta sesja ma grupy starego konta: " + string.Join(", ", stare) + ".");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Odrzucenie odczytu domów wysłało polecenie do Sonosa.");
+        }
+        return 5;
+    }
+
+    // ===== L3: zimny start z zapisanym wyborem, zmiana konta W MODALU =====
+
+    /// <summary>
+    /// L3 z przegladu 680: przy ZIMNYM starcie odniesienie znacznika bylo
+    /// <c>null</c>, wiec pierwszy odczyt PO modalu byl brany za punkt
+    /// odniesienia, a nie za zmiane - zapisany wybor starego konta zostawal.
+    /// Odniesienie musi powstac PRZED modalem, a zero znacznika nie znaczy
+    /// \"konta nie ma\".
+    ///
+    /// Droga jest rzeczywista: zapisany wybor -> ShowSonosAccountManager ->
+    /// Restore starego konta -> Disconnect W MODALU -> powrot rozpoznaje zmiane.
+    /// Okna nie pokazujemy: PresentOverride jest PRODUKCYJNYM punktem
+    /// podstawienia samego ShowDialog, cala reszta drogi jest prawdziwa.
+    /// </summary>
+    private static int MeasureColdStartAccountSwapInsideModalIsDetected()
+    {
+        using var harness = Harness.Create(state =>
+        {
+            state.Sonos.SelectedHouseholdId = "DOM-1";
+            state.Sonos.SelectedGroupId = "GRUPA-SALON";
+        });
+        var window = harness.Window;
+
+        if (window.SonosOwnerInitialized)
+        {
+            throw new Exception("Zimny start sam zainicjował konto Sonos - ogólny start czyta konto.");
+        }
+
+        if (window.StateForTests.Sonos.SelectedGroupId != "GRUPA-SALON")
+        {
+            throw new Exception("Przygotowanie: zimny start nie wczytał zapisanego wyboru grupy.");
+        }
+
+        // Pulpit jest zarezerwowany na te pomiary: prawdziwa droga okna konta
+        // ustawia Owner, a WPF wymaga do tego pokazanego okna.
+        harness.ShowOwnWindow();
+
+        // MODAL: nie pokazujemy okna, ale w jego trakcie ZMIENIAMY konto
+        // PUBLICZNA droga prawdziwego koordynatora - tak jak uzytkownik, ktory
+        // wylogowuje sie w oknie konta.
+        var presenter = window.SonosAccountPresenterForTests;
+        var utworzone = 0;
+        presenter.PresentOverride = _ =>
+        {
+            utworzone++;
+            var coordinator = harness.AccountOwner.EnsureCoordinator();
+            if (coordinator.Snapshot.State != SonosAccountState.Connected)
+            {
+                throw new Exception(
+                    "W modalu nie było przywróconego STAREGO konta (stan " + coordinator.Snapshot.State + ").");
+            }
+            if (!coordinator.Disconnect().Disconnected)
+            {
+                throw new Exception("Wylogowanie w modalu nie zostało potwierdzone.");
+            }
+        };
+
+        window.ShowSonosAccountManager();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+        if (utworzone != 1)
+        {
+            throw new Exception("Rzeczywista droga okna konta nie została przejściowa dokładnie raz.");
+        }
+        if (window.SonosAccountChangeDropsForTests == 0)
+        {
+            throw new Exception(
+                "Powrót z okna konta NIE rozpoznał zmiany konta przy zimnym starcie "
+                + "(pierwsza migawka potraktowana jako odniesienie).");
+        }
+        if (window.StateForTests.Sonos.SelectedGroupId is { } grupa)
+        {
+            throw new Exception("Po zmianie konta został zapisany wybór grupy starego konta: " + grupa + ".");
+        }
+        if (window.StateForTests.Sonos.SelectedHouseholdId is { } dom)
+        {
+            throw new Exception("Po zmianie konta został zapisany wybór domu starego konta: " + dom + ".");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Powrót z okna konta wysłał polecenie do Sonosa.");
+        }
+        return 6;
+    }
+
+    /// <summary>
+    /// KONTROLKA DODATNIA L3: ten sam zimny start i to samo prawdziwe okno konta,
+    /// ale konto NIE zmienia sie w modalu (samo Restore). Zapisany wybor MUSI
+    /// zostac - inaczej poprawka kasowalaby wybor przy kazdym wejsciu do konta.
+    /// </summary>
+    private static int MeasureColdStartRestoreWithoutSwapKeepsSelection()
+    {
+        using var harness = Harness.Create(state =>
+        {
+            state.Sonos.SelectedHouseholdId = "DOM-1";
+            state.Sonos.SelectedGroupId = "GRUPA-SALON";
+        });
+        var window = harness.Window;
+
+        harness.ShowOwnWindow();
+        var presenter = window.SonosAccountPresenterForTests;
+        presenter.PresentOverride = _ =>
+        {
+            // ZWYKLE wejscie: tylko przywrocenie zapisanego konta, bez zmiany.
+            var coordinator = harness.AccountOwner.EnsureCoordinator();
+            if (coordinator.Snapshot.State != SonosAccountState.Connected)
+            {
+                throw new Exception("Kontrolka: nie przywrócono zapisanego konta.");
+            }
+        };
+
+        window.ShowSonosAccountManager();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+        if (window.SonosAccountChangeDropsForTests != 0)
+        {
+            throw new Exception(
+                "Zwykłe wejście do okna konta bez zmiany konta porzuciło dane sesji ("
+                + window.SonosAccountChangeDropsForTests + " razy).");
+        }
+        if (window.StateForTests.Sonos.SelectedGroupId != "GRUPA-SALON"
+            || window.StateForTests.Sonos.SelectedHouseholdId != "DOM-1")
+        {
+            throw new Exception("Zwykłe wejście do okna konta skasowało zapisany wybór Sonos.");
+        }
+        return 2;
+    }
+
+    // ===== L4: komunikat po zmianie konta ma opisywac DZIALAJACA droge =====
+
+    /// <summary>
+    /// L4 z przegladu 680: komunikat mowil "Wejdź do sesji Sonos", a uzytkownik
+    /// JUZ byl w sesji Sonos - powtorne wejscie do tej samej sesji nie przechodzi
+    /// przez galaz <c>sessionChanged</c>, wiec NIC sie nie odswieza i instrukcja
+    /// jest nieprawdziwa.
+    ///
+    /// Mierzymy RZECZYWISTA droge: najpierw sprawdzamy, ze droga z komunikatu
+    /// faktycznie odswieza sesje. Ten przyrost daje uczciwa instrukcje przejscia
+    /// do INNEJ sesji i powrotu; pelne odswiezanie w miejscu to zakres B2c.
+    /// </summary>
+    private static int MeasureAccountChangeMessageDescribesWorkingPath()
+    {
+        using var harness = Harness.Create();
+        var window = harness.Window;
+        var coordinator = harness.AccountOwner.EnsureCoordinator();
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpUntil(() => window.SonosGroupRows.Count == 2, "wejście do sesji Sonos nie odczytało grup");
+        harness.Pump(window.ActivateSonosGroupAsync("GRUPA-SALON"));
+
+        if (!coordinator.Disconnect().Disconnected)
+        {
+            throw new Exception("Przygotowanie: wylogowanie nie potwierdzone.");
+        }
+
+        harness.Announcements.Clear();
+        harness.Pump(window.ExecuteSonosCommandAsync(CommandIds.PlayPause));
+
+        var komunikat = harness.Announcements.FirstOrDefault(a =>
+            a.Contains("Konto Sonos", StringComparison.Ordinal))
+            ?? throw new Exception(
+                "Po zmianie konta polecenie nie powiedziało nic o koncie: ["
+                + string.Join(" | ", harness.Announcements) + "].");
+
+        if (komunikat != MainWindow.SonosAccountChangedInstruction)
+        {
+            throw new Exception(
+                "Komunikat polecenia nie jest produkcyjną instrukcją: \"" + komunikat + "\".");
+        }
+
+        // Instrukcja NIE MOZE kazac wchodzic do sesji, w ktorej uzytkownik juz
+        // jest: ta droga nie dziala (brak przejscia sessionChanged).
+        var przedIds = harness.Backend.HouseholdReads;
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+        var ponowneWejscieOdswiezylo = harness.Backend.HouseholdReads > przedIds;
+
+        if (komunikat.Contains("Wejdź do sesji Sonos", StringComparison.Ordinal)
+            && !ponowneWejscieOdswiezylo)
+        {
+            throw new Exception(
+                "Komunikat każe wejść do sesji Sonos, ale użytkownik już w niej jest i ta droga "
+                + "NIE odświeża sesji (odczytów domów bez zmiany: " + harness.Backend.HouseholdReads + ").");
+        }
+
+        // DROGA Z INSTRUKCJI musi RZECZYWISCIE odswiezyc: inna sesja i powrot.
+        var przedPowrotem = harness.Backend.HouseholdReads;
+        harness.ExecuteCommand(CommandIds.SessionSlot(1));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        if (harness.Backend.HouseholdReads <= przedPowrotem)
+        {
+            throw new Exception(
+                "Droga z komunikatu (inna sesja i powrót) NIE odświeżyła sesji Sonos: "
+                + harness.Backend.HouseholdReads + " odczytów domów.");
+        }
+        if (!komunikat.Contains("innej sesji", StringComparison.Ordinal)
+            && !komunikat.Contains("inną sesję", StringComparison.Ordinal)
+            && !komunikat.Contains("innej sesji", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                "Komunikat nie opisuje zmierzonej działającej drogi (przejście do innej sesji i powrót): \""
+                + komunikat + "\".");
+        }
+        return 5;
     }
 
     // ===== ZWYKLA rotacja poswiadczen ZACHOWUJE wybor, liste i kontekst =====
@@ -511,7 +979,14 @@ internal static class SonosSessionAccountUiTests
 
         internal ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
 
-        internal static Harness Create()
+        internal static Harness Create() => Create(null);
+
+        /// <summary>
+        /// <paramref name="configureState"/> pozwala zmierzyc ZIMNY START z JUZ
+        /// zapisanym wyborem Sonos - stan jest ustawiony PRZED zbudowaniem okna,
+        /// tak jak po wczytaniu pliku ustawien.
+        /// </summary>
+        internal static Harness Create(Action<PersistedState>? configureState)
         {
             var dispatcher = Dispatcher.CurrentDispatcher;
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
@@ -526,6 +1001,7 @@ internal static class SonosSessionAccountUiTests
             state.Radio.RecordingSchedules.Clear();
             state.Settings.Updates.CheckAutomatically = false;
             state.Settings.Updates.InstallOnExit = false;
+            configureState?.Invoke(state);
 
             var announcements = new List<string>();
             var accountStore = new SyntetycznyMagazyn();
@@ -558,6 +1034,19 @@ internal static class SonosSessionAccountUiTests
             var backend = new FakeBackend(new SonosAccountOwnerGroupBackend(owner));
             window.SonosBackendOverride = backend;
             return new Harness(directory, window, backend, owner, accountStore, gateway, announcements);
+        }
+
+        /// <summary>
+        /// POKAZUJE wlasne izolowane okno pomiaru. Potrzebne tylko tam, gdzie
+        /// mierzymy prawdziwa droge okna konta: WPF nie pozwala ustawic Owner na
+        /// oknie, ktore nie bylo wyswietlone. Pulpit jest zarezerwowany na te
+        /// pomiary; okno zamyka Dispose.
+        /// </summary>
+        internal void ShowOwnWindow()
+        {
+            Window.Show();
+            PumpUntil(() => Window.IsLoaded, "własne okno pomiaru się nie pokazało");
+            PumpQuietly(TimeSpan.FromMilliseconds(150));
         }
 
         internal void ExecuteCommand(string commandId)
@@ -686,6 +1175,28 @@ internal static class SonosSessionAccountUiTests
         /// <summary>Wstrzymanie ODCZYTU: pozwala zmierzyć spóźniony wynik.</summary>
         internal Task? ReadGate { get; set; }
 
+        /// <summary>
+        /// Osobne zatrzymanie KAZDEGO kroku odczytu. L2 z przegladu 680 wymaga
+        /// pomiaru, ze po zmianie konta odrzucany jest wynik kazdego GET-a, nie
+        /// tylko pierwszego, a kolejne GET-y ze starym ID w ogole nie wychodza.
+        /// </summary>
+        internal Task? MetadataGate { get; set; }
+
+        internal Task? VolumeGate { get; set; }
+
+        internal Task? HouseholdGate { get; set; }
+
+        internal Task? GroupsGate { get; set; }
+
+        internal int MetadataReads { get; private set; }
+
+        internal int VolumeReads { get; private set; }
+
+        internal int GroupsReads { get; private set; }
+
+        /// <summary>Identyfikatory grup uzyte w GET-ach - dowod, ze stary nie wyszedl.</summary>
+        internal List<string?> ReadGroupIds { get; } = [];
+
         private readonly SonosPlaybackActions _actions = new(
             canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
             canSeek: true, canPause: true, canStop: null, canRepeat: null, canRepeatOne: null,
@@ -695,27 +1206,35 @@ internal static class SonosSessionAccountUiTests
             string? groupId, CancellationToken cancellationToken)
         {
             PlaybackReads++;
+            ReadGroupIds.Add(groupId);
             if (ReadGate is { } gate) await gate.ConfigureAwait(true);
             var status = new SonosGroupPlaybackStatus(
                 SonosPlaybackState.Playing, null, null, "UTWOR-1", 12_000, null, null, null, _actions);
             return SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(status);
         }
 
-        public Task<SonosGroupReadResult<SonosGroupMetadata>> ReadGroupMetadataAsync(
+        public async Task<SonosGroupReadResult<SonosGroupMetadata>> ReadGroupMetadataAsync(
             string? groupId, CancellationToken cancellationToken)
         {
+            MetadataReads++;
+            ReadGroupIds.Add(groupId);
+            if (MetadataGate is { } gate) await gate.ConfigureAwait(true);
             var track = new SonosTrackMetadata(
                 "track", "Preludium", "Chopin", "Nokturny", null,
                 new SonosMetadataService("Sonos Radio", "9"), 180_000);
             var metadata = new SonosGroupMetadata(
                 null, new SonosQueueItem("UTWOR-1", track, null), null, null, null);
-            return Task.FromResult(SonosGroupReadResult<SonosGroupMetadata>.Success(metadata));
+            return SonosGroupReadResult<SonosGroupMetadata>.Success(metadata);
         }
 
-        public Task<SonosGroupReadResult<SonosGroupVolume>> ReadGroupVolumeAsync(
-            string? groupId, CancellationToken cancellationToken) =>
-            Task.FromResult(
-                SonosGroupReadResult<SonosGroupVolume>.Success(new SonosGroupVolume(30, false, false)));
+        public async Task<SonosGroupReadResult<SonosGroupVolume>> ReadGroupVolumeAsync(
+            string? groupId, CancellationToken cancellationToken)
+        {
+            VolumeReads++;
+            ReadGroupIds.Add(groupId);
+            if (VolumeGate is { } gate) await gate.ConfigureAwait(true);
+            return SonosGroupReadResult<SonosGroupVolume>.Success(new SonosGroupVolume(30, false, false));
+        }
 
         public Task<SonosGroupCommandResult> SendGroupCommandAsync(
             string? groupId, SonosGroupCommand command, CancellationToken cancellationToken)
@@ -752,15 +1271,20 @@ internal static class SonosSessionAccountUiTests
                 SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SetMute));
         }
 
-        public Task<SonosHouseholdsReadResult> ReadHouseholdsAsync(CancellationToken cancellationToken)
+        public async Task<SonosHouseholdsReadResult> ReadHouseholdsAsync(CancellationToken cancellationToken)
         {
             HouseholdReads++;
-            return Task.FromResult(SonosHouseholdsReadResult.Success([new SonosHousehold("DOM-1", "Dom", null)]));
+            if (HouseholdGate is { } gate) await gate.ConfigureAwait(true);
+            return SonosHouseholdsReadResult.Success([new SonosHousehold("DOM-1", "Dom", null)]);
         }
 
-        public Task<SonosGroupsReadResult> ReadGroupsAsync(
-            string householdId, CancellationToken cancellationToken) =>
-            Task.FromResult(SonosGroupsReadResult.Success(new SonosHouseholdTopology(
+        public async Task<SonosGroupsReadResult> ReadGroupsAsync(
+            string householdId, CancellationToken cancellationToken)
+        {
+            GroupsReads++;
+            ReadGroupIds.Add(householdId);
+            if (GroupsGate is { } gate) await gate.ConfigureAwait(true);
+            return SonosGroupsReadResult.Success(new SonosHouseholdTopology(
                 [
                     new SonosGroup("GRUPA-SALON", "Salon", "P1", ["P1"], SonosPlaybackState.Playing),
                     new SonosGroup("GRUPA-KUCHNIA", "Kuchnia", "P2", ["P2"], SonosPlaybackState.Idle)
@@ -769,7 +1293,8 @@ internal static class SonosSessionAccountUiTests
                     new SonosPlayer("P1", "Salon", null, null, null),
                     new SonosPlayer("P2", "Kuchnia", null, null, null)
                 ],
-                false)));
+                false));
+        }
     }
 
     /// <summary>

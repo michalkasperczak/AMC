@@ -411,6 +411,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: sesja, aktywna grupa, odtwarzacz i polecenia", SonosSessionUiTests.Run),
     ("Sonos: wejście do sesji rzeczywistą drogą użytkownika", SonosSessionEntryUiTests.Run),
     ("Sonos: odświeżanie sesji prawdziwym licznikiem odtwarzacza", SonosSessionPollingUiTests.Run),
+    ("Sonos: sesja wobec rzeczywistej zmiany konta", SonosSessionAccountUiTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

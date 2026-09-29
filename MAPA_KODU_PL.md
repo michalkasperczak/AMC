@@ -86,6 +86,35 @@ Dwie usterki WEJŚCIA naprawione po alfa413 (zmiana CALLERA, nie nowa ścieżka)
   `ExecuteCommand(ActivateSelected)` bierze cel WYŁĄCZNIE z zaznaczonego wiersza,
   żeby nie aktywować niewidocznej grupy przy pustej liście.
 
+ZMIANA KONTA wobec sesji (etap B2b) mierzy `Windows.SmokeTests
+--sonos-session-account-ui` na prawdziwym `MainWindow` i produkcyjnym koordynatorze
+konta; zaplecze poświadczeń/grup jest syntetyczne w pamięci. Cztery bezpieczniki
+tego etapu:
+
+- `ApplySonosAccountBinding` (`MainWindow.Sonos.cs`) — RZECZYWISTE porzucenie stanu
+  idzie JEDNĄ istniejącą drogą publikacji `ApplySonosGroupRows`, więc razem z cache
+  czyszczą się `Session.Items`, `CurrentItem` i kontrolka listy. Wcześniej
+  bezpośrednie `_sonosGroupRows = []` zostawiało w sesji **pokoje starego konta**.
+  Kryterium: brak STARYCH identyfikatorów — uczciwy pusty stan jest w porządku.
+- `IsSonosReadStaleOrAccountChanged` (`MainWindow.Sonos.cs`) — granica konta **PO
+  każdym await** (playback, metadane, głośność), a w `EnterSonosSessionAsync` po
+  `ReadHouseholdsAsync` i `ReadGroupsAsync`. Wcześniej sprawdzenie było tylko PRZED
+  await, więc wynik starego konta wracał na listę. Samo `IsSonosReadStale` (B1)
+  zostaje nietknięte — nowa bramka jest OBOK. Porzucenie podnosi bilet celu, więc
+  **kolejny GET ze starym identyfikatorem nie wychodzi**, bez dodatkowego poll-a.
+- `EstablishSonosAccountBindingReference` woła `ShowSonosAccountManager`
+  (`MainWindow.xaml.cs`) **PRZED** modalem. Przy zimnym starcie znacznik był `null`,
+  więc pierwsza migawka po modalu udawała odniesienie i zapisany wybór starego
+  konta zostawał. Zero znacznika to prawidłowe odniesienie, **nie „brak konta”**;
+  metoda niczego nie porzuca. Ogólny start nadal konta NIE czyta.
+- `SonosAccountChangedInstruction` — instrukcja po zmianie konta opisuje ZMIERZONĄ
+  działającą drogę (przejście do INNEJ sesji i powrót). Poprzednie brzmienie
+  („wejdź do sesji Sonos”) nie działało: ponowne wejście będąc już w sesji nie
+  przechodzi przez gałąź `sessionChanged` i nie odświeża niczego. Pełne odświeżanie
+  w miejscu należy do etapu B2c.
+
+Odsłuchu NVDA, prawdziwego konta i prawdziwych głośników tu NIE było.
+
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
 
 Wąskie powiązanie trzech GET-ów i dziesięciu POST-ów grupy z ISTNIEJĄCYM

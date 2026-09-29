@@ -18320,6 +18320,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var returnToPlayer = _playerViewActive;
         _sonosAccountPresenter ??= new SonosAccountPresenter(_sonosAccount);
+        // ODNIESIENIE PRZED modalem (L3 z przegladu 680): przy zimnym starcie
+        // znacznik podlaczenia nie byl jeszcze odczytany, wiec pierwszy odczyt PO
+        // modalu stawal sie punktem odniesienia i RZECZYWISTA zmiana konta w
+        // modalu przechodzila niezauwazona - zapisany wybor starego konta
+        // zostawal. Tu konto JUZ bedzie inicjowane przez samo okno, wiec
+        // ustalenie odniesienia nie lamie leniwosci ogolnego startu.
+        _sonosAccount.EnsureCoordinator();
+        EstablishSonosAccountBindingReference();
         _sonosAccountPresenter.Show(this);
         // PRZEJSCIE Z okna konta: konto moglo sie RZECZYWISCIE zmienic podczas
         // modala, gdy Dispatcher i licznik dalej pracowaly. Granica porzuca dane
