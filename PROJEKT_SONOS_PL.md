@@ -1,6 +1,6 @@
 # Sonos — wytyczne, stan prac i otwarte sprawy
 
-Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie opisane funkcje są już dostępne w instalatorze.
+Stan na 29 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie opisane funkcje są już dostępne w instalatorze.
 
 ## Co jest wydane
 
@@ -8,7 +8,7 @@ Stan na 28 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano już Core, jego powiązanie z kontem, wejście do sesji użytkowej oraz automatyczne odświeżanie stanu. Nadal nie są częścią tego instalatora. Trwają prace nad reakcją sesji na zmianę konta i wyborem domu. Nie wymaga to teraz ponownego logowania użytkownika.
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano już Core, jego powiązanie z kontem, wejście do sesji użytkowej oraz automatyczne odświeżanie stanu. Nadal nie są częścią tego instalatora. Reakcja sesji na zmianę konta jest już odebrana w kodzie roboczym; trwają prace nad odświeżaniem grup i wyborem domu. Nie wymaga to teraz ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -91,7 +91,7 @@ Dwa błędy komunikatów przy porzuceniu polecenia zostały odtworzone i poprawi
 
 ### Granice tego odbioru i kolejny krok
 
-Mechanizm operacji przez konto został podłączony do roboczej sesji Windows. Odbiór wejścia i automatycznego odświeżania opisano poniżej w S-07 i S-08. Nie oznacza to jeszcze zakończenia całej sesji: pozostają obsługa zmiany konta, wybór domu, jawne odświeżanie topologii oraz pełny odbiór odtwarzacza. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
+Mechanizm operacji przez konto został podłączony do roboczej sesji Windows. Odbiór wejścia i automatycznego odświeżania opisano poniżej w S-07 i S-08. Nie oznacza to jeszcze zakończenia całej sesji: pozostają wybór domu, jawne odświeżanie topologii oraz pełny odbiór odtwarzacza. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
 
 Jedna wcześniejsza pełna próba zgłosiła błąd asercji zdarzenia procesu Librespot. Nie odtworzono go w 60 izolowanych próbach, pięciu pełnych przebiegach czystej alfa413 ani w końcowym pełnym przebiegu poprawki. Przyczyna pozostaje nierozstrzygnięta; nie uznajemy tego błędu za naprawiony i nie przypisujemy go bez dowodu zmianom Sonosa.
 
@@ -121,7 +121,19 @@ Kod roboczy `8295935` udostępnia bezpieczny, lokalny znacznik zastąpienia lub 
 
 Własny test dodatkowy wykrył i następnie potwierdził usunięcie jednego błędu: odrzucone pierwsze podłączenie nie może zgłaszać zmiany konta, którego wcześniej nie było. Ten sam zestaw testów dał **36/37 przed poprawką i 37/37 po niej**. Niezależny przebieg na Windows potwierdził **37/37**, pełny Core oraz regresje Sonosa. Końcowy przegląd poprawki nie wskazał blokad.
 
-Trwa podłączanie tego znacznika do sesji, aby zmiana lub odłączenie konta porzucały stare grupy, dane odtwarzacza i oczekujące operacje, a zwykłe odnowienie zachowywało wybór. **Sam odbiór Core nie oznacza jeszcze wykonania tej reakcji w interfejsie.** Później zostaną podłączone wybór domu i jawne odświeżanie grup. Nadal nie wykonano nowego wydania ani próby sterowania rzeczywistym sprzętem; wersja wydana pozostaje alfa413.
+Podłączenie znacznika do sesji zostało odebrane w kolejnym kroku opisanym poniżej. Sam licznik w Core nie był wystarczającym dowodem działania interfejsu.
+
+### S-10. Zmiana konta usuwa stare grupy i porzuca spóźnione odpowiedzi
+
+Kod roboczy `09e02bd` zamyka cztery potwierdzone błędy niewydanego przyrostu: pozostawianie starej listy i bieżącego elementu, przyjmowanie spóźnionych danych po zmianie konta, nierozpoznawanie zmiany przy pierwszym otwarciu okna konta oraz instrukcję powrotu, która nie działała przy ponownym wyborze już aktywnej sesji.
+
+Lista widoczna użytkownikowi jest teraz czyszczona razem z modelem sesji. Po każdym oczekiwaniu na odpowiedź sprawdzane jest powiązanie z kontem; kolejny odczyt ze starym identyfikatorem nie jest uruchamiany, a spóźniony wynik nie wraca do odtwarzacza. Pierwsze odtworzenie zapisanego konta pozostaje punktem odniesienia i nie usuwa poprawnego wyboru. Zwykłe odnowienie dostępu także zachowuje wybór.
+
+Własny przebieg na Windows potwierdził **69 sprawdzeń reakcji sesji na konto**, wcześniejsze zestawy Sonosa i pełny Core. Trzy niezależne próby, które wykazywały błędy przed poprawką, przeszły po niej. Końcowy niezależny przegląd zgodności i jakości nie wskazał blokad; nie uruchamiał testów i nie zastępuje tych pomiarów.
+
+Żywy NVDA potwierdził zniknięcie starych wierszy po odłączeniu oraz możliwość powrotu do listy klawiaturą. W prawdziwym Podglądzie mowy sprawdzono pojedynczy komunikat z wykonalną instrukcją przejścia do innej sesji i powrotu. Dodatkowa próba z Enterem, zatrzymaną odpowiedzią i zastąpieniem konta potwierdziła brak spóźnionego otwarcia odtwarzacza. Dane i konta były syntetyczne; nie sterowano rzeczywistym głośnikiem.
+
+**To nadal nie jest nowe wydanie.** Alfa413 pozostaje wersją z instalatorem. Następny przyrost obejmuje jawne odświeżanie grup i unieważnienie celu, który zniknął, a następnie dostępny wybór domu. Pełny odbiór odtwarzacza, presety i rzeczywiste sterowanie sprzętem nie są przez ten wynik uznane za zakończone.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
