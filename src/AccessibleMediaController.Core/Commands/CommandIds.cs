@@ -98,6 +98,12 @@ public static class CommandIds
     /// </summary>
     public const string ManageSonosConnection = "sonos.connection.manage";
 
+    /// <summary>
+    /// JAWNE odswiezenie grup Sonos. Dostepne TYLKO w sesji Sonos i BEZ skrotu
+    /// klawiszowego: zadnej renumeracji ani zajmowania cudzego Ctrl+F5.
+    /// </summary>
+    public const string RefreshSonosGroups = "sonos.groups.refresh";
+
     /// <summary>Zapisane podcasty Spotify. Wlasna sciezka, bo Spotify nie ma RSS.</summary>
     public const string ViewSpotifyPodcasts = "spotify.podcasts.saved";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";

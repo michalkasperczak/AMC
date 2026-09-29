@@ -4022,6 +4022,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Konto Sonos nie ma jeszcze sesji, wiec nie da sie go ograniczyc do
         // sesji. Jest dostepne wszedzie - jak sama pozycja w menu Plik.
         if (commandId == CommandIds.ManageSonosConnection) return true;
+        // Odswiezanie grup ma sens WYLACZNIE w sesji Sonos: w obcej sesji nie ma
+        // czego odswiezac, wiec polecenie tam nie istnieje dla uzytkownika.
+        if (commandId == CommandIds.RefreshSonosGroups) return IsSonosSession(_sessions.Current.Id);
         if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
@@ -6454,6 +6457,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
+        // Odswiezanie grup istnieje TYLKO w sesji Sonos. Konto Sonos zostaje
+        // dostepne wszedzie - tego nie ruszamy.
+        RefreshSonosGroupsMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
         ManageSpotifyConnectionMenuItem.Visibility =            SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
                 ? Visibility.Visible
@@ -11234,6 +11242,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (IsSonosSession(_sessions.Current.Id))
         {
+            if (commandId == CommandIds.RefreshSonosGroups)
+            {
+                // JAWNE odswiezenie: czyta zaplecze, nie cache, i nie wysyla POST.
+                _ = RefreshSonosTopologyAsync();
+                return new CommandExecutionResult(true);
+            }
             if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
             {
                 // Enter na LISCIE czyni grupe aktywna i otwiera odtwarzacz.
@@ -25197,6 +25211,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ManageSpotifyConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSpotifyConnection);
     private void ManageSonosConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSonosConnection);
+
+    private void RefreshSonosGroups_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshSonosGroups);
 
     private void SpotifyPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewSpotifyPodcasts);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);

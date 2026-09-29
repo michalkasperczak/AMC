@@ -113,6 +113,39 @@ tego etapu:
   przechodzi przez gałąź `sessionChanged` i nie odświeża niczego. Pełne odświeżanie
   w miejscu należy do etapu B2c.
 
+### B2c1 — jawne odświeżanie grup i unieważnienie znikniętego celu
+
+Mierzone przez `--sonos-topology-refresh-ui` (37 policzonych postwarunków) na
+prawdziwym `MainWindow` i prawdziwym `ExecuteCommand`; granica to
+`ISonosGroupSessionBackend`, bez konta, HTTP, DPAPI i audio.
+
+- `CommandIds.RefreshSonosGroups` (`sonos.groups.refresh`, nazwa „Odśwież grupy
+  Sonos”) — **BEZ skrótu klawiszowego**, więc nic się nie renumeruje. Widoczność:
+  `CommandVisibleInPalette` zwraca `true` tylko w sesji Sonos, a
+  `RefreshSonosGroupsMenuItem` w menu Plik jest `Collapsed` poza nią.
+  `ManageSonosConnection` zostaje dostępne wszędzie — bez zmian.
+- `RefreshSonosTopologyAsync` (`MainWindow.Sonos.cs`) — czyta `ReadHouseholdsAsync`
+  **i** `ReadGroupsAsync` z zaplecza, nie z cache. Jedno odświeżenie naraz
+  (`_sonosRefreshInFlight`); bramka ma właściciela (`_sonosRefreshGateTicket`), więc
+  spóźniony przelot A nie zwalnia ani nie podmienia trwającego B. Bilet celu i
+  granica konta sprawdzane **po każdym await** i przed publikacją. Zero POST.
+- **Zniknięcie po POTWIERDZONYM odczycie** unieważnia cel: najpierw
+  `CancelSonosPendingWork`, potem publikacja świeżej topologii i
+  `ClearSonosTargetState` (wybór, playback, metadane, głośność, czasy), powrót z
+  odtwarzacza `ReturnFromPlayerToList` i `ApplySonosGroupRows`, więc `Session.Items`,
+  `CurrentItem` i kontrolka listy są prawdziwe. Stary GET zwolniony PO odświeżeniu
+  nic nie publikuje. Wybór **nie** przechodzi na sąsiada; zniknięcie samej grupy nie
+  kasuje istniejącego domu.
+- **Błąd odczytu to nie dowód zniknięcia**: `AnnounceSonosRefreshNotFresh` mówi o
+  braku świeżości, a poprawne identyfikatory i wiersze zostają — pustki nie
+  publikujemy jako sukcesu.
+- Ten sam identyfikator po zmianie nazwy i kolejności **zostaje** (ścieżka
+  niedestrukcyjna idzie przez `ApplySonosTopology`, rozwiązywanie po ID).
+- Instrukcja odzyskania w `ActivateSonosGroupAsync` nazywa teraz ISTNIEJĄCE
+  polecenie („Użyj polecenia Odśwież grupy Sonos”), a nie nieistniejący F5.
+- Wielodomowy wybór to nadal **B2c2**: istniejąca reguła „pusty wybór + dokładnie
+  jeden dom” zostaje, żadnego okna wyboru tu nie ma.
+
 Odsłuchu NVDA, prawdziwego konta i prawdziwych głośników tu NIE było.
 
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)

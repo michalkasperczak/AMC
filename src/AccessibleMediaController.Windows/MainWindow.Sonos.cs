@@ -68,6 +68,15 @@ public partial class MainWindow
 
     private CancellationTokenSource? _sonosCancellation;
 
+    /// <summary>JEDNO jawne odswiezenie naraz: druga proba nie mnozy GET.</summary>
+    private bool _sonosRefreshInFlight;
+
+    /// <summary>
+    /// WLASCICIEL bramki odswiezenia. Bez niego spozniony przelot A zwalnialby
+    /// bramke trwajacego przelotu B w swoim finally.
+    /// </summary>
+    private int _sonosRefreshGateTicket;
+
     /// <summary>JEDEN przelot polecenia naraz. Brak ukrytej kolejki.</summary>
     private bool _sonosCommandInFlight;
 
@@ -339,6 +348,158 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// JAWNE odswiezenie topologii Sonos NA ZYCZENIE uzytkownika. Czyta domy i
+    /// grupy Z ZAPLECZA, nie z cache, i publikuje POTWIERDZONY swiezy odczyt.
+    ///
+    /// JEDNO odswiezenie naraz: druga probra w trakcie pierwszej NIE mnozy GET.
+    /// Bramka ma WLASCICIELA (bilet), zeby spozniony przelot A nie odblokowal ani
+    /// nie podmienil trwajacego B.
+    ///
+    /// BLAD odczytu to NIE dowod zniknięcia: poprawnych identyfikatorow nie
+    /// niszczymy i pustki nie publikujemy jako sukcesu. Zniknięcie domu albo
+    /// grupy liczy sie WYLACZNIE po POTWIERDZONYM swiezym odczycie.
+    /// </summary>
+    internal async Task RefreshSonosTopologyAsync()
+    {
+        if (_sonosRefreshInFlight) return;
+        var gate = ++_sonosRefreshGateTicket;
+        _sonosRefreshInFlight = true;
+        var backend = EnsureSonosBackend();
+        ApplySonosAccountBinding();
+        var ticket = _sonosTargetTicket;
+        var token = EnsureSonosCancellation().Token;
+        Announce("Odświeżam grupy Sonos");
+        try
+        {
+            var households = await backend.ReadHouseholdsAsync(token).ConfigureAwait(true);
+            if (ApplySonosAccountBinding()) return;
+            if (ticket != _sonosTargetTicket || _isClosing || gate != _sonosRefreshGateTicket) return;
+            if (!households.Succeeded || households.Households is null)
+            {
+                // Brak swiezosci, a NIE zniknięcie: wybor i lista zostaja.
+                AnnounceSonosRefreshNotFresh(households.Status);
+                return;
+            }
+
+            _sonosHouseholds = households.Households;
+            var household = SonosActiveGroupPolicy.ResolveHousehold(
+                _state.Sonos.SelectedHouseholdId,
+                _sonosHouseholds);
+            if (household is null && _state.Sonos.SelectedHouseholdId is null && _sonosHouseholds.Count == 1)
+            {
+                // Ta SAMA istniejaca regula poczatkowa: pusty wybor i dokladnie
+                // jeden dom to wybor jednoznaczny. Wieloddomowy wybor to B2c2.
+                household = _sonosHouseholds[0];
+                _state.Sonos.SelectedHouseholdId = household.Id;
+            }
+
+            if (household is null)
+            {
+                // SWIADOMY dom ZNIKNAL po potwierdzonym odczycie: nie podmieniamy
+                // go po cichu na inny, uniewazniamy caly cel.
+                InvalidateSonosTargetAfterConfirmedDisappearance(
+                    _sonosHouseholds.Count == 0
+                        ? SonosSessionEmptyReason.NoAccount
+                        : SonosSessionEmptyReason.NotRead,
+                    "Wybrany dom Sonos już nie istnieje. Wybór został wyczyszczony");
+                return;
+            }
+
+            var groups = await backend.ReadGroupsAsync(household.Id, token).ConfigureAwait(true);
+            if (ApplySonosAccountBinding()) return;
+            if (ticket != _sonosTargetTicket || _isClosing || gate != _sonosRefreshGateTicket) return;
+            if (!groups.Succeeded || groups.Topology is null)
+            {
+                AnnounceSonosRefreshNotFresh(groups.Status);
+                return;
+            }
+
+            var selected = _state.Sonos.SelectedGroupId;
+            var vanished = selected is not null
+                && SonosActiveGroupPolicy.Resolve(selected, groups.Topology) is null;
+            if (vanished)
+            {
+                // POTWIERDZONE zniknięcie AKTYWNEJ grupy: najpierw uniewazniamy
+                // wszystko w locie istniejaca droga, POTEM publikujemy swieza
+                // topologie. Inaczej spozniony GET starej grupy odtworzylby jej
+                // dane, a widok siedzialby w odtwarzaczu porzuconego celu.
+                CancelSonosPendingWork();
+                _sonosTopology = groups.Topology;
+                ClearSonosTargetState();
+                if (_playerViewActive && IsSonosSession(_sessions?.Current.Id)) ReturnFromPlayerToList();
+                _sonosEmptyReason = groups.Topology.Groups.Count == 0
+                    ? SonosSessionEmptyReason.NoGroups
+                    : SonosSessionEmptyReason.NotRead;
+                ApplySonosGroupRows();
+                QueueStateSave(announceFailure: false);
+                Announce("Aktywna grupa Sonos już nie istnieje. Odświeżono grupy, wybór wyczyszczony");
+                return;
+            }
+
+            // NIEDESTRUKCYJNE odswiezenie: ApplySonosTopology zachowuje wybor po
+            // IDENTYFIKATORZE mimo zmiany nazw i kolejnosci, a ApplySonosGroupRows
+            // przywraca zaznaczony WIERSZ.
+            ApplySonosTopology(groups.Topology);
+            Announce(SonosRefreshSummary(groups.Topology.Groups.Count));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            // Bramke zwalnia TYLKO jej wlasciciel: spozniony przelot A nie
+            // odblokuje trwajacego B.
+            if (gate == _sonosRefreshGateTicket) _sonosRefreshInFlight = false;
+        }
+    }
+
+    private static string SonosRefreshSummary(int groupCount) => groupCount switch
+    {
+        0 => "Odświeżono: ten dom Sonos nie ma żadnych grup",
+        1 => "Odświeżono grupy Sonos: 1 grupa",
+        _ => $"Odświeżono grupy Sonos: {groupCount}"
+    };
+
+    /// <summary>
+    /// Nieudany odczyt: mowimy o BRAKU SWIEZOSCI, a nie o zniknięciu. Zaden
+    /// identyfikator ani wiersz nie ginie, pustki nie publikujemy.
+    /// </summary>
+    private void AnnounceSonosRefreshNotFresh(SonosDeviceReadStatus status) => Announce(
+        status == SonosDeviceReadStatus.NoAccount
+            ? "Nie odświeżono grup Sonos: brak podłączonego konta"
+            : "Nie udało się odświeżyć grup Sonos. Pokazane grupy mogą być nieaktualne");
+
+    /// <summary>
+    /// Zniknięcie SWIADOMEGO domu po POTWIERDZONYM odczycie: uniewazniamy wyniki
+    /// w locie i CALY cel. Zadnego POST - muzyki nie zatrzymujemy.
+    /// </summary>
+    private void InvalidateSonosTargetAfterConfirmedDisappearance(
+        SonosSessionEmptyReason reason,
+        string message)
+    {
+        CancelSonosPendingWork();
+        _sonosTopology = null;
+        _state.Sonos.SelectedHouseholdId = null;
+        ClearSonosTargetState();
+        if (_playerViewActive && IsSonosSession(_sessions?.Current.Id)) ReturnFromPlayerToList();
+        _sonosEmptyReason = reason;
+        ApplySonosGroupRows();
+        QueueStateSave(announceFailure: false);
+        Announce(message);
+    }
+
+    /// <summary>Sam CEL i jego dane, bez dotykania topologii i domow.</summary>
+    private void ClearSonosTargetState()
+    {
+        _state.Sonos.SelectedGroupId = null;
+        _sonosPlayback = null;
+        _sonosMetadata = null;
+        _sonosVolume = null;
+        _sonosReadUtc = default;
+        _sonosNextBackgroundReadUtc = DateTime.MinValue;
+    }
+
+    /// <summary>
     /// Nowa topologia. Zapamietany wybor grupy przezywa TYLKO wtedy, gdy grupa o
     /// tym IDENTYFIKATORZE nadal istnieje; inaczej wybor jest CZYSZCZONY, a nie
     /// przenoszony na sasiada.
@@ -405,7 +566,8 @@ public partial class MainWindow
     {
         if (SonosActiveGroupPolicy.Resolve(groupId, _sonosTopology) is not { } group)
         {
-            Announce("Ta grupa Sonos już nie istnieje. Odśwież listę grup");
+            // Instrukcja odzyskania nazywa ISTNIEJACE polecenie z menu i palety.
+            Announce("Ta grupa Sonos już nie istnieje. Użyj polecenia Odśwież grupy Sonos");
             return null;
         }
 

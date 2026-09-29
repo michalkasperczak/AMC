@@ -73,6 +73,12 @@
                 <MenuItem x:Name="ManageSonosConnectionMenuItem" Header="Konto Sonos…"
                           automation:AutomationProperties.Name="Konto Sonos"
                           Click="ManageSonosConnection_Click" />
+                <!-- JAWNE odswiezenie grup Sonos: bez skrotu i bez litery dostepu,
+                     wiec zadnej renumeracji ani kolizji z cudzym Ctrl+F5. Widoczne
+                     TYLKO w sesji Sonos. -->
+                <MenuItem x:Name="RefreshSonosGroupsMenuItem" Header="Odśwież grupy Sonos"
+                          automation:AutomationProperties.Name="Odśwież grupy Sonos"
+                          Click="RefreshSonosGroups_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
