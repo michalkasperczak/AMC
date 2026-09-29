@@ -104,6 +104,12 @@ public static class CommandIds
     /// </summary>
     public const string RefreshSonosGroups = "sonos.groups.refresh";
 
+    /// <summary>
+    /// JAWNY wybor domu Sonos. Jak odswiezanie grup: dostepny TYLKO w sesji
+    /// Sonos i BEZ globalnego skrotu, wiec zadna numeracja sie nie przesuwa.
+    /// </summary>
+    public const string ChooseSonosHousehold = "sonos.household.choose";
+
     /// <summary>Zapisane podcasty Spotify. Wlasna sciezka, bo Spotify nie ma RSS.</summary>
     public const string ViewSpotifyPodcasts = "spotify.podcasts.saved";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";

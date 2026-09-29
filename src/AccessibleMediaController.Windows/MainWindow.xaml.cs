@@ -4025,6 +4025,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Odswiezanie grup ma sens WYLACZNIE w sesji Sonos: w obcej sesji nie ma
         // czego odswiezac, wiec polecenie tam nie istnieje dla uzytkownika.
         if (commandId == CommandIds.RefreshSonosGroups) return IsSonosSession(_sessions.Current.Id);
+        // Wybor domu tez ma sens WYLACZNIE w sesji Sonos: ta sama regula.
+        if (commandId == CommandIds.ChooseSonosHousehold) return IsSonosSession(_sessions.Current.Id);
         if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
@@ -6460,6 +6462,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Odswiezanie grup istnieje TYLKO w sesji Sonos. Konto Sonos zostaje
         // dostepne wszedzie - tego nie ruszamy.
         RefreshSonosGroupsMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        ChooseSonosHouseholdMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
             ? Visibility.Visible
             : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
@@ -11246,6 +11251,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // JAWNE odswiezenie: czyta zaplecze, nie cache, i nie wysyla POST.
                 _ = RefreshSonosTopologyAsync();
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.ChooseSonosHousehold)
+            {
+                // JAWNY wybor domu: SWIEZY odczyt domow, dostepny modal, zero POST.
+                LastSonosHouseholdChoiceTaskForTests = ChooseSonosHouseholdAsync();
                 return new CommandExecutionResult(true);
             }
             if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
@@ -25213,6 +25224,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ManageSonosConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSonosConnection);
 
     private void RefreshSonosGroups_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshSonosGroups);
+
+    private void ChooseSonosHousehold_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ChooseSonosHousehold);
 
     private void SpotifyPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewSpotifyPodcasts);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);

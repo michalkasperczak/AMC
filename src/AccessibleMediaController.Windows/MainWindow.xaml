@@ -79,6 +79,11 @@
                 <MenuItem x:Name="RefreshSonosGroupsMenuItem" Header="Odśwież grupy Sonos"
                           automation:AutomationProperties.Name="Odśwież grupy Sonos"
                           Click="RefreshSonosGroups_Click" />
+                <!-- WYBOR DOMU Sonos: tak samo bez skrotu i bez litery dostepu,
+                     wiec nic sie nie renumeruje. Widoczne TYLKO w sesji Sonos. -->
+                <MenuItem x:Name="ChooseSonosHouseholdMenuItem" Header="Wybierz dom Sonos"
+                          automation:AutomationProperties.Name="Wybierz dom Sonos"
+                          Click="ChooseSonosHousehold_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"

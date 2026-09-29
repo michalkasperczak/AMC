@@ -115,7 +115,7 @@ tego etapu:
 
 ### B2c1 — jawne odświeżanie grup i unieważnienie znikniętego celu
 
-Mierzone przez `--sonos-topology-refresh-ui` (37 policzonych postwarunków) na
+Mierzone przez `--sonos-topology-refresh-ui` (64 policzone postwarunki) na
 prawdziwym `MainWindow` i prawdziwym `ExecuteCommand`; granica to
 `ISonosGroupSessionBackend`, bez konta, HTTP, DPAPI i audio.
 
@@ -147,6 +147,52 @@ prawdziwym `MainWindow` i prawdziwym `ExecuteCommand`; granica to
   jeden dom” zostaje, żadnego okna wyboru tu nie ma.
 
 Odsłuchu NVDA, prawdziwego konta i prawdziwych głośników tu NIE było.
+
+### B2c2 — dostępny wybór domu, anulowanie bez zmian, zapis wyboru
+
+Mierzone przez `--sonos-household-choice-ui` (57 policzonych postwarunków) na
+prawdziwym `MainWindow`, prawdziwym `ExecuteCommand` i **rzeczywiście pokazanym**
+oknie wyboru (`ShowDialog` na własnym oknie, własna pompa komunikatów). Granica
+to `ISonosGroupSessionBackend` i `ConfigurationStore` — bez konta, HTTP, DPAPI,
+audio i bez klawiszy NVDA.
+
+- `CommandIds.ChooseSonosHousehold` (`sonos.household.choose`, nazwa „Wybierz dom
+  Sonos”) — **BEZ skrótu klawiszowego**, więc nic się nie renumeruje. Widoczność
+  jak przy odświeżaniu grup: `CommandVisibleInPalette` tylko w sesji Sonos,
+  `ChooseSonosHouseholdMenuItem` w menu Plik `Collapsed` poza nią.
+- `MainWindow.SonosHousehold.cs` — `ChooseSonosHouseholdAsync`: guardy PRZED
+  `ShowDialog` (kontekst sesji, powiązanie konta, zamykanie, aktywność, inne
+  otwarte modale) i PONOWNIE po await, na bilecie celu. Świeży
+  `ReadHouseholdsAsync` z ISTNIEJĄCEGO zaplecza właściciela konta, bez nowego
+  HTTP i bez własnego magazynu. **Spóźniony** odczyt (wyjście z sesji, zmiana
+  konta, zamknięcie) NIE pokazuje okna ani pól starego domu.
+- `SonosHouseholdSelectionWindow` — mały dostępny modal na wzór
+  `SessionSelectionWindow`, ale **bez** renumeracji poleceń. Zaznaczenie startowe
+  po **IDENTYFIKATORZE** bieżącego domu, nie po indeksie; etykiety z nazw
+  zaplecza (`SonosHouseholdLabel`), bez `ToString()` i bez sekretów. Ruch
+  zaznaczeniem sam z siebie **niczego nie zapisuje**.
+- Anulowanie / Escape / zamknięcie okna: **zero mutacji** — identyfikator domu,
+  grupy, wiersze listy i metadane zostają, `settings.json` nietknięty, zero POST.
+- Potwierdzenie **innego** domu: identyfikator sprawdzany wobec świeżo
+  odczytanej listy tego samego konta, potem `CancelSonosPendingWork` +
+  unieważnienie lotów starego celu, wyczyszczenie grupy, odtwarzania, metadanych,
+  głośności, czasu i **rzeczywistych wierszy** PRZED odczytem grup nowego domu.
+  Zapis przez ISTNIEJĄCE `QueueStateSave(announceFailure: true)`. Grupy nowego
+  domu tą samą drogą zaplecza — **bez POST, Stop i Pause**; aktywna grupa nie
+  jest wybierana po cichu i odtwarzacz nie otwiera się sam.
+- Błąd grup nowego domu: wybór B **zostaje** (jest świadomy), a puste/nieaktualne
+  dane są opisane uczciwie — grupy domu A **nie** są pokazywane jako grupy B.
+- Potwierdzenie **tego samego** domu nie restartuje celu: aktywna grupa,
+  metadane i model zostają.
+- Trwałość mierzona realnie: `ConfigurationStore.Save` → `LoadOrCreate` →
+  **drugie** `MainWindow` z zapisanego pliku; `SelectedHouseholdId` = DOM-2
+  przeżywa, a odtworzony wybór rzeczywiście kieruje odczytem grup. Zmiana nazwy
+  i kolejności domów nie rusza identyfikatora; do JSON nie doszły żadne tokeny
+  ani liczniki kont.
+
+Fizycznych klawiszy, odsłuchu NVDA, prawdziwego konta i głośników tu NIE było;
+`AnnouncementSinkForTests` mierzy **treść komunikatu**, nie to, co wypowiedział
+czytnik.
 
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
 

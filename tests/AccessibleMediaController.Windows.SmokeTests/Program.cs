@@ -86,6 +86,10 @@ if (args.Contains("--sonos-topology-refresh-ui", StringComparer.Ordinal))
 {
     SonosTopologyRefreshUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-household-choice-ui", StringComparer.Ordinal))
+{
+    SonosHouseholdChoiceUiTests.Run(); return 0;
+}
 if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;
@@ -417,6 +421,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: odświeżanie sesji prawdziwym licznikiem odtwarzacza", SonosSessionPollingUiTests.Run),
     ("Sonos: sesja wobec rzeczywistej zmiany konta", SonosSessionAccountUiTests.Run),
     ("Sonos: jawne odświeżanie grup i unieważnienie znikniętego celu", SonosTopologyRefreshUiTests.Run),
+    ("Sonos: dostępny wybór domu, anulowanie bez zmian i zapis wyboru", SonosHouseholdChoiceUiTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

@@ -1,0 +1,30 @@
+<Window x:Class="AccessibleMediaController.Windows.SonosHouseholdSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Wybór domu Sonos" Width="460" Height="320"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" Text="Wybierz dom Sonos"
+                   FontSize="18" FontWeight="SemiBold"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                    Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="SelectButton" Width="95" Margin="0,0,8,0" Content="_Wybierz"
+                    IsDefault="True" Click="Select_Click" />
+            <Button x:Name="CancelButton" Width="95" Content="_Anuluj"
+                    IsCancel="True" Click="Cancel_Click" />
+        </StackPanel>
+        <ListBox x:Name="HouseholdList" DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                 automation:AutomationProperties.Name="Domy Sonos"
+                 automation:AutomationProperties.HelpText="Strzałki wybierają dom. Wybierz potwierdza, Anuluj lub Escape nic nie zmienia."
+                 MouseDoubleClick="HouseholdList_MouseDoubleClick">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</Window>

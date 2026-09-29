@@ -65,6 +65,7 @@ public static class CommandCatalog
             CommandIds.ManageSpotifyConnection => "Konto Spotify",
             CommandIds.ManageSonosConnection => "Konto Sonos",
             CommandIds.RefreshSonosGroups => "Odśwież grupy Sonos",
+            CommandIds.ChooseSonosHousehold => "Wybierz dom Sonos",
             CommandIds.ViewSpotifyPodcasts => "Zapisane podcasty Spotify",
             CommandIds.ToggleLoudnessNormalization => "Przełącz globalną normalizację głośności",
             CommandIds.ToggleSmoothTrackTransitions => "Przełącz łagodne przejścia między utworami",
