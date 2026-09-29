@@ -361,11 +361,21 @@ public partial class MainWindow
     /// </summary>
     internal async Task RefreshSonosTopologyAsync()
     {
-        if (_sonosRefreshInFlight) return;
+        if (_sonosRefreshInFlight)
+        {
+            // SWIADOMA powtorka: krotka informacja, ZERO dodatkowych GET.
+            Announce("Odświeżanie grup Sonos już trwa");
+            return;
+        }
+
+        var backend = EnsureSonosBackend();
+        // GRANICA konta PRZED wzieciem biletu bramki: ApplySonosAccountBinding
+        // moze samo wywolac CancelSonosPendingWork, ktory PODNOSI bilet bramki.
+        // Wziecie biletu wczesniej uniewaznialoby WLASNY przelot i po zmianie
+        // konta odswiezenie nigdy by nie doszlo do publikacji.
+        ApplySonosAccountBinding();
         var gate = ++_sonosRefreshGateTicket;
         _sonosRefreshInFlight = true;
-        var backend = EnsureSonosBackend();
-        ApplySonosAccountBinding();
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
         Announce("Odświeżam grupy Sonos");
@@ -382,10 +392,11 @@ public partial class MainWindow
             }
 
             _sonosHouseholds = households.Households;
+            var chosenHouseholdId = _state.Sonos.SelectedHouseholdId;
             var household = SonosActiveGroupPolicy.ResolveHousehold(
-                _state.Sonos.SelectedHouseholdId,
+                chosenHouseholdId,
                 _sonosHouseholds);
-            if (household is null && _state.Sonos.SelectedHouseholdId is null && _sonosHouseholds.Count == 1)
+            if (household is null && chosenHouseholdId is null && _sonosHouseholds.Count == 1)
             {
                 // Ta SAMA istniejaca regula poczatkowa: pusty wybor i dokladnie
                 // jeden dom to wybor jednoznaczny. Wieloddomowy wybor to B2c2.
@@ -393,7 +404,7 @@ public partial class MainWindow
                 _state.Sonos.SelectedHouseholdId = household.Id;
             }
 
-            if (household is null)
+            if (household is null && chosenHouseholdId is not null)
             {
                 // SWIADOMY dom ZNIKNAL po potwierdzonym odczycie: nie podmieniamy
                 // go po cichu na inny, uniewazniamy caly cel.
@@ -402,6 +413,21 @@ public partial class MainWindow
                         ? SonosSessionEmptyReason.NoAccount
                         : SonosSessionEmptyReason.NotRead,
                     "Wybrany dom Sonos już nie istnieje. Wybór został wyczyszczony");
+                return;
+            }
+
+            if (household is null)
+            {
+                // ZADEN dom nie byl wybrany: to NIE zniknięcie. Niczego nie
+                // uniewazniamy (nie ma czego), nie wybieramy domu za uzytkownika
+                // i nie podsuwamy nazwy - dostepne okno wyboru to B2c2. Zaden POST.
+                _sonosEmptyReason = _sonosHouseholds.Count == 0
+                    ? SonosSessionEmptyReason.NoAccount
+                    : SonosSessionEmptyReason.NotRead;
+                ApplySonosGroupRows();
+                Announce(_sonosHouseholds.Count == 0
+                    ? "Odświeżono: konto Sonos nie udostępnia żadnego domu"
+                    : $"Odświeżono domy Sonos: {_sonosHouseholds.Count}. Nie wybrano domu, więc nie ma grup do pokazania");
                 return;
             }
 
@@ -1011,6 +1037,12 @@ public partial class MainWindow
         // spoznione finally starego przelotu nie zamknelo bramki nowszego.
         _sonosCommandGateTicket++;
         _sonosCommandInFlight = false;
+        // TA SAMA regula dla bramki ODSWIEZANIA: porzucony przelot A traci
+        // wlasnosc bramki, wiec powrot do sesji moze od razu zaczac nowe
+        // odswiezenie B. Spoznione finally A widzi juz CUDZY bilet i nie
+        // ruszy zajetosci B (patrz finally w RefreshSonosTopologyAsync).
+        _sonosRefreshGateTicket++;
+        _sonosRefreshInFlight = false;
         // Uniewazniamy tez WSZYSTKIE wyniki odczytow w locie i barierę tla:
         // po wyjsciu/zamknieciu zaden stary GET nie ma czego nadpisywac.
         _sonosReadSequence++;

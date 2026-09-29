@@ -55,6 +55,8 @@ internal static class SonosTopologyRefreshUiTests
                 checks += MeasureRenameAndReorderKeepSelectionById();
                 checks += MeasureReadFailureDoesNotFakeDisappearance();
                 checks += MeasureConcurrentRefreshDoesNotMultiplyReads();
+                checks += MeasureAbandonedRefreshDoesNotBlockNextOne();
+                checks += MeasureMissingSelectionIsNotVanishedHousehold();
             }
             catch (Exception exception)
             {
@@ -353,8 +355,241 @@ internal static class SonosTopologyRefreshUiTests
         return 3;
     }
 
-    // ===== C6: menu, paleta i podlaczenie polecenia =====
+    // ===== C7 (L1): porzucone odswiezenie NIE blokuje nastepnego =====
 
+    /// <summary>
+    /// RZECZYWISTA droga uzytkownika: odswiezenie A czeka na odpowiedz, uzytkownik
+    /// wychodzi do innej sesji i wraca, odswiezenie B MUSI wystartowac. Spoznione A
+    /// nie zwalnia bramki B, powtorka C w trakcie B nie mnozy GET i mowi krotko,
+    /// a zwolnione B faktycznie konczy sie swiezymi danymi.
+    /// </summary>
+    private static int MeasureAbandonedRefreshDoesNotBlockNextOne()
+    {
+        using var harness = Harness.Create();
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed porzuceniem odświeżenia");
+
+        var releaseA = new TaskCompletionSource();
+        harness.Backend.HouseholdGate = releaseA.Task;
+        var readsBeforeA = harness.Backend.HouseholdReads;
+        harness.ExecuteCommand(RefreshCommandId);
+        harness.PumpUntil(
+            () => harness.Backend.HouseholdReads == readsBeforeA + 1,
+            "odświeżenie A nie zaczęło odczytu domów");
+        if (!harness.RefreshInFlight) throw new Exception("Kontrolka pomiaru: odświeżenie A nie jest w locie.");
+
+        // RZECZYWISTE wyjscie do innej, NIEPUSTEJ sesji i powrot - prawdziwe polecenia.
+        harness.ExecuteCommand(CommandIds.SessionSlot(3));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+        // Topologia w chmurze sie zmienila; B ma to pokazac PO zwolnieniu bariery.
+        harness.Backend.SetGroups(
+            ("GRUPA-SALON", "Salon"),
+            ("GRUPA-KUCHNIA", "Kuchnia"),
+            ("GRUPA-SYPIALNIA", "Sypialnia"));
+        var releaseB = new TaskCompletionSource();
+        harness.Backend.HouseholdGate = releaseB.Task;
+        var readsBeforeB = harness.Backend.HouseholdReads;
+        harness.ExecuteCommand(RefreshCommandId);
+        harness.PumpUntil(
+            () => harness.Backend.HouseholdReads == readsBeforeB + 1,
+            "po powrocie do sesji porzucone odświeżenie A nadal blokuje rozpoczęcie B");
+
+        // STARE A konczy sie TERAZ: nie wolno mu zwolnic bramki trwajacego B.
+        releaseA.TrySetResult();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+        if (!harness.RefreshInFlight)
+        {
+            throw new Exception("Spóźnione odświeżenie A zwolniło bramkę trwającego odświeżenia B.");
+        }
+        if (harness.MediaList.Items.Count != 2)
+        {
+            throw new Exception("Porzucone odświeżenie A opublikowało wynik po wyjściu z sesji.");
+        }
+
+        // SWIADOMA powtorka C w trakcie B: zero GET i krotki komunikat.
+        var readsBeforeC = harness.Backend.HouseholdReads;
+        var announcementsBeforeC = harness.Announcements.Count;
+        harness.ExecuteCommand(RefreshCommandId);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+        if (harness.Backend.HouseholdReads != readsBeforeC)
+        {
+            throw new Exception("Powtórka odświeżenia w trakcie B zwielokrotniła GET domów.");
+        }
+        var addedC = harness.Announcements.Skip(announcementsBeforeC).ToArray();
+        if (addedC.Length != 1 || !addedC[0].Contains("już trwa", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                "Powtórka w trakcie odświeżania nie powiedziała krótko, że odświeżanie już trwa: "
+                + string.Join(" | ", addedC));
+        }
+
+        // ZWOLNIONE B faktycznie sie konczy i publikuje SWIEZE dane.
+        harness.Backend.HouseholdGate = null;
+        releaseB.TrySetResult();
+        harness.PumpUntil(
+            () => harness.MediaList.Items.Count == 3,
+            "zwolnione odświeżenie B nie dokończyło publikacji świeżej topologii");
+        if (harness.RefreshInFlight)
+        {
+            throw new Exception("Po zakończeniu B bramka odświeżania została zamknięta na zawsze.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Odświeżanie po porzuceniu wysłało POST do Sonosa.");
+        }
+        return 8;
+    }
+
+    // ===== C8 (L2): brak wyboru domu to NIE zniknięcie domu =====
+
+    /// <summary>
+    /// <c>household is null</c> ma DWIE rozne przyczyny. Swiadomy zapisany dom,
+    /// ktory zniknal, uniewaznia cel i mowi o zniknięciu. Brak jakiegokolwiek
+    /// wyboru przy dwoch domach albo braku domow NIE jest zniknięciem: nic nie
+    /// uniewazniamy, domu nie wybieramy za uzytkownika i nie klamiemy.
+    /// </summary>
+    private static int MeasureMissingSelectionIsNotVanishedHousehold()
+    {
+        var checks = 0;
+
+        // (a) DWA domy, ZERO zapisanego wyboru - uczciwy brak wybranego domu.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Dom"), ("DOM-2", "Domek nad morzem"));
+            harness.ExecuteCommand(CommandIds.SessionSlot(8));
+            harness.PumpUntil(() => harness.Backend.HouseholdReads > 0, "wejście nie odczytało domów");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+            if (harness.Window.SonosSelectedHouseholdId is not null)
+            {
+                throw new Exception("Kontrolka pomiaru: dom został wybrany po cichu przy dwóch domach.");
+            }
+
+            var before = harness.Announcements.Count;
+            harness.ExecuteCommand(RefreshCommandId);
+            harness.PumpUntil(
+                () => harness.Announcements.Count >= before + 2,
+                "odświeżenie bez wybranego domu nic nie powiedziało");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+            var added = harness.Announcements.Skip(before).ToArray();
+            if (added.Any(message => message.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new Exception(
+                    "Bez żadnego wyboru odświeżenie skłamało o zniknięciu domu: " + string.Join(" | ", added));
+            }
+            if (!added[^1].Contains("Nie wybrano domu", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    "Użytkownik nie usłyszał uczciwego braku wybranego domu: " + string.Join(" | ", added));
+            }
+            if (added[^1].Contains("Domek nad morzem", StringComparison.Ordinal))
+            {
+                throw new Exception("Komunikat podsuwa konkretny dom, choć okna wyboru jeszcze nie ma.");
+            }
+            if (harness.Window.SonosSelectedHouseholdId is not null)
+            {
+                throw new Exception("Odświeżenie wybrało dom za użytkownika przy dwóch domach.");
+            }
+            if (harness.Backend.Commands.Count != 0) throw new Exception("Odświeżenie wysłało POST do Sonosa.");
+            checks += 5;
+        }
+
+        // (b) ZERO domow, ZERO wyboru - uczciwy brak dostepnych domow, nie wylogowanie.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds();
+            harness.ExecuteCommand(CommandIds.SessionSlot(8));
+            harness.PumpUntil(() => harness.Backend.HouseholdReads > 0, "wejście nie odczytało domów");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+            var before = harness.Announcements.Count;
+            harness.ExecuteCommand(RefreshCommandId);
+            harness.PumpUntil(
+                () => harness.Announcements.Count >= before + 2,
+                "odświeżenie bez domów nic nie powiedziało");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+            var added = harness.Announcements.Skip(before).ToArray();
+            if (added.Any(message => message.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new Exception(
+                    "Brak domów został ogłoszony jako zniknięcie wybranego domu: " + string.Join(" | ", added));
+            }
+            if (!added[^1].Contains("dom", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Brak dostępnych domów nie został nazwany: " + string.Join(" | ", added));
+            }
+            if (harness.Backend.Commands.Count != 0) throw new Exception("Odświeżenie wysłało POST do Sonosa.");
+            checks += 3;
+        }
+
+        // (c) JEDEN dom, ZERO wyboru - start pozostaje jednoznaczny.
+        using (var harness = Harness.Create())
+        {
+            harness.ExecuteCommand(CommandIds.SessionSlot(8));
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "jeden dom nie dał listy grup");
+            var before = harness.Announcements.Count;
+            harness.ExecuteCommand(RefreshCommandId);
+            harness.PumpUntil(
+                () => harness.Backend.GroupReads >= 2,
+                "odświeżenie przy jednym domu nie odczytało grup");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+            var added = harness.Announcements.Skip(before).ToArray();
+            if (harness.Window.SonosSelectedHouseholdId != "DOM-1")
+            {
+                throw new Exception("Jednoznaczny jeden dom przestał być przyjmowany przy odświeżeniu.");
+            }
+            if (added.Any(message => message.Contains("Nie wybrano domu", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new Exception("Jeden dom dał komunikat o braku wyboru: " + string.Join(" | ", added));
+            }
+            checks += 3;
+        }
+
+        // (d) SWIADOMY zapisany dom, ktory ZNIKNAL - dawne czyszczenie i uczciwy tekst.
+        using (var harness = Harness.Create())
+        {
+            var window = harness.Window;
+            harness.ExecuteCommand(CommandIds.SessionSlot(8));
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zniknięciem domu");
+            harness.Pump(window.ActivateSonosGroupForTests("GRUPA-SALON"));
+            if (window.SonosSelectedHouseholdId != "DOM-1" || window.SonosSelectedGroupId != "GRUPA-SALON")
+            {
+                throw new Exception("Kontrolka pomiaru: świadomy cel nie został ustawiony.");
+            }
+
+            // Zapisany dom ZNIKA, w chmurze sa DWA INNE domy.
+            harness.Backend.SetHouseholds(("DOM-2", "Domek nad morzem"), ("DOM-3", "Chata"));
+            var before = harness.Announcements.Count;
+            harness.ExecuteCommand(RefreshCommandId);
+            harness.PumpUntil(
+                () => window.SonosSelectedHouseholdId is null,
+                "zniknięcie świadomie wybranego domu nie unieważniło celu");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+            var added = harness.Announcements.Skip(before).ToArray();
+            if (!added[^1].Contains("już nie istnieje", StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    "Zniknięcie świadomego domu nie zostało nazwane: " + string.Join(" | ", added));
+            }
+            if (window.SonosSelectedGroupId is not null)
+            {
+                throw new Exception("Cel w znikniętym domu nie został wyczyszczony.");
+            }
+            if (window.SonosSelectedHouseholdId == "DOM-2")
+            {
+                throw new Exception("Zniknięty dom został po cichu podmieniony na sąsiada.");
+            }
+            if (harness.Backend.Commands.Count != 0) throw new Exception("Unieważnienie wysłało POST do Sonosa.");
+            checks += 4;
+        }
+
+        return checks;
+    }
+
+    // ===== C6: menu, paleta i podlaczenie polecenia =====
     private static int MeasureCommandIsReachableInMenuAndPalette()
     {
         if (!CommandCatalog.GetAllCommandIds().Contains(RefreshCommandId, StringComparer.Ordinal))
@@ -463,6 +698,10 @@ internal static class SonosTopologyRefreshUiTests
 
         internal bool PlayerViewActive =>
             (bool)Window.GetType().GetField("_playerViewActive", Instance)!.GetValue(Window)!;
+
+        /// <summary>Bramka odświeżania widziana z zewnątrz: pole produktu, nie kopia.</summary>
+        internal bool RefreshInFlight =>
+            (bool)Window.GetType().GetField("_sonosRefreshInFlight", Instance)!.GetValue(Window)!;
 
         internal static Harness Create()
         {
@@ -651,6 +890,11 @@ internal static class SonosTopologyRefreshUiTests
 
         internal void SetGroups(params (string Id, string Name)[] groups) => _groups = groups;
 
+        private (string Id, string Name)[] _households = [("DOM-1", "Dom")];
+
+        /// <summary>Zwięzłe sterowanie domami: 0, 1 albo wiele, bez osobnej atrapy.</summary>
+        internal void SetHouseholds(params (string Id, string Name)[] households) => _households = households;
+
         private readonly SonosPlaybackActions _actions = new(
             canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
             canSeek: true, canPause: true, canStop: null, canRepeat: null, canRepeatOne: null,
@@ -714,7 +958,10 @@ internal static class SonosTopologyRefreshUiTests
         {
             HouseholdReads++;
             if (HouseholdGate is { } gate) await gate.ConfigureAwait(true);
-            return SonosHouseholdsReadResult.Success([new SonosHousehold("DOM-1", "Dom", null)]);
+            // KONTRAKT ZADANIA: porzucony przelot ma byc odrzucony przez bramke
+            // biletu, nawet gdy atrapa IGNORUJE cancellation - tak jak tutaj.
+            return SonosHouseholdsReadResult.Success(
+                _households.Select(home => new SonosHousehold(home.Id, home.Name, null)).ToArray());
         }
 
         public Task<SonosGroupsReadResult> ReadGroupsAsync(
