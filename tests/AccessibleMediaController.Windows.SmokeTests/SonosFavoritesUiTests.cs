@@ -2,10 +2,12 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Services;
@@ -47,6 +49,7 @@ internal static class SonosFavoritesUiTests
                 Stage("F6"); checks += MeasureHouseholdChangeDuringReadRejectsStaleWindow();
                 Stage("F7"); checks += MeasureBusyGateRefusesAndFreesForRetry();
                 Stage("F8"); checks += MeasureOtherSessionKeepsOldFavoritesPath();
+                Stage("F9"); checks += MeasureLeavingSessionFreesFavoritesGateForNewRead();
                 Stage("KONIEC-STA");
             }
             catch (Exception exception)
@@ -409,6 +412,180 @@ internal static class SonosFavoritesUiTests
         return 3;
     }
 
+    // ===== F9: WYJSCIE Z SESJI w trakcie odczytu A nie blokuje nowego odczytu B =====
+
+    /// <summary>
+    /// NAKLADAJACE SIE PRZELOTY A i B przez PRAWDZIWA zmiane sesji.
+    ///
+    /// Droga uzytkownika: trwa odczyt ulubionych A, uzytkownik wychodzi z sesji
+    /// Sonos istniejacym skrotem slotu, wraca do niej i JESZCZE PRZED koncem A
+    /// prosi o ulubione po raz drugi. Porzucony A NIE MA prawa odbic tego B
+    /// komunikatem "juz trwa", a jego SPOZNIONE finally NIE MA prawa zwolnic
+    /// bramki trwajacego B.
+    ///
+    /// Modal B jest tu PRAWDZIWY (<c>ShowDialog</c> z produkcyjnym wlascicielem),
+    /// a zamyka go rzeczywisty przycisk Zamknij (<c>IsCancel</c>).
+    /// </summary>
+    private static int MeasureLeavingSessionFreesFavoritesGateForNewRead()
+    {
+        using var harness = Harness.Create();
+        harness.Backend.SetFavorites("W1", ("ULU-1", "Nokturny", null, null));
+        harness.ShowOwnWindow();
+        // SLOTY z RZECZYWISTEGO SessionManager, nie zgadniete z kolejnosci nazw.
+        var sonosSlot = harness.FindSlot("sonos");
+        var otherSlot = harness.FindSlot("local");
+        harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+        harness.PumpUntil(() => harness.MediaList.Items.Count == 1, "sesja Sonos nie pokazała grupy");
+        harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+
+        var gateA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var gateB = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? readA = null;
+        Task? readB = null;
+        harness.UseRealModalPresentation();
+        try
+        {
+            // A: odczyt WSTRZYMANY na zapleczu.
+            harness.Backend.FavoritesGate = gateA.Task;
+            readA = harness.StartFavoritesKeepingPresentation();
+            harness.PumpUntil(() => harness.Backend.FavoriteReadsForTests == 1, "odczyt A nie ruszył");
+            if (readA.IsCompleted) throw new Exception("Odczyt A nie jest wstrzymany, pomiar nic nie mierzy.");
+            if (!harness.Window.SonosFavoritesInFlightForTests)
+            {
+                throw new Exception("Trwający odczyt A nie trzyma bramki ulubionych.");
+            }
+
+            // PRAWDZIWE wyjscie z sesji i PRAWDZIWY powrot - nie bezposrednie
+            // wywolanie anulowania.
+            harness.ExecuteCommand(CommandIds.SessionSlot(otherSlot));
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            if (harness.IsSonosCurrent) throw new Exception("Polecenie slotu nie wyszło z sesji Sonos.");
+            harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 1, "powrót do Sonosa nie pokazał grupy");
+            if (!harness.IsSonosCurrent) throw new Exception("Powrót do sesji Sonos nie nastąpił.");
+            if (!string.Equals(harness.Window.StateForTests.Sonos.SelectedHouseholdId, "DOM-1",
+                    StringComparison.Ordinal))
+            {
+                throw new Exception("Powrót do sesji zgubił wybrany dom, pomiar nie dotarłby do odczytu.");
+            }
+
+            harness.ReactivateOwnWindow();
+
+            // B: NOWE, JAWNE zadanie uzytkownika PRZED koncem A, na WLASNEJ
+            // barierze zaplecza.
+            harness.Backend.FavoritesGate = gateB.Task;
+            readB = harness.StartFavoritesKeepingPresentation();
+            harness.PumpUntil(() => harness.Backend.FavoriteReadsForTests == 2,
+                "porzucony odczyt A zablokował nowy odczyt B po wyjściu z sesji i powrocie "
+                + "(ostatni komunikat: " + (harness.Announcements.LastOrDefault() ?? "brak") + ")");
+            if (readB.IsCompleted) throw new Exception("Odczyt B zakończył się, choć jego bariera trzyma.");
+            if (readA.IsCompleted) throw new Exception("Odczyt A zakończył się przed zwolnieniem swojej bariery.");
+
+            // ZWOLNIENIE SPOZNIONEGO A, gdy B NADAL trwa.
+            gateA.TrySetResult();
+            harness.Pump(readA);
+            if (harness.Window.SonosFavoritesWindowsCreatedForTests != 0)
+            {
+                throw new Exception("Spóźniony odczyt A otworzył okno po wyjściu z sesji i powrocie.");
+            }
+            if (harness.Announcements.Any(text =>
+                    text.Contains("Ulubione Sonos: ", StringComparison.Ordinal)
+                    || string.Equals(text, SonosFavoritesLabels.EmptyState, StringComparison.Ordinal)))
+            {
+                throw new Exception("Spóźniony odczyt A oddał czytnikowi swój wynik: "
+                    + string.Join(" | ", harness.Announcements));
+            }
+            if (!harness.Window.SonosFavoritesInFlightForTests)
+            {
+                throw new Exception("Spóźnione zakończenie A zwolniło bramkę trwającego odczytu B.");
+            }
+            if (readB.IsCompleted) throw new Exception("Odczyt B zakończył się razem z A.");
+
+            // C: PONOWIENIE w trakcie B - uczciwa odmowa, ZERO trzeciego GET.
+            var refusedC = harness.StartFavoritesKeepingPresentation();
+            harness.Pump(refusedC);
+            if (harness.Backend.FavoriteReadsForTests != 2)
+            {
+                throw new Exception(
+                    $"Ponowienie w trakcie B dało {harness.Backend.FavoriteReadsForTests} odczytów zamiast 2.");
+            }
+            if (!(harness.Announcements.LastOrDefault() ?? string.Empty)
+                    .Contains("już trwa", StringComparison.Ordinal))
+            {
+                throw new Exception("Zajętość trwającego B nie została uczciwie ogłoszona.");
+            }
+
+            // ZWOLNIENIE B: DOKLADNIE JEDEN prawdziwy modal, zamkniety
+            // rzeczywistym przyciskiem Zamknij.
+            gateB.TrySetResult();
+            harness.Backend.FavoritesGate = null;
+            harness.Pump(readB);
+            if (harness.RealModalPresentations != 1)
+            {
+                throw new Exception(
+                    $"Odczyt B pokazał {harness.RealModalPresentations} prawdziwych modali zamiast 1.");
+            }
+            if (harness.Window.SonosFavoritesWindowsCreatedForTests != 1)
+            {
+                throw new Exception(
+                    $"Powstało {harness.Window.SonosFavoritesWindowsCreatedForTests} okien zamiast 1.");
+            }
+            if (harness.LastModalDialogResult is not false)
+            {
+                throw new Exception("Modal B nie został zamknięty rzeczywistym przyciskiem Zamknij.");
+            }
+            if (harness.Window.OpenSonosFavoritesWindowForTests is not null)
+            {
+                throw new Exception("Okno B zostało zapamiętane jako otwarte po zamknięciu.");
+            }
+            if (harness.Window.SonosFavoritesInFlightForTests)
+            {
+                throw new Exception("Bramka ulubionych nie została zwolniona po zakończeniu B.");
+            }
+
+            // JAWNE PONOWIENIE po wszystkim: NOWY, SWIEZY odczyt i drugi modal.
+            harness.ReactivateOwnWindow();
+            var readD = harness.StartFavoritesKeepingPresentation();
+            harness.Pump(readD);
+            if (harness.Backend.FavoriteReadsForTests != 3)
+            {
+                throw new Exception(
+                    $"Ponowienie po B dało {harness.Backend.FavoriteReadsForTests} odczytów zamiast 3.");
+            }
+            if (harness.RealModalPresentations != 2)
+            {
+                throw new Exception("Ponowienie po B nie pokazało własnego prawdziwego modalu.");
+            }
+            if (harness.Window.SonosFavoritesInFlightForTests)
+            {
+                throw new Exception("Bramka ulubionych nie została zwolniona po ponowieniu.");
+            }
+
+            // ZADNEGO POST i ZADNEJ podmiany listy grup przez caly pomiar.
+            if (harness.Backend.Commands.Count != 0)
+            {
+                throw new Exception("Podgląd ulubionych wysłał polecenie do Sonosa.");
+            }
+            if (harness.MediaList.Items.Count != 1)
+            {
+                throw new Exception("Nakładające się odczyty ulubionych podmieniły listę grup Sonos.");
+            }
+            AssertNoLeakInAnnouncements(harness);
+            return 12;
+        }
+        finally
+        {
+            // ZAWSZE zwalniamy obie bariery i domykamy oba przeloty, zeby
+            // negatywne wyjscie nie zostawilo okna ani wiszacego zadania.
+            gateA.TrySetResult();
+            gateB.TrySetResult();
+            harness.Backend.FavoritesGate = null;
+            harness.DrainQuietly(readA);
+            harness.DrainQuietly(readB);
+            harness.ClearPresentation();
+        }
+    }
+
     // ==================== pomocnicze asercje ====================
 
     private static IReadOnlyList<string> Rows(object window) =>
@@ -523,6 +700,104 @@ internal static class SonosFavoritesUiTests
             PumpUntil(() => Window.IsActive, "własne okno główne nie stało się aktywne");
             MediaList.Focus();
             PumpQuietly(TimeSpan.FromMilliseconds(80));
+        }
+
+        /// <summary>
+        /// NUMER SLOTU z RZECZYWISTEGO <see cref="SessionManager"/> okna, nie
+        /// zgadniety z kolejnosci nazw: numery slotow to skroty uzytkownika.
+        /// </summary>
+        internal int FindSlot(string sessionId) =>
+            Sessions.FindSlot(sessionId)
+            ?? throw new Exception("Konfiguracja nie ma slotu sesji \"" + sessionId + "\".");
+
+        internal bool IsSonosCurrent =>
+            string.Equals(Sessions.Current.Id, "sonos", StringComparison.Ordinal);
+
+        private SessionManager Sessions =>
+            (SessionManager)(Window.GetType().GetField("_sessions", Instance)?.GetValue(Window)
+                ?? throw new Exception("MainWindow nie ma pola _sessions."));
+
+        /// <summary>Ile razy poszlo PRAWDZIWE modalne <c>ShowDialog</c>.</summary>
+        internal int RealModalPresentations { get; private set; }
+
+        /// <summary>Wynik OSTATNIEGO prawdziwego modalu po jego zamknieciu.</summary>
+        internal bool? LastModalDialogResult { get; private set; }
+
+        /// <summary>
+        /// PRAWDZIWE POKAZANIE MODALU: punkt podstawienia uzbraja zamkniecie i
+        /// wola <c>ShowDialog</c> - ten sam wlasciciel i ten sam modalny tor, co
+        /// w produkcji. Zamyka RZECZYWISTY przycisk Zamknij (<c>IsCancel</c>)
+        /// przez jego wlasny handler; klawisze zywego czytnika to osobny pomiar.
+        /// </summary>
+        internal void UseRealModalPresentation()
+        {
+            PresentOverride.SetValue(Window, MakeRealModalHandler());
+        }
+
+        internal void ClearPresentation() => PresentOverride.SetValue(Window, null);
+
+        private Delegate MakeRealModalHandler()
+        {
+            var windowType = typeof(MainWindow).Assembly.GetType(
+                "AccessibleMediaController.Windows.SonosFavoritesWindow")
+                ?? throw new Exception("Nie ma okna SonosFavoritesWindow.");
+            return Delegate.CreateDelegate(
+                typeof(Action<>).MakeGenericType(windowType),
+                new RealModalPresenter(this),
+                typeof(RealModalPresenter).GetMethod(nameof(RealModalPresenter.Present), Instance)!);
+        }
+
+        private sealed class RealModalPresenter(Harness harness)
+        {
+            internal void Present(object dialog)
+            {
+                var window = (Window)dialog;
+                window.ShowInTaskbar = false;
+                // ZAMKNIECIE uzbrajamy PRZED modalem: ShowDialog zatrzymuje ten
+                // watek na wlasnej petli komunikatow, a timer dziala w niej.
+                var closer = new DispatcherTimer(DispatcherPriority.Background)
+                {
+                    Interval = TimeSpan.FromMilliseconds(25)
+                };
+                closer.Tick += (_, _) =>
+                {
+                    if (!window.IsLoaded || !window.IsVisible) return;
+                    closer.Stop();
+                    var close = (Button?)window.FindName("CloseButton")
+                        ?? throw new Exception("Okno ulubionych nie ma przycisku Zamknij.");
+                    close.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                };
+                closer.Start();
+                harness.RealModalPresentations++;
+                try
+                {
+                    window.ShowDialog();
+                }
+                finally
+                {
+                    closer.Stop();
+                    harness.LastModalDialogResult = window.DialogResult;
+                }
+            }
+        }
+
+        /// <summary>
+        /// ROZPOCZECIE bez czekania i BEZ ruszania wpietego punktu podstawienia:
+        /// nakladajace sie przeloty musza dzielic ten sam sposob pokazania.
+        /// </summary>
+        internal Task StartFavoritesKeepingPresentation()
+        {
+            ExecuteCommand(CommandIds.ViewFavorites);
+            return FavoritesTask
+                ?? throw new Exception("Polecenie nie rozpoczęło zadania odczytu ulubionych Sonos.");
+        }
+
+        /// <summary>DOMKNIECIE przelotu w finally: bez asercji i bez rzucania.</summary>
+        internal void DrainQuietly(Task? task)
+        {
+            if (task is null) return;
+            var deadline = DateTime.UtcNow + Limit;
+            while (!task.IsCompleted && DateTime.UtcNow < deadline) DoEvents();
         }
 
         /// <summary>POWROT do okna glownego po zamknietym modalu.</summary>
