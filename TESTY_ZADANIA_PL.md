@@ -1,5 +1,27 @@
 # Zadania testowe AMC
 
+## Sonos: układ interfejsu (Biblioteka / Ulubione / Ctrl+F5) — jak sprawdzić ręcznie
+
+Dotyczy sesji Sonos (`Ctrl+8`). Bez nowego panelu i bez nowych skrótów: zmienia
+się tylko to, CO pokazują istniejące widoki i gdzie kieruje istniejące `Ctrl+F5`.
+
+1. `Ctrl+8`, potem `Ctrl+L` — **Biblioteka** ma wymienić odczytane grupy
+   i głośniki jako cele. Nie trzeba niczego do niej dodawać.
+2. Strzałkami po liście: wiersz ma brzmieć **samą nazwą grupy** (np. „Biuro”),
+   bez powtarzania nazwy, liczby głośników i stanu.
+3. `Enter` na wierszu — grupa staje się aktywna, otwiera się odtwarzacz;
+   odtwarzanie, pauza i głośność działają jak dotąd.
+4. `Ctrl+U` — **Ulubione** to podgląd ulubionych materiałów z konta (F2),
+   nie lista głośników.
+5. Na wierszu głośnika spróbuj polecenia dodania do ulubionych — ma odmówić
+   krótkim komunikatem i NIE dodać głośnika. To samo przy pustej liście.
+6. `Ctrl+F5` — otwiera **istniejące okno Konto Sonos** z przyciskiem
+   **Głośniki i grupy** (to samo, co menu Plik i paleta). Po `Escape` wracasz
+   na to samo miejsce i zaznaczenie w liście.
+
+Automatyczny pomiar: `--sonos-navigation-ux` (dane syntetyczne, bez konta,
+bez muzyki, bez ruchu sieciowego).
+
 ## Sonos: podgląd ulubionych (F2) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (Ctrl+8). Używa **istniejącego** polecenia **Pokaż

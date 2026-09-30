@@ -50,6 +50,32 @@ z osobnym kontraktem i osobnym pomiarem.
   Brak konta/domu → uczciwe wyjaśnienie plus **istniejąca** droga odzyskania
   (`Ctrl+F5` dla konta, polecenie Wybierz dom Sonos dla domu).
 
+## Sonos: UKŁAD WIDOKÓW (Biblioteka / Ulubione / Ctrl+F5)
+
+Uwagi Michała: głośnik pojawiał się w Ulubionych, Biblioteka była pusta, wiersz
+powtarzał nazwę i liczby, a `Ctrl+F5` mówiło „nie ma polecenia w bieżącej sesji”.
+
+- **Biblioteka = CELE STEROWANIA.** `MainWindow.xaml.cs` `RefreshCurrentView`
+  pomija filtr `IsInLibrary`, gdy `IsSonosSession(_sessions.Current.Id)`: grupy
+  i głośniki są dostępne z samego odczytu topologii, bez ręcznego dodawania.
+  Pozostałe sesje filtrują jak dotąd.
+- **Normalizacja starego widoku.** `NormalizeSonosNavigationAtStartup()` (obok
+  `NormalizeRadioNavigationAtStartup`) przenosi odziedziczone
+  `CurrentView = "Ulubione"` sesji Sonos na `Biblioteka`, żeby lista grup nie
+  ukazywała się pod etykietą Ulubione. Rusza WYŁĄCZNIE wpis sesji Sonos.
+- **Ulubione = RZECZYWISTY materiał.** `CommandIds.ToggleFavorite` i
+  `ToggleLibrary` w sesji Sonos są odrzucane z krótkim komunikatem, zanim
+  polecenie sięgnie `ActionItems` — guard działa też przy PUSTEJ liście z
+  obecnym `CurrentItem`. Sterowanie (`PlayPause`, głośność, Enter) nietknięte.
+  `Ctrl+U` nadal otwiera podgląd ulubionych z konta (F2).
+- **`Ctrl+F5` → istniejące Konto Sonos.** `TryHandleLocalLibraryViewShortcut`
+  oraz `TryResolveKeyboardHelpCommand` kierują skrót na
+  `CommandIds.ManageSonosConnection` — to samo polecenie co menu Plik i paleta,
+  więc otwiera się okno z przyciskiem **Głośniki i grupy**. Bez nowego panelu.
+- **Krótki wiersz.** `ApplySonosGroupRows` w `MainWindow.Sonos.cs` nie ustawia
+  już `Artist = row.Text` (nazwa + „głośników: N” + stan). Wiersz to sama nazwa
+  grupy; szczegóły są w oknie Głośniki i grupy oraz w odtwarzaczu po Enter.
+
 ## Sonos: ODCZYT ULUBIONYCH przez KOORDYNATORA KONTA (F1b)
 
 Jedna nowa metoda koordynatora ponad **istniejącym** torem poświadczeń. Bez UI,
