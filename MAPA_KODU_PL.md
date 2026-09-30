@@ -46,9 +46,9 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 `Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
-KONTROLKI, PLAY/PAUSE I CZAS (część B3a, nie pełny odbiór odtwarzacza) mierzy
-`Windows.SmokeTests --sonos-player-ui`
-(**30 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+KONTROLKI, PLAY/PAUSE, CZAS I SKOK DO POZYCJI (część B3a, nie pełny odbiór
+odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
+(**56 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
 
 - `UpdateSonosPlayerView` (`MainWindow.Sonos.cs`) ustawia **wszystkie** kontrolki
   odtwarzacza z odczytu grupy — także `PlayerTimeText` i etykietę oraz **dostępną
@@ -64,8 +64,31 @@ KONTROLKI, PLAY/PAUSE I CZAS (część B3a, nie pełny odbiór odtwarzacza) mier
 - Format kontrolki i poleceń czasu korzysta z istniejącego
   `MediaItemFormatter.FormatDuration` (całkowite godziny, bez zawijania po dobie).
   D6 sprawdza pozycję 24:30:00 z długości 25:00:00 i pozostałe 30:00.
-- Pozostałe sterowanie wymaga osobnego odbioru. Potwierdzony brak obsługi
-  dialogów skoku do czasu/procentu jest kolejną naprawą, nie zaliczoną funkcją.
+- `SeekSonosToPositionAsync` (`MainWindow.Sonos.cs`) obsługuje **SKOK DO POZYCJI**
+  (`transport.seekToTime` / `transport.seekToPercentage`) w sesji grupy: oba
+  rzeczywiste przyciski (`PlayerSeekTimeButton`, `PlayerSeekPercentButton`), oba
+  wpisy menu i **Ctrl+J / Ctrl+Shift+J** trafiają tu przez gałąź Sonos w
+  `ExecuteCommand`. Wcześniej szły do ogólnego `ShowSeekPositionDialog`, który
+  czyta `_sessions.Current.CurrentItem.Duration`; wiersz grupy powstaje jako
+  `MediaItemKind.Device` **bez długości**, więc odpowiedź była **zawsze** „czas
+  trwania jest nieznany” — mimo że odczyt grupy znał i pozycję, i długość.
+  Teraz otwiera się **istniejące** `SeekPositionWindow` z długością **z odczytu
+  Sonosa**; `DemoMediaSession.SetPosition` nie jest używane, a zwykłe sesje idą
+  dotychczasową drogą.
+- Backend ma **wyłącznie** `SeekRelativeAsync(groupId, deltaMillis, itemId, token)` —
+  nie ma skoku absolutnego i **żadnego endpointu nie dodano**. Pozycja docelowa
+  jest przeliczana na **deltę** względem **ponownego** odczytu po zamknięciu
+  modalu (modal trwa dowolnie długo, liczenie od pozycji z chwili otwarcia
+  trafiałoby gdzie indziej). Bramka to ta sama `CanSeek` co reszta przewijania,
+  z `_sonosCommandInFlight`, biletem celu i **bez ponowień**.
+- ZERO POST przy: anulowaniu/Escape, braku odczytanej długości lub pozycji,
+  `CanSeek=false`, zmianie grupy oraz **zmianie materiału w trakcie modalu**
+  (`itemId` sprawdzany przed i po). Każda z tych ścieżek **mówi czego brakuje**,
+  nie wymyśla zera. Po skoku idzie **jawny GET**, a werdykt zostaje dotychczasowy:
+  `Accepted` bez zmiany odczytu **nie** jest dowodem trafionej pozycji. Fokus
+  wraca do przycisku/odtwarzacza także po anulowaniu.
+- Pozostałe sterowanie wymaga osobnego odbioru. `digit percent`, `seekCustom`,
+  skip, głośność i wyciszenie to **jawna reszta B4**, nie zaliczone funkcje.
 
 ODŚWIEŻANIE sesji (etap B1) mierzy `Windows.SmokeTests --sonos-session-polling-ui`
 na POKAZANYM własnym oknie i na **prawdziwym `PlayerUiTimer_Tick`**, nie na samym

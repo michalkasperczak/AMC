@@ -120,11 +120,14 @@ Ctrl+Shift+E/T/R i zapis wypowiedzi w Podglądzie mowy żywego NVDA na Hermesie.
 Odczytano 24:30:00, 25:00:00 i 30:00 z dokładnych binariów zaliczonego przebiegu.
 Wszystkie dane grupy były syntetyczne; nie odtwarzano rzeczywistego nagrania.
 
-To odbiór wyświetlania, Play/Pause i czasu, **nie całego odtwarzacza**.
-Przyciski „Skocz do czasu…” i „Skocz do procentu…” są widoczne, ale obecnie
-odmawiają mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
-UIA Invoke i mowę NVDA. Pozostaje do naprawy przed wydaniem. Next/Previous,
-pozostałe przewijanie, głośność/wyciszenie i ich bramki wymagają osobnego odbioru.
+To odbiór wyświetlania, Play/Pause, czasu i **skoku do pozycji**, nie całego
+odtwarzacza. Przyciski „Skocz do czasu…” i „Skocz do procentu…” wcześniej
+odmawiały mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
+UIA Invoke i mowę NVDA, a **teraz jest naprawiona** i zmierzona syntetycznie
+zestawem `--sonos-player-ui` (odsłuch NVDA tej poprawki robi osobny odbiór).
+Next/Previous,
+pozostałe przewijanie (`digit percent`, `seekCustom`), głośność/wyciszenie
+i ich bramki wymagają osobnego odbioru — to jawna reszta B4.
 
 ## Czym to zmierzone
 
@@ -133,7 +136,7 @@ pozostałe przewijanie, głośność/wyciszenie i ich bramki wymagają osobnego 
 | `Core.SmokeTests -- --sonos-session-presentation` | formatery, pusty stan, pamięć wyboru po ID, pełny roundtrip starych ustawień, bramka dostępności, werdykty po odczycie, brak zegara demo |
 | `Windows.SmokeTests -- --sonos-session-ui` | **prawdziwy `MainWindow`** bez pokazywania okna: lista grup, aktywna grupa bez POST, wyjście bez stop/pause, polecenia przez `ExecuteCommand`, odmowa zajętości, unieważnianie spóźnionych odczytów. **Mierzy pomocnicze metody sesji, NIE drogę klawiatury** — Enter i wypełnienie kontrolki listy sprawdza dopiero pomiar poniżej |
 | `Windows.SmokeTests -- --sonos-session-entry-ui` | **WEJŚCIE rzeczywistą drogą użytkownika, na POKAZANYM własnym oknie**: prawdziwe `ExecuteCommand("session.slot.8")` (to, co robi Ctrl+8) i pompa dispatchera → **kontrolka `MediaList` ma 2 wiersze** (nie sama `session.Items`); prawdziwy routed `PreviewKeyDown`/Enter na **zaznaczonym wierszu** → `_playerViewActive`, `SelectedGroupId`, aktualny element sesji, jawne odczyty stanu i głośności, **zero POST z samego wyboru**; Escape wraca na listę bez transportu; druga grupa tą samą drogą; spóźniona aktywacja po świadomym wyjściu z sesji nie kradnie fokusu. Bez NVDA i bez klawiszy systemowych |
-| `Windows.SmokeTests -- --sonos-player-ui` | **UŻYTKOWY odtwarzacz na POKAZANYM własnym oknie**: po wejściu drogą Ctrl+8 + Enter wszystkie kontrolki odtwarzacza (`PlayerTitleText` / `PlayerArtistText` / `PlayerSessionText` / `PlayerStateText` / `PlayerTimeText` + przycisk) pochodzą z **odczytu grupy** i nie dziedziczą tekstu po odtwarzaczu innej sesji; **rzeczywisty przycisk** ma treść i **dostępną nazwę** zgodną z odczytanym stanem, a zmiana Playing → Paused **odczytem** je przestawia; kliknięcie prawdziwego `PlayerPlayPause_Click` daje **dokładnie jeden POST** do aktywnej grupy + potwierdzający GET i **nie rusza `DemoMediaSession`**; Ctrl+Shift+E/R/T podają **odczytany czas Sonosa** (0:12 / 2:48 / 3:00), a radio bez `currentItem` daje „nie jest znany”, **nie 0:00** |
+| `Windows.SmokeTests -- --sonos-player-ui` | **UŻYTKOWY odtwarzacz na POKAZANYM własnym oknie**: po wejściu drogą Ctrl+8 + Enter wszystkie kontrolki odtwarzacza (`PlayerTitleText` / `PlayerArtistText` / `PlayerSessionText` / `PlayerStateText` / `PlayerTimeText` + przycisk) pochodzą z **odczytu grupy** i nie dziedziczą tekstu po odtwarzaczu innej sesji; **rzeczywisty przycisk** ma treść i **dostępną nazwę** zgodną z odczytanym stanem, a zmiana Playing → Paused **odczytem** je przestawia; kliknięcie prawdziwego `PlayerPlayPause_Click` daje **dokładnie jeden POST** do aktywnej grupy + potwierdzający GET i **nie rusza `DemoMediaSession`**; Ctrl+Shift+E/R/T podają **odczytany czas Sonosa** (0:12 / 2:48 / 3:00), a radio bez `currentItem` daje „nie jest znany”, **nie 0:00**; **SKOK DO POZYCJI** — chroniony `Button.OnClick` na obu rzeczywistych `PlayerSeekTimeButton` / `PlayerSeekPercentButton` otwiera **istniejące** `SeekPositionWindow` z **odczytaną** długością 3:00 (Spacja NIE jest tu kliknięciem: przejmuje ją globalny PlayPause), zatwierdzenie prawdziwym przyciskiem „Skocz” daje **dokładnie jedno** `SeekRelativeAsync` z `GRUPA-SALON` / `UTWOR-1` i **deltą policzoną od ponownego odczytu** (2:30 → +138 000 ms, 50% → +78 000 ms) + jawny GET, `PlayerTimeText` z tego odczytu, `DemoMediaSession` nietknięty; **ZERO żądań** przy anulowaniu, przy braku odczytanej długości (radio, z nazwaniem czego brakuje) i przy **zmianie materiału w trakcie modalu** |
 
 Co ten pomiar **wykazał i naprawił** (RED przed zmianą produkcji, potem GREEN):
 
@@ -150,6 +153,25 @@ Co ten pomiar **wykazał i naprawił** (RED przed zmianą produkcji, potem GREEN
   który czyta `DemoMediaSession` — w sesji Sonos oznaczało to **pozycję 0 z długości 0**,
   czyli dane, których Sonos nigdy nie zgłosił. Teraz odpowiada `AnnounceSonosTime` z
   odczytu grupy, a brak pozycji lub długości to **„nie jest znany”**, nie zero.
+- **Oba dialogi skoku były martwe w sesji Sonos.** `PlayerSeekTimeButton` /
+  `PlayerSeekPercentButton`, oba wpisy menu i Ctrl+J / Ctrl+Shift+J szły przez
+  `SeekToTime_Click` → `ExecuteCommand(transport.seekToTime)` do **ogólnego**
+  `ShowSeekPositionDialog`, a ten czyta `_sessions.Current.CurrentItem.Duration`.
+  Wiersz grupy tworzy `ApplySonosGroupRows` jako `MediaItemKind.Device` **bez
+  długości**, więc odpowiedź była **zawsze** „czas trwania jest nieznany” — mimo
+  że odczyt grupy znał i pozycję, i długość. Usterkę potwierdzono osobno
+  rzeczywistym UIA Invoke obu widocznych i włączonych kontrolek oraz mową NVDA
+  („nieznany czas”, brak okna), a dopiero potem naprawiono. Teraz gałąź Sonos w
+  `ExecuteCommand` kieruje oba polecenia do `SeekSonosToPositionAsync`, które
+  otwiera **istniejące** `SeekPositionWindow` z długością **z odczytu Sonosa** i
+  przelicza pozycję docelową na **deltę** dla istniejącego `SeekRelativeAsync`
+  (backend **nie ma** skoku absolutnego i nie dodano mu endpointu). Zwykłe sesje
+  zachowują dotychczasową drogę.
+- Delta jest liczona od **ponownego** odczytu po zamknięciu modalu, nie od
+  pozycji z chwili jego otwarcia — modal trwa dowolnie długo, więc stara pozycja
+  trafiałaby gdzie indziej. Tożsamość grupy i `itemId` jest sprawdzana **przed i
+  po** modalu: zmiana celu albo materiału kończy się **zerem żądań** i jawnym
+  komunikatem, nie skokiem w nowy cel.
 
 Pomiar `--sonos-session-ui` buduje się i uruchamia **bez GUI** (żadnego `Show`,
 `ShowDialog`, `Activate`) — to się NIE zmieniło. Osobny `--sonos-session-entry-ui`
