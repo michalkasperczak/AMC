@@ -110,6 +110,10 @@ if (args.Contains("--sonos-favorite-play-ui", StringComparer.Ordinal))
 {
     SonosFavoritePlayUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-favorite-play-real-owner", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.Run(); return 0;
+}
 
 if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
 {
@@ -441,6 +445,8 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: kontrolki odtwarzacza, przycisk i czas z odczytu grupy", SonosPlayerUiTests.Run),
     ("Sonos: dostępny podgląd ulubionych bieżącego domu (F2, tylko GET)", SonosFavoritesUiTests.Run),
     ("Sonos: układ nawigacji sesji rzeczywistą drogą użytkownika", SonosNavigationUxTests.Run),
+    ("Sonos: uruchamianie ulubionego z okna - Odtwórz/Enter, spóźniony wynik (F3c)", SonosFavoritePlayUiTests.Run),
+    ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),
