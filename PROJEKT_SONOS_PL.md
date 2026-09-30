@@ -4,11 +4,21 @@ Stan na 30 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 ## Co jest wydane
 
+[AMC 0.1.0-alpha.414](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.414) dostarcza **sesję odtwarzacza i sterowanie wybraną grupą Sonosa**: wybór domu i grupy, odczyt stanu, pauzę/wznowienie, zmianę materiału, przewijanie, głośność oraz wyciszenie. [Opis zmian alfa414](ZMIANY_0.1.0-alpha.414_PL.md).
+
+Pełny `build.ps1 -Publish`, testy Core i wszystkie 176 testów Windows zakończyły się powodzeniem. Instalator zbudowano i sprawdzono na Hermesie, a następnie zainstalowano i uruchomiono na głównym komputerze. Odczyt zwrotny potwierdził wersję, zgodność plików, stan odtwarzania, głośność, wyciszenie i widok. Bufor radia zresetowano przy aktualizacji zgodnie z uzgodnionym wyjątkiem; nie jest to dowód zachowania jego pozycji.
+
+Wydanie zawiera instalator, ZIP, niezmieniony dodatek NVDA 0.3.3 oraz archiwum źródeł Librespot. Wszystkie cztery załączniki pobrano z GitHuba i porównano ich rozmiary oraz SHA-256. Zbędne pobieranie osobnego .NET usunięto; zawartość pojedynczego EXE potwierdza dołączone środowisko uruchomieniowe.
+
+Ulubione i presety Sonosa pozostają następnym przyrostem. Próby klawiatury i NVDA opisane w S-13 dotyczą syntetycznego zaplecza; nie zastępują pomiaru sterowania i dźwięku rzeczywistego głośnika.
+
+### Wcześniejsze wydania
+
 [AMC 0.1.0-alpha.413](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.413) jest opublikowane z instalatorem i ZIP-em. Dostarcza listę domów, grup i głośników przez **Plik → Konto Sonos → Głośniki i grupy**. [Opis zmian alfa413](ZMIANY_0.1.0-alpha.413_PL.md).
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano Core, jego powiązanie z kontem, wejście i odświeżanie sesji, reakcję na zmianę konta, odświeżanie grup i wybór domu. Odbiór odtwarzacza oraz sterowania grupą jest również zakończony na syntetycznym zapleczu (S-13); przygotowywane jest wydanie tego etapu. Ulubione/presety pozostają kolejnym przyrostem. Nie wymaga to ponownego logowania użytkownika.
+Alfa413 nie zawiera sesji odtwarzacza Sonos ani sterowania i presetów. Odtwarzacz i sterowanie dostarcza już alfa414, opisana powyżej. Ulubione/presety pozostają kolejnym przyrostem. Nie wymaga to ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -186,8 +196,9 @@ ciszę porzuconego odczytu. Osobno sprawdzono dialogi, rzeczywiste przyciski i
 powrót fokusu. Pełny opis zakresu jest w [testach odtwarzacza](TESTY_SONOS_ODTWARZACZ_PL.md).
 
 To odbiór kodu i interfejsu na syntetycznym zapleczu, nie pomiar dźwięku ani
-sterowania rzeczywistym sprzętem. Nie jest jeszcze publicznym instalatorem.
-Ulubione/presety Sonosa pozostają kolejnym przyrostem po wydaniu tego etapu.
+sterowania rzeczywistym sprzętem. Ten etap jest już wydany w alfa414; pełną
+budowę, publikację oraz instalację potwierdzono osobno, zgodnie z opisem na
+początku dokumentu. Ulubione/presety Sonosa pozostają kolejnym przyrostem.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
