@@ -99,8 +99,10 @@ internal static class SonosFavoritePlayDriving
 
 /// <summary>
 /// SYNTETYCZNE zaplecze z granica URUCHAMIANIA. Zero HTTP, zero tokenu, zero
-/// konta, zero audio. Kazdy POST <c>loadFavorite</c> jest ZAPISANY dokladnie tak,
-/// jak przyszedl, i moze byc WSTRZYMANY - stad pomiar spoznionego wyniku.
+/// konta, zero audio: liczniki mowia, ile razy wywolano TE ATRAPE, a nie ile
+/// zadan HTTP poszlo w siec. Kazde wywolanie <c>loadFavorite</c> jest ZAPISANE
+/// dokladnie tak, jak przyszlo, i moze byc WSTRZYMANE - stad pomiar spoznionego
+/// wyniku.
 /// </summary>
 internal sealed class LoadFakeBackend : ISonosGroupSessionBackend, ISonosFavoritesSessionBackend,
     ISonosFavoriteLoadSessionBackend
@@ -121,10 +123,23 @@ internal sealed class LoadFakeBackend : ISonosGroupSessionBackend, ISonosFavorit
 
     internal int FavoriteReadsForTests { get; private set; }
 
-    /// <summary>WSTRZYMANIE odpowiedzi POST: serce pomiaru spoznionego wyniku.</summary>
+    /// <summary>WSTRZYMANIE odpowiedzi zlecenia: serce pomiaru spoznionego wyniku.</summary>
     internal Task? LoadGate { get; set; }
 
+    /// <summary>
+    /// ZAPLECZE, KTORE SWIADOMIE IGNORUJE ANULOWANIE i oddaje SPOZNIONY SUKCES.
+    /// Bez tego sama <c>CancellationTokenSource</c> przykrylaby brak powiazania
+    /// spoznionej odpowiedzi z modalem, ktory ja zlecil.
+    /// </summary>
+    internal bool IgnoreCancellation { get; set; }
+
+    /// <summary>Czy TOKEN ostatniego zlecenia zostal ANULOWANY (widziany przez zaplecze).</summary>
+    internal bool LastLoadTokenCanceled { get; private set; }
+
     internal int OutstandingLoads { get; private set; }
+
+    /// <summary>Ile razy zaplecze zapytano o STAN GRUPY (odczyt po poleceniu).</summary>
+    internal int GroupReadsForTests { get; private set; }
 
     internal void SetFavorites(params (string Id, string Name)[] favorites) => _favorites = favorites;
 
@@ -136,16 +151,33 @@ internal sealed class LoadFakeBackend : ISonosGroupSessionBackend, ISonosFavorit
         CancellationToken cancellationToken)
     {
         Loads.Add(new LoadPost(groupId, favoriteId, action, playOnCompletion));
+        LastLoadTokenCanceled = false;
         return LoadCoreAsync(cancellationToken);
     }
 
     private async Task<SonosGroupCommandResult> LoadCoreAsync(CancellationToken cancellationToken)
     {
         OutstandingLoads++;
+        using var registration = cancellationToken.Register(() => LastLoadTokenCanceled = true);
         try
         {
-            if (LoadGate is { } gate) await gate.WaitAsync(cancellationToken).ConfigureAwait(true);
-            return SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.Play);
+            if (LoadGate is { } gate)
+            {
+                if (IgnoreCancellation)
+                {
+                    // BRAK reakcji na anulowanie: czekamy na samo zwolnienie
+                    // bramki i oddajemy PRZYJECIE mimo anulowanego tokenu.
+                    await gate.ConfigureAwait(true);
+                }
+                else
+                {
+                    await gate.WaitAsync(cancellationToken).ConfigureAwait(true);
+                }
+            }
+
+            // PRZYJECIE ZLECENIA ladowania ulubionego - to polecenie faktycznie
+            // poszlo, a nie ogolne Play. HTTP 200 i tak nie dowodzi, ze gra.
+            return SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.LoadFavorite);
         }
         finally
         {
@@ -165,9 +197,12 @@ internal sealed class LoadFakeBackend : ISonosGroupSessionBackend, ISonosFavorit
     }
 
     public Task<SonosGroupReadResult<SonosGroupPlaybackStatus>> ReadGroupPlaybackAsync(
-        string? groupId, CancellationToken cancellationToken) =>
-        Task.FromResult(SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(new SonosGroupPlaybackStatus(
+        string? groupId, CancellationToken cancellationToken)
+    {
+        GroupReadsForTests++;
+        return Task.FromResult(SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(new SonosGroupPlaybackStatus(
             SonosPlaybackState.Playing, null, null, "UTWOR-1", 12_000, null, null, null, _actions)));
+    }
 
     public Task<SonosGroupReadResult<SonosGroupMetadata>> ReadGroupMetadataAsync(
         string? groupId, CancellationToken cancellationToken)

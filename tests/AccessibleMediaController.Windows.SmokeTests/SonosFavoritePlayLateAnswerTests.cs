@@ -10,11 +10,19 @@ using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
 
 /// <summary>
-/// F3c TRIAGE, etap B: SPOZNIONY WYNIK. Mierzy PRODUKCYJNA droge
+/// F3c: ZYCIE ZLECENIA URUCHOMIENIA a ZYCIE MODALA. Mierzy PRODUKCYJNA droge
 /// <see cref="MainWindow"/> - prawdziwe polecenie "Pokaż ulubione", PRAWDZIWY
-/// modal <c>ShowDialog</c> z produkcyjnym wlascicielem, PRAWDZIWY Enter na
-/// liscie i PRAWDZIWY Escape - a zaplecze <c>loadFavorite</c> jest WSTRZYMANE,
-/// zeby odpowiedz przyszla DOPIERO PO ZAMKNIECIU okna.
+/// modal <c>ShowDialog</c> z produkcyjnym wlascicielem, PRAWDZIWY Enter i
+/// PRAWDZIWY Escape - a zaplecze <c>loadFavorite</c> jest WSTRZYMANE, zeby
+/// odpowiedz przyszla DOPIERO PO ZAMKNIECIU okna, ktore ja zlecilo.
+///
+/// CO TU JEST, A CZEGO NIE MA:
+///  * liczniki <c>Loads</c>/<c>GroupReads</c> to liczba WYWOLAN SYNTETYCZNEGO
+///    ZAPLECZA w tym procesie, a NIE zadania HTTP, nie POST do Sonosa i nie
+///    dowod, ze cokolwiek gra,
+///  * Enter i Escape to PRAWDZIWE zdarzenia WPF z zywego urzadzenia klawiatury,
+///    a NIE fizyczna klawiatura i NIE mowa NVDA; "ogloszenie" znaczy tekst
+///    oddany do <c>AnnouncementSinkForTests</c> albo do statusu okna.
 ///
 /// Kazdy przypadek zwraca WERDYKT zamiast rzucac od razu: jeden przelot ma
 /// rozstrzygnac WSZYSTKIE hipotezy, a nie zatrzymac sie na pierwszej.
@@ -29,11 +37,18 @@ internal static class SonosFavoritePlayLateAnswerTests
     {
         var verdicts = new List<Verdict>
         {
-            Measure("P6", "Enter z prawdziwego modalu wysyła JEDEN loadFavorite: dokładna grupa, "
+            Measure("P6", "Enter z prawdziwego modalu wysyła JEDNO wywołanie loadFavorite zaplecza: dokładna grupa, "
                 + "dokładny identyfikator, Insert, playOnCompletion=true", MeasureRealEnterSendsExactInsert),
-            Measure("P7", "Po Escape podczas trwającego POST spóźniona odpowiedź NIE mówi w oknie głównym "
-                + "i NIE rusza fokusu", MeasureLateAnswerAfterEscapeStaysSilent),
-            Measure("P8", "Spóźniona odpowiedź A NIE mówi w NOWO otwartym oknie B", MeasureLateAnswerDoesNotSpeakInB)
+            Measure("P7", "Escape podczas trwającego zlecenia anuluje TOKEN zaplecza, domyka WŁASNE zadanie próby "
+                + "i NIC nie mówi w oknie głównym ani nie rusza fokusu", MeasureLateAnswerAfterEscapeStaysSilent),
+            Measure("P8", "Zaplecze ŚWIADOMIE IGNORUJĄCE anulowanie: spóźniony sukces A NIE mówi w NOWO otwartym "
+                + "oknie B i nie rusza jego fokusu", MeasureLateAnswerDoesNotSpeakInB),
+            Measure("P9", "Gdy fokus jest w OBCYM oknie, a modal A nadal żyje: wynik nie ogłasza się w oknie głównym "
+                + "i nie odbiera fokusu obcemu oknu", MeasureLateAnswerWithForeignFocus),
+            Measure("P10", "Zaplecze IGNORUJĄCE anulowanie: spóźniony sukces po zamknięciu A daje 0 komunikatów okna "
+                + "głównego i 0 odczytów stanu grupy po poleceniu", MeasureIgnoredCancelAfterCloseIsSilent),
+            Measure("P11", "Spóźnione finally A nie zwalnia bramki WŁASNEGO zlecenia B, a zamknięcie i ponowne "
+                + "otwarcie nie zostawia bramki zablokowanej na zawsze", MeasureLateFinallyKeepsOwnGate)
         };
 
         return verdicts;
@@ -52,7 +67,7 @@ internal static class SonosFavoritePlayLateAnswerTests
         }
     }
 
-    // ===== P6: PRAWDZIWY Enter w PRAWDZIWYM modalu -> JEDEN jawny Insert =====
+    // ===== P6: PRAWDZIWY Enter w PRAWDZIWYM modalu -> JEDNO jawne Insert =====
 
     private static string MeasureRealEnterSendsExactInsert()
     {
@@ -69,12 +84,12 @@ internal static class SonosFavoritePlayLateAnswerTests
         });
 
         var posts = harness.Backend.Loads;
-        if (posts.Count != 1) throw new Exception($"Enter wysłał {posts.Count} POST zamiast 1.");
+        if (posts.Count != 1) throw new Exception($"Enter dał {posts.Count} wywołań zaplecza zamiast 1.");
         var post = posts[0];
-        if (post.GroupId != "GRUPA-SALON") throw new Exception("POST poszedł do grupy \"" + post.GroupId + "\".");
+        if (post.GroupId != "GRUPA-SALON") throw new Exception("Zlecenie poszło do grupy \"" + post.GroupId + "\".");
         if (post.FavoriteId != "ULU-7")
         {
-            throw new Exception("POST wysłał ulubione \"" + post.FavoriteId + "\" zamiast zaznaczonego ULU-7.");
+            throw new Exception("Zlecenie wysłało ulubione \"" + post.FavoriteId + "\" zamiast zaznaczonego ULU-7.");
         }
         if (post.Action != SonosFavoriteQueueAction.Insert)
         {
@@ -90,10 +105,10 @@ internal static class SonosFavoritePlayLateAnswerTests
             throw new Exception("Po loadFavorite poszło DODATKOWE polecenie Play.");
         }
 
-        return "1 POST: GRUPA-SALON/ULU-7, Insert, playOnCompletion=true, zero dodatkowego Play";
+        return "1 wywołanie zaplecza: GRUPA-SALON/ULU-7, Insert, playOnCompletion=true, zero dodatkowego Play";
     }
 
-    // ===== P7: SPOZNIONA odpowiedz po ESCAPE - cisza i zero ruchu fokusu =====
+    // ===== P7: ESCAPE anuluje WLASNE oczekiwanie - cisza i zero ruchu fokusu =====
 
     private static string MeasureLateAnswerAfterEscapeStaysSilent()
     {
@@ -104,6 +119,7 @@ internal static class SonosFavoritePlayLateAnswerTests
         var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         harness.Backend.LoadGate = held.Task;
         var startedInFlight = false;
+        Task? taskA = null;
         try
         {
             harness.RunFavoritesModal(window =>
@@ -112,26 +128,37 @@ internal static class SonosFavoritePlayLateAnswerTests
                 window.PressEnterForTests();
                 window.PumpForTests(TimeSpan.FromMilliseconds(120));
                 startedInFlight = harness.Backend.Loads.Count == 1;
-                // ZAMKNIECIE PODCZAS trwajacego POST: prawdziwy Escape.
+                // REFERENCJA na zadanie proby ZANIM okno sie zamknie: po Close
+                // okno jej nie odda, a pomiar musi domknac DOKLADNIE to zadanie.
+                taskA = window.LastPlayTaskForTests;
+                // ZAMKNIECIE PODCZAS trwajacego zlecenia: prawdziwy Escape.
                 window.PressEscapeForTests();
             });
 
             if (!startedInFlight)
             {
-                throw new Exception($"POST nie ruszył przed Escape ({harness.Backend.Loads.Count}), nic nie mierzymy.");
+                throw new Exception($"Zlecenie nie ruszyło przed Escape ({harness.Backend.Loads.Count}).");
             }
+            if (taskA is null) throw new Exception("Modal A nie zapamiętał zadania próby.");
             if (harness.Window.OpenSonosFavoritesWindowForTests is not null)
             {
                 throw new Exception("Okno ulubionych nadal jest zapamiętane jako otwarte po Escape.");
             }
 
             harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+            // WLASNE oczekiwanie MUSI byc anulowane u zaplecza - to ma zrobic
+            // zamkniecie TEGO modalu, a nie anulowanie calej sesji Sonos.
+            if (!harness.Backend.LastLoadTokenCanceled)
+            {
+                throw new Exception("Escape NIE anulował tokenu, z którym zlecenie poszło do zaplecza.");
+            }
             var spokenBefore = harness.Announcements.Count;
             var focusBefore = Keyboard.FocusedElement;
             var childWindowsBefore = harness.VisibleOwnedWindows();
 
             // SPOZNIONA ODPOWIEDZ: dopiero TERAZ, gdy okna juz nie ma.
             held.TrySetResult();
+            harness.PumpTask(taskA, "spóźnione zadanie próby A");
             harness.DrainFavoriteLoad();
             harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
 
@@ -150,7 +177,7 @@ internal static class SonosFavoritePlayLateAnswerTests
                 throw new Exception("Spóźniona odpowiedź pokazała okno potomne.");
             }
 
-            return "cisza po zamknięciu, fokus nieruszony";
+            return "token anulowany po Escape, własne zadanie domknięte, cisza w oknie głównym, fokus nieruszony";
         }
         finally
         {
@@ -159,16 +186,20 @@ internal static class SonosFavoritePlayLateAnswerTests
         }
     }
 
-    // ===== P8: SPOZNIONA odpowiedz A a NOWO otwarte okno B =====
+    // ===== P8: zaplecze IGNORUJACE cancel - spozniony sukces A a NOWE okno B =====
 
     private static string MeasureLateAnswerDoesNotSpeakInB()
     {
         using var harness = MainHarness.Create();
         harness.Backend.SetFavorites(("ULU-1", "Nokturny"));
+        // SWIADOME IGNOROWANIE anulowania: sam token NIE MOZE przykryc braku
+        // powiazania spoznionej odpowiedzi ze zlecajacym modalem.
+        harness.Backend.IgnoreCancellation = true;
         harness.Enter();
 
         var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         harness.Backend.LoadGate = held.Task;
+        Task? taskA = null;
         try
         {
             harness.RunFavoritesModal(window =>
@@ -176,38 +207,266 @@ internal static class SonosFavoritePlayLateAnswerTests
                 window.SelectForTests(0);
                 window.PressEnterForTests();
                 window.PumpForTests(TimeSpan.FromMilliseconds(120));
+                taskA = window.LastPlayTaskForTests;
                 window.PressEscapeForTests();
             });
-            if (harness.Backend.Loads.Count != 1) throw new Exception("POST A nie ruszył, nic nie mierzymy.");
+            if (harness.Backend.Loads.Count != 1) throw new Exception("Zlecenie A nie ruszyło, nic nie mierzymy.");
+            if (taskA is null) throw new Exception("Modal A nie zapamiętał zadania próby.");
 
             harness.ReactivateOwnWindow();
-            string[] lateInB = [];
+            string? lateInB = null;
+            string? focusMoved = null;
             // OKNO B otwarte, gdy A NADAL wisi. Spozniona odpowiedz A przychodzi
             // w trakcie zycia B: nie ma prawa mowic w CUDZYM oknie.
             harness.RunFavoritesModal(windowB =>
             {
                 var before = windowB.StatusForTests;
+                var focusBefore = Keyboard.FocusedElement;
                 held.TrySetResult();
-                windowB.PumpForTests(TimeSpan.FromMilliseconds(250));
+                // DOMKNIECIE zadania A jeszcze W CZASIE ZYCIA B.
+                harness.PumpTask(taskA, "spóźnione zadanie A w czasie życia B");
+                windowB.PumpForTests(TimeSpan.FromMilliseconds(150));
                 var after = windowB.StatusForTests;
-                lateInB = string.Equals(before, after, StringComparison.Ordinal) ? [] : [after];
+                if (!string.Equals(before, after, StringComparison.Ordinal)) lateInB = after;
+                if (!ReferenceEquals(Keyboard.FocusedElement, focusBefore))
+                {
+                    focusMoved = Describe(Keyboard.FocusedElement);
+                }
+
                 windowB.PressEscapeForTests();
             });
 
-            if (lateInB.Length != 0)
+            if (lateInB is not null)
             {
-                throw new Exception("Spóźniona odpowiedź A odezwała się w oknie B: \"" + lateInB[0] + "\".");
+                throw new Exception("Spóźniona odpowiedź A odezwała się w oknie B: \"" + lateInB + "\".");
+            }
+            if (focusMoved is not null)
+            {
+                throw new Exception("Spóźniona odpowiedź A ruszyła fokus w oknie B na " + focusMoved + ".");
             }
             if (harness.Backend.Loads.Count != 1)
             {
-                throw new Exception($"Otwarcie B wysłało dodatkowy POST ({harness.Backend.Loads.Count}).");
+                throw new Exception($"Otwarcie B wysłało dodatkowe zlecenie ({harness.Backend.Loads.Count}).");
             }
 
-            return "okno B nie dostało komunikatu porzuconej próby A";
+            return "okno B nie dostało komunikatu ani fokusu porzuconej próby A (zaplecze ignorowało anulowanie)";
         }
         finally
         {
             held.TrySetResult();
+            harness.DrainFavoriteLoad();
+        }
+    }
+
+    // ===== P9: OBCY fokus przy ZYWYM modalu A - zero mowy w oknie glownym =====
+
+    private static string MeasureLateAnswerWithForeignFocus()
+    {
+        using var harness = MainHarness.Create();
+        harness.Backend.SetFavorites(("ULU-1", "Nokturny"));
+        harness.Enter();
+
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Backend.LoadGate = held.Task;
+        Window? foreign = null;
+        string[] lateInMain = [];
+        string? focusMoved = null;
+        var foreignWasActive = false;
+        try
+        {
+            harness.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(0);
+                window.PressEnterForTests();
+                window.PumpForTests(TimeSpan.FromMilliseconds(120));
+                if (harness.Backend.Loads.Count != 1) throw new Exception("Zlecenie A nie ruszyło.");
+
+                // WLASNE okno pomiaru POZA modalem - nie cudza aplikacja. Modal A
+                // NADAL zyje; fokus jest gdzie indziej.
+                foreign = new Window
+                {
+                    Title = "Obce okno pomiaru", Width = 220, Height = 140, ShowInTaskbar = false
+                };
+                foreign.Show();
+                foreign.Activate();
+                window.PumpForTests(TimeSpan.FromMilliseconds(150));
+                foreignWasActive = foreign.IsActive;
+
+                var spokenBefore = harness.Announcements.Count;
+                var focusBefore = Keyboard.FocusedElement;
+                held.TrySetResult();
+                harness.PumpTask(window.LastPlayTaskForTests, "zadanie próby przy obcym fokusie");
+                window.PumpForTests(TimeSpan.FromMilliseconds(150));
+
+                lateInMain = harness.Announcements.Skip(spokenBefore).ToArray();
+                if (!ReferenceEquals(Keyboard.FocusedElement, focusBefore))
+                {
+                    focusMoved = Describe(Keyboard.FocusedElement);
+                }
+
+                window.PressEscapeForTests();
+            });
+
+            if (!foreignWasActive) throw new Exception("Obce okno pomiaru nie stało się aktywne, nic nie mierzymy.");
+            if (lateInMain.Length != 0)
+            {
+                throw new Exception($"Wynik ogłosił {lateInMain.Length} komunikat(ów) w oknie głównym: \""
+                    + string.Join(" | ", lateInMain) + "\".");
+            }
+            if (focusMoved is not null)
+            {
+                throw new Exception("Wynik odebrał fokus obcemu oknu na rzecz " + focusMoved + ".");
+            }
+
+            return "przy obcym fokusie: zero komunikatów okna głównego, fokus u obcego okna nietknięty";
+        }
+        finally
+        {
+            held.TrySetResult();
+            harness.DrainFavoriteLoad();
+            if (foreign is not null)
+            {
+                try { foreign.Close(); } catch (InvalidOperationException) { }
+            }
+        }
+    }
+
+    // ===== P10: IGNOROWANY cancel po zamknieciu - zero mowy, zero odczytu =====
+
+    private static string MeasureIgnoredCancelAfterCloseIsSilent()
+    {
+        using var harness = MainHarness.Create();
+        harness.Backend.SetFavorites(("ULU-1", "Nokturny"));
+        harness.Backend.IgnoreCancellation = true;
+        harness.Enter();
+
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Backend.LoadGate = held.Task;
+        Task? taskA = null;
+        try
+        {
+            harness.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(0);
+                window.PressEnterForTests();
+                window.PumpForTests(TimeSpan.FromMilliseconds(120));
+                taskA = window.LastPlayTaskForTests;
+                window.PressEscapeForTests();
+            });
+            if (taskA is null) throw new Exception("Modal A nie zapamiętał zadania próby.");
+            if (harness.Backend.Loads.Count != 1) throw new Exception("Zlecenie A nie ruszyło.");
+
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+            var spokenBefore = harness.Announcements.Count;
+            var readsBefore = harness.Backend.GroupReadsForTests;
+
+            held.TrySetResult();
+            harness.PumpTask(taskA, "spóźnione zadanie A z zaplecza ignorującego anulowanie");
+            harness.DrainFavoriteLoad();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+            var late = harness.Announcements.Skip(spokenBefore).ToArray();
+            var reads = harness.Backend.GroupReadsForTests - readsBefore;
+            if (late.Length != 0)
+            {
+                throw new Exception($"Spóźniony SUKCES ogłosił {late.Length} komunikat(ów) w oknie głównym: \""
+                    + string.Join(" | ", late) + "\".");
+            }
+            if (reads != 0)
+            {
+                throw new Exception($"Spóźniony sukces wykonał {reads} odczyt(ów) stanu grupy po poleceniu.");
+            }
+
+            return "spóźniony sukces po zamknięciu: 0 komunikatów okna głównego, 0 odczytów stanu grupy";
+        }
+        finally
+        {
+            held.TrySetResult();
+            harness.DrainFavoriteLoad();
+        }
+    }
+
+    // ===== P11: WLASNA bramka zlecenia B a spoznione finally A =====
+
+    private static string MeasureLateFinallyKeepsOwnGate()
+    {
+        using var harness = MainHarness.Create();
+        harness.Backend.SetFavorites(("ULU-1", "Nokturny"));
+        harness.Enter();
+
+        var heldA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var heldB = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Backend.LoadGate = heldA.Task;
+        Task? taskA = null;
+        var gateAfterLateA = false;
+        var statusInB = string.Empty;
+        try
+        {
+            harness.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(0);
+                window.PressEnterForTests();
+                window.PumpForTests(TimeSpan.FromMilliseconds(120));
+                taskA = window.LastPlayTaskForTests;
+                window.PressEscapeForTests();
+            });
+            if (taskA is null) throw new Exception("Modal A nie zapamiętał zadania próby.");
+
+            // ZAMKNIECIE A domyka WLASNE oczekiwanie i zwalnia WLASNA bramke:
+            // zamkniecie i ponowne otwarcie NIE MOZE zostawic bramki zajetej.
+            harness.PumpTask(taskA, "zadanie A po Escape");
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+            if (harness.CommandGateBusy)
+            {
+                throw new Exception("Po zamknięciu A bramka polecenia została zajęta.");
+            }
+
+            var ticketOfA = harness.CommandGateTicket;
+            harness.ReactivateOwnWindow();
+            harness.Backend.LoadGate = heldB.Task;
+            harness.RunFavoritesModal(windowB =>
+            {
+                // WLASNE zlecenie B bierze SWOJ bilet bramki.
+                windowB.SelectForTests(0);
+                windowB.PressEnterForTests();
+                windowB.PumpForTests(TimeSpan.FromMilliseconds(120));
+                if (harness.Backend.Loads.Count != 2)
+                {
+                    throw new Exception($"Enter w B dał {harness.Backend.Loads.Count} wywołań zaplecza zamiast 2.");
+                }
+                if (!harness.CommandGateBusy) throw new Exception("Trwające zlecenie B nie zajęło bramki.");
+
+                // SPOZNIONE finally A: PRODUKCYJNA droga zwolnienia bramki ze
+                // STARYM biletem nie ma prawa zwolnic bramki trwajacego B.
+                harness.Window.ReleaseSonosCommandGateForTests(ticketOfA);
+                windowB.PumpForTests(TimeSpan.FromMilliseconds(60));
+                gateAfterLateA = harness.CommandGateBusy;
+                statusInB = windowB.StatusForTests;
+
+                heldB.TrySetResult();
+                windowB.AwaitPlayForTests();
+                windowB.PressEscapeForTests();
+            });
+
+            if (!gateAfterLateA)
+            {
+                throw new Exception("Spóźnione finally A zwolniło bramkę TRWAJĄCEGO zlecenia B.");
+            }
+            if (!statusInB.Contains("Wysyłam polecenie uruchomienia", StringComparison.Ordinal))
+            {
+                throw new Exception("Okno B nie pokazywało własnego oczekiwania: \"" + statusInB + "\".");
+            }
+            if (harness.CommandGateBusy)
+            {
+                throw new Exception("Po zakończeniu zlecenia B bramka polecenia została zajęta na zawsze.");
+            }
+
+            return "bramka B nietknięta spóźnionym zwolnieniem biletu A, po zakończeniu zwolniona";
+        }
+        finally
+        {
+            heldA.TrySetResult();
+            heldB.TrySetResult();
             harness.DrainFavoriteLoad();
         }
     }
@@ -242,6 +501,19 @@ internal static class SonosFavoritePlayLateAnswerTests
 
         internal List<string> Announcements { get; }
 
+        /// <summary>
+        /// Stan PRODUKCYJNEJ bramki jednego polecenia Sonos, czytany z pola - bez
+        /// wlasnej kopii warunku po stronie pomiaru.
+        /// </summary>
+        internal bool CommandGateBusy =>
+            (bool)(Window.GetType().GetField("_sonosCommandInFlight", Instance)!.GetValue(Window)
+                ?? throw new Exception("Brak pola bramki polecenia."));
+
+        /// <summary>BIEZACY bilet bramki polecenia - do sprawdzenia spoznionego zwolnienia.</summary>
+        internal int CommandGateTicket =>
+            (int)(Window.GetType().GetField("_sonosCommandGateTicket", Instance)!.GetValue(Window)
+                ?? throw new Exception("Brak pola biletu bramki polecenia."));
+
         private ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
 
         internal static MainHarness Create()
@@ -261,6 +533,10 @@ internal static class SonosFavoritePlayLateAnswerTests
 
             var backend = new LoadFakeBackend();
             var announcements = new List<string>();
+            // PODSTAWIENIE zaplecza idzie PO konstruktorze, przez wlasnosc
+            // SonosBackendOverride - nie przez fabryke magazynu i nie przez
+            // wlasciciela konta. EnsureSonosBackend zwraca override PRZED
+            // wlascicielem, wiec zadne okno konta nie moze sie otworzyc.
             var window = new MainWindow(state, store)
             {
                 SuppressDesktopIntegrationForTests = true,
@@ -368,14 +644,38 @@ internal static class SonosFavoritePlayLateAnswerTests
             PumpUntil(() => Window.IsActive, "okno główne nie wróciło do aktywności");
         }
 
-        /// <summary>DOMKNIECIE spoznionego przelotu: czekamy na ZADANIE, nie na zegar.</summary>
+        /// <summary>
+        /// DOMKNIECIE DOKLADNIE TEGO zadania proby - z TWARDYM niepowodzeniem po
+        /// limicie. Zwlok na zegarze nie uznajemy za dowod domkniecia.
+        /// </summary>
+        internal void PumpTask(Task? task, string what)
+        {
+            if (task is null) throw new Exception("Brak zadania do domknięcia: " + what + ".");
+            var deadline = DateTime.UtcNow + Limit;
+            while (!task.IsCompleted)
+            {
+                if (DateTime.UtcNow > deadline) throw new Exception("Limit czasu: " + what + ".");
+                DoEvents();
+            }
+
+            task.GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// DOMKNIECIE spoznionych wywolan zaplecza: czekamy na LICZNIK zaplecza z
+        /// TWARDYM niepowodzeniem, nie na zegar.
+        /// </summary>
         internal void DrainFavoriteLoad()
         {
             var deadline = DateTime.UtcNow + Limit;
-            while (Window.SonosFavoriteLoadsSentForTests > 0
-                && Backend.OutstandingLoads > 0
-                && DateTime.UtcNow < deadline)
+            while (Backend.OutstandingLoads > 0)
             {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new Exception(
+                        $"Limit czasu: {Backend.OutstandingLoads} wywołań zaplecza nie domknęło się.");
+                }
+
                 DoEvents();
             }
         }

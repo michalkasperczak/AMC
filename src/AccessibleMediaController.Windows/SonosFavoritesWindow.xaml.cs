@@ -42,15 +42,24 @@ public partial class SonosFavoritesWindow : Window
 
     /// <summary>
     /// ODEBRANY callback uruchomienia albo <c>null</c> w wariancie tylko do
-    /// odczytu. Okno nie tworzy tu zadnej wlasnej drogi do sieci.
+    /// odczytu. Okno nie tworzy tu zadnej wlasnej drogi do sieci. Callback
+    /// dostaje NIEZMIENNE <see cref="PlayRequest"/>, wiec wynik proby zna
+    /// instancje, ktora go ZLECILA - i nie ma gdzie sie "odbic", gdy ta zniknie.
     /// </summary>
-    private readonly Func<SonosFavorite, Task>? _loadFavorite;
+    private readonly Func<PlayRequest, Task>? _loadFavorite;
 
     /// <summary>
     /// LOKALNE oczekiwanie na wynik proby. Pilnuje JEDNEGO POST na akcje
     /// uzytkownika: przytrzymanie, autorepeat i drugie klikniecie odmawiaja.
     /// </summary>
     private bool _playInFlight;
+
+    /// <summary>
+    /// LOKALNE ZYCIE tego modalu. Zamkniecie anuluje WYLACZNIE oczekiwania
+    /// zlecone przez TO okno - zadnego <c>CancelSonosPendingWork</c> calej sesji,
+    /// zadnego kasowania konta, zadnego cofania polecenia, ktore JUZ poszlo.
+    /// </summary>
+    private readonly CancellationTokenSource _lifetime = new();
 
     /// <summary>
     /// Czy okno jest JUZ zamykane albo zamkniete. Po zamknieciu spozniony wynik
@@ -79,7 +88,7 @@ public partial class SonosFavoritesWindow : Window
     internal SonosFavoritesWindow(
         IReadOnlyList<SonosFavorite> favorites,
         string? groupName,
-        Func<SonosFavorite, Task>? loadFavorite)
+        Func<PlayRequest, Task>? loadFavorite)
     {
         ArgumentNullException.ThrowIfNull(favorites);
         InitializeComponent();
@@ -133,7 +142,20 @@ public partial class SonosFavoritesWindow : Window
         Loaded += (_, _) => FocusInitialElement();
         // ZAMKNIECIE uniewaznia WYLACZNIE lokalne oczekiwanie tego okna. Zadnego
         // CancelSonosPendingWork calej sesji, zadnego kasowania konta.
-        Closed += (_, _) => _closed = true;
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            // ANULUJEMY WLASNE oczekiwanie: rzeczywisty klient honoruje token, a
+            // zaplecze, ktore go ignoruje, i tak nie przemowi - sprawdza to
+            // granica tozsamosci u zlecajacego.
+            try
+            {
+                _lifetime.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        };
     }
 
     internal int RowCountForTests => _rows.Count;
@@ -275,7 +297,7 @@ public partial class SonosFavoritesWindow : Window
     /// jest w tym oknie. Po zamknieciu albo przy CUDZYM fokusie nie mowimy i nie
     /// ruszamy fokusu.
     /// </summary>
-    private async Task RunPlayAsync(Func<SonosFavorite, Task> load, FavoriteRow row)
+    private async Task RunPlayAsync(Func<PlayRequest, Task> load, FavoriteRow row)
     {
         var index = FavoritesList.SelectedIndex;
         var focusWasInList = FavoritesList.IsKeyboardFocusWithin;
@@ -288,7 +310,10 @@ public partial class SonosFavoritesWindow : Window
             // JEDEN callback na akcje uzytkownika. Wynik (przyjecie, odmowa,
             // nieznany skutek) oglasza warstwa, ktora zna kontrakt polecenia -
             // okno nie tlumaczy statusow HTTP i nie obiecuje, ze muzyka gra.
-            await load(row.Favorite).ConfigureAwait(true);
+            //
+            // NIESIEMY TOZSAMOSC: ta instancja okna i JEJ token zycia. Wlasciciel
+            // nie musi zgadywac, KTORY modal zlecil - ani szukac "aktualnego".
+            await load(new PlayRequest(this, _lifetime.Token, row.Favorite)).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -328,6 +353,30 @@ public partial class SonosFavoritesWindow : Window
     /// mechanizmem. Po zamknieciu NIC nie mowi.
     /// </summary>
     internal void AnnounceForOwner(string message) => Announce(message);
+
+    /// <summary>
+    /// Czy TA instancja jest nadal ZYWYM, WIDOCZNYM adresatem statusu. Po
+    /// zamknieciu (albo gdy okno zniklo z ekranu) wlasciciel NIE MA gdzie
+    /// odpowiedziec - i nie wolno mu "odbic" komunikatu do okna glownego ani do
+    /// nowszego modalu.
+    /// </summary>
+    internal bool IsLiveOwnerTarget => !_closed && IsVisible;
+
+    /// <summary>
+    /// NIEZMIENNE zlecenie uruchomienia. Niesie TOZSAMOSC modalu, ktory je
+    /// zlecil, JEGO token zycia i typowany ulubiony Z LISTY tego okna.
+    ///
+    /// Dzieki temu spozniona odpowiedz ma DOKLADNIE JEDEN adres: instancje
+    /// <paramref name="Origin"/>. Gdy ta nie zyje, wynik jest CICHY - nie
+    /// przenosi sie do okna glownego i nie wchodzi do nowo otwartego modalu.
+    /// </summary>
+    /// <param name="Origin">Modalna instancja, ktora ZLECILA te probe.</param>
+    /// <param name="Lifetime">Token zycia TEJ instancji - anulowany przy jej zamknieciu.</param>
+    /// <param name="Favorite">Typowany ulubiony z biezacej listy tego okna.</param>
+    internal sealed record PlayRequest(
+        SonosFavoritesWindow Origin,
+        CancellationToken Lifetime,
+        SonosFavorite Favorite);
 
     /// <summary>
     /// POCZATKOWY FOKUS: pierwszy wiersz listy, a gdy lista jest pusta - sama

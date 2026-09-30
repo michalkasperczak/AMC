@@ -340,9 +340,32 @@ internal static class SonosFavoritePlayUiTests
         internal static Fixture ShowReadOnly(IReadOnlyList<SonosFavorite> favorites) =>
             Show(new SonosFavoritesWindow(favorites));
 
+        /// <summary>
+        /// WARIANT Z URUCHAMIANIEM. Okno oddaje callbackowi NIEZMIENNE zlecenie
+        /// (<c>PlayRequest</c>) z TOZSAMOSCIA zlecajacej instancji; te przypadki
+        /// mierza zachowanie SAMEGO okna, wiec aparatura rozpakowuje ulubiony,
+        /// ale SPRAWDZA, ze zlecajacym jest dokladnie to okno.
+        /// </summary>
         internal static Fixture ShowWithPlay(
-            IReadOnlyList<SonosFavorite> favorites, string? groupName, Func<SonosFavorite, Task> load) =>
-            Show(new SonosFavoritesWindow(favorites, groupName, load));
+            IReadOnlyList<SonosFavorite> favorites, string? groupName, Func<SonosFavorite, Task> load)
+        {
+            SonosFavoritesWindow? created = null;
+            var window = new SonosFavoritesWindow(favorites, groupName, request =>
+            {
+                if (!ReferenceEquals(request.Origin, created))
+                {
+                    throw new Exception("Zlecenie uruchomienia nie niesie tożsamości okna, które je zleciło.");
+                }
+                if (request.Lifetime.IsCancellationRequested)
+                {
+                    throw new Exception("Token życia otwartego okna jest już anulowany.");
+                }
+
+                return load(request.Favorite);
+            });
+            created = window;
+            return Show(window);
+        }
 
         private static Fixture Show(SonosFavoritesWindow window)
         {

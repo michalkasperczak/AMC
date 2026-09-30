@@ -190,8 +190,8 @@ public partial class MainWindow
                 : new SonosFavoritesWindow(
                     items,
                     group?.Name,
-                    favorite => LoadSonosFavoriteAsync(
-                        loadBackend, householdId, group?.Id, ticket, favorite));
+                    request => LoadSonosFavoriteAsync(
+                        loadBackend, householdId, group?.Id, ticket, request));
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
             try
@@ -260,26 +260,43 @@ public partial class MainWindow
     /// zgadujemy. <c>playOnCompletion: true</c> dopelnia zamiar "zagraj teraz".
     /// To kontrakt ZAMIARU, nie pomiar fizyczny.
     ///
-    /// GRANICE sprawdzamy PRZED POST i PONOWNIE po KAZDYM await: konto, dom,
-    /// grupa, sesja, bilet celu, zamykanie i stan modala. Spozniony wynik NIE
-    /// mowi w cudzym widoku i nie rusza cudzego fokusu.
+    /// ZYCIE ZLECENIA JEST PRZYWIAZANE DO MODALU, KTORY JE ZLECIL. Zlecenie
+    /// niesie NIEZMIENNA tozsamosc tej instancji i jej TOKEN ZYCIA:
+    ///  * token lokalny jest POWIAZANY z tokenem sesji, wiec zamkniecie modalu
+    ///    anuluje WYLACZNIE swoje oczekiwanie - nie cala sesje Sonos, nie konto i
+    ///    nie polecenie, ktore JUZ poszlo (cofniecia nie obiecujemy),
+    ///  * granice tozsamosci sprawdzamy PRZED dzialaniem i PONOWNIE po KAZDYM
+    ///    await, PRZED mowa i PRZED odczytem,
+    ///  * status idzie DO TEJ instancji albo NIGDZIE. Zadnego zapasowego
+    ///    ogloszenia w oknie glownym i zadnego wejscia w nowo otwarty modal:
+    ///    porzucona proba nie ma prawa odezwac sie w cudzym widoku.
+    ///
+    /// Sam token nie wystarczy: zaplecze moze SWIADOMIE zignorowac anulowanie i
+    /// oddac spozniony sukces, dlatego rozstrzyga granica tozsamosci, a token
+    /// jest uprzejmoscia wobec klienta, ktory go honoruje.
     /// </summary>
     private async Task LoadSonosFavoriteAsync(
         ISonosFavoriteLoadSessionBackend backend,
         string householdId,
         string? groupId,
         int targetTicket,
-        SonosFavorite favorite)
+        SonosFavoritesWindow.PlayRequest request)
     {
         ArgumentNullException.ThrowIfNull(backend);
-        ArgumentNullException.ThrowIfNull(favorite);
+        ArgumentNullException.ThrowIfNull(request);
+        var origin = request.Origin;
+        var favorite = request.Favorite;
         SonosFavoriteLoadRequestsForTests++;
+
+        // ZLECAJACY MUSI ZYC JUZ TERAZ: zamkniety modal nie dostaje odpowiedzi,
+        // a my nie szukamy zastepczego adresata.
+        if (!IsLiveFavoritesOrigin(origin)) return;
 
         // GRANICA konta PRZED czymkolwiek: po RZECZYWISTEJ zmianie konta stary
         // identyfikator ulubionego nie ma prawa pojsc przez NOWE konto.
         if (ApplySonosAccountBinding())
         {
-            AnnounceInSonosFavorites(SonosAccountChangedInstruction);
+            AnnounceInFavoritesOrigin(origin, SonosAccountChangedInstruction);
             return;
         }
 
@@ -300,7 +317,7 @@ public partial class MainWindow
         {
             // BRAK grupy albo ZMIENIONY cel: uczciwe wyjasnienie i ISTNIEJACA
             // droga odzyskania. ZERO POST.
-            AnnounceInSonosFavorites(SonosFavoritesLabels.PlayNeedsGroup);
+            AnnounceInFavoritesOrigin(origin, SonosFavoritesLabels.PlayNeedsGroup);
             return;
         }
 
@@ -308,12 +325,17 @@ public partial class MainWindow
         // odmowa zamiast cichej kolejki i zamiast drugiego POST.
         if (_sonosCommandInFlight)
         {
-            AnnounceInSonosFavorites(SonosFavoritesLabels.PlayAlreadyInFlight);
+            AnnounceInFavoritesOrigin(origin, SonosFavoritesLabels.PlayAlreadyInFlight);
             return;
         }
 
         var gateTicket = ++_sonosCommandGateTicket;
-        var token = EnsureSonosCancellation().Token;
+        // TOKEN LOKALNY POWIAZANY Z TOKENEM SESJI: anuluje go albo zamkniecie
+        // TEGO modalu, albo istniejace porzucenie pracy sesji. Zamkniecie modalu
+        // NIE wola CancelSonosPendingWork i nie rusza cudzych oczekiwan.
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(
+            EnsureSonosCancellation().Token, request.Lifetime);
+        var token = lifetime.Token;
         _sonosCommandInFlight = true;
         try
         {
@@ -328,8 +350,10 @@ public partial class MainWindow
                 playOnCompletion: true,
                 token).ConfigureAwait(true);
 
-            // GRANICE PO AWAIT: te same co przed. Spozniony wynik nie mowi w
-            // cudzym widoku i nie przypisuje sie do innego celu.
+            // GRANICE PO AWAIT: te same co przed, a NAJPIERW tozsamosc zlecajacego.
+            // Spozniony wynik nie mowi w cudzym widoku, nie rusza cudzego fokusu i
+            // nie odczytuje stanu dla okna, ktorego juz nie ma.
+            if (!IsLiveFavoritesOrigin(origin)) return;
             if (ApplySonosAccountBinding()) return;
             if (_isClosing || targetTicket != _sonosTargetTicket) return;
             if (!IsSonosSession(_sessions?.Current.Id)) return;
@@ -339,7 +363,7 @@ public partial class MainWindow
             // HTTP 200 to PRZYJECIE ZLECENIA, nie dowod, ze muzyka gra.
             // Tozsamosc pozycji bierzemy z NASZEJ listy - to my wyslalismy ten
             // identyfikator. Tytul z metadanych NIE jest dowodem tozsamosci.
-            AnnounceInSonosFavorites(accepted
+            AnnounceInFavoritesOrigin(origin, accepted
                 ? SonosFavoritesLabels.DescribePlayAccepted(SonosFavoritesLabels.Describe(favorite))
                 : result.Message);
 
@@ -363,39 +387,45 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
-            // Wlasne zamykanie albo zmiana celu: CISZA. PORZUCONY POST mogl sie
-            // mimo wszystko wykonac - nie obiecujemy cofniecia.
+            // Zamkniecie TEGO modalu, wlasne zamykanie albo zmiana celu: CISZA.
+            // PORZUCONY POST mogl sie mimo wszystko wykonac - nie obiecujemy
+            // cofniecia i nie wysylamy niczego, zeby to odkrecic.
         }
         catch (Exception exception)
         {
             LogSonosFavoriteLoadFailure("wysłanie uruchomienia", exception);
+            if (!IsLiveFavoritesOrigin(origin)) return;
             if (_isClosing || targetTicket != _sonosTargetTicket) return;
             // UCZCIWIE, BEZ surowego wyjatku, identyfikatora i tokenu.
-            AnnounceInSonosFavorites(
+            AnnounceInFavoritesOrigin(origin,
                 "Nie udało się wykonać polecenia uruchomienia ulubionego. Spróbuj ponownie.");
         }
         finally
         {
             // SPOZNIONY przelot A nie uwalnia trwajacego B: bramke zwalnia tylko
-            // jej WLASCICIEL - ta SAMA produkcyjna droga co reszta polecen.
+            // jej WLASCICIEL - ta SAMA produkcyjna droga co reszta polecen. Idzie
+            // to BEZWARUNKOWO, takze po zamknieciu modalu, zeby zamkniecie i
+            // ponowne otwarcie nie zostawilo bramki zajetej na zawsze.
             ReleaseSonosCommandGate(gateTicket);
         }
     }
 
     /// <summary>
-    /// KOMUNIKAT dla uzytkownika stojacego w oknie ulubionych: gdy okno jest
-    /// otwarte, mowi ONO (wlasny dostepny status), a nie okno glowne za modalem.
-    /// Po zamknieciu wraca ISTNIEJACY mechanizm okna glownego.
+    /// Czy ZLECAJACA instancja modalu nadal jest ZYWYM adresatem. Kryterium jest
+    /// TOZSAMOSC, nie "jakikolwiek otwarty modal": okno B nie jest nastepca okna
+    /// A, a okno glowne nie jest jego zapasowym glosnikiem.
     /// </summary>
-    private void AnnounceInSonosFavorites(string message)
-    {
-        if (_sonosFavoritesWindow is { } window && window.IsVisible)
-        {
-            window.AnnounceForOwner(message);
-            return;
-        }
+    private bool IsLiveFavoritesOrigin(SonosFavoritesWindow origin) =>
+        ReferenceEquals(_sonosFavoritesWindow, origin) && origin.IsLiveOwnerTarget;
 
-        Announce(message);
+    /// <summary>
+    /// STATUS DO TEJ INSTANCJI albo NIGDZIE. Gdy zlecajacy modal nie zyje, wynik
+    /// jest CICHY: nie przenosi sie do okna glownego i nie wchodzi w nowy modal.
+    /// </summary>
+    private void AnnounceInFavoritesOrigin(SonosFavoritesWindow origin, string message)
+    {
+        if (!IsLiveFavoritesOrigin(origin)) return;
+        origin.AnnounceForOwner(message);
     }
 
     /// <summary>
@@ -412,8 +442,8 @@ public partial class MainWindow
         string householdId,
         string? groupId,
         int targetTicket,
-        SonosFavorite favorite) =>
-        LoadSonosFavoriteAsync(backend, householdId, groupId, targetTicket, favorite);
+        SonosFavoritesWindow.PlayRequest request) =>
+        LoadSonosFavoriteAsync(backend, householdId, groupId, targetTicket, request);
 
 
     /// <summary>
