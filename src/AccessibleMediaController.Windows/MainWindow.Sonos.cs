@@ -1120,12 +1120,19 @@ public partial class MainWindow
             catch (Exception exception)
             {
                 LogSonosSeekFailure("odczyt przed skokiem", exception);
+                // CISZA po PORZUCENIU celu: miedzy naszym await a tym miejscem
+                // uzytkownik mogl wyjsc z sesji albo zmienic grupe, a wtedy
+                // odmowa skoku Sonosa odezwalaby sie w CUDZYM widoku.
+                if (_isClosing || ticketBefore != _sonosTargetTicket) return;
                 Announce("Skok pominięty: nie udało się odczytać aktualnej pozycji Sonos, "
                     + "skok nie został wysłany");
                 return;
             }
             if (!readOkBefore)
             {
+                // TA SAMA regula: false z ReadSonosGroupStateAsync znaczy TAKZE
+                // anulowanie i nieaktualny cel, wiec najpierw aktualnosc.
+                if (_isClosing || ticketBefore != _sonosTargetTicket) return;
                 Announce("Skok pominięty: nie udało się odczytać aktualnej pozycji Sonos, "
                     + "skok nie został wysłany");
                 return;
@@ -1179,8 +1186,15 @@ public partial class MainWindow
             catch (Exception exception)
             {
                 LogSonosSeekFailure("odczyt po skoku", exception);
-                Announce("Skok został wysłany, ale nie udało się odczytać stanu Sonosa, "
-                    + "więc nie wiadomo, czy pozycja się zmieniła");
+                if (_isClosing || ticketBefore != _sonosTargetTicket) return;
+                // UCZCIWE rozroznienie z kontraktu SonosGroupCommandResult:
+                // RequestSent=false to ZERO prob wyslania, wiec "wyslano"
+                // byloby klamstwem; true to tylko PODJETA PROBA - nie dowod,
+                // ze zadanie opuscilo maszyne ani ze dotarlo do glosnika.
+                Announce(result.RequestSent
+                    ? "Podjęto próbę skoku, ale nie udało się odczytać stanu Sonosa, "
+                        + "więc nie ma potwierdzenia, czy pozycja się zmieniła"
+                    : "Skok nie został wysłany, a odczytu stanu Sonosa też nie udało się wykonać");
                 return;
             }
             if (ticketBefore != _sonosTargetTicket || _isClosing) return;
@@ -1226,7 +1240,9 @@ public partial class MainWindow
     /// <summary>
     /// Zapis przyczyny nieudanego odczytu przy skoku BEZ tresci wyjatku w mowie:
     /// komunikat dla uzytkownika nazywa skutek, a szczegoly (mogace zawierac
-    /// adres i naglowek autoryzacji) zostaja w dzienniku diagnostycznym.
+    /// adres i naglowek autoryzacji) NIE ida do mowy. Kanalem jest tu
+    /// <c>Debug.WriteLine</c>, wiec w kompilacji Release ten zapis NIE powstaje
+    /// - zadnego trwalego dziennika to nie tworzy.
     /// </summary>
     private static void LogSonosSeekFailure(string stage, Exception exception) =>
         System.Diagnostics.Debug.WriteLine(

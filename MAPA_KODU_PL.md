@@ -104,9 +104,15 @@ odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
   mają własne `try`/`catch`; wcześniej wyjątek/timeout **uciekał** z fire-and-forget
   `_ =` jako porzucony fault i użytkownik nie słyszał nic. Komunikaty są **rozróżnione**:
   przed POST-em „nie udało się odczytać aktualnej pozycji, **skok nie został wysłany**”,
-  po POST-cie „skok **został wysłany**, ale nie wiadomo, czy pozycja się zmieniła” —
-  po utracie odpowiedzi **nie** twierdzimy, że nie wysłano. Treść wyjątku idzie tylko
-  do `Debug.WriteLine` (typ, **bez payloadu/sekretów**); anulowanie milczy. Zero
+  po POST-cie **wg `RequestSent` z kontraktu**: `false` = ZERO prób, więc „skok nie
+  został wysłany, a odczytu stanu też nie udało się wykonać”; `true` = tylko
+  **podjęta próba**, więc „podjęto próbę skoku… brak potwierdzenia” — **bez** obietnicy,
+  że żądanie opuściło maszynę albo dotarło do głośnika (`RequestSent=true` tego
+  **nie** dowodzi). Treść wyjątku idzie tylko do `Debug.WriteLine` (typ, **bez
+  payloadu/sekretów**, kanał znika w Release); anulowanie milczy. **Porzucenie celu
+  milczy też w gałęziach nieudanego przedskokowego odczytu**: kontrola
+  `_isClosing`/biletu celu stoi PRZED `Announce`, bo `false` z
+  `ReadSonosGroupStateAsync` znaczy także anulowanie i nieaktualny cel. Zero
   ponowień zachowane, starych helperów transportu nie ruszano.
 - **Fokus wraca tam, skąd skok wyszedł**: `FocusSonosPlayerAfterSeek(focusBefore, byTime)`
   bierze zmierzony `Keyboard.FocusedElement` sprzed modalu, potem przycisk **danego

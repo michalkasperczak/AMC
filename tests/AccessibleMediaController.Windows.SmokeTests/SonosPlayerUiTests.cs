@@ -70,7 +70,9 @@ internal static class SonosPlayerUiTests
                              ("S1 swieza CanSeek", MeasureFreshCanSeekFalseStopsSeek),
                              ("S2 bramka w czasie przedskokowego GET", MeasureBusyGateCoversPreSeekRead),
                              ("#3 komunikat przy bledzie odczytu", MeasurePreSeekReadFaultIsAnnounced),
-                             ("#2 powrot fokusu", MeasureFocusReturnsToOpeningControl)
+                             ("#2 powrot fokusu", MeasureFocusReturnsToOpeningControl),
+                             ("K1 cisza po porzuceniu celu", MeasureAbandonedTargetSaysNothing),
+                             ("K2 proba bez potwierdzenia", MeasureUnsentSeekIsNotCalledSent)
                          })
                 {
                     // POSTEP na stdout: gdyby ktorys przypadek zawisl na modalu,
@@ -874,6 +876,177 @@ internal static class SonosPlayerUiTests
         return checks;
     }
 
+    /// <summary>
+    /// K1: po PORZUCENIU celu w czasie przedskokowego GET-a skok MILCZY.
+    /// Przelot wisi na barierze odczytu, a uzytkownik PRAWDZIWA droga polecen
+    /// przechodzi do innej sesji (slot). Wymagamy: zadanie sie konczy, ZERO
+    /// POST-ow skoku i ZERO nowych komunikatow po opuszczeniu sesji Sonos -
+    /// odmowa skoku Sonosa nie ma prawa odezwac sie w cudzym widoku.
+    /// </summary>
+    private static int MeasureAbandonedTargetSaysNothing()
+    {
+        var checks = 0;
+        using var harness = Harness.Create();
+        harness.OpenPlayerForGroup("GRUPA-SALON");
+
+        using var responder = SeekDialogResponder.ArmConfirm("2:30");
+        responder.BeforeConfirm = () => harness.Backend.HoldNextPlaybackRead = true;
+        var seek = harness.StartSeekToPosition(CommandIds.SeekToTime);
+        harness.PumpUntil(
+            () => harness.Backend.HeldPlaybackRead is not null,
+            "przedskokowy odczyt nie zatrzymal sie na barierze");
+        if (harness.Backend.SeekCalls.Count != 0)
+        {
+            throw new Exception("Bariera zatrzymala odczyt PO wyslaniu skoku, a nie przedskokowy.");
+        }
+        checks++;
+
+        // PORZUCENIE celu PRAWDZIWA droga: POZNIEJSZY callback kolejki
+        // Dispatchera, nie wnetrze atrapy.
+        var ticketBefore = harness.Window.SonosTargetTicket;
+        harness.PostToDispatcher(() => harness.ExecuteCommand(CommandIds.SessionSlot(3)));
+        harness.PumpUntil(
+            () => harness.Window.SonosTargetTicket != ticketBefore,
+            "przejscie do innej sesji nie uniewaznilo celu Sonos");
+        checks++;
+
+        // DOPIERO TERAZ liczymy mowe: przelaczenie sesji samo w sobie mowi.
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(60));
+        var saidAfterLeaving = harness.Announcements.Count;
+
+        harness.Backend.ReleaseHeldPlaybackRead();
+        harness.PumpUntil(() => seek.IsCompleted, "zadanie skoku nie zakonczylo sie po zwolnieniu bariery");
+        if (seek.IsFaulted) throw seek.Exception!.InnerException!;
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(60));
+        checks++;
+
+        if (harness.Backend.SeekCalls.Count != 0)
+        {
+            throw new Exception(
+                $"Po porzuceniu celu i tak wyslano {harness.Backend.SeekCalls.Count} zadan skoku.");
+        }
+        checks++;
+        var late = string.Join(" | ", harness.Announcements.Skip(saidAfterLeaving));
+        if (late.Length != 0)
+        {
+            throw new Exception($"Porzucony skok odezwal sie po wyjsciu z sesji Sonos: \"{late}\".");
+        }
+        checks++;
+        return checks;
+    }
+
+    /// <summary>
+    /// K2: komunikat po utraconym odczycie NIE moze udawac wyslania. Bierzemy
+    /// LEGALNY wynik kontraktu <see cref="SonosGroupCommandResult"/> z
+    /// RequestSent=false (dokladnie ten ksztalt, ktory koordynator zwraca przy
+    /// braku konta) i wymagamy, by przelot powiedzial, ze skok NIE poszedl.
+    /// KONTROLA DODATNIA: przy RequestSent=true wolno powiedziec najwyzej o
+    /// PODJETEJ PROBIE bez potwierdzenia - bez obietnicy, ze zadanie opuscilo
+    /// maszyne albo dotarlo do glosnika.
+    ///
+    /// GRANICA POMIARU: wynik jest SYNTETYCZNY, zbudowany na granicy API. Nie
+    /// mierzymy tu konta, HTTP ani transportu - tylko TEKST, ktory przelot
+    /// wybiera dla danego RequestSent.
+    /// </summary>
+    private static int MeasureUnsentSeekIsNotCalledSent()
+    {
+        var checks = 0;
+
+        // 1. RequestSent=false: ZERO prob wyslania - i tak trzeba to powiedziec.
+        using (var harness = Harness.Create())
+        {
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            using var responder = SeekDialogResponder.ArmConfirm("2:30");
+            // LEGALNY ksztalt kontraktu: proba PODJETA przez koordynatora
+            // (Attempted), ale transport NIE wyslal nic - zla konfiguracja.
+            // RequestSent=false znaczy w kontrakcie ZERO prob wyslania.
+            harness.Backend.NextSeekResult = new SonosGroupCommandResult(
+                SonosGroupOperationStatus.Attempted,
+                SonosGroupCommand.SeekRelative,
+                SonosGroupCommandOutcome.FromStatus(
+                    SonosGroupCommand.SeekRelative, SonosControlApiStatus.InvalidConfiguration, false),
+                requestSent: false,
+                renewed: false,
+                SonosAccountSnapshots.Empty);
+            harness.Backend.FaultReadAfterSeek = true;
+            var said = harness.Announcements.Count;
+            var task = harness.StartSeekToPosition(CommandIds.SeekToTime);
+            harness.PumpUntil(() => task.IsCompleted, "zadanie skoku nie zakonczylo sie przy RequestSent=false");
+            if (task.IsFaulted) throw task.Exception!.InnerException!;
+            var text = string.Join(" | ", harness.Announcements.Skip(said));
+            Console.WriteLine($"   K2 false: \"{text}\"");
+            if (!text.Contains("nie został wysłany", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    $"Przy RequestSent=false nie powiedziano, ze skok nie zostal wyslany: \"{text}\".");
+            }
+            checks++;
+            if (!text.Contains("odczyt", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Przy RequestSent=false nie nazwano nieudanego odczytu: \"{text}\".");
+            }
+            checks++;
+            if (text.Contains(FakeBackend.Secret, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Komunikat ujawnil tresc wyjatku transportu: \"{text}\".");
+            }
+            checks++;
+        }
+
+        // 2. KONTROLA DODATNIA - RequestSent=true: tylko PROBA, bez obietnicy.
+        using (var harness = Harness.Create())
+        {
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            using var responder = SeekDialogResponder.ArmConfirm("2:30");
+            // Unreachable, NIE Success: samo Accepted/200 dowodzi PRZYJECIA, wiec
+            // nie nadaje sie na dowod, ze brak wyslania zostal nazwany uczciwie.
+            // Tu proba BYLA (RequestSent=true), a transport nie doszedl do uslugi.
+            harness.Backend.NextSeekResult = new SonosGroupCommandResult(
+                SonosGroupOperationStatus.Attempted,
+                SonosGroupCommand.SeekRelative,
+                SonosGroupCommandOutcome.FromStatus(
+                    SonosGroupCommand.SeekRelative, SonosControlApiStatus.Unreachable, false),
+                requestSent: true,
+                renewed: false,
+                SonosAccountSnapshots.Empty);
+            harness.Backend.FaultReadAfterSeek = true;
+            var said = harness.Announcements.Count;
+            var task = harness.StartSeekToPosition(CommandIds.SeekToTime);
+            harness.PumpUntil(() => task.IsCompleted, "zadanie skoku nie zakonczylo sie przy RequestSent=true");
+            if (task.IsFaulted) throw task.Exception!.InnerException!;
+            var text = string.Join(" | ", harness.Announcements.Skip(said));
+            Console.WriteLine($"   K2 true: \"{text}\"");
+            if (harness.Backend.SeekCalls.Count != 1)
+            {
+                throw new Exception(
+                    $"Kontrola dodatnia wyslala {harness.Backend.SeekCalls.Count} zadan zamiast jednego.");
+            }
+            checks++;
+            if (!text.Contains("prób", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Przy RequestSent=true nie nazwano tego PROBA: \"{text}\".");
+            }
+            checks++;
+            if (!text.Contains("potwierdz", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Przy RequestSent=true nie nazwano braku potwierdzenia: \"{text}\".");
+            }
+            checks++;
+            // Slowa FALSZYWIE przyrzekajace: "wyslany"/"dostarczony"/"dotarl"
+            // twierdza o losie zadania poza maszyna, a tego nikt nie zmierzyl.
+            foreach (var promise in new[] { "został wysłany", "dostarcz", "dotar" })
+            {
+                if (text.Contains(promise, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"Przy samej PROBIE komunikat obiecuje \"{promise}\": \"{text}\".");
+                }
+                checks++;
+            }
+        }
+        return checks;
+    }
+
     // ==================== aparatura ====================
 
     /// <summary>
@@ -1521,6 +1694,13 @@ internal static class SonosPlayerUiTests
         /// </summary>
         internal bool FaultReadAfterSeek { get; set; }
 
+        /// <summary>
+        /// WYNIK NASTEPNEGO skoku, gdy pomiar potrzebuje INNEGO niz przyjety:
+        /// np. LEGALNEGO wyniku kontraktu z RequestSent=false. Null znaczy
+        /// dotychczasowe zachowanie, wiec istniejace pomiary mierza to samo.
+        /// </summary>
+        internal SonosGroupCommandResult? NextSeekResult { get; set; }
+
         public Task<SonosGroupCommandResult> SeekRelativeAsync(
             string? groupId, int deltaMillis, string? itemId, CancellationToken cancellationToken)
         {
@@ -1532,7 +1712,10 @@ internal static class SonosPlayerUiTests
             }
             Commands.Add(SonosGroupCommand.SeekRelative);
             CommandGroupIds.Add(groupId);
-            return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SeekRelative));
+            var forced = NextSeekResult;
+            NextSeekResult = null;
+            return Task.FromResult(forced
+                ?? SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SeekRelative));
         }
 
         public Task<SonosGroupCommandResult> SetGroupVolumeAsync(
