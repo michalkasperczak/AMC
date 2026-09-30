@@ -292,14 +292,24 @@ internal static class SonosAccountWiringTests
         _ = method;
         _ = handler;
 
-        // Ctrl+F5 NIE dotyka konta Sonos, a stan aplikacji nie zapisuje poswiadczen.
+        // Ctrl+F5 W SESJI SONOS otwiera ISTNIEJACE Konto Sonos. Dawna asercja
+        // wymagala tu BRAKU konta Sonos, bo wtedy Sonos nie mial wlasnej akcji
+        // Ctrl+F5 i skrot mowil "nie ma polecenia w bieżącej sesji". Michal
+        // zglosil to jako usterke ukladu, wiec wymaganie jest ODWROCONE:
+        // skrot ma dosiegac TEGO SAMEGO polecenia co menu i paleta
+        // (CommandIds.ManageSonosConnection), bez nowego panelu ustawien.
         var source = File.ReadAllText(LocateRepositoryFile("src/AccessibleMediaController.Windows/MainWindow.xaml.cs"));
         var ctrlF5 = source.IndexOf("&& key == Key.F5", StringComparison.Ordinal);
         if (ctrlF5 < 0) throw new Exception("Nie udało się odnaleźć obsługi Ctrl+F5.");
         var ctrlF5Block = source.Substring(ctrlF5, Math.Min(1200, source.Length - ctrlF5));
-        if (ctrlF5Block.Contains("ManageSonosConnection", StringComparison.Ordinal))
+        if (!ctrlF5Block.Contains("ManageSonosConnection", StringComparison.Ordinal))
         {
-            throw new Exception("Konto Sonos weszło do zajętego Ctrl+F5.");
+            throw new Exception("Ctrl+F5 w sesji Sonos nie kieruje do istniejącego Konta Sonos.");
+        }
+        if (ctrlF5Block.Contains("SonosSettingsWindow", StringComparison.Ordinal)
+            || ctrlF5Block.Contains("SonosAccountSettings", StringComparison.Ordinal))
+        {
+            throw new Exception("Ctrl+F5 otwiera NOWY panel Sonosa zamiast istniejącego okna konta.");
         }
         return 4;
     }

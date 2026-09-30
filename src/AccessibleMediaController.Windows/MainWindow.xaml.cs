@@ -403,6 +403,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
         NormalizeRadioNavigationAtStartup();
+        NormalizeSonosNavigationAtStartup();
         NormalizePodcastNavigationAtStartup();
         ClearPersistedListFiltersAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
@@ -517,6 +518,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(navigation.CurrentView, LocalAlbumContentsViewName, StringComparison.Ordinal))
         {
             navigation.CurrentView = "Albumy";
+        }
+    }
+
+    private void NormalizeSonosNavigationAtStartup()
+    {
+        // Historyczne sesje Sonosa zapisaly CurrentView = "Ulubione", w ktorym
+        // od teraz sa RZECZYWISTE ulubione materialy z konta, a nie glosniki.
+        // Cele sterowania mieszkaja w Bibliotece, wiec stary widok trzeba
+        // przeniesc, zeby lista grup nie pojawiala sie pod etykieta Ulubione.
+        if (!_state.SessionNavigation.Sessions.TryGetValue(SonosSessionId, out var navigation))
+        {
+            return;
+        }
+        if (navigation.CurrentView is DefaultBrowserView or "Ulubione" or "Albumy"
+            or "Playlisty" or "Kolejka" or BookmarkViewName)
+        {
+            navigation.CurrentView = "Biblioteka";
+        }
+        if (string.Equals(navigation.LastLibraryView, "Ulubione", StringComparison.Ordinal))
+        {
+            navigation.LastLibraryView = "Biblioteka";
         }
     }
 
@@ -11247,6 +11269,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (IsSonosSession(_sessions.Current.Id))
         {
+            if (commandId == CommandIds.ToggleFavorite)
+            {
+                // Glosnik/grupa to CEL STEROWANIA, nie material: Ulubione Sonosa
+                // sa RZECZYWISTYMI ulubionymi z konta (Ctrl+U). Guard stoi TU,
+                // przed ActionItems, bo przy pustej liscie z obecnym CurrentItem
+                // sprawdzenie samego zaznaczenia by go przepuscilo.
+                Announce("Głośników i grup Sonos nie dodaje się do ulubionych. "
+                    + "Ulubione Sonos pokazuje polecenie Pokaż ulubione");
+                return new CommandExecutionResult(false);
+            }
+            if (commandId == CommandIds.ToggleLibrary)
+            {
+                // Biblioteka Sonosa to lista CELOW z topologii - nie wolno jej
+                // recznie przerzedzac, bo uzytkownik straciłby sterowanie.
+                Announce("Biblioteka Sonos pokazuje wszystkie odczytane głośniki i grupy");
+                return new CommandExecutionResult(false);
+            }
             if (commandId == CommandIds.RefreshSonosGroups)
             {
                 // JAWNE odswiezenie: czyta zaplecze, nie cache, i nie wysyla POST.
@@ -12661,7 +12700,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             items = OrderCurrentCollection(_sessions.Current, _currentView, favoriteItems);
         }
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
-        if (_currentView == "Biblioteka")
+        // Sonos: Biblioteka to CELE STEROWANIA (glosniki i grupy) odczytane z
+        // topologii, wiec NIE filtrujemy po IsInLibrary - uzytkownik nie dodaje
+        // wlasnych glosnikow do Biblioteki recznie.
+        if (_currentView == "Biblioteka" && !IsSonosSession(_sessions.Current.Id))
         {
             items = items.Where(item => item.IsInLibrary
                 && (!UsesTidalStyleCollections(_sessions.Current.Id)
@@ -21524,6 +21566,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
             (ModifierKeys.Control | ModifierKeys.Alt, Key.Enter) => CommandIds.SessionPlaybackOptions,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
+            (ModifierKeys.Control, Key.F5) when IsSonosSession(_sessions.Current.Id) => CommandIds.ManageSonosConnection,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
             (ModifierKeys.None, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                 && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
@@ -21754,6 +21797,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ExecuteCommand(CommandIds.ManageTidalConnection);
             else if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
                 ExecuteCommand(CommandIds.ManageSpotifyConnection);
+            else if (IsSonosSession(_sessions.Current.Id))
+                // ISTNIEJACE polecenie "Konto Sonos" z menu Plik i palety -
+                // to samo okno z przyciskiem Glosniki i grupy. Zadnego nowego
+                // panelu ani ustawien: skrot tylko dosiega tego, co jest.
+                ExecuteCommand(CommandIds.ManageSonosConnection);
             else
                 Announce("Ctrl+F5 nie ma polecenia w bieżącej sesji");
             return true;

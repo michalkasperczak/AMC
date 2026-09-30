@@ -564,7 +564,10 @@ public partial class MainWindow
             {
                 Id = row.GroupId,
                 Title = row.Name,
-                Artist = row.Text,
+                // ZWYKLY odczyt wiersza to KROTKA nazwa grupy (np. "Biuro").
+                // Liczba glosnikow i stan powtarzaly nazwe w kazdym wierszu;
+                // szczegoly sa w oknie Glosniki i grupy (Ctrl+F5) oraz w
+                // odtwarzaczu po Enter, wiec nic sie nie gubi.
                 Kind = MediaItemKind.Device
             })
             .ToList());
