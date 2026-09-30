@@ -93,7 +93,7 @@ internal static class SonosFavoritesUiTests
         harness.EnterSonosSession();
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
 
-        var window = harness.RunFavorites();
+        var window = harness.RunFavoritesAsRealModal();
         if (window is null) throw new Exception("Pokaż ulubione nie otworzyło okna ulubionych Sonos.");
         if (harness.Backend.FavoriteReadsForTests != 1)
         {
@@ -139,10 +139,37 @@ internal static class SonosFavoritesUiTests
         }
         AssertNoLeakInAnnouncements(harness);
 
-        // POCZATKOWY FOKUS na liscie, nie na przycisku Zamknij.
-        if (Property<bool>(window, "ListHasFocusForTests") is false)
+        // ===== FOKUS OTWARTEGO OKNA (osobno od zamkniecia i powrotu) =====
+        // Bledy z callbacka timera NIE uciekaja jako awaria CLR: sa zachowane i
+        // rzucane stad, z normalnego wolajacego, po powrocie z ShowDialog.
+        if (harness.VisibleFocusFailureForTests is { } observationFailure)
         {
-            throw new Exception("Po otwarciu fokus nie jest na liście ulubionych.");
+            throw new Exception(
+                "Pomiar fokusu w otwartym oknie ulubionych nie wykonał się: " + observationFailure.Message,
+                observationFailure);
+        }
+        if (harness.VisibleFocusForTests is not { } focus)
+        {
+            throw new Exception(
+                "Nie zrobiono migawki fokusu przy WIDOCZNYM oknie ulubionych - pomiar nic nie mierzy.");
+        }
+        if (harness.RealModalPresentations != 1)
+        {
+            throw new Exception(
+                $"Okno pokazano {harness.RealModalPresentations} razy prawdziwym modalem zamiast 1.");
+        }
+        // WIDOCZNOSC MA DOWOD, nie samo zwrocone true: okno wczytane, widoczne i
+        // z rzeczywistym zrodlem prezentacji w chwili odczytu fokusu.
+        if (!focus.Visible || !focus.Loaded || !focus.HasPresentationSource)
+        {
+            throw new Exception(
+                "Fokus odczytano poza widocznym oknem ulubionych: " + focus.Describe());
+        }
+        // POCZATKOWY FOKUS na liscie, nie na przycisku Zamknij - mierzony PRZY
+        // OTWARTYM oknie, gdy jego zdarzenia startowe zdazyly sie wykonac.
+        if (!focus.ListHasFocus)
+        {
+            throw new Exception("Po otwarciu fokus nie jest na liście ulubionych: " + focus.Describe());
         }
         if (Property<string>(window, "IntroductionForTests") is { } intro
             && !intro.Contains("podgląd", StringComparison.OrdinalIgnoreCase))
@@ -155,7 +182,17 @@ internal static class SonosFavoritesUiTests
         {
             throw new Exception("Okno podglądu deklaruje drogę odtwarzania w F2.");
         }
-        // ZAMKNIETE i POWROT: okno nie zostaje, grupy bez zmian.
+        // ZAMKNIETE i POWROT: okno nie zostaje, grupy bez zmian. Osobno od
+        // fokusu otwartego okna - zapamietane stany NIE moga obiecywac fokusu
+        // PO zamknieciu, a zamkniecie ma tu wlasny dowod.
+        if (harness.LastModalDialogResult is not false)
+        {
+            throw new Exception("Prawdziwy modal ulubionych nie został zamknięty przyciskiem Zamknij.");
+        }
+        if (((Window)window).IsVisible)
+        {
+            throw new Exception("Okno ulubionych zostało widoczne po zakończeniu modalu.");
+        }
         if (harness.Window.OpenSonosFavoritesWindowForTests is not null)
         {
             throw new Exception("Okno ulubionych zostało zapamiętane jako otwarte po zamknięciu.");
@@ -168,7 +205,7 @@ internal static class SonosFavoritesUiTests
         {
             throw new Exception("Podgląd ulubionych podmienił listę grup Sonos.");
         }
-        return 16;
+        return 21;
     }
 
     // ===== F2: wlasciciel konta jest LENIWY - start programu nie budzi konta =====
@@ -720,6 +757,21 @@ internal static class SonosFavoritesUiTests
         /// <summary>Ile razy poszlo PRAWDZIWE modalne <c>ShowDialog</c>.</summary>
         internal int RealModalPresentations { get; private set; }
 
+        /// <summary>
+        /// MIGAWKA zrobiona, gdy PRAWDZIWY modal byl WIDOCZNY - jedyny moment, w
+        /// ktorym biezacy fokus WPF cokolwiek mowi o POCZATKOWYM fokusie okna.
+        /// </summary>
+        internal VisibleFocusSnapshot? VisibleFocusForTests { get; set; }
+
+        /// <summary>
+        /// BLAD z callbacka timera ZACHOWANY, nie rzucony w petli modalu:
+        /// asercja idzie z normalnego wolajacego, nie jako awaria CLR.
+        /// </summary>
+        internal Exception? VisibleFocusFailureForTests { get; set; }
+
+        /// <summary>PRZECHWYCENIE okna JESZCZE przed <c>ShowDialog</c>.</summary>
+        internal Action<object>? CaptureForRealModal { get; set; }
+
         /// <summary>Wynik OSTATNIEGO prawdziwego modalu po jego zamknieciu.</summary>
         internal bool? LastModalDialogResult { get; private set; }
 
@@ -732,6 +784,79 @@ internal static class SonosFavoritesUiTests
         internal void UseRealModalPresentation()
         {
             PresentOverride.SetValue(Window, MakeRealModalHandler());
+        }
+
+        /// <summary>
+        /// PRAWDZIWA droga uzytkownika POKAZANA PRAWDZIWYM MODALEM: to samo
+        /// polecenie "Pokaż ulubione", ale okno idzie przez <c>ShowDialog</c>
+        /// produkcyjnego wlasciciela. Zwraca okno przechwycone PRZED modalem,
+        /// zeby wolajacy mial na czym sprawdzic ZAMKNIECIE i POWROT.
+        /// </summary>
+        internal object? RunFavoritesAsRealModal()
+        {
+            object? captured = null;
+            VisibleFocusForTests = null;
+            VisibleFocusFailureForTests = null;
+            CaptureForRealModal = dialog => captured = dialog;
+            UseRealModalPresentation();
+            try
+            {
+                ExecuteCommand(CommandIds.ViewFavorites);
+                if (FavoritesTask is { } task)
+                {
+                    Pump(task);
+                }
+                else
+                {
+                    throw new Exception("Polecenie nie rozpoczęło zadania odczytu ulubionych Sonos.");
+                }
+            }
+            finally
+            {
+                CaptureForRealModal = null;
+                ClearPresentation();
+            }
+
+            return captured;
+        }
+
+        /// <summary>
+        /// MIGAWKA STANU WIDOCZNEGO MODALU. Nie zwraca "true" na wiare:
+        /// niesie DOWODY widocznosci (IsVisible, IsLoaded, zrodlo prezentacji),
+        /// odczyt produkcyjnej wlasciwosci fokusu oraz RZECZYWISCIE skupiony
+        /// element, zeby komunikat bledu mowil, gdzie fokus naprawde jest.
+        /// </summary>
+        internal sealed record VisibleFocusSnapshot(
+            bool Visible,
+            bool Loaded,
+            bool Active,
+            bool HasPresentationSource,
+            bool ListHasFocus,
+            string FocusedElement)
+        {
+            internal string Describe() =>
+                $"IsVisible={Visible}, IsLoaded={Loaded}, IsActive={Active}, "
+                + $"zrodloPrezentacji={HasPresentationSource}, fokusNaLiscie={ListHasFocus}, "
+                + $"skupiony={FocusedElement}";
+        }
+
+        private static VisibleFocusSnapshot Observe(Window window)
+        {
+            var focused = System.Windows.Input.Keyboard.FocusedElement;
+            var described = focused switch
+            {
+                null => "(brak)",
+                FrameworkElement element when !string.IsNullOrEmpty(element.Name) =>
+                    element.GetType().Name + " \"" + element.Name + "\"",
+                _ => focused.GetType().Name
+            };
+            return new VisibleFocusSnapshot(
+                window.IsVisible,
+                window.IsLoaded,
+                window.IsActive,
+                PresentationSource.FromVisual(window) is not null,
+                Property<bool>(window, "ListHasFocusForTests"),
+                described);
         }
 
         internal void ClearPresentation() => PresentOverride.SetValue(Window, null);
@@ -753,6 +878,7 @@ internal static class SonosFavoritesUiTests
             {
                 var window = (Window)dialog;
                 window.ShowInTaskbar = false;
+                harness.CaptureForRealModal?.Invoke(dialog);
                 // ZAMKNIECIE uzbrajamy PRZED modalem: ShowDialog zatrzymuje ten
                 // watek na wlasnej petli komunikatow, a timer dziala w niej.
                 var closer = new DispatcherTimer(DispatcherPriority.Background)
@@ -763,6 +889,19 @@ internal static class SonosFavoritesUiTests
                 {
                     if (!window.IsLoaded || !window.IsVisible) return;
                     closer.Stop();
+                    // MIGAWKA PRZY OTWARTYM MODALU. Zaden blad stad nie ma prawa
+                    // uciec jako nieobslugiwana awaria CLR: zapisujemy go i tak
+                    // samo domykamy WYLACZNIE ten wlasny dialog, a asercja idzie
+                    // z normalnego wolajacego po powrocie z ShowDialog.
+                    try
+                    {
+                        harness.VisibleFocusForTests = Observe(window);
+                    }
+                    catch (Exception exception)
+                    {
+                        harness.VisibleFocusFailureForTests = exception;
+                    }
+
                     var close = (Button?)window.FindName("CloseButton")
                         ?? throw new Exception("Okno ulubionych nie ma przycisku Zamknij.");
                     close.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
