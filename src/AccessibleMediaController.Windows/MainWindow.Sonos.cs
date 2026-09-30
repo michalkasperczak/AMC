@@ -1429,6 +1429,15 @@ public partial class MainWindow
     internal Task ActivateSonosGroupForTests(string groupId) => ActivateSonosGroupAsync(groupId);
 
     /// <summary>
+    /// WASKI hook pomiarowy: PRODUKCYJNA droga Entera na wierszu grupy, czyli
+    /// aktywacja grupy i istniejacy widok odtwarzacza. Pomiar kontekstu Ctrl+F5
+    /// w odtwarzaczu nie ma dzieki temu wlasnej kopii tej kolejnosci ani nie
+    /// ustawia prywatnej flagi widoku.
+    /// </summary>
+    internal Task ActivateSonosGroupThenShowPlayerForTests(string groupId) =>
+        ActivateSonosGroupThenShowPlayerAsync(groupId);
+
+    /// <summary>
     /// OSTATNIA rozpoczeta aktywacja grupy Sonos. WASKA obserwowalnosc dla
     /// pomiaru: test moze poczekac na RZECZYWISTE zakonczenie zadania zamiast
     /// pompowac stala liczbe milisekund. Nic w logice produkcyjnej tego nie

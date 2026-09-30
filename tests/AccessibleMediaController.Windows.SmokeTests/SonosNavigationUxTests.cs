@@ -58,6 +58,11 @@ internal static class SonosNavigationUxTests
                 checks += MeasureLibraryShowsGroupsAsTargets();
                 checks += MeasureFavoritesRefuseSpeakers();
                 checks += MeasureCtrlF5OpensExistingAccountWindow();
+                // KOLEJNOSC: kontekst odtwarzacza mierzony PRZED kontekstem pola,
+                // zeby zaden z tych dwoch przypadkow nie chowal sie za padnieciem
+                // drugiego (oba byly zglaszane osobno przez zywy NVDA).
+                checks += MeasureCtrlF5FromPlayerOpensAccountWindow();
+                checks += MeasureCtrlF5FromFilterBoxOpensAccountWindow();
                 checks += MeasureShortGroupRowLabel();
             }
             catch (Exception exception)
@@ -77,7 +82,8 @@ internal static class SonosNavigationUxTests
 
         Console.WriteLine(
             "OK: uklad interfejsu Sonos - Biblioteka pokazuje grupy jako cele, Ulubione odmawiaja "
-            + "glosnika, Ctrl+F5 otwiera istniejace Konto Sonos, wiersz grupy ma krotka nazwe "
+            + "glosnika, Ctrl+F5 otwiera istniejace Konto Sonos z listy, z pola filtrowania i z "
+            + "odtwarzacza z powrotem fokusu, wiersz grupy ma krotka nazwe "
             + $"({checks} sprawdzeń, WLASNE pokazane okno)");
     }
 
@@ -272,6 +278,186 @@ internal static class SonosNavigationUxTests
         return 9;
     }
 
+    // ===== U3b: Ctrl+F5 z POLA FILTROWANIA =====
+
+    /// <summary>
+    /// ZGLOSZENIE (zywy NVDA, 657): Ctrl+F5 w sesji Sonos NIC nie otwieralo, gdy
+    /// fokus byl w polu "Filtruj listę". Pomiar prowadzi PRAWDZIWY
+    /// Window_PreviewKeyDown przy RZECZYWISTYM Keyboard.FocusedElement bedacym
+    /// tym polem, a okno konta pokazuje sie PRAWDZIWYM modalnym ShowDialog
+    /// (zamykanym wlasnym zegarem), zeby powrot fokusu byl mierzony na
+    /// prawdziwej drodze WPF, nie na podstawionym pokazaniu.
+    /// </summary>
+    private static int MeasureCtrlF5FromFilterBoxOpensAccountWindow()
+    {
+        using var harness = Harness.Create();
+        harness.EnterSonosSession();
+        harness.ShowOwnWindow();
+        harness.ExecuteCommand(CommandIds.ViewLibrary);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+        harness.SelectRow(0);
+
+        var presenter = harness.Window.SonosAccountPresenterForTests;
+        var filter = harness.FilterBox;
+        filter.Text = "Sal";
+        filter.CaretIndex = 2;
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+        var viewBefore = harness.CurrentView;
+        var selectedBefore = harness.MediaList.SelectedIndex;
+        var groupBefore = harness.Window.SonosSelectedGroupId;
+
+        harness.FocusFilterBox();
+        if (!ReferenceEquals(Keyboard.FocusedElement, filter))
+        {
+            throw new Exception(
+                "Pomiar nie postawil fokusu klawiatury w polu filtrowania: "
+                + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
+        }
+
+        // PRAWDZIWY modal: wlasny zegar zamyka okno konta, ktore powstalo
+        // produkcyjnym ShowDialog. Zaden PresentOverride tu nie dziala.
+        presenter.PresentOverride = null;
+        using var closer = harness.StartAccountWindowAutoClose(presenter);
+
+        harness.Announcements.Clear();
+        harness.AssertAccountBoundariesAreSynthetic();
+        harness.PressCtrl(Key.F5);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        if (presenter.WindowsCreated != 1)
+        {
+            throw new Exception(
+                $"Ctrl+F5 z pola filtrowania nie otworzylo okna Konto Sonos (okien: {presenter.WindowsCreated}; "
+                + "komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
+        }
+        if (!closer.SawDevicesButton)
+        {
+            throw new Exception("Okno konta z pola filtrowania nie ma istniejacego przycisku Głośniki i grupy.");
+        }
+        if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
+        {
+            throw new Exception("Ctrl+F5 z pola filtrowania zapisal albo skasowal poswiadczenia Sonos.");
+        }
+        if (harness.Gateway.Calls != 0 || harness.AccountOwner.ControlApiCreations != 0)
+        {
+            throw new Exception("Ctrl+F5 z pola filtrowania ruszyl logowanie albo Control API Sonos.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Ctrl+F5 z pola filtrowania wyslal polecenie sterujace do Sonosa.");
+        }
+
+        // POWROT FOKUSU: pole filtrowania z tym samym tekstem i karetka.
+        if (!ReferenceEquals(Keyboard.FocusedElement, filter))
+        {
+            throw new Exception(
+                "Po zamknieciu okna konta fokus NIE wrocil do pola filtrowania, a do "
+                + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
+        }
+        if (filter.Text != "Sal" || filter.CaretIndex != 2)
+        {
+            throw new Exception(
+                $"Powrot do pola filtrowania zmienil tekst albo karetke: \"{filter.Text}\" / {filter.CaretIndex}.");
+        }
+        if (harness.CurrentView != viewBefore
+            || harness.MediaList.SelectedIndex != selectedBefore
+            || harness.Window.SonosSelectedGroupId != groupBefore)
+        {
+            throw new Exception("Ctrl+F5 z pola filtrowania zmienil widok, zaznaczenie albo wybrana grupe.");
+        }
+        return 9;
+    }
+
+    // ===== U3c: Ctrl+F5 z ODTWARZACZA =====
+
+    /// <summary>
+    /// ZGLOSZENIE (zywy NVDA, 657): Ctrl+F5 nie otwieralo konta, gdy fokus byl na
+    /// przycisku odtwarzania. Odtwarzacz otwieramy PRODUKCYJNA droga (Enter na
+    /// wierszu grupy -> ActivateSonosGroupThenShowPlayer) i stawiamy fokus na
+    /// RZECZYWISTYM PlayerPlayPauseButton, nie ustawiamy prywatnej flagi.
+    /// </summary>
+    private static int MeasureCtrlF5FromPlayerOpensAccountWindow()
+    {
+        using var harness = Harness.Create();
+        harness.EnterSonosSession();
+        harness.ShowOwnWindow();
+        harness.ExecuteCommand(CommandIds.ViewLibrary);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+        harness.SelectRow(0);
+
+        // PRODUKCYJNE wejscie w odtwarzacz z listy, tak jak Enter uzytkownika.
+        harness.Pump(harness.Window.ActivateSonosGroupThenShowPlayerForTests("GRUPA-SALON"));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        var playButton = harness.PlayerPlayPauseButton;
+        if (!playButton.IsVisible)
+        {
+            throw new Exception("Produkcyjne wejscie z listy nie pokazalo odtwarzacza Sonos.");
+        }
+        playButton.Focus();
+        Keyboard.Focus(playButton);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+        if (!ReferenceEquals(Keyboard.FocusedElement, playButton))
+        {
+            throw new Exception(
+                "Pomiar nie postawil fokusu na prawdziwym przycisku odtwarzania: "
+                + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
+        }
+
+        var presenter = harness.Window.SonosAccountPresenterForTests;
+        var shown = 0;
+        var hasDevicesButton = false;
+        presenter.PresentOverride = accountWindow =>
+        {
+            shown++;
+            hasDevicesButton = accountWindow.FindName("DevicesButton") is Button;
+        };
+
+        var groupBefore = harness.Window.SonosSelectedGroupId;
+        var commandsBefore = harness.Backend.Commands.Count;
+        var contentBefore = playButton.Content as string;
+        harness.Announcements.Clear();
+        harness.AssertAccountBoundariesAreSynthetic();
+        harness.PressCtrl(Key.F5);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        if (shown != 1)
+        {
+            throw new Exception(
+                $"Ctrl+F5 w odtwarzaczu Sonos nie otworzylo okna Konto Sonos (otwarc: {shown}; "
+                + "komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
+        }
+        if (!hasDevicesButton)
+        {
+            throw new Exception("Okno konta z odtwarzacza nie ma istniejacego przycisku Głośniki i grupy.");
+        }
+        if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
+        {
+            throw new Exception("Ctrl+F5 z odtwarzacza zapisal albo skasowal poswiadczenia Sonos.");
+        }
+        if (harness.Gateway.Calls != 0 || harness.AccountOwner.ControlApiCreations != 0)
+        {
+            throw new Exception("Ctrl+F5 z odtwarzacza ruszyl logowanie albo Control API Sonos.");
+        }
+        if (harness.Backend.Commands.Count != commandsBefore)
+        {
+            throw new Exception("Ctrl+F5 z odtwarzacza wyslal polecenie sterujace do Sonosa.");
+        }
+
+        // POWROT FOKUSU: ten sam przycisk odtwarzacza i ten sam stan.
+        if (!ReferenceEquals(Keyboard.FocusedElement, playButton))
+        {
+            throw new Exception(
+                "Po zamknieciu okna konta fokus NIE wrocil na przycisk odtwarzania, a do "
+                + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
+        }
+        if ((playButton.Content as string) != contentBefore
+            || harness.Window.SonosSelectedGroupId != groupBefore)
+        {
+            throw new Exception("Ctrl+F5 z odtwarzacza zmienil stan przycisku albo wybrana grupe.");
+        }
+        return 8;
+    }
+
     // ===== U4: krotki wiersz grupy =====
 
     private static int MeasureShortGroupRowLabel()
@@ -368,6 +554,59 @@ internal static class SonosNavigationUxTests
         }
 
         internal ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
+
+        internal TextBox FilterBox => (TextBox)Window.FindName("FilterBox")!;
+
+        internal Button PlayerPlayPauseButton => (Button)Window.FindName("PlayerPlayPauseButton")!;
+
+        /// <summary>
+        /// RZECZYWISTY fokus klawiatury w polu filtrowania: to samo, co zrobi
+        /// uzytkownik Tabem. Bez tego KeyEventArgs nie mierzylby kontekstu pola.
+        /// </summary>
+        internal void FocusFilterBox()
+        {
+            var filter = FilterBox;
+            filter.Focus();
+            Keyboard.Focus(filter);
+            PumpQuietly(TimeSpan.FromMilliseconds(80));
+        }
+
+        /// <summary>
+        /// PRAWDZIWY modal bez zawieszenia pomiaru: zegar czeka na okno konta
+        /// otwarte produkcyjnym ShowDialog, odnotowuje ISTNIEJACY przycisk
+        /// Glosniki i grupy i zamyka je. Zadnego kliku w logowanie, odnowienie
+        /// ani rozlaczenie - tylko zamkniecie okna.
+        /// </summary>
+        internal AccountWindowAutoClose StartAccountWindowAutoClose(SonosAccountPresenter presenter) =>
+            new(presenter, _dispatcher);
+
+        internal sealed class AccountWindowAutoClose : IDisposable
+        {
+            private readonly DispatcherTimer _timer;
+
+            internal AccountWindowAutoClose(SonosAccountPresenter presenter, Dispatcher dispatcher)
+            {
+                _timer = new DispatcherTimer(DispatcherPriority.Normal, dispatcher)
+                {
+                    Interval = TimeSpan.FromMilliseconds(30)
+                };
+                _timer.Tick += (_, _) =>
+                {
+                    if (presenter.OpenWindow is not { } window) return;
+                    if (!window.IsLoaded) return;
+                    SawDevicesButton |= window.FindName("DevicesButton") is Button;
+                    Closed++;
+                    window.Close();
+                };
+                _timer.Start();
+            }
+
+            internal bool SawDevicesButton { get; private set; }
+
+            internal int Closed { get; private set; }
+
+            public void Dispose() => _timer.Stop();
+        }
 
         internal string CurrentView => (string)Field("_currentView")!;
 
