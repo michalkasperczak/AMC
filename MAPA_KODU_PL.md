@@ -48,7 +48,7 @@ Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
 KONTROLKI, PLAY/PAUSE, CZAS I SKOK DO POZYCJI (część B3a, nie pełny odbiór
 odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
-(**56 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+(**101 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
 
 - `UpdateSonosPlayerView` (`MainWindow.Sonos.cs`) ustawia **wszystkie** kontrolki
   odtwarzacza z odczytu grupy — także `PlayerTimeText` i etykietę oraz **dostępną
@@ -96,8 +96,9 @@ odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
   polecenia w locie. Stara bramka `ExecuteSonosCommandAsync` nietknięta.
 - ZERO POST przy: anulowaniu, braku odczytanej długości lub pozycji,
   `CanSeek=false` (przed **i po** odczycie), zmianie grupy oraz **zmianie materiału
-  w trakcie modalu** (`itemId` sprawdzany przed i po). Każda z tych ścieżek
-  **mówi czego brakuje**, nie wymyśla zera. Po skoku idzie **jawny GET**, a werdykt
+  w trakcie modalu** (`itemId` sprawdzany przed i po). Bieżąca odmowa mówi,
+  czego brakuje; anulowanie i porzucony cel milczą. Nie wymyślamy zera.
+  Po próbie skoku idzie **jawny GET**, a werdykt
   zostaje dotychczasowy: `Accepted` bez zmiany odczytu **nie** jest dowodem
   trafionej pozycji.
 - **Błąd przedskokowego odczytu nie jest cichy.** Oba `await ReadSonosGroupStateAsync`

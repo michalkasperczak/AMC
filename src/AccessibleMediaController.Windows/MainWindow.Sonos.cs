@@ -1172,8 +1172,6 @@ public partial class MainWindow
                 && result.Outcome?.Status == SonosControlApiStatus.Success;
             // JAWNY odczyt PO skoku: Accepted bez zmiany odczytu NIE jest dowodem
             // trafionej pozycji, wiec werdykt zostaje dotychczasowy i uczciwy.
-            // Jego wyjatek to UTRATA POTWIERDZENIA, a nie brak wyslania -
-            // zadanie juz poszlo, wiec "nie wyslano" byloby klamstwem.
             bool readOk;
             try
             {

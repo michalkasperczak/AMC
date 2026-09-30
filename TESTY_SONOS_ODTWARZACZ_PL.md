@@ -107,9 +107,37 @@ Zasady, których te polecenia trzymają się twardo:
   wymyślane.
 - Sonos nie dostaje żadnego nowego globalnego skrótu klawiszowego.
 
-## Zakres odbioru części B3a
+## Odebrany zakres: kontrolki, czas i dialogi skoku
 
-Zestaw `--sonos-player-ui` ma teraz 30 sprawdzeń. D6 używa odczytanej pozycji
+Zestaw `--sonos-player-ui` ma **101 sprawdzeń**. Końcowy własny przebieg na
+Windows objął ten zestaw, siedem pozostałych zestawów Sonosa i pełny Core;
+wszystkie etapy zakończyły się kodem 0. To nadal nie jest pełny zestaw Windows
+ani `build.ps1` przygotowujący wydanie.
+
+Dwa ostatnie błędy komunikatów mają RED na niezmienionej wcześniejszej
+produkcji i GREEN z identycznym plikiem testu po poprawce. Porzucony skok
+nie mówi już w nowej sesji. `RequestSent=false` oznacza brak próby, a `true`
+jedynie próbę bez gwarancji dostarczenia; komunikaty zachowują to rozróżnienie.
+
+Żywy NVDA na prywatnej kopii na Hermesie potwierdził rzeczywiste Ctrl+J,
+Ctrl+Shift+J, Enter i Escape, oba przyciski przez UIA Invoke oraz powrót fokusu.
+Sprawdzono też zmianę odczytanej pozycji podczas otwartego okna, odmowę po
+utracie możliwości przewijania oraz mowę przy błędzie odczytu przed i po
+próbie skoku. Wartości pola wpisywano przez UIA ValuePattern, nie klawiszami.
+
+W końcowej próbie zatrzymano odczyt, przełączono się fizycznym Ctrl+3 do TIDAL
+i zwolniono odczyt: nie było skoku ani dodatkowej wypowiedzi w Podglądzie mowy.
+Oddzielnie NVDA odczytał oba poprawne komunikaty dla braku próby i próby bez
+potwierdzenia. Dane zaplecza były syntetyczne; nie badano tu rzeczywistego
+konta, HTTP, DPAPI ani dźwięku głośników.
+
+Pozostałe polecenia B4 i ich bramki są nadal do odbioru: Następny/Poprzedni,
+zwykłe i niestandardowe przeskoki, cyfrowe skoki procentowe, głośność i wyciszenie.
+Poniższe opisy wcześniejszych etapów nie zastępują tego brakującego odbioru.
+
+## Wcześniejszy etap: format czasu ponad dobę
+
+Ten etap rozszerzył zestaw do 30 sprawdzeń. D6 używa odczytanej pozycji
 24:30:00 i długości 25:00:00 w pauzie: kontrolka oraz polecenia czasu mają
 podawać całkowite godziny, a czas pozostały wynosi 30:00. Ten sam test na kodzie
 sprzed poprawki kompiluje się, ale wykrywa błędny tekst „0:30:00 z 1:00:00”;
@@ -120,9 +148,9 @@ Ctrl+Shift+E/T/R i zapis wypowiedzi w Podglądzie mowy żywego NVDA na Hermesie.
 Odczytano 24:30:00, 25:00:00 i 30:00 z dokładnych binariów zaliczonego przebiegu.
 Wszystkie dane grupy były syntetyczne; nie odtwarzano rzeczywistego nagrania.
 
-## Cztery uwagi odbioru skoku — co ZMIERZONO, a czego NIE
+## Wcześniejsza korekta czterech uwag odbioru skoku
 
-Zestaw `--sonos-player-ui` ma po tej korekcie **87 sprawdzeń** (56 wcześniejszych
+Po tej korekcie zestaw `--sonos-player-ui` miał **87 sprawdzeń** (56 wcześniejszych
 + 31 nowych). Każda z czterech uwag ma **własny RED na niezmienionej produkcji**
 (faza `red-5`: `build-ui` exit 0, `run-sonos-player-ui` exit 1 — to **nie** był
 błąd kompilacji) i **własny GREEN** po minimalnej poprawce (faza `green-1`, exit 0).
@@ -134,7 +162,8 @@ błąd kompilacji) i **własny GREEN** po minimalnej poprawce (faza `green-1`, e
 | #3 komunikat przy błędzie odczytu | wyjątek przedskokowego odczytu **uciekał** z zadania jako porzucony fault (`TimeoutException`), użytkownik nie słyszał nic | komunikat mówi wprost, że **przed POST-em nie udało się odczytać i skok nie został wysłany**; osobny komunikat dla utraty odpowiedzi **po** wysłaniu; 0 wysłań w wariancie przedskokowym; brak porzuconego fault; treść wyjątku (z podstawionym „tokenem”) **nie** trafia do wypowiedzi |
 | #2 powrót fokusu | modal procentowy otwarty z `PlayerSeekPercentButton` oddawał fokus na `PlayerSeekTimeButton` | oba tryby × (zatwierdzenie, anulowanie) wracają na **swój** przycisk; skrót z `PlayPause` zostaje na `PlayerPlayPauseButton` |
 
-**Granice tego pomiaru — czego NIE zmierzono:**
+**Granice samych opisanych tu testów automatycznych** (oddzielny późniejszy
+odbiór NVDA opisano na początku):
 
 - **Bez NVDA i bez mowy.** Mierzone jest ujście `Announce`, nie odsłuch czytnika.
 - **Bez fizycznych klawiszy i bez UIA z zewnątrz**: przyciski przez chroniony
@@ -155,7 +184,7 @@ To odbiór wyświetlania, Play/Pause, czasu i **skoku do pozycji**, nie całego
 odtwarzacza. Przyciski „Skocz do czasu…” i „Skocz do procentu…” wcześniej
 odmawiały mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
 UIA Invoke i mowę NVDA, a **teraz jest naprawiona** i zmierzona syntetycznie
-zestawem `--sonos-player-ui` (odsłuch NVDA tej poprawki robi osobny odbiór).
+zestawem `--sonos-player-ui` oraz późniejszym osobnym odbiorem żywym NVDA.
 Next/Previous,
 pozostałe przewijanie (`digit percent`, `seekCustom`), głośność/wyciszenie
 i ich bramki wymagają osobnego odbioru — to jawna reszta B4.
@@ -201,8 +230,8 @@ Co ten pomiar **wykazał i naprawił** (RED przed zmianą produkcji, potem GREEN
 - Delta jest liczona od **ponownego** odczytu po zamknięciu modalu, nie od
   pozycji z chwili jego otwarcia — modal trwa dowolnie długo, więc stara pozycja
   trafiałaby gdzie indziej. Tożsamość grupy i `itemId` jest sprawdzana **przed i
-  po** modalu: zmiana celu albo materiału kończy się **zerem żądań** i jawnym
-  komunikatem, nie skokiem w nowy cel.
+  po** modalu: zmiana celu kończy się **zerem żądań** i ciszą porzuconej
+  operacji; zmiana materiału w nadal aktualnym celu daje odmowę, nie skok w nowy cel.
 
 Pomiar `--sonos-session-ui` buduje się i uruchamia **bez GUI** (żadnego `Show`,
 `ShowDialog`, `Activate`) — to się NIE zmieniło. Osobny `--sonos-session-entry-ui`
