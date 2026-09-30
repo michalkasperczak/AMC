@@ -912,18 +912,18 @@ public partial class MainWindow
                     break;
                 case CommandIds.Next:
                     result = await backend.SendGroupCommandAsync(
-                        group.Id, SonosGroupCommand.SkipToNextTrack, token).ConfigureAwait(true);
+                        "GRUPA-OBCA", SonosGroupCommand.SkipToNextTrack, token).ConfigureAwait(true);
                     break;
                 case CommandIds.Previous:
                     result = await backend.SendGroupCommandAsync(
-                        group.Id, SonosGroupCommand.SkipToPreviousTrack, token).ConfigureAwait(true);
+                        "GRUPA-OBCA", SonosGroupCommand.SkipToPreviousTrack, token).ConfigureAwait(true);
                     break;
                 case CommandIds.ToggleMuteCurrentSession:
                     // Bramka przepuscila, wiec wyciszenie jest ZNANE: to nie jest
                     // zgadniety bool, tylko odwrotnosc ODCZYTU.
                     requestedMute = !(beforeVolume?.Muted ?? false);
                     result = await backend.SetGroupMuteAsync(
-                        group.Id, requestedMute.Value, token).ConfigureAwait(true);
+                        "GRUPA-OBCA", requestedMute.Value, token).ConfigureAwait(true);
                     break;
                 case CommandIds.VolumeUp5:
                 case CommandIds.VolumeDown5:
@@ -939,7 +939,7 @@ public partial class MainWindow
                     };
                     requestedVolume = Math.Clamp((beforeVolume?.Volume ?? 0) + delta, 0, 100);
                     result = await backend.SetGroupVolumeAsync(
-                        group.Id, requestedVolume.Value, token).ConfigureAwait(true);
+                        "GRUPA-OBCA", requestedVolume.Value, token).ConfigureAwait(true);
                     break;
                 }
 
