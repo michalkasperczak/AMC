@@ -107,12 +107,53 @@ Zasady, których te polecenia trzymają się twardo:
   wymyślane.
 - Sonos nie dostaje żadnego nowego globalnego skrótu klawiszowego.
 
+## Pozostałe polecenia odtwarzacza (B4)
+
+Zmierzone rzeczywistym `ExecuteCommand` na pokazanym własnym oknie, na atrapie
+zaplecza; **bez** NVDA i bez ruchu HTTP do prawdziwego Sonosa.
+
+Naprawione **potwierdzone** braki (RED na niezmienionej produkcji: custom wysyłał
+zero żądań i mówił „Ten rodzaj przewijania nie jest obsługiwany”):
+
+- **Przewijanie ±Custom** bierze długość z konfiguracji przez tę samą regułę
+  `PlaybackSeekRules.NormalizeCustomSeekSeconds`, której używa `CommandRouter`.
+  Zmiana ustawienia faktycznie zmienia deltę w zapleczu (120 s → ±120 000 ms,
+  45 s → ±45 000 ms, 99 999 s → ±1 800 000 ms po normalizacji). Żadnego nowego
+  klawisza, opcji ani punktu końcowego — idzie istniejące `SeekRelativeAsync`.
+- **Cyfry 0–9** (`transport.seekPercent.0`…`.90`) liczą cel bezwzględny z
+  **odczytanej** długości i przekładają go na deltę od **świeżego** odczytu tej
+  samej grupy i tego samego materiału, bez modalu. Zmierzono wszystkie dziesięć.
+  Brak pozycji lub długości, zmiana materiału, zmiana grupy w trakcie odczytu
+  oraz `CanSeek` false/null kończą się czytelną odmową i **zerem żądań** — nigdy
+  zerem z sesji demonstracyjnej. Nieprawidłowy identyfikator (np. `.35`) nadal
+  jest odmawiany; dialog procentowy Ctrl+Shift+J to osobna droga (0–100).
+
+Zmierzone i **już poprawne** przed tą zmianą (produkcji nie ruszano):
+
+- **Next/Previous** → `SkipToNextTrack` / `SkipToPreviousTrack` aktywnej grupy,
+  dokładnie jedno żądanie + jawny GET, `DemoMediaSession` nietknięty. Przyjęcie
+  żądania **bez** nowego identyfikatora materiału jest nazywane niepotwierdzonym;
+  dopiero odczyt z nowym materiałem potwierdza zmianę. `CanSkip` i
+  `SkipToPreviousAllowed` w wariantach false **i null** dają zero żądań.
+- **Głośność ±1/±5** — `SetGroupVolumeAsync` z **odczytanej** liczby, ograniczenie
+  do 0..100 na obu końcach, jedno żądanie + jawny GET, mowa z odczytu. Brak
+  odczytu głośności oraz `volume.fixed=true` dają zero żądań poziomu.
+- **Wyciszenie** odwraca wyłącznie **znany** stan z odczytu; nieznany (`null`,
+  brak odczytu) to odmowa i zero żądań. `volume.fixed=true` blokuje **poziom**,
+  a nie wyciszenie. Globalne wyciszenie i ustawienia innej sesji nietknięte.
+
+Ponieważ skip, głośność i wyciszenie były zielone od pierwszego przebiegu,
+dołożono **mutację kontrolną**: podmiana celu czterech wywołań na obcą grupę dała
+`build-ui` exit 0 i test exit 1 („polecenie poszło do grupy GRUPA-OBCA”). Mutację
+cofnięto, a końcowy przebieg ma produkcję bit-identyczną z fazą GREEN.
+
 ## Odebrany zakres: kontrolki, czas i dialogi skoku
 
-Zestaw `--sonos-player-ui` ma **101 sprawdzeń**. Końcowy własny przebieg na
-Windows objął ten zestaw, siedem pozostałych zestawów Sonosa i pełny Core;
-wszystkie etapy zakończyły się kodem 0. To nadal nie jest pełny zestaw Windows
-ani `build.ps1` przygotowujący wydanie.
+Zestaw `--sonos-player-ui` ma **267 sprawdzeń** (101 z odbioru kontrolek, czasu
+i dialogów skoku oraz nowe pomiary pozostałych poleceń, patrz sekcja niżej).
+Końcowy własny przebieg na Windows objął ten zestaw, siedem pozostałych zestawów
+Sonosa i pełny Core; wszystkie etapy zakończyły się kodem 0. To nadal nie jest
+pełny zestaw Windows ani `build.ps1` przygotowujący wydanie.
 
 Dwa ostatnie błędy komunikatów mają RED na niezmienionej wcześniejszej
 produkcji i GREEN z identycznym plikiem testu po poprawce. Porzucony skok

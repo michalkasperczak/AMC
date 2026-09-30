@@ -46,9 +46,21 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 `Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
-KONTROLKI, PLAY/PAUSE, CZAS I SKOK DO POZYCJI (część B3a, nie pełny odbiór
-odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
-(**101 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+KONTROLKI, PLAY/PAUSE, CZAS, SKOK DO POZYCJI I POZOSTAŁE POLECENIA (części B3a
+i B4, nie pełny odbiór odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
+(**267 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+
+- Przewijanie **±Custom** i **cyfry 0–9** idą istniejącym `SeekRelativeAsync`
+  aktywnej grupy: custom bierze długość z konfiguracji przez tę samą regułę
+  `PlaybackSeekRules.NormalizeCustomSeekSeconds` co `CommandRouter`, a cyfry
+  przekładają cel procentowy na deltę od **świeżego** odczytu tej samej grupy i
+  materiału (`ResolveSonosPercentSeekAsync`) — bez modalu i bez nowego punktu
+  końcowego. Wcześniej oba wpadały w `seconds == 0` i kończyły się odmową.
+- Next/Previous, głośność ±1/±5 i wyciszenie były już poprawne — zmierzono je
+  (jedno żądanie do aktywnej grupy + jawny GET, bramki `CanSkip`,
+  `SkipToPreviousAllowed`, brak odczytu i `volume.fixed` dają zero żądań,
+  wyciszenie odwraca wyłącznie znany stan) bez zmiany produkcji; dyskryminację
+  pomiarów potwierdziła cofnięta mutacja kontrolna celu grupy.
 
 - `UpdateSonosPlayerView` (`MainWindow.Sonos.cs`) ustawia **wszystkie** kontrolki
   odtwarzacza z odczytu grupy — także `PlayerTimeText` i etykietę oraz **dostępną
