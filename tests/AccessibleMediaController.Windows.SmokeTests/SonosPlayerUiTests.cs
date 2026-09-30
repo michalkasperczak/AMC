@@ -1265,7 +1265,9 @@ internal static class SonosPlayerUiTests
                     $"Nieprawidlowy procent 35 wyslal {harness.Backend.SeekCalls.Count} zadan skoku.");
             }
             checks++;
-            if (!said.Contains("nie jest obsługiwane", StringComparison.OrdinalIgnoreCase))
+            // Wspolny parser odrzuca 35 (nie jest wielokrotnoscia 10), wiec droga
+            // konczy sie odmowa RODZAJU przewijania - nadal zero zadan.
+            if (!said.Contains("nie jest obsługiwan", StringComparison.OrdinalIgnoreCase))
             {
                 throw new Exception($"Nieprawidlowy procent 35 nie zostal odmowiony: \"{said}\".");
             }
