@@ -14,7 +14,12 @@ using AccessibleMediaController.Windows;
 /// </summary>
 internal static class SonosFavoritePlayDriving
 {
-    /// <summary>ZAZNACZENIE wiersza wraz z fokusem kontenera - jak u uzytkownika.</summary>
+    /// <summary>
+    /// ZAZNACZENIE wiersza wraz z fokusem kontenera. UWAGA: to NIE strzalka -
+    /// ustawiamy <c>SelectedIndex</c> wprost, wiec klawiszowa nawigacja listy
+    /// NIE jest tu mierzona (ma wlasne pomiary w suicie okna). Mierzymy stan
+    /// zaznaczenia i fokus, ktore z tego wynikaja.
+    /// </summary>
     internal static void SelectForTests(this SonosFavoritesWindow window, int index)
     {
         var list = (ListBox)window.FindName("FavoritesList")!;

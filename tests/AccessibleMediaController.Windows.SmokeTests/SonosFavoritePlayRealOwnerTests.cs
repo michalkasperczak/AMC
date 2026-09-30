@@ -91,10 +91,14 @@ internal static class SonosFavoritePlayRealOwnerTests
             Measure("R1", "realna droga wysyla DOKLADNIE JEDEN POST loadFavorite z INSERT/true "
                 + "dla DRUGIEJ z dwoch jednakowych etykiet", MeasureRealPostCarriesSelectedId),
             Measure("R2", "zmiana konta A->B publiczna droga koordynatora konczy stara probe "
-                + "BEZ POST starym identyfikatorem i BEZ spoznionego komunikatu",
+                + "BEZ POST starym identyfikatorem, BEZ falszywego sukcesu i BEZ zostawienia "
+                + "zywego modalu na Czekaj",
                 MeasureAccountSwapStopsOldFavorite),
-            Measure("R3", "busy, brak grupy i pusta lista NIE wysylaja zadnego POST, "
-                + "a samo otwarcie i nawigacja nie ruszaja transportu", MeasureRefusalsNeverPost),
+            Measure("R4", "zmiana konta PRZED pierwszym Enter: pierwszy Enter konczy sie "
+                + "ZEROWYM POST i jawnym niewyslaniem, nigdy na Czekaj",
+                MeasureAccountSwapBeforeFirstEnter),
+            Measure("R3", "busy i pusta lista NIE wysylaja zadnego POST, "
+                + "a samo otwarcie i zmiana zaznaczenia nie ruszaja transportu", MeasureRefusalsNeverPost),
         ];
     }
 
@@ -447,6 +451,15 @@ internal static class SonosFavoritePlayRealOwnerTests
     /// ZMIANA KONTA publiczna droga (BeginLoginAsync + CheckLoginAsync) przy
     /// OTWARTYM modalu: stare ULUBIONE nie ma prawa pojsc na bilecie konta B,
     /// a wstrzymany POST konta A po zmianie nie wolno oglaszac jako sukcesu.
+    ///
+    /// ZMIANA POLITYKI ASERCJI wobec wersji sprzed L1: zabroniony jest SUKCES
+    /// starego zlecenia, a NIE uczciwa diagnostyka konca dla modalu, ktory NADAL
+    /// ZYJE i JEST AKTYWNY. Poprzednie "spokenAfterSwap == 0" wymuszalo cisze
+    /// przy aktywnym oknie, a to zostawialo je na "Wysyłam ... Czekaj." na
+    /// zawsze (L1). Teraz wymagamy: koniec NIE-pending, brak falszywego
+    /// sukcesu/odrzucenia/cofniecia oraz DOKLADNIE jedno ogloszenie w AKTYWNYM
+    /// modalu. Ochrona 0 POST na bilecie B zostaje nietknieta, a cisza przy
+    /// nieaktywnym/zamknietym oknie nadal ma swoje pomiary (P9, P10).
     /// </summary>
     private static string MeasureAccountSwapStopsOldFavorite()
     {
@@ -457,40 +470,66 @@ internal static class SonosFavoritePlayRealOwnerTests
         var accountA = harness.Store.Access;
         var statusAfterSwap = string.Empty;
         var spokenAfterSwap = 0;
+        var originActiveAfterSwap = false;
+        var statusBeforeSend = string.Empty;
+        var spokenBeforeSend = 0;
         var statusAfterRetry = string.Empty;
+        var spokenAfterRetry = 0;
+        var originActiveAfterRetry = false;
         var postsAfterRetry = 0;
         harness.RunFavoritesModal(window =>
         {
-            window.SelectForTests(1);
-            window.PressEnterForTests();
-            harness.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5));
-            if (!held.Arrived) throw new Exception("POST konta A nie dotarł do transportu.");
-
-            // ZMIANA KONTA PRAWDZIWA PUBLICZNA DROGA, modal wciaz otwarty,
-            // a POST konta A wciaz wstrzymany.
-            harness.SwapAccount("KONTO-B");
-
-            var taskA = window.LastPlayTaskForTests
-                ?? throw new Exception("Brak zadania polecenia A.");
-            var spokenBefore = window.AnnouncementsForTests;
-            held.Release();
-            harness.Pump(taskA);
-            spokenAfterSwap = window.AnnouncementsForTests - spokenBefore;
-            statusAfterSwap = window.StatusForTests;
-            if (statusAfterSwap == SonosFavoritesLabels.PlayPending)
+            try
             {
-                throw new Exception("L1: zakonczona proba pozostawila zywy modal w stanie Czekaj: "
-                    + statusAfterSwap);
-            }
+                window.SelectForTests(1);
+                window.PressEnterForTests();
+                harness.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5),
+                    "POST konta A nie dotarł do transportu");
 
-            // PONOWNA proba w TYM SAMYM modalu: stare ULUBIONE nie ma prawa
-            // pojsc przez NOWE konto - droga konczy sie BEZ POST.
-            var postsBeforeRetry = harness.Handler.Posts.Count;
-            window.PressEnterForTests();
-            window.AwaitPlayForTests();
-            harness.PumpQuietly(TimeSpan.FromMilliseconds(300));
-            postsAfterRetry = harness.Handler.Posts.Count - postsBeforeRetry;
-            statusAfterRetry = window.StatusForTests;
+                // PRZED WYSLANIEM modal ma juz stan oczekiwania - to jest punkt
+                // odniesienia dla rozdzielonych licznikow przed/po.
+                statusBeforeSend = window.StatusForTests;
+                spokenBeforeSend = window.AnnouncementsForTests;
+
+                // ZMIANA KONTA PRAWDZIWA PUBLICZNA DROGA, modal wciaz otwarty,
+                // a POST konta A wciaz wstrzymany.
+                harness.SwapAccount("KONTO-B");
+
+                var taskA = window.LastPlayTaskForTests
+                    ?? throw new Exception("Brak zadania polecenia A.");
+                held.Release();
+                // DOKLADNIE to zadanie, nie milisekundy: ukonczenie zadania jest
+                // dowodem konca przelotu, a uplyw czasu nim nie jest.
+                harness.Pump(taskA);
+                spokenAfterSwap = window.AnnouncementsForTests - spokenBeforeSend;
+                statusAfterSwap = window.StatusForTests;
+                // AKTYWNOSC mierzymy NAPRAWDE: dodatnia mowa jest wymagana tylko
+                // dla AKTYWNEGO modalu; nieaktywny ma swoj pomiar ciszy w P9.
+                originActiveAfterSwap = window.IsActive && window.IsVisible;
+
+                // PONOWNA proba w TYM SAMYM modalu PO ROZLICZONEJ zmianie konta:
+                // stare ULUBIONE nie ma prawa pojsc przez NOWE konto - droga
+                // konczy sie BEZ POST i BEZ "Czekaj".
+                var postsBeforeRetry = harness.Handler.Posts.Count;
+                var spokenBeforeRetry = window.AnnouncementsForTests;
+                window.PressEnterForTests();
+                window.AwaitPlayForTests();
+                postsAfterRetry = harness.Handler.Posts.Count - postsBeforeRetry;
+                spokenAfterRetry = window.AnnouncementsForTests - spokenBeforeRetry;
+                statusAfterRetry = window.StatusForTests;
+                originActiveAfterRetry = window.IsActive && window.IsVisible;
+            }
+            finally
+            {
+                // NIEUDANA asercja nie ma prawa zostawic wstrzymanego POST-u ani
+                // niedomknietego zadania: inaczej nastepne pomiary wisza.
+                held.Release();
+                if (window.LastPlayTaskForTests is { } pending)
+                {
+                    harness.PumpUntil(() => pending.IsCompleted, TimeSpan.FromSeconds(10),
+                        "drenaż zadania próby po zmianie konta");
+                }
+            }
         });
 
         if (held.Authorization != accountA)
@@ -511,17 +550,41 @@ internal static class SonosFavoritePlayRealOwnerTests
             throw new Exception($"Stare ulubione poszło na bilecie konta B ({onB.Length} POST).");
         }
 
-        // SPOZNIONA odpowiedz konta A nie oglasza sukcesu w modalu po zmianie konta.
-        if (statusAfterSwap.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        // PRZED wyslaniem modal mowi WLASNIE o oczekiwaniu - bez tego punktu
+        // odniesienia nie wiadomo, czy w ogole bylo z czego wyjsc.
+        if (statusBeforeSend != SonosFavoritesLabels.PlayPending)
         {
-            throw new Exception("Modal po zmianie konta pokazał PRZYJĘCIE zlecenia konta A: \""
-                + statusAfterSwap + "\".");
+            throw new Exception("Przed rozliczeniem próby modal nie był w stanie oczekiwania: \""
+                + statusBeforeSend + "\".");
         }
 
-        if (spokenAfterSwap != 0)
+        // L1: ZAKONCZONA proba NIE MA prawa zostawic zywego modalu na "Czekaj".
+        if (statusAfterSwap == SonosFavoritesLabels.PlayPending)
         {
-            throw new Exception($"Modal ogłosił {spokenAfterSwap} komunikatów o wyniku konta A "
-                + "po zmianie konta.");
+            throw new Exception("L1: zakonczona proba pozostawila zywy modal w stanie Czekaj: "
+                + statusAfterSwap);
+        }
+
+        if (string.IsNullOrWhiteSpace(statusAfterSwap))
+        {
+            throw new Exception("Zakończona próba nie zostawiła żadnego komunikatu końcowego.");
+        }
+
+        // SPOZNIONA odpowiedz konta A nie udaje ani sukcesu, ani odrzucenia,
+        // ani cofniecia: POST mogl pojsc, wiec zadne z tych slow nie jest prawda.
+        AssertNoFalseOutcome("status po zmianie konta", statusAfterSwap);
+        AssertNoFalseOutcome("status po ponownej próbie", statusAfterRetry);
+
+        // DODATNIA MOWA tylko dla NAPRAWDE aktywnego modalu.
+        if (originActiveAfterSwap && spokenAfterSwap != 1)
+        {
+            throw new Exception($"Aktywny modal ogłosił {spokenAfterSwap} komunikatów końca zamiast "
+                + "dokładnie jednego, status: \"" + statusAfterSwap + "\".");
+        }
+
+        if (!originActiveAfterSwap && spokenAfterSwap != 0)
+        {
+            throw new Exception($"NIEAKTYWNY modal ogłosił {spokenAfterSwap} komunikatów.");
         }
 
         if (postsAfterRetry != 0)
@@ -530,20 +593,132 @@ internal static class SonosFavoritePlayRealOwnerTests
                 + "ze STARYM identyfikatorem ulubionego.");
         }
 
-        if (statusAfterRetry.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        // RETRY starego modalu: 0 POST, a mimo to SENSOWNA instrukcja - nigdy
+        // "Czekaj", bo nic nie jest w drodze.
+        if (statusAfterRetry == SonosFavoritesLabels.PlayPending)
         {
-            throw new Exception("Ponowna próba po zmianie konta udaje sukces: \""
+            throw new Exception("Ponowna próba bez POST zostawiła modal na Czekaj: \""
                 + statusAfterRetry + "\".");
         }
 
-        return $"POST konta A na bilecie A, 0 POST na bilecie B, status po zmianie \"{statusAfterSwap}\", "
-            + $"0 ogłoszeń wyniku A, ponowny Enter 0 POST, status \"{statusAfterRetry}\"";
+        if (!statusAfterRetry.Contains("Ulubione", StringComparison.Ordinal))
+        {
+            throw new Exception("Ponowna próba nie wskazała drogi odzyskania: \""
+                + statusAfterRetry + "\".");
+        }
+
+        if (originActiveAfterRetry && spokenAfterRetry != 2)
+        {
+            // ROZDZIELONE wiadomosci PRZED i PO: okno mowi "Wysyłam ... Czekaj."
+            // z wlasnej drogi proby, a wlasciciel dokłada KONIEC. Pelny cykl to
+            // DOKLADNIE dwa ogloszenia - nie zero (L1) i nie trzy.
+            throw new Exception($"Aktywny modal ogłosił {spokenAfterRetry} komunikatów retry "
+                + "zamiast dokładnie dwóch (oczekiwanie + koniec).");
+        }
+
+        return $"POST konta A na bilecie A, 0 POST na bilecie B, przed wysyłką \"{statusBeforeSend}\", "
+            + $"po rozliczeniu \"{statusAfterSwap}\" ({spokenAfterSwap} ogłoszeń, aktywny="
+            + $"{originActiveAfterSwap}), ponowny Enter 0 POST, status \"{statusAfterRetry}\" "
+            + $"({spokenAfterRetry} ogłoszeń)";
     }
 
     /// <summary>
-    /// ODMOWY nie ruszaja transportu: samo otwarcie i nawigacja (strzalki, Tab),
-    /// PUSTA lista oraz brak celu daja ZERO POST, a zwykly przycisk i Enter
-    /// dzialaja tak samo.
+    /// ZADEN komunikat konca nie ma prawa twierdzic wykonania, odrzucenia ani
+    /// cofniecia: <c>RequestSent</c> to PODJETA PROBA, a nie dowod skutku.
+    /// </summary>
+    private static void AssertNoFalseOutcome(string what, string status)
+    {
+        foreach (var lie in new[] { "Przyjęto polecenie uruchomienia", "odrzucon", "cofnię", "cofnie" })
+        {
+            if (status.Contains(lie, StringComparison.OrdinalIgnoreCase)
+                // "nie obiecuję cofnięcia" to ZAPRZECZENIE, nie obietnica.
+                && !status.Contains("nie obiecuję cofnięcia", StringComparison.Ordinal))
+            {
+                throw new Exception($"{what} twierdzi nieprawdę (\"{lie}\"): \"{status}\".");
+            }
+        }
+    }
+
+    /// <summary>
+    /// R4: ZMIANA KONTA PRZED PIERWSZYM Enter, publiczna droga koordynatora.
+    /// Ten przypadek bije W INNA GALAZ niz R2: guard konta PRZED wyslaniem, przy
+    /// ZEROWEJ liczbie POST-ow. Tu "nie wyslano" jest CALA PRAWDA - i wlasnie
+    /// dlatego komunikat MUSI to powiedziec wprost, a nie zostawic "Czekaj".
+    /// </summary>
+    private static string MeasureAccountSwapBeforeFirstEnter()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
+
+        var statusBefore = string.Empty;
+        var statusAfter = string.Empty;
+        var spoken = 0;
+        var active = false;
+        var posts = 0;
+        harness.RunFavoritesModal(window =>
+        {
+            window.SelectForTests(1);
+            // ZMIANA KONTA PRZED JAKIMKOLWIEK Enterem: modal juz otwarty, ale
+            // ZADNEGO zlecenia jeszcze nie bylo.
+            harness.SwapAccount("KONTO-PRZED");
+
+            var postsBefore = harness.Handler.Posts.Count;
+            var spokenBefore = window.AnnouncementsForTests;
+            statusBefore = window.StatusForTests;
+            window.PressEnterForTests();
+            window.AwaitPlayForTests();
+            posts = harness.Handler.Posts.Count - postsBefore;
+            spoken = window.AnnouncementsForTests - spokenBefore;
+            statusAfter = window.StatusForTests;
+            active = window.IsActive && window.IsVisible;
+        });
+
+        if (posts != 0)
+        {
+            throw new Exception($"Enter po zmianie konta wysłał {posts} POST zamiast zera.");
+        }
+
+        if (statusAfter == SonosFavoritesLabels.PlayPending)
+        {
+            throw new Exception("Odmowa PRZED wysłaniem zostawiła modal na Czekaj: \""
+                + statusAfter + "\".");
+        }
+
+        if (statusAfter == statusBefore)
+        {
+            throw new Exception("Odmowa PRZED wysłaniem nie zmieniła nic w oknie: \""
+                + statusAfter + "\".");
+        }
+
+        AssertNoFalseOutcome("status odmowy przed wysłaniem", statusAfter);
+
+        // ZERO POST znaczy, ze "nie zostało wysłane" jest PRAWDA - i musi byc
+        // powiedziane, bo to jedyna rzecz, ktora tu wiemy na pewno.
+        if (!statusAfter.Contains("nie zostało wysłane", StringComparison.Ordinal))
+        {
+            throw new Exception("Przy ZEROWYM POST komunikat nie mówi wprost o niewysłaniu: \""
+                + statusAfter + "\".");
+        }
+
+        if (active && spoken != 2)
+        {
+            // ROZDZIELONE wiadomosci: "Wysyłam ... Czekaj." z drogi proby okna
+            // plus KONIEC od wlasciciela. Zero konca to L1.
+            throw new Exception($"Aktywny modal ogłosił {spoken} komunikatów zamiast dwóch "
+                + "(oczekiwanie + jawne niewysłanie).");
+        }
+
+        return $"0 POST, aktywny={active}, {spoken} ogłoszeń, status \"{statusAfter}\"";
+    }
+
+    /// <summary>
+    /// ODMOWY nie ruszaja transportu: samo otwarcie i ZMIANA ZAZNACZENIA (a nie
+    /// prawdziwe strzalki - <c>SelectForTests</c> ustawia <c>SelectedIndex</c>
+    /// wprost) oraz PUSTA lista daja ZERO POST, a zwykly przycisk i Enter
+    /// dzialaja tak samo. Kolejna proba w trakcie zlecenia to ODMOWA BRAMKI,
+    /// nie pomiar <c>e.IsRepeat</c>: dwa osobne Entery to dwa osobne zdarzenia
+    /// bez flagi autopowtarzania - ta flaga ma pomiar w suicie okna, nie tu.
+    /// BRAKU GRUPY ten pomiar NIE bada.
     /// </summary>
     private static string MeasureRefusalsNeverPost()
     {
@@ -610,7 +785,9 @@ internal static class SonosFavoritePlayRealOwnerTests
             }
         }
 
-        // (d) DWUKROTNE, SZYBKIE zlecenie (auto-powtarzanie klawisza) - jeden POST.
+        // (d) DWA OSOBNE Entery, drugi W TRAKCIE trwajacego zlecenia: ODMOWA
+        // BRAMKI daje jeden POST. To NIE jest pomiar e.IsRepeat - te zdarzenia
+        // nie maja flagi autopowtarzania.
         using (var busy = RealHarness.Create())
         {
             busy.Enter();
@@ -620,11 +797,11 @@ internal static class SonosFavoritePlayRealOwnerTests
             {
                 window.SelectForTests(1);
                 window.PressEnterForTests();
-                busy.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5));
+                busy.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5), "POST nie dotarł do transportu");
                 window.PressEnterForTests();
                 second = window.StatusForTests;
                 held.Release();
-                busy.PumpUntil(() => held.Completed, TimeSpan.FromSeconds(5));
+                busy.PumpUntil(() => held.Completed, TimeSpan.FromSeconds(5), "POST się nie rozliczył");
                 window.AwaitPlayForTests();
             });
 
@@ -640,8 +817,8 @@ internal static class SonosFavoritePlayRealOwnerTests
             }
         }
 
-        return "otwarcie i nawigacja 0 POST, pusta lista 0 POST, przycisk 1 POST, "
-            + "auto-powtarzanie 1 POST";
+        return "otwarcie i zmiana zaznaczenia 0 POST, pusta lista 0 POST, przycisk 1 POST, "
+            + "drugi Enter w trakcie zlecenia 1 POST";
     }
 
     // ==================== APARATURA REALNEJ DROGI ====================
@@ -926,11 +1103,19 @@ internal static class SonosFavoritePlayRealOwnerTests
             task.GetAwaiter().GetResult();
         }
 
-        /// <summary>Pompuje petle komunikatow do warunku, z WLASNYM limitem.</summary>
-        internal void PumpUntil(Func<bool> condition, TimeSpan limit)
+        /// <summary>
+        /// Pompuje petle komunikatow do warunku, z WLASNYM limitem. PO TERMINIE
+        /// RZUCA: ciche wyjscie po limicie zamienialo pomiar w zgadywanie -
+        /// dalsze asercje mierzylyby stan sprzed zdarzenia, na ktore czekamy.
+        /// </summary>
+        internal void PumpUntil(Func<bool> condition, TimeSpan limit, string what)
         {
             var deadline = DateTime.UtcNow + limit;
-            while (!condition() && DateTime.UtcNow < deadline) DoEvents();
+            while (!condition())
+            {
+                if (DateTime.UtcNow > deadline) throw new Exception("Limit czasu: " + what + ".");
+                DoEvents();
+            }
         }
 
         internal void PumpUntil(Func<bool> condition, string what)

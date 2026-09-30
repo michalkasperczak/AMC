@@ -222,18 +222,31 @@ w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
   `_loadFavorite is null` to **czysty podgląd** (przycisk `Collapsed`, `Enter`
   nic nie zleca, pomocniczy opis listy mówi wprost, że nic tu nie uruchamia),
   a wariant z uruchamianiem ma przycisk **widoczny**. Brak grupy lub pusta lista
-  **nie usuwa** przycisku, tylko go **wyłącza** (`IsEnabled=false`) i dokłada
-  powód w `HelpText` — martwy przycisk bez wyjaśnienia byłby gorszy od odmowy.
+  **nie usuwa** przycisku, tylko go **wyłącza** (`IsEnabled=false`). Powód
+  dokłada się w `HelpText` **tylko** przy braku grupy; dla pustej listy domu
+  `HelpText` zostaje bez dopisku, a powód odmowy słyszy się dopiero po próbie
+  (`PlayNothingSelected`) — martwy przycisk bez żadnego wyjaśnienia byłby gorszy
+  od odmowy, ale to NIE jest ta sama droga w obu przypadkach.
   Zlecenie niesie NIEZMIENNĄ tożsamość tej instancji okna i jej token życia;
   zamknięcie okna anuluje **wyłącznie własne** oczekiwanie, nie całą sesję.
 - `Windows/MainWindow.SonosFavorites.cs` — `LoadSonosFavoriteAsync` sprawdza
   granice **przed** działaniem i **ponownie po każdym await**: żywy zlecający,
   granica konta (po rzeczywistej zmianie konta stary identyfikator ulubionego
   **nie** idzie przez nowe konto), ten sam bilet celu, dom, grupa i sesja,
-  oraz bramka jednego polecenia Sonos. Każda odmowa kończy drogę **bez POST**.
-  Spóźniony wynik trafia **tylko** do tej instancji okna albo nikogo:
-  w oknie NIEAKTYWNYM odświeża status do odczytania, ale **nie ogłasza** go
-  i **nie** przejmuje obcego ogniska.
+  oraz bramka jednego polecenia Sonos.
+  **PRE-POST vs PO-AWAIT to dwie różne prawdy i dwa różne komunikaty.**
+  Odmowa **przed** wysłaniem to ZERO POST-ów, więc mówi wprost „nie zostało
+  wysłane” (`PlayNotSentAccountChanged`, `PlayNotSentTargetChanged`). Guard
+  **po** await działa już PO wysłaniu: `RequestSent` to tylko PODJĘTA PRÓBA, więc
+  komunikat mówi o braku potwierdzenia wyniku (`PlayAttemptedOutcomeUnknown`),
+  a porzucenie oczekiwania nie obiecuje cofnięcia (`PlayAbandonedOutcomeUnknown`).
+  Żaden z nich nie twierdzi wykonania, odrzucenia ani cofnięcia i żaden nie
+  wysyła niczego, żeby odkręcić możliwy POST.
+  ŻYWY zlecający modal **zawsze** dostaje koniec: zostawienie go na „Wysyłam
+  polecenie uruchomienia. Czekaj.” było defektem L1. Spóźniony wynik trafia
+  **tylko** do tej instancji okna albo nikogo: po `Closed` i przy własnym
+  zamykaniu AMC jest CISZA, a w oknie NIEAKTYWNYM odświeża status do
+  odczytania, ale **nie ogłasza** go i **nie** przejmuje obcego ogniska.
 - Akcja kolejki jest JAWNA: `INSERT` + `playOnCompletion: true`, **bez**
   `playModes`. Wg oficjalnego `queue-action` `INSERT` dopisuje materiał i
   przesuwa głowicę na pierwszą wstawioną pozycję — to **zamiar**, nie pomiar

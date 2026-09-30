@@ -36,6 +36,42 @@ public partial class MainWindow
     /// <summary>Otwarte okno podgladu albo null. Jedno naraz.</summary>
     private SonosFavoritesWindow? _sonosFavoritesWindow;
 
+    /// <summary>
+    /// ODMOWA PRZED WYSLANIEM, gdy konto zostalo RZECZYWISCIE zmienione: ZERO
+    /// POST, wiec mowimy WPROST, ze polecenia NIE WYSLANO - zadnego "odrzucono"
+    /// i zadnego "cofnieto". Instrukcja opisuje droge, ktora dziala Z OTWARTYM
+    /// modalem: modal trzeba najpierw zamknac, bo wybor grupy jest pod nim.
+    /// </summary>
+    internal const string PlayNotSentAccountChanged =
+        "Polecenie uruchomienia ulubionego nie zostało wysłane, bo konto Sonos się zmieniło. "
+        + "Zamknij Ulubione, wybierz grupę na nowo i otwórz listę jeszcze raz";
+
+    /// <summary>
+    /// ODMOWA PRZED WYSLANIEM, gdy CEL (bilet, sesja albo dom) przestal byc ten
+    /// sam, ktory okno dostalo przy otwarciu: ZERO POST i jawne niewyslanie.
+    /// </summary>
+    internal const string PlayNotSentTargetChanged =
+        "Polecenie uruchomienia ulubionego nie zostało wysłane, bo cel Sonos się zmienił. "
+        + "Zamknij Ulubione, wybierz grupę na nowo i otwórz listę jeszcze raz";
+
+    /// <summary>
+    /// PO WYSLANIU, gdy konto albo cel zmienily sie w trakcie: PROBA BYLA
+    /// (<c>RequestSent</c> to tylko proba), ale NIE MA potwierdzenia wyniku.
+    /// Nie twierdzimy ani wykonania, ani odrzucenia, ani cofniecia - i niczego
+    /// nie wysylamy, zeby to odkrecic.
+    /// </summary>
+    internal const string PlayAttemptedOutcomeUnknown =
+        "Podjęto próbę uruchomienia ulubionego, ale nie ma potwierdzenia jej wyniku, "
+        + "bo cel Sonos zmienił się w trakcie. Zamknij Ulubione i sprawdź stan grupy";
+
+    /// <summary>
+    /// PORZUCENIE JUZ PODJETEJ proby (anulowanie oczekiwania): polecenie moglo
+    /// opuscic maszyne, wiec NIE obiecujemy cofniecia i NIE mowimy o sukcesie.
+    /// </summary>
+    internal const string PlayAbandonedOutcomeUnknown =
+        "Uruchamianie ulubionego zostało przerwane. Polecenie mogło już pójść do Sonosa, "
+        + "więc nie ma potwierdzenia wyniku i nie obiecuję cofnięcia; sprawdź stan grupy";
+
     internal bool SonosFavoritesInFlightForTests => _sonosFavoritesInFlight;
 
     internal SonosFavoritesWindow? OpenSonosFavoritesWindowForTests => _sonosFavoritesWindow;
@@ -296,18 +332,27 @@ public partial class MainWindow
         // identyfikator ulubionego nie ma prawa pojsc przez NOWE konto.
         if (ApplySonosAccountBinding())
         {
-            AnnounceInFavoritesOrigin(origin, SonosAccountChangedInstruction);
+            // ZERO POST: mowimy WPROST, ze nie wyslano, i dopiero potem droge
+            // odzyskania. Sam SonosAccountChangedInstruction tego nie mowil, a
+            // zywy modal ma prawo wiedziec, ze jego Enter nic nie wyslal.
+            AnnounceInFavoritesOrigin(origin, PlayNotSentAccountChanged);
             return;
         }
 
         // CEL musi byc TEN SAM, ktory okno dostalo przy otwarciu: ten sam bilet,
         // ten sam dom, ta sama grupa, ta sama sesja. Zmiana czegokolwiek konczy
         // droge BEZ POST - nie przekierowujemy materialu do innej grupy.
-        if (_isClosing
-            || targetTicket != _sonosTargetTicket
+        //
+        // ZAMKNIETE okno jest CICHE: _isClosing to nasze wlasne zamykanie AMC,
+        // wiec nie ma komu i po co mowic. Pozostale zmiany celu dotycza ZYWEGO
+        // modalu, ktory wlasnie nacisnal Odtworz - i on MUSI dostac koniec, bo
+        // inaczej zostaje na "Wysyłam polecenie uruchomienia. Czekaj." na zawsze.
+        if (_isClosing) return;
+        if (targetTicket != _sonosTargetTicket
             || !IsSonosSession(_sessions?.Current.Id)
             || !string.Equals(_state.Sonos.SelectedHouseholdId, householdId, StringComparison.Ordinal))
         {
+            AnnounceInFavoritesOrigin(origin, PlayNotSentTargetChanged);
             return;
         }
 
@@ -353,10 +398,20 @@ public partial class MainWindow
             // GRANICE PO AWAIT: te same co przed, a NAJPIERW tozsamosc zlecajacego.
             // Spozniony wynik nie mowi w cudzym widoku, nie rusza cudzego fokusu i
             // nie odczytuje stanu dla okna, ktorego juz nie ma.
+            //
+            // ROZNICA WOBEC PRE-POST: tutaj POST JUZ POSZEDL. RequestSent to
+            // PODJETA PROBA, nie dowod dostarczenia - wiec nie mowimy ani
+            // "wykonano", ani "odrzucono", ani "cofnieto". ZYWY zlecajacy modal
+            // MUSI jednak dostac koniec: zostawienie go na "Czekaj" to L1.
             if (!IsLiveFavoritesOrigin(origin)) return;
-            if (ApplySonosAccountBinding()) return;
-            if (_isClosing || targetTicket != _sonosTargetTicket) return;
-            if (!IsSonosSession(_sessions?.Current.Id)) return;
+            if (_isClosing) return;
+            if (ApplySonosAccountBinding()
+                || targetTicket != _sonosTargetTicket
+                || !IsSonosSession(_sessions?.Current.Id))
+            {
+                AnnounceInFavoritesOrigin(origin, PlayAttemptedOutcomeUnknown);
+                return;
+            }
 
             var accepted = result.Status == SonosGroupOperationStatus.Attempted
                 && result.Outcome?.Status == SonosControlApiStatus.Success;
@@ -387,9 +442,16 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
-            // Zamkniecie TEGO modalu, wlasne zamykanie albo zmiana celu: CISZA.
+            // Zamkniecie TEGO modalu albo wlasne zamykanie AMC: CISZA - nie ma
+            // komu odpowiedziec i nie szukamy zastepczego adresata.
             // PORZUCONY POST mogl sie mimo wszystko wykonac - nie obiecujemy
             // cofniecia i nie wysylamy niczego, zeby to odkrecic.
+            //
+            // ZYWY zlecajacy to jednak INNY przypadek: anulowanie przyszlo z
+            // porzucenia pracy sesji (np. rzeczywista zmiana konta), a modal
+            // stoi otwarty na "Czekaj". On MUSI dostac uczciwy koniec.
+            if (_isClosing) return;
+            AnnounceInFavoritesOrigin(origin, PlayAbandonedOutcomeUnknown);
         }
         catch (Exception exception)
         {
