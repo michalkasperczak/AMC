@@ -39,26 +39,45 @@ public partial class MainWindow
     /// <summary>
     /// ODMOWA PRZED WYSLANIEM, gdy konto zostalo RZECZYWISCIE zmienione: ZERO
     /// POST, wiec mowimy WPROST, ze polecenia NIE WYSLANO - zadnego "odrzucono"
-    /// i zadnego "cofnieto". Instrukcja opisuje droge, ktora dziala Z OTWARTYM
-    /// modalem: modal trzeba najpierw zamknac, bo wybor grupy jest pod nim.
+    /// i zadnego "cofnieto".
+    ///
+    /// DROGA POWROTU JEST ZMIERZONA FIZYCZNIE (parent 905, after-recovery-ctrlL.txt,
+    /// after-session-reentry.txt, recovery-choose-household.txt). Po rzeczywistej
+    /// zmianie konta lista glowna jest PUSTA, a "wybierz grupę na nowo" nie mialo
+    /// czego wybrac:
+    ///  * Ctrl+L nie przywraca grup,
+    ///  * wyjscie i powrot do sesji Sonos przy DWOCH domach daje nowy odczyt domu,
+    ///    ale ZERO grup,
+    ///  * Ctrl+F5 (Głośniki i grupy) jest PODGLADEM, nie wyborem grupy.
+    /// DZIALA dopiero ISTNIEJACE polecenie "Wybierz dom Sonos" - i dopiero po nim
+    /// lista grup wraca, wiec grupe wybiera sie PO domu. Nie dodajemy tu nowej
+    /// funkcji odswiezania: wskazujemy akcje, ktora w aplikacji JEST.
     /// </summary>
     internal const string PlayNotSentAccountChanged =
         "Polecenie uruchomienia ulubionego nie zostało wysłane, bo konto Sonos się zmieniło. "
-        + "Zamknij Ulubione, wybierz grupę na nowo i otwórz listę jeszcze raz";
+        + "Zamknij Ulubione, użyj polecenia Wybierz dom Sonos z menu Plik albo z palety poleceń "
+        + "Control Shift K, wskaż dom, potem grupę, i otwórz listę jeszcze raz";
 
     /// <summary>
     /// ODMOWA PRZED WYSLANIEM, gdy CEL (bilet, sesja albo dom) przestal byc ten
     /// sam, ktory okno dostalo przy otwarciu: ZERO POST i jawne niewyslanie.
+    /// DROGA POWROTU jak wyzej - zmierzona, nie zgadnieta.
     /// </summary>
     internal const string PlayNotSentTargetChanged =
         "Polecenie uruchomienia ulubionego nie zostało wysłane, bo cel Sonos się zmienił. "
-        + "Zamknij Ulubione, wybierz grupę na nowo i otwórz listę jeszcze raz";
+        + "Zamknij Ulubione, użyj polecenia Wybierz dom Sonos z menu Plik albo z palety poleceń "
+        + "Control Shift K, wskaż dom, potem grupę, i otwórz listę jeszcze raz";
 
     /// <summary>
     /// PO WYSLANIU, gdy konto albo cel zmienily sie w trakcie: PROBA BYLA
     /// (<c>RequestSent</c> to tylko proba), ale NIE MA potwierdzenia wyniku.
     /// Nie twierdzimy ani wykonania, ani odrzucenia, ani cofniecia - i niczego
     /// nie wysylamy, zeby to odkrecic.
+    ///
+    /// WARUNEK UZYCIA JEST SPRAWDZANY: ten komunikat idzie WYLACZNIE gdy
+    /// <c>result.RequestSent</c>. Gdy zadanie NIE poszlo (np. odnowienie biletu
+    /// padlo przed POST), mowimy niewyslanie stalymi <see cref="PlayNotSentAccountChanged"/>
+    /// / <see cref="PlayNotSentTargetChanged"/>, bo "podjeto probe" byloby klamstwem.
     /// </summary>
     internal const string PlayAttemptedOutcomeUnknown =
         "Podjęto próbę uruchomienia ulubionego, ale nie ma potwierdzenia jej wyniku, "
@@ -399,17 +418,32 @@ public partial class MainWindow
             // Spozniony wynik nie mowi w cudzym widoku, nie rusza cudzego fokusu i
             // nie odczytuje stanu dla okna, ktorego juz nie ma.
             //
-            // ROZNICA WOBEC PRE-POST: tutaj POST JUZ POSZEDL. RequestSent to
-            // PODJETA PROBA, nie dowod dostarczenia - wiec nie mowimy ani
-            // "wykonano", ani "odrzucono", ani "cofnieto". ZYWY zlecajacy modal
-            // MUSI jednak dostac koniec: zostawienie go na "Czekaj" to L1.
+            // ROZNICA WOBEC PRE-POST: tutaj await JUZ SIE SKONCZYL, ale to NIE
+            // znaczy, ze POST poszedl. Prawdziwy producent (SonosAccountCoordinator
+            // .GroupOperations RunGroupCommandAsync) przy ZNANEJ MINIONEJ waznosci
+            // biletu czeka na RenewForReadAsync PRZED wyslaniem; gdy konto zmieni
+            // sie w trakcie TEGO odnowienia, CommandFromRenewal oddaje ZWYKLYM
+            // returnem wynik z RequestSent=false - i "zadnego POST nie bylo".
+            // Taki przelot NIE rzuca OperationCanceledException, wiec wpada tutaj.
+            //
+            // Dlatego o "probie" mowimy WYLACZNIE gdy result.RequestSent. Przy
+            // RequestSent=false uzywamy tych samych stalych niewyslania co przed
+            // POST - ta sama regula, ktora projekt trzyma juz w MainWindow.Sonos.cs
+            // (RequestSent=false to ZERO prob wyslania, wiec "wyslano" byloby
+            // klamstwem). ZYWY zlecajacy modal w KAZDEJ galezi dostaje koniec:
+            // zostawienie go na "Czekaj" to L1.
             if (!IsLiveFavoritesOrigin(origin)) return;
             if (_isClosing) return;
-            if (ApplySonosAccountBinding()
+            var accountChanged = ApplySonosAccountBinding();
+            if (accountChanged
                 || targetTicket != _sonosTargetTicket
                 || !IsSonosSession(_sessions?.Current.Id))
             {
-                AnnounceInFavoritesOrigin(origin, PlayAttemptedOutcomeUnknown);
+                AnnounceInFavoritesOrigin(origin, result.RequestSent
+                    ? PlayAttemptedOutcomeUnknown
+                    : accountChanged
+                        ? PlayNotSentAccountChanged
+                        : PlayNotSentTargetChanged);
                 return;
             }
 

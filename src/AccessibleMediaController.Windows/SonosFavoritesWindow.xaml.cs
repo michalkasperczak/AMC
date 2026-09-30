@@ -189,6 +189,29 @@ public partial class SonosFavoritesWindow : Window
         FavoritesList.IsKeyboardFocusWithin || FavoritesList.IsKeyboardFocused;
 
     /// <summary>
+    /// Czy FOKUS naprawde stoi na przycisku Odtworz. Mierzymy DOKLADNA kontrolke,
+    /// bo pomiar pod NVDA pokazal, ze utrata fokusu przez przycisk przenosi
+    /// czytnik na CALY dialog i powoduje POWTORNE czytanie wstepu okna.
+    /// </summary>
+    internal bool PlayHasFocusForTests => PlayButton.IsKeyboardFocused;
+
+    /// <summary>
+    /// NAZWA kontrolki, ktora ma fokus klawiatury - do raportu pomiaru. Gdy fokus
+    /// wyszedl na samo okno (to jest dokladnie regresja zmierzona pod NVDA jako
+    /// "dialog"), mowimy o tym wprost, a nie liczba.
+    /// </summary>
+    internal string FocusedElementNameForTests => Keyboard.FocusedElement switch
+    {
+        null => "brak",
+        var element when ReferenceEquals(element, PlayButton) => "PlayButton",
+        var element when ReferenceEquals(element, CloseButton) => "CloseButton",
+        var element when ReferenceEquals(element, FavoritesList) => "FavoritesList",
+        ListBoxItem => "ListBoxItem",
+        var element when ReferenceEquals(element, this) => "Window",
+        var element => element.GetType().Name
+    };
+
+    /// <summary>
     /// Czy przy TYM oknie wolno oczekiwac JAKIEJKOLWIEK drogi uruchomienia.
     /// Nie jest to staly fakt typu, tylko wlasnosc TEJ instancji: wariant bez
     /// callbacka NIE MA prawa niczego odtwarzac, a rzeczywiste okno z loadem nie
@@ -301,8 +324,17 @@ public partial class SonosFavoritesWindow : Window
     {
         var index = FavoritesList.SelectedIndex;
         var focusWasInList = FavoritesList.IsKeyboardFocusWithin;
+        // FOKUS NA PRZYCISKU zapamietujemy OSOBNO. Zmierzone pod NVDA: wylaczenie
+        // SKUPIONEGO przycisku oddaje fokus oknu, czytnik czyta CALY dialog od
+        // nowa (rola 4 + powtorzony wstep), a powrot wymaga Shift+Tab.
+        var focusWasOnPlay = PlayButton.IsKeyboardFocused;
         _playInFlight = true;
-        PlayButton.IsEnabled = false;
+        // SKUPIONEGO przycisku NIE WYLACZAMY: drugie klikniecie i Spacje odmawia
+        // bramka _playInFlight (sprawdzana PRZED callbackiem), wiec wylaczenie nie
+        // wnosi tu zadnego bezpieczenstwa - a KOSZTUJE fokus uzytkownika. Gdy fokus
+        // jest gdzie indziej (Enter na liscie), wylaczenie zostaje: pokazuje stan
+        // "trwa" i nikomu nie zabiera fokusu.
+        if (!focusWasOnPlay) PlayButton.IsEnabled = false;
         Announce(SonosFavoritesLabels.PlayPending);
         try
         {
@@ -331,6 +363,16 @@ public partial class SonosFavoritesWindow : Window
                 if (focusWasInList && IsActive && !FavoritesList.IsKeyboardFocusWithin)
                 {
                     FocusSelectedRow();
+                }
+                // PRZYCISK: fokus wraca TYLKO jesli stal tu na starcie, okno jest
+                // aktywne i fokus JUZ z niego zszedl - i tylko gdy przycisk znow
+                // daje sie uzyc. Nie przenosimy uzytkownika na liste "dla wygody"
+                // i nie kradniemy fokusu obcemu oknu.
+                else if (focusWasOnPlay && IsActive && !PlayButton.IsKeyboardFocused
+                    && PlayButton.IsEnabled)
+                {
+                    PlayButton.Focus();
+                    Keyboard.Focus(PlayButton);
                 }
             }
         }

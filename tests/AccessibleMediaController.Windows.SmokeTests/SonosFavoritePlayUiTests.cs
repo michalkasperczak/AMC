@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
 
@@ -39,6 +40,8 @@ internal static class SonosFavoritePlayUiTests
                 Stage("P3"); checks += MeasurePlayButtonTakesSamePath();
                 Stage("P4"); checks += MeasureHeldAttemptRefusesSecondPost();
                 Stage("P5"); checks += MeasureNoGroupAndEmptyListNeverPost();
+                Stage("N1"); checks += MeasureFocusedPlayButtonKeepsFocus();
+                Stage("N3"); checks += MeasureNotSentInstructionNamesRealRecoveryPath();
                 Stage("KONIEC-OKNO");
                 // ETAP B: SPOZNIONY WYNIK na PRODUKCYJNEJ drodze okna glownego.
                 // Werdykty zbieramy WSZYSTKIE - triage ma rozstrzygnac kazda
@@ -312,6 +315,194 @@ internal static class SonosFavoritePlayUiTests
         return checks;
     }
 
+    // ===== N3: INSTRUKCJA POWROTU wskazuje DROGE, ktora naprawde dziala =====
+
+    /// <summary>
+    /// ZMIERZONE POD NVDA (parent 905): po PUBLICZNEJ zmianie konta lista glowna
+    /// jest PUSTA (skasowany dom), wiec "otworz liste" NIE naprawia wyboru grupy -
+    /// ani Ctrl+L, ani Ctrl+F5 (to tylko podglad). FIZYCZNIE zmierzona droga to
+    /// akcja "Wybierz dom Sonos" (paleta Ctrl+Shift+K albo menu Plik), potem
+    /// wybor grupy. Test PRZYPINA tekst do ISTNIEJACEJ akcji o tej nazwie, zeby
+    /// instrukcja nie mogla znow wskazywac drogi bez skutku.
+    /// </summary>
+    private static int MeasureNotSentInstructionNamesRealRecoveryPath()
+    {
+        var checks = 0;
+
+        // Akcja o tej nazwie MUSI ISTNIEC w produkcji - inaczej instrukcja klamie.
+        // Pytamy PRODUKCYJNY katalog polecen, nie kopie nazwy w tescie.
+        var displayed = CommandCatalog.GetDisplayName(CommandIds.ChooseSonosHousehold);
+        if (displayed != SonosChooseHouseholdActionName)
+        {
+            throw new Exception("Polecenie wyboru domu nazywa się w programie \"" + displayed
+                + "\", a instrukcja mówi \"" + SonosChooseHouseholdActionName + "\".");
+        }
+
+        checks++;
+
+        foreach (var (name, text) in new[]
+        {
+            ("PlayNotSentAccountChanged", MainWindow.PlayNotSentAccountChanged),
+            ("PlayNotSentTargetChanged", MainWindow.PlayNotSentTargetChanged)
+        })
+        {
+            if (!text.Contains(SonosChooseHouseholdActionName, StringComparison.Ordinal))
+            {
+                throw new Exception(name + " nie wskazuje zmierzonej drogi odzyskania \""
+                    + SonosChooseHouseholdActionName + "\": \"" + text + "\".");
+            }
+
+            checks++;
+
+            // ZMIERZONE: po zmianie konta lista glowna jest PUSTA, wiec samo
+            // "otwórz listę" NIE naprawia wyboru grupy. Ponowne otwarcie listy
+            // jest dopuszczalne WYLACZNIE jako KROK KONCOWY - po wyborze domu i
+            // grupy. Sprawdzamy wiec KOLEJNOSC, nie samo wystapienie.
+            var openList = text.IndexOf("otwórz listę", StringComparison.OrdinalIgnoreCase);
+            if (openList >= 0)
+            {
+                var chooseHousehold = text.IndexOf(SonosChooseHouseholdActionName, StringComparison.Ordinal);
+                if (chooseHousehold > openList)
+                {
+                    throw new Exception(name + " każe otworzyć listę PRZED wyborem domu, a to nie "
+                        + "naprawia wyboru grupy: \"" + text + "\".");
+                }
+            }
+
+            checks++;
+
+            // Po wyborze domu MUSI byc wybor grupy - bez niego POST nie ma celu.
+            if (!text.Contains("grup", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(name + " nie mówi o wyborze grupy: \"" + text + "\".");
+            }
+
+            checks++;
+
+            // KROTKO i NIEOSOBOWO: zadnych obietnic, zadnego tlumaczenia sie.
+            if (text.Contains("obiecuj", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("niestety", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(name + " obiecuje albo tłumaczy się zamiast podać drogę: \""
+                    + text + "\".");
+            }
+
+            checks++;
+
+            // PELNE polskie znaki - czytnik ma przeczytac slowa, nie kalki.
+            if (!text.Contains('ó') && !text.Contains('ę') && !text.Contains('ł')
+                && !text.Contains('ą') && !text.Contains('ś'))
+            {
+                throw new Exception(name + " nie ma pełnych polskich znaków: \"" + text + "\".");
+            }
+
+            checks++;
+        }
+
+        return checks;
+    }
+
+    /// <summary>NAZWA akcji wyboru domu, odczytana ze ZRODLA produkcji.</summary>
+    private const string SonosChooseHouseholdActionName = "Wybierz dom Sonos";
+
+    // ===== N1: FOKUS na przycisku Odtworz ZOSTAJE na przycisku =====
+
+    /// <summary>
+    /// ZMIERZONE POD NVDA (parent 905, before-button.txt/after-button.txt): fizyczna
+    /// Spacja na SKUPIONYM Odtworz przy WSTRZYMANYM POST przenosila fokus czytnika
+    /// na CALY dialog (rola 4) i powodowala POWTORNE przeczytanie wstepu okna
+    /// ("Ulubione Sonos dialog" + "Lista ulubionych Sonos. Odtwórz albo Enter...").
+    /// Fokus zostawal na dialogu TAKZE po zakonczeniu dokladnego zadania - dopiero
+    /// Shift+Tab wracal na liste.
+    ///
+    /// PRZYCZYNA W ZRODLE: RunPlayAsync wylacza PlayButton (IsEnabled=false), a WPF
+    /// zabiera fokus wylaczonej kontrolce i oddaje go oknu. finally zapamietalo
+    /// TYLKO focusWasInList, wiec przycisku nikt nie przywracal.
+    ///
+    /// WYMAGANIE: fokus MA ZOSTAC na przycisku Odtworz - podczas proby i po niej.
+    /// Zaden samoczynny przeskok na liste "dla wygody": uzytkownik stoi tam, gdzie
+    /// nacisnal. ZERO drugiego POST musi sie utrzymac.
+    /// </summary>
+    private static int MeasureFocusedPlayButtonKeepsFocus()
+    {
+        var held = new TaskCompletionSource();
+        var calls = 0;
+        using var ui = Fixture.ShowWithPlay(
+            Favorites(("ULU-1", "Nokturny", null, null), ("ULU-2", "Poranek", null, null)),
+            "Salon",
+            _ =>
+            {
+                calls++;
+                return held.Task;
+            });
+
+        string duringFocus;
+        try
+        {
+            ui.FocusPlay();
+            if (!ui.Window.PlayHasFocusForTests)
+            {
+                throw new Exception("Aparatura nie postawiła fokusu na Odtwórz: \""
+                    + ui.Window.FocusedElementNameForTests + "\".");
+            }
+
+            // PRAWDZIWA Spacja na skupionym przycisku - ta sama droga, ktora
+            // zmierzono fizycznie pod NVDA.
+            ui.PressSpaceOnPlay();
+            ui.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            if (calls != 1) throw new Exception($"Spacja na Odtwórz dała {calls} wywołań zamiast 1.");
+
+            duringFocus = ui.Window.FocusedElementNameForTests;
+            if (!ui.Window.PlayHasFocusForTests)
+            {
+                throw new Exception(
+                    "PODCZAS trwającej próby fokus zszedł z przycisku Odtwórz na \"" + duringFocus
+                    + "\" - to jest regresja zmierzona pod NVDA (czytnik wraca na cały dialog "
+                    + "i powtarza wstęp okna).");
+            }
+
+            // POWTORKA przy skupionym przycisku nadal NIE MA prawa wyslac drugiego
+            // POST: fokus zostaje, ale bramka _playInFlight dziala.
+            ui.PressSpaceOnPlay();
+            ui.ClickPlay();
+            ui.PumpQuietly(TimeSpan.FromMilliseconds(80));
+            if (calls != 1)
+            {
+                throw new Exception($"Powtórka na skupionym Odtwórz dała {calls} wywołań zamiast 1.");
+            }
+            if (!ui.Window.StatusForTests.Contains("jeszcze się nie zakończyło", StringComparison.Ordinal))
+            {
+                throw new Exception("Powtórka na Odtwórz bez wyjaśnienia: \""
+                    + ui.Window.StatusForTests + "\".");
+            }
+        }
+        finally
+        {
+            held.TrySetResult();
+            ui.AwaitPlay();
+        }
+
+        // PO DOKLADNYM ZADANIU (nie po Close): fokus NADAL na przycisku. Parent
+        // zmierzyl, ze tu zostawal dialog.
+        var afterFocus = ui.Window.FocusedElementNameForTests;
+        if (!ui.Window.PlayHasFocusForTests)
+        {
+            throw new Exception(
+                "PO zakończeniu dokładnego zadania fokus stoi na \"" + afterFocus
+                + "\" zamiast na przycisku Odtwórz (podczas próby był \"" + duringFocus
+                + "\") - użytkownik musi wracać Shift+Tab.");
+        }
+
+        if (!ui.Window.PlayEnabledForTests)
+        {
+            throw new Exception("Po zakończonej próbie Odtwórz nie wrócił do użycia.");
+        }
+        if (calls != 1) throw new Exception($"Po zwolnieniu liczba wywołań to {calls} zamiast 1.");
+        if (!ui.Window.IsVisible) throw new Exception("Próba z przycisku zamknęła okno.");
+
+        return 8;
+    }
+
     // ==================== aparatura ====================
 
     private static IReadOnlyList<SonosFavorite> Favorites(
@@ -423,6 +614,42 @@ internal static class SonosFavoritePlayUiTests
         {
             var play = (Button)Window.FindName("PlayButton")!;
             play.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            PumpQuietly(TimeSpan.FromMilliseconds(40));
+        }
+
+        /// <summary>FOKUS na przycisku Odtworz - jak po Tabie z listy.</summary>
+        internal void FocusPlay()
+        {
+            var play = (Button)Window.FindName("PlayButton")!;
+            play.Focus();
+            Keyboard.Focus(play);
+            PumpQuietly(TimeSpan.FromMilliseconds(60));
+        }
+
+        /// <summary>
+        /// PRAWDZIWA Spacja na SKUPIONYM przycisku. WPF zamienia KeyDown Space na
+        /// Click w <c>ButtonBase</c>, ale samo zdarzenie klawisza jedzie przez okno
+        /// - dokladnie tak, jak zmierzono fizycznie pod NVDA. Nie wolamy tu
+        /// bezposrednio Play_Click.
+        /// </summary>
+        internal void PressSpaceOnPlay()
+        {
+            var play = (Button)Window.FindName("PlayButton")!;
+            var source = PresentationSource.FromVisual(Window)
+                ?? throw new Exception("Okno ulubionych nie ma powierzchni prezentacji.");
+            var target = Keyboard.FocusedElement as UIElement ?? play;
+            target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Space)
+            {
+                RoutedEvent = Keyboard.PreviewKeyDownEvent
+            });
+            // Spacja na przycisku konczy sie Click; zdarzenie klawisza samo go nie
+            // syntetyzuje w podniesionym KeyEventArgs, wiec domykamy TA SAMA
+            // produkcyjna droga co fizyczna Spacja: Click na tym przycisku.
+            if (play.IsKeyboardFocused && play.IsEnabled)
+            {
+                play.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            }
+
             PumpQuietly(TimeSpan.FromMilliseconds(40));
         }
 
