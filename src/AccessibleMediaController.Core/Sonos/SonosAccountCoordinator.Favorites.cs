@@ -141,6 +141,16 @@ public sealed class SonosFavoritesReadResult
         new(read.Status, read.Value, read.Renewed, read.Snapshot);
 
     /// <summary>
+    /// WYLACZNIE DO POMIARU: pozwala atrapie zaplecza sesji oddac gotowy wynik
+    /// bez konta, bez tokenu i bez transportu. Ta sama regula co w produkcji -
+    /// dane wychodza TYLKO przy sukcesie, a migawka jest PUSTA, wiec nikt nie
+    /// pomyli tego z prawdziwym kontem.
+    /// </summary>
+    public static SonosFavoritesReadResult CreateForMeasurement(
+        SonosDeviceReadStatus status, SonosFavoritesList? favorites) =>
+        new(status, favorites, renewed: false, SonosAccountSnapshots.Empty);
+
+    /// <summary>
     /// Kontrolowane ToString: status, obecnosc danych i liczba pozycji. Bez
     /// tokenu, klucza, identyfikatora domu, nazw i identyfikatorow ulubionych.
     /// </summary>

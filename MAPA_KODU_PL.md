@@ -1,5 +1,50 @@
 # AMC — mapa kodu
 
+## Sonos: DOSTĘPNY PODGLĄD ULUBIONYCH w Windows (F2)
+
+**Tylko podgląd: `GET`, zero `POST`, zero odtwarzania, zero presetów.** Enter na
+liście świadomie **nic nie uruchamia** — prawdziwe uruchamianie i presety to F3
+z osobnym kontraktem i osobnym pomiarem.
+
+- `Windows/Services/SonosAccountOwner.cs` — **cienkie, leniwe**
+  `ReadFavoritesAsync(string? householdId, CancellationToken)`. Używa
+  **ISTNIEJĄCEGO** koordynatora i **ISTNIEJĄCEGO** klienta Control API przez
+  prywatne `EnsureControlClient`, ten sam tor co odczyt domów i grup. Żadnego
+  drugiego ownera, żadnego drugiego `HttpClient`. Konto **nie budzi się** przy
+  starcie programu ani w innych sesjach — dopiero przy jawnym wywołaniu.
+  Disposal bez zmian.
+- `Core/Sonos/ISonosFavoritesSessionBackend.cs` — **OPCJONALNA** granica sesji z
+  jedną metodą `ReadFavoritesAsync`. Stary obowiązkowy
+  `ISonosGroupSessionBackend` **nie dostał nowych metod**, więc wszystkie
+  starsze atrapy dalej się kompilują. Implementuje ją istniejący
+  `SonosAccountOwnerGroupBackend` (w `MainWindow.Sonos.cs`), delegując do
+  ownera. Sesje bez ulubionych po prostu tego interfejsu nie implementują.
+- `Core/Sonos/SonosFavoritesLabels.cs` — **bezpieczne etykiety**: nazwa jest
+  pierwsza, usługa i opis tylko **jeśli istnieją**; identyfikatory, nazwy typów,
+  tokeny i wartości enum **nigdy** nie trafiają do etykiety. Rodzaj materiału
+  (radio/album/utwór) **nie jest zgadywany** — API nie ma takiego pola.
+- `Windows/SonosFavoritesWindow.xaml(.cs)` — dostępny **modal** wzorowany
+  organizacyjnie na `WiiMDevicePresetsWindow`: tytuł „Ulubione Sonos”,
+  `AutomationProperties.LabelledBy` na liście, opis mówiący wprost o podglądzie,
+  początkowy fokus na pierwszej pozycji (lub na komunikacie pustego stanu),
+  strzałki, `Tab`, `Escape`/`Alt+F4`/przycisk Zamknij. **`Enter` jest jawnie
+  pochłaniany** i nie schodzi do `ActivateSonosGroup` ani do ogólnego
+  odtwarzania. Typowane wiersze `SonosFavoriteRow` — bez udawanego `Track`,
+  bez udawanego `Device`, bez nowego `MediaItemKind`.
+- `Windows/MainWindow.SonosFavorites.cs` — wywołanie pod **ISTNIEJĄCYM**
+  `CommandIds.ViewFavorites` (`view.favorites`, dziś `Ctrl+U`), **wyłącznie** w
+  sesji Sonos; to samo menu i ta sama paleta co dotąd, **bez** nowego skrótu.
+  Granice sprawdzane **przed** I/O i **po każdym** `await` — wzorzec z
+  odebranego `MainWindow.SonosHousehold.cs`: konto, bilet/kontekst domu, sesja,
+  `closing`, aktywność okna, inny modal. Jedna bramka `_sonosFavoritesBusy`
+  zwalniana **w `finally`** przez właściciela; spóźniony odczyt A **nie**
+  zwalnia trwającego B (`_sonosFavoritesTicket`). Każde jawne otwarcie czyta
+  **świeżą** listę; **zero pollingu**. Odmowa (403/429), timeout i błąd
+  **nigdy** nie udają świeżej pustej listy — poprawne `0 items` to dostępny
+  pusty stan, nie błąd i nie udawana pozycja. Bez sortowania: kolejność z API.
+  Brak konta/domu → uczciwe wyjaśnienie plus **istniejąca** droga odzyskania
+  (`Ctrl+F5` dla konta, polecenie Wybierz dom Sonos dla domu).
+
 ## Sonos: ODCZYT ULUBIONYCH przez KOORDYNATORA KONTA (F1b)
 
 Jedna nowa metoda koordynatora ponad **istniejącym** torem poświadczeń. Bez UI,

@@ -1,0 +1,29 @@
+<Window x:Class="AccessibleMediaController.Windows.SonosFavoritesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Ulubione Sonos" Width="520" Height="360"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Text="Ulubione Sonos"
+                   FontSize="18" FontWeight="SemiBold"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock x:Name="IntroductionText" DockPanel.Dock="Top" Margin="0,0,0,10"
+                   TextWrapping="Wrap" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                    Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CloseButton" Width="95" Content="_Zamknij"
+                    IsCancel="True" Click="Close_Click" />
+        </StackPanel>
+        <ListBox x:Name="FavoritesList" DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                 automation:AutomationProperties.Name="Ulubione Sonos"
+                 automation:AutomationProperties.HelpText="Strzałki czytają kolejne ulubione. To tylko podgląd: nic tu nie uruchamia odtwarzania. Escape albo Zamknij kończy podgląd.">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</Window>

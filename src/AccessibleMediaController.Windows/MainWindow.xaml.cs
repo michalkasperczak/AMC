@@ -11259,6 +11259,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 LastSonosHouseholdChoiceTaskForTests = ChooseSonosHouseholdAsync();
                 return new CommandExecutionResult(true);
             }
+            if (commandId == CommandIds.ViewFavorites)
+            {
+                // F2: ISTNIEJACE "Pokaż ulubione" (Ctrl+U) w sesji Sonos otwiera
+                // PODGLAD ulubionych biezacego domu. SWIEZY odczyt, zero POST,
+                // zero odtwarzania. Przechwyt dotyczy WYLACZNIE sesji Sonos:
+                // w innych sesjach polecenie idzie do routera jak dotad.
+                StartSonosFavoritesView();
+                return new CommandExecutionResult(true);
+            }
             if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
             {
                 // Enter na LISCIE czyni grupe aktywna i otwiera odtwarzacz.

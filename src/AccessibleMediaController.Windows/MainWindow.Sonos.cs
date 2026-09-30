@@ -1580,7 +1580,8 @@ public partial class MainWindow
 /// konta. Nie ma tu wlasnego klienta HTTP, wlasnego magazynu ani zadnego gettera
 /// tokenu - tylko przekazanie identyfikatora grupy.
 /// </summary>
-internal sealed class SonosAccountOwnerGroupBackend : ISonosGroupSessionBackend, ISonosAccountBoundBackend
+internal sealed class SonosAccountOwnerGroupBackend
+    : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -1631,4 +1632,13 @@ internal sealed class SonosAccountOwnerGroupBackend : ISonosGroupSessionBackend,
     public Task<SonosGroupsReadResult> ReadGroupsAsync(
         string householdId, CancellationToken cancellationToken) =>
         _owner.ReadGroupsAsync(householdId, cancellationToken);
+
+    /// <summary>
+    /// F2: ODCZYT ULUBIONYCH domu. Tak samo cienkie przekazanie jak reszta: caly
+    /// bilet, odnawianie i kontrola generacji siedza we wlascicielu i wspolnym
+    /// koordynatorze. Tylko GET.
+    /// </summary>
+    public Task<SonosFavoritesReadResult> ReadFavoritesAsync(
+        string? householdId, CancellationToken cancellationToken) =>
+        _owner.ReadFavoritesAsync(householdId, cancellationToken);
 }

@@ -1,5 +1,46 @@
 # Zadania testowe AMC
 
+## Sonos: podgląd ulubionych (F2) — jak sprawdzić ręcznie
+
+Dotyczy sesji Sonos (Ctrl+8). Używa **istniejącego** polecenia **Pokaż
+ulubione** (`Ctrl+U`) — bez nowego skrótu i bez nowej pozycji w menu. Poza
+sesją Sonos `Ctrl+U` działa jak dotąd (ulubione tej sesji), nic się nie zmienia.
+
+**To jest WYŁĄCZNIE podgląd.** F2 czyta listę (`GET`) i pokazuje ją. Nie ma
+przycisku Odtwórz, nie ma przypisywania do presetów i **Enter na liście
+świadomie nic nie uruchamia**. Rzeczywiste uruchamianie oraz presety przyjdą w
+F3. Do tych kroków **nie jest potrzebne prawdziwe konto Sonos ani muzyka** —
+automatyczny pomiar (`--sonos-favorites-ui`) robi to na danych syntetycznych.
+
+1. W sesji Sonos naciśnij `Ctrl+U`. Otworzy się modalne okno **Ulubione Sonos**
+   z listą ulubionych **bieżącego wybranego domu**. Aktywna grupa **nie jest
+   potrzebna**. Lista ma etykietę, fokus startowy stoi na pierwszej pozycji.
+2. Sprawdź czytnikiem ekranu treść pozycji: **najpierw nazwa**, potem usługa i
+   opis — i tylko **jeśli naprawdę istnieją**. Nigdzie nie może pojawić się
+   identyfikator, nazwa typu ani token. AMC **nie mówi** „radio”, „album” ani
+   „utwór”: API Sonosa nie podaje rodzaju materiału.
+3. Kolejność pozycji jest **dokładnie taka jak z API** — nic nie jest sortowane.
+   Dwie różne pozycje o tej samej nazwie zostają dwiema pozycjami.
+4. Naciśnij `Enter` na pozycji: **nic się nie uruchamia**, okno zostaje, żadna
+   grupa nie zmienia stanu. `Ctrl+Shift+cyfra` też nic tu nie uruchamia.
+5. Strzałki chodzą po liście, `Tab` krąży po kontrolkach, `Escape`, `Alt+F4` i
+   przycisk **Zamknij** zamykają okno i wracają fokusem do listy głównej. Po
+   powrocie `Ctrl+U` można wywołać **od razu ponownie** — nie blokuje się, a
+   każde otwarcie czyta **świeżą** listę (bez odpytywania w tle).
+6. Dom bez ulubionych: okno się otwiera i mówi wprost, że lista jest pusta. To
+   **nie jest błąd** i **nie ma** udawanej pozycji na liście.
+7. Bez zalogowanego konta albo bez wybranego domu: okno się **nie** otwiera,
+   a komunikat wyjaśnia powód i podaje działającą drogę — `Ctrl+F5` żeby
+   zalogować konto, polecenie **Wybierz dom Sonos** żeby wybrać dom.
+8. Gdy serwis odmówi (403/429) albo odczyt padnie/przekroczy czas: okno się
+   **nie** otwiera i słyszysz, że nie udało się odczytać ulubionych. Awaria
+   **nigdy** nie jest pokazywana jako „świeża pusta lista”.
+9. Odejście w trakcie: naciśnij `Ctrl+U` i od razu przejdź do innego okna albo
+   zmień konto/dom/sesję. Spóźniony odczyt **nie** otwiera starego okna, **nie**
+   zmienia grup i **nie** kradnie fokusu. Po powrocie polecenie znów działa.
+10. W trakcie trwającego odczytu ponowne `Ctrl+U` nie startuje drugiego zapytania
+    — usłyszysz, że odczyt już trwa.
+
 ## Sonos: wybór domu (household) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i

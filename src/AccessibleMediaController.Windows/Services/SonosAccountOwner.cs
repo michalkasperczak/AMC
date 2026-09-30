@@ -202,6 +202,28 @@ internal sealed class SonosAccountOwner : IDisposable
         EnsureCoordinator().ReadGroupsAsync(EnsureDeviceApi(), householdId, cancellationToken);
 
     /// <summary>
+    /// F2: ODCZYT ULUBIONYCH wybranego domu. CIENKIE przekazanie do tego SAMEGO
+    /// koordynatora i tego SAMEGO klienta Control API, co domy i grupy - zaden
+    /// drugi wlasciciel, zaden drugi HttpClient, zadna wlasna polityka biletu.
+    ///
+    /// LENIWOSC: pierwsze dotkniecie konta i klienta dzieje sie DOPIERO tutaj,
+    /// czyli przy jawnym poleceniu uzytkownika. Start programu i obce sesje nie
+    /// wolaja tej metody, wiec konta nie budza.
+    ///
+    /// Tylko GET: klient ulubionych nie ma zadnej operacji zapisu.
+    /// </summary>
+    internal Task<SonosFavoritesReadResult> ReadFavoritesAsync(
+        string? householdId, CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadFavoritesAsync(EnsureFavoritesApi(), householdId, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs ULUBIONYCH nad tym SAMYM klientem Control API. Klient
+    /// sam implementuje <see cref="ISonosFavoritesApi"/> (F1a), wiec nie ma tu
+    /// ani nowego adaptera, ani nowego transportu.
+    /// </summary>
+    internal ISonosFavoritesApi EnsureFavoritesApi() => EnsureControlApiClient();
+
+    /// <summary>
     /// WASKI interfejs GRUP nad tym SAMYM klientem i tym SAMYM koordynatorem.
     /// Leniwy jak reszta: powstaje razem z klientem Control API.
     /// </summary>
