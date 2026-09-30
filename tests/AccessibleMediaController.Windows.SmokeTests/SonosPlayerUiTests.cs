@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
@@ -58,6 +59,8 @@ internal static class SonosPlayerUiTests
                 checks += MeasureMissingTimeIsNotZero();
                 checks += MeasureTimeOverOneDayDoesNotWrap();
                 checks += MeasureSeekDialogsOpenForSonosGroup();
+                checks += MeasureSeekConfirmSendsOneRelativeSeek();
+                checks += MeasureSeekRefusalsAndAbandonmentSendNothing();
             }
             catch (Exception exception)
             {
@@ -415,6 +418,145 @@ internal static class SonosPlayerUiTests
         return checks + 1;
     }
 
+    /// <summary>
+    /// ZATWIERDZENIE obu okien: DOKLADNIE JEDNO zadanie skoku z poprawnym
+    /// groupId, itemId i delta liczona od AKTUALNEGO odczytu, jawny GET po
+    /// skoku, PlayerTimeText z tego odczytu i NIETKNIETY DemoMediaSession.
+    /// Backend ma tylko SeekRelativeAsync, wiec pozycja docelowa musi zejsc do
+    /// DELTY - sprawdzamy jej rzeczywista wartosc, nie sam fakt wywolania.
+    /// </summary>
+    private static int MeasureSeekConfirmSendsOneRelativeSeek()
+    {
+        var checks = 0;
+        // Czas 2:30 z pozycji 12 s to +138 s; procent 50 z 3:00 to 1:30, czyli +78 s.
+        foreach (var (commandId, typed, expectedDelta) in new[]
+                 {
+                     (CommandIds.SeekToTime, "2:30", 138_000),
+                     (CommandIds.SeekToPercentage, "50", 78_000)
+                 })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.NextPlaybackState = SonosPlaybackState.Paused;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var demoBefore = harness.DemoSessionPosition;
+            var readsBefore = harness.Backend.PlaybackReads;
+
+            using var responder = SeekDialogResponder.ArmConfirm(typed);
+            harness.RunSeekToPosition(commandId);
+
+            if (harness.Backend.SeekCalls.Count != 1)
+            {
+                throw new Exception(
+                    $"{commandId}: wyslano {harness.Backend.SeekCalls.Count} zadan skoku zamiast dokladnie jednego.");
+            }
+            var call = harness.Backend.SeekCalls[0];
+            if (call.GroupId != "GRUPA-SALON" || call.ItemId != "UTWOR-1")
+            {
+                throw new Exception(
+                    $"{commandId}: skok poszedl do grupy {call.GroupId} i materialu {call.ItemId}.");
+            }
+            checks += 2;
+
+            if (call.DeltaMillis != expectedDelta)
+            {
+                throw new Exception(
+                    $"{commandId}: delta {call.DeltaMillis} ms zamiast {expectedDelta} ms liczonych od odczytanej pozycji.");
+            }
+            checks++;
+
+            // JAWNY odczyt PO skoku - inaczej Accepted bylby jedynym "dowodem".
+            if (harness.Backend.PlaybackReads <= readsBefore + 1)
+            {
+                throw new Exception(
+                    $"{commandId}: po skoku nie bylo jawnego odczytu ({readsBefore} -> {harness.Backend.PlaybackReads}).");
+            }
+            checks++;
+
+            if (harness.DemoSessionPosition != demoBefore)
+            {
+                throw new Exception(
+                    $"{commandId}: ruszono DemoMediaSession ({demoBefore} -> {harness.DemoSessionPosition}).");
+            }
+            checks++;
+
+            // UI pokazuje ODCZYT (12 s), a nie zyczenie uzytkownika: fake nie
+            // przesuwa pozycji, wiec udawanie trafionego miejsca byloby klamstwem.
+            if (!harness.Text("PlayerTimeText").Contains("0:12", StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"{commandId}: PlayerTimeText \"{harness.Text("PlayerTimeText")}\" nie pochodzi z odczytu po skoku.");
+            }
+            checks++;
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// ZERO POST tam, gdzie skoku byc nie moze: anulowanie okna, brak
+    /// odczytanej dlugosci oraz PODMIANA materialu w czasie
+    /// trwania modalu. Ostatni przypadek jest istotny, bo modal trwa dowolnie
+    /// dlugo - skok policzony przed nim trafilby w cudzy material.
+    /// </summary>
+    private static int MeasureSeekRefusalsAndAbandonmentSendNothing()
+    {
+        var checks = 0;
+
+        // 1. ANULOWANIE po wpisaniu wartosci: zero zadan.
+        using (var harness = Harness.Create())
+        {
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            using var responder = SeekDialogResponder.ArmCancel();
+            harness.RunSeekToPosition(CommandIds.SeekToTime);
+            if (responder.Seen is null) throw new Exception("Anulowanie: okno skoku w ogole sie nie otworzylo.");
+            if (harness.Backend.SeekCalls.Count != 0)
+            {
+                throw new Exception($"Anulowanie wyslalo {harness.Backend.SeekCalls.Count} zadan skoku.");
+            }
+            checks += 2;
+        }
+
+        // 2. BRAK odczytanej dlugosci: jawna odmowa, zero zadan, zero okna.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.RadioWithoutCurrentItem = true;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            using var responder = SeekDialogResponder.ArmConfirm("1:00");
+            var said = harness.Announcements.Count;
+            harness.RunSeekToPosition(CommandIds.SeekToPercentage);
+            if (responder.Seen is not null) throw new Exception("Bez znanej dlugosci otwarto okno skoku.");
+            if (harness.Backend.SeekCalls.Count != 0) throw new Exception("Bez znanej dlugosci poszedl skok.");
+            var text = string.Join(" | ", harness.Announcements.Skip(said));
+            if (!text.Contains("czasu trwania", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Bez znanej dlugosci nie powiedziano czego brakuje: \"{text}\".");
+            }
+            checks += 3;
+        }
+
+        // 3. PODMIANA materialu w trakcie modalu: zadanie NIE moze poleciec.
+        using (var harness = Harness.Create())
+        {
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            using var responder = SeekDialogResponder.ArmConfirm("2:00");
+            // Sonos przechodzi do NASTEPNEGO utworu, gdy okno jest juz otwarte.
+            responder.BeforeConfirm = () => harness.Backend.CurrentItemId = "UTWOR-2";
+            var said = harness.Announcements.Count;
+            harness.RunSeekToPosition(CommandIds.SeekToTime);
+            if (harness.Backend.SeekCalls.Count != 0)
+            {
+                throw new Exception(
+                    $"Po zmianie materialu w trakcie modalu i tak wyslano skok: {harness.Backend.SeekCalls[0]}.");
+            }
+            var text = string.Join(" | ", harness.Announcements.Skip(said));
+            if (!text.Contains("materiał", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Porzucony skok nie zostal nazwany: \"{text}\".");
+            }
+            checks += 2;
+        }
+        return checks;
+    }
+
     // ==================== aparatura ====================
 
     /// <summary>
@@ -640,6 +782,30 @@ internal static class SonosPlayerUiTests
             Invoke(method, [commandId]);
         }
 
+        /// <summary>
+        /// PRAWDZIWA droga skoku do pozycji w sesji Sonos. Pompujemy zadanie do
+        /// DEADLINE, nie stalej ciszy: modal konczy sie od naszego odpowiadacza,
+        /// a po nim zostaja jeszcze odczyt i wyslanie skoku.
+        /// </summary>
+        internal void RunSeekToPosition(string commandId)
+        {
+            var method = Window.GetType().GetMethod(
+                "SeekSonosToPositionForTests", Instance, binder: null, types: [typeof(string)], modifiers: null)
+                ?? throw new Exception("Nie ma prawdziwej drogi SeekSonosToPositionForTests(string).");
+            Task task;
+            try
+            {
+                task = (Task)method.Invoke(Window, [commandId])!;
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw exception.InnerException;
+            }
+            PumpUntil(() => task.IsCompleted, "zadanie skoku do pozycji nie zakonczylo sie");
+            if (task.IsFaulted) throw task.Exception!.InnerException!;
+            PumpQuietly(TimeSpan.FromMilliseconds(60));
+        }
+
         internal void PressKey(Key key)
         {
             var target = Keyboard.FocusedElement as UIElement ?? MediaList;
@@ -775,11 +941,21 @@ internal static class SonosPlayerUiTests
         /// <summary>Uzbraja ANULOWANIE: zero POST po zamknieciu okna.</summary>
         internal static SeekDialogResponder ArmCancel() => new(null);
 
+        /// <summary>
+        /// Uzbraja WPISANIE wartosci i RZECZYWISTE zatwierdzenie PRAWDZIWYM
+        /// przyciskiem "Skocz" z XAML okna - nie ustawiamy DialogResult sami,
+        /// bo pominelibysmy walidacje i parsowanie wartosci.
+        /// </summary>
+        internal static SeekDialogResponder ArmConfirm(string value) => new(value);
+
         /// <summary>RZECZYWISCIE otwarte okno skoku albo null, gdy zadne nie wyszlo.</summary>
         internal SeekPositionWindow? Seen { get; private set; }
 
         /// <summary>Tekst instrukcji okna - stamtad wiemy, jaka DLUGOSC dostalo.</summary>
         internal string Instructions { get; private set; } = string.Empty;
+
+        /// <summary>Co zrobic PO zaladowaniu okna, a PRZED zatwierdzeniem.</summary>
+        internal Action? BeforeConfirm { get; set; }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -789,7 +965,26 @@ internal static class SonosPlayerUiTests
             if (_value is null)
             {
                 dialog.DialogResult = false;
+                return;
             }
+
+            BeforeConfirm?.Invoke();
+            ((TextBox)dialog.FindName("ValueBox")!).Text = _value;
+            var confirm = FindConfirmButton(dialog)
+                ?? throw new Exception("Okno skoku nie ma przycisku zatwierdzenia.");
+            var onClick = typeof(Button).GetMethod("OnClick", Instance, binder: null, types: [], modifiers: null)!;
+            onClick.Invoke(confirm, []);
+        }
+
+        private static Button? FindConfirmButton(DependencyObject root)
+        {
+            for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+            {
+                var child = VisualTreeHelper.GetChild(root, index);
+                if (child is Button { IsDefault: true } button) return button;
+                if (FindConfirmButton(child) is { } found) return found;
+            }
+            return null;
         }
 
         public void Dispose()
@@ -838,6 +1033,9 @@ internal static class SonosPlayerUiTests
         /// <summary>ODCZYTANA dlugosc materialu; domyslnie ta sama co dotad (3:00).</summary>
         internal int DurationMillis { get; set; } = 180_000;
 
+        /// <summary>ODCZYTANY identyfikator materialu - zmiana udaje przejscie utworu.</summary>
+        internal string CurrentItemId { get; set; } = "UTWOR-1";
+
         private readonly SonosPlaybackActions _actions = new(
             canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
             canSeek: true, canPause: true, canStop: null, canRepeat: null, canRepeatOne: null,
@@ -854,7 +1052,7 @@ internal static class SonosPlayerUiTests
             PlaybackReads++;
             var status = new SonosGroupPlaybackStatus(
                 NextPlaybackState, null, null,
-                RadioWithoutCurrentItem ? null : "UTWOR-1",
+                RadioWithoutCurrentItem ? null : CurrentItemId,
                 RadioWithoutCurrentItem ? null : PositionMillis,
                 null, null, null, _actions);
             return Task.FromResult(SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(status));
@@ -871,7 +1069,7 @@ internal static class SonosPlayerUiTests
                     null, null, null, null)
                 : new SonosGroupMetadata(
                     null,
-                    new SonosQueueItem("UTWOR-1", new SonosTrackMetadata(
+                    new SonosQueueItem(CurrentItemId, new SonosTrackMetadata(
                         "track", "Preludium", "Chopin", "Nokturny", null,
                         new SonosMetadataService("Sonos Radio", "9"), DurationMillis), null),
                     null, null, null);
@@ -894,9 +1092,13 @@ internal static class SonosPlayerUiTests
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(command));
         }
 
+        /// <summary>RZECZYWISTE argumenty KAZDEGO skoku: delta i itemId celu.</summary>
+        internal List<(string? GroupId, int DeltaMillis, string? ItemId)> SeekCalls { get; } = [];
+
         public Task<SonosGroupCommandResult> SeekRelativeAsync(
             string? groupId, int deltaMillis, string? itemId, CancellationToken cancellationToken)
         {
+            SeekCalls.Add((groupId, deltaMillis, itemId));
             Commands.Add(SonosGroupCommand.SeekRelative);
             CommandGroupIds.Add(groupId);
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SeekRelative));
