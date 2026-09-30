@@ -61,10 +61,28 @@ internal static class SonosPlayerUiTests
                 checks += MeasureSeekDialogsOpenForSonosGroup();
                 checks += MeasureSeekConfirmSendsOneRelativeSeek();
                 checks += MeasureSeekRefusalsAndAbandonmentSendNothing();
-                checks += MeasureFreshCanSeekFalseStopsSeek();
-                checks += MeasureBusyGateCoversPreSeekRead();
-                checks += MeasurePreSeekReadFaultIsAnnounced();
-                checks += MeasureFocusReturnsToOpeningControl();
+                // CZTERY uwagi odbioru mierzone RAZEM: kazda ma pokazac swoj
+                // WLASNY wynik, a nie schowac sie za pierwsza porazka. Sumaryczny
+                // wyjatek trzyma wszystkie tresci, wiec RED jest kompletny.
+                var pending = new List<string>();
+                foreach (var (name, measure) in new (string, Func<int>)[]
+                         {
+                             ("S1 swieza CanSeek", MeasureFreshCanSeekFalseStopsSeek),
+                             ("S2 bramka w czasie przedskokowego GET", MeasureBusyGateCoversPreSeekRead),
+                             ("#3 komunikat przy bledzie odczytu", MeasurePreSeekReadFaultIsAnnounced),
+                             ("#2 powrot fokusu", MeasureFocusReturnsToOpeningControl)
+                         })
+                {
+                    try
+                    {
+                        checks += measure();
+                    }
+                    catch (Exception exception)
+                    {
+                        pending.Add(name + ": " + exception.Message);
+                    }
+                }
+                if (pending.Count > 0) throw new Exception(string.Join(Environment.NewLine, pending));
             }
             catch (Exception exception)
             {
