@@ -1015,6 +1015,162 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// SKOK DO POZYCJI w grupie Sonos: czas albo procent. Ogolna droga
+    /// <c>ShowSeekPositionDialog</c> czytala <c>_sessions.Current.CurrentItem.Duration</c>,
+    /// a wiersz grupy powstaje jako <c>MediaItemKind.Device</c> BEZ dlugosci,
+    /// wiec ZAWSZE odmawiala "czas trwania jest nieznany" - mimo ze odczyt grupy
+    /// zna i pozycje, i dlugosc. Tutaj dlugosc i pozycja pochodza WYLACZNIE z
+    /// odczytu Sonosa, a sam skok idzie ISTNIEJACA operacja
+    /// <see cref="ISonosGroupSessionBackend.SeekRelativeAsync"/> - backend nie ma
+    /// skoku absolutnego i nie dodajemy mu zadnego endpointu.
+    /// </summary>
+    private async Task SeekSonosToPositionAsync(string commandId)
+    {
+        if (!_playerViewActive)
+        {
+            Announce("Skok jest dostępny tylko w odtwarzaczu. Naciśnij F6");
+            return;
+        }
+        if (SonosActiveGroup is not { } group)
+        {
+            Announce("Nie ma aktywnej grupy Sonos. Wybierz grupę na liście i potwierdź Enterem");
+            return;
+        }
+        if (_sonosCommandInFlight)
+        {
+            Announce("Poprzednie polecenie Sonos jeszcze się nie zakończyło");
+            return;
+        }
+
+        var byTime = commandId == CommandIds.SeekToTime;
+        // TA SAMA bramka, co reszta przewijania: CanSeek z ODCZYTANYCH akcji.
+        var gate = SonosCommandGating.Evaluate(
+            CommandIds.SeekForward10,
+            _sonosPlayback?.PlaybackState ?? SonosPlaybackState.Unknown,
+            _sonosPlayback?.AvailablePlaybackActions,
+            _sonosVolume);
+        if (!gate.Allowed)
+        {
+            Announce(gate.Refusal ?? "To polecenie nie jest dostępne w sesji Sonos");
+            return;
+        }
+
+        // DLUGOSC z odczytu grupy. Bez niej okno nie ma czego celowac, a zero
+        // bylo BY wymyslone - wiec odmawiamy JAWNIE i nie wysylamy nic.
+        var duration = SonosPlayerPosition
+            .Resolve(_sonosPlayback, _sonosMetadata?.CurrentTrack?.DurationMillis, _sonosReadUtc, DateTime.UtcNow)
+            .Duration;
+        if (duration is not { } total || total <= TimeSpan.Zero)
+        {
+            Announce(byTime
+                ? "Skok do czasu niedostępny: Sonos nie podał czasu trwania"
+                : "Skok procentowy niedostępny: Sonos nie podał czasu trwania");
+            return;
+        }
+
+        // TOZSAMOSC celu i materialu SPRZED modalu. Modal trwa dowolnie dlugo,
+        // wiec po nim sprawdzamy to jeszcze raz - skok nie ma prawa trafic w
+        // nowy cel ani w inny material.
+        var ticketBefore = _sonosTargetTicket;
+        var itemBefore = _sonosPlayback?.ItemId;
+        var dialog = new SeekPositionWindow(
+            byTime ? SeekInputMode.Time : SeekInputMode.Percentage, total) { Owner = this };
+        var confirmed = dialog.ShowDialog() == true;
+        // Fokus wraca do odtwarzacza NIEZALEZNIE od decyzji - takze po Escape.
+        FocusSonosPlayerAfterSeek();
+        if (!confirmed) return;
+        if (_isClosing || ticketBefore != _sonosTargetTicket) return;
+        if (SonosActiveGroup is not { } stillGroup
+            || !string.Equals(stillGroup.Id, group.Id, StringComparison.Ordinal))
+        {
+            Announce("Skok pominięty: grupa Sonos zmieniła się w czasie wpisywania");
+            return;
+        }
+
+        var target = byTime
+            ? dialog.Position
+            : TimeSpan.FromTicks((long)Math.Round(total.Ticks * (dialog.Percentage / 100d)));
+
+        // AKTUALNA pozycja, nie ta z chwili otwarcia okna: po dlugim modalu
+        // liczenie delty od starego miejsca trafiloby gdzie indziej.
+        if (!await ReadSonosGroupStateAsync().ConfigureAwait(true))
+        {
+            Announce("Skok pominięty: nie udało się odczytać aktualnej pozycji Sonos");
+            return;
+        }
+        if (_isClosing || ticketBefore != _sonosTargetTicket) return;
+        var itemNow = _sonosPlayback?.ItemId;
+        if (!string.Equals(itemBefore, itemNow, StringComparison.Ordinal))
+        {
+            Announce("Skok pominięty: Sonos zmienił odtwarzany materiał");
+            return;
+        }
+        var current = SonosPlayerPosition
+            .Resolve(_sonosPlayback, _sonosMetadata?.CurrentTrack?.DurationMillis, _sonosReadUtc, DateTime.UtcNow)
+            .Position;
+        if (current is not { } from)
+        {
+            Announce("Skok pominięty: Sonos nie podał aktualnej pozycji");
+            return;
+        }
+
+        var deltaMillis = (int)Math.Round((target - from).TotalMilliseconds);
+        var gateTicket = ++_sonosCommandGateTicket;
+        var backend = EnsureSonosBackend();
+        var token = EnsureSonosCancellation().Token;
+        var beforeState = _sonosPlayback?.PlaybackState ?? SonosPlaybackState.Unknown;
+        _sonosCommandInFlight = true;
+        try
+        {
+            // DOKLADNIE JEDNO zadanie skoku, bez ponowien.
+            var result = await backend
+                .SeekRelativeAsync(stillGroup.Id, deltaMillis, itemNow, token).ConfigureAwait(true);
+            if (ticketBefore != _sonosTargetTicket || _isClosing) return;
+
+            var accepted = result.Status == SonosGroupOperationStatus.Attempted
+                && result.Outcome?.Status == SonosControlApiStatus.Success;
+            // JAWNY odczyt PO skoku: Accepted bez zmiany odczytu NIE jest dowodem
+            // trafionej pozycji, wiec werdykt zostaje dotychczasowy i uczciwy.
+            var readOk = await ReadSonosGroupStateAsync().ConfigureAwait(true);
+            if (ticketBefore != _sonosTargetTicket || _isClosing) return;
+            var verdict = SonosCommandVerdict.Describe(
+                SonosVerdictCommand.Seek,
+                accepted,
+                readOk,
+                beforeState,
+                _sonosPlayback?.PlaybackState ?? SonosPlaybackState.Unknown,
+                itemNow,
+                _sonosPlayback?.ItemId);
+            Announce(verdict.Text);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            ReleaseSonosCommandGate(gateTicket);
+        }
+    }
+
+    /// <summary>
+    /// Fokus po zamknieciu okna skoku wraca do przycisku, ktory je otworzyl, a
+    /// gdy ten jest ukryty - do panelu odtwarzacza. Bez tego czytnik zostawal
+    /// przy zamknietym oknie.
+    /// </summary>
+    private void FocusSonosPlayerAfterSeek()
+    {
+        if (!_playerViewActive) return;
+        foreach (var candidate in new System.Windows.FrameworkElement[]
+                 { PlayerSeekTimeButton, PlayerSeekPercentButton, PlayerPlayPauseButton, PlayerPanel })
+        {
+            if (candidate is { IsVisible: true, Focusable: true } && candidate.Focus()) return;
+        }
+    }
+
+    /// <summary>WASKI hook pomiarowy: skok do pozycji PRAWDZIWA droga sesji Sonos.</summary>
+    internal Task SeekSonosToPositionForTests(string commandId) => SeekSonosToPositionAsync(commandId);
+
+    /// <summary>
     /// WASKI hook pomiarowy: ta sama PRODUKCYJNA droga zwolnienia bramki, zeby
     /// pomiar mogl sprawdzic spozniony przelot bez wlasnej kopii warunku.
     /// </summary>

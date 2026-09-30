@@ -11285,6 +11285,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AnnounceSonosTime(commandId);
                 return new CommandExecutionResult(true);
             }
+            // SKOK DO POZYCJI ma WLASNA droge Sonosa: ogolny ShowSeekPositionDialog
+            // czyta dlugosc wiersza MediaItemKind.Device, ktora dla grupy jest
+            // zerowa, wiec oba przyciski i Ctrl+J / Ctrl+Shift+J zawsze konczyly
+            // sie odmowa "czas trwania jest nieznany" mimo znanego odczytu.
+            if (commandId is CommandIds.SeekToTime or CommandIds.SeekToPercentage)
+            {
+                _ = SeekSonosToPositionAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
             if (commandId is CommandIds.PlayPause
                 or CommandIds.ActivateSelected
                 or CommandIds.Next
