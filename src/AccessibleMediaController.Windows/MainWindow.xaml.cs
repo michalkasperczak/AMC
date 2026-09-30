@@ -11276,6 +11276,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 StartSonosGroupActivationThenPlayer(selectedGroup.Id);
                 return new CommandExecutionResult(true);
             }
+            if (commandId is CommandIds.TimeElapsed
+                or CommandIds.TimeRemaining
+                or CommandIds.TimeTotal)
+            {
+                // Czas grupy zna TYLKO odczyt Sonosa. Ogolny router podalby tu
+                // pozycje i dlugosc DemoMediaSession, czyli zero z zera.
+                AnnounceSonosTime(commandId);
+                return new CommandExecutionResult(true);
+            }
             if (commandId is CommandIds.PlayPause
                 or CommandIds.ActivateSelected
                 or CommandIds.Next

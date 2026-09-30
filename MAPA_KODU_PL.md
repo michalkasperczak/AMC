@@ -46,6 +46,21 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 `Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
+UŻYTKOWY ODTWARZACZ (etap B3) mierzy `Windows.SmokeTests --sonos-player-ui`
+(**25 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+
+- `UpdateSonosPlayerView` (`MainWindow.Sonos.cs`) ustawia **wszystkie** kontrolki
+  odtwarzacza z odczytu grupy — także `PlayerTimeText` i etykietę oraz **dostępną
+  nazwę `PlayerPlayPauseButton`** — a to, czego Sonos nie ma (prędkość, zakładki,
+  nagrywanie radia), jawnie ukrywa. Bez tego odtwarzacz **dziedziczył czas i stan
+  po poprzedniej sesji**.
+- Dostępna nazwa przycisku idzie za odczytem, ale przestawia się **tylko przy
+  faktycznej zmianie** — nazwa nadpisuje treść dla czytnika, a odczyt w tle nie
+  może generować zdarzeń UIA co cykl.
+- `TimeElapsed` / `TimeRemaining` / `TimeTotal` w sesji Sonos obsługuje
+  `AnnounceSonosTime`, **nie** ogólny router (ten czytałby `DemoMediaSession`,
+  czyli pozycję 0 z długości 0). Brak pozycji lub długości = „nie jest znany”.
+
 ODŚWIEŻANIE sesji (etap B1) mierzy `Windows.SmokeTests --sonos-session-polling-ui`
 na POKAZANYM własnym oknie i na **prawdziwym `PlayerUiTimer_Tick`**, nie na samym
 helperze. Podpięcie i bezpieczniki:

@@ -90,6 +90,10 @@ if (args.Contains("--sonos-household-choice-ui", StringComparer.Ordinal))
 {
     SonosHouseholdChoiceUiTests.Run(); return 0;
 }
+if (args.Contains("--sonos-player-ui", StringComparer.Ordinal))
+{
+    SonosPlayerUiTests.Run(); return 0;
+}
 if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;

@@ -114,6 +114,23 @@ Zasady, których te polecenia trzymają się twardo:
 | `Core.SmokeTests -- --sonos-session-presentation` | formatery, pusty stan, pamięć wyboru po ID, pełny roundtrip starych ustawień, bramka dostępności, werdykty po odczycie, brak zegara demo |
 | `Windows.SmokeTests -- --sonos-session-ui` | **prawdziwy `MainWindow`** bez pokazywania okna: lista grup, aktywna grupa bez POST, wyjście bez stop/pause, polecenia przez `ExecuteCommand`, odmowa zajętości, unieważnianie spóźnionych odczytów. **Mierzy pomocnicze metody sesji, NIE drogę klawiatury** — Enter i wypełnienie kontrolki listy sprawdza dopiero pomiar poniżej |
 | `Windows.SmokeTests -- --sonos-session-entry-ui` | **WEJŚCIE rzeczywistą drogą użytkownika, na POKAZANYM własnym oknie**: prawdziwe `ExecuteCommand("session.slot.8")` (to, co robi Ctrl+8) i pompa dispatchera → **kontrolka `MediaList` ma 2 wiersze** (nie sama `session.Items`); prawdziwy routed `PreviewKeyDown`/Enter na **zaznaczonym wierszu** → `_playerViewActive`, `SelectedGroupId`, aktualny element sesji, jawne odczyty stanu i głośności, **zero POST z samego wyboru**; Escape wraca na listę bez transportu; druga grupa tą samą drogą; spóźniona aktywacja po świadomym wyjściu z sesji nie kradnie fokusu. Bez NVDA i bez klawiszy systemowych |
+| `Windows.SmokeTests -- --sonos-player-ui` | **UŻYTKOWY odtwarzacz na POKAZANYM własnym oknie**: po wejściu drogą Ctrl+8 + Enter wszystkie kontrolki odtwarzacza (`PlayerTitleText` / `PlayerArtistText` / `PlayerSessionText` / `PlayerStateText` / `PlayerTimeText` + przycisk) pochodzą z **odczytu grupy** i nie dziedziczą tekstu po odtwarzaczu innej sesji; **rzeczywisty przycisk** ma treść i **dostępną nazwę** zgodną z odczytanym stanem, a zmiana Playing → Paused **odczytem** je przestawia; kliknięcie prawdziwego `PlayerPlayPause_Click` daje **dokładnie jeden POST** do aktywnej grupy + potwierdzający GET i **nie rusza `DemoMediaSession`**; Ctrl+Shift+E/R/T podają **odczytany czas Sonosa** (0:12 / 2:48 / 3:00), a radio bez `currentItem` daje „nie jest znany”, **nie 0:00** |
+
+Co ten pomiar **wykazał i naprawił** (RED przed zmianą produkcji, potem GREEN):
+
+- `UpdateSonosPlayerView` ustawiał tylko 5 tekstów i nazwę `PlayerPanel`. `PlayerTimeText`,
+  `PlayerSpeedText`, etykieta i **dostępna nazwa przycisku** oraz przyciski prędkości,
+  zakładek i przewijania do miejsca zostawały **z odtwarzacza poprzedniej sesji** — czytnik
+  podawał czas i stan **cudzej sesji** jako stan Sonosa. Teraz każda z tych kontrolek
+  pochodzi z odczytu grupy albo jest jawnie ukryta (Sonos nie ma prędkości ani zakładek AMC).
+- Dostępna nazwa przycisku była ustawiana **tylko przy fokusie**, więc po zmianie stanu
+  poznanej odczytem treść przycisku się zmieniała, a **nazwa czytana przez czytnik nie** —
+  i to ona wygrywa. Teraz idzie za odczytem, ale przestawia się **wyłącznie przy rzeczywistej
+  zmianie**, żeby odczyt w tle nie wywoływał zdarzeń UIA co cykl.
+- Polecenia `TimeElapsed` / `TimeRemaining` / `TimeTotal` **spadały do ogólnego routera**,
+  który czyta `DemoMediaSession` — w sesji Sonos oznaczało to **pozycję 0 z długości 0**,
+  czyli dane, których Sonos nigdy nie zgłosił. Teraz odpowiada `AnnounceSonosTime` z
+  odczytu grupy, a brak pozycji lub długości to **„nie jest znany”**, nie zero.
 
 Pomiar `--sonos-session-ui` buduje się i uruchamia **bez GUI** (żadnego `Show`,
 `ShowDialog`, `Activate`) — to się NIE zmieniło. Osobny `--sonos-session-entry-ui`
@@ -128,7 +145,8 @@ instalatora.
 ### Czego tu NIE zmierzono
 
 - **Odsłuch NVDA** i **fizyczna klawiatura** — nie były uruchamiane.
-  `--sonos-session-entry-ui` wysyła routed `KeyEventArgs` na element z fokusem we
+  `--sonos-session-entry-ui` i `--sonos-player-ui` wysyłają routed `KeyEventArgs`
+  i routed `Click` na elemencie z fokusem we
   **własnym** oknie, nie klawisze systemowe. Komunikaty są sprawdzone jako tekst,
   który trafia do `Announce`, nie jako mowa.
 - **Żadnego prawdziwego konta ani sieci Sonos.** Zaplecze grupy jest

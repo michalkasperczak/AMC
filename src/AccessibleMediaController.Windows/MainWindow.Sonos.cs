@@ -718,13 +718,115 @@ public partial class MainWindow
             ? "Sonos, brak aktywnej grupy"
             : "Sonos, " + group.Name;
         PlayerStateText.Text = view.StateText + ". " + view.VolumeText + ". " + view.PositionText;
-        if (updateAccessibleName)
+        // POMIAR B3: te kontrolki NIE byly tu ustawiane, wiec po wejsciu z
+        // odtwarzacza innej sesji zostawal w nich JEJ czas, predkosc i etykieta
+        // przycisku. Niewidomy uzytkownik slyszal wtedy dane cudzej sesji jako
+        // stan Sonosa. Kazda kontrolka odtwarzacza musi pochodzic z ODCZYTU
+        // grupy albo jawnie zniknac.
+        PlayerTimeText.Text = view.PositionText;
+        // Sonos nie ma predkosci odtwarzania ani zakladek AMC - te kontrolki
+        // klamalyby o mozliwosciach urzadzenia, wiec sa ukryte, nie martwe.
+        PlayerSpeedText.Visibility = System.Windows.Visibility.Collapsed;
+        PlayerPreviousButton.Content = "Poprzedni element";
+        PlayerNextButton.Content = "Następny element";
+        foreach (var control in new System.Windows.FrameworkElement[]
+                 {
+                     PlayerRateDownButton,
+                     PlayerRateUpButton,
+                     PlayerRateResetButton,
+                     PlayerAddBookmarkButton,
+                     PlayerAddNamedBookmarkButton,
+                     PlayerBookmarksButton
+                 })
         {
-            PlayerPanel.SetValue(
-                System.Windows.Automation.AutomationProperties.NameProperty,
-                view.Title + ". " + PlayerSessionText.Text + ". " + PlayerStateText.Text);
+            control.Visibility = System.Windows.Visibility.Collapsed;
         }
+        // Przewijanie do MIEJSCA wymaga znanej dlugosci. Bez odczytanej dlugosci
+        // te przyciski nie maja czego celowac.
+        var position = SonosPlayerPosition.Resolve(
+            _sonosPlayback,
+            _sonosMetadata?.CurrentTrack?.DurationMillis,
+            _sonosReadUtc,
+            DateTime.UtcNow);
+        var seekVisibility = position.Duration > TimeSpan.Zero
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
+        PlayerSeekTimeButton.Visibility = seekVisibility;
+        PlayerSeekPercentButton.Visibility = seekVisibility;
+        RadioRecordingButton.Visibility = System.Windows.Visibility.Collapsed;
+        PlayerHelpText.Text = PlayerKeyboardHelpText();
+        // Tresc przycisku bierzemy z ODCZYTANEGO stanu grupy, nie z
+        // DemoMediaSession i nie z Accepted 200 poprzedniego polecenia.
+        var pausing = _sonosPlayback?.PlaybackState is SonosPlaybackState.Playing
+            or SonosPlaybackState.Buffering;
+        var action = pausing ? "Wstrzymaj" : "Odtwórz";
+        PlayerPlayPauseButton.Content = action;
+        // Dostepna nazwa NADPISUJE tresc dla czytnika, wiec nieaktualna nazwa
+        // KLAMIE nawet przy poprawnej etykiecie. Przestawiamy ja przy KAZDEJ
+        // zmianie odczytu, nie tylko przy fokusie - ale TYLKO gdy naprawde sie
+        // zmienila, zeby odczyt w tle nie wywolywal zdarzen UIA co cykl.
+        var buttonName = view.Title + ", " + PlayerSessionText.Text + ", " + view.StateText + ". " + action;
+        if (!string.Equals(
+                System.Windows.Automation.AutomationProperties.GetName(PlayerPlayPauseButton),
+                buttonName,
+                StringComparison.Ordinal))
+        {
+            System.Windows.Automation.AutomationProperties.SetName(PlayerPlayPauseButton, buttonName);
+        }
+
+        if (!updateAccessibleName) return;
+        _playerFocusContextPrefix = null;
+        PlayerPanel.SetValue(
+            System.Windows.Automation.AutomationProperties.NameProperty,
+            view.Title + ". " + PlayerSessionText.Text + ". " + PlayerStateText.Text);
+        ApplyPlayerHelpTextToControl();
     }
+
+    /// <summary>
+    /// CZAS grupy Sonos dla polecen elapsed/remaining/total. Bez tego polecenia
+    /// czasu spadaly do ogolnego routera i czytaly DemoMediaSession, czyli
+    /// pozycje 0 z dlugosci 0 - dane, ktorych Sonos nigdy nie zglosil.
+    /// BRAK pozycji albo dlugosci to BRAK INFORMACJI, nigdy zero.
+    /// </summary>
+    private void AnnounceSonosTime(string commandId)
+    {
+        var position = SonosPlayerPosition.Resolve(
+            _sonosPlayback,
+            _sonosMetadata?.CurrentTrack?.DurationMillis,
+            _sonosReadUtc,
+            DateTime.UtcNow);
+        var stale = position.Stale ? ", z ostatniego odczytu" : string.Empty;
+        if (commandId == CommandIds.TimeElapsed)
+        {
+            Announce(position.Position is { } elapsed
+                ? "Czas od początku: " + FormatSonosTime(elapsed) + stale
+                : "Czas od początku nie jest znany");
+            return;
+        }
+
+        if (commandId == CommandIds.TimeRemaining)
+        {
+            if (position.Position is not { } current || position.Duration is not { } total)
+            {
+                Announce("Czas pozostały nie jest znany");
+                return;
+            }
+
+            var remaining = current >= total ? TimeSpan.Zero : total - current;
+            Announce("Czas pozostały: " + FormatSonosTime(remaining) + stale);
+            return;
+        }
+
+        Announce(position.Duration is { } duration
+            ? "Czas całkowity: " + FormatSonosTime(duration)
+            : "Czas całkowity nie jest znany");
+    }
+
+    private static string FormatSonosTime(TimeSpan value) =>
+        value.TotalHours >= 1
+            ? value.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.CurrentCulture)
+            : value.ToString(@"m\:ss", System.Globalization.CultureInfo.CurrentCulture);
+
 
     /// <summary>
     /// INSTRUKCJA po rzeczywistej zmianie konta. L4 z przegladu 680: poprzednie
