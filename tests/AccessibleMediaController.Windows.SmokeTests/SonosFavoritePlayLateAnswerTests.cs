@@ -270,6 +270,7 @@ internal static class SonosFavoritePlayLateAnswerTests
         harness.Backend.LoadGate = held.Task;
         Window? foreign = null;
         string[] lateInMain = [];
+        string? lateInOrigin = null;
         string? focusMoved = null;
         var foreignWasActive = false;
         try
@@ -291,6 +292,7 @@ internal static class SonosFavoritePlayLateAnswerTests
                 foreign.Activate();
                 window.PumpForTests(TimeSpan.FromMilliseconds(150));
                 foreignWasActive = foreign.IsActive;
+                var originStatusBefore = window.StatusForTests;
 
                 var spokenBefore = harness.Announcements.Count;
                 var focusBefore = Keyboard.FocusedElement;
@@ -299,6 +301,8 @@ internal static class SonosFavoritePlayLateAnswerTests
                 window.PumpForTests(TimeSpan.FromMilliseconds(150));
 
                 lateInMain = harness.Announcements.Skip(spokenBefore).ToArray();
+                if (!string.Equals(originStatusBefore, window.StatusForTests, StringComparison.Ordinal))
+                    lateInOrigin = window.StatusForTests;
                 if (!ReferenceEquals(Keyboard.FocusedElement, focusBefore))
                 {
                     focusMoved = Describe(Keyboard.FocusedElement);
@@ -308,6 +312,8 @@ internal static class SonosFavoritePlayLateAnswerTests
             });
 
             if (!foreignWasActive) throw new Exception("Obce okno pomiaru nie stało się aktywne, nic nie mierzymy.");
+            if (lateInOrigin is not null)
+                throw new Exception("Nieaktywny modal A otrzymał spóźniony status: " + lateInOrigin);
             if (lateInMain.Length != 0)
             {
                 throw new Exception($"Wynik ogłosił {lateInMain.Length} komunikat(ów) w oknie głównym: \""
