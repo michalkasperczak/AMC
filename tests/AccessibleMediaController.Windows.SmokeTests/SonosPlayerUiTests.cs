@@ -78,7 +78,9 @@ internal static class SonosPlayerUiTests
                              ("B4-3 odmowy przewijania cyfrowego", MeasureDigitSeekRefusalsSendNothing),
                              ("B4-4 skip do grupy i bramki", MeasureSkipTargetsGroupAndRespectsGates),
                              ("B4-5 glosnosc z odczytu", MeasureVolumeStepsUseReadValue),
-                             ("B4-6 mute tylko znanego bool", MeasureMuteInvertsKnownReadOnly)
+                             ("B4-6 mute tylko znanego bool", MeasureMuteInvertsKnownReadOnly),
+                             ("B4-7 uczciwy komunikat po wyjatku odczytu potwierdzajacego",
+                                 MeasurePostCommandReadFaultIsHonest)
                          })
                 {
                     // POSTEP na stdout: gdyby ktorys przypadek zawisl na modalu,
@@ -1607,6 +1609,247 @@ internal static class SonosPlayerUiTests
         return checks;
     }
 
+    /// <summary>
+    /// B4-7: WYJATEK transportu w odczycie POTWIERDZAJACYM polecenie (GET PO
+    /// wyslaniu) na WSPOLNEJ drodze <c>ExecuteSonosCommandAsync</c> nie moze byc
+    /// ani cisza, ani automatyczna nazwa obiektu, ani porzuconym faultem. Ta
+    /// droga obsluguje TAKZE skip, glosnosc i wyciszenie, wiec komunikat mowi
+    /// ogolnie o POLECENIU - nie wmawia uzytkownikowi skoku.
+    ///
+    /// Mierzymy OBA legalne ksztalty kontraktu <see cref="SonosGroupCommandResult"/>:
+    ///   * RequestSent=false (Attempted + Outcome InvalidConfiguration, Sent=false)
+    ///     to ZERO prob wyslania, wiec "wyslano" byloby klamstwem,
+    ///   * RequestSent=true (Attempted + Outcome Unreachable, Sent=true) to tylko
+    ///     PODJETA PROBA: bez potwierdzenia nie wolno obiecywac wyslania,
+    ///     przyjecia ani dostarczenia. Dlatego NIE bierzemy tu Accepted/Success -
+    ///     ono samo znaczy PRZYJECIE i nie nadaje sie na ten dowod.
+    /// Oba warianty w DWOCH poleceniach tej samej drogi: cyfra (bezwzgledny cel,
+    /// ze swiezym odczytem przed skokiem) i custom (wzgledny, bez przedskokowego
+    /// odczytu) - razem 4 przypadki.
+    ///
+    /// GRANICA POMIARU: wynik i wyjatek sa SYNTETYCZNE, na granicy
+    /// <see cref="ISonosGroupSessionBackend"/>. Zero sieci, konta, NVDA i mowy
+    /// systemowej: mierzymy TEKST, ktory przelot wybiera, oraz stan bramki.
+    /// </summary>
+    private static int MeasurePostCommandReadFaultIsHonest()
+    {
+        var checks = 0;
+
+        foreach (var commandId in new[] { CommandIds.SeekPercent(50), CommandIds.SeekForwardCustom })
+        {
+            foreach (var requestSent in new[] { false, true })
+            {
+                using var harness = Harness.Create();
+                harness.OpenPlayerForGroup("GRUPA-SALON");
+                // LEGALNE ksztalty kontraktu, nie Accepted: Accepted/Success JUZ
+                // znaczy przyjecie polecenia i nie moglby dowiesc uczciwosci.
+                harness.Backend.NextSeekResult = requestSent
+                    ? new SonosGroupCommandResult(
+                        SonosGroupOperationStatus.Attempted,
+                        SonosGroupCommand.SeekRelative,
+                        SonosGroupCommandOutcome.FromStatus(
+                            SonosGroupCommand.SeekRelative, SonosControlApiStatus.Unreachable, true),
+                        requestSent: true,
+                        renewed: false,
+                        SonosAccountSnapshots.Empty)
+                    : new SonosGroupCommandResult(
+                        SonosGroupOperationStatus.Attempted,
+                        SonosGroupCommand.SeekRelative,
+                        SonosGroupCommandOutcome.FromStatus(
+                            SonosGroupCommand.SeekRelative, SonosControlApiStatus.InvalidConfiguration, false),
+                        requestSent: false,
+                        renewed: false,
+                        SonosAccountSnapshots.Empty);
+                // WYJATEK dokladnie w GET-cie PO wyslaniu, uzbrojony z wnetrza
+                // POST-u: przedskokowy odczyt cyfry musi sie udac.
+                harness.Backend.FaultReadAfterSeek = true;
+                var said = harness.Announcements.Count;
+
+                var task = harness.Window.ExecuteSonosCommandForTests(commandId);
+                harness.PumpUntil(
+                    () => task.IsCompleted,
+                    $"{commandId} (RequestSent={requestSent}) nie zakonczylo sie po wyjatku odczytu po wyslaniu");
+                // ZADEN fault nie ma prawa zostac porzucony: to samo podniesie
+                // wyjatek, gdyby przelot go wypuscil.
+                task.GetAwaiter().GetResult();
+                checks++;
+
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(40));
+                var text = string.Join(" | ", harness.Announcements.Skip(said));
+                Console.WriteLine($"   B4-7 {commandId} RequestSent={requestSent}: \"{text}\"");
+
+                // DOKLADNIE JEDNO zadanie skoku: to liczba POST-ow polecenia, a
+                // nie liczba prob HTTP w transporcie.
+                if (harness.Backend.SeekCalls.Count != 1)
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): wyslano {harness.Backend.SeekCalls.Count} "
+                        + "zadan zamiast jednego (ponowienie po wyjatku odczytu).");
+                }
+                checks++;
+
+                if (text.Length == 0)
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): po wyjatku odczytu potwierdzajacego "
+                        + "nie powiedziano NIC.");
+                }
+                checks++;
+
+                if (!text.Contains("odczyt", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): nie nazwano nieudanego odczytu: \"{text}\".");
+                }
+                checks++;
+
+                if (!text.Contains("Sonos", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): komunikat nie mowi, czego dotyczy: \"{text}\".");
+                }
+                checks++;
+
+                // TRESC wyjatku transportu (adres, naglowek autoryzacji) NIE idzie do mowy.
+                if (text.Contains(FakeBackend.Secret, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): komunikat ujawnil tresc wyjatku: \"{text}\".");
+                }
+                checks++;
+
+                if (requestSent)
+                {
+                    if (!text.Contains("prób", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception(
+                            $"{commandId} (RequestSent=true): nie nazwano tego PROBA: \"{text}\".");
+                    }
+                    checks++;
+                    if (!text.Contains("potwierdz", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception(
+                            $"{commandId} (RequestSent=true): nie nazwano braku potwierdzenia: \"{text}\".");
+                    }
+                    checks++;
+                    // FALSZYWE obietnice w obie strony: ani "wyslano/przyjeto/
+                    // dostarczono", ani "nie dostarczono" - losu zadania poza
+                    // maszyna nikt tu nie zmierzyl.
+                    foreach (var promise in new[] { "wysłan", "przyjęt", "dostarcz", "dotar" })
+                    {
+                        if (text.Contains(promise, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new Exception(
+                                $"{commandId} (RequestSent=true): sama PROBA opisana slowem \"{promise}\": \"{text}\".");
+                        }
+                        checks++;
+                    }
+                }
+                else
+                {
+                    if (!text.Contains("nie zostało wysłane", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception(
+                            $"{commandId} (RequestSent=false): nie powiedziano, ze polecenie nie poszlo: \"{text}\".");
+                    }
+                    checks++;
+                    // OGOLNIE o poleceniu: ta sama droga obsluguje skip, glosnosc
+                    // i mute, wiec komunikat nie ma prawa wmawiac skoku.
+                    if (!text.Contains("olecenie", StringComparison.Ordinal))
+                    {
+                        throw new Exception(
+                            $"{commandId} (RequestSent=false): komunikat nie nazwal tego poleceniem: \"{text}\".");
+                    }
+                    checks++;
+                }
+
+                // Bramka MUSI byc zwolniona: inaczej odtwarzacz zostaje gluchy na
+                // kolejne polecenia po jednym utraconym odczycie.
+                if (harness.CommandInFlight)
+                {
+                    throw new Exception(
+                        $"{commandId} (RequestSent={requestSent}): po wyjatku odczytu bramka polecen "
+                        + "Sonos zostala zamknieta.");
+                }
+                checks++;
+            }
+        }
+
+        // REGRESJA PORZUCENIA (jak K1, ale na GET PO wyslaniu): przelot wisi na
+        // barierze odczytu POTWIERDZAJACEGO, uzytkownik PRAWDZIWA droga polecen
+        // przechodzi do innej sesji, a zwolniony odczyt RZUCA wyjatek. Wtedy
+        // komunikat o braku potwierdzenia nie ma prawa odezwac sie w CUDZYM
+        // widoku: ZERO nowych wypowiedzi, zadanie bez faultu, bramka zwolniona.
+        {
+            using var harness = Harness.Create();
+            try
+            {
+                harness.OpenPlayerForGroup("GRUPA-SALON");
+                harness.Backend.HoldReadAfterSeek = true;
+                harness.Backend.FaultReadAfterSeek = true;
+                var command = harness.Window.ExecuteSonosCommandForTests(CommandIds.SeekForwardCustom);
+                harness.PumpUntil(
+                    () => harness.Backend.HeldPlaybackRead is not null,
+                    "odczyt potwierdzajacy nie zatrzymal sie na barierze");
+                if (harness.Backend.SeekCalls.Count != 1)
+                {
+                    throw new Exception(
+                        "Bariera zatrzymala odczyt PRZED wyslaniem, a nie potwierdzajacy: "
+                        + $"{harness.Backend.SeekCalls.Count} zadan skoku.");
+                }
+                checks++;
+
+                // PORZUCENIE celu PRAWDZIWA droga: POZNIEJSZY callback kolejki
+                // Dispatchera, nie wnetrze atrapy.
+                var ticketBefore = harness.Window.SonosTargetTicket;
+                harness.PostToDispatcher(() => harness.ExecuteCommand(CommandIds.SessionSlot(3)));
+                harness.PumpUntil(
+                    () => harness.Window.SonosTargetTicket != ticketBefore,
+                    "przejscie do innej sesji nie uniewaznilo celu Sonos");
+                checks++;
+
+                // DOPIERO TERAZ liczymy mowe: przelaczenie sesji samo w sobie mowi.
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(60));
+                var saidAfterLeaving = harness.Announcements.Count;
+
+                harness.Backend.ReleaseHeldPlaybackRead();
+                harness.PumpUntil(
+                    () => command.IsCompleted,
+                    "polecenie nie zakonczylo sie po zwolnieniu bariery odczytu potwierdzajacego");
+                command.GetAwaiter().GetResult();
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(60));
+                checks++;
+
+                var late = string.Join(" | ", harness.Announcements.Skip(saidAfterLeaving));
+                if (late.Length != 0)
+                {
+                    throw new Exception(
+                        $"Porzucone polecenie odezwalo sie po wyjsciu z sesji Sonos: \"{late}\".");
+                }
+                checks++;
+                if (harness.Backend.SeekCalls.Count != 1)
+                {
+                    throw new Exception(
+                        $"Po porzuceniu celu wyslano {harness.Backend.SeekCalls.Count} zadan skoku zamiast jednego.");
+                }
+                checks++;
+                if (harness.CommandInFlight)
+                {
+                    throw new Exception("Po porzuconym odczycie potwierdzajacym bramka polecen Sonos jest zamknieta.");
+                }
+                checks++;
+            }
+            finally
+            {
+                // KAZDE wyjscie zwalnia bariery atrapy, takze po nieudanej
+                // asercji - inaczej Dispose czekaloby na zadanie, ktorego nikt
+                // nie dokonczy.
+                harness.Backend.ReleaseEverything();
+            }
+        }
+        return checks;
+    }
+
     // ==================== aparatura ====================
 
     /// <summary>
@@ -2308,6 +2551,13 @@ internal static class SonosPlayerUiTests
         internal bool FaultReadAfterSeek { get; set; }
 
         /// <summary>
+        /// BARIERA ma trafic w odczyt PO skoku, nie przed nim. Uzbrajamy ja z
+        /// wnetrza samego POST-u - dokladnie jak <see cref="FaultReadAfterSeek"/>,
+        /// bo liczenie odczytow z gory jest zawodne (odczyt tla).
+        /// </summary>
+        internal bool HoldReadAfterSeek { get; set; }
+
+        /// <summary>
         /// WYNIK NASTEPNEGO skoku, gdy pomiar potrzebuje INNEGO niz przyjety:
         /// np. LEGALNEGO wyniku kontraktu z RequestSent=false. Null znaczy
         /// dotychczasowe zachowanie, wiec istniejace pomiary mierza to samo.
@@ -2318,6 +2568,11 @@ internal static class SonosPlayerUiTests
             string? groupId, int deltaMillis, string? itemId, CancellationToken cancellationToken)
         {
             SeekCalls.Add((groupId, deltaMillis, itemId));
+            if (HoldReadAfterSeek)
+            {
+                HoldReadAfterSeek = false;
+                HoldNextPlaybackRead = true;
+            }
             if (FaultReadAfterSeek)
             {
                 FaultReadAfterSeek = false;
