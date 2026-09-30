@@ -467,7 +467,18 @@ public enum SonosGroupCommand
     SeekRelative,
     SetVolume,
     SetMute,
-    SetRelativeVolume
+    SetRelativeVolume,
+
+    /// <summary>
+    /// POST /groups/{groupId}/favorites - zaladowanie ULUBIONEGO do wspolnej
+    /// kolejki grupy (operacja Favorites-LoadFavorite-GroupId). Dopisane na
+    /// KONCU listy bez zmiany numeracji wczesniejszych pozycji, bo wartosci
+    /// tego enuma wystepuja w istniejacych atrapach i asercjach.
+    ///
+    /// To polecenie NIE nalezy do namespace playback, dlatego jego sciezka nie
+    /// ma przedrostka "playback/".
+    /// </summary>
+    LoadFavorite
 }
 
 /// <summary>Sciezki i charakter polecen - jedno zrodlo prawdy dla transportu i wyniku.</summary>
@@ -486,6 +497,7 @@ public static class SonosGroupCommands
         SonosGroupCommand.SetVolume => "groupVolume",
         SonosGroupCommand.SetMute => "groupVolume/mute",
         SonosGroupCommand.SetRelativeVolume => "groupVolume/relative",
+        SonosGroupCommand.LoadFavorite => "favorites",
         _ => throw new ArgumentOutOfRangeException(nameof(command))
     };
 
@@ -501,6 +513,10 @@ public static class SonosGroupCommands
         SonosGroupCommand.SkipToPreviousTrack => true,
         SonosGroupCommand.SeekRelative => true,
         SonosGroupCommand.SetRelativeVolume => true,
+        // Zaladowanie ulubionego dopisuje albo zastepuje WSPOLNA kolejke, ktorej
+        // zawartosci transport nie zna. Skutek zalezy wiec od stanu, polecenie
+        // nie jest idempotentne i nie wolno go ponawiac automatycznie.
+        SonosGroupCommand.LoadFavorite => true,
         _ => false
     };
 }
