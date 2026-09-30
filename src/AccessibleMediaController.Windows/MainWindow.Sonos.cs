@@ -822,10 +822,14 @@ public partial class MainWindow
             : "Czas całkowity nie jest znany");
     }
 
+    /// <summary>
+    /// TEN SAM blad co w opisie pozycji w Core: wzorzec "h\:mm\:ss" czyta
+    /// KOMPONENT godzin (0-23), wiec 25 h wracalo jako 1:00:00. Polecenia czasu
+    /// maja podawac CALY czas, wiec delegujemy do istniejacego wspolnego
+    /// <see cref="AccessibleMediaController.Core.Presentation.MediaItemFormatter.FormatDuration"/>.
+    /// </summary>
     private static string FormatSonosTime(TimeSpan value) =>
-        value.TotalHours >= 1
-            ? value.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.CurrentCulture)
-            : value.ToString(@"m\:ss", System.Globalization.CultureInfo.CurrentCulture);
+        AccessibleMediaController.Core.Presentation.MediaItemFormatter.FormatDuration(value);
 
 
     /// <summary>

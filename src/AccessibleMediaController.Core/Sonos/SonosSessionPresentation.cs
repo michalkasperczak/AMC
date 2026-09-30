@@ -333,10 +333,15 @@ public static class SonosPlayerPresentation
         return text;
     }
 
+    /// <summary>
+    /// Czas Sonosa ZAWIJAL sie po dobie: wzorzec "h\:mm\:ss" bierze KOMPONENT
+    /// godzin (0-23), wiec 25 h czytano jako 1:00:00 - doba dluzszy material
+    /// (dlugie audycje, strumienie) byl opisywany cudzym czasem. Istniejacy
+    /// <see cref="Presentation.MediaItemFormatter.FormatDuration"/> liczy CALE
+    /// godziny (TotalHours), wiec uzywamy JEGO, nie drugiego formatera obok.
+    /// </summary>
     private static string Format(TimeSpan value) =>
-        value.TotalHours >= 1
-            ? value.ToString(@"h\:mm\:ss", CultureInfo.CurrentCulture)
-            : value.ToString(@"m\:ss", CultureInfo.CurrentCulture);
+        Presentation.MediaItemFormatter.FormatDuration(value);
 
     private static string? Useful(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

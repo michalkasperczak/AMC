@@ -56,6 +56,7 @@ internal static class SonosPlayerUiTests
                 checks += MeasureRealButtonClickTargetsActiveGroup();
                 checks += MeasureTimeCommandsUseSonosRead();
                 checks += MeasureMissingTimeIsNotZero();
+                checks += MeasureTimeOverOneDayDoesNotWrap();
             }
             catch (Exception exception)
             {
@@ -282,6 +283,57 @@ internal static class SonosPlayerUiTests
         if (!harness.Text("PlayerTitleText").Contains("Radio Nowy Swiat", StringComparison.Ordinal))
         {
             throw new Exception("Stacja bez currentItem nie zostala uznana za poprawny tytul.");
+        }
+        return 5;
+    }
+
+    // ===== D6: czas DLUZSZY NIZ DOBA nie zawija sie do godziny 0-23 =====
+
+    /// <summary>
+    /// ZAWIJANIE po dobie. Wzorzec "h\:mm\:ss" bierze KOMPONENT godzin (0-23),
+    /// wiec 25 h wracalo jako 1:00:00, a 24 h 30 min jako 0:30:00 - niewidomy
+    /// uzytkownik slyszal dla dlugiej audycji czas KROTSZY od rzeczywistego,
+    /// nie do odroznienia od poczatku materialu. Pozycja 24:30:00 z dlugosci
+    /// 25:00:00 daje pozostale 30:00, wiec kazda z trzech odpowiedzi jest INNA
+    /// i zadnej nie da sie zaliczyc przypadkiem.
+    /// </summary>
+    private static int MeasureTimeOverOneDayDoesNotWrap()
+    {
+        using var harness = Harness.Create();
+        // PAUSED: pozycja ma zostac ODCZYTANA, nie ekstrapolowana zegarem.
+        harness.Backend.NextPlaybackState = SonosPlaybackState.Paused;
+        var position = TimeSpan.FromHours(24) + TimeSpan.FromMinutes(30);
+        var duration = TimeSpan.FromHours(25);
+        harness.Backend.PositionMillis = (int)position.TotalMilliseconds;
+        harness.Backend.DurationMillis = (int)duration.TotalMilliseconds;
+        harness.OpenPlayerForGroup("GRUPA-SALON");
+
+        var time = harness.Text("PlayerTimeText");
+        if (!time.Contains("24:30:00", StringComparison.Ordinal))
+        {
+            throw new Exception(
+                $"Kontrolka czasu zawija pozycje po dobie: zamiast 24:30:00 jest \"{time}\".");
+        }
+        if (!time.Contains("25:00:00", StringComparison.Ordinal))
+        {
+            throw new Exception(
+                $"Kontrolka czasu zawija dlugosc po dobie: zamiast 25:00:00 jest \"{time}\".");
+        }
+
+        var elapsed = harness.AnnounceFor(CommandIds.TimeElapsed);
+        if (!elapsed.Contains("24:30:00", StringComparison.Ordinal))
+        {
+            throw new Exception($"Czas od poczatku zawinal sie po dobie; powiedziano \"{elapsed}\".");
+        }
+        var total = harness.AnnounceFor(CommandIds.TimeTotal);
+        if (!total.Contains("25:00:00", StringComparison.Ordinal))
+        {
+            throw new Exception($"Czas calkowity zawinal sie po dobie; powiedziano \"{total}\".");
+        }
+        var remaining = harness.AnnounceFor(CommandIds.TimeRemaining);
+        if (!remaining.Contains("30:00", StringComparison.Ordinal))
+        {
+            throw new Exception($"Czas pozostaly nie wynika z czasow ponad dobe; powiedziano \"{remaining}\".");
         }
         return 5;
     }
@@ -610,6 +662,15 @@ internal static class SonosPlayerUiTests
         /// <summary>Stacja bez currentItem: bez pozycji i bez dlugosci.</summary>
         internal bool RadioWithoutCurrentItem { get; set; }
 
+        /// <summary>
+        /// ODCZYTANA pozycja grupy. Domyslnie ta sama co dotad (0:12), zeby
+        /// istniejace pomiary mierzyly dokladnie to samo co wczesniej.
+        /// </summary>
+        internal int PositionMillis { get; set; } = 12_000;
+
+        /// <summary>ODCZYTANA dlugosc materialu; domyslnie ta sama co dotad (3:00).</summary>
+        internal int DurationMillis { get; set; } = 180_000;
+
         private readonly SonosPlaybackActions _actions = new(
             canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
             canSeek: true, canPause: true, canStop: null, canRepeat: null, canRepeatOne: null,
@@ -627,7 +688,7 @@ internal static class SonosPlayerUiTests
             var status = new SonosGroupPlaybackStatus(
                 NextPlaybackState, null, null,
                 RadioWithoutCurrentItem ? null : "UTWOR-1",
-                RadioWithoutCurrentItem ? null : 12_000,
+                RadioWithoutCurrentItem ? null : PositionMillis,
                 null, null, null, _actions);
             return Task.FromResult(SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(status));
         }
@@ -645,7 +706,7 @@ internal static class SonosPlayerUiTests
                     null,
                     new SonosQueueItem("UTWOR-1", new SonosTrackMetadata(
                         "track", "Preludium", "Chopin", "Nokturny", null,
-                        new SonosMetadataService("Sonos Radio", "9"), 180_000), null),
+                        new SonosMetadataService("Sonos Radio", "9"), DurationMillis), null),
                     null, null, null);
             return Task.FromResult(SonosGroupReadResult<SonosGroupMetadata>.Success(metadata));
         }
