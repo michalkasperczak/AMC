@@ -146,6 +146,43 @@ Tylko **odczyt** listy ulubionych. Bez konta, UI, presetów, skrótów, zapisu
   też w pełną tabelę Core. Mierzone na rzeczywistym kliencie z własnym
   `HttpMessageHandler`, bez sieci i bez konta.
 
+## Sonos: ZAŁADOWANIE ulubionego do kolejki grupy (F3a, tylko klient Core)
+
+Zapisowy odpowiednik odczytu z F1 — jeden `POST` na jedno wywołanie, przez
+**ten sam** transport co pozostałe polecenia grupy.
+
+- `Core/Sonos/SonosFavoriteLoadContract.cs` — `SonosFavoriteQueueAction`
+  (pełny enum `queueAction` z definicji: `Replace`, `Append`, `Insert`,
+  `InsertNext`, `PlayNow`), `SonosFavoriteQueueActions.WireValue`/`IsDefined`
+  oraz **wąski, opcjonalny** `ISonosFavoriteLoadApi`. Interfejs jest osobny
+  celowo: `ISonosGroupApi`/`ISonosFavoritesApi` mają dziesiątki atrap w
+  pomiarach, więc nowa metoda **nie** trafia do obowiązkowego kontraktu.
+- `Core/Sonos/SonosControlApiClient.FavoriteLoad.cs` — `LoadFavoriteAsync`
+  (`POST /groups/{groupId}/favorites`). `action` i `playOnCompletion` są
+  **obowiązkowe i bez wartości domyślnych**: wybór polityki należy do
+  wołającego, bo `REPLACE` niszczy kolejkę użytkownika. Ciało składa
+  **ścisły** `Utf8JsonWriter` (`favoriteId`, `action`, `playOnCompletion`),
+  nie ręczna sklejka — identyfikator Sonosa może zawierać cudzysłów, odwrotny
+  ukośnik, spacje i znaki spoza ASCII.
+- `playModes` **celowo pominięte**: brak pola ZACHOWUJE tryby odtwarzania
+  głośnika, jawne `false` by je wyłączyło. Transport nie ma prawa ich ruszać.
+- `favoriteId` idzie w **ciele**, nie w ścieżce; bramka identyczna jak w F1
+  (`IsNullOrEmpty` + `MaxFavoriteIdLength` z `SonosFavoritesLimits`, **nie**
+  `IsNullOrWhiteSpace`), bez `trim`, obcinania i whitelisty ASCII. Niepoprawny
+  UTF-16 (samotny surogat) odrzucany **przed** serializatorem, żeby nie wysłać
+  po cichu innej wartości.
+- `SonosGroupCommand.LoadFavorite` dopisane na **końcu** enuma bez
+  renumeracji; `PathSuffix` = `favorites`, `IsStateDependent` = **true**
+  (dopisuje/zastępuje kolejkę, więc nie jest idempotentne). Bezparametrowe
+  `SendGroupCommandAsync` nadal **odmawia** go obsłużyć — bez identyfikatora
+  ulubionego nie ma polecenia.
+- **HTTP 200 (`{}` wg definicji) to PRZYJĘCIE zlecenia**, nie dowód, że muzyka
+  zagrała: `EffectConfirmed` zawsze `false`. Zerwane połączenie i anulowanie
+  po wejściu dają `EffectAmbiguous` wg **istniejących** reguł, bez ponowień.
+- Testy: `tests/.../SonosFavoriteLoadTests.cs` (31 sprawdzeń), CLI
+  `--sonos-favorite-load`, wpięte też w pełną tabelę Core. Własny
+  `HttpMessageHandler`, bez sieci, konta i poświadczeń.
+
 ## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
 
 Sesja Sonos wzorowana na WiiM: **urządzenie autonomiczne**, bez własnego

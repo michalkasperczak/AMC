@@ -63,6 +63,30 @@ automatyczny pomiar (`--sonos-favorites-ui`) robi to na danych syntetycznych.
 10. W trakcie trwającego odczytu ponowne `Ctrl+U` nie startuje drugiego zapytania
     — usłyszysz, że odczyt już trwa.
 
+## Sonos: załadowanie ulubionego — F3a, warstwa klienta Core (jak sprawdzić)
+
+**Nie ma tu nic do sprawdzenia ręcznie w AMC.** F3a dodaje wyłącznie metodę
+`LoadFavoriteAsync` w kliencie HTTP Core — **żadnego** skrótu, przycisku,
+menu, presetu ani zmiany zachowania `Ctrl+U`. Enter na liście ulubionych
+z F2 **nadal świadomie nic nie uruchamia**. Podłączenie do interfejsu to
+osobny, późniejszy etap.
+
+Pomiar, bez konta Sonos, sieci i muzyki (własny `HttpMessageHandler`):
+
+1. `--sonos-favorite-load` — 31 sprawdzeń nowej suity: jeden `POST` na
+   `/groups/{groupId}/favorites`, `favoriteId` w **ciele** (nie w ścieżce),
+   jawne `action` (wszystkie 5 wartości) i `playOnCompletion` (`true`
+   i `false`), **brak** `playModes`.
+2. `--sonos-group-playback` i `--sonos-favorites` — stare suity muszą zostać
+   zielone bez rozluźniania asercji (nowa wartość enuma nie może ich ruszyć).
+3. Pełna tabela Core (bez argumentów) — pozycja „Załadowanie ulubionego Sonos
+   do kolejki grupy w kliencie Core”.
+
+Czego mierzone zachowanie **nie** obiecuje: HTTP 200 (`{}`) to **przyjęcie**
+zlecenia, nie dowód, że muzyka zagrała. Zerwane połączenie po wysłaniu i
+anulowanie po wejściu dają skutek **nierozstrzygnięty** — bez ponowienia,
+bo `REPLACE`/`APPEND` wykonane dwa razy dają inną kolejkę niż raz.
+
 ## Sonos: wybór domu (household) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i
