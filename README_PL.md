@@ -3,6 +3,7 @@
 ## Aktualny stan i dokumentacja rozwoju
 
 - [Wydania i opisy zmian](https://github.com/michalkasperczak/AMC/releases).
+- [Przygotowywane alfa414 — odtwarzacz i sterowanie Sonosem](ZMIANY_0.1.0-alpha.414_PL.md).
 - [Zmiany alfa413 — lista głośników i grup Sonos](ZMIANY_0.1.0-alpha.413_PL.md).
 - [Zmiany alfa412 — obsługa konta Sonos](ZMIANY_0.1.0-alpha.412_PL.md).
 - [Sonos: wytyczne, prace w toku i otwarte sprawy](PROJEKT_SONOS_PL.md). Docelowa obsługa ma być możliwie zgodna z sesją WiiM; lista głośników jest etapem, nie końcem integracji.
