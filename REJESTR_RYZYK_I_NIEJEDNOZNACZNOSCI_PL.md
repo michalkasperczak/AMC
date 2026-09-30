@@ -15,7 +15,7 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 Wytyczne obsługi na wzór WiiM, rozdzielenie wydania od prac roboczych oraz sprawy S-01–S-04 są opisane w [PROJEKT_SONOS_PL.md](PROJEKT_SONOS_PL.md). Dotyczyły przyrostu listy urządzeń wydanego następnie w alfa413, nie funkcji przypisanej instalatorowi alfa412.
 
-Korekty ochrony konta, wyboru domu i komunikatów przeszły testy automatyczne. Ponowny żywy NVDA zamknął również problem fokusu rzeczywistych wierszy i zmiany kolejności długiej listy (`cf04f9a`). Alfa413 opublikowano i zainstalowano; odczyt rzeczywistych urządzeń przez połączone konto potwierdzono osobno. Sterowanie odtwarzaniem i sesja jak WiiM pozostają następnym, niewydanym etapem.
+Korekty ochrony konta, wyboru domu i komunikatów przeszły testy automatyczne. Ponowny żywy NVDA zamknął również problem fokusu rzeczywistych wierszy i zmiany kolejności długiej listy (`cf04f9a`). Alfa413 opublikowano i zainstalowano; odczyt rzeczywistych urządzeń przez połączone konto potwierdzono osobno. Sesja i sterowanie grupą przeszły późniejszy odbiór na syntetycznym zapleczu, testy Windows oraz żywy NVDA (`aac4033`, S-13). Nadal czekają na wydanie i osobną próbę rzeczywistego sprzętu; ulubione/presety pozostają kolejnym przyrostem.
 
 ## Zasady prowadzenia rejestru
 

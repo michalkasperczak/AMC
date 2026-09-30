@@ -110,7 +110,8 @@ Zasady, których te polecenia trzymają się twardo:
 ## Pozostałe polecenia odtwarzacza (B4)
 
 Zmierzone rzeczywistym `ExecuteCommand` na pokazanym własnym oknie, na atrapie
-zaplecza; **bez** NVDA i bez ruchu HTTP do prawdziwego Sonosa.
+zaplecza. Osobny odbiór objął fizyczne klawisze i żywy NVDA na tych samych
+binariach; **bez ruchu HTTP i dźwięku prawdziwego Sonosa**.
 
 Naprawione **potwierdzone** braki (RED na niezmienionej produkcji: custom wysyłał
 zero żądań i mówił „Ten rodzaj przewijania nie jest obsługiwany”):
@@ -123,9 +124,9 @@ zero żądań i mówił „Ten rodzaj przewijania nie jest obsługiwany”):
 - **Cyfry 0–9** (`transport.seekPercent.0`…`.90`) liczą cel bezwzględny z
   **odczytanej** długości i przekładają go na deltę od **świeżego** odczytu tej
   samej grupy i tego samego materiału, bez modalu. Zmierzono wszystkie dziesięć.
-  Brak pozycji lub długości, zmiana materiału, zmiana grupy w trakcie odczytu
-  oraz `CanSeek` false/null kończą się czytelną odmową i **zerem żądań** — nigdy
-  zerem z sesji demonstracyjnej. Nieprawidłowy identyfikator (np. `.35`) nadal
+  Brak pozycji lub długości, zmiana materiału oraz `CanSeek` false/null kończą
+  się odmową i **zerem żądań** — nigdy zerem z sesji demonstracyjnej. Porzucony
+  cel (np. zmiana grupy lub sesji) kończy dawną operację cicho, także po błędzie. Nieprawidłowy identyfikator (np. `.35`) nadal
   jest odmawiany; dialog procentowy Ctrl+Shift+J to osobna droga (0–100).
 
 Zmierzone i **już poprawne** przed tą zmianą (produkcji nie ruszano):
@@ -147,10 +148,10 @@ dołożono **mutację kontrolną**: podmiana celu czterech wywołań na obcą gr
 `build-ui` exit 0 i test exit 1 („polecenie poszło do grupy GRUPA-OBCA”). Mutację
 cofnięto, a końcowy przebieg ma produkcję bit-identyczną z fazą GREEN.
 
-## Odebrany zakres: kontrolki, czas i dialogi skoku
+## Odebrany zakres: odtwarzacz, polecenia i komunikaty
 
-Zestaw `--sonos-player-ui` ma **267 sprawdzeń** (101 z odbioru kontrolek, czasu
-i dialogów skoku oraz nowe pomiary pozostałych poleceń, patrz sekcja niżej).
+Zestaw `--sonos-player-ui` ma **317 sprawdzeń**. Obejmuje wcześniejsze kontrolki,
+czas i dialogi, pozostałe polecenia B4 oraz obsługę wyjątku odczytu po poleceniu.
 Końcowy własny przebieg na Windows objął ten zestaw, siedem pozostałych zestawów
 Sonosa i pełny Core; wszystkie etapy zakończyły się kodem 0. To nadal nie jest
 pełny zestaw Windows ani `build.ps1` przygotowujący wydanie.
@@ -172,9 +173,29 @@ Oddzielnie NVDA odczytał oba poprawne komunikaty dla braku próby i próby bez
 potwierdzenia. Dane zaplecza były syntetyczne; nie badano tu rzeczywistego
 konta, HTTP, DPAPI ani dźwięku głośników.
 
-Pozostałe polecenia B4 i ich bramki są nadal do odbioru: Następny/Poprzedni,
-zwykłe i niestandardowe przeskoki, cyfrowe skoki procentowe, głośność i wyciszenie.
-Poniższe opisy wcześniejszych etapów nie zastępują tego brakującego odbioru.
+B4 jest odebrany na granicy syntetycznego zaplecza. Niezależny fizyczny przebieg
+25 poleceń potwierdził rzeczywiste klawisze, cel i argumenty wywołań, odczyt po
+poleceniu oraz treść Podglądu mowy. Dodatkowe próby sprawdziły odmowy, oba końce
+skali głośności, przywrócenie dźwięku przy stałym poziomie, zmianę ustawionego
+kroku, świeżą pozycję, zajętość i porzucenie celu podczas oczekiwania.
+
+Dla odtwarzacza prawdziwe mapowanie to PageUp/PageDown (poprzedni/następny),
+strzałki lewo/prawo (10 s), Shift+lewo/prawo (30 s), Ctrl+lewo/prawo (60 s),
+Ctrl+Alt+lewo/prawo (ustawiony krok), cyfry 0–9 (0–90%), góra/dół (5 punktów),
+Shift+góra/dół (1 punkt) oraz Ctrl+M (wyciszenie bieżącej grupy).
+
+B4-7 zamyka wyjątek odczytu potwierdzającego polecenie: ten sam test na starszym
+kodzie kończył się TimeoutException, a po poprawce wykonuje wszystkie warianty.
+Żywy NVDA potwierdził osobno cyfrę i custom dla braku próby oraz próby bez
+potwierdzenia. Nie ma porzuconego TaskFault ani powtórzenia polecenia. Odczyt
+zatrzymany dopiero po wywołaniu backendu, wyjście Ctrl+3 i zwolnienie z błędem
+nie powodują spóźnionej wypowiedzi; zwykłe polecenie głośności nadal potwierdza
+wartość rzeczywiście zwróconą przez odczyt.
+
+Końcowy przebieg wąskich zestawów Windows obejmuje 695 sprawdzeń oraz pełny Core
+bez sztucznie wyliczanego licznika. Pełna tabela Windows, budowa paczki,
+publikacja i instalacja pozostają odrębnymi warunkami wydania. Ulubione/presety
+Sonosa oraz rzeczywiste sterowanie sprzętem nie są zaliczone przez ten pomiar.
 
 ## Wcześniejszy etap: format czasu ponad dobę
 
@@ -226,9 +247,9 @@ odtwarzacza. Przyciski „Skocz do czasu…” i „Skocz do procentu…” wcze
 odmawiały mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
 UIA Invoke i mowę NVDA, a **teraz jest naprawiona** i zmierzona syntetycznie
 zestawem `--sonos-player-ui` oraz późniejszym osobnym odbiorem żywym NVDA.
-Next/Previous,
-pozostałe przewijanie (`digit percent`, `seekCustom`), głośność/wyciszenie
-i ich bramki wymagają osobnego odbioru — to jawna reszta B4.
+Next/Previous, pozostałe przewijanie, głośność/wyciszenie i ich bramki odebrano
+później w B4, opisanym na początku dokumentu. Ten wcześniejszy pomiar sam w sobie
+nie dowodził tych funkcji.
 
 ## Czym to zmierzone
 

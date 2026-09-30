@@ -47,8 +47,8 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
 KONTROLKI, PLAY/PAUSE, CZAS, SKOK DO POZYCJI I POZOSTAŁE POLECENIA (części B3a
-i B4, nie pełny odbiór odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
-(**267 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+i B4, odebrane na syntetycznej granicy API) mierzy `Windows.SmokeTests --sonos-player-ui`
+(**317 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
 
 - Przewijanie **±Custom** i **cyfry 0–9** idą istniejącym `SeekRelativeAsync`
   aktywnej grupy: custom bierze długość z konfiguracji przez tę samą regułę
@@ -135,8 +135,15 @@ i B4, nie pełny odbiór odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-
   zatwierdzeniu i anulowaniu). Fokusu **nie** przywracamy, gdy okno nie jest aktywne
   ani nie ma w sobie fokusu klawiatury (obcy foreground, odejście, zmiana sesji);
   skrót z `PlayPause` zostawia fokus na `PlayerPlayPauseButton`.
-- Pozostałe sterowanie wymaga osobnego odbioru. `digit percent`, `seekCustom`,
-  skip, głośność i wyciszenie to **jawna reszta B4**, nie zaliczone funkcje.
+- B4 odebrano również fizyczną klawiaturą i żywym NVDA: 25 poleceń, dodatkowe
+  odmowy i granice wartości, świeża pozycja, zajętość oraz porzucenie celu.
+  Dane były syntetyczne; nie jest to próba HTTP ani dźwięku rzeczywistych głośników.
+- `ExecuteSonosCommandAsync` ma wąski `catch` wyłącznie wokół potwierdzającego
+  odczytu, poniżej wywołania backendu. Błąd nie porzuca zadania jako Faulted:
+  po sprawdzeniu biletu celu mówi ogólnie o poleceniu i rozróżnia `RequestSent`
+  false (brak próby) od true (próba bez potwierdzenia). Anulowanie i porzucony cel
+  milczą. `finally` zwalnia własną bramkę; nie dodano ponowienia polecenia.
+  B4-7 oraz niezależny NVDA potwierdziły oba warianty dla cyfry i custom.
 
 ODŚWIEŻANIE sesji (etap B1) mierzy `Windows.SmokeTests --sonos-session-polling-ui`
 na POKAZANYM własnym oknie i na **prawdziwym `PlayerUiTimer_Tick`**, nie na samym

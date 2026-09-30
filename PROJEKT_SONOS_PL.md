@@ -8,7 +8,7 @@ Stan na 30 września 2026 r. To dokument rozwoju, nie deklaracja, że wszystkie 
 
 Pełny build i testy Core zakończyły się poprawnie; pełna tabela Windows zaliczyła 169 testów. Instalację oraz uruchomienie sprawdzono na obu komputerach; zachowano bieżący materiał, stan i widok, a na głównym komputerze również pozycję. Potwierdzono już odczyt z rzeczywistego, wcześniej połączonego konta Sonos bez ponownego logowania i bez poleceń zmieniających muzykę na urządzeniu.
 
-Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano już Core, jego powiązanie z kontem, wejście do sesji użytkowej oraz automatyczne odświeżanie stanu. Nadal nie są częścią tego instalatora. Reakcja sesji na zmianę konta, jawne odświeżanie grup i dostępny wybór domu są już odebrane w kodzie roboczym; rozpoczęto pełny odbiór odtwarzacza. Nie wymaga to teraz ponownego logowania użytkownika.
+Alfa413 nie zawiera jeszcze sesji odtwarzacza Sonos ani sterowania i presetów. W kodzie roboczym odebrano Core, jego powiązanie z kontem, wejście i odświeżanie sesji, reakcję na zmianę konta, odświeżanie grup i wybór domu. Odbiór odtwarzacza oraz sterowania grupą jest również zakończony na syntetycznym zapleczu (S-13); przygotowywane jest wydanie tego etapu. Ulubione/presety pozostają kolejnym przyrostem. Nie wymaga to ponownego logowania użytkownika.
 
 [AMC 0.1.0-alpha.412](https://github.com/michalkasperczak/AMC/releases/tag/v0.1.0-alpha.412) zawiera obsługę konta Sonos: logowanie w oficjalnej przeglądarce, sprawdzenie wyniku, zapis dostępu dla bieżącego użytkownika Windows, odnawianie dostępu, ponowienie zapisu i wylogowanie z potwierdzeniem.
 
@@ -91,7 +91,7 @@ Dwa błędy komunikatów przy porzuceniu polecenia zostały odtworzone i poprawi
 
 ### Granice tego odbioru i kolejny krok
 
-Mechanizm operacji przez konto został podłączony do roboczej sesji Windows. Odbiór wejścia i automatycznego odświeżania opisano poniżej w S-07 i S-08. Nie oznacza to jeszcze zakończenia całej sesji: wybór domu odebrano w S-12, natomiast pełny odbiór odtwarzacza nadal pozostaje do zakończenia. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
+Mechanizm operacji przez konto został podłączony do roboczej sesji Windows. Odbiór wejścia i automatycznego odświeżania opisano poniżej w S-07 i S-08. Nie oznacza to jeszcze zakończenia całej sesji: wybór domu odebrano w S-12, natomiast odtwarzacz odebrano później w S-13. Presety i próba rzeczywistego sterowania sprzętem są osobnymi, jeszcze niezaliczonymi etapami. Polecenia zmieniającego stan nie wolno automatycznie powtarzać po błędzie ani utracie odpowiedzi.
 
 Jedna wcześniejsza pełna próba zgłosiła błąd asercji zdarzenia procesu Librespot. Nie odtworzono go w 60 izolowanych próbach, pięciu pełnych przebiegach czystej alfa413 ani w końcowym pełnym przebiegu poprawki. Przyczyna pozostaje nierozstrzygnięta; nie uznajemy tego błędu za naprawiony i nie przypisujemy go bez dowodu zmianom Sonosa.
 
@@ -159,7 +159,35 @@ Własny przebieg Windows potwierdził **97 sprawdzeń wyboru domu**, wcześniejs
 
 Żywy NVDA i prawdziwy Podgląd mowy potwierdziły menu, rzeczywistą paletę, początkowy fokus, nazwy domów, Tab, strzałki, zatwierdzenie Enterem, Escape, Anuluj naciśnięte spacją i zamknięcie modala Alt+F4. Zapisany wybór odtworzono w drugim procesie; po wejściu do sesji odczyt grup był kierowany do zapamiętanego domu, a ponownie otwarte okno zaznaczało właściwy wiersz. Startowe usługi źródeł były w tej próbie odłączone, więc nie jest to pomiar zwykłego startu produkcyjnego programu.
 
-**To odbiór na syntetycznym zapleczu, nie próba sterowania rzeczywistym głośnikiem ani nowe wydanie.** Instalator alfa413 pozostaje bez tych zmian. Następny rozpoczęty zakres to pełny odbiór odtwarzacza: rzeczywiste kontrolki, polecenia, czas i informacja zwrotna.
+**To odbiór na syntetycznym zapleczu, nie próba sterowania rzeczywistym głośnikiem ani nowe wydanie.** Instalator alfa413 pozostaje bez tych zmian. Następny zakres, odtwarzacz z poleceniami i informacją zwrotną, odebrano w S-13.
+
+### S-13. Odtwarzacz, przewijanie, głośność i uczciwe komunikaty
+
+Kod `aac4033` kończy odbiór odtwarzacza oraz sterowania wybraną grupą.
+Kontrolki pokazują odczytany materiał, stan, głośność i czas, również ponad dobę.
+Pauza/wznowienie, poprzedni/następny, stałe i ustawione przeskoki, cyfry oraz
+okna skoku do czasu i procentu korzystają z istniejącej drogi sterowania grupą.
+Nie zmieniono numerów sesji ani dotychczasowych skrótów.
+
+Głośność i wyciszenie wynikają z odczytu, a nie z lokalnej sesji demonstracyjnej.
+Brak danych lub brak zgłoszonej możliwości daje odmowę zamiast zgadywania.
+Samo przyjęcie żądania nie jest potwierdzeniem wykonania; błąd późniejszego
+odczytu rozróżnia brak próby od próby bez potwierdzenia. Nie ponawiamy polecenia,
+a porzucona operacja nie odzywa się już w nowej sesji.
+
+Własny końcowy przebieg Windows zaliczył 317 sprawdzeń odtwarzacza i wcześniejsze
+zestawy Sonosa (łącznie 695 sprawdzeń), a także pełny Core. Błędy przewijania i
+komunikatów wykazał ten sam test na niezmienionej wcześniejszej produkcji.
+Końcowe niezależne przeglądy zgodności i jakości nie pozostawiły blokerów.
+
+Żywy NVDA na prywatnej kopii na Hermesie potwierdził wszystkie 25 poleceń
+klawiatury i dodatkowe warunki odmowy, granice wartości, poprawne komunikaty oraz
+ciszę porzuconego odczytu. Osobno sprawdzono dialogi, rzeczywiste przyciski i
+powrót fokusu. Pełny opis zakresu jest w [testach odtwarzacza](TESTY_SONOS_ODTWARZACZ_PL.md).
+
+To odbiór kodu i interfejsu na syntetycznym zapleczu, nie pomiar dźwięku ani
+sterowania rzeczywistym sprzętem. Nie jest jeszcze publicznym instalatorem.
+Ulubione/presety Sonosa pozostają kolejnym przyrostem po wydaniu tego etapu.
 
 ## Warunki przed publikacją kolejnego przyrostu
 
