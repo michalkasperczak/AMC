@@ -39,6 +39,9 @@ internal static class SonosFavoritePlayDriving
     /// <summary>PRAWDZIWY Escape: ta sama droga zdarzen co Enter.</summary>
     internal static void PressEscapeForTests(this SonosFavoritesWindow window) => window.PressKey(Key.Escape);
 
+    /// <summary>TAB - sama zmiana ogniska nie ma prawa niczego zlecac.</summary>
+    internal static void PressTabForTests(this SonosFavoritesWindow window) => window.PressKey(Key.Tab);
+
     private static void PressKey(this SonosFavoritesWindow window, Key key)
     {
         var list = (ListBox)window.FindName("FavoritesList")!;

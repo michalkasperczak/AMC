@@ -135,6 +135,37 @@ internal static class SonosFavoritePlayRealOwnerTests
         /// <summary>WSTRZYMANIE odpowiedzi - do pomiaru zmiany konta W LOCIE.</summary>
         internal Task? Gate { get; set; }
 
+        /// <summary>
+        /// BILET wstrzymanego POST: mowi, czy zlecenie DOTARLO do transportu,
+        /// z jakim biletem konta i czy odpowiedz sie DOMKNELA. Bramka
+        /// przepuszcza KAZDE nastepne zlecenie, zeby pomiar nie zawisl.
+        /// </summary>
+        internal sealed class HeldPost
+        {
+            private readonly TaskCompletionSource _release =
+                new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            internal Task Gate => _release.Task;
+
+            internal bool Arrived { get; set; }
+
+            internal bool Completed { get; set; }
+
+            internal string? Authorization { get; set; }
+
+            internal void Release() => _release.TrySetResult();
+        }
+
+        internal HeldPost HoldNextPost()
+        {
+            var held = new HeldPost();
+            Held = held;
+            Gate = held.Gate;
+            return held;
+        }
+
+        internal HeldPost? Held { get; private set; }
+
         internal List<Wire> Posts =>
             Requests.Where(wire => wire.Method == "POST").ToList();
 
@@ -156,8 +187,18 @@ internal static class SonosFavoritePlayRealOwnerTests
             if (Gate is { } gate && request.Method == HttpMethod.Post)
             {
                 // Tylko POST czeka: odczyty topologii musza sie domknac, inaczej
-                // nie byloby z czego wziac grupy.
+                // nie byloby z czego wziac grupy. Bramke ZWALNIAMY po przejsciu,
+                // zeby kolejne zlecenia nie wisialy bez powodu.
+                var held = Held;
+                if (held is not null)
+                {
+                    held.Authorization = request.Headers.Authorization?.Parameter;
+                    held.Arrived = true;
+                }
+
+                Gate = null;
                 await gate.ConfigureAwait(false);
+                if (held is not null) held.Completed = true;
             }
 
             var response = _reply(request, body);
@@ -188,7 +229,12 @@ internal static class SonosFavoritePlayRealOwnerTests
 
         public SonosCredentialWriteOutcome Write(SonosStoredCredentials credentials)
         {
+            // Prawdziwy magazyn ZAPISUJE to, co dal koordynator - odwzorowujemy
+            // to, zeby pomiar widzial FAKTYCZNY bilet biezacego konta.
             Writes++;
+            BrokerOrigin = credentials.BrokerOrigin;
+            Access = credentials.Tokens.AccessToken;
+            Refresh = credentials.Tokens.RefreshToken;
             return SonosCredentialWriteOutcome.Ok();
         }
 
@@ -206,6 +252,7 @@ internal static class SonosFavoritePlayRealOwnerTests
     private sealed class PlannedGateway : ISonosLoginGateway
     {
         internal string NextAccess = "SYNTETYCZNY-ACCESS-B";
+        internal string NextRefresh = "SYNTETYCZNY-REFRESH-B";
 
         public Task<SonosLoginStartOutcome> StartAsync(CancellationToken cancellationToken) =>
             Task.FromResult(SonosLoginStartOutcome.Ok(new SonosLoginSession(
@@ -217,7 +264,7 @@ internal static class SonosFavoritePlayRealOwnerTests
         public Task<SonosLoginResultOutcome> FetchResultAsync(
             SonosLoginSession session, CancellationToken cancellationToken) =>
             Task.FromResult(SonosLoginResultOutcome.Ok(new SonosTokens(
-                NextAccess, "Bearer", 3600, "SYNTETYCZNY-REFRESH-B", "playback-control-all")));
+                NextAccess, "Bearer", 3600, NextRefresh, "playback-control-all")));
 
         public Task<SonosRefreshOutcome> RefreshAsync(string? refreshToken, CancellationToken cancellationToken) =>
             throw new Exception("Pomiar F3c nie ma prawa odnawiać dostępu Sonos.");
@@ -396,11 +443,200 @@ internal static class SonosFavoritePlayRealOwnerTests
 
     // ==================== R2/R3: dopisywane po GREEN R1 ====================
 
-    private static string MeasureAccountSwapStopsOldFavorite() =>
-        throw new Exception("NIEZMIERZONE: przypadek R2 jeszcze nie napisany.");
+    /// <summary>
+    /// ZMIANA KONTA publiczna droga (BeginLoginAsync + CheckLoginAsync) przy
+    /// OTWARTYM modalu: stare ULUBIONE nie ma prawa pojsc na bilecie konta B,
+    /// a wstrzymany POST konta A po zmianie nie wolno oglaszac jako sukcesu.
+    /// </summary>
+    private static string MeasureAccountSwapStopsOldFavorite()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
 
-    private static string MeasureRefusalsNeverPost() =>
-        throw new Exception("NIEZMIERZONE: przypadek R3 jeszcze nie napisany.");
+        var held = harness.Handler.HoldNextPost();
+        var accountA = harness.Store.Access;
+        var statusAfterSwap = string.Empty;
+        var spokenAfterSwap = 0;
+        var statusAfterRetry = string.Empty;
+        var postsAfterRetry = 0;
+        harness.RunFavoritesModal(window =>
+        {
+            window.SelectForTests(1);
+            window.PressEnterForTests();
+            harness.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5));
+            if (!held.Arrived) throw new Exception("POST konta A nie dotarł do transportu.");
+
+            // ZMIANA KONTA PRAWDZIWA PUBLICZNA DROGA, modal wciaz otwarty,
+            // a POST konta A wciaz wstrzymany.
+            harness.SwapAccount("KONTO-B");
+
+            var spokenBefore = window.AnnouncementsForTests;
+            held.Release();
+            harness.PumpUntil(() => held.Completed, TimeSpan.FromSeconds(5));
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            spokenAfterSwap = window.AnnouncementsForTests - spokenBefore;
+            statusAfterSwap = window.StatusForTests;
+
+            // PONOWNA proba w TYM SAMYM modalu: stare ULUBIONE nie ma prawa
+            // pojsc przez NOWE konto - droga konczy sie BEZ POST.
+            var postsBeforeRetry = harness.Handler.Posts.Count;
+            window.PressEnterForTests();
+            window.AwaitPlayForTests();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(300));
+            postsAfterRetry = harness.Handler.Posts.Count - postsBeforeRetry;
+            statusAfterRetry = window.StatusForTests;
+        });
+
+        if (held.Authorization != accountA)
+        {
+            throw new Exception("Wstrzymany POST nie poniósł biletu konta A.");
+        }
+
+        if (harness.Store.Access == accountA)
+        {
+            throw new Exception("Publiczna droga logowania NIE zmieniła konta - pomiar nic nie mierzy.");
+        }
+
+        // GRANICA: zadne zlecenie NIE poszlo na bilecie konta B.
+        var onB = harness.Handler.Posts
+            .Where(post => post.Authorization == harness.Store.Access).ToArray();
+        if (onB.Length != 0)
+        {
+            throw new Exception($"Stare ulubione poszło na bilecie konta B ({onB.Length} POST).");
+        }
+
+        // SPOZNIONA odpowiedz konta A nie oglasza sukcesu w modalu po zmianie konta.
+        if (statusAfterSwap.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        {
+            throw new Exception("Modal po zmianie konta pokazał PRZYJĘCIE zlecenia konta A: \""
+                + statusAfterSwap + "\".");
+        }
+
+        if (spokenAfterSwap != 0)
+        {
+            throw new Exception($"Modal ogłosił {spokenAfterSwap} komunikatów o wyniku konta A "
+                + "po zmianie konta.");
+        }
+
+        if (postsAfterRetry != 0)
+        {
+            throw new Exception($"Po zmianie konta ponowny Enter wysłał {postsAfterRetry} POST "
+                + "ze STARYM identyfikatorem ulubionego.");
+        }
+
+        if (statusAfterRetry.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        {
+            throw new Exception("Ponowna próba po zmianie konta udaje sukces: \""
+                + statusAfterRetry + "\".");
+        }
+
+        return $"POST konta A na bilecie A, 0 POST na bilecie B, status po zmianie \"{statusAfterSwap}\", "
+            + $"0 ogłoszeń wyniku A, ponowny Enter 0 POST, status \"{statusAfterRetry}\"";
+    }
+
+    /// <summary>
+    /// ODMOWY nie ruszaja transportu: samo otwarcie i nawigacja (strzalki, Tab),
+    /// PUSTA lista oraz brak celu daja ZERO POST, a zwykly przycisk i Enter
+    /// dzialaja tak samo.
+    /// </summary>
+    private static string MeasureRefusalsNeverPost()
+    {
+        // (a) samo OTWARCIE i NAWIGACJA - zero POST.
+        using (var quiet = RealHarness.Create())
+        {
+            quiet.Enter();
+            var before = quiet.Handler.Posts.Count;
+            quiet.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(0);
+                window.SelectForTests(1);
+                window.PressTabForTests();
+            });
+
+            var moved = quiet.Handler.Posts.Count - before;
+            if (moved != 0)
+            {
+                throw new Exception($"Samo otwarcie i nawigacja wysłały {moved} POST.");
+            }
+        }
+
+        // (b) PUSTA lista - zero POST nawet po Enter.
+        using (var empty = RealHarness.Create(() => EmptyFavoritesBody))
+        {
+            empty.Enter();
+            var before = empty.Handler.Posts.Count;
+            var status = string.Empty;
+            empty.RunFavoritesModal(window =>
+            {
+                window.PressEnterForTests();
+                window.AwaitPlayForTests();
+                status = window.StatusForTests;
+            });
+
+            var sent = empty.Handler.Posts.Count - before;
+            if (sent != 0)
+            {
+                throw new Exception($"Pusta lista wysłała {sent} POST.");
+            }
+
+            if (status.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+            {
+                throw new Exception("Pusta lista udaje przyjęcie zlecenia: \"" + status + "\".");
+            }
+        }
+
+        // (c) ZWYKLY PRZYCISK dziala tak samo jak Enter - JEDEN POST.
+        using (var button = RealHarness.Create())
+        {
+            button.Enter();
+            var before = button.Handler.Posts.Count;
+            button.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(1);
+                window.ClickPlayForTests();
+                window.AwaitPlayForTests();
+            });
+
+            var sent = button.Handler.Posts.Count - before;
+            if (sent != 1)
+            {
+                throw new Exception($"Przycisk Odtwórz wysłał {sent} POST zamiast jednego.");
+            }
+        }
+
+        // (d) DWUKROTNE, SZYBKIE zlecenie (auto-powtarzanie klawisza) - jeden POST.
+        using (var busy = RealHarness.Create())
+        {
+            busy.Enter();
+            var held = busy.Handler.HoldNextPost();
+            var second = string.Empty;
+            busy.RunFavoritesModal(window =>
+            {
+                window.SelectForTests(1);
+                window.PressEnterForTests();
+                busy.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5));
+                window.PressEnterForTests();
+                second = window.StatusForTests;
+                held.Release();
+                busy.PumpUntil(() => held.Completed, TimeSpan.FromSeconds(5));
+                window.AwaitPlayForTests();
+            });
+
+            var sent = busy.Handler.Posts.Count;
+            if (sent != 1)
+            {
+                throw new Exception($"Auto-powtarzanie wysłało {sent} POST zamiast jednego.");
+            }
+
+            if (string.IsNullOrWhiteSpace(second))
+            {
+                throw new Exception("Druga próba w trakcie zlecenia nic nie powiedziała.");
+            }
+        }
+
+        return "otwarcie i nawigacja 0 POST, pusta lista 0 POST, przycisk 1 POST, "
+            + "auto-powtarzanie 1 POST";
+    }
 
     // ==================== APARATURA REALNEJ DROGI ====================
 
@@ -619,6 +855,41 @@ internal static class SonosFavoritePlayRealOwnerTests
             if (inside is not null) throw inside;
         }
 
+        /// <summary>
+        /// ZMIANA KONTA PRODUKCYJNA, PUBLICZNA droga koordynatora: rozpoczecie
+        /// logowania i odebranie wyniku z zaplanowanej bramki. Zaden licznik
+        /// generacji nie jest tu podkrecany recznie.
+        /// </summary>
+        internal void SwapAccount(string label)
+        {
+            Gateway.NextAccess = "SYNTETYCZNY-ACCESS-" + label;
+            Gateway.NextRefresh = "SYNTETYCZNY-REFRESH-" + label;
+            var coordinator = Coordinator;
+            var begin = coordinator.BeginLoginAsync(CancellationToken.None);
+            Pump(begin);
+            if (!begin.Result.Started)
+            {
+                throw new Exception("Publiczna droga nie rozpoczęła logowania.");
+            }
+
+            var check = coordinator.CheckLoginAsync(CancellationToken.None);
+            Pump(check);
+            if (!check.Result.Connected)
+            {
+                throw new Exception("Publiczna droga nie podłączyła nowego konta: "
+                    + check.Result.LoginStatus + ".");
+            }
+
+            PumpQuietly(TimeSpan.FromMilliseconds(200));
+        }
+
+        /// <summary>PRAWDZIWY koordynator odebrany z produkcyjnego wlasciciela.</summary>
+        internal SonosAccountCoordinator Coordinator =>
+            (SonosAccountCoordinator)(typeof(SonosAccountOwner)
+                .GetField("_coordinator", Instance)
+                ?.GetValue(Owner)
+                ?? throw new Exception("Właściciel konta nie ma koordynatora."));
+
         internal void ReactivateOwnWindow()
         {
             Window.Activate();
@@ -647,6 +918,13 @@ internal static class SonosFavoritePlayRealOwnerTests
             }
 
             task.GetAwaiter().GetResult();
+        }
+
+        /// <summary>Pompuje petle komunikatow do warunku, z WLASNYM limitem.</summary>
+        internal void PumpUntil(Func<bool> condition, TimeSpan limit)
+        {
+            var deadline = DateTime.UtcNow + limit;
+            while (!condition() && DateTime.UtcNow < deadline) DoEvents();
         }
 
         internal void PumpUntil(Func<bool> condition, string what)
