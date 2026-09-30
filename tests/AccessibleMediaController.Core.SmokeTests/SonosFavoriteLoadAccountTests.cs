@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -44,6 +45,27 @@ using AccessibleMediaController.Core.Sonos;
 ///     wspolny await; anulowanie pierwszego nie konczy cudzego odnowienia -
 ///     pierwszy jest Canceled BEZ POST, drugi po zwolnieniu dostaje JEDNO
 ///     odnowienie i JEDEN POST.
+///
+/// Jak mierzone jest WSPOLDZIELONE odnowienie (bez zadnego szwu w produkcji):
+///   * oba wywolania ida BEZPOSREDNIO na watku testu do publicznego
+///     <see cref="SonosAccountCoordinator.LoadFavoriteAsync"/>; atrapa bramki
+///     odnowienia awaituje PRAWDZIWIE, wiec metoda oddaje NIEUKONCZONY Task
+///     dopiero po wykonaniu calej swojej czesci synchronicznej,
+///   * dowodem wejscia w odnowienie jest wiec sam ZWROCONY Task
+///     (<c>!IsCompleted</c>) razem z licznikiem odnowien bramki, nie uplyw czasu
+///     i nie sygnal ustawiany obok wywolania,
+///   * atrapa bramki odnowienia jest TOKEN-AWARE (czeka z tokenem, ktory dostala
+///     od produkcji), wiec anulowanie wspolnego odnowienia byloby WIDOCZNE;
+///     osobny, JAWNY wariant ignorujacy token sluzy wylacznie badaniu spoznionej
+///     odpowiedzi przy zmianie generacji konta.
+///
+/// Sprzatanie APARATURY (nie zachowanie produkcji): kazdy test trzymajacy bramke
+/// zwalnia w <c>finally</c> WSZYSTKIE bramki, a potem OGRANICZONYM czasem domyka
+/// wystartowane zadania - takze wtedy, gdy asercja padla przed zwolnieniem.
+/// Przekroczony limit nie jest cichym zaliczeniem, a pierwotna asercja nigdy nie
+/// jest maskowana wyjatkiem sprzatania. Osobny przypadek
+/// (<see cref="CleanupSurvivesFailedAssertion"/>) dowodzi tego na CELOWO
+/// nieudanej asercji.
 /// </summary>
 internal static class SonosFavoriteLoadAccountTests
 {
@@ -71,6 +93,7 @@ internal static class SonosFavoriteLoadAccountTests
             ("bariera: logowanie B w trakcie POST A porzuca A i nie tyka B", NewAccountDuringPostDiscardsOld),
             ("bariera: logowanie B w trakcie odnowienia A: zero POST", NewAccountDuringRenewalSendsNothing),
             ("HTTP poza blokada: Snapshot z drugiego watku w trakcie POST", SnapshotDuringPost),
+            ("aparatura: sprzatanie domyka zadania takze po padnietej asercji", CleanupSurvivesFailedAssertion),
             ("wspoldzielone odnowienie: anulowanie jednego nie konczy cudzego", SharedRenewalSurvivesOneCancel),
             ("komunikaty i ToString bez tokenow i identyfikatorow", MessagesHideSecrets)
         };
@@ -314,17 +337,19 @@ internal static class SonosFavoriteLoadAccountTests
         Check(before.Refreshes == 0 && before.Deletes == 0, "anulowanie nie odnawia i nie kasuje konta");
 
         // (b) anulowanie PO wejsciu w HTTP: proba byla, skutek NIEZNANY.
-        var gate = new Gate();
-        using var during = new CancellationTokenSource();
-        using var fixture = Fixture.Connected(_ =>
+        WithApparatus(apparatus =>
         {
-            gate.EnterAndWait();
-            throw new OperationCanceledException();
-        });
+            var gate = apparatus.NewGate();
+            var during = apparatus.Own(new CancellationTokenSource());
+            // Handler blokuje WATEK, wiec to wywolanie musi isc obok watku testu;
+            // referencja zadania zyje w aparaturze, nie w ciele try.
+            var fixture = apparatus.Own(Fixture.Connected(_ =>
+            {
+                gate.EnterAndWait();
+                throw new OperationCanceledException();
+            }));
 
-        try
-        {
-            var task = Task.Run(() => fixture.Load(cancellationToken: during.Token));
+            var task = apparatus.Track(Task.Run(() => fixture.Load(cancellationToken: during.Token)));
             Check(gate.WaitEntered(), "handler wszedl w POST");
             during.Cancel();
             gate.Release();
@@ -342,21 +367,17 @@ internal static class SonosFavoriteLoadAccountTests
             Check(!result.Message.Contains("nie zostało wysłane", StringComparison.Ordinal), "brak obietnicy niewyslania");
             Check(fixture.Requests == 1, "dokladnie jedno zapytanie HTTP");
             Check(fixture.Refreshes == 0 && fixture.Deletes == 0, "anulowanie nie odnawia i nie kasuje konta");
-        }
-        finally
-        {
-            gate.Release();
-        }
+        });
     }
 
     private static void DiscardedDuringPostDoesNotPromiseUndo()
     {
-        var gate = new Gate();
-        using var fixture = Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); });
-
-        try
+        WithApparatus(apparatus =>
         {
-            var task = Task.Run(() => fixture.Load());
+            var gate = apparatus.NewGate();
+            var fixture = apparatus.Own(Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); }));
+
+            var task = apparatus.Track(Task.Run(() => fixture.Load()));
             Check(gate.WaitEntered());
             fixture.Coordinator.Disconnect();
             gate.Release();
@@ -371,20 +392,20 @@ internal static class SonosFavoriteLoadAccountTests
             Check(!result.Message.Contains("nie zostało wysłane", StringComparison.Ordinal));
             Check(result.Message.Contains("próbie wysłania", StringComparison.Ordinal));
             Check(fixture.Requests == 1);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        });
     }
 
     private static void DiscardedAfterDispose()
     {
-        var gate = new Gate();
-        var fixture = Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); });
-        try
+        WithApparatus(apparatus =>
         {
-            var task = Task.Run(() => fixture.Load());
+            var gate = apparatus.NewGate();
+            var fixture = Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); });
+            // Koordynator jest zwalniany W TRAKCIE testu, wiec sprzatanie dotyka
+            // TYLKO transportu - i dopiero PO domknieciu zadania.
+            apparatus.Then(fixture.DisposeTransportOnly);
+
+            var task = apparatus.Track(Task.Run(() => fixture.Load()));
             Check(gate.WaitEntered());
             fixture.Coordinator.Dispose();
             gate.Release();
@@ -393,12 +414,7 @@ internal static class SonosFavoriteLoadAccountTests
             Check(result.Status == SonosGroupOperationStatus.Discarded);
             Check(result.RequestSent && !result.Accepted && !result.EffectConfirmed);
             Check(fixture.Requests == 1);
-        }
-        finally
-        {
-            gate.Release();
-            fixture.DisposeTransportOnly();
-        }
+        });
     }
 
     private static void NewAccountDuringPostDiscardsOld()
@@ -414,9 +430,12 @@ internal static class SonosFavoriteLoadAccountTests
         });
         fixture.Gateway.AllowLogin(Fixture.AccessB);
 
-        try
+        // Fixture zyje DLUZEJ niz czesc z bramka: konto B sprawdzamy nastepnym
+        // publicznym wywolaniem, wiec aparatura dozoruje tylko bramke i zadanie.
+        WithApparatus(apparatus =>
         {
-            var task = Task.Run(() => fixture.Load());
+            apparatus.Adopt(gate);
+            var task = apparatus.Track(Task.Run(() => fixture.Load()));
             Check(gate.WaitEntered());
 
             // PRAWDZIWE nowe logowanie przez istniejacy tor publiczny.
@@ -437,11 +456,7 @@ internal static class SonosFavoriteLoadAccountTests
             Check(fixture.StoredAccessToken == Fixture.AccessB);
             // Jeden POST, TYLKO biletem A.
             Check(fixture.Requests == 1 && seen.Count == 1 && seen[0].Token == Fixture.Access);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        });
 
         // Konto B jest ZDROWE: sprawdzamy to NASTEPNYM publicznym wywolaniem.
         fixture.Reply = _ => Json("{}");
@@ -452,17 +467,19 @@ internal static class SonosFavoriteLoadAccountTests
 
     private static void NewAccountDuringRenewalSendsNothing()
     {
-        var refreshGate = new Gate();
-        using var fixture = Fixture.Connected(
-            _ => Json("{}"),
-            expiresInSeconds: 1,
-            receivedShift: TimeSpan.FromMinutes(-10));
-        fixture.Gateway.AllowLogin(Fixture.AccessB);
-        fixture.Gateway.HoldRefresh(refreshGate);
-
-        try
+        WithApparatus(apparatus =>
         {
-            var task = Task.Run(() => fixture.Load());
+            var refreshGate = apparatus.NewGate();
+            var fixture = apparatus.Own(Fixture.Connected(
+                _ => Json("{}"),
+                expiresInSeconds: 1,
+                receivedShift: TimeSpan.FromMinutes(-10)));
+            fixture.Gateway.AllowLogin(Fixture.AccessB);
+            // Tu badana jest SPOZNIONA odpowiedz po zmianie generacji konta, nie
+            // anulowanie - wiec atrapa CELOWO i JAWNIE ignoruje token.
+            fixture.Gateway.HoldRefreshIgnoringToken(refreshGate);
+
+            var task = apparatus.Track(Task.Run(() => fixture.Load()));
             Check(refreshGate.WaitEntered());
             fixture.LogInAsNewAccount();
             refreshGate.Release();
@@ -476,99 +493,136 @@ internal static class SonosFavoriteLoadAccountTests
             Check(!result.Message.Contains("nieznany", StringComparison.Ordinal));
             Check(result.ToString().Contains("żądania nie wysłano", StringComparison.Ordinal));
             Check(fixture.StoredAccessToken == Fixture.AccessB && fixture.Deletes == 0);
-        }
-        finally
-        {
-            refreshGate.Release();
-        }
+        });
     }
 
     private static void SnapshotDuringPost()
     {
-        var gate = new Gate();
-        var generation = -1L;
-        using var fixture = Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); });
-
-        try
+        WithApparatus(apparatus =>
         {
-            var task = Task.Run(() => fixture.Load());
+            var gate = apparatus.NewGate();
+            var generation = -1L;
+            var fixture = apparatus.Own(Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); }));
+
+            var task = apparatus.Track(Task.Run(() => fixture.Load()));
             Check(gate.WaitEntered());
 
             // Gdyby HTTP bieglo pod blokada koordynatora, ten odczyt z DRUGIEGO
-            // watku nie wrocilby przed zwolnieniem bramki.
-            var probe = Task.Run(() => generation = fixture.Coordinator.Snapshot.CredentialGeneration);
+            // watku nie wrocilby przed zwolnieniem bramki. Sonda tez idzie pod
+            // dozor: jej zawieszenie nie moze zostac po tescie.
+            var probe = apparatus.Track(
+                Task.Run(() => generation = fixture.Coordinator.Snapshot.CredentialGeneration));
             Check(probe.Wait(TimeSpan.FromSeconds(3)));
             Check(generation >= 0);
 
             gate.Release();
             var result = task.WaitAsync(Deadline).GetAwaiter().GetResult();
             Check(result.Accepted);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        });
+    }
+
+    /// <summary>
+    /// APARATURA, nie produkcja: dowod, ze sprzatanie dziala takze wtedy, gdy
+    /// asercja pada PRZED zwolnieniem bramki. Dwa zadania wisza na bramce, cialo
+    /// testu przerywa CELOWO nieudana asercja - a sprzatanie i tak zwalnia bramke
+    /// i domyka OBA zadania. Pierwotna asercja nie jest maskowana.
+    /// </summary>
+    private static void CleanupSurvivesFailedAssertion()
+    {
+        const string Label = "CELOWO nieudana asercja aparatury";
+        Task<SonosGroupCommandResult>? first = null;
+        Task? probe = null;
+
+        var apparatus = RunGuarded(
+            inner =>
+            {
+                var gate = inner.NewGate();
+                var fixture = inner.Own(Fixture.Connected(_ => { gate.EnterAndWait(); return Json("{}"); }));
+
+                first = inner.Track(Task.Run(() => fixture.Load()));
+                Check(gate.WaitEntered(), "handler wszedl w POST");
+                probe = inner.Track(Task.Run(() => gate.EnterAndWait()));
+
+                // OBA zadania wisza na bramce. Tu test sie wywala.
+                Check(false, Label);
+            },
+            out var primary);
+
+        // Pierwotna asercja WYGRALA, dokladnie ta z etykieta - zaden wyjatek
+        // sprzatania jej nie podmienil.
+        Check(primary is InvalidOperationException, "pierwotny wyjatek zachowany");
+        Check(primary!.Message.Contains(Label, StringComparison.Ordinal), "pierwotna etykieta zachowana");
+
+        // Sprzatanie i tak zwolnilo bramke i domknelo OBA wiszace zadania.
+        Check(apparatus.Released, "bramki zwolnione po padnietej asercji");
+        Check(apparatus.TrackedTasks == 2, "oba zadania byly pod dozorem");
+        Check(apparatus.AllTasksSettled, "oba zadania stanely");
+        Check(apparatus.CleanupFailure is null, "sprzatanie bez timeoutu");
+
+        // Nic nie zostalo w tle: stan zadan jest KONCOWY, nie "jeszcze biegnie".
+        Check(first is { IsCompleted: true }, "zadanie POST zakonczone");
+        Check(probe is { IsCompleted: true }, "zadanie sondy zakonczone");
+        Check(first!.Status == TaskStatus.RanToCompletion && first.Result.Accepted, "POST domkniety zwyczajnie");
     }
 
     private static void SharedRenewalSurvivesOneCancel()
     {
-        var refreshGate = new Gate();
-        var seen = new List<Sent>();
-        using var canceled = new CancellationTokenSource();
-        using var fixture = Fixture.Connected(
-            request => { seen.Add(Sent.From(request)); return Json("{}"); },
-            expiresInSeconds: 1,
-            receivedShift: TimeSpan.FromMinutes(-10));
-        fixture.Gateway.HoldRefresh(refreshGate);
-
-        try
+        WithApparatus(apparatus =>
         {
-            var first = Task.Run(() => fixture.Load(cancellationToken: canceled.Token));
-            // PIERWSZY faktycznie siedzi w NIEUKONCZONYM odnowieniu bramki.
-            Check(refreshGate.WaitEntered());
+            var refreshGate = apparatus.NewGate();
+            var seen = new List<Sent>();
+            var canceled = apparatus.Own(new CancellationTokenSource());
+            var fixture = apparatus.Own(Fixture.Connected(
+                request => { seen.Add(Sent.From(request)); return Json("{}"); },
+                expiresInSeconds: 1,
+                receivedShift: TimeSpan.FromMinutes(-10)));
+            // Atrapa odnowienia czeka TOKENEM, ktory dostala od produkcji.
+            fixture.Gateway.HoldRefresh(refreshGate);
 
-            // DRUGI musi realnie WEJSC w wywolanie i utknac w TYM SAMYM,
-            // nieukonczonym odnowieniu - nie wystartowac drugiego. Sygnal jest
-            // ustawiany w TESCIE bezposrednio przed wywolaniem (zaden szew w
-            // produkcji), a to, ze drugi siedzi WEWNATRZ, wynika z tego, ze nie
-            // konczy sie, dopoki bramka trzyma odnowienie.
-            var secondEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var second = Task.Run(() =>
-            {
-                secondEntered.SetResult();
-                return fixture.Load();
-            });
-            Check(secondEntered.Task.Wait(Deadline));
-            Check(!second.Wait(TimeSpan.FromMilliseconds(400)));
-            // Bramka nadal trzyma JEDNO odnowienie: zero POST i zero drugiego
-            // zapytania do bramki.
-            Check(fixture.Requests == 0 && fixture.Refreshes == 1);
+            // PIERWSZY: wywolanie idzie BEZPOSREDNIO na watku testu do publicznej
+            // metody koordynatora. Ze sterowanie wrocilo z NIEUKONCZONYM Taskiem
+            // wynika, ze wolajacy wykonal cala swoja czesc synchroniczna i siedzi
+            // w PRAWDZIWYM awaicie wspolnego odnowienia.
+            var first = apparatus.Track(fixture.LoadAsync(cancellationToken: canceled.Token));
+            Check(!first.IsCompleted, "pierwszy wrocil NIEUKONCZONY z metody produkcyjnej");
+            Check(refreshGate.WaitEntered(), "pierwszy dotarl do odnowienia w bramce");
+            Check(fixture.Refreshes == 1, "jedno zapytanie odnowienia");
+            // Token wspolnego odnowienia DA SIE anulowac, wiec brak anulowania
+            // nizej jest pomiarem, nie skutkiem tokenu-atrapy.
+            Check(fixture.Gateway.SharedRefreshTokenCanBeCanceled, "token wspolnego odnowienia anulowalny");
+
+            // DRUGI: TAKIE SAMO bezposrednie wywolanie na watku testu. Znow liczy
+            // sie sam ZWROCONY Task: nieukonczony PO POWROCIE z metody dowodzi,
+            // ze drugi wolajacy DOSZEDL do wspolnego awaitu. Licznik bramki
+            // pokazuje, ze DOLACZYL do tego samego odnowienia, a nie zaczal drugie.
+            var second = apparatus.Track(fixture.LoadAsync());
+            Check(!second.IsCompleted, "drugi wrocil NIEUKONCZONY z metody produkcyjnej");
+            Check(fixture.Refreshes == 1, "drugi DOLACZYL: nadal jedno zapytanie odnowienia");
+            Check(fixture.Requests == 0, "przed zwolnieniem zero POST");
 
             canceled.Cancel();
-            // Anulowanie pierwszego NIE konczy wspolnego odnowienia: drugi wisi dalej.
-            Check(!second.Wait(TimeSpan.FromMilliseconds(400)));
 
-            var firstResult = first.WaitAsync(Deadline).GetAwaiter().GetResult();
             // PIERWSZY: anulowany PRZED wyslaniem - zadnego POST.
-            Check(firstResult.Status == SonosGroupOperationStatus.Canceled);
-            Check(!firstResult.RequestSent && !firstResult.Accepted);
-            Check(fixture.Requests == 0);
-            // Wspolne odnowienie NIE zostalo anulowane wraz z pierwszym.
-            Check(!fixture.Gateway.RefreshCanceled);
+            var firstResult = first.WaitAsync(Deadline).GetAwaiter().GetResult();
+            Check(firstResult.Status == SonosGroupOperationStatus.Canceled, "pierwszy DOKLADNIE Canceled");
+            Check(!firstResult.RequestSent && !firstResult.Accepted, "pierwszy bez proby wyslania");
+            Check(fixture.Requests == 0, "anulowanie pierwszego nie wyslalo POST");
+
+            // Wspolne odnowienie NIE zostalo anulowane wraz z pierwszym: token
+            // jest czysty, a DRUGI nadal wisi w tym samym, nieukonczonym awaicie.
+            Check(!fixture.Gateway.RefreshCanceled, "token wspolnego odnowienia NIE anulowany");
+            Check(!second.IsCompleted, "drugi nadal czeka po anulowaniu pierwszego");
+            Check(fixture.Refreshes == 1 && fixture.Requests == 0, "nadal jedno odnowienie i zero POST");
 
             refreshGate.Release();
             var secondResult = second.WaitAsync(Deadline).GetAwaiter().GetResult();
 
             // DRUGI: JEDNO wspolne odnowienie i DOKLADNIE JEDEN POST nowym biletem.
-            Check(secondResult.Accepted && secondResult.Renewed);
-            Check(fixture.Refreshes == 1 && fixture.Requests == 1);
-            Check(seen.Count == 1 && seen[0].Token == Fixture.Renewed);
-            Check(fixture.Coordinator.Snapshot.HasCredentials);
-        }
-        finally
-        {
-            refreshGate.Release();
-        }
+            Check(secondResult.Accepted && secondResult.Renewed, "drugi przyjety po wspolnym odnowieniu");
+            Check(fixture.Refreshes == 1 && fixture.Requests == 1, "jedno odnowienie, jeden POST");
+            Check(seen.Count == 1 && seen[0].Token == Fixture.Renewed, "POST poszedl NOWYM biletem");
+            Check(fixture.Coordinator.Snapshot.HasCredentials, "konto zostalo zdrowe");
+        });
     }
 
     private static void MessagesHideSecrets()
@@ -608,6 +662,153 @@ internal static class SonosFavoriteLoadAccountTests
 
     private static HttpResponseMessage Json(string body, HttpStatusCode code = HttpStatusCode.OK) =>
         new(code) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    /// <summary>
+    /// APARATURA testu trzymajacego bramki: rejestr bramek, wystartowanych zadan
+    /// i sprzatania. Referencje zyja POZA cialem testu, wiec padnieta asercja w
+    /// srodku nie gubi zadania wiszacego na bramce.
+    ///
+    /// To WYLACZNIE obsluga aparatury testowej - zadnego zachowania produkcji tu
+    /// nie ma i nie jest ono tu mierzone.
+    /// </summary>
+    private sealed class Apparatus
+    {
+        private static readonly TimeSpan DrainDeadline = TimeSpan.FromSeconds(10);
+
+        private readonly List<Gate> gates = new();
+        private readonly List<Task> tasks = new();
+        private readonly List<Action> cleanups = new();
+
+        /// <summary>Bramki zostaly zwolnione (nawet po padnietej asercji).</summary>
+        internal bool Released { get; private set; }
+
+        /// <summary>Liczba zadan, ktore test wystartowal i oddal pod dozor.</summary>
+        internal int TrackedTasks => tasks.Count;
+
+        /// <summary>WSZYSTKIE dozorowane zadania STANELY - wynikiem, bledem albo anulowaniem.</summary>
+        internal bool AllTasksSettled { get; private set; }
+
+        /// <summary>Blad SAMEGO sprzatania; nigdy nie zastepuje pierwotnej asercji.</summary>
+        internal Exception? CleanupFailure { get; private set; }
+
+        internal Gate NewGate()
+        {
+            var gate = new Gate();
+            gates.Add(gate);
+            return gate;
+        }
+
+        /// <summary>Bierze pod dozor bramke utworzona poza aparatura.</summary>
+        internal Gate Adopt(Gate gate)
+        {
+            gates.Add(gate);
+            return gate;
+        }
+
+        /// <summary>Oddaje zadanie pod dozor: zostanie domkniete po zwolnieniu bramek.</summary>
+        internal T Track<T>(T task)
+            where T : Task
+        {
+            tasks.Add(task);
+            return task;
+        }
+
+        /// <summary>Aparatura do zwolnienia PO domknieciu zadan, nie przed.</summary>
+        internal T Own<T>(T disposable)
+            where T : IDisposable
+        {
+            cleanups.Add(disposable.Dispose);
+            return disposable;
+        }
+
+        internal void Then(Action cleanup) => cleanups.Add(cleanup);
+
+        /// <summary>
+        /// Zwalnia WSZYSTKIE bramki, potem OGRANICZONYM czasem domyka zadania i
+        /// tylko na koniec zwalnia aparature. Przekroczony limit jest BLEDEM
+        /// zapisanym w <see cref="CleanupFailure"/>, nie cichym przejsciem.
+        /// Wyjatki samych zadan sa OBSERWOWANE (zadnych nieodczytanych bledow),
+        /// ale nie staja sie wynikiem testu.
+        /// </summary>
+        internal void ReleaseAndDrain()
+        {
+            try
+            {
+                foreach (var gate in gates)
+                {
+                    gate.Release();
+                }
+
+                Released = true;
+
+                var stuck = 0;
+                foreach (var task in tasks)
+                {
+                    bool settled;
+                    try { settled = task.Wait(DrainDeadline); }
+                    catch (Exception) { settled = task.IsCompleted; }
+
+                    if (!settled)
+                    {
+                        stuck++;
+                    }
+                }
+
+                AllTasksSettled = stuck == 0;
+                if (stuck != 0)
+                {
+                    throw new TimeoutException(
+                        "Sprzatanie aparatury: " + stuck + " zadan testu nie stanelo po zwolnieniu bramek.");
+                }
+            }
+            catch (Exception exception)
+            {
+                CleanupFailure = exception;
+            }
+
+            for (var index = cleanups.Count - 1; index >= 0; index--)
+            {
+                try { cleanups[index](); }
+                catch (Exception exception) { CleanupFailure ??= exception; }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Uruchamia cialo testu i ZAWSZE sprzata aparature. Zwraca aparature oraz
+    /// pierwotny wyjatek ciala BEZ rzucania, zeby dalo sie zmierzyc samo
+    /// sprzatanie przy CELOWO nieudanej asercji.
+    /// </summary>
+    private static Apparatus RunGuarded(Action<Apparatus> body, out Exception? primary)
+    {
+        var apparatus = new Apparatus();
+        primary = null;
+        try { body(apparatus); }
+        catch (Exception exception) { primary = exception; }
+
+        apparatus.ReleaseAndDrain();
+        return apparatus;
+    }
+
+    /// <summary>
+    /// Zwykle uruchomienie testu z bramkami: pierwotna asercja WYGRYWA i nie jest
+    /// maskowana bledem sprzatania, a gdy cialo przeszlo - nieudane sprzatanie
+    /// (np. wiszace zadanie) jest bledem testu.
+    /// </summary>
+    private static void WithApparatus(Action<Apparatus> body)
+    {
+        var apparatus = RunGuarded(body, out var primary);
+        if (primary is not null)
+        {
+            ExceptionDispatchInfo.Throw(primary);
+        }
+
+        if (apparatus.CleanupFailure is { } failure)
+        {
+            throw new InvalidOperationException(
+                "Sprzatanie aparatury testu: " + failure.Message, failure);
+        }
+    }
 
     /// <summary>Co NAPRAWDE poszlo w zadaniu - odczytane z prawdziwego HttpRequestMessage.</summary>
     private sealed record Sent(
@@ -660,19 +861,36 @@ internal static class SonosFavoriteLoadAccountTests
         }
 
         /// <summary>
-        /// Czekanie ASYNCHRONICZNE. Blokada synchroniczna w atrapie bramki trzyma
-        /// WATEK wolajacego jeszcze PRZED pierwszym awaitem odnowienia, wiec
-        /// wolajacy nigdy nie dociera do miejsca, w ktorym obserwuje wlasne
-        /// anulowanie. Tylko prawdziwy await pozwala to zmierzyc, zamiast
-        /// dopuszczac "Canceled ALBO Success".
+        /// Czekanie ASYNCHRONICZNE i TOKEN-AWARE. Blokada synchroniczna w atrapie
+        /// bramki trzyma WATEK wolajacego jeszcze PRZED pierwszym awaitem
+        /// odnowienia, wiec wolajacy nigdy nie dociera do miejsca, w ktorym
+        /// obserwuje wlasne anulowanie. Tylko prawdziwy await pozwala to zmierzyc,
+        /// zamiast dopuszczac "Canceled ALBO Success".
+        ///
+        /// <paramref name="cancellationToken"/> to token, ktory atrapa dostala OD
+        /// PRODUKCJI dla wspolnego odnowienia. Jest tu naprawde honorowany, wiec
+        /// anulowanie tego odnowienia PRZERWALO by oczekiwanie - i to jest
+        /// widoczne w pomiarze, a nie tylko zapisane obok.
         /// </summary>
-        internal async Task EnterAndWaitAsync()
+        internal async Task EnterAndWaitAsync(CancellationToken cancellationToken)
+        {
+            entered.TrySetResult();
+            await released.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+        }
+
+        internal bool WaitEntered() => entered.Task.Wait(Deadline);
+
+        /// <summary>
+        /// Czekanie ASYNCHRONICZNE, ale CELOWO GLUCHE na token - wylacznie dla
+        /// badania SPOZNIONEJ odpowiedzi odnowienia po zmianie generacji konta,
+        /// gdzie przedmiotem pomiaru nie jest anulowanie. Trzymane osobno, zeby
+        /// nie mieszac go z dowodem wspolnego anulowania.
+        /// </summary>
+        internal async Task EnterAndWaitIgnoringTokenAsync()
         {
             entered.TrySetResult();
             await released.Task.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         }
-
-        internal bool WaitEntered() => entered.Task.Wait(Deadline);
 
         internal void Release() => released.TrySetResult();
     }
@@ -801,8 +1019,24 @@ internal static class SonosFavoriteLoadAccountTests
             SonosFavoriteQueueAction action = SonosFavoriteQueueAction.Append,
             bool playOnCompletion = false,
             CancellationToken cancellationToken = default) =>
-            Coordinator.LoadFavoriteAsync(Api, groupId, favoriteId, action, playOnCompletion, cancellationToken)
+            LoadAsync(groupId, favoriteId, action, playOnCompletion, cancellationToken)
                 .WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
+
+        /// <summary>
+        /// WASKIE wejscie asynchroniczne: DOKLADNIE to samo publiczne wywolanie
+        /// koordynatora, tylko BEZ blokujacego GetResult i bez Task.Run. Zwrocony
+        /// Task jest oddawany taki, jaki wyszedl z produkcji, wiec jego
+        /// nieukonczenie dowodzi, ze wolajacy wykonal cala swoja czesc
+        /// synchroniczna i siedzi w PRAWDZIWYM awaicie - a nie, ze zyje jeszcze
+        /// jakies opakowanie testu.
+        /// </summary>
+        internal Task<SonosGroupCommandResult> LoadAsync(
+            string? groupId = Group,
+            string? favoriteId = FavoriteId,
+            SonosFavoriteQueueAction action = SonosFavoriteQueueAction.Append,
+            bool playOnCompletion = false,
+            CancellationToken cancellationToken = default) =>
+            Coordinator.LoadFavoriteAsync(Api, groupId, favoriteId, action, playOnCompletion, cancellationToken);
 
         internal void DisposeTransportOnly()
         {
@@ -824,14 +1058,21 @@ internal static class SonosFavoriteLoadAccountTests
     }
 
     /// <summary>
-    /// Atrapa bramki logowania: zero sieci, policzone odnowienia. Dodatkowo
-    /// widzi, ILU wolajacych realnie CZEKA na wspolne odnowienie i czy token
-    /// wspolnego odnowienia zostal anulowany.
+    /// Atrapa bramki logowania: zero sieci, policzone odnowienia. Zapamietuje
+    /// token, ktory produkcja podala dla PIERWSZEGO (wspolnego) odnowienia, i -
+    /// w trybie token-aware - naprawde na nim czeka, wiec jego anulowanie jest
+    /// mierzalne, a nie tylko zapisane.
+    ///
+    /// Atrapa NIE liczy, ilu wolajacych czeka na wspolne odnowienie: takiej
+    /// wiedzy nie ma i nigdy nie miala. Liczbe ZAPYTAN do bramki mowi
+    /// <see cref="RefreshCalls"/>, a to, ze drugi wolajacy siedzi w TYM SAMYM
+    /// odnowieniu, test pokazuje nieukonczonym Taskiem zwroconym z produkcji.
     /// </summary>
     private sealed class Gateway(int? expiresInSeconds, string? refreshToken) : ISonosLoginGateway
     {
         private string? loginAccessToken;
         private Gate? refreshGate;
+        private bool refreshGateIgnoresToken;
         private int refreshCalls;
         private CancellationToken sharedRefreshToken;
 
@@ -840,9 +1081,27 @@ internal static class SonosFavoriteLoadAccountTests
         /// <summary>Czy token WSPOLNEGO odnowienia zostal anulowany (nie powinien).</summary>
         internal bool RefreshCanceled => sharedRefreshToken.IsCancellationRequested;
 
+        /// <summary>Czy token wspolnego odnowienia w ogole DA SIE anulowac.</summary>
+        internal bool SharedRefreshTokenCanBeCanceled => sharedRefreshToken.CanBeCanceled;
+
         internal void AllowLogin(string accessToken) => loginAccessToken = accessToken;
 
-        internal void HoldRefresh(Gate gate) => refreshGate = gate;
+        /// <summary>Trzyma odnowienie awaitem HONORUJACYM token wspolnego odnowienia.</summary>
+        internal void HoldRefresh(Gate gate)
+        {
+            refreshGate = gate;
+            refreshGateIgnoresToken = false;
+        }
+
+        /// <summary>
+        /// Trzyma odnowienie awaitem CELOWO gluchym na token - tylko dla badania
+        /// spoznionej odpowiedzi przy zmianie generacji konta.
+        /// </summary>
+        internal void HoldRefreshIgnoringToken(Gate gate)
+        {
+            refreshGate = gate;
+            refreshGateIgnoresToken = true;
+        }
 
         public Task<SonosLoginStartOutcome> StartAsync(CancellationToken cancellationToken) =>
             Task.FromResult(loginAccessToken is null
@@ -869,8 +1128,16 @@ internal static class SonosFavoriteLoadAccountTests
             if (refreshGate is { } gate)
             {
                 // PRAWDZIWY await, nie blokada watku: wolajacy moze dojsc do
-                // miejsca, w ktorym widzi wlasne anulowanie.
-                await gate.EnterAndWaitAsync().ConfigureAwait(false);
+                // miejsca, w ktorym widzi wlasne anulowanie. Domyslnie await
+                // HONORUJE token podany przez produkcje.
+                if (refreshGateIgnoresToken)
+                {
+                    await gate.EnterAndWaitIgnoringTokenAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    await gate.EnterAndWaitAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
 
             return SonosRefreshOutcome.Ok(new SonosTokens(
