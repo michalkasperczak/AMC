@@ -470,12 +470,18 @@ internal static class SonosFavoritePlayRealOwnerTests
             // a POST konta A wciaz wstrzymany.
             harness.SwapAccount("KONTO-B");
 
+            var taskA = window.LastPlayTaskForTests
+                ?? throw new Exception("Brak zadania polecenia A.");
             var spokenBefore = window.AnnouncementsForTests;
             held.Release();
-            harness.PumpUntil(() => held.Completed, TimeSpan.FromSeconds(5));
-            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            harness.Pump(taskA);
             spokenAfterSwap = window.AnnouncementsForTests - spokenBefore;
             statusAfterSwap = window.StatusForTests;
+            if (statusAfterSwap == SonosFavoritesLabels.PlayPending)
+            {
+                throw new Exception("L1: zakonczona proba pozostawila zywy modal w stanie Czekaj: "
+                    + statusAfterSwap);
+            }
 
             // PONOWNA proba w TYM SAMYM modalu: stare ULUBIONE nie ma prawa
             // pojsc przez NOWE konto - droga konczy sie BEZ POST.
