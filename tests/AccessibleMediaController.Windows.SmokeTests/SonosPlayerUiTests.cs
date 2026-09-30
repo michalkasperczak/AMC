@@ -649,13 +649,20 @@ internal static class SonosPlayerUiTests
         harness.OpenPlayerForGroup("GRUPA-SALON");
 
         using var responder = SeekDialogResponder.ArmConfirm("2:30");
-        // BARIERA na przedskokowym GET: dokladnie na odczycie PO modalu.
-        harness.Backend.HoldPlaybackReadNumber = harness.Backend.PlaybackReads + 1;
+        // BARIERA dokladnie na PRZEDSKOKOWYM GET: uzbrajamy ja w chwili
+        // zatwierdzenia okna, wiec zatrzymany odczyt to ten PO modalu, a nie
+        // przypadkowy odczyt tla, ktory moglby wypasc wczesniej.
+        responder.BeforeConfirm = () => harness.Backend.HoldNextPlaybackRead = true;
         var seek = harness.StartSeekToPosition(CommandIds.SeekToTime);
         harness.PumpUntil(
             () => harness.Backend.HeldPlaybackRead is not null,
             "przedskokowy odczyt nie zatrzymal sie na barierze");
-        checks++;
+        if (harness.Backend.SeekCalls.Count != 0)
+        {
+            throw new Exception("Bariera zatrzymala odczyt PO wyslaniu skoku, a nie przedskokowy.");
+        }
+        checks += 2;
+        Console.WriteLine($"   S2: wstrzymany przedskokowy GET, busy={harness.CommandInFlight}");
 
         if (!harness.CommandInFlight)
         {
@@ -720,7 +727,9 @@ internal static class SonosPlayerUiTests
         {
             harness.OpenPlayerForGroup("GRUPA-SALON");
             using var responder = SeekDialogResponder.ArmConfirm("2:30");
-            harness.Backend.FaultPlaybackReadNumber = harness.Backend.PlaybackReads + 1;
+            // WYJATEK dokladnie w PRZEDSKOKOWYM odczycie: uzbrojony w chwili
+            // zatwierdzenia okna, wiec nie trafia w odczyt tla.
+            responder.BeforeConfirm = () => harness.Backend.FaultNextPlaybackRead = true;
             var said = harness.Announcements.Count;
             var task = harness.StartSeekToPosition(CommandIds.SeekToTime);
             harness.PumpUntil(() => task.IsCompleted, "zadanie skoku nie zakonczylo sie po wyjatku odczytu");
@@ -757,7 +766,7 @@ internal static class SonosPlayerUiTests
         {
             harness.OpenPlayerForGroup("GRUPA-SALON");
             using var responder = SeekDialogResponder.ArmConfirm("2:30");
-            harness.Backend.FaultPlaybackReadNumber = harness.Backend.PlaybackReads + 2;
+            harness.Backend.FaultReadAfterSeek = true;
             var said = harness.Announcements.Count;
             var task = harness.StartSeekToPosition(CommandIds.SeekToTime);
             harness.PumpUntil(() => task.IsCompleted, "zadanie skoku nie zakonczylo sie po wyjatku odczytu po skoku");
@@ -812,12 +821,21 @@ internal static class SonosPlayerUiTests
                 using var harness = Harness.Create();
                 harness.OpenPlayerForGroup("GRUPA-SALON");
                 var button = (Button)harness.Window.FindName(buttonName)!;
+                // DROGA KLAWIATURY: uzytkownik ma fokus na przycisku i go
+                // uruchamia. To RZECZYWISTY fokus przed modalem, ktory ma wrocic.
+                button.Focus();
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(50));
+                if (!ReferenceEquals(Keyboard.FocusedElement, button))
+                {
+                    throw new Exception($"Nie udalo sie ustawic fokusu na {buttonName} przed uruchomieniem.");
+                }
                 using var responder = typed is null
                     ? SeekDialogResponder.ArmCancel()
                     : SeekDialogResponder.ArmConfirm(typed);
                 harness.ClickButton(button);
                 harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
                 if (responder.Seen is null) throw new Exception($"{buttonName}: okno skoku sie nie otworzylo.");
+                Console.WriteLine($"   #2: {buttonName} {(typed is null ? "anulowanie" : "zatwierdzenie")} -> {harness.FocusedElementName()}");
                 if (!ReferenceEquals(Keyboard.FocusedElement, button))
                 {
                     throw new Exception(
@@ -844,6 +862,7 @@ internal static class SonosPlayerUiTests
             harness.ExecuteCommand(commandId);
             harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
             if (responder.Seen is null) throw new Exception($"{commandId}: skrot nie otworzyl okna skoku.");
+            Console.WriteLine($"   #2: skrot {commandId} z PlayPause -> {harness.FocusedElementName()}");
             if (!ReferenceEquals(Keyboard.FocusedElement, harness.PlayPauseButton))
             {
                 throw new Exception(
@@ -1390,6 +1409,15 @@ internal static class SonosPlayerUiTests
         /// </summary>
         internal int? HoldPlaybackReadNumber { get; set; }
 
+        /// <summary>
+        /// Zatrzymaj NAJBLIZSZY odczyt stanu. Numerowanie z gory bylo zawodne:
+        /// odczyt tla odtwarzacza moze wypasc przed tym, ktory chcemy zmierzyc.
+        /// </summary>
+        internal bool HoldNextPlaybackRead { get; set; }
+
+        /// <summary>Zatrzymaj NAJBLIZSZY odczyt wyjatkiem transportu.</summary>
+        internal bool FaultNextPlaybackRead { get; set; }
+
         /// <summary>Bariera RZECZYWISCIE trzymajacego odczytu albo null.</summary>
         internal TaskCompletionSource? HeldPlaybackRead { get; private set; }
 
@@ -1425,16 +1453,18 @@ internal static class SonosPlayerUiTests
             string? groupId, CancellationToken cancellationToken)
         {
             var number = ++PlaybackReads;
-            if (HoldPlaybackReadNumber == number)
+            if (HoldNextPlaybackRead || HoldPlaybackReadNumber == number)
             {
+                HoldNextPlaybackRead = false;
                 HoldPlaybackReadNumber = null;
                 var gate = new TaskCompletionSource();
                 _gates.Add(gate);
                 HeldPlaybackRead = gate;
                 await gate.Task.ConfigureAwait(true);
             }
-            if (FaultPlaybackReadNumber == number)
+            if (FaultNextPlaybackRead || FaultPlaybackReadNumber == number)
             {
+                FaultNextPlaybackRead = false;
                 FaultPlaybackReadNumber = null;
                 // WYJATEK transportu, taki jak przy timeoucie HTTP: tresc zawiera
                 // dane, ktorych komunikat dla uzytkownika nie moze powtorzyc.
@@ -1485,10 +1515,21 @@ internal static class SonosPlayerUiTests
         /// <summary>RZECZYWISTE argumenty KAZDEGO skoku: delta i itemId celu.</summary>
         internal List<(string? GroupId, int DeltaMillis, string? ItemId)> SeekCalls { get; } = [];
 
+        /// <summary>
+        /// Wyjatek transportu ma trafic w odczyt PO skoku. Uzbrajamy go z wnetrza
+        /// samego POST-u, bo liczenie odczytow z gory bylo zawodne (odczyt tla).
+        /// </summary>
+        internal bool FaultReadAfterSeek { get; set; }
+
         public Task<SonosGroupCommandResult> SeekRelativeAsync(
             string? groupId, int deltaMillis, string? itemId, CancellationToken cancellationToken)
         {
             SeekCalls.Add((groupId, deltaMillis, itemId));
+            if (FaultReadAfterSeek)
+            {
+                FaultReadAfterSeek = false;
+                FaultNextPlaybackRead = true;
+            }
             Commands.Add(SonosGroupCommand.SeekRelative);
             CommandGroupIds.Add(groupId);
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SeekRelative));
