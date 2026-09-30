@@ -1009,12 +1009,10 @@ public partial class MainWindow
             // ponowienia POST - nawet po 401.
             var accepted = result.Status == SonosGroupOperationStatus.Attempted
                 && result.Outcome?.Status == SonosControlApiStatus.Success;
-            // WYJATEK transportu w TYM odczycie MUSI byc nazwany: wczesniej await
-            // stal bez wlasnego catch, wiec timeout po wyslaniu polecenia konczyl
-            // sie PORZUCONYM faultem zadania i CISZA (czytnik czytal tylko
-            // automatyczna nazwe okna). Zadnego ponowienia POST ani drugiego
-            // odczytu - tresci wyjatku tez nie powtarzamy, bo moze zawierac adres
-            // i naglowek autoryzacji.
+            // Wyjatek odczytu po obsludze polecenia wymaga wyjasnienia wyniku.
+            // Sama automatyczna zapowiedz zmienionej nazwy przycisku nie wyjasnia
+            // nieudanej operacji. Bez ponowienia polecenia i bez drugiego odczytu;
+            // tresc wyjatku (np. adres lub naglowek autoryzacji) nie idzie do mowy.
             bool readOk;
             try
             {

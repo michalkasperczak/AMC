@@ -1610,8 +1610,8 @@ internal static class SonosPlayerUiTests
     }
 
     /// <summary>
-    /// B4-7: WYJATEK transportu w odczycie POTWIERDZAJACYM polecenie (GET PO
-    /// wyslaniu) na WSPOLNEJ drodze <c>ExecuteSonosCommandAsync</c> nie moze byc
+    /// B4-7: WYJATEK transportu w odczycie POTWIERDZAJACYM polecenie (GET po
+    /// obsludze polecenia) na WSPOLNEJ drodze <c>ExecuteSonosCommandAsync</c> nie moze byc
     /// ani cisza, ani automatyczna nazwa obiektu, ani porzuconym faultem. Ta
     /// droga obsluguje TAKZE skip, glosnosc i wyciszenie, wiec komunikat mowi
     /// ogolnie o POLECENIU - nie wmawia uzytkownikowi skoku.
@@ -1660,15 +1660,15 @@ internal static class SonosPlayerUiTests
                         requestSent: false,
                         renewed: false,
                         SonosAccountSnapshots.Empty);
-                // WYJATEK dokladnie w GET-cie PO wyslaniu, uzbrojony z wnetrza
-                // POST-u: przedskokowy odczyt cyfry musi sie udac.
+                // WYJATEK dokladnie w GET-cie PO wywolaniu backendu, tam uzbrojony:
+                // przedskokowy odczyt cyfry musi sie udac.
                 harness.Backend.FaultReadAfterSeek = true;
                 var said = harness.Announcements.Count;
 
                 var task = harness.Window.ExecuteSonosCommandForTests(commandId);
                 harness.PumpUntil(
                     () => task.IsCompleted,
-                    $"{commandId} (RequestSent={requestSent}) nie zakonczylo sie po wyjatku odczytu po wyslaniu");
+                    $"{commandId} (RequestSent={requestSent}) nie zakonczylo sie po wyjatku odczytu potwierdzajacego");
                 // ZADEN fault nie ma prawa zostac porzucony: to samo podniesie
                 // wyjatek, gdyby przelot go wypuscil.
                 task.GetAwaiter().GetResult();
@@ -1678,8 +1678,8 @@ internal static class SonosPlayerUiTests
                 var text = string.Join(" | ", harness.Announcements.Skip(said));
                 Console.WriteLine($"   B4-7 {commandId} RequestSent={requestSent}: \"{text}\"");
 
-                // DOKLADNIE JEDNO zadanie skoku: to liczba POST-ow polecenia, a
-                // nie liczba prob HTTP w transporcie.
+                // DOKLADNIE JEDNO wywolanie backendu, nie liczba POST-ow HTTP.
+                // RequestSent=false oznacza tutaj zero prob transportu.
                 if (harness.Backend.SeekCalls.Count != 1)
                 {
                     throw new Exception(
@@ -1775,7 +1775,7 @@ internal static class SonosPlayerUiTests
             }
         }
 
-        // REGRESJA PORZUCENIA (jak K1, ale na GET PO wyslaniu): przelot wisi na
+        // REGRESJA PORZUCENIA (jak K1, ale na GET PO wywolaniu backendu): przelot wisi na
         // barierze odczytu POTWIERDZAJACEGO, uzytkownik PRAWDZIWA droga polecen
         // przechodzi do innej sesji, a zwolniony odczyt RZUCA wyjatek. Wtedy
         // komunikat o braku potwierdzenia nie ma prawa odezwac sie w CUDZYM
@@ -1841,9 +1841,7 @@ internal static class SonosPlayerUiTests
             }
             finally
             {
-                // KAZDE wyjscie zwalnia bariery atrapy, takze po nieudanej
-                // asercji - inaczej Dispose czekaloby na zadanie, ktorego nikt
-                // nie dokonczy.
+                // Kazde wyjscie zwalnia wlasne bariery, takze po bledzie asercji.
                 harness.Backend.ReleaseEverything();
             }
         }
@@ -2552,7 +2550,7 @@ internal static class SonosPlayerUiTests
 
         /// <summary>
         /// BARIERA ma trafic w odczyt PO skoku, nie przed nim. Uzbrajamy ja z
-        /// wnetrza samego POST-u - dokladnie jak <see cref="FaultReadAfterSeek"/>,
+        /// wywolania backendu - dokladnie jak <see cref="FaultReadAfterSeek"/>,
         /// bo liczenie odczytow z gory jest zawodne (odczyt tla).
         /// </summary>
         internal bool HoldReadAfterSeek { get; set; }
