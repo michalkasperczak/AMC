@@ -18413,6 +18413,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ShowSonosAccountManager()
     {
         var returnToPlayer = _playerViewActive;
+        // POWROT FOKUSU DO POLA: Ctrl+F5 dosiega konta takze z pola "Filtruj
+        // listę", a bezwarunkowy powrot do listy przenosilby wtedy czytnik na
+        // obcy wiersz i gubil miejsce pisania. Zapamietujemy WYLACZNIE to
+        // WLASNE pole - zadnej ogolnej pamieci fokusu dla innych kontrolek i
+        // zadnej zmiany zachowania pozostalych kont.
+        var returnToFilter = !returnToPlayer && ReferenceEquals(Keyboard.FocusedElement, FilterBox);
+        var filterCaret = returnToFilter ? FilterBox.CaretIndex : 0;
         _sonosAccountPresenter ??= new SonosAccountPresenter(_sonosAccount);
         // ODNIESIENIE PRZED modalem (L3 z przegladu 680): przy zimnym starcie
         // znacznik podlaczenia nie byl jeszcze odczytany, wiec pierwszy odczyt PO
@@ -18432,6 +18439,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             UpdatePlayerView(true);
             FocusPlayerView();
+        }
+        else if (returnToFilter && FilterBox.IsVisible && (IsActive || IsKeyboardFocusWithin))
+        {
+            // Powrot DOKLADNIE tam, skad skrot wyszedl: to samo pole, ten sam
+            // tekst (nie ruszamy go wcale) i ta sama karetka.
+            FilterBox.Focus();
+            Keyboard.Focus(FilterBox);
+            FilterBox.CaretIndex = Math.Min(filterCaret, FilterBox.Text.Length);
         }
         else if (IsActive) RestoreMediaListFocusAfterRefresh();
     }
@@ -21763,9 +21778,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return true;
     }
 
+    /// <summary>
+    /// WASKIE wpuszczenie ISTNIEJACEGO Ctrl+F5 "Konto Sonos" w dwoch kontekstach,
+    /// ktore zywy NVDA zmierzyl jako martwe: pole "Filtruj listę" tego okna oraz
+    /// widok odtwarzacza. Ogolny guard
+    /// <see cref="TryHandleLocalLibraryViewShortcut"/> odcina te warstwe dla
+    /// KAZDEGO pola tekstowego i dla odtwarzacza, wiec galaz Sonosa nigdy tam nie
+    /// dochodzila.
+    ///
+    /// GRANICE, swiadomie ciasne:
+    ///   * tylko Ctrl+F5 i tylko w sesji Sonos - zaden inny skrot ani sesja nie
+    ///     dostaje przez to nowego przejscia,
+    ///   * tylko WLASNE kontrolki tego okna: dokladnie <c>FilterBox</c> albo
+    ///     element wewnatrz widocznego <c>PlayerPanel</c>. Obce pole tekstowe
+    ///     (okno konta, logowanie, wyszukiwanie, modal) nie jest w tym drzewie,
+    ///     wiec nic nieumyslnie sie nie otworzy,
+    ///   * nic tu nie wykonuje polecenia - decyduje tylko o wejsciu do warstwy,
+    ///     zeby ISTNIEJACY router Ctrl+F5 zostal jeden.
+    /// </summary>
+    private bool IsSonosAccountShortcutInOwnFilterOrPlayer(KeyEventArgs e)
+    {
+        if ((e.Key == Key.System ? e.SystemKey : e.Key) != Key.F5) return false;
+        if (Keyboard.Modifiers != ModifierKeys.Control) return false;
+        if (_sessions is null || !IsSonosSession(_sessions.Current.Id)) return false;
+        if (Keyboard.FocusedElement is not DependencyObject focused) return false;
+        if (ReferenceEquals(focused, FilterBox)) return true;
+        return _playerViewActive && PlayerPanel.IsVisible && PlayerPanel.IsKeyboardFocusWithin;
+    }
+
     private bool TryHandleLocalLibraryViewShortcut(KeyEventArgs e)
     {
-        if (_playerViewActive || Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
+        if ((_playerViewActive || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+            && !IsSonosAccountShortcutInOwnFilterOrPlayer(e))
+        {
+            return false;
+        }
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var effectiveModifiers = ReadEffectiveModifierKeys();
         // Wspolne podglady Alt+R, Alt+Shift+R i Ctrl+I maja jeden router w
