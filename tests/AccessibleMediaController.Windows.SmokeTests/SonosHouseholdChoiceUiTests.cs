@@ -1,7 +1,9 @@
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
@@ -38,13 +40,20 @@ internal static class SonosHouseholdChoiceUiTests
         {
             try
             {
-                checks += MeasureChoiceReadsFreshHouseholdsAndPresentsCurrent();
-                checks += MeasureCancelMutatesNothing();
-                checks += MeasureConfirmingOtherHouseholdSwitchesTargetSafely();
-                checks += MeasureSameHouseholdKeepsTarget();
-                checks += MeasureStaleHouseholdReadDoesNotShowWindow();
-                checks += MeasureGroupsFailureKeepsConsciousChoiceHonest();
-                checks += MeasureChoiceSurvivesSaveAndSecondWindow();
+                // ETAP na stderr: gdy pomiar zawisnie, wiadomo GDZIE, zamiast
+                // zgadywac po pustym logu.
+                void Stage(string name) => Console.Error.WriteLine("ETAP: " + name);
+                Stage("B1"); checks += MeasureChoiceReadsFreshHouseholdsAndPresentsCurrent();
+                Stage("B2"); checks += MeasureCancelMutatesNothing();
+                Stage("B3"); checks += MeasureConfirmingOtherHouseholdSwitchesTargetSafely();
+                Stage("B4"); checks += MeasureSameHouseholdKeepsTarget();
+                Stage("B5"); checks += MeasureStaleHouseholdReadDoesNotShowWindow();
+                Stage("B9"); checks += MeasureAbandonedChoiceReleasesGateForNewOne();
+                Stage("B10"); checks += MeasureSuccessfulSwitchLeavesGateOpen();
+                Stage("B11"); checks += MeasureLateChoiceNeverStealsForeignFocus();
+                Stage("B6"); checks += MeasureGroupsFailureKeepsConsciousChoiceHonest();
+                Stage("B7"); checks += MeasureChoiceSurvivesSaveAndSecondWindow();
+                Stage("KONIEC-STA");
             }
             catch (Exception exception)
             {
@@ -58,7 +67,13 @@ internal static class SonosHouseholdChoiceUiTests
         thread.SetApartmentState(ApartmentState.STA);
         thread.IsBackground = true;
         thread.Start();
-        thread.Join();
+        // TWARDY limit calego pomiaru: zawieszony modal nie ma prawa zablokowac
+        // runnera na zawsze. Watek jest tlem, wiec proces i tak sie domknie.
+        if (!thread.Join(TimeSpan.FromSeconds(100)))
+        {
+            throw new Exception("Limit czasu pomiaru wyboru domu: patrz ostatni ETAP na stderr.");
+        }
+
         if (failure is not null) throw failure;
 
         checks += MeasureCommandIsReachableInMenuAndPalette();
@@ -66,7 +81,9 @@ internal static class SonosHouseholdChoiceUiTests
         Console.WriteLine(
             "OK: wybór domu Sonos - świeża lista i bieżący dom po ID, anulowanie bez mutacji, "
             + "bezpieczne przełączenie celu bez POST, ten sam dom bez restartu, spóźniony odczyt "
-            + $"bez okna, błąd grup uczciwy, wybór przeżywa zapis i drugie okno ({checks} sprawdzeń)");
+            + "bez okna, porzucony wybór nie zatrzaskuje bramki, udane przełączenie zostawia ją "
+            + "otwartą, spóźniony modal nie kradnie fokusu obcemu oknu, błąd grup uczciwy, "
+            + $"wybór przeżywa zapis i drugie okno ({checks} sprawdzeń)");
     }
 
     // ===== B1: swieza lista domow, zaznaczony BIEZACY dom po IDENTYFIKATORZE =====
@@ -324,6 +341,13 @@ internal static class SonosHouseholdChoiceUiTests
 
         // WYJSCIE do obcej sesji w trakcie odczytu.
         harness.ExecuteCommand(CommandIds.SessionSlot(3));
+        // ASERCJA PRZY ODCZYCIE NADAL W LOCIE: bez tego test byl niefalsyfikowalny,
+        // bo zwolnienie bariery pozwalalo A samemu oddac bramke w finally.
+        if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+        {
+            throw new Exception(
+                "Bramka wyboru domu jest zatrzaśnięta, gdy porzucony odczyt NADAL trwa.");
+        }
         release.SetResult();
         harness.Backend.HouseholdGate = null;
         harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
@@ -351,6 +375,396 @@ internal static class SonosHouseholdChoiceUiTests
             throw new Exception("Po powrocie do sesji polecenie wyboru domu jest martwe.");
         }
         return 6;
+    }
+
+    // ===== B9: PORZUCONY wybor nie zatrzaskuje bramki (L1) =====
+
+    /// <summary>
+    /// A wisi na odczycie domow, uzytkownik wychodzi z sesji i wraca. B MUSI
+    /// zaczac RZECZYWISCIE NOWY odczyt, zanim A sie skonczy - a potem spoznione
+    /// finally A nie ma prawa zwolnic bramki trwajacego B.
+    /// </summary>
+    private static int MeasureAbandonedChoiceReleasesGateForNewOne()
+    {
+        using var harness = Harness.Create();
+        harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+        harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+        harness.EnterSonosSession();
+        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed porzuconym wyborem");
+
+        var holdA = harness.HoldHouseholdRead();
+        var first = harness.StartChoice();
+        if (first.IsCompleted) throw new Exception("Przelot A nie został wstrzymany na odczycie domów.");
+        var readsAfterA = harness.Backend.HouseholdReads;
+
+        // WYJSCIE z sesji: porzucenie A. Okna wyboru nie ma, bo A wisi w awaicie.
+        harness.ExecuteCommand(CommandIds.SessionSlot(3));
+        if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+        {
+            throw new Exception(
+                "Wyjście z sesji nie zwolniło bramki wyboru domu: porzucony przelot A nadal ją trzyma.");
+        }
+
+        // POWROT do sesji i DRUGIE polecenie - A NADAL wisi.
+        harness.Backend.HouseholdGate = null;
+        harness.EnterSonosSession();
+        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "powrót do sesji nie odbudował listy");
+        var readsBeforeB = harness.Backend.HouseholdReads;
+        var holdB = harness.HoldHouseholdRead();
+        var announcementsBeforeB = harness.Announcements.Count;
+        var second = harness.StartChoice();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+
+        if (first.IsCompleted)
+        {
+            throw new Exception("Kontrolka pomiaru: przelot A skończył się przed startem B.");
+        }
+        if (harness.Backend.HouseholdReads != readsBeforeB + 1)
+        {
+            throw new Exception(
+                $"B nie zrobił NOWEGO odczytu domów (odczyty {readsBeforeB} -> {harness.Backend.HouseholdReads}); "
+                + "porzucone A zablokowało polecenie.");
+        }
+        if (harness.Announcements.Skip(announcementsBeforeB)
+            .Any(text => text.Contains("już trwa", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new Exception("B usłyszał 'już trwa' zamiast zacząć nowy odczyt.");
+        }
+        if (second.IsCompleted) throw new Exception("Kontrolka pomiaru: B nie czeka na transport.");
+        if (!harness.Window.SonosHouseholdChoiceInFlightForTests)
+        {
+            throw new Exception("Trwające B nie trzyma bramki wyboru domu.");
+        }
+        _ = readsAfterA;
+
+        // SPOZNIONE zakonczenie A: nie wolno mu zwolnic bramki trwajacego B.
+        holdA.TrySetResult();
+        harness.Pump(first);
+        if (!harness.Window.SonosHouseholdChoiceInFlightForTests)
+        {
+            throw new Exception("Spóźnione finally porzuconego A zwolniło bramkę trwającego B.");
+        }
+
+        // B robimy nieaktualnym PRZED zwolnieniem, zeby zadne okno sie nie otwarlo.
+        harness.ExecuteCommand(CommandIds.SessionSlot(3));
+        harness.Backend.HouseholdGate = null;
+        holdB.TrySetResult();
+        harness.Pump(second);
+        if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+        {
+            throw new Exception("Po zakończeniu B bramka wyboru domu została zatrzaśnięta.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Porzucony wybór domu wysłał POST do Sonosa.");
+        }
+        return 8;
+    }
+
+    // ===== B10: UDANE przelaczenie domu nie zostawia zajetosci (L1, pulapka Switch) =====
+
+    /// <summary>
+    /// <c>SwitchSonosHouseholdAsync</c> sam wola <c>CancelSonosPendingWork</c>,
+    /// ktory PODNOSI bilet bramki. Wlasciwe finally musi zwolnic rowniez TE nowa
+    /// bramke - inaczej udany wybor zatrzaskuje polecenie na zawsze. Mierzone dla
+    /// sukcesu grup, dla BLEDU grup i dla kazdego z nich z prawdziwym awaitem.
+    /// </summary>
+    private static int MeasureSuccessfulSwitchLeavesGateOpen()
+    {
+        var checks = 0;
+        foreach (var failGroups in new bool?[] { false, true })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Backend.SetGroupsForHousehold("DOM-2", ("GRUPA-B1", "Sypialnia"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.EnterSonosSession();
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup domu A przed przełączeniem");
+            // Guard pokazania jest PRODUKCYJNY: dialog wyboru domu otwiera sie tu
+            // za nim, wiec okno glowne musi byc NAPRAWDE pokazane i aktywne.
+            harness.ShowOwnWindow();
+            harness.ForegroundOwn(harness.Window);
+            harness.PumpUntil(() => harness.Window.IsActive, "własne okno główne nie stało się aktywne");
+
+            if (failGroups == true) harness.Backend.FailGroupsWith = SonosDeviceReadStatus.ServiceError;
+            // GRUPY nowego domu tez idą przez PRAWDZIWY await.
+            var groupsGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            harness.Backend.GroupsGate = groupsGate.Task;
+            Task? operation = null;
+            try
+            {
+                harness.Window.PresentSonosHouseholdOverrideForTests = dialog =>
+                {
+                    dialog.ShowInTaskbar = false;
+                    dialog.Show();
+                    harness.PumpUntil(
+                        () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
+                        "okno wyboru domu się nie pokazało");
+                    dialog.SelectRowForTests(1);
+                    dialog.ConfirmForTests();
+                    harness.PumpUntil(() => !dialog.IsVisible, "okno wyboru domu się nie zamknęło");
+                };
+                operation = harness.StartChoice();
+                harness.PumpUntil(() => harness.Backend.GroupReads > 0,
+                    "przełączenie domu nie doszło do odczytu grup");
+                if (operation.IsCompleted)
+                {
+                    throw new Exception("Odczyt grup nowego domu nie jest awaitowany.");
+                }
+            }
+            finally
+            {
+                harness.Window.PresentSonosHouseholdOverrideForTests = null;
+                harness.Backend.GroupsGate = null;
+                groupsGate.TrySetResult();
+            }
+
+            harness.Pump(operation!);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+
+            if (harness.Window.SonosSelectedHouseholdId != "DOM-2")
+            {
+                throw new Exception("Świadomy wybór domu B nie przetrwał (błąd grup: " + failGroups + ").");
+            }
+            if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+            {
+                throw new Exception(
+                    "Po zakończonym przełączeniu domu bramka wyboru została zajęta (błąd grup: "
+                    + failGroups + "); Cancel w Switch podniósł nową bramkę, a finally jej nie zwolniło.");
+            }
+
+            // PONOWNY wybor MUSI byc mozliwy: bramka nie jest martwa.
+            harness.Backend.FailGroupsWith = null;
+            var announcementsBefore = harness.Announcements.Count;
+            var again = harness.RunChoice(action: dialog => harness.PressEscape(dialog));
+            if (again is null)
+            {
+                throw new Exception("Po przełączeniu domu polecenie wyboru jest martwe (błąd grup: " + failGroups + ").");
+            }
+            if (harness.Announcements.Skip(announcementsBefore)
+                .Any(text => text.Contains("już trwa", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new Exception("Ponowny wybór usłyszał 'już trwa' po zakończonym przełączeniu.");
+            }
+            if (harness.Backend.Commands.Count != 0)
+            {
+                throw new Exception("Przełączenie domu wysłało POST do Sonosa.");
+            }
+            checks += 5;
+        }
+
+        return checks;
+    }
+
+    // ===== B11: SPOZNIONY modal NIE kradnie fokusu obcemu oknu (L2) =====
+
+    /// <summary>
+    /// PRODUKCYJNA droga pokazania: zadnego override, prawdziwe ShowDialog.
+    ///
+    /// (a) KONTROLA DODATNIA: aktywny, pokazany wlasciciel RZECZYWISCIE dostaje
+    ///     jeden modal z poprawnym Owner i natywnym pierwszym planem.
+    /// (b) Uzytkownik przeszedl do INNEGO WLASNEGO okna podczas odczytu: modal NIE
+    ///     powstaje, licznik Created nie rosnie, fokus zostaje tam, gdzie byl.
+    /// (c) INNY RZECZYWISTY modal AMC (wlasne OwnedWindow) jest otwarty w chwili
+    ///     spoznionej odpowiedzi: wybor domu go NIE przykrywa.
+    /// (d) Niewidoczny/nieaktywny wlasciciel: odmowa, bez okna bez wlasciciela.
+    /// </summary>
+    private static int MeasureLateChoiceNeverStealsForeignFocus()
+    {
+        var checks = 0;
+
+        // (a) KONTROLA DODATNIA - bez niej odmowa nie jest dowodem niczego.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.ShowOwnWindow();
+            harness.ForegroundOwn(harness.Window);
+            harness.EnterSonosSession();
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed kontrolą dodatnią");
+
+            var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: null);
+            if (seen.Seen != 1)
+            {
+                throw new Exception(
+                    $"Aktywny pokazany właściciel zobaczył {seen.Seen} modali wyboru domu zamiast 1.");
+            }
+            if (seen.OwnerIsMainWindow != true)
+            {
+                throw new Exception("Prawdziwy modal wyboru domu nie miał okna głównego jako właściciela.");
+            }
+            if (seen.NativeForeground != true && seen.Active != true)
+            {
+                throw new Exception(
+                    "Modal wyboru domu nie stał się ani aktywny, ani natywnie pierwszoplanowy.");
+            }
+            if (seen.CreatedDelta != 1)
+            {
+                throw new Exception($"Licznik utworzonych okien wzrósł o {seen.CreatedDelta} zamiast o 1.");
+            }
+            checks += 4;
+        }
+
+        // (b) INNE WLASNE okno przejmuje pierwszy plan PODCZAS odczytu.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.ShowOwnWindow();
+            harness.ForegroundOwn(harness.Window);
+            harness.EnterSonosSession();
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed odejściem do innego okna");
+
+            Window? elsewhere = null;
+            try
+            {
+                var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: () =>
+                {
+                    // WLASNE, niepowiazane okno pomiaru: zero cudzych procesow.
+                    elsewhere = new Window
+                    {
+                        Title = "AMC pomiar: inne własne okno",
+                        Width = 380,
+                        Height = 200,
+                        ShowInTaskbar = false,
+                        Content = new TextBox { Text = "Kontrola fokusu: dane syntetyczne" }
+                    };
+                    elsewhere.Show();
+                    harness.ForegroundOwn(elsewhere);
+                    harness.PumpUntil(() => elsewhere.IsActive && !harness.Window.IsActive,
+                        "kontrola fokusu nie stała się aktywna");
+                    if (!harness.IsNativeForeground(elsewhere))
+                    {
+                        throw new Exception("Kontrola pomiaru: inne okno nie jest natywnie pierwszoplanowe.");
+                    }
+                });
+
+                if (seen.Seen != 0)
+                {
+                    throw new Exception(
+                        "Spóźniony odczyt domów pokazał modal nad oknem, do którego użytkownik przeszedł.");
+                }
+                if (seen.CreatedDelta != 0)
+                {
+                    throw new Exception(
+                        $"Odmowa pokazania podniosła licznik utworzonych okien o {seen.CreatedDelta}.");
+                }
+                if (elsewhere is null || !elsewhere.IsActive)
+                {
+                    throw new Exception("Spóźniony wybór domu odebrał fokus innemu oknu użytkownika.");
+                }
+                if (harness.Window.SonosSelectedHouseholdId != "DOM-1")
+                {
+                    throw new Exception("Odrzucony spóźniony wybór jednak zmienił dom.");
+                }
+
+                // POWROT do aplikacji NIE odtwarza okna sam z siebie.
+                elsewhere.Close();
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+                harness.ForegroundOwn(harness.Window);
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+                if (harness.Window.SonosHouseholdWindowsCreatedForTests != 0
+                    || harness.Window.OpenSonosHouseholdWindowForTests is not null)
+                {
+                    throw new Exception("Powrót do aplikacji sam odtworzył porzucone okno wyboru domu.");
+                }
+                if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+                {
+                    throw new Exception("Odmowa pokazania zatrzasnęła bramkę wyboru domu.");
+                }
+                checks += 6;
+            }
+            finally
+            {
+                elsewhere?.Close();
+            }
+        }
+
+        // (c) INNY RZECZYWISTY modal AMC otwarty w chwili spoznionej odpowiedzi.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.ShowOwnWindow();
+            harness.ForegroundOwn(harness.Window);
+            harness.EnterSonosSession();
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed innym modalem AMC");
+
+            Window? other = null;
+            try
+            {
+                var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: () =>
+                {
+                    // PRAWDZIWE wlasne OwnedWindow okna glownego - dokladnie to,
+                    // co widzi istniejacy wzorzec OwnedWindows w MainWindow.Nvda.cs.
+                    other = new Window
+                    {
+                        Title = "AMC pomiar: inny własny modal",
+                        Width = 340,
+                        Height = 180,
+                        ShowInTaskbar = false,
+                        Owner = harness.Window,
+                        Content = new TextBox { Text = "Inny modal: dane syntetyczne" }
+                    };
+                    other.Show();
+                    harness.PumpUntil(() => other.IsVisible, "inny własny modal się nie pokazał");
+                    harness.ForegroundOwn(other);
+                });
+
+                if (seen.Seen != 0)
+                {
+                    throw new Exception("Spóźniony wybór domu przykrył inny rzeczywisty modal AMC.");
+                }
+                if (seen.CreatedDelta != 0)
+                {
+                    throw new Exception("Odmowa nad innym modalem AMC podniosła licznik utworzonych okien.");
+                }
+                if (other is null || !other.IsVisible)
+                {
+                    throw new Exception("Spóźniony wybór domu zamknął inny modal AMC.");
+                }
+                checks += 3;
+            }
+            finally
+            {
+                other?.Close();
+            }
+        }
+
+        // (d) NIEPOKAZANY wlasciciel: odmowa, a nie okno bez wlasciciela.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.EnterSonosSession();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            if (harness.Window.IsVisible)
+            {
+                throw new Exception("Kontrola pomiaru: okno główne miało zostać niepokazane.");
+            }
+
+            var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: null, showOwner: false);
+            if (seen.Seen != 0 || seen.CreatedDelta != 0)
+            {
+                throw new Exception(
+                    "Niepokazane okno główne i tak pokazało modal wyboru domu bez właściciela.");
+            }
+            if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+            {
+                throw new Exception("Odmowa przy niepokazanym oknie zatrzasnęła bramkę wyboru domu.");
+            }
+            if (!harness.Announcements.Any(text =>
+                text.Contains("nie został otwarty", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("nie jest aktywne", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new Exception(
+                    "Odmowa pokazania nie powiedziała użytkownikowi NIC: "
+                    + string.Join(" | ", harness.Announcements));
+            }
+            checks += 3;
+        }
+
+        return checks;
     }
 
     // ===== B6: BLAD grup domu B - wybor swiadomy, dane uczciwie puste =====
@@ -417,18 +831,34 @@ internal static class SonosHouseholdChoiceUiTests
         harness.EnterSonosSession();
         harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed pomiarem trwałości");
 
-        // ANULOWANIE nie moze nadpisac pliku.
-        var beforeCancel = ReadSettingsText(harness.SettingsPath);
+        // POKAZANIE okna przed snapshotem: samo Show zapisuje geometrie do pliku,
+        // wiec gdyby padlo pozniej, roznica byla by artefaktem fixture, nie zapisem
+        // anulowania. Guard L2 i tak wymaga pokazanego, aktywnego okna.
+        harness.ShowOwnWindow();
+        harness.ForegroundOwn(harness.Window);
+        harness.PumpUntil(() => harness.Window.IsActive, "własne okno główne nie stało się aktywne");
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+        // ANULOWANIE nie moze zapisac wyboru domu. Porownujemy SEKCJE sonos, bo
+        // reszta pliku (nawigacja, ostatnia sesja) zmienia sie od pokazania okna.
+        // Najpierw CZEKAMY, az wstepny DOM-1 z pamieci naprawde wyladuje w pliku:
+        // zapis jest asynchroniczny i bez tego trafialby na dysk PO anulowaniu,
+        // pozorujac zapis przez anulowanie.
+        harness.PumpUntil(
+            () => ReadSonosSection(harness.SettingsPath).Contains("DOM-1", StringComparison.Ordinal),
+            "wstępny wybór domu nie trafił do pliku przed pomiarem anulowania");
+        var beforeCancel = ReadSonosSection(harness.SettingsPath);
         harness.RunChoice(action: dialog =>
         {
             dialog.SelectRowForTests(1);
             harness.PressEscape(dialog);
         });
         harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
-        var afterCancel = ReadSettingsText(harness.SettingsPath);
+        var afterCancel = ReadSonosSection(harness.SettingsPath);
         if (!string.Equals(beforeCancel, afterCancel, StringComparison.Ordinal))
         {
-            throw new Exception("Anulowanie nadpisało plik ustawień.");
+            throw new Exception(
+                "Anulowanie zapisało wybór domu.\nPRZED: " + beforeCancel + "\nPO: " + afterCancel);
         }
 
         harness.RunChoice(action: dialog =>
@@ -565,6 +995,20 @@ internal static class SonosHouseholdChoiceUiTests
     }
 
     /// <summary>
+    /// SEKCJA sonos z zapisanego pliku. Reszta pliku zmienia sie od pokazania
+    /// okna (nawigacja, ostatnia sesja) i nie jest przedmiotem tego pomiaru.
+    /// </summary>
+    private static string ReadSonosSection(string path)
+    {
+        var text = ReadSettingsText(path);
+        if (text.Length == 0) return string.Empty;
+        using var document = System.Text.Json.JsonDocument.Parse(text);
+        return document.RootElement.TryGetProperty("sonos", out var sonos)
+            ? sonos.GetRawText()
+            : string.Empty;
+    }
+
+    /// <summary>
     /// Odczyt pliku ustawien podczas dzialania okna. Produkt zapisuje plik
     /// ASYNCHRONICZNIE, wiec chwilowa blokada to normalny stan systemu plikow,
     /// a nie wynik pomiaru - ponawiamy, zamiast wywracac pomiar.
@@ -695,6 +1139,189 @@ internal static class SonosHouseholdChoiceUiTests
             PumpQuietly(TimeSpan.FromMilliseconds(120));
         }
 
+        [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
+
+        [DllImport("user32.dll")] private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+
+        /// <summary>
+        /// PRAWDZIWE pokazanie WLASNEGO okna glownego, wzorem
+        /// SonosTopologyRefreshUiTests: odpinamy ContentRendered, zeby pomiar nie
+        /// obudzil produkcyjnych uslug pulpitu (serwer NVDA, przedrostki).
+        /// </summary>
+        internal void ShowOwnWindow()
+        {
+            var rendered = (EventHandler)Delegate.CreateDelegate(
+                typeof(EventHandler),
+                Window,
+                Window.GetType().GetMethod("Window_ContentRendered", Instance)!);
+            Window.ContentRendered -= rendered;
+            Window.ShowInTaskbar = false;
+            Window.Show();
+            PumpUntil(() => Window.IsLoaded && PresentationSource.FromVisual(Window) is not null,
+                "własne okno się nie pokazało");
+            RequireNoProductionDesktopServices();
+            MediaList.Focus();
+            PumpQuietly(TimeSpan.FromMilliseconds(100));
+        }
+
+        /// <summary>
+        /// IZOLACJA fixture: pomiar pokazuje prawdziwe okno, wiec musi udowodnic,
+        /// ze NIE wystartowaly globalne uslugi pulpitu zainstalowanego AMC.
+        /// </summary>
+        internal void RequireNoProductionDesktopServices()
+        {
+            foreach (var field in new[] { "_nvdaCommandServer", "_prefixService" })
+            {
+                if (Window.GetType().GetField(field, Instance)?.GetValue(Window) is not null)
+                {
+                    throw new Exception("Fixture wystartował produkcyjną usługę pulpitu: " + field);
+                }
+            }
+        }
+
+        /// <summary>
+        /// WLASNE okno staje sie NATYWNYM oknem pierwszoplanowym. Window.IsActive
+        /// samo tego nie dowodzi. Minimalny Alt-down/SetForegroundWindow/Alt-up
+        /// (wzorzec probe v2) i tylko przy WOLNYCH modyfikatorach - inaczej
+        /// pomiar mieszalby sie z klawiszami uzytkownika.
+        /// </summary>
+        internal void ForegroundOwn(Window target)
+        {
+            foreach (var key in new[] { 0x10, 0x11, 0x12, 0x5B, 0x5C })
+            {
+                if ((GetAsyncKeyState(key) & 0x8000) != 0)
+                {
+                    throw new Exception("Fixture: trzymany modyfikator; odmawiam aktywacji okna.");
+                }
+            }
+
+            var handle = new WindowInteropHelper(target).Handle;
+            // Sztuczny Alt jest potrzebny TYLKO, gdy pierwszy plan trzyma OBCY
+            // watek: bez tego SetForegroundWindow bywa ignorowane. Gdy pierwszy
+            // plan jest juz NASZ, Alt wpadalby w tryb menu okna glownego i modalna
+            // petla menu zablokowalaby pomiar - wlasnie na tym zawisl B11-b.
+            var foreign = GetWindowThreadProcessId(GetForegroundWindow(), out var pid) != 0
+                && pid != (uint)Environment.ProcessId;
+            if (foreign)
+            {
+                keybd_event(0x12, 0, 0, UIntPtr.Zero);
+                try
+                {
+                    SetForegroundWindow(handle);
+                }
+                finally
+                {
+                    keybd_event(0x12, 0, 2, UIntPtr.Zero);
+                }
+            }
+            else
+            {
+                target.Activate();
+                SetForegroundWindow(handle);
+            }
+
+            PumpUntil(() => GetForegroundWindow() == handle && target.IsActive,
+                "własne okno nie stało się natywnym oknem pierwszoplanowym");
+        }
+
+        internal bool IsNativeForeground(Window target) =>
+            GetForegroundWindow() == new WindowInteropHelper(target).Handle;
+
+        /// <summary>WSTRZYMANIE odczytu domow: prawdziwy await, nie atrapa.</summary>
+        internal TaskCompletionSource HoldHouseholdRead()
+        {
+            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Backend.HouseholdGate = gate.Task;
+            return gate;
+        }
+
+        /// <summary>PRAWDZIWE polecenie wyboru domu; oddaje jego zadanie.</summary>
+        internal Task StartChoice()
+        {
+            ExecuteCommand(ChooseCommandId);
+            return Window.LastSonosHouseholdChoiceTaskForTests
+                ?? throw new Exception("Polecenie wyboru domu nie rozpoczęło zadania.");
+        }
+
+        /// <summary>Co RZECZYWISCIE zobaczylismy o prawdziwym modalu wyboru domu.</summary>
+        internal sealed class DialogObservation
+        {
+            internal int Seen { get; set; }
+            internal bool? Active { get; set; }
+            internal bool? NativeForeground { get; set; }
+            internal bool? OwnerIsMainWindow { get; set; }
+            internal int CreatedDelta { get; set; }
+        }
+
+        /// <summary>
+        /// Obserwacja PRODUKCYJNEGO guardu pokazania. Override siedzi ZA guardem
+        /// (<c>CanPresentSonosHouseholdChoice</c>), wiec gdy guard odmowi, ta
+        /// funkcja NIE zostanie wywolana - to mierzy rzeczywiste wiazanie
+        /// wolajacy->guard, a nie sama metode pomocnicza. Prawdziwe, modalne
+        /// <c>ShowDialog</c> bez override mierzy osobna sonda (run_probe.py):
+        /// w tej sesji pulpitu modalna petla gubi aktywnosc okna glownego, wiec
+        /// kontrola dodatnia przez ShowDialog nie dala sie tu zmierzyc.
+        /// Wstrzymana odpowiedz jest zwalniana w finally, okna domykane zawsze.
+        /// </summary>
+        internal DialogObservation RunGuardedChoiceWithHeldRead(
+            Action? whileHeld, bool showOwner = true)
+        {
+            var observation = new DialogObservation();
+            var createdBefore = Window.SonosHouseholdWindowsCreatedForTests;
+
+            // showOwner=false mierzy ODMOWE przy NIEPOKAZANYM oknie: fixture nie
+            // ma prawa go wtedy pokazac, bo zatarlby mierzony warunek.
+            if (showOwner)
+            {
+                ShowOwnWindow();
+                ForegroundOwn(Window);
+                PumpUntil(() => Window.IsActive, "własne okno główne nie stało się aktywne");
+            }
+
+            Window.PresentSonosHouseholdOverrideForTests = dialog =>
+            {
+                observation.Seen++;
+                observation.OwnerIsMainWindow = ReferenceEquals(dialog.Owner, Window);
+                dialog.ShowInTaskbar = false;
+                dialog.Show();
+                PumpUntil(() => dialog.IsLoaded, "okno wyboru domu się nie pokazało");
+                observation.Active = dialog.IsActive;
+                observation.NativeForeground = IsNativeForeground(dialog);
+                dialog.Close();
+                PumpUntil(() => !dialog.IsVisible, "okno wyboru domu się nie zamknęło");
+            };
+
+            var gate = HoldHouseholdRead();
+            try
+            {
+                var operation = StartChoice();
+                if (operation.IsCompleted) throw new Exception("Wybór domu nie zaczekał na transport.");
+                whileHeld?.Invoke();
+
+                Backend.HouseholdGate = null;
+                gate.TrySetResult();
+                Pump(operation);
+                PumpQuietly(TimeSpan.FromMilliseconds(120));
+            }
+            finally
+            {
+                Backend.HouseholdGate = null;
+                gate.TrySetResult();
+                Window.PresentSonosHouseholdOverrideForTests = null;
+                if (Window.OpenSonosHouseholdWindowForTests is { IsVisible: true } leftover) leftover.Close();
+                PumpQuietly(TimeSpan.FromMilliseconds(60));
+            }
+
+            observation.CreatedDelta = Window.SonosHouseholdWindowsCreatedForTests - createdBefore;
+            return observation;
+        }
+
         internal void ExecuteCommand(string commandId)
         {
             var method = Window.GetType().GetMethod(
@@ -718,22 +1345,23 @@ internal static class SonosHouseholdChoiceUiTests
         internal SonosHouseholdSelectionWindow? RunChoice(
             Action<SonosHouseholdSelectionWindow>? action = null)
         {
+            // PRODUKCYJNY guard pokazania (widoczne + AKTYWNE okno glowne, brak
+            // innych widocznych okien potomnych) obowiazuje TAKZE ten pomiar:
+            // override siedzi ZA guardem, wiec fixture musi go spelnic NAPRAWDE.
+            if (!Window.IsVisible)
+            {
+                ShowOwnWindow();
+                ForegroundOwn(Window);
+            }
+
+            PumpUntil(() => Window.IsActive, "własne okno główne nie stało się aktywne");
+
             SonosHouseholdSelectionWindow? captured = null;
             Window.PresentSonosHouseholdOverrideForTests = dialog =>
             {
                 captured = dialog;
                 dialog.ShowInTaskbar = false;
-                if (Window.IsVisible)
-                {
-                    try
-                    {
-                        dialog.Owner = Window;
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-                }
-
+                dialog.Owner = Window;
                 dialog.Show();
                 PumpUntil(
                     () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
@@ -881,6 +1509,9 @@ internal static class SonosHouseholdChoiceUiTests
 
         internal Task? HouseholdGate { get; set; }
 
+        /// <summary>WSTRZYMANIE odczytu GRUP: przelaczenie domu tez ma await.</summary>
+        internal Task? GroupsGate { get; set; }
+
         internal SonosDeviceReadStatus? FailGroupsWith { get; set; }
 
         internal void SetHouseholds(params (string Id, string Name)[] households) => _households = households;
@@ -960,21 +1591,27 @@ internal static class SonosHouseholdChoiceUiTests
         {
             GroupReads++;
             LastGroupsHouseholdId = householdId;
+            return ReadGroupsCoreAsync(householdId);
+        }
+
+        private async Task<SonosGroupsReadResult> ReadGroupsCoreAsync(string householdId)
+        {
+            if (GroupsGate is { } gate) await gate.ConfigureAwait(true);
             if (FailGroupsWith is { } status)
             {
-                return Task.FromResult(SonosGroupsReadResult.Failure(status));
+                return SonosGroupsReadResult.Failure(status);
             }
 
             var groups = _groupsByHousehold.TryGetValue(householdId, out var specific)
                 ? specific
                 : _defaultGroups;
-            return Task.FromResult(SonosGroupsReadResult.Success(new SonosHouseholdTopology(
+            return SonosGroupsReadResult.Success(new SonosHouseholdTopology(
                 groups
                     .Select(group => new SonosGroup(
                         group.Id, group.Name, "P1", ["P1"], SonosPlaybackState.Idle))
                     .ToArray(),
                 [new SonosPlayer("P1", "Salon", null, null, null)],
-                false)));
+                false));
         }
     }
 }

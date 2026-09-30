@@ -150,11 +150,17 @@ Odsłuchu NVDA, prawdziwego konta i prawdziwych głośników tu NIE było.
 
 ### B2c2 — dostępny wybór domu, anulowanie bez zmian, zapis wyboru
 
-Mierzone przez `--sonos-household-choice-ui` (57 policzonych postwarunków) na
+Mierzone przez `--sonos-household-choice-ui` (91 policzonych postwarunków) na
 prawdziwym `MainWindow`, prawdziwym `ExecuteCommand` i **rzeczywiście pokazanym**
 oknie wyboru (`ShowDialog` na własnym oknie, własna pompa komunikatów). Granica
 to `ISonosGroupSessionBackend` i `ConfigurationStore` — bez konta, HTTP, DPAPI,
 audio i bez klawiszy NVDA.
+
+UCZCIWA GRANICA APARATURY: `Harness.RunChoice` podstawia POKAZANIE okna (Show z
+pompą zamiast modalnego `ShowDialog`) i „Escape” realizuje przez UIA `Invoke` na
+przycisku Anuluj, a nie przez fizyczny klawisz. Guardy produkcyjne siedzą PRZED
+punktem podstawienia, więc testowa droga ich NIE obchodzi. Niezależnym dowodem na
+prawdziwe `ShowDialog` i realny pierwszy plan jest osobna sonda (`ParentProbe`).
 
 - `CommandIds.ChooseSonosHousehold` (`sonos.household.choose`, nazwa „Wybierz dom
   Sonos”) — **BEZ skrótu klawiszowego**, więc nic się nie renumeruje. Widoczność
@@ -166,6 +172,20 @@ audio i bez klawiszy NVDA.
   `ReadHouseholdsAsync` z ISTNIEJĄCEGO zaplecza właściciela konta, bez nowego
   HTTP i bez własnego magazynu. **Spóźniony** odczyt (wyjście z sesji, zmiana
   konta, zamknięcie) NIE pokazuje okna ani pól starego domu.
+- L1 — PORZUCONY wybór nie zatrzaskuje polecenia: `CancelSonosPendingWork`
+  (`MainWindow.Sonos.cs`) JAWNIE podnosi `_sonosHouseholdChoiceGateTicket` i
+  zeruje `_sonosHouseholdChoiceInFlight`, tą samą regułą co bramki polecenia i
+  odświeżania. Porzucony przelot A widzi w finally CUDZY bilet i NIE odblokuje
+  trwającego B, a powrót do sesji robi NOWY GET zamiast odbić się od „już trwa”.
+  PUŁAPKA: `SwitchSonosHouseholdAsync` sam woła Cancel, więc pracuje na NOWYM
+  bilecie — i zwalnia go w SWOIM finally (outer finally ma bilet stary), we
+  wszystkich zakończeniach, także przy błędzie grup.
+- L2 — `CanPresentSonosHouseholdChoice()` sprawdzane PONOWNIE po await i PRZED
+  utworzeniem okna: widoczne, aktywne, włączone, nie zamykane okno główne, sesja
+  Sonos i **brak innego widocznego** `OwnedWindows`. Odmowa NIE podnosi licznika
+  utworzonych okien, nic nie odtwarza po późniejszym powrocie do aplikacji i
+  mówi, co zrobić. Właściciel modala wiązany PRZED pokazaniem i wyjątku NIE
+  tłumimy — modal bez właściciela to dokładnie ta wada.
 - `SonosHouseholdSelectionWindow` — mały dostępny modal na wzór
   `SessionSelectionWindow`, ale **bez** renumeracji poleceń. Zaznaczenie startowe
   po **IDENTYFIKATORZE** bieżącego domu, nie po indeksie; etykiety z nazw

@@ -1,5 +1,36 @@
 # Zadania testowe AMC
 
+## Sonos: wybór domu (household) — jak sprawdzić ręcznie
+
+Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i
+**nie ma skrótu klawiszowego**. Dwie drogi: menu **Plik** albo paleta poleceń
+(Shift+K). Poza sesją Sonos polecenie jest ukryte w obu miejscach.
+
+1. Wejdź w sesję Sonos i uruchom **Wybierz dom Sonos**. Usłyszysz „Czytam domy
+   Sonos”, potem otworzy się okno z listą domów. Zaznaczony jest dom **bieżący**.
+2. **Anuluj** (przycisk Anuluj lub Escape): nic się nie zmienia — ten sam dom,
+   ta sama lista grup, ten sam cel odtwarzania. Komunikat: „Anulowano wybór domu
+   Sonos. Nic nie zmieniono”.
+3. **Wybierz** inny dom: lista grup przeładowuje się na grupy nowego domu,
+   odtwarzanie NIE jest zatrzymywane i NIE startuje samo. Wybór przeżywa restart
+   AMC. Możesz od razu wywołać polecenie ponownie — nie blokuje się.
+4. Wybranie **tego samego** domu nic nie restartuje: cel i grupa zostają.
+5. Gdy odczyt domów się nie uda, okno się NIE otworzy i usłyszysz, że nie udało
+   się odczytać domów — stara lista nie jest podawana jako nowa.
+6. Odejście w trakcie: uruchom polecenie i zaraz przejdź do innego okna
+   (własnego lub obcego programu). Spóźniony wynik **nie wyskoczy** na wierzch i
+   nie zabierze fokusu; usłyszysz, że wybór nie został otwarty, bo okno AMC nie
+   jest aktywne, i że trzeba wrócić do AMC i ponowić. Po powrocie okno **nie**
+   otworzy się samo — wywołaj polecenie ponownie.
+7. Wyjście z sesji w trakcie odczytu (np. Ctrl+3) i powrót do Sonos: polecenie
+   działa normalnie i robi świeży odczyt, a nie „Wybieranie domu Sonos już trwa”.
+
+Granica uczciwości: powyższe odpowiada pomiarom automatycznym na Windows
+(`--sonos-household-choice-ui`, 91 sprawdzeń, plus osobna sonda z prawdziwym
+`ShowDialog` i realnym pierwszym planem). **Nie** były to pomiary z żywym NVDA,
+fizycznymi klawiszami, prawdziwym kontem Sonos ani dźwiękiem — to właśnie
+pozostaje do sprawdzenia ręcznego.
+
 ## Sonos: operacje grupy przez konto — odebrany Core, bez sesji UI
 
 - Odebrany kod `bbfb5b51e0e1c7d8836a396e5926bb585957595d` powstał na

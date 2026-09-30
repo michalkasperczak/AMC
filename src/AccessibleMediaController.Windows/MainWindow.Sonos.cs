@@ -1045,6 +1045,13 @@ public partial class MainWindow
         // ruszy zajetosci B (patrz finally w RefreshSonosTopologyAsync).
         _sonosRefreshGateTicket++;
         _sonosRefreshInFlight = false;
+        // TA SAMA regula dla bramki WYBORU DOMU. Bez tego porzucony przelot A
+        // trzymal bramke do konca swojego odczytu, a powrot do sesji odbijal sie
+        // od "juz trwa" zamiast zaczac NOWY GET. Spoznione finally A widzi juz
+        // CUDZY bilet i nie ruszy zajetosci B (patrz finally w
+        // ChooseSonosHouseholdAsync i SwitchSonosHouseholdAsync).
+        _sonosHouseholdChoiceGateTicket++;
+        _sonosHouseholdChoiceInFlight = false;
         // Uniewazniamy tez WSZYSTKIE wyniki odczytow w locie i barierę tla:
         // po wyjsciu/zamknieciu zaden stary GET nie ma czego nadpisywac.
         _sonosReadSequence++;

@@ -122,6 +122,18 @@ public partial class MainWindow
 
             // SWIEZA lista staje sie ta, ktora zna sesja; okno dostaje DOKLADNIE ja.
             _sonosHouseholds = fresh;
+
+            // GRANICA FOKUSU, PONOWNIE PO AWAIT i PRZED UTWORZENIEM okna: przez
+            // czas odczytu uzytkownik mogl przejsc do innego okna albo otworzyc
+            // inny modal AMC. Spozniony wynik NIE ma prawa wtedy ukrasc fokusu,
+            // a odmowa NIE MOZE podniesc licznika utworzonych okien.
+            if (!CanPresentSonosHouseholdChoice())
+            {
+                Announce("Wybór domu Sonos nie został otwarty, bo okno AMC nie jest aktywne. "
+                    + "Wróć do AMC i ponów wybór domu");
+                return;
+            }
+
             var currentId = _state.Sonos.SelectedHouseholdId;
             var window = new SonosHouseholdSelectionWindow(fresh, currentId);
             SonosHouseholdWindowsCreatedForTests++;
@@ -196,12 +208,34 @@ public partial class MainWindow
         CancelSonosPendingWork();
         var switchTicket = _sonosTargetTicket;
         var switchGate = _sonosHouseholdChoiceGateTicket;
-        // Bramke wyboru trzymamy dalej MY: Cancel ja zwolnil, a ten przelot
-        // jeszcze pracuje. Bez tego drugie polecenie weszloby w polowie zamiany.
+        // Bramke wyboru trzymamy dalej MY, ale to jest JUZ NOWY bilet: Cancel ja
+        // zwolnil i PODNIOSL. Outer finally w ChooseSonosHouseholdAsync ma bilet
+        // STARY, wiec tej bramki NIE zwolni - musimy zrobic to TUTAJ, we wszystkich
+        // zakonczeniach, i tylko gdy NADAL jesteśmy jej wlascicielem.
         _sonosHouseholdChoiceInFlight = true;
         _ = ticket;
         _ = gate;
+        try
+        {
+            await SwitchSonosHouseholdCoreAsync(backend, chosen, switchTicket, switchGate)
+                .ConfigureAwait(true);
+        }
+        finally
+        {
+            if (switchGate == _sonosHouseholdChoiceGateTicket) _sonosHouseholdChoiceInFlight = false;
+        }
+    }
 
+    /// <summary>
+    /// TRESC przelaczenia. Wydzielona, bo bramke nowego biletu trzeba zwolnic w
+    /// KAZDYM zakonczeniu tej pracy, takze przy wczesnych <c>return</c> granic.
+    /// </summary>
+    private async Task SwitchSonosHouseholdCoreAsync(
+        ISonosGroupSessionBackend backend,
+        SonosHousehold chosen,
+        int switchTicket,
+        int switchGate)
+    {
         // 2) Stary dom przestaje istniec dla widoku: topologia, cel, dane i
         // RZECZYWISTE WIERSZE ida do zera PRZED odczytem grup nowego domu.
         _sonosTopology = null;
@@ -257,29 +291,43 @@ public partial class MainWindow
     };
 
     /// <summary>
-    /// POKAZANIE okna. Guardy kontekstu sa juz za nami; tutaj zostaje samo
-    /// powiazanie wlasciciela i modalnosc. Brak wlasciciela nie moze wywrocic
-    /// drogi do wyboru, wiec nieudane powiazanie jest pomijane.
+    /// Czy WOLNO pokazac modal wyboru domu TERAZ. Ten sam wzorzec, co brama
+    /// widokow dla NVDA (MainWindow.Nvda.cs): okno musi byc widoczne i AKTYWNE,
+    /// nie zamykane, w sesji Sonos i bez innego WIDOCZNEGO okna potomnego.
+    ///
+    /// Guard jest PRODUKCYJNY i testy go NIE obchodza - override pokazania siedzi
+    /// za nim, nie przed nim.
+    /// </summary>
+    private bool CanPresentSonosHouseholdChoice()
+    {
+        if (_isClosing) return false;
+        if (!IsVisible || !IsActive || !IsEnabled) return false;
+        if (!IsSonosSession(_sessions?.Current.Id)) return false;
+        // Inny WIDOCZNY modal AMC ma pierwszenstwo: nie przykrywamy go spoznionym
+        // wynikiem. _sonosHouseholdWindow jest tu zawsze null (sprawdzone na
+        // wejsciu), wiec liczy sie kazde inne wlasne okno.
+        return !OwnedWindows.OfType<Window>().Any(window => window.IsVisible);
+    }
+
+    /// <summary>
+    /// POKAZANIE okna. Guardy kontekstu i fokusu sa juz za nami; tutaj zostaje
+    /// samo powiazanie wlasciciela i modalnosc. Wlasciciel jest WYMAGANY - bez
+    /// niego modal bylby osobnym oknem na pasku zadan i moglby zostac za AMC.
     /// </summary>
     private void PresentSonosHouseholdChoice(SonosHouseholdSelectionWindow window)
     {
+        // WLASCICIEL jest czescia POPRAWKI, nie szczegolem pokazania: modal bez
+        // wlasciciela moze zostac za AMC. Wiazemy go PRZED punktem podstawienia,
+        // zeby testowa droga mierzyla TO SAMO powiazanie co produkcyjna.
+        // IsVisible sprawdzil juz CanPresentSonosHouseholdChoice, a WPF przyjmuje
+        // Owner wlasnie dla pokazanego okna. Wyjatku NIE tlumimy: pokazanie modalu
+        // bez wlasciciela byloby dokladnie ta wada, ktora tu naprawiamy.
+        window.Owner = this;
+
         if (PresentSonosHouseholdOverrideForTests is { } present)
         {
             present(window);
             return;
-        }
-
-        // Okno glowne musi BYC widoczne: WPF przyjmuje Owner tylko dla okna,
-        // ktore juz pokazano, a modal nad nieistniejacym oknem nie ma sensu.
-        if (IsVisible)
-        {
-            try
-            {
-                window.Owner = this;
-            }
-            catch (InvalidOperationException)
-            {
-            }
         }
 
         window.ShowDialog();
