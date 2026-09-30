@@ -5,10 +5,15 @@
 ; Wynik: AMC_Setup.exe w OutputDir.
 ;
 ; Wzorowane na EdSharp_Setup.iss, ale z trzema istotnymi roznicami:
-;   1. AMC wymaga srodowiska .NET 8 Desktop (EdSharp stoi na .NET Framework 4.8,
-;      ktory jest w Windows od zawsze). Instalator sam sprawdza i dociaga runtime,
-;      bo inaczej program po instalacji NIE WSTANIE, a uzytkownik dostanie
-;      systemowe okno bledu, ktorego czytnik ekranu prawie nie tlumaczy.
+;   1. AMC stoi na .NET 8, a EdSharp na .NET Framework 4.8 (ten jest w Windows
+;      od zawsze). Instalator jednak NICZEGO NIE POBIERA i nie instaluje zadnego
+;      srodowiska: build.ps1 publikuje AMC jako wersje SAMOWYSTARCZALNA
+;      (--self-contained true, PublishSingleFile=true), wiec srodowisko
+;      uruchomieniowe jest W PLIKU programu. Instalacja musi dzialac bez
+;      dostepu do sieci i bez strony "You must install .NET Desktop Runtime".
+;      NIE DODAWAC tu z powrotem pobierania runtime - byloby zbedne, wymagaloby
+;      sieci w trakcie instalacji i dawaloby okna bledu, ktorych czytnik ekranu
+;      prawie nie tlumaczy.
 ;   2. Bez ngen - to narzedzie .NET Framework, dla .NET 8 nie istnieje.
 ;   3. Instalacja dla BIEZACEGO UZYTKOWNIKA (lowest), wiec aktualizacja w tle
 ;      nie potrzebuje podniesienia uprawnien. Przy PrivilegesRequired=admin
@@ -138,95 +143,6 @@ Filename: "{app}\AccessibleMediaController.exe"; Description: "Uruchom AMC teraz
 [UninstallDelete]
 Type: files; Name: "{app}\AccessibleMediaController.exe"
 Type: dirifempty; Name: "{app}"
-
-[Code]
-const
-  // Adres instalatora srodowiska .NET 8 Desktop. Kanal "lts" nie zadziala:
-  // .NET 8 jest LTS, ale adres z numerem wersji jest jednoznaczny i nie zmieni
-  // sie pod nami przy nastepnym wydaniu Microsoftu.
-  UrlRuntime = 'https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.31/windowsdesktop-runtime-8.0.31-win-x64.exe';
-
-var
-  BrakRuntime: Boolean;
-
-// Sprawdza, czy jest zainstalowane srodowisko .NET 8 Desktop.
-// Szukamy KATALOGU wersji, nie wpisu w rejestrze: instalacje przenosne
-// i rownolegle wersje nie zawsze zostawiaja slad w rejestrze, a katalog
-// shared\Microsoft.WindowsDesktop.App jest tym, czego program faktycznie szuka.
-// Sprawdzamy DWIE lokalizacje, bo runtime moze stac systemowo w Program Files
-// albo lokalnie w profilu uzytkownika (instalacja skryptem dotnet-install).
-function MaRuntime8W(sBaza: string): Boolean;
-var
-  szukaj: TFindRec;
-begin
-  result := false;
-  if not DirExists(sBaza) then
-    exit;
-  if FindFirst(AddBackslash(sBaza) + '8.*', szukaj) then
-  try
-    repeat
-      if (szukaj.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-      begin
-        result := true;
-        exit;
-      end;
-    until not FindNext(szukaj);
-  finally
-    FindClose(szukaj);
-  end;
-end;
-
-function MaRuntime8(): Boolean;
-begin
-  { UWAGA: sprawdzamy WYLACZNIE miejsca, w ktorych Windows SAM szuka
-    srodowiska uruchomieniowego. Katalog .dotnet w profilu uzytkownika wygladal
-    na dobre miejsce i byl tu wczesniej sprawdzany, ale program go NIE
-    widzi - .NET zaglada tam tylko wtedy, gdy ustawiona jest zmienna
-    DOTNET_ROOT. Skutek byl taki, ze instalator uznawal srodowisko za
-    obecne, nic nie dociagal, a AMC po instalacji pokazywal komunikat
-    "You must install .NET Desktop Runtime" zamiast sie uruchomic. }
-  result := MaRuntime8W(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App'))
-         or MaRuntime8W(ExpandConstant('{commonpf32}\dotnet\shared\Microsoft.WindowsDesktop.App'));
-end;
-
-function InitializeSetup(): Boolean;
-begin
-  BrakRuntime := not MaRuntime8();
-  result := true;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  sciezka: string;
-  kod: Integer;
-begin
-  if (CurStep <> ssPostInstall) or (not BrakRuntime) then
-    exit;
-
-  // Runtime dociagamy PO skopiowaniu plikow, a brak runtime NIE przerywa
-  // instalacji: pliki programu maja zostac na dysku, zeby uzytkownik mogl
-  // doinstalowac srodowisko sam, gdyby pobieranie sie nie udalo.
-  sciezka := ExpandConstant('{tmp}\windowsdesktop-runtime-8.exe');
-  try
-    DownloadTemporaryFile(UrlRuntime, 'windowsdesktop-runtime-8.exe', '', nil);
-  except
-    // Blad pobierania obsluguje sprawdzenie FileExists ponizej.
-  end;
-  if FileExists(sciezka) then
-  begin
-    Exec(sciezka, '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, kod);
-    if kod <> 0 then
-      MsgBox('Nie udalo sie zainstalowac srodowiska .NET 8 Desktop (kod ' + IntToStr(kod) + ').' + #13#10 +
-             'AMC jest zainstalowany, ale nie uruchomi sie bez tego srodowiska.' + #13#10 +
-             'Pobierz je ze strony dotnet.microsoft.com i uruchom instalacje ponownie.',
-             mbError, MB_OK);
-  end
-  else
-    MsgBox('Nie udalo sie pobrac srodowiska .NET 8 Desktop.' + #13#10 +
-           'AMC jest zainstalowany, ale nie uruchomi sie bez tego srodowiska.' + #13#10 +
-           'Pobierz je ze strony dotnet.microsoft.com.',
-           mbError, MB_OK);
-end;
 
 [Registry]
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\AccessibleMediaController.exe"; \
