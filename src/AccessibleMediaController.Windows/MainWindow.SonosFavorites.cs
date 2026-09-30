@@ -176,7 +176,22 @@ public partial class MainWindow
             // PUSTA lista to POPRAWNY wynik: okno otwiera sie z dostepnym pustym
             // stanem, bez bledu i bez udawanej pozycji.
             Announce(SonosFavoritesLabels.SummarizeCount(items.Count));
-            var window = new SonosFavoritesWindow(items);
+
+            // F3c: URUCHAMIANIE podajemy TYLKO wtedy, gdy zaplecze ma OPCJONALNA
+            // granice ladowania. Brak granicy to uczciwy podglad, nie awaria.
+            //
+            // CEL jest CAPTUROWANY TERAZ, z niezmiennych danych: dom, o ktory
+            // pytalismy, aktywna grupa i BILET celu. Dzieki temu stara lista A
+            // nie wysle identyfikatora przez konto B ani do grupy B.
+            var loadBackend = backend as ISonosFavoriteLoadSessionBackend;
+            var group = SonosActiveGroup;
+            var window = loadBackend is null
+                ? new SonosFavoritesWindow(items)
+                : new SonosFavoritesWindow(
+                    items,
+                    group?.Name,
+                    favorite => LoadSonosFavoriteAsync(
+                        loadBackend, householdId, group?.Id, ticket, favorite));
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
             try
@@ -220,6 +235,186 @@ public partial class MainWindow
         if (!IsSonosSession(_sessions?.Current.Id)) return false;
         return !OwnedWindows.OfType<Window>().Any(window => window.IsVisible);
     }
+
+    /// <summary>Ile razy okno ulubionych POPROSILO o uruchomienie. Odmowa liczy sie tutaj.</summary>
+    internal int SonosFavoriteLoadRequestsForTests { get; private set; }
+
+    /// <summary>Ile razy uruchomienie DOSZLO do zaplecza (czyli do POST).</summary>
+    internal int SonosFavoriteLoadsSentForTests { get; private set; }
+
+    /// <summary>
+    /// JAWNA akcja "Odtwórz"/Enter z okna ulubionych: DOKLADNIE JEDEN POST
+    /// loadFavorite dla WSKAZANEGO ulubionego w AKTYWNEJ grupie.
+    ///
+    /// Duch istniejacego <c>ExecuteSonosCommandAsync</c> zachowany co do joty:
+    /// ta SAMA bramka jednego polecenia (<c>_sonosCommandInFlight</c>), ten SAM
+    /// wlasny bilet bramki (<c>_sonosCommandGateTicket</c>) i ta SAMA droga
+    /// zwolnienia (<c>ReleaseSonosCommandGate</c>) - zadnej drugiej, sprzecznej
+    /// kolejki polecen.
+    ///
+    /// AKCJA KOLEJKI JEST JAWNA i wynika z oficjalnej dokumentacji Sonosa
+    /// (queue-action): INSERT to jedyna wartosc, o ktorej dokumentacja mowi
+    /// wprost, ze "Sonos moves the playback head to the first enqueued content".
+    /// APPEND samo GLOWICY NIE PRZENOSI, REPLACE KASUJE kolejke uzytkownika,
+    /// a PLAY_NOW wystepuje w definicji OpenAPI BEZ opisu - wiec go nie
+    /// zgadujemy. <c>playOnCompletion: true</c> dopelnia zamiar "zagraj teraz".
+    /// To kontrakt ZAMIARU, nie pomiar fizyczny.
+    ///
+    /// GRANICE sprawdzamy PRZED POST i PONOWNIE po KAZDYM await: konto, dom,
+    /// grupa, sesja, bilet celu, zamykanie i stan modala. Spozniony wynik NIE
+    /// mowi w cudzym widoku i nie rusza cudzego fokusu.
+    /// </summary>
+    private async Task LoadSonosFavoriteAsync(
+        ISonosFavoriteLoadSessionBackend backend,
+        string householdId,
+        string? groupId,
+        int targetTicket,
+        SonosFavorite favorite)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        ArgumentNullException.ThrowIfNull(favorite);
+        SonosFavoriteLoadRequestsForTests++;
+
+        // GRANICA konta PRZED czymkolwiek: po RZECZYWISTEJ zmianie konta stary
+        // identyfikator ulubionego nie ma prawa pojsc przez NOWE konto.
+        if (ApplySonosAccountBinding())
+        {
+            AnnounceInSonosFavorites(SonosAccountChangedInstruction);
+            return;
+        }
+
+        // CEL musi byc TEN SAM, ktory okno dostalo przy otwarciu: ten sam bilet,
+        // ten sam dom, ta sama grupa, ta sama sesja. Zmiana czegokolwiek konczy
+        // droge BEZ POST - nie przekierowujemy materialu do innej grupy.
+        if (_isClosing
+            || targetTicket != _sonosTargetTicket
+            || !IsSonosSession(_sessions?.Current.Id)
+            || !string.Equals(_state.Sonos.SelectedHouseholdId, householdId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(groupId)
+            || SonosActiveGroup is not { } group
+            || !string.Equals(group.Id, groupId, StringComparison.Ordinal))
+        {
+            // BRAK grupy albo ZMIENIONY cel: uczciwe wyjasnienie i ISTNIEJACA
+            // droga odzyskania. ZERO POST.
+            AnnounceInSonosFavorites(SonosFavoritesLabels.PlayNeedsGroup);
+            return;
+        }
+
+        // TA SAMA bramka jednego polecenia Sonos, co reszta sterowania: jawna
+        // odmowa zamiast cichej kolejki i zamiast drugiego POST.
+        if (_sonosCommandInFlight)
+        {
+            AnnounceInSonosFavorites(SonosFavoritesLabels.PlayAlreadyInFlight);
+            return;
+        }
+
+        var gateTicket = ++_sonosCommandGateTicket;
+        var token = EnsureSonosCancellation().Token;
+        _sonosCommandInFlight = true;
+        try
+        {
+            SonosFavoriteLoadsSentForTests++;
+            // JEDEN POST. Bez presetu, bez zapisu, bez drugiego Play/Toggle.
+            var result = await backend.LoadFavoriteAsync(
+                groupId,
+                favorite.Id,
+                // JAWNY INSERT: dokumentacja queue-action mowi wprost, ze INSERT
+                // przenosi glowice na pierwsza wstawiona pozycje.
+                SonosFavoriteQueueAction.Insert,
+                playOnCompletion: true,
+                token).ConfigureAwait(true);
+
+            // GRANICE PO AWAIT: te same co przed. Spozniony wynik nie mowi w
+            // cudzym widoku i nie przypisuje sie do innego celu.
+            if (ApplySonosAccountBinding()) return;
+            if (_isClosing || targetTicket != _sonosTargetTicket) return;
+            if (!IsSonosSession(_sessions?.Current.Id)) return;
+
+            var accepted = result.Status == SonosGroupOperationStatus.Attempted
+                && result.Outcome?.Status == SonosControlApiStatus.Success;
+            // HTTP 200 to PRZYJECIE ZLECENIA, nie dowod, ze muzyka gra.
+            // Tozsamosc pozycji bierzemy z NASZEJ listy - to my wyslalismy ten
+            // identyfikator. Tytul z metadanych NIE jest dowodem tozsamosci.
+            AnnounceInSonosFavorites(accepted
+                ? SonosFavoritesLabels.DescribePlayAccepted(SonosFavoritesLabels.Describe(favorite))
+                : result.Message);
+
+            // ISTNIEJACY jawny odczyt stanu tego SAMEGO celu - zeby odtwarzacz i
+            // bramki polecen nie zostaly ze starym stanem. Bez drugiego POST i
+            // bez nowego pollingu. Wyjatek odczytu NIE moze udawac, ze proba
+            // uruchomienia sie nie odbyla.
+            try
+            {
+                await ReadSonosGroupStateAsync().ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception exception)
+            {
+                // Tresc wyjatku (adres, naglowek autoryzacji, identyfikatory) NIE
+                // idzie do mowy ani do statusu.
+                LogSonosFavoriteLoadFailure("odczyt po uruchomieniu", exception);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Wlasne zamykanie albo zmiana celu: CISZA. PORZUCONY POST mogl sie
+            // mimo wszystko wykonac - nie obiecujemy cofniecia.
+        }
+        catch (Exception exception)
+        {
+            LogSonosFavoriteLoadFailure("wysłanie uruchomienia", exception);
+            if (_isClosing || targetTicket != _sonosTargetTicket) return;
+            // UCZCIWIE, BEZ surowego wyjatku, identyfikatora i tokenu.
+            AnnounceInSonosFavorites(
+                "Nie udało się wykonać polecenia uruchomienia ulubionego. Spróbuj ponownie.");
+        }
+        finally
+        {
+            // SPOZNIONY przelot A nie uwalnia trwajacego B: bramke zwalnia tylko
+            // jej WLASCICIEL - ta SAMA produkcyjna droga co reszta polecen.
+            ReleaseSonosCommandGate(gateTicket);
+        }
+    }
+
+    /// <summary>
+    /// KOMUNIKAT dla uzytkownika stojacego w oknie ulubionych: gdy okno jest
+    /// otwarte, mowi ONO (wlasny dostepny status), a nie okno glowne za modalem.
+    /// Po zamknieciu wraca ISTNIEJACY mechanizm okna glownego.
+    /// </summary>
+    private void AnnounceInSonosFavorites(string message)
+    {
+        if (_sonosFavoritesWindow is { } window && window.IsVisible)
+        {
+            window.AnnounceForOwner(message);
+            return;
+        }
+
+        Announce(message);
+    }
+
+    /// <summary>
+    /// LOG diagnostyczny bez sekretu: RODZAJ wyjatku, zero tresci, zero adresu,
+    /// zero identyfikatorow.
+    /// </summary>
+    private static void LogSonosFavoriteLoadFailure(string stage, Exception exception) =>
+        System.Diagnostics.Debug.WriteLine(
+            $"Sonos: uruchomienie ulubionego - {stage} nie udalo sie ({exception.GetType().Name}).");
+
+    /// <summary>WASKI hook pomiarowy: PRODUKCYJNA droga uruchomienia z okna.</summary>
+    internal Task LoadSonosFavoriteForTests(
+        ISonosFavoriteLoadSessionBackend backend,
+        string householdId,
+        string? groupId,
+        int targetTicket,
+        SonosFavorite favorite) =>
+        LoadSonosFavoriteAsync(backend, householdId, groupId, targetTicket, favorite);
+
 
     /// <summary>
     /// POKAZANIE okna. WLASCICIEL jest WYMAGANY - modal bez wlasciciela moze

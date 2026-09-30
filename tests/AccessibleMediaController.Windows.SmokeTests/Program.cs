@@ -106,6 +106,10 @@ if (args.Contains("--sonos-navigation-ux", StringComparer.Ordinal))
 {
     SonosNavigationUxTests.Run(); return 0;
 }
+if (args.Contains("--sonos-favorite-play-ui", StringComparer.Ordinal))
+{
+    SonosFavoritePlayUiTests.Run(); return 0;
+}
 
 if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
 {

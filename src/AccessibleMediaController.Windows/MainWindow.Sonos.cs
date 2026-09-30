@@ -1600,7 +1600,8 @@ public partial class MainWindow
 /// tokenu - tylko przekazanie identyfikatora grupy.
 /// </summary>
 internal sealed class SonosAccountOwnerGroupBackend
-    : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend
+    : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend,
+      ISonosFavoriteLoadSessionBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -1660,4 +1661,18 @@ internal sealed class SonosAccountOwnerGroupBackend
     public Task<SonosFavoritesReadResult> ReadFavoritesAsync(
         string? householdId, CancellationToken cancellationToken) =>
         _owner.ReadFavoritesAsync(householdId, cancellationToken);
+
+    /// <summary>
+    /// F3c: URUCHOMIENIE ULUBIONEGO w grupie. Tak samo cienkie przekazanie jak
+    /// reszta: caly bilet, odnawianie, kontrola generacji i JEDYNY POST siedza we
+    /// wlascicielu i wspolnym koordynatorze. Zadnego presetu i zadnego drugiego
+    /// polecenia odtwarzania.
+    /// </summary>
+    public Task<SonosGroupCommandResult> LoadFavoriteAsync(
+        string? groupId,
+        string? favoriteId,
+        SonosFavoriteQueueAction action,
+        bool playOnCompletion,
+        CancellationToken cancellationToken) =>
+        _owner.LoadFavoriteAsync(groupId, favoriteId, action, playOnCompletion, cancellationToken);
 }

@@ -224,6 +224,34 @@ internal sealed class SonosAccountOwner : IDisposable
     internal ISonosFavoritesApi EnsureFavoritesApi() => EnsureControlApiClient();
 
     /// <summary>
+    /// F3c: URUCHOMIENIE ULUBIONEGO w grupie. CIENKIE przekazanie do TEGO SAMEGO
+    /// koordynatora i TEGO SAMEGO klienta Control API, co odczyty - zaden drugi
+    /// wlasciciel, zaden drugi HttpClient, zadna wlasna polityka biletu.
+    ///
+    /// LENIWOSC bez zmian: pierwsze dotkniecie konta i klienta dzieje sie
+    /// dopiero przy JAWNYM poleceniu uzytkownika.
+    ///
+    /// <paramref name="action"/> i <paramref name="playOnCompletion"/> sa
+    /// OBOWIAZKOWE i bez domyslnych wartosci - dokladnie jak w kliencie (F3a) i
+    /// w koordynatorze (F3b).
+    /// </summary>
+    internal Task<SonosGroupCommandResult> LoadFavoriteAsync(
+        string? groupId,
+        string? favoriteId,
+        SonosFavoriteQueueAction action,
+        bool playOnCompletion,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().LoadFavoriteAsync(
+            EnsureFavoriteLoadApi(), groupId, favoriteId, action, playOnCompletion, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs URUCHOMIENIA ULUBIONEGO nad tym SAMYM klientem Control
+    /// API. Klient sam implementuje <see cref="ISonosFavoriteLoadApi"/> (F3a),
+    /// wiec nie ma tu ani nowego adaptera, ani nowego transportu.
+    /// </summary>
+    internal ISonosFavoriteLoadApi EnsureFavoriteLoadApi() => EnsureControlApiClient();
+
+    /// <summary>
     /// WASKI interfejs GRUP nad tym SAMYM klientem i tym SAMYM koordynatorem.
     /// Leniwy jak reszta: powstaje razem z klientem Control API.
     /// </summary>
