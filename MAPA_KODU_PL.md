@@ -81,12 +81,41 @@ odtwarzacza) mierzy `Windows.SmokeTests --sonos-player-ui`
   modalu (modal trwa dowolnie długo, liczenie od pozycji z chwili otwarcia
   trafiałoby gdzie indziej). Bramka to ta sama `CanSeek` co reszta przewijania,
   z `_sonosCommandInFlight`, biletem celu i **bez ponowień**.
-- ZERO POST przy: anulowaniu/Escape, braku odczytanej długości lub pozycji,
-  `CanSeek=false`, zmianie grupy oraz **zmianie materiału w trakcie modalu**
-  (`itemId` sprawdzany przed i po). Każda z tych ścieżek **mówi czego brakuje**,
-  nie wymyśla zera. Po skoku idzie **jawny GET**, a werdykt zostaje dotychczasowy:
-  `Accepted` bez zmiany odczytu **nie** jest dowodem trafionej pozycji. Fokus
-  wraca do przycisku/odtwarzacza także po anulowaniu.
+- Bramka (`EvaluateSonosSeekGate`) jest oceniana **dwa razy**: przed modalem i —
+  po odbiorze — **po świeżym odczycie, przed wysłaniem POST-a**, na fladze
+  `CanSeek`, która właśnie przyszła (**bez dodatkowego GET-a** dla samej
+  walidacji). Zmierzone: przy `CanSeek=false` ze świeżego odczytu **tego samego**
+  `itemId` wcześniej i tak szedł jeden `SeekRelativeAsync`.
+- Rezerwacja bramki (`gateTicket` + `_sonosCommandInFlight`) jest brana
+  **przed `ShowDialog`**, czyli **najpóźniej przed pierwszym `await`** tej drogi,
+  a `ReleaseSonosCommandGate(gateTicket)` stoi w `finally` obejmującym **wszystkie**
+  wyjścia (odmowa, anulowanie, wyjątek). Warunek właściciela biletu został, więc
+  **cudzy bilet nie jest zwalniany**. Zmierzone: wcześniej w czasie przedskokowego
+  `GET`-a bramka była otwarta (`busy=False`) i głośność z późniejszego callbacka
+  Dispatchera **nakładała się** na skok, a `finally` zerowało `busy` mimo obcego
+  polecenia w locie. Stara bramka `ExecuteSonosCommandAsync` nietknięta.
+- ZERO POST przy: anulowaniu, braku odczytanej długości lub pozycji,
+  `CanSeek=false` (przed **i po** odczycie), zmianie grupy oraz **zmianie materiału
+  w trakcie modalu** (`itemId` sprawdzany przed i po). Każda z tych ścieżek
+  **mówi czego brakuje**, nie wymyśla zera. Po skoku idzie **jawny GET**, a werdykt
+  zostaje dotychczasowy: `Accepted` bez zmiany odczytu **nie** jest dowodem
+  trafionej pozycji.
+- **Błąd przedskokowego odczytu nie jest cichy.** Oba `await ReadSonosGroupStateAsync`
+  mają własne `try`/`catch`; wcześniej wyjątek/timeout **uciekał** z fire-and-forget
+  `_ =` jako porzucony fault i użytkownik nie słyszał nic. Komunikaty są **rozróżnione**:
+  przed POST-em „nie udało się odczytać aktualnej pozycji, **skok nie został wysłany**”,
+  po POST-cie „skok **został wysłany**, ale nie wiadomo, czy pozycja się zmieniła” —
+  po utracie odpowiedzi **nie** twierdzimy, że nie wysłano. Treść wyjątku idzie tylko
+  do `Debug.WriteLine` (typ, **bez payloadu/sekretów**); anulowanie milczy. Zero
+  ponowień zachowane, starych helperów transportu nie ruszano.
+- **Fokus wraca tam, skąd skok wyszedł**: `FocusSonosPlayerAfterSeek(focusBefore, byTime)`
+  bierze zmierzony `Keyboard.FocusedElement` sprzed modalu, potem przycisk **danego
+  trybu**, potem `PlayPause`, potem panel; ukryty/nieogniskowalny element pomija.
+  Wcześniej **zawsze** wybierany był `PlayerSeekTimeButton`, również gdy modal
+  procentowy otwarto z `PlayerSeekPercentButton` (zmierzone w obu trybach, przy
+  zatwierdzeniu i anulowaniu). Fokusu **nie** przywracamy, gdy okno nie jest aktywne
+  ani nie ma w sobie fokusu klawiatury (obcy foreground, odejście, zmiana sesji);
+  skrót z `PlayPause` zostawia fokus na `PlayerPlayPauseButton`.
 - Pozostałe sterowanie wymaga osobnego odbioru. `digit percent`, `seekCustom`,
   skip, głośność i wyciszenie to **jawna reszta B4**, nie zaliczone funkcje.
 

@@ -120,6 +120,37 @@ Ctrl+Shift+E/T/R i zapis wypowiedzi w Podglądzie mowy żywego NVDA na Hermesie.
 Odczytano 24:30:00, 25:00:00 i 30:00 z dokładnych binariów zaliczonego przebiegu.
 Wszystkie dane grupy były syntetyczne; nie odtwarzano rzeczywistego nagrania.
 
+## Cztery uwagi odbioru skoku — co ZMIERZONO, a czego NIE
+
+Zestaw `--sonos-player-ui` ma po tej korekcie **87 sprawdzeń** (56 wcześniejszych
++ 31 nowych). Każda z czterech uwag ma **własny RED na niezmienionej produkcji**
+(faza `red-5`: `build-ui` exit 0, `run-sonos-player-ui` exit 1 — to **nie** był
+błąd kompilacji) i **własny GREEN** po minimalnej poprawce (faza `green-1`, exit 0).
+
+| Uwaga | RED na 6e71beb (zmierzony) | GREEN po poprawce (zmierzony) |
+|---|---|---|
+| S1 świeża `CanSeek` | przy `CanSeek=false` ze świeżego odczytu **tego samego** `itemId` poszedł 1 × `SeekRelativeAsync` (`GRUPA-SALON`, 138000, `UTWOR-1`) | 0 wysłań, odmowa nazwana, **bez dodatkowego GET-a** dla samej walidacji |
+| S2 rezerwacja/busy | ślad `S2: wstrzymany przedskokowy GET, busy=False` — bramka otwarta w czasie GET-a, głośność z **późniejszego callbacka Dispatchera** nakładała się na skok | ślad `busy=True`, brak nakładania, bramka zwolniona po próbie, **cudzy bilet nie zwalniany** |
+| #3 komunikat przy błędzie odczytu | wyjątek przedskokowego odczytu **uciekał** z zadania jako porzucony fault (`TimeoutException`), użytkownik nie słyszał nic | komunikat mówi wprost, że **przed POST-em nie udało się odczytać i skok nie został wysłany**; osobny komunikat dla utraty odpowiedzi **po** wysłaniu; 0 wysłań w wariancie przedskokowym; brak porzuconego fault; treść wyjątku (z podstawionym „tokenem”) **nie** trafia do wypowiedzi |
+| #2 powrót fokusu | modal procentowy otwarty z `PlayerSeekPercentButton` oddawał fokus na `PlayerSeekTimeButton` | oba tryby × (zatwierdzenie, anulowanie) wracają na **swój** przycisk; skrót z `PlayPause` zostaje na `PlayerPlayPauseButton` |
+
+**Granice tego pomiaru — czego NIE zmierzono:**
+
+- **Bez NVDA i bez mowy.** Mierzone jest ujście `Announce`, nie odsłuch czytnika.
+- **Bez fizycznych klawiszy i bez UIA z zewnątrz**: przyciski przez chroniony
+  `Button.OnClick`, skróty przez produkcyjne `ExecuteCommand(commandId)`.
+- **Nie zmierzono fizycznego Ctrl+J / Ctrl+Shift+J ani klawisza Escape** —
+  anulowanie to `DialogResult=false` z odpowiadacza okna, nie Escape.
+- **Bez sieci Sonos, konta, DPAPI, presetów i audio** — granicą jest atrapa
+  backendu wpięta przez `SonosBackendOverride`.
+- Nie zmierzono NVDA IPC jako drugiego wejścia przy otwartym modalu ani
+  `ApplySonosAccountBinding` na wejściu skoku (poza tymi czterema uwagami).
+- Reszta B4 (`digit percent`, `seekCustom`, skip, głośność, wyciszenie) **poza
+  zakresem**; głośność użyta wyłącznie jako istniejący konkurent w pomiarze S2.
+- **Pełny `Windows/build.ps1` nie był uruchomiony** — to nie jest finalny odbiór
+  wydania. Regresja objęła 7 pozostałych zestawów Sonos UI i **pełny Core** (GREEN).
+
+
 To odbiór wyświetlania, Play/Pause, czasu i **skoku do pozycji**, nie całego
 odtwarzacza. Przyciski „Skocz do czasu…” i „Skocz do procentu…” wcześniej
 odmawiały mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
