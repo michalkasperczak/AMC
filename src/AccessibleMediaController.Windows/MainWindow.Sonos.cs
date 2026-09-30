@@ -959,16 +959,45 @@ public partial class MainWindow
                         CommandIds.SeekForward30 => 30,
                         CommandIds.SeekBackward60 => -60,
                         CommandIds.SeekForward60 => 60,
+                        // CUSTOM bierze dlugosc Z KONFIGURACJI przez TA SAMA
+                        // regule normalizacji, ktorej uzywa CommandRouter dla
+                        // pozostalych sesji - inaczej opcja w ustawieniach
+                        // klamalaby akurat w Sonosie. Zadnego nowego klawisza.
+                        CommandIds.SeekBackwardCustom =>
+                            -PlaybackSeekRules.NormalizeCustomSeekSeconds(_state.Settings.CustomSeekSeconds),
+                        CommandIds.SeekForwardCustom =>
+                            PlaybackSeekRules.NormalizeCustomSeekSeconds(_state.Settings.CustomSeekSeconds),
                         _ => 0
                     };
-                    if (seconds == 0)
+
+                    int deltaMillis;
+                    var seekItemId = beforeItemId;
+                    if (seconds != 0)
+                    {
+                        // WZGLEDNE przewijanie nie potrzebuje naszej pozycji:
+                        // delte liczy sam Sonos od swojego biezacego miejsca.
+                        deltaMillis = seconds * 1000;
+                    }
+                    else if (CommandIds.TryParseSeekPercent(commandId, out var percent))
+                    {
+                        // CYFRY to cel BEZWZGLEDNY, wiec bez naszej pozycji i
+                        // dlugosci nie ma z czego policzyc delty. Odczyt MUSI byc
+                        // swiezy: stan z wejscia do odtwarzacza moze byc stary o
+                        // cale minuty, a wtedy skok trafilby w inne miejsce.
+                        var resolved = await ResolveSonosPercentSeekAsync(
+                            percent, group, ticket).ConfigureAwait(true);
+                        if (resolved is not { } plan) return;
+                        deltaMillis = plan.DeltaMillis;
+                        seekItemId = plan.ItemId;
+                    }
+                    else
                     {
                         Announce("Ten rodzaj przewijania nie jest obsługiwany w sesji Sonos");
                         return;
                     }
 
                     result = await backend.SeekRelativeAsync(
-                        group.Id, seconds * 1000, beforeItemId, token).ConfigureAwait(true);
+                        group.Id, deltaMillis, seekItemId, token).ConfigureAwait(true);
                     break;
                 }
             }
@@ -1003,6 +1032,84 @@ public partial class MainWindow
         {
             ReleaseSonosCommandGate(gateTicket);
         }
+    }
+
+    /// <summary>
+    /// Zamiana cyfry (procentu 0-90) na DELTE dla istniejacego
+    /// <c>SeekRelativeAsync</c>. Zwraca <c>null</c>, gdy skok NIE ma sie odbyc -
+    /// i wtedy odmowa jest juz powiedziana (albo swiadomie przemilczana, gdy cel
+    /// zostal porzucony). Te same bezpieczniki co na drodze dialogu procentowego:
+    /// SWIEZY odczyt, TEN SAM material, SWIEZA bramka CanSeek, zero ponowien.
+    /// </summary>
+    private async Task<(int DeltaMillis, string? ItemId)?> ResolveSonosPercentSeekAsync(
+        int percent, SonosGroup group, long ticket)
+    {
+        var itemBefore = _sonosPlayback?.ItemId;
+        bool readOk;
+        try
+        {
+            readOk = await ReadSonosGroupStateAsync().ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Nasze wlasne zamykanie albo zmiana celu: CISZA, zeby odmowa nie
+            // odezwala sie w cudzym widoku.
+            return null;
+        }
+        catch (Exception exception)
+        {
+            LogSonosSeekFailure("odczyt przed skokiem procentowym", exception);
+            if (_isClosing || ticket != _sonosTargetTicket) return null;
+            Announce("Skok pominięty: nie udało się odczytać aktualnej pozycji Sonos, "
+                + "skok nie został wysłany");
+            return null;
+        }
+
+        if (_isClosing || ticket != _sonosTargetTicket) return null;
+        if (!readOk)
+        {
+            Announce("Skok pominięty: nie udało się odczytać aktualnej pozycji Sonos, "
+                + "skok nie został wysłany");
+            return null;
+        }
+
+        // GRUPA mogla sie zmienic w czasie odczytu: bezwzgledny cel policzony dla
+        // salonu nie moze poleciec do kuchni.
+        if (SonosActiveGroup is not { } groupNow
+            || !string.Equals(groupNow.Id, group.Id, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var itemNow = _sonosPlayback?.ItemId;
+        if (!string.Equals(itemBefore, itemNow, StringComparison.Ordinal))
+        {
+            Announce("Skok pominięty: Sonos zmienił odtwarzany materiał");
+            return null;
+        }
+
+        // SWIEZA bramka: Sonos moze przestac zglaszac CanSeek miedzy wejsciem a
+        // tym odczytem, a rownosc ItemId tego nie wychwytuje.
+        if (!EvaluateSonosSeekGate()) return null;
+
+        var resolved = SonosPlayerPosition.Resolve(
+            _sonosPlayback, _sonosMetadata?.CurrentTrack?.DurationMillis, _sonosReadUtc, DateTime.UtcNow);
+        if (resolved.Position is not { } from)
+        {
+            Announce("Skok pominięty: Sonos nie podał aktualnej pozycji");
+            return null;
+        }
+        if (resolved.Duration is not { } total || total <= TimeSpan.Zero)
+        {
+            // Bez dlugosci procent nie ma do czego sie odniesc - i na pewno nie do
+            // zera z sesji demonstracyjnej.
+            Announce("Skok pominięty: Sonos nie podał długości materiału, "
+                + "więc nie ma od czego liczyć procentu");
+            return null;
+        }
+
+        var target = TimeSpan.FromTicks((long)Math.Round(total.Ticks * (percent / 100d)));
+        return ((int)Math.Round((target - from).TotalMilliseconds), itemNow);
     }
 
     /// <summary>
