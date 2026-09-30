@@ -5,7 +5,7 @@
 /// Staly wymog Michala: instalator dziala BEZ pobierania czegokolwiek i bez
 /// systemowej strony "You must install .NET Desktop Runtime". Skrypt budujacy
 /// publikuje wersje samowystarczalna (--self-contained true), wiec runtime jest
-/// W PLIKU programu - odziedziczony po EdSharpie downloader runtime w sekcji
+/// W PLIKU programu - pozostawiony downloader runtime w sekcji
 /// [Code] instalatora byl wiec i zbedny, i szkodliwy (siec w trakcie instalacji
 /// oraz okna bledu, ktorych czytnik ekranu prawie nie tlumaczy).
 ///
