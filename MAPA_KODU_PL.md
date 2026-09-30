@@ -212,6 +212,42 @@ Zapisowy odpowiednik odczytu z F1 — jeden `POST` na jedno wywołanie, przez
   `--sonos-favorite-load`, wpięte też w pełną tabelę Core. Własny
   `HttpMessageHandler`, bez sieci, konta i poświadczeń.
 
+## Sonos: URUCHOMIENIE ulubionego z okna (F3c, UI na istniejącym oknie F2)
+
+Bez nowego skrótu, bez nowej pozycji w menu, bez presetów i bez trwałości
+(to F3d). `Ctrl+U` otwiera **to samo** okno podglądu ulubionych, które
+w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
+
+- `Windows/SonosFavoritesWindow.xaml.cs` — jedno okno, DWA warianty:
+  `_loadFavorite is null` to **czysty podgląd** (przycisk `Collapsed`, `Enter`
+  nic nie zleca, pomocniczy opis listy mówi wprost, że nic tu nie uruchamia),
+  a wariant z uruchamianiem ma przycisk **widoczny**. Brak grupy lub pusta lista
+  **nie usuwa** przycisku, tylko go **wyłącza** (`IsEnabled=false`) i dokłada
+  powód w `HelpText` — martwy przycisk bez wyjaśnienia byłby gorszy od odmowy.
+  Zlecenie niesie NIEZMIENNĄ tożsamość tej instancji okna i jej token życia;
+  zamknięcie okna anuluje **wyłącznie własne** oczekiwanie, nie całą sesję.
+- `Windows/MainWindow.SonosFavorites.cs` — `LoadSonosFavoriteAsync` sprawdza
+  granice **przed** działaniem i **ponownie po każdym await**: żywy zlecający,
+  granica konta (po rzeczywistej zmianie konta stary identyfikator ulubionego
+  **nie** idzie przez nowe konto), ten sam bilet celu, dom, grupa i sesja,
+  oraz bramka jednego polecenia Sonos. Każda odmowa kończy drogę **bez POST**.
+  Spóźniony wynik trafia **tylko** do tej instancji okna albo nikogo:
+  w oknie NIEAKTYWNYM odświeża status do odczytania, ale **nie ogłasza** go
+  i **nie** przejmuje obcego ogniska.
+- Akcja kolejki jest JAWNA: `INSERT` + `playOnCompletion: true`, **bez**
+  `playModes`. Wg oficjalnego `queue-action` `INSERT` dopisuje materiał i
+  przesuwa głowicę na pierwszą wstawioną pozycję — to **zamiar**, nie pomiar
+  dźwięku. „Przyjęto polecenie uruchomienia” nie obiecuje potwierdzonej
+  tożsamości tego, co gra.
+- Testy: `tests/.../SonosFavoritePlayUiTests.cs` (37 sprawdzeń, CLI
+  `--sonos-favorite-play-ui`) oraz `tests/.../SonosFavoritePlayRealOwnerTests.cs`
+  (CLI `--sonos-favorite-play-real-owner`) — ten drugi mierzy **całą** drogę
+  produkcyjną: `MainWindow` → istniejące zaplecze konta → `SonosAccountOwner` →
+  koordynator → `SonosControlApiClient` → syntetyczny `HttpMessageHandler`
+  (transport podstawiany TEST-ONLY refleksją, **bez** nowej publicznej fabryki
+  w produkcji). Oba wpięte w pełną tabelę Windows. Zero sieci, poświadczeń,
+  DPAPI i dźwięku.
+
 ## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
 
 Sesja Sonos wzorowana na WiiM: **urządzenie autonomiczne**, bez własnego

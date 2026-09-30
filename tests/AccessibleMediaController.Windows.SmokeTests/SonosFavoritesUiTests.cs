@@ -176,9 +176,18 @@ internal static class SonosFavoritesUiTests
         {
             throw new Exception("Opis okna nie mówi jasno, że to podgląd: " + intro);
         }
-        // ZADNEJ drogi uruchomienia w F2.
-        if (window.GetType().GetProperty("OffersPlaybackForTests", BindingFlags.Static | BindingFlags.NonPublic)
-                ?.GetValue(null) is true)
+        // ZADNEJ drogi uruchomienia w F2: wlasnosc jest INSTANCYJNA (kiedys byla
+        // statyczna), wiec czytamy JA z TEJ instancji i BRAK wlasnosci traktujemy
+        // jako blad pomiaru, nie jako cichy sukces.
+        var offers = window.GetType().GetProperty("OffersPlaybackForTests", Instance)
+            ?? throw new Exception("Okno ulubionych nie ma już wlasnosci OffersPlaybackForTests - "
+                + "ten pomiar przestal cokolwiek sprawdzac.");
+        if (offers.GetValue(window) is not bool declared)
+        {
+            throw new Exception("OffersPlaybackForTests nie oddaje wartosci logicznej.");
+        }
+
+        if (declared)
         {
             throw new Exception("Okno podglądu deklaruje drogę odtwarzania w F2.");
         }

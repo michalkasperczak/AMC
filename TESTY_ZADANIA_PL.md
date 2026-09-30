@@ -118,6 +118,57 @@ bramki logowania i magazynu w pamięci):
 Czego mierzone zachowanie **nie** obiecuje: HTTP 200 to **przyjęcie** zlecenia,
 nie dowód, że muzyka zagrała. Odnotowana próba wysłania nie znaczy doręczenia.
 
+## Sonos: uruchamianie ulubionego z okna — F3c, UI (jak sprawdzić ręcznie)
+
+Dotyczy sesji Sonos (Ctrl+8) i **istniejącego** okna podglądu ulubionych
+(`Ctrl+U`, F2). F3c **nie** dodaje nowego skrótu ani nowej pozycji w menu:
+w tym samym oknie pojawia się przycisk **Odtwórz**, a `Enter` na wierszu
+listy robi to samo. Presety, ustawienia i trwałość to F3d — tutaj ich nie ma.
+
+1. Wejdź w sesję Sonos, ustaw aktywną grupę, otwórz `Ctrl+U`. Wybierz pozycję i
+   naciśnij `Enter` **albo** użyj przycisku **Odtwórz** — usłyszysz, że
+   polecenie uruchomienia zostało **przyjęte** wraz z nazwą materiału.
+2. **Bez aktywnej grupy** przycisk **Odtwórz** zostaje widoczny, ale jest
+   **wyłączony** — nazwa i powód („najpierw wybierz grupę”) dają się przeczytać.
+   `Enter` na liście **odmawia** wprost i nic nie idzie do Sonosa.
+3. **Podgląd bez możliwości uruchamiania:** jeśli bieżąca sesja nie umie
+   ładować ulubionych, okno działa jak dotąd — wyłącznie podgląd, `Enter` nic
+   nie zleca, a przycisk **Odtwórz** jest ukryty.
+4. Pusta lista ulubionych: okno mówi wprost, że lista jest pusta, a `Enter` nic
+   nie uruchamia.
+5. Dwa razy szybko `Enter` (albo przytrzymany klawisz): druga próba **odmawia**
+   wprost, bo poprzednie polecenie jeszcze trwa — **nie** powstaje drugie
+   zlecenie.
+6. Zamknij okno ulubionych **w trakcie** zlecenia: nic nie odzywa się w oknie
+   głównym ani w nowo otwartym oknie, a bieżąca sesja Sonos **dalej działa** —
+   zamknięcie okna anuluje tylko własne oczekiwanie.
+7. Podczas zlecenia przełącz się do innego okna: AMC **nie** odbiera ogniska,
+   a spóźniony wynik nie ogłasza się w nieaktywnym oknie (status można
+   odczytać po powrocie).
+
+Pomiar, bez konta Sonos, sieci, DPAPI i muzyki:
+
+1. `--sonos-favorite-play-ui` — 37 sprawdzeń: prawdziwe okno ulubionych,
+   przycisk i `Enter`, odmowy bez zlecenia, zamknięcie w trakcie, spóźniony
+   wynik i brak kradzieży ogniska.
+2. `--sonos-favorite-play-real-owner` — 3 sprawdzenia **całej** drogi
+   produkcyjnej: `MainWindow` → istniejące zaplecze konta → `SonosAccountOwner`
+   → koordynator → klient Control API → syntetyczny `HttpMessageHandler`.
+   Dwie **jednakowe** etykiety o różnych identyfikatorach: `Enter` na drugiej
+   wysyła **jeden** `POST` na adres aktywnej grupy z `favoriteId` drugiej
+   pozycji, `action: INSERT`, `playOnCompletion: true` i **bez** `playModes`;
+   zmiana konta A→B **prawdziwą publiczną drogą** logowania przy otwartym oknie
+   nie przepuszcza starego ulubionego na bilecie konta B i nie udaje sukcesu;
+   samo otwarcie, strzałki i `Tab` nie ruszają transportu.
+3. Pełna tabela Windows (bez argumentów) — pozycje „Sonos: uruchamianie
+   ulubionego z okna…” i „Sonos: uruchamianie ulubionego realną drogą
+   właściciela konta i HTTP”.
+
+Czego mierzone zachowanie **nie** obiecuje: „przyjęto polecenie uruchomienia”
+to **przyjęcie zlecenia**, nie potwierdzenie, że gra właśnie ten tytuł.
+`INSERT` wstawia materiał i przesuwa głowicę na pierwszą wstawioną pozycję —
+to **zamiar** z dokumentacji Sonosa, nie pomiar dźwięku.
+
 ## Sonos: wybór domu (household) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i
