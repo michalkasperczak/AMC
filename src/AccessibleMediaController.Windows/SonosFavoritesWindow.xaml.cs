@@ -344,15 +344,41 @@ public partial class SonosFavoritesWindow : Window
     private void Announce(string message)
     {
         if (_closed) return;
+        AnnouncementsForTests++;
         StatusText.Announce(message);
     }
 
     /// <summary>
-    /// KOMUNIKAT od WLASCICIELA (okna glownego), ktory zna kontrakt polecenia.
-    /// Okno nie tlumaczy statusow HTTP, tylko je pokazuje i oglasza ISTNIEJACYM
-    /// mechanizmem. Po zamknieciu NIC nie mowi.
+    /// Ile razy okno naprawde OGLOSILO (notyfikacja czytnika), a nie tylko
+    /// odswiezylo widoczny tekst statusu. Rozroznienie jest tu cala trescia
+    /// zachowania przy nieaktywnym oknie.
     /// </summary>
-    internal void AnnounceForOwner(string message) => Announce(message);
+    internal int AnnouncementsForTests { get; private set; }
+
+    /// <summary>
+    /// KOMUNIKAT od WLASCICIELA (okna glownego), ktory zna kontrakt polecenia.
+    /// Okno nie tlumaczy statusow HTTP, tylko je pokazuje.
+    ///
+    /// ROZROZNIENIE, ktore wynika z POMIARU: gdy TEN modal nadal zyje, ale NIE
+    /// JEST AKTYWNY (uzytkownik pracuje w innym oknie), spozniony wynik NIE MA
+    /// prawa przerwac czytnikowi pracy w tamtym oknie - programowa notyfikacja
+    /// UIA leci do czytnika niezaleznie od tego, ktore okno jest na wierzchu.
+    /// Odswiezamy wiec WYLACZNIE widoczny tekst, zeby uzytkownik, ktory TU
+    /// wroci, przeczytal AKTUALNY stan zamiast nieaktualnego "Wysyłam...".
+    /// To jest mozliwosc ODCZYTU biezacego stanu, a nie ogloszenie.
+    /// Po zamknieciu okna nie robimy nawet tego.
+    /// </summary>
+    internal void AnnounceForOwner(string message)
+    {
+        if (_closed) return;
+        if (!IsActive)
+        {
+            StatusText.Text = message;
+            return;
+        }
+
+        Announce(message);
+    }
 
     /// <summary>
     /// Czy TA instancja jest nadal ZYWYM, WIDOCZNYM adresatem statusu. Po
