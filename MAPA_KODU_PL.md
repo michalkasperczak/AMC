@@ -1,5 +1,36 @@
 # AMC — mapa kodu
 
+## Sonos: ODCZYT ULUBIONYCH domu w kliencie Core (F1a)
+
+Tylko **odczyt** listy ulubionych. Bez konta, UI, presetów, skrótów, zapisu
+(`loadFavorite`), subskrypcji, cache i pollingu — te należą do osobnych etapów.
+
+- `Core/Sonos/SonosFavoritesContract.cs` — niemutowalny kontrakt:
+  `SonosFavorite` (id, name wymagane i niepuste; description i service
+  opcjonalne/nullable), `SonosFavoriteService`, `SonosFavoritesList`
+  (**kopia defensywna** pozycji + literalny `HouseholdId` z zapytania),
+  `SonosFavoritesOutcome`, wąska granica `ISonosFavoritesApi`.
+  Limity z definicji OpenAPI (`SonosFavoritesLimits`): version 36, items 70,
+  id 36, name 100, description 256, service.name 31, service.id 10.
+  **`imageUrl` jest deprecated i NIE jest czytany**; nieznane pola ignorowane.
+  Definicja nie podaje rodzaju materiału — AMC go **nie zgaduje**.
+- `Core/Sonos/SonosControlApiClient.Favorites.cs` — `GetFavoritesAsync`
+  (`GET /households/{householdId}/favorites`) na **tym samym** transporcie co
+  odczyt domów i grup: prywatne `ReadAsync`/`Parse`/`Array`/`Text`, 256 KiB,
+  MaxDepth 16, odrzucanie duplikatów pól JSON, bramka adresu końcowego. Żadnego
+  nowego `HttpClient` i żadnej liberalizacji walidatorów.
+- **Polityka AMC, nie twierdzenie o API**: `items:[]` to SUKCES, natomiast brak
+  `items`, `items:null`, zły typ, przekroczony limit i **powtórzony `id`** to
+  `InvalidResponse` CAŁEJ odpowiedzi — bez listy częściowej. Dwa różne `id`
+  o tej samej nazwie to **dwie** pozycje (nazwa nie jest kluczem). Wartości
+  źródłowe zachowane bez `trim`, obcinania i zmiany wielkości liter.
+- `ToString` modeli i wyniku podaje **tylko** typ, status i liczniki; nigdy
+  treści odpowiedzi, identyfikatorów, nazw ani tokenu. Komunikaty idą ze
+  wspólnego `SonosControlApiMessages` — bez surowego `globalError.reason`.
+- Testy: `tests/.../SonosFavoritesTests.cs`, CLI `--sonos-favorites`, wpięte
+  też w pełną tabelę Core. Mierzone na rzeczywistym kliencie z własnym
+  `HttpMessageHandler`, bez sieci i bez konta.
+
 ## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
 
 Sesja Sonos wzorowana na WiiM: **urządzenie autonomiczne**, bez własnego

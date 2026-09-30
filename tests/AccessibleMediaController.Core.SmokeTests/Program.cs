@@ -87,6 +87,11 @@ if (args.Length == 1 && args[0] == "--sonos-group-account")
     try { SonosGroupAccountOperationsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-favorites")
+{
+    try { SonosFavoritesTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-session-presentation")
 {
     try { SonosSessionPresentationTests.Run(); return 0; }
@@ -116,6 +121,7 @@ var tests = new (string Name, Action Test)[]
     ("Autoryzowane operacje grupy Sonos przez konto", SonosGroupAccountOperationsTests.Run),
     ("Sesja Sonos: pamiec wyboru, lista grup, odtwarzacz, bramka i werdykt",
         SonosSessionPresentationTests.Run),
+    ("Odczyt ulubionych Sonos w kliencie Core", SonosFavoritesTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),
