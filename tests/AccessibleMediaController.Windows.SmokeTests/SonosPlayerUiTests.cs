@@ -57,6 +57,7 @@ internal static class SonosPlayerUiTests
                 checks += MeasureTimeCommandsUseSonosRead();
                 checks += MeasureMissingTimeIsNotZero();
                 checks += MeasureTimeOverOneDayDoesNotWrap();
+                checks += MeasureSeekDialogsOpenForSonosGroup();
             }
             catch (Exception exception)
             {
@@ -338,6 +339,82 @@ internal static class SonosPlayerUiTests
         return 5;
     }
 
+    // ===== D7: RZECZYWISTE przyciski skoku otwieraja ISTNIEJACY dialog =====
+
+    /// <summary>
+    /// POTWIERDZONA wada, nie hipoteza: widoczne i wlaczone przyciski
+    /// <c>PlayerSeekTimeButton</c> / <c>PlayerSeekPercentButton</c> ida droga
+    /// XAML -> <c>SeekToTime_Click</c> -> <c>ExecuteCommand(SeekToTime)</c>, a te
+    /// polecenia NIE sa w <see cref="SonosCommandGating.IsSeek"/>, wiec w sesji
+    /// Sonos wpadaja w ogolny <c>ShowSeekPositionDialog</c> i czytaja
+    /// <c>Duration</c> wiersza <c>MediaItemKind.Device</c>, ktory jest zerowy.
+    /// Skutek: ZAWSZE odmowa "czas trwania jest nieznany", chociaz odczyt grupy
+    /// zna dlugosc 3:00. Ten pomiar klika PRAWDZIWY przycisk (chroniony
+    /// <c>Button.OnClick</c>, nie Spacja - Spacje przejmuje globalny PlayPause) i
+    /// wymaga ISTNIEJACEGO okna <see cref="SeekPositionWindow"/>. Anulowanie ma
+    /// dac ZERO POST.
+    /// </summary>
+    private static int MeasureSeekDialogsOpenForSonosGroup()
+    {
+        using var harness = Harness.Create();
+        harness.Backend.NextPlaybackState = SonosPlaybackState.Paused;
+        harness.OpenPlayerForGroup("GRUPA-SALON");
+
+        var checks = 0;
+        foreach (var (buttonName, expectedTitle) in new[]
+                 {
+                     ("PlayerSeekTimeButton", "Skocz do czasu"),
+                     ("PlayerSeekPercentButton", "Skocz do procentu")
+                 })
+        {
+            var button = (Button)harness.Window.FindName(buttonName)!;
+            if (button.Visibility != Visibility.Visible || !button.IsEnabled)
+            {
+                throw new Exception(
+                    $"Przycisk {buttonName} nie jest widoczny i wlaczony przy ODCZYTANEJ dlugosci 3:00.");
+            }
+            checks++;
+
+            // AUTO-ANULOWANIE uzbrojone PRZED kliknieciem: modal nie ma prawa
+            // zatrzymac pomiaru, a cleanup zamyka okno takze przy porazce.
+            using var responder = SeekDialogResponder.ArmCancel();
+            var saidBefore = harness.Announcements.Count;
+            harness.ClickButton(button);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+
+            if (responder.Seen is null)
+            {
+                var said = string.Join(" | ", harness.Announcements.Skip(saidBefore));
+                throw new Exception(
+                    $"Klikniecie rzeczywistego {buttonName} w sesji Sonos NIE otworzylo okna skoku; "
+                    + $"powiedziano \"{said}\".");
+            }
+            if (!string.Equals(responder.Seen.Title, expectedTitle, StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"{buttonName} otworzylo okno \"{responder.Seen.Title}\" zamiast \"{expectedTitle}\".");
+            }
+            checks++;
+
+            // Okno czasu musi dostac ODCZYTANA dlugosc grupy (3:00), nie zero z
+            // wiersza Device i nie dlugosc DemoMediaSession.
+            if (buttonName == "PlayerSeekTimeButton"
+                && !responder.Instructions.Contains("3:00", StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"Okno skoku do czasu nie dostalo odczytanej dlugosci 3:00; instrukcja: \"{responder.Instructions}\".");
+            }
+            checks++;
+        }
+
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception(
+                $"ANULOWANY skok wyslal {harness.Backend.Commands.Count} polecen do Sonosa zamiast zera.");
+        }
+        return checks + 1;
+    }
+
     // ==================== aparatura ====================
 
     /// <summary>
@@ -470,6 +547,26 @@ internal static class SonosPlayerUiTests
                 types: [typeof(object), typeof(RoutedEventArgs)], modifiers: null)
                 ?? throw new Exception("Nie ma prawdziwego handlera PlayerPlayPause_Click.");
             Invoke(method, [PlayPauseButton, new RoutedEventArgs()]);
+        }
+
+        /// <summary>
+        /// RZECZYWISTE klikniecie przycisku jego WLASNA droga zdarzenia Click z
+        /// XAML - chroniony <c>Button.OnClick</c>, nie helper i nie Spacja.
+        /// Fizyczna Spacja na tych przyciskach jest przejeta przez globalny
+        /// PlayPause, wiec NIE jest kliknieciem skoku.
+        /// </summary>
+        internal void ClickButton(Button button)
+        {
+            var onClick = typeof(Button).GetMethod("OnClick", Instance, binder: null, types: [], modifiers: null)
+                ?? throw new Exception("Nie ma chronionego Button.OnClick.");
+            try
+            {
+                onClick.Invoke(button, []);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw exception.InnerException;
+            }
         }
 
         /// <summary>
@@ -638,6 +735,76 @@ internal static class SonosPlayerUiTests
             }
             catch (IOException)
             {
+            }
+        }
+    }
+
+    /// <summary>
+    /// AUTO-ODPOWIEDZ na modalny <see cref="SeekPositionWindow"/>: przechwytuje
+    /// KAZDE nowe okno tej klasy przez <see cref="EventManager"/> na zdarzeniu
+    /// Loaded, zapisuje RZECZYWISTE okno i albo je anuluje, albo wpisuje wartosc
+    /// i zatwierdza PRAWDZIWYM przyciskiem. Uzbrajamy to PRZED kliknieciem, a
+    /// <see cref="Dispose"/> domyka okno takze przy porazce pomiaru - inaczej
+    /// modal zatrzymalby caly watek STA.
+    /// </summary>
+    private sealed class SeekDialogResponder : IDisposable
+    {
+        // JEDNA rejestracja klasowa na cala aparature: EventManager NIE ma
+        // odrejestrowania, wiec kolejne uzbrojenia tylko podmieniaja AKTYWNEGO
+        // odpowiadajacego, a nie mnoza handlerow.
+        private static bool _registered;
+        private static SeekDialogResponder? _active;
+
+        private readonly string? _value;
+
+        private SeekDialogResponder(string? value)
+        {
+            _value = value;
+            if (!_registered)
+            {
+                EventManager.RegisterClassHandler(
+                    typeof(SeekPositionWindow),
+                    FrameworkElement.LoadedEvent,
+                    new RoutedEventHandler(static (sender, args) => _active?.OnLoaded(sender, args)));
+                _registered = true;
+            }
+            if (_active is not null) throw new Exception("Poprzednia odpowiedz na okno skoku nie zostala zwolniona.");
+            _active = this;
+        }
+
+        /// <summary>Uzbraja ANULOWANIE: zero POST po zamknieciu okna.</summary>
+        internal static SeekDialogResponder ArmCancel() => new(null);
+
+        /// <summary>RZECZYWISCIE otwarte okno skoku albo null, gdy zadne nie wyszlo.</summary>
+        internal SeekPositionWindow? Seen { get; private set; }
+
+        /// <summary>Tekst instrukcji okna - stamtad wiemy, jaka DLUGOSC dostalo.</summary>
+        internal string Instructions { get; private set; } = string.Empty;
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not SeekPositionWindow dialog) return;
+            Seen = dialog;
+            Instructions = (dialog.FindName("InstructionsText") as TextBlock)?.Text ?? string.Empty;
+            if (_value is null)
+            {
+                dialog.DialogResult = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            _active = null;
+            if (Seen is { IsVisible: true } dialog)
+            {
+                try
+                {
+                    dialog.DialogResult = false;
+                }
+                catch (InvalidOperationException)
+                {
+                    dialog.Close();
+                }
             }
         }
     }
