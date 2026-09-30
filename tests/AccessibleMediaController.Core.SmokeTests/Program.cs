@@ -92,6 +92,11 @@ if (args.Length == 1 && args[0] == "--sonos-session-presentation")
     try { SonosSessionPresentationTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--installer-offline")
+{
+    try { InstallerOfflineContractTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 
 var tests = new (string Name, Action Test)[]
 {
@@ -137,6 +142,8 @@ var tests = new (string Name, Action Test)[]
     ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),
     ("Pokaż w folderze dla plików i folderów", ShowInFolderTests.Run),
     ("Suma kontrolna czytana z opisu wydania", ReleaseNotesChecksumTests.Run),
+    ("Instalator nie pobiera ani nie instaluje zewnetrznego .NET",
+        InstallerOfflineContractTests.Run),
     ("Przeskok o czas ustawiony przez użytkownika", CustomSeekLengthTests.Run),
     ("Enter na wyniku wyszukiwania: otwieranie bez Biblioteki", SearchResultEnterBehaviorTests.Run),
     ("Przekazywanie utworów i całości oryginalnemu TIDALowi", TidalDesktopPlaybackTests.Run),
