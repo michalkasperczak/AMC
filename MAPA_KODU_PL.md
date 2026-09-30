@@ -1,5 +1,44 @@
 # AMC — mapa kodu
 
+## Sonos: ODCZYT ULUBIONYCH przez KOORDYNATORA KONTA (F1b)
+
+Jedna nowa metoda koordynatora ponad **istniejącym** torem poświadczeń. Bez UI,
+bez właściciela Windows, bez XAML, bez skrótów, presetów, ustawień, cache,
+pollingu i bez żadnego `POST` — te należą do F2 i etapów dalszych.
+
+- `Core/Sonos/SonosAccountCoordinator.Favorites.cs` (nowy partial) —
+  `ReadFavoritesAsync(ISonosFavoritesApi, string? householdId, CancellationToken)`.
+  **Cienki delegat** nad WSPÓLNYM, już rozstrzygniętym prywatnym
+  `RunGroupReadAsync<SonosFavoritesList>` z `SonosAccountCoordinator.GroupOperations.cs`:
+  bilet pod blokadą, HTTP **poza** blokadą, jedno odnowienie przy znanej minionej
+  ważności, po 401 najwyżej jedno odnowienie i jedno powtórzenie, kontrola
+  ORYGINALNEJ generacji po każdym `await`. **Żadnej kopii** ticket/gate/refresh/
+  retry/generacji i żadnej zmiany wspólnego kodu.
+- Rzeczywisty `SonosControlApiClient` **już implementuje** `ISonosFavoritesApi`
+  (F1a), więc nie ma tu nowego adaptera, `HttpClient` ani konstrukcji klienta.
+- `SonosFavoritesReadResult` — **wyłącznie mapowanie** `SonosGroupReadResult<…>`:
+  `Status` (1:1, w tym `NoAccount` i `Discarded`), `Favorites`, `Renewed`,
+  `Snapshot` **przeniesiona z wyniku** (nie pobierana ponownie po `await`, by
+  starej odpowiedzi nie nadać nowej tożsamości), `Succeeded` = `Success` +
+  obiekt ≠ null, `Discarded`. Każde niepowodzenie i porzucenie ma **brak
+  danych** — stara `Value` nie przechodzi przez wrapper.
+- `SonosFavoritesReadMessages` — stałe PL mówiące o **ULUBIONYCH**, nie
+  odziedziczona „Lista urządzeń”. `Discarded` mówi o zmianie **kontekstu konta**
+  bez orzekania jednej przyczyny (mogło to być nowe logowanie, wylogowanie albo
+  zakończenie pracy właściciela). Zero tokenów, klucza, `householdId`, nazw i
+  identyfikatorów ulubionych oraz surowego `globalError.reason`; `ToString`
+  podaje tylko status, obecność danych i licznik.
+- Walidacja domu zostaje **tam, gdzie była**: klient sprawdza segment ścieżki
+  PRZED HTTP (`SonosHouseholdIdPolicy`) i sam zwraca `InvalidConfiguration`;
+  koordynator nie trimuje, nie podmienia i nie zgaduje domu, a `HouseholdId`
+  wyniku pochodzi literalnie z zapytania.
+- Testy: `tests/.../SonosFavoritesAccountTests.cs`, CLI
+  `--sonos-favorites-account`, wpięte też w pełną tabelę Core. Rzeczywisty
+  koordynator + rzeczywisty klient na własnym `HttpMessageHandler`, atrapa
+  bramki logowania i magazynu w pamięci; **prawdziwe** nowe logowanie przez
+  publiczny tor (bez refleksyjnego ustawiania generacji). Zero sieci, zero
+  konta, zero GUI.
+
 ## Sonos: ODCZYT ULUBIONYCH domu w kliencie Core (F1a)
 
 Tylko **odczyt** listy ulubionych. Bez konta, UI, presetów, skrótów, zapisu
