@@ -1009,7 +1009,41 @@ public partial class MainWindow
             // ponowienia POST - nawet po 401.
             var accepted = result.Status == SonosGroupOperationStatus.Attempted
                 && result.Outcome?.Status == SonosControlApiStatus.Success;
-            var readOk = await ReadSonosGroupStateAsync().ConfigureAwait(true);
+            // WYJATEK transportu w TYM odczycie MUSI byc nazwany: wczesniej await
+            // stal bez wlasnego catch, wiec timeout po wyslaniu polecenia konczyl
+            // sie PORZUCONYM faultem zadania i CISZA (czytnik czytal tylko
+            // automatyczna nazwe okna). Zadnego ponowienia POST ani drugiego
+            // odczytu - tresci wyjatku tez nie powtarzamy, bo moze zawierac adres
+            // i naglowek autoryzacji.
+            bool readOk;
+            try
+            {
+                readOk = await ReadSonosGroupStateAsync().ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                // Nasze wlasne zamykanie albo zmiana celu: CISZA.
+                return;
+            }
+            catch (Exception exception)
+            {
+                LogSonosSeekFailure("odczyt potwierdzajacy polecenie", exception);
+                // CISZA po PORZUCENIU celu: miedzy naszym await a tym miejscem
+                // uzytkownik mogl wyjsc z sesji albo zmienic grupe, a wtedy
+                // komunikat odezwalby sie w CUDZYM widoku.
+                if (_isClosing || ticket != _sonosTargetTicket) return;
+                // OGOLNIE o POLECENIU, bo ten wspolny blok konczy takze skip,
+                // glosnosc i wyciszenie - nie wmawiamy im skoku. Rozroznienie z
+                // kontraktu SonosGroupCommandResult: RequestSent=false to ZERO
+                // prob wyslania, wiec "wyslano" byloby klamstwem; true to tylko
+                // PODJETA PROBA - nie dowod, ze zadanie opuscilo maszyne ani ze
+                // dotarlo do glosnika.
+                Announce(result.RequestSent
+                    ? "Podjęto próbę wykonania polecenia, ale nie udało się odczytać stanu Sonosa, "
+                        + "więc nie ma potwierdzenia jego wyniku"
+                    : "Polecenie nie zostało wysłane, a odczytu stanu Sonosa też nie udało się wykonać");
+                return;
+            }
             if (ticket != _sonosTargetTicket || _isClosing) return;
 
             var verdict = requestedVolume is not null || requestedMute is not null
