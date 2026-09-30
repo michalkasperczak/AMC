@@ -938,8 +938,8 @@ internal static class SonosPlayerUiTests
     /// <summary>
     /// K2: komunikat po utraconym odczycie NIE moze udawac wyslania. Bierzemy
     /// LEGALNY wynik kontraktu <see cref="SonosGroupCommandResult"/> z
-    /// RequestSent=false (dokladnie ten ksztalt, ktory koordynator zwraca przy
-    /// braku konta) i wymagamy, by przelot powiedzial, ze skok NIE poszedl.
+    /// RequestSent=false (Attempted z Outcome.Sent=false, tak jak w wyniku
+    /// walidacji transportu) i wymagamy, by przelot powiedzial, ze skok NIE poszedl.
     /// KONTROLA DODATNIA: przy RequestSent=true wolno powiedziec najwyzej o
     /// PODJETEJ PROBIE bez potwierdzenia - bez obietnicy, ze zadanie opuscilo
     /// maszyne albo dotarlo do glosnika.
@@ -1000,12 +1000,13 @@ internal static class SonosPlayerUiTests
             using var responder = SeekDialogResponder.ArmConfirm("2:30");
             // Unreachable, NIE Success: samo Accepted/200 dowodzi PRZYJECIA, wiec
             // nie nadaje sie na dowod, ze brak wyslania zostal nazwany uczciwie.
-            // Tu proba BYLA (RequestSent=true), a transport nie doszedl do uslugi.
+            // Tu proba BYLA (RequestSent=true i Outcome.Sent=true), ale brak odpowiedzi
+            // nie pozwala rozstrzygnac, czy zadanie dotarlo do uslugi.
             harness.Backend.NextSeekResult = new SonosGroupCommandResult(
                 SonosGroupOperationStatus.Attempted,
                 SonosGroupCommand.SeekRelative,
                 SonosGroupCommandOutcome.FromStatus(
-                    SonosGroupCommand.SeekRelative, SonosControlApiStatus.Unreachable, false),
+                    SonosGroupCommand.SeekRelative, SonosControlApiStatus.Unreachable, true),
                 requestSent: true,
                 renewed: false,
                 SonosAccountSnapshots.Empty);
