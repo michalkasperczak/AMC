@@ -36,9 +36,14 @@ z osobnym kontraktem i osobnym pomiarem.
   sesji Sonos; to samo menu i ta sama paleta co dotąd, **bez** nowego skrótu.
   Granice sprawdzane **przed** I/O i **po każdym** `await` — wzorzec z
   odebranego `MainWindow.SonosHousehold.cs`: konto, bilet/kontekst domu, sesja,
-  `closing`, aktywność okna, inny modal. Jedna bramka `_sonosFavoritesBusy`
+  `closing`, aktywność okna, inny modal. Jedna bramka `_sonosFavoritesInFlight`
   zwalniana **w `finally`** przez właściciela; spóźniony odczyt A **nie**
-  zwalnia trwającego B (`_sonosFavoritesTicket`). Każde jawne otwarcie czyta
+  zwalnia trwającego B (`_sonosFavoritesGateTicket`). Obie te bramki są wpięte w
+  **centralne** `CancelSonosPendingWork` obok bramek polecenia, odświeżania i
+  wyboru domu: wyjście z sesji podnosi `_sonosFavoritesGateTicket` i zeruje
+  `_sonosFavoritesInFlight`, więc porzucony odczyt A **nie blokuje** nowego
+  odczytu B po powrocie do sesji, a spóźnione `finally` A widzi już CUDZY bilet
+  i nie rusza zajętości B. Każde jawne otwarcie czyta
   **świeżą** listę; **zero pollingu**. Odmowa (403/429), timeout i błąd
   **nigdy** nie udają świeżej pustej listy — poprawne `0 items` to dostępny
   pusty stan, nie błąd i nie udawana pozycja. Bez sortowania: kolejność z API.
