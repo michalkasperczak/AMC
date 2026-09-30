@@ -327,6 +327,11 @@ internal static class SonosHouseholdChoiceUiTests
         using var harness = Harness.Create();
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+        // WEJSCIOWY guard produkcyjny wymaga WIDOCZNEGO i AKTYWNEGO wlasciciela,
+        // inaczej polecenie nie ruszy odczytu - a ten pomiar mierzy wlasnie
+        // SPOZNIONY odczyt, wiec musi go NAPRAWDE zaczac.
+        harness.ShowOwnWindow();
+        harness.ForegroundOwn(harness.Window);
         harness.EnterSonosSession();
         harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed spóźnionym odczytem");
 
@@ -389,6 +394,11 @@ internal static class SonosHouseholdChoiceUiTests
         using var harness = Harness.Create();
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+        // WEJSCIOWY guard produkcyjny: bez pokazanego i aktywnego wlasciciela ani
+        // przelot A, ani B nie zaczalby odczytu, wiec pomiar bramki nie mialby czego
+        // mierzyc. Fixture spelnia warunek NAPRAWDE, nie flaga.
+        harness.ShowOwnWindow();
+        harness.ForegroundOwn(harness.Window);
         harness.EnterSonosSession();
         harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed porzuconym wyborem");
 
@@ -567,7 +577,10 @@ internal static class SonosHouseholdChoiceUiTests
     ///     powstaje, licznik Created nie rosnie, fokus zostaje tam, gdzie byl.
     /// (c) INNY RZECZYWISTY modal AMC (wlasne OwnedWindow) jest otwarty w chwili
     ///     spoznionej odpowiedzi: wybor domu go NIE przykrywa.
-    /// (d) Niewidoczny/nieaktywny wlasciciel: odmowa, bez okna bez wlasciciela.
+    /// (d) Niewidoczny wlasciciel: odmowa JUZ NA WEJSCIU - zero GET, zero okna
+    ///     bez wlasciciela.
+    /// (e) WIDOCZNY, ale NIEAKTYWNY wlasciciel: to samo na WEJSCIU - licznik
+    ///     odczytow domow nie rusza sie, fokus zostaje u innego okna.
     /// </summary>
     private static int MeasureLateChoiceNeverStealsForeignFocus()
     {
@@ -731,7 +744,7 @@ internal static class SonosHouseholdChoiceUiTests
             }
         }
 
-        // (d) NIEPOKAZANY wlasciciel: odmowa, a nie okno bez wlasciciela.
+        // (d) NIEPOKAZANY wlasciciel: odmowa PRZED odczytem, a nie okno bez wlasciciela.
         using (var harness = Harness.Create())
         {
             harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
@@ -743,11 +756,32 @@ internal static class SonosHouseholdChoiceUiTests
                 throw new Exception("Kontrola pomiaru: okno główne miało zostać niepokazane.");
             }
 
-            var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: null, showOwner: false);
-            if (seen.Seen != 0 || seen.CreatedDelta != 0)
+            // WEJSCIOWY guard odmawia ZANIM ruszy siec, wiec NIE MA czego wstrzymywac
+            // barierą odczytu - mierzymy licznik GET, ktory NIE MA prawa wzrosnac.
+            var readsBefore = harness.Backend.HouseholdReads;
+            var createdBefore = harness.Window.SonosHouseholdWindowsCreatedForTests;
+            harness.Window.PresentSonosHouseholdOverrideForTests = _ =>
+                throw new Exception("Niepokazane okno główne pokazało modal wyboru domu.");
+            try
+            {
+                var operation = harness.StartChoice();
+                harness.Pump(operation);
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            }
+            finally
+            {
+                harness.Window.PresentSonosHouseholdOverrideForTests = null;
+            }
+
+            if (harness.Backend.HouseholdReads != readsBefore)
             {
                 throw new Exception(
-                    "Niepokazane okno główne i tak pokazało modal wyboru domu bez właściciela.");
+                    $"Niepokazane okno główne i tak zaczęło odczyt domów (odczyty {readsBefore} -> "
+                    + $"{harness.Backend.HouseholdReads}).");
+            }
+            if (harness.Window.SonosHouseholdWindowsCreatedForTests != createdBefore)
+            {
+                throw new Exception("Odmowa przy niepokazanym oknie podniosła licznik utworzonych okien.");
             }
             if (harness.Window.SonosHouseholdChoiceInFlightForTests)
             {
@@ -761,7 +795,84 @@ internal static class SonosHouseholdChoiceUiTests
                     "Odmowa pokazania nie powiedziała użytkownikowi NIC: "
                     + string.Join(" | ", harness.Announcements));
             }
-            checks += 3;
+            checks += 4;
+        }
+
+        // (e) WIDOCZNY, ale NIEAKTYWNY wlasciciel na WEJSCIU: zero GET.
+        using (var harness = Harness.Create())
+        {
+            harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
+            harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
+            harness.ShowOwnWindow();
+            harness.ForegroundOwn(harness.Window);
+            harness.EnterSonosSession();
+            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed nieaktywnym właścicielem");
+
+            Window? elsewhere = null;
+            try
+            {
+                // WLASNE, NIEPOWIAZANE okno bierze pierwszy plan PRZED poleceniem:
+                // okno glowne zostaje WIDOCZNE, ale przestaje byc aktywne.
+                elsewhere = new Window
+                {
+                    Title = "AMC pomiar: nieaktywny właściciel",
+                    Width = 380,
+                    Height = 200,
+                    ShowInTaskbar = false,
+                    Content = new TextBox { Text = "Kontrola wejścia: dane syntetyczne" }
+                };
+                elsewhere.Show();
+                harness.ForegroundOwn(elsewhere);
+                harness.PumpUntil(() => elsewhere.IsActive && !harness.Window.IsActive,
+                    "kontrola wejścia nie stała się aktywna");
+                if (!harness.Window.IsVisible)
+                {
+                    throw new Exception("Kontrola pomiaru: okno główne miało zostać WIDOCZNE.");
+                }
+
+                var readsBefore = harness.Backend.HouseholdReads;
+                var createdBefore = harness.Window.SonosHouseholdWindowsCreatedForTests;
+                harness.Window.PresentSonosHouseholdOverrideForTests = _ =>
+                    throw new Exception("Nieaktywny właściciel pokazał modal wyboru domu.");
+                try
+                {
+                    var operation = harness.StartChoice();
+                    harness.Pump(operation);
+                    harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+                }
+                finally
+                {
+                    harness.Window.PresentSonosHouseholdOverrideForTests = null;
+                }
+
+                if (harness.Backend.HouseholdReads != readsBefore)
+                {
+                    throw new Exception(
+                        $"Widoczne, ale NIEAKTYWNE okno główne zaczęło odczyt domów (odczyty {readsBefore} -> "
+                        + $"{harness.Backend.HouseholdReads}).");
+                }
+                if (harness.Window.SonosHouseholdWindowsCreatedForTests != createdBefore)
+                {
+                    throw new Exception("Odmowa przy nieaktywnym właścicielu podniosła licznik utworzonych okien.");
+                }
+                if (harness.Window.SonosHouseholdChoiceInFlightForTests)
+                {
+                    throw new Exception("Odmowa przy nieaktywnym właścicielu zatrzasnęła bramkę wyboru domu.");
+                }
+                if (elsewhere is null || !elsewhere.IsActive || !harness.IsNativeForeground(elsewhere))
+                {
+                    throw new Exception("Odrzucone polecenie wyboru domu odebrało fokus innemu oknu.");
+                }
+                if (harness.Window.SonosSelectedHouseholdId != "DOM-1")
+                {
+                    throw new Exception("Odrzucone polecenie wyboru domu jednak zmieniło dom.");
+                }
+                checks += 5;
+            }
+            finally
+            {
+                elsewhere?.Close();
+            }
         }
 
         return checks;
@@ -1275,8 +1386,9 @@ internal static class SonosHouseholdChoiceUiTests
             var observation = new DialogObservation();
             var createdBefore = Window.SonosHouseholdWindowsCreatedForTests;
 
-            // showOwner=false mierzy ODMOWE przy NIEPOKAZANYM oknie: fixture nie
-            // ma prawa go wtedy pokazac, bo zatarlby mierzony warunek.
+            // showOwner=false zostaje dla pomiaru z NIEPOKAZANYM oknem; od czasu
+            // wejsciowego guardu przypadek (d) nie potrzebuje bariery odczytu, bo
+            // odmowa nastepuje PRZED odczytem.
             if (showOwner)
             {
                 ShowOwnWindow();

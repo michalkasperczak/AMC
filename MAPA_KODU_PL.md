@@ -166,9 +166,12 @@ prawdziwe `ShowDialog` i realny pierwszy plan jest osobna sonda (`ParentProbe`).
   Sonos”) — **BEZ skrótu klawiszowego**, więc nic się nie renumeruje. Widoczność
   jak przy odświeżaniu grup: `CommandVisibleInPalette` tylko w sesji Sonos,
   `ChooseSonosHouseholdMenuItem` w menu Plik `Collapsed` poza nią.
-- `MainWindow.SonosHousehold.cs` — `ChooseSonosHouseholdAsync`: guardy PRZED
-  `ShowDialog` (kontekst sesji, powiązanie konta, zamykanie, aktywność, inne
-  otwarte modale) i PONOWNIE po await, na bilecie celu. Świeży
+- `MainWindow.SonosHousehold.cs` — `ChooseSonosHouseholdAsync`: JEDEN warunek
+  prezentacji `CanPresentSonosHouseholdChoice()` sprawdzany w DWÓCH miejscach tej
+  samej metody — na WEJŚCIU, PRZED pierwszym `EnsureSonosBackend` /
+  `ApplySonosAccountBinding` / `ReadHouseholdsAsync` (niewidoczny lub nieaktywny
+  właściciel albo inny widoczny modal AMC = **zero GET**, zero biletu bramki), i
+  PONOWNIE po await, na bilecie celu, PRZED utworzeniem okna. Świeży
   `ReadHouseholdsAsync` z ISTNIEJĄCEGO zaplecza właściciela konta, bez nowego
   HTTP i bez własnego magazynu. **Spóźniony** odczyt (wyjście z sesji, zmiana
   konta, zamknięcie) NIE pokazuje okna ani pól starego domu.
@@ -180,12 +183,14 @@ prawdziwe `ShowDialog` i realny pierwszy plan jest osobna sonda (`ParentProbe`).
   PUŁAPKA: `SwitchSonosHouseholdAsync` sam woła Cancel, więc pracuje na NOWYM
   bilecie — i zwalnia go w SWOIM finally (outer finally ma bilet stary), we
   wszystkich zakończeniach, także przy błędzie grup.
-- L2 — `CanPresentSonosHouseholdChoice()` sprawdzane PONOWNIE po await i PRZED
+- L2 — `CanPresentSonosHouseholdChoice()` sprawdzane w DWÓCH miejscach tej samej
+  metody: na WEJŚCIU (przed pierwszym GET) i PONOWNIE po await, PRZED
   utworzeniem okna: widoczne, aktywne, włączone, nie zamykane okno główne, sesja
   Sonos i **brak innego widocznego** `OwnedWindows`. Odmowa NIE podnosi licznika
-  utworzonych okien, nic nie odtwarza po późniejszym powrocie do aplikacji i
-  mówi, co zrobić. Właściciel modala wiązany PRZED pokazaniem i wyjątku NIE
-  tłumimy — modal bez właściciela to dokładnie ta wada.
+  utworzonych okien, na wejściu NIE podnosi też licznika odczytów domów, nic nie
+  odtwarza po późniejszym powrocie do aplikacji i mówi, co zrobić. Właściciel
+  modala wiązany PRZED pokazaniem i wyjątku NIE tłumimy — modal bez właściciela
+  to dokładnie ta wada.
 - `SonosHouseholdSelectionWindow` — mały dostępny modal na wzór
   `SessionSelectionWindow`, ale **bez** renumeracji poleceń. Zaznaczenie startowe
   po **IDENTYFIKATORZE** bieżącego domu, nie po indeksie; etykiety z nazw

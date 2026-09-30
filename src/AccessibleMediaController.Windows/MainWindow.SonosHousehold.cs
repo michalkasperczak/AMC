@@ -54,10 +54,13 @@ public partial class MainWindow
     /// <summary>
     /// JAWNE polecenie "Wybierz dom Sonos".
     ///
-    /// Kolejnosc jest istotna: granica konta PRZED wzieciem biletu bramki (bo
-    /// <c>ApplySonosAccountBinding</c> sam wola <c>CancelSonosPendingWork</c>,
-    /// ktory bilet PODNOSI), potem swiezy odczyt, potem guardy PRZED Show,
-    /// potem dopiero zapis i odczyt grup.
+    /// Kolejnosc jest istotna: TEN SAM warunek prezentacji
+    /// (<c>CanPresentSonosHouseholdChoice</c>) na WEJSCIU, zeby niewidoczny lub
+    /// nieaktywny wlasciciel nie wyslal w ogole zadnego GET; potem granica konta
+    /// PRZED wzieciem biletu bramki (bo <c>ApplySonosAccountBinding</c> sam wola
+    /// <c>CancelSonosPendingWork</c>, ktory bilet PODNOSI), potem swiezy odczyt,
+    /// potem TEN SAM warunek PONOWNIE po await i PRZED Show (bo w czasie odczytu
+    /// fokus mogl odejsc), potem dopiero zapis i odczyt grup.
     /// </summary>
     internal async Task ChooseSonosHouseholdAsync()
     {
@@ -80,6 +83,19 @@ public partial class MainWindow
             {
             }
 
+            return;
+        }
+
+        // GRANICA FOKUSU NA WEJSCIU, PRZED JAKIMKOLWIEK GET: dokladnie ten sam
+        // warunek co przed pokazaniem okna. Bez tego polecenie wywolane przy
+        // niewidocznym/nieaktywnym oknie glownym albo nad innym widocznym modalem
+        // AMC i tak ruszalo siec (EnsureSonosBackend + ReadHouseholdsAsync), a
+        // odmawialo dopiero po odpowiedzi. Tutaj odmawiamy ZANIM cokolwiek
+        // wyjdzie: zero GET, zero biletu bramki, zero przejmowania fokusu.
+        if (!CanPresentSonosHouseholdChoice())
+        {
+            Announce("Wybór domu Sonos nie został otwarty, bo okno AMC nie jest aktywne. "
+                + "Wróć do AMC i ponów wybór domu");
             return;
         }
 
@@ -296,7 +312,9 @@ public partial class MainWindow
     /// nie zamykane, w sesji Sonos i bez innego WIDOCZNEGO okna potomnego.
     ///
     /// Guard jest PRODUKCYJNY i testy go NIE obchodza - override pokazania siedzi
-    /// za nim, nie przed nim.
+    /// za nim, nie przed nim. Wolany DWA razy z <c>ChooseSonosHouseholdAsync</c>:
+    /// na WEJSCIU (zeby nie robic zadnego GET) i PONOWNIE po await, PRZED
+    /// utworzeniem okna.
     /// </summary>
     private bool CanPresentSonosHouseholdChoice()
     {
