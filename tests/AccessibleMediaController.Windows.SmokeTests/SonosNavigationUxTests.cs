@@ -15,6 +15,7 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 using AccessibleMediaController.Windows;
+using AccessibleMediaController.Windows.Services;
 
 /// <summary>
 /// UKLAD interfejsu sesji Sonos mierzony RZECZYWISTA droga uzytkownika.
@@ -31,6 +32,16 @@ using AccessibleMediaController.Windows;
 ///
 /// Pomiar ma WLASNE okno (przelacznik --sonos-navigation-ux). Zero HTTP, zero
 /// DPAPI, zero konta, zero NVDA, zero audio, zero cudzych okien.
+///
+/// GRANICA KONTA (uzupelnienie po przegladzie SEC1): U3 prowadzi PRAWDZIWA
+/// sciezke Ctrl+F5 -> ShowSonosAccountManager -> EnsureCoordinator ->
+/// RestoreOnce. Samo podstawienie prezentera NIE omija tego odtworzenia, wiec
+/// TEN SAM wlasciciel konta, ktorego uzywa prawdziwe okno, dostaje syntetyczny
+/// magazyn i syntetyczna bramke (wzor: SonosSessionAccountUiTests.Harness).
+/// Bez tego RestoreOnce poszedlby do DOMYSLNEGO SonosDpapiCredentialStore na
+/// prawdziwej sciezce uzytkownika. Asercja <see cref="Harness.AssertAccountBoundariesAreSynthetic"/>
+/// jest sprawdzana PRZED klawiszem, wiec niezastapione fabryki zatrzymuja
+/// pomiar BEZ zadnego I/O.
 /// </summary>
 internal static class SonosNavigationUxTests
 {
@@ -205,8 +216,34 @@ internal static class SonosNavigationUxTests
         };
 
         harness.Announcements.Clear();
+        // GRANICA PRZED KLAWISZEM: fixture MUSI mieć odcięty prawdziwy magazyn
+        // konta, bo dalej idzie produkcyjne RestoreOnce. Ta asercja nie robi
+        // zadnego I/O - pada, gdy fabryki nie sa zastapione.
+        harness.AssertAccountBoundariesAreSynthetic();
         harness.PressCtrl(Key.F5);
         harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+
+        // KONTROLKA ODCIECIA: produkcyjne RestoreOnce naprawde poszlo, ale do
+        // SYNTETYCZNEGO magazynu w pamieci. Zaden prawdziwy klient Control API
+        // nie powstal i zadne logowanie nie ruszylo.
+        if (harness.AccountStore.Reads != 1)
+        {
+            throw new Exception(
+                $"Odtworzenie konta odczytało syntetyczny magazyn {harness.AccountStore.Reads} razy zamiast 1 "
+                + "- pomiar nie dowodzi, że prawdziwy magazyn DPAPI został odcięty.");
+        }
+        if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
+        {
+            throw new Exception("Ctrl+F5 zapisał albo skasował poświadczenia Sonos.");
+        }
+        if (harness.Gateway.Calls != 0)
+        {
+            throw new Exception("Ctrl+F5 ruszył bramkę logowania Sonos bez polecenia użytkownika.");
+        }
+        if (harness.AccountOwner.ControlApiCreations != 0)
+        {
+            throw new Exception("Ctrl+F5 utworzył klienta Control API Sonos - to droga do prawdziwego HTTP.");
+        }
 
         if (shown != 1)
         {
@@ -232,7 +269,7 @@ internal static class SonosNavigationUxTests
         {
             throw new Exception("Ctrl+F5 wysłał polecenie sterujące do Sonosa.");
         }
-        return 5;
+        return 9;
     }
 
     // ===== U4: krotki wiersz grupy =====
@@ -273,13 +310,18 @@ internal static class SonosNavigationUxTests
         private readonly string _directory;
         private readonly Dispatcher _dispatcher;
 
-        private Harness(string directory, MainWindow window, FakeBackend backend, List<string> announcements)
+        private Harness(string directory, MainWindow window, FakeBackend backend, List<string> announcements,
+            SonosAccountOwner accountOwner, PamieciowyMagazynKonta accountStore,
+            NieuzywanaBramkaLogowania gateway)
         {
             _directory = directory;
             _dispatcher = Dispatcher.CurrentDispatcher;
             Window = window;
             Backend = backend;
             Announcements = announcements;
+            AccountOwner = accountOwner;
+            AccountStore = accountStore;
+            Gateway = gateway;
         }
 
         internal MainWindow Window { get; }
@@ -287,6 +329,43 @@ internal static class SonosNavigationUxTests
         internal FakeBackend Backend { get; }
 
         internal List<string> Announcements { get; }
+
+        /// <summary>TEN SAM wlasciciel konta, ktorego uzywa prawdziwe okno.</summary>
+        internal SonosAccountOwner AccountOwner { get; }
+
+        /// <summary>Syntetyczny magazyn w PAMIECI - kwit, ze DPAPI nie bylo czytane.</summary>
+        internal PamieciowyMagazynKonta AccountStore { get; }
+
+        internal NieuzywanaBramkaLogowania Gateway { get; }
+
+        /// <summary>
+        /// ASERCJA PRZED JAKIMKOLWIEK I/O: oba punkty podstawienia wlasciciela
+        /// konta MUSZA byc zastapione, a konto nie moze byc jeszcze obudzone.
+        /// Fixture bez tego prowadzilby RestoreOnce do PRAWDZIWEGO magazynu
+        /// DPAPI uzytkownika; ta asercja pada BEZ dotkniecia dysku.
+        /// </summary>
+        internal void AssertAccountBoundariesAreSynthetic()
+        {
+            if (AccountOwner.StoreFactory is null)
+            {
+                throw new Exception(
+                    "Fixture NIE odciął magazynu konta: StoreFactory właściciela jest pusty, więc "
+                    + "produkcyjne RestoreOnce poszłoby do domyślnego SonosDpapiCredentialStore.");
+            }
+            if (AccountOwner.GatewayFactory is null)
+            {
+                throw new Exception(
+                    "Fixture NIE odciął transportu logowania: GatewayFactory właściciela jest pusty.");
+            }
+            if (AccountOwner.HasCoordinator)
+            {
+                throw new Exception("Konto Sonos zostało obudzone przed mierzonym Ctrl+F5.");
+            }
+            if (AccountStore.Reads != 0 || AccountStore.Writes != 0 || AccountStore.Deletes != 0)
+            {
+                throw new Exception("Syntetyczny magazyn był już użyty przed mierzonym Ctrl+F5.");
+            }
+        }
 
         internal ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
 
@@ -321,7 +400,32 @@ internal static class SonosNavigationUxTests
                 AnnouncementSinkForTests = announcements.Add
             };
             window.DenyApplicationUpdateStartForTests();
-            return new Harness(directory, window, backend, announcements);
+
+            // ODCIECIE PRAWDZIWEGO MAGAZYNU KONTA. Ctrl+F5 prowadzi produkcyjne
+            // ShowSonosAccountManager -> EnsureCoordinator -> RestoreOnce, ktore
+            // BEZ tego poszloby do domyslnego SonosDpapiCredentialStore na
+            // prawdziwej sciezce uzytkownika. Bierzemy TEGO SAMEGO wlasciciela,
+            // ktorego uzywa prawdziwe okno (wzor: SonosSessionAccountUiTests),
+            // i podstawiamy magazyn w PAMIECI oraz bramke, ktora ma nie ruszyc.
+            var owner = (SonosAccountOwner)(window.GetType().GetField("_sonosAccount", Instance)
+                ?? throw new Exception("Nie ma pola _sonosAccount w prawdziwym MainWindow."))
+                .GetValue(window)!;
+            if (owner.HasCoordinator)
+            {
+                throw new Exception("Konstrukcja okna zainicjowała konto Sonos przed jawnym wejściem.");
+            }
+
+            var accountStore = new PamieciowyMagazynKonta();
+            var gateway = new NieuzywanaBramkaLogowania();
+            owner.StoreFactory = _ => accountStore;
+            owner.GatewayFactory = _ => gateway;
+            // Gdyby ktorakolwiek sciezka tego pomiaru dotknela Control API,
+            // wartownik ma to ZATRZYMAC zamiast wypuscic prawdziwy HTTP.
+            owner.ControlApiConfigurationFactory = () =>
+                throw new Exception(
+                    "Pomiar układu nawigacji nie ma prawa tworzyć klienta Control API Sonos.");
+
+            return new Harness(directory, window, backend, announcements, owner, accountStore, gateway);
         }
 
         internal void EnterSonosSession()
@@ -596,5 +700,67 @@ internal static class SonosNavigationUxTests
                     new SonosPlayer("P2", "Kuchnia", null, null, null)
                 ],
                 false)));
+    }
+
+    /// <summary>
+    /// Magazyn konta w PAMIECI: oddaje jeden syntetyczny zestaw i liczy
+    /// operacje. Nic nie dotyka DPAPI ani dysku uzytkownika, wiec produkcyjne
+    /// RestoreOnce z Ctrl+F5 nie ma jak przeczytac prawdziwego sekretu.
+    /// Tokeny sa SYNTETYCZNE i zyja tylko w pamieci procesu pomiaru.
+    /// </summary>
+    private sealed class PamieciowyMagazynKonta : ISonosCredentialStore
+    {
+        internal int Reads;
+        internal int Writes;
+        internal int Deletes;
+
+        public SonosCredentialReadOutcome Read()
+        {
+            Reads++;
+            var tokens = new SonosTokens(
+                "ACCESS-SYNTETYCZNY", "Bearer", 3600, "RT-SYNTETYCZNY", "playback-control-all");
+            return SonosCredentialReadOutcome.Ok(
+                new SonosStoredCredentials("https://broker-testowy.invalid/", tokens, DateTimeOffset.UtcNow));
+        }
+
+        public SonosCredentialWriteOutcome Write(SonosStoredCredentials credentials)
+        {
+            Writes++;
+            return SonosCredentialWriteOutcome.Ok();
+        }
+
+        public bool Delete()
+        {
+            Deletes++;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Bramka logowania, ktora ma NIE zostac zawolana: ten pomiar nie loguje sie
+    /// i nie otwiera przegladarki. Kazde wywolanie zatrzymuje pomiar.
+    /// </summary>
+    private sealed class NieuzywanaBramkaLogowania : ISonosLoginGateway
+    {
+        internal int Calls;
+
+        public Task<SonosLoginStartOutcome> StartAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new Exception("Pomiar układu nawigacji nie ma prawa rozpoczynać logowania Sonos.");
+        }
+
+        public Task<SonosLoginResultOutcome> FetchResultAsync(
+            SonosLoginSession session, CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new Exception("Pomiar układu nawigacji nie ma prawa odbierać wyniku logowania Sonos.");
+        }
+
+        public Task<SonosRefreshOutcome> RefreshAsync(string? refreshToken, CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new Exception("Pomiar układu nawigacji nie ma prawa odnawiać dostępu Sonos.");
+        }
     }
 }

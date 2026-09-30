@@ -436,6 +436,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: dostępny wybór domu, anulowanie bez zmian i zapis wyboru", SonosHouseholdChoiceUiTests.Run),
     ("Sonos: kontrolki odtwarzacza, przycisk i czas z odczytu grupy", SonosPlayerUiTests.Run),
     ("Sonos: dostępny podgląd ulubionych bieżącego domu (F2, tylko GET)", SonosFavoritesUiTests.Run),
+    ("Sonos: układ nawigacji sesji rzeczywistą drogą użytkownika", SonosNavigationUxTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

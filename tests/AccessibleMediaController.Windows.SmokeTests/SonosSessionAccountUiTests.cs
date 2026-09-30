@@ -46,6 +46,7 @@ internal static class SonosSessionAccountUiTests
                 checks += MeasureRealDisconnectDropsSessionState();
                 checks += MeasureOrdinaryRefreshKeepsSelection();
                 checks += MeasureLateReadAfterAccountSwapIsDiscarded();
+                checks += MeasureLateFavoritesAfterAccountSwapIsDiscarded();
                 checks += MeasureFailedNewLoginKeepsWorkingAccount();
                 checks += MeasureAccountChangeDropsRealSessionListAndCurrentItem();
                 checks += MeasureAccountSwapDuringEachReadStepDiscardsOldResult();
@@ -771,8 +772,136 @@ internal static class SonosSessionAccountUiTests
         return 6;
     }
 
-    // ===== START i ODMOWA nowego logowania nie ruszaja dzialajacego konta =====
+    // ===== GAP2: SPOZNIONE ULUBIONE po RZECZYWISTEJ zmianie konta =====
 
+    /// <summary>
+    /// GAP2. Wstrzymany GET ULUBIONYCH konta A wraca PO tym, jak uzytkownik
+    /// naprawde podlaczyl konto B (publiczne BeginLoginAsync + CheckLoginAsync na
+    /// syntetycznej bramce). Zadnego recznego znacznika, zadnego wolania
+    /// ApplySonosAccountBinding z pomiaru, zadnego dodatkowego pollingu przed
+    /// zwolnieniem bariery: granice zauwaza sama PRODUKCJA po await.
+    ///
+    /// Oczekiwanie: stare okno ulubionych sie NIE otwiera, staly komunikat
+    /// podsumowania NIE leci, bilet i bramka zostaja UCZCIWIE zwolnione, i nie
+    /// wychodzi ani jeden dodatkowy GET ani POST.
+    /// </summary>
+    private static int MeasureLateFavoritesAfterAccountSwapIsDiscarded()
+    {
+        using var harness = Harness.Create();
+        var window = harness.Window;
+        // WLASNE, POKAZANE okno: produkcyjny CanPresentSonosFavorites sprawdza
+        // IsVisible/IsActive, wiec bez tego pomiar mierzylby tylko odmowe fokusu.
+        harness.ShowOwnWindow();
+        var coordinator = harness.AccountOwner.EnsureCoordinator();
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(8));
+        harness.PumpUntil(() => window.SonosGroupRows.Count == 2, "wejście do sesji Sonos nie odczytało grup");
+        if (string.IsNullOrWhiteSpace(window.StateForTests.Sonos.SelectedHouseholdId))
+        {
+            throw new Exception("Przygotowanie: wejście do sesji nie wybrało jedynego domu Sonos.");
+        }
+
+        // ===== KONTROLKA DODATNIA: BEZ zmiany konta ulubione naprawde widac. =====
+        var okna = 0;
+        harness.Announcements.Clear();
+        harness.PumpFavorites(harness.StartFavorites(_ => okna++));
+        if (okna != 1 || window.SonosFavoritesWindowsCreatedForTests != 1)
+        {
+            throw new Exception(
+                $"Kontrolka dodatnia: bez zmiany konta okno ulubionych nie powstało (pokazania {okna}, "
+                + $"utworzone {window.SonosFavoritesWindowsCreatedForTests}).");
+        }
+        if (!harness.Announcements.Any(a => a.Contains("1", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Kontrolka dodatnia: brak podsumowania listy ulubionych: "
+                + string.Join(" | ", harness.Announcements) + ".");
+        }
+
+        // ===== POMIAR: GET ulubionych A wisi, wchodzi PRAWDZIWE konto B. =====
+        var gatow = harness.Backend.FavoriteReads;
+        var okienPrzed = window.SonosFavoritesWindowsCreatedForTests;
+        var brama = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Backend.FavoritesGate = brama.Task;
+        harness.Announcements.Clear();
+        var spoznione = harness.StartFavorites(_ =>
+            throw new Exception("SPÓŹNIONY odczyt ulubionych starego konta otworzył okno podglądu."));
+        harness.PumpUntil(() => harness.Backend.FavoriteReads == gatow + 1, "odczyt ulubionych nie ruszył");
+        if (spoznione.IsCompleted)
+        {
+            throw new Exception("Przygotowanie: odczyt ulubionych nie zatrzymał się na barierze.");
+        }
+        if (!window.SonosFavoritesInFlightForTests)
+        {
+            throw new Exception("Przygotowanie: bramka podglądu ulubionych nie została wzięta.");
+        }
+
+        var przed = coordinator.Snapshot.AccountBindingGeneration;
+        InstallNewAccount(harness, coordinator, "ACCESS-KONTO-B", "RT-KONTO-B");
+        if (coordinator.Snapshot.AccountBindingGeneration <= przed)
+        {
+            throw new Exception("Przygotowanie: nowe konto nie podniosło znacznika podłączenia.");
+        }
+
+        // ZWOLNIENIE DOKLADNIE TEGO przelotu, BEZ dodatkowego Execute/polla i BEZ
+        // recznego ApplySonosAccountBinding: granicę po await robi produkcja.
+        brama.TrySetResult(true);
+        harness.Backend.FavoritesGate = null;
+        harness.PumpFavorites(spoznione);
+
+        if (window.SonosFavoritesWindowsCreatedForTests != okienPrzed)
+        {
+            throw new Exception(
+                "SPÓŹNIONY odczyt ulubionych po zmianie konta utworzył okno podglądu: "
+                + window.SonosFavoritesWindowsCreatedForTests + ".");
+        }
+        if (window.OpenSonosFavoritesWindowForTests is not null)
+        {
+            throw new Exception("Po porzuconym odczycie ulubionych został ślad otwartego okna.");
+        }
+        if (window.SonosFavoritesInFlightForTests)
+        {
+            throw new Exception("Porzucony odczyt ulubionych nie zwolnił własnej bramki podglądu.");
+        }
+        if (harness.Announcements.Any(a => a.Contains("Radio Nowy Świat", StringComparison.Ordinal))
+            || harness.Announcements.Any(a => a.Contains("ulubion", StringComparison.OrdinalIgnoreCase)
+                && a.Contains("1", StringComparison.Ordinal)
+                && !a.Contains("już trwa", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Spóźniony odczyt ulubionych starego konta wypowiedział wynik: "
+                + string.Join(" | ", harness.Announcements) + ".");
+        }
+        if (harness.Backend.FavoriteReads != gatow + 1)
+        {
+            throw new Exception(
+                $"Po zmianie konta wyszedł dodatkowy GET ulubionych (łącznie {harness.Backend.FavoriteReads}).");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Porzucony odczyt ulubionych wysłał polecenie do Sonosa.");
+        }
+
+        // BRAMKA JEST UCZCIWIE WOLNA: nowy jawny podglad NIE dostaje odmowy
+        // "juz trwa". Po rzeczywistej zmianie konta produkcja porzuca tez wybor
+        // domu, wiec ten przelot konczy sie UCZCIWYM wyjasnieniem albo nowym
+        // GET-em - ale NIGDY zablokowana bramka po poprzednim koncie.
+        harness.Announcements.Clear();
+        harness.PumpFavorites(harness.StartFavorites(_ => { }));
+        if (harness.Announcements.Any(a => a.Contains("już trwa", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Porzucony odczyt starego konta zatrzasnął bramkę podglądu ulubionych: "
+                + string.Join(" | ", harness.Announcements) + ".");
+        }
+        if (harness.Announcements.Count == 0)
+        {
+            throw new Exception("Nowy jawny podgląd ulubionych po zmianie konta nic nie powiedział.");
+        }
+        return 9;
+    }
+
+    // ===== START i ODMOWA nowego logowania nie ruszaja dzialajacego konta =====
     private static int MeasureFailedNewLoginKeepsWorkingAccount()
     {
         using var harness = Harness.Create();
@@ -1049,6 +1178,70 @@ internal static class SonosSessionAccountUiTests
             PumpQuietly(TimeSpan.FromMilliseconds(150));
         }
 
+        /// <summary>
+        /// ROZPOCZECIE jawnego podgladu ULUBIONYCH bez czekania: prawdziwe
+        /// polecenie CommandIds.ViewFavorites, produkcyjna sciezka, punkt
+        /// podstawienia TYLKO na pokazaniu okna (guard siedzi PRZED nim).
+        /// </summary>
+        internal Task StartFavorites(Action<object> onPresent)
+        {
+            // PRODUKCYJNY guard wymaga AKTYWNEGO okna glownego. Po zamknieciu
+            // wlasnego modala fokus nie musi wrocic sam, wiec przywracamy go
+            // JAWNIE - inaczej mierzylibysmy tylko odmowe fokusu.
+            EnsureActive();
+            var property = Window.GetType().GetProperty("PresentSonosFavoritesOverrideForTests", Instance)
+                ?? throw new Exception(
+                    "MainWindow nie ma punktu podstawienia pokazania okna ulubionych Sonos.");
+            var windowType = typeof(MainWindow).Assembly.GetType(
+                "AccessibleMediaController.Windows.SonosFavoritesWindow")
+                ?? throw new Exception("Nie ma okna SonosFavoritesWindow.");
+            var handler = Delegate.CreateDelegate(
+                typeof(Action<>).MakeGenericType(windowType),
+                new PrezenterUlubionych(this, onPresent),
+                typeof(PrezenterUlubionych).GetMethod(nameof(PrezenterUlubionych.Present), Instance)!);
+            property.SetValue(Window, handler);
+            ExecuteCommand(CommandIds.ViewFavorites);
+            return Window.GetType().GetProperty("LastSonosFavoritesTaskForTests", Instance)!
+                .GetValue(Window) as Task
+                ?? throw new Exception("Polecenie nie rozpoczęło zadania odczytu ulubionych Sonos.");
+        }
+
+        /// <summary>POWROT fokusu do WLASNEGO okna glownego pomiaru.</summary>
+        private void EnsureActive()
+        {
+            Window.Activate();
+            PumpUntil(() => Window.IsActive, "własne okno główne pomiaru nie stało się aktywne");
+            PumpQuietly(TimeSpan.FromMilliseconds(80));
+        }
+
+        /// <summary>Doczekanie DOKLADNIE tego zadania ulubionych + cichy przebieg petli.</summary>
+        internal void PumpFavorites(Task task)
+        {
+            Pump(task);
+            PumpQuietly(TimeSpan.FromMilliseconds(200));
+            Window.GetType().GetProperty("PresentSonosFavoritesOverrideForTests", Instance)!
+                .SetValue(Window, null);
+        }
+
+        /// <summary>
+        /// ADAPTER pokazania okna ulubionych: Show + pompowanie petli, bo
+        /// ShowDialog zablokowalby watek pomiaru. Ten sam typ, ten sam XAML.
+        /// Zamykamy WYLACZNIE wlasne okno.
+        /// </summary>
+        private sealed class PrezenterUlubionych(Harness harness, Action<object> onPresent)
+        {
+            internal void Present(object dialog)
+            {
+                onPresent(dialog);
+                var window = (Window)dialog;
+                window.ShowInTaskbar = false;
+                window.Show();
+                harness.PumpUntil(() => window.IsLoaded, "okno ulubionych Sonos się nie pokazało");
+                window.Close();
+                harness.PumpUntil(() => !window.IsVisible, "okno ulubionych Sonos się nie zamknęło");
+            }
+        }
+
         internal void ExecuteCommand(string commandId)
         {
             var method = Window.GetType().GetMethod(
@@ -1148,7 +1341,8 @@ internal static class SonosSessionAccountUiTests
     /// SYNTETYCZNA granica API grup: zero HTTP, zero tokenu. Znacznik podlaczenia
     /// pochodzi z PRODUKCYJNEGO adaptera nad tym samym wlascicielem konta.
     /// </summary>
-    private sealed class FakeBackend : ISonosGroupSessionBackend, ISonosAccountBoundBackend
+    private sealed class FakeBackend
+        : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend
     {
         private readonly SonosAccountOwnerGroupBackend _adapter;
 
@@ -1187,6 +1381,39 @@ internal static class SonosSessionAccountUiTests
         internal Task? HouseholdGate { get; set; }
 
         internal Task? GroupsGate { get; set; }
+
+        /// <summary>
+        /// Wstrzymanie ODCZYTU ULUBIONYCH. GAP2: pozwala zmierzyc, co robi
+        /// SPOZNIONY GET ulubionych, gdy w trakcie zmienilo sie konto.
+        /// </summary>
+        internal Task? FavoritesGate { get; set; }
+
+        internal int FavoriteReads { get; private set; }
+
+        /// <summary>Identyfikatory domu uzyte w GET-ach ulubionych.</summary>
+        internal List<string?> FavoritesHouseholdIds { get; } = [];
+
+        /// <summary>
+        /// ODCZYT ULUBIONYCH przez OPCJONALNA granice sesji: syntetyczne dane,
+        /// zero HTTP, zero tokenu, zero POST.
+        /// </summary>
+        public Task<SonosFavoritesReadResult> ReadFavoritesAsync(
+            string? householdId, CancellationToken cancellationToken)
+        {
+            FavoriteReads++;
+            FavoritesHouseholdIds.Add(householdId);
+            return ReadFavoritesCoreAsync(householdId);
+        }
+
+        private async Task<SonosFavoritesReadResult> ReadFavoritesCoreAsync(string? householdId)
+        {
+            if (FavoritesGate is { } gate) await gate.ConfigureAwait(true);
+            var list = new SonosFavoritesList(
+                householdId ?? "DOM-1",
+                "1",
+                [new SonosFavorite("ULUBIONE-1", "Radio Nowy Świat", null, null)]);
+            return SonosFavoritesReadResult.CreateForMeasurement(SonosDeviceReadStatus.Success, list);
+        }
 
         internal int MetadataReads { get; private set; }
 
