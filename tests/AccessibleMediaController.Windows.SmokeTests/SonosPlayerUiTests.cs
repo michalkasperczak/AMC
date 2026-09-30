@@ -73,6 +73,10 @@ internal static class SonosPlayerUiTests
                              ("#2 powrot fokusu", MeasureFocusReturnsToOpeningControl)
                          })
                 {
+                    // POSTEP na stdout: gdyby ktorys przypadek zawisl na modalu,
+                    // log MUSI pokazac, ktory - inaczej mamy tylko pusty plik.
+                    Console.WriteLine("... mierze: " + name);
+                    Console.Out.Flush();
                     try
                     {
                         checks += measure();
@@ -800,7 +804,10 @@ internal static class SonosPlayerUiTests
         var checks = 0;
         foreach (var buttonName in new[] { "PlayerSeekTimeButton", "PlayerSeekPercentButton" })
         {
-            foreach (var typed in new string?[] { null, "50" })
+            // WARTOSC musi byc poprawna W DANYM TRYBIE: odrzucona przez
+            // walidacje nie zamyka okna, a modal zawiesilby caly pomiar.
+            var value = buttonName == "PlayerSeekTimeButton" ? "2:30" : "50";
+            foreach (var typed in new string?[] { null, value })
             {
                 using var harness = Harness.Create();
                 harness.OpenPlayerForGroup("GRUPA-SALON");
