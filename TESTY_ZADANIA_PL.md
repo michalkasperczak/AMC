@@ -87,6 +87,37 @@ zlecenia, nie dowód, że muzyka zagrała. Zerwane połączenie po wysłaniu i
 anulowanie po wejściu dają skutek **nierozstrzygnięty** — bez ponowienia,
 bo `REPLACE`/`APPEND` wykonane dwa razy dają inną kolejkę niż raz.
 
+## Sonos: załadowanie ulubionego przez konto — F3b, warstwa Core (jak sprawdzić)
+
+**Nie ma tu nic do sprawdzenia ręcznie w AMC.** F3b dodaje wyłącznie publiczną
+`LoadFavoriteAsync` na koordynatorze konta — **żadnego** skrótu, przycisku,
+menu, presetu ani zmiany zachowania `Ctrl+U`. Enter na liście ulubionych z F2
+**nadal świadomie nic nie uruchamia**. Presety to F3d.
+
+Pomiar, bez konta Sonos, sieci i muzyki (własny `HttpMessageHandler`, atrapa
+bramki logowania i magazynu w pamięci):
+
+1. `--sonos-favorite-load-account` — 17 sprawdzeń nowej suity na **prawdziwym**
+   torze koordynator → klient Control API → syntetyczny `HTTP`: brak konta =
+   zero zapytań i zero odnowień; ważny bilet = **jeden** `POST` z literalną
+   grupą, `favoriteId`, `action` i `playOnCompletion` w ciele; miniona ważność =
+   **dokładnie jedno** odnowienie **przed** jedynym `POST`, nowym tokenem.
+2. Brak ponawiania: po 401/403/404/429/5xx i po utraconej odpowiedzi jest
+   **jeden** `POST` — bez powtórzenia, bez odnowienia i bez kasowania konta.
+   `REPLACE`/`APPEND` wykonane dwa razy dają inną kolejkę niż raz.
+3. Zmiana konta w trakcie: `Disconnect`, `Dispose` i **prawdziwe** nowe
+   logowanie (`BeginLoginAsync` + `CheckLoginAsync`) porzucają wynik starego
+   konta. Porzucenie **nie jest cofnięciem** — próba zostaje oddzielona od
+   nieznanego skutku, a konto B nie dostaje cudzego żądania.
+4. `--sonos-group-account`, `--sonos-favorites-account`, `--sonos-favorite-load`
+   i `--sonos-group-playback` — stare suity muszą zostać zielone bez
+   rozluźniania asercji.
+5. Pełna tabela Core (bez argumentów) — pozycja „Załadowanie ulubionego Sonos
+   do kolejki grupy przez konto”.
+
+Czego mierzone zachowanie **nie** obiecuje: HTTP 200 to **przyjęcie** zlecenia,
+nie dowód, że muzyka zagrała. Odnotowana próba wysłania nie znaczy doręczenia.
+
 ## Sonos: wybór domu (household) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i

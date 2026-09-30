@@ -115,6 +115,35 @@ pollingu i bez żadnego `POST` — te należą do F2 i etapów dalszych.
   publiczny tor (bez refleksyjnego ustawiania generacji). Zero sieci, zero
   konta, zero GUI.
 
+## Sonos: ZAŁADOWANIE ULUBIONEGO przez KONTO (F3b)
+
+**Cienkie** podłączenie `loadFavorite` do **istniejącego** właściciela konta —
+nie drugi koordynator. Bez GUI, presetów (to F3d), ustawień i realnego API.
+
+- `Core/Sonos/SonosAccountCoordinator.FavoriteLoad.cs` — osobny `partial`, jedna
+  publiczna `LoadFavoriteAsync(ISonosFavoriteLoadApi, groupId, favoriteId,
+  action, playOnCompletion, ct)` → `SonosGroupCommandResult`. `action` i
+  `playOnCompletion` są **obowiązkowe, bez wartości domyślnych** (różnica między
+  dopisaniem a **zastąpieniem** kolejki użytkownika jest nieodwracalna i nie może
+  zależeć od milczenia wołającego). Po `ArgumentNullException.ThrowIfNull(api)`
+  jedno przekazanie do **zastanego** `RunGroupCommandAsync(LoadFavorite, …)`.
+- Zero kopii logiki: bilet, odnawianie, generacja, porzucanie i transport
+  pochodzą z odebranego przebiegu poleceń. Żadnej nowej polityki.
+- Walidacja identyfikatorów, grupy i akcji zostaje **tam, gdzie była** — w
+  kliencie (F3a), który odrzuca złe wejście PRZED HTTP. Druga bramka w
+  koordynatorze byłaby drugim, rozjeżdżającym się źródłem prawdy.
+- `loadFavorite` jest **zależne od stanu** (`IsStateDependent` = true): dopisuje
+  albo zastępuje wspólną kolejkę, więc **nigdy** nie jest ponawiane automatycznie
+  — po 401/403/404/429/5xx i po utracie odpowiedzi jest **dokładnie jeden** POST,
+  bez odnowienia i bez kasowania konta. HTTP 200 to przyjęcie zlecenia,
+  `EffectConfirmed` zawsze `false`; `RequestSent` znaczy **próbę**, nie doręczenie.
+- Testy: `tests/.../SonosFavoriteLoadAccountTests.cs` (17), CLI
+  `--sonos-favorite-load-account`, wpięte też w pełną tabelę Core. Rzeczywisty
+  koordynator + **rzeczywisty klient** na własnym `HttpMessageHandler` (klient
+  implementuje `ISonosFavoriteLoadApi` wprost — żaden adapter nie jest potrzebny),
+  atrapa bramki logowania i magazynu w pamięci; prawdziwe nowe logowanie przez
+  publiczny tor. Zero sieci, zero konta, zero GUI.
+
 ## Sonos: ODCZYT ULUBIONYCH domu w kliencie Core (F1a)
 
 Tylko **odczyt** listy ulubionych. Bez konta, UI, presetów, skrótów, zapisu
