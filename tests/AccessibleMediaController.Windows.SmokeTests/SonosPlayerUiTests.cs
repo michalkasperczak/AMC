@@ -72,7 +72,13 @@ internal static class SonosPlayerUiTests
                              ("#3 komunikat przy bledzie odczytu", MeasurePreSeekReadFaultIsAnnounced),
                              ("#2 powrot fokusu", MeasureFocusReturnsToOpeningControl),
                              ("K1 cisza po porzuceniu celu", MeasureAbandonedTargetSaysNothing),
-                             ("K2 proba bez potwierdzenia", MeasureUnsentSeekIsNotCalledSent)
+                             ("K2 proba bez potwierdzenia", MeasureUnsentSeekIsNotCalledSent),
+                             ("B4-1 przewijanie custom z konfiguracji", MeasureCustomSeekUsesConfiguredLength),
+                             ("B4-2 cyfry 0-9 od swiezego odczytu", MeasureDigitSeekUsesFreshRead),
+                             ("B4-3 odmowy przewijania cyfrowego", MeasureDigitSeekRefusalsSendNothing),
+                             ("B4-4 skip do grupy i bramki", MeasureSkipTargetsGroupAndRespectsGates),
+                             ("B4-5 glosnosc z odczytu", MeasureVolumeStepsUseReadValue),
+                             ("B4-6 mute tylko znanego bool", MeasureMuteInvertsKnownReadOnly)
                          })
                 {
                     // POSTEP na stdout: gdyby ktorys przypadek zawisl na modalu,
@@ -1048,6 +1054,557 @@ internal static class SonosPlayerUiTests
         return checks;
     }
 
+    // ===== B4: przewijanie CUSTOM i CYFROWE istniejaca droga polecen =====
+
+    /// <summary>
+    /// B4-1: Alt+Ctrl+strzalka (<see cref="CommandIds.SeekBackwardCustom"/> /
+    /// <see cref="CommandIds.SeekForwardCustom"/>) ma w sesji Sonos wysylac
+    /// DOKLADNIE JEDEN skok relatywny o dlugosc Z KONFIGURACJI, znormalizowana
+    /// istniejaca regula <see cref="PlaybackSeekRules.NormalizeCustomSeekSeconds"/>.
+    /// Zmiana ustawienia MUSI zmienic delte w backendzie - inaczej opcja klamie.
+    /// Zadnych nowych klawiszy i zadnego nowego endpointu: idzie ta sama
+    /// <c>SeekRelativeAsync</c> z ODCZYTANYM itemId aktywnej grupy.
+    /// </summary>
+    private static int MeasureCustomSeekUsesConfiguredLength()
+    {
+        var checks = 0;
+        // Trzecia para jest granica reguly: 99999 s normalizuje sie do 1800 s.
+        foreach (var (configured, expectedSeconds) in new[] { (120, 120), (45, 45), (99_999, 1800) })
+        {
+            foreach (var (commandId, sign) in new[]
+                     {
+                         (CommandIds.SeekForwardCustom, 1),
+                         (CommandIds.SeekBackwardCustom, -1)
+                     })
+            {
+                using var harness = Harness.Create();
+                harness.Backend.NextPlaybackState = SonosPlaybackState.Paused;
+                harness.Window.StateForTests.Settings.CustomSeekSeconds = configured;
+                harness.OpenPlayerForGroup("GRUPA-SALON");
+                var demoBefore = harness.DemoSessionPosition;
+                var readsBefore = harness.Backend.PlaybackReads;
+
+                var said = harness.AnnounceFor(commandId);
+
+                if (harness.Backend.SeekCalls.Count != 1)
+                {
+                    throw new Exception(
+                        $"{commandId} przy ustawieniu {configured} s: wyslano "
+                        + $"{harness.Backend.SeekCalls.Count} zadan skoku zamiast dokladnie jednego. "
+                        + $"Powiedziano: \"{said}\".");
+                }
+                checks++;
+
+                var call = harness.Backend.SeekCalls[0];
+                var expectedDelta = sign * expectedSeconds * 1000;
+                if (call.DeltaMillis != expectedDelta)
+                {
+                    throw new Exception(
+                        $"{commandId} przy ustawieniu {configured} s: delta {call.DeltaMillis} ms "
+                        + $"zamiast {expectedDelta} ms z konfiguracji.");
+                }
+                checks++;
+
+                if (call.GroupId != "GRUPA-SALON" || call.ItemId != "UTWOR-1")
+                {
+                    throw new Exception(
+                        $"{commandId}: skok poszedl do grupy {call.GroupId} i materialu {call.ItemId}.");
+                }
+                checks++;
+
+                // JAWNY odczyt po poleceniu: Accepted nie jest dowodem skutku.
+                if (harness.Backend.PlaybackReads <= readsBefore)
+                {
+                    throw new Exception(
+                        $"{commandId}: po skoku nie bylo jawnego odczytu stanu grupy.");
+                }
+                checks++;
+
+                if (harness.DemoSessionPosition != demoBefore)
+                {
+                    throw new Exception(
+                        $"{commandId}: ruszono DemoMediaSession ({demoBefore} -> {harness.DemoSessionPosition}).");
+                }
+                checks++;
+            }
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// B4-2: cyfry 0-9 (<see cref="CommandIds.SeekPercent"/>, czyli 0-90 co 10)
+    /// maja w sesji Sonos trafiac w BEZWZGLEDNY cel policzony z ODCZYTANEJ
+    /// dlugosci, przelozony na DELTE od SWIEZEGO odczytu pozycji TEJ SAMEJ
+    /// grupy i TEGO SAMEGO materialu. Bez modalu i bez nowego endpointu.
+    /// Fake czyta pozycje 12 s i dlugosc 3:00, wiec cyfra p daje
+    /// (p% * 180 000) - 12 000 ms.
+    /// </summary>
+    private static int MeasureDigitSeekUsesFreshRead()
+    {
+        var checks = 0;
+        for (var digit = 0; digit <= 9; digit++)
+        {
+            var percent = digit * 10;
+            var commandId = CommandIds.SeekPercent(percent);
+            using var harness = Harness.Create();
+            harness.Backend.NextPlaybackState = SonosPlaybackState.Paused;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var demoBefore = harness.DemoSessionPosition;
+            var readsBefore = harness.Backend.PlaybackReads;
+
+            var said = harness.AnnounceFor(commandId);
+
+            if (harness.Backend.SeekCalls.Count != 1)
+            {
+                throw new Exception(
+                    $"Cyfra {digit} ({commandId}): wyslano {harness.Backend.SeekCalls.Count} zadan "
+                    + $"skoku zamiast dokladnie jednego. Powiedziano: \"{said}\".");
+            }
+            checks++;
+
+            var call = harness.Backend.SeekCalls[0];
+            var expectedDelta = percent * 1_800 - 12_000;
+            if (call.DeltaMillis != expectedDelta)
+            {
+                throw new Exception(
+                    $"Cyfra {digit}: delta {call.DeltaMillis} ms zamiast {expectedDelta} ms "
+                    + "liczonych od swiezo odczytanej pozycji.");
+            }
+            checks++;
+
+            if (call.GroupId != "GRUPA-SALON" || call.ItemId != "UTWOR-1")
+            {
+                throw new Exception(
+                    $"Cyfra {digit}: skok poszedl do grupy {call.GroupId} i materialu {call.ItemId}.");
+            }
+            checks++;
+
+            // SWIEZY odczyt PRZED skokiem i JAWNY odczyt PO nim: dwa odczyty
+            // ponad stan z wejscia do odtwarzacza.
+            if (harness.Backend.PlaybackReads < readsBefore + 2)
+            {
+                throw new Exception(
+                    $"Cyfra {digit}: byl tylko {harness.Backend.PlaybackReads - readsBefore} odczyt "
+                    + "stanu, a potrzebny jest swiezy przed skokiem i jawny po nim.");
+            }
+            checks++;
+
+            if (harness.DemoSessionPosition != demoBefore)
+            {
+                throw new Exception(
+                    $"Cyfra {digit}: ruszono DemoMediaSession ({demoBefore} -> {harness.DemoSessionPosition}).");
+            }
+            checks++;
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// B4-3: ODMOWY przewijania cyfrowego i custom sa CZYTELNE i wysylaja ZERO
+    /// zadan: brak pozycji/dlugosci (radio bez currentItem) oraz CanSeek=false.
+    /// Nieprawidlowy identyfikator procentu (np. 35, poza 0-90 co 10) zostaje
+    /// odmowa nieobslugiwanego polecenia - wspolny parser sie nie rozjezdza.
+    /// </summary>
+    private static int MeasureDigitSeekRefusalsSendNothing()
+    {
+        var checks = 0;
+
+        // 1. RADIO bez currentItem: nie ma ani pozycji, ani dlugosci, wiec
+        // BEZWZGLEDNEGO celu procentowego nie da sie policzyc. To dotyczy TYLKO
+        // cyfr: przewijanie WZGLEDNE (stale kroki i custom) nie potrzebuje
+        // pozycji, bo delte liczy sam Sonos.
+        foreach (var commandId in new[] { CommandIds.SeekPercent(50), CommandIds.SeekPercent(0) })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.RadioWithoutCurrentItem = true;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+
+            var said = harness.AnnounceFor(commandId);
+            if (harness.Backend.SeekCalls.Count != 0)
+            {
+                throw new Exception(
+                    $"{commandId} bez odczytanej pozycji wyslal {harness.Backend.SeekCalls.Count} zadan skoku.");
+            }
+            checks++;
+            if (said.Length == 0 || said.Contains("0:00", StringComparison.Ordinal))
+            {
+                throw new Exception($"{commandId} bez pozycji odpowiedzial zerem z demo: \"{said}\".");
+            }
+            checks++;
+        }
+
+        // 2. CanSeek=false z ODCZYTU: zero zadan, czytelna odmowa.
+        foreach (var commandId in new[] { CommandIds.SeekPercent(30), CommandIds.SeekBackwardCustom })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.CanSeekFlag = false;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+
+            var said = harness.AnnounceFor(commandId);
+            if (harness.Backend.SeekCalls.Count != 0)
+            {
+                throw new Exception(
+                    $"{commandId} przy CanSeek=false wyslal {harness.Backend.SeekCalls.Count} zadan skoku.");
+            }
+            checks++;
+            if (!said.Contains("przewijan", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"{commandId} przy CanSeek=false nie nazwal przewijania: \"{said}\".");
+            }
+            checks++;
+        }
+
+        // 3. NIEPRAWIDLOWY identyfikator procentu: odmowa zostaje odmowa.
+        {
+            using var harness = Harness.Create();
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var said = harness.AnnounceFor("transport.seekPercent.35");
+            if (harness.Backend.SeekCalls.Count != 0)
+            {
+                throw new Exception(
+                    $"Nieprawidlowy procent 35 wyslal {harness.Backend.SeekCalls.Count} zadan skoku.");
+            }
+            checks++;
+            if (!said.Contains("nie jest obsługiwane", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Nieprawidlowy procent 35 nie zostal odmowiony: \"{said}\".");
+            }
+            checks++;
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// B4-4: Next/Previous ida do SkipToNextTrack / SkipToPreviousTrack AKTYWNEJ
+    /// GRUPY: dokladnie JEDEN POST + JAWNY GET stanu, DemoMediaSession nietkniety.
+    /// Accepted BEZ nowego (albo bez porownywalnego) itemId NIE jest
+    /// potwierdzeniem zmiany - mierzymy oba warianty. Bramki CanSkip i
+    /// SkipToPreviousAllowed: false i null daja ZERO POST.
+    /// </summary>
+    private static int MeasureSkipTargetsGroupAndRespectsGates()
+    {
+        var checks = 0;
+
+        // 1. Accepted BEZ zmiany materialu: jeden POST, jawny GET, brak obietnicy.
+        foreach (var (commandId, expected) in new[]
+                 {
+                     (CommandIds.Next, SonosGroupCommand.SkipToNextTrack),
+                     (CommandIds.Previous, SonosGroupCommand.SkipToPreviousTrack)
+                 })
+        {
+            using var harness = Harness.Create();
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var demoBefore = harness.DemoSessionPosition;
+            var readsBefore = harness.Backend.PlaybackReads;
+            var commandsBefore = harness.Backend.Commands.Count;
+
+            var said = harness.AnnounceFor(commandId);
+            var sent = harness.Backend.Commands.Skip(commandsBefore).ToList();
+            if (sent.Count != 1 || sent[0] != expected)
+            {
+                throw new Exception(
+                    $"{commandId}: wyslano [{string.Join(", ", sent)}] zamiast dokladnie jednego {expected}.");
+            }
+            checks++;
+            if (harness.Backend.CommandGroupIds[^1] != "GRUPA-SALON")
+            {
+                throw new Exception(
+                    $"{commandId}: polecenie poszlo do grupy {harness.Backend.CommandGroupIds[^1]}.");
+            }
+            checks++;
+            if (harness.Backend.PlaybackReads <= readsBefore)
+            {
+                throw new Exception($"{commandId}: nie bylo jawnego GET-u stanu po poleceniu.");
+            }
+            checks++;
+            if (harness.DemoSessionPosition != demoBefore)
+            {
+                throw new Exception($"{commandId}: ruszono DemoMediaSession.");
+            }
+            checks++;
+            // ITEM sie NIE zmienil, wiec zmiana pozycji jest NIEPOTWIERDZONA.
+            if (!said.Contains("niepotwierdzon", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    $"{commandId}: Accepted bez nowego materialu ogloszono jako skutek: \"{said}\".");
+            }
+            checks++;
+        }
+
+        // 2. ITEM RZECZYWISCIE sie zmienil w odczycie po POST: dopiero to jest
+        // potwierdzeniem. Podmieniamy odczytywany identyfikator z wnetrza
+        // samego POST-u, bo liczenie odczytow z gory jest zawodne.
+        foreach (var commandId in new[] { CommandIds.Next, CommandIds.Previous })
+        {
+            using var harness = Harness.Create();
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            harness.Backend.NextItemIdAfterCommand = "UTWOR-2";
+
+            var said = harness.AnnounceFor(commandId);
+            if (harness.Backend.CommandGroupIds[^1] != "GRUPA-SALON")
+            {
+                throw new Exception($"{commandId}: polecenie poszlo do cudzej grupy.");
+            }
+            checks++;
+            if (!said.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    $"{commandId}: zmiana materialu UTWOR-1 -> UTWOR-2 nie zostala potwierdzona: \"{said}\".");
+            }
+            checks++;
+        }
+
+        // 3. BRAMKI: false i null to ZERO POST i czytelna odmowa.
+        foreach (var (commandId, flag) in new[]
+                 {
+                     (CommandIds.Next, false), (CommandIds.Previous, false)
+                 })
+        {
+            foreach (var value in new bool?[] { flag, null })
+            {
+                using var harness = Harness.Create();
+                if (commandId == CommandIds.Next) harness.Backend.CanSkipFlag = value;
+                else harness.Backend.CanSkipToPreviousFlag = value;
+                harness.OpenPlayerForGroup("GRUPA-SALON");
+                var commandsBefore = harness.Backend.Commands.Count;
+
+                var said = harness.AnnounceFor(commandId);
+                if (harness.Backend.Commands.Count != commandsBefore)
+                {
+                    throw new Exception(
+                        $"{commandId} przy uprawnieniu {Describe(value)} i tak wyslal polecenie.");
+                }
+                checks++;
+                if (!said.Contains("nie zgłasza możliwości", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(
+                        $"{commandId} przy uprawnieniu {Describe(value)} nie odmowil czytelnie: \"{said}\".");
+                }
+                checks++;
+            }
+        }
+        return checks;
+    }
+
+    private static string Describe(bool? value) =>
+        value switch { true => "true", false => "false", _ => "null" };
+
+    /// <summary>
+    /// B4-5: Glosnosc +-1 / +-5 idzie przez SetGroupVolumeAsync z ODCZYTANEJ
+    /// liczby, z clampem 0..100, JEDEN POST + JAWNY GET glosnosci. Mowa i UI
+    /// pochodza z ODCZYTU: Accepted bez zmiany odczytu nie jest sukcesem, a
+    /// odczyt, ktory RZECZYWISCIE zwraca nowa wartosc - jest.
+    /// Sprawdzamy WSZYSTKIE cztery polecenia.
+    /// </summary>
+    private static int MeasureVolumeStepsUseReadValue()
+    {
+        var checks = 0;
+        foreach (var (commandId, delta) in new[]
+                 {
+                     (CommandIds.VolumeUp1, 1), (CommandIds.VolumeDown1, -1),
+                     (CommandIds.VolumeUp5, 5), (CommandIds.VolumeDown5, -5)
+                 })
+        {
+            // ODCZYT jest zrodlem liczby: startujemy z 30, nie z zera demo.
+            using var harness = Harness.Create();
+            harness.Backend.ApplyVolumeWrites = true;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var demoBefore = harness.DemoSessionPosition;
+            var volumeReadsBefore = harness.Backend.VolumeReads;
+
+            var said = harness.AnnounceFor(commandId);
+            if (harness.Backend.VolumeSets.Count != 1)
+            {
+                throw new Exception(
+                    $"{commandId}: wyslano {harness.Backend.VolumeSets.Count} ustawien poziomu "
+                    + $"zamiast dokladnie jednego. Powiedziano: \"{said}\".");
+            }
+            checks++;
+            var set = harness.Backend.VolumeSets[0];
+            if (set.GroupId != "GRUPA-SALON" || set.Volume != 30 + delta)
+            {
+                throw new Exception(
+                    $"{commandId}: ustawiono {set.Volume} w grupie {set.GroupId}, "
+                    + $"a z odczytu 30 wynika {30 + delta} w GRUPA-SALON.");
+            }
+            checks++;
+            if (harness.Backend.VolumeReads <= volumeReadsBefore)
+            {
+                throw new Exception($"{commandId}: nie bylo jawnego GET-u glosnosci po poleceniu.");
+            }
+            checks++;
+            if (!said.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    $"{commandId}: odczyt zwrocil zmieniona wartosc, a mowa jej nie potwierdzila: \"{said}\".");
+            }
+            checks++;
+            if (harness.DemoSessionPosition != demoBefore)
+            {
+                throw new Exception($"{commandId}: ruszono DemoMediaSession.");
+            }
+            checks++;
+        }
+
+        // CLAMP 0..100 z ODCZYTANEJ wartosci, oba konce.
+        foreach (var (start, commandId, expected) in new[]
+                 {
+                     (98, CommandIds.VolumeUp5, 100),
+                     (2, CommandIds.VolumeDown5, 0)
+                 })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.VolumeValue = start;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            harness.AnnounceFor(commandId);
+            if (harness.Backend.VolumeSets.Count != 1 || harness.Backend.VolumeSets[0].Volume != expected)
+            {
+                throw new Exception(
+                    $"{commandId} od {start}: ustawiono "
+                    + $"{string.Join(",", harness.Backend.VolumeSets.Select(v => v.Volume))} zamiast {expected}.");
+            }
+            checks++;
+        }
+
+        // ACCEPTED BEZ ZMIANY ODCZYTU nie jest sukcesem (fake nie zapisuje).
+        {
+            using var harness = Harness.Create();
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var said = harness.AnnounceFor(CommandIds.VolumeUp5);
+            if (said.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    $"Accepted bez zmiany odczytanej glosnosci ogloszono jako sukces: \"{said}\".");
+            }
+            checks++;
+        }
+
+        // BRAK ODCZYTU glosnosci i volume.fixed=true: ZERO POST poziomu.
+        foreach (var (name, arm) in new (string, Action<FakeBackend>)[]
+                 {
+                     ("brak odczytu glosnosci", backend => backend.VolumeUnavailable = true),
+                     ("volume.fixed=true", backend => backend.FixedVolumeFlag = true)
+                 })
+        {
+            foreach (var commandId in new[]
+                     {
+                         CommandIds.VolumeUp1, CommandIds.VolumeDown1,
+                         CommandIds.VolumeUp5, CommandIds.VolumeDown5
+                     })
+            {
+                using var harness = Harness.Create();
+                arm(harness.Backend);
+                harness.OpenPlayerForGroup("GRUPA-SALON");
+                var said = harness.AnnounceFor(commandId);
+                if (harness.Backend.VolumeSets.Count != 0)
+                {
+                    throw new Exception(
+                        $"{commandId} przy {name} wyslal {harness.Backend.VolumeSets.Count} ustawien poziomu.");
+                }
+                checks++;
+                if (said.Length == 0)
+                {
+                    throw new Exception($"{commandId} przy {name} nic nie powiedzial.");
+                }
+                checks++;
+            }
+        }
+        return checks;
+    }
+
+    /// <summary>
+    /// B4-6: MUTE odwraca WYLACZNIE ZNANY bool z odczytu. false -> true,
+    /// true -> false, a NIEZNANE wyciszenie to ODMOWA i ZERO POST - zgadniety
+    /// bool prowadzilby do odwrotnego skutku w pokoju. volume.fixed=true blokuje
+    /// POZIOM, NIE mute: wyciszenie przy stalym poziomie ma dojsc do backendu.
+    /// Nie ruszamy globalnego wyciszenia ani ustawien innej sesji.
+    /// </summary>
+    private static int MeasureMuteInvertsKnownReadOnly()
+    {
+        var checks = 0;
+
+        foreach (var before in new[] { false, true })
+        {
+            using var harness = Harness.Create();
+            harness.Backend.MutedFlag = before;
+            harness.Backend.ApplyVolumeWrites = true;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var volumeReadsBefore = harness.Backend.VolumeReads;
+
+            var said = harness.AnnounceFor(CommandIds.ToggleMuteCurrentSession);
+            if (harness.Backend.MuteSets.Count != 1)
+            {
+                throw new Exception(
+                    $"Mute przy odczycie {before}: wyslano {harness.Backend.MuteSets.Count} ustawien "
+                    + $"zamiast dokladnie jednego. Powiedziano: \"{said}\".");
+            }
+            checks++;
+            var set = harness.Backend.MuteSets[0];
+            if (set.GroupId != "GRUPA-SALON" || set.Muted == before)
+            {
+                throw new Exception(
+                    $"Mute przy odczycie {before}: wyslano {set.Muted} do grupy {set.GroupId} "
+                    + "zamiast odwrotnosci odczytu do GRUPA-SALON.");
+            }
+            checks++;
+            if (harness.Backend.VolumeReads <= volumeReadsBefore)
+            {
+                throw new Exception("Mute: nie bylo jawnego GET-u glosnosci po poleceniu.");
+            }
+            checks++;
+            if (!said.Contains("Wyciszenie ustawione", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Mute przy odczycie {before}: odczyt zmienil sie, a mowa nie: \"{said}\".");
+            }
+            checks++;
+            if (harness.Backend.VolumeSets.Count != 0)
+            {
+                throw new Exception("Mute ruszyl POZIOM glosnosci, a nie tylko wyciszenie.");
+            }
+            checks++;
+        }
+
+        // NIEZNANE wyciszenie (brak pola muted w odczycie): ODMOWA, zero POST.
+        foreach (var arm in new (string Name, Action<FakeBackend> Apply)[]
+                 {
+                     ("muted=null", backend => backend.MutedFlag = null),
+                     ("brak odczytu glosnosci", backend => backend.VolumeUnavailable = true)
+                 })
+        {
+            using var harness = Harness.Create();
+            arm.Apply(harness.Backend);
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            var said = harness.AnnounceFor(CommandIds.ToggleMuteCurrentSession);
+            if (harness.Backend.MuteSets.Count != 0)
+            {
+                throw new Exception($"Mute przy {arm.Name} wyslal {harness.Backend.MuteSets.Count} ustawien.");
+            }
+            checks++;
+            if (said.Length == 0)
+            {
+                throw new Exception($"Mute przy {arm.Name} nic nie powiedzial.");
+            }
+            checks++;
+        }
+
+        // volume.fixed=true BLOKUJE POZIOM, NIE wyciszenie.
+        {
+            using var harness = Harness.Create();
+            harness.Backend.FixedVolumeFlag = true;
+            harness.Backend.MutedFlag = false;
+            harness.OpenPlayerForGroup("GRUPA-SALON");
+            harness.AnnounceFor(CommandIds.ToggleMuteCurrentSession);
+            if (harness.Backend.MuteSets.Count != 1 || !harness.Backend.MuteSets[0].Muted)
+            {
+                throw new Exception(
+                    "volume.fixed=true zablokowalo WYCISZENIE, a dotyczy tylko poziomu: "
+                    + $"{harness.Backend.MuteSets.Count} ustawien.");
+            }
+            checks++;
+        }
+        return checks;
+    }
+
     // ==================== aparatura ====================
 
     /// <summary>
@@ -1613,9 +2170,18 @@ internal static class SonosPlayerUiTests
         }
 
         private SonosPlaybackActions CurrentActions() => new(
-            canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
+            canPlay: true, canSkip: CanSkipFlag, canSkipBack: null, canSkipToPrevious: CanSkipToPreviousFlag,
             canSeek: CanSeekFlag, canPause: true, canStop: null, canRepeat: null, canRepeatOne: null,
             canCrossfade: null, canShuffle: null);
+
+        /// <summary>
+        /// ODCZYTANE availablePlaybackActions.canSkip. Wczesniej bylo stale true;
+        /// bramka Next musi dac sie zmierzyc rowniez przy false i null.
+        /// </summary>
+        internal bool? CanSkipFlag { get; set; } = true;
+
+        /// <summary>ODCZYTANE canSkipToPrevious (SkipToPreviousAllowed).</summary>
+        internal bool? CanSkipToPreviousFlag { get; set; } = true;
 
         internal void ReleaseEverything()
         {
@@ -1674,16 +2240,60 @@ internal static class SonosPlayerUiTests
             string? groupId, CancellationToken cancellationToken)
         {
             VolumeReads++;
+            if (VolumeUnavailable)
+            {
+                return Task.FromResult(SonosGroupReadResult<SonosGroupVolume>.Failure(
+                    SonosDeviceReadStatus.ServiceError));
+            }
+
             return Task.FromResult(SonosGroupReadResult<SonosGroupVolume>.Success(
-                new SonosGroupVolume(30, false, false)));
+                new SonosGroupVolume(VolumeValue, MutedFlag, FixedVolumeFlag)));
         }
+
+        /// <summary>ODCZYTANY poziom; domyslnie ten sam co dotad (30).</summary>
+        internal int VolumeValue { get; set; } = 30;
+
+        /// <summary>
+        /// ODCZYTANE wyciszenie. null udaje odpowiedz BEZ pola muted - wtedy
+        /// przelacznik nie ma czego odwrocic i musi odmowic.
+        /// </summary>
+        internal bool? MutedFlag { get; set; } = false;
+
+        /// <summary>volume.fixed z odczytu: blokuje POZIOM, nie wyciszenie.</summary>
+        internal bool? FixedVolumeFlag { get; set; } = false;
+
+        /// <summary>Odczyt glosnosci sie NIE udaje - brak danych, nie zero.</summary>
+        internal bool VolumeUnavailable { get; set; }
+
+        /// <summary>
+        /// Gdy true, POST glosnosci/wyciszenia RZECZYWISCIE zmienia odczytywana
+        /// wartosc - tylko wtedy werdykt moze byc potwierdzony. Domyslnie false,
+        /// wiec istniejace pomiary mierza dokladnie to samo co wczesniej i mamy
+        /// przypadek "Accepted bez zmiany odczytu".
+        /// </summary>
+        internal bool ApplyVolumeWrites { get; set; }
 
         public Task<SonosGroupCommandResult> SendGroupCommandAsync(
             string? groupId, SonosGroupCommand command, CancellationToken cancellationToken)
         {
             Commands.Add(command);
             CommandGroupIds.Add(groupId);
+            ApplyItemChangeAfterCommand();
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(command));
+        }
+
+        /// <summary>
+        /// Gdy ustawione, PIERWSZE polecenie zmienia ODCZYTYWANY identyfikator
+        /// materialu - tylko wtedy nastepny GET moze potwierdzic skip. Zapis z
+        /// wnetrza POST-u, bo liczenie odczytow z gory jest zawodne (odczyt tla).
+        /// </summary>
+        internal string? NextItemIdAfterCommand { get; set; }
+
+        private void ApplyItemChangeAfterCommand()
+        {
+            if (NextItemIdAfterCommand is not { } next) return;
+            NextItemIdAfterCommand = null;
+            CurrentItemId = next;
         }
 
         /// <summary>RZECZYWISTE argumenty KAZDEGO skoku: delta i itemId celu.</summary>
@@ -1724,14 +2334,24 @@ internal static class SonosPlayerUiTests
         {
             Commands.Add(SonosGroupCommand.SetVolume);
             CommandGroupIds.Add(groupId);
+            VolumeSets.Add((groupId, volume));
+            if (ApplyVolumeWrites) VolumeValue = volume;
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SetVolume));
         }
+
+        /// <summary>RZECZYWISTE argumenty KAZDEGO ustawienia poziomu.</summary>
+        internal List<(string? GroupId, int Volume)> VolumeSets { get; } = [];
+
+        /// <summary>RZECZYWISTE argumenty KAZDEGO ustawienia wyciszenia.</summary>
+        internal List<(string? GroupId, bool Muted)> MuteSets { get; } = [];
 
         public Task<SonosGroupCommandResult> SetGroupMuteAsync(
             string? groupId, bool muted, CancellationToken cancellationToken)
         {
             Commands.Add(SonosGroupCommand.SetMute);
             CommandGroupIds.Add(groupId);
+            MuteSets.Add((groupId, muted));
+            if (ApplyVolumeWrites) MutedFlag = muted;
             return Task.FromResult(SonosGroupCommandResult.CreateAcceptedForMeasurement(SonosGroupCommand.SetMute));
         }
 
