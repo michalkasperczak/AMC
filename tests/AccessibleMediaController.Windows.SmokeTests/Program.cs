@@ -102,6 +102,10 @@ if (args.Contains("--sonos-devices-window", StringComparer.Ordinal))
 {
     SonosDevicesWindowTests.Run(); return 0;
 }
+if (args.Contains("--sonos-navigation-ux", StringComparer.Ordinal))
+{
+    SonosNavigationUxTests.Run(); return 0;
+}
 
 if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
 {
