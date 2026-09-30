@@ -107,6 +107,25 @@ Zasady, których te polecenia trzymają się twardo:
   wymyślane.
 - Sonos nie dostaje żadnego nowego globalnego skrótu klawiszowego.
 
+## Zakres odbioru części B3a
+
+Zestaw `--sonos-player-ui` ma teraz 30 sprawdzeń. D6 używa odczytanej pozycji
+24:30:00 i długości 25:00:00 w pauzie: kontrolka oraz polecenia czasu mają
+podawać całkowite godziny, a czas pozostały wynosi 30:00. Ten sam test na kodzie
+sprzed poprawki kompiluje się, ale wykrywa błędny tekst „0:30:00 z 1:00:00”;
+po zmianie dwóch helperów przechodzi. Nie zmieniono wspólnego formatera.
+
+Niezależny odbiór tej poprawki objął również rzeczywiste Ctrl+8/Enter,
+Ctrl+Shift+E/T/R i zapis wypowiedzi w Podglądzie mowy żywego NVDA na Hermesie.
+Odczytano 24:30:00, 25:00:00 i 30:00 z dokładnych binariów zaliczonego przebiegu.
+Wszystkie dane grupy były syntetyczne; nie odtwarzano rzeczywistego nagrania.
+
+To odbiór wyświetlania, Play/Pause i czasu, **nie całego odtwarzacza**.
+Przyciski „Skocz do czasu…” i „Skocz do procentu…” są widoczne, ale obecnie
+odmawiają mimo znanej długości; tę usterkę potwierdzono osobno przez rzeczywiste
+UIA Invoke i mowę NVDA. Pozostaje do naprawy przed wydaniem. Next/Previous,
+pozostałe przewijanie, głośność/wyciszenie i ich bramki wymagają osobnego odbioru.
+
 ## Czym to zmierzone
 
 | Pomiar | Co sprawdza |
@@ -142,9 +161,10 @@ własnego magazynu ustawień z pustymi kontami/podcastami/urządzeniami
 WiiM/harmonogramami, wyłączonych aktualizacji i odmowy uruchomienia
 instalatora.
 
-### Czego tu NIE zmierzono
+### Granice samych zestawów automatycznych
 
-- **Odsłuch NVDA** i **fizyczna klawiatura** — nie były uruchamiane.
+- **Odsłuch NVDA** i **fizyczna klawiatura** — te zestawy ich nie uruchamiają.
+  Osobny wykonany odbiór rodzica opisano wyżej.
   `--sonos-session-entry-ui` i `--sonos-player-ui` wysyłają routed `KeyEventArgs`
   i routed `Click` na elemencie z fokusem we
   **własnym** oknie, nie klawisze systemowe. Komunikaty są sprawdzone jako tekst,

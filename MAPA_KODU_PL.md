@@ -46,8 +46,9 @@ Wejście rzeczywistą drogą użytkownika mierzy osobny
 `Windows.SmokeTests --sonos-session-entry-ui` na POKAZANYM własnym oknie.
 Odsłuchu NVDA i fizycznej klawiatury tu NIE było.
 
-UŻYTKOWY ODTWARZACZ (etap B3) mierzy `Windows.SmokeTests --sonos-player-ui`
-(**25 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
+KONTROLKI, PLAY/PAUSE I CZAS (część B3a, nie pełny odbiór odtwarzacza) mierzy
+`Windows.SmokeTests --sonos-player-ui`
+(**30 sprawdzeń**, POKAZANE własne okno, zaplecze grupy tylko syntetyczne):
 
 - `UpdateSonosPlayerView` (`MainWindow.Sonos.cs`) ustawia **wszystkie** kontrolki
   odtwarzacza z odczytu grupy — także `PlayerTimeText` i etykietę oraz **dostępną
@@ -60,6 +61,11 @@ UŻYTKOWY ODTWARZACZ (etap B3) mierzy `Windows.SmokeTests --sonos-player-ui`
 - `TimeElapsed` / `TimeRemaining` / `TimeTotal` w sesji Sonos obsługuje
   `AnnounceSonosTime`, **nie** ogólny router (ten czytałby `DemoMediaSession`,
   czyli pozycję 0 z długości 0). Brak pozycji lub długości = „nie jest znany”.
+- Format kontrolki i poleceń czasu korzysta z istniejącego
+  `MediaItemFormatter.FormatDuration` (całkowite godziny, bez zawijania po dobie).
+  D6 sprawdza pozycję 24:30:00 z długości 25:00:00 i pozostałe 30:00.
+- Pozostałe sterowanie wymaga osobnego odbioru. Potwierdzony brak obsługi
+  dialogów skoku do czasu/procentu jest kolejną naprawą, nie zaliczoną funkcją.
 
 ODŚWIEŻANIE sesji (etap B1) mierzy `Windows.SmokeTests --sonos-session-polling-ui`
 na POKAZANYM własnym oknie i na **prawdziwym `PlayerUiTimer_Tick`**, nie na samym
