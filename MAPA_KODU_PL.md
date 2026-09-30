@@ -150,11 +150,11 @@ Odsłuchu NVDA, prawdziwego konta i prawdziwych głośników tu NIE było.
 
 ### B2c2 — dostępny wybór domu, anulowanie bez zmian, zapis wyboru
 
-Mierzone przez `--sonos-household-choice-ui` (91 policzonych postwarunków) na
-prawdziwym `MainWindow`, prawdziwym `ExecuteCommand` i **rzeczywiście pokazanym**
-oknie wyboru (`ShowDialog` na własnym oknie, własna pompa komunikatów). Granica
-to `ISonosGroupSessionBackend` i `ConfigurationStore` — bez konta, HTTP, DPAPI,
-audio i bez klawiszy NVDA.
+Mierzone przez `--sonos-household-choice-ui` (**97 sprawdzeń**, własny Windows,
+kod `9be70c6`) na prawdziwym `MainWindow`, `ExecuteCommand` i kontrolkach WPF.
+Osobny pomiar potwierdza rzeczywiste `ShowDialog` oraz pierwszy plan. Granica
+zaplecza to syntetyczne `ISonosGroupSessionBackend` i prywatny
+`ConfigurationStore` — bez rzeczywistego konta, HTTP, DPAPI i audio.
 
 UCZCIWA GRANICA APARATURY: `Harness.RunChoice` podstawia POKAZANIE okna (Show z
 pompą zamiast modalnego `ShowDialog`) i „Escape” realizuje przez UIA `Invoke` na
@@ -215,9 +215,14 @@ prawdziwe `ShowDialog` i realny pierwszy plan jest osobna sonda (`ParentProbe`).
   i kolejności domów nie rusza identyfikatora; do JSON nie doszły żadne tokeny
   ani liczniki kont.
 
-Fizycznych klawiszy, odsłuchu NVDA, prawdziwego konta i głośników tu NIE było;
-`AnnouncementSinkForTests` mierzy **treść komunikatu**, nie to, co wypowiedział
-czytnik.
+Dodatkowo odebrano rzeczywiste menu i paletę, Tab, strzałki, Enter, Escape,
+Anuluj naciśnięte spacją oraz zamknięcie modala Alt+F4 z żywym NVDA i prawdziwym
+Podglądem mowy. Drugi proces wczytał zapisany wybór; po rzeczywistym wejściu do
+sesji odczyt grup wskazywał ten sam dom, a modal odtwarzał jego zaznaczenie.
+Harness pomijał uruchamianie źródeł w `ContentRendered`; to nie pomiar zwykłego
+startu produkcji. Osobny `AnnouncementSinkForTests` nadal mierzy tylko tekst,
+nie mowę czytnika. Prawdziwego konta i głośników nie używano.
+Końcowy niezależny przegląd zgodności i jakości `9be70c6` nie wykazał blokad.
 
 ## Sonos: AUTORYZOWANE operacje grupy przez właściciela konta (Core, po alfa413)
 

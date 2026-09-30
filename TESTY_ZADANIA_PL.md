@@ -19,17 +19,28 @@ Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i
    się odczytać domów — stara lista nie jest podawana jako nowa.
 6. Odejście w trakcie: uruchom polecenie i zaraz przejdź do innego okna
    (własnego lub obcego programu). Spóźniony wynik **nie wyskoczy** na wierzch i
-   nie zabierze fokusu; usłyszysz, że wybór nie został otwarty, bo okno AMC nie
-   jest aktywne, i że trzeba wrócić do AMC i ponowić. Po powrocie okno **nie**
-   otworzy się samo — wywołaj polecenie ponownie.
+   nie zabierze fokusu. Po powrocie okno **nie** otworzy się samo — wywołaj
+   polecenie ponownie. Wypowiedzi z nieaktywnego AMC nie traktujemy jako
+   gwarantowanego powiadomienia w obcej aplikacji.
 7. Wyjście z sesji w trakcie odczytu (np. Ctrl+3) i powrót do Sonos: polecenie
    działa normalnie i robi świeży odczyt, a nie „Wybieranie domu Sonos już trwa”.
 
-Granica uczciwości: powyższe odpowiada pomiarom automatycznym na Windows
-(`--sonos-household-choice-ui`, 91 sprawdzeń, plus osobna sonda z prawdziwym
-`ShowDialog` i realnym pierwszym planem). **Nie** były to pomiary z żywym NVDA,
-fizycznymi klawiszami, prawdziwym kontem Sonos ani dźwiękiem — to właśnie
-pozostaje do sprawdzenia ręcznego.
+Odbiór kodu `9be70c6`: własne **97 sprawdzeń** wyboru domu na Windows, wcześniejsze
+zestawy Sonosa i pełny Core zakończyły się kodem0. Pięć dodatkowych prób
+rzeczywistego WPF potwierdziło także blokady przed i po odczycie oraz brak
+przykrywania innego prawdziwego modala.
+
+Żywy NVDA potwierdził menu Plik, rzeczywistą paletę (w próbie otwartą
+Ctrl+Shift+K), nazwy i początkowy fokus, Tab, strzałki, Enter, Escape,
+Anuluj naciśnięte spacją i zamknięcie modala Alt+F4. W prawdziwym Podglądzie
+mowy zapisano nazwy domów, zatwierdzenie i anulowanie. Drugi proces odtworzył
+dom z tego samego syntetycznego pliku; wejście do sesji kierowało odczyt grup
+na zapisany dom. Nie uruchamiano produkcyjnych źródeł w `ContentRendered`.
+
+Wszystkie odpowiedzi zaplecza były syntetyczne. **Nie** jest to pomiar
+rzeczywistego konta, HTTP, DPAPI ani dźwięku z głośników; nie przygotowano
+jeszcze nowego instalatora. Końcowy niezależny przegląd zgodności i jakości
+nie pozostawił uwag blokujących.
 
 ## Sonos: operacje grupy przez konto — odebrany Core, bez sesji UI
 
