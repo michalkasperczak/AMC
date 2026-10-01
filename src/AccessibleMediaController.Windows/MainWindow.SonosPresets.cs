@@ -369,6 +369,8 @@ public partial class MainWindow
         var backend = EnsureSonosBackend();
         var household = _state.Sonos.SelectedHouseholdId;
         var ticket = _sonosTargetTicket;
+        bool Current() => IsSonosPresetIntentCurrent(intent, ticket)
+            && IsSonosPresetHouseholdStill(household);
 
         // DOM MATERIALU. Zapisany dom, ktory nie jest biezacym, konczy droge:
         // opaque identyfikator z domu A nie ma prawa pojsc jako token do domu B.
@@ -399,7 +401,7 @@ public partial class MainWindow
             {
                 var resolved = await ResolveSonosFixedPresetGroupAsync(
                     backend, preset, household, token).ConfigureAwait(true);
-                if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
+                if (!Current()) return;
                 if (resolved.Resolution != SonosFixedTargetResolution.Resolved)
                 {
                     // UCZCIWA ODMOWA. Nic nie uruchamiamy, nie przegrupowujemy i
@@ -450,11 +452,11 @@ public partial class MainWindow
             var repeat = station is null && SonosPresetKinds.IsFavorite(preset.TargetKind)
                 ? await DecideSonosFavoriteRepeatAsync(
                     backend, groupId, household, preset, token,
-                        () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true)
+                        () => Current()).ConfigureAwait(true)
                 : await DecideSonosPresetRepeatAsync(
                     backend, groupId, preset, station, token,
-                        () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true);
-            if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
+                        () => Current()).ConfigureAwait(true);
+            if (!Current()) return;
 
             if (repeat == SonosPresetRepeatDecision.Unavailable)
             {
@@ -478,7 +480,7 @@ public partial class MainWindow
                 var resumed = await backend
                     .SendGroupCommandAsync(groupId, SonosGroupCommand.Play, token)
                     .ConfigureAwait(true);
-                if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
+                if (!Current()) return;
                 Announce(resumed.Accepted ? SonosPresetTitle(preset, station) : resumed.Message);
                 await RefreshSonosStateAfterPresetAsync().ConfigureAwait(true);
                 return;
@@ -487,8 +489,8 @@ public partial class MainWindow
             // --- ZWYKLY LOAD ---
             var message = await SendSonosPresetLoadAsync(
                 backend, groupId, preset, station, token,
-                    () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true);
-            if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
+                    () => Current()).ConfigureAwait(true);
+            if (!Current()) return;
             if (message is null) return;
             Announce(message);
             await RefreshSonosStateAfterPresetAsync().ConfigureAwait(true);
@@ -502,7 +504,7 @@ public partial class MainWindow
         {
             System.Diagnostics.Debug.WriteLine(
                 $"Sonos: preset - nie udalo sie ({exception.GetType().Name}).");
-            if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
+            if (!Current()) return;
             Announce("Nie udało się wykonać polecenia presetu Sonos. Spróbuj ponownie");
         }
         finally
@@ -510,7 +512,7 @@ public partial class MainWindow
             ReleaseSonosCommandGate(gate);
             // FOKUSU NIE RUSZAMY przy skrocie globalnym: zdalny preset nie ma
             // prawa wejsc na wierzch ani otworzyc listy przy okazji.
-            if (!fromGlobalShortcut && !_isClosing && IsActive
+            if (!fromGlobalShortcut && !_isClosing && IsActive && Current()
                 && IsSonosSession(_sessions?.Current.Id) && !_playerViewActive)
             {
                 RestoreMediaListFocusAfterRefresh();
@@ -663,7 +665,18 @@ public partial class MainWindow
         if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !playback.Succeeded)
             return SonosPresetRepeatDecision.Unavailable;
 
-        var container = metadata.Value!.Container;
+        // Bracket the playback read with metadata reads for every decision,
+        // including announce-only and load. A source switch must not make us
+        // announce the wrong material or restart one that has just begun.
+        var fresh = await backend.ReadGroupMetadataAsync(groupId, token).ConfigureAwait(true);
+        if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !fresh.Succeeded)
+            return SonosPresetRepeatDecision.Unavailable;
+        var previousContainer = metadata.Value!.Container;
+        var container = fresh.Value!.Container;
+        var stableMaterial = SonosResourceIdentity.AreSameMaterial(previousContainer?.Identity, container?.Identity)
+            || (previousContainer is null && container is null
+                && metadata.Value.CurrentItem is null && fresh.Value.CurrentItem is null);
+        if (!stableMaterial) return SonosPresetRepeatDecision.Unavailable;
         var wanted = favorite.ResourceIdentity;
         if (!SonosResourceIdentity.AreSameMaterial(wanted, container?.Identity))
         {
@@ -672,7 +685,7 @@ public partial class MainWindow
                 && container?.Identity is { IsComplete: true };
             // POTWIERDZONY pusty gloshnik: brak kontenera, brak pozycji i IDLE.
             var confirmedEmpty = container is null
-                && metadata.Value.CurrentItem is null
+                && fresh.Value.CurrentItem is null
                 && playback.Value!.PlaybackState == SonosPlaybackState.Idle;
             // NIEPELNA/NIEZNANA tozsamosc przy ISTNIEJACYM materiale: ani nazwa,
             // ani 200 nie zastepuja trojki. Odmowa, ZERO POST.
@@ -685,18 +698,6 @@ public partial class MainWindow
         // NIEZNANY stan przy ZGODNEJ tozsamosci: nie restartujemy wlasnego
         // materialu w ciemno (ta sama regula co dla wlasnej stacji).
         if (state == SonosPlaybackState.Unknown) return SonosPresetRepeatDecision.Unavailable;
-        if (state is SonosPlaybackState.Paused or SonosPlaybackState.Idle)
-        {
-            // Odczyty NIE sa atomowe. Przed JEDNYM Play potwierdzamy, ze grupa
-            // nadal ma TEN material - cudza zmiana w appce Sonos konczy droge
-            // odmowa, zeby nie wznowic obcego zrodla.
-            var fresh = await backend.ReadGroupMetadataAsync(groupId, token).ConfigureAwait(true);
-            if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !fresh.Succeeded)
-                return SonosPresetRepeatDecision.Unavailable;
-            if (!SonosResourceIdentity.AreSameMaterial(wanted, fresh.Value!.Container?.Identity))
-                return SonosPresetRepeatDecision.Unavailable;
-            container = fresh.Value.Container;
-        }
 
         // TA SAMA bramka stanu co przy wlasnej stacji: tozsamosc rozstrzygnelo
         // juz Matches wyzej, a Decide odwzorowuje WYLACZNIE stan odtwarzania.

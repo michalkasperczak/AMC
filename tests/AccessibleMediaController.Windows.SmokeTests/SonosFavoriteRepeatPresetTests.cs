@@ -77,9 +77,13 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         Measure("F8", "NIEPELNA trojka ulubionego przy istniejacym materiale: ZERO POST",
             () => MeasureFavoriteRepeat("niepelna-tozsamosc")),
         Measure("F9", "ZMIANA KONTA podczas wstrzymanego GET katalogu: ZERO POST "
-            + "i zaden stary komunikat w nowej sesji", MeasureFavoriteRepeatAccountSwapDuringRead),
+            + "i zaden stary komunikat w nowej sesji", () => MeasureFavoriteRepeatAccountSwapDuringRead()),
         Measure("F10", "DOMYSLNA trasa zestawu (znany INNY material): zwykly load",
             MeasureDefaultRouteStillLoads),
+        Measure("F11", "ZMIANA podczas odczytu stanu Playing: bez fałszywej nazwy", () => MeasureFavoriteRepeat("zmiana-gra")),
+        Measure("F12", "ZMIANA samego domu podczas GET: cisza i zero POST", () => MeasureFavoriteRepeatAccountSwapDuringRead(true)),
+        Measure("F13", "Źródło zmieniło się na żądane przed load: nie restartuj", () => MeasureFavoriteRepeat("zmiana-load")),
+        Measure("F14", "Usunięty wpis katalogu: zero POST", () => MeasureFavoriteRepeat("brak-pozycji")),
     ];
 
     /// <summary>
@@ -162,6 +166,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             {
                 catalogueReads++;
                 if (mode == "katalog-blad") return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+                if (mode == "brak-pozycji") return Json("{\"version\":\"W3\",\"items\":[]}");
                 return Json(FavoritesWithResourceBody(mode != "niepelna-tozsamosc"));
             }
 
@@ -172,7 +177,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 // INNE KONTO USLUGI przy zgodnym serviceId/objectId to INNY material.
                 if (mode == "inne-konto") return Json(MetadataBody(FavoriteObjectId, "KONTO-INNEGO-UZYTKOWNIKA"));
                 // ZMIANA W TRAKCIE: pierwszy odczyt zgodny, potwierdzajacy JUZ NIE.
-                if (mode == "zmiana-w-trakcie" && metadataReads > 1)
+                if (mode == "zmiana-load" && metadataReads == 1)
+                    return Json(MetadataBody("OBIEKT-PIERWSZY", FavoriteAccountId));
+                if ((mode is "zmiana-w-trakcie" or "zmiana-gra") && metadataReads > 1)
                     return Json(MetadataBody("OBIEKT-PIERWSZY", FavoriteAccountId));
                 return Json(MetadataBody(FavoriteObjectId, FavoriteAccountId));
             }
@@ -236,6 +243,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                     throw new Exception("Potwierdzony pusty głośnik ma zwyczajnie załadować: " + paths);
                 break;
             case "zmiana-w-trakcie":
+            case "zmiana-gra":
+            case "zmiana-load":
+            case "brak-pozycji":
             case "katalog-blad":
             case "niepelna-tozsamosc":
                 if (posts.Length != 0) throw new Exception(mode + ": poszło " + posts.Length + " POST: " + paths);
@@ -252,7 +262,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// ZMIANA KONTA W TRAKCIE wstrzymanego GET katalogu. Stary kontekst NIE MA
     /// prawa ani wyslac POST, ani powiedziec czegokolwiek w NOWEJ sesji konta.
     /// </summary>
-    private static string MeasureFavoriteRepeatAccountSwapDuringRead()
+    private static string MeasureFavoriteRepeatAccountSwapDuringRead(bool householdOnly = false)
     {
         using var h = RealHarness.Create();
         h.Enter();
@@ -275,7 +285,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         h.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5), "GET katalogu nie dotarł do transportu");
 
         // NOWSZY ZAMIAR: zmiana konta PRODUKCYJNA droga koordynatora.
-        h.SwapAccount("KONTO-ULUBIONE-B");
+        if (householdOnly) h.Window.StateForTests.Sonos.SelectedHouseholdId = OtherHouseholdId;
+        else h.SwapAccount("KONTO-ULUBIONE-B");
         held.Release();
         h.PumpUntil(() => task.IsCompleted, TimeSpan.FromSeconds(15), "próba powtórzenia się nie rozliczyła");
         task.GetAwaiter().GetResult();
@@ -285,6 +296,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         if (posts.Length != 0)
             throw new Exception("Po zmianie konta w trakcie odczytu poszło " + posts.Length + " POST.");
         var after = h.Announcements.Skip(spokenBefore).ToArray();
+        if (householdOnly && after.Length != 0)
+            throw new Exception("Stara próba przemówiła po zmianie domu: " + string.Join(" / ", after));
         if (after.Any(message => message == "Nokturny"))
             throw new Exception("Stary kontekst ogłosił sukces w nowej sesji konta.");
 

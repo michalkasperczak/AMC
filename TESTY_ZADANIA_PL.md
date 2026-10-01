@@ -19,9 +19,9 @@ Czego ten pomiar NIE dowodzi: że natywne playlisty Sonosa mają się jak rozpoz
 
 ## Sonos: powtórzenie Ulubionego w presetach — jak sprawdzić
 
-Polecenie: `--sonos-favorite-repeat` (Windows SmokeTests), 10 przypadków na prawdziwym `MainWindow`/`RealSonosAccountOwner`/kliencie nad `RecordingHandler`. Bez konta, sieci, głośnika i dźwięku — fixture syntetyczne.
+Polecenie: `--sonos-favorite-repeat` (Windows SmokeTests), 14 przypadków na prawdziwym `MainWindow`/`RealSonosAccountOwner`/kliencie nad `RecordingHandler`. Bez konta, sieci, głośnika i dźwięku — fixture syntetyczne.
 
-Na uruchomieniu presetu Ulubionego czytany jest ŚWIEŻY katalog wskazanego domu (literalny `TargetId`), a potem świeże `playbackMetadata` i stan odtwarzania właściwej grupy. Nie używa się kopii z otwartego kiedyś modala ani pamięci po POST.
+Na uruchomieniu presetu Ulubionego czytany jest ŚWIEŻY katalog wskazanego domu (literalny `TargetId`), a potem świeże `playbackMetadata`, stan odtwarzania i ponownie `playbackMetadata` właściwej grupy. Nie używa się kopii z otwartego kiedyś modala ani pamięci po POST.
 
 1. Pełna trójka zgodna i Playing/Buffering → **sama nazwa**, 0 POST: bez load, bez kolejki, bez zmiany fokusu. `currentItem` na dalszym utworze zostaje tam, gdzie był (to `container`, nie `currentItem.track`).
 2. Zgodna trójka i Paused albo radio Idle z załadowanym kontenerem → **dokładnie jeden** `SendGroupCommand(Play)`, zero load/seek/zmiany kolejki, potem sama nazwa. Przed wznowieniem metadane są czytane PONOWNIE; zmiana z zewnątrz w trakcie odczytu daje uczciwe Unavailable i 0 POST.
@@ -31,6 +31,8 @@ Na uruchomieniu presetu Ulubionego czytany jest ŚWIEŻY katalog wskazanego domu
 6. Gałąź natywnej playlisty Sonosa zostaje JAWNIE nieukończona — bez zgadywania `SQ:0` i prefiksów. Tor OwnURL niezmieniony: jego decyzje 0 POST / 1 Play są te same.
 
 Żywy NVDA, jeden pomiar: fizyczny `Ctrl+Shift+1` do własnego okna (potwierdzony `foregroundPid`), odczyt prawdziwego Podglądu mowy. Już gra → 0 POST i mowa „Nokturny”; po pauzie → 1 `playback/play` i mowa „Nokturny”. Pozycja dalszego utworu (93000 ms) nietknięta w obu krokach. Kwity: `amc_pomoc/sonos-favorite-repeat/`.
+
+Odbiór rodzica ujawnił trzy granice: zmiana źródła w Playing dawała fałszywą nazwę; zmiana na żądane źródło przed load restartowała materiał; sama zmiana domu bez zmiany biletu wypuszczała stary komunikat. RED 11/14 → GREEN 14/14, regresja presetów 17/17. F14 dodatkowo mierzy usuniętą pozycję katalogu. Ponowny krótki pomiar NVDA na końcowych DLL: nazwa/0 POST, wznowienie/1 Play, a po zmianie źródła uczciwa odmowa bez dodatkowego POST. Surowe logi `parent-boundaries-*`, `parent-live-steps.json`, `parent-live-speech.txt`; nadrzędny kwit `PARENT-ACCEPTANCE.json`. W aparaturze dodano sprawdzenie natywnego foreground tuż przed SendInput; błędny cel oznacza zero wysłanych klawiszy. Dane i pozycja 93000 ms pozostają syntetyczne, nie są pomiarem dźwięku głośnika.
 
 Czego ten pomiar NIE dowodzi: że każda usługa Sonos oddaje kompletną trójkę w `resource.id` (dla 32 rzeczywistych Ulubionych zmierzył to wcześniejszy odcinek; poza tym semantyka kończy się odmową, nie restartem), ani że cokolwiek zagrało na prawdziwym głośniku.
 
