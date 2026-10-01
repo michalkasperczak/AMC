@@ -1602,7 +1602,8 @@ public partial class MainWindow
 internal sealed class SonosAccountOwnerGroupBackend
     : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend,
       ISonosFavoriteLoadSessionBackend, ISonosPlaylistsSessionBackend,
-      ISonosPlaylistLoadSessionBackend, ISonosOwnStreamsSessionBackend
+      ISonosPlaylistLoadSessionBackend, ISonosOwnStreamsSessionBackend,
+      ISonosGroupMembershipSessionBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -1662,6 +1663,16 @@ internal sealed class SonosAccountOwnerGroupBackend
     public Task<SonosGroupsReadResult> ReadGroupsAsync(
         string householdId, CancellationToken cancellationToken) =>
         _owner.ReadGroupsAsync(householdId, cancellationToken);
+
+    /// <summary>ZMIANA SKLADU: createGroup. Cienkie przekazanie, jeden POST.</summary>
+    public Task<SonosGroupMembershipResult> CreateGroupAsync(
+        string? householdId, SonosCreateGroupRequest? request, CancellationToken cancellationToken) =>
+        _owner.CreateGroupAsync(householdId, request, cancellationToken);
+
+    /// <summary>ZMIANA SKLADU: setGroupMembers. Cienkie przekazanie, jeden POST.</summary>
+    public Task<SonosGroupMembershipResult> SetGroupMembersAsync(
+        string? groupId, SonosPlayerSet? players, CancellationToken cancellationToken) =>
+        _owner.SetGroupMembersAsync(groupId, players, cancellationToken);
 
     /// <summary>
     /// F2: ODCZYT ULUBIONYCH domu. Tak samo cienkie przekazanie jak reszta: caly

@@ -288,6 +288,29 @@ internal sealed class SonosAccountOwner : IDisposable
     /// </summary>
     internal ISonosPlaylistLoadApi EnsurePlaylistLoadApi() => EnsureControlApiClient();
 
+    /// <summary>
+    /// ZMIANA SKLADU GRUPY: createGroup. CIENKIE przekazanie do TEGO SAMEGO
+    /// koordynatora i klienta co odczyty - zaden drugi wlasciciel, zaden drugi
+    /// HttpClient, zadna wlasna polityka biletu. Jeden POST, bez Play/Stop.
+    /// </summary>
+    internal Task<SonosGroupMembershipResult> CreateGroupAsync(
+        string? householdId, SonosCreateGroupRequest? request, CancellationToken cancellationToken) =>
+        EnsureCoordinator().CreateGroupAsync(
+            EnsureGroupMembershipApi(), householdId, request, cancellationToken);
+
+    /// <summary>ZMIANA SKLADU GRUPY: setGroupMembers. Tak samo cienkie przekazanie.</summary>
+    internal Task<SonosGroupMembershipResult> SetGroupMembersAsync(
+        string? groupId, SonosPlayerSet? players, CancellationToken cancellationToken) =>
+        EnsureCoordinator().SetGroupMembersAsync(
+            EnsureGroupMembershipApi(), groupId, players, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs ZMIANY SKLADU nad tym SAMYM klientem Control API. Klient
+    /// sam implementuje <see cref="ISonosGroupMembershipApi"/>, wiec nie ma tu
+    /// ani nowego adaptera, ani nowego transportu.
+    /// </summary>
+    internal ISonosGroupMembershipApi EnsureGroupMembershipApi() => EnsureControlApiClient();
+
     internal Task<SonosSessionCreateResult> CreateSessionAsync(string? groupId,
         SonosSessionRequest request, CancellationToken cancellationToken) =>
         EnsureCoordinator().CreateSessionAsync(EnsureControlApiClient(), groupId, request, cancellationToken);

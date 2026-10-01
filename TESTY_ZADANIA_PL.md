@@ -1,5 +1,19 @@
 # Zadania testowe AMC
 
+## Sonos: wybór kilku głośników — aktualna obsługa Ctrl+F5
+
+1. Ctrl+F5 pokazuje bieżący cel pełnymi nazwami. Ustaw jako cel nadal tylko wybiera istniejącą grupę, bez zmieniania jej składu i bez uruchamiania muzyki.
+2. Wybierz głośniki otwiera świeżą listę pól wyboru; członkowie obecnego celu są zaznaczeni. Strzałki zmieniają fokus, Spacja zaznaczenie. NVDA podaje prawdziwy stan pola. Para stereo/zestaw kina pozostaje pojedynczą pozycją.
+3. Zaznacz wszystkie zmienia wyłącznie lokalny wybór. Zastosuj wysyła pełny zestaw dopiero po kontroli aktualności. Escape/anulowanie przed zatwierdzeniem nie wysyła polecenia.
+4. Dołączenie głośnika z innej grającej grupy albo o nieznanym stanie wymaga potwierdzenia nazwanego konfliktu. Domyślne Nie nie przestawia głośników. Zmiana topologii podczas pytania unieważnia zgodę, nie powoduje automatycznego ponowienia.
+5. Dopiero pełny świeży odczyt zgodny z wyborem daje „Wybrano: …”. Odpowiedź HTTP200 sama nie wystarcza. Brak odczytu po zapisie daje „Polecenie wysłano, wynik niepotwierdzony”, nigdy „nic nie wysłano”. Następca grupy ma identyfikator z odpowiedzi/odczytu, nie odgadnięty z nazwy.
+
+Odbiór: pierwsza delegacja dostarczyła niescommitowany draft z sześcioma zielonymi przypadkami, lecz z odwołaną gałęzią createGroup i z nieuprawnionymi obietnicami. Rodzic rozszerzył tylko ten pomiar o ujawnione braki. `parent-narrow-red`: build0, test1, sześć konkretnych odmów asercji; po poprawkach końcowe 9 przypadków zielone: Wszystkie, pojedynczy głośnik bez dawnego koordynatora (odczytana pauza), bez zmian, anulowany konflikt, zmiana konta, błędny zestaw po POST, niepełna topologia, błąd GET po POST oraz zmiana podczas pytania. Sąsiednia nawigacja43 zielona. Bez ponawiania pełnego Core/Windows.
+
+Żywy NVDA na identycznych DLL: Ctrl+F5 → Wybierz głośniki → strzałki/Spacja → Wszystkie (0POST) → Zastosuj → nazwane pytanie/Tak → 1setGroupMembers i wypowiedziane „Wybrano: Salon, Kuchnia i Biuro.” Następnie redukcja do samego Biura, drugi setGroupMembers i rzeczywisty nowyID celu, wypowiedziane „Wybrano: Biuro.” Ponowne Ctrl+F5 wskazuje Biuro; zmiana checkboxa i Escape nie dodaje POST, fokus wraca do AMC. Surowe obiekty NVDA i prawdziwy Podgląd mowy zachowane w amc_pomoc/sonos-speaker-selection-ui/parent-*. Dane odpowiedzi są syntetyczne: nie dowodzą realnego przeniesienia audio ani braku przerwy na głośnikach. Własne procesy7404/8276 i podgląd mowy zamknięte, produkcja13760/7332 nietknięta.
+
+
+
 ## Sonos: zmiana składu grup w Core (utworzenie grupy i nowy zestaw) — jak sprawdzić
 
 **Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie

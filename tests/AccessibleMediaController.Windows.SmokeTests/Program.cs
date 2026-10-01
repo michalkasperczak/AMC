@@ -118,6 +118,10 @@ if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
 }
+if (args.Contains("--sonos-speaker-selection", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunSpeakerSelection(); return 0;
+}
 if (args.Contains("--sonos-library-ui", StringComparer.Ordinal))
 {
     SonosLibraryUiTests.Run(); return 0;
@@ -463,6 +467,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
     ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
+    ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

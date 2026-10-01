@@ -148,6 +148,14 @@ public partial class SonosTargetSelectionWindow : Window
     /// </summary>
     internal bool Confirmed { get; private set; }
 
+    /// <summary>
+    /// Czy uzytkownik poprosil o WYBOR GLOSNIKOW. To tylko INTENCJA: okno nic nie
+    /// wysyla i nie otwiera zagnieżdzonego modalu z callbacku. Wlasciciel czyta
+    /// to pole PO powrocie ze ShowDialog, PRZED galezia potwierdzenia celu -
+    /// dzieki temu nie mowi "Cel bez zmian" o czyms, co wlasnie sie zaczyna.
+    /// </summary>
+    internal bool SpeakersRequested { get; private set; }
+
     internal int RowCountForTests => _rows.Count;
 
     internal IReadOnlyList<string> RowLabelsForTests => _rows.Select(row => row.Label).ToArray();
@@ -238,6 +246,27 @@ public partial class SonosTargetSelectionWindow : Window
     }
 
     private void Confirm_Click(object sender, RoutedEventArgs e) => Confirm();
+
+    /// <summary>
+    /// "Wybierz glosniki": zapisuje INTENCJE i zamyka okno BEZ potwierdzania
+    /// celu. Nie otwieramy tu zagniezdzonego ShowDialog, bo modal w callbacku
+    /// zostawial by to okno w polowie drogi.
+    /// </summary>
+    private void RequestSpeakers()
+    {
+        SpeakersRequested = true;
+        // ZERO zmiany celu: nie ustawiamy Confirmed ani identyfikatora.
+        Confirmed = false;
+        SelectedGroupId = null;
+        SelectedGroupLabel = null;
+        CloseSelf(false);
+    }
+
+    private void Speakers_Click(object sender, RoutedEventArgs e) => RequestSpeakers();
+
+    internal void RequestSpeakersForTests() => RequestSpeakers();
+
+    internal Button SpeakersButtonForTests => SpeakersButton;
 
     private void Close_Click(object sender, RoutedEventArgs e) => CancelChoice();
 

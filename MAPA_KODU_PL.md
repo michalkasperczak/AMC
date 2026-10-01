@@ -1,5 +1,15 @@
 # AMC — mapa kodu
 
+## Sonos: wybór składu głośników pod Ctrl+F5
+
+- `SonosTargetSelectionWindow` zachowuje wybór istniejącej grupy przez Ustaw jako cel. Osobne Wybierz głośniki przekazuje intencję po zamknięciu okna; `MainWindow.SonosLibrary.cs` uruchamia nową drogę bez fałszywego komunikatu anulowania.
+- `SonosSpeakerSelectionWindow.xaml(.cs)` to prawdziwe pola CheckBox logicznych graczy: strzałki, Spacja, Zaznacz wszystkie, Zastosuj i anulowanie. Wybór lokalny nie wysyła poleceń; stereo/kino to jedna logiczna pozycja, nie lista deviceIds.
+- `SonosSpeakerSelectionContract.cs` wylicza pełny zestaw i konflikty. Ten przepływ zawsze używa `setGroupMembers`, także gdy dawny koordynator wypada. Nie kopiuje muzyki przez `createGroup` ani nie wysyła dodatkowego Play/Stop.
+- `MainWindow.SonosSpeakers.cs`: świeży GET przed oknem i zapisem, porównanie składu z otwarciem, pytanie o grające/nieznane źródła, ponowny GET po pytaniu, jeden zapis przez wspólną bramkę. `ISonosGroupMembershipSessionBackend` i owner tylko przekazują do odebranego Core.
+- Wynik jest publikowany dopiero po świeżym, pełnym GET z dokładnym zestawem i zwróconym/odczytanym jednoznacznie groupId. Zmiana konta/domu/celu unieważnia stare komunikaty. Niepełny GET lub jego błąd nie jest sukcesem ani dowodem niewysłania już wykonanego POST. Odczyt członkostwa nie dowodzi ciągłości dźwięku.
+- Odbiór: Windows `--sonos-speaker-selection` (9 przypadków) oraz `--sonos-navigation-ux`. Końcowe pola i komunikaty zmierzone żywym NVDA na danych próbnych. Realny Sonos i pełny gate wydania pozostają osobno.
+
+
 ## Sonos: ZMIANA SKŁADU GRUP — utworzenie grupy i nowy zestaw głośników, warstwa Core (bez UI)
 
 **Tylko Core.** Ten przyrost dodaje **dwie** operacje składu grupy:

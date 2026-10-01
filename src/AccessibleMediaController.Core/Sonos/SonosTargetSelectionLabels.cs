@@ -35,8 +35,8 @@ public static class SonosTargetSelectionLabels
     /// czego okno NIE zmienia w samym Sonosie.
     /// </summary>
     public const string ViewIntroduction =
-        "Wybór celu sterowania Sonos. Wybór wskazuje grupę, do której AMC wysyła polecenia; "
-        + "nie uruchamia muzyki, nie tworzy i nie rozwiązuje grup.";
+        "Ustaw jako cel wybiera istniejącą grupę do sterowania i nie uruchamia muzyki. "
+        + "Wybierz głośniki otwiera osobną listę, na której Zastosuj zmienia skład grupy.";
 
     /// <summary>
     /// BRAK ZALOGOWANIA. Uczciwa przyczyna i droga wyjscia, bez autostartu

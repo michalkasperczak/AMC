@@ -197,6 +197,16 @@ public partial class MainWindow
             _sonosTargetWindow = null;
         }
 
+        // WYBOR GLOSNIKOW: INTENCJA czytana PRZED galezia potwierdzenia celu, inaczej
+        // uslyszelibysmy "Cel bez zmian" o czyms, co wlasnie sie zaczyna. Modal
+        // otwieramy PO zamknieciu tego okna, nie z jego callbacku.
+        if (window.SpeakersRequested)
+        {
+            if (_isClosing) return;
+            StartSonosSpeakerSelection();
+            return;
+        }
+
         // ANULOWANIE NIE ZMIENIA NICZEGO: bez potwierdzenia nie ruszamy celu.
         if (!window.Confirmed || window.SelectedGroupId is not { } groupId)
         {

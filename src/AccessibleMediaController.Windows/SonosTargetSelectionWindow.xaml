@@ -25,6 +25,9 @@
                    automation:AutomationProperties.LiveSetting="Polite" />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"
                     Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="SpeakersButton" Width="150" Content="Wybierz _głośniki" Margin="0,0,8,0"
+                    automation:AutomationProperties.Name="Wybierz głośniki"
+                    Click="Speakers_Click" />
             <Button x:Name="ConfirmButton" Width="130" Content="_Ustaw jako cel" Margin="0,0,8,0"
                     automation:AutomationProperties.Name="Ustaw jako cel"
                     Click="Confirm_Click" />
