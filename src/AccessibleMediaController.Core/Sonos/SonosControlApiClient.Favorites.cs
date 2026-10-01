@@ -116,40 +116,29 @@ public sealed partial class SonosControlApiClient : ISonosFavoritesApi
             Text(service, "id", SonosFavoritesLimits.MaxServiceIdLength));
     }
 
-    /// <summary>
-    /// favorites.items[].resource.id -> universalMusicObjectId. Odpowiedz
-    /// RZECZYWISTEJ uslugi niesie to pole, choc nie ma go w odczytanej z
-    /// dokumentacji definicji favorite; starsze odpowiedzi bez resource sa
-    /// nadal poprawne i daja null.
-    ///
-    /// Idzie przez te same prywatne guardy co reszta klienta (Object/Text),
-    /// wiec obcy typ w miejscu obiektu, duplikat pola, zly UTF-16 i
-    /// przekroczony maxLength odrzucaja CALA odpowiedz dokladnie tak jak
-    /// dotad. Tozsamosc jest tu wylacznie DODATKIEM: pozycja bez niej zostaje
-    /// na liscie, traci tylko mozliwosc rozpoznania.
-    /// </summary>
+    // Resource identity is optional enrichment. Unsupported shapes or limits
+    // disable matching, not the existing catalogue/metadata read. Parse() still
+    // rejects duplicate properties and excessive depth; Text() still validates
+    // escaped strings. No second JSON parser or broad exception swallowing.
     private static SonosResourceIdentity? ReadFavoriteResourceIdentity(JsonElement favorite)
     {
-        var resource = Object(favorite, "resource");
-        return resource is null ? null : ReadResourceIdentity(resource.Value);
+        return favorite.TryGetProperty("resource", out var resource)
+            && resource.ValueKind == JsonValueKind.Object ? ReadResourceIdentity(resource) : null;
     }
 
-    /// <summary>
-    /// Wspolny odczyt obiektu id (universalMusicObjectId) dla ulubionych i dla
-    /// kontenera metadanych - jeden typ i jedno porownanie po obu stronach.
-    /// Wartosci nie sa przycinane ani normalizowane.
-    /// </summary>
     private static SonosResourceIdentity? ReadResourceIdentity(JsonElement parent)
     {
-        var id = Object(parent, "id");
-        if (id is null)
-        {
+        if (!parent.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Object)
             return null;
+        foreach (var field in new[] { "serviceId", "objectId", "accountId" })
+        {
+            if (id.TryGetProperty(field, out var value)
+                && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
+                return null;
         }
-
         return SonosResourceIdentity.TryCreate(
-            Text(id.Value, "serviceId", SonosResourceIdentityLimits.MaxServiceIdLength),
-            Text(id.Value, "objectId", SonosResourceIdentityLimits.MaxObjectIdLength),
-            Text(id.Value, "accountId", SonosResourceIdentityLimits.MaxAccountIdLength));
+            Text(id, "serviceId", int.MaxValue),
+            Text(id, "objectId", int.MaxValue),
+            Text(id, "accountId", int.MaxValue));
     }
 }

@@ -12,7 +12,7 @@ Zmierzone: RED 7/20 (13 odmów, raw exit 1 — parser ignorował `resource`/`con
 4. Trójka bez `accountId` jest odczytana, ale nie jest kompletna: nie dopasowuje się ani do pełnej, ani do samej siebie. Brak tożsamości po którejkolwiek stronie też nie daje zgody — nigdy wieloznacznik.
 5. Podstawienie top-level `favorite.id` jako `objectId` **nie** może dawać zgody; to inny klucz katalogu.
 6. Starsza odpowiedź bez `resource` nadal daje pełną listę (obie pozycje, tożsamość null), a metadane bez `container.id` nadal mają czytaną nazwę. Jedna pozycja bez zasobu nie kasuje sąsiadów z pełną trójką.
-7. Globalne odmowy zostają: zduplikowane pole JSON w `resource.id`, liczba w miejscu obiektu `id` oraz `objectId` ponad 256 znaków dają `InvalidResponse`.
+7. Zduplikowany JSON, wadliwy odczytywany escaped UTF-16 i nadmierna głębokość nadal dają InvalidResponse. Natomiast liczba zamiast opcjonalnego resource/id/pola trójki i objectId ponad limit dają brak tożsamości, ale zachowują poprawne pozycje katalogu i metadane. Rodzic odtworzył dwie regresje dodatku (18/20), po wąskiej poprawce 20/20 oraz regresje 36/36 i 79/79; logi `parent-optional-red.log` / `parent-optional-green.log`.
 
 Czego ten pomiar NIE dowodzi: że Windows korzysta z tożsamości (nie korzysta — load przy powtórzeniu wciąż się wykonuje), że natywne playlisty Sonosa mają się jak rozpoznać, ani że cokolwiek zagrało na prawdziwym głośniku.
 

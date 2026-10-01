@@ -294,23 +294,40 @@ internal static class SonosFavoriteIdentityTests
                 """;
             Require(ReadFavorites(duplikat).Status == SonosControlApiStatus.InvalidResponse,
                 "Zduplikowane pole JSON w nowej galezi nie zostalo odrzucone.");
+            var invalidString = FavoritesBody.Replace("wymyslony:stacja/ALFA 01", "\\uD800", StringComparison.Ordinal);
+            Require(ReadFavorites(invalidString).Status == SonosControlApiStatus.InvalidResponse,
+                "Wadliwy escaped UTF-16 stal sie nieznana tozsamoscia zamiast bledu JSON.");
+            var nested = new string('[', 17) + "0" + new string(']', 17);
+            Require(ReadFavorites("{\"version\":\"v\",\"items\":[],\"unknown\":" + nested + "}").Status
+                == SonosControlApiStatus.InvalidResponse, "Pominieto limit glebokosci calego JSON.");
         }));
 
-        tests.Add(("obcy typ zamiast obiektu id odrzuca odpowiedz jak reszta kontraktu", () =>
+        tests.Add(("wadliwa opcjonalna tozsamosc nie blokuje listy i metadanych", () =>
         {
-            const string zly = """
-                {"version":"v","items":[{"id":"kat-1","name":"Jeden","resource":{"id":42}}]}
-                """;
-            Require(ReadFavorites(zly).Status == SonosControlApiStatus.InvalidResponse,
-                "Liczba w miejscu obiektu id zostala przyjeta.");
+            foreach (var resource in new[] { "42", "{\"id\":42}", "{\"id\":{\"objectId\":42}}" })
+            {
+                var favorites = ReadFavorites("{\"version\":\"v\",\"items\":[{\"id\":\"kat-1\",\"name\":\"Jeden\",\"resource\":" + resource + "},{\"id\":\"kat-2\",\"name\":\"Dwa\"}]}");
+                Require(favorites.Succeeded && favorites.Favorites!.Items.Count == 2,
+                    "Opcjonalny dodatek skasowal poprawny katalog.");
+                Require(favorites.Favorites!.Items[0].ResourceIdentity is null,
+                    "Z wadliwych pol utworzono tozsamosc.");
+            }
+            var metadata = ReadMetadata("{\"container\":{\"name\":\"Stacja\",\"id\":42}}");
+            Require(metadata.Succeeded && metadata.Metadata!.Container!.Name == "Stacja"
+                && metadata.Metadata.Container.Identity is null, "Dodatek zablokowal metadane.");
         }));
 
-        tests.Add(("objectId ponad limit definicji odrzuca odpowiedz", () =>
+        tests.Add(("objectId ponad limit wylacza tylko opcjonalna tozsamosc", () =>
         {
             var zaDlugi = "{\"version\":\"v\",\"items\":[{\"id\":\"kat-1\",\"name\":\"Jeden\",\"resource\":{\"id\":{"
                 + "\"objectId\":\"" + new string('o', 257) + "\"}}}]}";
-            Require(ReadFavorites(zaDlugi).Status == SonosControlApiStatus.InvalidResponse,
-                "Przekroczony maxLength objectId zostal przyjety.");
+            var favorites = ReadFavorites(zaDlugi);
+            Require(favorites.Succeeded && favorites.Favorites!.Items.Count == 1
+                && favorites.Favorites.Items[0].ResourceIdentity is null,
+                "Za dlugi opcjonalny identyfikator zablokowal podstawowa liste.");
+            var metadata = ReadMetadata("{\"container\":{\"name\":\"Stacja\",\"id\":{\"objectId\":\"" + new string('o', 257) + "\"}}}");
+            Require(metadata.Succeeded && metadata.Metadata!.Container!.Identity is null,
+                "Za dlugi opcjonalny identyfikator zablokowal metadane.");
         }));
     }
 
