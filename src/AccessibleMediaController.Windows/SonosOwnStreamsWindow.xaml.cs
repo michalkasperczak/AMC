@@ -21,13 +21,25 @@ public partial class SonosOwnStreamsWindow : Window
     private bool _busy;
     private int _feedback;
 
+    /// <summary>Callback PRZYPISANIA PRESETU albo null. Okno nie zapisuje presetu samo.</summary>
+    private readonly Action<SonosOwnStreamSettings>? _assignPreset;
+
     internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
         Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play)
+        : this(stations, groupName, save, play, assignPreset: null)
+    {
+    }
+
+    /// <summary>WARIANT Z PRZYPISYWANIEM PRESETU; istniejace wywolania nietkniete.</summary>
+    internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
+        Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play,
+        Action<SonosOwnStreamSettings>? assignPreset)
     {
         InitializeComponent();
         _rows = new(stations.Select(Copy));
         _save = save;
         _play = play;
+        _assignPreset = assignPreset;
         _groupName = groupName;
         IntroductionText.Text = "Stacje zapisane tylko w AMC, nie w Ulubionych Sonosa. Zapis nie uruchamia muzyki. "
             + (string.IsNullOrWhiteSpace(groupName) ? "Aby odtwarzać, zamknij to okno i wybierz cel przez Control F5."
@@ -115,8 +127,30 @@ public partial class SonosOwnStreamsWindow : Window
     {
         if (e.Handled) return;
         if (e.Key == Key.Escape) { e.Handled = true; Close(); return; }
+        if (e.Key == Key.P
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            // PRZYPISANIE PRESETU: glowny Owner jest wylaczony, przechwytujemy tu.
+            e.Handled = true;
+            if (!e.IsRepeat) RequestPresetAssignment();
+            return;
+        }
         if (e.Key == Key.Enter && StationsList.IsKeyboardFocusWithin)
         { e.Handled = true; if (!e.IsRepeat) StartPlay(); }
+    }
+
+    /// <summary>
+    /// PRZYPISANIE PRESETU: oddajemy LOKALNY identyfikator stacji. Adres NIE idzie
+    /// do presetu - przy uruchomieniu pobierzemy go z AKTUALNEGO wpisu, wiec
+    /// edycja adresu nie zostawia zamrozonego URL.
+    /// </summary>
+    private void RequestPresetAssignment()
+    {
+        if (_closed) return;
+        if (_assignPreset is null) { AnnounceForOwner("Tu nie można przypisać presetu."); return; }
+        if (Selected is not { } row) { AnnounceForOwner("Najpierw dodaj i wybierz stację."); return; }
+        _assignPreset(Copy(row));
     }
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void Play_Click(object sender, RoutedEventArgs e) => StartPlay();

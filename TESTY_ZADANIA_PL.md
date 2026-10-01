@@ -1,5 +1,14 @@
 # Zadania testowe AMC
 
+## Sonos: presety — odbiór częściowy, nie gotowe wydanie
+
+- Windows `--sonos-presets-real`: 16 przypadków, build0/test0. P1 przechodzi przez zaznaczoną pozycję modala, rzeczywisty dialog przypisania, produkcyjny zapis i nowy odczyt. P2–P9: bieżący/stały cel, zniknięty cel, obcy dom, usunięta stacja, brak celu, zmiana konta, usunięcie wpisu. P9 mierzy magazyn, nie klawisz Delete.
+- P10–P16: już grająca własna stacja, radio Idle z kontenerem (tylko Play), błąd GET (0 POST), obce itemId podczas metadata (0 POST), edycja URL pod stałym ID, niepełna topologia stałego celu, zwykły Enter stacji i późniejszy preset z jednym kluczem. Dane HTTP są syntetyczne, bez konta i bez dźwięku.
+- Core `--sonos-preset-model`: 12 przypadków trwałości, clone i reguł. Rodzic poprawił oczekiwanie Idle: załadowana zgodna stacja ma być wznowiona, nie ładowana od nowa.
+- Pozostały odbiór: fizyczne Ctrl+Alt+Shift+P z każdej z trzech list, Ctrl+Alt+P i Ctrl+Shift+cyfra, opcjonalne stałe miejsce, Escape/fokus i podgląd mowy NVDA. Sprawdzić przypisanie przy zmianie konta/domu i odróżnienie rodzaju materiału o takim samym ID.
+- Brak udokumentowanej korelacji favorite/playlist z aktualnym materiałem blokuje pełny odbiór powtórzenia bez restartu. Tego ograniczenia nie wolno przedstawiać jako zaakceptowanej zmiany wymagań.
+
+
 ## Sonos: wybór kilku głośników — aktualna obsługa Ctrl+F5
 
 1. Ctrl+F5 pokazuje bieżący cel pełnymi nazwami. Ustaw jako cel nadal tylko wybiera istniejącą grupę, bez zmieniania jej składu i bez uruchamiania muzyki.

@@ -49,6 +49,13 @@ public partial class SonosFavoritesWindow : Window
     private readonly Func<PlayRequest, Task>? _loadFavorite;
 
     /// <summary>
+    /// ODEBRANY callback PRZYPISANIA PRESETU albo <c>null</c>, gdy przypisywanie
+    /// jest niedostepne (np. podglad bez sesji). Okno NIE zapisuje niczego samo -
+    /// trwalosc i wybor miejsca naleza do wlasciciela.
+    /// </summary>
+    private readonly Action<SonosFavorite>? _assignPreset;
+
+    /// <summary>
     /// LOKALNE oczekiwanie na wynik proby. Pilnuje JEDNEGO POST na akcje
     /// uzytkownika: przytrzymanie, autorepeat i drugie klikniecie odmawiaja.
     /// </summary>
@@ -89,11 +96,25 @@ public partial class SonosFavoritesWindow : Window
         IReadOnlyList<SonosFavorite> favorites,
         string? groupName,
         Func<PlayRequest, Task>? loadFavorite)
+        : this(favorites, groupName, loadFavorite, assignPreset: null)
+    {
+    }
+
+    /// <summary>
+    /// WARIANT Z PRZYPISYWANIEM PRESETU. Osobny konstruktor, zeby ISTNIEJACE
+    /// trzy-parametrowe wywolania (takze atrapy i pomiary) zostaly nietkniete.
+    /// </summary>
+    internal SonosFavoritesWindow(
+        IReadOnlyList<SonosFavorite> favorites,
+        string? groupName,
+        Func<PlayRequest, Task>? loadFavorite,
+        Action<SonosFavorite>? assignPreset)
     {
         ArgumentNullException.ThrowIfNull(favorites);
         InitializeComponent();
 
         _loadFavorite = loadFavorite;
+        _assignPreset = assignPreset;
         GroupNameForTests = groupName;
 
         // KOLEJNOSC API zachowana 1:1. Zadnego sortowania i zadnego scalania
@@ -174,6 +195,19 @@ public partial class SonosFavoritesWindow : Window
     internal bool PlayVisibleForTests => PlayButton.Visibility == Visibility.Visible;
 
     internal int SelectedIndexForTests => FavoritesList.SelectedIndex;
+
+    /// <summary>
+    /// ZAZNACZONY materiał - identyfikator Z WIERSZA, nie pierwszy o tej nazwie.
+    /// Pomiar przypisania musi widzieć DOKŁADNIE to, co wybrał użytkownik.
+    /// </summary>
+    internal SonosFavorite? SelectedFavoriteForTests =>
+        FavoritesList.SelectedItem is FavoriteRow row ? row.Favorite : null;
+
+    /// <summary>
+    /// PRZYPISANIE presetu tą samą drogą, którą wyzwala skrót w tym oknie
+    /// (główne okno jest wyłączone jako Owner, więc skrót jest WŁASNY okna).
+    /// </summary>
+    internal void RequestPresetAssignmentForTests() => RequestPresetAssignment();
 
     /// <summary>Ile razy okno WOLALO odebrany callback. Odmowa nie liczy sie.</summary>
     internal int LoadCallsForTests { get; private set; }
@@ -258,8 +292,20 @@ public partial class SonosFavoritesWindow : Window
             return;
         }
 
-        if (e.Key != Key.Enter || !FavoritesList.IsKeyboardFocusWithin) return;
+        // CTRL+ALT+SHIFT+P: PRZYPISANIE PRESETU. Glowne okno jest WYLACZONE jako
+        // Owner modalu, wiec router skrotow go nie dostanie - przechwytujemy tutaj
+        // i oddajemy wlascicielowi z ZAZNACZONA pozycja TEJ listy.
+        if (e.Key == Key.P
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            RequestPresetAssignment();
+            return;
+        }
 
+        if (e.Key != Key.Enter || !FavoritesList.IsKeyboardFocusWithin) return;
         // KLAWISZ ZATRZYMANY w obu wariantach: Enter na liscie nie ma prawa
         // wpasc do domyslnego przycisku ani wyjsc z modalu.
         e.Handled = true;
@@ -485,14 +531,30 @@ public partial class SonosFavoritesWindow : Window
     }
 
     /// <summary>
+    /// PRZYPISANIE PRESETU z TEJ listy. Oddajemy TYPOWANY ulubiony Z WIERSZA -
+    /// nigdy szukany po nazwie i nigdy grupy z glownej listy. Wariant bez
+    /// callbacka NIE wola niczego i mowi to wprost.
+    /// </summary>
+    private void RequestPresetAssignment()
+    {
+        if (_closed) return;
+        if (_assignPreset is null)
+        {
+            AnnounceForOwner("Tu nie można przypisać presetu.");
+            return;
+        }
+        if (FavoritesList.SelectedItem is not FavoriteRow row)
+        {
+            AnnounceForOwner("Najpierw wybierz ulubiony z listy.");
+            return;
+        }
+        // ZERO ODTWARZANIA: przypisanie nic nie wysyla do Sonosa.
+        _assignPreset(row.Favorite);
+    }
+
+    /// <summary>
     /// WIERSZ LISTY: DEDYKOWANY, typowany. Widok pokazuje WYLACZNIE bezpieczna
-    /// etykiete, a identyfikator jedzie w NIESIONYM <see cref="SonosFavorite"/> -
-    /// wiec uruchomienie nigdy nie szuka pozycji po nazwie i dwie identyczne
-    /// nazwy nadal daja dwa rozne identyfikatory.
-    ///
-    /// Nadal nie ma tu ani udawanego <c>Track</c>/<c>Device</c>, ani nowego
-    /// rodzaju pozycji multimedialnej: ogolne odtwarzanie nie ma czego przechwycic.
-    /// <c>ToString</c> zostaje BEZPIECZNY: sama etykieta, zero identyfikatora.
+    /// etykiete, a identyfikator jedzie w NIESIONYM <see cref="SonosFavorite"/>.
     /// </summary>
     internal sealed class FavoriteRow(string label, SonosFavorite favorite)
     {

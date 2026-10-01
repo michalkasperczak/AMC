@@ -32,6 +32,9 @@ public partial class SonosPlaylistsWindow : Window
 {
     private readonly ObservableCollection<PlaylistRow> _rows = [];
     private readonly Func<PlayRequest, Task>? _loadPlaylist;
+
+    /// <summary>Callback PRZYPISANIA PRESETU albo null. Okno nie zapisuje nic samo.</summary>
+    private readonly Action<SonosPlaylist>? _assignPreset;
     private readonly CancellationTokenSource _lifetime = new();
     private bool _closed;
     private bool _playInFlight;
@@ -56,11 +59,25 @@ public partial class SonosPlaylistsWindow : Window
         IReadOnlyList<SonosPlaylist> playlists,
         string? groupName,
         Func<PlayRequest, Task>? loadPlaylist)
+        : this(playlists, groupName, loadPlaylist, assignPreset: null)
+    {
+    }
+
+    /// <summary>
+    /// WARIANT Z PRZYPISYWANIEM PRESETU. Osobny konstruktor, zeby ISTNIEJACE
+    /// wywolania zostaly nietkniete.
+    /// </summary>
+    internal SonosPlaylistsWindow(
+        IReadOnlyList<SonosPlaylist> playlists,
+        string? groupName,
+        Func<PlayRequest, Task>? loadPlaylist,
+        Action<SonosPlaylist>? assignPreset)
     {
         ArgumentNullException.ThrowIfNull(playlists);
         InitializeComponent();
 
         _loadPlaylist = loadPlaylist;
+        _assignPreset = assignPreset;
         GroupNameForTests = string.IsNullOrWhiteSpace(groupName) ? null : groupName;
 
         foreach (var playlist in playlists)
@@ -228,10 +245,25 @@ public partial class SonosPlaylistsWindow : Window
     private void Play_Click(object sender, RoutedEventArgs e) => StartPlaySelected();
 
     /// <summary>
-    /// Escape zamyka. Enter na liscie uruchamia w wariancie z callbackiem, a w
-    /// wariancie tylko do odczytu jest SWIADOMIE POCHLONIETY - inaczej wpadlby w
-    /// domyslny przycisk i uzytkownik moglby uznac, ze cos wlaczyl.
+    /// PRZYPISANIE PRESETU z TEJ listy: TYPOWANA playlista Z WIERSZA, nigdy po
+    /// tytule. Nic nie wysyla do Sonosa.
     /// </summary>
+    private void RequestPresetAssignment()
+    {
+        if (_closed) return;
+        if (_assignPreset is null)
+        {
+            Announce("Tu nie można przypisać presetu.");
+            return;
+        }
+        if (PlaylistsList.SelectedItem is not PlaylistRow row)
+        {
+            Announce("Najpierw wybierz playlistę z listy.");
+            return;
+        }
+        _assignPreset(row.Playlist);
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled) return;
@@ -239,6 +271,18 @@ public partial class SonosPlaylistsWindow : Window
         {
             CloseSelf();
             e.Handled = true;
+            return;
+        }
+
+        // CTRL+ALT+SHIFT+P: PRZYPISANIE PRESETU - glowne okno jest wylaczone jako
+        // Owner, wiec przechwytujemy skrot tutaj.
+        if (e.Key == Key.P
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            RequestPresetAssignment();
             return;
         }
 

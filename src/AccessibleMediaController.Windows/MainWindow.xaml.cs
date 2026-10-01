@@ -3383,6 +3383,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string? ResolvePresetContainerTitle(string sessionId, SessionPresetEntry preset)
     {
+        // WLASNA STACJA: nazwe bierzemy z AKTUALNEGO wpisu, zeby lista presetow
+        // pokazywala stan po zmianie nazwy, a nie napis zamrozony przy zapisie.
+        if (SonosPresetKinds.IsOwnStream(preset.TargetKind))
+        {
+            return _state.Sonos.OwnStreams.FirstOrDefault(entry =>
+                string.Equals(entry.Id, preset.TargetId, StringComparison.Ordinal))?.Name;
+        }
         if (string.Equals(preset.TargetKind, "amcPlaylist", StringComparison.OrdinalIgnoreCase)
             && TryGetPresetPlaylistId(preset, out var playlistId))
         {
@@ -3478,6 +3485,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPresetAssignment()
     {
+        // SONOS: z GLOWNEJ listy nie ma czego przypisac - tam sa GRUPY, czyli
+        // MIEJSCA. Zapisanie grupy zrobiloby fikcyjny preset, ktorego nie da sie
+        // uruchomic, wiec kierujemy do list materialu.
+        if (IsSonosSession(_sessions.Current.Id))
+        {
+            Announce(SonosPresetLabels.AssignNeedsMaterial);
+            RestoreItemActionFocus();
+            return;
+        }
+
         if (!TryGetSessionPresetTarget(
                 out var targetId,
                 out var targetKind,
@@ -3569,6 +3586,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (preset is null)
         {
             Announce($"Preset {slotLabel} pusty. Ctrl+Alt+Shift+P przypisuje bieżący element");
+            return;
+        }
+
+        // SONOS: material (ulubiony, playlista, wlasna stacja) ma WLASNA droge
+        // uruchomienia, bo nie jest pozycja listy lokalnej ani adresem radia.
+        if (SonosPresetKinds.IsSonosMaterial(preset.TargetKind))
+        {
+            if (!IsSonosSession(session.Id))
+            {
+                Announce($"Preset {slotLabel} należy do sesji Sonos. Przełącz się na nią i spróbuj ponownie");
+                return;
+            }
+            StartSonosPresetActivation(preset, slotLabel, fromGlobalShortcut);
             return;
         }
 

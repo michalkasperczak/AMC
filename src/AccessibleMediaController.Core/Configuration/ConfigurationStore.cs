@@ -792,14 +792,37 @@ public sealed class ConfigurationStore
                 .Select(entry => new SessionPresetEntry
                 {
                     Slot = entry.Slot,
-                    TargetId = entry.TargetId.Trim(),
+                    // WASKI WYJATEK dla OPAQUE identyfikatorow materialu Sonosa
+                    // (ulubiony, playlista): one przychodza od serwisu i Trim()
+                    // moglby zmienic identyfikator, ktory potem idzie LITERALNIE
+                    // w POST. Dla wszystkich pozostalych rodzajow zasada zostaje
+                    // bez zmian. targetName dalej jest etykieta, nie kluczem.
+                    TargetId = Sonos.SonosPresetKinds.HasOpaqueId(entry.TargetKind)
+                        ? entry.TargetId
+                        : entry.TargetId.Trim(),
                     TargetKind = entry.TargetKind.Trim(),
                     TargetTitle = string.IsNullOrWhiteSpace(entry.TargetTitle)
                         ? "Element bez nazwy"
                         : entry.TargetTitle.Trim(),
                     TargetLocation = string.IsNullOrWhiteSpace(entry.TargetLocation)
                         ? null
-                        : entry.TargetLocation.Trim()
+                        : entry.TargetLocation.Trim(),
+                    // Dom pamietamy TYLKO dla materialu, ktory do domu nalezy.
+                    SonosHouseholdId =
+                        Sonos.SonosPresetKinds.IsHouseholdBound(entry.TargetKind)
+                        && !string.IsNullOrWhiteSpace(entry.SonosHouseholdId)
+                        && Sonos.SonosHouseholdIdPolicy.IsAcceptable(entry.SonosHouseholdId.Trim())
+                            ? entry.SonosHouseholdId.Trim()
+                            : null,
+                    // Staly zestaw ma sens TYLKO dla materialu Sonosa. Pusta lista
+                    // to null, czyli "biezacy cel" - nie "zadnych glosnikow".
+                    SonosFixedPlayerIds =
+                        Sonos.SonosPresetKinds.IsSonosMaterial(entry.TargetKind)
+                            ? Sonos.SonosPresetFixedTarget
+                                .NormalizePlayerIds(entry.SonosFixedPlayerIds) is { Count: > 0 } ids
+                                ? ids.ToList()
+                                : null
+                            : null
                 })
                 .GroupBy(entry => entry.Slot)
                 .Select(group => group.First())

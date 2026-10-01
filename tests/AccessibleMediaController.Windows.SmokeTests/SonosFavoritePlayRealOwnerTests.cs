@@ -900,6 +900,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
         private RealHarness(
             string directory,
+            ConfigurationStore configuration,
             MainWindow window,
             SonosAccountOwner owner,
             RecordingHandler handler,
@@ -908,6 +909,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             List<string> announcements)
         {
             _directory = directory;
+            Configuration = configuration;
             Window = window;
             Owner = owner;
             Handler = handler;
@@ -915,6 +917,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             Gateway = gateway;
             Announcements = announcements;
         }
+
+        internal ConfigurationStore Configuration { get; }
 
         internal MainWindow Window { get; }
 
@@ -927,6 +931,31 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         internal PlannedGateway Gateway { get; }
 
         internal List<string> Announcements { get; }
+
+        /// <summary>
+        /// PRAWDZIWY zapis na dysk ta sama droga, ktorej uzywa produkcja po
+        /// zmianie presetu - zeby trwalosc mierzyc na pliku, nie w pamieci.
+        /// </summary>
+        internal void SaveStateForTests() => Configuration.Save(Window.StateForTests);
+
+        /// <summary>
+        /// PONOWNY ODCZYT NOWYM store z TEGO SAMEGO pliku: jedyny uczciwy dowod,
+        /// ze pole przezylo zapis i normalizacje, a nie siedzi w obiekcie w pamieci.
+        /// </summary>
+        internal PersistedState ReloadStateForTests() =>
+            new ConfigurationStore(Path.Combine(_directory, "settings.json")).LoadOrCreate();
+
+        /// <summary>
+        /// ZDJECIE wybranego celu: preset bez celu ma odesłać do wyboru głośników,
+        /// a nie zgadywać grupę.
+        /// </summary>
+        internal void ClearSonosTargetForTests()
+        {
+            Window.StateForTests.Sonos.SelectedGroupId = null;
+            (typeof(MainWindow).GetField("_sonosTopology", Instance)
+                ?? throw new Exception("Nie ma pola _sonosTopology w prawdziwym MainWindow."))
+                .SetValue(Window, null);
+        }
 
         private ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
 
@@ -983,7 +1012,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             var client = new SonosControlApiClient(
                 SonosControlApiConfiguration.CreateDefault(SonosAccountOwner.IntegrationApiKey), handler);
             InjectTransport(owner, client);
-            return new RealHarness(directory, window, owner, handler, store, gateway, announcements);
+            return new RealHarness(
+                directory, configuration, window, owner, handler, store, gateway, announcements);
         }
 
         /// <summary>

@@ -1,5 +1,14 @@
 # AMC — mapa kodu
 
+## Sonos: presety materiału — przyrost roboczy
+
+- `SonosPresetContract.cs`: rodzaje favorite/playlist/own-stream, dokładny stały zestaw logicznych playerIds i dom, klucz własnej stacji zależny od ID i URL, decyzja powtórzenia ze świeżego odczytu.
+- `SessionPresetEntry`, normalizacja i clone zachowują `SonosHouseholdId` / `SonosFixedPlayerIds`; opaque ID favorite/playlist bez obcinania. Domyślnie bieżący cel; brak stałego zestawu nie powoduje przegrupowania.
+- `MainWindow.SonosPresets.cs`: callbacki przypisywania z trzech list do `RadioPresetAssignmentWindow`, uruchomienie przez istniejące zaplecze. Własna stacja: zgodny itemId+Playing/Buffering daje tylko nazwę; Paused/Idle z kontenerem jest ponownie sprawdzany przed Play. Błąd odczytu, zmiana konta lub niepełna topologia nie uprawnia do przejęcia grupy.
+- Odbiór częściowy: Windows `--sonos-presets-real` 16 przypadków oraz Core `--sonos-preset-model` 12. Potwierdzono prawdziwy dialog przypisania i zapis/odczyt, a nie ręczne wstawienie rekordu jako dowód działania okna.
+- OTWARTE: fizyczne skróty i NVDA trzech list, bramki przypisania przy zmianie kontekstu. Powtórzenia favorites/playlist nadal wykonują load: to niespełnione wymaganie, nie przyjęta polityka. Echo itemId i dźwięk na prawdziwym Sonosie nie zostały zmierzone.
+
+
 ## Sonos: wybór składu głośników pod Ctrl+F5
 
 - `SonosTargetSelectionWindow` zachowuje wybór istniejącej grupy przez Ustaw jako cel. Osobne Wybierz głośniki przekazuje intencję po zamknięciu okna; `MainWindow.SonosLibrary.cs` uruchamia nową drogę bez fałszywego komunikatu anulowania.

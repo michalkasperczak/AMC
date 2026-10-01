@@ -63,6 +63,31 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
     public int SelectedSlot { get; private set; }
     public RadioPresetAssignmentAction SelectedAction { get; private set; }
 
+    /// <summary>
+    /// Czy uzytkownik wybral STALY ZESTAW glosnikow. Gdy opcji nie pokazano, jest
+    /// to zawsze <c>false</c> - "graj na aktualnie wybranej grupie".
+    /// </summary>
+    public bool FixedTargetChosen =>
+        FixedTargetOption.Visibility == Visibility.Visible && FixedTargetOption.IsChecked == true;
+
+    /// <summary>
+    /// Pokazuje OPCJONALNA opcje stalego celu. Dodane WLASCIWOSCIA, a nie nowym
+    /// parametrem konstruktora: istniejace sygnatury 3 i 7 parametrow zostaja
+    /// nietkniete, wiec refleksyjni wolajacy dalej dzialaja.
+    /// </summary>
+    public void ShowFixedTargetOption(string groupName, bool initiallyChosen)
+    {
+        FixedTargetOption.Content = $"Zawsze w tym miejscu: _{groupName}";
+        System.Windows.Automation.AutomationProperties.SetName(
+            FixedTargetOption, $"Zawsze w tym miejscu: {groupName}");
+        System.Windows.Automation.AutomationProperties.SetHelpText(
+            FixedTargetOption,
+            "Zaznaczone: preset zagra tylko wtedy, gdy istnieje grupa o dokładnie tym "
+            + "zestawie głośników. Niezaznaczone: preset zagra na grupie wybranej w chwili uruchomienia.");
+        FixedTargetOption.IsChecked = initiallyChosen;
+        FixedTargetOption.Visibility = Visibility.Visible;
+    }
+
     private void Window_ContentRendered(object? sender, EventArgs e)
     {
         PresetList.UpdateLayout();

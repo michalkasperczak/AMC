@@ -25,7 +25,8 @@ public partial class MainWindow
                 _state.Sonos.OwnStreams = rows.Select(SonosOwnStreamsWindow.Copy).ToList();
                 QueueStateSave(announceFailure: true);
             }, backend is null ? null : request =>
-                LoadSonosOwnStreamAsync(backend, home, group?.Id, ticket, request)) { Owner = this };
+                LoadSonosOwnStreamAsync(backend, home, group?.Id, ticket, request),
+            station => AssignSonosOwnStreamPreset(station, _sonosOwnStreamsWindow!)) { Owner = this };
         _sonosOwnStreamsWindow = window;
         try { window.ShowDialog(); }
         finally { _sonosOwnStreamsWindow = null; }
@@ -44,6 +45,7 @@ public partial class MainWindow
             && string.Equals(home, _state.Sonos.SelectedHouseholdId, StringComparison.Ordinal)
             && groupId is not null && SonosActiveGroup?.Id == groupId;
         if (!Live()) return;
+        var intent = NextSonosPlaybackIntent();
         if (!SonosStreamUrlPolicy.IsAcceptable(request.Station.StreamUrl))
         { Say("Adres stacji jest niepoprawny. Wybierz Edytuj i podaj bezpośredni adres HTTP lub HTTPS."); return; }
         if (!ContextValid())
@@ -65,7 +67,7 @@ public partial class MainWindow
             var created = await backend.CreateSessionAsync(groupId, sessionRequest!, lifetime.Token).ConfigureAwait(true);
             attempted = created.RequestSent;
             if (!Live()) return;
-            if (!ContextValid() || lifetime.IsCancellationRequested)
+            if (intent != _sonosPlaybackIntent || !ContextValid() || lifetime.IsCancellationRequested)
             {
                 Say(created.RequestSent
                     ? "Kontekst zmienił się podczas przygotowania radia. Adresu nie wysłano; sesja mogła przejąć grupę. Sprawdź Sonosa."
@@ -74,7 +76,7 @@ public partial class MainWindow
             }
             if (!created.TryGetSessionId(out var sessionId)) { Say(created.Message); return; }
             var loaded = await backend.LoadStreamUrlAsync(sessionId, request.Station.StreamUrl,
-                playOnCompletion: true, itemId: request.Station.Id, lifetime.Token).ConfigureAwait(true);
+                playOnCompletion: true, itemId: SonosOwnStreamIdentity.TryComputeItemId(request.Station.Id, request.Station.StreamUrl), lifetime.Token).ConfigureAwait(true);
             if (!Live()) return;
             if (!ContextValid())
             {

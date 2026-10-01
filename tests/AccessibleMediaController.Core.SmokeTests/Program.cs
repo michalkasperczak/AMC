@@ -132,6 +132,11 @@ if (args.Length == 1 && args[0] == "--sonos-session-presentation")
     try { SonosSessionPresentationTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-preset-model")
+{
+    try { SonosPresetModelTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--installer-offline")
 {
     try { InstallerOfflineContractTests.Run(); return 0; }
@@ -140,6 +145,7 @@ if (args.Length == 1 && args[0] == "--installer-offline")
 
 var tests = new (string Name, Action Test)[]
 {
+    ("Sonos: presety sesji - model, trwałość i zasady stałego celu", SonosPresetModelTests.Run),
     ("Własne stacje Sonosa: zapis i biblioteka", SonosOwnStreamsPersistenceTests.Run),
     ("Edycja nagrań nie kieruje historii na kopię bezpieczeństwa", AudioEditRenameTests.Run),
     ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),

@@ -246,7 +246,10 @@ public partial class MainWindow
                     items,
                     group?.Name,
                     request => LoadSonosFavoriteAsync(
-                        loadBackend, householdId, group?.Id, ticket, request));
+                        loadBackend, householdId, group?.Id, ticket, request),
+                    // PRZYPISANIE: okno oddaje ZAZNACZONY ulubiony, a my - jako
+                    // ZYWY wlasciciel - pokazujemy dialog miejsca i zapisujemy.
+                    favorite => AssignSonosFavoritePreset(favorite, _sonosFavoritesWindow!));
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
             try
@@ -346,6 +349,7 @@ public partial class MainWindow
         // ZLECAJACY MUSI ZYC JUZ TERAZ: zamkniety modal nie dostaje odpowiedzi,
         // a my nie szukamy zastepczego adresata.
         if (!IsLiveFavoritesOrigin(origin)) return;
+        NextSonosPlaybackIntent();
 
         // GRANICA konta PRZED czymkolwiek: po RZECZYWISTEJ zmianie konta stary
         // identyfikator ulubionego nie ma prawa pojsc przez NOWE konto.

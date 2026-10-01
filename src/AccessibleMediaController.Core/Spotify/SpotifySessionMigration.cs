@@ -685,7 +685,13 @@ public static class SpotifySessionMigration
         TargetId = source.TargetId,
         TargetKind = source.TargetKind,
         TargetTitle = source.TargetTitle,
-        TargetLocation = source.TargetLocation
+        TargetLocation = source.TargetLocation,
+        // NOWE opcjonalne pola Sonosa musza przezyc Clone tak samo jak Save/Load:
+        // zgubiony dom albo zgubiony staly zestaw to CICHA zmiana zachowania.
+        SonosHouseholdId = source.SonosHouseholdId,
+        SonosFixedPlayerIds = source.SonosFixedPlayerIds is null
+            ? null
+            : [.. source.SonosFixedPlayerIds]
     };
 
     private static PlaylistEntry ClonePlaylist(PlaylistEntry source) => new()

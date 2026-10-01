@@ -1074,6 +1074,20 @@ public sealed class SessionPresetEntry
     public string TargetKind { get; set; } = string.Empty;
     public string TargetTitle { get; set; } = string.Empty;
     public string? TargetLocation { get; set; }
+
+    /// <summary>
+    /// DOM, z ktorego pochodzi material (tylko Sonos). Potrzebny, bo ulubiony
+    /// albo playlista z domu A nie ma prawa pojsc jako identyfikator do domu B.
+    /// Starsze zapisy nie maja tego pola - null znaczy NIEZNANY dom, nie "kazdy".
+    /// </summary>
+    public string? SonosHouseholdId { get; set; }
+
+    /// <summary>
+    /// OPCJONALNY staly zestaw glosnikow ("Zawsze w tym miejscu"): LOGICZNE
+    /// playerIds, nie groupId i nie nazwa. Puste albo null znaczy "graj na
+    /// AKTUALNIE wybranej grupie" - czyli domyslne zachowanie.
+    /// </summary>
+    public List<string>? SonosFixedPlayerIds { get; set; }
 }
 
 public sealed class SearchHistorySettings

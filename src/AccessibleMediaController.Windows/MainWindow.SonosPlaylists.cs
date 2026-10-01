@@ -194,7 +194,8 @@ public partial class MainWindow
                     items,
                     group?.Name,
                     request => LoadSonosPlaylistAsync(
-                        loadBackend, householdId, group?.Id, ticket, request));
+                        loadBackend, householdId, group?.Id, ticket, request),
+                    playlist => AssignSonosPlaylistPreset(playlist, _sonosPlaylistsWindow!));
             SonosPlaylistsWindowsCreatedForTests++;
             _sonosPlaylistsWindow = window;
             try
@@ -279,6 +280,7 @@ public partial class MainWindow
         // ZLECAJACY MUSI ZYC JUZ TERAZ: zamkniete okno nie dostaje odpowiedzi, a
         // my nie szukamy zastepczego adresata.
         if (!IsLivePlaylistsOrigin(origin)) return;
+        NextSonosPlaybackIntent();
 
         // GRANICA konta PRZED czymkolwiek: po RZECZYWISTEJ zmianie konta stary
         // identyfikator playlisty nie ma prawa pojsc przez NOWE konto.
