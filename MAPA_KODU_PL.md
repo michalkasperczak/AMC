@@ -1,5 +1,10 @@
 # AMC — mapa kodu
 
+## Sonos: rzeczywisty identyfikator sesji z @
+
+`SonosSessionIdPolicy` dopuszcza literalne `@` wewnątrz segmentu ścieżki. Rzeczywisty createSession oddał45/46znakowy identyfikator zawierający ten znak; poprzednia walidacja odrzucała go mimo HTTP200 i Connected. Nie zmieniono wartości identyfikatora, limitu46 ani blokad separatorów/fragmentu/query. Po poprawce rzeczywiste create, loadStreamUrl i suspend dały200; GET potwierdził Playing, echo itemId i końcowy Idle, bez cloud queue servera. Nagrywanie w AMC nie było zatrzymywane. Oddzielić ten pomiar od fizycznego potwierdzenia dźwięku.
+
+
 ## Sonos: tożsamość materiału Ulubionych (resource.id / container.id) — tylko Core
 
 Przyrost Core domyka brakujące ogniwo rozpoznania materiału: do tej pory Core czytał z Ulubionych wyłącznie `id`/`name`/`service`, a z metadanych kontenera `name`/`type`/`service`, więc nie było czym porównać wpisu z tym, co grupa ma załadowane. Rzeczywisty pomiar odpowiedzi usługi (parent, tylko GET) pokazał, że `favorites.items[].resource.id` oraz `playbackMetadata.container.id` niosą tę samą trójkę `serviceId`/`objectId`/`accountId` (schema `universalMusicObjectId`). Wcześniejszy werdykt sondy „brak kandydata” porównywał tylko identyfikator wiersza katalogu i to ograniczenie sondy, nie właściwość API.

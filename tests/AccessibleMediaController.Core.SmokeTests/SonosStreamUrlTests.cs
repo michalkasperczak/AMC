@@ -48,7 +48,7 @@ internal static class SonosStreamUrlTests
 {
     private const string Key = "00000000-0000-0000-0000-000000000042";
     private const string Group = "RINCON_0001:1";
-    private const string SessionId = "SYNTHETIC-SESSION-42";
+    private const string SessionId = "SYNTHETIC-SESSION@42";
     private const string AppId = "pl.synthetic.amc.test";
     private const string AppContext = "SYNTHETIC-CONTEXT-7";
     private const string StreamUrl = "https://stream.invalid/radio.mp3";

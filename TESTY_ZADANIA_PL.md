@@ -1,5 +1,10 @@
 # Zadania testowe AMC
 
+## Sonos: znak @ w sessionId
+
+`--sonos-stream-url`: syntetyczny SessionId zmieniony na `SYNTHETIC-SESSION@42`, bez prywatnych danych. RED6/12 przed poprawką; GREEN12/12 po dopuszczeniu @. Dotyczy rzeczywistych dróg create/parser/load/koordynator, limitów, braku retry i ochrony danych. Mała sonda45/45; sprzęt po poprawce:3POST/3HTTP200 (create/load/suspend), GET Buffering→Playing z echoitemId, końcowy Idle, volume20/mute=false zachowane. Kwity amc_pomoc/sonos-own-url-real-probe/session-at-fixed-b225078afd17/. Nie nazywać samego stanu Playing odsłuchem użytkownika.
+
+
 ## Sonos: tożsamość materiału Ulubionych w Core — jak sprawdzić
 
 Polecenie: `--sonos-favorite-identity` (Core SmokeTests). Pomiar na syntetycznym `HttpMessageHandler` przez istniejący `SonosControlApiClient` — bez sieci, konta, DPAPI, GUI i głośnika. Wszystkie ID, nazwy i `accountId` w fixture są wymyślone; katalogu użytkownika nie skopiowano.

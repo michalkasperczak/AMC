@@ -99,6 +99,8 @@ public static class SonosSessionIdPolicy
                 or '-'
                 or '.'
                 or ':'
+                // Observed in sessionId returned by Sonos; safe inside a path segment.
+                or '@'
                 or '~';
             if (!allowed)
             {
