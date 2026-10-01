@@ -1,5 +1,50 @@
 # Zadania testowe AMC
 
+## Sonos: playlisty w Core (odczyt i uruchomienie) — jak sprawdzić
+
+**Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie
+warstwę Core: `ReadPlaylistsAsync` i `LoadPlaylistAsync` na koordynatorze konta.
+**Żadnego** okna, skrótu, menu ani presetu — `Ctrl+L`, `Ctrl+U` i `Ctrl+F5`
+zachowują się dokładnie jak dotąd. Kategoria „Playlisty Sonos” w Bibliotece to
+**następny** krok.
+
+Pomiar, bez konta Sonos, sieci, DPAPI i muzyki (własny `HttpMessageHandler`,
+atrapa bramki logowania, magazyn w pamięci):
+
+1. `--sonos-playlists` — **10** sprawdzeń na **prawdziwym** torze
+   koordynator → klient Control API → syntetyczny `HTTP`:
+   - poprawna kolekcja wchodzi **dosłownie** (bez `trim`, bez zmiany wielkości
+     liter), z `householdId` **z zapytania**, a `type`/`trackCount` nieobecne
+     zostają `null`, **nie** zerem ani pustym napisem;
+   - **brak pola `playlists`** i **`playlists: null`** to **sukces z pustą
+     listą** — to celowa różnica wobec ulubionych, gdzie brak `items` jest
+     błędem; pusta kolekcja nie jest awarią;
+   - **dwie playlisty o identycznej nazwie i różnych `id`** to **dwie** pozycje:
+     tytuł nie jest kluczem. Powtórzone `id`, `id`/`name` ponad limit źródłowy,
+     `playlists` jako obiekt i `trackCount` ujemny odrzucają **całą** listę
+     (`InvalidResponse`), bez wyniku częściowego;
+   - uruchomienie wysyła **dokładnie jeden** `POST` pod `/groups/{groupId}/playlists`
+     z literalną grupą, polem **`playlistId`**, `action: "INSERT"` i
+     `playOnCompletion: true`; ciało **nie** zawiera `playModes` ani
+     `favoriteId`, i nie idzie po nim żadne dodatkowe `Play`;
+   - wadliwe żądanie (brak grupy/identyfikatora, identyfikator ponad limit,
+     nieznana akcja, samotny surogat) **nie wysyła ani jednego** `POST` —
+     odmowa następuje **przed** `HTTP`;
+   - koordynator jest **cienki**: bez konta zero zapytań i zero odnowień;
+     zmiana konta w trakcie trwającego odczytu **porzuca** wynik starego konta,
+     a konto B nie dostaje cudzej listy. Komunikaty i `ToString` nie wypisują
+     tokenów, identyfikatorów ani nazw playlist.
+2. `--sonos-favorites`, `--sonos-favorite-load`, `--sonos-favorites-account`,
+   `--sonos-favorite-load-account` — stare suity muszą zostać zielone bez
+   rozluźniania asercji (wspólne `IsAcceptableBodyId`/`QueueLoadBody` i dopisany
+   `SonosGroupCommand.LoadPlaylist` nie mogą zmienić zachowania ulubionych).
+3. Pełna tabela Core (bez argumentów) — pozycja „Odczyt playlist Sonos i ich
+   uruchomienie w grupie”.
+
+Czego mierzone zachowanie **nie** obiecuje: `HTTP 200` to **przyjęcie** zlecenia,
+nie dowód, że playlista zagrała; odnotowana próba nie znaczy doręczenia. Żaden
+z tych testów nie dotyka prawdziwego konta, urządzenia ani dźwięku.
+
 ## Sonos: układ interfejsu (Biblioteka / Ulubione / Ctrl+F5) — jak sprawdzić ręcznie
 
 Dotyczy sesji Sonos (`Ctrl+8`). Bez nowego panelu i bez nowych skrótów: zmienia

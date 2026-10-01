@@ -1,5 +1,79 @@
 # AMC — mapa kodu
 
+## Sonos: PLAYLISTY — odczyt i uruchomienie, warstwa Core (bez UI)
+
+**Tylko Core.** Ten przyrost dodaje odczyt playlist Sonosa domu i ich
+uruchomienie w grupie. **Nie ma** tu okna, skrótu, menu, presetów, cache,
+pollingu ani subskrypcji `playlistsVersionChange`. UI biblioteki (`Ctrl+L`:
+kategorie „Ulubione Sonos” + „Playlisty Sonos”) to **następny** krok;
+`Ctrl+U` i `Ctrl+F5` zostają bez zmian.
+
+Źródło: oficjalna definicja OpenAPI 3.0.3 „Sonos Control API (cloud)”
+`v1.56.0-alpha.1-1-gc264f93f-production-cloud`, operacje
+`Playlists-GetPlaylists-HouseholdId` i `Playlists-LoadPlaylist-GroupId`.
+
+- `Core/Sonos/SonosPlaylistsContract.cs` — niemutowalny model + wąskie granice.
+  `SonosPlaylistsLimits` bierze limity **ze źródła**, nie z ulubionych:
+  `version` 36, **100** playlist (ulubione mają 70), `id` 36, `name` 100,
+  `type` 64, `trackCount` int32. **Kluczowa różnica wobec F1, której nie wolno
+  zatrzeć:** w `playlistsList` **zarówno `version`, jak i `playlists` są
+  opcjonalne i nullable**, więc brak pola `playlists` i `playlists: null` to
+  **normalny sukces z pustą listą** — w `favoritesList` brak `items` jest
+  błędem. `type` i `trackCount` nullable: `null` znaczy „Sonos nie podał”, a
+  **nie zero**. Wartości źródłowe bez `trim` i bez zmiany wielkości liter.
+  Kontrolowane `ToString` nie wypisuje identyfikatorów ani nazw.
+  Granice są **wąskie i osobne**: `ISonosPlaylistsApi` (tylko odczyt) i
+  `ISonosPlaylistLoadApi` (tylko jeden zapis), żeby późniejsze UI zależało od
+  kontraktu, nie od całego transportu.
+- `Core/Sonos/SonosControlApiClient.Playlists.cs` — `GetPlaylistsAsync` na
+  **ISTNIEJĄCYM** torze `ReadAsync`/`Parse`/`Text`/`Array` i istniejącym
+  `SonosHouseholdIdPolicy.TryEncode`. Żadnego nowego `HttpClient`, żadnej kopii
+  polityki transportu. `Text`/`Array` idą tu **bez `required: true`** — to
+  zgodność z definicją, nie przeoczenie. Powtórzony **identyfikator** odrzuca
+  **całą** odpowiedź (`JsonException`), bo nie da się wskazać, który wiersz jest
+  który; powtórzona **nazwa jest legalna — tytuł nie jest kluczem**. `trackCount`
+  czyta **wspólny** `OptionalInt32`; znaku pilnuje model (ujemne odrzucone).
+  Zwrócona lista niesie **literalny `householdId` z zapytania**, nie z odpowiedzi.
+  Brak wyniku częściowego: pierwsza niezgodność odrzuca całość.
+- `Core/Sonos/SonosControlApiClient.PlaylistLoad.cs` — `LoadPlaylistAsync`
+  (`POST /groups/{groupId}/playlists`) na **tym samym** `SendAsync`/`TryGroupUri`
+  co ulubione. Pole w ciele to **`playlistId`**, nie `favoriteId`. `action` i
+  `playOnCompletion` są **obowiązkowe i bez wartości domyślnych** — mimo że
+  definicja pozwala je pominąć, bo `REPLACE` niszczy kolejkę użytkownika.
+  **Żadnego `playModes`** (pominięcie zachowuje tryby głośnika, jawne `false` by
+  je wyłączyło), żadnego dodatkowego `Play`, żadnego ponowienia `POST`.
+  Akcja to **istniejący** `SonosFavoriteQueueAction`: definicja używa dla obu
+  operacji **tego samego** schematu `queueAction`, więc drugi enum o tych samych
+  wartościach byłby drugim, rozjeżdżającym się źródłem prawdy. Nazwa działającego
+  enuma **nie została zmieniona** — przemianowanie dotknęłoby odebranych testów
+  F3 bez zysku dla użytkownika.
+- `Core/Sonos/SonosControlApiClient.FavoriteLoad.cs` — **wspólne** (nie
+  zduplikowane): `IsAcceptableBodyId(id, maxLength)` i `QueueLoadBody(idField, …)`.
+  To bramka identyfikatora w **ciele** JSON, **nie** walidacja segmentu adresu:
+  bez kodowania procentowego, bez zakazu ukośnika, `IsNullOrEmpty` (nie
+  `IsNullOrWhiteSpace`), bez `trim`; odrzucany jest samotny surogat, bo
+  serializator po cichu wysłałby inną wartość. Jedna reguła, dwa zasoby.
+- `Core/Sonos/SonosGroupPlaybackContract.cs` — **minimalne** rozszerzenie:
+  `SonosGroupCommand.LoadPlaylist` dopisane **na końcu** enuma (bez zmiany
+  numeracji istniejących pozycji), `PathSuffix` = `"playlists"` (bez przedrostka
+  `playback/`), `IsStateDependent` = **true** — polecenie zmienia wspólną kolejkę,
+  więc nie jest idempotentne i nie wolno go ponawiać.
+- `Core/Sonos/SonosAccountCoordinator.Playlists.cs` — **cienkie** podłączenie:
+  `ReadPlaylistsAsync` przez istniejący `RunGroupReadAsync<T>` (bilet pod blokadą,
+  HTTP poza blokadą, jedno odnowienie przy znanej minionej ważności, kontrola
+  **oryginalnej** generacji po każdym `await`) i `LoadPlaylistAsync` przez
+  istniejący `RunGroupCommandAsync` (**dokładnie jeden** `POST`, bez ponawiania i
+  bez kasowania konta). Żadnej kopii biletu, odnawiania, blokady ani własnej
+  bramki identyfikatorów — walidację ma klient, przed `HTTP`.
+  `SonosPlaylistsReadMessages` i `SonosPlaylistsReadResult` są **osobne** od
+  ulubionych, żeby użytkownik usłyszał, czego naprawdę dotyczył odczyt; dane
+  wychodzą **tylko** przy sukcesie, więc wynik porzucony nie przenosi starej listy
+  pod nową tożsamość. Pusta lista **nadal jest sukcesem**.
+
+Czego mierzone zachowanie **nie** obiecuje: `HTTP 200` to **przyjęcie** zlecenia,
+nie dowód, że muzyka zagrała (`EffectConfirmed` zawsze `false`). `INSERT` znaczy
+dopisanie i przejście do pierwszej dodanej pozycji.
+
 ## Sonos: DOSTĘPNY PODGLĄD ULUBIONYCH w Windows (F2)
 
 **Tylko podgląd: `GET`, zero `POST`, zero odtwarzania, zero presetów.** Enter na

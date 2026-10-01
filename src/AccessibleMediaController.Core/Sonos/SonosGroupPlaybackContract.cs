@@ -478,7 +478,19 @@ public enum SonosGroupCommand
     /// To polecenie NIE nalezy do namespace playback, dlatego jego sciezka nie
     /// ma przedrostka "playback/".
     /// </summary>
-    LoadFavorite
+    LoadFavorite,
+
+    /// <summary>
+    /// POST /groups/{groupId}/playlists - URUCHOMIENIE PLAYLISTY SONOSA we
+    /// wspolnej kolejce grupy (operacja Playlists-LoadPlaylist-GroupId).
+    /// Dopisane na KONCU listy bez zmiany numeracji wczesniejszych pozycji, bo
+    /// wartosci tego enuma wystepuja w istniejacych atrapach i asercjach.
+    ///
+    /// To polecenie NIE nalezy do namespace playback, dlatego jego sciezka nie
+    /// ma przedrostka "playback/". Playlisty to TEN SAM rodzaj operacji co
+    /// ulubione, ale INNY zasob - nie wolno ich mylic ani sklejac.
+    /// </summary>
+    LoadPlaylist
 }
 
 /// <summary>Sciezki i charakter polecen - jedno zrodlo prawdy dla transportu i wyniku.</summary>
@@ -498,6 +510,7 @@ public static class SonosGroupCommands
         SonosGroupCommand.SetMute => "groupVolume/mute",
         SonosGroupCommand.SetRelativeVolume => "groupVolume/relative",
         SonosGroupCommand.LoadFavorite => "favorites",
+        SonosGroupCommand.LoadPlaylist => "playlists",
         _ => throw new ArgumentOutOfRangeException(nameof(command))
     };
 
@@ -517,6 +530,10 @@ public static class SonosGroupCommands
         // zawartosci transport nie zna. Skutek zalezy wiec od stanu, polecenie
         // nie jest idempotentne i nie wolno go ponawiac automatycznie.
         SonosGroupCommand.LoadFavorite => true,
+        // Uruchomienie playlisty wstawia pozycje do WSPOLNEJ kolejki, ktorej
+        // zawartosci transport nie zna - dokladnie jak ulubione. Skutek zalezy
+        // od stanu, polecenie nie jest idempotentne i nie wolno go ponawiac.
+        SonosGroupCommand.LoadPlaylist => true,
         _ => false
     };
 }

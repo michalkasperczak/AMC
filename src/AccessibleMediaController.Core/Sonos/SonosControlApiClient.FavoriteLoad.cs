@@ -71,7 +71,19 @@ public sealed partial class SonosControlApiClient : ISonosFavoriteLoadApi
     /// playModes CELOWO NIE MA - brak pola zachowuje tryby odtwarzania
     /// gloshnika, jawne false by je wylaczylo.
     /// </summary>
-    private static string LoadFavoriteBody(string favoriteId, SonosFavoriteQueueAction action, bool playOnCompletion)
+    private static string LoadFavoriteBody(string favoriteId, SonosFavoriteQueueAction action, bool playOnCompletion) =>
+        QueueLoadBody("favoriteId", favoriteId, action, playOnCompletion);
+
+    /// <summary>
+    /// WSPOLNE cialo polecenia kolejki (ulubione: favoriteId, playlisty:
+    /// playlistId). Nazwa pola jest JAWNYM argumentem, bo oba zasoby maja
+    /// wlasna - pomylenie ich dalaby Sonosowi ERROR_MISSING_PARAMETERS.
+    ///
+    /// Kolejnosc pol jest ustalona (identyfikator, action, playOnCompletion), a
+    /// playModes CELOWO NIE MA w zadnym z przypadkow.
+    /// </summary>
+    private static string QueueLoadBody(
+        string idField, string id, SonosFavoriteQueueAction action, bool playOnCompletion)
     {
         using var buffer = new MemoryStream();
         // Domyslny koder ucieka znaki spoza ASCII; wartosc po odkodowaniu jest
@@ -79,7 +91,7 @@ public sealed partial class SonosControlApiClient : ISonosFavoriteLoadApi
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
-            writer.WriteString("favoriteId", favoriteId);
+            writer.WriteString(idField, id);
             writer.WriteString("action", SonosFavoriteQueueActions.WireValue(action));
             writer.WriteBoolean("playOnCompletion", playOnCompletion);
             writer.WriteEndObject();
@@ -91,9 +103,21 @@ public sealed partial class SonosControlApiClient : ISonosFavoriteLoadApi
     /// <summary>
     /// favoriteId w ciele polecenia. Dokladnie ta sama bramka co przy ODCZYCIE
     /// (F1): niepuste i do <see cref="SonosFavoritesLimits.MaxFavoriteIdLength"/>
-    /// znakow. IsNullOrEmpty, NIE IsNullOrWhiteSpace - jesli Sonos zwrocil
-    /// identyfikator ze samych spacji, model F1 go przyjmuje, wiec zapis tez
-    /// musi umiec go odeslac.
+    /// znakow. Caly sprawdzian siedzi we WSPOLNYM
+    /// <see cref="IsAcceptableBodyId"/>, zeby ulubione i playlisty nie mialy
+    /// dwoch rozjezdzajacych sie kopii tej samej reguly.
+    /// </summary>
+    private static bool IsAcceptableFavoriteId(string? favoriteId) =>
+        IsAcceptableBodyId(favoriteId, SonosFavoritesLimits.MaxFavoriteIdLength);
+
+    /// <summary>
+    /// WSPOLNA bramka identyfikatora przenoszonego w CIELE polecenia (ulubione,
+    /// playlisty). To NIE jest walidacja segmentu adresu: identyfikator idzie w
+    /// JSON, wiec nie ma tu ani kodowania procentowego, ani zakazu ukosnika.
+    ///
+    /// IsNullOrEmpty, NIE IsNullOrWhiteSpace - jesli Sonos zwrocil identyfikator
+    /// ze samych spacji, model odczytu go przyjmuje, wiec zapis tez musi umiec
+    /// go odeslac.
     ///
     /// Zadnego trim, obcinania, normalizacji ani whitelisty ASCII: nie
     /// naprawiamy cudzych identyfikatorow, bo poprawiony nie wskaze niczego.
@@ -102,25 +126,24 @@ public sealed partial class SonosControlApiClient : ISonosFavoriteLoadApi
     /// zastapilby go znakiem zastepczym i wyslalibysmy po cichu INNA wartosc
     /// niz podal wolajacy.
     /// </summary>
-    private static bool IsAcceptableFavoriteId(string? favoriteId)
+    private static bool IsAcceptableBodyId(string? id, int maxLength)
     {
-        if (string.IsNullOrEmpty(favoriteId)
-            || favoriteId.Length > SonosFavoritesLimits.MaxFavoriteIdLength)
+        if (string.IsNullOrEmpty(id) || id.Length > maxLength)
         {
             return false;
         }
 
-        for (var index = 0; index < favoriteId.Length; index++)
+        for (var index = 0; index < id.Length; index++)
         {
-            var character = favoriteId[index];
+            var character = id[index];
             if (!char.IsSurrogate(character))
             {
                 continue;
             }
 
             if (!char.IsHighSurrogate(character)
-                || index + 1 >= favoriteId.Length
-                || !char.IsLowSurrogate(favoriteId[index + 1]))
+                || index + 1 >= id.Length
+                || !char.IsLowSurrogate(id[index + 1]))
             {
                 return false;
             }
