@@ -142,4 +142,43 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         if (h.Handler.Posts.Count != before) throw new Exception("Niepełna topologia pozwoliła na POST stałego celu.");
         return "Niepełny odczyt grup: zero POST.";
     }
+
+    /// <summary>
+    /// RYZYKO 3b, PRÓBA ROZRÓŻNIAJĄCA: ten sam identyfikator w innym rodzaju i w
+    /// innym domu to INNY materiał. Gdyby zajętość liczyła samo targetId, oba
+    /// warianty uchodziłyby za już przypisane i OMIJAŁY zgodę na nadpisanie.
+    /// </summary>
+    internal static string MeasureMaterialKeySeparatesKindAndHousehold()
+    {
+        const string sameId = "WSPOLNY-IDENTYFIKATOR";
+        var favDom1 = InvokeMaterialKey("sonos-favorite", "DOM-1", sameId);
+        var listDom1 = InvokeMaterialKey("sonos-playlist", "DOM-1", sameId);
+        var favDom2 = InvokeMaterialKey("sonos-favorite", "DOM-2", sameId);
+        var favDom1Again = InvokeMaterialKey("sonos-favorite", "DOM-1", sameId);
+
+        if (favDom1 == listDom1)
+            throw new Exception("Ulubiony i playlista z tym samym ID dały ten sam klucz materiału.");
+        if (favDom1 == favDom2)
+            throw new Exception("Ten sam ID w dwóch domach dał ten sam klucz materiału.");
+        if (favDom1 != favDom1Again)
+            throw new Exception("Klucz materiału nie jest stabilny dla tych samych danych.");
+
+        // WŁASNA STACJA ma identyfikator lokalny, więc dom NIE może jej dzielić -
+        // inaczej ta sama stacja po przelogowaniu zajęłaby drugie miejsce.
+        var ownA = InvokeMaterialKey("sonos-own-stream", "DOM-1", sameId);
+        var ownB = InvokeMaterialKey("sonos-own-stream", "DOM-2", sameId);
+        if (ownA != ownB)
+            throw new Exception("Dom rozróżnił własną stację, choć jej ID jest lokalny.");
+
+        return "Klucz materiału: rodzaj i dom rozróżniają, własna stacja niezależna od domu.";
+    }
+
+    private static string InvokeMaterialKey(string kind, string household, string targetId)
+    {
+        var method = typeof(MainWindow).GetMethod(
+            "SonosPresetMaterialKey",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new Exception("Brak SonosPresetMaterialKey.");
+        return (string)method.Invoke(null, [kind, household, targetId])!;
+    }
 }

@@ -1,12 +1,14 @@
 # AMC — mapa kodu
 
-## Sonos: presety materiału — przyrost roboczy
+## Sonos: presety materiału — obsługa UI odebrana, ograniczenie powtórzeń pozostaje
+
+Aktualizacja odbioru: Ctrl+Alt+Shift+P działa fizycznymi klawiszami w trzech listach po obsłudze Key.System/SystemKey. Przypisanie wiąże materiał z kontekstem otwarcia listy i odrzuca zapis po zmianie domu/konta. Klucz porównania w dialogu zawiera rodzaj, dom i ID; sam zapis zachowuje dosłowny identyfikator. Windows 17 przypadków zaliczone. Żywy NVDA: checkbox i zapis stałego miejsca, usunięcie, konflikt zajętego slotu, anulowanie i właściwy wiersz, lista Ctrl+Alt+P, uruchamianie Ctrl+Shift+cyfra. Własna stacja przy zgodnym odczycie mówi samą nazwę (0 POST), z Idle i kontenerem wznawia (1 Play). To pomiar na danych próbnych, nie dźwięku Sonosa.
 
 - `SonosPresetContract.cs`: rodzaje favorite/playlist/own-stream, dokładny stały zestaw logicznych playerIds i dom, klucz własnej stacji zależny od ID i URL, decyzja powtórzenia ze świeżego odczytu.
 - `SessionPresetEntry`, normalizacja i clone zachowują `SonosHouseholdId` / `SonosFixedPlayerIds`; opaque ID favorite/playlist bez obcinania. Domyślnie bieżący cel; brak stałego zestawu nie powoduje przegrupowania.
 - `MainWindow.SonosPresets.cs`: callbacki przypisywania z trzech list do `RadioPresetAssignmentWindow`, uruchomienie przez istniejące zaplecze. Własna stacja: zgodny itemId+Playing/Buffering daje tylko nazwę; Paused/Idle z kontenerem jest ponownie sprawdzany przed Play. Błąd odczytu, zmiana konta lub niepełna topologia nie uprawnia do przejęcia grupy.
 - Odbiór częściowy: Windows `--sonos-presets-real` 16 przypadków oraz Core `--sonos-preset-model` 12. Potwierdzono prawdziwy dialog przypisania i zapis/odczyt, a nie ręczne wstawienie rekordu jako dowód działania okna.
-- OTWARTE: fizyczne skróty i NVDA trzech list, bramki przypisania przy zmianie kontekstu. Powtórzenia favorites/playlist nadal wykonują load: to niespełnione wymaganie, nie przyjęta polityka. Echo itemId i dźwięk na prawdziwym Sonosie nie zostały zmierzone.
+- OTWARTE: powtórzenia favorites/playlist nadal wykonują load: to niespełnione wymaganie, nie przyjęta polityka. Echo itemId i dźwięk na prawdziwym Sonosie nie zostały zmierzone.
 
 
 ## Sonos: wybór składu głośników pod Ctrl+F5

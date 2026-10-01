@@ -2,6 +2,10 @@
 
 ## Sonos: presety — odbiór częściowy, nie gotowe wydanie
 
+Aktualizacja: końcowy Windows `--sonos-presets-real` wykonał 17 przypadków (0 błędów), w tym P17 rozdzielenia rodzaju/domu. Brakujące zachowania sprawdzono fizycznymi klawiszami i żywym NVDA: trzy listy przypisywania, domyślny bieżący cel i opcjonalny checkbox stałego zestawu, realne usunięcie i nowy odczyt, zapis odmówiony po zmianie domu, dwa materiały o identycznym ID wymagające zgody zastąpienia, Escape bez zmiany wpisu i z powrotem na ten sam wiersz, Ctrl+Alt+P i uruchomienie z listy, Ctrl+Shift+2 i powtórzenie własnej stacji. W Podglądzie mowy powtórzenie oraz wznowienie dały dokładnie „Radio probne”; odpowiednio 0 nowych POST i 1 Play bez create/load. Kwity w `amc_pomoc/sonos-presets-ui-final/ACCEPTANCE.json`. Nie jest to pomiar realnego dźwięku ani rozwiązanie powtórzenia Ulubionych/playlist.
+
+Poniżej zakres wcześniejszego odbioru, uzupełniony powyższymi próbami:
+
 - Windows `--sonos-presets-real`: 16 przypadków, build0/test0. P1 przechodzi przez zaznaczoną pozycję modala, rzeczywisty dialog przypisania, produkcyjny zapis i nowy odczyt. P2–P9: bieżący/stały cel, zniknięty cel, obcy dom, usunięta stacja, brak celu, zmiana konta, usunięcie wpisu. P9 mierzy magazyn, nie klawisz Delete.
 - P10–P16: już grająca własna stacja, radio Idle z kontenerem (tylko Play), błąd GET (0 POST), obce itemId podczas metadata (0 POST), edycja URL pod stałym ID, niepełna topologia stałego celu, zwykły Enter stacji i późniejszy preset z jednym kluczem. Dane HTTP są syntetyczne, bez konta i bez dźwięku.
 - Core `--sonos-preset-model`: 12 przypadków trwałości, clone i reguł. Rodzic poprawił oczekiwanie Idle: załadowana zgodna stacja ma być wznowiona, nie ładowana od nowa.

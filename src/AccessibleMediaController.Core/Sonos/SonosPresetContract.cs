@@ -253,6 +253,15 @@ public static class SonosPresetLabels
         "Presety Sonos zapisują materiał: ulubiony, playlistę albo własną stację. "
         + "Otwórz jedną z tych list, wybierz pozycję i naciśnij Ctrl+Alt+Shift+P";
 
+    /// <summary>
+    /// ODMOWA ZAPISU, gdy konto albo dom zmienily sie od otwarcia listy. Pozycja
+    /// pochodzi z katalogu STAREGO domu, wiec zapisanie jej teraz zrobiloby
+    /// preset wskazujacy w cudzy katalog.
+    /// </summary>
+    public const string AssignContextChanged =
+        "Nie zapisano presetu: konto albo dom Sonos zmieniły się od otwarcia listy. "
+        + "Otwórz listę ponownie i wybierz pozycję jeszcze raz";
+
     public const string NeedsGroup =
         "Nie wybrano głośników Sonos. Wybierz grupę i spróbuj ponownie. "
         + "Nic nie uruchomiłem";

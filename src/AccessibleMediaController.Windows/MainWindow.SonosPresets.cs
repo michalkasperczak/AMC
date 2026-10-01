@@ -56,7 +56,20 @@ public partial class MainWindow
     /// Dom bierzemy z WYBRANEGO domu sesji, zeby ulubiony domu A nie pojechal
     /// potem przez dom B.
     /// </summary>
-    internal void AssignSonosFavoritePreset(SonosFavorite favorite, Window origin)
+    internal void AssignSonosFavoritePreset(SonosFavorite favorite, Window origin) =>
+        AssignSonosFavoritePreset(favorite, origin, _state.Sonos.SelectedHouseholdId, _sonosTargetTicket);
+
+    /// <summary>
+    /// Wariant z KONTEKSTEM Z OTWARCIA listy. Dom i bilet celu przychodza z
+    /// chwili, w ktorej lista powstala - nie z chwili zapisu. Inaczej material
+    /// domu A zostalby zapisany jako nalezacy do domu B, gdyby konto zmienilo
+    /// sie w czasie otwartego okna przypisania.
+    /// </summary>
+    internal void AssignSonosFavoritePreset(
+        SonosFavorite favorite,
+        Window origin,
+        string? originHouseholdId,
+        int originTicket)
     {
         ArgumentNullException.ThrowIfNull(favorite);
         AssignSonosMaterialPreset(
@@ -66,10 +79,19 @@ public partial class MainWindow
             SonosFavoritesLabels.Describe(favorite),
             // Dla ulubionego i playlisty TargetLocation NIE jest adresem: zostaje
             // puste, zeby nikt nie wzial go za URL do GET.
-            targetLocation: null);
+            targetLocation: null,
+            originHouseholdId,
+            originTicket);
     }
 
-    internal void AssignSonosPlaylistPreset(SonosPlaylist playlist, Window origin)
+    internal void AssignSonosPlaylistPreset(SonosPlaylist playlist, Window origin) =>
+        AssignSonosPlaylistPreset(playlist, origin, _state.Sonos.SelectedHouseholdId, _sonosTargetTicket);
+
+    internal void AssignSonosPlaylistPreset(
+        SonosPlaylist playlist,
+        Window origin,
+        string? originHouseholdId,
+        int originTicket)
     {
         ArgumentNullException.ThrowIfNull(playlist);
         AssignSonosMaterialPreset(
@@ -77,7 +99,9 @@ public partial class MainWindow
             SonosPresetKinds.Playlist,
             playlist.Id,
             SonosPlaylistsLabels.Describe(playlist),
-            targetLocation: null);
+            targetLocation: null,
+            originHouseholdId,
+            originTicket);
     }
 
     /// <summary>
@@ -85,7 +109,14 @@ public partial class MainWindow
     /// NIE adres: adres pobierzemy z AKTUALNEGO wpisu przy uruchomieniu, wiec
     /// edycja adresu nie zostawia w presecie zamrozonego, przestarzalego URL.
     /// </summary>
-    internal void AssignSonosOwnStreamPreset(SonosOwnStreamSettings station, Window origin)
+    internal void AssignSonosOwnStreamPreset(SonosOwnStreamSettings station, Window origin) =>
+        AssignSonosOwnStreamPreset(station, origin, _state.Sonos.SelectedHouseholdId, _sonosTargetTicket);
+
+    internal void AssignSonosOwnStreamPreset(
+        SonosOwnStreamSettings station,
+        Window origin,
+        string? originHouseholdId,
+        int originTicket)
     {
         ArgumentNullException.ThrowIfNull(station);
         AssignSonosMaterialPreset(
@@ -93,7 +124,9 @@ public partial class MainWindow
             SonosPresetKinds.OwnStream,
             station.Id,
             station.Name,
-            targetLocation: null);
+            targetLocation: null,
+            originHouseholdId,
+            originTicket);
     }
 
     /// <summary>
@@ -110,23 +143,59 @@ public partial class MainWindow
         string kind,
         string targetId,
         string targetTitle,
-        string? targetLocation)
+        string? targetLocation,
+        string? originHouseholdId,
+        int originTicket)
     {
         if (!IsSonosSession(_sessions?.Current.Id)) return;
         if (string.IsNullOrWhiteSpace(targetId)) return;
 
+        // DOM Z OTWARCIA listy, nie z chwili zapisu: pozycja pochodzi z katalogu
+        // TEGO domu. Gdy konto/dom zmienilo sie jeszcze PRZED dialogiem, nie ma
+        // czego zapisywac - material nalezy do domu, ktorego juz nie ma.
+        if (!SonosPresetOriginStillValid(kind, originHouseholdId, originTicket))
+        {
+            AnnounceInSonosOrigin(origin, SonosPresetLabels.AssignContextChanged);
+            return;
+        }
+
         var session = _sessions!.Current;
         var choices = SessionPresetChoices(session);
         var entries = SessionPresetEntries(session.Id);
-        var existingSlot = choices.FirstOrDefault(choice =>
-            string.Equals(choice.StationId, targetId, StringComparison.Ordinal))?.Slot;
+        // ZAJETOSC po RODZAJU + DOMU + identyfikatorze. Samo targetId nie wystarcza:
+        // ulubiony i playlista z tym samym identyfikatorem (albo ten sam
+        // identyfikator w dwoch domach) to ROZNY material i nie moze uchodzic za
+        // juz przypisany, bo ominalby zgode na nadpisanie. Klucz jest LOKALNY dla
+        // wyborow okna - w presecie zapisujemy LITERALNY identyfikator.
+        var materialKey = SonosPresetMaterialKey(kind, originHouseholdId, targetId);
+        var existingSlot = entries.FirstOrDefault(entry =>
+            string.Equals(
+                SonosPresetMaterialKey(entry.TargetKind, entry.SonosHouseholdId, entry.TargetId),
+                materialKey,
+                StringComparison.Ordinal))?.Slot;
         var firstFree = choices.FirstOrDefault(choice => choice.StationId is null)?.Slot;
         var initialSlot = existingSlot ?? firstFree ?? 1;
 
+        // IDENTYFIKATOR DLA OKNA: skladowy, zeby okno porownywalo MATERIAL, a nie
+        // goly napis. Do presetu zapisujemy dalej literalny targetId.
+        var windowChoices = choices
+            .Select(choice =>
+            {
+                var entry = entries.FirstOrDefault(item => item.Slot == choice.Slot);
+                return entry is null
+                    ? choice
+                    : choice with
+                    {
+                        StationId = SonosPresetMaterialKey(
+                            entry.TargetKind, entry.SonosHouseholdId, entry.TargetId)
+                    };
+            })
+            .ToArray();
+
         var dialog = new RadioPresetAssignmentWindow(
             targetTitle,
-            targetId,
-            choices,
+            materialKey,
+            windowChoices,
             firstFree,
             initialSlot,
             session.DisplayName)
@@ -138,7 +207,7 @@ public partial class MainWindow
 
         // STALY ZESTAW proponujemy TYLKO gdy JEST co zapisac: aktualna grupa z
         // niepustym skladem w znanym domu. Bez tego opcja byla by martwa kontrolka.
-        var household = _state.Sonos.SelectedHouseholdId;
+        var household = originHouseholdId;
         var group = SonosActiveGroup;
         var fixedIds = SonosPresetFixedTarget.NormalizePlayerIds(group?.PlayerIds);
         var canOfferFixed = !string.IsNullOrWhiteSpace(household) && fixedIds.Count > 0;
@@ -154,6 +223,15 @@ public partial class MainWindow
         }
 
         if (dialog.ShowDialog() != true) return;
+
+        // BRAMKA PO DIALOGU, PRZED ZAPISEM: dom/konto moglo zmienic sie w czasie
+        // otwartego okna. Zapis trwaly, wiec stary identyfikator NIE MOZE wpisac
+        // sie jako nalezacy do nowego domu.
+        if (!SonosPresetOriginStillValid(kind, originHouseholdId, originTicket))
+        {
+            AnnounceInSonosOrigin(origin, SonosPresetLabels.AssignContextChanged);
+            return;
+        }
 
         var index = entries.FindIndex(entry => entry.Slot == dialog.SelectedSlot);
         var slotLabel = RadioPresetSlots.Label(dialog.SelectedSlot);
@@ -192,6 +270,34 @@ public partial class MainWindow
         AnnounceInSonosOrigin(origin, useFixed
             ? SonosPresetLabels.DescribeAssignedFixed(slotLabel, targetTitle, fixedIds.Count)
             : SonosPresetLabels.DescribeAssigned(slotLabel, targetTitle));
+    }
+
+    /// <summary>
+    /// KLUCZ MATERIALU dla wyborow okna przypisania: rodzaj + dom + literalny
+    /// identyfikator. SLUZY WYLACZNIE do porownan w oknie - NIE jest tym, co
+    /// laduje w presecie. Dom wchodzi tylko dla rodzajow zwiazanych z domem;
+    /// wlasna stacja ma identyfikator lokalny, wiec jej dom nie rozroznia.
+    /// </summary>
+    private static string SonosPresetMaterialKey(string? kind, string? householdId, string? targetId)
+    {
+        var house = SonosPresetKinds.IsHouseholdBound(kind) ? householdId ?? string.Empty : string.Empty;
+        return (kind ?? string.Empty) + "\u001f" + house + "\u001f" + (targetId ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Czy KONTEKST Z OTWARCIA listy nadal obowiazuje. Sprawdzamy bilet celu
+    /// (zmienia go kazde przelaczenie celu/konta) oraz - dla materialu zwiazanego
+    /// z domem - zgodnosc wybranego domu. <c>ApplySonosAccountBinding</c> jest
+    /// wolane PIERWSZE, bo samo wykrywa zmiane wlasciciela konta.
+    /// </summary>
+    private bool SonosPresetOriginStillValid(string kind, string? originHouseholdId, int originTicket)
+    {
+        if (ApplySonosAccountBinding()) return false;
+        if (originTicket != _sonosTargetTicket) return false;
+        if (!SonosPresetKinds.IsHouseholdBound(kind)) return true;
+        if (string.IsNullOrWhiteSpace(originHouseholdId)) return false;
+        return string.Equals(
+            _state.Sonos.SelectedHouseholdId, originHouseholdId, StringComparison.Ordinal);
     }
 
     /// <summary>

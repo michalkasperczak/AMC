@@ -223,6 +223,13 @@ public sealed record RadioPresetChoice(
     string? StationName,
     string? ShareableLocation)
 {
+    /// <summary>
+    /// Identyfikator UZYWANY DO POROWNAN w oknie przypisania. Wolajacy moze go
+    /// podmienic przez <c>with</c> na klucz skladowy (np. Sonos: rodzaj+dom+ID),
+    /// zeby dwa rozne materialy o tym samym ID nie uchodzily za jeden. To NIE
+    /// jest identyfikator zapisywany w presecie.
+    /// </summary>
+    public string? StationId { get; init; } = StationId;
     private string PositionLabel => Slot <= 9
         ? $"Preset numer {SlotLabel}"
         : $"Preset numer {SlotLabel}, klawisz {SpokenShortcutLabel}";

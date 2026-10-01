@@ -53,6 +53,11 @@ public partial class SonosOwnStreamsWindow : Window
     }
 
     internal bool IsLiveOwnerTarget => !_closed && IsVisible;
+    internal IReadOnlyList<string> RowLabelsForTests =>
+        _rows.Select(row => string.IsNullOrWhiteSpace(row.Name) ? row.StreamUrl : row.Name).ToArray();
+
+    internal string? HighlightedStationIdForTests => Selected?.Id;
+
     internal Task? LastPlayTaskForTests { get; private set; }
     internal string StatusForTests => StatusText.Text;
     private SonosOwnStreamSettings? Selected => StationsList.SelectedItem as SonosOwnStreamSettings;
@@ -127,7 +132,9 @@ public partial class SonosOwnStreamsWindow : Window
     {
         if (e.Handled) return;
         if (e.Key == Key.Escape) { e.Handled = true; Close(); return; }
-        if (e.Key == Key.P
+        // Z ALTEM WPF podaje Key.System, a litera siedzi w SystemKey.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.P
             && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
                 == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {

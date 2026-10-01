@@ -276,7 +276,9 @@ public partial class SonosPlaylistsWindow : Window
 
         // CTRL+ALT+SHIFT+P: PRZYPISANIE PRESETU - glowne okno jest wylaczone jako
         // Owner, wiec przechwytujemy skrot tutaj.
-        if (e.Key == Key.P
+        // Z ALTEM WPF podaje Key.System, a litera siedzi w SystemKey.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.P
             && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
                 == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {

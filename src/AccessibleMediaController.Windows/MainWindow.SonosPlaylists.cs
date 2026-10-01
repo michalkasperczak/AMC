@@ -195,7 +195,8 @@ public partial class MainWindow
                     group?.Name,
                     request => LoadSonosPlaylistAsync(
                         loadBackend, householdId, group?.Id, ticket, request),
-                    playlist => AssignSonosPlaylistPreset(playlist, _sonosPlaylistsWindow!));
+                    playlist => AssignSonosPlaylistPreset(
+                        playlist, _sonosPlaylistsWindow!, householdId, ticket));
             SonosPlaylistsWindowsCreatedForTests++;
             _sonosPlaylistsWindow = window;
             try

@@ -295,7 +295,11 @@ public partial class SonosFavoritesWindow : Window
         // CTRL+ALT+SHIFT+P: PRZYPISANIE PRESETU. Glowne okno jest WYLACZONE jako
         // Owner modalu, wiec router skrotow go nie dostanie - przechwytujemy tutaj
         // i oddajemy wlascicielowi z ZAZNACZONA pozycja TEJ listy.
-        if (e.Key == Key.P
+        //
+        // Z ALTEM WPF podaje Key.System, a litera siedzi w SystemKey. Bez tej
+        // normalizacji fizyczny gest NIE trafia w warunek.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.P
             && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
                 == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {

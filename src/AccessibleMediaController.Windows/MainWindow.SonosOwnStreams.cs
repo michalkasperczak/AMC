@@ -9,6 +9,8 @@ public partial class MainWindow
     private readonly string _sonosOwnStreamAppContext = Guid.NewGuid().ToString("N");
     internal SonosOwnStreamsWindow? OpenSonosOwnStreamsWindowForTests => _sonosOwnStreamsWindow;
 
+    internal void ShowSonosOwnStreamsForTests() => ShowSonosOwnStreams();
+
     private void ShowSonosOwnStreams()
     {
         if (_sonosOwnStreamsWindow is { IsLiveOwnerTarget: true } open) { open.Activate(); return; }
@@ -26,7 +28,8 @@ public partial class MainWindow
                 QueueStateSave(announceFailure: true);
             }, backend is null ? null : request =>
                 LoadSonosOwnStreamAsync(backend, home, group?.Id, ticket, request),
-            station => AssignSonosOwnStreamPreset(station, _sonosOwnStreamsWindow!)) { Owner = this };
+            station => AssignSonosOwnStreamPreset(
+                station, _sonosOwnStreamsWindow!, home, ticket)) { Owner = this };
         _sonosOwnStreamsWindow = window;
         try { window.ShowDialog(); }
         finally { _sonosOwnStreamsWindow = null; }

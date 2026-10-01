@@ -88,6 +88,15 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
         FixedTargetOption.Visibility = Visibility.Visible;
     }
 
+    /// <summary>Miejsce WSKAZANE na liscie - jeszcze nie zatwierdzone.</summary>
+    internal int HighlightedSlotForTests =>
+        (PresetList.SelectedItem as RadioPresetChoice)?.Slot ?? 0;
+
+    internal string StatusForTests => AssignmentStatus.Text;
+
+    internal bool FixedTargetVisibleForTests =>
+        FixedTargetOption.Visibility == Visibility.Visible;
+
     private void Window_ContentRendered(object? sender, EventArgs e)
     {
         PresetList.UpdateLayout();

@@ -95,6 +95,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         Measure("P14", "Nowy URL pod tym samym ID wysyła nowy adres i klucz", () => MeasureOwnPreset("edited")),
         Measure("P15", "Niepełna topologia nie potwierdza stałego celu", MeasurePartialFixedPreset),
         Measure("P16", "Enter własnej stacji i preset używają jednej tożsamości i zamiaru", MeasureOwnEnterThenPreset),
+        // RYZYKO 3b: zajętość miejsca nie może zlewać różnych rodzajów ani domów.
+        Measure("P17", "Klucz materiału rozróżnia rodzaj i dom, własna stacja niezależna", MeasureMaterialKeySeparatesKindAndHousehold),
     ];
 
     // ==================== APARATURA PRESETOW ====================

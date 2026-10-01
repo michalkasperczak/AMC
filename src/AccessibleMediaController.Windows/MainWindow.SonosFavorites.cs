@@ -249,7 +249,8 @@ public partial class MainWindow
                         loadBackend, householdId, group?.Id, ticket, request),
                     // PRZYPISANIE: okno oddaje ZAZNACZONY ulubiony, a my - jako
                     // ZYWY wlasciciel - pokazujemy dialog miejsca i zapisujemy.
-                    favorite => AssignSonosFavoritePreset(favorite, _sonosFavoritesWindow!));
+                    favorite => AssignSonosFavoritePreset(
+                        favorite, _sonosFavoritesWindow!, householdId, ticket));
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
             try
