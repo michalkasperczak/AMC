@@ -1,5 +1,65 @@
 # Zadania testowe AMC
 
+## Sonos: własne radio w Core (utworzenie sesji i wczytanie adresu) — jak sprawdzić
+
+**Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie
+warstwę Core: `CreateSessionAsync` i `LoadStreamUrlAsync` w kliencie Control API
+oraz dwie **jawne, osobne** metody na koordynatorze konta. **Żadnego** okna,
+skrótu, menu, presetu ani grupowania — `Ctrl+L`, `Ctrl+U` i `Ctrl+F5` zachowują
+się dokładnie jak dotąd. Lista własnych adresów, presety i stały cel to
+**następne** kroki.
+
+To droga **własnego adresu radia zapisanego w AMC**, a nie zapisanie ulubionego
+Sonosa: F3a/F3b (ulubione) i playlisty zostają nietknięte.
+
+Pomiar, bez konta Sonos, sieci, DPAPI i muzyki (własny `HttpMessageHandler`,
+atrapa bramki logowania, magazyn w pamięci):
+
+1. `--sonos-stream-url` — **12** sprawdzeń na **prawdziwym** torze
+   koordynator → klient Control API → syntetyczny `HTTP`:
+   - `createSession` wysyła **dokładnie jeden** `POST` pod
+     `/groups/{groupId}/playbackSession` z ciałem zawierającym **tylko**
+     `appId` i `appContext` (oba **wymagane** wg definicji); `accountId`
+     i `customData` są **pominięte** — nie wysyłamy wartości, których nie znamy;
+   - odebrany `sessionId` wraca do wołającego; limity `appId`/`appContext`
+     (po **127** znaków, **suma UTF-8 < 255**), `sessionId` **46**,
+     `streamUrl` **1024** i `itemId` **128** pochodzą z pól `maxLength`
+     definicji, nie z nazw ani domysłów;
+   - **`HTTP 200` bez `sessionId`** (pole jest w definicji **nullable**) to
+     **NIE** gotowa sesja: wynik mówi o braku identyfikatora i nie oddaje
+     niczego do dalszego polecenia. Tak samo odpowiedź niepoprawna;
+   - `loadStreamUrl` idzie pod **inny zasób** —
+     `/playbackSessions/{sessionId}/playbackSession/loadStreamUrl`, nigdy pod
+     `/groups/...` — z `streamUrl` i **jawnym** `playOnCompletion`, bez
+     `stationMetadata`; `itemId` jest opcjonalne (null = **pominięcie pola**);
+   - wadliwe wejście (brak/zły adres, zły `sessionId`, brak tożsamości
+     aplikacji, przekroczone limity) **nie wysyła ani jednego** `POST` —
+     odmowa następuje **przed** `HTTP`;
+   - **`401` na zapisie**: zero odnowień, zero powtórzeń `POST`, zero kasowania
+     konta. `createSession` może **wyprzeć** cudze odtwarzanie, więc nie wolno
+     go powtarzać ani wołać przy odczycie;
+   - zmiana konta w trakcie wstrzymanej odpowiedzi **nie publikuje** `sessionId`
+     do nowego kontekstu — stary identyfikator nie trafia na konto B;
+   - anulowanie i `ERROR_SESSION_EVICTED` **nie tworzą** nowej sesji same —
+     dopiero jawne żądanie użytkownika może utworzyć następną;
+   - komunikaty i `ToString` nie wypisują `sessionId`, adresu strumienia,
+     `appContext` ani tokenów.
+2. `--sonos-playlists` **10/10**, `--sonos-favorite-load` **31/31**,
+   `--sonos-group-playback` **79/79** i `--sonos-session-presentation` — stare
+   suity muszą zostać zielone bez rozluźniania asercji (wspólny transport zapisu
+   dostał **opcjonalny** odbiór ciała; stare `GET` i `POST` bez odbioru działają
+   jak dotąd).
+3. Pełna tabela Core (bez argumentów) — pozycja „Własne radio w Sonosie:
+   utworzenie sesji i wczytanie adresu strumienia”.
+
+Czego mierzone zachowanie **nie** obiecuje: `HTTP 200` to **przyjęcie**
+zlecenia, nie dowód, że radio zagrało. Dokumentacja Sonosa wymaga **otwartej
+sesji** dla `loadStreamUrl`; **czy radio faktycznie zagra bez własnego serwera
+kolejki w chmurze, pozostaje do próby na prawdziwym koncie** — atrapa tego nie
+dowodzi i nie udaje. Nie obiecujemy też wszystkich formatów strumienia ani
+adresów lokalnych. Żaden z tych testów nie dotyka prawdziwego konta, urządzenia
+ani dźwięku.
+
 ## Sonos: playlisty w Core (odczyt i uruchomienie) — jak sprawdzić
 
 **Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie

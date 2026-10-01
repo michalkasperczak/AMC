@@ -116,23 +116,10 @@ public sealed partial class SonosControlApiClient : IDisposable
                 return (SonosControlApiStatus.RedirectRefused, null);
             var status = MapStatus((int)response.StatusCode);
             if (status != SonosControlApiStatus.Success) return (status, null);
-            var contentType = response.Content.Headers.ContentType;
-            if (contentType is null || !string.Equals(contentType.MediaType, "application/json", StringComparison.OrdinalIgnoreCase)
-                || (!string.IsNullOrEmpty(contentType.CharSet)
-                    && !string.Equals(contentType.CharSet.Trim('"'), "utf-8", StringComparison.OrdinalIgnoreCase))
-                || response.Content.Headers.ContentLength > MaxResponseBytes)
-                return (SonosControlApiStatus.InvalidResponse, null);
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            using var output = new MemoryStream();
-            var buffer = new byte[8192];
-            while (true)
-            {
-                var count = await stream.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false);
-                if (count == 0) break;
-                if (output.Length + count > MaxResponseBytes) return (SonosControlApiStatus.InvalidResponse, null);
-                output.Write(buffer, 0, count);
-            }
-            return (SonosControlApiStatus.Success, new UTF8Encoding(false, true).GetString(output.ToArray()));
+            var (ok, body) = await ReadLimitedJsonAsync(response, ct).ConfigureAwait(false);
+            return ok
+                ? (SonosControlApiStatus.Success, body)
+                : (SonosControlApiStatus.InvalidResponse, null);
         }
         catch (OperationCanceledException)
         { return (caller.IsCancellationRequested ? SonosControlApiStatus.Canceled : SonosControlApiStatus.Unreachable, null); }
@@ -140,6 +127,40 @@ public sealed partial class SonosControlApiClient : IDisposable
         catch (IOException) { return (SonosControlApiStatus.Unreachable, null); }
         catch (FormatException) { return (SonosControlApiStatus.InvalidConfiguration, null); }
         catch (DecoderFallbackException) { return (SonosControlApiStatus.InvalidResponse, null); }
+    }
+
+    /// <summary>
+    /// WSPOLNE, OGRANICZONE czytanie ciala odpowiedzi JSON. Wyciagniete z
+    /// <see cref="ReadAsync"/> BEZ zmiany polityki, zeby POST sesji mogl odebrac
+    /// sessionId tym SAMYM silnikiem: ten sam wymagany typ application/json, to
+    /// samo utf-8, ten sam limit <see cref="MaxResponseBytes"/> sprawdzany i w
+    /// naglowku, i w trakcie czytania, to samo scisle dekodowanie UTF-8.
+    ///
+    /// Zwraca (false, null) dla KAZDEJ odpowiedzi, ktorej nie wolno przyjac -
+    /// wolajacy zamienia to na InvalidResponse. Zadnego luzniejszego wariantu
+    /// dla zapisu tu nie ma i byc nie moze.
+    /// </summary>
+    private static async Task<(bool Ok, string? Body)> ReadLimitedJsonAsync(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        var contentType = response.Content.Headers.ContentType;
+        if (contentType is null || !string.Equals(contentType.MediaType, "application/json", StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(contentType.CharSet)
+                && !string.Equals(contentType.CharSet.Trim('"'), "utf-8", StringComparison.OrdinalIgnoreCase))
+            || response.Content.Headers.ContentLength > MaxResponseBytes)
+            return (false, null);
+        await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var output = new MemoryStream();
+        var buffer = new byte[8192];
+        while (true)
+        {
+            var count = await stream.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false);
+            if (count == 0) break;
+            if (output.Length + count > MaxResponseBytes) return (false, null);
+            output.Write(buffer, 0, count);
+        }
+
+        return (true, new UTF8Encoding(false, true).GetString(output.ToArray()));
     }
 
     private static IEnumerable<JsonElement> Array(JsonElement parent, string name, int max, bool required = false)

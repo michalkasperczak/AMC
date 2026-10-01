@@ -1,5 +1,90 @@
 # AMC — mapa kodu
 
+## Sonos: WŁASNE RADIO — sesja odtwarzania i adres strumienia, warstwa Core (bez UI)
+
+**Tylko Core.** Ten przyrost dodaje **dwie** operacje sesji odtwarzania:
+utworzenie sesji w grupie i wczytanie **własnego adresu radia** zapisanego w
+AMC. **Nie ma** tu okna, skrótu, menu, listy adresów, presetów, grupowania,
+stałego celu, cache, pollingu ani subskrypcji `playbackStatus`. Orkiestracja UI
+(„utwórz sesję, potem wczytaj adres”) to **następny** krok — świadomie nie
+dorabiamy tu nowej maszyny stanów.
+
+To droga **własnego `radioURL`**, a **nie** zapisanie ulubionego Sonosa:
+F3a/F3b i playlisty zostają nietknięte.
+
+Źródło: oficjalna definicja OpenAPI 3.0.3 „Sonos Control API (cloud)”
+`v1.56.0-alpha.1-1-gc264f93f-production-cloud`, operacje
+`PlaybackSession-CreateSession-GroupId` (`POST /groups/{groupId}/playbackSession`)
+i `PlaybackSession-LoadStreamUrl-SessionId`
+(`POST /playbackSessions/{sessionId}/playbackSession/loadStreamUrl`).
+
+- `Core/Sonos/SonosPlaybackSessionContract.cs` — niemutowalny model + **wąskie,
+  osobne** granice: `ISonosSessionCreateApi` (tylko tworzenie) i
+  `ISonosStreamUrlLoadApi` (tylko wczytanie adresu), żeby późniejsze UI zależało
+  od kontraktu, nie od całego transportu. `SonosPlaybackSessionLimits` bierze
+  limity **z pól `maxLength` definicji**, nie z nazw: `appId` **127**,
+  `appContext` **127**, **suma UTF-8 obu < 255** (definicja mówi o tym wprost,
+  osobno od limitów pojedynczych pól), `sessionId` **46**, `streamUrl` **1024**,
+  `itemId` **128**.
+  **Kluczowa różnica, której nie wolno zatrzeć:** `sessionStatus.sessionId` jest
+  w definicji **nullable**, a `sessionState` **opcjonalne**. Dlatego `HTTP 200`
+  **bez** identyfikatora to **NIE** gotowa sesja — `SonosSessionCreateOutcome`
+  rozróżnia **próbę**, **przyjęcie** i **nieznany skutek**, a `sessionId` oddaje
+  **wyłącznie** z ważnego wyniku bieżącego konta. Nieznana wartość
+  `sessionState` daje `Unknown`, ale odpowiedzi nie unieważnia.
+  `SonosSessionIdPolicy` jest **osobna** od `SonosGroupIdPolicy`: `sessionId` to
+  **inny zasób** niż `groupId`. Definicja podaje dla tego parametru ścieżki
+  wyłącznie `type: string` — **żadnego wzorca** — więc nie wymyślamy regexa
+  tożsamości: wartość zostaje **literalna**, kodowany jest tylko segment adresu.
+  Kontrolowane `ToString` nie wypisuje `sessionId`, adresu ani `appContext`.
+- `Core/Sonos/SonosControlApiClient.PlaybackSession.cs` — `CreateSessionAsync`
+  i `LoadStreamUrlAsync` na **ISTNIEJĄCYM** silniku: ten sam `HttpClient`,
+  polityka hosta, `Bearer`, kontrola końcowego adresu, deadline, budżet treści
+  i ścisły UTF-8. Żadnego drugiego `HttpClient`, żadnej kopii transportu.
+  `TrySessionUri` jest **osobna** od `TryGroupUri` — przepuszczenie `groupId`
+  tam, gdzie ma iść `sessionId` (albo odwrotnie), trafiłoby w nieistniejący
+  zasób. Ciało `createSession` niesie **tylko** `appId` i `appContext` (oba
+  **wymagane**); `accountId` i `customData` są **pominięte** — nie zgadujemy
+  `accountId` usługi, a dla minimalnego radia nie jest potrzebny. `appId` to
+  identyfikator **aplikacji**, **nie** OAuthowy `client_id` ani token.
+  `playOnCompletion` jest **obowiązkowy i bez wartości domyślnej** (autostart
+  zmienia zachowanie u użytkownika); gdy jest `true`, **nie wolno** dosyłać
+  osobnego `Play`. `stationMetadata` **pominięte** w minimum; `itemId`
+  opcjonalne (`null` = **pominięcie pola**) i przechodzi **wspólną**
+  `IsAcceptableBodyId` — bez whitelisty znaków, bo serializator je escapuje i
+  tożsamość zostaje ta sama. `streamUrl` wymaga **bezpiecznego** `http`/`https`
+  (`SonosStreamUrlPolicy`) i **nigdy** nie jest przez nas pobierany — zero `GET`,
+  nawet sprawdzającego.
+- `Core/Sonos/SonosControlApiClient.cs` + `.GroupPlayback.cs` — **minimalne
+  WSPÓLNE** rozszerzenie odbioru: czytanie ciała wyjęte z `ReadAsync` do
+  `ReadLimitedJsonAsync` (**bez zmiany polityki**), a `WriteCoreAsync` dostał
+  **opcjonalny** odbiór odpowiedzi. Stare `GET` i stare `POST` (ulubione,
+  playlisty, polecenia grupy) idą **tą samą** ścieżką co dotąd i **nie**
+  parsują ciała — zachowanie niezmienione, co potwierdzają ich regresje.
+- `Core/Sonos/SonosAccountCoordinator.PlaybackSession.cs` — **cienkie**
+  podłączenie **dwóch jawnych, rozdzielonych** metod (`CreateSessionAsync`,
+  `LoadStreamUrlAsync`) przez **wspólną** ścieżkę zapisu `RunSessionWriteAsync`:
+  bilet pod blokadą, HTTP **poza** blokadą, kontrola **oryginalnej** generacji
+  po każdym `await`. Zero kopii OAuth, odświeżania i genlocka.
+  **`createSession` to ZAPIS, który może WYPRZEĆ cudze odtwarzanie.** Dlatego
+  **nigdy** nie idzie przez `RunGroupReadAsync`, jego ponowienie po `401` ani
+  przy odczycie/wejściu/listowaniu; **zero** powtórzeń `POST`, **zero**
+  odnowień po `401`, **zero** kasowania konta. Po eviction
+  (`ERROR_SESSION_EVICTED`), błędzie czy anulowaniu **żadna sesja nie powstaje
+  sama** — dopiero jawne żądanie użytkownika. Anulowanie **po wysłaniu nie cofa**
+  przejęcia sesji, więc wynik mówi o skutku **nieznanym**, nie o cofnięciu.
+  Przy zmianie konta w trakcie wstrzymanej odpowiedzi stary `sessionId`
+  **nie jest publikowany** nowemu kontekstowi.
+- Testy: `tests/…/SonosStreamUrlTests.cs`, runner `--sonos-stream-url`
+  (**12** sprawdzeń), pozycja w pełnej tabeli Core. Kontrolowany
+  `HttpMessageHandler`, atrapa bramki i magazyn w pamięci — **zero** realnego
+  I/O, konta, DPAPI i dźwięku.
+- **Czego tu świadomie NIE MA:** serwera kolejki w chmurze (`cloudQueue`),
+  odtwarzania utworów na żądanie, SMAPI, `audioClip`. Dokumentacja wymaga
+  **otwartej sesji** dla `loadStreamUrl`; **rzeczywista wykonalność radia bez
+  własnego serwera kolejki pozostaje do próby na prawdziwym koncie** — atrapa
+  tego nie rozstrzyga i nie udaje.
+
 ## Sonos: PLAYLISTY — odczyt i uruchomienie, warstwa Core (bez UI)
 
 **Tylko Core.** Ten przyrost dodaje odczyt playlist Sonosa domu i ich

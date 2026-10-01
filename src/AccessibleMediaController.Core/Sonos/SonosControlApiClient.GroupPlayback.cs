@@ -489,14 +489,32 @@ public sealed partial class SonosControlApiClient
     private async Task<(SonosControlApiStatus Status, bool Sent)> WriteAsync(
         Uri uri, string? token, string body, CancellationToken caller)
     {
+        var reply = await WriteCoreAsync(uri, token, body, readBody: false, caller).ConfigureAwait(false);
+        return (reply.Status, reply.Sent);
+    }
+
+    /// <summary>
+    /// WSPOLNY silnik POST. <paramref name="readBody"/> to JEDYNE rozszerzenie
+    /// wobec odebranego zapisu polecen: gdy false, zachowanie jest DOKLADNIE
+    /// dawne (cialo odpowiedzi w ogole nie jest czytane, bo tresc bledu jest
+    /// sterowana przez serwer i nie wolno jej logowac ani oddawac echem). Gdy
+    /// true - i TYLKO przy HTTP 200 - cialo przechodzi przez TEN SAM ograniczony
+    /// czytnik co odczyty (<see cref="ReadLimitedJsonAsync"/>).
+    ///
+    /// Zaden nowy HttpClient, zadna kopia polityki hosta, biletu, przekierowan,
+    /// deadline'u ani budzetu tresci. Zadnego ponowienia.
+    /// </summary>
+    private async Task<(SonosControlApiStatus Status, bool Sent, string? Body)> WriteCoreAsync(
+        Uri uri, string? token, string body, bool readBody, CancellationToken caller)
+    {
         if (caller.IsCancellationRequested)
         {
-            return (SonosControlApiStatus.Canceled, false);
+            return (SonosControlApiStatus.Canceled, false, null);
         }
 
         if (!IsHeaderValue(token) || !IsHeaderValue(_configuration.ApiKey))
         {
-            return (SonosControlApiStatus.InvalidConfiguration, false);
+            return (SonosControlApiStatus.InvalidConfiguration, false, null);
         }
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(caller);
@@ -516,21 +534,29 @@ public sealed partial class SonosControlApiClient
             // Kazda odpowiedz musi wskazywac dokladnie wyslany adres.
             if (response.RequestMessage?.RequestUri != uri)
             {
-                return (SonosControlApiStatus.RedirectRefused, true);
+                return (SonosControlApiStatus.RedirectRefused, true, null);
             }
 
             var status = MapStatus((int)response.StatusCode);
-            // Ciala odpowiedzi polecenia NIE czytamy w calosci: wg definicji 200
-            // to pusty obiekt "ok", a tresc bledu jest sterowana przez serwer i
-            // nie wolno jej logowac ani echem podawac uzytkownikowi.
-            return (status, true);
+            // Ciala odpowiedzi BLEDU nie czytamy NIGDY: tresc jest sterowana przez
+            // serwer i nie wolno jej logowac ani podawac echem uzytkownikowi.
+            if (!readBody || status != SonosControlApiStatus.Success)
+            {
+                return (status, true, null);
+            }
+
+            var (ok, payload) = await ReadLimitedJsonAsync(response, ct).ConfigureAwait(false);
+            return ok
+                ? (SonosControlApiStatus.Success, true, payload)
+                : (SonosControlApiStatus.InvalidResponse, true, null);
         }
         catch (OperationCanceledException)
         {
-            return (caller.IsCancellationRequested ? SonosControlApiStatus.Canceled : SonosControlApiStatus.Unreachable, sent);
+            return (caller.IsCancellationRequested ? SonosControlApiStatus.Canceled : SonosControlApiStatus.Unreachable, sent, null);
         }
-        catch (HttpRequestException) { return (SonosControlApiStatus.Unreachable, sent); }
-        catch (IOException) { return (SonosControlApiStatus.Unreachable, sent); }
-        catch (FormatException) { return (SonosControlApiStatus.InvalidConfiguration, false); }
+        catch (HttpRequestException) { return (SonosControlApiStatus.Unreachable, sent, null); }
+        catch (IOException) { return (SonosControlApiStatus.Unreachable, sent, null); }
+        catch (DecoderFallbackException) { return (SonosControlApiStatus.InvalidResponse, sent, null); }
+        catch (FormatException) { return (SonosControlApiStatus.InvalidConfiguration, false, null); }
     }
 }
