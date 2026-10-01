@@ -213,7 +213,12 @@ internal static class SonosStreamUrlTests
                      "[]",
                      """{ "sessionId": 42 }""",
                      """{ "sessionId": "ok", "sessionCreated": "owszem" }""",
-                     """{ "sessionId": "ok", "sessionState": 7 }"""
+                     """{ "sessionId": "ok", "sessionState": 7 }""",
+                     """{ "sessionId": "first", "sessionId": "second" }""",
+                     """{ "sessionId": "\uD800" }""",
+                     """{ "sessionId": "ok", "sessionState": "\uD800" }""",
+                     "{\"sessionId\":\"ok\",\"extra\":" + new string('[', 20)
+                         + "0" + new string(']', 20) + "}"
                  })
         {
             using var fixture = Fixture.Connected(_ => Json(body));

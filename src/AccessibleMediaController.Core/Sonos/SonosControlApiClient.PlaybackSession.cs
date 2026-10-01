@@ -207,7 +207,7 @@ public sealed partial class SonosControlApiClient : ISonosSessionCreateApi, ISon
     {
         try
         {
-            using var document = JsonDocument.Parse(body);
+            using var document = Parse(body);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
             {
@@ -263,7 +263,7 @@ public sealed partial class SonosControlApiClient : ISonosSessionCreateApi, ISon
 
             return new SonosSessionStatus(sessionId, state, created);
         }
-        catch (JsonException)
+        catch (Exception ex) when (IsInvalidData(ex))
         {
             return null;
         }
