@@ -214,10 +214,18 @@ z osobnym kontraktem i osobnym pomiarem.
 Uwagi Michała: głośnik pojawiał się w Ulubionych, Biblioteka była pusta, wiersz
 powtarzał nazwę i liczby, a `Ctrl+F5` mówiło „nie ma polecenia w bieżącej sesji”.
 
-- **Biblioteka = CELE STEROWANIA.** `MainWindow.xaml.cs` `RefreshCurrentView`
+**STAN PO ETAPIE BIBLIOTEKI MATERIAŁU — poniższe akapity opisują warstwę
+GŁÓWNEGO WIDOKU i nadal obowiązują, ale `Ctrl+L`, `Ctrl+F5` i `Ctrl+U` mają
+dziś WŁASNE OKNA MODALNE. Prawdziwy układ opisuje sekcja „Sonos: BIBLIOTEKA
+MATERIAŁU, PLAYLISTY i WYBÓR CELU”; czytaj ją razem z tym rozdziałem i nie
+traktuj zdania „Biblioteka = CELE STEROWANIA” jako opisu tego, co robi dziś
+`Ctrl+L`.**
+
+- **Główny widok NADAL ma źródło grup.** `MainWindow.xaml.cs` `RefreshCurrentView`
   pomija filtr `IsInLibrary`, gdy `IsSonosSession(_sessions.Current.Id)`: grupy
   i głośniki są dostępne z samego odczytu topologii, bez ręcznego dodawania.
-  Pozostałe sesje filtrują jak dotąd.
+  Pozostałe sesje filtrują jak dotąd. Te wiersze NIE zniknęły z MainWindow —
+  modal Biblioteki tylko je PRZYKRYWA na czas swojego życia.
 - **Normalizacja starego widoku.** `NormalizeSonosNavigationAtStartup()` (obok
   `NormalizeRadioNavigationAtStartup`) przenosi odziedziczone
   `CurrentView = "Ulubione"` sesji Sonos na `Biblioteka`, żeby lista grup nie
@@ -227,10 +235,13 @@ powtarzał nazwę i liczby, a `Ctrl+F5` mówiło „nie ma polecenia w bieżące
   polecenie sięgnie `ActionItems` — guard działa też przy PUSTEJ liście z
   obecnym `CurrentItem`. Sterowanie (`PlayPause`, głośność, Enter) nietknięte.
   `Ctrl+U` nadal otwiera podgląd ulubionych z konta (F2).
-- **`Ctrl+F5` → istniejące Konto Sonos.** `TryHandleLocalLibraryViewShortcut`
-  oraz `TryResolveKeyboardHelpCommand` kierują skrót na
-  `CommandIds.ManageSonosConnection` — to samo polecenie co menu Plik i paleta,
-  więc otwiera się okno z przyciskiem **Głośniki i grupy**. Bez nowego panelu.
+- **`Ctrl+F5` → DZIŚ WYBÓR CELU STEROWANIA, nie okno konta.** Skrót otwiera
+  `SonosTargetSelectionWindow` (grupy z już odczytanej topologii, pełne nazwy
+  głośników). Konto i dom NIE zginęły: zostają pod istniejącym poleceniem
+  `CommandIds.ManageSonosConnection` z menu Plik i palety, a okno wyboru celu
+  mówi o tym wprost przy zamknięciu. Historyczne kierowanie `Ctrl+F5` na
+  `ManageSonosConnection` przez `TryHandleLocalLibraryViewShortcut` już NIE
+  opisuje zachowania.
 - **Krótki wiersz.** `ApplySonosGroupRows` w `MainWindow.Sonos.cs` nie ustawia
   już `Artist = row.Text` (nazwa + „głośników: N” + stan). Wiersz to sama nazwa
   grupy; szczegóły są w oknie Głośniki i grupy oraz w odtwarzaczu po Enter.

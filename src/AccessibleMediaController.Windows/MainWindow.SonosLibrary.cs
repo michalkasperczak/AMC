@@ -1,0 +1,267 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
+using AccessibleMediaController.Core.Sonos;
+
+namespace AccessibleMediaController.Windows;
+
+/// <summary>
+/// BIBLIOTEKA MATERIALU SONOSA (Ctrl+L) i WYBOR CELU STEROWANIA (Ctrl+F5).
+///
+/// Decyzja, ktora ten plik wykonuje:
+///  * Ctrl+L w sesji Sonos otwiera BIBLIOTEKE TRESCI z kategoriami "Ulubione
+///    Sonos" i "Playlisty Sonos". Dotad Ctrl+L odmawial zdaniem "Biblioteka
+///    Sonos pokazuje wszystkie odczytane głośniki i grupy" - to byla odmowa, nie
+///    biblioteka.
+///  * Ctrl+U nadal prowadzi BEZPOSREDNIO do ulubionych - istniejacy skrot zostaje
+///    bez zmian, bo jest odebrany i dziala.
+///  * Ctrl+F5 jest MIEJSCEM WYBORU I INFORMACJI O CELU (dom, grupy). Konto Sonos
+///    pozostaje dostepne Z TEGO SAMEGO miejsca, zeby zadna odebrana droga nie
+///    zginela.
+///
+/// ZADNYCH NOWYCH SKROTOW: uzywamy wylacznie Ctrl+L, Ctrl+U i Ctrl+F5, ktore w
+/// AMC juz istnialy.
+///
+/// DLACZEGO OKNA, A NIE WIERSZE W LISCIE: lista sesji Sonos jest MODELEM
+/// STEROWANIA i jest cyklicznie publikowana przez <c>ApplySonosGroupRows</c> z
+/// istniejacego timera odczytow topologii. Kategorie wstawione do tej listy
+/// zginelyby albo przestawilyby zaznaczenie przy najblizszym odswiezeniu - w
+/// trakcie czytania przez czytnik ekranu. Okna sa od tamtego timera niezalezne,
+/// wiec kategorie nie gina, pozycja nie skacze, a lista glosnikow pozostaje
+/// modelem sterowania, nie pozorna biblioteka.
+/// </summary>
+public partial class MainWindow
+{
+    private SonosLibraryWindow? _sonosLibraryWindow;
+    private SonosTargetSelectionWindow? _sonosTargetWindow;
+
+    internal Task? LastSonosLibraryTaskForTests { get; private set; }
+
+    internal int SonosLibraryWindowsCreatedForTests { get; private set; }
+
+    internal int SonosTargetWindowsCreatedForTests { get; private set; }
+
+    /// <summary>Ile razy wybor celu ZMIENIL aktywna grupe. Anulowanie nie liczy sie.</summary>
+    internal int SonosTargetSelectionsAppliedForTests { get; private set; }
+
+    internal SonosLibraryWindow? OpenSonosLibraryWindowForTests => _sonosLibraryWindow;
+
+    internal SonosTargetSelectionWindow? OpenSonosTargetWindowForTests => _sonosTargetWindow;
+
+    /// <summary>TESTOWY punkt podstawienia POKAZANIA Biblioteki (produkcyjnie modal).</summary>
+    internal Action<SonosLibraryWindow>? PresentSonosLibraryOverrideForTests { get; set; }
+
+    /// <summary>TESTOWY punkt podstawienia POKAZANIA wyboru celu (produkcyjnie modal).</summary>
+    internal Action<SonosTargetSelectionWindow>? PresentSonosTargetOverrideForTests { get; set; }
+
+    internal void ShowSonosLibraryForTests() => ShowSonosLibrary();
+
+    internal void ShowSonosTargetSelectionForTests() => ShowSonosTargetSelection();
+
+    /// <summary>
+    /// Ctrl+L w sesji Sonos: BIBLIOTEKA MATERIALU. Zero sieci przy samym otwarciu
+    /// - kategorie sa znane z Core, a odczyt leci dopiero po Enter na kategorii.
+    /// </summary>
+    private void ShowSonosLibrary()
+    {
+        // ZMIERZONA USTERKA: okno kategorii zamyka sie (Close()) PRZED wywolaniem
+        // akcji wyboru, a pole czysci dopiero `finally` po powrocie z ShowDialog.
+        // Przez caly czas otwartych Playlist/Ulubionych pole wskazuje wiec okno,
+        // ktorego NIE MA na ekranie - samo `is not null` oglaszalo wtedy "jest juz
+        // otwarta" i wolalo Activate() na zamknietym oknie. Pytamy o ZYWY cel.
+        if (_sonosLibraryWindow is { IsLiveOwnerTarget: true })
+        {
+            Announce("Biblioteka Sonos jest już otwarta");
+            try
+            {
+                _sonosLibraryWindow.Activate();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            return;
+        }
+
+        if (!CanPresentSonosChildWindow())
+        {
+            Announce("Biblioteka Sonos nie została otwarta, bo okno AMC nie jest aktywne. "
+                + "Wróć do AMC i ponów otwarcie Biblioteki");
+            return;
+        }
+
+        var window = new SonosLibraryWindow(OpenSonosLibraryCategory);
+        SonosLibraryWindowsCreatedForTests++;
+        _sonosLibraryWindow = window;
+        Announce(SonosLibraryPresentation.ViewIntroduction);
+        try
+        {
+            window.Owner = this;
+            if (PresentSonosLibraryOverrideForTests is { } present) present(window);
+            else window.ShowDialog();
+        }
+        finally
+        {
+            _sonosLibraryWindow = null;
+        }
+    }
+
+    /// <summary>
+    /// Enter na kategorii Biblioteki. Rozpoznanie idzie po IDENTYFIKATORZE wiersza,
+    /// NIGDY po polskiej nazwie. Kazda kategoria wchodzi w ISTNIEJACA, odebrana
+    /// droge odczytu - nie powstaje tu drugi, rownolegly tor.
+    /// </summary>
+    private void OpenSonosLibraryCategory(SonosLibraryPresentation.SonosLibraryCategoryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (string.Equals(row.CategoryId, SonosLibraryPresentation.FavoritesCategoryId,
+            StringComparison.Ordinal))
+        {
+            // DOKLADNIE ta sama droga, co Ctrl+U - zero kopii logiki ulubionych.
+            StartSonosFavoritesView();
+            return;
+        }
+
+        if (string.Equals(row.CategoryId, SonosLibraryPresentation.PlaylistsCategoryId,
+            StringComparison.Ordinal))
+        {
+            LastSonosPlaylistsTaskForTests = ShowSonosPlaylistsAsync();
+            return;
+        }
+
+        // NIEZNANY identyfikator: cisza byla by najgorsza odpowiedzia.
+        Announce("Ta kategoria Biblioteki Sonos nie ma jeszcze własnej listy.");
+    }
+
+    /// <summary>
+    /// Ctrl+F5 w sesji Sonos: WYBOR I INFORMACJA O CELU STEROWANIA.
+    ///
+    /// Okno NIE GRA, nie tworzy i nie rozwiazuje grup: zmienia wylacznie to, do
+    /// czego AMC adresuje polecenia. Topologie bierzemy z JUZ ODCZYTANEJ migawki -
+    /// zadnego nowego pollingu przy samym otwarciu.
+    ///
+    /// KONTO SONOS POZOSTAJE DOSTEPNE: po zamknieciu wyboru celu mowimy wprost, ze
+    /// konto i dom siedza w oknie konta Sonos, zeby dotychczasowa droga Ctrl+F5
+    /// (zarzadzanie poleczeniem) nie zginela bez slowa.
+    /// </summary>
+    private void ShowSonosTargetSelection()
+    {
+        if (_sonosTargetWindow is not null)
+        {
+            Announce("Wybór celu sterowania Sonos jest już otwarty");
+            try
+            {
+                _sonosTargetWindow.Activate();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            return;
+        }
+
+        if (!CanPresentSonosChildWindow())
+        {
+            Announce("Wybór celu Sonos nie został otwarty, bo okno AMC nie jest aktywne. "
+                + "Wróć do AMC i ponów skrót Control F5");
+            return;
+        }
+
+        // GRANICA konta PRZED uzyciem zapamietanej topologii: po rzeczywistej
+        // zmianie konta stare grupy nie maja prawa wrocic na liste.
+        ApplySonosAccountBinding();
+
+        var topology = _sonosTopology;
+        var window = topology is null
+            ? new SonosTargetSelectionWindow(DescribeSonosTargetUnavailable())
+            : new SonosTargetSelectionWindow(topology, _state.Sonos.SelectedGroupId);
+        SonosTargetWindowsCreatedForTests++;
+        _sonosTargetWindow = window;
+        var ticket = _sonosTargetTicket;
+        try
+        {
+            window.Owner = this;
+            if (PresentSonosTargetOverrideForTests is { } present) present(window);
+            else window.ShowDialog();
+        }
+        finally
+        {
+            _sonosTargetWindow = null;
+        }
+
+        // ANULOWANIE NIE ZMIENIA NICZEGO: bez potwierdzenia nie ruszamy celu.
+        if (!window.Confirmed || window.SelectedGroupId is not { } groupId)
+        {
+            Announce("Cel sterowania Sonos bez zmian. Konto i dom Sonos znajdziesz "
+                + "w oknie konta Sonos.");
+            return;
+        }
+
+        // GRANICE PO MODALU: zmiana konta, wyjscie z sesji albo zamykanie AMC
+        // koncza droge. Nie wybieramy wtedy celu "na slepo".
+        if (_isClosing) return;
+        if (ApplySonosAccountBinding() || ticket != _sonosTargetTicket)
+        {
+            Announce("Cel sterowania Sonos nie został zmieniony, bo konto Sonos się zmieniło.");
+            return;
+        }
+
+        if (!IsSonosSession(_sessions?.Current.Id)) return;
+
+        // WYBOR CELU, nie odtwarzanie: zadnego POST materialu. Aktywacja idzie
+        // ISTNIEJACA, odebrana droga ActivateSonosGroupAsync - nie powstaje tu
+        // drugi tor zmiany celu. Komunikat mowi "Wybrano cel", nigdy "gra".
+        LastSonosLibraryTaskForTests = ApplySonosTargetSelectionAsync(groupId, window.SelectedGroupLabel);
+    }
+
+    /// <summary>
+    /// ZMIANA CELU przez odebrana droge aktywacji grupy. Mowimy "Wybrano", bo
+    /// wybor celu NIE URUCHAMIA muzyki - to ustawienie adresata polecen.
+    /// </summary>
+    private async Task ApplySonosTargetSelectionAsync(string groupId, string? label)
+    {
+        if (await ActivateSonosGroupAsync(groupId).ConfigureAwait(true) is null)
+        {
+            // ActivateSonosGroupAsync juz powiedzial, ze grupy nie ma.
+            return;
+        }
+
+        SonosTargetSelectionsAppliedForTests++;
+        Announce(SonosTargetSelectionLabels.DescribeSelected(
+            label ?? SonosTargetSelectionLabels.UnnamedGroup));
+    }
+
+    /// <summary>
+    /// UCZCIWA przyczyna braku listy grup. Rozrozniamy brak konta, brak domu i
+    /// nieodczytana topologie - zamiast jednej pustej listy dla wszystkiego.
+    /// </summary>
+    private string DescribeSonosTargetUnavailable()
+    {
+        var backend = _sonosBackend as ISonosAccountBoundBackend
+            ?? SonosBackendOverride as ISonosAccountBoundBackend;
+        if (backend?.AccountSnapshot is { } snapshot
+            && snapshot.State != SonosAccountState.Connected)
+        {
+            return SonosTargetSelectionLabels.NotSignedIn;
+        }
+
+        return string.IsNullOrWhiteSpace(_state.Sonos.SelectedHouseholdId)
+            ? SonosTargetSelectionLabels.NoHousehold
+            : SonosTargetSelectionLabels.TopologyUnknown;
+    }
+
+    /// <summary>
+    /// Czy WOLNO pokazac okno potomne Sonosa TERAZ. Ten sam wzorzec, co brama
+    /// ulubionych i playlist: okno widoczne i AKTYWNE, w sesji Sonos i bez innego
+    /// WIDOCZNEGO okna potomnego.
+    /// </summary>
+    private bool CanPresentSonosChildWindow()
+    {
+        if (_isClosing) return false;
+        if (!IsVisible || !IsActive || !IsEnabled) return false;
+        if (!IsSonosSession(_sessions?.Current.Id)) return false;
+        return !OwnedWindows.OfType<Window>().Any(window => window.IsVisible);
+    }
+}

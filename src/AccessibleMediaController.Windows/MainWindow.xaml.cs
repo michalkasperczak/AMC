@@ -4049,6 +4049,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.RefreshSonosGroups) return IsSonosSession(_sessions.Current.Id);
         // Wybor domu tez ma sens WYLACZNIE w sesji Sonos: ta sama regula.
         if (commandId == CommandIds.ChooseSonosHousehold) return IsSonosSession(_sessions.Current.Id);
+        // Wybor CELU STEROWANIA tez ma sens WYLACZNIE w sesji Sonos: w obcej
+        // sesji nie ma czym sterowac, wiec polecenie tam nie istnieje.
+        if (commandId == CommandIds.ChooseSonosTarget) return IsSonosSession(_sessions.Current.Id);
         if (commandId == CommandIds.ViewSpotifyPodcasts) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
@@ -11305,6 +11308,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 // zero odtwarzania. Przechwyt dotyczy WYLACZNIE sesji Sonos:
                 // w innych sesjach polecenie idzie do routera jak dotad.
                 StartSonosFavoritesView();
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.ViewLibrary)
+            {
+                // Ctrl+L: ISTNIEJACE "Pokaż bibliotekę" w sesji Sonos otwiera
+                // BIBLIOTEKE TRESCI z kategoriami "Ulubione Sonos" i "Playlisty
+                // Sonos". Dotad to polecenie opisywalo liste GLOSNIKOW I GRUP -
+                // a glosniki nie sa materialem muzycznym, wiec to byla odmowa
+                // podana jako biblioteka. Samo otwarcie NIE czyta sieci i nie
+                // wysyla POST: kategorie sa znane z Core, odczyt leci po Enter.
+                // Przechwyt dotyczy WYLACZNIE sesji Sonos.
+                ShowSonosLibrary();
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.ChooseSonosTarget)
+            {
+                // Ctrl+F5: MIEJSCE WYBORU I INFORMACJI O CELU STEROWANIA (dom,
+                // grupy po PELNYCH nazwach glosnikow). Potrzebne, bo Ctrl+L
+                // pokazuje teraz material, a nie glosniki - wiec wybor celu musi
+                // miec wlasne, swiadome miejsce. Okno NIE gra, nie tworzy i nie
+                // rozwiazuje grup - zmienia tylko adresata polecen.
+                //
+                // DLACZEGO OSOBNE POLECENIE, A NIE PRZECHWYT "Konto Sonos":
+                // Ctrl+F5 i menu "Konto Sonos" prowadzily do TEJ SAMEJ komendy.
+                // Przechwycenie jej zabraloby menu i palecie ich wlasne, odebrane
+                // dzialanie, a konto przestaloby byc dostepne pod swoja nazwa.
+                // Skrot jest ten sam co dotad - nowy jest tylko adresat.
+                ShowSonosTargetSelection();
                 return new CommandExecutionResult(true);
             }
             if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
@@ -21581,7 +21612,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
             (ModifierKeys.Control | ModifierKeys.Alt, Key.Enter) => CommandIds.SessionPlaybackOptions,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
-            (ModifierKeys.Control, Key.F5) when IsSonosSession(_sessions.Current.Id) => CommandIds.ManageSonosConnection,
+            // Ctrl+F5 w sesji Sonos prowadzi teraz do WYBORU CELU STEROWANIA, bo
+            // Ctrl+L pokazuje material (ulubione, playlisty), a nie glosniki.
+            // Polecenie "Konto Sonos" NIE ginie - zostaje w menu i w palecie.
+            (ModifierKeys.Control, Key.F5) when IsSonosSession(_sessions.Current.Id) => CommandIds.ChooseSonosTarget,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
             (ModifierKeys.None, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                 && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
@@ -21845,10 +21879,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             else if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
                 ExecuteCommand(CommandIds.ManageSpotifyConnection);
             else if (IsSonosSession(_sessions.Current.Id))
-                // ISTNIEJACE polecenie "Konto Sonos" z menu Plik i palety -
-                // to samo okno z przyciskiem Glosniki i grupy. Zadnego nowego
-                // panelu ani ustawien: skrot tylko dosiega tego, co jest.
-                ExecuteCommand(CommandIds.ManageSonosConnection);
+                // WYBOR CELU STEROWANIA (dom, istniejace grupy po PELNYCH nazwach
+                // glosnikow). Dotad Ctrl+F5 szedl tu do "Konta Sonos"; odkad
+                // Ctrl+L pokazuje MATERIAL, a nie glosniki, wybor celu musi miec
+                // swoje miejsce. "Konto Sonos" NIE ginie - zostaje w menu Plik i
+                // w palecie, a okno celu mowi wprost, gdzie go szukac.
+                ExecuteCommand(CommandIds.ChooseSonosTarget);
             else
                 Announce("Ctrl+F5 nie ma polecenia w bieżącej sesji");
             return true;

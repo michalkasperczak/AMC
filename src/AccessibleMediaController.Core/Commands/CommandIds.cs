@@ -105,6 +105,20 @@ public static class CommandIds
     public const string RefreshSonosGroups = "sonos.groups.refresh";
 
     /// <summary>
+    /// WYBOR CELU STEROWANIA Sonos: dom i ISTNIEJACA grupa, po PELNYCH nazwach
+    /// glosnikow. Dostepne TYLKO w sesji Sonos.
+    ///
+    /// DLACZEGO OSOBNE POLECENIE: Ctrl+F5 w sesji Sonos prowadzil do
+    /// <see cref="ManageSonosConnection"/>, czyli do KONTA. Odkad Ctrl+L pokazuje
+    /// MATERIAL (ulubione, playlisty), a nie glosniki, wybor celu musi miec wlasne
+    /// miejsce - ale KONTO nie moze stracic swojego. Rozdzielamy wiec adresata
+    /// skrotu, zachowujac polecenie "Konto Sonos" w menu i palecie.
+    ///
+    /// Wybor celu NIE URUCHAMIA muzyki, nie tworzy i nie rozwiazuje grup.
+    /// </summary>
+    public const string ChooseSonosTarget = "sonos.target.choose";
+
+    /// <summary>
     /// JAWNY wybor domu Sonos. Jak odswiezanie grup: dostepny TYLKO w sesji
     /// Sonos i BEZ globalnego skrotu, wiec zadna numeracja sie nie przesuwa.
     /// </summary>

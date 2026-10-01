@@ -1601,7 +1601,8 @@ public partial class MainWindow
 /// </summary>
 internal sealed class SonosAccountOwnerGroupBackend
     : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend,
-      ISonosFavoriteLoadSessionBackend
+      ISonosFavoriteLoadSessionBackend, ISonosPlaylistsSessionBackend,
+      ISonosPlaylistLoadSessionBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -1675,4 +1676,26 @@ internal sealed class SonosAccountOwnerGroupBackend
         bool playOnCompletion,
         CancellationToken cancellationToken) =>
         _owner.LoadFavoriteAsync(groupId, favoriteId, action, playOnCompletion, cancellationToken);
+
+    /// <summary>
+    /// ODCZYT PLAYLIST domu. Tak samo cienkie przekazanie jak ulubione: caly
+    /// bilet, odnawianie i kontrola generacji siedza we wlascicielu i wspolnym
+    /// koordynatorze. Tylko GET.
+    /// </summary>
+    public Task<SonosPlaylistsReadResult> ReadPlaylistsAsync(
+        string? householdId, CancellationToken cancellationToken) =>
+        _owner.ReadPlaylistsAsync(householdId, cancellationToken);
+
+    /// <summary>
+    /// URUCHOMIENIE PLAYLISTY w grupie. Cienkie przekazanie - JEDYNY POST siedzi
+    /// we wlascicielu i wspolnym koordynatorze. Zadnego presetu i zadnego
+    /// drugiego polecenia odtwarzania.
+    /// </summary>
+    public Task<SonosGroupCommandResult> LoadPlaylistAsync(
+        string? groupId,
+        string? playlistId,
+        SonosFavoriteQueueAction action,
+        bool playOnCompletion,
+        CancellationToken cancellationToken) =>
+        _owner.LoadPlaylistAsync(groupId, playlistId, action, playOnCompletion, cancellationToken);
 }

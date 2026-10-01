@@ -107,25 +107,114 @@ z tych testów nie dotyka prawdziwego konta, urządzenia ani dźwięku.
 
 ## Sonos: układ interfejsu (Biblioteka / Ulubione / Ctrl+F5) — jak sprawdzić ręcznie
 
-Dotyczy sesji Sonos (`Ctrl+8`). Bez nowego panelu i bez nowych skrótów: zmienia
-się tylko to, CO pokazują istniejące widoki i gdzie kieruje istniejące `Ctrl+F5`.
+Dotyczy sesji Sonos (`Ctrl+8`). **UWAGA — ten rozdział opisuje STAN SPRZED etapu
+Biblioteki materiału.** Punkty 1 i 6 już NIE opisują dzisiejszego zachowania:
+`Ctrl+L` otwiera modal Biblioteki MATERIAŁU (kategorie), a `Ctrl+F5` otwiera
+WYBÓR CELU STEROWANIA. Aktualna droga jest w rozdziale „Sonos: Biblioteka
+materiału, playlisty i wybór celu”. Zachowane poniżej punkty 2–5 nadal
+obowiązują dla GŁÓWNEGO widoku, który wciąż ma źródło grup — modal go tylko
+przykrywa.
 
-1. `Ctrl+8`, potem `Ctrl+L` — **Biblioteka** ma wymienić odczytane grupy
-   i głośniki jako cele. Nie trzeba niczego do niej dodawać.
-2. Strzałkami po liście: wiersz ma brzmieć **samą nazwą grupy** (np. „Biuro”),
-   bez powtarzania nazwy, liczby głośników i stanu.
+1. ~~`Ctrl+8`, potem `Ctrl+L` — **Biblioteka** ma wymienić odczytane grupy
+   i głośniki jako cele.~~ **NIEAKTUALNE:** `Ctrl+L` otwiera dziś modal
+   z kategoriami materiału (Ulubione Sonos, Playlisty Sonos). Grupy
+   i głośniki pozostały w GŁÓWNYM widoku pod nim oraz pod `Ctrl+F5`.
+2. Strzałkami po liście GŁÓWNEGO widoku: wiersz ma brzmieć **samą nazwą grupy**
+   (np. „Biuro”), bez powtarzania nazwy, liczby głośników i stanu.
 3. `Enter` na wierszu — grupa staje się aktywna, otwiera się odtwarzacz;
    odtwarzanie, pauza i głośność działają jak dotąd.
 4. `Ctrl+U` — **Ulubione** to podgląd ulubionych materiałów z konta (F2),
    nie lista głośników.
 5. Na wierszu głośnika spróbuj polecenia dodania do ulubionych — ma odmówić
    krótkim komunikatem i NIE dodać głośnika. To samo przy pustej liście.
-6. `Ctrl+F5` — otwiera **istniejące okno Konto Sonos** z przyciskiem
-   **Głośniki i grupy** (to samo, co menu Plik i paleta). Po `Escape` wracasz
-   na to samo miejsce i zaznaczenie w liście.
+6. ~~`Ctrl+F5` — otwiera **istniejące okno Konto Sonos** z przyciskiem
+   **Głośniki i grupy**.~~ **NIEAKTUALNE:** `Ctrl+F5` otwiera dziś wybór celu
+   sterowania. Konto i dom NIE zginęły — zostały pod poleceniem **Zarządzaj
+   połączeniem Sonos** w menu Plik i w palecie poleceń.
 
 Automatyczny pomiar: `--sonos-navigation-ux` (dane syntetyczne, bez konta,
 bez muzyki, bez ruchu sieciowego).
+
+## Sonos: Biblioteka materiału, playlisty i wybór celu — jak sprawdzić ręcznie
+
+Dotyczy sesji Sonos (`Ctrl+8`). Trzy okna modalne z właścicielem; **żaden nowy
+skrót nie powstał** — `Ctrl+L`, `Ctrl+U` i `Ctrl+F5` dostały nową treść.
+
+1. `Ctrl+L` — modal **Biblioteka Sonos** z DWIEMA kategoriami materiału
+   („Ulubione Sonos”, „Playlisty Sonos”). Żadnych głośników ani grup: to nie
+   materiał. Otwarcie i ruch strzałkami **nie wysyłają ani jednego żądania**.
+2. `Strzałka w dół`, `Enter` na „Playlisty Sonos” — modal **Playlisty Sonos**;
+   dopiero TERAZ leci jeden `GET .../playlists`. Wstęp nazywa grupę, w której
+   Enter uruchomi playlistę.
+3. `Enter` na pozycji — **jeden** `POST .../groups/<id>/playlists` z `playlistId`
+   zaznaczonego wiersza, `action: INSERT`, `playOnCompletion: true`. Komunikat
+   mówi o **przyjęciu polecenia**, nie o tym, że playlista już gra. Dwie
+   playlisty o IDENTYCZNYM tytule idą pod własnymi identyfikatorami.
+4. `Escape` — wracasz do głównego okna AMC.
+5. `Ctrl+F5` — modal **Cel sterowania Sonos**: grupy z JUŻ odczytanej topologii,
+   **pełne nazwy głośników** („Biuro i Sypialnia, głośniki: Biuro, Sypialnia”),
+   zaznaczony dotychczasowy cel. `Enter` na innej grupie mówi „Wybrano cel…
+   Muzyka nie została uruchomiona” i **nie wysyła żadnego `POST`**. Konto i dom
+   nadal są pod poleceniem **Zarządzaj połączeniem Sonos**.
+6. `Ctrl+U` — **Ulubione Sonos** jak dotąd (świeży `GET .../favorites`), ale
+   wstęp wymienia AKTUALNY cel sterowania wybrany w punkcie 5.
+
+Automatyczny pomiar: `--sonos-library-ui` (12 etapów, dane syntetyczne, atrapa
+zaplecza — bez konta, HTTP i dźwięku).
+
+### Odbiór fizycznymi klawiszami, prawdziwym HTTP i żywym NVDA
+
+Zmierzone na Hermesie, na JEDNYM przebiegu przez własne okno główne z
+syntetycznym `credentialStore`/`Gateway`, **prawdziwym** `SonosControlApiClient`
+i pamięciowym handlerem HTTP (zero tokenów, zero DPAPI, zero prawdziwego
+Sonosa). Klawisze szły przez `keybd_event` do okna aktywowanego po `HWND`
+i `PID`; komunikaty odczytane z **Podglądu mowy NVDA**, nie z atrapy sinka.
+
+Potwierdzone pomiarem (20 kroków, pełna mowa w raporcie odbioru):
+
+- Start: 0 `POST`, główne okno aktywne, oba wiersze grup obecne.
+- `Ctrl+L`: 2 kategorie, 0 `POST`. NVDA czyta wstęp, rolę `dialog`, rolę
+  `lista` i pozycję „1 z 2”.
+- `Enter` na Playlistach: **świeży** `GET .../playlists`, 2 wiersze o tym samym
+  tytule „Do pracy”, zaznaczenie `PL-PIERWSZA`. NVDA: „Odczytuję playlisty
+  Sonos. Czekaj.”
+- `Strzałka w dół` + `Enter`: zaznaczenie `PL-DRUGA` i **dokładnie jeden**
+  `POST /control/api/v1/groups/GRUPA-SALON:1/playlists` z ciałem
+  `{"playlistId":"PL-DRUGA","action":"INSERT","playOnCompletion":true}` — bez
+  `playModes` i bez drugiego polecenia odtwarzania. NVDA: „Przyjęto polecenie
+  uruchomienia playlisty: Do pracy”. `200` to **przyjęcie**, nie dowód dźwięku.
+- `Ctrl+F5` po powrocie: pełne nazwy głośników, zaznaczony aktualny cel,
+  po `Enter` na drugiej grupie **0 nowych `POST`**, NVDA mówi „Wybrano cel…
+  Muzyka nie została uruchomiona”.
+- `Ctrl+U`: świeży `GET .../favorites`, wstęp wymienia NOWY cel („Biuro
+  i Sypialnia”) — odebrana droga ulubionych nie została naruszona.
+- `Ctrl+L` po zamknięciu działa ponownie (kolejne okno powstaje) — pole okna nie
+  blokuje skrótu na stałe.
+
+**Zmierzona usterka (naprawiona w tym zakresie):** dopóki otwarta jest lista
+kategorii, pole `_sonosLibraryWindow` wskazuje okno Biblioteki, które zostało
+już ZAMKNIĘTE (`SonosLibraryWindow.OpenSelected` woła `Close()` przed
+callbackiem, a `finally` czyszczące pole wykonuje się dopiero po powrocie z
+`ShowDialog`). Sonda na żywym oknie pokazała `libraryOpen = True`, gdy na
+ekranie NIE BYŁO żadnego okna „Biblioteka Sonos” (lista okien procesu: tylko
+„Playlisty Sonos” i okno główne). Skutek dla użytkownika: `ShowSonosLibrary`
+ogłosiłoby „Biblioteka Sonos jest już otwarta” i wywołało `Activate()` na
+zamkniętym oknie. Poprawka pyta o ŻYWY cel (`IsLiveOwnerTarget`,
+czyli `!_closed && IsVisible`) zamiast o samo `is not null`.
+
+**Uczciwie o sile dowodu tej poprawki:** dodany etap `B4` (2 sprawdzenia)
+utrwala, że callback kategorii dostaje okno już niewidoczne i nieżywe — ale
+`B4` przechodzi RÓWNIEŻ na kodzie SPRZED poprawki (sprawdzone odwróceniem
+warunku i ponowną kompilacją). Nie jest więc testem RED→GREEN dla samej bramy
+`Ctrl+L`; usterkę wykazał dopiero POMIAR ŻYWEGO OKNA, a `B4` pilnuje założenia,
+na którym stoi poprawka. Bramy `Ctrl+L` na stanie „pole wskazuje zamknięte
+okno” nie dało się zmierzyć w tym zakresie bez publicznej fabryki w produkcji,
+czego świadomie nie dodano.
+
+**Czego NIE zmierzono:** prawdziwego konta Sonos, prawdziwych głośników, dźwięku,
+`groupMembers`, presetów, URL i stereo-par. Pusty wynik `Keyboard.FocusedElement`
+po zamknięciu okna potomnego **nie jest** regresją tego etapu — powtarza się
+identycznie na NIEZMIENIONEJ drodze `Ctrl+U` (osobny przebieg kontrolny).
 
 ## Sonos: podgląd ulubionych (F2) — jak sprawdzić ręcznie
 

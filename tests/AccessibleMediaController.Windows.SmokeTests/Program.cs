@@ -114,6 +114,16 @@ if (args.Contains("--sonos-favorite-play-real-owner", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.Run(); return 0;
 }
+if (args.Contains("--sonos-library-ui", StringComparer.Ordinal))
+{
+    SonosLibraryUiTests.Run(); return 0;
+}
+// POKAZ DLA ZYWEGO NVDA: stawia prawdziwe okna na pulpicie. NIE nalezy do
+// pelnej tabeli zestawow, bo wymaga czlowieka/czytnika przy ekranie.
+if (args.Contains("--sonos-library-nvda-gui", StringComparer.Ordinal))
+{
+    SonosLibraryNvdaGui.Run(args); return 0;
+}
 
 if (args.Contains("--spotify-account-routing", StringComparer.Ordinal))
 {
@@ -447,6 +457,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: układ nawigacji sesji rzeczywistą drogą użytkownika", SonosNavigationUxTests.Run),
     ("Sonos: uruchamianie ulubionego z okna - Odtwórz/Enter, spóźniony wynik (F3c)", SonosFavoritePlayUiTests.Run),
     ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
+    ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

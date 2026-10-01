@@ -252,6 +252,43 @@ internal sealed class SonosAccountOwner : IDisposable
     internal ISonosFavoriteLoadApi EnsureFavoriteLoadApi() => EnsureControlApiClient();
 
     /// <summary>
+    /// ODCZYT PLAYLIST domu. CIENKIE przekazanie do TEGO SAMEGO koordynatora i
+    /// TEGO SAMEGO klienta Control API, co ulubione - zaden drugi wlasciciel,
+    /// zaden drugi HttpClient, zadna wlasna polityka biletu i zadna migawka.
+    /// Tylko GET.
+    /// </summary>
+    internal Task<SonosPlaylistsReadResult> ReadPlaylistsAsync(
+        string? householdId, CancellationToken cancellationToken) =>
+        EnsureCoordinator().ReadPlaylistsAsync(EnsurePlaylistsApi(), householdId, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs PLAYLIST nad tym SAMYM klientem Control API. Klient sam
+    /// implementuje <see cref="ISonosPlaylistsApi"/>, wiec nie ma tu ani nowego
+    /// adaptera, ani nowego transportu.
+    /// </summary>
+    internal ISonosPlaylistsApi EnsurePlaylistsApi() => EnsureControlApiClient();
+
+    /// <summary>
+    /// URUCHOMIENIE PLAYLISTY w grupie. CIENKIE przekazanie do TEGO SAMEGO
+    /// koordynatora i klienta co ulubione. <paramref name="action"/> i
+    /// <paramref name="playOnCompletion"/> sa OBOWIAZKOWE i bez domyslnych
+    /// wartosci - dokladnie jak w kliencie i koordynatorze.
+    /// </summary>
+    internal Task<SonosGroupCommandResult> LoadPlaylistAsync(
+        string? groupId,
+        string? playlistId,
+        SonosFavoriteQueueAction action,
+        bool playOnCompletion,
+        CancellationToken cancellationToken) =>
+        EnsureCoordinator().LoadPlaylistAsync(
+            EnsurePlaylistLoadApi(), groupId, playlistId, action, playOnCompletion, cancellationToken);
+
+    /// <summary>
+    /// WASKI interfejs URUCHOMIENIA PLAYLISTY nad tym SAMYM klientem Control API.
+    /// </summary>
+    internal ISonosPlaylistLoadApi EnsurePlaylistLoadApi() => EnsureControlApiClient();
+
+    /// <summary>
     /// WASKI interfejs GRUP nad tym SAMYM klientem i tym SAMYM koordynatorem.
     /// Leniwy jak reszta: powstaje razem z klientem Control API.
     /// </summary>

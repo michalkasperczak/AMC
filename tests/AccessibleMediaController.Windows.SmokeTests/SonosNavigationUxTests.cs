@@ -55,14 +55,14 @@ internal static class SonosNavigationUxTests
         {
             try
             {
-                checks += MeasureLibraryShowsGroupsAsTargets();
+                checks += MeasureLibraryShowsContentCategories();
                 checks += MeasureFavoritesRefuseSpeakers();
-                checks += MeasureCtrlF5OpensExistingAccountWindow();
+                checks += MeasureCtrlF5ChoosesControlTarget();
                 // KOLEJNOSC: kontekst odtwarzacza mierzony PRZED kontekstem pola,
                 // zeby zaden z tych dwoch przypadkow nie chowal sie za padnieciem
                 // drugiego (oba byly zglaszane osobno przez zywy NVDA).
-                checks += MeasureCtrlF5FromPlayerOpensAccountWindow();
-                checks += MeasureCtrlF5FromFilterBoxOpensAccountWindow();
+                checks += MeasureCtrlF5FromPlayerOpensTargetWindow();
+                checks += MeasureCtrlF5FromFilterBoxOpensTargetWindow();
                 checks += MeasureShortGroupRowLabel();
             }
             catch (Exception exception)
@@ -81,46 +81,91 @@ internal static class SonosNavigationUxTests
         if (failure is not null) throw failure;
 
         Console.WriteLine(
-            "OK: uklad interfejsu Sonos - Biblioteka pokazuje grupy jako cele, Ulubione odmawiaja "
-            + "glosnika, Ctrl+F5 otwiera istniejace Konto Sonos z listy, z pola filtrowania i z "
-            + "odtwarzacza z powrotem fokusu, wiersz grupy ma krotka nazwe "
+            "OK: uklad interfejsu Sonos - Ctrl+L otwiera Biblioteke materialu (Ulubione, Playlisty), "
+            + "Ulubione odmawiaja glosnika, Ctrl+F5 wybiera cel sterowania z listy, z pola "
+            + "filtrowania i z odtwarzacza z powrotem fokusu, wiersz grupy ma krotka nazwe "
             + $"({checks} sprawdzeń, WLASNE pokazane okno)");
     }
 
-    // ===== U1: Biblioteka pokazuje grupy jako CELE =====
+    // ===== U1: Ctrl+L otwiera BIBLIOTEKE MATERIALU, nie liste glosnikow =====
 
-    private static int MeasureLibraryShowsGroupsAsTargets()
+    /// <summary>
+    /// ZMIENIONE OCZEKIWANIE. Ten pomiar zadal wczesniej, by Ctrl+L przestawialo
+    /// widok listy na "Biblioteka" wypelniona GRUPAMI - czyli dokladnie uklad,
+    /// ktory zostal odrzucony: glosniki i grupy NIE SA biblioteka muzyczna.
+    ///
+    /// Nowe oczekiwanie jest MOCNIEJSZE, nie slabsze: Ctrl+L musi otworzyc
+    /// Biblioteke MATERIALU z kategoriami, lista sesji musi POZOSTAC modelem
+    /// sterowania z nietknietymi grupami, a sama nawigacja nadal nie ma prawa
+    /// wyslac polecenia do Sonosa.
+    /// </summary>
+    private static int MeasureLibraryShowsContentCategories()
     {
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.EnterSonosSession();
+        // OKNO MUSI BYC AKTYWNE: produkcyjna brama okien potomnych Sonosa odmawia
+        // otwarcia, gdy AMC nie jest aktywne (zeby modal nie wyskoczyl pod reka
+        // uzytkownika pracujacego w innej aplikacji). Pomiar respektuje te brame,
+        // zamiast ja obchodzic.
+        harness.ShowOwnWindow();
 
-        // ISTNIEJACE polecenie Ctrl+L. Zadnego nowego panelu.
+        // Grupy sa w liscie Z SAMEGO wejscia w sesje - Ctrl+L nie jest i nie byl
+        // zrodlem celow sterowania.
+        var rowsBefore = harness.RowLabels();
+        if (rowsBefore.Count != 2)
+        {
+            throw new Exception(
+                $"Sesja Sonos ma {rowsBefore.Count} wierszy grup zamiast 2 odczytanych.");
+        }
+
+        // ISTNIEJACE polecenie Ctrl+L. Pokazanie podstawione, zeby nie stawiac
+        // modalnego okna na pulpicie w pomiarze bez GUI.
+        SonosLibraryWindow? opened = null;
+        window.PresentSonosLibraryOverrideForTests = libraryWindow => opened = libraryWindow;
         harness.ExecuteCommand(CommandIds.ViewLibrary);
         harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
 
-        if (harness.CurrentView != "Biblioteka")
-        {
-            throw new Exception($"Ctrl+L w sesji Sonos nie ustawiło widoku Biblioteka: {harness.CurrentView}.");
-        }
-
-        var labels = harness.RowLabels();
-        if (labels.Count != 2)
+        if (opened is null || window.SonosLibraryWindowsCreatedForTests != 1)
         {
             throw new Exception(
-                $"Biblioteka Sonos ma {labels.Count} wierszy zamiast 2 odczytanych grup. "
-                + "Głośniki i grupy nie są dostępnymi celami w Bibliotece.");
-        }
-        if (!labels.Any(label => label.Contains("Salon", StringComparison.Ordinal))
-            || !labels.Any(label => label.Contains("Kuchnia", StringComparison.Ordinal)))
-        {
-            throw new Exception("Biblioteka nie pokazuje odczytanych grup: " + string.Join(" | ", labels));
+                "Ctrl+L w sesji Sonos nie otworzyło Biblioteki materiału (okien: "
+                + $"{window.SonosLibraryWindowsCreatedForTests}; komunikaty: "
+                + string.Join(" | ", harness.Announcements) + ").");
         }
 
-        // Zaden glosnik nie zostal RECZNIE dodany do Biblioteki: cele sa
-        // dostepne z samego odczytu topologii.
-        var sonosItems = harness.SonosSession.Items;
-        if (sonosItems.Any(item => item.IsInLibrary))
+        // KATEGORIE MATERIALU, nie glosniki.
+        var categories = opened.CategoryNamesForTests;
+        if (categories.Count != 2)
+        {
+            throw new Exception(
+                $"Biblioteka ma {categories.Count} kategorii zamiast Ulubionych i Playlist: "
+                + string.Join(" | ", categories));
+        }
+
+        var surface = string.Join(" | ", categories);
+        if (!surface.Contains("Ulubione", StringComparison.Ordinal)
+            || !surface.Contains("Playlisty", StringComparison.Ordinal))
+        {
+            throw new Exception("Biblioteka nie pokazuje Ulubionych i Playlist: " + surface);
+        }
+        if (surface.Contains("Salon", StringComparison.Ordinal)
+            || surface.Contains("Kuchnia", StringComparison.Ordinal))
+        {
+            throw new Exception("Biblioteka materiału znów podaje głośniki/grupy jako treść: " + surface);
+        }
+
+        // STEROWANIE: lista sesji nadal jest modelem sterowania z tymi samymi
+        // grupami. Biblioteka nie przejela listy i jej nie wyczyscila.
+        var rowsAfter = harness.RowLabels();
+        if (!rowsAfter.SequenceEqual(rowsBefore, StringComparer.Ordinal))
+        {
+            throw new Exception(
+                "Otwarcie Biblioteki zmieniło listę celów sterowania: " + string.Join(" | ", rowsAfter));
+        }
+
+        // Zaden glosnik nie zostal RECZNIE dodany do Biblioteki.
+        if (harness.SonosSession.Items.Any(item => item.IsInLibrary))
         {
             throw new Exception("Grupy Sonos dostały trwałą flagę IsInLibrary - to ręczne dodanie do Biblioteki.");
         }
@@ -137,7 +182,7 @@ internal static class SonosNavigationUxTests
         {
             throw new Exception("Sama nawigacja po widokach wysłała polecenie do Sonosa.");
         }
-        return 5;
+        return 7;
     }
 
     // ===== U2: Ulubione odmawiaja glosnika =====
@@ -147,8 +192,8 @@ internal static class SonosNavigationUxTests
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.EnterSonosSession();
-        harness.ExecuteCommand(CommandIds.ViewLibrary);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+        // Grupy sa w liscie z samego wejscia w sesje. Ctrl+L prowadzi teraz do
+        // Biblioteki MATERIALU i nie jest zrodlem wierszy grup.
 
         // Przypadek A: uzytkownik ma ZAZNACZONY wiersz grupy.
         harness.SelectRow(0);
@@ -197,47 +242,67 @@ internal static class SonosNavigationUxTests
         return 5;
     }
 
-    // ===== U3: Ctrl+F5 otwiera ISTNIEJACE okno Konta Sonos =====
+    // ===== U3: Ctrl+F5 wybiera CEL STEROWANIA, a konto zostaje dostepne =====
 
-    private static int MeasureCtrlF5OpensExistingAccountWindow()
+    /// <summary>
+    /// ZMIENIONE OCZEKIWANIE. Ten pomiar zadal wczesniej, by Ctrl+F5 otwieralo
+    /// okno Konto Sonos. Ctrl+F5 jest teraz MIEJSCEM WYBORU CELU (dom, grupy,
+    /// glosniki) - taka byla decyzja. Pomiar nie slabnie: nadal pilnuje, ze
+    /// zadne poswiadczenia nie sa ruszane, zaden klient Control API nie powstaje
+    /// i ze SAM WYBOR nie wysyla polecenia sterujacego.
+    ///
+    /// DOSTEPNOSC KONTA, dawniej dowodzona przyciskiem "Głośniki i grupy",
+    /// mierzymy teraz slowem: po zamknieciu wyboru AMC mowi, gdzie sa konto i dom.
+    /// </summary>
+    private static int MeasureCtrlF5ChoosesControlTarget()
     {
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.EnterSonosSession();
         harness.ShowOwnWindow();
-        harness.ExecuteCommand(CommandIds.ViewLibrary);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
         harness.SelectRow(0);
 
         // PRODUKCYJNY punkt podstawienia POKAZANIA okna: mierzymy, ze powstalo
-        // ISTNIEJACE okno konta z przyciskiem Glosniki i grupy, bez ShowDialog
-        // na pulpicie.
-        var presenter = window.SonosAccountPresenterForTests;
-        var shown = 0;
-        var hasDevicesButton = false;
-        presenter.PresentOverride = accountWindow =>
-        {
-            shown++;
-            hasDevicesButton = accountWindow.FindName("DevicesButton") is Button;
-        };
+        // okno wyboru celu, bez ShowDialog na pulpicie. Anulujemy je (brak
+        // potwierdzenia), bo ten przypadek ma dowiesc, ze sam Ctrl+F5 niczego
+        // nie zmienia i niczego nie gra.
+        SonosTargetSelectionWindow? opened = null;
+        window.PresentSonosTargetOverrideForTests = targetWindow => opened = targetWindow;
 
         harness.Announcements.Clear();
         // GRANICA PRZED KLAWISZEM: fixture MUSI mieć odcięty prawdziwy magazyn
-        // konta, bo dalej idzie produkcyjne RestoreOnce. Ta asercja nie robi
-        // zadnego I/O - pada, gdy fabryki nie sa zastapione.
+        // konta. Ta asercja nie robi zadnego I/O - pada, gdy fabryki nie sa
+        // zastapione.
         harness.AssertAccountBoundariesAreSynthetic();
         harness.PressCtrl(Key.F5);
         harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
 
-        // KONTROLKA ODCIECIA: produkcyjne RestoreOnce naprawde poszlo, ale do
-        // SYNTETYCZNEGO magazynu w pamieci. Zaden prawdziwy klient Control API
-        // nie powstal i zadne logowanie nie ruszylo.
-        if (harness.AccountStore.Reads != 1)
+        if (opened is null || window.SonosTargetWindowsCreatedForTests != 1)
         {
             throw new Exception(
-                $"Odtworzenie konta odczytało syntetyczny magazyn {harness.AccountStore.Reads} razy zamiast 1 "
-                + "- pomiar nie dowodzi, że prawdziwy magazyn DPAPI został odcięty.");
+                "Ctrl+F5 w sesji Sonos nie otworzyło wyboru celu sterowania (okien: "
+                + $"{window.SonosTargetWindowsCreatedForTests}; komunikaty: "
+                + string.Join(" | ", harness.Announcements) + ").");
         }
+
+        // PELNE NAZWY grup, nie identyfikatory i nie skroty w rodzaju "Biuro +1".
+        var targets = opened.RowLabelsForTests;
+        if (targets.Count == 0)
+        {
+            throw new Exception("Wybór celu nie pokazał żadnej odczytanej grupy.");
+        }
+        var targetSurface = string.Join(" | ", targets);
+        if (!targetSurface.Contains("Salon", StringComparison.Ordinal))
+        {
+            throw new Exception("Wybór celu nie pokazuje odczytanej grupy Salon: " + targetSurface);
+        }
+        if (targetSurface.Contains("GRUPA-", StringComparison.Ordinal))
+        {
+            throw new Exception("Wybór celu pokazuje identyfikatory zamiast nazw: " + targetSurface);
+        }
+
+        // KONTROLKA ODCIECIA: zaden prawdziwy klient Control API nie powstal i
+        // zadne logowanie nie ruszylo.
         if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
         {
             throw new Exception("Ctrl+F5 zapisał albo skasował poświadczenia Sonos.");
@@ -251,31 +316,35 @@ internal static class SonosNavigationUxTests
             throw new Exception("Ctrl+F5 utworzył klienta Control API Sonos - to droga do prawdziwego HTTP.");
         }
 
-        if (shown != 1)
-        {
-            throw new Exception(
-                $"Ctrl+F5 w sesji Sonos nie otworzyło okna Konto Sonos (otwarć: {shown}; "
-                + "komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
-        }
-        if (!hasDevicesButton)
-        {
-            throw new Exception("Okno konta nie ma istniejącego przycisku Głośniki i grupy.");
-        }
         if (harness.Announcements.Any(m => m.Contains("nie ma polecenia", StringComparison.OrdinalIgnoreCase)))
         {
             throw new Exception("Ctrl+F5 nadal mówi, że nie ma polecenia w bieżącej sesji.");
         }
 
-        // Powrot z okna konta zachowuje miejsce i wybor.
+        // KONTO I DOM NADAL DOSTEPNE: po anulowaniu AMC mowi, gdzie ich szukac.
+        if (!harness.Announcements.Any(m => m.Contains("konta Sonos", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new Exception(
+                "Po wyborze celu AMC nie mówi, gdzie są konto i dom Sonos: "
+                + string.Join(" | ", harness.Announcements));
+        }
+
+        // SAM WYBOR bez potwierdzenia NIE zmienia celu.
+        if (window.SonosTargetSelectionsAppliedForTests != 0)
+        {
+            throw new Exception("Anulowany wybór celu mimo to zmienił cel sterowania.");
+        }
+
+        // Powrot zachowuje miejsce i wybor.
         if (harness.MediaList.SelectedIndex != 0)
         {
-            throw new Exception("Powrót z okna konta zgubił zaznaczenie w liście.");
+            throw new Exception("Powrót z wyboru celu zgubił zaznaczenie w liście.");
         }
         if (harness.Backend.Commands.Count != 0)
         {
             throw new Exception("Ctrl+F5 wysłał polecenie sterujące do Sonosa.");
         }
-        return 9;
+        return 11;
     }
 
     // ===== U3b: Ctrl+F5 z POLA FILTROWANIA =====
@@ -288,16 +357,13 @@ internal static class SonosNavigationUxTests
     /// (zamykanym wlasnym zegarem), zeby powrot fokusu byl mierzony na
     /// prawdziwej drodze WPF, nie na podstawionym pokazaniu.
     /// </summary>
-    private static int MeasureCtrlF5FromFilterBoxOpensAccountWindow()
+    private static int MeasureCtrlF5FromFilterBoxOpensTargetWindow()
     {
         using var harness = Harness.Create();
         harness.EnterSonosSession();
         harness.ShowOwnWindow();
-        harness.ExecuteCommand(CommandIds.ViewLibrary);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
         harness.SelectRow(0);
 
-        var presenter = harness.Window.SonosAccountPresenterForTests;
         var filter = harness.FilterBox;
         filter.Text = "Sal";
         filter.CaretIndex = 2;
@@ -314,25 +380,26 @@ internal static class SonosNavigationUxTests
                 + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
         }
 
-        // PRAWDZIWY modal: wlasny zegar zamyka okno konta, ktore powstalo
-        // produkcyjnym ShowDialog. Zaden PresentOverride tu nie dziala.
-        presenter.PresentOverride = null;
-        using var closer = harness.StartAccountWindowAutoClose(presenter);
+        // PRAWDZIWY modal: wlasny zegar zamyka okno wyboru celu, ktore powstalo
+        // produkcyjnym ShowDialog. Fokus mierzymy na prawdziwej drodze WPF.
+        var shown = 0;
+        harness.Window.PresentSonosTargetOverrideForTests = targetWindow =>
+        {
+            shown++;
+            CloseWhenShown(targetWindow);
+            targetWindow.ShowDialog();
+        };
 
         harness.Announcements.Clear();
         harness.AssertAccountBoundariesAreSynthetic();
         harness.PressCtrl(Key.F5);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(350));
 
-        if (presenter.WindowsCreated != 1)
+        if (shown != 1)
         {
             throw new Exception(
-                $"Ctrl+F5 z pola filtrowania nie otworzylo okna Konto Sonos (okien: {presenter.WindowsCreated}; "
+                $"Ctrl+F5 z pola filtrowania nie otworzylo wyboru celu Sonos (okien: {shown}; "
                 + "komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
-        }
-        if (!closer.SawDevicesButton)
-        {
-            throw new Exception("Okno konta z pola filtrowania nie ma istniejacego przycisku Głośniki i grupy.");
         }
         if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
         {
@@ -351,7 +418,7 @@ internal static class SonosNavigationUxTests
         if (!ReferenceEquals(Keyboard.FocusedElement, filter))
         {
             throw new Exception(
-                "Po zamknieciu okna konta fokus NIE wrocil do pola filtrowania, a do "
+                "Po zamknieciu wyboru celu fokus NIE wrocil do pola filtrowania, a do "
                 + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
         }
         if (filter.Text != "Sal" || filter.CaretIndex != 2)
@@ -368,6 +435,24 @@ internal static class SonosNavigationUxTests
         return 9;
     }
 
+    /// <summary>
+    /// ZAMKNIJ okno, GDY naprawde sie pokaze. Zegar na "mniej wiecej teraz"
+    /// zostawialby modal na pulpicie, gdyby pokazanie sie opoznilo.
+    /// </summary>
+    private static void CloseWhenShown(Window window)
+    {
+        void OnLoaded(object? sender, RoutedEventArgs args)
+        {
+            window.Loaded -= OnLoaded;
+            window.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (window.IsVisible) window.Close();
+            }));
+        }
+
+        window.Loaded += OnLoaded;
+    }
+
     // ===== U3c: Ctrl+F5 z ODTWARZACZA =====
 
     /// <summary>
@@ -376,13 +461,11 @@ internal static class SonosNavigationUxTests
     /// wierszu grupy -> ActivateSonosGroupThenShowPlayer) i stawiamy fokus na
     /// RZECZYWISTYM PlayerPlayPauseButton, nie ustawiamy prywatnej flagi.
     /// </summary>
-    private static int MeasureCtrlF5FromPlayerOpensAccountWindow()
+    private static int MeasureCtrlF5FromPlayerOpensTargetWindow()
     {
         using var harness = Harness.Create();
         harness.EnterSonosSession();
         harness.ShowOwnWindow();
-        harness.ExecuteCommand(CommandIds.ViewLibrary);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
         harness.SelectRow(0);
 
         // PRODUKCYJNE wejscie w odtwarzacz z listy, tak jak Enter uzytkownika.
@@ -403,14 +486,10 @@ internal static class SonosNavigationUxTests
                 + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
         }
 
-        var presenter = harness.Window.SonosAccountPresenterForTests;
+        // Ctrl+F5 prowadzi teraz do WYBORU CELU. Fokus musi wrocic na przycisk
+        // odtwarzacza tak samo, jak wracal z okna konta.
         var shown = 0;
-        var hasDevicesButton = false;
-        presenter.PresentOverride = accountWindow =>
-        {
-            shown++;
-            hasDevicesButton = accountWindow.FindName("DevicesButton") is Button;
-        };
+        harness.Window.PresentSonosTargetOverrideForTests = targetWindow => shown++;
 
         var groupBefore = harness.Window.SonosSelectedGroupId;
         var commandsBefore = harness.Backend.Commands.Count;
@@ -423,12 +502,8 @@ internal static class SonosNavigationUxTests
         if (shown != 1)
         {
             throw new Exception(
-                $"Ctrl+F5 w odtwarzaczu Sonos nie otworzylo okna Konto Sonos (otwarc: {shown}; "
+                $"Ctrl+F5 w odtwarzaczu Sonos nie otworzylo wyboru celu (otwarc: {shown}; "
                 + "komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
-        }
-        if (!hasDevicesButton)
-        {
-            throw new Exception("Okno konta z odtwarzacza nie ma istniejacego przycisku Głośniki i grupy.");
         }
         if (harness.AccountStore.Writes != 0 || harness.AccountStore.Deletes != 0)
         {
@@ -464,8 +539,6 @@ internal static class SonosNavigationUxTests
     {
         using var harness = Harness.Create();
         harness.EnterSonosSession();
-        harness.ExecuteCommand(CommandIds.ViewLibrary);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
 
         var labels = harness.RowLabels();
         var salon = labels.FirstOrDefault(label => label.Contains("Salon", StringComparison.Ordinal))

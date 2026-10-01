@@ -39,7 +39,7 @@ public static class SonosFavoritesLabels
         if (string.IsNullOrWhiteSpace(groupName))
         {
             return "Lista ulubionych Sonos. Nie ma aktywnej grupy, więc Odtwórz jest niedostępne; "
-                + "wybierz grupę w Bibliotece Enterem, a potem wróć tutaj.";
+                + "wybierz cel skrótem Control F5, a potem wróć tutaj.";
         }
 
         return "Lista ulubionych Sonos. Odtwórz albo Enter na pozycji uruchamia ją w grupie "
@@ -50,12 +50,17 @@ public static class SonosFavoritesLabels
     public const string PlayButtonLabel = "Odtwórz";
 
     /// <summary>
-    /// WYJASNIENIE, dlaczego Odtwórz jest niedostepne przy braku grupy. Wskazuje
-    /// ISTNIEJACA droge odzyskania (Enter na grupie w Bibliotece), nie nowy skrot.
+    /// WYJASNIENIE, dlaczego Odtwórz jest niedostepne przy braku grupy.
+    ///
+    /// Tekst ZMIENIONY swiadomie: dawny mowil "wybierz grupę w Bibliotece
+    /// Enterem", bo grupy stały na liscie sesji. Po zastapieniu tej listy
+    /// BIBLIOTEKA MATERIALU (Ctrl+L: Ulubione/Playlisty) taka instrukcja
+    /// prowadzilaby uzytkownika w miejsce, gdzie grup NIE MA. PRAWDZIWA droga
+    /// wyboru celu to Ctrl+F5.
     /// </summary>
     public const string PlayNeedsGroup =
         "Odtwarzanie ulubionego wymaga aktywnej grupy Sonos. "
-        + "Wybierz grupę w Bibliotece Enterem, a potem ponów Pokaż ulubione.";
+        + "Wybierz cel skrótem Control F5, a potem ponów Pokaż ulubione.";
 
     /// <summary>
     /// ZAPLECZE bez umiejetnosci uruchamiania: podglad dziala, uruchamianie nie.
