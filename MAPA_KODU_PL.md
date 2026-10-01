@@ -1,5 +1,17 @@
 # AMC — mapa kodu
 
+## Sonos: tożsamość materiału Ulubionych (resource.id / container.id) — tylko Core
+
+Przyrost Core domyka brakujące ogniwo rozpoznania materiału: do tej pory Core czytał z Ulubionych wyłącznie `id`/`name`/`service`, a z metadanych kontenera `name`/`type`/`service`, więc nie było czym porównać wpisu z tym, co grupa ma załadowane. Rzeczywisty pomiar odpowiedzi usługi (parent, tylko GET) pokazał, że `favorites.items[].resource.id` oraz `playbackMetadata.container.id` niosą tę samą trójkę `serviceId`/`objectId`/`accountId` (schema `universalMusicObjectId`). Wcześniejszy werdykt sondy „brak kandydata” porównywał tylko identyfikator wiersza katalogu i to ograniczenie sondy, nie właściwość API.
+
+- `Sonos/SonosResourceIdentity.cs`: `SonosResourceIdentity` (niemutowalna trójka) + `SonosResourceIdentityLimits` (objectId 256, serviceId 20, accountId 128 — wprost z definicji OpenAPI). `TryCreate` odrzuca pustkę i przekroczony limit jako brak tożsamości. `IsComplete` wymaga wszystkich trzech pól; `Matches`/`AreSameMaterial` porównują **wyłącznie** te trzy pola `StringComparison.Ordinal`. Nazwa, rodzaj, `service.name`, `favorite.id`, wersja kolejki ani kod 200 nie wchodzą do porównania. Celowo brak `Equals`/`GetHashCode` — zgodność liczy tylko `Matches`.
+- `SonosFavorite.ResourceIdentity` i `SonosMetadataContainer.Identity` (oba nullable, dodane jako opcjonalne parametry konstruktorów — starsze wywołania i fixtures bez nowych pól działają bez zmian).
+- `SonosControlApiClient.Favorites.cs`: `ReadFavoriteResourceIdentity` + wspólny `ReadResourceIdentity` idą przez istniejące prywatne guardy `Object`/`Text`, więc odmowa zduplikowanego JSON, złego UTF-16, obcego typu, głębokości i limitu długości zostaje globalna. `SonosControlApiClient.GroupPlayback.cs` czyta `container.id` tym **samym** parserem, bez drugiego `JsonDocument.Parse`.
+- Brak `resource` lub `container.id` (starsze odpowiedzi) nie psuje listy ani odczytu metadanych; niekompletna trójka wyłącza rozpoznanie tylko tej pozycji i nigdy nie działa jak wieloznacznik. Wartości zachowane literalnie — bez trim, zmiany wielkości liter i normalizacji URI.
+- Prywatność: identyfikatory (zwłaszcza `accountId`) żyją w RAM; `ToString` podaje jedynie obecność i kompletność pól. Nic nie trafia do AppSettings, cache ani logów.
+- OTWARTE: Windows/`MainWindow` jeszcze **nie** korzysta z tej tożsamości — powtórzenie Ulubionych nadal wykonuje load. Natywne playlisty Sonosa (`getPlaylists`) w zmierzonej odpowiedzi nie mają pola `resource`, więc ich powtórzenie pozostaje nierozwiązane. Dom, konto i cel to osobne bramki warstwy Windows.
+
+
 ## Sonos: presety materiału — obsługa UI odebrana, ograniczenie powtórzeń pozostaje
 
 Aktualizacja odbioru: Ctrl+Alt+Shift+P działa fizycznymi klawiszami w trzech listach po obsłudze Key.System/SystemKey. Przypisanie wiąże materiał z kontekstem otwarcia listy i odrzuca zapis po zmianie domu/konta. Klucz porównania w dialogu zawiera rodzaj, dom i ID; sam zapis zachowuje dosłowny identyfikator. Windows 17 przypadków zaliczone. Żywy NVDA: checkbox i zapis stałego miejsca, usunięcie, konflikt zajętego slotu, anulowanie i właściwy wiersz, lista Ctrl+Alt+P, uruchamianie Ctrl+Shift+cyfra. Własna stacja przy zgodnym odczycie mówi samą nazwę (0 POST), z Idle i kontenerem wznawia (1 Play). To pomiar na danych próbnych, nie dźwięku Sonosa.

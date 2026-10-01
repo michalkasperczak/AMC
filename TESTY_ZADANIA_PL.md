@@ -1,5 +1,22 @@
 # Zadania testowe AMC
 
+## Sonos: tożsamość materiału Ulubionych w Core — jak sprawdzić
+
+Polecenie: `--sonos-favorite-identity` (Core SmokeTests). Pomiar na syntetycznym `HttpMessageHandler` przez istniejący `SonosControlApiClient` — bez sieci, konta, DPAPI, GUI i głośnika. Wszystkie ID, nazwy i `accountId` w fixture są wymyślone; katalogu użytkownika nie skopiowano.
+
+Zmierzone: RED 7/20 (13 odmów, raw exit 1 — parser ignorował `resource`/`container.id`), po implementacji GREEN 20/20 raw exit 0. Regresja bez zmian: `--sonos-favorites` 36/36 exit 0, `--sonos-group-playback` 79/79 exit 0. Logi i komendy: `amc_pomoc/sonos-favorite-identity-core/`.
+
+1. Parser Ulubionych wydobywa `resource.id` z odpowiedzi, a parser metadanych `container.id` — przez faktyczny odczyt HTTP, nie przez ręczne `new` modelu. Roundtrip napisu jest dokładny (spacja, wielkość liter, dwukropek).
+2. Pełna zgodna trójka daje rozpoznanie, **mimo** że nazwa i rodzaj po obu stronach się różnią. Odwrotnie: inny `objectId` przy tym samym `serviceId` i `accountId` to brak zgody — „zgodny serviceId” nie jest zgodnością treści.
+3. Inny `serviceId`, inne `accountId`, inna wielkość liter oraz doklejona spacja to brak zgody (Ordinal, bez trim i bez normalizacji URI).
+4. Trójka bez `accountId` jest odczytana, ale nie jest kompletna: nie dopasowuje się ani do pełnej, ani do samej siebie. Brak tożsamości po którejkolwiek stronie też nie daje zgody — nigdy wieloznacznik.
+5. Podstawienie top-level `favorite.id` jako `objectId` **nie** może dawać zgody; to inny klucz katalogu.
+6. Starsza odpowiedź bez `resource` nadal daje pełną listę (obie pozycje, tożsamość null), a metadane bez `container.id` nadal mają czytaną nazwę. Jedna pozycja bez zasobu nie kasuje sąsiadów z pełną trójką.
+7. Globalne odmowy zostają: zduplikowane pole JSON w `resource.id`, liczba w miejscu obiektu `id` oraz `objectId` ponad 256 znaków dają `InvalidResponse`.
+
+Czego ten pomiar NIE dowodzi: że Windows korzysta z tożsamości (nie korzysta — load przy powtórzeniu wciąż się wykonuje), że natywne playlisty Sonosa mają się jak rozpoznać, ani że cokolwiek zagrało na prawdziwym głośniku.
+
+
 ## Sonos: presety — odbiór częściowy, nie gotowe wydanie
 
 Aktualizacja: końcowy Windows `--sonos-presets-real` wykonał 17 przypadków (0 błędów), w tym P17 rozdzielenia rodzaju/domu. Brakujące zachowania sprawdzono fizycznymi klawiszami i żywym NVDA: trzy listy przypisywania, domyślny bieżący cel i opcjonalny checkbox stałego zestawu, realne usunięcie i nowy odczyt, zapis odmówiony po zmianie domu, dwa materiały o identycznym ID wymagające zgody zastąpienia, Escape bez zmiany wpisu i z powrotem na ten sam wiersz, Ctrl+Alt+P i uruchomienie z listy, Ctrl+Shift+2 i powtórzenie własnej stacji. W Podglądzie mowy powtórzenie oraz wznowienie dały dokładnie „Radio probne”; odpowiednio 0 nowych POST i 1 Play bez create/load. Kwity w `amc_pomoc/sonos-presets-ui-final/ACCEPTANCE.json`. Nie jest to pomiar realnego dźwięku ani rozwiązanie powtórzenia Ulubionych/playlist.

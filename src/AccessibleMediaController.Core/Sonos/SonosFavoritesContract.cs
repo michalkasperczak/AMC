@@ -101,7 +101,7 @@ public sealed class SonosFavoriteService
 public sealed class SonosFavorite
 {
     public SonosFavorite(string id, string name, string? description = null,
-        SonosFavoriteService? service = null)
+        SonosFavoriteService? service = null, SonosResourceIdentity? resourceIdentity = null)
     {
         if (string.IsNullOrEmpty(id) || id.Length > SonosFavoritesLimits.MaxFavoriteIdLength)
         {
@@ -123,6 +123,7 @@ public sealed class SonosFavorite
         Name = name;
         Description = description;
         Service = service;
+        ResourceIdentity = resourceIdentity;
     }
 
     public string Id { get; }
@@ -134,6 +135,15 @@ public sealed class SonosFavorite
 
     /// <summary>Opcjonalny, nullable dostawca materialu.</summary>
     public SonosFavoriteService? Service { get; }
+
+    /// <summary>
+    /// resource.id ulubionego (universalMusicObjectId) - tozsamosc MATERIALU,
+    /// nie wiersza katalogu. Null znaczy "Sonos nie podal" albo "podal w
+    /// postaci, ktorej nie rozumiemy"; w obu wypadkach tej pozycji nie da sie
+    /// rozpoznac w metadanych grupy, co nie psuje samej listy.
+    /// Nigdy nie porownuj <see cref="Id"/> z ObjectId - to inne klucze.
+    /// </summary>
+    public SonosResourceIdentity? ResourceIdentity { get; }
 
     /// <summary>
     /// Kontrolowane ToString: NIE wypisuje identyfikatora ani nazwy ze zrodla,

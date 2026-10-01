@@ -364,7 +364,10 @@ public sealed partial class SonosControlApiClient
                 : new SonosMetadataContainer(
                     Text(container.Value, "name", 100),
                     Text(container.Value, "type", 48),
-                    ReadService(Object(container.Value, "service"))),
+                    ReadService(Object(container.Value, "service")),
+                    // container.id to ta sama trojka co favorites resource.id;
+                    // czytamy ja wspolnym parserem, nie osobnym kodem.
+                    ReadResourceIdentity(container.Value)),
             ReadQueueItem(Object(root, "currentItem")),
             ReadQueueItem(Object(root, "nextItem")),
             show is null ? null : Text(show.Value, "name", 127, true),

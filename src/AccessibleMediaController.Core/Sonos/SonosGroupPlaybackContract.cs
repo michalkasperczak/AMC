@@ -344,11 +344,13 @@ public sealed class SonosQueueItem
 /// </summary>
 public sealed class SonosMetadataContainer
 {
-    public SonosMetadataContainer(string? name, string? type, SonosMetadataService? service)
+    public SonosMetadataContainer(string? name, string? type, SonosMetadataService? service,
+        SonosResourceIdentity? identity = null)
     {
         Name = name;
         Type = type;
         Service = service;
+        Identity = identity;
     }
 
     public string? Name { get; }
@@ -356,6 +358,14 @@ public sealed class SonosMetadataContainer
     public string? Type { get; }
 
     public SonosMetadataService? Service { get; }
+
+    /// <summary>
+    /// container.id (universalMusicObjectId) - tozsamosc TEGO, co grupa ma
+    /// zaladowane. Jedyna wartosc porownywalna z
+    /// <see cref="SonosFavorite.ResourceIdentity"/>; porownanie robi
+    /// <see cref="SonosResourceIdentity.Matches"/>, nie nazwa ani rodzaj.
+    /// </summary>
+    public SonosResourceIdentity? Identity { get; }
 
     /// <summary>container.type = "station" wskazuje radio - wtedy currentItem czesto nie ma.</summary>
     public bool IsStation => string.Equals(Type, "station", StringComparison.Ordinal);

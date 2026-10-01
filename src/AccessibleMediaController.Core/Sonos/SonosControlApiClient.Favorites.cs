@@ -80,7 +80,8 @@ public sealed partial class SonosControlApiClient : ISonosFavoritesApi
                     id,
                     Text(item, "name", SonosFavoritesLimits.MaxFavoriteNameLength, true)!,
                     Text(item, "description", SonosFavoritesLimits.MaxFavoriteDescriptionLength),
-                    ReadFavoriteService(item)));
+                    ReadFavoriteService(item),
+                    ReadFavoriteResourceIdentity(item)));
             }
 
             // householdId wchodzi LITERALNIE z zapytania, nie z odpowiedzi.
@@ -113,5 +114,42 @@ public sealed partial class SonosControlApiClient : ISonosFavoritesApi
         return new SonosFavoriteService(
             Text(service, "name", SonosFavoritesLimits.MaxServiceNameLength),
             Text(service, "id", SonosFavoritesLimits.MaxServiceIdLength));
+    }
+
+    /// <summary>
+    /// favorites.items[].resource.id -> universalMusicObjectId. Odpowiedz
+    /// RZECZYWISTEJ uslugi niesie to pole, choc nie ma go w odczytanej z
+    /// dokumentacji definicji favorite; starsze odpowiedzi bez resource sa
+    /// nadal poprawne i daja null.
+    ///
+    /// Idzie przez te same prywatne guardy co reszta klienta (Object/Text),
+    /// wiec obcy typ w miejscu obiektu, duplikat pola, zly UTF-16 i
+    /// przekroczony maxLength odrzucaja CALA odpowiedz dokladnie tak jak
+    /// dotad. Tozsamosc jest tu wylacznie DODATKIEM: pozycja bez niej zostaje
+    /// na liscie, traci tylko mozliwosc rozpoznania.
+    /// </summary>
+    private static SonosResourceIdentity? ReadFavoriteResourceIdentity(JsonElement favorite)
+    {
+        var resource = Object(favorite, "resource");
+        return resource is null ? null : ReadResourceIdentity(resource.Value);
+    }
+
+    /// <summary>
+    /// Wspolny odczyt obiektu id (universalMusicObjectId) dla ulubionych i dla
+    /// kontenera metadanych - jeden typ i jedno porownanie po obu stronach.
+    /// Wartosci nie sa przycinane ani normalizowane.
+    /// </summary>
+    private static SonosResourceIdentity? ReadResourceIdentity(JsonElement parent)
+    {
+        var id = Object(parent, "id");
+        if (id is null)
+        {
+            return null;
+        }
+
+        return SonosResourceIdentity.TryCreate(
+            Text(id.Value, "serviceId", SonosResourceIdentityLimits.MaxServiceIdLength),
+            Text(id.Value, "objectId", SonosResourceIdentityLimits.MaxObjectIdLength),
+            Text(id.Value, "accountId", SonosResourceIdentityLimits.MaxAccountIdLength));
     }
 }
