@@ -191,25 +191,24 @@ Potwierdzone pomiarem (20 kroków, pełna mowa w raporcie odbioru):
 - `Ctrl+L` po zamknięciu działa ponownie (kolejne okno powstaje) — pole okna nie
   blokuje skrótu na stałe.
 
-**Zmierzona usterka (naprawiona w tym zakresie):** dopóki otwarta jest lista
-kategorii, pole `_sonosLibraryWindow` wskazuje okno Biblioteki, które zostało
-już ZAMKNIĘTE (`SonosLibraryWindow.OpenSelected` woła `Close()` przed
-callbackiem, a `finally` czyszczące pole wykonuje się dopiero po powrocie z
-`ShowDialog`). Sonda na żywym oknie pokazała `libraryOpen = True`, gdy na
-ekranie NIE BYŁO żadnego okna „Biblioteka Sonos” (lista okien procesu: tylko
-„Playlisty Sonos” i okno główne). Skutek dla użytkownika: `ShowSonosLibrary`
-ogłosiłoby „Biblioteka Sonos jest już otwarta” i wywołało `Activate()` na
-zamkniętym oknie. Poprawka pyta o ŻYWY cel (`IsLiveOwnerTarget`,
-czyli `!_closed && IsVisible`) zamiast o samo `is not null`.
+**Obserwacja i zabezpieczenie bramki:** podczas otwartych Playlist/Ulubionych
+pole `_sonosLibraryWindow` może jeszcze wskazywać zamkniętą Bibliotekę.
+`OpenSelected` woła `Close()` przed callbackiem, a `finally` czyści pole po
+powrocie z `ShowDialog`. Sonda nazywała samo niepuste pole `libraryOpen=True`;
+nie był to pomiar widoczności. Warunek pyta teraz o `IsLiveOwnerTarget`
+(`!_closed && IsVisible`), zamiast traktować każdą referencję jak żywe okno.
 
-**Uczciwie o sile dowodu tej poprawki:** dodany etap `B4` (2 sprawdzenia)
-utrwala, że callback kategorii dostaje okno już niewidoczne i nieżywe — ale
-`B4` przechodzi RÓWNIEŻ na kodzie SPRZED poprawki (sprawdzone odwróceniem
-warunku i ponowną kompilacją). Nie jest więc testem RED→GREEN dla samej bramy
-`Ctrl+L`; usterkę wykazał dopiero POMIAR ŻYWEGO OKNA, a `B4` pilnuje założenia,
-na którym stoi poprawka. Bramy `Ctrl+L` na stanie „pole wskazuje zamknięte
-okno” nie dało się zmierzyć w tym zakresie bez publicznej fabryki w produkcji,
-czego świadomie nie dodano.
+Nie wykazano błędnej reakcji użytkowej na fizyczne Ctrl+L w tym stanie:
+modal playlist przejmuje klawiaturę, a w kroku15 nie było komunikatu
+„już otwarta”. Nie należy przedstawiać tej obserwacji jako odtworzonej
+usterki klawiatury. `B4` (2 sprawdzenia) potwierdza nieżywe okno w callbacku,
+ale przechodzi także bez zmiany guardu — nie jest to RED→GREEN.
+
+Końcowe testy45/43 wykonano po zmianie bramki. Pełny wcześniejszy scenariusz
+NVDA dotyczy binarium sprzed tej jednej zmiany. Rodzic osobno sprawdził dokładne
+końcowe DLL bez ponawiania całości: Ctrl+L → Playlisty → Escape → ponowne
+Ctrl+L, zero POST, NVDA widzi skupiony wiersz „Ulubione Sonos” w Bibliotece.
+Własny proces pomiaru zakończono; instalacja użytkownika pozostała nietknięta.
 
 **Czego NIE zmierzono:** prawdziwego konta Sonos, prawdziwych głośników, dźwięku,
 `groupMembers`, presetów, URL i stereo-par. Pusty wynik `Keyboard.FocusedElement`

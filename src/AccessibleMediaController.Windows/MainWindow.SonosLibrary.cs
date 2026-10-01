@@ -65,11 +65,10 @@ public partial class MainWindow
     /// </summary>
     private void ShowSonosLibrary()
     {
-        // ZMIERZONA USTERKA: okno kategorii zamyka sie (Close()) PRZED wywolaniem
-        // akcji wyboru, a pole czysci dopiero `finally` po powrocie z ShowDialog.
-        // Przez caly czas otwartych Playlist/Ulubionych pole wskazuje wiec okno,
-        // ktorego NIE MA na ekranie - samo `is not null` oglaszalo wtedy "jest juz
-        // otwarta" i wolalo Activate() na zamknietym oknie. Pytamy o ZYWY cel.
+        // Callback kategorii moze otworzyc kolejny modal przed powrotem ze
+        // ShowDialog Biblioteki. Pole jest wtedy jeszcze niepuste, chociaz
+        // okno kategorii juz zamknieto. Nie traktuj takiej referencji jak
+        // zywego okna; sama jej obecnosc nie dowodzi usterki klawiatury.
         if (_sonosLibraryWindow is { IsLiveOwnerTarget: true })
         {
             Announce("Biblioteka Sonos jest już otwarta");
