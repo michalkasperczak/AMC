@@ -444,9 +444,16 @@ public partial class MainWindow
             }
 
             // --- POWTORZENIE ---
-            var repeat = await DecideSonosPresetRepeatAsync(
-                backend, groupId, preset, station, token,
-                    () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true);
+            // ULUBIONY ma WLASNA droge rozpoznania: tozsamosc MATERIALU ze
+            // swiezego katalogu domu kontra container.id grupy. Wlasna stacja i
+            // playlista zostaja przy dotychczasowej (dla playlisty: zawsze load).
+            var repeat = station is null && SonosPresetKinds.IsFavorite(preset.TargetKind)
+                ? await DecideSonosFavoriteRepeatAsync(
+                    backend, groupId, household, preset, token,
+                        () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true)
+                : await DecideSonosPresetRepeatAsync(
+                    backend, groupId, preset, station, token,
+                        () => IsSonosPresetIntentCurrent(intent, ticket)).ConfigureAwait(true);
             if (!IsSonosPresetIntentCurrent(intent, ticket)) return;
 
             if (repeat == SonosPresetRepeatDecision.Unavailable)
@@ -557,16 +564,16 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// DECYZJA O POWTORZENIU ze SWIEZEGO odczytu grupy. Brak lokalnego cache sam
-    /// z siebie NIE wymusza przeladowania - rozstrzyga to, co grupa mowi TERAZ.
+    /// DECYZJA O POWTORZENIU ze SWIEZEGO odczytu grupy dla WLASNEJ STACJI i dla
+    /// rodzajow bez tozsamosci materialu. Brak lokalnego cache sam z siebie NIE
+    /// wymusza przeladowania - rozstrzyga to, co grupa mowi TERAZ.
     ///
-    /// LUKA, ktorej tu NIE ZASYPUJEMY zgadywaniem: ulubione i playlisty NIE maja
-    /// klucza, ktory moglibysmy porownac. Naszego <c>itemId</c> da sie podac
-    /// tylko przy loadStreamUrl (wlasne stacje); <c>loadFavorite</c> i
-    /// <c>loadPlaylist</c> go nie przyjmuja, a <c>container.id</c> (optional
-    /// universalMusicObjectId) NIE JEST w obecnym modelu ani parserze AMC.
-    /// Dlatego dla tych dwoch rodzajow zwracamy ZAWSZE <c>Load</c>, zamiast
-    /// opierac tozsamosc na tytule albo na numerze ostatniego slotu.
+    /// ULUBIONY ma juz WLASNA droge (<see cref="DecideSonosFavoriteRepeatAsync"/>)
+    /// opartą o <c>resource.id</c> kontra <c>container.id</c>. Tutaj zostaje
+    /// PLAYLISTA: <c>loadPlaylist</c> nie przyjmuje naszego <c>itemId</c>, a
+    /// native playlista Sonosa w ogole nie ma <c>resource</c> w katalogu, wiec
+    /// zwracamy dla niej ZAWSZE <c>Load</c>, zamiast opierac tozsamosc na tytule,
+    /// na numerze ostatniego slotu albo na zgadnietym prefiksie identyfikatora.
     /// </summary>
     private static async Task<SonosPresetRepeatDecision> DecideSonosPresetRepeatAsync(
         ISonosGroupSessionBackend backend,
@@ -600,6 +607,102 @@ public partial class MainWindow
             return SonosPresetRepeatDecision.Unavailable;
         return SonosPresetRepeat.Decide(expected, fresh.Value.ItemId,
             fresh.Value.PlaybackState, metadata.Value!.Container is not null);
+    }
+
+    /// <summary>
+    /// Czy nadal pytamy o TEN SAM dom. Osobno od <see cref="IsSonosPresetIntentCurrent"/>,
+    /// bo zmiana wybranego domu NIE musi podniesc biletu celu, a odpowiedz
+    /// katalogu domu A nie ma prawa rozstrzygac materialu w domu B.
+    /// </summary>
+    private bool IsSonosPresetHouseholdStill(string? household) =>
+        string.Equals(_state.Sonos.SelectedHouseholdId, household, StringComparison.Ordinal);
+
+    /// <summary>
+    /// POWTORZENIE ULUBIONEGO ze SWIEZYCH odczytow. Tozsamosc MATERIALU bierzemy
+    /// z <c>favorites.items[].resource.id</c> i porownujemy z
+    /// <c>playbackMetadata.container.id</c> - ta sama trojka
+    /// (serviceId/objectId/accountId), porownywana WYLACZNIE przez
+    /// <see cref="SonosResourceIdentity.Matches"/>.
+    ///
+    /// Czego tu NIE MA:
+    ///  * zadnego drugiego klienta HTTP i zadnego wlasnego OAuth - idziemy
+    ///    ISTNIEJACA granica <see cref="ISonosFavoritesSessionBackend"/>,
+    ///  * zadnej kopii katalogu z kiedys otwartego modalu i zadnej pamieci po
+    ///    POST: katalog czytamy TERAZ, dla WSKAZANEGO domu,
+    ///  * zadnego porownania po tytule, <c>favorite.Id</c>, rodzaju ani po
+    ///    <c>currentItem</c>: album na dalszym utworze to NADAL ten kontener,
+    ///  * zadnego restartu "w ciemno": niepewnosc to UCZCIWA ODMOWA i ZERO POST.
+    /// </summary>
+    private async Task<SonosPresetRepeatDecision> DecideSonosFavoriteRepeatAsync(
+        ISonosGroupSessionBackend backend,
+        string? groupId,
+        string? household,
+        SessionPresetEntry preset,
+        CancellationToken token,
+        Func<bool> isCurrent)
+    {
+        // Zaplecze bez odczytu ulubionych mowi to uczciwie przez odmowe - NIE
+        // zakladamy zgodnosci i NIE budujemy drugiego klienta.
+        if (backend is not ISonosFavoritesSessionBackend favoritesBackend) return SonosPresetRepeatDecision.Unavailable;
+        if (string.IsNullOrWhiteSpace(household)) return SonosPresetRepeatDecision.Unavailable;
+
+        var catalogue = await favoritesBackend.ReadFavoritesAsync(household, token).ConfigureAwait(true);
+        if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !catalogue.Succeeded)
+            return SonosPresetRepeatDecision.Unavailable;
+
+        // DOKLADNIE ten wiersz katalogu, porzadkowo. Zniknieta pozycja to
+        // NIEZNANY material, a nie powod do slepego load.
+        var favorite = catalogue.Favorites!.Items.FirstOrDefault(item =>
+            string.Equals(item.Id, preset.TargetId, StringComparison.Ordinal));
+        if (favorite is null) return SonosPresetRepeatDecision.Unavailable;
+
+        var metadata = await backend.ReadGroupMetadataAsync(groupId, token).ConfigureAwait(true);
+        if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !metadata.Succeeded)
+            return SonosPresetRepeatDecision.Unavailable;
+        var playback = await backend.ReadGroupPlaybackAsync(groupId, token).ConfigureAwait(true);
+        if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !playback.Succeeded)
+            return SonosPresetRepeatDecision.Unavailable;
+
+        var container = metadata.Value!.Container;
+        var wanted = favorite.ResourceIdentity;
+        if (!SonosResourceIdentity.AreSameMaterial(wanted, container?.Identity))
+        {
+            // ZNANY INNY material: obie trojki kompletne i rozne - zwykly load.
+            var otherKnownMaterial = wanted is { IsComplete: true }
+                && container?.Identity is { IsComplete: true };
+            // POTWIERDZONY pusty gloshnik: brak kontenera, brak pozycji i IDLE.
+            var confirmedEmpty = container is null
+                && metadata.Value.CurrentItem is null
+                && playback.Value!.PlaybackState == SonosPlaybackState.Idle;
+            // NIEPELNA/NIEZNANA tozsamosc przy ISTNIEJACYM materiale: ani nazwa,
+            // ani 200 nie zastepuja trojki. Odmowa, ZERO POST.
+            return otherKnownMaterial || confirmedEmpty
+                ? SonosPresetRepeatDecision.Load
+                : SonosPresetRepeatDecision.Unavailable;
+        }
+
+        var state = playback.Value!.PlaybackState;
+        // NIEZNANY stan przy ZGODNEJ tozsamosci: nie restartujemy wlasnego
+        // materialu w ciemno (ta sama regula co dla wlasnej stacji).
+        if (state == SonosPlaybackState.Unknown) return SonosPresetRepeatDecision.Unavailable;
+        if (state is SonosPlaybackState.Paused or SonosPlaybackState.Idle)
+        {
+            // Odczyty NIE sa atomowe. Przed JEDNYM Play potwierdzamy, ze grupa
+            // nadal ma TEN material - cudza zmiana w appce Sonos konczy droge
+            // odmowa, zeby nie wznowic obcego zrodla.
+            var fresh = await backend.ReadGroupMetadataAsync(groupId, token).ConfigureAwait(true);
+            if (!isCurrent() || !IsSonosPresetHouseholdStill(household) || !fresh.Succeeded)
+                return SonosPresetRepeatDecision.Unavailable;
+            if (!SonosResourceIdentity.AreSameMaterial(wanted, fresh.Value!.Container?.Identity))
+                return SonosPresetRepeatDecision.Unavailable;
+            container = fresh.Value.Container;
+        }
+
+        // TA SAMA bramka stanu co przy wlasnej stacji: tozsamosc rozstrzygnelo
+        // juz Matches wyzej, a Decide odwzorowuje WYLACZNIE stan odtwarzania.
+        // Klucze podajemy prawdziwe - objectId obu zgodnych trojek.
+        return SonosPresetRepeat.Decide(
+            wanted!.ObjectId, container!.Identity!.ObjectId, state, container.Identity is not null);
     }
 
     /// <summary>

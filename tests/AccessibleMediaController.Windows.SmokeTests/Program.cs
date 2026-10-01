@@ -126,6 +126,10 @@ if (args.Contains("--sonos-presets-real", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunPresets(); return 0;
 }
+if (args.Contains("--sonos-favorite-repeat", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunFavoriteRepeat(); return 0;
+}
 if (args.Contains("--sonos-library-ui", StringComparer.Ordinal))
 {
     SonosLibraryUiTests.Run(); return 0;

@@ -171,6 +171,24 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             return held;
         }
 
+        /// <summary>
+        /// WSTRZYMANIE JEDNEGO GET o podanym sufiksie sciezki - do pomiaru
+        /// zmiany konta/domu W TRAKCIE swiezego odczytu katalogu. Czeka
+        /// asynchronicznie w transporcie, wiec petla komunikatow pompuje dalej;
+        /// po przejsciu bramka sama sie zdejmuje, zeby kolejne GET nie wisialy.
+        /// </summary>
+        internal HeldPost HoldNextGet(string pathSuffix)
+        {
+            var held = new HeldPost();
+            HeldGet = held;
+            GetGateSuffix = pathSuffix;
+            return held;
+        }
+
+        internal HeldPost? HeldGet { get; private set; }
+
+        private string? GetGateSuffix { get; set; }
+
         internal HeldPost? Held { get; private set; }
 
         internal List<Wire> Posts =>
@@ -193,7 +211,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
             if (Gate is { } gate && request.Method == HttpMethod.Post)
             {
-                // Tylko POST czeka: odczyty topologii musza sie domknac, inaczej
+                // POST czeka: odczyty topologii musza sie domknac, inaczej
                 // nie byloby z czego wziac grupy. Bramke ZWALNIAMY po przejsciu,
                 // zeby kolejne zlecenia nie wisialy bez powodu.
                 var held = Held;
@@ -206,6 +224,20 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 Gate = null;
                 await gate.ConfigureAwait(false);
                 if (held is not null) held.Completed = true;
+            }
+
+            // JEDEN wskazany GET - wylacznie gdy pomiar o to jawnie poprosil.
+            // Bez prosby nic sie nie zmienia, wiec reszta zestawu nie zwalnia.
+            if (HeldGet is { } heldGet && GetGateSuffix is { } suffix
+                && request.Method == HttpMethod.Get
+                && request.RequestUri!.AbsolutePath.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                heldGet.Authorization = request.Headers.Authorization?.Parameter;
+                heldGet.Arrived = true;
+                HeldGet = null;
+                GetGateSuffix = null;
+                await heldGet.Gate.ConfigureAwait(false);
+                heldGet.Completed = true;
             }
 
             var response = RouteOverride?.Invoke(request, body) ?? _reply(request, body);
@@ -307,11 +339,30 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// <summary>
     /// DWIE JEDNAKOWE ETYKIETY i ROZNE identyfikatory: wybor drugiej musi
     /// wyslac DOKLADNIE jej identyfikator, nie pierwszy o tej nazwie.
+    ///
+    /// KATALOG z PELNA trojka tozsamosci materialu - tak jak oddaje prawdziwe
+    /// API. Bez niej preset ulubionego nie ma czego porownac i UCZCIWIE odmawia,
+    /// wiec stare ciala bez <c>resource</c> nie opisywalyby juz zadnej
+    /// prawdziwej odpowiedzi.
     /// </summary>
     private const string FavoritesBody =
         "{\"version\":\"W1\",\"items\":["
-        + "{\"id\":\"ULU-PIERWSZY\",\"name\":\"Nokturny\"},"
-        + "{\"id\":\"ULU-DRUGI\",\"name\":\"Nokturny\"}]}";
+        + "{\"id\":\"ULU-PIERWSZY\",\"name\":\"Nokturny\",\"resource\":{\"id\":{"
+        + "\"serviceId\":\"38\",\"objectId\":\"OBIEKT-PIERWSZY\",\"accountId\":\"KONTO-SYNTETYCZNE-9\"}}},"
+        + "{\"id\":\"ULU-DRUGI\",\"name\":\"Nokturny\",\"resource\":{\"id\":{"
+        + "\"serviceId\":\"38\",\"objectId\":\"OBIEKT-DRUGI\",\"accountId\":\"KONTO-SYNTETYCZNE-9\"}}}]}";
+
+    /// <summary>
+    /// GRUPA gra ZNANY INNY material - pelna trojka, rozna od obu ulubionych.
+    /// Dzieki temu pomiary "preset ma wyslac load" nadal mierza load, a NIE
+    /// obchodza nowej bramki: tozsamosc jest ZNANA i ROZNA, czyli zwykle
+    /// uruchomienie. Oslabienia guardow tu nie ma.
+    /// </summary>
+    private const string OtherMaterialMetadataBody =
+        "{\"container\":{\"name\":\"Coś innego\",\"type\":\"album\",\"id\":{"
+        + "\"serviceId\":\"38\",\"objectId\":\"OBIEKT-OBCY\",\"accountId\":\"KONTO-SYNTETYCZNE-9\"}},"
+        + "\"currentItem\":{\"id\":\"POZYCJA-1\",\"track\":{\"type\":\"track\",\"name\":\"Obcy utwór\"}}}";
+
 
     private const string EmptyFavoritesBody = "{\"version\":\"W1\",\"items\":[]}";
 
@@ -340,8 +391,24 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 return Json(favorites is null ? FavoritesBody : favorites());
             }
 
-            if (path.Contains("/playback", StringComparison.Ordinal)
-                || path.Contains("/groupVolume", StringComparison.Ordinal))
+            if (path.Contains("/playbackMetadata", StringComparison.Ordinal))
+            {
+                // GRUPA gra ZNANY INNY material: pelna, ROZNA trojka. Preset
+                // ulubionego ma wtedy normalnie zaladowac - nowa bramka nie jest
+                // tu obchodzona, tylko spelniona.
+                return Json(OtherMaterialMetadataBody);
+            }
+
+            if (path.Contains("/playback", StringComparison.Ordinal))
+            {
+                // STAN TRANSPORTU musi byc CZYTELNY, inaczej decyzja o powtorzeniu
+                // uczciwie odmawia - puste cialo nie opisuje zadnej prawdziwej
+                // odpowiedzi tej trasy.
+                return Json("{\"playbackState\":\"PLAYBACK_STATE_PLAYING\","
+                    + "\"itemId\":\"POZYCJA-1\",\"positionMillis\":12000}");
+            }
+
+            if (path.Contains("/groupVolume", StringComparison.Ordinal))
             {
                 // ODCZYT stanu po poleceniu - istniejaca droga, nie nowa polityka.
                 return Json("{}");

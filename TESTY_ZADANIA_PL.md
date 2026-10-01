@@ -14,7 +14,25 @@ Zmierzone: RED 7/20 (13 odmów, raw exit 1 — parser ignorował `resource`/`con
 6. Starsza odpowiedź bez `resource` nadal daje pełną listę (obie pozycje, tożsamość null), a metadane bez `container.id` nadal mają czytaną nazwę. Jedna pozycja bez zasobu nie kasuje sąsiadów z pełną trójką.
 7. Zduplikowany JSON, wadliwy odczytywany escaped UTF-16 i nadmierna głębokość nadal dają InvalidResponse. Natomiast liczba zamiast opcjonalnego resource/id/pola trójki i objectId ponad limit dają brak tożsamości, ale zachowują poprawne pozycje katalogu i metadane. Rodzic odtworzył dwie regresje dodatku (18/20), po wąskiej poprawce 20/20 oraz regresje 36/36 i 79/79; logi `parent-optional-red.log` / `parent-optional-green.log`.
 
-Czego ten pomiar NIE dowodzi: że Windows korzysta z tożsamości (nie korzysta — load przy powtórzeniu wciąż się wykonuje), że natywne playlisty Sonosa mają się jak rozpoznać, ani że cokolwiek zagrało na prawdziwym głośniku.
+Czego ten pomiar NIE dowodzi: że natywne playlisty Sonosa mają się jak rozpoznać ani że cokolwiek zagrało na prawdziwym głośniku. Windows KORZYSTA już z tej tożsamości w presetach Ulubionych — patrz sekcja niżej.
+
+
+## Sonos: powtórzenie Ulubionego w presetach — jak sprawdzić
+
+Polecenie: `--sonos-favorite-repeat` (Windows SmokeTests), 10 przypadków na prawdziwym `MainWindow`/`RealSonosAccountOwner`/kliencie nad `RecordingHandler`. Bez konta, sieci, głośnika i dźwięku — fixture syntetyczne.
+
+Na uruchomieniu presetu Ulubionego czytany jest ŚWIEŻY katalog wskazanego domu (literalny `TargetId`), a potem świeże `playbackMetadata` i stan odtwarzania właściwej grupy. Nie używa się kopii z otwartego kiedyś modala ani pamięci po POST.
+
+1. Pełna trójka zgodna i Playing/Buffering → **sama nazwa**, 0 POST: bez load, bez kolejki, bez zmiany fokusu. `currentItem` na dalszym utworze zostaje tam, gdzie był (to `container`, nie `currentItem.track`).
+2. Zgodna trójka i Paused albo radio Idle z załadowanym kontenerem → **dokładnie jeden** `SendGroupCommand(Play)`, zero load/seek/zmiany kolejki, potem sama nazwa. Przed wznowieniem metadane są czytane PONOWNIE; zmiana z zewnątrz w trakcie odczytu daje uczciwe Unavailable i 0 POST.
+3. Znany INNY pełny identity → istniejący zwykły `LoadFavorite(INSERT, playOnCompletion:true)`, bez dodatkowego play. Potwierdzony pusty stan (Idle, brak kontenera i currentItem) też ładuje normalnie.
+4. Brak pozycji w katalogu, błąd GET lub niepełna/nieznana tożsamość przy istniejącym materiale → Unavailable i 0 POST. Żadnego udawania zgodności i żadnego restartu w ciemno; nie ma powrotu do tytułów ani „zawsze przeładuj”.
+5. Po każdym `await`, PRZED kolejnym żądaniem i przed mową, trzyma strażnik `isCurrent` oraz dom z chwili startu. Zmiana konta/domu podczas wstrzymanego GET katalogu nie wypuszcza starego komunikatu w nowej sesji. Brak zaplecza Ulubionych → odmowa bez POST, nie drugi klient.
+6. Gałąź natywnej playlisty Sonosa zostaje JAWNIE nieukończona — bez zgadywania `SQ:0` i prefiksów. Tor OwnURL niezmieniony: jego decyzje 0 POST / 1 Play są te same.
+
+Żywy NVDA, jeden pomiar: fizyczny `Ctrl+Shift+1` do własnego okna (potwierdzony `foregroundPid`), odczyt prawdziwego Podglądu mowy. Już gra → 0 POST i mowa „Nokturny”; po pauzie → 1 `playback/play` i mowa „Nokturny”. Pozycja dalszego utworu (93000 ms) nietknięta w obu krokach. Kwity: `amc_pomoc/sonos-favorite-repeat/`.
+
+Czego ten pomiar NIE dowodzi: że każda usługa Sonos oddaje kompletną trójkę w `resource.id` (dla 32 rzeczywistych Ulubionych zmierzył to wcześniejszy odcinek; poza tym semantyka kończy się odmową, nie restartem), ani że cokolwiek zagrało na prawdziwym głośniku.
 
 
 ## Sonos: presety — odbiór częściowy, nie gotowe wydanie
@@ -27,7 +45,7 @@ Poniżej zakres wcześniejszego odbioru, uzupełniony powyższymi próbami:
 - P10–P16: już grająca własna stacja, radio Idle z kontenerem (tylko Play), błąd GET (0 POST), obce itemId podczas metadata (0 POST), edycja URL pod stałym ID, niepełna topologia stałego celu, zwykły Enter stacji i późniejszy preset z jednym kluczem. Dane HTTP są syntetyczne, bez konta i bez dźwięku.
 - Core `--sonos-preset-model`: 12 przypadków trwałości, clone i reguł. Rodzic poprawił oczekiwanie Idle: załadowana zgodna stacja ma być wznowiona, nie ładowana od nowa.
 - Pozostały odbiór: fizyczne Ctrl+Alt+Shift+P z każdej z trzech list, Ctrl+Alt+P i Ctrl+Shift+cyfra, opcjonalne stałe miejsce, Escape/fokus i podgląd mowy NVDA. Sprawdzić przypisanie przy zmianie konta/domu i odróżnienie rodzaju materiału o takim samym ID.
-- Brak udokumentowanej korelacji favorite/playlist z aktualnym materiałem blokuje pełny odbiór powtórzenia bez restartu. Tego ograniczenia nie wolno przedstawiać jako zaakceptowanej zmiany wymagań.
+- Brak udokumentowanej korelacji favorite/playlist z aktualnym materiałem blokował pełny odbiór powtórzenia bez restartu. Dla ULUBIONYCH jest to już rozwiązane i zmierzone (`--sonos-favorite-repeat`, 10/10, oraz żywy NVDA) — patrz sekcja „Sonos: powtórzenie Ulubionego w presetach”. Dla NATYWNYCH PLAYLIST Sonosa ograniczenie zostaje: `getPlaylists` nie oddaje `resource`, więc ta gałąź jest jawnie nieukończona. Tego ograniczenia nie wolno przedstawiać jako zaakceptowanej zmiany wymagań.
 
 
 ## Sonos: wybór kilku głośników — aktualna obsługa Ctrl+F5
