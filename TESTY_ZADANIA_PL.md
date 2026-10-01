@@ -1,5 +1,51 @@
 # Zadania testowe AMC
 
+## Sonos: zmiana składu grup w Core (utworzenie grupy i nowy zestaw) — jak sprawdzić
+
+**Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie
+warstwę Core: `CreateGroupAsync` i `SetGroupMembersAsync` w kliencie Control API
+oraz dwie **jawne, osobne** metody na koordynatorze konta. **Żadnego** okna,
+skrótu ani listy do zaznaczania — `Ctrl+F5` zachowuje się dokładnie jak dotąd.
+Okno „Wybierz głośniki” (checkboxy, Spacja, Wszystkie, Zastosuj) to **następny**
+krok i on dopiero zdecyduje, którą z dwóch operacji wywołać.
+
+Pracujemy na **logicznych graczach**: para stereo i zestaw kina domowego to
+**jedna** jednostka i tego przyrost **nie rozdziela**.
+
+Pomiar, bez konta Sonos, sieci, DPAPI i muzyki (własny `HttpMessageHandler`,
+atrapa bramki logowania, magazyn w pamięci):
+
+1. `--sonos-group-membership` — **12** przypadków (**112** sprawdzeń) na
+   **prawdziwym** torze koordynator → klient Control API → syntetyczny `HTTP`:
+   - `createGroup` wysyła **dokładnie jeden** `POST` pod
+     `/households/{householdId}/groups/createGroup` z `playerIds`
+     i `musicContextGroupId`; **brak** `musicContextGroupId` oznacza grupę
+     **bez** muzyki i tak jest wysyłany (pole pominięte, nie puste);
+   - `setGroupMembers` wysyła **jeden** `POST` pod
+     `/groups/{groupId}/groups/setGroupMembers` z **pełnym** zestawem
+     `playerIds`; pusty zestaw odrzucamy **u siebie** — to **nasza** polityka
+     jawnego zestawu, definicja Sonosa pozwala tu na `null`;
+   - identyfikatory głośników idą w **ciele JSON dosłownie** (Unicode, spacje);
+     nie stosujemy do nich wzorca ze **ścieżki** `groupId`. Limity (32 pozycje,
+     24 znaki) sprawdzono wg **rzeczywistej** definicji, w jednostkach UTF-16;
+   - zwracany jest **faktyczny** `groupId` **z odpowiedzi** — także wtedy, gdy
+     jest **inny** niż żądany;
+   - `200` **bez** rozpoznanego obiektu grupy **nie** jest potwierdzeniem
+     składu i **nie** daje identyfikatora; błędne wejście daje **zero** `POST`;
+   - `401` na zapisie: **jeden** `POST`, **zero** odnowień i powtórzeń po
+     wysłaniu; zmiana konta w trakcie trzymanego `POST` **nie publikuje**
+     wyniku staremu kontu.
+2. Sąsiednie, dzielące tor zapisu: `--sonos-stream-url` **12/12**
+   i `--sonos-group-playback` **79/79** zaliczone — bez zmian w odebranym
+   zachowaniu.
+
+`HTTP 200` to **przyjęcie polecenia**, nie dowód dźwięku ani faktycznego składu
+grupy. Realny Sonos i pełny zestaw pozostają bramką wydania.
+
+Jeden `[FAIL]` w pierwszym biegu pochodził z **atrapy odpowiedzi w teście**
+(parametr koordynatora zjadał pierwszego członka listy) — poprawiono
+**aparaturę**, nie produkt.
+
 ## Sonos: Moje stacje — własne adresy radia
 
 1. W sesji Sonos wybierz Ctrl+L, „Moje stacje”, Enter. Pusta lista kieruje fokus do Dodaj. Samo przeglądanie niczego nie uruchamia.

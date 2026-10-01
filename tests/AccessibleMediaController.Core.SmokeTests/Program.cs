@@ -122,6 +122,11 @@ if (args.Length == 1 && args[0] == "--sonos-stream-url")
     try { SonosStreamUrlTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-group-membership")
+{
+    try { SonosGroupMembershipTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-session-presentation")
 {
     try { SonosSessionPresentationTests.Run(); return 0; }
@@ -158,6 +163,8 @@ var tests = new (string Name, Action Test)[]
     ("Zaladowanie ulubionego Sonos do kolejki grupy przez konto", SonosFavoriteLoadAccountTests.Run),
     ("Odczyt playlist Sonos i ich uruchomienie w grupie", SonosPlaylistsTests.Run),
     ("Własne radio w Sonosie: utworzenie sesji i wczytanie adresu strumienia", SonosStreamUrlTests.Run),
+    ("Zmiana składu grup Sonosa: utworzenie grupy i nowy zestaw głośników",
+        SonosGroupMembershipTests.Run),
     ("Jedna sesja Spotify: migracja i zapis wyboru odtwarzacza", SpotifySessionUnificationTests.Run),
     ("Migracja Spotify: dane po odczycie i rzeczywiste identyfikatory", SpotifyMigrationReviewTests.Run),
     ("Normalizacja skrótów", TestKeyChords),

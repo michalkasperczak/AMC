@@ -1,5 +1,51 @@
 # AMC — mapa kodu
 
+## Sonos: ZMIANA SKŁADU GRUP — utworzenie grupy i nowy zestaw głośników, warstwa Core (bez UI)
+
+**Tylko Core.** Ten przyrost dodaje **dwie** operacje składu grupy:
+`createGroup` (nowa grupa z podanych głośników) i `setGroupMembers` (**pełny**
+nowy zestaw istniejącej grupy). **Nie ma** tu okna, skrótu, checkboxów,
+algorytmu planowania grup, odczytu konfliktów, presetów ani subskrypcji
+topologii. Okno „Wybierz głośniki” pod `Ctrl+F5` to **następny** krok i to on
+wybierze operację: `createGroup` (z `musicContextGroupId` aktualnej grupy, by
+zachować materiał) albo `setGroupMembers` (gdy aktywna grupa ma zostać).
+
+Operujemy na **logicznych graczach** (`playerId`), **nie** na fizycznych
+`deviceId`: para stereo i kino domowe pozostają **jedną** jednostką — ten
+przyrost **nie obiecuje** ich rozdzielania.
+
+- `SonosGroupMembershipContract.cs` — niemutowalny kontrakt: `SonosGroupMembershipRequest`
+  (zestaw głośników + opcjonalny `musicContextGroupId`), `SonosGroupMembershipOutcome`
+  (etykieta PL + `Sent` + `groupId` **z odpowiedzi**) oraz interfejs
+  `ISonosGroupMembershipApi` z **dwiema** metodami. Limity z **rzeczywistej**
+  definicji: 32 pozycje, 24 znaki w jednostkach **UTF-16** — nie dziedziczymy
+  hipotezy „24 ASCII”. Pusty zestaw dla `setGroupMembers` odrzucamy **u siebie**:
+  definicja dopuszcza `null`, ale **nasz** workflow wymaga jawnego pełnego
+  zestawu i to jest **nasza** polityka, nie dopisek do kontraktu Sonosa.
+- `SonosControlApiClient.GroupMembership.cs` — oba `POST` idą przez **istniejący**
+  `WriteCoreAsync` (opcjonalne czytanie ciała) i wspólny `ReadLimitedJsonAsync`:
+  bez nowego `HttpClient`, bez drugiego OAuth; host, `Bearer`, odmowa
+  przekierowań, typ treści, budżet odpowiedzi, ścisłe UTF-8, duplikaty i limit
+  zagnieżdżenia zachowane. URI domu buduje **istniejąca** polityka
+  `SonosHouseholdIdPolicy`, nie `TryGroupUri`. Identyfikatory głośników to
+  **wartości JSON** — wysyłane **dosłownie**, bez wzorca ze ścieżki `groupId`.
+  Odmowa wejścia = **zero** `Send`. `200` **bez** rozpoznanego obiektu grupy
+  **nie** jest potwierdzeniem składu i **nie** daje identyfikatora.
+- `SonosAccountCoordinator.GroupMembership.cs` — dwa minimalne opakowania na
+  **istniejącej** bramce `RunSessionWriteAsync<TOutcome, TResult>`: ten sam
+  generyczny mechanizm pilnuje generacji konta i biletu odczytu dla `POST`.
+  **Przed** wysłaniem możliwe odnowienie wygasłego dostępu; **po** `401`
+  **zero** powtórzeń i odnowień. Zmiana konta w trakcie trzymanego `POST` →
+  wynik **odrzucony**, `groupId` **nie** publikowany staremu kontu (konto
+  **nie** jest kasowane). Anulowanie **po** wysłaniu nie jest obietnicą cofnięcia.
+- Zwracamy **faktyczny** `groupId` z odpowiedzi (może być **inny** lub nowy).
+  `HTTP 200` to **przyjęcie polecenia**, nie dowód dźwięku ani składu —
+  zwłaszcza gdy odpowiedź jest nierozpoznana. Etykiety statusu są **po polsku**,
+  bez surowych powodów dostawcy i bez poświadczeń.
+- Odbiór: Core `--sonos-group-membership` (12 przypadków, 112 sprawdzeń);
+  sąsiednie `--sonos-stream-url` 12/12 i `--sonos-group-playback` 79/79 bez zmian.
+  UI wyboru głośników, właściciel okna i realny Sonos to osobne bramki.
+
 ## Sonos: własne stacje zapisane w AMC
 
 - `SonosSessionSettings.OwnStreams` / `SonosOwnStreamSettings` (`AppSettings.cs`) przechowują ID, nazwę i dosłowny URL. `ConfigurationStore.NormalizeSonos` odtwarza pustą listę starego formatu i usuwa powtórzone ID; wybór konta/grupy nie kasuje lokalnych stacji.
