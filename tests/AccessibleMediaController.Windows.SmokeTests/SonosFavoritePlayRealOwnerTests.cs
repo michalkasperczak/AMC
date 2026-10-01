@@ -617,13 +617,12 @@ internal static class SonosFavoritePlayRealOwnerTests
                 + statusAfterRetry + "\".");
         }
 
-        if (originActiveAfterRetry && spokenAfterRetry != 2)
+        if (originActiveAfterRetry && spokenAfterRetry != 1)
         {
-            // ROZDZIELONE wiadomosci PRZED i PO: okno mowi "Wysyłam ... Czekaj."
-            // z wlasnej drogi proby, a wlasciciel dokłada KONIEC. Pelny cykl to
-            // DOKLADNIE dwa ogloszenia - nie zero (L1) i nie trzy.
-            throw new Exception($"Aktywny modal ogłosił {spokenAfterRetry} komunikatów retry "
-                + "zamiast dokładnie dwóch (oczekiwanie + koniec).");
+            // Synchronous refusal has no waiting phase. Two back-to-back
+            // notifications lost the terminal text in the parent's NVDA capture.
+            throw new Exception($"N2: synchroniczna odmowa retry ogłosiła {spokenAfterRetry} "
+                + "komunikatów zamiast jednego końcowego, bez Czekaj.");
         }
 
         return $"POST konta A na bilecie A, 0 POST na bilecie B, przed wysyłką \"{statusBeforeSend}\", "
@@ -710,12 +709,10 @@ internal static class SonosFavoritePlayRealOwnerTests
                 + statusAfter + "\".");
         }
 
-        if (active && spoken != 2)
+        if (active && spoken != 1)
         {
-            // ROZDZIELONE wiadomosci: "Wysyłam ... Czekaj." z drogi proby okna
-            // plus KONIEC od wlasciciela. Zero konca to L1.
-            throw new Exception($"Aktywny modal ogłosił {spoken} komunikatów zamiast dwóch "
-                + "(oczekiwanie + jawne niewysłanie).");
+            throw new Exception($"N2: synchroniczna odmowa ogłosiła {spoken} "
+                + "komunikatów zamiast jednego końcowego, bez Czekaj.");
         }
 
         return $"0 POST, aktywny={active}, {spoken} ogłoszeń, status \"{statusAfter}\"";

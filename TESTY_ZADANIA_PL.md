@@ -145,13 +145,19 @@ listy robi to samo. Presety, ustawienia i trwałość to F3d — tutaj ich nie m
 7. Podczas zlecenia przełącz się do innego okna: AMC **nie** odbiera ogniska,
    a spóźniony wynik nie ogłasza się w nieaktywnym oknie (status można
    odczytać po powrocie).
+8. Przy Odtwórz fokus zostaje na przycisku podczas oczekiwania i po wyniku.
+   Jeśli w międzyczasie przejdziesz na Zamknij, wynik nie przenosi go z powrotem.
+9. Natychmiastowa odmowa (np. ponowny Enter po zmianie konta) ma powiedzieć
+   niewysłanie oraz drogę odzyskania, bez poprzedzającego Czekaj. Zamknij
+   Ulubione, wybierz Wybierz dom Sonos w menu Plik lub palecie Ctrl+Shift+K,
+   wskaż dom, aktywuj grupę Enterem i ponownie otwórz Ulubione.
 
 Pomiar, bez konta Sonos, sieci, DPAPI i muzyki:
 
-1. `--sonos-favorite-play-ui` — 37 sprawdzeń: prawdziwe okno ulubionych,
+1. `--sonos-favorite-play-ui` — 64 sprawdzenia: prawdziwe okno ulubionych,
    przycisk i `Enter`, odmowy bez zlecenia, zamknięcie w trakcie, spóźniony
    wynik i brak kradzieży ogniska.
-2. `--sonos-favorite-play-real-owner` — 3 sprawdzenia **całej** drogi
+2. `--sonos-favorite-play-real-owner` — 5 przypadków **całej** drogi
    produkcyjnej: `MainWindow` → istniejące zaplecze konta → `SonosAccountOwner`
    → koordynator → klient Control API → syntetyczny `HttpMessageHandler`.
    Dwie **jednakowe** etykiety o różnych identyfikatorach: `Enter` na drugiej
@@ -159,7 +165,10 @@ Pomiar, bez konta Sonos, sieci, DPAPI i muzyki:
    pozycji, `action: INSERT`, `playOnCompletion: true` i **bez** `playModes`;
    zmiana konta A→B **prawdziwą publiczną drogą** logowania przy otwartym oknie
    nie przepuszcza starego ulubionego na bilecie konta B i nie udaje sukcesu;
-   samo otwarcie, strzałki i `Tab` nie ruszają transportu.
+   wymiana podczas wstrzymanego odnowienia przed POST daje zero POST i jawne
+   niewysłanie. Zegar jest zależnością testową istniejącego koordynatora.
+   Samo otwarcie, zmiana zaznaczenia i `Tab` nie ruszają transportu; fizyczną
+   strzałkę i mowę NVDA mierzy się oddzielnie, nie zastępuje ich SelectedIndex.
 3. Pełna tabela Windows (bez argumentów) — pozycje „Sonos: uruchamianie
    ulubionego z okna…” i „Sonos: uruchamianie ulubionego realną drogą
    właściciela konta i HTTP”.
@@ -173,7 +182,7 @@ to **zamiar** z dokumentacji Sonosa, nie pomiar dźwięku.
 
 Dotyczy sesji Sonos (Ctrl+8). Polecenie nazywa się **Wybierz dom Sonos** i
 **nie ma skrótu klawiszowego**. Dwie drogi: menu **Plik** albo paleta poleceń
-(Shift+K). Poza sesją Sonos polecenie jest ukryte w obu miejscach.
+(Ctrl+Shift+K). Poza sesją Sonos polecenie jest ukryte w obu miejscach.
 
 1. Wejdź w sesję Sonos i uruchom **Wybierz dom Sonos**. Usłyszysz „Czytam domy
    Sonos”, potem otworzy się okno z listą domów. Zaznaczony jest dom **bieżący**.

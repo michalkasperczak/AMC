@@ -237,9 +237,10 @@ w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
   **PRE-POST vs PO-AWAIT to dwie różne prawdy i dwa różne komunikaty.**
   Odmowa **przed** wysłaniem to ZERO POST-ów, więc mówi wprost „nie zostało
   wysłane” (`PlayNotSentAccountChanged`, `PlayNotSentTargetChanged`). Guard
-  **po** await działa już PO wysłaniu: `RequestSent` to tylko PODJĘTA PRÓBA, więc
-  komunikat mówi o braku potwierdzenia wyniku (`PlayAttemptedOutcomeUnknown`),
-  a porzucenie oczekiwania nie obiecuje cofnięcia (`PlayAbandonedOutcomeUnknown`).
+  **po** await rozstrzyga `RequestSent`: false nadal oznacza niewysłanie
+  (np. wymiana konta podczas odnowienia przed POST), a true tylko podjętą próbę
+  i brak potwierdzenia wyniku (`PlayAttemptedOutcomeUnknown`). Porzucenie
+  oczekiwania nie obiecuje cofnięcia (`PlayAbandonedOutcomeUnknown`).
   Żaden z nich nie twierdzi wykonania, odrzucenia ani cofnięcia i żaden nie
   wysyła niczego, żeby odkręcić możliwy POST.
   ŻYWY zlecający modal **zawsze** dostaje koniec: zostawienie go na „Wysyłam
@@ -252,9 +253,14 @@ w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
   przesuwa głowicę na pierwszą wstawioną pozycję — to **zamiar**, nie pomiar
   dźwięku. „Przyjęto polecenie uruchomienia” nie obiecuje potwierdzonej
   tożsamości tego, co gra.
-- Testy: `tests/.../SonosFavoritePlayUiTests.cs` (37 sprawdzeń, CLI
+- `SonosFavoritesWindow.RunPlayAsync` nie wyłącza skupionego przycisku Odtwórz;
+  powtórne wywołanie blokuje bramka. Zakończenie nie cofa świadomej zmiany
+  fokusu na inną kontrolkę. Komunikat oczekiwania powstaje tylko dla zadania
+  rzeczywiście w toku, które nie podało już wyniku przez `AnnounceForOwner`.
+  Natychmiastowa odmowa daje jeden komunikat końcowy, bez konkurującego Czekaj.
+- Testy: `tests/.../SonosFavoritePlayUiTests.cs` (64 sprawdzenia, CLI
   `--sonos-favorite-play-ui`) oraz `tests/.../SonosFavoritePlayRealOwnerTests.cs`
-  (CLI `--sonos-favorite-play-real-owner`) — ten drugi mierzy **całą** drogę
+  (5 przypadków, CLI `--sonos-favorite-play-real-owner`) — ten drugi mierzy **całą** drogę
   produkcyjną: `MainWindow` → istniejące zaplecze konta → `SonosAccountOwner` →
   koordynator → `SonosControlApiClient` → syntetyczny `HttpMessageHandler`
   (transport podstawiany TEST-ONLY refleksją, **bez** nowej publicznej fabryki

@@ -335,7 +335,6 @@ public partial class SonosFavoritesWindow : Window
         // jest gdzie indziej (Enter na liscie), wylaczenie zostaje: pokazuje stan
         // "trwa" i nikomu nie zabiera fokusu.
         if (!focusWasOnPlay) PlayButton.IsEnabled = false;
-        Announce(SonosFavoritesLabels.PlayPending);
         try
         {
             LoadCallsForTests++;
@@ -345,7 +344,14 @@ public partial class SonosFavoritesWindow : Window
             //
             // NIESIEMY TOZSAMOSC: ta instancja okna i JEJ token zycia. Wlasciciel
             // nie musi zgadywac, KTORY modal zlecil - ani szukac "aktualnego".
-            await load(new PlayRequest(this, _lifetime.Token, row.Favorite)).ConfigureAwait(true);
+            var feedbackBefore = _ownerFeedbackVersion;
+            var operation = load(new PlayRequest(this, _lifetime.Token, row.Favorite));
+            // A synchronous refusal has no waiting phase. Do not compete with
+            // its terminal notification, or overwrite a result already announced
+            // before an asynchronous follow-up read.
+            if (!operation.IsCompleted && _ownerFeedbackVersion == feedbackBefore)
+                Announce(SonosFavoritesLabels.PlayPending);
+            await operation.ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -360,7 +366,8 @@ public partial class SonosFavoritesWindow : Window
                 // fokus nadal nalezy do tego okna. Nie kradniemy go obcemu oknu.
                 PlayButton.IsEnabled = !string.IsNullOrWhiteSpace(GroupNameForTests) && _rows.Count > 0;
                 if (index >= 0 && index < _rows.Count) FavoritesList.SelectedIndex = index;
-                if (focusWasInList && IsActive && !FavoritesList.IsKeyboardFocusWithin)
+                if (focusWasInList && IsActive && !FavoritesList.IsKeyboardFocusWithin
+                    && ReferenceEquals(Keyboard.FocusedElement, this))
                 {
                     FocusSelectedRow();
                 }
@@ -369,7 +376,7 @@ public partial class SonosFavoritesWindow : Window
                 // daje sie uzyc. Nie przenosimy uzytkownika na liste "dla wygody"
                 // i nie kradniemy fokusu obcemu oknu.
                 else if (focusWasOnPlay && IsActive && !PlayButton.IsKeyboardFocused
-                    && PlayButton.IsEnabled)
+                    && PlayButton.IsEnabled && ReferenceEquals(Keyboard.FocusedElement, this))
                 {
                     PlayButton.Focus();
                     Keyboard.Focus(PlayButton);
@@ -397,6 +404,8 @@ public partial class SonosFavoritesWindow : Window
     /// </summary>
     internal int AnnouncementsForTests { get; private set; }
 
+    private long _ownerFeedbackVersion;
+
     /// <summary>
     /// KOMUNIKAT od WLASCICIELA (okna glownego), ktory zna kontrakt polecenia.
     /// Okno nie tlumaczy statusow HTTP, tylko je pokazuje.
@@ -413,6 +422,7 @@ public partial class SonosFavoritesWindow : Window
     internal void AnnounceForOwner(string message)
     {
         if (_closed) return;
+        _ownerFeedbackVersion++;
         if (!IsActive)
         {
             StatusText.Text = message;

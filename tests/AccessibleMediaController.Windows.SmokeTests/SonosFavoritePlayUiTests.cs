@@ -34,6 +34,8 @@ internal static class SonosFavoritePlayUiTests
         {
             try
             {
+                SynchronizationContext.SetSynchronizationContext(
+                    new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
                 void Stage(string name) => Console.Error.WriteLine("ETAP: " + name);
                 Stage("P1"); checks += MeasureReadOnlyWindowSwallowsEnter();
                 Stage("P2"); checks += MeasureDuplicateNamesSendExactSelectedId();
@@ -41,6 +43,8 @@ internal static class SonosFavoritePlayUiTests
                 Stage("P4"); checks += MeasureHeldAttemptRefusesSecondPost();
                 Stage("P5"); checks += MeasureNoGroupAndEmptyListNeverPost();
                 Stage("N1"); checks += MeasureFocusedPlayButtonKeepsFocus();
+                Stage("N1-choice"); checks += MeasureDeliberateFocusIsNotRestored();
+                Stage("N2"); checks += MeasureImmediateFeedbackHasNoPending();
                 Stage("N3"); checks += MeasureNotSentInstructionNamesRealRecoveryPath();
                 Stage("KONIEC-OKNO");
                 // ETAP B: SPOZNIONY WYNIK na PRODUKCYJNEJ drodze okna glownego.
@@ -501,6 +505,55 @@ internal static class SonosFavoritePlayUiTests
         if (!ui.Window.IsVisible) throw new Exception("Próba z przycisku zamknęła okno.");
 
         return 8;
+    }
+
+    private static int MeasureDeliberateFocusIsNotRestored()
+    {
+        foreach (var fromButton in new[] { true, false })
+        {
+            var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var ui = Fixture.ShowWithPlay(Favorites(("ULU-1", "Nokturny", null, null)),
+                "Salon", _ => held.Task);
+            try
+            {
+                if (fromButton) { ui.FocusPlay(); ui.PressSpaceOnPlay(); }
+                else ui.PressEnterOnList();
+                var close = (Button)ui.Window.FindName("CloseButton")!;
+                close.Focus(); Keyboard.Focus(close);
+                if (!close.IsKeyboardFocused) throw new Exception("Aparatura nie przeszła na Zamknij.");
+                held.TrySetResult();
+                ui.AwaitPlay();
+                if (!close.IsKeyboardFocused)
+                    throw new Exception("N1-choice: koniec zadania odebrał świadomie wybrany fokus Zamknij.");
+            }
+            finally { held.TrySetResult(); ui.AwaitPlay(); }
+        }
+        return 4;
+    }
+
+    private static int MeasureImmediateFeedbackHasNoPending()
+    {
+        foreach (var readStillPending in new[] { false, true })
+        {
+            var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            SonosFavoritesWindow? origin = null;
+            using var ui = Fixture.ShowWithPlay(Favorites(("ULU-1", "Nokturny", null, null)),
+                "Salon", _ =>
+                {
+                    origin!.AnnounceForOwner("Wynik polecenia znany przed powrotem callbacka.");
+                    return readStillPending ? held.Task : Task.CompletedTask;
+                });
+            origin = ui.Window;
+            try
+            {
+                ui.PressEnterOnList();
+                if (origin.AnnouncementsForTests != 1
+                    || origin.StatusForTests != "Wynik polecenia znany przed powrotem callbacka.")
+                    throw new Exception("N2: znany wynik konkuruje z niepotrzebnym Czekaj.");
+            }
+            finally { held.TrySetResult(); ui.AwaitPlay(); }
+        }
+        return 4;
     }
 
     // ==================== aparatura ====================
