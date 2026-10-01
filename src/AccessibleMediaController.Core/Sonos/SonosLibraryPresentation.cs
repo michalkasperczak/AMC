@@ -43,13 +43,15 @@ public static class SonosLibraryPresentation
     public const string FavoritesCategoryName = "Ulubione Sonos";
 
     public const string PlaylistsCategoryName = "Playlisty Sonos";
+    public const string OwnStreamsCategoryId = "sonos.library.ownstreams";
+    public const string OwnStreamsCategoryName = "Moje stacje";
 
     /// <summary>
     /// PIERWSZA tresc widoku. Mowi, CO tu jest, czego tu NIE MA i gdzie szukac
     /// celu sterowania - zeby nikt nie szukal glosnikow w bibliotece materialu.
     /// </summary>
     public const string ViewIntroduction =
-        "Biblioteka Sonos: kategorie materiału z konta. Enter otwiera kategorię. "
+        "Biblioteka Sonos: materiały z konta i stacje zapisane w AMC. Enter otwiera kategorię. "
         + "Głośniki i grupy to nie materiał - cel sterowania wybierasz skrótem Control F5.";
 
     /// <summary>
@@ -84,7 +86,9 @@ public static class SonosLibraryPresentation
         new ReadOnlyCollection<SonosLibraryCategoryRow>(new List<SonosLibraryCategoryRow>
         {
             new(FavoritesCategoryId, FavoritesCategoryName, FavoritesCategoryHint),
-            new(PlaylistsCategoryId, PlaylistsCategoryName, PlaylistsCategoryHint)
+            new(PlaylistsCategoryId, PlaylistsCategoryName, PlaylistsCategoryHint),
+            new(OwnStreamsCategoryId, OwnStreamsCategoryName,
+                "Moje stacje, kategoria. Adresy radia zapisane w AMC, nie w Ulubionych Sonosa.")
         });
 
     /// <summary>
@@ -94,7 +98,8 @@ public static class SonosLibraryPresentation
     /// </summary>
     public static bool IsCategoryId(string? itemId) =>
         string.Equals(itemId, FavoritesCategoryId, StringComparison.Ordinal)
-        || string.Equals(itemId, PlaylistsCategoryId, StringComparison.Ordinal);
+        || string.Equals(itemId, PlaylistsCategoryId, StringComparison.Ordinal)
+        || string.Equals(itemId, OwnStreamsCategoryId, StringComparison.Ordinal);
 
     /// <summary>
     /// ODMOWA dla prob potraktowania kategorii jak materialu (preset, ulubione

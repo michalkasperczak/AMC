@@ -456,6 +456,9 @@ public sealed class ConfigurationStore
     private static void NormalizeSonos(PersistedState state)
     {
         state.Sonos ??= new SonosSessionSettings();
+        state.Sonos.OwnStreams = (state.Sonos.OwnStreams ?? [])
+            .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Id))
+            .DistinctBy(entry => entry.Id, StringComparer.Ordinal).ToList();
         var household = state.Sonos.SelectedHouseholdId?.Trim();
         state.Sonos.SelectedHouseholdId =
             !string.IsNullOrEmpty(household) && Sonos.SonosHouseholdIdPolicy.IsAcceptable(household)

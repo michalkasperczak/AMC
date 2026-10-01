@@ -1602,7 +1602,7 @@ public partial class MainWindow
 internal sealed class SonosAccountOwnerGroupBackend
     : ISonosGroupSessionBackend, ISonosAccountBoundBackend, ISonosFavoritesSessionBackend,
       ISonosFavoriteLoadSessionBackend, ISonosPlaylistsSessionBackend,
-      ISonosPlaylistLoadSessionBackend
+      ISonosPlaylistLoadSessionBackend, ISonosOwnStreamsSessionBackend
 {
     private readonly SonosAccountOwner _owner;
 
@@ -1618,6 +1618,15 @@ internal sealed class SonosAccountOwnerGroupBackend
     /// magazynu, zero sieci. <c>null</c> to NIEZNANE, nie odlaczenie.
     /// </summary>
     public SonosAccountSnapshot? AccountSnapshot => _owner.AccountSnapshot;
+
+    public Task<SonosSessionCreateResult> CreateSessionAsync(string? groupId,
+        SonosSessionRequest request, CancellationToken cancellationToken) =>
+        _owner.CreateSessionAsync(groupId, request, cancellationToken);
+
+    public Task<SonosStreamUrlLoadResult> LoadStreamUrlAsync(string? sessionId, string? streamUrl,
+        bool playOnCompletion, string? itemId, CancellationToken cancellationToken) =>
+        _owner.LoadStreamUrlAsync(sessionId, streamUrl, playOnCompletion, itemId, cancellationToken);
+
 
     public Task<SonosGroupReadResult<SonosGroupPlaybackStatus>> ReadGroupPlaybackAsync(
         string? groupId, CancellationToken cancellationToken) =>

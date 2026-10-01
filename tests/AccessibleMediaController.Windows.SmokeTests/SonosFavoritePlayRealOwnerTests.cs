@@ -34,7 +34,7 @@ using AccessibleMediaController.Windows.Services;
 /// praca wlasciciela - zeby NIE dodawac produkcyjnej fabryki handlera dla
 /// samej wygody testu. To WSTRZYKNIECIE ZALEZNOSCI, nie reczna generacja konta.
 /// </summary>
-internal static class SonosFavoritePlayRealOwnerTests
+internal static partial class SonosFavoritePlayRealOwnerTests
 {
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
@@ -137,6 +137,7 @@ internal static class SonosFavoritePlayRealOwnerTests
         internal RecordingHandler(Func<HttpRequestMessage, string, HttpResponseMessage> reply) => _reply = reply;
 
         internal List<Wire> Requests { get; } = [];
+        internal Func<HttpRequestMessage, string, HttpResponseMessage?>? RouteOverride { get; set; }
 
         /// <summary>WSTRZYMANIE odpowiedzi - do pomiaru zmiany konta W LOCIE.</summary>
         internal Task? Gate { get; set; }
@@ -207,7 +208,7 @@ internal static class SonosFavoritePlayRealOwnerTests
                 if (held is not null) held.Completed = true;
             }
 
-            var response = _reply(request, body);
+            var response = RouteOverride?.Invoke(request, body) ?? _reply(request, body);
             response.RequestMessage ??= request;
             return response;
         }

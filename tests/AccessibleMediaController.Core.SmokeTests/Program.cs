@@ -112,6 +112,11 @@ if (args.Length == 1 && args[0] == "--sonos-playlists")
     try { SonosPlaylistsTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-own-streams")
+{
+    try { SonosOwnStreamsPersistenceTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-stream-url")
 {
     try { SonosStreamUrlTests.Run(); return 0; }
@@ -130,6 +135,7 @@ if (args.Length == 1 && args[0] == "--installer-offline")
 
 var tests = new (string Name, Action Test)[]
 {
+    ("Własne stacje Sonosa: zapis i biblioteka", SonosOwnStreamsPersistenceTests.Run),
     ("Edycja nagrań nie kieruje historii na kopię bezpieczeństwa", AudioEditRenameTests.Run),
     ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),

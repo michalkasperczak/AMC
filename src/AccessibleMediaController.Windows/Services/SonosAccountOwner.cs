@@ -288,6 +288,16 @@ internal sealed class SonosAccountOwner : IDisposable
     /// </summary>
     internal ISonosPlaylistLoadApi EnsurePlaylistLoadApi() => EnsureControlApiClient();
 
+    internal Task<SonosSessionCreateResult> CreateSessionAsync(string? groupId,
+        SonosSessionRequest request, CancellationToken cancellationToken) =>
+        EnsureCoordinator().CreateSessionAsync(EnsureControlApiClient(), groupId, request, cancellationToken);
+
+    internal Task<SonosStreamUrlLoadResult> LoadStreamUrlAsync(string? sessionId, string? streamUrl,
+        bool playOnCompletion, string? itemId, CancellationToken cancellationToken) =>
+        EnsureCoordinator().LoadStreamUrlAsync(EnsureControlApiClient(), sessionId, streamUrl,
+            playOnCompletion, itemId, cancellationToken);
+
+
     /// <summary>
     /// WASKI interfejs GRUP nad tym SAMYM klientem i tym SAMYM koordynatorem.
     /// Leniwy jak reszta: powstaje razem z klientem Control API.

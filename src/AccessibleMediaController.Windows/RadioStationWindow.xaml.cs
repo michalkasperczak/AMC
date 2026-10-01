@@ -5,13 +5,19 @@ namespace AccessibleMediaController.Windows;
 public partial class RadioStationWindow : Window
 {
     private readonly bool _wiiMNetworkStream;
+    private readonly bool _sonosOwnStream;
 
     public RadioStationWindow(
         string? currentName = null,
         string? currentStreamUrl = null,
         bool wiiMNetworkStream = false)
+        : this(currentName, currentStreamUrl, wiiMNetworkStream, false) { }
+
+    internal RadioStationWindow(string? currentName, string? currentStreamUrl,
+        bool wiiMNetworkStream, bool sonosOwnStream)
     {
         InitializeComponent();
+        _sonosOwnStream = sonosOwnStream;
         _wiiMNetworkStream = wiiMNetworkStream;
         var editing = !string.IsNullOrWhiteSpace(currentName) || !string.IsNullOrWhiteSpace(currentStreamUrl);
         Title = wiiMNetworkStream
@@ -33,6 +39,19 @@ public partial class RadioStationWindow : Window
             wiiMNetworkStream
                 ? "Wpisz bezpośredni adres strumienia HTTP lub HTTPS."
                 : "Wpisz bezpośredni adres strumienia, playlisty M3U, M3U8 lub PLS albo publiczny adres trwającej transmisji YouTube.");
+        if (sonosOwnStream)
+        {
+            Title = editing ? "Edytuj własną stację Sonosa" : "Dodaj własną stację Sonosa";
+            HeadingText.Text = Title;
+            HelpText.Text = "Nazwa i adres radia zostaną zapisane tylko w AMC. Zapis nie uruchamia muzyki "
+                + "ani nie dodaje stacji do Ulubionych Sonosa. Odtwarzanie wybierzesz później z listy.";
+            NameLabel.Content = "_Nazwa stacji:";
+            StreamLabel.Content = "Adres _strumienia:";
+            System.Windows.Automation.AutomationProperties.SetName(NameBox, "Nazwa stacji");
+            System.Windows.Automation.AutomationProperties.SetName(StreamBox, "Adres strumienia");
+            System.Windows.Automation.AutomationProperties.SetHelpText(StreamBox,
+                "Bezpośredni adres radia na żywo HTTP lub HTTPS. AMC nie sprawdza go przez pobieranie.");
+        }
         NameBox.Text = currentName ?? string.Empty;
         StreamBox.Text = currentStreamUrl ?? string.Empty;
         Loaded += (_, _) =>
@@ -43,7 +62,7 @@ public partial class RadioStationWindow : Window
     }
 
     public string StationName => NameBox.Text.Trim();
-    public string StreamUrl => StreamBox.Text.Trim();
+    public string StreamUrl => _sonosOwnStream ? StreamBox.Text : StreamBox.Text.Trim();
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -57,11 +76,12 @@ public partial class RadioStationWindow : Window
             NameBox.Focus();
             return;
         }
-        if (!Uri.TryCreate(StreamUrl, UriKind.Absolute, out var uri)
+        if ((_sonosOwnStream && !AccessibleMediaController.Core.Sonos.SonosStreamUrlPolicy.IsAcceptable(StreamUrl))
+            || !Uri.TryCreate(StreamUrl, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https"))
         {
             AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
-                _wiiMNetworkStream
+                (_wiiMNetworkStream || _sonosOwnStream)
                     ? "Wpisz pełny adres strumienia rozpoczynający się od http:// lub https://."
                     : "Wpisz pełny adres strumienia lub transmisji YouTube rozpoczynający się od http:// lub https://.",
                 Title,

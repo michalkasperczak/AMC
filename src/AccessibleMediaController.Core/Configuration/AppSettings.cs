@@ -886,6 +886,15 @@ public sealed class SonosSessionSettings
 
     /// <summary>Identyfikator wybranej grupy (group.id) albo null.</summary>
     public string? SelectedGroupId { get; set; }
+
+    public List<SonosOwnStreamSettings> OwnStreams { get; set; } = [];
+}
+
+public sealed class SonosOwnStreamSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string StreamUrl { get; set; } = string.Empty;
 }
 
 public sealed class WiiMSettings

@@ -1,5 +1,21 @@
 # Zadania testowe AMC
 
+## Sonos: Moje stacje — własne adresy radia
+
+1. W sesji Sonos wybierz Ctrl+L, „Moje stacje”, Enter. Pusta lista kieruje fokus do Dodaj. Samo przeglądanie niczego nie uruchamia.
+2. Dodaj: pola „Nazwa stacji” i „Adres strumienia”, potem Zapisz. Podaj bezpośredni URL HTTP/HTTPS, bez spacji; adres nie jest naprawiany ani pobierany przez AMC. Zapis jest lokalny, nie dodaje Sonos Favorite ani wpisu TuneIn.
+3. Na zapisanej stacji Enter/Odtwórz przygotowuje sesję Sonosa na aktualnie wskazanej grupie i przekazuje URL. Bez wybranej grupy: zamknij okno i wybierz cel przez Ctrl+F5. Przyjęcie żądania nie jest potwierdzeniem dźwięku.
+4. Edytuj zachowuje ID wpisu. Usuń pyta o zgodę i dotyczy tylko listy AMC, nie odtwarzania. Anuluj/Escape w edytorze niczego nie zapisuje. Po zamknięciu wraca fokus do AMC.
+
+Odbiór tego przyrostu na Hermesie, bez realnego konta i muzyki:
+- Core `--sonos-own-streams`: 8 sprawdzeń rzeczywistego zapisu/odczytu, edycji i usunięcia, ID, dosłownego URL, zachowania grupy i wejścia Biblioteki. Początkowy test 5 warunków wykazał brak zachowania stacji przed implementacją; rozszerzenia sprawdzono po dodaniu kodu.
+- Windows `--sonos-own-streams-main`: 4 przypadki na prawdziwym MainWindow/owner/kliencie i syntetycznym HTTP: dwa właściwe POST, błędny URL bez POST, brak celu bez POST, zmiana konta podczas pierwszego POST bez drugiego zapisu. Pierwszy timeout pochodził z blokującego ticku timera testowego; poprawiono odroczenie wejścia w modal, nie produkt.
+- Sąsiednie `--sonos-library-ui` 45 i `--sonos-navigation-ux` 43 zaliczone. Oczekiwania liczby kategorii zaktualizowane z 2 do 3; nie osłabiono ochrony oddzielenia grup od materiału.
+- Żywy NVDA i prawdziwy Podgląd mowy: nowa kategoria → pusta lista/Dodaj → etykiety pól → zapis bez POST → Enter (2 POST, dosłowny URL) → edycja ze stałym ID → ponowne otwarcie → potwierdzone usunięcie → anulowanie dodawania → powrót. Dostarczone do czytnika komunikaty Dodano/Przyjęto/Zmieniono/Usunięto/Bez zmian potwierdzone transkrypcją. Dane w polach podano kontrolowanym wejściem harnessu, przejścia i zatwierdzenia natywnymi klawiszami.
+- Własny harness oraz otwarty do próby Podgląd mowy zamknięte; działająca instalacja i NVDA nietknięte. Pełny zestaw oraz realny Sonos pozostają bramką wydania; brak potwierdzenia radia bez serwera cloud queue.
+
+
+
 ## Sonos: własne radio w Core (utworzenie sesji i wczytanie adresu) — jak sprawdzić
 
 **Nie ma tu nic do sprawdzenia ręcznie w AMC.** Ten przyrost dodaje wyłącznie

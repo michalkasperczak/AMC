@@ -130,6 +130,13 @@ public partial class MainWindow
             return;
         }
 
+        if (string.Equals(row.CategoryId, SonosLibraryPresentation.OwnStreamsCategoryId,
+            StringComparison.Ordinal))
+        {
+            ShowSonosOwnStreams();
+            return;
+        }
+
         // NIEZNANY identyfikator: cisza byla by najgorsza odpowiedzia.
         Announce("Ta kategoria Biblioteki Sonos nie ma jeszcze własnej listy.");
     }

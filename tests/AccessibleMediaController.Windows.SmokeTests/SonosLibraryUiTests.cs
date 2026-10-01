@@ -77,10 +77,10 @@ internal static class SonosLibraryUiTests
         using var ui = LibraryFixture.ShowLibrary(open: null);
         var checks = 0;
 
-        if (ui.Window.CategoryCountForTests != 2)
+        if (ui.Window.CategoryCountForTests != 3)
         {
             throw new Exception(
-                "Biblioteka ma pokazywać dokładnie dwie kategorie, pokazała: "
+                "Biblioteka ma pokazywać trzy kategorie, w tym własne stacje, pokazała: "
                 + ui.Window.CategoryCountForTests);
         }
 

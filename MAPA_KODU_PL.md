@@ -1,5 +1,15 @@
 # AMC — mapa kodu
 
+## Sonos: własne stacje zapisane w AMC
+
+- `SonosSessionSettings.OwnStreams` / `SonosOwnStreamSettings` (`AppSettings.cs`) przechowują ID, nazwę i dosłowny URL. `ConfigurationStore.NormalizeSonos` odtwarza pustą listę starego formatu i usuwa powtórzone ID; wybór konta/grupy nie kasuje lokalnych stacji.
+- `SonosLibraryPresentation` dodaje kategorię „Moje stacje”. `MainWindow.SonosLibrary.cs` kieruje ją do `MainWindow.SonosOwnStreams.cs`.
+- `SonosOwnStreamsWindow.xaml(.cs)` udostępnia listę, Odtwórz, Dodaj, Edytuj, Usuń i Zamknij. `RadioStationWindow` zachowuje dawny konstruktor i ma osobny wariant Sonosa: dwa pola, ścisły dosłowny URL, bez pobierania adresu i bez autostartu po zapisie.
+- `ISonosOwnStreamsSessionBackend` i cienkie metody istniejącego `SonosAccountOwnerGroupBackend`/`SonosAccountOwner` korzystają z odebranego koordynatora i klienta. Enter: walidacja → `createSession` → potwierdzone ID sesji → `loadStreamUrl` z jawnym autostartem. Bez drugiego Play, automatycznego ponowienia, zapisu ID sesji w ustawieniach i bez tworzenia Sonos Favorite.
+- Caller zachowuje wspólną bramkę poleceń oraz sprawdza konto, dom, grupę i życie okna między dwoma zapisami. Po zmianie kontekstu nie przekazuje adresu do starej sesji.
+- Odbiór: Core `--sonos-own-streams`; Windows `--sonos-own-streams-main`; żywy NVDA na izolowanej kopii. Testy rzeczywistego konta/głośnika i skutku audio pozostają osobną bramką. Presety i przebudowa grup to następne etapy.
+
+
 ## Sonos: WŁASNE RADIO — sesja odtwarzania i adres strumienia, warstwa Core (bez UI)
 
 **Tylko Core.** Ten przyrost dodaje **dwie** operacje sesji odtwarzania:

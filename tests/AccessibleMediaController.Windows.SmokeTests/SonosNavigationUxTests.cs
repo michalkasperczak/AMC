@@ -136,16 +136,17 @@ internal static class SonosNavigationUxTests
 
         // KATEGORIE MATERIALU, nie glosniki.
         var categories = opened.CategoryNamesForTests;
-        if (categories.Count != 2)
+        if (categories.Count != 3)
         {
             throw new Exception(
-                $"Biblioteka ma {categories.Count} kategorii zamiast Ulubionych i Playlist: "
+                $"Biblioteka ma {categories.Count} kategorii zamiast Ulubionych, Playlist i Moich stacji: "
                 + string.Join(" | ", categories));
         }
 
         var surface = string.Join(" | ", categories);
         if (!surface.Contains("Ulubione", StringComparison.Ordinal)
-            || !surface.Contains("Playlisty", StringComparison.Ordinal))
+            || !surface.Contains("Playlisty", StringComparison.Ordinal)
+            || !surface.Contains("Moje stacje", StringComparison.Ordinal))
         {
             throw new Exception("Biblioteka nie pokazuje Ulubionych i Playlist: " + surface);
         }
