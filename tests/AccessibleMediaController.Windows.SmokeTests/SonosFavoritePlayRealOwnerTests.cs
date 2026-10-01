@@ -97,6 +97,8 @@ internal static class SonosFavoritePlayRealOwnerTests
             Measure("R4", "zmiana konta PRZED pierwszym Enter: pierwszy Enter konczy sie "
                 + "ZEROWYM POST i jawnym niewyslaniem, nigdy na Czekaj",
                 MeasureAccountSwapBeforeFirstEnter),
+            Measure("R5", "zmiana konta podczas odnowienia PRZED POST: zero POST i jawne niewyslanie",
+                MeasureAccountSwapDuringPreSendRenewal),
             Measure("R3", "busy i pusta lista NIE wysylaja zadnego POST, "
                 + "a samo otwarcie i zmiana zaznaczenia nie ruszaja transportu", MeasureRefusalsNeverPost),
         ];
@@ -257,21 +259,29 @@ internal static class SonosFavoritePlayRealOwnerTests
     {
         internal string NextAccess = "SYNTETYCZNY-ACCESS-B";
         internal string NextRefresh = "SYNTETYCZNY-REFRESH-B";
+        internal Func<DateTimeOffset> Clock = () => DateTimeOffset.UtcNow;
+        internal Task<SonosRefreshOutcome>? HeldRefresh;
+        internal int RefreshCalls;
 
         public Task<SonosLoginStartOutcome> StartAsync(CancellationToken cancellationToken) =>
             Task.FromResult(SonosLoginStartOutcome.Ok(new SonosLoginSession(
                 "sesja-proby",
                 new string('a', 48),
                 new Uri("https://api.sonos.com/login/v3/oauth"),
-                DateTimeOffset.UtcNow.AddMinutes(5))));
+                Clock().AddMinutes(5))));
 
         public Task<SonosLoginResultOutcome> FetchResultAsync(
             SonosLoginSession session, CancellationToken cancellationToken) =>
             Task.FromResult(SonosLoginResultOutcome.Ok(new SonosTokens(
                 NextAccess, "Bearer", 3600, NextRefresh, "playback-control-all")));
 
-        public Task<SonosRefreshOutcome> RefreshAsync(string? refreshToken, CancellationToken cancellationToken) =>
-            throw new Exception("Pomiar F3c nie ma prawa odnawiać dostępu Sonos.");
+        public Task<SonosRefreshOutcome> RefreshAsync(string? refreshToken, CancellationToken cancellationToken)
+        {
+            RefreshCalls++;
+            // R5 deliberately returns late despite cancellation after account replacement.
+            // Other cases still fail before any real renewal/network operation.
+            return HeldRefresh ?? throw new Exception("Nieplanowane odnowienie w próbie F3c.");
+        }
     }
 
     // ==================== SYNTETYCZNA TOPOLOGIA ====================
@@ -819,6 +829,61 @@ internal static class SonosFavoritePlayRealOwnerTests
 
         return "otwarcie i zmiana zaznaczenia 0 POST, pusta lista 0 POST, przycisk 1 POST, "
             + "drugi Enter w trakcie zlecenia 1 POST";
+    }
+
+    private static string MeasureAccountSwapDuringPreSendRenewal()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
+        var now = DateTimeOffset.UtcNow;
+        var release = new TaskCompletionSource<SonosRefreshOutcome>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var response = SonosRefreshOutcome.Ok(new SonosTokens(
+            "SYNTETYCZNY-POZNY-ACCESS-A", "Bearer", 3600,
+            "SYNTETYCZNY-POZNY-REFRESH-A", "playback-control-all"));
+        Task? taskA = null;
+        var status = string.Empty;
+        harness.RunFavoritesModal(window =>
+        {
+            // Inject only a time dependency into the real, normally constructed coordinator.
+            // No account generation, saved selection or result is forged. Entry GETs have
+            // already completed; only now does the original account expire.
+            var clockField = typeof(SonosAccountCoordinator).GetField("clock", Instance)
+                ?? throw new Exception("Brak zależności zegara koordynatora.");
+            clockField.SetValue(harness.Coordinator, (Func<DateTimeOffset>)(() => now));
+            harness.Gateway.Clock = () => now;
+            harness.Gateway.HeldRefresh = release.Task;
+            now = now.AddHours(2);
+            try
+            {
+                window.PressEnterForTests();
+                taskA = window.LastPlayTaskForTests
+                    ?? throw new Exception("R5: brak zadania uruchomienia.");
+                harness.PumpUntil(() => harness.Gateway.RefreshCalls == 1,
+                    TimeSpan.FromSeconds(5), "R5: nie rozpoczęto odnowienia przed POST");
+                if (taskA.IsCompleted || harness.Handler.Posts.Count != 0)
+                    throw new Exception("R5: brak rzeczywistego oczekiwania przed wysłaniem.");
+                harness.SwapAccount("KONTO-R5-B");
+                release.TrySetResult(response);
+                harness.Pump(taskA);
+                status = window.StatusForTests;
+                if (harness.Handler.Posts.Count != 0)
+                    throw new Exception("R5: stare polecenie wyszło po wymianie konta.");
+                if (!status.Contains("nie zostało wysłane", StringComparison.Ordinal)
+                    || status == SonosFavoritesLabels.PlayPending
+                    || status.Contains("Podjęto próbę", StringComparison.Ordinal))
+                    throw new Exception("R5: zero POST, ale nieuczciwy wynik: " + status);
+                if (!harness.Store.Access.EndsWith("KONTO-R5-B", StringComparison.Ordinal))
+                    throw new Exception("R5: spóźnione odnowienie nadpisało nowe konto.");
+            }
+            finally
+            {
+                release.TrySetResult(response);
+                if (taskA is not null) harness.Pump(taskA);
+            }
+        });
+        return "odnowienie rozpoczęte przy nieukończonym zadaniu, publiczna wymiana konta, "
+            + "0 POST, nowe konto zachowane, status: " + status;
     }
 
     // ==================== APARATURA REALNEJ DROGI ====================
