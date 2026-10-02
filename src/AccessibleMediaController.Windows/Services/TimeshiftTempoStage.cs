@@ -1,6 +1,6 @@
 using System;
 using NAudio.Wave;
-using SoundTouch.Net.NAudioSupport;
+using AccessibleMediaController.Core.Configuration;
 
 namespace AccessibleMediaController.Windows.Services;
 
@@ -34,7 +34,7 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
 
     private readonly object _gate = new();
     private readonly FloatConversionWaveStream _float;
-    private readonly SoundTouchWaveStream _soundTouch;
+    private readonly PlaybackTempoStream _soundTouch;
     private readonly Func<TimeSpan> _behindLive;
     private double _requestedTempo = 1d;
     private double _effectiveTempo = 1d;
@@ -43,7 +43,7 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
 
     private TimeshiftTempoStage(
         FloatConversionWaveStream floatStream,
-        SoundTouchWaveStream soundTouch,
+        PlaybackTempoStream soundTouch,
         Func<TimeSpan> behindLive)
     {
         _float = floatStream;
@@ -59,7 +59,8 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
     /// <param name="behindLive">Ile materialu zostalo do czola transmisji.</param>
     public static TimeshiftTempoStage? TryCreate(
         IWaveProvider bufferedSource,
-        Func<TimeSpan> behindLive)
+        Func<TimeSpan> behindLive,
+        PlaybackTempoAlgorithm algorithm = PlaybackTempoAlgorithm.SoundTouch)
     {
         ArgumentNullException.ThrowIfNull(bufferedSource);
         ArgumentNullException.ThrowIfNull(behindLive);
@@ -68,12 +69,19 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
         {
             floatStream = FloatConversionWaveStream.TryCreate(bufferedSource);
             if (floatStream is null) return null;
-            var soundTouch = new SoundTouchWaveStream(floatStream)
+            // Ten sam wybor algorytmu, co w torze plikow. Brak natywnego
+            // silnika konczy sie jawnym wpisem i powrotem do SoundTouch, nie
+            // udawaniem nowego algorytmu.
+            var soundTouch = PlaybackTempoStream.Create(floatStream, algorithm, out var fallbackReason);
+            soundTouch.Tempo = 1d;
+            soundTouch.Pitch = 1d;
+            soundTouch.Rate = 1d;
+            if (fallbackReason is not null)
             {
-                Tempo = 1d,
-                Pitch = 1d,
-                Rate = 1d
-            };
+                DiagnosticLog.Error(
+                    "radio-playback",
+                    $"Wybrany algorytm tempa ({algorithm}) jest niedostępny w buforze transmisji, użyto SoundTouch. {fallbackReason}");
+            }
             return new TimeshiftTempoStage(floatStream, soundTouch, behindLive);
         }
         catch (Exception exception) when (exception is ArgumentException
@@ -84,6 +92,9 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
             return null;
         }
     }
+
+    /// <summary>Nazwa silnika faktycznie uzywanego w buforze transmisji.</summary>
+    internal string EngineName => _soundTouch.EngineName;
 
     public WaveFormat WaveFormat => _float.WaveFormat;
 
@@ -137,7 +148,7 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
             moveBuffer();
             // SoundTouchWaveStream.Flush clears its processor's queued audio
             // (verified against the pinned SoundTouch.Net 2.3.2 source).
-            _soundTouch.Flush();
+            _soundTouch.FlushProcessor();
             ApplyTempoLocked(returnToLive ? 1d : ResolveEffectiveTempo(_requestedTempo, 0));
             _engaged = Math.Abs(_effectiveTempo - 1d) > 0.001d;
         }

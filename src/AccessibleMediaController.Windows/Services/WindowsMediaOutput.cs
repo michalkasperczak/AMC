@@ -115,7 +115,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         public WasapiOut Output => OutputLease.Output;
         public required GuardedWaveStream DecoderGuard { get; init; }
         public required DecoderReadMonitorSampleProvider OutputReadMonitor { get; init; }
-        public required SoundTouchWaveStream TempoStream { get; init; }
+        public required PlaybackTempoStream TempoStream { get; init; }
         public required LoudnessNormalizationSampleProvider LoudnessNormalizer { get; init; }
         public required VolumeSampleProvider VolumeProvider { get; init; }
         public required TrackTransitionSampleProvider TransitionProvider { get; init; }
@@ -167,6 +167,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private bool _loudnessNormalizationEnabled;
     private bool _smoothTrackTransitionsEnabled;
     private int _interTrackSilenceMilliseconds;
+    private PlaybackTempoAlgorithm _tempoAlgorithm = PlaybackTempoAlgorithm.SoundTouch;
     private string? _outputDeviceId;
     private Func<MediaItem, PlaybackAudioSettings>? _audioProcessingResolver;
     private DateTimeOffset _nextAutomaticStartNotBeforeUtc;
@@ -222,6 +223,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             _loudnessNormalizationEnabled = settings.LoudnessNormalizationEnabled;
             _smoothTrackTransitionsEnabled = settings.SmoothTrackTransitionsEnabled;
             _interTrackSilenceMilliseconds = settings.InterTrackSilenceMilliseconds;
+            // Zmiana algorytmu dotyczy nastepnego otwarcia materialu - nie
+            // przebudowujemy toru w trakcie gry, zeby nie przerwac dzwieku.
+            _tempoAlgorithm = settings.TempoAlgorithm;
             pipeline = _pipeline;
         }
         if (pipeline is null) return;
@@ -606,22 +610,29 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             allowManagedMp3Fallback: true,
             mayRequireRemoteAccess);
         var reader = selection.Reader;
-        SoundTouchWaveStream? tempoStream = null;
+        PlaybackTempoStream? tempoStream = null;
         AudioOutputDeviceLease? outputLease = null;
         try
         {
-            tempoStream = new SoundTouchWaveStream(reader)
-            {
-                Tempo = 1d,
-                Pitch = 1d,
-                Rate = 1d
-            };
             bool normalizeLoudness;
             bool smoothTrackTransitions;
+            PlaybackTempoAlgorithm tempoAlgorithm;
             lock (_gate)
             {
                 normalizeLoudness = _loudnessNormalizationEnabled;
                 smoothTrackTransitions = _smoothTrackTransitionsEnabled;
+                tempoAlgorithm = _tempoAlgorithm;
+            }
+            tempoStream = PlaybackTempoStream.Create(reader, tempoAlgorithm, out var tempoFallbackReason);
+            tempoStream.Tempo = 1d;
+            tempoStream.Pitch = 1d;
+            tempoStream.Rate = 1d;
+            if (tempoFallbackReason is not null)
+            {
+                // Brak natywnego silnika nie moze byc cichy ani udawany.
+                DiagnosticLog.Error(
+                    "playback-tempo",
+                    $"Wybrany algorytm tempa ({tempoAlgorithm}) jest niedostępny, użyto SoundTouch. {tempoFallbackReason}");
             }
             var loudnessNormalizer = new LoudnessNormalizationSampleProvider(
                 tempoStream.ToSampleProvider(),
@@ -1374,6 +1385,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             resolved = pipeline.TempoStream.TotalTime;
         }
         pipeline.TempoStream.CurrentTime = resolved;
+        // Po przeskoku zaden dzwiek ze starego miejsca nie moze zostac w
+        // silniku. SoundTouch i silniki natywne czyszcza to tym samym
+        // wywolaniem.
+        pipeline.TempoStream.FlushProcessor();
     }
 
     private async Task MonitorDecoderAsync(PlaybackPipeline pipeline)

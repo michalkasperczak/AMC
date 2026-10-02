@@ -51,6 +51,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
     private int _volume = 35;
     // Predkosc odsluchu bufora transmisji (1.0 = normalna).
     private double _playbackRate = 1d;
+    private PlaybackTempoAlgorithm _tempoAlgorithm = PlaybackTempoAlgorithm.SoundTouch;
     private string? _outputDeviceId;
     private long _requestVersion;
     private bool _preparing;
@@ -347,9 +348,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             // (dekoder, bufor i nagrywanie zostaja nietkniete), a przy braku
             // zapasu etap sam wraca do 1,0x, zeby nie "przyspieszac ciszy".
             var timeshiftStream = new TimeshiftWaveStream(buffer);
+            PlaybackTempoAlgorithm tempoAlgorithm;
+            lock (_gate) tempoAlgorithm = _tempoAlgorithm;
             var tempoStage = TimeshiftTempoStage.TryCreate(
                 timeshiftStream,
-                () => buffer.BehindLive);
+                () => buffer.BehindLive,
+                tempoAlgorithm);
             if (tempoStage is not null)
             {
                 tempoStage.NormalTempoResumed += TempoStage_NormalTempoResumed;
@@ -1029,6 +1033,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             _volume = Math.Clamp(volume, 0, 100);
             if (_pipeline is not null) _pipeline.Volume.Volume = _volume / 100f;
         }
+    }
+
+    /// <summary>
+    /// Ustawia algorytm tempa uzywany w buforze transmisji. Zmiana dotyczy
+    /// nastepnego uruchomienia stacji - nie przebudowujemy grajacego toru.
+    /// </summary>
+    public void ConfigureTempoAlgorithm(PlaybackTempoAlgorithm algorithm)
+    {
+        lock (_gate) _tempoAlgorithm = algorithm;
     }
 
     public void SetPlaybackRate(double playbackRate)

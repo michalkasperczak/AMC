@@ -52,7 +52,11 @@ public static class PodcastPlaybackSettingsResolver
             InterTrackSilenceMilliseconds = episode?.InterTrackSilenceMillisecondsOverride
                 ?? subscription?.InterTrackSilenceMillisecondsOverride
                 ?? session?.InterTrackSilenceMillisecondsOverride
-                ?? global.InterTrackSilenceMilliseconds
+                ?? global.InterTrackSilenceMilliseconds,
+            TempoAlgorithm = episode?.TempoAlgorithmOverride
+                ?? subscription?.TempoAlgorithmOverride
+                ?? session?.TempoAlgorithmOverride
+                ?? global.TempoAlgorithm
         };
     }
 

@@ -14,7 +14,8 @@ public sealed record LocalPlaybackAudioSettingsResolution(
     PlaybackAudioSettings Settings,
     LocalPlaybackAudioSettingSource LoudnessNormalizationSource,
     LocalPlaybackAudioSettingSource SmoothTrackTransitionsSource,
-    LocalPlaybackAudioSettingSource InterTrackSilenceSource);
+    LocalPlaybackAudioSettingSource InterTrackSilenceSource,
+    LocalPlaybackAudioSettingSource TempoAlgorithmSource = LocalPlaybackAudioSettingSource.Global);
 
 public static class LocalPlaybackAudioSettingsResolver
 {
@@ -56,6 +57,8 @@ public static class LocalPlaybackAudioSettingsResolver
             option.SmoothTrackTransitionsOverride.HasValue);
         var silenceFolder = folders.FirstOrDefault(option =>
             option.InterTrackSilenceMillisecondsOverride.HasValue);
+        var tempoFolder = folders.FirstOrDefault(option =>
+            option.TempoAlgorithmOverride.HasValue);
 
         var settings = new PlaybackAudioSettings
         {
@@ -70,7 +73,11 @@ public static class LocalPlaybackAudioSettingsResolver
             InterTrackSilenceMilliseconds = itemSettings?.InterTrackSilenceMillisecondsOverride
                 ?? silenceFolder?.InterTrackSilenceMillisecondsOverride
                 ?? sessionSettings?.InterTrackSilenceMillisecondsOverride
-                ?? globalSettings.InterTrackSilenceMilliseconds
+                ?? globalSettings.InterTrackSilenceMilliseconds,
+            TempoAlgorithm = itemSettings?.TempoAlgorithmOverride
+                ?? tempoFolder?.TempoAlgorithmOverride
+                ?? sessionSettings?.TempoAlgorithmOverride
+                ?? globalSettings.TempoAlgorithm
         };
 
         return new LocalPlaybackAudioSettingsResolution(
@@ -86,7 +93,11 @@ public static class LocalPlaybackAudioSettingsResolver
             ResolveSource(
                 itemSettings?.InterTrackSilenceMillisecondsOverride.HasValue == true,
                 silenceFolder is not null,
-                sessionSettings?.InterTrackSilenceMillisecondsOverride.HasValue == true));
+                sessionSettings?.InterTrackSilenceMillisecondsOverride.HasValue == true),
+            ResolveSource(
+                itemSettings?.TempoAlgorithmOverride.HasValue == true,
+                tempoFolder is not null,
+                sessionSettings?.TempoAlgorithmOverride.HasValue == true));
     }
 
     private static LocalPlaybackAudioSettingSource ResolveSource(

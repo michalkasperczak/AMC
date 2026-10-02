@@ -77,7 +77,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                            smooth_track_transitions_override,
                            inter_track_silence_ms_override, clip_start_ticks,
                            clip_end_ticks, is_radio_recording,
-                           radio_recording_completed_utc_ticks
+                           radio_recording_completed_utc_ticks,
+                           tempo_algorithm_override
                     FROM local_items
                     ORDER BY rowid;
                     """;
@@ -110,6 +111,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 21),
                         ClipStartTicks = NullableInt64(reader, 22),
                         ClipEndTicks = NullableInt64(reader, 23),
+                        TempoAlgorithmOverride = NullableTempoAlgorithm(reader, 26),
                         IsRadioRecording = reader.GetInt64(24) != 0,
                         RadioRecordingCompletedUtcTicks = reader.GetInt64(25)
                     });
@@ -138,7 +140,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     SELECT path, resume_mode, playback_rate_override, output_device_id,
                            loudness_normalization_override,
                            smooth_track_transitions_override,
-                           inter_track_silence_ms_override
+                           inter_track_silence_ms_override,
+                           tempo_algorithm_override
                     FROM folder_playback_options ORDER BY ordinal;
                     """;
                 using var reader = command.ExecuteReader();
@@ -152,7 +155,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         OutputDeviceId = NullableString(reader, 3),
                         LoudnessNormalizationOverride = NullableBool(reader, 4),
                         SmoothTrackTransitionsOverride = NullableBool(reader, 5),
-                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 6)
+                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 6),
+                        TempoAlgorithmOverride = NullableTempoAlgorithm(reader, 7)
                     });
                 }
             }
@@ -373,6 +377,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 loudness_normalization_override INTEGER NULL,
                 smooth_track_transitions_override INTEGER NULL,
                 inter_track_silence_ms_override INTEGER NULL,
+                tempo_algorithm_override INTEGER NULL,
                 clip_start_ticks INTEGER NULL,
                 clip_end_ticks INTEGER NULL,
                 is_radio_recording INTEGER NOT NULL DEFAULT 0,
@@ -396,7 +401,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 output_device_id TEXT NULL,
                 loudness_normalization_override INTEGER NULL,
                 smooth_track_transitions_override INTEGER NULL,
-                inter_track_silence_ms_override INTEGER NULL
+                inter_track_silence_ms_override INTEGER NULL,
+                tempo_algorithm_override INTEGER NULL
             );
             CREATE TABLE IF NOT EXISTS excluded_paths (
                 ordinal INTEGER PRIMARY KEY,
@@ -502,6 +508,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         EnsureColumn(connection, "local_items", "loudness_normalization_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "smooth_track_transitions_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "inter_track_silence_ms_override", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "tempo_algorithm_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_start_ticks", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_end_ticks", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "is_radio_recording", "INTEGER NOT NULL DEFAULT 0");
@@ -512,6 +519,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         EnsureColumn(connection, "folder_playback_options", "loudness_normalization_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "smooth_track_transitions_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "inter_track_silence_ms_override", "INTEGER NULL");
+        EnsureColumn(connection, "folder_playback_options", "tempo_algorithm_override", "INTEGER NULL");
         using (var version = connection.CreateCommand())
         {
             version.CommandText = $"PRAGMA user_version = {DatabaseSchemaVersion};";
@@ -556,13 +564,13 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     file_length, last_write_utc_ticks, loudness_normalization_override,
                     smooth_track_transitions_override, inter_track_silence_ms_override,
                     clip_start_ticks, clip_end_ticks, is_radio_recording,
-                    radio_recording_completed_utc_ticks)
+                    radio_recording_completed_utc_ticks, tempo_algorithm_override)
                 VALUES(
                     $id, $title, $custom, $path, $duration, $bitrate, $estimated,
                     $sampleRate, $favorite, $library, $available, $queue, $playNext,
                     $resumeMode, $rate, $device, $resumePosition, $fileLength, $lastWrite,
                     $normalize, $transitions, $silence, $clipStart, $clipEnd,
-                    $radioRecording, $radioRecordingCompleted);
+                    $radioRecording, $radioRecordingCompleted, $tempoAlgorithm);
                 """,
                 ("$id", item.Id), ("$title", item.Title), ("$custom", item.HasCustomTitle),
                 ("$path", item.Path), ("$duration", item.DurationTicks),
@@ -580,7 +588,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 ("$clipStart", item.ClipStartTicks),
                 ("$clipEnd", item.ClipEndTicks),
                 ("$radioRecording", item.IsRadioRecording),
-                ("$radioRecordingCompleted", item.RadioRecordingCompletedUtcTicks));
+                ("$radioRecordingCompleted", item.RadioRecordingCompletedUtcTicks),
+                ("$tempoAlgorithm", (int?)item.TempoAlgorithmOverride));
         }
 
         for (var index = 0; index < state.LocalMedia.FolderSources.Count; index++)
@@ -600,14 +609,16 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 INSERT INTO folder_playback_options(
                     ordinal, path, resume_mode, playback_rate_override, output_device_id,
                     loudness_normalization_override, smooth_track_transitions_override,
-                    inter_track_silence_ms_override)
-                VALUES($ordinal, $path, $mode, $rate, $device, $normalize, $transitions, $silence);
+                    inter_track_silence_ms_override, tempo_algorithm_override)
+                VALUES($ordinal, $path, $mode, $rate, $device, $normalize, $transitions, $silence,
+                    $tempoAlgorithm);
                 """,
                 ("$ordinal", index), ("$path", option.Path), ("$mode", (int)option.ResumePositionMode),
                 ("$rate", option.PlaybackRateOverride), ("$device", option.OutputDeviceId),
                 ("$normalize", option.LoudnessNormalizationOverride),
                 ("$transitions", option.SmoothTrackTransitionsOverride),
-                ("$silence", option.InterTrackSilenceMillisecondsOverride));
+                ("$silence", option.InterTrackSilenceMillisecondsOverride),
+                ("$tempoAlgorithm", (int?)option.TempoAlgorithmOverride));
         }
 
         InsertOrderedStrings(connection, transaction, "excluded_paths", "path", state.LocalMedia.ExcludedPaths);
@@ -846,6 +857,22 @@ internal sealed class LocalLibraryDatabase(string databasePath)
 
     private static int? NullableInt32(SqliteDataReader reader, int index) =>
         reader.IsDBNull(index) ? null : reader.GetInt32(index);
+
+    /// <summary>
+    /// Czyta wybor algorytmu tempa. Nieznana liczba (np. baza po cofnieciu
+    /// programu do starszego wydania) nie wywraca biblioteki, tylko znaczy "bez
+    /// odstepstwa", wiec zostaje dotychczasowe zachowanie.
+    /// </summary>
+    private static PlaybackTempoAlgorithm? NullableTempoAlgorithm(
+        SqliteDataReader reader,
+        int index)
+    {
+        if (reader.IsDBNull(index)) return null;
+        var value = reader.GetInt32(index);
+        return Enum.IsDefined(typeof(PlaybackTempoAlgorithm), value)
+            ? (PlaybackTempoAlgorithm)value
+            : null;
+    }
 
     private static long? NullableInt64(SqliteDataReader reader, int index) =>
         reader.IsDBNull(index) ? null : reader.GetInt64(index);

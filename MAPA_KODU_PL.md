@@ -1409,7 +1409,13 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 ## Uzupełnienie: tempo TimeShift, alfa 396
 
 - `Core/Playback/IPlaybackRateStateOutput.cs`: opcjonalny odczyt przyjętego tempa; `DemoMediaSession` korzysta z niego zamiast potwierdzać samo żądanie.
-- `Windows/Services/TimeshiftTempoStage.cs`: zmiana tempa za buforem, konwersja PCM16 do float32, ochrona zapasu, natychmiastowy odczyt ustawienia oraz wspólna blokada odczytu, przewijania i zwalniania zasobów.
+- `Windows/Services/TimeshiftTempoStage.cs`: zmiana tempa za buforem, konwersja PCM16 do float32, ochrona zapasu, natychmiastowy odczyt ustawienia oraz wspólna blokada odczytu, przewijania i zwalniania zasobów. Etap przyjmuje wybrany algorytm tempa i stawia za buforem albo SoundTouch, albo silnik natywny.
+- Wybór algorytmu tempa (Dotychczasowe/Mowa/Muzyka):
+  - `Core/Configuration/AppSettings.cs`: `PlaybackTempoAlgorithm` (0 = SoundTouch, 1 = Speech, 2 = Music) oraz `PlaybackAudioSettings.TempoAlgorithm`; nadpisania per plik, folder, sesja i podcast.
+  - `Windows/Services/PlaybackTempoStream.cs`: wspólna podstawa etapu tempa; `SoundTouchTempoStream` opakowuje dotychczasowy `SoundTouchWaveStream`.
+  - `Windows/Services/NativeTempoStream.cs`: etap oparty na silnikach natywnych; pozycja i długość brane wprost z czytnika źródła, bo Speedy przyspiesza nieliniowo.
+  - `Windows/Services/AmcTempoNativeLibrary.cs`: wejście P/Invoke do `AmcTempoEngines.dll` wraz ze sprawdzeniem wersji ABI i jawnym powodem niedostępności.
+  - `native/AmcTempoEngines/`: własny adapter C (`src/`), przypięte źródła obce (`vendor/`, pochodzenie i licencje w `vendor/PROVENANCE.md`) oraz sonda PCM (`tests/`). Biblioteka dla Windows x64 jest przypiętą kopią w `third_party/AmcTempoEngines/win-x64` i jej suma SHA-256 jest sprawdzana przy budowaniu.
 - `Windows/Services/RadioMediaOutput.cs`: wpięcie etapu bez zmian dekoderów; możliwości zależne od rzeczywistego potoku, wyczyszczenie starych próbek po Seek/End i przekazanie powiadomienia o normalnym tempie.
 - `Windows/MainWindow.xaml.cs`: wspólny próg live i komunikat `NormalTempoResumed`; `SettingsWindow.xaml`: rzeczywiste skróty TimeShift.
 - Testy: `PlaybackRateStateTests`, `TimeshiftRateHelpTests`, `TimeshiftTempoAudioTests`, `TimeshiftRateIntegrationTests` i `TimeshiftTempoLifetimeTests`. Ostatnie mierzą blokady oraz długie okno po rozgrzewce; testy integracyjne używają rzeczywistego bufora radia.

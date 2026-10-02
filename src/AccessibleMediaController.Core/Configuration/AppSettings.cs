@@ -198,8 +198,18 @@ public sealed class PlaybackAudioSettings
     public bool SmoothTrackTransitionsEnabled { get; set; }
     public int InterTrackSilenceMilliseconds { get; set; }
     public bool AllSessionsMuted { get; set; }
+
+    /// <summary>
+    /// Algorytm zmiany tempa. Brak klucza w zapisanym profilu daje
+    /// <see cref="PlaybackTempoAlgorithm.SoundTouch"/>, czyli DOKLADNIE
+    /// dotychczasowe zachowanie - stare konfiguracje nie zmieniaja brzmienia
+    /// po aktualizacji.
+    /// </summary>
+    public PlaybackTempoAlgorithm TempoAlgorithm { get; set; } = PlaybackTempoAlgorithm.SoundTouch;
+
     public Dictionary<string, bool> SessionMutedById { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+
     public Dictionary<string, string> OutputDeviceIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -232,11 +242,36 @@ public sealed class SessionPlaybackAudioOverrides
     /// </summary>
     public bool? PausePlaybackWhenLeavingPlayerOverride { get; set; }
 
+    /// <summary>
+    /// Algorytm tempa narzucony dla tej sesji. Puste (null) oznacza "jak
+    /// ustawienie ogolne".
+    /// </summary>
+    public PlaybackTempoAlgorithm? TempoAlgorithmOverride { get; set; }
+
     public bool IsEmpty =>
         !LoudnessNormalizationOverride.HasValue
         && !SmoothTrackTransitionsOverride.HasValue
         && !InterTrackSilenceMillisecondsOverride.HasValue
-        && !PausePlaybackWhenLeavingPlayerOverride.HasValue;
+        && !PausePlaybackWhenLeavingPlayerOverride.HasValue
+        && !TempoAlgorithmOverride.HasValue;
+}
+
+/// <summary>
+/// Algorytm zmiany tempa odtwarzania.
+///
+/// Numery sa czescia zapisu konfiguracji ORAZ kontraktu dla lekkiego hosta -
+/// nie wolno ich przestawiac.
+/// </summary>
+public enum PlaybackTempoAlgorithm
+{
+    /// <summary>Dotychczasowy SoundTouch: jedyne zachowanie przed ta zmiana.</summary>
+    SoundTouch = 0,
+
+    /// <summary>Mowa: Google Speedy (nieliniowe przyspieszanie) nad Sonic.</summary>
+    Speech = 1,
+
+    /// <summary>Muzyka: Signalsmith Stretch (fazowa rekonstrukcja widma).</summary>
+    Music = 2,
 }
 
 public static class PlaybackSeekRules
@@ -1021,6 +1056,7 @@ public sealed class PodcastSubscriptionSettings
     public bool? LoudnessNormalizationOverride { get; set; }
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
+    public PlaybackTempoAlgorithm? TempoAlgorithmOverride { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; } = true;
 }
@@ -1050,6 +1086,7 @@ public sealed class PodcastEpisodeSettings
     public bool? LoudnessNormalizationOverride { get; set; }
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
+    public PlaybackTempoAlgorithm? TempoAlgorithmOverride { get; set; }
     public string? DownloadPath { get; set; }
     public bool IsNew { get; set; } = true;
     public bool IsStarted { get; set; }
@@ -1220,6 +1257,7 @@ public sealed class LocalFolderPlaybackSettings
     public bool? LoudnessNormalizationOverride { get; set; }
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
+    public PlaybackTempoAlgorithm? TempoAlgorithmOverride { get; set; }
 }
 
 public sealed class LocalMediaItemSettings
@@ -1243,6 +1281,7 @@ public sealed class LocalMediaItemSettings
     public bool? LoudnessNormalizationOverride { get; set; }
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
+    public PlaybackTempoAlgorithm? TempoAlgorithmOverride { get; set; }
     public long ResumePositionTicks { get; set; }
     public long? ClipStartTicks { get; set; }
     public long? ClipEndTicks { get; set; }

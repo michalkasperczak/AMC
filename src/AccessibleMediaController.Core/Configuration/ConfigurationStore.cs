@@ -1192,6 +1192,8 @@ public sealed class ConfigurationStore
             {
                 item.InterTrackSilenceMillisecondsOverride = null;
             }
+            item.TempoAlgorithmOverride =
+                NormalizeTempoAlgorithmOverride(item.TempoAlgorithmOverride);
             if (item.ClipStartTicks.HasValue
                 && (item.ClipStartTicks.Value < 0
                     || item.DurationTicks > 0 && item.ClipStartTicks.Value > item.DurationTicks))
@@ -1257,6 +1259,8 @@ public sealed class ConfigurationStore
                 {
                     option.InterTrackSilenceMillisecondsOverride = null;
                 }
+                option.TempoAlgorithmOverride =
+                    NormalizeTempoAlgorithmOverride(option.TempoAlgorithmOverride);
                 return option;
             })
             .Where(option => !string.IsNullOrWhiteSpace(option.Path))
@@ -1267,7 +1271,8 @@ public sealed class ConfigurationStore
                 || option.OutputDeviceId is not null
                 || option.LoudnessNormalizationOverride.HasValue
                 || option.SmoothTrackTransitionsOverride.HasValue
-                || option.InterTrackSilenceMillisecondsOverride.HasValue)
+                || option.InterTrackSilenceMillisecondsOverride.HasValue
+                || option.TempoAlgorithmOverride.HasValue)
             .ToList();
         state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki" or "Kolejność własna"
             ? state.LocalMedia.LibraryView
@@ -1551,6 +1556,10 @@ public sealed class ConfigurationStore
             throw new InvalidDataException(
                 "Cisza między utworami musi mieć jedną z wartości dostępnych w Ustawieniach.");
         }
+        if (!Enum.IsDefined(settings.Audio.TempoAlgorithm))
+        {
+            throw new InvalidDataException("Wybrany algorytm tempa jest nieprawidłowy.");
+        }
         if (settings.Audio.OutputDeviceIdsBySession.Any(pair =>
                 !IsPersistedAudioSession(settings, pair.Key)
                 || string.IsNullOrWhiteSpace(pair.Value)
@@ -1639,6 +1648,8 @@ public sealed class ConfigurationStore
                     subscription.PlaybackRateOverride);
                 subscription.InterTrackSilenceMillisecondsOverride =
                     NormalizeSilenceOverride(subscription.InterTrackSilenceMillisecondsOverride);
+                subscription.TempoAlgorithmOverride =
+                    NormalizeTempoAlgorithmOverride(subscription.TempoAlgorithmOverride);
                 if (subscription.IsFavorite) subscription.IsInLibrary = true;
                 return subscription;
             })
@@ -1702,6 +1713,8 @@ public sealed class ConfigurationStore
                     episode.PlaybackRateOverride);
                 episode.InterTrackSilenceMillisecondsOverride =
                     NormalizeSilenceOverride(episode.InterTrackSilenceMillisecondsOverride);
+                episode.TempoAlgorithmOverride =
+                    NormalizeTempoAlgorithmOverride(episode.TempoAlgorithmOverride);
                 if (episode.DurationTicks > 0)
                 {
                     episode.ResumePositionTicks = Math.Min(
@@ -1742,6 +1755,15 @@ public sealed class ConfigurationStore
         value.HasValue && PlaybackAudioSettingsRules.IsSupportedSilence(value.Value)
             ? value
             : null;
+
+    /// <summary>
+    /// Nieznany numer algorytmu tempa (uszkodzony lub nowszy zapis) znaczy "bez
+    /// odstepstwa", wiec profil wraca do dotychczasowego zachowania zamiast
+    /// odmawiac wczytania.
+    /// </summary>
+    private static PlaybackTempoAlgorithm? NormalizeTempoAlgorithmOverride(
+        PlaybackTempoAlgorithm? value) =>
+        value.HasValue && Enum.IsDefined(value.Value) ? value : null;
 
     private static long NormalizeOptionalUtcTicks(long ticks) =>
         ticks >= DateTime.MinValue.Ticks && ticks <= DateTime.MaxValue.Ticks ? ticks : 0;

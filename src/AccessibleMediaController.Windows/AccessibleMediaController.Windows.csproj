@@ -93,6 +93,21 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <!-- Natywne silniki tempa (Mowa: Speedy/Sonic, Muzyka: Signalsmith Stretch).
+         Biblioteka jest przypieta kopia zbudowana z vendorowanych zrodel w
+         native/AmcTempoEngines; pochodzenie, hasze i licencje opisuje
+         native/AmcTempoEngines/vendor/PROVENANCE.md. Bez tego wpisu wybor
+         Mowa/Muzyka cicho wrocilby do SoundTouch dopiero u uzytkownika. -->
+    <None Include="..\..\third_party\AmcTempoEngines\win-x64\AmcTempoEngines.dll"
+          Link="AmcTempoEngines.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\tempo-engines\**\*"
+          Link="licenses\tempo-engines\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
     <None Include="..\..\licenses\BASS-2.4.txt"
           Link="licenses\BASS-2.4.txt"
           CopyToOutputDirectory="PreserveNewest"
@@ -167,6 +182,8 @@
          Zmiana binarki bez zmiany tej sumy jest bledem budowania. -->
     <LibrespotHostExpectedSha256>f5b614f01d8943b5872d9a2bb86658761198b763bb25c1647aa79268a2473c8e</LibrespotHostExpectedSha256>
     <LibrespotHostBinaryPath>$(MSBuildThisFileDirectory)..\..\third_party\LibrespotHost\win-x64\amc_spotify_librespot_host.exe</LibrespotHostBinaryPath>
+    <AmcTempoEnginesExpectedSha256>1a24c0c40d55e9d56421586d8fd81bfa74324ef5b627d799fab06b56bc1c8a5f</AmcTempoEnginesExpectedSha256>
+    <AmcTempoEnginesBinaryPath>$(MSBuildThisFileDirectory)..\..\third_party\AmcTempoEngines\win-x64\AmcTempoEngines.dll</AmcTempoEnginesBinaryPath>
   </PropertyGroup>
   <!-- Straznik pakowania. Mierzy REALNY plik, nie deklaracje: brak pliku albo
        inna suma konczy budowanie bledem, zeby nie wydac paczki z podmieniona
@@ -182,11 +199,22 @@
     <Error Condition="'%(_LibrespotHostHashed.FileHash)' != '$(LibrespotHostExpectedSha256)'"
            Text="Suma SHA-256 hosta Librespot niezgodna z przypieta proweniencja. Oczekiwano $(LibrespotHostExpectedSha256), jest %(_LibrespotHostHashed.FileHash)." />
   </Target>
+  <Target Name="VerifyPinnedTempoEnginesBinary"
+          BeforeTargets="Build;Publish"
+          Condition="'$(OS)' == 'Windows_NT' Or '$(MSBuildRuntimeType)' == 'Core'">
+    <Error Condition="!Exists('$(AmcTempoEnginesBinaryPath)')"
+           Text="Brak przypietej biblioteki silnikow tempa: $(AmcTempoEnginesBinaryPath). Bez niej wybory Mowa/Muzyka wroca do SoundTouch dopiero u uzytkownika." />
+    <GetFileHash Files="$(AmcTempoEnginesBinaryPath)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="_AmcTempoEnginesHashed" />
+    </GetFileHash>
+    <Error Condition="'%(_AmcTempoEnginesHashed.FileHash)' != '$(AmcTempoEnginesExpectedSha256)'"
+           Text="Suma SHA-256 biblioteki silnikow tempa niezgodna z przypieta proweniencja. Oczekiwano $(AmcTempoEnginesExpectedSha256), jest %(_AmcTempoEnginesHashed.FileHash)." />
+  </Target>
   <Target Name="ExcludeReplaceableSoundTouchAssembliesFromSingleFile"
           BeforeTargets="_ComputeFilesToBundle">
     <ItemGroup>
       <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
-                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport' Or '%(Filename)' == 'bass' Or '%(Filename)' == 'Microsoft.Web.WebView2.Core' Or '%(Filename)' == 'Microsoft.Web.WebView2.Wpf' Or '%(Filename)' == 'WebView2Loader'">
+                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport' Or '%(Filename)' == 'bass' Or '%(Filename)' == 'Microsoft.Web.WebView2.Core' Or '%(Filename)' == 'Microsoft.Web.WebView2.Wpf' Or '%(Filename)' == 'WebView2Loader' Or '%(Filename)' == 'AmcTempoEngines'">
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>
     </ItemGroup>

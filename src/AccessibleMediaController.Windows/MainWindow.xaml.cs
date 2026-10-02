@@ -394,6 +394,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastOutput.PlaybackStarted += PodcastOutput_PlaybackStarted;
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
         _radioOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("radio"));
+        // TimeShift korzysta z tego samego wyboru algorytmu tempa, co tor plikow.
+        _radioOutput.ConfigureTempoAlgorithm(_state.Settings.Audio.TempoAlgorithm);
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
@@ -4699,7 +4701,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || saved.OutputDeviceId is not null
             || saved.LoudnessNormalizationOverride.HasValue
             || saved.SmoothTrackTransitionsOverride.HasValue
-            || saved.InterTrackSilenceMillisecondsOverride.HasValue;
+            || saved.InterTrackSilenceMillisecondsOverride.HasValue
+            || saved.TempoAlgorithmOverride.HasValue;
         var existingIndex = _state.LocalMedia.FolderPlaybackOptions.FindIndex(option =>
             string.Equals(NormalizeLocalFolderPath(option.Path), normalizedPath, StringComparison.OrdinalIgnoreCase));
         if (hasOverride && existingIndex < 0)
@@ -6939,6 +6942,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ApplyEffectiveAudioProcessingForCurrentLocalItem();
         else
             _sessions.Current.ConfigureAudioProcessing(_state.Settings.Audio);
+        // Radio nie przechodzi przez PlaybackAudioSettings, a wybor algorytmu
+        // tempa ma obowiazywac takze w buforze transmisji.
+        _radioOutput.ConfigureTempoAlgorithm(_state.Settings.Audio.TempoAlgorithm);
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         var saved = TrySaveLocalMediaState(false);
         Announce(saved

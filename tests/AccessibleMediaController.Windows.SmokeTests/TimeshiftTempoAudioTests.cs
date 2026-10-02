@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NAudio.Wave;
 using AccessibleMediaController.Windows.Services;
+using AccessibleMediaController.Core.Configuration;
 
 namespace AccessibleMediaController.Windows.SmokeTests;
 
@@ -35,6 +36,7 @@ public static class TimeshiftTempoAudioTests
             Check(failures, name, format);
         }
         CheckNeutralPathDoesNotTouchSoundTouch(failures);
+        CheckTempoAlgorithmSelection(failures);
         CheckSmallReserveFallsBackToLive(failures);
         CheckUnsupportedFormatDoesNotBlockPlayback(failures);
         ShowOldChainForReference();
@@ -44,6 +46,58 @@ public static class TimeshiftTempoAudioTests
             ? "TimeshiftTempoAudioTests: OK"
             : $"TimeshiftTempoAudioTests: {failures.Count} niepowodzen");
         return failures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Wybor algorytmu musi byc PRAWDZIWY: SoundTouch dziala zawsze, a dla
+    /// Mowy/Muzyki albo powstaje silnik natywny, albo nastepuje jawny powrot
+    /// do SoundTouch - nigdy udawanie nowego algorytmu. Tempo 1,0x zostaje
+    /// obejsciem w kazdym wariancie.
+    /// </summary>
+    private static void CheckTempoAlgorithmSelection(List<string> failures)
+    {
+        var format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
+        foreach (var algorithm in new[]
+        {
+            PlaybackTempoAlgorithm.SoundTouch,
+            PlaybackTempoAlgorithm.Speech,
+            PlaybackTempoAlgorithm.Music
+        })
+        {
+            using var stage = TimeshiftTempoStage.TryCreate(
+                new FakeTimeshiftBuffer(format, 30),
+                () => TimeSpan.FromSeconds(30),
+                algorithm);
+            if (stage is null)
+            {
+                failures.Add($"{algorithm}: etap tempa nie powstal dla float32.");
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(stage.EngineName))
+            {
+                failures.Add($"{algorithm}: etap nie podaje nazwy uzytego silnika.");
+            }
+            if (algorithm == PlaybackTempoAlgorithm.SoundTouch
+                && !stage.EngineName.Contains("SoundTouch", StringComparison.Ordinal))
+            {
+                failures.Add($"Wybor Dotychczasowe dal silnik {stage.EngineName}.");
+            }
+
+            // Tempo 1,0x: dzwiek musi isc na wprost, bez zmiany dlugosci.
+            var buffer = new byte[format.AverageBytesPerSecond / 4];
+            var read = stage.Read(buffer, 0, buffer.Length);
+            if (read <= 0)
+            {
+                failures.Add($"{algorithm}: przy 1,0x etap nie oddal dzwieku.");
+            }
+
+            // Zadane tempo musi byc przyjete i widoczne.
+            stage.SetTempo(1.5d);
+            if (Math.Abs(stage.RequestedTempo - 1.5d) > 0.001d)
+            {
+                failures.Add($"{algorithm}: etap nie przyjal tempa 1,5x.");
+            }
+        }
     }
 
     private static void Check(List<string> failures, string name, WaveFormat format)
