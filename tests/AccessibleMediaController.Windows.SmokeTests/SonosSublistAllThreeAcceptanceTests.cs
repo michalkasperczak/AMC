@@ -88,6 +88,10 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         Console.Error.WriteLine("GRANICA: Escape nie zostawia powrotu - OK");
         MeasurePendingRowIsNotStolenByOtherCategory();
         Console.Error.WriteLine("GRANICA: wiersz jednej kategorii nie trafia do innej - OK");
+        MeasureHeldReopenReadAfterUserLeavesAgain();
+        Console.Error.WriteLine("GRANICA: zwolniony wstrzymany odczyt powrotu po ponownym wyjściu - OK");
+        MeasureExhaustedSwitchWithLiveModal();
+        Console.Error.WriteLine("GRANICA: wyczerpanie prób przy żywym modalu - OK");
     }
 
     /// <summary>
@@ -422,6 +426,194 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             SonosLibraryPresentation.OwnStreamsCategoryId);
         if (!string.Equals(own, "station-two", StringComparison.Ordinal))
             throw new Exception("Moje stacje nie dostały własnego wiersza po odmowie: " + own);
+    }
+
+    /// <summary>
+    /// GRANICA 1: ZWOLNIONY WSTRZYMANY ODCZYT POWROTU, GDY UZYTKOWNIK JUZ WYSZEDL.
+    ///
+    /// Scenariusz: powrot do Ulubionych rozpoczyna odczyt HTTP (okno powstaje
+    /// PO nim). Zanim odpowiedz wroci, uzytkownik znow opuszcza sesje Sonos.
+    /// Spozniona odpowiedz NIE MA prawa otworzyc listy pod nowa sesja, ukrasc
+    /// fokusu ani niczego ogłosic.
+    ///
+    /// DODATNIA KONTROLA w tym samym pomiarze: zwykly powrot BEZ ponownego
+    /// wyjscia nadal otwiera WLASCIWA podliste - inaczej "nic sie nie otworzylo"
+    /// znaczyloby tylko, ze zepsulismy otwieranie.
+    /// </summary>
+    private static void MeasureHeldReopenReadAfterUserLeavesAgain()
+    {
+        using var h = CreateAcceptanceHarness();
+        h.Enter();
+        var radioSlot = h.Window.SessionsForTests.FindSlot("radio")!.Value;
+        var sonosSlot = h.Window.SessionsForTests.FindSlot("sonos")!.Value;
+
+        // --- DODATNIA KONTROLA: zwykly powrot otwiera WLASCIWA podliste. ---
+        //
+        // UWAGA NA ZAGNIEZDZONY ShowDialog: powrot do Ulubionych konczy sie
+        // MODALEM, wiec ExecuteCommand NIE WRACA, dopoki okno zyje. Dlatego
+        // obserwacja i zamkniecie ida Z TIMERA, a nie po wywolaniu - tak samo
+        // jak w RunLibraryCategoryPhase.
+        var sawFavorites = false;
+        Exception? insideControl = null;
+        var controlTimer = new DispatcherTimer(DispatcherPriority.Background)
+        { Interval = TimeSpan.FromMilliseconds(20) };
+        var controlDeadline = DateTime.UtcNow.AddSeconds(40);
+        controlTimer.Tick += (_, _) =>
+        {
+            try
+            {
+                if (h.Window.OpenSonosFavoritesWindowForTests is { IsVisible: true } favorites)
+                {
+                    sawFavorites = true;
+                    controlTimer.Stop();
+                    CloseAfterCapture(favorites);
+                }
+                else if (DateTime.UtcNow > controlDeadline)
+                {
+                    controlTimer.Stop();
+                    insideControl = new Exception("kontrola dodatnia: zwykły powrót NIE otworzył Ulubionych");
+                }
+            }
+            catch (Exception e) { insideControl = e; controlTimer.Stop(); }
+        };
+
+        h.Window.RequestSessionSwitchFromSonosSublist(
+            radioSlot, SonosLibraryPresentation.FavoritesCategoryId, "ULU-DRUGI");
+        h.PumpUntil(() => string.Equals(h.Window.SessionsForTests.Current.Id, "radio", StringComparison.Ordinal),
+            "zlecenie z podlisty nie przełączyło sesji (kontrola dodatnia)");
+        controlTimer.Start();
+        try
+        {
+            h.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+            h.PumpUntil(() => sawFavorites || insideControl is not null, TimeSpan.FromSeconds(45),
+                "kontrola dodatnia nie ruszyła");
+        }
+        finally { controlTimer.Stop(); }
+        if (insideControl is not null) throw insideControl;
+        if (!sawFavorites)
+            throw new Exception("kontrola dodatnia: zwykły powrót NIE otworzył Ulubionych");
+        h.PumpUntil(() => h.Window.OpenSonosFavoritesWindowForTests?.IsVisible != true,
+            "kontrola dodatnia: Ulubione nie zamknęły się");
+        h.Window.ClearSonosSublistReturn();
+
+        // --- WLASCIWA GRANICA: odczyt WSTRZYMANY, uzytkownik wychodzi znowu. ---
+        var announcementsBefore = h.Announcements.Count;
+        var postsBefore = h.Handler.Posts.Count;
+        var held = h.Handler.HoldNextGet("/favorites");
+
+        h.Window.RequestSessionSwitchFromSonosSublist(
+            radioSlot, SonosLibraryPresentation.FavoritesCategoryId, "ULU-DRUGI");
+        h.PumpUntil(() => string.Equals(h.Window.SessionsForTests.Current.Id, "radio", StringComparison.Ordinal),
+            "zlecenie z podlisty nie przełączyło sesji");
+
+        // POWROT startuje odczyt i zawisa na bramce.
+        h.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+        h.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(30),
+            "powrót nie rozpoczął odczytu Ulubionych");
+        if (h.Window.OpenSonosFavoritesWindowForTests is { IsVisible: true })
+            throw new Exception("Okno Ulubionych powstało przed odpowiedzią - bramka nic nie wstrzymała.");
+
+        // UZYTKOWNIK ZNOW OPUSZCZA SESJE, zanim odpowiedz wrocila.
+        h.ExecuteCommand(CommandIds.SessionSlot(radioSlot));
+        h.PumpUntil(() => string.Equals(h.Window.SessionsForTests.Current.Id, "radio", StringComparison.Ordinal),
+            "użytkownik nie opuścił sesji Sonos po raz drugi");
+        var sessionAtRelease = h.Window.SessionsForTests.Current.Id;
+        var announcementsAtRelease = h.Announcements.Count;
+
+        // ZWOLNIENIE SPOZNIONEGO ODCZYTU.
+        held.Release();
+        LibraryFixture.Pump(TimeSpan.FromMilliseconds(800));
+
+        if (h.Window.OpenSonosFavoritesWindowForTests is { IsVisible: true })
+            throw new Exception("Zwolniony spóźniony odczyt otworzył starą listę w nowej sesji.");
+        if (!string.Equals(h.Window.SessionsForTests.Current.Id, sessionAtRelease, StringComparison.Ordinal))
+            throw new Exception("Spóźniony odczyt zmienił sesję na " + h.Window.SessionsForTests.Current.Id + ".");
+        if (!h.Window.IsActive && h.Window.IsVisible)
+            throw new Exception("Spóźniony odczyt ukradł fokus z okna głównego.");
+        if (h.Announcements.Count != announcementsAtRelease)
+        {
+            throw new Exception("Spóźniony odczyt ogłosił coś w nowej sesji: "
+                + string.Join(" | ", h.Announcements.Skip(announcementsAtRelease)));
+        }
+        if (h.Handler.Posts.Count != postsBefore)
+            throw new Exception("Granica spóźnionego odczytu wysłała POST.");
+        if (h.Window.SonosSublistReturnForTests is not null)
+            throw new Exception("Po spóźnionym odczycie zostało wiszące zadanie powrotu.");
+        _ = announcementsBefore;
+    }
+
+    /// <summary>
+    /// GRANICA 2: WYCZERPANIE <c>PostSessionSwitchWhenModalsClosed</c> PRZY
+    /// RZECZYWISTYM WLASNYM MODALU.
+    ///
+    /// Modal zyje przez caly czas prob, wiec po wyczerpaniu limitu kod ma
+    /// NAPRAWDE odpuscic: zadnej zmiany sesji (ExecuteCommand pod wylaczonym
+    /// oknem glownym) i zadnego wiszacego zapisu powrotu, ktory otworzylby
+    /// liste przy nastepnym, NIEZWIAZANYM wejsciu w sesje.
+    ///
+    /// MODAL JEST PRAWDZIWY - to okno Moich stacji otwarte produkcyjna droga,
+    /// a nie podstawiony stan. Limit prob wyczerpujemy pompujac petle
+    /// komunikatow, bo przekladanie idzie przez dyspozytora.
+    /// </summary>
+    private static void MeasureExhaustedSwitchWithLiveModal()
+    {
+        using var h = CreateAcceptanceHarness();
+        h.Enter();
+        var radioSlot = h.Window.SessionsForTests.FindSlot("radio")!.Value;
+        var sublist = DescribeSublists()[0];
+
+        var sessionAfter = string.Empty;
+        var returnAfter = (SonosSublistReturnState?)null;
+        var modalStillOpen = false;
+        var postsBefore = h.Handler.Posts.Count;
+
+        RunLibraryCategoryPhase(h, sublist, dialog =>
+        {
+            SelectSecondRow(dialog, sublist);
+            // ZLECENIE zmiany sesji przy ZYWYM modalu - ten sam punkt, ktorego
+            // uzywa podlista. Modalu NIE zamykamy, wiec kazda proba zastaje go
+            // widocznym i limit musi sie wyczerpac.
+            h.Window.RequestSessionSwitchFromSonosSublist(
+                radioSlot, sublist.CategoryId, sublist.SecondRowId);
+
+            // 400 prob x priorytet Background: pompujemy az zapis powrotu
+            // zniknie (to robi gałąź odpuszczenia) albo minie limit czasu.
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (h.Window.SonosSublistReturnForTests is not null && DateTime.UtcNow < deadline)
+            {
+                LibraryFixture.Pump(TimeSpan.FromMilliseconds(50));
+            }
+
+            modalStillOpen = dialog.IsVisible;
+            sessionAfter = h.Window.SessionsForTests.Current.Id;
+            returnAfter = h.Window.SonosSublistReturnForTests;
+            CloseAfterCapture(dialog);
+        });
+
+        if (!modalStillOpen)
+            throw new Exception("Modal zamknął się sam - pomiar nie dotyczył już żywego modalu.");
+        if (!string.Equals(sessionAfter, "sonos", StringComparison.Ordinal))
+        {
+            throw new Exception("Po wyczerpaniu prób sesja JEDNAK się zmieniła na " + sessionAfter
+                + " - przełączenie pod żywym modalem.");
+        }
+        if (returnAfter is not null)
+        {
+            throw new Exception("Odpuszczenie zostawiło wiszące zadanie powrotu dla "
+                + returnAfter.CategoryId + " - otworzyłoby listę przy następnym wejściu.");
+        }
+        if (h.Handler.Posts.Count != postsBefore)
+            throw new Exception("Wyczerpanie prób wysłało POST.");
+
+        // NASTEPNE, NIEZWIAZANE wejscie w sesje Sonos NIE otwiera podlisty.
+        var reopensBefore = h.Window.SonosSublistReopenedForTests;
+        h.ExecuteCommand(CommandIds.SessionSlot(h.Window.SessionsForTests.FindSlot("radio")!.Value));
+        h.PumpUntil(() => string.Equals(h.Window.SessionsForTests.Current.Id, "radio", StringComparison.Ordinal),
+            "nie udało się wyjść z sesji Sonos po odpuszczeniu");
+        h.ExecuteCommand(CommandIds.SessionSlot(h.Window.SessionsForTests.FindSlot("sonos")!.Value));
+        LibraryFixture.Pump(TimeSpan.FromMilliseconds(600));
+        if (h.Window.SonosSublistReopenedForTests != reopensBefore)
+            throw new Exception("Niezwiązane wejście w sesję Sonos jednak otworzyło podlistę po odpuszczeniu.");
     }
 
     // ==================== APARATURA ====================
