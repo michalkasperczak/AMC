@@ -20,9 +20,8 @@ using AccessibleMediaController.Windows;
 ///   * liczyl "dowolny POST ze slowem playback" i "dowolny POST po Enterze" - czyli
 ///     nie rozpoznawalby ani zlego polecenia, ani zlego identyfikatora, ani
 ///     drugiego zadania;
-///   * preset sprawdzal po FRAGMENCIE adresu, bez ciala i bez liczby zadan, a
-///     material presetu byl TEN SAM co zaznaczony wiersz (pomiar bylby prawdziwy
-///     takze wtedy, gdyby gest uruchomil po prostu wiersz - vacuous);
+///   * preset sprawdzal po FRAGMENCIE adresu, bez ciala i bez liczby zadan;
+///     w nowym pomiarze wymagamy identyfikatora innego niz zaznaczony wiersz,
 ///   * Spacja NA PRZYCISKU nie byla mierzona w ogole, a <c>TryHandleTransportAndPresets</c>
 ///     oszczedza tylko <c>TextBoxBase</c>/<c>PasswordBox</c>.
 ///
@@ -85,7 +84,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             + $" {TransportSublistsMeasuredForReport} przebiegów podlist)");
         foreach (var part in After417TransportPartsToMeasure)
         {
-            Console.WriteLine("OK " + part + ": " + DescribeTransportPart(part));
+            Console.WriteLine("OK: " + part + ": " + DescribeTransportPart(part));
         }
     }
 
@@ -396,11 +395,13 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             var expectedValue = sublist.EnterBodyField == "streamUrl"
                 ? SecondStationUrl
                 : sublist.SecondRowId;
-            if (!bodies[0].Contains("\"" + sublist.EnterBodyField + "\":\"" + expectedValue + "\"",
-                StringComparison.Ordinal))
+            var bodyIndex = sublist.EnterBodyField == "streamUrl" ? 1 : 0;
+            using var bodyJson = System.Text.Json.JsonDocument.Parse(bodies[bodyIndex]);
+            if (!bodyJson.RootElement.TryGetProperty(sublist.EnterBodyField, out var actualValue)
+                || actualValue.GetString() != expectedValue)
             {
-                throw new Exception(where + "Ciało pierwszego POST nie poniosło "
-                    + sublist.EnterBodyField + "=\"" + expectedValue + "\": " + bodies[0]);
+                throw new Exception(where + $"Ciało POST numer {bodyIndex + 1} nie poniosło "
+                    + sublist.EnterBodyField + "=\"" + expectedValue + "\": " + bodies[bodyIndex]);
             }
 
             if (paths.Any(p => p.EndsWith(TogglePath, StringComparison.Ordinal)))
@@ -590,11 +591,20 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 // OBCY KONTEKST: okno BEZ wlasciciela nie ma prawa uruchomic presetu
                 // - router szuka okna glownego w lancuchu wlascicieli i ma odmowic.
                 var orphan = new Window { ShowInTaskbar = false, Width = 10, Height = 10 };
+                // Exercise the actual shared router; a plain Window without this
+                // handler would always pass without testing the owner guard.
+                orphan.PreviewKeyDown += (_, args) =>
+                    SonosSublistSessionSwitch.TryHandleTransportAndPresets(orphan, args);
                 try
                 {
                     orphan.Show();
                     h.PumpUntil(() => PresentationSource.FromVisual(orphan) is not null,
                         "okno bez właściciela się nie pokazało");
+                    orphan.Activate();
+                    orphan.Focus();
+                    Keyboard.Focus(orphan);
+                    h.PumpUntil(() => ReferenceEquals(Keyboard.FocusedElement, orphan),
+                        "fokus nie wszedł do okna bez właściciela");
                     var postsBeforeOrphan = h.Handler.Posts.Count;
                     orphanHandled = SendKeyAndReportHandled(
                         orphan, key, ModifierKeys.Control | ModifierKeys.Shift);
