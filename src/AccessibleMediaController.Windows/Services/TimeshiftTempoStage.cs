@@ -95,6 +95,7 @@ public sealed class TimeshiftTempoStage : IWaveProvider, IDisposable
 
     /// <summary>Nazwa silnika faktycznie uzywanego w buforze transmisji.</summary>
     internal string EngineName => _soundTouch.EngineName;
+    internal string? FallbackReason => _soundTouch.FallbackReason;
 
     public WaveFormat WaveFormat => _float.WaveFormat;
 
