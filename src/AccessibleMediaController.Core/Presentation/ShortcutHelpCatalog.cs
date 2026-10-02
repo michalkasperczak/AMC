@@ -248,6 +248,8 @@ public static class ShortcutHelpCatalog
         yield return Info("lists", "Przenieś pliki do Kosza", "Shift+Delete", "lokalna lista po potwierdzeniu");
         yield return Info("lists", "Wróć poziom wyżej", "Backspace", "folder, album, playlista lub Zakładki");
         yield return Info("lists", "Poprzedni lub następny widok", "Alt+strzałka w lewo lub w prawo", "lista multimediów");
+        yield return Info("lists", "Odśwież grupy głośników bez zmiany zaznaczenia", "F5", "lista główna lub okno wyboru celu");
+        yield return Info("lists", "Wstrzymaj lub wznów odtwarzanie", "Spacja", "Ulubione, playlisty lub własne stacje; na przycisku Spacja nadal go naciska");
         yield return Info("lists", "Kolejność dodania, najnowsze na początku", "Alt+1", "Biblioteka lub Ulubione; lokalnie Alt+1 pokazuje foldery");
         yield return Info("lists", "Kolejność alfabetyczna", "Alt+2", "Biblioteka lub Ulubione; lokalnie płaska lista plików");
         yield return Info("lists", "Kolejność własna", "Alt+3", "Biblioteka lub Ulubione");
