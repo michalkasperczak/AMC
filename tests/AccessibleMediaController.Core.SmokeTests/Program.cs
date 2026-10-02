@@ -122,6 +122,11 @@ if (args.Length == 1 && args[0] == "--sonos-own-streams")
     try { SonosOwnStreamsPersistenceTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-own-streams-import")
+{
+    try { SonosOwnStreamsImportTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-stream-url")
 {
     try { SonosStreamUrlTests.Run(); return 0; }
