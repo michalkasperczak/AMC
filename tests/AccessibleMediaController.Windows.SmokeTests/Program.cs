@@ -136,6 +136,12 @@ if (args.Contains("--sonos-library-ui", StringComparer.Ordinal))
 }
 // POKAZ DLA ZYWEGO NVDA: stawia prawdziwe okna na pulpicie. NIE nalezy do
 // pelnej tabeli zestawow, bo wymaga czlowieka/czytnika przy ekranie.
+if (args.Contains("--sonos-content-root-nvda-gui", StringComparer.Ordinal))
+{
+    var index = Array.IndexOf(args, "--sonos-content-root-nvda-gui");
+    var seconds = index + 1 < args.Length && int.TryParse(args[index + 1], out var parsed) ? parsed : 150;
+    SonosNavigationUxTests.ShowContentRootForNvda(seconds); return 0;
+}
 if (args.Contains("--sonos-library-nvda-gui", StringComparer.Ordinal))
 {
     SonosLibraryNvdaGui.Run(args); return 0;

@@ -11,6 +11,13 @@ public partial class MainWindow
 
     internal void ShowSonosOwnStreamsForTests() => ShowSonosOwnStreams();
 
+    /// <summary>
+    /// TESTOWY punkt podstawienia POKAZANIA Moich stacji (produkcyjnie modal).
+    /// Wzor jak <c>PresentSonosLibraryOverrideForTests</c>: pomiar sprawdza, ze
+    /// okno POWSTALO na prawdziwej drodze, bez stawiania modala na pulpicie.
+    /// </summary>
+    internal Action<SonosOwnStreamsWindow>? PresentSonosOwnStreamsOverrideForTests { get; set; }
+
     private void ShowSonosOwnStreams()
     {
         if (_sonosOwnStreamsWindow is { IsLiveOwnerTarget: true } open) { open.Activate(); return; }
@@ -31,7 +38,11 @@ public partial class MainWindow
             station => AssignSonosOwnStreamPreset(
                 station, _sonosOwnStreamsWindow!, home, ticket)) { Owner = this };
         _sonosOwnStreamsWindow = window;
-        try { window.ShowDialog(); }
+        try
+        {
+            if (PresentSonosOwnStreamsOverrideForTests is { } present) present(window);
+            else window.ShowDialog();
+        }
         finally { _sonosOwnStreamsWindow = null; }
         if (!_isClosing && IsActive && IsSonosSession(_sessions?.Current.Id) && !_playerViewActive)
             RestoreMediaListFocusAfterRefresh();

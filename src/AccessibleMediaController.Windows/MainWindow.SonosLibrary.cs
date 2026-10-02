@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 
 namespace AccessibleMediaController.Windows;
@@ -72,6 +73,49 @@ public partial class MainWindow
         CaptureCurrentSessionNavigationState();
 
     internal void ShowSonosTargetSelectionForTests() => ShowSonosTargetSelection();
+
+    /// <summary>
+    /// WIERSZE KORZENIA TRESCI sesji Sonos: KATEGORIE Biblioteki, nie glosniki.
+    ///
+    /// Wiersze zyja WYLACZNIE w widoku - do <c>Session.Items</c> nie wchodzi ani
+    /// jeden, wiec zaden ogolny tor odtwarzania, presetu ani ulubionych AMC nie
+    /// ma czego zlapac, a lista grup zostaje nietknietym modelem sterowania.
+    /// <c>MediaItemKind.Folder</c> jest tu swiadomy: to KONTENER do wejscia, nie
+    /// material, i istniejacy <c>RejectFolderContainer</c> w Core juz odmawia
+    /// dodawania takiego wiersza do kolejki i Biblioteki.
+    /// </summary>
+    private List<MediaItemRow> CreateSonosLibraryCategoryRows() =>
+        SonosLibraryPresentation.DescribeCategories()
+            .Select(category => new MediaItemRow(
+                new MediaItem
+                {
+                    Id = category.CategoryId,
+                    Title = category.Name,
+                    Kind = MediaItemKind.Folder
+                },
+                category.Name,
+                category.Name))
+            .ToList();
+
+    /// <summary>
+    /// Enter na WIERSZU KORZENIA Biblioteki Sonosa. Wchodzi w te same, odebrane
+    /// drogi kategorii, ktore otwiera modal Ctrl+L - zero drugiego toru.
+    /// </summary>
+    /// <returns>
+    /// Prawda, gdy wiersz BYL kategoria i zostal obsluzony; wtedy wolajacy nie
+    /// moze juz probowac aktywacji grupy ani ogolnej nawigacji.
+    /// </returns>
+    private bool TryOpenSonosLibraryCategoryRow(string? itemId)
+    {
+        if (!IsSonosSession(_sessions?.Current.Id)) return false;
+        if (!SonosLibraryPresentation.IsCategoryId(itemId)) return false;
+        var row = SonosLibraryPresentation.DescribeCategories()
+            .FirstOrDefault(category =>
+                string.Equals(category.CategoryId, itemId, StringComparison.Ordinal));
+        if (row is null) return false;
+        OpenSonosLibraryCategory(row);
+        return true;
+    }
 
     /// <summary>
     /// Ctrl+L w sesji Sonos: BIBLIOTEKA MATERIALU. Zero sieci przy samym otwarciu
@@ -320,9 +364,12 @@ public partial class MainWindow
     /// przywrocil <c>IsActive</c> na <c>MainWindow</c>, a <c>OwnedWindows</c> jest
     /// juz puste. Stary warunek trafial dokladnie w te luke.
     ///
-    /// AWARIA ODCZYTU jest traktowana jak AKTYWNI: brak odpowiedzi od Win32 nie
-    /// moze blokowac skrotu, ktory uzytkownik nacisnal swiadomie. Pozostale
-    /// warunki bramy (sesja, brak widocznego okna potomnego) dzialaja dalej.
+    /// NIEZNANY PIERWSZY PLAN NIE JEST POTWIERDZENIEM. Brak HWND, PID rowny zero
+    /// albo wyjatek z Win32 oznacza, ze NIE WIEMY, czyje jest wierzch - a nie, ze
+    /// nasze. Zwracamy wtedy FALSZ, bo przeciwny wybor otwieral modal pod reka
+    /// uzytkownika pracujacego w obcej aplikacji. Lancuch WLASNYCH dialogow nie
+    /// cierpi: wyzej odpowiadaja na niego <c>IsActive</c> okna glownego i okien
+    /// potomnych, ktore nie potrzebuja Win32.
     /// </summary>
     private bool IsApplicationForeground()
     {
@@ -338,18 +385,18 @@ public partial class MainWindow
         try
         {
             var foreground = NativeForeground.GetForegroundWindow();
-            if (foreground == IntPtr.Zero) return true;
+            if (foreground == IntPtr.Zero) return false;
             _ = NativeForeground.GetWindowThreadProcessId(foreground, out var processId);
-            if (processId == 0) return true;
+            if (processId == 0) return false;
             return processId == Environment.ProcessId;
         }
         catch (EntryPointNotFoundException)
         {
-            return true;
+            return false;
         }
         catch (DllNotFoundException)
         {
-            return true;
+            return false;
         }
     }
 

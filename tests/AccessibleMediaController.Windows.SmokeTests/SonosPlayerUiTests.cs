@@ -1964,13 +1964,21 @@ internal static class SonosPlayerUiTests
         {
             ShowOwnWindow();
             ExecuteCommand(CommandIds.SessionSlot(8));
-            PumpUntil(() => MediaList.Items.Count == 2, "pierwsze wejście nie wypełniło kontrolki listy");
-            SelectRowByGroupId(groupId);
-            PressKey(Key.Enter);
+            // ZMIENIONE OCZEKIWANIE (korzen tresci): widoczna lista korzenia Sonosa
+            // pokazuje KATEGORIE Biblioteki, nie glosniki. Czekamy wiec na model
+            // sterowania - te same grupy, z ktorych wybiera okno Ctrl+F5.
+            PumpUntil(() => Window.SonosGroupRows.Count == 2,
+                "pierwsze wejście nie odczytało grup sterowania");
+            // Odtwarzacz otwieramy ISTNIEJACA produkcyjna droga aktywacji grupy
+            // (to samo, co Enter na wierszu grupy w oknie Ctrl+F5), bo wiersza
+            // glosnika nie ma juz na liscie korzenia.
+            var activation = Window.ActivateSonosGroupThenShowPlayerForTests(groupId);
+            PumpUntil(() => activation.IsCompleted, "aktywacja grupy nie zakończyła się");
+            activation.GetAwaiter().GetResult();
             PumpUntil(
                 () => PlayerViewActive
                     && string.Equals(Window.SonosActiveGroup?.Id, groupId, StringComparison.Ordinal),
-                "Enter na wierszu grupy nie otworzył odtwarzacza tej grupy");
+                "aktywacja grupy nie otworzyła odtwarzacza tej grupy");
             PumpUntil(
                 () => Backend.MetadataReads > 0 && Backend.VolumeReads > 0,
                 "wejście do odtwarzacza nie domknęło odczytu metadanych i głośności");

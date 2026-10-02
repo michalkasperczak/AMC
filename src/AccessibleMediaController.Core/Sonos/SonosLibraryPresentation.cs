@@ -92,6 +92,21 @@ public static class SonosLibraryPresentation
         });
 
     /// <summary>
+    /// Czy widok o tej nazwie jest KORZENIEM TRESCI sesji Sonos, czyli miejscem,
+    /// w ktorym lista musi pokazywac KATEGORIE MATERIALU, a nie glosniki.
+    ///
+    /// ZGLOSZENIE MICHALA: wejscie do sesji i powrot do niej dawaly liste
+    /// glosnikow, bo <c>Session.Items</c> sesji Sonos to CELE STEROWANIA. Lista
+    /// korzenia ma byc trescia; glosniki zostaja pod Ctrl+F5.
+    ///
+    /// Pusta albo nieznana nazwa widoku TEZ jest korzeniem: sesja bez zapisanego
+    /// stanu nawigacji musi wyladowac w Bibliotece, nie na liscie glosnikow.
+    /// </summary>
+    public static bool IsContentRootView(string? viewName) =>
+        string.IsNullOrWhiteSpace(viewName)
+        || string.Equals(viewName, LibraryViewName, StringComparison.Ordinal);
+
+    /// <summary>
     /// Czy WSKAZANY identyfikator wiersza jest kategoria Biblioteki Sonosa.
     /// Rozpoznanie idzie po IDENTYFIKATORZE, nigdy po nazwie: polska nazwa jest
     /// trescia dla uzytkownika, nie kluczem.

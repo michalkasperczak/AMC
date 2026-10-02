@@ -91,6 +91,67 @@ internal static class SonosNavigationUxTests
             + $"({checks} sprawdzeń, WLASNE pokazane okno)");
     }
 
+    /// <summary>
+    /// POKAZ KORZENIA TRESCI dla ZYWEGO NVDA. Stawia PRAWDZIWE okno glowne w
+    /// sesji Sonos przy uzyciu TEJ SAMEJ izolacji, ktorej uzywaja pomiary wyzej:
+    /// atrapa zaplecza w pamieci, magazyn konta w pamieci, wartownik na Control
+    /// API i brak integracji z pulpitem. ZERO sieci, konta, audio i sprzetu.
+    ///
+    /// Czytnik ma tu przeczytac to, co zglosil Michal: strzalki po KATEGORIACH
+    /// (Ulubione Sonos, Moje stacje, ...), a nie po glosnikach - i to samo po
+    /// POWROCIE do sesji z innej sesji.
+    /// </summary>
+    internal static void ShowContentRootForNvda(int seconds)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            Harness? harness = null;
+            try
+            {
+                harness = Harness.Create();
+                harness.EnterSonosSession();
+                harness.Window.ShowInTaskbar = true;
+                harness.Window.Title += "  [POMIAR NVDA: korzen tresci Sonos]";
+                harness.ShowOwnWindow();
+                // ShowOwnWindow celowo schowal okno z paska zadan (pomiary nie
+                // zasmiecaja pulpitu). Dla ZYWEGO czytnika wracamy do paska i na
+                // wierzch, inaczej NVDA nie ma czego przeczytac.
+                harness.Window.ShowInTaskbar = true;
+                harness.Window.Topmost = true;
+                harness.Window.Activate();
+                harness.Window.Focus();
+                harness.PumpQuietly(TimeSpan.FromMilliseconds(300));
+
+                Console.WriteLine("POKAZANO korzen tresci sesji Sonos. Widok: " + harness.CurrentView);
+                Console.WriteLine("WIERSZE LISTY: " + string.Join(" | ", harness.RowLabels()));
+                Console.WriteLine("CELE STEROWANIA (model, NIE na liscie): "
+                    + string.Join(" | ", harness.Window.SonosGroupRows.Select(row => row.Name)));
+                Console.WriteLine($"Limit pokazu: {seconds} s.");
+
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
+                while (DateTime.UtcNow < deadline && harness.Window.IsVisible)
+                {
+                    harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+                }
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+            finally
+            {
+                harness?.Dispose();
+                Dispatcher.CurrentDispatcher.InvokeShutdown();
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw failure;
+        Console.WriteLine("KONIEC POKAZU korzenia tresci Sonos.");
+    }
+
     // ===== U1: Ctrl+L otwiera BIBLIOTEKE MATERIALU, nie liste glosnikow =====
 
     /// <summary>
@@ -114,13 +175,22 @@ internal static class SonosNavigationUxTests
         // zamiast ja obchodzic.
         harness.ShowOwnWindow();
 
-        // Grupy sa w liscie Z SAMEGO wejscia w sesje - Ctrl+L nie jest i nie byl
-        // zrodlem celow sterowania.
+        // ZMIENIONE OCZEKIWANIE SASIADA (wymaganie korzenia tresci): widoczna
+        // lista w korzeniu sesji Sonos pokazuje KATEGORIE, a model sterowania
+        // (wiersze grup) zyje OSOBNO w SonosGroupRows i Session.Items. Dawniej
+        // ten pomiar zadal 2 wierszy GRUP w liscie - to byl dokladnie uklad,
+        // ktory Michal odrzucil.
         var rowsBefore = harness.RowLabels();
-        if (rowsBefore.Count != 2)
+        if (harness.Window.SonosGroupRows.Count != 2)
         {
             throw new Exception(
-                $"Sesja Sonos ma {rowsBefore.Count} wierszy grup zamiast 2 odczytanych.");
+                $"Sesja Sonos ma {harness.Window.SonosGroupRows.Count} odczytanych grup zamiast 2 "
+                + "- model sterowania zginal.");
+        }
+        if (rowsBefore.Any(label => label.Contains("Salon", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Korzen sesji Sonos pokazuje GLOSNIKI jako tresc: " + string.Join(" | ", rowsBefore));
         }
 
         // ISTNIEJACE polecenie Ctrl+L. Pokazanie podstawione, zeby nie stawiac
@@ -160,8 +230,8 @@ internal static class SonosNavigationUxTests
             throw new Exception("Biblioteka materiału znów podaje głośniki/grupy jako treść: " + surface);
         }
 
-        // STEROWANIE: lista sesji nadal jest modelem sterowania z tymi samymi
-        // grupami. Biblioteka nie przejela listy i jej nie wyczyscila.
+        // STEROWANIE: model sterowania nadal ma te same grupy. Biblioteka nie
+        // przejela listy; lista widoku nadal pokazuje te same KATEGORIE.
         var rowsAfter = harness.RowLabels();
         if (!rowsAfter.SequenceEqual(rowsBefore, StringComparer.Ordinal))
         {
@@ -226,13 +296,14 @@ internal static class SonosNavigationUxTests
                 "ToggleFavorite bez zaznaczenia (pusta lista, obecny CurrentItem) dodał głośnik do Ulubionych.");
         }
 
-        // ToggleLibrary nie moze UKRYC celu sterowania.
+        // ToggleLibrary nie moze UKRYC celu sterowania. Cel zyje w modelu
+        // (SonosGroupRows), nie na widocznej liscie - ta pokazuje kategorie.
         harness.SelectRow(0);
         harness.ExecuteCommand(CommandIds.ToggleLibrary);
         harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
-        if (harness.RowLabels().Count != 2)
+        if (harness.Window.SonosGroupRows.Count != 2)
         {
-            throw new Exception("ToggleLibrary ukrył cel sterowania z Biblioteki Sonos.");
+            throw new Exception("ToggleLibrary ukrył cel sterowania Sonos z modelu grup.");
         }
 
         // STEROWANIE zostaje nietkniete.
@@ -538,14 +609,20 @@ internal static class SonosNavigationUxTests
         return 8;
     }
 
-    // ===== U4: krotki wiersz grupy =====
+    // ===== U4: krotki wiersz grupy (CEL STEROWANIA, nie korzen tresci) =====
 
+    /// <summary>
+    /// Krotka nazwa grupy. Wiersze grup NIE SA juz na widocznej liscie korzenia
+    /// (ta pokazuje tresc), wiec mierzymy MODEL sterowania: Name, czyli dokladnie
+    /// to, co ApplySonosGroupRows wklada w MediaItem.Title celu sterowania.
+    /// Dlugi Text z liczba glosnikow nalezy do okna Ctrl+F5 i ma tam zostac.
+    /// </summary>
     private static int MeasureShortGroupRowLabel()
     {
         using var harness = Harness.Create();
         harness.EnterSonosSession();
 
-        var labels = harness.RowLabels();
+        var labels = harness.Window.SonosGroupRows.Select(row => row.Name).ToList();
         var salon = labels.FirstOrDefault(label => label.Contains("Salon", StringComparison.Ordinal))
             ?? throw new Exception("Brak wiersza grupy Salon: " + string.Join(" | ", labels));
 
@@ -595,16 +672,41 @@ internal static class SonosNavigationUxTests
         harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
 
         // --- (a) OPUSZCZAMY sesje z widoku BIBLIOTEKI ---
-        // PRODUKCYJNA droga: Ctrl+L ustawia widok Biblioteki dla tej sesji.
-        // Pokazanie modala podstawiamy (pomiar bez modala na pulpicie), ale
-        // widok i stan nawigacji sesji sa prawdziwe.
+        // PRODUKCYJNA droga: Ctrl+L. Widok i stan nawigacji sa prawdziwe;
+        // podstawione jest WYLACZNIE pokazanie modala (pomiar bez pulpitu).
         harness.Window.PresentSonosLibraryOverrideForTests = _ => { };
         harness.ExecuteCommand(CommandIds.ViewLibrary);
         harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
-        harness.Window.SetCurrentViewForTests(SonosLibraryPresentation.LibraryViewName);
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(100));
         var libraryView = harness.CurrentView;
         var libraryLabels = harness.RowLabels();
+
+        // DYSKRYMINUJACA ASERCJA ZGLOSZENIA: widoczna lista korzenia to TRESC.
+        // Bez zmiany korzenia lista mialaby tu wiersze "Salon"/"Biuro" z
+        // Session.Items i ten warunek by padl.
+        if (libraryLabels.Any(label => label.Contains("Salon", StringComparison.Ordinal)
+            || label.Contains("Biuro", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Biblioteka Sonos pokazuje GLOSNIKI zamiast tresci: " + string.Join(" | ", libraryLabels));
+        }
+        foreach (var expected in new[] { "Ulubione Sonos", "Moje stacje" })
+        {
+            if (!libraryLabels.Any(label => label.Contains(expected, StringComparison.Ordinal)))
+            {
+                throw new Exception(
+                    $"Biblioteka Sonos nie ma realnego wejscia \"{expected}\": "
+                    + string.Join(" | ", libraryLabels));
+            }
+        }
+
+        // ZAZNACZENIE I FOKUS na KONKRETNYM elemencie tresci - to ten element ma
+        // przezyc powrot. Bierzemy "Moje stacje", zeby pomiar nie przeszedl
+        // przypadkiem na pierwszym wierszu.
+        var ownStationsIndex = libraryLabels.FindIndex(label =>
+            label.Contains("Moje stacje", StringComparison.Ordinal));
+        harness.SelectRow(ownStationsIndex);
+        harness.FocusSelectedRow();
+        var selectedIdBefore = harness.SelectedRowId;
         var groupBefore = harness.Window.SonosSelectedGroupId;
         if (string.IsNullOrEmpty(groupBefore))
         {
@@ -623,16 +725,31 @@ internal static class SonosNavigationUxTests
             throw new Exception(
                 $"Powrot do Sonosa NIE wrocil do biblioteki: widok \"{libraryView}\" -> \"{harness.CurrentView}\".");
         }
-        // UWAGA O ZAKRESIE: lista sesji Sonos to MODEL STEROWANIA (wiersze grup),
-        // wiec jej zawartosc jest tu taka sama przed i po. Ten pomiar pilnuje
-        // WIDOKU, CELU i braku samoczynnych okien - NIE udaje, ze lista pokazuje
-        // material. Zamiana zawartosci listy sesji na material jest osobna,
-        // niewykonana zmiana (opisana w raporcie).
-        if (!afterLabels.SequenceEqual(libraryLabels))
+        // TRESC PO POWROCIE: lista znow pokazuje kategorie materialu, nie glosniki.
+        if (afterLabels.Any(label => label.Contains("Salon", StringComparison.Ordinal)
+            || label.Contains("Biuro", StringComparison.Ordinal)))
         {
             throw new Exception(
-                "Powrot do Sonosa przestawil liste celow sterowania: \""
+                "Powrot do Sonosa dal LISTE GLOSNIKOW zamiast tresci: " + string.Join(" | ", afterLabels));
+        }
+        if (!afterLabels.SequenceEqual(libraryLabels, StringComparer.Ordinal))
+        {
+            throw new Exception(
+                "Powrot do Sonosa przestawil tresc korzenia: \""
                 + string.Join(" | ", afterLabels) + "\" zamiast \"" + string.Join(" | ", libraryLabels) + "\".");
+        }
+        // ZACHOWANY ELEMENT I FOKUS: ten sam wiersz tresci, fokus na liscie.
+        if (harness.SelectedRowId != selectedIdBefore)
+        {
+            throw new Exception(
+                "Powrot do Sonosa zgubil zaznaczony element tresci: \"" + (selectedIdBefore ?? "brak")
+                + "\" -> \"" + (harness.SelectedRowId ?? "brak") + "\".");
+        }
+        if (!harness.IsListFocused)
+        {
+            throw new Exception(
+                "Powrot do Sonosa nie zostawil fokusu na liscie tresci, a na "
+                + (Keyboard.FocusedElement?.GetType().Name ?? "brak") + ".");
         }
         if (harness.Window.SonosSelectedGroupId != groupBefore)
         {
@@ -643,12 +760,10 @@ internal static class SonosNavigationUxTests
         AssertNoSpeakerListOnReturn(harness, "biblioteki");
 
         // --- (a2) SPOZNIONY ODCZYT TOPOLOGII W ODTWORZONYM WIDOKU ---
-        // UCZCIWY STATUS: to jest pomiar CHARAKTERYZUJACY, nie dowod naprawy.
-        // Sprawdzilem go wylaczajac po kolei warunki w ApplySonosGroupRows i
-        // ZAWSZE przechodzi, bo RefreshCurrentView samo trzyma _currentView.
-        // Zostawiam jako ZAPORE na przyszlosc (gdyby ktos kazal spoznionemu
-        // odczytowi przestawiac widok), ale NIE liczy sie jako dowod na
-        // zgloszenie "po powrocie byla lista glosnikow".
+        // TERAZ JEST DYSKRYMINUJACY: ApplySonosGroupRows robi ReplaceItems na
+        // Session.Items i konczy RefreshCurrentView. Dopoki korzen brał tresc z
+        // Session.Items, kazdy odczyt topologii wracal GLOSNIKAMI na liste. Ta
+        // asercja pilnuje ZAWARTOSCI, a nie tylko nazwy widoku.
         var viewBeforeLateRead = harness.CurrentView;
         harness.Window.ApplySonosGroupRowsForTests();
         harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
@@ -658,9 +773,43 @@ internal static class SonosNavigationUxTests
                 "SPOZNIONY odczyt topologii PRZESTAWIL odtworzony widok uzytkownika: \""
                 + viewBeforeLateRead + "\" -> \"" + harness.CurrentView + "\".");
         }
+        var afterLateRead = harness.RowLabels();
+        if (!afterLateRead.SequenceEqual(libraryLabels, StringComparer.Ordinal))
+        {
+            throw new Exception(
+                "SPOZNIONY odczyt topologii WROCIL GLOSNIKAMI na liste tresci: "
+                + string.Join(" | ", afterLateRead));
+        }
+        if (harness.SelectedRowId != selectedIdBefore)
+        {
+            throw new Exception("Spozniony odczyt topologii przestawil zaznaczony element tresci.");
+        }
         if (harness.Window.SonosSelectedGroupId != groupBefore)
         {
             throw new Exception("Spozniony odczyt topologii zgubil wybrany cel Sonos.");
+        }
+
+        // --- (a3) ENTER NA KATEGORII WCHODZI W REALNA LISTE ---
+        // Korzen bez wejscia bylby atrapa: Enter na "Moje stacje" musi otworzyc
+        // ISTNIEJACA droge kategorii, a nie przestawic nazwe widoku ani wybrac
+        // celu sterowania.
+        var ownStreamWindows = 0;
+        harness.Window.PresentSonosOwnStreamsOverrideForTests = _ => ownStreamWindows++;
+        var targetWindowsBeforeEnter = harness.Window.SonosTargetWindowsCreatedForTests;
+        harness.ExecuteCommand(CommandIds.ActivateSelected);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+        if (ownStreamWindows != 1)
+        {
+            throw new Exception(
+                $"Enter na kategorii \"Moje stacje\" nie otworzyl jej listy (okien: {ownStreamWindows}).");
+        }
+        if (harness.Window.SonosTargetWindowsCreatedForTests != targetWindowsBeforeEnter)
+        {
+            throw new Exception("Enter na kategorii tresci otworzyl wybor celu sterowania.");
+        }
+        if (harness.Backend.Commands.Count != 0)
+        {
+            throw new Exception("Enter na kategorii tresci wyslal polecenie sterujace do Sonosa.");
         }
 
         // --- (b) OPUSZCZAMY sesje z OTWARTEGO elementu (odtwarzacz) ---
@@ -799,9 +948,27 @@ internal static class SonosNavigationUxTests
                 + "(komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
         }
 
+        // --- NIEZNANY pierwszy plan: NIE jest potwierdzeniem "to my" ---
+        // Brak HWND / PID zero / wyjatek z Win32 to BRAK WIEDZY. Poprzednia wersja
+        // bramy zwracala wtedy PRAWDE ("awaria odczytu = aktywni"), wiec modal
+        // mogl wyskoczyc pod reka uzytkownika pracujacego w obcej aplikacji.
+        // PID zero jest dokladnie tym nieznanym stanem (zaden proces go nie ma).
+        shown = 0;
+        harness.Window.ForegroundProcessIdOverrideForTests = 0;
+        harness.Announcements.Clear();
+        harness.Window.ShowSonosLibraryForTests();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+        if (shown != 0)
+        {
+            throw new Exception(
+                "Brama otworzyla modal, choc pierwszy plan jest NIEZNANY - nieznane "
+                + "zostalo potraktowane jak wlasny proces.");
+        }
+
         harness.Window.ForegroundProcessIdOverrideForTests = null;
         harness.CloseSiblingWindow();
-        return 6;
+        return 8;
     }
 
     /// <summary>
@@ -1124,6 +1291,31 @@ internal static class SonosNavigationUxTests
         internal List<string> RowLabels() => MediaList.Items.Cast<object>()
             .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
             .ToList();
+
+        /// <summary>IDENTYFIKATOR zaznaczonego wiersza - zachowanie elementu po powrocie.</summary>
+        internal string? SelectedRowId =>
+            (MediaList.SelectedItem?.GetType().GetProperty("Item", Instance)?.GetValue(MediaList.SelectedItem)
+                as AccessibleMediaController.Core.Sessions.MediaItem)?.Id;
+
+        /// <summary>Daje fokus KONTENEROWI zaznaczonego wiersza, jak Tab uzytkownika.</summary>
+        internal void FocusSelectedRow()
+        {
+            var list = MediaList;
+            list.UpdateLayout();
+            if (list.ItemContainerGenerator.ContainerFromIndex(list.SelectedIndex) is ListBoxItem container)
+                container.Focus();
+            else list.Focus();
+            PumpQuietly(TimeSpan.FromMilliseconds(80));
+        }
+
+        /// <summary>Czy fokus klawiatury jest na LISCIE (sama lista albo jej wiersz).</summary>
+        internal bool IsListFocused => Keyboard.FocusedElement switch
+        {
+            ListBox box => ReferenceEquals(box, MediaList),
+            ListBoxItem item => ItemsControl.ItemsControlFromItemContainer(item) is ListBox owner
+                && ReferenceEquals(owner, MediaList),
+            _ => false
+        };
 
         /// <summary>
         /// Zdejmuje aktywacje z okna glownego BEZ oddawania pierwszego planu obcej

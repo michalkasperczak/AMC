@@ -1,4 +1,5 @@
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Sonos;
 
 namespace AccessibleMediaController.Windows;
 
@@ -229,6 +230,11 @@ internal static class MainWindowNavigationPolicy
             return podcastLibraryReturnView;
         if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
             return "Biblioteka";
+        // SESJA SONOS bez zapisanego stanu nawigacji trafiala na techniczny
+        // DefaultBrowserView, ktorego lista pokazywala GLOSNIKI I GRUPY z
+        // Session.Items. Korzeniem tej sesji jest BIBLIOTEKA TRESCI.
+        if (string.Equals(sessionId, SonosSessionListPresentation.SessionId, StringComparison.Ordinal))
+            return SonosLibraryPresentation.LibraryViewName;
         return requestedView;
     }
 

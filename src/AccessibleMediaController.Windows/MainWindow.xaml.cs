@@ -11370,12 +11370,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             if (commandId == CommandIds.ActivateSelected && !_playerViewActive)
             {
+                // KORZEN TRESCI: zaznaczony wiersz moze byc KATEGORIA Biblioteki.
+                // Wtedy Enter wchodzi w jej liste, a nie w wybor celu sterowania.
+                var selectedRow = (MediaList.SelectedItem as MediaItemRow)?.Item;
+                if (TryOpenSonosLibraryCategoryRow(selectedRow?.Id))
+                {
+                    return new CommandExecutionResult(true);
+                }
+
                 // Enter na LISCIE czyni grupe aktywna i otwiera odtwarzacz.
                 // To sam WYBOR celu: zaden POST nie idzie, muzyka bez zmian.
                 // Cel bierzemy WYLACZNIE z zaznaczonego wiersza. Fallback na
                 // CurrentItem aktywowalby grupe, ktorej uzytkownik NIE widzi na
                 // pustej liscie, wiec go tu nie ma.
-                var selectedGroup = (MediaList.SelectedItem as MediaItemRow)?.Item;
+                var selectedGroup = selectedRow;
                 if (selectedGroup is null || MediaList.Items.Count == 0)
                 {
                     Announce(SonosSessionListPresentation.DescribeEmptyState(SonosEmptyReason));
@@ -12745,6 +12753,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ActiveLocalItems().Where(item => IsDirectChildOfAlbum(item, _currentLocalAlbumPath)))
                 .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
                 .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        // KORZEN TRESCI SESJI SONOS. ZGLOSZENIE MICHALA: wejscie do sesji i
+        // powrot do niej pokazywaly GLOSNIKI, bo Session.Items sesji Sonos to
+        // CELE STEROWANIA (MediaItemKind.Device), a nie material. Lista korzenia
+        // pokazuje teraz KATEGORIE Biblioteki - te same, ktore zna Core i ktore
+        // pokazuje modal Ctrl+L. Glosniki i grupy zostaja WYLACZNIE pod Ctrl+F5.
+        //
+        // CELU STEROWANIA to NIE RUSZA: Session.Items nadal trzyma wiersze grup
+        // (ApplySonosGroupRows ich nie przestaje publikowac), wiec SonosActiveGroup,
+        // CurrentItem transportu i zapamietany SelectedGroupId dzialaja dalej bez
+        // obecnosci Device na widocznej liscie.
+        if (IsSonosSession(_sessions.Current.Id)
+            && SonosLibraryPresentation.IsContentRootView(_currentView))
+        {
+            ViewHeading.Text = "Biblioteka Sonos";
+            _unfilteredItems = CreateSonosLibraryCategoryRows();
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -14156,6 +14183,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var item = row?.Item;
         if (item is null) return;
+        // KORZEN TRESCI SONOSA: Enter na wierszu kategorii wchodzi w jej liste.
+        // Bez tego Enter spadalby na NavigateTo(item.Title) i dawal pusty widok
+        // o nazwie "Ulubione Sonos" - czyli nazwe bez zawartosci.
+        if (TryOpenSonosLibraryCategoryRow(item.Id)) return;
         if (item.Kind == MediaItemKind.Device && IsSonosSession(_sessions.Current.Id))
         {
             // FIZYCZNY Enter na wierszu grupy szedl DALEJ i konczyl na
