@@ -33,7 +33,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         /// wcisnietymi modyfikatorami w stanie watku.
         /// </summary>
         internal void PressKeyOnMainWindow(Key key, ModifierKeys modifiers) =>
-            SendKeyToWindow(Window, key, modifiers);
+            SendKeyWithModifiers(Window, key, modifiers);
 
         /// <summary>
         /// STAN ODCZYTANY produkcyjna droga <c>ReadSonosGroupStateAsync</c>:
@@ -88,7 +88,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 throw new Exception("Preset przypisywany poza sesją Sonos: " + sessionId);
             }
 
-            var entries = Window.StateForTests.Settings.SessionPresets.EntriesBySession
+            var entries = Window.StateForTests.SessionPresets.EntriesBySession
                 .TryGetValue(sessionId, out var existing) ? existing : [];
             entries.RemoveAll(entry => entry.Slot == slot);
             entries.Add(new SessionPresetEntry
@@ -99,7 +99,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 TargetTitle = "Nokturny",
                 SonosHouseholdId = HouseholdId
             });
-            Window.StateForTests.Settings.SessionPresets.EntriesBySession[sessionId] = entries;
+            Window.StateForTests.SessionPresets.EntriesBySession[sessionId] = entries;
             return "groups/" + GroupId + "/favorites";
         }
     }
