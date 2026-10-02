@@ -59,12 +59,27 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         }
 
         if (failure is not null) throw failure;
+        // UCZCIWE PODSUMOWANIE: oglaszamy WYLACZNIE zmierzone czesci. Stare,
+        // stale zdanie o wszystkich pieciu punktach przy --parts=1c kazalo
+        // czytelnikowi uwierzyc w odbior, ktorego pomiar nie wykonal.
+        var measured = string.Join(", ", After417PartsToMeasure.Select(DescribeAfter417Part));
         Console.WriteLine($"({After417PartsToMeasure.Length} sprawdzeń zgłoszenia po 4.1.7)");
-        Console.WriteLine(
-            "OK: (1) start wczytuje grupy + F5 tym samym torem co menu + Ctrl+F5 bez pętli odmów, "
-            + "(2) Spacja transport / Enter uruchomienie w podliście, "
-            + "(3) Ctrl+Shift+cyfra preset z podlisty bez utraty wiersza i fokusu");
+        Console.WriteLine("OK: zmierzone części "
+            + string.Join("/", After417PartsToMeasure) + " - " + measured);
     }
+
+    /// <summary>Co DOKLADNIE dowodzi dana czesc - zero obietnic o niemierzonych.</summary>
+    private static string DescribeAfter417Part(string part) => part switch
+    {
+        "1a" => "(1a) start wczytuje grupy",
+        "1b" => "(1b) F5 odświeża tym samym torem co menu Plik",
+        "1c" => "(1c) jedno Ctrl+F5 daje używalne grupy po opóźnionym odczycie, F5 w oknie celu "
+            + "odświeża bez utraty zaznaczenia, bez pętli odmów i bez spóźnionego okna",
+        "2" => "(2) Spacja transport / Enter uruchomienie w podliście",
+        "3" => "(3) Ctrl+Shift+cyfra preset z podlisty bez utraty wiersza i fokusu",
+        _ => "(" + part + ") nieopisana część"
+    };
+
 
     private static void MeasureAfter417ThreeParts()
     {
@@ -240,8 +255,15 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
     /// <summary>
     /// CZESC 1c. Ctrl+F5 POZOSTAJE wyborem celu (znaczenia skrotu nie zmieniamy)
-    /// i przy BRAKU topologii daje UZYWALNE okno z informacja, a nie petle odmow
-    /// odsylajacych znowu do Ctrl+F5.
+    /// i w JEDNYM OTWARCIU daje UZYWALNY wybor grupy, nawet gdy topologii jeszcze
+    /// nie ma - bez petli odmow odsylajacych znowu do Ctrl+F5.
+    ///
+    /// CO TEN POMIAR MIERZY, A CZEGO NIE: odczyt jest PRAWDZIWIE OPOZNIONY
+    /// (wstrzymany GET /groups istniejaca bramka RecordingHandler.HoldNextGet),
+    /// wiec sprawdzamy RZECZYWISTE WIERSZE W POKAZANYM OKNIE PO odpowiedzi, a nie
+    /// sam fakt, ze jakis GET poleciał. Samo CountSonosReads przechodzilo takze
+    /// wtedy, gdy po odczycie okno zostawalo puste - czyli przy bledzie, ktory
+    /// uzytkownik zglosil.
     /// </summary>
     private static void MeasureCtrlF5StaysTargetChoiceWithoutRefusalLoop()
     {
@@ -250,24 +272,99 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         harness.ClearSonosTargetForTests();
         harness.AssertNoSonosTargetForMeasurement();
 
+        // PRAWDZIWIE ASYNCHRONICZNY ODCZYT: GET grup WISI, dopoki pomiar go nie
+        // zwolni. Bez tego "poprawka", ktora nie czeka na odczyt, przechodzila
+        // przypadkiem - syntetyczna chmura odpowiadala natychmiast.
+        var heldGroups = harness.Handler.HoldNextGet("/groups");
+
         var readsBefore = harness.Handler.Requests.Count;
-        var rowsShown = -1;
-        var introShown = string.Empty;
+        var rowsWhileLoading = -1;
+        var speakingWhileLoading = string.Empty;
+        var confirmWhileLoading = true;
+        var rowsAfterRead = -1;
+        var confirmAfterRead = false;
+        var highlightedAfterRead = string.Empty;
+        var windowsWhileLoading = -1;
+        var readsWhileLoading = -1;
+        var refreshRequests = -1;
+        var rowsAfterWindowF5 = -1;
+        var highlightedAfterWindowF5 = string.Empty;
+        var readsAfterWindowF5 = -1;
+        var postsInWindow = -1;
+
         harness.Window.PresentSonosTargetOverrideForTests = dialog =>
         {
+            // PRAWDZIWE ZRODLO PREZENTACJI: bez niego klawisz F5 w oknie celu nie
+            // mialby gdzie pojsc, a pomiar mierzylby metode, nie gest.
             dialog.ShowInTaskbar = false;
-            rowsShown = dialog.RowCountForTests;
-            introShown = dialog.IntroductionForTests + " " + dialog.StatusForTests;
+            dialog.Show();
+            harness.PumpUntil(
+                () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
+                TimeSpan.FromSeconds(10),
+                "okno wyboru celu się nie pokazało");
+
+            // ODCZYT W TOKU: okno JUZ JEST, lista jeszcze pusta, ale uzytkownik
+            // ma slyszec, ze trwa wczytywanie - zamiast pustki i odeslania do
+            // kolejnego Control F5.
+            harness.PumpUntil(() => heldGroups.Arrived, TimeSpan.FromSeconds(15),
+                "wstrzymany GET grup nie dotarł do transportu - pomiar nie dotyczyłby "
+                    + "opóźnionego odczytu");
+            rowsWhileLoading = dialog.RowCountForTests;
+            confirmWhileLoading = dialog.ConfirmEnabledForTests;
+            speakingWhileLoading = dialog.IntroductionForTests + " " + dialog.StatusForTests;
+
+            // POWTORZONY SKROT W TRAKCIE ODCZYTU: ani drugie okno, ani drugi
+            // odczyt. Produkcyjna droga, nie skrot do metody zaplecza.
+            readsWhileLoading = CountSonosReads(harness, readsBefore);
+            harness.Window.ShowSonosTargetSelectionForTests();
+            harness.Window.ShowSonosTargetSelectionForTests();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+            windowsWhileLoading = harness.Window.SonosTargetWindowsCreatedForTests;
+            if (CountSonosReads(harness, readsBefore) != readsWhileLoading)
+            {
+                throw new Exception("Powtórzony Ctrl+F5 w trakcie odczytu ZWIELOKROTNIŁ odczyty Sonos.");
+            }
+
+            // ODPOWIEDZ CHMURY: dopiero teraz. TO SAMO okno ma sie uzupelnic.
+            heldGroups.Release();
+            harness.PumpUntil(() => dialog.RowCountForTests > 0, TimeSpan.FromSeconds(20),
+                "ZGŁOSZONY BŁĄD 1c ODTWORZONY: po zakończonym odczycie grup TO SAMO, wciąż otwarte "
+                    + "okno wyboru celu NIE dostało żadnej grupy - jedno Ctrl+F5 nie daje używalnego "
+                    + "wyboru, użytkownik musi powtórzyć skrót. Wiersze okna=" + dialog.RowCountForTests
+                    + "; wiersze sesji=" + harness.Window.SonosGroupRows.Count);
+            rowsAfterRead = dialog.RowCountForTests;
+            confirmAfterRead = dialog.ConfirmEnabledForTests;
+            highlightedAfterRead = dialog.HighlightedGroupIdForTests ?? "brak";
+
+            // F5 W OKNIE CELU: TEN SAM backend, zachowane zaznaczenie po
+            // IDENTYFIKATORZE. Fokus stawiamy na liscie, inaczej gest nie
+            // dotarlby do okna wyboru.
+            var list = dialog.ListForTests;
+            list.Focus();
+            Keyboard.Focus(list);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(80));
+            var readsBeforeWindowF5 = harness.Handler.Requests.Count;
+            SendKeyWithModifiers(dialog, Key.F5, ModifierKeys.None);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(900));
+            if (harness.Window.LastSonosTargetRefreshTaskForTests is { } refresh) harness.Pump(refresh);
+            refreshRequests = dialog.RefreshRequestsForTests;
+            readsAfterWindowF5 = CountSonosReads(harness, readsBeforeWindowF5);
+            rowsAfterWindowF5 = dialog.RowCountForTests;
+            highlightedAfterWindowF5 = dialog.HighlightedGroupIdForTests ?? "brak";
+
+            postsInWindow = harness.Handler.Posts.Count;
+            dialog.Close();
         };
         try
         {
             harness.PressKeyOnMainWindow(Key.F5, ModifierKeys.Control);
-            harness.PumpQuietly(TimeSpan.FromMilliseconds(800));
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
             if (harness.Window.LastSonosLibraryTaskForTests is { } pending) harness.Pump(pending);
         }
         finally
         {
             harness.Window.PresentSonosTargetOverrideForTests = null;
+            heldGroups.Release();
         }
 
         if (harness.Window.SonosTargetWindowsCreatedForTests == 0)
@@ -276,28 +373,89 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 + "sama odmowa. Zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(4)));
         }
 
-        // UZYWALNY WYBOR: okno musi MOWIC, co jest nie tak. To 4.1.7 juz robi -
-        // samo otwarcie okna nie bylo zgloszonym bledem.
-        if (rowsShown <= 0 && string.IsNullOrWhiteSpace(introShown))
+        // OKNO W TRAKCIE ODCZYTU: pusta lista JEST dopuszczalna, ale MUSI mowic,
+        // ze trwa wczytywanie, i NIE MOZE udawac gotowego wyboru.
+        if (string.IsNullOrWhiteSpace(speakingWhileLoading))
         {
-            throw new Exception("Ctrl+F5 pokazało PUSTĄ listę bez żadnej informacji o wczytywaniu/błędzie.");
+            throw new Exception("W trakcie odczytu okno celu nie powiedziało NIC o wczytywaniu.");
         }
 
-        // STEROWNIK ZGLOSZENIA: pusty wybor ma SAM sprobowac wczytac topologie,
-        // inaczej uzytkownik dostaje puste okno i odsylanie do kolejnego
-        // Ctrl+F5 - dokladnie petla, ktora zglosil. Mierzymy RZECZYWISTY GET,
-        // nie zapowiedz.
-        if (CountSonosReads(harness, readsBefore) == 0)
+        if (rowsWhileLoading > 0 && !confirmWhileLoading)
         {
-            throw new Exception("ZGŁOSZONY BŁĄD 1c ODTWORZONY: Ctrl+F5 przy pustej topologii NIE "
-                + "podjęło próby wczytania grup - okno wyboru celu zostało puste bez żadnego "
-                + "odczytu. Zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(4)));
+            throw new Exception("Okno celu miało wiersze, ale potwierdzenie było wyłączone.");
         }
 
-        if (harness.Handler.Posts.Count != 0)
+        if (rowsWhileLoading == 0 && confirmWhileLoading)
+        {
+            throw new Exception("Okno celu włączyło potwierdzenie przy pustej liście.");
+        }
+
+        if (windowsWhileLoading != 1)
+        {
+            throw new Exception("Powtórzony Ctrl+F5 w trakcie odczytu ZWIELOKROTNIŁ okna celu: "
+                + windowsWhileLoading + ".");
+        }
+
+        // UZYWALNY WYBOR PO ODCZYCIE: rzeczywiste grupy, wlaczone potwierdzenie i
+        // JEDNOZNACZNIE zaznaczona grupa, nie sama niepusta lista.
+        if (rowsAfterRead <= 0 || !confirmAfterRead)
+        {
+            throw new Exception("Po odczycie okno celu nie dało używalnego wyboru: wiersze="
+                + rowsAfterRead + ", potwierdzenie=" + confirmAfterRead + ".");
+        }
+
+        if (!string.Equals(highlightedAfterRead, GroupId, StringComparison.Ordinal))
+        {
+            throw new Exception("Po odczycie okno celu nie wskazało jednoznacznie grupy z topologii "
+                + "(jest: " + highlightedAfterRead + ", oczekiwano: " + GroupId + ").");
+        }
+
+        // F5 W OKNIE: jeden tor odczytu i zachowane zaznaczenie po IDENTYFIKATORZE.
+        if (refreshRequests != 1)
+        {
+            throw new Exception("F5 w oknie wyboru celu nie poprosiło o odświeżenie (prośby: "
+                + refreshRequests + ").");
+        }
+
+        if (readsAfterWindowF5 == 0)
+        {
+            throw new Exception("ZGŁOSZONY BŁĄD 1c ODTWORZONY: F5 w oknie wyboru celu nie wykonało "
+                + "ŻADNEGO odczytu Sonos - trzeba było zamykać okno, żeby odświeżyć grupy.");
+        }
+
+        if (rowsAfterWindowF5 <= 0
+            || !string.Equals(highlightedAfterWindowF5, GroupId, StringComparison.Ordinal))
+        {
+            throw new Exception("F5 w oknie celu zgubiło listę albo zaznaczenie: wiersze="
+                + rowsAfterWindowF5 + ", zaznaczenie=" + highlightedAfterWindowF5 + ".");
+        }
+
+        // JEDEN TOR ODCZYTU i ZERO POST: wybor celu niczego nie zleca.
+        if (postsInWindow != 0 || harness.Handler.Posts.Count != 0)
         {
             throw new Exception($"Ctrl+F5 wysłało {harness.Handler.Posts.Count} POST - wybór celu "
                 + "nie ma prawa niczego zlecać.");
+        }
+
+        if (CountSonosReads(harness, readsBefore) == 0)
+        {
+            throw new Exception("ZGŁOSZONY BŁĄD 1c ODTWORZONY: Ctrl+F5 przy pustej topologii NIE "
+                + "podjęło próby wczytania grup. Zapowiedzi: "
+                + string.Join(" | ", harness.Announcements.TakeLast(4)));
+        }
+
+        // ZADNEGO SPOZNIONEGO OKNA PO WYJSCIU: po zamknieciu wyboru nic sie nie
+        // otwiera samo, a licznik okien zostaje na jednym.
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(500));
+        if (harness.Window.SonosTargetWindowsCreatedForTests != 1)
+        {
+            throw new Exception("Po wyjściu z wyboru celu otworzyło się SPÓŹNIONE okno (okien: "
+                + harness.Window.SonosTargetWindowsCreatedForTests + ").");
+        }
+
+        if (harness.Window.OpenSonosTargetWindowForTests is not null)
+        {
+            throw new Exception("Okno wyboru celu zostało zapamiętane jako otwarte po zamknięciu.");
         }
     }
 

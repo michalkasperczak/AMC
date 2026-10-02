@@ -40,6 +40,10 @@ public partial class MainWindow
 
     internal Task? LastSonosLibraryTaskForTests { get; private set; }
 
+    /// <summary>ODCZYT zlecony przez OTWARTE okno celu (Ctrl+F5 / F5 w oknie).</summary>
+    internal Task? LastSonosTargetRefreshTaskForTests { get; private set; }
+
+
     internal int SonosLibraryWindowsCreatedForTests { get; private set; }
 
     internal int SonosTargetWindowsCreatedForTests { get; private set; }
@@ -239,10 +243,11 @@ public partial class MainWindow
         ApplySonosAccountBinding();
 
         // PUSTA TOPOLOGIA: 4.1.7 otwieralo puste okno i odsylalo do kolejnego
-        // Control F5 - petla odmow. Teraz Control F5 SAM podejmuje probe
-        // wczytania grup tym samym istniejacym poleceniem, co menu Plik.
-        // Control F5 POZOSTAJE wyborem celu: po odswiezeniu nadal pokazujemy
-        // okno wyboru, a nie zamiast niego.
+        // Control F5 - petla odmow. Teraz Control F5 OTWIERA okno OD RAZU, mowi
+        // "Wczytuję grupy" i SAM zleca odczyt tym samym istniejacym torem, co
+        // menu Plik; wynik wpada do TEGO SAMEGO, juz otwartego okna. Dzieki temu
+        // jedno otwarcie daje uzywalny wybor bez powtarzania skrotu, a zadne
+        // spoznione okno nie wyskakuje po wyjsciu - okno istnieje PRZED odczytem.
         if (_sonosTopology is null)
         {
             ExecuteCommand(CommandIds.RefreshSonosGroups);
@@ -299,6 +304,58 @@ public partial class MainWindow
         // ISTNIEJACA, odebrana droga ActivateSonosGroupAsync - nie powstaje tu
         // drugi tor zmiany celu. Komunikat mowi "Wybrano cel", nigdy "gra".
         LastSonosLibraryTaskForTests = ApplySonosTargetSelectionAsync(groupId, window.SelectedGroupLabel);
+    }
+
+    /// <summary>
+    /// ODCZYT GRUP NA RZECZ OTWARTEGO OKNA CELU. Zlecany przy otwarciu z pusta
+    /// topologia oraz przez F5 w samym oknie.
+    ///
+    /// GRANICE, ktorych ten tor NIE wolno zdjac:
+    ///  * ISTNIEJACA bramka "jedno odswiezenie naraz" siedzi w
+    ///    <see cref="RefreshSonosTopologyAsync"/> - kilkukrotne F5/Ctrl+F5 w
+    ///    trakcie odczytu NIE mnozy GET ani okien.
+    ///  * Wynik wpuszczamy do okna TYLKO gdy to NADAL TO SAMO, ZYWE okno
+    ///    (<c>_sonosTargetWindow</c>), bilet konta/sesji sie nie zmienil i AMC
+    ///    sie nie zamyka. Po Cancel / zmianie konta / wyjsciu z sesji spozniony
+    ///    odczyt NIE przywraca starej listy i NIE otwiera nowego okna.
+    ///  * ZERO POST: to wylacznie odczyt.
+    ///
+    /// GRANICA TEGO TORU (swiadoma, nie przeoczona): gdy W TYM MOMENCIE trwa JUZ
+    /// inne odswiezenie, istniejaca bramka <c>RefreshSonosTopologyAsync</c>
+    /// wraca od razu ze "Odświeżanie grup Sonos już trwa" i okno opublikuje
+    /// jeszcze nieznana topologie z uczciwa przyczyna; F5 w oknie ponawia. Nie
+    /// oslabiamy tu tej bramki, bo mnozylaby GET-y.
+    /// </summary>
+    private void BeginSonosTargetRefresh(SonosTargetSelectionWindow window)
+    {
+        if (_isClosing) return;
+        if (!ReferenceEquals(_sonosTargetWindow, window)) return;
+        window.ShowLoadingForTarget();
+        LastSonosTargetRefreshTaskForTests = RunSonosTargetRefreshAsync(window);
+    }
+
+    private async Task RunSonosTargetRefreshAsync(SonosTargetSelectionWindow window)
+    {
+        var ticket = _sonosTargetTicket;
+        var session = _sessions?.Current.Id;
+
+        // ISTNIEJACY tor odczytu - ten sam, co menu Plik i F5 na liscie. Zadnego
+        // nowego brokera ani drugiej drogi do zaplecza.
+        await RefreshSonosTopologyAsync().ConfigureAwait(true);
+
+        // SPOZNIONY WYNIK NIE WRACA: okno musi zyc i byc TYM SAMYM, konto i
+        // sesja bez zmian, AMC nie w zamykaniu.
+        if (_isClosing) return;
+        if (!ReferenceEquals(_sonosTargetWindow, window)) return;
+        if (ApplySonosAccountBinding() || ticket != _sonosTargetTicket) return;
+        if (!IsSonosSession(_sessions?.Current.Id)) return;
+        if (!string.Equals(session, _sessions?.Current.Id, StringComparison.Ordinal)) return;
+
+        var topology = _sonosTopology;
+        window.ApplyRefreshedTopology(
+            topology,
+            _state.Sonos.SelectedGroupId,
+            topology is null ? DescribeSonosTargetUnavailable() : null);
     }
 
     /// <summary>
