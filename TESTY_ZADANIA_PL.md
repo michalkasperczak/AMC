@@ -149,12 +149,12 @@ Czego dotyczy: w sesji Sonos menu **Plik → „Importuj stacje z playlisty do M
 4. Anuluj okno wyboru pliku, wskaż plik nieistniejący albo manifest HLS: słyszysz komunikat, ale lista stacji i plik ustawień zostają bez zmian.
 5. W otwartym oknie Moje stacje ten sam import jest pod przyciskiem i pod Ctrl+O. Po udanym imporcie lista pokazuje stare i nowe stacje, a zaznaczenie stoi na pierwszej dodanej.
 
-Odbiór tego przyrostu na Hermesie (WSL, bez pulpitu Windows):
+Odbiór tego przyrostu na Hermesie:
 - Core `--sonos-own-streams-import` **wykonany**: 64 sprawdzenia scalania, ID, duplikatów i odrzuconych adresów. Core `--sonos-own-streams` **wykonany**: 8 sprawdzeń.
-- Windows `--sonos-own-streams-import` **ZAPISANY I SKOMPILOWANY, NIE WYKONANY**: WSL nie ma `Microsoft.WindowsDesktop.App`, więc `dotnet run` kończy się „No frameworks were found”. Wykonanie 5 przypadków WPF (widoczność w menu Plik po zmianie sesji, prawdziwy plik → zapis → odczyt nowym store, anulowanie, błąd pliku i HLS, przycisk w oknie z odświeżeniem listy i zaznaczeniem) należy do odbioru na Windows.
+- Windows `--sonos-own-streams-import` **WYKONANY** na Hermesie w pełnej tabeli zestawu Windows: 5 przypadków WPF (widoczność w menu Plik po zmianie sesji, prawdziwy plik → zapis → odczyt nowym store, anulowanie, błąd pliku i HLS, przycisk w oknie z odświeżeniem listy i zaznaczeniem).
 - Arytmetyka komunikatu jest sprawdzana bez okna, na początku tego samego przełącznika, więc nie zależy od pulpitu.
 - Automat zarejestrowany pod CLI (`--sonos-own-streams-import`) oraz w PEŁNEJ tabeli zestawu Windows.
-- GUI i żywy NVDA: NIE wykonane w tej sesji, świadomie oddane sesji trzymającej pulpit.
+- Żywy NVDA na Hermesie, w izolowanej kopii i w próbnym profilu bez realnego konta: patrz „Import z żywym NVDA” niżej.
 
 
 

@@ -5,7 +5,8 @@
 - `SonosSublistReturnPolicy.ShouldLeaveSublistForSlot`: przed zamknięciem listy odrzuca slot pusty i już aktywny.
 - `MainWindow.SonosSublistReturn.cs`: przechowuje wiersz wraz z kategorią; nie przełącza sesji po wyczerpaniu oczekiwania na zamknięcie modala.
 - `SonosSublistAllThreeAcceptanceTests.cs`: trzy podlisty, dalszy wiersz, powrót fokusu, pusty/bieżący slot, Escape i rozdzielenie kategorii. Test dodany także do pełnej tabeli Windows.
-- Żywy NVDA potwierdził fokus po fizycznych gestach na Hermesie w próbnej instancji. Odczyt fokusu nie jest zapisem wypowiedzianej mowy. Przerwanie odczytu podczas powrotu i próba przy otwartym modalu wymagają osobnego domknięcia; nie są mierzone samymi czterema granicami tego testu.
+- Żywy NVDA potwierdził fokus po fizycznych gestach na Hermesie w próbnej instancji. Odczyt fokusu nie jest zapisem wypowiedzianej mowy. Przerwanie odczytu podczas powrotu i próba przy otwartym modalu są JUŻ ZAMKNIĘTE w tym samym zarejestrowanym zestawie `--sonos-sublist-all-three`: zwolniony wstrzymany odczyt po ponownym wyjściu z sesji milczy i nie otwiera starej listy (z kontrolą dodatnią, że zwykły powrót nadal otwiera właściwą podlistę), a wyczerpanie `PostSessionSwitchWhenModalsClosed` przy rzeczywistym własnym modalu nie zmienia sesji i czyści zapis powrotu. Oba pomiary potwierdzono sondą mutacyjną (prawdziwy RED, potem cofnięty).
+- KRÓTKA MOWA w trzech podlistach (Ulubione, Playlisty, Moje stacje): przy zwykłym wyborze pada sama nazwa pozycji, bez technicznych dopisków; błędy nadal są zgłaszane w całości. Mierzone zapisem wypowiedzianej mowy, nie odczytem fokusu.
 
 
 ## Sonos po415: treść, fokus i krótka reakcja
