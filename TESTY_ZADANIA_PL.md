@@ -1,5 +1,14 @@
 # Zadania testowe AMC
 
+## Sonos po415 i lokalizacje w schowku
+
+- `--sonos-navigation-ux`: rzeczywiste kategorie korzenia, powrót listy/odtwarzacza i celu, spóźniona topologia, Enter, własny/obcy/nieznany foreground, F2/Delete.
+- `--sonos-presets-real`: P18 zatrzymuje GET i wymaga nazwy przed odpowiedzią, działającego Dispatchera, zachowania filtra i pojedynczej zapowiedzi. Nazwa to wybrany materiał, nie dowód dźwięku.
+- `--sonos-own-streams-main`: krótka zapowiedź przyjętej próby i wcześniejsze zabezpieczenia.
+- `--clipboard-locations-ui`: prawdziwy schowek w handlerach listy, odtwarzacza (wspólna metoda), wyszukiwania, podcastu, YouTube, FileDrop i presetów AMC/WiiM, również brak URI. Ctrl+C pozostaje nazwą.
+- `--sonos-final-gui <sekundy>`: wyłącznie ręczny pokaz na izolowanym zapleczu, poza pełną tabelą. Na Hermesie fizycznie sprawdzono krótką mowę w Podglądzie mowy NVDA, Ctrl+Shift+C z listy/wielu pozycji/odtwarzacza, Ctrl+C oraz oba rodzaje powrotu Sonos. Nie jest to pomiar dźwięku Sonosa.
+
+
 ## Sonos: znak @ w sessionId
 
 `--sonos-stream-url`: syntetyczny SessionId zmieniony na `SYNTHETIC-SESSION@42`, bez prywatnych danych. RED6/12 przed poprawką; GREEN12/12 po dopuszczeniu @. Dotyczy rzeczywistych dróg create/parser/load/koordynator, limitów, braku retry i ochrony danych. Mała sonda45/45; sprzęt po poprawce:3POST/3HTTP200 (create/load/suspend), GET Buffering→Playing z echoitemId, końcowy Idle, volume20/mute=false zachowane. Kwity amc_pomoc/sonos-own-url-real-probe/session-at-fixed-b225078afd17/. Nie nazywać samego stanu Playing odsłuchem użytkownika.

@@ -284,6 +284,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         var task = h.Window.ActivateSonosPresetForTests(FavoritePreset(), "1");
         h.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5), "GET katalogu nie dotarł do transportu");
 
+        // Liczymy mowę po zmianie kontekstu, nie wcześniejszą nazwę wybranego presetu.
+        spokenBefore = h.Announcements.Count;
         // NOWSZY ZAMIAR: zmiana konta PRODUKCYJNA droga koordynatora.
         if (householdOnly) h.Window.StateForTests.Sonos.SelectedHouseholdId = OtherHouseholdId;
         else h.SwapAccount("KONTO-ULUBIONE-B");

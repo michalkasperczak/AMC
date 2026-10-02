@@ -1,5 +1,14 @@
 # AMC — mapa kodu
 
+## Sonos po415: treść, fokus i krótka reakcja
+
+- `MainWindow.SonosLibrary.cs` / `SonosLibraryPresentation.IsContentRootView`: korzeń pokazuje kategorie materiału; model grup pozostaje osobno dla Ctrl+F5 i transportu. Enter otwiera istniejącą kategorię. `MainWindowNavigationPolicy` zamienia domyślne Multimedia na Bibliotekę Sonosa.
+- Brama okien rozpoznaje własny proces, ale nie uznaje nieznanego pierwszego planu za własny.
+- `SonosSessionPresentation`: canStop pozwala zatrzymać radio przez pause; odczyt Idle potwierdza zatrzymanie.
+- `MainWindow.SonosPresets.cs`: nazwa wybranego materiału pada przed odczytami sieci, raz; błędy nadal ogłaszane. Nie wymusza powrotu z filtra na listę. `MainWindow.SonosOwnStreams.cs` podaje krótkie Uruchamianie.
+- `SonosOwnStreamsWindow`: F2 i Delete używają tych samych dróg co przyciski Edytuj/Usuń. Sonos Favorites nie zyskały nieistniejącego API edycji.
+
+
 ## Sonos: rzeczywisty identyfikator sesji z @
 
 `SonosSessionIdPolicy` dopuszcza literalne `@` wewnątrz segmentu ścieżki. Rzeczywisty createSession oddał45/46znakowy identyfikator zawierający ten znak; poprzednia walidacja odrzucała go mimo HTTP200 i Connected. Nie zmieniono wartości identyfikatora, limitu46 ani blokad separatorów/fragmentu/query. Po poprawce rzeczywiste create, loadStreamUrl i suspend dały200; GET potwierdził Playing, echo itemId i końcowy Idle, bez cloud queue servera. Nagrywanie w AMC nie było zatrzymywane. Oddzielić ten pomiar od fizycznego potwierdzenia dźwięku.

@@ -62,6 +62,14 @@ if (args.Contains("--spotify-account-routing-gui", StringComparer.Ordinal))
 {
     SpotifyAccountRoutingTests.ShowForNvda(); return 0;
 }
+if (args.Contains("--clipboard-locations-ui", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunClipboardLocations(); return 0;
+}
+if (args.Length == 2 && args[0] == "--sonos-final-gui")
+{
+    SonosFavoritePlayRealOwnerTests.ShowFinalForNvda(int.Parse(args[1])); return 0;
+}
 if (args.Contains("--sonos-account-wiring", StringComparer.Ordinal))
 {
     SonosAccountWiringTests.Run(); return 0;
@@ -483,6 +491,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
     ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
     ("Sonos: presety sesji - przypisanie, trwałość i uruchomienie realną drogą i HTTP", SonosFavoritePlayRealOwnerTests.RunPresets),
+    ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
     ("Editable Field Replacement", TestEditableFieldReplacement),

@@ -98,7 +98,7 @@ public partial class MainWindow
                 return;
             }
             Say(loaded.Accepted
-                ? $"Sonos przyjął stację: {request.Station.Name}. Odtwarzanie nie zostało jeszcze potwierdzone."
+                ? $"Uruchamianie: {request.Station.Name}"
                 : loaded.Message);
             if (!lifetime.IsCancellationRequested)
             {

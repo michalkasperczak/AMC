@@ -91,7 +91,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                     }
                     if (current.LastPlayTaskForTests is { IsCompleted: false }) return;
                     current.LastPlayTaskForTests?.GetAwaiter().GetResult();
-                    if (mode == "accepted" && !current.StatusForTests.Contains("Sonos przyjął stację", StringComparison.Ordinal))
+                    if (mode == "accepted" && !string.Equals(current.StatusForTests, "Uruchamianie: Stacja próbna", StringComparison.Ordinal))
                         throw new Exception("Brak uczciwego wyniku: " + current.StatusForTests);
                     if (mode != "accepted" && string.IsNullOrWhiteSpace(current.StatusForTests))
                         throw new Exception("Odmowa nie zostawiła komunikatu");

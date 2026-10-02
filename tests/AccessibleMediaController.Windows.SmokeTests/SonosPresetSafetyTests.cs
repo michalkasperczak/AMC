@@ -59,6 +59,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 break;
             case "edited":
                 if (posts.Length != 2) throw new Exception("Edycja URL wymaga create/load nowego adresu.");
+                if (LastAnnouncement(h) != station.Name) throw new Exception("Preset ma ogłaszać samą nazwę, bez technicznego dopisku: " + LastAnnouncement(h));
                 using (var payload = JsonDocument.Parse(posts[1].Body))
                 {
                     if (payload.RootElement.GetProperty("itemId").GetString() != SonosOwnStreamIdentity.TryComputeItemId(station.Id, station.StreamUrl))

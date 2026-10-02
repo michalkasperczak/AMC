@@ -1133,7 +1133,8 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             var slot = Window.SessionsForTests.FindSlot("sonos")
                 ?? throw new Exception("Konfiguracja nie ma slotu sesji sonos.");
             ExecuteCommand(CommandIds.SessionSlot(slot));
-            PumpUntil(() => MediaList.Items.Count >= 1, "sesja Sonos nie pokazała grupy z odczytu HTTP");
+            PumpUntil(() => Window.SonosGroupRows.Any(row => row.GroupId == GroupId),
+                "odczyt HTTP nie dostarczył grupy sterowania");
             Pump(Window.ActivateSonosGroupForTests(GroupId));
             if (Window.SonosActiveGroup is not { } group || group.Id != GroupId)
             {

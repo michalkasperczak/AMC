@@ -393,8 +393,14 @@ public partial class MainWindow
             EnsureSonosCancellation().Token);
         var token = lifetime.Token;
         _sonosCommandInFlight = true;
+        var selectedTitle = SonosPresetTitle(preset,
+            string.Equals(preset.TargetKind, SonosPresetKinds.OwnStream, StringComparison.OrdinalIgnoreCase)
+                ? _state.Sonos.OwnStreams.FirstOrDefault(entry => entry.Id == preset.TargetId)
+                : null);
         try
         {
+            // Nazwa wybranego materiału nie czeka na sieć i nie oznacza potwierdzenia odtwarzania.
+            Announce(selectedTitle);
             // --- CEL ---
             string? groupId;
             if (preset.SonosFixedPlayerIds is { Count: > 0 })
@@ -469,7 +475,6 @@ public partial class MainWindow
                 // TEN material GRA: SAMA NAZWA. Zero load, zero nowej kolejki,
                 // zero restartu - album na kolejnym utworze nie wraca do poczatku.
                 SonosPresetRepeatAnnouncementsForTests++;
-                Announce(SonosPresetTitle(preset, station));
                 return;
             }
 
@@ -481,7 +486,7 @@ public partial class MainWindow
                     .SendGroupCommandAsync(groupId, SonosGroupCommand.Play, token)
                     .ConfigureAwait(true);
                 if (!Current()) return;
-                Announce(resumed.Accepted ? SonosPresetTitle(preset, station) : resumed.Message);
+                if (!resumed.Accepted) Announce(resumed.Message);
                 await RefreshSonosStateAfterPresetAsync().ConfigureAwait(true);
                 return;
             }
@@ -492,7 +497,7 @@ public partial class MainWindow
                     () => Current()).ConfigureAwait(true);
             if (!Current()) return;
             if (message is null) return;
-            Announce(message);
+            if (!string.Equals(message, selectedTitle, StringComparison.Ordinal)) Announce(message);
             await RefreshSonosStateAfterPresetAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
@@ -513,6 +518,7 @@ public partial class MainWindow
             // FOKUSU NIE RUSZAMY przy skrocie globalnym: zdalny preset nie ma
             // prawa wejsc na wierzch ani otworzyc listy przy okazji.
             if (!fromGlobalShortcut && !_isClosing && IsActive && Current()
+                && !IsKeyboardFocusWithin
                 && IsSonosSession(_sessions?.Current.Id) && !_playerViewActive)
             {
                 RestoreMediaListFocusAfterRefresh();
@@ -744,9 +750,9 @@ public partial class MainWindow
                 // NASZ itemId: ten sam klucz, ktorego szuka nastepne nacisniecie.
                 itemId: SonosOwnStreamIdentity.TryComputeItemId(station.Id, station.StreamUrl),
                 token).ConfigureAwait(true);
-            // PRZYJECIE to nie dowod, ze gra - i tak to mowimy.
+            // Potwierdzenie transportu nie jest potwierdzeniem dźwięku. Nazwa już padła przy wyborze.
             return loaded.Accepted
-                ? $"Sonos przyjął stację: {station.Name}. Odtwarzanie nie zostało jeszcze potwierdzone"
+                ? SonosPresetTitle(preset, station)
                 : loaded.Message;
         }
 
@@ -763,7 +769,7 @@ public partial class MainWindow
                 playOnCompletion: true,
                 token).ConfigureAwait(true);
             return result.Accepted
-                ? SonosFavoritesLabels.DescribePlayAccepted(preset.TargetTitle)
+                ? preset.TargetTitle
                 : result.Message;
         }
 
@@ -779,7 +785,7 @@ public partial class MainWindow
                 playOnCompletion: true,
                 token).ConfigureAwait(true);
             return result.Accepted
-                ? SonosPlaylistsLabels.DescribePlayAccepted(preset.TargetTitle)
+                ? preset.TargetTitle
                 : result.Message;
         }
 

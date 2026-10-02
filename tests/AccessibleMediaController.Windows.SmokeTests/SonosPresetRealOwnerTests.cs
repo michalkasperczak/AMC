@@ -97,6 +97,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         Measure("P16", "Enter własnej stacji i preset używają jednej tożsamości i zamiaru", MeasureOwnEnterThenPreset),
         // RYZYKO 3b: zajętość miejsca nie może zlewać różnych rodzajów ani domów.
         Measure("P17", "Klucz materiału rozróżnia rodzaj i dom, własna stacja niezależna", MeasureMaterialKeySeparatesKindAndHousehold),
+        Measure("P18", "Nazwa presetu przed odpowiedzią sieci, działający Dispatcher, bez powtórzonej mowy", MeasurePresetFeedbackBeforeNetwork),
     ];
 
     // ==================== APARATURA PRESETOW ====================
@@ -498,6 +499,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         harness.PumpUntil(() => held.Arrived, TimeSpan.FromSeconds(5),
             "POST presetu nie dotarł do transportu");
 
+        var spokenBeforeSwap = harness.Announcements.Count;
         // NOWSZY ZAMIAR: zmiana konta PRODUKCYJNA droga.
         harness.SwapAccount("KONTO-PRESET-B");
         held.Release();
@@ -520,9 +522,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 + "(tego z czasu kliknięcia).");
         }
 
-        var spoken = LastAnnouncement(harness);
-        if (spoken.Contains("Nokturny", StringComparison.Ordinal)
-            && !spoken.Contains("nie", StringComparison.OrdinalIgnoreCase))
+        var spoken = string.Join(" | ", harness.Announcements.Skip(spokenBeforeSwap));
+        if (harness.Announcements.Skip(spokenBeforeSwap).Any(message => message.Contains("Nokturny", StringComparison.Ordinal)
+            && !message.Contains("nie", StringComparison.OrdinalIgnoreCase)))
         {
             throw new Exception("Spóźniona próba ogłosiła sukces po zmianie konta: " + spoken);
         }
