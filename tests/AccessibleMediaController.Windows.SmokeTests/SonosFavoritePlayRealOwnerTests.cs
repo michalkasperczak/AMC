@@ -1012,6 +1012,69 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         internal PersistedState ReloadStateForTests() =>
             new ConfigurationStore(Path.Combine(_directory, "settings.json")).LoadOrCreate();
 
+        /// <summary>PLIK STANU: pomiar importu porownuje jego tresc BAJT W BAJT.</summary>
+        internal string SettingsPathForTests => Path.Combine(_directory, "settings.json");
+
+        /// <summary>
+        /// PLIK WEJSCIOWY w katalogu aparatury: import ma czytac PRAWDZIWY plik
+        /// z dysku, a nie napis podany w pamieci.
+        /// </summary>
+        internal string WriteTempFile(string name, string content)
+        {
+            var path = Path.Combine(_directory, name);
+            File.WriteAllText(path, content);
+            return path;
+        }
+
+        /// <summary>
+        /// IMPORT PRODUKCYJNA droga z podstawionym WYNIKIEM okna wyboru pliku.
+        /// Podstawiamy TYLKO wybor sciezki (null = uzytkownik anulowal); odczyt,
+        /// scalanie i zapis jada prawdziwym kodem.
+        /// </summary>
+        internal MainWindow.SonosOwnStreamsImportUiOutcome ImportWithPath(string? path)
+        {
+            Window.SonosOwnStreamsImportPathOverrideForTests = () => path;
+            try { return Window.ImportSonosOwnStreamsForTests(Window); }
+            finally { Window.SonosOwnStreamsImportPathOverrideForTests = null; }
+        }
+
+        /// <summary>
+        /// PRAWDZIWY modal Moich stacji: produkcyjna droga tworzy okno,
+        /// podstawiamy TYLKO pokazanie - jak w <see cref="RunFavoritesModal"/>.
+        /// </summary>
+        internal void RunOwnStreamsModal(Action<SonosOwnStreamsWindow> steps)
+        {
+            Exception? inside = null;
+            Window.PresentSonosOwnStreamsOverrideForTests = dialog =>
+            {
+                dialog.ShowInTaskbar = false;
+                var timer = new DispatcherTimer(DispatcherPriority.Background)
+                {
+                    Interval = TimeSpan.FromMilliseconds(25)
+                };
+                timer.Tick += (_, _) =>
+                {
+                    if (!dialog.IsLoaded || !dialog.IsVisible) return;
+                    timer.Stop();
+                    try { steps(dialog); }
+                    catch (Exception exception) { inside = exception; }
+                    finally
+                    {
+                        if (dialog.IsVisible)
+                        {
+                            try { dialog.Close(); } catch (InvalidOperationException) { }
+                        }
+                    }
+                };
+                timer.Start();
+                try { dialog.ShowDialog(); }
+                finally { timer.Stop(); }
+            };
+            try { Window.ShowSonosOwnStreamsForTests(); }
+            finally { Window.PresentSonosOwnStreamsOverrideForTests = null; }
+            if (inside is not null) throw inside;
+        }
+
         /// <summary>
         /// ZDJECIE wybranego celu: preset bez celu ma odesłać do wyboru głośników,
         /// a nie zgadywać grupę.

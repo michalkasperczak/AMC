@@ -24,6 +24,16 @@ public partial class SonosOwnStreamsWindow : Window
     /// <summary>Callback PRZYPISANIA PRESETU albo null. Okno nie zapisuje presetu samo.</summary>
     private readonly Action<SonosOwnStreamSettings>? _assignPreset;
 
+    /// <summary>
+    /// IMPORT PLAYLISTY albo null. Okno NIE czyta pliku i NIE zapisuje stanu:
+    /// oddaje to wlascicielowi (<c>MainWindow.SonosImport.cs</c>), zeby istniala
+    /// JEDNA droga importu dla menu Plik i dla tego przycisku.
+    ///
+    /// Zwrocony wynik z <c>Stations</c> rownym null znaczy "nic nie zmieniono" -
+    /// wtedy lista zostaje DOKLADNIE taka, jaka byla, razem z zaznaczeniem.
+    /// </summary>
+    internal Func<MainWindow.SonosOwnStreamsImportUiOutcome>? ImportPlaylist { get; set; }
+
     internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
         Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play)
         : this(stations, groupName, save, play, assignPreset: null)
@@ -97,6 +107,8 @@ public partial class SonosOwnStreamsWindow : Window
         PlayButton.IsEnabled = Selected is not null && _play is not null && !string.IsNullOrWhiteSpace(_groupName);
         EditButton.IsEnabled = RemoveButton.IsEnabled = Selected is not null && !_busy;
         AddButton.IsEnabled = !_busy;
+        // Import nie wymaga zaznaczenia ani celu: to dopisanie do listy lokalnej.
+        ImportButton.IsEnabled = ImportPlaylist is not null && !_busy;
     }
 
     private void FocusRow()
@@ -133,6 +145,32 @@ public partial class SonosOwnStreamsWindow : Window
     }
 
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelectedStation();
+
+    private void Import_Click(object sender, RoutedEventArgs e) => RunImport();
+
+    /// <summary>
+    /// JEDNA sciezka importu dla przycisku Importuj i dla Ctrl+O.
+    ///
+    /// Po udanym imporcie przeladowujemy liste PELNYM wynikiem scalenia (stare +
+    /// dodane) i PRZYWRACAMY zaznaczenie - na pierwszej dodanej stacji, gdy
+    /// cokolwiek przyszlo, a inaczej na tej samej stacji co przed importem.
+    /// Przy anulowaniu, bledzie pliku i braku nowych stacji nie dotykamy ani
+    /// wierszy, ani zaznaczenia; leci tylko komunikat.
+    /// </summary>
+    private void RunImport()
+    {
+        if (_busy || _closed) return;
+        if (ImportPlaylist is null) { AnnounceForOwner("Tu nie można zaimportować playlisty."); return; }
+        var previousId = Selected?.Id;
+        var outcome = ImportPlaylist();
+        if (outcome.Stations is null) { AnnounceForOwner(outcome.Message); return; }
+        _rows.Clear();
+        foreach (var station in outcome.Stations) _rows.Add(Copy(station));
+        // Zaznaczenie po IDENTYFIKATORZE, nie po indeksie: lista wlasnie urosla.
+        RestoreSelectedRow(outcome.FirstAddedId ?? previousId);
+        UpdateButtons();
+        AnnounceForOwner(outcome.Message);
+    }
 
     /// <summary>
     /// JEDNA sciezka usuwania dla przycisku Usun i dla klawisza Delete - zeby nie
@@ -189,6 +227,17 @@ public partial class SonosOwnStreamsWindow : Window
             // PRZYPISANIE PRESETU: glowny Owner jest wylaczony, przechwytujemy tu.
             e.Handled = true;
             if (!e.IsRepeat) RequestPresetAssignment();
+            return;
+        }
+        // CTRL+O IMPORTUJE - ten sam gest, co w sesji Radia. Modal wylacza okno
+        // glowne, wiec jego router skrotow tu nie dojdzie i gest trzeba obsluzyc
+        // na miejscu. Importuje tez z pola listy i spod przyciskow.
+        if (key == Key.O
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            if (!e.IsRepeat) RunImport();
             return;
         }
         // F2 EDYTUJE, DELETE USUWA - na liscie wlasnych stacji.

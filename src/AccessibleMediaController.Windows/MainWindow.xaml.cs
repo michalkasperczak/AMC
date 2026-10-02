@@ -6522,6 +6522,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ChooseSonosHouseholdMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        // Import do Moich stacji Sonosa istnieje TYLKO w sesji Sonos; pozycje
+        // Radia i WiiM zostaja nietkniete tam, gdzie byly.
+        ImportSonosOwnStreamsMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
         ManageSpotifyConnectionMenuItem.Visibility =            SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
                 ? Visibility.Visible
@@ -23832,6 +23837,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ViewWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ViewWiiMNetworkStreams);
     private void ImportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ImportWiiMNetworkStreams();
+    private void ImportSonosOwnStreams_Click(object sender, RoutedEventArgs e) => ImportSonosOwnStreamsFromMenu();
     private void ExportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ExportWiiMNetworkStreams();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();

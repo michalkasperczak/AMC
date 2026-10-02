@@ -139,6 +139,24 @@ Odbiór tego przyrostu na Hermesie, bez realnego konta i muzyki:
 - Własny harness oraz otwarty do próby Podgląd mowy zamknięte; działająca instalacja i NVDA nietknięte. Pełny zestaw oraz realny Sonos pozostają bramką wydania; brak potwierdzenia radia bez serwera cloud queue.
 
 
+## Sonos: import playlisty do „Moich stacji” — jak sprawdzić
+
+Czego dotyczy: w sesji Sonos menu **Plik → „Importuj stacje z playlisty do Moich stacji Sonosa…”** oraz przycisk **Importuj z playlisty…** (i Ctrl+O) w otwartym oknie Moje stacje. Import jest lokalny: nie wymaga połączonego konta ani wybranego głośnika, nic nie odtwarza i nie zmienia Ulubionych Sonosa.
+
+1. W sesji Sonos otwórz menu Plik. Pozycja importu Sonosa jest widoczna; pozycje Radia i WiiM zostają na swoich miejscach w swoich sesjach.
+2. Wskaż plik M3U/M3U8/PLS/XSPF/JSON. Stacje DOPISUJĄ się do listy — zapisane wcześniej zachowują ID, nazwę nadaną ręcznie i dosłowny adres, także gdy playlista ma ten sam adres pod inną nazwą.
+3. Komunikat podaje liczbę dodanych i PEŁNĄ sumę pominięć w rozbiciu: już zapisane, adresy nieobsługiwane przez Sonosa, wpisy bez adresu lub powtórzone w pliku.
+4. Anuluj okno wyboru pliku, wskaż plik nieistniejący albo manifest HLS: słyszysz komunikat, ale lista stacji i plik ustawień zostają bez zmian.
+5. W otwartym oknie Moje stacje ten sam import jest pod przyciskiem i pod Ctrl+O. Po udanym imporcie lista pokazuje stare i nowe stacje, a zaznaczenie stoi na pierwszej dodanej.
+
+Odbiór tego przyrostu na Hermesie (WSL, bez pulpitu Windows):
+- Core `--sonos-own-streams-import` **wykonany**: 64 sprawdzenia scalania, ID, duplikatów i odrzuconych adresów. Core `--sonos-own-streams` **wykonany**: 8 sprawdzeń.
+- Windows `--sonos-own-streams-import` **ZAPISANY I SKOMPILOWANY, NIE WYKONANY**: WSL nie ma `Microsoft.WindowsDesktop.App`, więc `dotnet run` kończy się „No frameworks were found”. Wykonanie 5 przypadków WPF (widoczność w menu Plik po zmianie sesji, prawdziwy plik → zapis → odczyt nowym store, anulowanie, błąd pliku i HLS, przycisk w oknie z odświeżeniem listy i zaznaczeniem) należy do odbioru na Windows.
+- Arytmetyka komunikatu jest sprawdzana bez okna, na początku tego samego przełącznika, więc nie zależy od pulpitu.
+- Automat zarejestrowany pod CLI (`--sonos-own-streams-import`) oraz w PEŁNEJ tabeli zestawu Windows.
+- GUI i żywy NVDA: NIE wykonane w tej sesji, świadomie oddane sesji trzymającej pulpit.
+
+
 
 ## Sonos: własne radio w Core (utworzenie sesji i wczytanie adresu) — jak sprawdzić
 

@@ -18,7 +18,7 @@ public partial class MainWindow
     /// </summary>
     internal Action<SonosOwnStreamsWindow>? PresentSonosOwnStreamsOverrideForTests { get; set; }
 
-    private void ShowSonosOwnStreams()
+    private void ShowSonosOwnStreams(string? preferredStationId = null, string? announcement = null)
     {
         if (_sonosOwnStreamsWindow is { IsLiveOwnerTarget: true } open) { open.Activate(); return; }
         if (!CanPresentSonosChildWindow())
@@ -37,13 +37,21 @@ public partial class MainWindow
                 LoadSonosOwnStreamAsync(backend, home, group?.Id, ticket, request),
             station => AssignSonosOwnStreamPreset(
                 station, _sonosOwnStreamsWindow!, home, ticket)) { Owner = this };
+        // IMPORT Z WNETRZA LISTY: TA SAMA akcja, co w menu Plik. Okno samo nie
+        // czyta pliku ani nie zapisuje stanu - oddaje to tej jednej drodze.
+        window.ImportPlaylist = () => ImportSonosOwnStreams(window);
         _sonosOwnStreamsWindow = window;
         // POWROT Z INNEJ SESJI: wiersz, na ktorym uzytkownik stal przed Ctrl+cyfra.
         // Przy zwyklym otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
-        if (ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.OwnStreamsCategoryId)
-            is { } pendingStation)
+        var pending = preferredStationId
+            ?? ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.OwnStreamsCategoryId);
+        if (pending is { } pendingStation)
         {
             window.Loaded += (_, _) => window.RestoreSelectedRow(pendingStation);
+        }
+        if (announcement is { Length: > 0 } text)
+        {
+            window.Loaded += (_, _) => window.AnnounceForOwner(text);
         }
         try
         {

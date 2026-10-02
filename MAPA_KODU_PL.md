@@ -111,6 +111,14 @@ przyrost **nie obiecuje** ich rozdzielania.
 - Caller zachowuje wspólną bramkę poleceń oraz sprawdza konto, dom, grupę i życie okna między dwoma zapisami. Po zmianie kontekstu nie przekazuje adresu do starej sesji.
 - Odbiór: Core `--sonos-own-streams`; Windows `--sonos-own-streams-main`; żywy NVDA na izolowanej kopii. Testy rzeczywistego konta/głośnika i skutku audio pozostają osobną bramką. Presety i przebudowa grup to następne etapy.
 
+### Import playlisty do „Moich stacji Sonosa” — wpięcie UI
+
+- `MainWindow.SonosImport.cs` to CAŁE wpięcie: okno wyboru pliku, komunikat i zapis. Nie parsuje playlist i nie scala listy — plik czyta istniejący `RadioPlaylistImporter.Import(path)` (ta sama droga, co Radio i WiiM), a scala `SonosOwnStreamsImport.Merge` z Core. `DescribeSonosOwnStreamsImport` dolicza pominięcia z OBU źródeł: `parser.SkippedEntries` plus `SkippedDuplicates` i `SkippedInvalidAddresses` ze scalania.
+- Dwa wejścia, JEDNA akcja: pozycja menu Plik `ImportSonosOwnStreamsMenuItem` (widoczna tylko w sesji Sonos, ustawiana w `UpdateFileMenuForCurrentSession`) oraz przycisk `ImportButton` w otwartym `SonosOwnStreamsWindow` wraz z Ctrl+O obsłużonym w modalu (okno główne jest wtedy wyłączone, więc jego router skrótów tam nie dochodzi). Okno nie czyta pliku i nie zapisuje stanu — woła `ImportPlaylist` właściciela.
+- Import jest LOKALNY: działa bez połączonego konta i bez wybranego głośnika, zero GET/POST, żadnego autoodtwarzania, bez zmian w natywnych Favorites. Zapis idzie istniejącą drogą `QueueStateSave(announceFailure: true)`. Anulowanie, błąd pliku, manifest HLS i brak nowych stacji nie zmieniają listy ani pliku stanu. Po udanym imporcie lista dostaje PEŁNY wynik scalenia, a zaznaczenie staje po ID na pierwszej dodanej stacji.
+- Globalny skrót Ctrl+O dla sesji Sonos NIE jest dopisany: `MainWindowShortcutRouter.ResolveOpenData` był poza zakresem tego przyrostu, więc w głównym oknie import otwiera się z menu Plik.
+- Odbiór: Core `--sonos-own-streams-import`; Windows `--sonos-own-streams-import`. GUI i żywy NVDA pozostają osobną bramką.
+
 
 ## Sonos: WŁASNE RADIO — sesja odtwarzania i adres strumienia, warstwa Core (bez UI)
 

@@ -84,6 +84,15 @@
                 <MenuItem x:Name="ChooseSonosHouseholdMenuItem" Header="Wybierz dom Sonos"
                           automation:AutomationProperties.Name="Wybierz dom Sonos"
                           Click="ChooseSonosHousehold_Click" />
+                <!-- IMPORT PLAYLISTY DO MOICH STACJI SONOSA: bez skrotu i bez litery
+                     dostepu, jak pozostale pozycje Sonosa - zadna numeracja ani
+                     cudze Ctrl+O sie nie przesuwa. Widoczne TYLKO w sesji Sonos.
+                     To import LOKALNY: nie wymaga konta ani wybranego glosnika i
+                     nie zmienia Ulubionych Sonosa. -->
+                <MenuItem x:Name="ImportSonosOwnStreamsMenuItem" Header="Importuj stacje z playlisty do Moich stacji Sonosa…"
+                          automation:AutomationProperties.Name="Importuj stacje z playlisty do Moich stacji Sonosa"
+                          Visibility="Collapsed"
+                          Click="ImportSonosOwnStreams_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"

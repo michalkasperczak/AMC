@@ -126,6 +126,10 @@ if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
 }
+if (args.Contains("--sonos-own-streams-import", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunOwnStreamsImport(); return 0;
+}
 if (args.Contains("--sonos-sublist-session-switch", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch(); return 0;
@@ -497,6 +501,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
     ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
+    ("Sonos: import playlisty do Moich stacji - menu Plik, prawdziwy plik i zapis", SonosFavoritePlayRealOwnerTests.RunOwnStreamsImport),
     ("Sonos: Ctrl+cyfra z podlisty przełącza sesję i wraca w to samo miejsce", SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch),
     ("Sonos: powrót do wszystkich trzech podlist i granice wyboru sesji", SonosFavoritePlayRealOwnerTests.RunSublistAllThree),
     ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
