@@ -33,8 +33,8 @@ internal static class SonosOwnStreamsImportTests
     }
 
     /// <summary>
-    /// Kilka formatow PRZEZ prawdziwy parser: te pary to zmierzone wyjscie
-    /// RadioPlaylistImporter dla M3U, PLS, XSPF i VRadio JSON.
+    /// Przypadki z wyjścia prawdziwego parsera: te pary zmierzono osobną sondą
+    /// RadioPlaylistImporter dla M3U, PLS, XSPF i VRadio JSON. Ta metoda testuje scalanie.
     /// </summary>
     private static void FormatsFromRealParserBecomeStations()
     {

@@ -163,6 +163,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: presety sesji - model, trwałość i zasady stałego celu", SonosPresetModelTests.Run),
     ("Sonos: zasady powrotu do podlisty po przełączeniu sesji", SonosSublistReturnPolicyTests.Run),
     ("Własne stacje Sonosa: zapis i biblioteka", SonosOwnStreamsPersistenceTests.Run),
+    ("Sonos: import playlisty do Moich stacji", SonosOwnStreamsImportTests.Run),
     ("Edycja nagrań nie kieruje historii na kopię bezpieczeństwa", AudioEditRenameTests.Run),
     ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),
