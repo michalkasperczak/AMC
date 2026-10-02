@@ -8050,6 +8050,43 @@ może zachowywać się jak świadome odłączenie.
 
 ## Testy ręczne — alpha 331
 
+### AMC-416-NAV-01 — przełączenie sesji z wnętrza podlisty Sonosa
+
+Wejdź w sesję Sonos, wybierz cel (`Ctrl+F5`), otwórz Bibliotekę (`Ctrl+L`)
+i wejdź w **Moje stacje**. Zejdź strzałką na **drugi albo dalszy** wiersz
+(nie pierwszy — inaczej test nic nie rozróżni). Nie zamykając listy, naciśnij
+`Ctrl+cyfrę` radia internetowego.
+
+Oczekiwane: lista zamyka się sama i AMC jest w sesji radia. Nie trzeba niczego
+zamykać ręcznie. Przełączenie nie uruchamia żadnego odtwarzania w Sonosie.
+
+### AMC-416-NAV-02 — powrót do tej samej podlisty i wiersza
+
+Po AMC-416-NAV-01 naciśnij `Ctrl+cyfrę` Sonosa.
+
+Oczekiwane: AMC wraca do **Moich stacji** (nie do korzenia sesji ani do samej
+listy kategorii Biblioteki), zaznaczenie i fokus stoją na **tym samym wierszu**,
+na którym były przed wyjściem, a cel pozostaje ten sam. Powrót do samej
+kategorii to **błąd**.
+
+Powtórz dla **Ulubionych** i **Playlist** — zachowanie ma być identyczne.
+
+### AMC-416-NAV-03 — świadome zamknięcie nie wraca
+
+Wejdź w **Moje stacje**, zamknij listę `Escape`, przejdź `Ctrl+cyfrą` do radia
+i wróć `Ctrl+cyfrą` do Sonosa.
+
+Oczekiwane: podlista **nie** otwiera się sama. Zadanie powrotu obowiązuje tylko
+po wyjściu `Ctrl+cyfrą`, nie po ręcznym zamknięciu.
+
+### AMC-416-NAV-04 — zmiana celu unieważnia powrót
+
+Wyjdź `Ctrl+cyfrą` z **Ulubionych**, w innej sesji nic nie zmieniaj, wróć do
+Sonosa, zmień cel (`Ctrl+F5`) na inną grupę, znów wyjdź i wróć.
+
+Oczekiwane: po zmianie celu zapamiętane miejsce przepada i AMC zostaje w korzeniu
+sesji. Lista opisująca poprzedni cel nie ma prawa się otworzyć.
+
 ### AMC-331-01 — przenoszenie na liście sesji
 
 Naciśnij `Ctrl+Shift+S`, wybierz środkową sesję i użyj kolejno

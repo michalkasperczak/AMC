@@ -1736,7 +1736,34 @@ Poza NuGet: BASS (`third_party/BASS/win-x64`), FFmpeg i `yt-dlp` pobierane
 w czasie działania do osobnych katalogów, SDK TIDAL w `TidalPlayerHost`
 (pnpm), Inno Setup do instalatora.
 
-## 17. Gdzie czego NIE ma
+## 17. Powrót do podlisty Sonosa po przełączeniu sesji
+
+Podlisty Sonosa (Moje stacje, Ulubione, Playlisty) są oknami MODALNYMI, a modal
+WYŁĄCZA okno główne. Router skrótów `MainWindow` nie dostaje wtedy żadnego
+klawisza, więc `Ctrl+cyfra` z wnętrza listy nie przełączała sesji — trzeba było
+najpierw zamknąć listę ręcznie, a powrót lądował w korzeniu sesji.
+
+- `Core/Sonos/SonosSublistReturnPolicy.cs` — CZYSTE zasady: co wolno zapamiętać
+  (`Capture`), czy wolno wrócić (`CanReopen` — ta sama kategoria, ten sam dom,
+  ten sam cel) i w który wiersz (`ResolveRowIndex`, po identyfikatorze, nie po
+  indeksie). Bez okien, więc mierzalne w testach Core.
+- `Core/Configuration/AppSettings.cs` — `SonosSublistReturnState` wewnątrz
+  `SessionNavigationState`: kategoria, wiersz, dom i cel. Dotąd stan nawigacji
+  pamiętał tylko widok główny, nie modalną listę.
+- `Windows/SonosSublistSessionSwitch.cs` — wspólna obsługa `Ctrl+cyfra` w oknie
+  podlisty, tym samym wzorcem co istniejące `Ctrl+Alt+Shift+P`: słyszymy TYLKO
+  klawisz, który przyszedł do nas (zero globalnych przechwytów). Zwija CAŁY stos
+  modalny (Biblioteka → podlista), bo inaczej okno główne zostaje wyłączone.
+- `Windows/MainWindow.SonosSublistReturn.cs` — dwie połowy drogi:
+  `RequestSessionSwitchFromSonosSublist` (zapamiętaj miejsce, potem zwykłe
+  `ExecuteCommand`) i `TryReopenSonosSublistAfterSessionReturn` (otwórz TĘ SAMĄ
+  podlistę ISTNIEJĄCĄ drogą `OpenSonosLibraryCategory`). Zlecenie czeka na ZEJŚCIE
+  stosu modalnego sprawdzając STAN, nie priorytet kolejki dyspozytora.
+- Okna podlist mają `RestoreSelectedRow(id)`; właściciel podaje wiersz
+  jednorazowo przez `ConsumeSonosSublistPendingRowId()` — Ulubione i Playlisty
+  otwierają się asynchronicznie, więc pola nie wolno czyścić zbyt wcześnie.
+
+## 18. Gdzie czego NIE ma
 
 - Nie ma warstwy wstrzykiwania zależności — obiekty powstają wprost w `App.xaml.cs`
   i w `MainWindow`.

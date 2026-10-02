@@ -53,6 +53,25 @@ public partial class SonosOwnStreamsWindow : Window
     }
 
     internal bool IsLiveOwnerTarget => !_closed && IsVisible;
+
+    /// <summary>
+    /// PRZYWROCENIE ZAZNACZENIA po powrocie z innej sesji (Ctrl+cyfra tam i z
+    /// powrotem). Szukamy po IDENTYFIKATORZE, nie po indeksie: lista mogla sie w
+    /// miedzyczasie zmienic, a indeks wskazalby wtedy CZYJS INNY material.
+    ///
+    /// Nieznany identyfikator ladnie spada na pierwszy wiersz - to zachowanie
+    /// opisuje <c>SonosSublistReturnPolicy.ResolveRowIndex</c> i jest tam mierzone.
+    /// </summary>
+    internal void RestoreSelectedRow(string? stationId)
+    {
+        var index = SonosSublistReturnPolicy.ResolveRowIndex(
+            _rows.Select(row => row.Id).ToArray(), stationId);
+        if (index < 0) return;
+        StationsList.SelectedIndex = index;
+        StationsList.UpdateLayout();
+        FocusRow();
+    }
+
     internal IReadOnlyList<string> RowLabelsForTests =>
         _rows.Select(row => string.IsNullOrWhiteSpace(row.Name) ? row.StreamUrl : row.Name).ToArray();
 
@@ -137,7 +156,30 @@ public partial class SonosOwnStreamsWindow : Window
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled) return;
-        if (e.Key == Key.Escape) { e.Handled = true; Close(); return; }
+        // CTRL+CYFRA: PRZELACZENIE SESJI BEZ RECZNEGO ZAMYKANIA LISTY.
+        //
+        // Modal wylacza okno glowne, wiec jego router skrotow nie dostanie tego
+        // gestu - przechwytujemy go tu i oddajemy wlascicielowi, tak samo jak
+        // Ctrl+Alt+Shift+P nizej. Wlasciciel zapamieta TE liste i TEN wiersz,
+        // zeby powrot Ctrl+cyfra wrocil tutaj, a nie do korzenia sesji.
+        if (SonosSublistSessionSwitch.TryHandle(
+            this,
+            e,
+            SonosLibraryPresentation.OwnStreamsCategoryId,
+            () => Selected?.Id))
+        {
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            // SWIADOME wyjscie uzytkownika: zadne zadanie powrotu nie zostaje,
+            // bo nastepne wejscie w sesje nie ma otwierac tej listy od nowa.
+            (Owner as MainWindow)?.ClearSonosSublistReturn();
+            e.Handled = true;
+            Close();
+            return;
+        }
         // Z ALTEM WPF podaje Key.System, a litera siedzi w SystemKey.
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key == Key.P

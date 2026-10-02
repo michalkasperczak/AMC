@@ -199,6 +199,12 @@ public partial class MainWindow
                         playlist, _sonosPlaylistsWindow!, householdId, ticket));
             SonosPlaylistsWindowsCreatedForTests++;
             _sonosPlaylistsWindow = window;
+            // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
+            // otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
+            if (ConsumeSonosSublistPendingRowId() is { } pendingPlaylist)
+            {
+                window.Loaded += (_, _) => window.RestoreSelectedRow(pendingPlaylist);
+            }
             try
             {
                 PresentSonosPlaylists(window);

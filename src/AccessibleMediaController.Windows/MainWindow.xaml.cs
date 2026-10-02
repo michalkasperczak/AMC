@@ -12116,7 +12116,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (IsSonosSession(_sessions.Current.Id))
             {
                 Dispatcher.BeginInvoke(
-                    () => _ = EnterSonosSessionAsync(),
+                    async () =>
+                    {
+                        await EnterSonosSessionAsync().ConfigureAwait(true);
+                        // POWROT DO PODLISTY: dopiero PO wejsciu w sesje, bo
+                        // polityka powrotu porownuje dom i cel, a te sa znane
+                        // wlasnie z tego odczytu. Brak zadania powrotu konczy sie
+                        // cicho - zwykle wejscie w sesje zostaje bez zmian.
+                        TryReopenSonosSublistAfterSessionReturn();
+                    },
                     DispatcherPriority.Background);
             }
             if (string.Equals(sessionBeforeCommand.Id, "local", StringComparison.Ordinal))

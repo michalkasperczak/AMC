@@ -253,6 +253,12 @@ public partial class MainWindow
                         favorite, _sonosFavoritesWindow!, householdId, ticket));
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
+            // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
+            // otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
+            if (ConsumeSonosSublistPendingRowId() is { } pendingFavorite)
+            {
+                window.Loaded += (_, _) => window.RestoreSelectedRow(pendingFavorite);
+            }
             try
             {
                 PresentSonosFavorites(window);

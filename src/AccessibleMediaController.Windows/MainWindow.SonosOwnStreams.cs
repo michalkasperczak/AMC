@@ -38,6 +38,12 @@ public partial class MainWindow
             station => AssignSonosOwnStreamPreset(
                 station, _sonosOwnStreamsWindow!, home, ticket)) { Owner = this };
         _sonosOwnStreamsWindow = window;
+        // POWROT Z INNEJ SESJI: wiersz, na ktorym uzytkownik stal przed Ctrl+cyfra.
+        // Przy zwyklym otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
+        if (ConsumeSonosSublistPendingRowId() is { } pendingStation)
+        {
+            window.Loaded += (_, _) => window.RestoreSelectedRow(pendingStation);
+        }
         try
         {
             if (PresentSonosOwnStreamsOverrideForTests is { } present) present(window);

@@ -181,6 +181,22 @@ public partial class SonosFavoritesWindow : Window
 
     internal int RowCountForTests => _rows.Count;
 
+    /// <summary>
+    /// PRZYWROCENIE ZAZNACZENIA po powrocie z innej sesji. Po IDENTYFIKATORZE, nie
+    /// po indeksie: lista z konta mogla sie zmienic, a indeks wskazalby wtedy
+    /// CZYJS INNY material.
+    /// </summary>
+    internal void RestoreSelectedRow(string? favoriteId)
+    {
+        var index = SonosSublistReturnPolicy.ResolveRowIndex(
+            _rows.Select(row => row.Favorite.Id).ToArray(), favoriteId);
+        if (index < 0) return;
+        FavoritesList.SelectedIndex = index;
+        FavoritesList.UpdateLayout();
+        FocusSelectedRow();
+    }
+
+
     internal IReadOnlyList<string> RowLabelsForTests => _rows.Select(row => row.Label).ToArray();
 
     internal string IntroductionForTests => IntroductionText.Text;
@@ -285,8 +301,22 @@ public partial class SonosFavoritesWindow : Window
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        // CTRL+CYFRA: PRZELACZENIE SESJI BEZ RECZNEGO ZAMYKANIA LISTY.
+        // Modal wylacza okno glowne, wiec jego router skrotow tego gestu nie
+        // zobaczy - przechwytujemy go tu, tak samo jak Ctrl+Alt+Shift+P ponizej.
+        if (SonosSublistSessionSwitch.TryHandle(
+            this,
+            e,
+            SonosLibraryPresentation.FavoritesCategoryId,
+            () => SelectedFavoriteForTests?.Id))
+        {
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
+            // SWIADOME wyjscie: nie zostawiamy zadania powrotu.
+            (Owner as MainWindow)?.ClearSonosSublistReturn();
             CloseSelf();
             e.Handled = true;
             return;
