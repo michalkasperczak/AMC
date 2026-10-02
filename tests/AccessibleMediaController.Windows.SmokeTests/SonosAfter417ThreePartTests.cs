@@ -134,11 +134,27 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             .Invoke(window, [window, EventArgs.Empty]);
 
         // Czekamy na RZECZYWISTE grupy z RZECZYWISTEGO odczytu, nie na mowe.
-        harness.PumpUntil(
-            () => window.SonosGroupRows.Any(row => row.GroupId == GroupId),
-            TimeSpan.FromSeconds(20),
-            "ZGŁOSZONY BŁĄD 1a ODTWORZONY: zwykłe wejście po starcie NIE wczytało grup Sonos "
-                + "(lista celów sterowania pozostała pusta)");
+        try
+        {
+            harness.PumpUntil(
+                () => window.SonosGroupRows.Any(row => row.GroupId == GroupId),
+                TimeSpan.FromSeconds(20),
+                "ZGŁOSZONY BŁĄD 1a ODTWORZONY: zwykłe wejście po starcie NIE wczytało grup Sonos "
+                    + "(lista celów sterowania pozostała pusta)");
+        }
+        catch (Exception e)
+        {
+            // DIAGNOZA Z DANYCH, nie z domyslu: co faktycznie poleclalo i jaki
+            // jest stan po odpowiedzi. Inaczej nie wiadomo, czy brakuje wejscia,
+            // czy odczyt poszedl i odpadl na granicy konta/biletu.
+            var seen = harness.Handler.Requests.Skip(before)
+                .Select(w => w.Method + " " + w.Uri.AbsolutePath).ToList();
+            throw new Exception(e.Message
+                + " | ŻĄDANIA PO ContentRendered: "
+                + (seen.Count == 0 ? "ŻADNYCH" : string.Join(" ; ", seen))
+                + " | wiersze=" + window.SonosGroupRows.Count
+                + " | porzucenia konta=" + window.SonosAccountChangeDropsForTests);
+        }
 
         var fresh = harness.Handler.Requests.Skip(before).ToList();
         if (!fresh.Any(w => w.Uri.AbsoluteUri.Contains("households", StringComparison.OrdinalIgnoreCase)))
