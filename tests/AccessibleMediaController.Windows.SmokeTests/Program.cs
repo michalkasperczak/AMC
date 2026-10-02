@@ -148,6 +148,17 @@ if (args.Contains("--sonos-presets-real", StringComparer.Ordinal))
 }
 if (args.Contains("--sonos-after417-three-parts", StringComparer.Ordinal))
 {
+    // ZAWEZENIE do wybranych czesci: --sonos-after417-parts=1b,2 . Sluzy do
+    // ODTWORZENIA kazdego zgloszonego punktu OSOBNO, zeby pierwszy czerwony nie
+    // przykryl pozostalych. Bez tego argumentu mierzone sa WSZYSTKIE.
+    if (args.FirstOrDefault(a => a.StartsWith("--sonos-after417-parts=", StringComparison.Ordinal))
+        is { } selection)
+    {
+        SonosFavoritePlayRealOwnerTests.After417PartsToMeasure =
+            selection["--sonos-after417-parts=".Length..]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
     SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts(); return 0;
 }
 if (args.Contains("--sonos-favorite-repeat", StringComparer.Ordinal))

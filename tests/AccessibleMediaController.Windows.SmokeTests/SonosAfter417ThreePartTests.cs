@@ -67,17 +67,29 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
     private static void MeasureAfter417ThreeParts()
     {
-        MeasureStartupLoadsGroups();
-        Console.Error.WriteLine("CZESC 1a: zwykle wejscie po starcie wczytuje grupy - OK");
-        MeasureF5RefreshesSonosSameRouteAsMenu();
-        Console.Error.WriteLine("CZESC 1b: F5 odswieza tym samym torem co menu - OK");
-        MeasureCtrlF5StaysTargetChoiceWithoutRefusalLoop();
-        Console.Error.WriteLine("CZESC 1c: Ctrl+F5 to wybor celu, bez petli odmow - OK");
-        MeasureSublistSpaceTransportAndEnterPlay();
-        Console.Error.WriteLine("CZESC 2: Spacja transport, Enter uruchomienie - OK");
-        MeasureSublistPresetShortcutKeepsList();
-        Console.Error.WriteLine("CZESC 3: Ctrl+Shift+cyfra preset z podlisty - OK");
+        foreach (var part in After417PartsToMeasure)
+        {
+            switch (part)
+            {
+                case "1a": MeasureStartupLoadsGroups(); break;
+                case "1b": MeasureF5RefreshesSonosSameRouteAsMenu(); break;
+                case "1c": MeasureCtrlF5StaysTargetChoiceWithoutRefusalLoop(); break;
+                case "2": MeasureSublistSpaceTransportAndEnterPlay(); break;
+                case "3": MeasureSublistPresetShortcutKeepsList(); break;
+                default: throw new Exception("Nieznana część pomiaru: " + part);
+            }
+
+            Console.Error.WriteLine("CZESC " + part + ": zmierzona - OK");
+        }
     }
+
+    /// <summary>
+    /// KTORE CZESCI mierzyc. Domyslnie WSZYSTKIE po kolei; zawezenie sluzy tylko
+    /// do ODTWORZENIA kazdego zgloszonego punktu OSOBNO, zeby pierwszy czerwony
+    /// nie przykryl pozostalych.
+    /// </summary>
+    internal static string[] After417PartsToMeasure { get; set; } = ["1a", "1b", "1c", "2", "3"];
+
 
     /// <summary>
     /// CZESC 1a. ZWYKLE WEJSCIE PO STARCIE: ostatnia sesja to Sonos, okno
