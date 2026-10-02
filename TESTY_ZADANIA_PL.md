@@ -7,6 +7,18 @@
 - `--sonos-own-streams-main`: krótka zapowiedź przyjętej próby i wcześniejsze zabezpieczenia.
 - `--clipboard-locations-ui`: prawdziwy schowek w handlerach listy, odtwarzacza (wspólna metoda), wyszukiwania, podcastu, YouTube, FileDrop i presetów AMC/WiiM, również brak URI. Ctrl+C pozostaje nazwą.
 - `--sonos-final-gui <sekundy>`: wyłącznie ręczny pokaz na izolowanym zapleczu, poza pełną tabelą. Na Hermesie fizycznie sprawdzono krótką mowę w Podglądzie mowy NVDA, Ctrl+Shift+C z listy/wielu pozycji/odtwarzacza, Ctrl+C oraz oba rodzaje powrotu Sonos. Nie jest to pomiar dźwięku Sonosa.
+- `--sonos-after417-three-parts --sonos-after417-parts=1c`: okno WYBORU CELU
+  (Ctrl+F5) przy opóźnionym odczycie grup. Bramka
+  `TaskCompletionSource(RunContinuationsAsynchronously)` naprawdę wstrzymuje GET
+  `/groups`, więc mierzone jest jedno otwarcie: w trakcie odczytu okno żyje i
+  mówi „wczytywanie”, a po odpowiedzi TO SAMO okno ma rzeczywiste wiersze grup,
+  włączone potwierdzenie i zaznaczenie — asercja na treści listy, nie na samym
+  liczniku żądań. Dalej: dokładnie jeden tor odczytu i zero POST, F5 w oknie
+  celu odświeża tym samym backendem z zachowaniem zaznaczenia po ID, powtórzone
+  Ctrl+F5/F5 w trakcie odczytu nie mnoży okien ani GET-ów, a Cancel przed
+  odpowiedzią nie przywraca starej listy i nie otwiera spóźnionego okna.
+  Podsumowanie zestawu wypisuje wyłącznie ZMIERZONE części (dawniej ogłaszało
+  wszystkie pięć punktów także przy `--parts=1a`/`1c`).
 
 
 ## Sonos: znak @ w sessionId
