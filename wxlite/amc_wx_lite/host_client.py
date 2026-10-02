@@ -101,10 +101,17 @@ class LiteHostClient:
         self._reader: threading.Thread | None = None
         self._stderr_reader: threading.Thread | None = None
         self._closed = False
+        self._lifecycle_lock = threading.RLock()
 
     # ------------------------------------------------------------ start/stop
 
     def start(self) -> None:
+        with self._lifecycle_lock:
+            if self._closed:
+                raise HostUnavailable("Silnik został już zamknięty.")
+            self._start_locked()
+
+    def _start_locked(self) -> None:
         if self._process is not None:
             return
         if not Path(self.executable).exists():
@@ -133,8 +140,9 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
-        self._closed = True
-        process = self._process
+        with self._lifecycle_lock:
+            self._closed = True
+            process = self._process
         if process is None:
             return
         try:

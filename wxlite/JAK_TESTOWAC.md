@@ -12,11 +12,11 @@ Pelny AMC zostaje nietkniety — ten wariant ma wlasny folder stanu i wlasny pro
 
 | Co | Jak sprawdzone | Wynik |
 |---|---|---|
-| Logika listy, nawigacji, stanu, skrotow, protokolu | `python3 run_tests.py` | **107 testow, 0 bledow** |
-| Protokol po stronie hosta (C#) | `dotnet run --project tests/...ProtocolTests` | **3 zestawy OK** |
+| Logika listy, nawigacji, stanu, skrotow, protokolu | `python3 run_tests.py` | **121 testów, 0 błędów, 0 pominięć** |
+| Protokol po stronie hosta (C#) | `dotnet run --project tests/...ProtocolTests` | **4 zestawy OK**, w tym wybór rzeczywistego enuma Core |
 | Zgodnosc Python ↔ **prawdziwa petla C#** | `run_tests.py test_wire` | **14 testow OK** |
-| Crossbuild hosta na Windows | `dotnet publish -r win-x64` | **`amc_lite_host.exe` 151 552 B** |
-| Zlozenie pakietu | `tools/build_bundle.py` | **38 plikow, hasz policzony** |
+| Crossbuild hosta na Windows | `dotnet publish -r win-x64` | **publish win-x64 self-contained: exit 0** |
+| Zlozenie pakietu | `tools/build_bundle.py` | **układ app/runtime/host, zachowane licencje i hasze bibliotek** |
 
 ### NIE zmierzone — wymaga pulpitu Windows
 
@@ -24,8 +24,9 @@ Pelny AMC zostaje nietkniety — ten wariant ma wlasny folder stanu i wlasny pro
 - **Realne odtwarzanie** pliku i stacji (NAudio/WASAPI dzialaja tylko na Windows).
 - Zachowanie z **NVDA i Narratorem**.
 
-> Uczciwie: w WSL sprawdzilem wszystko **poza** dzwiekiem i oknem. Tych dwoch
-> rzeczy **nie udawalem atrapa** — pierwsze realne odtwarzanie bedzie na Windows.
+Wykonano testy wymienionych modeli, protokołu i adaptera C# wywołującego
+prawdziwe biblioteki natywne. Testy kontrolek na zastępnikach wx nie zastępują
+uruchomienia okna z czytnikiem. Próbka PCM nie jest oceną brzmienia mowy.
 
 ---
 
@@ -125,7 +126,7 @@ cd /home/michal/projekty/amc-wx-lite-after416
 ```
 
 Host linkuje **faktyczne** pliki silnika (`WindowsMediaOutput`,
-`TimeshiftMediaOutput`, `RadioMediaOutput`, `RadioPlaylistImporter`,
+`TimeshiftTempoStage`, `RadioMediaOutput`, `RadioPlaylistImporter`,
 `LocalAudioFileDiscovery`) + `Core`. Zadnego `MainWindow`, zadnego WPF,
 zadnych wlasnych dekoderow w Pythonie.
 
@@ -135,11 +136,13 @@ zadnych wlasnych dekoderow w Pythonie.
 
 - **Dodatek NVDA**: zwykla obsluga + krotkie standardowe komunikaty. Zgodnosc
   protokolu dodatku bez kolizji z pelnym AMC sprawdzi rodzic osobno.
-- **Tempo**: dziala na obecnym silniku. `PlaybackTempoAlgorithm` (SoundTouch /
-  Speech / Music) dodaje agent DSP — w tej bazie tego typu **jeszcze nie ma**,
-  wiec opcja **nie jest reklamowana**. Host ma wydzielony handler
-  `audio.configure`, ktory rodzic podlaczy po scaleniu. Zadnego reflection,
-  zadnego podrabiania typow.
+- **Algorytm tempa**: menu Dźwięk → Algorytm przyspieszania zawiera Mowa —
+  Speedy, Muzyka — Signalsmith i Dotychczasowy — SoundTouch. Wybór trafia do
+  rzeczywistych silników plików i bufora radia oraz do prywatnych ustawień.
+  Obecnie zmiana algorytmu obowiązuje przy utworzeniu nowego strumienia;
+  zmiana samej prędkości działa w bieżącym strumieniu. Gdy materiał jest już
+  otwarty, nie traktuj nazwy wybranej w menu jako dowodu przełączenia aktywnego
+  procesora. Na żywo radio nie może przyspieszać niezarejestrowanego jeszcze dźwięku.
 - Brak: WebView2, Sonos, harmonogramow, uslug startowych. Niczego takiego
   **nie wycinalem** z pelnego AMC — po prostu tego tu nie ma.
 

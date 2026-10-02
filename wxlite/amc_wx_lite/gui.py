@@ -219,7 +219,6 @@ class LiteFrame(wx.Frame):
         self._build_ui()
         self._bind_keys()
         self._start_engine()
-        self._load_initial_content()
 
     # ------------------------------------------------------------------ UI
 
@@ -408,28 +407,33 @@ class LiteFrame(wx.Frame):
         return bool(self) and not self.IsBeingDeleted()
 
     def _start_engine(self) -> None:
-        path = default_host_path()
-        try:
-            self.client = LiteHostClient(
-                path,
-                timeshift_minutes=self.options.timeshift_minutes,
-                on_event=self._on_engine_event,
-                on_stderr=lambda line: None,
-            )
-            self.client.start()
-            self.client.hello()
-        except (HostUnavailable, HostError) as error:
+        client = LiteHostClient(
+            default_host_path(),
+            timeshift_minutes=self.options.timeshift_minutes,
+            on_event=self._on_engine_event,
+            on_stderr=lambda line: None,
+        )
+        self.client = client
+        settings = self.options.audio_payload()
+
+        def work() -> dict:
+            try:
+                client.start()
+                client.hello()
+                return client.configure_audio(**settings)
+            except Exception:
+                client.close()
+                raise
+
+        def done(_result: dict) -> None:
+            self.timer.Start(1000)
+            self._load_initial_content()
+
+        def failed(error: Exception) -> None:
             self.client = None
-            wx.CallAfter(
-                self.announcer.say,
-                f"Silnik nie wystartowal: {error}. Odtwarzanie niedostepne.",
-            )
-            return
-        try:
-            self.client.configure_audio(**self.options.audio_payload())
-        except (HostUnavailable, HostError) as error:
-            wx.CallAfter(self.announcer.say, f"Nie zastosowano ustawień dźwięku: {error}")
-        self.timer.Start(1000)
+            self.announcer.say(f"Silnik nie wystartował: {error}. Odtwarzanie niedostępne.")
+
+        self.runner.submit("startup", work, done, failed)
 
     def _on_engine_event(self, name: str, data: dict) -> None:
         """Zdarzenie z WATKU silnika - przerzucamy do GUI przez CallAfter."""
