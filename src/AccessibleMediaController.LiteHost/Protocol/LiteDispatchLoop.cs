@@ -1,0 +1,160 @@
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+
+namespace AccessibleMediaController.LiteHost.Protocol;
+
+/// <summary>
+/// Kanal zdarzen jednokierunkowych (odtwarzanie zaczelo sie, skonczylo,
+/// strumien zmienil tytul). Zdarzenie NIE ma pola <c>id</c>, zeby frontend
+/// nie mogl pomylic go z odpowiedzia na swoje zadanie.
+/// </summary>
+public sealed class LiteEventSink(Action<string> writeLine)
+{
+    public void Publish(string name, object? data) =>
+        writeLine(LiteJson.Serialize(new LiteEventEnvelope(name, data)));
+}
+
+internal sealed record LiteEventEnvelope(string Name, object? Data);
+
+internal sealed record LiteResultEnvelope(string Id, object? Result);
+
+internal sealed record LiteErrorEnvelope(string? Id, string Code, string Message);
+
+public static class LiteJson
+{
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        // Polskie znaki musza wyjsc jako UTF-8, nie jako \uXXXX: frontend
+        // wyswietla je prosto w kontrolkach dla czytnika ekranu.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = false
+    };
+
+    public static string Serialize(object value) => value switch
+    {
+        LiteEventEnvelope envelope => WriteObject(writer =>
+        {
+            writer.WriteString("event", envelope.Name);
+            writer.WritePropertyName("data");
+            JsonSerializer.Serialize(writer, envelope.Data, Options);
+        }),
+        LiteResultEnvelope envelope => WriteObject(writer =>
+        {
+            writer.WriteString("id", envelope.Id);
+            writer.WritePropertyName("result");
+            JsonSerializer.Serialize(writer, envelope.Result, Options);
+        }),
+        LiteErrorEnvelope envelope => WriteObject(writer =>
+        {
+            if (envelope.Id is not null) writer.WriteString("id", envelope.Id);
+            writer.WriteStartObject("error");
+            writer.WriteString("code", envelope.Code);
+            writer.WriteString("message", envelope.Message);
+            writer.WriteEndObject();
+        }),
+        _ => JsonSerializer.Serialize(value, Options)
+    };
+
+    private static string WriteObject(Action<Utf8JsonWriter> body)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
+        {
+            Encoder = Options.Encoder,
+            Indented = false
+        }))
+        {
+            writer.WriteStartObject();
+            body(writer);
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
+}
+
+/// <summary>
+/// Petla zadan hosta. Jeden wiersz wejscia = jedno zadanie, jeden wiersz
+/// wyjscia = jedna odpowiedz albo zdarzenie. Zasady, ktore wynikaja z testow:
+/// zly JSON i awaria handlera daja odpowiedz bledu i petla idzie dalej, EOF
+/// konczy petle, a zapis handlera do <c>Console.Out</c> nie trafia do
+/// strumienia protokolu.
+/// </summary>
+public sealed class LiteDispatchLoop(
+    IReadOnlyDictionary<string, Func<LiteRequest, LiteEventSink, object?>> handlers)
+{
+    private readonly object _writeGate = new();
+
+    public int Run(TextReader input, TextWriter protocolOutput)
+    {
+        // Jeden zamek na zapis: zdarzenia moga przychodzic z watkow silnika
+        // audio, a przeplatany wiersz zepsulby strumien JSON-lines.
+        void WriteLine(string line)
+        {
+            lock (_writeGate)
+            {
+                protocolOutput.Write(line);
+                protocolOutput.Write('\n');
+                protocolOutput.Flush();
+            }
+        }
+
+        var events = new LiteEventSink(WriteLine);
+        var originalStdout = Console.Out;
+        // Handler, ktory pisze po Console.Out (albo zrobi to biblioteka
+        // ponizej), nie moze wejsc w strumien protokolu. Przekierowujemy go
+        // na diagnostyke.
+        Console.SetOut(Console.Error);
+        try
+        {
+            while (input.ReadLine() is { } line)
+            {
+                if (line.Trim().Length == 0) continue;
+                Handle(line, events, WriteLine);
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalStdout);
+        }
+        return 0;
+    }
+
+    private void Handle(string line, LiteEventSink events, Action<string> writeLine)
+    {
+        var outcome = LiteRequestReader.Read(line);
+        if (!outcome.IsRequest)
+        {
+            writeLine(LiteJson.Serialize(new LiteErrorEnvelope(
+                outcome.RequestId,
+                outcome.ErrorCode ?? "bad_request",
+                outcome.ErrorMessage ?? "Niepoprawne zadanie.")));
+            return;
+        }
+
+        var request = outcome.Request!;
+        if (!handlers.TryGetValue(request.Op, out var handler))
+        {
+            writeLine(LiteJson.Serialize(new LiteErrorEnvelope(
+                request.Id,
+                "unknown_op",
+                $"Nieznana operacja \"{request.Op}\".")));
+            return;
+        }
+
+        try
+        {
+            var result = handler(request, events);
+            writeLine(LiteJson.Serialize(new LiteResultEnvelope(request.Id, result)));
+        }
+        catch (Exception exception)
+        {
+            // Tresc komunikatu, nie sam typ: frontend czyta ja uzytkownikowi.
+            writeLine(LiteJson.Serialize(new LiteErrorEnvelope(
+                request.Id,
+                "handler_failed",
+                exception.Message)));
+            Console.Error.WriteLine($"[lite-host] {request.Op}: {exception}");
+        }
+    }
+}

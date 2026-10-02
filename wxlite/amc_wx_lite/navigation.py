@@ -1,0 +1,275 @@
+"""Nawigacja AMC-wx-Lite: dwie sesje, widok listy i widok odtwarzacza.
+
+Cala logika przejsc jest TUTAJ, bez wx. Okno tylko odwzorowuje ten stan.
+Dzieki temu zachowanie Enter/Escape/F6/Ctrl+cyfra testujemy w WSL.
+
+Zgodnosc skrotow z pelnym AMC zostala odczytana ze ZRODEL (KeyboardProfile.cs,
+CommandIds.cs), nie wymyslona - patrz mapa w shortcuts.py.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+
+from .list_model import ListModel, Row
+
+
+class View(Enum):
+    """Ktory widok jest na wierzchu. Odpowiada _playerViewActive w pelnym AMC."""
+
+    LIST = "list"
+    PLAYER = "player"
+
+
+class SessionId(Enum):
+    FILES = "files"
+    RADIO = "radio"
+
+
+@dataclass(slots=True)
+class SessionState:
+    """Stan JEDNEJ sesji. Kazda sesja pamieta swoja liste i swoj widok,
+    zeby przelaczenie Ctrl+1/Ctrl+2 wracalo dokladnie tam, gdzie bylismy."""
+
+    session_id: SessionId
+    model: ListModel = field(default_factory=ListModel)
+    view: View = View.LIST
+    folder_path: str | None = None
+    # Stos powrotu: sciezka rodzica -> ID, na ktorym mamy stanac po Backspace.
+    breadcrumb: list[tuple[str, str]] = field(default_factory=list)
+    now_playing_id: str | None = None
+    now_playing_title: str = ""
+    # ID wybrany w chwili wejscia do odtwarzacza. Escape wraca DOKLADNIE tu.
+    list_anchor_id: str | None = None
+
+
+@dataclass(slots=True)
+class OpenFolder:
+    path: str
+    preferred_id: str | None = None
+
+
+@dataclass(slots=True)
+class PlayTrack:
+    path: str
+    item_id: str
+    title: str
+
+
+@dataclass(slots=True)
+class PlayStation:
+    url: str
+    item_id: str
+    title: str
+
+
+@dataclass(slots=True)
+class Announce:
+    """Krotki komunikat dla czytnika. JEDNA brama komunikatow w calej aplikacji."""
+
+    text: str
+
+
+class Navigator:
+    """Maszyna stanow calego interfejsu.
+
+    Metody zwracaja LISTE zadan (otworz folder, zagraj, powiedz), ktore okno
+    wykonuje. Zaden przeplyw nie siega stad do wx ani do dysku.
+    """
+
+    def __init__(self) -> None:
+        self.sessions: dict[SessionId, SessionState] = {
+            SessionId.FILES: SessionState(SessionId.FILES),
+            SessionId.RADIO: SessionState(SessionId.RADIO),
+        }
+        self.active = SessionId.FILES
+
+    @property
+    def session(self) -> SessionState:
+        return self.sessions[self.active]
+
+    @property
+    def view(self) -> View:
+        return self.session.view
+
+    # ---------------------------------------------------------------- sesje
+
+    def switch_session(self, session_id: SessionId) -> list[object]:
+        """Ctrl+1 / Ctrl+2. Lista i zaznaczenie DRUGIEJ sesji zostaja nietkniete."""
+        if session_id == self.active:
+            # Ponowne wejscie w te sama sesje tylko potwierdza nazwe - bez
+            # przeladowania listy i bez zmiany zaznaczenia (zwyczaj AMC).
+            return [Announce(self._session_name(session_id))]
+        self.active = session_id
+        state = self.sessions[session_id]
+        row = state.model.selected_row
+        where = "odtwarzacz" if state.view is View.PLAYER else "lista"
+        detail = f", {row.title}" if row is not None and state.view is View.LIST else ""
+        return [Announce(f"{self._session_name(session_id)}, {where}{detail}")]
+
+    @staticmethod
+    def _session_name(session_id: SessionId) -> str:
+        return "Pliki lokalne" if session_id is SessionId.FILES else "Radio internetowe"
+
+    # ---------------------------------------------------------------- widoki
+
+    def show_player(self) -> list[object]:
+        """F6 z listy. Zgodnie z MainWindow.xaml.cs:20778 (ShowPlayerView)."""
+        state = self.session
+        if state.view is View.PLAYER:
+            # F6 w odtwarzaczu wraca na liste (MainWindow.xaml.cs:20776).
+            return self.back_to_list()
+        if state.now_playing_id is None:
+            return [Announce("Nic nie jest odtwarzane")]
+        state.list_anchor_id = state.model.selected_id
+        state.view = View.PLAYER
+        return [Announce(f"Odtwarzacz, {state.now_playing_title}")]
+
+    def toggle_view(self) -> list[object]:
+        """Zachowane dla wygody: rownowazne show_player/back_to_list."""
+        state = self.session
+        if state.view is View.LIST:
+            if state.now_playing_id is None:
+                return [Announce("Nic nie jest odtwarzane")]
+            state.list_anchor_id = state.model.selected_id
+            state.view = View.PLAYER
+            return [Announce(f"Odtwarzacz, {state.now_playing_title}")]
+        return self.back_to_list()
+
+    def back_to_list(self) -> list[object]:
+        """Escape z odtwarzacza: TA SAMA lista i TO SAMO zaznaczenie."""
+        state = self.session
+        if state.view is View.LIST:
+            return []
+        state.view = View.LIST
+        if state.list_anchor_id is not None:
+            state.model.select_id(state.list_anchor_id)
+        row = state.model.selected_row
+        suffix = f", {row.title}" if row is not None else ""
+        return [Announce(f"Lista{suffix}")]
+
+    # ------------------------------------------------------------- aktywacja
+
+    def activate_selected(self) -> list[object]:
+        """Enter. Folder otwiera, utwor/stacje odtwarza i przechodzi do odtwarzacza."""
+        state = self.session
+        row = state.model.selected_row
+        if row is None:
+            return [Announce("Lista jest pusta")]
+
+        if row.kind == "parent":
+            return self.go_to_parent()
+
+        if row.kind == "folder":
+            if not row.path:
+                return [Announce("Brak sciezki folderu")]
+            if state.folder_path:
+                state.breadcrumb.append((state.folder_path, row.item_id))
+            return [OpenFolder(row.path)]
+
+        if row.kind == "station":
+            state.list_anchor_id = row.item_id
+            state.now_playing_id = row.item_id
+            state.now_playing_title = row.title
+            state.view = View.PLAYER
+            return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
+
+        if not row.path:
+            return [Announce("Brak sciezki pliku")]
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.view = View.PLAYER
+        return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def go_to_parent(self) -> list[object]:
+        """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze."""
+        state = self.session
+        parent_row = next((r for r in state.model.rows if r.kind == "parent"), None)
+        if parent_row is None or not parent_row.path:
+            return [Announce("To jest folder najwyzszego poziomu")]
+
+        preferred = None
+        if state.breadcrumb and state.breadcrumb[-1][0] == parent_row.path:
+            _, preferred = state.breadcrumb.pop()
+        elif state.folder_path:
+            preferred = f"dir:{state.folder_path}"
+        return [OpenFolder(parent_row.path, preferred_id=preferred)]
+
+    # -------------------------------------------------------- wynik operacji
+
+    def apply_folder(self, path: str, rows: list[Row], preferred_id: str | None = None) -> list[object]:
+        """Skutek udanego ``files.listFolder``. Wywolywane w watku GUI."""
+        state = self.sessions[SessionId.FILES]
+        state.folder_path = path
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        row = state.model.selected_row
+        name = path.rstrip("/\\").rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or path
+        count = sum(1 for r in state.model.rows if r.kind != "parent")
+        suffix = f", {row.title}" if row is not None else ", pusty"
+        return [Announce(f"{name}, {count} elementow{suffix}")]
+
+    def apply_stations(self, rows: list[Row], preferred_id: str | None = None) -> list[object]:
+        state = self.sessions[SessionId.RADIO]
+        state.model.replace(rows, preferred_id=preferred_id)
+        row = state.model.selected_row
+        suffix = f", {row.title}" if row is not None else ", lista pusta"
+        return [Announce(f"Stacje: {len(rows)}{suffix}")]
+
+    # ----------------------------------------------------------- odtwarzanie
+
+    def note_playback_failed(self, message: str) -> list[object]:
+        """Blad odtwarzania wraca na LISTE: w odtwarzaczu nie ma co robic."""
+        state = self.session
+        state.now_playing_id = None
+        state.now_playing_title = ""
+        if state.view is View.PLAYER:
+            state.view = View.LIST
+            if state.list_anchor_id is not None:
+                state.model.select_id(state.list_anchor_id)
+        return [Announce(message)]
+
+    # ------------------------------------------------- zapis i odtworzenie stanu
+
+    def snapshot(self) -> dict:
+        """Stan do zapisu na dysk. Tylko to, co da sie bezpiecznie odtworzyc."""
+        return {
+            "active": self.active.value,
+            "sessions": {
+                sid.value: {
+                    "folderPath": state.folder_path,
+                    "selectedId": state.model.selected_id,
+                    "view": state.view.value,
+                    "breadcrumb": [list(pair) for pair in state.breadcrumb],
+                }
+                for sid, state in self.sessions.items()
+            },
+        }
+
+    def restore(self, snapshot: dict) -> None:
+        """Odtworz stan. Zapis z przyszlej/uszkodzonej wersji NIE moze wywrocic startu:
+        czytamy tylko rozpoznane wartosci, reszte pomijamy."""
+        active = snapshot.get("active")
+        for candidate in SessionId:
+            if candidate.value == active:
+                self.active = candidate
+                break
+
+        for sid, state in self.sessions.items():
+            raw = (snapshot.get("sessions") or {}).get(sid.value) or {}
+            folder = raw.get("folderPath")
+            state.folder_path = folder if isinstance(folder, str) and folder else None
+            selected = raw.get("selectedId")
+            # Wybor zapamietujemy jako zyczenie; potwierdzi go dopiero wczytanie
+            # listy, bo plik moze juz nie istniec.
+            state.list_anchor_id = selected if isinstance(selected, str) else None
+            # Po restarcie zawsze stajemy na LISCIE: nic jeszcze nie gra,
+            # wiec widok odtwarzacza bylby pusty i myliłby uzytkownika.
+            state.view = View.LIST
+            state.breadcrumb = [
+                (str(pair[0]), str(pair[1]))
+                for pair in raw.get("breadcrumb") or []
+                if isinstance(pair, (list, tuple)) and len(pair) == 2
+            ]

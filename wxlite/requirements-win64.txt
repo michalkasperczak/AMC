@@ -1,0 +1,27 @@
+# Zaleznosci AMC-wx-Lite - Windows 64-bit, CPython 3.14
+#
+# Przypiete DOKLADNIE do wersji, ktora dziala w prywatnym runtime Michala
+# (CPython 3.14.7, wxWidgets 3.3.3). Hasz wziety z metadanych PyPI, nie
+# z instalacji - sprawdzony plik to:
+#
+#   wxpython-4.3.1-cp314-cp314-win_amd64.whl
+#   sha256 bbb4cefea441cba77f81b0ac2f7445f0ad01f18fee3b72a78ed48298b3f8f0ab
+#   rozmiar 18 967 348 B
+#
+# Dla CPython 3.13 (gdyby runtime sie zmienil):
+#   wxpython-4.3.1-cp313-cp313-win_amd64.whl
+#   sha256 0ae85e266dbb99fe46bc26920aa87b22fa3f83dc51b321bcd9afa51fa68340e7
+#
+# Instalacja (na Windows, w prywatnym srodowisku - NIE globalnie):
+#   py -3.14 -m venv .venv
+#   .venv\Scripts\python -m pip install -r requirements-win64.txt
+#
+# UWAGA o MSVCP140.dll: runtime wymaga biblioteki VC++ wydobytej przez Michala
+# do prywatnej kopii. Prawa redystrybucji VC++ pozostaja bramka publikacji -
+# binarka tej DLL NIE JEST trzymana w Git.
+
+wxPython==4.3.1 --hash=sha256:bbb4cefea441cba77f81b0ac2f7445f0ad01f18fee3b72a78ed48298b3f8f0ab
+
+# Program nie uzywa zadnych innych pakietow z PyPI. Protokol, lista, stan i
+# testy stoja na samej bibliotece standardowej - to swiadoma decyzja, zeby
+# lekki wariant startowal szybko i dal sie spakowac bez niespodzianek.

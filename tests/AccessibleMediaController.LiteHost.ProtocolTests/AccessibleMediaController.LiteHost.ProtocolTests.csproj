@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Testy protokolu hosta AMC-wx-Lite. CELOWO net8.0 (bez -windows):
+    warstwa protokolu musi byc wolna od Windows, zeby dala sie wykonac w WSL.
+    Linkujemy te same pliki zrodlowe, ktorych uzywa host.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>AccessibleMediaController.LiteHost.ProtocolTests</RootNamespace>
+    <AssemblyName>amc_lite_protocol_tests</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.LiteHost\Protocol\**\*.cs"
+             Link="Protocol\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

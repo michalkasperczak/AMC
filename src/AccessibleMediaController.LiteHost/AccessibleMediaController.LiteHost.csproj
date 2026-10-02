@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    AMC-wx-Lite: maly BEZOKIENNY host silnika audio AMC.
+
+    Zasada: NIE duplikujemy kodu odtwarzania. Ten projekt LINKUJE faktyczne
+    pliki zrodlowe silnika z src/AccessibleMediaController.Windows/Services,
+    wiec kazda poprawka w silniku AMC dziala tu bez przepisywania.
+
+    Nie ma tu WPF: <UseWPF> jest wylaczone, MainWindow nie jest linkowany,
+    zaden z linkowanych plikow nie odwoluje sie do System.Windows (zmierzone
+    grepem przed utworzeniem projektu). Dzieki temu host dziala jako zwykly
+    proces konsolowy bez pulpitu WPF.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Ten sam TFM co projekt Windows: linkowane pliki uzywaja WASAPI/NAudio
+         i API Windows. Bez wersji SDK w TFM czesc using-ow nie kompiluje sie. -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>false</UseWPF>
+    <UseWindowsForms>false</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>AccessibleMediaController.LiteHost</RootNamespace>
+    <AssemblyName>amc_lite_host</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
+    <!-- Te same wersje co projekt Windows. Rozjazd wersji = inny silnik. -->
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="NAudio.Vorbis" Version="1.5.0" />
+    <PackageReference Include="NLayer" Version="2.0.1" />
+    <PackageReference Include="NLayer.NAudioSupport" Version="2.0.1" />
+    <PackageReference Include="SoundTouch.Net" Version="2.3.2" />
+    <PackageReference Include="SoundTouch.Net.NAudioSupport.Core" Version="2.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Wlasny kod hosta (protokol, rejestr polecen). -->
+    <Compile Include="Protocol\**\*.cs" />
+    <Compile Include="*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SILNIK AMC: linkowane faktyczne pliki, bez kopii. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\WindowsMediaOutput.cs"
+             Link="Engine\WindowsMediaOutput.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioMediaOutput.cs"
+             Link="Engine\RadioMediaOutput.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\GuardedWaveStream.cs"
+             Link="Engine\GuardedWaveStream.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AudioOutputDeviceCatalog.cs"
+             Link="Engine\AudioOutputDeviceCatalog.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AudioOutputPauseGuard.cs"
+             Link="Engine\AudioOutputPauseGuard.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\DiagnosticLog.cs"
+             Link="Engine\DiagnosticLog.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackAudioProcessors.cs"
+             Link="Engine\PlaybackAudioProcessors.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\NormalizedVorbisWaveReader.cs"
+             Link="Engine\NormalizedVorbisWaveReader.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\FfmpegLocalAudioWaveStream.cs"
+             Link="Engine\FfmpegLocalAudioWaveStream.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\FfmpegComponentManager.cs"
+             Link="Engine\FfmpegComponentManager.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\ExternalToolProcess.cs"
+             Link="Engine\ExternalToolProcess.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeSourceResolver.cs"
+             Link="Engine\YouTubeSourceResolver.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeErrorTranslator.cs"
+             Link="Engine\YouTubeErrorTranslator.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\TimeshiftTempoStage.cs"
+             Link="Engine\TimeshiftTempoStage.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioStreamResolver.cs"
+             Link="Engine\RadioStreamResolver.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioStreamMetadataProbe.cs"
+             Link="Engine\RadioStreamMetadataProbe.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioStreamTitleMetadata.cs"
+             Link="Engine\RadioStreamTitleMetadata.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\BassRadioWaveProvider.cs"
+             Link="Engine\BassRadioWaveProvider.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\FfmpegRadioWaveProvider.cs"
+             Link="Engine\FfmpegRadioWaveProvider.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\LiveVorbisWaveProvider.cs"
+             Link="Engine\LiveVorbisWaveProvider.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\LegacyIcyAudioStream.cs"
+             Link="Engine\LegacyIcyAudioStream.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\LegacyIcyMp3StreamReader.cs"
+             Link="Engine\LegacyIcyMp3StreamReader.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\IRadioRecorder.cs"
+             Link="Engine\IRadioRecorder.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioMp3Recorder.cs"
+             Link="Engine\RadioMp3Recorder.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioOriginalStreamRecorder.cs"
+             Link="Engine\RadioOriginalStreamRecorder.cs" />
+    <!-- Importer playlist radiowych: ten sam kod, ktorego uzywa pelne AMC. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioPlaylistImporter.cs"
+             Link="Engine\RadioPlaylistImporter.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioRecordingStagingStore.cs"
+             Link="Engine\RadioRecordingStagingStore.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"
+             Link="Engine\YtDlpComponentManager.cs" />
+  </ItemGroup>
+</Project>
