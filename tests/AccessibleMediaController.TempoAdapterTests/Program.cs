@@ -27,6 +27,7 @@ internal static class Program
         Console.WriteLine($"ABI natywny dostepny: {AmcTempoNativeLibrary.IsAvailable}; " +
                           $"powod: {AmcTempoNativeLibrary.UnavailableReason ?? "(brak)"}");
 
+        RunTest("T0 zwykle 1x zachowuje probki bez DSP", Test0_NeutralPlayback);
         RunTest("T1 tempo 2x faktycznie skraca material (float32, mowa)", Test1_TempoActuallyChangesLength);
         RunTest("T2 zrodlo PCM16 trafia do natywnego silnika, nie w cichy fallback", Test2_Pcm16NotSilentFallback);
         RunTest("T4 jawny status wybranego i WYKONANEGO algorytmu", Test4_ExplicitStatus);
@@ -45,6 +46,23 @@ internal static class Program
         Console.WriteLine($"Sprawdzen: {_checks}, niezgodnosci: {Failures.Count}");
         foreach (var failure in Failures) Console.WriteLine("  NIEZGODNOSC: " + failure);
         return Failures.Count == 0 ? 0 : 1;
+    }
+
+    private static void Test0_NeutralPlayback()
+    {
+        foreach (var algorithm in new[] { PlaybackTempoAlgorithm.Speech, PlaybackTempoAlgorithm.Music })
+        {
+            using var input = new RampWaveStream(SampleRate, 1, pcm16: false);
+            using var source = new RampWaveStream(SampleRate, 1, pcm16: false);
+            using var stage = PlaybackTempoStream.Create(input, algorithm, out _);
+            using var expected = new MemoryStream();
+            using var actual = new MemoryStream();
+            source.CopyTo(expected);
+            stage.CopyTo(actual);
+            Check("neutralne odtwarzanie zachowuje kazdy bajt " + algorithm,
+                expected.ToArray().AsSpan().SequenceEqual(actual.ToArray()),
+                $"zrodlo {expected.Length}, wyjscie {actual.Length}");
+        }
     }
 
     // ---------- T1 ----------

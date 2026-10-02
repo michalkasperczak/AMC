@@ -39,7 +39,7 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
     /// silnika, ktorego tor SoundTouch nie placil.
     /// Pole zostaje publiczne dla testu, ktory rozstrzyga te hipoteze.
     /// </summary>
-    internal static bool BypassAtUnitTempo;
+    internal static bool BypassAtUnitTempo = false;
 
     private readonly object _gate = new();
     private readonly WaveStream _reader;
@@ -61,6 +61,7 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
     private double _pitch = 1d;
     private double _rate = 1d;
     private bool _sourceEnded;
+    private bool _nativeEngaged;
     private bool _flushed;
     private bool _disposed;
 
@@ -280,6 +281,7 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
         _pendingTailOffset = 0;
         _pendingTailLength = 0;
         _needsHandoff = false;
+        _nativeEngaged = false;
         _sourceEnded = false;
         _flushed = false;
     }
@@ -301,7 +303,10 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
 
             // Obejscie przy 1,0x: zaden silnik nie dotyka dzwieku, tak jak
             // dotychczas robil to tor SoundTouch z tempem 1,0.
-            if (BypassAtUnitTempo && Math.Abs(_tempo - 1d) < 0.001d)
+            // Before the first processed input (or after an explicit seek),
+            // the native queue is empty: ordinary playback stays byte-identical.
+            // Once processing starts, returning to 1x must retain its queue.
+            if ((!_nativeEngaged || BypassAtUnitTempo) && Math.Abs(_tempo - 1d) < 0.001d)
             {
                 return _reader.Read(buffer, offset, count);
             }
@@ -315,6 +320,8 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
                     _handle,
                     _engineBuffer,
                     framesWanted - produced);
+                if (got < 0)
+                    throw new InvalidOperationException($"Błąd odczytu z silnika tempa ({got}).");
                 if (got > 0)
                 {
                     CopyFramesToBytes(got, buffer, offset + (produced * blockAlign));
@@ -330,20 +337,7 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
                     _flushed = true;
                     continue;
                 }
-                switch (PumpSourceLocked())
-                {
-                    case SourcePumpResult.SourceEnded:
-                        _sourceEnded = true;
-                        break;
-                    case SourcePumpResult.EngineFull:
-                        // Silnik odmowil PRZYJECIA, ale material sie nie
-                        // skonczyl. Zmierzone: wczesniej brano to za koniec
-                        // zrodla i Signalsmith konczyl utwor na ~64180 ramce
-                        // z 96000, czyli gubil jedna trzecia materialu.
-                        // Odmowa przyjecia znaczy "oddaj najpierw wyjscie",
-                        // wiec po prostu wracamy do petli czytania.
-                        break;
-                }
+                if (!PumpSourceLocked()) _sourceEnded = true;
             }
             return produced * blockAlign;
         }
@@ -431,29 +425,16 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
         return take;
     }
 
-    /// <summary>Wynik doklejania materialu ze zrodla.</summary>
-    private enum SourcePumpResult
-    {
-        /// <summary>Material przyjety.</summary>
-        Accepted,
-
-        /// <summary>Silnik nie przyjal teraz; material NADAL jest.</summary>
-        EngineFull,
-
-        /// <summary>Zrodlo faktycznie sie skonczylo.</summary>
-        SourceEnded
-    }
-
-    /// <summary>Dokłada materiał ze źródła.</summary>
-    private SourcePumpResult PumpSourceLocked()
+    /// <summary>False oznacza wyłącznie rzeczywisty koniec źródła.</summary>
+    private bool PumpSourceLocked()
     {
         var blockAlign = Math.Max(1, _format.BlockAlign);
         var wantedBytes = SourceFrameChunk * blockAlign;
         if (_sourceBytes.Length < wantedBytes) _sourceBytes = new byte[wantedBytes];
         var readBytes = _reader.Read(_sourceBytes, 0, wantedBytes);
-        if (readBytes <= 0) return SourcePumpResult.SourceEnded;
+        if (readBytes <= 0) return false;
         readBytes -= readBytes % blockAlign;
-        if (readBytes <= 0) return SourcePumpResult.SourceEnded;
+        if (readBytes <= 0) return false;
         var frames = readBytes / blockAlign;
         var samples = frames * _channels;
         if (_sourceBuffer.Length < samples) _sourceBuffer = new float[samples];
@@ -475,7 +456,12 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
             _handle,
             _sourceBuffer,
             frames);
-        return accepted > 0 ? SourcePumpResult.Accepted : SourcePumpResult.EngineFull;
+        // Both pinned engines accept the complete block or return an error.
+        // Never discard a rejected block and then pretend the next one is continuous.
+        if (accepted != frames)
+            throw new InvalidOperationException($"Silnik tempa nie przyjął całego bloku dźwięku ({accepted}/{frames}).");
+        _nativeEngaged = true;
+        return true;
     }
 
     private void EnsureEngineBuffer(int frames)

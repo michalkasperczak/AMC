@@ -3,8 +3,8 @@
     Waski test faktycznego toru C# -> natywne silniki tempa.
 
     Po co osobny projekt: AccessibleMediaController.Windows celuje w
-    net8.0-windows10.0.19041.0 (WPF, WASAPI, SMTC) i NIE kompiluje sie ani nie
-    uruchamia na Linuksie. Natomiast same pliki etapu tempa sa od tego
+    net8.0-windows10.0.19041.0 (WPF, WASAPI, SMTC). Crossbuild w WSL dziala,
+    lecz wykonanie tego GUI wymaga Windows. Same pliki etapu tempa sa od tego
     niezalezne: WaveStream + P/Invoke. Ten projekt LINKUJE TE SAME PLIKI
     zrodlowe (nie kopie, nie replike w Pythonie), dolacza NAudio.Core
     i SoundTouch.Net.NAudioSupport.Core oraz Core (dla enuma
