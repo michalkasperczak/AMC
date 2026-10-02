@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 
@@ -242,7 +243,7 @@ public partial class MainWindow
         // wczytania grup tym samym istniejacym poleceniem, co menu Plik.
         // Control F5 POZOSTAJE wyborem celu: po odswiezeniu nadal pokazujemy
         // okno wyboru, a nie zamiast niego.
-        if (_sonosTopology is null || _sonosTopology.Count == 0)
+        if (_sonosTopology is null)
         {
             ExecuteCommand(CommandIds.RefreshSonosGroups);
         }

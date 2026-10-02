@@ -13990,10 +13990,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void EnsureSonosSessionEnteredAtStartup()
     {
         if (_isClosing) return;
-        if (!IsSonosSession(_sessions.Current)) return;
+        if (!IsSonosSession(_sessions.Current.Id)) return;
         // Jesli grupy sa juz wczytane (np. uzytkownik zdazyl odswiezyc recznie),
         // nie powtarzamy odczytu.
-        if (_sonosTopology.Count != 0) return;
+        if (_sonosTopology is not null) return;
         _ = EnterSonosSessionAsync();
     }
 
