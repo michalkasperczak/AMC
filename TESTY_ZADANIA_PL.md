@@ -19,6 +19,24 @@
   odpowiedzią nie przywraca starej listy i nie otwiera spóźnionego okna.
   Podsumowanie zestawu wypisuje wyłącznie ZMIERZONE części (dawniej ogłaszało
   wszystkie pięć punktów także przy `--parts=1a`/`1c`).
+- `--sonos-after417-three-parts --sonos-after417-parts=1d`: DWIE granice
+  odświeżania okna celu, mierzone osobno na wstrzymanym GET `/groups`.
+  * ODCZYT JUŻ TRWA: menu Plik zaczyna odczyt PIERWSZE, dopiero potem otwieramy
+    wybór celu. RED potwierdzony (`after417-close-1d-RED`, zapowiedzi kończą się
+    „Odświeżanie grup Sonos już trwa", wiersze okna 0 także PO zwolnieniu GET):
+    bramka oddawała natychmiastowy pusty „sukces", więc okno siedziało na starej
+    (null) topologii do następnego F5. Po poprawce TO SAMO okno uzupełnia się bez
+    żadnego kolejnego gestu, przy niezmienionej liczbie odczytów (jeden tor GET,
+    zero POST, zero własnych próśb okna o odświeżenie).
+  * FOKUS RZECZYWISTEGO WIERSZA: fokus stawiany na DRUGIM wierszu (nie na samej
+    liście) i sprawdzany przez `FocusedRowIdForTests`, czyli po identyfikatorze
+    grupy z kontenera, który NAPRAWDĘ ma fokus klawiatury. Tu RED NIE WYSZEDŁ
+    (`after417-close-1d-RED-b` exit 0 z cofniętą zmianą): czyszczenie `_rows` w
+    `PublishSnapshot` nie gubi własności fokusu, więc planowane przenoszenie
+    fokusu przed czyszczeniem ODRZUCONO jako zmianę bez pomiaru. Pomiar został
+    jako regresja, razem z kontrolą BRAKU kradzieży fokusu z przycisku zamknięcia.
+  * `CancelSonosPendingWork` wykonany PRZED zwolnieniem GET: spóźniony wynik nie
+    wchodzi do okna (0 publikacji, 0 wierszy).
 
 
 ## Sonos: znak @ w sessionId

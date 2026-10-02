@@ -172,19 +172,6 @@ public partial class SonosTargetSelectionWindow : Window
         LoadingPending = false;
         RefreshesAppliedForTests++;
 
-        // CZYJ jest fokus MIERZYMY PRZED publikacja. PublishSnapshot czysci
-        // _rows, a usuniecie kontenera ListBoxItem, ktory TRZYMAL fokus
-        // klawiatury, przenosi go WYZEJ - na okno. Odczytany PO czyszczeniu
-        // IsKeyboardFocusWithin bylby wtedy false i fokus na wierszu przepadal
-        // bez odtworzenia (uzytkownik lądował "nigdzie" po Ctrl+F5/F5).
-        var hadFocus = GroupsList.IsKeyboardFocusWithin;
-        if (hadFocus)
-        {
-            // Fokus do SAMEJ listy PRZED czyszczeniem: kontener moze zniknac,
-            // ale wlasnosc fokusu zostaje u nas i nie ucieka na okno.
-            Keyboard.Focus(GroupsList);
-        }
-
         PublishSnapshot(topology, currentGroupId, unavailableReason, keepSelectionById: true);
         StatusText.Announce(topology is null
             ? unavailableReason ?? SonosTargetSelectionLabels.TopologyUnknown
@@ -192,7 +179,13 @@ public partial class SonosTargetSelectionWindow : Window
 
         // ZADNEJ KRADZIEZY FOKUSU: gdy uzytkownik stoi na przycisku, w innym
         // oknie albo innej aplikacji, odswiezenie NIE przeciaga go na liste.
-        if (!hadFocus || _rows.Count == 0) return;
+        //
+        // ZMIERZONE (czesc 1d): czyszczenie _rows w PublishSnapshot NIE gubi tu
+        // wlasnosci fokusu - WPF zostawia ja na liscie, wiec ten odczyt PO
+        // publikacji jest nadal prawdziwy i fokus wraca na TEN SAM wiersz po
+        // identyfikatorze. Przenoszenie fokusu PRZED czyszczeniem bylo wiec
+        // zbedne i zostalo odrzucone jako zmiana bez pomiaru.
+        if (!GroupsList.IsKeyboardFocusWithin || _rows.Count == 0) return;
 
         // Kontenery powstaja dopiero po ukladzie - bez tego ContainerFromIndex
         // oddaje null i odtworzenie wiersza po IDENTYFIKATORZE nie dochodzi.

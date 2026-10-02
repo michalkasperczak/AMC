@@ -363,6 +363,14 @@ traktuj zdania „Biblioteka = CELE STEROWANIA” jako opisu tego, co robi dziś
   mówi o tym wprost przy zamknięciu. Historyczne kierowanie `Ctrl+F5` na
   `ManageSonosConnection` przez `TryHandleLocalLibraryViewShortcut` już NIE
   opisuje zachowania.
+- **Okno celu otwarte W TRAKCIE trwającego odczytu.** `RefreshSonosTopologyAsync`
+  nadal przepuszcza JEDNO odświeżenie naraz, ale drugi przychodzący dostaje
+  `_sonosRefreshFlight`, czyli TO SAMO oczekiwanie, zamiast natychmiastowego
+  pustego `Task.CompletedTask`. Bez tego `Ctrl+F5` po menu Plik/F5 pokazywał
+  okno na starej (null) topologii, które uzupełniało się dopiero po kolejnym F5
+  (zmierzone: część `1d`). Jeden tor GET bez zmian — żadnej kolejki, żadnego
+  drugiego odczytu. `CancelSonosPendingWork` zeruje przelot razem z bramką i
+  biletem, więc porzucony odczyt nie jest tym, na który wolno czekać.
 - **Krótki wiersz.** `ApplySonosGroupRows` w `MainWindow.Sonos.cs` nie ustawia
   już `Artist = row.Text` (nazwa + „głośników: N” + stan). Wiersz to sama nazwa
   grupy; szczegóły są w oknie Głośniki i grupy oraz w odtwarzaczu po Enter.
