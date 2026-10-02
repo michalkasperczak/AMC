@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
@@ -64,6 +65,9 @@ internal static class SonosNavigationUxTests
                 checks += MeasureCtrlF5FromPlayerOpensTargetWindow();
                 checks += MeasureCtrlF5FromFilterBoxOpensTargetWindow();
                 checks += MeasureShortGroupRowLabel();
+                checks += MeasureReturnToSonosRestoresMaterialNotSpeakers();
+                checks += MeasureOwnForegroundDoesNotBlockChildWindows();
+                checks += MeasureOwnStationsRespondToF2AndDelete();
             }
             catch (Exception exception)
             {
@@ -561,6 +565,358 @@ internal static class SonosNavigationUxTests
         return 3;
     }
 
+    // ===== U5: powrot do sesji Sonos wraca do MATERIALU, nie do glosnikow =====
+
+    /// <summary>
+    /// ZGLOSZENIE MICHALA (doslownie): "po przelaczeniu i powrocie do sesji byla
+    /// biblioteka albo otwarty element a nie grupa glosnikow i inne rzeczy
+    /// techniczne" oraz "wymaga klikania glosnika by aktywowac".
+    ///
+    /// MIERZYMY DWA PRZEJSCIA przez PRAWDZIWE polecenia slotow sesji:
+    ///   (a) Sonos w BIBLIOTECE -> inna sesja -> Sonos  = znow biblioteka,
+    ///   (b) Sonos w OTWARTYM elemencie -> inna sesja -> Sonos = znow ten element.
+    /// W obu wypadkach wybrany CEL (grupa) musi przezyc bez ponownego Enter,
+    /// a lista glosnikow NIE MA prawa sie pokazac - te sa tylko pod Ctrl+F5.
+    /// </summary>
+    private static int MeasureReturnToSonosRestoresMaterialNotSpeakers()
+    {
+        using var harness = Harness.Create();
+        harness.EnterSonosSession();
+        harness.ShowOwnWindow();
+
+        var spotifySlot = harness.Window.SessionsForTests.SessionSlots
+            .First(pair => !string.Equals(pair.Value, "sonos", StringComparison.Ordinal)).Key;
+        var sonosSlot = harness.Window.SessionsForTests.SessionSlots
+            .First(pair => string.Equals(pair.Value, "sonos", StringComparison.Ordinal)).Key;
+
+        // CEL STEROWANIA wybrany PRODUKCYJNA droga (Enter na grupie). To jest
+        // wlasnie ten wybor, ktory po powrocie nie moze wymagac drugiego Enter.
+        harness.Pump(harness.Window.ActivateSonosGroupForTests("GRUPA-SALON"));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+        // --- (a) OPUSZCZAMY sesje z widoku BIBLIOTEKI ---
+        // PRODUKCYJNA droga: Ctrl+L ustawia widok Biblioteki dla tej sesji.
+        // Pokazanie modala podstawiamy (pomiar bez modala na pulpicie), ale
+        // widok i stan nawigacji sesji sa prawdziwe.
+        harness.Window.PresentSonosLibraryOverrideForTests = _ => { };
+        harness.ExecuteCommand(CommandIds.ViewLibrary);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        harness.Window.SetCurrentViewForTests(SonosLibraryPresentation.LibraryViewName);
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(100));
+        var libraryView = harness.CurrentView;
+        var libraryLabels = harness.RowLabels();
+        var groupBefore = harness.Window.SonosSelectedGroupId;
+        if (string.IsNullOrEmpty(groupBefore))
+        {
+            throw new Exception("Pomiar nie ma wybranego celu Sonos przed opuszczeniem sesji.");
+        }
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(spotifySlot));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        harness.Announcements.Clear();
+        harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        var afterLabels = harness.RowLabels();
+        if (harness.CurrentView != libraryView)
+        {
+            throw new Exception(
+                $"Powrot do Sonosa NIE wrocil do biblioteki: widok \"{libraryView}\" -> \"{harness.CurrentView}\".");
+        }
+        // UWAGA O ZAKRESIE: lista sesji Sonos to MODEL STEROWANIA (wiersze grup),
+        // wiec jej zawartosc jest tu taka sama przed i po. Ten pomiar pilnuje
+        // WIDOKU, CELU i braku samoczynnych okien - NIE udaje, ze lista pokazuje
+        // material. Zamiana zawartosci listy sesji na material jest osobna,
+        // niewykonana zmiana (opisana w raporcie).
+        if (!afterLabels.SequenceEqual(libraryLabels))
+        {
+            throw new Exception(
+                "Powrot do Sonosa przestawil liste celow sterowania: \""
+                + string.Join(" | ", afterLabels) + "\" zamiast \"" + string.Join(" | ", libraryLabels) + "\".");
+        }
+        if (harness.Window.SonosSelectedGroupId != groupBefore)
+        {
+            throw new Exception(
+                "Powrot do Sonosa ZGUBIL wybrany cel: \"" + groupBefore
+                + "\" -> \"" + (harness.Window.SonosSelectedGroupId ?? "brak") + "\".");
+        }
+        AssertNoSpeakerListOnReturn(harness, "biblioteki");
+
+        // --- (a2) SPOZNIONY ODCZYT TOPOLOGII W ODTWORZONYM WIDOKU ---
+        // UCZCIWY STATUS: to jest pomiar CHARAKTERYZUJACY, nie dowod naprawy.
+        // Sprawdzilem go wylaczajac po kolei warunki w ApplySonosGroupRows i
+        // ZAWSZE przechodzi, bo RefreshCurrentView samo trzyma _currentView.
+        // Zostawiam jako ZAPORE na przyszlosc (gdyby ktos kazal spoznionemu
+        // odczytowi przestawiac widok), ale NIE liczy sie jako dowod na
+        // zgloszenie "po powrocie byla lista glosnikow".
+        var viewBeforeLateRead = harness.CurrentView;
+        harness.Window.ApplySonosGroupRowsForTests();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        if (harness.CurrentView != viewBeforeLateRead)
+        {
+            throw new Exception(
+                "SPOZNIONY odczyt topologii PRZESTAWIL odtworzony widok uzytkownika: \""
+                + viewBeforeLateRead + "\" -> \"" + harness.CurrentView + "\".");
+        }
+        if (harness.Window.SonosSelectedGroupId != groupBefore)
+        {
+            throw new Exception("Spozniony odczyt topologii zgubil wybrany cel Sonos.");
+        }
+
+        // --- (b) OPUSZCZAMY sesje z OTWARTEGO elementu (odtwarzacz) ---
+        harness.Pump(harness.Window.ActivateSonosGroupThenShowPlayerForTests("GRUPA-SALON"));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+        if (!harness.PlayerPlayPauseButton.IsVisible)
+        {
+            throw new Exception("Pomiar nie otworzyl odtwarzacza Sonos przed opuszczeniem sesji.");
+        }
+        var playerView = harness.CurrentView;
+
+        harness.ExecuteCommand(CommandIds.SessionSlot(spotifySlot));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+        harness.Announcements.Clear();
+        harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(250));
+
+        if (harness.CurrentView != playerView)
+        {
+            throw new Exception(
+                $"Powrot do Sonosa NIE wrocil do otwartego elementu: \"{playerView}\" -> \"{harness.CurrentView}\".");
+        }
+        if (!harness.PlayerPlayPauseButton.IsVisible)
+        {
+            throw new Exception("Powrot do Sonosa zgubil otwarty odtwarzacz: przycisk odtwarzania niewidoczny.");
+        }
+        if (harness.Window.SonosSelectedGroupId != groupBefore)
+        {
+            throw new Exception("Powrot do otwartego elementu zgubil wybrany cel Sonos.");
+        }
+        AssertNoSpeakerListOnReturn(harness, "otwartego elementu");
+
+        // ZADEN powrot nie ma prawa ruszyc konta ani Control API.
+        if (harness.Gateway.Calls != 0 || harness.AccountOwner.ControlApiCreations != 0)
+        {
+            throw new Exception("Powrot do sesji Sonos ruszyl logowanie albo Control API.");
+        }
+        return 12;
+    }
+
+    /// <summary>
+    /// Lista GLOSNIKOW/GRUP jest CELEM STEROWANIA i zyje w Session.Items, ale
+    /// PO ZWYKLYM POWROCIE do sesji nie ma prawa stac sie WIDOKIEM, ani byc
+    /// oglaszana technikaliami. Jawne Ctrl+F5 to inna, osobna droga.
+    /// </summary>
+    private static void AssertNoSpeakerListOnReturn(Harness harness, string skad)
+    {
+        if (harness.Window.SonosTargetWindowsCreatedForTests != 0)
+        {
+            throw new Exception($"Powrot z {skad} otworzyl okno wyboru celu BEZ Ctrl+F5.");
+        }
+
+        var technical = harness.Announcements.FirstOrDefault(message =>
+            message.Contains("głośnik", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("grupa głośników", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Control F5", StringComparison.OrdinalIgnoreCase));
+        if (technical is not null)
+        {
+            throw new Exception(
+                $"Powrot z {skad} mowi technikaliami o glosnikach: \"{technical}\".");
+        }
+    }
+
+    /// <summary>
+    /// ZGLOSZENIE MICHALA (doslowne cytaty): "Biblioteka Sonos nie została
+    /// otwarta, bo okno AMC nie jest aktywne. Wróć do AMC i ponów otwarcie
+    /// Biblioteki" oraz to samo dla wyboru celu i Control F5 - mimo ze AMC BYLO
+    /// na wierzchu.
+    ///
+    /// PRZYCZYNA: brama okien potomnych pytala o <c>Window.IsActive</c> SAMEGO
+    /// okna glownego. W lancuchu dialogow (nasze okno potomne zamyka sie i kaze
+    /// wlascicielowi otworzyc kolejne) WPF jeszcze nie oddal aktywacji
+    /// wlascicielowi, wiec warunek byl falszywie NEGATYWNY.
+    ///
+    /// MIERZYMY OBIE STRONY na PRAWDZIWEJ bramie:
+    ///   * NASZ proces na pierwszym planie, okno glowne NIEaktywne = WOLNO,
+    ///   * OBCY proces na pierwszym planie = NADAL ODMOWA (ochrona zostaje).
+    /// </summary>
+    private static int MeasureOwnForegroundDoesNotBlockChildWindows()
+    {
+        using var harness = Harness.Create();
+        harness.EnterSonosSession();
+        harness.ShowOwnWindow();
+
+        var shown = 0;
+        harness.Window.PresentSonosLibraryOverrideForTests = _ => shown++;
+
+        // --- NASZ pierwszy plan, ale okno glowne NIE jest aktywne ---
+        // Dokladnie stan lancucha dialogow. Deaktywacje wymuszamy przez oddanie
+        // aktywacji WLASNEMU drugiemu oknu, nie przez prywatna flage.
+        harness.DeactivateMainWindowWithinOwnProcess();
+        if (harness.Window.IsActive)
+        {
+            throw new Exception("Pomiar nie zdjal aktywacji z okna glownego - nie mierzy zglaszanego stanu.");
+        }
+        harness.Window.ForegroundProcessIdOverrideForTests = Environment.ProcessId;
+
+        harness.Announcements.Clear();
+        harness.Window.ShowSonosLibraryForTests();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+        if (shown != 1)
+        {
+            throw new Exception(
+                "Brama ODMOWILA otwarcia Biblioteki, choc pierwszy plan nalezy do NASZEGO procesu "
+                + "(komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
+        }
+        var falseRefusal = harness.Announcements.FirstOrDefault(message =>
+            message.Contains("nie jest aktywne", StringComparison.OrdinalIgnoreCase));
+        if (falseRefusal is not null)
+        {
+            throw new Exception($"Brama powiedziala FALSZYWA odmowe: \"{falseRefusal}\".");
+        }
+
+        // --- OBCY pierwszy plan: ochrona MUSI zostac ---
+        // Nie kradniemy fokusu zadnemu prawdziwemu oknu pulpitu: podstawiamy
+        // CUDZY PID, zeby zmierzyc te sama brame od drugiej strony.
+        shown = 0;
+        harness.Window.ForegroundProcessIdOverrideForTests = Environment.ProcessId + 1;
+        harness.Announcements.Clear();
+        harness.Window.ShowSonosLibraryForTests();
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
+
+        if (shown != 0)
+        {
+            throw new Exception(
+                "Brama otworzyla modal, choc na pierwszym planie jest OBCA aplikacja - "
+                + "ochrona obcego pierwszego planu zostala usunieta.");
+        }
+        var honestRefusal = harness.Announcements.FirstOrDefault(message =>
+            message.Contains("nie jest aktywne", StringComparison.OrdinalIgnoreCase));
+        if (honestRefusal is null)
+        {
+            throw new Exception(
+                "Przy OBCYM pierwszym planie brama nie powiedziala, dlaczego nie otworzyla okna "
+                + "(komunikaty: " + string.Join(" | ", harness.Announcements) + ").");
+        }
+
+        harness.Window.ForegroundProcessIdOverrideForTests = null;
+        harness.CloseSiblingWindow();
+        return 6;
+    }
+
+    /// <summary>
+    /// ZGLOSZENIE MICHALA: "Ulubione stacje graja, ale F2 nie edytuje i Delete nie
+    /// usuwa". Mierzymy OBA klawisze na PRAWDZIWYM oknie Moich stacji: F2 ma
+    /// wejsc w edytor, Delete ma wejsc w potwierdzenie usuniecia. Potwierdzenie i
+    /// edytor sa modalne, wiec pomiar tylko SPRAWDZA, ze okno sie pojawilo,
+    /// i je zamyka - nie przeklikuje zapisu.
+    /// </summary>
+    private static int MeasureOwnStationsRespondToF2AndDelete()
+    {
+        var checks = 0;
+        var saved = new List<IReadOnlyList<SonosOwnStreamSettings>>();
+        var stations = new[]
+        {
+            new SonosOwnStreamSettings { Id = "s1", Name = "Stacja pierwsza", StreamUrl = "https://example.invalid/1" },
+            new SonosOwnStreamSettings { Id = "s2", Name = "Stacja druga", StreamUrl = "https://example.invalid/2" }
+        };
+
+        var window = new SonosOwnStreamsWindow(stations, "Salon", rows => saved.Add(rows), play: null)
+        {
+            ShowInTaskbar = false
+        };
+        window.Show();
+        Pump(TimeSpan.FromMilliseconds(250));
+
+        var list = (ListBox)window.FindName("StationsList")!;
+        list.SelectedIndex = 0;
+        list.UpdateLayout();
+        if (list.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem row)
+        {
+            row.Focus();
+            Keyboard.Focus(row);
+        }
+        Pump(TimeSpan.FromMilliseconds(150));
+        if (!list.IsKeyboardFocusWithin)
+        {
+            throw new Exception("Pomiar nie ustawil fokusu na liscie wlasnych stacji.");
+        }
+        checks++;
+
+        // Modalne okna (edytor, potwierdzenie) zamykamy, jak tylko sie pokaza.
+        var seenModals = new List<string>();
+        var watchdog = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        watchdog.Tick += (_, _) =>
+        {
+            // W hoscie pomiarowym NIE MA Application.Current, a potwierdzenie
+            // usuniecia idzie przez AccessibleDialog BEZ wlasciciela - wiec ani
+            // Application.Current.Windows, ani OwnedWindows nie wystarcza.
+            // Patrzymy na WSZYSTKIE zrodla prezentacji tego watku STA.
+            foreach (var source in PresentationSource.CurrentSources.OfType<HwndSource>().ToList())
+            {
+                if (source.RootVisual is not Window other) continue;
+                if (ReferenceEquals(other, window) || !other.IsVisible) continue;
+                seenModals.Add(other.GetType().Name);
+                other.Close();
+            }
+        };
+        watchdog.Start();
+
+        // Klawisz wysylamy PRZEZ KOLEJKE: oba handlery otwieraja MODAL (ShowDialog /
+        // AccessibleDialog), ktory kreci wlasna petle komunikatow. Wywolany wprost
+        // zablokowalby ten watek, a watchdog nigdy by nie tyknal.
+        window.Dispatcher.BeginInvoke(new Action(() => SendKey(window, list, Key.F2)));
+        Pump(TimeSpan.FromMilliseconds(1200));
+        if (!seenModals.Any(name => name.Contains("RadioStation", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "F2 na liscie wlasnych stacji NIE otworzylo edytora stacji (zobaczone okna: "
+                + (seenModals.Count == 0 ? "zadnego" : string.Join(", ", seenModals)) + ").");
+        }
+        checks++;
+
+        seenModals.Clear();
+        window.Dispatcher.BeginInvoke(new Action(() => SendKey(window, list, Key.Delete)));
+        Pump(TimeSpan.FromMilliseconds(1200));
+        if (seenModals.Count == 0)
+        {
+            throw new Exception("Delete na liscie wlasnych stacji NIE otworzylo potwierdzenia usuniecia.");
+        }
+        checks++;
+
+        watchdog.Stop();
+        window.Close();
+        Pump(TimeSpan.FromMilliseconds(150));
+        return checks;
+    }
+
+    private static void SendKey(Window window, IInputElement target, Key key)
+    {
+        var source = PresentationSource.FromVisual(window)!;
+        var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent
+        };
+        target.RaiseEvent(args);
+    }
+
+    private static void Pump(TimeSpan duration)
+    {
+        // Pompujemy PRAWDZIWIE: gdy modal kreci wlasna petle, Dispatcher.Invoke z
+        // tego watku nie wroci. DoEvents przez zagniezdzona ramke przepuszcza
+        // zarowno nasze BeginInvoke, jak i tyknięcia watchdoga zamykajacego modal.
+        var deadline = DateTime.UtcNow + duration;
+        while (DateTime.UtcNow < deadline)
+        {
+            var frame = new DispatcherFrame();
+            Dispatcher.CurrentDispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() => frame.Continue = false));
+            Dispatcher.PushFrame(frame);
+            Thread.Sleep(10);
+        }
+    }
+
     // ===== aparatura =====
 
     private sealed class Harness : IDisposable
@@ -768,6 +1124,40 @@ internal static class SonosNavigationUxTests
         internal List<string> RowLabels() => MediaList.Items.Cast<object>()
             .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
             .ToList();
+
+        /// <summary>
+        /// Zdejmuje aktywacje z okna glownego BEZ oddawania pierwszego planu obcej
+        /// aplikacji: aktywujemy WLASNE drugie okno. Dokladnie tak wyglada lancuch
+        /// dialogow Sonos, w ktorym brama falszywie odmawiala.
+        /// </summary>
+        internal void DeactivateMainWindowWithinOwnProcess()
+        {
+            _siblingWindow = new Window
+            {
+                Width = 120,
+                Height = 90,
+                ShowInTaskbar = false,
+                Title = "AMC pomiar - wlasne okno pomocnicze"
+                // BEZ Owner: brama okien potomnych odmawia, gdy jakies WLASNE okno
+                // POTOMNE jest widoczne (i slusznie). Mierzymy luke aktywacji, a nie
+                // ten warunek, wiec okno pomocnicze jest osobnym oknem najwyzszego
+                // poziomu TEGO SAMEGO procesu.
+            };
+            _siblingWindow.Show();
+            _siblingWindow.Activate();
+            PumpQuietly(TimeSpan.FromMilliseconds(200));
+        }
+
+        private Window? _siblingWindow;
+
+        /// <summary>Zamyka wlasne okno pomocnicze - pomiar nie zostawia okien na pulpicie.</summary>
+        internal void CloseSiblingWindow()
+        {
+            if (_siblingWindow is null) return;
+            _siblingWindow.Close();
+            _siblingWindow = null;
+            PumpQuietly(TimeSpan.FromMilliseconds(120));
+        }
 
         internal void SelectRow(int index)
         {

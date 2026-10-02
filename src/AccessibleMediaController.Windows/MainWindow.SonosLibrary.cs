@@ -57,6 +57,20 @@ public partial class MainWindow
 
     internal void ShowSonosLibraryForTests() => ShowSonosLibrary();
 
+    /// <summary>
+    /// TESTOWE ustawienie NAZWY WIDOKU przegladania tej sesji. Pomiar powrotu do
+    /// sesji musi opuscic Sonosa z widoku INNEGO niz domyslny, a produkcyjny
+    /// Ctrl+L otwiera Biblioteke jako MODAL, nie jako widok listy.
+    /// </summary>
+    internal void SetCurrentViewForTests(string viewName)
+    {
+        _currentView = viewName;
+        CaptureCurrentSessionNavigationStateForTests();
+    }
+
+    internal void CaptureCurrentSessionNavigationStateForTests() =>
+        CaptureCurrentSessionNavigationState();
+
     internal void ShowSonosTargetSelectionForTests() => ShowSonosTargetSelection();
 
     /// <summary>
@@ -276,8 +290,82 @@ public partial class MainWindow
     private bool CanPresentSonosChildWindow()
     {
         if (_isClosing) return false;
-        if (!IsVisible || !IsActive || !IsEnabled) return false;
+        if (!IsVisible || !IsEnabled) return false;
+        // AKTYWNOSC liczymy dla CALEJ APLIKACJI, nie dla samego okna glownego.
+        //
+        // ZGLOSZENIE: "Biblioteka Sonos nie została otwarta, bo okno AMC nie jest
+        // aktywne" lecialo przy Ctrl+L / Ctrl+F5 wywolanym Z NASZEGO WLASNEGO
+        // okna potomnego (lancuch dialogow: SonosLibraryWindow.Close() -> otwarcie
+        // kolejnego okna). W tym momencie MainWindow.IsActive jest JESZCZE false,
+        // bo WPF nie oddal aktywacji wlascicielowi - mimo ze pierwszy plan nalezy
+        // do NAS. Stary warunek czytal to jako "uzytkownik pracuje w innej
+        // aplikacji" i odmawial, choc nic obcego nie bylo na wierzchu.
+        if (!IsApplicationForeground()) return false;
         if (!IsSonosSession(_sessions?.Current.Id)) return false;
         return !OwnedWindows.OfType<Window>().Any(window => window.IsVisible);
+    }
+
+    /// <summary>
+    /// Czy PIERWSZY PLAN nalezy do TEGO PROCESU. Zastepuje <c>Window.IsActive</c>
+    /// w bramie okien potomnych Sonosa.
+    ///
+    /// CO TO ZACHOWUJE: obca aplikacja na pierwszym planie nadal ODMAWIA - modal
+    /// nie wyskoczy pod reka uzytkownika pracujacego gdzie indziej. Porownujemy
+    /// PID wlasciciela okna pierwszego planu z wlasnym, wiec KAZDE nasze okno
+    /// (glowne, Biblioteka, wybor celu, Podglad mowy) liczy sie jako "jestesmy na
+    /// wierzchu".
+    ///
+    /// CO TO NAPRAWIA: lancuch dialogow. <c>SonosLibraryWindow</c> zamyka sie i
+    /// natychmiast kaze wlascicielowi otworzyc kolejne okno; WPF jeszcze nie
+    /// przywrocil <c>IsActive</c> na <c>MainWindow</c>, a <c>OwnedWindows</c> jest
+    /// juz puste. Stary warunek trafial dokladnie w te luke.
+    ///
+    /// AWARIA ODCZYTU jest traktowana jak AKTYWNI: brak odpowiedzi od Win32 nie
+    /// moze blokowac skrotu, ktory uzytkownik nacisnal swiadomie. Pozostale
+    /// warunki bramy (sesja, brak widocznego okna potomnego) dzialaja dalej.
+    /// </summary>
+    private bool IsApplicationForeground()
+    {
+        // Okno glowne aktywne to juz dowod - bez wchodzenia w Win32.
+        if (IsActive) return true;
+        if (OwnedWindows.OfType<Window>().Any(window => window.IsActive)) return true;
+
+        if (ForegroundProcessIdOverrideForTests is { } injected)
+        {
+            return injected == Environment.ProcessId;
+        }
+
+        try
+        {
+            var foreground = NativeForeground.GetForegroundWindow();
+            if (foreground == IntPtr.Zero) return true;
+            _ = NativeForeground.GetWindowThreadProcessId(foreground, out var processId);
+            if (processId == 0) return true;
+            return processId == Environment.ProcessId;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// TESTOWE podstawienie PID wlasciciela pierwszego planu. Pomiar nie moze
+    /// polegac na tym, ktore okno pulpitu jest akurat na wierzchu, a OBCY
+    /// pierwszy plan musi dac sie zmierzyc bez kradziezy fokusu uzytkownikowi.
+    /// </summary>
+    internal int? ForegroundProcessIdOverrideForTests { get; set; }
+
+    private static class NativeForeground
+    {
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        internal static extern IntPtr GetForegroundWindow();
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        internal static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
     }
 }

@@ -898,6 +898,7 @@ public partial class MainWindow
         var backend = EnsureSonosBackend();
         var token = EnsureSonosCancellation().Token;
         var beforeState = state;
+        var beforeActions = _sonosPlayback?.AvailablePlaybackActions;
         var beforeItemId = _sonosPlayback?.ItemId;
         var beforeVolume = _sonosVolume;
         _sonosCommandInFlight = true;
@@ -1051,7 +1052,9 @@ public partial class MainWindow
                 ? SonosCommandVerdict.DescribeVolume(
                     accepted, readOk, beforeVolume, _sonosVolume, requestedVolume, requestedMute)
                 : SonosCommandVerdict.Describe(
-                    ResolveSonosVerdictCommand(commandId),
+                    // Rodzaj werdyktu z ODCZYTU SPRZED polecenia: te same
+                    // availablePlaybackActions, ktore przepuscila bramka.
+                    ResolveSonosVerdictCommand(commandId, beforeState, beforeActions),
                     accepted,
                     readOk,
                     beforeState,
@@ -1429,6 +1432,14 @@ public partial class MainWindow
     internal Task ActivateSonosGroupForTests(string groupId) => ActivateSonosGroupAsync(groupId);
 
     /// <summary>
+    /// TEN SAM produkcyjny punkt publikacji wierszy grup, ktory konczy
+    /// asynchroniczne wejscie do sesji i cykliczny odczyt topologii. Pomiar
+    /// powrotu do sesji potrzebuje go, zeby odtworzyc SPOZNIONY odczyt
+    /// przychodzacy JUZ PO odtworzeniu widoku uzytkownika.
+    /// </summary>
+    internal void ApplySonosGroupRowsForTests() => ApplySonosGroupRows();
+
+    /// <summary>
     /// WASKI hook pomiarowy: PRODUKCYJNA droga Entera na wierszu grupy, czyli
     /// aktywacja grupy i istniejacy widok odtwarzacza. Pomiar kontekstu Ctrl+F5
     /// w odtwarzaczu nie ma dzieki temu wlasnej kopii tej kolejnosci ani nie
@@ -1484,11 +1495,25 @@ public partial class MainWindow
     private void StartSonosGroupActivationThenPlayer(string groupId) =>
         LastSonosActivationTaskForTests = ActivateSonosGroupThenShowPlayerAsync(groupId);
 
-    private static SonosVerdictCommand ResolveSonosVerdictCommand(string commandId) => commandId switch
+    /// <summary>
+    /// Rodzaj werdyktu dla POLECENIA. Dla PlayPause rozstrzyga ODCZYT, nie nazwa
+    /// polecenia: na materiale niepauzowalnym (canPause=false, canStop=true -
+    /// radio live) zatrzymanie daje IDLE, nie PAUSED, wiec werdykt musi byc
+    /// <see cref="SonosVerdictCommand.Stop"/>, inaczej prawidlowy skutek czytalby
+    /// sie jako "wykonanie niepotwierdzone". Zrodlo: playback-playbackstatus.md.
+    /// </summary>
+    private static SonosVerdictCommand ResolveSonosVerdictCommand(
+        string commandId,
+        SonosPlaybackState stateBefore,
+        SonosPlaybackActions? actions) => commandId switch
     {
         CommandIds.Next => SonosVerdictCommand.Next,
         CommandIds.Previous => SonosVerdictCommand.Previous,
-        CommandIds.PlayPause or CommandIds.ActivateSelected => SonosVerdictCommand.Toggle,
+        CommandIds.PlayPause or CommandIds.ActivateSelected =>
+            (stateBefore is SonosPlaybackState.Playing or SonosPlaybackState.Buffering)
+                && SonosTransportLabels.IsStopControl(actions)
+                ? SonosVerdictCommand.Stop
+                : SonosVerdictCommand.Toggle,
         _ => SonosVerdictCommand.Seek
     };
 

@@ -113,7 +113,13 @@ public partial class SonosOwnStreamsWindow : Window
         AnnounceForOwner(row is null ? $"Dodano stację: {entry.Name}." : $"Zmieniono stację: {entry.Name}.");
     }
 
-    private void Remove_Click(object sender, RoutedEventArgs e)
+    private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelectedStation();
+
+    /// <summary>
+    /// JEDNA sciezka usuwania dla przycisku Usun i dla klawisza Delete - zeby nie
+    /// istnialy dwie kopie potwierdzenia i zapisu.
+    /// </summary>
+    private void RemoveSelectedStation()
     {
         if (_busy || _closed || Selected is not { } row) return;
         var result = AccessibleDialog.Show($"Usunąć stację „{row.Name}” z listy AMC? "
@@ -142,6 +148,37 @@ public partial class SonosOwnStreamsWindow : Window
             e.Handled = true;
             if (!e.IsRepeat) RequestPresetAssignment();
             return;
+        }
+        // F2 EDYTUJE, DELETE USUWA - na liscie wlasnych stacji.
+        //
+        // ZGLOSZENIE MICHALA: "Ulubione stacje graja, ale F2 nie edytuje i Delete
+        // nie usuwa". Okno mialo TYLKO przyciski Zmien/Usun, a tych dwoch klawiszy
+        // nie bylo wcale - wiec nie dzialo sie nic, bez zadnego komunikatu.
+        //
+        // To sa WLASNE stacje AMC (lista lokalna), wiec edycja i usuniecie naleza
+        // do nas i nie dotykaja Ulubionych Sonosa. Oba klawisze wchodza w TE SAME
+        // sciezki, co przyciski - bez drugiej kopii logiki zapisu.
+        //
+        // Wymagamy fokusu NA LISCIE: w polu tekstowym edytora Delete musi dalej
+        // kasowac znaki, a nie stacje.
+        if (StationsList.IsKeyboardFocusWithin && (Keyboard.Modifiers & ~ModifierKeys.None) == ModifierKeys.None)
+        {
+            if (key == Key.F2)
+            {
+                e.Handled = true;
+                if (e.IsRepeat) return;
+                if (Selected is { } toEdit) EditStation(toEdit);
+                else AnnounceForOwner("Najpierw dodaj i wybierz stację.");
+                return;
+            }
+            if (key == Key.Delete)
+            {
+                e.Handled = true;
+                if (e.IsRepeat) return;
+                if (Selected is not null) RemoveSelectedStation();
+                else AnnounceForOwner("Najpierw dodaj i wybierz stację.");
+                return;
+            }
         }
         if (e.Key == Key.Enter && StationsList.IsKeyboardFocusWithin)
         { e.Handled = true; if (!e.IsRepeat) StartPlay(); }

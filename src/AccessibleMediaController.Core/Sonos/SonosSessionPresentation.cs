@@ -347,6 +347,26 @@ public static class SonosPlayerPresentation
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
+/// <summary>
+/// ETYKIETA TRANSPORTU z ODCZYTU. Zrodlo: docs.sonos.com, playback-playbackstatus,
+/// sekcja "Deciding whether to show Pause or Stop":
+///
+///   * w Control API NIE MA polecenia stop - `pause` jest JEDYNYM transportem
+///     zatrzymania i wysylamy je w obu przypadkach,
+///   * STOP pokazujemy WYLACZNIE gdy canPause=false I canStop=true; w kazdym
+///     innym przypadku PAUZE,
+///   * liczymy to z KAZDEGO swiezego availablePlaybackActions, nie z typu tresci
+///     ani nazwy usługi.
+///
+/// Nieznany odczyt (null) NIE jest Stopem: bez odczytu nie zgadujemy etykiety.
+/// </summary>
+public static class SonosTransportLabels
+{
+    /// <summary>Czy pokazac i NAZWAC to zatrzymaniem zamiast wstrzymaniem.</summary>
+    public static bool IsStopControl(SonosPlaybackActions? actions) =>
+        actions?.CanPause == false && actions?.CanStop == true;
+}
+
 /// <summary>Werdykt bramki: wolno wyslac POST czy trzeba odmowic.</summary>
 public sealed class SonosCommandGate
 {
@@ -382,10 +402,32 @@ public static class SonosCommandGating
             case CommandIds.ActivateSelected:
             {
                 var pausing = state == SonosPlaybackState.Playing || state == SonosPlaybackState.Buffering;
-                var allowed = pausing ? actions?.CanPause : actions?.CanPlay;
-                return From(allowed, pausing
-                    ? "Sonos nie zgłasza możliwości wstrzymania tego materiału."
-                    : "Sonos nie zgłasza możliwości odtwarzania w tej grupie.");
+                if (!pausing)
+                {
+                    return From(actions?.CanPlay, "Sonos nie zgłasza możliwości odtwarzania w tej grupie.");
+                }
+
+                // ZATRZYMANIE: w Control API NIE MA polecenia stop - `pause` jest
+                // jedynym transportem zatrzymania, a dla materialu
+                // NIEPAUZOWALNEGO (HLS, radio live) player traktuje je jak stop.
+                // Dlatego canPause=false + canStop=true to NORMALNY, udokumentowany
+                // stan radia, a nie brak mozliwosci zatrzymania - dotad bramka
+                // patrzyla TYLKO na canPause i odmawiala "Sonos nie zglasza
+                // mozliwosci wstrzymania tego materialu" nad grajacym radiem.
+                // Zrodlo: playback-playbackstatus.md, "Deciding whether to show
+                // Pause or Stop". OBA false oraz brak odczytu (null) nadal
+                // ODMAWIAJA: nieznane uprawnienie nie jest zgoda.
+                var canHalt = actions?.CanPause == true || actions?.CanStop == true;
+                return canHalt
+                    ? new SonosCommandGate(true, null)
+                    : new SonosCommandGate(
+                        false,
+                        actions is null
+                            // ROZNE przyczyny, rozne komunikaty: nieodczytany stan
+                            // nie jest tym samym co material, ktorego nie wolno
+                            // zatrzymac - inaczej uzytkownik nie wie, co zrobic.
+                            ? "Stan Sonos nie został odczytany. Odśwież stan Sonos."
+                            : "Sonos nie zgłasza możliwości zatrzymania tego materiału.");
             }
 
             case CommandIds.Next:
@@ -448,6 +490,15 @@ public enum SonosVerdictCommand
 {
     Play,
     Pause,
+
+    /// <summary>
+    /// ZATRZYMANIE materialu niepauzowalnego (radio live). Wysylane POLECENIE to
+    /// nadal `pause` - innego w Control API nie ma - ale SKUTEK jest inny:
+    /// playbackState idzie do IDLE, nie do PAUSED, a pozniejszy `play` DOLACZA do
+    /// transmisji, nie wznawia pozycji. Dlatego werdykt przyjmuje OBA stany
+    /// koncowe i nie obiecuje wznowienia od pozycji.
+    /// </summary>
+    Stop,
     Toggle,
     Next,
     Previous,
@@ -513,14 +564,9 @@ public static class SonosCommandVerdict
         {
             case SonosVerdictCommand.Play:
             case SonosVerdictCommand.Pause:
+            case SonosVerdictCommand.Stop:
             case SonosVerdictCommand.Toggle:
             {
-                var target = command == SonosVerdictCommand.Play
-                    ? SonosPlaybackState.Playing
-                    : command == SonosVerdictCommand.Pause
-                        ? SonosPlaybackState.Paused
-                        : SonosPlaybackState.Unknown;
-
                 if (command == SonosVerdictCommand.Toggle)
                 {
                     // Bez ZNANEGO stanu sprzed polecenia nie ma z czym porownac:
@@ -528,11 +574,47 @@ public static class SonosCommandVerdict
                     return after != before
                         && after != SonosPlaybackState.Unknown
                         && before != SonosPlaybackState.Unknown
-                        ? new SonosVerdict(true, "Stan zmieniony: " + Word(after) + ".")
+                        // KROTKO po sukcesie: samo slowo stanu. Litania techniczna
+                        // po KAZDYM udanym klawiszu byla zgloszona jako koszt uwagi.
+                        ? new SonosVerdict(true, Word(after) + ".")
                         : new SonosVerdict(
                             false,
                             "Odczytany stan Sonos: " + Word(after) + ". Wykonanie niepotwierdzone.");
                 }
+
+                if (command == SonosVerdictCommand.Stop)
+                {
+                    // ZATRZYMANIE: udokumentowany skutek `pause` na materiale
+                    // niepauzowalnym to IDLE, na pauzowalnym PAUSED. OBA sa
+                    // dowodem zatrzymania, wiec Idle NIE jest tu bledem. Nie
+                    // mowimy "wstrzymano" ani nic o pozycji: po `play` Sonos
+                    // DOLACZA do transmisji na zywo, nie wznawia od pozycji.
+                    var halted = after is SonosPlaybackState.Idle or SonosPlaybackState.Paused;
+                    if (!halted)
+                    {
+                        return new SonosVerdict(
+                            false,
+                            "Odczytany stan Sonos: " + Word(after) + ". Wykonanie niepotwierdzone.");
+                    }
+
+                    if (before == SonosPlaybackState.Unknown)
+                    {
+                        return new SonosVerdict(
+                            false,
+                            "Odczytany stan Sonos: " + Word(after)
+                            + ". Stan sprzed polecenia nieznany, więc wykonanie niepotwierdzone.");
+                    }
+
+                    return before == after
+                        ? new SonosVerdict(
+                            false,
+                            "Odczytany stan Sonos: " + Word(after) + " - taki był już przed poleceniem.")
+                        : new SonosVerdict(true, "Zatrzymano.");
+                }
+
+                var target = command == SonosVerdictCommand.Play
+                    ? SonosPlaybackState.Playing
+                    : SonosPlaybackState.Paused;
 
                 if (after != target)
                 {
@@ -554,7 +636,9 @@ public static class SonosCommandVerdict
                     ? new SonosVerdict(
                         false,
                         "Odczytany stan Sonos: " + Word(after) + " - taki był już przed poleceniem.")
-                    : new SonosVerdict(true, Word(after) + " potwierdzone odczytem stanu.");
+                    // KROTKO po sukcesie: "Pauza." zamiast "Pauza potwierdzone
+                    // odczytem stanu." Szczegoly zostaja w logu, nie w mowie.
+                    : new SonosVerdict(true, Word(after) + ".");
             }
 
             case SonosVerdictCommand.Next:
@@ -569,7 +653,8 @@ public static class SonosCommandVerdict
 
                 return string.Equals(beforeItemId, afterItemId, StringComparison.Ordinal)
                     ? new SonosVerdict(false, "Odczytana pozycja się nie zmieniła: wykonanie niepotwierdzone.")
-                    : new SonosVerdict(true, "Zmiana pozycji potwierdzona odczytem.");
+                    // KROTKO po sukcesie: skok juz slychac po zmianie materialu.
+                    : new SonosVerdict(true, "Zmieniono pozycję.");
             }
 
             default:
@@ -627,7 +712,7 @@ public static class SonosCommandVerdict
                 ? new SonosVerdict(
                     false,
                     "Odczytane wyciszenie: " + Mute(after.Muted) + " - takie było już przed poleceniem.")
-                : new SonosVerdict(true, "Wyciszenie ustawione: " + Mute(after.Muted) + ".");
+                : new SonosVerdict(true, "Wyciszenie: " + Mute(after.Muted) + ".");
         }
 
         if (requestedVolume is { } target)
@@ -655,7 +740,9 @@ public static class SonosCommandVerdict
                     + " procent - taka była już przed poleceniem.")
                 : new SonosVerdict(
                     true,
-                    "Głośność " + after.Volume.ToString(CultureInfo.CurrentCulture) + " procent potwierdzona odczytem.");
+                    // KROTKO po sukcesie: sama WARTOSC, bez "potwierdzona
+                    // odczytem" - doslowne zgloszenie Michala.
+                    "Głośność " + after.Volume.ToString(CultureInfo.CurrentCulture) + " procent.");
         }
 
         return new SonosVerdict(

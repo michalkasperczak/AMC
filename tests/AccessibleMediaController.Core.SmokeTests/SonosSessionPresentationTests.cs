@@ -26,6 +26,8 @@ internal static class SonosSessionPresentationTests
         PlayerTextFromRealRead();
         PositionNeverInvented();
         CommandGatingFromCapabilities();
+        LiveRadioStopIsPauseByContract();
+        SuccessMessagesAreShortAndUseful();
         VerdictAfterExplicitRead();
         VerdictNeverInventsChangeOrRejection();
         ActiveGroupFollowsIdentifier();
@@ -251,8 +253,11 @@ internal static class SonosSessionPresentationTests
         var play = SonosCommandGating.Evaluate(CommandIds.PlayPause, SonosPlaybackState.Paused, actions, fixedVolume);
         True(play.Allowed, "Play przy canPlay=true ma byc dostepne.");
 
+        // canPause=false ORAZ canStop=null/false (ten zestaw) nadal odmawia:
+        // nie ma CZYM zatrzymac, wiec martwy przycisk nie klamie.
         var pause = SonosCommandGating.Evaluate(CommandIds.PlayPause, SonosPlaybackState.Playing, actions, fixedVolume);
-        True(!pause.Allowed && pause.Refusal!.Length > 0, "Pauza przy canPause=false to odmowa bez POST.");
+        True(!pause.Allowed && pause.Refusal!.Length > 0,
+            "Pauza przy canPause=false i canStop bez zgody to odmowa bez POST.");
 
         var next = SonosCommandGating.Evaluate(CommandIds.Next, SonosPlaybackState.Playing, actions, fixedVolume);
         True(!next.Allowed, "canSkip=false blokuje nastepny utwor.");
@@ -282,6 +287,143 @@ internal static class SonosSessionPresentationTests
 
         var withoutRead = SonosCommandGating.Evaluate(CommandIds.PlayPause, SonosPlaybackState.Unknown, null, null);
         True(!withoutRead.Allowed, "Bez odczytu stanu nie udajemy dostepnosci.");
+    }
+
+    // 8b. RADIO LIVE: canPause=false + canStop=true to UDOKUMENTOWANY, normalny
+    // stan HLS, nie brak mozliwosci zatrzymania. Zrodlo:
+    // docs.sonos.com/reference/playback-playbackstatus.md, "Deciding whether to
+    // show Pause or Stop": w Control API NIE MA polecenia stop, `pause` jest
+    // jedynym transportem zatrzymania, a dla materialu niepauzowalnego player
+    // traktuje `pause` jako stop (playbackState -> IDLE, pozniejszy `play`
+    // DOLACZA do transmisji, nie wznawia pozycji).
+    private static void LiveRadioStopIsPauseByContract()
+    {
+        var liveRadio = new SonosPlaybackActions(
+            canPlay: true, canSkip: false, canSkipBack: false, canSkipToPrevious: false,
+            canSeek: false, canPause: false, canStop: true, canRepeat: null, canRepeatOne: null,
+            canCrossfade: null, canShuffle: null);
+        var volume = new SonosGroupVolume(20, muted: false, fixedVolume: false);
+
+        // 1) GRA: zgoda z canStop, nie z canPause. Zgloszenie Michala "Spacja nie
+        // zatrzymuje: Sonos nie zglasza mozliwosci wstrzymania tego materialu".
+        var stopPlaying = SonosCommandGating.Evaluate(
+            CommandIds.PlayPause, SonosPlaybackState.Playing, liveRadio, volume);
+        True(stopPlaying.Allowed,
+            "canPause=false + canStop=true: zatrzymanie radia MA byc dostepne (pause jest stopem).");
+
+        // 2) BUFORUJE: ten sam kontrakt, bo to nadal stan "gra".
+        var stopBuffering = SonosCommandGating.Evaluate(
+            CommandIds.PlayPause, SonosPlaybackState.Buffering, liveRadio, volume);
+        True(stopBuffering.Allowed, "Buforowanie + canStop=true tez wolno zatrzymac.");
+
+        // 3) ZATRZYMANE (IDLE po stopie radia) + canPlay: wolno wrocic na zywo.
+        var playFromIdle = SonosCommandGating.Evaluate(
+            CommandIds.PlayPause, SonosPlaybackState.Idle, liveRadio, volume);
+        True(playFromIdle.Allowed, "Idle + canPlay=true: start radia ma byc dostepny.");
+
+        // 4) OBA FALSE: odmowa zostaje - nie ma czym zatrzymac.
+        var neither = SonosCommandGating.Evaluate(
+            CommandIds.PlayPause,
+            SonosPlaybackState.Playing,
+            new SonosPlaybackActions(
+                canPlay: true, canSkip: false, canSkipBack: false, canSkipToPrevious: false,
+                canSeek: false, canPause: false, canStop: false, canRepeat: null, canRepeatOne: null,
+                canCrossfade: null, canShuffle: null),
+            volume);
+        True(!neither.Allowed, "canPause=false i canStop=false to nadal odmowa.");
+
+        // 5) NIEZNANE (null/null): "nieznane != zgoda" ZOSTAJE, i komunikat o
+        // NIEODCZYTANYM stanie musi roznic sie od komunikatu o materiale.
+        var unknown = SonosCommandGating.Evaluate(
+            CommandIds.PlayPause, SonosPlaybackState.Playing, null, volume);
+        True(!unknown.Allowed, "Brak availablePlaybackActions to odmowa, nie zgoda.");
+
+        // 6) ETYKIETA: Stop tylko gdy canPause=false && canStop=true, inaczej Pauza.
+        True(SonosTransportLabels.IsStopControl(liveRadio),
+            "Radio live (canPause=false, canStop=true) pokazuje STOP.");
+        True(!SonosTransportLabels.IsStopControl(new SonosPlaybackActions(
+                canPlay: true, canSkip: true, canSkipBack: true, canSkipToPrevious: true,
+                canSeek: true, canPause: true, canStop: true, canRepeat: null, canRepeatOne: null,
+                canCrossfade: null, canShuffle: null)),
+            "Pauzowalny material pokazuje PAUZE, nawet gdy canStop=true.");
+        True(!SonosTransportLabels.IsStopControl(null),
+            "Bez odczytu nie zgadujemy etykiety Stop.");
+
+        // 7) WERDYKT: po stopie radia oczekujemy IDLE, nie PAUSED. Idle nie jest
+        // bledem i NIE wolno obiecywac wznowienia od pozycji.
+        var stopped = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Stop, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Idle,
+            beforeItemId: "live", afterItemId: "live");
+        True(stopped.Confirmed, "Playing -> Idle po stopie to POTWIERDZONY skutek: " + stopped.Text);
+        True(stopped.Text.Contains("Zatrzymano", StringComparison.OrdinalIgnoreCase),
+            "Dla radia mowimy Zatrzymano, nie Wstrzymano: " + stopped.Text);
+        True(!stopped.Text.Contains("wznow", StringComparison.OrdinalIgnoreCase)
+            && !stopped.Text.Contains("pozycj", StringComparison.OrdinalIgnoreCase),
+            "Stop radia nie obiecuje wznowienia ani pozycji: " + stopped.Text);
+
+        // 8) Stop, ktory dal PAUSED (material pauzowalny) tez jest skutkiem.
+        var pausedInstead = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Stop, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Paused,
+            beforeItemId: "live", afterItemId: "live");
+        True(pausedInstead.Confirmed,
+            "Playing -> Paused po pause/stop to tez zmiana, nie brak dowodu: " + pausedInstead.Text);
+
+        // 9) Stop bez zmiany stanu nadal NIE jest potwierdzeniem.
+        var noChange = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Stop, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Playing,
+            beforeItemId: "live", afterItemId: "live");
+        True(!noChange.Confirmed, "Brak zmiany stanu to BRAK DOWODU: " + noChange.Text);
+    }
+
+    // 8c. KROTKI KOMUNIKAT PO SUKCESIE. Zgloszenie Michala doslownie: nie chce
+    // slyszec "Glosnosc 13 procent potwierdzona odczytem". Litania techniczna po
+    // UDANYM poleceniu to koszt uwagi na kazdym nacisnieciu klawisza. BLAD i
+    // stan NIEZNANY zostaja pelne i uczciwe - tam dluzszy tekst niesie tresc.
+    private static void SuccessMessagesAreShortAndUseful()
+    {
+        // 1) GLOSNOSC potwierdzona: sama wartosc, bez "potwierdzona odczytem".
+        var volumeOk = SonosCommandVerdict.DescribeVolume(
+            accepted: true, readSucceeded: true,
+            before: new SonosGroupVolume(10, muted: false, fixedVolume: false),
+            after: new SonosGroupVolume(13, muted: false, fixedVolume: false),
+            requestedVolume: 13, requestedMute: null);
+        True(volumeOk.Confirmed, "Zmiana 10 -> 13 jest potwierdzona.");
+        True(volumeOk.Text.Contains("13", StringComparison.Ordinal),
+            "Komunikat nadal podaje WARTOSC: " + volumeOk.Text);
+        True(!volumeOk.Text.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase),
+            "Po sukcesie zadnej litanii 'potwierdzona odczytem': " + volumeOk.Text);
+        True(volumeOk.Text.Length <= 30,
+            "Krotki komunikat sukcesu glosnosci (<=30 znakow), byl: '" + volumeOk.Text + "'");
+
+        // 2) STAN potwierdzony: samo slowo stanu, bez "potwierdzone odczytem stanu".
+        var stateOk = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Pause, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Paused,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(stateOk.Confirmed, "Playing -> Paused jest potwierdzone.");
+        True(!stateOk.Text.Contains("potwierdzone odczytem", StringComparison.OrdinalIgnoreCase),
+            "Po sukcesie bez 'potwierdzone odczytem stanu': " + stateOk.Text);
+        True(stateOk.Text.Length <= 24, "Krotki komunikat stanu, byl: '" + stateOk.Text + "'");
+
+        // 3) BLAD zostaje PELNY: tu dlugi tekst mowi, co robic dalej.
+        var failed = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Pause, accepted: false, stateReadSucceeded: false,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Unknown,
+            beforeItemId: null, afterItemId: null);
+        True(!failed.Confirmed && failed.Text.Length > 40,
+            "Komunikat bledu zostaje pelny i uczciwy: " + failed.Text);
+
+        // 4) NIEPOTWIERDZONE po UDANYM odczycie tez zostaje jawne - to nie sukces.
+        var unconfirmed = SonosCommandVerdict.Describe(
+            SonosVerdictCommand.Pause, accepted: true, stateReadSucceeded: true,
+            before: SonosPlaybackState.Playing, after: SonosPlaybackState.Playing,
+            beforeItemId: "it1", afterItemId: "it1");
+        True(!unconfirmed.Confirmed
+            && unconfirmed.Text.Contains("niepotwierdzone", StringComparison.OrdinalIgnoreCase),
+            "Brak dowodu nadal nazywa sie wprost: " + unconfirmed.Text);
     }
 
     // 9. Po poleceniu JAWNY odczyt. Accepted != wykonane, a "stan byl juz
