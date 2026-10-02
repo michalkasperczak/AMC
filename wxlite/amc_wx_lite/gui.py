@@ -94,29 +94,26 @@ def format_time(seconds: float | None) -> str:
 
 
 class Announcer:
-    """JEDNA brama komunikatow dla czytnika ekranu.
+    """Visible status plus a standard MSAA alert, without changing focus.
 
-    Komunikat idzie do pola statusu (czytnik widzi zmiane tekstu) i, jesli wx
-    to potrafi, przez ``wx.Accessible``/``NameChange``. Nie dublujemy
-    komunikatow: ten sam tekst pod rzad nie jest powtarzany.
+    An explicit repeated query is repeated; unchanged control text is not
+    rewritten. A notification call is not itself proof of spoken output.
     """
 
     def __init__(self, status_field: wx.StaticText) -> None:
         self._status = status_field
-        self._last = ""
 
     def say(self, text: str) -> None:
         text = (text or "").strip()
-        if not text or text == self._last:
+        if not text:
             return
-        self._last = text
-        self._status.SetLabel(text)
-        # Zmiana nazwy kontrolki to standardowy sygnal dla czytnika; nie
-        # wymaga dodatku NVDA ani wlasnego protokolu.
-        try:
-            self._status.GetParent().NotifyDescendantFocus  # type: ignore[attr-defined]
-        except AttributeError:
-            pass
+        if self._status.GetLabel() != text:
+            self._status.SetLabel(text)
+            self._status.SetName(text)
+        owner = wx.GetTopLevelParent(self._status)
+        if owner is not None and not owner.IsActive():
+            return
+        wx.Accessible.NotifyEvent(wx.ACC_EVENT_SYSTEM_ALERT, self._status, wx.OBJID_CLIENT, 0)
 
 
 class MediaListCtrl(wx.ListCtrl):
