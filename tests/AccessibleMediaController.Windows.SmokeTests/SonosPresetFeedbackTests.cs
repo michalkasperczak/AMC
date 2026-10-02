@@ -35,6 +35,12 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                     if (request.Method == System.Net.Http.HttpMethod.Post && path.EndsWith("/loadStreamUrl", StringComparison.Ordinal)) return Json("{}");
                     // ULUBIONE I PLAYLISTY po DWA wiersze: pokaz ma objac WSZYSTKIE
                     // TRZY podlisty, nie tylko Moje stacje.
+                    // URUCHOMIENIE PLAYLISTY: POST /groups/{id}/playlists. Atrapa
+                    // musi je obsluzyc OSOBNO od GET /playlists, inaczej pokaz
+                    // mowi blad zamiast krotkiej nazwy. To luka APARATURY pokazu,
+                    // nie kodu produkcyjnego.
+                    if (request.Method == System.Net.Http.HttpMethod.Post && path.EndsWith("/playlists", StringComparison.Ordinal)) return Json("{}");
+
                     if (request.Method == System.Net.Http.HttpMethod.Get && path.EndsWith("/playlists", StringComparison.Ordinal))
                     {
                         return Json("{\"version\":\"PL1\",\"playlists\":["
