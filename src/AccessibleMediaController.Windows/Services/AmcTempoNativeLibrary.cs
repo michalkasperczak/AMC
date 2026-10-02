@@ -84,17 +84,28 @@ internal static class AmcTempoNativeLibrary
         [DllImport(LibraryName, EntryPoint = "AmcTempoAbiVersion", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int AmcTempoAbiVersion();
 
+        // UWAGA ABI: ksztalt KAZDEJ z tych funkcji musi byc dokladnie taki, jak
+        // w native/AmcTempoEngines/src/amc_tempo_engines.h, a nie taki, jak
+        // wygodniej wolac z C#. Zmierzone na HEAD e84b635: brakujacy czwarty
+        // parametr AmcTempoCreate oraz double zamiast float w SetTempo/SetPitch
+        // dawaly naruszenie ochrony pamieci (kod 139) przy pierwszym
+        // rzeczywistym wywolaniu. Kod kompilowal sie bez ostrzezenia, bo
+        // DllImport nie weryfikuje sygnatur. Zrodlem prawdy jest naglowek.
         [DllImport(LibraryName, EntryPoint = "AmcTempoCreate", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr AmcTempoCreate(int engine, int sampleRate, int channels);
+        internal static extern IntPtr AmcTempoCreate(
+            int engine,
+            int sampleRate,
+            int channels,
+            out int status);
 
         [DllImport(LibraryName, EntryPoint = "AmcTempoDestroy", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void AmcTempoDestroy(IntPtr stream);
 
         [DllImport(LibraryName, EntryPoint = "AmcTempoSetTempo", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int AmcTempoSetTempo(IntPtr stream, double tempo);
+        internal static extern int AmcTempoSetTempo(IntPtr stream, float tempo);
 
         [DllImport(LibraryName, EntryPoint = "AmcTempoSetPitch", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int AmcTempoSetPitch(IntPtr stream, double pitch);
+        internal static extern int AmcTempoSetPitch(IntPtr stream, float pitch);
 
         [DllImport(LibraryName, EntryPoint = "AmcTempoSetNonlinearStrength", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int AmcTempoSetNonlinearStrength(IntPtr stream, float strength);
@@ -110,5 +121,17 @@ internal static class AmcTempoNativeLibrary
 
         [DllImport(LibraryName, EntryPoint = "AmcTempoReset", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int AmcTempoReset(IntPtr stream);
+
+        // Te trzy byly w naglowku od poczatku, ale nie mialy odpowiednika w C#,
+        // mimo ze komentarz naglowka mowi, ze strona zarzadzana liczy z nich
+        // pozycje. Sluza do pomiaru i diagnostyki mapowania czasu.
+        [DllImport(LibraryName, EntryPoint = "AmcTempoConsumedInputFrames", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern long AmcTempoConsumedInputFrames(IntPtr stream);
+
+        [DllImport(LibraryName, EntryPoint = "AmcTempoProducedOutputFrames", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern long AmcTempoProducedOutputFrames(IntPtr stream);
+
+        [DllImport(LibraryName, EntryPoint = "AmcTempoOutputLatencyFrames", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int AmcTempoOutputLatencyFrames(IntPtr stream);
     }
 }

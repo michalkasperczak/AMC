@@ -30,6 +30,35 @@ internal abstract class PlaybackTempoStream : WaveStream
     internal abstract string EngineName { get; }
 
     /// <summary>
+    /// Algorytm, ktory uzytkownik WYBRAL w ustawieniach. Rozny od
+    /// <see cref="UsedAlgorithm"/>, gdy doszlo do powrotu do SoundTouch.
+    /// </summary>
+    internal PlaybackTempoAlgorithm RequestedAlgorithm { get; private set; }
+
+    /// <summary>
+    /// Algorytm, ktory FAKTYCZNIE pracuje. To ta wartosc, nie wybor w
+    /// ustawieniach, opisuje slyszany dzwiek; interfejs ma prawo powiedziec
+    /// uzytkownikowi prawde, a nie powtorzyc jego zyczenie.
+    /// </summary>
+    internal PlaybackTempoAlgorithm UsedAlgorithm { get; private set; }
+
+    /// <summary>Powod rozjazdu wyboru i wykonania albo null, gdy go nie ma.</summary>
+    internal string? FallbackReason { get; private set; }
+
+    /// <summary>Czy wybor uzytkownika zostal faktycznie wykonany.</summary>
+    internal bool IsRequestedAlgorithmInUse => RequestedAlgorithm == UsedAlgorithm;
+
+    private void RecordStatus(
+        PlaybackTempoAlgorithm requested,
+        PlaybackTempoAlgorithm used,
+        string? fallbackReason)
+    {
+        RequestedAlgorithm = requested;
+        UsedAlgorithm = used;
+        FallbackReason = fallbackReason;
+    }
+
+    /// <summary>
     /// Buduje etap tempa dla wskazanego algorytmu. Gdy wybrany silnik natywny
     /// nie jest dostepny, zwraca etap SoundTouch i podaje powod w
     /// <paramref name="fallbackReason"/> - zadnego udawania, ze nowy algorytm
@@ -44,20 +73,32 @@ internal abstract class PlaybackTempoStream : WaveStream
         fallbackReason = null;
         if (algorithm == PlaybackTempoAlgorithm.SoundTouch)
         {
-            return new SoundTouchTempoStream(reader);
+            var soundTouch = new SoundTouchTempoStream(reader);
+            soundTouch.RecordStatus(algorithm, PlaybackTempoAlgorithm.SoundTouch, null);
+            return soundTouch;
         }
 
         if (!AmcTempoNativeLibrary.IsAvailable)
         {
             fallbackReason = AmcTempoNativeLibrary.UnavailableReason
                 ?? "Natywne silniki tempa nie są dostępne.";
-            return new SoundTouchTempoStream(reader);
+            var soundTouch = new SoundTouchTempoStream(reader);
+            soundTouch.RecordStatus(algorithm, PlaybackTempoAlgorithm.SoundTouch, fallbackReason);
+            return soundTouch;
         }
 
         var native = NativeTempoStream.TryCreate(reader, algorithm, out var reason);
-        if (native is not null) return native;
+        if (native is not null)
+        {
+            // reason moze byc niepuste takze przy sukcesie (ostrzezenie silnika).
+            native.RecordStatus(algorithm, algorithm, reason);
+            fallbackReason = null;
+            return native;
+        }
         fallbackReason = reason ?? "Nie udało się uruchomić natywnego silnika tempa.";
-        return new SoundTouchTempoStream(reader);
+        var fallback = new SoundTouchTempoStream(reader);
+        fallback.RecordStatus(algorithm, PlaybackTempoAlgorithm.SoundTouch, fallbackReason);
+        return fallback;
     }
 }
 

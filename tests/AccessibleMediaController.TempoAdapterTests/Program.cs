@@ -29,7 +29,17 @@ internal static class Program
 
         RunTest("T1 tempo 2x faktycznie skraca material (float32, mowa)", Test1_TempoActuallyChangesLength);
         RunTest("T2 zrodlo PCM16 trafia do natywnego silnika, nie w cichy fallback", Test2_Pcm16NotSilentFallback);
-        RunTest("T3 przelaczenia 2x -> 1x -> 2x bez starego bufora i bez gubienia materialu", Test3_TempoSwitchNoStaleNoLoss);
+        RunTest("T4 jawny status wybranego i WYKONANEGO algorytmu", Test4_ExplicitStatus);
+        RunTest("T3 przelaczenia 2x -> 1x -> 2x bez starego bufora i bez gubienia materialu",
+            () => Test3_TempoSwitchNoStaleNoLoss(1d));
+        RunTest("T3b to samo bez obejscia 1,0x (2x -> 1,5x -> 2x) - rozstrzyga, czy winne jest obejscie",
+            () => Test3_TempoSwitchNoStaleNoLoss(1.5d));
+        RunTest("T3c 2x -> 1x -> 2x z WYLACZONYM obejsciem - sprawdza sama hipoteze obejscia", () =>
+        {
+            NativeTempoStream.BypassAtUnitTempo = false;
+            try { Test3_TempoSwitchNoStaleNoLoss(1d); }
+            finally { NativeTempoStream.BypassAtUnitTempo = true; }
+        });
 
         Console.WriteLine();
         Console.WriteLine($"Sprawdzen: {_checks}, niezgodnosci: {Failures.Count}");
@@ -74,15 +84,65 @@ internal static class Program
 
         stream.Tempo = 1.5d;
         var produced = DrainFrames(stream, out var maxSourceIndex);
+        var consumedFrames = reader.Position / reader.WaveFormat.BlockAlign;
+        Console.WriteLine($"  diag: wyjscie {produced} ramek, pozycja czytnika {consumedFrames} z {frames}, " +
+                          $"najdalsza wartosc rampy {maxSourceIndex:F0}");
         Check("etap oddal jakikolwiek dzwiek z PCM16", produced > 0, $"wyjscie {produced} ramek");
-        Check("material siega konca zrodla",
-            maxSourceIndex > frames * 0.8,
-            $"najdalsza rozpoznana ramka zrodla {maxSourceIndex:F0} z {frames}");
+        // GRANICA POMIARU: dla Signalsmith (silnik widmowy) NIE wolno sprawdzac
+        // konca materialu po wartosci probki. Zmierzone: najdalsza wartosc rampy
+        // wyszla 64180 przy zrodle 96000, czyli dokladnie 96000/1,5 - silnik
+        // widmowy przeskalowal AMPLITUDE razem z czasem. To wlasnosc rampy jako
+        // fixture, nie zgubiony material. Rzetelna miara calosci materialu jest
+        // tutaj pochloniecie zrodla do konca oraz dlugosc wyjscia.
+        Check("cale zrodlo PCM16 zostalo pochloniete",
+            consumedFrames == frames,
+            $"czytnik na {consumedFrames} z {frames} ramek");
+        var expected = frames / 1.5d;
+        Check("dlugosc wyjscia odpowiada tempu 1,5x",
+            Math.Abs(produced - expected) < expected * 0.1,
+            $"wyjscie {produced} ramek, oczekiwane okolo {expected:F0}");
+    }
+
+    // ---------- T4 ----------
+
+    private static void Test4_ExplicitStatus()
+    {
+        // Wybor wykonany.
+        using (var ok = PlaybackTempoStream.Create(
+            new RampWaveStream(48000, 1, pcm16: false), PlaybackTempoAlgorithm.Speech, out _))
+        {
+            Check("wykonany wybor: wybrany == wykonany",
+                ok.RequestedAlgorithm == PlaybackTempoAlgorithm.Speech
+                && ok.UsedAlgorithm == PlaybackTempoAlgorithm.Speech
+                && ok.IsRequestedAlgorithmInUse,
+                $"wybrany {ok.RequestedAlgorithm}, wykonany {ok.UsedAlgorithm}, powod {ok.FallbackReason ?? "(brak)"}");
+        }
+
+        // Powrot wymuszony formatem. Uzywamy float 3-kanalowego, bo silniki
+        // natywne przyjmuja tylko mono/stereo, a SoundTouch taki format bierze.
+        // UWAGA ZMIERZONA: dla 24-bitowego PCM SoundTouchWaveStream SAM rzuca
+        // ArgumentException "Input wave provider must be IEEE float", czyli
+        // powrot do SoundTouch NIE jest dla kazdego formatu bezpieczny. To
+        // osobne, nienaprawione tutaj ograniczenie - opisane w raporcie.
+        using (var fallback = PlaybackTempoStream.Create(
+            new RampWaveStream(48000, 3, pcm16: false), PlaybackTempoAlgorithm.Music, out var reason))
+        {
+            Check("powrot do SoundTouch jest JAWNY, nie cichy",
+                fallback.RequestedAlgorithm == PlaybackTempoAlgorithm.Music
+                && fallback.UsedAlgorithm == PlaybackTempoAlgorithm.SoundTouch
+                && !fallback.IsRequestedAlgorithmInUse
+                && !string.IsNullOrWhiteSpace(fallback.FallbackReason),
+                $"wybrany {fallback.RequestedAlgorithm}, wykonany {fallback.UsedAlgorithm}, " +
+                $"powod \"{fallback.FallbackReason}\"");
+            Check("powod powrotu wraca takze przez parametr Create",
+                !string.IsNullOrWhiteSpace(reason),
+                $"reason=\"{reason}\"");
+        }
     }
 
     // ---------- T3 ----------
 
-    private static void Test3_TempoSwitchNoStaleNoLoss()
+    private static void Test3_TempoSwitchNoStaleNoLoss(double middleTempo)
     {
         const int frames = SampleRate * 6;
         var reader = new RampWaveStream(frames, 1, pcm16: false);
@@ -93,9 +153,11 @@ internal static class Program
         // miejsce w materiale. Stary bufor = wartosc NIZSZA od ostatnio oddanej.
         stream.Tempo = 2d;
         var a = ReadWindow(stream, SampleRate);          // ~2 s materialu
-        stream.Tempo = 1d;
+        stream.Tempo = middleTempo;
         var b = ReadWindow(stream, SampleRate / 2);
+        Console.WriteLine("  diag 2x->1x: " + Diagnostics(stream));
         stream.Tempo = 2d;
+        Console.WriteLine("  diag 1x->2x: " + Diagnostics(stream));
         var c = ReadWindow(stream, SampleRate / 2);
 
         Check("kazde okno oddalo dzwiek",
@@ -104,7 +166,7 @@ internal static class Program
 
         var afterA = a.Count > 0 ? a[^1] : 0d;
         var firstB = b.Count > 0 ? b[0] : 0d;
-        Check("po przejsciu 2x -> 1x nie wraca stary material",
+        Check($"po przejsciu 2x -> {middleTempo}x nie wraca stary material",
             firstB >= afterA - 2d,
             $"ostatnia ramka przy 2x = {afterA:F0}, pierwsza przy 1x = {firstB:F0} (ujemna roznica = stary bufor)");
         Check("po przejsciu 2x -> 1x nie przepada duzy kawalek materialu",
@@ -113,7 +175,7 @@ internal static class Program
 
         var afterB = b.Count > 0 ? b[^1] : 0d;
         var firstC = c.Count > 0 ? c[0] : 0d;
-        Check("po przejsciu 1x -> 2x nie wraca stary material",
+        Check($"po przejsciu {middleTempo}x -> 2x nie wraca stary material",
             firstC >= afterB - 2d,
             $"ostatnia ramka przy 1x = {afterB:F0}, pierwsza przy 2x = {firstC:F0}");
         Check("po przejsciu 1x -> 2x nie przepada duzy kawalek materialu",
@@ -124,6 +186,9 @@ internal static class Program
             SourceSpan(b) < SourceSpan(a) / Math.Max(1d, a.Count / (double)b.Count) * 1.6,
             $"rozpietosc zrodla: 2x {SourceSpan(a):F0} na {a.Count} ramek, 1x {SourceSpan(b):F0} na {b.Count} ramek");
     }
+
+    private static string Diagnostics(PlaybackTempoStream stream) =>
+        (stream as NativeTempoStream)?.LastHandoffDiagnostics ?? "(brak)";
 
     private static double SourceSpan(List<double> window) =>
         window.Count < 2 ? 0d : window[^1] - window[0];
@@ -227,6 +292,32 @@ internal static class Program
                 }
                 return IntPtr.Zero;
             });
+    }
+}
+
+/// <summary>Fixture formatu, ktorego silniki nie przyjmuja: 24-bitowy PCM.</summary>
+internal sealed class Pcm24WaveStream : WaveStream
+{
+    private readonly WaveFormat _format = new WaveFormat(48000, 24, 2);
+    private long _position;
+
+    public override WaveFormat WaveFormat => _format;
+
+    public override long Length => _format.BlockAlign * 48000L;
+
+    public override long Position
+    {
+        get => _position;
+        set => _position = value;
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        var take = (int)Math.Min(count, Length - _position);
+        if (take <= 0) return 0;
+        Array.Clear(buffer, offset, take);
+        _position += take;
+        return take;
     }
 }
 
