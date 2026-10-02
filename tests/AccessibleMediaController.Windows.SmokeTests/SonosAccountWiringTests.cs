@@ -292,24 +292,33 @@ internal static class SonosAccountWiringTests
         _ = method;
         _ = handler;
 
-        // Ctrl+F5 W SESJI SONOS otwiera ISTNIEJACE Konto Sonos. Dawna asercja
-        // wymagala tu BRAKU konta Sonos, bo wtedy Sonos nie mial wlasnej akcji
-        // Ctrl+F5 i skrot mowil "nie ma polecenia w bieżącej sesji". Michal
-        // zglosil to jako usterke ukladu, wiec wymaganie jest ODWROCONE:
-        // skrot ma dosiegac TEGO SAMEGO polecenia co menu i paleta
-        // (CommandIds.ManageSonosConnection), bez nowego panelu ustawien.
+        // Ctrl+F5 W SESJI SONOS otwiera WYBOR CELU STEROWANIA
+        // (CommandIds.ChooseSonosTarget). Ten test wymagal tu jeszcze
+        // ManageSonosConnection - kontraktu sprzed 4.1.6/4.1.7, gdy Ctrl+L
+        // pokazywalo glosniki. Odkad Ctrl+L pokazuje MATERIAL, wybor celu ma
+        // wlasne miejsce pod Ctrl+F5, a KONTO SONOS NIE GINIE: zostaje w menu
+        // Plik i w palecie (sprawdzane nizej). Asercja jest dostosowana do
+        // OBOWIAZUJACEGO kontraktu, nie usunieta.
         var source = File.ReadAllText(LocateRepositoryFile("src/AccessibleMediaController.Windows/MainWindow.xaml.cs"));
         var ctrlF5 = source.IndexOf("&& key == Key.F5", StringComparison.Ordinal);
         if (ctrlF5 < 0) throw new Exception("Nie udało się odnaleźć obsługi Ctrl+F5.");
         var ctrlF5Block = source.Substring(ctrlF5, Math.Min(1200, source.Length - ctrlF5));
-        if (!ctrlF5Block.Contains("ManageSonosConnection", StringComparison.Ordinal))
+        if (!ctrlF5Block.Contains("ChooseSonosTarget", StringComparison.Ordinal))
         {
-            throw new Exception("Ctrl+F5 w sesji Sonos nie kieruje do istniejącego Konta Sonos.");
+            throw new Exception("Ctrl+F5 w sesji Sonos nie kieruje do wyboru celu sterowania.");
         }
         if (ctrlF5Block.Contains("SonosSettingsWindow", StringComparison.Ordinal)
             || ctrlF5Block.Contains("SonosAccountSettings", StringComparison.Ordinal))
         {
-            throw new Exception("Ctrl+F5 otwiera NOWY panel Sonosa zamiast istniejącego okna konta.");
+            throw new Exception("Ctrl+F5 otwiera NOWY panel Sonosa zamiast istniejącego okna wyboru.");
+        }
+
+        // KONTO SONOS NADAL OSIAGALNE istniejaca droga: menu Plik / paleta.
+        // Bez tego powyzsza zmiana mogloby przykryc zniknięcie dostepu do konta.
+        if (!source.Contains("CommandIds.ManageSonosConnection", StringComparison.Ordinal))
+        {
+            throw new Exception("Konto Sonos zniknęło z poleceń okna głównego - "
+                + "Ctrl+F5 wolno przenieść na wybór celu TYLKO przy zachowanym menu/palecie.");
         }
         return 4;
     }
@@ -330,12 +339,19 @@ internal static class SonosAccountWiringTests
     {
         const string household = "Sonos_household.9000000001";
         const string group = "RINCON_00012345678001400:9";
-        string[] allowedProperties = ["SelectedGroupId", "SelectedHouseholdId"];
-        string[] allowedJsonKeys = ["selectedGroupId", "selectedHouseholdId"];
+        // WYBOR (tekstowe identyfikatory) plus WLASNE STRUMIENIE uzytkownika.
+        // OwnStreams JEST w produkcie od 4.1.7 (wlasne adresy strumieni w sesji
+        // Sonos), a ten test dopuszczal jeszcze tylko dwa pola - stad zastany
+        // RED. Lista jest WYBOREM MATERIALU uzytkownika, nie poswiadczeniem, ale
+        // nie jest tekstem, wiec ma osobna kontrole kształtu nizej. ZAKAZ
+        // poswiadczen zostaje nienaruszony.
+        string[] allowedTextProperties = ["SelectedGroupId", "SelectedHouseholdId"];
+        string[] allowedProperties = [.. allowedTextProperties, "OwnStreams"];
+        string[] allowedJsonKeys = ["selectedGroupId", "selectedHouseholdId", "ownStreams"];
 
-        // 6a. KSZTALT typu: dokladnie dwa pola wyboru, oba tekstowe. Dopisanie
-        // tokenu, scope, URI brokera czy sciezki magazynu wpada tu jako ASERCJA,
-        // nie jako blad kompilacji testu.
+        // 6a. KSZTALT typu: pola wyboru (tekstowe) i lista wlasnych strumieni.
+        // Dopisanie tokenu, scope, URI brokera czy sciezki magazynu wpada tu
+        // jako ASERCJA, nie jako blad kompilacji testu.
         var properties = typeof(SonosSessionSettings)
             .GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .ToArray();
@@ -350,7 +366,7 @@ internal static class SonosAccountWiringTests
                 "Ustawienia sesji Sonos zyskały pole poza wyborem domu i grupy (poświadczenia należą "
                 + "do osobnego magazynu właściciela konta): " + string.Join(", ", unexpected));
         }
-        foreach (var expected in allowedProperties)
+        foreach (var expected in allowedTextProperties)
         {
             var property = properties.FirstOrDefault(candidate =>
                 string.Equals(candidate.Name, expected, StringComparison.Ordinal))
@@ -360,6 +376,31 @@ internal static class SonosAccountWiringTests
                 throw new Exception(
                     $"Pole {expected} przestało być identyfikatorem tekstowym (jest {property.PropertyType.Name}).");
             }
+        }
+
+        // Wlasne strumienie: NAZWA i ADRES, nic wiecej. Gdyby ktos dopisal tu
+        // token albo naglowek autoryzacji, poswiadczenie weszloby do ustawien
+        // boczna droga - i ta asercja to wylapie.
+        var ownStreams = properties.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, "OwnStreams", StringComparison.Ordinal))
+            ?? throw new Exception("Ustawienia sesji Sonos przestały pamiętać OwnStreams.");
+        if (ownStreams.PropertyType != typeof(List<SonosOwnStreamSettings>))
+        {
+            throw new Exception(
+                $"OwnStreams przestało być listą własnych strumieni (jest {ownStreams.PropertyType.Name}).");
+        }
+        string[] allowedStreamProperties = ["Id", "Name", "StreamUrl"];
+        var unexpectedStream = typeof(SonosOwnStreamSettings)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .Where(name => !allowedStreamProperties.Contains(name, StringComparer.Ordinal))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        if (unexpectedStream.Length > 0)
+        {
+            throw new Exception(
+                "Własny strumień Sonos zyskał pole poza nazwą i adresem (poświadczenia należą do "
+                + "osobnego magazynu): " + string.Join(", ", unexpectedStream));
         }
 
         var folder = Path.Combine(Path.GetTempPath(), "amc-sonos-guard-" + Guid.NewGuid().ToString("N"));
@@ -388,7 +429,8 @@ internal static class SonosAccountWiringTests
                 throw new Exception("Zapisane ustawienia nie pamiętają wybranego domu i grupy Sonos.");
             }
 
-            // 6c. W wezle Sonos sa DOKLADNIE klucze wyboru - nic wiecej.
+            // 6c. W wezle Sonos sa DOKLADNIE klucze wyboru i wlasnych
+            // strumieni - nic wiecej.
             var extraKeys = sonos.EnumerateObject()
                 .Select(property => property.Name)
                 .Where(name => !allowedJsonKeys.Contains(name, StringComparer.OrdinalIgnoreCase))

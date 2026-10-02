@@ -536,6 +536,11 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: powrót do wszystkich trzech podlist i granice wyboru sesji", SonosFavoritePlayRealOwnerTests.RunSublistAllThree),
     ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
     ("Sonos: presety sesji - przypisanie, trwałość i uruchomienie realną drogą i HTTP", SonosFavoritePlayRealOwnerTests.RunPresets),
+    // Te dwa zestawy mialy dotad TYLKO wlasne przelaczniki (--sonos-after417-parts,
+    // --sonos-after417-transport-presets), wiec pelny przebieg Windows ich nie
+    // uruchamial i ich regresja nie zatrzymalaby wydania. Teraz sa w TABELI.
+    ("Sonos: granice po 4.1.7 - Ctrl+F5, odświeżanie okna celu i podlisty", SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts),
+    ("Sonos: transport i presety po 4.1.7 na wszystkich trzech podlistach", SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets),
     ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),

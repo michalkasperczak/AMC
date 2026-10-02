@@ -75,6 +75,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         "1b" => "(1b) F5 odświeża tym samym torem co menu Plik",
         "1c" => "(1c) jedno Ctrl+F5 daje używalne grupy po opóźnionym odczycie, F5 w oknie celu "
             + "odświeża bez utraty zaznaczenia, bez pętli odmów i bez spóźnionego okna",
+        "1d" => "(1d) okno celu otwarte W TRAKCIE trwającego odczytu menu-F5 uzupełnia się BEZ "
+            + "kolejnego F5; F5 w oknie zachowuje fokus na TYM SAMYM rzeczywistym wierszu, "
+            + "nie kradnie fokusu z przycisku, a Cancel przed zwolnieniem GET nie wpuszcza wyniku",
         "2" => "(2) Spacja transport / Enter uruchomienie w podliście",
         "3" => "(3) Ctrl+Shift+cyfra preset z podlisty bez utraty wiersza i fokusu",
         _ => "(" + part + ") nieopisana część"
@@ -90,6 +93,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 case "1a": MeasureStartupLoadsGroups(); break;
                 case "1b": MeasureF5RefreshesSonosSameRouteAsMenu(); break;
                 case "1c": MeasureCtrlF5StaysTargetChoiceWithoutRefusalLoop(); break;
+                case "1d": MeasureTargetWindowJoinsRunningReadAndKeepsRowFocus(); break;
                 case "2": MeasureSublistSpaceTransportAndEnterPlay(); break;
                 case "3": MeasureSublistPresetShortcutKeepsList(); break;
                 default: throw new Exception("Nieznana część pomiaru: " + part);
@@ -104,7 +108,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// do ODTWORZENIA kazdego zgloszonego punktu OSOBNO, zeby pierwszy czerwony
     /// nie przykryl pozostalych.
     /// </summary>
-    internal static string[] After417PartsToMeasure { get; set; } = ["1a", "1b", "1c", "2", "3"];
+    internal static string[] After417PartsToMeasure { get; set; } = ["1a", "1b", "1c", "1d", "2", "3"];
 
 
     /// <summary>
@@ -456,6 +460,297 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         if (harness.Window.OpenSonosTargetWindowForTests is not null)
         {
             throw new Exception("Okno wyboru celu zostało zapamiętane jako otwarte po zamknięciu.");
+        }
+    }
+
+    /// <summary>
+    /// CZESC 1d. DWIE GRANICE odswiezania okna celu, kazda zmierzona osobno.
+    ///
+    /// GRANICA A - ODCZYT JUZ TRWA. Menu Plik zaczyna odczyt, GET /groups WISI
+    /// (istniejaca bramka RecordingHandler.HoldNextGet). DOPIERO WTEDY otwieramy
+    /// wybor celu. Stara bramka oddawala w tym miejscu NATYCHMIASTOWY, pusty
+    /// "sukces" - okno siadalo na starej (null) topologii i NIGDY jej nie
+    /// uzupelnialo, az do kolejnego F5. Mierzymy WIERSZE W TYM SAMYM oknie po
+    /// zwolnieniu GET, BEZ zadnego nastepnego gestu, oraz BRAK zwielokrotnienia
+    /// odczytow.
+    ///
+    /// GRANICA B - FOKUS RZECZYWISTEGO WIERSZA. Fokus stawiamy na DRUGIM
+    /// wierszu (nie na samej liscie!) i dopiero F5 w oknie. PublishSnapshot
+    /// czysci _rows, wiec kontener trzymajacy fokus znika i fokus ucieka na
+    /// okno. Mierzymy IDENTYFIKATOR grupy z wiersza, ktory PO odswiezeniu
+    /// RZECZYWISCIE ma fokus klawiatury - sam IsKeyboardFocusWithin tego nie
+    /// rozroznia. Osobno sprawdzamy BRAK KRADZIEZY: z fokusem na przycisku
+    /// zamkniecia odswiezenie NIE przeciaga uzytkownika na liste.
+    ///
+    /// GRANICA C - CANCEL PRZED zwolnieniem GET: wyjscie z sesji uniewaznia
+    /// oczekujacy wynik, wiec spozniona odpowiedz nie wpuszcza wierszy do
+    /// zamknietego/porzuconego okna.
+    /// </summary>
+    private static void MeasureTargetWindowJoinsRunningReadAndKeepsRowFocus()
+    {
+        MeasureTargetWindowJoinsRunningRead();
+        MeasureTargetWindowKeepsRealRowFocus();
+        MeasureTargetWindowCancelBeforeReleaseDropsResult();
+    }
+
+    /// <summary>GRANICA A: okno otwarte W TRAKCIE trwajacego odczytu menu-F5.</summary>
+    private static void MeasureTargetWindowJoinsRunningRead()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
+        harness.ClearSonosTargetForTests();
+        harness.AssertNoSonosTargetForMeasurement();
+
+        // MENU PLIK zaczyna odczyt PIERWSZE: jego GET /groups wisi.
+        var heldGroups = harness.Handler.HoldNextGet("/groups");
+        var readsBefore = harness.Handler.Requests.Count;
+        harness.ExecuteCommand(CommandIds.RefreshSonosGroups);
+        harness.PumpUntil(() => heldGroups.Arrived, TimeSpan.FromSeconds(15),
+            "odczyt menu Plik nie dotarł do transportu - pomiar nie dotyczyłby TRWAJĄCEGO odczytu");
+
+        var rowsWhileLoading = -1;
+        var rowsAfterRelease = -1;
+        var highlightedAfterRelease = string.Empty;
+        var readsWhileLoading = -1;
+        var readsAfterRelease = -1;
+        var refreshRequestsInWindow = -1;
+
+        harness.Window.PresentSonosTargetOverrideForTests = dialog =>
+        {
+            dialog.ShowInTaskbar = false;
+            dialog.Show();
+            harness.PumpUntil(
+                () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
+                TimeSpan.FromSeconds(10),
+                "okno wyboru celu się nie pokazało");
+
+            rowsWhileLoading = dialog.RowCountForTests;
+            readsWhileLoading = CountSonosReads(harness, readsBefore);
+
+            // ODPOWIEDZ: dopiero teraz. ZADNEGO kolejnego gestu - jesli okno ma
+            // sie uzupelnic, musi to zrobic SAMO, przez wspoldzielony przelot.
+            heldGroups.Release();
+            harness.PumpUntil(() => dialog.RowCountForTests > 0, TimeSpan.FromSeconds(20),
+                "ZGŁOSZONA GRANICA A ODTWORZONA: wybór celu otwarty W TRAKCIE trwającego odczytu "
+                    + "menu-F5 dostał natychmiastowy pusty 'sukces' i po zakończeniu odczytu "
+                    + "NIE uzupełnił listy - użytkownik musi nacisnąć F5 jeszcze raz. "
+                    + "Wiersze okna=" + dialog.RowCountForTests
+                    + "; wiersze sesji=" + harness.Window.SonosGroupRows.Count
+                    + "; zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(5)));
+
+            rowsAfterRelease = dialog.RowCountForTests;
+            highlightedAfterRelease = dialog.HighlightedGroupIdForTests ?? "brak";
+            readsAfterRelease = CountSonosReads(harness, readsBefore);
+            refreshRequestsInWindow = dialog.RefreshRequestsForTests;
+            dialog.Close();
+        };
+        try
+        {
+            harness.Window.ShowSonosTargetSelectionForTests();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            if (harness.Window.LastSonosLibraryTaskForTests is { } pending) harness.Pump(pending);
+        }
+        finally
+        {
+            harness.Window.PresentSonosTargetOverrideForTests = null;
+            heldGroups.Release();
+        }
+
+        if (harness.Window.SonosTargetWindowsCreatedForTests == 0)
+        {
+            throw new Exception("Wybór celu w trakcie trwającego odczytu nie dał okna - sama odmowa. "
+                + "Zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(4)));
+        }
+
+        if (rowsWhileLoading != 0)
+        {
+            throw new Exception("Pomiar nieważny: lista była już pełna PRZED zwolnieniem GET "
+                + "(wiersze=" + rowsWhileLoading + "), więc nie mierzyliśmy trwającego odczytu.");
+        }
+
+        if (rowsAfterRelease <= 0
+            || !string.Equals(highlightedAfterRelease, GroupId, StringComparison.Ordinal))
+        {
+            throw new Exception("Po dołączeniu do trwającego odczytu okno nie wskazało grupy: "
+                + "wiersze=" + rowsAfterRelease + ", zaznaczenie=" + highlightedAfterRelease
+                + ", oczekiwano " + GroupId + ".");
+        }
+
+        // JEDEN TOR GET: dolaczenie do trwajacego przelotu NIE mnozy odczytow i
+        // NIE wymaga kolejnej prosby o odswiezenie z okna.
+        if (readsAfterRelease != readsWhileLoading)
+        {
+            throw new Exception("Dołączenie do trwającego odczytu ZWIELOKROTNIŁO odczyty Sonos: "
+                + readsWhileLoading + " -> " + readsAfterRelease + ".");
+        }
+
+        if (refreshRequestsInWindow != 0)
+        {
+            throw new Exception("Okno musiało samo poprosić o odświeżenie (" + refreshRequestsInWindow
+                + ") - to znaczy, że nie dołączyło do trwającego odczytu.");
+        }
+
+        if (harness.Handler.Posts.Count != 0)
+        {
+            throw new Exception($"Wybór celu wysłał {harness.Handler.Posts.Count} POST.");
+        }
+    }
+
+    /// <summary>GRANICA B: fokus na RZECZYWISTYM wierszu przetrwa odswiezenie.</summary>
+    private static void MeasureTargetWindowKeepsRealRowFocus()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
+
+        // DWIE grupy, zeby "drugi wiersz" byl czyms innym niz pierwszy i niz
+        // domyslne zaznaczenie - inaczej zachowanie fokusu byloby nierozstrzygalne.
+        harness.Handler.RouteOverride = (request, _) =>
+            request.Method == HttpMethod.Get
+            && request.RequestUri!.AbsolutePath.EndsWith("/groups", StringComparison.Ordinal)
+                ? Json(SpeakerGroupsThree)
+                : null;
+
+        var secondRowId = string.Empty;
+        var focusedRowBefore = string.Empty;
+        var focusedRowAfter = string.Empty;
+        var focusedNameAfterButton = string.Empty;
+        var rowsAfter = -1;
+
+        harness.Window.PresentSonosTargetOverrideForTests = dialog =>
+        {
+            dialog.ShowInTaskbar = false;
+            dialog.Show();
+            harness.PumpUntil(
+                () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
+                TimeSpan.FromSeconds(10),
+                "okno wyboru celu się nie pokazało");
+            harness.PumpUntil(() => dialog.RowCountForTests >= 2, TimeSpan.FromSeconds(20),
+                "pomiar fokusu wiersza wymaga co najmniej dwóch grup w oknie");
+
+            // FOKUS NA DRUGIM WIERSZU, nie na samej liscie. Istniejaca droga
+            // okna: SelectRowForTests stawia fokus na KONTENERZE wiersza.
+            dialog.SelectRowForTests(1);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            secondRowId = dialog.HighlightedGroupIdForTests ?? "brak";
+            focusedRowBefore = dialog.FocusedRowIdForTests ?? "brak";
+            if (!string.Equals(focusedRowBefore, secondRowId, StringComparison.Ordinal))
+            {
+                throw new Exception("Pomiar nieważny: fokus nie stanął na DRUGIM wierszu przed "
+                    + "odświeżeniem (fokus=" + focusedRowBefore + ", wiersz=" + secondRowId
+                    + ", element=" + dialog.FocusedElementNameForTests + ").");
+            }
+
+            // F5 W OKNIE: prawdziwy gest, prawdziwe odswiezenie, PublishSnapshot
+            // czysci wiersze razem z kontenerem trzymajacym fokus.
+            SendKeyWithModifiers(dialog, Key.F5, ModifierKeys.None);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(900));
+            if (harness.Window.LastSonosTargetRefreshTaskForTests is { } refresh) harness.Pump(refresh);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+            rowsAfter = dialog.RowCountForTests;
+            focusedRowAfter = dialog.FocusedRowIdForTests ?? "brak";
+
+            // BRAK KRADZIEZY: fokus na przycisku zamkniecia, odswiezenie NIE
+            // przeciaga uzytkownika na liste.
+            dialog.CloseButtonForTests.Focus();
+            Keyboard.Focus(dialog.CloseButtonForTests);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+            SendKeyWithModifiers(dialog, Key.F5, ModifierKeys.None);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(900));
+            if (harness.Window.LastSonosTargetRefreshTaskForTests is { } second) harness.Pump(second);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+            focusedNameAfterButton = dialog.FocusedElementNameForTests;
+            dialog.Close();
+        };
+        try
+        {
+            harness.Window.ShowSonosTargetSelectionForTests();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            if (harness.Window.LastSonosLibraryTaskForTests is { } pending) harness.Pump(pending);
+        }
+        finally
+        {
+            harness.Window.PresentSonosTargetOverrideForTests = null;
+            harness.Handler.RouteOverride = null;
+        }
+
+        if (rowsAfter < 2)
+        {
+            throw new Exception("Po odświeżeniu okno zgubiło listę (wiersze=" + rowsAfter + ").");
+        }
+
+        if (!string.Equals(focusedRowAfter, secondRowId, StringComparison.Ordinal))
+        {
+            throw new Exception("ZGŁOSZONA GRANICA B ODTWORZONA: po odświeżeniu fokus NIE wrócił na "
+                + "TEN SAM rzeczywisty wiersz. Przed=" + focusedRowBefore + ", po=" + focusedRowAfter
+                + " (oczekiwano " + secondRowId + "). Czyszczenie wierszy w PublishSnapshot "
+                + "zgubiło fokus klawiatury.");
+        }
+
+        if (string.Equals(focusedNameAfterButton, "ListBoxItem", StringComparison.Ordinal))
+        {
+            throw new Exception("Odświeżenie UKRADŁO fokus z przycisku zamknięcia na wiersz listy - "
+                + "użytkownik stojący na przycisku traci miejsce pracy.");
+        }
+    }
+
+    /// <summary>GRANICA C: Cancel PRZED zwolnieniem GET nie wpuszcza wyniku.</summary>
+    private static void MeasureTargetWindowCancelBeforeReleaseDropsResult()
+    {
+        using var harness = RealHarness.Create();
+        harness.Enter();
+        harness.ClearSonosTargetForTests();
+        harness.AssertNoSonosTargetForMeasurement();
+
+        var heldGroups = harness.Handler.HoldNextGet("/groups");
+        var refreshesApplied = -1;
+        var rowsAfterCancel = -1;
+
+        harness.Window.PresentSonosTargetOverrideForTests = dialog =>
+        {
+            dialog.ShowInTaskbar = false;
+            dialog.Show();
+            harness.PumpUntil(
+                () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
+                TimeSpan.FromSeconds(10),
+                "okno wyboru celu się nie pokazało");
+            harness.PumpUntil(() => heldGroups.Arrived, TimeSpan.FromSeconds(15),
+                "wstrzymany GET grup nie dotarł - pomiar nie dotyczyłby odczytu w locie");
+
+            // CANCEL PRZED ZWOLNIENIEM: dokladnie ta kolejnosc jest granica.
+            // Zamkniecie PO zwolnieniu nie dowodzi niczego o spóźnionym wyniku.
+            harness.Window.CancelSonosPendingWork();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+
+            heldGroups.Release();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(900));
+            if (harness.Window.LastSonosTargetRefreshTaskForTests is { } refresh) harness.Pump(refresh);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
+            refreshesApplied = dialog.RefreshesAppliedForTests;
+            rowsAfterCancel = dialog.RowCountForTests;
+            dialog.Close();
+        };
+        try
+        {
+            harness.Window.ShowSonosTargetSelectionForTests();
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(400));
+            if (harness.Window.LastSonosLibraryTaskForTests is { } pending) harness.Pump(pending);
+        }
+        finally
+        {
+            harness.Window.PresentSonosTargetOverrideForTests = null;
+            heldGroups.Release();
+        }
+
+        if (refreshesApplied != 0 || rowsAfterCancel != 0)
+        {
+            throw new Exception("Po CancelSonosPendingWork wykonanym PRZED zwolnieniem GET spóźniony "
+                + "odczyt WPUŚCIŁ wynik do okna celu (publikacje=" + refreshesApplied
+                + ", wiersze=" + rowsAfterCancel + ").");
+        }
+
+        if (harness.Handler.Posts.Count != 0)
+        {
+            throw new Exception($"Anulowana droga wysłała {harness.Handler.Posts.Count} POST.");
         }
     }
 

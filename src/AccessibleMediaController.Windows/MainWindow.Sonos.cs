@@ -74,6 +74,12 @@ public partial class MainWindow
     private bool _sonosRefreshInFlight;
 
     /// <summary>
+    /// TRWAJACY przelot odswiezenia. Kto przyszedl drugi, WSPOLDZIELI to samo
+    /// oczekiwanie zamiast dostawac natychmiastowy "sukces" bez danych.
+    /// </summary>
+    private Task? _sonosRefreshFlight;
+
+    /// <summary>
     /// WLASCICIEL bramki odswiezenia. Bez niego spozniony przelot A zwalnialby
     /// bramke trwajacego przelotu B w swoim finally.
     /// </summary>
@@ -363,15 +369,28 @@ public partial class MainWindow
     /// niszczymy i pustki nie publikujemy jako sukcesu. Zniknięcie domu albo
     /// grupy liczy sie WYLACZNIE po POTWIERDZONYM swiezym odczycie.
     /// </summary>
-    internal async Task RefreshSonosTopologyAsync()
+    internal Task RefreshSonosTopologyAsync()
     {
         if (_sonosRefreshInFlight)
         {
             // SWIADOMA powtorka: krotka informacja, ZERO dodatkowych GET.
             Announce("Odświeżanie grup Sonos już trwa");
-            return;
+            // Kto przyszedl drugi, CZEKA na TEN SAM trwajacy odczyt zamiast
+            // dostawac natychmiastowy "sukces" bez danych. Dzieki temu okno
+            // wyboru celu otwarte W TRAKCIE menu-F5 widzi swieza topologie
+            // bez ponownego F5. Nadal JEDEN tor GET - zero nowych zadan.
+            return _sonosRefreshFlight ?? Task.CompletedTask;
         }
 
+        var flight = RunSonosTopologyRefreshAsync();
+        // Bramke ustawia samo cialo PRZED pierwszym await, wiec tu mamy juz
+        // zywy przelot do wspoldzielenia (albo gotowe zadanie, gdy odpadl od razu).
+        if (_sonosRefreshInFlight) _sonosRefreshFlight = flight;
+        return flight;
+    }
+
+    private async Task RunSonosTopologyRefreshAsync()
+    {
         var backend = EnsureSonosBackend();
         // GRANICA konta PRZED wzieciem biletu bramki: ApplySonosAccountBinding
         // moze samo wywolac CancelSonosPendingWork, ktory PODNOSI bilet bramki.
@@ -479,7 +498,11 @@ public partial class MainWindow
         {
             // Bramke zwalnia TYLKO jej wlasciciel: spozniony przelot A nie
             // odblokuje trwajacego B.
-            if (gate == _sonosRefreshGateTicket) _sonosRefreshInFlight = false;
+            if (gate == _sonosRefreshGateTicket)
+            {
+                _sonosRefreshInFlight = false;
+                _sonosRefreshFlight = null;
+            }
         }
     }
 
@@ -1587,6 +1610,8 @@ public partial class MainWindow
         // ruszy zajetosci B (patrz finally w RefreshSonosTopologyAsync).
         _sonosRefreshGateTicket++;
         _sonosRefreshInFlight = false;
+        // Porzucony przelot przestaje byc tym, na ktory wolno czekac.
+        _sonosRefreshFlight = null;
         // TA SAMA regula dla bramki WYBORU DOMU. Bez tego porzucony przelot A
         // trzymal bramke do konca swojego odczytu, a powrot do sesji odbijal sie
         // od "juz trwa" zamiast zaczac NOWY GET. Spoznione finally A widzi juz

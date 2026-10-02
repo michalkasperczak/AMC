@@ -319,11 +319,10 @@ public partial class MainWindow
     ///    odczyt NIE przywraca starej listy i NIE otwiera nowego okna.
     ///  * ZERO POST: to wylacznie odczyt.
     ///
-    /// GRANICA TEGO TORU (swiadoma, nie przeoczona): gdy W TYM MOMENCIE trwa JUZ
-    /// inne odswiezenie, istniejaca bramka <c>RefreshSonosTopologyAsync</c>
-    /// wraca od razu ze "Odświeżanie grup Sonos już trwa" i okno opublikuje
-    /// jeszcze nieznana topologie z uczciwa przyczyna; F5 w oknie ponawia. Nie
-    /// oslabiamy tu tej bramki, bo mnozylaby GET-y.
+    /// GDY ODCZYT JUZ TRWA (np. menu F5 ruszylo PRZED Ctrl+F5): bramka nie
+    /// oddaje natychmiastowego pustego "sukcesu", tylko WSPOLDZIELI ten sam
+    /// przelot. Okno czeka na niego i publikuje SWIEZA topologie BEZ kolejnego
+    /// F5. Bramka zostaje nieruszona - nadal JEDEN tor GET.
     /// </summary>
     private void BeginSonosTargetRefresh(SonosTargetSelectionWindow window)
     {

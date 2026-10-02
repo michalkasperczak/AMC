@@ -171,12 +171,33 @@ public partial class SonosTargetSelectionWindow : Window
     {
         LoadingPending = false;
         RefreshesAppliedForTests++;
+
+        // CZYJ jest fokus MIERZYMY PRZED publikacja. PublishSnapshot czysci
+        // _rows, a usuniecie kontenera ListBoxItem, ktory TRZYMAL fokus
+        // klawiatury, przenosi go WYZEJ - na okno. Odczytany PO czyszczeniu
+        // IsKeyboardFocusWithin bylby wtedy false i fokus na wierszu przepadal
+        // bez odtworzenia (uzytkownik lądował "nigdzie" po Ctrl+F5/F5).
+        var hadFocus = GroupsList.IsKeyboardFocusWithin;
+        if (hadFocus)
+        {
+            // Fokus do SAMEJ listy PRZED czyszczeniem: kontener moze zniknac,
+            // ale wlasnosc fokusu zostaje u nas i nie ucieka na okno.
+            Keyboard.Focus(GroupsList);
+        }
+
         PublishSnapshot(topology, currentGroupId, unavailableReason, keepSelectionById: true);
         StatusText.Announce(topology is null
             ? unavailableReason ?? SonosTargetSelectionLabels.TopologyUnknown
             : SonosTargetSelectionLabels.SummarizeCount(_rows.Count));
-        if (_rows.Count > 0 && !GroupsList.IsKeyboardFocusWithin) return;
-        if (_rows.Count > 0) FocusSelectedRow();
+
+        // ZADNEJ KRADZIEZY FOKUSU: gdy uzytkownik stoi na przycisku, w innym
+        // oknie albo innej aplikacji, odswiezenie NIE przeciaga go na liste.
+        if (!hadFocus || _rows.Count == 0) return;
+
+        // Kontenery powstaja dopiero po ukladzie - bez tego ContainerFromIndex
+        // oddaje null i odtworzenie wiersza po IDENTYFIKATORZE nie dochodzi.
+        GroupsList.UpdateLayout();
+        FocusSelectedRow();
     }
 
     /// <summary>Czy okno czeka na wynik odczytu zleconego przez wlasciciela.</summary>
@@ -239,8 +260,23 @@ public partial class SonosTargetSelectionWindow : Window
     internal bool ListHasFocusForTests =>
         GroupsList.IsKeyboardFocusWithin || GroupsList.IsKeyboardFocused;
 
+    /// <summary>
+    /// IDENTYFIKATOR grupy z WIERSZA, ktory RZECZYWISCIE ma fokus klawiatury.
+    /// Null, gdy fokus jest gdziekolwiek indziej (lista, przycisk, okno, inna
+    /// aplikacja). Sam <c>ListHasFocusForTests</c> tego nie rozroznia, a wlasnie
+    /// na tym polegala granica: po czyszczeniu wierszy fokus siadal na oknie.
+    /// </summary>
+    internal string? FocusedRowIdForTests =>
+        Keyboard.FocusedElement is ListBoxItem { DataContext: GroupTargetRow row } ? row.Id : null;
+
     /// <summary>Lista grup dla POMIARU drogi klawiatury (prawdziwe zdarzenia).</summary>
     internal ListBox ListForTests => GroupsList;
+
+    /// <summary>
+    /// Przycisk zamkniecia - do POMIARU, ze odswiezenie NIE KRADNIE fokusu
+    /// uzytkownikowi stojacemu poza lista.
+    /// </summary>
+    internal Button CloseButtonForTests => CloseButton;
 
     internal string FocusedElementNameForTests => Keyboard.FocusedElement switch
     {
