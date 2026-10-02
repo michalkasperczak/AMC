@@ -28,6 +28,7 @@ internal static class Program
                           $"powod: {AmcTempoNativeLibrary.UnavailableReason ?? "(brak)"}");
 
         RunTest("T0 zwykle 1x zachowuje probki bez DSP", Test0_NeutralPlayback);
+        RunTest("T5 zmiana tempa nie resetuje trwajacego strumienia", Test5_ParameterChangeKeepsStream);
         RunTest("T1 tempo 2x faktycznie skraca material (float32, mowa)", Test1_TempoActuallyChangesLength);
         RunTest("T2 zrodlo PCM16 trafia do natywnego silnika, nie w cichy fallback", Test2_Pcm16NotSilentFallback);
         RunTest("T4 jawny status wybranego i WYKONANEGO algorytmu", Test4_ExplicitStatus);
@@ -62,6 +63,28 @@ internal static class Program
             Check("neutralne odtwarzanie zachowuje kazdy bajt " + algorithm,
                 expected.ToArray().AsSpan().SequenceEqual(actual.ToArray()),
                 $"zrodlo {expected.Length}, wyjscie {actual.Length}");
+        }
+    }
+
+    private static void Test5_ParameterChangeKeepsStream()
+    {
+        foreach (var algorithm in new[] { PlaybackTempoAlgorithm.Speech, PlaybackTempoAlgorithm.Music })
+        {
+            using var input = new RampWaveStream(SampleRate * 4, 1, pcm16: false);
+            using var stream = NativeTempoStream.TryCreate(input, algorithm, out _)
+                ?? throw new InvalidOperationException("Brak rzeczywistego natywnego strumienia");
+            stream.Tempo = 2d;
+            var buffer = new byte[4096];
+            for (var i = 0; i < 10; i++) stream.Read(buffer, 0, buffer.Length);
+            // Observe the real native counter without modifying the stream.
+            var handle = (IntPtr)typeof(NativeTempoStream).GetField("_handle",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(stream)!;
+            var before = AmcTempoNativeLibrary.NativeMethods.AmcTempoConsumedInputFrames(handle);
+            stream.Tempo = 1.5d;
+            stream.Read(buffer, 0, buffer.Length);
+            var after = AmcTempoNativeLibrary.NativeMethods.AmcTempoConsumedInputFrames(handle);
+            Check("zmiana parametru nie zeruje stanu " + algorithm,
+                before > 0 && after >= before, $"licznik przed {before}, po {after}");
         }
     }
 
@@ -173,9 +196,7 @@ internal static class Program
         var a = ReadWindow(stream, SampleRate);          // ~2 s materialu
         stream.Tempo = middleTempo;
         var b = ReadWindow(stream, SampleRate / 2);
-        Console.WriteLine("  diag 2x->1x: " + Diagnostics(stream));
         stream.Tempo = 2d;
-        Console.WriteLine("  diag 1x->2x: " + Diagnostics(stream));
         var c = ReadWindow(stream, SampleRate / 2);
 
         Check("kazde okno oddalo dzwiek",
@@ -204,9 +225,6 @@ internal static class Program
             SourceSpan(b) < SourceSpan(a) / Math.Max(1d, a.Count / (double)b.Count) * 1.6,
             $"rozpietosc zrodla: 2x {SourceSpan(a):F0} na {a.Count} ramek, 1x {SourceSpan(b):F0} na {b.Count} ramek");
     }
-
-    private static string Diagnostics(PlaybackTempoStream stream) =>
-        (stream as NativeTempoStream)?.LastHandoffDiagnostics ?? "(brak)";
 
     private static double SourceSpan(List<double> window) =>
         window.Count < 2 ? 0d : window[^1] - window[0];

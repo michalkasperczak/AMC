@@ -52,11 +52,6 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
     private float[] _sourceBuffer = [];
     private float[] _engineBuffer = [];
     private byte[] _sourceBytes = [];
-    /// <summary>Ogon oddany przez silnik przy zmianie tempa, jeszcze nie wydany.</summary>
-    private byte[] _pendingTail = [];
-    private int _pendingTailLength;
-    private int _pendingTailOffset;
-    private bool _needsHandoff;
     private double _tempo = 1d;
     private double _pitch = 1d;
     private double _rate = 1d;
@@ -223,15 +218,10 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
             {
                 if (_disposed) return;
                 if (Math.Abs(_tempo - value) < 1e-9d) return;
-                // Zmiana tempa jest PRZEKAZANIEM, nie samym ustawieniem liczby:
-                // material juz pochloniety ze zrodla, a jeszcze nie oddany,
-                // musi wyjsc w starym tempie, zanim silnik dostanie nowe.
-                // Bez tego 1x -> 2x oddawalo najpierw stary, nieoddany ogon
-                // (zmierzone: 31003 ramki zrodla wstecz).
-                _needsHandoff = true;
+                // Biblioteka zachowuje kolejke przy zmianie parametru.
+                // Reset jest przeznaczony dla seek, nie dla regulacji tempa.
                 _tempo = value;
                 AmcTempoNativeLibrary.NativeMethods.AmcTempoSetTempo(_handle, (float)value);
-                HandoffLocked();
             }
         }
     }
@@ -276,11 +266,6 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
     {
         if (_disposed) return;
         AmcTempoNativeLibrary.NativeMethods.AmcTempoReset(_handle);
-        // Po przeskoku stary material jest NIEPRAWIDLOWY, nie opozniony:
-        // bufor przekazania trzeba porzucic, a nie wydac.
-        _pendingTailOffset = 0;
-        _pendingTailLength = 0;
-        _needsHandoff = false;
         _nativeEngaged = false;
         _sourceEnded = false;
         _flushed = false;
@@ -295,11 +280,6 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
             var blockAlign = Math.Max(1, _format.BlockAlign);
             count -= count % blockAlign;
             if (count <= 0) return 0;
-
-            // Bufor przekazania zawsze pierwszy: to material juz pochloniety ze
-            // zrodla, oddany przez silnik w POPRZEDNIM tempie.
-            var pending = TakePendingTailLocked(buffer, offset, count);
-            if (pending > 0) return pending;
 
             // Obejscie przy 1,0x: zaden silnik nie dotyka dzwieku, tak jak
             // dotychczas robil to tor SoundTouch z tempem 1,0.
@@ -341,88 +321,6 @@ internal sealed class NativeTempoStream : PlaybackTempoStream
             }
             return produced * blockAlign;
         }
-    }
-
-    /// <summary>
-    /// Przekazanie przy zmianie tempa. Material gotowy w silniku zostaje
-    /// zdjety do bufora przekazania i wyjdzie PRZED nowym, a stan silnika jest
-    /// zerowany, zeby jego wewnetrzna kolejka nie wrocila pozniej jako stary
-    /// dzwiek. Dwie wlasnosci razem: nic nie przepada i nic sie nie powtarza.
-    /// Limit bufora jest skonczony, bo opoznienie silnika jest skonczone.
-    /// </summary>
-    private void HandoffLocked()
-    {
-        if (!_needsHandoff) return;
-        _needsHandoff = false;
-        var blockAlign = Math.Max(1, _format.BlockAlign);
-        const int MaxHandoffFrames = 1 << 16;
-        EnsureEngineBuffer(MaxHandoffFrames);
-        var carried = 0;
-        while (carried < MaxHandoffFrames)
-        {
-            var got = AmcTempoNativeLibrary.NativeMethods.AmcTempoRead(
-                _handle,
-                _engineBuffer,
-                Math.Min(SourceFrameChunk, MaxHandoffFrames - carried));
-            if (got <= 0) break;
-            var neededBytes = (_pendingTailLength - _pendingTailOffset) + (got * blockAlign);
-            if (_pendingTail.Length < neededBytes)
-            {
-                var grown = new byte[Math.Max(neededBytes, _pendingTail.Length * 2)];
-                Buffer.BlockCopy(
-                    _pendingTail,
-                    _pendingTailOffset,
-                    grown,
-                    0,
-                    _pendingTailLength - _pendingTailOffset);
-                _pendingTailLength -= _pendingTailOffset;
-                _pendingTailOffset = 0;
-                _pendingTail = grown;
-            }
-            CopyFramesToBytes(got, _pendingTail, _pendingTailLength);
-            _pendingTailLength += got * blockAlign;
-            carried += got;
-        }
-        // Zerowanie DOPIERO po zdjeciu gotowego materialu.
-        AmcTempoNativeLibrary.NativeMethods.AmcTempoReset(_handle);
-        var residual = 0;
-        while (true)
-        {
-            var got = AmcTempoNativeLibrary.NativeMethods.AmcTempoRead(
-                _handle, _engineBuffer, SourceFrameChunk);
-            if (got <= 0) break;
-            residual += got;
-            if (residual > 1 << 20) break;
-        }
-        LastHandoffDiagnostics =
-            $"przeniesione {carried}, resztka po zerowaniu {residual}, " +
-            $"pochloniete {AmcTempoNativeLibrary.NativeMethods.AmcTempoConsumedInputFrames(_handle)}, " +
-            $"oddane {AmcTempoNativeLibrary.NativeMethods.AmcTempoProducedOutputFrames(_handle)}, " +
-            $"opoznienie {AmcTempoNativeLibrary.NativeMethods.AmcTempoOutputLatencyFrames(_handle)}, " +
-            $"pozycja czytnika {_reader.Position / Math.Max(1, _format.BlockAlign)}";
-        _sourceEnded = false;
-        _flushed = false;
-    }
-
-    /// <summary>Tylko do pomiaru: co stalo sie przy ostatniej zmianie tempa.</summary>
-    internal string? LastHandoffDiagnostics { get; private set; }
-
-    /// <summary>Wydaje bufor przekazania. 0 = nic nie czeka.</summary>
-    private int TakePendingTailLocked(byte[] buffer, int offset, int count)
-    {
-        var available = _pendingTailLength - _pendingTailOffset;
-        if (available <= 0) return 0;
-        var take = Math.Min(available, count);
-        take -= take % Math.Max(1, _format.BlockAlign);
-        if (take <= 0) return 0;
-        Buffer.BlockCopy(_pendingTail, _pendingTailOffset, buffer, offset, take);
-        _pendingTailOffset += take;
-        if (_pendingTailOffset >= _pendingTailLength)
-        {
-            _pendingTailOffset = 0;
-            _pendingTailLength = 0;
-        }
-        return take;
     }
 
     /// <summary>False oznacza wyłącznie rzeczywisty koniec źródła.</summary>
