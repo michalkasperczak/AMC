@@ -60,18 +60,12 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         }
 
         /// <summary>
-        /// WYCZYSZCZENIE CELU produkcyjna droga: to samo, co robi wyjscie z
-        /// sesji. Potrzebne, zeby Ctrl+F5 mierzyc PRZY BRAKU topologii - czyli
-        /// dokladnie w stanie, ktory zglosil uzytkownik.
+        /// SPRAWDZENIE, ze po ISTNIEJACYM ClearSonosTargetForTests lista grup
+        /// jest FAKTYCZNIE pusta - inaczej pomiar Ctrl+F5 nie mierzylby
+        /// zgloszonej pustki.
         /// </summary>
-        internal void ClearSonosTargetForTests()
+        internal void AssertNoSonosTargetForMeasurement()
         {
-            (typeof(MainWindow).GetMethod("ClearSonosTargetState", Instance)
-                ?? throw new Exception("Nie ma prawdziwej metody ClearSonosTargetState."))
-                .Invoke(Window, null);
-            (typeof(MainWindow).GetField("_sonosTopology", Instance)
-                ?? throw new Exception("Nie ma pola _sonosTopology."))
-                .SetValue(Window, null);
             PumpQuietly(TimeSpan.FromMilliseconds(80));
             if (Window.SonosGroupRows.Count != 0)
             {

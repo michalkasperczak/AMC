@@ -1,6 +1,5 @@
 using System.Net.Http;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -220,6 +219,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         using var harness = RealHarness.Create();
         harness.Enter();
         harness.ClearSonosTargetForTests();
+        harness.AssertNoSonosTargetForMeasurement();
 
         var rowsShown = -1;
         var introShown = string.Empty;
@@ -286,7 +286,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
             // --- SPACJA: TRANSPORT AKTUALNEGO MATERIALU ---
             var postsBefore = harness.Handler.Posts.Count;
-            SendKeyToWindow(dialog, Key.Space, ModifierKeys.None);
+            SendKeyWithModifiers(dialog, Key.Space, ModifierKeys.None);
             harness.PumpQuietly(TimeSpan.FromMilliseconds(600));
 
             transportPosts = harness.Handler.Posts.Skip(postsBefore)
@@ -301,7 +301,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
             // --- ENTER: URUCHOMIENIE WSKAZANEJ POZYCJI (bez zmiany znaczenia) ---
             var beforeEnter = harness.Handler.Posts.Count;
-            SendKeyToWindow(dialog, Key.Enter, ModifierKeys.None);
+            SendKeyWithModifiers(dialog, Key.Enter, ModifierKeys.None);
             harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
             if (dialog.LastPlayTaskForTests is { } play) harness.Pump(play);
             playPosts = harness.Handler.Posts.Count - beforeEnter;
@@ -366,7 +366,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 var before = dialog.SelectedFavoriteForTests?.Id;
 
                 var postsBefore = harness.Handler.Posts.Count;
-                SendKeyToWindow(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
+                SendKeyWithModifiers(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
                 harness.PumpQuietly(TimeSpan.FromMilliseconds(700));
 
                 presetPosts = harness.Handler.Posts.Skip(postsBefore)
@@ -401,7 +401,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// modyfikatorami w stanie watku. Bez SetKeyboardState KeyEventArgs NIE
     /// jest tym gestem i pomiar mierzylby samą cyfrę.
     /// </summary>
-    private static void SendKeyToWindow(Window window, Key key, ModifierKeys modifiers)
+    internal static void SendKeyWithModifiers(Window window, Key key, ModifierKeys modifiers)
     {
         var source = PresentationSource.FromVisual(window)
             ?? throw new Exception("Okno nie ma powierzchni prezentacji.");
@@ -428,7 +428,4 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         finally { SetKeyboardState(previous); }
     }
 
-    [DllImport("user32.dll")] private static extern bool GetKeyboardState(byte[] keys);
-
-    [DllImport("user32.dll")] private static extern bool SetKeyboardState(byte[] keys);
 }
