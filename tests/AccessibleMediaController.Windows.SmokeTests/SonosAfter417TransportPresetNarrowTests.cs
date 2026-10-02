@@ -582,10 +582,17 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                     // zdarzenia. Mierzymy, ze ISTNIEJACA bramka jednego polecenia
                     // nie wypuszcza drugiej wysylki tego samego materialu.
                     var beforeSecond = h.Handler.Posts.Count;
-                    SendKeyWithModifiers(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
-                    SendKeyWithModifiers(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
+                    var held = h.Handler.HoldNextPost();
+                    try
+                    {
+                        SendKeyWithModifiers(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
+                        h.PumpUntil(() => held.Arrived, "pierwsze polecenie nie dotarło do bramki POST");
+                        SendKeyWithModifiers(dialog, key, ModifierKeys.Control | ModifierKeys.Shift);
+                        h.PumpQuietly(TimeSpan.FromMilliseconds(100));
+                        afterSecondGesture = h.Handler.Posts.Count - beforeSecond;
+                    }
+                    finally { held.Release(); }
                     h.PumpQuietly(TimeSpan.FromMilliseconds(900));
-                    afterSecondGesture = h.Handler.Posts.Count - beforeSecond;
                 });
 
                 // OBCY KONTEKST: okno BEZ wlasciciela nie ma prawa uruchomic presetu
@@ -714,9 +721,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             };
             try
             {
-                ExecuteCommand(CommandIds.ViewPlaylists);
-                Pump(Window.LastSonosPlaylistsTaskForTests
-                    ?? throw new Exception("Polecenie nie rozpoczęło odczytu playlist."));
+                // The Sonos library category calls this exact modal path.
+                // Generic ViewPlaylists opens AMC playlists, not Sonos playlists.
+                Pump(Window.ShowSonosPlaylistsForTests());
             }
             finally
             {

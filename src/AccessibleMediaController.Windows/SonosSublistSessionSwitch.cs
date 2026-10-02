@@ -167,9 +167,10 @@ internal static class SonosSublistSessionSwitch
 
         if (key != Key.Space || Keyboard.Modifiers != ModifierKeys.None) return false;
 
-        // ODSTEP W POLU TEKSTOWYM TO ZNAK, NIE TRANSPORT.
+        // Preserve typing and native Space activation of buttons/checkboxes.
         if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
-            or System.Windows.Controls.PasswordBox)
+            or System.Windows.Controls.PasswordBox
+            or System.Windows.Controls.Primitives.ButtonBase)
         {
             return false;
         }
