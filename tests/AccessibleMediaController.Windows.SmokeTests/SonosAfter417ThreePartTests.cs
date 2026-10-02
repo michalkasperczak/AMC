@@ -59,6 +59,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         }
 
         if (failure is not null) throw failure;
+        Console.WriteLine($"({After417PartsToMeasure.Length} sprawdzeń zgłoszenia po 4.1.7)");
         Console.WriteLine(
             "OK: (1) start wczytuje grupy + F5 tym samym torem co menu + Ctrl+F5 bez pętli odmów, "
             + "(2) Spacja transport / Enter uruchomienie w podliście, "
@@ -233,6 +234,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         harness.ClearSonosTargetForTests();
         harness.AssertNoSonosTargetForMeasurement();
 
+        var readsBefore = harness.Handler.Requests.Count;
         var rowsShown = -1;
         var introShown = string.Empty;
         harness.Window.PresentSonosTargetOverrideForTests = dialog =>
@@ -258,10 +260,28 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 + "sama odmowa. Zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(4)));
         }
 
-        // UZYWALNY WYBOR: albo sa wiersze, albo okno MOWI, co jest nie tak.
+        // UZYWALNY WYBOR: okno musi MOWIC, co jest nie tak. To 4.1.7 juz robi -
+        // samo otwarcie okna nie bylo zgloszonym bledem.
         if (rowsShown <= 0 && string.IsNullOrWhiteSpace(introShown))
         {
             throw new Exception("Ctrl+F5 pokazało PUSTĄ listę bez żadnej informacji o wczytywaniu/błędzie.");
+        }
+
+        // STEROWNIK ZGLOSZENIA: pusty wybor ma SAM sprobowac wczytac topologie,
+        // inaczej uzytkownik dostaje puste okno i odsylanie do kolejnego
+        // Ctrl+F5 - dokladnie petla, ktora zglosil. Mierzymy RZECZYWISTY GET,
+        // nie zapowiedz.
+        if (CountSonosReads(harness, readsBefore) == 0)
+        {
+            throw new Exception("ZGŁOSZONY BŁĄD 1c ODTWORZONY: Ctrl+F5 przy pustej topologii NIE "
+                + "podjęło próby wczytania grup - okno wyboru celu zostało puste bez żadnego "
+                + "odczytu. Zapowiedzi: " + string.Join(" | ", harness.Announcements.TakeLast(4)));
+        }
+
+        if (harness.Handler.Posts.Count != 0)
+        {
+            throw new Exception($"Ctrl+F5 wysłało {harness.Handler.Posts.Count} POST - wybór celu "
+                + "nie ma prawa niczego zlecać.");
         }
     }
 
