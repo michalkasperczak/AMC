@@ -86,6 +86,11 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             (typeof(MainWindow).GetMethod("ClearSonosTargetState", Instance)
                 ?? throw new Exception("Nie ma prawdziwej metody ClearSonosTargetState."))
                 .Invoke(Window, null);
+            // PRZEBUDOWA WIERSZY produkcyjna droga: sam stan celu nie odswieza
+            // listy, a wlasnie PUSTA lista jest tym, co zglosil uzytkownik.
+            (typeof(MainWindow).GetMethod("ApplySonosGroupRows", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ApplySonosGroupRows."))
+                .Invoke(Window, null);
             PumpQuietly(TimeSpan.FromMilliseconds(80));
             if (Window.SonosGroupRows.Count != 0)
             {
