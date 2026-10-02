@@ -43,6 +43,19 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         /// </summary>
         internal void PrimeSonosPlaybackStateForMeasurement()
         {
+            // PRAWDZIWY Sonos nad grajacym, pauzowalnym materialem ZGLASZA
+            // canPause. Wspolna trasa proby tego pola nie oddaje, wiec bramka
+            // odmawiala z POWODU NIEODCZYTANEGO UPRAWNIENIA - czyli nie z
+            // powodu zgloszonego bledu. Uzupelniamy odpowiedz, a NIE oslabiamy
+            // bramki w produkcji.
+            Handler.RouteOverride = (request, _) =>
+                request.Method == HttpMethod.Get
+                && request.RequestUri!.AbsolutePath.EndsWith("/playback", StringComparison.Ordinal)
+                    ? Json("{\"playbackState\":\"PLAYBACK_STATE_PLAYING\","
+                        + "\"itemId\":\"POZYCJA-1\",\"positionMillis\":12000,"
+                        + "\"availablePlaybackActions\":{\"canPause\":true,\"canSkip\":true,"
+                        + "\"canSkipBack\":true,\"canSeek\":true,\"canCrossfade\":false}}")
+                    : null;
             var method = typeof(MainWindow).GetMethod("ReadSonosGroupStateAsync", Instance)
                 ?? throw new Exception("Nie ma prawdziwej metody ReadSonosGroupStateAsync.");
             Pump((Task)method.Invoke(Window, null)!);
@@ -66,6 +79,13 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         /// </summary>
         internal void AssertNoSonosTargetForMeasurement()
         {
+            // PRODUKCYJNE czyszczenie stanu celu - to samo, co robi wyjscie z
+            // sesji. Istniejacy ClearSonosTargetForTests zdejmuje tylko wybor i
+            // topologie, a lista wierszy zostaje; bez tego pomiar Ctrl+F5 nie
+            // mierzylby zgloszonej PUSTKI.
+            (typeof(MainWindow).GetMethod("ClearSonosTargetState", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ClearSonosTargetState."))
+                .Invoke(Window, null);
             PumpQuietly(TimeSpan.FromMilliseconds(80));
             if (Window.SonosGroupRows.Count != 0)
             {
