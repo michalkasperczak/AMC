@@ -969,7 +969,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// NIE jest tu uzywany: zaplecze to PRODUKCYJNY
     /// <c>SonosAccountOwnerGroupBackend</c> nad tym samym wlascicielem.
     /// </summary>
-    private sealed class RealHarness : IDisposable
+    private sealed partial class RealHarness : IDisposable
     {
         private static readonly TimeSpan Limit = TimeSpan.FromSeconds(25);
         private readonly string _directory;
