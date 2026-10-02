@@ -201,7 +201,8 @@ public partial class MainWindow
             _sonosPlaylistsWindow = window;
             // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
             // otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
-            if (ConsumeSonosSublistPendingRowId() is { } pendingPlaylist)
+            if (ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.PlaylistsCategoryId)
+                is { } pendingPlaylist)
             {
                 window.Loaded += (_, _) => window.RestoreSelectedRow(pendingPlaylist);
             }

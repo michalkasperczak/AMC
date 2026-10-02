@@ -273,4 +273,27 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
         LibraryFixture.Pump(TimeSpan.FromMilliseconds(60));
     }
+
+    /// <summary>
+    /// KLAWISZ BEZ MODYFIKATOROW (Escape) ta sama droga tunelujaca. Osobna metoda,
+    /// zeby nie udawac Control tam, gdzie go nie ma.
+    /// </summary>
+    private static void SendKey(Window window, ListBox list, Key key)
+    {
+        if (!list.IsKeyboardFocusWithin)
+        {
+            list.Focus();
+            Keyboard.Focus(list);
+            LibraryFixture.Pump(TimeSpan.FromMilliseconds(40));
+        }
+
+        var target = Keyboard.FocusedElement as UIElement ?? list;
+        var source = PresentationSource.FromVisual(window)
+            ?? throw new Exception("Okno nie ma powierzchni prezentacji.");
+        target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent
+        });
+        LibraryFixture.Pump(TimeSpan.FromMilliseconds(60));
+    }
 }

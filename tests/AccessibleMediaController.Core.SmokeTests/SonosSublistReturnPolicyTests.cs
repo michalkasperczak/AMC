@@ -12,7 +12,45 @@ internal static class SonosSublistReturnPolicyTests
         MeasuresCaptureRejectsUnknown();
         MeasuresContextGuards();
         MeasuresRowResolution();
-        Console.WriteLine("OK: zasady powrotu do podlisty Sonosa - kategorie, granice domu i celu, wybor wiersza");
+        MeasuresSlotLeaveGate();
+        Console.WriteLine("OK: zasady powrotu do podlisty Sonosa - kategorie, granice domu i celu, wybor wiersza, "
+            + "brama wyjscia dla slotu");
+    }
+
+    /// <summary>
+    /// BRAMA WYJSCIA Z PODLISTY. Mierzy DOKLADNIE te dwa przypadki, w ktorych
+    /// stare zachowanie bezwarunkowo zamykalo liste, mimo ze sesja sie nie
+    /// zmieniala: slot NIEPRZYPISANY i slot BIEZACEJ sesji.
+    /// </summary>
+    private static void MeasuresSlotLeaveGate()
+    {
+        var slots = new Dictionary<int, string>
+        {
+            [1] = "local",
+            [5] = "sonos",
+            [8] = "radio"
+        };
+
+        // SLOT INNEJ SESJI: jedyny przypadek, w ktorym wolno zwinac liste.
+        if (!SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(slots, 8, "sonos"))
+            throw new Exception("Slot innej sesji nie pozwolil wyjsc z podlisty.");
+
+        // SLOT BIEZACEJ SESJI: zadnej zmiany, wiec zadnego zamykania listy.
+        if (SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(slots, 5, "sonos"))
+            throw new Exception("Slot JUZ AKTYWNEJ sesji wyrzucil uzytkownika z podlisty.");
+
+        // SLOT NIEPRZYPISANY: router powie tylko "nieprzypisana" - lista zostaje.
+        if (SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(slots, 4, "sonos"))
+            throw new Exception("Slot NIEPRZYPISANY wyrzucil uzytkownika z podlisty.");
+
+        // PUSTY wpis w mapie nie jest celem.
+        if (SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(
+                new Dictionary<int, string> { [3] = string.Empty }, 3, "sonos"))
+            throw new Exception("Puste przypisanie slotu zostalo uznane za cel.");
+
+        // BRAK MAPY to brak decyzji na "tak".
+        if (SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(null, 8, "sonos"))
+            throw new Exception("Brak mapy slotow pozwolil wyjsc z podlisty.");
     }
 
     private static void MeasuresKnownCategories()

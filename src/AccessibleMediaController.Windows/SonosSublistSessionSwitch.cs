@@ -19,6 +19,11 @@ namespace AccessibleMediaController.Windows;
 /// CZEGO TO NIE ROBI: nie zamyka okien edycji i nie obchodzi ich pytania o
 /// niezapisane dane - edytor stacji jest osobnym modalem NAD podlista i to on ma
 /// wtedy fokus, wiec ten kod go nie widzi.
+///
+/// CO JEST ZMIERZONE, A CO NIE: ze podlisty sa modalne i ze Ctrl+cyfra dociera
+/// TUTAJ - tak, mierzy to pomiar nawigacji. Twierdzenie, ze Biblioteka zostaje
+/// ZYWYM wlascicielem podlisty, bylo NIEPRAWDA: Biblioteka zamyka sie PRZED
+/// otwarciem kategorii, wiec wlascicielem podlisty jest okno glowne.
 /// </summary>
 internal static class SonosSublistSessionSwitch
 {
@@ -81,10 +86,26 @@ internal static class SonosSublistSessionSwitch
         e.Handled = true;
         if (e.IsRepeat) return true;
 
-        // WLASCICIEL moze byc DALEJ NIZ JEDEN KROK: podlisty otwiera Biblioteka,
-        // ktora sama jest modalem nad oknem glownym (Biblioteka -> Moje stacje).
+        // WLASCICIELEM PODLISTY JEST OKNO GLOWNE, nie Biblioteka: Biblioteka
+        // ZAMYKA SIE PRZED wywolaniem zwrotnym otwarcia kategorii
+        // (SonosLibraryWindow.OpenSelected), a podlisty ustawiaja Owner = okno
+        // glowne. Zagniezdzony stos WYWOLAN nie dowodzi zywego lancucha OKIEN.
+        //
+        // Petla zostaje mimo to: jest tania, a zadne miejsce w kodzie nie
+        // GWARANTUJE, ze kazda przyszla podlista bedzie wisiec dokladnie jeden
+        // krok od okna glownego. Limit krokow chroni przed cyklem we wlascicielach.
         var owner = FindOwningMainWindow(window);
         if (owner is null) return true;
+
+        // CYFRA, KTORA DONIKAD NIE PROWADZI, NIE MA PRAWA ZWINAC LISTY.
+        // Slot nieprzypisany konczy sie sama zapowiedzia "Sesja N nieprzypisana",
+        // a slot BIEZACEJ sesji nie zmienia niczego. Gdybysmy mimo to zamkneli
+        // stos modalny, uzytkownik stracilby podliste w zamian za nic.
+        if (!owner.ShouldLeaveSonosSublistForSlot(slot))
+        {
+            owner.AnnounceSonosSublistSlotRefusal(slot);
+            return true;
+        }
 
         owner.RequestSessionSwitchFromSonosSublist(slot, categoryId, selectedRowId());
 
@@ -103,9 +124,10 @@ internal static class SonosSublistSessionSwitch
     }
 
     /// <summary>
-    /// OKNO GLOWNE w gorze lancucha wlascicieli. Petla, nie jeden krok, bo miedzy
-    /// podlista a oknem glownym stoi jeszcze modal Biblioteki. Limit krokow chroni
-    /// przed cyklem we wlascicielach.
+    /// OKNO GLOWNE w gorze lancucha wlascicieli. Petla, a nie jeden krok, bo
+    /// podlista NIE MA zagwarantowanej odleglosci od okna glownego - dzis jest to
+    /// jeden krok (Biblioteka zamyka sie przed otwarciem kategorii), ale kod tego
+    /// nie wymusza. Limit krokow chroni przed cyklem we wlascicielach.
     /// </summary>
     private static MainWindow? FindOwningMainWindow(Window window)
     {

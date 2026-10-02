@@ -40,7 +40,8 @@ public partial class MainWindow
         _sonosOwnStreamsWindow = window;
         // POWROT Z INNEJ SESJI: wiersz, na ktorym uzytkownik stal przed Ctrl+cyfra.
         // Przy zwyklym otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
-        if (ConsumeSonosSublistPendingRowId() is { } pendingStation)
+        if (ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.OwnStreamsCategoryId)
+            is { } pendingStation)
         {
             window.Loaded += (_, _) => window.RestoreSelectedRow(pendingStation);
         }

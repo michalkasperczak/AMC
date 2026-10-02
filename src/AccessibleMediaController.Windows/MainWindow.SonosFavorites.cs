@@ -255,7 +255,8 @@ public partial class MainWindow
             _sonosFavoritesWindow = window;
             // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
             // otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
-            if (ConsumeSonosSublistPendingRowId() is { } pendingFavorite)
+            if (ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.FavoritesCategoryId)
+                is { } pendingFavorite)
             {
                 window.Loaded += (_, _) => window.RestoreSelectedRow(pendingFavorite);
             }

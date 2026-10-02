@@ -42,6 +42,53 @@ public partial class MainWindow
         _sessions is null ? null : GetSessionNavigationState(SonosSessionId).SonosSublistReturn;
 
     /// <summary>
+    /// CZY TEN SLOT W OGOLE PROWADZI POZA BIEZACA SESJE.
+    ///
+    /// Okno podlisty pyta o to PRZED zwinieciem stosu modalnego. Mapa slotow jest
+    /// ta sama, ktorej uzywa router polecen, wiec odpowiedz nie moze sie rozjechac
+    /// z tym, co zrobiloby samo <c>ExecuteCommand</c>.
+    /// </summary>
+    internal bool ShouldLeaveSonosSublistForSlot(int slot)
+    {
+        if (_isClosing || _sessions is null) return false;
+        return SonosSublistReturnPolicy.ShouldLeaveSublistForSlot(
+            _sessions.SessionSlots,
+            slot,
+            _sessions.Current.Id);
+    }
+
+    /// <summary>
+    /// ODMOWA WYJSCIA Z PODLISTY POWIEDZIANA WPROST. Cisza byla by tu najgorsza:
+    /// uzytkownik wcisnal klawisz, lista zostala otwarta i bez slowa nie wiedzialby,
+    /// czy gest w ogole doszedl.
+    ///
+    /// Tresc rozdziela DWA rozne powody, bo to dwie rozne informacje dla
+    /// uzytkownika: slot puste miejsce kontra slot tej samej sesji.
+    /// </summary>
+    internal void AnnounceSonosSublistSlotRefusal(int slot)
+    {
+        if (_isClosing || _sessions is null) return;
+        var sublist = _sonosOwnStreamsWindow as System.Windows.Window
+            ?? _sonosFavoritesWindow as System.Windows.Window
+            ?? _sonosPlaylistsWindow;
+        var message = _sessions.SessionSlots.TryGetValue(slot, out var sessionId)
+            && string.Equals(sessionId, _sessions.Current.Id, StringComparison.Ordinal)
+                ? $"Sesja {slot} jest już aktywna. Lista pozostaje otwarta."
+                : $"Sesja {slot} nieprzypisana. Lista pozostaje otwarta.";
+
+        // MOWIMY W OKNIE, KTORE MA FOKUS. Modal wylacza okno glowne, wiec jego
+        // wlasny status nie zostalby odczytany - komunikat musi wyjsc tam, gdzie
+        // stoi czytnik.
+        switch (sublist)
+        {
+            case SonosOwnStreamsWindow streams: streams.AnnounceForOwner(message); return;
+            case SonosFavoritesWindow favorites: favorites.AnnounceForOwner(message); return;
+            case SonosPlaylistsWindow playlists: playlists.AnnounceForOwner(message); return;
+            default: Announce(message); return;
+        }
+    }
+
+    /// <summary>
     /// PRZELACZENIE SESJI ZLECONE Z PODLISTY. Publiczne dla okien podlist w tym
     /// samym zestawie; nie jest to globalny przechwyt - wola je TYLKO okno, ktore
     /// samo dostalo klawisz.
@@ -68,11 +115,13 @@ public partial class MainWindow
         // stos modalny - inaczej nowa sesja rysowalaby sie pod wylaczonym oknem.
         //
         // CZEKAMY NA STAN, NIE NA PRIORYTET KOLEJKI. Pierwsza wersja wysylala to
-        // jednym BeginInvoke na ApplicationIdle i przelaczenie NIE NASTEPOWALO:
-        // kazda petla komunikatow, ktora konczy sie na Background (tak pompuja i
-        // modale, i aparatura pomiaru), nigdy nie zdejmuje elementu o NIZSZYM
-        // priorytecie. Dlatego sprawdzamy warunek i - jesli modal jeszcze zyje -
-        // przekladamy sie na nastepna turę.
+        // jednym BeginInvoke na ApplicationIdle i przelaczenie NIE NASTEPOWALO.
+        // Dlaczego dokladnie - NIE ZOSTALO USTALONE: wiemy tylko TYLE, ze petla
+        // komunikatow naszej aparatury pompuje do priorytetu Background, wiec
+        // element ApplicationIdle nie byl zdejmowany. Czy produkcyjne modale WPF
+        // zachowuja sie tak samo, NIE JEST TU ZMIERZONE - to hipoteza, nie fakt o
+        // produkcie. Sprawdzanie STANU (czy modal zyje) jest poprawne niezaleznie
+        // od tego, ktora hipoteza jest prawdziwa, i dlatego zostaje.
         PostSessionSwitchWhenModalsClosed(slot, attempt: 0);
     }
 
@@ -82,6 +131,12 @@ public partial class MainWindow
     /// Granica prob jest celowa: gdyby okno z jakiegos powodu nigdy nie wrocilo do
     /// stanu uzywalnego, lepiej CICHO ODPUSCIC niz zostawic zadanie krecace sie w
     /// kolejce dyspozytora przez cale zycie programu.
+    ///
+    /// ZMIERZONA USTERKA: po wyczerpaniu prob kod MIMO WSZYSTKO wolal
+    /// <c>ExecuteCommand</c> - czyli robil DOKLADNIE to, czego komentarz obok
+    /// zabranial, i to w najgorszym momencie: przy ZYWYM modalu nad wylaczonym
+    /// oknem glownym. Teraz odpuszczenie jest odpuszczeniem, a zapamietane miejsce
+    /// znika razem z nim, zeby nie czekalo na przypadkowe wejscie w sesje.
     /// </summary>
     private void PostSessionSwitchWhenModalsClosed(int slot, int attempt)
     {
@@ -90,8 +145,18 @@ public partial class MainWindow
             () =>
             {
                 if (_isClosing || _sessions is null) return;
-                if (HasVisibleOwnedModal() && attempt < maxAttempts)
+                if (HasVisibleOwnedModal())
                 {
+                    if (attempt >= maxAttempts)
+                    {
+                        // ODPUSZCZAMY NAPRAWDE: zadnego przelaczenia przy zywym
+                        // modalu. Zapis powrotu tez sprzatamy - inaczej wisialby i
+                        // otworzylby liste przy nastepnym, NIEZWIAZANYM wejsciu w
+                        // sesje Sonos.
+                        ClearSonosSublistReturn();
+                        return;
+                    }
+
                     PostSessionSwitchWhenModalsClosed(slot, attempt + 1);
                     return;
                 }
@@ -161,6 +226,7 @@ public partial class MainWindow
             // WIERSZ do zaznaczenia oddajemy oknu podlisty; samo otwarcie idzie
             // ISTNIEJACA droga kategorii Biblioteki.
             _sonosSublistPendingRowId = remembered!.SelectedRowId;
+            _sonosSublistPendingCategoryId = remembered.CategoryId;
             SonosSublistReopenedForTests++;
             // WIERSZ bierzemy z ISTNIEJACEGO opisu kategorii, nie skladamy wlasnego:
             // nieznany identyfikator odpadl juz w polityce powyzej.
@@ -178,26 +244,45 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// WIERSZ, ktory nowo otwierana podlista ma zaznaczyc.
+    /// WIERSZ, ktory nowo otwierana podlista ma zaznaczyc - RAZEM Z KATEGORIA,
+    /// DLA KTOREJ go zapamietano.
     ///
     /// UWAGA NA CZAS ZYCIA: Ulubione i Playlisty otwieraja sie DROGA ASYNCHRONICZNA
     /// - <c>OpenSonosLibraryCategory</c> wraca, zanim okno powstanie. Dlatego pola
     /// NIE WOLNO czyscic w <c>finally</c> powyzej (tak bylo najpierw i wiersz ginal,
     /// zanim ktokolwiek go przeczytal). Czysci je DOPIERO odbiorca, przez
     /// <see cref="ConsumeSonosSublistPendingRowId"/>.
+    ///
+    /// KATEGORIA JEST CZESCIA ZAPISU, NIE OZDOBA. ZMIERZONA USTERKA: pole bylo
+    /// JEDNO i BEZ KATEGORII, a otwarcie podlisty moze ODMOWIC (brama
+    /// <c>CanPresentSonosChildWindow</c>, brak zaplecza, przerwany odczyt). Zapis
+    /// zostawal wtedy wiszacy i konsumowalo go NASTEPNE, zwykle otwarcie
+    /// INNEJ kategorii - Ulubione stawaly na wierszu zapamietanym dla Moich stacji.
+    /// Identyfikatory nie sa rozlaczne miedzy kategoriami, wiec trafienie bylo
+    /// mozliwe, a nie tylko teoretyczne.
     /// </summary>
     private string? _sonosSublistPendingRowId;
+    private string? _sonosSublistPendingCategoryId;
 
     /// <summary>
-    /// ODBIOR wiersza do zaznaczenia - JEDEN RAZ. Kolejne, zwykle otwarcie listy
-    /// dostanie juz null i zostanie na pierwszym wierszu.
+    /// ODBIOR wiersza do zaznaczenia - JEDEN RAZ i TYLKO DLA SWOJEJ KATEGORII.
+    /// Kolejne, zwykle otwarcie listy dostanie juz null i zostanie na pierwszym
+    /// wierszu. Zapis zlozony dla innej kategorii ZOSTAJE nietkniety: nie jest
+    /// nasz, wiec ani go nie czytamy, ani nie kasujemy.
     /// </summary>
-    internal string? ConsumeSonosSublistPendingRowId()
+    internal string? ConsumeSonosSublistPendingRowId(string categoryId)
     {
+        if (!string.Equals(_sonosSublistPendingCategoryId, categoryId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         var pending = _sonosSublistPendingRowId;
         _sonosSublistPendingRowId = null;
+        _sonosSublistPendingCategoryId = null;
         return pending;
     }
 
     internal string? SonosSublistPendingRowId => _sonosSublistPendingRowId;
+    internal string? SonosSublistPendingCategoryIdForTests => _sonosSublistPendingCategoryId;
 }

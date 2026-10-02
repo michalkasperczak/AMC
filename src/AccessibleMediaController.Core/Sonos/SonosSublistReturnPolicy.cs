@@ -71,6 +71,32 @@ public static class SonosSublistReturnPolicy
     }
 
     /// <summary>
+    /// CZY WOLNO WYJSC Z PODLISTY dla tego Ctrl+cyfra.
+    ///
+    /// ZMIERZONA USTERKA: okno podlisty zamykalo CALY stos modalny, ZANIM
+    /// ktokolwiek sprawdzil, czy ta cyfra w ogole prowadzi gdzie indziej. Dla
+    /// slotu NIEPRZYPISANEGO router mowi tylko "Sesja N nieprzypisana" i sesja sie
+    /// NIE ZMIENIA; dla slotu WLASNEJ sesji Sonos zmiany tez nie ma. W oba
+    /// przypadki uzytkownik tracil otwarta podliste i ladowal w korzeniu - czyli
+    /// dokladnie ta strata, ktorej ta droga mialaby zapobiegac.
+    ///
+    /// Decyzja jest tu, a nie w oknie, bo jest czysta: mapa slotow z konfiguracji
+    /// i identyfikator biezacej sesji wystarczaja. Okno tylko WYKONUJE wynik.
+    /// </summary>
+    public static bool ShouldLeaveSublistForSlot(
+        IReadOnlyDictionary<int, string>? sessionSlots,
+        int slot,
+        string? currentSessionId)
+    {
+        if (sessionSlots is null) return false;
+        if (!sessionSlots.TryGetValue(slot, out var targetSessionId)) return false;
+        if (string.IsNullOrEmpty(targetSessionId)) return false;
+
+        // TA SAMA sesja to NIE przelaczenie: nie ma po co zwijac podlisty.
+        return !string.Equals(targetSessionId, currentSessionId, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// WIERSZ do zaznaczenia po otwarciu podlisty: zapamietany identyfikator, gdy
     /// NADAL jest na liscie, inaczej pierwszy wiersz (indeks 0) albo brak
     /// zaznaczenia przy pustej liscie.

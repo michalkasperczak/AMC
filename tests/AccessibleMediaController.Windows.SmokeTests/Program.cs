@@ -130,6 +130,10 @@ if (args.Contains("--sonos-sublist-session-switch", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch(); return 0;
 }
+if (args.Contains("--sonos-sublist-all-three", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunSublistAllThree(); return 0;
+}
 if (args.Contains("--sonos-speaker-selection", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunSpeakerSelection(); return 0;
@@ -494,6 +498,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
     ("Sonos: Ctrl+cyfra z podlisty przełącza sesję i wraca w to samo miejsce", SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch),
+    ("Sonos: powrót do wszystkich trzech podlist i granice wyboru sesji", SonosFavoritePlayRealOwnerTests.RunSublistAllThree),
     ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
     ("Sonos: presety sesji - przypisanie, trwałość i uruchomienie realną drogą i HTTP", SonosFavoritePlayRealOwnerTests.RunPresets),
     ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),
