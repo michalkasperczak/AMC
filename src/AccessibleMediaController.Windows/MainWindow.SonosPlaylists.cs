@@ -370,7 +370,7 @@ public partial class MainWindow
             // HTTP 200 to PRZYJECIE ZLECENIA, nie dowod, ze muzyka gra. Tozsamosc
             // pozycji bierzemy z NASZEJ listy - to my wyslalismy ten identyfikator.
             AnnounceInPlaylistsOrigin(origin, accepted
-                ? SonosPlaylistsLabels.DescribePlayAccepted(SonosPlaylistsLabels.Describe(playlist))
+                ? SonosPlaylistsLabels.DescribePlayAccepted(playlist)
                 : result.Message);
 
             // ISTNIEJACY jawny odczyt stanu tego SAMEGO celu - zeby odtwarzacz i

@@ -465,7 +465,7 @@ public partial class MainWindow
             // Tozsamosc pozycji bierzemy z NASZEJ listy - to my wyslalismy ten
             // identyfikator. Tytul z metadanych NIE jest dowodem tozsamosci.
             AnnounceInFavoritesOrigin(origin, accepted
-                ? SonosFavoritesLabels.DescribePlayAccepted(SonosFavoritesLabels.Describe(favorite))
+                ? SonosFavoritesLabels.DescribePlayAccepted(favorite)
                 : result.Message);
 
             // ISTNIEJACY jawny odczyt stanu tego SAMEGO celu - zeby odtwarzacz i

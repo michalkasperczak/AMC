@@ -513,14 +513,18 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             throw new Exception($"Po uruchomieniu poszło {extraPosts} dodatkowych POST (Play/Toggle).");
         }
 
-        // STATUS mowi o PRZYJECIU, nie o potwierdzonym graniu.
-        if (!status.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        // STATUS mowi KROTKO: sama NAZWA wybranej pozycji. Dawne "Przyjęto
+        // polecenie uruchomienia" bylo technicznym potwierdzeniem, a nie
+        // informacja - a doklejona etykieta wiersza powtarzala usluge i opis
+        // zaraz po tym, jak lista je przeczytala. Krotszy tekst NADAL nie
+        // obiecuje slyszalnosci: nie ma w nim ani "gra", ani "odtwarza sie".
+        if (!string.Equals(status, "Nokturny", StringComparison.Ordinal))
         {
-            throw new Exception("Modal nie pokazał przyjęcia zlecenia: \"" + status + "\".");
+            throw new Exception("Modal nie przeczytał samej nazwy pozycji: \"" + status + "\".");
         }
 
         return "1 POST " + expected.AbsolutePath + ", favoriteId=ULU-DRUGI, INSERT/true, bez playModes, "
-            + "bilet konta w nagłówku, status o PRZYJĘCIU";
+            + "bilet konta w nagłówku, status to KRÓTKA NAZWA \"Nokturny\"";
     }
 
     // ==================== R2/R3: dopisywane po GREEN R1 ====================
@@ -705,7 +709,10 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// </summary>
     private static void AssertNoFalseOutcome(string what, string status)
     {
-        foreach (var lie in new[] { "Przyjęto polecenie uruchomienia", "odrzucon", "cofnię", "cofnie" })
+        // KROTKI SUKCES to SAMA NAZWA pozycji, wiec wlasnie nazwa jest teraz
+        // klamstwem na sciezce bledu/niepewnosci - dawne "Przyjęto polecenie
+        // uruchomienia" nie brzmi juz nigdzie i samo nic by nie zmierzylo.
+        foreach (var lie in new[] { "Nokturny", "Przyjęto polecenie uruchomienia", "odrzucon", "cofnię", "cofnie" })
         {
             if (status.Contains(lie, StringComparison.OrdinalIgnoreCase)
                 // "nie obiecuję cofnięcia" to ZAPRZECZENIE, nie obietnica.
@@ -835,9 +842,12 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 throw new Exception($"Pusta lista wysłała {sent} POST.");
             }
 
-            if (status.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+            // PUSTA lista nie ma prawa udawac sukcesu. Sukces to teraz SAMA NAZWA
+            // pozycji, wiec mierzymy to, co naprawde moze sklamac: pusta lista
+            // MUSI powiedziec, ze nie ma czego uruchomic.
+            if (!string.Equals(status, SonosFavoritesLabels.PlayNothingSelected, StringComparison.Ordinal))
             {
-                throw new Exception("Pusta lista udaje przyjęcie zlecenia: \"" + status + "\".");
+                throw new Exception("Pusta lista nie powiedziała, że nie ma czego uruchomić: \"" + status + "\".");
             }
         }
 

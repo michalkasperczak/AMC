@@ -82,12 +82,22 @@ public static class SonosPlaylistsLabels
     public const string PlayNothingSelected = "Nie ma wybranej playlisty do uruchomienia.";
 
     /// <summary>
-    /// PRZYJECIE zlecenia: HTTP 200 znaczy, ze Sonos POLECENIE PRZYJAL, a NIE ze
-    /// muzyka gra. Tozsamosc pozycji pochodzi z NASZEJ listy (to my wyslalismy ten
-    /// identyfikator), a nie z metadanych odczytanych po poleceniu.
+    /// ZWYKLY SUKCES: KROTKA NAZWA playlisty i nic wiecej. Dawny tekst doklejal
+    /// "Przyjęto polecenie uruchomienia playlisty", a do tego CALA etykiete
+    /// wiersza - wiec liczba utworow brzmiala drugi raz zaraz po tym, jak lista
+    /// ja przeczytala. Techniczne potwierdzenie nie jest informacja; nazwa jest.
+    ///
+    /// SKROCENIE NIE JEST OBIETNICA: HTTP 200 znaczy, ze Sonos POLECENIE PRZYJAL,
+    /// a NIE ze muzyka gra - dlatego nazwa nie dostaje slowa "gra". Tozsamosc
+    /// pozycji pochodzi z NASZEJ listy (to my wyslalismy ten identyfikator), nie
+    /// z metadanych odczytanych po poleceniu. NAZWA, nigdy identyfikator. Bledy,
+    /// brak celu, zmiana konta i niepewny wynik maja WLASNE, pelne teksty.
     /// </summary>
-    public static string DescribePlayAccepted(string playlistLabel) =>
-        "Przyjęto polecenie uruchomienia playlisty: " + playlistLabel;
+    public static string DescribePlayAccepted(SonosPlaylist playlist)
+    {
+        ArgumentNullException.ThrowIfNull(playlist);
+        return playlist.Name;
+    }
 
     /// <summary>KOMUNIKAT OCZEKIWANIA: dlugi odczyt nie ma wygladac jak zawieszenie.</summary>
     public const string Loading = "Odczytuję playlisty Sonos. Czekaj.";
