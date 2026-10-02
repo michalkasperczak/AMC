@@ -624,6 +624,16 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 () => dialog.IsLoaded && PresentationSource.FromVisual(dialog) is not null,
                 TimeSpan.FromSeconds(10),
                 "okno wyboru celu się nie pokazało");
+            // PRZYGOTOWANIE, nie pomiar: wejscie w sesje odczytalo JEDNA grupe,
+            // a RouteOverride dziala od NASTEPNEGO GET. Pierwsze F5 w oknie
+            // sciaga trojke grup, zeby "drugi wiersz" w ogole istnial. Granice
+            // fokusu mierzy DOPIERO drugie F5, nizej.
+            SendKeyWithModifiers(dialog, Key.F5, ModifierKeys.None);
+            harness.PumpQuietly(TimeSpan.FromMilliseconds(600));
+            if (harness.Window.LastSonosTargetRefreshTaskForTests is { } priming)
+            {
+                harness.Pump(priming);
+            }
             harness.PumpUntil(() => dialog.RowCountForTests >= 2, TimeSpan.FromSeconds(20),
                 "pomiar fokusu wiersza wymaga co najmniej dwóch grup w oknie");
 
