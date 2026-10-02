@@ -63,7 +63,11 @@ public partial class ItemPlaybackOptionsWindow : Window
         // znacznik plikow lokalnych. Bez tego okno obiecywaloby zgodnosc z
         // ustawieniem globalnym, ktorego ta sesja nie czyta.
         string? resumeInheritedLabelOverride = null,
-        string? resumeInheritedHelpText = null)
+        string? resumeInheritedHelpText = null,
+        // Wybor algorytmu tempa dolozony jako nazwany parametr opcjonalny, zeby
+        // nie przestawiac kolejnosci istniejacych argumentow u wszystkich
+        // wywolujacych. null = dziedziczenie z szerszego zakresu.
+        PlaybackTempoAlgorithm? tempoAlgorithmOverride = null)
     {
         InitializeComponent();
         var folderTarget = target == ItemPlaybackOptionsTarget.LocalFolder;
@@ -75,12 +79,14 @@ public partial class ItemPlaybackOptionsWindow : Window
             LoudnessNormalizationLabel.Content = "_Normalizacja głośności plików w folderze:";
             SmoothTransitionsLabel.Content = "_Łagodne przejścia plików w folderze:";
             InterTrackSilenceLabel.Content = "_Cisza po plikach w folderze:";
+            TempoAlgorithmLabel.Content = "Spo_sób przeliczania tempa plików w folderze:";
             OutputDeviceLabel.Content = "_Urządzenie audio dla folderu:";
             AutomationProperties.SetName(ResumeModeBox, "Pozycja odtwarzania plików");
             AutomationProperties.SetName(PlaybackRateBox, "Prędkość plików w folderze");
             AutomationProperties.SetName(LoudnessNormalizationBox, "Normalizacja głośności plików w folderze");
             AutomationProperties.SetName(SmoothTransitionsBox, "Łagodne przejścia plików w folderze");
             AutomationProperties.SetName(InterTrackSilenceBox, "Cisza po plikach w folderze");
+            AutomationProperties.SetName(TempoAlgorithmBox, "Sposób przeliczania tempa plików w folderze");
             AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla folderu");
         }
         else if (target == ItemPlaybackOptionsTarget.Session)
@@ -91,12 +97,14 @@ public partial class ItemPlaybackOptionsWindow : Window
             LoudnessNormalizationLabel.Content = "_Normalizacja głośności w tej sesji:";
             SmoothTransitionsLabel.Content = "_Łagodne przejścia w tej sesji:";
             InterTrackSilenceLabel.Content = "_Cisza między nagraniami w tej sesji:";
+            TempoAlgorithmLabel.Content = "Spo_sób przeliczania tempa w tej sesji:";
             OutputDeviceLabel.Content = "_Urządzenie audio dla tej sesji:";
             AutomationProperties.SetName(ResumeModeBox, "Pozycja odtwarzania w tej sesji");
             AutomationProperties.SetName(PlaybackRateBox, "Prędkość w tej sesji");
             AutomationProperties.SetName(LoudnessNormalizationBox, "Normalizacja głośności w tej sesji");
             AutomationProperties.SetName(SmoothTransitionsBox, "Łagodne przejścia w tej sesji");
             AutomationProperties.SetName(InterTrackSilenceBox, "Cisza między nagraniami w tej sesji");
+            AutomationProperties.SetName(TempoAlgorithmBox, "Sposób przeliczania tempa w tej sesji");
             AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla tej sesji");
             AutomationProperties.SetHelpText(
                 ResumeModeBox,
@@ -113,6 +121,11 @@ public partial class ItemPlaybackOptionsWindow : Window
                 InterTrackSilenceBox,
                 "Określa dodatkową ciszę między nagraniami w całej tej sesji. "
                 + "Plik i folder to nadpisują.");
+            AutomationProperties.SetHelpText(
+                TempoAlgorithmBox,
+                "Obejmuje całą sesję. Może dziedziczyć ustawienie globalne albo wskazać "
+                + "własny algorytm. Plik i folder to nadpisują. Zmiana algorytmu obowiązuje "
+                + "po ponownym otwarciu materiału.");
             AutomationProperties.SetHelpText(
                 PlaybackRateBox,
                 "Prędkość dla całej tej sesji. 1,00 razy oznacza normalną prędkość; "
@@ -177,6 +190,8 @@ public partial class ItemPlaybackOptionsWindow : Window
             PlaybackRateBox.Visibility = Visibility.Collapsed;
             LoudnessNormalizationLabel.Visibility = Visibility.Collapsed;
             LoudnessNormalizationBox.Visibility = Visibility.Collapsed;
+            TempoAlgorithmLabel.Visibility = Visibility.Collapsed;
+            TempoAlgorithmBox.Visibility = Visibility.Collapsed;
             OutputDeviceLabel.Visibility = Visibility.Collapsed;
             OutputDeviceBox.Visibility = Visibility.Collapsed;
         }
@@ -216,6 +231,10 @@ public partial class ItemPlaybackOptionsWindow : Window
             SmoothTransitionsBox.Visibility = Visibility.Collapsed;
             InterTrackSilenceLabel.Visibility = Visibility.Collapsed;
             InterTrackSilenceBox.Visibility = Visibility.Collapsed;
+            // Tempo w Spotify liczy OBCY silnik (Web Playback SDK / librespot),
+            // nie nasz lancuch - wybor algorytmu nie mialby tu pokrycia.
+            TempoAlgorithmLabel.Visibility = Visibility.Collapsed;
+            TempoAlgorithmBox.Visibility = Visibility.Collapsed;
             OutputDeviceLabel.Visibility = Visibility.Collapsed;
             OutputDeviceBox.Visibility = Visibility.Collapsed;
         }
@@ -295,6 +314,8 @@ public partial class ItemPlaybackOptionsWindow : Window
             SmoothTransitionsBox.Visibility = Visibility.Collapsed;
             InterTrackSilenceLabel.Visibility = Visibility.Collapsed;
             InterTrackSilenceBox.Visibility = Visibility.Collapsed;
+            TempoAlgorithmLabel.Visibility = Visibility.Collapsed;
+            TempoAlgorithmBox.Visibility = Visibility.Collapsed;
             OutputDeviceLabel.Visibility = Visibility.Collapsed;
             OutputDeviceBox.Visibility = Visibility.Collapsed;
         }
@@ -302,6 +323,9 @@ public partial class ItemPlaybackOptionsWindow : Window
         {
             PlaybackRateLabel.Visibility = Visibility.Collapsed;
             PlaybackRateBox.Visibility = Visibility.Collapsed;
+            // Sesja bez zmiany tempa nie ma czego przeliczac zadnym algorytmem.
+            TempoAlgorithmLabel.Visibility = Visibility.Collapsed;
+            TempoAlgorithmBox.Visibility = Visibility.Collapsed;
         }
 
         ResumeChoice[] resumeChoices =
@@ -354,6 +378,11 @@ public partial class ItemPlaybackOptionsWindow : Window
         InterTrackSilenceBox.SelectedItem = silenceChoices.FirstOrDefault(choice =>
             choice.Value == interTrackSilenceMillisecondsOverride) ?? silenceChoices[0];
 
+        var tempoAlgorithmChoices = TempoAlgorithmChoices(target);
+        TempoAlgorithmBox.ItemsSource = tempoAlgorithmChoices;
+        TempoAlgorithmBox.SelectedItem = tempoAlgorithmChoices.FirstOrDefault(choice =>
+            choice.Value == tempoAlgorithmOverride) ?? tempoAlgorithmChoices[0];
+
         OutputDeviceBox.Items.Add("Domyślne urządzenie systemowe — tryb współdzielony");
         OutputDeviceBox.SelectedIndex = 0;
         Loaded += (_, _) => ResumeModeBox.Focus();
@@ -373,6 +402,14 @@ public partial class ItemPlaybackOptionsWindow : Window
 
     public int? SelectedInterTrackSilenceMillisecondsOverride =>
         (InterTrackSilenceBox.SelectedItem as SilenceChoice)?.Value;
+
+    /// <summary>
+    /// Algorytm przeliczania tempa wybrany dla tego zakresu. null oznacza
+    /// dziedziczenie z szerszego zakresu, a na koncu ustawienia globalnego,
+    /// ktorym domyslnie jest dotychczasowy SoundTouch.
+    /// </summary>
+    public PlaybackTempoAlgorithm? SelectedTempoAlgorithmOverride =>
+        (TempoAlgorithmBox.SelectedItem as TempoAlgorithmChoice)?.Value;
 
     /// <summary>
     /// Wstrzymywanie po wyjsciu z odtwarzacza wybrane dla sesji. null oznacza
@@ -507,6 +544,18 @@ public partial class ItemPlaybackOptionsWindow : Window
         target is ItemPlaybackOptionsTarget.SpotifyItem
             or ItemPlaybackOptionsTarget.SpotifyContainer;
 
+    /// <summary>
+    /// Nazwy rozdzielaja PRZEZNACZENIE od biblioteki, bo sama nazwa biblioteki
+    /// nic nie mowi uzytkownikowi czytnika ekranu.
+    /// </summary>
+    private static TempoAlgorithmChoice[] TempoAlgorithmChoices(ItemPlaybackOptionsTarget target) =>
+    [
+        new(null, InheritedLabel(target)),
+        new(PlaybackTempoAlgorithm.Speech, "Mowa — Speedy"),
+        new(PlaybackTempoAlgorithm.Music, "Muzyka — Signalsmith"),
+        new(PlaybackTempoAlgorithm.SoundTouch, "Dotychczasowy — SoundTouch")
+    ];
+
     private static BooleanChoice[] BooleanChoices(ItemPlaybackOptionsTarget target) =>
     [
         new(null, InheritedLabel(target)),
@@ -566,6 +615,11 @@ public partial class ItemPlaybackOptionsWindow : Window
     }
 
     private sealed record BooleanChoice(bool? Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record TempoAlgorithmChoice(PlaybackTempoAlgorithm? Value, string Label)
     {
         public override string ToString() => Label;
     }

@@ -4626,7 +4626,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             saved.PlaybackRateOverride,
             saved.LoudnessNormalizationOverride,
             saved.SmoothTrackTransitionsOverride,
-            saved.InterTrackSilenceMillisecondsOverride)
+            saved.InterTrackSilenceMillisecondsOverride,
+            tempoAlgorithmOverride: saved.TempoAlgorithmOverride)
         {
             Owner = this
         };
@@ -4642,6 +4643,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         saved.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
         saved.InterTrackSilenceMillisecondsOverride =
             dialog.SelectedInterTrackSilenceMillisecondsOverride;
+        saved.TempoAlgorithmOverride = dialog.SelectedTempoAlgorithmOverride;
         var local = _sessions.FindSession("local");
         if (local is not null
             && string.Equals(local.CurrentItem.Id, item.Id, StringComparison.Ordinal))
@@ -4678,7 +4680,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             saved?.LoudnessNormalizationOverride,
             saved?.SmoothTrackTransitionsOverride,
             saved?.InterTrackSilenceMillisecondsOverride,
-            target: ItemPlaybackOptionsTarget.LocalFolder)
+            target: ItemPlaybackOptionsTarget.LocalFolder,
+            tempoAlgorithmOverride: saved?.TempoAlgorithmOverride)
         {
             Owner = this
         };
@@ -4696,6 +4699,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         saved.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
         saved.InterTrackSilenceMillisecondsOverride =
             dialog.SelectedInterTrackSilenceMillisecondsOverride;
+        saved.TempoAlgorithmOverride = dialog.SelectedTempoAlgorithmOverride;
         var hasOverride = saved.ResumePositionMode != ResumePositionMode.Inherit
             || saved.PlaybackRateOverride.HasValue
             || saved.OutputDeviceId is not null
@@ -4880,7 +4884,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : episode.InterTrackSilenceMillisecondsOverride,
             target,
             subscription.RefreshIntervalMinutes,
-            subscription.DownloadsFolder)
+            subscription.DownloadsFolder,
+            tempoAlgorithmOverride: episode is null
+                ? subscription.TempoAlgorithmOverride
+                : episode.TempoAlgorithmOverride)
         {
             Owner = this
         };
@@ -4898,6 +4905,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             subscription.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
             subscription.InterTrackSilenceMillisecondsOverride =
                 dialog.SelectedInterTrackSilenceMillisecondsOverride;
+            subscription.TempoAlgorithmOverride = dialog.SelectedTempoAlgorithmOverride;
             subscription.RefreshIntervalMinutes = dialog.SelectedPodcastRefreshIntervalMinutes;
             subscription.DownloadsFolder = dialog.SelectedPodcastDownloadFolder is { } customFolder
                 ? Path.GetFullPath(customFolder)
@@ -4911,6 +4919,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             episode.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
             episode.InterTrackSilenceMillisecondsOverride =
                 dialog.SelectedInterTrackSilenceMillisecondsOverride;
+            episode.TempoAlgorithmOverride = dialog.SelectedTempoAlgorithmOverride;
         }
 
         var podcasts = _sessions.FindSession("podcasts");

@@ -49,6 +49,12 @@
                           automation:AutomationProperties.Name="Cisza po tym elemencie"
                           automation:AutomationProperties.HelpText="Określa dodatkową ciszę po zakończeniu tego pliku przed automatycznym uruchomieniem następnego." />
 
+                <Label x:Name="TempoAlgorithmLabel" Target="{Binding ElementName=TempoAlgorithmBox}">Spo_sób przeliczania tempa:</Label>
+                <ComboBox x:Name="TempoAlgorithmBox" Margin="0,0,0,14"
+                          DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                          automation:AutomationProperties.Name="Sposób przeliczania tempa"
+                          automation:AutomationProperties.HelpText="Może dziedziczyć wybór z szerszego zakresu albo zostać ustawiony tylko tutaj. Zmiana algorytmu obowiązuje po ponownym otwarciu materiału; zmiana samego tempa nadal działa od razu." />
+
                 <StackPanel x:Name="SessionSettingsPanel" Visibility="Collapsed">
                     <Label x:Name="PlayerExitPauseLabel" Target="{Binding ElementName=PlayerExitPauseBox}">_Po wyjściu z odtwarzacza w tej sesji:</Label>
                     <ComboBox x:Name="PlayerExitPauseBox" Margin="0,0,0,14"

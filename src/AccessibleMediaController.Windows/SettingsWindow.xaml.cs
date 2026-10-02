@@ -97,6 +97,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.LoudnessNormalization => (GeneralTab, LoudnessNormalizationCheck),
             SettingsTarget.SmoothTrackTransitions => (GeneralTab, SmoothTrackTransitionsCheck),
             SettingsTarget.InterTrackSilence => (GeneralTab, InterTrackSilenceCombo),
+            SettingsTarget.TempoAlgorithm => (GeneralTab, TempoAlgorithmCombo),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
             SettingsTarget.RadioRecording => (RadioTab, RadioRecordingFormatCombo),
@@ -159,6 +160,9 @@ public partial class SettingsWindow : Window
         SelectComboByTag(
             InterTrackSilenceCombo,
             _workingState.Settings.Audio.InterTrackSilenceMilliseconds.ToString());
+        SelectComboByTag(
+            TempoAlgorithmCombo,
+            _workingState.Settings.Audio.TempoAlgorithm.ToString());
 
         _radioRecordingsOwnFolder = string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder)
             ? DefaultRadioRecordingsFolder()
@@ -299,6 +303,15 @@ public partial class SettingsWindow : Window
             interTrackSilence = 0;
         }
         _workingState.Settings.Audio.InterTrackSilenceMilliseconds = interTrackSilence;
+        // Brak pola w starym profilu albo nieznana nazwa zostawia dotychczasowy
+        // SoundTouch - tak samo jak normalizacja ConfigurationStore.
+        _workingState.Settings.Audio.TempoAlgorithm =
+            Enum.TryParse<PlaybackTempoAlgorithm>(
+                    SelectedTag(TempoAlgorithmCombo, nameof(PlaybackTempoAlgorithm.SoundTouch)),
+                    out var tempoAlgorithm)
+                && Enum.IsDefined(tempoAlgorithm)
+                ? tempoAlgorithm
+                : PlaybackTempoAlgorithm.SoundTouch;
         if (SelectedTag(RadioRecordingsFolderModeCombo, "Radio") == "Radio")
             _radioRecordingsOwnFolder = RadioRecordingsFolderBox.Text.Trim();
         var folder = _radioRecordingsOwnFolder.Trim();

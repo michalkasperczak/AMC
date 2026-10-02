@@ -247,6 +247,11 @@ if (args.Contains("--timeshift-rate-help", StringComparer.Ordinal))
 {
     TimeshiftRateHelpTests.Run(); return 0;
 }
+if (args.Contains("--tempo-algorithm-choice", StringComparer.Ordinal))
+{
+    try { AccessibleMediaController.Windows.SmokeTests.TempoAlgorithmChoiceUiTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--application-update-main-gui", StringComparer.Ordinal))
 {
     ApplicationUpdateRoutingTests.ShowForNvda(); return 0;

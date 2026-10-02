@@ -54,7 +54,8 @@ internal static class SessionPlaybackOptionsEditor
             resumeInheritedHelpText: podcasts
                 ? "Dotyczy odcinków w sesji Podcasty i YouTube. Bez własnego wyboru odcinki "
                   + "pamiętają pozycję odtwarzania. Pojedynczy podcast i odcinek mogą to nadpisać."
-                : null);
+                : null,
+            tempoAlgorithmOverride: saved?.TempoAlgorithmOverride);
         if (!caps.SupportsResumePosition)
         {
             dialog.ResumeModeLabel.Visibility = Visibility.Collapsed;
@@ -83,6 +84,10 @@ internal static class SessionPlaybackOptionsEditor
             LoudnessNormalizationOverride = caps.SupportsAudioProcessing ? dialog.SelectedLoudnessNormalizationOverride : saved?.LoudnessNormalizationOverride,
             SmoothTrackTransitionsOverride = caps.SupportsAudioProcessing ? dialog.SelectedSmoothTrackTransitionsOverride : saved?.SmoothTrackTransitionsOverride,
             InterTrackSilenceMillisecondsOverride = caps.SupportsAudioProcessing ? dialog.SelectedInterTrackSilenceMillisecondsOverride : saved?.InterTrackSilenceMillisecondsOverride,
+            // Algorytm tempa ma pokrycie tylko tam, gdzie tempo liczy NASZ lancuch.
+            TempoAlgorithmOverride = caps.SupportsAudioProcessing && caps.SupportsPlaybackRate
+                ? dialog.SelectedTempoAlgorithmOverride
+                : saved?.TempoAlgorithmOverride,
             PausePlaybackWhenLeavingPlayerOverride = caps.SupportsPlayerExitPause ? dialog.SelectedPausePlaybackWhenLeavingPlayerOverride : saved?.PausePlaybackWhenLeavingPlayerOverride
         };
         if (result.IsEmpty) settings.Audio.OverridesBySession.Remove(sessionId);
@@ -100,6 +105,16 @@ internal static class SessionPlaybackOptionsEditor
             parts.Add($"łagodne przejścia {Choice(saved.SmoothTrackTransitionsOverride)}");
             parts.Add("cisza: " + (saved.InterTrackSilenceMillisecondsOverride is { } value
                 ? PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(value) : "według ustawienia ogólnego"));
+            if (caps.SupportsPlaybackRate)
+            {
+                parts.Add("przeliczanie tempa: " + (saved.TempoAlgorithmOverride switch
+                {
+                    PlaybackTempoAlgorithm.Speech => "mowa, Speedy",
+                    PlaybackTempoAlgorithm.Music => "muzyka, Signalsmith",
+                    PlaybackTempoAlgorithm.SoundTouch => "dotychczasowy, SoundTouch",
+                    _ => "według ustawienia ogólnego"
+                }));
+            }
         }
         if (caps.SupportsResumePosition)
             parts.Add(ResumePositionPolicy.GetSessionMode(settings, sessionId) switch

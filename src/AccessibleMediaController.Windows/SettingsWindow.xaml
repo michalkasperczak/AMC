@@ -87,6 +87,17 @@
                                 <ComboBoxItem Tag="3000" automation:AutomationProperties.Name="3 sekundy ciszy">3 sekundy ciszy</ComboBoxItem>
                                 <ComboBoxItem Tag="5000" automation:AutomationProperties.Name="5 sekund ciszy">5 sekund ciszy</ComboBoxItem>
                             </ComboBox>
+                            <Label Target="{Binding ElementName=TempoAlgorithmCombo}">Spo_sób przeliczania zmienionego tempa:</Label>
+                            <ComboBox x:Name="TempoAlgorithmCombo" Width="440" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                      automation:AutomationProperties.Name="Sposób przeliczania zmienionego tempa"
+                                      automation:AutomationProperties.HelpText="Dotyczy przyspieszania i zwalniania materiału w obsługiwanym torze odtwarzania: plików lokalnych, podcastów i buforowanej transmisji. Zmiana algorytmu obowiązuje po ponownym otwarciu materiału; zmiana samego tempa nadal działa od razu. Lokalny folder, plik, podcast lub sesja mogą mieć inny wybór w oknie Alt+Shift+Enter.">
+                                <ComboBoxItem Tag="SoundTouch"
+                                              automation:AutomationProperties.Name="Dotychczasowy — SoundTouch">Dotychczasowy — SoundTouch</ComboBoxItem>
+                                <ComboBoxItem Tag="Speech"
+                                              automation:AutomationProperties.Name="Mowa — Speedy">Mowa — Speedy</ComboBoxItem>
+                                <ComboBoxItem Tag="Music"
+                                              automation:AutomationProperties.Name="Muzyka — Signalsmith">Muzyka — Signalsmith</ComboBoxItem>
+                            </ComboBox>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox Header="Spotify" Margin="0,2,0,14">

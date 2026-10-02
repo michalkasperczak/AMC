@@ -17,6 +17,7 @@ public enum SettingsTarget
     LoudnessNormalization,
     SmoothTrackTransitions,
     InterTrackSilence,
+    TempoAlgorithm,
     Prefix,
     PrefixTimeout,
     RadioRecording,
