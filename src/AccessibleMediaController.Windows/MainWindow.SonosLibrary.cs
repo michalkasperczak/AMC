@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Sonos;
 
@@ -248,11 +247,6 @@ public partial class MainWindow
         // menu Plik; wynik wpada do TEGO SAMEGO, juz otwartego okna. Dzieki temu
         // jedno otwarcie daje uzywalny wybor bez powtarzania skrotu, a zadne
         // spoznione okno nie wyskakuje po wyjsciu - okno istnieje PRZED odczytem.
-        if (_sonosTopology is null)
-        {
-            ExecuteCommand(CommandIds.RefreshSonosGroups);
-        }
-
         var topology = _sonosTopology;
         var window = topology is null
             ? new SonosTargetSelectionWindow(DescribeSonosTargetUnavailable())
@@ -260,14 +254,19 @@ public partial class MainWindow
         SonosTargetWindowsCreatedForTests++;
         _sonosTargetWindow = window;
         var ticket = _sonosTargetTicket;
+        // F5 W OKNIE CELU: ta sama droga odswiezenia, co menu Plik i F5 na
+        // liscie glownej. Okno samo nie czyta sieci - oddaje intencje tutaj.
+        window.RefreshRequested = () => BeginSonosTargetRefresh(window);
         try
         {
             window.Owner = this;
+            if (topology is null) BeginSonosTargetRefresh(window);
             if (PresentSonosTargetOverrideForTests is { } present) present(window);
             else window.ShowDialog();
         }
         finally
         {
+            window.RefreshRequested = null;
             _sonosTargetWindow = null;
         }
 
