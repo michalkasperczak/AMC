@@ -42,6 +42,7 @@ from .shortcuts import Action, Chord, describe, resolve
 from .state_store import LiteState, Station, StationList, StateStore
 
 APP_NAME = "AMC-wx-Lite"
+TEMPO_LABELS = {1: "Mowa – Speedy", 2: "Muzyka – Signalsmith", 0: "Dotychczasowy – SoundTouch"}
 
 # Mapowanie klawiszy wx -> wlasne nazwy z shortcuts.py. Trzymamy to w JEDNYM
 # miejscu, zeby tablica skrotow nie zalezala od wx (da sie ja testowac w WSL).
@@ -322,6 +323,17 @@ class LiteFrame(wx.Frame):
         self.id_show_player = view_menu.Append(wx.ID_ANY, "Widok &odtwarzacza\tF6").GetId()
         bar.Append(view_menu, "&Widok")
 
+        audio_menu = wx.Menu()
+        algorithms = wx.Menu()
+        self.tempo_items = {}
+        for value, label in TEMPO_LABELS.items():
+            item = algorithms.AppendRadioItem(wx.ID_ANY, label)
+            item.Check(value == self.options.tempo_algorithm)
+            self.tempo_items[value] = item
+            self.Bind(wx.EVT_MENU, lambda _event, choice=value: self._set_tempo_algorithm(choice), id=item.GetId())
+        audio_menu.AppendSubMenu(algorithms, "&Algorytm przyspieszania")
+        bar.Append(audio_menu, "&Dźwięk")
+
         help_menu = wx.Menu()
         self.id_help = help_menu.Append(wx.ID_HELP, "&Skroty klawiszowe\tF1").GetId()
         bar.Append(help_menu, "Pomo&c")
@@ -354,6 +366,44 @@ class LiteFrame(wx.Frame):
         self.volume_slider.Bind(wx.EVT_SLIDER, self._on_volume_slider)
         self.rate_slider.Bind(wx.EVT_SLIDER, self._on_rate_slider)
 
+    def _set_tempo_algorithm(self, value: int) -> None:
+        """Persist only a selection acknowledged by the real host."""
+        if value not in TEMPO_LABELS:
+            return
+        previous = self.options.tempo_algorithm
+        if self.client is None:
+            for algorithm, item in self.tempo_items.items():
+                item.Check(algorithm == previous)
+            self.announcer.say("Silnik nie jest gotowy.")
+            return
+        client = self.client
+        payload = self.options.audio_payload()
+        payload["tempoAlgorithm"] = value
+        for item in self.tempo_items.values():
+            item.Enable(False)
+
+        def restore_selection(selected: int) -> None:
+            for algorithm, item in self.tempo_items.items():
+                item.Check(algorithm == selected)
+                item.Enable(True)
+
+        def failed(error: Exception) -> None:
+            restore_selection(previous)
+            self.announcer.say(f"Nie zmieniono algorytmu: {error}")
+
+        def done(result: dict) -> None:
+            if not isinstance(result, dict) or result.get("tempoAlgorithm") != value:
+                failed(RuntimeError("Silnik nie potwierdził wybranego algorytmu."))
+                return
+            self.options.tempo_algorithm = value
+            restore_selection(value)
+            if self._save_state() is False:
+                return
+            suffix = ". Zmiana po ponownym otwarciu materiału." if result.get("appliesOnNextPlayback") else "."
+            self.announcer.say(TEMPO_LABELS[value] + suffix)
+
+        self.runner.submit("audio-settings", lambda: client.configure_audio(**payload), done, failed)
+
     # --------------------------------------------------------------- silnik
 
     def _window_alive(self) -> bool:
@@ -378,6 +428,10 @@ class LiteFrame(wx.Frame):
                 f"Silnik nie wystartowal: {error}. Odtwarzanie niedostepne.",
             )
             return
+        try:
+            self.client.configure_audio(**self.options.audio_payload())
+        except (HostUnavailable, HostError) as error:
+            wx.CallAfter(self.announcer.say, f"Nie zastosowano ustawień dźwięku: {error}")
         self.timer.Start(1000)
 
     def _on_engine_event(self, name: str, data: dict) -> None:

@@ -40,7 +40,16 @@ class Options:
     loudness_normalization: bool = False
     smooth_track_transitions: bool = False
     inter_track_silence_ms: int = 0
+    tempo_algorithm: int = 1
     last_folder: str | None = None
+
+    def audio_payload(self) -> dict:
+        return {
+            "tempoAlgorithm": self.tempo_algorithm,
+            "loudnessNormalization": self.loudness_normalization,
+            "smoothTrackTransitions": self.smooth_track_transitions,
+            "interTrackSilenceMs": self.inter_track_silence_ms,
+        }
 
     def clamp(self) -> "Options":
         """Trzymaj wartosci w granicach, ktore silnik faktycznie przyjmuje."""
@@ -51,6 +60,8 @@ class Options:
         allowed = (0, 500, 1000, 2000, 3000, 5000)
         if self.inter_track_silence_ms not in allowed:
             self.inter_track_silence_ms = 0
+        if type(self.tempo_algorithm) is not int or self.tempo_algorithm not in (0, 1, 2):
+            self.tempo_algorithm = 1
         return self
 
 
@@ -95,7 +106,10 @@ class StateStore:
             return LiteState()
 
         options = Options()
-        for key, value in (raw.get("options") or {}).items():
+        raw_options = raw.get("options")
+        if not isinstance(raw_options, dict):
+            raw_options = {}
+        for key, value in raw_options.items():
             if hasattr(options, key) and not isinstance(value, (dict, list)):
                 try:
                     setattr(options, key, value)

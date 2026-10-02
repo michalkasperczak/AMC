@@ -7,6 +7,7 @@ internal static class Program
         ("--requests", RequestParsingTests.Run),
         ("--dispatch", DispatchLoopTests.Run),
         ("--args", ArgumentReadingTests.Run),
+        ("--audio", AudioConfigurationTests.Run),
     ];
 
     public static int Main(string[] args)

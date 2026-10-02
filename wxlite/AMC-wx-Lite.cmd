@@ -28,6 +28,7 @@ if not defined AMC_LITE_HOST (
   if exist "%HERE%host\amc_lite_host.exe" set "AMC_LITE_HOST=%HERE%host\amc_lite_host.exe"
 )
 
+set "PYTHONPATH=%HERE%app;%PYTHONPATH%"
 rem --sprawdz nie otwiera okna, tylko wypisuje stan srodowiska.
 "%RUNTIME%" -m amc_wx_lite %*
 exit /b %ERRORLEVEL%

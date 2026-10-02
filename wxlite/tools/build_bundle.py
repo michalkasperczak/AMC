@@ -48,12 +48,12 @@ def sha256(path: Path) -> str:
 
 
 def copy_python_code(target: Path) -> list[str]:
-    package = target / "amc_wx_lite"
+    package = target / "app" / "amc_wx_lite"
     package.mkdir(parents=True, exist_ok=True)
     copied = []
     for source in sorted((WXLITE / "amc_wx_lite").glob("*.py")):
         shutil.copy2(source, package / source.name)
-        copied.append(f"amc_wx_lite/{source.name}")
+        copied.append(f"app/amc_wx_lite/{source.name}")
     for name in ("AMC-wx-Lite.cmd", "requirements-win64.txt", "JAK_TESTOWAC.md"):
         source = WXLITE / name
         if source.exists():
@@ -75,12 +75,15 @@ def copy_host(target: Path, host_dir: Path) -> tuple[list[str], dict]:
     destination.mkdir(parents=True, exist_ok=True)
     copied = []
     hashes = {}
-    for source in sorted(host_dir.iterdir()):
-        if source.is_file() and source.suffix.lower() in {".exe", ".dll", ".json", ".pdb"}:
-            shutil.copy2(source, destination / source.name)
-            copied.append(f"host/{source.name}")
-            if source.suffix.lower() == ".exe":
-                hashes[source.name] = sha256(source)
+    for source in sorted(host_dir.rglob("*")):
+        if source.is_file() and source.suffix.lower() in {".exe", ".dll", ".json", ".pdb", ".txt", ".md"}:
+            relative = source.relative_to(host_dir)
+            output = destination / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, output)
+            copied.append(f"host/{relative.as_posix()}")
+            if source.suffix.lower() in {".exe", ".dll"}:
+                hashes[relative.as_posix()] = sha256(source)
     executable = destination / "amc_lite_host.exe"
     if not executable.exists():
         raise SystemExit(f"W {host_dir} nie ma amc_lite_host.exe - build jest niepelny.")
@@ -94,7 +97,12 @@ def copy_runtime(target: Path, runtime: Path) -> list[str]:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(runtime, destination)
-    return [f"runtime/ ({sum(1 for _ in destination.rglob('*') if _.is_file())} plikow)"]
+    for paths_file in destination.glob("python*._pth"):
+        lines = paths_file.read_text(encoding="utf-8").splitlines()
+        if "../app" not in lines:
+            lines.append("../app")
+        paths_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return [p.relative_to(target).as_posix() for p in sorted(destination.rglob("*")) if p.is_file()]
 
 
 def main() -> int:
@@ -117,7 +125,7 @@ def main() -> int:
 
     manifest: dict = {
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "note": "Prywatny pakiet AMC-wx-Lite. Nie zawiera runtime VC++ ani danych pelnego AMC.",
+        "note": "Prywatny pakiet AMC-wx-Lite bez danych pełnego AMC. Zawartość runtime zależy od wskazanego źródła; publikacja wymaga sprawdzenia licencji.",
         "files": [],
     }
 

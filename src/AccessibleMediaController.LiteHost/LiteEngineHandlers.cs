@@ -319,29 +319,19 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object ConfigureAudio(JsonElement args)
     {
-        // Mały WYDZIELONY handler ustawień dźwięku. Po scaleniu z pracą DSP
-        // dojdzie tu tempoAlgorithm — typ enum dostarczy Core, NIE ten plik.
-        // Nie deklarujemy obsługi algorytmu, dopóki jej nie ma.
-        var settings = new PlaybackAudioSettings
-        {
-            LoudnessNormalizationEnabled = LiteArgs.ReadBool(args, "loudnessNormalization", false),
-            SmoothTrackTransitionsEnabled = LiteArgs.ReadBool(args, "smoothTrackTransitions", false),
-            InterTrackSilenceMilliseconds = LiteArgs.ReadInt(args, "interTrackSilenceMs", 0, 0, 5_000)
-        };
-        if (!PlaybackAudioSettingsRules.IsSupportedSilence(settings.InterTrackSilenceMilliseconds))
-        {
-            throw new LiteRequestException(
-                "Nieobsługiwana długość ciszy między utworami. Dozwolone: "
-                + string.Join(", ", PlaybackAudioSettingsRules.SupportedInterTrackSilenceMilliseconds));
-        }
+        var settings = LiteAudioSettings.Read(args);
+        if (settings.TempoAlgorithm != PlaybackTempoAlgorithm.SoundTouch && !AmcTempoNativeLibrary.IsAvailable)
+            throw new LiteRequestException("Nowe silniki tempa są niedostępne. Wybierz SoundTouch lub napraw pakiet programu.");
         _files.ConfigureAudioProcessing(settings);
+        _radio.ConfigureTempoAlgorithm(settings.TempoAlgorithm);
         return new
         {
             loudnessNormalization = settings.LoudnessNormalizationEnabled,
             smoothTrackTransitions = settings.SmoothTrackTransitionsEnabled,
             interTrackSilenceMs = settings.InterTrackSilenceMilliseconds,
-            // Jawnie: algorytm tempa jeszcze NIE jest podpięty w tej gałęzi.
-            tempoAlgorithmAvailable = false
+            tempoAlgorithm = (int)settings.TempoAlgorithm,
+            tempoAlgorithmAvailable = true,
+            appliesOnNextPlayback = true
         };
     }
 

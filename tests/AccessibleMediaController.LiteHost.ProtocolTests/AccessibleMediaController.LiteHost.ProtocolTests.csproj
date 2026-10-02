@@ -12,6 +12,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
     <Compile Include="*.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\Protocol\**\*.cs"
              Link="Protocol\%(RecursiveDir)%(Filename)%(Extension)" />

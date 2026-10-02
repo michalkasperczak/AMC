@@ -103,4 +103,28 @@
     <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"
              Link="Engine\YtDlpComponentManager.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\NativeTempoStream.cs" Link="Engine\NativeTempoStream.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AmcTempoNativeLibrary.cs" Link="Engine\AmcTempoNativeLibrary.cs" />
+    <None Include="..\..\third_party\AmcTempoEngines\win-x64\AmcTempoEngines.dll"
+          Link="AmcTempoEngines.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\third_party\BASS\win-x64\bass.dll"
+          Link="bass.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\tempo-engines\**\*"
+          Link="licenses\tempo-engines\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\NAudio-MIT.txt;..\..\licenses\NLayer-MIT.txt;..\..\licenses\Vorbis-components-MIT.txt;..\..\licenses\BASS-2.4.txt;..\..\licenses\Microsoft.Data.Sqlite-MIT.txt;..\..\licenses\SQLitePCLRaw-Apache-2.0.txt;..\..\licenses\SQLite-public-domain.txt"
+          Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <PropertyGroup>
+    <AmcTempoEnginesExpectedSha256>1a24c0c40d55e9d56421586d8fd81bfa74324ef5b627d799fab06b56bc1c8a5f</AmcTempoEnginesExpectedSha256>
+    <AmcTempoEnginesBinaryPath>$(MSBuildThisFileDirectory)..\..\third_party\AmcTempoEngines\win-x64\AmcTempoEngines.dll</AmcTempoEnginesBinaryPath>
+  </PropertyGroup>
+  <Target Name="VerifyPinnedTempoEnginesBinary" BeforeTargets="Build;Publish">
+    <Error Condition="!Exists('$(AmcTempoEnginesBinaryPath)')" Text="Brak biblioteki nowych silników tempa." />
+    <GetFileHash Files="$(AmcTempoEnginesBinaryPath)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="_LiteTempoHashed" />
+    </GetFileHash>
+    <Error Condition="'%(_LiteTempoHashed.FileHash)' != '$(AmcTempoEnginesExpectedSha256)'" Text="Niezgodna suma biblioteki silników tempa." />
+  </Target>
 </Project>
