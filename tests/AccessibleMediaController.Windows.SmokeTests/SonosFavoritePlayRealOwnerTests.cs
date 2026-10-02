@@ -1385,7 +1385,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         private void DoEvents()
         {
             var frame = new DispatcherFrame();
-            _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+            // Include deferred ContextIdle startup work; ending at Background
+            // starves those callbacks on every nested message-loop iteration.
+            _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => frame.Continue = false));
             Dispatcher.PushFrame(frame);
         }
 
