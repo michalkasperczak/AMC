@@ -151,8 +151,19 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             { Id = "station-kept", Name = "Nazwa nadana ręcznie", StreamUrl = keptUrl });
         h.SaveStateForTests();
 
-        // Playlista z czterema wpisami: jeden nowy, jeden JUZ ZAPISANY (ten sam
-        // adres), jeden bez adresu i jeden plikowy (Sonos go nie przyjmie).
+        // Playlista z czterema wpisami, po JEDNYM na kazde zrodlo pominiecia.
+        //
+        // DOBOR WPISOW jest wymuszony przez to, gdzie wpis ODPADA naprawde:
+        // pusty wiersz po #EXTINF w ogole nie staje sie wpisem (parser go nie
+        // odda), a "file:" odpada JUZ W PARSERZE radia - wiec zaden z nich nie
+        // dochodzi do scalania i nie podbija SkippedInvalidAddresses.
+        // Dlatego:
+        // - "nie-adres" to NIEPUSTY wiersz, ktory parser liczy jako pominiety,
+        // - adres http dluzszy niz limit 1024 znakow z loadStreamUrl (ale
+        //   krotszy niz 4096, zeby nie odpadl wczesniej) przechodzi parser i
+        //   zostaje odrzucony dopiero przez SonosStreamUrlPolicy w scalaniu.
+        // Rozklad: parser 1 + duplikat 1 + zly adres 1 = 3 pominiecia.
+        var tooLongUrl = "https://long.example.invalid/" + new string('x', 1100);
         var playlist = h.WriteTempFile("lista.m3u", string.Join('\n',
             "#EXTM3U",
             "#EXTINF:-1,Nowa stacja",
@@ -160,9 +171,11 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             "#EXTINF:-1,Nazwa z pliku",
             keptUrl,
             "#EXTINF:-1,Wpis bez adresu",
-            "",
-            "#EXTINF:-1,Plik lokalny",
-            "file:///etc/passwd"));
+            "nie-adres",
+            "#EXTINF:-1,Adres ponad limit Sonosa",
+            tooLongUrl));
+        if (tooLongUrl.Length is <= 1024 or >= 4096)
+            throw new Exception("Fikstura zgubiła przedział długości adresu: " + tooLongUrl.Length);
 
         var outcome = h.ImportWithPath(playlist);
         if (outcome.Stations is null) throw new Exception("Udany import nie zwrócił listy: " + outcome.Message);
@@ -188,8 +201,10 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 throw new Exception($"Komunikat nie zawiera „{fragment}”: {outcome.Message}");
         }
 
-        // TRWALOSC: nowy store z TEGO SAMEGO pliku. Import musiał już zapisać
-        // sam z siebie - bez dodatkowego SaveStateForTests.
+        // TRWALOSC: nowy store z TEGO SAMEGO pliku. Import tylko ZAKOLEJKOWAL
+        // zapis (QueueStateSave), wiec czekamy na rzeczywiste domkniecie TEJ
+        // kolejki - bez wlasnego Save, ktory zamaskowalby brak podpiecia.
+        h.WaitForQueuedStateSave();
         var reloaded = h.ReloadStateForTests();
         if (reloaded.Sonos.OwnStreams.Count != 2)
             throw new Exception("Plik stanu ma stacji: " + reloaded.Sonos.OwnStreams.Count);
@@ -216,12 +231,17 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         h.Window.StateForTests.Sonos.OwnStreams.Add(new SonosOwnStreamSettings
             { Id = "station-kept", Name = "Stacja próbna", StreamUrl = "https://a.example.invalid/s" });
         h.SaveStateForTests();
+        // PRZED NEGATYWEM: doczekujemy zapisow PRZYGOTOWANIA. Inaczej pozniejszy
+        // zapis z kolejki wpadlby w porownanie bajt w bajt i zostalby mylnie
+        // przypisany anulowaniu.
+        h.WaitForQueuedStateSave();
         var before = File.ReadAllText(h.SettingsPathForTests);
 
         var outcome = h.ImportWithPath(null);
         if (outcome.Stations is not null) throw new Exception("Anulowanie zmieniło listę");
         if (h.Window.StateForTests.Sonos.OwnStreams.Count != 1)
             throw new Exception("Anulowanie ruszyło stacje w pamięci");
+        h.WaitForQueuedStateSave();
         if (File.ReadAllText(h.SettingsPathForTests) != before)
             throw new Exception("Anulowanie zapisało plik stanu");
         if (h.Handler.Posts.Count != 0) throw new Exception("Anulowanie wysłało POST");
@@ -239,6 +259,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         h.Window.StateForTests.Sonos.OwnStreams.Add(new SonosOwnStreamSettings
             { Id = "station-kept", Name = "Stacja próbna", StreamUrl = "https://a.example.invalid/s" });
         h.SaveStateForTests();
+        h.WaitForQueuedStateSave();
         var before = File.ReadAllText(h.SettingsPathForTests);
 
         // NIE MA takiego pliku.
@@ -258,6 +279,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
         if (h.Window.StateForTests.Sonos.OwnStreams.Count != 1)
             throw new Exception("Błąd importu ruszył stacje w pamięci");
+        h.WaitForQueuedStateSave();
         if (File.ReadAllText(h.SettingsPathForTests) != before)
             throw new Exception("Błąd importu zapisał plik stanu");
         if (h.Handler.Posts.Count != 0) throw new Exception("Błąd importu wysłał POST");
@@ -303,6 +325,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         if (string.IsNullOrWhiteSpace(status) || !status!.Contains("Dodano stacje", StringComparison.Ordinal))
             throw new Exception("Okno nie powiedziało wyniku importu: " + status);
 
+        h.WaitForQueuedStateSave();
         var reloaded = h.ReloadStateForTests();
         if (reloaded.Sonos.OwnStreams.Count != 2)
             throw new Exception("Import z okna nie utrwalił listy, stacji: " + reloaded.Sonos.OwnStreams.Count);

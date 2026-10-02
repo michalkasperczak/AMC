@@ -1022,6 +1022,20 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         internal PersistedState ReloadStateForTests() =>
             new ConfigurationStore(Path.Combine(_directory, "settings.json")).LoadOrCreate();
 
+        /// <summary>
+        /// DOCZEKANIE RZECZYWISTEGO ZAPISU z kolejki produkcyjnej
+        /// (<c>QueueStateSave</c> tylko KOLEJKUJE). Nie wolamy tu Save:
+        /// wlasny zapis zamaskowalby brak podpiecia kolejki u wolajacego.
+        /// </summary>
+        internal void WaitForQueuedStateSave()
+        {
+            var queue = (StatePersistenceQueue?)(typeof(MainWindow)
+                .GetField("_statePersistence", Instance)?.GetValue(Window))
+                ?? throw new Exception("Okno główne nie ma kolejki zapisu stanu.");
+            if (!queue.WaitForIdle(TimeSpan.FromSeconds(20), out var failure))
+                throw new Exception("Zakolejkowany zapis stanu nie domknął się: " + failure?.Message);
+        }
+
         /// <summary>PLIK STANU: pomiar importu porownuje jego tresc BAJT W BAJT.</summary>
         internal string SettingsPathForTests => Path.Combine(_directory, "settings.json");
 

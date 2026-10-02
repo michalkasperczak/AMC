@@ -15,7 +15,7 @@
             <Button x:Name="EditButton" Content="_Edytuj" Width="90" Margin="0,0,8,0" Click="Edit_Click" />
             <Button x:Name="RemoveButton" Content="_Usuń" Width="90" Margin="0,0,8,0" Click="Remove_Click" />
             <Button x:Name="ImportButton" Content="_Importuj z playlisty…" Width="170" Margin="0,0,8,0"
-                automation:AutomationProperties.Name="Importuj stacje z playlisty do Moich stacji Sonosa, Control O"
+                automation:AutomationProperties.Name="Importuj stacje z playlisty do Moich stacji Sonosa"
                 automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                 automation:AutomationProperties.HelpText="Dopisuje stacje z pliku M3U, PLS, XSPF albo JSON. Nie usuwa zapisanych stacji i nie zmienia Ulubionych Sonosa."
                 Click="Import_Click" />

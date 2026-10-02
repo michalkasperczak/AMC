@@ -28,9 +28,11 @@ public partial class MainWindow
 {
     /// <summary>
     /// Wynik proby importu widziany przez UI. <see cref="Stations"/> rozne od
-    /// null znaczy: stan ZOSTAL zmieniony i zapisany, a to jest PELNA nowa
-    /// lista. null znaczy: nic nie ruszylismy (anulowanie, blad, brak nowych
-    /// stacji) - wolajacy ma tylko powiedziec <see cref="Message"/>.
+    /// null znaczy: stan ZOSTAL zmieniony, a zapis na dysk ZAKOLEJKOWANY
+    /// (<c>QueueStateSave</c>) - nie obiecujemy, ze plik jest juz zapisany ani
+    /// ze zapis sie powiedzie; blad zapisu zglasza sama kolejka. To jest PELNA
+    /// nowa lista. null znaczy: nic nie ruszylismy (anulowanie, blad, brak
+    /// nowych stacji) - wolajacy ma tylko powiedziec <see cref="Message"/>.
     /// </summary>
     internal sealed record SonosOwnStreamsImportUiOutcome(
         IReadOnlyList<SonosOwnStreamSettings>? Stations,
