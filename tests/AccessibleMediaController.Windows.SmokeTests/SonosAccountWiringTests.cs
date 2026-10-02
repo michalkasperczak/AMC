@@ -300,9 +300,17 @@ internal static class SonosAccountWiringTests
         // Plik i w palecie (sprawdzane nizej). Asercja jest dostosowana do
         // OBOWIAZUJACEGO kontraktu, nie usunieta.
         var source = File.ReadAllText(LocateRepositoryFile("src/AccessibleMediaController.Windows/MainWindow.xaml.cs"));
-        var ctrlF5 = source.IndexOf("&& key == Key.F5", StringComparison.Ordinal);
+        // Kotwica na PELNYM warunku Ctrl+F5, nie na samym "&& key == Key.F5":
+        // ten fragment wystepuje takze w sasiedniej obsludze F5 bez modyfikatora,
+        // a okno 1200 znakow od zlej kotwicy nie siegalo galezi Sonosa.
+        const string ctrlF5Condition = "Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5";
+        var ctrlF5 = source.IndexOf(ctrlF5Condition, StringComparison.Ordinal);
         if (ctrlF5 < 0) throw new Exception("Nie udało się odnaleźć obsługi Ctrl+F5.");
-        var ctrlF5Block = source.Substring(ctrlF5, Math.Min(1200, source.Length - ctrlF5));
+        // Blok konczy sie na zamykajacym "return true;" tej galezi - mierzymy
+        // CALY rozdzial sesji dla Ctrl+F5, a nie staly wycinek znakow.
+        var ctrlF5End = source.IndexOf("return true;", ctrlF5, StringComparison.Ordinal);
+        if (ctrlF5End < 0) throw new Exception("Obsługa Ctrl+F5 nie ma zakończenia gałęzi.");
+        var ctrlF5Block = source.Substring(ctrlF5, ctrlF5End - ctrlF5);
         if (!ctrlF5Block.Contains("ChooseSonosTarget", StringComparison.Ordinal))
         {
             throw new Exception("Ctrl+F5 w sesji Sonos nie kieruje do wyboru celu sterowania.");
