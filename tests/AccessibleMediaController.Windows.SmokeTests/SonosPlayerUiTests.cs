@@ -1350,10 +1350,10 @@ internal static class SonosPlayerUiTests
                 throw new Exception($"{commandId}: polecenie poszlo do cudzej grupy.");
             }
             checks++;
-            if (!said.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase))
+            // Michał chce krótkiego potwierdzenia; kontrola zmiany materiału i GET pozostaje wyżej.
+            if (!string.Equals(said, "Zmieniono pozycję.", StringComparison.Ordinal))
             {
-                throw new Exception(
-                    $"{commandId}: zmiana materialu UTWOR-1 -> UTWOR-2 nie zostala potwierdzona: \"{said}\".");
+                throw new Exception($"{commandId}: niewłaściwy komunikat zmiany pozycji: {said}");
             }
             checks++;
         }
@@ -1437,10 +1437,10 @@ internal static class SonosPlayerUiTests
                 throw new Exception($"{commandId}: nie bylo jawnego GET-u glosnosci po poleceniu.");
             }
             checks++;
-            if (!said.Contains("potwierdzona odczytem", StringComparison.OrdinalIgnoreCase))
+            // Nowa treść ma podać rzeczywiście odczytaną wartość, bez technicznego dopisku.
+            if (!string.Equals(said, $"Głośność {30 + delta} procent.", StringComparison.Ordinal))
             {
-                throw new Exception(
-                    $"{commandId}: odczyt zwrocil zmieniona wartosc, a mowa jej nie potwierdzila: \"{said}\".");
+                throw new Exception($"{commandId}: niewłaściwy komunikat głośności: {said}");
             }
             checks++;
             if (harness.DemoSessionPosition != demoBefore)
@@ -1556,9 +1556,23 @@ internal static class SonosPlayerUiTests
                 throw new Exception("Mute: nie bylo jawnego GET-u glosnosci po poleceniu.");
             }
             checks++;
-            if (!said.Contains("Wyciszenie ustawione", StringComparison.OrdinalIgnoreCase))
+            // MOWA PO SUKCESIE JEST KROTKA. Zgloszenie Michala po 4.15: nie chce
+            // litanii typu "Głośność 13 procent potwierdzona odczytem", wiec po
+            // UDANYM wyciszeniu zostaje sam stan ("Wyciszenie: wyciszone.").
+            // Pilnujemy tego, co uzytkownik faktycznie potrzebuje: ze mowa
+            // ZMIENILA SIE wraz z odczytem i podaje NOWY stan.
+            var expectedMuteState = before ? "bez wyciszenia" : "wyciszone";
+            if (!string.Equals(said, $"Wyciszenie: {expectedMuteState}.", StringComparison.Ordinal))
             {
-                throw new Exception($"Mute przy odczycie {before}: odczyt zmienil sie, a mowa nie: \"{said}\".");
+                throw new Exception(
+                    $"Mute przy odczycie {before}: mowa nie podaje nowego stanu "
+                    + $"\"{expectedMuteState}\": \"{said}\".");
+            }
+            checks++;
+            // I NIE WRACA litania po sukcesie.
+            if (said.Contains("potwierdzon", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"Mute: wrocila litania po sukcesie: \"{said}\".");
             }
             checks++;
             if (harness.Backend.VolumeSets.Count != 0)
