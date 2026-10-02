@@ -146,11 +146,7 @@ public partial class RadioPresetsWindow : AccessibleWindow
             PresetStatus.Announce("Zaznaczenie nie zawiera zajętego presetu z adresem");
             return;
         }
-        var text = _copyLocalTargets
-            ? string.Join(Environment.NewLine, choices.Select(choice => choice.ShareableLocation))
-            : string.Join(
-                Environment.NewLine,
-                choices.SelectMany(choice => new[] { choice.StationName!, choice.ShareableLocation! }));
+        var text = string.Join(Environment.NewLine, choices.Select(choice => choice.ShareableLocation));
         var data = new DataObject();
         data.SetData(DataFormats.UnicodeText, text);
         if (_copyLocalTargets)
@@ -177,8 +173,8 @@ public partial class RadioPresetsWindow : AccessibleWindow
                 ? "Skopiowano pełną ścieżkę i dostępny element"
                 : $"Skopiowano pełne ścieżki i dostępne elementy: {choices.Length}"
             : choices.Length == 1
-                ? "Skopiowano nazwę i łącze"
-                : $"Skopiowano nazwy i łącza: {choices.Length}");
+                ? "Skopiowano łącze"
+                : $"Skopiowano łącza: {choices.Length}");
     }
 
     private void ActivateSelected()

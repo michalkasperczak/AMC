@@ -5844,7 +5844,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
-            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. W Podcastach Ctrl+C kopiuje nazwę, opis i publiczną stronę każdego zaznaczonego odcinka, a Ctrl+Shift+C wyłącznie bezpośrednie adresy audio. Ctrl+D pobiera zaznaczone odcinki do domyślnego folderu Podcastów, a Ctrl+S zapisuje jeden odcinek pod wskazaną nazwą. " +
+            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne, a dla radia i innych źródeł same łącza, bez nazw, po jednym w wierszu. W Podcastach Ctrl+C kopiuje nazwę, opis i publiczną stronę każdego zaznaczonego odcinka, a Ctrl+Shift+C wyłącznie bezpośrednie adresy audio. Ctrl+D pobiera zaznaczone odcinki do domyślnego folderu Podcastów, a Ctrl+S zapisuje jeden odcinek pod wskazaną nazwą. " +
             "Delete usuwa z bieżącego widoku. W Historii odtwarzania usuwa tylko wpis Historii, bez zmiany Biblioteki i pliku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -24783,9 +24783,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var text = string.Join(
             Environment.NewLine,
-            entries.SelectMany(entry => entry.LocalPath is not null
-                ? [entry.LocalPath]
-                : new[] { entry.Title, entry.ShareableLocation! }));
+            entries.Select(entry => entry.LocalPath ?? entry.ShareableLocation!));
         if (localPaths.Length > 0)
         {
             var fileDropList = new StringCollection();
@@ -24803,11 +24801,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var remoteCount = entries.Length - localPaths.Length;
         if (localPaths.Length > 0)
         {
-            return $"Skopiowano pliki: {localPaths.Length}; nazwy i łącza: {remoteCount}";
+            return $"Skopiowano pliki: {localPaths.Length}; łącza: {remoteCount}";
         }
         return remoteCount == 1
-            ? "Skopiowano nazwę i łącze"
-            : $"Skopiowano nazwy i łącza: {remoteCount}";
+            ? "Skopiowano łącze"
+            : $"Skopiowano łącza: {remoteCount}";
     }
 
     private string CopySearchResultLocations(IReadOnlyList<SearchWindow.SearchResult> results)
@@ -24850,9 +24848,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var serviceCount = clipboardEntries.Count(entry => entry.LocalPath is null);
         var text = string.Join(
             Environment.NewLine,
-            clipboardEntries.SelectMany(entry => entry.LocalPath is not null
-                ? [entry.LocalPath]
-                : new[] { entry.Title, entry.ShareableLocation! }));
+            clipboardEntries.Select(entry => entry.LocalPath ?? entry.ShareableLocation!));
 
         if (localPaths.Length > 0)
         {
@@ -24870,7 +24866,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (localPaths.Length > 0 && serviceCount > 0)
         {
-            return $"Skopiowano pliki: {localPaths.Length}; nazwy i łącza: {serviceCount}";
+            return $"Skopiowano pliki: {localPaths.Length}; łącza: {serviceCount}";
         }
         if (localPaths.Length > 0)
         {
@@ -24879,8 +24875,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
         }
         return results.Count == 1
-            ? "Skopiowano nazwę i łącze"
-            : $"Skopiowano nazwy i łącza: {results.Count}";
+            ? "Skopiowano łącze"
+            : $"Skopiowano łącza: {results.Count}";
     }
 
     private static string GetShareableLocation(MediaItem item, string sessionId)

@@ -86,8 +86,8 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   przenosi pojedynczy wpis albo ciągły zaznaczony blok. Eksport do WiiM Home
   oraz `Alt+Page Up/Alt+Page Down` respektują aktualnie wybrany porządek,
   zamiast wracać do technicznej kolejności zapisu. `Ctrl+C` kopiuje nazwy
-  wszystkich zaznaczonych strumieni, a `Ctrl+Shift+C` każdą nazwę wraz z
-  adresem. Po `F2`, anulowaniu okna i przeniesieniu fokus wraca do właściwego
+  wszystkich zaznaczonych strumieni, a przygotowywana poprawka po alfa415
+  zmienia `Ctrl+Shift+C` na same adresy, bez nazw, po jednym w wierszu. Po `F2`, anulowaniu okna i przeniesieniu fokus wraca do właściwego
   wpisu.
 - Import M3U/PLS zachowuje kolejność pozycji wewnątrz importowanej partii w
   widoku `Alt+1`. Po uruchomieniu strumienia AMC zapamiętuje ten wybór także

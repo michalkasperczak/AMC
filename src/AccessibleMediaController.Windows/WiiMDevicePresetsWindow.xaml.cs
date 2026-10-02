@@ -191,21 +191,28 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
         }
         var text = includeLinks
             ? string.Join(
-                Environment.NewLine + Environment.NewLine,
-                selected.Select(row => string.IsNullOrWhiteSpace(row.Preset!.Uri)
-                    ? row.Preset.Name
-                    : $"{row.Preset.Name}{Environment.NewLine}{row.Preset.Uri}"))
+                Environment.NewLine,
+                selected.Select(row => row.Preset!.Uri)
+                    .Where(uri => !string.IsNullOrWhiteSpace(uri)))
             : string.Join(Environment.NewLine, selected.Select(row => row.Preset!.Name));
+        if (includeLinks && text.Length == 0)
+        {
+            PresetStatus.Announce("Dla zaznaczonych presetów nie zapisano adresu");
+            return;
+        }
         if (!ClipboardRetry.TrySetText(text, out var error))
         {
             PresetStatus.Announce(error);
             return;
         }
-        PresetStatus.Announce(selected.Length == 1
-            ? includeLinks ? "Skopiowano nazwę i dostępne łącze" : "Skopiowano nazwę"
+        var copiedCount = includeLinks
+            ? selected.Count(row => !string.IsNullOrWhiteSpace(row.Preset!.Uri))
+            : selected.Length;
+        PresetStatus.Announce(copiedCount == 1
+            ? includeLinks ? "Skopiowano łącze" : "Skopiowano nazwę"
             : includeLinks
-                ? $"Skopiowano nazwy i dostępne łącza: {selected.Length}"
-                : $"Skopiowano nazwy: {selected.Length}");
+                ? $"Skopiowano łącza: {copiedCount}"
+                : $"Skopiowano nazwy: {copiedCount}");
     }
 
     private void Activate_Click(object sender, RoutedEventArgs e)

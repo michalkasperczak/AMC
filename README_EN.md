@@ -1,5 +1,9 @@
 # Accessible Media Controller — Windows prototype
 
+## Pending after alpha415: copy addresses without titles
+
+`Ctrl+Shift+C` in media lists, the player, search results and presets copies only locations, one per line, without item titles. Podcast direct audio/feed addresses and the existing YouTube item URL selection are unchanged; this does not create a new raw audio stream URL or guarantee external-speaker playback. Local file-drop data and full paths are preserved, as is ordinary `Ctrl+C` name/description copying. A WiiM hardware preset without a URL no longer substitutes its name. Older name-and-link descriptions below are historical. Windows/NVDA acceptance and release are still pending.
+
 ## Keep backups after editing
 
 Settings → General has a **Zachowuj kopie po edycji** ("Keep backups after

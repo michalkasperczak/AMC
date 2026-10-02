@@ -1,5 +1,9 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Przygotowywana zmiana po alfa415: kopiowanie samych adresów
+
+`Ctrl+Shift+C` na listach, w odtwarzaczu, wynikach wyszukiwania oraz presetach kopiuje same łącza, bez nazwy elementu; przy wielu pozycjach po jednym adresie w wierszu. Dla podcastów zachowany jest bezpośredni adres audio lub kanału, a dla YouTube dotychczasowy adres materiału — nie powstaje przez to nowy adres strumienia audio ani gwarancja odtwarzania na zewnętrznym głośniku. Lokalne pliki nadal są kopiowane jako pliki i pełne ścieżki. `Ctrl+C` zachowuje dotychczasowe nazwy/opisy. Preset urządzenia WiiM bez adresu nie kopiuje nazwy w zastępstwie łącza. Starsze opisy par „nazwa i łącze” poniżej są historią. Ta poprawka wymaga jeszcze odbioru Windows/NVDA i wydania.
+
 ## Aktualny stan i dokumentacja rozwoju
 
 - [Wydania i opisy zmian](https://github.com/michalkasperczak/AMC/releases).
