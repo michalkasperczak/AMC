@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Waski test faktycznego toru C# -> natywne silniki tempa.
+
+    Po co osobny projekt: AccessibleMediaController.Windows celuje w
+    net8.0-windows10.0.19041.0 (WPF, WASAPI, SMTC) i NIE kompiluje sie ani nie
+    uruchamia na Linuksie. Natomiast same pliki etapu tempa sa od tego
+    niezalezne: WaveStream + P/Invoke. Ten projekt LINKUJE TE SAME PLIKI
+    zrodlowe (nie kopie, nie replike w Pythonie), dolacza NAudio.Core
+    i SoundTouch.Net.NAudioSupport.Core oraz Core (dla enuma
+    PlaybackTempoAlgorithm) i wola natywna biblioteke zbudowana na Linuksie.
+
+    Czego ten test NIE mierzy: WASAPI, urzadzen wyjscia, GUI, NVDA, Windows.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>AmcTempoAdapterTests</AssemblyName>
+    <RootNamespace>AccessibleMediaController.TempoAdapterTests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- TE SAME pliki, ktore buduje projekt Windows. -->
+    <Compile Include="..\..\src\AccessibleMediaController.Windows\Services\AmcTempoNativeLibrary.cs"
+             Link="Linked\AmcTempoNativeLibrary.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs"
+             Link="Linked\PlaybackTempoStream.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.Windows\Services\NativeTempoStream.cs"
+             Link="Linked\NativeTempoStream.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
+    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+    <PackageReference Include="SoundTouch.Net.NAudioSupport.Core" Version="2.3.2" />
+  </ItemGroup>
+</Project>
