@@ -13976,6 +13976,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
         Dispatcher.BeginInvoke(AnnouncePendingRadioScheduleFailures, DispatcherPriority.ContextIdle);
+        // ZWYKLE WEJSCIE PO STARCIE: przywrocona sesja Sonos nie przechodzila
+        // przez przelacznik sesji, wiec grupy nie byly nigdy wczytane i cel
+        // sterowania zostawal pusty az do recznego "Odswiez grupy Sonos".
+        // Wchodzimy ta SAMA droga co przelacznik, po cichu.
+        Dispatcher.BeginInvoke(EnsureSonosSessionEnteredAtStartup, DispatcherPriority.ContextIdle);
+    }
+
+    /// <summary>
+    /// Wejscie w sesje Sonos przy starcie, gdy aplikacja wstala juz na Sonosie.
+    /// Cicho (bez zapowiedzi), bo uzytkownik niczego nie przelaczal.
+    /// </summary>
+    private void EnsureSonosSessionEnteredAtStartup()
+    {
+        if (_isClosing) return;
+        if (!IsSonosSession(_sessions.Current)) return;
+        // Jesli grupy sa juz wczytane (np. uzytkownik zdazyl odswiezyc recznie),
+        // nie powtarzamy odczytu.
+        if (_sonosTopology.Count != 0) return;
+        _ = EnterSonosSessionAsync();
     }
 
     private void Window_Activated(object? sender, EventArgs e)
@@ -21999,9 +22018,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.F5
             && (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                // F5 w sesji Sonos NIE odswiezalo niczego - gest spadal do
+                // Biblioteki lokalnej. Stad zgloszona niekonsekwencja wobec
+                // menu Plik.
+                || IsSonosSession(_sessions.Current.Id)
                 || string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)))
         {
-            ExecuteCommand(string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            // DOKLADNIE to samo istniejace polecenie, co menu Plik i paleta -
+            // nie druga droga odswiezania.
+            ExecuteCommand(IsSonosSession(_sessions.Current.Id)
+                ? CommandIds.RefreshSonosGroups
+                : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
                 ? CommandIds.RefreshWiiMDevices
                 : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                 ? string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)

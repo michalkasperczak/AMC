@@ -124,6 +124,63 @@ internal static class SonosSublistSessionSwitch
     }
 
     /// <summary>
+    /// TRANSPORT I PRESETY Z WNETRZA PODLISTY - ta sama droga, co Ctrl+cyfra wyzej.
+    ///
+    /// DLACZEGO TU: modal WYLACZA okno glowne, wiec jego router nie widzi ani
+    /// Spacji, ani Ctrl+Shift+cyfry. Zgloszono, ze dzialaja wylacznie w glownym,
+    /// niezablokowanym oknie.
+    ///
+    /// CO ROBI, A CZEGO NIE:
+    ///   * Spacja = pauza/wznowienie BIEZACEGO materialu (CommandIds.PlayPause),
+    ///     dokladnie jak w reszcie AMC. Enter NIE jest tu ruszany - uruchamianie
+    ///     WSKAZANEJ pozycji zostaje tam, gdzie bylo, w kazdym oknie podlisty.
+    ///     Spacja nie staje sie drugim Enterem.
+    ///   * Ctrl+Shift+cyfra = ISTNIEJACE polecenie presetu, przez ten sam
+    ///     MainWindowShortcutRouter.ResolveDigit, co okno glowne - wiec 0, minus
+    ///     i rowna sie dzialaja zgodnie z mapa, bez drugiej mapy klawiszy.
+    ///   * PODLISTA ZOSTAJE OTWARTA: nie zwijamy stosu modalnego, bo uzytkownik
+    ///     prosil o ZACHOWANIE tego samego wiersza i fokusu. To rozni ten gest od
+    ///     Ctrl+cyfra, ktore sesje ZMIENIA i dlatego musi liste zamknac.
+    ///   * ZERO globalnego hooka: slyszymy tylko klawisze, ktore przyszly do nas.
+    ///   * Pole tekstowe (filtr, edycja) ma pierwszenstwo dla Spacji - inaczej
+    ///     nie dalo by sie wpisac odstepu. Ctrl+Shift+cyfra nie jest znakiem,
+    ///     wiec jej nie dotyczy.
+    /// </summary>
+    internal static bool TryHandleTransportAndPresets(Window window, KeyEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        ArgumentNullException.ThrowIfNull(e);
+
+        var owner = FindOwningMainWindow(window);
+        if (owner is null) return false;
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        // PRESET: pytamy ISTNIEJACY router, nie wlasna mape cyfr.
+        if (owner.TryResolveSublistPresetSlot(key, out var presetSlot))
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return true;
+            owner.ActivateSonosSublistPreset(presetSlot);
+            return true;
+        }
+
+        if (key != Key.Space || Keyboard.Modifiers != ModifierKeys.None) return false;
+
+        // ODSTEP W POLU TEKSTOWYM TO ZNAK, NIE TRANSPORT.
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+            or System.Windows.Controls.PasswordBox)
+        {
+            return false;
+        }
+
+        e.Handled = true;
+        if (e.IsRepeat) return true;
+        owner.TogglePlaybackFromSonosSublist();
+        return true;
+    }
+
+    /// <summary>
     /// OKNO GLOWNE w gorze lancucha wlascicieli. Petla, a nie jeden krok, bo
     /// podlista NIE MA zagwarantowanej odleglosci od okna glownego - dzis jest to
     /// jeden krok (Biblioteka zamyka sie przed otwarciem kategorii), ale kod tego

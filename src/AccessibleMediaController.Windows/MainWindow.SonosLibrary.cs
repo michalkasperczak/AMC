@@ -237,6 +237,16 @@ public partial class MainWindow
         // zmianie konta stare grupy nie maja prawa wrocic na liste.
         ApplySonosAccountBinding();
 
+        // PUSTA TOPOLOGIA: 4.1.7 otwieralo puste okno i odsylalo do kolejnego
+        // Control F5 - petla odmow. Teraz Control F5 SAM podejmuje probe
+        // wczytania grup tym samym istniejacym poleceniem, co menu Plik.
+        // Control F5 POZOSTAJE wyborem celu: po odswiezeniu nadal pokazujemy
+        // okno wyboru, a nie zamiast niego.
+        if (_sonosTopology is null || _sonosTopology.Count == 0)
+        {
+            ExecuteCommand(CommandIds.RefreshSonosGroups);
+        }
+
         var topology = _sonosTopology;
         var window = topology is null
             ? new SonosTargetSelectionWindow(DescribeSonosTargetUnavailable())

@@ -313,6 +313,15 @@ public partial class SonosFavoritesWindow : Window
             return;
         }
 
+        // TRANSPORT (Spacja) i PRESETY (Ctrl+Shift+cyfra) z wnetrza podlisty -
+        // modal wylacza okno glowne, wiec jego router tych gestow nie dostaje.
+        // Ta sama droga oddania wlascicielowi, co Ctrl+cyfra wyzej. Podlista
+        // ZOSTAJE otwarta: wiersz i fokus maja sie nie zmienic.
+        if (SonosSublistSessionSwitch.TryHandleTransportAndPresets(this, e))
+        {
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
             // SWIADOME wyjscie: nie zostawiamy zadania powrotu.

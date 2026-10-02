@@ -34,6 +34,38 @@ public partial class MainWindow
     /// </summary>
     private bool _sonosSublistReturnInProgress;
 
+    /// <summary>
+    /// SLOT PRESETU z gestu podlisty - przez ten SAM router, co okno glowne.
+    /// Nie powstaje druga mapa cyfr, wiec 0, minus i rowna sie zachowuja sie
+    /// zgodnie z istniejaca mapa presetow.
+    /// </summary>
+    internal bool TryResolveSublistPresetSlot(System.Windows.Input.Key key, out int slot)
+    {
+        slot = 0;
+        var shortcut = MainWindowShortcutRouter.ResolveDigit(
+            key,
+            System.Windows.Input.Keyboard.Modifiers,
+            CurrentSessionSupportsPresets());
+        if (shortcut.Kind != MainWindowDigitShortcutKind.Preset) return false;
+        slot = shortcut.Slot;
+        return true;
+    }
+
+    /// <summary>
+    /// PRESET Z PODLISTY: dokladnie to samo ISTNIEJACE polecenie, ktore wykonuje
+    /// okno glowne. Podlista ZOSTAJE otwarta - zgloszenie wymagalo zachowania tego
+    /// samego wiersza i fokusu, wiec niczego nie zwijamy.
+    /// </summary>
+    internal void ActivateSonosSublistPreset(int slot)
+        => ExecuteCommand(CommandIds.RadioPreset(slot));
+
+    /// <summary>
+    /// SPACJA Z PODLISTY: pauza/wznowienie BIEZACEGO materialu istniejacym
+    /// poleceniem transportu. Nie uruchamia wskazanego wiersza - to robi Enter.
+    /// </summary>
+    internal void TogglePlaybackFromSonosSublist()
+        => ExecuteCommand(CommandIds.PlayPause);
+
     /// <summary>Pomiar: ile razy powrot RZECZYWISCIE otworzyl podliste.</summary>
     internal int SonosSublistReopenedForTests { get; private set; }
 
