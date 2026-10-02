@@ -199,6 +199,11 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         }
     }
 
+    public string? TempoFallbackReason
+    {
+        get { lock (_gate) return _pipeline?.TempoStream.FallbackReason; }
+    }
+
     public bool SupportsPlaybackRate => true;
     public PlaybackAudioProcessingCapabilities AudioProcessingCapabilities =>
         PlaybackAudioProcessingCapabilities.All;

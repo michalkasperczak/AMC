@@ -82,6 +82,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
     }
 
     // Predkosc dziala na buforze transmisji (TimeShift), nie na dzwieku na zywo.
+    public string? TempoFallbackReason
+    {
+        get { lock (_gate) return _pipeline?.TempoStage?.FallbackReason; }
+    }
+
     public bool SupportsPlaybackRate
     {
         get { lock (_gate) return _pipeline?.TempoStage is not null; }

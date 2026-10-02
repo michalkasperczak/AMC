@@ -442,14 +442,16 @@ class LiteFrame(wx.Frame):
     def _handle_engine_event(self, name: str, data: dict) -> None:
         if not self._window_alive():
             return
-        if name == "playback.ended":
+        if name == "playback.started" and data.get("tempoFallbackReason"):
+            self.announcer.say("Wybrany algorytm tempa jest niedostępny. Używany SoundTouch.")
+        elif name == "playback.ended":
             self.announcer.say("Koniec utworu")
         elif name == "playback.failed":
             self._run(self.navigator.note_playback_failed(
                 f"Nie udalo sie odtworzyc: {data.get('message', 'blad')}"
             ))
         elif name == "radio.nowPlaying":
-            title = str(data.get("title") or "").strip()
+            title = str(data.get("streamTitle") or "").strip()
             if title:
                 self.now_playing.SetLabel(title)
                 self.announcer.say(title)

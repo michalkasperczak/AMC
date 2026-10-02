@@ -10281,6 +10281,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void AnnounceTempoFallback(string? reason)
+    {
+        if (!string.IsNullOrWhiteSpace(reason))
+            AnnounceEssential("Wybrany algorytm tempa jest niedostępny. Używany SoundTouch.");
+    }
+
     private void LocalOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
     {
         var completedCloudDownload = string.Equals(
@@ -10293,6 +10299,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         if (completedCloudDownload) Announce($"Odtwarzanie: {e.Item.Title}");
+        AnnounceTempoFallback(_localOutput.TempoFallbackReason);
     }
 
     private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
@@ -10765,6 +10772,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdateWindowTitle();
         CapturePodcastState();
         QueueStateSave();
+        AnnounceTempoFallback(_podcastOutput.TempoFallbackReason);
     }
 
     private void PodcastOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
@@ -10990,6 +10998,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _ = EnrichRadioMetadataAfterPlaybackStartedAsync(e.Item);
         }
+        AnnounceTempoFallback(_radioOutput.TempoFallbackReason);
     }
 
     private void RadioOutput_NowPlayingChanged(

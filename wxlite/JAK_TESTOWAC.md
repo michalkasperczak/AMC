@@ -12,7 +12,7 @@ Pelny AMC zostaje nietkniety — ten wariant ma wlasny folder stanu i wlasny pro
 
 | Co | Jak sprawdzone | Wynik |
 |---|---|---|
-| Logika listy, nawigacji, stanu, skrotow, protokolu | `python3 run_tests.py` | **121 testów, 0 błędów, 0 pominięć** |
+| Logika listy, nawigacji, stanu, skrotow, protokolu | `python3 run_tests.py` | **124 testy, 0 błędów, 0 pominięć** |
 | Protokol po stronie hosta (C#) | `dotnet run --project tests/...ProtocolTests` | **4 zestawy OK**, w tym wybór rzeczywistego enuma Core |
 | Zgodnosc Python ↔ **prawdziwa petla C#** | `run_tests.py test_wire` | **14 testow OK** |
 | Crossbuild hosta na Windows | `dotnet publish -r win-x64` | **publish win-x64 self-contained: exit 0** |

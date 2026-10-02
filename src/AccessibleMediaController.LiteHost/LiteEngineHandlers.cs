@@ -39,7 +39,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
             new { engine = "files", message = e.Message, title = e.Item?.Title });
         _files.PlaybackStarted += (_, e) => Publish("playback.started",
-            new { engine = "files", title = e.Item.Title, id = e.Item.Id });
+            new { engine = "files", title = e.Item.Title, id = e.Item.Id,
+                tempoFallbackReason = _files.TempoFallbackReason });
         _files.PlaybackEnded += (_, e) => Publish("playback.ended",
             new { engine = "files", title = e.Item.Title, id = e.Item.Id });
         _files.DurationAvailable += (_, e) => Publish("playback.duration",
@@ -48,7 +49,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         _radio.PlaybackFailed += (_, e) => Publish("playback.failed",
             new { engine = "radio", message = e.Message, title = e.Item?.Title });
         _radio.PlaybackStarted += (_, e) => Publish("playback.started",
-            new { engine = "radio", title = e.Item.Title, id = e.Item.Id });
+            new { engine = "radio", title = e.Item.Title, id = e.Item.Id,
+                tempoFallbackReason = _radio.TempoFallbackReason });
         _radio.NowPlayingChanged += (_, e) => Publish("radio.nowPlaying",
             new { id = e.Item.Id, station = e.Item.Title, streamTitle = e.StreamTitle });
     }

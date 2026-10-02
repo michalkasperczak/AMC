@@ -2,6 +2,11 @@
 
 ## AMC-wx-Lite i połączenie nowych silników tempa
 
+- `tests/AccessibleMediaController.TempoAdapterTests`: uruchamia te same źródła C# z prawdziwą biblioteką natywną; neutralne 1x, PCM16, przejścia tempa i zachowanie natywnych liczników bez resetu.
+- `WindowsMediaOutput.TempoFallbackReason` / `RadioMediaOutput.TempoFallbackReason`: rzeczywisty powód użycia SoundTouch. `MainWindow.AnnounceTempoFallback` oraz zdarzenie LiteHost `playback.started` przekazują krótką informację użytkownikowi; odczyt NVDA wymaga odbioru Windows.
+- `wxlite/tests/test_startup.py`, `test_tempo_notice.py`: start poza wątkiem GUI i obsługa zdarzeń (to nie próby rzeczywistych okien).
+
+
 - `src/AccessibleMediaController.LiteHost`: bezokienny host JSON-lines, linkujący istniejące silniki plików/radia i trzy adaptery tempa; bez `MainWindow` i `UseWPF`. `Protocol/LiteAudioSettings.cs` waliduje wybór algorytmu na rzeczywistym modelu Core; `LiteEngineHandlers.ConfigureAudio` przekazuje go do plików i radia. Brak biblioteki natywnej daje odmowę wyboru, nie ciche potwierdzenie.
 - `wxlite/amc_wx_lite/gui.py`: natywna lista wirtualna, nawigacja lokalne/radio, menu Dźwięk → Algorytm przyspieszania. Wybór jest zapisywany po odpowiedzi hosta; opis mówi o zastosowaniu po ponownym otwarciu materiału. `state_store.Options` zapisuje wybór i tworzy wspólny payload startu/zmiany.
 - `wxlite/tools/build_bundle.py`: `app/amc_wx_lite`, prywatny `runtime` i `host`; zachowuje katalogi licencji i haszuje exe/DLL. Ścieżka pakietu odpowiada izolowanemu `python*._pth`.
