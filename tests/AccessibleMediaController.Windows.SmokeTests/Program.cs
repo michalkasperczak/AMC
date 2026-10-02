@@ -161,6 +161,21 @@ if (args.Contains("--sonos-after417-three-parts", StringComparer.Ordinal))
 
     SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts(); return 0;
 }
+if (args.Contains("--sonos-after417-transport-presets", StringComparer.Ordinal))
+{
+    // WASKI POMIAR pozostalego transportu i presetow po 4.1.7 na WSZYSTKICH
+    // TRZECH podlistach. ZAWEZENIE: --sonos-after417-transport-parts=T1,T4 .
+    if (args.FirstOrDefault(a =>
+            a.StartsWith("--sonos-after417-transport-parts=", StringComparison.Ordinal))
+        is { } transportSelection)
+    {
+        SonosFavoritePlayRealOwnerTests.After417TransportPartsToMeasure =
+            transportSelection["--sonos-after417-transport-parts=".Length..]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets(); return 0;
+}
 if (args.Contains("--sonos-favorite-repeat", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunFavoriteRepeat(); return 0;
