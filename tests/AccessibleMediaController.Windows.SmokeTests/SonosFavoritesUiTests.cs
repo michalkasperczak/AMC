@@ -210,9 +210,13 @@ internal static class SonosFavoritesUiTests
         {
             throw new Exception("Bramka odczytu ulubionych nie została zwolniona.");
         }
-        if (harness.MediaList.Items.Count != 1)
+        if (harness.Window.SonosGroupRows.Count != 1)
         {
-            throw new Exception("Podgląd ulubionych podmienił listę grup Sonos.");
+            throw new Exception("Podgląd ulubionych podmienił model grup Sonos.");
+        }
+        if (harness.MediaList.Items.Count != SonosLibraryPresentation.DescribeCategories().Count)
+        {
+            throw new Exception("Podgląd ulubionych podmienił korzeń treści Sonos.");
         }
         return 21;
     }
@@ -373,9 +377,13 @@ internal static class SonosFavoritesUiTests
         {
             throw new Exception("Spóźniona lista domu DOM-1 otworzyła okno po zmianie domu na DOM-2.");
         }
-        if (harness.MediaList.Items.Count != 1)
+        if (harness.Window.SonosGroupRows.Count != 1)
         {
-            throw new Exception("Spóźniony odczyt ulubionych zmienił listę grup.");
+            throw new Exception("Spóźniony odczyt ulubionych zmienił model grup.");
+        }
+        if (harness.MediaList.Items.Count != SonosLibraryPresentation.DescribeCategories().Count)
+        {
+            throw new Exception("Spóźniony odczyt ulubionych zmienił korzeń treści.");
         }
         if (harness.Window.SonosFavoritesInFlightForTests)
         {
@@ -481,7 +489,7 @@ internal static class SonosFavoritesUiTests
         var sonosSlot = harness.FindSlot("sonos");
         var otherSlot = harness.FindSlot("local");
         harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 1, "sesja Sonos nie pokazała grupy");
+        harness.PumpUntil(() => harness.Window.SonosGroupRows.Count == 1, "sesja Sonos nie odczytała grupy");
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
 
         var gateA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -507,7 +515,7 @@ internal static class SonosFavoritesUiTests
             harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
             if (harness.IsSonosCurrent) throw new Exception("Polecenie slotu nie wyszło z sesji Sonos.");
             harness.ExecuteCommand(CommandIds.SessionSlot(sonosSlot));
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 1, "powrót do Sonosa nie pokazał grupy");
+            harness.PumpUntil(() => harness.Window.SonosGroupRows.Count == 1, "powrót do Sonosa nie odczytał grupy");
             if (!harness.IsSonosCurrent) throw new Exception("Powrót do sesji Sonos nie nastąpił.");
             if (!string.Equals(harness.Window.StateForTests.Sonos.SelectedHouseholdId, "DOM-1",
                     StringComparison.Ordinal))
@@ -607,14 +615,18 @@ internal static class SonosFavoritesUiTests
                 throw new Exception("Bramka ulubionych nie została zwolniona po ponowieniu.");
             }
 
-            // ZADNEGO POST i ZADNEJ podmiany listy grup przez caly pomiar.
+            // ZADNEGO POST, ZADNEJ podmiany modelu grup ani korzenia tresci.
             if (harness.Backend.Commands.Count != 0)
             {
                 throw new Exception("Podgląd ulubionych wysłał polecenie do Sonosa.");
             }
-            if (harness.MediaList.Items.Count != 1)
+            if (harness.Window.SonosGroupRows.Count != 1)
             {
-                throw new Exception("Nakładające się odczyty ulubionych podmieniły listę grup Sonos.");
+                throw new Exception("Nakładające się odczyty ulubionych podmieniły model grup Sonos.");
+            }
+            if (harness.MediaList.Items.Count != SonosLibraryPresentation.DescribeCategories().Count)
+            {
+                throw new Exception("Nakładające się odczyty ulubionych podmieniły korzeń treści.");
             }
             AssertNoLeakInAnnouncements(harness);
             return 12;

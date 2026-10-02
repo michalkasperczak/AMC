@@ -468,44 +468,44 @@ internal static class SonosSessionPollingUiTests
         }
 
         /// <summary>
-        /// Rzeczywista droga uzytkownika do odtwarzacza grupy: polecenie slotu
-        /// sesji (to, co robi Ctrl+8) i Enter na ZAZNACZONYM wierszu.
+        /// SETUP, nie dowod klawisza: doprowadza pomiar do odtwarzacza DANEJ grupy.
+        ///
+        /// ZMIENIONE OCZEKIWANIE (korzen tresci): widoczna lista w korzeniu sesji
+        /// Sonos pokazuje KATEGORIE MATERIALU, a grupy zyja osobno w
+        /// <c>SonosGroupRows</c> i wybiera sie je pod Ctrl+F5. Dawniej ta metoda
+        /// czekala na 2 wiersze GRUP w <c>MediaList</c> i robila Enter na wierszu
+        /// grupy - to byl dokladnie uklad, ktory zostal odrzucony.
+        ///
+        /// Dlatego: gotowosc wejscia mierzymy MODELEM grup, cel ustawiamy
+        /// istniejacym waskim hookiem aktywacji (ta sama produkcyjna droga, ktora
+        /// wola potwierdzony wybor w oknie Ctrl+F5), a odtwarzacz otwieramy
+        /// PRAWDZIWYM klawiszem F6. Dowod samego Ctrl+F5 nalezy do
+        /// <c>SonosNavigationUxTests</c>; tutaj grupa jest tylko WEJSCIEM do
+        /// pomiaru pollingu.
         /// </summary>
         internal void OpenPlayerForGroup(string groupId)
         {
             ShowOwnWindow();
             ExecuteCommand(CommandIds.SessionSlot(8));
-            PumpUntil(() => MediaList.Items.Count == 2, "pierwsze wejście nie wypełniło kontrolki listy");
-            SelectRowByGroupId(groupId);
-            PressKey(Key.Enter);
+            PumpUntil(
+                () => Window.SonosGroupRows.Any(row =>
+                    string.Equals(row.GroupId, groupId, StringComparison.Ordinal)),
+                "pierwsze wejście nie odczytało grup Sonos");
+
+            // CEL STEROWANIA produkcyjna droga aktywacji grupy (droga Ctrl+F5).
+            Pump(Window.ActivateSonosGroupForTests(groupId));
+            PumpUntil(
+                () => string.Equals(Window.SonosActiveGroup?.Id, groupId, StringComparison.Ordinal),
+                "wybór celu nie ustawił aktywnej grupy Sonos");
+
+            // ODTWARZACZ prawdziwym klawiszem F6 - istniejaca, odebrana droga.
+            MediaList.Focus();
+            PressKey(Key.F6);
             PumpUntil(
                 () => PlayerViewActive
                     && string.Equals(Window.SonosActiveGroup?.Id, groupId, StringComparison.Ordinal),
-                "Enter na wierszu grupy nie otworzył odtwarzacza tej grupy");
+                "F6 nie otworzyło odtwarzacza wybranej grupy Sonos");
         }
-
-        internal void SelectRowByGroupId(string groupId)
-        {
-            var list = MediaList;
-            var index = Enumerable.Range(0, list.Items.Count).First(position =>
-                string.Equals(RowId(list.Items[position]), groupId, StringComparison.Ordinal));
-            list.SelectedIndex = index;
-            list.UpdateLayout();
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
-            if (list.ItemContainerGenerator.ContainerFromIndex(index) is ListBoxItem container)
-            {
-                container.Focus();
-            }
-            else
-            {
-                list.Focus();
-            }
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
-            if (list.SelectedIndex != index) throw new Exception("Nie udało się zaznaczyć wiersza grupy.");
-        }
-
-        private static string? RowId(object row) =>
-            row.GetType().GetProperty("Item", Instance)?.GetValue(row) is MediaItem item ? item.Id : null;
 
         /// <summary>Pokazuje WYLACZNIE wlasne okno; startowe zrodla odlaczone.</summary>
         internal void ShowOwnWindow()

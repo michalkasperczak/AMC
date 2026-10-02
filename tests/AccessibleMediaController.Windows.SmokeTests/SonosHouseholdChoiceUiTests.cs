@@ -150,7 +150,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup domu A przed anulowaniem");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup domu A przed anulowaniem");
 
         var householdBefore = harness.Window.SonosSelectedHouseholdId;
         var groupBefore = harness.Window.SonosSelectedGroupId;
@@ -216,7 +218,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup domu A przed przełączeniem");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup domu A przed przełączeniem");
 
         // AKTYWNA grupa domu A z danymi odtwarzania w modelu.
         harness.SelectAndActivateFirstGroup();
@@ -236,9 +240,12 @@ internal static class SonosHouseholdChoiceUiTests
         });
 
         if (window is null || !window.Confirmed) throw new Exception("Potwierdzenie domu B nie doszło.");
+        // ZMIENIONE OCZEKIWANIE: grupy domu B wchodza do MODELU sterowania
+        // (zrodlo wyboru pod Ctrl+F5), a nie na widoczna liste tresci.
         harness.PumpUntil(
-            () => harness.RowLabels().Any(label => label.Contains("Sypialnia", StringComparison.Ordinal)),
-            "lista nie pokazała grup domu B");
+            () => harness.Window.SonosGroupRows.Any(row =>
+                row.Name.Contains("Sypialnia", StringComparison.Ordinal)),
+            "model sterowania nie pokazał grup domu B");
 
         if (harness.Window.SonosSelectedHouseholdId != "DOM-2")
         {
@@ -254,12 +261,24 @@ internal static class SonosHouseholdChoiceUiTests
         {
             throw new Exception("Dane starego domu przetrwały przełączenie celu.");
         }
-        var labels = harness.RowLabels();
-        if (labels.Any(label => label.Contains("Salon", StringComparison.Ordinal)))
+        var groupNames = harness.Window.SonosGroupRows.Select(row => row.Name).ToArray();
+        if (groupNames.Any(name => name.Contains("Salon", StringComparison.Ordinal)))
         {
-            throw new Exception("Lista pokazuje grupy domu A pod nowym domem.");
+            throw new Exception(
+                "Model sterowania pokazuje grupy domu A pod nowym domem: " + string.Join(" | ", groupNames));
         }
-        if (labels.Length != 2) throw new Exception($"Lista ma {labels.Length} wierszy zamiast 2 grup domu B.");
+        if (groupNames.Length != 2)
+        {
+            throw new Exception($"Model ma {groupNames.Length} grup zamiast 2 grup domu B.");
+        }
+        // OSOBNO: widoczna lista nadal niesie MATERIAL, nie glosniki.
+        var labels = harness.RowLabels();
+        if (labels.Length != SonosLibraryPresentation.DescribeCategories().Count
+            || labels.Any(label => label.Contains("Sypialnia", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Przełączenie domu wepchnęło głośniki na widoczną listę: " + string.Join(" | ", labels));
+        }
         if (harness.PlayerViewActive) throw new Exception("Przełączenie domu samo otworzyło odtwarzacz.");
         if (harness.Backend.Commands.Count != commandsBefore)
         {
@@ -276,7 +295,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed potwierdzeniem tego samego domu");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed potwierdzeniem tego samego domu");
         harness.SelectAndActivateFirstGroup();
 
         var groupBefore = harness.Window.SonosSelectedGroupId
@@ -333,7 +354,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.ShowOwnWindow();
         harness.ForegroundOwn(harness.Window);
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed spóźnionym odczytem");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed spóźnionym odczytem");
 
         var release = new TaskCompletionSource();
         harness.Backend.HouseholdGate = release.Task;
@@ -373,7 +396,9 @@ internal static class SonosHouseholdChoiceUiTests
         // POWROT do sesji: nowe polecenie MA dzialac, bramka nie jest martwa.
         harness.Window.PresentSonosHouseholdOverrideForTests = null;
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "powrót do sesji nie odbudował listy");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "powrót do sesji nie odbudował modelu grup");
         var reopened = harness.RunChoice(action: dialog => harness.PressEscape(dialog));
         if (reopened is null)
         {
@@ -400,7 +425,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.ShowOwnWindow();
         harness.ForegroundOwn(harness.Window);
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed porzuconym wyborem");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed porzuconym wyborem");
 
         var holdA = harness.HoldHouseholdRead();
         var first = harness.StartChoice();
@@ -418,7 +445,9 @@ internal static class SonosHouseholdChoiceUiTests
         // POWROT do sesji i DRUGIE polecenie - A NADAL wisi.
         harness.Backend.HouseholdGate = null;
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "powrót do sesji nie odbudował listy");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "powrót do sesji nie odbudował modelu grup");
         var readsBeforeB = harness.Backend.HouseholdReads;
         var holdB = harness.HoldHouseholdRead();
         var announcementsBeforeB = harness.Announcements.Count;
@@ -489,7 +518,9 @@ internal static class SonosHouseholdChoiceUiTests
             harness.Backend.SetGroupsForHousehold("DOM-2", ("GRUPA-B1", "Sypialnia"));
             harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
             harness.EnterSonosSession();
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup domu A przed przełączeniem");
+            harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup domu A przed przełączeniem");
             // Guard pokazania jest PRODUKCYJNY: dialog wyboru domu otwiera sie tu
             // za nim, wiec okno glowne musi byc NAPRAWDE pokazane i aktywne.
             harness.ShowOwnWindow();
@@ -594,7 +625,9 @@ internal static class SonosHouseholdChoiceUiTests
             harness.ShowOwnWindow();
             harness.ForegroundOwn(harness.Window);
             harness.EnterSonosSession();
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed kontrolą dodatnią");
+            harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed kontrolą dodatnią");
 
             var seen = harness.RunGuardedChoiceWithHeldRead(whileHeld: null);
             if (seen.Seen != 1)
@@ -626,7 +659,9 @@ internal static class SonosHouseholdChoiceUiTests
             harness.ShowOwnWindow();
             harness.ForegroundOwn(harness.Window);
             harness.EnterSonosSession();
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed odejściem do innego okna");
+            harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed odejściem do innego okna");
 
             Window? elsewhere = null;
             try
@@ -701,7 +736,9 @@ internal static class SonosHouseholdChoiceUiTests
             harness.ShowOwnWindow();
             harness.ForegroundOwn(harness.Window);
             harness.EnterSonosSession();
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed innym modalem AMC");
+            harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed innym modalem AMC");
 
             Window? other = null;
             try
@@ -806,7 +843,9 @@ internal static class SonosHouseholdChoiceUiTests
             harness.ShowOwnWindow();
             harness.ForegroundOwn(harness.Window);
             harness.EnterSonosSession();
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed nieaktywnym właścicielem");
+            harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed nieaktywnym właścicielem");
 
             Window? elsewhere = null;
             try
@@ -886,7 +925,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup domu A przed błędem domu B");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup domu A przed błędem domu B");
 
         harness.Backend.FailGroupsWith = SonosDeviceReadStatus.ServiceError;
         var announcementsBefore = harness.Announcements.Count;
@@ -897,15 +938,25 @@ internal static class SonosHouseholdChoiceUiTests
         });
 
         if (window is null || !window.Confirmed) throw new Exception("Potwierdzenie domu B nie doszło.");
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 0, "lista nie opróżniła się po błędzie grup domu B");
+        // ZMIENIONE OCZEKIWANIE: pustka po bledzie jest w MODELU sterowania.
+        // Widoczna lista tresci NIGDY sie nie oproznia - ma kategorie.
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 0,
+            "model sterowania nie opróżnił się po błędzie grup domu B");
 
         if (harness.Window.SonosSelectedHouseholdId != "DOM-2")
         {
             throw new Exception("Błąd grup unieważnił ŚWIADOMY wybór domu B.");
         }
-        if (harness.RowLabels().Any(label => label.Contains("Salon", StringComparison.Ordinal)))
+        if (harness.Window.SonosGroupRows.Any(row => row.Name.Contains("Salon", StringComparison.Ordinal)))
         {
-            throw new Exception("Po błędzie grup domu B lista pokazuje stare grupy domu A jako B.");
+            throw new Exception("Po błędzie grup domu B model pokazuje stare grupy domu A jako B.");
+        }
+        // KORZEN TRESCI nietkniety: blad odczytu grup nie kasuje kategorii.
+        if (harness.RowLabels().Length != SonosLibraryPresentation.DescribeCategories().Count)
+        {
+            throw new Exception(
+                "Błąd grup domu B zepsuł korzeń treści: " + string.Join(" | ", harness.RowLabels()));
         }
         var added = harness.Announcements.Skip(announcementsBefore).ToArray();
         if (!added.Any(text => text.Contains("nie udało się odczytać jego grup", StringComparison.OrdinalIgnoreCase)))
@@ -940,7 +991,9 @@ internal static class SonosHouseholdChoiceUiTests
         harness.Backend.SetHouseholds(("DOM-1", "Parter"), ("DOM-2", "Piętro"));
         harness.Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
         harness.EnterSonosSession();
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak grup przed pomiarem trwałości");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed pomiarem trwałości");
 
         // POKAZANIE okna przed snapshotem: samo Show zapisuje geometrie do pliku,
         // wiec gdyby padlo pozniej, roznica byla by artefaktem fixture, nie zapisem
@@ -1514,12 +1567,14 @@ internal static class SonosHouseholdChoiceUiTests
             .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
             .ToArray();
 
+        /// <summary>
+        /// SETUP celu sterowania, NIE dowod klawisza. Cel bierzemy z MODELU grup
+        /// (SonosGroupRows) - na widocznej liscie sa KATEGORIE tresci, wiec jej
+        /// zaznaczenie nic tu nie wnosi. Droge uzytkownika (Ctrl+F5) dowodza
+        /// SonosNavigationUxTests i SonosSessionEntryUiTests.
+        /// </summary>
         internal void SelectAndActivateFirstGroup()
         {
-            var list = MediaList;
-            list.SelectedIndex = 0;
-            list.UpdateLayout();
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
             var groupId = (Window.SonosGroupRows.Count > 0 ? Window.SonosGroupRows[0].GroupId : null)
                 ?? throw new Exception("Brak grupy do aktywacji.");
             Pump(Window.ActivateSonosGroupForTests(groupId));

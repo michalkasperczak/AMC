@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,11 +22,20 @@ using AccessibleMediaController.Windows;
 ///     i pompa dispatchera - liczy sie zawartosc KONTROLKI MediaList, nie
 ///     session.Items. Bezpośrednie EnterSonosSessionAsync tego NIE pokrywa,
 ///     bo pomija odswiezenie widoku po asynchronicznym wejsciu.
-///   * B2: prawdziwy handler klawiatury - Enter jako routed event na ZAZNACZONYM
-///     wierszu w POKAZANYM oknie. Nie ActivateSonosGroupAsync, nie
-///     ExecuteSonosCommandAsync.
+///   * B2: prawdziwy, odebrany WYBOR CELU pod Ctrl+F5 - okno wyboru, PELNA
+///     droga potwierdzenia i otwarcie odtwarzacza klawiszem F6.
 ///   * B3: spozniony odczyt + swiadoma zmiana sesji/grupy w trakcie NIE moze
 ///     ukrasc fokusu odtwarzaczem porzuconego celu.
+///
+/// ZMIENIONE OCZEKIWANIE (wymaganie korzenia tresci): widoczna lista korzenia
+/// sesji Sonos pokazuje TRZY KATEGORIE MATERIALU z
+/// <c>SonosLibraryPresentation.DescribeCategories()</c>, a GRUPY zyja osobno w
+/// <c>Window.SonosGroupRows</c> i wybiera sie je WYLACZNIE pod Ctrl+F5.
+/// Dawniej B1 zadal 2 wierszy GRUP w kontrolce, a B2 robil Enter na wierszu
+/// grupy - to byl dokladnie uklad, ktory zostal odrzucony (glosniki nie sa
+/// biblioteka muzyczna). Pomiary nie slabna: nadal pilnuja, ze samo wejscie i
+/// sam wybor NIE wysylaja POST, ze cel jest ustawiony i ze porzucony cel nie
+/// zabiera fokusu.
 ///
 /// Ten pomiar POKAZUJE WLASNE okno (osobny przelacznik
 /// <c>--sonos-session-entry-ui</c>). Nie wysyla klawiszy systemowych, nie rusza
@@ -64,11 +74,11 @@ internal static class SonosSessionEntryUiTests
 
         Console.WriteLine(
             "OK: wejscie do sesji Sonos rzeczywista droga uzytkownika - pierwsze Ctrl+8 wypelnia "
-            + "kontrolke listy, Enter na zaznaczonym wierszu wybiera grupe i otwiera odtwarzacz, "
+            + "kontrolke listy, Ctrl+F5 wybiera cel sterowania i F6 otwiera odtwarzacz, "
             + $"porzucony cel nie zabiera fokusu ({checks} sprawdzeń, WLASNE pokazane okno)");
     }
 
-    // ===== B1: pierwsze wejscie musi wypelnic KONTROLKE listy =====
+    // ===== B1: pierwsze wejscie musi wypelnic KONTROLKE listy KATEGORIAMI =====
 
     private static int MeasureFirstEntryFillsRealList()
     {
@@ -92,34 +102,78 @@ internal static class SonosSessionEntryUiTests
             () => window.SonosGroupRows.Count == 2,
             "wejście do sesji Sonos nie odczytało grup");
 
-        var list = harness.MediaList;
-        if (list.Items.Count != 2)
+        // MODEL STEROWANIA: grupy sa odczytane i ZOSTAJA w SonosGroupRows. To
+        // one sa celem Ctrl+F5, a nie trescia widocznej listy.
+        var groupIds = window.SonosGroupRows.Select(row => row.GroupId).ToArray();
+        if (!groupIds.Contains("GRUPA-SALON", StringComparer.Ordinal)
+            || !groupIds.Contains("GRUPA-KUCHNIA", StringComparer.Ordinal))
         {
             throw new Exception(
-                $"Po PIERWSZYM wejściu kontrolka listy ma {list.Items.Count} wierszy, a sesja "
-                + $"{SonosSession(window).Items.Count}. Lista użytkownika jest pusta.");
+                "Model sterowania nie ma odczytanych grup Sonos: " + string.Join(" | ", groupIds));
+        }
+
+        // WIDOCZNA LISTA: KATEGORIE MATERIALU z Core, nie glosniki. Liczba i
+        // identyfikatory ida z produkcyjnego zrodla, zeby pomiar nie powtarzal
+        // polskich nazw jako klucza.
+        var expectedCategories = SonosLibraryPresentation.DescribeCategories();
+        var list = harness.MediaList;
+        if (list.Items.Count != expectedCategories.Count)
+        {
+            throw new Exception(
+                $"Po PIERWSZYM wejściu kontrolka listy ma {list.Items.Count} wierszy zamiast "
+                + $"{expectedCategories.Count} kategorii materiału: " + string.Join(" | ", harness.RowLabels()));
         }
         if (list.SelectedIndex < 0)
         {
-            throw new Exception("Lista grup Sonos nie ma zaznaczenia po wejściu.");
+            throw new Exception("Lista korzenia Sonos nie ma zaznaczenia po wejściu.");
         }
-        var labels = list.Items.Cast<object>()
-            .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
-            .ToArray();
-        if (!labels.Any(label => label.Contains("Salon", StringComparison.Ordinal))
-            || !labels.Any(label => label.Contains("Kuchnia", StringComparison.Ordinal)))
+
+        var labels = harness.RowLabels();
+        foreach (var category in expectedCategories)
         {
-            throw new Exception("Wiersze kontrolki nie pokazują odczytanych grup Sonos.");
+            if (!labels.Any(label => label.Contains(category.Name, StringComparison.Ordinal)))
+            {
+                throw new Exception(
+                    $"Korzeń sesji Sonos nie ma kategorii \"{category.Name}\": " + string.Join(" | ", labels));
+            }
+        }
+
+        // DYSKRYMINUJACA ASERCJA ZGLOSZENIA: zaden GLOSNIK/GRUPA nie wraca na
+        // widoczna liste. Bez korzenia tresci lecialyby tu wiersze "Salon" i
+        // "Kuchnia" z Session.Items i ten warunek by padl.
+        if (labels.Any(label => label.Contains("Salon", StringComparison.Ordinal)
+            || label.Contains("Kuchnia", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Korzeń sesji Sonos pokazuje GŁOŚNIKI jako treść: " + string.Join(" | ", labels));
+        }
+
+        // KATEGORIE NIE WCHODZA do Session.Items - zaden ogolny tor odtwarzania
+        // ani zapisu presetu nie ma czego zlapac.
+        if (SonosSession(window).Items.Any(item => SonosLibraryPresentation.IsCategoryId(item.Id)))
+        {
+            throw new Exception("Kategoria Biblioteki Sonos trafiła do Session.Items jako materiał.");
         }
         if (harness.Backend.Commands.Count != 0)
         {
             throw new Exception("Samo wejście do sesji wysłało polecenie do Sonosa.");
         }
-        return 5;
+        return 7;
     }
 
-    // ===== B2: prawdziwy Enter na zaznaczonym wierszu =====
+    // ===== B2: WYBOR CELU pod Ctrl+F5, odtwarzacz pod F6 =====
 
+    /// <summary>
+    /// ZMIENIONE OCZEKIWANIE. Ten pomiar zadal wczesniej Entera na WIERSZU GRUPY
+    /// w widocznej liscie. Grup tam juz nie ma (korzen pokazuje tresc), wiec
+    /// mierzymy ODEBRANA droge wyboru celu: Ctrl+F5 otwiera okno wyboru, PELNA
+    /// droga potwierdzenia ustawia cel, a odtwarzacz otwiera F6.
+    ///
+    /// Pomiar NIE SLABNIE: nadal pilnuje, ze sam wybor celu NIE wysyla POST, ze
+    /// cel faktycznie sie zmienil (SonosActiveGroup i biezacy element sesji), ze
+    /// wybor zrobil jawny odczyt stanu i glosnosci, i ze przelaczenie na DRUGA
+    /// grupe te sama droga naprawde zmienia adresata polecen.
+    /// </summary>
     private static int MeasureRealEnterOnSelectedRowOpensPlayer()
     {
         using var harness = Harness.Create();
@@ -127,10 +181,15 @@ internal static class SonosSessionEntryUiTests
         harness.ShowOwnWindow();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
         harness.PumpUntil(
-            () => harness.MediaList.Items.Count == 2,
-            "pierwsze wejście nie wypełniło kontrolki listy w pokazanym oknie");
+            () => window.SonosGroupRows.Count == 2,
+            "pierwsze wejście nie odczytało grup w pokazanym oknie");
 
-        var checks = EnterOnGroupOpensPlayer(harness, "Salon", "GRUPA-SALON");
+        // OKNO MUSI BYC AKTYWNE: produkcyjna brama okien potomnych Sonosa
+        // odmawia otwarcia, gdy AMC nie jest na wierzchu. Pomiar respektuje te
+        // brame, zamiast ja obchodzic.
+        harness.ActivateOwnWindow();
+
+        var checks = ChooseTargetThenOpenPlayer(harness, "Salon", "GRUPA-SALON");
 
         // Escape wraca na liste, a wyjscie z odtwarzacza NIE zatrzymuje muzyki.
         var commandsBeforeEscape = harness.Backend.Commands.Count;
@@ -142,61 +201,114 @@ internal static class SonosSessionEntryUiTests
         }
         checks++;
 
-        // DRUGA grupa ta sama droga: Enter musi przelaczyc cel, nie zostac przy pierwszej.
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "lista grup nie wróciła po Escape");
-        checks += EnterOnGroupOpensPlayer(harness, "Kuchnia", "GRUPA-KUCHNIA");
+        // POWROT do korzenia tresci: lista znow pokazuje KATEGORIE, nie glosniki.
+        harness.PumpUntil(
+            () => harness.MediaList.Items.Count == SonosLibraryPresentation.DescribeCategories().Count,
+            "korzeń treści nie wrócił po Escape");
+        if (harness.RowLabels().Any(label => label.Contains("Salon", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Po powrocie z odtwarzacza lista pokazuje głośniki: "
+                + string.Join(" | ", harness.RowLabels()));
+        }
+        checks++;
+
+        // DRUGA grupa TA SAMA droga: wybor celu musi przelaczyc adresata.
+        checks += ChooseTargetThenOpenPlayer(harness, "Kuchnia", "GRUPA-KUCHNIA");
         return checks;
     }
 
-    private static int EnterOnGroupOpensPlayer(Harness harness, string groupName, string groupId)
+    /// <summary>
+    /// ODEBRANA droga wyboru celu: Ctrl+F5 -&gt; okno wyboru -&gt; potwierdzenie,
+    /// a potem F6 na odtwarzacz. Pokazanie modala jest PODSTAWIONE (pomiar bez
+    /// stawiania okna na pulpicie), lecz droga potwierdzenia i cala logika
+    /// wlasciciela sa PRODUKCYJNE.
+    /// </summary>
+    private static int ChooseTargetThenOpenPlayer(Harness harness, string groupName, string groupId)
     {
         var window = harness.Window;
-        var list = harness.MediaList;
-        var index = Enumerable.Range(0, list.Items.Count).First(candidate =>
-            (list.Items[candidate].GetType().GetProperty("Label", Instance)!
-                .GetValue(list.Items[candidate]) as string ?? string.Empty)
-                .Contains(groupName, StringComparison.Ordinal));
         var playbackReadsBefore = harness.Backend.PlaybackReads;
         var volumeReadsBefore = harness.Backend.VolumeReads;
         var commandsBefore = harness.Backend.Commands.Count;
-        harness.SelectAndFocusRow(index);
+        var appliedBefore = window.SonosTargetSelectionsAppliedForTests;
 
-        // PRAWDZIWE zdarzenie klawiatury na zaznaczonym wierszu.
-        harness.PressKey(Key.Enter);
-        harness.PumpUntil(
-            () => harness.PlayerViewActive,
-            $"Enter na wierszu {groupName} nie otworzył odtwarzacza Sonos");
+        // PRODUKCYJNY punkt podstawienia POKAZANIA okna. Zaznaczamy wiersz
+        // szukanej grupy i potwierdzamy PELNA droga przycisku "Ustaw jako cel".
+        SonosTargetSelectionWindow? opened = null;
+        window.PresentSonosTargetOverrideForTests = targetWindow =>
+        {
+            opened = targetWindow;
+            var labels = targetWindow.RowLabelsForTests;
+            var index = Enumerable.Range(0, labels.Count).First(position =>
+                labels[position].Contains(groupName, StringComparison.Ordinal));
+            targetWindow.SelectRowForTests(index);
+            targetWindow.ConfirmForTests();
+        };
+        try
+        {
+            harness.PressCtrl(Key.F5);
+            harness.PumpUntil(
+                () => window.SonosTargetSelectionsAppliedForTests > appliedBefore,
+                $"wybór celu {groupName} pod Ctrl+F5 nie zmienił celu sterowania");
+        }
+        finally
+        {
+            window.PresentSonosTargetOverrideForTests = null;
+        }
 
+        if (opened is null)
+        {
+            throw new Exception($"Ctrl+F5 nie otworzyło okna wyboru celu dla grupy {groupName}.");
+        }
+
+        // CEL faktycznie ustawiony, i to po IDENTYFIKATORZE.
         if (window.SonosSelectedGroupId != groupId)
         {
             throw new Exception(
-                $"Enter na wierszu {groupName} nie ustawił grupy: SelectedGroupId="
+                $"Wybór celu {groupName} nie ustawił grupy: SelectedGroupId="
                 + (window.SonosSelectedGroupId ?? "null"));
         }
         if (window.SonosActiveGroup?.Id != groupId)
         {
-            throw new Exception($"Aktywna grupa po Enterze to nie {groupId}.");
+            throw new Exception($"Aktywna grupa po wyborze celu to nie {groupId}.");
         }
-        var session = SonosSession(window);
-        if (!session.HasCurrentItem || session.CurrentItem.Id != groupId)
+        if (!string.Equals(window.SonosActiveGroup?.Name, groupName, StringComparison.Ordinal))
         {
-            throw new Exception("Aktualny element sesji nie wskazuje wybranej grupy.");
+            throw new Exception(
+                $"Cel sterowania ma inną nazwę niż wybrana: " + (window.SonosActiveGroup?.Name ?? "null"));
+        }
+        // Grupy NIE wchodza na widoczna liste przez wybor celu - tam jest tresc.
+        if (harness.RowLabels().Any(label => label.Contains(groupName, StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Wybór celu wepchnął głośnik na listę treści: " + string.Join(" | ", harness.RowLabels()));
         }
         if (harness.Backend.PlaybackReads <= playbackReadsBefore
             || harness.Backend.VolumeReads <= volumeReadsBefore)
         {
-            throw new Exception("Enter na grupie nie zrobił jawnego odczytu stanu i głośności.");
+            throw new Exception("Wybór celu nie zrobił jawnego odczytu stanu i głośności.");
         }
         if (harness.Backend.Commands.Count != commandsBefore)
         {
-            throw new Exception("Sam WYBÓR grupy Enterem wysłał POST do Sonosa.");
+            throw new Exception("Sam WYBÓR celu pod Ctrl+F5 wysłał POST do Sonosa.");
+        }
+
+        // ODTWARZACZ prawdziwym klawiszem F6 - istniejaca, odebrana droga.
+        harness.MediaList.Focus();
+        harness.PressKey(Key.F6);
+        harness.PumpUntil(
+            () => harness.PlayerViewActive,
+            $"F6 nie otworzyło odtwarzacza dla celu {groupName}");
+        if (harness.Backend.Commands.Count != commandsBefore)
+        {
+            throw new Exception("Samo otwarcie odtwarzacza wysłało POST do Sonosa.");
         }
         if (string.Equals(harness.CurrentView, groupName, StringComparison.Ordinal))
         {
             throw new Exception(
-                "Enter poszedł ogólną drogą NavigateTo(tytuł) i otworzył widok nazwany jak element.");
+                "Droga poszła ogólnym NavigateTo(tytuł) i otworzyła widok nazwany jak element.");
         }
-        return 6;
+        return 8;
     }
 
     // ===== B3: porzucony cel nie zabiera fokusu =====
@@ -222,7 +334,9 @@ internal static class SonosSessionEntryUiTests
         var window = harness.Window;
         harness.ShowOwnWindow();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed pomiarem B3");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed pomiarem B3");
 
         // Odczyt po aktywacji zostaje WSTRZYMANY: w tym czasie uzytkownik
         // swiadomie wychodzi z sesji.
@@ -230,14 +344,14 @@ internal static class SonosSessionEntryUiTests
         harness.Backend.ReadGate = release.Task;
         try
         {
-            harness.SelectAndFocusRow(0);
-            harness.PressKey(Key.Enter);
+            // SETUP, nie dowod klawisza: grupa jest tylko WEJSCIEM do wyscigu.
+            // Uzywamy waskiego hooka aktywacji z odtwarzaczem - tej samej
+            // produkcyjnej kolejnosci, ktora konczy wybor celu pod Ctrl+F5.
+            // Dowod samego skrotu nalezy do B2 i SonosNavigationUxTests.
+            var started = StartActivationWithPlayer(window, "GRUPA-SALON");
             harness.PumpUntil(
                 () => harness.Backend.PlaybackReads > 0,
                 "aktywacja grupy nie zaczęła odczytu");
-
-            var started = window.LastSonosActivationTaskForTests
-                ?? throw new Exception("Enter nie rozpoczął zadania aktywacji grupy Sonos.");
             if (started.IsCompleted)
             {
                 throw new Exception(
@@ -301,7 +415,9 @@ internal static class SonosSessionEntryUiTests
         var window = harness.Window;
         harness.ShowOwnWindow();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zmianą grupy");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed zmianą grupy");
 
         // ODDZIELNE bariery: konczymy A, gdy B NADAL czeka. Sam koncowy stan
         // po obu odpowiedziach nie wykrywal przedwczesnego otwarcia przez A.
@@ -312,23 +428,19 @@ internal static class SonosSessionEntryUiTests
         Task second;
         try
         {
-            harness.SelectAndFocusRow(IndexOfGroup(harness, "Salon"));
-            harness.PressKey(Key.Enter);
+            // SETUP, nie dowod klawisza (patrz StartActivationWithPlayer).
+            first = StartActivationWithPlayer(window, "GRUPA-SALON");
             harness.PumpUntil(() => harness.Backend.PlaybackReads > 0, "grupa A nie zaczęła odczytu");
-            first = window.LastSonosActivationTaskForTests
-                ?? throw new Exception("Enter na grupie A nie rozpoczął zadania.");
             if (first.IsCompleted) throw new Exception("Zadanie grupy A zakończyło się mimo wstrzymanego odczytu.");
 
             // A przechwycilo juz swoja bariere w ReadGroupPlaybackAsync.
             // Nowe wywolanie B przechwyci druga, nadal zamknieta bariere.
             harness.Backend.ReadGate = releaseSecond.Task;
-            harness.SelectAndFocusRow(IndexOfGroup(harness, "Kuchnia"));
-            harness.PressKey(Key.Enter);
+            var readsBeforeSecond = harness.Backend.PlaybackReads;
+            second = StartActivationWithPlayer(window, "GRUPA-KUCHNIA");
             harness.PumpUntil(
-                () => window.LastSonosActivationTaskForTests is not null
-                    && !ReferenceEquals(window.LastSonosActivationTaskForTests, first),
-                "Enter na grupie B nie rozpoczął nowego zadania");
-            second = window.LastSonosActivationTaskForTests!;
+                () => harness.Backend.PlaybackReads > readsBeforeSecond,
+                "aktywacja grupy B nie zaczęła własnego odczytu");
             if (second.IsCompleted || harness.PlayerViewActive)
             {
                 throw new Exception("Nieprawidłowa kontrolka: grupa B powinna nadal czekać na odczyt bez otwartego odtwarzacza.");
@@ -374,14 +486,16 @@ internal static class SonosSessionEntryUiTests
         return 6;
     }
 
-    private static int IndexOfGroup(Harness harness, string groupName)
-    {
-        var list = harness.MediaList;
-        return Enumerable.Range(0, list.Items.Count).First(candidate =>
-            (list.Items[candidate].GetType().GetProperty("Label", Instance)!
-                .GetValue(list.Items[candidate]) as string ?? string.Empty)
-                .Contains(groupName, StringComparison.Ordinal));
-    }
+    /// <summary>
+    /// SETUP wyscigu, NIE dowod klawisza. Pomiary B3 potrzebuja wylacznie
+    /// ZACZETEJ aktywacji grupy wraz z otwarciem odtwarzacza - a dowod, ze
+    /// uzytkownik dochodzi tu Ctrl+F5 i F6, nalezy do B2 oraz
+    /// SonosNavigationUxTests. Uzywamy ISTNIEJACEGO, produkcyjnego waskiego
+    /// hooka (tego samego, ktorym idzie <c>SonosPlayerUiTests</c>), zeby nie
+    /// podstawiac glosnikow do widocznej listy tylko dla przejscia starej drogi.
+    /// </summary>
+    private static Task StartActivationWithPlayer(MainWindow window, string groupId) =>
+        window.ActivateSonosGroupThenShowPlayerForTests(groupId);
 
     private static DemoMediaSession SonosSession(MainWindow window) =>
         window.SessionsForTests.FindSession("sonos")
@@ -533,6 +647,79 @@ internal static class SonosSessionEntryUiTests
             });
             PumpQuietly(TimeSpan.FromMilliseconds(50));
         }
+
+        /// <summary>
+        /// ETYKIETY widocznych wierszy - to one niosa ZMIENIONE OCZEKIWANIE
+        /// (kategorie materialu zamiast glosnikow).
+        /// </summary>
+        internal List<string> RowLabels() => MediaList.Items.Cast<object>()
+            .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
+            .ToList();
+
+        /// <summary>
+        /// Stawia WLASNE okno na wierzch. Produkcyjna brama okien potomnych
+        /// Sonosa (Ctrl+F5) odmawia otwarcia, gdy AMC nie jest na pierwszym
+        /// planie - pomiar MUSI te brame spelnic, nie obejsc.
+        /// </summary>
+        internal void ActivateOwnWindow()
+        {
+            Window.Activate();
+            Window.Focus();
+            PumpQuietly(TimeSpan.FromMilliseconds(120));
+            if (!Window.IsActive)
+            {
+                // Pulpit pomiarowy nie zawsze oddaje aktywacje. Podajemy
+                // ISTNIEJACYM produkcyjnym hookiem WLASNY pid - brama nadal
+                // odmawia obcemu pierwszemu planowi, bo porownuje z Environment.ProcessId.
+                Window.ForegroundProcessIdOverrideForTests = Environment.ProcessId;
+            }
+        }
+
+        /// <summary>
+        /// PRAWDZIWY handler klawiatury okna z MODYFIKATOREM. Stan klawiatury
+        /// WLASNEGO watku ustawiamy jawnie: KeyEventArgs bez tego nie jest Ctrl+F5.
+        /// </summary>
+        internal void PressCtrl(Key key)
+        {
+            var source = PresentationSource.FromVisual(Window)
+                ?? throw new Exception("Okno nie ma powierzchni prezentacji; pokaż je przed klawiszem.");
+            var previous = new byte[256];
+            if (!GetKeyboardState(previous)) throw new Exception("Nie da się odczytać stanu klawiatury wątku.");
+            var keys = new byte[256];
+            keys[0x11] = 0x80;
+            keys[0xA2] = 0x80;
+            try
+            {
+                if (!SetKeyboardState(keys)) throw new Exception("Nie da się ustawić stanu klawiatury wątku.");
+                if (Keyboard.Modifiers != ModifierKeys.Control)
+                {
+                    throw new Exception("Stan wątku nie dał modyfikatora Control; pomiar nie byłby Ctrl+F5.");
+                }
+                var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key)
+                {
+                    RoutedEvent = Keyboard.PreviewKeyDownEvent
+                };
+                var handler = Window.GetType().GetMethod("Window_PreviewKeyDown", Instance)
+                    ?? throw new Exception("Nie ma prawdziwego handlera Window_PreviewKeyDown.");
+                try
+                {
+                    handler.Invoke(Window, [Window, args]);
+                }
+                catch (TargetInvocationException exception) when (exception.InnerException is not null)
+                {
+                    throw exception.InnerException;
+                }
+            }
+            finally
+            {
+                SetKeyboardState(previous);
+            }
+            PumpQuietly(TimeSpan.FromMilliseconds(80));
+        }
+
+        [DllImport("user32.dll")] private static extern bool GetKeyboardState(byte[] keys);
+
+        [DllImport("user32.dll")] private static extern bool SetKeyboardState(byte[] keys);
 
         /// <summary>Pompa oczekujaca na WARUNEK; po limicie RZUCA.</summary>
         internal void PumpUntil(Func<bool> condition, string what)

@@ -590,7 +590,9 @@ internal static class SonosFavoritePlayLateAnswerTests
             PumpUntil(() => Window.IsActive, "okno główne nie stało się aktywne");
             var sessions = (SessionManagerLike)new SessionManagerLike(Window);
             ExecuteCommand(CommandIds.SessionSlot(sessions.Slot("sonos")));
-            PumpUntil(() => MediaList.Items.Count >= 1, "sesja Sonos nie pokazała grupy");
+            // ZMIENIONE OCZEKIWANIE: gotowosc sesji to ODCZYTANE GRUPY w modelu
+            // sterowania; widoczna lista niesie kategorie tresci, nie glosniki.
+            PumpUntil(() => Window.SonosGroupRows.Count >= 1, "sesja Sonos nie odczytała grup");
             Window.StateForTests.Sonos.SelectedHouseholdId = "DOM-1";
             Pump(Window.ActivateSonosGroupForTests("GRUPA-SALON"));
             if (Window.SonosActiveGroup is null) throw new Exception("Aktywna grupa Sonos nie została ustawiona.");

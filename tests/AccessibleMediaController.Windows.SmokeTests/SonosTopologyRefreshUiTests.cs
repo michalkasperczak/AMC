@@ -88,7 +88,9 @@ internal static class SonosTopologyRefreshUiTests
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "wejście do sesji nie wypełniło listy grup");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "wejście do sesji nie odczytało grup sterowania");
         var householdReadsAfterEntry = harness.Backend.HouseholdReads;
         var groupReadsAfterEntry = harness.Backend.GroupReads;
 
@@ -101,8 +103,8 @@ internal static class SonosTopologyRefreshUiTests
         var announcementsBefore = harness.Announcements.Count;
         harness.ExecuteCommand(RefreshCommandId);
         harness.PumpUntil(
-            () => harness.MediaList.Items.Count == 3,
-            "jawne polecenie odświeżenia nie pokazało świeżych grup w kontrolce listy");
+            () => window.SonosGroupRows.Count == 3,
+            "jawne polecenie odświeżenia nie pokazało świeżych grup w MODELU sterowania");
 
         if (harness.Backend.HouseholdReads <= householdReadsAfterEntry)
         {
@@ -114,14 +116,26 @@ internal static class SonosTopologyRefreshUiTests
         {
             throw new Exception("Odświeżenie nie odczytało grup wybranego domu z backendu.");
         }
-        var labels = harness.RowLabels();
-        if (!labels.Any(label => label.Contains("Sypialnia", StringComparison.Ordinal)))
+        // ZMIENIONE OCZEKIWANIE (korzen tresci): swieza grupa wchodzi do MODELU
+        // sterowania (zrodlo wyboru pod Ctrl+F5), a NIE na widoczna liste.
+        var groupNames = window.SonosGroupRows.Select(row => row.Name).ToArray();
+        if (!groupNames.Contains("Sypialnia", StringComparer.Ordinal))
         {
-            throw new Exception("Kontrolka listy nie pokazuje nowej grupy po odświeżeniu.");
+            throw new Exception(
+                "Model sterowania nie ma nowej grupy po odświeżeniu: " + string.Join(" | ", groupNames));
         }
         if (window.SonosGroupRows.Count != 3)
         {
             throw new Exception($"Model wierszy ma {window.SonosGroupRows.Count} grup zamiast 3.");
+        }
+
+        // OSOBNO: widoczna lista nadal niesie MATERIAL (kategorie), nie glosniki.
+        var labels = harness.RowLabels();
+        if (labels.Length != SonosLibraryPresentation.DescribeCategories().Count
+            || labels.Any(label => label.Contains("Sypialnia", StringComparison.Ordinal)))
+        {
+            throw new Exception(
+                "Odświeżenie grup wepchnęło głośniki na widoczną listę: " + string.Join(" | ", labels));
         }
         if (harness.Backend.Commands.Count != 0)
         {
@@ -150,7 +164,9 @@ internal static class SonosTopologyRefreshUiTests
         var window = harness.Window;
         harness.ShowOwnWindow();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed pomiarem zniknięcia");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed pomiarem zniknięcia");
 
         // ODCZYT stanu grupy zostaje W LOCIE: aktywacja czeka na barierę.
         var release = new TaskCompletionSource();
@@ -158,11 +174,11 @@ internal static class SonosTopologyRefreshUiTests
         Task activation;
         try
         {
-            harness.SelectAndFocusRow(harness.IndexOfGroup("Salon"));
-            harness.PressKey(Key.Enter);
+            // SETUP, nie dowod klawisza: grupa jest WEJSCIEM do wyscigu. Droge
+            // uzytkownika (Ctrl+F5 -> wybor celu) dowodza SonosNavigationUxTests
+            // i SonosSessionEntryUiTests - tu liczy sie sam spozniony odczyt.
+            activation = window.ActivateSonosGroupThenShowPlayerForTests("GRUPA-SALON");
             harness.PumpUntil(() => harness.Backend.PlaybackReads > 0, "aktywacja grupy nie zaczęła odczytu");
-            activation = window.LastSonosActivationTaskForTests
-                ?? throw new Exception("Enter nie rozpoczął zadania aktywacji.");
             if (activation.IsCompleted) throw new Exception("Zadanie aktywacji skończyło się mimo wstrzymanego odczytu.");
             if (window.SonosSelectedGroupId != "GRUPA-SALON")
             {
@@ -198,9 +214,19 @@ internal static class SonosTopologyRefreshUiTests
         {
             throw new Exception("Bieżący element sesji nadal wskazuje zniknioną grupę.");
         }
-        if (harness.MediaList.Items.Count != 1)
+        // ZMIENIONE OCZEKIWANIE: znikniecie grupy widac w MODELU sterowania.
+        if (window.SonosGroupRows.Count != 1
+            || window.SonosGroupRows[0].GroupId != "GRUPA-KUCHNIA")
         {
-            throw new Exception($"Widoczna kontrolka listy ma {harness.MediaList.Items.Count} wierszy zamiast 1.");
+            throw new Exception(
+                "Model sterowania po zniknięciu grupy to: "
+                + string.Join(" | ", window.SonosGroupRows.Select(row => row.GroupId)));
+        }
+        // OSOBNO: widoczna lista nadal ma MATERIAL, nie glosniki.
+        if (harness.RowLabels().Length != SonosLibraryPresentation.DescribeCategories().Count)
+        {
+            throw new Exception(
+                "Zniknięcie grupy zmieniło korzeń treści: " + string.Join(" | ", harness.RowLabels()));
         }
         if (harness.PlayerViewActive)
         {
@@ -239,7 +265,9 @@ internal static class SonosTopologyRefreshUiTests
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zmianą nazw");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed zmianą nazw");
         harness.Pump(window.ActivateSonosGroupForTests("GRUPA-KUCHNIA"));
         if (window.SonosSelectedGroupId != "GRUPA-KUCHNIA")
         {
@@ -253,8 +281,8 @@ internal static class SonosTopologyRefreshUiTests
         harness.ExecuteCommand(RefreshCommandId);
         harness.PumpUntil(
             () => harness.Backend.GroupReads >= 2
-                && harness.RowLabels().Any(label => label.Contains("jadalnia", StringComparison.Ordinal)),
-            "odświeżenie nie pokazało zmienionych nazw grup");
+                && window.SonosGroupRows.Any(row => row.Name.Contains("jadalnia", StringComparison.Ordinal)),
+            "odświeżenie nie pokazało zmienionych nazw grup w MODELU sterowania");
 
         if (window.SonosSelectedGroupId != "GRUPA-KUCHNIA")
         {
@@ -281,7 +309,9 @@ internal static class SonosTopologyRefreshUiTests
         using var harness = Harness.Create();
         var window = harness.Window;
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed błędem odczytu");
+        harness.PumpUntil(
+            () => window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed błędem odczytu");
         harness.Pump(window.ActivateSonosGroupForTests("GRUPA-SALON"));
 
         harness.Backend.FailGroupsWith = SonosDeviceReadStatus.ServiceError;
@@ -300,9 +330,11 @@ internal static class SonosTopologyRefreshUiTests
         {
             throw new Exception("Nieudany odczyt zniszczył poprawny identyfikator domu.");
         }
-        if (harness.MediaList.Items.Count != 2)
+        // BLAD GET NIE OZNACZA ZNIKNIECIA: model sterowania zachowuje grupy.
+        if (window.SonosGroupRows.Count != 2)
         {
-            throw new Exception("Nieudany odczyt opublikował pustkę jako wynik odświeżenia.");
+            throw new Exception(
+                $"Nieudany odczyt opublikował pustkę jako wynik odświeżenia: {window.SonosGroupRows.Count} grup.");
         }
         var added = harness.Announcements.Skip(announcementsBefore).ToArray();
         if (added.Length == 0 || !added[^1].Contains("nie", StringComparison.OrdinalIgnoreCase))
@@ -320,7 +352,9 @@ internal static class SonosTopologyRefreshUiTests
     {
         using var harness = Harness.Create();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed podwójnym odświeżeniem");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed podwójnym odświeżeniem");
 
         var release = new TaskCompletionSource();
         harness.Backend.HouseholdGate = release.Task;
@@ -367,7 +401,9 @@ internal static class SonosTopologyRefreshUiTests
     {
         using var harness = Harness.Create();
         harness.ExecuteCommand(CommandIds.SessionSlot(8));
-        harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed porzuceniem odświeżenia");
+        harness.PumpUntil(
+            () => harness.Window.SonosGroupRows.Count == 2,
+            "brak odczytanych grup przed porzuceniem odświeżenia");
 
         var releaseA = new TaskCompletionSource();
         harness.Backend.HouseholdGate = releaseA.Task;
@@ -404,9 +440,11 @@ internal static class SonosTopologyRefreshUiTests
         {
             throw new Exception("Spóźnione odświeżenie A zwolniło bramkę trwającego odświeżenia B.");
         }
-        if (harness.MediaList.Items.Count != 2)
+        if (harness.Window.SonosGroupRows.Count != 2)
         {
-            throw new Exception("Porzucone odświeżenie A opublikowało wynik po wyjściu z sesji.");
+            throw new Exception(
+                "Porzucone odświeżenie A opublikowało wynik po wyjściu z sesji: "
+                + $"{harness.Window.SonosGroupRows.Count} grup w modelu.");
         }
 
         // SWIADOMA powtorka C w trakcie B: zero GET i krotki komunikat.
@@ -430,7 +468,7 @@ internal static class SonosTopologyRefreshUiTests
         harness.Backend.HouseholdGate = null;
         releaseB.TrySetResult();
         harness.PumpUntil(
-            () => harness.MediaList.Items.Count == 3,
+            () => harness.Window.SonosGroupRows.Count == 3,
             "zwolnione odświeżenie B nie dokończyło publikacji świeżej topologii");
         if (harness.RefreshInFlight)
         {
@@ -503,7 +541,7 @@ internal static class SonosTopologyRefreshUiTests
             harness.ExecuteCommand(CommandIds.SessionSlot(8));
             harness.PumpUntil(() => harness.Backend.HouseholdReads > 0, "wejście nie odczytało domów");
             harness.PumpQuietly(TimeSpan.FromMilliseconds(200));
-            checks += MeasureEnterOnEmptyHouseholdsIsNotSignedOut(harness, "po wejściu");
+            checks += MeasureEmptyHouseholdsIsNotSignedOut(harness, "po wejściu");
 
             var before = harness.Announcements.Count;
             harness.ExecuteCommand(RefreshCommandId);
@@ -523,14 +561,16 @@ internal static class SonosTopologyRefreshUiTests
             }
             if (harness.Backend.Commands.Count != 0) throw new Exception("Odświeżenie wysłało POST do Sonosa.");
             checks += 3;
-            checks += MeasureEnterOnEmptyHouseholdsIsNotSignedOut(harness, "po odświeżeniu");
+            checks += MeasureEmptyHouseholdsIsNotSignedOut(harness, "po odświeżeniu");
         }
 
         // (c) JEDEN dom, ZERO wyboru - start pozostaje jednoznaczny.
         using (var harness = Harness.Create())
         {
             harness.ExecuteCommand(CommandIds.SessionSlot(8));
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "jeden dom nie dał listy grup");
+            harness.PumpUntil(
+                () => harness.Window.SonosGroupRows.Count == 2,
+                "jeden dom nie dał odczytanych grup");
             var before = harness.Announcements.Count;
             harness.ExecuteCommand(RefreshCommandId);
             harness.PumpUntil(
@@ -555,7 +595,9 @@ internal static class SonosTopologyRefreshUiTests
         {
             var window = harness.Window;
             harness.ExecuteCommand(CommandIds.SessionSlot(8));
-            harness.PumpUntil(() => harness.MediaList.Items.Count == 2, "brak listy grup przed zniknięciem domu");
+            harness.PumpUntil(
+                () => window.SonosGroupRows.Count == 2,
+                "brak odczytanych grup przed zniknięciem domu");
             harness.Pump(window.ActivateSonosGroupForTests("GRUPA-SALON"));
             if (window.SonosSelectedHouseholdId != "DOM-1" || window.SonosSelectedGroupId != "GRUPA-SALON")
             {
@@ -597,34 +639,61 @@ internal static class SonosTopologyRefreshUiTests
     /// konto jest wylogowane i kazac sie zalogowac. Mierzone PRAWDZIWA droga
     /// uzytkownika: ExecuteCommand(ActivateSelected) na widocznej pustej liscie.
     /// </summary>
-    private static int MeasureEnterOnEmptyHouseholdsIsNotSignedOut(Harness harness, string stage)
+    /// <summary>
+    /// ZMIENIONA PRZESLANKA, TA SAMA ISTOTA. Dawniej pomiar wymagal PUSTEJ
+    /// widocznej listy i naciskal na niej Enter. Po wymaganiu korzenia tresci
+    /// widoczna lista NIGDY nie jest pusta - ma trzy kategorie materialu
+    /// niezaleznie od domow. Pustka przeniosla sie tam, gdzie naprawde mieszkaja
+    /// domy i grupy: do MODELU sterowania i do powierzchni wyboru celu (Ctrl+F5).
+    ///
+    /// ASERCJA SIE NIE OSLABIA: nadal pilnujemy, ze POTWIERDZONY udany odczyt
+    /// ZERO domow NIE udaje wylogowanego konta, ze powod braku jest NAZWANY
+    /// domem i ze nic nie poszlo POST-em.
+    /// </summary>
+    private static int MeasureEmptyHouseholdsIsNotSignedOut(Harness harness, string stage)
     {
-        if (harness.MediaList.Items.Count != 0)
-        {
-            throw new Exception($"Kontrolka pomiaru ({stage}): lista nie jest pusta.");
-        }
-
-        var before = harness.Announcements.Count;
-        harness.ExecuteCommand(CommandIds.ActivateSelected);
-        harness.PumpUntil(
-            () => harness.Announcements.Count > before,
-            $"Enter na pustej liście Sonos ({stage}) nic nie powiedział");
-        harness.PumpQuietly(TimeSpan.FromMilliseconds(100));
-        var added = harness.Announcements.Skip(before).ToArray();
-        var spoken = added[^1];
-        if (spoken.Contains("zaloguj", StringComparison.OrdinalIgnoreCase)
-            || spoken.Contains("Nie ma połączonego konta", StringComparison.OrdinalIgnoreCase))
+        // PUSTKA jest w MODELU sterowania, nie na widocznej liscie tresci.
+        if (harness.Window.SonosGroupRows.Count != 0)
         {
             throw new Exception(
-                $"Udany odczyt 0 domów ({stage}) udaje wylogowane konto pod Enterem: " + spoken);
+                $"Kontrolka pomiaru ({stage}): model sterowania nie jest pusty przy zero domach.");
         }
-        if (!spoken.Contains("dom", StringComparison.OrdinalIgnoreCase))
+
+        // UCZCIWY POWOD czytamy z PRODUKCYJNEJ mowy do uzytkownika. Ten harness
+        // SWIADOMIE nie pokazuje okna, wiec brama okien potomnych Sonosa slusznie
+        // odmowilaby Ctrl+F5 - pomiar nie obchodzi tej bramy, tylko pyta o powod
+        // tam, gdzie uzytkownik naprawde go slyszy.
+        var before = harness.Announcements.Count;
+        harness.ExecuteCommand(RefreshCommandId);
+        harness.PumpUntil(
+            () => harness.Announcements.Count > before,
+            $"brak domów ({stage}) nie powiedział nic użytkownikowi");
+        harness.PumpQuietly(TimeSpan.FromMilliseconds(120));
+        var reason = string.Join(" | ", harness.Announcements.Skip(before));
+        if (string.IsNullOrWhiteSpace(reason))
         {
-            throw new Exception($"Enter ({stage}) nie nazwał braku dostępnych domów: " + spoken);
+            throw new Exception($"Brak domów ({stage}) nie powiedział nic o domach.");
+        }
+        if (reason.Contains("zaloguj", StringComparison.OrdinalIgnoreCase)
+            || reason.Contains("Nie ma połączonego konta", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                $"Udany odczyt 0 domów ({stage}) udaje wylogowane konto: " + reason);
+        }
+        if (!reason.Contains("dom", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception($"Brak domów ({stage}) nie został nazwany domem: " + reason);
+        }
+
+        // KORZEN TRESCI zostaje nietkniety: brak domow nie kasuje kategorii.
+        if (harness.RowLabels().Length != SonosLibraryPresentation.DescribeCategories().Count)
+        {
+            throw new Exception(
+                $"Brak domów ({stage}) zepsuł korzeń treści: " + string.Join(" | ", harness.RowLabels()));
         }
         if (harness.Backend.Commands.Count != 0)
         {
-            throw new Exception($"Enter na pustej liście ({stage}) wysłał POST do Sonosa.");
+            throw new Exception($"Odczyt zero domów ({stage}) wysłał POST do Sonosa.");
         }
 
         return 2;
@@ -805,34 +874,6 @@ internal static class SonosTopologyRefreshUiTests
         internal string[] RowLabels() => MediaList.Items.Cast<object>()
             .Select(row => row.GetType().GetProperty("Label", Instance)?.GetValue(row) as string ?? string.Empty)
             .ToArray();
-
-        internal int IndexOfGroup(string groupName) =>
-            Enumerable.Range(0, MediaList.Items.Count).First(candidate =>
-                RowLabels()[candidate].Contains(groupName, StringComparison.Ordinal));
-
-        internal void SelectAndFocusRow(int index)
-        {
-            var list = MediaList;
-            list.SelectedIndex = index;
-            list.UpdateLayout();
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
-            if (list.ItemContainerGenerator.ContainerFromIndex(index) is ListBoxItem container) container.Focus();
-            else list.Focus();
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
-            if (list.SelectedIndex != index) throw new Exception("Nie udało się zaznaczyć wiersza listy.");
-        }
-
-        internal void PressKey(Key key)
-        {
-            var target = Keyboard.FocusedElement as UIElement ?? MediaList;
-            var source = PresentationSource.FromVisual(Window)
-                ?? throw new Exception("Okno nie ma powierzchni prezentacji; pokaż je przed klawiszem.");
-            target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key)
-            {
-                RoutedEvent = Keyboard.PreviewKeyDownEvent
-            });
-            PumpQuietly(TimeSpan.FromMilliseconds(50));
-        }
 
         internal void PumpUntil(Func<bool> condition, string what)
         {
