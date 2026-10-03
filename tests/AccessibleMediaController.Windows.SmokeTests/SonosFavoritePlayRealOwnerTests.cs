@@ -1111,6 +1111,92 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 .SetValue(Window, null);
         }
 
+        /// <summary>WEJSCIE W SESJE pod nazwa uzywana przez pomiar po 4.2.1.</summary>
+        internal void EnterSonosSessionForMeasurement() => Enter();
+
+        /// <summary>PRODUKCYJNA Spacja/polecenie transportu, doczekane do konca.</summary>
+        internal void ExecuteSonosCommandForMeasurement(string commandId)
+        {
+            Pump(Window.ExecuteSonosCommandForTests(commandId));
+            PumpQuietly(TimeSpan.FromMilliseconds(120));
+        }
+
+        /// <summary>
+        /// POLECENIE WTYCZKI NVDA PRODUKCYJNA droga <c>ExecuteNvdaCommand</c> - ta
+        /// sama, ktorej uzywa mostek. Pomiar NIE wola bezposrednio polecenia
+        /// Sonosa: zgubienie nacisniec dzialo sie wlasnie na tym torze.
+        ///
+        /// GLOBALNY SKROT NIE AKTYWUJE OKNA: dlatego po drodze nic nie wolamy na
+        /// Activate, a pomiar sprawdza, ze okno nie przejmuje pierwszego planu.
+        /// </summary>
+        internal void DispatchNvdaCommandForMeasurement(string command)
+        {
+            var method = typeof(MainWindow).GetMethod("ExecuteNvdaCommand", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ExecuteNvdaCommand.");
+            try { method.Invoke(Window, [command]); }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw exception.InnerException;
+            }
+
+            PumpQuietly(TimeSpan.FromMilliseconds(40));
+        }
+
+        /// <summary>
+        /// GLOSNOSC W PAMIECI z PRAWDZIWEGO odczytu: podstawiamy odpowiedz chmury
+        /// i wolamy produkcyjny <c>ReadSonosGroupStateAsync</c>, zeby bramka
+        /// glosnosci widziala ODCZYTANY poziom, a nie wartosc wpisana refleksja.
+        /// </summary>
+        internal void PrimeSonosVolumeForMeasurement(int volume)
+        {
+            var previous = Handler.RouteOverride;
+            Handler.RouteOverride = (request, body) =>
+            {
+                if (request.Method == HttpMethod.Get
+                    && request.RequestUri!.AbsolutePath.EndsWith("/groupVolume", StringComparison.Ordinal))
+                {
+                    return Json("{\"volume\":" + volume + ",\"muted\":false,\"fixed\":false}");
+                }
+
+                return previous?.Invoke(request, body);
+            };
+            var read = typeof(MainWindow).GetMethod("ReadSonosGroupStateAsync", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ReadSonosGroupStateAsync.");
+            Pump((Task)read.Invoke(Window, null)!);
+            if (Window.SonosVolumeForTests is not { } current || current.Volume != volume)
+            {
+                throw new Exception("Odczyt nie dostarczył głośności " + volume
+                    + " - pomiar powtórzeń liczyłby od nieznanej wartości.");
+            }
+        }
+
+        /// <summary>
+        /// RZECZYWISTY KROK Ctrl+Win+dol: bierzemy go z MAPOWANIA MOSTKA (volumeDown
+        /// to VolumeDown5), a nie z zalozenia. Gdyby mapowanie kiedys zmienilo krok,
+        /// pomiar policzy nowy, zamiast zdawac na starej liczbie.
+        /// </summary>
+        internal int SonosVolumeStepForMeasurement()
+        {
+            var resolved = NvdaCommands.Resolve("volumeDown")
+                ?? throw new Exception("Mostek NVDA nie mapuje już volumeDown.");
+            var delta = SonosVolumeRepeatBuffer.StepDelta(resolved);
+            if (delta >= 0) throw new Exception("volumeDown nie zmniejsza głośności: " + delta);
+            return -delta;
+        }
+
+        /// <summary>
+        /// GLOSNOSC Z OSTATNIEGO RZECZYWISTEGO ZAPISU na druciku. Dowodem skutku
+        /// jest tresc POST-a, nie pole w pamieci okna.
+        /// </summary>
+        internal int LastVolumePostedForMeasurement()
+        {
+            var last = Handler.Posts
+                .LastOrDefault(w => w.Uri.AbsolutePath.EndsWith("/groupVolume", StringComparison.Ordinal))
+                ?? throw new Exception("Żaden zapis głośności nie poszedł na drucik.");
+            using var document = JsonDocument.Parse(last.Body);
+            return document.RootElement.GetProperty("volume").GetInt32();
+        }
+
         private ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
 
         internal static RealHarness Create(Func<string>? favorites = null)

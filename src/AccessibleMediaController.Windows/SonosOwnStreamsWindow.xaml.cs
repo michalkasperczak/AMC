@@ -25,6 +25,24 @@ public partial class SonosOwnStreamsWindow : Window
     private readonly Action<SonosOwnStreamSettings>? _assignPreset;
 
     /// <summary>
+    /// KOLEJNOSC I TRYB SORTOWANIA z ISTNIEJACEGO magazynu wlasciciela. Okno samo
+    /// nie zapisuje stanu na dysk: zmienia te obiekty i wola <see cref="_saveOrder"/>,
+    /// czyli TE SAMA kolejke zapisu, ktorej uzywa reszta listy.
+    /// </summary>
+    private readonly CollectionOrderSettings? _orders;
+
+    private readonly Func<CollectionSortMode>? _readMode;
+    private readonly Action<CollectionSortMode>? _writeMode;
+    private readonly Action? _saveOrder;
+
+    /// <summary>
+    /// WYCIETE stacje czekajace na Ctrl+V. Ctrl+X NIE usuwa i NIE przestawia -
+    /// zapamietuje tylko identyfikatory, wiec zamkniecie okna nic nie przenosi.
+    /// To NIE jest schowek Windows: adresy nie opuszczaja aplikacji.
+    /// </summary>
+    private List<string>? _pendingMove;
+
+    /// <summary>
     /// IMPORT PLAYLISTY albo null. Okno NIE czyta pliku i NIE zapisuje stanu:
     /// oddaje to wlascicielowi (<c>MainWindow.SonosImport.cs</c>), zeby istniala
     /// JEDNA droga importu dla menu Plik i dla tego przycisku.
@@ -44,13 +62,48 @@ public partial class SonosOwnStreamsWindow : Window
     internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
         Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play,
         Action<SonosOwnStreamSettings>? assignPreset)
+        : this(stations, groupName, save, play, assignPreset, null, null, null, null)
+    {
+    }
+
+    /// <summary>
+    /// WARIANT Z SORTOWANIEM I KOLEJNOSCIA WLASNA (Alt+1/2/3, Alt+strzalki,
+    /// Ctrl+X/Ctrl+V). Wszystkie wczesniejsze wywolania dzialaja bez zmian: bez
+    /// tych czterech zalezności okno zachowuje sie dokladnie jak dotad, a gesty
+    /// kolejnosci mowia krotka odmowe zamiast cicho nic nie robic.
+    /// </summary>
+    internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
+        Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play,
+        Action<SonosOwnStreamSettings>? assignPreset,
+        CollectionOrderSettings? orders,
+        Func<CollectionSortMode>? readMode,
+        Action<CollectionSortMode>? writeMode,
+        Action? saveOrder)
     {
         InitializeComponent();
-        _rows = new(stations.Select(Copy));
         _save = save;
         _play = play;
         _assignPreset = assignPreset;
         _groupName = groupName;
+        _orders = orders;
+        _readMode = readMode;
+        _writeMode = writeMode;
+        _saveOrder = saveOrder;
+        // KOLEJNOSC NA STARCIE z ZAPISANEGO trybu. Brak zapisu znaczy "zostaw tak,
+        // jak bylo": stare ustawienia nie zostaja przetasowane bez gestu.
+        var initial = stations.Select(Copy).ToList();
+        if (_orders is not null)
+        {
+            // Chronologia dodania musi powstac PRZED pierwszym sortowaniem, zeby
+            // przyjela DOTYCHCZASOWA kolejnosc listy, a nie wynik Alt+2.
+            SonosOwnStreamsOrder.EnsureAddedOrder(_orders, initial);
+            SonosOwnStreamsOrder.EnsureCustomOrder(_orders, initial);
+            initial = SonosOwnStreamsOrder
+                .Arrange(_orders, initial, _readMode?.Invoke() ?? CollectionSortMode.Custom)
+                .ToList();
+        }
+
+        _rows = new(initial);
         IntroductionText.Text = "Stacje zapisane tylko w AMC, nie w Ulubionych Sonosa. Zapis nie uruchamia muzyki. "
             + (string.IsNullOrWhiteSpace(groupName) ? "Aby odtwarzać, zamknij to okno i wybierz cel przez Control F5."
                 : $"Enter lub Odtwórz wysyła stację do: {groupName}.");
@@ -242,6 +295,37 @@ public partial class SonosOwnStreamsWindow : Window
         }
         // Z ALTEM WPF podaje Key.System, a litera siedzi w SystemKey.
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        // ALT+1/2/3 SORTUJE, ALT+STRZALKI PRZESUWA - dokladnie jak w edycji radia
+        // internetowego. Gesty NIE wysylaja zadnego zadania do Sonosa i NIE ruszaja
+        // odtwarzania: zmienia sie wylacznie porzadek wierszy.
+        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+            == ModifierKeys.Alt)
+        {
+            var mode = key switch
+            {
+                Key.D1 or Key.NumPad1 => (CollectionSortMode?)CollectionSortMode.AddedNewest,
+                Key.D2 or Key.NumPad2 => CollectionSortMode.Alphabetical,
+                Key.D3 or Key.NumPad3 => CollectionSortMode.Custom,
+                _ => null
+            };
+            if (mode is { } requested)
+            {
+                e.Handled = true;
+                if (!e.IsRepeat) ApplySortMode(requested);
+                return;
+            }
+
+            if (key is Key.Up or Key.Down)
+            {
+                e.Handled = true;
+                // AUTOREPEAT TU ZOSTAJE: przytrzymanie Alt+strzalki ma przesuwac
+                // dalej, tak samo jak w oknie glownym.
+                MoveSelection(key == Key.Up ? -1 : 1);
+                return;
+            }
+        }
+
         if (key == Key.P
             && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
                 == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
@@ -262,6 +346,23 @@ public partial class SonosOwnStreamsWindow : Window
             if (!e.IsRepeat) RunImport();
             return;
         }
+        // CTRL+X / CTRL+V PRZENOSZA W KOLEJNOSCI WLASNEJ - wzor z edycji radia.
+        //
+        // WAZNE: wymagamy fokusu NA LISCIE. W edytorze nazwy i adresu Ctrl+X oraz
+        // Ctrl+V musza dalej wycinac i wklejac TEKST, a nie przestawiac stacje.
+        // Nie dotykamy tez schowka Windows ani zadnego pliku: wycinamy wylacznie
+        // POZYCJE na naszej liscie, a adresy nie opuszczaja aplikacji.
+        if (StationsList.IsKeyboardFocusWithin
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                == ModifierKeys.Control
+            && key is Key.X or Key.V)
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            if (key == Key.X) StartInternalMove(); else PasteInternalMove();
+            return;
+        }
+
         // F2 EDYTUJE, DELETE USUWA - na liscie wlasnych stacji.
         //
         // ZGLOSZENIE MICHALA: "Ulubione stacje graja, ale F2 nie edytuje i Delete
@@ -309,7 +410,196 @@ public partial class SonosOwnStreamsWindow : Window
         if (Selected is not { } row) { AnnounceForOwner("Najpierw dodaj i wybierz stację."); return; }
         _assignPreset(Copy(row));
     }
+    /// <summary>
+    /// ALT+1/2/3: zmiana trybu sortowania. ZAPISUJEMY tryb, przebudowujemy wiersze
+    /// i PRZYWRACAMY zaznaczenie PO IDENTYFIKATORZE - po zmianie porzadku indeks
+    /// wskazywalby czyjs inny material. Zero zadan sieciowych, zero muzyki.
+    /// </summary>
+    private void ApplySortMode(CollectionSortMode mode)
+    {
+        if (_closed) return;
+        if (_orders is null)
+        {
+            AnnounceForOwner("Tu nie można zmienić kolejności stacji.");
+            return;
+        }
+
+        var selectedId = Selected?.Id;
+        _writeMode?.Invoke(mode);
+        Rebuild(selectedId);
+        _saveOrder?.Invoke();
+        // KROTKO: sam tryb i liczba stacji, bez technicznego sprawozdania.
+        AnnounceForOwner($"{SonosOwnStreamsOrder.DescribeMode(mode)}. Stacji: {_rows.Count}.");
+    }
+
+    /// <summary>
+    /// ALT+STRZALKI: przesuniecie zaznaczenia w KOLEJNOSCI WLASNEJ. W innym trybie
+    /// przesuwanie nie ma sensu (porzadek wyliczamy z nazwy albo z chronologii),
+    /// wiec mowimy KROTKA podpowiedz zamiast cicho nic nie robic.
+    /// </summary>
+    private void MoveSelection(int direction)
+    {
+        if (_closed) return;
+        if (!RequireCustomOrder(out var orders)) return;
+        var ids = SelectedIds();
+        if (ids.Count == 0) { AnnounceForOwner("Najpierw wybierz stację."); return; }
+        var result = SonosOwnStreamsOrder.Move(orders, Snapshot(), ids, direction);
+        if (result != SonosOwnStreamsOrderResult.Moved)
+        {
+            AnnounceForOwner(DescribeRefusal(result, direction));
+            return;
+        }
+
+        Rebuild(ids);
+        _saveOrder?.Invoke();
+        AnnounceMovedPosition(ids);
+    }
+
+    /// <summary>
+    /// CTRL+X: ZAZNACZENIE DO PRZENIESIENIA. Nic sie jeszcze nie rusza i nic nie
+    /// ginie - zapamietujemy tylko identyfikatory. Zamkniecie okna bez Ctrl+V nie
+    /// przenosi niczego.
+    /// </summary>
+    private void StartInternalMove()
+    {
+        if (_closed) return;
+        if (!RequireCustomOrder(out _)) return;
+        var ids = SelectedIds();
+        if (ids.Count == 0) { AnnounceForOwner("Najpierw wybierz stację."); return; }
+        _pendingMove = ids.ToList();
+        AnnounceForOwner(ids.Count == 1
+            ? "Zaznaczono stację do przeniesienia. Wybierz miejsce i naciśnij Control V."
+            : $"Zaznaczono {ids.Count} stacji do przeniesienia. "
+                + "Wybierz miejsce i naciśnij Control V.");
+    }
+
+    /// <summary>
+    /// CTRL+V: wstawienie wycietych stacji PRZED wierszem docelowym. Cel w swoim
+    /// wlasnym zaznaczeniu, brak celu i ta sama pozycja maja ROZNE komunikaty, zeby
+    /// zaden nie klamal o skutku. Stacja usunieta albo zmieniona miedzy Ctrl+X i
+    /// Ctrl+V konczy sie odmowa, a nie przeniesieniem czegos innego.
+    /// </summary>
+    private void PasteInternalMove()
+    {
+        if (_closed) return;
+        if (!RequireCustomOrder(out var orders)) return;
+        if (_pendingMove is not { Count: > 0 } pending)
+        {
+            AnnounceForOwner("Najpierw naciśnij Control X na stacji do przeniesienia.");
+            return;
+        }
+
+        var target = Selected?.Id;
+        var result = SonosOwnStreamsOrder.PlaceBefore(orders, Snapshot(), pending, target);
+        if (result != SonosOwnStreamsOrderResult.Moved)
+        {
+            AnnounceForOwner(result switch
+            {
+                SonosOwnStreamsOrderResult.TargetInSelection =>
+                    "Cel jest wśród przenoszonych stacji. Wybierz inne miejsce.",
+                SonosOwnStreamsOrderResult.TargetMissing =>
+                    "Nie wybrano miejsca docelowego.",
+                SonosOwnStreamsOrderResult.Unchanged =>
+                    "Stacja już jest w tym miejscu.",
+                _ => "Nie ma czego przenieść. Naciśnij Control X na stacji."
+            });
+            // Nieudane wklejenie NIE gubi zaznaczenia do przeniesienia poza
+            // przypadkiem, gdy zrodlo zniknelo z listy.
+            if (result == SonosOwnStreamsOrderResult.InvalidSelection) _pendingMove = null;
+            return;
+        }
+
+        _pendingMove = null;
+        Rebuild(pending);
+        _saveOrder?.Invoke();
+        AnnounceMovedPosition(pending);
+    }
+
+    /// <summary>Kolejnosc wlasna to WARUNEK przenoszenia - jak w oknie glownym.</summary>
+    private bool RequireCustomOrder(out CollectionOrderSettings orders)
+    {
+        orders = _orders!;
+        if (_orders is null)
+        {
+            AnnounceForOwner("Tu nie można zmienić kolejności stacji.");
+            return false;
+        }
+
+        if ((_readMode?.Invoke() ?? CollectionSortMode.Custom) != CollectionSortMode.Custom)
+        {
+            AnnounceForOwner("Przenoszenie działa w kolejności własnej. Naciśnij Alt 3.");
+            return false;
+        }
+
+        if (_rows.Count == 0) { AnnounceForOwner("Brak własnych stacji."); return false; }
+        return true;
+    }
+
+    private string DescribeRefusal(SonosOwnStreamsOrderResult result, int direction) => result switch
+    {
+        SonosOwnStreamsOrderResult.Boundary => direction < 0
+            ? "Już na początku listy."
+            : "Już na końcu listy.",
+        SonosOwnStreamsOrderResult.NonContiguousSelection =>
+            "Zaznaczenie nie jest ciągłe. Wybierz sąsiadujące stacje.",
+        _ => "Najpierw wybierz stację."
+    };
+
+    /// <summary>KROTKA WYPOWIEDZ po przeniesieniu: nazwa i pozycja, nic wiecej.</summary>
+    private void AnnounceMovedPosition(IReadOnlyCollection<string> ids)
+    {
+        var first = _rows.FirstOrDefault(row => ids.Contains(row.Id));
+        if (first is null) return;
+        var position = _rows.IndexOf(first) + 1;
+        AnnounceForOwner(ids.Count == 1
+            ? $"{SonosOwnStreamsOrder.Label(first)}, pozycja {position} z {_rows.Count}."
+            : $"Przeniesiono {ids.Count} stacji, od pozycji {position} z {_rows.Count}.");
+    }
+
+    private IReadOnlyList<SonosOwnStreamSettings> Snapshot() => _rows.Select(Copy).ToArray();
+
+    private List<string> SelectedIds() => StationsList.SelectedItems
+        .OfType<SonosOwnStreamSettings>()
+        .Select(row => row.Id)
+        .Where(id => !string.IsNullOrEmpty(id))
+        .ToList();
+
+    private void Rebuild(string? selectedId) =>
+        Rebuild(selectedId is null ? [] : new[] { selectedId });
+
+    /// <summary>
+    /// PRZEBUDOWA WIERSZY z zapisanej kolejnosci + PRZYWROCENIE ZAZNACZENIA PO
+    /// IDENTYFIKATORACH i FOKUS na pierwszym z nich.
+    /// </summary>
+    private void Rebuild(IReadOnlyCollection<string> selectedIds)
+    {
+        if (_orders is null) return;
+        var arranged = SonosOwnStreamsOrder.Arrange(
+            _orders, Snapshot(), _readMode?.Invoke() ?? CollectionSortMode.Custom);
+        _rows.Clear();
+        foreach (var station in arranged) _rows.Add(station);
+        StationsList.SelectedItems.Clear();
+        foreach (var row in _rows.Where(row => selectedIds.Contains(row.Id)))
+        {
+            if (StationsList.SelectionMode == SelectionMode.Single)
+            { StationsList.SelectedItem = row; break; }
+            StationsList.SelectedItems.Add(row);
+        }
+
+        if (StationsList.SelectedItem is null && _rows.Count > 0) StationsList.SelectedIndex = 0;
+        UpdateButtons();
+        FocusRow();
+    }
+
+    /// <summary>ETYKIETY WIERSZY w AKTUALNEJ kolejnosci - kwit pomiaru sortowania.</summary>
+    internal IReadOnlyList<string> OrderedLabelsForTests =>
+        _rows.Select(SonosOwnStreamsOrder.Label).ToArray();
+
+    /// <summary>Czy cos czeka na Ctrl+V - pomiar anulowania bez skutku.</summary>
+    internal bool HasPendingMoveForTests => _pendingMove is { Count: > 0 };
+
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
     private void Play_Click(object sender, RoutedEventArgs e) => StartPlay();
     private void StartPlay()
     {

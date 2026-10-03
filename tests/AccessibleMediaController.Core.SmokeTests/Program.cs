@@ -132,6 +132,11 @@ if (args.Length == 1 && args[0] == "--sonos-own-streams-import")
     try { SonosOwnStreamsImportTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-own-streams-order")
+{
+    try { SonosOwnStreamsOrderTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-stream-url")
 {
     try { SonosStreamUrlTests.Run(); return 0; }
@@ -169,6 +174,8 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: zasady powrotu do podlisty po przełączeniu sesji", SonosSublistReturnPolicyTests.Run),
     ("Własne stacje Sonosa: zapis i biblioteka", SonosOwnStreamsPersistenceTests.Run),
     ("Sonos: import playlisty do Moich stacji", SonosOwnStreamsImportTests.Run),
+    ("Moje stacje Sonosa: sortowanie Alt+1/2/3, przenoszenie i powtórzenia głośności",
+        SonosOwnStreamsOrderTests.Run),
     ("Edycja nagrań nie kieruje historii na kopię bezpieczeństwa", AudioEditRenameTests.Run),
     ("Koszt i wierność migawki stanu", CloneStateCostTests.Run),
     ("Sesja podaje rzeczywiste tempo wyjścia", PlaybackRateStateTests.Run),

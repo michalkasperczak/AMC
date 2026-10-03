@@ -127,6 +127,12 @@ if (args.Contains("--sonos-quiet-progress", StringComparer.Ordinal))
     // ZGLOSZENIE PO 4.1.9: rutynowe zapowiedzi postepu Sonosa w ZWYKLYM AMC.
     SonosFavoritePlayRealOwnerTests.RunQuietProgress(); return 0;
 }
+if (args.Contains("--sonos-space-volume-repeat", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.2.1: Spacja z nieaktualnej kopii stanu oraz gubione
+    // szybkie powtorzenia Ctrl+Win+dol z wtyczki NVDA.
+    SonosFavoritePlayRealOwnerTests.RunSpaceAndVolumeRepeatAfter421(); return 0;
+}
 if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
@@ -543,6 +549,7 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: uruchamianie ulubionego z okna - Odtwórz/Enter, spóźniony wynik (F3c)", SonosFavoritePlayUiTests.Run),
     ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
     ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
+    ("Sonos: Spacja z aktualnego stanu i szybkie powtórzenia głośności z wtyczki NVDA", SonosFavoritePlayRealOwnerTests.RunSpaceAndVolumeRepeatAfter421),
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
     ("Sonos: import playlisty do Moich stacji - menu Plik, prawdziwy plik i zapis", SonosFavoritePlayRealOwnerTests.RunOwnStreamsImport),
     ("Sonos: Ctrl+cyfra z podlisty przełącza sesję i wraca w to samo miejsce", SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch),

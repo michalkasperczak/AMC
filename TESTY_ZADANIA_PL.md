@@ -8236,3 +8236,89 @@ hydratacji lub komunikatach odtwarzania, to błąd.
 na dysku typu „stały” jest dla tych metadanych nieodróżnialny od fizycznego.
 AMC nazywa to wprost w kodzie i nie obiecuje gwarancji dla każdego możliwego
 klienta chmury.
+
+## Sonos po 421: Spacja, kolejność Moich stacji, powtórzenia głośności
+
+### AMC-422-01 — Spacja zaraz po uruchomieniu własnej stacji
+
+Wejdź w sesję Sonos, otwórz „Moje stacje”, uruchom stację Enterem i — gdy
+usłyszysz dźwięk — naciśnij Spację JEDEN raz.
+
+Oczekiwane: odtwarzanie zatrzymuje się, a komunikat mówi o tym, co naprawdę
+się stało. Komunikat „Sonos nie zgłasza możliwości zatrzymania tego materiału”
+przy grającej stacji to błąd. Jedno naciśnięcie to jedna operacja: dwa
+zatrzymania albo zatrzymanie i natychmiastowy powrót to też błąd.
+
+### AMC-422-02 — Spacja, gdy Sonos naprawdę odmawia
+
+Doprowadź grupę do materiału, którego Sonos nie pozwala zatrzymać, i naciśnij
+Spację.
+
+Oczekiwane: krótka odmowa ZOSTAJE odmową. Nic się nie zatrzymuje i nie ma
+komunikatu udającego skutek. Gdy odczytu stanu nie da się wykonać, AMC mówi, że
+polecenia NIE wysłano — a nie że czegoś nie można.
+
+### AMC-422-03 — sortowanie Moich stacji Alt+1/2/3
+
+W „Moich stacjach” (co najmniej trzy stacje o różnych nazwach) naciśnij
+`Alt+1`, potem `Alt+2`, potem `Alt+3`.
+
+Oczekiwane: kolejność zmienia się dokładnie jak w ulubionych radia internetowego,
+komunikat jest krótki, a zaznaczona stacja pozostaje zaznaczona. Żadne żądanie
+sieciowe ani odtwarzanie NIE startuje — grająca stacja gra dalej, również gdy
+jest inna niż zaznaczona. Nazwy i adresy stacji zostają bez zmiany.
+
+### AMC-422-04 — pierwszy start po aktualizacji
+
+Zaraz po aktualizacji otwórz „Moje stacje” bez naciskania `Alt+1`.
+
+Oczekiwane: kolejność jest taka jak przed aktualizacją. Samo otwarcie okna nie
+ma prawa odwrócić ani przetasować listy.
+
+### AMC-422-05 — przenoszenie Alt+strzałkami
+
+W kolejności własnej (`Alt+3`) przenieś stację `Alt+strzałką w górę` i w dół,
+także na samym początku i na samym końcu listy.
+
+Oczekiwane: stacja przesuwa się o jedną pozycję, fokus zostaje na niej, a
+komunikat jest krótki. Na brzegu listy AMC mówi, że dalej nie można — i nic nie
+przesuwa. W trybie `Alt+1` lub `Alt+2` AMC mówi, że przenoszenie wymaga
+kolejności własnej.
+
+### AMC-422-06 — Ctrl+X i Ctrl+V bez utraty stacji
+
+Zaznacz stację, naciśnij `Ctrl+X`, przejdź na inny wiersz i naciśnij `Ctrl+V`.
+Powtórz, ale po `Ctrl+X` zamknij okno BEZ wklejania.
+
+Oczekiwane: `Ctrl+X` niczego nie usuwa ani nie przestawia — zapowiada tylko
+wybór miejsca. `Ctrl+V` wstawia stację PRZED wskazanym wierszem i fokus zostaje
+na przeniesionej stacji. Zamknięcie okna bez `Ctrl+V` nie przenosi nic i nie
+usuwa żadnej stacji. Żaden plik na dysku ani schowek Windows nie jest ruszany.
+W polach tekstowych (nazwa, adres) `Ctrl+X` i `Ctrl+V` działają normalnie, jak
+w zwykłej edycji tekstu.
+
+### AMC-422-07 — kolejność przeżywa restart
+
+Ustaw własną kolejność, zamknij AMC, uruchom ponownie i otwórz „Moje stacje”.
+
+Oczekiwane: kolejność i tryb są takie jak przed zamknięciem. Dodanie, edycja,
+import i usunięcie stacji nie przestawiają pozostałych.
+
+### AMC-422-08 — szybkie ściszanie Ctrl+Win+strzałka w dół z NVDA
+
+Przy grającej grupie Sonos naciśnij `Ctrl+Win+strzałka w dół` kilka razy szybko
+pod rząd, potem to samo w górę.
+
+Oczekiwane: głośność zmienia się o WSZYSTKIE naciśnięcia, a nie tylko o
+pierwsze. Komunikat „Poprzednie polecenie Sonos jeszcze się nie zakończyło” przy
+samym regulowaniu głośności to błąd. Na granicy 0 i 100 dalsze naciskanie nic
+nie zmienia i nie udaje, że zmieniło. Skrót NIE przenosi fokusu ani nie
+podnosi okna AMC — zostajesz w tym programie, w którym byłeś. Prawdziwy błąd
+sieci lub głośność zablokowana przez Sonos nadal są nazywane wprost.
+
+### AMC-422-09 — zmiana grupy w czasie regulacji
+
+Zacznij ściszać szybką serią i w jej trakcie przełącz aktywną grupę Sonos.
+
+Oczekiwane: nagromadzone kroki NIE idą do nowej grupy. Żadna głośność nie
+zmienia się „za plecami” na urządzeniu, którego już nie wybierasz.

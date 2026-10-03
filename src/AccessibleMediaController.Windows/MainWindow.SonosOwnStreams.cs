@@ -1,4 +1,5 @@
 using System.Windows;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sonos;
 
 namespace AccessibleMediaController.Windows;
@@ -36,7 +37,19 @@ public partial class MainWindow
             }, backend is null ? null : request =>
                 LoadSonosOwnStreamAsync(backend, home, group?.Id, ticket, request),
             station => AssignSonosOwnStreamPreset(
-                station, _sonosOwnStreamsWindow!, home, ticket)) { Owner = this };
+                station, _sonosOwnStreamsWindow!, home, ticket),
+            // KOLEJNOSC I TRYB z ISTNIEJACEGO magazynu kolekcji - tego samego,
+            // ktorego uzywa Biblioteka i Ulubione. Zero nowych pol konfiguracji.
+            // Tryb siedzi w stanie nawigacji sesji (tak jak w oknie glownym),
+            // a sama kolejnosc w CollectionOrders pod kluczem widoku.
+            _state.CollectionOrders,
+            () => GetSessionNavigationState("sonos").CollectionSortModes
+                .GetValueOrDefault(SonosOwnStreamsOrder.ViewName, CollectionSortMode.Custom),
+            mode => GetSessionNavigationState("sonos")
+                .CollectionSortModes[SonosOwnStreamsOrder.ViewName] = mode,
+            // TEN SAM zapis, co reszta listy: kolejnosc trafia na dysk produkcyjna
+            // kolejka, a nie wlasnym Save w oknie.
+            () => QueueStateSave(announceFailure: true)) { Owner = this };
         // IMPORT Z WNETRZA LISTY: TA SAMA akcja, co w menu Plik. Okno samo nie
         // czyta pliku ani nie zapisuje stanu - oddaje to tej jednej drodze.
         window.ImportPlaylist = () => ImportSonosOwnStreams(window);

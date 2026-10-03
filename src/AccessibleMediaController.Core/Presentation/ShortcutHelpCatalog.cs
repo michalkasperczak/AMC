@@ -261,6 +261,9 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Edytuj nazwę i adres strumienia", "F2", "lista stacji radia internetowego");
         yield return Info("radio", "Zaznacz stacje do przeniesienia", "Ctrl+X", "Ulubione radia internetowego");
         yield return Info("radio", "Przenieś zaznaczone stacje przed bieżącą", "Ctrl+V", "Ulubione radia internetowego");
+        yield return Info("lists", "Sortuj Moje stacje Sonosa: dodanie, alfabetycznie, kolejność własna", "Alt+1, Alt+2, Alt+3", "okno Moje stacje Sonosa");
+        yield return Info("lists", "Przesuń stację w kolejności własnej", "Alt+Strzałka w górę lub w dół", "okno Moje stacje Sonosa, kolejność własna");
+        yield return Info("lists", "Zaznacz stacje do przeniesienia, potem wstaw je przed bieżącą", "Ctrl+X, potem Ctrl+V", "okno Moje stacje Sonosa, kolejność własna");
         yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
         yield return Info("radio", "Przejdź do 0–90% aktualnego bufora transmisji", "0–9", "odtwarzacz radia");
         yield return Info("radio", "Przejdź do początku bufora transmisji", "Home", "odtwarzacz radia");

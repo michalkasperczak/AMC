@@ -1843,6 +1843,45 @@ najpierw zamknąć listę ręcznie, a powrót lądował w korzeniu sesji.
   jednorazowo przez `ConsumeSonosSublistPendingRowId()` — Ulubione i Playlisty
   otwierają się asynchronicznie, więc pola nie wolno czyścić zbyt wcześnie.
 
+## 17a. Spacja Sonosa, kolejność Moich stacji i szybkie powtórzenia głośności
+
+Trzy zgłoszenia z wersji 421, jedna ścieżka kodu — `ExecuteSonosCommandAsync`
+oraz okno „Moje stacje”.
+
+- `Core/Sonos/SonosPlayPauseRefresh.cs` — CZYSTA decyzja, czy przed odmową
+  trzeba odczytać stan na nowo. Spacja odmawiała z KOPII złapanej w chwili
+  buforowania (brak `canPause` i `canStop`), więc mówiła „Sonos nie zgłasza
+  możliwości zatrzymania tego materiału”, choć grupa już grała. Stan
+  przejściowy i nieodczytane uprawnienia NIE są zgodą, ale też NIE są dowodem
+  odmowy. Pewna zgoda na stanie ustalonym idzie prosto do POST-u — Spacja nie
+  zwalnia. Kroki głośności nie dostają tu żadnego dodatkowego GET.
+- `Windows/MainWindow.Sonos.cs` — bramka zamykana PRZED pierwszym `await`
+  (świeży odczyt też jest poleceniem w toku, więc z jednego gestu nie powstają
+  dwa POST-y transportu). Po odczycie sprawdzana jest tożsamość celu i grupy,
+  a odmowa po świeżym odczycie zostaje odmową: żaden slepy `pause` nie idzie.
+- `Core/Sonos/SonosVolumeRepeatBuffer.cs` — SKUMULOWANA intencja regulacji dla
+  szybkich powtórzeń `Ctrl+Win+strzałki` z wtyczki NVDA. Wtyczka dostarczała
+  intencję poprawnie; to bramka jednego polecenia odrzucała każde naciśnięcie
+  trafiające w trwający POST, a samo wyciszenie komunikatu nie oddałoby
+  zgubionych naciśnięć. Kumulujemy WYŁĄCZNIE kroki głośności i WYŁĄCZNIE tej
+  samej grupy — jako JEDNĄ liczbę, nie listę zadań, więc kolejka jest
+  ograniczona z definicji. Pauza, skip i przewijanie dalej dostają jawną
+  odmowę. POST-y zostają zserializowane: dosyłka idzie po domknięciu
+  poprzedniego zapisu, bez dodatkowego GET i bez zapisów nie po kolei.
+- `Core/Sonos/SonosOwnStreamsOrder.cs` — sortowanie i przenoszenie Moich
+  stacji na wzór radia. Tryb trzyma `SessionNavigationState.CollectionSortModes`
+  (sesja `sonos`, widok „Moje stacje”), a kolejność ISTNIEJĄCY
+  `CollectionOrders` — zero nowych pól konfiguracji i jedno źródło prawdy.
+  Przesuwanie liczy `LocalLibraryManualOrder`, ten sam algorytm co Biblioteka.
+  Pierwsze `Alt+3` startuje od DOTYCHCZASOWEJ kolejności, więc aktualizacja
+  nie przetasowuje stacji bez gestu użytkownika.
+- `Windows/SonosOwnStreamsWindow.xaml.cs` — `Alt+1/2/3` (dodanie, alfabetycznie,
+  kolejność własna), `Alt+strzałki` oraz `Ctrl+X`/`Ctrl+V`. `Ctrl+X` niczego nie
+  usuwa i nie przestawia — zapamiętuje identyfikatory, więc zamknięcie okna nie
+  przenosi nic; `Ctrl+V` wstawia przed wierszem docelowym. Edytowalne pola
+  zachowują własne `Ctrl+X`/`Ctrl+V`, a zapis idzie produkcyjną kolejką
+  `QueueStateSave`.
+
 ## 18. Gdzie czego NIE ma
 
 - Nie ma warstwy wstrzykiwania zależności — obiekty powstają wprost w `App.xaml.cs`
