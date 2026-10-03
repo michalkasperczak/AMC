@@ -7634,13 +7634,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 continue;
             }
-            // Zmiana WYLACZNIE wielkosci liter tez jest zmiana: porownanie
-            // Ordinal, zeby „No cześć.mp3” -> „No Cześć.mp3” odswiezylo zrodlo
-            // i tytul pozycji, a nie zostalo uznane za brak zmiany.
-            if (string.Equals(item.Source, replacement, StringComparison.Ordinal))
-            {
-                continue;
-            }
 
             item.Source = replacement;
             if (!item.HasCustomTitle)
@@ -17492,7 +17485,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         try
         {
-            LocalFileRenamePolicy.MoveFile(path, targetPath);
+            File.Move(path, targetPath);
             ApplyRenamedLocalPath(path, targetPath);
         }
         catch (Exception exception) when (

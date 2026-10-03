@@ -120,11 +120,9 @@ internal static class RecordingFilesAcceptanceTests
     }
 
     /// <summary>
-    /// Zgloszenie (po 417): Shift+F2 na pliku „No cześć” i zmiana na „No Cześć”
-    /// odmawiala. Test idzie produkcyjna droga MainWindow: polityka wylicza cel,
-    /// LocalFileRenamePolicy.MoveFile wykonuje przemianowanie na NTFS, a
-    /// ApplyRenamedLocalPath przepisuje Biblioteke, wykluczenia i historie na
-    /// NOWA pisownie. Mierzy rzeczywisty plik, nie napisy.
+    /// Zgloszenie (po 417): zmiana „No cześć” -> „No Cześć” odmawiala. Test idzie
+    /// krokami produkcyjnej drogi (polityka celu, File.Move, ApplyRenamedLocalPath),
+    /// NIE przez handler Shift+F2 — mierzy plik na dysku i trwalosc po restarcie.
     /// </summary>
     private static void CaseOnlyRenameUpdatesReferences(Fixture fixture)
     {
@@ -153,7 +151,7 @@ internal static class RecordingFilesAcceptanceTests
             "Polityka odmowila zmiany wylacznie wielkosci liter: " + blad);
         Check(Path.GetFileName(cel) == "No Cześć.wav", "Zly cel zmiany pisowni: " + cel);
 
-        AccessibleMediaController.Core.LocalMedia.LocalFileRenamePolicy.MoveFile(maleLitery, cel);
+        File.Move(maleLitery, cel);
 
         // NTFS: ten sam plik, nowa pisownia. Katalog musi zglaszac DOKLADNIE
         // nowa nazwe, zawartosc bez zmian, i tylko jeden plik .wav.

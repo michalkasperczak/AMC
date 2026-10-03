@@ -128,7 +128,7 @@ internal static class RenameCaseOnlyTests
                 LocalFileRenamePolicy.TryBuildTargetPath(current, "No Cześć", out var target, out var error),
                 "Polityka odmowila zmiany wielkosci liter: " + error);
 
-            LocalFileRenamePolicy.MoveFile(current, target);
+            File.Move(current, target);
 
             Check(File.Exists(target), "Plik nie istnieje pod nowa pisownia: " + target);
             Check(
@@ -176,7 +176,7 @@ internal static class RenameCaseOnlyTests
             Check(
                 LocalFileRenamePolicy.TryBuildTargetPath(current, "No Cześć", out var target, out var error),
                 "Polityka odmowila zmiany wielkosci liter: " + error);
-            LocalFileRenamePolicy.MoveFile(current, target);
+            File.Move(current, target);
 
             var zmienione = RadioRecordingHistoryPathRewriter.Rewrite(historia, current, target);
             Check(zmienione == 1, $"Historia musi przepisac dokladnie jeden wpis, przepisala {zmienione}.");
