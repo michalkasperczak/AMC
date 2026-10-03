@@ -37,6 +37,11 @@ if (args.Length == 1 && args[0] == "--audio-edit-renames")
     try { AudioEditRenameTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--rename-case-only")
+{
+    try { RenameCaseOnlyTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--clone-state-cost")
 {
     try { CloneStateCostTests.Run(); return 0; }
@@ -283,6 +288,7 @@ var tests = new (string Name, Action Test)[]
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
+    ("Zmiana wyłącznie wielkości liter nazwy pliku", RenameCaseOnlyTests.Run),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie Folderami Biblioteki", TestLocalFolderSourcePolicy),
     ("Normalizacja korzeni folderów w jednym przebiegu", LocalFolderPathNormalizerTests.Run),

@@ -75,16 +75,116 @@ public static class LocalFileRenamePolicy
             error = "Nazwa pliku nie została zmieniona.";
             return false;
         }
+
+        // Zmiana WYLACZNIE wielkosci liter jest dozwolona. Na NTFS (Windows)
+        // „No cześć.mp3” i „No Cześć.mp3” to ten SAM wpis katalogu, wiec goly
+        // File.Exists(targetPath) zwraca true i wygladalby jak kolizja z obcym
+        // plikiem. Dlatego o zajetosc nazwy pytamy katalog i porownujemy nazwy
+        // DOKLADNIE (Ordinal): tylko wpis o identycznej pisowni, inny niz nasz
+        // plik, jest prawdziwa kolizja. Ta sama reguła dziala na systemach
+        // rozrozniajacych wielkosc liter (ext4), gdzie taki wpis moze istniec.
         if (string.Equals(targetPath, fullCurrentPath, StringComparison.OrdinalIgnoreCase))
         {
-            error = "Zmiana wyłącznie wielkości liter nie jest jeszcze obsługiwana.";
-            return false;
+            if (ExistsWithExactName(directory, Path.GetFileName(targetPath), fullCurrentPath))
+            {
+                error = "W tym folderze istnieje już plik albo folder o takiej nazwie.";
+                return false;
+            }
+            return true;
         }
+
         if (File.Exists(targetPath) || Directory.Exists(targetPath))
         {
             error = "W tym folderze istnieje już plik albo folder o takiej nazwie.";
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Czy w <paramref name="directory"/> istnieje wpis o nazwie dokladnie
+    /// <paramref name="exactFileName"/> (porownanie Ordinal), ktory NIE jest
+    /// plikiem <paramref name="currentFullPath"/>. Enumeracja z wzorcem nazwy
+    /// jest na Windows niewrazliwa na wielkosc liter, dlatego pisownie
+    /// sprawdzamy sami.
+    /// </summary>
+    private static bool ExistsWithExactName(
+        string directory,
+        string exactFileName,
+        string currentFullPath)
+    {
+        try
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory, exactFileName))
+            {
+                if (!string.Equals(Path.GetFileName(entry), exactFileName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                if (string.Equals(Path.GetFullPath(entry), currentFullPath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                return true;
+            }
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or DirectoryNotFoundException)
+        {
+            // Nie potwierdzono kolizji. Samo przemianowanie i tak nie nadpisze
+            // obcego pliku: File.Move bez overwrite odmawia, a komunikat bledu
+            // trafia do uzytkownika z warstwy wykonania.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Wykonuje zmiane nazwy na sciezke wyliczona przez
+    /// <see cref="TryBuildTargetPath"/>. Nie nadpisuje innego pliku: zadne
+    /// wywolanie nie uzywa trybu overwrite.
+    ///
+    /// Zmiana samej wielkosci liter na NTFS jest zwyklym przemianowaniem i
+    /// <see cref="File.Move(string,string)"/> ja wykonuje. Czesc systemow plikow
+    /// (udzialy sieciowe, FAT, warstwy chmurowe) odrzuca taka pare nazw jako
+    /// „plik juz istnieje”; wtedy robimy to samo w dwoch krokach przez nazwe
+    /// tymczasowa w TYM SAMYM folderze. Gdy drugi krok padnie, plik wraca pod
+    /// pierwotna nazwe, zeby nie zostawic go pod nazwa techniczna.
+    /// </summary>
+    public static void MoveFile(string currentPath, string targetPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
+
+        var isCaseOnlyChange =
+            !string.Equals(currentPath, targetPath, StringComparison.Ordinal)
+            && string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            File.Move(currentPath, targetPath);
+            return;
+        }
+        catch (IOException) when (isCaseOnlyChange)
+        {
+            // Jedyny przypadek, w ktorym ponawiamy: ten sam plik, inna pisownia.
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(currentPath))
+            ?? throw new IOException("Nie można ustalić folderu pliku.");
+        var staging = Path.Combine(directory, ".amc-rename-" + Guid.NewGuid().ToString("N"));
+        File.Move(currentPath, staging);
+        try
+        {
+            File.Move(staging, targetPath);
+        }
+        catch
+        {
+            File.Move(staging, currentPath);
+            throw;
+        }
     }
 }

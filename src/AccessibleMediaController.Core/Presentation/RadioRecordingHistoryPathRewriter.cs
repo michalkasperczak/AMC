@@ -40,7 +40,11 @@ public static class RadioRecordingHistoryPathRewriter
         var normalizedOld = Normalize(oldPath);
         var normalizedNew = Normalize(newPath);
         if (normalizedOld.Length == 0 || normalizedNew.Length == 0) return 0;
-        if (string.Equals(normalizedOld, normalizedNew, StringComparison.OrdinalIgnoreCase)) return 0;
+        // Porownanie DOKLADNE (Ordinal): zmiana wylacznie wielkosci liter
+        // („No cześć.mp3” -> „No Cześć.mp3”) jest rzeczywista zmiana nazwy pliku
+        // i historia ma za nia isc. OrdinalIgnoreCase uznawal ja za brak zmiany
+        // i zostawial w wierszu stara pisownie.
+        if (string.Equals(normalizedOld, normalizedNew, StringComparison.Ordinal)) return 0;
 
         var changed = 0;
         foreach (var entry in history)
@@ -64,7 +68,7 @@ public static class RadioRecordingHistoryPathRewriter
             if (replacement is null
                 || LocalAudioFileDiscovery.IsAudioEditBackupFile(replacement)
                 || LocalAudioFileDiscovery.IsInternalWorkingFile(replacement)
-                || string.Equals(replacement, current, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(replacement, current, StringComparison.Ordinal))
             {
                 continue;
             }
