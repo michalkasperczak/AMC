@@ -347,6 +347,10 @@ if (args.Contains("--audio-clip-append", StringComparer.Ordinal))
 {
     Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult(); return 0;
 }
+if (args.Contains("--cloud-edit-native", StringComparer.Ordinal))
+{
+    return Task.Run(CloudEditNativeGuardTests.Run).GetAwaiter().GetResult();
+}
 if (args.Contains("--audio-edit-backup-settings", StringComparer.Ordinal))
 {
     AudioEditBackupSettingsTests.Run(); return 0;
@@ -601,6 +605,11 @@ var tests = new (string Name, Action Test)[]
     }),
     ("Skróty i eksport zaznaczonego audio", AudioClipShortcutAcceptanceTests.Run),
     ("Bezpieczne dopisanie fragmentu do istniejącego audio", () => Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult()),
+    ("Wspólna decyzja o edycji pliku chmurowego (natywnie, cięcie i dopisanie)", () =>
+    {
+        if (Task.Run(CloudEditNativeGuardTests.Run).GetAwaiter().GetResult() != 0)
+            throw new Exception("Nie przeszły natywne testy decyzji o edycji pliku chmurowego");
+    }),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),

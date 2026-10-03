@@ -1,6 +1,7 @@
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
 using System.Security;
+using System.Text;
 
 namespace AccessibleMediaController.Core.LocalMedia;
 
@@ -8,20 +9,19 @@ public enum CloudFileState
 {
     Local,
     Placeholder,
-    /// <summary>
-    /// Metadata exists and gives no proof either way: an unrecognized reparse
-    /// point, or a provider that marks retention intent without exposing Cloud
-    /// Files completeness. Must never be treated as a guarantee of local data.
-    /// </summary>
-    Unknown,
     Unavailable
 }
 
 /// <summary>
-/// What a caller that wants to rewrite a file in place is allowed to do, and
+/// What a caller that wants to rewrite a file IN PLACE is allowed to do, and
 /// why. Deliberately distinguishes "not downloaded" from "not there at all",
 /// "no permission" and "cannot be determined", so no message claims knowledge
 /// the metadata did not give.
+///
+/// This is an EDIT-ONLY vocabulary. It is intentionally separate from
+/// <see cref="CloudFileState"/>, which keeps its original two-way playback
+/// meaning: adding a third state there would have changed every playback and
+/// risk decision that reads it.
 /// </summary>
 public enum CloudEditOutcome
 {
@@ -34,13 +34,14 @@ public enum CloudEditOutcome
     /// <summary>The file is there, but its metadata could not be read.</summary>
     AccessDenied,
     /// <summary>
-    /// The provider gave no proof either way. Must not lead to rewriting the
-    /// original, and must not be reported as "not downloaded" either.
+    /// Nothing proved the content is here and nothing proved it is missing.
+    /// Must not lead to rewriting the original, and must not be reported as
+    /// "not downloaded" either.
     /// </summary>
     Unknown
 }
 
-public readonly record struct CloudEditAvailability(CloudEditOutcome Outcome, CloudFileState State)
+public readonly record struct CloudEditAvailability(CloudEditOutcome Outcome)
 {
     public bool CanEdit => Outcome == CloudEditOutcome.Editable;
 
@@ -58,9 +59,12 @@ public readonly record struct CloudEditAvailability(CloudEditOutcome Outcome, Cl
             "Nie znaleziono pliku.",
         CloudEditOutcome.AccessDenied =>
             "Nie udało się odczytać informacji o pliku. Sprawdź uprawnienia i spróbuj ponownie.",
+        // Neutral on purpose: the cause may be an unrecognized reparse point, a
+        // volume we cannot identify or a read error — not necessarily a cloud
+        // provider staying silent.
         _ =>
-            "Nie można potwierdzić, czy ten plik jest w całości na dysku. "
-            + "Dostawca chmury nie podaje tej informacji, więc edycja oryginału została wstrzymana."
+            "Nie można potwierdzić, że ten plik jest w całości na tym dysku, "
+            + "więc edycja oryginału została wstrzymana."
     };
 }
 
@@ -75,20 +79,14 @@ public static class CloudFileAvailability
     private const FileAttributes Pinned = (FileAttributes)0x00080000;
     private const FileAttributes Unpinned = (FileAttributes)0x00100000;
     private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
-    // Attributes that really mean "the data may not be here". FILE_ATTRIBUTE_PINNED
-    // and FILE_ATTRIBUTE_UNPINNED are deliberately NOT in this set: per the Win32
-    // file attribute constants they state the user's RETENTION INTENT ("keep it
-    // local" / "do not keep it local when unused"), not whether the content is
-    // currently complete on disk. Treating UNPINNED as missing data is what
-    // refused edits of ordinary, fully downloaded recordings.
+    private const FileAttributes PlaceholderAttributes =
+        FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess | Unpinned;
+    // Attributes that state outright that the payload may be elsewhere. PINNED
+    // and UNPINNED are NOT here: per the Win32 file attribute constants they
+    // state the user's RETENTION INTENT, not whether the content is complete.
     private const FileAttributes MissingDataAttributes =
         FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess;
-    private const FileAttributes PlaceholderAttributes =
-        MissingDataAttributes | Unpinned;
     private const uint CfPlaceholderStatePlaceholder = 0x00000001;
-    private const uint CfPlaceholderStateSyncRoot = 0x00000002;
-    private const uint CfPlaceholderStateEssentialPropertyPresent = 0x00000004;
-    private const uint CfPlaceholderStateInSync = 0x00000008;
     private const uint CfPlaceholderStatePartial = 0x00000010;
     private const uint CfPlaceholderStatePartiallyOnDisk = 0x00000020;
     private const uint CfPlaceholderStateIncomplete =
@@ -98,8 +96,16 @@ public static class CloudFileAvailability
     private const uint FileShareWrite = 0x00000002;
     private const uint FileShareDelete = 0x00000004;
     private const uint OpenExisting = 3;
+    // Keeps the probe on the link / placeholder itself: the payload is never
+    // opened, so a metadata read can never hydrate an unpinned cloud file.
     private const uint FileFlagOpenReparsePoint = 0x00200000;
     private const uint FileFlagBackupSemantics = 0x02000000;
+    private const int ErrorFileNotFound = 2;
+    private const int ErrorPathNotFound = 3;
+    private const int ErrorAccessDenied = 5;
+    private const int ErrorInvalidName = 123;
+    private const int ErrorBadPathname = 161;
+    private const int MaximumLinkHops = 4;
 
     public static CloudFileState GetState(string path)
     {
@@ -111,7 +117,9 @@ public static class CloudFileAvailability
                 attributes = File.GetAttributes(path);
                 placeholderState = CfPlaceholderStateInvalid;
             }
-            return ClassifyMetadata(attributes, placeholderState);
+            return IsPlaceholder(attributes, placeholderState)
+                ? CloudFileState.Placeholder
+                : CloudFileState.Local;
         }
         catch (Exception exception) when (
             exception is IOException
@@ -124,7 +132,7 @@ public static class CloudFileAvailability
     }
 
     public static bool RequiresHydration(string path) =>
-        GetState(path) != CloudFileState.Local;
+        GetState(path) == CloudFileState.Placeholder;
 
     /// <summary>
     /// Recognizes both Cloud Files placeholders and common mounted cloud
@@ -253,15 +261,38 @@ public static class CloudFileAvailability
     /// Classifies attributes without opening file data. This public overload is
     /// also useful to verify provider-independent placeholder behavior in
     /// automated tests where a real cloud sync root is unavailable.
+    ///
+    /// Unchanged legacy two-way classification used by playback and risk
+    /// decisions. Editing must NOT use it — see
+    /// <see cref="ClassifyMetadataForEdit"/>.
     /// </summary>
     public static CloudFileState ClassifyMetadata(
         FileAttributes attributes,
-        uint cloudFilesPlaceholderState = CfPlaceholderStateInvalid)
+        uint cloudFilesPlaceholderState = CfPlaceholderStateInvalid) =>
+        IsPlaceholder(attributes, cloudFilesPlaceholderState)
+            ? CloudFileState.Placeholder
+            : CloudFileState.Local;
+
+    /// <summary>
+    /// Edit-only classification of already-read metadata. Separate from
+    /// <see cref="ClassifyMetadata"/> so that making edits stricter cannot
+    /// change playback behavior.
+    ///
+    /// <paramref name="localStorageProven"/> must be true only when the caller
+    /// actually confirmed that the file sits on a local, identified file system
+    /// (see <see cref="TryProveLocalStorage"/>). Callers that did not look must
+    /// pass false; this method will then refuse to call an attribute-less file
+    /// local, instead of guessing.
+    /// </summary>
+    public static CloudEditOutcome ClassifyMetadataForEdit(
+        FileAttributes attributes,
+        uint cloudFilesPlaceholderState,
+        bool localStorageProven)
     {
         // 1. Attributes that state outright that the payload may be elsewhere.
         //    OFFLINE, RECALL_ON_OPEN and RECALL_ON_DATA_ACCESS are provider
-        //    independent and always win.
-        if ((attributes & MissingDataAttributes) != 0) return CloudFileState.Placeholder;
+        //    independent and always win, pinned or not.
+        if ((attributes & MissingDataAttributes) != 0) return CloudEditOutcome.NeedsDownload;
 
         var hasCloudFilesMetadata = cloudFilesPlaceholderState != CfPlaceholderStateInvalid
             && cloudFilesPlaceholderState != 0;
@@ -271,33 +302,40 @@ public static class CloudFileAvailability
             //    content is not ready for use (PARTIALLY_ON_DISK never appears
             //    without it), so a pinned-but-partial file is still refused.
             if ((cloudFilesPlaceholderState & CfPlaceholderStateIncomplete) != 0)
-                return CloudFileState.Placeholder;
-            // 3. A complete placeholder: PLACEHOLDER|IN_SYNC without PARTIAL.
-            //    PINNED/UNPINNED is retention policy, not completeness, so it is
-            //    not consulted here.
+                return CloudEditOutcome.NeedsDownload;
+            // 3. A complete Cloud Files placeholder: PLACEHOLDER without
+            //    PARTIAL, with no recall or offline flag. This is positive
+            //    evidence from the sync engine itself, so PINNED/UNPINNED —
+            //    retention policy, not completeness — is not consulted.
             if ((cloudFilesPlaceholderState & CfPlaceholderStatePlaceholder) != 0)
-                return CloudFileState.Local;
-            // 4. Cloud Files reported something else (e.g. only SYNC_ROOT) about
-            //    a file we cannot otherwise prove. Do not guess.
-            return (attributes & FileAttributes.ReparsePoint) != 0
-                ? CloudFileState.Unknown
-                : CloudFileState.Local;
+                return CloudEditOutcome.Editable;
+            // 4. Cloud Files reported something else (for example only
+            //    SYNC_ROOT) about a reparse point. That proves nothing about
+            //    this file's content.
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                return CloudEditOutcome.Unknown;
         }
 
-        // 5. No Cloud Files metadata (older provider, or cldapi unavailable).
-        //    FILE_ATTRIBUTE_PINNED is the provider saying "this one is kept
-        //    locally"; with no recall or offline flag beside it, that is the
-        //    shape a hydrated iCloud file has, and refusing it would be the
-        //    very false refusal this seam exists to remove.
-        if ((attributes & Pinned) != 0) return CloudFileState.Local;
-        //    Anything else that is a reparse point, or merely marked "do not
-        //    keep local", cannot prove the content is here. Report that
-        //    honestly instead of claiming either answer.
-        if ((attributes & (FileAttributes.ReparsePoint | Unpinned)) != 0)
-            return CloudFileState.Unknown;
+        // 5. No usable Cloud Files proof. A reparse point is NOT local evidence:
+        //    the caller must follow it and judge the target instead. PINNED is
+        //    deliberately NOT a shortcut here — "keep this one locally" is an
+        //    intent the provider may not have fulfilled yet, and in 6a2b914 it
+        //    let an unknown reparse tag through before it was even examined.
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            return CloudEditOutcome.Unknown;
 
-        // 6. An ordinary file with no cloud metadata at all.
-        return CloudFileState.Local;
+        // 6. Retention attributes (PINNED / UNPINNED) are never consulted as
+        //    evidence in EITHER direction, and that cuts both ways. They do not
+        //    prove the payload is here — that was the hole in 6a2b914 — but a
+        //    file that is not a reparse point has no mechanism to redirect a
+        //    read somewhere else, so marking it pinned cannot make it less
+        //    present. Measured natively: treating PINNED alone as grounds for
+        //    refusal produced a false refusal on an ordinary resident NTFS file.
+        //
+        // 7. So the decision rests on evidence only: no missing-data attribute
+        //    above, no redirect, and storage that was actually identified as
+        //    local. Anything less is reported as unproven rather than guessed.
+        return localStorageProven ? CloudEditOutcome.Editable : CloudEditOutcome.Unknown;
     }
 
     /// <summary>
@@ -314,74 +352,200 @@ public static class CloudFileAvailability
     public static CloudEditAvailability GetEditAvailability(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
-            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
-        try
-        {
-            if (!File.Exists(path))
-                return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
-        }
-        catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
-        {
-            return new CloudEditAvailability(CloudEditOutcome.AccessDenied, CloudFileState.Unavailable);
-        }
+            return new CloudEditAvailability(CloudEditOutcome.Missing);
+        return new CloudEditAvailability(ProbeForEdit(path, MaximumLinkHops));
+    }
+
+    private static CloudEditOutcome ProbeForEdit(string path, int hopsLeft)
+    {
+        if (hopsLeft <= 0) return CloudEditOutcome.Unknown;
 
         FileAttributes attributes;
         uint placeholderState;
-        var nativeRead = false;
-        try
+        bool localStorageProven;
+        if (OperatingSystem.IsWindows())
         {
-            nativeRead = TryReadNativeMetadata(path, out attributes, out placeholderState);
-            if (!nativeRead)
+            // Deliberately no File.Exists: it answers false for a file that
+            // exists but cannot be examined, which is how a permission problem
+            // used to be reported as a missing file. The Win32 error code from
+            // the one metadata open we need says which of the two happened.
+            var outcome = TryReadForEdit(
+                path, out attributes, out placeholderState, out localStorageProven);
+            if (outcome is not null) return outcome.Value;
+        }
+        else
+        {
+            try
             {
                 attributes = File.GetAttributes(path);
-                placeholderState = CfPlaceholderStateInvalid;
+            }
+            catch (FileNotFoundException) { return CloudEditOutcome.Missing; }
+            catch (DirectoryNotFoundException) { return CloudEditOutcome.Missing; }
+            catch (UnauthorizedAccessException) { return CloudEditOutcome.AccessDenied; }
+            catch (Exception exception) when (
+                exception is IOException or ArgumentException or NotSupportedException)
+            {
+                return CloudEditOutcome.Unknown;
+            }
+            if ((attributes & FileAttributes.Directory) != 0) return CloudEditOutcome.Unknown;
+            placeholderState = CfPlaceholderStateInvalid;
+            // Cloud Files placeholders and virtual Windows volumes do not exist
+            // here; this branch only serves non-Windows test and build hosts.
+            localStorageProven = true;
+        }
+
+        var verdict = ClassifyMetadataForEdit(attributes, placeholderState, localStorageProven);
+        if (verdict == CloudEditOutcome.Unknown
+            && (attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            // An unrecognized reparse point may simply be an ordinary symbolic
+            // link or a file reached through one. Follow it with metadata only
+            // and let the real target decide — never with the permissive legacy
+            // GetState, which is playback policy, not edit policy.
+            var target = ResolveLinkTarget(path);
+            if (target is not null
+                && !string.Equals(target, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return ProbeForEdit(target, hopsLeft - 1);
             }
         }
-        catch (FileNotFoundException)
+        return verdict;
+    }
+
+    /// <summary>
+    /// Single metadata-only open. Returns a non-null outcome when the open or
+    /// the query itself already decided the answer (missing, denied, unreadable).
+    /// </summary>
+    private static CloudEditOutcome? TryReadForEdit(
+        string path,
+        out FileAttributes attributes,
+        out uint placeholderState,
+        out bool localStorageProven)
+    {
+        attributes = 0;
+        placeholderState = CfPlaceholderStateInvalid;
+        localStorageProven = false;
+        try
         {
-            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+            using var handle = CreateFileW(
+                path,
+                0,
+                FileShareRead | FileShareWrite | FileShareDelete,
+                IntPtr.Zero,
+                OpenExisting,
+                FileFlagOpenReparsePoint | FileFlagBackupSemantics,
+                IntPtr.Zero);
+            if (handle.IsInvalid)
+            {
+                return Marshal.GetLastWin32Error() switch
+                {
+                    ErrorFileNotFound or ErrorPathNotFound or ErrorInvalidName or ErrorBadPathname =>
+                        CloudEditOutcome.Missing,
+                    ErrorAccessDenied => CloudEditOutcome.AccessDenied,
+                    _ => CloudEditOutcome.Unknown
+                };
+            }
+
+            if (!GetFileInformationByHandleEx(
+                    handle,
+                    FileInfoByHandleClass.FileAttributeTagInfo,
+                    out var information,
+                    (uint)Marshal.SizeOf<FileAttributeTagInfo>()))
+            {
+                return Marshal.GetLastWin32Error() == ErrorAccessDenied
+                    ? CloudEditOutcome.AccessDenied
+                    : CloudEditOutcome.Unknown;
+            }
+
+            attributes = (FileAttributes)information.FileAttributes;
+            if ((attributes & FileAttributes.Directory) != 0) return CloudEditOutcome.Unknown;
+            try
+            {
+                placeholderState = CfGetPlaceholderStateFromAttributeTag(
+                    information.FileAttributes,
+                    information.ReparseTag);
+            }
+            catch (Exception exception) when (
+                exception is DllNotFoundException or EntryPointNotFoundException)
+            {
+                placeholderState = CfPlaceholderStateInvalid;
+            }
+            localStorageProven = TryProveLocalStorage(handle, path);
+            return null;
         }
-        catch (DirectoryNotFoundException)
+        catch (Exception exception) when (
+            exception is IOException
+                or ArgumentException
+                or NotSupportedException)
         {
-            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+            return CloudEditOutcome.Unknown;
         }
         catch (UnauthorizedAccessException)
         {
-            return new CloudEditAvailability(CloudEditOutcome.AccessDenied, CloudFileState.Unavailable);
+            return CloudEditOutcome.AccessDenied;
         }
-        catch (Exception exception) when (
-            exception is IOException or ArgumentException or NotSupportedException)
-        {
-            return new CloudEditAvailability(CloudEditOutcome.Unknown, CloudFileState.Unavailable);
-        }
+    }
 
-        var state = ClassifyMetadata(attributes, placeholderState);
-
-        // A link may itself look perfectly local while its target is not. Follow
-        // it with metadata only; the payload is never opened.
-        if (state == CloudFileState.Local
-            && (attributes & FileAttributes.ReparsePoint) != 0)
+    /// <summary>
+    /// Confirms that the handle refers to a local, identified file system, using
+    /// only documented read-only metadata: GetVolumeInformationByHandleW for the
+    /// file system name and DriveType for the kind of volume. Returns false
+    /// whenever that cannot be established, so an unidentified virtual or remote
+    /// volume is never silently called local.
+    ///
+    /// Known limit, stated instead of hidden: a virtual file system that reports
+    /// itself as NTFS/FAT on a fixed drive is indistinguishable from real local
+    /// storage by this metadata alone.
+    /// </summary>
+    private static bool TryProveLocalStorage(SafeFileHandle handle, string path)
+    {
+        var fileSystem = new StringBuilder(64);
+        try
         {
-            var target = ResolveLinkTarget(path);
-            if (target is null) return new CloudEditAvailability(CloudEditOutcome.Unknown, CloudFileState.Unknown);
-            if (!string.Equals(target, path, StringComparison.OrdinalIgnoreCase))
+            if (!GetVolumeInformationByHandleW(
+                    handle,
+                    null,
+                    0,
+                    out _,
+                    out _,
+                    out _,
+                    fileSystem,
+                    (uint)fileSystem.Capacity))
             {
-                var targetState = GetState(target);
-                if (targetState != CloudFileState.Local)
-                    state = targetState == CloudFileState.Placeholder
-                        ? CloudFileState.Placeholder
-                        : CloudFileState.Unknown;
+                return false;
             }
         }
-
-        return state switch
+        catch (Exception exception) when (
+            exception is EntryPointNotFoundException or DllNotFoundException)
         {
-            CloudFileState.Local => new CloudEditAvailability(CloudEditOutcome.Editable, state),
-            CloudFileState.Placeholder => new CloudEditAvailability(CloudEditOutcome.NeedsDownload, state),
-            CloudFileState.Unavailable => new CloudEditAvailability(CloudEditOutcome.AccessDenied, state),
-            _ => new CloudEditAvailability(CloudEditOutcome.Unknown, state)
-        };
+            return false;
+        }
+
+        var name = fileSystem.ToString();
+        var localFileSystem = name.Equals("NTFS", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("ReFS", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("exFAT", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("FAT32", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("FAT", StringComparison.OrdinalIgnoreCase);
+        if (!localFileSystem) return false;
+
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(path));
+            if (string.IsNullOrWhiteSpace(root)) return false;
+            if (root.StartsWith("\\\\", StringComparison.Ordinal)) return false;
+            var type = new DriveInfo(root).DriveType;
+            return type is DriveType.Fixed or DriveType.Removable;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+        {
+            return false;
+        }
     }
 
     private static string? ResolveLinkTarget(string path)
@@ -403,7 +567,9 @@ public static class CloudFileAvailability
     }
 
     private static bool IsPlaceholder(FileAttributes attributes, uint placeholderState) =>
-        ClassifyMetadata(attributes, placeholderState) != CloudFileState.Local;
+        (attributes & PlaceholderAttributes) != 0
+        || (placeholderState != CfPlaceholderStateInvalid
+            && (placeholderState & (CfPlaceholderStatePartial | CfPlaceholderStatePartiallyOnDisk)) != 0);
 
     private static bool TryReadNativeMetadata(
         string path,
@@ -507,6 +673,18 @@ public static class CloudFileAvailability
         FileInfoByHandleClass fileInformationClass,
         out FileAttributeTagInfo fileInformation,
         uint bufferSize);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetVolumeInformationByHandleW(
+        SafeFileHandle fileHandle,
+        StringBuilder? volumeNameBuffer,
+        uint volumeNameSize,
+        out uint volumeSerialNumber,
+        out uint maximumComponentLength,
+        out uint fileSystemFlags,
+        StringBuilder fileSystemNameBuffer,
+        uint fileSystemNameSize);
 
     [DllImport("cldapi.dll", ExactSpelling = true)]
     private static extern uint CfGetPlaceholderStateFromAttributeTag(

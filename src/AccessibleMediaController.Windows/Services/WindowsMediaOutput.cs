@@ -1096,13 +1096,36 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     public static bool TryReadMetadata(
         string path,
         out TimeSpan duration,
-        out int sampleRateHz)
+        out int sampleRateHz) =>
+        TryReadMetadata(path, out duration, out sampleRateHz, locallyProducedFile: false);
+
+    /// <summary>
+    /// <paramref name="locallyProducedFile"/> is only for files this process has
+    /// just written itself (an edit result awaiting verification). Such a file
+    /// cannot be a cloud placeholder, so the name-based playback gate would
+    /// reject it for no reason. The remote-access policy for ordinary playback
+    /// is deliberately left untouched; instead the file must prove locality
+    /// through native placeholder metadata, so the check still fails closed.
+    /// </summary>
+    internal static bool TryReadMetadata(
+        string path,
+        out TimeSpan duration,
+        out int sampleRateHz,
+        bool locallyProducedFile)
     {
         duration = TimeSpan.Zero;
         sampleRateHz = 0;
         // Quick information must never trigger a cloud download. Metadata for
         // a placeholder is populated after the user explicitly plays it.
-        if (MediaSourceAccessPolicy.Classify(path).RequiresRemoteAccess) return false;
+        if (locallyProducedFile)
+        {
+            if (CloudFileAvailability.GetEditAvailability(path).Outcome != CloudEditOutcome.Editable)
+                return false;
+        }
+        else if (MediaSourceAccessPolicy.Classify(path).RequiresRemoteAccess)
+        {
+            return false;
+        }
         try
         {
             using var selection = CreateReader(
@@ -1128,7 +1151,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     public static async Task<MediaMetadataReadResult> TryReadMetadataAsync(
         string path,
-        TimeSpan timeout)
+        TimeSpan timeout) =>
+        await TryReadMetadataAsync(path, timeout, locallyProducedFile: false).ConfigureAwait(false);
+
+    internal static async Task<MediaMetadataReadResult> TryReadMetadataAsync(
+        string path,
+        TimeSpan timeout,
+        bool locallyProducedFile)
     {
         if (MetadataTimeoutSources.ContainsKey(path))
         {
@@ -1137,9 +1166,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
         var task = MetadataReadTasks.GetOrAdd(
             path,
-            static sourcePath => Task.Run(() =>
+            sourcePath => Task.Run(() =>
             {
-                var success = TryReadMetadata(sourcePath, out var duration, out var sampleRateHz);
+                var success = TryReadMetadata(
+                    sourcePath,
+                    out var duration,
+                    out var sampleRateHz,
+                    locallyProducedFile);
                 return new MediaMetadataReadResult(success, duration, sampleRateHz, false);
             }));
         _ = task.ContinueWith(

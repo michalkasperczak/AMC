@@ -314,7 +314,12 @@ internal static class AudioClipOriginalEditor
         cancellationToken.ThrowIfCancellationRequested();
         if (!File.Exists(path) || new FileInfo(path).Length <= 0)
             throw new InvalidDataException("Plik wynikowy jest pusty. Oryginał nie został zmieniony.");
-        var metadata = await WindowsMediaOutput.TryReadMetadataAsync(path, MetadataTimeout)
+        // Plik wynikowy powstal chwile temu w tym procesie, wiec nie moze byc
+        // zastepnikiem w chmurze. Nazwa folderu nie moze blokowac jego weryfikacji.
+        var metadata = await WindowsMediaOutput.TryReadMetadataAsync(
+                path,
+                MetadataTimeout,
+                locallyProducedFile: true)
             .ConfigureAwait(false);
         if (!metadata.Success || metadata.Duration <= TimeSpan.Zero)
             throw new InvalidDataException("Nie można sprawdzić pliku wynikowego. Oryginał nie został zmieniony.");

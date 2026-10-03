@@ -671,18 +671,6 @@ internal static class AudioClipAppendTests
         }
     }
 
-    private static T Wait<T>(Task<T> task)
-    {
-        try
-        {
-            return task.GetAwaiter().GetResult();
-        }
-        catch (AggregateException error) when (error.InnerException is not null)
-        {
-            throw error.InnerException;
-        }
-    }
-
     private static void Check(bool ok, string message)
     {
         if (!ok) throw new InvalidOperationException(message);
