@@ -1632,6 +1632,26 @@ i 21000–22000). Serwisy:
   gdy samo `File.Exists` na NTFS nie rozróżnia wielkości liter),
   pliki w chmurze niepobrane (`CloudFileAvailability.cs`), sonda kontenera
   (`MediaContainerProbe.cs`, `Mp3StructureProbe.cs`).
+- `CloudFileAvailability.cs` ma DWIE rozdzielne polityki, nie jedną:
+  - **odtwarzanie** — `MayRequireRemoteAccess`, `RequiresHydration`,
+    `IsPlaceholder`, `GetState`, `CloudFileState{Local,Placeholder,Unavailable}`.
+    Zachowanie identyczne z 420; nie zmieniaj go przy pracy nad edycją.
+  - **edycja** — `ClassifyMetadataForEdit`, `GetEditAvailability`,
+    `CloudEditAvailability`, `CloudEditOutcome{Editable,NeedsDownload,Unknown,
+    Missing,AccessDenied}`. Zgoda wymaga DOWODU danych na nośniku: kompletny
+    stan Cloud Files (`0x9`) jest dozwolony niezależnie od przypięcia, częściowy
+    i offline to odmowa, a samo `FILE_ATTRIBUTE_PINNED`/`UNPINNED` nie jest
+    dowodem w żadną stronę. Nieznany punkt ponownej analizy → `Unknown`.
+    Dowód nośnika czytany tylko do odczytu z `GetVolumeInformationByHandleW`
+    + `GetDriveType`. ZMIERZONE OGRANICZENIE, nazwane też w kodzie: wolumin
+    wirtualny podający się za NTFS/FAT na dysku `Fixed` jest tymi metadanymi
+    NIEODRÓŻNIALNY od fizycznego — nie obiecuj gwarancji dla każdego klienta
+    chmury i nie dokładaj zgadywania systemu.
+- Edytor sprawdza WŁASNY wytworzony plik przez `internal` przeciążenie
+  `WindowsMediaOutput.TryReadMetadata(Async)` z `locallyProducedFile: true`
+  i bramką `GetEditAvailability`. Publiczne przeciążenia (ścieżka odtwarzania)
+  zostają bez zmian; wąska granica istnieje, bo publiczny odczyt metadanych
+  odmawiał po samej nazwie folderu OneDrive.
 - `LocalFolderPathNormalizer.cs` — jawna pamięć normalizacji ograniczona do jednego
   przebiegu `MainWindow.CaptureLocalMediaState`; używana przez
   `LocalFolderSourcePolicy.IsSameOrDescendant` przy rozstrzyganiu opcji folderu.

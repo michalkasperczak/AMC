@@ -8182,3 +8182,57 @@ Oczekiwane: tak jak wyżej — zero rutynowych zapowiedzi „trwa/czekaj”,
 natomiast każdy wynik, błąd i odmowa nadal są wymawiane. Zachowanie okna
 zarządzania nie różni się od zwykłego wejścia do sesji pod względem tych
 komunikatów.
+
+## Testy ręczne — alpha 421
+
+### AMC-421-01 — wycięcie fragmentu pliku na potwierdzonym nośniku
+
+Weź **kopię** pliku dźwiękowego leżącą na zwykłym dysku, także w folderze o
+nazwie `OneDrive` lub `Dropbox`, który NIE jest obsługiwany przez klienta
+chmury. Zaznacz fragment i wykonaj wycięcie z zapisem do oryginału.
+
+Oczekiwane: operacja przechodzi. Nazwa folderu **nie** jest podstawą odmowy.
+Czytnik mówi wynik, a nie urywany opis techniczny. Plik po zapisie ma nową,
+krótszą długość i daje się odtworzyć.
+
+### AMC-421-02 — odmowa dla pliku tylko online, bez uszkodzenia pliku
+
+Na pliku tylko online z prawdziwego klienta Cloud Files (OneDrive, iCloud,
+Google Drive) spróbuj wyciąć fragment i dopisać nagranie.
+
+Oczekiwane: AMC **odmawia przed** jakimkolwiek zapisem i mówi krótki powód
+(trzeba najpierw pobrać plik). Źródło i cel pozostają bajt w bajt bez zmian —
+ta sama długość, czas modyfikacji i zawartość, żadnej nowej kopii obok.
+Sama odmowa nie kończy pracy programu ani nie gubi zaznaczenia.
+
+### AMC-421-03 — samo przypięcie nie jest zgodą ani odmową
+
+Na przypiętym („zawsze zachowuj na tym urządzeniu”) pliku Cloud Files, który
+JEST w całości pobrany, wykonaj wycięcie. Potem to samo na pliku przypiętym,
+który jeszcze **nie** jest pobrany.
+
+Oczekiwane: pierwszy przechodzi, drugi dostaje odmowę. Przypięcie samo z siebie
+nie przesądza wyniku w żadną stronę. Zwykły plik lokalny z ustawionym atrybutem
+przypięcia też przechodzi.
+
+### AMC-421-04 — dopisanie nagrania do istniejącego pliku
+
+Powtórz AMC-421-01 i AMC-421-02 dla **dopisania** nagrania do istniejącego
+pliku, a nie wycięcia.
+
+Oczekiwane: te same reguły i te same krótkie komunikaty. Przy odmowie plik
+docelowy zostaje nietknięty.
+
+### AMC-421-05 — odtwarzanie zachowuje się jak w 420
+
+Odtwórz plik tylko online, plik lokalny i plik na dysku sieciowym — bez
+żadnej edycji.
+
+Oczekiwane: zachowanie dokładnie takie jak w wersji 420. Zmiana dotyczy
+WYŁĄCZNIE decyzji o edycji; jeżeli zauważysz różnicę w odtwarzaniu,
+hydratacji lub komunikatach odtwarzania, to błąd.
+
+**Znane ograniczenie, świadome:** wolumin wirtualny podający się za NTFS/FAT
+na dysku typu „stały” jest dla tych metadanych nieodróżnialny od fizycznego.
+AMC nazywa to wprost w kodzie i nie obiecuje gwarancji dla każdego możliwego
+klienta chmury.
