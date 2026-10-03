@@ -163,3 +163,53 @@ Zasady: `id` jest **napisem**; zly JSON daje blad, nie zabija hosta; linia nad
 `files.listFolder`, `files.play`, `radio.play`, `radio.importPlaylist`,
 `transport.pauseResume|stop|seek|setVolume|setRate|status`, `audio.configure`,
 `audio.outputs`, `host.shutdown`.
+
+---
+
+## 8. Biblioteka z prawdziwego profilu (etap 3, checkpoint 1)
+
+### Co sie zmienilo
+
+Biblioteka pod **Ctrl+1** czyta teraz `library.db` (SQLite), a nie dysk.
+Wczesniej `_load_initial_content` decydowalo przez `Path(folder).exists()` —
+a sciezki z profilu (`D:\…`, `C:\Users\micha\…`) na maszynie testowej nie
+istnieja, wiec lista byla **pusta**. To byl zglaszany blad.
+
+### Jak uruchomic na kopii danych
+
+```bash
+export AMC_WX_FIXTURE=/home/michal/projekty/amc_pomoc/wx-full-profile-after421/fixture
+cd wxlite && python3 run_tests.py
+```
+
+Bez `AMC_WX_FIXTURE` wariant uzywa prawdziwego profilu
+(`%LOCALAPPDATA%\AccessibleMediaController`) w trybie **tylko do odczytu**.
+
+### Zasady, ktorych nie wolno zlamac
+
+- Baza otwierana jako `mode=ro&immutable=1`. `immutable=1` jest konieczne,
+  zeby nie powstaly pliki `-wal`/`-shm` obok profilu — ich utworzenie to **juz
+  zapis** do cudzych danych.
+- Skutek uboczny: czytelnik nie widzi zmian hosta na otwartym uchwycie.
+  Dlatego `LibrarySource` otwiera baze **na kazdy odczyt**, nie trzyma jednego
+  polaczenia.
+- Kolacja `AMC_PL` musi byc zarejestrowana, inaczej SQLite odmawia zapytan
+  o `title` / `display_name`. Port z C#: `pl-PL`, `IgnoreCase | IgnoreNonSpace`.
+- ID sa **napisami**. Nie rzutowac na `int`, nie przenumerowywac.
+- Nie filtrowac wierszy przez `Path.exists`. Dostepnosc bierzemy z kolumny
+  `is_available`, ktora zapisal host.
+
+### Co sprawdzic RECZNIE na Windows (tu sie nie da — brak pulpitu)
+
+1. Ctrl+1 — czy lista pokazuje 3 foldery zrodlowe + 7 pojedynczych plikow;
+2. Enter na „Kazania Dominikanie Grobla" — czy wchodzi i czy jest wiersz `..`;
+3. Backspace / Enter na `..` — czy wraca na opuszczony folder (fokus!);
+4. NVDA: czy nazwy z polskimi znakami sa czytane w calosci i w dobrej
+   kolejnosci (Ł nie moze ladowac na koncu alfabetu);
+5. Ctrl+2 i powrot Ctrl+1 — czy pozycja na liscie sie nie gubi;
+6. czy okno **nie zamarza** na czas ladowania (na WSL odczyt to 200–320 ms,
+   na Windows moze byc inaczej).
+
+Pomiar predkosci porownuj tylko przy **tej samej liczbie rekordow** — mala
+lista zawsze bedzie szybsza i nie dowodzi niczego o jezyku.
+

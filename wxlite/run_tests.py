@@ -15,6 +15,7 @@ import importlib.util
 import os
 import sys
 import traceback
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -28,6 +29,45 @@ def load_module(path: Path):
     sys.modules[path.stem] = module
     spec.loader.exec_module(module)
     return module
+
+
+def collect(module, stem: str) -> list[tuple[str, object]]:
+    """Zbiera testy: funkcje ``test_*`` ORAZ metody klas ``unittest.TestCase``.
+
+    Wczesniej runner widzial tylko funkcje modulowe. Klasy ``TestCase`` byly
+    po cichu POMIJANE -- nowy plik testow mogl wiec "przejsc" bez wykonania ani
+    jednego sprawdzenia. To jest dokladnie falszywa zielen, wiec runner musi
+    umiec jedno i drugie.
+    """
+    found: list[tuple[str, object]] = []
+    for name in sorted(vars(module)):
+        value = getattr(module, name)
+        if name.startswith("test_") and callable(value) and not isinstance(value, type):
+            found.append((f"{stem}::{name}", value))
+            continue
+        if isinstance(value, type) and issubclass(value, unittest.TestCase):
+            for method in sorted(dir(value)):
+                if not method.startswith("test_"):
+                    continue
+                found.append((f"{stem}::{name}.{method}", _case_runner(value, method)))
+    return found
+
+
+def _case_runner(case: type, method: str):
+    """Jeden przebieg ``TestCase`` z setUp/tearDown i mapowaniem SkipTest."""
+
+    def run() -> None:
+        suite = unittest.TestLoader().loadTestsFromNames([method], case)
+        result = unittest.TestResult()
+        suite.run(result)
+        if result.skipped:
+            raise unittest.SkipTest(result.skipped[0][1])
+        if result.failures:
+            raise AssertionError(result.failures[0][1])
+        if result.errors:
+            raise AssertionError(result.errors[0][1])
+
+    return run
 
 
 def main(argv: list[str]) -> int:
@@ -45,13 +85,7 @@ def main(argv: list[str]) -> int:
             failures.append((f"{path.name} (import)", traceback.format_exc()))
             continue
 
-        for name in sorted(vars(module)):
-            if not name.startswith("test_"):
-                continue
-            func = getattr(module, name)
-            if not callable(func):
-                continue
-            label = f"{path.stem}::{name}"
+        for label, func in sorted(collect(module, path.stem)):
             if filters and not any(f in label for f in filters):
                 continue
             try:
