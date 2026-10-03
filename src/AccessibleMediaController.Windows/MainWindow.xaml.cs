@@ -2096,10 +2096,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             AnnounceEssential("Usuwanie fragmentu z oryginalnego pliku wymaga składnika FFmpeg");
             return;
         }
-        if (CloudFileAvailability.MayRequireRemoteAccess(path))
+        var editAvailability = CloudFileAvailability.GetEditAvailability(path);
+        if (!editAvailability.CanEdit)
         {
-            AnnounceEssential(
-                "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie");
+            // Ta sama wspólna decyzja i ten sam komunikat co w usłudze, żeby
+            // okno nie zapowiadało czegoś innego, niż zrobi wycinanie.
+            AnnounceEssential(editAvailability.Message.TrimEnd('.'));
             return;
         }
         if (LocalAudioFileDiscovery.IsVideoFile(path))

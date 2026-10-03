@@ -31,7 +31,9 @@ internal static class AudioClipAppendTests
             ("Podmiana tej samej wielkości i daty nie nadpisuje nowej treści", DetectsSameMetadataReplacement),
             ("Plik tylko do odczytu pozostaje nietknięty", RejectsReadOnlyTarget),
             ("Zajęty plik pozostaje nietknięty", RejectsLockedTarget),
-            ("Nieobsługiwany lub wideo cel nie jest przyjmowany", RejectsUnsupportedTarget)
+            ("Nieobsługiwany lub wideo cel nie jest przyjmowany", RejectsUnsupportedTarget),
+            ("Lokalny plik pod katalogiem dowolnej chmury jest przyjmowany", AcceptsFullyLocalFileUnderCloudNamedRoot),
+            ("Cel bez danych lokalnych pozostaje nietknięty", RefusesTargetWithoutLocalData)
         };
 
         var failed = 0;
@@ -74,6 +76,67 @@ internal static class AudioClipAppendTests
             try {Wait(AudioClipAppender.AppendAsync(new(source,target,TimeSpan.Zero,TimeSpan.FromSeconds(1)),null,CancellationToken.None));}
             catch(NotSupportedException){refused=true;}
             Check(refused && Hash(File.ReadAllBytes(target))==before,"Nie odrzucono celu bez zmiany jego zawartości");
+        }
+    }
+
+    private static void AcceptsFullyLocalFileUnderCloudNamedRoot(string root)
+    {
+        // Nazwy katalogów sprawdzają wyłącznie NIEZALEŻNOŚĆ reguły od dostawcy.
+        // To NIE jest test prawdziwych klientów chmur — tych tu nie ma.
+        foreach (var provider in new[] { "OneDrive", "OneDrive - Firma", "Dropbox", "Google Drive", "iCloudDrive", "Proton Drive" })
+        {
+            var directory=Path.Combine(root,provider,"Nagrania");Directory.CreateDirectory(directory);
+            var source=Path.Combine(directory,"źródło.wav");var target=Path.Combine(directory,"cel.wav");
+            WriteTone(source,TimeSpan.FromSeconds(4),660);WriteTone(target,TimeSpan.FromSeconds(3),220);
+            var sourceHash=Hash(File.ReadAllBytes(source));
+            var result=Wait(AudioClipAppender.AppendAsync(
+                new(source,target,TimeSpan.FromSeconds(1),TimeSpan.FromSeconds(3)),null,CancellationToken.None,keepBackup:true));
+            Check(Hash(File.ReadAllBytes(source))==sourceHash,provider+": zmieniono plik źródłowy");
+            Check(result.TargetDurationAfter>TimeSpan.FromSeconds(4.7)&&result.TargetDurationAfter<TimeSpan.FromSeconds(5.3),
+                provider+": długość po dopisaniu "+result.TargetDurationAfter+" zamiast około 5 s");
+            Check(!string.IsNullOrEmpty(result.BackupPath)&&File.Exists(result.BackupPath),
+                provider+": zażądana kopia zapasowa nie istnieje");
+        }
+        // Zmienna środowiskowa dostawcy też nie może sama odmawiać edycji.
+        var environmentDirectory=Path.Combine(root,"zmienna","Nagrania");Directory.CreateDirectory(environmentDirectory);
+        var environmentSource=Path.Combine(environmentDirectory,"źródło.wav");
+        var environmentTarget=Path.Combine(environmentDirectory,"cel.wav");
+        WriteTone(environmentSource,TimeSpan.FromSeconds(4),660);WriteTone(environmentTarget,TimeSpan.FromSeconds(3),220);
+        var previous=Environment.GetEnvironmentVariable("OneDrive");
+        Environment.SetEnvironmentVariable("OneDrive",Path.Combine(root,"zmienna"));
+        try
+        {
+            var result=Wait(AudioClipAppender.AppendAsync(
+                new(environmentSource,environmentTarget,TimeSpan.FromSeconds(1),TimeSpan.FromSeconds(3)),null,CancellationToken.None));
+            Check(result.TargetDurationAfter>TimeSpan.FromSeconds(4.7),"Korzeń ze zmiennej OneDrive zablokował lokalną edycję");
+        }
+        finally {Environment.SetEnvironmentVariable("OneDrive",previous);}
+    }
+
+    private static void RefusesTargetWithoutLocalData(string root)
+    {
+        // Prawdziwy brak danych: atrybut Offline. Oba pliki muszą zostać
+        // nietknięte, bez uruchamiania FFmpeg i bez żadnej hydracji.
+        foreach (var offlineIsTarget in new[] { true, false })
+        {
+            var directory=Path.Combine(root,offlineIsTarget?"cel":"źródło");Directory.CreateDirectory(directory);
+            var source=Path.Combine(directory,"źródło.wav");var target=Path.Combine(directory,"cel.wav");
+            WriteTone(source,TimeSpan.FromSeconds(4),660);WriteTone(target,TimeSpan.FromSeconds(3),220);
+            var offlinePath=offlineIsTarget?target:source;
+            var sourceHash=Hash(File.ReadAllBytes(source));var targetHash=Hash(File.ReadAllBytes(target));
+            var backupsBefore=Directory.GetFiles(directory).Length;
+            File.SetAttributes(offlinePath,File.GetAttributes(offlinePath)|FileAttributes.Offline);
+            var refused=false;string message=string.Empty;
+            try {Wait(AudioClipAppender.AppendAsync(new(source,target,TimeSpan.FromSeconds(1),TimeSpan.FromSeconds(3)),null,CancellationToken.None));}
+            catch(InvalidOperationException error){refused=true;message=error.Message;}
+            finally {File.SetAttributes(offlinePath,File.GetAttributes(offlinePath)&~FileAttributes.Offline);}
+            Check(refused,"Plik bez danych lokalnych został przyjęty do dopisywania");
+            Check(message.Contains("w pełni dostępny lokalnie",StringComparison.Ordinal),
+                "Odmowa dla pliku bez danych nie nazwała przyczyny: "+message);
+            Check(Hash(File.ReadAllBytes(source))==sourceHash,"Odmowa zmieniła plik źródłowy");
+            Check(Hash(File.ReadAllBytes(target))==targetHash,"Odmowa zmieniła plik docelowy");
+            Check(Directory.GetFiles(directory).Length==backupsBefore,
+                "Odmowa zostawiła dodatkowe pliki (kopię lub plik tymczasowy)");
         }
     }
 
@@ -601,6 +664,18 @@ internal static class AudioClipAppendTests
         try
         {
             task.GetAwaiter().GetResult();
+        }
+        catch (AggregateException error) when (error.InnerException is not null)
+        {
+            throw error.InnerException;
+        }
+    }
+
+    private static T Wait<T>(Task<T> task)
+    {
+        try
+        {
+            return task.GetAwaiter().GetResult();
         }
         catch (AggregateException error) when (error.InnerException is not null)
         {

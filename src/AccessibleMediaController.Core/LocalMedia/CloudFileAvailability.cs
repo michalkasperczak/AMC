@@ -1,5 +1,6 @@
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
+using System.Security;
 
 namespace AccessibleMediaController.Core.LocalMedia;
 
@@ -7,7 +8,60 @@ public enum CloudFileState
 {
     Local,
     Placeholder,
+    /// <summary>
+    /// Metadata exists and gives no proof either way: an unrecognized reparse
+    /// point, or a provider that marks retention intent without exposing Cloud
+    /// Files completeness. Must never be treated as a guarantee of local data.
+    /// </summary>
+    Unknown,
     Unavailable
+}
+
+/// <summary>
+/// What a caller that wants to rewrite a file in place is allowed to do, and
+/// why. Deliberately distinguishes "not downloaded" from "not there at all",
+/// "no permission" and "cannot be determined", so no message claims knowledge
+/// the metadata did not give.
+/// </summary>
+public enum CloudEditOutcome
+{
+    /// <summary>Content is proven to be on this disk. Editing may proceed.</summary>
+    Editable,
+    /// <summary>Cloud metadata says the content is not (fully) here.</summary>
+    NeedsDownload,
+    /// <summary>The file is not there.</summary>
+    Missing,
+    /// <summary>The file is there, but its metadata could not be read.</summary>
+    AccessDenied,
+    /// <summary>
+    /// The provider gave no proof either way. Must not lead to rewriting the
+    /// original, and must not be reported as "not downloaded" either.
+    /// </summary>
+    Unknown
+}
+
+public readonly record struct CloudEditAvailability(CloudEditOutcome Outcome, CloudFileState State)
+{
+    public bool CanEdit => Outcome == CloudEditOutcome.Editable;
+
+    /// <summary>
+    /// One truthful Polish sentence per outcome, used by both the window and
+    /// the services so a user never hears two different stories about the same
+    /// file. Empty for <see cref="CloudEditOutcome.Editable"/>.
+    /// </summary>
+    public string Message => Outcome switch
+    {
+        CloudEditOutcome.Editable => string.Empty,
+        CloudEditOutcome.NeedsDownload =>
+            "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie.",
+        CloudEditOutcome.Missing =>
+            "Nie znaleziono pliku.",
+        CloudEditOutcome.AccessDenied =>
+            "Nie udało się odczytać informacji o pliku. Sprawdź uprawnienia i spróbuj ponownie.",
+        _ =>
+            "Nie można potwierdzić, czy ten plik jest w całości na dysku. "
+            + "Dostawca chmury nie podaje tej informacji, więc edycja oryginału została wstrzymana."
+    };
 }
 
 /// <summary>
@@ -18,13 +72,27 @@ public static class CloudFileAvailability
 {
     // Windows SDK attributes not exposed by every target framework's enum.
     private const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
+    private const FileAttributes Pinned = (FileAttributes)0x00080000;
     private const FileAttributes Unpinned = (FileAttributes)0x00100000;
     private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
+    // Attributes that really mean "the data may not be here". FILE_ATTRIBUTE_PINNED
+    // and FILE_ATTRIBUTE_UNPINNED are deliberately NOT in this set: per the Win32
+    // file attribute constants they state the user's RETENTION INTENT ("keep it
+    // local" / "do not keep it local when unused"), not whether the content is
+    // currently complete on disk. Treating UNPINNED as missing data is what
+    // refused edits of ordinary, fully downloaded recordings.
+    private const FileAttributes MissingDataAttributes =
+        FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess;
     private const FileAttributes PlaceholderAttributes =
-        FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess | Unpinned;
+        MissingDataAttributes | Unpinned;
     private const uint CfPlaceholderStatePlaceholder = 0x00000001;
+    private const uint CfPlaceholderStateSyncRoot = 0x00000002;
+    private const uint CfPlaceholderStateEssentialPropertyPresent = 0x00000004;
+    private const uint CfPlaceholderStateInSync = 0x00000008;
     private const uint CfPlaceholderStatePartial = 0x00000010;
     private const uint CfPlaceholderStatePartiallyOnDisk = 0x00000020;
+    private const uint CfPlaceholderStateIncomplete =
+        CfPlaceholderStatePartial | CfPlaceholderStatePartiallyOnDisk;
     private const uint CfPlaceholderStateInvalid = 0xFFFFFFFF;
     private const uint FileShareRead = 0x00000001;
     private const uint FileShareWrite = 0x00000002;
@@ -43,9 +111,7 @@ public static class CloudFileAvailability
                 attributes = File.GetAttributes(path);
                 placeholderState = CfPlaceholderStateInvalid;
             }
-            return IsPlaceholder(attributes, placeholderState)
-                ? CloudFileState.Placeholder
-                : CloudFileState.Local;
+            return ClassifyMetadata(attributes, placeholderState);
         }
         catch (Exception exception) when (
             exception is IOException
@@ -58,7 +124,7 @@ public static class CloudFileAvailability
     }
 
     public static bool RequiresHydration(string path) =>
-        GetState(path) == CloudFileState.Placeholder;
+        GetState(path) != CloudFileState.Local;
 
     /// <summary>
     /// Recognizes both Cloud Files placeholders and common mounted cloud
@@ -190,15 +256,154 @@ public static class CloudFileAvailability
     /// </summary>
     public static CloudFileState ClassifyMetadata(
         FileAttributes attributes,
-        uint cloudFilesPlaceholderState = CfPlaceholderStateInvalid) =>
-        IsPlaceholder(attributes, cloudFilesPlaceholderState)
-            ? CloudFileState.Placeholder
-            : CloudFileState.Local;
+        uint cloudFilesPlaceholderState = CfPlaceholderStateInvalid)
+    {
+        // 1. Attributes that state outright that the payload may be elsewhere.
+        //    OFFLINE, RECALL_ON_OPEN and RECALL_ON_DATA_ACCESS are provider
+        //    independent and always win.
+        if ((attributes & MissingDataAttributes) != 0) return CloudFileState.Placeholder;
+
+        var hasCloudFilesMetadata = cloudFilesPlaceholderState != CfPlaceholderStateInvalid
+            && cloudFilesPlaceholderState != 0;
+        if (hasCloudFilesMetadata)
+        {
+            // 2. Cloud Files answered. CF_PLACEHOLDER_STATE_PARTIAL means the
+            //    content is not ready for use (PARTIALLY_ON_DISK never appears
+            //    without it), so a pinned-but-partial file is still refused.
+            if ((cloudFilesPlaceholderState & CfPlaceholderStateIncomplete) != 0)
+                return CloudFileState.Placeholder;
+            // 3. A complete placeholder: PLACEHOLDER|IN_SYNC without PARTIAL.
+            //    PINNED/UNPINNED is retention policy, not completeness, so it is
+            //    not consulted here.
+            if ((cloudFilesPlaceholderState & CfPlaceholderStatePlaceholder) != 0)
+                return CloudFileState.Local;
+            // 4. Cloud Files reported something else (e.g. only SYNC_ROOT) about
+            //    a file we cannot otherwise prove. Do not guess.
+            return (attributes & FileAttributes.ReparsePoint) != 0
+                ? CloudFileState.Unknown
+                : CloudFileState.Local;
+        }
+
+        // 5. No Cloud Files metadata (older provider, or cldapi unavailable).
+        //    FILE_ATTRIBUTE_PINNED is the provider saying "this one is kept
+        //    locally"; with no recall or offline flag beside it, that is the
+        //    shape a hydrated iCloud file has, and refusing it would be the
+        //    very false refusal this seam exists to remove.
+        if ((attributes & Pinned) != 0) return CloudFileState.Local;
+        //    Anything else that is a reparse point, or merely marked "do not
+        //    keep local", cannot prove the content is here. Report that
+        //    honestly instead of claiming either answer.
+        if ((attributes & (FileAttributes.ReparsePoint | Unpinned)) != 0)
+            return CloudFileState.Unknown;
+
+        // 6. An ordinary file with no cloud metadata at all.
+        return CloudFileState.Local;
+    }
+
+    /// <summary>
+    /// The ONE decision shared by every caller that is about to rewrite a file
+    /// in place: the editing UI and the editing services alike. It is separate
+    /// from <see cref="MayRequireRemoteAccess"/> on purpose — that one also
+    /// guards playback timeouts, retries and seeking, where being cautious about
+    /// a cloud-mounted path costs nothing. Refusing an edit, by contrast, blocks
+    /// work on a file the user already has.
+    ///
+    /// Provider independent: no folder, drive label or environment variable of
+    /// any brand takes part in it. Only documented Windows metadata does.
+    /// </summary>
+    public static CloudEditAvailability GetEditAvailability(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+        try
+        {
+            if (!File.Exists(path))
+                return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return new CloudEditAvailability(CloudEditOutcome.AccessDenied, CloudFileState.Unavailable);
+        }
+
+        FileAttributes attributes;
+        uint placeholderState;
+        var nativeRead = false;
+        try
+        {
+            nativeRead = TryReadNativeMetadata(path, out attributes, out placeholderState);
+            if (!nativeRead)
+            {
+                attributes = File.GetAttributes(path);
+                placeholderState = CfPlaceholderStateInvalid;
+            }
+        }
+        catch (FileNotFoundException)
+        {
+            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return new CloudEditAvailability(CloudEditOutcome.Missing, CloudFileState.Unavailable);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new CloudEditAvailability(CloudEditOutcome.AccessDenied, CloudFileState.Unavailable);
+        }
+        catch (Exception exception) when (
+            exception is IOException or ArgumentException or NotSupportedException)
+        {
+            return new CloudEditAvailability(CloudEditOutcome.Unknown, CloudFileState.Unavailable);
+        }
+
+        var state = ClassifyMetadata(attributes, placeholderState);
+
+        // A link may itself look perfectly local while its target is not. Follow
+        // it with metadata only; the payload is never opened.
+        if (state == CloudFileState.Local
+            && (attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            var target = ResolveLinkTarget(path);
+            if (target is null) return new CloudEditAvailability(CloudEditOutcome.Unknown, CloudFileState.Unknown);
+            if (!string.Equals(target, path, StringComparison.OrdinalIgnoreCase))
+            {
+                var targetState = GetState(target);
+                if (targetState != CloudFileState.Local)
+                    state = targetState == CloudFileState.Placeholder
+                        ? CloudFileState.Placeholder
+                        : CloudFileState.Unknown;
+            }
+        }
+
+        return state switch
+        {
+            CloudFileState.Local => new CloudEditAvailability(CloudEditOutcome.Editable, state),
+            CloudFileState.Placeholder => new CloudEditAvailability(CloudEditOutcome.NeedsDownload, state),
+            CloudFileState.Unavailable => new CloudEditAvailability(CloudEditOutcome.AccessDenied, state),
+            _ => new CloudEditAvailability(CloudEditOutcome.Unknown, state)
+        };
+    }
+
+    private static string? ResolveLinkTarget(string path)
+    {
+        try
+        {
+            var target = new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true);
+            return target is null ? path : target.FullName;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException
+                or SecurityException)
+        {
+            return null;
+        }
+    }
 
     private static bool IsPlaceholder(FileAttributes attributes, uint placeholderState) =>
-        (attributes & PlaceholderAttributes) != 0
-        || (placeholderState != CfPlaceholderStateInvalid
-            && (placeholderState & (CfPlaceholderStatePartial | CfPlaceholderStatePartiallyOnDisk)) != 0);
+        ClassifyMetadata(attributes, placeholderState) != CloudFileState.Local;
 
     private static bool TryReadNativeMetadata(
         string path,

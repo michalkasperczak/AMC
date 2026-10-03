@@ -4869,6 +4869,78 @@ static void TestLocalAudioFileDiscovery()
         Equal(
             CloudFileState.Local,
             CloudFileAvailability.ClassifyMetadata((FileAttributes)0x00080420));
+        // Etap 2: wspólna dla WSZYSTKICH chmur ocena lokalnej dostępności przy
+        // edycji. Semantyka wzięta z dokumentacji CF_PLACEHOLDER_STATE i stałych
+        // atrybutów Win32: PLACEHOLDER|IN_SYNC bez PARTIAL to treść gotowa, a
+        // PINNED/UNPINNED to polityka przechowywania, nie kompletność.
+        const FileAttributes reparse = FileAttributes.Archive | FileAttributes.ReparsePoint;
+        const FileAttributes pinnedAttribute = (FileAttributes)0x00080000;
+        const FileAttributes unpinnedAttribute = (FileAttributes)0x00100000;
+        foreach (var (attributes, state, expected, label) in new (FileAttributes, uint, CloudFileState, string)[]
+                 {
+                     (reparse, 0x9u, CloudFileState.Local, "CF 0x9 bez przypięcia"),
+                     (reparse | pinnedAttribute, 0x9u, CloudFileState.Local, "CF 0x9 z PINNED"),
+                     (reparse | unpinnedAttribute, 0x9u, CloudFileState.Local, "CF 0x9 z UNPINNED"),
+                     (reparse | pinnedAttribute, 0x11u, CloudFileState.Placeholder, "PINNED z PARTIAL"),
+                     (reparse | pinnedAttribute, 0x31u, CloudFileState.Placeholder, "PINNED z PARTIALLY_ON_DISK"),
+                     (FileAttributes.Archive | FileAttributes.Offline, 0xFFFFFFFFu, CloudFileState.Placeholder, "OFFLINE"),
+                     (FileAttributes.Archive | (FileAttributes)0x00040000, 0xFFFFFFFFu, CloudFileState.Placeholder, "RECALL_ON_OPEN"),
+                     (FileAttributes.Archive | (FileAttributes)0x00400000, 0xFFFFFFFFu, CloudFileState.Placeholder, "RECALL_ON_DATA_ACCESS"),
+                     (reparse, 0xFFFFFFFFu, CloudFileState.Unknown, "nieznany punkt ponownej analizy"),
+                     (FileAttributes.Archive | unpinnedAttribute, 0xFFFFFFFFu, CloudFileState.Unknown, "UNPINNED bez metadanych Cloud Files")
+                 })
+        {
+            True(
+                CloudFileAvailability.ClassifyMetadata(attributes, state) == expected,
+                $"{label}: oczekiwano {expected}, otrzymano {CloudFileAvailability.ClassifyMetadata(attributes, state)}.");
+        }
+        // Zwyczajny, w całości lokalny plik pod katalogiem o nazwie dostawcy
+        // chmury musi być edytowalny — nazwa folderu nie jest dowodem na brak
+        // pobrania. To była treść fałszywej odmowy zgłoszonej przez użytkownika.
+        foreach (var provider in new[]
+                 {
+                     "OneDrive", "OneDrive - Firma", "Dropbox", "Google Drive",
+                     "iCloudDrive", "Proton Drive", "Nextcloud", "MEGA"
+                 })
+        {
+            var providerDirectory = Path.Combine(directory, "edycja", provider, "Nagrania");
+            Directory.CreateDirectory(providerDirectory);
+            var providerFile = Path.Combine(providerDirectory, "nagranie.mp3");
+            File.WriteAllBytes(providerFile, [1, 2, 3]);
+            var availability = CloudFileAvailability.GetEditAvailability(providerFile);
+            True(
+                availability.CanEdit,
+                $"W pełni lokalny plik pod katalogiem {provider} musi pozostać edytowalny, a nie {availability.Outcome}.");
+            True(
+                availability.Message.Length == 0,
+                $"Edytowalny plik {provider} nie może mieć komunikatu odmowy: {availability.Message}");
+        }
+        // Rzeczywisty brak danych nadal chroniony, i rozróżniony od braku pliku.
+        // Atrybut Offline da się ustawić tylko na Windows — na innych systemach
+        // File.SetAttributes go po cichu pomija, więc ten pomiar należy do
+        // Windows (tak jak starszy przypadek „Tylko online.mp3” powyżej).
+        if (OperatingSystem.IsWindows())
+        {
+            var onlyOnlineFile = Path.Combine(directory, "edycja", "OneDrive", "tylko-online.mp3");
+            File.WriteAllBytes(onlyOnlineFile, [1]);
+            try
+            {
+                File.SetAttributes(onlyOnlineFile, File.GetAttributes(onlyOnlineFile) | FileAttributes.Offline);
+                var offline = CloudFileAvailability.GetEditAvailability(onlyOnlineFile);
+                True(!offline.CanEdit, "Plik oznaczony jako Offline nie może zostać przyjęty do edycji.");
+                True(offline.Outcome == CloudEditOutcome.NeedsDownload, "Offline musi dawać wynik „brak pobrania”.");
+            }
+            finally
+            {
+                File.SetAttributes(onlyOnlineFile, FileAttributes.Normal);
+            }
+        }
+        var missingEdit = CloudFileAvailability.GetEditAvailability(
+            Path.Combine(directory, "edycja", "OneDrive", "nie-ma-mnie.mp3"));
+        True(missingEdit.Outcome == CloudEditOutcome.Missing, "Brak pliku to inny wynik niż brak pobrania.");
+        True(
+            !missingEdit.Message.Contains("Pobierz go świadomie", StringComparison.Ordinal),
+            "Brakującego pliku nie wolno zgłaszać jako niepobranego z chmury.");
         True(
             CloudFileAvailability.MayRequireRemoteAccess(
                 @"C:\Users\Test\OneDrive - Firma\nagranie.mp3"),
