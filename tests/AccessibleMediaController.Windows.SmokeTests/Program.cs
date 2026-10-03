@@ -192,6 +192,10 @@ if (args.Contains("--sonos-content-root-nvda-gui", StringComparer.Ordinal))
     var seconds = index + 1 < args.Length && int.TryParse(args[index + 1], out var parsed) ? parsed : 150;
     SonosNavigationUxTests.ShowContentRootForNvda(seconds); return 0;
 }
+if (args.Contains("--rename-case-nvda-gui", StringComparer.Ordinal))
+{
+    RenameCaseNvdaGui.Run(args); return 0;
+}
 if (args.Contains("--sonos-library-nvda-gui", StringComparer.Ordinal))
 {
     SonosLibraryNvdaGui.Run(args); return 0;
