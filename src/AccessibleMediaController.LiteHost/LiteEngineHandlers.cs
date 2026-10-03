@@ -28,6 +28,16 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private MediaItem? _filesItem;
     private MediaItem? _radioItem;
+
+    /// <summary>
+    /// Czas trwania ZMIERZONY przez dekoder, nie wziety z <see cref="MediaItem"/>.
+    /// Pozycja na liscie nie zna dlugosci pliku (<c>MediaItem.Duration</c> jest
+    /// zerem przy wpisie z folderu), a prawdziwa wartosc podaje silnik dopiero
+    /// zdarzeniem <c>DurationAvailable</c> po otwarciu strumienia. Bez tego
+    /// <c>transport.status</c> oddawal <c>durationSeconds=0</c> i okno nie mialo
+    /// z czego policzyc czasu calkowitego ani pozostalego.
+    /// </summary>
+    private TimeSpan _filesDuration;
     private int _volume = 35;
     private double _rate = 1d;
     private bool _paused;
@@ -43,8 +53,17 @@ internal sealed class LiteEngineHandlers : IDisposable
                 tempoFallbackReason = _files.TempoFallbackReason });
         _files.PlaybackEnded += (_, e) => Publish("playback.ended",
             new { engine = "files", title = e.Item.Title, id = e.Item.Id });
-        _files.DurationAvailable += (_, e) => Publish("playback.duration",
-            new { engine = "files", id = e.Item.Id, seconds = e.Duration.TotalSeconds, sampleRateHz = e.SampleRateHz });
+        _files.DurationAvailable += (_, e) =>
+        {
+            // Zapamietujemy czas Z DEKODERA, bo tylko on go zna; dopiero
+            // wtedy transport.status ma co oddac w durationSeconds.
+            lock (_gate)
+            {
+                if (_filesItem is not null && _filesItem.Id == e.Item.Id) _filesDuration = e.Duration;
+            }
+            Publish("playback.duration",
+                new { engine = "files", id = e.Item.Id, seconds = e.Duration.TotalSeconds, sampleRateHz = e.SampleRateHz });
+        };
 
         _radio.PlaybackFailed += (_, e) => Publish("playback.failed",
             new { engine = "radio", message = e.Message, title = e.Item?.Title });
@@ -162,6 +181,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             if (_activeEngine != "files") _radio.Stop();
             _activeEngine = "files";
             _filesItem = item;
+            // Nowy strumien: stary czas przestaje obowiazywac, zanim dekoder
+            // zdazy podac nowy. Inaczej okno pokazywalo dlugosc POPRZEDNIEGO pliku.
+            _filesDuration = TimeSpan.Zero;
             _volume = volume;
             _rate = rate;
             _paused = false;
@@ -277,14 +299,21 @@ internal sealed class LiteEngineHandlers : IDisposable
         string engine;
         bool paused;
         MediaItem? item;
+        TimeSpan filesDuration;
         lock (_gate)
         {
             engine = _activeEngine;
             paused = _paused;
             item = engine == "radio" ? _radioItem : _filesItem;
+            filesDuration = _filesDuration;
         }
 
         var position = engine == "radio" ? _radio.Position : _files.Position;
+        // Dla plikow bierzemy czas zmierzony przez dekoder; MediaItem z listy
+        // folderu go nie zna. Radio nie ma dlugosci - zostaje zero.
+        var duration = engine == "radio"
+            ? item?.Duration ?? TimeSpan.Zero
+            : filesDuration != TimeSpan.Zero ? filesDuration : item?.Duration ?? TimeSpan.Zero;
         return new
         {
             engine,
@@ -292,7 +321,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             id = item?.Id,
             title = item?.Title,
             positionSeconds = position.TotalSeconds,
-            durationSeconds = item?.Duration.TotalSeconds ?? 0d,
+            durationSeconds = duration.TotalSeconds,
             volume = _volume,
             rate = _rate,
             // Czas transmisji istnieje tylko dla radia; dla plikow jest zerem.
