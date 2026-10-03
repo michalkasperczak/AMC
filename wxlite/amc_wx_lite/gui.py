@@ -181,11 +181,19 @@ class StationDialog(wx.Dialog):
         grid.AddGrowableCol(1, 1)
 
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        # WAZNE: przyciski OK/Anuluj sa dziecmi DIALOGU, nie panelu. Gdy ich
+        # sizer wlozymy w sizer PANELU, wxWidgets przerywa asercja
+        # CheckExpectedParentIs i modalna petla nigdy nie wraca - okno zostaje
+        # niewidoczne, ale wciaz trzyma fokus. Dlatego panel trzyma TYLKO pola,
+        # a sizer zewnetrzny nalezy do dialogu.
+        inner = wx.BoxSizer(wx.VERTICAL)
+        inner.Add(grid, 1, wx.ALL | wx.EXPAND, 12)
+        panel.SetSizer(inner)
+
         outer = wx.BoxSizer(wx.VERTICAL)
-        outer.Add(grid, 1, wx.ALL | wx.EXPAND, 12)
+        outer.Add(panel, 1, wx.EXPAND)
         outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
-        panel.SetSizer(outer)
-        outer.Fit(panel)
+        self.SetSizer(outer)
         self.Fit()
         self.name_field.SetFocus()
 
