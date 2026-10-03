@@ -1350,7 +1350,9 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `Core/Presentation/RecordingPathProbe.cs`: pamięć obserwacji ścieżek, wspólny klucz dla równoważnych ścieżek; odróżnienie braku pliku od niedostępnego folderu. Używana w wątku UI.
 - `RadioRecordingHistoryPathRewriter.cs` aktualizuje znaną parę stara/nowa ścieżka bez zgadywania po nazwie; `RadioRecordingRowLabels.cs` podaje nazwę, datę i folder na końcu.
 - `MainWindow.xaml.cs`: zdarzenia obserwatora przez Dispatcher, deduplikacja bez ukrywania przerwanego lub nieudanego nagrania oraz ponowna kontrola po otwarciu historii.
-- `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach; runner `--recording-files-acceptance` i pełny zestaw Windows.
+- `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach, zmiana wyłącznie wielkości liter nazwy (`CaseOnlyRenameUpdatesReferences`); runner `--recording-files-acceptance` i pełny zestaw Windows.
+- `RenameCaseOnlyTests.cs` (Core): nazwa docelowa, odmowa zajętej nazwy i zmiana wyłącznie wielkości liter; runner `--rename-case-only`.
+- `RenameCaseNvdaGui.cs`: pokaz na pulpicie dla pomiaru żywym NVDA (`--rename-case-nvda-gui`), produkcyjny `MainWindow` i produkcyjny handler Shift+F2, własny katalog tymczasowy i własny plik WAV.
 - `scripts/test-recording-files-mutations.py`: izolowane celowe uszkodzenia reguł z pełnym licznikiem wykonanych przypadków.
 
 ## Uzupełnienie: tańsza migawka stanu (CloneState), alfa 407
@@ -1594,7 +1596,10 @@ i 21000–22000). Serwisy:
 - `Core/LocalMedia/` — reguły wykrywania plików
   (`LocalAudioFileDiscovery.cs`), import (`LocalLibraryImporter.cs`),
   synchronizacja folderów (`LocalLibrarySynchronizer.cs`), wnioskowanie albumu
-  (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs`),
+  (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs` — buduje
+  nazwę docelową i odrzuca zajętą; zmiana wyłącznie wielkości liter jest
+  dozwolona, bo `ExistsWithExactName` porównuje wpisy katalogu Ordinal, podczas
+  gdy samo `File.Exists` na NTFS nie rozróżnia wielkości liter),
   pliki w chmurze niepobrane (`CloudFileAvailability.cs`), sonda kontenera
   (`MediaContainerProbe.cs`, `Mp3StructureProbe.cs`).
 - `LocalFolderPathNormalizer.cs` — jawna pamięć normalizacji ograniczona do jednego
