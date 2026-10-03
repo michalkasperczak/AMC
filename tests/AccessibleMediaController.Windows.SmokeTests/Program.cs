@@ -122,6 +122,11 @@ if (args.Contains("--sonos-favorite-play-real-owner", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.Run(); return 0;
 }
+if (args.Contains("--sonos-quiet-progress", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.1.9: rutynowe zapowiedzi postepu Sonosa w ZWYKLYM AMC.
+    SonosFavoritePlayRealOwnerTests.RunQuietProgress(); return 0;
+}
 if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
@@ -543,6 +548,7 @@ var tests = new (string Name, Action Test)[]
     // Te dwa zestawy mialy dotad TYLKO wlasne przelaczniki (--sonos-after417-parts,
     // --sonos-after417-transport-presets), wiec pelny przebieg Windows ich nie
     // uruchamial i ich regresja nie zatrzymalaby wydania. Teraz sa w TABELI.
+    ("Sonos: zbędne zapowiedzi postępu w zwykłym AMC są wyciszone, a wynik i błąd zostają", SonosFavoritePlayRealOwnerTests.RunQuietProgress),
     ("Sonos: granice po 4.1.7 - Ctrl+F5, odświeżanie okna celu i podlisty", SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts),
     ("Sonos: transport i presety po 4.1.7 na wszystkich trzech podlistach", SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets),
     ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),

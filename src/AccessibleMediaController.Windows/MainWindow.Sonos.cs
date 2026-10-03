@@ -401,7 +401,11 @@ public partial class MainWindow
         _sonosRefreshInFlight = true;
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
-        Announce("Odświeżam grupy Sonos");
+        // RUTYNOWY POSTEP: widoczny status, ZERO przerywania czytnikowi.
+        // Uzytkownik slyszal to przy kazdym wejsciu w sesje i nawet nie
+        // doslyszal konca zdania. WYNIK (podsumowanie, blad, odmowa) nizej
+        // zostaje pelna zapowiedzia.
+        AnnounceProgress("Odświeżam grupy Sonos");
         try
         {
             var households = await backend.ReadHouseholdsAsync(token).ConfigureAwait(true);

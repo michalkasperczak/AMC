@@ -156,7 +156,11 @@ public partial class SonosTargetSelectionWindow : Window
     internal void ShowLoadingForTarget()
     {
         LoadingPending = true;
-        StatusText.Announce(SonosTargetSelectionLabels.LoadingGroups);
+        // RUTYNOWY POSTEP: tekst zostaje widoczny i do odczytania, ale nie
+        // przerywa czytnikowi - okno jest i tak uzywalne, a wynik odczytu
+        // (podsumowanie albo powod niedostepnosci) idzie pelna zapowiedzia
+        // w ApplyRefreshedTopology.
+        StatusText.ShowProgress(SonosTargetSelectionLabels.LoadingGroups);
     }
 
     /// <summary>

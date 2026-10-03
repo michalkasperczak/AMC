@@ -566,6 +566,36 @@ w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
   w produkcji). Oba wpięte w pełną tabelę Windows. Zero sieci, poświadczeń,
   DPAPI i dźwięku.
 
+## Sonos — rutynowe zapowiedzi postępu są CICHE (od 0.1.0-alpha.420)
+
+Zgłoszenie użytkownika: w ZWYKŁEJ sesji Sonos przy każdym wejściu i przy
+uruchamianiu stacji czytnik wymawiał niedokończone „trwa odświeżanie
+głośników” / „trwa odczytywanie”. Takie zapowiedzi są zbędne — przerywa je
+następna mowa, więc użytkownik słyszy sam urwany początek.
+
+- **Granica:** rutynowy postęp („Odświeżam…”, `Loading`, `PlayPending`,
+  „Wysyłam polecenie…”, `LoadingGroups`) **pokazuje się**, ale NIE wywołuje
+  powiadomienia czytnika. Tekst zostaje w kontrolce statusu, więc da się go
+  odczytać na żądanie i nic z interfejsu nie znika.
+- **Metody-siostry** (to CAŁA zmiana produkcyjna):
+  `AccessibleStatusTextBlock.SetProgressText` (ustawia `Text` bez
+  `RaiseNotification`), `MainWindow.AnnounceProgress`, oraz `ShowProgress`
+  w `SonosFavoritesWindow` / `SonosPlaylistsWindow` / `SonosOwnStreamsWindow`.
+- **NIE RUSZONE i nadal mówione:** błędy, odmowy, przerwania, zmiany kontekstu
+  celu/konta, podsumowania wyników („… : N pozycji”), nazwy stacji i tytuły,
+  `AnnounceEssential`. Bramka celu, `coalescing` i stan `busy` bez zmian.
+  `"Uruchamianie: <stacja>"` (`MainWindow.SonosOwnStreams.cs`) ZOSTAJE mówione —
+  pada PO przyjęciu polecenia i niesie nazwę stacji, więc jest wynikiem,
+  nie rutynowym „czekaj”.
+- **Bez** globalnego wyłącznika zapowiedzi, nowego ustawienia i opóźniacza.
+- Testy: `tests/.../SonosQuietProgressTests.cs` (CLI `--sonos-quiet-progress`,
+  wpięte w pełną tabelę Windows) — 3 scenariusze: wejście w sesję, odczyt
+  ulubionych, uruchomienie stacji. Każdy sprawdza, że rutynowy tekst NIE
+  trafia do zapowiedzi, a wynik i błąd nadal trafiają.
+- `SonosTopologyRefreshUiTests` czekał wcześniej na `before + 2` zapowiedzi
+  (postęp + wynik) — to kodowało DAWNE wymaganie; teraz czeka na rzeczywisty
+  tekst wyniku.
+
 ## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
 
 Sesja Sonos wzorowana na WiiM: **urządzenie autonomiczne**, bez własnego

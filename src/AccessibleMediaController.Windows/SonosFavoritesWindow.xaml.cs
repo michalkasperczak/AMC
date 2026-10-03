@@ -439,7 +439,7 @@ public partial class SonosFavoritesWindow : Window
             // its terminal notification, or overwrite a result already announced
             // before an asynchronous follow-up read.
             if (!operation.IsCompleted && _ownerFeedbackVersion == feedbackBefore)
-                Announce(SonosFavoritesLabels.PlayPending);
+                ShowProgress(SonosFavoritesLabels.PlayPending);
             await operation.ConfigureAwait(true);
         }
         catch (OperationCanceledException)
@@ -484,6 +484,20 @@ public partial class SonosFavoritesWindow : Window
         if (_closed) return;
         AnnouncementsForTests++;
         StatusText.Announce(message);
+    }
+
+    /// <summary>
+    /// RUTYNOWY POSTEP w modalu: WIDOCZNY status, ZERO notyfikacji czytnika.
+    /// "Wysyłam polecenie uruchomienia. Czekaj." wchodzilo uzytkownikowi w slowo
+    /// przy KAZDYM uruchomieniu pozycji i bylo urywane przez komunikat KONCOWY,
+    /// ktory przychodzil chwile pozniej. Koncowy zostaje pelna zapowiedzia;
+    /// licznik <see cref="AnnouncementsForTests"/> celowo NIE rosnie, bo nic
+    /// nie zostalo oglOSZONE.
+    /// </summary>
+    private void ShowProgress(string message)
+    {
+        if (_closed) return;
+        StatusText.ShowProgress(message);
     }
 
     /// <summary>

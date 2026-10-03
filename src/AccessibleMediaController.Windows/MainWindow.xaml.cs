@@ -662,6 +662,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         StatusText.Announce(message);
     }
 
+    /// <summary>
+    /// RUTYNOWY POSTEP w oknie glownym: WIDOCZNY status BEZ notyfikacji
+    /// czytnika. Zgloszenie uzytkownika brzmialo doslownie "trwa odświeżanie
+    /// głośników ... one są zbędne" - a dodatkowo czytnik urywal te komunikaty,
+    /// bo nastepny przychodzil, nim skonczyl pierwszy.
+    ///
+    /// NIE jest to globalny wylacznik: <see cref="Announce"/> zostaje bez zmian
+    /// dla wynikow, bledow, odmow i tytulow. Pomiarowe ujscie i tryby
+    /// przechwytywania sa te same, zeby testy widzialy to, co produkcja.
+    /// </summary>
+    private void AnnounceProgress(string message)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => AnnounceProgress(message));
+            return;
+        }
+        // POMIAROWEGO ujscia mowy NIE wolamy: nic nie zostalo powiedziane, a
+        // zapisanie tego w ujsciu bylo by klamstwem w pomiarze. Widoczny tekst
+        // statusu ustawiamy zawsze - to on jest cala pozostala informacja i
+        // wlasnie na nim pomiar sprawdza, ze tresc nie zniknela.
+        StatusText.ShowProgress(message);
+    }
+
     private void AnnounceEssential(string message)
     {
         if (!Dispatcher.CheckAccess())

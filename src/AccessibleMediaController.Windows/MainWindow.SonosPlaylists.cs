@@ -143,7 +143,8 @@ public partial class MainWindow
         _sonosPlaylistsInFlight = true;
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
-        Announce(SonosPlaylistsLabels.Loading);
+        // RUTYNOWY POSTEP odczytu playlist: widoczny status bez notyfikacji.
+        AnnounceProgress(SonosPlaylistsLabels.Loading);
         try
         {
             SonosPlaylistsReadsStartedForTests++;

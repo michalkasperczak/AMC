@@ -101,6 +101,19 @@ public partial class SonosOwnStreamsWindow : Window
         else StatusText.Text = message;
     }
 
+    /// <summary>
+    /// RUTYNOWY POSTEP: WIDOCZNY status bez notyfikacji czytnika. Doslownie
+    /// zgloszone: "jak klikamy w stację to niepotrzebnie przekazuje taki
+    /// komunikat ... nawet nie kończy". Wynik, odmowa i blad zostaja
+    /// <see cref="AnnounceForOwner"/>, wiec licznika <c>_feedback</c> tu NIE
+    /// ruszamy - nic nie zostalo oglOSZONE wlascicielowi.
+    /// </summary>
+    private void ShowProgress(string message)
+    {
+        if (_closed) return;
+        StatusText.ShowProgress(message);
+    }
+
     private void UpdateButtons()
     {
         // Nie wyłączamy skupionego przycisku podczas oczekiwania; bramka blokuje ponowienie.
@@ -316,7 +329,7 @@ public partial class SonosOwnStreamsWindow : Window
             var feedback = _feedback;
             var task = _play!(new(this, row, _lifetime.Token));
             if (!task.IsCompleted && feedback == _feedback)
-                AnnounceForOwner("Wysyłam polecenie uruchomienia stacji. Czekaj.");
+                ShowProgress("Wysyłam polecenie uruchomienia stacji. Czekaj.");
             await task.ConfigureAwait(true);
         }
         catch (OperationCanceledException)

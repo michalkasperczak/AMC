@@ -235,6 +235,17 @@ public partial class SonosPlaylistsWindow : Window
         Announce(message);
     }
 
+    /// <summary>
+    /// RUTYNOWY POSTEP w modalu playlist: WIDOCZNY status, ZERO notyfikacji
+    /// czytnika. Rodzenstwo <c>SonosFavoritesWindow.ShowProgress</c> i ten sam
+    /// powod: "Czekaj" wchodzilo w slowo i bylo urywane przez wynik.
+    /// </summary>
+    private void ShowProgress(string message)
+    {
+        if (_closed) return;
+        StatusText.ShowProgress(message);
+    }
+
     private void Announce(string message)
     {
         if (_closed) return;
@@ -398,7 +409,7 @@ public partial class SonosPlaylistsWindow : Window
             // synchroniczna nie ma fazy czekania, a jej wlasny wynik nie moze
             // zostac nadpisany.
             if (!operation.IsCompleted && _ownerFeedbackVersion == feedbackBefore)
-                Announce(SonosPlaylistsLabels.PlayPending);
+                ShowProgress(SonosPlaylistsLabels.PlayPending);
             await operation.ConfigureAwait(true);
         }
         catch (OperationCanceledException)

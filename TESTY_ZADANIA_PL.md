@@ -8154,3 +8154,31 @@ niżej. Następnie przejdź zwykłymi strzałkami przez wszystkie wiersze.
 Oczekiwane: kolejność nie zawija się; AMC mówi odpowiednio „Ta sesja jest już
 pierwsza” albo „Ta sesja jest już ostatnia”. Każdy wiersz ma tylko czytelną
 nazwę i numer, bez nazwy klasy, nawiasów klamrowych lub identyfikatora.
+
+### AMC-420-01 — Sonos: brak zbędnych zapowiedzi postępu
+
+Przy włączonym czytniku wejdź `Ctrl+cyfrą` w zwykłą sesję Sonos, a potem
+wejdź w nią ponownie kilka razy w tej samej sesji programu. Następnie otwórz
+**Moje stacje** i uruchom stację Enterem. To samo powtórz dla **Ulubionych**
+i **Playlist**.
+
+Oczekiwane: czytnik **NIE** wymawia urywanych komunikatów postępu w rodzaju
+„Odświeżam grupy Sonosa”, „Odczytuję ulubione. Czekaj.” ani „Wysyłam
+polecenie uruchomienia stacji. Czekaj.” — ani przy wejściu, ani przy
+uruchamianiu. Teksty te pozostają widoczne w pasku statusu i można je
+odczytać na żądanie.
+
+Nadal mówione (to NIE jest błąd): nazwy stacji, ulubionych i playlist pod
+fokusem, tytuły okien, podsumowanie „… : N pozycji”, `Uruchamianie: <stacja>`
+po przyjęciu polecenia oraz **wszystkie** błędy, odmowy i komunikaty o
+zmianie celu lub konta.
+
+### AMC-420-02 — okno zarządzania stacjami zachowuje się tak samo
+
+Otwórz JAWNE okno zarządzania własnymi stacjami Sonosa i wykonaj w nim
+odczyt oraz próbę uruchomienia.
+
+Oczekiwane: tak jak wyżej — zero rutynowych zapowiedzi „trwa/czekaj”,
+natomiast każdy wynik, błąd i odmowa nadal są wymawiane. Zachowanie okna
+zarządzania nie różni się od zwykłego wejścia do sesji pod względem tych
+komunikatów.

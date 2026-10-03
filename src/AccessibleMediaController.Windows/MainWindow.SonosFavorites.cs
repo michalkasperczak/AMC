@@ -190,7 +190,9 @@ public partial class MainWindow
         _sonosFavoritesInFlight = true;
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
-        Announce(SonosFavoritesLabels.Loading);
+        // RUTYNOWY POSTEP odczytu ulubionych: widoczny status bez notyfikacji.
+        // Podsumowanie liczby i KAZDY blad nizej nadal ida pelna zapowiedzia.
+        AnnounceProgress(SonosFavoritesLabels.Loading);
         try
         {
             SonosFavoritesReadsStartedForTests++;
