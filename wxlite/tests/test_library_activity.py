@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from amc_wx_lite.library_activity import (  # noqa: E402
     MAX_HISTORY_ENTRIES_PER_SESSION,
+    bookmark_rows,
     history_rows,
     saved_queue_rows,
 )
@@ -555,4 +556,221 @@ class SavedQueueView(_SyntheticCase):
 
         result = saved_queue_rows(db)
         self.assertEqual([row.item_id for row in result.rows], ["b", "a"])
+        self.assertTrue(result.sees_live_writes)
+
+
+# ------------------------------------------- 3. zakladki wybranego elementu
+
+
+#: Ticks C#: 1 sekunda = 10 000 000. Ta sama jednostka co ``TimeSpan.Ticks``.
+_SECOND = 10_000_000
+#: 2026-01-15 12:00:00 UTC w tickach .NET (``DateTime.Ticks``, epoka 0001-01-01).
+#: Poludnie, zeby ``ToLocalTime`` w zadnej strefie nie przesunelo doby.
+_SOME_DATE = 639_040_752_000_000_000
+
+
+class BookmarkView(_SyntheticCase):
+    def test_selects_by_real_item_id_not_by_list_index(self):
+        """Wejsciem jest RZECZYWISTE Id elementu, nie pozycja na liscie.
+
+        ``GetForItem(sessionId, itemId)`` (``BookmarkIndex.cs:30-36``) --
+        indeksu listy nie ma tam w ogole.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.item("local-b", "Beta", "C:/m/b.mp3")
+        self.build.bookmark("bm1", "local-a", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark("bm2", "local-b", 20 * _SECOND, _SOME_DATE)
+
+        result = bookmark_rows(self.open_db(), item_id="local-b")
+
+        self.assertEqual([b.bookmark_id for b in result.bookmarks], ["bm2"])
+
+    def test_orders_by_position_then_created(self):
+        """``OrderBy(PositionTicks).ThenBy(CreatedUtcTicks)``.
+
+        ``BookmarkIndex.cs:34-35``. Zadnej alfabetyki -- porzadek jest
+        liczbowy, wiec kolator nie jest tu potrzebny.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("pozno", "local-a", 90 * _SECOND, _SOME_DATE)
+        self.build.bookmark("nowszy", "local-a", 30 * _SECOND, _SOME_DATE + 5)
+        self.build.bookmark("starszy", "local-a", 30 * _SECOND, _SOME_DATE)
+
+        result = bookmark_rows(self.open_db(), item_id="local-a")
+
+        self.assertEqual(
+            [b.bookmark_id for b in result.bookmarks], ["starszy", "nowszy", "pozno"]
+        )
+
+    def test_item_id_is_ordinal_session_id_is_case_insensitive(self):
+        """``ItemId`` ``Ordinal``, ``SessionId`` ``OrdinalIgnoreCase``.
+
+        ``BookmarkIndex.cs:32-33``. Dwa rozne porownania w jednym warunku --
+        nie wolno ich ujednolicic.
+        """
+        self.build.item("local-A", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("duze", "local-A", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark("male", "local-a", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark("inna-wielkosc", "local-A", 20 * _SECOND, _SOME_DATE,
+                            session="LOCAL")
+
+        result = bookmark_rows(self.open_db(), item_id="local-A")
+
+        self.assertEqual(
+            [b.bookmark_id for b in result.bookmarks], ["duze", "inna-wielkosc"]
+        )
+
+    def test_chapter_only_entry_is_not_a_bookmark(self):
+        """``IsBookmark`` to bit ``Bookmark`` w ``Purpose``.
+
+        ``BookmarkIndex.cs:189-190``: ``(entry.Purpose & Bookmark) != 0``.
+        Czysty rozdzial (``Purpose = 2``) NIE jest zakladka, a wpis o obu
+        bitach (3) jest. Rozdzialow nie usuwamy -- po prostu ich nie
+        pokazujemy w zakladkach.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("zakladka", "local-a", 10 * _SECOND, _SOME_DATE, purpose=1)
+        self.build.bookmark("rozdzial", "local-a", 20 * _SECOND, _SOME_DATE, purpose=2)
+        self.build.bookmark("oba", "local-a", 30 * _SECOND, _SOME_DATE, purpose=3)
+
+        result = bookmark_rows(self.open_db(), item_id="local-a")
+
+        self.assertEqual([b.bookmark_id for b in result.bookmarks], ["zakladka", "oba"])
+
+    def test_two_bookmarks_at_same_position_both_survive(self):
+        """Powtorzony element i ta sama pozycja: oba wpisy ZOSTAJA.
+
+        Tolerancja 1 s z ``Add`` (``BookmarkIndex.cs:10``, ``53-56``) dziala
+        tylko przy DODAWANIU nowej zakladki. Odczyt ``GetForItem`` nie scala
+        niczego, wiec wpisy, ktore juz sa w bazie, nie moga znikac przy
+        powtorzeniu Id.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("pierwsza", "local-a", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark("druga", "local-a", 10 * _SECOND, _SOME_DATE + 1)
+
+        result = bookmark_rows(self.open_db(), item_id="local-a")
+
+        self.assertEqual([b.bookmark_id for b in result.bookmarks], ["pierwsza", "druga"])
+
+    def test_label_has_date_time_name_and_session(self):
+        """Etykieta 1:1 z ``CreateBookmarkRow`` (``MainWindow.xaml.cs:13763``).
+
+        ``{ItemTitle}, {data}, {czas}, {nazwa}, {sesja}, zakładka`` -- czas
+        przez ``FormatDuration`` (``MediaItemFormatter.cs:69-73``), data po
+        polsku z ``pl-PL`` (``MainWindow.xaml.cs:13767-13779``).
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark(
+            "bm",
+            "local-a",
+            125 * _SECOND,
+            _SOME_DATE,
+            item_title="Alfa",
+            name="Refren",
+            session_name="Pliki lokalne",
+        )
+
+        result = bookmark_rows(self.open_db(), item_id="local-a")
+        label = result.rows[0].title
+
+        self.assertIn("2:05", label)
+        self.assertIn("Refren", label)
+        self.assertIn("Pliki lokalne", label)
+        self.assertTrue(label.endswith("zakładka"))
+        self.assertIn("stycznia 2026", label)
+
+    def test_blank_name_leaves_no_empty_comma_section(self):
+        """``namePart`` jest PUSTY przy pustej nazwie (``MainWindow.xaml.cs:13762``)."""
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark(
+            "bm", "local-a", 60 * _SECOND, _SOME_DATE, item_title="Alfa", name="   "
+        )
+
+        label = bookmark_rows(self.open_db(), item_id="local-a").rows[0].title
+
+        self.assertNotIn(", , ", label)
+
+    def test_unknown_created_date_is_not_a_fake_date(self):
+        """``CreatedUtcTicks <= 0`` -> "data utworzenia nieznana".
+
+        ``MainWindow.xaml.cs:13769``. Nieznany czas to NIE jest zero ani
+        1 stycznia roku 1 -- wzorzec C# mowi wprost, ze nie wie.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("bm", "local-a", 60 * _SECOND, 0, item_title="Alfa")
+
+        label = bookmark_rows(self.open_db(), item_id="local-a").rows[0].title
+
+        self.assertIn("data utworzenia nieznana", label)
+
+    def test_row_id_is_prefixed_and_stable(self):
+        """``Id = $"bookmark:{bookmark.Id}"`` (``MainWindow.xaml.cs:13756``).
+
+        Wiersz zakladki ma WLASNY, trwaly identyfikator -- inaczej dwie
+        zakladki tego samego utworu mialyby to samo Id i wybor by skakal.
+        """
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("bm1", "local-a", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark("bm2", "local-a", 20 * _SECOND, _SOME_DATE)
+
+        rows = bookmark_rows(self.open_db(), item_id="local-a").rows
+
+        self.assertEqual([row.item_id for row in rows], ["bookmark:bm1", "bookmark:bm2"])
+
+    def test_bookmark_of_missing_item_still_shows_with_stored_title(self):
+        """Zakladka NIE znika, gdy pozycji nie ma juz w katalogu.
+
+        ``CreateBookmarkRow`` tworzy zastepczy ``MediaItem`` z
+        ``bookmark.ItemTitle`` (``MainWindow.xaml.cs:13749-13753``), a sam
+        wiersz bierze tytul z ZAKLADKI, nie z katalogu (``13757``). Tu
+        placeholder JEST w oryginale -- inaczej niz w historii.
+        """
+        self.build.bookmark(
+            "bm", "local-nieobecny", 30 * _SECOND, _SOME_DATE, item_title="Stary tytul"
+        )
+
+        result = bookmark_rows(self.open_db(), item_id="local-nieobecny")
+
+        self.assertEqual(len(result.rows), 1)
+        self.assertEqual(result.bookmarks[0].item_title, "Stary tytul")
+        self.assertTrue(result.rows[0].title.startswith("Stary tytul"))
+
+    def test_other_sessions_never_mix_into_local_item(self):
+        """Zakladka podcastu nie wchodzi do zakladek pliku lokalnego."""
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("lok", "local-a", 10 * _SECOND, _SOME_DATE)
+        self.build.bookmark(
+            "pod", "local-a", 20 * _SECOND, _SOME_DATE, session="podcasts"
+        )
+
+        result = bookmark_rows(self.open_db(), item_id="local-a", session="local")
+
+        self.assertEqual([b.bookmark_id for b in result.bookmarks], ["lok"])
+
+    def test_blank_item_id_is_empty(self):
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("bm", "local-a", 10 * _SECOND, _SOME_DATE)
+
+        self.assertTrue(bookmark_rows(self.open_db(), item_id="  ").is_empty)
+
+    def test_sees_commit_from_open_writer(self):
+        """Swiezosc WAL przy OTWARTYM writerze."""
+        self.build.item("local-a", "Alfa", "C:/m/a.mp3")
+        self.build.bookmark("bm1", "local-a", 10 * _SECOND, _SOME_DATE)
+        db = self.open_db()
+        self.assertEqual(len(bookmark_rows(db, item_id="local-a").rows), 1)
+
+        self.build.connection.execute("BEGIN")
+        self.build.connection.execute(
+            "INSERT INTO bookmarks(id, ordinal, session_id, session_name, item_id, "
+            "item_title, name, position_ticks, created_utc_ticks, purpose, "
+            "chapter_origin, chapter_source_id) "
+            "VALUES ('bm2', 9, 'local', 'Pliki lokalne', 'local-a', 'Alfa', '', "
+            f"{5 * _SECOND}, {_SOME_DATE}, 1, 0, NULL)"
+        )
+        self.build.connection.execute("COMMIT")
+
+        result = bookmark_rows(db, item_id="local-a")
+        self.assertEqual([b.bookmark_id for b in result.bookmarks], ["bm2", "bm1"])
         self.assertTrue(result.sees_live_writes)

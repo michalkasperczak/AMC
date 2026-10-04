@@ -313,3 +313,155 @@ def saved_queue_rows(
         missing_item_count=missing,
         queue=tuple(queue),
     )
+
+
+# ------------------------------------------- 3. zakladki wybranego elementu
+
+
+#: ``BookmarkPurpose.Bookmark`` (``AppSettings.cs:1151``). ``Chapter`` = 2.
+_PURPOSE_BOOKMARK = 1
+
+#: Nazwy miesiecy w dopelniaczu, czyli to, co .NET daje dla ``pl-PL`` i wzorca
+#: ``"d MMMM yyyy"`` (``MainWindow.xaml.cs:13773``). Zmierzone na .NET 8.0.425.
+_PL_MONTHS_GENITIVE = (
+    "stycznia",
+    "lutego",
+    "marca",
+    "kwietnia",
+    "maja",
+    "czerwca",
+    "lipca",
+    "sierpnia",
+    "września",
+    "października",
+    "listopada",
+    "grudnia",
+)
+
+#: ``DateTime`` .NET liczy ticki od 0001-01-01; ``datetime`` Pythona ma ten sam
+#: punkt zerowy, wiec konwersja nie potrzebuje zadnej stalej "magicznej".
+_TICKS_PER_MICROSECOND = 10
+
+
+def format_position(ticks: int) -> str:
+    """``CommandRouter.FormatTime`` -> ``MediaItemFormatter.FormatDuration``.
+
+    ``MediaItemFormatter.cs:69-73``: ``h:mm:ss`` od godziny, inaczej ``m:ss``.
+    Jednostka wejscia to TICKI C# (1 s = 10 000 000), nie sekundy.
+    """
+    total_seconds = max(0, int(ticks)) // 10_000_000
+    hours, rest = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes}:{seconds:02d}"
+
+
+def format_created_date(utc_ticks: int) -> str:
+    """``FormatBookmarkCreatedDate`` (``MainWindow.xaml.cs:13767-13779``).
+
+    Nieznany czas to NIE ``0:00`` ani 1 stycznia roku 1: przy ``utcTicks <= 0``
+    oryginal mowi wprost "data utworzenia nieznana", a przy tickach poza
+    zakresem ``DateTime`` lapie ``ArgumentOutOfRangeException`` i daje to samo.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    if utc_ticks <= 0:
+        return "data utworzenia nieznana"
+    try:
+        moment = datetime(1, 1, 1, tzinfo=timezone.utc) + timedelta(
+            microseconds=utc_ticks // _TICKS_PER_MICROSECOND
+        )
+        local = moment.astimezone()
+    except (OverflowError, OSError, ValueError):
+        return "data utworzenia nieznana"
+    month = _PL_MONTHS_GENITIVE[local.month - 1]
+    return f"utworzono {local.day} {month} {local.year}"
+
+
+def bookmark_rows(
+    db: LibraryDatabase, *, item_id: str, session: str = LOCAL_SESSION
+) -> ActivityResult:
+    """Zakladki JEDNEGO elementu (``BookmarkIndex.GetForItem``, ``cs:30-36``).
+
+    Wejsciem jest RZECZYWISTE Id elementu, nie indeks listy -- w C# tej funkcji
+    nie da sie zawolac inaczej.
+
+    Reguly przeniesione 1:1:
+
+    * widoczne sa tylko wpisy z bitem ``Bookmark`` w ``Purpose``
+      (``IsBookmark``, ``BookmarkIndex.cs:189-190``); czysty rozdzial
+      (``Chapter``) NIE jest zakladka i nie jest usuwany -- tylko niewidoczny,
+    * ``SessionId`` porownuje sie ``OrdinalIgnoreCase``, a ``ItemId``
+      ``Ordinal`` (``cs:32-33``) -- dwa rozne porownania w jednym warunku,
+    * kolejnosc ``OrderBy(PositionTicks).ThenBy(CreatedUtcTicks)``
+      (``cs:34-35``): porzadek liczbowy, bez alfabetyki, wiec klucze kolatora
+      sa tu niepotrzebne,
+    * dwa wpisy o tej samej pozycji ZOSTAJA oba: tolerancja 1 s dziala tylko
+      w ``Add`` (``cs:10``, ``53-56``), odczyt niczego nie scala,
+    * zakladka pozycji nieobecnej w katalogu NADAL jest widoczna, z tytulem
+      zapisanym w zakladce (``MainWindow.xaml.cs:13749-13757``) -- tu
+      placeholder w oryginale JEST, inaczej niz w historii,
+    * wiersz ma wlasne Id ``bookmark:{Id}`` (``MainWindow.xaml.cs:13756``),
+      wiec dwie zakladki tego samego utworu nie zlewaja sie w wyborze.
+    """
+    heading = "Biblioteka — Zakładki"
+    if not item_id or not item_id.strip() or not session or not session.strip():
+        return ActivityResult(
+            rows=[], heading=heading, sees_live_writes=db.sees_live_writes
+        )
+
+    # Filtr i porzadek robi SQL, ale predykat ``purpose`` jest bitowy, tak jak
+    # ``IsBookmark`` -- nie "purpose = 1", bo wpis o obu bitach (3) tez jest
+    # zakladka. Id elementu zostaje binarne (odpowiednik ``Ordinal``), a klucz
+    # sesji dostaje ``COLLATE NOCASE`` (odpowiednik ``OrdinalIgnoreCase``).
+    rows_sql = db.connection.execute(
+        "SELECT id, session_id, session_name, item_id, item_title, name, "
+        "position_ticks, created_utc_ticks FROM bookmarks "
+        "WHERE session_id = ? COLLATE NOCASE AND item_id = ? "
+        f"AND (purpose & {_PURPOSE_BOOKMARK}) != 0 "
+        "ORDER BY position_ticks, created_utc_ticks",
+        (session, item_id),
+    )
+
+    rows: list[Row] = []
+    bookmarks: list[BookmarkRow] = []
+    for record in rows_sql:
+        bookmark_id = str(record["id"])
+        stored_title = str(record["item_title"])
+        name = str(record["name"]).strip()
+        session_name = str(record["session_name"]).strip() or str(record["session_id"])
+        position_ticks = int(record["position_ticks"])
+        created_ticks = int(record["created_utc_ticks"])
+        # Etykieta 1:1 z ``CreateBookmarkRow`` (``MainWindow.xaml.cs:13762-13763``).
+        name_part = f", {name}" if name else ""
+        label = (
+            f"{stored_title}, {format_created_date(created_ticks)}, "
+            f"{format_position(position_ticks)}{name_part}, {session_name}, zakładka"
+        )
+        row = Row(
+            item_id=f"bookmark:{bookmark_id}",
+            title=label,
+            kind="track",
+            detail="",
+        )
+        rows.append(row)
+        bookmarks.append(
+            BookmarkRow(
+                row=row,
+                bookmark_id=bookmark_id,
+                item_id=str(record["item_id"]),
+                item_title=stored_title,
+                name=name,
+                session_id=str(record["session_id"]),
+                session_name=session_name,
+                position_ticks=position_ticks,
+                created_utc_ticks=created_ticks,
+            )
+        )
+    return ActivityResult(
+        rows=rows,
+        heading=heading,
+        sees_live_writes=db.sees_live_writes,
+        bookmarks=tuple(bookmarks),
+    )
