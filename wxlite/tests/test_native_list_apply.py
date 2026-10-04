@@ -375,3 +375,209 @@ def test_nothing_to_do_means_no_freeze_at_all() -> None:
     ctrl.sync_rows()
 
     assert ctrl.calls == [], f"nic sie nie zmienilo, a bylo: {ctrl.calls}"
+
+
+# ------------------------- 7. zdarzenia WYBORU w trakcie naszej podmiany
+#
+# Wstawianie wierszy i ``SetItemState`` wysylaja ``EVT_LIST_ITEM_SELECTED``
+# DOKLADNIE TAK SAMO jak ruch uzytkownika. Gdyby handler wpisal przejsciowy
+# indeks do modelu, swiadomy wybor uzytkownika przepadlby przy kazdym
+# odswiezeniu. Bramka to ``MediaListCtrl.updating``.
+
+
+def test_the_control_marks_itself_as_updating_during_a_change() -> None:
+    """Handler MUSI miec po czym poznac, ze to nasza podmiana, nie uzytkownik."""
+    model = ListModel()
+    ctrl = make_ctrl(model)
+    seed(ctrl, model, [track("1", "Alfa")])
+    widziane: list[bool] = []
+    # Podgladamy flage DOKLADNIE w chwili operacji na liscie.
+    oryginal = ctrl.InsertItem
+
+    def spy(index: int, text: str) -> int:
+        widziane.append(ctrl.updating)
+        return oryginal(index, text)
+
+    ctrl.InsertItem = spy  # type: ignore[method-assign]
+
+    model.replace([track("1", "Alfa"), track("2", "Beta")])
+    ctrl.sync_rows()
+
+    assert widziane and all(widziane), "w trakcie podmiany flaga musi byc wlaczona"
+    assert ctrl.updating is False, "po podmianie flaga MUSI zgasnac"
+
+
+def test_updating_flag_is_cleared_even_when_applying_fails() -> None:
+    """Zawieszona flaga wyciszylaby PRAWDZIWE wybory uzytkownika na stale."""
+    model = ListModel()
+    ctrl = make_ctrl(model)
+    seed(ctrl, model, [track("1", "Alfa")])
+
+    def wybuch(index: int, text: str) -> int:
+        raise RuntimeError("awaria w trakcie wstawiania")
+
+    ctrl.InsertItem = wybuch  # type: ignore[method-assign]
+    model.replace([track("1", "Alfa"), track("2", "Beta")])
+
+    try:
+        ctrl.sync_rows()
+    except RuntimeError:
+        pass
+
+    assert ctrl.updating is False
+    assert ctrl.frozen == 0, "Thaw tez musi wrocic"
+
+
+def test_a_transient_index_during_replacement_does_not_become_the_selection() -> None:
+    """Pelny lancuch: zdarzenie z NASZEJ podmiany nie rusza wyboru modelu.
+
+    Odtwarzamy to, co robi wx: przy kazdym ``InsertItem``/``SetItemState``
+    wolamy ten sam handler okna, ktory w produkcji siedzi na
+    ``EVT_LIST_ITEM_SELECTED``.
+    """
+    from test_gui_logic import install_wx_stub
+
+    install_wx_stub()
+    from amc_wx_lite.gui import LiteFrame, MediaListCtrl
+
+    model = ListModel()
+    ctrl = make_ctrl(model)
+    seed(ctrl, model, [track("a", "Alfa"), track("b", "Beta"), track("c", "Gamma")])
+    model.select_id("c")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    class FakeEvent:
+        def __init__(self, index: int, source) -> None:
+            self._index = index
+            self._source = source
+
+        def GetIndex(self) -> int:  # noqa: N802 - API wx
+            return self._index
+
+        def GetEventObject(self):  # noqa: N802 - API wx
+            return self._source
+
+        def Skip(self) -> None:  # noqa: N802 - API wx
+            pass
+
+    class FakeFrame:
+        """Tylko to, czego dotyka handler wyboru."""
+
+        def __init__(self, nav) -> None:
+            self.navigator = nav
+
+    class FakeNav:
+        def __init__(self, session) -> None:
+            self.session = session
+
+    class FakeSession:
+        def __init__(self, model) -> None:
+            self.model = model
+
+    frame = FakeFrame(FakeNav(FakeSession(model)))
+    handler = LiteFrame._on_item_selected.__get__(frame, FakeFrame)
+
+    # Handler jest wolany z KAZDEJ operacji podmiany, tak jak robi to wx.
+    oryginal_insert = ctrl.InsertItem
+    oryginal_state = ctrl.SetItemState
+
+    def insert_z_zdarzeniem(index: int, text: str) -> int:
+        wynik = oryginal_insert(index, text)
+        handler(FakeEvent(index, ctrl))
+        return wynik
+
+    def state_z_zdarzeniem(index: int, state: int, mask: int) -> None:
+        oryginal_state(index, state, mask)
+        handler(FakeEvent(index, ctrl))
+
+    ctrl.InsertItem = insert_z_zdarzeniem  # type: ignore[method-assign]
+    ctrl.SetItemState = state_z_zdarzeniem  # type: ignore[method-assign]
+    # Atrapa musi byc widziana jako nasza kontrolka -- handler rozpoznaje typ
+    # przez ``isinstance``. Dziedziczymy po OBU, zeby nie zgubic metod atrapy.
+    ctrl.__class__ = type("FakeMediaList", (FakePlainList, MediaListCtrl), {})
+
+    # Nowy, wiekszy zbior: wiersz "c" ma inny numer, wiec przez podmiane
+    # przechodzi wiele przejsciowych indeksow (0, 1, 2, ...).
+    model.replace(
+        [track("x", "Nowy"), track("a", "Alfa"), track("b", "Beta"), track("c", "Gamma")]
+    )
+    ctrl.sync_rows()
+
+    assert model.selected_id == "c", (
+        "przejsciowy indeks z naszej podmiany nadpisal wybor uzytkownika"
+    )
+    assert ctrl.GetFirstSelected() == 3 and ctrl.GetFocusedItem() == 3
+
+
+def test_a_real_user_selection_still_reaches_the_model() -> None:
+    """Bramka nie moze wyciszyc PRAWDZIWEGO ruchu uzytkownika."""
+    from test_gui_logic import install_wx_stub
+
+    install_wx_stub()
+    from amc_wx_lite.gui import LiteFrame, MediaListCtrl
+
+    model = ListModel()
+    ctrl = make_ctrl(model)
+    seed(ctrl, model, [track("a", "Alfa"), track("b", "Beta")])
+    ctrl.__class__ = type("FakeMediaList", (FakePlainList, MediaListCtrl), {})
+    ctrl.updating = False  # poza podmiana
+
+    class FakeEvent:
+        def GetIndex(self) -> int:  # noqa: N802
+            return 1
+
+        def GetEventObject(self):  # noqa: N802
+            return ctrl
+
+        def Skip(self) -> None:  # noqa: N802
+            pass
+
+    class FakeFrame:
+        def __init__(self, nav) -> None:
+            self.navigator = nav
+
+    class FakeNav:
+        def __init__(self, session) -> None:
+            self.session = session
+
+    class FakeSession:
+        def __init__(self, model) -> None:
+            self.model = model
+
+    frame = FakeFrame(FakeNav(FakeSession(model)))
+    LiteFrame._on_item_selected.__get__(frame, FakeFrame)(FakeEvent())
+
+    assert model.selected_id == "b", "strzalka uzytkownika MUSI zmienic wybor"
+
+
+# ------------------------------- 8. zmiana danych W CZASIE odczytu wiersza
+#
+# Kontrolowana zmiana z WLASNEGO modelu w tescie -- zaden zapis do profilu
+# uzytkownika. Chodzi o to, czy po podmianie w locie kursor i tresc nadal
+# wskazuja TEN SAM element.
+
+
+def test_a_change_while_the_reader_is_on_a_row_keeps_that_row_current() -> None:
+    model = ListModel()
+    ctrl = make_ctrl(model)
+    rows = [track(str(i), f"Poz {i}") for i in range(200)]
+    seed(ctrl, model, rows)
+    model.select_id("120")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    # W tej samej chwili: dochodzi wiersz PRZED kursorem i zmienia sie nazwa
+    # wiersza, na ktorym stoi czytnik.
+    zmienione = list(rows)
+    zmienione[120] = track("120", "Poz 120 po zmianie nazwy")
+    model.replace([track("nowy", "Dopisany")] + zmienione)
+    ctrl.sync_rows()
+
+    assert model.selected_id == "120"
+    # Kursor idzie za ID: wiersz 120 jest teraz 121.
+    assert ctrl.GetFirstSelected() == 121 and ctrl.GetFocusedItem() == 121
+    # I ma NOWY tekst, nie stary.
+    assert ctrl.rows[121][0] == "Poz 120 po zmianie nazwy"
+    # Reszta listy nie zostala przepisana.
+    assert len([c for c in ctrl.calls if c[0] == "InsertItem"]) == 1
