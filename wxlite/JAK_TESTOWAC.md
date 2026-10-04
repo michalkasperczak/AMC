@@ -40,7 +40,7 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
 
 10. Widoki aktywności. Ctrl+H historia, Ctrl+Q kolejka **zapisana**, Ctrl+Shift+B zakładki ZAZNACZONEGO pliku. Trzy rzeczy do sprawdzenia poza samą licznością:
     - Etykieta kolejki musi mówić „(zapisana)". Nie wolno zaliczyć przebiegu jako „kolejka działa", bo czytamy zapis profilu, a nie kolejkę żywego silnika.
-    - Ctrl+Shift+B, nie Ctrl+B. Ctrl+B w C# to `GetForDisplay` (wszystkie zakładki); nasz widok to węższe `GetForItem`.
+    - Ctrl+Shift+B, nie Ctrl+B. Ctrl+B to teraz OSOBNY, szerszy widok zbiorczy (`GetForDisplay` / `all_bookmark_rows`); Ctrl+Shift+B zostaje przy węższym `GetForItem` dla jednego pliku. Dwa skróty, dwa widoki — sprawdzaj, że się nie podmieniają.
     - Backspace z zakładek ma wrócić na TEN plik. Sprawdzaj ID zaznaczenia, nie numer wiersza — po powrocie do Wszystkich plików numer jest inny (zmierzono 2309 z 2476).
 11. Fizyczny skok zakładki mierz pozycją z ŻYWEGO hosta (`transport.status`), nie oczekiwanym payloadem. `play.file` dostaje `positionSeconds` w jednym wywołaniu — nie wysyłaj seeka obok play, bo pozycja ginie przy starcie nowego pliku. Materiał do próby zrób SYNTETYCZNY: wygenerowany plik plus wstrzyknięty rekord w OSOBNEJ kopii pełnej bazy (nie w małej próbce, nie na pliku użytkownika). Przy wstrzykiwaniu zarejestruj zastępczą kolację `AMC_PL`, inaczej `INSERT` padnie na indeksie. Pozycję daj z częścią ułamkową (próba:83,456s) — kontrakt to dzielenie `/ 10_000_000`, nie `//`.
 
@@ -51,6 +51,36 @@ Próba mowy/menu dla tego przyrostu: `amc_pomoc/wx-full-profile-after421/menu-an
 Mowa natywnej listy: dwie klasy objawów NADAL NIE SĄ naprawione — „poprzednia nazwa z nowym licznikiem” przy zmianie zbioru oraz wielokrotny odczyt tego samego wiersza. Naprawione jest tylko „nieznane” na liście bez nazwy (nakładka dostępności). Nie uznawaj tego za zrobione na podstawie testów jednostkowych: para kwitów z żywego NVDA to `amc_pomoc/wx-full-profile-after421/list-speech-after422/odbior-listy-FINAL.json` i `REPORT.md`. Przy zmianach w `gui.py` mierz ZAWSZE widok 2476 wierszy (Alt+2) — objawy mowy zależą od rozmiaru zbioru i na małych widokach nie wychodzą.
 
 Próba widoków aktywności: `amc_pomoc/wx-full-profile-after421/activity-gui-after422/proba_koncowa_activity.py` (etapy A–C) oraz `dopiecie_de.py` (etapy D–F na tym samym żywym oknie). Nazwa gestu Backspace w mostku NVDA to `backspace`; `back` zwraca HTTP 500 i pierwszy przebieg na tym padł.
+
+12. Zbiorczy widok zakładek (Ctrl+B) i powrót z odtwarzacza. Aparatura:
+    `amc_pomoc/wx-full-profile-after421/all-bookmarks-gui-after422/`
+    (`odbior_zakladek.py` = Ctrl+B / odmowa / pusto, `dopiecie_bcd2.py` =
+    start i pauza i skok, `dopiecie_d.py` = powrót menu). Pułapki, na które
+    już wpadnięto — nie powtarzaj ich:
+    - **Ścieżka hosta w stagingu to `host\amc_lite_host.exe`**, nie
+      `AccessibleMediaController.LiteHost.exe`. Przy złej nazwie okno
+      pokazuje widok odtwarzacza przy `engine_pid=null` i `HostUnavailable` —
+      wygląda jak zaliczony skok, a nic nie grało. Zawsze sprawdź
+      `runtime.json` i dziennik wywołań, nie sam widok.
+    - **Klasa klienta to `LiteHostClient`**, nie `HostClient`. Podgląd
+      wywołań po złej nazwie milczy; podglądu bez pokrycia nie wolno czytać
+      jako „zero wywołań".
+    - **Pasek menu otwiera gołe `alt`.** `alt+w` wysłane z fokusem na
+      przycisku odtwarzacza trafia w przycisk (NVDA zgłasza rolę 9
+      „Odtwórz"), nie w menu. Potwierdź rolę 11 po `alt`, dopiero potem
+      wysyłaj literę.
+    - **Nie dosięgniesz pliku 40 strzałkami w 2476 wierszach.** Materiał
+      próbny ma `is_favorite=1` — wejdź przez Ulubione (Ctrl+U, ~10 wierszy).
+      Start i tak jest zwykłym Enterem z listy, charakter dowodu bez zmian.
+    - **Kontekst bierz z sesji, nie z zaznaczenia**, i sprawdź go RÓWNIEŻ w
+      pauzie. `status_text="Wstrzymano"` nie znaczy „nic nie jest bieżące".
+    - **Powrót PLAYER→LIST wymaga `session_view` z obserwatora.**
+      `library_view` nazywa tylko widok Biblioteki i nie rozróżnia
+      odtwarzacza od listy, więc „Lista→Lista" nie jest dowodem powrotu.
+    - **Pusty widok rób na POTWIERDZONYM innym pliku.** Najpierw zmień
+      wybrany plik, potwierdź jego rzeczywiste ID i 0 zakładek tą samą
+      funkcją, której używa widok, dopiero potem Ctrl+Shift+B i wymagaj
+      `rows==0`. Nazwanie czegoś „pusto" przy `rows=1` nie jest dowodem.
 
 ## Dane i silnik
 

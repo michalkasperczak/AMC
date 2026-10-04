@@ -199,3 +199,32 @@ wyłącznie rzeczy leżących **poza tym przydziałem**:
    sprawa.
 
 Nie zmierzono i nie deklaruje się tu żadnego zachowania GUI ani czytnika ekranu.
+
+## Stan po podłączeniu do interfejsu (aktualizacja)
+
+Punkt 2 powyżej jest już ZREALIZOWANY i zmierzony — opis zostawiony jako
+wymaganie, bo nadal obowiązuje. Faktyczny stan:
+
+- `Ctrl+B` = `Action.VIEW_ALL_BOOKMARKS` → `LibraryView.ALL_BOOKMARKS` →
+  `all_bookmark_rows`. `Ctrl+Shift+B` = `Action.VIEW_ITEM_BOOKMARKS` →
+  `bookmark_rows`. Dwa wpisy, dwie akcje, jeden dispatcher. Pozycja menu
+  Biblioteki „Wszystkie zakład&ki" woła tę samą `Action` (klawisz dostępu `k`,
+  bo `w` zajmuje „Wszystkie pliki").
+- Punkt 4 (kontekst): `Navigator.open_all_bookmarks()` bierze
+  `current_session_id`/`current_item_id` z bieżącej sesji, nie z zaznaczenia.
+  **Materiał w PAUZIE też jest bieżący** — nie wolno utożsamiać `CurrentItem`
+  z `IsPlaying`. Kontekst ustawiany po POTWIERDZONYM starcie
+  (`playback.started` z polem `id`, nie `itemId`); nieudany start go czyści.
+- Punkt 5 (kolator): w zmierzonym przebiegu kolatora nie było, więc
+  `order_matches_amc=False` i widok mówi „kolejność zastępcza". Obietnicy
+  kolejności AMC nie wypowiadamy po cichu.
+- Punkt 6 (obca sesja): zrealizowane jako `BookmarkContext.can_play_locally`.
+  Zmierzone: Enter na wierszu Spotify NIE woła `files.play`, zostaje na
+  wierszu i mówi „Ta zakładka należy do sesji Spotify. Ten program odtwarza
+  tylko pliki lokalne." Odtwarzanie sieciowe nadal nie istnieje.
+- Punkt 3 (skok): zmierzone jako DOKŁADNIE jeden `files.play` z
+  `positionSeconds=83.456` i ZERO wywołań `seek`. Nie `play` + `seek`.
+
+Zachowanie GUI iNVDA dla tych pięciu rzeczy jest teraz zmierzone — kwity w
+`amc_pomoc/wx-full-profile-after421/all-bookmarks-gui-after422/`. Nadal NIE
+odebrany jest odczytNVDA pustego widoku (`rows=0` tak, mowa „nieznane").

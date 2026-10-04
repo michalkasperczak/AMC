@@ -12,7 +12,13 @@ Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany p
 - Katalog playlist: Ctrl+P; Enter otwiera zawartość, Backspace wraca do zaznaczonej playlisty.
 - Historia odtwarzania: Ctrl+H (zgodnie z `CommandIds.ViewHistory`, `MainWindow.xaml:481`). Etykieta mówi „Historia odtwarzania" i jest to ODCZYT zapisanej historii AMC, nie historia własnego odtwarzania tego okna. Wiersze filtrowane jak w AMC do `ActiveLocalItems`.
 - Kolejka: Ctrl+Q (`CommandIds.ViewQueue`, `MainWindow.xaml:482`). Etykieta brzmi **„Kolejka (zapisana)"** — czytamy zapis `queue_order`/`regular`/`play_next` z profilu, a to NIE jest kolejka żywego silnika. Enter odtwarza wybraną pozycję zwykłą drogą pojedynczego pliku; nie deklarujemy uruchomionej kolejki ani naturalnego przechodzenia po niej.
-- Zakładki zaznaczonego pliku: **Ctrl+Shift+B**, świadomie INNY skrót niż Ctrl+B w C#. `CommandIds.ViewBookmarks` (Ctrl+B) woła `BookmarkIndex.GetForDisplay`, czyli WSZYSTKIE zakładki z bieżącym elementem na początku; nasza funkcja to węższe `GetForItem` dla jednego pliku. Podpięcie jej pod Ctrl+B byłoby podstawieniem węższego zakresu pod istniejącą szerszą komendę.
+- Dwa ODDZIELNE widoki zakładek, dwa skróty, dwie akcje:
+  - **Ctrl+B** = `Action.VIEW_ALL_BOOKMARKS` → `all_bookmark_rows` (`BookmarkIndex.GetForDisplay`): WSZYSTKIE zakładki z bieżącym materiałem sesji na początku. Tak jak `CommandIds.ViewBookmarks` w C#.
+  - **Ctrl+Shift+B** = `Action.VIEW_ITEM_BOOKMARKS` → `bookmark_rows` (`GetForItem`): zakładki JEDNEGO wybranego pliku. Ten skrót jest nasz, bo w C# ten węższy zakres nie ma własnej komendy.
+
+  Wcześniej Ctrl+B był świadomie wolny — podpięcie pod niego węższego `GetForItem` byłoby podstawieniem węższego zakresu pod istniejącą szerszą komendę. Po dołożeniu `all_bookmark_rows` ten powód zniknął: Ctrl+B dostał zakres, który ma w AMC.
+- Kontekst widoku zbiorczego to **`CurrentSession.CurrentItem`**, nie zaznaczony wiersz. Materiał w PAUZIE nadal jest bieżący — `CurrentItem` nie jest tym samym co `IsPlaying` (zmierzone: `status_text="Wstrzymano"`, a Ctrl+B dalej stawia zakładkę tego pliku u góry).
+- Tożsamość materiału: dane mają profilowy `Id` (`local-...`), host potrafi zwracać `file:<path>`, a wiersz zakładki ma `bookmark:<id>`. Żaden z tych prefiksów nie zastępuje profilowego `Id` — kontekst bierzemy po POTWIERDZONYM starcie, nie po samym zaznaczeniu ani nieudanej próbie.
 - Enter na zakładce przechodzi FIZYCZNIE do materiału i pozycji: `play.file` dostaje `positionSeconds` w jednym wywołaniu, bez osobnego seeka po starcie. `Row.item_id` zakładki (`bookmark:<id>`) nigdy nie trafia do backendu jako plik — ścieżka i pozycja idą z mapy celów, a `BookmarkRow.item_id` jest ID pliku.
 - Pozycja liczona jako `position_ticks / 10_000_000` z zachowaną częścią ułamkową (bez `//`).
 - Backspace z widoku zakładek wraca na TEN plik (zmierzone: wiersz 2309 z 2476, to samo ID), nie na wiersz pierwszy.
@@ -49,10 +55,31 @@ Foldery zachowują dotychczasoweAMC_PL (`IgnoreCase|IgnoreNonSpace`). Wszystkiep
 
 Rogié/e orazß/ss były odtworzone jakoRED i poprawione. LiteHost został następnie zbudowany naWindows; trzy tryby wywołano w rzeczywistym procesie. Pomiary dotycząpl-PL; taką kulturę odczytano też na stanowiskuWindows. Nie rozciągamy wyników na niezmierzone kultury.
 
+## Zbiorczy widok zakładek w interfejsie — zmierzony odbiór
+
+Kwity: `amc_pomoc/wx-full-profile-after421/all-bookmarks-gui-after422/`
+(`odbior-zakladek.json`, `odbior-zakladek-bcd2.json`, `odbior-zakladek-d.json`,
+`REPORT.md`). Żywe okno, własny profil `profile-bookmark`, żywy host,
+odczyt mowyNVDA przez podgląd.
+
+Zdane:
+
+- **Ctrl+B**: wejście fizyczne z Wszystkich plików (2476 wierszy) → `LibraryView.ALL_BOOKMARKS`, `rows=30` == 30 zakładek odczytanych z bazy, rola 15, mowa „Biblioteka — Wszystkie zakładki, 30 pozycji, kolejność zastępcza".
+- **Bieżący materiał sesji, także w pauzie**: zwykły Enter → PLAYER (`files.play` BEZ `positionSeconds`), Spacja → „Wstrzymano", Ctrl+B z pauzy → zakładka tego pliku u góry, zgodnie z wynikiem `all_bookmark_rows(current_item_id=...)`.
+- **Lokalny skok**: dokładnie **jeden** `files.play` z `positionSeconds=83.456` (== `position_seconds` z danych), **zero** wywołań `*seek*`. Dziennik wywołań hosta w `host-calls.jsonl`.
+- **Odmowa sesji nielokalnej**: Enter na wierszu Spotify → brak `files.play`, zostajemy na wierszu, mowa „Ta zakładka należy do sesji Spotify. Ten program odtwarza tylko pliki lokalne."
+- **Powrót PLAYER→LIST menu**: `alt` (pasek menu, rola 11) → Widok → „Powrót na listę" → `session_view=View.LIST`, `player_shown=false`, wiersz czytany. Menu „Lista→Lista" nie jest dowodem tego przejścia — do jego pokazania obserwator dostał pole `session_view` (`library_view` nie rozróżnia odtwarzacza od listy).
+
+Jawnie OTWARTE:
+
+- **Pusty widok: `rows=0` zmierzone, mowa NIE.** Na potwierdzonym innym pliku (0 zakładek w danych, sprawdzone tą samą funkcją `bookmark_rows`) widok ma `rows=0` i `status_text="Biblioteka — Zakładki, pusto"`, aleNVDA nadal mówi „nieznane", a fokus ma `name=""`, rola 0. Nakładka `MediaListAccessible` była potwierdzona TYLKO w MSAA na pustym modelu — na żywymNVDA nie pomogła.
+- **Nazwa widoku Folderów**: `Alt+1` zmienia zawartość (2476 → 11 wierszy, folder czytany), ale `library_view` zostaje `None` zamiast nazwy widoku.
+- **Powtórzenia odczytu i stare nazwy list** pozostają niezmienione i NIENAPRAWIONE (patrz akapit wyżej). Rekreacja HWND zostaje wycofana.
+
 ## Najbliższe braki
 
 - Odczyt przy zmianie widoku jest spokojniejszy, ale **nie całkiem cichy**. Zmierzone na żywymNVDA: zniknęła własna nadmiarowa zapowiedź wiersza, a na Ulubionych ubył jeden z powtórzonych odczytów. Zostaje: pojedyncze powtórzenie bieżącego elementu po ogłoszeniu widoku, a przy dużym skoku długości (1→2475) jedno odczytanie poprzedniej nazwy z nowym licznikiem. Próba odświeżania nachodzących wierszy przed `SetItemCount` **nie dała zmiany w mowie** i została wycofana — przyczyna leży głębiej niż kolejność tych dwóch wywołań. Nowe widoki aktywności tego objawu **nie usunęły i nie pogorszyły**: w kwicie `activity-gui-after422` Ctrl+Q powtarza pierwszy wiersz kolejki trzy razy, a Ctrl+U dodatkowo wypowiada „Emu … 2 z 10" przed właściwym „SYNTEZA … 1 z 10". Nie przeorganizowano kontrolki pod ten objaw, więc zostaje on jawnie OTWARTY.
-- Dalsze widoki Biblioteki, wyszukiwanie/filtry. Historia, kolejka (zapisana) i zakładki zaznaczonego pliku są już ODCZYTEM podłączonym do interfejsu; brakuje natomiast zbiorczego widoku wszystkich zakładek (Ctrl+B / `GetForDisplay`), prawdziwej kolejki żywego silnika i zapisu/usuwania zakładek.
+- Dalsze widoki Biblioteki, wyszukiwanie/filtry. Historia, kolejka (zapisana), zakładki zaznaczonego pliku i **zbiorczy widok wszystkich zakładek (Ctrl+B / `GetForDisplay`)** są już ODCZYTEM podłączonym do interfejsu; brakuje natomiast prawdziwej kolejki żywego silnika oraz zapisu/usuwania zakładek.
 - ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
