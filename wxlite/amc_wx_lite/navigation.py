@@ -183,6 +183,30 @@ def profile_material_id(item_id: str) -> str:
     return item_id
 
 
+def view_context(state: SessionState) -> tuple:
+    """TOZSAMOSC WIDOKU, ktory lista ma pokazywac. Z istniejacych pol sesji.
+
+    PO CO TO JEST. Kontrolka musi rozpoznac RZECZYWISTA zmiane calego widoku
+    (Foldery -> Wszystkie pliki, wejscie w folder, zawartosc playlisty,
+    zakladki pliku) i odrozniac ja od zwyklej zmiany danych W TYM SAMYM
+    widoku (usuniecie jednego wiersza, dopisanie, zmiana tekstu). Bez tego
+    jedyna dostepna przeslanka byla heurystyka "plan usuwa wiersz z fokusem i
+    cos wstawia" -- a ona nie odrozniala usuniecia pozycji z biezacej listy od
+    przejscia do innego widoku.
+
+    Zadnego nowego systemu stanu: to sa te same pola ``SessionState``, ktorymi
+    nawigacja juz opisuje widok. ``session_id`` jest w kluczu, bo kazda sesja
+    ma wlasna liste.
+    """
+    return (
+        state.session_id,
+        state.library_view,
+        state.library_playlist_id,
+        state.library_item_id,
+        state.folder_path,
+    )
+
+
 def _items_word(count: int) -> str:
     """Polska odmiana po liczbie: 1 pozycja, 2-4 pozycje, 5+ pozycji.
 

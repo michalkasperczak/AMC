@@ -40,6 +40,13 @@ class FakePlainList:
         self.frozen = 0
         # Pola zakladane przez ``MediaListCtrl.__init__``, ktorego tu nie wolamy.
         self._shown: list = []
+        #: Sentinel jak w produkcji: "jeszcze nic nie pokazano".
+        from amc_wx_lite.gui import _BRAK_KONTEKSTU
+
+        self._shown_context: object = _BRAK_KONTEKSTU
+        #: Brak sesji = brak wiedzy o widoku. Testy bramki podstawiaja tu
+        #: ``FakeState`` i wtedy ``_view_context`` zwraca prawdziwa tozsamosc.
+        self.state = None
         self.updating = False
         self._was_empty: bool | None = None
 
@@ -64,6 +71,12 @@ class FakePlainList:
     def DeleteAllItems(self) -> None:  # noqa: N802
         self.calls.append(("DeleteAllItems",))
         self.rows = []
+        # ZMIERZONE na zywej kontrolce (laboratorium W02, tryb ``deleteall``):
+        # czyszczenie calej listy zostawia ``fokus=-1 wybor=-1``. Atrapa, ktora
+        # trzymalaby stary indeks, pozwolilaby przejsc kodowi liczacemu kursor
+        # po nieistniejacym wierszu.
+        self._selected = -1
+        self._focused = -1
 
     def GetItemCount(self) -> int:  # noqa: N802
         return len(self.rows)
@@ -119,7 +132,8 @@ def make_ctrl(model: ListModel, selected: int = -1, focused: int | None = None):
     # z ``None`` ("jeszcze nie synchronizowano").
     ctrl._was_empty = None
     for name in ("sync_rows", "sync_cursor", "_apply_ops", "fill_initial",
-                 "_announce_empty_list"):
+                 "_announce_empty_list", "_plan_usuwa_fokus_i_wstawia",
+                 "_wymienia_caly_widok", "_view_context"):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     # ``_cursor_target``/``_move_cursor`` tez z produkcji -- inaczej testowalibysmy
     # wlasna atrape kursora.
@@ -593,3 +607,236 @@ def test_a_change_while_the_reader_is_on_a_row_keeps_that_row_current() -> None:
     assert ctrl.rows[121][0] == "Poz 120 po zmianie nazwy"
     # Reszta listy nie zostala przepisana.
     assert len([c for c in ctrl.calls if c[0] == "InsertItem"]) == 1
+
+# -------------------- 9. BRAMKA ZAKRESU: pelna podmiana tylko na zmianie widoku
+#
+# Pelna podmiana (``DeleteAllItems`` + wstawienie calego ``desired``) jest
+# DOZWOLONA przy rzeczywistej zmianie calego widoku (Foldery -> Wszystkie pliki,
+# wejscie w folder, zawartosc playlisty). NIE jest dozwolona na zwykle usuniecie
+# jednego elementu i wstawienie w TYM SAMYM widoku -- tam obowiazuje diff.
+#
+# Te testy pilnuja wlasnie tej granicy, bo sama heurystyka "plan usuwa wiersz z
+# fokusem i cos wstawia" jej NIE odrozniala.
+
+
+class FakeState:
+    """Minimalny odpowiednik ``navigation.SessionState`` dla bramki widoku.
+
+    Tylko pola, ktore czyta ``navigation.view_context``. ``library_view=None``
+    jest POPRAWNYM kontraktem widoku Folderow, nie brakiem danych.
+    """
+
+    def __init__(self, session_id: str = "files", library_view=None,
+                 library_playlist_id=None, library_item_id=None,
+                 folder_path: str = "C:\\m") -> None:
+        self.session_id = session_id
+        self.library_view = library_view
+        self.library_playlist_id = library_playlist_id
+        self.library_item_id = library_item_id
+        self.folder_path = folder_path
+
+
+def make_ctrl_ze_stanem(model: ListModel, state: FakeState, selected: int = -1):
+    ctrl = make_ctrl(model, selected=selected)
+    ctrl.state = state
+    return ctrl
+
+
+def test_usuniecie_wiersza_z_fokusem_w_tym_samym_widoku_zostaje_punktowe() -> None:
+    """Zwykle usuniecie + wstawienie BEZ zmiany widoku: zadnego DeleteAllItems.
+
+    To jest jawny zakres uzytkownika. Gdyby bramka opierala sie tylko na
+    ukladzie planu (usuwa wiersz z fokusem i wstawia), ten przypadek
+    przebudowywalby cala liste -- i ten test byl by czerwony.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    rows = [track(str(i), f"Poz {i}") for i in range(40)]
+    seed(ctrl, model, rows)
+    model.select_id("10")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    # Usuwamy wiersz pod kursorem i jednoczesnie dopisujemy nowy. WIDOK TEN SAM.
+    zmienione = [r for r in rows if r.item_id != "10"] + [track("nowy", "Dopisany")]
+    model.replace(zmienione)
+    ctrl.sync_rows()
+
+    rodzaje = [c[0] for c in ctrl.list_ops()]
+    assert "DeleteAllItems" not in rodzaje, (
+        f"pelna podmiana w TYM SAMYM widoku jest zabroniona; operacje: {rodzaje}")
+    # I nadal wszystkie wiersze sa na liscie, z wlasciwa trescia.
+    assert ctrl.GetItemCount() == len(zmienione)
+    assert ctrl.rows[0][0] == "Poz 0"
+
+
+def test_rzeczywista_zmiana_widoku_wymienia_cala_liste_jednym_czyszczeniem() -> None:
+    """Foldery -> Wszystkie pliki: wolno jedno DeleteAllItems + pelne wstawienie.
+
+    Zmierzony powod: ``DeleteItem`` na sfokusowanym wierszu emituje przejsciowy
+    FOCUS na dziecko, ktorego juz nie bedzie (NVDA czytal wiersz dwa razy);
+    ``DeleteAllItems`` nie emituje nic.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    seed(ctrl, model, [track(str(i), f"Folder {i}") for i in range(30)])
+    model.select_id("5")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    # RZECZYWISTA zmiana widoku: inna tozsamosc w sesji + inne dane.
+    state.library_view = "all_files"
+    nowe = [track(f"t{i}", f"Utwor {i}") for i in range(50)]
+    model.replace(nowe)
+    ctrl.sync_rows()
+
+    rodzaje = [c[0] for c in ctrl.list_ops()]
+    assert rodzaje.count("DeleteAllItems") == 1, f"operacje: {rodzaje}"
+    assert "DeleteItem" not in rodzaje, "po pelnym czyszczeniu nie ma co usuwac pojedynczo"
+    # WSZYSTKIE wiersze i WSZYSTKIE kolumny -- bez paginacji i obcinania.
+    assert ctrl.GetItemCount() == 50
+    assert ctrl.rows[49][0] == "Utwor 49"
+    assert len([c for c in ctrl.calls if c[0] == "InsertItem"]) == 50
+
+
+def test_zmiana_widoku_bez_usuwania_fokusu_nie_siega_po_pelna_podmiane() -> None:
+    """Zmiana widoku, ale plan nie usuwa wiersza z fokusem: zostaje przyrostowo.
+
+    Bez przejsciowego zdarzenia fokusu pelna podmiana nic nie naprawia, a
+    kosztuje przebudowe calej listy.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    rows = [track(str(i), f"Poz {i}") for i in range(20)]
+    seed(ctrl, model, rows)
+    # Fokus na wierszu, ktory PRZETRWA zmiane.
+    model.select_id("0")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    state.folder_path = "C:\\m\\inny"
+    model.replace(rows + [track("nowy", "Dopisany")])
+    ctrl.sync_rows()
+
+    rodzaje = [c[0] for c in ctrl.list_ops()]
+    assert "DeleteAllItems" not in rodzaje, f"operacje: {rodzaje}"
+    assert rodzaje.count("InsertItem") == 1
+
+
+def test_zmiana_widoku_bez_zmiany_danych_to_nadal_zero_operacji() -> None:
+    """Pusta sync w nowym widoku o identycznych wierszach: ANI JEDNEJ operacji.
+
+    Pelna podmiana nie moze stac sie wymowka do przemalowania listy, gdy plan
+    jest pusty. Dotyczy to TAKZE syncow, ktore loader odpala po zmianie
+    ``library_view``, ale PRZED oddaniem danych.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    seed(ctrl, model, [track("1", "Alfa"), track("2", "Beta")])
+    ctrl.calls.clear()
+
+    state.library_view = "all_files"
+    ctrl.sync_rows()
+
+    assert ctrl.list_ops() == [], f"zbedne operacje: {ctrl.list_ops()}"
+
+
+def test_po_pelnej_podmianie_kursor_wraca_na_wybrane_ID() -> None:
+    """Po wymianie widoku wybor idzie za ID, a nie za indeksem."""
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    seed(ctrl, model, [track(str(i), f"Folder {i}") for i in range(10)])
+    model.select_id("3")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    state.library_view = "all_files"
+    nowe = [track(f"t{i}", f"Utwor {i}") for i in range(10)] + [track("3", "Stary trzy")]
+    model.replace(nowe)
+    ctrl.sync_rows()
+
+    # ID "3" nadal istnieje -- i to ono ma byc wybrane, na nowej pozycji 10.
+    assert model.selected_id == "3"
+    assert ctrl.GetFirstSelected() == 10 and ctrl.GetFocusedItem() == 10
+    assert ctrl.rows[10][0] == "Stary trzy"
+
+
+def test_bez_wiedzy_o_widoku_nigdy_nie_ma_pelnej_podmiany() -> None:
+    """``state=None`` to brak wiedzy o widoku, a nie dowod jego zmiany."""
+    model = ListModel()
+    ctrl = make_ctrl(model)  # bez stanu sesji
+    rows = [track(str(i), f"Poz {i}") for i in range(20)]
+    seed(ctrl, model, rows)
+    model.select_id("7")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    model.replace([r for r in rows if r.item_id != "7"] + [track("nowy", "Dopisany")])
+    ctrl.sync_rows()
+
+    assert "DeleteAllItems" not in [c[0] for c in ctrl.list_ops()]
+
+
+def test_pusty_widok_po_zmianie_kontekstu_nie_laduje_w_pelnej_podmianie() -> None:
+    """Przejscie do PUSTEGO widoku: nie ma czego wstawiac, zapowiedz pustki dziala.
+
+    Naprawa pustej listy ma zostac nietknieta.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    seed(ctrl, model, [track("1", "Alfa"), track("2", "Beta")])
+    model.select_id("1")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    state.library_view = "playlists"
+    state.library_playlist_id = "p1"
+    model.replace([])
+    ctrl.sync_rows()
+
+    assert ctrl.GetItemCount() == 0
+    # Bez wstawien: pelna podmiana wymaga czegos do wstawienia.
+    assert not [c for c in ctrl.calls if c[0] == "InsertItem"]
+
+def test_sync_przed_oddaniem_danych_nie_zuzywa_zmiany_widoku() -> None:
+    """ASYNCHRONICZNY LOADER: kontekst nalezy do danych, nie do zamiaru.
+
+    ZMIERZONA kolejnosc po Alt+2 (kwit ``odbior-w02valid``): najpierw leci sync
+    z ZEROWYM planem, bo sesja ma juz ``library_view=ALL_FILES``, a loader
+    jeszcze nie oddal wierszy (11 == 11). Dopiero nastepny sync wnosi dane
+    (11 -> 2476).
+
+    Gdyby ten pierwszy, bezczynny przebieg zapisal nowy kontekst jako
+    "pokazany", prawdziwa aktualizacja danych wygladalaby na te sama tozsamosc
+    widoku i poszla diffem -- czyli ``DeleteItem`` na wierszu z fokusem, a to
+    jest wlasnie przyczyna podwojnego odczytu NVDA.
+    """
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    seed(ctrl, model, [track(str(i), f"Folder {i}") for i in range(11)])
+    model.select_id("0")
+    ctrl.sync_rows()
+    ctrl.calls.clear()
+
+    # 1. Zamiar: widok juz przestawiony, danych jeszcze nie ma.
+    state.library_view = "all_files"
+    ctrl.sync_rows()
+    assert ctrl.list_ops() == [], "sync bez zmiany danych nie dotyka listy"
+
+    # 2. Loader oddaje dane TEGO NOWEGO widoku.
+    model.replace([track(f"t{i}", f"Utwor {i}") for i in range(2476)])
+    ctrl.sync_rows()
+
+    rodzaje = [c[0] for c in ctrl.list_ops()]
+    assert rodzaje.count("DeleteAllItems") == 1, (
+        "pelna podmiana MUSI zadzialac na przebiegu, ktory wnosi dane nowego "
+        f"widoku; operacje: {set(rodzaje)}")
+    assert "DeleteItem" not in rodzaje
+    assert ctrl.GetItemCount() == 2476

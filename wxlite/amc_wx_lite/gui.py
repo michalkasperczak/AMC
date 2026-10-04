@@ -47,6 +47,7 @@ from .navigation import (
     PlayTrack,
     SessionId,
     View,
+    view_context,
 )
 from .shortcuts import Action, Chord, describe, resolve
 from .profile_layout import resolve_layout
@@ -302,6 +303,12 @@ OBJID_CLIENT = -4
 CHILDID_SELF = 0
 
 
+#: Sentinel "kontekst jeszcze nieznany". ``None`` nie nadaje sie na te role:
+#: widok Folderow ma ``library_view=None`` i to POPRAWNY kontrakt, wiec
+#: ``None`` jest zwyklym, legalnym kontekstem widoku.
+_BRAK_KONTEKSTU = object()
+
+
 class MediaListCtrl(wx.ListCtrl):
     """ZWYKLA natywna lista Windows z aktualizacja tylko tego, co sie zmienilo.
 
@@ -327,12 +334,18 @@ class MediaListCtrl(wx.ListCtrl):
     kontrolce to mniej zdarzen a11y, ale dowodem mowy jest zywy NVDA.
     """
 
-    def __init__(self, parent: wx.Window, model: ListModel, label: str) -> None:
+    def __init__(self, parent: wx.Window, model: ListModel, label: str,
+                 state: object | None = None) -> None:
         super().__init__(
             parent,
             style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.BORDER_SUNKEN,
         )
         self.model = model
+        #: STAN SESJI, ktorej liste pokazujemy (``navigation.SessionState``).
+        #: Sluzy WYLACZNIE do odczytu tozsamosci widoku w ``_view_context``;
+        #: kontrolka nic w nim nie zmienia. ``None`` = brak wiedzy o widoku, co
+        #: wylacza pelna podmiane (bezpieczny domysl: przyrostowo).
+        self.state = state
         self.InsertColumn(0, "Nazwa", width=420)
         self.InsertColumn(1, "Rodzaj", width=120)
         self.InsertColumn(2, "Szczegoly", width=260)
@@ -340,6 +353,11 @@ class MediaListCtrl(wx.ListCtrl):
         #: odczytywanie tekstow z ``GetItemText`` przy kazdym odswiezeniu
         #: oznaczaloby 7428 wywolan API na liste 2476 wierszy.
         self._shown: list[list_sync.RowText] = []
+        #: KONTEKST WIDOKU, ktory ``_shown`` naprawde przedstawia (sentinel, bo
+        #: ``None`` jest LEGALNYM kontekstem -- widok Folderow ma
+        #: ``library_view=None``). Pelna podmiana listy bramkuje sie o roznice
+        #: miedzy tym polem a kontekstem liczonym w ``sync_rows``.
+        self._shown_context: object = _BRAK_KONTEKSTU
         #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
         #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
         #: przy ruchu uzytkownika. Bez tej bramki przejsciowy indeks (np. 0 po
@@ -368,6 +386,9 @@ class MediaListCtrl(wx.ListCtrl):
         """
         desired = list_sync.model_row_texts(self.model)
         ops = list_sync.plan_row_updates(self._shown, desired)
+        # TOZSAMOSC WIDOKU, ktory wlasnie mamy pokazac. Potrzebna, bo pelna
+        # podmiana listy nalezy do ZMIANY WIDOKU, a nie do zmiany danych w nim.
+        context = self._view_context()
         # Przejscie do pustki liczymy PRZED zmiana stanu, zeby zapowiedz dotyczyla
         # PRZEJSCIA (pusto->pusto na ticku statusu to ZERO zdarzen).
         became_empty = not desired and self._was_empty is not True
@@ -382,6 +403,14 @@ class MediaListCtrl(wx.ListCtrl):
                     # Wyjatek: pierwsze wejscie od razu w pusty widok. Planu nie
                     # ma (nie bylo czego usuwac), ale obiekt dostepny sie zmienil.
                     self._announce_empty_list()
+                # KONTEKSTU TU NIE ZAPISUJEMY. Biblioteka wczytuje sie
+                # asynchronicznie: po Alt+2 sesja ma JUZ nowy ``library_view``, ale
+                # loader jeszcze nie oddal wierszy, wiec leci sync z ZEROWYM planem
+                # (stare 11 wierszy == stare 11 wierszy). Gdyby ten przebieg
+                # zaklepal nowy kontekst, prawdziwa aktualizacja danych (11->2476)
+                # wygladalaby na "ten sam widok" i wrocilaby na diff -- czyli na
+                # ``DeleteItem`` na wierszu z fokusem i podwojny odczyt NVDA.
+                # Kontekst nalezy do ZAAPLIKOWANYCH danych, a nie do zamiaru.
                 return
             # Sam kursor: jedno przejscie stanu, bez przemalowania listy.
             self.updating = True
@@ -389,6 +418,8 @@ class MediaListCtrl(wx.ListCtrl):
                 self._move_cursor(cursor)
             finally:
                 self.updating = False
+            # Tu rowniez nie dotykamy kontekstu: przesuniecie kursora nie jest
+            # zaaplikowaniem nowego widoku.
             return
         # Zmiana struktury/tekstu to JEDNO przemalowanie, nie seria krokow.
         # ``Freeze``/``Thaw`` to standardowy mechanizm wx, nie usypianie i nie
@@ -398,8 +429,12 @@ class MediaListCtrl(wx.ListCtrl):
         self.updating = True
         self.Freeze()
         try:
-            self._apply_ops(ops)
+            self._apply_ops(ops, desired, context)
             self._shown = desired
+            # Kontekst ZAAPLIKOWANY, razem z danymi. Nie wczesniej: gdyby lecial
+            # przed nalozeniem planu, przerwana aktualizacja zostawilaby liste z
+            # danymi starego widoku, a bramke z kontekstem nowego.
+            self._shown_context = context
             # Kursor liczymy PONOWNIE: po usunieciu wiersza kontrolka sama
             # przesuwa fokus, wiec stan sprzed podmiany nie jest wiarygodny.
             target = self._cursor_target()
@@ -457,8 +492,87 @@ class MediaListCtrl(wx.ListCtrl):
             ctypes.c_uint(event), ctypes.c_void_p(hwnd),
             ctypes.c_long(obj_id), ctypes.c_long(child_id))
 
-    def _apply_ops(self, ops: list) -> None:
-        """Wykonaj plan w podanej kolejnosci. Indeksy sa juz uzgodnione."""
+    def _view_context(self) -> tuple | None:
+        """Tozsamosc widoku z sesji, albo ``None`` gdy sesji nie znamy.
+
+        Jedno zrodlo prawdy: ``navigation.view_context`` na ``SessionState``,
+        ktory kontrolka dostala przy budowie. Zadnej wlasnej kopii stanu.
+        """
+        state = getattr(self, "state", None)
+        if state is None:
+            return None
+        return view_context(state)
+
+    def _plan_usuwa_fokus_i_wstawia(self, ops: list) -> bool:
+        """Czy plan usuwa wiersz Z FOKUSEM i jednoczesnie cos wstawia.
+
+        Tylko taki uklad daje przejsciowy fokus na usuwane dziecko (zmierzone:
+        ``DeleteItem`` na sfokusowanym wierszu emituje ``EVENT_OBJECT_FOCUS`` na
+        dziecko, ktorego juz nie bedzie). To jest warunek KONIECZNY pelnej
+        podmiany, ale NIE wystarczajacy -- patrz ``_wymienia_caly_widok``.
+        """
+        focused = self.GetFocusedItem()
+        if focused < 0:
+            return False
+        usuwa_fokus = any(
+            isinstance(op, list_sync.DeleteRow) and op.index == focused
+            for op in ops
+        )
+        if not usuwa_fokus:
+            return False
+        return any(isinstance(op, list_sync.InsertRow) for op in ops)
+
+    def _wymienia_caly_widok(self, ops: list, context: tuple | None) -> bool:
+        """Czy wolno siegnac po pelna podmiane ``DeleteAllItems`` + wstawienie.
+
+        DWA warunki, OBA konieczne:
+
+        1. ``context`` MUSI sie roznic od kontekstu, ktory lista NAPRAWDE
+           pokazuje (``_shown_context``). To jest bramka ZAKRESU: pelna podmiana
+           nalezy do RZECZYWISTEJ zmiany widoku (Foldery -> Wszystkie pliki,
+           wejscie w folder, zawartosc playlisty). Zwykle usuniecie jednego
+           elementu i wstawienie w TYM SAMYM widoku zostaje przyrostowe -- diff,
+           punktowe zmiany, zero operacji bez zmian, wybor po ID.
+           ``context is None`` (np. atrapa testowa bez sesji) NIGDY nie wlacza
+           podmiany: brak wiedzy o widoku to nie dowod jego zmiany.
+
+           Kontekst porownujemy z ZAAPLIKOWANYM, nie z zamiarem: ``_shown_context``
+           zapisujemy razem z ``_shown`` dopiero po nalozeniu planu, wiec
+           asynchroniczny loader, ktory jeszcze nie oddal danych, nie przestawia
+           bramki przed czasem.
+
+        2. Plan MUSI usuwac wiersz z fokusem i wstawiac (``_plan_usuwa_fokus_i_wstawia``).
+           Bez tego nie ma przejsciowego zdarzenia fokusu, wiec pelna podmiana
+           nie naprawialaby niczego, a kosztowalaby przebudowe 2476 wierszy.
+        """
+        if context is None or context == self._shown_context:
+            return False
+        return self._plan_usuwa_fokus_i_wstawia(ops)
+
+    def _apply_ops(self, ops: list, desired: list | None = None,
+                   context: tuple | None = None) -> None:
+        """Wykonaj plan w podanej kolejnosci. Indeksy sa juz uzgodnione.
+
+        Przy RZECZYWISTEJ zmianie calego widoku (``_wymienia_caly_widok``)
+        czyscimy liste jednym ``DeleteAllItems`` i wstawiamy caly ``desired``.
+        Powod jest zmierzony: ``DeleteItem`` na sfokusowanym wierszu emituje
+        przejsciowy ``EVENT_OBJECT_FOCUS`` na dziecko, ktorego juz nie bedzie
+        (NVDA czytal wtedy wiersz dwa razy), a ``DeleteAllItems`` nie emituje
+        nic. Wstawiamy WSZYSTKIE wiersze i wszystkie kolumny -- bez paginacji,
+        obcinania i bez LC_VIRTUAL.
+
+        W obrebie TEGO SAMEGO widoku droga zostaje nietknieta: usuniecie
+        wiersza pod kursorem BEZ zmiany widoku to nadal jedno ``DeleteItem``,
+        a zmiana tekstu to jedno ``SetItem``.
+        """
+        if desired is not None and self._wymienia_caly_widok(ops, context):
+            self.DeleteAllItems()
+            for index, row in enumerate(desired):
+                self.InsertItem(index, row.texts[0])
+                for column in range(1, len(row.texts)):
+                    if row.texts[column]:
+                        self.SetItem(index, column, row.texts[column])
+            return
         for op in ops:
             if isinstance(op, list_sync.DeleteRow):
                 self.DeleteItem(op.index)
@@ -625,10 +739,12 @@ class LiteFrame(wx.Frame):
         # --- widok listy
         self.list_panel = wx.Panel(self.panel)
         self.files_list = MediaListCtrl(
-            self.list_panel, self.navigator.sessions[SessionId.FILES].model, "Pliki lokalne"
+            self.list_panel, self.navigator.sessions[SessionId.FILES].model, "Pliki lokalne",
+            self.navigator.sessions[SessionId.FILES],
         )
         self.radio_list = MediaListCtrl(
-            self.list_panel, self.navigator.sessions[SessionId.RADIO].model, "Stacje radiowe"
+            self.list_panel, self.navigator.sessions[SessionId.RADIO].model, "Stacje radiowe",
+            self.navigator.sessions[SessionId.RADIO],
         )
         self.radio_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
