@@ -1,0 +1,81 @@
+"""Czy ``gui.py`` naprawde PODLACZYL nowe akcje i widoki.
+
+``wx`` nie da sie zaimportowac w tym srodowisku, wiec okna nie zbudujemy.
+Mozna jednak sprawdzic to, co i tak jest statyczne: czy kazda nowa akcja ma
+galaz w ``_dispatch``, czy kazdy nowy ``LibraryView`` ma klucz danych i czy
+pozycja zakladki trafia do ``play_file``. Bez tego skrot byl by martwy.
+"""
+
+from __future__ import annotations
+
+import ast
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from amc_wx_lite.navigation import LibraryView
+from amc_wx_lite.shortcuts import Action
+
+GUI = Path(__file__).resolve().parents[1] / "amc_wx_lite" / "gui.py"
+SOURCE = GUI.read_text(encoding="utf-8")
+TREE = ast.parse(SOURCE)
+
+NEW_ACTIONS = (
+    Action.VIEW_HISTORY,
+    Action.VIEW_SAVED_QUEUE,
+    Action.VIEW_ITEM_BOOKMARKS,
+    Action.VIEW_FOLDERS,
+    Action.SHOW_LIST,
+)
+
+
+def _attribute_names() -> set[str]:
+    """Nazwy ``Action.X`` wymienione gdziekolwiek w ``gui.py``."""
+    names = set()
+    for node in ast.walk(TREE):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "Action"
+        ):
+            names.add(node.attr)
+    return names
+
+
+def test_every_new_action_is_handled_in_the_window() -> None:
+    handled = _attribute_names()
+    missing = [a.name for a in NEW_ACTIONS if a.name not in handled]
+    assert not missing, f"skroty bez obslugi w gui.py (martwe): {missing}"
+
+
+def test_every_library_view_has_a_data_key() -> None:
+    """``_VIEW_KEYS[view]`` bez wpisu to ``KeyError`` w watku roboczym."""
+    keys = None
+    for node in ast.walk(TREE):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_VIEW_KEYS" for t in node.targets
+        ):
+            keys = node.value
+            break
+    assert isinstance(keys, ast.Dict), "nie znalazlem _VIEW_KEYS w gui.py"
+    mapped = {
+        k.attr
+        for k in keys.keys
+        if isinstance(k, ast.Attribute)
+    }
+    missing = [v.name for v in LibraryView if v.name not in mapped]
+    assert not missing, f"widoki bez klucza danych: {missing}"
+
+
+def test_play_track_forwards_the_bookmark_position() -> None:
+    """Bez ``position_seconds`` zakladka odtworzylaby plik od zera."""
+    assert "position_seconds=intent.position_seconds" in SOURCE, (
+        "gui._play_track gubi pozycje zakladki"
+    )
+
+
+def test_bookmark_view_asks_the_data_layer_for_the_file_id() -> None:
+    """``item_id`` i mapa celow musza przejsc przez okno do nawigatora."""
+    assert "item_id=item_id" in SOURCE
+    assert "bookmark_targets=result.bookmark_targets" in SOURCE

@@ -796,6 +796,9 @@ class LiteFrame(wx.Frame):
         LibraryView.FAVORITES: "favorites",
         LibraryView.PLAYLISTS: "playlists",
         LibraryView.PLAYLIST_CONTENTS: "playlist_contents",
+        LibraryView.HISTORY: "history",
+        LibraryView.SAVED_QUEUE: "saved_queue",
+        LibraryView.ITEM_BOOKMARKS: "item_bookmarks",
     }
 
     def _open_library_view(self, intent: OpenLibraryView) -> None:
@@ -813,9 +816,10 @@ class LiteFrame(wx.Frame):
         view = intent.view
         key = self._VIEW_KEYS[view]
         playlist_id = intent.playlist_id
+        item_id = intent.item_id
 
         def work():
-            return self.library.load_view(key, playlist_id=playlist_id)
+            return self.library.load_view(key, playlist_id=playlist_id, item_id=item_id)
 
         def done(result) -> None:
             if result.fallback_view is not None:
@@ -833,6 +837,8 @@ class LiteFrame(wx.Frame):
                 preferred_id=intent.preferred_id,
                 playlist_id=playlist_id,
                 order_matches_amc=result.order_matches_amc,
+                item_id=item_id,
+                bookmark_targets=result.bookmark_targets,
             ))
 
         def failed(error: Exception) -> None:
@@ -917,6 +923,16 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
         elif action is Action.VIEW_PLAYLISTS:
             self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
+        elif action is Action.VIEW_FOLDERS:
+            # Foldery Biblioteki dzialaly juz z menu kontekstu startu; tutaj
+            # dostaja jawne wejscie (Alt+1, jak MainWindow.xaml:446).
+            self._open_library(self.library.saved_folder())
+        elif action is Action.VIEW_HISTORY:
+            self._run(self.navigator.open_library_view(LibraryView.HISTORY))
+        elif action is Action.VIEW_SAVED_QUEUE:
+            self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+        elif action is Action.VIEW_ITEM_BOOKMARKS:
+            self._run(self.navigator.open_item_bookmarks())
         elif action is Action.HELP:
             self._show_help()
 
@@ -1105,7 +1121,12 @@ class LiteFrame(wx.Frame):
 
         def work() -> dict:
             return client.play_file(
-                intent.path, volume=self.options.volume, rate=self.options.rate, title=intent.title
+                intent.path,
+                volume=self.options.volume,
+                rate=self.options.rate,
+                title=intent.title,
+                # Skok zakladki jedzie Z TYM SAMYM zadaniem, nie osobnym seek.
+                position_seconds=intent.position_seconds,
             )
 
         def done(_payload: dict) -> None:
