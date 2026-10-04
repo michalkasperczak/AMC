@@ -1,5 +1,13 @@
 # AMC — mapa kodu
 
+## AMC-wx-Lite: kolejne widoki lokalnej Biblioteki (warstwa danych, po 4.2.2)
+
+- `wxlite/amc_wx_lite/library_views.py`: tylko odczyt, cztery widoki — wszystkie pliki alfabetycznie, Ulubione, lista playlist, zawartość playlisty. Reguły filtrów i kolejności są przepisane z `MainWindow.xaml.cs` (`ActiveLocalItems` 10004, wszystkie pliki 12415-12426, Ulubione 12524-12534 z `OrderCurrentCollection` 12978-13001, `CreatePlaylistRows` 12800-12839, zawartość playlisty 12462-12482) oraz `PlaylistPresentation.BuildLabel` i `LocalLibraryManualOrder.Order` — nie z nazw tabel. Rozszerza istniejące połączenie `library_db.LibraryDatabase` (`mode=ro`), nie zakłada własnej bazy i nie dubluje czytnika.
+- Alfabetyka reużywa kluczy `HostCollation` (AMC_PL). Bez hosta `LibraryViewResult.order_matches_amc` schodzi na `False` — sygnał degradacji jak w `LibrarySnapshot`, bez udawania zgodności 1:1.
+- `Row` bez zmian konstruktora; playlista dostaje `kind="playlist"`, Id `"playlist:<id>"` i lekki rekord `PlaylistRow` obok wiersza (`playlist_id`, `stored_count`, `available_count`, `duration_ticks`). Kontrakt: `wxlite/LIBRARY_VIEWS_CONTRACT.md`.
+- `wxlite/tests/test_library_views.py`: rogi na syntetycznej bazie o prawdziwym schemacie (duplikaty nazw, brakująca pozycja, pusta lista, polskie tytuły, Id numeryczne jako napisy, odczyt po prawdziwym commicie WAL z otwartym writerem) plus smoke na pełnej kopii profilu.
+- `wxlite/tools/measure_library_views.py`: kwit maszynowy czterech widoków na pełnej bazie (liczności, stabilność Id, predykaty, hash bazy przed/po). Zgodność kolejności „wszystkich plików” z `CurrentCultureIgnoreCase` mierzona wykonaniem .NET `CompareInfo` (pl-PL) — nie samym odczytem nazw.
+
 ## AMC-wx-Lite i połączenie nowych silników tempa
 
 - `tests/AccessibleMediaController.TempoAdapterTests`: uruchamia te same źródła C# z prawdziwą biblioteką natywną; neutralne 1x, PCM16, przejścia tempa i zachowanie natywnych liczników bez resetu.
