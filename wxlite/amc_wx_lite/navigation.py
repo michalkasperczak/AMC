@@ -336,7 +336,13 @@ class Navigator:
             return [
                 Announce(
                     f"Ta zakładka należy do sesji {session_name}. "
-                    "Ten program odtwarza tylko pliki lokalne."
+                    # NIE "ten program odtwarza tylko pliki lokalne" -- to bylo
+                    # nieprawda o programie: Radio internetowe dziala i gra
+                    # strumienie zdalne. Ograniczenie dotyczy WYLACZNIE
+                    # odtwarzania ZAKLADEK z obcych sesji (Spotify, TIDAL,
+                    # podcasty): nie mamy dla nich ``files.play``. Nazwa sesji
+                    # zostaje w zdaniu pierwszym, zeby bylo wiadomo czyja.
+                    "Odtwarzanie zakładek z tej sesji nie jest jeszcze dostępne."
                 )
             ]
 

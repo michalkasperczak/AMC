@@ -312,6 +312,34 @@ def test_foreign_session_bookmark_refuses_without_playing() -> None:
     assert "Spotify" in message, "odmowa musi nazwac WLASCIWA sesje"
 
 
+def test_refusal_limits_itself_to_bookmarks_and_does_not_libel_the_program() -> None:
+    """Odmowa mowi prawde o ZAKRESIE ZAKLADEK, nie o calym programie.
+
+    Dawny tekst brzmial "Ten program odtwarza tylko pliki lokalne" -- i to byla
+    NIEPRAWDA: zakladka Radio internetowe dziala i gra zdalne strumienie.
+    Nieprawdziwa odmowa uczy uzytkownika nie wierzyc komunikatom, wiec zdanie
+    musi ograniczac sie do tego, czego faktycznie nie ma: odtwarzania zakladek
+    z obcych sesji (nie mamy dla nich ``files.play``).
+
+    Funkcja sie NIE zmienia: dalej zadnego ``files.play``, dalej zostajemy na
+    wierszu, dalej nazywamy sesje.
+    """
+    nav = _nav_with_collective_view()
+    nav.session.model.select_id("bookmark:b2")
+
+    out = nav.activate_selected()
+
+    message = next(i for i in out if isinstance(i, Announce)).text
+    assert "tylko pliki lokalne" not in message, (
+        "program gra tez radio internetowe -- to zdanie bylo nieprawda"
+    )
+    assert "zakład" in message.lower(), "odmowa musi powiedziec, CZEGO dotyczy"
+    # Funkcja nietknieta: brak odtwarzania i brak przejscia do odtwarzacza.
+    assert not any(isinstance(i, PlayTrack) for i in out)
+    assert nav.session.view is View.LIST
+    assert nav.session.model.selected_id == "bookmark:b2"
+
+
 def test_foreign_bookmark_is_refused_even_if_an_id_collides() -> None:
     """Obce Id moze przypadkiem rownac sie lokalnemu -- decyduje SESJA.
 
