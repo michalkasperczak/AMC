@@ -97,15 +97,78 @@ def format_time(seconds: float | None) -> str:
     return f"{secs} s"
 
 
-class Announcer:
-    """Visible status plus a standard MSAA alert, without changing focus.
+#: ``winUser.EVENT_SYSTEM_ALERT`` (``source/winUser.py:355``). NIE uzywamy go
+#: na polu statusu -- patrz komentarz w ``Announcer``.
+EVENT_SYSTEM_ALERT = 0x0002
 
-    An explicit repeated query is repeated; unchanged control text is not
-    rewritten. A notification call is not itself proof of spoken output.
+#: ``winUser.EVENT_OBJECT_LIVEREGIONCHANGED`` (``source/winUser.py:396``).
+EVENT_OBJECT_LIVEREGIONCHANGED = 0x8019
+
+#: ``winUser.OBJID_CLIENT`` i ``CHILDID_SELF`` (``source/winUser.py:416, 410``).
+#: Trzymamy je TUTAJ, a nie bierzemy z ``wx``: to stale MSAA, a dzieki temu
+#: brak atrybutu w ``wx`` nie moze sie przebrac za "czytnik milczy".
+OBJID_CLIENT = -4
+CHILDID_SELF = 0
+
+
+def _notify_win_event(event: int, hwnd: int, object_id: int, child_id: int) -> None:
+    """``user32.NotifyWinEvent`` -- zwykle API MSAA, bez dodatku do czytnika.
+
+    Na nie-Windows (testy w WSL) nie ma czego wolac; ``Announcer`` dostaje
+    wtedy wlasna funkcje powiadamiania i tu nie zaglada.
+    """
+    import ctypes
+
+    ctypes.windll.user32.NotifyWinEvent(event, hwnd, object_id, child_id)
+
+
+class Announcer:
+    """JEDNA brama krotkich komunikatow. Widoczny status + mowa czytnika.
+
+    DLACZEGO NIE ``EVENT_SYSTEM_ALERT`` (tak bylo i bylo CICHO):
+
+    NVDA tlumaczy ``EVENT_SYSTEM_ALERT`` na zdarzenie ``"alert"``
+    (``source/IAccessibleHandler/internalWinEventHandler.py:37``), a jego
+    obsluga ODRZUCA obiekt, ktory nie ma roli alertu:
+
+        ``source/NVDAObjects/IAccessible/__init__.py:2025-2028``
+        ``def event_alert(self):``
+        ``    if self.role != controlTypes.Role.ALERT:``
+        ``        # Ignore alert events on objects that aren't alerts.``
+        ``        return``
+
+    Pole statusu to ``wx.StaticText``, czyli okno klasy ``Static`` z rola
+    ``ROLE_SYSTEM_STATICTEXT`` -> nakladka ``StaticText``
+    (tamze:2842), a nie ``Role.ALERT`` (``IAccessibleHandler/__init__.py:119``
+    daje ALERT tylko dla ``ROLE_SYSTEM_ALERT``). Wywolanie bylo poprawne,
+    obiekt byl zly -- NVDA wracal w pierwszej linii i milczal. Stad
+    "schowek poprawny, a mowy nie bylo".
+
+    DLACZEGO LIVE REGION DZIALA:
+
+        ``source/NVDAObjects/__init__.py:1238-1254``
+        ``def event_liveRegionChange(self):``
+        ``    name = self.name``
+        ``    if name: ... ui.message(name, ...)``
+
+    Zdarzenie ``EVENT_OBJECT_LIVEREGIONCHANGED`` nie sprawdza ROLI -- wymaga
+    tylko NIEPUSTEJ nazwy, a nazwa ``wx.StaticText`` to jego tekst, ktory
+    ustawiamy ponizej. ``ui.message`` wymawia DOKLADNIE ten tekst: bez slowa
+    "alert" i bez nazwy regionu, czyli krotko.
+
+    To ta sama intencja, co w zwyklym AMC: ``AccessibleStatusTextBlock``
+    wysyla notyfikacje z TRESCIA, a peer bierze nazwe z tekstu
+    (``Controls/AccessibleStatusTextBlock.cs:26-37, 44-48``).
+
+    Pozostale zasady bez zmian: jawnie powtorzone pytanie (Ctrl+E dwa razy)
+    dostaje odpowiedz dwa razy, ale tekstu nie przepisujemy bez potrzeby;
+    JEDEN komunikat to JEDNO zdarzenie (dwa to podwojna zapowiedz); okno w
+    tle aktualizuje status, lecz nie wchodzi w slowo obcej aplikacji.
     """
 
-    def __init__(self, status_field: wx.StaticText) -> None:
+    def __init__(self, status_field: wx.StaticText, *, notify=_notify_win_event) -> None:
         self._status = status_field
+        self._notify = notify
 
     def say(self, text: str) -> None:
         text = (text or "").strip()
@@ -113,11 +176,29 @@ class Announcer:
             return
         if self._status.GetLabel() != text:
             self._status.SetLabel(text)
-            self._status.SetName(text)
+        # Nazwe ustawiamy ZAWSZE, nawet gdy tekst sie nie zmienil: wlasnie ja
+        # czyta ``event_liveRegionChange``, a powtorzone pytanie ma odpowiedziec.
+        self._status.SetName(text)
         owner = wx.GetTopLevelParent(self._status)
         if owner is not None and not owner.IsActive():
             return
-        wx.Accessible.NotifyEvent(wx.ACC_EVENT_SYSTEM_ALERT, self._status, wx.OBJID_CLIENT, 0)
+        try:
+            self._notify(
+                EVENT_OBJECT_LIVEREGIONCHANGED,
+                int(self._status.GetHandle()),
+                OBJID_CLIENT,
+                CHILDID_SELF,
+            )
+        except OSError:
+            # Zapowiedz jest DODATKIEM do czynnosci: gdy samo MSAA padnie,
+            # kopiowanie albo pauza i tak sie wykonaly, a tekst statusu zostaje
+            # do odczytania na zadanie. Zadnego ``sleep`` ani ponowien.
+            #
+            # Lapiemy WYLACZNIE ``OSError`` (tyle potrafi zglosic
+            # ``NotifyWinEvent``). Szerokie ``except Exception`` ukrywalo tu
+            # wlasna literowke w nazwie stalej -- czyli dokladnie te ciche
+            # milczenie czytnika, ktore naprawiamy.
+            pass
 
 
 class MediaListCtrl(wx.ListCtrl):
