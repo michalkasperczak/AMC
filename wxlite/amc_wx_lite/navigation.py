@@ -46,7 +46,14 @@ class SessionState:
 
 @dataclass(slots=True)
 class OpenFolder:
-    path: str
+    """Zlecenie otwarcia poziomu listy.
+
+    ``path=None`` NIE znaczy "brak sciezki" -- to KORZEN Biblioteki AMC,
+    ktory nie jest katalogiem na dysku, a lista ``folder_sources`` plus
+    rekordy nie nalezace do zadnego zrodla.
+    """
+
+    path: str | None
     preferred_id: str | None = None
 
 
@@ -184,10 +191,19 @@ class Navigator:
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
 
     def go_to_parent(self) -> list[object]:
-        """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze."""
+        """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze.
+
+        Wiersz rodzica z ``path=None`` to KORZEN Biblioteki, nie blad. Dawniej
+        warunek brzmial ``not parent_row.path`` i polykal wlasnie ten przypadek,
+        wiec Backspace w zrodle folderowym mowil "To jest folder najwyzszego
+        poziomu" i uzytkownik nie mial jak wrocic do listy zrodel.
+
+        Brak wiersza rodzica NADAL znaczy prawdziwy szczyt (``C:\\`` przy
+        zwyklym przegladaniu dysku pod Ctrl+O) -- wtedy komunikat zostaje.
+        """
         state = self.session
         parent_row = next((r for r in state.model.rows if r.kind == "parent"), None)
-        if parent_row is None or not parent_row.path:
+        if parent_row is None:
             return [Announce("To jest folder najwyzszego poziomu")]
 
         preferred = None

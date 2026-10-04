@@ -10,11 +10,27 @@ to zglosil uzytkownik.
 
 Zasady, ktore ten modul trzyma twardo
 -------------------------------------
-1. **Tylko odczyt.** Polaczenie otwieramy jako ``mode=ro&immutable=1``.
-   ``immutable=1`` jest tu istotne: bez niego SQLite dotknie ``-wal``/``-shm``
-   obok bazy, co jest JUZ zapisem do profilu i moze probowac odzysku WAL.
-   Wlasciciel zapisu zostaje jeden: host C#. Nie migrujemy schematu, nie
-   dopisujemy niczego, nie uruchamiamy harmonogramow.
+1. **Tylko odczyt -- ale SWIEZY.** Polaczenie otwieramy jako ``mode=ro``.
+   Wczesniej bylo ``mode=ro&immutable=1`` i to byl BLAD: ``immutable`` mowi
+   SQLite, ze plik sie nie zmienia, wiec silnik pomija ``-wal`` i ``-shm``.
+   Zmierzone na kopii profilu przy ZYWYM, nadal otwartym writerze:
+
+   =========================  =========================================
+   ``mode=ro``                widzi zatwierdzony commit hosta
+   ``mode=ro&immutable=1``    oddaje STARA wartosc sprzed commitu
+   =========================  =========================================
+
+   ``mode=ro`` nie zapisuje do bazy ani nie migruje schematu; moze jedynie
+   odwzorowac istniejacy ``-shm`` (techniczna koordynacja czytelnikow WAL),
+   co nie jest zmiana danych aplikacji. Wlasciciel zapisu zostaje jeden:
+   host C#. Nie migrujemy schematu, nie robimy checkpointu, nie dopisujemy
+   niczego i nie uruchamiamy harmonogramow.
+
+1a. **Migawka tylko awaryjnie.** Gdy baza lezy w miejscu BEZ prawa zapisu,
+   ``mode=ro`` nie potrafi utworzyc ``-shm`` i konczy sie
+   ``OperationalError: attempt to write a readonly database`` (zmierzone).
+   Dopiero wtedy wracamy do ``immutable=1`` -- i jawnie to przyznajemy przez
+   ``sees_live_writes == False``, zeby nikt nie wzial migawki za swiezy odczyt.
 2. **Kolacja AMC_PL.** Schemat deklaruje ``COLLATE AMC_PL`` na ``title`` i
    ``display_name``. Bez zarejestrowania tej kolacji SQLite odmawia zapytan.
    Port 1:1 z C#: ``pl-PL`` + ``IgnoreCase | IgnoreNonSpace``.
@@ -144,16 +160,41 @@ _ACTIVE = "is_available = 1 AND is_in_library = 1"
 
 
 class LibraryDatabase:
-    """Polaczenie TYLKO DO ODCZYTU z ``library.db`` AMC."""
+    """Polaczenie TYLKO DO ODCZYTU z ``library.db`` AMC.
 
-    def __init__(self, path: str | Path) -> None:
+    ``sees_live_writes`` mowi, czy to polaczenie sledzi WAL (zwykly ``mode=ro``),
+    czy jest zamrozona migawka (``immutable=1``). Nigdy nie udajemy pierwszego,
+    gdy mamy drugie.
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        allow_snapshot_fallback: bool = True,
+    ) -> None:
         self.path = Path(path)
         if not self.path.exists():
             raise FileNotFoundError(f"Brak bazy Biblioteki: {self.path}")
-        # mode=ro  -> zadnych zapisow
-        # immutable=1 -> SQLite nie tworzy ani nie dotyka -wal/-shm
-        uri = f"file:{self.path}?mode=ro&immutable=1"
-        self.connection = sqlite3.connect(uri, uri=True, check_same_thread=False)
+        # Path.as_uri() escapuje '#', '?' i spacje; sklejanie "file:" + str()
+        # gubilo wszystko po '?' i konczylo sie "no such table" (zmierzone).
+        base = self.path.as_uri()
+        self.uri = f"{base}?mode=ro"
+        self.sees_live_writes = True
+        try:
+            self.connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
+            # Samo polaczenie moze sie udac, a ``-shm`` powstaje dopiero przy
+            # pierwszym czytaniu strony z WAL. Dotykamy bazy TERAZ, zeby
+            # ewentualna odmowa wyszla tutaj, a nie w trakcie pracy okna.
+            self.connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
+        except sqlite3.OperationalError:
+            if not allow_snapshot_fallback:
+                raise
+            # Baza w miejscu bez prawa zapisu: WAL nie da sie obsluzyc, zostaje
+            # zamrozona migawka. Mowimy o tym wprost polem sees_live_writes.
+            self.uri = f"{base}?mode=ro&immutable=1"
+            self.connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
+            self.sees_live_writes = False
         self.connection.create_collation(AMC_PL, polish_collation)
         self.connection.row_factory = sqlite3.Row
 

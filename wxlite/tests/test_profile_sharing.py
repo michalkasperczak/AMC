@@ -144,14 +144,50 @@ class TwoProcessesShareOneDatabase(unittest.TestCase):
         local = [s.id for s in LibraryDatabase(LIBRARY_DB).folder_sources()]
         self.assertEqual(out["source_ids"], local)
 
-    def test_reader_does_not_create_wal_or_shm_next_to_the_profile(self):
+    def test_reader_touches_only_technical_sidecars_never_the_database_bytes(self):
+        """Uczciwy kontrakt odczytu WAL.
+
+        WCZESNIEJ ten test wymagal, zeby obok bazy nie powstalo NIC. Ten warunek
+        wynikal z ``immutable=1``, ktory wlasnie zostal usuniety, bo zamrazal
+        obraz bazy i gubil zapisy zywego hosta (``test_live_wal_reads``).
+
+        Zwykly ``mode=ro`` na bazie w trybie WAL odwzorowuje ``-shm`` -- to
+        techniczna koordynacja czytelnikow SQLite, a nie zmiana danych
+        aplikacji. Dlatego mierzymy to, co naprawde ma byc nienaruszone:
+        BAJTY ``library.db`` oraz liczniki. Nie deklarujemy "zero jakichkolwiek
+        zapisow", bo pliki ``-wal``/``-shm`` moga powstac.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             copy = Path(tmp) / "library.db"
             shutil.copy2(LIBRARY_DB, copy)
-            self._run_reader(copy)
-            self._run_reader(copy)
+            copy.chmod(0o644)
+            before_bytes = hashlib.sha256(copy.read_bytes()).hexdigest()
+            before_size = copy.stat().st_size
+
+            first = self._run_reader(copy)
+            second = self._run_reader(copy)
+
+            self.assertEqual(first["total"], second["total"])
+            self.assertEqual(first["active"], second["active"])
+            self.assertEqual(
+                hashlib.sha256(copy.read_bytes()).hexdigest(),
+                before_bytes,
+                "Odczyt zmienil BAJTY library.db -- to juz jest zapis do profilu",
+            )
+            self.assertEqual(copy.stat().st_size, before_size)
+
             leftovers = sorted(p.name for p in Path(tmp).iterdir())
-            self.assertEqual(leftovers, ["library.db"], f"Smieci: {leftovers}")
+            self.assertIn("library.db", leftovers)
+            allowed = {"library.db", "library.db-wal", "library.db-shm"}
+            self.assertFalse(
+                set(leftovers) - allowed,
+                f"Obce pliki obok profilu: {sorted(set(leftovers) - allowed)}",
+            )
+            # Zaden techniczny plik nie moze zawierac niezaplanowanej TRESCI:
+            # ``-wal`` po samym odczycie zostaje pusty.
+            wal = Path(tmp) / "library.db-wal"
+            if wal.exists():
+                self.assertEqual(wal.stat().st_size, 0, "Odczyt dopisal cos do -wal")
 
     def test_host_can_still_write_while_python_reads(self):
         """Wlasciciel zapisu (host) nie jest blokowany przez czytelnika.
