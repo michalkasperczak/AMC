@@ -41,6 +41,13 @@ FIXTURE = Path(
 )
 LIBRARY_DB = FIXTURE / "library.db"
 
+
+def _sha256(path: Path) -> str:
+    """Skrot pliku bazy: dowod, ze odczyt NICZEGO nie zmienil."""
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
 #: Schemat PRZEPISANY z chronionego fixture (``sqlite_schema``), nie z glowy.
 #: Kolumny ``purpose``/``chapter_origin``/``chapter_source_id`` doszly migracja
 #: i w bazie maja wartosci domyslne -- tutaj tak samo, inaczej test mierzylby
@@ -774,3 +781,216 @@ class BookmarkView(_SyntheticCase):
         result = bookmark_rows(db, item_id="local-a")
         self.assertEqual([b.bookmark_id for b in result.bookmarks], ["bm2", "bm1"])
         self.assertTrue(result.sees_live_writes)
+
+
+# ------------------------- rzeczywisty odczyt CALEJ wlasciwej czesci fixture
+
+
+@unittest.skipUnless(LIBRARY_DB.exists(), f"brak chronionego fixture: {LIBRARY_DB}")
+class RealFixture(unittest.TestCase):
+    """Pomiar na PELNEJ chronionej bazie, nie na probce.
+
+    Fixture jest otwierany WYLACZNIE do odczytu (``mode=ro``) i nigdy do
+    zapisu; liczby sa zliczane programowo, a nie przepisywane z raportu.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db = LibraryDatabase(LIBRARY_DB)
+        cls.db.__enter__()
+        cls.sha_before = _sha256(LIBRARY_DB)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.db.__exit__(None, None, None)
+
+    def test_fixture_is_the_known_protected_database(self):
+        self.assertEqual(
+            self.sha_before,
+            "211d8ecf8cf2031d955c6b7e9e6676ddccedd3a04cb64a0306baffbcfa476572",
+        )
+
+    def test_read_does_not_modify_the_fixture(self):
+        history_rows(self.db)
+        saved_queue_rows(self.db)
+        for item_id in self._bookmarked_item_ids():
+            bookmark_rows(self.db, item_id=item_id)
+        self.assertEqual(_sha256(LIBRARY_DB), self.sha_before)
+
+    # --- historia ----------------------------------------------------------
+
+    def test_history_hides_exactly_the_inactive_stored_entries(self):
+        """119 z 275 zapisanych wpisow daje wiersz -- i wiadomo DLACZEGO.
+
+        Zmierzone na fixture: 135 pozycji ``is_available = 0`` i 21
+        ``is_in_library = 0``. Suma 156 to dokladnie liczba wpisow bez wiersza,
+        czyli regula ``ActiveLocalItems`` (``MainWindow.xaml.cs:10116-10117``),
+        a nie przypadkowa utrata danych.
+        """
+        stored = [
+            str(r["item_id"])
+            for r in self.db.connection.execute(
+                "SELECT item_id FROM playback_history "
+                "WHERE session_id = 'local' COLLATE NOCASE ORDER BY ordinal"
+            )
+        ]
+        flags = {
+            str(r["id"]): (bool(r["is_available"]), bool(r["is_in_library"]))
+            for r in self.db.connection.execute(
+                "SELECT id, is_available, is_in_library FROM local_items"
+            )
+        }
+        inactive = sum(1 for i in stored if not all(flags.get(i, (False, False))))
+
+        result = history_rows(self.db)
+
+        self.assertEqual(len(stored), 275)
+        self.assertEqual(len(result.rows), 275 - inactive)
+        self.assertEqual(result.missing_item_count, inactive)
+        self.assertEqual(inactive, 156)
+
+    def test_history_has_no_duplicate_ids_and_respects_the_cap(self):
+        result = history_rows(self.db)
+        ids = [row.item_id for row in result.rows]
+
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertLessEqual(len(ids), MAX_HISTORY_ENTRIES_PER_SESSION)
+
+    def test_history_keeps_the_stored_order(self):
+        """Wynik jest PODCIAGIEM zapisu: tabela nie ma kolumny czasu."""
+        stored = [
+            str(r["item_id"])
+            for r in self.db.connection.execute(
+                "SELECT item_id FROM playback_history "
+                "WHERE session_id = 'local' COLLATE NOCASE ORDER BY ordinal"
+            )
+        ]
+        returned = [row.item_id for row in history_rows(self.db).rows]
+        kept = set(returned)
+
+        self.assertEqual(returned, [i for i in dict.fromkeys(stored) if i in kept])
+
+    def test_history_never_mixes_other_sessions(self):
+        """811 wierszy w tabeli, ale sesja lokalna ma tylko 275.
+
+        Podcasty/stacje/tidal nie moga wejsc do historii plikow lokalnych.
+        """
+        total = self.db.connection.execute(
+            "SELECT COUNT(*) FROM playback_history"
+        ).fetchone()[0]
+        local = self.db.connection.execute(
+            "SELECT COUNT(*) FROM playback_history "
+            "WHERE session_id = 'local' COLLATE NOCASE"
+        ).fetchone()[0]
+
+        self.assertGreater(total, local)
+        self.assertLessEqual(len(history_rows(self.db).rows), local)
+
+    # --- zapisana kolejka --------------------------------------------------
+
+    def test_saved_queue_matches_stored_membership_not_the_columns(self):
+        """Czlonkostwo bierze sie z ZAPISU, nie z kolumn migawkowych.
+
+        Fixture ma 8 wierszy ``is_in_queue = 1``, ale zapisana kolejka lokalna
+        ma 6 pozycji -- gdyby kolumny wygraly, widok pokazalby 8.
+        """
+        stored = [
+            str(r["item_id"])
+            for r in self.db.connection.execute(
+                "SELECT item_id FROM queue_order "
+                "WHERE session_id = 'local' COLLATE NOCASE ORDER BY ordinal"
+            )
+        ]
+        column_flagged = self.db.connection.execute(
+            "SELECT COUNT(*) FROM local_items WHERE is_in_queue = 1"
+        ).fetchone()[0]
+
+        result = saved_queue_rows(self.db)
+
+        self.assertEqual(len(stored), 6)
+        self.assertEqual(len(result.rows), 6)
+        self.assertEqual(column_flagged, 8)
+        self.assertNotEqual(len(result.rows), column_flagged)
+
+    def test_saved_queue_keeps_stored_order_and_has_no_duplicates(self):
+        stored = [
+            str(r["item_id"])
+            for r in self.db.connection.execute(
+                "SELECT item_id FROM queue_order "
+                "WHERE session_id = 'local' COLLATE NOCASE ORDER BY ordinal"
+            )
+        ]
+        result = saved_queue_rows(self.db)
+        ids = [q.item_id for q in result.queue]
+        flags = [q.is_play_next for q in result.queue]
+        positions = [
+            (0 if q.is_play_next else 1, stored.index(q.item_id)) for q in result.queue
+        ]
+
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(flags, sorted(flags, reverse=True))
+        self.assertEqual(positions, sorted(positions))
+
+    def test_saved_queue_never_mixes_other_sessions(self):
+        total = self.db.connection.execute(
+            "SELECT COUNT(*) FROM queue_order"
+        ).fetchone()[0]
+        self.assertGreater(total, len(saved_queue_rows(self.db).rows))
+
+    # --- zakladki ----------------------------------------------------------
+
+    def _bookmarked_item_ids(self):
+        return [
+            str(r["item_id"])
+            for r in self.db.connection.execute(
+                "SELECT DISTINCT item_id FROM bookmarks "
+                "WHERE session_id = 'local' COLLATE NOCASE ORDER BY item_id"
+            )
+        ]
+
+    def test_every_bookmarked_item_reads_in_stored_order_without_loss(self):
+        """CALA wlasciwa czesc: kazdy lokalny element majacy zakladki.
+
+        Zmierzone: 12 elementow, 20 wierszy, zero bledow porzadku, zero
+        kolizji Id wiersza. Zadna zakladka nie ginie i zadna nie przychodzi
+        z podcastow (4975 wierszy innych sesji w tej samej tabeli).
+        """
+        item_ids = self._bookmarked_item_ids()
+        expected_total = self.db.connection.execute(
+            "SELECT COUNT(*) FROM bookmarks WHERE session_id = 'local' "
+            "COLLATE NOCASE AND (purpose & 1) != 0"
+        ).fetchone()[0]
+
+        returned = 0
+        row_ids = []
+        for item_id in item_ids:
+            result = bookmark_rows(self.db, item_id=item_id)
+            keys = [(b.position_ticks, b.created_utc_ticks) for b in result.bookmarks]
+            self.assertEqual(keys, sorted(keys), f"zly porzadek dla {item_id!r}")
+            self.assertTrue(all(b.item_id == item_id for b in result.bookmarks))
+            returned += len(result.rows)
+            row_ids.extend(row.item_id for row in result.rows)
+
+        self.assertEqual(len(item_ids), 12)
+        self.assertEqual(returned, expected_total)
+        self.assertEqual(returned, 20)
+        self.assertEqual(len(row_ids), len(set(row_ids)))
+
+    def test_bookmarks_of_other_sessions_stay_out(self):
+        total = self.db.connection.execute(
+            "SELECT COUNT(*) FROM bookmarks"
+        ).fetchone()[0]
+        local = self.db.connection.execute(
+            "SELECT COUNT(*) FROM bookmarks WHERE session_id = 'local' COLLATE NOCASE"
+        ).fetchone()[0]
+
+        self.assertEqual(total, 5000)
+        self.assertEqual(local, 20)
+
+    def test_unknown_item_id_is_empty_not_an_error(self):
+        result = bookmark_rows(self.db, item_id="local-nie-ma-takiego-id")
+        self.assertTrue(result.is_empty)
+
+
+if __name__ == "__main__":
+    unittest.main()
