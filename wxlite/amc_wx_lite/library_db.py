@@ -381,16 +381,38 @@ def _item(row: sqlite3.Row) -> LibraryItem:
 # ----------------------------------------------------------------- wiersze listy
 
 def _format_detail(item: LibraryItem) -> str:
-    total = int(item.duration_seconds)
-    hours, rest = divmod(total, 3600)
-    minutes, seconds = divmod(rest, 60)
-    stamp = f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
+    """Kolumna "Szczegoly": czas (gdy ZNANY) oraz znaczniki wiersza.
+
+    Brak danych o czasie oddajemy jako BRAK, nie jako ``"0:00"``. To wzorzec
+    z oryginalu, nie nasza decyzja -- ``MediaItemFormatter.FieldValue``
+    (``Presentation/MediaItemFormatter.cs:75-82``)::
+
+        MediaItemField.Duration when item.Duration > TimeSpan.Zero
+            => FormatDuration(item.Duration),
+        _ => null
+
+    Warunek ``> TimeSpan.Zero`` jest CZESCIA wzorca: niedodatni czas daje
+    ``null``, a ``Format`` (54) pomija wartosci puste. Oryginal nigdy nie
+    wypisuje wiec zerowej dlugosci. Czytnik mowil "0:00" przy 2475 i 54
+    pozycjach profilu -- czyli nazywal brak pomiaru utworem dlugosci zero.
+
+    Same znaczniki ZOSTAJA przy braku czasu: "ulubione" to osobna, znana
+    informacja i nie ma powodu jej tracic.
+    """
     marks = []
+    if item.duration_ticks > 0:
+        total = int(item.duration_seconds)
+        hours, rest = divmod(total, 3600)
+        minutes, seconds = divmod(rest, 60)
+        # Ten sam format co ``FormatDuration`` (69-73): h:mm:ss albo m:ss.
+        marks.append(
+            f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
+        )
     if item.is_favorite:
         marks.append("ulubione")
     if item.is_radio_recording:
         marks.append("nagranie radia")
-    return stamp + (", " + ", ".join(marks) if marks else "")
+    return ", ".join(marks)
 
 
 def _folder_row(path: str, name: str) -> Row:

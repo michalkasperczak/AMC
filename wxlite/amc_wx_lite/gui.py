@@ -99,6 +99,35 @@ def format_time(seconds: float | None) -> str:
     return f"{secs} s"
 
 
+#: Komunikat Ctrl+C. ``MainWindow.xaml.cs:24372``. Byl zmierzony jako
+#: poprawny (dokladnie jeden na gest, takze przy powtorzeniu) -- nie ruszamy go.
+COPIED_NAME_MESSAGE = "Skopiowano nazwę"
+
+
+def copied_address_message(row: Row) -> str:
+    """Komunikat Ctrl+Shift+C opisujacy to, co NAPRAWDE trafia do schowka.
+
+    Dla stacji zostaje "Skopiowano bezpośredni adres"
+    (``MainWindow.xaml.cs:24400``): adres strumienia to tekst i komunikat
+    niczego wiecej nie obiecuje.
+
+    Dla pliku NIE mowimy "Skopiowano plik i pełną ścieżkę"
+    (``MainWindow.xaml.cs:24428``), bo ``_to_clipboard`` ustawia WYLACZNIE
+    ``wx.TextDataObject``. Tekst sciezki nie jest formatem ``CF_HDROP``, wiec
+    wklejenie w Eksploratorze nie utworzy kopii pliku -- stare slowa obiecywaly
+    czynnosc, ktorej program nie wykonal. Mowimy prawde o tekscie.
+
+    Pelny parytet (``wx.FileDataObject`` obok tekstu) to ODDZIELNY etap:
+    dolozenie formatu plikowego przy korekcie komunikatu byloby niezmierzona
+    zmiana zachowania schowka przemyconą pod poprawka opisu.
+    """
+    return (
+        "Skopiowano bezpośredni adres"
+        if row.kind == "station"
+        else "Skopiowano pełną ścieżkę"
+    )
+
+
 #: ``winUser.EVENT_SYSTEM_ALERT`` (``source/winUser.py:355``). NIE uzywamy go
 #: na polu statusu -- patrz komentarz w ``Announcer``.
 EVENT_SYSTEM_ALERT = 0x0002
@@ -252,18 +281,55 @@ class MediaListCtrl(wx.ListCtrl):
         return self.model.text_for(item, column)
 
     def sync_length(self) -> None:
-        self.SetItemCount(len(self.model))
+        """Nowa dlugosc listy ORAZ uniewaznienie tekstu wierszy.
+
+        ``SetItemCount`` zmienia tylko LICZNIK. Wirtualna kontrolka nie pyta
+        wtedy modelu o tekst ponownie, wiec czytnik ekranu dostawal wiersz
+        POPRZEDNIEGO widoku. Zmierzone na zywym NVDA (gest B01):
+
+            "Biskup; Rodzaj: playlista; Szczegoly: 54 elementy ... 1 z 2475"
+
+        -- licznik "z 2475" byl juz z nowego widoku, a nazwa "Biskup" ze
+        starego. ``RefreshItems`` kaze kontrolce zapytac ``OnGetItemText``
+        jeszcze raz, wiec stara nazwa nie ma skad wrocic.
+
+        Zakres odswiezamy JAWNIE (nie ``Refresh()`` calego okna): dalej
+        dotykamy wylacznie wierszy tej listy.
+        """
+        count = len(self.model)
+        self.SetItemCount(count)
+        if count:
+            self.RefreshItems(0, count - 1)
 
     def sync_selection(self) -> None:
-        """Ustaw zaznaczenie wg modelu. Bez SetFocus - fokus zmieniamy tylko
-        przy przejsciu miedzy widokami."""
+        """Ustaw zaznaczenie wg modelu JEDNYM przejsciem stanu.
+
+        Bez SetFocus -- fokus zmieniamy tylko przy przejsciu miedzy widokami.
+
+        DLACZEGO NIE ``Select`` + ``Focus``: to dwa osobne wywolania API, wiec
+        kontrolka wysylala DWA zdarzenia MSAA i czytnik czytal ten sam wiersz
+        dwa razy. Zmierzone (gest A04, Ulubione):
+
+            "Emu; Rodzaj: utwór; Szczegoly: 5:03, ulubione  1 z 9"
+            "Emu; Rodzaj: utwór; Szczegoly: 5:03, ulubione  1 z 9"
+
+        ``SetItemState`` z maska ``SELECTED|FOCUSED`` przestawia oba bity
+        RAZEM -- dokladnie tak, jak robi to natywne chodzenie strzalkami, ktore
+        nigdy nie dubluje odczytu. Natywnej nawigacji to nie dotyka: zmieniamy
+        tylko sposob, w jaki MY ustawiamy kursor po przeladowaniu listy.
+        """
         index = self.model.selected_index
         if index < 0 or index >= len(self.model):
             return
         if self.GetFirstSelected() == index:
             return
-        self.Select(index)
-        self.Focus(index)
+        state = wx.LIST_STATE_SELECTED | wx.LIST_STATE_FOCUSED
+        self.SetItemState(index, state, state)
+        # ``Focus()`` robilo tez ``EnsureVisible`` (``wx/core.py:2901-2902``).
+        # Przewijanie musi zostac -- na liscie 2475 wierszy kursor poza
+        # widokiem byl by regresja. ``EnsureVisible`` samo nie oglasza wiersza,
+        # wiec nie wraca przez nie podwojny odczyt.
+        self.EnsureVisible(index)
 
     def refresh_row(self, index: int) -> None:
         """Odswiez JEDEN wiersz, nie cala liste."""
@@ -897,7 +963,7 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Nie ma czego skopiować")
             return
         if self._to_clipboard(row.title):
-            self.announcer.say("Skopiowano nazwę")
+            self.announcer.say(COPIED_NAME_MESSAGE)
 
     def _copy_address(self) -> None:
         """Ctrl+Shift+C: adres albo pelna sciezka zaznaczonego elementu.
@@ -905,7 +971,10 @@ class LiteFrame(wx.Frame):
         Odpowiednik ``CopyActionItemLocation`` (MainWindow.xaml.cs:20725-20732).
         Tu wlasnie trafil adres, ktory wczesniej czytnik wymawial przy KAZDYM
         wierszu -- funkcja nie znika, zmienia sie moment jej uzycia.
-        Komunikaty z MainWindow.xaml.cs:24400 i 24428.
+
+        Slowa komunikatu wybiera ``copied_address_message``: opisuja DANE,
+        ktore faktycznie ida do schowka (tekst), a nie format plikowy, ktorego
+        nie ustawiamy.
         """
         row = self.navigator.session.model.selected_row
         if row is None:
@@ -916,16 +985,17 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Ten element nie ma zapisanego adresu")
             return
         if self._to_clipboard(address):
-            self.announcer.say(
-                "Skopiowano bezpośredni adres" if row.kind == "station"
-                else "Skopiowano plik i pełną ścieżkę"
-            )
+            self.announcer.say(copied_address_message(row))
 
     def _to_clipboard(self, text: str) -> bool:
-        """Zapis do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
+        """Zapis TEKSTU do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
 
         Schowek bywa chwilowo zajety przez inny proces -- odpowiednik
         ``ClipboardRetry`` z AMC, ktory tez zwraca komunikat bledu.
+
+        Format jest JEDEN: ``wx.TextDataObject``. Nie ustawiamy
+        ``wx.FileDataObject`` / ``CF_HDROP``, wiec zaden komunikat nie moze
+        mowic o skopiowanym PLIKU -- stad ``copied_address_message``.
         """
         try:
             if not wx.TheClipboard.Open():

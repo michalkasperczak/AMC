@@ -96,7 +96,15 @@ def test_opening_a_view_asks_for_data_and_does_not_invent_rows() -> None:
 
 
 def test_view_rows_reach_the_reader_as_a_list_and_a_selection() -> None:
-    """Czytnik ma dostac liczbe pozycji i WYBRANY wiersz, nie repr modelu."""
+    """Czytnik ma dostac NAGLOWEK i liczbe pozycji -- nie powtorzony wiersz.
+
+    Ten test wymagal kiedys tytulu wiersza w zapowiedzi ("czytnik musi
+    wiedziec, GDZIE stoi kursor"). Zywy NVDA pokazal, ze kursor opisuje juz
+    natywna lista, i to pelniej: z kolumnami oraz "1 z N". Nasza wlasna kopia
+    tej informacji dawala DRUGI odczyt tego samego elementu -- zmierzone w
+    ``parent-acceptance/odbior-widokow.json``. Wymaganie odwrocone swiadomie;
+    zakres zapowiedzi pilnuje teraz ``test_quiet_view_change_speech``.
+    """
     nav = Navigator()
     rows = [track("1", "Alfa"), track("2", "Beta")]
     tasks = nav.apply_library_view(LibraryView.ALL_FILES, "Wszystkie pliki", rows)
@@ -105,8 +113,9 @@ def test_view_rows_reach_the_reader_as_a_list_and_a_selection() -> None:
     message = said[0]
     assert "Wszystkie pliki" in message
     assert "2" in message
-    assert "Alfa" in message, "czytnik musi wiedziec, GDZIE stoi kursor"
+    assert "Alfa" not in message, "tytul wiersza nalezy do natywnej listy"
     assert "Row(" not in message and "item_id" not in message
+    # Wybor w modelu zostaje -- zmienil sie tylko tekst zapowiedzi.
     assert nav.sessions[SessionId.FILES].model.selected_id == "1"
     assert nav.sessions[SessionId.FILES].view is View.LIST
 

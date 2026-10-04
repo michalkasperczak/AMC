@@ -40,9 +40,19 @@ def install_wx_stub() -> None:
         "SL_HORIZONTAL", "SL_LABELS", "FONTWEIGHT_BOLD", "DD_DIR_MUST_EXIST",
         "FD_OPEN", "FD_FILE_MUST_EXIST", "EVT_TIMER", "EVT_CLOSE", "EVT_KEY_DOWN",
         "EVT_LIST_ITEM_ACTIVATED", "EVT_LIST_ITEM_SELECTED", "EVT_BUTTON", "EVT_SLIDER",
-        "EVT_MENU",
+        "EVT_MENU", "ITEM_NORMAL", "ITEM_CHECK", "ITEM_RADIO", "ID_OPEN", "ID_COPY",
+        "ID_PREFERENCES", "ID_ABOUT", "ACCEL_CTRL", "ACCEL_SHIFT", "ACCEL_ALT",
+        "ACCEL_NORMAL",
     ):
         setattr(wx, name, object())
+
+    # Bity stanu ListCtrl: nasz kod sklada z nich maske dla ``SetItemState``,
+    # wiec musza byc LICZBAMI, nie atrapami. Wartosci ODCZYTANE z naglowka
+    # wxWidgets ``include/wx/listbase.h`` (nie z pamieci):
+    #   #define wxLIST_STATE_FOCUSED   0x0002
+    #   #define wxLIST_STATE_SELECTED  0x0004
+    wx.LIST_STATE_FOCUSED = 0x0002  # type: ignore[attr-defined]
+    wx.LIST_STATE_SELECTED = 0x0004  # type: ignore[attr-defined]
 
     class _Any:
         def __init__(self, *args, **kwargs) -> None:

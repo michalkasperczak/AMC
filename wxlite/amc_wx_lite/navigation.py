@@ -334,10 +334,15 @@ class Navigator:
         state.view = View.LIST
 
         row = state.model.selected_row
-        # Czytnik dostaje LISTE I WYBOR: naglowek, liczbe pozycji i wiersz, na
-        # ktorym stoi kursor. Nigdy repr modelu.
-        where = f", {row.title}" if row is not None else ", pusto"
-        parts = [f"{heading}, {len(rows)} {_items_word(len(rows))}{where}"]
+        # Czytnik dostaje to, czego natywna lista NIE powie: nazwe widoku i
+        # rozmiar. Tytulu wiersza tu NIE MA -- kontrolka wymawia go sama, i to
+        # pelniej (kolumny + "1 z N"). Powtarzanie go wlasnymi slowami bylo tym
+        # drugim odczytem tego samego elementu, ktory zglosil uzytkownik.
+        # Puste widoki to wyjatek: tam kontrolka nie ma czego wymowic.
+        if row is None:
+            parts = [f"{heading}, pusto"]
+        else:
+            parts = [f"{heading}, {len(rows)} {_items_word(len(rows))}"]
         if not order_matches_amc:
             # Uczciwie, tak jak LibrarySnapshot: bez kluczy hosta kolejnosc
             # jest zastepcza i nie udajemy zgodnosci 1:1.
@@ -399,7 +404,9 @@ class Navigator:
         row = state.model.selected_row
         name = path.rstrip("/\\").rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or path
         count = sum(1 for r in state.model.rows if r.kind != "parent")
-        suffix = f", {row.title}" if row is not None else ", pusty"
+        # Tytul wiersza wymawia natywna lista (gest C00d pokazal go az 3 razy
+        # po jednym Ctrl+O). Mowimy tylko to, czego kontrolka nie powie.
+        suffix = "" if row is not None else ", pusty"
         return [Announce(f"{name}, {count} elementow{suffix}")]
 
     def apply_stations(self, rows: list[Row], preferred_id: str | None = None) -> list[object]:
