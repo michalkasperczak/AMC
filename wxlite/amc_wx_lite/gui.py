@@ -33,8 +33,10 @@ from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
 from .navigation import (
     Announce,
+    LibraryView,
     Navigator,
     OpenFolder,
+    OpenLibraryView,
     PlayStation,
     PlayTrack,
     SessionId,
@@ -660,6 +662,55 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("folder", work, done, failed)
 
+    _VIEW_KEYS = {
+        LibraryView.ALL_FILES: "all_files",
+        LibraryView.FAVORITES: "favorites",
+        LibraryView.PLAYLISTS: "playlists",
+        LibraryView.PLAYLIST_CONTENTS: "playlist_contents",
+    }
+
+    def _open_library_view(self, intent: OpenLibraryView) -> None:
+        """Wczytanie nazwanego widoku Biblioteki -- tak samo POZA watkiem GUI.
+
+        "Wszystkie pliki" to kilka tysiecy wierszy plus klucze kolacji z hosta,
+        wiec odczyt w watku GUI zamrozilby okno w trakcie czytania listy.
+        """
+        if not self.library.is_available:
+            # Niedostepne D: w kopii profilu NIE znaczy pustej Biblioteki --
+            # to brak samej bazy, i tak to nazywamy.
+            self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
+            return
+
+        view = intent.view
+        key = self._VIEW_KEYS[view]
+        playlist_id = intent.playlist_id
+
+        def work():
+            return self.library.load_view(key, playlist_id=playlist_id)
+
+        def done(result) -> None:
+            if result.fallback_view is not None:
+                self._run(self.navigator.apply_library_view(
+                    view, result.heading, [], fallback_to_playlists=True))
+                return
+            # ``sees_live_writes`` dotyczy calego odczytu, nie jednego widoku,
+            # wiec mowimy o nim ta sama droga co w Folderach.
+            if not result.sees_live_writes:
+                self.announcer.say("Uwaga: zamrozona migawka profilu.")
+            self._run(self.navigator.apply_library_view(
+                view,
+                result.heading,
+                result.rows,
+                preferred_id=intent.preferred_id,
+                playlist_id=playlist_id,
+                order_matches_amc=result.order_matches_amc,
+            ))
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(f"Nie moge wczytac widoku: {error}")
+
+        self.runner.submit("folder", work, done, failed)
+
     # ------------------------------------------------------------- klawisze
 
     def _on_key(self, event: wx.KeyEvent) -> None:
@@ -731,6 +782,12 @@ class LiteFrame(wx.Frame):
             self._station_delete()
         elif action is Action.STATION_IMPORT:
             self._station_import()
+        elif action is Action.VIEW_ALL_FILES:
+            self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
+        elif action is Action.VIEW_FAVORITES:
+            self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
+        elif action is Action.VIEW_PLAYLISTS:
+            self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
         elif action is Action.HELP:
             self._show_help()
 
@@ -749,6 +806,8 @@ class LiteFrame(wx.Frame):
                     self._open_library(intent.path or None, preferred_id=intent.preferred_id)
                 else:
                     self._open_folder(intent.path, preferred_id=intent.preferred_id)
+            elif isinstance(intent, OpenLibraryView):
+                self._open_library_view(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayStation):

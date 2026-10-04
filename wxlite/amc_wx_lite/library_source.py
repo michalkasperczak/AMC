@@ -16,11 +16,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .collation import HostCollation, HostCollationUnavailable, order_library_rows
 from .library_db import LibraryDatabase, breadcrumb_rows, folder_rows
 from .list_model import Row
 from .profile_layout import ProfileLayout, resolve_layout
+
+if TYPE_CHECKING:  # tylko do adnotacji -- import w metodzie, zeby nie robic kola
+    from .library_views import LibraryViewResult
 
 
 @dataclass(slots=True)
@@ -140,6 +144,30 @@ class LibrarySource:
             return order_library_rows(rows, self._collation), True
         except HostCollationUnavailable:
             return rows, False
+
+    def load_view(
+        self, view: str, *, playlist_id: str | None = None
+    ) -> "LibraryViewResult":
+        """Jeden z czterech nazwanych widokow Biblioteki.
+
+        Osobno od ``load``, bo tamta czyta DRZEWO folderow, a te widoki sa
+        plaskie i maja wlasne naglowki. Uchwyt otwieramy tak samo na kazdy
+        odczyt -- inaczej nie zobaczylibysmy tego, co host wlasnie zapisal.
+        """
+        from . import library_views
+
+        with self._open() as db:
+            if view == "all_files":
+                return library_views.all_files_rows(db, collation=self._collation)
+            if view == "favorites":
+                return library_views.favorite_rows(db)
+            if view == "playlists":
+                return library_views.playlist_rows(db)
+            if view == "playlist_contents":
+                if not playlist_id:
+                    raise ValueError("playlist_contents wymaga playlist_id")
+                return library_views.playlist_contents_rows(db, playlist_id)
+        raise ValueError(f"nieznany widok Biblioteki: {view}")
 
     def describe(self) -> str:
         """Komunikat dla czytnika ekranu, gdy Biblioteki nie ma."""
