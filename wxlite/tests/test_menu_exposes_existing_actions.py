@@ -1,0 +1,177 @@
+"""Menu udostepnia JUZ ISTNIEJACE akcje -- ta sama droga co klawisz.
+
+Menu to drugi sposob dotarcia do funkcji, nie druga implementacja. Kazda
+pozycja musi konczyc sie wywolaniem ``MainWindow._dispatch(Action...)``,
+czyli dokladnie tego, co robi skrot klawiszowy. Dzieki temu nie ma szansy
+na rozjazd "menu robi co innego niz Ctrl+U".
+
+Co te testy pilnuja:
+  * opis menu jest DANYMI (lista pozycji), wiec da sie go sprawdzic bez GUI,
+  * kazda pozycja niesie Action, ktora juz istnieje w ``shortcuts.Action``,
+  * skrot pokazany w menu jest TYM SAMYM skrotem, ktory dziala naprawde,
+  * nazwy i skroty sie nie dubluja,
+  * Radio nie trafia tam, gdzie go nie ma (lokalne Ulubione to nie stacje),
+  * nie dokladamy pozycji-atrap "niedostepne".
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from amc_wx_lite import menu_model
+from amc_wx_lite.shortcuts import LIST_VIEW, PLAYER_VIEW, RADIO_LIST_VIEW, Action
+
+
+def all_items() -> list[menu_model.MenuItem]:
+    out: list[menu_model.MenuItem] = []
+    for menu in menu_model.build_menus():
+        out.extend(item for item in menu.items if not item.is_separator)
+    return out
+
+
+def test_every_command_item_carries_an_action_that_already_exists() -> None:
+    """Zadna pozycja nie wymysla wlasnej logiki -- kazda ma istniejaca Action."""
+    commands = [item for item in all_items() if item.action is not None]
+    assert commands, "menu bez polecen byloby bezuzyteczne"
+    for item in commands:
+        assert isinstance(item.action, Action), item.label
+
+
+def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
+    """Menu nie moze obiecywac skrotu, ktorego nie ma w tablicach skrotow.
+
+    To najwazniejszy test tego pliku: chroni przed menu, ktore "uczy"
+    uzytkownika niedzialajacego skrotu.
+    """
+    real: dict[str, Action] = {}
+    for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
+        for chord, action in table.items():
+            real.setdefault(chord, action)
+
+    for item in all_items():
+        if not item.shortcut or item.action is None:
+            continue
+        assert item.shortcut in real, f"{item.label}: skrot {item.shortcut} nie istnieje"
+        assert real[item.shortcut] is item.action, (
+            f"{item.label}: {item.shortcut} robi naprawde {real[item.shortcut]}"
+        )
+
+
+def test_no_duplicate_labels_or_shortcuts() -> None:
+    """Nazwa i skrot nie moga sie dublowac -- czytnik czytalby dwa razy to samo."""
+    items = all_items()
+    labels = [item.label for item in items]
+    assert len(labels) == len(set(labels)), "powtorzona nazwa pozycji"
+    shortcuts = [item.shortcut for item in items if item.shortcut]
+    assert len(shortcuts) == len(set(shortcuts)), "ten sam skrot w dwoch miejscach"
+
+
+def test_every_item_is_keyboard_reachable() -> None:
+    """Kazda pozycja ma znacznik '&' -- inaczej nie ma dostepu z klawiatury."""
+    for item in all_items():
+        assert "&" in item.label, f"{item.label} bez klawisza dostepu"
+    for menu in menu_model.build_menus():
+        assert "&" in menu.title, f"menu {menu.title} bez klawisza dostepu"
+
+
+def test_access_keys_within_one_menu_do_not_collide() -> None:
+    """Dwie pozycje na tej samej literze psuja obsluge z klawiatury."""
+    for menu in menu_model.build_menus():
+        keys = []
+        for item in menu.items:
+            if item.is_separator:
+                continue
+            letter = item.label.split("&", 1)[1][:1].lower()
+            keys.append(letter)
+        assert len(keys) == len(set(keys)), f"kolizja klawiszy dostepu w {menu.title}: {keys}"
+
+
+def test_library_views_are_not_offered_in_the_radio_menu() -> None:
+    """Kontekst: Ulubione i Playlisty to BIBLIOTEKA LOKALNA, nie stacje radiowe."""
+    radio = next(m for m in menu_model.build_menus() if "Radio" in m.title)
+    library = {Action.VIEW_ALL_FILES, Action.VIEW_FAVORITES, Action.VIEW_PLAYLISTS}
+    assert not {i.action for i in radio.items} & library
+
+
+def test_radio_station_management_stays_in_the_radio_menu() -> None:
+    """I odwrotnie: zarzadzanie stacjami nie wycieka do menu biblioteki."""
+    station = {
+        Action.STATION_ADD,
+        Action.STATION_EDIT,
+        Action.STATION_DELETE,
+        Action.STATION_IMPORT,
+    }
+    for menu in menu_model.build_menus():
+        if "Radio" in menu.title:
+            continue
+        assert not {i.action for i in menu.items} & station, menu.title
+
+
+def test_radio_items_declare_they_need_the_radio_session() -> None:
+    """Pozycje stacji musza byc WYLACZANE poza radiem, nie udawac dzialanie."""
+    radio = next(m for m in menu_model.build_menus() if "Radio" in m.title)
+    for item in radio.items:
+        if item.is_separator:
+            continue
+        assert item.needs_radio_session, item.label
+
+
+def test_no_placeholder_items_for_things_we_do_not_have() -> None:
+    """Zero atrap typu 'niedostepne' -- menu wymienia tylko dzialajace funkcje."""
+    for item in all_items():
+        lowered = item.label.lower()
+        for bad in ("niedost", "wkrótce", "wkrotce", "w przygotowaniu", "(brak)"):
+            assert bad not in lowered, item.label
+        assert item.action is not None or item.builtin is not None, (
+            f"{item.label}: pozycja bez akcji byłaby atrapa"
+        )
+
+
+def test_the_four_new_operations_are_discoverable_in_the_menu() -> None:
+    """Funkcje, ktore dzialaja fizycznie, ale byly ukryte za skrotem."""
+    actions = {item.action for item in all_items()}
+    for action in (
+        Action.VIEW_ALL_FILES,
+        Action.VIEW_FAVORITES,
+        Action.VIEW_PLAYLISTS,
+        Action.PARENT_FOLDER,
+    ):
+        assert action in actions, action
+
+
+def test_transport_and_clipboard_reached_the_menu_too() -> None:
+    """Transport i kopiowanie tez byly dostepne wylacznie z klawiatury."""
+    actions = {item.action for item in all_items()}
+    for action in (
+        Action.PLAY_PAUSE,
+        Action.TIME_ELAPSED,
+        Action.TIME_REMAINING,
+        Action.TIME_TOTAL,
+        Action.COPY_NAME,
+        Action.COPY_ADDRESS,
+    ):
+        assert action in actions, action
+
+
+def test_existing_menus_are_preserved() -> None:
+    """Dzwiek, tempo i ustawienia juz byly -- nie wolno ich zgubic."""
+    titles = [m.title for m in menu_model.build_menus()]
+    for expected in ("&Pliki", "&Radio", "&Widok", "&Dźwięk", "Pomo&c"):
+        assert expected in titles, f"zgubione menu {expected}"
+
+
+def test_audio_menu_keeps_its_tempo_submenu_marker() -> None:
+    """Podmenu algorytmow buduje GUI (radio-itemy) -- model ma je zapowiedziec."""
+    audio = next(m for m in menu_model.build_menus() if "Dźwięk" in m.title)
+    assert any(item.builtin == "tempo-submenu" for item in audio.items)
+
+
+def test_quit_and_help_use_builtin_ids_not_invented_actions() -> None:
+    """Zakoncz i Pomoc to polecenia okna, nie akcje listy."""
+    builtins = {item.builtin for item in all_items() if item.builtin}
+    assert "quit" in builtins
+    actions = {item.action for item in all_items()}
+    assert Action.HELP in actions

@@ -31,6 +31,7 @@ from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
+from . import menu_model
 from .navigation import (
     Announce,
     LibraryView,
@@ -493,62 +494,103 @@ class LiteFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
     def _build_menu(self) -> None:
-        """Menu daje te same polecenia co skroty - wazne dla odkrywalnosci."""
+        """Pasek menu z OPISU w ``menu_model`` -- bez wlasnej logiki polecen.
+
+        Kazda pozycja konczy sie wywolaniem ``_dispatch`` z ta sama ``Action``,
+        ktorej uzywa skrot klawiszowy. Nie ma tu drugiej sciezki wykonania,
+        wiec menu nie moze sie rozjechac ze skrotem.
+
+        Skrot dopisujemy do etykiety po tabulatorze: wx pokazuje go po prawej,
+        a czytnik ekranu czyta razem z nazwa. To TYLKO podpis -- klawisze
+        obsluguje ``_on_key``, dlatego nie rejestrujemy tu akceleratorow
+        (odebralyby strzalki i literowa nawigacje natywnej liscie).
+        """
         bar = wx.MenuBar()
+        #: Pozycje zalezne od kontekstu; stan ustawia ``_refresh_menu_state``.
+        self._menu_items: list[tuple[wx.MenuItem, menu_model.MenuItem]] = []
 
-        files_menu = wx.Menu()
-        self.id_open_folder = files_menu.Append(wx.ID_ANY, "Otworz &folder\tCtrl+O").GetId()
-        self.id_open_file = files_menu.Append(wx.ID_ANY, "Otworz &plik\tCtrl+Shift+O").GetId()
-        files_menu.AppendSeparator()
-        self.id_quit = files_menu.Append(wx.ID_EXIT, "&Zakoncz\tAlt+F4").GetId()
-        bar.Append(files_menu, "&Pliki")
+        for described in menu_model.build_menus():
+            native = wx.Menu()
+            for entry in described.items:
+                if entry.is_separator:
+                    native.AppendSeparator()
+                    continue
+                if entry.builtin == "tempo-submenu":
+                    native.AppendSubMenu(self._build_tempo_menu(), entry.label)
+                    continue
+                label = entry.label
+                if entry.shortcut:
+                    label = f"{label}\t{self._menu_shortcut_text(entry.shortcut)}"
+                identifier = wx.ID_EXIT if entry.builtin == "quit" else wx.ID_ANY
+                item = native.Append(identifier, label)
+                self._menu_items.append((item, entry))
+                if entry.builtin == "quit":
+                    self.Bind(wx.EVT_MENU, lambda _e: self.Close(), id=item.GetId())
+                else:
+                    action = entry.action
+                    assert action is not None  # pilnuje tego test modelu menu
+                    self.Bind(
+                        wx.EVT_MENU,
+                        lambda _e, chosen=action: self._dispatch(chosen),
+                        id=item.GetId(),
+                    )
+            bar.Append(native, described.title)
 
-        radio_menu = wx.Menu()
-        self.id_station_add = radio_menu.Append(wx.ID_ANY, "&Dodaj stacje\tCtrl+N").GetId()
-        self.id_station_edit = radio_menu.Append(wx.ID_ANY, "&Zmien stacje\tF2").GetId()
-        self.id_station_delete = radio_menu.Append(wx.ID_ANY, "&Usun stacje\tDelete").GetId()
-        radio_menu.AppendSeparator()
-        self.id_station_import = radio_menu.Append(wx.ID_ANY, "&Importuj M3U/PLS\tCtrl+I").GetId()
-        bar.Append(radio_menu, "&Radio")
+        self.SetMenuBar(bar)
+        self._refresh_menu_state()
 
-        view_menu = wx.Menu()
-        self.id_session_files = view_menu.Append(wx.ID_ANY, "Sesja: &Pliki lokalne\tCtrl+1").GetId()
-        self.id_session_radio = view_menu.Append(wx.ID_ANY, "Sesja: &Radio\tCtrl+2").GetId()
-        view_menu.AppendSeparator()
-        self.id_show_player = view_menu.Append(wx.ID_ANY, "Widok &odtwarzacza\tF6").GetId()
-        bar.Append(view_menu, "&Widok")
-
-        audio_menu = wx.Menu()
+    def _build_tempo_menu(self) -> wx.Menu:
+        """Podmenu algorytmow -- zachowane bez zmian, ze stanem Check."""
         algorithms = wx.Menu()
         self.tempo_items = {}
         for value, label in TEMPO_LABELS.items():
             item = algorithms.AppendRadioItem(wx.ID_ANY, label)
             item.Check(value == self.options.tempo_algorithm)
             self.tempo_items[value] = item
-            self.Bind(wx.EVT_MENU, lambda _event, choice=value: self._set_tempo_algorithm(choice), id=item.GetId())
-        audio_menu.AppendSubMenu(algorithms, "&Algorytm przyspieszania")
-        bar.Append(audio_menu, "&Dźwięk")
+            self.Bind(
+                wx.EVT_MENU,
+                lambda _event, choice=value: self._set_tempo_algorithm(choice),
+                id=item.GetId(),
+            )
+        return algorithms
 
-        help_menu = wx.Menu()
-        self.id_help = help_menu.Append(wx.ID_HELP, "&Skroty klawiszowe\tF1").GetId()
-        bar.Append(help_menu, "Pomo&c")
+    @staticmethod
+    def _menu_shortcut_text(chord: str) -> str:
+        """Zapis skrotu zrozumialy dla uzytkownika i dla wx.
 
-        self.SetMenuBar(bar)
+        Nasze tablice uzywaja nazw klawiszy wx (``Back``, ``Return``), ktore po
+        polsku nic nie mowia. Tlumaczymy tylko PODPIS, nie dzialanie.
+        """
+        names = {"Back": "Backspace", "Return": "Enter", "Space": "Spacja"}
+        head, _, key = chord.rpartition("+")
+        return f"{head}+{names.get(key, key)}" if head else names.get(key, key)
 
-        for identifier, handler in (
-            (self.id_open_folder, lambda _e: self._choose_folder()),
-            (self.id_open_file, lambda _e: self._choose_file()),
-            (self.id_quit, lambda _e: self.Close()),
-            (self.id_station_add, lambda _e: self._station_add()),
-            (self.id_station_edit, lambda _e: self._station_edit()),
-            (self.id_station_delete, lambda _e: self._station_delete()),
-            (self.id_station_import, lambda _e: self._station_import()),
-            (self.id_session_files, lambda _e: self._switch_session(SessionId.FILES)),
-            (self.id_session_radio, lambda _e: self._switch_session(SessionId.RADIO)),
-            (self.id_show_player, lambda _e: self._run(self.navigator.show_player())),
-            (self.id_help, lambda _e: self._show_help()),
-        ):
-            self.Bind(wx.EVT_MENU, handler, id=identifier)
+    def _refresh_menu_state(self) -> None:
+        """Wylaczaj pozycje, ktore teraz nie zadzialaja -- zamiast udawac.
+
+        Uczciwie wylaczona pozycja jest dla czytnika ekranu informacja
+        ("niedostepne"), a nie cisza po probie uzycia. Wspolny profil AMC
+        czytamy tylko do odczytu, wiec zarzadzanie stacjami zyje wylacznie
+        w sesji radiowej.
+        """
+        if not hasattr(self, "_menu_items"):
+            return
+        radio = self.navigator.active is SessionId.RADIO
+        # "Cos gra" rozpoznajemy po TYM SAMYM statusie z hosta, z ktorego
+        # korzysta ``_announce_time`` -- nie po wlasnym liczniku.
+        playing = bool(self._last_status)
+        session = self.navigator.sessions[self.navigator.active]
+        has_row = session.model.selected_row is not None
+        for item, entry in self._menu_items:
+            enabled = True
+            if entry.needs_radio_session and not radio:
+                enabled = False
+            if entry.needs_playback and not playing:
+                enabled = False
+            if entry.needs_selection and not has_row:
+                enabled = False
+            if item.IsEnabled() != enabled:
+                item.Enable(enabled)
 
     def _bind_keys(self) -> None:
         for control in (self.files_list, self.radio_list):
@@ -883,6 +925,8 @@ class LiteFrame(wx.Frame):
     def _sync_views(self) -> None:
         """Odwzoruj stan nawigatora. Fokus ruszamy TYLKO przy zmianie widoku."""
         session = self.navigator.session
+        # Menu musi zgadzac sie z kontekstem, ktory wlasnie sie zmienil.
+        self._refresh_menu_state()
         self.session_label.SetLabel(
             "Pliki lokalne" if self.navigator.active is SessionId.FILES else "Radio internetowe"
         )
