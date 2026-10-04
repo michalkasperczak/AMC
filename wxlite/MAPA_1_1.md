@@ -15,9 +15,18 @@ Zrodlo: `amc-cloud-edit-release421` @ `d029573`.
 | Miara | AMC (WPF) | wxPython dzis | Pokrycie |
 |---|---|---|---|
 | Pozycje menu | 237 | 0 (brak paska menu 1:1) | ~0% |
-| Skroty z menu | 196 | 20 akcji | ~10% |
+| Skroty z menu | 196 | 20 akcji | **proporcja NIEZWERYFIKOWANA** (patrz nizej) |
 | Sesje | local, radio, tidal, wiim, spotify, podcast | local (Biblioteka) + radio | 2/6 |
-| Widoki Biblioteki | Foldery, Wszystkie pliki, Albumy, Ulubione, Kolejka, Historia, Zakladki, Playlisty, Presety, Nagrywane… | Foldery | 1/~12 |
+| Widoki Biblioteki | lista podwidokow NIEPOLICZONA u zrodla | Foldery | 1 widok dziala; mianownik niezweryfikowany |
+
+**Czego ta tabela NIE dowodzi.** Liczniki 237 i 196 pochodza z `grep` po
+`MainWindow.xaml` i to jest policzone. Ale „~10%" bylo bledne: 20 akcji
+wxPython to nie 20 z tych 196 pozycji menu (czesc naszych skrotow, np.
+Ctrl+1/Ctrl+2, nie ma odpowiednika 1:1 w tamtej liscie, a czesc pozycji menu
+nie ma skrotu). Zeby podac prawdziwa proporcje, trzeba zestawic nasze gesty z
+`InputGestureText` po jednym — tego nie zrobiono, wiec pole jest oznaczone jako
+niezweryfikowane zamiast podawac wygodna liczbe. To samo dotyczy „1/~12"
+widokow: mianownik „~12" byl szacunkiem z pamieci, nie odczytem z XAML.
 
 ## Co DZIALA po tym checkpoincie
 
@@ -25,6 +34,31 @@ Zrodlo: `amc-cloud-edit-release421` @ `d029573`.
 - Widok **Foldery** Biblioteki: 3 zrodla + 7 sierot w korzeniu, zejscie w glab,
   wiersz `..`, polskie nazwy, ID jako napisy.
 - Twarda zasada posiadania profilu: Python tylko czyta, host C# zapisuje.
+
+## Co dolozono po C# 422 (zmierzone, nie deklarowane)
+
+- **Swiezy odczyt profilu.** Cichy fallback na `immutable=1` (ktory pokazywal
+  obraz sprzed ostatniego commitu WAL) nie jest juz domyslny. Przy odmowie
+  `mode=ro` leci `LiveProfileReadDenied`; migawka tylko na jawne zyczenie i
+  wtedy `sees_live_writes=False` idzie az do GUI, ktore to MOWI.
+  Kwit: `usable-after422/evidence/etap1-*`.
+- **Radio z prawdziwego profilu.** Stacje czytane z `radio.stations` zywego
+  `state.json` AMC (**165 stacji**, potwierdzone w uruchomionym oknie, nie
+  zahardkodowane), zaznaczenie idzie za `radio.currentItemId` (indeks **80**,
+  nie wiersz 0). Edycja stacji we wspolnym profilu jest ODMAWIANA na glos, bo
+  wlascicielem pliku jest host C#. Kwit: `evidence/etap2-*`.
+- **Prawdziwa droga klawiatury + mowa NVDA.** Gesty ida przez mostek NVDA do
+  okna wx na pierwszym planie (`Match:true`, klasa `wxWindowNR`), a nie przez
+  `frame._on_key()`. NVDA wymowil m.in. „Radio", „81 z 165", nazwy stacji i
+  nazwy folderow. Mowa niepusta w 8 z 8 gestow; okno wx odnotowalo klawisz w
+  8 z 8. Kwit: `evidence/nvda-wx-results.json`, `evidence/wx-keys-seen.jsonl`.
+- **Odtwarzanie faktycznie slyszalne.** Silnik `AMC WindowsMediaOutput +
+  RadioMediaOutput`; pozycja rosnie 1,58 s -> 4,63 s, pauza NAPRAWDE zatrzymuje
+  czas, wznowienie rusza, seek przesuwa. Szczyt na urzadzeniu wyjsciowym
+  **0,302 podczas grania vs 0,0 po stop** — to dyskryminujacy dowod wyjscia
+  dzwieku, a nie sam status „Playing". Material JAWNIE syntetyczny (sinus
+  440 Hz); prywatnych plikow z `D:` na tej maszynie nie ma.
+  Kwit: `evidence/etap4-playback.json`.
 
 ## Czego BRAKUJE — po obszarach (z menu)
 
@@ -97,5 +131,14 @@ wlasciciela stanu.
 ## Ograniczenia pomiaru
 
 - Kopia danych jest z **25.09.2026**, nie jest biezaca Biblioteka z 03.10.
-- Odtwarzanie i NVDA nie byly tu mierzone (brak pulpitu Windows w WSL).
+- ~~Odtwarzanie i NVDA nie byly tu mierzone~~ — zmierzone po 422, patrz sekcja
+  „Co dolozono po C# 422". Pomiar byl na roboczej maszynie Windows, na KOPII
+  profilu (sumy SHA-256 zrodla sprawdzone przed i po: bez zmian).
 - Czasy ladowania (200–320 ms) zmierzone na WSL, nie na docelowym Windows.
+- Kolejnosc w pomiarze GUI byla ta z SQL-a, bo `HostCollation` wymaga zywego
+  silnika C#; `LibrarySource` zglasza to uczciwie przez `order_matches_amc`.
+- Nie orzekamy, czy warstwa porownan to NLS czy ICU — konfiguracja
+  `System.Globalization` nie byla tu mierzona, a sam wynik zgodnosci kluczy z
+  `Compare` nie rozstrzyga ktora implementacja siedzi pod spodem.
+- Reszta tej mapy (obszary menu ponizej) pochodzi z poprzedniego checkpointu i
+  **nie byla ponownie weryfikowana** w tym przyroscie.

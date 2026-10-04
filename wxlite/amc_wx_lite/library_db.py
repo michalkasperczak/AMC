@@ -51,7 +51,8 @@ Zasady, ktore ten modul trzyma twardo
      zostawic uchwytu do bazy po nieudanym odczycie.
 2. **Kolacja AMC_PL.** Schemat deklaruje ``COLLATE AMC_PL`` na ``title`` i
    ``display_name``. Bez zarejestrowania tej kolacji SQLite odmawia zapytan,
-   wiec ``polish_collation`` MUSI tu byc. Ale to NIE jest port 1:1 z C#:
+   wiec ``polish_collation`` MUSI tu byc. Ale to NIE jest zgodnik z C# --
+   wczesniejszy komentarz nazywal ja "portem 1:1", co bylo nieprawda:
    zgodnosc z ``CompareInfo`` pl-PL zostala zmierzona i jej NIE MA.
    ``polish_collation`` sluzy wylacznie temu, zeby zapytanie sie wykonalo;
    kolejnosc PREZENTOWANA uzytkownikowi ustala ``collation.HostCollation``

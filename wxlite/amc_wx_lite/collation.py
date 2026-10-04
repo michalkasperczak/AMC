@@ -24,10 +24,25 @@ host.
 
 Dlaczego KLUCZE, a nie wywolanie na pare
 ----------------------------------------
-Porownanie po parze przez IPC jest nie do utrzymania: 11 203 tytuly to ~125 mln
-par. Zamiast tego host liczy ``CompareInfo.GetSortKey(title, options).KeyData``
-raz na tytul, w JEDNYM wywolaniu wsadowym, a Python porownuje gotowe bajty
-lokalnie -- takze przy kazdym kolejnym przesortowaniu, bez pytania hosta.
+SPROSTOWANIE wczesniejszego komentarza: pisalo tu, ze 11 203 tytuly to
+"~125 mln par". To bylo bledne uzasadnienie. 125 mln to liczba WSZYSTKICH par
+(N*(N-1)/2), a sortowanie ich nie potrzebuje -- porownan jest rzedu N log N,
+czyli okolo 150 tysiecy. Prawdziwy powod jest inny i nadal mocny:
+
+* 150 tysiecy OSOBNYCH przejsc tam i z powrotem przez potok IPC to 150 tysiecy
+  opoznien round-trip. Przy nawet 0,2 ms na runde to kilkadziesiat sekund na
+  jedno sortowanie -- i powtarza sie przy KAZDYM przesortowaniu kolumny.
+* Comparator wolajacy IPC musialby byc synchroniczny wewnatrz ``list.sort``,
+  wiec blokowalby watek GUI na caly ten czas.
+
+Dlatego host liczy ``CompareInfo.GetSortKey(title, options).KeyData`` raz na
+tytul -- 11 203 wywolania, nie 150 tysiecy rund -- w wywolaniach WSADOWYCH, a
+Python porownuje gotowe bajty lokalnie. Kazde nastepne przesortowanie jest juz
+czysto lokalne i nie pyta hosta w ogole.
+
+Wsady (chunki): zadanie o klucze dzielimy na porcje po <= 64 KiB JSON-a, bo
+jedna linia protokolu z 11 203 tytulami przekraczalaby bufor linii. Chunk to
+tylko podzial transportu -- wynik jest identyczny jak przy jednym zadaniu.
 
 To jest poprawne tylko wtedy, gdy klucze odtwarzaja kolejnosc ``Compare``.
 Zmierzone na pelnym korpusie (``resume-after422/sortkey-contract-*.json``):

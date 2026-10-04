@@ -11,8 +11,12 @@ Unicode: bierzemy kolejnosc z oryginalnej logiki.
 
 Dlaczego klucze, a nie IPC po parze
 -----------------------------------
-11 203 tytuly to ~125 mln par. Zamiast tego host liczy ``GetSortKey`` raz na
-tytul w JEDNYM wywolaniu wsadowym, a Python porownuje bajty u siebie. Zmierzone
+Nie dlatego, ze "to 125 mln par" -- sortowanie nie porownuje wszystkich par,
+tylko okolo N log N, czyli ~150 tys. razy. Powod jest taki, ze kazde z tych
+~150 tys. porownan byloby OSOBNA runda IPC blokujaca watek GUI. Host liczy
+wiec ``GetSortKey`` raz na tytul (11 203 wywolania) w wywolaniach WSADOWYCH
+(chunki <= 64 KiB JSON-a, bo jedna linia ze wszystkimi tytulami nie zmiescilaby
+sie w buforze linii), a Python porownuje bajty u siebie. Zmierzone
 (``resume-after422/sortkey-contract-*.json``): klucze odtwarzaja kolejnosc
 ``Compare`` co do pozycji (0 roznic, 0 zerwanych remisow) i daja IDENTYCZNY
 wynik na Linuksie i na Windows.
