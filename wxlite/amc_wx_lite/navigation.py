@@ -40,6 +40,13 @@ class LibraryView(Enum):
     FAVORITES = "favorites"
     PLAYLISTS = "playlists"
     PLAYLIST_CONTENTS = "playlistContents"
+    #: Widoki AKTYWNOSCI. Zrodlo danych: ``library_activity.py`` (tylko odczyt
+    #: utrwalonego profilu), a nie stan grajacego silnika.
+    HISTORY = "history"
+    SAVED_QUEUE = "savedQueue"
+    #: Zakladki JEDNEGO zaznaczonego elementu (``BookmarkIndex.GetForItem``).
+    #: NIE jest to zbiorczy widok ``ViewBookmarks``/``GetForDisplay``.
+    ITEM_BOOKMARKS = "itemBookmarks"
 
 
 @dataclass(slots=True)
@@ -54,6 +61,9 @@ class OpenLibraryView:
     view: LibraryView
     playlist_id: str | None = None
     preferred_id: str | None = None
+    #: RZECZYWISTE Id elementu dla ``ITEM_BOOKMARKS``. ``bookmark_rows``
+    #: inaczej zawolac sie nie da -- w C# tez przyjmuje Id, nie indeks listy.
+    item_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -78,6 +88,13 @@ class SessionState:
     library_playlist_id: str | None = None
     #: Wiersz, na ktory wraca Backspace z zawartosci playlisty.
     library_return_id: str | None = None
+    #: RZECZYWISTE Id pliku, ktorego zakladki ogladamy. Osobne od
+    #: ``library_return_id``, bo powrot z zakladek celuje w TEN plik.
+    library_item_id: str | None = None
+    #: ``Row.item_id`` zakladki -> (sciezka pliku, pozycja w sekundach, tytul).
+    #: Bez tej mapy wiersz zakladki nie ma czym odtworzyc: jego ``item_id`` to
+    #: ``bookmark:<id>``, ktore NIE jest ani plikiem, ani sciezka.
+    bookmark_targets: dict[str, tuple[str, float, str]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -98,6 +115,13 @@ class PlayTrack:
     path: str
     item_id: str
     title: str
+    #: Pozycja startowa w SEKUNDACH. ``play.file`` w LiteHost przyjmuje
+    #: ``positionSeconds`` i podaje je prosto do ``_files.Play(item, position,
+    #: ...)`` (``LiteEngineHandlers.cs:290``, ``:314``), wiec skok zakladki
+    #: idzie JEDNYM wywolaniem. Osobne ``seek`` po ``play`` scigaloby sie z
+    #: rozruchem nowego strumienia -- ten wlasnie zeruje czas
+    #: (``LiteEngineHandlers.cs:309``), wiec pozycja mogla by zginac.
+    position_seconds: float = 0.0
 
 
 @dataclass(slots=True)
@@ -234,6 +258,32 @@ class Navigator:
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
 
         if not row.path:
+            # Wiersz ZAKLADKI nie ma sciezki i miec jej nie moze: jego
+            # ``item_id`` to ``bookmark:<id>``, czyli identyfikator ZAPISU, nie
+            # pliku. Prawdziwy plik i pozycja przyszly obok, w mapie celow.
+            target = state.bookmark_targets.get(row.item_id)
+            if target is not None:
+                path, position_seconds, title = target
+                state.list_anchor_id = row.item_id
+                state.now_playing_id = f"file:{path}"
+                state.now_playing_title = title
+                state.view = View.PLAYER
+                return [
+                    PlayTrack(
+                        path,
+                        f"file:{path}",
+                        title,
+                        position_seconds=position_seconds,
+                    ),
+                    # Komunikat mowi, ze to SKOK do zapisanej pozycji, a nie
+                    # zwykly start od zera.
+                    Announce(f"{title}, od zakładki"),
+                ]
+            if row.item_id.startswith("bookmark:"):
+                # Zakladki NIE maja filtra ActiveLocalItems, wiec moga wskazywac
+                # material, ktorego biezacy katalog nie zna. Nie udajemy, ze
+                # gramy -- i nie wchodzimy do odtwarzacza.
+                return [Announce("Nie znajduję pliku tej zakładki")]
             return [Announce("Brak sciezki pliku")]
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
@@ -279,7 +329,46 @@ class Navigator:
         LibraryView.FAVORITES: "Ulubione",
         LibraryView.PLAYLISTS: "Playlisty",
         LibraryView.PLAYLIST_CONTENTS: "Playlista",
+        LibraryView.HISTORY: "Historia odtwarzania",
+        # Slowo "zapisana" jest TU KONIECZNE: to utrwalony stan profilu, nie
+        # kolejka grajacego silnika. Etykieta ma uczciwie powiedziec, jaki
+        # zapis czytamy.
+        LibraryView.SAVED_QUEUE: "Zapisana kolejka",
+        LibraryView.ITEM_BOOKMARKS: "Zakładki",
     }
+
+    #: Widoki aktywnosci sa PLASKIE jak ALL_FILES/FAVORITES: Backspace z nich
+    #: wychodzi do Folderow, nie szuka "folderu nadrzednego".
+    _ACTIVITY_VIEWS = (
+        LibraryView.HISTORY,
+        LibraryView.SAVED_QUEUE,
+        LibraryView.ITEM_BOOKMARKS,
+    )
+
+    def open_item_bookmarks(self) -> list[object]:
+        """Ctrl+Shift+B. Zakladki ZAZNACZONEGO pliku, nie wszystkie.
+
+        Bez zaznaczenia nie ma czyich zakladek pokazac -- mowimy to wprost,
+        zamiast otwierac pusty widok bez powodu. Id zapamietujemy, zeby powrot
+        wrocil na TEN plik, a nie na pierwszy wiersz listy.
+        """
+        state = self.session
+        row = state.model.selected_row
+        if row is None:
+            return [Announce("Nie ma zaznaczonego pliku, nie wiem czyich zakładek szukać")]
+        if row.kind not in ("track", "station"):
+            return [Announce("Zakładki dotyczą pliku, nie tego wiersza")]
+        # Id wiersza w widoku zakladek to ``bookmark:<id>`` -- wchodzac z
+        # TAKIEGO wiersza nie mamy Id pliku, wiec uzywamy zapamietanego.
+        item_id = (
+            state.library_item_id
+            if row.item_id.startswith("bookmark:")
+            else row.item_id
+        )
+        if not item_id:
+            return [Announce("Nie znam identyfikatora pliku dla zakładek")]
+        state.library_return_id = item_id
+        return [OpenLibraryView(view=LibraryView.ITEM_BOOKMARKS, item_id=item_id)]
 
     def open_library_view(
         self,
@@ -308,6 +397,8 @@ class Navigator:
         playlist_id: str | None = None,
         order_matches_amc: bool = True,
         fallback_to_playlists: bool = False,
+        item_id: str | None = None,
+        bookmark_targets: dict[str, tuple[str, float, str]] | None = None,
     ) -> list[object]:
         """Skutek udanego odczytu widoku. Zawsze w sesji PLIKOW.
 
@@ -326,6 +417,11 @@ class Navigator:
 
         state.library_view = view
         state.library_playlist_id = playlist_id
+        state.library_item_id = item_id
+        # Mapa celow zakladek obowiazuje TYLKO w swoim widoku. Zostawienie jej
+        # przy wejsciu w inny widok groziloby odtworzeniem pozycji ze starej
+        # zakladki na niepowiazanym wierszu.
+        state.bookmark_targets = dict(bookmark_targets or {})
         # Widok Biblioteki NIE jest folderem: zadna sciezka nie opisuje
         # "Ulubionych", a zostawienie starej mylilo by Backspace.
         state.folder_path = None
@@ -383,9 +479,25 @@ class Navigator:
                     preferred_id=state.library_return_id,
                 )
             ]
+        # Z zakladek wracamy na liste PLIKOW i stajemy na tym pliku, ktorego
+        # zakladki ogladalismy. Samo "Foldery" zgubiloby wybor uzytkownika.
+        if state.library_view is LibraryView.ITEM_BOOKMARKS:
+            target = state.library_item_id
+            state.library_view = None
+            state.library_item_id = None
+            state.bookmark_targets = {}
+            state.library_return_id = None
+            return [
+                OpenLibraryView(
+                    view=LibraryView.ALL_FILES,
+                    preferred_id=target,
+                )
+            ]
         state.library_view = None
         state.library_playlist_id = None
         state.library_return_id = None
+        state.library_item_id = None
+        state.bookmark_targets = {}
         return [OpenFolder(state.folder_path)]
 
     # -------------------------------------------------------- wynik operacji
@@ -399,6 +511,8 @@ class Navigator:
         state.library_view = None
         state.library_playlist_id = None
         state.library_return_id = None
+        state.library_item_id = None
+        state.bookmark_targets = {}
         state.model.replace(rows, preferred_id=preferred_id)
         state.view = View.LIST
         row = state.model.selected_row
