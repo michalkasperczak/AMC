@@ -4,7 +4,9 @@ Trzy odczyty, ktorych brakowalo nad widokami biblioteki:
 
 1. **historia odtwarzania** plikow lokalnych,
 2. **ZAPISANA kolejka** (to, co AMC utrwalilo w profilu),
-3. **zakladki wybranego elementu** -- wejsciem jest RZECZYWISTE Id elementu.
+3. **zakladki wybranego elementu** -- wejsciem jest RZECZYWISTE Id elementu,
+4. **ZBIORCZY widok wszystkich zakladek** (``BookmarkIndex.GetForDisplay``) --
+   wszystkie sesje, inny filtr i inna kolejnosc niz punkt 3.
 
 Reguly filtrow, kolejnosci, duplikatow i pozycji nieznanych sa PRZEPISANE
 z aktualnego kodu AMC (C#), nie zgadniete z nazw tabel. Cytaty i numery
@@ -24,6 +26,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence
 
+from .collation import (
+    COLLATION_TITLE_IGNORE_CASE,
+    HostCollation,
+    HostCollationUnavailable,
+)
 from .library_db import LibraryDatabase, LibraryItem, _ACTIVE, _format_detail
 from .list_model import Row
 
@@ -57,6 +64,10 @@ class ActivityResult:
     #: Metadane kolejki/zakladek OBOK ``Row`` (bez zmiany konstruktora ``Row``).
     queue: tuple["QueueRow", ...] = ()
     bookmarks: tuple["BookmarkRow", ...] = ()
+    #: Tylko dla ZBIORCZEGO widoku zakladek: kontekst biezacego materialu i
+    #: jawna informacja, czy da sie skoczyc lokalnie. Widok jednego pliku tego
+    #: nie ma, bo nie zna obcych sesji.
+    display: tuple["BookmarkDisplayRow", ...] = ()
 
     @property
     def is_empty(self) -> bool:
@@ -386,6 +397,46 @@ def format_created_date(utc_ticks: int) -> str:
     return f"utworzono {local.day} {month} {local.year}"
 
 
+def _bookmark_row(record) -> BookmarkRow:
+    """Jeden rekord tabeli ``bookmarks`` -> ``BookmarkRow`` z etykieta.
+
+    JEDNA kopia na oba widoki zakladek. Etykieta i Id wiersza pochodza z
+    ``CreateBookmarkRow`` (``MainWindow.xaml.cs:13744-13764``), ktory w
+    oryginale tez jest jeden -- ``GetForItem`` i ``GetForDisplay`` oba przez
+    niego przechodza. Gdyby kazdy widok sklejal etykiete osobno, roznilyby sie
+    po pierwszej poprawce formatu.
+    """
+    bookmark_id = str(record["id"])
+    stored_title = str(record["item_title"])
+    name = str(record["name"]).strip()
+    session_name = str(record["session_name"]).strip() or str(record["session_id"])
+    position_ticks = int(record["position_ticks"])
+    created_ticks = int(record["created_utc_ticks"])
+    name_part = f", {name}" if name else ""
+    label = (
+        f"{stored_title}, {format_created_date(created_ticks)}, "
+        f"{format_position(position_ticks)}{name_part}, {session_name}, zakładka"
+    )
+    return BookmarkRow(
+        row=Row(
+            # Wlasne Id wiersza, zeby dwie zakladki tego samego utworu nie
+            # zlaly sie w wyborze (``MainWindow.xaml.cs:13756``).
+            item_id=f"bookmark:{bookmark_id}",
+            title=label,
+            kind="track",
+            detail="",
+        ),
+        bookmark_id=bookmark_id,
+        item_id=str(record["item_id"]),
+        item_title=stored_title,
+        name=name,
+        session_id=str(record["session_id"]),
+        session_name=session_name,
+        position_ticks=position_ticks,
+        created_utc_ticks=created_ticks,
+    )
+
+
 def bookmark_rows(
     db: LibraryDatabase, *, item_id: str, session: str = LOCAL_SESSION
 ) -> ActivityResult:
@@ -434,41 +485,245 @@ def bookmark_rows(
     rows: list[Row] = []
     bookmarks: list[BookmarkRow] = []
     for record in rows_sql:
-        bookmark_id = str(record["id"])
-        stored_title = str(record["item_title"])
-        name = str(record["name"]).strip()
-        session_name = str(record["session_name"]).strip() or str(record["session_id"])
-        position_ticks = int(record["position_ticks"])
-        created_ticks = int(record["created_utc_ticks"])
-        # Etykieta 1:1 z ``CreateBookmarkRow`` (``MainWindow.xaml.cs:13762-13763``).
-        name_part = f", {name}" if name else ""
-        label = (
-            f"{stored_title}, {format_created_date(created_ticks)}, "
-            f"{format_position(position_ticks)}{name_part}, {session_name}, zakładka"
-        )
-        row = Row(
-            item_id=f"bookmark:{bookmark_id}",
-            title=label,
-            kind="track",
-            detail="",
-        )
-        rows.append(row)
-        bookmarks.append(
-            BookmarkRow(
-                row=row,
-                bookmark_id=bookmark_id,
-                item_id=str(record["item_id"]),
-                item_title=stored_title,
-                name=name,
-                session_id=str(record["session_id"]),
-                session_name=session_name,
-                position_ticks=position_ticks,
-                created_utc_ticks=created_ticks,
-            )
-        )
+        bookmark = _bookmark_row(record)
+        rows.append(bookmark.row)
+        bookmarks.append(bookmark)
     return ActivityResult(
         rows=rows,
         heading=heading,
         sees_live_writes=db.sees_live_writes,
         bookmarks=tuple(bookmarks),
+    )
+
+
+# --------------------------------- 4. ZBIORCZY widok wszystkich zakladek
+
+
+@dataclass(frozen=True, slots=True)
+class BookmarkDisplayRow:
+    """Jedna zakladka w widoku ZBIORCZYM: dane plus kontekst wyswietlania.
+
+    ``BookmarkRow`` zostaje nietkniety -- widok jednego pliku go uzywa i nie ma
+    pojecia o obcych sesjach. Tutaj dochodzi to, co jest prawda tylko dla
+    widoku zbiorczego: czy wpis nalezy do AKTUALNIE odtwarzanego materialu i
+    czy ten przyrost potrafi go odtworzyc.
+    """
+
+    bookmark: BookmarkRow
+    #: ``IsCurrentItem(entry, currentSessionId, currentItemId)``
+    #: (``BookmarkIndex.cs:182-187``) -- pierwszy klucz sortowania.
+    is_current_item: bool
+    #: ``True`` tylko dla sesji ``local``. Skok w tym przyroscie idzie przez
+    #: ``files.play(positionSeconds)``, a ten kanal istnieje WYLACZNIE dla
+    #: plikow lokalnych. Obca sesja (TIDAL, podcasty) nie ma tu odtwarzania i
+    #: nie udajemy, ze ma -- odtwarzanie sieciowe to osobna sprawa.
+    can_play_locally: bool
+
+    @property
+    def row(self) -> Row:
+        return self.bookmark.row
+
+    @property
+    def position_seconds(self) -> float:
+        """Pozycja w SEKUNDACH z ulamkiem -- argument dla ``files.play``.
+
+        Ticki C# to 1/10 000 000 s, wiec dzielenie jest DOKLADNE tylko w
+        ``float``; nie zaokraglamy do calych sekund, bo zakladka na 1,85 s
+        skoczylaby na 1 s albo 2 s.
+        """
+        return self.bookmark.position_ticks / 10_000_000
+
+
+def ordinal_sort_key(value: str) -> bytes:
+    """Klucz odtwarzajacy ``StringComparer.Ordinal`` -- ostatni tie-break.
+
+    ``Ordinal`` w .NET porownuje ``char``, czyli JEDNOSTKI KODOWE UTF-16, i
+    jest CASE-SENSITIVE. Dwie konsekwencje, obie zmierzone sonda
+    ``all-bookmarks-after422/probe-display-order`` na .NET 8:
+
+    * ``utf-16-be`` zachowuje dokladnie ten porzadek (0 niezgodnych par na 55
+      napisach, 3025 porownan);
+    * ``utf-8`` i zwykle ``str`` Pythona porzadkuja PUNKTY KODOWE -- 12
+      niezgodnych par. Emoji ``U+1F600`` zaczyna sie w UTF-16 od ``D83D`` i
+      jest MNIEJSZE od ``U+FFFD``, a w punktach kodowych wieksze.
+
+    Dlatego NIE uzywamy tu hostowego ``ORDINAL_IGNORE_CASE``: ten tryb
+    podnosi litery do wersalikow (534 niezgodne pary wzgledem ``Ordinal``) i
+    zrownalby Id ``"a"`` z ``"A"``, oddajac kolejnosc przypadkowi. Klucz
+    liczymy LOKALNIE, bo to czysta transformacja bajtow bez udzialu kultury --
+    nie potrzebuje hosta i nie jest nowym API kolacji.
+
+    Zadnej normalizacji Unicode nie robimy: ``Ordinal`` jej nie robi, a
+    ``NFC``/``NFD`` na Id zmienilaby porzadek wpisow, ktorych oryginal nie
+    rusza.
+    """
+    return value.encode("utf-16-be", errors="surrogatepass")
+
+
+def all_bookmark_rows(
+    db: LibraryDatabase,
+    *,
+    current_session_id: str,
+    current_item_id: str,
+    collation: HostCollation | None,
+) -> ActivityResult:
+    """ZBIORCZY widok wszystkich zakladek (``BookmarkIndex.GetForDisplay``).
+
+    To NIE jest ``bookmark_rows``. Tam wejsciem jest jeden element i widoczne
+    sa tylko jego zakladki; tutaj widoczne sa zakladki WSZYSTKICH sesji, a
+    biezacy material jedynie wedruje na gore listy. Oryginal ma dwie osobne
+    metody (``cs:19-28`` i ``cs:30-36``) i my tez.
+
+    Kontekst jest JAWNY
+    ---------------------
+    ``current_session_id``/``current_item_id`` sa argumentami, bo w WPF tak samo
+    pochodza z ``_sessions.Current.Id`` i ``_sessions.Current.CurrentItem.Id``
+    (``MainWindow.xaml.cs:12530-12532``). To AKTUALNIE ODTWARZANY material, a
+    nie zaznaczony wiersz listy -- ta warstwa niczego nie zgaduje z globalnego
+    stanu ani z timera. Pusty kontekst jest legalny (``MediaItem`` z pustym
+    ``Id``, gdy sesja nic nie gra) i po prostu do niczego nie pasuje.
+
+    Kolejnosc 1:1 z ``cs:19-28``
+    ----------------------------
+    1. ``IsCurrentItem ? 0 : 1`` -- zakladki granego materialu na gorze,
+    2. ``SessionName`` ``CurrentCultureIgnoreCase``,
+    3. ``ItemTitle`` ``CurrentCultureIgnoreCase``,
+    4. ``PositionTicks``, 5. ``CreatedUtcTicks``, 6. ``Id`` ``Ordinal``.
+
+    Punkty 2-3 to ``CompareOptions.IgnoreCase`` SAMO, czyli tryb kolacji
+    ``TITLE_IGNORE_CASE``, a NIE ``AMC_PL``: ``IgnoreNonSpace`` zrownalby
+    ``"etap"`` z ``"étap"`` i remis spadlby na pozycje, dajac inna liste.
+    Klucze liczy host WSADOWO (jedno wywolanie na caly ekran), wiec nie ma tu
+    porownan parami przez IPC -- 5000 zakladek to dwa pola tekstowe na wpis,
+    nie 12 mln porownan.
+
+    ``collation=None`` zwraca wiersze w kolejnosci ZAPISU z ``order_matches_amc
+    = False``. Brak kolatora nie moze udawac zgodnosci -- to bylaby cicha
+    niezgodnosc w widoku, ktory wyglada poprawnie.
+
+    Czego ten widok NIE robi
+    ------------------------
+    Nie filtruje po dostepnosci pliku: wpis, ktorego material zniknal, NADAL
+    jest widoczny z tytulem zapisanym w zakladce (``CreateBookmarkRow``,
+    ``MainWindow.xaml.cs:13749-13757``). Przeniesienie tu filtra z historii
+    ukrylo by polowe prawdziwych danych. Nie odtwarza tez niczego: zwraca
+    jawne ``session_id``/``item_id``/``position_seconds`` i mowi wprost
+    (``can_play_locally``), ze obca sesja nie ma w tym przyroscie kanalu
+    odtwarzania.
+    """
+    heading = "Biblioteka — Wszystkie zakładki"
+
+    records = db.connection.execute(
+        "SELECT id, session_id, session_name, item_id, item_title, name, "
+        "position_ticks, created_utc_ticks FROM bookmarks "
+        # Predykat bitowy, tak jak ``IsBookmark`` (``cs:189-190``): wpis o obu
+        # bitach (3) tez jest zakladka, a czysty ``Chapter`` (2) nie jest -- i
+        # nie jest usuwany, tylko niewidoczny w tym widoku.
+        f"WHERE (purpose & {_PURPOSE_BOOKMARK}) != 0 "
+        # Kolejnosc z SQL jest tylko DETERMINISTYCZNYM wejsciem (``ordinal`` to
+        # kolejnosc zapisu w profilu). Prawdziwy porzadek liczymy nizej, bo
+        # SQLite nie zna ``CurrentCultureIgnoreCase``.
+        "ORDER BY ordinal"
+    )
+
+    bookmarks: list[BookmarkRow] = []
+    flags: list[bool] = []
+    for record in records:
+        bookmark = _bookmark_row(record)
+        bookmarks.append(bookmark)
+        flags.append(
+            _is_current_item(bookmark, current_session_id, current_item_id)
+        )
+
+    if collation is None:
+        display = tuple(
+            BookmarkDisplayRow(
+                bookmark=bookmark,
+                is_current_item=flag,
+                can_play_locally=_is_local_session(bookmark.session_id),
+            )
+            for bookmark, flag in zip(bookmarks, flags)
+        )
+        return ActivityResult(
+            rows=[d.row for d in display],
+            heading=heading,
+            order_matches_amc=False,
+            sees_live_writes=db.sees_live_writes,
+            bookmarks=tuple(d.bookmark for d in display),
+            display=display,
+        )
+
+    # Jedno wsadowe zadanie na WSZYSTKIE napisy obu pol. Kolator pamieta
+    # klucze per tryb, wiec powtorzony tytul nie generuje drugiego zapytania.
+    texts = [b.session_name for b in bookmarks] + [b.item_title for b in bookmarks]
+    if texts:
+        collation.load(texts, mode=COLLATION_TITLE_IGNORE_CASE)
+
+    def sort_key(pair: tuple[BookmarkRow, bool]) -> tuple:
+        bookmark, is_current = pair
+        session_key = collation.key_for(
+            bookmark.session_name, mode=COLLATION_TITLE_IGNORE_CASE
+        )
+        title_key = collation.key_for(
+            bookmark.item_title, mode=COLLATION_TITLE_IGNORE_CASE
+        )
+        if session_key is None or title_key is None:
+            # Czesc listy zgodna z C#, a czesc nie, to gorsze niz jawny blad:
+            # nikt by tego nie zauwazyl. ``sort_key_order`` w ``collation``
+            # odmawia z tego samego powodu.
+            brak = bookmark.session_name if session_key is None else bookmark.item_title
+            raise HostCollationUnavailable(
+                f"Brak klucza {COLLATION_TITLE_IGNORE_CASE} dla {brak!r} "
+                f"(zakladka {bookmark.bookmark_id})."
+            )
+        return (
+            0 if is_current else 1,
+            session_key,
+            title_key,
+            bookmark.position_ticks,
+            bookmark.created_utc_ticks,
+            ordinal_sort_key(bookmark.bookmark_id),
+        )
+
+    ordered = sorted(zip(bookmarks, flags), key=sort_key)
+
+    display = tuple(
+        BookmarkDisplayRow(
+            bookmark=bookmark,
+            is_current_item=flag,
+            can_play_locally=_is_local_session(bookmark.session_id),
+        )
+        for bookmark, flag in ordered
+    )
+    return ActivityResult(
+        rows=[d.row for d in display],
+        heading=heading,
+        sees_live_writes=db.sees_live_writes,
+        bookmarks=tuple(d.bookmark for d in display),
+        display=display,
+    )
+
+
+def _is_local_session(session_id: str) -> bool:
+    """Czy to sesja plikow lokalnych -- klucz sesji jest ``OrdinalIgnoreCase``."""
+    return session_id.casefold() == LOCAL_SESSION.casefold()
+
+
+def _is_current_item(
+    bookmark: BookmarkRow, current_session_id: str, current_item_id: str
+) -> bool:
+    """``IsCurrentItem`` (``BookmarkIndex.cs:182-187``).
+
+    DWA rozne porownania w jednym warunku: ``SessionId`` ``OrdinalIgnoreCase``,
+    ``ItemId`` ``Ordinal``. Zrownanie ich (choc kusi) zmienialoby wynik --
+    zmierzone sonda: kontekst ``ITEM-BIEZ`` daje w C# INNA liste niz
+    ``item-biez``.
+
+    ``casefold`` jest tu bezpieczne, bo ``OrdinalIgnoreCase`` w .NET podnosi
+    znaki INVARIANTNIE, bez kultury -- a nie jest to porzadek, tylko rownosc,
+    wiec zaden klucz kolacji nie jest potrzebny.
+    """
+    return (
+        bookmark.session_id.casefold() == current_session_id.casefold()
+        and bookmark.item_id == current_item_id
     )
