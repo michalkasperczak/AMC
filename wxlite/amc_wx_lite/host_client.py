@@ -259,10 +259,24 @@ class LiteHostClient:
     def list_folder(self, path: str) -> Any:
         return self.call("files.listFolder", {"path": path}, timeout=60.0)
 
-    def play_file(self, path: str, *, volume: int, rate: float, title: str | None = None) -> Any:
+    def play_file(
+        self,
+        path: str,
+        *,
+        volume: int,
+        rate: float,
+        title: str | None = None,
+        position_seconds: float | None = None,
+    ) -> Any:
         args: dict[str, Any] = {"path": path, "volume": volume, "rate": rate}
         if title:
             args["title"] = title
+        if position_seconds:
+            # Pozycja idzie TYM SAMYM wywolaniem. ``LiteEngineHandlers.cs:290``
+            # czyta ``positionSeconds`` i podaje je do ``_files.Play``, a
+            # rozruch strumienia zeruje czas (cs:309) -- osobny
+            # ``transport.seek`` puszczony rownolegle zgubilby skok.
+            args["positionSeconds"] = float(position_seconds)
         return self.call("files.play", args, timeout=60.0)
 
     def play_station(self, url: str, *, volume: int, item_id: str, title: str) -> Any:

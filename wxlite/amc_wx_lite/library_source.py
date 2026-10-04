@@ -146,15 +146,15 @@ class LibrarySource:
             return rows, False
 
     def load_view(
-        self, view: str, *, playlist_id: str | None = None
+        self, view: str, *, playlist_id: str | None = None, item_id: str | None = None
     ) -> "LibraryViewResult":
-        """Jeden z czterech nazwanych widokow Biblioteki.
+        """Jeden z nazwanych widokow Biblioteki.
 
         Osobno od ``load``, bo tamta czyta DRZEWO folderow, a te widoki sa
         plaskie i maja wlasne naglowki. Uchwyt otwieramy tak samo na kazdy
         odczyt -- inaczej nie zobaczylibysmy tego, co host wlasnie zapisal.
         """
-        from . import library_views
+        from . import library_activity, library_views
 
         with self._open() as db:
             if view == "all_files":
@@ -167,6 +167,21 @@ class LibrarySource:
                 if not playlist_id:
                     raise ValueError("playlist_contents wymaga playlist_id")
                 return library_views.playlist_contents_rows(db, playlist_id)
+            # Widoki AKTYWNOSCI. Dane liczy odebrany ``library_activity``;
+            # tutaj tylko sprowadzamy jego ``ActivityResult`` do typu, ktory
+            # okno juz umie wyswietlic.
+            if view == "history":
+                return _from_activity(library_activity.history_rows(db))
+            if view == "saved_queue":
+                return _from_activity(library_activity.saved_queue_rows(db))
+            if view == "item_bookmarks":
+                if not item_id:
+                    # ``GetForItem`` bez Id nie istnieje. Cicha pusta lista
+                    # wygladalaby jak "ten plik nie ma zakladek" i skasowalaby
+                    # blad wywolania.
+                    raise ValueError("item_bookmarks wymaga item_id")
+                activity = library_activity.bookmark_rows(db, item_id=item_id)
+                return _from_activity(activity, targets=_bookmark_targets(db, activity))
         raise ValueError(f"nieznany widok Biblioteki: {view}")
 
     def describe(self) -> str:
@@ -184,3 +199,62 @@ def _leaf(path: str) -> str:
 
     norm = ntpath.normpath(path).rstrip("\\/")
     return ntpath.basename(norm) or norm
+
+
+#: Tickow na sekunde w .NET. ``BookmarkIndex`` trzyma pozycje w tickach.
+_TICKS_PER_SECOND = 10_000_000
+
+
+def _from_activity(activity, *, targets=None) -> "LibraryViewResult":
+    """``ActivityResult`` -> ``LibraryViewResult``, bez drugiego frameworka.
+
+    Okno umie wyswietlic jeden typ wyniku. Zamiast uczyc je drugiego,
+    przepisujemy pola, ktore sa wspolne, i dokladamy mape celow zakladek.
+    """
+    from .library_views import LibraryViewResult
+
+    return LibraryViewResult(
+        rows=list(activity.rows),
+        heading=activity.heading,
+        order_matches_amc=activity.order_matches_amc,
+        sees_live_writes=activity.sees_live_writes,
+        bookmark_targets=dict(targets or {}),
+    )
+
+
+def _bookmark_targets(db, activity) -> dict[str, tuple[str, float, str]]:
+    """Cel skoku dla kazdej zakladki: PLIK i pozycja w sekundach.
+
+    ``BookmarkRow.item_id`` jest Id PLIKU, a ``BookmarkRow.row.item_id`` ma
+    prefiks ``bookmark:`` -- do backendu musi pojsc to pierwsze, zamienione
+    jeszcze na sciezke. Zakladki NIE maja filtra ``ActiveLocalItems``, wiec
+    plik moze w katalogu nie istniec; wtedy celu po prostu nie ma i wiersz
+    zostaje nieaktywny, zamiast wyslac do hosta zmyslona sciezke.
+    """
+    marks = getattr(activity, "bookmarks", ())
+    if not marks:
+        return {}
+    wanted = {mark.item_id for mark in marks}
+    placeholders = ",".join("?" for _ in wanted)
+    found = {
+        str(row["id"]): (row["path"], row["title"])
+        for row in db.connection.execute(
+            f"SELECT id, path, title FROM local_items WHERE id IN ({placeholders})",
+            tuple(wanted),
+        )
+        if row["path"]
+    }
+    targets: dict[str, tuple[str, float, str]] = {}
+    for mark in marks:
+        target = found.get(mark.item_id)
+        if target is None:
+            continue
+        path, title = target
+        # Dzielenie ZWYKLE, nie calkowite: zakladka 83,456 s nie moze
+        # wrocic jako 83 s.
+        targets[mark.row.item_id] = (
+            path,
+            mark.position_ticks / _TICKS_PER_SECOND,
+            title or mark.item_title,
+        )
+    return targets

@@ -11,7 +11,7 @@ wlasne zapytania na gotowym ``LibraryDatabase``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Sequence
 
 from .collation import COLLATION_ORDINAL_IGNORE_CASE, COLLATION_TITLE_IGNORE_CASE
@@ -87,6 +87,11 @@ class LibraryViewResult:
     playlists: tuple[PlaylistRow, ...] = ()
     #: Ustawiane, gdy AMC wrocilby do innego widoku (znikla playlista).
     fallback_view: str | None = None
+    #: Tylko dla widoku zakladek: ``Row.item_id`` -> (sciezka PLIKU, sekundy,
+    #: tytul pliku). ``Row.item_id`` zakladki ma postac ``bookmark:<id>`` i
+    #: NIE jest identyfikatorem pliku, wiec backend nie moze go dostac.
+    #: Pozycja jest ULAMKOWA: ``position_ticks / 10_000_000`` bez obcinania.
+    bookmark_targets: dict[str, tuple[str, float, str]] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:
