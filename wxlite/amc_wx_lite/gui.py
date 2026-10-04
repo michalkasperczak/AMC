@@ -262,6 +262,50 @@ class Announcer:
             pass
 
 
+class MediaListAccessible(wx.Accessible):
+    """Nazwa i rola SAMEJ listy -- to, czego ``SysListView32`` nie podaje.
+
+    ZMIERZONA PRZYCZYNA (objaw F03: "nieznane" przed "Biblioteka — Zakladki,
+    pusto"). Wlasna sonda MSAA w tym samym runtime co produkcja pytala
+    ``IAccessible::get_accName`` klienta listy:
+
+        pusta lista   -> ``hr=S_FALSE (1)``, ``accName=None``
+        lista z danymi-> ``hr=S_FALSE (1)``, ``accName=None``
+
+    (kwit ``list-speech-after422/zdarzenia7.jsonl``, pola ``samalista_*``).
+    Czyli sama lista NIGDY nie miala nazwy MSAA. Dopoki stal na niej wiersz,
+    czytnik mowil wiersz i nie bylo tego slychac; na pustym zbiorze nie ma
+    wiersza, wiec zostaje obiekt bez nazwy -- i to jest "nieznane".
+
+    ``SetName``/``SetWindowTextW`` tego NIE naprawiaja -- sprawdzone i
+    odrzucone pomiarem: ``GetWindowTextW`` zwracalo nasz tekst, a ``accName``
+    zostawalo puste, bo ``oleacc`` nie bierze nazwy ``SysListView32`` z tekstu
+    okna.
+
+    ``wx.ACC_NOT_IMPLEMENTED`` dla ``childId != 0`` znaczy "odpowiedz tak jak
+    dotychczas". Dlatego wiersze zachowuja swoje nazwy, kolumny i pozycje
+    "N z M" -- zwykla strzalka czyta element bez zmian (zmierzone:
+    ``rekreacja/Y-strzalka-w-dol`` to jedno ``FOCUS`` z nazwa wiersza).
+    """
+
+    def __init__(self, window: wx.Window) -> None:
+        super().__init__(window)
+        self._window = window
+
+    def GetName(self, childId):  # noqa: N802 - API wx
+        if childId == 0:
+            name = self._window.GetName()
+            if name:
+                return (wx.ACC_OK, name)
+        return (wx.ACC_NOT_IMPLEMENTED, "")
+
+    def GetRole(self, childId):  # noqa: N802 - API wx
+        # Rola 0 na pustej liscie byla drugim polem objawu F03.
+        if childId == 0:
+            return (wx.ACC_OK, wx.ROLE_SYSTEM_LIST)
+        return (wx.ACC_NOT_IMPLEMENTED, wx.ROLE_NONE)
+
+
 class MediaListCtrl(wx.ListCtrl):
     """Natywna lista wirtualna. Tekst dostarcza model NA ZADANIE."""
 
@@ -276,6 +320,9 @@ class MediaListCtrl(wx.ListCtrl):
         self.InsertColumn(2, "Szczegoly", width=260)
         # Nazwa dla czytnika ekranu i Narratora.
         self.SetName(label)
+        # Bez tego nazwa wyzej NIE dociera do MSAA (zmierzone -- patrz
+        # ``MediaListAccessible``).
+        self.SetAccessible(MediaListAccessible(self))
 
     # wx wola to tylko dla WIDOCZNYCH wierszy - stad niski koszt duzych list.
     def OnGetItemText(self, item: int, column: int) -> str:  # noqa: N802 - API wx
@@ -613,11 +660,17 @@ class LiteFrame(wx.Frame):
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
 
+    def _bind_list(self, control: MediaListCtrl) -> None:
+        """Powiazania JEDNEJ listy. Wydzielone, bo po przebudowie kontrolki
+        nowe okno musi dostac DOKLADNIE te same zdarzenia -- inaczej strzalki
+        i Enter przestaja dzialac na nowej liscie."""
+        control.Bind(wx.EVT_KEY_DOWN, self._on_key)
+        control.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda _e: self._activate())
+        control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)
+
     def _bind_keys(self) -> None:
         for control in (self.files_list, self.radio_list):
-            control.Bind(wx.EVT_KEY_DOWN, self._on_key)
-            control.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda _e: self._activate())
-            control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)
+            self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
             control.Bind(wx.EVT_KEY_DOWN, self._on_key)
         self.play_button.Bind(wx.EVT_BUTTON, lambda _e: self._play_pause())
@@ -970,7 +1023,20 @@ class LiteFrame(wx.Frame):
 
         active_list = self._active_list()
         other_list = self.radio_list if active_list is self.files_list else self.files_list
-        # Jedna podmiana zamiast trzech osobnych zmian dla czytnika.
+        # JEDNA droga odswiezenia, bez wymiany kontrolki.
+        #
+        # Rekreacja kontrolki (nowy HWND dla czystego cache czytnika) byla tu
+        # przez chwile i ZOSTALA WYCOFANA PO POMIARZE. Usuwala wprawdzie stara
+        # nazwe z nowym licznikiem, ale na glownym widoku (2476 wierszy)
+        # czytnik przestawal mowic wybrany wiersz w ogole -- slychac bylo tylko
+        # naglowek widoku. Kwity: ``przed-po-przed.json`` (stary kod, wiersz
+        # czytany) vs ``przed-po-po.json`` (z rekreacja, cisza) oraz para
+        # ``odbior-listy-Z-REKREACJA.json`` / ``odbior-listy-BEZ-REKREACJI.json``.
+        # Siedem prob ratowania rekreacji (kolejnosc fokus/wypelnienie, obrot
+        # petli, podwojny ``SetFocus``, wymuszony ``SetItemState``, kolejnosc
+        # ``Destroy``, zdjecie nakladki) nie przywrocilo tego odczytu.
+        # Cisza na wiersz jest gorsza od zlej nazwy, wiec droga wraca do
+        # taniego odswiezenia.
         active_list.sync_rows()
 
         want_player = session.view is View.PLAYER

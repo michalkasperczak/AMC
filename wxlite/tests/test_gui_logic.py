@@ -54,6 +54,20 @@ def install_wx_stub() -> None:
     wx.LIST_STATE_FOCUSED = 0x0002  # type: ignore[attr-defined]
     wx.LIST_STATE_SELECTED = 0x0004  # type: ignore[attr-defined]
 
+    # Stale ``wx.Accessible``. Nazwa i rola SAMEJ listy ida przez nakladke
+    # ``MediaListAccessible`` -- bez tego pusta lista byla dla czytnika
+    # obiektem bez nazwy i z rola 0 ("nieznane").
+    #
+    # Wartosci ODCZYTANE z zainstalowanego wxPython 4.2.3 w runtime produkcji
+    # (``python.exe -c "import wx; print(wx.ACC_OK)"``), NIE z pamieci. Pierwsza
+    # wersja tej atrapy miala tu 1/2/33 "z glowy" i byla po prostu zla -- atrapa
+    # ze zlymi stalymi zielenilaby test, ktory na prawdziwym wx nie dziala.
+    wx.ACC_FAIL = 0  # type: ignore[attr-defined]
+    wx.ACC_OK = 2  # type: ignore[attr-defined]
+    wx.ACC_NOT_IMPLEMENTED = 3  # type: ignore[attr-defined]
+    wx.ROLE_SYSTEM_LIST = 32  # type: ignore[attr-defined]
+    wx.ROLE_NONE = 0  # type: ignore[attr-defined]
+
     class _Any:
         def __init__(self, *args, **kwargs) -> None:
             pass
@@ -68,7 +82,7 @@ def install_wx_stub() -> None:
         "Frame", "Panel", "App", "Dialog", "ListCtrl", "StaticText", "TextCtrl", "Button",
         "Slider", "BoxSizer", "FlexGridSizer", "Timer", "MenuBar", "Menu", "KeyEvent",
         "ListEvent", "CommandEvent", "TimerEvent", "CloseEvent", "DirDialog", "FileDialog",
-        "Window",
+        "Window", "Accessible",
     ):
         setattr(wx, name, _Any)
 
