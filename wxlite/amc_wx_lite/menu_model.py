@@ -69,8 +69,22 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+Shift+O"),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
-            MenuItem("Folder &nadrzędny", Action.PARENT_FOLDER, shortcut="Back",
-                     needs_selection=True),
+            #
+            # BEZ ``needs_selection``, i to jest WARUNEK dostepnosci, nie
+            # kosmetyka. wxWidgets zaklada akcelerator okna z tekstu etykiety
+            # PO TABULATORZE (``_build_menu`` dokleja tam podpis skrotu).
+            # Akcelerator wyprzedza ``EVT_KEY_DOWN`` kontrolki, a gdy pozycja
+            # jest WYLACZONA, Windows dopasowuje go i NIE wysyla komendy
+            # nikomu -- klawisz zostaje POLKNIETY. Na pustym widoku (brak
+            # wiersza => pozycja wyszarzona) Backspace przestawal wiec
+            # istniec i z pustych Zakladek nie bylo wyjscia klawiatura.
+            # Zmierzone: ``wx-keys-seen.jsonl`` nie zawiera ANI JEDNEGO
+            # Backspace, przy ``wx_lista_ma_fokus=true``.
+            #
+            # Wyjscie z widoku nie potrzebuje zaznaczenia: ``go_to_parent``
+            # w nazwanym widoku woli ``_leave_library_view`` jeszcze przed
+            # szukaniem wiersza rodzica.
+            MenuItem("Folder &nadrzędny", Action.PARENT_FOLDER, shortcut="Back"),
             SEPARATOR,
             MenuItem("&Zakończ", builtin="quit"),
         ),

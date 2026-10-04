@@ -423,15 +423,38 @@ class MediaListCtrl(wx.ListCtrl):
         )
 
     def _move_cursor(self, index: int) -> None:
-        """Przestaw zaznaczenie i fokus JEDNYM przejsciem stanu.
+        """Przestaw zaznaczenie i fokus, ustawiajac TYLKO brakujace bity.
 
         ``Select`` + ``Focus`` to dwa wywolania API, dwa zdarzenia MSAA i dwa
         odczyty tego samego wiersza (zmierzone: "Emu ... 1 z 9" dwukrotnie).
         ``SetItemState`` z maska ``SELECTED|FOCUSED`` przestawia oba bity razem
         -- tak samo jak natywne chodzenie strzalkami, ktore nie dubluje odczytu.
+
+        ALE maska musi pokrywac wylacznie to, czego NAPRAWDE brakuje. Po
+        wstawieniu wierszy SysListView32 SAM ustawia fokus na wiersz 0; gdy
+        potem ustawialismy bit FOCUSED na JUZ skupionym wierszu, kontrolka
+        dostawala kolejne przejscie stanu bez potrzeby. Ustawiamy wiec tylko
+        bity brakujace -- mniej zdarzen a11y na kazda synchronizacje.
+
+        UCZCIWIE O SKUTKU: ta zmiana NIE usunela podwojnego odczytu pierwszego
+        wiersza przy wejsciu do "Wszystkich plikow" (gest W02). Po niej objaw
+        wystepuje nadal, powtarzalnie 3/3 (kwit ``odbior-powt-w02-*.json``),
+        wiec hipoteza "to powtorny bit FOCUSED" jest FALSYFIKOWANA. Zostaje to
+        jako redukcja zbednych operacji, a nie jako naprawa W02; przyczyna
+        podwojnego odczytu pozostaje otwarta i jest opisana w raporcie.
+
+        Czego tu NIE MA: opozniania mowy, ``cancelSpeech`` ani usypiania
+        czytnika. Nie dublujemy zdarzenia, zamiast tlumic jego skutek.
         """
-        state = wx.LIST_STATE_SELECTED | wx.LIST_STATE_FOCUSED
-        self.SetItemState(index, state, state)
+        wanted = wx.LIST_STATE_SELECTED | wx.LIST_STATE_FOCUSED
+        # Pytamy kontrolke, co JUZ ma -- bity, ktore sa na miejscu, pomijamy.
+        mask = 0
+        if self.GetFirstSelected() != index:
+            mask |= wx.LIST_STATE_SELECTED
+        if self.GetFocusedItem() != index:
+            mask |= wx.LIST_STATE_FOCUSED
+        if mask:
+            self.SetItemState(index, wanted & mask, mask)
         # Przewijanie MUSI zostac: na 2476 wierszach kursor poza widokiem byl by
         # regresja. ``EnsureVisible`` samo nie oglasza wiersza.
         self.EnsureVisible(index)
