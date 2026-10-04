@@ -48,7 +48,7 @@ Przed audio/GUI sprawdź rezerwację pulpitu, obce procesy i ŻYWY stan nagrywan
 
 Próba mowy/menu dla tego przyrostu: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/proba_koncowa.py` (kwit `proba-koncowa.json`). Mierzy tylko to, co zmienione: mowę po zmianie widoku, oba kopiowania z odczytem schowka i obejście menu. Po próbie zamyka własne okno, sprawdza procesy i przywraca schowek.
 
-Mowa natywnej listy: dwie klasy objawów NADAL NIE SĄ naprawione — „poprzednia nazwa z nowym licznikiem” przy zmianie zbioru oraz wielokrotny odczyt tego samego wiersza. Naprawione jest tylko „nieznane” na liście bez nazwy (nakładka dostępności). Nie uznawaj tego za zrobione na podstawie testów jednostkowych: para kwitów z żywego NVDA to `amc_pomoc/wx-full-profile-after421/list-speech-after422/odbior-listy-FINAL.json` i `REPORT.md`. Przy zmianach w `gui.py` mierz ZAWSZE widok 2476 wierszy (Alt+2) — objawy mowy zależą od rozmiaru zbioru i na małych widokach nie wychodzą.
+Mowa natywnej listy: kontrolka NIE jest już wirtualna (`LC_REPORT`, bez `SetItemCount`), więc dawny mechanizm tych objawów nie istnieje. Dwie klasy objawów mowy — „poprzednia nazwa z nowym licznikiem” przy zmianie zbioru oraz wielokrotny odczyt tego samego wiersza — **nie były jednak ponownie mierzone gest po geście** po migracji, więc NIE uznawaj ich za naprawione na podstawie samej zmiany kontrolki ani testów jednostkowych. Naprawione jest „nieznane” na liście bez nazwy (nakładka dostępności). Para kwitów z żywego NVDA sprzed migracji: `amc_pomoc/wx-full-profile-after421/list-speech-after422/odbior-listy-FINAL.json` i `REPORT.md`; stan po migracji: `native-lists-after422/REPORT.md`. Przy zmianach w `gui.py` mierz ZAWSZE widok 2476 wierszy (Alt+2) — objawy mowy zależą od rozmiaru zbioru i na małych widokach nie wychodzą.
 
 Próba widoków aktywności: `amc_pomoc/wx-full-profile-after421/activity-gui-after422/proba_koncowa_activity.py` (etapy A–C) oraz `dopiecie_de.py` (etapy D–F na tym samym żywym oknie). Nazwa gestu Backspace w mostku NVDA to `backspace`; `back` zwraca HTTP 500 i pierwszy przebieg na tym padł.
 
@@ -107,3 +107,36 @@ Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Te
 Przy zmianie widoków **nadal** zdarzają się powtórzenia: po ogłoszeniu widoku bieżący element bywa odczytany drugi raz, a przy dużym skoku długości listy (1→2475) jeden odczyt niesie poprzednią nazwę z nowym licznikiem. Ubyła natomiast własna nadmiarowa zapowiedź wiersza i jedno z trzech powtórzeń na Ulubionych. Nieznany czas jest już pokazywany jako brak, nie `0:00`. Całość nie ma jeszcze wszystkich widoków, funkcji zapisu, usług i ustawień oryginału. Tempo i wybór silników mają osobne wcześniejsze kwity; obecny odbiór ich nie powtarza ani nie rozszerza.
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
+
+### Zwykła natywna lista: jak sprawdzać aktualizacje (po migracji z `LC_VIRTUAL`)
+
+Lista jest zwykłą `wx.ListCtrl` (`LC_REPORT`) i trzyma teksty u siebie. Kontrolka
+jest TRWAŁA — nie wolno jej niszczyć i odtwarzać przy zmianie danych (ta droga
+była mierzona i odrzucona: zabierała mowę wybranego wiersza przy 2476 pozycjach).
+
+Co sprawdzać:
+
+- **Brak zbędnych aktualizacji.** Po samej strzałce, Ctrl+C, zmianie statusu czy
+  ogłoszeniu widoku liczba operacji na liście ma być **0**. Mierz licznikiem
+  operacji (`observer_native.py` owija `_apply_ops`/`sync_rows`), nie na oko.
+- **Ten sam ID z nową treścią MA się odświeżyć.** Zmieniona nazwa, długość albo
+  flaga Ulubione przy niezmienionym ID musi zaktualizować swoje pole. ID/kolejność
+  i treść/stan porównywane są osobno — testuj oba warunki, nie jeden.
+- **Jedna zmiana nie przepisuje listy.** Dodanie, usunięcie albo przeniesienie
+  jednego wiersza daje jedną operację, nie czyszczenie całości. Pełna podmiana
+  jest dopuszczalna tylko przy rzeczywistej zmianie całego zbioru.
+- **Fokus i wybór to OSOBNE własności.** Sprawdzaj oba (`GetFirstSelected` nie
+  wystarcza) i zachowanie świadomego ruchu użytkownika.
+- **Programowa selekcja nie może zmienić modelu.** W trakcie podmiany wiersze
+  wysyłają `EVT_LIST_ITEM_SELECTED`; bramka `updating` pilnuje, żeby przejściowy
+  indeks nie wszedł jako nowy wybór. Prawdziwy ruch użytkownika musi nadal dojść.
+- **Strzałki natywne.** Góra/dół działają same, bez naszej obsługi.
+- **Pusta lista i przejścia mały↔duży** (np. 1 → 2475 → 9) bez degradacji mowy.
+
+Pomiar czasu planu na pełnej skali: `python3 tools/measure_list_sync.py 2476`.
+Odbiór 10 widoków i kwity: `amc_pomoc/wx-full-profile-after421/native-lists-after422/`.
+
+**Znane, jawnie OTWARTE:** w widoku zakładek pliku z 0 zakładkami obiekt fokusu
+ma `name=''` i `role=0`, a Backspace/Tab nie wychodzą z widoku. Potwierdzone A/B
+jako defekt **wcześniejszy niż migracja** (identyczny na wersji z `LC_VIRTUAL`).
+Scenariusz: `native-lists-after422/diag_pustej.py`.

@@ -52,7 +52,7 @@
 
 
 - `src/AccessibleMediaController.LiteHost`: bezokienny host JSON-lines, linkujący istniejące silniki plików/radia i trzy adaptery tempa; bez `MainWindow` i `UseWPF`. `Protocol/LiteAudioSettings.cs` waliduje wybór algorytmu na rzeczywistym modelu Core; `LiteEngineHandlers.ConfigureAudio` przekazuje go do plików i radia. Brak biblioteki natywnej daje odmowę wyboru, nie ciche potwierdzenie.
-- `wxlite/amc_wx_lite/gui.py`: natywna lista wirtualna, nawigacja lokalne/radio, menu Dźwięk → Algorytm przyspieszania. Wybór jest zapisywany po odpowiedzi hosta; opis mówi o zastosowaniu po ponownym otwarciu materiału. `state_store.Options` zapisuje wybór i tworzy wspólny payload startu/zmiany.
+- `wxlite/amc_wx_lite/gui.py`: ZWYKŁA natywna lista Windows (`LC_REPORT`, bez `LC_VIRTUAL`) z aktualizacją tylko faktycznie zmienionych wierszy i pól przez `list_sync`; nawigacja lokalne/radio, menu Dźwięk → Algorytm przyspieszania. Wybór jest zapisywany po odpowiedzi hosta; opis mówi o zastosowaniu po ponownym otwarciu materiału. `state_store.Options` zapisuje wybór i tworzy wspólny payload startu/zmiany.
 - `wxlite/tools/build_bundle.py`: `app/amc_wx_lite`, prywatny `runtime` i `host`; zachowuje katalogi licencji i haszuje exe/DLL. Ścieżka pakietu odpowiada izolowanemu `python*._pth`.
 - Wąskie testy rodzica: `AudioConfigurationTests`, `test_audio_preferences`, `test_tempo_menu`, `test_bundle_layout`. Odbiór GUI/NVDA i rzeczywistego wyjścia audio pozostaje osobną bramką; testy modeli/kompilacja go nie zastępują.
 
