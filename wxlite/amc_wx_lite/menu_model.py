@@ -79,10 +79,26 @@ def build_menus() -> tuple[Menu, ...]:
     library = Menu(
         "&Biblioteka",
         (
+            # Foldery Biblioteki dzialaly, ale wejscia w menu nie bylo.
+            # MainWindow.xaml:446 "Foldery _Biblioteki" Alt+1.
+            MenuItem("&Foldery Biblioteki", Action.VIEW_FOLDERS, shortcut="Alt+1"),
             MenuItem("&Wszystkie pliki alfabetycznie", Action.VIEW_ALL_FILES,
                      shortcut="Alt+2"),
             MenuItem("&Ulubione", Action.VIEW_FAVORITES, shortcut="Ctrl+U"),
             MenuItem("&Playlisty", Action.VIEW_PLAYLISTS, shortcut="Ctrl+P"),
+            SEPARATOR,
+            # Trzy odczyty aktywnosci. Skroty ODCZYTANE z kodu:
+            #   MainWindow.xaml:488 "_Historia odtwarzania" Ctrl+H
+            #   MainWindow.xaml:487 "_Kolejka"              Ctrl+Q
+            MenuItem("&Historia odtwarzania", Action.VIEW_HISTORY, shortcut="Ctrl+H"),
+            MenuItem("&Kolejka", Action.VIEW_SAVED_QUEUE, shortcut="Ctrl+Q"),
+            # NIE "Zakładki" jak MainWindow.xaml:489. Tamta pozycja (Ctrl+B,
+            # ViewBookmarks -> GetForDisplay) pokazuje WSZYSTKIE zakladki; my
+            # mamy port GetForItem, czyli zakladki JEDNEGO zaznaczonego pliku.
+            # Etykieta i gest musza ten wezszy zakres pokazac, a nie udawac
+            # szerszej komendy oryginalu.
+            MenuItem("&Zakładki zaznaczonego", Action.VIEW_ITEM_BOOKMARKS,
+                     shortcut="Ctrl+Shift+B", needs_selection=True),
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),
@@ -132,6 +148,10 @@ def build_menus() -> tuple[Menu, ...]:
             SEPARATOR,
             MenuItem("Widok &odtwarzacza", Action.SHOW_PLAYER, shortcut="F6",
                      needs_playback=True),
+            # Powrot na liste istnial tylko z klawiatury (Escape/Shift+F6).
+            # Akcja SHOW_LIST byla juz obslugiwana w _dispatch -- brakowalo
+            # samego wejscia w menu, wiec nie jest to martwa pozycja.
+            MenuItem("Powrót na &listę", Action.SHOW_LIST, shortcut="Escape"),
         ),
     )
 
