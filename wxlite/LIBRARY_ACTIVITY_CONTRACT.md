@@ -96,7 +96,9 @@ zakładek właśnie dlatego, że oryginał robi tam inaczej.
 - Identyfikatory są napisami i są stabilne; wiersz zakładki ma własne
   `bookmark:{Id}`.
 - Porównania wielkości liter: klucz sesji bez względu na wielkość
-  (`COLLATE NOCASE` ≡ `OrdinalIgnoreCase`), Id elementu binarnie (≡ `Ordinal`).
+  (dla znanych identyfikatorów sesji ASCII `COLLATE NOCASE` odpowiada
+  potrzebnemu porównaniu; nie jest ogólnie równoważne Unicode
+  `OrdinalIgnoreCase`), Id elementu binarnie (≡ `Ordinal`).
   Żadnego `str.upper()` jako przybliżenia kolatora. Prawdziwe kolacje zostają
   w `HostCollation` i tu nie są potrzebne, bo te trzy widoki mają porządek
   zapisany lub liczbowy.
@@ -123,6 +125,7 @@ wyłącznie rzeczy leżących **poza tym przydziałem**:
 2. **Rejestracja trzech widoków** w `gui.py`/`navigation.py`/`shortcuts.py`
    (nagłówki w `ActivityResult.heading`). Tych plików ten przyrost nie dotyka.
 3. **Skok do pozycji** z zakładki wymaga odtwarzacza; `position_ticks` jest już
-   podane w tickach C#, gotowe do przeliczenia na sekundy (`// 10_000_000`).
+   podane w tickach C#. Przy przeliczaniu na sekundy zachowaj część ułamkową
+   (`position_ticks / 10_000_000`); `//` błędnie obcinałoby pozycję.
 
 Nie zmierzono i nie deklaruje się tu żadnego zachowania GUI ani czytnika ekranu.

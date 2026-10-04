@@ -1,6 +1,13 @@
 # AMC — mapa kodu
 
-## AMC-wx-Lite: aktywność lokalnej Biblioteki (warstwa danych, po 4.2.2)
+## AMC Python: natywne menu i komunikaty (po AMC422)
+
+- `wxlite/amc_wx_lite/menu_model.py`: opis menu jako danych; pozycje przekazują `Action` do wspólnego `gui.MainWindow._dispatch`, tak jak skróty. Nie jest to jeszcze pełne menu oryginału. Brakuje osobnej pozycji Foldery oraz powrotu na listę z odtwarzacza.
+- `gui.py`: natywne menu i stany dostępności; krótki komunikat kopiowania odpowiada faktycznemu tekstowi ścieżki. `library_db.py` pomija nieznaną długość zamiast udawać 0:00.
+- Odczyt zmienianych list jest częściowo poprawiony, ale pozostają powtórzenia i stara nazwa przy Playlisty → Wszystkie pliki. Nie oznaczać tej części jako w pełni naprawionej.
+- Odbiór: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/parent-acceptance/`. Wykonanie Ulubionych i Playlist z menu zmierzono przez Alt+B, literę pozycji, NVDA i zmianę modelu. Sam niezmieniony widok po literze nie dowodzi wykonania menu.
+
+## AMC-wx-Lite: aktywność lokalnej Biblioteki (warstwa danych, po AMC422)
 
 - `wxlite/amc_wx_lite/library_activity.py`: tylko odczyt, trzy operacje — historia odtwarzania plików lokalnych, ZAPISANA kolejka (nie kolejka żywego silnika) i zakładki wybranego elementu. Reguły przepisane z `PlaybackHistory.cs` (9-13, 19, 29, 52-56), `BookmarkIndex.cs` (30-36, 53-56, 189-190), `TransientQueuePersistence.cs` (101, 109-127) oraz `MainWindow.xaml.cs` (9972, 10116-10117, 12853-12860, 13508-13525, 13749-13779) — nie z nazw tabel.
 - Historia filtruje przez `ActiveLocalItems` (`IsAvailable && IsInLibrary`), zakładki NIE — bo oryginał robi tam inaczej i pokazuje tytuł zapisany w zakładce. Członkostwo kolejki bierze się z zapisu, nie z kolumn `is_in_queue`/`is_play_next` (to migawka poprzedniej sesji). Nieznana data to „data utworzenia nieznana”, nie `0:00`.
