@@ -2,7 +2,7 @@
 
 ## AMC Python: natywne menu i komunikaty (po AMC422)
 
-- `wxlite/amc_wx_lite/menu_model.py`: opis menu jako danych; pozycje przekazują `Action` do wspólnego `gui.MainWindow._dispatch`, tak jak skróty. Nie jest to jeszcze pełne menu oryginału. Brakuje osobnej pozycji Foldery oraz powrotu na listę z odtwarzacza.
+- `wxlite/amc_wx_lite/menu_model.py`: opis menu jako danych; pozycje przekazują `Action` do wspólnego `gui.MainWindow._dispatch`, tak jak skróty. Nie jest to jeszcze pełne menu oryginału. Ma już pozycję Foldery Biblioteki (Alt+1), powrót na listę (`SHOW_LIST`) oraz trzy widoki aktywności (Historia Ctrl+H, Kolejka Ctrl+Q, Zakładki zaznaczonego Ctrl+Shift+B).
 - `gui.py`: natywne menu i stany dostępności; krótki komunikat kopiowania odpowiada faktycznemu tekstowi ścieżki. `library_db.py` pomija nieznaną długość zamiast udawać 0:00.
 - Odczyt zmienianych list jest częściowo poprawiony, ale pozostają powtórzenia i stara nazwa przy Playlisty → Wszystkie pliki. Nie oznaczać tej części jako w pełni naprawionej.
 - Odbiór: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/parent-acceptance/`. Wykonanie Ulubionych i Playlist z menu zmierzono przez Alt+B, literę pozycji, NVDA i zmianę modelu. Sam niezmieniony widok po literze nie dowodzi wykonania menu.
@@ -14,6 +14,7 @@
 - `Row` bez zmian konstruktora; metadane (`QueueRow`, `BookmarkRow`) leżą obok wiersza. Wiersz zakładki ma własne Id `bookmark:<id>`. Czasy w tickach .NET. Kontrakt GUI: `wxlite/LIBRARY_ACTIVITY_CONTRACT.md`.
 - `wxlite/tests/test_library_activity.py`: rogi na syntetycznej bazie o schemacie przepisanym z chronionego fixture (powtórzone Id, białe Id, pozycja niedostępna/poza biblioteką, starszy zapis kolejki bez list członkostwa, dwie zakładki na tej samej pozycji, rozdział bez bitu `Bookmark`, odczyt po prawdziwym commicie z OTWARTYM writerem) plus rzeczywisty odczyt całej właściwej części pełnej bazy z SHA przed/po.
 - `wxlite/tools/measure_library_activity.py`: kwit maszynowy na pełnej bazie (liczności, duplikaty, unikalne Id, hash kolejności, hash bazy przed/po) — bez nazw własnych. Formaty daty i czasu zweryfikowane uruchomieniem .NET 8.0.425 (`pl-PL`), nie z pamięci.
+- **Podłączenie tych trzech odczytów do interfejsu (po AMC422):** `library_source.load_view` zna widoki `history`/`saved_queue`/`item_bookmarks` i buduje dla zakładek mapę `bookmark_targets` (`Row.item_id` → ścieżka PLIKU, sekundy, tytuł). `navigation.py` trzyma `library_item_id` i `bookmark_targets` w stanie sesji, dzięki czemu Backspace z widoku zakładek wraca na ten sam plik, a `Row.item_id` postaci `bookmark:<id>` nigdy nie wychodzi do backendu jako ścieżka. `host_client.play_file` przekazuje `positionSeconds`, które `LiteEngineHandlers.cs` (`play.file`) już obsługiwał — stąd jedno wywołanie zamiast play+seek. Skróty zgodne z `MainWindow.xaml:481/482` (Ctrl+H, Ctrl+Q) i Alt+1 z `:446`; zakładki jednego pliku dostały świadomie własne Ctrl+Shift+B, bo Ctrl+B w C# to szersze `BookmarkIndex.GetForDisplay`.
 
 ## AMC-wx-Lite: kolejne widoki lokalnej Biblioteki (warstwa danych, po 4.2.2)
 
