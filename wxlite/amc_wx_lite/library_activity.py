@@ -541,14 +541,14 @@ def ordinal_sort_key(value: str) -> bytes:
     jest CASE-SENSITIVE. Dwie konsekwencje, obie zmierzone sonda
     ``all-bookmarks-after422/probe-display-order`` na .NET 8:
 
-    * ``utf-16-be`` zachowuje dokladnie ten porzadek (0 niezgodnych par na 55
-      napisach, 3025 porownan);
+    * ``utf-16-be`` zachowuje dokladnie ten porzadek (0 niezgodnych par na 69
+      napisach, 2346 porownan);
     * ``utf-8`` i zwykle ``str`` Pythona porzadkuja PUNKTY KODOWE -- 12
       niezgodnych par. Emoji ``U+1F600`` zaczyna sie w UTF-16 od ``D83D`` i
       jest MNIEJSZE od ``U+FFFD``, a w punktach kodowych wieksze.
 
     Dlatego NIE uzywamy tu hostowego ``ORDINAL_IGNORE_CASE``: ten tryb
-    podnosi litery do wersalikow (534 niezgodne pary wzgledem ``Ordinal``) i
+    podnosi litery do wersalikow (862 niezgodne pary wzgledem ``Ordinal``) i
     zrownalby Id ``"a"`` z ``"A"``, oddajac kolejnosc przypadkowi. Klucz
     liczymy LOKALNIE, bo to czysta transformacja bajtow bez udzialu kultury --
     nie potrzebuje hosta i nie jest nowym API kolacji.
