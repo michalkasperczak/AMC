@@ -281,6 +281,27 @@ class MediaListCtrl(wx.ListCtrl):
     def OnGetItemText(self, item: int, column: int) -> str:  # noqa: N802 - API wx
         return self.model.text_for(item, column)
 
+    def sync_rows(self) -> None:
+        """Cala podmiana listy jako JEDNA zmiana dla czytnika ekranu.
+
+        Licznik, odswiezenie tekstu i przestawienie kursora to trzy operacje
+        na kontrolce. Osobno kazda wysyla wlasne zdarzenie i NVDA czytal
+        biezacy wiersz kilka razy po jednym gescie (zmierzone na Ulubionych:
+        trzy identyczne odczyty "Emu ... 1 z 9").
+
+        ``Freeze``/``Thaw`` to standardowy mechanizm wx: wstrzymuje
+        przemalowanie kontrolki, a po ``Thaw`` jest jedno. Nie usypiamy
+        watku i nie wyciszamy czytnika -- oddajemy mu jedna zmiane zamiast
+        trzech. ``Thaw`` leci w ``finally``, bo zamrozona kontrolka po
+        wyjatku bylaby niewidoczna.
+        """
+        self.Freeze()
+        try:
+            self.sync_length()
+            self.sync_selection()
+        finally:
+            self.Thaw()
+
     def sync_length(self) -> None:
         """Nowa dlugosc listy ORAZ uniewaznienie tekstu wierszy.
 
@@ -933,8 +954,8 @@ class LiteFrame(wx.Frame):
 
         active_list = self._active_list()
         other_list = self.radio_list if active_list is self.files_list else self.files_list
-        active_list.sync_length()
-        active_list.sync_selection()
+        # Jedna podmiana zamiast trzech osobnych zmian dla czytnika.
+        active_list.sync_rows()
 
         want_player = session.view is View.PLAYER
         changed = self.player_panel.IsShown() != want_player or other_list.IsShown()

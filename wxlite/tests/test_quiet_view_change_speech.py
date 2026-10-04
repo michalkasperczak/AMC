@@ -80,6 +80,12 @@ class FakeVirtualList:
     def EnsureVisible(self, index: int) -> None:  # noqa: N802
         self.calls.append(("EnsureVisible", index))
 
+    def Freeze(self) -> None:  # noqa: N802
+        self.calls.append(("Freeze",))
+
+    def Thaw(self) -> None:  # noqa: N802
+        self.calls.append(("Thaw",))
+
 
 def make_ctrl(model: ListModel, selected: int = -1):
     """Zbuduj realny ``MediaListCtrl`` z podmieniona baza wx (bez pulpitu)."""
@@ -94,6 +100,7 @@ def make_ctrl(model: ListModel, selected: int = -1):
     # nie wxWidgets.
     ctrl.sync_length = MediaListCtrl.sync_length.__get__(ctrl, FakeVirtualList)
     ctrl.sync_selection = MediaListCtrl.sync_selection.__get__(ctrl, FakeVirtualList)
+    ctrl.sync_rows = MediaListCtrl.sync_rows.__get__(ctrl, FakeVirtualList)
     return ctrl
 
 
@@ -164,6 +171,49 @@ def test_selection_already_in_place_touches_nothing() -> None:
     ctrl = make_ctrl(model, selected=0)
     ctrl.sync_selection()
     assert ctrl.calls == []
+
+
+def test_whole_swap_happens_between_freeze_and_thaw() -> None:
+    """Podmiana listy to JEDNA zmiana dla czytnika, nie seria krokow.
+
+    Zmierzone na zywym NVDA po poprzedniej poprawce (gest S04, Ulubione):
+    stara nazwa zniknela, ale biezacy wiersz byl czytany trzy razy --
+    kazdy krok podmiany (licznik, odswiezenie, stan) generowal wlasne
+    zdarzenie. ``Freeze``/``Thaw`` scala je w jedno przemalowanie.
+
+    To standardowy mechanizm wx, nie usypianie i nie wyciszanie czytnika.
+    """
+    model = ListModel()
+    model.replace([track("1", "Alfa"), track("2", "Beta")])
+    # Kursor kontrolki stoi na 0, a model chce 1 -- dopiero wtedy jest
+    # prawdziwe przestawienie stanu do zmierzenia.
+    ctrl = make_ctrl(model, selected=0)
+    model.select_id("2")
+
+    ctrl.sync_rows()
+
+    names = [c[0] for c in ctrl.calls]
+    assert names[0] == "Freeze", f"podmiana musi zaczac sie od Freeze: {names}"
+    assert names[-1] == "Thaw", f"i skonczyc na Thaw: {names}"
+    # Wszystko, co dotyka listy, dzieje sie W SRODKU.
+    inner = names[1:-1]
+    assert "SetItemCount" in inner and "SetItemState" in inner
+    assert "Freeze" not in inner and "Thaw" not in inner, "bez zagniezdzania"
+
+
+def test_frozen_swap_still_updates_count_and_selection() -> None:
+    """Zamrozenie nie moze zgubic samej podmiany."""
+    model = ListModel()
+    model.replace([track(str(i), f"Poz {i}") for i in range(5)])
+    ctrl = make_ctrl(model, selected=0)
+    model.select_id("3")
+
+    ctrl.sync_rows()
+
+    counts = [c for c in ctrl.calls if c[0] == "SetItemCount"]
+    assert counts and counts[-1][1] == 5
+    states = [c for c in ctrl.calls if c[0] == "SetItemState"]
+    assert states and states[-1][1] == 3
 
 
 # --------------------------------- 3. bez wlasnej zapowiedzi tego samego wiersza
