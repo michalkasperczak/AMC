@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from .collation import COLLATION_ORDINAL_IGNORE_CASE, COLLATION_TITLE_IGNORE_CASE
 from .library_db import AMC_PL, LibraryDatabase, LibraryItem, _ACTIVE, _format_detail
 from .list_model import Row
 
@@ -172,27 +173,54 @@ def all_files_rows(
 def _order_by_title_then_source(
     items: Sequence[LibraryItem], collation
 ) -> list[LibraryItem]:
-    """Dwa klucze C#: AMC_PL po tytule, potem ``OrdinalIgnoreCase`` po sciezce.
+    """Dwa klucze C#, OBA liczone przez host, kazdy we WLASCIWYM trybie.
 
-    Klucze tytulow bierzemy z hosta JEDNA partia (``collation.load``), a nie
-    porownywarka IPC na pare -- to byloby 2475*log(2475) przejsc przez most.
+    ``OrderBy(Title, StringComparer.CurrentCultureIgnoreCase)
+    .ThenBy(Source ?? "", StringComparer.OrdinalIgnoreCase)``.
 
-    Zmierzone na pelnej bazie: klucze AMC_PL odtwarzaja kolejnosc
-    ``CurrentCultureIgnoreCase`` co do pozycji (kwit
-    ``csharp-order-allfiles.json``, ``amcPlKeysDifferFromAllFiles = 0``).
+    Klucze bierzemy z hosta PARTIAMI (``collation.load``), po jednej partii na
+    tryb, a nie porownywarka IPC na pare -- to byloby 2475*log(2475) przejsc
+    przez most.
+
+    Dlaczego NIE ``AMC_PL`` dla tytulu
+    ----------------------------------
+    ``AMC_PL`` to ``IgnoreCase | IgnoreNonSpace``, a widok uzywa
+    ``CurrentCultureIgnoreCase``, czyli ``IgnoreCase`` SAMO. ``IgnoreNonSpace``
+    ignoruje akcenty, wiec ``"e"`` i ``"é"`` wychodza RowNE i kolejnosc miedzy
+    nimi zostaje losowa (wejsciowa). Zmierzone na .NET 8.0.31 pl-PL: wzorzec to
+    ``plain, accent``, a ``AMC_PL`` oddawalo ``accent, plain``.
+    Foldery i indeks SQL zostaja na ``AMC_PL`` -- tam ``IgnoreNonSpace`` jest
+    zamierzone (p. ``order_library_rows``).
+
+    Dlaczego NIE ``str.upper()`` dla sciezki
+    ----------------------------------------
+    ``str.upper()`` w Pythonie robi PELNE mapowanie jezykowe i rozwija ``"ß"``
+    do ``"SS"``. ``OrdinalIgnoreCase`` tego nie robi -- porownuje skalary, a
+    ``U+00DF`` (223) jest ZA ``"S"`` (83). Po ``str.upper()`` klucze ``"C:\\ß"``
+    i ``"C:\\ss"`` byly IDENTYCZNE i tie-break przestawal istniec. Host oddaje
+    teraz ``Rune.ToUpperInvariant`` skalar po skalarze w UTF-8 (0 niezgodnych
+    par z oryginalnym ``StringComparer.OrdinalIgnoreCase``, kwit
+    ``collection-sort-after422/probe-order-modes``).
     """
     titles = [i.title for i in items]
-    collation.load(titles)
-    missing = [t for t in titles if collation.key_for(t) is None]
-    if missing:
-        raise ValueError(f"Host nie oddal kluczy AMC_PL dla {len(missing)} tytulow")
+    paths = [i.path or "" for i in items]
+
+    collation.load(titles, mode=COLLATION_TITLE_IGNORE_CASE)
+    collation.load(paths, mode=COLLATION_ORDINAL_IGNORE_CASE)
+
+    def key_of(value: str, mode: str) -> bytes:
+        key = collation.key_for(value, mode=mode)
+        if key is None:
+            # Brak choc jednego klucza to blad: czesc listy ulozylaby sie
+            # zgodnie z C#, a czesc nie, i nikt by tego nie zauwazyl.
+            raise ValueError(f"Host nie oddal klucza {mode} dla {value!r}")
+        return key
+
     return sorted(
         items,
         key=lambda i: (
-            collation.key_for(i.title),
-            # ThenBy(Source ?? "", OrdinalIgnoreCase): .NET porownuje po
-            # wersalikach, nie po malych literach.
-            (i.path or "").upper(),
+            key_of(i.title, COLLATION_TITLE_IGNORE_CASE),
+            key_of(i.path or "", COLLATION_ORDINAL_IGNORE_CASE),
         ),
     )
 

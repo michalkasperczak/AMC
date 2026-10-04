@@ -183,6 +183,222 @@ class HostCollationReproducesCSharpOrderOnTheFullCorpus(unittest.TestCase):
         self.assertEqual(len(calls), before, "Powtorne sortowanie wolalo hosta")
 
 
+class ModeContractMatchesOriginalComparers(unittest.TestCase):
+    """Tryby kluczy zmierzone wzgledem ORYGINALNYCH komparatorow .NET.
+
+    Kwit ``tests/data/csharp-mode-contract.json`` powstal z sondy
+    ``probe-mode-contract``, ktora liczy klucze DOKLADNIE tymi wyrazeniami co
+    ``LiteEngineHandlers.CollationKeys``, a wynik porownuje z ORYGINALNYMI
+    ``StringComparer.CurrentCultureIgnoreCase``, ``StringComparer.OrdinalIgnoreCase``
+    i ``CompareInfo.Compare(IgnoreCase|IgnoreNonSpace)`` -- nie z druga kopia
+    tej samej implementacji.
+
+    70 napisow kontrolnych, 4830 par na tryb. Sa tam pary zastepcze (poza BMP),
+    tureckie ``ı``/``İ``, znaki skladane kontra gotowe, ligatury i ``ß``.
+    """
+
+    CONTRACT = Path(__file__).resolve().parent / "data" / "csharp-mode-contract.json"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.payload = json.loads(cls.CONTRACT.read_text(encoding="utf-8"))
+
+    def test_every_mode_reproduces_its_original_comparer(self):
+        """Zero niezgodnych par w KAZDYM trybie -- inaczej kwit jest bezwartosciowy."""
+        for mode, data in self.payload["modes"].items():
+            with self.subTest(mode=mode):
+                self.assertGreater(data["pairsChecked"], 4000, "za maly pomiar")
+                self.assertEqual(
+                    data["mismatches"],
+                    0,
+                    f"{mode} rozjezdza sie z oryginalnym komparatorem",
+                )
+        self.assertEqual(self.payload["verdict"], "ZGODNE")
+
+    def test_python_byte_order_equals_dotnet_order_in_every_mode(self):
+        """To, co robi Python: uklada po BAJTACH klucza i musi trafic w .NET.
+
+        Tu nie ma zadnej reguly jezykowej po stronie Pythona -- tylko
+        ``sort_key_order`` na bajtach z hosta. Jesli ta funkcja rozjedzie sie
+        z .NET, test padnie na konkretnym trybie.
+        """
+        strings = self.payload["strings"]
+        for mode, data in self.payload["exported"].items():
+            with self.subTest(mode=mode):
+                keys = [base64.b64decode(k) for k in data["keys"]]
+                ordered = sort_key_order(list(zip(range(len(strings)), keys)))
+                self.assertEqual(
+                    [index for index, _ in ordered],
+                    data["referenceOrder"],
+                    f"{mode}: kolejnosc po bajtach != kolejnosc .NET",
+                )
+
+    def test_title_mode_is_not_interchangeable_with_the_amc_pl_folder_mode(self):
+        """Gdyby tryby byly rownowazne, cala poprawka nie mialaby znaczenia."""
+        self.assertFalse(
+            self.payload["amcPlKeysEqualTitleKeys"],
+            "AMC_PL i TITLE_IGNORE_CASE daja te same klucze -- pomiar jest zepsuty",
+        )
+        # AMC_PL ma IgnoreNonSpace, wiec "e" i "é" to dla niego REMIS...
+        self.assertEqual(self.payload["accentTieInAmcPl"], 0)
+        # ...a widok "Wszystkie pliki" stawia "e" PRZED "é".
+        self.assertLess(self.payload["accentOrderInTitleIgnoreCase"], 0)
+
+    def test_ordinal_mode_keeps_eszett_after_ss(self):
+        """``OrdinalIgnoreCase`` nie rozwija ``ß`` do ``SS`` -- inaczej niz Python."""
+        self.assertGreater(
+            self.payload["eszettPathOrdinal"],
+            0,
+            "U+00DF (223) musi byc ZA 'S' (83)",
+        )
+        # I dowod, ze Python sam by tego nie trafil:
+        self.assertEqual("C:\\ß".upper(), "C:\\SS")
+        self.assertEqual("C:\\ß".upper(), "C:\\ss".upper())
+
+    def test_measurement_ran_on_the_culture_the_user_actually_has(self):
+        """``CurrentCulture`` to kultura WATKU -- pomiar w innej nic nie znaczy."""
+        self.assertEqual(self.payload["culture"], "pl-PL")
+        self.assertTrue(self.payload["runtime"].startswith("8."))
+
+
+class ModesDoNotShareOneKeyCache(unittest.TestCase):
+    """Cache per tryb. Wspolny slownik mieszalby klucze roznych opcji."""
+
+    def _recording_call(self, label: str):
+        def call(op, args=None, timeout=None):
+            # Klucz zalezy od TRYBU, tak jak u prawdziwego hosta.
+            mode = (args or {}).get("mode")
+            return {
+                "collation": mode,
+                "keys": [
+                    base64.b64encode(f"{label}:{mode}:{t}".encode()).decode("ascii")
+                    for t in (args or {}).get("titles") or []
+                ],
+            }
+
+        return call
+
+    def test_same_string_gets_different_keys_per_mode(self):
+        collation = HostCollation(self._recording_call("k"))
+        collation.load(["e"], mode=collation_module.COLLATION_AMC_PL)
+        collation.load(["e"], mode=collation_module.COLLATION_TITLE_IGNORE_CASE)
+        self.assertNotEqual(
+            collation.key_for("e", mode=collation_module.COLLATION_AMC_PL),
+            collation.key_for("e", mode=collation_module.COLLATION_TITLE_IGNORE_CASE),
+            "Klucze z roznych trybow nie moga wpadac do jednego worka",
+        )
+
+    def test_loading_one_mode_does_not_satisfy_another(self):
+        """Doczytanie AMC_PL nie moze udawac, ze mamy juz klucze IgnoreCase."""
+        collation = HostCollation(self._recording_call("k"))
+        collation.load(["e"], mode=collation_module.COLLATION_AMC_PL)
+        self.assertIsNone(
+            collation.key_for("e", mode=collation_module.COLLATION_ORDINAL_IGNORE_CASE)
+        )
+
+    def test_unknown_mode_is_refused_not_silently_treated_as_amc_pl(self):
+        with self.assertRaises(HostCollationUnavailable):
+            HostCollation(self._recording_call("k")).load(["a"], mode="WYMYSLONY")
+
+    def test_default_mode_stays_amc_pl_for_existing_callers(self):
+        """Stary kod wola ``load(titles)`` bez trybu i musi dostac AMC_PL."""
+        seen: list[str | None] = []
+
+        def call(op, args=None, timeout=None):
+            seen.append((args or {}).get("mode"))
+            return {
+                "collation": (args or {}).get("mode"),
+                "keys": [
+                    base64.b64encode(t.encode()).decode("ascii")
+                    for t in (args or {}).get("titles") or []
+                ],
+            }
+
+        collation = HostCollation(call)
+        collation.load(["a"])
+        self.assertEqual(seen, [collation_module.COLLATION_AMC_PL])
+        self.assertIsNotNone(collation.key_for("a"))
+
+    def test_host_answering_with_a_different_mode_is_refused(self):
+        """Stary host zignoruje ``mode`` i odpowie ``AMC_PL``.
+
+        Bez tej kontroli dostalibysmy klucze z ``IgnoreNonSpace`` pod etykieta
+        ``IgnoreCase``, czyli dokladnie naprawiany blad, tylko niewidoczny.
+        """
+
+        def stale_host(op, args=None, timeout=None):
+            return {
+                "collation": "AMC_PL",  # ignoruje prosbe o inny tryb
+                "keys": [
+                    base64.b64encode(t.encode()).decode("ascii")
+                    for t in (args or {}).get("titles") or []
+                ],
+            }
+
+        with self.assertRaises(HostCollationUnavailable) as caught:
+            HostCollation(stale_host).load(
+                ["e"], mode=collation_module.COLLATION_TITLE_IGNORE_CASE
+            )
+        self.assertIn("Przebuduj LiteHost", str(caught.exception))
+
+    def test_mode_travels_in_the_request(self):
+        """Tryb musi jechac w zadaniu, inaczej host nie ma skad go wziac."""
+        sent: list[dict] = []
+
+        def call(op, args=None, timeout=None):
+            sent.append(dict(args or {}))
+            return {
+                "collation": (args or {}).get("mode"),
+                "keys": [
+                    base64.b64encode(t.encode()).decode("ascii")
+                    for t in (args or {}).get("titles") or []
+                ],
+            }
+
+        HostCollation(call).load(
+            ["C:/a"], mode=collation_module.COLLATION_ORDINAL_IGNORE_CASE
+        )
+        self.assertEqual(
+            sent[0]["mode"], collation_module.COLLATION_ORDINAL_IGNORE_CASE
+        )
+        self.assertEqual(sent[0]["titles"], ["C:/a"])
+
+
+class PathBatchesAlsoRespectTheLineLimit(unittest.TestCase):
+    """Sciezki ida tym samym kanalem i tez musza byc dzielone.
+
+    Sciezki potrafia byc DLUZSZE od tytulow, wiec gdyby limit 64 KiB
+    obowiazywal tylko tytuly, widok "Wszystkie pliki" wiesilby sie na duzej
+    bibliotece -- host odrzuca wiersz, a odpowiedz bledu nie ma pola ``id``.
+    """
+
+    def test_long_paths_are_split_into_requests_under_the_limit(self):
+        paths = [f"C:/Muzyka/Katalog {i:05d}/Bardzo dlugi plik {i:05d}.mp3" for i in range(2596)]
+        sent: list[list[str]] = []
+
+        def fake_call(op, args=None, timeout=None):
+            batch = list((args or {}).get("titles") or [])
+            sent.append(batch)
+            line = json.dumps(
+                {"id": "1", "op": op, "args": {"titles": batch, "mode": "ORDINAL_IGNORE_CASE"}},
+                ensure_ascii=False,
+            )
+            self.assertLessEqual(
+                len(line.encode("utf-8")), collation_module.MAX_REQUEST_BYTES
+            )
+            return {
+                "collation": (args or {}).get("mode"),
+                "keys": [
+                    base64.b64encode(p.encode("utf-8")).decode("ascii") for p in batch
+                ],
+            }
+
+        collation = HostCollation(fake_call)
+        collation.load(paths, mode=collation_module.COLLATION_ORDINAL_IGNORE_CASE)
+        self.assertGreater(len(sent), 1, "2596 dlugich sciezek musi sie podzielic")
+        self.assertEqual(sum(len(b) for b in sent), len(paths))
+
+
 class BatchesStayUnderTheProtocolLineLimit(unittest.TestCase):
     """Zmierzone na ZYWYM hoscie: wiersz > 64 KiB konczy sie 'line_too_long'.
 

@@ -1,0 +1,78 @@
+{
+  "schema": "amc-wx-collection-sort/csharp-sort-edge/1",
+  "zrodlo": "probe-order-modes/Program.cs -- OrderBy(Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(Source ?? \"\", StringComparer.OrdinalIgnoreCase)",
+  "runtime": "8.0.31",
+  "os": "Unix 6.18.33.2",
+  "culture": "pl-PL",
+  "uwaga": "Dane SYNTETYCZNE (4 rekordy), zadnego tytulu ani sciezki uzytkownika.",
+  "items": [
+    {
+      "id": "accent",
+      "title": "é",
+      "path": "C:\\a"
+    },
+    {
+      "id": "plain",
+      "title": "e",
+      "path": "C:\\z"
+    },
+    {
+      "id": "eszett",
+      "title": "x",
+      "path": "C:\\ß"
+    },
+    {
+      "id": "ss",
+      "title": "x",
+      "path": "C:\\ss"
+    }
+  ],
+  "referenceOrder": [
+    "plain",
+    "accent",
+    "ss",
+    "eszett"
+  ],
+  "referenceOrderSha256": "4584750256dde0cf12eee6d7693fb9342682db622922a0de5801c49ee98269e4",
+  "amcPlKeyOrder": [
+    "accent",
+    "plain",
+    "ss",
+    "eszett"
+  ],
+  "amcPlKeyOrderDiff": 2,
+  "titles": [
+    "é",
+    "e",
+    "x"
+  ],
+  "titleKeys": [
+    "MwFFiAA=",
+    "MwEFAA==",
+    "WQEFAA=="
+  ],
+  "amcPlKeys": [
+    "MwA=",
+    "MwA=",
+    "WQA="
+  ],
+  "paths": [
+    "C:\\a",
+    "C:\\z",
+    "C:\\ß",
+    "C:\\ss"
+  ],
+  "pathKeys": [
+    "QzpcQQ==",
+    "QzpcWg==",
+    "Qzpcw58=",
+    "QzpcU1M="
+  ],
+  "pairMismatchesVsOriginal": {
+    "titleIgnoreCase": 0,
+    "ordinalIgnoreCase_runeUtf8": 0,
+    "ordinalIgnoreCase_utf16UpperInvariant": 4,
+    "ordinalIgnoreCase_utf16PerChar": 4
+  },
+  "probeStrings": 75
+}

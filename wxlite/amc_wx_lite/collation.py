@@ -79,6 +79,46 @@ from typing import Any, Callable, Iterable, Sequence
 #: Operacja protokolu hosta (JSON-lines). Jedno wywolanie na caly wsad.
 COLLATION_OP = "library.collationKeys"
 
+#: Tryb kluczy: kolacja ``AMC_PL`` ze schematu SQL.
+#:
+#: ``CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace``
+#: (``LocalLibraryDatabase.cs``). Uzywaja go Foldery i indeks ``AMC_PL`` i
+#: MUSI zostac bez zmian -- ``IgnoreNonSpace`` jest tam zamierzone.
+COLLATION_AMC_PL = "AMC_PL"
+
+#: Tryb kluczy: tytul w widokach "Wszystkie pliki" i alfabetycznych Ulubionych.
+#:
+#: C# sortuje je ``StringComparer.CurrentCultureIgnoreCase``, czyli
+#: ``CompareOptions.IgnoreCase`` SAMO -- bez ``IgnoreNonSpace``. Roznica jest
+#: widoczna: ``AMC_PL`` zrownuje ``"e"`` z ``"é"``, a widok NIE (zmierzone,
+#: ``collection-sort-after422/probe-order-modes``).
+COLLATION_TITLE_IGNORE_CASE = "TITLE_IGNORE_CASE"
+
+#: Tryb kluczy: tie-break po ``Source`` (dla pozycji lokalnej: sciezka pliku).
+#:
+#: C#: ``StringComparer.OrdinalIgnoreCase``. To NIE jest kolacja jezykowa --
+#: host oddaje napis przepuszczony przez ``Rune.ToUpperInvariant`` SKALAR PO
+#: SKALARZE, zakodowany w UTF-8. Dwie pulapki, obie zmierzone:
+#:
+#: * ``str.upper()`` w Pythonie rozwija ``"ß"`` do ``"SS"`` (pelne mapowanie
+#:   jezykowe). ``OrdinalIgnoreCase`` takiego rozwiniecia NIE zna, wiec
+#:   ``"C:\\ss"`` idzie PRZED ``"C:\\ß"`` -- a po ``str.upper()`` oba klucze
+#:   sa rowne i tie-break znika.
+#: * ``ToUpperInvariant`` na calym napisie w .NET tez nie wystarcza: mierzone
+#:   warianty UTF-16 rozjechaly sie z oryginalem na 4 parach z 4 (pary
+#:   zastepcze), bo ``OrdinalIgnoreCase`` porzadkuje SKALARY, a nie jednostki
+#:   kodowe UTF-16. UTF-8 zachowuje porzadek punktow kodowych, wiec porownanie
+#:   bajtow w Pythonie odtwarza go dokladnie: 0 niezgodnych par z oryginalnym
+#:   ``StringComparer.OrdinalIgnoreCase``.
+COLLATION_ORDINAL_IGNORE_CASE = "ORDINAL_IGNORE_CASE"
+
+#: Tryby, ktore host potrafi policzyc. Nieznany tryb to blad, nie cichy AMC_PL.
+COLLATION_MODES = (
+    COLLATION_AMC_PL,
+    COLLATION_TITLE_IGNORE_CASE,
+    COLLATION_ORDINAL_IGNORE_CASE,
+)
+
 #: Gorny prog jednego wsadu w SZTUKACH. Zabezpieczenie zdrowego rozsadku.
 MAX_BATCH = 50_000
 
@@ -106,36 +146,43 @@ class HostCollationUnavailable(RuntimeError):
     """
 
 
-def _batch_titles(titles: Sequence[str]) -> list[list[str]]:
-    """Podziel tytuly na wsady, ktore zmieszcza sie w jednym wierszu protokolu.
+def _batch_values(values: Sequence[str]) -> list[list[str]]:
+    """Podziel napisy na wsady, ktore zmieszcza sie w jednym wierszu protokolu.
 
     Dzielimy po BAJTACH, nie po liczbie pozycji: 2596 krotkich tytulow to
     ~100 KB, a kilkaset bardzo dlugich moze przekroczyc prog szybciej.
+
+    Dotyczy tak samo tytulow jak sciezek -- sciezki potrafia byc DLUZSZE, wiec
+    ten sam limit obowiazuje bez wyjatku.
     """
     batches: list[list[str]] = []
     current: list[str] = []
     current_bytes = _ENVELOPE_OVERHEAD
 
-    for title in titles:
+    for value in values:
         # json.dumps z domyslnymi ustawieniami rozdziela elementy przez ", "
         # -- DWA bajty, nie jeden. Policzone za nisko o bajt na tytul daje
         # przy 1300 tytulach 1,3 KB nadmiaru i wiersz ponad progiem.
-        cost = len(json.dumps(title, ensure_ascii=False).encode("utf-8")) + 2
+        cost = len(json.dumps(value, ensure_ascii=False).encode("utf-8")) + 2
         if cost + _ENVELOPE_OVERHEAD > MAX_REQUEST_BYTES:
             raise HostCollationUnavailable(
-                f"Pojedynczy tytul zajmuje {cost} B i nie zmiesci sie w wierszu "
+                f"Pojedynczy napis zajmuje {cost} B i nie zmiesci sie w wierszu "
                 f"protokolu ({MAX_REQUEST_BYTES} B). Host odrzucilby to zadanie."
             )
         if current and current_bytes + cost > MAX_REQUEST_BYTES:
             batches.append(current)
             current = []
             current_bytes = _ENVELOPE_OVERHEAD
-        current.append(title)
+        current.append(value)
         current_bytes += cost
 
     if current:
         batches.append(current)
     return batches
+
+
+#: Dawna nazwa, zostaje dla czytelnosci starszych kwitow i testow.
+_batch_titles = _batch_values
 
 
 def sort_key_order(
@@ -158,17 +205,39 @@ def sort_key_order(
 
 
 class HostCollation:
-    """Klucze sortowania AMC_PL policzone przez host C#, pamietane lokalnie."""
+    """Klucze sortowania policzone przez host C#, pamietane lokalnie.
+
+    Jeden obiekt obsluguje KILKA trybow (``COLLATION_MODES``), bo jeden widok
+    potrzebuje dwoch naraz: tytul po ``IgnoreCase`` i sciezke po
+    ``OrdinalIgnoreCase``. Cache jest rozdzielony PER TRYB -- te same bajty
+    wejsciowe daja w roznych trybach rozne klucze, wiec wspolny slownik
+    mieszalby ``"e"`` z ``AMC_PL`` i ``"e"`` z ``IgnoreCase``.
+
+    API dla wolajacego sie NIE zmienia: ``HostCollation(client.call)``, a
+    ``load``/``key_for`` bez ``mode`` dzialaja jak dotad (``AMC_PL``).
+    """
 
     def __init__(self, call: Callable[..., Any]) -> None:
         self._call = call
-        self._keys: dict[str, bytes] = {}
+        #: tryb -> {napis: klucz}. Nigdy jeden wspolny slownik.
+        self._keys: dict[str, dict[str, bytes]] = {m: {} for m in COLLATION_MODES}
 
     # ------------------------------------------------------------- budowanie
 
+    def _cache(self, mode: str) -> dict[str, bytes]:
+        if mode not in self._keys:
+            raise HostCollationUnavailable(
+                f"Nieznany tryb kolacji {mode!r}. Znane: {', '.join(COLLATION_MODES)}."
+            )
+        return self._keys[mode]
+
     @classmethod
     def from_payload(cls, payload: dict) -> "HostCollation":
-        """Zbuduj z gotowego wsadu (kwit pomiaru albo zapamietana odpowiedz)."""
+        """Zbuduj z gotowego wsadu (kwit pomiaru albo zapamietana odpowiedz).
+
+        Wsad bez ``mode`` traktujemy jako ``AMC_PL`` -- tak wygladaja wszystkie
+        starsze kwity i nie chcemy ich przepisywac.
+        """
 
         def refuse(*_args, **_kwargs):
             raise HostCollationUnavailable("Ta kolacja nie ma zywego hosta.")
@@ -178,60 +247,87 @@ class HostCollation:
         keys = payload.get("keys") or []
         if titles is None:
             raise HostCollationUnavailable("Wsad bez listy tytulow.")
-        collation._absorb(titles, keys)
+        collation._absorb(titles, keys, payload.get("mode") or COLLATION_AMC_PL)
         return collation
 
-    def _absorb(self, titles: Sequence[str], keys: Sequence[str]) -> None:
-        if len(keys) != len(titles):
+    def _absorb(self, values: Sequence[str], keys: Sequence[str], mode: str) -> None:
+        if len(keys) != len(values):
             raise HostCollationUnavailable(
-                f"Host oddal {len(keys)} kluczy na {len(titles)} tytulow."
+                f"Host oddal {len(keys)} kluczy na {len(values)} napisow."
             )
-        for title, encoded in zip(titles, keys):
+        cache = self._cache(mode)
+        for value, encoded in zip(values, keys):
             if not isinstance(encoded, str):
-                raise HostCollationUnavailable(f"Klucz dla {title!r} nie jest napisem base64.")
-            self._keys[title] = base64.b64decode(encoded)
+                raise HostCollationUnavailable(f"Klucz dla {value!r} nie jest napisem base64.")
+            cache[value] = base64.b64decode(encoded)
 
-    def load(self, titles: Iterable[str]) -> None:
-        """Dociagnij klucze dla brakujacych tytulow.
+    def load(self, values: Iterable[str], *, mode: str = COLLATION_AMC_PL) -> None:
+        """Dociagnij klucze dla brakujacych napisow w danym trybie.
 
         Wsad dzielimy na tyle zadan, ile trzeba, zeby ZADEN wiersz protokolu
         nie przekroczyl progu hosta. Nadal jest to sortowanie wsadowe: liczba
         wywolan rosnie z rozmiarem danych (2-3 na pelny poziom Biblioteki), a
         NIE z liczba porownywanych par.
+
+        Tryb jedzie w zadaniu jako ``mode``. Host, ktory tego pola nie zna,
+        policzy ``AMC_PL`` i oddalby ZLE klucze dla tytulu -- dlatego
+        sprawdzamy ``collation`` w odpowiedzi i odmawiamy, zamiast cicho
+        posortowac niezgodnie.
         """
-        wanted = list(dict.fromkeys(titles))
-        missing = [t for t in wanted if t not in self._keys]
+        cache = self._cache(mode)
+        wanted = list(dict.fromkeys(values))
+        missing = [v for v in wanted if v not in cache]
         if not missing:
             return
         if len(missing) > MAX_BATCH:
             raise HostCollationUnavailable(
-                f"Wsad {len(missing)} tytulow przekracza prog {MAX_BATCH}."
+                f"Wsad {len(missing)} napisow przekracza prog {MAX_BATCH}."
             )
-        for batch in _batch_titles(missing):
-            response = self._call(COLLATION_OP, {"titles": batch}, timeout=60.0)
+        for batch in _batch_values(missing):
+            response = self._call(
+                COLLATION_OP, {"titles": batch, "mode": mode}, timeout=60.0
+            )
             if not isinstance(response, dict):
                 raise HostCollationUnavailable("Host nie oddal obiektu z kluczami.")
-            self._absorb(batch, response.get("keys") or [])
+            # Stary host nie zna ``mode`` i ODPOWIE etykieta "AMC_PL" nawet na
+            # prosbe o inny tryb. Bez tej kontroli dostalibysmy klucze z
+            # IgnoreNonSpace pod nazwa IgnoreCase -- czyli dokladnie ten blad,
+            # ktory naprawiamy, tylko trudniejszy do zauwazenia.
+            declared = response.get("collation")
+            if declared is not None and declared != mode:
+                raise HostCollationUnavailable(
+                    f"Poprosilem o tryb {mode!r}, host oddal {declared!r}. "
+                    "Przebuduj LiteHost -- stara wersja nie zna pola \"mode\"."
+                )
+            self._absorb(batch, response.get("keys") or [], mode)
 
     # ------------------------------------------------------------ sortowanie
 
-    def key_for(self, title: str) -> bytes | None:
-        return self._keys.get(title)
+    def key_for(self, value: str, *, mode: str = COLLATION_AMC_PL) -> bytes | None:
+        return self._cache(mode).get(value)
 
-    def sort(self, titles: Sequence[str]) -> list[str]:
-        """Tytuly w kolejnosci C#. Doczyta brakujace klucze, jesli ma hosta."""
-        if any(t not in self._keys for t in titles):
-            self.load(titles)
-        return [t for t, _ in sort_key_order((t, self._keys.get(t)) for t in titles)]
+    def sort(self, titles: Sequence[str], *, mode: str = COLLATION_AMC_PL) -> list[str]:
+        """Napisy w kolejnosci C#. Doczyta brakujace klucze, jesli ma hosta."""
+        cache = self._cache(mode)
+        if any(t not in cache for t in titles):
+            self.load(titles, mode=mode)
+        return [t for t, _ in sort_key_order((t, cache.get(t)) for t in titles)]
 
-    def sort_rows(self, rows: Sequence[Any], *, key: Callable[[Any], str]) -> list[Any]:
-        """To samo dla wierszy listy: ``key`` wyciaga tytul z wiersza."""
+    def sort_rows(
+        self,
+        rows: Sequence[Any],
+        *,
+        key: Callable[[Any], str],
+        mode: str = COLLATION_AMC_PL,
+    ) -> list[Any]:
+        """To samo dla wierszy listy: ``key`` wyciaga napis z wiersza."""
+        cache = self._cache(mode)
         titles = [key(row) for row in rows]
-        if any(t not in self._keys for t in titles):
-            self.load(titles)
+        if any(t not in cache for t in titles):
+            self.load(titles, mode=mode)
         return [
             row
-            for row, _ in sort_key_order((row, self._keys.get(key(row))) for row in rows)
+            for row, _ in sort_key_order((row, cache.get(key(row))) for row in rows)
         ]
 
 

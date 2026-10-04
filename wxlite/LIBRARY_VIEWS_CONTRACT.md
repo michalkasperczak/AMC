@@ -47,12 +47,66 @@ _unfilteredItems = ActiveLocalItems()
 * sort jest STABILNY (LINQ `OrderBy`/`ThenBy`), wiec przy identycznym
   tytule i sciezce zostaje kolejnosc wejsciowa.
 
-Alfabetyka idzie z `HostCollation` (klucze AMC_PL z hosta), nie z nowego
-kolatora. Zmierzone na peinej bazie (2475 aktywnych, kwit
-`csharp-order-allfiles.json`): klucze AMC_PL
-(`IgnoreCase|IgnoreNonSpace`) daja DOKLADNIE te sama kolejnosc, co
-`CurrentCultureIgnoreCase` -- `amcPlKeysDifferFromAllFiles = 0`, ten sam
-SHA-256 ciagu Id. Dlatego reuzycie kluczy hosta jest uprawnione.
+Alfabetyka idzie z `HostCollation` (klucze z oryginalnego `CompareInfo`), nie
+z nowego kolatora Python. Kazdy z dwoch kluczy ma WLASNY tryb:
+
+| klucz | tryb `HostCollation` | opcje .NET |
+|---|---|---|
+| `Title` | `COLLATION_TITLE_IGNORE_CASE` | `CompareOptions.IgnoreCase` |
+| `Source` (sciezka) | `COLLATION_ORDINAL_IGNORE_CASE` | per-rune `ToUpperInvariant` + UTF-8 |
+
+### Dlaczego NIE jeden tryb AMC_PL dla obu
+
+Wczesniejsza wersja tego kontraktu twierdzila, ze klucze `AMC_PL`
+(`IgnoreCase|IgnoreNonSpace`) daja te sama kolejnosc co
+`CurrentCultureIgnoreCase`, bo na pelnej bazie (2475 aktywnych)
+`amcPlKeysDifferFromAllFiles = 0`. **To byla zgoda na JEDNYM korpusie, a nie
+rownowaznosc opcji sortu.** Zmierzony kontrprzyklad (prawdziwy .NET 8.0.31,
+`pl-PL`, kwit `parent-closure/sort-edge-*.json`):
+
+| id | `Title` | `Source` |
+|---|---|---|
+| `accent` | `é` | `C:\a` |
+| `plain` | `e` | `C:\z` |
+| `eszett` | `x` | `C:\ß` |
+| `ss` | `x` | `C:\ss` |
+
+.NET daje `plain, accent, ss, eszett`. Dwie niezalezne przyczyny:
+
+1. **Akcenty.** `AMC_PL` ma `IgnoreNonSpace`, wiec `e` i `é` to dla niego
+   REMIS -- a `CurrentCultureIgnoreCase` akcentow NIE ignoruje i stawia
+   `e` przed `é`. Dlatego tytul w widoku "Wszystkie pliki" potrzebuje trybu
+   BEZ `IgnoreNonSpace`.
+2. **`OrdinalIgnoreCase` dla sciezki.** Python `"ß".upper()` daje `"SS"`,
+   wiec `C:\ß` i `C:\ss` zrownalyby sie i wyszly w zlej kolejnosci.
+   `OrdinalIgnoreCase` nie rozwija `ß`: porownuje U+00DF (223) z `S` (83),
+   czyli `ss` idzie PRZED `ß`.
+
+Dodatkowo `OrdinalIgnoreCase` to porzadek **jednostek UTF-16**, nie punktow
+kodowych Pythona, a `String.ToUpperInvariant` na calym napisie rozjezdza sie
+z nim na parach zastepczych. Zmierzone (`probe-mode-contract`, 70 napisow,
+4830 par na tryb, asercje wzgledem ORYGINALNYCH `StringComparer`):
+
+| kandydat klucza | niezgodne pary |
+|---|---|
+| `ToUpperInvariant()` na calym napisie -> UTF-16BE | 4 |
+| per-`char` `ToUpperInvariant` -> UTF-16BE | 4 |
+| **per-`Rune` `ToUpperInvariant` -> UTF-16BE** | **0** |
+| **per-`Rune` `ToUpperInvariant` -> UTF-8** | **0** |
+
+Host liczy wiec klucz sciezki petla po `EnumerateRunes()`. Wybrano UTF-8
+(4x mniejszy od UTF-16BE, zachowuje porzadek bajtow dla ASCII-owych sciezek).
+
+### Czego ta poprawka NIE dotyczy
+
+`AMC_PL` (`IgnoreCase|IgnoreNonSpace`) zostaje DOMYSLNYM trybem
+`HostCollation.load()` i dalej obsluguje **Foldery** oraz indeks `COLLATE
+AMC_PL` ze schematu SQL. To INNA semantyka i nie wolno jej zamieniac na tryb
+tytulowy.
+
+Cache kluczy jest **per tryb** -- jeden slownik mieszalby klucze roznych
+opcji. Jesli host odpowie etykieta innego trybu niz zadany (stary LiteHost
+zignoruje pole `mode`), klient ODMAWIA zamiast cicho uzyc zlych kluczy.
 
 Bez hosta NIE udajemy zgodnosci: `LibraryViewResult.order_matches_amc`
 schodzi na `False`, tak samo jak w `LibrarySnapshot`.

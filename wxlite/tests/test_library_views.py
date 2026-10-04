@@ -15,6 +15,8 @@ zmierzona osobno, sonda ``probe-csharp-order``.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import sqlite3
 import sys
@@ -24,6 +26,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from amc_wx_lite.collation import (  # noqa: E402
+    COLLATION_AMC_PL,
+    COLLATION_ORDINAL_IGNORE_CASE,
+    COLLATION_TITLE_IGNORE_CASE,
+)
 from amc_wx_lite.library_db import LibraryDatabase  # noqa: E402
 from amc_wx_lite.library_views import (  # noqa: E402
     LOCAL_SESSION,
@@ -51,26 +58,78 @@ def _ordinal(left: str, right: str) -> int:
 
 
 class FakeCollation:
-    """Atrapa ``HostCollation`` o TYM SAMYM interfejsie (``load``/``key_for``).
+    """Atrapa ``HostCollation`` o TYM SAMYM interfejsie co produkcyjna.
 
     Klucz: ``casefold`` + zlozenie polskich znakow. To NIE jest nowy kolator
     produkcyjny -- sluzy wylacznie do sprawdzenia, ze ``all_files_rows``
     UZYWA kluczy hosta i tie-breaka po sciezce. Zgodnosc z .NET mierzy sonda.
+
+    Tryb ``ORDINAL_IGNORE_CASE`` atrapa liczy ``str.upper()``, czyli DOKLADNIE
+    tym bledem, ktory miala produkcja. Dzieki temu testy rogow nizej nadal
+    mierza przeplyw danych, a nie zgodnosc z .NET -- te ostatnia mierzy
+    ``MeasuredCsharpCollation`` na kluczach ZMIERZONYCH sonda.
     """
 
     _FOLD = str.maketrans("ąćęłńóśźż", "acelnoszz")
 
     def __init__(self) -> None:
-        self._keys: dict[str, bytes] = {}
+        self._keys: dict[tuple[str, str], bytes] = {}
         self.load_calls = 0
+        self.modes_asked: list[str] = []
 
-    def load(self, titles) -> None:
+    def load(self, values, *, mode: str = COLLATION_AMC_PL) -> None:
         self.load_calls += 1
-        for title in titles:
-            self._keys[title] = title.casefold().translate(self._FOLD).encode()
+        self.modes_asked.append(mode)
+        for value in values:
+            if mode == COLLATION_ORDINAL_IGNORE_CASE:
+                self._keys[(mode, value)] = value.upper().encode("utf-8")
+            else:
+                self._keys[(mode, value)] = (
+                    value.casefold().translate(self._FOLD).encode()
+                )
 
-    def key_for(self, title: str) -> bytes | None:
-        return self._keys.get(title)
+    def key_for(self, value: str, *, mode: str = COLLATION_AMC_PL) -> bytes | None:
+        return self._keys.get((mode, value))
+
+
+class MeasuredCsharpCollation:
+    """Klucze WZIETE Z POMIARU .NET, nie przeliczone w Pythonie.
+
+    ``tests/data/csharp-sort-edge.json`` to kwit sondy ``probe-order-modes``:
+    klucze tytulu (``CompareOptions.IgnoreCase``) i sciezki
+    (``OrdinalIgnoreCase`` jako skalary ``Rune.ToUpperInvariant`` w UTF-8),
+    oba potwierdzone ZEROWA liczba niezgodnych par wzgledem ORYGINALNYCH
+    ``StringComparer``/``CompareInfo`` na tych samych napisach.
+
+    Atrapa tylko podaje te bajty. Jesli ``library_views`` poprosi o tryb,
+    ktorego w kwicie nie ma, dostanie ``None`` i widok ma sie zalamac zamiast
+    cicho posortowac zlym kluczem.
+    """
+
+    def __init__(self, payload: dict) -> None:
+        self._by_mode: dict[str, dict[str, bytes]] = {
+            COLLATION_TITLE_IGNORE_CASE: {
+                title: base64.b64decode(key)
+                for title, key in zip(payload["titles"], payload["titleKeys"])
+            },
+            COLLATION_ORDINAL_IGNORE_CASE: {
+                path: base64.b64decode(key)
+                for path, key in zip(payload["paths"], payload["pathKeys"])
+            },
+            # Stary tryb Folderow -- celowo obecny, zeby test mogl pokazac, ze
+            # tytul widoku "Wszystkie pliki" NIE jest nim sortowany.
+            COLLATION_AMC_PL: {
+                title: base64.b64decode(key)
+                for title, key in zip(payload["titles"], payload["amcPlKeys"])
+            },
+        }
+        self.modes_asked: list[str] = []
+
+    def load(self, values, *, mode: str = COLLATION_AMC_PL) -> None:
+        self.modes_asked.append(mode)
+
+    def key_for(self, value: str, *, mode: str = COLLATION_AMC_PL) -> bytes | None:
+        return self._by_mode.get(mode, {}).get(value)
 
 
 _SCHEMA = """
@@ -246,13 +305,129 @@ class AllFilesView(_SyntheticCase):
         self.assertIsInstance(row.item_id, str)
         self.assertEqual(row.item_id, "12345")
 
-    def test_host_keys_are_fetched_in_one_batch(self):
-        """Jedno ``load`` na widok, a nie porownywarka IPC na kazda pare."""
+    def test_host_keys_are_fetched_in_batches_not_per_pair(self):
+        """Wsadowo, a nie porownywarka IPC na kazda pare.
+
+        Widok potrzebuje DWOCH trybow (tytul ``IgnoreCase``, sciezka
+        ``OrdinalIgnoreCase``), wiec partii jest tyle, ile trybow -- nie jedna.
+        Istotne jest to, ze liczba wywolan NIE rosnie z liczba porownan:
+        20 pozycji to ~86 porownan, a wywolan zostaje 2.
+        """
         for n in range(20):
             self.build.item(f"i{n}", f"Tytul {n}", f"C:/m/{n}.mp3")
         collation = FakeCollation()
         all_files_rows(self.open_db(), collation)
-        self.assertEqual(collation.load_calls, 1)
+        self.assertEqual(collation.load_calls, 2, "jedna partia na tryb")
+        self.assertEqual(
+            sorted(collation.modes_asked),
+            sorted([COLLATION_TITLE_IGNORE_CASE, COLLATION_ORDINAL_IGNORE_CASE]),
+        )
+
+    def test_batch_count_does_not_grow_with_item_count(self):
+        """Dowod, ze to wsad: 5x wiecej pozycji, TYLE SAMO wywolan."""
+        for n in range(100):
+            self.build.item(f"i{n}", f"Tytul {n}", f"C:/m/{n}.mp3")
+        collation = FakeCollation()
+        all_files_rows(self.open_db(), collation)
+        self.assertEqual(collation.load_calls, 2)
+
+
+class CsharpSortEdgeCases(_SyntheticCase):
+    """Dwa ZMIERZONE odstepstwa od C#: akcenty w tytule i OrdinalIgnoreCase.
+
+    Przypadek i kolejnosc wzorcowa pochodza z PRAWDZIWEGO uruchomienia .NET
+    8.0.31 w kulturze pl-PL (``tests/data/csharp-sort-edge.json``, SHA-256
+    kolejnosci w kwicie). Dwa rogi w czterech rekordach:
+
+    * ``é`` kontra ``e`` -- ``CurrentCultureIgnoreCase`` akcentow NIE ignoruje,
+      wiec ``e`` jest PRZED ``é``. Stary tryb AMC_PL (``IgnoreNonSpace``)
+      zrownuje te tytuly i oddaje je w kolejnosci wejsciowej -- czyli odwrotnie.
+    * ``C:\\ß`` kontra ``C:\\ss`` -- ``OrdinalIgnoreCase`` porownuje SKALARY,
+      a ``U+00DF`` (223) jest ZA ``S`` (83), wiec ``ss`` idzie pierwsze.
+      ``str.upper()`` w Pythonie rozwija ``ß`` do ``"SS"`` i oba klucze
+      wychodza rowne -- tie-break znika.
+    """
+
+    FIXTURE_FILE = Path(__file__).resolve().parent / "data" / "csharp-sort-edge.json"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.payload = json.loads(self.FIXTURE_FILE.read_text(encoding="utf-8"))
+        for entry in self.payload["items"]:
+            self.build.item(entry["id"], entry["title"], entry["path"])
+
+    def test_view_order_equals_measured_dotnet_order(self):
+        """Jedna asercja na obie przyczyny: cala kolejnosc jak w .NET."""
+        result = all_files_rows(self.open_db(), MeasuredCsharpCollation(self.payload))
+        self.assertEqual(
+            [r.item_id for r in result.rows],
+            self.payload["referenceOrder"],
+            "Kolejnosc musi byc identyczna z .NET 8.0.31 pl-PL "
+            f"(kwit {self.payload['referenceOrderSha256'][:12]})",
+        )
+        self.assertTrue(result.order_matches_amc)
+
+    def test_title_uses_ignore_case_not_the_amc_pl_folder_mode(self):
+        """Akcenty: widok NIE moze pytac o stary tryb Folderow dla tytulu."""
+        collation = MeasuredCsharpCollation(self.payload)
+        all_files_rows(self.open_db(), collation)
+        self.assertIn(COLLATION_TITLE_IGNORE_CASE, collation.modes_asked)
+        self.assertNotIn(
+            COLLATION_AMC_PL,
+            collation.modes_asked,
+            "AMC_PL ma IgnoreNonSpace i zrownuje 'e' z 'é' -- to wlasnie blad",
+        )
+
+    def test_accent_pair_alone_puts_plain_letter_first(self):
+        """Rog wyizolowany: 'e' przed 'é', bez udzialu tie-breaka sciezki."""
+        order = [
+            r.item_id
+            for r in all_files_rows(
+                self.open_db(), MeasuredCsharpCollation(self.payload)
+            ).rows
+        ]
+        self.assertLess(
+            order.index("plain"),
+            order.index("accent"),
+            "CurrentCultureIgnoreCase nie ignoruje akcentow",
+        )
+
+    def test_eszett_path_tiebreak_is_scalar_ordinal_not_python_upper(self):
+        """Rog wyizolowany: przy rownym tytule 'C:\\ss' przed 'C:\\ß'."""
+        order = [
+            r.item_id
+            for r in all_files_rows(
+                self.open_db(), MeasuredCsharpCollation(self.payload)
+            ).rows
+        ]
+        self.assertLess(
+            order.index("ss"),
+            order.index("eszett"),
+            "OrdinalIgnoreCase porownuje skalary: U+00DF (223) > 'S' (83)",
+        )
+
+    def test_path_keys_are_requested_for_the_tiebreak(self):
+        """Tie-break liczy HOST, a nie ``str.upper()`` w Pythonie."""
+        collation = MeasuredCsharpCollation(self.payload)
+        all_files_rows(self.open_db(), collation)
+        self.assertIn(COLLATION_ORDINAL_IGNORE_CASE, collation.modes_asked)
+
+    def test_measured_receipt_confirms_keys_match_original_comparers(self):
+        """Kwit musi potwierdzac ZEROWA liczbe niezgodnych par z oryginalem."""
+        mismatches = self.payload["pairMismatchesVsOriginal"]
+        self.assertEqual(mismatches["titleIgnoreCase"], 0)
+        self.assertEqual(mismatches["ordinalIgnoreCase_runeUtf8"], 0)
+        # I zeby bylo widac, ze to nie przypadek: oba warianty UTF-16, w tym
+        # dawny ``str.upper()``, NIE zgadzaja sie z oryginalem.
+        self.assertGreater(mismatches["ordinalIgnoreCase_utf16UpperInvariant"], 0)
+        self.assertGreater(mismatches["ordinalIgnoreCase_utf16PerChar"], 0)
+
+    def test_old_amc_pl_mode_really_gives_the_wrong_order(self):
+        """Dowod, ze poprawka byla potrzebna: stary tryb gubi 2 pozycje."""
+        self.assertEqual(self.payload["amcPlKeyOrderDiff"], 2)
+        self.assertNotEqual(
+            self.payload["amcPlKeyOrder"], self.payload["referenceOrder"]
+        )
 
 
 class FavoritesView(_SyntheticCase):

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
@@ -109,18 +110,35 @@ internal sealed class LiteEngineHandlers : IDisposable
     }
 
     /// <summary>
-    /// Klucze sortowania kolacji AMC_PL dla wsadu tytulow.
+    /// Klucze sortowania dla wsadu napisow, w zadanym TRYBIE.
     /// </summary>
     /// <remarks>
     /// Frontend w Pythonie nie ma ICU, a reczny port reguly pl-PL zostal
     /// zmierzony jako niezgodny na 93,9% pozycji pelnego korpusu. Zamiast
-    /// pytac o KAZDA pare (11 tys. tytulow to ~125 mln par) oddajemy jeden
-    /// klucz na tytul: porownanie bajtow tych kluczy odtwarza kolejnosc
-    /// <c>CompareInfo.Compare</c> dokladnie (zmierzone: 0 roznic pozycji,
-    /// 0 zerwanych remisow, identycznie na Windows i Linuksie).
+    /// pytac o KAZDA pare oddajemy jeden klucz na napis: porownanie bajtow
+    /// tych kluczy odtwarza kolejnosc oryginalnego komparatora dokladnie
+    /// (zmierzone: 0 roznic pozycji, 0 zerwanych remisow, identycznie na
+    /// Windows i Linuksie).
     ///
-    /// Opcje MUSZA byc te same co w <c>LocalLibraryDatabase</c>, inaczej
-    /// lista w Pythonie ulozylaby sie inaczej niz w pelnym AMC.
+    /// Tryby, bo widoki AMC NIE uzywaja jednej reguly:
+    /// <list type="bullet">
+    /// <item><c>AMC_PL</c> -- <c>IgnoreCase | IgnoreNonSpace</c>, kolacja
+    /// schematu SQL. Foldery i indeks <c>AMC_PL</c>. Tryb DOMYSLNY, zeby
+    /// starsi wolajacy dostali dokladnie to co dotad.</item>
+    /// <item><c>TITLE_IGNORE_CASE</c> -- <c>IgnoreCase</c> samo, czyli
+    /// <c>StringComparer.CurrentCultureIgnoreCase</c> z widokow "Wszystkie
+    /// pliki" i alfabetycznych Ulubionych. Bez <c>IgnoreNonSpace</c>, bo ten
+    /// zrownuje "e" z "é", a widok ich NIE zrownuje.</item>
+    /// <item><c>ORDINAL_IGNORE_CASE</c> -- <c>StringComparer.OrdinalIgnoreCase</c>
+    /// dla tie-breaka po <c>Source</c>. To NIE jest kolacja jezykowa, wiec nie
+    /// idzie przez <c>CompareInfo</c>: oddajemy napis po
+    /// <c>Rune.ToUpperInvariant</c> SKALAR PO SKALARZE, zakodowany w UTF-8.
+    /// UTF-8 zachowuje porzadek punktow kodowych, wiec porownanie bajtow w
+    /// Pythonie odtwarza <c>OrdinalIgnoreCase</c> co do znaku. Celowo NIE
+    /// <c>string.ToUpperInvariant()</c> i NIE UTF-16: oba zmierzone jako
+    /// niezgodne na parach zastepczych, a <c>str.upper()</c> w Pythonie
+    /// dodatkowo rozwija "ß" do "SS", czego Ordinal nie robi.</item>
+    /// </list>
     ///
     /// Operacja jest CZYSTO OBLICZENIOWA: nie dotyka bazy, dysku ani
     /// odtwarzania i niczego nie zapisuje do profilu.
@@ -140,8 +158,31 @@ internal sealed class LiteEngineHandlers : IDisposable
             throw new LiteRequestException($"Wsad przekracza {maximumBatch} tytulow.");
         }
 
+        // Brak "mode" to STARY wolajacy -- dostaje AMC_PL, jak dotad.
+        var mode = args.TryGetProperty("mode", out var modeElement)
+            && modeElement.ValueKind == JsonValueKind.String
+                ? modeElement.GetString() ?? AmcPlMode
+                : AmcPlMode;
+
         var compare = CultureInfo.GetCultureInfo("pl-PL").CompareInfo;
-        const CompareOptions options = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
+        CompareOptions options;
+        switch (mode)
+        {
+            case AmcPlMode:
+                options = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
+                break;
+            case TitleIgnoreCaseMode:
+                options = CompareOptions.IgnoreCase;
+                break;
+            case OrdinalIgnoreCaseMode:
+                // Obsluzone osobno nizej -- nie przechodzi przez CompareInfo.
+                options = CompareOptions.None;
+                break;
+            default:
+                // Nieznany tryb to blad, a nie cichy powrot do AMC_PL: cicha
+                // zla kolejnosc wyglada jak dzialajaca funkcja.
+                throw new LiteRequestException($"Nieznany tryb kolacji: \"{mode}\".");
+        }
 
         var keys = new List<string>(titles.GetArrayLength());
         foreach (var element in titles.EnumerateArray())
@@ -155,10 +196,37 @@ internal sealed class LiteEngineHandlers : IDisposable
             {
                 throw new LiteRequestException("Tytul jest zbyt dlugi.");
             }
-            keys.Add(Convert.ToBase64String(compare.GetSortKey(title, options).KeyData));
+            keys.Add(mode == OrdinalIgnoreCaseMode
+                ? Convert.ToBase64String(OrdinalIgnoreCaseKey(title))
+                : Convert.ToBase64String(compare.GetSortKey(title, options).KeyData));
         }
 
-        return new { collation = "AMC_PL", culture = "pl-PL", keys };
+        return new { collation = mode, culture = "pl-PL", keys };
+    }
+
+    private const string AmcPlMode = "AMC_PL";
+    private const string TitleIgnoreCaseMode = "TITLE_IGNORE_CASE";
+    private const string OrdinalIgnoreCaseMode = "ORDINAL_IGNORE_CASE";
+
+    /// <summary>
+    /// Klucz odtwarzajacy <c>StringComparer.OrdinalIgnoreCase</c> bajt po bajcie.
+    /// </summary>
+    /// <remarks>
+    /// Ordinal porzadkuje SKALARY Unicode, a nie jednostki kodowe UTF-16 ani
+    /// wynik pelnego mapowania jezykowego. Dlatego: <c>EnumerateRunes</c>
+    /// (skalary), <c>Rune.ToUpperInvariant</c> (mapowanie 1:1, bez rozwijania
+    /// "ß" do "SS") i UTF-8 (koduje punkty kodowe zachowujac ich porzadek).
+    /// Zmierzone wzgledem ORYGINALNEGO <c>StringComparer.OrdinalIgnoreCase</c>:
+    /// 0 niezgodnych par.
+    /// </remarks>
+    private static byte[] OrdinalIgnoreCaseKey(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (var rune in value.EnumerateRunes())
+        {
+            builder.Append(Rune.ToUpperInvariant(rune).ToString());
+        }
+        return Encoding.UTF8.GetBytes(builder.ToString());
     }
 
     private object ListFolder(JsonElement args)
