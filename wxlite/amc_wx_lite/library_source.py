@@ -61,7 +61,7 @@ class LibrarySource:
         collation: HostCollation | None = None,
     ) -> None:
         self.layout = layout or resolve_layout()
-        self.collation = collation
+        self._collation = collation
 
     @property
     def database_path(self) -> Path:
@@ -78,6 +78,13 @@ class LibrarySource:
         """Folder zapamietany przez AMC (``local_state.current_folder_path``)."""
         with self._open() as db:
             return db.local_state().current_folder_path
+
+    def use_collation(self, collation: "HostCollation | None") -> None:
+        """Podepnij kolejnosc liczona przez host C#.
+
+        Wolane po starcie silnika: wczesniej nie ma z kim rozmawiac.
+        """
+        self._collation = collation
 
     def load(self, folder: str | None) -> LibrarySnapshot:
         with self._open() as db:
@@ -106,10 +113,10 @@ class LibrarySource:
         Awaria kolacji NIE moze przewrocic Biblioteki: lepiej pokazac liste
         w kolejnosci zastepczej i oznaczyc ja, niz nie pokazac nic.
         """
-        if self.collation is None:
+        if self._collation is None:
             return rows, False
         try:
-            return order_library_rows(rows, self.collation), True
+            return order_library_rows(rows, self._collation), True
         except HostCollationUnavailable:
             return rows, False
 

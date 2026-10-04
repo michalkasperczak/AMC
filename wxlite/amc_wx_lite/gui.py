@@ -27,6 +27,7 @@ from pathlib import Path
 import wx
 
 from .async_gate import BackgroundRunner, StaleResultGate
+from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource
 from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
@@ -439,6 +440,11 @@ class LiteFrame(wx.Frame):
 
         def done(_result: dict) -> None:
             self.timer.Start(1000)
+            # Kolejnosc listy liczy host C# (CompareInfo pl-PL), nie wlasny
+            # collator w Pythonie. Podpinamy ja DOPIERO tu, bo wymaga zywego
+            # silnika. Bez niej LibrarySource swiadomie oddaje kolejnosc z
+            # SQL-a zamiast udawac zgodnosc.
+            self.library.use_collation(HostCollation(client.call))
             self._load_initial_content()
 
         def failed(error: Exception) -> None:

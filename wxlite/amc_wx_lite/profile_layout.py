@@ -11,7 +11,9 @@ dane.
 Przyjeta zasada (najmniejsza bezpieczna zmiana)
 -----------------------------------------------
 * Profil AMC (``state.json``, ``library.db``, ``podcasts.db``) ma DOKLADNIE
-  jednego wlasciciela zapisu: host C#. Python czyta go ``mode=ro&immutable=1``.
+  jednego wlasciciela zapisu: host C#. Python otwiera go ``mode=ro`` (zwykly
+  readonly, BEZ ``immutable=1``: ``immutable`` kaze SQLite pominac dziennik
+  WAL, wiec czytalismy stan sprzed cudzych commitow).
 * Python trzyma swoje WLASNE ustawienia osobno (``amc-wx-lite/``) i nigdy nie
   dopisuje ich do profilu AMC.
 * Harmonogramy, odtwarzanie nagran radiowych i aktualizator NALEZA do hosta.

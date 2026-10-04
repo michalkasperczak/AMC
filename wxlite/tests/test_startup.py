@@ -26,6 +26,11 @@ def test_engine_handshake_is_deferred_to_background():
             return options
         def close(self):
             calls.append("close")
+        def call(self, op, args=None, timeout=None):
+            # Kolacja rozmawia z hostem ta droga; atrapa musi ja miec,
+            # inaczej test wywraca sie na braku metody zamiast mierzyc start.
+            calls.append(("call", op))
+            return {"keys": []}
     original = gui.LiteHostClient
     gui.LiteHostClient = Client
     frame = SimpleNamespace(options=Options(), client=None,
@@ -33,6 +38,10 @@ def test_engine_handshake_is_deferred_to_background():
         timer=SimpleNamespace(Start=lambda n: calls.append("timer")),
         announcer=SimpleNamespace(say=lambda text: calls.append(text)),
         _on_engine_event=lambda *args: None,
+        # Po udanym uscisku dloni ramka podpina kolacje hosta -- atrapa musi
+        # miec Biblioteke, inaczej test mierzy brak pola, a nie odroczenie I/O.
+        library=SimpleNamespace(
+            use_collation=lambda collation: calls.append("collation")),
         _load_initial_content=lambda: calls.append("content"))
     try:
         gui.LiteFrame._start_engine(frame)
@@ -44,6 +53,8 @@ def test_engine_handshake_is_deferred_to_background():
         assert calls[:2] == ["start", "hello"]
         assert calls[2]["tempoAlgorithm"] == 1
         assert "timer" in calls and "content" in calls
+        # Kolejnosc listy ma byc podpieta ZANIM wczytamy tresc.
+        assert calls.index("collation") < calls.index("content")
     finally:
         gui.LiteHostClient = original
 
