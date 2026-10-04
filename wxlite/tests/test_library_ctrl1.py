@@ -52,11 +52,13 @@ def _frame(library: LibrarySource, queued: list, said: list):
             submit=lambda tag, work, done, failed: queued.append((tag, work, done, failed))
         ),
         navigator=SimpleNamespace(
-            apply_stations=lambda rows: [],
+            apply_stations=lambda rows, preferred_id=None: [],
             apply_folder=lambda path, rows, preferred_id=None: [("folder", path, rows)],
             sessions={gui.SessionId.FILES: SimpleNamespace(folder_path=None)},
         ),
         stations=SimpleNamespace(as_payload=lambda: []),
+        # Radio czyta teraz stacje z profilu AMC; atrapa oddaje puste zrodlo.
+        _radio_snapshot=SimpleNamespace(current_id=None),
         _run=lambda intents: None,
     )
     # Prawdziwa metoda z gui.py, tylko podpieta do atrapy -- testujemy KOD

@@ -41,6 +41,8 @@ from .navigation import (
     View,
 )
 from .shortcuts import Action, Chord, describe, resolve
+from .profile_layout import resolve_layout
+from .radio_source import RadioSource
 from .state_store import LiteState, Station, StationList, StateStore
 
 APP_NAME = "AMC-wx-Lite"
@@ -213,7 +215,11 @@ class LiteFrame(wx.Frame):
         self.store = store
         self.state = state
         self.options = state.options
-        self.stations = StationList(state.stations)
+        # Stacje: w trybie wspolnego profilu zrodlem jest state.json AMC
+        # (radio.stations), a nie prywatna kopia -- inaczej Radio bylo puste.
+        self.radio = RadioSource(resolve_layout())
+        self._radio_snapshot = self.radio.load()
+        self.stations = self._radio_snapshot.list
         self.navigator = Navigator()
         # Biblioteka AMC (SQLite, tylko odczyt). Wlascicielem zapisu profilu
         # pozostaje host C#; ten wariant nigdy nie prowadzi harmonogramow.
@@ -477,7 +483,12 @@ class LiteFrame(wx.Frame):
     # ------------------------------------------------------- tresc poczatkowa
 
     def _load_initial_content(self) -> None:
-        self._run(self.navigator.apply_stations(rows_from_stations(self.stations.as_payload())))
+        # Zaznaczenie idzie za radio.currentItemId profilu AMC, a nie wraca
+        # odruchowo na wiersz 0 (w zmierzonym profilu biezaca stacja ma indeks 80).
+        self._run(self.navigator.apply_stations(
+            rows_from_stations(self.stations.as_payload()),
+            preferred_id=self._radio_snapshot.current_id,
+        ))
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\micha) na tej maszynie nie istnieja, lista pod
@@ -842,13 +853,28 @@ class LiteFrame(wx.Frame):
         row = self.navigator.sessions[SessionId.RADIO].model.selected_row
         return self.stations.find(row.item_id) if row is not None else None
 
+    def _refuse_station_edit(self) -> bool:
+        """Odmowa edycji stacji we wspolnym profilu. ``True`` = nie kontynuuj.
+
+        Wlascicielem ``state.json`` jest host C#. Zamiast cichego "zapisalem"
+        mowimy wprost, gdzie zmieniac stacje.
+        """
+        if self.radio.may_edit:
+            return False
+        self._switch_session(SessionId.RADIO)
+        self.announcer.say(self.radio.edit_refusal_reason())
+        return True
+
     def _reload_stations(self, preferred_id: str | None = None) -> None:
         rows = rows_from_stations(self.stations.as_payload())
-        self.state.stations = self.stations.stations
-        self._save_state()
+        if self.radio.may_edit:
+            self._radio_snapshot.current_id = preferred_id or self._radio_snapshot.current_id
+            self.radio.save(self._radio_snapshot)
         self._run(self.navigator.apply_stations(rows, preferred_id=preferred_id))
 
     def _station_add(self) -> None:
+        if self._refuse_station_edit():
+            return
         self._switch_session(SessionId.RADIO)
         with StationDialog(self, "Dodaj stacje") as dialog:
             if dialog.ShowModal() != wx.ID_OK:
@@ -863,6 +889,8 @@ class LiteFrame(wx.Frame):
         self.announcer.say(f"Dodano {station.name}")
 
     def _station_edit(self) -> None:
+        if self._refuse_station_edit():
+            return
         station = self._selected_station()
         if station is None:
             self.announcer.say("Nie wybrano stacji")
@@ -880,6 +908,8 @@ class LiteFrame(wx.Frame):
         self.announcer.say(f"Zapisano {name or url}")
 
     def _station_delete(self) -> None:
+        if self._refuse_station_edit():
+            return
         station = self._selected_station()
         if station is None:
             self.announcer.say("Nie wybrano stacji")
@@ -899,6 +929,8 @@ class LiteFrame(wx.Frame):
         Plik uzytkownika czytamy TYLKO po jego wskazaniu - nic nie jest
         przenoszone ani kopiowane automatycznie.
         """
+        if self._refuse_station_edit():
+            return
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie dziala, import niedostepny")
@@ -936,7 +968,8 @@ class LiteFrame(wx.Frame):
 
     def _save_state(self) -> None:
         self.state.options = self.options.clamp()
-        self.state.stations = self.stations.stations
+        # Stacji NIE dopisujemy do prywatnego stanu: we wspolnym profilu naleza
+        # do AMC, a w piaskownicy zapisuje je RadioSource.
         self.state.navigation = self.navigator.snapshot()
         try:
             self.store.save(self.state)
