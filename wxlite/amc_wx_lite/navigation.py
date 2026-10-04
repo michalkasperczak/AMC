@@ -47,6 +47,11 @@ class LibraryView(Enum):
     #: Zakladki JEDNEGO zaznaczonego elementu (``BookmarkIndex.GetForItem``).
     #: NIE jest to zbiorczy widok ``ViewBookmarks``/``GetForDisplay``.
     ITEM_BOOKMARKS = "itemBookmarks"
+    #: ZBIORCZY widok wszystkich zakladek (``BookmarkIndex.GetForDisplay``,
+    #: ``BookmarkIndex.cs:19-28``) -- ten, ktory w pelnym AMC siedzi pod
+    #: ``CommandIds.ViewBookmarks`` i Ctrl+B. Szerszy zbior niz
+    #: ``ITEM_BOOKMARKS``, wiec osobna wartosc, a nie przelacznik.
+    ALL_BOOKMARKS = "allBookmarks"
 
 
 @dataclass(slots=True)
@@ -64,6 +69,13 @@ class OpenLibraryView:
     #: RZECZYWISTE Id elementu dla ``ITEM_BOOKMARKS``. ``bookmark_rows``
     #: inaczej zawolac sie nie da -- w C# tez przyjmuje Id, nie indeks listy.
     item_id: str | None = None
+    #: Kontekst AKTUALNIE ODTWARZANEGO materialu dla ``ALL_BOOKMARKS``, tak
+    #: jak ``_sessions.Current.Id`` i ``_sessions.Current.CurrentItem.Id``
+    #: (``MainWindow.xaml.cs:12530-12532``). To NIE zaznaczony wiersz. Puste
+    #: napisy sa legalne: sesja moze nic nie odtwarzac, a wtedy zaden wpis nie
+    #: jest "biezacy" i nikt nie wedruje na gore listy.
+    current_session_id: str = ""
+    current_item_id: str = ""
 
 
 @dataclass(slots=True)
@@ -95,6 +107,18 @@ class SessionState:
     #: Bez tej mapy wiersz zakladki nie ma czym odtworzyc: jego ``item_id`` to
     #: ``bookmark:<id>``, ktore NIE jest ani plikiem, ani sciezka.
     bookmark_targets: dict[str, tuple[str, float, str]] = field(default_factory=dict)
+    #: ``Row.item_id`` zakladki -> kontekst (sesja, Id materialu, czy lokalna).
+    #: Obowiazuje TYLKO w widoku zbiorczym; bez niej nie da sie odmowic obcej
+    #: sesji inaczej niz po braku sciezki, a to dwie rozne rzeczy.
+    bookmark_contexts: dict[str, object] = field(default_factory=dict)
+    #: PROFILOWE Id materialu, ktory sesja faktycznie odtwarza (odpowiednik
+    #: ``_sessions.Current.CurrentItem.Id``). Osobne od ``now_playing_id``,
+    #: bo tamto bywa ``file:<path>`` z hosta, a ``file:``/``bookmark:`` NIE sa
+    #: zamiennikami Id profilowego. Puste = sesja nie ma biezacego materialu.
+    current_material_id: str = ""
+    #: Kandydat na ``current_material_id``, czekajacy na POTWIERDZENIE startu.
+    #: Samo zaznaczenie i nieudany start nie moga zmienic kontekstu.
+    pending_material_id: str = ""
 
 
 @dataclass(slots=True)
@@ -136,6 +160,27 @@ class Announce:
     """Krotki komunikat dla czytnika. JEDNA brama komunikatow w calej aplikacji."""
 
     text: str
+
+
+#: Klucz sesji plikow lokalnych. Ta sama wartosc co
+#: ``library_activity.LOCAL_SESSION``; test ``test_all_bookmarks_gui_wiring``
+#: pilnuje, zeby obie nie rozjechaly sie po cichu. Nawigacja nie importuje
+#: warstwy danych, zeby zostac wolna od SQLite.
+LOCAL_SESSION = "local"
+
+#: Prefiksy, ktore NIE sa profilowym Id materialu. ``file:<path>`` sklada host
+#: przy przegladaniu folderow (``LiteEngineHandlers.cs:269``), a
+#: ``bookmark:<id>`` to Id ZAPISU zakladki (``MainWindow.xaml.cs:13756``).
+#: Podanie ktoregokolwiek jako ``currentItemId`` dalo by kontekst, ktory do
+#: niczego nie pasuje, a wygladalby poprawnie.
+_NON_PROFILE_ID_PREFIXES = ("file:", "bookmark:", "dir:", "playlist:", "station:")
+
+
+def profile_material_id(item_id: str) -> str:
+    """Profilowe Id albo pusty napis. Zadnego zgadywania po dlugosci ani nazwie."""
+    if not item_id or item_id.startswith(_NON_PROFILE_ID_PREFIXES):
+        return ""
+    return item_id
 
 
 def _items_word(count: int) -> str:
@@ -254,6 +299,8 @@ class Navigator:
             state.list_anchor_id = row.item_id
             state.now_playing_id = row.item_id
             state.now_playing_title = row.title
+            # Kandydat, nie fakt: material potwierdzi dopiero udany start.
+            state.pending_material_id = profile_material_id(row.item_id)
             state.view = View.PLAYER
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
 
@@ -261,35 +308,61 @@ class Navigator:
             # Wiersz ZAKLADKI nie ma sciezki i miec jej nie moze: jego
             # ``item_id`` to ``bookmark:<id>``, czyli identyfikator ZAPISU, nie
             # pliku. Prawdziwy plik i pozycja przyszly obok, w mapie celow.
-            target = state.bookmark_targets.get(row.item_id)
-            if target is not None:
-                path, position_seconds, title = target
-                state.list_anchor_id = row.item_id
-                state.now_playing_id = f"file:{path}"
-                state.now_playing_title = title
-                state.view = View.PLAYER
-                return [
-                    PlayTrack(
-                        path,
-                        f"file:{path}",
-                        title,
-                        position_seconds=position_seconds,
-                    ),
-                    # Komunikat mowi, ze to SKOK do zapisanej pozycji, a nie
-                    # zwykly start od zera.
-                    Announce(f"{title}, od zakładki"),
-                ]
             if row.item_id.startswith("bookmark:"):
-                # Zakladki NIE maja filtra ActiveLocalItems, wiec moga wskazywac
-                # material, ktorego biezacy katalog nie zna. Nie udajemy, ze
-                # gramy -- i nie wchodzimy do odtwarzacza.
-                return [Announce("Nie znajduję pliku tej zakładki")]
+                return self._activate_bookmark(row)
             return [Announce("Brak sciezki pliku")]
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
+        state.pending_material_id = profile_material_id(row.item_id)
         state.view = View.PLAYER
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def _activate_bookmark(self, row: Row) -> list[object]:
+        """Enter na wierszu zakladki: skok albo UCZCIWA odmowa.
+
+        Kolejnosc sprawdzen jest istotna. NAJPIERW sesja, dopiero potem mapa
+        celow: obca zakladka moze miec ``item_id`` rowne lokalnemu (zmierzone w
+        prawdziwym profilu), wiec odwrotna kolejnosc odtworzylaby lokalny plik
+        pod wpisem TIDAL. Kanal ``files.play`` istnieje tylko dla sesji
+        lokalnej i nie udajemy, ze jest inaczej.
+        """
+        state = self.session
+        context = state.bookmark_contexts.get(row.item_id)
+        if context is not None and not getattr(context, "can_play_locally", False):
+            # Zostajemy na LISCIE i na TYM wierszu -- odmowa nie moze zabrac
+            # uzytkownikowi miejsca, w ktorym stoi.
+            session_name = getattr(context, "session_name", "") or "zdalnej"
+            return [
+                Announce(
+                    f"Ta zakładka należy do sesji {session_name}. "
+                    "Ten program odtwarza tylko pliki lokalne."
+                )
+            ]
+
+        target = state.bookmark_targets.get(row.item_id)
+        if target is None:
+            # Zakladki NIE maja filtra ActiveLocalItems, wiec moga wskazywac
+            # material, ktorego biezacy katalog nie zna. Nie udajemy, ze
+            # gramy -- i nie wchodzimy do odtwarzacza.
+            return [Announce("Nie znajduję pliku tej zakładki")]
+
+        path, position_seconds, title = target
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = f"file:{path}"
+        state.now_playing_title = title
+        # Po skoku biezacym materialem jest PLIK, nie zapis zakladki. Id
+        # bierzemy z kontekstu danych, bo ``file:<path>`` nim nie jest.
+        state.pending_material_id = (
+            profile_material_id(getattr(context, "item_id", "")) if context else ""
+        )
+        state.view = View.PLAYER
+        return [
+            PlayTrack(path, f"file:{path}", title, position_seconds=position_seconds),
+            # Komunikat mowi, ze to SKOK do zapisanej pozycji, a nie
+            # zwykly start od zera.
+            Announce(f"{title}, od zakładki"),
+        ]
 
     def go_to_parent(self) -> list[object]:
         """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze.
@@ -370,6 +443,57 @@ class Navigator:
         state.library_return_id = item_id
         return [OpenLibraryView(view=LibraryView.ITEM_BOOKMARKS, item_id=item_id)]
 
+    def open_all_bookmarks(self) -> list[object]:
+        """Ctrl+B / menu "Zakładki". ZBIORCZY widok, osobno od Ctrl+Shift+B.
+
+        Kontekst bierzemy z SESJI (``_sessions.Current``), nie z zaznaczenia --
+        tak jak ``MainWindow.xaml.cs:12530-12532``. Zaznaczony wiersz nie ma z
+        tym nic wspolnego: uzytkownik moze sluchac A, stojac na B.
+
+        Nie ma tu "braku zaznaczenia" jako bledu: pusty kontekst jest legalnym
+        stanem (nic nie gra) i oznacza tylko tyle, ze zaden wpis nie jest
+        biezacy. Widok otwiera sie zawsze.
+        """
+        state = self.session
+        current = self.sessions[self.active]
+        current_material = current.current_material_id
+        # Zapamietujemy miejsce powrotu z TEJ sesji listy, zeby Backspace z
+        # widoku zakladek wrocil na wiersz, z ktorego przyszlismy.
+        selected = state.model.selected_row
+        if selected is not None and not selected.item_id.startswith("bookmark:"):
+            state.library_return_id = selected.item_id
+        return [
+            OpenLibraryView(
+                view=LibraryView.ALL_BOOKMARKS,
+                # Sesja PLIKOW tez ma Id; pusty material = nic nie gra.
+                current_session_id=(LOCAL_SESSION if current_material else ""),
+                current_item_id=current_material,
+            )
+        ]
+
+    def note_playback_started(self) -> None:
+        """Host POTWIERDZIL start. Dopiero teraz material jest biezacy.
+
+        Rozdzielone od ``activate_selected``, bo samo wyslanie ``files.play``
+        niczego nie dowodzi -- start moze sie nie udac.
+
+        Id z hosta tu NIE wchodzi, i to jest celowe: ``playback.started``
+        oddaje ``id`` tak, jak je dostal, wiec przy wejsciu z folderu jest to
+        ``file:<path>``, a przy skoku zakladki ``file:<path>`` rowniez. Zadne
+        z nich nie jest profilowym Id, ktorego potrzebuje ``GetForDisplay``.
+        Tozsamosc znamy po swojej stronie (``pending_material_id``); z hosta
+        bierzemy tylko FAKT udanego startu.
+        """
+        state = self.sessions[SessionId.FILES]
+        if not state.pending_material_id:
+            # Host potrafi zwrocic ``file:<path>``, ktore profilowym Id nie
+            # jest. Bez kandydata nie ma z czego zlozyc tozsamosci -- i lepiej
+            # nie miec kontekstu niz miec zmyslony.
+            state.current_material_id = ""
+            return
+        state.current_material_id = state.pending_material_id
+        state.pending_material_id = ""
+
     def open_library_view(
         self,
         view: LibraryView,
@@ -399,6 +523,7 @@ class Navigator:
         fallback_to_playlists: bool = False,
         item_id: str | None = None,
         bookmark_targets: dict[str, tuple[str, float, str]] | None = None,
+        bookmark_contexts: dict[str, object] | None = None,
     ) -> list[object]:
         """Skutek udanego odczytu widoku. Zawsze w sesji PLIKOW.
 
@@ -422,6 +547,9 @@ class Navigator:
         # przy wejsciu w inny widok groziloby odtworzeniem pozycji ze starej
         # zakladki na niepowiazanym wierszu.
         state.bookmark_targets = dict(bookmark_targets or {})
+        # To samo dotyczy kontekstow: stary kontekst na nowym widoku
+        # odmawialby albo zezwalal wedle nieistniejacej juz zakladki.
+        state.bookmark_contexts = dict(bookmark_contexts or {})
         # Widok Biblioteki NIE jest folderem: zadna sciezka nie opisuje
         # "Ulubionych", a zostawienie starej mylilo by Backspace.
         state.folder_path = None
@@ -486,6 +614,7 @@ class Navigator:
             state.library_view = None
             state.library_item_id = None
             state.bookmark_targets = {}
+            state.bookmark_contexts = {}
             state.library_return_id = None
             return [
                 OpenLibraryView(
@@ -498,6 +627,7 @@ class Navigator:
         state.library_return_id = None
         state.library_item_id = None
         state.bookmark_targets = {}
+        state.bookmark_contexts = {}
         return [OpenFolder(state.folder_path)]
 
     # -------------------------------------------------------- wynik operacji
@@ -513,6 +643,7 @@ class Navigator:
         state.library_return_id = None
         state.library_item_id = None
         state.bookmark_targets = {}
+        state.bookmark_contexts = {}
         state.model.replace(rows, preferred_id=preferred_id)
         state.view = View.LIST
         row = state.model.selected_row
@@ -537,6 +668,10 @@ class Navigator:
         state = self.session
         state.now_playing_id = None
         state.now_playing_title = ""
+        # Nieudany start NIE moze zostawic materialu jako biezacego: Ctrl+B
+        # pokazalby wtedy "biezacy" wpis dla czegos, co sie nie uruchomilo.
+        state.pending_material_id = ""
+        state.current_material_id = ""
         if state.view is View.PLAYER:
             state.view = View.LIST
             if state.list_anchor_id is not None:

@@ -74,15 +74,18 @@ def test_history_and_queue_use_the_shortcuts_from_the_csharp_menu() -> None:
 
 
 def test_item_bookmarks_do_not_steal_the_broader_ctrl_b() -> None:
-    """Ctrl+B nalezy do GetForDisplay (wszystkie zakladki) -- nie bierzemy go.
+    """Ctrl+B nalezy do GetForDisplay -- i WEZSZY widok go nie przejmuje.
 
-    Gdyby wezszy widok odpowiadal na Ctrl+B, uzytkownik AMC dostalby pod znanym
-    skrotem INNY zbior niz w oryginale, bez ostrzezenia.
+    Wczesniej Ctrl+B byl tu celowo wolny, bo szerszego zbioru jeszcze nie
+    bylo; obiecywanie go pod znanym skrotem byloby klamstwem. Teraz
+    ``all_bookmark_rows`` istnieje, wiec Ctrl+B ma wlasciwa akcje -- ale nadal
+    NIE wezsza. Ten test pilnuje wlasnie tego: zbior pod Ctrl+B musi byc
+    zbiorczy, a zakladki zaznaczonego pliku zostaja pod swoim gestem.
     """
-    assert resolve(Chord("B", ctrl=True), player_view=False, radio_session=False) is None
-    assert Action.VIEW_ITEM_BOOKMARKS not in LIST_VIEW.values() or (
-        LIST_VIEW.get("Ctrl+B") is not Action.VIEW_ITEM_BOOKMARKS
+    assert resolve(Chord("B", ctrl=True), player_view=False, radio_session=False) is (
+        Action.VIEW_ALL_BOOKMARKS
     )
+    assert LIST_VIEW.get("Ctrl+B") is not Action.VIEW_ITEM_BOOKMARKS
 
 
 def test_item_bookmarks_have_their_own_working_gesture() -> None:

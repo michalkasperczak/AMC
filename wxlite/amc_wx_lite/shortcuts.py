@@ -81,6 +81,11 @@ class Action(Enum):
     # zakladki JEDNEGO zaznaczonego elementu -- zakres wezszy, wiec wlasny
     # identyfikator i wlasny gest, zeby nie obiecywac cudzego zbioru.
     VIEW_ITEM_BOOKMARKS = "library.itemBookmarks"
+    # To JUZ jest port CommandIds.ViewBookmarks (BookmarkIndex.GetForDisplay,
+    # BookmarkIndex.cs:19-28): WSZYSTKIE zakladki profilu, wszystkich sesji.
+    # Osobna akcja od VIEW_ITEM_BOOKMARKS, bo zakres jest inny -- jedna akcja
+    # z przelacznikiem kazalaby zgadywac, ktory zbior widzi uzytkownik.
+    VIEW_ALL_BOOKMARKS = "library.allBookmarks"
     HELP = "help"
 
 
@@ -142,10 +147,12 @@ LIST_VIEW: dict[str, Action] = {
     "Alt+1": Action.VIEW_FOLDERS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+H": Action.VIEW_HISTORY,
-    # Ctrl+B zostaje WOLNY. W oryginale nalezy do ViewBookmarks, ktora
-    # pokazuje wszystkie zakladki (GetForDisplay); my mamy wezszy widok
-    # zakladek ZAZNACZONEGO elementu (GetForItem), wiec bierzemy osobny gest
-    # zamiast podmieniac zbior pod znanym uzytkownikowi skrocie.
+    # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
+    # zakladki. Teraz mamy ten zbior naprawde (GetForDisplay), wiec skrot
+    # dostaje swoje wlasne znaczenie, a wezszy widok zakladek ZAZNACZONEGO
+    # pliku zostaje pod Ctrl+Shift+B. Dwa zakresy, dwa gesty -- zaden nie
+    # podmienia drugiemu zbioru pod reka.
+    "Ctrl+B": Action.VIEW_ALL_BOOKMARKS,
     "Ctrl+Shift+B": Action.VIEW_ITEM_BOOKMARKS,
     "F1": Action.HELP,
 }
@@ -237,6 +244,9 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_SAVED_QUEUE: "Zapisana kolejka z profilu",
         # Jawnie wezszy zakres niz "Zakladki" w pelnym AMC.
         Action.VIEW_ITEM_BOOKMARKS: "Zakladki zaznaczonego pliku",
+        # Pelny zbior. Nazwa mowi, ze to wszystkie sesje, bo widok pokazuje
+        # tez wpisy, ktorych ten program nie odtworzy.
+        Action.VIEW_ALL_BOOKMARKS: "Wszystkie zakladki",
         Action.HELP: "Ta pomoc",
     }
     seen: set[Action] = set()

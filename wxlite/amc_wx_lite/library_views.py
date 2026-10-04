@@ -71,6 +71,28 @@ class PlaylistRow:
 
 
 @dataclass(frozen=True, slots=True)
+class BookmarkContext:
+    """Kontekst JEDNEGO wiersza zakladki w widoku zbiorczym.
+
+    Istnieje, bo ``Row`` nie ma gdzie trzymac tych danych, a okno nie ma prawa
+    ich zgadywac. ``item_id`` jest PROFILOWYM identyfikatorem materialu -- nie
+    ``bookmark:<id>`` z ``Row.item_id`` i nie ``file:<path>`` z hosta; zaden z
+    tych prefiksow nie jest jego zamiennikiem.
+
+    ``can_play_locally`` rozstrzyga, czy w tym przyroscie istnieje kanal
+    odtwarzania. Decyduje SESJA, nie obecnosc sciezki: dwie sesje moga uzywac
+    tego samego ``item_id``, wiec sama mapa celow nie wystarcza.
+    """
+
+    item_id: str
+    session_id: str
+    session_name: str
+    can_play_locally: bool
+    is_current_item: bool
+    position_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class LibraryViewResult:
     """Wynik jednego widoku: wiersze + uczciwy opis degradacji.
 
@@ -92,6 +114,10 @@ class LibraryViewResult:
     #: NIE jest identyfikatorem pliku, wiec backend nie moze go dostac.
     #: Pozycja jest ULAMKOWA: ``position_ticks / 10_000_000`` bez obcinania.
     bookmark_targets: dict[str, tuple[str, float, str]] = field(default_factory=dict)
+    #: Tylko dla widoku ZBIORCZEGO: ``Row.item_id`` -> kontekst wiersza.
+    #: Rozdzielone od ``bookmark_targets``, bo odmowa obcej sesji musi byc
+    #: mozliwa TAKZE wtedy, gdy mapa celow przypadkiem zna to ``item_id``.
+    bookmark_contexts: dict[str, BookmarkContext] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:

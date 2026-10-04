@@ -744,8 +744,20 @@ class LiteFrame(wx.Frame):
     def _handle_engine_event(self, name: str, data: dict) -> None:
         if not self._window_alive():
             return
-        if name == "playback.started" and data.get("tempoFallbackReason"):
-            self.announcer.say("Wybrany algorytm tempa jest niedostępny. Używany SoundTouch.")
+        if name == "playback.started":
+            # POTWIERDZENIE startu. Dopiero teraz material jest "biezacy" dla
+            # Ctrl+B: samo wyslanie ``files.play`` jeszcze niczego nie dowodzi.
+            # Pole nazywa sie ``id`` (LiteEngineHandlers.cs:54), nie
+            # ``itemId``, i czesto niesie ``file:<path>``, bo tak host sklada
+            # Id przy przegladaniu folderow -- a to NIE jest profilowe Id.
+            # Dlatego tozsamosc bierzemy z kandydata zapisanego przy zlecaniu,
+            # a z hosta tylko FAKT, ze start sie udal.
+            if data.get("engine") == "files":
+                self.navigator.note_playback_started()
+            if data.get("tempoFallbackReason"):
+                self.announcer.say(
+                    "Wybrany algorytm tempa jest niedostępny. Używany SoundTouch."
+                )
         elif name == "playback.ended":
             self.announcer.say("Koniec utworu")
         elif name == "playback.failed":
@@ -834,6 +846,7 @@ class LiteFrame(wx.Frame):
         LibraryView.HISTORY: "history",
         LibraryView.SAVED_QUEUE: "saved_queue",
         LibraryView.ITEM_BOOKMARKS: "item_bookmarks",
+        LibraryView.ALL_BOOKMARKS: "all_bookmarks",
     }
 
     def _open_library_view(self, intent: OpenLibraryView) -> None:
@@ -852,9 +865,20 @@ class LiteFrame(wx.Frame):
         key = self._VIEW_KEYS[view]
         playlist_id = intent.playlist_id
         item_id = intent.item_id
+        # Kontekst biezacego materialu CZYTAMY TERAZ, w watku GUI, i wysylamy
+        # do watku roboczego jako wartosci. Zajrzenie do nawigatora z tamtej
+        # strony scigaloby sie ze zmiana sesji w trakcie odczytu.
+        current_session_id = intent.current_session_id
+        current_item_id = intent.current_item_id
 
         def work():
-            return self.library.load_view(key, playlist_id=playlist_id, item_id=item_id)
+            return self.library.load_view(
+                key,
+                playlist_id=playlist_id,
+                item_id=item_id,
+                current_session_id=current_session_id,
+                current_item_id=current_item_id,
+            )
 
         def done(result) -> None:
             if result.fallback_view is not None:
@@ -874,6 +898,7 @@ class LiteFrame(wx.Frame):
                 order_matches_amc=result.order_matches_amc,
                 item_id=item_id,
                 bookmark_targets=result.bookmark_targets,
+                bookmark_contexts=result.bookmark_contexts,
             ))
 
         def failed(error: Exception) -> None:
@@ -968,6 +993,10 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
         elif action is Action.VIEW_ITEM_BOOKMARKS:
             self._run(self.navigator.open_item_bookmarks())
+        elif action is Action.VIEW_ALL_BOOKMARKS:
+            # Ctrl+B i pozycja menu wchodza TA SAMA droga: jedna akcja, jeden
+            # dispatcher. Inaczej gest i menu mogly by sie rozjechac.
+            self._run(self.navigator.open_all_bookmarks())
         elif action is Action.HELP:
             self._show_help()
 

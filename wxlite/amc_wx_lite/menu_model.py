@@ -99,6 +99,15 @@ def build_menus() -> tuple[Menu, ...]:
             # szerszej komendy oryginalu.
             MenuItem("&Zakładki zaznaczonego", Action.VIEW_ITEM_BOOKMARKS,
                      shortcut="Ctrl+Shift+B", needs_selection=True),
+            # Pozycja oryginalu (MainWindow.xaml:489, Ctrl+B). Bez
+            # ``needs_selection``: zbiorczy widok nie zalezy od zaznaczenia --
+            # kontekst bierze z SESJI, a sesja moze nic nie odtwarzac.
+            # Klawisz dostepu "i": "w" zajmuje "Wszystkie pliki
+            # alfabetycznie", a "k" -- "Kolejka", obie w TYM SAMYM menu. Dwie
+            # pozycje na jednej literze kazalyby uzytkownikowi czytnika
+            # zgadywac, ktora sie wybierze.
+            MenuItem("Wszystk&ie zakładki", Action.VIEW_ALL_BOOKMARKS,
+                     shortcut="Ctrl+B"),
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),

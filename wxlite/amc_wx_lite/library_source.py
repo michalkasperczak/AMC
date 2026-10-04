@@ -146,13 +146,24 @@ class LibrarySource:
             return rows, False
 
     def load_view(
-        self, view: str, *, playlist_id: str | None = None, item_id: str | None = None
+        self,
+        view: str,
+        *,
+        playlist_id: str | None = None,
+        item_id: str | None = None,
+        current_session_id: str = "",
+        current_item_id: str = "",
     ) -> "LibraryViewResult":
         """Jeden z nazwanych widokow Biblioteki.
 
         Osobno od ``load``, bo tamta czyta DRZEWO folderow, a te widoki sa
         plaskie i maja wlasne naglowki. Uchwyt otwieramy tak samo na kazdy
         odczyt -- inaczej nie zobaczylibysmy tego, co host wlasnie zapisal.
+
+        ``current_session_id``/``current_item_id`` dotycza TYLKO widoku
+        zbiorczego zakladek i sa JAWNYM argumentem, tak jak w WPF
+        (``MainWindow.xaml.cs:12530-12532``). Pusty kontekst jest legalny: sesja
+        moze nic nie odtwarzac.
         """
         from . import library_activity, library_views
 
@@ -182,6 +193,21 @@ class LibrarySource:
                     raise ValueError("item_bookmarks wymaga item_id")
                 activity = library_activity.bookmark_rows(db, item_id=item_id)
                 return _from_activity(activity, targets=_bookmark_targets(db, activity))
+            if view == "all_bookmarks":
+                # ``GetForDisplay``. Kolejnosc i flagi liczy odebrana warstwa;
+                # tutaj dochodzi wylacznie to, czego ona celowo nie robi:
+                # zamiana lokalnego ``item_id`` na SCIEZKE pliku.
+                activity = library_activity.all_bookmark_rows(
+                    db,
+                    current_session_id=current_session_id,
+                    current_item_id=current_item_id,
+                    collation=self._collation,
+                )
+                return _from_activity(
+                    activity,
+                    targets=_local_bookmark_targets(db, activity),
+                    contexts=_bookmark_contexts(activity),
+                )
         raise ValueError(f"nieznany widok Biblioteki: {view}")
 
     def describe(self) -> str:
@@ -205,7 +231,7 @@ def _leaf(path: str) -> str:
 _TICKS_PER_SECOND = 10_000_000
 
 
-def _from_activity(activity, *, targets=None) -> "LibraryViewResult":
+def _from_activity(activity, *, targets=None, contexts=None) -> "LibraryViewResult":
     """``ActivityResult`` -> ``LibraryViewResult``, bez drugiego frameworka.
 
     Okno umie wyswietlic jeden typ wyniku. Zamiast uczyc je drugiego,
@@ -219,7 +245,73 @@ def _from_activity(activity, *, targets=None) -> "LibraryViewResult":
         order_matches_amc=activity.order_matches_amc,
         sees_live_writes=activity.sees_live_writes,
         bookmark_targets=dict(targets or {}),
+        bookmark_contexts=dict(contexts or {}),
     )
+
+
+def _bookmark_contexts(activity) -> dict:
+    """``display`` z warstwy danych -> kontekst per wiersz, bez przeliczania.
+
+    ``is_current_item`` i ``can_play_locally`` policzyla warstwa danych wedle
+    regul C#. Tutaj ich NIE liczymy od nowa -- druga kopia tej samej reguly
+    rozjechalaby sie po pierwszej poprawce. Przepisujemy tylko to, co jest, i
+    kluczujemy po ``Row.item_id``, bo tym kluczem dysponuje lista.
+    """
+    from .library_views import BookmarkContext
+
+    display = getattr(activity, "display", ())
+    return {
+        entry.row.item_id: BookmarkContext(
+            item_id=entry.bookmark.item_id,
+            session_id=entry.bookmark.session_id,
+            session_name=entry.bookmark.session_name,
+            can_play_locally=entry.can_play_locally,
+            is_current_item=entry.is_current_item,
+            position_seconds=entry.position_seconds,
+        )
+        for entry in display
+    }
+
+
+def _local_bookmark_targets(db, activity) -> dict[str, tuple[str, float, str]]:
+    """Cele skoku TYLKO dla zakladek z kanalem lokalnym.
+
+    Widok zbiorczy ma zakladki wszystkich sesji, a ``local_items`` opisuje
+    wylacznie material lokalny. Dwie sesje moga uzywac tego samego ``item_id``
+    (zmierzone w prawdziwym profilu), wiec zapytanie o Id bez filtra po sesji
+    dalo by zakladce Spotify sciezke lokalnego pliku. Filtrujemy po
+    ``can_play_locally``, czyli po tym samym kryterium, ktore rozstrzyga o
+    odmowie -- jedno zrodlo prawdy, nie dwa.
+    """
+    display = getattr(activity, "display", ())
+    local = [entry for entry in display if entry.can_play_locally]
+    if not local:
+        return {}
+    wanted = {entry.bookmark.item_id for entry in local}
+    placeholders = ",".join("?" for _ in wanted)
+    found = {
+        str(row["id"]): (row["path"], row["title"])
+        for row in db.connection.execute(
+            f"SELECT id, path, title FROM local_items WHERE id IN ({placeholders})",
+            tuple(wanted),
+        )
+        if row["path"]
+    }
+    targets: dict[str, tuple[str, float, str]] = {}
+    for entry in local:
+        target = found.get(entry.bookmark.item_id)
+        if target is None:
+            # Zakladki NIE maja filtra ``ActiveLocalItems``: material moze w
+            # katalogu nie istniec. Wtedy celu po prostu nie ma -- i nie
+            # wysylamy do hosta zmyslonej sciezki.
+            continue
+        path, title = target
+        targets[entry.row.item_id] = (
+            path,
+            entry.position_seconds,
+            title or entry.bookmark.item_title,
+        )
+    return targets
 
 
 def _bookmark_targets(db, activity) -> dict[str, tuple[str, float, str]]:
