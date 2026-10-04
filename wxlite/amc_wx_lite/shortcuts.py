@@ -68,6 +68,19 @@ class Action(Enum):
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
+    # Nazwy odpowiadaja komendom C#, ktore te widoki otwieraja:
+    #   CommandIds.ViewFolders  (MainWindow.xaml:446, Alt+1)
+    #   CommandIds.ViewHistory  (CommandIds.cs:182, MainWindow.xaml:488, Ctrl+H)
+    #   CommandIds.ViewQueue    (CommandIds.cs:149, MainWindow.xaml:487, Ctrl+Q)
+    VIEW_FOLDERS = "library.folders"
+    VIEW_HISTORY = "view.history"
+    VIEW_SAVED_QUEUE = "view.queue"
+    # UWAGA: to NIE jest CommandIds.ViewBookmarks. Tamta komenda (Ctrl+B)
+    # pokazuje WSZYSTKIE zakladki (BookmarkIndex.GetForDisplay,
+    # BookmarkIndex.cs:19-28). Tutaj mamy port GetForItem (cs:30-36), czyli
+    # zakladki JEDNEGO zaznaczonego elementu -- zakres wezszy, wiec wlasny
+    # identyfikator i wlasny gest, zeby nie obiecywac cudzego zbioru.
+    VIEW_ITEM_BOOKMARKS = "library.itemBookmarks"
     HELP = "help"
 
 
@@ -120,6 +133,20 @@ LIST_VIEW: dict[str, Action] = {
     "Alt+2": Action.VIEW_ALL_FILES,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+P": Action.VIEW_PLAYLISTS,
+    # Widoki aktywnosci. Skroty ODCZYTANE z kodu, nie zgadniete:
+    #   MainWindow.xaml:446  "Foldery _Biblioteki"     Alt+1
+    #   MainWindow.xaml:487  "_Kolejka"                Ctrl+Q
+    #   MainWindow.xaml:488  "_Historia odtwarzania"   Ctrl+H
+    # (te same pary w KeyboardProfile.cs:84 i :90 oraz w sciezce klawiszy
+    # MainWindow.xaml.cs:21674-21675.)
+    "Alt+1": Action.VIEW_FOLDERS,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+H": Action.VIEW_HISTORY,
+    # Ctrl+B zostaje WOLNY. W oryginale nalezy do ViewBookmarks, ktora
+    # pokazuje wszystkie zakladki (GetForDisplay); my mamy wezszy widok
+    # zakladek ZAZNACZONEGO elementu (GetForItem), wiec bierzemy osobny gest
+    # zamiast podmieniac zbior pod znanym uzytkownikowi skrocie.
+    "Ctrl+Shift+B": Action.VIEW_ITEM_BOOKMARKS,
     "F1": Action.HELP,
 }
 
@@ -203,6 +230,13 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
         Action.VIEW_FAVORITES: "Ulubione",
         Action.VIEW_PLAYLISTS: "Playlisty",
+        Action.VIEW_FOLDERS: "Foldery Biblioteki",
+        Action.VIEW_HISTORY: "Historia odtwarzania",
+        # Nazwa mowi, ze to ZAPISANY stan profilu, a nie kolejka grajacego
+        # silnika -- tej w tej aplikacji nie ma i nie udajemy jej.
+        Action.VIEW_SAVED_QUEUE: "Zapisana kolejka z profilu",
+        # Jawnie wezszy zakres niz "Zakladki" w pelnym AMC.
+        Action.VIEW_ITEM_BOOKMARKS: "Zakladki zaznaczonego pliku",
         Action.HELP: "Ta pomoc",
     }
     seen: set[Action] = set()
