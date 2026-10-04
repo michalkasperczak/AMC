@@ -16,8 +16,8 @@ Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany p
 - Enter na zakładce przechodzi FIZYCZNIE do materiału i pozycji: `play.file` dostaje `positionSeconds` w jednym wywołaniu, bez osobnego seeka po starcie. `Row.item_id` zakładki (`bookmark:<id>`) nigdy nie trafia do backendu jako plik — ścieżka i pozycja idą z mapy celów, a `BookmarkRow.item_id` jest ID pliku.
 - Pozycja liczona jako `position_ticks / 10_000_000` z zachowaną częścią ułamkową (bez `//`).
 - Backspace z widoku zakładek wraca na TEN plik (zmierzone: wiersz 2309 z 2476, to samo ID), nie na wiersz pierwszy.
-- Foldery Biblioteki mają wreszcie wejście w menu (Alt+1, jak `MainWindow.xaml:446`), a menu Widok — brakujący „Powrót na listę" (istniejąca akcja `SHOW_LIST`). Oba gesty odebrane OSOBNO na żywym NVDA, nie tylko w kodzie: `list-speech-after422/odbior-listy-FINAL.json`, kroki P01 (Alt+1 → „1 z 11") oraz P14+P15 (Alt+W, litera „l" → powrót na listę z odczytem wiersza).
-- Lista bez wierszy podaje własną nazwę i rolę, nie „nieznane": `SysListView32` nigdy nie podawał `accName` samej kontrolki, więc na pustym zbiorze nie było czego przeczytać. Nakładka `MediaListAccessible` to naprawia; zmierzone w produkcyjnym runtime (`list-speech-after422/zdarzenia15.jsonl`).
+- Foldery Biblioteki mają wreszcie wejście w menu (Alt+1, jak `MainWindow.xaml:446`), a menu Widok — brakujący „Powrót na listę" (istniejąca akcja `SHOW_LIST`). W `list-speech-after422/odbior-listy-FINAL.json` P01 wywołał ponowne wczytanie folderów. P14+P15 wykonał pozycję menu, ale P13 nie dowodzi wcześniejszego wejścia do odtwarzacza (fokus nadal na wierszu, brak odtwarzania). Przejście PLAYER→LIST pozostaje do zmierzenia w tym menu.
+- `MediaListAccessible` nadaje nazwę i rolę samej kontrolce listy. Odczyt MSAA na pustym modelu potwierdzony (`list-speech-after422/zdarzenia15.jsonl`); usunięcie „nieznane” w rzeczywistym przejściu klawiaturą do pustych zakładek NIE zostało jeszcze odebrane. FINAL P11 miał nadal 1 wiersz, nie 0.
 
 ## Mowa listy — co NADAL jest zepsute
 

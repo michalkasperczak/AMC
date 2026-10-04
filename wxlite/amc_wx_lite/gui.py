@@ -263,29 +263,13 @@ class Announcer:
 
 
 class MediaListAccessible(wx.Accessible):
-    """Nazwa i rola SAMEJ listy -- to, czego ``SysListView32`` nie podaje.
+    """Udostepnia przez MSAA nazwe i role samej kontrolki listy.
 
-    ZMIERZONA PRZYCZYNA (objaw F03: "nieznane" przed "Biblioteka — Zakladki,
-    pusto"). Wlasna sonda MSAA w tym samym runtime co produkcja pytala
-    ``IAccessible::get_accName`` klienta listy:
-
-        pusta lista   -> ``hr=S_FALSE (1)``, ``accName=None``
-        lista z danymi-> ``hr=S_FALSE (1)``, ``accName=None``
-
-    (kwit ``list-speech-after422/zdarzenia7.jsonl``, pola ``samalista_*``).
-    Czyli sama lista NIGDY nie miala nazwy MSAA. Dopoki stal na niej wiersz,
-    czytnik mowil wiersz i nie bylo tego slychac; na pustym zbiorze nie ma
-    wiersza, wiec zostaje obiekt bez nazwy -- i to jest "nieznane".
-
-    ``SetName``/``SetWindowTextW`` tego NIE naprawiaja -- sprawdzone i
-    odrzucone pomiarem: ``GetWindowTextW`` zwracalo nasz tekst, a ``accName``
-    zostawalo puste, bo ``oleacc`` nie bierze nazwy ``SysListView32`` z tekstu
-    okna.
-
-    ``wx.ACC_NOT_IMPLEMENTED`` dla ``childId != 0`` znaczy "odpowiedz tak jak
-    dotychczas". Dlatego wiersze zachowuja swoje nazwy, kolumny i pozycje
-    "N z M" -- zwykla strzalka czyta element bez zmian (zmierzone:
-    ``rekreacja/Y-strzalka-w-dol`` to jedno ``FOCUS`` z nazwa wiersza).
+    Sonda MSAA wykazala brak accName klienta SysListView32 mimo SetName;
+    z ta nakladka accName jest dostepne. Nie jest to jeszcze dowod usuniecia
+    komunikatu "nieznane" przy fizycznym wejsciu na pusta liste z NVDA.
+    Dla dzieci pozostaje dotychczasowa implementacja natywna. Kwity pomiaru
+    interfejsu: list-speech-after422/zdarzenia15.jsonl.
     """
 
     def __init__(self, window: wx.Window) -> None:
@@ -661,9 +645,7 @@ class LiteFrame(wx.Frame):
                 item.Enable(enabled)
 
     def _bind_list(self, control: MediaListCtrl) -> None:
-        """Powiazania JEDNEJ listy. Wydzielone, bo po przebudowie kontrolki
-        nowe okno musi dostac DOKLADNIE te same zdarzenia -- inaczej strzalki
-        i Enter przestaja dzialac na nowej liscie."""
+        """Wspolne powiazania klawiatury i wyboru dla list plikow i radia."""
         control.Bind(wx.EVT_KEY_DOWN, self._on_key)
         control.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda _e: self._activate())
         control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)

@@ -69,10 +69,7 @@ class ListModel:
 
     rows: list[Row] = field(default_factory=list)
     _selected_id: str | None = None
-    #: Numer PODMIANY zbioru. Rosnie tylko w ``replace`` -- przestawienie
-    #: kursora go NIE zmienia.
-    #:
-    #: Po co osobny licznik, skoro jest dlugosc listy: dlugosc nie wystarcza.
+
     def __len__(self) -> int:
         return len(self.rows)
 
