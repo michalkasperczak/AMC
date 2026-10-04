@@ -216,3 +216,100 @@ def history_rows(
         sees_live_writes=db.sees_live_writes,
         missing_item_count=missing,
     )
+
+
+# --------------------------------------------------------- 2. zapisana kolejka
+
+
+def saved_queue_rows(
+    db: LibraryDatabase, *, session: str = LOCAL_SESSION
+) -> ActivityResult:
+    """ZAPISANA kolejka sesji (``MainWindow.xaml.cs:13508-13525``).
+
+    To odczyt tego, co AMC UTRWALILO w profilu: ``queue_order`` plus listy
+    czlonkostwa ``queue_regular_order`` i ``queue_play_next_order``. NIE jest
+    to kolejka zywego silnika odtwarzania -- taki silnik w tej warstwie nie
+    istnieje i nie udajemy jego API.
+
+    Kolejnosc jest ZAPISANA, dwustopniowa, dokladnie jak w
+    ``OrderedQueueItems`` (``MainWindow.xaml.cs:13518-13525``):
+
+    1. ``LocalLibraryManualOrder.Order(items, stored)``
+       (``LocalLibraryManualOrder.cs:89-105``): pozycja = indeks PIERWSZEGO
+       wystapienia Id w zapisie, nieznane Id dostaje ``int.MaxValue``, remis
+       rozstrzyga indeks wejsciowy katalogu;
+    2. ``OrderByDescending(IsPlayNext)`` -- stabilne, wiec blok "odtworz
+       nastepne" idzie na gore, a kolejnosc wewnatrz blokow zostaje.
+
+    Czlonkostwo bierzemy z ZAPISU, a nie z kolumn ``is_in_queue`` /
+    ``is_play_next``: ``TransientQueuePersistence.Restore`` najpierw zeruje
+    oba znaczniki dla wszystkich pozycji (``cs:109-113``), a potem nadaje je
+    tylko Id opisanym zapisana kolejnoscia (``cs:114-127``). Kolumny w bazie
+    sa migawka POPRZEDNIEJ sesji i nie moga wygrac z zapisem.
+
+    ``legacyRegularQueue`` (``cs:101``): gdy OBIE listy czlonkostwa sa puste,
+    cala ``queue_order`` jest zwykla kolejka -- starszy zapis nadal dziala
+    i nie wolno go wyrzucac.
+
+    Mapowanie Id na klucz magazynu (``StorageItemId``, ``cs:130-138``) dotyczy
+    sesji ``tidal`` z ``ExternalId``; dla ``local`` kluczem jest samo ``Id``,
+    wiec nie wprowadzamy tu zdalnej logiki, ktorej ten modul nie obsluguje.
+    """
+    heading = "Biblioteka — Kolejka (zapisana)"
+    if not session or not session.strip():
+        return ActivityResult(
+            rows=[], heading=heading, sees_live_writes=db.sees_live_writes
+        )
+
+    stored = _distinct_ordinal(_stored_ids(db, "queue_order", session))
+    regular = set(_stored_ids(db, "queue_regular_order", session))
+    play_next = set(_stored_ids(db, "queue_play_next_order", session))
+    legacy_regular = not regular and not play_next
+
+    catalog = _active_catalog(db)
+    #: Indeks wejsciowy katalogu -- tie-break ``ThenBy(originalIndex)``
+    #: z ``LocalLibraryManualOrder.Order``.
+    original_index = {item_id: index for index, item_id in enumerate(catalog)}
+
+    entries: list[tuple[int, int, str, bool, bool]] = []
+    missing = 0
+    for position, item_id in enumerate(stored):
+        if item_id not in catalog:
+            missing += 1
+            continue
+        in_queue = legacy_regular or item_id in regular
+        is_play_next = item_id in play_next
+        if not in_queue and not is_play_next:
+            # ``Restore`` zostawil oba znaczniki na false, a filtr widoku
+            # (``MainWindow.xaml.cs:13520``) przepuszcza tylko
+            # ``IsInQueue || IsPlayNext``.
+            continue
+        entries.append(
+            (position, original_index.get(item_id, 0), item_id, in_queue, is_play_next)
+        )
+
+    # Dwa stabilne przebiegi, tak jak LINQ: najpierw kolejnosc reczna,
+    # potem OrderByDescending(IsPlayNext).
+    entries.sort(key=lambda entry: (entry[0], entry[1]))
+    entries.sort(key=lambda entry: not entry[4])
+
+    rows: list[Row] = []
+    queue: list[QueueRow] = []
+    for _, _, item_id, in_queue, is_play_next in entries:
+        row = _track_row(catalog[item_id])
+        rows.append(row)
+        queue.append(
+            QueueRow(
+                row=row,
+                item_id=item_id,
+                is_in_queue=in_queue,
+                is_play_next=is_play_next,
+            )
+        )
+    return ActivityResult(
+        rows=rows,
+        heading=heading,
+        sees_live_writes=db.sees_live_writes,
+        missing_item_count=missing,
+        queue=tuple(queue),
+    )

@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from amc_wx_lite.library_activity import (  # noqa: E402
     MAX_HISTORY_ENTRIES_PER_SESSION,
     history_rows,
+    saved_queue_rows,
 )
 from amc_wx_lite.library_db import LibraryDatabase  # noqa: E402
 
@@ -379,3 +380,179 @@ class HistoryView(_SyntheticCase):
 
         self.assertEqual([row.item_id for row in history_rows(db).rows], ["b", "a"])
         self.assertTrue(history_rows(db).sees_live_writes)
+
+
+# --------------------------------------------------------- 2. zapisana kolejka
+
+
+class SavedQueueView(_SyntheticCase):
+    def test_play_next_block_comes_first_then_stored_order(self):
+        """``OrderedQueueItems`` (``MainWindow.xaml.cs:13518-13525``).
+
+        ``LocalLibraryManualOrder.Order(items, stored)``, a potem
+        ``OrderByDescending(IsPlayNext)``. ``OrderByDescending`` w LINQ jest
+        STABILNE, wiec "odtworz nastepne" wychodzi na gore BEZ mieszania
+        kolejnosci wewnatrz obu blokow. To jest wlasnie rozroznienie
+        kolejnosci wlasciwe dla AMC -- nie dwie osobne listy.
+        """
+        for name in ("a", "b", "c", "d"):
+            self.build.item(name, name.upper(), f"C:/m/{name}.mp3", in_queue=True)
+        self.build.queue("a", "b", "c", "d")
+        self.build.queue_regular("a", "c")
+        self.build.queue_play_next("b", "d")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["b", "d", "a", "c"])
+        self.assertEqual(
+            [(q.item_id, q.is_play_next) for q in result.queue],
+            [("b", True), ("d", True), ("a", False), ("c", False)],
+        )
+        self.assertTrue(result.order_matches_amc)
+
+    def test_membership_comes_from_saved_lists_not_from_item_flags(self):
+        """``Restore`` czysci flagi i nadaje je z ZAPISU.
+
+        ``TransientQueuePersistence.cs:109-127``: najpierw
+        ``IsInQueue = IsPlayNext = false`` dla WSZYSTKICH, potem flagi tylko
+        dla Id opisanych zapisana kolejnoscia. Kolumna ``is_in_queue`` w bazie
+        to migawka POPRZEDNIEJ sesji i nie moze wygrac z zapisem.
+        """
+        self.build.item("a", "A", "C:/m/a.mp3", in_queue=True)
+        self.build.item("b", "B", "C:/m/b.mp3", in_queue=True, play_next=True)
+        self.build.item("c", "C", "C:/m/c.mp3", in_queue=False)
+        self.build.queue("c")
+        self.build.queue_regular("c")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["c"])
+        self.assertEqual(result.queue[0].is_in_queue, True)
+        self.assertEqual(result.queue[0].is_play_next, False)
+
+    def test_legacy_queue_without_membership_lists_is_regular(self):
+        """``legacyRegularQueue`` (``TransientQueuePersistence.cs:101``).
+
+        Gdy OBIE listy czlonkostwa sa puste, zapis pochodzi ze starszej
+        wersji i cala ``queue_order`` jest zwykla kolejka. Usuniecie tych
+        wpisow "dla wygody" skasowaloby uzytkownikowi kolejke.
+        """
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.item("b", "B", "C:/m/b.mp3")
+        self.build.queue("a", "b")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["a", "b"])
+        self.assertTrue(all(q.is_in_queue for q in result.queue))
+        self.assertFalse(any(q.is_play_next for q in result.queue))
+
+    def test_item_outside_catalog_is_skipped_without_placeholder(self):
+        """``Restore`` dopasowuje Id do katalogu i pomija nieznane.
+
+        ``TransientQueuePersistence.cs:116-119`` (``continue``). Wpisu nie
+        usuwamy z bazy -- jest tylko niewidoczny, a liczba jest jawna.
+        """
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.item("znikniety", "Z", "C:/m/z.mp3", available=False)
+        self.build.queue("znikniety", "a")
+        self.build.queue_regular("znikniety", "a")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["a"])
+        self.assertEqual(result.missing_item_count, 1)
+
+    def test_repeated_id_in_stored_order_appears_once(self):
+        """``storedOrder.Distinct(Ordinal)`` (``TransientQueuePersistence.cs:114``).
+
+        Pierwsze wystapienie wyznacza pozycje -- tak jak ``Order`` bierze
+        indeks PIERWSZEGO wystapienia (``LocalLibraryManualOrder.cs:95-98``).
+        """
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.item("b", "B", "C:/m/b.mp3")
+        self.build.queue("a", "b", "a")
+        self.build.queue_regular("a", "b")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["a", "b"])
+
+    def test_catalog_item_missing_from_stored_order_is_not_in_queue(self):
+        """Kolejka to pozycje Z ZAPISU, nie caly katalog.
+
+        ``Restore`` zeruje flagi wszystkim i nadaje je tylko Id z zapisu
+        (``TransientQueuePersistence.cs:109-127``), a ``OrderedQueueItems``
+        filtruje ``IsInQueue || IsPlayNext`` (``MainWindow.xaml.cs:13520``).
+        """
+        self.build.item("a", "A", "C:/m/a.mp3", in_queue=True)
+        self.build.item("b", "B", "C:/m/b.mp3")
+        self.build.queue("b")
+        self.build.queue_regular("b")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["b"])
+
+    def test_id_present_in_order_but_in_no_membership_list_is_dropped(self):
+        """Zapisany, ale ani zwykly, ani priorytetowy -> poza kolejka.
+
+        ``Restore`` ustawia obie flagi na ``false``
+        (``TransientQueuePersistence.cs:123-126``), a filtr widoku przepuszcza
+        tylko ``IsInQueue || IsPlayNext``. Dzieje sie tak tylko, gdy
+        czlonkostwo ISTNIEJE (inaczej dziala ``legacyRegularQueue``).
+        """
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.item("b", "B", "C:/m/b.mp3")
+        self.build.queue("a", "b")
+        self.build.queue_regular("b")
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["b"])
+
+    def test_other_sessions_never_mix_into_local_queue(self):
+        """Kolejka podcastow/TIDAL-a to inna sesja (``GetValueOrDefault(sessionId)``).
+
+        ``MainWindow.xaml.cs:13513-13515``.
+        """
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.queue("a")
+        self.build.queue_regular("a")
+        self.build.queue("pod-1", session="podcasts")
+        self.build.queue_regular("pod-1", session="podcasts")
+
+        result = saved_queue_rows(self.open_db(), session="local")
+
+        self.assertEqual([row.item_id for row in result.rows], ["a"])
+
+    def test_empty_saved_queue_is_not_an_error(self):
+        self.build.item("a", "A", "C:/m/a.mp3", in_queue=True)
+
+        result = saved_queue_rows(self.open_db())
+
+        self.assertTrue(result.is_empty)
+
+    def test_sees_commit_from_open_writer(self):
+        """Swiezosc WAL przy OTWARTYM writerze -- ponowny odczyt widzi commit."""
+        self.build.item("a", "A", "C:/m/a.mp3")
+        self.build.item("b", "B", "C:/m/b.mp3")
+        self.build.queue("a")
+        self.build.queue_regular("a")
+        db = self.open_db()
+        self.assertEqual([row.item_id for row in saved_queue_rows(db).rows], ["a"])
+
+        self.build.connection.execute("BEGIN")
+        self.build.connection.execute(
+            "INSERT INTO queue_order(session_id, ordinal, item_id) "
+            "VALUES ('local', 1, 'b')"
+        )
+        self.build.connection.execute(
+            "INSERT INTO queue_play_next_order(session_id, ordinal, item_id) "
+            "VALUES ('local', 0, 'b')"
+        )
+        self.build.connection.execute("COMMIT")
+
+        result = saved_queue_rows(db)
+        self.assertEqual([row.item_id for row in result.rows], ["b", "a"])
+        self.assertTrue(result.sees_live_writes)
