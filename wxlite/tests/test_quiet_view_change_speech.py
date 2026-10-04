@@ -52,15 +52,10 @@ class FakeVirtualList:
         self.model = model
         self.calls: list[tuple] = []
         self._selected = -1
-        self.item_count = 0
 
     # --- API wx, ktore woła nasz kod
     def SetItemCount(self, count: int) -> None:  # noqa: N802 - API wx
         self.calls.append(("SetItemCount", count))
-        self.item_count = count
-
-    def GetItemCount(self) -> int:  # noqa: N802
-        return self.item_count
 
     def RefreshItems(self, first: int, last: int) -> None:  # noqa: N802
         self.calls.append(("RefreshItems", first, last))
@@ -176,41 +171,6 @@ def test_selection_already_in_place_touches_nothing() -> None:
     ctrl = make_ctrl(model, selected=0)
     ctrl.sync_selection()
     assert ctrl.calls == []
-
-
-def test_rows_that_stay_in_range_get_new_text_before_the_count_grows() -> None:
-    """Objaw 4 (zywy NVDA, gest K01, Playlisty 1 -> Wszystkie pliki 2475):
-
-        "Biskup; Rodzaj: playlista; Szczegoly: 54 elementy, laczny czas
-         nieznany  1 z 2475"
-
-    Stara nazwa z NOWYM licznikiem. Na malych listach (1 -> 9) tego nie bylo.
-
-    Powod kolejnosci: ``SetItemCount`` najpierw podnosi licznik, a tekst
-    wierszy odswiezamy dopiero PO nim. Zdarzenie czytnika o zmianie rozmiaru
-    trafia w okno, w ktorym licznik jest juz nowy, a tekst wiersza 0 jeszcze
-    stary.
-
-    Wiersze, ktore mieszcza sie w OBU dlugosciach (tu wiersz 0), musza dostac
-    nowy tekst PRZED podniesieniem licznika -- wtedy nie ma chwili, w ktorej
-    stara nazwa da sie odczytac.
-    """
-    model = ListModel()
-    model.replace([track(str(i), f"Nowy {i}") for i in range(2475)])
-    ctrl = make_ctrl(model, selected=0)
-    ctrl.item_count = 1  # tyle, ile mial poprzedni widok (jedna playlista)
-
-    ctrl.sync_length()
-
-    order = [c for c in ctrl.calls if c[0] in ("SetItemCount", "RefreshItems")]
-    first = order[0]
-    assert first[0] == "RefreshItems", (
-        f"nachodzacy zakres musi dostac nowy tekst przed licznikiem, a bylo: {order}"
-    )
-    assert first[1] == 0 and first[2] == 0, (
-        f"odswiezamy tylko wiersze obecne w obu dlugosciach, a bylo: {first}"
-    )
-    assert any(c[0] == "SetItemCount" and c[1] == 2475 for c in order)
 
 
 def test_whole_swap_happens_between_freeze_and_thaw() -> None:

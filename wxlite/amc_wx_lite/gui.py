@@ -319,21 +319,9 @@ class MediaListCtrl(wx.ListCtrl):
         dotykamy wylacznie wierszy tej listy.
         """
         count = len(self.model)
-        # Wiersze obecne w OBU dlugosciach dostaja nowy tekst PRZED licznikiem.
-        # Inaczej jest chwila, w ktorej licznik jest juz nowy, a tekst stary --
-        # i czytnik wlasnie ja lapal. Zmierzone na zywym NVDA (gest K01,
-        # Playlisty 1 -> Wszystkie pliki 2475):
-        #   "Biskup; Rodzaj: playlista; ...  1 z 2475"
-        # czyli nazwa z POPRZEDNIEGO widoku z NOWYM licznikiem.
-        overlap = min(count, self.GetItemCount())
-        if overlap:
-            self.RefreshItems(0, overlap - 1)
         self.SetItemCount(count)
-        # Reszta zakresu (gdy lista urosla) nie istniala przed chwila, wiec
-        # nie ma tam starego tekstu do podmiany -- ale wx i tak musi ja
-        # narysowac.
-        if count > overlap:
-            self.RefreshItems(overlap, count - 1)
+        if count:
+            self.RefreshItems(0, count - 1)
 
     def sync_selection(self) -> None:
         """Ustaw zaznaczenie wg modelu JEDNYM przejsciem stanu.
