@@ -58,15 +58,29 @@ Granice, ktore nazywam wprost
 from __future__ import annotations
 
 import base64
+import json
 from typing import Any, Callable, Iterable, Sequence
 
 #: Operacja protokolu hosta (JSON-lines). Jedno wywolanie na caly wsad.
 COLLATION_OP = "library.collationKeys"
 
-#: Gorny prog jednego wsadu. Pelna Biblioteka (11 tys.) idzie jednym
-#: wywolaniem; prog chroni przed wierszem protokolu bez konca, gdyby ktos
-#: wpuscil tu korpus o rzad wielkosci wiekszy.
+#: Gorny prog jednego wsadu w SZTUKACH. Zabezpieczenie zdrowego rozsadku.
 MAX_BATCH = 50_000
+
+#: Gorny prog jednego ZADANIA w bajtach wiersza protokolu.
+#:
+#: Host celowo odrzuca wiersze dluzsze niz ``MaximumLineLength = 64 * 1024``
+#: (``Protocol/LiteRequest.cs``) i odpowiada bledem ``line_too_long``. Ta
+#: odpowiedz NIE ma pola ``id``, wiec klient nie dopasuje jej do swojego
+#: zadania i doczeka do timeoutu -- zmierzone na zywym hoscie: 65 505 B
+#: przechodzi, 65 557 B wiesza wywolanie na caly timeout.
+#:
+#: Zostawiamy zapas na koperte zadania (``id``, ``op``) i na to, ze host
+#: liczy ZNAKI UTF-16, a my bajty UTF-8.
+MAX_REQUEST_BYTES = 56 * 1024
+
+#: Sam szkielet zadania bez tytulow -- tyle miejsca zabiera koperta.
+_ENVELOPE_OVERHEAD = 160
 
 
 class HostCollationUnavailable(RuntimeError):
@@ -75,6 +89,38 @@ class HostCollationUnavailable(RuntimeError):
     Swiadomie wyjatek, nie wartosc zastepcza: milczace sortowanie niezgodnym
     collatorem wyglada jak dzialajaca funkcja i dlatego jest grozniejsze.
     """
+
+
+def _batch_titles(titles: Sequence[str]) -> list[list[str]]:
+    """Podziel tytuly na wsady, ktore zmieszcza sie w jednym wierszu protokolu.
+
+    Dzielimy po BAJTACH, nie po liczbie pozycji: 2596 krotkich tytulow to
+    ~100 KB, a kilkaset bardzo dlugich moze przekroczyc prog szybciej.
+    """
+    batches: list[list[str]] = []
+    current: list[str] = []
+    current_bytes = _ENVELOPE_OVERHEAD
+
+    for title in titles:
+        # json.dumps z domyslnymi ustawieniami rozdziela elementy przez ", "
+        # -- DWA bajty, nie jeden. Policzone za nisko o bajt na tytul daje
+        # przy 1300 tytulach 1,3 KB nadmiaru i wiersz ponad progiem.
+        cost = len(json.dumps(title, ensure_ascii=False).encode("utf-8")) + 2
+        if cost + _ENVELOPE_OVERHEAD > MAX_REQUEST_BYTES:
+            raise HostCollationUnavailable(
+                f"Pojedynczy tytul zajmuje {cost} B i nie zmiesci sie w wierszu "
+                f"protokolu ({MAX_REQUEST_BYTES} B). Host odrzucilby to zadanie."
+            )
+        if current and current_bytes + cost > MAX_REQUEST_BYTES:
+            batches.append(current)
+            current = []
+            current_bytes = _ENVELOPE_OVERHEAD
+        current.append(title)
+        current_bytes += cost
+
+    if current:
+        batches.append(current)
+    return batches
 
 
 def sort_key_order(
@@ -131,7 +177,13 @@ class HostCollation:
             self._keys[title] = base64.b64decode(encoded)
 
     def load(self, titles: Iterable[str]) -> None:
-        """Dociagnij klucze dla brakujacych tytulow JEDNYM wywolaniem hosta."""
+        """Dociagnij klucze dla brakujacych tytulow.
+
+        Wsad dzielimy na tyle zadan, ile trzeba, zeby ZADEN wiersz protokolu
+        nie przekroczyl progu hosta. Nadal jest to sortowanie wsadowe: liczba
+        wywolan rosnie z rozmiarem danych (2-3 na pelny poziom Biblioteki), a
+        NIE z liczba porownywanych par.
+        """
         wanted = list(dict.fromkeys(titles))
         missing = [t for t in wanted if t not in self._keys]
         if not missing:
@@ -140,10 +192,11 @@ class HostCollation:
             raise HostCollationUnavailable(
                 f"Wsad {len(missing)} tytulow przekracza prog {MAX_BATCH}."
             )
-        response = self._call(COLLATION_OP, {"titles": missing}, timeout=60.0)
-        if not isinstance(response, dict):
-            raise HostCollationUnavailable("Host nie oddal obiektu z kluczami.")
-        self._absorb(missing, response.get("keys") or [])
+        for batch in _batch_titles(missing):
+            response = self._call(COLLATION_OP, {"titles": batch}, timeout=60.0)
+            if not isinstance(response, dict):
+                raise HostCollationUnavailable("Host nie oddal obiektu z kluczami.")
+            self._absorb(batch, response.get("keys") or [])
 
     # ------------------------------------------------------------ sortowanie
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using AccessibleMediaController.LiteHost.Protocol;
 
@@ -18,6 +19,17 @@ internal static class WireServer
     {
         var standardOutput = Console.Out;
         Console.SetOut(Console.Error);
+
+        // Ta sama zasada co w prawdziwym hoscie: protokol czytamy i piszemy
+        // jako UTF-8, nie strona kodowa konsoli. Inaczej test zgodnosci
+        // mierzylby inna droge niz produkcja.
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        var protocolInput = new StreamReader(
+            Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
+        var protocolOutput = new StreamWriter(Console.OpenStandardOutput(), utf8)
+        {
+            AutoFlush = false
+        };
 
         var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
         {
@@ -64,7 +76,8 @@ internal static class WireServer
             ["utf8"] = (request, _) => new { text = LiteArgs.ReadText(request.Args, "text") }
         };
 
-        new LiteDispatchLoop(handlers).Run(Console.In, standardOutput);
+        new LiteDispatchLoop(handlers).Run(protocolInput, protocolOutput);
+        protocolOutput.Flush();
         return 0;
     }
 }

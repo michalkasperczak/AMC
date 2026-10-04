@@ -1,3 +1,4 @@
+using System.Text;
 using AccessibleMediaController.LiteHost.Protocol;
 
 namespace AccessibleMediaController.LiteHost;
@@ -19,6 +20,23 @@ internal static class Program
         var standardOutput = Console.Out;
         Console.SetOut(Console.Error);
 
+        // Protokol jest w UTF-8 i MUSI byc czytany jako UTF-8.
+        //
+        // Domyslnie Console.In na Windows dekoduje przekierowany stdin
+        // kodowaniem strony kodowej konsoli (u Michala CP852/CP1250), wiec
+        // polskie znaki docieraly uszkodzone. Zmierzone na zywym hoscie:
+        // ten sam tytul wyslany surowym UTF-8 i jako \uXXXX dawal ROZNE
+        // klucze sortowania, a zgadzaly sie tylko tytuly czysto ASCII
+        // (1333 z 2596). Dotyczy to kazdej operacji z polskim tekstem --
+        // takze sciezek plikow do odtwarzania, nie tylko kolejnosci listy.
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        var protocolInput = new StreamReader(
+            Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
+        var protocolOutput = new StreamWriter(Console.OpenStandardOutput(), utf8)
+        {
+            AutoFlush = false // petla zadan flushuje sama, po calym wierszu
+        };
+
         var timeshiftMinutes = ReadTimeshiftMinutes(args);
 
         using var handlers = new LiteEngineHandlers(timeshiftMinutes);
@@ -29,12 +47,17 @@ internal static class Program
 
         try
         {
-            loop.Run(Console.In, standardOutput);
+            loop.Run(protocolInput, protocolOutput);
         }
         catch (Exception exception)
         {
             Console.Error.WriteLine("[amc-lite-host] awaria petli: " + exception);
             return 1;
+        }
+        finally
+        {
+            protocolOutput.Flush();
+            Console.SetOut(standardOutput);
         }
 
         Console.Error.WriteLine("[amc-lite-host] koniec wejscia, zamykam sie");

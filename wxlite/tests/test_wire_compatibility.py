@@ -147,6 +147,28 @@ def test_unexpected_handler_exception_does_not_kill_the_host() -> None:
         client.close()
 
 
+def test_polish_characters_survive_the_round_trip_to_csharp() -> None:
+    """Regresja: host MUSI czytac stdin jako UTF-8.
+
+    Zmierzone na zywym hoscie na Windows: ``Console.In`` dekodowalo
+    przekierowany stdin strona kodowa konsoli, wiec polskie znaki docieraly
+    uszkodzone. Objaw przy sortowaniu: zgadzaly sie tylko tytuly czysto ASCII
+    (1333 z 2596), ale psulo to KAZDA operacje z polskim tekstem -- w tym
+    sciezki plikow do odtwarzania.
+    """
+    client = make_client()
+    try:
+        polish = "Bóg pojednał ŁÓDŹ żółć ćma ęąśń"
+        echoed = client.call("echo", {"tytul": polish})["args"]["tytul"]
+        assert echoed == polish, f"host oddal {echoed!r} zamiast {polish!r}"
+
+        # Takze sciezka w stylu AMC, ze znakami i spacjami.
+        path = "D:\\Muzyka\\Pieśni\\Żółta łódź - ćwierć.mp3"
+        assert client.call("echo", {"path": path})["args"]["path"] == path
+    finally:
+        client.close()
+
+
 def test_unknown_operation_is_an_error_not_a_crash() -> None:
     client = make_client()
     try:

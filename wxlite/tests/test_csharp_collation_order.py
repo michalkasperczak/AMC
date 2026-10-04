@@ -20,6 +20,7 @@ wynik na Linuksie i na Windows.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -28,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from amc_wx_lite import collation as collation_module  # noqa: E402
 from amc_wx_lite.collation import (  # noqa: E402
     HostCollation,
     HostCollationUnavailable,
@@ -135,33 +137,97 @@ class HostCollationReproducesCSharpOrderOnTheFullCorpus(unittest.TestCase):
             f"Kolejnosc rozjezdza sie z C# na {differing} z {len(ordered)} pozycji",
         )
 
-    def test_one_batch_not_one_call_per_pair(self):
-        """Koszt: liczba wywolan hosta nie moze rosnac z liczba par."""
+    def test_batched_not_one_call_per_pair(self):
+        """Koszt: liczba wywolan hosta nie moze rosnac z liczba PAR.
+
+        Wczesniej ten test wymagal DOKLADNIE jednego wywolania. Pomiar na
+        zywym hoscie pokazal, ze to niewykonalne: protokol odrzuca wiersze
+        powyzej 64 KiB, a pelny korpus to ~430 KB. Wymagamy wiec wlasciwosci,
+        ktora faktycznie ma znaczenie -- liczba wywolan jest proporcjonalna do
+        ROZMIARU DANYCH i pozostaje o rzedy wielkosci mniejsza od liczby par.
+        """
         calls: list[int] = []
 
         def fake_call(op, args=None, timeout=20.0):
             calls.append(len(args["titles"]))
             return {
                 "keys": [
-                    __import__("base64").b64encode(t.encode("utf-8")).decode("ascii")
+                    base64.b64encode(t.encode("utf-8")).decode("ascii")
                     for t in args["titles"]
                 ]
             }
 
         collation = HostCollation(fake_call)
         collation.load(self.corpus)
-        self.assertEqual(len(calls), 1, f"Host wolany {len(calls)} razy zamiast raz")
 
-        # Wsad jest ODCHUDZONY o powtorzenia: w realnej Bibliotece ten sam
-        # tytul wystepuje wielokrotnie (rozne pliki), a klucz zalezy wylacznie
-        # od tekstu. Liczymy wiec unikaty, nie wiersze.
         unique = len(dict.fromkeys(self.corpus))
-        self.assertEqual(calls[0], unique)
+        self.assertEqual(sum(calls), unique, "Wsady musza pokryc wszystkie unikaty")
         self.assertLess(unique, len(self.corpus), "Korpus bez powtorzen? Sprawdz dane.")
 
+        # Istota kontraktu: garsc wywolan, nie tysiace porownan po IPC.
+        # Przy ~11 tys. unikatow sortowanie parami to >100 tys. wywolan.
+        self.assertLess(
+            len(calls),
+            50,
+            f"Host wolany {len(calls)} razy -- to juz nie jest sortowanie wsadowe",
+        )
+        self.assertLess(len(calls), unique / 100)
+
         # Drugie sortowanie NIE pyta hosta ponownie.
+        before = len(calls)
         collation.sort(self.corpus[:500])
-        self.assertEqual(len(calls), 1, "Powtorne sortowanie wolalo hosta jeszcze raz")
+        self.assertEqual(len(calls), before, "Powtorne sortowanie wolalo hosta")
+
+
+class BatchesStayUnderTheProtocolLineLimit(unittest.TestCase):
+    """Zmierzone na ZYWYM hoscie: wiersz > 64 KiB konczy sie 'line_too_long'.
+
+    Host celowo pilnuje ``MaximumLineLength = 64 * 1024`` (LiteRequest.cs), a
+    odpowiedz bledu nie ma pola ``id``, wiec klient nie dopasowuje jej do
+    zadania i czeka do timeoutu. Pelny poziom Biblioteki (2596 tytulow) to
+    ~100 KB zadania, czyli PONAD prog. Wsad musi byc dzielony po bajtach
+    wiersza, nie po liczbie pozycji.
+    """
+
+    def test_full_level_is_split_into_several_requests_each_under_the_limit(self):
+        titles = [f"Tytul numer {i:05d} zazolc gesla jaznia" for i in range(2596)]
+        sent: list[list[str]] = []
+
+        def fake_call(op, args=None, timeout=None):
+            batch = list((args or {}).get("titles") or [])
+            sent.append(batch)
+            line = json.dumps(
+                {"id": "1", "op": op, "args": {"titles": batch}}, ensure_ascii=False
+            )
+            self.assertLessEqual(
+                len(line.encode("utf-8")),
+                collation_module.MAX_REQUEST_BYTES,
+                f"wiersz zadania {len(line.encode('utf-8'))} B przekracza prog hosta",
+            )
+            return {"keys": [base64.b64encode(t.encode()).decode() for t in batch]}
+
+        collation = HostCollation(fake_call)
+        collation.load(titles)
+
+        self.assertGreater(len(sent), 1, "taki poziom MUSI sie podzielic")
+        self.assertEqual(
+            sorted(t for batch in sent for t in batch),
+            sorted(titles),
+            "podzial nie moze zgubic ani zdublowac tytulu",
+        )
+
+    def test_limit_is_below_the_hosts_hard_cap(self):
+        self.assertLessEqual(collation_module.MAX_REQUEST_BYTES, 64 * 1024)
+
+    def test_single_title_longer_than_the_limit_is_refused_not_sent(self):
+        """Lepiej jawny blad niz wiersz, na ktory host nigdy nie odpowie."""
+        monster = "x" * (70 * 1024)
+
+        def fake_call(op, args=None, timeout=None):
+            raise AssertionError("takiego wiersza nie wolno wyslac")
+
+        with self.assertRaises(HostCollationUnavailable):
+            HostCollation(fake_call).load([monster])
 
 
 @requires_evidence
