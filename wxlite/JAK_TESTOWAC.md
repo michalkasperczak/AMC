@@ -4,7 +4,7 @@ To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem w
 
 ## Co zostało wykonane
 
-Przy kodzie bf712d6:368testów/0błędów/0pominięć. NaWindows sprawdzono zwykły start z hostem, pełną kopię Biblioteki/Radia, cztery nowe operacje widoków, rzeczywiste skróty, mówione potwierdzenia NVDA i etykiety transportu. Wcześniejszy połączony przebieg potwierdził także odtwarzanie/pauzę/wznowienie przez klawiaturę i sygnał urządzenia audio. Nie jest to pomiarNarratora ani wszystkich funkcjiAMC.
+Bieżący odbiór mechanizmu wszystkich list: 562 testy, 0 błędów, 0 pominięć. Zwykłe listy Windows, przyrostowe zmiany w obrębie widoku, zachowanie wyboru po ID, puste zakładki i pojedynczy odczyt po zmianie dużego widoku sprawdzono w prywatnym stagingu z żywym NVDA. Końcowe kwity: `native-w02-valid-retest-after422/parent-final/`. To nie jest odbiór wszystkich funkcji pełnego AMC ani innego czytnika.
 
 ## Przygotowane stanowisko prywatne
 
@@ -48,7 +48,7 @@ Przed audio/GUI sprawdź rezerwację pulpitu, obce procesy i ŻYWY stan nagrywan
 
 Próba mowy/menu dla tego przyrostu: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/proba_koncowa.py` (kwit `proba-koncowa.json`). Mierzy tylko to, co zmienione: mowę po zmianie widoku, oba kopiowania z odczytem schowka i obejście menu. Po próbie zamyka własne okno, sprawdza procesy i przywraca schowek.
 
-Mowa natywnej listy: kontrolka NIE jest już wirtualna (`LC_REPORT`, bez `SetItemCount`), więc dawny mechanizm tych objawów nie istnieje. Dwie klasy objawów mowy — „poprzednia nazwa z nowym licznikiem” przy zmianie zbioru oraz wielokrotny odczyt tego samego wiersza — **nie były jednak ponownie mierzone gest po geście** po migracji, więc NIE uznawaj ich za naprawione na podstawie samej zmiany kontrolki ani testów jednostkowych. Naprawione jest „nieznane” na liście bez nazwy (nakładka dostępności). Para kwitów z żywego NVDA sprzed migracji: `amc_pomoc/wx-full-profile-after421/list-speech-after422/odbior-listy-FINAL.json` i `REPORT.md`; stan po migracji: `native-lists-after422/REPORT.md`. Przy zmianach w `gui.py` mierz ZAWSZE widok 2476 wierszy (Alt+2) — objawy mowy zależą od rozmiaru zbioru i na małych widokach nie wychodzą.
+Mowa natywnej listy: odebrano pojedynczy odczyt po Foldery → Wszystkie pliki oraz Playlisty → Wszystkie pliki, bez poprzedniej nazwy; strzałki czytają właściwy wiersz. Puste zakładki zgłaszają „pusto” i dostępną listę zamiast „nieznane”, a Backspace wraca po ID. Sama migracja na LC_REPORT tego nie dowodziła — końcowe dowody są w `native-w02-valid-retest-after422/parent-final/`. Pełna podmiana zawartości jest ograniczona do zmiany widoku; nie odtwarza HWND.
 
 Próba widoków aktywności: `amc_pomoc/wx-full-profile-after421/activity-gui-after422/proba_koncowa_activity.py` (etapy A–C) oraz `dopiecie_de.py` (etapy D–F na tym samym żywym oknie). Nazwa gestu Backspace w mostku NVDA to `backspace`; `back` zwraca HTTP 500 i pierwszy przebieg na tym padł.
 
@@ -104,7 +104,7 @@ Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Te
 
 ## Znane ograniczenia
 
-Przy zmianie widoków **nadal** zdarzają się powtórzenia: po ogłoszeniu widoku bieżący element bywa odczytany drugi raz, a przy dużym skoku długości listy (1→2475) jeden odczyt niesie poprzednią nazwę z nowym licznikiem. Ubyła natomiast własna nadmiarowa zapowiedź wiersza i jedno z trzech powtórzeń na Ulubionych. Nieznany czas jest już pokazywany jako brak, nie `0:00`. Całość nie ma jeszcze wszystkich widoków, funkcji zapisu, usług i ustawień oryginału. Tempo i wybór silników mają osobne wcześniejsze kwity; obecny odbiór ich nie powtarza ani nie rozszerza.
+Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich funkcji zapisu, usług i ustawień oryginału; kolejka zapisana nie jest jeszcze działającą kolejką silnika. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
 
@@ -136,7 +136,9 @@ Co sprawdzać:
 Pomiar czasu planu na pełnej skali: `python3 tools/measure_list_sync.py 2476`.
 Odbiór 10 widoków i kwity: `amc_pomoc/wx-full-profile-after421/native-lists-after422/`.
 
-**Znane, jawnie OTWARTE:** w widoku zakładek pliku z 0 zakładkami obiekt fokusu
-ma `name=''` i `role=0`, a Backspace/Tab nie wychodzą z widoku. Potwierdzone A/B
-jako defekt **wcześniejszy niż migracja** (identyczny na wersji z `LC_VIRTUAL`).
-Scenariusz: `native-lists-after422/diag_pustej.py`.
+Pusta lista jest odebrana: nazwa „Pliki lokalne”, rola NVDA 14 (MSAA LIST ma
+inny numer: 33), właściwy komunikat i wyjście Backspace. Dawna para A/B z
+`native-lists-after422/diag_pustej.py` była nadpisana i nie dowodziła wersji
+źródłowej usterki. Przy ponawianiu prób używaj `observer_w02v.py`, pełnego
+przekazywania argumentów wrapperów, PID/runID producenta, zgodności modelu
+z `GetItemCount` i czystego stdout; sam licznik modelu nie dowodzi wypełnienia GUI.

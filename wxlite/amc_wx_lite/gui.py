@@ -358,6 +358,8 @@ class MediaListCtrl(wx.ListCtrl):
         #: ``library_view=None``). Pelna podmiana listy bramkuje sie o roznice
         #: miedzy tym polem a kontekstem liczonym w ``sync_rows``.
         self._shown_context: object = _BRAK_KONTEKSTU
+        # ListModel.replace zawsze tworzy nowa liste, takze dla identycznych danych.
+        self._shown_rows_source = self.model.rows
         #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
         #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
         #: przy ruchu uzytkownika. Bez tej bramki przejsciowy indeks (np. 0 po
@@ -395,6 +397,11 @@ class MediaListCtrl(wx.ListCtrl):
         self._was_empty = not desired
         cursor = self._cursor_target()
         if not ops:
+            # Nowa lista oznacza zakonczone zastosowanie danych przez model.
+            # Sam zamiar zmiany widoku zostawia dotychczasowy obiekt rows.
+            if self.model.rows is not getattr(self, "_shown_rows_source", None):
+                self._shown_context = context
+                self._shown_rows_source = self.model.rows
             if cursor is None:
                 # Nic sie nie zmienilo i kursor jest na miejscu: ZERO operacji.
                 # To jest cel calej zmiany -- sam komunikat, Ctrl+C czy tick
@@ -403,14 +410,8 @@ class MediaListCtrl(wx.ListCtrl):
                     # Wyjatek: pierwsze wejscie od razu w pusty widok. Planu nie
                     # ma (nie bylo czego usuwac), ale obiekt dostepny sie zmienil.
                     self._announce_empty_list()
-                # KONTEKSTU TU NIE ZAPISUJEMY. Biblioteka wczytuje sie
-                # asynchronicznie: po Alt+2 sesja ma JUZ nowy ``library_view``, ale
-                # loader jeszcze nie oddal wierszy, wiec leci sync z ZEROWYM planem
-                # (stare 11 wierszy == stare 11 wierszy). Gdyby ten przebieg
-                # zaklepal nowy kontekst, prawdziwa aktualizacja danych (11->2476)
-                # wygladalaby na "ten sam widok" i wrocilaby na diff -- czyli na
-                # ``DeleteItem`` na wierszu z fokusem i podwojny odczyt NVDA.
-                # Kontekst nalezy do ZAAPLIKOWANYCH danych, a nie do zamiaru.
+                # Brak operacji kontrolki nie wyklucza nowego, identycznego
+                # wyniku loadera. Kontekst takiego wyniku zapisano wyzej.
                 return
             # Sam kursor: jedno przejscie stanu, bez przemalowania listy.
             self.updating = True
@@ -418,8 +419,7 @@ class MediaListCtrl(wx.ListCtrl):
                 self._move_cursor(cursor)
             finally:
                 self.updating = False
-            # Tu rowniez nie dotykamy kontekstu: przesuniecie kursora nie jest
-            # zaaplikowaniem nowego widoku.
+            # Samo przesuniecie kursora nie zmienia obiektu model.rows.
             return
         # Zmiana struktury/tekstu to JEDNO przemalowanie, nie seria krokow.
         # ``Freeze``/``Thaw`` to standardowy mechanizm wx, nie usypianie i nie
@@ -435,6 +435,7 @@ class MediaListCtrl(wx.ListCtrl):
             # przed nalozeniem planu, przerwana aktualizacja zostawilaby liste z
             # danymi starego widoku, a bramke z kontekstem nowego.
             self._shown_context = context
+            self._shown_rows_source = self.model.rows
             # Kursor liczymy PONOWNIE: po usunieciu wiersza kontrolka sama
             # przesuwa fokus, wiec stan sprzed podmiany nie jest wiarygodny.
             target = self._cursor_target()

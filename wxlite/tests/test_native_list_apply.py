@@ -840,3 +840,30 @@ def test_sync_przed_oddaniem_danych_nie_zuzywa_zmiany_widoku() -> None:
         f"widoku; operacje: {set(rodzaje)}")
     assert "DeleteItem" not in rodzaje
     assert ctrl.GetItemCount() == 2476
+
+
+def test_identical_loaded_rows_commit_view_before_next_incremental_change() -> None:
+    """Gotowy wynik loadera moze miec identyczne dane jak poprzedni widok."""
+    model = ListModel()
+    state = FakeState()
+    ctrl = make_ctrl_ze_stanem(model, state)
+    rows = [track(str(i), f"Poz {i}") for i in range(3)]
+    seed(ctrl, model, rows)
+
+    state.library_view = "all_files"
+    ctrl.sync_rows()  # Sam zamiar, loader jeszcze nie zakonczony.
+    model.replace(rows)  # Zakonczony loader: ten sam wynik, nowy zbior danych.
+    ctrl.calls.clear()
+    ctrl.sync_rows()
+    assert ctrl.list_ops() == [], "identyczne dane nie wymagaja operacji kontrolki"
+
+    model.replace([track("new", "Nowy")] + rows[1:])
+    ctrl.calls.clear()
+    ctrl.sync_rows()
+    ops = ctrl.list_ops()
+    assert not any(op[0] == "DeleteAllItems" for op in ops), (
+        "gotowy widok nie moze przy kolejnej punktowej zmianie udawac zmiany widoku"
+    )
+    assert sum(op[0] == "DeleteItem" for op in ops) == 1
+    assert sum(op[0] == "InsertItem" for op in ops) == 1
+    assert ctrl.GetItemCount() == 3
