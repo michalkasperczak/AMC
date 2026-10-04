@@ -1881,6 +1881,19 @@ oraz okno „Moje stacje”.
   przenosi nic; `Ctrl+V` wstawia przed wierszem docelowym. Edytowalne pola
   zachowują własne `Ctrl+X`/`Ctrl+V`, a zapis idzie produkcyjną kolejką
   `QueueStateSave`.
+- `Core/Sonos/SonosFavoriteDetails.cs` — JEDNO źródło napisów dla Strzałki
+  w lewo i Ctrl+C/Ctrl+Shift+C: składa parametry z nazwy, usługi, opisu i
+  metadanych, a przy braku danych oddaje KRÓTKĄ ODMOWĘ zamiast zmyślonej
+  wartości. Używają go oba okna, więc Moje stacje i Ulubione nie rozjeżdżają
+  się w treści.
+- `Windows/SonosOwnStreamsWindow.xaml.cs` i `Windows/SonosFavoritesWindow.xaml.cs`
+  — `Strzałka w lewo` czyta parametry zaznaczonej pozycji, `Ctrl+C` kopiuje
+  SAMĄ NAZWĘ, `Ctrl+Shift+C` adres albo mówi odmowę. Gest honoruje
+  `e.IsRepeat` i sprawdza, że odpowiedź dotyczy NADAL zaznaczonej pozycji
+  (`_describedId`), więc spóźniony wynik nie opisuje cudzego materiału.
+  ULUBIONE NIE TRZYMAJĄ trwałej pamięci opisów po `Id`: współdzielone jest
+  tylko zadanie W LOCIE, bo metadane Sonosa potrafią pojawić się dopiero przy
+  kolejnym odczycie i zapamiętana odmowa zostałaby powtórzona na zawsze.
 
 ## 18. Gdzie czego NIE ma
 

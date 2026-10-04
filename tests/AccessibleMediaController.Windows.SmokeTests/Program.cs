@@ -133,6 +133,25 @@ if (args.Contains("--sonos-space-volume-repeat", StringComparer.Ordinal))
     // szybkie powtorzenia Ctrl+Win+dol z wtyczki NVDA.
     SonosFavoritePlayRealOwnerTests.RunSpaceAndVolumeRepeatAfter421(); return 0;
 }
+if (args.Contains("--sonos-own-streams-order-window", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.2.1: kolejnosc Moich stacji MIERZONA NA PRAWDZIWYM MODALU
+    // (Alt+1/2/3, Alt+strzalki, Ctrl+X/V, trwalosc po ponownym otwarciu).
+    SonosFavoritePlayRealOwnerTests.RunOwnStreamsOrderInRealWindow(); return 0;
+}
+if (args.Contains("--sonos-details-gestures-nvda-gui", StringComparer.Ordinal))
+{
+    // POKAZ NA PULPICIE dla ZYWEGO NVDA: Strzalka w lewo oraz Ctrl+C/Ctrl+Shift+C
+    // w PRODUKCYJNYCH oknach Moich stacji i Ulubionych. Bez sieci, konta i IPC.
+    SonosDetailsGesturesNvdaGui.Run(args); return 0;
+}
+if (args.Contains("--sonos-details-gestures", StringComparer.Ordinal))
+{
+    // DOMKNIECIE PO 4.2.1: Strzalka w lewo (parametry) oraz Ctrl+C / Ctrl+Shift+C
+    // (nazwa / adres) MIERZONE NA PRAWDZIWYCH MODALACH Moich stacji i Ulubionych,
+    // z PRAWDZIWYM schowkiem Windows. Nie jest to odsluch zadnego glosnika.
+    SonosFavoritePlayRealOwnerTests.RunDetailsGestures(); return 0;
+}
 if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
@@ -562,6 +581,12 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: zbędne zapowiedzi postępu w zwykłym AMC są wyciszone, a wynik i błąd zostają", SonosFavoritePlayRealOwnerTests.RunQuietProgress),
     ("Sonos: granice po 4.1.7 - Ctrl+F5, odświeżanie okna celu i podlisty", SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts),
     ("Sonos: transport i presety po 4.1.7 na wszystkich trzech podlistach", SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets),
+    // Te dwa zestawy mialy TYLKO wlasne przelaczniki (--sonos-details-gestures,
+    // --sonos-own-streams-order-window), wiec PELNY przebieg Windows ich NIE
+    // uruchamial i ich regresja nie zatrzymalaby wydania. Teraz sa w TABELI.
+    // RunSpaceAndVolumeRepeatAfter421 JEST juz wyzej - nie dublowac.
+    ("Sonos: Strzałka w lewo i Ctrl+C/Ctrl+Shift+C na prawdziwych modalach stacji i ulubionych", SonosFavoritePlayRealOwnerTests.RunDetailsGestures),
+    ("Sonos: kolejność Moich stacji na prawdziwym modalu - Alt+cyfry, Alt+strzałki, Ctrl+X/V", SonosFavoritePlayRealOwnerTests.RunOwnStreamsOrderInRealWindow),
     ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),

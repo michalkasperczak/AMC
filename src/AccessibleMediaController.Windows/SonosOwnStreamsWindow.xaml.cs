@@ -52,6 +52,36 @@ public partial class SonosOwnStreamsWindow : Window
     /// </summary>
     internal Func<MainWindow.SonosOwnStreamsImportUiOutcome>? ImportPlaylist { get; set; }
 
+    /// <summary>
+    /// ODCZYT PARAMETRÓW STACJI (Strzalka w lewo) albo null. Okno NIE ma wlasnej
+    /// sondy ani wlasnego formatera: wlasciciel oddaje TE SAMA droge, ktorej
+    /// uzywa radio internetowe. Bez tego callbacku gest mowi krotka odmowe.
+    /// </summary>
+    internal Func<SonosOwnStreamSettings, Task<string>>? DescribeStation
+    {
+        get => _describeStation;
+        set { _describeStation = value; _describedParameters.Clear(); }
+    }
+
+    private Func<SonosOwnStreamSettings, Task<string>>? _describeStation;
+
+    /// <summary>
+    /// ZAPAMIETANE PARAMETRY po identyfikatorze stacji. Powtorzony gest na tej
+    /// samej stacji NIE pyta sieci drugi raz - inaczej przytrzymana strzalka
+    /// zasypywalaby serwer stacji zadaniami.
+    /// </summary>
+    private readonly Dictionary<string, string> _describedParameters = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// ZADANIE W LOCIE dla JEDNEJ stacji. Serie szybkich Strzalek w lewo na tym
+    /// samym wierszu WSPOLDZIELA jeden odczyt sieci zamiast otwierac kolejny -
+    /// zapamietany wynik pojawia sie dopiero PO zakonczeniu, wiec bez tego kazde
+    /// nacisniecie szloby osobno do serwera stacji.
+    /// </summary>
+    private (string Id, Task<string> Read)? _describeInFlight;
+
+    private int _describeRequest;
+
     internal SonosOwnStreamsWindow(IEnumerable<SonosOwnStreamSettings> stations, string? groupName,
         Action<IReadOnlyList<SonosOwnStreamSettings>> save, Func<PlayRequest, Task>? play)
         : this(stations, groupName, save, play, assignPreset: null)
@@ -202,12 +232,41 @@ public partial class SonosOwnStreamsWindow : Window
         {
             Id = row?.Id ?? Guid.NewGuid().ToString("N"), Name = editor.StationName, StreamUrl = editor.StreamUrl
         };
+        CommitStation(row, entry);
+        AnnounceForOwner(row is null ? $"Dodano stację: {entry.Name}." : $"Zmieniono stację: {entry.Name}.");
+    }
+
+    /// <summary>
+    /// JEDNA droga zapisu dodanej albo zmienionej stacji.
+    ///
+    /// DODANIE PRZY AKTYWNYM SORTOWANIU: samo dopisanie na koniec zostawialo
+    /// liste, ktora przestawala byc tym, co obiecuje tryb - nowa stacja ladowala
+    /// pod spodem, choc alfabetycznie nalezala wyzej. Dlatego po zapisie
+    /// PRZEBUDOWUJEMY wiersze aktualna regula i przywracamy zaznaczenie PO
+    /// IDENTYFIKATORZE. W kolejnosci wlasnej <c>Rebuild</c> zachowuje miejsce
+    /// nowego wpisu, wiec dopisanie na koniec nadal wyglada tak samo.
+    /// </summary>
+    private void CommitStation(SonosOwnStreamSettings? row, SonosOwnStreamSettings entry)
+    {
         var index = row is null ? _rows.Count : _rows.IndexOf(row);
         if (row is null) _rows.Add(entry); else _rows[index] = entry;
+        // ZMIANA ADRESU POD TYM SAMYM IDENTYFIKATOREM UNIEWAZNIA PARAMETRY.
+        // Edycja zachowuje Id, wiec zapamietany opis NADAL by sie dopasowal i
+        // Strzalka w lewo czytalaby parametry STAREGO strumienia jako nowe.
+        // Zadanie w locie tez porzucamy - jego wynik dotyczy juz nieistniejacego
+        // adresu.
+        if (_describedParameters.Remove(entry.Id)) _describeRequest++;
         StationsList.SelectedItem = entry;
         _save(_rows.Select(Copy).ToArray());
-        FocusRow();
-        AnnounceForOwner(row is null ? $"Dodano stację: {entry.Name}." : $"Zmieniono stację: {entry.Name}.");
+        if (_orders is not null)
+        {
+            Rebuild(entry.Id);
+            _saveOrder?.Invoke();
+        }
+        else
+        {
+            FocusRow();
+        }
     }
 
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelectedStation();
@@ -233,7 +292,18 @@ public partial class SonosOwnStreamsWindow : Window
         _rows.Clear();
         foreach (var station in outcome.Stations) _rows.Add(Copy(station));
         // Zaznaczenie po IDENTYFIKATORZE, nie po indeksie: lista wlasnie urosla.
-        RestoreSelectedRow(outcome.FirstAddedId ?? previousId);
+        // PRZY AKTYWNYM SORTOWANIU przebudowujemy regula, bo zaimportowane
+        // stacje przyszly w kolejnosci pliku, a nie w tej, ktora obiecuje tryb.
+        if (_orders is not null)
+        {
+            Rebuild(outcome.FirstAddedId ?? previousId);
+            _saveOrder?.Invoke();
+        }
+        else
+        {
+            RestoreSelectedRow(outcome.FirstAddedId ?? previousId);
+        }
+
         UpdateButtons();
         AnnounceForOwner(outcome.Message);
     }
@@ -363,6 +433,21 @@ public partial class SonosOwnStreamsWindow : Window
             return;
         }
 
+        // CTRL+C KOPIUJE NAZWE, CTRL+SHIFT+C SAM ADRES - dokladnie ten podzial, co
+        // w sesji Radia. Modal wylacza okno glowne, wiec jego router tu nie dojdzie.
+        // Wymagamy fokusu NA LISCIE: w edytorze nazwy i adresu Ctrl+C ma dalej
+        // kopiowac TEKST.
+        if (StationsList.IsKeyboardFocusWithin
+            && key == Key.C
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            CopySelectedStation(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            return;
+        }
+
         // F2 EDYTUJE, DELETE USUWA - na liscie wlasnych stacji.
         //
         // ZGLOSZENIE MICHALA: "Ulubione stacje graja, ale F2 nie edytuje i Delete
@@ -393,9 +478,113 @@ public partial class SonosOwnStreamsWindow : Window
                 else AnnounceForOwner("Najpierw dodaj i wybierz stację.");
                 return;
             }
+            if (key == Key.Left)
+            {
+                // STRZALKA W LEWO ODCZYTUJE PARAMETRY - ten sam gest, co na
+                // liscie radia internetowego. Nie otwiera okna wlasciwosci i nie
+                // rusza odtwarzania.
+                e.Handled = true;
+                if (e.IsRepeat) return;
+                if (Selected is { } toDescribe) AnnounceStationParameters(toDescribe);
+                else AnnounceForOwner("Najpierw dodaj i wybierz stację.");
+                return;
+            }
         }
         if (e.Key == Key.Enter && StationsList.IsKeyboardFocusWithin)
         { e.Handled = true; if (!e.IsRepeat) StartPlay(); }
+    }
+
+    /// <summary>
+    /// CTRL+C NAZWA, CTRL+SHIFT+C SAM ADRES - podzial wziety z sesji Radia, bez
+    /// nowego skrotu do nauczenia. Adres jest kopiowany DOKLADNIE taki, jaki
+    /// siedzi we wpisie: zadnej nazwy w linku, zadnego sklejania.
+    /// </summary>
+    private void CopySelectedStation(bool locationOnly)
+    {
+        if (_closed) return;
+        if (Selected is not { } row) { AnnounceForOwner("Najpierw dodaj i wybierz stację."); return; }
+        if (!locationOnly)
+        {
+            if (!ClipboardRetry.TrySetText(row.Name, out var nameError))
+            { AnnounceForOwner(nameError); return; }
+            AnnounceForOwner("Skopiowano nazwę");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(row.StreamUrl))
+        {
+            // BRAK ADRESU NIE CZYSCI SCHOWKA i nie udaje sukcesu.
+            AnnounceForOwner("Ta stacja nie ma zapisanego adresu");
+            return;
+        }
+
+        if (!ClipboardRetry.TrySetText(row.StreamUrl.Trim(), out var locationError))
+        { AnnounceForOwner(locationError); return; }
+        AnnounceForOwner("Skopiowano adres");
+    }
+
+    /// <summary>
+    /// STRZALKA W LEWO: PARAMETRY ZAZNACZONEJ STACJI.
+    ///
+    /// Odczyt idzie TA SAMA droga, co w radiu internetowym - wlasciciel podaje
+    /// nam istniejaca sonde strumienia i istniejacy formater, wiec nie ma tu
+    /// drugiego silnika ani zgadywanych wartosci. Sonda NIE uruchamia audio.
+    ///
+    /// ASYNCHRONICZNIE i z OCHRONA: wynik odrzucamy, gdy okno sie zamknelo albo
+    /// zaznaczenie przeszlo na inna stacje, zeby parametry jednej stacji nigdy
+    /// nie zostaly przypisane do drugiej. Powtorzony gest na tej samej stacji
+    /// korzysta z zapamietanego wyniku i NIE pyta sieci po raz drugi.
+    /// </summary>
+    private async void AnnounceStationParameters(SonosOwnStreamSettings row)
+    {
+        if (_closed) return;
+        if (_describeStation is null)
+        { AnnounceForOwner("Tu nie można odczytać parametrów stacji."); return; }
+        if (string.IsNullOrWhiteSpace(row.StreamUrl))
+        { AnnounceForOwner("Ta stacja nie ma zapisanego adresu"); return; }
+
+        if (_describedParameters.TryGetValue(row.Id, out var remembered))
+        { AnnounceForOwner(remembered); return; }
+
+        var request = ++_describeRequest;
+        // JEDEN ODCZYT NA STACJE, takze gdy gest powtorzy sie PRZED koncem.
+        // Zapamietanie wyniku nastepuje dopiero po await, wiec sam slownik nie
+        // obroni sie przed druga i trzecia Strzalka w lewo w tym samym momencie.
+        Task<string> read;
+        if (_describeInFlight is { } pending
+            && string.Equals(pending.Id, row.Id, StringComparison.Ordinal))
+        {
+            read = pending.Read;
+        }
+        else
+        {
+            read = _describeStation(Copy(row));
+            _describeInFlight = (row.Id, read);
+        }
+
+        AnnounceForOwner("Czytam parametry stacji…");
+        string description;
+        try
+        {
+            description = await read.ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            // BLAD NAZWANY, nie cisza i nie udawana wartosc. Porzucamy tez
+            // nieudane zadanie, zeby kolejny gest mogl sprobowac od nowa.
+            if (_describeInFlight?.Read == read) _describeInFlight = null;
+            if (_closed || request != _describeRequest) return;
+            AnnounceForOwner("Nie udało się odczytać parametrów stacji: " + exception.Message);
+            return;
+        }
+
+        if (_describeInFlight?.Read == read) _describeInFlight = null;
+        if (_closed || request != _describeRequest) return;
+        // ZAZNACZENIE MOGLO SIE ZMIENIC W CZASIE ODCZYTU - wtedy milczymy, zeby
+        // nie opisac cudzej stacji.
+        if (!string.Equals(Selected?.Id, row.Id, StringComparison.Ordinal)) return;
+        _describedParameters[row.Id] = description;
+        AnnounceForOwner(description);
     }
 
     /// <summary>
@@ -578,12 +767,21 @@ public partial class SonosOwnStreamsWindow : Window
             _orders, Snapshot(), _readMode?.Invoke() ?? CollectionSortMode.Custom);
         _rows.Clear();
         foreach (var station in arranged) _rows.Add(station);
-        StationsList.SelectedItems.Clear();
-        foreach (var row in _rows.Where(row => selectedIds.Contains(row.Id)))
+        // POJEDYNCZY WYBOR: lista stacji jest w trybie Single, a w nim WPF
+        // zabrania ruszac SelectedItems - i samo Clear() rzucalo wyjatkiem,
+        // ktory wywracal okno przy KAZDYM Alt+1/2/3 i Alt+strzalce. Dlatego
+        // czyscimy ta droga, ktora dany tryb dopuszcza.
+        if (StationsList.SelectionMode == SelectionMode.Single)
         {
-            if (StationsList.SelectionMode == SelectionMode.Single)
-            { StationsList.SelectedItem = row; break; }
-            StationsList.SelectedItems.Add(row);
+            StationsList.SelectedItem = _rows.FirstOrDefault(row => selectedIds.Contains(row.Id));
+        }
+        else
+        {
+            StationsList.SelectedItems.Clear();
+            foreach (var row in _rows.Where(row => selectedIds.Contains(row.Id)))
+            {
+                StationsList.SelectedItems.Add(row);
+            }
         }
 
         if (StationsList.SelectedItem is null && _rows.Count > 0) StationsList.SelectedIndex = 0;
@@ -597,6 +795,16 @@ public partial class SonosOwnStreamsWindow : Window
 
     /// <summary>Czy cos czeka na Ctrl+V - pomiar anulowania bez skutku.</summary>
     internal bool HasPendingMoveForTests => _pendingMove is { Count: > 0 };
+
+    /// <summary>IDENTYFIKATORY w AKTUALNEJ kolejnosci - pomiar trwalosci ID.</summary>
+    internal IReadOnlyList<string> RowIdsForTests => _rows.Select(x => x.Id).ToArray();
+
+    /// <summary>
+    /// DODANIE STACJI produkcyjna droga wiersza, z pominieciem MODALNEGO okna
+    /// edytora (<c>RadioStationWindow</c>), ktorego w pomiarze nie ma kto obsluzyc.
+    /// Caly skutek na liscie, zapisie i kolejnosci jest prawdziwy.
+    /// </summary>
+    internal void AppendStationForTests(SonosOwnStreamSettings entry) => CommitStation(null, entry);
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 

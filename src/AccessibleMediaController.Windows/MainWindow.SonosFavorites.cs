@@ -253,6 +253,18 @@ public partial class MainWindow
                     // ZYWY wlasciciel - pokazujemy dialog miejsca i zapisujemy.
                     favorite => AssignSonosFavoritePreset(
                         favorite, _sonosFavoritesWindow!, householdId, ticket));
+            // STRZALKA W LEWO i CTRL+SHIFT+C. Oba gesty idą TA SAMA droga
+            // odczytu metadanych grupy, a decyzje "co wolno powiedziec" i "co
+            // wolno skopiowac" podejmuje SonosFavoriteDetails - okno nie zna
+            // kontraktu Sonosa i nie zgaduje. Cel capturujemy TERAZ, razem z
+            // biletem, zeby stara lista nie pytala przez inne konto.
+            //
+            // Parametry dziala TAKZE bez granicy ladowania: to czysty GET,
+            // nie ma nic wspolnego z uruchamianiem.
+            window.DescribeFavorite = favorite =>
+                DescribeSonosFavoriteAsync(backend, householdId, group?.Id, ticket, favorite);
+            window.ResolveFavoriteLocation = favorite =>
+                ResolveSonosFavoriteLocationAsync(backend, householdId, group?.Id, ticket, favorite);
             SonosFavoritesWindowsCreatedForTests++;
             _sonosFavoritesWindow = window;
             // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
@@ -291,7 +303,87 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Czy WOLNO pokazac podglad ulubionych TERAZ. Ten sam wzorzec, co brama
+    /// STRZALKA W LEWO w oknie ulubionych: PARAMETRY zaznaczonej pozycji.
+    ///
+    /// Czysty ODCZYT - zadnego Play ani Load, zeby "zdobyc" parametry. Lista
+    /// ulubionych nie zawiera ani adresu, ani bitrate, wiec parametry techniczne
+    /// moga pochodzic TYLKO z metadanych grupy i TYLKO po potwierdzeniu
+    /// tozsamosci materialu; ta decyzje podejmuje <see cref="SonosFavoriteDetails"/>.
+    ///
+    /// Zaplecze bez odczytu metadanych albo nieudany GET to nadal POPRAWNA
+    /// odpowiedz: mowimy to, co dala sama lista ulubionych.
+    /// </summary>
+    private async Task<string> DescribeSonosFavoriteAsync(
+        ISonosGroupSessionBackend backend,
+        string householdId,
+        string? groupId,
+        int targetTicket,
+        SonosFavorite favorite)
+    {
+        ArgumentNullException.ThrowIfNull(favorite);
+        var metadata = await TryReadSonosFavoriteMetadataAsync(
+            backend, householdId, groupId, targetTicket).ConfigureAwait(true);
+        return SonosFavoriteDetails.DescribeParameters(favorite, metadata);
+    }
+
+    /// <summary>
+    /// CTRL+SHIFT+C w oknie ulubionych: RZECZYWISTY ADRES materialu albo null.
+    /// Null znaczy "Sonos nie podal" - okno wtedy NIE RUSZA schowka.
+    /// </summary>
+    private async Task<string?> ResolveSonosFavoriteLocationAsync(
+        ISonosGroupSessionBackend backend,
+        string householdId,
+        string? groupId,
+        int targetTicket,
+        SonosFavorite favorite)
+    {
+        ArgumentNullException.ThrowIfNull(favorite);
+        var metadata = await TryReadSonosFavoriteMetadataAsync(
+            backend, householdId, groupId, targetTicket).ConfigureAwait(true);
+        return SonosFavoriteDetails.TryResolveLocation(favorite, metadata);
+    }
+
+    /// <summary>
+    /// JEDEN GET metadanych grupy dla obu gestow, albo null.
+    ///
+    /// Null oddajemy za KAZDYM razem, gdy nie wolno ufac wynikowi: zaplecze bez
+    /// odczytu, zamykanie AMC, ZMIANA CELU (inny bilet, inny dom, inna sesja)
+    /// albo nieudany GET. Null NIE jest bledem - gest mowi wtedy to, co wie
+    /// sama lista ulubionych, i nic nie kopiuje.
+    /// </summary>
+    private async Task<SonosGroupMetadata?> TryReadSonosFavoriteMetadataAsync(
+        ISonosGroupSessionBackend backend,
+        string householdId,
+        string? groupId,
+        int targetTicket)
+    {
+        if (string.IsNullOrWhiteSpace(groupId)) return null;
+        if (!IsSonosFavoriteDetailsTargetStill(householdId, targetTicket)) return null;
+
+        var outcome = await backend
+            .ReadGroupMetadataAsync(groupId, CancellationToken.None)
+            .ConfigureAwait(true);
+
+        // CEL SPRAWDZAMY ZNOWU PO ODCZYCIE: w czasie GET uzytkownik mogl zmienic
+        // dom albo grupe, a wtedy te metadane opisuja CUDZY material.
+        if (!IsSonosFavoriteDetailsTargetStill(householdId, targetTicket)) return null;
+        return outcome.Succeeded ? outcome.Value : null;
+    }
+
+    /// <summary>
+    /// Czy cel odczytu parametrow/adresu jest NADAL ten sam. Ta sama trojka
+    /// warunkow, co przy uruchamianiu ulubionego - bilet, sesja i dom.
+    /// </summary>
+    private bool IsSonosFavoriteDetailsTargetStill(string householdId, int targetTicket)
+    {
+        if (_isClosing) return false;
+        if (targetTicket != _sonosTargetTicket) return false;
+        if (!IsSonosSession(_sessions?.Current.Id)) return false;
+        return string.Equals(
+            _state.Sonos.SelectedHouseholdId, householdId, StringComparison.Ordinal);
+    }
+
+    /// <summary>Czy WOLNO pokazac podglad ulubionych TERAZ. Ten sam wzorzec, co brama
     /// wyboru domu: okno widoczne i AKTYWNE, nie zamykane, w sesji Sonos i bez
     /// innego WIDOCZNEGO okna potomnego. Guard jest PRODUKCYJNY - punkt
     /// podstawienia pokazania siedzi ZA nim, nie przed nim.

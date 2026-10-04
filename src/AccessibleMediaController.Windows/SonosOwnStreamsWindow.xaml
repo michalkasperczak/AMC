@@ -23,7 +23,7 @@
         </WrapPanel>
         <ListBox x:Name="StationsList" DisplayMemberPath="Name" TextSearch.TextPath="Name"
             automation:AutomationProperties.Name="Moje stacje Sonosa"
-            automation:AutomationProperties.HelpText="Stacje zapisane w AMC. Strzałki wybierają stację; Enter uruchamia ją na wskazanym celu. Tab prowadzi do przycisków edycji.">
+            automation:AutomationProperties.HelpText="Stacje zapisane w AMC. Strzałki wybierają stację; Enter uruchamia ją na wskazanym celu. Strzałka w lewo czyta parametry stacji, Ctrl+C kopiuje nazwę, Ctrl+Shift+C adres. Tab prowadzi do przycisków edycji.">
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
                 <Setter Property="automation:AutomationProperties.Name" Value="{Binding Name}" />
             </Style></ListBox.ItemContainerStyle>

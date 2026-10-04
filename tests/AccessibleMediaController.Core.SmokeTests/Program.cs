@@ -107,6 +107,11 @@ if (args.Length == 1 && args[0] == "--sonos-favorite-identity")
     try { SonosFavoriteIdentityTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--sonos-favorite-details")
+{
+    try { SonosFavoriteDetailsTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--sonos-favorites-account")
 {
     try { SonosFavoritesAccountTests.Run(); return 0; }
@@ -195,6 +200,8 @@ var tests = new (string Name, Action Test)[]
     ("Odczyt ulubionych Sonos w kliencie Core", SonosFavoritesTests.Run),
     ("Tożsamość materiału ulubionych Sonos (resource.id / container.id)",
         SonosFavoriteIdentityTests.Run),
+    ("Parametry i adres ulubionego Sonos (Strzałka w lewo, Ctrl+Shift+C)",
+        SonosFavoriteDetailsTests.Run),
     ("Zaladowanie ulubionego Sonos do kolejki grupy w kliencie Core", SonosFavoriteLoadTests.Run),
     ("Odczyt ulubionych Sonos przez konto", SonosFavoritesAccountTests.Run),
     ("Zaladowanie ulubionego Sonos do kolejki grupy przez konto", SonosFavoriteLoadAccountTests.Run),

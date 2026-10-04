@@ -8322,3 +8322,38 @@ Zacznij ściszać szybką serią i w jej trakcie przełącz aktywną grupę Sono
 
 Oczekiwane: nagromadzone kroki NIE idą do nowej grupy. Żadna głośność nie
 zmienia się „za plecami” na urządzeniu, którego już nie wybierasz.
+
+### AMC-422-10 — Strzałka w lewo czyta parametry zaznaczonej pozycji
+
+Otwórz „Moje stacje”, zejdź strzałkami na stację Z ADRESEM i naciśnij
+`Strzałkę w lewo`. To samo powtórz w „Ulubione Sonos”.
+
+Oczekiwane: czytnik mówi najpierw krótkie „Czytam parametry stacji…”, a potem
+nazwę i parametry (typ, kodek, przepływność, częstotliwość). W Ulubionych
+dochodzi opis i usługa BEZ powtarzania samej nazwy. Gdy Sonos parametrów nie
+podał, słyszysz KRÓTKĄ ODMOWĘ („Sonos nie podał parametrów tego ulubionego”),
+a nie zmyśloną wartość ani ciszę. Przytrzymanie klawisza nie zamawia odczytu
+wiele razy. Po zejściu na inną pozycję w trakcie odczytu stary wynik NIE jest
+czytany na nowej pozycji.
+
+### AMC-422-11 — parametry Ulubionych są ŚWIEŻE, gdy metadane dojdą później
+
+W otwartym oknie „Ulubione Sonos” naciśnij `Strzałkę w lewo` na ulubionym, dla
+którego Sonos nie zdążył jeszcze podać parametrów (usłyszysz odmowę). Zostań na
+TYM SAMYM wierszu, poczekaj i naciśnij `Strzałkę w lewo` ponownie.
+
+Oczekiwane: drugi odczyt podaje parametry, jeśli metadane już dojdą. Powtórzona
+w nieskończoność ta sama odmowa na nadal otwartym oknie to błąd — okno nie ma
+prawa zapamiętać odmowy na stałe po identyfikatorze ulubionego.
+
+### AMC-422-12 — Ctrl+C kopiuje nazwę, Ctrl+Shift+C adres
+
+Na zaznaczonej stacji/ulubionym naciśnij `Ctrl+C`, wklej gdzieś wynik, potem
+naciśnij `Ctrl+Shift+C` i znowu wklej.
+
+Oczekiwane: `Ctrl+C` mówi „Skopiowano nazwę” i w schowku jest SAMA NAZWA (bez
+parametrów i bez adresu). `Ctrl+Shift+C` mówi „Skopiowano adres” i wkleja
+dosłowny adres. Dla stacji bez zapisanego adresu słyszysz „Ta stacja nie ma
+zapisanego adresu”, a dla ulubionego bez adresu „Sonos nie podał adresu tego
+ulubionego” — i schowek zostaje NIETKNIĘTY (poprzednia zawartość zachowana).
+W polach tekstowych oba skróty działają jak zwykła edycja tekstu.
