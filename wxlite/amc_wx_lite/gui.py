@@ -295,6 +295,13 @@ class MediaListAccessible(wx.Accessible):
         return (wx.ACC_NOT_IMPLEMENTED, wx.ROLE_NONE)
 
 
+#: Stale MSAA (winuser.h). Uzywamy ich do JEDNEGO zdarzenia: zejscia listy do
+#: zera wierszy. Nazwy wlasne, zeby nie wiazac sie z wersja ``comtypes``.
+EVENT_OBJECT_FOCUS = 0x8005
+OBJID_CLIENT = -4
+CHILDID_SELF = 0
+
+
 class MediaListCtrl(wx.ListCtrl):
     """ZWYKLA natywna lista Windows z aktualizacja tylko tego, co sie zmienilo.
 
@@ -339,6 +346,10 @@ class MediaListCtrl(wx.ListCtrl):
         #: wstawieniu pierwszego wiersza) wszedlby do modelu JAKO NOWY WYBOR i
         #: skasowal wybor uzytkownika. Czytane przez ``MediaListFrame``.
         self.updating = False
+        #: Czy OSTATNI przebieg skonczyl sie pusta lista. ``None`` = jeszcze nie
+        #: synchronizowano. Zapowiedz pustki nalezy do PRZEJSCIA do zera
+        #: wierszy; bez tego tick statusu powtarzalby ja przy kazdym przebiegu.
+        self._was_empty: bool | None = None
         # Nazwa dla czytnika ekranu i Narratora.
         self.SetName(label)
         # Bez tego nazwa wyzej NIE dociera do MSAA (zmierzone -- patrz
@@ -357,12 +368,20 @@ class MediaListCtrl(wx.ListCtrl):
         """
         desired = list_sync.model_row_texts(self.model)
         ops = list_sync.plan_row_updates(self._shown, desired)
+        # Przejscie do pustki liczymy PRZED zmiana stanu, zeby zapowiedz dotyczyla
+        # PRZEJSCIA (pusto->pusto na ticku statusu to ZERO zdarzen).
+        became_empty = not desired and self._was_empty is not True
+        self._was_empty = not desired
         cursor = self._cursor_target()
         if not ops:
             if cursor is None:
                 # Nic sie nie zmienilo i kursor jest na miejscu: ZERO operacji.
                 # To jest cel calej zmiany -- sam komunikat, Ctrl+C czy tick
                 # statusu nie dotykaja listy.
+                if became_empty:
+                    # Wyjatek: pierwsze wejscie od razu w pusty widok. Planu nie
+                    # ma (nie bylo czego usuwac), ale obiekt dostepny sie zmienil.
+                    self._announce_empty_list()
                 return
             # Sam kursor: jedno przejscie stanu, bez przemalowania listy.
             self.updating = True
@@ -389,6 +408,54 @@ class MediaListCtrl(wx.ListCtrl):
         finally:
             self.Thaw()
             self.updating = False
+        # Dopiero po odmrozeniu: zdarzenie ma opisywac stan KONCOWY.
+        if became_empty:
+            self._announce_empty_list()
+
+    def _announce_empty_list(self) -> None:
+        """Po zejsciu do ZERA wierszy oglos SAMA LISTE jako dostepny obiekt.
+
+        PO CO TO JEST (zmierzone, nie wywnioskowane). Na zywym NVDA wejscie w
+        widok bez wierszy dawalo ``name=''`` i ``role=0``, choc sama kontrolka
+        oddaje ``accName`` i ``accRole=33``. A/B z kontrolka standardowa na tej
+        samej ``MediaListCtrl`` pokazalo roznice: nasza droga do zera to petla
+        ``DeleteItem``, a SysListView32 przy kazdym usunieciu wiersza PRZED
+        kursorem przesuwa fokus na nizszy indeks -- wiec na liscie konczacej z
+        zerem wierszy poszly ``EVENT_OBJECT_FOCUS`` z ``idChild=2``, potem
+        ``idChild=1``, czyli na dzieci, ktorych po oproznieniu NIE MA
+        (``get_accChild(1)`` -> ``0x80070057``). ``DeleteAllItems`` nie wysyla
+        wtedy nic i ostatnim zdarzeniem zostaje fokus z czasow niepustej listy.
+        W obu drogach czytnik trzyma USUNIETE dziecko: lista ma fokus
+        klawiatury, a ``accFocus`` jest VT_EMPTY, bo dziecka z fokusem nie ma.
+
+        CO TU ROBIMY: wysylamy JEDNO zdarzenie na ``CHILDID_SELF`` -- zgloszenie
+        realnej zmiany dostepnego obiektu, ktorym jest teraz sama lista. Fokus
+        klawiatury JUZ na niej jest (``HasFocus``), wiec nie przestawiamy
+        niczego i nie udajemy danych. Czego tu nie ma: sztucznych wierszy,
+        uciszania czytnika, globalnych hookow i odtwarzania HWND.
+
+        Zdarzenie leci TYLKO gdy lista ma fokus klawiatury -- zapowiedz dotyczy
+        tego, co uzytkownik ma pod reka; lista w ukrytym panelu tez przechodzi
+        przez ``sync_rows``.
+        """
+        if not self.HasFocus():
+            return
+        try:
+            self._notify(EVENT_OBJECT_FOCUS, int(self.GetHandle()),
+                         OBJID_CLIENT, CHILDID_SELF)
+        except Exception:
+            # Zapowiedz jest DODATKIEM. Lista musi sie opruznic nawet gdy MSAA
+            # odmowi -- blad powiadomienia nie moze wywrocic aktualizacji GUI.
+            pass
+
+    @staticmethod
+    def _notify(event: int, hwnd: int, obj_id: int, child_id: int) -> None:
+        """Cienka osloda na ``NotifyWinEvent``. Osobno, zeby test ja podmienil."""
+        import ctypes
+
+        ctypes.windll.user32.NotifyWinEvent(  # type: ignore[attr-defined]
+            ctypes.c_uint(event), ctypes.c_void_p(hwnd),
+            ctypes.c_long(obj_id), ctypes.c_long(child_id))
 
     def _apply_ops(self, ops: list) -> None:
         """Wykonaj plan w podanej kolejnosci. Indeksy sa juz uzgodnione."""

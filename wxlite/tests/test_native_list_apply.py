@@ -38,6 +38,14 @@ class FakePlainList:
         self._selected = -1
         self._focused = -1
         self.frozen = 0
+        # Pola zakladane przez ``MediaListCtrl.__init__``, ktorego tu nie wolamy.
+        self._shown: list = []
+        self.updating = False
+        self._was_empty: bool | None = None
+
+    def HasFocus(self) -> bool:  # noqa: N802 - API wx
+        """Domyslnie BEZ fokusu: zapowiedz pustki dotyczy tylko listy pod reka."""
+        return False
 
     # --- wywolania, ktorych uzywa nasz kod
     def InsertItem(self, index: int, text: str) -> int:  # noqa: N802 - API wx
@@ -107,7 +115,11 @@ def make_ctrl(model: ListModel, selected: int = -1, focused: int | None = None):
     # innego kontraktu niz dziala w aplikacji.
     ctrl._shown = []
     ctrl.updating = False
-    for name in ("sync_rows", "sync_cursor", "_apply_ops", "fill_initial"):
+    # Przejscie "lista stala sie pusta" liczy ``sync_rows``; produkcja startuje
+    # z ``None`` ("jeszcze nie synchronizowano").
+    ctrl._was_empty = None
+    for name in ("sync_rows", "sync_cursor", "_apply_ops", "fill_initial",
+                 "_announce_empty_list"):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     # ``_cursor_target``/``_move_cursor`` tez z produkcji -- inaczej testowalibysmy
     # wlasna atrape kursora.
