@@ -4,7 +4,7 @@ To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem w
 
 ## Co zostało wykonane
 
-Przy kodzie192aa07:326testów/0błędów/0pominięć. NaWindows sprawdzono zwykły start z hostem, pełną kopię Biblioteki/Radia, cztery nowe operacje widoków, rzeczywiste skróty, mówione potwierdzenia NVDA i etykiety transportu. Wcześniejszy połączony przebieg potwierdził także odtwarzanie/pauzę/wznowienie przez klawiaturę i sygnał urządzenia audio. Nie jest to pomiarNarratora ani wszystkich funkcjiAMC.
+Przy kodzie bf712d6:368testów/0błędów/0pominięć. NaWindows sprawdzono zwykły start z hostem, pełną kopię Biblioteki/Radia, cztery nowe operacje widoków, rzeczywiste skróty, mówione potwierdzenia NVDA i etykiety transportu. Wcześniejszy połączony przebieg potwierdził także odtwarzanie/pauzę/wznowienie przez klawiaturę i sygnał urządzenia audio. Nie jest to pomiarNarratora ani wszystkich funkcjiAMC.
 
 ## Przygotowane stanowisko prywatne
 
@@ -31,12 +31,16 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
 2. Alt+2: wszystkie lokalne pliki alfabetycznie. Porównaj liczność ze źródłem, nie z wpisaną na stałe liczbą.
 3. Ctrl+U: Ulubione. Zachowaj właściwą kolejność i wybór.
 4. Ctrl+P: playlisty; Enter do zawartości; Backspace na tę samą playlistę.
-5. Ctrl+C: nazwa, pojedyncze potwierdzenie na każde świadome naciśnięcie. Ctrl+Shift+C: tekst ścieżki/adresu. Nie uznawaj obecnego komunikatu o pliku za obsługę formatuFileDrop.
+5. Ctrl+C: nazwa, pojedyncze potwierdzenie na każde świadome naciśnięcie. Ctrl+Shift+C: pełna ścieżka jakoTEKST, komunikat „Skopiowano pełną ścieżkę". Sprawdź rzeczywistą zawartość schowka zWindows (`Get-Clipboard`, czytaj bajty i dekoduj sam — `text=True` wywala się na polskich znakach), nie sam komunikat. Komunikat celowo NIE mówi o skopiowaniu pliku: obsługi formatuFileDrop nadal nie ma.
 6. Ctrl+O: zwykły dialog folderu, nie Biblioteka. W zmierzonym dialogu pierwszyEnter wybiera wpisany folder, drugi zatwierdza; kontroluj rzeczywisty fokus i zamknięcie okna zamiast wysyłać gesty w ciemno.
 7. Na dostępnym pliku:Enter, Spacja, Spacja. Stan przycisku Odtwórz/Wstrzymaj ma zgadzać się z działaniem; cisza czytnika i sam tekst statusu nie dowodzą komunikatuNVDA.
 8. Ctrl+2: Radio z `radio.stations` wspólnego profilu. W trybie tylko do odczytu dodawanie/zmiana/usuwanie/import nadal mają odmówić uczciwie. Prywatna lista piaskownicy to odrębny tryb, nie zapis doAMC.
 
+9. Menu (Alt): pasek ma być w całości klawiaturowy — Alt otwiera, strzałki chodzą, litery wybierają, Escape zamyka. Każda pozycja musi wykonać TO SAMO co jej skrót (ten sam `_dispatch`). W Radiu pozycje lokalnych Ulubionych/playlist mają być wyszarzane, nie ukryte. Nie dodawaj pozycji dla funkcji, których nie ma.
+
 Przed audio/GUI sprawdź rezerwację pulpitu, obce procesy i ŻYWY stan nagrywania. Nie wyprowadzaj braku nagrywania z pustych pólJSON. Nie restartujNVDA ani nie wysyłaj klawiszy w obce okno. Podgląd mowy musi być otwarty podczas gestów. Zachowaj surowy przyrost i osobno skutek działania, nie tylko informację„niepusta mowa”.
+
+Próba mowy/menu dla tego przyrostu: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/proba_koncowa.py` (kwit `proba-koncowa.json`). Mierzy tylko to, co zmienione: mowę po zmianie widoku, oba kopiowania z odczytem schowka i obejście menu. Po próbie zamyka własne okno, sprawdza procesy i przywraca schowek.
 
 ## Dane i silnik
 
@@ -60,6 +64,6 @@ Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Te
 
 ## Znane ograniczenia
 
-Przy zmianie widoków pojawiają się powtórzenia nazw; to następna poprawka jakości mowy. Nieznany czas może być pokazany jako0:00. Całość nie ma jeszcze wszystkich widoków, funkcji zapisu, usług i ustawień oryginału. Tempo i wybór silników mają osobne wcześniejsze kwity; obecny odbiór ich nie powtarza ani nie rozszerza.
+Przy zmianie widoków **nadal** zdarzają się powtórzenia: po ogłoszeniu widoku bieżący element bywa odczytany drugi raz, a przy dużym skoku długości listy (1→2475) jeden odczyt niesie poprzednią nazwę z nowym licznikiem. Ubyła natomiast własna nadmiarowa zapowiedź wiersza i jedno z trzech powtórzeń na Ulubionych. Nieznany czas jest już pokazywany jako brak, nie `0:00`. Całość nie ma jeszcze wszystkich widoków, funkcji zapisu, usług i ustawień oryginału. Tempo i wybór silników mają osobne wcześniejsze kwity; obecny odbiór ich nie powtarza ani nie rozszerza.
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.

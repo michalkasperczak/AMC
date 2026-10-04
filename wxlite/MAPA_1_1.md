@@ -11,15 +11,19 @@ Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany p
 - Lokalne Ulubione: Ctrl+U, kolejność według dodania lub własna w warstwie danych. Nie deklarujemy jeszcze alfabetyki Ulubionych.
 - Katalog playlist: Ctrl+P; Enter otwiera zawartość, Backspace wraca do zaznaczonej playlisty.
 - Radio czytane z aktualnego `radio.stations` profilu. Brak/awaria odczytu nie jest już traktowana jak prawdziwie pusta lista. Wspólny profil nadal nie jest edytowany przez Python.
-- Ctrl+C kopiuje nazwę; Ctrl+Shift+C kopiuje tekst adresu/ścieżki. Potwierdzenia docierają do żywegoNVDA. Obecny komunikat dla ścieżki mówi zbyt wiele o skopiowaniu pliku; nie jest to jeszcze obsługa formatuFileDrop.
+- Ctrl+C kopiuje nazwę; Ctrl+Shift+C kopiuje pełną ścieżkę jako TEKST i tak ją nazywa: „Skopiowano pełną ścieżkę". Oba potwierdzenia odczytane na żywymNVDA. Obsługi formatuFileDrop (przeciąganie pliku do innej aplikacji) nadal **nie ma** — komunikat już jej nie udaje.
 - Ctrl+O otwiera natywny dialog folderu. Odtwarzanie z normalnej listy, pauza i wznowienie Spacją: potwierdzony czas i sygnał wyjściowy.
 - Przycisk transportu nazywa czynność: Odtwórz albo Wstrzymaj. Zmiany i krótkie komunikaty zostały odczytane w Podglądzie mowyNVDA.
+- Nieznana długość jest pokazywana jako brak („łączny czas nieznany"), nie jako `0:00`. Wzorzec zC# `MediaItemFormatter.FieldValue`: przy `Duration <= TimeSpan.Zero` pole jest pomijane. Prawdziwe czasy (np. `5:03`) zostają.
+- Pasek menu wxPython udostępnia działające już funkcje: sesje, otwieranie pliku/folderu, widoki Biblioteki, odtwarzacz/lista, transport, kopiowanie i pomoc. Każda pozycja woła ten sam `MainWindow._dispatch`, co skrót — bez drugiej implementacji. Zachowane menu Dźwięk/ustawienia. Pozycje niedostępne w kontekście (np. lokalne Ulubione w Radiu) są wyszarzane, nie ukrywane.
 
 ## Zakres pomiaru
 
 Pełna zachowana kopia danych zawiera11200rekordów lokalnych, z których2475spełnia filtr aktywności. W próbie były9Ulubionych,1playlista/54pozycje i165stacji. To liczby badanej kopii, nie dzisiejszy odczyt głównego komputera ani stałe w kodzie.
 
-Końcowy zachowany runner:326zdanych,0padniętych,0pominiętych. Odbiór rodzica:23gesty z prawidłową bramką,19niepustych przyrostów mowy; pomocniczeTab i ruch na jedynymwierszu nie muszą zmieniać odczytu. Na nowych widokach wykonano rzeczywisteAlt+2/Ctrl+U/Ctrl+P/Enter/Backspace, nie wywołania handlera.
+Końcowy zachowany runner:368zdanych,0padniętych,0pominiętych. Odbiór rodzica:23gesty z prawidłową bramką,19niepustych przyrostów mowy; pomocniczeTab i ruch na jedynymwierszu nie muszą zmieniać odczytu. Na nowych widokach wykonano rzeczywisteAlt+2/Ctrl+U/Ctrl+P/Enter/Backspace, nie wywołania handlera.
+
+Próba mowy i menu po tej zmianie: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/proba-koncowa.json`. Menu obchodzono rzeczywistymAlt/strzałkami/literami naWindows zNVDA; schowek czytano zWindows i przywrócono do stanu sprzed próby.
 
 Dźwięk zmierzono wcześniej na jawnym syntetycznymWAV: sygnał występuje podczas grania, zanika w pauzie i wraca po wznowieniu. To pomiar wyjścia, nie ludzka ocena jakości brzmienia. Narrator nie został odebrany w tych przebiegach.
 
@@ -33,9 +37,9 @@ Rogié/e orazß/ss były odtworzone jakoRED i poprawione. LiteHost został nast�
 
 ## Najbliższe braki
 
-- Uspokojenie odczytu przy zmianie listy: obecnie pojawia się poprzednia nazwa i powtarzanie wybranej pozycji.
-- Uczciwa treść potwierdzenia kopiowania ścieżki i prezentacja nieznanej długości zamiast0:00.
-- Dostępne menu dla funkcji już wdrożonych, dalsze widoki Biblioteki, wyszukiwanie/filtry, historia, kolejka i zakładki.
+- Odczyt przy zmianie widoku jest spokojniejszy, ale **nie całkiem cichy**. Zmierzone na żywymNVDA: zniknęła własna nadmiarowa zapowiedź wiersza, a na Ulubionych ubył jeden z powtórzonych odczytów. Zostaje: pojedyncze powtórzenie bieżącego elementu po ogłoszeniu widoku, a przy dużym skoku długości (1→2475) jedno odczytanie poprzedniej nazwy z nowym licznikiem. Próba odświeżania nachodzących wierszy przed `SetItemCount` **nie dała zmiany w mowie** i została wycofana — przyczyna leży głębiej niż kolejność tych dwóch wywołań.
+- Dalsze widoki Biblioteki, wyszukiwanie/filtry, historia, kolejka i zakładki.
+- ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
