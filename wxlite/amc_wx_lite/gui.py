@@ -122,6 +122,35 @@ def _notify_win_event(event: int, hwnd: int, object_id: int, child_id: int) -> N
     ctypes.windll.user32.NotifyWinEvent(event, hwnd, object_id, child_id)
 
 
+def transport_button_label(*, playing: bool, preparing: bool = False) -> str:
+    """Nazwa przycisku transportu: CZYNNOSC, ktora wykona nacisniecie.
+
+    Dawne "Pauza/wznow" wymienialo oba warianty naraz, wiec czytnik mowil
+    zawsze to samo i nie bylo wiadomo, co sie stanie. Slownictwo i warunek
+    bierzemy ze zwyklego AMC, bez nowej rodziny nazw:
+
+        ``MainWindow.xaml.cs:2560``
+        ``PlayerPlayPauseButton.Content =``
+        ``    preparing ? "Anuluj" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";``
+
+    ``&`` to klawisz dostepu wx (odpowiednik ``_`` w XAML).
+    """
+    if preparing:
+        return "&Anuluj"
+    return "&Wstrzymaj" if playing else "&Odtwórz"
+
+
+def transport_confirmation(*, paused: bool) -> str:
+    """Krotkie potwierdzenie po Spacji: stan, ktory JUZ nastapil.
+
+    Etykieta mowi o przyszlosci ("Wstrzymaj"), potwierdzenie o terazniejszosci
+    ("Wstrzymano") -- inaczej czytnik dwa razy powtarza to samo slowo i nie
+    wiadomo, czy czynnosc sie udala. Jedno slowo, bo to potwierdzenie gestu,
+    nie opis stanu odtwarzacza.
+    """
+    return "Wstrzymano" if paused else "Odtwarzanie"
+
+
 class Announcer:
     """JEDNA brama krotkich komunikatow. Widoczny status + mowa czytnika.
 
@@ -350,7 +379,9 @@ class LiteFrame(wx.Frame):
         self.time_label = wx.StaticText(self.player_panel, label="0 s / nieznany")
         self.time_label.SetName("Czas")
 
-        self.play_button = wx.Button(self.player_panel, label="&Pauza/wznow")
+        self.play_button = wx.Button(
+            self.player_panel, label=transport_button_label(playing=False)
+        )
         self.volume_slider = wx.Slider(
             self.player_panel, value=self.options.volume, minValue=0, maxValue=100,
             style=wx.SL_HORIZONTAL | wx.SL_LABELS,
@@ -914,14 +945,34 @@ class LiteFrame(wx.Frame):
         client = self.client
         if client is None:
             return
+
+        def done(payload: dict) -> None:
+            paused = bool((payload or {}).get("paused"))
+            # Etykieta zawsze zgodna ze stanem: po wstrzymaniu przycisk ma juz
+            # proponowac odtwarzanie (MainWindow.xaml.cs:2560).
+            self._set_transport_label(playing=not paused)
+            self.announcer.say(transport_confirmation(paused=paused))
+
         self.runner.submit(
             "transport",
             client.pause_resume,
-            lambda payload: self.announcer.say(
-                "Pauza" if (payload or {}).get("paused") else "Odtwarzanie"
-            ),
+            done,
             lambda error: self.announcer.say(f"Blad: {error}"),
         )
+
+    def _set_transport_label(self, *, playing: bool, preparing: bool = False) -> None:
+        """Jedno miejsce, ktore nazywa przycisk transportu.
+
+        Czytnik czyta nazwe przycisku przy fokusie, wiec etykieta i nazwa
+        dostepnosciowa musza byc tym samym slowem -- inaczej widac jedno, a
+        slychac drugie. Nie ogłaszamy tu nic sami: zmiana etykiety to nie
+        potwierdzenie gestu, a dwa zrodla mowy daja podwojna zapowiedz.
+        """
+        label = transport_button_label(playing=playing, preparing=preparing)
+        if self.play_button.GetLabel() == label:
+            return
+        self.play_button.SetLabel(label)
+        self.play_button.SetName(label.replace("&", ""))
 
     def _seek(self, delta: float) -> None:
         client = self.client
@@ -1002,6 +1053,12 @@ class LiteFrame(wx.Frame):
             # czytnik ekranu dostawalby zmiane co sekunde bez potrzeby.
             if self.time_label.GetLabel() != label:
                 self.time_label.SetLabel(label)
+            # Etykieta transportu podaza za PRAWDZIWYM stanem hosta, nie tylko
+            # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
+            # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
+            # odswiezenie statusu nie jest gestem uzytkownika.
+            if "paused" in payload:
+                self._set_transport_label(playing=not bool(payload.get("paused")))
 
         self.runner.submit("status", client.status, done, lambda _error: None)
 
