@@ -16,7 +16,12 @@ Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany p
 - Enter na zakładce przechodzi FIZYCZNIE do materiału i pozycji: `play.file` dostaje `positionSeconds` w jednym wywołaniu, bez osobnego seeka po starcie. `Row.item_id` zakładki (`bookmark:<id>`) nigdy nie trafia do backendu jako plik — ścieżka i pozycja idą z mapy celów, a `BookmarkRow.item_id` jest ID pliku.
 - Pozycja liczona jako `position_ticks / 10_000_000` z zachowaną częścią ułamkową (bez `//`).
 - Backspace z widoku zakładek wraca na TEN plik (zmierzone: wiersz 2309 z 2476, to samo ID), nie na wiersz pierwszy.
-- Foldery Biblioteki mają wreszcie wejście w menu (Alt+1, jak `MainWindow.xaml:446`), a menu Widok — brakujący „Powrót na listę" (istniejąca akcja `SHOW_LIST`).
+- Foldery Biblioteki mają wreszcie wejście w menu (Alt+1, jak `MainWindow.xaml:446`), a menu Widok — brakujący „Powrót na listę" (istniejąca akcja `SHOW_LIST`). Oba gesty odebrane OSOBNO na żywym NVDA, nie tylko w kodzie: `list-speech-after422/odbior-listy-FINAL.json`, kroki P01 (Alt+1 → „1 z 11") oraz P14+P15 (Alt+W, litera „l" → powrót na listę z odczytem wiersza).
+- Lista bez wierszy podaje własną nazwę i rolę, nie „nieznane": `SysListView32` nigdy nie podawał `accName` samej kontrolki, więc na pustym zbiorze nie było czego przeczytać. Nakładka `MediaListAccessible` to naprawia; zmierzone w produkcyjnym runtime (`list-speech-after422/zdarzenia15.jsonl`).
+
+## Mowa listy — co NADAL jest zepsute
+
+- **Poprzednia nazwa z nowym licznikiem** przy zmianie zbioru oraz **wielokrotny odczyt tego samego wiersza** NIE są naprawione. Przyczyna jest zmierzona (`SetItemCount` na kontrolce z fokusem sam zgłasza fokus wiersza 0, a czytnik trzyma obiekty pod kluczem `(HWND, childID)`), ale jedyna skuteczna na to droga — rekreacja kontrolki — kosztowała całkowitą ciszę na wybranym wierszu przy 2476 pozycjach i została wycofana. Osiem odrzuconych prób ratowania i pełny bilans: `list-speech-after422/REPORT.md`.
 - Radio czytane z aktualnego `radio.stations` profilu. Brak/awaria odczytu nie jest już traktowana jak prawdziwie pusta lista. Wspólny profil nadal nie jest edytowany przez Python.
 - Ctrl+C kopiuje nazwę; Ctrl+Shift+C kopiuje pełną ścieżkę jako TEKST i tak ją nazywa: „Skopiowano pełną ścieżkę". Oba potwierdzenia odczytane na żywymNVDA. Obsługi formatuFileDrop (przeciąganie pliku do innej aplikacji) nadal **nie ma** — komunikat już jej nie udaje.
 - Ctrl+O otwiera natywny dialog folderu. Odtwarzanie z normalnej listy, pauza i wznowienie Spacją: potwierdzony czas i sygnał wyjściowy.

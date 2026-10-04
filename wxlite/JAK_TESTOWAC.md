@@ -48,6 +48,8 @@ Przed audio/GUI sprawdź rezerwację pulpitu, obce procesy i ŻYWY stan nagrywan
 
 Próba mowy/menu dla tego przyrostu: `amc_pomoc/wx-full-profile-after421/menu-and-speech-after422/proba_koncowa.py` (kwit `proba-koncowa.json`). Mierzy tylko to, co zmienione: mowę po zmianie widoku, oba kopiowania z odczytem schowka i obejście menu. Po próbie zamyka własne okno, sprawdza procesy i przywraca schowek.
 
+Mowa natywnej listy: dwie klasy objawów NADAL NIE SĄ naprawione — „poprzednia nazwa z nowym licznikiem” przy zmianie zbioru oraz wielokrotny odczyt tego samego wiersza. Naprawione jest tylko „nieznane” na liście bez nazwy (nakładka dostępności). Nie uznawaj tego za zrobione na podstawie testów jednostkowych: para kwitów z żywego NVDA to `amc_pomoc/wx-full-profile-after421/list-speech-after422/odbior-listy-FINAL.json` i `REPORT.md`. Przy zmianach w `gui.py` mierz ZAWSZE widok 2476 wierszy (Alt+2) — objawy mowy zależą od rozmiaru zbioru i na małych widokach nie wychodzą.
+
 Próba widoków aktywności: `amc_pomoc/wx-full-profile-after421/activity-gui-after422/proba_koncowa_activity.py` (etapy A–C) oraz `dopiecie_de.py` (etapy D–F na tym samym żywym oknie). Nazwa gestu Backspace w mostku NVDA to `backspace`; `back` zwraca HTTP 500 i pierwszy przebieg na tym padł.
 
 ## Dane i silnik
