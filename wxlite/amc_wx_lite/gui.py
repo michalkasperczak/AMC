@@ -489,12 +489,30 @@ class LiteFrame(wx.Frame):
             rows_from_stations(self.stations.as_payload()),
             preferred_id=self._radio_snapshot.current_id,
         ))
+        # Blad ODCZYTU stacji nie jest tym samym co profil bez stacji. Dopoki
+        # RadioSource oddawalo pusta liste w obu przypadkach, uzytkownik slyszal
+        # cisze takze wtedy, gdy profil byl uszkodzony albo zajety.
+        if self._radio_snapshot.load_error:
+            self.announcer.say(self._radio_snapshot.load_error)
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\micha) na tej maszynie nie istnieja, lista pod
         # Ctrl+1 byla pusta -- to jest zglaszany blad.
         if self.library.is_available:
-            self._open_library(self.library.saved_folder())
+            # ``saved_folder`` otwiera SQLite, a jestesmy w ``done()`` zadania
+            # startowego, czyli pod ``wx.CallAfter``. Nieobsluzony wyjatek nie
+            # wyszedlby poza log i okno zostaloby puste ORAZ ciche. Zamiast tego
+            # mowimy co sie stalo i wczytujemy Biblioteke od korzenia -- blad
+            # ZAPAMIETANEGO folderu nie moze odciac calej Biblioteki.
+            try:
+                folder = self.library.saved_folder()
+            except Exception as error:
+                self.announcer.say(
+                    f"Nie mogę odczytać zapamiętanego folderu: {error}. "
+                    "Pokazuję Bibliotekę od początku."
+                )
+                folder = None
+            self._open_library(folder)
             return
         folder = self.navigator.sessions[SessionId.FILES].folder_path or self.options.last_folder
         if folder and Path(folder).exists():

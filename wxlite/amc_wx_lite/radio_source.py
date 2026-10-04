@@ -45,6 +45,16 @@ class RadioSnapshot:
     from_amc_profile: bool = False
     #: Prywatny stan - istnieje tylko w trybie piaskownicy, do zapisu.
     private_state: LiteState | None = field(default=None, repr=False)
+    #: Krotkie zdanie o BLEDZIE odczytu, albo ``None`` gdy odczyt sie udal.
+    #:
+    #: Dlaczego osobne pole, a nie "pusta lista znaczy blad": profil moze
+    #: naprawde nie miec stacji i wtedy nie ma o czym mowic. Dopoki oba
+    #: przypadki konczyly sie ta sama pusta lista, uzytkownik niewidomy slyszal
+    #: dokladnie to samo -- cisze -- gdy AMC trzymalo plik albo plik byl
+    #: uszkodzony. Taki blad trzeba zglosic, bo to on wymaga reakcji.
+    load_error: str | None = None
+    #: ``True`` gdy pokazujemy POPRZEDNIA liste, bo odswiezenie sie nie udalo.
+    kept_previous: bool = False
 
     @property
     def stations(self) -> list[Station]:
@@ -121,24 +131,61 @@ class RadioSource:
 
     # ---------------------------------------------------------------- odczyt
 
-    def load(self) -> RadioSnapshot:
+    def load(self, previous: RadioSnapshot | None = None) -> RadioSnapshot:
+        """Wczytaj stacje. ``previous`` ratuje liste przy nieudanym odswiezeniu.
+
+        Przy pierwszym wczytaniu ``previous`` nie ma i blad konczy sie pusta
+        lista z komunikatem -- nie ma czego ratowac. Przy ODSWIEZANIU juz jest:
+        165 stacji nie moze zniknac z ekranu dlatego, ze AMC akurat trzymalo
+        plik na zapisie przez ulamek sekundy.
+        """
         if self.layout.mode is ProfileMode.READ_ONLY_MIRROR:
-            return self._load_from_amc()
+            return self._load_from_amc(previous)
         return self._load_private()
 
-    def _load_from_amc(self) -> RadioSnapshot:
+    def _load_from_amc(self, previous: RadioSnapshot | None = None) -> RadioSnapshot:
         path = Path(self.layout.state_json)
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError, OSError, UnicodeDecodeError):
-            # Brak albo uszkodzony profil nie moze wywrocic okna: pusta lista
-            # i tak jest uczciwsza niz zastepcze dane udajace stacje AMC.
-            return RadioSnapshot(list=StationList(), from_amc_profile=True)
+        except FileNotFoundError:
+            return self._read_failure("Nie znalazłem profilu AMC", previous)
+        except json.JSONDecodeError:
+            return self._read_failure("Profil AMC jest uszkodzony", previous)
+        except UnicodeDecodeError:
+            return self._read_failure("Nie mogę odczytać profilu AMC: złe kodowanie", previous)
+        except OSError as error:
+            # Najczesciej: AMC trzyma plik na zapisie, albo brak uprawnien.
+            # Nie rozwijamy wyjatku do czytnika - sama nazwa klasy nic nie mowi.
+            reason = getattr(error, "strerror", None) or "błąd odczytu"
+            return self._read_failure(f"Nie mogę odczytać profilu AMC: {reason}", previous)
         if not isinstance(raw, dict):
-            return RadioSnapshot(list=StationList(), from_amc_profile=True)
+            return self._read_failure("Profil AMC ma nieoczekiwaną zawartość", previous)
+
         stations, current = stations_from_amc_state(raw)
+        # Odczyt sie udal: nawet pusta lista jest teraz PRAWDA o profilu, wiec
+        # nie wskrzeszamy poprzednich stacji i gasimy komunikat bledu.
         return RadioSnapshot(
             list=StationList(stations), current_id=current, from_amc_profile=True
+        )
+
+    def _read_failure(
+        self, message: str, previous: RadioSnapshot | None
+    ) -> RadioSnapshot:
+        """Snapshot bledu: mowi co sie stalo i nie gubi tego, co juz bylo.
+
+        Profilu NIE zapisujemy ani nie tworzymy -- wlascicielem zapisu zostaje
+        host C#, tak jak w ``ProfileLayout.assert_may_write``.
+        """
+        if previous is not None and previous.stations:
+            return RadioSnapshot(
+                list=StationList(list(previous.stations)),
+                current_id=previous.current_id,
+                from_amc_profile=True,
+                load_error=f"{message}. Pokazuję poprzednią listę.",
+                kept_previous=True,
+            )
+        return RadioSnapshot(
+            list=StationList(), from_amc_profile=True, load_error=message
         )
 
     def _load_private(self) -> RadioSnapshot:

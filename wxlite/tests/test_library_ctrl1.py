@@ -58,7 +58,9 @@ def _frame(library: LibrarySource, queued: list, said: list):
         ),
         stations=SimpleNamespace(as_payload=lambda: []),
         # Radio czyta teraz stacje z profilu AMC; atrapa oddaje puste zrodlo.
-        _radio_snapshot=SimpleNamespace(current_id=None),
+        # ``load_error=None`` znaczy "odczyt sie udal, profil po prostu nie ma
+        # stacji" -- to NIE jest blad i nic nie ma byc o nim powiedziane.
+        _radio_snapshot=SimpleNamespace(current_id=None, load_error=None, kept_previous=False),
         _run=lambda intents: None,
     )
     # Prawdziwa metoda z gui.py, tylko podpieta do atrapy -- testujemy KOD
