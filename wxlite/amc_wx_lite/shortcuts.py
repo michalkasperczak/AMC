@@ -59,6 +59,8 @@ class Action(Enum):
     TIME_TOTAL = "time.total"
     OPEN_FOLDER_DIALOG = "files.openFolder"
     OPEN_FILE_DIALOG = "files.openFile"
+    COPY_NAME = "clipboard.copyName"
+    COPY_ADDRESS = "clipboard.copyAddress"
     STATION_ADD = "radio.add"
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
@@ -102,6 +104,11 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+T": Action.TIME_TOTAL,
     "Ctrl+O": Action.OPEN_FOLDER_DIALOG,
     "Ctrl+Shift+O": Action.OPEN_FILE_DIALOG,
+    # Adres NA ZADANIE, tak jak w pelnym AMC (MainWindow.xaml.cs:20717-20732).
+    # Dzieki temu lista moze czytac samo nazwe, a pelny adres nadal jest
+    # dostepny jednym skrotem -- nie zabieramy funkcji, przenosimy ja.
+    "Ctrl+C": Action.COPY_NAME,
+    "Ctrl+Shift+C": Action.COPY_ADDRESS,
     "F1": Action.HELP,
 }
 
@@ -176,6 +183,8 @@ def describe() -> list[tuple[str, str]]:
         Action.TIME_TOTAL: "Czas calkowity",
         Action.OPEN_FOLDER_DIALOG: "Wybierz folder",
         Action.OPEN_FILE_DIALOG: "Wybierz plik",
+        Action.COPY_NAME: "Skopiuj nazwe",
+        Action.COPY_ADDRESS: "Skopiuj adres",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmien stacje",
         Action.STATION_DELETE: "Usun stacje",

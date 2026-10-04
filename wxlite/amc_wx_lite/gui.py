@@ -589,6 +589,10 @@ class LiteFrame(wx.Frame):
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
             self._choose_file()
+        elif action is Action.COPY_NAME:
+            self._copy_name()
+        elif action is Action.COPY_ADDRESS:
+            self._copy_address()
         elif action is Action.STATION_ADD:
             self._station_add()
         elif action is Action.STATION_EDIT:
@@ -692,6 +696,61 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie moge wczytac folderu: {error}")
 
         self.runner.submit("folder", work, done, failed)
+
+    def _copy_name(self) -> None:
+        """Ctrl+C: nazwa zaznaczonego elementu do schowka.
+
+        Odpowiednik ``CopyActionItemName`` (MainWindow.xaml.cs:20717-20724).
+        Komunikat "Skopiowano nazwę" z MainWindow.xaml.cs:24372.
+        """
+        row = self.navigator.session.model.selected_row
+        if row is None or not row.title:
+            self.announcer.say("Nie ma czego skopiować")
+            return
+        if self._to_clipboard(row.title):
+            self.announcer.say("Skopiowano nazwę")
+
+    def _copy_address(self) -> None:
+        """Ctrl+Shift+C: adres albo pelna sciezka zaznaczonego elementu.
+
+        Odpowiednik ``CopyActionItemLocation`` (MainWindow.xaml.cs:20725-20732).
+        Tu wlasnie trafil adres, ktory wczesniej czytnik wymawial przy KAZDYM
+        wierszu -- funkcja nie znika, zmienia sie moment jej uzycia.
+        Komunikaty z MainWindow.xaml.cs:24400 i 24428.
+        """
+        row = self.navigator.session.model.selected_row
+        if row is None:
+            self.announcer.say("Nie ma czego skopiować")
+            return
+        address = row.address
+        if not address:
+            self.announcer.say("Ten element nie ma zapisanego adresu")
+            return
+        if self._to_clipboard(address):
+            self.announcer.say(
+                "Skopiowano bezpośredni adres" if row.kind == "station"
+                else "Skopiowano plik i pełną ścieżkę"
+            )
+
+    def _to_clipboard(self, text: str) -> bool:
+        """Zapis do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
+
+        Schowek bywa chwilowo zajety przez inny proces -- odpowiednik
+        ``ClipboardRetry`` z AMC, ktory tez zwraca komunikat bledu.
+        """
+        try:
+            if not wx.TheClipboard.Open():
+                self.announcer.say("Schowek jest zajęty, spróbuj ponownie")
+                return False
+            try:
+                wx.TheClipboard.SetData(wx.TextDataObject(text))
+                wx.TheClipboard.Flush()
+            finally:
+                wx.TheClipboard.Close()
+        except Exception as error:
+            self.announcer.say(f"Nie udało się skopiować: {error}")
+            return False
+        return True
 
     def _choose_folder(self) -> None:
         with wx.DirDialog(self, "Wybierz folder z muzyka", style=wx.DD_DIR_MUST_EXIST) as dialog:

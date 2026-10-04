@@ -14,6 +14,19 @@ from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
 
+#: Slowa rodzaju przeniesione ZE ZRODEL pelnego AMC, nie wymyslone:
+#: ``src/AccessibleMediaController.Core/Sessions/MediaItem.cs:69-77``
+#: (``KindLabel``). Kolumna "Rodzaj" mowi RODZAJ, nigdy adres ani sciezke.
+#: ``parent`` (wiersz "..") celowo nie ma slowa: wejscie do folderu wyzej nie
+#: jest rodzajem medium, a falszywy rodzaj bylby klamstwem wobec czytnika.
+KIND_LABELS: dict[str, str] = {
+    "folder": "folder",
+    "track": "utwór",
+    "station": "stacja",
+    "parent": "",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class Row:
     """Jeden wiersz listy. ``item_id`` musi byc trwaly miedzy odswiezeniami."""
@@ -29,6 +42,21 @@ class Row:
     def is_openable(self) -> bool:
         """Czy Enter ma WEJSC w element, zamiast go odtworzyc."""
         return self.kind in ("folder", "parent")
+
+    @property
+    def kind_label(self) -> str:
+        """Slowo rodzaju dla kolumny "Rodzaj". Nieznany rodzaj = puste."""
+        return KIND_LABELS.get(self.kind, "")
+
+    @property
+    def address(self) -> str:
+        """Adres albo sciezka NA ZADANIE (Ctrl+Shift+C), nie do odczytu listy.
+
+        Odpowiednik ``CopyActionItemLocation`` z
+        ``MainWindow.xaml.cs:20725-20732``: w AMC pelny adres dostaje sie
+        osobnym skrotem, bo czytany przy kazdym wierszu jest nie do sluchania.
+        """
+        return (self.url or self.path or "").strip()
 
 
 @dataclass(slots=True)
@@ -66,12 +94,39 @@ class ListModel:
         return None
 
     def text_for(self, index: int, column: int = 0) -> str:
-        """Tekst komorki NA ZADANIE. Poza zakresem zwraca puste, nie wyjatek:
-        wx potrafi zapytac o wiersz w trakcie zmiany dlugosci listy."""
+        """Tekst komorki NA ZADANIE, osobna tresc dla KAZDEJ kolumny.
+
+        Dlaczego nie jedno ``row.detail`` dla wszystkich kolumn poza zerowa:
+        ``MediaListCtrl`` ma trzy kolumny, wiec czytnik ekranu wymawial te sama
+        wartosc dwa razy -- na stacji radiowej byl to pelny adres strumienia,
+        raz jako "Rodzaj", raz jako "Szczegoly". Zmierzone zywym NVDA.
+
+        Semantyka przeniesiona ze zwyklego AMC:
+
+        * 0 "Nazwa"     -- ``MediaItem.Title`` / ``PrimaryText``.
+        * 1 "Rodzaj"    -- ``MediaItem.KindLabel`` (slowo, nie adres).
+        * 2 "Szczegoly" -- krotki dodatek wiersza; PUSTY, gdy powtarzalby
+          nazwe albo rodzaj. ``MediaItemFormatter.Format`` pomija wartosci
+          powtorzone (``spokenValues.Add``), wiec i my nie dublujemy.
+
+        Poza zakresem (wiersz albo kolumna) zwracamy puste, nie wyjatek: wx
+        potrafi zapytac o wiersz w trakcie zmiany dlugosci listy.
+        """
         row = self.row_at(index)
         if row is None:
             return ""
-        return row.title if column == 0 else row.detail
+        if column == 0:
+            return row.title
+        if column == 1:
+            return row.kind_label
+        if column == 2:
+            detail = row.detail.strip()
+            # Powtorzenie nazwy albo rodzaju to dokladnie ten podwojny odczyt,
+            # ktory zglosil uzytkownik. Adres tu NIE wchodzi: jest pod skrotem.
+            if not detail or detail in (row.title, row.kind_label) or detail == row.address:
+                return ""
+            return detail
+        return ""
 
     def select_index(self, index: int) -> bool:
         row = self.row_at(index)
@@ -133,7 +188,12 @@ class ListModel:
 
 
 def rows_from_folder_payload(payload: dict, *, include_parent: bool = True) -> list[Row]:
-    """Zamien odpowiedz hosta ``files.listFolder`` na wiersze listy."""
+    """Zamien odpowiedz hosta ``files.listFolder`` na wiersze listy.
+
+    ``detail`` zostaje PUSTE: slowo rodzaju nalezy do kolumny "Rodzaj"
+    (``Row.kind_label``). Wczesniej szlo tu "folder", wiec kolumny Rodzaj i
+    Szczegoly mowily to samo slowo -- znow podwojny odczyt, tylko krotszy.
+    """
     rows: list[Row] = []
     parent = payload.get("parent")
     if include_parent and parent:
@@ -146,21 +206,24 @@ def rows_from_folder_payload(payload: dict, *, include_parent: bool = True) -> l
                 title=str(entry.get("title", "")),
                 kind=kind,
                 path=entry.get("path"),
-                detail="folder" if kind == "folder" else "",
             )
         )
     return rows
 
 
 def rows_from_stations(stations: Sequence[dict]) -> list[Row]:
-    """Wiersze dla sesji radiowej z WLASNEJ listy stacji uzytkownika."""
+    """Wiersze dla sesji radiowej.
+
+    Adres trafia WYLACZNIE do ``url`` (czyli pod ``Row.address`` i skrot
+    Ctrl+Shift+C). Do ``detail`` NIE wchodzi: wielki adres strumienia czytany
+    przy kazdym wierszu to zglaszany podwojny, nieczytelny odczyt.
+    """
     return [
         Row(
             item_id=str(station["id"]),
             title=str(station.get("name", "")),
             kind="station",
             url=str(station.get("url", "")),
-            detail=str(station.get("url", "")),
         )
         for station in stations
     ]
