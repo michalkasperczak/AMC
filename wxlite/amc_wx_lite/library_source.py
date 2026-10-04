@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .collation import HostCollation, HostCollationUnavailable, order_library_rows
 from .library_db import LibraryDatabase, breadcrumb_rows, folder_rows
 from .list_model import Row
 from .profile_layout import ProfileLayout, resolve_layout
@@ -30,6 +31,10 @@ class LibrarySnapshot:
     heading: str
     folder_path: str | None
     total_active: int
+    #: Czy kolejnosc wierszy jest zgodna z oryginalnym C#. ``False`` znaczy
+    #: "host nie podal kluczy AMC_PL, kolejnosc jest zastepcza" -- i okno moze
+    #: to powiedziec, zamiast milczeniem udawac zgodnosc.
+    order_matches_amc: bool = False
 
     @property
     def is_empty(self) -> bool:
@@ -39,13 +44,24 @@ class LibrarySnapshot:
 class LibrarySource:
     """Czyta Biblioteke AMC na zadanie. Nie trzyma uchwytu miedzy odczytami.
 
-    Uchwyt otwieramy na KAZDY odczyt, bo ``immutable=1`` zamraza obraz bazy --
-    gdybysmy trzymali jedno polaczenie, nie zobaczylibysmy zmian zapisanych
-    przez hosta C#.
+    Uchwyt otwieramy na KAZDY odczyt, zeby zobaczyc to, co host C# wlasnie
+    zapisal. Polaczenie idzie w trybie ``mode=ro`` (bez ``immutable=1``), bo
+    ``immutable`` kazal SQLite pominac ``-wal`` i oddawal stan sprzed commitu.
+
+    Kolejnosc wierszy ustala ``HostCollation`` -- klucze kolacji AMC_PL
+    policzone oryginalnym ``CompareInfo`` w hoscie. Bez hosta zostaje kolejnosc
+    z SQL (niezgodna) i wtedy ``LibrarySnapshot.order_matches_amc`` jest
+    ``False``.
     """
 
-    def __init__(self, layout: ProfileLayout | None = None) -> None:
+    def __init__(
+        self,
+        layout: ProfileLayout | None = None,
+        *,
+        collation: HostCollation | None = None,
+    ) -> None:
         self.layout = layout or resolve_layout()
+        self.collation = collation
 
     @property
     def database_path(self) -> Path:
@@ -71,12 +87,31 @@ class LibrarySource:
                 heading = f"Biblioteka — Foldery — {_leaf(folder)}"
             else:
                 heading = "Biblioteka — Foldery"
+
+            # Kolejnosc zgodna z C# liczymy PO odczycie: SQL moze uzyc tylko
+            # tej kolacji, ktora da sie zarejestrowac w SQLite, a zgodny
+            # komparator pl-PL siedzi w hoscie.
+            ordered, matches = self._apply_amc_order(rows)
             return LibrarySnapshot(
-                rows=rows,
+                rows=ordered,
                 heading=heading,
                 folder_path=folder,
                 total_active=db.count_active_items(),
+                order_matches_amc=matches,
             )
+
+    def _apply_amc_order(self, rows: list[Row]) -> tuple[list[Row], bool]:
+        """Kolejnosc C#, jesli host odpowie; inaczej wejscie i uczciwe ``False``.
+
+        Awaria kolacji NIE moze przewrocic Biblioteki: lepiej pokazac liste
+        w kolejnosci zastepczej i oznaczyc ja, niz nie pokazac nic.
+        """
+        if self.collation is None:
+            return rows, False
+        try:
+            return order_library_rows(rows, self.collation), True
+        except HostCollationUnavailable:
+            return rows, False
 
     def describe(self) -> str:
         """Komunikat dla czytnika ekranu, gdy Biblioteki nie ma."""
