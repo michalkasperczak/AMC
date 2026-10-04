@@ -1,9 +1,13 @@
-"""Model listy dla widoku wirtualnego (wx.ListCtrl LC_VIRTUAL).
+"""Model listy: wiersze i wybor po STABILNYM identyfikatorze.
 
-Zasada: lista NIE przechowuje widgetow. Trzyma wiersze i wybor po STABILNYM
-identyfikatorze, zeby po odswiezeniu folderu fokus nie skakal na pozycje 0.
-Tekst oddajemy na zadanie (OnGetItemText w wx), wiec 10 tysiecy plikow nie
-tworzy 10 tysiecy obiektow.
+Zasada: model NIE przechowuje widgetow. Trzyma wiersze i wybor po stabilnym
+``item_id``, zeby po odswiezeniu folderu fokus nie skakal na pozycje 0.
+
+``text_for`` oddaje tekst komorki. Dawniej odpowiadal na ``OnGetItemText``
+wirtualnej kontrolki; teraz jest zrodlem tekstu dla ZWYKLEJ listy -- czyta go
+``list_sync.model_row_texts`` i porownuje z tym, co kontrolka juz pokazuje.
+Semantyka kolumn sie NIE zmienila, zmienilo sie tylko to, kiedy tekst trafia
+do kontrolki (raz przy zmianie, nie przy kazdym malowaniu).
 
 Kod celowo bez importu wx: dzieki temu da sie go przetestowac w WSL bez pulpitu.
 """

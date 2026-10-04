@@ -2,10 +2,14 @@
 
 Zasady dostepnosci przyjete tutaj (i dlaczego):
 
-* ``wx.ListCtrl`` w trybie ``LC_VIRTUAL`` z tekstem NA ZADANIE
-  (``OnGetItemText``). Lista 20 000 plikow nie tworzy 20 000 obiektow, a
-  czytnik ekranu dostaje zwykla, natywna liste z rolami i nazwami - dziala
-  bez dodatku NVDA i z Narratorem.
+* ``wx.ListCtrl`` w trybie ``LC_REPORT`` -- ZWYKLA natywna lista Windows, tak
+  jak w SARA i WinZappie. Teksty siedza w kontrolce, a przy zmianie danych
+  aktualizujemy TYLKO faktycznie zmienione wiersze i pola (``list_sync``).
+  Czytnik ekranu dostaje zwykla, natywna liste z rolami i nazwami -- dziala
+  bez dodatku NVDA i z Narratorem. Wirtualizacja (``LC_VIRTUAL`` +
+  ``OnGetItemText``) ZOSTALA USUNIETA: jej cache tekstu dawal czytnikowi
+  stara nazwe z nowym licznikiem, a ``SetItemCount`` przestawial cala liste
+  nawet wtedy, gdy dane sie nie zmienily.
 * Strzalki, Home/End, Tab i pisanie-po-pierwszej-literze naleza do KONTROLKI.
   Nie przejmujemy ich. Przejmujemy tylko to, co ma wlasne znaczenie w AMC
   (Enter, Backspace, F6, Escape, Spacja, Ctrl+cyfra...).
@@ -30,6 +34,7 @@ from .async_gate import BackgroundRunner, StaleResultGate
 from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
+from . import list_sync
 from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
 from . import menu_model
 from .navigation import (
@@ -291,103 +296,151 @@ class MediaListAccessible(wx.Accessible):
 
 
 class MediaListCtrl(wx.ListCtrl):
-    """Natywna lista wirtualna. Tekst dostarcza model NA ZADANIE."""
+    """ZWYKLA natywna lista Windows z aktualizacja tylko tego, co sie zmienilo.
+
+    DLACZEGO NIE JEST JUZ WIRTUALNA. Kontrolka byla ``LC_VIRTUAL`` i oddawala
+    tekst na zadanie przez ``OnGetItemText``. Kazde odswiezenie widoku szlo
+    wtedy jedna droga: ``SetItemCount`` + ``RefreshItems(0, n-1)`` -- rowniez
+    gdy dane sie nie zmienily, bo ``_sync_views`` konczy KAZDY przebieg
+    ``_run`` (takze po samym komunikacie, Ctrl+C czy ticku statusu). Na 2476
+    wierszach bylo to odswiezenie calej listy na kazde nacisniecie klawisza.
+
+    Zatwierdzony kierunek: zwykle natywne listy (jak w SARA i WinZapp, ktore
+    uzytkownik wskazal jako dzialajace dobrze) plus aktualizacje przyrostowe.
+    Kontrolka trzyma teksty u siebie, a ``sync_rows`` dopisuje, usuwa, przenosi
+    i nadpisuje WYLACZNIE to, co sie rozni.
+
+    Co ZOSTAJE bez zmian: te same trzy kolumny, te same ``item_id`` z
+    ``ListModel``, ta sama nakladka nazwy/roli, ta sama trwala kontrolka (bez
+    ``Destroy``/rekreacji HWND -- ta droga zostala zmierzona i wycofana).
+    Strzalki, Home/End i pisanie-po-pierwszej-literze naleza do kontrolki;
+    na zwyklej liscie dziala to natywnie, bez naszego udzialu.
+
+    Czego ten kod NIE robi: nie dotyka czytnika ekranu. Mniej operacji na
+    kontrolce to mniej zdarzen a11y, ale dowodem mowy jest zywy NVDA.
+    """
 
     def __init__(self, parent: wx.Window, model: ListModel, label: str) -> None:
         super().__init__(
             parent,
-            style=wx.LC_REPORT | wx.LC_VIRTUAL | wx.LC_SINGLE_SEL | wx.BORDER_SUNKEN,
+            style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.BORDER_SUNKEN,
         )
         self.model = model
         self.InsertColumn(0, "Nazwa", width=420)
         self.InsertColumn(1, "Rodzaj", width=120)
         self.InsertColumn(2, "Szczegoly", width=260)
+        #: Stan POKAZANY w kontrolce. Jedyne zrodlo prawdy do porownania --
+        #: odczytywanie tekstow z ``GetItemText`` przy kazdym odswiezeniu
+        #: oznaczaloby 7428 wywolan API na liste 2476 wierszy.
+        self._shown: list[list_sync.RowText] = []
+        #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
+        #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
+        #: przy ruchu uzytkownika. Bez tej bramki przejsciowy indeks (np. 0 po
+        #: wstawieniu pierwszego wiersza) wszedlby do modelu JAKO NOWY WYBOR i
+        #: skasowal wybor uzytkownika. Czytane przez ``MediaListFrame``.
+        self.updating = False
         # Nazwa dla czytnika ekranu i Narratora.
         self.SetName(label)
         # Bez tego nazwa wyzej NIE dociera do MSAA (zmierzone -- patrz
         # ``MediaListAccessible``).
         self.SetAccessible(MediaListAccessible(self))
 
-    # wx wola to tylko dla WIDOCZNYCH wierszy - stad niski koszt duzych list.
-    def OnGetItemText(self, item: int, column: int) -> str:  # noqa: N802 - API wx
-        return self.model.text_for(item, column)
+    # ------------------------------------------------------------ aktualizacja
 
     def sync_rows(self) -> None:
-        """Cala podmiana listy jako JEDNA zmiana dla czytnika ekranu.
+        """Dociagnij kontrolke do modelu. Brak zmian = ZERO operacji.
 
-        Licznik, odswiezenie tekstu i przestawienie kursora to trzy operacje
-        na kontrolce. Osobno kazda wysyla wlasne zdarzenie i NVDA czytal
-        biezacy wiersz kilka razy po jednym gescie (zmierzone na Ulubionych:
-        trzy identyczne odczyty "Emu ... 1 z 9").
-
-        ``Freeze``/``Thaw`` to standardowy mechanizm wx: wstrzymuje
-        przemalowanie kontrolki, a po ``Thaw`` jest jedno. Nie usypiamy
-        watku i nie wyciszamy czytnika -- oddajemy mu jedna zmiane zamiast
-        trzech. ``Thaw`` leci w ``finally``, bo zamrozona kontrolka po
-        wyjatku bylaby niewidoczna.
+        To jest cala zatwierdzona zasada w jednym miejscu: plan wylicza
+        ``list_sync``, my go tylko nakladamy. Gdy plan jest pusty i kursor jest
+        na miejscu, nie wolamy nawet ``Freeze`` -- bo zamrozenie kontrolki tez
+        jest operacja na kontrolce.
         """
+        desired = list_sync.model_row_texts(self.model)
+        ops = list_sync.plan_row_updates(self._shown, desired)
+        cursor = self._cursor_target()
+        if not ops:
+            if cursor is None:
+                # Nic sie nie zmienilo i kursor jest na miejscu: ZERO operacji.
+                # To jest cel calej zmiany -- sam komunikat, Ctrl+C czy tick
+                # statusu nie dotykaja listy.
+                return
+            # Sam kursor: jedno przejscie stanu, bez przemalowania listy.
+            self.updating = True
+            try:
+                self._move_cursor(cursor)
+            finally:
+                self.updating = False
+            return
+        # Zmiana struktury/tekstu to JEDNO przemalowanie, nie seria krokow.
+        # ``Freeze``/``Thaw`` to standardowy mechanizm wx, nie usypianie i nie
+        # wyciszanie czytnika. ``Thaw`` w ``finally``, bo zamrozona kontrolka
+        # po wyjatku bylaby niewidoczna. ``Freeze`` NIE wstrzymuje zdarzen
+        # a11y ani ``EVT_LIST_ITEM_SELECTED`` -- od tego jest ``updating``.
+        self.updating = True
         self.Freeze()
         try:
-            self.sync_length()
-            self.sync_selection()
+            self._apply_ops(ops)
+            self._shown = desired
+            # Kursor liczymy PONOWNIE: po usunieciu wiersza kontrolka sama
+            # przesuwa fokus, wiec stan sprzed podmiany nie jest wiarygodny.
+            target = self._cursor_target()
+            if target is not None:
+                self._move_cursor(target)
         finally:
             self.Thaw()
+            self.updating = False
 
-    def sync_length(self) -> None:
-        """Nowa dlugosc listy ORAZ uniewaznienie tekstu wierszy.
+    def _apply_ops(self, ops: list) -> None:
+        """Wykonaj plan w podanej kolejnosci. Indeksy sa juz uzgodnione."""
+        for op in ops:
+            if isinstance(op, list_sync.DeleteRow):
+                self.DeleteItem(op.index)
+            elif isinstance(op, list_sync.InsertRow):
+                self.InsertItem(op.index, op.texts[0])
+                for column in range(1, len(op.texts)):
+                    if op.texts[column]:
+                        self.SetItem(op.index, column, op.texts[column])
+            else:
+                self.SetItem(op.index, op.column, op.text)
 
-        ``SetItemCount`` zmienia tylko LICZNIK. Wirtualna kontrolka nie pyta
-        wtedy modelu o tekst ponownie, wiec czytnik ekranu dostawal wiersz
-        POPRZEDNIEGO widoku. Zmierzone na zywym NVDA (gest B01):
+    def fill_initial(self) -> None:
+        """Pierwsze wypelnienie. Ta sama droga co kazda pozniejsza zmiana."""
+        self.sync_rows()
 
-            "Biskup; Rodzaj: playlista; Szczegoly: 54 elementy ... 1 z 2475"
+    # ------------------------------------------------------- kursor (2 rzeczy)
 
-        -- licznik "z 2475" byl juz z nowego widoku, a nazwa "Biskup" ze
-        starego. ``RefreshItems`` kaze kontrolce zapytac ``OnGetItemText``
-        jeszcze raz, wiec stara nazwa nie ma skad wrocic.
+    def _cursor_target(self) -> int | None:
+        """Gdzie ma stac kursor, albo ``None`` gdy nie ma co ruszac.
 
-        Zakres odswiezamy JAWNIE (nie ``Refresh()`` calego okna): dalej
-        dotykamy wylacznie wierszy tej listy.
+        ZAZNACZENIE i SKUPIONY WIERSZ to osobne wlasciwosci: pytamy o oba.
+        Dawna ``sync_selection`` patrzyla tylko na ``GetFirstSelected``, wiec
+        rozjazd fokusu po usunieciu wiersza zostawal nienaprawiony.
         """
-        count = len(self.model)
-        self.SetItemCount(count)
-        if count:
-            self.RefreshItems(0, count - 1)
+        return list_sync.plan_cursor(
+            wanted=self.model.selected_index,
+            selected=self.GetFirstSelected(),
+            focused=self.GetFocusedItem(),
+        )
 
-    def sync_selection(self) -> None:
-        """Ustaw zaznaczenie wg modelu JEDNYM przejsciem stanu.
+    def _move_cursor(self, index: int) -> None:
+        """Przestaw zaznaczenie i fokus JEDNYM przejsciem stanu.
 
-        Bez SetFocus -- fokus zmieniamy tylko przy przejsciu miedzy widokami.
-
-        DLACZEGO NIE ``Select`` + ``Focus``: to dwa osobne wywolania API, wiec
-        kontrolka wysylala DWA zdarzenia MSAA i czytnik czytal ten sam wiersz
-        dwa razy. Zmierzone (gest A04, Ulubione):
-
-            "Emu; Rodzaj: utwór; Szczegoly: 5:03, ulubione  1 z 9"
-            "Emu; Rodzaj: utwór; Szczegoly: 5:03, ulubione  1 z 9"
-
-        ``SetItemState`` z maska ``SELECTED|FOCUSED`` przestawia oba bity
-        RAZEM -- dokladnie tak, jak robi to natywne chodzenie strzalkami, ktore
-        nigdy nie dubluje odczytu. Natywnej nawigacji to nie dotyka: zmieniamy
-        tylko sposob, w jaki MY ustawiamy kursor po przeladowaniu listy.
+        ``Select`` + ``Focus`` to dwa wywolania API, dwa zdarzenia MSAA i dwa
+        odczyty tego samego wiersza (zmierzone: "Emu ... 1 z 9" dwukrotnie).
+        ``SetItemState`` z maska ``SELECTED|FOCUSED`` przestawia oba bity razem
+        -- tak samo jak natywne chodzenie strzalkami, ktore nie dubluje odczytu.
         """
-        index = self.model.selected_index
-        if index < 0 or index >= len(self.model):
-            return
-        if self.GetFirstSelected() == index:
-            return
         state = wx.LIST_STATE_SELECTED | wx.LIST_STATE_FOCUSED
         self.SetItemState(index, state, state)
-        # ``Focus()`` robilo tez ``EnsureVisible`` (``wx/core.py:2901-2902``).
-        # Przewijanie musi zostac -- na liscie 2475 wierszy kursor poza
-        # widokiem byl by regresja. ``EnsureVisible`` samo nie oglasza wiersza,
-        # wiec nie wraca przez nie podwojny odczyt.
+        # Przewijanie MUSI zostac: na 2476 wierszach kursor poza widokiem byl by
+        # regresja. ``EnsureVisible`` samo nie oglasza wiersza.
         self.EnsureVisible(index)
 
-    def refresh_row(self, index: int) -> None:
-        """Odswiez JEDEN wiersz, nie cala liste."""
-        if 0 <= index < len(self.model):
-            self.RefreshItem(index)
+    def sync_cursor(self) -> None:
+        """Sam kursor, bez dotykania zawartosci (np. po powrocie z odtwarzacza)."""
+        target = self._cursor_target()
+        if target is not None:
+            self._move_cursor(target)
 
 
 class StationDialog(wx.Dialog):
@@ -1034,7 +1087,11 @@ class LiteFrame(wx.Frame):
 
         active_list = self._active_list()
         other_list = self.radio_list if active_list is self.files_list else self.files_list
-        # JEDNA droga odswiezenia, bez wymiany kontrolki.
+        # JEDNA droga odswiezenia dla WSZYSTKICH widokow, bez wymiany kontrolki.
+        # ``sync_rows`` sam decyduje, czy jest co robic: gdy dane, kolejnosc,
+        # teksty i kursor sa te same, nie wykonuje ZADNEJ operacji na liscie.
+        # Dlatego wolanie go na koncu kazdego ``_run`` (takze po samym
+        # komunikacie czy Ctrl+C) nie odswieza juz listy bez potrzeby.
         #
         # Rekreacja kontrolki (nowy HWND dla czystego cache czytnika) byla tu
         # przez chwile i ZOSTALA WYCOFANA PO POMIARZE. Usuwala wprawdzie stara
@@ -1046,8 +1103,9 @@ class LiteFrame(wx.Frame):
         # Siedem prob ratowania rekreacji (kolejnosc fokus/wypelnienie, obrot
         # petli, podwojny ``SetFocus``, wymuszony ``SetItemState``, kolejnosc
         # ``Destroy``, zdjecie nakladki) nie przywrocilo tego odczytu.
-        # Cisza na wiersz jest gorsza od zlej nazwy, wiec droga wraca do
-        # taniego odswiezenia.
+        # Problem "stara nazwa z nowym licznikiem" rozwiazuje teraz sama zmiana
+        # na zwykla liste: tekst siedzi w kontrolce, a nie w cache wirtualnym,
+        # wiec stara nazwa nie ma skad wrocic.
         active_list.sync_rows()
 
         want_player = session.view is View.PLAYER
@@ -1075,7 +1133,18 @@ class LiteFrame(wx.Frame):
 
     def _on_item_selected(self, event: wx.ListEvent) -> None:
         """Zaznaczenie z klawiatury/myszy wraca do modelu, zeby ID pozostal
-        stabilny po odswiezeniu listy."""
+        stabilny po odswiezeniu listy.
+
+        BRAMKA ``updating``: nasza wlasna aktualizacja listy (wstawienie wiersza,
+        ``SetItemState``) wysyla DOKLADNIE TO SAMO zdarzenie co ruch
+        uzytkownika. Bez bramki przejsciowy indeks z trwajacej podmiany
+        nadpisalby swiadomy wybor uzytkownika -- np. po wstawieniu pierwszego
+        wiersza model wskazywalby 0 zamiast zapamietanego utworu.
+        """
+        control = event.GetEventObject()
+        if isinstance(control, MediaListCtrl) and control.updating:
+            event.Skip()
+            return
         self.navigator.session.model.select_index(event.GetIndex())
         event.Skip()
 
