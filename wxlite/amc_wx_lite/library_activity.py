@@ -155,10 +155,17 @@ def _stored_ids(db: LibraryDatabase, table: str, session: str) -> list[str]:
 
 
 def _distinct_ordinal(ids: Sequence[str]) -> list[str]:
-    """``Distinct(StringComparer.Ordinal)`` z zachowaniem kolejnosci."""
+    """``Normalize``: odrzuc biale Id, potem ``Distinct(Ordinal)``.
+
+    ``PlaybackHistory.cs:52-55``. Biale Id jest ODRZUCANE, a nie liczone jako
+    wpis bez pozycji w katalogu -- ``Record`` takiego Id w ogole nie zapisze
+    (``cs:19``).
+    """
     seen: set[str] = set()
     result: list[str] = []
     for item_id in ids:
+        if not item_id or not item_id.strip():
+            continue
         if item_id in seen:
             continue
         seen.add(item_id)

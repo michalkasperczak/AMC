@@ -359,6 +359,26 @@ class HistoryView(_SyntheticCase):
 
         self.assertEqual(history_rows(self.open_db(), session="   ").rows, [])
 
+    def test_blank_stored_id_is_dropped(self):
+        """``Where(id => !string.IsNullOrWhiteSpace(id))``.
+
+        ``PlaybackHistory.cs:53`` w ``Normalize``, a ``Record`` w ogole takiego
+        Id nie zapisze (``cs:19``). Biale Id nie moze liczyc sie jako wpis
+        brakujacy -- ono po prostu nie istnieje.
+        """
+        self.build.item("a", "Alfa", "C:/m/a.mp3")
+        self.build.history("a")
+        self.build.connection.execute(
+            "INSERT INTO playback_history(session_id, ordinal, item_id) "
+            "VALUES ('local', 5, '   ')"
+        )
+        self.build.connection.commit()
+
+        result = history_rows(self.open_db())
+
+        self.assertEqual([row.item_id for row in result.rows], ["a"])
+        self.assertEqual(result.missing_item_count, 0)
+
     def test_empty_history_is_not_an_error(self):
         self.build.item("a", "Alfa", "C:/m/a.mp3")
 

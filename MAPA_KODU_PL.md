@@ -1,5 +1,13 @@
 # AMC — mapa kodu
 
+## AMC-wx-Lite: aktywność lokalnej Biblioteki (warstwa danych, po 4.2.2)
+
+- `wxlite/amc_wx_lite/library_activity.py`: tylko odczyt, trzy operacje — historia odtwarzania plików lokalnych, ZAPISANA kolejka (nie kolejka żywego silnika) i zakładki wybranego elementu. Reguły przepisane z `PlaybackHistory.cs` (9-13, 19, 29, 52-56), `BookmarkIndex.cs` (30-36, 53-56, 189-190), `TransientQueuePersistence.cs` (101, 109-127) oraz `MainWindow.xaml.cs` (9972, 10116-10117, 12853-12860, 13508-13525, 13749-13779) — nie z nazw tabel.
+- Historia filtruje przez `ActiveLocalItems` (`IsAvailable && IsInLibrary`), zakładki NIE — bo oryginał robi tam inaczej i pokazuje tytuł zapisany w zakładce. Członkostwo kolejki bierze się z zapisu, nie z kolumn `is_in_queue`/`is_play_next` (to migawka poprzedniej sesji). Nieznana data to „data utworzenia nieznana”, nie `0:00`.
+- `Row` bez zmian konstruktora; metadane (`QueueRow`, `BookmarkRow`) leżą obok wiersza. Wiersz zakładki ma własne Id `bookmark:<id>`. Czasy w tickach .NET. Kontrakt GUI: `wxlite/LIBRARY_ACTIVITY_CONTRACT.md`.
+- `wxlite/tests/test_library_activity.py`: rogi na syntetycznej bazie o schemacie przepisanym z chronionego fixture (powtórzone Id, białe Id, pozycja niedostępna/poza biblioteką, starszy zapis kolejki bez list członkostwa, dwie zakładki na tej samej pozycji, rozdział bez bitu `Bookmark`, odczyt po prawdziwym commicie z OTWARTYM writerem) plus rzeczywisty odczyt całej właściwej części pełnej bazy z SHA przed/po.
+- `wxlite/tools/measure_library_activity.py`: kwit maszynowy na pełnej bazie (liczności, duplikaty, unikalne Id, hash kolejności, hash bazy przed/po) — bez nazw własnych. Formaty daty i czasu zweryfikowane uruchomieniem .NET 8.0.425 (`pl-PL`), nie z pamięci.
+
 ## AMC-wx-Lite: kolejne widoki lokalnej Biblioteki (warstwa danych, po 4.2.2)
 
 - `wxlite/amc_wx_lite/library_views.py`: tylko odczyt, cztery widoki — wszystkie pliki alfabetycznie, Ulubione, lista playlist, zawartość playlisty. Reguły filtrów i kolejności są przepisane z `MainWindow.xaml.cs` (`ActiveLocalItems` 10004, wszystkie pliki 12415-12426, Ulubione 12524-12534 z `OrderCurrentCollection` 12978-13001, `CreatePlaylistRows` 12800-12839, zawartość playlisty 12462-12482) oraz `PlaylistPresentation.BuildLabel` i `LocalLibraryManualOrder.Order` — nie z nazw tabel. Rozszerza istniejące połączenie `library_db.LibraryDatabase` (`mode=ro`), nie zakłada własnej bazy i nie dubluje czytnika.
