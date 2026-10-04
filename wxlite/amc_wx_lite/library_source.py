@@ -35,10 +35,30 @@ class LibrarySnapshot:
     #: "host nie podal kluczy AMC_PL, kolejnosc jest zastepcza" -- i okno moze
     #: to powiedziec, zamiast milczeniem udawac zgodnosc.
     order_matches_amc: bool = False
+    #: Czy odczyt sledzil zywy WAL. ``False`` = zamrozona migawka, wiec okno
+    #: MUSI to powiedziec, a nie udawac swiezych danych.
+    sees_live_writes: bool = True
 
     @property
     def is_empty(self) -> bool:
         return not self.rows
+
+
+def degradation_notice(snapshot: LibrarySnapshot) -> str:
+    """Krotki, PRAWDZIWY komunikat o degradacji odczytu. Puste = wszystko OK.
+
+    Istnieje, bo ``order_matches_amc`` i ``sees_live_writes`` nie byly nigdzie
+    czytane: uzytkownik dostawal zastepcza kolejnosc albo stary obraz profilu
+    w calkowitej ciszy.
+    """
+    problems: list[str] = []
+    if not snapshot.sees_live_writes:
+        problems.append("zamrozona migawka profilu, bez zywych zmian AMC")
+    if not snapshot.order_matches_amc:
+        problems.append("kolejnosc zastepcza, niezgodna z AMC")
+    if not problems:
+        return ""
+    return "Uwaga: " + "; ".join(problems) + "."
 
 
 class LibrarySource:
@@ -105,6 +125,7 @@ class LibrarySource:
                 folder_path=folder,
                 total_active=db.count_active_items(),
                 order_matches_amc=matches,
+                sees_live_writes=db.sees_live_writes,
             )
 
     def _apply_amc_order(self, rows: list[Row]) -> tuple[list[Row], bool]:

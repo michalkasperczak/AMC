@@ -26,14 +26,36 @@ Zasady, ktore ten modul trzyma twardo
    host C#. Nie migrujemy schematu, nie robimy checkpointu, nie dopisujemy
    niczego i nie uruchamiamy harmonogramow.
 
-1a. **Migawka tylko awaryjnie.** Gdy baza lezy w miejscu BEZ prawa zapisu,
-   ``mode=ro`` nie potrafi utworzyc ``-shm`` i konczy sie
-   ``OperationalError: attempt to write a readonly database`` (zmierzone).
-   Dopiero wtedy wracamy do ``immutable=1`` -- i jawnie to przyznajemy przez
-   ``sees_live_writes == False``, zeby nikt nie wzial migawki za swiezy odczyt.
+1a. **Migawka NIE jest domyslna i nigdy nie jest cicha.** Gdy baza lezy w
+   miejscu BEZ prawa zapisu, ``mode=ro`` nie potrafi obsluzyc ``-shm`` i konczy
+   sie ``OperationalError`` (zmierzone: ``attempt to write a readonly
+   database`` albo ``unable to open database file``, zaleznie od tego, czy
+   ``-wal`` istnieje). Wczesniej kod przechodzil wtedy AUTOMATYCZNIE na
+   ``immutable=1`` i oddawal stan sprzed cudzych commitow -- bez slowa.
+   Zmierzone na kopii profilu, writer OTWARTY, ``-wal`` 4152 B:
+
+   ================================  =====================================
+   ``mode=ro``, katalog bez zapisu   ``unable to open database file``
+   ``immutable=1`` na tym pliku      znacznik SPRZED commitu (``-wal`` pominiety)
+   ================================  =====================================
+
+   Dlatego teraz:
+
+   * domyslnie ``allow_snapshot_fallback=False`` -- blad wychodzi jako
+     ``LiveProfileReadDenied`` i nikt nie dostaje starych danych w milczeniu,
+   * jawna migawka (``allow_snapshot_fallback=True``) jest brana TYLKO gdy
+     jest spojna, czyli gdy nie ma nieprzeniesionego ``-wal``; inaczej leci
+     ``StaleSnapshotRefused``,
+   * udana migawka nadal mowi o sobie ``sees_live_writes == False``,
+   * czesciowo otwarte polaczenie jest ZAMYKANE przed retry/wyjsciem, zeby nie
+     zostawic uchwytu do bazy po nieudanym odczycie.
 2. **Kolacja AMC_PL.** Schemat deklaruje ``COLLATE AMC_PL`` na ``title`` i
-   ``display_name``. Bez zarejestrowania tej kolacji SQLite odmawia zapytan.
-   Port 1:1 z C#: ``pl-PL`` + ``IgnoreCase | IgnoreNonSpace``.
+   ``display_name``. Bez zarejestrowania tej kolacji SQLite odmawia zapytan,
+   wiec ``polish_collation`` MUSI tu byc. Ale to NIE jest port 1:1 z C#:
+   zgodnosc z ``CompareInfo`` pl-PL zostala zmierzona i jej NIE MA.
+   ``polish_collation`` sluzy wylacznie temu, zeby zapytanie sie wykonalo;
+   kolejnosc PREZENTOWANA uzytkownikowi ustala ``collation.HostCollation``
+   na kluczach policzonych oryginalnym ``CompareInfo`` w hoscie.
 3. **ID sa NAPISAMI.** W tym projekcie pomylenie napisu z liczba raz juz
    zepsulo protokol. Nigdzie nie rzutujemy ID na int i nie przenumerowujemy.
 4. **Nie filtrujemy przez istnienie pliku.** ``D:\\...`` i
@@ -69,7 +91,13 @@ def _fold(text: str) -> str:
 
 
 def polish_collation(left: str, right: str) -> int:
-    """Kolacja AMC_PL. Zwraca -1/0/1 jak wymaga ``create_collation``."""
+    """Kolacja AMC_PL -- **tylko** zeby zapytanie SQL dalo sie wykonac.
+
+    SQLite odmawia zapytania na kolumnie ``COLLATE AMC_PL``, dopoki funkcja o
+    tej nazwie nie jest zarejestrowana. To jest jej CALY zakres. Zgodnosc z
+    ``CompareInfo`` pl-PL zostala zmierzona i jej nie ma -- kolejnosc
+    prezentowana liczy ``collation.HostCollation`` przez host C#.
+    """
     a, b = _fold(left), _fold(right)
     if a < b:
         return -1
@@ -159,19 +187,41 @@ class LocalState:
 _ACTIVE = "is_available = 1 AND is_in_library = 1"
 
 
+def _close_quietly(connection: sqlite3.Connection | None) -> None:
+    """Zamknij uchwyt, ktory moze byc juz czesciowo otwarty po bledzie."""
+    if connection is None:
+        return
+    try:
+        connection.close()
+    except sqlite3.Error:
+        pass
+
+
+class LiveProfileReadDenied(sqlite3.OperationalError):
+    """Nie da sie otworzyc ZYWEGO profilu, a stary obraz to nie odpowiedz."""
+
+
+class StaleSnapshotRefused(sqlite3.OperationalError):
+    """Zadano migawki, ale obok bazy lezy nieprzeniesiony ``-wal``.
+
+    ``immutable=1`` pomija dziennik, wiec taka migawka pokazalaby stan SPRZED
+    zatwierdzonych zmian. Lepiej odmowic, niz oddac ciche stare dane.
+    """
+
+
 class LibraryDatabase:
     """Polaczenie TYLKO DO ODCZYTU z ``library.db`` AMC.
 
     ``sees_live_writes`` mowi, czy to polaczenie sledzi WAL (zwykly ``mode=ro``),
     czy jest zamrozona migawka (``immutable=1``). Nigdy nie udajemy pierwszego,
-    gdy mamy drugie.
+    gdy mamy drugie -- a migawki nie bierzemy samowolnie.
     """
 
     def __init__(
         self,
         path: str | Path,
         *,
-        allow_snapshot_fallback: bool = True,
+        allow_snapshot_fallback: bool = False,
     ) -> None:
         self.path = Path(path)
         if not self.path.exists():
@@ -181,20 +231,36 @@ class LibraryDatabase:
         base = self.path.as_uri()
         self.uri = f"{base}?mode=ro"
         self.sees_live_writes = True
+        connection: sqlite3.Connection | None = None
         try:
-            self.connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
+            connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
             # Samo polaczenie moze sie udac, a ``-shm`` powstaje dopiero przy
             # pierwszym czytaniu strony z WAL. Dotykamy bazy TERAZ, zeby
             # ewentualna odmowa wyszla tutaj, a nie w trakcie pracy okna.
-            self.connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
-        except sqlite3.OperationalError:
+            connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
+        except sqlite3.OperationalError as error:
+            # Uchwyt moze byc juz czesciowo otwarty. Zamykamy go PRZED decyzja
+            # o migawce albo wyjsciem -- inaczej zostaje wiszace polaczenie.
+            _close_quietly(connection)
+            connection = None
             if not allow_snapshot_fallback:
-                raise
-            # Baza w miejscu bez prawa zapisu: WAL nie da sie obsluzyc, zostaje
-            # zamrozona migawka. Mowimy o tym wprost polem sees_live_writes.
+                raise LiveProfileReadDenied(
+                    f"Nie moge otworzyc zywego profilu {self.path.name}: {error}. "
+                    "Zamrozonej migawki NIE biore automatycznie, bo pokazalaby "
+                    "stan sprzed zapisow AMC."
+                ) from error
+            wal = Path(str(self.path) + "-wal")
+            if wal.exists() and wal.stat().st_size > 0:
+                raise StaleSnapshotRefused(
+                    f"Obok {self.path.name} lezy nieprzeniesiony dziennik "
+                    f"{wal.name} ({wal.stat().st_size} B). Migawka "
+                    "``immutable=1`` pomija dziennik, wiec nie byłaby spojna."
+                ) from error
+            # Dopiero tutaj migawka jest uczciwa: zadnego WAL do pominiecia.
             self.uri = f"{base}?mode=ro&immutable=1"
-            self.connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
+            connection = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
             self.sees_live_writes = False
+        self.connection = connection
         self.connection.create_collation(AMC_PL, polish_collation)
         self.connection.row_factory = sqlite3.Row
 

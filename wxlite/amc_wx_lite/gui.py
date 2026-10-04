@@ -29,7 +29,7 @@ import wx
 from .async_gate import BackgroundRunner, StaleResultGate
 from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
-from .library_source import LibrarySnapshot, LibrarySource
+from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
 from .navigation import (
     Announce,
@@ -506,6 +506,11 @@ class LiteFrame(wx.Frame):
             if snapshot.is_empty:
                 self.announcer.say("Biblioteka jest pusta")
                 return
+            # Degradacja odczytu (stara migawka, zastepcza kolejnosc) NIE MOZE
+            # przejsc w ciszy: do tej pory oba pola snapshotu byly martwe.
+            notice = degradation_notice(snapshot)
+            if notice:
+                self.announcer.say(notice)
             self._run(self.navigator.apply_folder(
                 snapshot.folder_path or "", snapshot.rows, preferred_id=preferred_id))
 

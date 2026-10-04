@@ -15,10 +15,11 @@ Zmierzone (SQLite 3.53.1, wrzesniowa kopia profilu):
 * ``mode=ro`` ................... widzi zatwierdzony commit hosta,
 * ``mode=ro&immutable=1`` ....... widzi STARA wartosc sprzed commitu,
 * ``mode=ro`` na bazie w katalogu BEZ prawa zapisu .... ``OperationalError``,
-  bo WAL wymaga ``-shm``; dopiero wtedy ``immutable=1`` jest jedynym wyjsciem.
+  bo WAL wymaga ``-shm``.
 
-Stad kontrakt: domyslnie zwykly readonly (widzi WAL), a ``immutable`` tylko
-jako jawnie oznaczony, awaryjny tryb migawki.
+Stad kontrakt: domyslnie zwykly readonly (widzi WAL). Migawka ``immutable=1``
+NIE jest brana automatycznie -- trzeba o nia poprosic jawnie i musi byc spojna.
+Szczegoly i pomiary w ``test_live_profile_fallback_guard.py``.
 """
 
 from __future__ import annotations
@@ -178,12 +179,21 @@ class ImmutableSnapshotIsAnExplicitFallback(unittest.TestCase):
         self.db_path.chmod(0o444)
         self.dir.chmod(0o555)
         self.addCleanup(self.dir.chmod, 0o755)
-        with LibraryDatabase(self.db_path) as db:
+        # Migawka wymaga teraz SWIADOMEJ zgody. Domyslny odczyt odmawia,
+        # zeby nikt nie dostal starego profilu w ciszy.
+        with LibraryDatabase(self.db_path, allow_snapshot_fallback=True) as db:
             self.assertEqual(db.count_items(), 11200)
             self.assertFalse(
                 db.sees_live_writes,
                 "W katalogu bez prawa zapisu dziala tylko migawka -- i trzeba to przyznac",
             )
+
+    def test_default_refuses_the_stale_snapshot_instead_of_lying(self):
+        self.db_path.chmod(0o444)
+        self.dir.chmod(0o555)
+        self.addCleanup(self.dir.chmod, 0o755)
+        with self.assertRaises(sqlite3.OperationalError):
+            LibraryDatabase(self.db_path)
 
     def test_strict_mode_refuses_the_stale_snapshot_instead_of_lying(self):
         self.db_path.chmod(0o444)
