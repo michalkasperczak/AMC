@@ -27,6 +27,35 @@ class SessionId(Enum):
     RADIO = "radio"
 
 
+class LibraryView(Enum):
+    """Nazwany widok lokalnej Biblioteki, OBOK przegladania folderow.
+
+    Nazwy widokow sa te same, co w zwyklym AMC:
+    ``MainWindow.xaml.cs:65`` ``AllLocalFilesViewName = "Wszystkie pliki"``,
+    ``MainWindow.xaml:426-427`` Ulubione i Playlisty,
+    ``MainWindow.xaml.cs:67`` ``PlaylistContentsViewPrefix = "Playlista:"``.
+    """
+
+    ALL_FILES = "allFiles"
+    FAVORITES = "favorites"
+    PLAYLISTS = "playlists"
+    PLAYLIST_CONTENTS = "playlistContents"
+
+
+@dataclass(slots=True)
+class OpenLibraryView:
+    """Zlecenie: wczytaj dane nazwanego widoku Biblioteki.
+
+    Okno samo nic nie wymysla -- idzie po dane do ``library_views`` i wraca
+    przez ``apply_library_view``. ``playlist_id`` wypelniamy wylacznie dla
+    zawartosci playlisty.
+    """
+
+    view: LibraryView
+    playlist_id: str | None = None
+    preferred_id: str | None = None
+
+
 @dataclass(slots=True)
 class SessionState:
     """Stan JEDNEJ sesji. Kazda sesja pamieta swoja liste i swoj widok,
@@ -42,6 +71,13 @@ class SessionState:
     now_playing_title: str = ""
     # ID wybrany w chwili wejscia do odtwarzacza. Escape wraca DOKLADNIE tu.
     list_anchor_id: str | None = None
+    #: Ktory nazwany widok Biblioteki jest na liscie. ``None`` = przegladamy
+    #: foldery (dotychczasowe zachowanie, nietkniete).
+    library_view: "LibraryView | None" = None
+    #: Id playlisty, ktorej zawartosc ogladamy.
+    library_playlist_id: str | None = None
+    #: Wiersz, na ktory wraca Backspace z zawartosci playlisty.
+    library_return_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -76,6 +112,18 @@ class Announce:
     """Krotki komunikat dla czytnika. JEDNA brama komunikatow w calej aplikacji."""
 
     text: str
+
+
+def _items_word(count: int) -> str:
+    """Polska odmiana po liczbie: 1 pozycja, 2-4 pozycje, 5+ pozycji.
+
+    Czytnik wymawia to doslownie, wiec "1 pozycji" brzmi jak blad programu.
+    """
+    if count == 1:
+        return "pozycja"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return "pozycje"
+    return "pozycji"
 
 
 class Navigator:
@@ -168,6 +216,9 @@ class Navigator:
         if row.kind == "parent":
             return self.go_to_parent()
 
+        if row.kind == "playlist":
+            return self._enter_playlist(row)
+
         if row.kind == "folder":
             if not row.path:
                 return [Announce("Brak sciezki folderu")]
@@ -202,6 +253,12 @@ class Navigator:
         zwyklym przegladaniu dysku pod Ctrl+O) -- wtedy komunikat zostaje.
         """
         state = self.session
+        # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
+        # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z
+        # widoku plaskiego z powrotem do Folderow (MainWindow.xaml.cs:20832).
+        if state.library_view is not None:
+            return self._leave_library_view()
+
         parent_row = next((r for r in state.model.rows if r.kind == "parent"), None)
         if parent_row is None:
             return [Announce("To jest folder najwyzszego poziomu")]
@@ -213,12 +270,130 @@ class Navigator:
             preferred = f"dir:{state.folder_path}"
         return [OpenFolder(parent_row.path, preferred_id=preferred)]
 
+    # ------------------------------------------------- widoki Biblioteki
+
+    #: Naglowki widokow, slownictwo zwyklego AMC (MainWindow.xaml.cs:65,
+    #: MainWindow.xaml:426-427).
+    _VIEW_HEADINGS = {
+        LibraryView.ALL_FILES: "Wszystkie pliki",
+        LibraryView.FAVORITES: "Ulubione",
+        LibraryView.PLAYLISTS: "Playlisty",
+        LibraryView.PLAYLIST_CONTENTS: "Playlista",
+    }
+
+    def open_library_view(
+        self,
+        view: LibraryView,
+        *,
+        playlist_id: str | None = None,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Ctrl+U / Ctrl+P / Alt+2 oraz Enter na playliscie.
+
+        Zwracamy SAMO zlecenie: listy nie przestawiamy, dopoki dane nie
+        przyjda. Inaczej po bledzie odczytu czytnik czytalby widok, ktorego
+        nie ma.
+        """
+        return [
+            OpenLibraryView(view=view, playlist_id=playlist_id, preferred_id=preferred_id)
+        ]
+
+    def apply_library_view(
+        self,
+        view: LibraryView,
+        heading: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+        playlist_id: str | None = None,
+        order_matches_amc: bool = True,
+        fallback_to_playlists: bool = False,
+    ) -> list[object]:
+        """Skutek udanego odczytu widoku. Zawsze w sesji PLIKOW.
+
+        ``fallback_to_playlists`` oddaje ``LibraryViewResult.fallback_view``:
+        playlista zniknela, wiec AMC przestawia widok na "Playlisty"
+        (``MainWindow.xaml.cs:12468``). Zamiast pokazywac pusta liste bez
+        powodu, mowimy co sie stalo i zlecamy wlasciwy widok.
+        """
+        state = self.sessions[SessionId.FILES]
+        if fallback_to_playlists:
+            state.library_playlist_id = None
+            return [
+                Announce("Tej playlisty już nie ma, wracam do playlist"),
+                OpenLibraryView(view=LibraryView.PLAYLISTS),
+            ]
+
+        state.library_view = view
+        state.library_playlist_id = playlist_id
+        # Widok Biblioteki NIE jest folderem: zadna sciezka nie opisuje
+        # "Ulubionych", a zostawienie starej mylilo by Backspace.
+        state.folder_path = None
+        state.breadcrumb = []
+        state.model.replace(rows, preferred_id=preferred_id or state.library_return_id)
+        state.view = View.LIST
+
+        row = state.model.selected_row
+        # Czytnik dostaje LISTE I WYBOR: naglowek, liczbe pozycji i wiersz, na
+        # ktorym stoi kursor. Nigdy repr modelu.
+        where = f", {row.title}" if row is not None else ", pusto"
+        parts = [f"{heading}, {len(rows)} {_items_word(len(rows))}{where}"]
+        if not order_matches_amc:
+            # Uczciwie, tak jak LibrarySnapshot: bez kluczy hosta kolejnosc
+            # jest zastepcza i nie udajemy zgodnosci 1:1.
+            parts.append("kolejność zastępcza")
+        return [Announce(", ".join(parts))]
+
+    def _enter_playlist(self, row: Row) -> list[object]:
+        """Enter na ``Row(kind="playlist")``: NAWIGACJA, nie odtwarzanie.
+
+        Wiersz playlisty nie ma ``path`` -- dawna sciezka kodu konczyla sie
+        wiec na "Brak sciezki pliku". Id wiersza to ``"playlist:<id>"``
+        (``library_views.playlist_rows``), a sam ``<id>`` idzie do danych.
+        """
+        state = self.session
+        playlist_id = row.item_id.split(":", 1)[1] if ":" in row.item_id else row.item_id
+        # Zapamietujemy, na czym stanac po Backspace -- po Id wiersza, nie po
+        # numerze pozycji, bo lista moze sie w miedzyczasie przeladowac.
+        state.library_return_id = row.item_id
+        return [
+            OpenLibraryView(
+                view=LibraryView.PLAYLIST_CONTENTS, playlist_id=playlist_id
+            )
+        ]
+
+    def _leave_library_view(self) -> list[object]:
+        """Backspace w nazwanym widoku. Wyjscie, nie "najwyzszy poziom".
+
+        Z zawartosci playlisty wracamy na liste playlist i stajemy na TEJ
+        playliscie, z ktorej weszlismy (po Id wiersza, nie po numerze).
+        Z widoku plaskiego wracamy do Folderow -- tam Backspace znow znaczy
+        "folder nadrzedny", jak dotad.
+        """
+        state = self.session
+        if state.library_view is LibraryView.PLAYLIST_CONTENTS:
+            return [
+                OpenLibraryView(
+                    view=LibraryView.PLAYLISTS,
+                    preferred_id=state.library_return_id,
+                )
+            ]
+        state.library_view = None
+        state.library_playlist_id = None
+        state.library_return_id = None
+        return [OpenFolder(state.folder_path)]
+
     # -------------------------------------------------------- wynik operacji
 
     def apply_folder(self, path: str, rows: list[Row], preferred_id: str | None = None) -> list[object]:
         """Skutek udanego ``files.listFolder``. Wywolywane w watku GUI."""
         state = self.sessions[SessionId.FILES]
         state.folder_path = path
+        # Wejscie w folder konczy nazwany widok Biblioteki: od tej chwili
+        # Backspace znow znaczy "folder nadrzedny".
+        state.library_view = None
+        state.library_playlist_id = None
+        state.library_return_id = None
         state.model.replace(rows, preferred_id=preferred_id)
         state.view = View.LIST
         row = state.model.selected_row

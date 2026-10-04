@@ -23,6 +23,10 @@ KIND_LABELS: dict[str, str] = {
     "folder": "folder",
     "track": "utwór",
     "station": "stacja",
+    # Playlista to POJEMNIK, nie plik: Enter ma w nia wejsc. Bez tego slowa
+    # czytnik mowilby w kolumnie "Rodzaj" pustke i nie bylo by roznicy miedzy
+    # playlista a utworem.
+    "playlist": "playlista",
     "parent": "",
 }
 
@@ -33,7 +37,7 @@ class Row:
 
     item_id: str
     title: str
-    kind: str  # "folder" | "track" | "station" | "parent"
+    kind: str  # "folder" | "track" | "station" | "playlist" | "parent"
     path: str | None = None
     url: str | None = None
     detail: str = ""
@@ -41,7 +45,7 @@ class Row:
     @property
     def is_openable(self) -> bool:
         """Czy Enter ma WEJSC w element, zamiast go odtworzyc."""
-        return self.kind in ("folder", "parent")
+        return self.kind in ("folder", "parent", "playlist")
 
     @property
     def kind_label(self) -> str:

@@ -65,6 +65,9 @@ class Action(Enum):
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
     STATION_IMPORT = "radio.import"
+    VIEW_ALL_FILES = "library.allFiles"
+    VIEW_FAVORITES = "library.favorites"
+    VIEW_PLAYLISTS = "library.playlists"
     HELP = "help"
 
 
@@ -109,6 +112,14 @@ LIST_VIEW: dict[str, Action] = {
     # dostepny jednym skrotem -- nie zabieramy funkcji, przenosimy ja.
     "Ctrl+C": Action.COPY_NAME,
     "Ctrl+Shift+C": Action.COPY_ADDRESS,
+    # Nazwane widoki Biblioteki. Skroty WPROST ze wzorca, nie wymyslone:
+    #   MainWindow.xaml:458  "_Wszystkie pliki alfabetycznie"  Alt+2
+    #   MainWindow.xaml:426  "_Ulubione"                       Ctrl+U
+    #   MainWindow.xaml:427  "_Playlisty"                      Ctrl+P
+    # Zadny z nich nie koliduje z Ctrl+1/Ctrl+2 (sesje) ani z Ctrl+O.
+    "Alt+2": Action.VIEW_ALL_FILES,
+    "Ctrl+U": Action.VIEW_FAVORITES,
+    "Ctrl+P": Action.VIEW_PLAYLISTS,
     "F1": Action.HELP,
 }
 
@@ -189,6 +200,9 @@ def describe() -> list[tuple[str, str]]:
         Action.STATION_EDIT: "Zmien stacje",
         Action.STATION_DELETE: "Usun stacje",
         Action.STATION_IMPORT: "Importuj liste stacji",
+        Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
+        Action.VIEW_FAVORITES: "Ulubione",
+        Action.VIEW_PLAYLISTS: "Playlisty",
         Action.HELP: "Ta pomoc",
     }
     seen: set[Action] = set()
