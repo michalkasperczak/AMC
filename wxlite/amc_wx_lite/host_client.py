@@ -309,15 +309,27 @@ class LiteHostClient:
     # ZYWA kolejka hosta. Nastepstwo utworow liczy sesja Core po stronie C#;
     # Python tylko wczytuje kolejnosc i prosi o start/skok.
 
-    def queue_set(self, items: list[dict[str, Any]], *, session_id: str = "local") -> Any:
+    def queue_set(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        session_id: str = "local",
+        order: list[str] | None = None,
+    ) -> Any:
         """Wczytaj kolejnosc do kolejki hosta. NIC nie zaczyna grac.
 
         Duza kolejka moze przekroczyc limit zadania (64 KiB), dlatego wysylamy
         tylko pola, ktorych host potrzebuje do otwarcia materialu.
+
+        ``order`` jest JAWNA kolejnoscia nastepstwa. Host przyjmuje jej brak
+        (bierze wtedy kolejnosc ``items``), ale wolajacy, ktory zna kolejnosc
+        widoku, podaje ja wprost -- inaczej kontrakt opiera sie na zbieznosci
+        dwoch list zamiast na umowie.
         """
-        return self.call(
-            "queue.set", {"sessionId": session_id, "items": items}, timeout=60.0
-        )
+        payload: dict[str, Any] = {"sessionId": session_id, "items": items}
+        if order is not None:
+            payload["order"] = order
+        return self.call("queue.set", payload, timeout=60.0)
 
     def queue_play_at(self, item_id: str, *, volume: int, rate: float) -> Any:
         """Zacznij kolejke od WSKAZANEJ pozycji (Enter na wierszu Ctrl+Q)."""

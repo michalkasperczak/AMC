@@ -246,6 +246,13 @@ def _from_activity(activity, *, targets=None, contexts=None) -> "LibraryViewResu
         sees_live_writes=activity.sees_live_writes,
         bookmark_targets=dict(targets or {}),
         bookmark_contexts=dict(contexts or {}),
+        # Flagi kolejki ida DALEJ, a nie gina tutaj: ``QueueRow`` juz je zna,
+        # a host potrzebuje ich w ``queue.set``, zeby odroznic zwykla kolejke
+        # od bloku "odtworz nastepne".
+        queue_flags={
+            entry.row.item_id: (entry.is_in_queue, entry.is_play_next)
+            for entry in getattr(activity, "queue", ())
+        },
     )
 
 

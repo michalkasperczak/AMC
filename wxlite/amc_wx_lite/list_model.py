@@ -219,6 +219,42 @@ def rows_from_folder_payload(payload: dict, *, include_parent: bool = True) -> l
     return rows
 
 
+def rows_from_queue_status(payload: dict) -> list[Row]:
+    """Wiersze ZYWEJ kolejki z odpowiedzi hosta ``queue.status``.
+
+    Host oddaje wiersze w kolejnosci SESJI (``QueueItemIds``), czyli w tym, co
+    zostalo do odtworzenia -- skonsumowane pozycje juz w niej nie wracaja.
+    Niczego tu nie sortujemy i nie dokladamy: widok ma byc tym, czym jest
+    kolejka, a nie jej poprawiona wersja.
+
+    ``playNext`` idzie do ``detail``, bo blok "odtworz nastepne" to jedyna
+    roznica miedzy wierszami, ktorej sama nazwa nie powie. ``current`` NIE
+    trafia do tekstu wiersza: biezacy material ma wlasne miejsce w oknie, a
+    powtarzanie go w liscie bylo by tym drugim odczytem tego samego.
+
+    ``path`` jest tu PUSTA i tak ma byc: ``QueuePayload`` jej nie oddaje
+    (``LiteEngineHandlers.QueuePayload`` -> ``id``/``title``/``playNext``/
+    ``current``). Enter w tym widoku nie potrzebuje sciezki, bo nie sklada
+    kolejki od nowa -- woła ``queue.playAt`` po samym Id, a material zna host.
+    """
+    rows: list[Row] = []
+    for entry in payload.get("rows", ()) or ():
+        item_id = str(entry.get("id") or "")
+        if not item_id:
+            # Wiersz bez tozsamosci nie da sie ani wybrac, ani odtworzyc.
+            continue
+        rows.append(
+            Row(
+                item_id=item_id,
+                title=str(entry.get("title") or ""),
+                kind="track",
+                path=entry.get("path"),
+                detail="odtwórz następne" if entry.get("playNext") else "",
+            )
+        )
+    return rows
+
+
 def rows_from_stations(stations: Sequence[dict]) -> list[Row]:
     """Wiersze dla sesji radiowej.
 

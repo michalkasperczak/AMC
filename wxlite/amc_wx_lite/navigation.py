@@ -44,6 +44,12 @@ class LibraryView(Enum):
     #: utrwalonego profilu), a nie stan grajacego silnika.
     HISTORY = "history"
     SAVED_QUEUE = "savedQueue"
+    #: ZYWA kolejka GRAJACEGO hosta, czytana z ``queue.status``. Osobna od
+    #: ``SAVED_QUEUE``, bo to dwa rozne zjawiska: tam utrwalony zapis profilu
+    #: (dostepny takze bez odtwarzania), tutaj stan silnika, ktory zmienia sie
+    #: po kazdym przejsciu, Nastepnym i Poprzednim. Jeden widok na oba
+    #: klamalby w jednym z dwoch stanow.
+    LIVE_QUEUE = "liveQueue"
     #: Zakladki JEDNEGO zaznaczonego elementu (``BookmarkIndex.GetForItem``).
     #: NIE jest to zbiorczy widok ``ViewBookmarks``/``GetForDisplay``.
     ITEM_BOOKMARKS = "itemBookmarks"
@@ -111,6 +117,10 @@ class SessionState:
     #: Obowiazuje TYLKO w widoku zbiorczym; bez niej nie da sie odmowic obcej
     #: sesji inaczej niz po braku sciezki, a to dwie rozne rzeczy.
     bookmark_contexts: dict[str, object] = field(default_factory=dict)
+    #: ``Row.item_id`` -> (``is_in_queue``, ``is_play_next``) w widoku kolejki.
+    #: Czlonkostwo policzyl ``library_activity`` z ZAPISU profilu; okno go nie
+    #: przelicza i nie wymusza. Pusta mapa = nie ogladamy kolejki.
+    queue_flags: dict[str, tuple[bool, bool]] = field(default_factory=dict)
     #: PROFILOWE Id materialu, ktory sesja faktycznie odtwarza (odpowiednik
     #: ``_sessions.Current.CurrentItem.Id``). Osobne od ``now_playing_id``,
     #: bo tamto bywa ``file:<path>`` z hosta, a ``file:``/``bookmark:`` NIE sa
@@ -166,11 +176,49 @@ class PlayFromQueue:
 
     ``rows`` jest w KOLEJNOSCI WIDOKU, bo taka jest kolejnosc zapisanej kolejki.
     Nawigacja nie sortuje jej ponownie i nie zgaduje kolejnosci z tytulow.
+
+    ``flags`` oddaje per wiersz ``(is_in_queue, is_play_next)`` ODCZYTANE z
+    profilu. Nie wymuszamy ``True`` wszystkim pozycjom: host odroznia zwykla
+    kolejke od bloku "odtworz nastepne" (``DemoMediaSession.SynchronizeQueueOrder``),
+    a gole wymuszenie skasowaloby te roznice i parytet z pelnym AMC.
     """
 
     item_id: str
     rows: tuple[Row, ...]
     title: str
+    flags: dict[str, tuple[bool, bool]] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class PlayQueueAt:
+    """Zlecenie: zacznij od tego wiersza kolejki, ktora host JUZ trzyma.
+
+    Rozni sie od ``PlayFromQueue`` tym, czego NIE robi: nie wysyla kolejki od
+    nowa. W zywym widoku kolejka jest wlasnie tym, co host ma w sesji, wiec
+    ponowne ``queue.set`` skasowaloby jej stan (pozycje skonsumowane, blok
+    "odtworz nastepne") i podmienilo go na migawke z ekranu. ``queue.status``
+    nie oddaje sciezek, wiec odtworzenie tej kolejki w ogole nie byloby mozliwe
+    -- i nie jest potrzebne.
+    """
+
+    item_id: str
+    title: str
+
+
+@dataclass(slots=True)
+class OpenQueueView:
+    """Ctrl+Q: najpierw ZAPYTAJ host, co faktycznie jest w kolejce.
+
+    Jeden skrot, dwie mozliwe odpowiedzi -- i to host, a nie okno, rozstrzyga
+    ktora. Gdy kolejka hosta ma wiersze, pokazujemy JA (stan zywy, po
+    przejsciach, Nastepnym i Poprzednim). Gdy jest pusta, nie ma czego pokazac
+    i wracamy do ZAPISANEGO porzadku z profilu -- czyli do zachowania, ktore
+    bylo dotad, w tym przed jakimkolwiek odtwarzaniem.
+
+    Zlecenie jest osobne od ``OpenLibraryView``, bo tamto idzie po dane do
+    profilu (SQLite), a to po stan do silnika. Zlanie ich w jedno zmusiloby
+    warstwe danych do znajomosci hosta.
+    """
 
 
 @dataclass(slots=True)
@@ -360,6 +408,11 @@ class Navigator:
         if state.library_view is LibraryView.SAVED_QUEUE:
             return self._activate_queue_row(row)
 
+        # ZYWY widok: kolejke host JUZ ma. Startujemy w miejscu, bez
+        # przesylania jej od nowa.
+        if state.library_view is LibraryView.LIVE_QUEUE:
+            return self._activate_live_queue_row(row)
+
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
@@ -389,7 +442,33 @@ class Navigator:
         state.now_playing_title = row.title
         state.pending_material_id = profile_material_id(row.item_id)
         state.view = View.PLAYER
-        return [PlayFromQueue(row.item_id, playable, row.title), Announce(row.title)]
+        # Czlonkostwo bierzemy z ODCZYTU profilu. Wiersz bez wpisu w mapie to
+        # starszy zapis (``legacyRegularQueue``): jest w kolejce zwyklej, nie w
+        # bloku "odtworz nastepne" -- i tak go opisujemy, zamiast milczec.
+        flags = {
+            candidate.item_id: state.queue_flags.get(candidate.item_id, (True, False))
+            for candidate in playable
+        }
+        return [
+            PlayFromQueue(row.item_id, playable, row.title, flags),
+            Announce(row.title),
+        ]
+
+    def _activate_live_queue_row(self, row: Row) -> list[object]:
+        """Enter w ZYWYM widoku kolejki: start od tego wiersza, bez wysylki.
+
+        Kolejka jest po stronie hosta i to ona jest prawda. Nie skladamy jej
+        ponownie z wierszy ekranu: ``queue.status`` nie oddaje sciezek, a nawet
+        gdyby oddawal, ponowne ``queue.set`` zastapiloby zyjacy stan sesji
+        migawka widoku.
+        """
+        state = self.session
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.pending_material_id = profile_material_id(row.item_id)
+        state.view = View.PLAYER
+        return [PlayQueueAt(row.item_id, row.title), Announce(row.title)]
 
     def _activate_bookmark(self, row: Row) -> list[object]:
         """Enter na wierszu zakladki: skok albo UCZCIWA odmowa.
@@ -486,6 +565,10 @@ class Navigator:
         # kolejka grajacego silnika. Etykieta ma uczciwie powiedziec, jaki
         # zapis czytamy.
         LibraryView.SAVED_QUEUE: "Zapisana kolejka",
+        # ZYWA kolejka: slowa "zapisana" tu BYC NIE MOZE, bo to nie zapis, a
+        # stan grajacego silnika. Etykiety rozdzielone celowo -- uzytkownik ma
+        # po nazwie wiedziec, ktora z dwoch rzeczy czyta.
+        LibraryView.LIVE_QUEUE: "Kolejka odtwarzania",
         LibraryView.ITEM_BOOKMARKS: "Zakładki",
     }
 
@@ -494,6 +577,7 @@ class Navigator:
     _ACTIVITY_VIEWS = (
         LibraryView.HISTORY,
         LibraryView.SAVED_QUEUE,
+        LibraryView.LIVE_QUEUE,
         LibraryView.ITEM_BOOKMARKS,
     )
 
@@ -603,6 +687,7 @@ class Navigator:
         item_id: str | None = None,
         bookmark_targets: dict[str, tuple[str, float, str]] | None = None,
         bookmark_contexts: dict[str, object] | None = None,
+        queue_flags: dict[str, tuple[bool, bool]] | None = None,
     ) -> list[object]:
         """Skutek udanego odczytu widoku. Zawsze w sesji PLIKOW.
 
@@ -629,6 +714,10 @@ class Navigator:
         # To samo dotyczy kontekstow: stary kontekst na nowym widoku
         # odmawialby albo zezwalal wedle nieistniejacej juz zakladki.
         state.bookmark_contexts = dict(bookmark_contexts or {})
+        # Flagi kolejki tez naleza do SWOJEGO widoku: zostawienie ich przy
+        # wejsciu w Ulubione kazaloby pozniejszemu ``queue.set`` opisac
+        # czlonkostwo wedle listy, ktorej uzytkownik juz nie oglada.
+        state.queue_flags = dict(queue_flags or {})
         # Widok Biblioteki NIE jest folderem: zadna sciezka nie opisuje
         # "Ulubionych", a zostawienie starej mylilo by Backspace.
         state.folder_path = None
@@ -651,6 +740,50 @@ class Navigator:
             # jest zastepcza i nie udajemy zgodnosci 1:1.
             parts.append("kolejność zastępcza")
         return [Announce(", ".join(parts))]
+
+    def open_queue_view(self) -> list[object]:
+        """Ctrl+Q. Pytamy host o kolejke, zamiast z gory czytac zapis.
+
+        Samo zlecenie, bez przestawiania listy: dopoki odpowiedz nie przyjdzie,
+        nie wiemy jeszcze, ktory z dwoch widokow jest prawdziwy.
+        """
+        return [OpenQueueView()]
+
+    def apply_live_queue(
+        self,
+        rows: list[Row],
+        *,
+        current_id: str | None = None,
+    ) -> list[object]:
+        """Skutek odczytu ZYWEJ kolejki hosta (``queue.status``).
+
+        Zaznaczenie stawiamy na BIEZACYM materiale, gdy host go podal. To nie
+        jest "skakanie wyboru" z ``queue.advanced``: tam lista juz byla na
+        ekranie i fokus uzytkownika nalezal do niego. Tutaj widok wlasnie sie
+        otwiera, wiec pierwszy wiersz pod kursorem ma byc tym, co gra.
+        """
+        state = self.sessions[SessionId.FILES]
+        state.library_view = LibraryView.LIVE_QUEUE
+        state.library_playlist_id = None
+        state.library_item_id = None
+        state.bookmark_targets = {}
+        state.bookmark_contexts = {}
+        # Zywa kolejka NIE pochodzi z zapisu profilu, wiec nie ma dla niej mapy
+        # czlonkostwa do przeniesienia. Enter w tym widoku i tak nie sklada
+        # kolejki od nowa (``PlayQueueAt``).
+        state.queue_flags = {}
+        state.folder_path = None
+        state.breadcrumb = []
+        state.model.replace(rows, preferred_id=current_id)
+        state.view = View.LIST
+
+        heading = self._VIEW_HEADINGS[LibraryView.LIVE_QUEUE]
+        if not rows:
+            # Pusto NIE jest tu bledem: Core konsumuje odegrane pozycje, wiec po
+            # ostatnim utworze kolejka jest naprawde pusta. Mowimy to wprost,
+            # zamiast podstawiac zapisany porzadek i udawac, ze cos zostalo.
+            return [Announce(f"{heading}, pusto")]
+        return [Announce(f"{heading}, {len(rows)} {_items_word(len(rows))}")]
 
     def _enter_playlist(self, row: Row) -> list[object]:
         """Enter na ``Row(kind="playlist")``: NAWIGACJA, nie odtwarzanie.

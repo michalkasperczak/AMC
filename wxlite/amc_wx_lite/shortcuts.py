@@ -251,7 +251,7 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_HISTORY: "Historia odtwarzania",
         # Wiersze pochodza z ZAPISANEGO profilu (host nie jest ich autorem), ale
         # Enter uruchamia z nich ZYWA kolejke hosta -- stad "Enter odtwarza".
-        Action.VIEW_SAVED_QUEUE: "Kolejka: wiersze z profilu, Enter odtwarza",
+        Action.VIEW_SAVED_QUEUE: "Kolejka: kolejka silnika, Enter odtwarza",
         # Jawnie wezszy zakres niz "Zakladki" w pelnym AMC.
         Action.VIEW_ITEM_BOOKMARKS: "Zakladki zaznaczonego pliku",
         # Pelny zbior. Nazwa mowi, ze to wszystkie sesje, bo widok pokazuje

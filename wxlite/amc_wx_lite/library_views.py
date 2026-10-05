@@ -118,6 +118,12 @@ class LibraryViewResult:
     #: Rozdzielone od ``bookmark_targets``, bo odmowa obcej sesji musi byc
     #: mozliwa TAKZE wtedy, gdy mapa celow przypadkiem zna to ``item_id``.
     bookmark_contexts: dict[str, BookmarkContext] = field(default_factory=dict)
+    #: Tylko dla widoku kolejki: ``Row.item_id`` -> (``is_in_queue``,
+    #: ``is_play_next``). Te dwie flagi POLICZYL ``library_activity`` wedle
+    #: regul ``TransientQueuePersistence.Restore``; bez przeniesienia ich dalej
+    #: okno musialoby wymusic ``isInQueue=True`` wszystkim pozycjom, a wtedy
+    #: blok "odtworz nastepne" przestalby istniec dla hosta.
+    queue_flags: dict[str, tuple[bool, bool]] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:

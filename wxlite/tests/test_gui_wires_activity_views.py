@@ -49,6 +49,12 @@ def test_every_new_action_is_handled_in_the_window() -> None:
     assert not missing, f"skroty bez obslugi w gui.py (martwe): {missing}"
 
 
+#: Widoki czytane z PROFILU (SQLite). Kazdy z nich musi miec klucz danych,
+#: bo ``_VIEW_KEYS[view]`` bez wpisu to ``KeyError`` w watku roboczym.
+#: ``LIVE_QUEUE`` jest tu CELOWO nieobecny -- patrz test ponizej.
+_HOST_BACKED_VIEWS = (LibraryView.LIVE_QUEUE,)
+
+
 def test_every_library_view_has_a_data_key() -> None:
     """``_VIEW_KEYS[view]`` bez wpisu to ``KeyError`` w watku roboczym."""
     keys = None
@@ -64,8 +70,42 @@ def test_every_library_view_has_a_data_key() -> None:
         for k in keys.keys
         if isinstance(k, ast.Attribute)
     }
-    missing = [v.name for v in LibraryView if v.name not in mapped]
+    missing = [
+        v.name
+        for v in LibraryView
+        if v.name not in mapped and v not in _HOST_BACKED_VIEWS
+    ]
     assert not missing, f"widoki bez klucza danych: {missing}"
+
+
+def test_live_queue_view_is_not_read_from_the_profile() -> None:
+    """ZYWA kolejka NIE moze miec klucza danych profilu.
+
+    Ten widok jest stanem grajacego silnika: dane przychodza z
+    ``queue.status``, nie z SQLite. Wpis w ``_VIEW_KEYS`` oznaczalby, ze ktos
+    podlaczyl go do ``library.load_view`` -- a wtedy Ctrl+Q znow czytalby
+    zapisany porzadek i widok klamalby w trakcie odtwarzania.
+
+    Dawniej ten test wymagal klucza dla KAZDEGO widoku. To wymaganie bylo
+    prawdziwe, dopoki wszystkie widoki pochodzily z profilu; teraz jeden
+    pochodzi z hosta, wiec odwracamy zadanie dla tego jednego.
+    """
+    keys = None
+    for node in ast.walk(TREE):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_VIEW_KEYS" for t in node.targets
+        ):
+            keys = node.value
+            break
+    assert isinstance(keys, ast.Dict)
+    mapped = {k.attr for k in keys.keys if isinstance(k, ast.Attribute)}
+    assert "LIVE_QUEUE" not in mapped, (
+        "ZYWA kolejka dostala klucz danych profilu: Ctrl+Q znow czytalby zapis"
+    )
+    # I druga strona tej samej umowy: okno MUSI pytac host o stan kolejki.
+    assert "queue_status()" in SOURCE, (
+        "gui.py nie wola queue.status -- zywego widoku kolejki nie ma z czego zbudowac"
+    )
 
 
 def test_play_track_forwards_the_bookmark_position() -> None:

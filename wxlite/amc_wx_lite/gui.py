@@ -35,7 +35,13 @@ from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from . import list_sync
-from .list_model import ListModel, Row, rows_from_folder_payload, rows_from_stations
+from .list_model import (
+    ListModel,
+    Row,
+    rows_from_folder_payload,
+    rows_from_queue_status,
+    rows_from_stations,
+)
 from . import menu_model
 from .navigation import (
     Announce,
@@ -43,7 +49,9 @@ from .navigation import (
     Navigator,
     OpenFolder,
     OpenLibraryView,
+    OpenQueueView,
     PlayFromQueue,
+    PlayQueueAt,
     PlayStation,
     PlayTrack,
     SessionId,
@@ -1170,6 +1178,7 @@ class LiteFrame(wx.Frame):
                 item_id=item_id,
                 bookmark_targets=result.bookmark_targets,
                 bookmark_contexts=result.bookmark_contexts,
+                queue_flags=result.queue_flags,
             ))
 
         def failed(error: Exception) -> None:
@@ -1263,7 +1272,7 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_HISTORY:
             self._run(self.navigator.open_library_view(LibraryView.HISTORY))
         elif action is Action.VIEW_SAVED_QUEUE:
-            self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+            self._run(self.navigator.open_queue_view())
         elif action is Action.VIEW_ITEM_BOOKMARKS:
             self._run(self.navigator.open_item_bookmarks())
         elif action is Action.VIEW_ALL_BOOKMARKS:
@@ -1290,10 +1299,14 @@ class LiteFrame(wx.Frame):
                     self._open_folder(intent.path, preferred_id=intent.preferred_id)
             elif isinstance(intent, OpenLibraryView):
                 self._open_library_view(intent)
+            elif isinstance(intent, OpenQueueView):
+                self._open_queue_view()
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayFromQueue):
                 self._play_from_queue(intent)
+            elif isinstance(intent, PlayQueueAt):
+                self._play_queue_at(intent)
             elif isinstance(intent, PlayStation):
                 self._play_station(intent)
         self._sync_views()
@@ -1518,12 +1531,90 @@ class LiteFrame(wx.Frame):
             return
 
         items = [
-            {"id": row.item_id, "path": row.path, "title": row.title}
+            # ``isInQueue``/``isPlayNext`` sa WYMAGANE: pozycja bez zadnej z
+            # nich nie jest dla hosta czescia kolejki
+            # (``LiteQueueCoordinator.Set`` -> ``SynchronizeQueueOrder``) i
+            # utwor zagra, ale naturalny koniec NIE poprowadzi dalej.
+            # Wartosci bierzemy z ODCZYTU profilu, a nie wymuszamy ``True``:
+            # inaczej blok "odtworz nastepne" zlalby sie ze zwykla kolejka.
+            {
+                "id": row.item_id,
+                "path": row.path,
+                "title": row.title,
+                "isInQueue": intent.flags.get(row.item_id, (True, False))[0],
+                "isPlayNext": intent.flags.get(row.item_id, (True, False))[1],
+            }
             for row in intent.rows
         ]
+        # Kolejnosc WIDOKU podajemy jawnie. Bez ``order`` host odtworzylby ja z
+        # kolejnosci ``items``, co dzis wychodzi na to samo -- ale jawny
+        # kontrakt nie zalezy od tej zbieznosci.
+        order = [row.item_id for row in intent.rows]
 
         def work() -> dict:
-            client.queue_set(items)
+            client.queue_set(items, order=order)
+            return client.queue_play_at(
+                intent.item_id, volume=self.options.volume, rate=self.options.rate
+            )
+
+        def done(_payload: dict) -> None:
+            self._refresh_status()
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.note_playback_failed(f"Nie udalo sie odtworzyc: {error}"))
+
+        self.runner.submit("playback", work, done, failed)
+
+    def _open_queue_view(self) -> None:
+        """Ctrl+Q: ZYWA kolejka hosta, a w razie pustej -- zapisany porzadek.
+
+        Odczyt idzie przez runnera, bo ``queue.status`` to zapytanie do procesu
+        hosta; w watku GUI zamrozilby okno przy zajetym silniku.
+
+        Gdy host nie odpowiada, NIE udajemy pustej kolejki: wracamy do widoku
+        zapisanego, czyli do tego, co da sie uczciwie przeczytac bez silnika.
+        """
+        client = self.client
+        if client is None:
+            self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+            return
+
+        def work() -> dict:
+            return client.queue_status()
+
+        def done(payload: dict) -> None:
+            rows = rows_from_queue_status(payload or {})
+            if not rows:
+                # Kolejka hosta pusta: pokazujemy ZAPIS, tak jak dotad. To nie
+                # jest podmiana stanu, bo zadnego zywego stanu nie ma.
+                self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+                return
+            current = payload.get("currentId")
+            self._run(self.navigator.apply_live_queue(
+                rows, current_id=str(current) if current else None
+            ))
+
+        def failed(error: Exception) -> None:
+            # Brak odpowiedzi silnika nie moze skonczyc sie cisza ani pusta
+            # lista: mowimy, co sie stalo, i oddajemy widok zapisany.
+            self.announcer.say(f"Nie moge odczytac kolejki silnika: {error}")
+            self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+
+        self.runner.submit("folder", work, done, failed)
+
+    def _play_queue_at(self, intent: PlayQueueAt) -> None:
+        """Enter w ZYWYM widoku: start od wiersza kolejki, ktora host juz ma.
+
+        Bez ``queue.set``: kolejka po stronie hosta JEST stanem, a nie kopia
+        ekranu. Ponowne wyslanie jej z wierszy widoku skasowalo by to, co sesja
+        Core wie o pozycjach juz odegranych.
+        """
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie dziala, nie moge odtworzyc")
+            return
+
+        def work() -> dict:
             return client.queue_play_at(
                 intent.item_id, volume=self.options.volume, rate=self.options.rate
             )
