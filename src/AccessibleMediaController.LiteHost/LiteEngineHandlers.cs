@@ -23,6 +23,14 @@ internal sealed class LiteEngineHandlers : IDisposable
     private LiteEventSink? _events;
 
     /// <summary>
+    /// ZYWA kolejka odtwarzania. Dostaje TO SAMO wyjscie <see cref="_files"/>,
+    /// ktorego uzywa bezposrednie <c>files.play</c>: jeden silnik dzwieku, jedna
+    /// droga odtwarzania. Kolejnosc nastepstwa liczy sesja Core w koordynatorze,
+    /// nie ten plik.
+    /// </summary>
+    private readonly LiteQueueCoordinator _queue;
+
+    /// <summary>
     /// Ktory silnik gra TERAZ. Dwie sesje maja osobne wyjscia, ale dzwiek
     /// wydaje jedna naraz, dokladnie jak w pelnym AMC.
     /// </summary>
@@ -47,14 +55,52 @@ internal sealed class LiteEngineHandlers : IDisposable
     public LiteEngineHandlers(int timeshiftMinutes)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
+        _queue = new LiteQueueCoordinator(_files);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
             new { engine = "files", message = e.Message, title = e.Item?.Title });
         _files.PlaybackStarted += (_, e) => Publish("playback.started",
             new { engine = "files", title = e.Item.Title, id = e.Item.Id,
                 tempoFallbackReason = _files.TempoFallbackReason });
-        _files.PlaybackEnded += (_, e) => Publish("playback.ended",
-            new { engine = "files", title = e.Item.Title, id = e.Item.Id });
+        _files.PlaybackEnded += (_, e) =>
+        {
+            Publish("playback.ended",
+                new { engine = "files", title = e.Item.Title, id = e.Item.Id });
+
+            // NATURALNY koniec utworu. Nastepstwo liczy sesja Core w kolejce; tu
+            // tylko podajemy jej zakonczony material. Gdy kolejka nie prowadzi
+            // tego utworu albo zdarzenie jest spoznione, oddaje null i NIC sie
+            // nie dzieje: bezposrednie files.play zachowuje sie jak dotad.
+            MediaItem? next;
+            try
+            {
+                next = _queue.HandlePlaybackEnded(e.Item.Id);
+            }
+            catch (Exception exception)
+            {
+                // Blad przejscia nie moze zabic hosta ani zapetlic kolejki.
+                Publish("playback.failed",
+                    new { engine = "files", message = exception.Message, title = e.Item.Title });
+                return;
+            }
+            if (next is null) return;
+
+            lock (_gate)
+            {
+                _activeEngine = "files";
+                _filesItem = next;
+                // Nowy strumien: dlugosc POPRZEDNIEGO przestaje obowiazywac.
+                _filesDuration = TimeSpan.Zero;
+                _paused = false;
+            }
+            Publish("queue.advanced", new
+            {
+                engine = "files",
+                id = next.Id,
+                title = next.Title,
+                afterId = e.Item.Id
+            });
+        };
         _files.DurationAvailable += (_, e) =>
         {
             // Zapamietujemy czas Z DEKODERA, bo tylko on go zna; dopiero
@@ -105,9 +151,104 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
             ["audio.outputs"] = (_, _) => ListOutputs(),
-            ["library.collationKeys"] = (request, _) => CollationKeys(request.Args)
+            ["library.collationKeys"] = (request, _) => CollationKeys(request.Args),
+            // ZYWA kolejka. "set" tylko wczytuje stan i NIC nie odtwarza.
+            ["queue.set"] = (request, _) => QueueSet(request.Args),
+            ["queue.status"] = (_, _) => QueueStatusPayload(),
+            ["queue.playAt"] = (request, events) => QueuePlayAt(request.Args, events),
+            ["queue.next"] = (_, events) => QueueRelative(1, events),
+            ["queue.previous"] = (_, events) => QueueRelative(-1, events)
         };
     }
+
+    /// <summary>
+    /// Wczytanie zywej kolejki. Celowo NIE startuje odtwarzania: sam odczyt
+    /// zapisanego stanu nie ma prawa niczego zagrac.
+    /// </summary>
+    private object QueueSet(JsonElement args)
+    {
+        var status = _queue.Set(args);
+        return QueuePayload(status);
+    }
+
+    private object QueueStatusPayload() => QueuePayload(_queue.Status());
+
+    private object QueuePlayAt(JsonElement args, LiteEventSink events)
+    {
+        _events = events;
+        lock (_gate)
+        {
+            // Jedno slyszalne zrodlo naraz, jak w files.play.
+            if (_activeEngine != "files") _radio.Stop();
+            _activeEngine = "files";
+            _filesDuration = TimeSpan.Zero;
+            _paused = false;
+        }
+        var status = _queue.PlayAt(args);
+        SyncCurrentFromQueue(status);
+        return QueuePayload(status);
+    }
+
+    private object QueueRelative(int direction, LiteEventSink events)
+    {
+        _events = events;
+        if (!_queue.PlayRelative(direction))
+        {
+            // Odmowa jest WYNIKIEM, nie bledem: na koncu kolejki nie ma gdzie
+            // isc i nie zawijamy sie na druga strone.
+            return QueuePayload(_queue.Status(), moved: false);
+        }
+        var status = _queue.Status();
+        lock (_gate)
+        {
+            if (_activeEngine != "files") _radio.Stop();
+            _activeEngine = "files";
+            _filesDuration = TimeSpan.Zero;
+        }
+        SyncCurrentFromQueue(status);
+        return QueuePayload(status, moved: true);
+    }
+
+    /// <summary>
+    /// Zgranie biezacego materialu kolejki ze stanem transportu hosta, zeby
+    /// <c>transport.status</c> podawal PRAWDZIWY biezacy utwor, a nie poprzedni.
+    /// </summary>
+    private void SyncCurrentFromQueue(LiteQueueCoordinator.QueueStatus status)
+    {
+        if (status.CurrentId is null) return;
+        lock (_gate)
+        {
+            _filesItem = new MediaItem
+            {
+                Id = status.CurrentId,
+                Title = status.CurrentTitle ?? status.CurrentId,
+                Kind = MediaItemKind.Track,
+                Source = status.Rows.FirstOrDefault(row => row.IsCurrent)?.Path
+            };
+            _paused = status.Paused;
+        }
+    }
+
+    private static object QueuePayload(LiteQueueCoordinator.QueueStatus status, bool? moved = null) =>
+        new
+        {
+            rows = status.Rows
+                .Select(row => new
+                {
+                    id = row.Id,
+                    title = row.Title,
+                    playNext = row.IsPlayNext,
+                    current = row.IsCurrent
+                })
+                .ToArray(),
+            count = status.Rows.Count,
+            currentId = status.CurrentId,
+            currentTitle = status.CurrentTitle,
+            playing = status.Playing,
+            paused = status.Paused,
+            positionSeconds = status.PositionSeconds,
+            moved
+        };
 
     /// <summary>
     /// Klucze sortowania dla wsadu napisow, w zadanym TRYBIE.
@@ -311,6 +452,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             _rate = rate;
             _paused = false;
         }
+        // BEZPOSREDNIE odtworzenie wychodzi z kolejki: koniec tego utworu nie
+        // moze jej przesunac. Zachowanie files.play pozostaje niezmienione.
+        _queue.DetachFromDirectPlay();
         _files.Play(item, position, volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
     }
@@ -348,6 +492,23 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object PauseResume()
     {
+        // Gdy transport prowadzi KOLEJKA, pauza idzie przez jej sesje: tylko ona
+        // zapamietuje pozycje tak, jak reszta AMC. Pytamy PRZED wejsciem w _gate,
+        // zeby nie trzymac dwoch blokad naraz.
+        string engine;
+        string? currentId;
+        lock (_gate)
+        {
+            engine = _activeEngine;
+            currentId = _filesItem?.Id;
+        }
+        if (engine == "files" && _queue.OwnsCurrent(currentId))
+        {
+            var status = _queue.PauseResume();
+            lock (_gate) _paused = status.Paused;
+            return new { paused = status.Paused, engine = "files", queue = true };
+        }
+
         lock (_gate)
         {
             if (_paused)
@@ -361,18 +522,21 @@ internal sealed class LiteEngineHandlers : IDisposable
                 {
                     _files.Play(track, _files.Position, _volume, _rate);
                 }
-                return new { paused = false, engine = _activeEngine };
+                return new { paused = false, engine = _activeEngine, queue = false };
             }
 
             _paused = true;
             if (_activeEngine == "radio") _radio.Pause();
             else _files.Pause();
-            return new { paused = true, engine = _activeEngine };
+            return new { paused = true, engine = _activeEngine, queue = false };
         }
     }
 
     private object StopAll()
     {
+        // Zatrzymanie konczy tez prowadzenie przez kolejke: stary koniec utworu
+        // nie przesunie jej po tym, jak uzytkownik swiadomie zatrzymal dzwiek.
+        _queue.DetachFromDirectPlay();
         _files.Stop();
         _radio.Stop();
         lock (_gate) _paused = false;

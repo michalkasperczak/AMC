@@ -8,6 +8,7 @@ internal static class Program
         ("--dispatch", DispatchLoopTests.Run),
         ("--args", ArgumentReadingTests.Run),
         ("--audio", AudioConfigurationTests.Run),
+        ("--queue", QueueCoordinatorTests.Run),
     ];
 
     public static int Main(string[] args)
