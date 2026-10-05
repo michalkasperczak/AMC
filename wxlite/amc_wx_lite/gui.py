@@ -1325,6 +1325,13 @@ class LiteFrame(wx.Frame):
         active = self._active_list()
         active.filter_query = query
         active.sync_rows()
+        # Bramki ``needs_selection`` zaleza od tego, CO sync_rows wybral --
+        # ``MediaListCtrl.sync_rows`` ustawia wybor przez ``model.select_id``
+        # (gui.py:605), czyli NIE przez ``EVT_LIST_ITEM_SELECTED``. Zmierzone
+        # na zywym GUI (statusclip-4): po filtrze byl zaznaczony wiersz, a
+        # "Skopiuj adres" zostawalo wylaczone, wiec jego akcelerator POLYKAL
+        # Ctrl+Shift+C.
+        self._refresh_menu_state()
         if announce_status:
             self.announcer.say(
                 list_filter.results_status_text(query, active.visible_count())
@@ -2008,9 +2015,16 @@ class LiteFrame(wx.Frame):
             item_id = control.shown_item_id(event.GetIndex())
             if item_id is not None:
                 self.navigator.session.model.select_id(item_id)
+                self._refresh_menu_state()
                 event.Skip()
                 return
         self.navigator.session.model.select_index(event.GetIndex())
+        # Bramki ``needs_selection`` zmieniaja sie WRAZ Z ZAZNACZENIEM, a nie
+        # tylko przy zmianie widoku. Zmierzone na zywym GUI (statusclip-2):
+        # bez tego wywolania pozycja "Skopiuj adres" zostawala WYLACZONA po
+        # strzalce na liscie, a wylaczony akcelerator POLYKAL Ctrl+Shift+C --
+        # klawisz docieral do okna i nie robil nic.
+        self._refresh_menu_state()
         event.Skip()
 
     def _activate(self) -> None:

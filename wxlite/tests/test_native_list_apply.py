@@ -567,6 +567,13 @@ def test_a_real_user_selection_still_reaches_the_model() -> None:
     class FakeFrame:
         def __init__(self, nav) -> None:
             self.navigator = nav
+            self.menu_refreshes = 0
+
+        def _refresh_menu_state(self) -> None:
+            # Prawdziwe okno przelicza bramki ``needs_selection`` po KAZDYM
+            # zaznaczeniu (gui.py:2011). Atrapa musi miec ta metode, inaczej
+            # test mowi o AttributeError, a nie o tym, co bada.
+            self.menu_refreshes += 1
 
     class FakeNav:
         def __init__(self, session) -> None:

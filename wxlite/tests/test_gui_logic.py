@@ -185,3 +185,71 @@ def test_unknown_duration_is_named_not_shown_as_a_number() -> None:
     # nie "-1 s".
     assert format_time(None) == "nieznany"
     assert format_time(-1) == "nieznany"
+
+
+def test_zaznaczenie_wiersza_odswieza_bramki_menu() -> None:
+    """Regresja ZMIERZONA na zywym GUI (statusclip-2).
+
+    Ctrl+Shift+C fizycznie dotarlo do okna (hook.key: keyCode 67, mods 6) i
+    NIE wywolalo zadnej akcji, mimo ze na liscie byl zaznaczony plik.
+
+    Przyczyna: ``needs_selection=True`` wylacza pozycje menu, dopoki nic nie
+    jest zaznaczone, a ``_refresh_menu_state`` lecial TYLKO z ``_sync_views``
+    (zmiana widoku/sesji). Zaznaczenie wiersza strzalka zmienia model, ale nie
+    bylo zdarzeniem odswiezajacym menu -- wiec WYLACZONY akcelerator okna
+    polykal klawisz, zamiast przepuscic go do listy.
+
+    Ten test pilnuje SPRZEZENIA: po ``_on_item_selected`` stan menu musi byc
+    przeliczony. Nie sprawdza samego ``Enable`` (to robi
+    ``_refresh_menu_state``), tylko ze ktos go w ogole wola.
+    """
+    from amc_wx_lite import gui
+
+    calls = []
+
+    class Model:
+        rows = [1]
+        selected_index = 0
+        selected_row = object()
+
+        def select_id(self, item_id):
+            calls.append(("select_id", item_id))
+
+        def select_index(self, index):
+            calls.append(("select_index", index))
+
+    class Session:
+        model = Model()
+
+    class Nav:
+        session = Session()
+
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame.navigator = Nav()
+    frame._refresh_menu_state = lambda: calls.append(("refresh", None))
+
+    class Ctrl(gui.MediaListCtrl):
+        updating = False
+
+        def __init__(self):
+            pass
+
+        def shown_item_id(self, index):
+            return "i1"
+
+    class Event:
+        def GetEventObject(self):
+            return ctrl
+
+        def GetIndex(self):
+            return 0
+
+        def Skip(self):
+            pass
+
+    ctrl = Ctrl()
+    frame._on_item_selected(Event())
+
+    assert ("refresh", None) in calls, (
+        "zaznaczenie wiersza nie przeliczylo stanu menu; wylaczony akcelerator "
+        f"nadal polykalby Ctrl+Shift+C (wywolania: {calls})")

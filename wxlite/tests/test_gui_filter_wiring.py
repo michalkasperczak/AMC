@@ -173,6 +173,16 @@ class FakeFrame:
         self.filter_box.on_text = self._on_filter_text
 
     # --- to, co prawdziwe okno bierze z nawigatora
+    def _refresh_menu_state(self) -> None:
+        """Prawdziwe okno przelicza bramki menu po KAZDYM sync listy.
+
+        ``_apply_filter_to_list`` wola to u siebie (gui.py:1332), bo
+        ``needs_selection`` zmienia sie razem z wyborem, ktory ustawia
+        ``sync_rows``. Atrapa tylko LICZY wywolania -- nie ma menu, wiec nie
+        ma czego wlaczac.
+        """
+        self.menu_refreshes = getattr(self, "menu_refreshes", 0) + 1
+
     def _active_list(self):
         return self.files_list
 
