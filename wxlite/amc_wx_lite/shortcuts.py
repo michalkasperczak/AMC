@@ -335,9 +335,8 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Shift+G": Action.TOGGLE_SEEK_MESSAGES,
     # Home/End TYLKO w odtwarzaczu (MainWindow.xaml.cs:21598-21599 i
     # 22398-22399, oba warunkiem ``ModifierKeys.None``). Na liscie te klawisze
-    # naleza do kontrolki -- skok na pierwszy/ostatni wiersz. Warunek
-    # ``ModifierKeys.None`` jest tu rownie wazny: NVDA+End (Insert albo
-    # CapsLock jako modyfikator) czyta PASEK STANU i nie wolno nam go przejac.
+    # naleza do kontrolki. Ctrl/Shift/Alt nie odpowiadaja modyfikatorowi NVDA:
+    # brak kolizji Insert/CapsLock+End wymaga osobnego odbioru z czytnikiem.
     "Home": Action.TRACK_START,
     "End": Action.TRACK_END,
     "F1": Action.HELP,

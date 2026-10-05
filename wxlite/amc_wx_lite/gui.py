@@ -1811,6 +1811,10 @@ class LiteFrame(wx.Frame):
         chord = chord_from_event(event)
         player = self.navigator.view is View.PLAYER
         radio = self.navigator.active is SessionId.RADIO
+        # WPF czyści aktywny filtr także wtedy, gdy fokus jest już na wynikach.
+        if not player and chord.canonical == "Escape" and self.filter_box.GetValue():
+            self._clear_filter_and_return()
+            return
         action = resolve(chord, player_view=player, radio_session=radio)
         if action is None:
             # Klawisz NIE jest nasz: oddajemy go kontrolce, zeby natywna
