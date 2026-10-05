@@ -1,6 +1,6 @@
 # AMC Python — zakres względem pełnego AMC
 
-Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu.
+Stan po przyroście70c833d i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu.
 
 ## Działa i zostało odebrane
 
@@ -11,7 +11,7 @@ Stan kodu po192aa07 i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany p
 - Lokalne Ulubione: Ctrl+U, kolejność według dodania lub własna w warstwie danych. Nie deklarujemy jeszcze alfabetyki Ulubionych.
 - Katalog playlist: Ctrl+P; Enter otwiera zawartość, Backspace wraca do zaznaczonej playlisty.
 - Historia odtwarzania: Ctrl+H (zgodnie z `CommandIds.ViewHistory`, `MainWindow.xaml:481`). Etykieta mówi „Historia odtwarzania" i jest to ODCZYT zapisanej historii AMC, nie historia własnego odtwarzania tego okna. Wiersze filtrowane jak w AMC do `ActiveLocalItems`.
-- Kolejka Ctrl+Q: początkowo odczyt zapisu profilu, po inicjalizacji stan hosta, także po wyczerpaniu. Enter w zapisanej kolejce przesyła flagi członkostwa i kolejność, Enter w żywej wykonuje tylko `queue.playAt`. Naturalne B→A→C zmierzono w poprzednim kandydacie `bb4c917`; końcowy odbiór całej integracji nadal otwarty (transport C# oraz poprawki rodzica: pusta kolejka bez powrotu zapisanych utworów, aktualizacja już otwartej listy i kontekstu Plików podczas oglądania Radia).
+- Kolejka Ctrl+Q: początkowo odczyt zapisu profilu, po inicjalizacji stan hosta, także po wyczerpaniu. Enter w zapisanej kolejce przesyła flagi członkostwa i kolejność, Enter w żywej wykonuje tylko `queue.playAt`. Naturalne B→A→C, samoaktualizacja otwartej listy i trwale pusta kolejka są odebrane. Bieżący utwór i czas również przeżywają restart prywatnej kopii; zapis nadal należy wyłącznie do C#.
 - Dwa ODDZIELNE widoki zakładek, dwa skróty, dwie akcje:
   - **Ctrl+B** = `Action.VIEW_ALL_BOOKMARKS` → `all_bookmark_rows` (`BookmarkIndex.GetForDisplay`): WSZYSTKIE zakładki z bieżącym materiałem sesji na początku. Tak jak `CommandIds.ViewBookmarks` w C#.
   - **Ctrl+Shift+B** = `Action.VIEW_ITEM_BOOKMARKS` → `bookmark_rows` (`GetForItem`): zakładki JEDNEGO wybranego pliku. Ten skrót jest nasz, bo w C# ten węższy zakres nie ma własnej komendy.
@@ -77,7 +77,7 @@ Puste listy, podwójny odczyt i stare nazwy zostały odebrane po zmianie wspóln
 ## Najbliższe braki
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
-- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); nadal brak czasu wznowienia, mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
+- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
 - ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
@@ -86,7 +86,7 @@ Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/19
 
 ## Trwała kolejność na prywatnej kopii — odebrana
 
-Zwykłe GUI samo uruchamia hosta z argumentami prywatnego profilu i pisarza. Kolejność, członkostwo i świadomie pusty stan przeżywają restart. Odmowa zapisu jest czytana przez NVDA również po ostatnim utworze w odtwarzaczu, bez powtarzania tej samej przyczyny. Rodzic wykonał pełny cykl GUI na kopii11203/5000; `queue-persistence-after-live/gui-integration-parent/`. Czas wznowienia i bieżące ID nie są jeszcze utrwalane. Domyślny wspólny profil nadal pozostaje tylko do odczytu.
+Zwykłe GUI samo uruchamia hosta z argumentami prywatnego profilu i pisarza. Kolejność, członkostwo i świadomie pusty stan przeżywają restart. Odmowa zapisu jest czytana przez NVDA również po ostatnim utworze w odtwarzaczu, bez powtarzania tej samej przyczyny. Rodzic wykonał pełny cykl GUI na kopii11203/5000; `queue-persistence-after-live/gui-integration-parent/`. Czas wznowienia i bieżące ID są utrwalane od984c660; politykę domknięto w4ad9696 i70c833d. Trzy rzeczywiste GUI: zapis12,63s, wznowienie od12,75s, wyłączenie pamięci daje start od początku. NVDA odczytał czas przez Ctrl+E; Right przewija z fokusem na przycisku, Tab nadal nawiguje. Najnowszy Python608/0/0. Kwity `queue-resume-after-persistence/parent-final/`. Domyślny wspólny profil nadal pozostaje tylko do odczytu.
 
 ## Własność danych — zasada już przyjęta
 

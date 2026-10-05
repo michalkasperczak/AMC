@@ -16,7 +16,17 @@ Nadrzędny kwit `live-queue-after-native-lists/parent-speech-full-profile/`: pe�
 
 Aktualny kwit `queue-persistence-after-live/gui-integration-parent/REPORT.md`: pełny Python603/0/0, GUI odmowa zapisu ostatniego utworu z prawdziwą mową NVDA, ponowne uruchomienie niepustej kolejki, udany zapis do zera i kolejny restart z0wierszy. Własny profil `profile-persist-parent-final` zawiera pełne11203 rekordy; nie zastępuj go małą próbką.
 
-Host: `C:\Users\Michal\AppData\Local\Temp\amc-wx-queue-persist-parent\complete-host-8abc180\amc_lite_host.exe`, DLL13f38747…. Przed użyciem sprawdź komplet wymaganych bibliotek z deps.json i manifest41plików w kwicie. Sam SHA własnejDLL NIE wykrywa brakujących NAudio/SoundTouch; poprzedni katalog był niekompletny mimo zgodnego SHA. Starych kwitów/profili nie nadpisuj, użyj następnego backupuSQLite. Zapisy są dozwolone tylko na prywatnej kopii, a czas wznowienia pozostaje dalszym punktem.
+Host: `C:\Users\Michal\AppData\Local\Temp\amc-wx-queue-persist-parent\complete-host-8abc180\amc_lite_host.exe`, DLL13f38747…. Przed użyciem sprawdź komplet wymaganych bibliotek z deps.json i manifest41plików w kwicie. Sam SHA własnejDLL NIE wykrywa brakujących NAudio/SoundTouch; poprzedni katalog był niekompletny mimo zgodnego SHA. Starych kwitów/profili nie nadpisuj, użyj następnego backupuSQLite. Zapisy są dozwolone tylko na prywatnej kopii, a późniejszy odbiór czasu opisano poniżej.
+
+## Czas wznowienia — odbiór z rzeczywistym NVDA
+
+Kod70c833d nad984c660/4ad9696. Aktualny host: `C:\Users\Michal\AppData\Local\Temp\amc-wx-resume-parent-final\host-policy-completion\amc_lite_host.exe`, DLL9cedd23b…,41plików,22wymagane DLL z deps.json i0braków. Kwity: `queue-resume-after-persistence/parent-final/REPORT.md`, `accepted-gui-cycles.json`, pełny `python-final-full.log` (608/0/0).
+
+Na NOWEJ pełnej kopii, nie na zachowanych kwitach: Ctrl+Q, wybór niepierwszego utworu, Enter, Right+10s. Sprawdź rzeczywisty `loadedId` i rosnącą pozycję; `transport.status` nie ma pola `playing`. Zamknij własne okno podczas grania. Nowy GUI/host nie może grać sam: ma odtworzyć porządek, wybrać bieżące ID, a świadomy Enter wznowić od zapisanego czasu. Dla czytnika wstrzymaj materiał, poczekaj na aktualizację stanu, wywołaj Ctrl+E i odczytaj NOWY tekst Podglądu mowy przed zamknięciem okna. Sam `Announcer.say` nie dowodzi mowy. Wykonana próba:12,63s zapisane →12,75s start, NVDA „Minelo 12 s”.
+
+Następnie wyłącz pamięć dla pozycji dziedziczącej ustawienie, pozostawiając stary niezerowy checkpoint. Nowy proces: `resumeSeconds=0`, start od początku (zmierzono0,97s, NVDA „Minelo 1 s”), checkpoint po zamknięciu0. Jawny Remember pozycji jest osobnym priorytetem. Dziedziczenie źródeł folderów sprawdzaj zgodnie z oryginałem: najbliższe Inherit prowadzi do sesji, nie do dalszego źródła.
+
+C#7 zielonych zestawów, jedna pominięta próba ścieżki produkcyjnej naWSL. Adapter WPF skompilowany naWindows bez błędów/ostrzeżeń. To nie jest odbiór pełnego portu ani zgoda na współdzielony pisarz z działającym starym WPF.
 
 ## Przygotowane stanowisko prywatne
 
