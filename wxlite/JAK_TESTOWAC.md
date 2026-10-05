@@ -8,6 +8,18 @@ Bieżący odbiór mechanizmu wszystkich list: 562 testy, 0 błędów, 0 pominię
 
 Odbiór KOŃCOWY żywej kolejki (po scaleniu): **588 testów Pythona, 0 błędów, 0 pominięć** i **6/6 zestawów C#**. Z żywym NVDA zmierzono na nowym hoście (DLL `6FFF6BD0…`): Ctrl+Q na starcie oddaje zapis, Enter uruchamia kolejkę w porządku **B→A→C (nie alfabet)**, a pozostawiona OTWARTA lista sama usuwa zużyty wiersz po naturalnym przejściu i nie kradnie wyboru grającej pozycji. Po ostatnim utworze lista ma 0 pozycji (potwierdzone też kontrolką Win32 `LVM_GETITEMCOUNT=0`), czytnik mówi „Kolejka odtwarzania, pusto", a ponowny Ctrl+Q NIE wraca do starego zapisu. Transport na przebudowanym hoście: 22/22. Kwity: `live-queue-after-native-lists/final-integrated/`. Trwały pisarz profilu i dalszy pełny port pozostają poza tym etapem.
 
+## Cisza podczas wpisywania filtra — korekta po próbie użytkownika
+
+Wpisywanie i usuwanie znaków nadal zawęża listę, ale aplikacja nie mówi
+„Wyniki filtrowania” ani liczby po każdym znaku, również przy zerowym wyniku.
+Zostaje zwykłe echo klawiszy NVDA. Jawne wejście na pustą listę nadal wyjaśnia
+brak wyników; Escape w polu nadal czyści filtr i wraca na listę.
+
+Dwa testy kodujące dawną automatyczną zapowiedź odwrócono: najpierw26PASS/2FAIL,
+po zmianie74PASS/0FAIL/0SKIP w filtrze i jego bezpośrednich zależnościach.
+Odbiór żywej mowy do wykonania na scalonym kandydacie. Historia fraz, nowe
+zachowanie Tab/Down i zmiana pamiętania filtra pozostają propozycjami.
+
 ## Filtr listy Ctrl+K: jak to sprawdzić na żywo
 
 Pełny Python po tym odbiorze: **649 testów, 0 błędów, 0 pominięć**

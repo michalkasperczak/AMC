@@ -1308,7 +1308,9 @@ class LiteFrame(wx.Frame):
         context = self._current_view_context()
         self.filter_state.set_for_view(context, self.filter_box.GetValue())
         self._filter_context = context
-        self._apply_filter_to_list()
+        # Pisanie nie jest zadaniem odczytu liczby wynikow. Zachowaj zwykle
+        # echo klawiszy NVDA; brak wynikow wyjasni proba wejscia na liste.
+        self._apply_filter_to_list(announce_status=False)
 
     def _apply_filter_to_list(self, *, announce_status: bool = True) -> None:
         """Dociagnij WIDOCZNA liste do tekstu filtra. Jedna wspolna droga.

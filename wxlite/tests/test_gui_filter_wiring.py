@@ -445,25 +445,21 @@ def test_wielkosc_liter_nie_ma_znaczenia_takze_dla_polskich():
     assert frame.shown_names() == ["Zażółć gęślą jaźń"]
 
 
-def test_status_po_wpisaniu_podaje_LICZBE_wynikow():
+def test_pisanie_filtra_nie_oglasza_liczby_wynikow():
+    """Michal: zwykle pisanie bez automatycznych 'Wyniki filtrowania'."""
     frame = FakeFrame(ROWS)
-    frame.type_into_filter("a")  # Zażółć..., Zazolc..., Beta, Gamma
-    assert frame.announcer.said[-1] == list_filter.results_status_text("a", 4)
-    assert "4" in frame.announcer.said[-1]
+    for query in ("b", "be", "beta", "be", ""):
+        frame.type_into_filter(query)
+        assert frame.announcer.said == [], frame.announcer.said
+    assert len(frame.shown_names()) == len(ROWS)
 
 
-def test_pusty_wynik_jest_POWIEDZIANY_a_nie_cicha_pusta_lista():
-    """Najgrozniejszy przypadek dla niewidomego: lista znika bez slowa.
-
-    W trakcie pisania oryginal oglasza STATUS z liczba (cs:23667), wiec zero
-    tez jest slyszalne. Osobne zdanie "brak wynikow" nalezy do proby wyjscia
-    na liste (Enter) -- tam dopiero trzeba powiedziec, CO zrobic.
-    """
+def test_pusty_wynik_podczas_pisania_nie_przerywa_echa_klawiszy():
+    """Brak wynikow wyjasniamy przy probie wejscia na liste, nie co znak."""
     frame = FakeFrame(ROWS)
     frame.type_into_filter("xyzzy")
     assert frame.shown_names() == []
-    assert frame.announcer.said[-1] == list_filter.results_status_text("xyzzy", 0)
-    assert "0" in frame.announcer.said[-1]
+    assert frame.announcer.said == []
 
 
 # ------------------------------------------------- przejscie na wyniki
