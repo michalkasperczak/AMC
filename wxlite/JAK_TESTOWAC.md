@@ -6,6 +6,8 @@ To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem w
 
 Bieżący odbiór mechanizmu wszystkich list: 562 testy, 0 błędów, 0 pominięć. Zwykłe listy Windows, przyrostowe zmiany w obrębie widoku, zachowanie wyboru po ID, puste zakładki i pojedynczy odczyt po zmianie dużego widoku sprawdzono w prywatnym stagingu z żywym NVDA. Końcowe kwity: `native-w02-valid-retest-after422/parent-final/`. To nie jest odbiór wszystkich funkcji pełnego AMC ani innego czytnika.
 
+Odbiór KOŃCOWY żywej kolejki (po scaleniu): **588 testów Pythona, 0 błędów, 0 pominięć** i **6/6 zestawów C#**. Z żywym NVDA zmierzono na nowym hoście (DLL `6FFF6BD0…`): Ctrl+Q na starcie oddaje zapis, Enter uruchamia kolejkę w porządku **B→A→C (nie alfabet)**, a pozostawiona OTWARTA lista sama usuwa zużyty wiersz po naturalnym przejściu i nie kradnie wyboru grającej pozycji. Po ostatnim utworze lista ma 0 pozycji (potwierdzone też kontrolką Win32 `LVM_GETITEMCOUNT=0`), czytnik mówi „Kolejka odtwarzania, pusto", a ponowny Ctrl+Q NIE wraca do starego zapisu. Transport na przebudowanym hoście: 22/22. Kwity: `live-queue-after-native-lists/final-integrated/`. Trwały pisarz profilu i dalszy pełny port pozostają poza tym etapem.
+
 ## Przygotowane stanowisko prywatne
 
 Odebrany układ naHermesie: `C:\Users\Michal\AppData\Local\Temp\amc-wx-425` z podkatalogami `app`, `runtime`, `host` i prywatną kopią `profile`. Jest to staging, nie numer publicznego wydania.

@@ -506,8 +506,14 @@ internal sealed class LiteQueueCoordinator
             rows,
             currentId,
             session.HasCurrentItem ? session.CurrentItem.Title : null,
-            session.IsPlaying,
-            session.IsPaused,
+            // Kolejka moze twierdzic, ze gra, TYLKO gdy nadal prowadzi
+            // odtwarzanie. Po odlaczeniu (bezposredni files.play, radio,
+            // zakladka) material sesji zostaje nietkniety -- wiersze i pozycja
+            // sa wciaz prawdziwe -- ale to nie kolejka jest zrodlem dzwieku.
+            // Bez tej bramki frontend stawia na przycisku "Wstrzymaj" dla
+            // kolejki, ktora nic nie odtwarza.
+            _leading && session.IsPlaying,
+            _leading && session.IsPaused,
             session.HasCurrentItem ? session.Position.TotalSeconds : 0d,
             _initialized);
     }

@@ -91,6 +91,7 @@ internal static class QueueTransportTests
         ZmianaParametrowWTrakcieObowiazujeNastepnyUtwor();
         StopZatrzymujeSesjeKolejkiAWznowienieWracaDoPozycji();
         PoWyjsciuPozaKolejkeStaryTransportJejNieWznawia();
+        OdlaczonaKolejkaNieTwierdziZeGraAleZachowujeWiersze();
         SwiadomyPlayAtPrzywracaProwadzenieKolejki();
         StanWczytaniaKolejkiJestJawny();
         BiezacyMaterialToPRAWDZIWAPozycjaKolejki();
@@ -217,6 +218,36 @@ internal static class QueueTransportTests
         Assert.True(play.Id == "file:B.wav", "wznowienie dotyczy tego samego utworu");
         Assert.True(play.Position.TotalSeconds > 8d,
             $"wznowienie wraca na pozycje z chwili zatrzymania; bylo {play.Position}");
+    }
+
+    /// <summary>
+    /// PUNKT 4. Odlaczona kolejka nie moze TWIERDZIC, ze gra. Material sesji
+    /// (wiersze, biezaca pozycja, wczytanie) zostaje nietkniety -- naprawiamy
+    /// sam STAN, bo frontend czyta <c>playing</c> z <c>queue.status</c> i stawia
+    /// na tej podstawie etykiete przycisku.
+    /// </summary>
+    private static void OdlaczonaKolejkaNieTwierdziZeGraAleZachowujeWiersze()
+    {
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        queue.Set(Args(ThreeRows));
+        var playing = queue.PlayAt(Args("""{"itemId":"file:B.wav","volume":30,"rate":1.0}"""));
+        Assert.True(playing.Playing, "kolejka prowadzaca odtwarzanie mowi, ze gra");
+
+        output.Position = TimeSpan.FromSeconds(4);
+        queue.DetachFromDirectPlay();
+
+        var status = queue.Status();
+        Assert.True(!status.Playing,
+            "po odlaczeniu (files.play/radio) kolejka NIE twierdzi, ze gra");
+        Assert.True(!status.Paused,
+            "odlaczona kolejka nie jest tez 'wstrzymana'");
+        Assert.True(status.Rows.Count == 3,
+            $"odlaczenie NIE kasuje wierszy kolejki; bylo {status.Rows.Count}");
+        Assert.True(status.CurrentId == "file:B.wav",
+            $"odlaczenie NIE kasuje biezacej pozycji; bylo {status.CurrentId}");
+        Assert.True(status.Initialized,
+            "odlaczenie NIE gubi stanu wczytania kolejki");
     }
 
     /// <summary>
