@@ -156,6 +156,24 @@ class PlayStation:
 
 
 @dataclass(slots=True)
+class PlayFromQueue:
+    """Zlecenie: uruchom ZYWA kolejke hosta od wskazanego wiersza.
+
+    Rozni sie od ``PlayTrack`` tym, co dzieje sie PO koncu utworu. ``PlayTrack``
+    odtwarza jedna pozycje i nic dalej; tutaj host dostaje cala kolejke, a
+    nastepstwo liczy sesja Core (``DemoMediaSession``) -- ten sam silnik, ktory
+    prowadzi kolejke w pelnym AMC.
+
+    ``rows`` jest w KOLEJNOSCI WIDOKU, bo taka jest kolejnosc zapisanej kolejki.
+    Nawigacja nie sortuje jej ponownie i nie zgaduje kolejnosci z tytulow.
+    """
+
+    item_id: str
+    rows: tuple[Row, ...]
+    title: str
+
+
+@dataclass(slots=True)
 class Announce:
     """Krotki komunikat dla czytnika. JEDNA brama komunikatow w calej aplikacji."""
 
@@ -335,12 +353,43 @@ class Navigator:
             if row.item_id.startswith("bookmark:"):
                 return self._activate_bookmark(row)
             return [Announce("Brak sciezki pliku")]
+
+        # Widok Zapisanej kolejki prowadzi ZYWA kolejke hosta, a nie pojedyncze
+        # odtworzenie. Zwykle ``files.play`` zerwaloby nastepstwo: po koncu
+        # utworu nie byloby czym przejsc dalej.
+        if state.library_view is LibraryView.SAVED_QUEUE:
+            return self._activate_queue_row(row)
+
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
         state.pending_material_id = profile_material_id(row.item_id)
         state.view = View.PLAYER
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def _activate_queue_row(self, row: Row) -> list[object]:
+        """Enter w widoku Zapisanej kolejki: start ZYWEJ kolejki od tego wiersza.
+
+        Kolejnosc oddajemy hostowi w kolejnosci WIDOKU -- to kolejnosc zapisanej
+        kolejki, czytana z profilu. Nawigacja jej nie przelicza.
+
+        Pozycje bez sciezki wypadaja: host nie ma czego dla nich otworzyc, a
+        wstawienie ich do kolejki konczyloby sie bledem w trakcie przejscia.
+        """
+        state = self.session
+        playable = tuple(
+            candidate for candidate in state.model.rows
+            if candidate.kind == "track" and candidate.path
+        )
+        if not playable:
+            return [Announce("Kolejka jest pusta")]
+
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.pending_material_id = profile_material_id(row.item_id)
+        state.view = View.PLAYER
+        return [PlayFromQueue(row.item_id, playable, row.title), Announce(row.title)]
 
     def _activate_bookmark(self, row: Row) -> list[object]:
         """Enter na wierszu zakladki: skok albo UCZCIWA odmowa.
@@ -692,6 +741,23 @@ class Navigator:
         return [Announce(f"Stacje: {len(rows)}{suffix}")]
 
     # ----------------------------------------------------------- odtwarzanie
+
+    def note_queue_advanced(self, item_id: str, title: str) -> list[object]:
+        """Host POLICZYL przejscie i juz gra nastepna pozycje kolejki.
+
+        Aktualizujemy BIEZACY material, ale nie ruszamy ani zaznaczenia na
+        liscie, ani widoku: przejscie dzieje sie samo, bez gestu uzytkownika, a
+        fokus nie moze uciekac w trakcie sluchania. Zaznaczenie i audio sa tu
+        celowo dwiema osobnymi rzeczami.
+        """
+        if not item_id:
+            # Zdarzenie bez tozsamosci nic nie dowodzi -- nie czyscimy stanu.
+            return []
+        state = self.session
+        state.now_playing_id = item_id
+        state.now_playing_title = title
+        state.pending_material_id = profile_material_id(item_id)
+        return [Announce(title)] if title else []
 
     def note_playback_failed(self, message: str) -> list[object]:
         """Blad odtwarzania wraca na LISTE: w odtwarzaczu nie ma co robic."""

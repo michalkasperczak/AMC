@@ -69,6 +69,37 @@ internal static class QueueCoordinatorTests
 
     private static string Json(string value) => JsonSerializer.Serialize(value);
 
+    /// <summary>
+    /// Zapowiedz przejscia musi zgadzac sie z FAKTEM. Gdyby
+    /// <c>WouldAdvanceAfter</c> klamalo, okno albo milczaloby na koncu kolejki,
+    /// albo mowilo "Koniec utworu" w chwili przejscia.
+    /// </summary>
+    private static void ZapowiedzPrzejsciaZgadzaSieZFaktem()
+    {
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        queue.Set(Args(ThreeRows));
+
+        queue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+
+        // Srodek kolejki: zapowiedz TRUE i faktyczne przejscie.
+        var zapowiedzB = queue.WouldAdvanceAfter("file:B.wav");
+        var faktB = queue.HandlePlaybackEnded("file:B.wav");
+        Assert.True(zapowiedzB, "po pierwszej pozycji kolejka ma czym isc dalej");
+        Assert.True(faktB is not null, "i faktycznie idzie");
+
+        // Spoznione zdarzenie: ani zapowiedzi, ani przejscia.
+        Assert.True(!queue.WouldAdvanceAfter("file:B.wav"), "stary koniec nie zapowiada przejscia");
+        Assert.True(queue.HandlePlaybackEnded("file:B.wav") is null, "stary koniec nie przesuwa kolejki");
+
+        // Ostatnia pozycja: zapowiedz FALSE i brak przejscia.
+        queue.HandlePlaybackEnded("file:A.wav");
+        Assert.True(
+            !queue.WouldAdvanceAfter("file:C.wav"),
+            "na koncu kolejki nie zapowiadamy przejscia -- tu okno MA powiedziec koniec");
+        Assert.True(queue.HandlePlaybackEnded("file:C.wav") is null, "i nic dalej nie gra");
+    }
+
     public static void Run()
     {
         _folder = Path.Combine(Path.GetTempPath(), "amc-queue-tests-" + Guid.NewGuid().ToString("N")[..8]);
@@ -98,6 +129,7 @@ internal static class QueueCoordinatorTests
         PauzaZachowujePozycjeIPrzeskokJejNieCofa();
         StaryEventNiePrzeskakujeDwochUtworow();
         PustaKolejkaIZleIdOdmawiajaUczciwie();
+        ZapowiedzPrzejsciaZgadzaSieZFaktem();
         Console.WriteLine("QueueCoordinatorTests: OK");
     }
 

@@ -304,6 +304,42 @@ class LiteHostClient:
     def status(self) -> Any:
         return self.call("transport.status", timeout=5.0)
 
+    # ----------------------------------------------------------------- kolejka
+    #
+    # ZYWA kolejka hosta. Nastepstwo utworow liczy sesja Core po stronie C#;
+    # Python tylko wczytuje kolejnosc i prosi o start/skok.
+
+    def queue_set(self, items: list[dict[str, Any]], *, session_id: str = "local") -> Any:
+        """Wczytaj kolejnosc do kolejki hosta. NIC nie zaczyna grac.
+
+        Duza kolejka moze przekroczyc limit zadania (64 KiB), dlatego wysylamy
+        tylko pola, ktorych host potrzebuje do otwarcia materialu.
+        """
+        return self.call(
+            "queue.set", {"sessionId": session_id, "items": items}, timeout=60.0
+        )
+
+    def queue_play_at(self, item_id: str, *, volume: int, rate: float) -> Any:
+        """Zacznij kolejke od WSKAZANEJ pozycji (Enter na wierszu Ctrl+Q)."""
+        return self.call(
+            "queue.playAt",
+            {"itemId": item_id, "volume": volume, "rate": rate},
+            timeout=60.0,
+        )
+
+    def queue_next(self, *, volume: int, rate: float) -> Any:
+        return self.call(
+            "queue.next", {"volume": volume, "rate": rate}, timeout=60.0
+        )
+
+    def queue_previous(self, *, volume: int, rate: float) -> Any:
+        return self.call(
+            "queue.previous", {"volume": volume, "rate": rate}, timeout=60.0
+        )
+
+    def queue_status(self) -> Any:
+        return self.call("queue.status", timeout=5.0)
+
     def import_playlist(self, path: str) -> Any:
         return self.call("radio.importPlaylist", {"path": path}, timeout=60.0)
 

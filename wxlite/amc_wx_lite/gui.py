@@ -43,6 +43,7 @@ from .navigation import (
     Navigator,
     OpenFolder,
     OpenLibraryView,
+    PlayFromQueue,
     PlayStation,
     PlayTrack,
     SessionId,
@@ -1019,7 +1020,17 @@ class LiteFrame(wx.Frame):
                     "Wybrany algorytm tempa jest niedostępny. Używany SoundTouch."
                 )
         elif name == "playback.ended":
-            self.announcer.say("Koniec utworu")
+            # Przy ZYWEJ kolejce koniec utworu nie jest koncem sluchania: host
+            # zaraz przysle ``queue.advanced``. Mowienie "Koniec utworu" przed
+            # nazwa nastepnego byloby tylko halasem, dlatego milczymy i czekamy.
+            if not data.get("queueContinues"):
+                self.announcer.say("Koniec utworu")
+        elif name == "queue.advanced":
+            # NATURALNE przejscie policzone przez sesje Core po stronie hosta.
+            # GUI tylko odwzorowuje to, co host NAPRAWDE zaczal grac.
+            self._run(self.navigator.note_queue_advanced(
+                str(data.get("id") or ""), str(data.get("title") or "")
+            ))
         elif name == "playback.failed":
             self._run(self.navigator.note_playback_failed(
                 f"Nie udalo sie odtworzyc: {data.get('message', 'blad')}"
@@ -1195,6 +1206,8 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.back_to_list())
         elif action is Action.PLAY_PAUSE:
             self._play_pause()
+        elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
+            self._queue_step(action is Action.QUEUE_NEXT)
         elif action in (
             Action.SEEK_BACK_10, Action.SEEK_FORWARD_10,
             Action.SEEK_BACK_60, Action.SEEK_FORWARD_60,
@@ -1279,6 +1292,8 @@ class LiteFrame(wx.Frame):
                 self._open_library_view(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
+            elif isinstance(intent, PlayFromQueue):
+                self._play_from_queue(intent)
             elif isinstance(intent, PlayStation):
                 self._play_station(intent)
         self._sync_views()
@@ -1487,6 +1502,72 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.note_playback_failed(f"Nie udalo sie odtworzyc: {error}"))
+
+        self.runner.submit("playback", work, done, failed)
+
+    def _play_from_queue(self, intent: PlayFromQueue) -> None:
+        """Start ZYWEJ kolejki hosta od wybranego wiersza.
+
+        Dwa zadania pod rzad w JEDNYM watku roboczym: ``queue.set`` wczytuje
+        kolejnosc (nic nie gra), ``queue.playAt`` zaczyna od wskazanej pozycji.
+        Rozdzielone, bo samo wejscie w widok nie moze niczego odtworzyc.
+        """
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie dziala, nie moge odtworzyc")
+            return
+
+        items = [
+            {"id": row.item_id, "path": row.path, "title": row.title}
+            for row in intent.rows
+        ]
+
+        def work() -> dict:
+            client.queue_set(items)
+            return client.queue_play_at(
+                intent.item_id, volume=self.options.volume, rate=self.options.rate
+            )
+
+        def done(_payload: dict) -> None:
+            self._refresh_status()
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.note_playback_failed(f"Nie udalo sie odtworzyc: {error}"))
+
+        self.runner.submit("playback", work, done, failed)
+
+    def _queue_step(self, forward: bool) -> None:
+        """Page Down / Page Up: nastepny albo poprzedni utwor ZYWEJ kolejki.
+
+        Skok liczy kolejka hosta. Gdy kolejka nie prowadzi odtwarzania (zwykle
+        ``files.play``, radio, zakladka) albo nie ma gdzie isc, host odmawia, a
+        my mowimy to wprost -- zamiast milczec albo udawac zmiane utworu.
+        """
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie dziala")
+            return
+
+        call = client.queue_next if forward else client.queue_previous
+
+        def work() -> dict:
+            return call(volume=self.options.volume, rate=self.options.rate)
+
+        def done(payload: dict) -> None:
+            # Mowimy to, co host NAPRAWDE zaczal grac, a nie to, o co prosilismy.
+            if payload and payload.get("moved"):
+                title = str(payload.get("currentTitle") or "").strip()
+                self._run(self.navigator.note_queue_advanced(
+                    str(payload.get("currentId") or ""), title
+                ))
+            else:
+                self.announcer.say(
+                    "Koniec kolejki" if forward else "Poczatek kolejki"
+                )
+            self._refresh_status()
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(f"Nie moge zmienic utworu: {error}")
 
         self.runner.submit("playback", work, done, failed)
 

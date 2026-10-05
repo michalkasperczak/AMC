@@ -43,6 +43,10 @@ class Action(Enum):
     SHOW_PLAYER = "view.player"
     SHOW_LIST = "view.list"
     PLAY_PAUSE = "transport.playPause"
+    # Zmiana utworu W KOLEJCE. Nastepstwo liczy zywa kolejka hosta, wiec te
+    # akcje maja sens tylko wtedy, gdy kolejka naprawde prowadzi odtwarzanie.
+    QUEUE_NEXT = "queue.next"
+    QUEUE_PREVIOUS = "queue.previous"
     SEEK_BACK_10 = "seek.back10"
     SEEK_FORWARD_10 = "seek.forward10"
     SEEK_BACK_60 = "seek.back60"
@@ -174,6 +178,10 @@ PLAYER_VIEW: dict[str, Action] = {
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
     "Space": Action.PLAY_PAUSE,
+    # Poprzedni/nastepny utwor kolejki. Gesty z oryginalu (MainWindow.xaml:714
+    # i :717 -- menu odtwarzacza, te same akceleratory na przyciskach :995-1000).
+    "Prior": Action.QUEUE_PREVIOUS,
+    "Next": Action.QUEUE_NEXT,
     "Left": Action.SEEK_BACK_10,
     "Right": Action.SEEK_FORWARD_10,
     "Shift+Left": Action.SEEK_BACK_60,
@@ -212,6 +220,8 @@ def describe() -> list[tuple[str, str]]:
         Action.SHOW_PLAYER: "Widok odtwarzacza",
         Action.SHOW_LIST: "Powrot na liste",
         Action.PLAY_PAUSE: "Pauza albo wznowienie",
+        Action.QUEUE_NEXT: "Nastepny utwor kolejki",
+        Action.QUEUE_PREVIOUS: "Poprzedni utwor kolejki",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_60: "Przewin minute wstecz",
@@ -239,9 +249,9 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_PLAYLISTS: "Playlisty",
         Action.VIEW_FOLDERS: "Foldery Biblioteki",
         Action.VIEW_HISTORY: "Historia odtwarzania",
-        # Nazwa mowi, ze to ZAPISANY stan profilu, a nie kolejka grajacego
-        # silnika -- tej w tej aplikacji nie ma i nie udajemy jej.
-        Action.VIEW_SAVED_QUEUE: "Zapisana kolejka z profilu",
+        # Wiersze pochodza z ZAPISANEGO profilu (host nie jest ich autorem), ale
+        # Enter uruchamia z nich ZYWA kolejke hosta -- stad "Enter odtwarza".
+        Action.VIEW_SAVED_QUEUE: "Kolejka: wiersze z profilu, Enter odtwarza",
         # Jawnie wezszy zakres niz "Zakladki" w pelnym AMC.
         Action.VIEW_ITEM_BOOKMARKS: "Zakladki zaznaczonego pliku",
         # Pelny zbior. Nazwa mowi, ze to wszystkie sesje, bo widok pokazuje
@@ -249,6 +259,11 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_ALL_BOOKMARKS: "Wszystkie zakladki",
         Action.HELP: "Ta pomoc",
     }
+    # Nazwy klawiszy w pomocy musza byc TAKIE, jak na klawiaturze. Wewnetrzne
+    # "Prior"/"Next" (z wx) czytnik przeczytalby jako obce slowa, a uzytkownik
+    # nie znalazlby tych klawiszy pod palcami.
+    readable_keys = {"Prior": "Page Up", "Next": "Page Down"}
+
     seen: set[Action] = set()
     out: list[tuple[str, str]] = []
     for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
@@ -256,5 +271,8 @@ def describe() -> list[tuple[str, str]]:
             if action in seen:
                 continue
             seen.add(action)
-            out.append((chord, labels.get(action, action.value)))
+            label = chord
+            for internal, spoken in readable_keys.items():
+                label = label.replace(internal, spoken)
+            out.append((label, labels.get(action, action.value)))
     return out

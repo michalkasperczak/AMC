@@ -257,6 +257,35 @@ internal sealed class LiteQueueCoordinator
         }
     }
 
+    /// <summary>
+    /// Czy po TYM materiale kolejka poprowadzi dalej? Pytanie BEZ SKUTKOW:
+    /// nie przesuwa kursora, nie zuzywa zdarzenia, nie startuje odtwarzania.
+    /// Sluzy tylko do tego, by okno nie oglaszalo konca przed przejsciem.
+    /// </summary>
+    public bool WouldAdvanceAfter(string? endedItemId)
+    {
+        if (string.IsNullOrWhiteSpace(endedItemId)) return false;
+        lock (_gate)
+        {
+            var session = _session;
+            if (session is null || !session.HasItems) return false;
+            // Ta sama bramka, co w HandlePlaybackEnded: spoznione zdarzenie nie
+            // zapowiada przejscia, bo i nie przesunie kolejki.
+            if (!string.Equals(_advanceToken, endedItemId, StringComparison.Ordinal)) return false;
+
+            // Kolejnosc nastepstwa bierzemy z KONTRAKTU sesji
+            // (QueueNavigationItemIds), a nie z kolejnosci Items: to ona
+            // rozstrzyga, co zagra po tym materiale.
+            var order = session.QueueNavigationItemIds;
+            var at = -1;
+            for (var i = 0; i < order.Count; i++)
+            {
+                if (string.Equals(order[i], endedItemId, StringComparison.Ordinal)) { at = i; break; }
+            }
+            return at >= 0 && at + 1 < order.Count;
+        }
+    }
+
     public QueueStatus Status()
     {
         lock (_gate)

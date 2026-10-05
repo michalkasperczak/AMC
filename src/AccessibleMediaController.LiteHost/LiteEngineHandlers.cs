@@ -64,8 +64,13 @@ internal sealed class LiteEngineHandlers : IDisposable
                 tempoFallbackReason = _files.TempoFallbackReason });
         _files.PlaybackEnded += (_, e) =>
         {
+            // Czy kolejka poprowadzi dalej? Pytamy PRZED ogloszeniem konca, zeby
+            // okno nie mowilo "Koniec utworu" w chwili, gdy zaraz zacznie grac
+            // nastepna pozycja. Samo pytanie nic nie zmienia w kolejce.
+            var queueContinues = _queue.WouldAdvanceAfter(e.Item.Id);
+
             Publish("playback.ended",
-                new { engine = "files", title = e.Item.Title, id = e.Item.Id });
+                new { engine = "files", title = e.Item.Title, id = e.Item.Id, queueContinues });
 
             // NATURALNY koniec utworu. Nastepstwo liczy sesja Core w kolejce; tu
             // tylko podajemy jej zakonczony material. Gdy kolejka nie prowadzi
