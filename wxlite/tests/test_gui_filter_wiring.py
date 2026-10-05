@@ -191,6 +191,88 @@ def resolved(chord_text: str, *, player: bool = False, radio: bool = False):
     return resolve(chord, player_view=player, radio_session=radio)
 
 
+def test_niepusty_wynik_ZAWSZE_ma_zaznaczony_wiersz():
+    """Port ``ResolveListSelectionIndex`` (MainWindowNavigationPolicy.cs:101).
+
+    Oryginal: ``rows.Count == 0`` => -1, w kazdym innym razie
+    ``Math.Clamp(fallbackIndex ?? 0, 0, rows.Count - 1)`` -- czyli gdy
+    zaznaczony dotad utwor WYPADL z filtra, zaznaczenie spada na pierwszy
+    widoczny wiersz, a NIE na nic.
+
+    Zmierzone na zywym GUI (kwit-filter-2/probe.jsonl): po zawezeniu do
+    jednego wiersza sonda pokazala ``nativeSelected=-1``. Dla niewidomego
+    pusty wybor znaczy, ze Enter nie ma co odtworzyc, a strzalka startuje od
+    zera -- wynik jest na ekranie, ale nieosiagalny.
+    """
+    frame = FakeFrame(ROWS)
+    # Zaznaczamy wiersz, ktory ZA CHWILE wypadnie z filtra: to wlasnie ten
+    # przypadek dal na zywym GUI pusty wybor (preferredItemId nie trafia, wiec
+    # oryginal siega po fallback 0 -- port musi zrobic to samo).
+    frame.model.select_id(ROWS[0].item_id)
+    frame.files_list.sync_rows()
+    frame.type_into_filter("zazolc")
+
+    assert frame.files_list.visible_count() == 1
+    assert frame.model.selected_id == ROWS[1].item_id, (
+        "wynik ma zaznaczac widoczny wiersz, nie zachowany ukryty element"
+    )
+    assert frame.files_list.GetFirstSelected() == 0
+    assert frame.files_list.shown_item_id(0) == frame.model.selected_id
+
+
+def test_bramka_CHAR_HOOK_oddaje_pole_filtra_jego_wlasnej_obsludze():
+    """Regresja ZMIERZONA na zywym GUI (kwit-filter-2/probe.jsonl).
+
+    Pierwszy przebieg pokazal, ze Enter i Backspace WPISANE W POLU nie
+    docieraly do ``_on_filter_key`` (brak zdarzen ``filter.key``), tylko do
+    globalnej nawigacji: Enter otworzyl folder, a osiem Backspace dalo osiem
+    "Wczytywanie Biblioteki..." i wyniosło uzytkownika w gore drzewa. Dla
+    niewidomego to znaczy, ze poprawianie zapytania gubi mu widok.
+
+    Oryginal broni sie bramka ``if (Keyboard.FocusedElement is TextBox)``
+    (MainWindow.xaml.cs:21000). Port musi miec rownowazna bramke w
+    ``EVT_CHAR_HOOK``, bo to jedyne miejsce widzace te klawisze przed
+    nawigacja; inaczej pole filtra nie jest szczelne.
+    """
+    import inspect
+
+    import amc_wx_lite.gui as gui
+
+    hook = inspect.getsource(gui.LiteFrame._on_player_shortcut_hook)
+    assert "filter_box" in hook, (
+        "CHAR_HOOK nie sprawdza, czy fokus jest w polu filtra"
+    )
+    assert "_on_filter_key" in hook, (
+        "CHAR_HOOK nie kieruje klawiszy pola do jego wlasnej obslugi"
+    )
+
+
+def test_po_starcie_fokus_jest_NA_LISCIE_a_nie_w_polu_filtra():
+    """Regresja ZMIERZONA na zywym GUI (kwit-filter-1/snapshot.json).
+
+    Dodanie ``filter_box`` wstawilo nowa kontrolke PRZED liste w kolejnosci
+    tabulacji, wiec wx dal jej fokus startowy: pierwszy przebieg pokazal
+    ``focus_class='TextCtrl'``, ``filter_has_focus=True``. Dla niewidomego to
+    znaczy, ze program startuje w pustej edycji zamiast na liscie utworow --
+    strzalki nie chodza po pozycjach. Okno MUSI wiec jawnie oddac fokus
+    aktywnej liscie po zbudowaniu interfejsu.
+
+    Sprawdzamy ZRODLO, bo fokus startowy ustawia sie w konstruktorze okna,
+    ktorego atrapa w tym pliku nie odtwarza; prawdziwym dowodem konca jest
+    snapshot z zywego przebiegu.
+    """
+    import inspect
+
+    import amc_wx_lite.gui as gui
+
+    source = inspect.getsource(gui.LiteFrame._build_ui)
+    assert "_focus_active_list_initially" in source, (
+        "budowa interfejsu nie ustawia fokusu startowego na liscie"
+    )
+    body = inspect.getsource(gui.LiteFrame._focus_active_list_initially)
+    assert "_active_list" in body and "SetFocus" in body
+
+
 def test_ctrl_k_jest_gestem_filtra_a_nie_ctrl_f():
     """Gest ODCZYTANY z MainWindow.xaml:491, nie zgadniety.
 

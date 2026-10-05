@@ -401,6 +401,12 @@ class MediaListCtrl(wx.ListCtrl):
         jest operacja na kontrolce.
         """
         desired = list_sync.model_row_texts(self.model, self.filter_query)
+        if self.filter_query and desired and not any(
+            row.item_id == self.model.selected_id for row in desired
+        ):
+            # Enter must activate a visible result, not the now-hidden old row.
+            # Match the original list policy's fallback to the first result.
+            self.model.select_id(desired[0].item_id)
         ops = list_sync.plan_row_updates(self._shown, desired)
         # TOZSAMOSC WIDOKU, ktory wlasnie mamy pokazac. Potrzebna, bo pelna
         # podmiana listy nalezy do ZMIANY WIDOKU, a nie do zmiany danych w nim.
@@ -618,8 +624,8 @@ class MediaListCtrl(wx.ListCtrl):
         ``item_id`` wybranego wiersza -- ta sama zasada "wybor po ID, nie po
         pozycji", ktora rzadzi calym mechanizmem list i ktorej uzywa oryginal
         (``ResolveListSelectionIndex``, ``MainWindowNavigationPolicy.cs:101``).
-        Gdy wybrany wiersz WYPADL z wyniku filtra, nie wymyslamy zastepnika:
-        oddajemy ``None``, a kontrolka zostawia kursor tam, gdzie jest.
+        Przy niepustym wyniku ``sync_rows`` wybiera pierwszy widoczny wiersz,
+        jeżeli poprzedni wybór wypadł z filtra. Tutaj mapujemy już jego ID.
         """
         return list_sync.plan_cursor(
             wanted=self._wanted_visible_index(),
@@ -888,6 +894,21 @@ class LiteFrame(wx.Frame):
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self.timer)
         self.Bind(wx.EVT_CLOSE, self._on_close)
+
+        self._focus_active_list_initially()
+
+    def _focus_active_list_initially(self) -> None:
+        """Fokus startowy NA LISTE, nie w pole filtra.
+
+        Pole filtra stoi w kolejnosci tabulacji przed lista, wiec bez tego wx
+        daje fokus startowy edycji -- zmierzone na zywym przebiegu:
+        ``focus_class='TextCtrl'``, ``filter_has_focus=True``. Niewidomy
+        uzytkownik startowalby w pustym polu, bez strzalek po pozycjach.
+
+        To jedyne miejsce, ktore ten fokus ustawia; ``_sync_views`` dalej rusza
+        fokusem TYLKO przy zmianie widoku, wiec nie ma dwoch sciezek.
+        """
+        self._active_list().SetFocus()
 
     def _build_menu(self) -> None:
         """Pasek menu z OPISU w ``menu_model`` -- bez wlasnej logiki polecen.
@@ -1513,6 +1534,17 @@ class LiteFrame(wx.Frame):
     # ------------------------------------------------------------- klawisze
 
     def _on_player_shortcut_hook(self, event: wx.KeyEvent) -> None:
+        # POLE FILTRA JEST SZCZELNE. ``EVT_CHAR_HOOK`` widzi klawisze przed
+        # kontrolka, wiec bez tej bramki Enter i Backspace z pola wpadaly do
+        # globalnej nawigacji: zmierzone na zywym GUI (Enter otwieral folder,
+        # Backspace wynosil o poziom wyzej) zamiast dojsc do
+        # ``_on_filter_key``. Odpowiednik ``if (Keyboard.FocusedElement is
+        # TextBox)`` z oryginalu (MainWindow.xaml.cs:21000): gdy fokus jest w
+        # polu, klawisze naleza WYLACZNIE do pola i jego wlasnej obslugi.
+        if wx.Window.FindFocus() is self.filter_box:
+            self._on_filter_key(event)
+            return
+
         # Native dialog processing on a button consumes player keys before
         # KEY_DOWN. The existing resolver passes unknown keys (e.g. Tab) on.
         if self.navigator.view is not View.PLAYER:
