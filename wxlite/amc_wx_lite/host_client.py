@@ -320,6 +320,15 @@ class LiteHostClient:
     def seek_by(self, seconds: float) -> Any:
         return self.call("transport.seek", {"deltaSeconds": seconds})
 
+    def seek_to_position(self, seconds: float) -> Any:
+        """Skok na BEZWZGLEDNA pozycje.
+
+        Host juz to umie: LiteEngineHandlers.cs:655 czyta ``positionSeconds``
+        obok ``deltaSeconds``, wiec skok procentowy nie wymaga nowej komendy
+        protokolu -- procent przeliczamy na sekundy po stronie klienta.
+        """
+        return self.call("transport.seek", {"positionSeconds": max(0.0, float(seconds))})
+
     def set_volume(self, volume: int) -> Any:
         return self.call("transport.setVolume", {"volume": volume})
 

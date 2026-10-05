@@ -18,7 +18,7 @@ Zrodla (gałąź hermes/wx-lite-after416, baza 4.1.6):
            => Spacja to pauza/wznowienie.
 
   src/AccessibleMediaController.Core/Input/KeyboardProfile.cs  (profil globalny,
-  uzywany po akordzie prefiksu; te same KIERUNKI przenosimy na okno wx):
+  uzywany PO AKORDZIE PREFIKSU; te same KIERUNKI przenosimy na okno wx):
     57-60  Left/Right = przewijanie 10 s, Up/Down = glosnosc +-5
     63-66  Shift+Left/Right = 60 s, Shift+Up/Down = glosnosc +-1
     70-72  Ctrl+E czas miniony, Ctrl+R pozostaly, Ctrl+T calkowity
@@ -27,6 +27,45 @@ UWAGA o strzalkach: w pelnym AMC Up/Down zmieniaja glosnosc dopiero PO akordzie
 prefiksu, bo zwykle strzalki musza chodzic po liscie. Tutaj tak samo - na liscie
 strzalki naleza do natywnego ListCtrl, a glosnosc i przewijanie dzialaja w widoku
 ODTWARZACZA, gdzie nie ma po czym chodzic. To swiadoma decyzja, nie rozjazd.
+
+POPRAWKA PARYTETU TRANSPORTU (zgloszenie z realnego uruchomienia)
+-----------------------------------------------------------------
+Michal uruchomil ten wariant na prawdziwym profilu i transport NIE byl tym
+transportem, ktory zna z AMC: nie dzialalo ``Ctrl+Shift+E/R/T`` (dzialalo
+``Ctrl+E/R/T``), nie dzialalo ``Ctrl+Left/Right``, a predkosci nie dalo sie
+znalezc pod klawiszami oryginalu.
+
+Zrodlo bledu: powyzsze wiersze ``KeyboardProfile.cs:70-72`` opisuja profil
+czytany PO AKORDZIE PREFIKSU -- to INNA WARSTWA niz klawisze okna. Wziecie ich
+za skroty okna dalo gesty, ktorych oryginal w oknie nie ma, i zabralo gesty,
+ktore ma. Warstwa okna to:
+
+  MainWindow.xaml.cs  (dwie drogi tego samego okna: 215xx sciezka klawiszy
+  i 22xxx tablica skrotow -- OBIE musza sie zgadzac)
+    21583-21590 / 22387-22394  przewijanie, CZTERY pary:
+        (None)        Left/Right -> SeekBackward10  / SeekForward10
+        (Shift)       Left/Right -> SeekBackward30  / SeekForward30
+        (Control)     Left/Right -> SeekBackward60  / SeekForward60
+        (Control|Alt) Left/Right -> SeekBackwardCustom / SeekForwardCustom
+      => ``Shift`` to 30 s, NIE 60 s. 60 s siedzi pod ``Ctrl``.
+    21595-21597 / 22395-22397  predkosc odtwarzania:
+        Shift+OemComma  -> PlaybackRateDown
+        Shift+OemPeriod -> PlaybackRateUp
+        Ctrl+OemPeriod  -> PlaybackRateReset
+      => NIE ``Ctrl+Up/Down`` ani ``Ctrl+0``.
+    21670 / 22188  Ctrl+Shift+G -> SettingsToggleSeekMessages
+    21674-21676 / 22190-22192  Ctrl+Shift+E/R/T -> TimeElapsed/Remaining/Total
+    21555-21557 / 22348-22350  cyfra BEZ modyfikatora -> SeekPercent(digit*10)
+    21454-21456  Ctrl+cyfra -> SessionSlot, a Ctrl+0 -> SessionList
+      => ``Ctrl+0`` NIE jest resetem tempa; to cudzy gest.
+    21662  Ctrl+E -> ExportRadioFavorites
+      => w oknie ``Ctrl+E`` nalezy do eksportu, wiec alias czasu byl bledem.
+    20778-20785  F6 i Shift+F6: na LISCIE oba ida do ShowPlayerView, w
+      ODTWARZACZU oba wracaja na liste (warunek to ``_playerViewActive``).
+
+Zadne z powyzszych nie jest przechwytywaniem gestow czytnika ekranu: NVDA+Up,
+NVDA+End i reszta gestow czytnika pozostaja nietkniete, a strzalki na LISCIE
+nadal naleza do natywnej kontrolki.
 """
 
 from __future__ import annotations
@@ -49,8 +88,31 @@ class Action(Enum):
     QUEUE_PREVIOUS = "queue.previous"
     SEEK_BACK_10 = "seek.back10"
     SEEK_FORWARD_10 = "seek.forward10"
+    # Shift to 30 s (MainWindow.xaml.cs:21585-21586). Dostarczona wersja
+    # wiazala Shift z 60 s -- przez to dwa gesty robily to samo, a para
+    # Ctrl+Left/Right nie robila nic.
+    SEEK_BACK_30 = "seek.back30"
+    SEEK_FORWARD_30 = "seek.forward30"
     SEEK_BACK_60 = "seek.back60"
     SEEK_FORWARD_60 = "seek.forward60"
+    # Ctrl+Alt: krok z USTAWIEN uzytkownika (PlaybackSettings.CustomSeekSeconds,
+    # domyslnie 300 s, zakres 5..1800 -- AppSettings.cs:280-295).
+    SEEK_BACK_CUSTOM = "seek.backCustom"
+    SEEK_FORWARD_CUSTOM = "seek.forwardCustom"
+    # Skok procentowy: cyfra BEZ modyfikatora w odtwarzaczu
+    # (MainWindow.xaml.cs:21555-21557 -> CommandIds.SeekPercent(digit * 10)).
+    # Osobne wartosci, bo oryginal ma osobne identyfikatory komend -- jedna
+    # akcja z parametrem nie dalaby sie sprawdzic w tablicy skrotow.
+    SEEK_PERCENT_0 = "seek.percent.0"
+    SEEK_PERCENT_10 = "seek.percent.10"
+    SEEK_PERCENT_20 = "seek.percent.20"
+    SEEK_PERCENT_30 = "seek.percent.30"
+    SEEK_PERCENT_40 = "seek.percent.40"
+    SEEK_PERCENT_50 = "seek.percent.50"
+    SEEK_PERCENT_60 = "seek.percent.60"
+    SEEK_PERCENT_70 = "seek.percent.70"
+    SEEK_PERCENT_80 = "seek.percent.80"
+    SEEK_PERCENT_90 = "seek.percent.90"
     VOLUME_UP_5 = "volume.up5"
     VOLUME_DOWN_5 = "volume.down5"
     VOLUME_UP_1 = "volume.up1"
@@ -61,6 +123,9 @@ class Action(Enum):
     TIME_ELAPSED = "time.elapsed"
     TIME_REMAINING = "time.remaining"
     TIME_TOTAL = "time.total"
+    # CommandIds.SettingsToggleSeekMessages, Ctrl+Shift+G
+    # (MainWindow.xaml.cs:21670 i 22188).
+    TOGGLE_SEEK_MESSAGES = "settings.toggleSeekMessages"
     OPEN_FOLDER_DIALOG = "files.openFolder"
     OPEN_FILE_DIALOG = "files.openFile"
     COPY_NAME = "clipboard.copyName"
@@ -131,10 +196,19 @@ LIST_VIEW: dict[str, Action] = {
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
     "F6": Action.SHOW_PLAYER,
+    # Shift+F6 na LISCIE tez idzie do odtwarzacza: warunek oryginalu to
+    # ``_playerViewActive && Shift`` (MainWindow.xaml.cs:20780), a na liscie
+    # pierwszy czlon jest falszem, wiec wykonuje sie galaz ShowPlayerView.
+    "Shift+F6": Action.SHOW_PLAYER,
     "Space": Action.PLAY_PAUSE,
-    "Ctrl+E": Action.TIME_ELAPSED,
-    "Ctrl+R": Action.TIME_REMAINING,
-    "Ctrl+T": Action.TIME_TOTAL,
+    # Czas: Ctrl+SHIFT+E/R/T (MainWindow.xaml.cs:21674-21676, 22190-22192).
+    # Samo Ctrl+E/R/T nalezy do profilu PO PREFIKSIE, a w oknie Ctrl+E to
+    # eksport ulubionych stacji (cs:21662) -- stad brak aliasow.
+    "Ctrl+Shift+E": Action.TIME_ELAPSED,
+    "Ctrl+Shift+R": Action.TIME_REMAINING,
+    "Ctrl+Shift+T": Action.TIME_TOTAL,
+    # Przelacznik automatycznych komunikatow odtwarzacza (cs:21670, 22188).
+    "Ctrl+Shift+G": Action.TOGGLE_SEEK_MESSAGES,
     "Ctrl+O": Action.OPEN_FOLDER_DIALOG,
     "Ctrl+Shift+O": Action.OPEN_FILE_DIALOG,
     # Adres NA ZADANIE, tak jak w pelnym AMC (MainWindow.xaml.cs:20717-20732).
@@ -198,18 +272,41 @@ PLAYER_VIEW: dict[str, Action] = {
     "Next": Action.QUEUE_NEXT,
     "Left": Action.SEEK_BACK_10,
     "Right": Action.SEEK_FORWARD_10,
-    "Shift+Left": Action.SEEK_BACK_60,
-    "Shift+Right": Action.SEEK_FORWARD_60,
+    # Cztery pary krokow z oryginalu (MainWindow.xaml.cs:21583-21590,
+    # 22387-22394). Shift = 30 s, Ctrl = 60 s, Ctrl+Alt = czas z ustawien.
+    "Shift+Left": Action.SEEK_BACK_30,
+    "Shift+Right": Action.SEEK_FORWARD_30,
+    "Ctrl+Left": Action.SEEK_BACK_60,
+    "Ctrl+Right": Action.SEEK_FORWARD_60,
+    "Ctrl+Alt+Left": Action.SEEK_BACK_CUSTOM,
+    "Ctrl+Alt+Right": Action.SEEK_FORWARD_CUSTOM,
     "Up": Action.VOLUME_UP_5,
     "Down": Action.VOLUME_DOWN_5,
     "Shift+Up": Action.VOLUME_UP_1,
     "Shift+Down": Action.VOLUME_DOWN_1,
-    "Ctrl+Up": Action.RATE_UP,
-    "Ctrl+Down": Action.RATE_DOWN,
-    "Ctrl+0": Action.RATE_RESET,
-    "Ctrl+E": Action.TIME_ELAPSED,
-    "Ctrl+R": Action.TIME_REMAINING,
-    "Ctrl+T": Action.TIME_TOTAL,
+    # Predkosc pod klawiszami ORYGINALU (cs:21595-21597, 22395-22397).
+    # Ctrl+Up/Down i Ctrl+0 zostaly usuniete: pierwszych dwoch oryginal nie ma
+    # wcale, a Ctrl+0 to u niego lista sesji (cs:21454-21456).
+    "Shift+,": Action.RATE_DOWN,
+    "Shift+.": Action.RATE_UP,
+    "Ctrl+.": Action.RATE_RESET,
+    # Skok procentowy: cyfra bez modyfikatora (cs:21555-21557, 22348-22350).
+    # W odtwarzaczu cyfry sa wolne; na liscie naleza do kontrolki, wiec tam ich
+    # nie ma.
+    "0": Action.SEEK_PERCENT_0,
+    "1": Action.SEEK_PERCENT_10,
+    "2": Action.SEEK_PERCENT_20,
+    "3": Action.SEEK_PERCENT_30,
+    "4": Action.SEEK_PERCENT_40,
+    "5": Action.SEEK_PERCENT_50,
+    "6": Action.SEEK_PERCENT_60,
+    "7": Action.SEEK_PERCENT_70,
+    "8": Action.SEEK_PERCENT_80,
+    "9": Action.SEEK_PERCENT_90,
+    "Ctrl+Shift+E": Action.TIME_ELAPSED,
+    "Ctrl+Shift+R": Action.TIME_REMAINING,
+    "Ctrl+Shift+T": Action.TIME_TOTAL,
+    "Ctrl+Shift+G": Action.TOGGLE_SEEK_MESSAGES,
     "F1": Action.HELP,
 }
 
@@ -238,18 +335,37 @@ def describe() -> list[tuple[str, str]]:
         Action.QUEUE_PREVIOUS: "Poprzedni utwor kolejki",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
+        Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",
+        Action.SEEK_FORWARD_30: "Przewin 30 sekund w przod",
         Action.SEEK_BACK_60: "Przewin minute wstecz",
         Action.SEEK_FORWARD_60: "Przewin minute w przod",
+        # Krok tej pary ustawia uzytkownik w AMC (domyslnie 5 minut), wiec
+        # pomoc nie moze podawac stalej liczby sekund.
+        Action.SEEK_BACK_CUSTOM: "Przewin wstecz o czas z ustawien AMC",
+        Action.SEEK_FORWARD_CUSTOM: "Przewin w przod o czas z ustawien AMC",
         Action.VOLUME_UP_5: "Glosniej o 5",
         Action.VOLUME_DOWN_5: "Ciszej o 5",
         Action.VOLUME_UP_1: "Glosniej o 1",
         Action.VOLUME_DOWN_1: "Ciszej o 1",
-        Action.RATE_UP: "Szybciej",
-        Action.RATE_DOWN: "Wolniej",
-        Action.RATE_RESET: "Normalne tempo",
+        Action.RATE_UP: "Szybciej (prędkość odtwarzania)",
+        Action.RATE_DOWN: "Wolniej (prędkość odtwarzania)",
+        Action.RATE_RESET: "Prędkość normalna",
         Action.TIME_ELAPSED: "Czas miniony",
         Action.TIME_REMAINING: "Czas pozostaly",
         Action.TIME_TOTAL: "Czas calkowity",
+        Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
+        # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
+        # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
+        Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",
+        Action.SEEK_PERCENT_10: "Skok do 10% utworu",
+        Action.SEEK_PERCENT_20: "Skok do 20% utworu",
+        Action.SEEK_PERCENT_30: "Skok do 30% utworu",
+        Action.SEEK_PERCENT_40: "Skok do 40% utworu",
+        Action.SEEK_PERCENT_50: "Skok do polowy utworu (50%)",
+        Action.SEEK_PERCENT_60: "Skok do 60% utworu",
+        Action.SEEK_PERCENT_70: "Skok do 70% utworu",
+        Action.SEEK_PERCENT_80: "Skok do 80% utworu",
+        Action.SEEK_PERCENT_90: "Skok do 90% utworu",
         Action.OPEN_FOLDER_DIALOG: "Wybierz folder",
         Action.OPEN_FILE_DIALOG: "Wybierz plik",
         Action.COPY_NAME: "Skopiuj nazwe",

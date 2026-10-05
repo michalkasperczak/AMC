@@ -177,12 +177,57 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("&Pauza albo wznowienie", Action.PLAY_PAUSE, shortcut="Space",
                      accelerator=False, needs_playback=True),
             SEPARATOR,
-            MenuItem("Czas &miniony", Action.TIME_ELAPSED, shortcut="Ctrl+E",
+            # Przewijanie. CZTERY kroki oryginalu (MainWindow.xaml.cs:21583-21590):
+            # 10 s goly, 30 s z Shift, 60 s z Ctrl, czas z ustawien z Ctrl+Alt.
+            # Dotad zadnego z nich nie bylo w menu, wiec uzytkownik, ktory nie
+            # zna skrotu, nie mial jak przewinac inaczej niz suwakiem.
+            MenuItem("Przewiń &wstecz 10 sekund", Action.SEEK_BACK_10,
+                     shortcut="Left", needs_playback=True),
+            MenuItem("Przewiń w przó&d 10 sekund", Action.SEEK_FORWARD_10,
+                     shortcut="Right", needs_playback=True),
+            MenuItem("Przewiń wstecz &30 sekund", Action.SEEK_BACK_30,
+                     shortcut="Shift+Left", needs_playback=True),
+            MenuItem("Przewiń w przód 3&0 sekund", Action.SEEK_FORWARD_30,
+                     shortcut="Shift+Right", needs_playback=True),
+            MenuItem("Przewiń wstecz &minutę", Action.SEEK_BACK_60,
+                     shortcut="Ctrl+Left", needs_playback=True),
+            MenuItem("Przewiń w przód m&inutę", Action.SEEK_FORWARD_60,
+                     shortcut="Ctrl+Right", needs_playback=True),
+            MenuItem("Przewiń wstecz o czas z &ustawień AMC",
+                     Action.SEEK_BACK_CUSTOM, shortcut="Ctrl+Alt+Left",
                      needs_playback=True),
-            MenuItem("Czas p&ozostały", Action.TIME_REMAINING, shortcut="Ctrl+R",
+            MenuItem("Przewiń w przód o czas z ustawień &AMC",
+                     Action.SEEK_FORWARD_CUSTOM, shortcut="Ctrl+Alt+Right",
                      needs_playback=True),
-            MenuItem("Czas &całkowity", Action.TIME_TOTAL, shortcut="Ctrl+T",
+            SEPARATOR,
+            # Predkosc odtwarzania. Naglowki i akceleratory doslownie z
+            # MainWindow.xaml:382-393 ("_Wolniej" Shift+, / "_Szybciej" Shift+.
+            # / "Prędkość _normalna" Ctrl+.). Sam suwak "Tempo" w oknie NIE
+            # jest odbiorem tej funkcji: uzytkownik czytnika szuka polecenia w
+            # menu i w pomocy, a Michal zglosil wprost, ze predkosci nie
+            # znalazl.
+            MenuItem("Wol&niej", Action.RATE_DOWN, shortcut="Shift+,",
                      needs_playback=True),
+            MenuItem("&Szybciej", Action.RATE_UP, shortcut="Shift+.",
+                     needs_playback=True),
+            MenuItem("Prędkość no&rmalna", Action.RATE_RESET, shortcut="Ctrl+.",
+                     needs_playback=True),
+            SEPARATOR,
+            # Skroty poprawione na te z oryginalu: Ctrl+SHIFT+E/R/T
+            # (MainWindow.xaml.cs:21674-21676). Menu obiecywalo stare Ctrl+E/R/T,
+            # czyli etykiete, ktora po poprawce tablicy byla by nieprawda.
+            MenuItem("Czas minion&y", Action.TIME_ELAPSED, shortcut="Ctrl+Shift+E",
+                     needs_playback=True),
+            MenuItem("Czas p&ozostały", Action.TIME_REMAINING, shortcut="Ctrl+Shift+R",
+                     needs_playback=True),
+            MenuItem("Czas &całkowity", Action.TIME_TOTAL, shortcut="Ctrl+Shift+T",
+                     needs_playback=True),
+            SEPARATOR,
+            # Przelacznik automatycznych komunikatow (cs:21670). We wspolnym
+            # profilu wlascicielem state.json jest host C#, wiec akcja mowi,
+            # gdzie te opcje zmienic -- zamiast udawac zapis.
+            MenuItem("Automatyczne &komunikaty odtwarzacza",
+                     Action.TOGGLE_SEEK_MESSAGES, shortcut="Ctrl+Shift+G"),
         ),
     )
 

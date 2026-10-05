@@ -229,7 +229,11 @@ def test_arrows_in_list_view_belong_to_the_native_control() -> None:
 def test_player_view_arrows_control_volume_and_seeking() -> None:
     assert resolve(Chord("Up"), player_view=True, radio_session=False) is Action.VOLUME_UP_5
     assert resolve(Chord("Right"), player_view=True, radio_session=False) is Action.SEEK_FORWARD_10
-    assert resolve(Chord("Right", shift=True), player_view=True, radio_session=False) is Action.SEEK_FORWARD_60
+    # Shift = 30 s w warstwie OKNA (MainWindow.xaml.cs:21586, 22390). Dawne
+    # 60 s pod Shift pochodzilo z profilu po akordzie prefiksu, czyli z innej
+    # warstwy; 60 s jest teraz pod Ctrl, zgodnie z oryginalem.
+    assert resolve(Chord("Right", shift=True), player_view=True, radio_session=False) is Action.SEEK_FORWARD_30
+    assert resolve(Chord("Right", ctrl=True), player_view=True, radio_session=False) is Action.SEEK_FORWARD_60
 
 
 def test_shortcuts_match_amc_sources() -> None:
@@ -243,8 +247,12 @@ def test_shortcuts_match_amc_sources() -> None:
     assert resolve(Chord("F6", shift=True), player_view=True, radio_session=False) is Action.SHOW_LIST
     # Backspace = folder nadrzedny (MainWindow.xaml.cs:20832)
     assert resolve(Chord("Back"), player_view=False, radio_session=False) is Action.PARENT_FOLDER
-    # Ctrl+E/R/T = czasy (KeyboardProfile.cs:70-72)
-    assert resolve(Chord("E", ctrl=True), player_view=True, radio_session=False) is Action.TIME_ELAPSED
+    # Czasy to Ctrl+SHIFT+E/R/T w warstwie OKNA (MainWindow.xaml.cs:21674-21676,
+    # 22190-22192). KeyboardProfile.cs:70-72 wiaze z nimi samo Ctrl+E/R/T, ale
+    # to profil czytany PO AKORDZIE PREFIKSU -- w oknie Ctrl+E nalezy do
+    # eksportu ulubionych stacji (cs:21662), wiec aliasu tam byc nie moze.
+    assert resolve(Chord("E", ctrl=True, shift=True), player_view=True, radio_session=False) is Action.TIME_ELAPSED
+    assert resolve(Chord("E", ctrl=True), player_view=True, radio_session=False) is None
 
 
 def test_station_management_keys_only_in_radio_session() -> None:

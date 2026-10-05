@@ -61,6 +61,19 @@ from .navigation import (
 )
 from .shortcuts import Action, Chord, describe, resolve
 from .profile_layout import resolve_layout
+from .transport_parity import (
+    PLAYBACK_RATE_MAX,
+    PLAYBACK_RATE_MIN,
+    MessagePolicy,
+    clamp_playback_rate,
+    format_clock,
+    format_playback_rate,
+    load_message_policy,
+    next_playback_rate,
+    seek_percent_value,
+    seek_step_seconds,
+    time_announcement,
+)
 from .radio_source import RadioSource
 from .state_store import LiteState, Station, StationList, StateStore
 
@@ -114,6 +127,22 @@ def format_time(seconds: float | None) -> str:
     if minutes:
         return f"{minutes} min {secs} s"
     return f"{secs} s"
+
+
+def player_time_label(position: float | None, duration: float | None) -> str:
+    """Etykieta czasu w oknie odtwarzacza, dokladnie jak w oryginale.
+
+    ``MainWindow.xaml.cs:2643-2647``: gdy czas trwania jest znany, tekst to
+    ``{pozycja} z {calosc}`` w formacie ``FormatTime`` (czyli ``m:ss``); gdy
+    nie jest -- sama pozycja; a bez odtwarzania zdanie "Stan czasu nieznany".
+    Wariant wx mial tu wlasny format ("30 s / 3 min 51 s"), wiec ten sam ekran
+    wygladal inaczej niz w AMC.
+    """
+    if position is None:
+        return "Stan czasu nieznany"
+    if duration:
+        return f"{format_clock(position)} z {format_clock(duration)}"
+    return format_clock(position)
 
 
 #: Komunikat Ctrl+C. ``MainWindow.xaml.cs:24372``. Byl zmierzony jako
@@ -770,6 +799,9 @@ class LiteFrame(wx.Frame):
         # Uklad rozstrzygamy RAZ: ten sam obiekt decyduje tez o tym, czy host
         # dostanie zgode na zapis kolejki (patrz _queue_persistence_arguments).
         self.layout = resolve_layout()
+        # Przelaczniki komunikatow i czas wlasny z PRAWDZIWEGO profilu AMC.
+        # Tylko odczyt: wlascicielem state.json zostaje host C#.
+        self.messages: MessagePolicy = load_message_policy(self.layout)
         self.radio = RadioSource(self.layout)
         self._radio_snapshot = self.radio.load()
         self.stations = self._radio_snapshot.list
@@ -858,11 +890,14 @@ class LiteFrame(wx.Frame):
             style=wx.SL_HORIZONTAL | wx.SL_LABELS,
         )
         self.volume_slider.SetName("Glosnosc")
+        # Zakres suwaka = konce drabiny silnika: DemoMediaSession.cs:11
+        # daje 0,50 .. 2,00. Suwak nie moze obiecywac wiecej niz silnik robi.
         self.rate_slider = wx.Slider(
-            self.player_panel, value=int(self.options.rate * 100), minValue=50, maxValue=200,
+            self.player_panel, value=int(round(self.options.rate * 100)),
+            minValue=int(PLAYBACK_RATE_MIN * 100), maxValue=int(PLAYBACK_RATE_MAX * 100),
             style=wx.SL_HORIZONTAL | wx.SL_LABELS,
         )
-        self.rate_slider.SetName("Tempo w procentach")
+        self.rate_slider.SetName("Predkosc odtwarzania w procentach")
 
         player_sizer = wx.BoxSizer(wx.VERTICAL)
         for control, flag in (
@@ -871,7 +906,7 @@ class LiteFrame(wx.Frame):
             (self.play_button, 0),
             (wx.StaticText(self.player_panel, label="&Glosnosc:"), 0),
             (self.volume_slider, 0),
-            (wx.StaticText(self.player_panel, label="&Tempo:"), 0),
+            (wx.StaticText(self.player_panel, label="&Predkosc:"), 0),
             (self.rate_slider, 0),
         ):
             player_sizer.Add(control, flag, wx.ALL | wx.EXPAND, 6)
@@ -1594,16 +1629,13 @@ class LiteFrame(wx.Frame):
             self._play_pause()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
-        elif action in (
-            Action.SEEK_BACK_10, Action.SEEK_FORWARD_10,
-            Action.SEEK_BACK_60, Action.SEEK_FORWARD_60,
-        ):
-            self._seek({
-                Action.SEEK_BACK_10: -10.0,
-                Action.SEEK_FORWARD_10: 10.0,
-                Action.SEEK_BACK_60: -60.0,
-                Action.SEEK_FORWARD_60: 60.0,
-            }[action])
+        elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
+            # Krok czyta parytet transportu: 10 / 30 / 60 s i czas z ustawien
+            # AMC (MainWindow.xaml.cs:21583-21590, 22387-22394). Wartosc
+            # wlasna bierzemy z profilu, nie z twardej liczby.
+            self._seek(float(step))
+        elif (percent := seek_percent_value(action)) is not None:
+            self._seek_percent(percent)
         elif action in (
             Action.VOLUME_UP_5, Action.VOLUME_DOWN_5,
             Action.VOLUME_UP_1, Action.VOLUME_DOWN_1,
@@ -1613,13 +1645,17 @@ class LiteFrame(wx.Frame):
                 Action.VOLUME_UP_1: 1, Action.VOLUME_DOWN_1: -1,
             }[action])
         elif action is Action.RATE_UP:
-            self._set_rate(self.options.rate + 0.1)
+            # Drabina predkosci z oryginalu, nie plaskie +/- 0,1
+            # (MainWindow.xaml.cs:16090-16115).
+            self._set_rate(next_playback_rate(self.options.rate, +1))
         elif action is Action.RATE_DOWN:
-            self._set_rate(self.options.rate - 0.1)
+            self._set_rate(next_playback_rate(self.options.rate, -1))
         elif action is Action.RATE_RESET:
             self._set_rate(1.0)
         elif action in (Action.TIME_ELAPSED, Action.TIME_REMAINING, Action.TIME_TOTAL):
             self._announce_time(action)
+        elif action is Action.TOGGLE_SEEK_MESSAGES:
+            self._toggle_seek_messages()
         elif action is Action.OPEN_FOLDER_DIALOG:
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
@@ -2145,11 +2181,58 @@ class LiteFrame(wx.Frame):
         self.runner.submit(
             "transport",
             lambda: client.seek_by(delta),
-            lambda payload: self.announcer.say(
-                format_time((payload or {}).get("positionSeconds"))
-            ),
+            # Oryginal pyta najpierw o przelaczniki: CommandRouter.cs:534-539
+            # sprawdza Messages.SeekMessages, a dla strzalek dodatkowo
+            # ArrowSeekMessages -- i DOPIERO wtedy formatuje czas. Dostarczona
+            # wersja mowila bezwarunkowo, dlatego strzalki gadaly non stop.
+            lambda payload: self._announce_seek(payload),
             lambda error: self.announcer.say(f"Nie moge przewinac: {error}"),
         )
+
+    def _announce_seek(self, payload: dict | None) -> None:
+        """Komunikat po przewinieciu -- tylko jesli ustawienia na to pozwalaja."""
+        text = self.messages.arrow_seek_text((payload or {}).get("positionSeconds"))
+        if text is not None and self.messages.speaks_routine:
+            self.announcer.say(text)
+
+    def _seek_percent(self, percent: int) -> None:
+        """Skok procentowy (gole cyfry 0..9) -- wlasna rodzina przelacznikow.
+
+        CommandRouter.cs:545-560 trzyma dla procentow OSOBNE przelaczniki
+        (PercentageSeekMessages / PercentageSeekAnnouncement), wiec NIE
+        dziedzicza one po polityce strzalek.
+        """
+        client = self.client
+        if client is None:
+            return
+        duration = self._last_status.get("durationSeconds")
+        if not isinstance(duration, (int, float)) or duration <= 0:
+            # cs:546-551 -- brak czasu trwania to blad wykonania, mowiony
+            # ZAWSZE, bo inaczej gest wygladalby na niedzialajacy.
+            text = self.messages.percent_seek_text(
+                percent, position_seconds=None, duration_seconds=None
+            )
+            if text is not None:
+                self.announcer.say(text)
+            return
+        target = float(duration) * percent / 100.0
+        self.runner.submit(
+            "transport",
+            lambda: client.seek_to_position(target),
+            lambda payload: self._announce_seek_percent(percent, payload, float(duration)),
+            lambda error: self.announcer.say(f"Nie moge przewinac: {error}"),
+        )
+
+    def _announce_seek_percent(
+        self, percent: int, payload: dict | None, duration: float
+    ) -> None:
+        text = self.messages.percent_seek_text(
+            percent,
+            position_seconds=(payload or {}).get("positionSeconds"),
+            duration_seconds=duration,
+        )
+        if text is not None and self.messages.speaks_routine:
+            self.announcer.say(text)
 
     def _adjust_volume(self, delta: int) -> None:
         self._set_volume(self.options.volume + delta)
@@ -2158,16 +2241,24 @@ class LiteFrame(wx.Frame):
         value = max(0, min(100, int(value)))
         self.options.volume = value
         self.volume_slider.SetValue(value)
-        self.announcer.say(f"Glosnosc {value}")
+        # Glosnosc tez ma swoj przelacznik (CommandRouter.cs:566-575) i swoj
+        # szablon "{value}%" -- nie wlasne zdanie "Glosnosc 70".
+        text = self.messages.volume_text(value)
+        if text is not None and self.messages.speaks_routine:
+            self.announcer.say(text)
         client = self.client
         if client is not None:
             self.runner.submit("volume", lambda: client.set_volume(value), lambda _p: None, lambda _e: None)
 
     def _set_rate(self, value: float) -> None:
-        value = max(0.5, min(2.0, round(float(value), 2)))
+        # Przyciecie jak SetPlaybackRate (DemoMediaSession.cs:381): do
+        # NAJBLIZSZEGO szczebla drabiny, nie do dowolnej wartosci z suwaka.
+        value = clamp_playback_rate(value)
         self.options.rate = value
-        self.rate_slider.SetValue(int(value * 100))
-        self.announcer.say(f"Tempo {int(value * 100)} procent")
+        self.rate_slider.SetValue(int(round(value * 100)))
+        # Format jak w oryginale: "1,25x" (MainWindow.xaml.cs:16122), a nie
+        # "Tempo 125 procent".
+        self.announcer.say(format_playback_rate(value))
         client = self.client
         if client is not None:
             self.runner.submit("rate", lambda: client.set_rate(value), lambda _p: None, lambda _e: None)
@@ -2181,18 +2272,33 @@ class LiteFrame(wx.Frame):
         event.Skip()
 
     def _announce_time(self, action: Action) -> None:
+        """Czas na zadanie: Ctrl+Shift+E / R / T.
+
+        To komenda WPROST od uzytkownika, wiec oryginal NIE filtruje jej
+        przelacznikami przewijania -- CommandRouter.cs:325-335 idzie prosto do
+        AnnounceTemplate. Domyslny szablon to sam czas, bez slowa "Minelo":
+        release .383 pokazuje "3:51". Slowo pojawia sie tylko wtedy, gdy
+        uzytkownik sam wpisal je do szablonu w ustawieniach AMC.
+        """
         status = self._last_status
-        position = status.get("positionSeconds")
-        duration = status.get("durationSeconds")
-        if action is Action.TIME_ELAPSED:
-            self.announcer.say(f"Minelo {format_time(position)}")
-        elif action is Action.TIME_TOTAL:
-            self.announcer.say(f"Calosc {format_time(duration)}")
-        else:
-            if isinstance(position, (int, float)) and isinstance(duration, (int, float)) and duration > 0:
-                self.announcer.say(f"Pozostalo {format_time(duration - position)}")
-            else:
-                self.announcer.say("Czas pozostaly nieznany")
+        text = time_announcement(
+            action,
+            self.messages,
+            position=status.get("positionSeconds"),
+            duration=status.get("durationSeconds"),
+        )
+        if text is not None:
+            self.announcer.say(text)
+
+    def _toggle_seek_messages(self) -> None:
+        """Ctrl+Shift+G -- przelacznik komunikatow przewijania.
+
+        We wspolnym profilu wlascicielem state.json jest host C#, wiec gest
+        nie zapisuje nic po cichu: mowi, gdzie te opcje zmienic. Martwe pole
+        byloby gorsze od braku pola.
+        """
+        result = self.messages.toggle_seek_messages()
+        self.announcer.say(result.message)
 
     # ------------------------------------------------------------- status
 
@@ -2212,7 +2318,7 @@ class LiteFrame(wx.Frame):
             self._last_status = payload
             position = payload.get("positionSeconds")
             duration = payload.get("durationSeconds")
-            label = f"{format_time(position)} / {format_time(duration)}"
+            label = player_time_label(position, duration)
             # Odswiezamy etykiete tylko gdy TEKST sie zmienil - inaczej
             # czytnik ekranu dostawalby zmiane co sekunde bez potrzeby.
             if self.time_label.GetLabel() != label:

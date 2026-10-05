@@ -22,11 +22,18 @@ def test_tab_is_never_intercepted() -> None:
 def test_arrows_in_player_view_control_seek_and_volume() -> None:
     # W widoku odtwarzacza nie ma po czym chodzic, wiec strzalki przejmuja
     # role z profilu globalnego AMC (KeyboardProfile.cs:57-66).
+    #
+    # POPRAWKA PARYTETU: wiersz Shift = 60 s pochodzil z KeyboardProfile.cs:63-66,
+    # czyli z profilu czytanego PO AKORDZIE PREFIKSU. Warstwa OKNA ma inne
+    # kroki (MainWindow.xaml.cs:21585-21590, 22389-22394): Shift = 30 s,
+    # Ctrl = 60 s, Ctrl+Alt = czas z ustawien. Ten test kodowal dawne,
+    # nieprawdziwe wymaganie, wiec zostaje odwrocony na wymaganie oryginalu,
+    # a nie usuniety. Pelny zestaw par sprawdza test_transport_parity.
     cases = {
         ("Left", False): Action.SEEK_BACK_10,
         ("Right", False): Action.SEEK_FORWARD_10,
-        ("Left", True): Action.SEEK_BACK_60,
-        ("Right", True): Action.SEEK_FORWARD_60,
+        ("Left", True): Action.SEEK_BACK_30,
+        ("Right", True): Action.SEEK_FORWARD_30,
         ("Up", False): Action.VOLUME_UP_5,
         ("Down", False): Action.VOLUME_DOWN_5,
         ("Up", True): Action.VOLUME_UP_1,
@@ -34,6 +41,9 @@ def test_arrows_in_player_view_control_seek_and_volume() -> None:
     }
     for (key, shift), expected in cases.items():
         assert resolve(Chord(key, shift=shift), player_view=True, radio_session=False) is expected
+    # 60 s nie znika z programu -- przenosi sie pod Ctrl, zgodnie z oryginalem.
+    assert resolve(Chord("Left", ctrl=True), player_view=True, radio_session=False) is Action.SEEK_BACK_60
+    assert resolve(Chord("Right", ctrl=True), player_view=True, radio_session=False) is Action.SEEK_FORWARD_60
 
 
 def test_space_is_play_pause_in_both_views() -> None:
