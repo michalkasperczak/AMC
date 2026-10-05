@@ -42,6 +42,15 @@ class MenuItem:
     action: Action | None = None
     builtin: str | None = None
     shortcut: str | None = None
+    #: Czy ``shortcut`` wolno oddac wx jako AKCELERATOR (tekst po ``\t``).
+    #:
+    #: Domyslnie tak. Dla GOLYCH klawiszy edycji (Backspace, Spacja, Delete)
+    #: musi byc ``False``: wx robi z takiego podpisu akcelerator na poziomie
+    #: OKNA, ktory ma pierwszenstwo przed kontrolka z fokusem i POLYKA klawisz
+    #: w polu filtra. Zmierzone na zywym GUI (final-recovery, plan D):
+    #: Backspace nie kasowal znaku, tylko wynosil uzytkownika o poziom wyzej.
+    #: Sam skrot dziala dalej -- obsluguja go tablice w ``shortcuts``.
+    accelerator: bool = True
     #: Wylaczana poza sesja radiowa, zamiast udawac, ze zadziala.
     needs_radio_session: bool = False
     #: Wymaga czegos grajacego (transport, pytanie o czas).
@@ -84,7 +93,8 @@ def build_menus() -> tuple[Menu, ...]:
             # Wyjscie z widoku nie potrzebuje zaznaczenia: ``go_to_parent``
             # w nazwanym widoku woli ``_leave_library_view`` jeszcze przed
             # szukaniem wiersza rodzica.
-            MenuItem("Folder &nadrzędny", Action.PARENT_FOLDER, shortcut="Back"),
+            MenuItem("Folder &nadrzędny", Action.PARENT_FOLDER, shortcut="Back",
+                     accelerator=False),
             SEPARATOR,
             MenuItem("&Zakończ", builtin="quit"),
         ),
@@ -154,7 +164,7 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("&Zmień stację", Action.STATION_EDIT, shortcut="F2",
                      needs_radio_session=True),
             MenuItem("&Usuń stację", Action.STATION_DELETE, shortcut="Delete",
-                     needs_radio_session=True),
+                     accelerator=False, needs_radio_session=True),
             SEPARATOR,
             MenuItem("&Importuj M3U/PLS", Action.STATION_IMPORT, shortcut="Ctrl+I",
                      needs_radio_session=True),
@@ -165,7 +175,7 @@ def build_menus() -> tuple[Menu, ...]:
         "&Odtwarzanie",
         (
             MenuItem("&Pauza albo wznowienie", Action.PLAY_PAUSE, shortcut="Space",
-                     needs_playback=True),
+                     accelerator=False, needs_playback=True),
             SEPARATOR,
             MenuItem("Czas &miniony", Action.TIME_ELAPSED, shortcut="Ctrl+E",
                      needs_playback=True),

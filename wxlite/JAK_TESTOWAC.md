@@ -8,6 +8,39 @@ Bieżący odbiór mechanizmu wszystkich list: 562 testy, 0 błędów, 0 pominię
 
 Odbiór KOŃCOWY żywej kolejki (po scaleniu): **588 testów Pythona, 0 błędów, 0 pominięć** i **6/6 zestawów C#**. Z żywym NVDA zmierzono na nowym hoście (DLL `6FFF6BD0…`): Ctrl+Q na starcie oddaje zapis, Enter uruchamia kolejkę w porządku **B→A→C (nie alfabet)**, a pozostawiona OTWARTA lista sama usuwa zużyty wiersz po naturalnym przejściu i nie kradnie wyboru grającej pozycji. Po ostatnim utworze lista ma 0 pozycji (potwierdzone też kontrolką Win32 `LVM_GETITEMCOUNT=0`), czytnik mówi „Kolejka odtwarzania, pusto", a ponowny Ctrl+Q NIE wraca do starego zapisu. Transport na przebudowanym hoście: 22/22. Kwity: `live-queue-after-native-lists/final-integrated/`. Trwały pisarz profilu i dalszy pełny port pozostają poza tym etapem.
 
+## Filtr listy Ctrl+K: jak to sprawdzić na żywo
+
+Pełny Python po tym odbiorze: **649 testów, 0 błędów, 0 pominięć**
+(`search-filter-after-resume/final-recovery/full-python-final.log`).
+
+Staging i narzędzia (nie publikacja, nie instalacja):
+
+1. Skopiuj `wxlite/amc_wx_lite` do prywatnego stagingu i SPRAWDŹ `sha256sum` oraz
+   `gui.__file__` z kwitu, zanim cokolwiek orzekniesz — stary staging potrafi mieć
+   inny kod niż repo.
+2. Uruchom `launch-final.ps1 <nazwa-kwitu>`; kwit ląduje w `kwit-<nazwa>/`
+   (`probe.jsonl`, `snapshot.json`, `boot-stderr.txt`).
+3. Gesty: `gestures-final.ps1 <pid> <plan>`. Plany: `A` pisanie+Enter, `B` Escape,
+   `C` brak wyników, `D` Backspace w polu, `E` Down, `F` Radio, `H` Backspace NA LIŚCIE,
+   `I` filtr per widok, `J` dwa niezależne zapytania.
+4. Mowę czytaj z Podglądu mowy NVDA (`harness-nvda/read-speech-viewer.ps1`), zachowując
+   bufor PRZED gestami i porównując różnicę. `Announcer.say` z sondy NIE jest dowodem mowy.
+
+Czego wymagać od aparatury (sprawdzone tu na własnych błędach):
+
+- Bramka pierwszego planu musi zwracać TYLKO `bool` i logować osobno; `Write-Output`
+  przed `return` zwraca tablicę i `if (-not ...)` przepuszcza gest mimo braku fokusu.
+- `$pid` jest w PowerShellu tylko do odczytu — użyj innej nazwy (`$fgPid`).
+- Owijka sondy MUSI przekazywać `*args/**kwargs`, inaczej zgubi nowy parametr metody
+  i zdarzenie w ogóle się nie zaloguje.
+- Nie owijaj tej samej metody dwa razy w jednej instalacji sondy — drugie owinięcie
+  nadpisuje pierwsze i zdarzenia milkną.
+
+Ograniczenie zmierzone, nie naprawione: przy szybkim wpisywaniu przez `SendKeys`
+pierwszy znak serii bywa gubiony przez samą aparaturę (plan J: wysłane `bo`,
+dotarło `o`). To artefakt wysyłki gestów, nie filtra — wynik czytaj z `filter.text`
+w kwicie, a nie z zamierzonego napisu.
+
 ## Domknięcie żywej kolejki
 
 Nadrzędny kwit `live-queue-after-native-lists/parent-speech-full-profile/`: pełna kopia 11200→11203 pliki, 5000 zakładek zachowanych, naturalne B→A→C z C zaznaczonym jeszcze podczas B. Natywne/model 3→2→1→0, stały fokus, ponowne Ctrl+Q nadal puste. Mowa z rzeczywistego Podglądu mowy; `Announcer.say` sam w sobie jej nie dowodzi. Kod wykonawczy 38d931e, host DLL 6fff6bd0…, bez kolejnych zmian produkcyjnych w tym odbiorze.

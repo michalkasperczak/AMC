@@ -75,16 +75,47 @@ class FakeTextEvent:
         pass
 
 
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def focus_on(control):
+    """Ustawia to, co ``wx.Window.FindFocus()`` zwroci bramce CHAR_HOOK.
+
+    Atrapa wx z ``test_gui_logic`` daje ``wx.Window`` jako ``_Any``, wiec
+    ``FindFocus()`` zwracalo obiekt-cokolwiek i bramka fokusu NIGDY nie
+    trafiala w pole filtra -- test nie moglby jej zmierzyc.
+    """
+    import wx
+
+    previous = getattr(wx.Window, "FindFocus", None)
+    wx.Window.FindFocus = staticmethod(lambda: control)
+    try:
+        yield
+    finally:
+        if previous is None:
+            del wx.Window.FindFocus
+        else:
+            wx.Window.FindFocus = previous
+
+
 class FakeKeyEvent:
     def __init__(self, code: int) -> None:
         self._code = code
         self.skipped = False
+        #: Ile razy kod poprosil wx o NORMALNE doreczenie klawisza do
+        #: kontrolki z fokusem. To jedyna droga z ``EVT_CHAR_HOOK``, ktora
+        #: pomija akceleratory menu.
+        self.allowed_next = 0
 
     def GetKeyCode(self) -> int:  # noqa: N802 - API wx
         return self._code
 
     def Skip(self) -> None:  # noqa: N802 - API wx
         self.skipped = True
+
+    def DoAllowNextEvent(self) -> None:  # noqa: N802 - API wx
+        self.allowed_next += 1
 
 
 class FakeSession:
@@ -136,7 +167,8 @@ class FakeFrame:
         for name in ("_focus_filter", "_on_filter_text", "_on_filter_key",
                      "_apply_filter_to_list", "_focus_filter_results",
                      "_clear_filter_and_return", "_set_filter_text",
-                     "_restore_filter_for_current_view"):
+                     "_restore_filter_for_current_view",
+                     "_on_player_shortcut_hook"):
             setattr(self, name, getattr(gui.LiteFrame, name).__get__(self, FakeFrame))
         self.filter_box.on_text = self._on_filter_text
 
@@ -245,6 +277,65 @@ def test_bramka_CHAR_HOOK_oddaje_pole_filtra_jego_wlasnej_obsludze():
     assert "_on_filter_key" in hook, (
         "CHAR_HOOK nie kieruje klawiszy pola do jego wlasnej obslugi"
     )
+
+
+def test_backspace_w_polu_NIE_moze_isc_do_akceleratora_menu():
+    """Regresja ZMIERZONA na zywym GUI (final-recovery, plan D + exp-accel).
+
+    Sonda: ``filter.key ... key=8`` wystapil TYLKO RAZ (kazdy inny klawisz
+    pola loguje sie DWA razy: z ``EVT_CHAR_HOOK`` i z ``EVT_KEY_DOWN``
+    kontrolki), tekst filtra ZOSTAL "kaz" (znak nieusuniety), a NVDA
+    powiedzial "To jest folder najwyzszego poziomu" (navigation.py:542).
+
+    Przyczyna NIE jest brakiem bramki CHAR_HOOK (ta dziala) i NIE da sie jej
+    naprawic po stronie obslugi klawiszy: sprawdzone na zywo, oddanie
+    klawisza przez ``DoAllowNextEvent()`` NIC nie zmienilo -- akcelerator
+    menu jest szybszy od CALEJ obslugi okna.
+
+    Prawdziwa przyczyna: etykieta "Folder &nadrzędny\\tBackspace" kazala wx
+    zbudowac AKCELERATOR NA POZIOMIE OKNA. Kontrdowod (plan exp-accel): po
+    zdjeciu tego JEDNEGO akceleratora Backspace w polu skasowal znak
+    ("kaz" -> "ka", wyniki 1 -> 2, ``key=8`` zalogowany DWA razy), a plan H
+    pokazal, ze Backspace NA LISCIE nadal wychodzi do folderu nadrzednego.
+
+    Dlatego test pilnuje MODELU MENU, nie obslugi klawiszy.
+    """
+    from amc_wx_lite import menu_model
+
+    items = [
+        item
+        for menu in menu_model.build_menus()
+        for item in menu.items
+        if not item.is_separator
+    ]
+    parent = [i for i in items if i.action is Action.PARENT_FOLDER]
+    assert parent, "zniknela pozycja 'Folder nadrzedny'"
+    for item in parent:
+        # Skrot ZOSTAJE widoczny dla uzytkownika...
+        assert item.shortcut == "Back"
+        # ...ale nie wolno go oddac wx jako akceleratora okna.
+        assert not item.accelerator, (
+            "Backspace w menu jest akceleratorem okna, wiec polknie klawisz "
+            "w polu filtra"
+        )
+
+
+def test_skroty_edycji_zostaja_WIDOCZNE_choc_nie_sa_akceleratorami():
+    """Zdjecie akceleratora nie moze ukryc skrotu przed niewidomym.
+
+    Pozycja musi dalej MOWIC, jakim klawiszem ja wywolac -- inaczej naprawa
+    jednego problemu zabralaby uzytkownikowi wiedze o skrocie.
+    """
+    import inspect
+
+    import amc_wx_lite.gui as gui
+
+    source = inspect.getsource(gui.LiteFrame._build_menu)
+    assert "entry.accelerator" in source, (
+        "budowa menu nie rozroznia podpisu skrotu od akceleratora"
+    )
+    # Skrot bez akceleratora ma trafic do NAZWY pozycji, nie zniknac.
+    assert '({text})' in source or '(\" + text' in source or "({text})" in source
 
 
 def test_po_starcie_fokus_jest_NA_LISCIE_a_nie_w_polu_filtra():

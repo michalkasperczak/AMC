@@ -937,7 +937,16 @@ class LiteFrame(wx.Frame):
                     continue
                 label = entry.label
                 if entry.shortcut:
-                    label = f"{label}\t{self._menu_shortcut_text(entry.shortcut)}"
+                    text = self._menu_shortcut_text(entry.shortcut)
+                    if entry.accelerator:
+                        label = f"{label}\t{text}"
+                    else:
+                        # BEZ tabulatora: wx zrobilby z tego akcelerator na
+                        # poziomie okna, ktory polyka klawisz w polu filtra
+                        # (zmierzone: Backspace nie kasowal znaku, tylko
+                        # wychodzil o poziom wyzej). Skrot ZOSTAJE widoczny i
+                        # czytany przez czytnik -- jako czesc nazwy pozycji.
+                        label = f"{label} ({text})"
                 identifier = wx.ID_EXIT if entry.builtin == "quit" else wx.ID_ANY
                 item = native.Append(identifier, label)
                 self._menu_items.append((item, entry))

@@ -74,10 +74,40 @@ Zdane:
 
 Puste listy, podwójny odczyt i stare nazwy zostały odebrane po zmianie wspólnego mechanizmu list w `14bcc285`; dawne kwity powyżej nie otwierają ich ponownie. `library_view=None` oznacza poprawny widok Folderów, nie brak implementacji. Aktualne dowody wskazują początkowe sekcje tej mapy oraz `native-w02-valid-retest-after422/parent-final/`.
 
+## Filtr listy (Ctrl+K) — odebrany na żywym GUI i NVDA
+
+Skrót jest lokalny dla widoku (`Ctrl+K`, nie `Ctrl+F`). Odebrane na pełnej kopii profilu
+(2478 pozycji „Wszystkie pliki", 13 folderów, 165 stacji) w `search-filter-after-resume/final-recovery/`,
+mowa czytana z Podglądu mowy NVDA, nie z `Announcer.say`:
+
+- Start: fokus na LIŚCIE, nie w polu (`filterBoxHasFocus=false` w kwicie).
+- `Ctrl+K` → „Filtr listy"; pisanie oznajmia „Wyniki filtrowania: N" (2478 → 1672 → 577 → 301).
+- `Enter`/`Down` z pola oddaje fokus WYNIKOM; `Escape` czyści filtr („Filtr wyczyszczony") i wraca na listę.
+- Brak wyników: fokus ZOSTAJE w polu i czytnik mówi odmowę
+  („Brak wyników filtrowania. Zmień tekst lub naciśnij Escape, aby wyczyścić filtr").
+- Wybór przechodzący przez filtr zostaje (plan A/E: „Kazania Dominikanie Grobla … 1 z 1").
+- Filtr jest własnością WIDOKU: Foldery trzymały `o`, „Wszystkie pliki" trzymały `kaz`
+  i każdy widok wracał do SWOJEGO tekstu (plan J, `filter.restore` z kontekstem).
+- Radio (165 stacji) i widoki Biblioteki idą TĄ SAMĄ ścieżką — bez drugiego silnika.
+
+ZMIERZONY i naprawiony w tym odbiorze defekt: `Backspace` w polu filtra nie kasował znaku,
+tylko wychodził o poziom wyżej („To jest folder najwyzszego poziomu", `navigation.py:542`).
+Przyczyną NIE była bramka klawiszy — ta działa. Pozycja menu „Folder nadrzędny" miała
+etykietę z `\tBack`, z czego wx budował AKCELERATOR OKNA, szybszy od kontrolki z fokusem.
+Oddanie klawisza przez `DoAllowNextEvent()` nic nie zmieniło (sprawdzone na żywo i wycofane).
+Naprawa: `MenuItem.accelerator=False` dla `Back`, `Space` i `Delete` — skrót zostaje WIDOCZNY
+w nazwie pozycji (czytnik go mówi), ale nie jest akceleratorem. Kontrdowód: `Backspace`
+NA LIŚCIE nadal wychodzi do folderu nadrzędnego. Efekt uboczny: zniknęło ostrzeżenie
+„Unrecognized accel key 'Spacja'" (puste `boot-stderr.txt`).
+
+Granica, której NIE sprawdzono: równoważność `casefold()` z `CurrentCultureIgnoreCase`
+dla całego Unicode nie jest dowiedziona. Zmierzone są zwykłe polskie znaki; nie dopisywano
+własnej normalizacji diakrytyków.
+
 ## Najbliższe braki
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
-- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
+- Dalsze widoki Biblioteki i wyszukiwanie. Filtr listy `Ctrl+K` jest odebrany (sekcja wyżej). Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
 - ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.

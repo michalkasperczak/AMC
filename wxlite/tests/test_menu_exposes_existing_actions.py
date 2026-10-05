@@ -40,6 +40,38 @@ def test_every_command_item_carries_an_action_that_already_exists() -> None:
         assert isinstance(item.action, Action), item.label
 
 
+def test_pozycje_menu_NIE_moga_miec_golego_akceleratora_klawisza_edycji() -> None:
+    """Regresja ZMIERZONA na zywym GUI (final-recovery, plany D i exp-accel).
+
+    Menu mialo "Folder &nadrzędny\\tBackspace". wx sklada z tekstu po
+    tabulatorze AKCELERATOR NA POZIOMIE OKNA, ktory ma pierwszenstwo przed
+    kontrolka z fokusem. Skutek zmierzony sonda i NVDA: Backspace w polu
+    filtra NIE usuwal znaku (tekst zostal "kaz"), a czytnik mowil "To jest
+    folder najwyzszego poziomu" -- poprawianie zapytania wynosilo
+    niewidomego uzytkownika z widoku.
+
+    Kontrdowod (plan exp-accel): po zdjeciu TEGO JEDNEGO akceleratora
+    Backspace w polu kasuje znak ("kaz" -> "ka", wyniki 1 -> 2, sonda loguje
+    ``key=8`` DWA razy), a plan H pokazal, ze Backspace NA LISCIE nadal
+    wychodzi do folderu nadrzednego -- bo nawigacja idzie z tablic
+    ``shortcuts.LIST_VIEW``, nie z akceleratora menu.
+
+    Dlatego pozycja menu, ktorej skrot jest GOLYM klawiszem uzywanym do
+    EDYCJI TEKSTU, nie moze pokazywac tego skrotu jako akceleratora. Sam
+    skrot dziala dalej -- obsluguja go tablice skrotow.
+    """
+    # Klawisze, ktore w polu tekstowym SA edycja, a nie poleceniem.
+    edycja = {"Back", "Space", "Delete"}
+    winne = [
+        item.label for item in all_items()
+        if item.shortcut and item.shortcut in edycja and item.accelerator
+    ]
+    assert not winne, (
+        "te pozycje menu tworza goly akcelerator na klawiszu edycji i "
+        f"polykaja go w polu filtra: {winne}"
+    )
+
+
 def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     """Menu nie moze obiecywac skrotu, ktorego nie ma w tablicach skrotow.
 
