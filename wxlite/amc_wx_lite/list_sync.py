@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from .list_model import ListModel
+from . import list_filter
 
 #: Liczba kolumn listy. ZACHOWANA bez zmian: "Nazwa", "Rodzaj", "Szczegoly".
 COLUMN_COUNT = 3
@@ -79,13 +80,29 @@ class SetField:
 ListOp = DeleteRow | InsertRow | SetField
 
 
-def model_row_texts(model: ListModel) -> list[RowText]:
+def model_row_texts(model: ListModel, query: str | None = None) -> list[RowText]:
     """Zadany stan listy wyliczony z ISTNIEJACEGO modelu.
 
     Teksty bierzemy z ``ListModel.text_for`` -- dokladnie tej funkcji, ktora
     wczesniej obslugiwala ``OnGetItemText``. Semantyka kolumn, pomijanie
     powtorzen i slowa rodzaju zostaja bez zmian; zmienia sie tylko to, KIEDY
     tekst trafia do kontrolki (raz przy zmianie, nie przy kazdym malowaniu).
+
+    ``query`` to FILTR LISTY (``ApplyFilter``, ``MainWindow.xaml.cs:13762``).
+    Pusty albo ``None`` nie zmienia niczego -- wynik jest bit w bit taki jak
+    przed dodaniem filtra, wiec istniejace widoki i kolejka nie zauwazaja
+    roznicy. Przy niepustym zapytaniu odpadaja wiersze NIEDOPASOWANE, a te,
+    ktore zostaja, zachowuja swoja kolejnosc i swoje ``item_id``.
+
+    Filtrujemy TUTAJ, w wyliczaniu stanu zadanego, a nie w modelu. Powod jest
+    zasadniczy: model pozostaje PELNYM zbiorem (``selected_id``, kolejka,
+    trwala kolejnosc i checkpointy licza sie wzgledem calosci), a filtr jest
+    wylacznie wlasciwoscia WIDOKU. Dzieki temu wyczyszczenie filtra oddaje
+    cala liste bez ponownego wczytywania danych, a ``plan_row_updates`` widzi
+    zwezenie jak kazda inna zmiane -- ta sama droga, bez drugiego mechanizmu.
+
+    ``text_for`` wolamy z PRAWDZIWYM indeksem wiersza w modelu, zeby kolumny
+    byly liczone dokladnie tak jak bez filtra.
     """
     return [
         RowText(
@@ -93,6 +110,7 @@ def model_row_texts(model: ListModel) -> list[RowText]:
             texts=tuple(model.text_for(index, column) for column in range(COLUMN_COUNT)),
         )
         for index, row in enumerate(model.rows)
+        if list_filter.row_is_visible(row, query)
     ]
 
 

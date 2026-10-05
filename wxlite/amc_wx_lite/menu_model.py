@@ -130,6 +130,19 @@ def build_menus() -> tuple[Menu, ...]:
                      needs_selection=True),
             MenuItem("Skopiuj &adres", Action.COPY_ADDRESS, shortcut="Ctrl+Shift+C",
                      needs_selection=True),
+            SEPARATOR,
+            # Oryginal ma te pozycje w TYM SAMYM menu co widoki Kolejka/
+            # Historia/Zakladki, po separatorze (MainWindow.xaml:490-491):
+            #   <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" />
+            # BEZ ``needs_selection``: filtr dziala takze na liscie, z ktorej
+            # nic nie jest zaznaczone, a wylaczona pozycja menu polykalaby
+            # akcelerator (czytnik mowilby wtedy "niedostepne" bez powodu).
+            #
+            # Sasiednich pozycji oryginalu "Szukaj w bieżącej usłudze" (Ctrl+F)
+            # i "Szukaj globalnie" (Ctrl+Shift+F) tu NIE MA: to zapytania do
+            # ZDALNEJ uslugi, ktorych ten port jeszcze nie ma. Martwa pozycja
+            # menu byla by obietnica bez pokrycia.
+            MenuItem("Fi&ltruj listę", Action.FOCUS_FILTER, shortcut="Ctrl+K"),
         ),
     )
 

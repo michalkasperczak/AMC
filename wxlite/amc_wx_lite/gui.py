@@ -35,6 +35,7 @@ from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from . import list_sync
+from . import list_filter
 from .list_model import (
     ListModel,
     Row,
@@ -379,6 +380,10 @@ class MediaListCtrl(wx.ListCtrl):
         #: synchronizowano. Zapowiedz pustki nalezy do PRZEJSCIA do zera
         #: wierszy; bez tego tick statusu powtarzalby ja przy kazdym przebiegu.
         self._was_empty: bool | None = None
+        #: TEKST FILTRA obowiazujacy dla tej listy. Ustawia go okno przed
+        #: ``sync_rows`` (jedno pole dla wszystkich list, jak ``FilterBox``).
+        #: Pusty = zachowanie dokladnie takie jak przed dodaniem filtra.
+        self.filter_query: str = ""
         # Nazwa dla czytnika ekranu i Narratora.
         self.SetName(label)
         # Bez tego nazwa wyzej NIE dociera do MSAA (zmierzone -- patrz
@@ -395,7 +400,7 @@ class MediaListCtrl(wx.ListCtrl):
         na miejscu, nie wolamy nawet ``Freeze`` -- bo zamrozenie kontrolki tez
         jest operacja na kontrolce.
         """
-        desired = list_sync.model_row_texts(self.model)
+        desired = list_sync.model_row_texts(self.model, self.filter_query)
         ops = list_sync.plan_row_updates(self._shown, desired)
         # TOZSAMOSC WIDOKU, ktory wlasnie mamy pokazac. Potrzebna, bo pelna
         # podmiana listy nalezy do ZMIANY WIDOKU, a nie do zmiany danych w nim.
@@ -606,12 +611,38 @@ class MediaListCtrl(wx.ListCtrl):
         ZAZNACZENIE i SKUPIONY WIERSZ to osobne wlasciwosci: pytamy o oba.
         Dawna ``sync_selection`` patrzyla tylko na ``GetFirstSelected``, wiec
         rozjazd fokusu po usunieciu wiersza zostawal nienaprawiony.
+
+        PRZY AKTYWNYM FILTRZE indeks z modelu NIE jest indeksem w kontrolce:
+        lista pokazuje tylko wiersze dopasowane. Pozycje liczymy wiec z
+        ``_shown`` (czyli ze stanu, ktory kontrolka NAPRAWDE ma) po
+        ``item_id`` wybranego wiersza -- ta sama zasada "wybor po ID, nie po
+        pozycji", ktora rzadzi calym mechanizmem list i ktorej uzywa oryginal
+        (``ResolveListSelectionIndex``, ``MainWindowNavigationPolicy.cs:101``).
+        Gdy wybrany wiersz WYPADL z wyniku filtra, nie wymyslamy zastepnika:
+        oddajemy ``None``, a kontrolka zostawia kursor tam, gdzie jest.
         """
         return list_sync.plan_cursor(
-            wanted=self.model.selected_index,
+            wanted=self._wanted_visible_index(),
             selected=self.GetFirstSelected(),
             focused=self.GetFocusedItem(),
         )
+
+    def _wanted_visible_index(self) -> int:
+        """Indeks wybranego wiersza W WIDOCZNEJ liscie albo -1.
+
+        Bez filtra jest to po prostu ``model.selected_index`` -- te same
+        liczby co przed ta zmiana, wiec zadna istniejaca droga sie nie rusza.
+        """
+        wanted = self.model.selected_index
+        if not self.filter_query:
+            return wanted
+        if wanted < 0:
+            return -1
+        selected_id = self.model.selected_id
+        for index, shown in enumerate(self._shown):
+            if shown.item_id == selected_id:
+                return index
+        return -1
 
     def _move_cursor(self, index: int) -> None:
         """Przestaw zaznaczenie i fokus, ustawiajac TYLKO brakujace bity.
@@ -655,6 +686,21 @@ class MediaListCtrl(wx.ListCtrl):
         target = self._cursor_target()
         if target is not None:
             self._move_cursor(target)
+
+    def shown_item_id(self, index: int) -> str | None:
+        """``item_id`` wiersza, ktory kontrolka POKAZUJE pod tym indeksem.
+
+        Jedyne poprawne tlumaczenie pozycji z kontrolki na tozsamosc danej,
+        gdy filtr zweza liste. ``None`` dla indeksu poza zakresem -- wx potrafi
+        zapytac o wiersz w trakcie zmiany dlugosci listy.
+        """
+        if 0 <= index < len(self._shown):
+            return self._shown[index].item_id
+        return None
+
+    def visible_count(self) -> int:
+        """Liczba wierszy POKAZANYCH teraz. Zrodlo liczby do statusu filtra."""
+        return len(self._shown)
 
 
 class StationDialog(wx.Dialog):
@@ -751,6 +797,30 @@ class LiteFrame(wx.Frame):
 
         # --- widok listy
         self.list_panel = wx.Panel(self.panel)
+        # POLE FILTRA. JEDNO, wspolne dla kazdej listy -- dokladnie jak
+        # ``FilterBox`` w oryginale (MainWindow.xaml:521-524), ktory stoi nad
+        # ``MediaList`` i obsluguje wszystkie widoki. Nie ma osobnej kontrolki
+        # na sesje ani na widok: filtrowana jest ta lista, ktora jest WIDOCZNA.
+        #
+        # Etykieta ``wx.StaticText`` z ``&F``: na Windows klawisz dostepu z
+        # etykiety przenosi fokus do NASTEPNEJ kontrolki w kolejnosci tabulacji,
+        # czyli do pola. Nazwa dostepna pola ustawiona osobno, bo czytnik czyta
+        # ``accName`` kontrolki, nie sasiedniego napisu.
+        self.filter_label = wx.StaticText(self.list_panel, label="&Filtruj liste:")
+        self.filter_box = wx.TextCtrl(self.list_panel)
+        self.filter_box.SetName("Filtruj liste")
+        #: Tekst filtra PER WIDOK (odpowiednik ``navigation.Filters``).
+        self.filter_state = list_filter.FilterState()
+        #: Kontekst widoku, dla ktorego pole JUZ pokazuje swoj tekst. Chroni od
+        #: zapisania cudzego filtra pod kluczem widoku, do ktorego wlasnie
+        #: wchodzimy: ``SetValue`` wysyla ``EVT_TEXT`` tak samo jak pisanie
+        #: uzytkownika, wiec bez tej bramki przywracanie filtra samo by go
+        #: nadpisywalo. ``_BRAK_KONTEKSTU``, bo ``None`` jest LEGALNYM
+        #: kontekstem (widok Folderow ma ``library_view=None``).
+        self._filter_context: object = _BRAK_KONTEKSTU
+        #: Czy TERAZ przywracamy tekst pola z zapisanego stanu. Wtedy zmiana
+        #: tekstu nie jest gestem uzytkownika i nie moze nic oglaszac.
+        self._restoring_filter = False
         self.files_list = MediaListCtrl(
             self.list_panel, self.navigator.sessions[SessionId.FILES].model, "Pliki lokalne",
             self.navigator.sessions[SessionId.FILES],
@@ -761,6 +831,8 @@ class LiteFrame(wx.Frame):
         )
         self.radio_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
+        list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
+        list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
         list_sizer.Add(self.files_list, 1, wx.EXPAND)
         list_sizer.Add(self.radio_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
@@ -928,9 +1000,166 @@ class LiteFrame(wx.Frame):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
             control.Bind(wx.EVT_KEY_DOWN, self._on_key)
+        # POLE FILTRA ma WLASNA obsluge klawiszy, nie ``_on_key``: w edycji
+        # litery naleza do pola, nie do skrotow. Odpowiednik bramki oryginalu
+        # ``if (Keyboard.FocusedElement is TextBox)`` z
+        # ``MainWindow.xaml.cs:21000`` -- tam rowniez tylko Enter/Down (i
+        # osobno Escape) sa przechwytywane, a reszta idzie do pola.
+        self.filter_box.Bind(wx.EVT_TEXT, self._on_filter_text)
+        self.filter_box.Bind(wx.EVT_KEY_DOWN, self._on_filter_key)
         self.play_button.Bind(wx.EVT_BUTTON, lambda _e: self._play_pause())
         self.volume_slider.Bind(wx.EVT_SLIDER, self._on_volume_slider)
         self.rate_slider.Bind(wx.EVT_SLIDER, self._on_rate_slider)
+
+    # -------------------------------------------------------------- filtr
+
+    def _focus_filter(self) -> None:
+        """Ctrl+K: fokus do pola filtra. Port ``FocusFilter`` (cs:22210-22220).
+
+        ``SelectAll`` jest z oryginalu i ma konkretny sens dla uzytkownika
+        czytnika: ponowne Ctrl+K zaznacza caly stary tekst, wiec pisanie go
+        zastepuje, a nie dokleja sie do niego po omacku.
+
+        Komunikat idzie przez ``announcer``, czyli te sama droga, ktora caly
+        port ma zmierzona na zywym NVDA. Mowimy KROTKO (\"Filtr listy\") -- tak
+        jak AMC z ``DetailedHints`` wylaczonymi; dluga podpowiedz oryginalu
+        wymaga przelacznika ustawien, ktorego port jeszcze nie ma.
+        """
+        if self.navigator.view is View.PLAYER:
+            # W odtwarzaczu nie ma listy do filtrowania. Mowimy o tym, zamiast
+            # po cichu przenosic fokus do pola schowanego pod panelem.
+            self.announcer.say("Filtr dziala na liscie, nie w odtwarzaczu")
+            return
+        self.filter_box.SetFocus()
+        self.filter_box.SelectAll()
+        self.announcer.say(list_filter.FILTER_ENTERED_MESSAGE)
+
+    def _on_filter_text(self, event) -> None:
+        """Zmiana tekstu filtra. Port ``FilterBox_TextChanged`` (cs:23650).
+
+        Wybor celujemy po ``item_id``, tak jak oryginal przez
+        ``preferredItemId`` -- zaznaczony utwor, ktory nadal przechodzi filtr,
+        ZOSTAJE zaznaczony. Nic tu nie dotyka kolejki ani zrodla danych: filtr
+        jest wlasciwoscia widoku, model zostaje pelny.
+        """
+        event.Skip()
+        if self._restoring_filter:
+            # Przywracanie tekstu przy wejsciu w widok nie jest gestem
+            # uzytkownika: nie oglaszamy i nie nadpisujemy stanu.
+            return
+        context = self._current_view_context()
+        self.filter_state.set_for_view(context, self.filter_box.GetValue())
+        self._filter_context = context
+        self._apply_filter_to_list()
+
+    def _apply_filter_to_list(self, *, announce_status: bool = True) -> None:
+        """Dociagnij WIDOCZNA liste do tekstu filtra. Jedna wspolna droga.
+
+        Nie ma tu wlasnego wstawiania wierszy: ustawiamy ``filter_query`` i
+        wolamy ``sync_rows``, czyli DOKLADNIE ten mechanizm, ktorym idzie kazda
+        inna zmiana listy (diff, punktowe operacje, wybor po ID, zero operacji
+        gdy nic sie nie zmienilo). Dlatego filtr nie ma wlasnej sciezki, ktora
+        mogla by sie rozjechac z odebranym zachowaniem list.
+        """
+        query = self.filter_box.GetValue()
+        active = self._active_list()
+        active.filter_query = query
+        active.sync_rows()
+        if announce_status:
+            self.announcer.say(
+                list_filter.results_status_text(query, active.visible_count())
+            )
+
+    def _on_filter_key(self, event: wx.KeyEvent) -> None:
+        """Klawisze W POLU filtra. Tylko te, ktore oryginal przechwytuje.
+
+        * Enter albo strzalka w dol -> wyniki (``FocusFilterResults``, cs:22200).
+          Przy PUSTYM wyniku fokus ZOSTAJE w polu, a uzytkownik slyszy, co
+          zrobic -- przeniesienie fokusu na liste bez wierszy zostawiloby go
+          w miejscu, z ktorego nie slychac nic.
+        * Escape -> czysci filtr i wraca na liste (``ReturnToMediaListFromEscape``,
+          cs:22551-22561). Drugiego stopnia oryginalu (pusty filtr => poziom
+          wyzej) tu NIE MA: w tym porcie wyjscie w gore nalezy do Backspace, a
+          dorzucanie Escape do nawigacji byloby zmiana poza tym przyrostem.
+
+        KAZDY inny klawisz (litery, w tym polskie, strzalki w poziomie, Home,
+        Backspace) idzie do pola przez ``event.Skip()``. Nie mapujemy niczego
+        na gesty czytnika ekranu.
+        """
+        code = event.GetKeyCode()
+        if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_DOWN):
+            self._focus_filter_results()
+            return
+        if code == wx.WXK_ESCAPE:
+            self._clear_filter_and_return()
+            return
+        event.Skip()
+
+    def _focus_filter_results(self) -> None:
+        """Przejscie Z POLA na liste wynikow. Port ``FocusFilterResults``."""
+        active = self._active_list()
+        if active.visible_count() == 0:
+            self.announcer.say(list_filter.NO_RESULTS_MESSAGE)
+            return
+        active.SetFocus()
+        # Kursor dociagamy PO przejsciu fokusu: czytnik ma przeczytac wiersz,
+        # na ktorym naprawde stoi lista, a nie poprzedni.
+        active.sync_cursor()
+
+    def _clear_filter_and_return(self) -> None:
+        """Escape w polu: wyczysc filtr, wroc na liste. Port cs:22551-22561."""
+        active = self._active_list()
+        had_text = bool(self.filter_box.GetValue())
+        if had_text:
+            context = self._current_view_context()
+            self.filter_state.clear_for_view(context)
+            self._set_filter_text("")
+            active.filter_query = ""
+            active.sync_rows()
+        active.SetFocus()
+        active.sync_cursor()
+        # Komunikat po przywroceniu listy, zeby opisywal stan KONCOWY.
+        if had_text:
+            self.announcer.say(list_filter.FILTER_CLEARED_MESSAGE)
+
+    def _current_view_context(self) -> tuple:
+        """Klucz filtra = TOZSAMOSC WIDOKU z ``navigation.view_context``.
+
+        Ten sam klucz, po ktorym lista rozpoznaje zmiane widoku. Drugi,
+        wlasny system identyfikacji rozjechalby filtr z lista po cichu.
+        """
+        return view_context(self.navigator.session)
+
+    def _set_filter_text(self, text: str) -> None:
+        """Wstaw tekst do pola BEZ traktowania tego jako gestu uzytkownika.
+
+        ``SetValue`` wysyla ``EVT_TEXT`` tak samo jak pisanie, wiec bez tej
+        bramki przywracanie zapisanego filtra nadpisywaloby sam siebie i
+        oglaszalo status bez powodu uzytkownika.
+        """
+        self._restoring_filter = True
+        try:
+            self.filter_box.SetValue(text)
+        finally:
+            self._restoring_filter = False
+
+    def _restore_filter_for_current_view(self) -> None:
+        """Wejscie w widok przywraca JEGO filtr. Port ``RestoreFilterForCurrentView``.
+
+        Wolane z ``_sync_views``, czyli z jedynej drogi odwzorowania stanu --
+        bez wlasnego haka na kazda komende nawigacji.
+        """
+        context = self._current_view_context()
+        if context == self._filter_context:
+            # Ten sam widok: pole juz pokazuje swoj tekst. Nie ruszamy go, bo
+            # ``SetValue`` w trakcie pisania przestawialby karetke.
+            return
+        self._filter_context = context
+        wanted = self.filter_state.text_for_view(context)
+        if self.filter_box.GetValue() != wanted:
+            self._set_filter_text(wanted)
+        for control in (self.files_list, self.radio_list):
+            control.filter_query = wanted if control is self._active_list() else ""
 
     def _set_tempo_algorithm(self, value: int) -> None:
         """Persist only a selection acknowledged by the real host."""
@@ -1358,6 +1587,8 @@ class LiteFrame(wx.Frame):
             self._copy_name()
         elif action is Action.COPY_ADDRESS:
             self._copy_address()
+        elif action is Action.FOCUS_FILTER:
+            self._focus_filter()
         elif action is Action.STATION_ADD:
             self._station_add()
         elif action is Action.STATION_EDIT:
@@ -1429,6 +1660,11 @@ class LiteFrame(wx.Frame):
 
         active_list = self._active_list()
         other_list = self.radio_list if active_list is self.files_list else self.files_list
+        # FILTR TEGO WIDOKU przywracamy PRZED ``sync_rows``, bo on wlasnie
+        # liczy stan zadany listy. Port ``RestoreFilterForCurrentView``
+        # (MainWindow.xaml.cs:10196-10204): wejscie w widok oddaje jego wlasny
+        # tekst filtra, a nie tekst widoku, z ktorego przyszlismy.
+        self._restore_filter_for_current_view()
         # JEDNA droga odswiezenia dla WSZYSTKICH widokow, bez wymiany kontrolki.
         # ``sync_rows`` sam decyduje, czy jest co robic: gdy dane, kolejnosc,
         # teksty i kursor sa te same, nie wykonuje ZADNEJ operacji na liscie.
@@ -1487,6 +1723,19 @@ class LiteFrame(wx.Frame):
         if isinstance(control, MediaListCtrl) and control.updating:
             event.Skip()
             return
+        # INDEKS Z KONTROLKI, NIE Z MODELU. Przy aktywnym filtrze lista
+        # pokazuje tylko wiersze dopasowane, wiec ``GetIndex()`` numeruje
+        # WIDOCZNE wiersze. Przelozenie go na ``item_id`` tego, co kontrolka
+        # faktycznie ma w ``_shown``, jest jedyna poprawna droga -- bez tego
+        # strzalka w dol na przefiltrowanej liscie wybieralaby w modelu
+        # zupelnie inny utwor (ten pod tym samym numerem w PELNYM zbiorze), a
+        # Enter odtwarzalby nie to, co czytnik przeczytal.
+        if isinstance(control, MediaListCtrl):
+            item_id = control.shown_item_id(event.GetIndex())
+            if item_id is not None:
+                self.navigator.session.model.select_id(item_id)
+                event.Skip()
+                return
         self.navigator.session.model.select_index(event.GetIndex())
         event.Skip()
 

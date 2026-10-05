@@ -49,6 +49,10 @@ class FakePlainList:
         self.state = None
         self.updating = False
         self._was_empty: bool | None = None
+        #: Filtr listy. Pusty = atrapa zachowuje sie tak jak PRZED dodaniem
+        #: filtrowania, wiec wszystkie dotychczasowe pomiary mechanizmu list
+        #: mierza dokladnie to samo co wczesniej.
+        self.filter_query: str = ""
 
     def HasFocus(self) -> bool:  # noqa: N802 - API wx
         """Domyslnie BEZ fokusu: zapowiedz pustki dotyczy tylko listy pod reka."""
@@ -137,7 +141,8 @@ def make_ctrl(model: ListModel, selected: int = -1, focused: int | None = None):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     # ``_cursor_target``/``_move_cursor`` tez z produkcji -- inaczej testowalibysmy
     # wlasna atrape kursora.
-    for name in ("_cursor_target", "_move_cursor"):
+    for name in ("_cursor_target", "_move_cursor", "_wanted_visible_index",
+                 "shown_item_id", "visible_count"):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     return ctrl
 

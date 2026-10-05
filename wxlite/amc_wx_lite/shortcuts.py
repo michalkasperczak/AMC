@@ -90,6 +90,14 @@ class Action(Enum):
     # Osobna akcja od VIEW_ITEM_BOOKMARKS, bo zakres jest inny -- jedna akcja
     # z przelacznikiem kazalaby zgadywac, ktory zbior widzi uzytkownik.
     VIEW_ALL_BOOKMARKS = "library.allBookmarks"
+    # Port ``Filter_Click`` -> ``ShowFilter``/``FocusFilter``
+    # (MainWindow.xaml:491 "_Filtruj listę" Ctrl+K; MainWindow.xaml.cs:25455
+    # i :22210). NIE jest to ``CommandIds.SearchCurrent``/``SearchAll``
+    # (Ctrl+F / Ctrl+Shift+F, MainWindow.xaml:492-493): tamte PYTAJA USLUGE o
+    # nowe dane i oddaja je w osobnym oknie wynikow, a tu zwezamy liste, ktora
+    # juz jest na ekranie. Port nie ma zdalnych uslug, wiec Ctrl+F zostaje
+    # NIEOBSADZONY -- lepiej nie mieć gestu niż dać mu ciche, inne znaczenie.
+    FOCUS_FILTER = "list.filter"
     HELP = "help"
 
 
@@ -158,6 +166,12 @@ LIST_VIEW: dict[str, Action] = {
     # podmienia drugiemu zbioru pod reka.
     "Ctrl+B": Action.VIEW_ALL_BOOKMARKS,
     "Ctrl+Shift+B": Action.VIEW_ITEM_BOOKMARKS,
+    # Filtr listy. Gest ODCZYTANY, nie zgadniety: MainWindow.xaml:491
+    # ``<MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" ...>``.
+    # Ctrl+F i Ctrl+Shift+F NALEZA w oryginale do zdalnego SZUKANIA w usludze
+    # (xaml:492-493) i dlatego ich tu NIE MA -- wziecie Ctrl+F na filtr
+    # nauczyloby uzytkownika gestu, ktory w pelnym AMC robi co innego.
+    "Ctrl+K": Action.FOCUS_FILTER,
     "F1": Action.HELP,
 }
 
@@ -257,6 +271,12 @@ def describe() -> list[tuple[str, str]]:
         # Pelny zbior. Nazwa mowi, ze to wszystkie sesje, bo widok pokazuje
         # tez wpisy, ktorych ten program nie odtworzy.
         Action.VIEW_ALL_BOOKMARKS: "Wszystkie zakladki",
+        # Pomoc MUSI powiedziec cala droge wyjscia, bo pole filtra zabiera
+        # klawisze liter i uzytkownik czytnika nie widzi, ze jest w edycji.
+        Action.FOCUS_FILTER: (
+            "Filtruj liste: Enter albo strzalka w dol przechodzi do wynikow, "
+            "Escape czysci filtr"
+        ),
         Action.HELP: "Ta pomoc",
     }
     # Nazwy klawiszy w pomocy musza byc TAKIE, jak na klawiaturze. Wewnetrzne
