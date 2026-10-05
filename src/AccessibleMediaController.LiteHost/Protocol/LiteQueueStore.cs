@@ -1,4 +1,5 @@
 using System.Globalization;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using Microsoft.Data.Sqlite;
 
@@ -50,10 +51,19 @@ public sealed record LiteResumeEntry(
 /// czasem. Zrodlem sa <c>local_state.current_item_id</c> oraz
 /// <c>local_items.resume_position_ticks</c> -- te same kolumny, ktorych uzywa
 /// pelne AMC. Zadnego bocznego JSON-a obok.
+///
+/// <paramref name="FolderPlaybackOptions"/> i <paramref name="FolderSources"/>
+/// to POZOSTALE warstwy hierarchii AMC (<c>folder_playback_options</c>,
+/// <c>folder_sources</c>). Bez nich host widzialby tylko tryb pozycji i
+/// ustawienie globalne, a folder z WLASNYM trybem zachowalby sie inaczej niz
+/// w oknie. Czytamy je jako MODELE CORE, bo tej samej bramki polityki
+/// (<c>ResumePositionPolicy.ShouldRememberLocalPosition</c>) uzywa okno.
 /// </summary>
 public sealed record LiteResumeState(
     string? CurrentItemId,
-    IReadOnlyDictionary<string, LiteResumeEntry> Entries);
+    IReadOnlyDictionary<string, LiteResumeEntry> Entries,
+    IReadOnlyList<LocalFolderPlaybackSettings> FolderPlaybackOptions,
+    IReadOnlyList<LocalFolderSourceSettings> FolderSources);
 
 /// <summary>
 /// To, co host chce utrwalic jako punkt wznowienia.
@@ -399,11 +409,14 @@ public sealed class LiteQueueStore : IDisposable
     }
 
     /// <summary>
-    /// Odczyt DANYCH WZNOWIENIA z profilu: biezacy utwor i czasy pozycji.
+    /// Odczyt DANYCH WZNOWIENIA z profilu: biezacy utwor, czasy pozycji oraz
+    /// warstwy folderow (opcje i zrodla).
     ///
     /// Czytamy te same kolumny, co <c>LocalLibraryDatabase.LoadInto</c>, i nie
     /// interpretujemy ich tutaj -- decyzja "czy wolno wznowic" nalezy do
-    /// polityki (tryb pozycji, odcisk pliku), nie do magazynu.
+    /// polityki (<c>ResumePositionPolicy</c>, odcisk pliku), nie do magazynu.
+    /// Magazyn ma tylko ODDAC WSZYSTKIE warstwy, zeby polityka nie musiala
+    /// zgadywac brakujacego poziomu.
     /// </summary>
     public LiteResumeState ReadResume(string sessionId)
     {
@@ -441,9 +454,56 @@ public sealed class LiteQueueStore : IDisposable
                 }
             }
 
-            return new LiteResumeState(currentItemId, entries);
+            // POZOSTALE warstwy hierarchii AMC. Czytamy je TYM SAMYM waskim
+            // odczytem, co pozycje -- host nie otwiera ConfigurationStore ani
+            // LocalLibraryDatabase, bo tamte przy otwarciu MIGRUJA i zapisuja
+            // caly stan uzytkownika.
+            var options = new List<LocalFolderPlaybackSettings>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT path, resume_mode FROM folder_playback_options;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    options.Add(new LocalFolderPlaybackSettings
+                    {
+                        Path = reader.GetString(0),
+                        ResumePositionMode = ToResumeMode(reader.GetInt32(1))
+                    });
+                }
+            }
+
+            var sources = new List<LocalFolderSourceSettings>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT id, path, resume_mode FROM folder_sources;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    sources.Add(new LocalFolderSourceSettings
+                    {
+                        Id = reader.GetString(0),
+                        Path = reader.GetString(1),
+                        ResumePositionMode = ToResumeMode(reader.GetInt32(2))
+                    });
+                }
+            }
+
+            return new LiteResumeState(currentItemId, entries, options, sources);
         }
     }
+
+    /// <summary>
+    /// Liczba z kolumny <c>resume_mode</c> na tryb AMC. Nieznana wartosc
+    /// (nowszy zapis, uszkodzony wiersz) wraca jako
+    /// <see cref="ResumePositionMode.Inherit"/>, czyli „pytaj dalszej warstwy" --
+    /// to JEDYNA bezpieczna odpowiedz: ani nie wymusza wznowienia, ani go nie
+    /// zabiera wbrew ustawieniu wyzej.
+    /// </summary>
+    private static ResumePositionMode ToResumeMode(int value) =>
+        Enum.IsDefined(typeof(ResumePositionMode), value)
+            ? (ResumePositionMode)value
+            : ResumePositionMode.Inherit;
 
     /// <summary>
     /// ZAPIS punktu wznowienia: biezacy utwor i czasy pozycji.

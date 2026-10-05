@@ -163,11 +163,11 @@ internal sealed class LiteQueueCoordinator
     private LiteResumeState? _restoredResume;
 
     /// <summary>
-    /// Zapamietane globalne ustawienie wznawiania z profilu. Czytamy je RAZ:
-    /// to plik uzytkownika, a host nie ma powodu wracac do niego przy kazdym
-    /// zapisie.
+    /// Zapamietane ustawienia wznawiania z profilu: GLOBALNE i tryb SESJI
+    /// <c>local</c>. Czytamy je RAZ: to plik uzytkownika, a host nie ma powodu
+    /// wracac do niego przy kazdym zapisie ani przy kazdej pozycji.
     /// </summary>
-    private bool? _rememberGlobally;
+    private (bool RememberGlobally, ResumePositionMode SessionMode)? _profileResumeSettings;
 
     public LiteQueueCoordinator(IMediaOutput output, LiteQueueStore? store = null)
     {
@@ -383,67 +383,123 @@ internal sealed class LiteQueueCoordinator
     /// <summary>
     /// Czy pozycja ma PAMIETAC czas odtwarzania.
     ///
-    /// Kolejnosc jest ta sama, co w <c>MainWindow.ShouldRememberLocalPosition</c>:
-    /// jawny tryb POZYCJI (<c>local_items.resume_mode</c>) ma pierwszenstwo, a
-    /// <c>Inherit</c> schodzi do USTAWIENIA GLOBALNEGO
-    /// (<c>AppSettings.RememberLocalPlaybackPositions</c>) odczytanego z
-    /// <c>state.json</c> tego samego profilu. Dzieki temu wylaczenie wznawiania
-    /// w AMC obowiazuje takze tutaj -- nie wymuszamy wznowienia wbrew ustawieniu.
+    /// Decyzje liczy JEDNA BRAMKA w Core
+    /// (<c>ResumePositionPolicy.ShouldRememberLocalPosition</c>) -- ta sama,
+    /// ktorej uzywa <c>MainWindow.ShouldRememberLocalPosition</c>. Host nie
+    /// powtarza tu reguly, tylko dostarcza warstwy: jawny tryb POZYCJI
+    /// (<c>local_items.resume_mode</c>), najblizsza jawna OPCJA FOLDERU
+    /// (<c>folder_playback_options</c>), najblizsze jawne ZRODLO FOLDERU
+    /// (<c>folder_sources</c>), tryb SESJI <c>local</c> oraz ustawienie
+    /// GLOBALNE -- oba ostatnie z <c>state.json</c> tego samego profilu.
     ///
-    /// GRANICA: tryb FOLDERU i tryb SESJI nie sa tu widziane -- host nie czyta
-    /// <c>folder_playback_options</c> ani ustawien sesji. Pozycja z jawnym
-    /// trybem oraz czysto globalne wlaczenie/wylaczenie zachowuja sie jak w AMC;
-    /// pozycja dziedziczaca w folderze z WLASNYM trybem moze sie roznic.
+    /// Dzieki temu wylaczenie wznawiania w AMC -- globalne, sesyjne albo na
+    /// folderze -- obowiazuje takze tutaj, a jawny <c>Remember</c> na pozycji
+    /// nadal nadpisuje wylaczone tlo.
     /// </summary>
-    private bool ShouldRememberPosition(MediaItem item)
-    {
-        var entry = _restoredResume?.Entries.GetValueOrDefault(item.Id);
-        return (ResumePositionMode?)entry?.ResumeMode switch
-        {
-            ResumePositionMode.Remember => true,
-            ResumePositionMode.StartFromBeginning => false,
-            _ => RememberPositionsGlobally()
-        };
-    }
+    private bool ShouldRememberPosition(MediaItem item) =>
+        ShouldRememberPosition(_restoredResume, item);
 
     /// <summary>
-    /// Globalne <c>AppSettings.RememberLocalPlaybackPositions</c> z profilu.
-    ///
-    /// Czytamy POJEDYNCZA flage wprost z <c>state.json</c>, bez
-    /// <c>ConfigurationStore</c>: ten przy otwarciu MIGRUJE schemat i zapisuje
-    /// caly <c>AppState</c>, a host ma tylko odczytac ustawienie -- nie wolno mu
-    /// przepisac stanu uzytkownika z powodu malej listy. Brak pliku albo
-    /// nieczytelny plik oznacza DOMYSLNE <c>true</c>, dokladnie jak
-    /// <c>AppSettings</c>.
+    /// Wariant przyjmujacy stan wznowienia jawnie, zeby TA SAMA decyzja dzialala
+    /// przy PRZYWRACANIU (gdy pole <c>_restoredResume</c> jeszcze nie jest
+    /// ustawione) i przy ZAPISIE. Rozjazd miedzy tymi dwoma miejscami znaczylby,
+    /// ze stary niezerowy czas w bazie wznawia sie mimo wylaczenia.
     /// </summary>
-    private bool RememberPositionsGlobally()
+    private bool ShouldRememberPosition(LiteResumeState? resume, MediaItem item)
     {
-        if (_rememberGlobally is { } cached) return cached;
+        var entry = resume?.Entries.GetValueOrDefault(item.Id);
+        var profile = ReadResumeProfileSettings();
+        return ResumePositionPolicy.ShouldRememberLocalPosition(
+            entry is null ? null : ToResumeMode(entry.ResumeMode),
+            item.Source,
+            resume?.FolderPlaybackOptions,
+            resume?.FolderSources,
+            profile.SessionMode,
+            profile.RememberGlobally);
+    }
 
-        var value = true;
+    private static ResumePositionMode ToResumeMode(int value) =>
+        Enum.IsDefined(typeof(ResumePositionMode), value)
+            ? (ResumePositionMode)value
+            : ResumePositionMode.Inherit;
+
+    /// <summary>
+    /// GLOBALNE <c>AppSettings.RememberLocalPlaybackPositions</c> oraz tryb
+    /// SESJI <c>local</c> (<c>AppSettings.ResumePositionModeBySession</c>) z
+    /// profilu.
+    ///
+    /// Czytamy DWIE wartosci wprost z <c>state.json</c>, bez
+    /// <c>ConfigurationStore</c>: ten przy otwarciu MIGRUJE schemat i zapisuje
+    /// caly <c>AppState</c>, a host ma tylko odczytac ustawienia -- nie wolno mu
+    /// przepisac stanu uzytkownika z powodu malej listy. Brak pliku albo
+    /// nieczytelny plik oznacza DOMYSLNE <c>true</c> i <c>Inherit</c>, dokladnie
+    /// jak <c>AppSettings</c>.
+    ///
+    /// Tryb sesji w pliku AMC jest NAPISEM (<c>"StartFromBeginning"</c>), bo
+    /// <c>ConfigurationStore</c> serializuje enumy przez
+    /// <c>JsonStringEnumConverter</c>; liczbe tez przyjmujemy, zeby recznie
+    /// zlozony profil nie wywrocil odczytu.
+    /// </summary>
+    private (bool RememberGlobally, ResumePositionMode SessionMode) ReadResumeProfileSettings()
+    {
+        if (_profileResumeSettings is { } cached) return cached;
+
+        var remember = true;
+        var sessionMode = ResumePositionMode.Inherit;
         var statePath = _store is null ? null : Path.Combine(_store.ProfileDirectory, "state.json");
         try
         {
             if (statePath is not null && File.Exists(statePath))
             {
                 using var document = JsonDocument.Parse(File.ReadAllBytes(statePath));
-                if (document.RootElement.TryGetProperty("settings", out var settings)
-                    && settings.TryGetProperty("rememberLocalPlaybackPositions", out var flag)
-                    && flag.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                if (document.RootElement.TryGetProperty("settings", out var settings))
                 {
-                    value = flag.GetBoolean();
+                    if (settings.TryGetProperty("rememberLocalPlaybackPositions", out var flag)
+                        && flag.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    {
+                        remember = flag.GetBoolean();
+                    }
+
+                    if (settings.TryGetProperty("resumePositionModeBySession", out var bySession)
+                        && bySession.ValueKind is JsonValueKind.Object)
+                    {
+                        // Klucze sesji w AppSettings sa bez wzgledu na wielkosc
+                        // liter (OrdinalIgnoreCase) -- szukamy tak samo, zeby
+                        // "Local" w pliku nie zostal przeoczony.
+                        foreach (var property in bySession.EnumerateObject())
+                        {
+                            if (!string.Equals(
+                                    property.Name,
+                                    LiteQueueStore.LocalSessionId,
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                            sessionMode = property.Value.ValueKind switch
+                            {
+                                JsonValueKind.String
+                                    when Enum.TryParse<ResumePositionMode>(
+                                        property.Value.GetString(), ignoreCase: true, out var parsed)
+                                    => parsed,
+                                JsonValueKind.Number when property.Value.TryGetInt32(out var number)
+                                    => ToResumeMode(number),
+                                _ => ResumePositionMode.Inherit
+                            };
+                            break;
+                        }
+                    }
                 }
             }
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
             // Nieczytelny state.json nie moze przewrocic kolejki. Zostaje
-            // domyslne AMC (true), a powod jest widoczny w stanie.
+            // domyslne AMC (true, Inherit), a powod jest widoczny w stanie.
             _lastPersistError = "Nie udalo sie odczytac ustawienia wznawiania: " + exception.Message;
         }
 
-        _rememberGlobally = value;
-        return value;
+        _profileResumeSettings = (remember, sessionMode);
+        return _profileResumeSettings.Value;
     }
 
     /// <summary>
@@ -453,15 +509,18 @@ internal sealed class LiteQueueCoordinator
     /// jest wznowieniem, a ODCISK PLIKU musi sie zgadzac. Podmieniony plik pod
     /// tym samym Id startuje od poczatku -- stary czas wskazywalby w nim inne
     /// miejsce.
+    ///
+    /// POLITYKA idzie PRZED odciskiem i jest DOKLADNIE ta sama, co przy zapisie
+    /// (<see cref="ShouldRememberPosition(LiteResumeState?, MediaItem)"/>).
+    /// Dlatego metoda nie jest statyczna: musi widziec ustawienia profilu.
+    /// Bez tego STARY niezerowy czas w bazie wznawialby sie mimo wylaczenia
+    /// wznawiania w AMC -- sam zapis zera po wylaczeniu tego nie zalatwia.
     /// </summary>
-    private static TimeSpan ResolveRestorablePosition(LiteResumeState resume, MediaItem item)
+    private TimeSpan ResolveRestorablePosition(LiteResumeState resume, MediaItem item)
     {
         var entry = resume.Entries.GetValueOrDefault(item.Id);
         if (entry is null || entry.ResumePositionTicks <= 0) return TimeSpan.Zero;
-        if ((ResumePositionMode)entry.ResumeMode == ResumePositionMode.StartFromBeginning)
-        {
-            return TimeSpan.Zero;
-        }
+        if (!ShouldRememberPosition(resume, item)) return TimeSpan.Zero;
 
         if (string.IsNullOrWhiteSpace(item.Source) || !File.Exists(item.Source))
         {

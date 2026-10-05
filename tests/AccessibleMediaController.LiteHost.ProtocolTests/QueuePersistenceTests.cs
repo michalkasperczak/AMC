@@ -85,6 +85,10 @@ internal static class QueuePersistenceTests
             WyjscieDoBEZPOSREDNIEGOplikuNIEprzypisujePozycjiInnemuId();
             PodmienionyPLIKpodTYMSAMYMIdNIEwznawia();
             GLOBALNEwylaczenieWznawianiaObowiazuje();
+            GLOBALNEwylaczenieNIEwznawiaSTAREGOczasuZbazy();
+            SESYJNEwylaczenieNIEwznawiaSTAREGOczasuZbazy();
+            FOLDERzWLASNYMtrybemRozstrzygaPonadGlobalnym();
+            JAWNYtrybPOZYCJInadpisujeWYLACZONEtlo();
             STATUSpodajeCzasWznowieniaDlaOkna();
             CheckpointPozycjiNIEruszaPOZOSTALYCHtabel();
             OdmowaZapisuPozycjiNIEudajePowodzenia();
@@ -1011,6 +1015,215 @@ internal static class QueuePersistenceTests
         restored.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
         Assert.True(output.Plays[0].Position == TimeSpan.Zero,
             $"przy globalnym wylaczeniu gra od zera; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// POTWIERDZONA REGRESJA (kwit parent-acceptance/boundary-baseline.json,
+    /// przypadek 1): profil ma JUZ zapisany niezerowy czas (7,4 s) i tryb
+    /// pozycji <c>Inherit</c>, a globalne wznawianie jest WYLACZONE. Stary czas
+    /// NIE MOZE wznowic.
+    ///
+    /// Czym to sie rozni od <see cref="GLOBALNEwylaczenieWznawianiaObowiazuje"/>:
+    /// tam host sam zapisywal zero po wylaczeniu, wiec w bazie nie bylo czego
+    /// wznawiac. Tutaj czas jest W BAZIE od wczesniej (uzytkownik wylaczyl
+    /// wznawianie PO nagraniu pozycji) -- sam zapis zera tego nie zalatwia,
+    /// decyzje musi podjac ODCZYT.
+    /// </summary>
+    private static void GLOBALNEwylaczenieNIEwznawiaSTAREGOczasuZbazy()
+    {
+        var profile = NewProfile("globalnie-wylaczone-stary-czas");
+        File.WriteAllText(
+            Path.Combine(profile, "state.json"),
+            """{"settings":{"rememberLocalPlaybackPositions":false}}""");
+        SeedQueueAndPosition(profile, "file:A", TimeSpan.FromSeconds(7.4));
+
+        using var store = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var queue = new LiteQueueCoordinator(output, store);
+
+        Assert.True(queue.Status().ResumeSeconds == 0d,
+            "status NIE obiecuje wznowienia przy globalnym wylaczeniu; dostal "
+            + queue.Status().ResumeSeconds);
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+            $"STARY czas z bazy nie wznawia przy globalnym wylaczeniu; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// POTWIERDZONA REGRESJA (kwit, przypadek 2): globalne wznawianie
+    /// WLACZONE, ale sesja <c>local</c> ma wlasny tryb
+    /// <c>StartFromBeginning</c>. Tryb sesji jest SZCZEGOLOWSZY od globalnego,
+    /// wiec wylacza wznowienie.
+    ///
+    /// Tryb w pliku AMC jest NAPISEM -- dokladnie jak zapisuje go
+    /// <c>ConfigurationStore</c> przez <c>JsonStringEnumConverter</c>. Gdyby
+    /// host czytal tylko liczby, ten przypadek przeszedlby po cichu.
+    /// </summary>
+    private static void SESYJNEwylaczenieNIEwznawiaSTAREGOczasuZbazy()
+    {
+        var profile = NewProfile("sesyjnie-wylaczone");
+        File.WriteAllText(
+            Path.Combine(profile, "state.json"),
+            """
+            {"settings":{"rememberLocalPlaybackPositions":true,
+             "resumePositionModeBySession":{"spotify":"StartFromBeginning","local":"StartFromBeginning"}}}
+            """);
+        SeedQueueAndPosition(profile, "file:A", TimeSpan.FromSeconds(7.4));
+
+        using var store = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var queue = new LiteQueueCoordinator(output, store);
+
+        Assert.True(queue.Status().ResumeSeconds == 0d,
+            "status NIE obiecuje wznowienia przy sesyjnym wylaczeniu; dostal "
+            + queue.Status().ResumeSeconds);
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+            $"sesyjne wylaczenie nie wznawia starego czasu; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// HIERARCHIA FOLDEROW AMC przy odczycie. Globalne wznawianie WYLACZONE,
+    /// ale folder z materialem ma wlasny jawny tryb <c>Remember</c> -- folder
+    /// jest SZCZEGOLOWSZY, wiec wznowienie dziala.
+    ///
+    /// Sprawdzamy OBIE warstwy folderowe, bo maja rozny priorytet:
+    /// <c>folder_playback_options</c> bije <c>folder_sources</c>, a blizszy
+    /// podfolder bije nadrzedny. Dodatkowo <c>Inherit</c> na blizszej warstwie
+    /// MUSI schodzic dalej, a nie przeslaniac dalszego jawnego trybu.
+    /// </summary>
+    private static void FOLDERzWLASNYMtrybemRozstrzygaPonadGlobalnym()
+    {
+        var profile = NewProfile("folder-ponad-globalnym");
+        File.WriteAllText(
+            Path.Combine(profile, "state.json"),
+            """{"settings":{"rememberLocalPlaybackPositions":false}}""");
+        var media = Path.Combine(profile, "media");
+        SeedQueueAndPosition(profile, "file:A", TimeSpan.FromSeconds(7.4));
+
+        using (var seed = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            // ZRODLO folderu mowi Remember (1) -- to ma przebic wylaczone globalne.
+            Execute(seed,
+                "UPDATE folder_sources SET resume_mode = 1 WHERE id = 'src-1';");
+            // OPCJA folderu NADRZEDNEGO z Inherit (0) NIE MOZE niczego
+            // przeslonic: dziedziczenie schodzi do zrodla ponizej.
+            Execute(seed,
+                """
+                INSERT INTO folder_playback_options(ordinal, path, resume_mode)
+                VALUES(0, $path, 0);
+                """, ("$path", profile));
+        }
+
+        using (var store = LiteQueueStore.Open(profile, writable: true))
+        {
+            var output = new SilentOutput();
+            var queue = new LiteQueueCoordinator(output, store);
+            queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+            Assert.True(Math.Abs(output.Plays[0].Position.TotalSeconds - 7.4) < 0.01,
+                "jawny Remember na ZRODLE folderu wznawia mimo wylaczonego globalnego; "
+                + $"dostal {output.Plays[0].Position}");
+        }
+
+        // Teraz BLIZSZA opcja folderu mowi StartFromBeginning (2) i musi przebic
+        // jawne Remember na zrodle: szczegolowsza warstwa wygrywa.
+        using (var seed = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            Execute(seed,
+                """
+                INSERT INTO folder_playback_options(ordinal, path, resume_mode)
+                VALUES(1, $path, 2);
+                """, ("$path", media));
+        }
+
+        using (var store = LiteQueueStore.Open(profile, writable: true))
+        {
+            var output = new SilentOutput();
+            var queue = new LiteQueueCoordinator(output, store);
+            Assert.True(queue.Status().ResumeSeconds == 0d,
+                "blizsza OPCJA folderu z 'zawsze od poczatku' zabiera wznowienie; dostal "
+                + queue.Status().ResumeSeconds);
+            queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+            Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+                $"opcja folderu bije zrodlo folderu; dostal {output.Plays[0].Position}");
+        }
+    }
+
+    /// <summary>
+    /// JAWNY tryb POZYCJI nadal nadpisuje WYLACZONE tlo. To granica w druga
+    /// strone: domykanie wylaczen nie moze odebrac uzytkownikowi wznowienia
+    /// tam, gdzie zazadal go wprost dla konkretnego utworu.
+    ///
+    /// UWAGA: ten przypadek byl ZIELONY takze PRZED poprawka -- nie jest
+    /// dowodem naprawy, tylko BEZPIECZNIKIEM, ze domykanie wylaczen nie
+    /// zabralo wznowienia tam, gdzie wolno mu zostac.
+    /// </summary>
+    private static void JAWNYtrybPOZYCJInadpisujeWYLACZONEtlo()
+    {
+        var profile = NewProfile("jawna-pozycja-ponad-wylaczeniem");
+        File.WriteAllText(
+            Path.Combine(profile, "state.json"),
+            """
+            {"settings":{"rememberLocalPlaybackPositions":false,
+             "resumePositionModeBySession":{"local":"StartFromBeginning"}}}
+            """);
+        SeedQueueAndPosition(profile, "file:A", TimeSpan.FromSeconds(7.4));
+
+        using (var seed = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            // Tryb POZYCJI = Remember (1), a tlo jest wylaczone na obu poziomach.
+            Execute(seed, "UPDATE local_items SET resume_mode = 1 WHERE id = 'file:A';");
+            // Folder tez mowi 'zawsze od poczatku' -- pozycja i tak wygrywa.
+            Execute(seed,
+                """
+                INSERT INTO folder_playback_options(ordinal, path, resume_mode)
+                VALUES(0, $path, 2);
+                """, ("$path", Path.Combine(profile, "media")));
+        }
+
+        using var store = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var queue = new LiteQueueCoordinator(output, store);
+        Assert.True(Math.Abs(queue.Status().ResumeSeconds - 7.4) < 0.01,
+            $"status oddaje czas jawnej pozycji; dostal {queue.Status().ResumeSeconds}");
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(Math.Abs(output.Plays[0].Position.TotalSeconds - 7.4) < 0.01,
+            $"jawny Remember na POZYCJI wznawia mimo wylaczonego tla; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// Wsadza do profilu STAN SPRZED wylaczenia: zapisana kolejnosc kolejki,
+    /// biezacy utwor i NIEZEROWY czas pozycji. Odcisk pliku zostaje <c>NULL</c>,
+    /// zeby mierzyc wylacznie polityke, a nie zgodnosc odcisku.
+    ///
+    /// Piszemy tu wprost do bazy, a nie przez hosta: chodzi o czas, ktory JUZ
+    /// LEZY w profilu, zanim nowy host w ogole wystartuje.
+    /// </summary>
+    private static void SeedQueueAndPosition(string profile, string itemId, TimeSpan position)
+    {
+        using var connection = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName));
+        foreach (var letter in new[] { "A", "C", "B" })
+        {
+            Execute(connection,
+                "UPDATE local_items SET is_in_queue = 1 WHERE id = $id;",
+                ("$id", "file:" + letter));
+        }
+        var ordinal = 0;
+        foreach (var letter in new[] { "A", "C", "B" })
+        {
+            Execute(connection,
+                """
+                INSERT INTO queue_order(session_id, ordinal, item_id) VALUES('local', $ord, $id);
+                INSERT INTO queue_regular_order(session_id, ordinal, item_id) VALUES('local', $ord, $id);
+                """,
+                ("$ord", ordinal++), ("$id", "file:" + letter));
+        }
+        Execute(connection,
+            "UPDATE local_items SET resume_position_ticks = $ticks WHERE id = $id;",
+            ("$ticks", position.Ticks), ("$id", itemId));
+        Execute(connection,
+            "UPDATE local_state SET current_item_id = $id WHERE singleton = 1;",
+            ("$id", itemId));
     }
 
     /// <summary>

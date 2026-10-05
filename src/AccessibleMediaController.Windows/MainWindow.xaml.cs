@@ -9734,36 +9734,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         // Kolejność: opcja folderu, źródło folderu, ustawienie sesji, globalne.
         // Ustawienie sesji wchodzi PONIŻEJ folderu (folder jest szczegółowszy),
-        // ale POWYŻEJ globalnego.
-        var sessionFallback = ResumePositionPolicy.ShouldRemember(
-            _state.Settings,
-            _sessions.Current.Id);
-        if (!TryGetLocalPath(path, out var localPath))
-        {
-            return sessionFallback;
-        }
-
-        var folderMode = _state.LocalMedia.FolderPlaybackOptions
-            .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
-                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path, normalizer))
-            .OrderByDescending(option => option.Path.Length)
-            .Select(option => (ResumePositionMode?)option.ResumePositionMode)
-            .FirstOrDefault();
-        if (folderMode.HasValue)
-        {
-            return folderMode.Value == ResumePositionMode.Remember;
-        }
-
-        var source = _state.LocalMedia.FolderSources
-            .Where(candidate => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, candidate.Path, normalizer))
-            .OrderByDescending(candidate => candidate.Path.Length)
-            .FirstOrDefault();
-        return source?.ResumePositionMode switch
-        {
-            ResumePositionMode.Remember => true,
-            ResumePositionMode.StartFromBeginning => false,
-            _ => sessionFallback
-        };
+        // ale POWYŻEJ globalnego. Całą hierarchię liczy JEDNA bramka w Core
+        // (ResumePositionPolicy), tej samej używa host Lite — inaczej oba
+        // silniki rozjechałyby się na granicy folderu albo sesji.
+        return ResumePositionPolicy.ShouldRememberLocalPosition(
+            itemMode: null,
+            TryGetLocalPath(path, out var localPath) ? localPath : null,
+            _state.LocalMedia.FolderPlaybackOptions,
+            _state.LocalMedia.FolderSources,
+            ResumePositionPolicy.GetSessionMode(_state.Settings, _sessions.Current.Id),
+            _state.Settings.RememberLocalPlaybackPositions,
+            normalizer);
     }
 
     private double? GetFolderPlaybackRateOverride(string? path)
