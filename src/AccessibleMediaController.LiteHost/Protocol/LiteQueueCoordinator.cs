@@ -1,6 +1,8 @@
 using System.Text.Json;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
+using Microsoft.Data.Sqlite;
 
 namespace AccessibleMediaController.LiteHost.Protocol;
 
@@ -66,7 +68,15 @@ internal sealed class LiteQueueCoordinator
         /// <summary>Ile zapisow FAKTYCZNIE poszlo do profilu w tym procesie.</summary>
         int PersistedWrites,
         /// <summary>Ile wierszy wczytano Z PROFILU przy starcie tego procesu.</summary>
-        int RestoredRows);
+        int RestoredRows,
+        /// <summary>
+        /// Czas, Z KTOREGO wystartuje biezaca pozycja, gdy uzytkownik swiadomie
+        /// kaze jej grac (<c>queue.playAt</c>). Zero oznacza "od poczatku" --
+        /// albo nie ma zapisanej pozycji, albo polityka AMC jej nie pozwala
+        /// uzyc. Okno potrzebuje tej liczby, zeby nie obiecywac wznowienia,
+        /// ktorego nie bedzie.
+        /// </summary>
+        double ResumeSeconds);
 
     private readonly IMediaOutput _output;
     private readonly object _gate = new();
@@ -131,6 +141,34 @@ internal sealed class LiteQueueCoordinator
     /// </summary>
     private string? _advanceToken;
 
+    /// <summary>
+    /// POZYCJA ostatnio zanotowana przez hosta dla biezacego utworu kolejki.
+    /// Host czyta czas z dekodera i podaje go tutaj; bez tego checkpoint musial
+    /// by pytac wyjscia, ktore po zatrzymaniu juz nic nie wie.
+    /// </summary>
+    private TimeSpan _notedPosition;
+
+    /// <summary>
+    /// Id pozycji, do ktorej nalezy <see cref="_notedPosition"/>. Osobne pole,
+    /// bo po wyjsciu poza kolejke (bezposredni plik, radio) czas naplywa dalej
+    /// i NIE WOLNO przypisac go Id ostatniej pozycji kolejki.
+    /// </summary>
+    private string? _notedPositionItemId;
+
+    /// <summary>
+    /// Czasy pozycji wczytane Z PROFILU przy starcie hosta. Przy swiadomym
+    /// starcie utworu oddajemy je sesji -- to jest cale "wznowienie z
+    /// niezerowego czasu" widziane z zewnatrz.
+    /// </summary>
+    private LiteResumeState? _restoredResume;
+
+    /// <summary>
+    /// Zapamietane globalne ustawienie wznawiania z profilu. Czytamy je RAZ:
+    /// to plik uzytkownika, a host nie ma powodu wracac do niego przy kazdym
+    /// zapisie.
+    /// </summary>
+    private bool? _rememberGlobally;
+
     public LiteQueueCoordinator(IMediaOutput output, LiteQueueStore? store = null)
     {
         _output = output ?? throw new ArgumentNullException(nameof(output));
@@ -166,6 +204,27 @@ internal sealed class LiteQueueCoordinator
             return 0;
         }
 
+        // Dane WZNOWIENIA czytamy z tego samego profilu, NIEZALEZNIE od tego,
+        // czy kolejka byla juz zapisana: tryb pozycji (resume_mode) jest
+        // POLITYKA uzytkownika i obowiazuje takze przy pierwszym zapisie, gdy
+        // nie ma jeszcze czego wczytywac. Nieudany odczyt nie moze przewrocic
+        // wczytania kolejki -- wznowienie jest dodatkiem i NIE MOZE blokowac
+        // podstawy.
+        LiteResumeState? resume = null;
+        try
+        {
+            resume = _store.ReadResume(LiteQueueStore.LocalSessionId);
+        }
+        catch (Exception exception) when (exception is LiteQueueStoreDenied or IOException or InvalidOperationException or SqliteException)
+        {
+            lock (_gate)
+            {
+                _lastPersistError =
+                    "Nie udalo sie odczytac zapisanej pozycji wznowienia: " + exception.Message;
+            }
+        }
+        lock (_gate) _restoredResume = resume;
+
         // Brak ZAPISU to nie to samo, co zapisana pustka. Gdy nikt nic nie
         // zapisal, host zostaje NIEWCZYTANY -- frontend ma wtedy prawo wczytac
         // kolejke z ekranu. Zapisana pustka wczytuje sie jako pustka.
@@ -198,12 +257,236 @@ internal sealed class LiteQueueCoordinator
             _leading = false;
             _initialized = true;
             _restoredRows = items.Count;
+            _restoredResume = resume;
+            _notedPosition = TimeSpan.Zero;
+            _notedPositionItemId = null;
+
+            // Pozycje z profilu oddajemy SESJI, zeby swiadomy start wznowil z
+            // zapisanego czasu. Polityka AMC decyduje o kazdej osobno, a sama
+            // kolejka NIE jest przez to odtwarzana (zadnego Play tutaj).
+            if (resume is not null && items.Count > 0)
+            {
+                foreach (var item in items)
+                {
+                    var position = ResolveRestorablePosition(resume, item);
+                    if (position > TimeSpan.Zero) session.SetRememberedPosition(item.Id, position);
+                }
+                // BIEZACY utwor tylko wtedy, gdy nadal jest w KOLEJCE. Kolejka
+                // zuzyta do zera nie ma biezacego utworu, choc profil moze
+                // jeszcze pamietac ostatnie Id.
+                if (resume.CurrentItemId is { Length: > 0 } currentId
+                    && items.Any(item => string.Equals(item.Id, currentId, StringComparison.Ordinal)))
+                {
+                    var current = items.First(item =>
+                        string.Equals(item.Id, currentId, StringComparison.Ordinal));
+                    // SelectItem ustawia biezaca pozycje BEZ odtwarzania: host
+                    // po starcie nie gra sam z siebie.
+                    session.SelectItem(current);
+                }
+            }
             return items.Count;
         }
     }
 
     /// <summary>Czy ten host jest WLASCICIELEM zapisu kolejki.</summary>
     public bool CanPersist => _store?.IsWritable == true && _store.OwnsWriteLock;
+
+    /// <summary>
+    /// Notuje POZYCJE biezacego utworu kolejki. Host wola to z czasem z
+    /// dekodera (np. przy pauzie, zatrzymaniu i przed zamknieciem), bo po
+    /// zatrzymaniu wyjscie juz nie zna pozycji.
+    ///
+    /// Gdy kolejka NIE PROWADZI transportu (bezposredni plik, radio), czas jest
+    /// ODRZUCANY: nalezy do cudzego materialu i przypisanie go Id kolejki
+    /// byloby falszem.
+    /// </summary>
+    public bool NotePosition(TimeSpan position)
+    {
+        lock (_gate)
+        {
+            var session = _session;
+            if (!_leading || session is null || !session.HasCurrentItem) return false;
+            _notedPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+            _notedPositionItemId = session.CurrentItem.Id;
+            session.SetPosition(_notedPosition);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Utrwala PUNKT WZNOWIENIA: biezacy utwor i czasy pozycji kolejki.
+    ///
+    /// Polityke stosujemy TUTAJ, przed zapisem, dokladnie jak
+    /// <c>MainWindow.SaveLocalPlaybackCheckpoint</c>: pozycja z trybem
+    /// <c>StartFromBeginning</c> idzie do bazy jako ZERO, a nie jest pomijana
+    /// -- inaczej po wylaczeniu wznawiania w bazie zostalby stary czas.
+    ///
+    /// Zwraca <c>true</c> tylko gdy zapis FAKTYCZNIE poszedl. Odmowa oddaje
+    /// <c>false</c> i zostawia powod w stanie; nigdy nie udaje powodzenia.
+    /// </summary>
+    public bool SaveResumeCheckpoint()
+    {
+        lock (_gate)
+        {
+            var store = _store;
+            var session = _session;
+            if (store is null || session is null) return false;
+
+            // Czas liczy sie TYLKO dla tej pozycji, do ktorej go zanotowano.
+            if (_notedPositionItemId is { Length: > 0 } notedId
+                && session.Items.Any(item => string.Equals(item.Id, notedId, StringComparison.Ordinal)))
+            {
+                session.SetRememberedPosition(notedId, _notedPosition);
+            }
+
+            var positions = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);
+            foreach (var item in session.Items)
+            {
+                var remembered = session.RememberedPositions.GetValueOrDefault(item.Id);
+                // POLITYKA AMC: tryb pozycji rozstrzyga, czy czas ma byc
+                // pamietany. Brak zgody = jawne ZERO w bazie.
+                positions[item.Id] = ShouldRememberPosition(item) ? remembered : TimeSpan.Zero;
+            }
+
+            // Biezacy utwor tylko wtedy, gdy kolejka faktycznie go ma. Kolejka
+            // zuzyta do zera zapisuje NULL, zeby nowy host nie uznal ostatniego
+            // utworu za material do wznowienia.
+            var currentId = session.HasCurrentItem && session.QueueItemIds.Count > 0
+                ? session.CurrentItem.Id
+                : null;
+
+            try
+            {
+                var written = store.WriteResume(
+                    _sessionId, new LiteResumeCheckpoint(currentId, positions));
+                if (written)
+                {
+                    _persistedWrites++;
+                    _lastPersistError = null;
+                }
+                else
+                {
+                    _persistSkipped++;
+                }
+                return written;
+            }
+            catch (Exception exception) when (exception is LiteQueueStoreDenied or IOException or SqliteException)
+            {
+                // Odmowa MUSI byc widoczna. Cichy brak trwalosci pozycji jest
+                // gorszy od bledu: uzytkownik inaczej liczy na wznowienie.
+                _lastPersistError = exception.Message;
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Czy pozycja ma PAMIETAC czas odtwarzania.
+    ///
+    /// Kolejnosc jest ta sama, co w <c>MainWindow.ShouldRememberLocalPosition</c>:
+    /// jawny tryb POZYCJI (<c>local_items.resume_mode</c>) ma pierwszenstwo, a
+    /// <c>Inherit</c> schodzi do USTAWIENIA GLOBALNEGO
+    /// (<c>AppSettings.RememberLocalPlaybackPositions</c>) odczytanego z
+    /// <c>state.json</c> tego samego profilu. Dzieki temu wylaczenie wznawiania
+    /// w AMC obowiazuje takze tutaj -- nie wymuszamy wznowienia wbrew ustawieniu.
+    ///
+    /// GRANICA: tryb FOLDERU i tryb SESJI nie sa tu widziane -- host nie czyta
+    /// <c>folder_playback_options</c> ani ustawien sesji. Pozycja z jawnym
+    /// trybem oraz czysto globalne wlaczenie/wylaczenie zachowuja sie jak w AMC;
+    /// pozycja dziedziczaca w folderze z WLASNYM trybem moze sie roznic.
+    /// </summary>
+    private bool ShouldRememberPosition(MediaItem item)
+    {
+        var entry = _restoredResume?.Entries.GetValueOrDefault(item.Id);
+        return (ResumePositionMode?)entry?.ResumeMode switch
+        {
+            ResumePositionMode.Remember => true,
+            ResumePositionMode.StartFromBeginning => false,
+            _ => RememberPositionsGlobally()
+        };
+    }
+
+    /// <summary>
+    /// Globalne <c>AppSettings.RememberLocalPlaybackPositions</c> z profilu.
+    ///
+    /// Czytamy POJEDYNCZA flage wprost z <c>state.json</c>, bez
+    /// <c>ConfigurationStore</c>: ten przy otwarciu MIGRUJE schemat i zapisuje
+    /// caly <c>AppState</c>, a host ma tylko odczytac ustawienie -- nie wolno mu
+    /// przepisac stanu uzytkownika z powodu malej listy. Brak pliku albo
+    /// nieczytelny plik oznacza DOMYSLNE <c>true</c>, dokladnie jak
+    /// <c>AppSettings</c>.
+    /// </summary>
+    private bool RememberPositionsGlobally()
+    {
+        if (_rememberGlobally is { } cached) return cached;
+
+        var value = true;
+        var statePath = _store is null ? null : Path.Combine(_store.ProfileDirectory, "state.json");
+        try
+        {
+            if (statePath is not null && File.Exists(statePath))
+            {
+                using var document = JsonDocument.Parse(File.ReadAllBytes(statePath));
+                if (document.RootElement.TryGetProperty("settings", out var settings)
+                    && settings.TryGetProperty("rememberLocalPlaybackPositions", out var flag)
+                    && flag.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                {
+                    value = flag.GetBoolean();
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+        {
+            // Nieczytelny state.json nie moze przewrocic kolejki. Zostaje
+            // domyslne AMC (true), a powod jest widoczny w stanie.
+            _lastPersistError = "Nie udalo sie odczytac ustawienia wznawiania: " + exception.Message;
+        }
+
+        _rememberGlobally = value;
+        return value;
+    }
+
+    /// <summary>
+    /// Pozycja, z ktorej WOLNO wznowic dany utwor, albo zero.
+    ///
+    /// Powtarza regule <c>MainWindow.CanRestorePosition</c>: zerowy czas nie
+    /// jest wznowieniem, a ODCISK PLIKU musi sie zgadzac. Podmieniony plik pod
+    /// tym samym Id startuje od poczatku -- stary czas wskazywalby w nim inne
+    /// miejsce.
+    /// </summary>
+    private static TimeSpan ResolveRestorablePosition(LiteResumeState resume, MediaItem item)
+    {
+        var entry = resume.Entries.GetValueOrDefault(item.Id);
+        if (entry is null || entry.ResumePositionTicks <= 0) return TimeSpan.Zero;
+        if ((ResumePositionMode)entry.ResumeMode == ResumePositionMode.StartFromBeginning)
+        {
+            return TimeSpan.Zero;
+        }
+
+        if (string.IsNullOrWhiteSpace(item.Source) || !File.Exists(item.Source))
+        {
+            // Bez pliku nie ma czego sprawdzac; zapisany czas zostaje, tak jak
+            // w pelnym AMC przy nieodczytywalnym odcisku.
+            return TimeSpan.FromTicks(entry.ResumePositionTicks);
+        }
+
+        try
+        {
+            var file = new FileInfo(item.Source);
+            if (entry.FileLength.HasValue && entry.FileLength.Value != file.Length) return TimeSpan.Zero;
+            if (entry.LastWriteUtcTicks.HasValue
+                && entry.LastWriteUtcTicks.Value != file.LastWriteTimeUtc.Ticks)
+            {
+                return TimeSpan.Zero;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return TimeSpan.FromTicks(entry.ResumePositionTicks);
+        }
+
+        return TimeSpan.FromTicks(entry.ResumePositionTicks);
+    }
 
     /// <summary>Komunikat ostatniej ODMOWY zapisu albo <c>null</c>.</summary>
     public string? LastPersistError
@@ -583,6 +866,10 @@ internal sealed class LiteQueueCoordinator
             // SAMEGO pliku, ktory stoi w kolejce, nadal oddawalo jej pauze,
             // Nastepny i koniec utworu. Prowadzenie gasimy jawnie.
             _leading = false;
+            // Notowana pozycja przestaje nalezec do kolejki. Bez tego czas
+            // bezposrednio granego pliku trafilby pod Id pozycji kolejki.
+            _notedPositionItemId = null;
+            _notedPosition = TimeSpan.Zero;
         }
     }
 
@@ -658,7 +945,7 @@ internal sealed class LiteQueueCoordinator
             var session = _session;
             return session is null
                 ? new QueueStatus([], null, null, false, false, 0d, _initialized,
-                    CanPersist, _lastPersistError, _persistedWrites, _restoredRows)
+                    CanPersist, _lastPersistError, _persistedWrites, _restoredRows, 0d)
                 : BuildStatus(session);
         }
     }
@@ -712,6 +999,13 @@ internal sealed class LiteQueueCoordinator
             CanPersist,
             _lastPersistError,
             _persistedWrites,
-            _restoredRows);
+            _restoredRows,
+            // Czas SWIADOMEGO wznowienia biezacej pozycji. Bierzemy go z TEJ
+            // SAMEJ pamieci sesji, ktorej uzyje start (DemoMediaSession.Play),
+            // wiec status nie moze obiecac czasu niezgodnego z gra.
+            session.HasCurrentItem
+                ? session.RememberedPositions
+                    .GetValueOrDefault(session.CurrentItem.Id).TotalSeconds
+                : 0d);
     }
 }

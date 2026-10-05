@@ -77,6 +77,17 @@ internal static class QueuePersistenceTests
             PozostaleTabeleIReszaProfiluZOSTAJACoDoRekordu();
             ObcaSesjaNIEJestResetowana();
             PozycjaKtorejNieMaWBibliotecNieWraca();
+            BiezacyUtworIPozycjaWRACAJAdoNOWEGOhosta();
+            WznowienieGRAodZAPISANEGOniezerowegoCzasu();
+            SamoWczytanieNIEodtwarzaNICZEGO();
+            UstawienieZAWSZEodPOCZATKUnieWznawia();
+            ZuzytaPUSTAkolejkaNIEwracaDoOstatniegoUtworu();
+            WyjscieDoBEZPOSREDNIEGOplikuNIEprzypisujePozycjiInnemuId();
+            PodmienionyPLIKpodTYMSAMYMIdNIEwznawia();
+            GLOBALNEwylaczenieWznawianiaObowiazuje();
+            STATUSpodajeCzasWznowieniaDlaOkna();
+            CheckpointPozycjiNIEruszaPOZOSTALYCHtabel();
+            OdmowaZapisuPozycjiNIEudajePowodzenia();
             Console.WriteLine("QueuePersistenceTests: OK");
         }
         finally
@@ -616,7 +627,481 @@ internal static class QueuePersistenceTests
             "pozycja bez wiersza w Bibliotece nie wraca, reszta kolejnosci zostaje");
     }
 
+    // ------------------------------------------- WZNOWIENIE: utwor i pozycja
+
+    /// <summary>
+    /// RDZEN tego przyrostu: biezacy lokalny utwor i jego POZYCJA CZASU
+    /// przezywaja zamkniecie wlasciciela i wracaja w NOWYM hoscie.
+    ///
+    /// Dane ida do PRAWDZIWYCH kolumn schematu pelnego AMC
+    /// (<c>local_state.current_item_id</c>, <c>local_items.resume_position_ticks</c>),
+    /// a nie do bocznego pliku: dokladnie tam, gdzie je trzyma i czyta
+    /// <c>LocalLibraryDatabase</c>.
+    /// </summary>
+    private static void BiezacyUtworIPozycjaWRACAJAdoNOWEGOhosta()
+    {
+        var profile = NewProfile("wznowienie-cykl");
+        // Ulamek sekundy jest tu celowy: zapis w SEKUNDACH zgubilby go i test
+        // by to zobaczyl. AMC trzyma TICKI.
+        var position = TimeSpan.FromMilliseconds(7_480);
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(position);
+        Assert.True(queue.SaveResumeCheckpoint(), "checkpoint pozycji zapisal sie");
+        first.Dispose();
+
+        // Kolumny w bazie, a nie nasz wlasny plik obok.
+        using (var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            using var command = verify.CreateCommand();
+            command.CommandText =
+                "SELECT current_item_id FROM local_state WHERE singleton = 1;";
+            Assert.Equal("file:B", (string?)command.ExecuteScalar() ?? "(null)",
+                "local_state.current_item_id wskazuje biezacy utwor");
+            Assert.True(
+                Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:B';")
+                    == position.Ticks,
+                "resume_position_ticks trzyma DOKLADNA pozycje w tickach");
+        }
+
+        var second = LiteQueueStore.Open(profile, writable: true);
+        using var reopened = second;
+        var restored = new LiteQueueCoordinator(new SilentOutput(), second);
+        Assert.True(restored.RestoredRows == 3, "nowy host wczytal kolejke");
+        var status = restored.Status();
+        Assert.Equal("file:B", status.CurrentId ?? "(null)",
+            "NOWY host zna biezacy utwor poprzednika");
+        Assert.True(Math.Abs(status.PositionSeconds - position.TotalSeconds) < 0.001d,
+            $"NOWY host zna NIEZEROWA pozycje; podal {status.PositionSeconds}");
+    }
+
+    /// <summary>
+    /// SWIADOME wznowienie w nowym hoscie oddaje silnikowi zapisany
+    /// NIEZEROWY czas. Sprawdzamy PARAMETR wywolania <c>Play</c>, nie napis w
+    /// odpowiedzi: to jedyny dowod, ze dekoder faktycznie dostal pozycje.
+    /// </summary>
+    private static void WznowienieGRAodZAPISANEGOniezerowegoCzasu()
+    {
+        var profile = NewProfile("wznowienie-gra");
+        var position = TimeSpan.FromMilliseconds(12_250);
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        queue.NotePosition(position);
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        var second = LiteQueueStore.Open(profile, writable: true);
+        using var reopened = second;
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        Assert.True(output.Plays.Count == 0,
+            "samo wczytanie profilu NIE zagralo niczego");
+
+        restored.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(output.Plays.Count == 1, "swiadome wznowienie zagralo raz");
+        var play = output.Plays[0];
+        Assert.Equal("file:A", play.Id, "zagral TEN utwor");
+        Assert.True(Math.Abs((play.Position - position).TotalMilliseconds) < 1d,
+            $"Play dostal ZAPISANY niezerowy czas; dostal {play.Position}");
+        Assert.True(play.Position > TimeSpan.Zero, "czas startu NIE jest zerem");
+    }
+
+    /// <summary>
+    /// Sam START hosta nie odtwarza niczego, takze gdy w profilu stoi zapisany
+    /// biezacy utwor z pozycja. Autoodtwarzanie po starcie byloby bledem.
+    /// </summary>
+    private static void SamoWczytanieNIEodtwarzaNICZEGO()
+    {
+        var profile = NewProfile("bez-autostartu");
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:C","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(9));
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        Assert.True(output.Plays.Count == 0, "zaden Play nie poszedl do silnika");
+        Assert.True(output.LoadedItemId is null, "silnik nie ma zaladowanego materialu");
+        var status = restored.Status();
+        Assert.True(!status.Playing, "status NIE twierdzi odtwarzania po samym starcie");
+        Assert.True(status.PositionSeconds > 0d,
+            "pozycja jest ZNANA, mimo ze nic nie gra -- to jest wznowienie na zadanie");
+    }
+
+    /// <summary>
+    /// Polityka AMC decyduje, nie my: dla pozycji z
+    /// <c>resume_mode = StartFromBeginning</c> czas NIE jest pamietany i
+    /// wznowienie startuje od zera. Nie wolno wymuszac wznowienia wbrew
+    /// ustawieniu uzytkownika.
+    /// </summary>
+    private static void UstawienieZAWSZEodPOCZATKUnieWznawia()
+    {
+        var profile = NewProfile("od-poczatku");
+        using (var seed = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            // 2 == ResumePositionMode.StartFromBeginning (Inherit=0, Remember=1).
+            Execute(seed, "UPDATE local_items SET resume_mode = 2 WHERE id = 'file:B';");
+        }
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(11));
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using (var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            Assert.True(
+                Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:B';") == 0,
+                "pozycja z trybem 'zawsze od poczatku' zapisuje ZERO, jak w pelnym AMC");
+        }
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        restored.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+            $"wznowienie wbrew ustawieniu NIE nastapilo; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// Kolejka ZUZYTA do zera nie ma prawa przywrocic ostatniego utworu jako
+    /// biezacego. Inaczej nowy host wygladalby, jakby mial co wznawiac.
+    /// </summary>
+    private static void ZuzytaPUSTAkolejkaNIEwracaDoOstatniegoUtworu()
+    {
+        var profile = NewProfile("zuzyta-bez-wznowienia");
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(4));
+        queue.SaveResumeCheckpoint();
+        // Naturalny koniec az do wyczerpania kolejki.
+        queue.HandlePlaybackEnded("file:B");
+        queue.HandlePlaybackEnded("file:A");
+        queue.HandlePlaybackEnded("file:C");
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        Assert.True(restored.RestoredRows == 0, "zuzyta kolejka zostaje pusta");
+        var status = restored.Status();
+        Assert.True(status.CurrentId is null,
+            $"pusta kolejka NIE ma biezacego utworu; podala {status.CurrentId}");
+        Assert.True(status.PositionSeconds == 0d, "nie ma czego wznawiac");
+        Assert.True(output.Plays.Count == 0, "i nic nie zagralo");
+
+        using var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName));
+        using var command = verify.CreateCommand();
+        command.CommandText = "SELECT current_item_id FROM local_state WHERE singleton = 1;";
+        Assert.True(command.ExecuteScalar() is null or DBNull,
+            "zuzyta kolejka wyczyscila current_item_id, a nie zostawila ostatniego utworu");
+    }
+
+    /// <summary>
+    /// Wyjscie do BEZPOSREDNIEGO pliku (albo radia) odcina kolejke od
+    /// transportu. Checkpoint po takim wyjsciu NIE MOZE przypisac czasu
+    /// cudzego materialu Id pozycji kolejki.
+    /// </summary>
+    private static void WyjscieDoBEZPOSREDNIEGOplikuNIEprzypisujePozycjiInnemuId()
+    {
+        var profile = NewProfile("wyjscie-poza-kolejke");
+
+        using var store = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), store);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(5));
+        queue.SaveResumeCheckpoint();
+
+        // Uzytkownik gra plik WPROST -- host odcina kolejke (files.play).
+        queue.DetachFromDirectPlay();
+        // Czas tamtego, obcego materialu NIE nalezy do kolejki.
+        queue.NotePosition(TimeSpan.FromSeconds(300));
+        queue.SaveResumeCheckpoint();
+
+        using var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName));
+        Assert.True(
+            Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:B';")
+                == TimeSpan.FromSeconds(5).Ticks,
+            "pozycja kolejki zostala przy swoim czasie, a nie przy czasie obcego materialu");
+        Assert.True(
+            Scalar(verify, "SELECT COUNT(*) FROM local_items WHERE resume_position_ticks = " +
+                TimeSpan.FromSeconds(300).Ticks.ToString(CultureInfo.InvariantCulture) + ";") == 0,
+            "czas bezposredniego odtwarzania NIE trafil do ZADNEGO Id kolejki");
+    }
+
+    /// <summary>
+    /// Odcisk pliku rozstrzyga: PODMIENIONY plik pod tym samym Id nie wznawia
+    /// sie ze starego czasu. To jest regula <c>CanRestorePosition</c> z pelnego
+    /// AMC, nie nasz wymysl.
+    ///
+    /// GRANICA: odcisk zapisuje PRZECHWYT KATALOGU pelnego AMC
+    /// (<c>CaptureLocalMediaState</c>), a NIE checkpoint pozycji -- tak samo
+    /// jest w <c>MainWindow.SaveLocalPlaybackCheckpoint</c>, ktory rusza tylko
+    /// <c>ResumePositionTicks</c>. Dlatego profil ma tu odcisk zasiany, a nasz
+    /// zapis go nie dotyka. Przy odcisku PUSTYM (NULL) AMC takze wznawia --
+    /// kolumny nie ma, wiec nie ma czego porownac.
+    /// </summary>
+    private static void PodmienionyPLIKpodTYMSAMYMIdNIEwznawia()
+    {
+        var profile = NewProfile("podmieniony-plik");
+        var mediaPath = MediaPath(profile, "A");
+        using (var seed = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            var info = new FileInfo(mediaPath);
+            Execute(seed,
+                "UPDATE local_items SET file_length = $len, last_write_utc_ticks = $ticks WHERE id = 'file:A';",
+                ("$len", info.Length), ("$ticks", info.LastWriteTimeUtc.Ticks));
+        }
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(8));
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using (var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            Assert.True(
+                Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:A';")
+                    == TimeSpan.FromSeconds(8).Ticks,
+                "czas zostal zapisany, zanim plik sie zmienil");
+            Assert.True(
+                Scalar(verify, "SELECT COUNT(*) FROM local_items WHERE id = 'file:A' AND file_length IS NOT NULL;") == 1,
+                "nasz checkpoint NIE wyczyscil odcisku zasianego przez AMC");
+        }
+
+        // Plik ROSNIE: inna dlugosc niz zapisany odcisk.
+        File.WriteAllBytes(mediaPath, new byte[4096]);
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        restored.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+            $"podmieniony plik startuje od zera; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// Checkpoint pozycji jest tak samo WASKI jak zapis kolejnosci: pozostale
+    /// tabele i kolumny zostaja co do TRESCI, nie tylko co do liczby rekordow.
+    /// </summary>
+    private static void CheckpointPozycjiNIEruszaPOZOSTALYCHtabel()
+    {
+        var profile = NewProfile("checkpoint-przed-po");
+        var databasePath = Path.Combine(profile, LiteQueueStore.LibraryFileName);
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        first.Dispose();
+
+        // Stan PO zapisie kolejnosci, PRZED checkpointem pozycji.
+        var before = DumpAllExcept(databasePath);
+
+        var second = LiteQueueStore.Open(profile, writable: true);
+        var again = new LiteQueueCoordinator(new SilentOutput(), second);
+        again.PlayAt(Args("""{"itemId":"file:C","volume":0}"""));
+        again.NotePosition(TimeSpan.FromMilliseconds(3_125));
+        Assert.True(again.SaveResumeCheckpoint(), "checkpoint poszedl");
+        second.Dispose();
+
+        var after = DumpAllExcept(databasePath);
+        foreach (var (key, value) in before)
+        {
+            Assert.Equal(value, after[key],
+                $"tresc poza jawnym checkpointem nietknieta: {key}");
+        }
+
+        // A to, co checkpoint MIAL zmienic, faktycznie sie zmienilo.
+        using var verify = Connect(databasePath);
+        Assert.True(
+            Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:C';")
+                == TimeSpan.FromMilliseconds(3_125).Ticks,
+            "checkpoint zapisal pozycje biezacego utworu");
+        using var command = verify.CreateCommand();
+        command.CommandText = "SELECT volume, library_view FROM local_state WHERE singleton = 1;";
+        using var reader = command.ExecuteReader();
+        Assert.True(reader.Read(), "local_state nadal ma swoj wiersz");
+        Assert.True(reader.GetInt32(0) == 0,
+            "glosnosc 0 w profilu PRZETRWALA checkpoint pozycji");
+        Assert.Equal("Wszystko", reader.GetString(1), "widok Biblioteki nietkniety");
+    }
+
+    /// <summary>
+    /// Checkpoint w trybie TYLKO ODCZYT leci ODMOWA widoczna w stanie, nigdy
+    /// cichym powodzeniem -- ta sama zasada, co dla zapisu kolejnosci.
+    /// </summary>
+    private static void OdmowaZapisuPozycjiNIEudajePowodzenia()
+    {
+        var profile = NewProfile("checkpoint-odmowa");
+        using var store = LiteQueueStore.Open(profile, writable: false);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), store);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(6));
+
+        Assert.True(!queue.SaveResumeCheckpoint(),
+            "checkpoint w trybie odczytu NIE zglasza powodzenia");
+        var status = queue.Status();
+        Assert.True(status.PersistError is not null,
+            "powod odmowy jest widoczny w stanie");
+
+        using var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName));
+        Assert.True(
+            Scalar(verify, "SELECT COUNT(*) FROM local_items WHERE resume_position_ticks <> 0;") == 0,
+            "baza NIE dostala ani jednej pozycji w trybie odczytu");
+        using var command = verify.CreateCommand();
+        command.CommandText = "SELECT current_item_id FROM local_state WHERE singleton = 1;";
+        Assert.True(command.ExecuteScalar() is null or DBNull,
+            "current_item_id tez nie zostal zapisany");
+    }
+
+    /// <summary>
+    /// GLOBALNE wylaczenie wznawiania w AMC
+    /// (<c>AppSettings.RememberLocalPlaybackPositions = false</c>) obowiazuje
+    /// takze host: pozycja DZIEDZICZACA (Inherit) nie wznawia sie. Nie wolno
+    /// wymuszac wznowienia wbrew ustawieniu uzytkownika.
+    /// </summary>
+    private static void GLOBALNEwylaczenieWznawianiaObowiazuje()
+    {
+        var profile = NewProfile("globalnie-wylaczone");
+        File.WriteAllText(
+            Path.Combine(profile, "state.json"),
+            """{"settings":{"rememberLocalPlaybackPositions":false}}""");
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(9));
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using (var verify = Connect(Path.Combine(profile, LiteQueueStore.LibraryFileName)))
+        {
+            Assert.True(
+                Scalar(verify, "SELECT resume_position_ticks FROM local_items WHERE id = 'file:A';") == 0,
+                "globalne wylaczenie zapisuje ZERO, nie zostawia starego czasu");
+        }
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var output = new SilentOutput();
+        var restored = new LiteQueueCoordinator(output, second);
+        restored.PlayAt(Args("""{"itemId":"file:A","volume":0}"""));
+        Assert.True(output.Plays[0].Position == TimeSpan.Zero,
+            $"przy globalnym wylaczeniu gra od zera; dostal {output.Plays[0].Position}");
+    }
+
+    /// <summary>
+    /// STATUS podaje czas, z ktorego pojdzie swiadome wznowienie. To minimalne
+    /// polaczenie dla okna: bez tego pola GUI nie wie, czy zapowiedziec
+    /// "wznow od 00:12" czy "od poczatku". Pole liczy TA SAMA metode, ktorej
+    /// uzywa <c>PlayAt</c>, wiec nie moze obiecac czasu niezgodnego z gra.
+    /// </summary>
+    private static void STATUSpodajeCzasWznowieniaDlaOkna()
+    {
+        var profile = NewProfile("status-wznowienia");
+
+        var first = LiteQueueStore.Open(profile, writable: true);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+        queue.Set(Args(ThreeRows(profile)));
+        queue.PlayAt(Args("""{"itemId":"file:B","volume":0}"""));
+        queue.NotePosition(TimeSpan.FromSeconds(11.25));
+        queue.SaveResumeCheckpoint();
+        first.Dispose();
+
+        using var second = LiteQueueStore.Open(profile, writable: true);
+        var restored = new LiteQueueCoordinator(new SilentOutput(), second);
+        var status = restored.Status();
+        Assert.True(status.CurrentId == "file:B",
+            $"status oddaje wczytany biezacy utwor; dostal {status.CurrentId}");
+        Assert.True(Math.Abs(status.ResumeSeconds - 11.25) < 0.01,
+            $"status oddaje czas wznowienia 11,25 s; dostal {status.ResumeSeconds}");
+        Assert.True(!status.Playing && !status.Paused,
+            "sam odczyt statusu NIE zaczyna grac");
+    }
+
     // ------------------------------------------------------------- narzedzia
+
+    /// <summary>
+    /// Zrzut CALEJ tresci bazy poza tym, co jawny checkpoint ma prawo zmienic
+    /// (<c>local_state</c> i kolumna <c>resume_position_ticks</c>). Porownanie
+    /// tresci, nie samej liczby rekordow: podmiana wartosci w miejscu tez jest
+    /// zmiana.
+    /// </summary>
+    private static Dictionary<string, string> DumpAllExcept(string databasePath)
+    {
+        var dump = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var connection = Connect(databasePath);
+
+        var tables = new List<string>();
+        using (var list = connection.CreateCommand())
+        {
+            list.CommandText =
+                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;";
+            using var reader = list.ExecuteReader();
+            while (reader.Read()) tables.Add(reader.GetString(0));
+        }
+
+        foreach (var table in tables)
+        {
+            if (string.Equals(table, "local_state", StringComparison.Ordinal)) continue;
+
+            var columns = new List<string>();
+            using (var info = connection.CreateCommand())
+            {
+                info.CommandText = $"PRAGMA table_info({table});";
+                using var reader = info.ExecuteReader();
+                while (reader.Read()) columns.Add(reader.GetString(1));
+            }
+            // Kolumna, ktora checkpoint ma prawo zmienic, jest WYLACZONA z
+            // porownania; cala reszta local_items nadal jest porownywana.
+            var compared = columns
+                .Where(column => !string.Equals(column, "resume_position_ticks", StringComparison.Ordinal))
+                .ToArray();
+            if (compared.Length == 0) continue;
+
+            using var rows = connection.CreateCommand();
+            var projection = string.Join(", ", compared.Select(column => $"quote({column})"));
+            rows.CommandText = $"SELECT {projection} FROM {table};";
+            var lines = new List<string>();
+            using var rowReader = rows.ExecuteReader();
+            while (rowReader.Read())
+            {
+                var values = new string[compared.Length];
+                for (var index = 0; index < compared.Length; index++)
+                {
+                    values[index] = rowReader.IsDBNull(index) ? "NULL" : rowReader.GetString(index);
+                }
+                lines.Add(string.Join("\u0001", values));
+            }
+            // Sortowanie, bo kolejnosc wierszy bez ORDER BY nie jest obiecana.
+            lines.Sort(StringComparer.Ordinal);
+            dump[table] = string.Join("\n", lines);
+        }
+        return dump;
+    }
 
     private static SqliteConnection Connect(string databasePath)
     {

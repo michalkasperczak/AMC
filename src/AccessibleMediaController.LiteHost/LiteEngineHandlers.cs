@@ -310,6 +310,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             persistError = status.PersistError,
             persistedWrites = status.PersistedWrites,
             restoredRows = status.RestoredRows,
+            // Czas, z ktorego pojdzie SWIADOME wznowienie biezacej pozycji.
+            // Bez tego okno nie wie, czy zapowiedziec "wznow" czy "od poczatku".
+            resumeSeconds = status.ResumeSeconds,
             // Jawny stan WCZYTANIA. Pusta lista po zuzyciu utworow to NIE to
             // samo, co kolejka nigdy nie wczytana: bez tego pola frontend bral
             // jedno za drugie i przywracal zapisany porzadek, czyli skonsumowane
@@ -575,8 +578,14 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         if (engine == "files" && _queue.OwnsCurrent(currentId))
         {
+            // Czas notujemy PRZED pauza, z zywego wyjscia.
+            _queue.NotePosition(_files.Position);
             var status = _queue.PauseResume();
             lock (_gate) _paused = status.Paused;
+            // Pauza to swiadome przerwanie: utrwalamy punkt wznowienia.
+            // Wznowienie gry tez zapisuje -- czas jest wtedy wciaz wazny, a
+            // zapis i tak pomija checkpoint bez zmiany.
+            _queue.SaveResumeCheckpoint();
             return new { paused = status.Paused, engine = "files", queue = true };
         }
 
@@ -619,9 +628,15 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         if (engine == "files" && _queue.OwnsCurrent(currentId))
         {
+            // Pozycje notujemy PRZED zatrzymaniem: po Stop wyjscie nie zna
+            // juz czasu, a to jest moment, w ktorym uzytkownik przerwal.
+            _queue.NotePosition(_files.Position);
             var status = _queue.Stop();
             _radio.Stop();
             lock (_gate) _paused = status.Paused;
+            // Zatrzymanie to swiadome przerwanie -- utrwalamy punkt wznowienia
+            // od razu, bez czekania na zamkniecie procesu.
+            _queue.SaveResumeCheckpoint();
             return new { ok = true, queue = true, playing = status.Playing };
         }
 
@@ -649,6 +664,10 @@ internal sealed class LiteEngineHandlers : IDisposable
 
         if (engine == "radio") _radio.Seek(target);
         else _files.Seek(target);
+        // Przesuniecie czasu to ZDARZENIE WLASCICIELA: jesli transport prowadzi
+        // kolejka, nowa pozycja ma trafic do punktu wznowienia. Koordynator sam
+        // odrzuci czas, gdy material nie nalezy do kolejki.
+        _queue.NotePosition(target);
         return new { engine, positionSeconds = target.TotalSeconds };
     }
 
@@ -771,6 +790,20 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     public void Dispose()
     {
+        // ZWYKLE ZAMKNIECIE HOSTA tez jest momentem zapisu: uzytkownik, ktory
+        // zamyka okno w trakcie gry, ma wrocic tam, gdzie skonczyl. Czas bierzemy
+        // z ZYWEGO wyjscia, zanim je zamkniemy -- po Dispose nie ma juz pozycji.
+        // Blad zapisu nie moze przewrocic zamykania procesu.
+        try
+        {
+            if (_queue.OwnsCurrent(_filesItem?.Id)) _queue.NotePosition(_files.Position);
+            _queue.SaveResumeCheckpoint();
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine("[lite-host] nie zapisano pozycji wznowienia: " + exception.Message);
+        }
+
         _files.Dispose();
         _radio.Dispose();
         // Blokada wlasnosci MUSI pasc razem z hostem. Bez tego kolejny host na

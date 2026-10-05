@@ -30,6 +30,43 @@ public sealed record LiteQueueStoredRow(
     bool IsPlayNext);
 
 /// <summary>
+/// Dane WZNOWIENIA jednej pozycji, czytane z profilu.
+///
+/// <paramref name="ResumePositionTicks"/> i <paramref name="ResumeMode"/> to
+/// DOKLADNIE kolumny <c>local_items</c> pelnego AMC. Odcisk pliku
+/// (<paramref name="FileLength"/>, <paramref name="LastWriteUtcTicks"/>) jest
+/// tu po to, zeby powtorzyc regule <c>MainWindow.CanRestorePosition</c>:
+/// podmieniony plik NIE wznawia sie ze starego czasu.
+/// </summary>
+public sealed record LiteResumeEntry(
+    string ItemId,
+    long ResumePositionTicks,
+    int ResumeMode,
+    long? FileLength,
+    long? LastWriteUtcTicks);
+
+/// <summary>
+/// Stan WZNOWIENIA odczytany z profilu: ktory utwor byl biezacy i z jakim
+/// czasem. Zrodlem sa <c>local_state.current_item_id</c> oraz
+/// <c>local_items.resume_position_ticks</c> -- te same kolumny, ktorych uzywa
+/// pelne AMC. Zadnego bocznego JSON-a obok.
+/// </summary>
+public sealed record LiteResumeState(
+    string? CurrentItemId,
+    IReadOnlyDictionary<string, LiteResumeEntry> Entries);
+
+/// <summary>
+/// To, co host chce utrwalic jako punkt wznowienia.
+///
+/// <paramref name="Positions"/> obejmuje WSZYSTKIE pozycje kolejki (takze
+/// zerowe), bo wyzerowanie czasu po dograniu utworu do konca jest rownie
+/// istotne, co jego zapamietanie.
+/// </summary>
+public sealed record LiteResumeCheckpoint(
+    string? CurrentItemId,
+    IReadOnlyDictionary<string, TimeSpan> Positions);
+
+/// <summary>
 /// Wynik odczytu zapisanej kolejki.
 ///
 /// <paramref name="Saved"/> jest tu po to, by odroznic DWA stany, ktorych same
@@ -90,6 +127,12 @@ public sealed class LiteQueueStore : IDisposable
     /// <c>queue.status</c> pisaloby po bazie bez powodu.
     /// </summary>
     private string? _persistedSignature;
+
+    /// <summary>
+    /// Podpis OSTATNIO ZAPISANEGO punktu wznowienia. Ta sama zasada, co przy
+    /// kolejnosci: checkpoint bez faktycznej zmiany nie pisze po bazie.
+    /// </summary>
+    private string? _resumeSignature;
 
     private LiteQueueStore(
         string profileDirectory,
@@ -354,6 +397,130 @@ public sealed class LiteQueueStore : IDisposable
             return true;
         }
     }
+
+    /// <summary>
+    /// Odczyt DANYCH WZNOWIENIA z profilu: biezacy utwor i czasy pozycji.
+    ///
+    /// Czytamy te same kolumny, co <c>LocalLibraryDatabase.LoadInto</c>, i nie
+    /// interpretujemy ich tutaj -- decyzja "czy wolno wznowic" nalezy do
+    /// polityki (tryb pozycji, odcisk pliku), nie do magazynu.
+    /// </summary>
+    public LiteResumeState ReadResume(string sessionId)
+    {
+        RequireLocalSession(sessionId);
+        lock (_gate)
+        {
+            using var connection = OpenConnection(DatabasePath, readOnly: true);
+
+            string? currentItemId = null;
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText =
+                    "SELECT current_item_id FROM local_state WHERE singleton = 1;";
+                var value = command.ExecuteScalar();
+                if (value is string text && text.Length > 0) currentItemId = text;
+            }
+
+            var entries = new Dictionary<string, LiteResumeEntry>(StringComparer.Ordinal);
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT id, resume_position_ticks, resume_mode, file_length, last_write_utc_ticks
+                    FROM local_items;
+                    """;
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var id = reader.GetString(0);
+                    entries[id] = new LiteResumeEntry(
+                        id,
+                        reader.GetInt64(1),
+                        reader.GetInt32(2),
+                        reader.IsDBNull(3) ? null : reader.GetInt64(3),
+                        reader.IsDBNull(4) ? null : reader.GetInt64(4));
+                }
+            }
+
+            return new LiteResumeState(currentItemId, entries);
+        }
+    }
+
+    /// <summary>
+    /// ZAPIS punktu wznowienia: biezacy utwor i czasy pozycji.
+    ///
+    /// Zapis jest tak samo WASKI jak zapis kolejnosci -- rusza WYLACZNIE
+    /// kolumne <c>local_items.resume_position_ticks</c> dla WSKAZANYCH pozycji
+    /// oraz <c>local_state.current_item_id</c>. Tak samo jak tam, nie wolamy
+    /// <c>LocalLibraryDatabase.Save</c>: ono skasowaloby cala baze i wpisalo na
+    /// nowo caly <c>PersistedState</c>, ktorego ten host nie ma w pamieci.
+    ///
+    /// POLITYKA AMC rozstrzyga PRZED tym wywolaniem: pozycje z trybem
+    /// <c>StartFromBeginning</c> przychodza tu z czasem zerowym, dokladnie jak
+    /// w <c>MainWindow.SaveLocalPlaybackCheckpoint</c>. Magazyn niczego nie
+    /// wymusza i nie dopisuje wznawiania wbrew ustawieniu.
+    ///
+    /// Zwraca <c>true</c> tylko gdy cos naprawde poszlo do bazy; odmowa leci
+    /// wyjatkiem i nigdy nie udaje powodzenia.
+    /// </summary>
+    public bool WriteResume(string sessionId, LiteResumeCheckpoint checkpoint)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        RequireLocalSession(sessionId);
+        if (!IsWritable)
+        {
+            throw new LiteQueueStoreDenied(
+                "Magazyn kolejki jest w trybie TYLKO ODCZYT. Zapis pozycji wznowienia wymaga "
+                + "jawnego trybu zapisu wskazujacego wlasna kopie profilu.");
+        }
+        if (!OwnsWriteLock)
+        {
+            throw new LiteQueueStoreDenied(
+                "Ten host nie trzyma blokady wlasnosci zapisu kolejki.");
+        }
+
+        var signature = ResumeSignature(checkpoint);
+        lock (_gate)
+        {
+            if (string.Equals(_resumeSignature, signature, StringComparison.Ordinal)) return false;
+
+            using var connection = OpenConnection(DatabasePath, readOnly: false);
+            using var transaction = connection.BeginTransaction();
+
+            foreach (var (itemId, position) in checkpoint.Positions)
+            {
+                // Tylko JEDNA kolumna i tylko dla pozycji, ktore host zna.
+                // Pozycji spoza kolejki nie dotykamy -- ich czas nalezy do
+                // pelnego AMC albo do innego kontekstu odtwarzania.
+                Execute(connection, transaction,
+                    "UPDATE local_items SET resume_position_ticks = $ticks WHERE id = $item;",
+                    ("$ticks", Math.Max(0L, position.Ticks)), ("$item", itemId));
+            }
+
+            // Biezacy utwor w local_state. Wiersz singleton moze jeszcze nie
+            // istniec w swiezym profilu -- wtedy go zakladamy z wartosciami
+            // domyslnymi tego schematu, nie zgadujac cudzych pol.
+            Execute(connection, transaction,
+                """
+                INSERT INTO local_state(singleton, library_view, volume, playback_rate)
+                VALUES(1, 'Wszystko', 35, 1.0)
+                ON CONFLICT(singleton) DO NOTHING;
+                """);
+            Execute(connection, transaction,
+                "UPDATE local_state SET current_item_id = $item WHERE singleton = 1;",
+                ("$item", checkpoint.CurrentItemId));
+
+            transaction.Commit();
+            _resumeSignature = signature;
+            return true;
+        }
+    }
+
+    private static string ResumeSignature(LiteResumeCheckpoint checkpoint) =>
+        (checkpoint.CurrentItemId ?? "\u0003") + "\u0002" + string.Join(
+            "\u0001",
+            checkpoint.Positions
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => pair.Key + "=" + pair.Value.Ticks.ToString(CultureInfo.InvariantCulture)));
 
     /// <summary>
     /// Liczba rekordow w tabelach, ktorych ten magazyn NIE RUSZA. Sluzy do
