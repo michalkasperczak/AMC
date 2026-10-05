@@ -77,12 +77,16 @@ Puste listy, podwójny odczyt i stare nazwy zostały odebrane po zmianie wspóln
 ## Najbliższe braki
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
-- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Nadal brak trwałego zapisu kolejki i mutacji zakładek.
+- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); nadal brak czasu wznowienia, mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
 - ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.
+
+## Trwała kolejność na prywatnej kopii — odebrana
+
+Zwykłe GUI samo uruchamia hosta z argumentami prywatnego profilu i pisarza. Kolejność, członkostwo i świadomie pusty stan przeżywają restart. Odmowa zapisu jest czytana przez NVDA również po ostatnim utworze w odtwarzaczu, bez powtarzania tej samej przyczyny. Rodzic wykonał pełny cykl GUI na kopii11203/5000; `queue-persistence-after-live/gui-integration-parent/`. Czas wznowienia i bieżące ID nie są jeszcze utrwalane. Domyślny wspólny profil nadal pozostaje tylko do odczytu.
 
 ## Własność danych — zasada już przyjęta
 

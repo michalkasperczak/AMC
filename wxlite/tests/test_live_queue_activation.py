@@ -219,6 +219,18 @@ def test_flagi_pozycji_ida_z_odczytanego_wiersza_a_nie_z_wymuszenia() -> None:
     )
 
 
+def test_enter_w_zywej_kolejce_nie_wymaga_sciezki_w_payloadzie() -> None:
+    from amc_wx_lite.navigation import PlayQueueAt
+    from amc_wx_lite.list_model import rows_from_queue_status
+
+    navigator = Navigator()
+    rows = rows_from_queue_status({"rows": [{"id": "q-live", "title": "Utwór"}]})
+    navigator.apply_live_queue(rows, current_id="q-live")
+    effects = navigator.activate_selected()
+    assert any(isinstance(x, PlayQueueAt) and x.item_id == "q-live" for x in effects), effects
+    assert navigator.session.view is View.PLAYER
+
+
 def test_zywy_widok_nie_odbudowuje_kolejki_hosta() -> None:
     """Enter w ZYWYM widoku startuje w miejscu, bez ``queue.set``.
 

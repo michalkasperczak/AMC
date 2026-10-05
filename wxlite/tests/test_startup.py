@@ -43,6 +43,10 @@ def test_engine_handshake_is_deferred_to_background():
         library=SimpleNamespace(
             use_collation=lambda collation: calls.append("collation")),
         _load_initial_content=lambda: calls.append("content"))
+    # Tryb trwalosci kolejki wyprowadza sie z UKLADU PROFILU; ten test mierzy
+    # odroczenie I/O, a nie wybor trybu, wiec deklarujemy zwykly start bez
+    # zapisu (tak jak domyslny, wspolny profil tylko do odczytu).
+    frame._queue_persistence_arguments = lambda: {}
     try:
         gui.LiteFrame._start_engine(frame)
         assert not calls, "The GUI thread must not perform startup I/O"

@@ -392,6 +392,10 @@ class Navigator:
             state.view = View.PLAYER
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
 
+        # Żywa kolejka ma już ścieżki w hoście. Payload listy niesie tylko ID.
+        if state.library_view is LibraryView.LIVE_QUEUE:
+            return self._activate_live_queue_row(row)
+
         if not row.path:
             # Wiersz ZAKLADKI nie ma sciezki i miec jej nie moze: jego
             # ``item_id`` to ``bookmark:<id>``, czyli identyfikator ZAPISU, nie
@@ -405,11 +409,6 @@ class Navigator:
         # utworu nie byloby czym przejsc dalej.
         if state.library_view is LibraryView.SAVED_QUEUE:
             return self._activate_queue_row(row)
-
-        # ZYWY widok: kolejke host JUZ ma. Startujemy w miejscu, bez
-        # przesylania jej od nowa.
-        if state.library_view is LibraryView.LIVE_QUEUE:
-            return self._activate_live_queue_row(row)
 
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id

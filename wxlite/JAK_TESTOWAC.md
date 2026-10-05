@@ -12,6 +12,12 @@ Odbiór KOŃCOWY żywej kolejki (po scaleniu): **588 testów Pythona, 0 błędó
 
 Nadrzędny kwit `live-queue-after-native-lists/parent-speech-full-profile/`: pełna kopia 11200→11203 pliki, 5000 zakładek zachowanych, naturalne B→A→C z C zaznaczonym jeszcze podczas B. Natywne/model 3→2→1→0, stały fokus, ponowne Ctrl+Q nadal puste. Mowa z rzeczywistego Podglądu mowy; `Announcer.say` sam w sobie jej nie dowodzi. Kod wykonawczy 38d931e, host DLL 6fff6bd0…, bez kolejnych zmian produkcyjnych w tym odbiorze.
 
+## Trwałość kolejki: próbny profil i rzeczywisty restart
+
+Aktualny kwit `queue-persistence-after-live/gui-integration-parent/REPORT.md`: pełny Python603/0/0, GUI odmowa zapisu ostatniego utworu z prawdziwą mową NVDA, ponowne uruchomienie niepustej kolejki, udany zapis do zera i kolejny restart z0wierszy. Własny profil `profile-persist-parent-final` zawiera pełne11203 rekordy; nie zastępuj go małą próbką.
+
+Host: `C:\Users\Michal\AppData\Local\Temp\amc-wx-queue-persist-parent\complete-host-8abc180\amc_lite_host.exe`, DLL13f38747…. Przed użyciem sprawdź komplet wymaganych bibliotek z deps.json i manifest41plików w kwicie. Sam SHA własnejDLL NIE wykrywa brakujących NAudio/SoundTouch; poprzedni katalog był niekompletny mimo zgodnego SHA. Starych kwitów/profili nie nadpisuj, użyj następnego backupuSQLite. Zapisy są dozwolone tylko na prywatnej kopii, a czas wznowienia pozostaje dalszym punktem.
+
 ## Przygotowane stanowisko prywatne
 
 Odebrany układ naHermesie: `C:\Users\Michal\AppData\Local\Temp\amc-wx-425` z podkatalogami `app`, `runtime`, `host` i prywatną kopią `profile`. Jest to staging, nie numer publicznego wydania.

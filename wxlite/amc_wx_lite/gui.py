@@ -715,7 +715,10 @@ class LiteFrame(wx.Frame):
         self.options = state.options
         # Stacje: w trybie wspolnego profilu zrodlem jest state.json AMC
         # (radio.stations), a nie prywatna kopia -- inaczej Radio bylo puste.
-        self.radio = RadioSource(resolve_layout())
+        # Uklad rozstrzygamy RAZ: ten sam obiekt decyduje tez o tym, czy host
+        # dostanie zgode na zapis kolejki (patrz _queue_persistence_arguments).
+        self.layout = resolve_layout()
+        self.radio = RadioSource(self.layout)
         self._radio_snapshot = self.radio.load()
         self.stations = self._radio_snapshot.list
         self.navigator = Navigator()
@@ -972,12 +975,40 @@ class LiteFrame(wx.Frame):
         """Brama zycia okna: wynik z tla nie moze dotknac zamknietego okna."""
         return bool(self) and not self.IsBeingDeleted()
 
+    def _queue_persistence_arguments(self) -> dict[str, object]:
+        """Czy TEN start okna ma byc pisarzem zapisanej kolejki.
+
+        Decyduje UKLAD PROFILU, nie zyczenie wywolujacego:
+
+        * ``PRIVATE_SANDBOX`` (wlasna pelna kopia) -- host dostaje sciezke i
+          jawna zgode na zapis. To jedyny tryb, w ktorym kolejka przezywa
+          zamkniecie okna.
+        * ``READ_ONLY_MIRROR`` (wspolny profil uzytkownika) -- NIC nie
+          wysylamy. Wlascicielem tych plikow jest pelne AMC (WPF), ktore nie
+          zna naszej blokady; nasz zamek nie chronilby go przed niczym.
+
+        Brak bazy w piaskownicy to zwykle przegladanie dysku: host zostaje w
+        pamieci, a stara sciezka plikow dziala bez zmian.
+        """
+        layout = getattr(self, "layout", None) or resolve_layout()
+        if not layout.may_write_profile:
+            return {}
+        if not layout.library_db.exists():
+            return {}
+        return {"profile_dir": str(layout.library_db.parent), "queue_write": True}
+
     def _start_engine(self) -> None:
+        persistence = self._queue_persistence_arguments()
+        # Co obiecalismy uzytkownikowi: bez tej zgody ``persistent=false`` jest
+        # stanem NORMALNYM, a nie awaria warta ogloszenia.
+        self._queue_write_requested = bool(persistence.get("queue_write"))
+        self._last_persist_error: str | None = None
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
             on_event=self._on_engine_event,
             on_stderr=lambda line: None,
+            **persistence,  # type: ignore[arg-type]
         )
         self.client = client
         settings = self.options.audio_payload()
@@ -1053,6 +1084,64 @@ class LiteFrame(wx.Frame):
             and data.get("engine") == "files"
         ):
             self._refresh_live_queue()
+        if name == "queue.advanced" or (
+            name == "playback.ended" and data.get("engine") == "files"
+        ):
+            # Także ostatni utwór zapisuje pustkę, ale nie emituje queue.advanced.
+            # Kolejka WLASNIE sie zmienila, czyli host wlasnie probowal ja
+            # zapisac. Pytamy tu, a nie w _refresh_live_queue, bo tamta droga
+            # istnieje tylko w otwartym Ctrl+Q.
+            self._check_queue_persistence()
+
+    # --------------------------------------------- slyszalna trwalosc kolejki
+
+    def _note_queue_persistence(self, payload: dict) -> None:
+        """Powiedz PRAWDE o zapisie kolejki -- raz, a nie co zdarzenie.
+
+        Zasady, w tej kolejnosci:
+
+        * Nie prosilismy o zapis (zwykly, tylko-do-odczytu start) -->
+          ``persistent=false`` jest stanem normalnym. Milczymy; obiecywanie
+          albo oplakiwanie trwalosci, ktorej nie zamawialismy, to halas.
+        * Zapis sie udal --> tez milczymy. Powodzenie nie jest komunikatem.
+        * Swiadomy pisarz dostal odmowe --> mowimy, co sie stalo i dlaczego,
+          krotko. Powtorzenia TEJ SAMEJ przyczyny tlumimy: host przysyla ja
+          przy kazdym przejsciu kolejki, a czytnik ekranu nie jest logiem.
+        """
+        if not getattr(self, "_queue_write_requested", False):
+            return
+        error = str((payload or {}).get("persistError") or "").strip()
+        if not error:
+            # Zapis wrocil do zdrowia: nastepna awaria znow jest nowiną.
+            self._last_persist_error = None
+            return
+        if error == getattr(self, "_last_persist_error", None):
+            return
+        self._last_persist_error = error
+        self.announcer.say(f"Nie zapisałem kolejki: {error}")
+
+    def _check_queue_persistence(self) -> None:
+        """Zapytaj o stan zapisu po NATURALNYM przejsciu kolejki.
+
+        Osobno od ``_refresh_live_queue``, bo ta milczy poza widokiem Ctrl+Q --
+        a blad zapisu trzeba uslyszec takze patrzac na odtwarzacz. Pytanie
+        idzie przez ``runner`` (czyli POZA brama hosta i bez trzymania zamkow
+        koordynatora), zadnego nowego timera ani drugiego silnika.
+        """
+        client = self.client
+        if client is None or not getattr(self, "_queue_write_requested", False):
+            return
+
+        def done(payload: dict) -> None:
+            if self._window_alive():
+                self._note_queue_persistence(payload or {})
+
+        def failed(error: Exception) -> None:
+            # Samo pytanie padlo; to NIE jest dowod odmowy zapisu, wiec nie
+            # zmyslamy przyczyny.
+            return None
+
+        self.runner.submit("queue-persist", client.queue_status, done, failed)
 
     # ------------------------------------------------------- tresc poczatkowa
 
@@ -1562,7 +1651,8 @@ class LiteFrame(wx.Frame):
                 intent.item_id, volume=self.options.volume, rate=self.options.rate
             )
 
-        def done(_payload: dict) -> None:
+        def done(payload: dict) -> None:
+            self._note_queue_persistence(payload or {})
             self._refresh_status()
 
         def failed(error: Exception) -> None:
@@ -1648,7 +1738,8 @@ class LiteFrame(wx.Frame):
                 intent.item_id, volume=self.options.volume, rate=self.options.rate
             )
 
-        def done(_payload: dict) -> None:
+        def done(payload: dict) -> None:
+            self._note_queue_persistence(payload or {})
             self._refresh_status()
 
         def failed(error: Exception) -> None:
@@ -1684,6 +1775,7 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(
                     "Koniec kolejki" if forward else "Poczatek kolejki"
                 )
+            self._note_queue_persistence(payload or {})
             self._refresh_status()
 
         def failed(error: Exception) -> None:

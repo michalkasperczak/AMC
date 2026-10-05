@@ -84,12 +84,23 @@ class LiteHostClient:
         executable: str | Path,
         *,
         timeshift_minutes: int = 30,
+        profile_dir: str | Path | None = None,
+        queue_write: bool = False,
         on_event: Callable[[str, dict], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         spawn: Callable[..., Any] | None = None,
     ) -> None:
         self.executable = str(executable)
         self.timeshift_minutes = timeshift_minutes
+        # TRWALOSC kolejki. Host zapisuje ja tylko wtedy, gdy dostanie JAWNA
+        # sciezke wlasnej kopii profilu; ``queue_write`` jest osobna, swiadoma
+        # zgoda na bycie jej pisarzem. Domyslnie oba sa puste, czyli host
+        # zachowuje sie dokladnie jak dotad: kolejka zyje w pamieci procesu.
+        self.profile_dir = str(profile_dir) if profile_dir else None
+        # Samo ``--queue-write`` bez katalogu host i tak odrzuca
+        # (``Program.cs`` -> ``LiteQueueStoreDenied``). Nie wysylamy polowy
+        # kontraktu, zeby okno nie startowalo z gwarantowanym bledem.
+        self.queue_write = bool(queue_write) and self.profile_dir is not None
         self._on_event = on_event
         self._on_stderr = on_stderr
         self._spawn = spawn or subprocess.Popen
@@ -104,6 +115,20 @@ class LiteHostClient:
         self._lifecycle_lock = threading.RLock()
 
     # ------------------------------------------------------------ start/stop
+
+    def _command(self) -> list[str]:
+        """Pelne polecenie procesu hosta.
+
+        Argumenty trwalosci dokladamy TYLKO wtedy, gdy wolajacy je podal.
+        Zwykly start zostaje bajt w bajt taki jak dotad -- host bez
+        ``--profile-dir`` nie dotyka zadnego profilu.
+        """
+        command = [self.executable, "--timeshift-minutes", str(self.timeshift_minutes)]
+        if self.profile_dir is not None:
+            command += ["--profile-dir", self.profile_dir]
+            if self.queue_write:
+                command.append("--queue-write")
+        return command
 
     def start(self) -> None:
         with self._lifecycle_lock:
@@ -124,7 +149,7 @@ class LiteHostClient:
             # Bez tego Windows pokazuje czarne okno konsoli hosta.
             creation = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self._process = self._spawn(
-            [self.executable, "--timeshift-minutes", str(self.timeshift_minutes)],
+            self._command(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
