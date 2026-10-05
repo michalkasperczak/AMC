@@ -9,6 +9,7 @@ internal static class Program
         ("--args", ArgumentReadingTests.Run),
         ("--audio", AudioConfigurationTests.Run),
         ("--queue", QueueCoordinatorTests.Run),
+        ("--transport", QueueTransportTests.Run),
     ];
 
     public static int Main(string[] args)

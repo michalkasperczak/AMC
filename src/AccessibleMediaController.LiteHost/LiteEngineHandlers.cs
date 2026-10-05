@@ -46,8 +46,15 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// zdarzeniem <c>DurationAvailable</c> po otwarciu strumienia. Bez tego
     /// <c>transport.status</c> oddawal <c>durationSeconds=0</c> i okno nie mialo
     /// z czego policzyc czasu calkowitego ani pozostalego.
+    ///
+    /// Trzymamy czas RAZEM z Id, ktorego dotyczy. Inaczej kolejnosc zdarzen
+    /// rozstrzygala o wyniku: <c>DurationAvailable</c> potrafi przyjsc, zanim
+    /// host zapisze nowy biezacy material, i wtedy czas albo byl odrzucany (Id
+    /// jeszcze stare), albo zerowany po fakcie. Z para (Id, czas) zadna
+    /// kolejnosc nie moze podac dlugosci NIE TEGO utworu.
     /// </summary>
     private TimeSpan _filesDuration;
+    private string? _filesDurationId;
     private int _volume = 35;
     private double _rate = 1d;
     private bool _paused;
@@ -95,7 +102,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _activeEngine = "files";
                 _filesItem = next;
                 // Nowy strumien: dlugosc POPRZEDNIEGO przestaje obowiazywac.
-                _filesDuration = TimeSpan.Zero;
+                // Zerujemy tylko wtedy, gdy zapamietany czas nie dotyczy JUZ
+                // nowego utworu -- inaczej skasowalibysmy wartosc, ktora dekoder
+                // zdazyl podac przed tym miejscem.
+                ForgetStaleFilesDurationLocked(next.Id);
                 _paused = false;
             }
             Publish("queue.advanced", new
@@ -108,11 +118,14 @@ internal sealed class LiteEngineHandlers : IDisposable
         };
         _files.DurationAvailable += (_, e) =>
         {
-            // Zapamietujemy czas Z DEKODERA, bo tylko on go zna; dopiero
-            // wtedy transport.status ma co oddac w durationSeconds.
+            // Zapamietujemy czas Z DEKODERA razem z Id, do ktorego nalezy. Nie
+            // porownujemy go z _filesItem, bo to zdarzenie potrafi wyprzedzic
+            // zapis nowego biezacego materialu; para (Id, czas) jest odporna na
+            // kolejnosc, a Status() i tak sprawdza zgodnosc Id.
             lock (_gate)
             {
-                if (_filesItem is not null && _filesItem.Id == e.Item.Id) _filesDuration = e.Duration;
+                _filesDurationId = e.Item.Id;
+                _filesDuration = e.Duration;
             }
             Publish("playback.duration",
                 new { engine = "files", id = e.Item.Id, seconds = e.Duration.TotalSeconds, sampleRateHz = e.SampleRateHz });
@@ -186,11 +199,21 @@ internal sealed class LiteEngineHandlers : IDisposable
             // Jedno slyszalne zrodlo naraz, jak w files.play.
             if (_activeEngine != "files") _radio.Stop();
             _activeEngine = "files";
-            _filesDuration = TimeSpan.Zero;
             _paused = false;
         }
+        // Dlugosc czyscimy PO starcie, znajac Id nowego utworu: zerowanie przed
+        // Play kasowalo czas, ktory dekoder podawal w trakcie samego Play.
         var status = _queue.PlayAt(args);
         SyncCurrentFromQueue(status);
+        // Glosnosc i tempo z ZADANIA musza stac sie stanem transportu hosta, bo
+        // to z _volume/_rate odpowiada transport.status i od nich zaczynaja
+        // transport.setVolume/setRate. Bez tego Enter z kolejki oddawal domyslne
+        // 35 i tempo 1, mimo ze silnik dostal wartosci uzytkownika.
+        lock (_gate)
+        {
+            _volume = _queue.CurrentVolume;
+            _rate = _queue.CurrentRate;
+        }
         return QueuePayload(status);
     }
 
@@ -208,7 +231,6 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             if (_activeEngine != "files") _radio.Stop();
             _activeEngine = "files";
-            _filesDuration = TimeSpan.Zero;
         }
         SyncCurrentFromQueue(status);
         return QueuePayload(status, moved: true);
@@ -217,21 +239,31 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// <summary>
     /// Zgranie biezacego materialu kolejki ze stanem transportu hosta, zeby
     /// <c>transport.status</c> podawal PRAWDZIWY biezacy utwor, a nie poprzedni.
+    /// Material bierzemy Z KOLEJKI (ta sama instancja, ktora dostal silnik), a
+    /// nie z pol odpowiedzi: zlozony na nowo obiekt gubil sciezke zrodla, gdy
+    /// wiersz przestal byc "biezacy" w wyniku zuzycia pozycji.
     /// </summary>
     private void SyncCurrentFromQueue(LiteQueueCoordinator.QueueStatus status)
     {
-        if (status.CurrentId is null) return;
+        var current = _queue.CurrentItem;
+        if (current is null) return;
         lock (_gate)
         {
-            _filesItem = new MediaItem
-            {
-                Id = status.CurrentId,
-                Title = status.CurrentTitle ?? status.CurrentId,
-                Kind = MediaItemKind.Track,
-                Source = status.Rows.FirstOrDefault(row => row.IsCurrent)?.Path
-            };
+            _filesItem = current;
+            ForgetStaleFilesDurationLocked(current.Id);
             _paused = status.Paused;
         }
+    }
+
+    /// <summary>
+    /// Kasuje zapamietana dlugosc, GDY nie dotyczy ona podanego utworu. Wywolac
+    /// trzymajac <see cref="_gate"/>.
+    /// </summary>
+    private void ForgetStaleFilesDurationLocked(string currentId)
+    {
+        if (string.Equals(_filesDurationId, currentId, StringComparison.Ordinal)) return;
+        _filesDuration = TimeSpan.Zero;
+        _filesDurationId = null;
     }
 
     private static object QueuePayload(LiteQueueCoordinator.QueueStatus status, bool? moved = null) =>
@@ -252,6 +284,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             playing = status.Playing,
             paused = status.Paused,
             positionSeconds = status.PositionSeconds,
+            // Jawny stan WCZYTANIA. Pusta lista po zuzyciu utworow to NIE to
+            // samo, co kolejka nigdy nie wczytana: bez tego pola frontend bral
+            // jedno za drugie i przywracal zapisany porzadek, czyli skonsumowane
+            // utwory wracaly do kolejki.
+            initialized = status.Initialized,
             moved
         };
 
@@ -452,7 +489,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _filesItem = item;
             // Nowy strumien: stary czas przestaje obowiazywac, zanim dekoder
             // zdazy podac nowy. Inaczej okno pokazywalo dlugosc POPRZEDNIEGO pliku.
-            _filesDuration = TimeSpan.Zero;
+            ForgetStaleFilesDurationLocked(item.Id);
             _volume = volume;
             _rate = rate;
             _paused = false;
@@ -491,6 +528,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             _volume = volume;
             _paused = false;
         }
+        // Radio TEZ wychodzi z kolejki: dotad odlaczalo ja tylko files.play,
+        // wiec koniec utworu z czasu przed stacja mogl ja cicho przesunac.
+        _queue.DetachFromDirectPlay();
         _radio.Play(item, TimeSpan.Zero, volume, 1d);
         return new { ok = true, engine = "radio", id = item.Id, title = item.Title };
     }
@@ -539,13 +579,33 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object StopAll()
     {
-        // Zatrzymanie konczy tez prowadzenie przez kolejke: stary koniec utworu
-        // nie przesunie jej po tym, jak uzytkownik swiadomie zatrzymal dzwiek.
+        // Gdy transport prowadzi KOLEJKA, zatrzymanie idzie przez jej sesje.
+        // Samo _files.Stop() zostawialo sesje w stanie "gra" (IsPlaying), wiec
+        // kolejne pauza/wznowienie i queue.status klamaly o dzwieku.
+        // Prowadzenia NIE gasimy: zatrzymanie nie jest wyjsciem poza kolejke,
+        // wiec wznowienie wraca na zapamietana pozycje tego samego utworu.
+        string engine;
+        string? currentId;
+        lock (_gate)
+        {
+            engine = _activeEngine;
+            currentId = _filesItem?.Id;
+        }
+        if (engine == "files" && _queue.OwnsCurrent(currentId))
+        {
+            var status = _queue.Stop();
+            _radio.Stop();
+            lock (_gate) _paused = status.Paused;
+            return new { ok = true, queue = true, playing = status.Playing };
+        }
+
+        // Bezposrednie odtwarzanie: zatrzymanie konczy tez prowadzenie przez
+        // kolejke, zeby stary koniec utworu jej nie przesunal.
         _queue.DetachFromDirectPlay();
         _files.Stop();
         _radio.Stop();
         lock (_gate) _paused = false;
-        return new { ok = true };
+        return new { ok = true, queue = false, playing = false };
     }
 
     private object Seek(JsonElement args)
@@ -570,20 +630,33 @@ internal sealed class LiteEngineHandlers : IDisposable
     {
         var volume = LiteArgs.ReadInt(args, "volume", _volume, 0, 100);
         lock (_gate) _volume = volume;
-        _files.SetVolume(volume);
+        // Gdy transport prowadzi KOLEJKA, glosnosc idzie przez jej sesje: tylko
+        // wtedy obowiazuje tez NASTEPNY utwor. Samo _files.SetVolume ruszalo
+        // wyjscie, a kolejny Play wracal do wartosci sesji.
+        var byQueue = _queue.SetVolume(volume);
+        if (!byQueue) _files.SetVolume(volume);
         _radio.SetVolume(volume);
-        return new { volume };
+        return new { volume, queue = byQueue };
     }
 
     private object SetRate(JsonElement args)
     {
         var rate = LiteArgs.ReadDouble(args, "rate", _rate, 0.5d, 2.0d);
-        lock (_gate) _rate = rate;
         string engine;
-        lock (_gate) engine = _activeEngine;
-        if (engine == "radio") _radio.SetPlaybackRate(rate);
-        else _files.SetPlaybackRate(rate);
-        return new { rate, engine };
+        lock (_gate)
+        {
+            _rate = rate;
+            engine = _activeEngine;
+        }
+        if (engine == "radio")
+        {
+            _radio.SetPlaybackRate(rate);
+            return new { rate, engine, queue = false };
+        }
+        // Jak przy glosnosci: przez sesje kolejki, zeby tempo przetrwalo przejscie.
+        var byQueue = _queue.SetRate(rate);
+        if (!byQueue) _files.SetPlaybackRate(rate);
+        return new { rate, engine, queue = byQueue };
     }
 
     private object Status()
@@ -597,7 +670,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             engine = _activeEngine;
             paused = _paused;
             item = engine == "radio" ? _radioItem : _filesItem;
-            filesDuration = _filesDuration;
+            // Oddajemy czas TYLKO wtedy, gdy zmierzono go dla tego samego Id.
+            filesDuration = item is not null
+                && string.Equals(_filesDurationId, item.Id, StringComparison.Ordinal)
+                    ? _filesDuration
+                    : TimeSpan.Zero;
         }
 
         var position = engine == "radio" ? _radio.Position : _files.Position;
