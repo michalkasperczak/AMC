@@ -618,16 +618,21 @@ def test_help_lists_every_new_transport_gesture() -> None:
 
 
 def test_menu_shortcut_labels_still_tell_the_truth() -> None:
-    """Menu nie moze obiecywac starego ``Ctrl+E``, gdy dziala Ctrl+Shift+E."""
-    real: dict[str, Action] = {}
+    """Menu nie moze obiecywac starego ``Ctrl+E``, gdy dziala Ctrl+Shift+E.
+
+    Dopuszczamy klawisz, ktory w roznych widokach robi roznie (Escape, F6) --
+    liczy sie, czy akcja z menu jest W OGOLE pod tym klawiszem.
+    """
+    real: dict[str, set[Action]] = {}
     for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
         for chord, action in table.items():
-            real.setdefault(chord, action)
+            real.setdefault(chord, set()).add(action)
     for menu in menu_model.build_menus():
         for item in menu.items:
             if item.is_separator or not item.shortcut or item.action is None:
                 continue
             assert item.shortcut in real, f"{item.label}: {item.shortcut} nie istnieje"
-            assert real[item.shortcut] is item.action, (
-                f"{item.label}: {item.shortcut} robi naprawde {real[item.shortcut]}"
+            assert item.action in real[item.shortcut], (
+                f"{item.label}: {item.shortcut} nie robi nigdzie {item.action}, "
+                f"tylko {real[item.shortcut]}"
             )

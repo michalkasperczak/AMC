@@ -74,8 +74,10 @@ def build_menus() -> tuple[Menu, ...]:
     files = Menu(
         "&Pliki",
         (
-            MenuItem("Otwórz &folder", Action.OPEN_FOLDER_DIALOG, shortcut="Ctrl+O"),
-            MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+Shift+O"),
+            # Kolejnosc i gesty z oryginalu (MainWindow.xaml:42-49): pliki pod
+            # Ctrl+O, folder pod Ctrl+Shift+O.
+            MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+O"),
+            MenuItem("Otwórz &folder", Action.OPEN_FOLDER_DIALOG, shortcut="Ctrl+Shift+O"),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #
@@ -276,7 +278,15 @@ def build_menus() -> tuple[Menu, ...]:
             # Powrot na liste istnial tylko z klawiatury (Escape/Shift+F6).
             # Akcja SHOW_LIST byla juz obslugiwana w _dispatch -- brakowalo
             # samego wejscia w menu, wiec nie jest to martwa pozycja.
-            MenuItem("Powrót na &listę", Action.SHOW_LIST, shortcut="Escape"),
+            #
+            # BEZ akceleratora, z tego samego powodu co Backspace wyzej: wx
+            # zrobilby z podpisu akcelerator OKNA, ktory wyprzedza kontrolke z
+            # fokusem. Escape ma trzy rozne znaczenia zaleznie od miejsca
+            # (pole filtra czysci filtr, lista wychodzi o poziom wyzej,
+            # odtwarzacz wraca na liste) -- jeden akcelerator okna splaszczylby
+            # je do jednego i polknal klawisz w polu filtra.
+            MenuItem("Powrót na &listę", Action.SHOW_LIST, shortcut="Escape",
+                     accelerator=False),
         ),
     )
 

@@ -121,18 +121,25 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
 
     To najwazniejszy test tego pliku: chroni przed menu, ktore "uczy"
     uzytkownika niedzialajacego skrotu.
+
+    Sprawdzamy przynaleznosc do KTOREJKOLWIEK tablicy widoku, a nie pierwsza
+    znaleziona: ten sam klawisz ma w oryginale rozne znaczenie zaleznie od
+    widoku (F6 to na liscie odtwarzacz, a w odtwarzaczu powrot; Escape to na
+    liscie poziom wyzej, a w odtwarzaczu powrot). Splaszczenie przez
+    ``setdefault`` przepuszczalo F6 tylko dzieki kolejnosci tablic.
     """
-    real: dict[str, Action] = {}
+    real: dict[str, set[Action]] = {}
     for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
         for chord, action in table.items():
-            real.setdefault(chord, action)
+            real.setdefault(chord, set()).add(action)
 
     for item in all_items():
         if not item.shortcut or item.action is None:
             continue
         assert item.shortcut in real, f"{item.label}: skrot {item.shortcut} nie istnieje"
-        assert real[item.shortcut] is item.action, (
-            f"{item.label}: {item.shortcut} robi naprawde {real[item.shortcut]}"
+        assert item.action in real[item.shortcut], (
+            f"{item.label}: {item.shortcut} nie robi nigdzie {item.action}, "
+            f"tylko {real[item.shortcut]}"
         )
 
 

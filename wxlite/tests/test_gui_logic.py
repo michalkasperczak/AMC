@@ -131,15 +131,21 @@ def test_enter_from_both_keyboards_activates() -> None:
 
 
 def test_letter_keys_are_upper_cased_so_ctrl_o_matches() -> None:
+    """Ctrl+O to PLIKI, tak jak w oryginale (MainWindow.xaml:42-45).
+
+    Ten test dlugo wymagal odwrotnie (folder) i dlatego utrwalal blad, ktory
+    Michal zglosil: ``OpenLocalFilesMenuItem`` ma ``InputGestureText="Ctrl+O"``.
+    """
     chord = chord_from_event(FakeKeyEvent(ord("o"), ctrl=True))
     assert chord.canonical == "Ctrl+O"
-    assert resolve(chord, player_view=False, radio_session=False) is Action.OPEN_FOLDER_DIALOG
+    assert resolve(chord, player_view=False, radio_session=False) is Action.OPEN_FILE_DIALOG
 
 
-def test_ctrl_shift_o_opens_a_single_file() -> None:
+def test_ctrl_shift_o_opens_a_folder() -> None:
+    """Ctrl+Shift+O to FOLDER (MainWindow.xaml:46-49, OpenLocalFolderMenuItem)."""
     chord = chord_from_event(FakeKeyEvent(ord("O"), ctrl=True, shift=True))
     assert chord.canonical == "Ctrl+Shift+O"
-    assert resolve(chord, player_view=False, radio_session=False) is Action.OPEN_FILE_DIALOG
+    assert resolve(chord, player_view=False, radio_session=False) is Action.OPEN_FOLDER_DIALOG
 
 
 def test_digit_keys_switch_sessions() -> None:

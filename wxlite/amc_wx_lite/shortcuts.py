@@ -123,6 +123,10 @@ class Action(Enum):
     TIME_ELAPSED = "time.elapsed"
     TIME_REMAINING = "time.remaining"
     TIME_TOTAL = "time.total"
+    #: Home/End w odtwarzaczu. ID WPROST z oryginalu (CommandIds.cs:40-41),
+    #: zeby przyszly port komend sieciowych i palety nie wymyslal wlasnych.
+    TRACK_START = "transport.trackStart"
+    TRACK_END = "transport.trackEnd"
     # CommandIds.SettingsToggleSeekMessages, Ctrl+Shift+G
     # (MainWindow.xaml.cs:21670 i 22188).
     TOGGLE_SEEK_MESSAGES = "settings.toggleSeekMessages"
@@ -200,6 +204,13 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+2": Action.SESSION_RADIO,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
+    # Escape NA LISCIE. ``MainWindow.xaml.cs:20797-20828`` kieruje go do
+    # ``ReturnToMediaListFromEscape``, a ta (cs:22551-22563) przy PUSTYM
+    # filtrze wola ``NavigateToParentLevel()`` -- czyli to samo wyjscie o
+    # poziom wyzej, co Backspace. Port nie mial tu nic, wiec Escape na liscie
+    # nie robil nic. Niepusty filtr obsluguje osobno ``_on_filter_key``
+    # (czyszczenie + powrot), bo tam fokus jest w polu edycji.
+    "Escape": Action.PARENT_FOLDER,
     "F6": Action.SHOW_PLAYER,
     # Shift+F6 na LISCIE tez idzie do odtwarzacza: warunek oryginalu to
     # ``_playerViewActive && Shift`` (MainWindow.xaml.cs:20780), a na liscie
@@ -214,8 +225,12 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+Shift+T": Action.TIME_TOTAL,
     # Przelacznik automatycznych komunikatow odtwarzacza (cs:21670, 22188).
     "Ctrl+Shift+G": Action.TOGGLE_SEEK_MESSAGES,
-    "Ctrl+O": Action.OPEN_FOLDER_DIALOG,
-    "Ctrl+Shift+O": Action.OPEN_FILE_DIALOG,
+    # MainWindow.xaml:42-45  OpenLocalFilesMenuItem   Ctrl+O        -> PLIKI
+    # MainWindow.xaml:46-49  OpenLocalFolderMenuItem  Ctrl+Shift+O  -> FOLDER
+    # Port mial te dwie pozycje odwrotnie, przez co Ctrl+O otwieralo dialog
+    # folderu. Kolejnosc jest ustalona przez oryginal, nie przez wygode.
+    "Ctrl+O": Action.OPEN_FILE_DIALOG,
+    "Ctrl+Shift+O": Action.OPEN_FOLDER_DIALOG,
     # Adres NA ZADANIE, tak jak w pelnym AMC (MainWindow.xaml.cs:20717-20732).
     # Dzieki temu lista moze czytac samo nazwe, a pelny adres nadal jest
     # dostepny jednym skrotem -- nie zabieramy funkcji, przenosimy ja.
@@ -318,6 +333,13 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Shift+R": Action.TIME_REMAINING,
     "Ctrl+Shift+T": Action.TIME_TOTAL,
     "Ctrl+Shift+G": Action.TOGGLE_SEEK_MESSAGES,
+    # Home/End TYLKO w odtwarzaczu (MainWindow.xaml.cs:21598-21599 i
+    # 22398-22399, oba warunkiem ``ModifierKeys.None``). Na liscie te klawisze
+    # naleza do kontrolki -- skok na pierwszy/ostatni wiersz. Warunek
+    # ``ModifierKeys.None`` jest tu rownie wazny: NVDA+End (Insert albo
+    # CapsLock jako modyfikator) czyta PASEK STANU i nie wolno nam go przejac.
+    "Home": Action.TRACK_START,
+    "End": Action.TRACK_END,
     "F1": Action.HELP,
 }
 
@@ -379,6 +401,10 @@ def describe() -> list[tuple[str, str]]:
         Action.SEEK_PERCENT_90: "Skok do 90% utworu",
         Action.OPEN_FOLDER_DIALOG: "Wybierz folder",
         Action.OPEN_FILE_DIALOG: "Wybierz plik",
+        Action.TRACK_START: "Poczatek utworu",
+        # Pomoc mowi, ILE oryginal zostawia (CommandRouter.cs:321), zeby
+        # uzytkownik nie uznal braku ciszy na koncu za blad.
+        Action.TRACK_END: "Koniec utworu, dziesiec sekund przed koncem",
         Action.COPY_NAME: "Skopiuj nazwe",
         Action.COPY_ADDRESS: "Skopiuj adres",
         Action.CUT_FILE: "Wytnij plik",

@@ -260,7 +260,14 @@ def test_station_management_keys_only_in_radio_session() -> None:
     assert resolve(Chord("Delete"), player_view=False, radio_session=False) is None
 
 
-def test_escape_does_nothing_harmful_in_list_view() -> None:
-    assert resolve(Chord("Escape"), player_view=False, radio_session=False) is None
+def test_escape_na_liscie_wychodzi_o_poziom_wyzej() -> None:
+    """Escape na liscie = ``NavigateToParentLevel`` (cs:20827 -> cs:22562).
+
+    Test nazywal sie wczesniej \"does nothing harmful\" i wymagal ``None``.
+    To nie byl brak szkody, tylko brak funkcji: w oryginale ten klawisz
+    wychodzi o poziom wyzej.
+    """
+    assert resolve(Chord("Escape"), player_view=False, radio_session=False) is Action.PARENT_FOLDER
+    # ``back_to_list`` nadal nie ma nic do roboty, gdy juz jestesmy na liscie.
     nav = ready_files_navigator()
     assert nav.back_to_list() == []

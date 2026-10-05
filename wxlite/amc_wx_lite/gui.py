@@ -64,6 +64,7 @@ from .profile_layout import resolve_layout
 from .transport_parity import (
     PLAYBACK_RATE_MAX,
     PLAYBACK_RATE_MIN,
+    TRACK_END_MARGIN_SECONDS,
     MessagePolicy,
     clamp_playback_rate,
     format_clock,
@@ -1685,8 +1686,12 @@ class LiteFrame(wx.Frame):
 
         Baza ma 11 tysiecy rekordow, wiec odczyt nie moze blokowac okna, nawet
         jesli jest szybki.
+
+        BEZ zapowiedzi \"Wczytywanie...\": oryginal przy wejsciu w widok nic
+        takiego nie mowi, a dla uzytkownika czytnika to szum przed KAZDA lista.
+        Komunikaty o PUSTEJ bibliotece, degradacji odczytu i bledzie zostaja --
+        usuwamy rutyne, nie diagnostyke.
         """
-        self.announcer.say("Wczytywanie Biblioteki...")
 
         def work() -> LibrarySnapshot:
             return self.library.load(folder)
@@ -1856,6 +1861,8 @@ class LiteFrame(wx.Frame):
             self._set_rate(1.0)
         elif action in (Action.TIME_ELAPSED, Action.TIME_REMAINING, Action.TIME_TOTAL):
             self._announce_time(action)
+        elif action in (Action.TRACK_START, Action.TRACK_END):
+            self._seek_to_track_edge(action is Action.TRACK_END)
         elif action is Action.TOGGLE_SEEK_MESSAGES:
             self._toggle_seek_messages()
         elif action is Action.OPEN_FOLDER_DIALOG:
@@ -2545,6 +2552,50 @@ class LiteFrame(wx.Frame):
         """Komunikat po przewinieciu -- tylko jesli ustawienia na to pozwalaja."""
         text = self.messages.arrow_seek_text((payload or {}).get("positionSeconds"))
         if text is not None and self.messages.speaks_routine:
+            self.announcer.say(text)
+
+    def _seek_to_track_edge(self, to_end: bool) -> None:
+        """Home/End w odtwarzaczu. Port ``CommandRouter.cs:316-324``.
+
+        End NIE jest skokiem na 100%: oryginal celuje w
+        ``Max(Zero, Duration - 10s)``, zeby na koncu bylo jeszcze czego
+        posluchac, a utwor nie konczyl sie w tej samej chwili. Home to czysta
+        pozycja zero i oryginal mowi przy niej doslownie \"0:00\".
+
+        Uzywamy TEGO SAMEGO ``seek_to_position`` hosta, co skok procentowy --
+        nie dokladamy nowej komendy protokolu.
+        """
+        client = self.client
+        if client is None:
+            return
+        if not to_end:
+            self.runner.submit(
+                "transport",
+                lambda: client.seek_to_position(0.0),
+                # cs:318 -- staly napis, nie odczyt pozycji z odpowiedzi.
+                lambda _payload: self._announce_track_edge("0:00"),
+                lambda error: self.announcer.say(f"Nie moge przewinac: {error}"),
+            )
+            return
+
+        duration = self._last_status.get("durationSeconds")
+        if not isinstance(duration, (int, float)) or duration <= 0:
+            # Bez czasu trwania konca nie da sie policzyc. Milczenie
+            # wygladaloby na zepsuty klawisz, wiec mowimy -- to blad
+            # wykonania, nie rutynowy komunikat (jak cs:546-551 przy %).
+            self.announcer.say("Nie znam czasu trwania, nie moge skoczyc na koniec")
+            return
+        target = max(0.0, float(duration) - TRACK_END_MARGIN_SECONDS)
+        self.runner.submit(
+            "transport",
+            lambda: client.seek_to_position(target),
+            lambda _payload: self._announce_track_edge(format_clock(target)),
+            lambda error: self.announcer.say(f"Nie moge przewinac: {error}"),
+        )
+
+    def _announce_track_edge(self, text: str) -> None:
+        """cs:318 i cs:323 pytaja o TE SAME dwie bramki, co strzalki."""
+        if self.messages.announces_arrow_seek and self.messages.speaks_routine:
             self.announcer.say(text)
 
     def _seek_percent(self, percent: int) -> None:

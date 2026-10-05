@@ -72,6 +72,10 @@ CUSTOM_SEEK_DEFAULT_SECONDS = 300
 CUSTOM_SEEK_MIN_SECONDS = 5
 #: ``AppSettings.cs:285``
 CUSTOM_SEEK_MAX_SECONDS = 1800
+#: ``CommandRouter.cs:321`` -- End celuje w ``Duration - 10s``, nie na 100%.
+#: Liczba jest w kodzie oryginalu wpisana na stale (``TimeSpan.FromSeconds(10)``),
+#: nie pochodzi z ustawien.
+TRACK_END_MARGIN_SECONDS = 10
 
 #: ``AppSettings.cs:291`` -- gotowe propozycje w oknie ustawien.
 SUGGESTED_CUSTOM_SEEK_SECONDS = (15, 30, 60, 120, 300, 600)

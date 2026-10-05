@@ -99,7 +99,7 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
 3. Ctrl+U: Ulubione. Zachowaj właściwą kolejność i wybór.
 4. Ctrl+P: playlisty; Enter do zawartości; Backspace na tę samą playlistę.
 5. Ctrl+C: nazwa, pojedyncze potwierdzenie na każde świadome naciśnięcie. Ctrl+Shift+C: pełna ścieżka jakoTEKST, komunikat „Skopiowano pełną ścieżkę". Sprawdź rzeczywistą zawartość schowka zWindows (`Get-Clipboard`, czytaj bajty i dekoduj sam — `text=True` wywala się na polskich znakach), nie sam komunikat. Komunikat celowo NIE mówi o skopiowaniu pliku: obsługi formatuFileDrop nadal nie ma.
-6. Ctrl+O: zwykły dialog folderu, nie Biblioteka. W zmierzonym dialogu pierwszyEnter wybiera wpisany folder, drugi zatwierdza; kontroluj rzeczywisty fokus i zamknięcie okna zamiast wysyłać gesty w ciemno.
+6. Ctrl+Shift+O: zwykły dialog folderu, nie Biblioteka (Ctrl+O to dialog PLIKU — do 06.10.2026 port miał te dwa gesty odwrotnie). W zmierzonym dialogu pierwszyEnter wybiera wpisany folder, drugi zatwierdza; kontroluj rzeczywisty fokus i zamknięcie okna zamiast wysyłać gesty w ciemno.
 7. Na dostępnym pliku:Enter, Spacja, Spacja. Stan przycisku Odtwórz/Wstrzymaj ma zgadzać się z działaniem; cisza czytnika i sam tekst statusu nie dowodzą komunikatuNVDA.
 8. Ctrl+2: Radio z `radio.stations` wspólnego profilu. W trybie tylko do odczytu dodawanie/zmiana/usuwanie/import nadal mają odmówić uczciwie. Prywatna lista piaskownicy to odrębny tryb, nie zapis doAMC.
 

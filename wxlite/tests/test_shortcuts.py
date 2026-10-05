@@ -57,8 +57,11 @@ def test_f6_and_escape_match_the_full_amc_behaviour() -> None:
     assert resolve(Chord("F6"), player_view=False, radio_session=False) is Action.SHOW_PLAYER
     assert resolve(Chord("F6", shift=True), player_view=True, radio_session=False) is Action.SHOW_LIST
     assert resolve(Chord("Escape"), player_view=True, radio_session=False) is Action.SHOW_LIST
-    # Escape na liscie nie ma co robic - nie zamykamy programu przypadkiem.
-    assert resolve(Chord("Escape"), player_view=False, radio_session=False) is None
+    # Escape NA LISCIE wychodzi o poziom wyzej: cs:20827 wola
+    # ``ReturnToMediaListFromEscape``, a ta przy pustym filtrze (cs:22562)
+    # wola ``NavigateToParentLevel()``. Wczesniej ten test wymagal ``None``
+    # i dlatego utrwalal martwy klawisz, ktory Michal zglosil.
+    assert resolve(Chord("Escape"), player_view=False, radio_session=False) is Action.PARENT_FOLDER
 
 
 def test_ctrl_digits_switch_sessions() -> None:

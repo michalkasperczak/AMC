@@ -68,8 +68,9 @@ def test_existing_shortcuts_are_not_taken_over() -> None:
     keep = {
         Chord("1", ctrl=True): Action.SESSION_FILES,
         Chord("2", ctrl=True): Action.SESSION_RADIO,
-        Chord("O", ctrl=True): Action.OPEN_FOLDER_DIALOG,
-        Chord("O", ctrl=True, shift=True): Action.OPEN_FILE_DIALOG,
+        # Ctrl+O = pliki, Ctrl+Shift+O = folder (MainWindow.xaml:42-49).
+        Chord("O", ctrl=True): Action.OPEN_FILE_DIALOG,
+        Chord("O", ctrl=True, shift=True): Action.OPEN_FOLDER_DIALOG,
         Chord("C", ctrl=True): Action.COPY_NAME,
         Chord("Back"): Action.PARENT_FOLDER,
     }

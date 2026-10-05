@@ -88,11 +88,16 @@ class LibraryLoadsUnderCtrl1(unittest.TestCase):
 
     def test_gui_thread_does_no_database_io(self):
         gui.LiteFrame._load_initial_content(self.frame)
-        # Przed wykonaniem zadania w tle nie wolno miec gotowych wierszy.
+        # Przed wykonaniem zadania w tle nie wolno miec gotowych wierszy:
+        # odczyt 11 tysiecy rekordow stoi w kolejce runnera, nie w GUI.
         self.assertEqual(len(self.queued), 1)
-        self.assertTrue(
-            any("Wczytywanie" in text for text in self.said),
-            f"Brak zapowiedzi dla czytnika: {self.said}",
+        self.assertEqual(self.queued[0][0], "folder")
+        # Rutynowej zapowiedzi \"Wczytywanie Biblioteki...\" tu BYC NIE MA.
+        # Test wymagal jej wczesniej, ale oryginal przy wejsciu w widok milczy,
+        # a dla uzytkownika czytnika to byl szum przed kazda lista. Praca w tle
+        # jest udowodniona kolejka wyzej, nie komunikatem.
+        self.assertEqual(
+            [text for text in self.said if "Wczytywanie" in text], []
         )
 
     def test_root_shows_all_three_sources_and_orphans(self):
