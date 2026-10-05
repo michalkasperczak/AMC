@@ -39,11 +39,32 @@ internal static class Program
 
         var timeshiftMinutes = ReadTimeshiftMinutes(args);
 
-        using var handlers = new LiteEngineHandlers(timeshiftMinutes);
+        // TRWALOSC kolejki. Dwie jawne decyzje, obie z wiersza polecen:
+        //   --profile-dir <sciezka>  ktora KOPIA profilu,
+        //   --queue-write            czy ten host jest wlascicielem zapisu.
+        // Bez --queue-write host tylko ODCZYTUJE zapisana kolejke. Domyslnie
+        // (bez --profile-dir) nie dotyka profilu w ogole.
+        LiteQueueStore? store;
+        try
+        {
+            store = OpenQueueStore(args);
+        }
+        catch (LiteQueueStoreDenied)
+        {
+            // Powod odmowy jest juz na stderr. Konczymy KODEM BLEDU, zeby
+            // wolajacy nie wzial cichego startu za udana trwalosc.
+            Console.SetOut(standardOutput);
+            return 2;
+        }
+
+        using var handlers = new LiteEngineHandlers(timeshiftMinutes, store);
         var loop = new LiteDispatchLoop(handlers.Build());
 
         Console.Error.WriteLine(
             $"[amc-lite-host] start, bufor transmisji {timeshiftMinutes} min, protokol 1");
+        Console.Error.WriteLine(store is null
+            ? "[amc-lite-host] kolejka BEZ trwalosci (brak --profile-dir)"
+            : $"[amc-lite-host] kolejka: profil {store.ProfileDirectory}, tryb {store.Mode}");
 
         try
         {
@@ -72,5 +93,49 @@ internal static class Program
             if (int.TryParse(args[index + 1], out var value)) return Math.Clamp(value, 1, 720);
         }
         return 30;
+    }
+
+    /// <summary>
+    /// Otwiera magazyn trwalosci kolejki wedlug argumentow.
+    ///
+    /// Zasada bezpieczenstwa: zapis jest WYLACZONY domyslnie i wlaczany
+    /// wylacznie jawnym <c>--queue-write</c> razem z <c>--profile-dir</c>
+    /// wskazujacym konkretna kopie. Odmowa (zajeta kopia, profil produkcyjny,
+    /// brak prawa zapisu) konczy START HOSTA bledem -- host NIE startuje cicho
+    /// bez trwalosci, o ktora go poproszono.
+    /// </summary>
+    private static LiteQueueStore? OpenQueueStore(string[] args)
+    {
+        string? profileDirectory = null;
+        for (var index = 0; index < args.Length - 1; index++)
+        {
+            if (!string.Equals(args[index], "--profile-dir", StringComparison.Ordinal)) continue;
+            profileDirectory = args[index + 1];
+            break;
+        }
+        var writable = args.Contains("--queue-write", StringComparer.Ordinal);
+
+        if (profileDirectory is null)
+        {
+            if (writable)
+            {
+                // Zadanie zapisu BEZ wskazania kopii to blad wywolania, nie
+                // powod do cichego trybu odczytu.
+                Console.Error.WriteLine(
+                    "[amc-lite-host] --queue-write wymaga --profile-dir wskazujacego wlasna kopie profilu");
+                throw new LiteQueueStoreDenied("--queue-write bez --profile-dir");
+            }
+            return null;
+        }
+
+        try
+        {
+            return LiteQueueStore.Open(profileDirectory, writable);
+        }
+        catch (LiteQueueStoreDenied denied)
+        {
+            Console.Error.WriteLine("[amc-lite-host] ODMOWA magazynu kolejki: " + denied.Message);
+            throw;
+        }
     }
 }

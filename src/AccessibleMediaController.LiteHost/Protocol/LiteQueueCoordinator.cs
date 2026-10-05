@@ -18,10 +18,13 @@ namespace AccessibleMediaController.LiteHost.Protocol;
 /// dwoch pozycji.</item>
 /// </list>
 ///
-/// Czego tu NIE ma, swiadomie: zadnego zapisu do danych uzytkownika. Kolejka
-/// zyje w pamieci TEGO procesu hosta. Trwalosc (kto i gdzie zapisuje wspolny
-/// profil) zostaje osobnym etapem -- wlascicielem zapisu ma pozostac jeden
-/// pisarz C#, a nie ta klasa.
+/// TRWALOSC: koordynator NIE pisze do bazy sam. Caly zapis idzie przez
+/// <see cref="LiteQueueStore"/> -- JEDEN wlasciciel po stronie C#. Python nie
+/// zapisuje plikow kolejki w ogole; przy braku magazynu (tryb odczytu albo
+/// brak profilu) kolejka dziala tak jak dotad, tylko w pamieci procesu.
+///
+/// Migawke do zapisu liczy <see cref="TransientQueuePersistence.Capture"/> --
+/// ten sam kod, ktorego uzywa pelne AMC. Nie powtarzamy tu reguly czlonkostwa.
 /// </summary>
 internal sealed class LiteQueueCoordinator
 {
@@ -48,12 +51,54 @@ internal sealed class LiteQueueCoordinator
         /// kontra "wczytano i zuzyto" (NIE WOLNO, bo skonsumowane utwory
         /// wrocilyby do kolejki). Odmowa <c>queue.set</c> nie wczytuje niczego.
         /// </summary>
-        bool Initialized);
+        bool Initialized,
+        /// <summary>
+        /// Czy TEN host jest wlascicielem zapisu kolejki. <c>false</c> znaczy
+        /// "kolejka zyje tylko w pamieci procesu" -- frontend nie moze wtedy
+        /// obiecywac uzytkownikowi, ze stan przetrwa restart.
+        /// </summary>
+        bool Persistent,
+        /// <summary>
+        /// Komunikat ostatniej ODMOWY/bledu zapisu albo <c>null</c>. Odmowa
+        /// MUSI byc widoczna: cichy brak trwalosci jest gorszy od bledu.
+        /// </summary>
+        string? PersistError,
+        /// <summary>Ile zapisow FAKTYCZNIE poszlo do profilu w tym procesie.</summary>
+        int PersistedWrites,
+        /// <summary>Ile wierszy wczytano Z PROFILU przy starcie tego procesu.</summary>
+        int RestoredRows);
 
     private readonly IMediaOutput _output;
     private readonly object _gate = new();
 
+    /// <summary>
+    /// Magazyn trwalosci albo <c>null</c>, gdy host wystartowal bez profilu.
+    /// <c>null</c> NIE jest bledem: kolejka dziala wtedy w pamieci procesu.
+    /// </summary>
+    private readonly LiteQueueStore? _store;
+
     private DemoMediaSession? _session;
+
+    /// <summary>
+    /// Sesja OSTATNIO wczytanej kolejki. Zapisujemy wylacznie sesje, ktora
+    /// magazyn obsluguje (<c>local</c>) -- cudzej kolejki nie dotykamy.
+    /// </summary>
+    private string _sessionId = LiteQueueStore.LocalSessionId;
+
+    /// <summary>
+    /// Ostatni komunikat ODMOWY zapisu. Frontend musi go zobaczyc: odmowa nie
+    /// moze wygladac jak zapisano.
+    /// </summary>
+    private string? _lastPersistError;
+
+    /// <summary>Ile razy zapis FAKTYCZNIE poszedl do bazy w tym procesie.</summary>
+    private int _persistedWrites;
+
+    /// <summary>Ile razy zapis pominieto, bo stan sie nie zmienil.</summary>
+    private int _persistSkipped;
+
+    /// <summary>Ile wierszy wczytano Z ZAPISU przy starcie tego procesu.</summary>
+    private int _restoredRows;
 
     /// <summary>
     /// Czy kolejka PROWADZI teraz transport. To osobny stan od "ma material":
@@ -86,8 +131,139 @@ internal sealed class LiteQueueCoordinator
     /// </summary>
     private string? _advanceToken;
 
-    public LiteQueueCoordinator(IMediaOutput output) =>
+    public LiteQueueCoordinator(IMediaOutput output, LiteQueueStore? store = null)
+    {
         _output = output ?? throw new ArgumentNullException(nameof(output));
+        _store = store;
+        // ODCZYT przy starcie hosta. To jest cala "trwalosc" widziana z zewnatrz:
+        // nowy proces hosta zastaje kolejke taka, jaka zapisal poprzedni.
+        // Odczyt NIE odtwarza niczego i nie przejmuje transportu.
+        RestoreFromStore();
+    }
+
+    /// <summary>
+    /// Wczytuje ZAPISANA kolejke z profilu. Zwraca liczbe odtworzonych wierszy.
+    ///
+    /// Puste zapisane wiersze tez sa WYNIKIEM, nie brakiem: kolejka zuzyta do
+    /// zera musi po restarcie zostac pusta, a nie odrodzic stare pozycje.
+    /// Dlatego <c>_initialized</c> idzie na <c>true</c> takze dla zera -- byle
+    /// magazyn faktycznie cos powiedzial (<c>queue_order</c> moglo byc puste,
+    /// bo zapisalismy pustke).
+    /// </summary>
+    public int RestoreFromStore()
+    {
+        if (_store is null) return 0;
+        LiteQueueStoredState stored;
+        try
+        {
+            stored = _store.Read(LiteQueueStore.LocalSessionId);
+        }
+        catch (Exception exception) when (exception is LiteQueueStoreDenied or IOException)
+        {
+            // Nieudany ODCZYT nie moze udawac pustej kolejki: brak wczytania
+            // zostaje brakiem wczytania, a powod idzie do stanu.
+            lock (_gate) _lastPersistError = "Nie udalo sie odczytac zapisanej kolejki: " + exception.Message;
+            return 0;
+        }
+
+        // Brak ZAPISU to nie to samo, co zapisana pustka. Gdy nikt nic nie
+        // zapisal, host zostaje NIEWCZYTANY -- frontend ma wtedy prawo wczytac
+        // kolejke z ekranu. Zapisana pustka wczytuje sie jako pustka.
+        if (!stored.Saved) return 0;
+
+        var items = stored.Rows
+            .Select(row => new MediaItem
+            {
+                Id = row.Id,
+                Title = row.Title,
+                Kind = MediaItemKind.Track,
+                Source = row.Path,
+                IsInQueue = row.IsInQueue,
+                IsPlayNext = row.IsPlayNext
+            })
+            .ToList();
+
+        lock (_gate)
+        {
+            var session = new DemoMediaSession(
+                LiteQueueStore.LocalSessionId, "Kolejka", items, _output);
+            var order = stored.Rows.Select(row => row.Id).ToArray();
+            session.SetQueueOrder(order);
+            session.SetPlaybackContext(order, isQueueContext: true);
+            session.SetVolume(_volume);
+            if (session.SupportsPlaybackRate) session.SetDefaultPlaybackRate(_rate);
+            _session = session;
+            _sessionId = LiteQueueStore.LocalSessionId;
+            _advanceToken = null;
+            _leading = false;
+            _initialized = true;
+            _restoredRows = items.Count;
+            return items.Count;
+        }
+    }
+
+    /// <summary>Czy ten host jest WLASCICIELEM zapisu kolejki.</summary>
+    public bool CanPersist => _store?.IsWritable == true && _store.OwnsWriteLock;
+
+    /// <summary>Komunikat ostatniej ODMOWY zapisu albo <c>null</c>.</summary>
+    public string? LastPersistError
+    {
+        get { lock (_gate) return _lastPersistError; }
+    }
+
+    public int PersistedWrites
+    {
+        get { lock (_gate) return _persistedWrites; }
+    }
+
+    public int PersistSkipped
+    {
+        get { lock (_gate) return _persistSkipped; }
+    }
+
+    public int RestoredRows
+    {
+        get { lock (_gate) return _restoredRows; }
+    }
+
+    /// <summary>
+    /// ZAPIS stanu kolejki do profilu. Wywolac TRZYMAJAC <see cref="_gate"/>.
+    ///
+    /// Trzy zasady, ktore ta metoda utrzymuje:
+    /// <list type="bullet">
+    /// <item>zapis idzie TYLKO po faktycznej zmianie -- podpis liczy magazyn,</item>
+    /// <item>odmowa nie jest powodzeniem: komunikat ladauje w <c>_lastPersistError</c>,</item>
+    /// <item>brak magazynu nie jest bledem -- host bez profilu dziala w pamieci.</item>
+    /// </list>
+    ///
+    /// Migawke liczy <see cref="TransientQueuePersistence.Capture"/>: ten sam
+    /// kod, ktory zapisuje kolejke w pelnym AMC. Kolejnosc bierzemy z sesji
+    /// (<c>QueueItemIds</c>) -- to ona wie, co jeszcze zostalo.
+    /// </summary>
+    private void PersistLocked(DemoMediaSession session)
+    {
+        if (_store is null) return;
+        // Sesje inne niz lokalna Biblioteka maja kopie kolejki w pelnym AMC i
+        // nie sa tu zapisywane. Milczace pominiecie, nie blad: host Lite i tak
+        // ich nie obsluguje.
+        if (!string.Equals(_sessionId, LiteQueueStore.LocalSessionId, StringComparison.Ordinal)) return;
+
+        try
+        {
+            var queued = session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray();
+            var snapshot = TransientQueuePersistence.Capture(
+                LiteQueueStore.LocalSessionId, queued, session.QueueItemIds);
+            if (_store.Write(LiteQueueStore.LocalSessionId, snapshot)) _persistedWrites++;
+            else _persistSkipped++;
+            _lastPersistError = null;
+        }
+        catch (Exception exception) when (exception is LiteQueueStoreDenied or IOException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            // Nieudany zapis NIE moze przejsc jako zapisano. Zywa kolejka dalej
+            // dziala w pamieci -- odmowa trwalosci nie psuje odtwarzania.
+            _lastPersistError = exception.Message;
+        }
+    }
 
     /// <summary>Czy kolejka ma material. Host pyta, zanim ruszy transportem.</summary>
     public bool HasRows
@@ -179,6 +355,7 @@ internal sealed class LiteQueueCoordinator
                 "Kolejka",
                 parsed,
                 _output);
+            _sessionId = session.Id;
             // Kolejnosc i kontekst oddajemy SESJI: ona rozstrzyga nastepstwo.
             session.SetQueueOrder(order);
             session.SetPlaybackContext(order, isQueueContext: true);
@@ -195,6 +372,10 @@ internal sealed class LiteQueueCoordinator
             // Poprawny wsad (takze pusty) to WCZYTANIE. Ta linia stoi PO
             // wszystkich odmowach powyzej: odrzucone zadanie nie wczytuje nic.
             _initialized = true;
+            // TRWALOSC: nowa czlonkostwo i kolejnosc to FAKTYCZNA zmiana stanu
+            // kolejki, wiec ida do profilu. Magazyn sam pominie zapis, gdy stan
+            // wyszedl identyczny (np. frontend wczytal to samo po restarcie).
+            PersistLocked(session);
             return BuildStatus(session);
         }
     }
@@ -303,6 +484,9 @@ internal sealed class LiteQueueCoordinator
             if (!_leading) return false;
             if (!session.PlayRelative(direction)) return false;
             _advanceToken = session.HasCurrentItem ? session.CurrentItem.Id : null;
+            // Nastepny/Poprzedni w kolejce ZUZYWA pozycje (ConsumeQueueItem w
+            // Core), wiec czlonkostwo sie zmienilo i trzeba je utrwalic.
+            PersistLocked(session);
             return true;
         }
     }
@@ -371,6 +555,14 @@ internal sealed class LiteQueueCoordinator
 
             var next = session.ContinueAfterPlaybackEnded(ended);
             if (next is not null) _advanceToken = next.Id;
+            // NATURALNY koniec utworu zdejmuje go z kolejki (ContinueAfterPlaybackEnded
+            // zeruje IsInQueue/IsPlayNext). To jest ta zmiana, ktora musi dojsc do
+            // profilu, zeby po RESTARCIE PROCESU zuzyte pozycje nie wrocily --
+            // takze gdy kolejka zeszla do zera (next == null).
+            // RED-WITNESS sprawdzony: po zakomentowaniu tej linii
+            // ZuzycieNaturalnymKoncemDoZeraNieOdradzaPozycji pada (zapisow 1,
+            // oczekiwano >=2). Test mierzy wiec FAKTYCZNY zapis, nie etykiete.
+            PersistLocked(session);
             return next;
         }
     }
@@ -465,7 +657,8 @@ internal sealed class LiteQueueCoordinator
         {
             var session = _session;
             return session is null
-                ? new QueueStatus([], null, null, false, false, 0d, _initialized)
+                ? new QueueStatus([], null, null, false, false, 0d, _initialized,
+                    CanPersist, _lastPersistError, _persistedWrites, _restoredRows)
                 : BuildStatus(session);
         }
     }
@@ -515,6 +708,10 @@ internal sealed class LiteQueueCoordinator
             _leading && session.IsPlaying,
             _leading && session.IsPaused,
             session.HasCurrentItem ? session.Position.TotalSeconds : 0d,
-            _initialized);
+            _initialized,
+            CanPersist,
+            _lastPersistError,
+            _persistedWrites,
+            _restoredRows);
     }
 }

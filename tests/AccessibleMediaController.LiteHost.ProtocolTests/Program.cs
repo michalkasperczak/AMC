@@ -10,6 +10,7 @@ internal static class Program
         ("--audio", AudioConfigurationTests.Run),
         ("--queue", QueueCoordinatorTests.Run),
         ("--transport", QueueTransportTests.Run),
+        ("--persistence", QueuePersistenceTests.Run),
     ];
 
     public static int Main(string[] args)

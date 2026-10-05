@@ -20,6 +20,13 @@
 - Historia filtruje przez `ActiveLocalItems` (`IsAvailable && IsInLibrary`), zakładki NIE — bo oryginał robi tam inaczej i pokazuje tytuł zapisany w zakładce. Członkostwo kolejki bierze się z zapisu, nie z kolumn `is_in_queue`/`is_play_next` (to migawka poprzedniej sesji). Nieznana data to „data utworzenia nieznana”, nie `0:00`.
 - `Row` bez zmian konstruktora; metadane (`QueueRow`, `BookmarkRow`) leżą obok wiersza. Wiersz zakładki ma własne Id `bookmark:<id>`. Czasy w tickach .NET. Kontrakt GUI: `wxlite/LIBRARY_ACTIVITY_CONTRACT.md`.
 
+## AMC Python: trwałość kolejki — backend na prywatnej kopii
+
+- `LiteHost/Protocol/LiteQueueStore.cs`: jeden pisarz plikową blokadą, transakcja tylko lokalnych tabel kolejki/flag i znacznika pustego zapisu; pozostałe dane nie są przepisywane. To NIE blokada respektowana przez stary WPF; zapis do wspólnego profilu pozostaje niedopuszczony.
+- `Program.cs`: jawne `--profile-dir <kopia>` i osobne `--queue-write`; bez nich zachowanie pamięciowe, bez drugiego parametru tylko odczyt. `LiteQueueCoordinator` odtwarza stan bez autoodtwarzania i zapisuje po zmianie, korzystając z `TransientQueuePersistence.Capture`.
+- `QueuePersistenceTests` w zestawie `--persistence`. Niezmieniony odzyskany draft: 7 zestawów C# exit0 na WSL (jedna próba ścieżki produkcyjnej pominięta). Rzeczywisty WindowsDLL `13f38747…`: 9/9 w `queue-persistence-after-live/parent-real-process-cycle.json`, nowa pełna kopia11203/5000, restart niepustej i zużytej kolejki, drugi pisarz odrzucony, wszystkie wartości15 innych tabel/kolumn zachowane.
+- Podłączenie frontendu i widoczne błędy zapisu NIEODEBRANE. Bieżący zapis nie obejmuje jeszcze czasu wznowienia ani `local_state.current_item_id`. Nie utożsamiać testu backendu ze zwykłym startem okna.
+
 ## AMC-wx-Lite: ŻYWA kolejka silnika (po AMC425)
 
 Odbiór rodzica: `live-queue-after-native-lists/parent-speech-full-profile/`. Pełna kopia 11200 rekordów + 3 syntetyczne WAV; C wybrane jeszcze podczas B i zachowane przy B→A→C, otwarta lista 3→2→1→0, model=native i stały fokus. Rzeczywisty Podgląd mowy NVDA: nazwy, koniec i „pusto” po ponownym Ctrl+Q. DLL `6fff6bd0…`, źródła `38d931e`; trwały zapis poza tym przyrostem.

@@ -31,6 +31,13 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteQueueCoordinator _queue;
 
     /// <summary>
+    /// Magazyn trwalosci kolejki (albo <c>null</c>). Host trzyma go, zeby
+    /// zwolnic BLOKADE WLASNOSCI przy zamknieciu: inaczej nastepny host na tej
+    /// samej kopii profilu dostalby odmowe po zamknietym poprzedniku.
+    /// </summary>
+    private readonly LiteQueueStore? _queueStore;
+
+    /// <summary>
     /// Ktory silnik gra TERAZ. Dwie sesje maja osobne wyjscia, ale dzwiek
     /// wydaje jedna naraz, dokladnie jak w pelnym AMC.
     /// </summary>
@@ -60,9 +67,21 @@ internal sealed class LiteEngineHandlers : IDisposable
     private bool _paused;
 
     public LiteEngineHandlers(int timeshiftMinutes)
+        : this(timeshiftMinutes, null)
+    {
+    }
+
+    /// <summary>
+    /// <paramref name="queueStore"/> jest JEDYNYM wlascicielem zapisu kolejki.
+    /// <c>null</c> znaczy "host bez profilu": kolejka dziala w pamieci procesu,
+    /// co jest stanem JAWNYM (<c>queue.status</c> oddaje <c>persistent=false</c>),
+    /// a nie cichym brakiem trwalosci.
+    /// </summary>
+    public LiteEngineHandlers(int timeshiftMinutes, LiteQueueStore? queueStore)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
-        _queue = new LiteQueueCoordinator(_files);
+        _queueStore = queueStore;
+        _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
             new { engine = "files", message = e.Message, title = e.Item?.Title });
@@ -284,6 +303,13 @@ internal sealed class LiteEngineHandlers : IDisposable
             playing = status.Playing,
             paused = status.Paused,
             positionSeconds = status.PositionSeconds,
+            // TRWALOSC widziana przez frontend. Bez tych pol odmowa zapisu
+            // byla CICHA: okno nie miało z czego poznac, ze kolejka zyje tylko
+            // w pamieci procesu.
+            persistent = status.Persistent,
+            persistError = status.PersistError,
+            persistedWrites = status.PersistedWrites,
+            restoredRows = status.RestoredRows,
             // Jawny stan WCZYTANIA. Pusta lista po zuzyciu utworow to NIE to
             // samo, co kolejka nigdy nie wczytana: bez tego pola frontend bral
             // jedno za drugie i przywracal zapisany porzadek, czyli skonsumowane
@@ -747,5 +773,9 @@ internal sealed class LiteEngineHandlers : IDisposable
     {
         _files.Dispose();
         _radio.Dispose();
+        // Blokada wlasnosci MUSI pasc razem z hostem. Bez tego kolejny host na
+        // tej samej kopii profilu dostawalby odmowe po juz zamknietym procesie,
+        // czyli trwalosc dzialalaby raz.
+        _queueStore?.Dispose();
     }
 }
