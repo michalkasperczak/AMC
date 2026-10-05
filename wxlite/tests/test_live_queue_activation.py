@@ -334,29 +334,128 @@ def test_skrot_kolejki_pyta_host_a_nie_otwiera_zapisu_wprost() -> None:
     )
 
 
-def test_pusta_kolejka_hosta_oddaje_widok_zapisany() -> None:
-    """Po koncu kolejki Core konsumuje wiersze: pusto to POPRAWNY stan.
-
-    Nie udajemy wtedy zywej listy. Wracamy do zapisanego porzadku, bo tylko
-    to da sie uczciwie przeczytac bez silnika.
-    """
-    from types import SimpleNamespace
-
-    from amc_wx_lite import gui
+def test_kolejka_niewczytana_pozwala_odczytac_zapis() -> None:
     from amc_wx_lite.navigation import OpenLibraryView
 
+    frame, captured = _frame_for_queue_status(
+        {"initialized": False, "rows": [], "currentId": None}
+    )
+    frame._open_queue_view()
+    opened = [e for e in captured if isinstance(e, OpenLibraryView)]
+    assert opened and opened[0].view is LibraryView.SAVED_QUEUE
+
+
+def _frame_for_queue_status(payload: dict):
+    from types import SimpleNamespace
+    from amc_wx_lite import gui
+
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
-    frame.client = SimpleNamespace(queue_status=lambda: {"rows": [], "currentId": None})
+    frame.client = SimpleNamespace(queue_status=lambda: payload)
     frame.runner = SimpleNamespace(submit=lambda slot, work, done, failed: done(work()))
     frame.announcer = SimpleNamespace(say=lambda *a, **k: None)
     frame.navigator = Navigator()
     captured: list = []
     frame._run = lambda effects: captured.extend(effects)
+    return frame, captured
 
+
+def test_zuzyta_zywa_kolejka_nie_przywraca_starych_utworow_z_profilu() -> None:
+    from amc_wx_lite.navigation import OpenLibraryView
+
+    frame, captured = _frame_for_queue_status(
+        {"initialized": True, "rows": [], "currentId": "q3"}
+    )
     frame._open_queue_view()
+    assert not any(isinstance(e, OpenLibraryView) for e in captured), (
+        "pusta ZYWA kolejka nie moze przywracac skonsumowanych pozycji z zapisu"
+    )
+    assert frame.navigator.session.library_view is LibraryView.LIVE_QUEUE
+    assert frame.navigator.session.model.rows == []
+    assert any(isinstance(e, Announce) and "pusto" in e.text for e in captured)
 
-    opened = [e for e in captured if isinstance(e, OpenLibraryView)]
-    assert opened and opened[0].view is LibraryView.SAVED_QUEUE
+
+def test_otwarta_zywa_lista_usuwa_zuzyte_wiersze_bez_ponownego_ctrl_q() -> None:
+    frame, _ = _frame_for_queue_status({
+        "initialized": True, "currentId": "q2",
+        "rows": [{"id": "q2", "title": "A"}, {"id": "q3", "title": "C"}],
+    })
+    frame.navigator.apply_live_queue(_rows(), current_id="q3")
+    frame._window_alive = lambda: True
+    frame._sync_views = lambda: None
+
+    frame._handle_engine_event("queue.advanced", {"id": "q2", "title": "A"})
+
+    state = frame.navigator.session
+    assert [r.item_id for r in state.model.rows] == ["q2", "q3"], (
+        "widoczna kolejka nie moze zostawic zuzytego wiersza do nastepnego Ctrl+Q"
+    )
+    assert state.model.selected_id == "q3"
+    assert state.view is View.LIST
+
+
+def test_koniec_utworu_oproznia_otwarta_zywa_liste() -> None:
+    frame, _ = _frame_for_queue_status({
+        "initialized": True, "currentId": "q3", "rows": [],
+    })
+    frame.navigator.apply_live_queue(_rows(), current_id="q3")
+    frame._window_alive = lambda: True
+    frame._sync_views = lambda: None
+
+    frame._handle_engine_event("playback.ended", {
+        "engine": "files", "id": "q3", "queueContinues": False,
+    })
+
+    assert frame.navigator.session.model.rows == []
+    assert frame.navigator.session.library_view is LibraryView.LIVE_QUEUE
+
+
+def test_kolejka_aktualizuje_kontekst_pliku_takze_gdy_ogladam_radio() -> None:
+    from amc_wx_lite.navigation import SessionId
+
+    navigator = _navigator_in_queue_view()
+    navigator.activate_selected()
+    navigator.note_playback_started()
+    navigator.switch_session(SessionId.RADIO)
+    radio = navigator.session
+    radio.now_playing_id = "station-x"
+
+    navigator.note_queue_advanced("q2", "A")
+
+    files = navigator.sessions[SessionId.FILES]
+    assert files.now_playing_id == "q2"
+    assert files.current_material_id == "q2", "zakladki maja kontekst faktycznie grajacego pliku"
+    assert radio.now_playing_id == "station-x", "zdarzenie pliku nie podmienia stacji"
+    assert navigator.active is SessionId.RADIO
+
+
+def test_odswiezenie_kolejki_nie_nadpisuje_innego_widoku() -> None:
+    from types import SimpleNamespace
+
+    frame, _ = _frame_for_queue_status({"initialized": True, "rows": []})
+    frame.navigator.apply_live_queue(_rows(), current_id="q3")
+    callbacks = []
+    frame.runner = SimpleNamespace(
+        submit=lambda slot, work, done, failed: callbacks.append((work, done))
+    )
+    frame._sync_views = lambda: None
+    frame._refresh_live_queue()
+    frame.navigator.apply_folder("example", _rows())
+    work, done = callbacks.pop()
+    done(work())
+    assert frame.navigator.session.library_view is None
+    assert [r.item_id for r in frame.navigator.session.model.rows] == ["q1", "q2", "q3"]
+
+
+def test_identyczna_kolejka_nie_wywoluje_synchronizacji_gui() -> None:
+    from amc_wx_lite.list_model import rows_from_queue_status
+
+    payload = {"initialized": True, "rows": [{"id": "q2", "title": "A"}]}
+    frame, _ = _frame_for_queue_status(payload)
+    frame.navigator.apply_live_queue(rows_from_queue_status(payload), current_id="q2")
+    syncs = []
+    frame._sync_views = lambda: syncs.append(True)
+    frame._refresh_live_queue()
+    assert syncs == []
 
 
 def test_poza_kolejka_enter_dziala_jak_dotad() -> None:

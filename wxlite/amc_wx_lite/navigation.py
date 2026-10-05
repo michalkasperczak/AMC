@@ -209,11 +209,9 @@ class PlayQueueAt:
 class OpenQueueView:
     """Ctrl+Q: najpierw ZAPYTAJ host, co faktycznie jest w kolejce.
 
-    Jeden skrot, dwie mozliwe odpowiedzi -- i to host, a nie okno, rozstrzyga
-    ktora. Gdy kolejka hosta ma wiersze, pokazujemy JA (stan zywy, po
-    przejsciach, Nastepnym i Poprzednim). Gdy jest pusta, nie ma czego pokazac
-    i wracamy do ZAPISANEGO porzadku z profilu -- czyli do zachowania, ktore
-    bylo dotad, w tym przed jakimkolwiek odtwarzaniem.
+    Host rozróżnia brak inicjalizacji od kolejki opróżnionej po odtwarzaniu.
+    Tylko przed inicjalizacją sięgamy do zapisu profilu. Pusta żywa kolejka
+    pozostaje pusta: nie przywracamy zużytych pozycji z dysku.
 
     Zlecenie jest osobne od ``OpenLibraryView``, bo tamto idzie po dane do
     profilu (SQLite), a to po stan do silnika. Zlanie ich w jedno zmusiloby
@@ -886,10 +884,12 @@ class Navigator:
         if not item_id:
             # Zdarzenie bez tozsamosci nic nie dowodzi -- nie czyscimy stanu.
             return []
-        state = self.session
+        state = self.sessions[SessionId.FILES]
         state.now_playing_id = item_id
         state.now_playing_title = title
-        state.pending_material_id = profile_material_id(item_id)
+        # Zdarzenie kolejki już potwierdza start, także podczas oglądania Radia.
+        state.current_material_id = profile_material_id(item_id)
+        state.pending_material_id = ""
         return [Announce(title)] if title else []
 
     def note_playback_failed(self, message: str) -> list[object]:

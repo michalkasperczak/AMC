@@ -1048,6 +1048,11 @@ class LiteFrame(wx.Frame):
             if title:
                 self.now_playing.SetLabel(title)
                 self.announcer.say(title)
+        if name == "queue.advanced" or (
+            name in ("playback.started", "playback.ended")
+            and data.get("engine") == "files"
+        ):
+            self._refresh_live_queue()
 
     # ------------------------------------------------------- tresc poczatkowa
 
@@ -1566,13 +1571,10 @@ class LiteFrame(wx.Frame):
         self.runner.submit("playback", work, done, failed)
 
     def _open_queue_view(self) -> None:
-        """Ctrl+Q: ZYWA kolejka hosta, a w razie pustej -- zapisany porzadek.
+        """Ctrl+Q: stan hosta, także po zużyciu ostatniego wiersza.
 
-        Odczyt idzie przez runnera, bo ``queue.status`` to zapytanie do procesu
-        hosta; w watku GUI zamrozilby okno przy zajetym silniku.
-
-        Gdy host nie odpowiada, NIE udajemy pustej kolejki: wracamy do widoku
-        zapisanego, czyli do tego, co da sie uczciwie przeczytac bez silnika.
+        Zapis profilu służy tylko jako początek, zanim host przyjął kolejkę.
+        Pusta zainicjalizowana kolejka nie odtwarza zużytych wpisów z dysku.
         """
         client = self.client
         if client is None:
@@ -1584,9 +1586,8 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             rows = rows_from_queue_status(payload or {})
-            if not rows:
-                # Kolejka hosta pusta: pokazujemy ZAPIS, tak jak dotad. To nie
-                # jest podmiana stanu, bo zadnego zywego stanu nie ma.
+            if not rows and not payload.get("initialized", False):
+                # Jeszcze nie wczytano żadnej kolejki do tego hosta.
                 self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
                 return
             current = payload.get("currentId")
@@ -1601,6 +1602,34 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
 
         self.runner.submit("folder", work, done, failed)
+
+    def _refresh_live_queue(self) -> None:
+        """Odśwież już otwartą kolejkę bez nawigacji i przejmowania fokusu."""
+        state = self.navigator.session
+        if state.library_view is not LibraryView.LIVE_QUEUE or self.client is None:
+            return
+        client = self.client
+
+        def current() -> bool:
+            return (
+                self.navigator.session is state
+                and state.library_view is LibraryView.LIVE_QUEUE
+            )
+
+        def done(payload: dict) -> None:
+            if not current():
+                return
+            rows = rows_from_queue_status(payload or {})
+            if rows == state.model.rows:
+                return
+            state.model.replace(rows, preferred_id=state.model.selected_id)
+            self._sync_views()
+
+        def failed(error: Exception) -> None:
+            if current():
+                self.announcer.say(f"Nie mogę odświeżyć kolejki: {error}")
+
+        self.runner.submit("queue-refresh", client.queue_status, done, failed)
 
     def _play_queue_at(self, intent: PlayQueueAt) -> None:
         """Enter w ZYWYM widoku: start od wiersza kolejki, ktora host juz ma.
