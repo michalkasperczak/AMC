@@ -107,6 +107,10 @@ def build_menus() -> tuple[Menu, ...]:
         (
             # Foldery Biblioteki dzialaly, ale wejscia w menu nie bylo.
             # MainWindow.xaml:446 "Foldery _Biblioteki" Alt+1.
+            # Powrot do Biblioteki z nazwanego widoku. MainWindow.xaml:427
+            # "_Biblioteka" Ctrl+L -- pozycji tej w porcie brakowalo, wiec
+            # z Ulubionych i Historii nie bylo jak wrocic jednym gestem.
+            MenuItem("&Biblioteka", Action.VIEW_LIBRARY, shortcut="Ctrl+L"),
             MenuItem("&Foldery Biblioteki", Action.VIEW_FOLDERS, shortcut="Alt+1"),
             MenuItem("&Wszystkie pliki alfabetycznie", Action.VIEW_ALL_FILES,
                      shortcut="Alt+2"),

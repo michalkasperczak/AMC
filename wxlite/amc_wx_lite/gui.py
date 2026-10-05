@@ -46,6 +46,7 @@ from .list_model import (
 from . import menu_model
 from .navigation import (
     Announce,
+    LIBRARY_VIEW_FOLDERS,
     LibraryView,
     Navigator,
     OpenFolder,
@@ -1681,6 +1682,27 @@ class LiteFrame(wx.Frame):
         else:
             self.announcer.say(self.library.describe() or "Wybierz folder: Ctrl+O")
 
+    def _return_to_library(self) -> None:
+        """Ctrl+L: powrot do ZAPAMIETANEGO widoku Biblioteki (cs:701-705).
+
+        Nazwe widoku czytamy z profilu teraz, w watku GUI -- to jeden wiersz
+        ``local_state``, nie lista. Blad odczytu nie moze odciac Biblioteki
+        (jak przy ``saved_folder``, gui.py:1661-1668), wiec wtedy wracamy do
+        Folderow i mowimy, co sie stalo.
+        """
+        if not self.library.is_available:
+            self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
+            return
+        try:
+            saved = self.library.saved_library_view()
+        except Exception as error:
+            self.announcer.say(
+                f"Nie mogę odczytać zapamiętanego widoku Biblioteki: {error}. "
+                "Pokazuję Foldery."
+            )
+            saved = LIBRARY_VIEW_FOLDERS
+        self._run(self.navigator.return_to_library(saved))
+
     def _open_library(self, folder: str | None, preferred_id: str | None = None) -> None:
         """Wczytanie poziomu Biblioteki z SQLite -- POZA watkiem GUI.
 
@@ -1899,6 +1921,8 @@ class LiteFrame(wx.Frame):
             # Foldery Biblioteki dzialaly juz z menu kontekstu startu; tutaj
             # dostaja jawne wejscie (Alt+1, jak MainWindow.xaml:446).
             self._open_library(self.library.saved_folder())
+        elif action is Action.VIEW_LIBRARY:
+            self._return_to_library()
         elif action is Action.VIEW_HISTORY:
             self._run(self.navigator.open_library_view(LibraryView.HISTORY))
         elif action is Action.VIEW_SAVED_QUEUE:

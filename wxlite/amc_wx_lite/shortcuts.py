@@ -151,6 +151,11 @@ class Action(Enum):
     #   CommandIds.ViewHistory  (CommandIds.cs:182, MainWindow.xaml:488, Ctrl+H)
     #   CommandIds.ViewQueue    (CommandIds.cs:149, MainWindow.xaml:487, Ctrl+Q)
     VIEW_FOLDERS = "library.folders"
+    # ``CommandIds.ViewLibrary`` (CommandIds.cs:81, Ctrl+L z
+    # MainWindow.xaml:427-428 i cs:22173). NIE jest tozsame z VIEW_FOLDERS:
+    # CommandRouter.cs:390 woła ShowView("Biblioteka"), a cs:701-705 podmienia
+    # te nazwe na ZAPAMIETANY widok profilu -- Foldery albo Wszystkie pliki.
+    VIEW_LIBRARY = "view.library"
     VIEW_HISTORY = "view.history"
     VIEW_SAVED_QUEUE = "view.queue"
     # UWAGA: to NIE jest CommandIds.ViewBookmarks. Tamta komenda (Ctrl+B)
@@ -257,6 +262,9 @@ LIST_VIEW: dict[str, Action] = {
     # (te same pary w KeyboardProfile.cs:84 i :90 oraz w sciezce klawiszy
     # MainWindow.xaml.cs:21674-21675.)
     "Alt+1": Action.VIEW_FOLDERS,
+    # MainWindow.xaml:427-428 i MainWindow.xaml.cs:22173 -- powrot do
+    # Biblioteki z KAZDEGO nazwanego widoku (Ulubione, Historia, ...).
+    "Ctrl+L": Action.VIEW_LIBRARY,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+H": Action.VIEW_HISTORY,
     # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
@@ -415,6 +423,7 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_FAVORITES: "Ulubione",
         Action.VIEW_PLAYLISTS: "Playlisty",
         Action.VIEW_FOLDERS: "Foldery Biblioteki",
+        Action.VIEW_LIBRARY: "Biblioteka: powrot do zapamietanego widoku",
         Action.VIEW_HISTORY: "Historia odtwarzania",
         # Wiersze pochodza z ZAPISANEGO profilu (host nie jest ich autorem), ale
         # Enter uruchamia z nich ZYWA kolejke hosta -- stad "Enter odtwarza".

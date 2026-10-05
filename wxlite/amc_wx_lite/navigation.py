@@ -60,6 +60,20 @@ class LibraryView(Enum):
     ALL_BOOKMARKS = "allBookmarks"
 
 
+#: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
+#: "Foldery"); nazwy widokow z ``MainWindow.xaml.cs:64-66``. To NIE sa wartosci
+#: ``LibraryView``: zapis profilu zna tylko te trzy nazwy i Ctrl+L
+#: (``MainWindow.xaml.cs:701-705``) podstawia je za nazwe "Biblioteka".
+LIBRARY_VIEW_FOLDERS = "Foldery"
+LIBRARY_VIEW_ALL_FILES = "Wszystkie pliki"
+#: Przeniesione docele Ctrl+L. "Kolejność własna" (cs:66) NIE jest przeniesiona,
+#: wiec jej nie udajemy -- brak wpisu znaczy odmowe z nazwa widoku.
+LIBRARY_RETURN_TARGETS: dict[str, "LibraryView | None"] = {
+    LIBRARY_VIEW_FOLDERS: None,
+    LIBRARY_VIEW_ALL_FILES: LibraryView.ALL_FILES,
+}
+
+
 @dataclass(slots=True)
 class OpenLibraryView:
     """Zlecenie: wczytaj dane nazwanego widoku Biblioteki.
@@ -129,6 +143,13 @@ class SessionState:
     #: Kandydat na ``current_material_id``, czekajacy na POTWIERDZENIE startu.
     #: Samo zaznaczenie i nieudany start nie moga zmienic kontekstu.
     pending_material_id: str = ""
+    #: Folder Biblioteki, z ktorego weszlismy w nazwany widok. ``folder_path``
+    #: tego nie udzwignie: nazwany widok musi je czyscic (Backspace), a Ctrl+L
+    #: ma wrocic DOKLADNIE tam, gdzie uzytkownik byl.
+    library_folder_path: str | None = None
+    #: Nazwa widoku -> ostatnio na nim zaznaczony wiersz. Odpowiednik
+    #: ``SessionNavigationState.SelectedItemIds`` (``MainWindow.xaml.cs:18095``).
+    view_selected_ids: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -654,6 +675,57 @@ class Navigator:
         state.current_material_id = state.pending_material_id
         state.pending_material_id = ""
 
+    def _remember_view_selection(self, state: SessionState) -> None:
+        """Zapisz zaznaczenie BIEZACEGO widoku, zanim lista sie zmieni.
+
+        Odpowiednik ``CaptureCurrentSessionNavigationState`` (cs:18080):
+        ``SelectedItemIds[widok]``. Bez tego Ctrl+L wracalby na pierwszy wiersz.
+        """
+        selected = state.model.selected_id
+        if not selected:
+            return
+        if state.library_view is None:
+            klucz = LIBRARY_VIEW_FOLDERS
+        elif state.library_view is LibraryView.ALL_FILES:
+            klucz = LIBRARY_VIEW_ALL_FILES
+        else:
+            return
+        state.view_selected_ids[klucz] = selected
+
+    def return_to_library(self, saved_view: str) -> list[object]:
+        """Ctrl+L. ``CommandRouter.cs:390`` -> ``ShowView("Biblioteka")``, a
+        ``MainWindow.xaml.cs:701-705`` podmienia te nazwe na ZAPAMIETANY widok
+        (``_state.LocalMedia.LibraryView``) -- NIE zawsze na korzen Folderow.
+
+        Docelowe zaznaczenie bierzemy z ``view_selected_ids`` (cs:18095).
+        Nazwa widoku, ktorej port nie ma, konczy sie ODMOWA z jej nazwa:
+        udawanie zgodnosci byloby tu gorsze niz cisza.
+        """
+        if saved_view not in LIBRARY_RETURN_TARGETS:
+            return [
+                Announce(
+                    f"Zapamiętany widok Biblioteki „{saved_view}” nie jest "
+                    "jeszcze przeniesiony"
+                )
+            ]
+        state = self.sessions[SessionId.FILES]
+        self._remember_view_selection(state)
+        target = LIBRARY_RETURN_TARGETS[saved_view]
+        if target is None:
+            folder = state.library_folder_path or state.folder_path
+            return [
+                OpenFolder(
+                    folder,
+                    preferred_id=state.view_selected_ids.get(LIBRARY_VIEW_FOLDERS),
+                )
+            ]
+        return [
+            OpenLibraryView(
+                view=target,
+                preferred_id=state.view_selected_ids.get(LIBRARY_VIEW_ALL_FILES),
+            )
+        ]
+
     def open_library_view(
         self,
         view: LibraryView,
@@ -700,6 +772,13 @@ class Navigator:
                 Announce("Tej playlisty już nie ma, wracam do playlist"),
                 OpenLibraryView(view=LibraryView.PLAYLISTS),
             ]
+
+        # Zapamietaj, gdzie uzytkownik byl PRZED wejsciem w nazwany widok.
+        # Ctrl+L (cs:701-705) wraca do zapamietanego widoku Biblioteki, a
+        # ``folder_path`` ponizej musi byc wyczyszczone dla Backspace.
+        self._remember_view_selection(state)
+        if state.library_view is None and state.folder_path is not None:
+            state.library_folder_path = state.folder_path
 
         state.library_view = view
         state.library_playlist_id = playlist_id
@@ -844,10 +923,13 @@ class Navigator:
     def apply_folder(self, path: str, rows: list[Row], preferred_id: str | None = None) -> list[object]:
         """Skutek udanego ``files.listFolder``. Wywolywane w watku GUI."""
         state = self.sessions[SessionId.FILES]
+        self._remember_view_selection(state)
         state.folder_path = path
         # Wejscie w folder konczy nazwany widok Biblioteki: od tej chwili
         # Backspace znow znaczy "folder nadrzedny".
         state.library_view = None
+        # ...a Ctrl+L z nazwanego widoku ma wrocic TUTAJ.
+        state.library_folder_path = path
         state.library_playlist_id = None
         state.library_return_id = None
         state.library_item_id = None

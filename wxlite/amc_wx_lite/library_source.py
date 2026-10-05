@@ -103,6 +103,16 @@ class LibrarySource:
         with self._open() as db:
             return db.local_state().current_folder_path
 
+    def saved_library_view(self) -> str:
+        """Zapamietany widok Biblioteki (``local_state.library_view``).
+
+        Odpowiednik ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``),
+        ktory ``MainWindow.xaml.cs:704`` podstawia za nazwe "Biblioteka" pod
+        Ctrl+L. Zwraca NAZWE widoku z profilu, nie ``LibraryView``.
+        """
+        with self._open() as db:
+            return db.local_state().library_view
+
     def use_collation(self, collation: "HostCollation | None") -> None:
         """Podepnij kolejnosc liczona przez host C#.
 
