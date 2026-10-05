@@ -115,15 +115,59 @@ def test_file_uri_is_local_because_IsFile_is_true() -> None:
     assert gui.is_local_path("file:///D:/muzyka/a.mp3") is True
 
 
+def test_file_uri_with_a_host_keeps_the_unc_share() -> None:
+    """BLOKER. ``file://serwer/udzial/a.mp3`` gubilo nazwe serwera.
+
+    ``urlparse`` wklada ``serwer`` do ``netloc``, nie do ``path``. Kod czytal
+    sam ``path`` i oddawal ``/udzial/a.mp3`` -- sciezke na BIEZACYM dysku, nie
+    na udziale. Dla file dropu to albo trafienie w pustke, albo (gorzej)
+    wskazanie innego, istniejacego lokalnie pliku o tej samej nazwie.
+
+    Granica poprawki jest waska: zachowujemy UNC. Nie piszemy tu ogolnego
+    parsera URI -- ``is_local_path`` juz przepuszcza ``file:`` i ta funkcja ma
+    tylko sprowadzic go do sciezki.
+    """
+    assert gui.local_path_from_source("file://serwer/udzial/a.mp3") == (
+        "\\\\serwer\\udzial\\a.mp3"
+    )
+
+
+def test_plain_file_uri_without_a_host_is_unchanged() -> None:
+    """Kontrola odwrotna: pusty ``netloc`` nie dorabia zadnego UNC."""
+    assert gui.local_path_from_source("file:///D:/muzyka/a.mp3") == "D:/muzyka/a.mp3"
+    assert gui.local_path_from_source("file:///home/michal/a.mp3") == "/home/michal/a.mp3"
+
+
+def test_localhost_in_a_file_uri_is_not_a_server_name() -> None:
+    """``file://localhost/D:/a.mp3`` to sciezka lokalna, nie udzial sieciowy."""
+    assert gui.local_path_from_source("file://localhost/D:/a.mp3") == "D:/a.mp3"
+
+
+def test_real_windows_paths_pass_through_untouched() -> None:
+    """NAJWAZNIEJSZY przypadek: zwykle istniejace sciezki C:/D: bez zmian."""
+    assert gui.local_path_from_source("D:\\muzyka\\a.mp3") == "D:\\muzyka\\a.mp3"
+    assert gui.local_path_from_source("C:\\Users\\Michal\\a.mp3") == "C:\\Users\\Michal\\a.mp3"
+    assert gui.local_path_from_source("\\\\serwer\\udzial\\a.mp3") == "\\\\serwer\\udzial\\a.mp3"
+
+
 # -------------------------------------------------- 2. co trafia do schowka
 
 
 class FakeClipboard:
     """Atrapa ``wx.TheClipboard``. Zapamietuje OBIEKT, nie sam tekst."""
 
-    def __init__(self, *, opens: bool = True, fails: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        opens: bool = True,
+        fails: bool = False,
+        set_data_result: bool = True,
+        flush_result: bool = True,
+    ) -> None:
         self._opens = opens
         self._fails = fails
+        self._set_data_result = set_data_result
+        self._flush_result = flush_result
         self.data = None
         self.flushed = False
         self.closed = 0
@@ -134,12 +178,16 @@ class FakeClipboard:
     def SetData(self, data) -> bool:  # noqa: N802, ANN001
         if self._fails:
             raise RuntimeError("schowek zajety")
+        if not self._set_data_result:
+            # Prawdziwy wxWidgets zwraca tu FALSE bez wyjatku, gdy
+            # ``wxClipboard::SetData`` nie przyjmie obiektu.
+            return False
         self.data = data
         return True
 
     def Flush(self) -> bool:  # noqa: N802
         self.flushed = True
-        return True
+        return self._flush_result
 
     def Close(self) -> None:  # noqa: N802
         self.closed += 1
@@ -337,6 +385,69 @@ def test_clipboard_write_failure_never_claims_success() -> None:
         assert spoken[0].startswith("Nie udało się skopiować")
         assert "Skopiowano" not in spoken[0]
         assert clipboard.closed == 1, "schowek musi zostac zamkniety mimo bledu"
+
+
+def test_set_data_returning_false_is_a_failure_not_a_success() -> None:
+    """BLOKER. ``wxClipboard::SetData`` zwraca BOOL, nie rzuca wyjatku.
+
+    ``SetData`` -> ``false`` oznacza, ze schowek NIE przyjal danych. Kod, ktory
+    ignoruje ten wynik i leci do ``return True``, oglasza "Skopiowano plik
+    i pełną ścieżkę" przy pustym schowku -- czyli dokladnie to zgloszenie,
+    ktore ten etap mial zamknac, tyle ze cichsza droga. Oryginal
+    (``Services/ClipboardRetry.cs``) traktuje nieudany zapis jako BLAD.
+
+    Twierdzenie "blad nigdy nie udaje sukcesu" bylo prawdziwe tylko dla
+    wyjatku; ``False`` bez wyjatku nadal dawalo ``True``.
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "a.mp3")
+        Path(path).write_bytes(b"x")
+        clipboard = FakeClipboard(set_data_result=False)
+        frame, spoken = make_frame(clipboard)
+        set_selected(frame, Row(item_id="f", title="a.mp3", kind="track", path=path))
+
+        frame._copy_address()
+
+        assert not any("Skopiowano" in message for message in spoken), (
+            "schowek odmowil przyjecia danych, a program oglosil sukces"
+        )
+        assert spoken == ["Nie udało się skopiować do schowka"]
+        assert clipboard.closed == 1, "schowek musi zostac zamkniety takze po odmowie"
+
+
+def test_set_data_returning_false_on_plain_text_is_a_failure_too() -> None:
+    """Ta sama regula na drodze SAMEGO tekstu (stacja, Ctrl+C)."""
+    clipboard = FakeClipboard(set_data_result=False)
+    frame, spoken = make_frame(clipboard)
+    station = rows_from_stations([{"id": "s1", "name": "Radio", "url": URL}])[0]
+    set_selected(frame, station)
+
+    frame._copy_address()
+
+    assert spoken == ["Nie udało się skopiować do schowka"]
+
+
+def test_flush_failure_is_about_persistence_not_about_the_copy() -> None:
+    """``Flush`` to TRWALOSC po zamknieciu programu, nie sam zapis.
+
+    ``wxClipboard::Flush`` przekazuje zawartosc schowkowi systemowemu na
+    pozniej. Gdy zwroci ``false``, dane SA juz w schowku i wklejenie w
+    dzialajacym systemie zadziala; traci sie tylko przezycie zamkniecia
+    naszego procesu. Dlatego nie wolno z tego robic bledu kopiowania --
+    inaczej program klamie w druga strone, mowiac o porazce po udanym zapisie.
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "a.mp3")
+        Path(path).write_bytes(b"x")
+        clipboard = FakeClipboard(flush_result=False)
+        frame, spoken = make_frame(clipboard)
+        set_selected(frame, Row(item_id="f", title="a.mp3", kind="track", path=path))
+
+        frame._copy_address()
+
+        assert spoken == ["Skopiowano plik i pełną ścieżkę"]
+        assert clipboard.flushed is True
+        assert isinstance(clipboard.data, FakeComposite), "dane jednak trafily do schowka"
 
 
 # --------------------------------------------------- 4. Ctrl+C bez zmian

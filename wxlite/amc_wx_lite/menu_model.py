@@ -138,6 +138,8 @@ def build_menus() -> tuple[Menu, ...]:
             SEPARATOR,
             MenuItem("&Skopiuj nazwę", Action.COPY_NAME, shortcut="Ctrl+C",
                      needs_selection=True),
+            MenuItem("W&ytnij plik", Action.CUT_FILE, shortcut="Ctrl+X",
+                     accelerator=False),
             MenuItem("Skopiuj &adres", Action.COPY_ADDRESS, shortcut="Ctrl+Shift+C",
                      needs_selection=True),
             SEPARATOR,
@@ -260,8 +262,17 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Sesja: &Pliki lokalne", Action.SESSION_FILES, shortcut="Ctrl+1"),
             MenuItem("Sesja: &Radio", Action.SESSION_RADIO, shortcut="Ctrl+2"),
             SEPARATOR,
+            # ``accelerator=False``: ZMIERZONE na zywym GUI (statusclip-1).
+            # Z akceleratorem pozycja byla WYLACZONA na liscie (nic nie gralo),
+            # a wylaczony akcelerator okna POLYKA swoj klawisz -- F6 dochodzil
+            # do okna (``code 345``), ale nie trafial ani do komendy, ani do
+            # ``_on_key``, wiec widok zostawal na liscie. Skrot dziala dalej:
+            # obsluguje go ``shortcuts.LIST_VIEW["F6"]``, bezwarunkowo.
+            #
+            # ``needs_playback`` ZOSTAJE: pozycja ma byc wyszarzona, gdy nie ma
+            # czego pokazywac. Zdejmujemy tylko akcelerator.
             MenuItem("Widok &odtwarzacza", Action.SHOW_PLAYER, shortcut="F6",
-                     needs_playback=True),
+                     accelerator=False, needs_playback=True),
             # Powrot na liste istnial tylko z klawiatury (Escape/Shift+F6).
             # Akcja SHOW_LIST byla juz obslugiwana w _dispatch -- brakowalo
             # samego wejscia w menu, wiec nie jest to martwa pozycja.

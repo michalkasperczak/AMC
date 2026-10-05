@@ -72,6 +72,50 @@ def test_pozycje_menu_NIE_moga_miec_golego_akceleratora_klawisza_edycji() -> Non
     )
 
 
+def test_skrot_ktory_ma_dzialac_bez_odtwarzania_nie_moze_byc_bramkowanym_akceleratorem() -> None:
+    """Regresja ZMIERZONA na zywym GUI (statusclip-1, plan PASEK-ODTWARZACZ).
+
+    Pozycja "Widok &odtwarzacza\\tF6" byla ``accelerator=True`` ORAZ
+    ``needs_playback=True``. Sonda zmierzyla na liscie:
+    ``menu.state`` -> ``{"shortcut": "F6", "accel": true, "enabled": false}``,
+    keylog ``hook.key`` -> ``code 345`` (F6) DOCHODZI do okna, a mimo to
+    ``dispatch`` NIE pojawia sie wcale i widok zostaje ``View.LIST``.
+
+    To jest polkniecie przez akcelerator WYLACZONEJ pozycji: Windows dopasowuje
+    akcelerator okna, ale komendy nie wysyla nikomu, wiec klawisz nie dochodzi
+    tez do ``_on_key``. Objaw udaje utrate fokusu (sonda pokazuje
+    ``list_has_focus: true``), a nia nie jest.
+
+    ``shortcuts.LIST_VIEW["F6"] == Action.SHOW_PLAYER`` jest BEZWARUNKOWE --
+    F6 ma przechodzic do odtwarzacza takze gdy nic nie gra. Skrot bramkowany
+    stanem nie moze wiec wisiec jako akcelerator na pozycji menu.
+
+    ZAKRES TEJ REGULY jest wezszy niz "kazda bramkowana pozycja". Pozycje typu
+    "Skopiuj adres" (``Ctrl+Shift+C``) wymagaja ZAZNACZENIA i gdy nic nie jest
+    zaznaczone, polkniecie klawisza nie zabiera uzytkownikowi niczego -- nie ma
+    czego kopiowac. Natomiast PRZELACZANIE WIDOKU musi dzialac zawsze, bo to
+    jedyna droga wyjscia; dlatego mierzymy wlasnie je.
+    """
+    from amc_wx_lite import shortcuts
+
+    przelaczanie_widoku = {Action.SHOW_PLAYER, Action.SHOW_LIST}
+    winne = [
+        (item.label, item.shortcut)
+        for item in all_items()
+        if item.action in przelaczanie_widoku
+        and item.shortcut
+        and item.accelerator
+        and (item.needs_playback or item.needs_selection or item.needs_radio_session)
+    ]
+    assert not winne, (
+        "przelaczanie widoku wisi jako akcelerator bramkowany stanem -- gdy "
+        f"pozycja jest wylaczona, polyka swoj klawisz i widok sie nie zmienia: {winne}"
+    )
+    # Kontrdowod, ze regula mierzy to, co trzeba: tablica skrotow listy
+    # oferuje F6 BEZ zadnego warunku odtwarzania.
+    assert shortcuts.LIST_VIEW["F6"] is Action.SHOW_PLAYER
+
+
 def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     """Menu nie moze obiecywac skrotu, ktorego nie ma w tablicach skrotow.
 

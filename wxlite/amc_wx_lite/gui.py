@@ -164,8 +164,12 @@ def is_local_path(source: str | None) -> bool:
     (np. ``http://``); sciezka niepelna (wzgledna). Co wazne, oryginal TUTAJ
     NIE sprawdza istnienia pliku -- to osobna regula, patrz ``_file_drop_path``.
 
-    Nie dodajemy nic poza tym. ``file:///D:/a.mp3`` przechodzi, bo dla C#
-    ``uri.IsFile`` jest prawda; sprowadzamy go do zwyklej sciezki.
+    Nie dodajemy nic poza tym -- z JEDNYM jawnym wyjatkiem: ``file:`` URI.
+    Oryginal przepuszcza go przez pierwszy warunek (``uri.IsFile`` jest prawda),
+    ale zaraz potem odrzuca na ``Path.IsPathFullyQualified("file:///D:/a.mp3")``
+    == ``false``, czyli de facto NIE uznaje go za lokalny. My uznajemy i
+    sprowadzamy do sciezki (``local_path_from_source``). To nasze rozszerzenie,
+    nie przepisana linia oryginalu.
     """
     if not source or not source.strip():
         return False
@@ -185,14 +189,61 @@ def is_local_path(source: str | None) -> bool:
     return source.startswith("/")
 
 
+#: ``Preferred DropEffect`` -- liczby shella Windows, nie nasze wymysly.
+#: ``DROPEFFECT_COPY = 1``, ``DROPEFFECT_MOVE = 2``. Oryginal wola
+#: ``SetData("Preferred DropEffect", BitConverter.GetBytes(2))`` TYLKO przy
+#: wycinaniu (``MainWindow.xaml.cs:25303``); strona kopiowania (:24781-24783)
+#: nie ustawia tego formatu wcale, a jego BRAK znaczy dla shella kopiowanie.
+DROPEFFECT_COPY = 1
+DROPEFFECT_MOVE = 2
+
+
+def file_copy_clipboard_payload(path: str) -> dict:
+    """Co ma trafic do schowka przy KOPIOWANIU pliku.
+
+    Odpowiada ``CopyItemLocations`` (``MainWindow.xaml.cs:24778-24787``):
+    tekst sciezki ORAZ ``CF_HDROP``, bez ``Preferred DropEffect``.
+    """
+    return {"text": path, "file_path": path, "preferred_drop_effect": None}
+
+
+def file_cut_clipboard_payload(path: str) -> dict:
+    """Co ma trafic do schowka przy WYCINANIU pliku.
+
+    Odpowiada ``CutLocalFilesForExternalMove``
+    (``MainWindow.xaml.cs:25300-25303``): to samo co przy kopiowaniu PLUS
+    ``Preferred DropEffect`` = MOVE. Bez tego trzeciego formatu Explorer
+    zrobilby KOPIE, a uzytkownik uslyszalby "gotowy do przeniesienia".
+    """
+    return {"text": path, "file_path": path, "preferred_drop_effect": DROPEFFECT_MOVE}
+
+
 def local_path_from_source(source: str) -> str:
-    """Sprowadza ``file:`` URI do zwyklej sciezki; reszte oddaje bez zmian."""
+    """Sprowadza ``file:`` URI do zwyklej sciezki; reszte oddaje bez zmian.
+
+    UWAGA na granice tej funkcji wobec oryginalu. ``TryGetLocalPath``
+    (``MainWindow.xaml.cs:5378``) NIE konwertuje ``file:`` URI -- oddaje
+    ``localPath = source`` i poleca go dalej ``Path.IsPathFullyQualified``,
+    ktory dla ``file:///D:/a.mp3`` zwraca ``false``. Czyli oryginal takiego
+    zrodla w ogole nie uznaje za lokalne. Ta konwersja to NASZE rozszerzenie,
+    nie doslowne 1:1; opisujemy ja tak wprost, zeby nikt nie przypisal jej
+    oryginalowi.
+
+    Istotne jest, zeby nie zgubic nazwy serwera. ``urlparse`` wklada ja do
+    ``netloc``, nie do ``path``, wiec ``file://serwer/udzial/a.mp3`` bez tego
+    dawalo ``/udzial/a.mp3`` -- sciezke na BIEZACYM dysku, nie na udziale.
+    """
     source = (source or "").strip()
     if source.lower().startswith("file:"):
         from urllib.parse import unquote, urlparse
 
         parsed = urlparse(source)
         path = unquote(parsed.path)
+        host = unquote(parsed.netloc)
+        # ``file://serwer/udzial/a.mp3`` -> ``\\serwer\udzial\a.mp3``.
+        # ``localhost`` to umowna nazwa maszyny biezacej, nie udzial sieciowy.
+        if host and host.lower() != "localhost":
+            return "\\\\" + host + path.replace("/", "\\")
         # ``file:///D:/a.mp3`` -> ``D:/a.mp3``
         if len(path) >= 3 and path[0] == "/" and path[2] == ":":
             path = path[1:]
@@ -1052,6 +1103,13 @@ class LiteFrame(wx.Frame):
         # a nie zamiast -- ``Announcer`` sam nic nie traci.
         self.announcer = Announcer(self.status_field, status_bar=self.status_bar)
 
+        #: Sciezki WYCIETE przez Ctrl+X i jeszcze nie wklejone, po ``item_id``.
+        #: Odpowiednik ``_pendingExternalMoves`` (``MainWindow.xaml.cs:25306``).
+        #: Trzymamy to w pamieci okna, a NIE w profilu -- profil wspoldzielony
+        #: otwieramy tylko do czytania i oczekujace przeniesienie nie jest
+        #: stanem, ktory ma przetrwac zamkniecie programu.
+        self.pending_external_moves: dict[str, str] = {}
+
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(self.session_label, 0, wx.ALL, 8)
         outer.Add(self.list_panel, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
@@ -1799,6 +1857,8 @@ class LiteFrame(wx.Frame):
             self._copy_name()
         elif action is Action.COPY_ADDRESS:
             self._copy_address()
+        elif action is Action.CUT_FILE:
+            self._cut_file()
         elif action is Action.FOCUS_FILTER:
             self._focus_filter()
         elif action is Action.STATION_ADD:
@@ -2061,7 +2121,71 @@ class LiteFrame(wx.Frame):
         path = local_path_from_source(address)
         return path if os.path.exists(path) else None
 
-    def _to_clipboard(self, text: str, *, file_path: str | None = None) -> bool:
+    def _cut_file(self) -> None:
+        """Ctrl+X: plik GOTOWY DO PRZENIESIENIA poza AMC.
+
+        Port ``CutLocalFilesForExternalMove`` (``MainWindow.xaml.cs:25277``).
+        Michal uzywa tego w dzialajacym AMC i prosil o zgodne zachowanie.
+
+        CZEGO TA FUNKCJA NIE ROBI -- i to jest regula oryginalu, nie nasze
+        uproszczenie: SAMA NIE USUWA PLIKU. Oryginal tylko zapisuje schowek i
+        zapamietuje sciezki w ``_pendingExternalMoves`` (:25306-25309);
+        skasowanie zrodla wykonuje SHELL przy wklejeniu, a
+        ``ReconcileCompletedExternalMoves`` (:25315) jedynie ZAUWAZA, ze plik
+        zniknal. Gdybysmy usuwali sami, nieudane wklejenie skasowaloby nagranie.
+
+        Warunki sa WEZSZE niz przy kopiowaniu i tak samo jest w C#:
+        tylko ISTNIEJACY PLIK (``File.Exists``, :25289) -- folder sie nie
+        kwalifikuje, choc do KOPIOWANIA jak najbardziej.
+        """
+        row = self.navigator.session.model.selected_row
+        if row is None:
+            self.announcer.say("Brak pliku do wycięcia")
+            return
+        # Widok zakladek: wiersz wskazuje ``bookmark:<id>``, czyli ani plik,
+        # ani sciezke (:25280-25284).
+        if self.navigator.session.library_view is LibraryView.ALL_BOOKMARKS:
+            self.announcer.say("Wycinanie plików nie działa na liście zakładek")
+            return
+        path = self._cut_file_path(row.address)
+        if path is None:
+            self.announcer.say(
+                "Wycinanie jest dostępne tylko dla istniejących plików lokalnych")
+            return
+        payload = file_cut_clipboard_payload(path)
+        if not self._to_clipboard(
+            payload["text"],
+            file_path=payload["file_path"],
+            preferred_drop_effect=payload["preferred_drop_effect"],
+        ):
+            return
+        # Zapamietujemy OCZEKUJACE przeniesienie, tak jak oryginal. Samo
+        # zapamietanie nic nie usuwa -- sluzy pozniejszemu rozpoznaniu, ze
+        # plik juz nie lezy pod stara sciezka.
+        self.pending_external_moves[row.item_id] = path
+        self.announcer.say("Plik gotowy do przeniesienia. Wklej go w folderze docelowym")
+
+    @staticmethod
+    def _cut_file_path(address: str) -> str | None:
+        """Sciezka do wyciecia albo ``None``.
+
+        Rozni sie od ``_file_drop_path`` JEDNYM warunkiem i jest to roznica z
+        oryginalu: wycinanie wymaga ``File.Exists`` (:25289), wiec FOLDER sie
+        nie kwalifikuje. Kopiowanie bierze wariant szerszy (plik lub folder),
+        bo ``RadioPresetsWindow.xaml.cs:156-158`` pyta o oba.
+        """
+        if not address or not is_local_path(address):
+            return None
+        path = local_path_from_source(address)
+        return path if os.path.isfile(path) else None
+
+    def _to_clipboard(
+        self,
+        text: str,
+        *,
+        file_path: str | None = None,
+        preferred_drop_effect: int | None = None,
+    ) -> bool:
         """Zapis do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
 
         Schowek bywa chwilowo zajety przez inny proces -- odpowiednik
@@ -2090,7 +2214,26 @@ class LiteFrame(wx.Frame):
                     files = wx.FileDataObject()
                     files.AddFile(file_path)
                     data.Add(files, True)
-                wx.TheClipboard.SetData(data)
+                    if preferred_drop_effect is not None:
+                        # ``Preferred DropEffect``: TRZECI format, ktorym shell
+                        # rozpoznaje WYCIECIE. ``SetData("Preferred DropEffect",
+                        # BitConverter.GetBytes(2))`` w C# to 4 bajty little
+                        # endian -- ``wx.CustomDataObject`` przyjmuje je wprost.
+                        effect = wx.CustomDataObject(wx.DataFormat("Preferred DropEffect"))
+                        effect.SetData(
+                            preferred_drop_effect.to_bytes(4, "little", signed=False))
+                        data.Add(effect)
+                if not wx.TheClipboard.SetData(data):
+                    # ``wxClipboard::SetData`` zwraca BOOL i nie rzuca wyjatku,
+                    # gdy schowek odmowi przyjecia obiektu. Bez tej bramki
+                    # porazka konczyla sie komunikatem sukcesu przy pustym
+                    # schowku -- tym samym zgloszeniem, tylko cichszym.
+                    self.announcer.say("Nie udało się skopiować do schowka")
+                    return False
+                # ``Flush`` to TRWALOSC po zamknieciu naszego procesu, a nie
+                # sam zapis: dane juz LEZA w schowku i wklejenie zadziala.
+                # Dlatego jego ``False`` NIE jest bledem kopiowania -- inaczej
+                # program klamalby w druga strone.
                 wx.TheClipboard.Flush()
             finally:
                 wx.TheClipboard.Close()

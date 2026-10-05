@@ -130,6 +130,11 @@ class Action(Enum):
     OPEN_FILE_DIALOG = "files.openFile"
     COPY_NAME = "clipboard.copyName"
     COPY_ADDRESS = "clipboard.copyAddress"
+    #: Ctrl+X: plik GOTOWY DO PRZENIESIENIA poza AMC. Osobna akcja od
+    #: kopiowania, bo rozni sie formatem schowka (``Preferred DropEffect``
+    #: MOVE), warunkiem (tylko istniejacy PLIK, nie folder) i komunikatem --
+    #: ``CutLocalFilesForExternalMove`` (MainWindow.xaml.cs:25277).
+    CUT_FILE = "clipboard.cutFile"
     STATION_ADD = "radio.add"
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
@@ -216,6 +221,12 @@ LIST_VIEW: dict[str, Action] = {
     # dostepny jednym skrotem -- nie zabieramy funkcji, przenosimy ja.
     "Ctrl+C": Action.COPY_NAME,
     "Ctrl+Shift+C": Action.COPY_ADDRESS,
+    # Ctrl+X na liscie: wyciecie PLIKU do przeniesienia poza AMC
+    # (MainWindow.xaml.cs:21022-21026). W oryginale ten sam klawisz obsluguje
+    # tez WEWNETRZNE przestawianie elementow listy
+    # (``TryStartInternalListMove``) -- tego portu jeszcze nie ma, wiec
+    # mapujemy wylacznie galaz zewnetrzna, ktora Michal uzywa.
+    "Ctrl+X": Action.CUT_FILE,
     # Nazwane widoki Biblioteki. Skroty WPROST ze wzorca, nie wymyslone:
     #   MainWindow.xaml:458  "_Wszystkie pliki alfabetycznie"  Alt+2
     #   MainWindow.xaml:426  "_Ulubione"                       Ctrl+U
@@ -370,6 +381,7 @@ def describe() -> list[tuple[str, str]]:
         Action.OPEN_FILE_DIALOG: "Wybierz plik",
         Action.COPY_NAME: "Skopiuj nazwe",
         Action.COPY_ADDRESS: "Skopiuj adres",
+        Action.CUT_FILE: "Wytnij plik",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmien stacje",
         Action.STATION_DELETE: "Usun stacje",
