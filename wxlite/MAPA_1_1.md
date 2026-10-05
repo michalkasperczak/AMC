@@ -70,16 +70,14 @@ Zdane:
 - **Odmowa sesji nielokalnej**: Enter na wierszu Spotify → brak `files.play`, zostajemy na wierszu, mowa „Ta zakładka należy do sesji Spotify. Ten program odtwarza tylko pliki lokalne."
 - **Powrót PLAYER→LIST menu**: `alt` (pasek menu, rola 11) → Widok → „Powrót na listę" → `session_view=View.LIST`, `player_shown=false`, wiersz czytany. Menu „Lista→Lista" nie jest dowodem tego przejścia — do jego pokazania obserwator dostał pole `session_view` (`library_view` nie rozróżnia odtwarzacza od listy).
 
-Jawnie OTWARTE:
+### Historyczne obserwacje list — zamknięte przed obecną kolejką
 
-- **Pusty widok: `rows=0` zmierzone, mowa NIE.** Na potwierdzonym innym pliku (0 zakładek w danych, sprawdzone tą samą funkcją `bookmark_rows`) widok ma `rows=0` i `status_text="Biblioteka — Zakładki, pusto"`, aleNVDA nadal mówi „nieznane", a fokus ma `name=""`, rola 0. Nakładka `MediaListAccessible` była potwierdzona TYLKO w MSAA na pustym modelu — na żywymNVDA nie pomogła.
-- **Nazwa widoku Folderów**: `Alt+1` zmienia zawartość (2476 → 11 wierszy, folder czytany), ale `library_view` zostaje `None` zamiast nazwy widoku.
-- **Powtórzenia odczytu i stare nazwy list** pozostają niezmienione i NIENAPRAWIONE (patrz akapit wyżej). Rekreacja HWND zostaje wycofana.
+Puste listy, podwójny odczyt i stare nazwy zostały odebrane po zmianie wspólnego mechanizmu list w `14bcc285`; dawne kwity powyżej nie otwierają ich ponownie. `library_view=None` oznacza poprawny widok Folderów, nie brak implementacji. Aktualne dowody wskazują początkowe sekcje tej mapy oraz `native-w02-valid-retest-after422/parent-final/`.
 
 ## Najbliższe braki
 
-- Odczyt przy zmianie widoku jest spokojniejszy, ale **nie całkiem cichy**. Zmierzone na żywymNVDA: zniknęła własna nadmiarowa zapowiedź wiersza, a na Ulubionych ubył jeden z powtórzonych odczytów. Zostaje: pojedyncze powtórzenie bieżącego elementu po ogłoszeniu widoku, a przy dużym skoku długości (1→2475) jedno odczytanie poprzedniej nazwy z nowym licznikiem. Próba odświeżania nachodzących wierszy przed `SetItemCount` **nie dała zmiany w mowie** i została wycofana — przyczyna leży głębiej niż kolejność tych dwóch wywołań. Nowe widoki aktywności tego objawu **nie usunęły i nie pogorszyły**: w kwicie `activity-gui-after422` Ctrl+Q powtarza pierwszy wiersz kolejki trzy razy, a Ctrl+U dodatkowo wypowiada „Emu … 2 z 10" przed właściwym „SYNTEZA … 1 z 10". Nie przeorganizowano kontrolki pod ten objaw, więc zostaje on jawnie OTWARTY.
-- Dalsze widoki Biblioteki, wyszukiwanie/filtry. Historia, kolejka, zakładki zaznaczonego pliku i **zbiorczy widok wszystkich zakładek (Ctrl+B / `GetForDisplay`)** są już ODCZYTEM podłączonym do interfejsu. Kolejka żywego silnika jest już ODEBRANA (Ctrl+Q oddaje `queue.status`, naturalne B→A→C zmierzone na żywym NVDA, a pozostawiona OTWARTA lista sama usuwa zużyty wiersz i nie kradnie wyboru grającej pozycji; po ostatnim utworze `rows=[]` z `initialized=true`, więc ponowny Ctrl+Q mówi „pusto", nie wraca do zapisu — kwit `final-integrated/`); brakuje natomiast zapisu/usuwania zakładek i TRWAŁEGO pisarza profilu (kolejność po `queue.set` nie wraca do SQLite).
+- Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
+- Dalsze widoki Biblioteki i wyszukiwanie/filtry. Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Nadal brak trwałego zapisu kolejki i mutacji zakładek.
 - ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
