@@ -181,10 +181,25 @@ def build_menus() -> tuple[Menu, ...]:
             # 10 s goly, 30 s z Shift, 60 s z Ctrl, czas z ustawien z Ctrl+Alt.
             # Dotad zadnego z nich nie bylo w menu, wiec uzytkownik, ktory nie
             # zna skrotu, nie mial jak przewinac inaczej niz suwakiem.
+            #
+            # GOLE Left/Right: ``accelerator=False`` z TEGO SAMEGO powodu, co
+            # Backspace i Spacja powyzej. Zmierzone na zywym GUI/NVDA po
+            # scaleniu transportu z filtrem (kwit-kolizja-1, plan KOL-POLE):
+            # w polu filtra z tekstem "kaz" trzy strzalki w poziomie NIE
+            # ruszyly karetki (3 -> 3 -> 3 -> 3), a NVDA powiedzialo trzy razy
+            # "pusta" zamiast przeczytac znak. Akcelerator na poziomie OKNA ma
+            # pierwszenstwo przed kontrolka z fokusem i polyka klawisz TAKZE
+            # wtedy, gdy pozycja menu jest wyszarzona (nic nie gra) -- wiec
+            # klawisz nie robil ani przewijania, ani edycji.
+            #
+            # Dlaczego tylko gole: Ctrl+Left/Right, Shift+Left/Right i
+            # Ctrl+Alt+Left/Right ZMIERZONO w tym samym przebiegu (plany
+            # KOL-POLE2 i KOL-POLE3) i one karetke/zaznaczenie przepuszczaja,
+            # wiec nie ma powodu odbierac im podpisu-akceleratora.
             MenuItem("Przewiń &wstecz 10 sekund", Action.SEEK_BACK_10,
-                     shortcut="Left", needs_playback=True),
+                     shortcut="Left", accelerator=False, needs_playback=True),
             MenuItem("Przewiń w przó&d 10 sekund", Action.SEEK_FORWARD_10,
-                     shortcut="Right", needs_playback=True),
+                     shortcut="Right", accelerator=False, needs_playback=True),
             MenuItem("Przewiń wstecz &30 sekund", Action.SEEK_BACK_30,
                      shortcut="Shift+Left", needs_playback=True),
             MenuItem("Przewiń w przód 3&0 sekund", Action.SEEK_FORWARD_30,
@@ -206,10 +221,18 @@ def build_menus() -> tuple[Menu, ...]:
             # jest odbiorem tej funkcji: uzytkownik czytnika szuka polecenia w
             # menu i w pomocy, a Michal zglosil wprost, ze predkosci nie
             # znalazl.
+            #
+            # Shift+, i Shift+. to na klawiaturze ZNAKI "<" i ">", czyli
+            # zwykle wpisywanie. Jako akcelerator okna nie docieraly do pola
+            # filtra: zmierzone (kwit-kolizja-1, plan KOL-ZNAKI) -- po obu
+            # gestach tekst pola pozostal pusty, a dopiero zwykla litera
+            # cokolwiek wpisala. Dlatego ``accelerator=False``; samo polecenie
+            # dziala dalej przez tablice w ``shortcuts`` i przez menu.
+            # Ctrl+. zmierzone osobno jako nieszkodliwe i zostaje z podpisem.
             MenuItem("Wol&niej", Action.RATE_DOWN, shortcut="Shift+,",
-                     needs_playback=True),
+                     accelerator=False, needs_playback=True),
             MenuItem("&Szybciej", Action.RATE_UP, shortcut="Shift+.",
-                     needs_playback=True),
+                     accelerator=False, needs_playback=True),
             MenuItem("Prędkość no&rmalna", Action.RATE_RESET, shortcut="Ctrl+.",
                      needs_playback=True),
             SEPARATOR,
