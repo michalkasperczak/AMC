@@ -12,10 +12,18 @@ NAJMNIEJSZA POPRAWKA, swiadomie w tym zakresie
 Mowimy prawde o tekscie: "Skopiowano pełną ścieżkę". DANYCH W SCHOWKU NIE
 ZMIENIAMY (dalej tekst), skrotu nie ruszamy, Ctrl+Shift+C zostaje.
 
-Czego tu CELOWO nie ma: ``wx.FileDataObject`` / ``CF_HDROP``. Pelny parytet
-``CopyActionItemLocation`` z AMC (``MainWindow.xaml.cs:24428``) to osobny
-etap -- dolozenie formatu plikowego po cichu przy korekcie komunikatu
-zamienioby ta poprawke w niezmierzona zmiane zachowania.
+Czego tu CELOWO nie bylo: ``wx.FileDataObject`` / ``CF_HDROP``. Pelny parytet
+``CopyItemLocations`` z AMC (``MainWindow.xaml.cs:24744-24814``) byl odlozony
+na osobny etap -- dolozenie formatu plikowego po cichu przy korekcie
+komunikatu zamienioby tamta poprawke w niezmierzona zmiane zachowania.
+
+TEN ETAP JUZ JEST: ``test_ctrl_shift_c_copies_a_real_file.py``. Od niego
+istniejacy, lokalny plik albo folder dostaje file drop i wraca do slow
+oryginalu ("Skopiowano plik i pełną ścieżkę"). Testy ponizej zostaja
+NIEZMIENIONE i dalej pilnuja przypadku bez file dropu -- a to teraz
+przypadek sciezki, ktorej NIE MA na dysku (``copied_address_message``
+z domyslnym ``file_copied=False``). Ta sama regula co wczesniej: komunikat
+opisuje dane, ktore faktycznie trafily do schowka.
 
 Stacja zostaje bez zmian: "Skopiowano bezpośredni adres"
 (``MainWindow.xaml.cs:24400``) juz byla prawdziwa -- adres strumienia to

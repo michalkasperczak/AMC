@@ -150,28 +150,80 @@ def player_time_label(position: float | None, duration: float | None) -> str:
 COPIED_NAME_MESSAGE = "Skopiowano nazwę"
 
 
-def copied_address_message(row: Row) -> str:
+def is_local_path(source: str | None) -> bool:
+    """``TryGetLocalPath`` -- MainWindow.xaml.cs:5378-5390, regula za regula.
+
+    Oryginal:
+
+        if (string.IsNullOrWhiteSpace(source)
+            || Uri.TryCreate(source, UriKind.Absolute, out var uri) && !uri.IsFile)
+            return false;
+        if (!Path.IsPathFullyQualified(source)) return false;
+
+    czyli trzy odrzucenia: pusty tekst; absolutny URI, ktory NIE jest ``file:``
+    (np. ``http://``); sciezka niepelna (wzgledna). Co wazne, oryginal TUTAJ
+    NIE sprawdza istnienia pliku -- to osobna regula, patrz ``_file_drop_path``.
+
+    Nie dodajemy nic poza tym. ``file:///D:/a.mp3`` przechodzi, bo dla C#
+    ``uri.IsFile`` jest prawda; sprowadzamy go do zwyklej sciezki.
+    """
+    if not source or not source.strip():
+        return False
+    source = source.strip()
+    scheme = source.split(":", 1)[0].lower() if ":" in source else ""
+    # Jednoliterowy "schemat" to litera dysku Windows (``D:\...``), nie URI.
+    if len(scheme) > 1 and scheme.isalpha():
+        if scheme != "file":
+            return False
+        return True
+    # ``IsPathFullyQualified``: UNC, dysk z separatorem albo korzen POSIX
+    # (testy chodza w WSL, wiec sciezka POSIX tez jest w pelni kwalifikowana).
+    if source.startswith("\\\\") or source.startswith("//"):
+        return True
+    if len(source) >= 3 and source[1] == ":" and source[2] in "\\/":
+        return True
+    return source.startswith("/")
+
+
+def local_path_from_source(source: str) -> str:
+    """Sprowadza ``file:`` URI do zwyklej sciezki; reszte oddaje bez zmian."""
+    source = (source or "").strip()
+    if source.lower().startswith("file:"):
+        from urllib.parse import unquote, urlparse
+
+        parsed = urlparse(source)
+        path = unquote(parsed.path)
+        # ``file:///D:/a.mp3`` -> ``D:/a.mp3``
+        if len(path) >= 3 and path[0] == "/" and path[2] == ":":
+            path = path[1:]
+        return path
+    return source
+
+
+def copied_address_message(row: Row, *, file_copied: bool = False) -> str:
     """Komunikat Ctrl+Shift+C opisujacy to, co NAPRAWDE trafia do schowka.
 
     Dla stacji zostaje "Skopiowano bezpośredni adres"
     (``MainWindow.xaml.cs:24400``): adres strumienia to tekst i komunikat
     niczego wiecej nie obiecuje.
 
-    Dla pliku NIE mowimy "Skopiowano plik i pełną ścieżkę"
-    (``MainWindow.xaml.cs:24428``), bo ``_to_clipboard`` ustawia WYLACZNIE
-    ``wx.TextDataObject``. Tekst sciezki nie jest formatem ``CF_HDROP``, wiec
-    wklejenie w Eksploratorze nie utworzy kopii pliku -- stare slowa obiecywaly
-    czynnosc, ktorej program nie wykonal. Mowimy prawde o tekscie.
+    Dla pliku slowa zaleza od DANYCH, nie od zamiaru:
 
-    Pelny parytet (``wx.FileDataObject`` obok tekstu) to ODDZIELNY etap:
-    dolozenie formatu plikowego przy korekcie komunikatu byloby niezmierzona
-    zmiana zachowania schowka przemyconą pod poprawka opisu.
+    ``file_copied=True``
+        schowek dostal ``wx.FileDataObject`` (``CF_HDROP``) obok tekstu, czyli
+        wklejenie w menedzerze plikow utworzy kopie. Dopiero wtedy wolno
+        powiedziec "Skopiowano plik i pełną ścieżkę"
+        (``MainWindow.xaml.cs:24785``).
+
+    ``file_copied=False``
+        sciezki nie ma na dysku (albo nie jest lokalna), wiec file drop
+        wskazywalby w pustke -- idzie SAM tekst i komunikat mowi tylko o nim.
+        Tak samo jak przed ta zmiana: komunikat nigdy nie obiecuje czynnosci,
+        ktorej program nie wykonal.
     """
-    return (
-        "Skopiowano bezpośredni adres"
-        if row.kind == "station"
-        else "Skopiowano pełną ścieżkę"
-    )
+    if row.kind == "station":
+        return "Skopiowano bezpośredni adres"
+    return "Skopiowano plik i pełną ścieżkę" if file_copied else "Skopiowano pełną ścieżkę"
 
 
 #: ``winUser.EVENT_SYSTEM_ALERT`` (``source/winUser.py:355``). NIE uzywamy go
@@ -272,9 +324,18 @@ class Announcer:
     tle aktualizuje status, lecz nie wchodzi w slowo obcej aplikacji.
     """
 
-    def __init__(self, status_field: wx.StaticText, *, notify=_notify_win_event) -> None:
+    def __init__(
+        self,
+        status_field: wx.StaticText,
+        *,
+        notify=_notify_win_event,
+        status_bar: "NativeStatusBar | None" = None,
+    ) -> None:
         self._status = status_field
         self._notify = notify
+        # Pasek stanu jest OPCJONALNY: stare wywolania i atrapy w testach nadal
+        # maja dzialac, a sama zapowiedz nie moze zalezec od dodatku.
+        self._status_bar = status_bar
 
     def say(self, text: str) -> None:
         text = (text or "").strip()
@@ -282,6 +343,11 @@ class Announcer:
             return
         if self._status.GetLabel() != text:
             self._status.SetLabel(text)
+        # Ta sama tresc ma tez byc DO ODCZYTANIA na zadanie (``NVDA+End``).
+        # Pasek stanu tylko ja przechowuje -- nie mowi, wiec nie dubluje
+        # zapowiedzi i nie przestawia nawigatora czytnika.
+        if self._status_bar is not None:
+            self._status_bar.show(text)
         # Nazwe ustawiamy ZAWSZE, nawet gdy tekst sie nie zmienil: wlasnie ja
         # czyta ``event_liveRegionChange``, a powtorzone pytanie ma odpowiedziec.
         self._status.SetName(text)
@@ -305,6 +371,56 @@ class Announcer:
             # wlasna literowke w nazwie stalej -- czyli dokladnie te ciche
             # milczenie czytnika, ktore naprawiamy.
             pass
+
+
+class NativeStatusBar:
+    """Trzyma aktualny status w NATYWNYM pasku stanu okna -- dla ``NVDA+End``.
+
+    PO CO, skoro ``Announcer`` juz mowi
+    -----------------------------------
+    ``Announcer`` to kanal ZDARZENIA: mowi w chwili zmiany. ``NVDA+End`` to
+    kanal NA ZADANIE: czyta PASEK STANU. NVDA szuka go natywnie i gdy nie
+    znajdzie kontrolki paska stanu, sieka tytul okna -- stad zgloszone
+    "wieczorne" z "Uspokojenie wieczorne". ``wx.StaticText`` z nazwa
+    "Komunikaty" nie jest paskiem stanu (rola ``STATICTEXT``), wiec nie da
+    sie go odczytac na zadanie. Zostaje wiec oba kanaly obok siebie.
+
+    Zwykle AMC trzyma je dokladnie tak samo rozdzielnie:
+    ``Controls/AccessibleStatusTextBlock.cs`` to kanal mowy, a
+    ``Controls/AccessiblePlaybackStatusStrip.cs`` + ``MainWindow.xaml:20-22``
+    to natywny ``StatusStrip`` do odczytu na zadanie, jawnie poza fokusem
+    (``Focusable="False"``, ``IsTabStop="False"``, ``Selectable, false``):
+    "It must remain available to NVDA+End, but it must never become the
+    keyboard target".
+
+    ZADNEGO zdarzenia czytnika -- to regula oryginalu
+    ------------------------------------------------
+    ``AccessiblePlaybackStatusStrip.SpokenText`` celowo nie wysyla
+    notyfikacji o zmianie nazwy: "Do not emit a NameChange event every
+    second: ... that event can move NVDA's navigator away from the player".
+    Dlatego ta klasa tylko PRZECHOWUJE tekst -- nie wola
+    ``_notify_win_event`` i nie udaje live regionu. Mowa zostaje tam, gdzie
+    byla zmierzona jako dzialajaca: w ``Announcer``.
+
+    Dodatkowo nie piszemy tego samego tekstu dwa razy. Status aktualizuje sie
+    takze z zegara transportu, a ``SetStatusText`` przemalowuje pasek --
+    powtorzony tekst to czysty koszt bez zmiany tresci.
+    """
+
+    def __init__(self, bar) -> None:
+        self._bar = bar
+        self._text = ""
+
+    def show(self, text: str) -> None:
+        text = (text or "").strip()
+        if not text or text == self._text:
+            return
+        self._text = text
+        self._bar.SetStatusText(text, 0)
+
+    @property
+    def text(self) -> str:
+        return self._text
 
 
 class MediaListAccessible(wx.Accessible):
@@ -915,7 +1031,26 @@ class LiteFrame(wx.Frame):
 
         self.status_field = wx.StaticText(self.panel, label="Gotowe")
         self.status_field.SetName("Komunikaty")
-        self.announcer = Announcer(self.status_field)
+
+        # NATYWNY pasek stanu ramki (``msctls_statusbar32``) -- to jego szuka
+        # ``NVDA+End``. Bez niego NVDA nie znajdowal kontrolki paska stanu i
+        # siekal TYTUL okna, czytajac jego ostatnie slowo ("wieczorne" z
+        # "Uspokojenie wieczorne"); tak samo w widoku odtwarzacza po ``F6``.
+        # Kolejna ``wx.StaticText`` tego nie naprawila, bo jej rola to
+        # ``STATICTEXT``, a nie pasek stanu.
+        #
+        # Pasek ramki wx NIE jest w kolejnosci tabulacji i nie przyjmuje
+        # fokusu, czyli spelnia warunek oryginalu z
+        # ``AccessiblePlaybackStatusStrip.cs``: dostepny dla ``NVDA+End``,
+        # nigdy nie bedacy celem klawiatury. Nie przejmujemy zadnego gestu
+        # czytnika -- NVDA znajduje go sam.
+        self.CreateStatusBar(1, style=wx.STB_DEFAULT_STYLE)
+        self.status_bar = NativeStatusBar(self.GetStatusBar())
+        self.status_bar.show("Gotowe")
+
+        # Kanal mowy zostaje bez zmian; pasek stanu jest DODATKIEM obok niego,
+        # a nie zamiast -- ``Announcer`` sam nic nie traci.
+        self.announcer = Announcer(self.status_field, status_bar=self.status_bar)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(self.session_label, 0, wx.ALL, 8)
@@ -1861,15 +1996,26 @@ class LiteFrame(wx.Frame):
             self.announcer.say(COPIED_NAME_MESSAGE)
 
     def _copy_address(self) -> None:
-        """Ctrl+Shift+C: adres albo pelna sciezka zaznaczonego elementu.
+        """Ctrl+Shift+C: adres albo PRAWDZIWY PLIK zaznaczonego elementu.
 
-        Odpowiednik ``CopyActionItemLocation`` (MainWindow.xaml.cs:20725-20732).
+        Odpowiednik ``CopyItemLocations`` (MainWindow.xaml.cs:24744-24814).
         Tu wlasnie trafil adres, ktory wczesniej czytnik wymawial przy KAZDYM
         wierszu -- funkcja nie znika, zmienia sie moment jej uzycia.
 
-        Slowa komunikatu wybiera ``copied_address_message``: opisuja DANE,
-        ktore faktycznie ida do schowka (tekst), a nie format plikowy, ktorego
-        nie ustawiamy.
+        ZGLOSZENIE, ktore to naprawia: komunikat mowil o kopiowaniu pliku,
+        a wklejenie w Total Commanderze nic nie robilo, bo schowek dostawal
+        TYLKO tekst sciezki. Oryginal ustawia DWA formaty naraz
+        (``MainWindow.xaml.cs:24781``):
+
+            data.SetData(DataFormats.UnicodeText, string.Join(NewLine, localPaths));
+            data.SetFileDropList(fileDropList);
+
+        czyli ``CF_HDROP`` ORAZ tekst. Wiec dla lokalnego, ISTNIEJACEGO pliku
+        lub folderu robimy to samo: ``wx.FileDataObject`` + ``wx.TextDataObject``
+        w ``wx.DataObjectComposite``.
+
+        Slowa komunikatu nadal opisuja DANE, nie zamiar -- patrz
+        ``copied_address_message``.
         """
         row = self.navigator.session.model.selected_row
         if row is None:
@@ -1879,25 +2025,72 @@ class LiteFrame(wx.Frame):
         if not address:
             self.announcer.say("Ten element nie ma zapisanego adresu")
             return
+        drop = self._file_drop_path(address)
+        if drop is not None:
+            # Tekst sciezki idzie w postaci sprowadzonej do zwyklej sciezki --
+            # tak jak w oryginale, gdzie do tekstu trafia ``localPaths``
+            # (wynik ``TryGetLocalPath``), a nie surowe ``item.Source``.
+            if self._to_clipboard(drop, file_path=drop):
+                self.announcer.say(copied_address_message(row, file_copied=True))
+            return
         if self._to_clipboard(address):
             self.announcer.say(copied_address_message(row))
 
-    def _to_clipboard(self, text: str) -> bool:
-        """Zapis TEKSTU do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
+    @staticmethod
+    def _file_drop_path(address: str) -> str | None:
+        """Sciezka do file dropu albo ``None``, gdy go nie wolno ustawic.
+
+        DWA warunki, oba z oryginalu i oba konieczne:
+
+        1. ``TryGetLocalPath`` (``MainWindow.xaml.cs:5378``) -- czy to w ogole
+           sciezka lokalna. Adres strumienia radiowego nie jest, wiec stacja
+           dalej dostaje sam tekst i swoj dotychczasowy komunikat.
+        2. ISTNIENIE na dysku. Oryginal sprawdza je w dwoch miejscach i w dwoch
+           wariantach: ``CopySearchResultLocations`` (:24835) dokłada
+           ``File.Exists``, a ``RadioPresetsWindow.xaml.cs:156-158`` pyta
+           ``File.Exists(path) || Directory.Exists(path)``, bo wpis moze
+           wskazywac FOLDER. Nasza lista pokazuje i pliki, i foldery, wiec
+           bierzemy wariant szerszy -- jedyny, ktory nie klamie o folderze.
+
+        Nieistniejace zrodlo celowo NIE dostaje file dropu: Windows i tak
+        odmowilby wklejenia, a my nie moglibysmy ogłosic skopiowanego pliku
+        bez powtorzenia tego samego zgloszenia.
+        """
+        if not is_local_path(address):
+            return None
+        path = local_path_from_source(address)
+        return path if os.path.exists(path) else None
+
+    def _to_clipboard(self, text: str, *, file_path: str | None = None) -> bool:
+        """Zapis do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
 
         Schowek bywa chwilowo zajety przez inny proces -- odpowiednik
-        ``ClipboardRetry`` z AMC, ktory tez zwraca komunikat bledu.
+        ``ClipboardRetry`` z AMC, ktory tez zwraca komunikat bledu zamiast
+        komunikatu sukcesu.
 
-        Format jest JEDEN: ``wx.TextDataObject``. Nie ustawiamy
-        ``wx.FileDataObject`` / ``CF_HDROP``, wiec zaden komunikat nie moze
-        mowic o skopiowanym PLIKU -- stad ``copied_address_message``.
+        ``file_path`` ustawia DODATKOWO format plikowy (``wx.FileDataObject``,
+        czyli ``CF_HDROP``) obok tekstu -- jak ``SetFileDropList`` w oryginale.
+        Bez niego zostaje JEDEN format tekstowy, dokladnie jak dotad; dlatego
+        ``Ctrl+C`` (nazwa) i stacje nie zmieniaja zachowania ani o jotę.
         """
         try:
             if not wx.TheClipboard.Open():
                 self.announcer.say("Schowek jest zajęty, spróbuj ponownie")
                 return False
             try:
-                wx.TheClipboard.SetData(wx.TextDataObject(text))
+                if file_path is None:
+                    data = wx.TextDataObject(text)
+                else:
+                    # Kolejnosc jak w oryginale: najpierw tekst (``UnicodeText``),
+                    # potem file drop. Preferowany jest format PLIKOWY -- o niego
+                    # chodzi w zgloszeniu, a odbiorcy tekstowi (edytor, pole
+                    # wyszukiwania) i tak wezma galaz tekstowa.
+                    data = wx.DataObjectComposite()
+                    data.Add(wx.TextDataObject(text))
+                    files = wx.FileDataObject()
+                    files.AddFile(file_path)
+                    data.Add(files, True)
+                wx.TheClipboard.SetData(data)
                 wx.TheClipboard.Flush()
             finally:
                 wx.TheClipboard.Close()
