@@ -105,16 +105,15 @@ public static class ResumePositionPolicy
             .FirstOrDefault();
         if (folderMode.HasValue) return folderMode.Value == ResumePositionMode.Remember;
 
-        // ZRODLO folderu bierzemy NAJBLIZSZE, a jego Inherit schodzi dalej --
-        // tak samo jak opcja folderu. Blizsze zrodlo z Inherit NIE przeslania
-        // dalszego jawnego; o granicy decyduje pierwszy JAWNY tryb.
+        // Oryginalny AMC wybiera NAJBLIŻSZE źródło niezależnie od trybu.
+        // Jego Inherit przechodzi do sesji/globalnego, nie do dalszego źródła.
         var sourceMode = (folderSources ?? [])
-            .Where(source => source.ResumePositionMode != ResumePositionMode.Inherit
-                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, source.Path, normalizer))
+            .Where(source => LocalFolderSourcePolicy.IsSameOrDescendant(localPath, source.Path, normalizer))
             .OrderByDescending(source => source.Path.Length)
             .Select(source => (ResumePositionMode?)source.ResumePositionMode)
             .FirstOrDefault();
-        if (sourceMode.HasValue) return sourceMode.Value == ResumePositionMode.Remember;
+        if (sourceMode.HasValue && sourceMode.Value != ResumePositionMode.Inherit)
+            return sourceMode.Value == ResumePositionMode.Remember;
 
         return sessionFallback;
     }

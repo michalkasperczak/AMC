@@ -56,6 +56,29 @@ internal static class QueuePersistenceTests
 
     private static string Json(string value) => JsonSerializer.Serialize(value);
 
+    private static void NajblizszeZrodloInheritSchodziDoSesjiJakOryginal()
+    {
+        var parent = Path.Combine(_root, "parent");
+        var child = Path.Combine(parent, "child");
+        var sources = new[]
+        {
+            new AccessibleMediaController.Core.Configuration.LocalFolderSourceSettings
+            {
+                Path = parent,
+                ResumePositionMode = AccessibleMediaController.Core.Configuration.ResumePositionMode.StartFromBeginning
+            },
+            new AccessibleMediaController.Core.Configuration.LocalFolderSourceSettings
+            {
+                Path = child,
+                ResumePositionMode = AccessibleMediaController.Core.Configuration.ResumePositionMode.Inherit
+            }
+        };
+        Assert.True(ResumePositionPolicy.ShouldRememberLocalPosition(
+            null, Path.Combine(child, "track.wav"), [], sources,
+            AccessibleMediaController.Core.Configuration.ResumePositionMode.Inherit, true),
+            "najbliższe źródło Inherit przechodzi do sesji/globalnego, nie do dalszego źródła");
+    }
+
     public static void Run()
     {
         _root = Path.Combine(
@@ -89,6 +112,7 @@ internal static class QueuePersistenceTests
             SESYJNEwylaczenieNIEwznawiaSTAREGOczasuZbazy();
             FOLDERzWLASNYMtrybemRozstrzygaPonadGlobalnym();
             JAWNYtrybPOZYCJInadpisujeWYLACZONEtlo();
+            NajblizszeZrodloInheritSchodziDoSesjiJakOryginal();
             STATUSpodajeCzasWznowieniaDlaOkna();
             CheckpointPozycjiNIEruszaPOZOSTALYCHtabel();
             OdmowaZapisuPozycjiNIEudajePowodzenia();

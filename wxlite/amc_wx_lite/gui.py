@@ -923,6 +923,7 @@ class LiteFrame(wx.Frame):
         control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)
 
     def _bind_keys(self) -> None:
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_player_shortcut_hook)
         for control in (self.files_list, self.radio_list):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
@@ -1281,6 +1282,18 @@ class LiteFrame(wx.Frame):
         self.runner.submit("folder", work, done, failed)
 
     # ------------------------------------------------------------- klawisze
+
+    def _on_player_shortcut_hook(self, event: wx.KeyEvent) -> None:
+        # Native dialog processing on a button consumes player keys before
+        # KEY_DOWN. The existing resolver passes unknown keys (e.g. Tab) on.
+        if self.navigator.view is not View.PLAYER:
+            event.Skip()
+            return
+        focus = wx.Window.FindFocus()
+        if focus is None or wx.GetTopLevelParent(focus) is not self:
+            event.Skip()
+            return
+        self._on_key(event)
 
     def _on_key(self, event: wx.KeyEvent) -> None:
         chord = chord_from_event(event)
