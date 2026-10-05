@@ -147,6 +147,8 @@ class SessionState:
     #: tego nie udzwignie: nazwany widok musi je czyscic (Backspace), a Ctrl+L
     #: ma wrocic DOKLADNIE tam, gdzie uzytkownik byl.
     library_folder_path: str | None = None
+    # Ostatni faktycznie otwarty tryb w tym oknie; wspolny profil jest read-only.
+    library_return_view: str | None = None
     #: Nazwa widoku -> ostatnio na nim zaznaczony wiersz. Odpowiednik
     #: ``SessionNavigationState.SelectedItemIds`` (``MainWindow.xaml.cs:18095``).
     view_selected_ids: dict[str, str] = field(default_factory=dict)
@@ -710,7 +712,7 @@ class Navigator:
             ]
         state = self.sessions[SessionId.FILES]
         self._remember_view_selection(state)
-        target = LIBRARY_RETURN_TARGETS[saved_view]
+        target = LIBRARY_RETURN_TARGETS[state.library_return_view or saved_view]
         if target is None:
             folder = state.library_folder_path or state.folder_path
             return [
@@ -781,6 +783,8 @@ class Navigator:
             state.library_folder_path = state.folder_path
 
         state.library_view = view
+        if view is LibraryView.ALL_FILES:
+            state.library_return_view = LIBRARY_VIEW_ALL_FILES
         state.library_playlist_id = playlist_id
         state.library_item_id = item_id
         # Mapa celow zakladek obowiazuje TYLKO w swoim widoku. Zostawienie jej
@@ -930,6 +934,7 @@ class Navigator:
         state.library_view = None
         # ...a Ctrl+L z nazwanego widoku ma wrocic TUTAJ.
         state.library_folder_path = path
+        state.library_return_view = LIBRARY_VIEW_FOLDERS
         state.library_playlist_id = None
         state.library_return_id = None
         state.library_item_id = None

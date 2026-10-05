@@ -1690,6 +1690,9 @@ class LiteFrame(wx.Frame):
         (jak przy ``saved_folder``, gui.py:1661-1668), wiec wtedy wracamy do
         Folderow i mowimy, co sie stalo.
         """
+        if self.navigator.active is not SessionId.FILES:
+            self.announcer.say("Ten widok Biblioteki dotyczy plików lokalnych")
+            return
         if not self.library.is_available:
             self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
             return

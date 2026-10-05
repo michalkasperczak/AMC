@@ -2,6 +2,22 @@
 
 Stan po przyroście70c833d i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu.
 
+## Przygotowane poprawki plików — odbiór GUI jeszcze potrzebny
+
+Ctrl+O otwiera plik, Ctrl+Shift+O folder. Escape z listy najpierw czyści
+aktywny filtr, bez filtra wraca wyżej; z odtwarzacza wraca na listę.
+Nie ma rutynowego „Wczytywanie Biblioteki”. Home/End w odtwarzaczu mają
+kontrakt oryginału: początek i dziesięć sekund przed końcem.
+
+Ctrl+L w Plikach wraca z Ulubionych i Historii do ostatnich Folderów lub
+Wszystkich plików oraz właściwego zaznaczenia. Ostatni tryb otwarty w tym
+oknie ma pierwszeństwo przed starym wspólnym zapisem. Tryb Kolejność własna
+nie jest jeszcze przeniesiony. Nowa lokalna komenda nie otwiera plików w Radiu.
+
+Po scaleniu: 783 testy zdane, 0 błędów, 15 pominiętych z powodu braku
+zbudowanego testowego hosta protokołu. To testy bezokienne, nie odbiór NVDA.
+Niżej zachowana historia wcześniejszych odebranych przyrostów.
+
 ## Działa i zostało odebrane
 
 - Naturalny start wxPython z rzeczywistym hostemC#, nie ręczne wypełnienie okna.

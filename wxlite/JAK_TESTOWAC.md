@@ -2,6 +2,22 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## Odbiór przygotowanych poprawek plików
+
+Na połączonej wersji po zwolnieniu pulpitu sprawdzić z NVDA:
+
+1. Ctrl+O otwiera dialog pliku, Ctrl+Shift+O dialog folderu; Escape anuluje.
+2. Escape: pole filtra, lista wyników z filtrem, lista bez filtra i pusta
+   lista folderu, następnie odtwarzacz. Pierwszy Escape z wyników czyści filtr,
+   dopiero następny wychodzi wyżej. Brak rutynowej zapowiedzi wczytywania.
+3. Zaznaczyć dalszy plik w folderze, Ctrl+U, Ctrl+L: ten folder i plik.
+   Powtórzyć z Ctrl+H. Sprawdzić oba powroty również po Alt+2.
+4. Home i End: rzeczywista pozycja hosta 0 i Max(0, duration-10s).
+   Osobno NVDA+End: odczyt paska i zero poleceń przewinięcia.
+
+Wynik 783/0/15 testów bezokiennych nie zastępuje tego odbioru. Dane próbne
+muszą być prywatną kopią, nagrywanie i rezerwacja pulpitu sprawdzone świeżo.
+
 ## Co zostało wykonane
 
 Bieżący odbiór mechanizmu wszystkich list: 562 testy, 0 błędów, 0 pominięć. Zwykłe listy Windows, przyrostowe zmiany w obrębie widoku, zachowanie wyboru po ID, puste zakładki i pojedynczy odczyt po zmianie dużego widoku sprawdzono w prywatnym stagingu z żywym NVDA. Końcowe kwity: `native-w02-valid-retest-after422/parent-final/`. To nie jest odbiór wszystkich funkcji pełnego AMC ani innego czytnika.
