@@ -1,8 +1,8 @@
 # AMC Python — zakres względem pełnego AMC
 
-Stan po przyroście70c833d i rzeczywistym odbiorze Windows/NVDA. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu.
+Odebrany kod: `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz z wcześniejszym statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
-## Przygotowane poprawki plików — odbiór GUI jeszcze potrzebny
+## Poprawki plików — odebrane z rzeczywistym GUI i NVDA
 
 Ctrl+O otwiera plik, Ctrl+Shift+O folder. Escape z listy najpierw czyści
 aktywny filtr, bez filtra wraca wyżej; z odtwarzacza wraca na listę.
@@ -14,8 +14,16 @@ Wszystkich plików oraz właściwego zaznaczenia. Ostatni tryb otwarty w tym
 oknie ma pierwszeństwo przed starym wspólnym zapisem. Tryb Kolejność własna
 nie jest jeszcze przeniesiony. Nowa lokalna komenda nie otwiera plików w Radiu.
 
-Po scaleniu: 783 testy zdane, 0 błędów, 15 pominiętych z powodu braku
-zbudowanego testowego hosta protokołu. To testy bezokienne, nie odbiór NVDA.
+Końcowy Python: **799 zdanych, 0 błędów, 0 pominiętych**. Osobno odebrano
+prawdziwe dialogi pliku i folderu, anulowanie z powrotem fokusu, rzeczywiste
+PLAYER→LIST przez Escape, pustą listę z fokusem, Home/End i powroty Ctrl+L.
+NVDA+End odczytuje pasek na obu widokach bez wywołania seek. Sam zastępczy
+ShowModal=ID_CANCEL ani próba LIST→LIST nie były uznane za właściwy dowód;
+brakujące drogi uzupełnił rodzic na tym samym kodzie.
+
+Nadrzędny raport: `amc_pomoc/wx-file-keys-parity-20261006/parent-final-live/ACCEPTANCE.md`.
+Paczka odebrana lokalnie; dostawa wymaga bezpiecznego zamknięcia obu prób
+Pythona na głównym komputerze. To nie dowód obecności nowego kodu u użytkownika.
 Niżej zachowana historia wcześniejszych odebranych przyrostów.
 
 ## Działa i zostało odebrane
@@ -45,7 +53,7 @@ Niżej zachowana historia wcześniejszych odebranych przyrostów.
 
 - Wszystkie istniejące listy korzystają ze wspólnego LC_REPORT i `list_sync`: brak zmian = zero operacji, zmiana pola nie przepisuje reszty. Pełna podmiana danych jest bramkowana zmianą widoku, bez rekreacji HWND. Końcowy żywy odbiór potwierdził pojedynczy odczyt i prawidłową nazwę po Foldery/Playlisty → Wszystkie pliki, strzałki, rzeczywiste puste zakładki i powrót. Dane nie są obcinane ani stronicowane. To wynik pomiaru, nie wniosek z samej zmiany klasy kontrolki.
 - Radio czytane z aktualnego `radio.stations` profilu. Brak/awaria odczytu nie jest już traktowana jak prawdziwie pusta lista. Wspólny profil nadal nie jest edytowany przez Python.
-- Ctrl+C kopiuje nazwę; Ctrl+Shift+C kopiuje pełną ścieżkę jako TEKST i tak ją nazywa: „Skopiowano pełną ścieżkę". Oba potwierdzenia odczytane na żywymNVDA. Obsługi formatuFileDrop (przeciąganie pliku do innej aplikacji) nadal **nie ma** — komunikat już jej nie udaje.
+- Ctrl+C kopiuje nazwę. Ctrl+Shift+C kopiuje plik w systemowym formacie FileDrop, a Ctrl+X przygotowuje go do przeniesienia. Źródło znika dopiero po udanym wklejeniu, nie przy samym wycięciu. Rzeczywiste kopiowanie/przenoszenie i zgodność SHA oraz mowa zostały odebrane; raport `amc_pomoc/wx-status-clipboard-live-20261005/parent-recovery/ACCEPTANCE.md`. Nie utożsamiać tego z implementacją przeciągania myszą.
 - Ctrl+Shift+O otwiera natywny dialog folderu; Ctrl+O otwiera dialog pliku (zgodnie z MainWindow.xaml:42-49 — ten pomiar wykonano, gdy port miał oba gesty odwrotnie). Odtwarzanie z normalnej listy, pauza i wznowienie Spacją: potwierdzony czas i sygnał wyjściowy.
 - Przycisk transportu nazywa czynność: Odtwórz albo Wstrzymaj. Zmiany i krótkie komunikaty zostały odczytane w Podglądzie mowyNVDA.
 - Nieznana długość jest pokazywana jako brak („łączny czas nieznany"), nie jako `0:00`. Wzorzec zC# `MediaItemFormatter.FieldValue`: przy `Duration <= TimeSpan.Zero` pole jest pomijane. Prawdziwe czasy (np. `5:03`) zostają.
@@ -90,7 +98,11 @@ Zdane:
 
 Puste listy, podwójny odczyt i stare nazwy zostały odebrane po zmianie wspólnego mechanizmu list w `14bcc285`; dawne kwity powyżej nie otwierają ich ponownie. `library_view=None` oznacza poprawny widok Folderów, nie brak implementacji. Aktualne dowody wskazują początkowe sekcje tej mapy oraz `native-w02-valid-retest-after422/parent-final/`.
 
-## Filtr listy (Ctrl+K) — odebrany na żywym GUI i NVDA
+## Filtr listy (Ctrl+K) — historyczny odbiór przed wyciszeniem zapowiedzi
+
+Poniższy zapis opisuje ówczesny pomiar. Obecny kod nadal filtruje, ale podczas
+pisania NIE ogłasza automatycznie liczby wyników. Aktualne wymaganie i odbiór
+zastępują opis mowy z punktu Ctrl+K poniżej; nie przywracać dawnej zapowiedzi.
 
 Skrót jest lokalny dla widoku (`Ctrl+K`, nie `Ctrl+F`). Odebrane na pełnej kopii profilu
 (2478 pozycji „Wszystkie pliki", 13 folderów, 165 stacji) w `search-filter-after-resume/final-recovery/`,
@@ -124,7 +136,7 @@ własnej normalizacji diakrytyków.
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
 - Dalsze widoki Biblioteki i wyszukiwanie. Filtr listy `Ctrl+K` jest odebrany (sekcja wyżej). Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
-- ObsługaFileDrop dla Ctrl+Shift+C (parytet przeciągania pliku) jako osobny etap.
+- Radio: oddzielenie Biblioteki według `isInLibrary`, krótki odczyt pozycji i jego wyłącznik. Historia lokalna ma pokazywać także dostępne pliki spoza Biblioteki; zmiana czytnika danych pozostaje w pracy, nie w odebranym kodzie `5e1f2d4e`.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 

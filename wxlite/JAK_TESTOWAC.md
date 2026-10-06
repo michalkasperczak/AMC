@@ -2,9 +2,12 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
-## Odbiór przygotowanych poprawek plików
+## Poprawki plików — odbiór zakończony
 
-Na połączonej wersji po zwolnieniu pulpitu sprawdzić z NVDA:
+Na kodzie `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71` wykonano poniższe
+próby z żywym NVDA. Lista pozostaje scenariuszem regresji, nie otwartą
+prośbą o ponowne sprawdzanie całego zakresu:
+
 
 1. Ctrl+O otwiera dialog pliku, Ctrl+Shift+O dialog folderu; Escape anuluje.
 2. Escape: pole filtra, lista wyników z filtrem, lista bez filtra i pusta
@@ -15,8 +18,17 @@ Na połączonej wersji po zwolnieniu pulpitu sprawdzić z NVDA:
 4. Home i End: rzeczywista pozycja hosta 0 i Max(0, duration-10s).
    Osobno NVDA+End: odczyt paska i zero poleceń przewinięcia.
 
-Wynik 783/0/15 testów bezokiennych nie zastępuje tego odbioru. Dane próbne
-muszą być prywatną kopią, nagrywanie i rezerwacja pulpitu sprawdzone świeżo.
+Końcowy wynik Pythona: **799/0/0**. Raport z faktycznych gestów, mowy,
+stanów GUI i hosta: `amc_pomoc/wx-file-keys-parity-20261006/parent-final-live/ACCEPTANCE.md`.
+Rodzic uzupełnił tylko brakujące pomiary: prawdziwe oba modale, Escape
+z potwierdzonego PLAYER oraz NVDA+End na obu potwierdzonych widokach.
+Zastępczy ShowModal zwracający ID_CANCEL nie zalicza próby dialogu.
+W folderze nawet przy braku wyników może zostać wiersz nadrzędny „..”;
+faktyczne zero wierszy zmierzono osobno w filtrowanym korzeniu.
+
+Dane próbne muszą być prywatną kopią, nagrywanie i rezerwacja pulpitu
+sprawdzone świeżo. Odebrana paczka nie jest jeszcze dowodem podmiany
+u użytkownika; tę blokują dwie działające tam próby Pythona.
 
 ## Co zostało wykonane
 
