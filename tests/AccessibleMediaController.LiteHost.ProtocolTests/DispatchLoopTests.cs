@@ -14,7 +14,228 @@ internal static class DispatchLoopTests
         StdoutCarriesOnlyProtocolLines();
         EventsAreWrittenAsOwnLines();
         HandlerFailureBecomesResponseNotCrash();
+        SlowQuickInformationDoesNotBlockTransport();
+        OrdinaryOperationsStayInOrder();
+        ConcurrentOperationFinishesBeforeRunReturns();
+        ConcurrencyIsBoundedNotOnePerRequest();
         Console.WriteLine("DispatchLoopTests: OK");
+    }
+
+    /// <summary>
+    /// Czas oczekiwania sondy. Test NIE mierzy wydajnosci: uzywa bariery,
+    /// wiec limit sluzy tylko temu, zeby niepowodzenie bylo niepowodzeniem,
+    /// a nie zawieszonym procesem testow.
+    /// </summary>
+    private static readonly TimeSpan ProbeWait = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// RYZYKO LEWEJ STRZALKI: <c>media.quickInformation</c> czyta metadane
+    /// pliku/strumienia synchronicznie (<c>GetAwaiter().GetResult()</c> z
+    /// limitem kilku sekund). W petli serialnej takie zadanie wstrzymuje
+    /// KAZDE nastepne polecenie, takze <c>transport.status</c> i pauze, ktore
+    /// uzytkownik wywoluje w trakcie czytania informacji.
+    ///
+    /// Pomiar jest BARIERA, nie uspieniem: handler informacji wchodzi i czeka,
+    /// a test wymaga, zeby transport zostal obsluzony PRZED jej zwolnieniem.
+    /// Bariere zwalnia blok <c>finally</c>, zeby niepowodzenie nie zostawilo
+    /// zakleszczonego watku petli.
+    /// </summary>
+    private static void SlowQuickInformationDoesNotBlockTransport()
+    {
+        using var quickInfoEntered = new ManualResetEventSlim(false);
+        using var releaseQuickInfo = new ManualResetEventSlim(false);
+        using var transportHandled = new ManualResetEventSlim(false);
+        using var pauseHandled = new ManualResetEventSlim(false);
+
+        var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
+        {
+            ["media.quickInformation"] = (_, _) =>
+            {
+                quickInfoEntered.Set();
+                // Odpowiednik blokujacego odczytu metadanych w prawdziwym
+                // handlerze. Limit chroni przed wiecznym wisem testu.
+                releaseQuickInfo.Wait(ProbeWait);
+                return new { text = "Informacje" };
+            },
+            ["transport.status"] = (_, _) =>
+            {
+                transportHandled.Set();
+                return new { playing = true };
+            },
+            ["transport.pause"] = (_, _) =>
+            {
+                pauseHandled.Set();
+                return new { paused = true };
+            }
+        };
+
+        var input = string.Join('\n',
+        [
+            """{"id":"info","op":"media.quickInformation","args":{}}""",
+            """{"id":"stan","op":"transport.status"}""",
+            """{"id":"pauza","op":"transport.pause"}"""
+        ]) + "\n";
+
+        var output = new StringWriter();
+        var loop = new LiteDispatchLoop(handlers, concurrentOperations: ["media.quickInformation"]);
+        var worker = new Thread(() =>
+        {
+            using var reader = new StringReader(input);
+            loop.Run(reader, output);
+        })
+        { IsBackground = true };
+
+        try
+        {
+            worker.Start();
+
+            Assert.True(quickInfoEntered.Wait(ProbeWait),
+                "handler informacji musi w ogole wejsc (inaczej sonda nic nie mierzy)");
+            Assert.True(transportHandled.Wait(ProbeWait),
+                "transport.status obsluzony W TRAKCIE wolnej informacji, PRZED zwolnieniem bariery");
+            Assert.True(pauseHandled.Wait(ProbeWait),
+                "pauza obsluzona W TRAKCIE wolnej informacji: uzytkownik moze zatrzymac odtwarzanie");
+        }
+        finally
+        {
+            releaseQuickInfo.Set();
+            worker.Join(ProbeWait);
+        }
+
+        var lines = output.ToString()
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => JsonDocument.Parse(line.TrimEnd('\r')))
+            .ToArray();
+
+        Assert.True(lines.Length == 3, $"trzy zadania = trzy odpowiedzi, jest {lines.Length}");
+        var identifiers = lines.Select(line => line.RootElement.GetProperty("id").GetString()).ToArray();
+        Assert.True(identifiers.Contains("info"), "odpowiedz informacji dotarla");
+        Assert.True(identifiers.Contains("stan"), "odpowiedz transport.status dotarla");
+        Assert.True(identifiers.Contains("pauza"), "odpowiedz pauzy dotarla");
+        // Wolna informacja konczy sie PO transporcie: dowod, ze transport
+        // nie czekal na nia w kolejce.
+        Assert.True(Array.IndexOf(identifiers, "info") > Array.IndexOf(identifiers, "stan"),
+            "odpowiedz informacji wraca po transporcie, bo transport jej nie czekal");
+    }
+
+    /// <summary>
+    /// Zwykle polecenia zostaja SERIALNE. Zmiana dotyczy tylko jawnie
+    /// wskazanej operacji, wiec kolejnosc pozostalych musi byc nadal
+    /// deterministyczna (zmiana glosnosci po pauzie, nie odwrotnie).
+    /// </summary>
+    private static void OrdinaryOperationsStayInOrder()
+    {
+        var order = new List<string>();
+        var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
+        {
+            ["pierwsze"] = (_, _) =>
+            {
+                Thread.Sleep(30);
+                lock (order) order.Add("pierwsze");
+                return new { ok = true };
+            },
+            ["drugie"] = (_, _) =>
+            {
+                lock (order) order.Add("drugie");
+                return new { ok = true };
+            }
+        };
+
+        using var reader = new StringReader(
+            "{\"id\":\"1\",\"op\":\"pierwsze\"}\n{\"id\":\"2\",\"op\":\"drugie\"}\n");
+        var output = new StringWriter();
+        // Operacja wspolbiezna jest zadeklarowana, ale ZADNE z tych zadan nia
+        // nie jest: obie musza przejsc po kolei.
+        new LiteDispatchLoop(handlers, concurrentOperations: ["media.quickInformation"])
+            .Run(reader, output);
+
+        Assert.True(order.Count == 2, $"oba zadania wykonane, jest {order.Count}");
+        Assert.Equal("pierwsze", order[0], "wolniejsze zwykle polecenie nadal idzie pierwsze");
+        Assert.Equal("drugie", order[1], "zwykle polecenia pozostaja uporzadkowane serialnie");
+
+        var identifiers = output.ToString()
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => JsonDocument.Parse(line.TrimEnd('\r')).RootElement.GetProperty("id").GetString())
+            .ToArray();
+        Assert.Equal("1", identifiers[0], "odpowiedzi zwyklych polecen w kolejnosci zadan");
+        Assert.Equal("2", identifiers[1], "odpowiedzi zwyklych polecen w kolejnosci zadan");
+    }
+
+    /// <summary>
+    /// EOF nie moze zostawic wlasnego zadania, ktore dopisze wiersz do JUZ
+    /// zamknietego strumienia protokolu. <c>Run</c> wraca dopiero wtedy, gdy
+    /// wszystkie rozpoczete zadania skoncza pisac.
+    /// </summary>
+    private static void ConcurrentOperationFinishesBeforeRunReturns()
+    {
+        var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
+        {
+            ["media.quickInformation"] = (_, _) =>
+            {
+                Thread.Sleep(60);
+                return new { text = "Informacje" };
+            }
+        };
+
+        using var reader = new StringReader("""{"id":"info","op":"media.quickInformation"}""" + "\n");
+        var output = new StringWriter();
+        var exit = new LiteDispatchLoop(handlers, concurrentOperations: ["media.quickInformation"])
+            .Run(reader, output);
+
+        // Odczyt NATYCHMIAST po powrocie Run: brak odpowiedzi oznaczalby zapis
+        // po zamknieciu strumienia u prawdziwego hosta.
+        var text = output.ToString();
+        Assert.True(exit == 0, "EOF to normalne zakonczenie takze przy operacji wspolbieznej");
+        Assert.True(text.Contains("\"info\"", StringComparison.Ordinal),
+            "odpowiedz zadania wspolbieznego zapisana PRZED powrotem z Run");
+        Assert.True(text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length == 1,
+            "dokladnie jedna odpowiedz, bez duplikatu z dwoch torow");
+    }
+
+    /// <summary>
+    /// Przytrzymany skrot (auto-powtarzanie klawisza) nie moze wyprodukowac
+    /// dowolnej liczby rownoleglych pomiarow metadanych. Nadmiar wraca na tor
+    /// serialny, wiec liczba jednoczesnych pomiarow jest skonczona, a KAZDE
+    /// zadanie dostaje odpowiedz.
+    /// </summary>
+    private static void ConcurrencyIsBoundedNotOnePerRequest()
+    {
+        const int requests = 40;
+        var active = 0;
+        var peak = 0;
+        var peakGate = new object();
+        var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
+        {
+            ["media.quickInformation"] = (_, _) =>
+            {
+                var now = Interlocked.Increment(ref active);
+                lock (peakGate) peak = Math.Max(peak, now);
+                Thread.Sleep(5);
+                Interlocked.Decrement(ref active);
+                return new { text = "Informacje" };
+            }
+        };
+
+        var input = string.Join('\n', Enumerable.Range(0, requests)
+            .Select(index => $"{{\"id\":\"i{index}\",\"op\":\"media.quickInformation\"}}")) + "\n";
+
+        using var reader = new StringReader(input);
+        var output = new StringWriter();
+        new LiteDispatchLoop(handlers, concurrentOperations: ["media.quickInformation"])
+            .Run(reader, output);
+
+        var lines = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.True(lines.Length == requests,
+            $"kazde zadanie ma odpowiedz, oczekiwano {requests}, jest {lines.Length}");
+        // Granica to miejsca wspolbiezne PLUS jedno zadanie, ktore po ich
+        // wyczerpaniu petla obsluguje sama na swoim watku. Pomiar pokazal
+        // szczyt 4 przy limicie 3 wlasnie z tego powodu - to zachowanie
+        // zamierzone (nadmiar czeka serialnie), nie wyciek watkow.
+        const int bound = LiteDispatchLoop.MaxConcurrentOperations + 1;
+        Assert.True(peak <= bound,
+            $"liczba jednoczesnych pomiarow ograniczona do {bound} (miejsca + tor serialny), szczyt {peak}");
+        Assert.True(peak > 1,
+            $"pomiar musi w ogole zobaczyc wspolbieznosc, szczyt {peak}");
     }
 
     private static (IReadOnlyList<JsonDocument> Lines, int Exit) RunLoop(

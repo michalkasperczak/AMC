@@ -81,9 +81,24 @@ public static class LiteJson
 /// strumienia protokolu.
 /// </summary>
 public sealed class LiteDispatchLoop(
-    IReadOnlyDictionary<string, Func<LiteRequest, LiteEventSink, object?>> handlers)
+    IReadOnlyDictionary<string, Func<LiteRequest, LiteEventSink, object?>> handlers,
+    IReadOnlyCollection<string>? concurrentOperations = null)
 {
+    /// <summary>
+    /// Gorna granica jednoczesnych zadan wspolbieznych. Przytrzymany klawisz
+    /// nie moze utworzyc tysiaca watkow pomiaru metadanych; nadmiar wraca na
+    /// tor serialny i tak czeka na swoja kolej.
+    /// </summary>
+    public const int MaxConcurrentOperations = 3;
+
     private readonly object _writeGate = new();
+
+    /// <summary>
+    /// Operacje jawnie zgloszone jako wspolbiezne. Pusty zbior = zachowanie
+    /// sprzed zmiany, czyli pelna serializacja.
+    /// </summary>
+    private readonly HashSet<string> _concurrent =
+        new(concurrentOperations ?? [], StringComparer.Ordinal);
 
     public int Run(TextReader input, TextWriter protocolOutput)
     {
@@ -105,24 +120,82 @@ public sealed class LiteDispatchLoop(
         // ponizej), nie moze wejsc w strumien protokolu. Przekierowujemy go
         // na diagnostyke.
         Console.SetOut(Console.Error);
+
+        // Zadania JAWNIE zgloszonych operacji wspolbieznych. Lista istnieje
+        // po to, zeby po EOF poczekac na ich koniec: zapis do zamknietego
+        // juz strumienia protokolu byloby bledem hosta, nie frontendu.
+        var inFlight = new List<Task>();
+        using var slots = new SemaphoreSlim(MaxConcurrentOperations, MaxConcurrentOperations);
         try
         {
             while (input.ReadLine() is { } line)
             {
                 if (line.Trim().Length == 0) continue;
-                Handle(line, events, WriteLine);
+
+                // Tylko wskazana operacja (dzis: odczyt metadanych dla lewej
+                // strzalki) moze ominac kolejke. Pozostale polecenia nadal
+                // ida SERIALNIE, wiec ich wzajemna kolejnosc sie nie zmienia.
+                var outcome = LiteRequestReader.Read(line);
+                if (!TryBeginConcurrent(outcome, events, WriteLine, slots, inFlight))
+                {
+                    Handle(outcome, events, WriteLine);
+                }
             }
         }
         finally
         {
+            // Najpierw dokoncz wlasne zadania, dopiero potem oddaj stdout i
+            // wroc: inaczej spozniony wiersz trafilby w pustke.
+            try
+            {
+                Task.WaitAll([.. inFlight]);
+            }
+            catch (AggregateException)
+            {
+                // Wyjatki handlerow sa juz zamienione na odpowiedzi bledu
+                // wewnatrz zadania; tutaj nie ma czego raportowac.
+            }
             Console.SetOut(originalStdout);
         }
         return 0;
     }
 
-    private void Handle(string line, LiteEventSink events, Action<string> writeLine)
+    /// <summary>
+    /// Probuje obsluzyc zadanie poza kolejka. Zwraca <c>false</c>, gdy
+    /// operacja nie jest zgloszona jako wspolbiezna ALBO gdy wszystkie miejsca
+    /// sa zajete - wtedy wolajacy obsluguje ja serialnie. Dzieki temu
+    /// przytrzymany klawisz nie tworzy nieograniczonej liczby zadan.
+    /// </summary>
+    private bool TryBeginConcurrent(
+        LiteReadOutcome outcome,
+        LiteEventSink events,
+        Action<string> writeLine,
+        SemaphoreSlim slots,
+        List<Task> inFlight)
     {
-        var outcome = LiteRequestReader.Read(line);
+        if (_concurrent.Count == 0) return false;
+        // Zle zadanie i nieznana operacja zostaja na torze serialnym: ich
+        // odpowiedz bledu i tak jest natychmiastowa.
+        if (!outcome.IsRequest || !_concurrent.Contains(outcome.Request!.Op)) return false;
+        if (!slots.Wait(0)) return false;
+
+        inFlight.RemoveAll(static task => task.IsCompleted);
+        inFlight.Add(Task.Run(() =>
+        {
+            try
+            {
+                Handle(outcome, events, writeLine);
+            }
+            finally
+            {
+                slots.Release();
+            }
+        }));
+        return true;
+    }
+
+    private void Handle(LiteReadOutcome outcome, LiteEventSink events, Action<string> writeLine)
+    {
         if (!outcome.IsRequest)
         {
             writeLine(LiteJson.Serialize(new LiteErrorEnvelope(

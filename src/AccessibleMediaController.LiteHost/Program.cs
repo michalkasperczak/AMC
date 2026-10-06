@@ -58,7 +58,13 @@ internal static class Program
         }
 
         using var handlers = new LiteEngineHandlers(timeshiftMinutes, store);
-        var loop = new LiteDispatchLoop(handlers.Build());
+        // JAWNY opt-in: tylko odczyt informacji dla lewej strzalki wychodzi
+        // poza kolejke, bo czyta metadane pliku/strumienia synchronicznie
+        // (limity kilku sekund) i w petli serialnej wstrzymywal transport.
+        // Pozostale polecenia zostaja uporzadkowane serialnie.
+        var loop = new LiteDispatchLoop(
+            handlers.Build(),
+            concurrentOperations: [LiteQuickInformation.Operation]);
 
         Console.Error.WriteLine(
             $"[amc-lite-host] start, bufor transmisji {timeshiftMinutes} min, protokol 1");
