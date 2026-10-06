@@ -45,6 +45,8 @@ class Row:
     path: str | None = None
     url: str | None = None
     detail: str = ""
+    # Jednorodny widok moze pominac rodzaj bez zmiany danych elementu.
+    show_kind: bool = True
 
     @property
     def is_openable(self) -> bool:
@@ -126,7 +128,7 @@ class ListModel:
         if column == 0:
             return row.title
         if column == 1:
-            return row.kind_label
+            return row.kind_label if row.show_kind else ""
         if column == 2:
             detail = row.detail.strip()
             # Powtorzenie nazwy albo rodzaju to dokladnie ten podwojny odczyt,
@@ -268,6 +270,7 @@ def rows_from_stations(stations: Sequence[dict]) -> list[Row]:
             title=str(station.get("name", "")),
             kind="station",
             url=str(station.get("url", "")),
+            show_kind=False,
         )
         for station in stations
     ]
