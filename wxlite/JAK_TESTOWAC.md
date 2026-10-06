@@ -27,8 +27,10 @@ W folderze nawet przy braku wyników może zostać wiersz nadrzędny „..”;
 faktyczne zero wierszy zmierzono osobno w filtrowanym korzeniu.
 
 Dane próbne muszą być prywatną kopią, nagrywanie i rezerwacja pulpitu
-sprawdzone świeżo. Odebrana paczka nie jest jeszcze dowodem podmiany
-u użytkownika; tę blokują dwie działające tam próby Pythona.
+sprawdzone świeżo przy kolejnej próbie. Dostawa tej paczki została już
+potwierdzona oddzielnym odczytem569plików oraz działającej jednej instancji
+na głównym komputerze; raport `wx-file-keys-parity-20261006/delivery/PARENT-DELIVERY.md`.
+Nie mylić jej z nadal przygotowywanymi zmianami Biblioteki i Opcji sesji.
 
 ## Co zostało wykonane
 

@@ -22,8 +22,11 @@ ShowModal=ID_CANCEL ani próba LIST→LIST nie były uznane za właściwy dowód
 brakujące drogi uzupełnił rodzic na tym samym kodzie.
 
 Nadrzędny raport: `amc_pomoc/wx-file-keys-parity-20261006/parent-final-live/ACCEPTANCE.md`.
-Paczka odebrana lokalnie; dostawa wymaga bezpiecznego zamknięcia obu prób
-Pythona na głównym komputerze. To nie dowód obecności nowego kodu u użytkownika.
+Paczka została dostarczona do dotychczasowego folderu próby na głównym
+komputerze. Obie stare instancje zamknięto normalnie; działa jedna nowa,
+z zachowaniem najnowszych ustawień. Parent potwierdził569plików manifestu
+i zgodność kodu5e1. Raport: `amc_pomoc/wx-file-keys-parity-20261006/delivery/PARENT-DELIVERY.md`.
+To nie dostawa późniejszych zmian Biblioteki ani Opcji sesji.
 Niżej zachowana historia wcześniejszych odebranych przyrostów.
 
 ## Działa i zostało odebrane
