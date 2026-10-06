@@ -2,6 +2,18 @@
 
 Odebrany kod: `4fbc49b085a2fffa72a28d3aef7b5e19cf496d6c`. Dostarczona paczka na głównym pozostaje oparta na `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz ze statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
+## Wspólny kandydat Radia — 9b947e44
+
+Widoki Radia, zapisane porządki i odebrana osobno opcja pozycji są scalone
+w `9b947e4455592bb82d15a457e454710ccb97f534`. Pełny runner projektu:
+**915 PASS / 0 FAIL / 0 SKIP**, z rzeczywiście zbudowanym serwerem testów
+protokołu. Dotyczy to testów bezokiennych, nie żywego NVDA nowych widoków.
+Jeden taki odbiór został rozpoczęty; raport po wykonaniu trafi do
+`amc_pomoc/wx-radio-activity-20261006/live/ACCEPTANCE.md`.
+Stan scalenia i poprawka porządku pierwszego wejścia: `PARENT-ORDERING.md`
+w tym samym katalogu dowodów. WPF D1/D2 mają odrębnego wykonawcę i nie są
+zaliczone wynikiem Pythona. To jeszcze nie dostawa nowej próby na główny.
+
 ## Kandydat: opcjonalna pozycja stacji
 
 Menu Radio → „Odczyt pozycji stacji na liście” zapisuje wybór w prywatnym
@@ -16,8 +28,8 @@ Rodzic potwierdził końcowe menu bez dodatkowego skrótu, zapis i komunikaty.
 Test prawdziwego handlera na Windows obejmuje też odmowę zapisu i przywrócenie
 zaznaczenia menu. Nie zmieniono globalnych ustawień NVDA.
 Kwity: `amc_pomoc/wx-radio-position-option-20261006/live/ACCEPTANCE.json`
-oraz nadrzędne `parent-final/ACCEPTANCE.md`. To lokalny kandydat do scalenia,
-jeszcze nie funkcja dostarczonej paczki na głównym komputerze.
+oraz nadrzędne `parent-final/ACCEPTANCE.md`. Mechanizm jest już scalony,
+ale jeszcze nie dostarczony w paczce na głównym komputerze.
 
 ## Biblioteka, Historia i krótki odczyt radia — odbiór na Hermesie
 
@@ -76,7 +88,7 @@ Rodzic uruchomił runner projektu, dopasował starą atrapę do prawdziwego DTO
 i wykazał osobnym RED brak zapisanego porządku po samym starcie, przed Ctrl+L.
 Start zleca teraz właściwy odczyt także dla Radia, bez blokowania GUI i bez
 nadpisywania wyboru dokonanego podczas oczekiwania. Wąskie154/0/0; pełny
-przebieg będzie wykonany po scaleniu z odebraną opcją pozycji. Żywego NVDA
+przebieg wspólnego kandydata915/0/0 opisano na początku. Żywego NVDA
 dla tych nowych widoków jeszcze nie było. Raport autora: `ORDERING.md`;
 uzupełnienie rodzica: `amc_pomoc/wx-radio-activity-20261006/PARENT-ORDERING.md`.
 
