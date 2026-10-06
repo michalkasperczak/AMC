@@ -220,9 +220,18 @@ def test_custom_seek_seconds_respect_the_original_range() -> None:
 
 
 def test_arrows_on_the_list_still_belong_to_the_native_control() -> None:
-    """Nowe gesty NIE moga zabrac strzalek liscie -- to warunek dostepnosci."""
+    """Nowe gesty NIE moga zabrac strzalek liscie -- to warunek dostepnosci.
+
+    Jedyny wyjatek jest WZIETY Z ORYGINALU, nie wymyslony tutaj: LEWA bez
+    modyfikatora czyta krotka informacje uzupelniajaca
+    (``MainWindow.xaml.cs:23206-23216``). Pod Shift/Ctrl/Alt i w kazdym innym
+    kierunku strzalka nadal nalezy do kontrolki.
+    """
     for mods in ({}, {"shift": True}, {"ctrl": True}, {"ctrl": True, "alt": True}):
         for key in ("Left", "Right", "Up", "Down"):
+            if key == "Left" and not mods:
+                assert listing(key) is Action.QUICK_INFORMATION
+                continue
             assert listing(key, **mods) is None, f"{key} {mods} na liscie"
 
 

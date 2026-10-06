@@ -62,6 +62,15 @@ from .navigation import (
 )
 from .shortcuts import Action, Chord, describe, resolve
 from .profile_layout import resolve_layout
+from .quick_info import (
+    HOST_ERROR_MESSAGE,
+    QUICK_INFO_OP,
+    QUICK_INFO_STREAM,
+    quick_info_failure,
+    quick_info_plan,
+    quick_info_reply,
+    read_cached_information,
+)
 from .transport_parity import (
     PLAYBACK_RATE_MAX,
     PLAYBACK_RATE_MIN,
@@ -1973,6 +1982,8 @@ class LiteFrame(wx.Frame):
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
             self._choose_file()
+        elif action is Action.QUICK_INFORMATION:
+            self._announce_quick_information()
         elif action is Action.COPY_NAME:
             self._copy_name()
         elif action is Action.COPY_ADDRESS:
@@ -2196,6 +2207,75 @@ class LiteFrame(wx.Frame):
             return
         if self._to_clipboard(row.title):
             self.announcer.say(COPIED_NAME_MESSAGE)
+
+    def _announce_quick_information(self) -> None:
+        """Parametry zaznaczonego elementu, nie aktualnie odtwarzanego.
+
+        Cache i uzupełnianie przez silnik działają poza wątkiem GUI;
+        wspólny formatter Core składa napis, bramka odrzuca spóźniony wynik.
+        """
+        client = self.client
+        row = self.navigator.session.model.selected_row
+        plan = quick_info_plan(
+            row,
+            session=self.navigator.active.value,
+            view=self.navigator.view.value,
+            alive=self._window_alive,
+        )
+        if plan.message is not None:
+            self.announcer.say(plan.message)
+            return
+        if plan.request is None or plan.guard is None:
+            return
+        if client is None:
+            # Bez hosta nie ma POMIARU. Jedno uczciwe zdanie zamiast ciszy,
+            # ktora wygladalaby jak ten sam martwy klawisz.
+            self.announcer.say(HOST_ERROR_MESSAGE)
+            return
+
+        guard = plan.guard
+        request = plan.request
+        layout = self.layout
+        assert row is not None
+
+        def work() -> object:
+            enriched = dict(request)
+            enriched.update(read_cached_information(layout, row, guard.session))
+            return client.call(QUICK_INFO_OP, enriched, timeout=12.0)
+
+        def answer(payload: object) -> None:
+            quick_info_reply(
+                payload if isinstance(payload, dict) else {},
+                guard=guard,
+                item_id=self._selected_item_id(),
+                session=self.navigator.active.value,
+                view=self.navigator.view.value,
+                say=self.announcer.say,
+            )
+
+        def failed(_error: Exception) -> None:
+            quick_info_failure(
+                error=_error,
+                guard=guard,
+                item_id=self._selected_item_id(),
+                session=self.navigator.active.value,
+                view=self.navigator.view.value,
+                say=self.announcer.say,
+            )
+
+        # Budzet hosta to 5 s na plik i 6 s na strumien (cs:5493, cs:5522),
+        # wiec czekamy odrobine dluzej, zeby to silnik oddal wynik, a nie my
+        # zglosili falszywa awarie tuz przed nim.
+        self.runner.submit(
+            QUICK_INFO_STREAM,
+            work,
+            answer,
+            failed,
+        )
+
+    def _selected_item_id(self) -> str | None:
+        row = self.navigator.session.model.selected_row
+        return None if row is None else row.item_id
 
     def _copy_address(self) -> None:
         """Ctrl+Shift+C: adres albo PRAWDZIWY PLIK zaznaczonego elementu.

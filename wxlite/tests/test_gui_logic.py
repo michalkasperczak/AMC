@@ -164,9 +164,13 @@ def test_shift_f6_returns_to_the_list() -> None:
 def test_arrow_keys_on_the_list_are_left_to_the_control() -> None:
     import wx
 
-    for code in (wx.WXK_UP, wx.WXK_DOWN, wx.WXK_LEFT, wx.WXK_RIGHT, wx.WXK_HOME, wx.WXK_END):
+    # LEWA ma wyjatek z oryginalu (krotka informacja, cs:23206-23216); pozostale
+    # strzalki i Home/End nadal chodza po wierszach w samej kontrolce.
+    for code in (wx.WXK_UP, wx.WXK_DOWN, wx.WXK_RIGHT, wx.WXK_HOME, wx.WXK_END):
         chord = chord_from_event(FakeKeyEvent(code))
         assert resolve(chord, player_view=False, radio_session=False) is None
+    left = chord_from_event(FakeKeyEvent(wx.WXK_LEFT))
+    assert resolve(left, player_view=False, radio_session=False) is Action.QUICK_INFORMATION
 
 
 def test_unknown_key_never_resolves_to_an_action() -> None:

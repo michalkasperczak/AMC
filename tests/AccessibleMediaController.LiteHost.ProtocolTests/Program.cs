@@ -11,6 +11,7 @@ internal static class Program
         ("--queue", QueueCoordinatorTests.Run),
         ("--transport", QueueTransportTests.Run),
         ("--persistence", QueuePersistenceTests.Run),
+        ("--quickinfo", QuickInformationTests.Run),
     ];
 
     public static int Main(string[] args)

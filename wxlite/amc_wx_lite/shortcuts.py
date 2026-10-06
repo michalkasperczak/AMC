@@ -64,8 +64,23 @@ ktore ma. Warstwa okna to:
       ODTWARZACZU oba wracaja na liste (warunek to ``_playerViewActive``).
 
 Zadne z powyzszych nie jest przechwytywaniem gestow czytnika ekranu: NVDA+Up,
-NVDA+End i reszta gestow czytnika pozostaja nietkniete, a strzalki na LISCIE
-nadal naleza do natywnej kontrolki.
+NVDA+End i reszta gestow czytnika pozostaja nietkniete, a strzalki PIONOWE na
+LISCIE nadal naleza do natywnej kontrolki.
+
+LEWA STRZALKA NA LISCIE (zgloszenie z realnego uruchomienia)
+------------------------------------------------------------
+Michal zglosil, ze na listach stacji i plikow nie dziala lewa strzalka, ktora
+w AMC czyta parametry zaznaczonego wiersza. Potwierdzone WYKONANIEM resolvera:
+``resolve(Chord("Left"), player_view=False, radio_session=True)`` oddawalo
+``None`` (to samo dla ``radio_session=False``), czyli klawisz ginal w kontrolce.
+Brak byl rzeczywisty, nie domniemany.
+
+Zrodlo wzorca: ``MainWindow.xaml.cs:23206-23216`` -- ``MediaList_PreviewKeyDown``
+lapie ``Key.Left`` przy ``Keyboard.Modifiers == ModifierKeys.None`` i oddaje go
+albo sciezce folderu (``$"{item.Title}: {folderPath}"``), albo
+``AnnounceQuickMediaInformation(item)``. Dlatego ``Left`` jest w ``LIST_VIEW``,
+a ``Shift/Ctrl/Alt+Left`` NIE sa -- modyfikator wyklucza te galaz w oryginale.
+W ODTWARZACZU ``Left`` zostaje przewijaniem 10 s, bez zmian.
 """
 
 from __future__ import annotations
@@ -184,6 +199,19 @@ class Action(Enum):
     # juz jest na ekranie. Port nie ma zdalnych uslug, wiec Ctrl+F zostaje
     # NIEOBSADZONY -- lepiej nie mieć gestu niż dać mu ciche, inne znaczenie.
     FOCUS_FILTER = "list.filter"
+    # LEWA STRZALKA NA LISCIE: krotka informacja uzupelniajaca o ZAZNACZONYM
+    # wierszu (bitrate, czestotliwosc, rozmiar, czas...). Gest ODCZYTANY, nie
+    # wymyslony: ``MainWindow.xaml.cs:23206-23216`` w
+    # ``MediaList_PreviewKeyDown`` lapie ``Key.Left`` bez modyfikatora i
+    # oddaje go albo sciezce folderu, albo
+    # ``AnnounceQuickMediaInformation(item)``.
+    #
+    # To NIE koliduje z natywna nawigacja listy: ``wx.ListCtrl`` w trybie
+    # raportu uzywa strzalek PIONOWYCH do zmiany wiersza, a pozioma strzalka w
+    # lewo nie ma w nim wlasnego znaczenia (tak samo jak w ``ListView`` WPF,
+    # ktory oryginal przechwytuje). Gesty czytnika ekranu zostaja nietkniete --
+    # NVDA czyta kolumny swoim modyfikatorem, nie sama strzalka.
+    QUICK_INFORMATION = "list.quickInformation"
     HELP = "help"
 
 
@@ -287,6 +315,11 @@ LIST_VIEW: dict[str, Action] = {
     # (xaml:492-493) i dlatego ich tu NIE MA -- wziecie Ctrl+F na filtr
     # nauczyloby uzytkownika gestu, ktory w pelnym AMC robi co innego.
     "Ctrl+K": Action.FOCUS_FILTER,
+    # LEWA STRZALKA bez modyfikatora. Jedyny wpis ze strzalka w tablicy listy:
+    # oryginal wymaga ``Keyboard.Modifiers == ModifierKeys.None``
+    # (cs:23206), wiec Shift/Ctrl/Alt+Left NIE sa tu wpisane i zostaja
+    # kontrolce. Strzalki PIONOWE nadal naleza wylacznie do listy.
+    "Left": Action.QUICK_INFORMATION,
     "F1": Action.HELP,
 }
 
@@ -449,6 +482,13 @@ def describe() -> list[tuple[str, str]]:
         Action.FOCUS_FILTER: (
             "Filtruj liste: Enter albo strzalka w dol przechodzi do wynikow, "
             "Escape czysci filtr"
+        ),
+        # Nazwa mowi, CO klawisz daje, a nie jak dziala. "Uzupelniajace", bo
+        # sama nazwa wiersza jest juz przeczytana przy nawigacji -- oryginal
+        # celowo jej nie powtarza (QuickMediaInformationFormatter:8-10).
+        Action.QUICK_INFORMATION: (
+            "Informacje uzupelniajace o zaznaczonym wierszu "
+            "(folder: sciezka)"
         ),
         Action.HELP: "Ta pomoc",
     }

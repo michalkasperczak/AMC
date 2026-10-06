@@ -8,9 +8,19 @@ from amc_wx_lite.shortcuts import Action, Chord, describe, resolve
 def test_arrows_on_the_list_belong_to_the_native_control() -> None:
     # To jest WARUNEK dostepnosci: strzalki na liscie musza chodzic po
     # wierszach, zeby czytnik ekranu i Narrator dzialaly bez dodatku.
-    for key in ("Up", "Down", "Left", "Right", "Home", "End", "Prior", "Next"):
+    #
+    # WYJATEK, ktory ma sam oryginal: LEWA strzalka bez modyfikatora czyta
+    # krotka informacje uzupelniajaca (MainWindow.xaml.cs:23206-23216), i to
+    # tam, nie w kontrolce, bo lista jest JEDNOKOLUMNOWA -- w lewo nie ma
+    # gdzie przejsc. Ten test kodowal dawne wymaganie "zadna strzalka"; zostaje
+    # odwrocony na wymaganie oryginalu, a nie usuniety.
+    for key in ("Up", "Down", "Right", "Home", "End", "Prior", "Next"):
         action = resolve(Chord(key), player_view=False, radio_session=False)
         assert action is None, f"{key} na liscie nie moze byc przejety"
+    assert (
+        resolve(Chord("Left"), player_view=False, radio_session=False)
+        is Action.QUICK_INFORMATION
+    )
 
 
 def test_tab_is_never_intercepted() -> None:
