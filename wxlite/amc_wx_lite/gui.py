@@ -62,6 +62,14 @@ from .navigation import (
 )
 from .shortcuts import Action, Chord, describe, resolve
 from .profile_layout import resolve_layout
+from .quick_info import (
+    HOST_ERROR_MESSAGE,
+    QUICK_INFO_OP,
+    QUICK_INFO_STREAM,
+    quick_info_failure,
+    quick_info_plan,
+    quick_info_reply,
+)
 from .transport_parity import (
     PLAYBACK_RATE_MAX,
     PLAYBACK_RATE_MIN,
@@ -1918,6 +1926,8 @@ class LiteFrame(wx.Frame):
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
             self._choose_file()
+        elif action is Action.QUICK_INFORMATION:
+            self._announce_quick_information()
         elif action is Action.COPY_NAME:
             self._copy_name()
         elif action is Action.COPY_ADDRESS:
@@ -2141,6 +2151,96 @@ class LiteFrame(wx.Frame):
             return
         if self._to_clipboard(row.title):
             self.announcer.say(COPIED_NAME_MESSAGE)
+
+    def _announce_quick_information(self) -> None:
+        """LEWA STRZALKA na liscie: parametry zaznaczonego elementu.
+
+        Port ``MediaList_PreviewKeyDown`` (``MainWindow.xaml.cs:23206-23216``).
+        ZGLOSZENIE: na listach stacji i plikow lewa strzalka milczala, choc w
+        zwyklym AMC czyta bitrate, rozmiar, czas i dane stacji.
+
+        Cala DECYZJA siedzi w ``quick_info.announce_quick_information``, zeby
+        dala sie zmierzyc bez pulpitu; tutaj zostaje tylko podlaczenie zrodel:
+
+        * ``duration_ticks`` idzie z BIBLIOTEKI, nie z odtwarzacza -- opisujemy
+          ZAZNACZONY wiersz, ktory czesto nie jest tym, co leci.
+        * napis sklada host (``media.quickInformation``) tym samym formatterem
+          C#, ktorego uzywa pelne AMC.
+        * ``runner`` trzyma pomiar POZA watkiem interfejsu (plik 5 s, strumien
+          6 s), a bramka po powrocie sprawdza wiersz, sesje, widok i okno.
+        """
+        client = self.client
+        row = self.navigator.session.model.selected_row
+        plan = quick_info_plan(
+            row,
+            session=self.navigator.active.value,
+            view=self.navigator.view.value,
+            duration_ticks=self._selected_duration_ticks(row),
+            alive=self._window_alive,
+        )
+        if plan.message is not None:
+            self.announcer.say(plan.message)
+            return
+        if plan.request is None or plan.guard is None:
+            return
+        if client is None:
+            # Bez hosta nie ma POMIARU. Jedno uczciwe zdanie zamiast ciszy,
+            # ktora wygladalaby jak ten sam martwy klawisz.
+            self.announcer.say(HOST_ERROR_MESSAGE)
+            return
+
+        guard = plan.guard
+        request = plan.request
+
+        def answer(payload: object) -> None:
+            quick_info_reply(
+                payload if isinstance(payload, dict) else {},
+                guard=guard,
+                item_id=self._selected_item_id(),
+                session=self.navigator.active.value,
+                view=self.navigator.view.value,
+                say=self.announcer.say,
+            )
+
+        def failed(_error: Exception) -> None:
+            quick_info_failure(
+                guard=guard,
+                item_id=self._selected_item_id(),
+                session=self.navigator.active.value,
+                view=self.navigator.view.value,
+                say=self.announcer.say,
+            )
+
+        # Budzet hosta to 5 s na plik i 6 s na strumien (cs:5493, cs:5522),
+        # wiec czekamy odrobine dluzej, zeby to silnik oddal wynik, a nie my
+        # zglosili falszywa awarie tuz przed nim.
+        self.runner.submit(
+            QUICK_INFO_STREAM,
+            lambda: client.call(QUICK_INFO_OP, request, timeout=12.0),
+            answer,
+            failed,
+        )
+
+    def _selected_item_id(self) -> str | None:
+        row = self.navigator.session.model.selected_row
+        return None if row is None else row.item_id
+
+    def _selected_duration_ticks(self, row) -> int:
+        """Czas ZAZNACZONEGO wiersza, jesli interfejs go zna. Dzis: 0.
+
+        ``Row`` niesie tylko ``item_id``, ``title``, ``kind``, ``path``, ``url``,
+        ``detail`` i ``show_kind`` -- surowych tickow NIE ma, a ``detail`` to
+        napis dla czytnika, nie dana do liczenia. Oddajemy wiec 0, co znaczy
+        "NIE WIEM", i czas mierzy silnik (``LiteQuickInfoProbe.DurationTicks``,
+        port cs:5504-5508) -- tak samo jak pelne AMC, gdy wiersz go nie zna.
+
+        Celowo NIE pytamy o pozycje odtwarzacza: ``selected`` i
+        ``currentlyPlaying`` to w AMC dwie rozne rzeczy, a czas granego utworu
+        opisalby nie ten element. Gdy wiersz dostanie kiedys prawdziwe ticki,
+        wystarczy zwrocic je TUTAJ -- reszta drogi jest gotowa.
+        """
+        del row
+        return 0
 
     def _copy_address(self) -> None:
         """Ctrl+Shift+C: adres albo PRAWDZIWY PLIK zaznaczonego elementu.

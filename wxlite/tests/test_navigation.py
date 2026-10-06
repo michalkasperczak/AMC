@@ -222,8 +222,15 @@ def test_restored_selection_that_vanished_falls_back_quietly() -> None:
 
 def test_arrows_in_list_view_belong_to_the_native_control() -> None:
     # Kluczowe dla czytnika ekranu: strzalki na liscie NIE sa przejmowane.
-    for key in ("Up", "Down", "Left", "Right", "Home", "End", "Prior", "Next", "Tab"):
+    # WYJATEK oryginalu: LEWA bez modyfikatora czyta krotka informacje
+    # (MainWindow.xaml.cs:23206-23216). Lista ma jedna kolumne, wiec w lewo
+    # nie ma po czym chodzic -- pionowe strzalki zostaja kontrolce.
+    for key in ("Up", "Down", "Right", "Home", "End", "Prior", "Next", "Tab"):
         assert resolve(Chord(key), player_view=False, radio_session=False) is None, key
+    assert (
+        resolve(Chord("Left"), player_view=False, radio_session=False)
+        is Action.QUICK_INFORMATION
+    )
 
 
 def test_player_view_arrows_control_volume_and_seeking() -> None:

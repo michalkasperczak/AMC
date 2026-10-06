@@ -189,6 +189,13 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
             ["audio.outputs"] = (_, _) => ListOutputs(),
             ["library.collationKeys"] = (request, _) => CollationKeys(request.Args),
+            // LEWA STRZALKA na liscie: krotka informacja uzupelniajaca.
+            // Port drogi ``AnnounceQuickMediaInformation`` (cs:5485-5541):
+            // host MIERZY brakujace parametry PRAWDZIWYM silnikiem i sklada
+            // napis PRAWDZIWYM formatterem Core. Nic nie odtwarza, nie zmienia
+            // wyboru i NIE ZAPISUJE profilu -- wlascicielem zapisu zostaje
+            // pelne AMC, a port wx czyta profil tylko do odczytu.
+            [LiteQuickInformation.Operation] = (request, _) => QuickInformation(request.Args),
             // ZYWA kolejka. "set" tylko wczytuje stan i NIC nie odtwarza.
             ["queue.set"] = (request, _) => QueueSet(request.Args),
             ["queue.status"] = (_, _) => QueueStatusPayload(),
@@ -419,6 +426,129 @@ internal sealed class LiteEngineHandlers : IDisposable
     private const string AmcPlMode = "AMC_PL";
     private const string TitleIgnoreCaseMode = "TITLE_IGNORE_CASE";
     private const string OrdinalIgnoreCaseMode = "ORDINAL_IGNORE_CASE";
+
+    /// <summary>
+    /// Czas na pomiar metadanych. Takie same jak w pelnym AMC
+    /// (<c>MainWindow.xaml.cs:5493</c> i <c>:5519</c>): plik 5 s, strumien 6 s.
+    /// Granica jest potrzebna, bo plik w chmurze albo milczaca stacja potrafia
+    /// zawiesic odczyt, a klawisz ma ODPOWIEDZIEC, nie zablokowac okna.
+    /// </summary>
+    private static readonly TimeSpan FileMetadataTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan StreamMetadataTimeout = TimeSpan.FromSeconds(6);
+
+    /// <summary>
+    /// Krotka informacja uzupelniajaca o ZAZNACZONYM wierszu (LEWA STRZALKA).
+    /// Port <c>AnnounceQuickMediaInformation</c> (<c>cs:5485-5541</c>).
+    ///
+    /// Tu dzieje sie POMIAR: rozmiar z <see cref="FileInfo"/>, parametry pliku
+    /// z <see cref="WindowsMediaOutput.TryReadMetadataAsync"/>, parametry stacji
+    /// z <see cref="RadioMediaOutput.TryReadStreamMetadataAsync"/>, a atrybut
+    /// chmury z <see cref="CloudFileAvailability.MayRequireRemoteAccess"/>.
+    /// Skladanie napisu nalezy do <see cref="LiteQuickInformation"/>, ktory wola
+    /// formatter Core.
+    ///
+    /// CZEGO TA DROGA NIE ROBI, swiadomie:
+    ///   * nie siega po ZAZNACZENIE ani po to, co GRA -- material opisuje
+    ///     wylacznie zadanie; mieszanie obu dalo by parametry nie tego wiersza,
+    ///   * nie dotyka odtwarzania (zadnego Play/Pause/Seek),
+    ///   * nie zapisuje profilu,
+    ///   * nie HYDRATUJE pliku z chmury: placeholdera tylko oglasza.
+    /// </summary>
+    private object QuickInformation(JsonElement args)
+    {
+        var request = LiteQuickInformation.ReadRequest(args);
+        var probe = ProbeQuickInformation(request);
+        return new
+        {
+            // ID wraca NAPISEM i NIEZMIENIONE: po nim frontend rozpoznaje, czy
+            // odpowiedz dotyczy wiersza, ktory JESZCZE jest zaznaczony.
+            itemId = request.ItemId,
+            session = request.Session,
+            text = LiteQuickInformation.Build(request, probe, CultureInfo.CurrentCulture)
+        };
+    }
+
+    private static LiteQuickInfoProbe ProbeQuickInformation(LiteQuickInfoRequest request)
+    {
+        if (!LiteQuickInformation.IsLocalSource(request.Source))
+        {
+            // Stacja radiowa. Pomiar strumienia TYLKO wtedy, gdy brakuje
+            // bitrate albo kodeka -- warunek z cs:5513-5518. Inaczej kazde
+            // nacisniecie klawisza siegalo by do sieci bez potrzeby.
+            if (!string.Equals(request.Session, "radio", StringComparison.Ordinal))
+            {
+                // Odcinek podcastu albo inne zdalne zrodlo: rozmiar i typ MIME
+                // przychodza w zadaniu, wiec nie ma czego mierzyc.
+                return new LiteQuickInfoProbe();
+            }
+            var stream = RadioMediaOutput
+                .TryReadStreamMetadataAsync(request.Source, StreamMetadataTimeout)
+                .GetAwaiter()
+                .GetResult();
+            return stream is null
+                ? new LiteQuickInfoProbe()
+                : new LiteQuickInfoProbe
+                {
+                    // NORMALIZACJA jest czescia wzorca (cs:5531): surowy bitrate
+                    // ze strumienia bywa w bitach/s albo absurdalny, a
+                    // ``RadioAudioMetadataRules`` odrzuca wartosci nie do
+                    // uwierzenia. Bez tego kroku stacja oglaszalaby liczbe,
+                    // ktorej pelne AMC nigdy nie wypowiada.
+                    BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(stream.BitrateKbps),
+                    SampleRateHz = stream.SampleRateHz,
+                    Codec = stream.Codec
+                };
+        }
+
+        // Plik lokalny. Atrybuty chmury czytamy ZAWSZE: to jedyna informacja,
+        // ktora nie wymaga otwarcia pliku.
+        var mayRequireCloudDownload = CloudFileAvailability.MayRequireRemoteAccess(request.Source);
+        long? sizeBytes = null;
+        var exists = false;
+        try
+        {
+            var file = new FileInfo(request.Source);
+            exists = file.Exists;
+            // Placeholdera chmury NIE mierzymy: ``FileInfo.Length`` dla niego
+            // jest wielkoscia logiczna, ale pelne AMC i tak oglasza wtedy
+            // ostrzezenie, a my nie wywolujemy pobierania w tle dla samego
+            // odczytu rozmiaru.
+            if (exists) sizeBytes = mayRequireCloudDownload ? null : file.Length;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // cs:5463-5466 -- pozostale dane nadal sa uzyteczne, gdy plik jest
+            // chwilowo niedostepny. Brak rozmiaru zostaje BRAKIEM, nie zerem.
+        }
+
+        int? sampleRateHz = null;
+        long? measuredDurationTicks = null;
+        if (exists && !mayRequireCloudDownload)
+        {
+            var metadata = WindowsMediaOutput
+                .TryReadMetadataAsync(request.Source, FileMetadataTimeout)
+                .GetAwaiter()
+                .GetResult();
+            if (metadata.Success)
+            {
+                if (metadata.SampleRateHz > 0) sampleRateHz = metadata.SampleRateHz;
+                // cs:5504-5508 -- zmierzony czas uzupelnia BRAK czasu w wierszu.
+                // Jest potrzebny takze po to, zeby dalo sie oszacowac bitrate z
+                // rozmiaru; bez niego plik bez znanej dlugosci milczalby o nim.
+                if (metadata.Duration > TimeSpan.Zero) measuredDurationTicks = metadata.Duration.Ticks;
+            }
+        }
+
+        return new LiteQuickInfoProbe
+        {
+            Exists = exists,
+            SizeBytes = sizeBytes,
+            SampleRateHz = sampleRateHz,
+            DurationTicks = measuredDurationTicks,
+            MayRequireCloudDownload = mayRequireCloudDownload
+        };
+    }
 
     /// <summary>
     /// Klucz odtwarzajacy <c>StringComparer.OrdinalIgnoreCase</c> bajt po bajcie.

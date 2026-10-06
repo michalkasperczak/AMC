@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using AccessibleMediaController.LiteHost.Protocol;
@@ -73,7 +74,35 @@ internal static class WireServer
                 return new { ok = true };
             },
             ["bigPayload"] = (_, _) => new { text = new string('x', 100_000) },
-            ["utf8"] = (request, _) => new { text = LiteArgs.ReadText(request.Args, "text") }
+            ["utf8"] = (request, _) => new { text = LiteArgs.ReadText(request.Args, "text") },
+            // LEWA STRZALKA: zlozenie komunikatu PRAWDZIWYM formatterem Core.
+            // Pomiaru silnika (NAudio, atrybuty chmury) w WSL nie ma, wiec
+            // wynik sondy wchodzi tu Z ZADANIA -- to pozwala zmierzyc, ze
+            // klient Python i formatter C# zgadzaja sie co do KONTRAKTU, i nie
+            // udaje odczytu dzwieku na Linuksie.
+            [LiteQuickInformation.Operation] = (request, _) =>
+            {
+                var quickInfo = LiteQuickInformation.ReadRequest(request.Args);
+                var size = LiteArgs.ReadInt(request.Args, "probeSizeBytes", 0, 0, int.MaxValue);
+                var bitrate = LiteArgs.ReadInt(request.Args, "probeBitrateKbps", 0, 0, 100_000);
+                var rate = LiteArgs.ReadInt(request.Args, "probeSampleRateHz", 0, 0, 1_000_000);
+                var probe = new LiteQuickInfoProbe
+                {
+                    Exists = LiteArgs.ReadBool(request.Args, "probeExists", false),
+                    SizeBytes = size > 0 ? size : null,
+                    BitrateKbps = bitrate > 0 ? bitrate : null,
+                    SampleRateHz = rate > 0 ? rate : null,
+                    Codec = LiteArgs.ReadText(request.Args, "probeCodec"),
+                    MayRequireCloudDownload = LiteArgs.ReadBool(request.Args, "probeCloud", false)
+                };
+                return new
+                {
+                    itemId = quickInfo.ItemId,
+                    session = quickInfo.Session,
+                    text = LiteQuickInformation.Build(
+                        quickInfo, probe, CultureInfo.GetCultureInfo("pl-PL"))
+                };
+            }
         };
 
         new LiteDispatchLoop(handlers).Run(protocolInput, protocolOutput);
