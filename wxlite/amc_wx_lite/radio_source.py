@@ -64,6 +64,11 @@ class RadioSnapshot:
     #: odczyt sie nie udal, tutaj odczyt sie udal, ale danych tego rodzaju
     #: w ogole nie ma -- i udana pusta lista bylaby klamstwem.
     unavailable_reason: str | None = None
+    #: Zapisane tryby sortowania kolekcji sesji radia, klucz widoku w
+    #: ``casefold``. Pochodza z TEGO SAMEGO odczytu ``state.json``, co stacje --
+    #: 12 MB nie czytamy dwa razy. Pusty slownik = brak zapisu, czyli
+    #: ``AddedNewest`` wszedzie (``MainWindow.xaml.cs:13193-13196``).
+    collection_sort_modes: dict = field(default_factory=dict)
 
     @property
     def stations(self) -> list[Station]:
@@ -191,6 +196,61 @@ def stations_from_amc_state(
     return stations, current if isinstance(current, str) and current else None
 
 
+#: Nazwy trybow = nazwy ``CollectionSortMode`` (``AppSettings.cs:27-32``).
+#: ``System.Text.Json`` zapisuje enum NAZWA, i tak wygladaja w zmierzonym
+#: ``state.json`` (``sessionNavigation.sessions.radio.collectionSortModes``).
+SORT_ADDED_NEWEST = "AddedNewest"
+SORT_ALPHABETICAL = "Alphabetical"
+SORT_CUSTOM = "Custom"
+COLLECTION_SORT_MODES = (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM)
+
+
+def collection_sort_modes_from_amc_state(
+    raw: dict, *, session: str = "radio"
+) -> dict[str, str]:
+    """Zapisane tryby sortowania kolekcji jednej sesji.
+
+    Odpowiednik ``GetSessionNavigationState(session.Id).CollectionSortModes``
+    (``MainWindow.xaml.cs:13194-13196``, pole ``AppSettings.cs:1190``).
+
+    Klucze sa znormalizowane do ``casefold``, bo C# trzyma oba slowniki --
+    sesje (``AppSettings.cs:1178``) i tryby (1190-1191) -- jako
+    ``StringComparer.OrdinalIgnoreCase``. Nierozpoznana wartosc jest POMIJANA,
+    a nie podstawiana pod ``AddedNewest`` cicho: brak klucza i tak znaczy
+    ``AddedNewest``, wiec milczace zrownanie obu przypadkow nie jest potrzebne,
+    a zgadywanie trybu, ktorego nie znamy, byloby zmyslaniem.
+
+    Ta funkcja NIE czyta pliku -- dostaje juz wczytany ``raw``, zeby duzy
+    ``state.json`` (zmierzone: 12 MB) byl czytany RAZ na odczyt widoku.
+    """
+    navigation = raw.get("sessionNavigation")
+    if not isinstance(navigation, dict):
+        return {}
+    sessions = navigation.get("sessions")
+    if not isinstance(sessions, dict):
+        return {}
+    wanted = session.casefold()
+    state = next(
+        (v for k, v in sessions.items()
+         if isinstance(k, str) and k.casefold() == wanted and isinstance(v, dict)),
+        None,
+    )
+    if state is None:
+        return {}
+    modes = state.get("collectionSortModes")
+    if not isinstance(modes, dict):
+        return {}
+    known = {m.casefold(): m for m in COLLECTION_SORT_MODES}
+    result: dict[str, str] = {}
+    for view, mode in modes.items():
+        if not isinstance(view, str) or not isinstance(mode, str):
+            continue
+        canonical = known.get(mode.casefold())
+        if canonical is not None:
+            result[view.casefold()] = canonical
+    return result
+
+
 class RadioSource:
     """Czyta stacje z wlasciwego miejsca dla danego trybu profilu."""
 
@@ -273,6 +333,9 @@ class RadioSource:
             current_id=current,
             from_amc_profile=True,
             scope=scope,
+            # Tryby bierzemy z JUZ wczytanego ``raw`` -- bez drugiego przejscia
+            # po 12 MB pliku i bez konkurencyjnego modelu ustawien.
+            collection_sort_modes=collection_sort_modes_from_amc_state(raw),
         )
 
     def _read_failure(

@@ -1527,7 +1527,12 @@ class LiteFrame(wx.Frame):
             # collator w Pythonie. Podpinamy ja DOPIERO tu, bo wymaga zywego
             # silnika. Bez niej LibrarySource swiadomie oddaje kolejnosc z
             # SQL-a zamiast udawac zgodnosc.
-            self.library.use_collation(HostCollation(client.call))
+            collation = HostCollation(client.call)
+            self.library.use_collation(collation)
+            # Radio nie ma wlasnego ``use_collation`` -- jego widoki sa
+            # bezstanowe, wiec kolacje trzymamy TUTAJ i podajemy na wywolanie.
+            # Jeden obiekt dla obu sesji: to ten sam host i ten sam cache.
+            self._collation = collation
             self._load_initial_content()
 
         def failed(error: Exception) -> None:
@@ -1756,10 +1761,15 @@ class LiteFrame(wx.Frame):
             return
         source = self.radio
         scope = intent.view.value if intent.view else "library"
+        # Kolacje czytamy TERAZ, w watku GUI, i wysylamy jako wartosc --
+        # zagladanie do pola okna z watku roboczego scigaloby sie ze startem
+        # silnika. ``None`` znaczy ,,hosta jeszcze nie ma'' i widok uczciwie
+        # nazwie kolejnosc zastepcza.
+        collation = getattr(self, "_collation", None)
 
         def work():
             from .radio_views import load_view
-            return load_view(source, scope)
+            return load_view(source, scope, collation=collation)
 
         def done(result) -> None:
             if result.unavailable_reason:
@@ -1767,7 +1777,9 @@ class LiteFrame(wx.Frame):
                     self.announcer.say(result.unavailable_reason)
                 return
             events = self.navigator.apply_radio_view(
-                intent.view, result.heading, result.rows, preferred_id=intent.preferred_id)
+                intent.view, result.heading, result.rows,
+                preferred_id=intent.preferred_id,
+                order_matches_amc=result.order_matches_amc)
             # Odczyt zaczal sie w Radiu, ale uzytkownik mogl juz przejsc do Plikow.
             # Zachowujemy stan wlasciwej sesji, nie przestawiamy obcego fokusu.
             if self.navigator.active is SessionId.RADIO:

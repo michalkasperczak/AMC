@@ -20,10 +20,23 @@ syntetycznych, ale atrapy wx i zamiaru PlayStation, nie fizycznego GUI/audio.
 Python:855PASS/0FAIL/15SKIP (brak DLL testów protokołu w tym worktree).
 Raport: `amc_pomoc/wx-radio-activity-20261006/PARENT-INTEGRATION.md`.
 
-Pozostają zapisane porządki Biblioteki/Ulubionych (obecnie kolejność cache)
-oraz żywy odbiór finalnego połączenia. To kandydat, nie funkcje już
+Pozostaje żywy odbiór finalnego połączenia. To kandydat, nie funkcje już
 odebrane lub dostarczone. Prywatna lista lite-home bez danych pełnego
 profilu uczciwie odmawia Ulubionych/ Historii zamiast udawać pusty wynik.
+
+Zapisane porządki Biblioteki i Ulubionych są już **czytane**, nie są już
+kolejnością cache'u. Tryb pochodzi z `CollectionSortModes` profilu
+(domyślnie `AddedNewest`), zapis z czterech tabel `library.db` przez
+rozszerzoną whitelistę `_stored_order`; `AddedNewest` odwraca, `Custom` nie,
+`Alphabetical` idzie kluczami `HostCollation`, nie `casefold`. Zmiana trybu
+i jakikolwiek zapis pozostają poza zakresem — czytamy wybór zapisany przez
+AMC. Brak zapisu lub hosta nie zabiera listy: zostaje kolejność cache'u i
+komunikat „kolejność zastępcza". Na prawdziwym profilu (kopia
+`wx-full-profile-after421`) oba widoki mają zapisany `Custom`, 55 pozycji,
+kolejność zgodna z zapisem i rozdzielna między widokami, pliki nietknięte.
+Nowy `tests/test_radio_saved_order.py` 21/21; cały wxlite336/0/0. Żywego
+NVDA w tym przebiegu **nie było** — komunikat potwierdzony jako łańcuch, nie
+jako mowa. Raport: `amc_pomoc/wx-radio-activity-20261006/ORDERING.md`.
 
 ## Poprawki plików — odebrane z rzeczywistym GUI i NVDA
 

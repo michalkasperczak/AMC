@@ -963,6 +963,7 @@ class Navigator:
     def apply_radio_view(
         self, view: LibraryView | None, heading: str, rows: list[Row],
         *, preferred_id: str | None = None,
+        order_matches_amc: bool = True,
     ) -> list[object]:
         """Odpowiedz loadera Radia nie rusza listy ani wyboru Plikow."""
         if view not in (None, LibraryView.FAVORITES, LibraryView.HISTORY):
@@ -976,7 +977,12 @@ class Navigator:
         state.model.replace(rows, preferred_id=preferred_id or state.view_selected_ids.get(key))
         state.view = View.LIST
         # Nazwe wiersza czyta natywna lista, nie powtarzamy jej w komunikacie.
-        return [Announce(heading if rows else f"{heading}, pusto")]
+        message = heading if rows else f"{heading}, pusto"
+        if not order_matches_amc:
+            # Ta sama formula, co w ``apply_library_view``: zastepcza kolejnosc
+            # jest NAZWANA, a nie przemilczana.
+            message = f"{message}, kolejność zastępcza"
+        return [Announce(message)]
 
     def apply_stations(self, rows: list[Row], preferred_id: str | None = None) -> list[object]:
         state = self.sessions[SessionId.RADIO]
