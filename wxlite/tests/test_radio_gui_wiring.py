@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_gui_logic import install_wx_stub
 install_wx_stub()
 from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.radio_views import RadioViewResult
 from amc_wx_lite.navigation import LibraryView, Navigator, OpenLibraryView, SessionId
 
 
@@ -56,7 +57,7 @@ def test_radio_loader_completion_updates_radio_without_announcing_in_files():
     LiteFrame._open_radio_view(frame, intent)
     frame.navigator.switch_session(SessionId.FILES)
     before = frame.navigator.session.model.rows[:]
-    frame.runner.done(SimpleNamespace(rows=[Row(item_id="outside", title="Outside", kind="station", url="https://example.invalid/")],
+    frame.runner.done(RadioViewResult(rows=[Row(item_id="outside", title="Outside", kind="station", url="https://example.invalid/")],
                                       heading="Historia radia", unavailable_reason=None, missing_item_count=0))
     assert frame.navigator.sessions[SessionId.RADIO].model.selected_id == "outside"
     assert frame.navigator.session.model.rows == before
@@ -70,7 +71,7 @@ def test_radio_unavailable_keeps_previous_rows_and_scope():
     frame.runner = DeferredRunner()
     frame.radio = object()
     LiteFrame._open_radio_view(frame, frame.navigator.open_library_view(LibraryView.FAVORITES)[0])
-    frame.runner.done(SimpleNamespace(rows=[], heading="Ulubione", unavailable_reason="Nie moge odczytac profilu", missing_item_count=0))
+    frame.runner.done(RadioViewResult(rows=[], heading="Ulubione", unavailable_reason="Nie moge odczytac profilu", missing_item_count=0))
     assert frame.navigator.session.model.selected_id == "keep"
     assert frame.navigator.session.library_view is None
     assert messages == ["Nie moge odczytac profilu"]
@@ -143,5 +144,35 @@ def test_real_radio_data_flows_through_gui_dispatch_without_profile_writes():
         assert filters.text_for_view(view_context(state)) == "nowy"
         assert frame.navigator.sessions[SessionId.FILES].model.rows == []
         fixture.assert_nothing_written()
+    finally:
+        fixture.tearDown()
+
+
+def test_initial_radio_library_uses_saved_order_before_ctrl_l():
+    from test_radio_saved_order import RadioOrderBase
+    fixture = RadioOrderBase()
+    fixture.SORT_MODES = {"Biblioteka": "Custom"}
+    fixture.setUp()
+    try:
+        frame, _, _ = radio_shell()
+        frame.navigator.switch_session(SessionId.FILES)
+        frame.radio = fixture.source
+        frame._radio_snapshot = fixture.source.load()
+        frame.stations = frame._radio_snapshot.list
+        frame.options = SimpleNamespace(last_folder="")
+        frame.library = SimpleNamespace(is_available=False, describe=lambda: "")
+        frame.runner = DeferredRunner()
+        frame._sync_views = lambda: None
+        frame._open_radio_view = lambda intent: LiteFrame._open_radio_view(frame, intent)
+        frame._run = lambda intents: LiteFrame._run(frame, intents)
+        LiteFrame._load_initial_content(frame)
+        # Zadanie jest konczone jawnie: bez dodatkowego Ctrl+L po starcie.
+        if hasattr(frame.runner, "work"):
+            frame.runner.done(frame.runner.work())
+        state = frame.navigator.sessions[SessionId.RADIO]
+        assert [row.item_id for row in state.model.rows] == ["b", "a", "c"], (
+            "Pierwszy widok Radia nadal ma kolejnosc cache, nie zapisana"
+        )
+        assert state.model.selected_id == "b"
     finally:
         fixture.tearDown()

@@ -34,9 +34,15 @@ AMC. Brak zapisu lub hosta nie zabiera listy: zostaje kolejność cache'u i
 komunikat „kolejność zastępcza". Na prawdziwym profilu (kopia
 `wx-full-profile-after421`) oba widoki mają zapisany `Custom`, 55 pozycji,
 kolejność zgodna z zapisem i rozdzielna między widokami, pliki nietknięte.
-Nowy `tests/test_radio_saved_order.py` 21/21; cały wxlite336/0/0. Żywego
-NVDA w tym przebiegu **nie było** — komunikat potwierdzony jako łańcuch, nie
-jako mowa. Raport: `amc_pomoc/wx-radio-activity-20261006/ORDERING.md`.
+Nowy `tests/test_radio_saved_order.py` 21/21. Wynik autora336/0/0 pochodzi
+z `unittest discover`, które pomija funkcje testowe — NIE był pełnym wxlite.
+Rodzic uruchomił runner projektu, dopasował starą atrapę do prawdziwego DTO
+i wykazał osobnym RED brak zapisanego porządku po samym starcie, przed Ctrl+L.
+Start zleca teraz właściwy odczyt także dla Radia, bez blokowania GUI i bez
+nadpisywania wyboru dokonanego podczas oczekiwania. Wąskie154/0/0; pełny
+przebieg będzie wykonany po scaleniu z odebraną opcją pozycji. Żywego NVDA
+dla tych nowych widoków jeszcze nie było. Raport autora: `ORDERING.md`;
+uzupełnienie rodzica: `amc_pomoc/wx-radio-activity-20261006/PARENT-ORDERING.md`.
 
 ## Poprawki plików — odebrane z rzeczywistym GUI i NVDA
 

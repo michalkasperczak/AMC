@@ -1656,6 +1656,13 @@ class LiteFrame(wx.Frame):
             rows_from_stations(self.stations.as_payload()),
             preferred_id=self._radio_snapshot.current_id,
         ))
+        # Porzadek profilu obowiazuje juz po starcie, nie dopiero po Ctrl+L.
+        # Wstepne dane zapewniaja liste takze przy odmowie drugiego odczytu;
+        # finalny odczyt/kolacja sa poza watkiem GUI. Brak preferred_id chroni
+        # wybor wykonany przez uzytkownika w czasie oczekiwania.
+        self._open_radio_view(OpenLibraryView(
+            view=None, target_session_id=SessionId.RADIO,
+        ))
         # Blad ODCZYTU stacji nie jest tym samym co profil bez stacji. Dopoki
         # RadioSource oddawalo pusta liste w obu przypadkach, uzytkownik slyszal
         # cisze takze wtedy, gdy profil byl uszkodzony albo zajety.
