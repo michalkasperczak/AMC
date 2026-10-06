@@ -2,6 +2,29 @@
 
 Odebrany kod: `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz z wcześniejszym statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
+## Kandydat: osobne widoki Radia
+
+Ctrl+L, Ctrl+U i Ctrl+H mają wspólną drogę z menu/F1 oraz osobny cel sesji.
+Biblioteka filtruje isInLibrary, Ulubione wyłącznie isFavorite, Historia
+rozwija zapisane ID z SQLite w całym cache radia. Stacja spoza Biblioteki
+może pozostać w Ulubionych lub Historii; żaden odczyt nie podnosi flag.
+
+`radio_views.py` jest warstwą danych. `OpenLibraryView.target_session_id`
+kieruje dispatcher do `_open_radio_view`; `Navigator.apply_radio_view`
+przechowuje wybory i klucz widoku osobno od Plików. Opóźniona odpowiedź
+nie przemawia w innej sesji. Błąd zachowuje starą listę. Ctrl+L/U/H działa
+w resolverze Radia także z PLAYER, a Backspace wraca do Biblioteki stacji.
+
+Wykonany test połączenia używa prawdziwego loadera i zapisanych danych
+syntetycznych, ale atrapy wx i zamiaru PlayStation, nie fizycznego GUI/audio.
+Python:855PASS/0FAIL/15SKIP (brak DLL testów protokołu w tym worktree).
+Raport: `amc_pomoc/wx-radio-activity-20261006/PARENT-INTEGRATION.md`.
+
+Pozostają zapisane porządki Biblioteki/Ulubionych (obecnie kolejność cache)
+oraz żywy odbiór finalnego połączenia. To kandydat, nie funkcje już
+odebrane lub dostarczone. Prywatna lista lite-home bez danych pełnego
+profilu uczciwie odmawia Ulubionych/ Historii zamiast udawać pusty wynik.
+
 ## Poprawki plików — odebrane z rzeczywistym GUI i NVDA
 
 Ctrl+O otwiera plik, Ctrl+Shift+O folder. Escape z listy najpierw czyści

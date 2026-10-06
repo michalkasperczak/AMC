@@ -55,6 +55,15 @@ class RadioSnapshot:
     load_error: str | None = None
     #: ``True`` gdy pokazujemy POPRZEDNIA liste, bo odswiezenie sie nie udalo.
     kept_previous: bool = False
+    #: Ktory ZAKRES cache'u radia zostal wczytany: ``library`` / ``favorites``
+    #: / ``all``. Pole jest jawne, bo pusta lista Ulubionych i pusta Biblioteka
+    #: to dwie rozne odpowiedzi.
+    scope: str = "library"
+    #: Zdanie o tym, ze zadany zakres NIE ISTNIEJE w tym zrodle (np. prywatna
+    #: lista stacji nie ma flag ulubionych). Osobne od ``load_error``: tam
+    #: odczyt sie nie udal, tutaj odczyt sie udal, ale danych tego rodzaju
+    #: w ogole nie ma -- i udana pusta lista bylaby klamstwem.
+    unavailable_reason: str | None = None
 
     @property
     def stations(self) -> list[Station]:
@@ -74,7 +83,38 @@ class RadioSnapshot:
         return self.list.as_payload()
 
 
-def stations_from_amc_state(raw: dict) -> tuple[list[Station], str | None]:
+#: Zakresy cache'u ``radio.stations``. Zamkniety zbior, nie wejscie uzytkownika.
+SCOPE_LIBRARY = "library"
+SCOPE_FAVORITES = "favorites"
+SCOPE_ALL = "all"
+RADIO_SCOPES = (SCOPE_LIBRARY, SCOPE_FAVORITES, SCOPE_ALL)
+
+
+def _scope_keeps(entry: dict, scope: str) -> bool:
+    """Czy wpis cache'u nalezy do zadanego zakresu.
+
+    Obie flagi czytamy jako BOOLEAN (``is True``), nie przez prawdziwosc:
+    napis ``"false"`` jest w Pythonie prawdziwy i cicho przepuscilby caly
+    cache. Brak pola = poza zakresem (``RadioStationSettings`` ma oba ``bool``
+    bez inicjalizatora).
+
+    Ulubione sa NIEZALEZNE od Biblioteki: ``isFavorite`` sprawdzamy samodzielnie
+    i nie dokladamy do niego ``isInLibrary``. Podnoszenie ``IsInLibrary`` dla
+    ulubionych robi ``ConfigurationStore.NormalizeRadio`` po stronie C#, ktory
+    jest wlascicielem zapisu -- gdyby Python tego wymagal, ulubiona stacja
+    zdjeta z Biblioteki zniknelaby z widoku Ulubionych, czego zadna regula
+    oryginalu nie mowi.
+    """
+    if scope == SCOPE_ALL:
+        return True
+    if scope == SCOPE_FAVORITES:
+        return entry.get("isFavorite") is True
+    return entry.get("isInLibrary") is True
+
+
+def stations_from_amc_state(
+    raw: dict, *, scope: str = SCOPE_LIBRARY
+) -> tuple[list[Station], str | None]:
     """Wyciagnij stacje BIBLIOTEKI radia z ``radio.stations`` profilu AMC.
 
     Nazwy pol pochodza ze ZMIERZONEGO ``state.json`` (``schemaVersion`` 54):
@@ -123,11 +163,14 @@ def stations_from_amc_state(raw: dict) -> tuple[list[Station], str | None]:
     if not isinstance(radio, dict):
         return [], None
 
+    if scope not in RADIO_SCOPES:
+        raise ValueError(f"Nieznany zakres radia: {scope}")
+
     stations: list[Station] = []
     for entry in radio.get("stations") or []:
         if not isinstance(entry, dict):
             continue
-        if entry.get("isInLibrary") is not True:
+        if not _scope_keeps(entry, scope):
             # Osad cache'u: wyniki katalogu Radio Browser, jednorazowe
             # strumienie i stacje kiedykolwiek zdjete z Biblioteki.
             continue
@@ -170,45 +213,73 @@ class RadioSource:
 
     # ---------------------------------------------------------------- odczyt
 
-    def load(self, previous: RadioSnapshot | None = None) -> RadioSnapshot:
+    def load(
+        self,
+        previous: RadioSnapshot | None = None,
+        *,
+        scope: str = SCOPE_LIBRARY,
+    ) -> RadioSnapshot:
         """Wczytaj stacje. ``previous`` ratuje liste przy nieudanym odswiezeniu.
 
         Przy pierwszym wczytaniu ``previous`` nie ma i blad konczy sie pusta
         lista z komunikatem -- nie ma czego ratowac. Przy ODSWIEZANIU juz jest:
         165 stacji nie moze zniknac z ekranu dlatego, ze AMC akurat trzymalo
         plik na zapisie przez ulamek sekundy.
-        """
-        if self.layout.mode is ProfileMode.READ_ONLY_MIRROR:
-            return self._load_from_amc(previous)
-        return self._load_private()
 
-    def _load_from_amc(self, previous: RadioSnapshot | None = None) -> RadioSnapshot:
+        ``scope`` wybiera, KTORA czesc cache'u ``radio.stations`` oddajemy:
+        ``library`` (domyslnie, zgodnie z poprzednim zachowaniem),
+        ``favorites`` albo ``all`` (caly cache -- katalog dla Historii).
+        Zakres dokladamy TUTAJ, a nie w nowym czytniku, zeby obsluga bledow
+        odczytu (brak pliku, uszkodzony JSON, zajety plik) i ratowanie
+        poprzedniej listy istnialy w JEDNYM miejscu.
+        """
+        if scope not in RADIO_SCOPES:
+            raise ValueError(f"Nieznany zakres radia: {scope}")
+        if self.layout.mode is ProfileMode.READ_ONLY_MIRROR:
+            return self._load_from_amc(previous, scope=scope)
+        return self._load_private(scope=scope)
+
+    def _load_from_amc(
+        self, previous: RadioSnapshot | None = None, *, scope: str = SCOPE_LIBRARY
+    ) -> RadioSnapshot:
         path = Path(self.layout.state_json)
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            return self._read_failure("Nie znalazłem profilu AMC", previous)
+            return self._read_failure("Nie znalazłem profilu AMC", previous, scope)
         except json.JSONDecodeError:
-            return self._read_failure("Profil AMC jest uszkodzony", previous)
+            return self._read_failure("Profil AMC jest uszkodzony", previous, scope)
         except UnicodeDecodeError:
-            return self._read_failure("Nie mogę odczytać profilu AMC: złe kodowanie", previous)
+            return self._read_failure(
+                "Nie mogę odczytać profilu AMC: złe kodowanie", previous, scope
+            )
         except OSError as error:
             # Najczesciej: AMC trzyma plik na zapisie, albo brak uprawnien.
             # Nie rozwijamy wyjatku do czytnika - sama nazwa klasy nic nie mowi.
             reason = getattr(error, "strerror", None) or "błąd odczytu"
-            return self._read_failure(f"Nie mogę odczytać profilu AMC: {reason}", previous)
+            return self._read_failure(
+                f"Nie mogę odczytać profilu AMC: {reason}", previous, scope
+            )
         if not isinstance(raw, dict):
-            return self._read_failure("Profil AMC ma nieoczekiwaną zawartość", previous)
+            return self._read_failure(
+                "Profil AMC ma nieoczekiwaną zawartość", previous, scope
+            )
 
-        stations, current = stations_from_amc_state(raw)
+        stations, current = stations_from_amc_state(raw, scope=scope)
         # Odczyt sie udal: nawet pusta lista jest teraz PRAWDA o profilu, wiec
         # nie wskrzeszamy poprzednich stacji i gasimy komunikat bledu.
         return RadioSnapshot(
-            list=StationList(stations), current_id=current, from_amc_profile=True
+            list=StationList(stations),
+            current_id=current,
+            from_amc_profile=True,
+            scope=scope,
         )
 
     def _read_failure(
-        self, message: str, previous: RadioSnapshot | None
+        self,
+        message: str,
+        previous: RadioSnapshot | None,
+        scope: str = SCOPE_LIBRARY,
     ) -> RadioSnapshot:
         """Snapshot bledu: mowi co sie stalo i nie gubi tego, co juz bylo.
 
@@ -222,21 +293,39 @@ class RadioSource:
                 from_amc_profile=True,
                 load_error=f"{message}. Pokazuję poprzednią listę.",
                 kept_previous=True,
+                scope=scope,
             )
         return RadioSnapshot(
-            list=StationList(), from_amc_profile=True, load_error=message
+            list=StationList(), from_amc_profile=True, load_error=message, scope=scope
         )
 
-    def _load_private(self) -> RadioSnapshot:
+    def _load_private(self, *, scope: str = SCOPE_LIBRARY) -> RadioSnapshot:
         store = StateStore(self.layout.lite_settings_dir)
         state = store.load()
         navigation = state.navigation if isinstance(state.navigation, dict) else {}
         current = navigation.get("radio_current_id")
+        if scope != SCOPE_LIBRARY:
+            # Prywatna lista to {id,name,url} -- nie ma ani ``isFavorite``, ani
+            # cache'u calej sesji radia. Udana pusta lista powiedzialaby
+            # niewidomemu uzytkownikowi ,,nie masz ulubionych'', co jest
+            # falszem: tego rodzaju danych w tym zrodle po prostu NIE MA.
+            return RadioSnapshot(
+                list=StationList(),
+                current_id=current if isinstance(current, str) and current else None,
+                from_amc_profile=False,
+                private_state=state,
+                scope=scope,
+                unavailable_reason=(
+                    "Prywatna lista stacji nie przechowuje ulubionych ani "
+                    "historii radia. Ten widok wymaga profilu AMC."
+                ),
+            )
         return RadioSnapshot(
             list=StationList(list(state.stations)),
             current_id=current if isinstance(current, str) and current else None,
             from_amc_profile=False,
             private_state=state,
+            scope=scope,
         )
 
     # ----------------------------------------------------------------- zapis
