@@ -110,6 +110,28 @@ class AmcRadioListItem:
             return {}
         return super()._get_positionInfo()
 
+    #: WLASNY deskryptor ``positionInfo``, stawiany RECZNIE. Bez tej linii
+    #: nakladka jest martwa.
+    #:
+    #: ``baseObject.AutoPropertyType`` (odczytane z ``library.zip``
+    #: zainstalowanego NVDA) stawia deskryptor ``positionInfo`` WYLACZNIE dla
+    #: ``_get_positionInfo`` z WLASNEJ przestrzeni nazw tworzonej klasy, a
+    #: ``Getter.__get__`` wola zapamietana SUROWA funkcje -- nie
+    #: ``instance._get_positionInfo()``.
+    #:
+    #: Klasa ``Dynamic_...``, ktora NVDA sklada z nakladek, ma PUSTA
+    #: przestrzen nazw, wiec metaklasa nie stawia tam nic. Bez wlasnego
+    #: deskryptora wyszukiwanie ``positionInfo`` trafialo w deskryptor
+    #: natywnej ``sysListView32.ListItem``, zamkniety na JEJ funkcji -- i to
+    #: ponizsze ``_get_positionInfo`` nie bylo wolane ANI RAZU, mimo ze
+    #: nakladka stoi pierwsza w MRO. ZMIERZONE na zywym NVDA: przy obu
+    #: znacznikach na HWND licznik "16 z 55" byl nadal mowiony.
+    #:
+    #: Zwykla ``property``, nie ``Getter``: nie importujemy ``baseObject``
+    #: (nakladka musi dac sie wczytac i sprawdzic bez NVDA), a pozycji i tak
+    #: NIE WOLNO cache'owac -- tryb zmienia sie bez ponownego fokusu.
+    positionInfo = property(lambda self: self._get_positionInfo())
+
 
 def chooseOverlay(obj, clsList):
     """Dolacz nakladke WYLACZNIE do wiersza oznaczonej listy AMC.

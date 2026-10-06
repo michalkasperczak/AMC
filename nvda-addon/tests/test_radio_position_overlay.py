@@ -51,39 +51,70 @@ class FakeUser32:
         return self.props.get((hwnd, name), 0)
 
 
+class Getter:
+    """``baseObject.Getter`` odwzorowany WIERNIE: trzyma SUROWA funkcje.
+
+    To nie jest szczegol. ``Getter.__get__`` wola ``self.fget(instance)``, a
+    nie ``instance._get_positionInfo()``. Deskryptor zapamietuje wiec
+    konkretna funkcje z klasy, w ktorej powstal -- pozniejsza podmiana
+    ``_get_positionInfo`` w innej klasie MRO nie ma na niego wplywu.
+    """
+
+    def __init__(self, fget):
+        self.fget = fget
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return self.fget(instance)
+
+
+class AutoPropertyType(type):
+    """``baseObject.AutoPropertyType`` odwzorowany WIERNIE w tym jednym punkcie.
+
+    Odczytane z zainstalowanego NVDA (``library.zip``, ``baseObject.pyc``):
+    metaklasa przeglada ``namespace`` -- czyli WLASNA przestrzen nazw
+    tworzonej klasy -- i dla kazdego ``_get_<nazwa>`` stawia deskryptor
+    ``<nazwa>`` opakowujacy TE funkcje.
+
+    Konsekwencja, ktorej poprzednia atrapa nie oddawala: klasa BEZ tej
+    metaklasy nie dostaje wlasnego deskryptora, wiec jej ``_get_...`` moze
+    nigdy nie zostac wolane, mimo ze stoi pierwsza w MRO.
+    """
+
+    def __init__(cls, name, bases, namespace):
+        super().__init__(name, bases, namespace)
+        for attr in list(namespace):
+            if attr.startswith("_get_"):
+                setattr(cls, attr[len("_get_"):], Getter(namespace[attr]))
+
+
 NATIVE = {"indexInGroup": 3, "similarItemsInGroup": 37}
 
 
 def make_item(overlay, hwnd=4242, native=None):
-    """Obiekt listy z natywnym ``_get_positionInfo`` pod nakladka.
+    """Obiekt listy ZBUDOWANY TAK, JAK BUDUJE GO NVDA.
 
-    Kolejnosc baz odwzorowuje NVDA: nakladka jest PRZED klasa natywna, wiec
-    ``super()`` w nakladce trafia w natywna implementacje.
-
-    Metaklasa odwzorowuje ``baseObject.AutoPropertyType`` (NVDA,
-    ``source/baseObject.py:60-119``): to ona zamienia ``_get_positionInfo`` w
-    czytana wlasciwosc ``positionInfo``, wiec bez niej test sprawdzalby
-    sciezke, ktorej NVDA nie uzywa. GRANICA: to odwzorowanie KSZTALTU API,
-    nie oryginalna metaklasa -- nie ma tu cache'u ani ``invalidateCache``.
+    ``DynamicNVDAObjectType.__call__`` (``NVDAObjects/__init__.py``) tworzy
+    klase ``Dynamic_...`` z PUSTA przestrzenia nazw i baza
+    ``(nakladka, klasa_natywna, ...)``. Natywna klasa ma metaklase
+    ``AutoPropertyType``, wiec deskryptor ``positionInfo`` istnieje -- ale
+    nalezy do NIEJ.
     """
 
-    class AutoProperty(type):
-        def __new__(mcls, name, bases, namespace):
-            cls = super().__new__(mcls, name, bases, namespace)
-            cls.positionInfo = property(lambda self: self._get_positionInfo())
-            return cls
-
-    class Native:
+    class NativeBase(metaclass=AutoPropertyType):
         def __init__(self):
             self.windowHandle = hwnd
 
         def _get_positionInfo(self):
             return dict(NATIVE if native is None else native)
 
-    class Item(overlay, Native, metaclass=AutoProperty):
-        pass
-
-    return Item()
+    item_type = AutoPropertyType(
+        "Dynamic_%s_NativeBase" % overlay.__name__,
+        (overlay, NativeBase),
+        {"__module__": __name__},
+    )
+    return item_type()
 
 
 class OverlayDecisionTests(unittest.TestCase):
@@ -160,9 +191,24 @@ class OverlayDecisionTests(unittest.TestCase):
 
     def test_nakladka_nie_rusza_niczego_poza_pozycja(self):
         """Zaden przechwyt mowy, zadne gesty, zadna nazwa ani rola."""
-        allowed = {"_get_positionInfo", "__module__", "__qualname__", "__doc__", "__dict__", "__weakref__"}
+        allowed = {"_get_positionInfo", "positionInfo", "__module__", "__qualname__", "__doc__", "__dict__", "__weakref__"}
         extra = set(vars(self.module.AmcRadioListItem)) - allowed
         self.assertFalse(extra, f"nakladka rusza wiecej niz pozycje: {extra}")
+
+    def test_nakladka_MA_WLASNY_deskryptor_pozycji(self):
+        """Bez wlasnego deskryptora nakladka jest martwa -- to byl defekt.
+
+        ``AutoPropertyType`` stawia ``positionInfo`` tylko z WLASNEJ
+        przestrzeni nazw klasy, a ``Dynamic_...`` sklejana przez NVDA ma ja
+        pusta. Nakladka bez swojego deskryptora oddawala wiec caly odczyt
+        natywnej ``sysListView32.ListItem``.
+        """
+        self.assertIn("positionInfo", vars(self.module.AmcRadioListItem))
+
+    def test_pozycja_nie_jest_cache_owana(self):
+        """Tryb zmienia sie bez refocusu, wiec cache zamroziłby stary stan."""
+        descriptor = vars(self.module.AmcRadioListItem)["positionInfo"]
+        self.assertIsInstance(descriptor, property)
 
 
 class OverlaySelectionTests(unittest.TestCase):
