@@ -86,8 +86,8 @@ public sealed class LiteDispatchLoop(
 {
     /// <summary>
     /// Gorna granica jednoczesnych zadan wspolbieznych. Przytrzymany klawisz
-    /// nie moze utworzyc tysiaca watkow pomiaru metadanych; nadmiar wraca na
-    /// tor serialny i tak czeka na swoja kolej.
+    /// nie może tworzyć nieograniczonej liczby pomiarów. Przy zajętych
+    /// miejscach odpowiadamy odmową, nigdy pomiarem na wątku transportu.
     /// </summary>
     public const int MaxConcurrentOperations = 3;
 
@@ -162,9 +162,9 @@ public sealed class LiteDispatchLoop(
 
     /// <summary>
     /// Probuje obsluzyc zadanie poza kolejka. Zwraca <c>false</c>, gdy
-    /// operacja nie jest zgloszona jako wspolbiezna ALBO gdy wszystkie miejsca
-    /// sa zajete - wtedy wolajacy obsluguje ja serialnie. Dzieki temu
-    /// przytrzymany klawisz nie tworzy nieograniczonej liczby zadan.
+    /// operacja nie jest zgłoszona jako współbieżna. Przy zajętych miejscach
+    /// od razu odpowiada błędem; spadnięcie na tor serialny znowu blokowałoby
+    /// pauzę właśnie przy szybkim powtarzaniu klawisza.
     /// </summary>
     private bool TryBeginConcurrent(
         LiteReadOutcome outcome,
@@ -177,7 +177,14 @@ public sealed class LiteDispatchLoop(
         // Zle zadanie i nieznana operacja zostaja na torze serialnym: ich
         // odpowiedz bledu i tak jest natychmiastowa.
         if (!outcome.IsRequest || !_concurrent.Contains(outcome.Request!.Op)) return false;
-        if (!slots.Wait(0)) return false;
+        if (!slots.Wait(0))
+        {
+            writeLine(LiteJson.Serialize(new LiteErrorEnvelope(
+                outcome.Request.Id,
+                "operation_busy",
+                "Trwa odczyt informacji. Powtórz skrót za chwilę.")));
+            return true;
+        }
 
         inFlight.RemoveAll(static task => task.IsCompleted);
         inFlight.Add(Task.Run(() =>

@@ -15,6 +15,7 @@ internal static class DispatchLoopTests
         EventsAreWrittenAsOwnLines();
         HandlerFailureBecomesResponseNotCrash();
         SlowQuickInformationDoesNotBlockTransport();
+        SlowQuickInformationDoesNotBlockTransport(LiteDispatchLoop.MaxConcurrentOperations + 1);
         OrdinaryOperationsStayInOrder();
         ConcurrentOperationFinishesBeforeRunReturns();
         ConcurrencyIsBoundedNotOnePerRequest();
@@ -40,7 +41,7 @@ internal static class DispatchLoopTests
     /// Bariere zwalnia blok <c>finally</c>, zeby niepowodzenie nie zostawilo
     /// zakleszczonego watku petli.
     /// </summary>
-    private static void SlowQuickInformationDoesNotBlockTransport()
+    private static void SlowQuickInformationDoesNotBlockTransport(int informationRequests = 1)
     {
         using var quickInfoEntered = new ManualResetEventSlim(false);
         using var releaseQuickInfo = new ManualResetEventSlim(false);
@@ -52,9 +53,9 @@ internal static class DispatchLoopTests
             ["media.quickInformation"] = (_, _) =>
             {
                 quickInfoEntered.Set();
-                // Odpowiednik blokujacego odczytu metadanych w prawdziwym
-                // handlerze. Limit chroni przed wiecznym wisem testu.
-                releaseQuickInfo.Wait(ProbeWait);
+                // Zwolnienie WYŁĄCZNIE przez finally testu. Timeout samego
+                // handlera mógłby pozornie odblokować transport przed asercją.
+                releaseQuickInfo.Wait();
                 return new { text = "Informacje" };
             },
             ["transport.status"] = (_, _) =>
@@ -69,12 +70,12 @@ internal static class DispatchLoopTests
             }
         };
 
-        var input = string.Join('\n',
-        [
-            """{"id":"info","op":"media.quickInformation","args":{}}""",
-            """{"id":"stan","op":"transport.status"}""",
-            """{"id":"pauza","op":"transport.pause"}"""
-        ]) + "\n";
+        var input = string.Join('\n', Enumerable.Range(0, informationRequests)
+            .Select(index => $"{{\"id\":\"info{index}\",\"op\":\"media.quickInformation\"}}")
+            .Concat([
+                """{"id":"stan","op":"transport.status"}""",
+                """{"id":"pauza","op":"transport.pause"}"""
+            ])) + "\n";
 
         var output = new StringWriter();
         var loop = new LiteDispatchLoop(handlers, concurrentOperations: ["media.quickInformation"]);
@@ -107,14 +108,22 @@ internal static class DispatchLoopTests
             .Select(line => JsonDocument.Parse(line.TrimEnd('\r')))
             .ToArray();
 
-        Assert.True(lines.Length == 3, $"trzy zadania = trzy odpowiedzi, jest {lines.Length}");
+        Assert.True(lines.Length == informationRequests + 2, $"odpowiedź na każde zadanie, jest {lines.Length}");
         var identifiers = lines.Select(line => line.RootElement.GetProperty("id").GetString()).ToArray();
-        Assert.True(identifiers.Contains("info"), "odpowiedz informacji dotarla");
+        Assert.True(identifiers.Contains("info0"), "odpowiedz informacji dotarla");
         Assert.True(identifiers.Contains("stan"), "odpowiedz transport.status dotarla");
         Assert.True(identifiers.Contains("pauza"), "odpowiedz pauzy dotarla");
+        if (informationRequests > LiteDispatchLoop.MaxConcurrentOperations)
+        {
+            var busy = lines.Where(line => line.RootElement.TryGetProperty("error", out _)).ToArray();
+            Assert.True(busy.Length == informationRequests - LiteDispatchLoop.MaxConcurrentOperations,
+                "nadmiar ma natychmiastową odpowiedź, nie znika i nie tworzy dodatkowych zadań");
+            Assert.True(busy.All(line => line.RootElement.GetProperty("error").GetProperty("code").GetString() == "operation_busy"),
+                "odmowa zachowuje kod operation_busy dla krótkiego komunikatu interfejsu");
+        }
         // Wolna informacja konczy sie PO transporcie: dowod, ze transport
         // nie czekal na nia w kolejce.
-        Assert.True(Array.IndexOf(identifiers, "info") > Array.IndexOf(identifiers, "stan"),
+        Assert.True(Array.IndexOf(identifiers, "info0") > Array.IndexOf(identifiers, "stan"),
             "odpowiedz informacji wraca po transporcie, bo transport jej nie czekal");
     }
 
@@ -194,9 +203,8 @@ internal static class DispatchLoopTests
 
     /// <summary>
     /// Przytrzymany skrot (auto-powtarzanie klawisza) nie moze wyprodukowac
-    /// dowolnej liczby rownoleglych pomiarow metadanych. Nadmiar wraca na tor
-    /// serialny, wiec liczba jednoczesnych pomiarow jest skonczona, a KAZDE
-    /// zadanie dostaje odpowiedz.
+    /// dowolnej liczby równoległych pomiarów. Nadmiar dostaje szybką odmowę,
+    /// zamiast blokować transport na serialnym pomiarze. Każde ID ma odpowiedź.
     /// </summary>
     private static void ConcurrencyIsBoundedNotOnePerRequest()
     {
@@ -227,13 +235,10 @@ internal static class DispatchLoopTests
         var lines = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.True(lines.Length == requests,
             $"kazde zadanie ma odpowiedz, oczekiwano {requests}, jest {lines.Length}");
-        // Granica to miejsca wspolbiezne PLUS jedno zadanie, ktore po ich
-        // wyczerpaniu petla obsluguje sama na swoim watku. Pomiar pokazal
-        // szczyt 4 przy limicie 3 wlasnie z tego powodu - to zachowanie
-        // zamierzone (nadmiar czeka serialnie), nie wyciek watkow.
-        const int bound = LiteDispatchLoop.MaxConcurrentOperations + 1;
+        // Nie ma dodatkowego pomiaru na wątku pętli: on musi obsługiwać pauzę.
+        const int bound = LiteDispatchLoop.MaxConcurrentOperations;
         Assert.True(peak <= bound,
-            $"liczba jednoczesnych pomiarow ograniczona do {bound} (miejsca + tor serialny), szczyt {peak}");
+            $"liczba jednoczesnych pomiarow ograniczona do {bound} (bez blokowania transportu), szczyt {peak}");
         Assert.True(peak > 1,
             $"pomiar musi w ogole zobaczyc wspolbieznosc, szczyt {peak}");
     }

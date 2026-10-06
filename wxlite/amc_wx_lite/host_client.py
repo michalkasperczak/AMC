@@ -27,6 +27,10 @@ from typing import Any, Callable
 class HostError(RuntimeError):
     """Host odpowiedzial bledem (np. nie ma pliku). To NIE jest awaria procesu."""
 
+    def __init__(self, message: str, *, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
 
 class HostUnavailable(RuntimeError):
     """Hosta nie da sie uruchomic albo juz nie zyje."""
@@ -40,6 +44,7 @@ class Response:
     request_id: str
     result: Any = None
     error: str | None = None
+    error_code: str | None = None
 
 
 def decode_line(line: str) -> dict | None:
@@ -67,7 +72,10 @@ def classify(message: dict) -> tuple[str, Any]:
         request_id = str(raw_id)
         error = message.get("error")
         if isinstance(error, dict):
-            return "response", Response(request_id, error=str(error.get("message") or "Blad hosta"))
+            return "response", Response(
+                request_id, error=str(error.get("message") or "Blad hosta"),
+                error_code=error.get("code") if isinstance(error.get("code"), str) else None,
+            )
         if error is not None:
             return "response", Response(request_id, error=str(error))
         return "response", Response(request_id, result=message.get("result"))
@@ -273,7 +281,7 @@ class LiteHostClient:
             raise HostUnavailable(f"Silnik nie odpowiedzial w {timeout:.0f} s na {op}.") from None
 
         if response.error is not None:
-            raise HostError(response.error)
+            raise HostError(response.error, code=response.error_code)
         return response.result
 
     # ------------------------------------------------- wygodne skroty operacji

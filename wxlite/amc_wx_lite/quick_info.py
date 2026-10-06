@@ -321,10 +321,11 @@ def quick_info_failure(
     session: str,
     view: str,
     say: Callable[[str], None],
+    error: Exception | None = None,
 ) -> None:
     """Spozniony BLAD przechodzi przez TE SAMA bramke co wynik."""
     if guard.accepts(item_id=item_id, session=session, view=view):
-        say(HOST_ERROR_MESSAGE)
+        say(str(error) if getattr(error, "code", None) == "operation_busy" else HOST_ERROR_MESSAGE)
 
 
 def announce_quick_information(
@@ -370,13 +371,14 @@ def announce_quick_information(
 
     try:
         response = ask_host(plan.request)
-    except Exception:  # noqa: BLE001 - blad pomiaru ma dojsc do uzytkownika
+    except Exception as error:  # noqa: BLE001 - blad pomiaru ma dojsc do uzytkownika
         quick_info_failure(
             guard=plan.guard,
             item_id=current_item_id(),
             session=current_session(),
             view=current_view(),
             say=say,
+            error=error,
         )
         return
 

@@ -5,7 +5,8 @@
 - `shortcuts.py`: niemodyfikowana Left na listach Radia/Plików daje `QUICK_INFORMATION`; w PLAYER nadal przewija, w filtrze pozostaje natywna.
 - `gui.LiteFrame._announce_quick_information` i `quick_info.py`: wybrany wiersz, praca w tle, read-only cache `state.json`/`library.db`, bramka późnych odpowiedzi. Folder ogłasza ścieżkę.
 - `LiteHost/Protocol/LiteQuickInformation.cs`: dane protokołu i istniejący `QuickMediaInformationFormatter` Core; `LiteEngineHandlers` uzupełnia brakujące parametry bez odtwarzania i bez hydratacji pliku chmurowego.
-- Testy `test_quick_information_*.py`, `QuickInformationTests.cs`; rzeczywiste połączenie Python–C# nie zastępuje brakującego jeszcze odbioru gestu i mowy NVDA. Podcasty mają kontrakt danych, nie nowy gotowy interfejs; serwisy streamingowe poza zakresem.
+- `LiteHost/Program.cs` dopuszcza pracę poza pętlą poleceń tylko dla `media.quickInformation`. Limit trzech pomiarów; nadmiar dostaje `operation_busy`, nigdy nie wraca na blokujący tor transportu. `host_client.py` zachowuje kod błędu, żeby powtórzenie skrótu dostało krótki komunikat, nie pozorną awarię elementu.
+- Testy `test_quick_information_*.py`, `QuickInformationTests.cs`, `DispatchLoopTests.cs`; końcowe 920/0/0 Python i 8 zestawów protokołu PASS (jedna istniejąca próba produkcyjnego profilu pominięta na WSL). Rzeczywiste połączenie Python–C# nie zastępuje brakującego odbioru gestu i mowy NVDA. Podcasty mają kontrakt danych, nie nowy gotowy interfejs; serwisy streamingowe poza zakresem.
 
 ## AMC Python: natywne menu i komunikaty (po AMC422)
 

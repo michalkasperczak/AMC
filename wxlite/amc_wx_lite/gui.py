@@ -2200,6 +2200,7 @@ class LiteFrame(wx.Frame):
 
         def failed(_error: Exception) -> None:
             quick_info_failure(
+                error=_error,
                 guard=guard,
                 item_id=self._selected_item_id(),
                 session=self.navigator.active.value,
