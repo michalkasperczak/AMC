@@ -296,10 +296,6 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     "F2": Action.STATION_EDIT,
     "Delete": Action.STATION_DELETE,
     "Ctrl+I": Action.STATION_IMPORT,
-    # Przelacznik licznika pozycji. Gest ZAWEZONY do listy radia, bo tylko tu
-    # ma sens; w plikach i w odtwarzaczu zostaje wolny. Ctrl+Shift+N nie
-    # koliduje z zadna inna tablica (sprawdzone) ani z Ctrl+N wyzej.
-    "Ctrl+Shift+N": Action.TOGGLE_RADIO_POSITION,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role

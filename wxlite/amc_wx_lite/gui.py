@@ -2768,7 +2768,7 @@ class LiteFrame(wx.Frame):
         self.announcer.say(result.message)
 
     def _toggle_radio_position(self) -> None:
-        """Ctrl+Shift+N -- przelacznik licznika "3 z 37" na liscie stacji.
+        """Opcja menu Radio: odczyt pozycji stacji.
 
         To ustawienie jest NASZE: port wx trzyma je w swoim ``state.json``,
         wiec tutaj zapisujemy naprawde (inaczej niz przy komunikatach
@@ -2799,6 +2799,7 @@ class LiteFrame(wx.Frame):
             # po tym wierszu i pamiec, i HWND opisuja ten sam, stary stan.
             self.options.radio_announce_position = previous
             self.state.options = self.options
+            self._refresh_menu_state()
             self.announcer.say(
                 "Nie udało się zapisać ustawienia. Odczyt pozycji stacji "
                 "zostaje bez zmian."
@@ -2815,7 +2816,8 @@ class LiteFrame(wx.Frame):
         # ``overlay_addon_installed`` to strona dodatku.
         self.announcer.say(radio_position.announcement(
             hide_position=not new_value,
-            overlay_available=marked and radio_position.overlay_addon_installed(),
+            overlay_available=radio_position.overlay_addon_installed(),
+            marker_applied=marked,
         ))
 
     def _radio_list_is_shown(self) -> bool:

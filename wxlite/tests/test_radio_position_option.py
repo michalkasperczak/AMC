@@ -297,3 +297,45 @@ def test_przelacznik_nie_dokłada_wariantu_do_pelnego_AMC() -> None:
     ).read_text(encoding="utf-8")
     for forbidden in ("AccessibleMediaController", "state.json", "host_client"):
         assert forbidden not in source, forbidden
+
+
+def test_odmowa_usuniecia_markera_nie_jest_sukcesem_i_mozna_ponowic() -> None:
+    fake = FakeUser32()
+    allow_remove = False
+
+    def remove(hwnd, name):
+        return fake.remove_prop(hwnd, name) if allow_remove else False
+
+    markers = radio_position.WindowMarkers(fake.set_prop, remove)
+    assert markers.apply(4242, is_radio_list=True, hide_position=True)
+    assert not markers.apply(4242, is_radio_list=True, hide_position=False)
+    assert fake.props[(4242, radio_position.MODE_PROP)] == 1
+    allow_remove = True
+    assert markers.apply(4242, is_radio_list=True, hide_position=False)
+    assert (4242, radio_position.MODE_PROP) not in fake.props
+
+
+def test_plik_dodatku_nie_dowodzi_aktywnego_wykonawcy() -> None:
+    text = radio_position.announcement(hide_position=True, overlay_available=True)
+    assert "w AMC" in text
+
+
+def test_blad_markera_ma_wlasna_przyczyne_komunikatu() -> None:
+    import inspect
+
+    assert "marker_applied" in inspect.signature(radio_position.announcement).parameters
+    text = radio_position.announcement(
+        hide_position=True, overlay_available=True, marker_applied=False,
+    )
+    assert "nie udało się" in text
+    assert "dodat" not in text.lower()
+
+
+def test_przelacznik_ma_menu_bez_nowego_globalnego_skrotu() -> None:
+    from amc_wx_lite.menu_model import build_menus
+    from amc_wx_lite.shortcuts import Action, RADIO_LIST_VIEW
+
+    entry = next(i for m in build_menus() for i in m.items
+                 if i.action is Action.TOGGLE_RADIO_POSITION)
+    assert not entry.shortcut
+    assert "Ctrl+Shift+N" not in RADIO_LIST_VIEW

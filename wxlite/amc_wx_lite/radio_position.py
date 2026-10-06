@@ -171,10 +171,9 @@ class WindowMarkers:
 
     def _drop(self, hwnd: int, name: str) -> bool:
         try:
-            self._remove(hwnd, name)
+            return bool(self._remove(hwnd, name))
         except (OSError, ValueError, TypeError):
             return False
-        return True
 
 
 # ------------------------------------------- uczciwosc wobec braku dodatku
@@ -210,17 +209,19 @@ def overlay_addon_installed(root: Path | None = None) -> bool:
         return False
 
 
-def announcement(*, hide_position: bool, overlay_available: bool) -> str:
+def announcement(*, hide_position: bool, overlay_available: bool, marker_applied: bool = True) -> str:
     """Zapowiedz zmiany przelacznika -- bez obietnicy, ktorej nie dowiezie.
 
     Wlaczony licznik jest NATYWNY (NVDA liczy go sam), wiec tam dodatek nie
     jest do niczego potrzebny i ostrzezenie byloby nieprawda.
     """
+    if not marker_applied:
+        return "Opcja zapisana, ale nie udało się zastosować jej do listy."
     if not hide_position:
-        return "Odczyt pozycji stacji włączony."
+        return "Odczyt pozycji stacji włączony w AMC."
     if overlay_available:
-        return "Odczyt pozycji stacji wyłączony."
+        return "Odczyt pozycji stacji wyłączony w AMC."
     return (
-        "Odczyt pozycji stacji wyłączony w AMC, ale nie znalazłem dodatku NVDA, "
-        "który to wykonuje. Licznik może być nadal czytany."
+        "Odczyt pozycji stacji wyłączony w AMC. Ukrywanie wymaga aktywnego "
+        "dodatku AMC do NVDA w wersji 0.4 lub nowszej."
     )

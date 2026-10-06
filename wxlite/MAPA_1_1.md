@@ -2,12 +2,29 @@
 
 Odebrany kod: `4fbc49b085a2fffa72a28d3aef7b5e19cf496d6c`. Dostarczona paczka na głównym pozostaje oparta na `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz ze statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
+## Kandydat: opcjonalna pozycja stacji
+
+Menu Radio → „Odczyt pozycji stacji na liście” zapisuje wybór w prywatnym
+profilu interfejsu Python. Domyślnie wyłączone. Nie dodano nowego skrótu.
+Ukrywanie wymaga aktywnego dodatku AMC do NVDA 0.4.0; samo ustawienie w AMC
+nie dowodzi działania wyłączonego lub starszego dodatku. Inne czytniki
+pozostają przy własnej obsłudze pozycji.
+
+Żywy odbiór na Hermesie potwierdził nazwę bez licznika, jego powrót po ON,
+przełączanie bez wyjścia z listy, filtr i zachowanie liczników Plików.
+Rodzic potwierdził końcowe menu bez dodatkowego skrótu, zapis i komunikaty.
+Test prawdziwego handlera na Windows obejmuje też odmowę zapisu i przywrócenie
+zaznaczenia menu. Nie zmieniono globalnych ustawień NVDA.
+Kwity: `amc_pomoc/wx-radio-position-option-20261006/live/ACCEPTANCE.json`
+oraz nadrzędne `parent-final/ACCEPTANCE.md`. To lokalny kandydat do scalenia,
+jeszcze nie funkcja dostarczonej paczki na głównym komputerze.
+
 ## Biblioteka, Historia i krótki odczyt radia — odbiór na Hermesie
 
 Na `4fbc49b0` odebrano trzy zmienione zachowania fizycznymi gestami z NVDA:
 
 - Biblioteka radia: 55 wierszy zamiast całego cache 165 stacji w użytej pełnej prywatnej kopii. Rodzic potwierdził zgodność całego zbioru ID z flagą członkostwa, nie tylko liczników.
-- Czytnik na radiu mówi nazwę i pozycję, np. „Poznań 16 z 55”, bez rodzaju „stacja” i bez adresu. Filtr ograniczył listę do jednej pozycji. Opcja wyłączania samej pozycji nadal nie jest wykonana.
+- Czytnik na radiu mówi nazwę i pozycję, np. „Poznań 16 z 55”, bez rodzaju „stacja” i bez adresu. Filtr ograniczył listę do jednej pozycji. W tamtym przyroście brakowało opcji wyłączania pozycji; jej późniejszy kandydat jest opisany wyżej.
 - Ctrl+H pozwala odtworzyć dostępny plik spoza Biblioteki. Rzeczywisty host pokazał rosnący czas 1,24–8,27 s przy długości 12 s; pauza i Escape zachowały wybrany wiersz. Członkostwo pozostało wyłączone.
 
 Odbiór dotyczy próbnego środowiska Hermesa, jeszcze nie dostawy tego przyrostu.

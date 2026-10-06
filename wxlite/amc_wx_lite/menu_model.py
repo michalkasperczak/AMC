@@ -194,8 +194,8 @@ def build_menus() -> tuple[Menu, ...]:
             # dodatku AMC (wersja 0.4.0+). Przy starszym albo braku dodatku
             # ustawienie zapisze sie, a licznik zostanie -- i tak to wtedy
             # nazywamy w komunikacie, zamiast obiecywac skutek.
-            MenuItem("Czytaj &pozycję stacji na liście",
-                     Action.TOGGLE_RADIO_POSITION, shortcut="Ctrl+Shift+N",
+            MenuItem("Odczyt &pozycji stacji na liście",
+                     Action.TOGGLE_RADIO_POSITION,
                      checkable=True, needs_radio_session=True),
         ),
     )
