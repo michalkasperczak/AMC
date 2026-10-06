@@ -69,6 +69,7 @@ from .quick_info import (
     quick_info_failure,
     quick_info_plan,
     quick_info_reply,
+    read_cached_information,
 )
 from .transport_parity import (
     PLAYBACK_RATE_MAX,
@@ -2153,21 +2154,10 @@ class LiteFrame(wx.Frame):
             self.announcer.say(COPIED_NAME_MESSAGE)
 
     def _announce_quick_information(self) -> None:
-        """LEWA STRZALKA na liscie: parametry zaznaczonego elementu.
+        """Parametry zaznaczonego elementu, nie aktualnie odtwarzanego.
 
-        Port ``MediaList_PreviewKeyDown`` (``MainWindow.xaml.cs:23206-23216``).
-        ZGLOSZENIE: na listach stacji i plikow lewa strzalka milczala, choc w
-        zwyklym AMC czyta bitrate, rozmiar, czas i dane stacji.
-
-        Cala DECYZJA siedzi w ``quick_info.announce_quick_information``, zeby
-        dala sie zmierzyc bez pulpitu; tutaj zostaje tylko podlaczenie zrodel:
-
-        * ``duration_ticks`` idzie z BIBLIOTEKI, nie z odtwarzacza -- opisujemy
-          ZAZNACZONY wiersz, ktory czesto nie jest tym, co leci.
-        * napis sklada host (``media.quickInformation``) tym samym formatterem
-          C#, ktorego uzywa pelne AMC.
-        * ``runner`` trzyma pomiar POZA watkiem interfejsu (plik 5 s, strumien
-          6 s), a bramka po powrocie sprawdza wiersz, sesje, widok i okno.
+        Cache i uzupełnianie przez silnik działają poza wątkiem GUI;
+        wspólny formatter Core składa napis, bramka odrzuca spóźniony wynik.
         """
         client = self.client
         row = self.navigator.session.model.selected_row
@@ -2175,7 +2165,6 @@ class LiteFrame(wx.Frame):
             row,
             session=self.navigator.active.value,
             view=self.navigator.view.value,
-            duration_ticks=self._selected_duration_ticks(row),
             alive=self._window_alive,
         )
         if plan.message is not None:
@@ -2191,6 +2180,13 @@ class LiteFrame(wx.Frame):
 
         guard = plan.guard
         request = plan.request
+        layout = self.layout
+        assert row is not None
+
+        def work() -> object:
+            enriched = dict(request)
+            enriched.update(read_cached_information(layout, row, guard.session))
+            return client.call(QUICK_INFO_OP, enriched, timeout=12.0)
 
         def answer(payload: object) -> None:
             quick_info_reply(
@@ -2216,7 +2212,7 @@ class LiteFrame(wx.Frame):
         # zglosili falszywa awarie tuz przed nim.
         self.runner.submit(
             QUICK_INFO_STREAM,
-            lambda: client.call(QUICK_INFO_OP, request, timeout=12.0),
+            work,
             answer,
             failed,
         )
@@ -2224,23 +2220,6 @@ class LiteFrame(wx.Frame):
     def _selected_item_id(self) -> str | None:
         row = self.navigator.session.model.selected_row
         return None if row is None else row.item_id
-
-    def _selected_duration_ticks(self, row) -> int:
-        """Czas ZAZNACZONEGO wiersza, jesli interfejs go zna. Dzis: 0.
-
-        ``Row`` niesie tylko ``item_id``, ``title``, ``kind``, ``path``, ``url``,
-        ``detail`` i ``show_kind`` -- surowych tickow NIE ma, a ``detail`` to
-        napis dla czytnika, nie dana do liczenia. Oddajemy wiec 0, co znaczy
-        "NIE WIEM", i czas mierzy silnik (``LiteQuickInfoProbe.DurationTicks``,
-        port cs:5504-5508) -- tak samo jak pelne AMC, gdy wiersz go nie zna.
-
-        Celowo NIE pytamy o pozycje odtwarzacza: ``selected`` i
-        ``currentlyPlaying`` to w AMC dwie rozne rzeczy, a czas granego utworu
-        opisalby nie ten element. Gdy wiersz dostanie kiedys prawdziwe ticki,
-        wystarczy zwrocic je TUTAJ -- reszta drogi jest gotowa.
-        """
-        del row
-        return 0
 
     def _copy_address(self) -> None:
         """Ctrl+Shift+C: adres albo PRAWDZIWY PLIK zaznaczonego elementu.

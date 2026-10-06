@@ -22,7 +22,16 @@ public sealed record LiteQuickInfoRequest(
     string Source,
     long DurationTicks,
     long? PodcastMediaLength,
-    string? PodcastMediaType);
+    string? PodcastMediaType)
+{
+    public int? BitrateKbps { get; init; }
+    public int? SampleRateHz { get; init; }
+    public bool IsBitrateEstimated { get; init; }
+    public string? Codec { get; init; }
+    public string? Artist { get; init; }
+    public string? Country { get; init; }
+    public string? Language { get; init; }
+}
 
 /// <summary>
 /// Wynik POMIARU silnika. Protokol nie czyta tu dzwieku ani atrybutow
@@ -86,8 +95,23 @@ public static class LiteQuickInformation
             Source: LiteArgs.RequireText(args, "source"),
             DurationTicks: ReadLong(args, "durationTicks") ?? 0L,
             PodcastMediaLength: podcastMediaLength,
-            PodcastMediaType: LiteArgs.ReadText(args, "podcastMediaType"));
+            PodcastMediaType: LiteArgs.ReadText(args, "podcastMediaType"))
+        {
+            BitrateKbps = ReadPositiveInt(args, "bitrateKbps"),
+            SampleRateHz = ReadPositiveInt(args, "sampleRateHz"),
+            IsBitrateEstimated = args.TryGetProperty("isBitrateEstimated", out var estimated)
+                && estimated.ValueKind == JsonValueKind.True,
+            Codec = LiteArgs.ReadText(args, "codec"),
+            Artist = LiteArgs.ReadText(args, "artist"),
+            Country = LiteArgs.ReadText(args, "country"),
+            Language = LiteArgs.ReadText(args, "language")
+        };
     }
+
+    public static bool RequiresMetadata(LiteQuickInfoRequest request) =>
+        IsLocalSource(request.Source)
+            ? request.DurationTicks <= 0 || request.BitrateKbps is null || request.SampleRateHz is null
+            : request.Session == "radio" && (request.BitrateKbps is null || string.IsNullOrWhiteSpace(request.Codec));
 
     public static string Build(
         LiteQuickInfoRequest request,
@@ -112,9 +136,13 @@ public static class LiteQuickInformation
                 : probe.DurationTicks is > 0
                     ? TimeSpan.FromTicks(probe.DurationTicks.Value)
                     : TimeSpan.Zero,
-            BitrateKbps = probe.BitrateKbps,
-            SampleRateHz = probe.SampleRateHz,
-            Codec = probe.Codec
+            BitrateKbps = request.BitrateKbps ?? probe.BitrateKbps,
+            SampleRateHz = request.SampleRateHz ?? probe.SampleRateHz,
+            IsBitrateEstimated = request.BitrateKbps.HasValue && request.IsBitrateEstimated,
+            Codec = string.IsNullOrWhiteSpace(request.Codec) ? probe.Codec : request.Codec,
+            Artist = request.Artist ?? string.Empty,
+            Country = request.Country,
+            Language = request.Language
         };
 
         var isLocal = IsLocalSource(request.Source);
@@ -125,7 +153,7 @@ public static class LiteQuickInformation
         {
             // cs:5439-5440 -- kontener z ROZSZERZENIA. Zostaje nawet wtedy, gdy
             // pliku nie da sie otworzyc: to jedyna uczciwa dana, jaka mamy.
-            var extension = Path.GetExtension(request.Source).TrimStart('.');
+            var extension = Path.GetExtension(LocalPath(request.Source)).TrimStart('.');
             if (!string.IsNullOrWhiteSpace(extension)) containerFormat = extension;
 
             if (probe.Exists)
@@ -202,7 +230,7 @@ public static class LiteQuickInformation
         if (string.IsNullOrWhiteSpace(source)) return false;
 
         // http(s), tidal:, spotify: itd. -- zdalne, jak w oryginale.
-        if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && !uri.IsFile) return false;
+        if (Uri.TryCreate(source, UriKind.Absolute, out var uri)) return uri.IsFile;
 
         if (source.StartsWith(@"\\", StringComparison.Ordinal)) return true;          // UNC
         if (source.StartsWith('/')) return true;                                       // POSIX
@@ -210,6 +238,16 @@ public static class LiteQuickInformation
             && char.IsAsciiLetter(source[0])
             && source[1] == ':'
             && source[2] is '\\' or '/';                                               // dysk Windows
+    }
+
+    public static string LocalPath(string source) =>
+        Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.IsFile
+            ? uri.LocalPath : source;
+
+    private static int? ReadPositiveInt(JsonElement args, string name)
+    {
+        var value = ReadLong(args, name);
+        return value is > 0 and <= int.MaxValue ? (int)value.Value : null;
     }
 
     private static MediaItemKind ParseKind(string? kind) =>

@@ -27,12 +27,9 @@ pelne AMC. Tutaj jest tylko:
   * BRAMKA WYNIKU, czyli port ``requestVersion`` + ``ActionItem?.Id``
     z ``AnnounceQuickMediaInformation`` (cs:5485-5541).
 
-Dlaczego dane, a nie napis: wiersz listy w tym porcie ma dzis tylko
-``item_id/title/kind/path/url/detail`` (``list_model.Row``). Bitrate, czestotliwosc
-probkowania, kodek i rozmiar MIERZY silnik -- lokalny plik przez
-``WindowsMediaOutput.TryReadMetadataAsync`` (5 s), stacje przez
-``RadioMediaOutput.TryReadStreamMetadataAsync`` (6 s). Liczenie tego w Pythonie
-byloby DRUGA implementacja tej samej matematyki i rozjechaloby sie z AMC.
+Surowe zapisane parametry wybranego źródła czyta ``read_cached_information``
+poza wątkiem GUI. Brakujące dane uzupełnia silnik C#, a wspólny formatter Core
+odpowiada za jednostki i kolejność. Python nie kopiuje tego formatowania.
 
 TRWALOSC: oryginal po zmierzeniu parametrow ZAPISUJE je do profilu
 (``TrySaveLocalMediaState`` / ``CaptureRadioState`` + ``QueueStateSave``).
@@ -42,10 +39,14 @@ host C#. Dlatego ta droga NICZEGO nie zapisuje i nie udaje, ze zapisuje.
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from dataclasses import dataclass
 from typing import Callable
 
+from .library_db import LibraryDatabase, normalize_path
 from .list_model import Row
+from .profile_layout import ProfileLayout
 
 #: Rodzaje wierszy, ktore sa FOLDEREM, a nie elementem multimedialnym.
 #: ``MediaItemRow.FolderPath`` oryginalu jest niepuste wlasnie dla nich, a
@@ -75,6 +76,64 @@ QUICK_INFO_STREAM = "quickInfo"
 #: Komunikat, gdy wiersz nie ma zadnego zrodla do zmierzenia. KROTKI i
 #: UCZCIWY: nie podaje zerowego rozmiaru ani zerowego bitrate.
 NO_SOURCE_MESSAGE = "Brak zapisanych informacji uzupełniających"
+
+
+def read_cached_information(layout: ProfileLayout, row: Row, session: str) -> dict:
+    """Czytaj dane wskazanego źródła bez zapisu i bez hydratacji pliku w chmurze."""
+    saved = None
+    if session == "radio":
+        try:
+            state = json.loads(layout.state_json.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            return {}
+        radio = state.get("radio", {}) if isinstance(state, dict) else {}
+        stations = radio.get("stations", []) if isinstance(radio, dict) else []
+        if not isinstance(stations, list):
+            return {}
+        for station in stations:
+            if not isinstance(station, dict) or str(station.get("id", "")) != row.item_id:
+                continue
+            if row.address not in (station.get("streamUrl"), station.get("backupStreamUrl")):
+                return {}
+            saved = station
+            break
+        names = {name: name for name in (
+            "bitrateKbps", "sampleRateHz", "codec", "country", "language", "isBitrateEstimated"
+        )}
+    elif session == "files" and row.path:
+        try:
+            with LibraryDatabase(layout.library_db) as db:
+                record = db.connection.execute(
+                    "SELECT * FROM local_items WHERE id = ?", (row.item_id,)
+                ).fetchone()
+                if record is None:
+                    record = db.connection.execute(
+                        "SELECT * FROM local_items WHERE path = ? COLLATE NOCASE LIMIT 1",
+                        (normalize_path(row.path),),
+                    ).fetchone()
+                saved = dict(record) if record is not None else None
+        except (OSError, sqlite3.Error):
+            return {}
+        if saved and normalize_path(str(saved.get("path", ""))).casefold() != normalize_path(row.path).casefold():
+            return {}
+        names = {"duration_ticks": "durationTicks", "bitrate_kbps": "bitrateKbps",
+                 "sample_rate_hz": "sampleRateHz", "bitrate_estimated": "isBitrateEstimated"}
+    else:
+        return {}
+    if saved is None:
+        return {}
+    result = {}
+    for source, target in names.items():
+        value = saved.get(source)
+        if target == "isBitrateEstimated":
+            if value is True or value == 1:
+                result[target] = True
+        elif target in ("durationTicks", "bitrateKbps", "sampleRateHz"):
+            if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                result[target] = value
+        elif isinstance(value, str) and value.strip():
+            result[target] = value.strip()
+    return result
 
 
 def folder_announcement(row: Row) -> str | None:

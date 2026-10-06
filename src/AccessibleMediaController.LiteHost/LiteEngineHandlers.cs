@@ -475,10 +475,10 @@ internal sealed class LiteEngineHandlers : IDisposable
             // Stacja radiowa. Pomiar strumienia TYLKO wtedy, gdy brakuje
             // bitrate albo kodeka -- warunek z cs:5513-5518. Inaczej kazde
             // nacisniecie klawisza siegalo by do sieci bez potrzeby.
-            if (!string.Equals(request.Session, "radio", StringComparison.Ordinal))
+            if (!LiteQuickInformation.RequiresMetadata(request))
             {
-                // Odcinek podcastu albo inne zdalne zrodlo: rozmiar i typ MIME
-                // przychodza w zadaniu, wiec nie ma czego mierzyc.
+                // Kompletne dane stacji albo inne zdalne źródło (np. podcast
+                // z rozmiarem i MIME z kanału) nie wymagają pomiaru radia.
                 return new LiteQuickInfoProbe();
             }
             var stream = RadioMediaOutput
@@ -502,12 +502,13 @@ internal sealed class LiteEngineHandlers : IDisposable
 
         // Plik lokalny. Atrybuty chmury czytamy ZAWSZE: to jedyna informacja,
         // ktora nie wymaga otwarcia pliku.
-        var mayRequireCloudDownload = CloudFileAvailability.MayRequireRemoteAccess(request.Source);
+        var localPath = LiteQuickInformation.LocalPath(request.Source);
+        var mayRequireCloudDownload = CloudFileAvailability.MayRequireRemoteAccess(localPath);
         long? sizeBytes = null;
         var exists = false;
         try
         {
-            var file = new FileInfo(request.Source);
+            var file = new FileInfo(localPath);
             exists = file.Exists;
             // Placeholdera chmury NIE mierzymy: ``FileInfo.Length`` dla niego
             // jest wielkoscia logiczna, ale pelne AMC i tak oglasza wtedy
@@ -524,10 +525,10 @@ internal sealed class LiteEngineHandlers : IDisposable
 
         int? sampleRateHz = null;
         long? measuredDurationTicks = null;
-        if (exists && !mayRequireCloudDownload)
+        if (exists && !mayRequireCloudDownload && LiteQuickInformation.RequiresMetadata(request))
         {
             var metadata = WindowsMediaOutput
-                .TryReadMetadataAsync(request.Source, FileMetadataTimeout)
+                .TryReadMetadataAsync(localPath, FileMetadataTimeout)
                 .GetAwaiter()
                 .GetResult();
             if (metadata.Success)

@@ -7,7 +7,7 @@ ten objaw, ktory naprawiamy, wiec musi byc zmierzony, a nie zalozony.
 Czym mierzymy: wxPython nie da sie zaimportowac w tym srodowisku (WSL, brak
 pulpitu), wiec okna NIE budujemy. Zamiast tego czytamy DRZEWO SKLADNIOWE
 ``gui.py``: sprawdzamy istnienie galezi i realne wywolanie metody. To slabsze
-niz zywy klawisz (odbior w NVDA robi czlowiek), ale mocniejsze od szukania
+niz zywy klawisz (odbior z zywym NVDA jest osobnym krokiem), ale mocniejsze od szukania
 napisu w pliku -- komentarz albo martwy kod testu nie przejdzie, bo pytamy o
 WEZLY ``elif`` i ``Call``, nie o tekst.
 """

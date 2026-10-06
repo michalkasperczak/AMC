@@ -1,5 +1,12 @@
 # AMC — mapa kodu
 
+## AMC Python: lewa strzałka na liście — kod przed odbiorem NVDA
+
+- `shortcuts.py`: niemodyfikowana Left na listach Radia/Plików daje `QUICK_INFORMATION`; w PLAYER nadal przewija, w filtrze pozostaje natywna.
+- `gui.LiteFrame._announce_quick_information` i `quick_info.py`: wybrany wiersz, praca w tle, read-only cache `state.json`/`library.db`, bramka późnych odpowiedzi. Folder ogłasza ścieżkę.
+- `LiteHost/Protocol/LiteQuickInformation.cs`: dane protokołu i istniejący `QuickMediaInformationFormatter` Core; `LiteEngineHandlers` uzupełnia brakujące parametry bez odtwarzania i bez hydratacji pliku chmurowego.
+- Testy `test_quick_information_*.py`, `QuickInformationTests.cs`; rzeczywiste połączenie Python–C# nie zastępuje brakującego jeszcze odbioru gestu i mowy NVDA. Podcasty mają kontrakt danych, nie nowy gotowy interfejs; serwisy streamingowe poza zakresem.
+
 ## AMC Python: natywne menu i komunikaty (po AMC422)
 
 - `wxlite/amc_wx_lite/menu_model.py`: opis menu jako danych; pozycje przekazują `Action` do wspólnego `gui.MainWindow._dispatch`, tak jak skróty. Nie jest to jeszcze pełne menu oryginału. Ma już pozycję Foldery Biblioteki (Alt+1), powrót na listę (`SHOW_LIST`), trzy widoki aktywności (Historia Ctrl+H, Kolejka Ctrl+Q, Zakładki zaznaczonego Ctrl+Shift+B) oraz zbiorczy widok wszystkich zakładek (Ctrl+B; klawisz dostępu `k`, bo `w` zajmuje „Wszystkie pliki").

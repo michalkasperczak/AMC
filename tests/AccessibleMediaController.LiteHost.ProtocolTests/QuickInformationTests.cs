@@ -18,6 +18,7 @@ internal static class QuickInformationTests
 {
     public static void Run()
     {
+        CachedParametersSkipMetadataRead();
         RequestIsReadFromProtocolArguments();
         MissingSourceIsRequestError();
         LocalFileUsesExtensionAndRealFileSize();
@@ -39,6 +40,20 @@ internal static class QuickInformationTests
         JsonDocument.Parse(json).RootElement.Clone();
 
     // ------------------------------------------------- odczyt zadania
+
+    private static void CachedParametersSkipMetadataRead()
+    {
+        bool Needs(LiteQuickInfoRequest request) => LiteQuickInformation.RequiresMetadata(request);
+        var radio = new LiteQuickInfoRequest("radio", "r", "Radio", "station", "https://invalid/r", 0, null, null)
+            { BitrateKbps = 192, Codec = "MP3" };
+        Assert.True(!Needs(radio), "znany bitrate i kodek nie wymagają sieci, nawet bez sample rate");
+        Assert.True(Needs(radio with { Codec = null }), "brak kodeka wymaga pomiaru");
+        var file = new LiteQuickInfoRequest("files", "f", "Plik", "track", @"D:\a.mp3", 123456789, null, null)
+            { BitrateKbps = 320, SampleRateHz = 48000 };
+        Assert.True(!Needs(file), "kompletne dane pliku nie wymagają dekodowania");
+        Assert.True(Needs(file with { DurationTicks = 0 }), "brak czasu wymaga pomiaru pliku");
+        Assert.True(!Needs(radio with { Session = "podcasts", Codec = null }), "odcinek nie jest sondowany jak radio");
+    }
 
     private static void RequestIsReadFromProtocolArguments()
     {
