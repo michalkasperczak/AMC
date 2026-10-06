@@ -42,6 +42,15 @@ class Options:
     inter_track_silence_ms: int = 0
     tempo_algorithm: int = 1
     last_folder: str | None = None
+    #: Czy lista stacji ma czytac POZYCJE wiersza ("3 z 37").
+    #:
+    #: Domysl ``False`` jest uzgodniony: na liscie radia liczy sie nazwa
+    #: stacji, a licznik powtarzany przy kazdej strzalce wydluza odczyt.
+    #: Wykonawca ukrywania jest nakladka NVDA (``radio_position``), bo licznik
+    #: pochodzi z NATYWNEGO ``positionInfo`` czytnika, nie z naszych
+    #: komunikatow. Ustawienie jest PRYWATNE dla portu wx -- pelne AMC nie
+    #: dostaje tu zadnego nowego wariantu.
+    radio_announce_position: bool = False
 
     def audio_payload(self) -> dict:
         return {
@@ -62,6 +71,11 @@ class Options:
             self.inter_track_silence_ms = 0
         if type(self.tempo_algorithm) is not int or self.tempo_algorithm not in (0, 1, 2):
             self.tempo_algorithm = 1
+        # STRICT ``is not bool``, nie ``bool(...)``: napis "tak" albo "false" z
+        # recznie poprawionego pliku jest prawdziwy po rzutowaniu i wlaczylby
+        # licznik po cichu. Obca wartosc wraca do uzgodnionego domyslu.
+        if type(self.radio_announce_position) is not bool:
+            self.radio_announce_position = False
         return self
 
 

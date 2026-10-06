@@ -143,6 +143,13 @@ class Action(Enum):
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
     STATION_IMPORT = "radio.import"
+    #: Przelacznik odczytu POZYCJI wiersza na liscie stacji ("3 z 37").
+    #:
+    #: Nie ma odpowiednika w pelnym AMC i nie moze go dostac: to ustawienie
+    #: PRYWATNE portu wx. Licznik mowi NVDA z natywnego ``positionInfo``
+    #: (``sysListView32.ListItem``), wiec wykonawca jest nakladka w dodatku, a
+    #: ta akcja tylko przestawia nasz znacznik okna.
+    TOGGLE_RADIO_POSITION = "radio.togglePosition"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"

@@ -53,6 +53,14 @@ class MenuItem:
     accelerator: bool = True
     #: Wylaczana poza sesja radiowa, zamiast udawac, ze zadziala.
     needs_radio_session: bool = False
+    #: Pozycja PRZELACZNIKA: wx ma ja wstawic jako ``AppendCheckItem``.
+    #:
+    #: Nie jest to kosmetyka. Zwykla pozycja menu nie niesie stanu, wiec
+    #: czytnik ekranu powiedzialby tylko nazwe i uzytkownik nie wiedzialby, czy
+    #: opcja jest wlaczona, dopoki jej nie przestawi. Pozycja zaznaczalna ma
+    #: rolę "pole wyboru" i stan "zaznaczone"/"niezaznaczone" w nazwie
+    #: dostepnosciowej, wiec stan slychac BEZ zmieniania go.
+    checkable: bool = False
     #: Wymaga czegos grajacego (transport, pytanie o czas).
     needs_playback: bool = False
     #: Wymaga zaznaczonego wiersza na liscie (kopiowanie, otwarcie).
@@ -176,6 +184,19 @@ def build_menus() -> tuple[Menu, ...]:
             SEPARATOR,
             MenuItem("&Importuj M3U/PLS", Action.STATION_IMPORT, shortcut="Ctrl+I",
                      needs_radio_session=True),
+            SEPARATOR,
+            # Przelacznik licznika "3 z 37" na liscie stacji. Ustawienie
+            # PRYWATNE portu wx (``state.radio_announce_position``) -- pelne
+            # AMC nie dostaje tu nowego wariantu.
+            #
+            # Samo odznaczenie tej pozycji NIE uciszy licznika: mowi go NVDA z
+            # natywnego ``positionInfo``, wiec ukrycie wykonuje nakladka w
+            # dodatku AMC (wersja 0.4.0+). Przy starszym albo braku dodatku
+            # ustawienie zapisze sie, a licznik zostanie -- i tak to wtedy
+            # nazywamy w komunikacie, zamiast obiecywac skutek.
+            MenuItem("Odczyt &pozycji stacji na liście",
+                     Action.TOGGLE_RADIO_POSITION,
+                     checkable=True, needs_radio_session=True),
         ),
     )
 
