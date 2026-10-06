@@ -62,10 +62,13 @@ def _frame(library: LibrarySource, queued: list, said: list):
         # stacji" -- to NIE jest blad i nic nie ma byc o nim powiedziane.
         _radio_snapshot=SimpleNamespace(current_id=None, load_error=None, kept_previous=False),
         _run=lambda intents: None,
+        _radio_view_requests=[],
     )
     # Prawdziwa metoda z gui.py, tylko podpieta do atrapy -- testujemy KOD
     # produkcyjny, nie jego kopie.
     frame._open_library = gui.LiteFrame._open_library.__get__(frame, type(frame))
+    # To test Plikow; oddzielny test Radia wykonuje jego prawdziwy loader.
+    frame._open_radio_view = frame._radio_view_requests.append
     return frame
 
 
@@ -80,6 +83,8 @@ class LibraryLoadsUnderCtrl1(unittest.TestCase):
     def test_initial_content_reads_the_library_not_the_disk(self):
         gui.LiteFrame._load_initial_content(self.frame)
         self.assertEqual(len(self.queued), 1, "Biblioteka musi byc wczytana")
+        self.assertEqual(len(self.frame._radio_view_requests), 1)
+        self.assertIs(self.frame._radio_view_requests[0].target_session_id, gui.SessionId.RADIO)
         tag, work, done, _failed = self.queued[0]
         self.assertEqual(tag, "folder")
         snapshot = work()

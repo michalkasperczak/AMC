@@ -356,6 +356,10 @@ def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action |
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
     table = PLAYER_VIEW if player_view else LIST_VIEW
     canonical = chord.canonical
+    # Widoki Radia sa dostepne takze z odtwarzacza, bez wychodzenia Escape.
+    # Ta sama akcja co na liscie/menu; nie przenosimy edycji stacji do PLAYER.
+    if radio_session and canonical in ("Ctrl+L", "Ctrl+U", "Ctrl+H"):
+        return LIST_VIEW[canonical]
     if not player_view and radio_session and canonical in RADIO_LIST_VIEW:
         return RADIO_LIST_VIEW[canonical]
     return table.get(canonical)

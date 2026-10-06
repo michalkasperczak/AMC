@@ -1527,7 +1527,12 @@ class LiteFrame(wx.Frame):
             # collator w Pythonie. Podpinamy ja DOPIERO tu, bo wymaga zywego
             # silnika. Bez niej LibrarySource swiadomie oddaje kolejnosc z
             # SQL-a zamiast udawac zgodnosc.
-            self.library.use_collation(HostCollation(client.call))
+            collation = HostCollation(client.call)
+            self.library.use_collation(collation)
+            # Radio nie ma wlasnego ``use_collation`` -- jego widoki sa
+            # bezstanowe, wiec kolacje trzymamy TUTAJ i podajemy na wywolanie.
+            # Jeden obiekt dla obu sesji: to ten sam host i ten sam cache.
+            self._collation = collation
             self._load_initial_content()
 
         def failed(error: Exception) -> None:
@@ -1651,6 +1656,13 @@ class LiteFrame(wx.Frame):
             rows_from_stations(self.stations.as_payload()),
             preferred_id=self._radio_snapshot.current_id,
         ))
+        # Porzadek profilu obowiazuje juz po starcie, nie dopiero po Ctrl+L.
+        # Wstepne dane zapewniaja liste takze przy odmowie drugiego odczytu;
+        # finalny odczyt/kolacja sa poza watkiem GUI. Brak preferred_id chroni
+        # wybor wykonany przez uzytkownika w czasie oczekiwania.
+        self._open_radio_view(OpenLibraryView(
+            view=None, target_session_id=SessionId.RADIO,
+        ))
         # Blad ODCZYTU stacji nie jest tym samym co profil bez stacji. Dopoki
         # RadioSource oddawalo pusta liste w obu przypadkach, uzytkownik slyszal
         # cisze takze wtedy, gdy profil byl uszkodzony albo zajety.
@@ -1690,8 +1702,8 @@ class LiteFrame(wx.Frame):
         (jak przy ``saved_folder``, gui.py:1661-1668), wiec wtedy wracamy do
         Folderow i mowimy, co sie stalo.
         """
-        if self.navigator.active is not SessionId.FILES:
-            self.announcer.say("Ten widok Biblioteki dotyczy plików lokalnych")
+        if self.navigator.active is SessionId.RADIO:
+            self._run(self.navigator.return_to_library(LIBRARY_VIEW_FOLDERS))
             return
         if not self.library.is_available:
             self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
@@ -1749,12 +1761,55 @@ class LiteFrame(wx.Frame):
         LibraryView.ALL_BOOKMARKS: "all_bookmarks",
     }
 
+    def _open_radio_view(self, intent: OpenLibraryView) -> None:
+        """Odczyt Radia ma osobny bilet zadania, bez lokalnego katalogu plikow."""
+        if intent.view not in (None, LibraryView.FAVORITES, LibraryView.HISTORY):
+            self.announcer.say("Ten widok nie jest jeszcze dostępny w Radiu")
+            return
+        source = self.radio
+        scope = intent.view.value if intent.view else "library"
+        # Kolacje czytamy TERAZ, w watku GUI, i wysylamy jako wartosc --
+        # zagladanie do pola okna z watku roboczego scigaloby sie ze startem
+        # silnika. ``None`` znaczy ,,hosta jeszcze nie ma'' i widok uczciwie
+        # nazwie kolejnosc zastepcza.
+        collation = getattr(self, "_collation", None)
+
+        def work():
+            from .radio_views import load_view
+            return load_view(source, scope, collation=collation)
+
+        def done(result) -> None:
+            if result.unavailable_reason:
+                if self.navigator.active is SessionId.RADIO:
+                    self.announcer.say(result.unavailable_reason)
+                return
+            events = self.navigator.apply_radio_view(
+                intent.view, result.heading, result.rows,
+                preferred_id=intent.preferred_id,
+                order_matches_amc=result.order_matches_amc)
+            # Odczyt zaczal sie w Radiu, ale uzytkownik mogl juz przejsc do Plikow.
+            # Zachowujemy stan wlasciwej sesji, nie przestawiamy obcego fokusu.
+            if self.navigator.active is SessionId.RADIO:
+                self._run(events)
+                if result.missing_item_count:
+                    self.announcer.say(
+                        f"Pozycje historii bez stacji w profilu: {result.missing_item_count}")
+
+        def failed(error: Exception) -> None:
+            if self.navigator.active is SessionId.RADIO:
+                self.announcer.say(f"Nie mogę wczytać listy radia: {error}")
+
+        self.runner.submit("radio-view", work, done, failed)
+
     def _open_library_view(self, intent: OpenLibraryView) -> None:
         """Wczytanie nazwanego widoku Biblioteki -- tak samo POZA watkiem GUI.
 
         "Wszystkie pliki" to kilka tysiecy wierszy plus klucze kolacji z hosta,
         wiec odczyt w watku GUI zamrozilby okno w trakcie czytania listy.
         """
+        if intent.target_session_id is SessionId.RADIO:
+            self._open_radio_view(intent)
+            return
         if not self.library.is_available:
             # Niedostepne D: w kopii profilu NIE znaczy pustej Biblioteki --
             # to brak samej bazy, i tak to nazywamy.

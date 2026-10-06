@@ -10,7 +10,12 @@ def test_ctrl_l_in_radio_does_not_open_local_library():
     nav.active = SessionId.RADIO
     frame, folders, views, said = _frame(nav, LIBRARY_VIEW_FOLDERS)
     _ctrl_l(frame)
-    assert folders == [] and views == [], "Lokalne Ctrl+L nie może ładować plików w sesji Radia"
+    # Port Radia ma juz wlasna Biblioteke. Zakaz dotyczy PLIKOW,
+    # nie kazdego odczytu OpenLibraryView niezaleznie od sesji.
+    assert folders == [], "Ctrl+L Radia nie może otworzyć lokalnego folderu"
+    assert len(views) == 1
+    assert views[0].target_session_id is SessionId.RADIO
+    assert views[0].view is None
     assert nav.active is SessionId.RADIO
 
 

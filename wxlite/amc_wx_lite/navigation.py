@@ -83,7 +83,8 @@ class OpenLibraryView:
     zawartosci playlisty.
     """
 
-    view: LibraryView
+    # None oznacza glowna Biblioteke stacji, tylko dla target_session_id=RADIO.
+    view: LibraryView | None
     playlist_id: str | None = None
     preferred_id: str | None = None
     #: RZECZYWISTE Id elementu dla ``ITEM_BOOKMARKS``. ``bookmark_rows``
@@ -96,6 +97,8 @@ class OpenLibraryView:
     #: jest "biezacy" i nikt nie wedruje na gore listy.
     current_session_id: str = ""
     current_item_id: str = ""
+    # Cel odczytu, nie sesja aktualnie ogladana po odpowiedzi asynchronicznej.
+    target_session_id: SessionId = SessionId.FILES
 
 
 @dataclass(slots=True)
@@ -559,6 +562,8 @@ class Navigator:
         # widoku plaskiego z powrotem do Folderow (MainWindow.xaml.cs:20832).
         if state.library_view is not None:
             return self._leave_library_view()
+        if state.session_id is SessionId.RADIO:
+            return [Announce("To jest Biblioteka radia")]
 
         parent_row = next((r for r in state.model.rows if r.kind == "parent"), None)
         if parent_row is None:
@@ -703,6 +708,8 @@ class Navigator:
         Nazwa widoku, ktorej port nie ma, konczy sie ODMOWA z jej nazwa:
         udawanie zgodnosci byloby tu gorsze niz cisza.
         """
+        if self.active is SessionId.RADIO:
+            return [OpenLibraryView(view=None, target_session_id=SessionId.RADIO)]
         if saved_view not in LIBRARY_RETURN_TARGETS:
             return [
                 Announce(
@@ -742,7 +749,8 @@ class Navigator:
         nie ma.
         """
         return [
-            OpenLibraryView(view=view, playlist_id=playlist_id, preferred_id=preferred_id)
+            OpenLibraryView(view=view, playlist_id=playlist_id, preferred_id=preferred_id,
+                            target_session_id=self.active)
         ]
 
     def apply_library_view(
@@ -892,6 +900,8 @@ class Navigator:
         "folder nadrzedny", jak dotad.
         """
         state = self.session
+        if state.session_id is SessionId.RADIO:
+            return [OpenLibraryView(view=None, target_session_id=SessionId.RADIO)]
         if state.library_view is LibraryView.PLAYLIST_CONTENTS:
             return [
                 OpenLibraryView(
@@ -949,6 +959,30 @@ class Navigator:
         # po jednym Ctrl+O). Mowimy tylko to, czego kontrolka nie powie.
         suffix = "" if row is not None else ", pusty"
         return [Announce(f"{name}, {count} elementow{suffix}")]
+
+    def apply_radio_view(
+        self, view: LibraryView | None, heading: str, rows: list[Row],
+        *, preferred_id: str | None = None,
+        order_matches_amc: bool = True,
+    ) -> list[object]:
+        """Odpowiedz loadera Radia nie rusza listy ani wyboru Plikow."""
+        if view not in (None, LibraryView.FAVORITES, LibraryView.HISTORY):
+            raise ValueError("Nieobslugiwany widok Radia")
+        state = self.sessions[SessionId.RADIO]
+        old_key = state.library_view.value if state.library_view else "library"
+        if state.model.selected_id is not None:
+            state.view_selected_ids[old_key] = state.model.selected_id
+        key = view.value if view else "library"
+        state.library_view = view
+        state.model.replace(rows, preferred_id=preferred_id or state.view_selected_ids.get(key))
+        state.view = View.LIST
+        # Nazwe wiersza czyta natywna lista, nie powtarzamy jej w komunikacie.
+        message = heading if rows else f"{heading}, pusto"
+        if not order_matches_amc:
+            # Ta sama formula, co w ``apply_library_view``: zastepcza kolejnosc
+            # jest NAZWANA, a nie przemilczana.
+            message = f"{message}, kolejność zastępcza"
+        return [Announce(message)]
 
     def apply_stations(self, rows: list[Row], preferred_id: str | None = None) -> list[object]:
         state = self.sessions[SessionId.RADIO]

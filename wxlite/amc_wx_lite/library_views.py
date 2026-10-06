@@ -265,14 +265,30 @@ def _order_by_title_then_source(
 # ------------------------------------------------------------------- Ulubione
 
 
+#: Tabele kolejnosci, ktore wolno czytac. ZAMKNIETY zbior, nie wejscie.
+#:
+#: ``LocalLibraryDatabase.cs:232-259`` czyta dokladnie te cztery dla kolekcji:
+#: ``favorite_added_order`` i ``favorite_order`` dla Ulubionych,
+#: ``library_added_order`` i ``library_custom_order`` dla Biblioteki. Nazwa
+#: tabeli wchodzi do SQL przez f-string, wiec whitelista jest tu BEZPIECZNIKIEM,
+#: nie ozdoba -- rozszerzamy ja jawnie, zamiast puszczac dowolny napis.
+COLLECTION_ORDER_TABLES = (
+    "favorite_order",
+    "favorite_added_order",
+    "library_added_order",
+    "library_custom_order",
+)
+
+
 def _stored_order(db: LibraryDatabase, table: str, session: str) -> list[str]:
     """Zapisana kolejnosc kolekcji, ``ORDER BY ordinal``.
 
     ``LocalLibraryDatabase.cs:234`` czyta ``favorite_order``
     ``ORDER BY session_id, ordinal``; ``favorite_added_order`` analogicznie
-    (230-231). Nazwa tabeli jest z zamknietego zbioru, nie z wejscia.
+    (230-231), a ``library_added_order`` / ``library_custom_order`` tak samo
+    (252-259). Nazwa tabeli jest z zamknietego zbioru, nie z wejscia.
     """
-    if table not in ("favorite_order", "favorite_added_order"):
+    if table not in COLLECTION_ORDER_TABLES:
         raise ValueError(f"Nieznana tabela kolejnosci: {table}")
     rows = db.connection.execute(
         f"SELECT item_id FROM {table} WHERE session_id = ? ORDER BY ordinal",
