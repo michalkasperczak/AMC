@@ -143,6 +143,13 @@ class Action(Enum):
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
     STATION_IMPORT = "radio.import"
+    #: Przelacznik odczytu POZYCJI wiersza na liscie stacji ("3 z 37").
+    #:
+    #: Nie ma odpowiednika w pelnym AMC i nie moze go dostac: to ustawienie
+    #: PRYWATNE portu wx. Licznik mowi NVDA z natywnego ``positionInfo``
+    #: (``sysListView32.ListItem``), wiec wykonawca jest nakladka w dodatku, a
+    #: ta akcja tylko przestawia nasz znacznik okna.
+    TOGGLE_RADIO_POSITION = "radio.togglePosition"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -289,6 +296,10 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     "F2": Action.STATION_EDIT,
     "Delete": Action.STATION_DELETE,
     "Ctrl+I": Action.STATION_IMPORT,
+    # Przelacznik licznika pozycji. Gest ZAWEZONY do listy radia, bo tylko tu
+    # ma sens; w plikach i w odtwarzaczu zostaje wolny. Ctrl+Shift+N nie
+    # koliduje z zadna inna tablica (sprawdzone) ani z Ctrl+N wyzej.
+    "Ctrl+Shift+N": Action.TOGGLE_RADIO_POSITION,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role

@@ -5,6 +5,7 @@ from winAPI.sessionTracking import isLockScreenModeActive
 import ui
 import wx
 
+from . import radioList
 from .transport import BridgeError, exchange
 from .worker import CommandWorker
 
@@ -16,6 +17,27 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         super().__init__(*args, **kwargs)
         self._closed = False
         self._worker = CommandWorker(self._exchange, self._deliver)
+
+    # NVDAObjects/__init__.py:126-131 wola te metode dla KAZDEGO uruchomionego
+    # globalPluginu -- ale tylko gdy jest zadeklarowana w ``__class__.__dict__``
+    # samego pluginu.  Dlatego musi stac TUTAJ, a nie byc odziedziczona ani
+    # przypisana na instancji.
+    #
+    # To JEDYNE miejsce, w ktorym dodatek dotyka obiektow NVDA.  Decyzje
+    # podejmuje ``radioList``: nakladka dolacza sie wylacznie do wiersza listy,
+    # ktorej HWND nosi znacznik zalozony przez AMC.  Bez znacznika nie zmienia
+    # sie nic -- ani w AMC, ani w zadnej innej aplikacji.  appModule nadal nie
+    # istnieje i polecenia samego NVDA zostaja w czytniku.
+    def chooseNVDAObjectOverlayClasses(self, obj, clsList):
+        if self._blocked():
+            return
+        try:
+            radioList.chooseOverlay(obj, clsList)
+        except Exception:
+            # Wybor nakladki idzie na KAZDYM obiekcie NVDA. Blad nie moze
+            # zatrzymac czytnika -- NVDA i tak loguje nasz wyjatek, ale tu
+            # chcemy jawnie zostawic natywne zachowanie.
+            pass
 
     def _blocked(self):
         return self._closed or globalVars.appArgs.secure or isLockScreenModeActive()

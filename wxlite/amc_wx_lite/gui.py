@@ -77,6 +77,7 @@ from .transport_parity import (
     time_announcement,
 )
 from .radio_source import RadioSource
+from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
 
 APP_NAME = "AMC-wx-Lite"
@@ -963,6 +964,9 @@ class LiteFrame(wx.Frame):
         self.store = store
         self.state = state
         self.options = state.options
+        #: Znaczniki HWND dla nakladki NVDA. Pamietaja, co juz stoi, wiec
+        #: wolanie ich ze wspolnego ``_sync_views`` nie meczy ``user32``.
+        self._radio_markers = radio_position.WindowMarkers()
         # Stacje: w trybie wspolnego profilu zrodlem jest state.json AMC
         # (radio.stations), a nie prywatna kopia -- inaczej Radio bylo puste.
         # Uklad rozstrzygamy RAZ: ten sam obiekt decyduje tez o tym, czy host
@@ -1178,7 +1182,14 @@ class LiteFrame(wx.Frame):
                         # czytany przez czytnik -- jako czesc nazwy pozycji.
                         label = f"{label} ({text})"
                 identifier = wx.ID_EXIT if entry.builtin == "quit" else wx.ID_ANY
-                item = native.Append(identifier, label)
+                if entry.checkable:
+                    # ``AppendCheckItem``, nie ``Append``: tylko pozycja
+                    # zaznaczalna niesie STAN, ktory czytnik ekranu powie przy
+                    # samym przejsciu po menu. Stan poczatkowy stawia
+                    # ``_refresh_menu_state``, zeby byla JEDNA droga.
+                    item = native.AppendCheckItem(identifier, label)
+                else:
+                    item = native.Append(identifier, label)
                 self._menu_items.append((item, entry))
                 if entry.builtin == "quit":
                     self.Bind(wx.EVT_MENU, lambda _e: self.Close(), id=item.GetId())
@@ -1247,6 +1258,13 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
+            # Stan zaznaczenia przy TEJ SAMEJ drodze co wlaczanie pozycji, zeby
+            # ptaszek nigdy nie rozjechal sie z ustawieniem (takze po starcie i
+            # po nieudanym zapisie, ktory wycofal wartosc).
+            if entry.action is Action.TOGGLE_RADIO_POSITION:
+                wanted = self.options.radio_announce_position
+                if item.IsChecked() != wanted:
+                    item.Check(wanted)
 
     def _bind_list(self, control: MediaListCtrl) -> None:
         """Wspolne powiazania klawiatury i wyboru dla list plikow i radia."""
@@ -1894,6 +1912,8 @@ class LiteFrame(wx.Frame):
             self._seek_to_track_edge(action is Action.TRACK_END)
         elif action is Action.TOGGLE_SEEK_MESSAGES:
             self._toggle_seek_messages()
+        elif action is Action.TOGGLE_RADIO_POSITION:
+            self._toggle_radio_position()
         elif action is Action.OPEN_FOLDER_DIALOG:
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
@@ -2006,6 +2026,19 @@ class LiteFrame(wx.Frame):
         active_list.sync_rows()
 
         want_player = session.view is View.PLAYER
+        # ZNACZNIK POZYCJI. Stoi w tej jednej, wspolnej drodze odswiezania,
+        # bo tylko tutaj wiemy, ktora lista jest aktywna. Trzy rzeczy naraz:
+        #  * znakujemy WYLACZNIE liste radia -- lista plikow i kazde inne okno
+        #    maja licznik nietkniety,
+        #  * znacznik ustawiamy przy KAZDYM przejsciu, nie raz przy tworzeniu
+        #    okna, bo opcja zmienia sie bez ponownego fokusu i nakladka musi
+        #    widziec AKTUALNY tryb,
+        #  * z listy plikow i z odtwarzacza znacznik ZDEJMUJEMY, zeby zostawic
+        #    po sobie czysty HWND.
+        self._apply_radio_position_marker(radio_list_shown=(
+            active_list is self.radio_list and not want_player
+        ))
+
         changed = self.player_panel.IsShown() != want_player or other_list.IsShown()
 
         self.list_panel.Show(not want_player)
@@ -2734,6 +2767,80 @@ class LiteFrame(wx.Frame):
         result = self.messages.toggle_seek_messages()
         self.announcer.say(result.message)
 
+    def _toggle_radio_position(self) -> None:
+        """Ctrl+Shift+N -- przelacznik licznika "3 z 37" na liscie stacji.
+
+        To ustawienie jest NASZE: port wx trzyma je w swoim ``state.json``,
+        wiec tutaj zapisujemy naprawde (inaczej niz przy komunikatach
+        przewijania, gdzie wlascicielem pliku jest host C#).
+
+        Kolejnosc ma znaczenie i jest celowa:
+
+        1. ZAPIS. Gdy zapis padnie, zostaje POPRZEDNI stan -- nie przestawiamy
+           ani pola w pamieci, ani znacznika, i mowimy o bledzie. Opcja, ktora
+           "dziala do restartu", byla by gorsza od jawnej odmowy.
+        2. ZNACZNIK. Dopiero po udanym zapisie oznaczamy HWND listy, zeby
+           nakladka w dodatku zobaczyla nowy tryb BEZ ponownego wejscia w
+           liste.
+        3. KOMUNIKAT. Mowi stan opcji, a przy braku dzialajacej nakladki mowi
+           TAKZE, ze sam licznik na razie zostanie. Nie udajemy skutku,
+           ktorego nie ma.
+        """
+        previous = self.options.radio_announce_position
+        new_value = not previous
+        # Zapis przez te sama droge, ktorej uzywa zamykanie okna: stan w
+        # ``self.state.options`` jest zrodlem dla ``store.save``.
+        self.options.radio_announce_position = new_value
+        self.state.options = self.options
+        try:
+            self.store.save(self.state)
+        except Exception:
+            # WYCOFANIE do poprzedniej wartosci: znacznika nie ruszalismy, wiec
+            # po tym wierszu i pamiec, i HWND opisuja ten sam, stary stan.
+            self.options.radio_announce_position = previous
+            self.state.options = self.options
+            self.announcer.say(
+                "Nie udało się zapisać ustawienia. Odczyt pozycji stacji "
+                "zostaje bez zmian."
+            )
+            return
+
+        marked = self._apply_radio_position_marker(
+            radio_list_shown=self._radio_list_is_shown()
+        )
+        # Ptaszek w menu przez te sama droge co reszta stanu menu.
+        self._refresh_menu_state()
+        # Ostrzegamy TYLKO wtedy, gdy ukrywanie jest zadane, a nie widzimy
+        # wykonawcy. ``marked`` to nasza strona (znacznik stoi),
+        # ``overlay_addon_installed`` to strona dodatku.
+        self.announcer.say(radio_position.announcement(
+            hide_position=not new_value,
+            overlay_available=marked and radio_position.overlay_addon_installed(),
+        ))
+
+    def _radio_list_is_shown(self) -> bool:
+        return (
+            self.navigator.view is not View.PLAYER
+            and self._active_list() is self.radio_list
+        )
+
+    def _apply_radio_position_marker(self, radio_list_shown: bool) -> bool:
+        """Oznacz albo odznacz HWND listy radia. Zwraca: czy znacznik stoi.
+
+        Zwrocone ``False`` znaczy "ukrywanie NIE jest w tej chwili czynne" --
+        albo lista nie jest pokazana, albo oznaczenie sie nie udalo. Dzwoniacy
+        uzywa tego do komunikatu, zeby nie obiecywac ciszy, ktorej nie bedzie.
+        """
+        try:
+            handle = int(self.radio_list.GetHandle())
+        except Exception:
+            return False
+        return self._radio_markers.apply(
+            handle,
+            is_radio_list=radio_list_shown,
+            hide_position=not self.options.radio_announce_position,
+        )
+
     # ------------------------------------------------------------- status
 
     def _on_timer(self, _event: wx.TimerEvent) -> None:
@@ -2899,6 +3006,14 @@ class LiteFrame(wx.Frame):
         self.timer.Stop()
         self.gate.cancel_all()
         self._save_state()
+        # Znaczniki zdejmujemy PRZED zniszczeniem okna: dokumentacja
+        # ``SetPropW`` zada usuniecia wlasnych wpisow najpozniej w obsludze
+        # ``WM_NCDESTROY``. Idzie przed ``client.close()``, zeby nie zalezalo
+        # od powodzenia rozlaczenia z hostem.
+        try:
+            self._radio_markers.forget(int(self.radio_list.GetHandle()))
+        except Exception:
+            pass
         if self.client is not None:
             self.client.close()
         event.Skip()
