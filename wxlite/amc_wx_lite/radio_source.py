@@ -75,12 +75,47 @@ class RadioSnapshot:
 
 
 def stations_from_amc_state(raw: dict) -> tuple[list[Station], str | None]:
-    """Wyciagnij stacje z ``radio.stations`` profilu AMC.
+    """Wyciagnij stacje BIBLIOTEKI radia z ``radio.stations`` profilu AMC.
 
     Nazwy pol pochodza ze ZMIERZONEGO ``state.json`` (``schemaVersion`` 54):
     ``id`` / ``name`` / ``streamUrl``. Gdy glowny adres jest pusty, bierzemy
     ``backupStreamUrl`` -- tak jak robi to AMC, zeby wpis nie stawal sie
     niegrywalny tylko z powodu brakujacego jednego pola.
+
+    Czlonkostwo: ``isInLibrary``
+    ----------------------------
+    ``radio.stations`` to TRWALY CACHE calej sesji radia, a nie lista
+    Biblioteki. Czlonkostwo nosi osobna flaga ``isInLibrary``, ktorej ten
+    czytnik wczesniej w ogole nie czytal -- i dlatego oddawal caly osad
+    cache'u. Zmierzone na jednym odczycie glownego komputera
+    (``amc_pomoc/wx-library-compare-20261006/verified-comparison.json``):
+    Python 180 wpisow, widok WPF 422 ,,Wszystkie stacje'' 60.
+
+    Filtr oryginalu (``MainWindow.xaml.cs:12833-12835``, commit ``1f5dccb6``)
+    dla sesji ``radio`` -- ``UsesTidalStyleCollections`` jest tam falszywe --
+    sprowadza sie DOKLADNIE do ``item.IsInLibrary == true``. Bez
+    ``IsAvailable``, bez ``Kind``, bez ``DirectoryId``.
+
+    Brak pola = POZA Biblioteka. ``RadioStationSettings.IsInLibrary``
+    (``Core/Configuration/AppSettings.cs``) to ``bool`` BEZ inicjalizatora,
+    czyli domyslnie ``false`` -- odwrotnie niz ``LocalMediaItemSettings``,
+    gdzie stoi ``= true``. Wpis radia bez tego pola laduje wiec poza
+    Biblioteka i tak samo musi go widziec Python.
+
+    Flage czytamy jako BOOLEAN (``is True``), nie przez prawdziwosc: napis
+    ``"false"`` jest w Pythonie prawdziwy i cicho przepuscilby caly cache.
+
+    Czego ta funkcja NIE robi
+    -------------------------
+    * Nie usuwa ani nie zmienia ani jednego wpisu w profilu -- wpisy spoza
+      Biblioteki zostaja zapisane, sa tylko NIEPOKAZYWANE, dokladnie jak
+      w WPF (``RemoveSelected...``, ``MainWindow.xaml.cs:15276-15282``,
+      zdejmuje flage i NIE robi ``_radioItems.Remove``).
+    * Nie patrzy na ``isFavorite``. Ulubione to OSOBNY zakres; w tym porcie
+      nie ma wlasnego widoku Ulubionych radia, wiec nie podstawiamy jednego
+      zakresu pod drugi. Podniesienie ``IsInLibrary`` dla ulubionych robi
+      ``ConfigurationStore.NormalizeRadio`` (``:873``) po stronie C#, ktory
+      jest wlascicielem zapisu -- nie powielamy tego tutaj.
 
     Kolejnosci NIE zmieniamy: to kolejnosc, ktora uzytkownik zna z AMC.
     """
@@ -91,6 +126,10 @@ def stations_from_amc_state(raw: dict) -> tuple[list[Station], str | None]:
     stations: list[Station] = []
     for entry in radio.get("stations") or []:
         if not isinstance(entry, dict):
+            continue
+        if entry.get("isInLibrary") is not True:
+            # Osad cache'u: wyniki katalogu Radio Browser, jednorazowe
+            # strumienie i stacje kiedykolwiek zdjete z Biblioteki.
             continue
         station_id = entry.get("id")
         if not isinstance(station_id, str) or not station_id:

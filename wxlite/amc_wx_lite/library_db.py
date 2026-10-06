@@ -185,7 +185,17 @@ class LocalState:
 
 
 # Filtr ``ActiveLocalItems()`` z MainWindow: dostepne ORAZ w Bibliotece.
+# To filtr widokow CZLONKOSTWA (Foldery, Wszystkie pliki, Ulubione,
+# playlisty, zapisana kolejka) i jego tresc sie NIE zmienia.
 _ACTIVE = "is_available = 1 AND is_in_library = 1"
+
+# Filtr samej DOSTEPNOSCI, bez czlonkostwa. Uzywa go WYLACZNIE katalog
+# historii odtwarzania (``library_activity._history_catalog``): historia
+# odpowiada na pytanie ,,co odtwarzalem'', a nie ,,co mam w Bibliotece'',
+# wiec plik otwarty bez dodania do Biblioteki ma zostac w Ctrl+H.
+# Niedostepny plik nadal nie dostaje wiersza -- Enter na nim i tak nie
+# zagralby. Zadnego innego widoku ta stala nie dotyczy.
+_AVAILABLE = "is_available = 1"
 
 
 def _close_quietly(connection: sqlite3.Connection | None) -> None:

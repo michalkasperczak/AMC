@@ -31,7 +31,14 @@ from .collation import (
     HostCollation,
     HostCollationUnavailable,
 )
-from .library_db import LibraryDatabase, LibraryItem, _ACTIVE, _format_detail
+from .library_db import (
+    LibraryDatabase,
+    LibraryItem,
+    _ACTIVE,
+    _AVAILABLE,
+    _format_detail,
+)
+
 from .list_model import Row
 
 #: Sesja plikow lokalnych.
@@ -122,6 +129,38 @@ def _track_row(item: LibraryItem) -> Row:
     )
 
 
+def _history_catalog(db: LibraryDatabase) -> dict[str, LibraryItem]:
+    """Katalog HISTORII odtwarzania: ``is_available = 1``, bez czlonkostwa.
+
+    Osobny od ``_active_catalog``, bo historia odpowiada na inne pytanie.
+    ,,Co odtwarzalem'' to nie ,,co mam w Bibliotece'': plik otwarty przez
+    Ctrl+O albo z wyniku wyszukiwania ma zostac w Ctrl+H, nawet jesli
+    uzytkownik nigdy nie dodal go do Biblioteki. Uzgodnienie uzytkownika:
+    ,,samo zapisanie w profilu nie oznacza czlonkostwa'' -- i odwrotnie,
+    brak czlonkostwa nie wymazuje faktu odtworzenia.
+
+    ``is_available`` ZOSTAJE. Niedostepnego pliku nie da sie zagrac, wiec
+    wiersz, ktory po Enterze moze tylko odmowic, nadal nie powstaje -- to ta
+    sama regula, co wczesniej, zwezona do jednego warunku.
+
+    ``DistinctBy(Id, Ordinal)`` z ``DemoMediaSession.ReplaceItems``
+    (``DemoMediaSession.cs:463-465``) zostaje: pierwsze wystapienie wygrywa,
+    kolejnosc wejsciowa po ``rowid``.
+
+    Nic tu nie zapisuje. Baza jest otwarta ``mode=ro``
+    (``library_db.py``), wiec pokazanie wiersza nie ustanawia czlonkostwa --
+    ustanowienie nalezy wylacznie do hosta C#.
+    """
+    catalog: dict[str, LibraryItem] = {}
+    rows = db.connection.execute(
+        f"SELECT {_ITEM_COLUMNS} FROM local_items WHERE {_AVAILABLE} ORDER BY rowid"
+    )
+    for row in rows:
+        item = _item(row)
+        catalog.setdefault(item.id, item)
+    return catalog
+
+
 def _active_catalog(db: LibraryDatabase) -> dict[str, LibraryItem]:
     """Katalog sesji ``local`` po Id, ``StringComparer.Ordinal``.
 
@@ -130,6 +169,9 @@ def _active_catalog(db: LibraryDatabase) -> dict[str, LibraryItem]:
     powstaje z ``ActiveLocalItems()`` (``MainWindow.xaml.cs:9972``,
     ``10116-10117``: ``IsAvailable && IsInLibrary``), a ``ReplaceItems`` robi
     ``DistinctBy(Id, Ordinal)`` -- pierwsze wystapienie wygrywa.
+
+    To katalog widokow CZLONKOSTWA (zapisana kolejka). Historia ma wlasny
+    ``_history_catalog`` i celowo jest szersza.
     """
     catalog: dict[str, LibraryItem] = {}
     rows = db.connection.execute(
@@ -202,11 +244,30 @@ def history_rows(
     * puste/biale ``sessionId`` -> pusta lista (``PlaybackHistory.cs:9-13``),
     * ``Distinct(Ordinal)`` i ``Take(500)`` z ``Normalize``
       (``PlaybackHistory.cs:52-56``) -- obcinany jest OGON,
-    * pozycja nieobecna w katalogu sesji NIE daje wiersza
-      (``MainWindow.xaml.cs:12857-12859``), bez placeholdera,
-    * katalog sesji lokalnej to ``ActiveLocalItems()``, wiec wpis niedostepny
-      albo poza biblioteka nie jest widoczny -- to regula ORYGINALU
-      (``MainWindow.xaml.cs:9972``, ``10116-10117``), nie nasz skrot.
+    * pozycja nieobecna w katalogu NIE daje wiersza
+      (``MainWindow.xaml.cs:12857-12859``), bez placeholdera.
+
+    Zakres katalogu -- ZMIENIONY swiadomie
+    --------------------------------------
+    Katalog historii to ``_history_catalog``: ``is_available = 1``, BEZ
+    czlonkostwa. Wczesniej bylo tu ``_active_catalog``
+    (``is_available AND is_in_library``) z komentarzem, ze ,,wpis poza
+    biblioteka nie jest widoczny -- to regula ORYGINALU''. Opis byl wierny
+    staremu WPF, ale utrwalal pomylenie dwoch zakresow: historia odpowiada
+    na pytanie ,,co odtwarzalem'', a Biblioteka na ,,co mam''. Plik otwarty
+    przez Ctrl+O bez dodania do Biblioteki znikal z Ctrl+H, co jest
+    bezposrednia kolizja z uzgodnieniem uzytkownika. Stary komentarz nie
+    jest wiec aktualnym wymaganiem i zostal poprawiony, a nie usuniety po
+    cichu.
+
+    ``is_available`` ZOSTAJE -- niedostepny plik dalej nie ma wiersza.
+
+    Co sie NIE zmienilo: ``all_files_rows``, Foldery, Ulubione, playlisty
+    i ``saved_queue_rows`` nadal filtruja po ``_ACTIVE``. Osobne dziecko WPF
+    oddziela katalog silnika od Biblioteki po swojej stronie
+    (``amc_pomoc/local-library-optin-20261006/ANALIZA.md``, rozdz. 4 i I12);
+    tutaj przygotowany jest sam CZYTELNIK, bez zadnego zapisu: baza zostaje
+    ``mode=ro`` i pokazanie wiersza nie dodaje nic do Biblioteki.
     """
     heading = "Biblioteka — Historia odtwarzania"
     if not session or not session.strip():
@@ -219,7 +280,7 @@ def history_rows(
     stored = _distinct_ordinal(_stored_ids(db, "playback_history", session))[
         :MAX_HISTORY_ENTRIES_PER_SESSION
     ]
-    catalog = _active_catalog(db)
+    catalog = _history_catalog(db)
     rows: list[Row] = []
     missing = 0
     for item_id in stored:

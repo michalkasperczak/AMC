@@ -269,13 +269,18 @@ class HistoryView(_SyntheticCase):
         self.assertEqual(result.missing_item_count, 1)
 
     def test_unavailable_item_is_not_listed(self):
-        """Katalog sesji lokalnej to ``ActiveLocalItems()``.
+        """Katalog historii to ``is_available = 1`` -- bez czlonkostwa.
 
-        ``MainWindow.xaml.cs:12855`` buduje slownik z ``session.Items``, a dla
-        ``local`` sesja powstaje z ``ActiveLocalItems()``
-        (``MainWindow.xaml.cs:9972``, ``10116-10117``): ``IsAvailable &&
-        IsInLibrary``. Pozycja niedostepna nie jest wiec w historii widoczna --
-        to przeczytana regula ORYGINALU, nie nasze uproszczenie.
+        Wczesniej ten test utrwalal regule ``ActiveLocalItems()``
+        (``is_available AND is_in_library``) i wymagal, by wpis poza
+        Biblioteka ZNIKAL z Ctrl+H. To bylo wierne staremu WPF, ale mieszalo
+        dwa zakresy: historia mowi ,,co odtwarzalem'', Biblioteka ,,co mam''.
+        Po uzgodnieniu z uzytkownikiem dostepny plik spoza Biblioteki MA
+        wiersz, a jedynym powodem ukrycia zostaje NIEDOSTEPNOSC -- bo Enter
+        na takim wierszu i tak nie zagralby.
+
+        Szerszy zakres i kontrdowod dla widokow czlonkostwa:
+        ``tests/test_history_outside_library.py``.
         """
         self.build.item("a", "Alfa", "C:/m/a.mp3")
         self.build.item("b", "Beta", "C:/m/b.mp3", available=False)
@@ -284,8 +289,8 @@ class HistoryView(_SyntheticCase):
 
         result = history_rows(self.open_db())
 
-        self.assertEqual([row.item_id for row in result.rows], ["a"])
-        self.assertEqual(result.missing_item_count, 2)
+        self.assertEqual([row.item_id for row in result.rows], ["c", "a"])
+        self.assertEqual(result.missing_item_count, 1)
 
     def test_repeated_item_id_appears_once_at_first_position(self):
         """``Distinct(Ordinal)`` z ``Normalize`` (``PlaybackHistory.cs:54``).
@@ -839,13 +844,18 @@ class RealFixture(unittest.TestCase):
 
     # --- historia ----------------------------------------------------------
 
-    def test_history_hides_exactly_the_inactive_stored_entries(self):
-        """119 z 275 zapisanych wpisow daje wiersz -- i wiadomo DLACZEGO.
+    def test_history_hides_exactly_the_unavailable_stored_entries(self):
+        """Wiersz dostaje kazdy DOSTEPNY wpis -- i wiadomo DLACZEGO.
 
-        Zmierzone na fixture: 135 pozycji ``is_available = 0`` i 21
-        ``is_in_library = 0``. Suma 156 to dokladnie liczba wpisow bez wiersza,
-        czyli regula ``ActiveLocalItems`` (``MainWindow.xaml.cs:10116-10117``),
-        a nie przypadkowa utrata danych.
+        Zmierzone na fixture: 275 zapisanych wpisow sesji ``local``.
+        Ukrywa je WYLACZNIE ``is_available = 0``; ``is_in_library = 0`` NIE
+        ukrywa niczego, bo historia odpowiada na pytanie ,,co odtwarzalem''.
+
+        Poprzednia wersja tego testu domagala sie 119 wierszy i nazywala
+        sume 135 niedostepnych + 21 poza Biblioteka ,,regula
+        ``ActiveLocalItems``''. To bylo opisanie dawnego WPF, nie aktualne
+        wymaganie: pliki otwarte bez dodania do Biblioteki gineły z Ctrl+H.
+        Liczby nadal sa ZLICZANE programowo, nie przepisane z raportu.
         """
         stored = [
             str(r["item_id"])
@@ -860,14 +870,24 @@ class RealFixture(unittest.TestCase):
                 "SELECT id, is_available, is_in_library FROM local_items"
             )
         }
-        inactive = sum(1 for i in stored if not all(flags.get(i, (False, False))))
+        distinct = list(dict.fromkeys(stored))
+        unavailable = sum(1 for i in distinct if not flags.get(i, (False, False))[0])
+        outside_only = sum(
+            1
+            for i in distinct
+            if flags.get(i, (False, False))[0] and not flags[i][1]
+        )
 
         result = history_rows(self.db)
 
         self.assertEqual(len(stored), 275)
-        self.assertEqual(len(result.rows), 275 - inactive)
-        self.assertEqual(result.missing_item_count, inactive)
-        self.assertEqual(inactive, 156)
+        self.assertEqual(len(result.rows), len(distinct) - unavailable)
+        self.assertEqual(result.missing_item_count, unavailable)
+        # Dostepne pliki spoza Biblioteki sa teraz WIDOCZNE -- to cala zmiana.
+        self.assertGreater(outside_only, 0)
+        for item_id in distinct:
+            if flags.get(item_id, (False, False)) == (True, False):
+                self.assertIn(item_id, [row.item_id for row in result.rows])
 
     def test_history_has_no_duplicate_ids_and_respects_the_cap(self):
         result = history_rows(self.db)

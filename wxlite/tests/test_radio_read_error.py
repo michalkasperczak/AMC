@@ -30,7 +30,21 @@ from amc_wx_lite.radio_source import RadioSource
 
 
 def _state(stations: list[dict], current: str | None = None) -> dict:
-    radio: dict = {"stations": stations}
+    """Zbuduj ``state.json`` dla testow BLEDU ODCZYTU.
+
+    Ten plik bada obsluge bledow, nie czlonkostwo w Bibliotece, dlatego
+    kazda stacja bez jawnej flagi dostaje ``isInLibrary: True`` -- inaczej
+    poprawny filtr Biblioteki (``radio_source.stations_from_amc_state``)
+    zwracalby pusta liste i testy bledow mierzylyby nie to, co powinny.
+    Zakres Biblioteki rozstrzyga ``tests/test_radio_library_membership.py``.
+    """
+    stamped = [
+        {**s, "isInLibrary": s.get("isInLibrary", True)}
+        if isinstance(s, dict)
+        else s
+        for s in stations
+    ]
+    radio: dict = {"stations": stamped}
     if current:
         radio["currentItemId"] = current
     return {"schemaVersion": 54, "radio": radio}

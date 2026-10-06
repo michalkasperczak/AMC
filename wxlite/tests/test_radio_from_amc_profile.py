@@ -70,23 +70,47 @@ class RadioReadsTheRealAmcProfile(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.state_path = self.dir / "state.json"
         shutil.copy2(FIXTURE_STATE, self.state_path)
+        self.state_path.chmod(0o644)  # fixture jest read-only, kopia nie musi byc
         self.layout = read_only_mirror(
             local_dir=self.dir, profile_dir=self.dir, lite_settings_dir=self.dir / "lite"
         )
 
+    @property
+    def expected_stations(self) -> list[dict]:
+        """Stacje, ktore MAJA sie pokazac: wylacznie ``isInLibrary``.
+
+        Biblioteka radia to czlonkostwo, a ``radio.stations`` to trwaly cache
+        calej sesji (wyniki katalogu, jednorazowe strumienie, stacje zdjete
+        z Biblioteki). Wczesniej te testy porownywaly sie do CALEJ listy
+        i utrwalaly regule ,,kazdy zapis w profilu = Biblioteka'', ktora na
+        zmierzonym profilu dawala 180 wierszy zamiast 60.
+
+        ``RadioStationSettings.IsInLibrary`` to ``bool`` bez inicjalizatora,
+        wiec brak pola = ``false`` = poza Biblioteka; dlatego ``is True``.
+        """
+        return [
+            e
+            for e in self.source["radio"]["stations"]
+            if e.get("isInLibrary") is True
+        ]
+
     # ------------------------------------------------------------- odczyt
 
-    def test_reads_every_station_from_radio_stations(self):
-        expected = self.source["radio"]["stations"]
+    def test_reads_every_station_in_the_library(self):
+        expected = self.expected_stations
         stations = RadioSource(self.layout).load().stations
         self.assertEqual(
             len(stations), len(expected),
-            "Radio musi oddac WSZYSTKIE stacje z radio.stations profilu",
+            "Biblioteka radia oddaje stacje z isInLibrary, nie caly cache",
         )
-        self.assertGreater(len(stations), 100, "kopia profilu ma byc realna, nie atrapa")
+        self.assertGreater(len(stations), 10, "kopia profilu ma byc realna, nie atrapa")
+        self.assertLess(
+            len(stations), len(self.source["radio"]["stations"]),
+            "zmierzony profil MA stacje poza Biblioteka -- inaczej test nic nie rozstrzyga",
+        )
 
     def test_keeps_id_name_address_and_source_order(self):
-        expected = self.source["radio"]["stations"]
+        expected = self.expected_stations
         stations = RadioSource(self.layout).load().stations
         self.assertEqual(
             [s.id for s in stations], [e["id"] for e in expected],
@@ -96,15 +120,27 @@ class RadioReadsTheRealAmcProfile(unittest.TestCase):
         self.assertEqual([s.url for s in stations], [e["streamUrl"] for e in expected])
 
     def test_selection_follows_current_item_id_not_the_first_row(self):
+        """Zaznaczenie idzie za ``currentItemId``, ale tylko w obrebie Biblioteki.
+
+        ``current_id`` czytamy zawsze -- to stan sesji radia, nie czlonkostwo.
+        Indeks wiersza istnieje tylko wtedy, gdy biezaca stacja jest TEZ
+        w Bibliotece; jesli uzytkownik sluchal stacji z katalogu bez dodania
+        jej do Biblioteki, nie ma czego zaznaczyc i to poprawny wynik.
+        """
         expected = self.source["radio"]
         snapshot = RadioSource(self.layout).load()
-        index = [e["id"] for e in expected["stations"]].index(expected["currentItemId"])
+        library_ids = [e["id"] for e in self.expected_stations]
         self.assertEqual(snapshot.current_id, expected["currentItemId"])
-        self.assertEqual(
-            snapshot.index_of_current, index,
-            "Zaznaczenie idzie za currentItemId profilu (tu nie jest to wiersz 0)",
-        )
-        self.assertGreater(index, 0, "zmierzony profil ma biezaca stacje dalej niz wiersz 0")
+        if expected["currentItemId"] in library_ids:
+            self.assertEqual(
+                snapshot.index_of_current, library_ids.index(expected["currentItemId"]),
+                "Zaznaczenie idzie za currentItemId profilu",
+            )
+        else:
+            self.assertIsNone(
+                snapshot.index_of_current,
+                "biezaca stacja spoza Biblioteki nie ma wiersza do zaznaczenia",
+            )
 
     def test_rows_for_the_list_widget_carry_name_and_address(self):
         snapshot = RadioSource(self.layout).load()
@@ -122,6 +158,7 @@ class RadioReadsTheRealAmcProfile(unittest.TestCase):
         template["id"] = "dopisana-przez-amc"
         template["name"] = "Stacja dopisana w AMC"
         template["streamUrl"] = "https://example.invalid/nowa"
+        template["isInLibrary"] = True  # dodana do Biblioteki, nie tylko zapisana
         payload["radio"]["stations"].append(template)
         payload["radio"]["currentItemId"] = template["id"]
         _write_atomic(self.state_path, payload)
@@ -133,6 +170,31 @@ class RadioReadsTheRealAmcProfile(unittest.TestCase):
         )
         self.assertEqual(after.stations[-1].id, "dopisana-przez-amc")
         self.assertEqual(after.current_id, "dopisana-przez-amc")
+
+    def test_a_station_only_saved_in_amc_is_not_a_library_member(self):
+        """Dopisanie wpisu BEZ ``isInLibrary`` nie powieksza Biblioteki.
+
+        Uzgodnienie uzytkownika: samo zapisanie w profilu nie oznacza
+        czlonkostwa. Wpis zostaje w profilu nienaruszony -- jest tylko
+        niepokazywany.
+        """
+        source = RadioSource(self.layout)
+        before = source.load()
+        payload = json.loads(self.state_path.read_text(encoding="utf-8"))
+        template = dict(payload["radio"]["stations"][0])
+        template["id"] = "tylko-zapisana"
+        template["name"] = "Z katalogu, bez dodania"
+        template["streamUrl"] = "https://example.invalid/katalog"
+        template["isInLibrary"] = False
+        payload["radio"]["stations"].append(template)
+        _write_atomic(self.state_path, payload)
+
+        after = source.load()
+        self.assertEqual(len(after.stations), len(before.stations))
+        self.assertNotIn("tylko-zapisana", [s.id for s in after.stations])
+        # Wpis NADAL jest w profilu -- nic nie kasujemy.
+        saved = json.loads(self.state_path.read_text(encoding="utf-8"))
+        self.assertIn("tylko-zapisana", [e["id"] for e in saved["radio"]["stations"]])
 
     def test_does_not_touch_the_source_file(self):
         before = self.state_path.read_bytes()
