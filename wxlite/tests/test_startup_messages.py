@@ -55,7 +55,10 @@ def _frame(*, library, radio_snapshot, queued: list, said: list):
         _run=lambda ops: None,
         _open_folder=lambda path, preferred_id=None: None,
         _window_alive=lambda: True,
+        _radio_view_requests=[],
     )
+    # Odczyt porzadku Radia ma osobny test wykonawczy z prawdziwym loaderem.
+    frame._open_radio_view = frame._radio_view_requests.append
     frame._open_library = lambda folder, preferred_id=None: gui.LiteFrame._open_library(
         frame, folder, preferred_id
     )
@@ -102,6 +105,10 @@ class RadioLoadErrorIsSpokenTests(unittest.TestCase):
             said=said,
         )
         gui.LiteFrame._load_initial_content(frame)
+        self.assertEqual(
+            [intent.target_session_id for intent in frame._radio_view_requests],
+            [gui.SessionId.RADIO],
+        )
         return said, queued
 
     def test_read_error_is_announced(self) -> None:
@@ -135,6 +142,10 @@ class SavedFolderErrorTests(unittest.TestCase):
             gui.LiteFrame._load_initial_content(frame)
         except Exception as error:  # pragma: no cover - to jest badany objaw
             self.fail(f"nieobsluzony wyjatek w callbacku startowym: {error!r}")
+        self.assertEqual(
+            [intent.target_session_id for intent in frame._radio_view_requests],
+            [gui.SessionId.RADIO],
+        )
         return said, queued
 
     def test_sqlite_error_in_saved_folder_is_announced(self) -> None:
