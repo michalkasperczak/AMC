@@ -2,6 +2,21 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## Biblioteka radia i lokalna Historia — odbiór kolejnego przyrostu
+
+Kod `4fbc49b0` ma zakończony wąski odbiór na Hermesie: filtr członkostwa
+Biblioteki radia, nazwa stacji bez powtarzania rodzaju oraz odtworzenie z
+Ctrl+H pliku niebędącego członkiem Biblioteki. Raport z gestów i mowy:
+`amc_pomoc/wx-library-compare-20261006/live/ACCEPTANCE.md`;
+kwit rodzica: `live/PARENT-VERIFIED.json`. To nadal przyrost przed dostawą,
+nie funkcje już obecne w zainstalowanej próbnej paczce `5e1f2d4e`.
+
+Przy ponowieniu używaj prywatnej pełnej kopii i właściwego trybu profilu:
+`AMC_WX_FIXTURE` wybiera prywatną listę stacji z lite-home, a nie czytnik
+`radio.stations`. Dla próby READ_ONLY_MIRROR ustaw APPDATA i LOCALAPPDATA
+na prywatną kopię i nie ustawiaj AMC_WX_FIXTURE. Potwierdź efektywne ścieżki
+oraz rzeczywiste wiersze przed pomiarem. Puste Radio nie zalicza filtra.
+
 ## Poprawki plików — odbiór zakończony
 
 Na kodzie `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71` wykonano poniższe
