@@ -1614,6 +1614,9 @@ class LiteFrame(wx.Frame):
         na gesty czytnika ekranu.
         """
         code = event.GetKeyCode()
+        if chord_from_event(event).canonical == "Ctrl+Alt+Return":
+            self._dispatch(Action.SESSION_OPTIONS)
+            return
         if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_DOWN):
             self._focus_filter_results()
             return
@@ -3098,7 +3101,7 @@ class LiteFrame(wx.Frame):
             if any(item.applies_on_next_playback for item in results):
                 # Prawda komunikatu: host zwrocil ``appliesOnNextPlayback``,
                 # wiec biezace granie zostaje po staremu.
-                tresc += " Zmiana od następnego uruchomienia materiału."
+                tresc += " Przetwarzanie dźwięku zmieni się przy następnym uruchomieniu materiału."
             self.announcer.say(tresc)
 
         def failed(error: Exception) -> None:

@@ -322,21 +322,14 @@ def build_menus() -> tuple[Menu, ...]:
         (
             MenuItem("&Algorytm przyspieszania", builtin="tempo-submenu"),
             SEPARATOR,
-            # Opcje SESJI, nie zaznaczonego pliku. ``accelerator=False``: wx
-            # zrobilby z podpisu akcelerator OKNA, ktory wyprzedza kontrolke z
-            # fokusem -- a Ctrl+Alt+Enter musi dzialac takze w polu filtra, jak
-            # kazdy skrot obslugiwany przez ``shortcuts.resolve``.
-            #
-            # BEZ ``needs_selection`` i BEZ ``needs_radio_session``: zakres to
-            # sesja, wiec pozycja ma dzialac na pustej liscie i w obu sesjach.
+            # Opcje dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
+            # jest skrótem okna, więc rejestrujemy natywny akcelerator;
+            # sama obsługa KEY_DOWN listy nie uruchamiała dialogu w próbie wx.
             MenuItem(
                 "&Opcje sesji…",
                 Action.SESSION_OPTIONS,
-                # Nazwa klawisza jak w tablicach ``shortcuts`` (``Return``).
-                # Na "Enter" tlumaczy ja dopiero ``_menu_shortcut_text`` w GUI
-                # -- model nie moze obiecywac podpisu, ktorego tablica nie ma.
                 shortcut="Ctrl+Alt+Return",
-                accelerator=False,
+                accelerator=True,
             ),
         ),
     )

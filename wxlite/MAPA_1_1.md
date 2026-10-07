@@ -1,6 +1,28 @@
 # AMC Python — zakres względem pełnego AMC
 
-Odebrany kod: `4fbc49b085a2fffa72a28d3aef7b5e19cf496d6c`. Dostarczona paczka na głównym pozostaje oparta na `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz ze statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
+## 07.10 — Opcje sesji: domknięty przyrost, przed dostawą
+
+Kod bbe40bcd i końcowa korekta rodzica w tym commicie. Wspólne wejście
+Dźwięk → Opcje sesji oraz Ctrl+Alt+Enter. Wybór konfigurowanej sesji
+nie przełącza odsłuchu. Pliki: normalizacja, przejścia, cisza i zachowanie
+po wyjściu z odtwarzacza; Radio: tylko zachowanie po wyjściu.
+
+Rodzic potwierdził na pełnej prywatnej kopii (11207 rekordów) i żywym NVDA:
+natywny skrót z listy, odtwarzacza i pola filtra; Zapisz/Anuluj oraz powrót
+fokusu; odmowę dysku bez fałszywego sukcesu i z przywróceniem ustawień
+silnika; użycie zapisanego nadpisania przy nowym procesie. Rzeczywiste
+odtwarzanie syntetycznego WAV: Escape przy ON wywołał pauzę, przy OFF
+pozostawił odtwarzanie do naturalnego końca. Nie oceniano słuchowo audio.
+
+Końcowy runner:1062/0/0, protokółC#:9 zestawówOK, w tym378 payloadów
+parsowanych przez prawdziwy model;1 istniejący przypadek zależny od profilu
+produkcyjnego pominięty naWSL. Parser nie jest nazywany pomiarem odtwarzania.
+Kwity `amc_pomoc/wx-session-options-20261007/final/`.
+
+To nie pełny port ani zakończenie autoAdd/searchEnter. Dotychczasowa
+zainstalowana próba ecc9ab68 nie zawiera tego przyrostu do osobnej dostawy.
+
+Stan historyczny sprzed dostawy ecc9ab68 (nie bieżąca instalacja): odebrany kod: `4fbc49b085a2fffa72a28d3aef7b5e19cf496d6c`. Dostarczona paczka na głównym pozostaje oparta na `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz ze statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
 ## Opcje sesji — kandydat bezokienny (ten przyrost)
 

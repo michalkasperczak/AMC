@@ -111,6 +111,15 @@ class FakeKeyEvent:
     def GetKeyCode(self) -> int:  # noqa: N802 - API wx
         return self._code
 
+    def ControlDown(self) -> bool:  # noqa: N802 - API wx
+        return False
+
+    def AltDown(self) -> bool:  # noqa: N802 - API wx
+        return False
+
+    def ShiftDown(self) -> bool:  # noqa: N802 - API wx
+        return False
+
     def Skip(self) -> None:  # noqa: N802 - API wx
         self.skipped = True
 

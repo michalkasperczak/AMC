@@ -1,5 +1,16 @@
 # AMC — mapa kodu
 
+## Opcje sesji wx — końcowe podłączenie
+
+`session_options.engine_audio_payload` łączy prywatne nadpisania plików
+z globalnym algorytmem przy starcie i przy zmianie algorytmu. Dialog edytuje
+lokalne kopie dwóch sesji. Handler zapisuje dopiero po odpowiedzi hosta,
+przy odmowie przywraca RAM i ustawienia silnika; `_save_state` zwraca wynik.
+`_leave_player_to_list` wykonuje politykę pauzy tylko odtwarzanej sesji.
+Ctrl+Alt+Enter jest natywnym akceleratorem menu, a pole filtra ma tę samą
+akcję przed ogólnym Enter. Nie należy przywracać samego KEY_DOWN z bbe40bcd:
+na żywym wx nie otwierał opcji z listy. Aktualne dowody są w MAPA_1_1.
+
 ## AMC Python: lewa strzałka na liście — kod przed odbiorem NVDA
 
 - `shortcuts.py`: niemodyfikowana Left na listach Radia/Plików daje `QUICK_INFORMATION`; w PLAYER nadal przewija, w filtrze pozostaje natywna.

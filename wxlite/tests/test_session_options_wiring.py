@@ -81,6 +81,36 @@ def test_menu_ma_dokladnie_jedna_pozycje_opcji_sesji_z_prawdziwym_podpisem():
     assert not item.needs_radio_session, "obie sesje maja swoje opcje"
 
 
+def test_session_options_has_native_window_accelerator():
+    """Ctrl+Alt+Enter needs the native accelerator, not list KEY_DOWN."""
+    item = next(
+        item
+        for menu in menu_model.build_menus()
+        for item in menu.items
+        if item.action is Action.SESSION_OPTIONS
+    )
+    assert item.accelerator, "Ctrl+Alt+Enter must be registered as a native accelerator"
+
+
+def test_filter_ctrl_alt_enter_opens_options_not_results():
+    from types import SimpleNamespace
+    from amc_wx_lite import gui
+
+    called = []
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame._dispatch = lambda action: called.append(action)
+    frame._focus_filter_results = lambda: called.append("filter-results")
+    event = SimpleNamespace(
+        GetKeyCode=lambda: gui.wx.WXK_RETURN,
+        ControlDown=lambda: True,
+        AltDown=lambda: True,
+        ShiftDown=lambda: False,
+        Skip=lambda: called.append("skip"),
+    )
+    gui.LiteFrame._on_filter_key(frame, event)
+    assert called == [Action.SESSION_OPTIONS], called
+
+
 def test_pozycja_menu_ma_wlasna_nazwe_a_nie_nazwe_ustawien_ogolnych():
     item = next(
         item
@@ -250,6 +280,9 @@ def test_zapisz_wykonuje_pelny_pion_az_do_profilu():
     assert out["state"].session_overrides["files"].loudness_normalization is True
     assert out["saved"] == [True], "zapis profilu nastepuje po zgodzie silnika"
     assert out["spoken"] and "apisano" in out["spoken"][0]
+    assert "Przetwarzanie dźwięku" in out["spoken"][0], (
+        "Odroczony skutek dotyczy audio, nie od razu działającej polityki pauzy"
+    )
 
 
 def test_odmowa_silnika_w_oknie_nie_utrwala_profilu():
