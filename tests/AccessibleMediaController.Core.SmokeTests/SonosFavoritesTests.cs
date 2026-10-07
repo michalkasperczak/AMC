@@ -162,6 +162,43 @@ internal static class SonosFavoritesTests
                 new SonosFavoriteService(new string('s', 31), new string('i', 10))).Id.Length == 36,
                 "Odrzucono legalna wartosc graniczna.");
         }));
+        tests.Add(("etykieta nie dubluje powtorzonej uslugi ani opisu", () =>
+        {
+            // PRAWDZIWY wzorzec ze zrodla: serwis i opis mowia TO SAMO, a czytnik
+            // przeczytal to DWA RAZY ("3, TuneIn (New), TuneIn (New)").
+            var doubled = new SonosFavorite("fav-9", "3", "TuneIn (New)",
+                new SonosFavoriteService("TuneIn (New)", "254"));
+            Require(SonosFavoritesLabels.Describe(doubled) == "3, TuneIn (New)",
+                "Etykieta powtarza te sama usluge: " + SonosFavoritesLabels.Describe(doubled));
+            // ROZNE dopelnienia NADAL wchodza - skracamy powtorzenia, nie informacje.
+            var distinct = new SonosFavorite("fav-10", "Radio Nowy Świat", "Stacja",
+                new SonosFavoriteService("TuneIn", "254"));
+            Require(SonosFavoritesLabels.Describe(distinct) == "Radio Nowy Świat, TuneIn, Stacja",
+                "Etykieta zgubila potrzebne dane: " + SonosFavoritesLabels.Describe(distinct));
+            // NAZWA rowna nazwie uslugi tez nie brzmi dwa razy.
+            var selfNamed = new SonosFavorite("fav-11", "TuneIn", null,
+                new SonosFavoriteService("tunein", null));
+            Require(SonosFavoritesLabels.Describe(selfNamed) == "TuneIn",
+                "Nazwa rowna uslugi zostala powtorzona: " + SonosFavoritesLabels.Describe(selfNamed));
+        }));
+        tests.Add(("przyjecie zlecenia mowi KROTKA NAZWE, bez technicznego potwierdzenia", () =>
+        {
+            var favorite = new SonosFavorite("fav-12", "Nokturny", "TuneIn",
+                new SonosFavoriteService("TuneIn", "254"));
+            var spoken = SonosFavoritesLabels.DescribePlayAccepted(favorite);
+            Require(spoken == "Nokturny", "Przyjecie nie mowi samej nazwy: " + spoken);
+            Require(!spoken.Contains("Przyjęto", StringComparison.OrdinalIgnoreCase),
+                "Przyjecie nadal czyta techniczne potwierdzenie.");
+            // NAZWA, nie identyfikator: numer nic nie mowi uzytkownikowi.
+            Require(!spoken.Contains("fav-12", StringComparison.Ordinal),
+                "Przyjecie czyta identyfikator zamiast nazwy.");
+            // BLEDY, brak celu i niepewny wynik to INNE teksty i zostaja czytelne.
+            Require(SonosFavoritesLabels.PlayNothingSelected.Length > 0
+                && SonosFavoritesLabels.PlayAlreadyInFlight.Length > 0
+                && SonosFavoritesLabels.PlayNeedsGroup.Length > 0
+                && SonosFavoritesLabels.PlayUnsupported.Length > 0,
+                "Skrocenie sukcesu zabralo komunikaty bledow.");
+        }));
         tests.Add(("niepowodzenie nie niesie danych, a Success bez listy jest niemozliwy", () =>
         {
             var failure = ReadFavorites("{}");

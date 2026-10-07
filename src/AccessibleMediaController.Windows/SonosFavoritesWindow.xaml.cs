@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Sonos;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
@@ -73,6 +74,42 @@ public partial class SonosFavoritesWindow : Window
     /// NIE mowi, nie rusza fokusu i nie pisze statusu.
     /// </summary>
     private bool _closed;
+
+    /// <summary>
+    /// ODCZYT PARAMETRÓW ulubionego (Strzalka w lewo) albo null. Okno NIE zna
+    /// konta ani klienta HTTP: wlasciciel oddaje mu gotowa droge, ktora moze
+    /// dolaczyc parametry TYLKO po dowiedzionej tozsamosci materialu.
+    /// </summary>
+    internal Func<SonosFavorite, Task<string>>? DescribeFavorite
+    {
+        get => _describeFavorite;
+        set { _describeFavorite = value; _describeInFlight = null; }
+    }
+
+    private Func<SonosFavorite, Task<string>>? _describeFavorite;
+
+    /// <summary>
+    /// ODCZYT RZECZYWISTEGO ADRESU materialu (Ctrl+Shift+C) albo null. Zwrocony
+    /// null znaczy "Sonos nie podal adresu" - wtedy schowek zostaje NIETKNIETY.
+    /// </summary>
+    internal Func<SonosFavorite, Task<string?>>? ResolveFavoriteLocation { get; set; }
+
+    /// <summary>
+    /// TRWAJACY odczyt parametrow i ulubiony, dla ktorego poszedl. Seria gestow
+    /// w tym samym momencie DZIELI jeden odczyt, wiec przytrzymana strzalka nie
+    /// zasypuje konta Sonos seria GET.
+    ///
+    /// CELOWO NIE MA TU TRWALEJ PAMIECI OPISOW PO Id. Zmierzone: pierwsza
+    /// odpowiedz o ulubionym typowo NIE MA parametrow (grupa jeszcze nie
+    /// zaladowala tego materialu), a metadane pojawiaja sie chwile pozniej.
+    /// Zapamietany opis sprawial, ze w nadal otwartym oknie uzytkownik do konca
+    /// slyszal "Sonos nie podał parametrów" - mimo ze Sonos juz je podawal.
+    /// Przytrzymanie klawisza odsiewa <c>e.IsRepeat</c>, a cudza i spozniona
+    /// odpowiedz odsiewa <c>_describeRequest</c> razem ze sprawdzeniem Id.
+    /// </summary>
+    private (string Id, Task<string> Read)? _describeInFlight;
+
+    private int _describeRequest;
 
     /// <summary>
     /// WARIANT TYLKO DO ODCZYTU. Zachowany dla zaplecza BEZ opcjonalnej granicy
@@ -154,9 +191,11 @@ public partial class SonosFavoritesWindow : Window
 
         AutomationProperties.SetHelpText(FavoritesList, canPlay
             ? "Strzałki czytają kolejne ulubione. Enter albo przycisk Odtwórz uruchamia wybraną "
-                + "pozycję w aktywnej grupie. Escape albo Zamknij kończy okno."
+                + "pozycję w aktywnej grupie. Strzałka w lewo czyta parametry, Control C kopiuje "
+                + "nazwę, Control Shift C adres. Escape albo Zamknij kończy okno."
             : "Strzałki czytają kolejne ulubione. To tylko podgląd: nic tu nie uruchamia "
-                + "odtwarzania. Escape albo Zamknij kończy podgląd.");
+                + "odtwarzania. Strzałka w lewo czyta parametry, Control C kopiuje nazwę, "
+                + "Control Shift C adres. Escape albo Zamknij kończy podgląd.");
 
         if (_rows.Count > 0) FavoritesList.SelectedIndex = 0;
 
@@ -180,6 +219,22 @@ public partial class SonosFavoritesWindow : Window
     }
 
     internal int RowCountForTests => _rows.Count;
+
+    /// <summary>
+    /// PRZYWROCENIE ZAZNACZENIA po powrocie z innej sesji. Po IDENTYFIKATORZE, nie
+    /// po indeksie: lista z konta mogla sie zmienic, a indeks wskazalby wtedy
+    /// CZYJS INNY material.
+    /// </summary>
+    internal void RestoreSelectedRow(string? favoriteId)
+    {
+        var index = SonosSublistReturnPolicy.ResolveRowIndex(
+            _rows.Select(row => row.Favorite.Id).ToArray(), favoriteId);
+        if (index < 0) return;
+        FavoritesList.SelectedIndex = index;
+        FavoritesList.UpdateLayout();
+        FocusSelectedRow();
+    }
+
 
     internal IReadOnlyList<string> RowLabelsForTests => _rows.Select(row => row.Label).ToArray();
 
@@ -285,8 +340,31 @@ public partial class SonosFavoritesWindow : Window
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        // CTRL+CYFRA: PRZELACZENIE SESJI BEZ RECZNEGO ZAMYKANIA LISTY.
+        // Modal wylacza okno glowne, wiec jego router skrotow tego gestu nie
+        // zobaczy - przechwytujemy go tu, tak samo jak Ctrl+Alt+Shift+P ponizej.
+        if (SonosSublistSessionSwitch.TryHandle(
+            this,
+            e,
+            SonosLibraryPresentation.FavoritesCategoryId,
+            () => SelectedFavoriteForTests?.Id))
+        {
+            return;
+        }
+
+        // TRANSPORT (Spacja) i PRESETY (Ctrl+Shift+cyfra) z wnetrza podlisty -
+        // modal wylacza okno glowne, wiec jego router tych gestow nie dostaje.
+        // Ta sama droga oddania wlascicielowi, co Ctrl+cyfra wyzej. Podlista
+        // ZOSTAJE otwarta: wiersz i fokus maja sie nie zmienic.
+        if (SonosSublistSessionSwitch.TryHandleTransportAndPresets(this, e))
+        {
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
+            // SWIADOME wyjscie: nie zostawiamy zadania powrotu.
+            (Owner as MainWindow)?.ClearSonosSublistReturn();
             CloseSelf();
             e.Handled = true;
             return;
@@ -309,6 +387,35 @@ public partial class SonosFavoritesWindow : Window
             return;
         }
 
+        // CTRL+C NAZWA, CTRL+SHIFT+C RZECZYWISTY ADRES - ten sam podzial, co w
+        // sesji Radia i w Moich stacjach, zeby nie bylo trzeciego skrotu do
+        // nauczenia. Modal wylacza okno glowne, wiec jego router tu nie dojdzie.
+        // Wymagamy fokusu NA LISCIE: w ewentualnym polu tekstowym Ctrl+C ma dalej
+        // kopiowac TEKST.
+        if (FavoritesList.IsKeyboardFocusWithin
+            && key == Key.C
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+                is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) StartCopyLocation();
+            else CopySelectedName();
+            return;
+        }
+
+        // STRZALKA W LEWO: PARAMETRY zaznaczonego ulubionego. Bez modyfikatorow,
+        // na liscie. Nie rusza odtwarzania i nie otwiera zadnego okna.
+        if (FavoritesList.IsKeyboardFocusWithin
+            && key == Key.Left
+            && (Keyboard.Modifiers & ~ModifierKeys.None) == ModifierKeys.None)
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            AnnounceFavoriteParameters();
+            return;
+        }
+
         if (e.Key != Key.Enter || !FavoritesList.IsKeyboardFocusWithin) return;
         // KLAWISZ ZATRZYMANY w obu wariantach: Enter na liscie nie ma prawa
         // wpasc do domyslnego przycisku ani wyjsc z modalu.
@@ -317,6 +424,115 @@ public partial class SonosFavoritesWindow : Window
         // Sprawdzamy to PRZED callbackiem, nie po nim.
         if (e.IsRepeat) return;
         StartPlaySelected();
+    }
+
+    /// <summary>
+    /// CTRL+C: SAMA NAZWA zaznaczonego ulubionego. Nie etykieta wiersza - opis i
+    /// nazwa uslugi NIE sa nazwa i nie maja wpadac do schowka razem z nia.
+    /// </summary>
+    private void CopySelectedName()
+    {
+        if (_closed) return;
+        if (SelectedFavoriteForTests is not { } favorite)
+        { Announce(SonosFavoritesLabels.PlayNothingSelected); return; }
+        if (!ClipboardRetry.TrySetText(favorite.Name, out var error))
+        { Announce(error); return; }
+        Announce("Skopiowano nazwę");
+    }
+
+    /// <summary>
+    /// CTRL+SHIFT+C: RZECZYWISTY ADRES MATERIALU albo krotka odmowa.
+    ///
+    /// <c>getFavorites</c> adresu NIE ZAWIERA, wiec musimy go wziac z metadanych
+    /// grupy - i tylko wtedy, gdy <see cref="SonosFavoriteDetails"/> potwierdzi
+    /// TOZSAMOSC materialu oraz to, ze kontener jest STACJA. Nigdy nie wchodzi
+    /// tu okladka, identyfikator ani sklejony link.
+    ///
+    /// BRAK ADRESU NIE DOTYKA SCHOWKA: poprzednia zawartosc zostaje.
+    /// </summary>
+    private async void StartCopyLocation()
+    {
+        if (_closed) return;
+        if (SelectedFavoriteForTests is not { } favorite)
+        { Announce(SonosFavoritesLabels.PlayNothingSelected); return; }
+        if (ResolveFavoriteLocation is null)
+        { Announce("Tu nie można odczytać adresu ulubionego."); return; }
+
+        var request = ++_describeRequest;
+        string? location;
+        try
+        {
+            location = await ResolveFavoriteLocation(favorite).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            // BLAD NAZWANY. Schowek nietkniety.
+            if (_closed || request != _describeRequest) return;
+            Announce("Nie udało się odczytać adresu ulubionego: " + exception.Message);
+            return;
+        }
+
+        // OKNO ZAMKNIETE albo ZAZNACZENIE PRZESZLO DALEJ w czasie odczytu: nie
+        // wolno skopiowac adresu CUDZEJ pozycji.
+        if (_closed || request != _describeRequest) return;
+        if (!string.Equals(SelectedFavoriteForTests?.Id, favorite.Id, StringComparison.Ordinal)) return;
+
+        if (string.IsNullOrWhiteSpace(location))
+        { Announce(SonosFavoriteDetails.NoLocation); return; }
+        if (!ClipboardRetry.TrySetText(location.Trim(), out var error))
+        { Announce(error); return; }
+        Announce("Skopiowano adres");
+    }
+
+    /// <summary>
+    /// STRZALKA W LEWO: PARAMETRY zaznaczonego ulubionego.
+    ///
+    /// Ta sama ochrona, co w Moich stacjach: wynik odrzucamy po zamknieciu okna
+    /// albo po zmianie zaznaczenia, a powtorzony gest na tej samej pozycji
+    /// korzysta z zapamietanego opisu i NIE pyta Sonosa drugi raz.
+    /// </summary>
+    private async void AnnounceFavoriteParameters()
+    {
+        if (_closed) return;
+        if (SelectedFavoriteForTests is not { } favorite)
+        { Announce(SonosFavoritesLabels.PlayNothingSelected); return; }
+        if (DescribeFavorite is null)
+        { Announce("Tu nie można odczytać parametrów ulubionego."); return; }
+
+        var request = ++_describeRequest;
+        // JEDEN ODCZYT NA SERIE GESTOW, takze gdy gest powtorzy sie PRZED koncem.
+        // Trwale pamietanie opisu po Id bylo bledem: metadane grupy pojawiaja sie
+        // POZNIEJ, a zapamietana odmowa nigdy by sie juz nie odswiezyla.
+        Task<string> read;
+        if (_describeInFlight is { } pending
+            && string.Equals(pending.Id, favorite.Id, StringComparison.Ordinal))
+        {
+            read = pending.Read;
+        }
+        else
+        {
+            read = DescribeFavorite(favorite);
+            _describeInFlight = (favorite.Id, read);
+        }
+
+        string description;
+        try
+        {
+            description = await read.ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            // PORZUCAMY nieudane zadanie, zeby kolejny gest mogl sprobowac od nowa.
+            if (_describeInFlight?.Read == read) _describeInFlight = null;
+            if (_closed || request != _describeRequest) return;
+            Announce("Nie udało się odczytać parametrów ulubionego: " + exception.Message);
+            return;
+        }
+
+        if (_describeInFlight?.Read == read) _describeInFlight = null;
+        if (_closed || request != _describeRequest) return;
+        if (!string.Equals(SelectedFavoriteForTests?.Id, favorite.Id, StringComparison.Ordinal)) return;
+        Announce(description);
     }
 
     /// <summary>
@@ -400,7 +616,7 @@ public partial class SonosFavoritesWindow : Window
             // its terminal notification, or overwrite a result already announced
             // before an asynchronous follow-up read.
             if (!operation.IsCompleted && _ownerFeedbackVersion == feedbackBefore)
-                Announce(SonosFavoritesLabels.PlayPending);
+                ShowProgress(SonosFavoritesLabels.PlayPending);
             await operation.ConfigureAwait(true);
         }
         catch (OperationCanceledException)
@@ -445,6 +661,20 @@ public partial class SonosFavoritesWindow : Window
         if (_closed) return;
         AnnouncementsForTests++;
         StatusText.Announce(message);
+    }
+
+    /// <summary>
+    /// RUTYNOWY POSTEP w modalu: WIDOCZNY status, ZERO notyfikacji czytnika.
+    /// "Wysyłam polecenie uruchomienia. Czekaj." wchodzilo uzytkownikowi w slowo
+    /// przy KAZDYM uruchomieniu pozycji i bylo urywane przez komunikat KONCOWY,
+    /// ktory przychodzil chwile pozniej. Koncowy zostaje pelna zapowiedzia;
+    /// licznik <see cref="AnnouncementsForTests"/> celowo NIE rosnie, bo nic
+    /// nie zostalo oglOSZONE.
+    /// </summary>
+    private void ShowProgress(string message)
+    {
+        if (_closed) return;
+        StatusText.ShowProgress(message);
     }
 
     /// <summary>

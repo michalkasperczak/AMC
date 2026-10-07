@@ -8,6 +8,21 @@ public sealed class AccessibleStatusTextBlock : TextBlock
 {
     protected override AutomationPeer OnCreateAutomationPeer() => new StatusAutomationPeer(this);
 
+    /// <summary>
+    /// RUTYNOWY POSTEP ("trwa odczyt", "wysyłam", "czekaj"): WIDOCZNY tekst
+    /// statusu BEZ przerywania czytnikowi.
+    ///
+    /// ZGLOSZENIE UZYTKOWNIKA: zapowiedzi postepu Sonosa wchodzily mu w slowo
+    /// przy KAZDYM wejsciu w sesje i przy KAZDYM uruchomieniu stacji, a czytnik
+    /// urywal je w polowie, bo zaraz przychodzil nastepny komunikat. Sama
+    /// informacja ma zostac: peer automatyzacji bierze nazwe Z TEKSTU, wiec
+    /// status jest nadal DO ODCZYTANIA na zadanie - tylko nikt go nie wypycha.
+    ///
+    /// To NIE jest wyciszenie <see cref="Announce"/>: wyniki, bledy, odmowy,
+    /// tytuly i liczniki ida dalej notyfikacja.
+    /// </summary>
+    public void ShowProgress(string message) => Text = message;
+
     public void Announce(string message)
     {
         Text = message;

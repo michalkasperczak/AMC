@@ -507,9 +507,15 @@ internal static class SonosTopologyRefreshUiTests
 
             var before = harness.Announcements.Count;
             harness.ExecuteCommand(RefreshCommandId);
+            // PO ZGLOSZENIU UZYTKOWNIKA: rutynowe "Odświeżam grupy Sonos" NIE
+            // jest juz zapowiedzia, wiec liczenie "before + 2" kodowalo DAWNY
+            // wymog, nie ten mierzony. Czekamy na WYNIK - uczciwy brak
+            // wybranego domu - bo to on jest cala trescia tego pomiaru
+            // (asercje nizej i tak dotyczą wylacznie added[^1]).
             harness.PumpUntil(
-                () => harness.Announcements.Count >= before + 2,
-                "odświeżenie bez wybranego domu nic nie powiedziało");
+                () => harness.Announcements.Skip(before)
+                    .Any(message => message.Contains("Nie wybrano domu", StringComparison.OrdinalIgnoreCase)),
+                "odświeżenie bez wybranego domu nie powiedziało o braku wybranego domu");
             harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
             var added = harness.Announcements.Skip(before).ToArray();
             if (added.Any(message => message.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)))
@@ -545,9 +551,12 @@ internal static class SonosTopologyRefreshUiTests
 
             var before = harness.Announcements.Count;
             harness.ExecuteCommand(RefreshCommandId);
+            // Jak wyzej: czekamy na NAZWANIE braku domow, nie na dawna liczbe
+            // zapowiedzi, w ktorej siedzial rutynowy postep.
             harness.PumpUntil(
-                () => harness.Announcements.Count >= before + 2,
-                "odświeżenie bez domów nic nie powiedziało");
+                () => harness.Announcements.Skip(before)
+                    .Any(message => message.Contains("dom", StringComparison.OrdinalIgnoreCase)),
+                "odświeżenie bez domów nie nazwało braku domów");
             harness.PumpQuietly(TimeSpan.FromMilliseconds(150));
             var added = harness.Announcements.Skip(before).ToArray();
             if (added.Any(message => message.Contains("nie istnieje", StringComparison.OrdinalIgnoreCase)))

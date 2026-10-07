@@ -37,6 +37,7 @@ internal static class RecordingFilesAcceptanceTests
             ("ponowne otwarcie historii sprawdza plik bez obserwatora", UnwatchedDeleteOnReopen),
             ("niedostępny folder nie usuwa nagrania bez historii", UnavailableFolderRetainsRecording),
             ("obserwator rozpoznaje równoważną ścieżkę starej historii", WatcherNormalizesLegacyPath),
+            ("zmiana wyłącznie wielkości liter aktualizuje bibliotekę i historię", CaseOnlyRenameUpdatesReferences),
             ("obserwator nie opuszcza podglądu ani miejsca powrotu", WatcherRespectsPreviewScope),
             ("przerwane nagranie pozostaje opisane jako przerwane", InterruptedRecordingRetainsOutcome),
         };
@@ -116,6 +117,75 @@ internal static class RecordingFilesAcceptanceTests
         Check(state.Radio.RecordingHistory.Single().Path==renamed,"Zwykła zmiana nazwy nie aktualizuje historii");
         Check(state.LocalMedia.ExcludedPaths.Contains(renamed) && !state.LocalMedia.ExcludedPaths.Contains(old),
             "Zwykła zmiana nazwy nie przeniosła wykluczenia");
+    }
+
+    /// <summary>
+    /// Zgloszenie (po 417): zmiana „No cześć” -> „No Cześć” odmawiala. Test idzie
+    /// krokami produkcyjnej drogi (polityka celu, File.Move, ApplyRenamedLocalPath),
+    /// NIE przez handler Shift+F2 — mierzy plik na dysku i trwalosc po restarcie.
+    /// </summary>
+    private static void CaseOnlyRenameUpdatesReferences(Fixture fixture)
+    {
+        var state = (PersistedState)typeof(MainWindow).GetField("_state", Private)!.GetValue(fixture.Window)!;
+        var folder = Path.GetDirectoryName(fixture.RecordingPath)!;
+        var maleLitery = Path.Combine(folder, "No cześć.wav");
+        File.Move(fixture.RecordingPath, maleLitery);
+        var tresc = File.ReadAllBytes(maleLitery);
+
+        var item = state.LocalMedia.Items.Single();
+        item.Path = maleLitery;
+        state.Radio.RecordingHistory.Single().Path = maleLitery;
+        state.LocalMedia.ExcludedPaths.Clear();
+        state.LocalMedia.ExcludedPaths.Add(maleLitery);
+        fixture.Reopen(loaded =>
+        {
+            loaded.LocalMedia.Items.Single().Path = maleLitery;
+            loaded.Radio.RecordingHistory.Single().Path = maleLitery;
+            loaded.LocalMedia.ExcludedPaths.Clear();
+            loaded.LocalMedia.ExcludedPaths.Add(maleLitery);
+        });
+
+        Check(
+            AccessibleMediaController.Core.LocalMedia.LocalFileRenamePolicy.TryBuildTargetPath(
+                maleLitery, "No Cześć", out var cel, out var blad),
+            "Polityka odmowila zmiany wylacznie wielkosci liter: " + blad);
+        Check(Path.GetFileName(cel) == "No Cześć.wav", "Zly cel zmiany pisowni: " + cel);
+
+        File.Move(maleLitery, cel);
+
+        // NTFS: ten sam plik, nowa pisownia. Katalog musi zglaszac DOKLADNIE
+        // nowa nazwe, zawartosc bez zmian, i tylko jeden plik .wav.
+        var naDysku = Directory.GetFiles(folder, "*.wav").Select(Path.GetFileName).ToArray();
+        Check(naDysku.Length == 1, "Zmiana pisowni zrobila drugi plik: " + string.Join(", ", naDysku));
+        Check(naDysku[0] == "No Cześć.wav", "System plikow nie przyjal nowej pisowni: " + naDysku[0]);
+        Check(File.ReadAllBytes(cel).SequenceEqual(tresc), "Zmiana pisowni zmienila zawartosc pliku.");
+
+        Call(fixture.Window, "ApplyRenamedLocalPath", maleLitery, cel);
+        var biezacy = (PersistedState)typeof(MainWindow).GetField("_state", Private)!.GetValue(fixture.Window)!;
+        Check(
+            biezacy.Radio.RecordingHistory.Single().Path == cel,
+            "Historia nie poszla za nowa pisownia: " + biezacy.Radio.RecordingHistory.Single().Path);
+        Check(
+            biezacy.LocalMedia.ExcludedPaths.Contains(cel, StringComparer.Ordinal)
+                && !biezacy.LocalMedia.ExcludedPaths.Contains(maleLitery, StringComparer.Ordinal),
+            "Wykluczenie nie poszlo za nowa pisownia: " + string.Join(", ", biezacy.LocalMedia.ExcludedPaths));
+        Check(biezacy.Radio.RecordingHistory.Count == 1, "Zmiana pisowni zdublowala wpis historii.");
+
+        fixture.Reopen();
+        var zapisany = fixture.Store.LoadOrCreate();
+        Check(
+            zapisany.LocalMedia.Items.Single().Path == cel,
+            "Biblioteka nie zapisala nowej pisowni: " + zapisany.LocalMedia.Items.Single().Path);
+        Check(zapisany.LocalMedia.Items.Count == 1, "Zmiana pisowni zdublowala pozycje Biblioteki.");
+        Check(
+            zapisany.Radio.RecordingHistory.Single().Path == cel,
+            "Restart zgubil nowa pisownie w historii.");
+        Call(fixture.Window, "ShowRecordedRadioFiles");
+        var wiersze = fixture.Window.MediaList.Items.Cast<object>().Select(row => row.ToString()!).ToArray();
+        Check(wiersze.Length == 1, "Zmiana pisowni zrobila drugi wiersz: " + string.Join(" | ", wiersze));
+        Check(
+            !wiersze[0].StartsWith("Brak pliku nagrania", StringComparison.Ordinal),
+            "Po zmianie pisowni nagranie wyglada na brakujace: " + wiersze[0]);
     }
 
     private static void InterruptedRecordingRetainsOutcome(Fixture fixture)

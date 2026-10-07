@@ -62,6 +62,14 @@ public static class SonosTargetSelectionLabels
         "Lista grup nie została jeszcze odczytana. Użyj Odśwież, żeby pobrać grupy z Sonosa.";
 
     /// <summary>
+    /// ODCZYT W TOKU przy JUZ OTWARTYM oknie celu. Mowimy, ze czekamy, zamiast
+    /// pokazywac pusta liste i odsylac do kolejnego Control F5.
+    /// </summary>
+    public const string LoadingGroups =
+        "Wczytuję grupy Sonos. Lista uzupełni się w tym oknie; F5 ponawia odczyt.";
+
+
+    /// <summary>
     /// DOM BEZ GRUP. Poprawny wynik odczytu, nie blad - i jawnie NIE wybieramy
     /// wtedy niczego w zastepstwie.
     /// </summary>

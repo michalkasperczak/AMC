@@ -1192,6 +1192,44 @@ public sealed class SessionNavigationState
     public string PlaybackContextView { get; set; } = "Multimedia";
     public List<string> PlaybackContextItemIds { get; set; } = [];
     public bool PlayerActive { get; set; }
+
+    /// <summary>
+    /// PODLISTA SONOSA, z ktorej uzytkownik WYSZEDL przelaczajac sesje (Ctrl+cyfra).
+    ///
+    /// Widok glowny sesji (<see cref="CurrentView"/>) NIE opisuje podlisty: Moje
+    /// stacje, Ulubione i Playlisty to OSOBNE okna, a nie wiersze listy glownej.
+    /// Bez tego pola powrot do sesji Sonos ladowal w KORZENIU kategorii, czyli nie
+    /// tam, gdzie uzytkownik byl - i to byl zgloszony blad, nie drobiazg.
+    ///
+    /// <c>null</c> znaczy "zadna podlista nie czeka na powrot" - zwykle wyjscie
+    /// Escape z podlisty CZYSCI to pole, zeby powrot nie otwieral okna, ktore
+    /// uzytkownik sam zamknal.
+    /// </summary>
+    public SonosSublistReturnState? SonosSublistReturn { get; set; }
+}
+
+/// <summary>
+/// ZAPAMIETANE MIEJSCE w podliscie Sonosa: ktora podlista, ktory wiersz i w jakim
+/// kontekscie celu. Kontekst jest czescia tozsamosci miejsca, nie ozdoba: po
+/// zmianie domu albo konta STARY wiersz nie ma prawa wrocic jako "to samo
+/// miejsce", bo moglby wskazywac material, ktorego juz nie ma.
+/// </summary>
+public sealed class SonosSublistReturnState
+{
+    /// <summary>
+    /// Identyfikator kategorii Biblioteki (np. <c>sonos.library.ownstreams</c>).
+    /// ZAWSZE identyfikator, NIGDY polska nazwa - nazwy sa dla czlowieka.
+    /// </summary>
+    public string CategoryId { get; set; } = string.Empty;
+
+    /// <summary>Identyfikator ZAZNACZONEGO wiersza albo null, gdy lista byla pusta.</summary>
+    public string? SelectedRowId { get; set; }
+
+    /// <summary>Dom (household.id) obowiazujacy w chwili wyjscia.</summary>
+    public string? HouseholdId { get; set; }
+
+    /// <summary>Cel (group.id) obowiazujacy w chwili wyjscia.</summary>
+    public string? GroupId { get; set; }
 }
 
 public sealed class CollectionOrderSettings

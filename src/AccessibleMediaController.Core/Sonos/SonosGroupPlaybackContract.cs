@@ -266,6 +266,59 @@ public sealed class SonosMetadataService
 }
 
 /// <summary>
+/// JAKOSC UTWORU (schema trackQuality, od 1.24.0). WSZYSTKIE pola nullable:
+/// brak znaczy "Sonos nie podal", nie "zero" i nie "stratny".
+///
+/// BITRATE NIE ISTNIEJE w tym schemacie - nie wolno go tu zgadywac ani wyliczac
+/// z bitDepth i sampleRate. Pole "immersive" SWIADOMIE pomijamy: nie uzywamy go
+/// w zadnym odczycie dla uzytkownika, a nieuzywane pole to tylko kolejna rzecz
+/// do mylnego odczytania.
+/// </summary>
+public sealed class SonosTrackQuality
+{
+    public SonosTrackQuality(string? codec, int? sampleRateHz, int? bitDepth, bool? lossless)
+    {
+        // codec: maxLength 16 w definicji. Dluzsza wartosc to NIEZGODNA
+        // odpowiedz - nie obcinamy jej po cichu do czegos, co wyglada dobrze.
+        if (codec is not null && codec.Length > MaxCodecLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(codec));
+        }
+
+        Codec = codec;
+        SampleRateHz = sampleRateHz;
+        BitDepth = bitDepth;
+        Lossless = lossless;
+    }
+
+    /// <summary>trackQuality.codec: maxLength 16.</summary>
+    public const int MaxCodecLength = 16;
+
+    /// <summary>trackQuality.codec, np. "mp3". Null znaczy "nie podano".</summary>
+    public string? Codec { get; }
+
+    /// <summary>trackQuality.sampleRate w Hz. Null znaczy "nie podano".</summary>
+    public int? SampleRateHz { get; }
+
+    /// <summary>trackQuality.bitDepth - bity na probke. Null znaczy "nie podano".</summary>
+    public int? BitDepth { get; }
+
+    /// <summary>trackQuality.lossless. Null to NIEWIEDZA, nie "false".</summary>
+    public bool? Lossless { get; }
+
+    /// <summary>Czy JAKIEKOLWIEK pole ma wartosc - inaczej nie ma co mowic.</summary>
+    public bool HasAnyValue =>
+        Codec is not null || SampleRateHz.HasValue || BitDepth.HasValue || Lossless.HasValue;
+
+    /// <summary>Nie wypisuje wartosci - tylko obecnosc pol.</summary>
+    public override string ToString() =>
+        "Jakość utworu Sonos: kodek " + (Codec is null ? "brak" : "jest")
+        + ", próbkowanie " + (SampleRateHz.HasValue ? "jest" : "brak")
+        + ", bity " + (BitDepth.HasValue ? "jest" : "brak")
+        + ", bezstratny " + (Lossless.HasValue ? "jest" : "brak");
+}
+
+/// <summary>
 /// Metadane utworu (schema track). Wszystkie pola nullable w definicji.
 /// artist i album to OBIEKTY z wymaganym polem name (maxLength 127) - nie napisy,
 /// wiec nie wolno czytac ich jako stringow.
@@ -281,7 +334,44 @@ public sealed class SonosTrackMetadata
         string? albumArtistName,
         SonosMetadataService? service,
         int? durationMillis)
+        : this(type, name, artistName, albumName, albumArtistName, service, durationMillis,
+            mediaUrl: null, contentType: null, quality: null)
     {
+    }
+
+    /// <summary>
+    /// PELNY wariant z OPCJONALNYMI polami, ktorych zastany model NIE czytal:
+    /// track.mediaUrl, track.contentType i track.quality. To byl brak NASZEGO
+    /// modelu, nie API - schemat ma je od dawna (quality od 1.24.0).
+    ///
+    /// Osobny konstruktor, zeby ISTNIEJACE siedmioargumentowe wywolania (takze
+    /// atrapy w pomiarach) zostaly nietkniete, a brak opcjonalnych danych nadal
+    /// dawal poprawny odczyt.
+    /// </summary>
+    public SonosTrackMetadata(
+        string? type,
+        string? name,
+        string? artistName,
+        string? albumName,
+        string? albumArtistName,
+        SonosMetadataService? service,
+        int? durationMillis,
+        string? mediaUrl,
+        string? contentType,
+        SonosTrackQuality? quality)
+    {
+        // mediaUrl: maxLength 1024, contentType: maxLength 255. Przekroczenie to
+        // NIEZGODNA odpowiedz, nie wartosc do cichego obciecia.
+        if (mediaUrl is not null && mediaUrl.Length > MaxMediaUrlLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(mediaUrl));
+        }
+
+        if (contentType is not null && contentType.Length > MaxContentTypeLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(contentType));
+        }
+
         Type = type;
         Name = name;
         ArtistName = artistName;
@@ -289,7 +379,29 @@ public sealed class SonosTrackMetadata
         AlbumArtistName = albumArtistName;
         Service = service;
         DurationMillis = durationMillis;
+        MediaUrl = mediaUrl;
+        ContentType = contentType;
+        Quality = quality;
     }
+
+    /// <summary>track.mediaUrl: maxLength 1024.</summary>
+    public const int MaxMediaUrlLength = 1024;
+
+    /// <summary>track.contentType: maxLength 255.</summary>
+    public const int MaxContentTypeLength = 255;
+
+    /// <summary>
+    /// track.mediaUrl - RZECZYWISTY adres TEGO materialu, gdy serwer go podal.
+    /// NIE jest tym samym co imageUrl (okladka), ani co identyfikator obiektu.
+    /// Null znaczy "Sonos nie podal" - wtedy nie ma czego skopiowac.
+    /// </summary>
+    public string? MediaUrl { get; }
+
+    /// <summary>track.contentType, np. "audio/mpeg". Null znaczy "nie podano".</summary>
+    public string? ContentType { get; }
+
+    /// <summary>track.quality - opcjonalne parametry techniczne albo null.</summary>
+    public SonosTrackQuality? Quality { get; }
 
     /// <summary>track.type - maxLength 32.</summary>
     public string? Type { get; }

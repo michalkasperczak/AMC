@@ -143,7 +143,8 @@ public partial class MainWindow
         _sonosPlaylistsInFlight = true;
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
-        Announce(SonosPlaylistsLabels.Loading);
+        // RUTYNOWY POSTEP odczytu playlist: widoczny status bez notyfikacji.
+        AnnounceProgress(SonosPlaylistsLabels.Loading);
         try
         {
             SonosPlaylistsReadsStartedForTests++;
@@ -199,6 +200,13 @@ public partial class MainWindow
                         playlist, _sonosPlaylistsWindow!, householdId, ticket));
             SonosPlaylistsWindowsCreatedForTests++;
             _sonosPlaylistsWindow = window;
+            // POWROT Z INNEJ SESJI: wiersz sprzed Ctrl+cyfra. Przy zwyklym
+            // otwarciu pole jest puste i lista zostaje na pierwszym wierszu.
+            if (ConsumeSonosSublistPendingRowId(SonosLibraryPresentation.PlaylistsCategoryId)
+                is { } pendingPlaylist)
+            {
+                window.Loaded += (_, _) => window.RestoreSelectedRow(pendingPlaylist);
+            }
             try
             {
                 PresentSonosPlaylists(window);
@@ -363,7 +371,7 @@ public partial class MainWindow
             // HTTP 200 to PRZYJECIE ZLECENIA, nie dowod, ze muzyka gra. Tozsamosc
             // pozycji bierzemy z NASZEJ listy - to my wyslalismy ten identyfikator.
             AnnounceInPlaylistsOrigin(origin, accepted
-                ? SonosPlaylistsLabels.DescribePlayAccepted(SonosPlaylistsLabels.Describe(playlist))
+                ? SonosPlaylistsLabels.DescribePlayAccepted(playlist)
                 : result.Message);
 
             // ISTNIEJACY jawny odczyt stanu tego SAMEGO celu - zeby odtwarzacz i

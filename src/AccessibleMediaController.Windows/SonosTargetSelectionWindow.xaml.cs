@@ -66,8 +66,36 @@ public partial class SonosTargetSelectionWindow : Window
     {
         InitializeComponent();
 
+        GroupsList.ItemsSource = _rows;
+        PublishSnapshot(topology, currentGroupId, unavailableReason, keepSelectionById: false);
+
+        AutomationProperties.SetHelpText(GroupsList,
+            "Strzałki czytają kolejne grupy wraz z nazwami ich głośników. Enter albo przycisk "
+            + "Ustaw jako cel kieruje tam polecenia AMC; muzyka nie zostaje uruchomiona. "
+            + "Escape albo Zamknij wychodzi bez zmiany celu.");
+
+        Loaded += (_, _) => FocusInitialElement();
+    }
+
+    /// <summary>
+    /// PUBLIKACJA MIGAWKI do widoku. Jedna droga dla konstruktora i dla
+    /// PONOWNEGO wczytania (F5 / dokonczony odczyt otwarty razem z oknem),
+    /// zeby druga sciezka nie rozjechala sie z pierwsza.
+    ///
+    /// <paramref name="keepSelectionById"/>: przy odswiezeniu zachowujemy
+    /// zaznaczenie po IDENTYFIKATORZE tego, co uzytkownik mial pod palcem -
+    /// nie po pozycji - i dopiero gdy ta grupa zniknela, wracamy do celu.
+    /// </summary>
+    private void PublishSnapshot(
+        SonosHouseholdTopology? topology,
+        string? currentGroupId,
+        string? unavailableReason,
+        bool keepSelectionById)
+    {
+        var keepId = keepSelectionById ? HighlightedGroupIdForTests : null;
         var parts = new List<string> { SonosTargetSelectionLabels.ViewIntroduction };
 
+        _rows.Clear();
         if (topology is null)
         {
             // BRAK DANYCH: przyczyna w pierwszej tresci okna, lista pusta, a
@@ -100,34 +128,88 @@ public partial class SonosTargetSelectionWindow : Window
 
         IntroductionText.Text = string.Join(" ", parts);
 
-        GroupsList.ItemsSource = _rows;
-
         // POCZATKOWE zaznaczenie po IDENTYFIKATORZE, nie po pozycji: zmiana
         // kolejnosci albo nazwy w topologii nie przestawia wyboru na sasiada.
-        var currentIndex = string.IsNullOrWhiteSpace(currentGroupId)
+        var wanted = keepId ?? currentGroupId;
+        var currentIndex = string.IsNullOrWhiteSpace(wanted)
             ? -1
             : _rows.ToList().FindIndex(row =>
-                string.Equals(row.Id, currentGroupId, StringComparison.Ordinal));
+                string.Equals(row.Id, wanted, StringComparison.Ordinal));
         if (_rows.Count > 0)
         {
             GroupsList.SelectedIndex = currentIndex >= 0 ? currentIndex : 0;
         }
 
         ConfirmButton.IsEnabled = _rows.Count > 0;
-        if (_rows.Count == 0)
-        {
-            AutomationProperties.SetHelpText(
-                ConfirmButton,
-                unavailableReason ?? SonosTargetSelectionLabels.EmptyState);
-        }
-
-        AutomationProperties.SetHelpText(GroupsList,
-            "Strzałki czytają kolejne grupy wraz z nazwami ich głośników. Enter albo przycisk "
-            + "Ustaw jako cel kieruje tam polecenia AMC; muzyka nie zostaje uruchomiona. "
-            + "Escape albo Zamknij wychodzi bez zmiany celu.");
-
-        Loaded += (_, _) => FocusInitialElement();
+        AutomationProperties.SetHelpText(
+            ConfirmButton,
+            _rows.Count == 0
+                ? unavailableReason ?? SonosTargetSelectionLabels.EmptyState
+                : string.Empty);
     }
+
+    /// <summary>
+    /// WCZYTYWANIE W TOKU: okno jest JUZ uzywalne i mowi wprost, ze lista
+    /// zaraz sie uzupelni. Bez tego Ctrl+F5 przy pustej topologii dawal okno
+    /// bez slowa wyjasnienia i uzytkownik powtarzal skrot.
+    /// </summary>
+    internal void ShowLoadingForTarget()
+    {
+        LoadingPending = true;
+        // RUTYNOWY POSTEP: tekst zostaje widoczny i do odczytania, ale nie
+        // przerywa czytnikowi - okno jest i tak uzywalne, a wynik odczytu
+        // (podsumowanie albo powod niedostepnosci) idzie pelna zapowiedzia
+        // w ApplyRefreshedTopology.
+        StatusText.ShowProgress(SonosTargetSelectionLabels.LoadingGroups);
+    }
+
+    /// <summary>
+    /// WYNIK ODCZYTU wpuszczony do JUZ OTWARTEGO okna. Wlasciciel pilnuje
+    /// granic (zycie okna, bilet konta, generacja) - okno tylko publikuje to,
+    /// co dostalo, i mowi o tym jednym zdaniem.
+    /// </summary>
+    internal void ApplyRefreshedTopology(
+        SonosHouseholdTopology? topology,
+        string? currentGroupId,
+        string? unavailableReason)
+    {
+        LoadingPending = false;
+        RefreshesAppliedForTests++;
+
+        PublishSnapshot(topology, currentGroupId, unavailableReason, keepSelectionById: true);
+        StatusText.Announce(topology is null
+            ? unavailableReason ?? SonosTargetSelectionLabels.TopologyUnknown
+            : SonosTargetSelectionLabels.SummarizeCount(_rows.Count));
+
+        // ZADNEJ KRADZIEZY FOKUSU: gdy uzytkownik stoi na przycisku, w innym
+        // oknie albo innej aplikacji, odswiezenie NIE przeciaga go na liste.
+        //
+        // ZMIERZONE (czesc 1d): czyszczenie _rows w PublishSnapshot NIE gubi tu
+        // wlasnosci fokusu - WPF zostawia ja na liscie, wiec ten odczyt PO
+        // publikacji jest nadal prawdziwy i fokus wraca na TEN SAM wiersz po
+        // identyfikatorze. Przenoszenie fokusu PRZED czyszczeniem bylo wiec
+        // zbedne i zostalo odrzucone jako zmiana bez pomiaru.
+        if (!GroupsList.IsKeyboardFocusWithin || _rows.Count == 0) return;
+
+        // Kontenery powstaja dopiero po ukladzie - bez tego ContainerFromIndex
+        // oddaje null i odtworzenie wiersza po IDENTYFIKATORZE nie dochodzi.
+        GroupsList.UpdateLayout();
+        FocusSelectedRow();
+    }
+
+    /// <summary>Czy okno czeka na wynik odczytu zleconego przez wlasciciela.</summary>
+    internal bool LoadingPending { get; private set; }
+
+    /// <summary>
+    /// F5 W OKNIE CELU: PROSBA o odswiezenie TYM SAMYM backendem co menu Plik.
+    /// Okno samo NIC nie czyta - oddaje intencje wlascicielowi, ktory ma
+    /// bramke "jedno odswiezenie naraz".
+    /// </summary>
+    internal Action? RefreshRequested { get; set; }
+
+    internal int RefreshRequestsForTests { get; private set; }
+
+    internal int RefreshesAppliedForTests { get; private set; }
 
     /// <summary>
     /// Identyfikator POTWIERDZONEJ grupy. Null gdy nic nie potwierdzono - sam
@@ -175,8 +257,23 @@ public partial class SonosTargetSelectionWindow : Window
     internal bool ListHasFocusForTests =>
         GroupsList.IsKeyboardFocusWithin || GroupsList.IsKeyboardFocused;
 
+    /// <summary>
+    /// IDENTYFIKATOR grupy z WIERSZA, ktory RZECZYWISCIE ma fokus klawiatury.
+    /// Null, gdy fokus jest gdziekolwiek indziej (lista, przycisk, okno, inna
+    /// aplikacja). Sam <c>ListHasFocusForTests</c> tego nie rozroznia, a wlasnie
+    /// na tym polegala granica: po czyszczeniu wierszy fokus siadal na oknie.
+    /// </summary>
+    internal string? FocusedRowIdForTests =>
+        Keyboard.FocusedElement is ListBoxItem { DataContext: GroupTargetRow row } ? row.Id : null;
+
     /// <summary>Lista grup dla POMIARU drogi klawiatury (prawdziwe zdarzenia).</summary>
     internal ListBox ListForTests => GroupsList;
+
+    /// <summary>
+    /// Przycisk zamkniecia - do POMIARU, ze odswiezenie NIE KRADNIE fokusu
+    /// uzytkownikowi stojacemu poza lista.
+    /// </summary>
+    internal Button CloseButtonForTests => CloseButton;
 
     internal string FocusedElementNameForTests => Keyboard.FocusedElement switch
     {
@@ -282,6 +379,19 @@ public partial class SonosTargetSelectionWindow : Window
         {
             CancelChoice();
             e.Handled = true;
+            return;
+        }
+
+        // F5 W OKNIE CELU: to samo odswiezenie, co menu Plik i F5 na liscie
+        // glownej - inaczej uzytkownik musial zamknac okno, odswiezyc i wrocic.
+        // Bramka "jedno odswiezenie naraz" siedzi u wlasciciela, wiec
+        // kilkukrotne F5 nie mnozy odczytow.
+        if (e.Key == Key.F5 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            RefreshRequestsForTests++;
+            RefreshRequested?.Invoke();
             return;
         }
 

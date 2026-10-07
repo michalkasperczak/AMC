@@ -40,10 +40,20 @@ internal static class AudioClipOriginalEditor
         bool keepBackup = false)
     {
         Validate(request);
-        if (CloudFileAvailability.MayRequireRemoteAccess(request.SourcePath))
+        // Wspólna, niezależna od dostawcy decyzja o edycji (ta sama, której
+        // używa okno i dopisywanie). Nazwa folderu ani chmury nie bierze w niej
+        // udziału — liczą się tylko udokumentowane metadane Windows.
+        var availability = CloudFileAvailability.GetEditAvailability(request.SourcePath);
+        if (!availability.CanEdit)
         {
-            throw new InvalidOperationException(
-                "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie.");
+            throw availability.Outcome switch
+            {
+                CloudEditOutcome.Missing =>
+                    new FileNotFoundException(availability.Message, request.SourcePath),
+                CloudEditOutcome.AccessDenied =>
+                    new UnauthorizedAccessException(availability.Message),
+                _ => new InvalidOperationException(availability.Message)
+            };
         }
         if (LocalAudioFileDiscovery.IsVideoFile(request.SourcePath))
         {
@@ -304,7 +314,12 @@ internal static class AudioClipOriginalEditor
         cancellationToken.ThrowIfCancellationRequested();
         if (!File.Exists(path) || new FileInfo(path).Length <= 0)
             throw new InvalidDataException("Plik wynikowy jest pusty. Oryginał nie został zmieniony.");
-        var metadata = await WindowsMediaOutput.TryReadMetadataAsync(path, MetadataTimeout)
+        // Plik wynikowy powstal chwile temu w tym procesie, wiec nie moze byc
+        // zastepnikiem w chmurze. Nazwa folderu nie moze blokowac jego weryfikacji.
+        var metadata = await WindowsMediaOutput.TryReadMetadataAsync(
+                path,
+                MetadataTimeout,
+                locallyProducedFile: true)
             .ConfigureAwait(false);
         if (!metadata.Success || metadata.Duration <= TimeSpan.Zero)
             throw new InvalidDataException("Nie można sprawdzić pliku wynikowego. Oryginał nie został zmieniony.");

@@ -400,8 +400,27 @@ public sealed partial class SonosControlApiClient
             album is null ? null : Text(album.Value, "name", 127, true),
             album is null ? null : ReadNestedArtistName(album.Value),
             ReadService(Object(track.Value, "service")),
-            OptionalInt32(track.Value, "durationMillis"));
+            OptionalInt32(track.Value, "durationMillis"),
+            // OPCJONALNE pola, ktorych zastany model NIE czytal. Brak ktoregokolwiek
+            // z nich jest LEGALNY i nie psuje odczytu reszty metadanych.
+            // imageUrl (okladka) SWIADOMIE pomijamy: to nie adres materialu.
+            Text(track.Value, "mediaUrl", SonosTrackMetadata.MaxMediaUrlLength),
+            Text(track.Value, "contentType", SonosTrackMetadata.MaxContentTypeLength),
+            ReadTrackQuality(Object(track.Value, "quality")));
     }
+
+    /// <summary>
+    /// trackQuality albo null. KAZDE pole osobno opcjonalne; brak calego obiektu
+    /// nie jest bledem - stary gloshnik i radio go nie podaja.
+    /// </summary>
+    private static SonosTrackQuality? ReadTrackQuality(JsonElement? quality) =>
+        quality is null
+            ? null
+            : new SonosTrackQuality(
+                Text(quality.Value, "codec", SonosTrackQuality.MaxCodecLength),
+                OptionalInt32(quality.Value, "sampleRate"),
+                OptionalInt32(quality.Value, "bitDepth"),
+                Flag(quality.Value, "lossless"));
 
     private static string? ReadNestedArtistName(JsonElement album)
     {

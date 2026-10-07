@@ -85,13 +85,23 @@ public static class SonosFavoritesLabels
     public const string PlayNothingSelected = "Nie ma wybranego ulubionego do uruchomienia.";
 
     /// <summary>
-    /// PRZYJECIE zlecenia: HTTP 200 znaczy, ze Sonos POLECENIE PRZYJAL, a NIE ze
-    /// muzyka gra. Tozsamosc pozycji pochodzi z NASZEJ listy (to my wyslalismy
-    /// ten identyfikator), a nie z metadanych odczytanych po poleceniu - tytul w
-    /// metadanych nie dowodzi, ze gra WLASNIE ten ulubiony.
+    /// ZWYKLY SUKCES: KROTKA NAZWA pozycji i nic wiecej. Dawny tekst doklejal
+    /// "Przyjęto polecenie uruchomienia", a do tego CALA etykiete wiersza, wiec
+    /// usluga i opis brzmialy drugi raz zaraz po tym, jak lista je przeczytala.
+    /// Techniczne potwierdzenie nie jest informacja dla uzytkownika - nazwa jest.
+    ///
+    /// SKROCENIE NIE JEST OBIETNICA: HTTP 200 znaczy, ze Sonos POLECENIE PRZYJAL,
+    /// a NIE ze muzyka gra - i wlasnie dlatego nazwa nie dostaje slowa "gra".
+    /// Tozsamosc pozycji pochodzi z NASZEJ listy (to my wyslalismy ten
+    /// identyfikator), nie z metadanych odczytanych po poleceniu. NAZWA, nigdy
+    /// identyfikator: numer nic nie mowi. Bledy, brak celu, zmiana konta i
+    /// niepewny wynik maja WLASNE, pelne teksty i tutaj sie nie zmieniaja.
     /// </summary>
-    public static string DescribePlayAccepted(string favoriteLabel) =>
-        "Przyjęto polecenie uruchomienia: " + favoriteLabel;
+    public static string DescribePlayAccepted(SonosFavorite favorite)
+    {
+        ArgumentNullException.ThrowIfNull(favorite);
+        return favorite.Name;
+    }
 
     /// <summary>KOMUNIKAT OCZEKIWANIA: dlugi odczyt nie ma wygladac jak zawieszenie.</summary>
     public const string Loading = "Odczytuję ulubione Sonos. Czekaj.";
@@ -103,24 +113,42 @@ public static class SonosFavoritesLabels
     public const string EmptyState = "Ten dom Sonos nie ma zapisanych ulubionych.";
 
     /// <summary>
-    /// Etykieta JEDNEGO ulubionego. Nazwa, potem usluga i opis o ile istnieja.
+    /// Etykieta JEDNEGO ulubionego. Nazwa, potem usluga i opis o ile istnieja -
+    /// i o ile NIE POWTARZAJA tego, co juz w etykiecie jest.
+    ///
+    /// Zrodlo potrafi podac TEN SAM napis dwa razy (np. nazwa uslugi rowna
+    /// opisowi: "3, TuneIn (New), TuneIn (New)"). Czytnik czytal to dwa razy, co
+    /// jest halasem, nie informacja. Pomijamy WYLACZNIE DOKLADNE powtorzenie
+    /// (bez wielkosci liter i bialych znakow na brzegach); ROZNE dopelnienia
+    /// wchodza bez zmian, bo to osobne dane.
     /// </summary>
     public static string Describe(SonosFavorite favorite)
     {
         ArgumentNullException.ThrowIfNull(favorite);
         var label = favorite.Name;
         // NAZWA uslugi, nigdy jej identyfikator. Puste/biale traktujemy jak brak.
-        if (favorite.Service?.Name is { } serviceName && !string.IsNullOrWhiteSpace(serviceName))
+        label = AppendIfNew(label, favorite.Service?.Name);
+        return AppendIfNew(label, favorite.Description);
+    }
+
+    /// <summary>
+    /// Doklej dopelnienie TYLKO gdy wnosi nowa tresc. Porownujemy z KAZDYM juz
+    /// wypowiedzianym czlonem, a nie z calym napisem, zeby powtorka w srodku tez
+    /// zostala pominieta.
+    /// </summary>
+    private static string AppendIfNew(string label, string? part)
+    {
+        if (string.IsNullOrWhiteSpace(part)) return label;
+        var candidate = part.Trim();
+        foreach (var said in label.Split(", ", StringSplitOptions.TrimEntries))
         {
-            label += ", " + serviceName;
+            if (string.Equals(said, candidate, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return label;
+            }
         }
 
-        if (favorite.Description is { } description && !string.IsNullOrWhiteSpace(description))
-        {
-            label += ", " + description;
-        }
-
-        return label;
+        return label + ", " + candidate;
     }
 
     /// <summary>

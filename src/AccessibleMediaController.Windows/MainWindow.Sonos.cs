@@ -74,6 +74,12 @@ public partial class MainWindow
     private bool _sonosRefreshInFlight;
 
     /// <summary>
+    /// TRWAJACY przelot odswiezenia. Kto przyszedl drugi, WSPOLDZIELI to samo
+    /// oczekiwanie zamiast dostawac natychmiastowy "sukces" bez danych.
+    /// </summary>
+    private Task? _sonosRefreshFlight;
+
+    /// <summary>
     /// WLASCICIEL bramki odswiezenia. Bez niego spozniony przelot A zwalnialby
     /// bramke trwajacego przelotu B w swoim finally.
     /// </summary>
@@ -81,6 +87,14 @@ public partial class MainWindow
 
     /// <summary>JEDEN przelot polecenia naraz. Brak ukrytej kolejki.</summary>
     private bool _sonosCommandInFlight;
+
+    /// <summary>
+    /// SKUMULOWANA INTENCJA GLOSNOSCI dla szybkich powtorzen z globalnego skrotu
+    /// (Ctrl+Win+strzalki z wtyczki NVDA). Bez niej kazde nacisniecie, ktore
+    /// trafialo w trwajacy POST, przepadalo na bramce jednego polecenia.
+    /// </summary>
+    private readonly SonosVolumeRepeatBuffer _sonosVolumeRepeats = new();
+
 
     /// <summary>
     /// BILET WLASCICIELA bramki polecenia. Bilet celu (<see cref="_sonosTargetTicket"/>)
@@ -194,6 +208,16 @@ public partial class MainWindow
     internal SonosGroupMetadata? SonosMetadataForTests => _sonosMetadata;
 
     internal SonosGroupVolume? SonosVolumeForTests => _sonosVolume;
+
+    /// <summary>
+    /// CZY TRWA polecenie Sonos - pomiar szybkich powtorzen glosnosci musi
+    /// doczekac domkniecia, zanim porowna koncowy poziom.
+    /// </summary>
+    internal bool SonosCommandInFlightForTests => _sonosCommandInFlight;
+
+    /// <summary>Suma krokow glosnosci czekajacych na doslanie - do pomiaru.</summary>
+    internal int SonosPendingVolumeDeltaForTests => _sonosVolumeRepeats.PendingDelta;
+
 
     /// <summary>Stan aplikacji tego okna - kwit pomiaru zapisanego wyboru.</summary>
     internal PersistedState StateForTests => _state;
@@ -363,15 +387,28 @@ public partial class MainWindow
     /// niszczymy i pustki nie publikujemy jako sukcesu. Zniknięcie domu albo
     /// grupy liczy sie WYLACZNIE po POTWIERDZONYM swiezym odczycie.
     /// </summary>
-    internal async Task RefreshSonosTopologyAsync()
+    internal Task RefreshSonosTopologyAsync()
     {
         if (_sonosRefreshInFlight)
         {
             // SWIADOMA powtorka: krotka informacja, ZERO dodatkowych GET.
             Announce("Odświeżanie grup Sonos już trwa");
-            return;
+            // Kto przyszedl drugi, CZEKA na TEN SAM trwajacy odczyt zamiast
+            // dostawac natychmiastowy "sukces" bez danych. Dzieki temu okno
+            // wyboru celu otwarte W TRAKCIE menu-F5 widzi swieza topologie
+            // bez ponownego F5. Nadal JEDEN tor GET - zero nowych zadan.
+            return _sonosRefreshFlight ?? Task.CompletedTask;
         }
 
+        var flight = RunSonosTopologyRefreshAsync();
+        // Bramke ustawia samo cialo PRZED pierwszym await, wiec tu mamy juz
+        // zywy przelot do wspoldzielenia (albo gotowe zadanie, gdy odpadl od razu).
+        if (_sonosRefreshInFlight) _sonosRefreshFlight = flight;
+        return flight;
+    }
+
+    private async Task RunSonosTopologyRefreshAsync()
+    {
         var backend = EnsureSonosBackend();
         // GRANICA konta PRZED wzieciem biletu bramki: ApplySonosAccountBinding
         // moze samo wywolac CancelSonosPendingWork, ktory PODNOSI bilet bramki.
@@ -382,7 +419,11 @@ public partial class MainWindow
         _sonosRefreshInFlight = true;
         var ticket = _sonosTargetTicket;
         var token = EnsureSonosCancellation().Token;
-        Announce("Odświeżam grupy Sonos");
+        // RUTYNOWY POSTEP: widoczny status, ZERO przerywania czytnikowi.
+        // Uzytkownik slyszal to przy kazdym wejsciu w sesje i nawet nie
+        // doslyszal konca zdania. WYNIK (podsumowanie, blad, odmowa) nizej
+        // zostaje pelna zapowiedzia.
+        AnnounceProgress("Odświeżam grupy Sonos");
         try
         {
             var households = await backend.ReadHouseholdsAsync(token).ConfigureAwait(true);
@@ -479,7 +520,11 @@ public partial class MainWindow
         {
             // Bramke zwalnia TYLKO jej wlasciciel: spozniony przelot A nie
             // odblokuje trwajacego B.
-            if (gate == _sonosRefreshGateTicket) _sonosRefreshInFlight = false;
+            if (gate == _sonosRefreshGateTicket)
+            {
+                _sonosRefreshInFlight = false;
+                _sonosRefreshFlight = null;
+            }
         }
     }
 
@@ -622,12 +667,33 @@ public partial class MainWindow
     /// odczyt NIE zostawia poprzednich danych jako biezacych - pola wracaja do
     /// braku informacji, bo stary tytul przy nowym utworze to klamstwo.
     /// </summary>
-    internal async Task<bool> ReadSonosGroupStateAsync()
+    internal async Task<bool> ReadSonosGroupStateAsync() =>
+        (await ReadSonosGroupStateDetailedAsync().ConfigureAwait(true)).All;
+
+    /// <summary>
+    /// CZESCI JEDNEGO odczytu grupy. <see cref="All"/> to dawna koniunkcja i ona
+    /// dalej rzadzi TERMINEM odczytu tla oraz werdyktami, ktore naprawde zaleza
+    /// od wszystkich trzech czesci.
+    ///
+    /// L1 z odbioru po 4.2.1: SPACJA brala ta koniunkcje jako warunek wyslania
+    /// polecenia, wiec nieudany odczyt DEKORACYJNEGO tytulu albo glosnosci
+    /// zabieral prawo do ZATRZYMANIA grajacego radia - mimo ze
+    /// <c>availablePlaybackActions</c> odczytano poprawnie i bramka transportu
+    /// patrzy WYLACZNIE na nie. Dlatego czesci sa rozdzielone: decyzja o
+    /// transporcie pyta o <see cref="Playback"/>, a nie o calosc.
+    /// </summary>
+    internal readonly record struct SonosGroupStateRead(bool Playback, bool Metadata, bool Volume)
     {
+        internal bool All => Playback && Metadata && Volume;
+    }
+
+    private async Task<SonosGroupStateRead> ReadSonosGroupStateDetailedAsync()
+    {
+        var nothing = new SonosGroupStateRead(false, false, false);
         // GRANICA konta PRZED odczytem: po rzeczywistej zmianie konta nie ma
         // czego odczytywac, a stary cel nie moze pojsc przez nowe konto.
-        if (ApplySonosAccountBinding()) return false;
-        if (SonosActiveGroup is not { } group) return false;
+        if (ApplySonosAccountBinding()) return nothing;
+        if (SonosActiveGroup is not { } group) return nothing;
         var ticket = _sonosTargetTicket;
         // KOLEJNOSC odczytow tej SAMEJ grupy: nowszy odczyt uniewaznia starszy.
         var sequence = ++_sonosReadSequence;
@@ -636,11 +702,11 @@ public partial class MainWindow
         try
         {
             var playback = await backend.ReadGroupPlaybackAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return nothing;
             var metadata = await backend.ReadGroupMetadataAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return nothing;
             var volume = await backend.ReadGroupVolumeAsync(group.Id, token).ConfigureAwait(true);
-            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return false;
+            if (IsSonosReadStaleOrAccountChanged(ticket, sequence)) return nothing;
 
             _sonosPlayback = playback.Succeeded ? playback.Value : null;
             _sonosMetadata = metadata.Succeeded ? metadata.Value : null;
@@ -654,11 +720,11 @@ public partial class MainWindow
             _sonosNextBackgroundReadUtc = _sonosReadUtc
                 + (ok ? SonosBackgroundReadInterval : SonosBackoffAfterFailure);
             if (_playerViewActive && IsSonosSession(_sessions.Current.Id)) UpdatePlayerView();
-            return ok;
+            return new SonosGroupStateRead(playback.Succeeded, metadata.Succeeded, volume.Succeeded);
         }
         catch (OperationCanceledException)
         {
-            return false;
+            return nothing;
         }
         catch (Exception) when (RegisterSonosReadFailureBackoff(ticket, sequence))
         {
@@ -872,6 +938,17 @@ public partial class MainWindow
         // JEDEN przelot naraz: jawna odmowa zamiast cichej kolejki.
         if (_sonosCommandInFlight)
         {
+            // WYJATEK dla SZYBKICH POWTORZEN GLOSNOSCI (Ctrl+Win+strzalki z
+            // wtyczki NVDA): wtyczka dostarcza intencje poprawnie, a odmowa
+            // GUBILA nacisniecia. Krok TEJ SAMEJ grupy odkladamy jako JEDNA
+            // skumulowana delte, ktora domknie trwajaca operacja. Pozostale
+            // polecenia dalej dostaja jawna odmowe - dwa razy pauza to nie
+            // "mocniej", a cicha kolejka transportu bylaby klamstwem.
+            if (_sonosVolumeRepeats.TryAccumulate(commandId, group.Id))
+            {
+                return;
+            }
+
             Announce("Poprzednie polecenie Sonos jeszcze się nie zakończyło");
             return;
         }
@@ -882,12 +959,6 @@ public partial class MainWindow
             state,
             _sonosPlayback?.AvailablePlaybackActions,
             _sonosVolume);
-        if (!gate.Allowed)
-        {
-            // Odmowa konczy droge: zaden POST nie idzie.
-            Announce(gate.Refusal ?? "To polecenie nie jest dostępne w sesji Sonos");
-            return;
-        }
 
         var ticket = _sonosTargetTicket;
         // WLASNY bilet bramki: zmiana grupy podnosi bilet CELU, wiec on nie moze
@@ -897,13 +968,86 @@ public partial class MainWindow
         var gateTicket = ++_sonosCommandGateTicket;
         var backend = EnsureSonosBackend();
         var token = EnsureSonosCancellation().Token;
-        var beforeState = state;
-        var beforeActions = _sonosPlayback?.AvailablePlaybackActions;
-        var beforeItemId = _sonosPlayback?.ItemId;
-        var beforeVolume = _sonosVolume;
+        // BRAMKA ZAMKNIETA JUZ TERAZ, czyli PRZED pierwszym await. Swiezy odczyt
+        // dla Spacji tez jest poleceniem w toku: bez tego drugie nacisniecie
+        // weszloby rownolegle i powstalyby DWA POST-y transportu z jednego gestu.
         _sonosCommandInFlight = true;
         try
         {
+            // SWIEZY ODCZYT PRZED ODMOWA TRANSPORTU. Zgloszenie: pierwsza Spacja
+            // po uruchomieniu wlasnej stacji mowila "Sonos nie zglasza mozliwosci
+            // zatrzymania tego materialu", a druga dzialala. Przyczyna jest w
+            // KOPII: odczyt zrobiony w chwili BUFOROWANIA nie ma jeszcze ani
+            // canPause, ani canStop, i wlasnie on orzekal kategorycznie. Stan
+            // przejsciowy i brak odczytanych uprawnien NIE sa zgoda, ale tez NIE
+            // sa dowodem odmowy - wiec odczytujemy stan na nowo i oceniamy bramke
+            // PONOWNIE. Odmowa po SWIEZYM odczycie zostaje odmowa, zaden slepy
+            // POST tu nie powstaje. Kroki glosnosci NIE dostaja tego odczytu:
+            // uzytkownik chwalil ich szybkosc, a ich bramka patrzy na
+            // volume.fixed, ktore nie zmienia sie w rytmie buforowania.
+            if (SonosPlayPauseRefresh.NeedsFreshRead(
+                    commandId, gate.Allowed, state, _sonosPlayback?.AvailablePlaybackActions))
+            {
+                bool refreshed;
+                try
+                {
+                    // TYLKO CZESC TRANSPORTU decyduje o prawie do Spacji: bramka
+                    // patrzy wylacznie na availablePlaybackActions, wiec nieudany
+                    // odczyt dekoracyjnego tytulu albo glosnosci nie moze zabrac
+                    // prawa do zatrzymania GRAJACEGO radia. Dawna koniunkcja
+                    // calego odczytu odmawiala wtedy "Nie udalo sie odczytac stanu
+                    // Sonosa" i NIE wysylala polecenia.
+                    refreshed = (await ReadSonosGroupStateDetailedAsync().ConfigureAwait(true)).Playback;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Nasze zamykanie albo zmiana celu: CISZA.
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    LogSonosSeekFailure("odczyt przed przelaczeniem odtwarzania", exception);
+                    if (_isClosing || ticket != _sonosTargetTicket) return;
+                    Announce(SonosPlayPauseRefresh.ReadFailed);
+                    return;
+                }
+
+                // TOZSAMOSC CELU PO AWAIT: w czasie odczytu uzytkownik mogl wyjsc
+                // z sesji albo przestawic grupe - wtedy decyzja nalezy do cudzego
+                // widoku i tu zostaje CISZA.
+                if (_isClosing || ticket != _sonosTargetTicket) return;
+                if (SonosActiveGroup is not { } groupAfterRead
+                    || !string.Equals(groupAfterRead.Id, group.Id, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                if (!refreshed)
+                {
+                    Announce(SonosPlayPauseRefresh.ReadFailed);
+                    return;
+                }
+
+                group = groupAfterRead;
+                state = _sonosPlayback?.PlaybackState ?? SonosPlaybackState.Unknown;
+                gate = SonosCommandGating.Evaluate(
+                    commandId,
+                    state,
+                    _sonosPlayback?.AvailablePlaybackActions,
+                    _sonosVolume);
+            }
+
+            if (!gate.Allowed)
+            {
+                // Odmowa konczy droge: zaden POST nie idzie.
+                Announce(gate.Refusal ?? "To polecenie nie jest dostępne w sesji Sonos");
+                return;
+            }
+
+            var beforeState = state;
+            var beforeActions = _sonosPlayback?.AvailablePlaybackActions;
+            var beforeItemId = _sonosPlayback?.ItemId;
+            var beforeVolume = _sonosVolume;
             SonosGroupCommandResult result;
             int? requestedVolume = null;
             bool? requestedMute = null;
@@ -934,16 +1078,40 @@ public partial class MainWindow
                 case CommandIds.VolumeUp1:
                 case CommandIds.VolumeDown1:
                 {
-                    var delta = commandId switch
+                    var delta = SonosVolumeRepeatBuffer.StepDelta(commandId);
+                    var from = beforeVolume?.Volume ?? 0;
+                    var first = SonosVolumeRepeatBuffer.ResolveTarget(from, delta);
+                    // PIERWSZY KROK NA SAMYM BRZEGU nie wysyla pustego POST-u:
+                    // przy 0 kolejne "dol" nie ma czego zmienic, a zapis bez
+                    // zmiany to ruch sieciowy bez skutku.
+                    if (first == from)
                     {
-                        CommandIds.VolumeUp5 => 5,
-                        CommandIds.VolumeDown5 => -5,
-                        CommandIds.VolumeUp1 => 1,
-                        _ => -1
-                    };
-                    requestedVolume = Math.Clamp((beforeVolume?.Volume ?? 0) + delta, 0, 100);
+                        Announce(SonosVolumeRepeatBuffer.DescribeBoundary(delta, from));
+                        return;
+                    }
+
+                    // OD TEJ CHWILI szybkie powtorzenia TEJ SAMEJ grupy maja
+                    // gdzie sie odlozyc, zamiast przepadac na bramce. Punkt
+                    // odniesienia to poziom, ktory wlasnie wysylamy.
+                    _sonosVolumeRepeats.Begin(group.Id, first);
+                    requestedVolume = first;
                     result = await backend.SetGroupVolumeAsync(
-                        group.Id, requestedVolume.Value, token).ConfigureAwait(true);
+                        group.Id, first, token).ConfigureAwait(true);
+
+                    // SUKCES PIERWSZEGO ZAPISU JEST WARUNKIEM DOSYLANIA. L2 z
+                    // odbioru: petla startowala BEZ tego sprawdzenia, wiec po
+                    // nieudanym pierwszym POST leciały kolejne, a pozniejszy
+                    // sukces PRZYKRYWAL blad w werdykcie.
+                    if (!IsSonosWriteAccepted(result))
+                    {
+                        _sonosVolumeRepeats.End();
+                        break;
+                    }
+
+                    // DOSLANIE nagromadzonej intencji dzieje sie w JEDNYM miejscu
+                    // (DrainPendingSonosVolumeAsync, ponizej wspolnego odczytu),
+                    // zeby gesty z czasu bramki i z czasu odczytu szly ta sama
+                    // droga i zeby odczyt potwierdzajacy byl dokladnie jeden.
                     break;
                 }
 
@@ -1011,9 +1179,24 @@ public partial class MainWindow
             // Accepted nie znaczy wykonane. Zawsze robimy JAWNY odczyt w rodzaju
             // polecenia i mowimy tylko to, co odczyt potwierdzil. Zadnego
             // ponowienia POST - nawet po 401.
-            var accepted = result.Status == SonosGroupOperationStatus.Attempted
-                && result.Outcome?.Status == SonosControlApiStatus.Success;
+            var accepted = IsSonosWriteAccepted(result);
             // Wyjatek odczytu po obsludze polecenia wymaga wyjasnienia wyniku.
+            // GESTY Z CZASU BRAMKI - PRZED POTWIERDZAJACYM ODCZYTEM. L2 z odbioru:
+            // petla dosylek konczyla sie przed tym odczytem, a kroki nacisniete
+            // pozniej ladowaly do bufora, ktory finally -> End() ZEROWAL BEZ
+            // WYKONANIA. Domykamy je TUTAJ, jednym zapisem naraz, a dopiero potem
+            // robimy JEDEN odczyt - inaczej kazdy gest kosztowalby GET i szybkosc
+            // regulacji by spadla.
+            if (requestedVolume is not null)
+            {
+                var drained = await DrainPendingSonosVolumeAsync(
+                    group, ticket, token, backend, requestedVolume.Value, result).ConfigureAwait(true);
+                if (drained is null) return;
+                requestedVolume = drained.Value.Volume;
+                result = drained.Value.Result;
+                accepted = IsSonosWriteAccepted(result);
+            }
+
             // Sama automatyczna zapowiedz zmienionej nazwy przycisku nie wyjasnia
             // nieudanej operacji. Bez ponowienia polecenia i bez drugiego odczytu;
             // tresc wyjatku (np. adres lub naglowek autoryzacji) nie idzie do mowy.
@@ -1151,6 +1334,65 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// DOSLANIE gestow glosnosci, ktore przyszly w czasie zamknietej bramki.
+    /// Jeden zapis naraz i ZAWSZE po domknieciu poprzedniego - wiec nie ma
+    /// zapisow rownoleglych ani wykonanych nie po kolei. BEZ odczytu w petli:
+    /// poziom liczymy od wartosci potwierdzonej zapisem, zeby kazdy gest nie
+    /// kosztowal GET-a. Zwraca null, gdy cel przestal byc nasz - wtedy CISZA.
+    /// </summary>
+    private async Task<(int Volume, SonosGroupCommandResult Result)?> DrainPendingSonosVolumeAsync(
+        SonosGroup group,
+        long ticket,
+        CancellationToken token,
+        ISonosGroupSessionBackend backend,
+        int postedVolume,
+        SonosGroupCommandResult result)
+    {
+        while (_sonosVolumeRepeats.TakePendingDelta(group.Id) is var late and not 0)
+        {
+            if (_isClosing || ticket != _sonosTargetTicket) return null;
+            // TOZSAMOSC GRUPY PO AWAIT: delta policzona dla salonu nie ma prawa
+            // dojsc do kuchni ani do nowego konta.
+            if (SonosActiveGroup is not { } groupLate
+                || !string.Equals(groupLate.Id, group.Id, StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            var target = SonosVolumeRepeatBuffer.ResolveTarget(postedVolume, late);
+            // BEZ ZAPISU BEZ ZMIANY: na granicy 0 albo 100 nie wysylamy nic.
+            if (target == postedVolume) continue;
+
+            var lateResult = await backend.SetGroupVolumeAsync(group.Id, target, token)
+                .ConfigureAwait(true);
+            if (_isClosing || ticket != _sonosTargetTicket) return null;
+            if (!IsSonosWriteAccepted(lateResult))
+            {
+                // PRAWDZIWY BLAD nie znika pod wczesniejszym sukcesem: werdykt
+                // mowi o TYM wyniku, a reszty intencji nie ponawiamy.
+                _sonosVolumeRepeats.End();
+                return (target, lateResult);
+            }
+
+            result = lateResult;
+            postedVolume = target;
+            _sonosVolumeRepeats.NoteVolumePosted(target);
+            if (_sonosVolumeRepeats.IsDrainBudgetExhausted
+                && !_sonosVolumeRepeats.TryCarryOver(group.Id))
+            {
+                break;
+            }
+        }
+
+        return (postedVolume, result);
+    }
+
+    /// <summary>Czy ZAPIS zostal PRZYJETY przez Sonosa (200 na podjetej probie).</summary>
+    private static bool IsSonosWriteAccepted(SonosGroupCommandResult result) =>
+        result.Status == SonosGroupOperationStatus.Attempted
+        && result.Outcome?.Status == SonosControlApiStatus.Success;
+
+    /// <summary>
     /// Zwolnienie bramki polecenia przez WLASCICIELA. Kryterium jest bilet
     /// BRAMKI, nie celu: po zmianie grupy bilet celu juz nie pasuje, a bramka i
     /// tak musi zostac zwolniona. Spozniony przelot z nieaktualnym biletem NIE
@@ -1158,7 +1400,12 @@ public partial class MainWindow
     /// </summary>
     private void ReleaseSonosCommandGate(int gateTicket)
     {
-        if (gateTicket == _sonosCommandGateTicket) _sonosCommandInFlight = false;
+        if (gateTicket != _sonosCommandGateTicket) return;
+        _sonosCommandInFlight = false;
+        // NIC NIE ZOSTAJE na nastepna, niezwiazana probe: gdyby delta przezyla
+        // koniec operacji, pozniejszy pojedynczy krok zmienilby glosnosc o wiecej,
+        // niz uzytkownik nacisnal.
+        _sonosVolumeRepeats.End();
     }
 
     /// <summary>
@@ -1587,6 +1834,8 @@ public partial class MainWindow
         // ruszy zajetosci B (patrz finally w RefreshSonosTopologyAsync).
         _sonosRefreshGateTicket++;
         _sonosRefreshInFlight = false;
+        // Porzucony przelot przestaje byc tym, na ktory wolno czekac.
+        _sonosRefreshFlight = null;
         // TA SAMA regula dla bramki WYBORU DOMU. Bez tego porzucony przelot A
         // trzymal bramke do konca swojego odczytu, a powrot do sesji odbijal sie
         // od "juz trwa" zamiast zaczac NOWY GET. Spoznione finally A widzi juz

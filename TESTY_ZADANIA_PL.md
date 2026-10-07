@@ -7,6 +7,36 @@
 - `--sonos-own-streams-main`: krótka zapowiedź przyjętej próby i wcześniejsze zabezpieczenia.
 - `--clipboard-locations-ui`: prawdziwy schowek w handlerach listy, odtwarzacza (wspólna metoda), wyszukiwania, podcastu, YouTube, FileDrop i presetów AMC/WiiM, również brak URI. Ctrl+C pozostaje nazwą.
 - `--sonos-final-gui <sekundy>`: wyłącznie ręczny pokaz na izolowanym zapleczu, poza pełną tabelą. Na Hermesie fizycznie sprawdzono krótką mowę w Podglądzie mowy NVDA, Ctrl+Shift+C z listy/wielu pozycji/odtwarzacza, Ctrl+C oraz oba rodzaje powrotu Sonos. Nie jest to pomiar dźwięku Sonosa.
+- `--sonos-after417-three-parts --sonos-after417-parts=1c`: okno WYBORU CELU
+  (Ctrl+F5) przy opóźnionym odczycie grup. Bramka
+  `TaskCompletionSource(RunContinuationsAsynchronously)` naprawdę wstrzymuje GET
+  `/groups`, więc mierzone jest jedno otwarcie: w trakcie odczytu okno żyje i
+  mówi „wczytywanie”, a po odpowiedzi TO SAMO okno ma rzeczywiste wiersze grup,
+  włączone potwierdzenie i zaznaczenie — asercja na treści listy, nie na samym
+  liczniku żądań. Dalej: dokładnie jeden tor odczytu i zero POST, F5 w oknie
+  celu odświeża tym samym backendem z zachowaniem zaznaczenia po ID, powtórzone
+  Ctrl+F5/F5 w trakcie odczytu nie mnoży okien ani GET-ów, a Cancel przed
+  odpowiedzią nie przywraca starej listy i nie otwiera spóźnionego okna.
+  Podsumowanie zestawu wypisuje wyłącznie ZMIERZONE części (dawniej ogłaszało
+  wszystkie pięć punktów także przy `--parts=1a`/`1c`).
+- `--sonos-after417-three-parts --sonos-after417-parts=1d`: DWIE granice
+  odświeżania okna celu, mierzone osobno na wstrzymanym GET `/groups`.
+  * ODCZYT JUŻ TRWA: menu Plik zaczyna odczyt PIERWSZE, dopiero potem otwieramy
+    wybór celu. RED potwierdzony (`after417-close-1d-RED`, zapowiedzi kończą się
+    „Odświeżanie grup Sonos już trwa", wiersze okna 0 także PO zwolnieniu GET):
+    bramka oddawała natychmiastowy pusty „sukces", więc okno siedziało na starej
+    (null) topologii do następnego F5. Po poprawce TO SAMO okno uzupełnia się bez
+    żadnego kolejnego gestu, przy niezmienionej liczbie odczytów (jeden tor GET,
+    zero POST, zero własnych próśb okna o odświeżenie).
+  * FOKUS RZECZYWISTEGO WIERSZA: fokus stawiany na DRUGIM wierszu (nie na samej
+    liście) i sprawdzany przez `FocusedRowIdForTests`, czyli po identyfikatorze
+    grupy z kontenera, który NAPRAWDĘ ma fokus klawiatury. Tu RED NIE WYSZEDŁ
+    (`after417-close-1d-RED-b` exit 0 z cofniętą zmianą): czyszczenie `_rows` w
+    `PublishSnapshot` nie gubi własności fokusu, więc planowane przenoszenie
+    fokusu przed czyszczeniem ODRZUCONO jako zmianę bez pomiaru. Pomiar został
+    jako regresja, razem z kontrolą BRAKU kradzieży fokusu z przycisku zamknięcia.
+  * `CancelSonosPendingWork` wykonany PRZED zwolnieniem GET: spóźniony wynik nie
+    wchodzi do okna (0 publikacji, 0 wierszy).
 
 
 ## Sonos: znak @ w sessionId
@@ -137,6 +167,24 @@ Odbiór tego przyrostu na Hermesie, bez realnego konta i muzyki:
 - Sąsiednie `--sonos-library-ui` 45 i `--sonos-navigation-ux` 43 zaliczone. Oczekiwania liczby kategorii zaktualizowane z 2 do 3; nie osłabiono ochrony oddzielenia grup od materiału.
 - Żywy NVDA i prawdziwy Podgląd mowy: nowa kategoria → pusta lista/Dodaj → etykiety pól → zapis bez POST → Enter (2 POST, dosłowny URL) → edycja ze stałym ID → ponowne otwarcie → potwierdzone usunięcie → anulowanie dodawania → powrót. Dostarczone do czytnika komunikaty Dodano/Przyjęto/Zmieniono/Usunięto/Bez zmian potwierdzone transkrypcją. Dane w polach podano kontrolowanym wejściem harnessu, przejścia i zatwierdzenia natywnymi klawiszami.
 - Własny harness oraz otwarty do próby Podgląd mowy zamknięte; działająca instalacja i NVDA nietknięte. Pełny zestaw oraz realny Sonos pozostają bramką wydania; brak potwierdzenia radia bez serwera cloud queue.
+
+
+## Sonos: import playlisty do „Moich stacji” — jak sprawdzić
+
+Czego dotyczy: w sesji Sonos menu **Plik → „Importuj stacje z playlisty do Moich stacji Sonosa…”** oraz przycisk **Importuj z playlisty…** (i Ctrl+O) w otwartym oknie Moje stacje. Import jest lokalny: nie wymaga połączonego konta ani wybranego głośnika, nic nie odtwarza i nie zmienia Ulubionych Sonosa.
+
+1. W sesji Sonos otwórz menu Plik. Pozycja importu Sonosa jest widoczna; pozycje Radia i WiiM zostają na swoich miejscach w swoich sesjach.
+2. Wskaż plik M3U/M3U8/PLS/XSPF/JSON. Stacje DOPISUJĄ się do listy — zapisane wcześniej zachowują ID, nazwę nadaną ręcznie i dosłowny adres, także gdy playlista ma ten sam adres pod inną nazwą.
+3. Komunikat podaje liczbę dodanych i PEŁNĄ sumę pominięć w rozbiciu: już zapisane, adresy nieobsługiwane przez Sonosa, wpisy bez adresu lub powtórzone w pliku.
+4. Anuluj okno wyboru pliku, wskaż plik nieistniejący albo manifest HLS: słyszysz komunikat, ale lista stacji i plik ustawień zostają bez zmian.
+5. W otwartym oknie Moje stacje ten sam import jest pod przyciskiem i pod Ctrl+O. Po udanym imporcie lista pokazuje stare i nowe stacje, a zaznaczenie stoi na pierwszej dodanej.
+
+Odbiór tego przyrostu na Hermesie:
+- Core `--sonos-own-streams-import` **wykonany**: 64 sprawdzenia scalania, ID, duplikatów i odrzuconych adresów. Core `--sonos-own-streams` **wykonany**: 8 sprawdzeń.
+- Windows `--sonos-own-streams-import` **WYKONANY** na Hermesie w pełnej tabeli zestawu Windows: 5 przypadków WPF (widoczność w menu Plik po zmianie sesji, prawdziwy plik → zapis → odczyt nowym store, anulowanie, błąd pliku i HLS, przycisk w oknie z odświeżeniem listy i zaznaczeniem).
+- Arytmetyka komunikatu jest sprawdzana bez okna, na początku tego samego przełącznika, więc nie zależy od pulpitu.
+- Automat zarejestrowany pod CLI (`--sonos-own-streams-import`) oraz w PEŁNEJ tabeli zestawu Windows.
+- Żywy NVDA na Hermesie, w izolowanej kopii i w próbnym profilu bez realnego konta: patrz „Import z żywym NVDA” niżej.
 
 
 
@@ -8050,6 +8098,43 @@ może zachowywać się jak świadome odłączenie.
 
 ## Testy ręczne — alpha 331
 
+### AMC-416-NAV-01 — przełączenie sesji z wnętrza podlisty Sonosa
+
+Wejdź w sesję Sonos, wybierz cel (`Ctrl+F5`), otwórz Bibliotekę (`Ctrl+L`)
+i wejdź w **Moje stacje**. Zejdź strzałką na **drugi albo dalszy** wiersz
+(nie pierwszy — inaczej test nic nie rozróżni). Nie zamykając listy, naciśnij
+`Ctrl+cyfrę` radia internetowego.
+
+Oczekiwane: lista zamyka się sama i AMC jest w sesji radia. Nie trzeba niczego
+zamykać ręcznie. Przełączenie nie uruchamia żadnego odtwarzania w Sonosie.
+
+### AMC-416-NAV-02 — powrót do tej samej podlisty i wiersza
+
+Po AMC-416-NAV-01 naciśnij `Ctrl+cyfrę` Sonosa.
+
+Oczekiwane: AMC wraca do **Moich stacji** (nie do korzenia sesji ani do samej
+listy kategorii Biblioteki), zaznaczenie i fokus stoją na **tym samym wierszu**,
+na którym były przed wyjściem, a cel pozostaje ten sam. Powrót do samej
+kategorii to **błąd**.
+
+Powtórz dla **Ulubionych** i **Playlist** — zachowanie ma być identyczne.
+
+### AMC-416-NAV-03 — świadome zamknięcie nie wraca
+
+Wejdź w **Moje stacje**, zamknij listę `Escape`, przejdź `Ctrl+cyfrą` do radia
+i wróć `Ctrl+cyfrą` do Sonosa.
+
+Oczekiwane: podlista **nie** otwiera się sama. Zadanie powrotu obowiązuje tylko
+po wyjściu `Ctrl+cyfrą`, nie po ręcznym zamknięciu.
+
+### AMC-416-NAV-04 — zmiana celu unieważnia powrót
+
+Wyjdź `Ctrl+cyfrą` z **Ulubionych**, w innej sesji nic nie zmieniaj, wróć do
+Sonosa, zmień cel (`Ctrl+F5`) na inną grupę, znów wyjdź i wróć.
+
+Oczekiwane: po zmianie celu zapamiętane miejsce przepada i AMC zostaje w korzeniu
+sesji. Lista opisująca poprzedni cel nie ma prawa się otworzyć.
+
 ### AMC-331-01 — przenoszenie na liście sesji
 
 Naciśnij `Ctrl+Shift+S`, wybierz środkową sesję i użyj kolejno
@@ -8069,3 +8154,206 @@ niżej. Następnie przejdź zwykłymi strzałkami przez wszystkie wiersze.
 Oczekiwane: kolejność nie zawija się; AMC mówi odpowiednio „Ta sesja jest już
 pierwsza” albo „Ta sesja jest już ostatnia”. Każdy wiersz ma tylko czytelną
 nazwę i numer, bez nazwy klasy, nawiasów klamrowych lub identyfikatora.
+
+### AMC-420-01 — Sonos: brak zbędnych zapowiedzi postępu
+
+Przy włączonym czytniku wejdź `Ctrl+cyfrą` w zwykłą sesję Sonos, a potem
+wejdź w nią ponownie kilka razy w tej samej sesji programu. Następnie otwórz
+**Moje stacje** i uruchom stację Enterem. To samo powtórz dla **Ulubionych**
+i **Playlist**.
+
+Oczekiwane: czytnik **NIE** wymawia urywanych komunikatów postępu w rodzaju
+„Odświeżam grupy Sonosa”, „Odczytuję ulubione. Czekaj.” ani „Wysyłam
+polecenie uruchomienia stacji. Czekaj.” — ani przy wejściu, ani przy
+uruchamianiu. Teksty te pozostają widoczne w pasku statusu i można je
+odczytać na żądanie.
+
+Nadal mówione (to NIE jest błąd): nazwy stacji, ulubionych i playlist pod
+fokusem, tytuły okien, podsumowanie „… : N pozycji”, `Uruchamianie: <stacja>`
+po przyjęciu polecenia oraz **wszystkie** błędy, odmowy i komunikaty o
+zmianie celu lub konta.
+
+### AMC-420-02 — okno zarządzania stacjami zachowuje się tak samo
+
+Otwórz JAWNE okno zarządzania własnymi stacjami Sonosa i wykonaj w nim
+odczyt oraz próbę uruchomienia.
+
+Oczekiwane: tak jak wyżej — zero rutynowych zapowiedzi „trwa/czekaj”,
+natomiast każdy wynik, błąd i odmowa nadal są wymawiane. Zachowanie okna
+zarządzania nie różni się od zwykłego wejścia do sesji pod względem tych
+komunikatów.
+
+## Testy ręczne — alpha 421
+
+### AMC-421-01 — wycięcie fragmentu pliku na potwierdzonym nośniku
+
+Weź **kopię** pliku dźwiękowego leżącą na zwykłym dysku, także w folderze o
+nazwie `OneDrive` lub `Dropbox`, który NIE jest obsługiwany przez klienta
+chmury. Zaznacz fragment i wykonaj wycięcie z zapisem do oryginału.
+
+Oczekiwane: operacja przechodzi. Nazwa folderu **nie** jest podstawą odmowy.
+Czytnik mówi wynik, a nie urywany opis techniczny. Plik po zapisie ma nową,
+krótszą długość i daje się odtworzyć.
+
+### AMC-421-02 — odmowa dla pliku tylko online, bez uszkodzenia pliku
+
+Na pliku tylko online z prawdziwego klienta Cloud Files (OneDrive, iCloud,
+Google Drive) spróbuj wyciąć fragment i dopisać nagranie.
+
+Oczekiwane: AMC **odmawia przed** jakimkolwiek zapisem i mówi krótki powód
+(trzeba najpierw pobrać plik). Źródło i cel pozostają bajt w bajt bez zmian —
+ta sama długość, czas modyfikacji i zawartość, żadnej nowej kopii obok.
+Sama odmowa nie kończy pracy programu ani nie gubi zaznaczenia.
+
+### AMC-421-03 — samo przypięcie nie jest zgodą ani odmową
+
+Na przypiętym („zawsze zachowuj na tym urządzeniu”) pliku Cloud Files, który
+JEST w całości pobrany, wykonaj wycięcie. Potem to samo na pliku przypiętym,
+który jeszcze **nie** jest pobrany.
+
+Oczekiwane: pierwszy przechodzi, drugi dostaje odmowę. Przypięcie samo z siebie
+nie przesądza wyniku w żadną stronę. Zwykły plik lokalny z ustawionym atrybutem
+przypięcia też przechodzi.
+
+### AMC-421-04 — dopisanie nagrania do istniejącego pliku
+
+Powtórz AMC-421-01 i AMC-421-02 dla **dopisania** nagrania do istniejącego
+pliku, a nie wycięcia.
+
+Oczekiwane: te same reguły i te same krótkie komunikaty. Przy odmowie plik
+docelowy zostaje nietknięty.
+
+### AMC-421-05 — odtwarzanie zachowuje się jak w 420
+
+Odtwórz plik tylko online, plik lokalny i plik na dysku sieciowym — bez
+żadnej edycji.
+
+Oczekiwane: zachowanie dokładnie takie jak w wersji 420. Zmiana dotyczy
+WYŁĄCZNIE decyzji o edycji; jeżeli zauważysz różnicę w odtwarzaniu,
+hydratacji lub komunikatach odtwarzania, to błąd.
+
+**Znane ograniczenie, świadome:** wolumin wirtualny podający się za NTFS/FAT
+na dysku typu „stały” jest dla tych metadanych nieodróżnialny od fizycznego.
+AMC nazywa to wprost w kodzie i nie obiecuje gwarancji dla każdego możliwego
+klienta chmury.
+
+## Sonos po 421: Spacja, kolejność Moich stacji, powtórzenia głośności
+
+### AMC-422-01 — Spacja zaraz po uruchomieniu własnej stacji
+
+Wejdź w sesję Sonos, otwórz „Moje stacje”, uruchom stację Enterem i — gdy
+usłyszysz dźwięk — naciśnij Spację JEDEN raz.
+
+Oczekiwane: odtwarzanie zatrzymuje się, a komunikat mówi o tym, co naprawdę
+się stało. Komunikat „Sonos nie zgłasza możliwości zatrzymania tego materiału”
+przy grającej stacji to błąd. Jedno naciśnięcie to jedna operacja: dwa
+zatrzymania albo zatrzymanie i natychmiastowy powrót to też błąd.
+
+### AMC-422-02 — Spacja, gdy Sonos naprawdę odmawia
+
+Doprowadź grupę do materiału, którego Sonos nie pozwala zatrzymać, i naciśnij
+Spację.
+
+Oczekiwane: krótka odmowa ZOSTAJE odmową. Nic się nie zatrzymuje i nie ma
+komunikatu udającego skutek. Gdy odczytu stanu nie da się wykonać, AMC mówi, że
+polecenia NIE wysłano — a nie że czegoś nie można.
+
+### AMC-422-03 — sortowanie Moich stacji Alt+1/2/3
+
+W „Moich stacjach” (co najmniej trzy stacje o różnych nazwach) naciśnij
+`Alt+1`, potem `Alt+2`, potem `Alt+3`.
+
+Oczekiwane: kolejność zmienia się dokładnie jak w ulubionych radia internetowego,
+komunikat jest krótki, a zaznaczona stacja pozostaje zaznaczona. Żadne żądanie
+sieciowe ani odtwarzanie NIE startuje — grająca stacja gra dalej, również gdy
+jest inna niż zaznaczona. Nazwy i adresy stacji zostają bez zmiany.
+
+### AMC-422-04 — pierwszy start po aktualizacji
+
+Zaraz po aktualizacji otwórz „Moje stacje” bez naciskania `Alt+1`.
+
+Oczekiwane: kolejność jest taka jak przed aktualizacją. Samo otwarcie okna nie
+ma prawa odwrócić ani przetasować listy.
+
+### AMC-422-05 — przenoszenie Alt+strzałkami
+
+W kolejności własnej (`Alt+3`) przenieś stację `Alt+strzałką w górę` i w dół,
+także na samym początku i na samym końcu listy.
+
+Oczekiwane: stacja przesuwa się o jedną pozycję, fokus zostaje na niej, a
+komunikat jest krótki. Na brzegu listy AMC mówi, że dalej nie można — i nic nie
+przesuwa. W trybie `Alt+1` lub `Alt+2` AMC mówi, że przenoszenie wymaga
+kolejności własnej.
+
+### AMC-422-06 — Ctrl+X i Ctrl+V bez utraty stacji
+
+Zaznacz stację, naciśnij `Ctrl+X`, przejdź na inny wiersz i naciśnij `Ctrl+V`.
+Powtórz, ale po `Ctrl+X` zamknij okno BEZ wklejania.
+
+Oczekiwane: `Ctrl+X` niczego nie usuwa ani nie przestawia — zapowiada tylko
+wybór miejsca. `Ctrl+V` wstawia stację PRZED wskazanym wierszem i fokus zostaje
+na przeniesionej stacji. Zamknięcie okna bez `Ctrl+V` nie przenosi nic i nie
+usuwa żadnej stacji. Żaden plik na dysku ani schowek Windows nie jest ruszany.
+W polach tekstowych (nazwa, adres) `Ctrl+X` i `Ctrl+V` działają normalnie, jak
+w zwykłej edycji tekstu.
+
+### AMC-422-07 — kolejność przeżywa restart
+
+Ustaw własną kolejność, zamknij AMC, uruchom ponownie i otwórz „Moje stacje”.
+
+Oczekiwane: kolejność i tryb są takie jak przed zamknięciem. Dodanie, edycja,
+import i usunięcie stacji nie przestawiają pozostałych.
+
+### AMC-422-08 — szybkie ściszanie Ctrl+Win+strzałka w dół z NVDA
+
+Przy grającej grupie Sonos naciśnij `Ctrl+Win+strzałka w dół` kilka razy szybko
+pod rząd, potem to samo w górę.
+
+Oczekiwane: głośność zmienia się o WSZYSTKIE naciśnięcia, a nie tylko o
+pierwsze. Komunikat „Poprzednie polecenie Sonos jeszcze się nie zakończyło” przy
+samym regulowaniu głośności to błąd. Na granicy 0 i 100 dalsze naciskanie nic
+nie zmienia i nie udaje, że zmieniło. Skrót NIE przenosi fokusu ani nie
+podnosi okna AMC — zostajesz w tym programie, w którym byłeś. Prawdziwy błąd
+sieci lub głośność zablokowana przez Sonos nadal są nazywane wprost.
+
+### AMC-422-09 — zmiana grupy w czasie regulacji
+
+Zacznij ściszać szybką serią i w jej trakcie przełącz aktywną grupę Sonos.
+
+Oczekiwane: nagromadzone kroki NIE idą do nowej grupy. Żadna głośność nie
+zmienia się „za plecami” na urządzeniu, którego już nie wybierasz.
+
+### AMC-422-10 — Strzałka w lewo czyta parametry zaznaczonej pozycji
+
+Otwórz „Moje stacje”, zejdź strzałkami na stację Z ADRESEM i naciśnij
+`Strzałkę w lewo`. To samo powtórz w „Ulubione Sonos”.
+
+Oczekiwane: czytnik mówi najpierw krótkie „Czytam parametry stacji…”, a potem
+nazwę i parametry (typ, kodek, przepływność, częstotliwość). W Ulubionych
+dochodzi opis i usługa BEZ powtarzania samej nazwy. Gdy Sonos parametrów nie
+podał, słyszysz KRÓTKĄ ODMOWĘ („Sonos nie podał parametrów tego ulubionego”),
+a nie zmyśloną wartość ani ciszę. Przytrzymanie klawisza nie zamawia odczytu
+wiele razy. Po zejściu na inną pozycję w trakcie odczytu stary wynik NIE jest
+czytany na nowej pozycji.
+
+### AMC-422-11 — parametry Ulubionych są ŚWIEŻE, gdy metadane dojdą później
+
+W otwartym oknie „Ulubione Sonos” naciśnij `Strzałkę w lewo` na ulubionym, dla
+którego Sonos nie zdążył jeszcze podać parametrów (usłyszysz odmowę). Zostań na
+TYM SAMYM wierszu, poczekaj i naciśnij `Strzałkę w lewo` ponownie.
+
+Oczekiwane: drugi odczyt podaje parametry, jeśli metadane już dojdą. Powtórzona
+w nieskończoność ta sama odmowa na nadal otwartym oknie to błąd — okno nie ma
+prawa zapamiętać odmowy na stałe po identyfikatorze ulubionego.
+
+### AMC-422-12 — Ctrl+C kopiuje nazwę, Ctrl+Shift+C adres
+
+Na zaznaczonej stacji/ulubionym naciśnij `Ctrl+C`, wklej gdzieś wynik, potem
+naciśnij `Ctrl+Shift+C` i znowu wklej.
+
+Oczekiwane: `Ctrl+C` mówi „Skopiowano nazwę” i w schowku jest SAMA NAZWA (bez
+parametrów i bez adresu). `Ctrl+Shift+C` mówi „Skopiowano adres” i wkleja
+dosłowny adres. Dla stacji bez zapisanego adresu słyszysz „Ta stacja nie ma
+zapisanego adresu”, a dla ulubionego bez adresu „Sonos nie podał adresu tego
+ulubionego” — i schowek zostaje NIETKNIĘTY (poprzednia zawartość zachowana).
+W polach tekstowych oba skróty działają jak zwykła edycja tekstu.

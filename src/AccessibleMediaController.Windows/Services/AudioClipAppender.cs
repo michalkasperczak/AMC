@@ -609,11 +609,20 @@ internal static class AudioClipAppender
         _ = EncoderArguments(Path.GetExtension(request.TargetPath));
         if (request.Start < TimeSpan.Zero || request.End <= request.Start)
             throw new ArgumentException("Początek i koniec fragmentu są nieprawidłowe.");
-        if (CloudFileAvailability.MayRequireRemoteAccess(request.TargetPath)
-            || CloudFileAvailability.MayRequireRemoteAccess(sourcePath))
+        // Dopisywanie przepisuje CEL i czyta ŹRÓDŁO, więc oba muszą przejść tę
+        // samą wspólną ocenę, której używa wycinanie i okno.
+        foreach (var candidate in new[] { request.TargetPath, sourcePath })
         {
-            throw new InvalidOperationException(
-                "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie.");
+            var availability = CloudFileAvailability.GetEditAvailability(candidate);
+            if (availability.CanEdit) continue;
+            throw availability.Outcome switch
+            {
+                CloudEditOutcome.Missing =>
+                    new FileNotFoundException(availability.Message, candidate),
+                CloudEditOutcome.AccessDenied =>
+                    new UnauthorizedAccessException(availability.Message),
+                _ => new InvalidOperationException(availability.Message)
+            };
         }
         return sourcePath;
     }

@@ -664,6 +664,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         StatusText.Announce(message);
     }
 
+    /// <summary>
+    /// RUTYNOWY POSTEP w oknie glownym: WIDOCZNY status BEZ notyfikacji
+    /// czytnika. Zgloszenie uzytkownika brzmialo doslownie "trwa odświeżanie
+    /// głośników ... one są zbędne" - a dodatkowo czytnik urywal te komunikaty,
+    /// bo nastepny przychodzil, nim skonczyl pierwszy.
+    ///
+    /// NIE jest to globalny wylacznik: <see cref="Announce"/> zostaje bez zmian
+    /// dla wynikow, bledow, odmow i tytulow. Pomiarowe ujscie i tryby
+    /// przechwytywania sa te same, zeby testy widzialy to, co produkcja.
+    /// </summary>
+    private void AnnounceProgress(string message)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => AnnounceProgress(message));
+            return;
+        }
+        // POMIAROWEGO ujscia mowy NIE wolamy: nic nie zostalo powiedziane, a
+        // zapisanie tego w ujsciu bylo by klamstwem w pomiarze. Widoczny tekst
+        // statusu ustawiamy zawsze - to on jest cala pozostala informacja i
+        // wlasnie na nim pomiar sprawdza, ze tresc nie zniknela.
+        StatusText.ShowProgress(message);
+    }
+
     private void AnnounceEssential(string message)
     {
         if (!Dispatcher.CheckAccess())
@@ -2074,10 +2098,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             AnnounceEssential("Usuwanie fragmentu z oryginalnego pliku wymaga składnika FFmpeg");
             return;
         }
-        if (CloudFileAvailability.MayRequireRemoteAccess(path))
+        var editAvailability = CloudFileAvailability.GetEditAvailability(path);
+        if (!editAvailability.CanEdit)
         {
-            AnnounceEssential(
-                "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie");
+            // Ta sama wspólna decyzja i ten sam komunikat co w usłudze, żeby
+            // okno nie zapowiadało czegoś innego, niż zrobi wycinanie.
+            AnnounceEssential(editAvailability.Message.TrimEnd('.'));
             return;
         }
         if (LocalAudioFileDiscovery.IsVideoFile(path))
@@ -6532,6 +6558,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Visible
             : Visibility.Collapsed;
         ChooseSonosHouseholdMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        // Import do Moich stacji Sonosa istnieje TYLKO w sesji Sonos; pozycje
+        // Radia i WiiM zostaja nietkniete tam, gdzie byly.
+        ImportSonosOwnStreamsMenuItem.Visibility = IsSonosSession(_sessions.Current.Id)
             ? Visibility.Visible
             : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
@@ -12121,7 +12152,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (IsSonosSession(_sessions.Current.Id))
             {
                 Dispatcher.BeginInvoke(
-                    () => _ = EnterSonosSessionAsync(),
+                    async () =>
+                    {
+                        await EnterSonosSessionAsync().ConfigureAwait(true);
+                        // POWROT DO PODLISTY: dopiero PO wejsciu w sesje, bo
+                        // polityka powrotu porownuje dom i cel, a te sa znane
+                        // wlasnie z tego odczytu. Brak zadania powrotu konczy sie
+                        // cicho - zwykle wejscie w sesje zostaje bez zmian.
+                        TryReopenSonosSublistAfterSessionReturn();
+                    },
                     DispatcherPriority.Background);
             }
             if (string.Equals(sessionBeforeCommand.Id, "local", StringComparison.Ordinal))
@@ -13968,6 +14007,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
         Dispatcher.BeginInvoke(AnnouncePendingRadioScheduleFailures, DispatcherPriority.ContextIdle);
+        // ZWYKLE WEJSCIE PO STARCIE: przywrocona sesja Sonos nie przechodzila
+        // przez przelacznik sesji, wiec grupy nie byly nigdy wczytane i cel
+        // sterowania zostawal pusty az do recznego "Odswiez grupy Sonos".
+        // Wchodzimy ta SAMA droga co przelacznik, po cichu.
+        Dispatcher.BeginInvoke(EnsureSonosSessionEnteredAtStartup, DispatcherPriority.ContextIdle);
+    }
+
+    /// <summary>
+    /// Wejscie w sesje Sonos przy starcie, gdy aplikacja wstala juz na Sonosie.
+    /// Cicho (bez zapowiedzi), bo uzytkownik niczego nie przelaczal.
+    /// </summary>
+    private void EnsureSonosSessionEnteredAtStartup()
+    {
+        if (_isClosing) return;
+        if (!IsSonosSession(_sessions.Current.Id)) return;
+        // Jesli grupy sa juz wczytane (np. uzytkownik zdazyl odswiezyc recznie),
+        // nie powtarzamy odczytu.
+        if (_sonosTopology is not null) return;
+        _ = EnterSonosSessionAsync();
     }
 
     private void Window_Activated(object? sender, EventArgs e)
@@ -21991,9 +22049,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.F5
             && (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                // F5 w sesji Sonos NIE odswiezalo niczego - gest spadal do
+                // Biblioteki lokalnej. Stad zgloszona niekonsekwencja wobec
+                // menu Plik.
+                || IsSonosSession(_sessions.Current.Id)
                 || string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)))
         {
-            ExecuteCommand(string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            // DOKLADNIE to samo istniejace polecenie, co menu Plik i paleta -
+            // nie druga droga odswiezania.
+            ExecuteCommand(IsSonosSession(_sessions.Current.Id)
+                ? CommandIds.RefreshSonosGroups
+                : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
                 ? CommandIds.RefreshWiiMDevices
                 : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                 ? string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
@@ -23829,6 +23895,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ViewWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ViewWiiMNetworkStreams);
     private void ImportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ImportWiiMNetworkStreams();
+    private void ImportSonosOwnStreams_Click(object sender, RoutedEventArgs e) => ImportSonosOwnStreamsFromMenu();
     private void ExportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ExportWiiMNetworkStreams();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();

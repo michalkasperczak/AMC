@@ -513,14 +513,18 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             throw new Exception($"Po uruchomieniu poszło {extraPosts} dodatkowych POST (Play/Toggle).");
         }
 
-        // STATUS mowi o PRZYJECIU, nie o potwierdzonym graniu.
-        if (!status.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+        // STATUS mowi KROTKO: sama NAZWA wybranej pozycji. Dawne "Przyjęto
+        // polecenie uruchomienia" bylo technicznym potwierdzeniem, a nie
+        // informacja - a doklejona etykieta wiersza powtarzala usluge i opis
+        // zaraz po tym, jak lista je przeczytala. Krotszy tekst NADAL nie
+        // obiecuje slyszalnosci: nie ma w nim ani "gra", ani "odtwarza sie".
+        if (!string.Equals(status, "Nokturny", StringComparison.Ordinal))
         {
-            throw new Exception("Modal nie pokazał przyjęcia zlecenia: \"" + status + "\".");
+            throw new Exception("Modal nie przeczytał samej nazwy pozycji: \"" + status + "\".");
         }
 
         return "1 POST " + expected.AbsolutePath + ", favoriteId=ULU-DRUGI, INSERT/true, bez playModes, "
-            + "bilet konta w nagłówku, status o PRZYJĘCIU";
+            + "bilet konta w nagłówku, status to KRÓTKA NAZWA \"Nokturny\"";
     }
 
     // ==================== R2/R3: dopisywane po GREEN R1 ====================
@@ -705,7 +709,10 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// </summary>
     private static void AssertNoFalseOutcome(string what, string status)
     {
-        foreach (var lie in new[] { "Przyjęto polecenie uruchomienia", "odrzucon", "cofnię", "cofnie" })
+        // KROTKI SUKCES to SAMA NAZWA pozycji, wiec wlasnie nazwa jest teraz
+        // klamstwem na sciezce bledu/niepewnosci - dawne "Przyjęto polecenie
+        // uruchomienia" nie brzmi juz nigdzie i samo nic by nie zmierzylo.
+        foreach (var lie in new[] { "Nokturny", "Przyjęto polecenie uruchomienia", "odrzucon", "cofnię", "cofnie" })
         {
             if (status.Contains(lie, StringComparison.OrdinalIgnoreCase)
                 // "nie obiecuję cofnięcia" to ZAPRZECZENIE, nie obietnica.
@@ -835,9 +842,12 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 throw new Exception($"Pusta lista wysłała {sent} POST.");
             }
 
-            if (status.Contains("Przyjęto polecenie uruchomienia", StringComparison.Ordinal))
+            // PUSTA lista nie ma prawa udawac sukcesu. Sukces to teraz SAMA NAZWA
+            // pozycji, wiec mierzymy to, co naprawde moze sklamac: pusta lista
+            // MUSI powiedziec, ze nie ma czego uruchomic.
+            if (!string.Equals(status, SonosFavoritesLabels.PlayNothingSelected, StringComparison.Ordinal))
             {
-                throw new Exception("Pusta lista udaje przyjęcie zlecenia: \"" + status + "\".");
+                throw new Exception("Pusta lista nie powiedziała, że nie ma czego uruchomić: \"" + status + "\".");
             }
         }
 
@@ -959,7 +969,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
     /// NIE jest tu uzywany: zaplecze to PRODUKCYJNY
     /// <c>SonosAccountOwnerGroupBackend</c> nad tym samym wlascicielem.
     /// </summary>
-    private sealed class RealHarness : IDisposable
+    private sealed partial class RealHarness : IDisposable
     {
         private static readonly TimeSpan Limit = TimeSpan.FromSeconds(25);
         private readonly string _directory;
@@ -1013,6 +1023,106 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             new ConfigurationStore(Path.Combine(_directory, "settings.json")).LoadOrCreate();
 
         /// <summary>
+        /// DOCZEKANIE RZECZYWISTEGO ZAPISU z kolejki produkcyjnej
+        /// (<c>QueueStateSave</c> tylko KOLEJKUJE). Nie wolamy tu Save:
+        /// wlasny zapis zamaskowalby brak podpiecia kolejki u wolajacego.
+        /// </summary>
+        internal void WaitForQueuedStateSave()
+        {
+            var queue = (StatePersistenceQueue?)(typeof(MainWindow)
+                .GetField("_statePersistence", Instance)?.GetValue(Window))
+                ?? throw new Exception("Okno główne nie ma kolejki zapisu stanu.");
+            if (!queue.WaitForIdle(TimeSpan.FromSeconds(20), out var failure))
+                throw new Exception("Zakolejkowany zapis stanu nie domknął się: " + failure?.Message);
+        }
+
+        /// <summary>PLIK STANU: pomiar importu porownuje jego tresc BAJT W BAJT.</summary>
+        internal string SettingsPathForTests => Path.Combine(_directory, "settings.json");
+
+        /// <summary>
+        /// TRYB SORTOWANIA Moich stacji z TEGO SAMEGO magazynu, ktorego uzywa
+        /// produkcja (<c>SessionNavigationState.CollectionSortModes</c>) - pomiar
+        /// nie trzyma wlasnej kopii trybu.
+        /// </summary>
+        internal CollectionSortMode SonosSortModeForTests(CollectionSortMode fallback) =>
+            SonosSortModesForTests().GetValueOrDefault(SonosOwnStreamsOrder.ViewName, fallback);
+
+        /// <summary>USTAWIENIE trybu startowego pomiaru w produkcyjnym magazynie.</summary>
+        internal void SetSonosSortModeForTests(CollectionSortMode mode) =>
+            SonosSortModesForTests()[SonosOwnStreamsOrder.ViewName] = mode;
+
+        private Dictionary<string, CollectionSortMode> SonosSortModesForTests()
+        {
+            var navigation = typeof(MainWindow)
+                .GetMethod("GetSessionNavigationState", Instance)!
+                .Invoke(Window, ["sonos"])
+                ?? throw new Exception("Brak stanu nawigacji sesji Sonosa.");
+            return (Dictionary<string, CollectionSortMode>)navigation.GetType()
+                .GetProperty("CollectionSortModes")!
+                .GetValue(navigation)!;
+        }
+
+        /// <summary>
+        /// PLIK WEJSCIOWY w katalogu aparatury: import ma czytac PRAWDZIWY plik
+        /// z dysku, a nie napis podany w pamieci.
+        /// </summary>
+        internal string WriteTempFile(string name, string content)
+        {
+            var path = Path.Combine(_directory, name);
+            File.WriteAllText(path, content);
+            return path;
+        }
+
+        /// <summary>
+        /// IMPORT PRODUKCYJNA droga z podstawionym WYNIKIEM okna wyboru pliku.
+        /// Podstawiamy TYLKO wybor sciezki (null = uzytkownik anulowal); odczyt,
+        /// scalanie i zapis jada prawdziwym kodem.
+        /// </summary>
+        internal MainWindow.SonosOwnStreamsImportUiOutcome ImportWithPath(string? path)
+        {
+            Window.SonosOwnStreamsImportPathOverrideForTests = () => path;
+            try { return Window.ImportSonosOwnStreamsForTests(Window); }
+            finally { Window.SonosOwnStreamsImportPathOverrideForTests = null; }
+        }
+
+        /// <summary>
+        /// PRAWDZIWY modal Moich stacji: produkcyjna droga tworzy okno,
+        /// podstawiamy TYLKO pokazanie - jak w <see cref="RunFavoritesModal"/>.
+        /// </summary>
+        internal void RunOwnStreamsModal(Action<SonosOwnStreamsWindow> steps)
+        {
+            Exception? inside = null;
+            Window.PresentSonosOwnStreamsOverrideForTests = dialog =>
+            {
+                dialog.ShowInTaskbar = false;
+                var timer = new DispatcherTimer(DispatcherPriority.Background)
+                {
+                    Interval = TimeSpan.FromMilliseconds(25)
+                };
+                timer.Tick += (_, _) =>
+                {
+                    if (!dialog.IsLoaded || !dialog.IsVisible) return;
+                    timer.Stop();
+                    try { steps(dialog); }
+                    catch (Exception exception) { inside = exception; }
+                    finally
+                    {
+                        if (dialog.IsVisible)
+                        {
+                            try { dialog.Close(); } catch (InvalidOperationException) { }
+                        }
+                    }
+                };
+                timer.Start();
+                try { dialog.ShowDialog(); }
+                finally { timer.Stop(); }
+            };
+            try { Window.ShowSonosOwnStreamsForTests(); }
+            finally { Window.PresentSonosOwnStreamsOverrideForTests = null; }
+            if (inside is not null) throw inside;
+        }
+
+        /// <summary>
         /// ZDJECIE wybranego celu: preset bez celu ma odesłać do wyboru głośników,
         /// a nie zgadywać grupę.
         /// </summary>
@@ -1022,6 +1132,120 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             (typeof(MainWindow).GetField("_sonosTopology", Instance)
                 ?? throw new Exception("Nie ma pola _sonosTopology w prawdziwym MainWindow."))
                 .SetValue(Window, null);
+        }
+
+        /// <summary>WEJSCIE W SESJE pod nazwa uzywana przez pomiar po 4.2.1.</summary>
+        internal void EnterSonosSessionForMeasurement() => Enter();
+
+        /// <summary>PRODUKCYJNA Spacja/polecenie transportu, doczekane do konca.</summary>
+        internal void ExecuteSonosCommandForMeasurement(string commandId)
+        {
+            Pump(Window.ExecuteSonosCommandForTests(commandId));
+            PumpQuietly(TimeSpan.FromMilliseconds(120));
+        }
+
+        /// <summary>
+        /// POLECENIE WTYCZKI NVDA PRODUKCYJNA droga <c>ExecuteNvdaCommand</c> - ta
+        /// sama, ktorej uzywa mostek. Pomiar NIE wola bezposrednio polecenia
+        /// Sonosa: zgubienie nacisniec dzialo sie wlasnie na tym torze.
+        ///
+        /// GLOBALNY SKROT NIE AKTYWUJE OKNA: dlatego po drodze nic nie wolamy na
+        /// Activate, a pomiar sprawdza, ze okno nie przejmuje pierwszego planu.
+        /// </summary>
+        internal void DispatchNvdaCommandForMeasurement(string command)
+        {
+            var method = typeof(MainWindow).GetMethod("ExecuteNvdaCommand", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ExecuteNvdaCommand.");
+            object? reply;
+            try { reply = method.Invoke(Window, [command]); }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw exception.InnerException;
+            }
+
+            // ODPOWIEDZ MOSTKA JEST DOWODEM: dotad wynik szedl do kosza, wiec
+            // odmowa ("AMC jest zajęty", nieobslugiwane polecenie) wygladala
+            // identycznie jak przyjecie i pomiar mylil ja z wada produkcji.
+            LastNvdaReplyForMeasurement = reply?.ToString();
+            PumpQuietly(TimeSpan.FromMilliseconds(40));
+        }
+
+        /// <summary>OSTATNIA odpowiedz mostka NVDA - do diagnozy aparatury.</summary>
+        internal string? LastNvdaReplyForMeasurement { get; private set; }
+
+        /// <summary>
+        /// PRZELACZENIE CELU na INNA grupe - jak uzytkownik zmieniajacy pokoj.
+        /// Idzie przez to samo pole stanu, ktore czyta SonosActiveGroup, wiec
+        /// produkcja widzi dokladnie taka zmiane celu jak w zyciu.
+        /// </summary>
+        internal void SelectOtherSonosGroupForMeasurement(string currentGroupId)
+        {
+            if (string.Equals(OtherGroupId, currentGroupId, StringComparison.Ordinal))
+            {
+                throw new Exception("Pomiar zmiany celu wskazał tę samą grupę.");
+            }
+
+            // CEL ZMIENIAMY TAK JAK UZYTKOWNIK: przez pole stanu, ktore czyta
+            // produkcyjne SonosActiveGroup. Grupa docelowa nie musi byc w
+            // odczytanej topologii - wrecz LEPIEJ, zeby nie byla: wtedy "stary
+            // cel nie jest juz nasz" jest jeszcze bardziej jednoznaczne.
+            Window.StateForTests.Sonos.SelectedGroupId = OtherGroupId;
+            PumpQuietly(TimeSpan.FromMilliseconds(40));
+        }
+
+        /// <summary>
+        /// GLOSNOSC W PAMIECI z PRAWDZIWEGO odczytu: podstawiamy odpowiedz chmury
+        /// i wolamy produkcyjny <c>ReadSonosGroupStateAsync</c>, zeby bramka
+        /// glosnosci widziala ODCZYTANY poziom, a nie wartosc wpisana refleksja.
+        /// </summary>
+        internal void PrimeSonosVolumeForMeasurement(int volume)
+        {
+            var previous = Handler.RouteOverride;
+            Handler.RouteOverride = (request, body) =>
+            {
+                if (request.Method == HttpMethod.Get
+                    && request.RequestUri!.AbsolutePath.EndsWith("/groupVolume", StringComparison.Ordinal))
+                {
+                    return Json("{\"volume\":" + volume + ",\"muted\":false,\"fixed\":false}");
+                }
+
+                return previous?.Invoke(request, body);
+            };
+            var read = typeof(MainWindow).GetMethod("ReadSonosGroupStateAsync", Instance)
+                ?? throw new Exception("Nie ma prawdziwej metody ReadSonosGroupStateAsync.");
+            Pump((Task)read.Invoke(Window, null)!);
+            if (Window.SonosVolumeForTests is not { } current || current.Volume != volume)
+            {
+                throw new Exception("Odczyt nie dostarczył głośności " + volume
+                    + " - pomiar powtórzeń liczyłby od nieznanej wartości.");
+            }
+        }
+
+        /// <summary>
+        /// RZECZYWISTY KROK Ctrl+Win+dol: bierzemy go z MAPOWANIA MOSTKA (volumeDown
+        /// to VolumeDown5), a nie z zalozenia. Gdyby mapowanie kiedys zmienilo krok,
+        /// pomiar policzy nowy, zamiast zdawac na starej liczbie.
+        /// </summary>
+        internal int SonosVolumeStepForMeasurement()
+        {
+            var resolved = NvdaCommands.Resolve("volumeDown")
+                ?? throw new Exception("Mostek NVDA nie mapuje już volumeDown.");
+            var delta = SonosVolumeRepeatBuffer.StepDelta(resolved);
+            if (delta >= 0) throw new Exception("volumeDown nie zmniejsza głośności: " + delta);
+            return -delta;
+        }
+
+        /// <summary>
+        /// GLOSNOSC Z OSTATNIEGO RZECZYWISTEGO ZAPISU na druciku. Dowodem skutku
+        /// jest tresc POST-a, nie pole w pamieci okna.
+        /// </summary>
+        internal int LastVolumePostedForMeasurement()
+        {
+            var last = Handler.Posts
+                .LastOrDefault(w => w.Uri.AbsolutePath.EndsWith("/groupVolume", StringComparison.Ordinal))
+                ?? throw new Exception("Żaden zapis głośności nie poszedł na drucik.");
+            using var document = JsonDocument.Parse(last.Body);
+            return document.RootElement.GetProperty("volume").GetInt32();
         }
 
         private ListBox MediaList => (ListBox)Window.FindName("MediaList")!;
@@ -1126,6 +1350,15 @@ internal static partial class SonosFavoritePlayRealOwnerTests
 
             Window.Activate();
             PumpUntil(() => Window.IsActive, "okno główne nie stało się aktywne");
+            // STAN PO STARCIE, KTORY APARATURA SAMA SOBIE ODEBRALA. Powyzej
+            // ODPINAMY Window_ContentRendered (zeby nie ruszac integracji z
+            // pulpitem), a to wlasnie ono ustawia _initialFocusApplied. Mostek
+            // NVDA sprawdza ten znacznik i BEZ niego odmawia KAZDEGO polecenia
+            // slowami "AMC jest zajęty" - czego dzialajaca produkcja nigdy nie
+            // robi po pokazaniu okna. Ustawiamy go jawnie, zeby pomiar mierzyl
+            // nasz kod, a nie brak inicjalizacji aparatury.
+            typeof(MainWindow).GetField("_initialFocusApplied", Instance)!
+                .SetValue(Window, true);
             // WYBOR DOMU idzie z PRAWDZIWEGO odczytu syntetycznej topologii: dwa
             // domy, wiec zadna regula "jeden dom sam sie wybiera" tu nie dziala -
             // ustawiamy wybor jawnie, jak uzytkownik w oknie wyboru domu.
@@ -1154,12 +1387,17 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         }
 
         /// <summary>
-        /// PRAWDZIWY modal ulubionych: produkcyjne polecenie tworzy okno,
-        /// podstawiamy TYLKO pokazanie, a kroki jada z timera w petli modalu.
+        /// PRAWDZIWY modal ulubionych - Z DOWODEM, ZE KROKI SIE WYKONALY.
+        ///
+        /// Bez tego licznika zestaw przechodzil NA ZIELONO, gdy okno wcale sie nie
+        /// pokazalo (np. odrzucony ladunek ulubionych): <c>steps</c> nigdy nie
+        /// ruszalo, zaden wyjatek nie powstawal i brak pomiaru wygladal jak sukces.
+        /// Zmierzone na wlasnej skorze przy ladunku z opisem i usluga.
         /// </summary>
         internal void RunFavoritesModal(Action<SonosFavoritesWindow> steps)
         {
             Exception? inside = null;
+            var ran = false;
             Window.PresentSonosFavoritesOverrideForTests = dialog =>
             {
                 dialog.ShowInTaskbar = false;
@@ -1171,6 +1409,7 @@ internal static partial class SonosFavoritePlayRealOwnerTests
                 {
                     if (!dialog.IsLoaded || !dialog.IsVisible) return;
                     timer.Stop();
+                    ran = true;
                     try { steps(dialog); }
                     catch (Exception exception) { inside = exception; }
                     finally
@@ -1197,6 +1436,11 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             }
 
             if (inside is not null) throw inside;
+            if (!ran)
+            {
+                throw new Exception("Modal ulubionych NIE pokazał się, więc kroki pomiaru się NIE "
+                    + "wykonały - brak pomiaru nie jest zielonym wynikiem.");
+            }
         }
 
         /// <summary>
@@ -1298,7 +1542,9 @@ internal static partial class SonosFavoritePlayRealOwnerTests
         private void DoEvents()
         {
             var frame = new DispatcherFrame();
-            _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+            // Include deferred ContextIdle startup work; ending at Background
+            // starves those callbacks on every nested message-loop iteration.
+            _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => frame.Continue = false));
             Dispatcher.PushFrame(frame);
         }
 

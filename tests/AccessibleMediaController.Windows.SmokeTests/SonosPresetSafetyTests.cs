@@ -119,7 +119,11 @@ internal static partial class SonosFavoritePlayRealOwnerTests
             catch (Exception exception) { failure = exception; timer.Stop(); window.Close(); ended = true; }
         };
         timer.Start();
-        try { typeof(MainWindow).GetMethod("ShowSonosOwnStreams", Instance)!.Invoke(h.Window, null); }
+        // DWA OPCJONALNE PARAMETRY (preferredStationId, announcement) dodal import.
+        // Refleksja NIE podstawia wartosci domyslnych, wiec Invoke(..., null)
+        // rzucalby TargetParameterCountException. Podajemy je jawnie jako null -
+        // to dokladnie to, co robi zwykle otwarcie listy z Biblioteki.
+        try { typeof(MainWindow).GetMethod("ShowSonosOwnStreams", Instance)!.Invoke(h.Window, [null, null]); }
         finally { timer.Stop(); }
         if (failure is not null) throw failure;
         if (!ended || loadedId is null) throw new Exception("Zwykłe uruchomienie stacji nie zakończyło się.");

@@ -110,6 +110,15 @@ Odbiór rodzica: `live-queue-after-native-lists/parent-speech-full-profile/`. Pe
 - `wxlite/tools/build_bundle.py`: `app/amc_wx_lite`, prywatny `runtime` i `host`; zachowuje katalogi licencji i haszuje exe/DLL. Ścieżka pakietu odpowiada izolowanemu `python*._pth`.
 - Wąskie testy rodzica: `AudioConfigurationTests`, `test_audio_preferences`, `test_tempo_menu`, `test_bundle_layout`. Odbiór GUI/NVDA i rzeczywistego wyjścia audio pozostaje osobną bramką; testy modeli/kompilacja go nie zastępują.
 
+## Sonos po416: odbiór powrotu do podlist
+
+- `SonosSublistReturnPolicy.ShouldLeaveSublistForSlot`: przed zamknięciem listy odrzuca slot pusty i już aktywny.
+- `MainWindow.SonosSublistReturn.cs`: przechowuje wiersz wraz z kategorią; nie przełącza sesji po wyczerpaniu oczekiwania na zamknięcie modala.
+- `SonosSublistAllThreeAcceptanceTests.cs`: trzy podlisty, dalszy wiersz, powrót fokusu, pusty/bieżący slot, Escape i rozdzielenie kategorii. Test dodany także do pełnej tabeli Windows.
+- Żywy NVDA potwierdził fokus po fizycznych gestach na Hermesie w próbnej instancji. Odczyt fokusu nie jest zapisem wypowiedzianej mowy. Przerwanie odczytu podczas powrotu i próba przy otwartym modalu są JUŻ ZAMKNIĘTE w tym samym zarejestrowanym zestawie `--sonos-sublist-all-three`: zwolniony wstrzymany odczyt po ponownym wyjściu z sesji milczy i nie otwiera starej listy (z kontrolą dodatnią, że zwykły powrót nadal otwiera właściwą podlistę), a wyczerpanie `PostSessionSwitchWhenModalsClosed` przy rzeczywistym własnym modalu nie zmienia sesji i czyści zapis powrotu. Oba pomiary potwierdzono sondą mutacyjną (prawdziwy RED, potem cofnięty).
+- KRÓTKA MOWA w trzech podlistach (Ulubione, Playlisty, Moje stacje): przy zwykłym wyborze pada sama nazwa pozycji, bez technicznych dopisków; błędy nadal są zgłaszane w całości. Mierzone zapisem wypowiedzianej mowy, nie odczytem fokusu.
+
+
 ## Sonos po415: treść, fokus i krótka reakcja
 
 - `MainWindow.SonosLibrary.cs` / `SonosLibraryPresentation.IsContentRootView`: korzeń pokazuje kategorie materiału; model grup pozostaje osobno dla Ctrl+F5 i transportu. Enter otwiera istniejącą kategorię. `MainWindowNavigationPolicy` zamienia domyślne Multimedia na Bibliotekę Sonosa.
@@ -212,6 +221,14 @@ przyrost **nie obiecuje** ich rozdzielania.
 - `ISonosOwnStreamsSessionBackend` i cienkie metody istniejącego `SonosAccountOwnerGroupBackend`/`SonosAccountOwner` korzystają z odebranego koordynatora i klienta. Enter: walidacja → `createSession` → potwierdzone ID sesji → `loadStreamUrl` z jawnym autostartem. Bez drugiego Play, automatycznego ponowienia, zapisu ID sesji w ustawieniach i bez tworzenia Sonos Favorite.
 - Caller zachowuje wspólną bramkę poleceń oraz sprawdza konto, dom, grupę i życie okna między dwoma zapisami. Po zmianie kontekstu nie przekazuje adresu do starej sesji.
 - Odbiór: Core `--sonos-own-streams`; Windows `--sonos-own-streams-main`; żywy NVDA na izolowanej kopii. Testy rzeczywistego konta/głośnika i skutku audio pozostają osobną bramką. Presety i przebudowa grup to następne etapy.
+
+### Import playlisty do „Moich stacji Sonosa” — wpięcie UI
+
+- `MainWindow.SonosImport.cs` to CAŁE wpięcie: okno wyboru pliku, komunikat i zapis. Nie parsuje playlist i nie scala listy — plik czyta istniejący `RadioPlaylistImporter.Import(path)` (ta sama droga, co Radio i WiiM), a scala `SonosOwnStreamsImport.Merge` z Core. `DescribeSonosOwnStreamsImport` dolicza pominięcia z OBU źródeł: `parser.SkippedEntries` plus `SkippedDuplicates` i `SkippedInvalidAddresses` ze scalania.
+- Dwa wejścia, JEDNA akcja: pozycja menu Plik `ImportSonosOwnStreamsMenuItem` (widoczna tylko w sesji Sonos, ustawiana w `UpdateFileMenuForCurrentSession`) oraz przycisk `ImportButton` w otwartym `SonosOwnStreamsWindow` wraz z Ctrl+O obsłużonym w modalu (okno główne jest wtedy wyłączone, więc jego router skrótów tam nie dochodzi). Okno nie czyta pliku i nie zapisuje stanu — woła `ImportPlaylist` właściciela.
+- Import jest LOKALNY: działa bez połączonego konta i bez wybranego głośnika, zero GET/POST, żadnego autoodtwarzania, bez zmian w natywnych Favorites. Zapis idzie istniejącą drogą `QueueStateSave(announceFailure: true)`. Anulowanie, błąd pliku, manifest HLS i brak nowych stacji nie zmieniają listy ani pliku stanu. Po udanym imporcie lista dostaje PEŁNY wynik scalenia, a zaznaczenie staje po ID na pierwszej dodanej stacji.
+- Globalny skrót Ctrl+O dla sesji Sonos NIE jest dopisany: `MainWindowShortcutRouter.ResolveOpenData` był poza zakresem tego przyrostu, więc w głównym oknie import otwiera się z menu Plik.
+- Odbiór: Core `--sonos-own-streams-import`; Windows `--sonos-own-streams-import`. GUI i żywy NVDA pozostają osobną bramką.
 
 
 ## Sonos: WŁASNE RADIO — sesja odtwarzania i adres strumienia, warstwa Core (bez UI)
@@ -456,6 +473,14 @@ traktuj zdania „Biblioteka = CELE STEROWANIA” jako opisu tego, co robi dziś
   mówi o tym wprost przy zamknięciu. Historyczne kierowanie `Ctrl+F5` na
   `ManageSonosConnection` przez `TryHandleLocalLibraryViewShortcut` już NIE
   opisuje zachowania.
+- **Okno celu otwarte W TRAKCIE trwającego odczytu.** `RefreshSonosTopologyAsync`
+  nadal przepuszcza JEDNO odświeżenie naraz, ale drugi przychodzący dostaje
+  `_sonosRefreshFlight`, czyli TO SAMO oczekiwanie, zamiast natychmiastowego
+  pustego `Task.CompletedTask`. Bez tego `Ctrl+F5` po menu Plik/F5 pokazywał
+  okno na starej (null) topologii, które uzupełniało się dopiero po kolejnym F5
+  (zmierzone: część `1d`). Jeden tor GET bez zmian — żadnej kolejki, żadnego
+  drugiego odczytu. `CancelSonosPendingWork` zeruje przelot razem z bramką i
+  biletem, więc porzucony odczyt nie jest tym, na który wolno czekać.
 - **Krótki wiersz.** `ApplySonosGroupRows` w `MainWindow.Sonos.cs` nie ustawia
   już `Artist = row.Text` (nazwa + „głośników: N” + stan). Wiersz to sama nazwa
   grupy; szczegóły są w oknie Głośniki i grupy oraz w odtwarzaczu po Enter.
@@ -650,6 +675,36 @@ w wariancie z uruchamianiem dostaje przycisk **Odtwórz** i obsługę `Enter`.
   (transport podstawiany TEST-ONLY refleksją, **bez** nowej publicznej fabryki
   w produkcji). Oba wpięte w pełną tabelę Windows. Zero sieci, poświadczeń,
   DPAPI i dźwięku.
+
+## Sonos — rutynowe zapowiedzi postępu są CICHE (od 0.1.0-alpha.420)
+
+Zgłoszenie użytkownika: w ZWYKŁEJ sesji Sonos przy każdym wejściu i przy
+uruchamianiu stacji czytnik wymawiał niedokończone „trwa odświeżanie
+głośników” / „trwa odczytywanie”. Takie zapowiedzi są zbędne — przerywa je
+następna mowa, więc użytkownik słyszy sam urwany początek.
+
+- **Granica:** rutynowy postęp („Odświeżam…”, `Loading`, `PlayPending`,
+  „Wysyłam polecenie…”, `LoadingGroups`) **pokazuje się**, ale NIE wywołuje
+  powiadomienia czytnika. Tekst zostaje w kontrolce statusu, więc da się go
+  odczytać na żądanie i nic z interfejsu nie znika.
+- **Metody-siostry** (to CAŁA zmiana produkcyjna):
+  `AccessibleStatusTextBlock.SetProgressText` (ustawia `Text` bez
+  `RaiseNotification`), `MainWindow.AnnounceProgress`, oraz `ShowProgress`
+  w `SonosFavoritesWindow` / `SonosPlaylistsWindow` / `SonosOwnStreamsWindow`.
+- **NIE RUSZONE i nadal mówione:** błędy, odmowy, przerwania, zmiany kontekstu
+  celu/konta, podsumowania wyników („… : N pozycji”), nazwy stacji i tytuły,
+  `AnnounceEssential`. Bramka celu, `coalescing` i stan `busy` bez zmian.
+  `"Uruchamianie: <stacja>"` (`MainWindow.SonosOwnStreams.cs`) ZOSTAJE mówione —
+  pada PO przyjęciu polecenia i niesie nazwę stacji, więc jest wynikiem,
+  nie rutynowym „czekaj”.
+- **Bez** globalnego wyłącznika zapowiedzi, nowego ustawienia i opóźniacza.
+- Testy: `tests/.../SonosQuietProgressTests.cs` (CLI `--sonos-quiet-progress`,
+  wpięte w pełną tabelę Windows) — 3 scenariusze: wejście w sesję, odczyt
+  ulubionych, uruchomienie stacji. Każdy sprawdza, że rutynowy tekst NIE
+  trafia do zapowiedzi, a wynik i błąd nadal trafiają.
+- `SonosTopologyRefreshUiTests` czekał wcześniej na `before + 2` zapowiedzi
+  (postęp + wynik) — to kodowało DAWNE wymaganie; teraz czeka na rzeczywisty
+  tekst wyniku.
 
 ## Sonos: UŻYTKOWA sesja — aktywna grupa, lista, odtwarzacz, polecenia (po alfa413)
 
@@ -1435,7 +1490,9 @@ Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 - `Core/Presentation/RecordingPathProbe.cs`: pamięć obserwacji ścieżek, wspólny klucz dla równoważnych ścieżek; odróżnienie braku pliku od niedostępnego folderu. Używana w wątku UI.
 - `RadioRecordingHistoryPathRewriter.cs` aktualizuje znaną parę stara/nowa ścieżka bez zgadywania po nazwie; `RadioRecordingRowLabels.cs` podaje nazwę, datę i folder na końcu.
 - `MainWindow.xaml.cs`: zdarzenia obserwatora przez Dispatcher, deduplikacja bez ukrywania przerwanego lub nieudanego nagrania oraz ponowna kontrola po otwarciu historii.
-- `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach; runner `--recording-files-acceptance` i pełny zestaw Windows.
+- `RecordingFilesAcceptanceTests.cs`: save/load, rename/delete/restart, cache, niedostępny folder, zachowanie powrotu z podglądu w siedmiu sesjach, zmiana wyłącznie wielkości liter nazwy (`CaseOnlyRenameUpdatesReferences`); runner `--recording-files-acceptance` i pełny zestaw Windows.
+- `RenameCaseOnlyTests.cs` (Core): nazwa docelowa, odmowa zajętej nazwy i zmiana wyłącznie wielkości liter; runner `--rename-case-only`.
+- `RenameCaseNvdaGui.cs`: pokaz na pulpicie dla pomiaru żywym NVDA (`--rename-case-nvda-gui`), produkcyjny `MainWindow` i produkcyjny handler Shift+F2, własny katalog tymczasowy i własny plik WAV.
 - `scripts/test-recording-files-mutations.py`: izolowane celowe uszkodzenia reguł z pełnym licznikiem wykonanych przypadków.
 
 ## Uzupełnienie: tańsza migawka stanu (CloneState), alfa 407
@@ -1686,9 +1743,32 @@ i 21000–22000). Serwisy:
 - `Core/LocalMedia/` — reguły wykrywania plików
   (`LocalAudioFileDiscovery.cs`), import (`LocalLibraryImporter.cs`),
   synchronizacja folderów (`LocalLibrarySynchronizer.cs`), wnioskowanie albumu
-  (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs`),
+  (`LocalAlbumInference.cs`), zmiana nazw (`LocalFileRenamePolicy.cs` — buduje
+  nazwę docelową i odrzuca zajętą; zmiana wyłącznie wielkości liter jest
+  dozwolona, bo `ExistsWithExactName` porównuje wpisy katalogu Ordinal, podczas
+  gdy samo `File.Exists` na NTFS nie rozróżnia wielkości liter),
   pliki w chmurze niepobrane (`CloudFileAvailability.cs`), sonda kontenera
   (`MediaContainerProbe.cs`, `Mp3StructureProbe.cs`).
+- `CloudFileAvailability.cs` ma DWIE rozdzielne polityki, nie jedną:
+  - **odtwarzanie** — `MayRequireRemoteAccess`, `RequiresHydration`,
+    `IsPlaceholder`, `GetState`, `CloudFileState{Local,Placeholder,Unavailable}`.
+    Zachowanie identyczne z 420; nie zmieniaj go przy pracy nad edycją.
+  - **edycja** — `ClassifyMetadataForEdit`, `GetEditAvailability`,
+    `CloudEditAvailability`, `CloudEditOutcome{Editable,NeedsDownload,Unknown,
+    Missing,AccessDenied}`. Zgoda wymaga DOWODU danych na nośniku: kompletny
+    stan Cloud Files (`0x9`) jest dozwolony niezależnie od przypięcia, częściowy
+    i offline to odmowa, a samo `FILE_ATTRIBUTE_PINNED`/`UNPINNED` nie jest
+    dowodem w żadną stronę. Nieznany punkt ponownej analizy → `Unknown`.
+    Dowód nośnika czytany tylko do odczytu z `GetVolumeInformationByHandleW`
+    + `GetDriveType`. ZMIERZONE OGRANICZENIE, nazwane też w kodzie: wolumin
+    wirtualny podający się za NTFS/FAT na dysku `Fixed` jest tymi metadanymi
+    NIEODRÓŻNIALNY od fizycznego — nie obiecuj gwarancji dla każdego klienta
+    chmury i nie dokładaj zgadywania systemu.
+- Edytor sprawdza WŁASNY wytworzony plik przez `internal` przeciążenie
+  `WindowsMediaOutput.TryReadMetadata(Async)` z `locallyProducedFile: true`
+  i bramką `GetEditAvailability`. Publiczne przeciążenia (ścieżka odtwarzania)
+  zostają bez zmian; wąska granica istnieje, bo publiczny odczyt metadanych
+  odmawiał po samej nazwie folderu OneDrive.
 - `LocalFolderPathNormalizer.cs` — jawna pamięć normalizacji ograniczona do jednego
   przebiegu `MainWindow.CaptureLocalMediaState`; używana przez
   `LocalFolderSourcePolicy.IsSameOrDescendant` przy rozstrzyganiu opcji folderu.
@@ -1853,7 +1933,86 @@ Poza NuGet: BASS (`third_party/BASS/win-x64`), FFmpeg i `yt-dlp` pobierane
 w czasie działania do osobnych katalogów, SDK TIDAL w `TidalPlayerHost`
 (pnpm), Inno Setup do instalatora.
 
-## 17. Gdzie czego NIE ma
+## 17. Powrót do podlisty Sonosa po przełączeniu sesji
+
+Podlisty Sonosa (Moje stacje, Ulubione, Playlisty) są oknami MODALNYMI, a modal
+WYŁĄCZA okno główne. Router skrótów `MainWindow` nie dostaje wtedy żadnego
+klawisza, więc `Ctrl+cyfra` z wnętrza listy nie przełączała sesji — trzeba było
+najpierw zamknąć listę ręcznie, a powrót lądował w korzeniu sesji.
+
+- `Core/Sonos/SonosSublistReturnPolicy.cs` — CZYSTE zasady: co wolno zapamiętać
+  (`Capture`), czy wolno wrócić (`CanReopen` — ta sama kategoria, ten sam dom,
+  ten sam cel) i w który wiersz (`ResolveRowIndex`, po identyfikatorze, nie po
+  indeksie). Bez okien, więc mierzalne w testach Core.
+- `Core/Configuration/AppSettings.cs` — `SonosSublistReturnState` wewnątrz
+  `SessionNavigationState`: kategoria, wiersz, dom i cel. Dotąd stan nawigacji
+  pamiętał tylko widok główny, nie modalną listę.
+- `Windows/SonosSublistSessionSwitch.cs` — wspólna obsługa `Ctrl+cyfra` w oknie
+  podlisty, tym samym wzorcem co istniejące `Ctrl+Alt+Shift+P`: słyszymy TYLKO
+  klawisz, który przyszedł do nas (zero globalnych przechwytów). Zwija CAŁY stos
+  modalny (Biblioteka → podlista), bo inaczej okno główne zostaje wyłączone.
+- `Windows/MainWindow.SonosSublistReturn.cs` — dwie połowy drogi:
+  `RequestSessionSwitchFromSonosSublist` (zapamiętaj miejsce, potem zwykłe
+  `ExecuteCommand`) i `TryReopenSonosSublistAfterSessionReturn` (otwórz TĘ SAMĄ
+  podlistę ISTNIEJĄCĄ drogą `OpenSonosLibraryCategory`). Zlecenie czeka na ZEJŚCIE
+  stosu modalnego sprawdzając STAN, nie priorytet kolejki dyspozytora.
+- Okna podlist mają `RestoreSelectedRow(id)`; właściciel podaje wiersz
+  jednorazowo przez `ConsumeSonosSublistPendingRowId()` — Ulubione i Playlisty
+  otwierają się asynchronicznie, więc pola nie wolno czyścić zbyt wcześnie.
+
+## 17a. Spacja Sonosa, kolejność Moich stacji i szybkie powtórzenia głośności
+
+Trzy zgłoszenia z wersji 421, jedna ścieżka kodu — `ExecuteSonosCommandAsync`
+oraz okno „Moje stacje”.
+
+- `Core/Sonos/SonosPlayPauseRefresh.cs` — CZYSTA decyzja, czy przed odmową
+  trzeba odczytać stan na nowo. Spacja odmawiała z KOPII złapanej w chwili
+  buforowania (brak `canPause` i `canStop`), więc mówiła „Sonos nie zgłasza
+  możliwości zatrzymania tego materiału”, choć grupa już grała. Stan
+  przejściowy i nieodczytane uprawnienia NIE są zgodą, ale też NIE są dowodem
+  odmowy. Pewna zgoda na stanie ustalonym idzie prosto do POST-u — Spacja nie
+  zwalnia. Kroki głośności nie dostają tu żadnego dodatkowego GET.
+- `Windows/MainWindow.Sonos.cs` — bramka zamykana PRZED pierwszym `await`
+  (świeży odczyt też jest poleceniem w toku, więc z jednego gestu nie powstają
+  dwa POST-y transportu). Po odczycie sprawdzana jest tożsamość celu i grupy,
+  a odmowa po świeżym odczycie zostaje odmową: żaden slepy `pause` nie idzie.
+- `Core/Sonos/SonosVolumeRepeatBuffer.cs` — SKUMULOWANA intencja regulacji dla
+  szybkich powtórzeń `Ctrl+Win+strzałki` z wtyczki NVDA. Wtyczka dostarczała
+  intencję poprawnie; to bramka jednego polecenia odrzucała każde naciśnięcie
+  trafiające w trwający POST, a samo wyciszenie komunikatu nie oddałoby
+  zgubionych naciśnięć. Kumulujemy WYŁĄCZNIE kroki głośności i WYŁĄCZNIE tej
+  samej grupy — jako JEDNĄ liczbę, nie listę zadań, więc kolejka jest
+  ograniczona z definicji. Pauza, skip i przewijanie dalej dostają jawną
+  odmowę. POST-y zostają zserializowane: dosyłka idzie po domknięciu
+  poprzedniego zapisu, bez dodatkowego GET i bez zapisów nie po kolei.
+- `Core/Sonos/SonosOwnStreamsOrder.cs` — sortowanie i przenoszenie Moich
+  stacji na wzór radia. Tryb trzyma `SessionNavigationState.CollectionSortModes`
+  (sesja `sonos`, widok „Moje stacje”), a kolejność ISTNIEJĄCY
+  `CollectionOrders` — zero nowych pól konfiguracji i jedno źródło prawdy.
+  Przesuwanie liczy `LocalLibraryManualOrder`, ten sam algorytm co Biblioteka.
+  Pierwsze `Alt+3` startuje od DOTYCHCZASOWEJ kolejności, więc aktualizacja
+  nie przetasowuje stacji bez gestu użytkownika.
+- `Windows/SonosOwnStreamsWindow.xaml.cs` — `Alt+1/2/3` (dodanie, alfabetycznie,
+  kolejność własna), `Alt+strzałki` oraz `Ctrl+X`/`Ctrl+V`. `Ctrl+X` niczego nie
+  usuwa i nie przestawia — zapamiętuje identyfikatory, więc zamknięcie okna nie
+  przenosi nic; `Ctrl+V` wstawia przed wierszem docelowym. Edytowalne pola
+  zachowują własne `Ctrl+X`/`Ctrl+V`, a zapis idzie produkcyjną kolejką
+  `QueueStateSave`.
+- `Core/Sonos/SonosFavoriteDetails.cs` — JEDNO źródło napisów dla Strzałki
+  w lewo i Ctrl+C/Ctrl+Shift+C: składa parametry z nazwy, usługi, opisu i
+  metadanych, a przy braku danych oddaje KRÓTKĄ ODMOWĘ zamiast zmyślonej
+  wartości. Używają go oba okna, więc Moje stacje i Ulubione nie rozjeżdżają
+  się w treści.
+- `Windows/SonosOwnStreamsWindow.xaml.cs` i `Windows/SonosFavoritesWindow.xaml.cs`
+  — `Strzałka w lewo` czyta parametry zaznaczonej pozycji, `Ctrl+C` kopiuje
+  SAMĄ NAZWĘ, `Ctrl+Shift+C` adres albo mówi odmowę. Gest honoruje
+  `e.IsRepeat` i sprawdza, że odpowiedź dotyczy NADAL zaznaczonej pozycji
+  (`_describedId`), więc spóźniony wynik nie opisuje cudzego materiału.
+  ULUBIONE NIE TRZYMAJĄ trwałej pamięci opisów po `Id`: współdzielone jest
+  tylko zadanie W LOCIE, bo metadane Sonosa potrafią pojawić się dopiero przy
+  kolejnym odczycie i zapamiętana odmowa zostałaby powtórzona na zawsze.
+
+## 18. Gdzie czego NIE ma
 
 - Nie ma warstwy wstrzykiwania zależności — obiekty powstają wprost w `App.xaml.cs`
   i w `MainWindow`.

@@ -75,16 +75,66 @@ public static class LocalFileRenamePolicy
             error = "Nazwa pliku nie została zmieniona.";
             return false;
         }
+
+        // Zmiana WYLACZNIE wielkosci liter jest dozwolona. Zmierzone na NTFS:
+        // File.Exists(targetPath) zwraca wtedy true (ten sam wpis katalogu), wiec
+        // wygladalaby jak kolizja. O zajetosc nazwy pytamy katalog i porownujemy
+        // pisownie DOKLADNIE (Ordinal) — tylko wpis innego pliku jest kolizja.
         if (string.Equals(targetPath, fullCurrentPath, StringComparison.OrdinalIgnoreCase))
         {
-            error = "Zmiana wyłącznie wielkości liter nie jest jeszcze obsługiwana.";
-            return false;
+            if (ExistsWithExactName(directory, Path.GetFileName(targetPath), fullCurrentPath))
+            {
+                error = "W tym folderze istnieje już plik albo folder o takiej nazwie.";
+                return false;
+            }
+            return true;
         }
+
         if (File.Exists(targetPath) || Directory.Exists(targetPath))
         {
             error = "W tym folderze istnieje już plik albo folder o takiej nazwie.";
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Czy w <paramref name="directory"/> istnieje wpis o nazwie dokladnie
+    /// <paramref name="exactFileName"/> (Ordinal), ktory NIE jest plikiem
+    /// <paramref name="currentFullPath"/>. Zmierzone: enumeracja z wzorcem nazwy
+    /// jest na NTFS niewrazliwa na wielkosc liter, wiec pisownie sprawdzamy sami.
+    /// </summary>
+    private static bool ExistsWithExactName(
+        string directory,
+        string exactFileName,
+        string currentFullPath)
+    {
+        try
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory, exactFileName))
+            {
+                if (!string.Equals(Path.GetFileName(entry), exactFileName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                if (string.Equals(Path.GetFullPath(entry), currentFullPath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                return true;
+            }
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or DirectoryNotFoundException)
+        {
+            // Nie potwierdzono kolizji. Samo przemianowanie i tak nie nadpisze
+            // obcego pliku: File.Move bez overwrite odmawia, a komunikat bledu
+            // trafia do uzytkownika z warstwy wykonania.
+            return false;
+        }
     }
 }

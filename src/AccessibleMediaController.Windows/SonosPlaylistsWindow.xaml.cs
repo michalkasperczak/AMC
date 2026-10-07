@@ -145,6 +145,22 @@ public partial class SonosPlaylistsWindow : Window
 
     internal int RowCountForTests => _rows.Count;
 
+    /// <summary>
+    /// PRZYWROCENIE ZAZNACZENIA po powrocie z innej sesji. Po IDENTYFIKATORZE, nie
+    /// po indeksie: dwie playlisty moga miec ten sam tytul, a lista z konta mogla
+    /// sie w miedzyczasie zmienic.
+    /// </summary>
+    internal void RestoreSelectedRow(string? playlistId)
+    {
+        var index = SonosSublistReturnPolicy.ResolveRowIndex(
+            _rows.Select(row => row.Playlist.Id).ToArray(), playlistId);
+        if (index < 0) return;
+        PlaylistsList.SelectedIndex = index;
+        PlaylistsList.UpdateLayout();
+        FocusSelectedRow();
+    }
+
+
     internal IReadOnlyList<string> RowLabelsForTests => _rows.Select(row => row.Label).ToArray();
 
     internal string IntroductionForTests => IntroductionText.Text;
@@ -219,6 +235,17 @@ public partial class SonosPlaylistsWindow : Window
         Announce(message);
     }
 
+    /// <summary>
+    /// RUTYNOWY POSTEP w modalu playlist: WIDOCZNY status, ZERO notyfikacji
+    /// czytnika. Rodzenstwo <c>SonosFavoritesWindow.ShowProgress</c> i ten sam
+    /// powod: "Czekaj" wchodzilo w slowo i bylo urywane przez wynik.
+    /// </summary>
+    private void ShowProgress(string message)
+    {
+        if (_closed) return;
+        StatusText.ShowProgress(message);
+    }
+
     private void Announce(string message)
     {
         if (_closed) return;
@@ -267,8 +294,31 @@ public partial class SonosPlaylistsWindow : Window
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        // CTRL+CYFRA: PRZELACZENIE SESJI BEZ RECZNEGO ZAMYKANIA LISTY.
+        // Modal wylacza okno glowne, wiec jego router skrotow tego gestu nie
+        // zobaczy - przechwytujemy go tu, tak samo jak Ctrl+Alt+Shift+P ponizej.
+        if (SonosSublistSessionSwitch.TryHandle(
+            this,
+            e,
+            SonosLibraryPresentation.PlaylistsCategoryId,
+            () => HighlightedPlaylistIdForTests))
+        {
+            return;
+        }
+
+        // TRANSPORT (Spacja) i PRESETY (Ctrl+Shift+cyfra) z wnetrza podlisty -
+        // modal wylacza okno glowne, wiec jego router tych gestow nie dostaje.
+        // Ta sama droga oddania wlascicielowi, co Ctrl+cyfra wyzej. Podlista
+        // ZOSTAJE otwarta: wiersz i fokus maja sie nie zmienic.
+        if (SonosSublistSessionSwitch.TryHandleTransportAndPresets(this, e))
+        {
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
+            // SWIADOME wyjscie: nie zostawiamy zadania powrotu.
+            (Owner as MainWindow)?.ClearSonosSublistReturn();
             CloseSelf();
             e.Handled = true;
             return;
@@ -359,7 +409,7 @@ public partial class SonosPlaylistsWindow : Window
             // synchroniczna nie ma fazy czekania, a jej wlasny wynik nie moze
             // zostac nadpisany.
             if (!operation.IsCompleted && _ownerFeedbackVersion == feedbackBefore)
-                Announce(SonosPlaylistsLabels.PlayPending);
+                ShowProgress(SonosPlaylistsLabels.PlayPending);
             await operation.ConfigureAwait(true);
         }
         catch (OperationCanceledException)

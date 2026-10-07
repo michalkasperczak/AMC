@@ -102,6 +102,51 @@ internal sealed class StatePersistenceQueue
         return failure is null;
     }
 
+    /// <summary>
+    /// CZEKA na zakonczenie JUZ ZAKOLEJKOWANYCH zapisow. Celowo NIE kolejkuje
+    /// nowego stanu (inaczej niz <see cref="Flush"/>): pomiar, ktory sam
+    /// dolozylby Save, zamaskowalby brak podpiecia kolejki u wolajacego.
+    ///
+    /// Zwraca false, gdy w zadanym czasie zapis sie nie domknal. Ostatni blad
+    /// zapisu oddajemy przez <paramref name="failure"/> - cisza o znanym bledzie
+    /// obiecywalaby trwalosc, ktorej nie ma.
+    /// </summary>
+    internal bool WaitForIdle(TimeSpan timeout, out Exception? failure)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (true)
+        {
+            Task? worker;
+            lock (_gate)
+            {
+                if (_worker is null && _pending is null && _pendingCheckpoints.Count == 0)
+                {
+                    failure = _lastFailure;
+                    return failure is null;
+                }
+                worker = _worker;
+            }
+
+            var left = deadline - DateTime.UtcNow;
+            if (left <= TimeSpan.Zero)
+            {
+                failure = new TimeoutException($"Zakolejkowany zapis stanu nie zakończył się przez {timeout}.");
+                return false;
+            }
+
+            try
+            {
+                if (worker is not null && !worker.Wait(left)) continue;
+            }
+            catch (AggregateException exception)
+            {
+                failure = exception.GetBaseException();
+                return false;
+            }
+            if (worker is null) Thread.Sleep(5);
+        }
+    }
+
     private void ProcessQueue()
     {
         while (true)

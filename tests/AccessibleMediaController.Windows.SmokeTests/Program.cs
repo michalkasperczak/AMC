@@ -122,9 +122,51 @@ if (args.Contains("--sonos-favorite-play-real-owner", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.Run(); return 0;
 }
+if (args.Contains("--sonos-quiet-progress", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.1.9: rutynowe zapowiedzi postepu Sonosa w ZWYKLYM AMC.
+    SonosFavoritePlayRealOwnerTests.RunQuietProgress(); return 0;
+}
+if (args.Contains("--sonos-space-volume-repeat", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.2.1: Spacja z nieaktualnej kopii stanu oraz gubione
+    // szybkie powtorzenia Ctrl+Win+dol z wtyczki NVDA.
+    SonosFavoritePlayRealOwnerTests.RunSpaceAndVolumeRepeatAfter421(); return 0;
+}
+if (args.Contains("--sonos-own-streams-order-window", StringComparer.Ordinal))
+{
+    // ZGLOSZENIE PO 4.2.1: kolejnosc Moich stacji MIERZONA NA PRAWDZIWYM MODALU
+    // (Alt+1/2/3, Alt+strzalki, Ctrl+X/V, trwalosc po ponownym otwarciu).
+    SonosFavoritePlayRealOwnerTests.RunOwnStreamsOrderInRealWindow(); return 0;
+}
+if (args.Contains("--sonos-details-gestures-nvda-gui", StringComparer.Ordinal))
+{
+    // POKAZ NA PULPICIE dla ZYWEGO NVDA: Strzalka w lewo oraz Ctrl+C/Ctrl+Shift+C
+    // w PRODUKCYJNYCH oknach Moich stacji i Ulubionych. Bez sieci, konta i IPC.
+    SonosDetailsGesturesNvdaGui.Run(args); return 0;
+}
+if (args.Contains("--sonos-details-gestures", StringComparer.Ordinal))
+{
+    // DOMKNIECIE PO 4.2.1: Strzalka w lewo (parametry) oraz Ctrl+C / Ctrl+Shift+C
+    // (nazwa / adres) MIERZONE NA PRAWDZIWYCH MODALACH Moich stacji i Ulubionych,
+    // z PRAWDZIWYM schowkiem Windows. Nie jest to odsluch zadnego glosnika.
+    SonosFavoritePlayRealOwnerTests.RunDetailsGestures(); return 0;
+}
 if (args.Contains("--sonos-own-streams-main", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunOwnStreams(); return 0;
+}
+if (args.Contains("--sonos-own-streams-import", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunOwnStreamsImport(); return 0;
+}
+if (args.Contains("--sonos-sublist-session-switch", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch(); return 0;
+}
+if (args.Contains("--sonos-sublist-all-three", StringComparer.Ordinal))
+{
+    SonosFavoritePlayRealOwnerTests.RunSublistAllThree(); return 0;
 }
 if (args.Contains("--sonos-speaker-selection", StringComparer.Ordinal))
 {
@@ -133,6 +175,36 @@ if (args.Contains("--sonos-speaker-selection", StringComparer.Ordinal))
 if (args.Contains("--sonos-presets-real", StringComparer.Ordinal))
 {
     SonosFavoritePlayRealOwnerTests.RunPresets(); return 0;
+}
+if (args.Contains("--sonos-after417-three-parts", StringComparer.Ordinal))
+{
+    // ZAWEZENIE do wybranych czesci: --sonos-after417-parts=1b,2 . Sluzy do
+    // ODTWORZENIA kazdego zgloszonego punktu OSOBNO, zeby pierwszy czerwony nie
+    // przykryl pozostalych. Bez tego argumentu mierzone sa WSZYSTKIE.
+    if (args.FirstOrDefault(a => a.StartsWith("--sonos-after417-parts=", StringComparison.Ordinal))
+        is { } selection)
+    {
+        SonosFavoritePlayRealOwnerTests.After417PartsToMeasure =
+            selection["--sonos-after417-parts=".Length..]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts(); return 0;
+}
+if (args.Contains("--sonos-after417-transport-presets", StringComparer.Ordinal))
+{
+    // WASKI POMIAR pozostalego transportu i presetow po 4.1.7 na WSZYSTKICH
+    // TRZECH podlistach. ZAWEZENIE: --sonos-after417-transport-parts=T1,T4 .
+    if (args.FirstOrDefault(a =>
+            a.StartsWith("--sonos-after417-transport-parts=", StringComparison.Ordinal))
+        is { } transportSelection)
+    {
+        SonosFavoritePlayRealOwnerTests.After417TransportPartsToMeasure =
+            transportSelection["--sonos-after417-transport-parts=".Length..]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets(); return 0;
 }
 if (args.Contains("--sonos-favorite-repeat", StringComparer.Ordinal))
 {
@@ -149,6 +221,10 @@ if (args.Contains("--sonos-content-root-nvda-gui", StringComparer.Ordinal))
     var index = Array.IndexOf(args, "--sonos-content-root-nvda-gui");
     var seconds = index + 1 < args.Length && int.TryParse(args[index + 1], out var parsed) ? parsed : 150;
     SonosNavigationUxTests.ShowContentRootForNvda(seconds); return 0;
+}
+if (args.Contains("--rename-case-nvda-gui", StringComparer.Ordinal))
+{
+    RenameCaseNvdaGui.Run(args); return 0;
 }
 if (args.Contains("--sonos-library-nvda-gui", StringComparer.Ordinal))
 {
@@ -300,6 +376,10 @@ if (args.Contains("--spotify-relations", StringComparer.Ordinal))
 if (args.Contains("--audio-clip-append", StringComparer.Ordinal))
 {
     Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult(); return 0;
+}
+if (args.Contains("--cloud-edit-native", StringComparer.Ordinal))
+{
+    return Task.Run(CloudEditNativeGuardTests.Run).GetAwaiter().GetResult();
 }
 if (args.Contains("--audio-edit-backup-settings", StringComparer.Ordinal))
 {
@@ -493,9 +573,25 @@ var tests = new (string Name, Action Test)[]
     ("Sonos: uruchamianie ulubionego z okna - Odtwórz/Enter, spóźniony wynik (F3c)", SonosFavoritePlayUiTests.Run),
     ("Sonos: uruchamianie ulubionego realną drogą właściciela konta i HTTP (F3c)", SonosFavoritePlayRealOwnerTests.Run),
     ("Sonos: Biblioteka materiału (Ctrl+L), playlisty i wybór celu (Ctrl+F5)", SonosLibraryUiTests.Run),
+    ("Sonos: Spacja z aktualnego stanu i szybkie powtórzenia głośności z wtyczki NVDA", SonosFavoritePlayRealOwnerTests.RunSpaceAndVolumeRepeatAfter421),
     ("Sonos: własne stacje przez rzeczywistego właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunOwnStreams),
+    ("Sonos: import playlisty do Moich stacji - menu Plik, prawdziwy plik i zapis", SonosFavoritePlayRealOwnerTests.RunOwnStreamsImport),
+    ("Sonos: Ctrl+cyfra z podlisty przełącza sesję i wraca w to samo miejsce", SonosFavoritePlayRealOwnerTests.RunSublistSessionSwitch),
+    ("Sonos: powrót do wszystkich trzech podlist i granice wyboru sesji", SonosFavoritePlayRealOwnerTests.RunSublistAllThree),
     ("Sonos: wybór głośników (Ctrl+F5) - skład grupy realną drogą właściciela i HTTP", SonosFavoritePlayRealOwnerTests.RunSpeakerSelection),
     ("Sonos: presety sesji - przypisanie, trwałość i uruchomienie realną drogą i HTTP", SonosFavoritePlayRealOwnerTests.RunPresets),
+    // Te dwa zestawy mialy dotad TYLKO wlasne przelaczniki (--sonos-after417-parts,
+    // --sonos-after417-transport-presets), wiec pelny przebieg Windows ich nie
+    // uruchamial i ich regresja nie zatrzymalaby wydania. Teraz sa w TABELI.
+    ("Sonos: zbędne zapowiedzi postępu w zwykłym AMC są wyciszone, a wynik i błąd zostają", SonosFavoritePlayRealOwnerTests.RunQuietProgress),
+    ("Sonos: granice po 4.1.7 - Ctrl+F5, odświeżanie okna celu i podlisty", SonosFavoritePlayRealOwnerTests.RunAfter417ThreeParts),
+    ("Sonos: transport i presety po 4.1.7 na wszystkich trzech podlistach", SonosFavoritePlayRealOwnerTests.RunAfter417TransportPresets),
+    // Te dwa zestawy mialy TYLKO wlasne przelaczniki (--sonos-details-gestures,
+    // --sonos-own-streams-order-window), wiec PELNY przebieg Windows ich NIE
+    // uruchamial i ich regresja nie zatrzymalaby wydania. Teraz sa w TABELI.
+    // RunSpaceAndVolumeRepeatAfter421 JEST juz wyzej - nie dublowac.
+    ("Sonos: Strzałka w lewo i Ctrl+C/Ctrl+Shift+C na prawdziwych modalach stacji i ulubionych", SonosFavoritePlayRealOwnerTests.RunDetailsGestures),
+    ("Sonos: kolejność Moich stacji na prawdziwym modalu - Alt+cyfry, Alt+strzałki, Ctrl+X/V", SonosFavoritePlayRealOwnerTests.RunOwnStreamsOrderInRealWindow),
     ("Schowek: lokalizacje bez nazw w rzeczywistych handlerach", SonosFavoritePlayRealOwnerTests.RunClipboardLocations),
     ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
     ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
@@ -546,6 +642,11 @@ var tests = new (string Name, Action Test)[]
     }),
     ("Skróty i eksport zaznaczonego audio", AudioClipShortcutAcceptanceTests.Run),
     ("Bezpieczne dopisanie fragmentu do istniejącego audio", () => Task.Run(AudioClipAppendTests.Run).GetAwaiter().GetResult()),
+    ("Wspólna decyzja o edycji pliku chmurowego (natywnie, cięcie i dopisanie)", () =>
+    {
+        if (Task.Run(CloudEditNativeGuardTests.Run).GetAwaiter().GetResult() != 0)
+            throw new Exception("Nie przeszły natywne testy decyzji o edycji pliku chmurowego");
+    }),
     ("Skrot nie powtorzony w nazwie dynamicznego menu", DynamicMenuShortcutNameTests.Run),
     ("Presety TIDAL bez odtwarzacza probek", TidalPresetRoutingTests.Run),
     ("Opcje odtwarzania sesji w Ustawieniach", SessionOptionsInSettingsTests.Run),

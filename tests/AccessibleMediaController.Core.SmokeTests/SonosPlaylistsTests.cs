@@ -61,7 +61,8 @@ internal static class SonosPlaylistsTests
             ("koordynator: cienkie podlaczenie odczytu i uruchomienia", CoordinatorExposesBothOperations),
             ("koordynator: brak konta to zero zapytan", NoAccountSendsNothing),
             ("koordynator: zmiana konta w trakcie odmawia wyniku", AccountChangeRefusesResult),
-            ("komunikaty i ToString bez tokenow i tresci", MessagesHideSecrets)
+            ("komunikaty i ToString bez tokenow i tresci", MessagesHideSecrets),
+            ("mowa: przyjecie to KROTKA NAZWA, bez technicznego potwierdzenia", SpokenPlayIsShortName)
         };
 
         var failures = 0;
@@ -414,6 +415,47 @@ internal static class SonosPlaylistsTests
         // Blad i porzucenie NIE przenosza danych.
         Check(SonosPlaylistsReadResult.CreateForMeasurement(SonosDeviceReadStatus.Discarded, list).Playlists is null,
             "porzucony wynik bez danych");
+    }
+
+    /// <summary>
+    /// ZWYKLY SUKCES mowi KROTKO: sama nazwa playlisty. Bez "Przyjęto polecenie
+    /// uruchomienia playlisty", bo to techniczne potwierdzenie, nie informacja -
+    /// a liczba utworow z wiersza listy nie ma brzmiec drugi raz na start.
+    /// SUKCES NADAL nie obiecuje SLYSZALNOSCI: krotszy tekst nie mowi "gra".
+    /// </summary>
+    private static void SpokenPlayIsShortName()
+    {
+        var playlist = new SonosPlaylist(PlaylistId, "Poranek", "playlist", 12);
+        var spoken = SonosPlaylistsLabels.DescribePlayAccepted(playlist);
+
+        Check(spoken == "Poranek", "przyjecie mowi sama nazwe, dostalem: " + spoken);
+        Check(!spoken.Contains("Przyjęto", StringComparison.OrdinalIgnoreCase),
+            "przyjecie bez technicznego potwierdzenia");
+        // NAZWA, nie identyfikator ani liczba utworow.
+        Check(!spoken.Contains(PlaylistId, StringComparison.Ordinal), "przyjecie bez identyfikatora");
+        Check(!spoken.Contains("12", StringComparison.Ordinal), "przyjecie bez liczby utworow");
+        // Sukces NIE twierdzi slyszalnosci.
+        foreach (var lie in new[] { "gra", "słyszysz", "odtwarza się" })
+        {
+            Check(!spoken.Contains(lie, StringComparison.OrdinalIgnoreCase),
+                "sukces nie obiecuje slyszalnosci: " + lie);
+        }
+
+        // WIERSZ listy zachowuje dopelnienie - skracamy tylko mowe na start.
+        Check(SonosPlaylistsLabels.Describe(playlist) == "Poranek, 12 utworów",
+            "wiersz listy stracil liczbe utworow: " + SonosPlaylistsLabels.Describe(playlist));
+        // BLEDY i braki zostaja czytelne i ROZNE od sukcesu.
+        foreach (var message in new[]
+        {
+            SonosPlaylistsLabels.PlayNothingSelected,
+            SonosPlaylistsLabels.PlayAlreadyInFlight,
+            SonosPlaylistsLabels.PlayNeedsGroup,
+            SonosPlaylistsLabels.PlayUnsupported
+        })
+        {
+            Check(!string.IsNullOrWhiteSpace(message) && message != spoken,
+                "komunikat bledu zostaje osobny i czytelny");
+        }
     }
 
     // ================= aparatura =================
