@@ -189,19 +189,31 @@ def _run_handler(modal_result, *, session=SessionId.FILES, state=None, client=No
             pass
 
         @property
-        def overrides(self):
-            return SessionPlaybackOverrides(loudness_normalization=True)
+        def drafts(self):
+            # Dialog oddaje wybory per SESJA: wymaganiem bylo ustawienie
+            # drugiej sesji bez przelaczania odsluchu.
+            return {session: SessionPlaybackOverrides(loudness_normalization=True)}
 
     class FakeNavigator:
         active = session
+
+    class ImmediateRunner:
+        """TaskRunner bez watku: ``work`` i ``done`` w tej samej kolejnosci."""
+
+        def submit(self, _name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:  # noqa: BLE001 - jak prawdziwy runner
+                failed(error)
 
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = FakeNavigator()
     frame.state = state
     frame.options = state.options
     frame.client = client
+    frame.runner = ImmediateRunner()
     frame.announcer = type("A", (), {"say": lambda _s, text: spoken.append(text)})()
-    frame._save_state = lambda: saved.append(True)
+    frame._save_state = lambda: saved.append(True) or True
     frame._restore_focus_after_dialog = lambda: None
 
     original = gui.SessionOptionsDialog

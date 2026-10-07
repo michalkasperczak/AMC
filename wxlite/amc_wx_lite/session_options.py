@@ -242,6 +242,33 @@ def resolve_audio_payload(options: "Options", overrides: SessionPlaybackOverride
     return payload
 
 
+def effective_overrides(state, session: SessionId) -> SessionPlaybackOverrides:
+    """Wybory TEJ sesji z zapisanego stanu, w postaci obiektu.
+
+    Stan w pamieci trzyma juz obiekty, a swiezo wczytany profil moze dac
+    slownik. Jedno wejscie dla obu, zeby wolacz nie musial znac tej roznicy.
+    """
+    raw = (getattr(state, "session_overrides", None) or {}).get(session.value)
+    if isinstance(raw, SessionPlaybackOverrides):
+        return raw
+    return SessionPlaybackOverrides.from_payload(raw)
+
+
+def engine_audio_payload(state) -> dict:
+    """JEDEN efektywny payload ``audio.configure`` dla TRWALEGO stanu.
+
+    Dlaczego liczy go sesja ``files``: przetwarzanie dzwieku ma wykonawce
+    WYLACZNIE w niej (``LiteEngineHandlers.cs:770``), a radio czyta z tego
+    wywolania tylko ``tempoAlgorithm``, ktorego sesja nie nadpisuje. Kazda
+    droga, ktora konfiguruje dzwiek (start procesu, zmiana algorytmu tempa),
+    musi uzyc TEJ funkcji -- inaczej jedna z nich zdmuchnie wybory sesji
+    ustawieniem ogolnym.
+    """
+    return resolve_audio_payload(
+        state.options, effective_overrides(state, SessionId.FILES)
+    )
+
+
 def resolve_pause_on_player_exit(
     options: "Options", overrides: SessionPlaybackOverrides
 ) -> bool:
@@ -287,6 +314,42 @@ class ApplyResult:
     saved: bool
     message: str
     error: str | None = None
+    #: Czy host powiedzial, ze skutek jest od NASTEPNEGO odtwarzania.
+    #: Komunikat nie moze tego zjesc: biezace granie zostaje po staremu.
+    applies_on_next_playback: bool = False
+
+
+def restore_session_options(
+    state,
+    session: SessionId,
+    previous: SessionPlaybackOverrides,
+    *,
+    client=None,
+) -> None:
+    """Przywroc stan TRWALY po odmowie zapisu na dysk.
+
+    Potrzebne, bo ``apply_session_options`` zmienia RAM i silnik PRZED zapisem
+    na dysk (inaczej nie dalo by sie odmowic po stronie silnika). Gdy dysk
+    odmowi, RAM i silnik musza wrocic do tego, co naprawde jest w profilu --
+    inaczej do zamkniecia okna gralo by ustawienie, ktorego nigdzie nie ma.
+
+    Bledy silnika sa tu POLYKANE swiadomie: komunikat o odmowie zapisu juz
+    poszedl do uzytkownika, a drugi (o nieudanym wycofaniu) tylko by go zagluszyl.
+    """
+    caps = capabilities_for(session)
+    effective = previous.restricted_to(caps)
+    if state.session_overrides is None:
+        state.session_overrides = {}
+    if effective.is_empty:
+        state.session_overrides.pop(session.value, None)
+    else:
+        state.session_overrides[session.value] = effective
+    if client is None or not caps.supports_audio_processing:
+        return
+    try:
+        client.configure_audio(**resolve_audio_payload(state.options, effective))
+    except Exception:  # noqa: BLE001 - patrz uwaga w docstringu
+        pass
 
 
 def apply_session_options(
@@ -325,6 +388,7 @@ def apply_session_options(
     if previous is not None and caps.supports_audio_processing:
         needs_engine = True
 
+    applies_next = False
     if needs_engine:
         if client is None:
             return ApplyResult(
@@ -333,13 +397,20 @@ def apply_session_options(
                 error="brak silnika",
             )
         try:
-            client.configure_audio(**resolve_audio_payload(state.options, effective))
+            answer = client.configure_audio(
+                **resolve_audio_payload(state.options, effective)
+            )
         except Exception as error:  # noqa: BLE001 - odmowa silnika to dana, nie awaria
             return ApplyResult(
                 saved=False,
                 message=f"Silnik odrzucił opcje sesji {name}: {error}",
                 error=str(error),
             )
+        # Host MOWI, od kiedy zmiana dziala (``appliesOnNextPlayback``).
+        # Nie zgadujemy tego za niego.
+        applies_next = bool((answer or {}).get("appliesOnNextPlayback")) if isinstance(
+            answer, dict
+        ) else False
 
     # Dopiero teraz utrwalamy. Pusty wpis USUWAMY (jak cs:93), zeby brak
     # decyzji nie zostal w profilu jako wartosc.
@@ -354,6 +425,7 @@ def apply_session_options(
         saved=True,
         message=f"Zapisano opcje sesji {name}. "
         + describe_session_options(session, state.options, effective),
+        applies_on_next_playback=applies_next,
     )
 
 

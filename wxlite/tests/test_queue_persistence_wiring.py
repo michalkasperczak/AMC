@@ -36,7 +36,7 @@ install_wx_stub()
 import amc_wx_lite.gui as gui  # noqa: E402
 from amc_wx_lite.host_client import LiteHostClient  # noqa: E402
 from amc_wx_lite.profile_layout import private_sandbox, read_only_mirror  # noqa: E402
-from amc_wx_lite.state_store import Options  # noqa: E402
+from amc_wx_lite.state_store import LiteState, Options  # noqa: E402
 
 
 # ----------------------------------------------------------------- argumenty
@@ -109,8 +109,13 @@ class _Client:
 
 
 def _frame_for_start(layout) -> SimpleNamespace:
+    _options = Options()
     frame = SimpleNamespace(
-        options=Options(),
+        options=_options,
+        # ``_start_engine`` liczy payload audio ze stanu (wspolna funkcja
+        # ``session_options.engine_audio_payload``), zeby nowy proces dostal
+        # ustawienia PO nalozeniu Opcji sesji. Atrapa musi miec ``state``.
+        state=LiteState(options=_options),
         layout=layout,
         client=None,
         runner=SimpleNamespace(submit=lambda *args: None),

@@ -43,6 +43,11 @@ class FakeChoice:
     def SetName(self, name: str) -> None:  # noqa: N802 - API wx
         self.name = name
 
+    def Bind(self, event, handler) -> None:  # noqa: N802 - API wx
+        # Wybor sesji do edycji reaguje na zmiane: dialog podmienia wtedy
+        # widoczne wartosci na draft innej sesji.
+        self.handler = handler
+
     def GetName(self) -> str:  # noqa: N802 - API wx
         return self.name
 
@@ -87,8 +92,10 @@ class FakePanel:
 def _build(session: SessionId, options: Options, overrides) -> object:
     """Zbuduj dialog na atrapach i zwroc gotowy obiekt."""
     saved = {name: getattr(wx, name, None) for name in
-             ("Choice", "StaticText", "FlexGridSizer", "BoxSizer", "Panel", "Dialog")}
+             ("Choice", "StaticText", "FlexGridSizer", "BoxSizer", "Panel", "Dialog",
+              "EVT_CHOICE")}
     wx.Choice = FakeChoice
+    wx.EVT_CHOICE = "evt-choice"
     wx.StaticText = FakeStaticText
     wx.FlexGridSizer = FakeSizer
     wx.BoxSizer = FakeSizer
@@ -110,6 +117,10 @@ def _build(session: SessionId, options: Options, overrides) -> object:
             pass
 
         def Fit(self) -> None:  # noqa: N802 - API wx
+            pass
+
+        def Layout(self) -> None:  # noqa: N802 - API wx
+            # Przebudowa pol po zmianie edytowanej sesji przelicza uklad.
             pass
 
     wx.Dialog = FakeDialog

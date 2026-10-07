@@ -991,18 +991,100 @@ class SessionOptionsDialog(wx.Dialog):
         ("Wyłączone", False),
     )
 
-    def __init__(self, parent: wx.Window, session, options, overrides) -> None:
+    def __init__(self, parent: wx.Window, session, options, overrides, *, drafts=None) -> None:
         super().__init__(parent, title=session_options.dialog_title(session))
+        self._options = options
+        # Drafty WSZYSTKICH sesji: przelaczenie konfigurowanej sesji nie moze
+        # zgubic tego, co uzytkownik juz wybral dla poprzedniej. Kontrakt:
+        # Zapisz utrwala kazdy zmieniony draft, Anuluj zaden.
+        self._drafts: dict = {
+            SessionId.FILES: session_options.SessionPlaybackOverrides(),
+            SessionId.RADIO: session_options.SessionPlaybackOverrides(),
+        }
+        if drafts:
+            self._drafts.update(drafts)
+        self._drafts[session] = overrides
         self._session = session
         self._caps = session_options.capabilities_for(session)
         panel = wx.Panel(self)
-        grid = wx.FlexGridSizer(0, 2, 8, 8)
-        self._first: wx.Window | None = None
+        self._panel = panel
+        outer = wx.BoxSizer(wx.VERTICAL)
+        self._outer = outer
 
-        self.loudness: wx.Choice | None = None
-        self.transitions: wx.Choice | None = None
-        self.silence: wx.Choice | None = None
-        self.pause: wx.Choice | None = None
+        # WYBOR KONFIGUROWANEJ SESJI. Sam tytul okna nie jest wyborem: bez tej
+        # kontrolki dialog konfigurowal WYLACZNIE sesje, ktora wlasnie gra, a
+        # wymaganie jest odwrotne -- skonfigurowac druga sesje BEZ przelaczenia
+        # odsluchu. Dialog nie dotyka ani ``_switch_session``, ani transportu.
+        sessions = [SessionId.FILES, SessionId.RADIO]
+        self._sessions = sessions
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(panel, label="Konfigurowana &sesja:")
+        self.session_choice = wx.Choice(
+            panel,
+            choices=[session_options.session_display_name(item) for item in sessions],
+        )
+        self.session_choice.SetName("Konfigurowana sesja")
+        self.session_choice.SetSelection(sessions.index(session))
+        self.session_choice.Bind(wx.EVT_CHOICE, self._on_session_changed)
+        row.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self.session_choice, 1, wx.EXPAND)
+        outer.Add(row, 0, wx.ALL | wx.EXPAND, 12)
+
+        # Pola opcji siedza w WYMIENIANYM kontenerze: zdolnosci sesji decyduja
+        # o tym, ktore kontrolki istnieja, wiec przelaczenie sesji buduje je od
+        # nowa (ukryta kontrolka nadal siedzi w kolejnosci Tab u czytnika).
+        self._fields_panel: wx.Panel | None = None
+        self._fields_slot = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(self._fields_slot, 1, wx.EXPAND)
+
+        # Przyciski sa dziecmi DIALOGU, nie panelu -- patrz uwaga w
+        # ``StationDialog``: inaczej wxWidgets przerywa asercja i modalna
+        # petla nie wraca, a okno trzyma fokus bez obrazu.
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        shell = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(outer)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self._build_fields()
+
+    @property
+    def session(self):
+        """Sesja AKTUALNIE konfigurowana w dialogu."""
+        return self._session
+
+    def _on_session_changed(self, _event) -> None:
+        """Przelaczenie konfigurowanej sesji. NIE zmienia odsluchu.
+
+        Wybory biezacej sesji ida do draftu, zeby wrocily po powrocie.
+        """
+        index = self.session_choice.GetSelection()
+        if index < 0:
+            return
+        wanted = self._sessions[index]
+        if wanted is self._session:
+            return
+        self._drafts[self._session] = self._collect()
+        self._session = wanted
+        self._caps = session_options.capabilities_for(wanted)
+        self._build_fields()
+
+    def _build_fields(self) -> None:
+        """Zbuduj pola opcji dla BIEZACEJ sesji z jej draftu."""
+        overrides = self._drafts[self._session]
+        options = self._options
+        if self._fields_panel is not None:
+            self._fields_slot.Clear(True)
+        panel = wx.Panel(self._panel)
+        self._fields_panel = panel
+        self._fields_slot.Add(panel, 1, wx.EXPAND)
+        grid = wx.FlexGridSizer(0, 2, 8, 8)
+        self._first = None
+
+        self.loudness = None
+        self.transitions = None
+        self.silence = None
+        self.pause = None
 
         if self._caps.supports_audio_processing:
             self.loudness = self._add_choice(
@@ -1046,19 +1128,11 @@ class SessionOptionsDialog(wx.Dialog):
             )
 
         grid.AddGrowableCol(1, 1)
-
-        # Przyciski sa dziecmi DIALOGU, nie panelu -- patrz uwaga w
-        # ``StationDialog``: inaczej wxWidgets przerywa asercja i modalna
-        # petla nie wraca, a okno trzyma fokus bez obrazu.
-        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
         inner = wx.BoxSizer(wx.VERTICAL)
         inner.Add(grid, 1, wx.ALL | wx.EXPAND, 12)
         panel.SetSizer(inner)
-        outer = wx.BoxSizer(wx.VERTICAL)
-        outer.Add(panel, 1, wx.EXPAND)
-        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
-        self.SetSizer(outer)
         self.Fit()
+        self.Layout()
         if self._first is not None:
             self._first.SetFocus()
 
@@ -1091,15 +1165,30 @@ class SessionOptionsDialog(wx.Dialog):
             return None
         return control._amc_values[index]  # type: ignore[attr-defined]
 
-    @property
-    def overrides(self):
-        """Wybory UZYTKOWNIKA. Dane z dialogu, bez zadnego skutku ubocznego."""
+    def _collect(self):
+        """Wybory UZYTKOWNIKA dla BIEZACEJ sesji. Bez skutku ubocznego."""
         return session_options.SessionPlaybackOverrides(
             loudness_normalization=self._value(self.loudness),
             smooth_track_transitions=self._value(self.transitions),
             inter_track_silence_ms=self._value(self.silence),
             pause_on_player_exit=self._value(self.pause),
         )
+
+    @property
+    def overrides(self):
+        """Wybory dla sesji aktualnie pokazanej w dialogu."""
+        return self._collect()
+
+    @property
+    def drafts(self) -> dict:
+        """Wybory KAZDEJ edytowanej sesji. Zapisz utrwala wszystkie.
+
+        Bez tego skonfigurowanie drugiej sesji i zatwierdzenie przepadlo by:
+        handler widzialby tylko sesje pokazana na koniec.
+        """
+        result = dict(self._drafts)
+        result[self._session] = self._collect()
+        return result
 
 
 class LiteFrame(wx.Frame):
@@ -1139,6 +1228,10 @@ class LiteFrame(wx.Frame):
 
         self.client: LiteHostClient | None = None
         self._last_status: dict = {}
+        #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
+        #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
+        #: ``transport.pauseResume`` nie zna zakresu sesji.
+        self._playing_session: SessionId | None = None
 
         self._build_ui()
         self._bind_keys()
@@ -1606,7 +1699,10 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Silnik nie jest gotowy.")
             return
         client = self.client
-        payload = self.options.audio_payload()
+        # JEDEN efektywny payload: ustawienia ogolne PO nalozeniu wyborow sesji.
+        # Sam ``options.audio_payload()`` ucinalby zapisane Opcje sesji -- menu
+        # Dzwiek zdmuchiwaloby je przy kazdej zmianie algorytmu.
+        payload = session_options.engine_audio_payload(self.state)
         payload["tempoAlgorithm"] = value
         for item in self.tempo_items.values():
             item.Enable(False)
@@ -1675,7 +1771,11 @@ class LiteFrame(wx.Frame):
             **persistence,  # type: ignore[arg-type]
         )
         self.client = client
-        settings = self.options.audio_payload()
+        # TEN SAM efektywny payload co w menu Dzwiek: nowy proces musi dostac
+        # ustawienia ogolne PO nalozeniu zapisanych Opcji sesji. Sam
+        # ``options.audio_payload()`` dawal hostowi ustawienie ogolne, wiec
+        # zapis wracal z dysku BEZ TRWALEGO SKUTKU w silniku.
+        settings = session_options.engine_audio_payload(self.state)
 
         def work() -> dict:
             try:
@@ -2078,9 +2178,14 @@ class LiteFrame(wx.Frame):
         elif action is Action.PARENT_FOLDER:
             self._run(self.navigator.go_to_parent())
         elif action is Action.SHOW_PLAYER:
-            self._run(self.navigator.show_player())
+            # F6 w odtwarzaczu TEZ wraca na liste (navigator.show_player), wiec
+            # musi przejsc przez polityke pauzy tak samo jak Escape.
+            if self.navigator.session.view is View.PLAYER:
+                self._leave_player_to_list()
+            else:
+                self._run(self.navigator.show_player())
         elif action is Action.SHOW_LIST:
-            self._run(self.navigator.back_to_list())
+            self._leave_player_to_list()
         elif action is Action.SESSION_OPTIONS:
             self._show_session_options()
         elif action is Action.PLAY_PAUSE:
@@ -2642,6 +2747,9 @@ class LiteFrame(wx.Frame):
             )
 
         def done(_payload: dict) -> None:
+            # Host ma JEDNO wyjscie: zapamietujemy, czyje granie wlasnie
+            # zaczal, zeby pauza po wyjsciu nie ruszyla cudzej sesji.
+            self._playing_session = SessionId.FILES
             self._refresh_status()
 
         def failed(error: Exception) -> None:
@@ -2832,6 +2940,8 @@ class LiteFrame(wx.Frame):
             )
 
         def done(_payload: dict) -> None:
+            # Jak w ``_play_track``: host gra teraz RADIO.
+            self._playing_session = SessionId.RADIO
             self._refresh_status()
 
         def failed(error: Exception) -> None:
@@ -2839,51 +2949,179 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
-    def _show_session_options(self) -> None:
-        """Opcje sesji: dialog, Zapisz/Anuluj, prywatny zapis i skutek.
+    def _pause_on_player_exit_if_needed(self, session: SessionId) -> None:
+        """Wstrzymaj po wyjsciu z odtwarzacza, jesli TA sesja tak ma ustawione.
 
-        Sesje bierzemy Z OTWARCIA i trzymamy w zmiennej lokalnej. Gdyby
-        odczytac ja ponownie po zamknieciu dialogu, zmiana sesji w trakcie
-        (Ctrl+1/Ctrl+2 nie jest zablokowane na poziomie aplikacji) zapisalaby
-        wybory pod CUDZA sesje.
+        Port ``MainWindow.ApplyPlaybackPolicyWhenLeavingPlayer``
+        (MainWindow.xaml.cs:2396-2420) zwezony do tego, co port ma dzisiaj.
+        Oryginal stosuje polityke WYLACZNIE przy powrocie na liste
+        (``ShouldApplyPlaybackExitPolicy`` -> ``ReturnToList``), a w porcie
+        Escape, F6 i menu "Powrót na listę" wszystkie prowadza do
+        ``navigator.back_to_list()`` -- dlatego guard stoi dokladnie tam.
 
-        Anuluj, Escape i krzyzyk konczy sie TUTAJ: poza ``wx.ID_OK`` nie
-        wolamy ani zapisu, ani silnika.
+        Trzy warunki odmowy, kazdy z powodem:
+
+        * ``_playing_session`` inne niz wychodzaca sesja -- host ma JEDNO
+          wyjscie, a ``transport.pauseResume`` nie zna zakresu; wstrzymanie
+          ruszylo by CUDZE granie (oryginal rozwiazuje to samo przez wyjatki
+          dla ``wiim``/Sonos, ktorych port nie ma),
+        * nic nie gra w tej sesji (odpowiednik ``session.HasCurrentItem``),
+        * host juz jest wstrzymany -- ``pauseResume`` to przelacznik, wiec
+          drugie wywolanie WZNOWILO by odtwarzanie, czyli dokladnie odwrotnie
+          niz zada opcja (oryginal ma na to ``session.IsPlaying``).
+
+        Zapisana opcja zastepuje sama REGULE pauzy. Zaznaczenie, filtr i widok
+        listy zostaja nietkniete -- to osobna droga (``back_to_list``).
+        """
+        client = self.client
+        if client is None:
+            return
+        if self._playing_session is not session:
+            return
+        state = self.navigator.sessions.get(session)
+        if state is None or state.now_playing_id is None:
+            return
+        if not session_options.resolve_pause_on_player_exit(
+            self.options, session_options.effective_overrides(self.state, session)
+        ):
+            return
+        if bool(self._last_status.get("paused")):
+            return
+
+        def done(payload: dict) -> None:
+            paused = bool((payload or {}).get("paused"))
+            self._last_status = {**self._last_status, "paused": paused}
+            self._set_transport_label(playing=not paused)
+
+        # Przez istniejacy TaskRunner z bramka zywego kontekstu: synchroniczne
+        # wywolanie hosta na watku GUI zawiesilo by okno na czas call timeout.
+        self.runner.submit("playback", client.pause_resume, done, lambda _error: None)
+
+    def _leave_player_to_list(self) -> None:
+        """Wyjscie z odtwarzacza na liste: najpierw polityka, potem nawigacja.
+
+        Kolejnosc jak w oryginale (MainWindow.xaml.cs:2335-2338): polityka
+        pauzy czyta stan sesji SPRZED przebudowy widoku.
         """
         session = self.navigator.active
-        current = self.state.session_overrides.get(
-            session.value, session_options.SessionPlaybackOverrides()
+        if self.navigator.session.view is View.PLAYER:
+            self._pause_on_player_exit_if_needed(session)
+        self._run(self.navigator.back_to_list())
+
+    def _show_session_options(self) -> None:
+        """Opcje sesji: dialog, wybor sesji, Zapisz/Anuluj, zapis i SKUTEK.
+
+        Sesje otwarcia bierzemy z nawigatora, ale KONFIGUROWANA sesja pochodzi
+        z dialogu -- wymaganie jest takie, by dalo sie ustawic druga sesje BEZ
+        przelaczenia odsluchu. Dialog oddaje ``drafts``: wybory kazdej sesji,
+        ktorej uzytkownik dotknal.
+
+        Anuluj, Escape i krzyzyk konczy sie TUTAJ: poza ``wx.ID_OK`` nie
+        wolamy ani zapisu, ani silnika. Fokus wraca PO ``Destroy``, bo przed
+        nim wx oddal by go z powrotem oknu modalnemu.
+        """
+        opened = self.navigator.active
+        drafts = {
+            session: session_options.effective_overrides(self.state, session)
+            for session in (SessionId.FILES, SessionId.RADIO)
+        }
+        dialog = SessionOptionsDialog(
+            self, opened, self.options, drafts[opened], drafts=drafts
         )
-        dialog = SessionOptionsDialog(self, session, self.options, current)
+        chosen: dict | None = None
         try:
-            if dialog.ShowModal() != wx.ID_OK:
-                # Fokus po zamknieciu wraca tam, skad przyszlo wejscie.
-                self._restore_focus_after_dialog()
-                return
-            chosen = dialog.overrides
+            if dialog.ShowModal() == wx.ID_OK:
+                chosen = dialog.drafts
         finally:
             dialog.Destroy()
 
-        result = session_options.apply_session_options(
-            self.state, session, chosen, client=self.client
-        )
-        if result.saved:
-            # Utrwalamy dopiero po zgodzie silnika -- ``apply_session_options``
-            # zmienilo stan tylko w tym wypadku.
-            self._save_state()
-        self.announcer.say(result.message)
+        if chosen is None:
+            self._restore_focus_after_dialog()
+            return
+
+        self._apply_session_option_drafts(chosen)
         self._restore_focus_after_dialog()
 
-    def _restore_focus_after_dialog(self) -> None:
-        """Fokus po zamknieciu okna modalnego: lista albo odtwarzacz.
+    def _apply_session_option_drafts(self, drafts: dict) -> None:
+        """Zatwierdz wybory ze wszystkich edytowanych sesji.
 
-        Bez tego fokus zostaje na ramce i czytnik nie ma czego czytac, a
+        SILNIK IDZIE PRZEZ TASKRUNNER. ``audio.configure`` to wywolanie
+        procesu hosta z wlasnym timeoutem; na watku GUI zawieszalo by okno i
+        czytnik ekranu na caly ten czas. ``runner.submit`` ma bramke zywego
+        kontekstu, wiec spozniony wynik nie dotknie zamknietego okna.
+
+        SPOJNOSC RAM / SILNIK / DYSK. Zmieniamy tylko sesje, ktorych wybor
+        NAPRAWDE rozni sie od stanu trwalego. Gdy dysk ODMOWI zapisu, wracamy
+        do stanu sprzed zmiany -- i w pamieci, i w silniku. Bez tego
+        uzytkownik slyszal "Nie moge zapisac" i zaraz po nim "Zapisano", a
+        RAM/silnik zostawaly z wyborem, ktorego na dysku nie ma.
+        """
+        poprzednie = {
+            session: session_options.effective_overrides(self.state, session)
+            for session in (SessionId.FILES, SessionId.RADIO)
+        }
+        zmienione = [
+            session
+            for session, overrides in drafts.items()
+            if overrides.restricted_to(session_options.capabilities_for(session))
+            != poprzednie.get(session)
+        ]
+        if not zmienione:
+            self.announcer.say("Opcje sesji bez zmian.")
+            return
+
+        def work() -> list:
+            # Watek roboczy: wylacznie rozmowa z hostem i zmiana stanu w RAM.
+            # Zapis na dysk i mowa czytnika zostaja w ``done`` (watek GUI).
+            return [
+                session_options.apply_session_options(
+                    self.state, session, drafts[session], client=self.client
+                )
+                for session in zmienione
+            ]
+
+        def done(results: list) -> None:
+            odmowa = next((item for item in results if not item.saved), None)
+            if odmowa is not None:
+                # Odmowa silnika: ``apply_session_options`` nie dotknelo stanu.
+                self.announcer.say(odmowa.message)
+                return
+            if self._save_state() is False:
+                # Dysk odmowil. ``_save_state`` juz powiedzial dlaczego --
+                # drugi komunikat ze slowem "Zapisano" byl by klamstwem.
+                for session in zmienione:
+                    session_options.restore_session_options(
+                        self.state, session, poprzednie[session], client=self.client
+                    )
+                return
+            tresc = " ".join(item.message for item in results)
+            if any(item.applies_on_next_playback for item in results):
+                # Prawda komunikatu: host zwrocil ``appliesOnNextPlayback``,
+                # wiec biezace granie zostaje po staremu.
+                tresc += " Zmiana od następnego uruchomienia materiału."
+            self.announcer.say(tresc)
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(f"Nie zapisano opcji sesji: {error}")
+
+        self.runner.submit("session-options", work, done, failed)
+
+    def _restore_focus_after_dialog(self) -> None:
+        """Fokus po zamknieciu okna modalnego: lista TEJ sesji albo odtwarzacz.
+
+        Bez tego fokus zostaje na ramce i czytnik ekranu nie ma czego czytac, a
         klawisze listy nie dochodza do kontrolki.
+
+        Lista pochodzi z ``_active_list()``. ``LiteFrame`` NIE ma pola
+        ``list_ctrl``: sa dwie listy (``files_list``, ``radio_list``) i o
+        wlasciwej decyduje aktywna sesja. Wolanie nieistniejacego pola
+        konczylo sie ``AttributeError`` i fokus ginal po KAZDYM zamknieciu
+        dialogu -- tak samo po Anuluj jak po Zapisz.
         """
         target = (
             self.play_button
             if self.navigator.session.view is View.PLAYER
-            else self.list_ctrl
+            else self._active_list()
         )
         if target is not None:
             target.SetFocus()
@@ -3318,7 +3556,14 @@ class LiteFrame(wx.Frame):
 
     # -------------------------------------------------------- zapis i koniec
 
-    def _save_state(self) -> None:
+    def _save_state(self) -> bool:
+        """Utrwal prywatny stan. ``False`` = dysk ODMOWIL zapisu.
+
+        Wynik jest istotny: wolacz, ktory wlasnie zmienil stan w pamieci i w
+        silniku, musi umiec rozpoznac odmowe i wrocic do stanu trwalego.
+        Bez tego uzytkownik slyszal "Nie moge zapisac" i zaraz po nim
+        "Zapisano", a profil rozjezdzal sie z tym, co naprawde gra.
+        """
         self.state.options = self.options.clamp()
         # Stacji NIE dopisujemy do prywatnego stanu: we wspolnym profilu naleza
         # do AMC, a w piaskownicy zapisuje je RadioSource.
@@ -3327,6 +3572,8 @@ class LiteFrame(wx.Frame):
             self.store.save(self.state)
         except OSError as error:
             self.announcer.say(f"Nie moge zapisac ustawien: {error}")
+            return False
+        return True
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         self.timer.Stop()

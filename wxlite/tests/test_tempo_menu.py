@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from test_gui_logic import install_wx_stub
 install_wx_stub()
 from amc_wx_lite.gui import LiteFrame
-from amc_wx_lite.state_store import Options
+from amc_wx_lite.state_store import LiteState, Options
 
 
 class Runner:
@@ -29,7 +29,12 @@ class Item:
 def frame_for(client):
     messages = []
     saves = []
-    frame = SimpleNamespace(options=Options(), client=client, runner=Runner(),
+    options = Options()
+    # ``_set_tempo_algorithm`` liczy payload z PELNEGO stanu (wspolna funkcja
+    # ``session_options.engine_audio_payload``), zeby zmiana algorytmu nie
+    # ucinala zapisanych Opcji sesji. Atrapa musi wiec miec ``state``.
+    frame = SimpleNamespace(options=options, client=client, runner=Runner(),
+        state=LiteState(options=options),
         tempo_items={value: Item() for value in (0, 1, 2)},
         announcer=SimpleNamespace(say=messages.append),
         _save_state=lambda: saves.append(True))

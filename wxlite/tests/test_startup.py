@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_gui_logic import install_wx_stub
 install_wx_stub()
 import amc_wx_lite.gui as gui
-from amc_wx_lite.state_store import Options
+from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.host_client import LiteHostClient, HostUnavailable
 
 
@@ -33,7 +33,12 @@ def test_engine_handshake_is_deferred_to_background():
             return {"keys": []}
     original = gui.LiteHostClient
     gui.LiteHostClient = Client
-    frame = SimpleNamespace(options=Options(), client=None,
+    _options = Options()
+    # ``_start_engine`` liczy payload audio ze stanu (wspolna funkcja
+    # ``session_options.engine_audio_payload``), zeby nowy proces dostal
+    # ustawienia PO nalozeniu Opcji sesji. Atrapa musi miec ``state``.
+    frame = SimpleNamespace(options=_options, state=LiteState(options=_options),
+        client=None,
         runner=SimpleNamespace(submit=lambda *args: queued.append(args)),
         timer=SimpleNamespace(Start=lambda n: calls.append("timer")),
         announcer=SimpleNamespace(say=lambda text: calls.append(text)),
