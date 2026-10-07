@@ -8,6 +8,7 @@ internal static class Program
         ("--dispatch", DispatchLoopTests.Run),
         ("--args", ArgumentReadingTests.Run),
         ("--audio", AudioConfigurationTests.Run),
+        ("--session-options", SessionOptionsPayloadTests.Run),
         ("--queue", QueueCoordinatorTests.Run),
         ("--transport", QueueTransportTests.Run),
         ("--persistence", QueuePersistenceTests.Run),

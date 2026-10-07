@@ -2,6 +2,48 @@
 
 Odebrany kod: `4fbc49b085a2fffa72a28d3aef7b5e19cf496d6c`. Dostarczona paczka na głównym pozostaje oparta na `5e1f2d4ed07503f7b9399f89aaf7143f5e5a1b71`, wraz ze statusem i schowkiem z `96b04131`. **To nadal rozwijany pełny interfejs równoległy, nie ukończony odpowiednik 1:1.** Nazwa katalogów `wxlite` jest pozostałością wcześniejszego prototypu. Nowsza dokumentacja nie zmienia SHA odebranego kodu ani gotowej paczki.
 
+## Opcje sesji — kandydat bezokienny (ten przyrost)
+
+Wspólne wejście do opcji odtwarzania **wybranej sesji**: pozycja
+`Dźwięk → Opcje sesji…` i `Ctrl+Alt+Enter` (lista i odtwarzacz).
+Dialog pokazuje WYŁĄCZNIE opcje, które dana sesja naprawdę wykona:
+
+| Opcja | Pliki lokalne | Radio | Dlaczego |
+|---|---|---|---|
+| Normalizacja głośności | tak | **nie** | `RadioMediaOutput` nie ma wykonawcy |
+| Łagodne przejścia | tak | **nie** | to samo |
+| Cisza między utworami | tak | **nie** | radio nie ma granicy utworów |
+| Po wyjściu z odtwarzacza | tak | tak | polityka okna, nie wyjścia audio |
+
+Radio dostaje więc jedną kontrolkę, a nie cztery z trzema martwymi.
+Tempo/wysokość i pozycja startowa **nie** są tu wystawione — port nie ma
+dla nich wykonawcy per sesja.
+
+Każde pole ma wariant „Jak ustawienie ogólne”, więc wybór jest odwracalny;
+dziedziczenie to `None`, nie fałsz. Wariant dziedziczony przy wstrzymaniu
+mówi wprost, co z niego wynika (port `PlayerExitPausePolicy`).
+
+Trwałość jest **prywatna** (`session_overrides` w `state.json` portu).
+Wspólny profil AMC/SQLite pozostaje tylko do czytania. Zapis następuje
+dopiero po zgodzie silnika: odmowa nie daje słowa „zapisano” i nie zostawia
+wpisu. Stary plik stanu bez tej sekcji wczytuje się bez zmian; wartości
+spoza reguł silnika wracają do dziedziczenia, obce nazwy sesji odpadają.
+
+Runner projektu: **968 PASS / 0 FAIL / 0 SKIP**. Testy protokołu C#
+(8 zestawów) przechodzą na Linuksie, w tym `SessionOptionsPayloadTests`,
+który czyta **378 payloadów wygenerowanych przez port** prawdziwym
+`LiteAudioSettings.Read`.
+
+**GRANICA:** to dowód bezokienny. Dialog jest wykonywany na atrapach wx —
+dobór kontrolek i odczyt wyborów są zmierzone, ale **żywy NVDA i prawdziwe
+wxWidgets nie zostały tu użyte** (w tym środowisku nie ma wxPython).
+Odbiór z czytnikiem pozostaje do wykonania osobno.
+
+**ZALEŻNOŚĆ OTWARTA:** pola „dodawaj automatycznie” i „Enter w wyszukiwaniu”
+świadomie NIE są tu wystawione, bo port wyszukiwania i bezpieczny zapis
+członkostwa ich jeszcze nie wykonują. Ich uzgodniony pełny zakres **pozostaje
+otwarty** — to odłożenie, nie rezygnacja ani zmiana decyzji.
+
 ## Wspólny kandydat Radia — 9b947e44
 
 Widoki Radia, zapisane porządki i odebrana osobno opcja pozycji są scalone

@@ -34,9 +34,10 @@ def install_wx_stub() -> None:
     # Stale uzywane przy budowie okna (nie wykonujemy go, ale import ich dotyka).
     for name in (
         "LC_REPORT", "LC_VIRTUAL", "LC_SINGLE_SEL", "BORDER_SUNKEN", "ID_ANY", "ID_EXIT",
-        "ID_HELP", "ID_OK", "ID_CANCEL", "OK", "CANCEL", "YES", "YES_NO", "NO_DEFAULT",
-        "ICON_QUESTION", "ICON_INFORMATION", "VERTICAL", "HORIZONTAL", "ALL", "EXPAND",
-        "LEFT", "RIGHT", "TOP", "BOTTOM", "ALIGN_RIGHT", "ALIGN_CENTER_VERTICAL",
+        # OK/CANCEL/YES NIE sa tu atrapami -- maja liczby, patrz nizej.
+        "ID_HELP", "ID_OK", "ID_CANCEL", "YES_NO", "NO_DEFAULT",
+        "ICON_QUESTION", "ICON_INFORMATION",
+        # Flagi ukladu i przyciskow maja LICZBY (patrz nizej), nie atrapy.
         "SL_HORIZONTAL", "SL_LABELS", "FONTWEIGHT_BOLD", "DD_DIR_MUST_EXIST",
         "FD_OPEN", "FD_FILE_MUST_EXIST", "EVT_TIMER", "EVT_CLOSE", "EVT_KEY_DOWN",
         "EVT_LIST_ITEM_ACTIVATED", "EVT_LIST_ITEM_SELECTED", "EVT_BUTTON", "EVT_SLIDER",
@@ -67,6 +68,41 @@ def install_wx_stub() -> None:
     wx.ACC_NOT_IMPLEMENTED = 3  # type: ignore[attr-defined]
     wx.ROLE_SYSTEM_LIST = 32  # type: ignore[attr-defined]
     wx.ROLE_NONE = 0  # type: ignore[attr-defined]
+
+    # Flagi przyciskow dialogu. Nasz kod sklada z nich maske (``wx.OK |
+    # wx.CANCEL``) dla ``CreateStdDialogButtonSizer``, wiec MUSZA byc
+    # liczbami -- atrapa ``object()`` wywala sie na operatorze ``|``.
+    #
+    # Wartosci ODCZYTANE z naglowka wxWidgets ``include/wx/defs.h``
+    # (nie z pamieci):
+    #   #define wxYES     0x00000002
+    #   #define wxOK      0x00000004
+    #   #define wxNO      0x00000008
+    #   #define wxCANCEL  0x00000010
+    wx.YES = 0x0002  # type: ignore[attr-defined]
+    wx.OK = 0x0004  # type: ignore[attr-defined]
+    wx.NO = 0x0008  # type: ignore[attr-defined]
+    wx.CANCEL = 0x0010  # type: ignore[attr-defined]
+
+    # Flagi ukladu sizerow. Tez skladane operatorem ``|`` (``wx.ALL |
+    # wx.EXPAND``), wiec musza byc liczbami. Wartosci ODCZYTANE z
+    # ``include/wx/defs.h`` (enum wxOrientation/wxDirection/wxAlignment/
+    # wxStretch), nie z pamieci:
+    #   wxHORIZONTAL 0x0004, wxVERTICAL 0x0008
+    #   wxLEFT 0x0010, wxRIGHT 0x0020, wxUP 0x0040, wxDOWN 0x0080
+    #   wxALL = wxUP|wxDOWN|wxRIGHT|wxLEFT = 0x00F0
+    #   wxALIGN_RIGHT 0x0200, wxALIGN_CENTER_VERTICAL 0x0800
+    #   wxGROW 0x2000, wxEXPAND = wxGROW
+    wx.HORIZONTAL = 0x0004  # type: ignore[attr-defined]
+    wx.VERTICAL = 0x0008  # type: ignore[attr-defined]
+    wx.LEFT = 0x0010  # type: ignore[attr-defined]
+    wx.RIGHT = 0x0020  # type: ignore[attr-defined]
+    wx.TOP = 0x0040  # type: ignore[attr-defined]
+    wx.BOTTOM = 0x0080  # type: ignore[attr-defined]
+    wx.ALL = 0x00F0  # type: ignore[attr-defined]
+    wx.ALIGN_RIGHT = 0x0200  # type: ignore[attr-defined]
+    wx.ALIGN_CENTER_VERTICAL = 0x0800  # type: ignore[attr-defined]
+    wx.EXPAND = 0x2000  # type: ignore[attr-defined]
 
     class _Any:
         def __init__(self, *args, **kwargs) -> None:

@@ -85,6 +85,7 @@ from .transport_parity import (
     seek_step_seconds,
     time_announcement,
 )
+from . import session_options
 from .radio_source import RadioSource
 from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
@@ -962,6 +963,143 @@ class StationDialog(wx.Dialog):
     @property
     def values(self) -> tuple[str, str]:
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
+
+
+class SessionOptionsDialog(wx.Dialog):
+    """Opcje sesji. Pokazuje WYLACZNIE opcje, ktore ta sesja umie wykonac.
+
+    Port ``SessionPlaybackOptionsEditor.CreateDialog`` (cs:33-70). Dwie
+    rzeczy przeniesione z oryginalu swiadomie:
+
+    * O tym, ktore kontrolki powstaja, decyduja ZDOLNOSCI sesji
+      (``session_options.capabilities_for``), a nie to, czy pole istnieje w
+      C#. Oryginal ukrywa niewykonalne pola (cs:59-66); my ich nie tworzymy
+      wcale -- ukryta kontrolka nadal siedzi w kolejnosci Tab u czytnika.
+    * Kazde pole ma wariant "Jak ustawienie ogólne", bo brak wyboru to w
+      modelu ``None``, a nie falsz. Bez tego nie dalo by sie WROCIC do
+      dziedziczenia po jednorazowym wyborze.
+
+    Wszystkie kontrolki sa ZWYKLE natywne wx (``wx.Choice``) -- czytnik
+    nazywa je sam, bez naszych komunikatow.
+    """
+
+    #: Kolejnosc wariantow trojstanowych. Dziedziczenie jest PIERWSZE, bo to
+    #: stan domyslny; uzytkownik slyszy je przy otwarciu bez wlasnego wyboru.
+    _TRISTATE: tuple[tuple[str, bool | None], ...] = (
+        ("Jak ustawienie ogólne", None),
+        ("Włączone", True),
+        ("Wyłączone", False),
+    )
+
+    def __init__(self, parent: wx.Window, session, options, overrides) -> None:
+        super().__init__(parent, title=session_options.dialog_title(session))
+        self._session = session
+        self._caps = session_options.capabilities_for(session)
+        panel = wx.Panel(self)
+        grid = wx.FlexGridSizer(0, 2, 8, 8)
+        self._first: wx.Window | None = None
+
+        self.loudness: wx.Choice | None = None
+        self.transitions: wx.Choice | None = None
+        self.silence: wx.Choice | None = None
+        self.pause: wx.Choice | None = None
+
+        if self._caps.supports_audio_processing:
+            self.loudness = self._add_choice(
+                panel, grid, "&Normalizacja głośności:", "Normalizacja głośności",
+                self._TRISTATE, overrides.loudness_normalization,
+            )
+            self.transitions = self._add_choice(
+                panel, grid, "Łagodne &przejścia między utworami:",
+                "Łagodne przejścia między utworami",
+                self._TRISTATE, overrides.smooth_track_transitions,
+            )
+            # Tylko dlugosci, ktore silnik przyjmuje (LiteAudioSettings.cs:15).
+            silence_choices: tuple[tuple[str, int | None], ...] = (
+                ("Jak ustawienie ogólne", None),
+            ) + tuple(
+                (session_options.inter_track_silence_label(value), value)
+                for value in session_options.INTER_TRACK_SILENCE_CHOICES
+            )
+            self.silence = self._add_choice(
+                panel, grid, "&Cisza między utworami:", "Cisza między utworami",
+                silence_choices, overrides.inter_track_silence_ms,
+            )
+
+        if self._caps.supports_player_exit_pause:
+            # Etykieta wariantu dziedziczonego mowi WPROST, co z niego wynika
+            # (jak ``PlayerExitPausePolicy.DescribeSessionMode``) -- inaczej
+            # uzytkownik musialby sprawdzac ustawienia ogolne osobnym gestem.
+            inherited = (
+                "Jak ustawienie ogólne: wstrzymuj"
+                if options.pause_on_player_exit
+                else "Jak ustawienie ogólne: odtwarzaj dalej"
+            )
+            self.pause = self._add_choice(
+                panel, grid, "Po &wyjściu z odtwarzacza:", "Po wyjściu z odtwarzacza",
+                (
+                    (inherited, None),
+                    ("Wstrzymuj odtwarzanie", True),
+                    ("Odtwarzaj dalej", False),
+                ),
+                overrides.pause_on_player_exit,
+            )
+
+        grid.AddGrowableCol(1, 1)
+
+        # Przyciski sa dziecmi DIALOGU, nie panelu -- patrz uwaga w
+        # ``StationDialog``: inaczej wxWidgets przerywa asercja i modalna
+        # petla nie wraca, a okno trzyma fokus bez obrazu.
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        inner = wx.BoxSizer(wx.VERTICAL)
+        inner.Add(grid, 1, wx.ALL | wx.EXPAND, 12)
+        panel.SetSizer(inner)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(outer)
+        self.Fit()
+        if self._first is not None:
+            self._first.SetFocus()
+
+    def _add_choice(self, panel, grid, label, name, choices, current) -> wx.Choice:
+        """Jedna zwykla lista wyboru z etykieta. Etykieta ma skrot literowy."""
+        static = wx.StaticText(panel, label=label)
+        control = wx.Choice(panel, choices=[text for text, _ in choices])
+        # Nazwa dostepnosciowa BEZ znaku ``&`` i bez dwukropka: czytnik czyta
+        # nazwe kontrolki, a nie tekst etykiety graficznej.
+        control.SetName(name)
+        control._amc_values = [value for _, value in choices]  # type: ignore[attr-defined]
+        index = next(
+            (i for i, (_, value) in enumerate(choices) if value == current and type(value) is type(current)),
+            0,
+        )
+        control.SetSelection(index)
+        grid.AddMany(
+            [(static, 0, wx.ALIGN_CENTER_VERTICAL), (control, 1, wx.EXPAND)]
+        )
+        if self._first is None:
+            self._first = control
+        return control
+
+    @staticmethod
+    def _value(control: wx.Choice | None):
+        if control is None:
+            return None
+        index = control.GetSelection()
+        if index < 0:
+            return None
+        return control._amc_values[index]  # type: ignore[attr-defined]
+
+    @property
+    def overrides(self):
+        """Wybory UZYTKOWNIKA. Dane z dialogu, bez zadnego skutku ubocznego."""
+        return session_options.SessionPlaybackOverrides(
+            loudness_normalization=self._value(self.loudness),
+            smooth_track_transitions=self._value(self.transitions),
+            inter_track_silence_ms=self._value(self.silence),
+            pause_on_player_exit=self._value(self.pause),
+        )
 
 
 class LiteFrame(wx.Frame):
@@ -1943,6 +2081,8 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.show_player())
         elif action is Action.SHOW_LIST:
             self._run(self.navigator.back_to_list())
+        elif action is Action.SESSION_OPTIONS:
+            self._show_session_options()
         elif action is Action.PLAY_PAUSE:
             self._play_pause()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
@@ -2698,6 +2838,55 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.note_playback_failed(f"Nie moge polaczyc ze stacja: {error}"))
 
         self.runner.submit("playback", work, done, failed)
+
+    def _show_session_options(self) -> None:
+        """Opcje sesji: dialog, Zapisz/Anuluj, prywatny zapis i skutek.
+
+        Sesje bierzemy Z OTWARCIA i trzymamy w zmiennej lokalnej. Gdyby
+        odczytac ja ponownie po zamknieciu dialogu, zmiana sesji w trakcie
+        (Ctrl+1/Ctrl+2 nie jest zablokowane na poziomie aplikacji) zapisalaby
+        wybory pod CUDZA sesje.
+
+        Anuluj, Escape i krzyzyk konczy sie TUTAJ: poza ``wx.ID_OK`` nie
+        wolamy ani zapisu, ani silnika.
+        """
+        session = self.navigator.active
+        current = self.state.session_overrides.get(
+            session.value, session_options.SessionPlaybackOverrides()
+        )
+        dialog = SessionOptionsDialog(self, session, self.options, current)
+        try:
+            if dialog.ShowModal() != wx.ID_OK:
+                # Fokus po zamknieciu wraca tam, skad przyszlo wejscie.
+                self._restore_focus_after_dialog()
+                return
+            chosen = dialog.overrides
+        finally:
+            dialog.Destroy()
+
+        result = session_options.apply_session_options(
+            self.state, session, chosen, client=self.client
+        )
+        if result.saved:
+            # Utrwalamy dopiero po zgodzie silnika -- ``apply_session_options``
+            # zmienilo stan tylko w tym wypadku.
+            self._save_state()
+        self.announcer.say(result.message)
+        self._restore_focus_after_dialog()
+
+    def _restore_focus_after_dialog(self) -> None:
+        """Fokus po zamknieciu okna modalnego: lista albo odtwarzacz.
+
+        Bez tego fokus zostaje na ramce i czytnik nie ma czego czytac, a
+        klawisze listy nie dochodza do kontrolki.
+        """
+        target = (
+            self.play_button
+            if self.navigator.session.view is View.PLAYER
+            else self.list_ctrl
+        )
+        if target is not None:
+            target.SetFocus()
 
     def _play_pause(self) -> None:
         client = self.client

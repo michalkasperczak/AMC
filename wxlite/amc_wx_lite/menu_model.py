@@ -317,7 +317,29 @@ def build_menus() -> tuple[Menu, ...]:
 
     # Menu Dzwiek juz istnialo i dziala -- model tylko oznacza miejsce, w
     # ktorym GUI dokleja swoje radio-itemy algorytmow (stan Check per pozycja).
-    audio = Menu("&Dźwięk", (MenuItem("&Algorytm przyspieszania", builtin="tempo-submenu"),))
+    audio = Menu(
+        "&Dźwięk",
+        (
+            MenuItem("&Algorytm przyspieszania", builtin="tempo-submenu"),
+            SEPARATOR,
+            # Opcje SESJI, nie zaznaczonego pliku. ``accelerator=False``: wx
+            # zrobilby z podpisu akcelerator OKNA, ktory wyprzedza kontrolke z
+            # fokusem -- a Ctrl+Alt+Enter musi dzialac takze w polu filtra, jak
+            # kazdy skrot obslugiwany przez ``shortcuts.resolve``.
+            #
+            # BEZ ``needs_selection`` i BEZ ``needs_radio_session``: zakres to
+            # sesja, wiec pozycja ma dzialac na pustej liscie i w obu sesjach.
+            MenuItem(
+                "&Opcje sesji…",
+                Action.SESSION_OPTIONS,
+                # Nazwa klawisza jak w tablicach ``shortcuts`` (``Return``).
+                # Na "Enter" tlumaczy ja dopiero ``_menu_shortcut_text`` w GUI
+                # -- model nie moze obiecywac podpisu, ktorego tablica nie ma.
+                shortcut="Ctrl+Alt+Return",
+                accelerator=False,
+            ),
+        ),
+    )
 
     help_menu = Menu("Pomo&c", (MenuItem("&Skróty klawiszowe", Action.HELP, shortcut="F1"),))
 

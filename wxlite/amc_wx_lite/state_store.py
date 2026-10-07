@@ -51,6 +51,13 @@ class Options:
     #: komunikatow. Ustawienie jest PRYWATNE dla portu wx -- pelne AMC nie
     #: dostaje tu zadnego nowego wariantu.
     radio_announce_position: bool = False
+    #: Czy wyjscie z odtwarzacza (Escape, F6) ma wstrzymac odtwarzanie.
+    #:
+    #: Ustawienie OGOLNE, dziedziczone przez sesje bez wlasnego wyboru -- port
+    #: ``AppSettings.PausePlaybackWhenLeavingPlayer`` (AppSettings.cs:98), ta
+    #: sama wartosc domyslna ``True``. Sesja moze je nadpisac w Opcjach sesji
+    #: (``session_options.resolve_pause_on_player_exit``).
+    pause_on_player_exit: bool = True
 
     def audio_payload(self) -> dict:
         return {
@@ -76,6 +83,10 @@ class Options:
         # licznik po cichu. Obca wartosc wraca do uzgodnionego domyslu.
         if type(self.radio_announce_position) is not bool:
             self.radio_announce_position = False
+        # Ten sam STRICT powod co wyzej: napis z recznie poprawionego pliku nie
+        # moze po cichu zmienic tego, czy Escape zatrzymuje odtwarzanie.
+        if type(self.pause_on_player_exit) is not bool:
+            self.pause_on_player_exit = True
         return self
 
 
@@ -84,6 +95,34 @@ class LiteState:
     options: Options = field(default_factory=Options)
     stations: list[Station] = field(default_factory=list)
     navigation: dict = field(default_factory=dict)
+    #: Opcje sesji: wybory uzytkownika per sesja (``files`` / ``radio``).
+    #: Pusty slownik = kazda sesja dziedziczy ustawienia ogolne, czyli
+    #: zachowanie sprzed tego przyrostu.
+    session_overrides: dict = field(default_factory=dict)
+
+
+def _read_session_overrides(raw: object) -> dict:
+    """Wczytaj Opcje sesji z profilu.
+
+    Import jest LOKALNY, zeby ``session_options`` mogl zalezec od ``Options``
+    bez cyklu. Przyjmujemy WYLACZNIE sesje, ktore port naprawde ma: wpis dla
+    obcej nazwy zapisalby decyzje, ktorej nikt nie wykona. Puste wpisy nie
+    wchodza -- brak decyzji ma zostac brakiem, nie wartoscia.
+    """
+    from .navigation import SessionId
+    from .session_options import SessionPlaybackOverrides
+
+    result: dict = {}
+    if not isinstance(raw, dict):
+        return result
+    known = {session.value for session in SessionId}
+    for key, value in raw.items():
+        if key not in known or not isinstance(value, dict):
+            continue
+        overrides = SessionPlaybackOverrides.from_payload(value)
+        if not overrides.is_empty:
+            result[key] = overrides
+    return result
 
 
 def default_state_dir() -> Path:
@@ -154,6 +193,7 @@ class StateStore:
             options=options,
             stations=stations,
             navigation=navigation if isinstance(navigation, dict) else {},
+            session_overrides=_read_session_overrides(raw.get("session_overrides")),
         )
 
     # -------------------------------------------------------------- zapis
@@ -166,6 +206,13 @@ class StateStore:
             "options": asdict(state.options),
             "stations": [asdict(station) for station in state.stations],
             "navigation": state.navigation,
+            # Puste wpisy sa USUWANE (jak cs:93): w pliku nie moga zostawac
+            # wartosci nieodroznialne od braku decyzji uzytkownika.
+            "session_overrides": {
+                key: overrides.to_payload()
+                for key, overrides in (state.session_overrides or {}).items()
+                if not overrides.is_empty
+            },
         }
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 

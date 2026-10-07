@@ -212,6 +212,14 @@ class Action(Enum):
     # ktory oryginal przechwytuje). Gesty czytnika ekranu zostaja nietkniete --
     # NVDA czyta kolumny swoim modyfikatorem, nie sama strzalka.
     QUICK_INFORMATION = "list.quickInformation"
+    #: Opcje sesji (Ctrl+Alt+Enter). Port ``SessionPlaybackOptionsEditor``.
+    #:
+    #: Jedno WSPOLNE wejscie dla obu sesji -- dialog sam pokazuje tylko te
+    #: opcje, ktore dana sesja umie wykonac (``session_options``). Oryginal nie
+    #: ma tego gestu w oknie (otwiera opcje z menu sesji), wiec klawisz jest
+    #: WLASNY dla portu: Ctrl+Alt+Enter nie koliduje ani z aktywacja (gole
+    #: Enter), ani z para Ctrl+Alt+Left/Right (przewijanie wlasnym krokiem).
+    SESSION_OPTIONS = "session.options"
     HELP = "help"
 
 
@@ -320,6 +328,9 @@ LIST_VIEW: dict[str, Action] = {
     # (cs:23206), wiec Shift/Ctrl/Alt+Left NIE sa tu wpisane i zostaja
     # kontrolce. Strzalki PIONOWE nadal naleza wylacznie do listy.
     "Left": Action.QUICK_INFORMATION,
+    # Opcje sesji: TEN SAM gest co w odtwarzaczu, bo zakres (sesja) jest ten
+    # sam niezaleznie od widoku.
+    "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "F1": Action.HELP,
 }
 
@@ -387,6 +398,8 @@ PLAYER_VIEW: dict[str, Action] = {
     # brak kolizji Insert/CapsLock+End wymaga osobnego odbioru z czytnikiem.
     "Home": Action.TRACK_START,
     "End": Action.TRACK_END,
+    # Opcje sesji dzialaja takze z odtwarzacza: zakres to SESJA, nie widok.
+    "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "F1": Action.HELP,
 }
 
@@ -491,6 +504,12 @@ def describe() -> list[tuple[str, str]]:
             "(folder: sciezka)"
         ),
         Action.HELP: "Ta pomoc",
+        # Pomoc mowi WPROST, ze zakres to sesja, a nie zaznaczony plik -- bez
+        # tego uzytkownik nie wie, czego dotkna zmiany.
+        Action.SESSION_OPTIONS: (
+            "Opcje odtwarzania tej sesji: dialog pokazuje tylko opcje, "
+            "ktore sesja umie wykonac"
+        ),
     }
     # Nazwy klawiszy w pomocy musza byc TAKIE, jak na klawiaturze. Wewnetrzne
     # "Prior"/"Next" (z wx) czytnik przeczytalby jako obce slowa, a uzytkownik

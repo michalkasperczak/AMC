@@ -2,6 +2,39 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## Opcje sesji — jak to sprawdzić (ten przyrost)
+
+Testy bezokienne (wszystko, co zmierzone):
+
+```bash
+cd /home/michal/projekty/amc-wx-session-options-20261007/wxlite
+python3 run_tests.py          # 968 PASS / 0 FAIL / 0 SKIP
+```
+
+Zgodność z silnikiem — payloady portu czytane PRAWDZIWYM parserem C#.
+Sam build i `dotnet run` nie dowodzą portu; potrzebny jest krok Pythona:
+
+```bash
+cd wxlite && python3 tools/dump_session_option_payloads.py /tmp/p.json
+cd .. && AMC_SESSION_OPTIONS_PAYLOADS=/tmp/p.json \
+  ~/dotnet/dotnet run --project \
+  tests/AccessibleMediaController.LiteHost.ProtocolTests/AccessibleMediaController.LiteHost.ProtocolTests.csproj
+# oczekiwane: "(payloady z portu Python przyjete parserem: 378)" + 8 zestawów OK
+```
+
+Bez zmiennej `AMC_SESSION_OPTIONS_PAYLOADS` ten zestaw **wypisuje, że
+pominął** sprawdzenie — nie traktuj takiego przebiegu jako dowodu portu.
+
+Kalibracja (wykonana): podmiana zdolności Radia na „umie przetwarzanie”
+czerwieni 4 testy, a odwrócenie warunku `ID_OK` czerwieni test Anuluj.
+Dołożenie payloadu z nieobsługiwaną ciszą czerwieni zestaw C#. Testy więc
+rozróżniają, a nie tylko świecą zielono.
+
+**Czego to NIE mierzy:** żywego NVDA ani prawdziwego wxWidgets. W tym
+środowisku nie ma wxPython, więc dialog wykonuje się na atrapach wx
+(`tests/test_session_options_dialog.py`). Mowa, kolejność Tab i fokus po
+zamknięciu wymagają osobnego odbioru z czytnikiem na pulpicie.
+
 ## Biblioteka radia i lokalna Historia — odbiór kolejnego przyrostu
 
 Kod `4fbc49b0` ma zakończony wąski odbiór na Hermesie: filtr członkostwa
