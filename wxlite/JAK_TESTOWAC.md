@@ -254,3 +254,44 @@ inny numer: 33), właściwy komunikat i wyjście Backspace. Dawna para A/B z
 źródłowej usterki. Przy ponawianiu prób używaj `observer_w02v.py`, pełnego
 przekazywania argumentów wrapperów, PID/runID producenta, zgodności modelu
 z `GetItemCount` i czystego stdout; sam licznik modelu nie dowodzi wypełnienia GUI.
+
+## Lewa strzałka i widoki Radia — jak mierzyć na żywo
+
+Scena, kwit i gesty: `amc_pomoc/wx-integrated-20261007/live/`. Reuzyj tej
+aparatury, nie buduj nowej.
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File launch-integ.ps1 integ-live
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File integ-gestures.ps1 <PID> 'end,left' <HWND>
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File read-speech-viewer.ps1
+python3 mk_receipt.py <kwit> <speech.txt> receipt.json
+```
+
+- **`AMC_WX_FIXTURE` MUSI być puste.** Fixture daje `PRIVATE_SANDBOX` i Radio z
+  zerem stacji, więc na nim filtry `isInLibrary`/`isFavorite` i cały
+  `READ_ONLY_MIRROR` są nietestowalne. Zamiast fixture przekieruj `APPDATA`
+  i `LOCALAPPDATA` na **własną pełną kopię** profilu (oba, nie jeden).
+- **Mowa to Podgląd mowy NVDA, nie nasz log.** `read-speech-viewer.ps1` czyta
+  okno przez UIA. Nasz własny `announcer.say` dowodzi tylko, że wywołaliśmy
+  funkcję — nie że użytkownik to usłyszał.
+- **Sonda musi łapać `say`, nie zwrotkę.** `quick_info_reply`/`quick_info_failure`
+  zwracają `None`; treść idzie wyłącznie przez `say`. Owijaj `say`, bo inaczej
+  zapiszesz `None` i uznasz to za „brak mowy”.
+- **Podmieniaj nazwy TAKŻE w `gui.py`.** `gui.py` robi `from .quick_info import
+  quick_info_plan`, więc podstawienie w samym module `quick_info` nie dociera do
+  okna.
+- **Folder, plik i stacja to trzy osobne drogi.** Folder kończy się na
+  `plan.message` bez żądania do hosta; plik i stacja idą przez silnik. Zmierz
+  wszystkie trzy — jedna przechodząca nie dowodzi pozostałych.
+- **Pole filtra to kryterium braku regresji.** Wejdź w filtr (`Shift+Tab` z
+  listy; `F6` tam NIE wchodzi), wpisz tekst, naciśnij lewą strzałkę i wymagaj
+  **zera** wywołań quick-info w tym oknie czasu.
+- **W menu wx `End` nie skacze na koniec.** Nawiguj strzałkami w dół; `End`
+  zostawia kursor na pierwszej pozycji i cicho zmierzysz nie tę pozycję, co
+  chciałeś.
+- **Wyłącznik pozycji mierz w OBIE strony.** Włączenie mówi krótko; wyłączenie
+  przy dodatku starszym niż 0.4 musi powiedzieć, że licznik zostanie. Brak tego
+  zdania to usterka, nawet gdy `radio_announce_position` zapisało się poprawnie.
+- **Nie licz pierwszego snapshotu.** Pierwsze ujęcie pada przed załadowaniem
+  wierszy; jego `model_count=0` opisuje sondę, nie profil. Bierz maksimum z
+  przebiegu.

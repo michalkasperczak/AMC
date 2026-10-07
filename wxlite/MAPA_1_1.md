@@ -230,7 +230,7 @@ własnej normalizacji diakrytyków.
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
 - Dalsze widoki Biblioteki i wyszukiwanie. Filtr listy `Ctrl+K` jest odebrany (sekcja wyżej). Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
-- Radio: oddzielenie Biblioteki według `isInLibrary`, krótki odczyt pozycji i jego wyłącznik. Historia lokalna ma pokazywać także dostępne pliki spoza Biblioteki; zmiana czytnika danych pozostaje w pracy, nie w odebranym kodzie `5e1f2d4e`.
+- Radio: oddzielenie Biblioteki według `isInLibrary` oraz krótki odczyt pozycji i jego wyłącznik są **odebrane** (sekcja „Scalone Radio i lewa strzałka” niżej). Historia lokalna ma pokazywać także dostępne pliki spoza Biblioteki; zmiana czytnika danych pozostaje w pracy, nie w odebranym kodzie `5e1f2d4e`.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
@@ -245,3 +245,36 @@ Zwykłe GUI samo uruchamia hosta z argumentami prywatnego profilu i pisarza. Kol
 Python czyta wspólny profil i trzyma własne ustawienia interfejsu osobno. Zapis danych wspólnych ma należeć do jednego właścicielaC#, z ochroną przed dwiema instancjami/harmonogramami. To przyjęta decyzja techniczna, a nie pytanie do użytkownika o wybór wariantu. Operacje zapisu nie są jeszcze przez to automatycznie zaimplementowane.
 
 Pomiary są na kopii. Nie migruj ani nie nadpisuj profilu użytkownika przy testach. Techniczne plikiSQLiteWAL/SHM nie są podstawą do użycia `immutable=1` na żywych danych.
+
+## Scalone Radio i lewa strzałka — odebrane na żywym NVDA
+
+Jedna gałąź `hermes/wx-integrated-20261007` (`52b91d69`) łączy dwie rzeczy
+odebrane wcześniej osobno: widoki/pozycję Radia (`0dfa4990` na bazie `30ec1ac9`)
+oraz lewą strzałkę `quick_info.py`. `src` scalenia jest bit-w-bit tym samym
+drzewem (`e5df7223`), co commit dostarczony jako `f2533ef2`, więc silnik .NET nie
+został przebudowany „na podobny” — to ten sam plik.
+
+**Lewa strzałka ma TRZY różne drogi i każda jest zmierzona osobno.** Folder ma
+własny komunikat i NIE sięga do silnika (`plan.message`, `has_request=false`).
+Plik i stacja idą planem do hosta i wracają mową. Pomiar opisuje wiersz
+ZAZNACZONY, nie grający — bramka `QuickInfoGuard` odrzuca spóźnioną odpowiedź po
+`item_id`/sesji/widoku, bo spóźniony parametr brzmiałby jak opis wiersza, na
+którym użytkownik stoi teraz.
+
+**W polu filtra lewa strzałka nie jest informacją.** 149 ujęć z fokusem w
+`TextCtrl` dało **0** wywołań quick-info. To jest kryterium braku regresji, nie
+kosmetyka: gdyby strzałka przechwytywała kursor w filtrze, naprawa jednego
+martwego klawisza zabiłaby drugi.
+
+Trzy widoki Radia (`Ctrl+L` 55, `Ctrl+U` 56, `Ctrl+H` 81 wierszy) mają
+`order_matches_amc=true`, `missing_item_count=0` i `sees_live_writes=true`.
+
+**Wyłącznik odczytu pozycji nie obiecuje ciszy, której nie dowiezie.** Licznik
+„1 z 55” mówi NVDA z natywnego `positionInfo`, więc ukrycie wykonuje nakładka w
+dodatku 0.4+. Przy zainstalowanym 0.3.3 opcja zapisuje się, a NVDA mówi wprost,
+że ukrywanie wymaga dodatku 0.4 — i to jest zachowanie odebrane, nie usterka.
+
+Python 977/0/0, protokół 8/8 zestawów. Kwit z 11 kryteriami i pełnym Podglądem
+mowy: `amc_pomoc/wx-integrated-20261007/live/receipt.json`. Słuchalności dźwięku
+nie mierzono — ocenia ją użytkownik. Nie dołożono nieodebranych zmian WPF ani
+opcji sesji.
