@@ -196,6 +196,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["radio.recordingStopAll"] = (_, _) => _recordings.StopAll(),
             ["radio.recordingStatus"] = (_, _) => _recordings.Status(),
             ["radio.recordingHistory"] = (_, _) => _recordings.History(),
+            ["radio.scheduleSync"] = (request, events) =>
+                _recordings.SyncSchedules(request.Args, events),
+            ["radio.scheduleStatus"] = (_, _) => _recordings.ScheduleStatus(),
             ["radio.scheduleLabels"] = (request, _) => RadioScheduleLabels(request.Args),
             ["transport.pauseResume"] = (_, _) => PauseResume(),
             ["transport.stop"] = (_, _) => StopAll(),

@@ -28,6 +28,7 @@ from amc_wx_lite.radio_recording import (
     preferences_from_amc_state,
     recording_history_from_amc_state,
     recording_history_rows,
+    station_activity_rows,
 )
 from amc_wx_lite.radio_source import RadioSource
 from amc_wx_lite.shortcuts import Action, Chord, resolve
@@ -175,13 +176,57 @@ def test_gui_toggle_uses_station_label_and_profile_preferences() -> None:
         radio=SimpleNamespace(load=lambda previous: SimpleNamespace(recording=preferences)),
         _radio_snapshot=object(),
         _recording_station=lambda: station,
+        _refresh_recording_status=lambda: None,
         announcer=SimpleNamespace(say=messages.append),
     )
     LiteFrame._toggle_radio_recording(frame)
     assert client.payload["stationName"] == "Radio Test"
     assert client.payload["bitrateKbps"] == 160
-    assert messages == ["Rozpoczynam nagrywanie w tle: Radio Test"]
-    assert "techniczne-id" not in messages[0]
+    # Polecenie nie dubluje potwierdzenia zdarzenia recordingStarted.
+    assert messages == []
+
+
+def test_station_rows_expose_playback_and_recording_without_technical_values() -> None:
+    from amc_wx_lite.list_model import Row
+
+    rows = [
+        Row("radio-1", "Radio Pierwsze", "station", detail="stereo"),
+        Row("radio-2", "Radio Drugie", "station"),
+    ]
+    decorated = station_activity_rows(
+        rows,
+        transport_status={
+            "engine": "radio",
+            "loadedId": "radio-1",
+            "paused": False,
+        },
+        recording_status={
+            "recordings": [
+                {"stationId": "radio-1", "state": "recording", "recordingId": "sekret"},
+                {"stationId": "radio-2", "state": "paused", "recordingId": "sekret-2"},
+            ]
+        },
+    )
+    assert decorated[0].detail == "stereo"
+    assert decorated[0].state_detail == "odtwarzanie, nagrywanie"
+    assert decorated[1].state_detail == "nagrywanie wstrzymane"
+    assert "sekret" not in " ".join(row.state_detail for row in decorated)
+
+
+def test_station_activity_refresh_replaces_old_state_instead_of_repeating_it() -> None:
+    from amc_wx_lite.list_model import Row
+
+    first = station_activity_rows(
+        [Row("radio", "Radio", "station")],
+        transport_status={"engine": "radio", "loadedId": "radio", "paused": False},
+        recording_status={"recordings": []},
+    )
+    second = station_activity_rows(
+        first,
+        transport_status={"engine": "radio", "loadedId": "radio", "paused": True},
+        recording_status={"recordings": []},
+    )
+    assert second[0].state_detail == "odtwarzanie wstrzymane"
 
 
 def test_recording_duration_label_is_neutral_and_readable() -> None:

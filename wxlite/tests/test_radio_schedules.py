@@ -13,6 +13,7 @@ from test_gui_logic import install_wx_stub
 install_wx_stub()
 
 from amc_wx_lite.host_client import LiteHostClient
+from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
@@ -21,7 +22,11 @@ from amc_wx_lite.navigation import (
 )
 from amc_wx_lite.profile_layout import read_only_mirror
 from amc_wx_lite.radio_schedules import schedule_rows
-from amc_wx_lite.radio_source import RadioSource, recording_schedules_from_amc_state
+from amc_wx_lite.radio_source import (
+    RadioSource,
+    recording_schedules_from_amc_state,
+    wake_scheduled_recordings_from_amc_state,
+)
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 
 
@@ -51,6 +56,15 @@ def test_profile_reader_keeps_only_schedule_objects() -> None:
     assert schedules[0]["name"] == "Poranna audycja"
 
 
+def test_profile_reader_keeps_strict_wake_default() -> None:
+    assert wake_scheduled_recordings_from_amc_state({
+        "radio": {"wakeScheduledRecordings": True}
+    }) is True
+    assert wake_scheduled_recordings_from_amc_state({
+        "radio": {"wakeScheduledRecordings": "true"}
+    }) is False
+
+
 def test_radio_snapshot_reads_schedules_in_the_same_profile_pass() -> None:
     with tempfile.TemporaryDirectory() as directory:
         base = Path(directory)
@@ -60,6 +74,7 @@ def test_radio_snapshot_reads_schedules_in_the_same_profile_pass() -> None:
             "radio": {
                 "stations": [],
                 "recordingSchedules": [sample_schedule()],
+                "wakeScheduledRecordings": True,
             }
         }), encoding="utf-8")
         source = RadioSource(read_only_mirror(
@@ -70,6 +85,29 @@ def test_radio_snapshot_reads_schedules_in_the_same_profile_pass() -> None:
         snapshot = source.load()
     assert len(snapshot.recording_schedules) == 1
     assert snapshot.recording_schedules[0]["stationName"] == "Radio Test"
+    assert snapshot.wake_scheduled_recordings is True
+
+
+def test_gui_sends_recording_defaults_and_station_folders_with_schedules() -> None:
+    from types import SimpleNamespace
+
+    snapshot = SimpleNamespace(
+        recording_schedules=(sample_schedule(),),
+        wake_scheduled_recordings=True,
+        recording=SimpleNamespace(
+            default_folder=r"D:\Nagrania",
+            folder_preset="radio",
+            station_folders={"radio-test": r"D:\Radio Test"},
+            format="Flac",
+            bitrate_kbps=256,
+        ),
+    )
+    payload = LiteFrame._radio_schedule_sync_payload(snapshot)
+    assert payload["schedules"] == [sample_schedule()]
+    assert payload["stationFolders"] == {"radio-test": r"D:\Radio Test"}
+    assert payload["recordingFormat"] == "Flac"
+    assert payload["recordingBitrateKbps"] == 256
+    assert payload["wakeScheduledRecordings"] is True
 
 
 def test_schedule_rows_expose_only_the_user_label_not_the_object_or_id() -> None:
@@ -86,7 +124,8 @@ def test_schedule_rows_expose_only_the_user_label_not_the_object_or_id() -> None
     assert rows[0].title.startswith("Poranna audycja, włączone")
     assert "techniczne-id" not in rows[0].title
     assert "dict" not in rows[0].title and "{" not in rows[0].title
-    assert "tylko do odczytu" in (rows[0].activation_message or "")
+    assert "wykonywany automatycznie" in (rows[0].activation_message or "")
+    assert "Edycję planu" in (rows[0].activation_message or "")
 
 
 def test_host_client_requests_the_csharp_schedule_formatter() -> None:
@@ -104,6 +143,24 @@ def test_host_client_requests_the_csharp_schedule_formatter() -> None:
         {"schedules": [sample_schedule()], "activeIds": []},
         5.0,
     )]
+
+
+def test_host_client_syncs_executable_schedules() -> None:
+    client = LiteHostClient("unused")
+    calls = []
+
+    def call(operation, args=None, *, timeout=20.0):
+        calls.append((operation, args, timeout))
+        return {"schedules": []}
+
+    client.call = call  # type: ignore[method-assign]
+    payload = {"schedules": [sample_schedule()], "wakeScheduledRecordings": True}
+    client.sync_radio_schedules(payload)
+    client.radio_schedule_status()
+    assert calls == [
+        ("radio.scheduleSync", payload, 10.0),
+        ("radio.scheduleStatus", None, 5.0),
+    ]
 
 
 def test_schedule_shortcut_matches_full_amc_from_every_session_and_view() -> None:

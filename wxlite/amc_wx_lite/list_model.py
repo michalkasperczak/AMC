@@ -51,6 +51,11 @@ class Row:
     # nie ma czego uruchomic (np. nieudane nagranie albo brakujacy plik).
     # To tekst dla uzytkownika, nigdy techniczny identyfikator lub repr.
     activation_message: str | None = None
+    # Krotki, dynamiczny stan elementu (np. odtwarzanie albo nagrywanie).
+    # Jest osobny od trwalego ``detail``, zeby odswiezenie statusu moglo go
+    # wymienic bez zgubienia zwyklych informacji wiersza. Pole zawiera juz
+    # tekst uzytkowy -- nigdy enum, identyfikator ani reprezentacje obiektu.
+    state_detail: str = ""
 
     @property
     def is_openable(self) -> bool:
@@ -134,7 +139,12 @@ class ListModel:
         if column == 1:
             return row.kind_label if row.show_kind else ""
         if column == 2:
-            detail = row.detail.strip()
+            details = [
+                value.strip()
+                for value in (row.detail, row.state_detail)
+                if value and value.strip()
+            ]
+            detail = ", ".join(dict.fromkeys(details))
             # Powtorzenie nazwy albo rodzaju to dokladnie ten podwojny odczyt,
             # ktory zglosil uzytkownik. Adres tu NIE wchodzi: jest pod skrotem.
             if not detail or detail in (row.title, row.kind_label) or detail == row.address:

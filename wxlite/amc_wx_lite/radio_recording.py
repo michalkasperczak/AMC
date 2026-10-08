@@ -10,7 +10,7 @@ from __future__ import annotations
 import ntpath
 import os
 import stat
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Sequence
 
@@ -185,6 +185,74 @@ def active_recording_rows(payload: object) -> list[Row]:
             show_kind=False,
         ))
     return rows
+
+
+def station_activity_rows(
+    rows: Sequence[Row],
+    *,
+    transport_status: object,
+    recording_status: object,
+) -> list[Row]:
+    """Dopisz do zwyklych wierszy stacji ich zywy, czytelny stan.
+
+    Dane techniczne hosta (``engine``, ``loadedId``, ``stationId`` i surowe
+    wartosci stanu) sluza tylko do dopasowania. Do ``state_detail`` trafiaja
+    wylacznie zamierzone etykiety dla uzytkownika. Funkcja wymienia osobne pole
+    dynamiczne, wiec kolejne odswiezenie nie powiela tekstu i nie niszczy
+    zwyklego ``detail`` wiersza.
+    """
+    transport = transport_status if isinstance(transport_status, dict) else {}
+    loaded_id = str(transport.get("loadedId") or "")
+    radio_loaded = transport.get("engine") == "radio" and bool(loaded_id)
+    paused = bool(transport.get("paused"))
+
+    states_by_station: dict[str, list[str]] = {}
+    status = recording_status if isinstance(recording_status, dict) else {}
+    entries = status.get("recordings")
+    if isinstance(entries, list):
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            station_id = entry.get("stationId")
+            if not isinstance(station_id, str) or not station_id:
+                continue
+            states_by_station.setdefault(station_id, []).append(
+                str(entry.get("state") or "")
+            )
+
+    result: list[Row] = []
+    for row in rows:
+        if row.kind != "station":
+            result.append(row if not row.state_detail else replace(row, state_detail=""))
+            continue
+
+        labels: list[str] = []
+        if radio_loaded and row.item_id == loaded_id:
+            labels.append("odtwarzanie wstrzymane" if paused else "odtwarzanie")
+
+        recording_states = states_by_station.get(row.item_id, [])
+        active_states = [state for state in recording_states if state != "stopping"]
+        if "stopping" in recording_states and not active_states:
+            labels.append("zatrzymywanie nagrania")
+        elif "starting" in active_states and not any(
+            state in ("recording", "paused") for state in active_states
+        ):
+            labels.append("przygotowywanie nagrania")
+        else:
+            ready = [state for state in active_states if state in ("recording", "paused")]
+            paused_count = ready.count("paused")
+            if ready and paused_count == 0:
+                labels.append("nagrywanie")
+            elif ready and paused_count == len(ready):
+                labels.append("nagrywanie wstrzymane")
+            elif ready:
+                labels.append("część nagrań wstrzymana")
+
+        state_detail = ", ".join(labels)
+        result.append(
+            row if row.state_detail == state_detail else replace(row, state_detail=state_detail)
+        )
+    return result
 
 
 def recording_history_from_amc_state(raw: object) -> tuple[RadioRecordingHistoryEntry, ...]:

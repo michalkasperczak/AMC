@@ -19,8 +19,8 @@ Zasady dostepnosci przyjete tutaj (i dlaczego):
 * Jedna brama komunikatow: ``Announcer``. Zadnego sleepMode, zadnego zapisu
   do appModules NVDA.
 
-Czego tu nie ma swiadomie: WebView2, Sonos, uruchamiania ani edycji
-harmonogramow i uslug startowych. Harmonogramy mozna bezpiecznie przegladac.
+Czego tu nie ma swiadomie: WebView2, Sonos ani edycji harmonogramow i uslug
+startowych. Plany sa wykonywane przez host C#, a edycja pozostaje w glownym AMC.
 Lekki wariant ma byc lekki; pelny AMC zostaje nietkniety.
 """
 
@@ -97,6 +97,7 @@ from .radio_recording import (
     format_duration,
     recording_history_from_amc_state,
     recording_history_rows,
+    station_activity_rows,
 )
 from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
@@ -1390,6 +1391,9 @@ class LiteFrame(wx.Frame):
 
         self.client: LiteHostClient | None = None
         self._last_status: dict = {}
+        self._last_recording_status: dict = {}
+        self._status_poll_pending = False
+        self._recording_status_poll_pending = False
         #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
@@ -1948,12 +1952,25 @@ class LiteFrame(wx.Frame):
         # ``options.audio_payload()`` dawal hostowi ustawienie ogolne, wiec
         # zapis wracal z dysku BEZ TRWALEGO SKUTKU w silniku.
         settings = session_options.engine_audio_payload(self.state)
+        # ``_start_engine`` bywa tez wywolywane przez lekkie tryby testowe i
+        # awaryjne, ktore nie otwieraja profilu radia. Brak migawki oznacza
+        # wtedy po prostu brak planow do zsynchronizowania, a nie blad startu
+        # calego odtwarzacza.
+        radio_snapshot = getattr(self, "_radio_snapshot", None)
+        schedule_payload = (
+            LiteFrame._radio_schedule_sync_payload(radio_snapshot)
+            if radio_snapshot is not None
+            else None
+        )
 
         def work() -> dict:
             try:
                 client.start()
                 client.hello()
-                return client.configure_audio(**settings)
+                result = client.configure_audio(**settings)
+                if schedule_payload is not None:
+                    client.sync_radio_schedules(schedule_payload)
+                return result
             except Exception:
                 client.close()
                 raise
@@ -2024,29 +2041,51 @@ class LiteFrame(wx.Frame):
             station = str(data.get("stationName") or "stacja")
             path = str(data.get("path") or "").strip()
             suffix = f": {Path(path).name}" if path else ""
-            self.announcer.say(f"Nagrywanie działa w tle: {station}{suffix}")
+            scheduled = bool(str(data.get("scheduleName") or "").strip())
+            prefix = "Zaplanowane nagrywanie działa" if scheduled else "Nagrywanie działa w tle"
+            self.announcer.say(f"{prefix}: {station}{suffix}")
         elif name == "radio.recordingFinished":
             station = str(data.get("stationName") or "stacja")
+            scheduled = bool(str(data.get("scheduleName") or "").strip())
             count = int(data.get("savedFileCount") or 0)
             path = str(data.get("path") or "").strip()
             if count > 1:
                 self.announcer.say(
-                    f"Zakończono nagrywanie {station}. Zapisano plików: {count}"
+                    f"Zakończono {'zaplanowane ' if scheduled else ''}nagrywanie {station}. "
+                    f"Zapisano plików: {count}"
                 )
             elif path:
                 self.announcer.say(
-                    f"Zakończono nagrywanie {station}: {Path(path).name}"
+                    f"Zakończono {'zaplanowane ' if scheduled else ''}nagrywanie "
+                    f"{station}: {Path(path).name}"
                 )
             else:
-                self.announcer.say(f"Zakończono nagrywanie: {station}")
+                self.announcer.say(
+                    f"Zakończono {'zaplanowane ' if scheduled else ''}nagrywanie: {station}"
+                )
         elif name == "radio.recordingStopped":
             station = str(data.get("stationName") or "stacja")
-            self.announcer.say(f"Zatrzymano nagrywanie: {station}")
+            scheduled = bool(str(data.get("scheduleName") or "").strip())
+            count = int(data.get("savedFileCount") or 0)
+            path = str(data.get("path") or "").strip()
+            prefix = "Zatrzymano zaplanowane nagrywanie" if scheduled else "Zatrzymano nagrywanie"
+            if count > 1:
+                self.announcer.say(f"{prefix} {station}. Zapisano plików: {count}")
+            elif path:
+                self.announcer.say(f"{prefix} {station}: {Path(path).name}")
+            else:
+                self.announcer.say(f"{prefix}: {station}")
         elif name == "radio.recordingFailed":
             station = str(data.get("stationName") or "stacja")
             reason = str(data.get("error") or "nie utworzono pliku")
-            self.announcer.say(f"Nie udało się nagrać {station}: {reason}")
+            scheduled = bool(str(data.get("scheduleName") or "").strip())
+            subject = "wykonać zaplanowanego nagrania" if scheduled else "nagrać"
+            self.announcer.say(f"Nie udało się {subject} {station}: {reason}")
         if name.startswith("radio.recording"):
+            # Zdarzenie opisuje pojedyncza zmiane, natomiast lista potrzebuje
+            # pelnej migawki wszystkich nagran. Odswiezamy ja bez dodatkowego
+            # komunikatu; samo zdarzenie powyzej jest jedyna mowa.
+            self._refresh_recording_status()
             radio_state = self.navigator.sessions[SessionId.RADIO]
             if radio_state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS:
                 self._show_active_radio_recordings(announce=False)
@@ -3925,34 +3964,91 @@ class LiteFrame(wx.Frame):
     # ------------------------------------------------------------- status
 
     def _on_timer(self, _event: wx.TimerEvent) -> None:
-        # Czas odswiezamy TYLKO w widoku odtwarzacza i TYLKO etykiete czasu.
-        if self.navigator.view is not View.PLAYER:
-            return
+        # Stan transportu i nagran odswiezamy takze na liscie: dzieki temu
+        # wiersz stacji uczciwie mowi, czy jest odtwarzany albo nagrywany.
+        # Etykiete czasu nadal zmieniamy tylko w widoku odtwarzacza.
         self._refresh_status()
+        self._refresh_recording_status()
 
     def _refresh_status(self) -> None:
         client = self.client
-        if client is None:
+        if client is None or getattr(self, "_status_poll_pending", False):
             return
+        self._status_poll_pending = True
         def done(payload: dict) -> None:
+            self._status_poll_pending = False
             if not payload:
                 return
             self._last_status = payload
-            position = payload.get("positionSeconds")
-            duration = payload.get("durationSeconds")
-            label = player_time_label(position, duration)
-            # Odswiezamy etykiete tylko gdy TEKST sie zmienil - inaczej
-            # czytnik ekranu dostawalby zmiane co sekunde bez potrzeby.
-            if self.time_label.GetLabel() != label:
-                self.time_label.SetLabel(label)
+            if self.navigator.view is View.PLAYER:
+                position = payload.get("positionSeconds")
+                duration = payload.get("durationSeconds")
+                label = player_time_label(position, duration)
+                # Odswiezamy etykiete tylko gdy TEKST sie zmienil - inaczej
+                # czytnik ekranu dostawalby zmiane co sekunde bez potrzeby.
+                if self.time_label.GetLabel() != label:
+                    self.time_label.SetLabel(label)
             # Etykieta transportu podaza za PRAWDZIWYM stanem hosta, nie tylko
             # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
             # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
             # odswiezenie statusu nie jest gestem uzytkownika.
             if "paused" in payload:
                 self._set_transport_label(playing=not bool(payload.get("paused")))
+            self._apply_radio_activity_status()
 
-        self.runner.submit("status", client.status, done, lambda _error: None)
+        def failed(_error: Exception) -> None:
+            self._status_poll_pending = False
+
+        self.runner.submit("status", client.status, done, failed)
+
+    def _refresh_recording_status(self) -> None:
+        """Pobierz jedna migawke nagran bez mowy i bez nakladania zapytan."""
+        client = self.client
+        if client is None or getattr(self, "_recording_status_poll_pending", False):
+            return
+        self._recording_status_poll_pending = True
+
+        def done(payload: dict) -> None:
+            self._recording_status_poll_pending = False
+            self._last_recording_status = payload or {}
+            state = self.navigator.sessions[SessionId.RADIO]
+            if state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS:
+                preferred_id = state.model.selected_id
+                state.model.replace(
+                    active_recording_rows(self._last_recording_status),
+                    preferred_id=preferred_id,
+                )
+                if self.navigator.active is SessionId.RADIO:
+                    self._sync_views()
+                return
+            self._apply_radio_activity_status()
+
+        def failed(_error: Exception) -> None:
+            self._recording_status_poll_pending = False
+
+        self.runner.submit(
+            "radio-recording-status",
+            client.radio_recording_status,
+            done,
+            failed,
+        )
+
+    def _apply_radio_activity_status(self) -> None:
+        """Zmien tylko dynamiczny opis zwyklych list Radia."""
+        state = self.navigator.sessions[SessionId.RADIO]
+        if state.library_view not in (None, LibraryView.FAVORITES, LibraryView.HISTORY):
+            return
+        rows = station_activity_rows(
+            state.model.rows,
+            transport_status=self._last_status,
+            recording_status=self._last_recording_status,
+        )
+        if rows == state.model.rows:
+            return
+        preferred_id = state.model.selected_id
+        state.model.replace(rows, preferred_id=preferred_id)
+        if self.navigator.active is SessionId.RADIO:
+            self._sync_views()
 
     # ------------------------------------------------------------- stacje
 
@@ -3993,11 +4089,9 @@ class LiteFrame(wx.Frame):
         payload = snapshot.recording.payload_for(station)
 
         def done(result: dict) -> None:
-            action = (result or {}).get("action")
-            if action == "stopping":
-                self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
-            else:
-                self.announcer.say(f"Rozpoczynam nagrywanie w tle: {station.name}")
+            # Nie dublujemy mowy: o faktycznym starcie/zatrzymaniu informuje
+            # zdarzenie hosta. Migawka natychmiast uaktualnia stan na liscie.
+            self._refresh_recording_status()
 
         self.runner.submit(
             "radio-recording-command",
@@ -4242,7 +4336,7 @@ class LiteFrame(wx.Frame):
         self.runner.submit("radio-recording-history", work, done, failed)
 
     def _show_radio_schedules(self) -> None:
-        """Ctrl+Shift+H: plany czytane z profilu, etykiety liczone przez C#."""
+        """Ctrl+Shift+H: wykonywane plany, nadal edytowane w glownym AMC."""
         client = self.client
         if client is None:
             self.announcer.say("Silnik odtwarzania jest niedostępny")
@@ -4253,7 +4347,9 @@ class LiteFrame(wx.Frame):
 
         def work():
             snapshot = self.radio.load(previous=previous)
-            payload = client.radio_schedule_labels(list(snapshot.recording_schedules))
+            payload = client.sync_radio_schedules(
+                self._radio_schedule_sync_payload(snapshot)
+            )
             return snapshot, schedule_rows(payload)
 
         def done(result) -> None:
@@ -4267,7 +4363,7 @@ class LiteFrame(wx.Frame):
                 return
             events = self.navigator.apply_radio_view(
                 LibraryView.RADIO_RECORDING_SCHEDULES,
-                "Harmonogram nagrywania, tylko do odczytu",
+                "Harmonogram nagrywania",
                 rows,
             )
             self._run(events)
@@ -4280,6 +4376,20 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(f"Nie można wczytać harmonogramu nagrywania: {error}")
 
         self.runner.submit("radio-schedules", work, done, failed)
+
+    @staticmethod
+    def _radio_schedule_sync_payload(snapshot) -> dict:
+        """Jedyny kontrakt planow: surowe ustawienia wchodza do hosta C#."""
+        recording = snapshot.recording
+        return {
+            "schedules": list(snapshot.recording_schedules),
+            "defaultFolder": recording.default_folder or "",
+            "folderPreset": recording.folder_preset,
+            "stationFolders": dict(recording.station_folders),
+            "recordingFormat": recording.format,
+            "recordingBitrateKbps": recording.bitrate_kbps,
+            "wakeScheduledRecordings": bool(snapshot.wake_scheduled_recordings),
+        }
 
     def _refuse_station_edit(self) -> bool:
         """Odmowa edycji stacji we wspolnym profilu. ``True`` = nie kontynuuj.

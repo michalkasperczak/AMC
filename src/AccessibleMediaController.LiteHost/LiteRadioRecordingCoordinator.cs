@@ -12,7 +12,7 @@ namespace AccessibleMediaController.LiteHost;
 /// wiec zmiana odtwarzanej stacji ani wyjscie z odtwarzacza nie przerywa pliku.
 /// Ten sam tor obsluguje zwykle strumienie HTTP i transmisje YouTube na zywo.
 /// </summary>
-internal sealed class LiteRadioRecordingCoordinator : IDisposable
+internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, ActiveRecording> _active = new(StringComparer.Ordinal);
@@ -58,7 +58,8 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
             request.BitrateKbps,
             DateTime.UtcNow,
             cancellation,
-            control);
+            control,
+            events: events);
 
         lock (_gate)
         {
@@ -241,8 +242,10 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         lock (_gate)
         {
             if (!_active.ContainsKey(active.Id)) return;
+            if (active.StartAnnounced) return;
             active.Path = path;
             active.StartedUtc = DateTime.UtcNow;
+            active.StartAnnounced = true;
         }
         events.Publish("radio.recordingStarted", Payload(active));
     }
@@ -282,6 +285,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
             path ?? string.Empty,
             outcome,
             result.Error?.Trim() ?? string.Empty,
+            active.ScheduleName,
             (active.StartedUtc ?? active.RequestedUtc).Ticks,
             DateTime.UtcNow.Ticks,
             paths.Count);
@@ -304,13 +308,14 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
             success = result.Success,
             error = result.Error,
             outcome,
+            scheduleName = active.ScheduleName,
             startedUtcTicks = completed.StartedUtcTicks,
             finishedUtcTicks = completed.FinishedUtcTicks
         };
-        events.Publish(result.Success || result.Cancelled && paths.Count > 0
-            ? "radio.recordingFinished"
-            : result.Cancelled && string.IsNullOrWhiteSpace(result.Error)
-                ? "radio.recordingStopped"
+        events.Publish(result.Cancelled
+            ? "radio.recordingStopped"
+            : result.Success
+                ? "radio.recordingFinished"
                 : "radio.recordingFailed", payload);
     }
 
@@ -330,6 +335,8 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         durationSeconds = active.Control.CaptureBookmarkTarget()?.Position.TotalSeconds ?? 0d,
         path = active.Control.CurrentPath ?? active.Path,
         completedFileCount = active.Control.CompletedPaths.Count,
+        scheduleId = active.ScheduleId,
+        scheduleName = active.ScheduleName,
         requestedUtc = active.RequestedUtc,
         startedUtc = active.StartedUtc,
         format = active.Format.ToString(),
@@ -344,7 +351,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         path = recording.Path,
         outcome = recording.Outcome,
         reason = recording.Reason,
-        scheduleName = string.Empty,
+        scheduleName = recording.ScheduleName,
         startedUtcTicks = recording.StartedUtcTicks,
         finishedUtcTicks = recording.FinishedUtcTicks,
         savedFileCount = recording.SavedFileCount
@@ -420,6 +427,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         {
             if (_disposed) return;
             _disposed = true;
+            DisposeSchedulesLocked();
             recordings = _active.Values.ToArray();
         }
         foreach (var active in recordings) RequestStop(active);
@@ -449,6 +457,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         string Path,
         string Outcome,
         string Reason,
+        string ScheduleName,
         long StartedUtcTicks,
         long FinishedUtcTicks,
         int SavedFileCount);
@@ -465,7 +474,11 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         int bitrateKbps,
         DateTime requestedUtc,
         CancellationTokenSource cancellation,
-        RadioRecordingControl control)
+        RadioRecordingControl control,
+        string scheduleId = "",
+        string scheduleName = "",
+        long expectedStartUtcTicks = 0,
+        LiteEventSink? events = null)
     {
         public string Id { get; } = id;
         public string StationId { get; } = stationId;
@@ -479,8 +492,13 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         public DateTime RequestedUtc { get; } = requestedUtc;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public RadioRecordingControl Control { get; } = control;
+        public string ScheduleId { get; } = scheduleId;
+        public string ScheduleName { get; } = scheduleName;
+        public long ExpectedStartUtcTicks { get; } = expectedStartUtcTicks;
+        public LiteEventSink? Events { get; } = events;
         public DateTime? StartedUtc { get; set; }
         public string? Path { get; set; }
-        public Task<ManualRadioRecordingResult>? Task { get; set; }
+        public bool StartAnnounced { get; set; }
+        public Task? Task { get; set; }
     }
 }

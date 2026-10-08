@@ -242,3 +242,4 @@ def test_list_style_does_not_force_single_selection() -> None:
         source.index("# ------------------------------------------------------------ aktualizacja")
     ]
     assert "style=wx.LC_REPORT | wx.LC_SINGLE_SEL" not in constructor
+    assert "style=wx.LC_REPORT | wx.BORDER_SUNKEN" in constructor

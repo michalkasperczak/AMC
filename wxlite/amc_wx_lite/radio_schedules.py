@@ -33,8 +33,8 @@ def schedule_rows(payload: object) -> list[Row]:
             kind="track",
             show_kind=False,
             activation_message=(
-                f"{name}. Harmonogram jest obecnie tylko do odczytu w "
-                "interfejsie wxPython. Zmiany wykonaj w głównym AMC"
+                f"{name}. Plan jest wykonywany automatycznie przez AMC wxPython. "
+                "Edycję planu wykonaj w głównym AMC"
             ),
         ))
     return rows

@@ -81,10 +81,11 @@ class RadioSnapshot:
     #: Utrwalona historia wszystkich prob nagrywania z tego samego odczytu
     #: profilu. Obejmuje takze proby nieudane, ktore nie maja pliku.
     recording_history: tuple[RadioRecordingHistoryEntry, ...] = ()
-    #: Surowe plany nagrywania z profilu. Python ich nie interpretuje ani nie
-    #: uruchamia; wysyla je do wspolnego formattera C#, ktory zna strefy czasu,
-    #: odmiane jednostek i szablony nazw plikow.
+    #: Surowe plany nagrywania z profilu. Python ich nie interpretuje: wysyla
+    #: je do hosta C#, ktory zna strefy czasu, wykonuje plany i buduje etykiety.
     recording_schedules: tuple[dict, ...] = ()
+    #: Ogolny przelacznik wybudzania dla planow bez wlasnej decyzji.
+    wake_scheduled_recordings: bool = False
 
     @property
     def stations(self) -> list[Station]:
@@ -213,7 +214,7 @@ def stations_from_amc_state(
 
 
 def recording_schedules_from_amc_state(raw: dict) -> tuple[dict, ...]:
-    """Plany z profilu bez mutacji i bez drugiego harmonogramu w Pythonie."""
+    """Plany z profilu bez mutacji i bez wlasnych obliczen czasu w Pythonie."""
     radio = raw.get("radio")
     if not isinstance(radio, dict):
         return ()
@@ -221,6 +222,12 @@ def recording_schedules_from_amc_state(raw: dict) -> tuple[dict, ...]:
     if not isinstance(schedules, list):
         return ()
     return tuple(dict(schedule) for schedule in schedules if isinstance(schedule, dict))
+
+
+def wake_scheduled_recordings_from_amc_state(raw: dict) -> bool:
+    """Domysl wybudzania; obca wartosc nie moze wlaczyc go po cichu."""
+    radio = raw.get("radio")
+    return isinstance(radio, dict) and radio.get("wakeScheduledRecordings") is True
 
 
 #: Nazwy trybow = nazwy ``CollectionSortMode`` (``AppSettings.cs:27-32``).
@@ -366,6 +373,7 @@ class RadioSource:
             recording=preferences_from_amc_state(raw),
             recording_history=recording_history_from_amc_state(raw),
             recording_schedules=recording_schedules_from_amc_state(raw),
+            wake_scheduled_recordings=wake_scheduled_recordings_from_amc_state(raw),
         )
 
     def _read_failure(
@@ -390,6 +398,7 @@ class RadioSource:
                 recording=previous.recording,
                 recording_history=previous.recording_history,
                 recording_schedules=previous.recording_schedules,
+                wake_scheduled_recordings=previous.wake_scheduled_recordings,
             )
         return RadioSnapshot(
             list=StationList(), from_amc_profile=True, load_error=message, scope=scope

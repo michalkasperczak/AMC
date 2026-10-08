@@ -108,6 +108,10 @@
              Link="Engine\RadioRecordingFolderResolver.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\ManualRadioRecorder.cs"
              Link="Engine\ManualRadioRecorder.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\ScheduledRadioRecorder.cs"
+             Link="Engine\ScheduledRadioRecorder.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\SystemWakeTimer.cs"
+             Link="Engine\SystemWakeTimer.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\WindowsPowerRequest.cs"
              Link="Engine\WindowsPowerRequest.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"

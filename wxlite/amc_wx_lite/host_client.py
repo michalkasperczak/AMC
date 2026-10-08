@@ -446,6 +446,13 @@ class LiteHostClient:
             timeout=5.0,
         )
 
+    def sync_radio_schedules(self, payload: dict[str, Any]) -> Any:
+        """Przekaz plany hostowi C#, ktory liczy czas i wykonuje nagrania."""
+        return self.call("radio.scheduleSync", payload, timeout=10.0)
+
+    def radio_schedule_status(self) -> Any:
+        return self.call("radio.scheduleStatus", timeout=5.0)
+
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 

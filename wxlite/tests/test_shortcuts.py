@@ -62,6 +62,15 @@ def test_space_is_play_pause_in_both_views() -> None:
     assert resolve(Chord("Space"), player_view=True, radio_session=False) is Action.PLAY_PAUSE
 
 
+def test_ctrl_space_belongs_to_native_multiselect_list() -> None:
+    # Windowsowy Ctrl+Spacja przelacza element pod fokusem bez kasowania
+    # pozostalych zaznaczen. AMC nie moze przejac tego gestu jako polecenia.
+    for radio in (False, True):
+        assert resolve(
+            Chord("Space", ctrl=True), player_view=False, radio_session=radio
+        ) is None
+
+
 def test_f6_and_escape_match_the_full_amc_behaviour() -> None:
     # MainWindow.xaml.cs:20773-20792
     assert resolve(Chord("F6"), player_view=False, radio_session=False) is Action.SHOW_PLAYER
