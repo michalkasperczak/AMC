@@ -1777,9 +1777,15 @@ class LiteFrame(wx.Frame):
         # stanem NORMALNYM, a nie awaria warta ogloszenia.
         self._queue_write_requested = bool(persistence.get("queue_write"))
         self._last_persist_error: str | None = None
+        layout = getattr(self, "layout", None)
+        library_db = getattr(layout, "library_db", None)
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
+            # Odczyt list nadal nalezy do Pythona w trybie ro. Sciezka daje
+            # hostowi C# wyłącznie możliwość wykonania wąskiej, transakcyjnej
+            # operacji ``bookmark.add`` z własną bramką konfliktu WPF.
+            library_db=(str(library_db) if library_db is not None and library_db.exists() else None),
             on_event=self._on_engine_event,
             on_stderr=lambda line: None,
             **persistence,  # type: ignore[arg-type]
@@ -2245,6 +2251,8 @@ class LiteFrame(wx.Frame):
             self._show_session_options()
         elif action is Action.PLAY_PAUSE:
             self._play_pause()
+        elif action is Action.ADD_BOOKMARK:
+            self._add_bookmark()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
         elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
@@ -2851,6 +2859,41 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
+    def _add_bookmark(self) -> None:
+        """B w odtwarzaczu: szybka zakladka przez waski zapis hosta C#."""
+        if self.navigator.active is not SessionId.FILES:
+            self.announcer.say(
+                "Zakładki nagrywanego radia nie są jeszcze dostępne w tej wersji"
+            )
+            return
+        state = self.navigator.session
+        item_id = state.current_material_id or state.pending_material_id
+        if not item_id:
+            self.announcer.say("Bieżący plik nie ma identyfikatora Biblioteki")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę dodać zakładki")
+            return
+
+        def done(payload: dict) -> None:
+            seconds = float((payload or {}).get("positionSeconds") or 0.0)
+            position = format_duration(seconds)
+            if (payload or {}).get("added"):
+                self.announcer.say(f"Dodano zakładkę: {position}")
+            else:
+                self.announcer.say(f"Zakładka już istnieje: {position}")
+
+        self.runner.submit(
+            "bookmark-write",
+            lambda: client.add_bookmark(
+                item_id=item_id,
+                item_title=state.now_playing_title or item_id,
+            ),
+            done,
+            lambda error: self.announcer.say(f"Nie można dodać zakładki: {error}"),
+        )
+
     def _play_from_queue(self, intent: PlayFromQueue) -> None:
         """Start ZYWEJ kolejki hosta od wybranego wiersza.
 
@@ -2987,12 +3030,18 @@ class LiteFrame(wx.Frame):
         self.runner.submit("playback", work, done, failed)
 
     def _queue_step(self, forward: bool) -> None:
-        """Page Down / Page Up: nastepny albo poprzedni utwor ZYWEJ kolejki.
+        """Page Down / Page Up: lista zrodlowa ALBO prawdziwa kolejka.
 
-        Skok liczy kolejka hosta. Gdy kolejka nie prowadzi odtwarzania (zwykle
-        ``files.play``, radio, zakladka) albo nie ma gdzie isc, host odmawia, a
-        my mowimy to wprost -- zamiast milczec albo udawac zmiane utworu.
+        Pełne AMC zmienia element źródła, z którego otwarto odtwarzacz. Tylko
+        wejście z Zapisanej/Zywej kolejki deleguje krok do koordynatora hosta.
+        Dawniej każde naciśnięcie szło do ``queue.*`` i zwykły plik albo stacja
+        kończyły komunikatem „początek/koniec kolejki”.
         """
+        source_intents = self.navigator.step_playback_source(forward)
+        if source_intents is not None:
+            self._run(source_intents)
+            return
+
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie dziala")

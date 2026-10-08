@@ -57,7 +57,8 @@ internal static class Program
             return 2;
         }
 
-        using var handlers = new LiteEngineHandlers(timeshiftMinutes, store);
+        var bookmarkStore = OpenBookmarkStore(args);
+        using var handlers = new LiteEngineHandlers(timeshiftMinutes, store, bookmarkStore);
         // JAWNY opt-in: tylko odczyt informacji dla lewej strzalki wychodzi
         // poza kolejke, bo czyta metadane pliku/strumienia synchronicznie
         // (limity kilku sekund) i w petli serialnej wstrzymywal transport.
@@ -143,5 +144,16 @@ internal static class Program
             Console.Error.WriteLine("[amc-lite-host] ODMOWA magazynu kolejki: " + denied.Message);
             throw;
         }
+    }
+
+    private static LiteBookmarkStore? OpenBookmarkStore(string[] args)
+    {
+        for (var index = 0; index < args.Length - 1; index++)
+        {
+            if (!string.Equals(args[index], "--library-db", StringComparison.Ordinal)) continue;
+            var path = Path.GetFullPath(args[index + 1]);
+            return File.Exists(path) ? new LiteBookmarkStore(path) : null;
+        }
+        return null;
     }
 }

@@ -13,6 +13,7 @@ internal static class Program
         ("--transport", QueueTransportTests.Run),
         ("--persistence", QueuePersistenceTests.Run),
         ("--quickinfo", QuickInformationTests.Run),
+        ("--bookmarks", BookmarkStoreTests.Run),
     ];
 
     public static int Main(string[] args)

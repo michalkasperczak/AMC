@@ -164,6 +164,15 @@ class SessionState:
     #: Nazwa widoku -> ostatnio na nim zaznaczony wiersz. Odpowiednik
     #: ``SessionNavigationState.SelectedItemIds`` (``MainWindow.xaml.cs:18095``).
     view_selected_ids: dict[str, str] = field(default_factory=dict)
+    #: Migawka listy, z ktorej uruchomiono biezacy material. Page Up/Page Down
+    #: w pelnym AMC chodza po tej liscie zrodlowej, a NIE zawsze po trwalej
+    #: kolejce. Trzymamy wiersze osobno, bo po uruchomieniu uzytkownik moze
+    #: otworzyc inny widok, a nastepny element nadal ma pochodzic ze zrodla.
+    playback_source_rows: tuple[Row, ...] = ()
+    #: ``True`` tylko wtedy, gdy odtwarzanie rzeczywiscie prowadzi kolejka
+    #: hosta (Zapisana kolejka albo Zywa kolejka). Zwykly plik, zakladka i
+    #: stacja nie moga pytac ``queue.previous``/``queue.next``.
+    playback_uses_queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -504,6 +513,11 @@ class Navigator:
             state.now_playing_title = row.title
             # Kandydat, nie fakt: material potwierdzi dopiero udany start.
             state.pending_material_id = profile_material_id(row.item_id)
+            state.playback_source_rows = tuple(
+                candidate for candidate in state.model.rows
+                if candidate.kind == "station" and candidate.url
+            )
+            state.playback_uses_queue = False
             state.view = View.PLAYER
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
 
@@ -529,6 +543,11 @@ class Navigator:
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
         state.pending_material_id = profile_material_id(row.item_id)
+        state.playback_source_rows = tuple(
+            candidate for candidate in state.model.rows
+            if candidate.kind == "track" and candidate.path
+        )
+        state.playback_uses_queue = False
         state.view = View.PLAYER
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
 
@@ -553,6 +572,8 @@ class Navigator:
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
         state.pending_material_id = profile_material_id(row.item_id)
+        state.playback_source_rows = ()
+        state.playback_uses_queue = True
         state.view = View.PLAYER
         # Czlonkostwo bierzemy z ODCZYTU profilu. Wiersz bez wpisu w mapie to
         # starszy zapis (``legacyRegularQueue``): jest w kolejce zwyklej, nie w
@@ -579,6 +600,8 @@ class Navigator:
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
         state.pending_material_id = profile_material_id(row.item_id)
+        state.playback_source_rows = ()
+        state.playback_uses_queue = True
         state.view = View.PLAYER
         return [PlayQueueAt(row.item_id, row.title), Announce(row.title)]
 
@@ -626,6 +649,10 @@ class Navigator:
         state.pending_material_id = (
             profile_material_id(getattr(context, "item_id", "")) if context else ""
         )
+        # Zakladka uruchamia jeden konkretny material. Nie podpinamy pod nia
+        # przypadkowo listy zakladek (jej wiersze nie sa plikami) ani kolejki.
+        state.playback_source_rows = ()
+        state.playback_uses_queue = False
         state.view = View.PLAYER
         return [
             PlayTrack(path, f"file:{path}", title, position_seconds=position_seconds),
@@ -1090,6 +1117,66 @@ class Navigator:
         return [Announce(f"Stacje: {len(rows)}{suffix}")]
 
     # ----------------------------------------------------------- odtwarzanie
+
+    def step_playback_source(self, forward: bool) -> list[object] | None:
+        """Page Down/Page Up w odtwarzaczu.
+
+        ``None`` jest jawnym poleceniem, by wykonawca poprosil ZYWA kolejke
+        hosta. Lista zamiarow oznacza zwykle zrodlo: pliki albo stacje.
+        Rozdzielenie jest konieczne, bo stary port wysylal KAZDY gest do
+        ``queue.next``/``queue.previous`` i dlatego zwykly plik odpowiadal
+        jedynie „poczatek/koniec kolejki”.
+        """
+        state = self.session
+        if state.playback_uses_queue:
+            return None
+
+        rows = state.playback_source_rows
+        if not rows:
+            # Stan odtworzenia mogl zostac odtworzony przez hosta przed
+            # zbudowaniem migawki zrodla. Wtedy pozwalamy zapytac jego zywa
+            # kolejke. Dla znanego zwyklego pliku/zakladki (ma now_playing_id)
+            # nie nazywamy go jednak kolejka.
+            if state.now_playing_id is None:
+                return None
+            return [Announce(
+                "Brak następnego elementu listy źródłowej"
+                if forward else "Brak poprzedniego elementu listy źródłowej"
+            )]
+
+        current_id = state.now_playing_id
+        index = next(
+            (position for position, candidate in enumerate(rows)
+             if candidate.item_id == current_id),
+            -1,
+        )
+        if index < 0:
+            # To nie jest powod, by skoczyc na pierwszy/ostatni wiersz i
+            # zaskoczyc uzytkownika. Kontekst odtwarzania jest niepelny.
+            return [Announce("Nie znajduję bieżącego elementu na liście źródłowej")]
+
+        target_index = index + (1 if forward else -1)
+        if target_index < 0 or target_index >= len(rows):
+            return [Announce(
+                "To ostatni element listy źródłowej"
+                if forward else "To pierwszy element listy źródłowej"
+            )]
+
+        target = rows[target_index]
+        state.list_anchor_id = target.item_id
+        state.model.select_id(target.item_id)
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = profile_material_id(target.item_id)
+        if target.kind == "station":
+            return [
+                PlayStation(target.url or "", target.item_id, target.title),
+                Announce(target.title),
+            ]
+        return [
+            PlayTrack(target.path or "", target.item_id, target.title),
+            Announce(target.title),
+        ]
 
     def note_queue_advanced(self, item_id: str, title: str) -> list[object]:
         """Host POLICZYL przejscie i juz gra nastepna pozycje kolejki.

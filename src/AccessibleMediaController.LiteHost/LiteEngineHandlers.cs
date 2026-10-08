@@ -39,6 +39,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// samej kopii profilu dostalby odmowe po zamknietym poprzedniku.
     /// </summary>
     private readonly LiteQueueStore? _queueStore;
+    private readonly LiteBookmarkStore? _bookmarkStore;
 
     /// <summary>
     /// Ktory silnik gra TERAZ. Dwie sesje maja osobne wyjscia, ale dzwiek
@@ -70,7 +71,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private bool _paused;
 
     public LiteEngineHandlers(int timeshiftMinutes)
-        : this(timeshiftMinutes, null)
+        : this(timeshiftMinutes, null, null)
     {
     }
 
@@ -80,10 +81,14 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// co jest stanem JAWNYM (<c>queue.status</c> oddaje <c>persistent=false</c>),
     /// a nie cichym brakiem trwalosci.
     /// </summary>
-    public LiteEngineHandlers(int timeshiftMinutes, LiteQueueStore? queueStore)
+    public LiteEngineHandlers(
+        int timeshiftMinutes,
+        LiteQueueStore? queueStore,
+        LiteBookmarkStore? bookmarkStore = null)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
+        _bookmarkStore = bookmarkStore;
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -198,6 +203,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["transport.setVolume"] = (request, _) => SetVolume(request.Args),
             ["transport.setRate"] = (request, _) => SetRate(request.Args),
             ["transport.status"] = (_, _) => Status(),
+            ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
             ["audio.outputs"] = (_, _) => ListOutputs(),
@@ -216,6 +222,29 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.next"] = (_, events) => QueueRelative(1, events),
             ["queue.previous"] = (_, events) => QueueRelative(-1, events)
         };
+    }
+
+    private object AddBookmark(JsonElement args)
+    {
+        if (_bookmarkStore is null)
+            throw new LiteRequestException("Zapisywanie zakładek nie ma dostępu do Biblioteki AMC.");
+
+        var itemId = LiteArgs.RequireText(args, "itemId");
+        var itemTitle = LiteArgs.RequireText(args, "itemTitle");
+        TimeSpan position;
+        TimeSpan duration;
+        lock (_gate)
+        {
+            if (_activeEngine != "files" || _filesItem is null)
+                throw new LiteRequestException("Zakładkę można dodać w odtwarzaczu otwartego pliku.");
+            position = _files.Position;
+            duration = string.Equals(_filesDurationId, _filesItem.Id, StringComparison.Ordinal)
+                ? _filesDuration
+                : _filesItem.Duration;
+        }
+        if (duration <= TimeSpan.Zero)
+            throw new LiteRequestException("Nie można dodać zakładki: czas trwania materiału jest nieznany.");
+        return _bookmarkStore.Add(itemId, itemTitle, position, DateTime.UtcNow);
     }
 
     /// <summary>

@@ -55,6 +55,31 @@ def test_radio_view_return_keeps_each_selection_and_local_state():
     assert view_context(nav.session) == original_context
 
 
+def test_switching_sessions_keeps_radio_favorites_and_selected_station():
+    """Dokladna regresja: Radio/Ulubione -> Pliki -> Radio.
+
+    Samo przelaczenie sesji nie moze ponownie otwierac Biblioteki radia ani
+    wybierac pierwszej stacji. Widok, lista i stabilne Id sa stanem sesji.
+    """
+    from amc_wx_lite.list_model import Row
+
+    nav = Navigator()
+    nav.switch_session(SessionId.RADIO)
+    favorites = [
+        Row(item_id="f1", title="Pierwsza", kind="station", url="https://example.invalid/1"),
+        Row(item_id="f2", title="Druga", kind="station", url="https://example.invalid/2"),
+    ]
+    nav.apply_radio_view(LibraryView.FAVORITES, "Ulubione radia", favorites)
+    nav.session.model.select_id("f2")
+
+    nav.switch_session(SessionId.FILES)
+    nav.switch_session(SessionId.RADIO)
+
+    assert nav.session.library_view is LibraryView.FAVORITES
+    assert [row.item_id for row in nav.session.model.rows] == ["f1", "f2"]
+    assert nav.session.model.selected_id == "f2"
+
+
 def test_radio_views_resolve_from_player_as_well_as_list():
     from amc_wx_lite.shortcuts import Chord, Action, resolve
     for key, action in [("L", Action.VIEW_LIBRARY), ("U", Action.VIEW_FAVORITES), ("H", Action.VIEW_HISTORY)]:

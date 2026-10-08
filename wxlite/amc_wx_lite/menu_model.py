@@ -227,6 +227,8 @@ def build_menus() -> tuple[Menu, ...]:
         (
             MenuItem("&Pauza albo wznowienie", Action.PLAY_PAUSE, shortcut="Space",
                      accelerator=False, needs_playback=True),
+            MenuItem("Dodaj &zakładkę", Action.ADD_BOOKMARK, shortcut="B",
+                     accelerator=False, needs_playback=True),
             SEPARATOR,
             # Przewijanie. CZTERY kroki oryginalu (MainWindow.xaml.cs:21583-21590):
             # 10 s goly, 30 s z Shift, 60 s z Ctrl, czas z ustawien z Ctrl+Alt.

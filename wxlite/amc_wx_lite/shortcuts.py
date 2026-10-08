@@ -138,6 +138,7 @@ class Action(Enum):
     TIME_ELAPSED = "time.elapsed"
     TIME_REMAINING = "time.remaining"
     TIME_TOTAL = "time.total"
+    ADD_BOOKMARK = "action.bookmark.add"
     #: Home/End w odtwarzaczu. ID WPROST z oryginalu (CommandIds.cs:40-41),
     #: zeby przyszly port komend sieciowych i palety nie wymyslal wlasnych.
     TRACK_START = "transport.trackStart"
@@ -371,6 +372,10 @@ PLAYER_VIEW: dict[str, Action] = {
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
     "Space": Action.PLAY_PAUSE,
+    # Pelne AMC: gola litera B w otwartym odtwarzaczu dodaje szybka zakladke.
+    # Ctrl+B pozostaje zbiorcza lista zakladek i nie jest aliasem tej akcji.
+    "B": Action.ADD_BOOKMARK,
+    "Ctrl+B": Action.VIEW_ALL_BOOKMARKS,
     # Poprzedni/nastepny utwor kolejki. Gesty z oryginalu (MainWindow.xaml:714
     # i :717 -- menu odtwarzacza, te same akceleratory na przyciskach :995-1000).
     "Prior": Action.QUEUE_PREVIOUS,
@@ -483,6 +488,7 @@ def describe() -> list[tuple[str, str]]:
         Action.TIME_ELAPSED: "Czas miniony",
         Action.TIME_REMAINING: "Czas pozostaly",
         Action.TIME_TOTAL: "Czas calkowity",
+        Action.ADD_BOOKMARK: "Dodaj zakladke w biezacym miejscu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
