@@ -188,6 +188,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _recordings.Split(request.Args),
             ["radio.recordingStopAll"] = (_, _) => _recordings.StopAll(),
             ["radio.recordingStatus"] = (_, _) => _recordings.Status(),
+            ["radio.recordingHistory"] = (_, _) => _recordings.History(),
             ["transport.pauseResume"] = (_, _) => PauseResume(),
             ["transport.stop"] = (_, _) => StopAll(),
             ["transport.seek"] = (request, _) => Seek(request.Args),

@@ -200,12 +200,19 @@ def test_radio_station_management_stays_in_the_radio_menu() -> None:
 
 
 def test_radio_items_declare_they_need_the_radio_session() -> None:
-    """Pozycje stacji musza byc WYLACZANE poza radiem, nie udawac dzialanie."""
+    """Polecenia stacji sa radiowe; wspolne podglady sa globalne jak w AMC."""
     radio = next(m for m in menu_model.build_menus() if "Radio" in m.title)
+    global_previews = {
+        Action.VIEW_ACTIVE_RECORDINGS,
+        Action.VIEW_RECORDED_RADIO_FILES,
+    }
     for item in radio.items:
-        if item.is_separator:
+        if item.is_separator or item.action in global_previews:
             continue
         assert item.needs_radio_session, item.label
+    for item in radio.items:
+        if item.action in global_previews:
+            assert not item.needs_radio_session, item.label
 
 
 def test_no_placeholder_items_for_things_we_do_not_have() -> None:

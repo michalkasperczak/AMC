@@ -7,7 +7,12 @@ glowne okno. Dzieki temu zwykle stacje i YouTube na zywo maja jedna droge.
 
 from __future__ import annotations
 
+import ntpath
+import os
+import stat
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Callable
 
 from .state_store import Station
 from .list_model import Row
@@ -15,6 +20,25 @@ from .list_model import Row
 
 _FORMATS = ("Mp3", "Aac", "Flac", "Original", "Wav")
 _BITRATES = (96, 128, 160, 192, 256, 320)
+_OUTCOMES = ("completed", "stopped", "interrupted", "failed")
+_POLISH_MONTHS = (
+    "", "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
+    "lipca", "sierpnia", "września", "października", "listopada", "grudnia",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RadioRecordingHistoryEntry:
+    id: str
+    station_id: str
+    station_name: str
+    path: str
+    outcome: str
+    reason: str
+    schedule_name: str
+    started_utc_ticks: int
+    finished_utc_ticks: int
+    saved_file_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,5 +180,171 @@ def active_recording_rows(payload: object) -> list[Row]:
             url=url.strip() if isinstance(url, str) and url.strip() else None,
             detail=detail,
             show_kind=False,
+        ))
+    return rows
+
+
+def recording_history_from_amc_state(raw: object) -> tuple[RadioRecordingHistoryEntry, ...]:
+    """Odczytaj historie z ``radio.recordingHistory`` bez zmiany profilu."""
+    if not isinstance(raw, dict):
+        return ()
+    radio = raw.get("radio")
+    if not isinstance(radio, dict):
+        return ()
+    source = radio.get("recordingHistory")
+    if not isinstance(source, list):
+        return ()
+
+    result: list[RadioRecordingHistoryEntry] = []
+    for index, item in enumerate(source):
+        if not isinstance(item, dict):
+            continue
+        raw_outcome = item.get("outcome", "Completed")
+        if isinstance(raw_outcome, int) and not isinstance(raw_outcome, bool):
+            outcome = _OUTCOMES[raw_outcome] if 0 <= raw_outcome < len(_OUTCOMES) else "completed"
+        elif isinstance(raw_outcome, str):
+            outcome = raw_outcome.strip().casefold()
+            if outcome not in _OUTCOMES:
+                outcome = "completed"
+        else:
+            outcome = "completed"
+
+        def text_value(name: str) -> str:
+            value = item.get(name)
+            return value.strip() if isinstance(value, str) else ""
+
+        def int_value(name: str) -> int:
+            value = item.get(name)
+            return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+        entry_id = text_value("id") or f"bez-identyfikatora-{index}"
+        result.append(RadioRecordingHistoryEntry(
+            id=entry_id,
+            station_id=text_value("stationId"),
+            station_name=text_value("stationName"),
+            path=text_value("path"),
+            outcome=outcome,
+            reason=text_value("reason"),
+            schedule_name=text_value("scheduleName"),
+            started_utc_ticks=int_value("startedUtcTicks"),
+            finished_utc_ticks=int_value("finishedUtcTicks"),
+            saved_file_count=max(0, int_value("savedFileCount")),
+        ))
+    return tuple(result)
+
+
+def _when_label(ticks: int, now: datetime) -> str:
+    if ticks <= 0:
+        return "nieznany czas"
+    try:
+        finished = (
+            datetime(1, 1, 1, tzinfo=timezone.utc)
+            + timedelta(microseconds=ticks // 10)
+        ).astimezone()
+    except (OverflowError, OSError, ValueError):
+        return "nieznany czas"
+    local_now = now.astimezone() if now.tzinfo else now
+    if finished.date() == local_now.date():
+        return f"dziś {finished:%H:%M}"
+    if finished.date() == (local_now - timedelta(days=1)).date():
+        return f"wczoraj {finished:%H:%M}"
+    return f"{finished.day} {_POLISH_MONTHS[finished.month]}, {finished:%H:%M}"
+
+
+def _file_name(path: str) -> str:
+    return ntpath.splitext(ntpath.basename(path))[0].strip()
+
+
+def _folder_label(path: str) -> str:
+    directory = ntpath.dirname(path.rstrip("\\/"))
+    if not directory:
+        return ""
+    name = ntpath.basename(directory.rstrip("\\/")) or directory
+    return f"folder {name}" if name else ""
+
+
+def _path_state(path: str) -> str:
+    """``available`` / ``missing`` / ``unavailable`` bez wyjatku w GUI."""
+    if not path:
+        return "missing"
+    try:
+        return "available" if stat.S_ISREG(os.stat(path).st_mode) else "missing"
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unavailable"
+
+
+def recording_history_rows(
+    entries: tuple[RadioRecordingHistoryEntry, ...] | list[RadioRecordingHistoryEntry],
+    *,
+    now: datetime | None = None,
+    path_probe: Callable[[str], str] = _path_state,
+) -> list[Row]:
+    """Wiersze „Historii nagrywania” zgodne z kolejnoscia etykiet AMC."""
+    now_value = now or datetime.now().astimezone()
+    outcome_labels = {
+        "completed": "Nagrane",
+        "stopped": "Zatrzymane",
+        "interrupted": "Przerwane",
+        "failed": "Nieudane",
+    }
+    rows: list[Row] = []
+    for entry in sorted(entries, key=lambda value: value.finished_utc_ticks, reverse=True):
+        station_name = entry.station_name or "Nieznana stacja"
+        playable = entry.outcome in ("completed", "stopped", "interrupted") and bool(entry.path)
+        state = path_probe(entry.path) if playable else "missing"
+        outcome = outcome_labels.get(entry.outcome, "Nagrane")
+        if playable and state == "missing":
+            outcome = (
+                "Brak pliku nagrania" if entry.outcome == "completed"
+                else f"{outcome}, brak pliku nagrania"
+            )
+        elif playable and state == "unavailable":
+            outcome = (
+                "Plik nagrania niedostępny" if entry.outcome == "completed"
+                else f"{outcome}, plik nagrania niedostępny"
+            )
+
+        parts = [outcome, station_name]
+        file_name = _file_name(entry.path)
+        if file_name and file_name not in ", ".join(parts):
+            parts.append(file_name)
+        parts.append(_when_label(entry.finished_utc_ticks, now_value))
+        if entry.schedule_name:
+            parts.append(f"harmonogram {entry.schedule_name}")
+        if entry.saved_file_count > 1:
+            parts.append(f"plików {entry.saved_file_count}")
+        if entry.reason:
+            parts.append(entry.reason.rstrip("."))
+        folder = _folder_label(entry.path)
+        if folder:
+            parts.append(folder)
+        label = ", ".join(parts)
+
+        activation_message: str | None = None
+        path: str | None = entry.path if playable and state == "available" else None
+        if not playable:
+            reason = entry.reason.rstrip(".") or "Nie zapisano pliku"
+            if entry.outcome == "failed":
+                activation_message = f"Nagranie {station_name} nie powstało. {reason}"
+            else:
+                activation_message = f"Brak pliku nagrania {station_name}. {reason}"
+        elif state == "missing":
+            where = f", {folder}" if folder else ""
+            activation_message = (
+                f"Plik nagrania {station_name} nie istnieje już na dysku"
+                + (f": {file_name}{where}" if file_name else "")
+            )
+        elif state == "unavailable":
+            activation_message = label
+
+        rows.append(Row(
+            item_id=f"radio-recording-history:{entry.id}",
+            title=label,
+            kind="track",
+            path=path,
+            show_kind=False,
+            activation_message=activation_message,
         ))
     return rows

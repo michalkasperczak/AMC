@@ -56,6 +56,9 @@ def test_every_new_action_is_handled_in_the_window() -> None:
 _HOST_BACKED_VIEWS = (
     LibraryView.LIVE_QUEUE,
     LibraryView.ACTIVE_RADIO_RECORDINGS,
+    # Historia jest czytana z radio.recordingHistory w state.json, a nie z
+    # lokalnych widokow SQLite obslugiwanych przez _VIEW_KEYS.
+    LibraryView.RECORDED_RADIO_FILES,
 )
 
 

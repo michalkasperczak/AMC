@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +23,8 @@ from amc_wx_lite.radio_recording import (
     active_recording_rows,
     format_duration,
     preferences_from_amc_state,
+    recording_history_from_amc_state,
+    recording_history_rows,
 )
 from amc_wx_lite.radio_source import RadioSource
 from amc_wx_lite.shortcuts import Action, Chord, resolve
@@ -103,7 +106,9 @@ def test_recording_shortcuts_have_the_scope_of_full_amc() -> None:
     for player in (False, True):
         assert resolve(Chord("R", ctrl=True), player_view=player, radio_session=True) is Action.RECORD_TOGGLE
         assert resolve(Chord("Space", shift=True), player_view=player, radio_session=True) is Action.RECORD_PAUSE
-        assert resolve(Chord("R", alt=True), player_view=player, radio_session=True) is Action.VIEW_ACTIVE_RECORDINGS
+        for radio_session in (False, True):
+            assert resolve(Chord("R", alt=True), player_view=player, radio_session=radio_session) is Action.VIEW_ACTIVE_RECORDINGS
+            assert resolve(Chord("R", alt=True, shift=True), player_view=player, radio_session=radio_session) is Action.VIEW_RECORDED_RADIO_FILES
     # Gole R/T tylko odtwarzacz Radia; na liscie zostaja natywnej kontrolce.
     assert resolve(Chord("R"), player_view=True, radio_session=True) is Action.RECORD_TOGGLE
     assert resolve(Chord("T"), player_view=True, radio_session=True) is Action.RECORD_SPLIT
@@ -112,7 +117,6 @@ def test_recording_shortcuts_have_the_scope_of_full_amc() -> None:
     # W plikach zadna litera nie uruchamia nagrania.
     assert resolve(Chord("R"), player_view=True, radio_session=False) is None
     assert resolve(Chord("T"), player_view=True, radio_session=False) is None
-    assert resolve(Chord("R", alt=True), player_view=False, radio_session=False) is None
 
 
 def test_host_client_methods_send_only_documented_recording_operations() -> None:
@@ -130,12 +134,14 @@ def test_host_client_methods_send_only_documented_recording_operations() -> None
     client.split_radio_recording("id", "https://x")
     client.stop_all_radio_recordings()
     client.radio_recording_status()
+    client.radio_recording_history()
     assert [entry[0] for entry in calls] == [
         "radio.recordingToggle",
         "radio.recordingPauseToggle",
         "radio.recordingSplit",
         "radio.recordingStopAll",
         "radio.recordingStatus",
+        "radio.recordingHistory",
     ]
 
 
@@ -225,3 +231,80 @@ def test_radio_navigator_accepts_active_recordings_and_back_returns_to_stations(
     intent = nav.go_to_parent()[0]
     assert intent.view is None
     assert intent.target_session_id is SessionId.RADIO
+
+
+def test_recording_history_keeps_success_failure_and_accessible_labels() -> None:
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    ticks = int((now - datetime(1, 1, 1, tzinfo=timezone.utc)).total_seconds() * 10_000_000)
+    entries = recording_history_from_amc_state({
+        "radio": {
+            "recordingHistory": [
+                {
+                    "id": "techniczne-udane",
+                    "stationId": "radio-test",
+                    "stationName": "Radio Test",
+                    "path": r"D:\Nagrania\audycja.mp3",
+                    "outcome": "Completed",
+                    "finishedUtcTicks": ticks,
+                    "savedFileCount": 1,
+                },
+                {
+                    "id": "techniczne-nieudane",
+                    "stationName": "Radio Awaria",
+                    "outcome": 3,
+                    "reason": "Brak połączenia.",
+                    "finishedUtcTicks": ticks - 10_000_000,
+                },
+            ]
+        }
+    })
+    rows = recording_history_rows(entries, now=now, path_probe=lambda path: "available")
+    assert rows[0].title.startswith("Nagrane, Radio Test, audycja, dziś")
+    assert rows[0].title.endswith("folder Nagrania")
+    assert rows[0].path == r"D:\Nagrania\audycja.mp3"
+    assert "techniczne-udane" not in rows[0].title
+    assert rows[1].title.startswith("Nieudane, Radio Awaria")
+    assert rows[1].path is None
+    assert rows[1].activation_message == (
+        "Nagranie Radio Awaria nie powstało. Brak połączenia"
+    )
+
+
+def test_missing_recording_is_visible_but_enter_refuses_honestly() -> None:
+    entries = recording_history_from_amc_state({
+        "radio": {"recordingHistory": [{
+            "id": "brak",
+            "stationName": "Radio Test",
+            "path": r"D:\Nagrania\brak.mp3",
+            "outcome": "Stopped",
+            "finishedUtcTicks": 1,
+        }]}
+    })
+    row = recording_history_rows(entries, path_probe=lambda path: "missing")[0]
+    assert row.title.startswith("Zatrzymane, brak pliku nagrania, Radio Test")
+    assert row.path is None
+    nav = Navigator()
+    nav.apply_library_view(LibraryView.RECORDED_RADIO_FILES, "Historia nagrywania", [row])
+    message = nav.activate_selected()[0]
+    assert "nie istnieje już na dysku" in message.text
+
+
+def test_transient_recording_preview_restores_session_view_and_selection() -> None:
+    from amc_wx_lite.list_model import Row
+    from amc_wx_lite.navigation import View
+
+    nav = Navigator()
+    original = Row(item_id="plik", title="Audycja", kind="track", path=r"D:\audycja.mp3")
+    nav.apply_library_view(LibraryView.ALL_FILES, "Wszystkie pliki", [original])
+    nav.activate_selected()
+    assert nav.session.view is View.PLAYER
+    snapshot = nav.capture_transient_navigation()
+
+    nav.active = SessionId.RADIO
+    nav.apply_radio_view(LibraryView.ACTIVE_RADIO_RECORDINGS, "Nagrywane", [])
+    nav.restore_transient_navigation(snapshot)
+
+    assert nav.active is SessionId.FILES
+    assert nav.session.view is View.PLAYER
+    assert nav.session.library_view is LibraryView.ALL_FILES
+    assert nav.session.model.selected_id == "plik"

@@ -61,6 +61,9 @@ class LibraryView(Enum):
     #: Biezacy stan nagrywania radia z hosta. To nie jest utrwalona historia
     #: ani lista plikow na dysku, dlatego ma osobna tozsamosc widoku.
     ACTIVE_RADIO_RECORDINGS = "activeRadioRecordings"
+    #: Utrwalona historia nagrywania radia: udane, zatrzymane, przerwane i
+    #: nieudane proby. Widok mieszka w sesji Pliki lokalne jak w pelnym AMC.
+    RECORDED_RADIO_FILES = "recordedRadioFiles"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -158,6 +161,34 @@ class SessionState:
     #: Nazwa widoku -> ostatnio na nim zaznaczony wiersz. Odpowiednik
     #: ``SessionNavigationState.SelectedItemIds`` (``MainWindow.xaml.cs:18095``).
     view_selected_ids: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class TransientNavigationSnapshot:
+    """Miejsce powrotu ze wspolnego podgladu Alt+R/Alt+Shift+R.
+
+    Stan odtwarzania nie jest migawka: muzyka moze isc dalej i zdarzenia hosta
+    nadal aktualizuja ``now_playing``. Zachowujemy tylko nawigacje, liste,
+    filtr powiazany z widokiem i fokus logiczny.
+    """
+
+    session_id: SessionId
+    view: View
+    rows: tuple[Row, ...]
+    selected_id: str | None
+    list_anchor_id: str | None
+    folder_path: str | None
+    breadcrumb: tuple[tuple[str, str], ...]
+    library_view: LibraryView | None
+    library_playlist_id: str | None
+    library_return_id: str | None
+    library_item_id: str | None
+    bookmark_targets: dict[str, tuple[str, float, str]]
+    bookmark_contexts: dict[str, object]
+    queue_flags: dict[str, tuple[bool, bool]]
+    library_folder_path: str | None
+    library_return_view: str | None
+    view_selected_ids: dict[str, str]
 
 
 @dataclass(slots=True)
@@ -353,6 +384,53 @@ class Navigator:
     def _session_name(session_id: SessionId) -> str:
         return "Pliki lokalne" if session_id is SessionId.FILES else "Radio internetowe"
 
+    def capture_transient_navigation(self) -> TransientNavigationSnapshot:
+        """Zapamietaj dokladne miejsce przed wspolnym podgladem."""
+        state = self.session
+        return TransientNavigationSnapshot(
+            session_id=self.active,
+            view=state.view,
+            rows=tuple(state.model.rows),
+            selected_id=state.model.selected_id,
+            list_anchor_id=state.list_anchor_id,
+            folder_path=state.folder_path,
+            breadcrumb=tuple(state.breadcrumb),
+            library_view=state.library_view,
+            library_playlist_id=state.library_playlist_id,
+            library_return_id=state.library_return_id,
+            library_item_id=state.library_item_id,
+            bookmark_targets=dict(state.bookmark_targets),
+            bookmark_contexts=dict(state.bookmark_contexts),
+            queue_flags=dict(state.queue_flags),
+            library_folder_path=state.library_folder_path,
+            library_return_view=state.library_return_view,
+            view_selected_ids=dict(state.view_selected_ids),
+        )
+
+    def restore_transient_navigation(
+        self, snapshot: TransientNavigationSnapshot
+    ) -> list[object]:
+        """Escape z podgladu oddaje sesje, widok, wiersz i odtwarzacz."""
+        self.active = snapshot.session_id
+        state = self.sessions[snapshot.session_id]
+        state.view = snapshot.view
+        state.list_anchor_id = snapshot.list_anchor_id
+        state.folder_path = snapshot.folder_path
+        state.breadcrumb = list(snapshot.breadcrumb)
+        state.library_view = snapshot.library_view
+        state.library_playlist_id = snapshot.library_playlist_id
+        state.library_return_id = snapshot.library_return_id
+        state.library_item_id = snapshot.library_item_id
+        state.bookmark_targets = dict(snapshot.bookmark_targets)
+        state.bookmark_contexts = dict(snapshot.bookmark_contexts)
+        state.queue_flags = dict(snapshot.queue_flags)
+        state.library_folder_path = snapshot.library_folder_path
+        state.library_return_view = snapshot.library_return_view
+        state.view_selected_ids = dict(snapshot.view_selected_ids)
+        state.model.replace(list(snapshot.rows), preferred_id=snapshot.selected_id)
+        where = "odtwarzacz" if state.view is View.PLAYER else "lista"
+        return [Announce(f"Powrót: {self._session_name(snapshot.session_id)}, {where}")]
+
     # ---------------------------------------------------------------- widoki
 
     def show_player(self) -> list[object]:
@@ -411,6 +489,11 @@ class Navigator:
             if state.folder_path:
                 state.breadcrumb.append((state.folder_path, row.item_id))
             return [OpenFolder(row.path)]
+
+        if row.activation_message:
+            # Wiersz zostaje zaznaczony i widoczny. To zamierzona odmowa
+            # (np. nieudane nagranie), nie powod do wejscia w odtwarzacz.
+            return [Announce(row.activation_message)]
 
         if row.kind == "station":
             state.list_anchor_id = row.item_id
@@ -608,6 +691,7 @@ class Navigator:
         LibraryView.LIVE_QUEUE,
         LibraryView.ITEM_BOOKMARKS,
         LibraryView.ACTIVE_RADIO_RECORDINGS,
+        LibraryView.RECORDED_RADIO_FILES,
     )
 
     def open_item_bookmarks(self) -> list[object]:

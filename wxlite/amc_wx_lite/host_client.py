@@ -423,6 +423,10 @@ class LiteHostClient:
     def radio_recording_status(self) -> Any:
         return self.call("radio.recordingStatus", timeout=5.0)
 
+    def radio_recording_history(self) -> Any:
+        """Historia biezacego procesu hosta; profil WPF pozostaje read-only."""
+        return self.call("radio.recordingHistory", timeout=5.0)
+
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 

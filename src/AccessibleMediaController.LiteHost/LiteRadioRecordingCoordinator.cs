@@ -16,6 +16,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, ActiveRecording> _active = new(StringComparer.Ordinal);
+    private readonly List<CompletedRecording> _history = [];
     private bool _disposed;
 
     public object Toggle(JsonElement args, LiteEventSink events)
@@ -198,6 +199,24 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         };
     }
 
+    public object History()
+    {
+        CompletedRecording[] recordings;
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            recordings = _history.ToArray();
+        }
+        return new
+        {
+            // Produkcyjny profil WPF pozostaje tylko do odczytu: stary proces
+            // nie zna blokady LiteHost. Frontend moze wiec uczciwie powiedziec,
+            // ze te najnowsze wpisy zyja do zamkniecia biezacego procesu.
+            persistent = false,
+            recordings = recordings.Select(HistoryPayload).ToArray()
+        };
+    }
+
     private ActiveRecording[] FindForStation(JsonElement args)
     {
         var stationId = LiteArgs.ReadText(args, "stationId");
@@ -247,10 +266,33 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
             result = new ManualRadioRecordingResult(false, false, null, exception.Message);
         }
 
-        lock (_gate) _active.Remove(active.Id);
-        active.Cancellation.Dispose();
         var paths = active.Control.CompletedPaths;
         var path = result.Path ?? paths.LastOrDefault() ?? active.Path;
+        var outcome = (result.Success, result.Cancelled, paths.Count) switch
+        {
+            (true, _, _) => "Completed",
+            (false, true, _) when string.IsNullOrWhiteSpace(result.Error) => "Stopped",
+            (false, _, > 0) => "Interrupted",
+            _ => "Failed"
+        };
+        var completed = new CompletedRecording(
+            active.Id,
+            active.StationId,
+            active.StationName,
+            path ?? string.Empty,
+            outcome,
+            result.Error?.Trim() ?? string.Empty,
+            (active.StartedUtc ?? active.RequestedUtc).Ticks,
+            DateTime.UtcNow.Ticks,
+            paths.Count);
+        lock (_gate)
+        {
+            _active.Remove(active.Id);
+            _history.Insert(0, completed);
+            if (_history.Count > 1_000)
+                _history.RemoveRange(1_000, _history.Count - 1_000);
+        }
+        active.Cancellation.Dispose();
         var payload = new
         {
             recordingId = active.Id,
@@ -260,7 +302,10 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
             savedFileCount = paths.Count,
             cancelled = result.Cancelled,
             success = result.Success,
-            error = result.Error
+            error = result.Error,
+            outcome,
+            startedUtcTicks = completed.StartedUtcTicks,
+            finishedUtcTicks = completed.FinishedUtcTicks
         };
         events.Publish(result.Success || result.Cancelled && paths.Count > 0
             ? "radio.recordingFinished"
@@ -289,6 +334,20 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         startedUtc = active.StartedUtc,
         format = active.Format.ToString(),
         bitrateKbps = active.BitrateKbps
+    };
+
+    private static object HistoryPayload(CompletedRecording recording) => new
+    {
+        id = recording.Id,
+        stationId = recording.StationId,
+        stationName = recording.StationName,
+        path = recording.Path,
+        outcome = recording.Outcome,
+        reason = recording.Reason,
+        scheduleName = string.Empty,
+        startedUtcTicks = recording.StartedUtcTicks,
+        finishedUtcTicks = recording.FinishedUtcTicks,
+        savedFileCount = recording.SavedFileCount
     };
 
     private static RecordingRequest ReadRequest(JsonElement args)
@@ -382,6 +441,17 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         string SystemFallbackFolder,
         RadioRecordingFormat Format,
         int BitrateKbps);
+
+    private sealed record CompletedRecording(
+        string Id,
+        string StationId,
+        string StationName,
+        string Path,
+        string Outcome,
+        string Reason,
+        long StartedUtcTicks,
+        long FinishedUtcTicks,
+        int SavedFileCount);
 
     private sealed class ActiveRecording(
         string id,

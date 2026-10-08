@@ -201,7 +201,9 @@ def build_menus() -> tuple[Menu, ...]:
                      Action.RECORD_STOP_ALL, shortcut="Ctrl+Alt+Shift+R",
                      accelerator=False, needs_radio_session=True),
             MenuItem("Pokaż n&agrywane", Action.VIEW_ACTIVE_RECORDINGS,
-                     shortcut="Alt+R", needs_radio_session=True),
+                     shortcut="Alt+R"),
+            MenuItem("&Historia nagrywania", Action.VIEW_RECORDED_RADIO_FILES,
+                     shortcut="Alt+Shift+R"),
             SEPARATOR,
             # Przelacznik licznika "3 z 37" na liscie stacji. Ustawienie
             # PRYWATNE portu wx (``state.radio_announce_position``) -- pelne

@@ -47,6 +47,10 @@ class Row:
     detail: str = ""
     # Jednorodny widok moze pominac rodzaj bez zmiany danych elementu.
     show_kind: bool = True
+    # Uczciwa odmowa po Enterze dla wiersza, ktory ma pozostac widoczny, ale
+    # nie ma czego uruchomic (np. nieudane nagranie albo brakujacy plik).
+    # To tekst dla uzytkownika, nigdy techniczny identyfikator lub repr.
+    activation_message: str | None = None
 
     @property
     def is_openable(self) -> bool:

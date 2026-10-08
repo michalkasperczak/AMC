@@ -57,6 +57,7 @@ from .navigation import (
     PlayStation,
     PlayTrack,
     SessionId,
+    TransientNavigationSnapshot,
     View,
     view_context,
 )
@@ -87,7 +88,12 @@ from .transport_parity import (
 )
 from . import session_options
 from .radio_source import RadioSource
-from .radio_recording import active_recording_rows, format_duration
+from .radio_recording import (
+    active_recording_rows,
+    format_duration,
+    recording_history_from_amc_state,
+    recording_history_rows,
+)
 from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
 
@@ -1216,6 +1222,7 @@ class LiteFrame(wx.Frame):
         self._radio_snapshot = self.radio.load()
         self.stations = self._radio_snapshot.list
         self.navigator = Navigator()
+        self._transient_preview_return: TransientNavigationSnapshot | None = None
         # Biblioteka AMC (SQLite, tylko odczyt). Wlascicielem zapisu profilu
         # pozostaje host C#; ten wariant nigdy nie prowadzi harmonogramow.
         self.library = LibrarySource()
@@ -1882,6 +1889,14 @@ class LiteFrame(wx.Frame):
             radio_state = self.navigator.sessions[SessionId.RADIO]
             if radio_state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS:
                 self._show_active_radio_recordings(announce=False)
+        if name in (
+            "radio.recordingFinished",
+            "radio.recordingStopped",
+            "radio.recordingFailed",
+        ):
+            files_state = self.navigator.sessions[SessionId.FILES]
+            if files_state.library_view is LibraryView.RECORDED_RADIO_FILES:
+                self._show_radio_recording_history(announce=False)
         if name == "queue.advanced" or (
             name in ("playback.started", "playback.ended")
             and data.get("engine") == "files"
@@ -2204,13 +2219,16 @@ class LiteFrame(wx.Frame):
 
     def _dispatch(self, action: Action) -> None:
         if action is Action.SESSION_FILES:
+            self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
         elif action is Action.SESSION_RADIO:
+            self._transient_preview_return = None
             self._switch_session(SessionId.RADIO)
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
-            self._run(self.navigator.go_to_parent())
+            if not LiteFrame._restore_transient_preview(self):
+                self._run(self.navigator.go_to_parent())
         elif action is Action.SHOW_PLAYER:
             # F6 w odtwarzaczu TEZ wraca na liste (navigator.show_player), wiec
             # musi przejsc przez polityke pauzy tak samo jak Escape.
@@ -2289,6 +2307,8 @@ class LiteFrame(wx.Frame):
             self._stop_all_radio_recordings()
         elif action is Action.VIEW_ACTIVE_RECORDINGS:
             self._show_active_radio_recordings()
+        elif action is Action.VIEW_RECORDED_RADIO_FILES:
+            self._show_radio_recording_history()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -2458,6 +2478,30 @@ class LiteFrame(wx.Frame):
 
     def _switch_session(self, session_id: SessionId) -> None:
         self._run(self.navigator.switch_session(session_id))
+
+    def _begin_transient_preview(self) -> None:
+        if self._transient_preview_return is None:
+            self._transient_preview_return = self.navigator.capture_transient_navigation()
+
+    def _restore_transient_preview(
+        self, *, announce: bool = True, force: bool = False
+    ) -> bool:
+        snapshot = getattr(self, "_transient_preview_return", None)
+        if snapshot is None:
+            return False
+        current = self.navigator.session.library_view
+        if not force and current not in (
+            LibraryView.ACTIVE_RADIO_RECORDINGS,
+            LibraryView.RECORDED_RADIO_FILES,
+        ):
+            return False
+        self._transient_preview_return = None
+        events = self.navigator.restore_transient_navigation(snapshot)
+        if announce:
+            self._run(events)
+        else:
+            self._sync_views()
+        return True
 
     # ---------------------------------------------------------------- pliki
 
@@ -3639,11 +3683,16 @@ class LiteFrame(wx.Frame):
             if announce:
                 self.announcer.say("Silnik odtwarzania jest niedostępny")
             return
-        if announce and self.navigator.active is not SessionId.RADIO:
-            self._switch_session(SessionId.RADIO)
+        if announce:
+            self._begin_transient_preview()
+            # Sam wynik wypowie nazwe podgladu. Osobne "Radio internetowe"
+            # przed nim byloby podwojnym komunikatem po jednym Alt+R.
+            self.navigator.active = SessionId.RADIO
         preferred_id = self.navigator.sessions[SessionId.RADIO].model.selected_id
 
         def done(payload: dict) -> None:
+            if announce and self._transient_preview_return is None:
+                return
             events = self.navigator.apply_radio_view(
                 LibraryView.ACTIVE_RADIO_RECORDINGS,
                 "Nagrywane",
@@ -3661,6 +3710,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             if announce and self.navigator.active is SessionId.RADIO:
+                self._restore_transient_preview(announce=False, force=True)
                 self.announcer.say(f"Nie można wczytać trwających nagrań: {error}")
 
         self.runner.submit(
@@ -3669,6 +3719,85 @@ class LiteFrame(wx.Frame):
             done,
             failed,
         )
+
+    def _show_radio_recording_history(self, *, announce: bool = True) -> None:
+        """Alt+Shift+R: utrwalone wyniki prob, razem z nieudanymi."""
+        if announce:
+            self._begin_transient_preview()
+            self.navigator.active = SessionId.FILES
+        previous = self._radio_snapshot
+        client = self.client
+
+        def work():
+            snapshot = self.radio.load(previous=previous)
+            current_entries = ()
+            current_error = ""
+            if client is not None:
+                try:
+                    payload = client.radio_recording_history()
+                    current_entries = recording_history_from_amc_state({
+                        "radio": {
+                            "recordingHistory": payload.get("recordings", [])
+                            if isinstance(payload, dict) else []
+                        }
+                    })
+                except (HostError, HostUnavailable, OSError) as error:
+                    current_error = str(error)
+            known_ids = {entry.id for entry in current_entries}
+            combined = current_entries + tuple(
+                entry for entry in snapshot.recording_history if entry.id not in known_ids
+            )
+            return (
+                snapshot,
+                recording_history_rows(combined),
+                len(current_entries),
+                current_error,
+            )
+
+        def done(result) -> None:
+            if announce and self._transient_preview_return is None:
+                return
+            if not announce and (
+                self.navigator.active is not SessionId.FILES
+                or self.navigator.sessions[SessionId.FILES].library_view
+                is not LibraryView.RECORDED_RADIO_FILES
+            ):
+                return
+            snapshot, rows, current_count, current_error = result
+            self._radio_snapshot = snapshot
+            self.stations = snapshot.list
+            if announce and snapshot.load_error and not rows:
+                self._restore_transient_preview(announce=False, force=True)
+                self.announcer.say(snapshot.load_error)
+                return
+            events = self.navigator.apply_library_view(
+                LibraryView.RECORDED_RADIO_FILES,
+                "Historia nagrywania",
+                rows,
+            )
+            if self.navigator.active is SessionId.FILES:
+                if announce:
+                    self._run(events)
+                else:
+                    self._sync_views()
+                if announce and snapshot.load_error:
+                    self.announcer.say(snapshot.load_error)
+                if announce and current_count:
+                    self.announcer.say(
+                        "Najnowsze nagrania z tej sesji są widoczne, ale nie są "
+                        "jeszcze zapisywane we wspólnym profilu AMC"
+                    )
+                if announce and current_error:
+                    self.announcer.say(
+                        "Historia bieżącej sesji nagrywania jest chwilowo niedostępna"
+                    )
+
+        def failed(error: Exception) -> None:
+            if announce:
+                self._restore_transient_preview(announce=False, force=True)
+                self.announcer.say(f"Nie można wczytać historii nagrywania: {error}")
+
+        self.runner.submit("radio-recording-history", work, done, failed)
 
     def _refuse_station_edit(self) -> bool:
         """Odmowa edycji stacji we wspolnym profilu. ``True`` = nie kontynuuj.
