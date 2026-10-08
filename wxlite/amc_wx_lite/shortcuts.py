@@ -158,6 +158,10 @@ class Action(Enum):
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
     STATION_IMPORT = "radio.import"
+    RECORD_TOGGLE = "radio.recording.toggle"
+    RECORD_PAUSE = "radio.recording.pause"
+    RECORD_SPLIT = "radio.recording.split"
+    RECORD_STOP_ALL = "radio.recording.stopAll"
     #: Przelacznik odczytu POZYCJI wiersza na liscie stacji ("3 z 37").
     #:
     #: Nie ma odpowiednika w pelnym AMC i nie moze go dostac: to ustawienie
@@ -340,6 +344,19 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     "F2": Action.STATION_EDIT,
     "Delete": Action.STATION_DELETE,
     "Ctrl+I": Action.STATION_IMPORT,
+    # Skroty nagrywania z pelnego AMC (MainWindow.xaml.cs:21396-21446).
+    # Ctrl+R dziala na liscie i w odtwarzaczu; Shift+Spacja steruje pauza.
+    "Ctrl+R": Action.RECORD_TOGGLE,
+    "Shift+Space": Action.RECORD_PAUSE,
+}
+
+# Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
+# T i R musza pozostac natywnej kontroli (wyszukiwanie przyrostowe).
+RADIO_PLAYER_VIEW: dict[str, Action] = {
+    "R": Action.RECORD_TOGGLE,
+    "Ctrl+R": Action.RECORD_TOGGLE,
+    "Shift+Space": Action.RECORD_PAUSE,
+    "T": Action.RECORD_SPLIT,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role
@@ -401,7 +418,12 @@ PLAYER_VIEW: dict[str, Action] = {
     # Opcje sesji dzialaja takze z odtwarzacza: zakres to SESJA, nie widok.
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "F1": Action.HELP,
+    # Globalne zatrzymanie dziala niezaleznie od aktualnej sesji, jak w WPF.
+    "Ctrl+Alt+Shift+R": Action.RECORD_STOP_ALL,
 }
+
+# To samo globalne polecenie z widoku listy.
+LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
 
 
 def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action | None:
@@ -413,6 +435,8 @@ def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action |
     # Ta sama akcja co na liscie/menu; nie przenosimy edycji stacji do PLAYER.
     if radio_session and canonical in ("Ctrl+L", "Ctrl+U", "Ctrl+H"):
         return LIST_VIEW[canonical]
+    if player_view and radio_session and canonical in RADIO_PLAYER_VIEW:
+        return RADIO_PLAYER_VIEW[canonical]
     if not player_view and radio_session and canonical in RADIO_LIST_VIEW:
         return RADIO_LIST_VIEW[canonical]
     return table.get(canonical)
@@ -476,6 +500,10 @@ def describe() -> list[tuple[str, str]]:
         Action.STATION_EDIT: "Zmien stacje",
         Action.STATION_DELETE: "Usun stacje",
         Action.STATION_IMPORT: "Importuj liste stacji",
+        Action.RECORD_TOGGLE: "Rozpocznij albo zatrzymaj nagrywanie wybranej stacji",
+        Action.RECORD_PAUSE: "Wstrzymaj albo wznow nagrywanie wybranej stacji",
+        Action.RECORD_SPLIT: "Zapisz biezaca czesc i rozpocznij nowa",
+        Action.RECORD_STOP_ALL: "Zatrzymaj wszystkie nagrania radia",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
         Action.VIEW_FAVORITES: "Ulubione",
         Action.VIEW_PLAYLISTS: "Playlisty",
@@ -518,7 +546,7 @@ def describe() -> list[tuple[str, str]]:
 
     seen: set[Action] = set()
     out: list[tuple[str, str]] = []
-    for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
+    for table in (LIST_VIEW, RADIO_LIST_VIEW, RADIO_PLAYER_VIEW, PLAYER_VIEW):
         for chord, action in table.items():
             if action in seen:
                 continue

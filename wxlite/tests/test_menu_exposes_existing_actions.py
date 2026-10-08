@@ -22,7 +22,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from amc_wx_lite import menu_model
-from amc_wx_lite.shortcuts import LIST_VIEW, PLAYER_VIEW, RADIO_LIST_VIEW, Action
+from amc_wx_lite.shortcuts import (
+    LIST_VIEW,
+    PLAYER_VIEW,
+    RADIO_LIST_VIEW,
+    RADIO_PLAYER_VIEW,
+    Action,
+)
 
 
 def all_items() -> list[menu_model.MenuItem]:
@@ -129,7 +135,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     ``setdefault`` przepuszczalo F6 tylko dzieki kolejnosci tablic.
     """
     real: dict[str, set[Action]] = {}
-    for table in (LIST_VIEW, RADIO_LIST_VIEW, PLAYER_VIEW):
+    for table in (LIST_VIEW, RADIO_LIST_VIEW, RADIO_PLAYER_VIEW, PLAYER_VIEW):
         for chord, action in table.items():
             real.setdefault(chord, set()).add(action)
 

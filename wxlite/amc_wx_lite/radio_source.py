@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .profile_layout import ProfileLayout, ProfileMode, ProfileWriteDenied
+from .radio_recording import RadioRecordingPreferences, preferences_from_amc_state
 from .state_store import LiteState, Station, StationList, StateStore
 
 
@@ -69,6 +70,9 @@ class RadioSnapshot:
     #: 12 MB nie czytamy dwa razy. Pusty slownik = brak zapisu, czyli
     #: ``AddedNewest`` wszedzie (``MainWindow.xaml.cs:13193-13196``).
     collection_sort_modes: dict = field(default_factory=dict)
+    #: Ustawienia nagrywania z TEGO SAMEGO odczytu profilu co lista stacji.
+    #: Python ich nie zapisuje; przekazuje je bezokiennemu hostowi C#.
+    recording: RadioRecordingPreferences = field(default_factory=RadioRecordingPreferences)
 
     @property
     def stations(self) -> list[Station]:
@@ -336,6 +340,7 @@ class RadioSource:
             # Tryby bierzemy z JUZ wczytanego ``raw`` -- bez drugiego przejscia
             # po 12 MB pliku i bez konkurencyjnego modelu ustawien.
             collection_sort_modes=collection_sort_modes_from_amc_state(raw),
+            recording=preferences_from_amc_state(raw),
         )
 
     def _read_failure(
@@ -357,6 +362,7 @@ class RadioSource:
                 load_error=f"{message}. Pokazuję poprzednią listę.",
                 kept_previous=True,
                 scope=scope,
+                recording=previous.recording,
             )
         return RadioSnapshot(
             list=StationList(), from_amc_profile=True, load_error=message, scope=scope

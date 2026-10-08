@@ -20,6 +20,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly object _gate = new();
     private readonly WindowsMediaOutput _files = new();
     private readonly RadioMediaOutput _radio;
+    private readonly LiteRadioRecordingCoordinator _recordings = new();
     private LiteEventSink? _events;
 
     /// <summary>
@@ -179,6 +180,14 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["files.listFolder"] = (request, _) => ListFolder(request.Args),
             ["files.play"] = (request, events) => PlayFile(request.Args, events),
             ["radio.play"] = (request, events) => PlayStation(request.Args, events),
+            ["radio.recordingToggle"] = (request, events) =>
+                _recordings.Toggle(request.Args, events),
+            ["radio.recordingPauseToggle"] = (request, _) =>
+                _recordings.TogglePause(request.Args),
+            ["radio.recordingSplit"] = (request, _) =>
+                _recordings.Split(request.Args),
+            ["radio.recordingStopAll"] = (_, _) => _recordings.StopAll(),
+            ["radio.recordingStatus"] = (_, _) => _recordings.Status(),
             ["transport.pauseResume"] = (_, _) => PauseResume(),
             ["transport.stop"] = (_, _) => StopAll(),
             ["transport.seek"] = (request, _) => Seek(request.Args),
@@ -935,6 +944,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             Console.Error.WriteLine("[lite-host] nie zapisano pozycji wznowienia: " + exception.Message);
         }
 
+        // Najpierw domykamy prywatne tory nagrywania. Sa niezalezne od
+        // slyszalnego radia, ale nadal korzystaja z tych samych bibliotek.
+        _recordings.Dispose();
         _files.Dispose();
         _radio.Dispose();
         // Blokada wlasnosci MUSI pasc razem z hostem. Bez tego kolejny host na

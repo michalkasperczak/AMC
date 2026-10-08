@@ -185,6 +185,22 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("&Importuj M3U/PLS", Action.STATION_IMPORT, shortcut="Ctrl+I",
                      needs_radio_session=True),
             SEPARATOR,
+            MenuItem("&Nagrywaj albo zatrzymaj wybraną stację",
+                     Action.RECORD_TOGGLE, shortcut="Ctrl+R",
+                     needs_radio_session=True),
+            # Shift+Spacja i gola litera T nie moga zostac akceleratorami
+            # okna: w polu filtra sa zwyklymi klawiszami edycji. Obsluguje je
+            # resolver tylko wtedy, gdy fokus nie jest w polu tekstowym.
+            MenuItem("&Wstrzymaj albo wznów nagrywanie",
+                     Action.RECORD_PAUSE, shortcut="Shift+Space",
+                     accelerator=False, needs_radio_session=True),
+            MenuItem("Podziel &bieżące nagranie",
+                     Action.RECORD_SPLIT, shortcut="T",
+                     accelerator=False, needs_radio_session=True),
+            MenuItem("Zatrzymaj w&szystkie nagrania",
+                     Action.RECORD_STOP_ALL, shortcut="Ctrl+Alt+Shift+R",
+                     accelerator=False, needs_radio_session=True),
+            SEPARATOR,
             # Przelacznik licznika "3 z 37" na liscie stacji. Ustawienie
             # PRYWATNE portu wx (``state.radio_announce_position``) -- pelne
             # AMC nie dostaje tu nowego wariantu.

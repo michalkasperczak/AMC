@@ -100,6 +100,16 @@
              Link="Engine\RadioPlaylistImporter.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\RadioRecordingStagingStore.cs"
              Link="Engine\RadioRecordingStagingStore.cs" />
+    <!-- Reczne nagrania wx korzystaja z DOKLADNIE tego samego prywatnego,
+         nieslyszalnego toru i sterowania czesciami co pelne AMC. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioRecordingControl.cs"
+             Link="Engine\RadioRecordingControl.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\RadioRecordingFolderResolver.cs"
+             Link="Engine\RadioRecordingFolderResolver.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\ManualRadioRecorder.cs"
+             Link="Engine\ManualRadioRecorder.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\WindowsPowerRequest.cs"
+             Link="Engine\WindowsPowerRequest.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"
              Link="Engine\YtDlpComponentManager.cs" />
   </ItemGroup>

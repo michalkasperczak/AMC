@@ -397,6 +397,32 @@ class LiteHostClient:
     def import_playlist(self, path: str) -> Any:
         return self.call("radio.importPlaylist", {"path": path}, timeout=60.0)
 
+    # ------------------------------------------------------ nagrywanie radia
+
+    def toggle_radio_recording(self, payload: dict[str, Any]) -> Any:
+        """Uruchom lub zatrzymaj prywatny tor nagrania wskazanej stacji."""
+        return self.call("radio.recordingToggle", payload, timeout=10.0)
+
+    def toggle_radio_recording_pause(self, station_id: str, url: str) -> Any:
+        return self.call(
+            "radio.recordingPauseToggle",
+            {"stationId": station_id, "url": url},
+            timeout=10.0,
+        )
+
+    def split_radio_recording(self, station_id: str, url: str) -> Any:
+        return self.call(
+            "radio.recordingSplit",
+            {"stationId": station_id, "url": url},
+            timeout=30.0,
+        )
+
+    def stop_all_radio_recordings(self) -> Any:
+        return self.call("radio.recordingStopAll", timeout=10.0)
+
+    def radio_recording_status(self) -> Any:
+        return self.call("radio.recordingStatus", timeout=5.0)
+
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 

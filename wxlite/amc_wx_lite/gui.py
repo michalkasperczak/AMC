@@ -87,6 +87,7 @@ from .transport_parity import (
 )
 from . import session_options
 from .radio_source import RadioSource
+from .radio_recording import format_duration
 from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
 
@@ -1851,6 +1852,32 @@ class LiteFrame(wx.Frame):
             if title:
                 self.now_playing.SetLabel(title)
                 self.announcer.say(title)
+        elif name == "radio.recordingStarted":
+            station = str(data.get("stationName") or "stacja")
+            path = str(data.get("path") or "").strip()
+            suffix = f": {Path(path).name}" if path else ""
+            self.announcer.say(f"Nagrywanie działa w tle: {station}{suffix}")
+        elif name == "radio.recordingFinished":
+            station = str(data.get("stationName") or "stacja")
+            count = int(data.get("savedFileCount") or 0)
+            path = str(data.get("path") or "").strip()
+            if count > 1:
+                self.announcer.say(
+                    f"Zakończono nagrywanie {station}. Zapisano plików: {count}"
+                )
+            elif path:
+                self.announcer.say(
+                    f"Zakończono nagrywanie {station}: {Path(path).name}"
+                )
+            else:
+                self.announcer.say(f"Zakończono nagrywanie: {station}")
+        elif name == "radio.recordingStopped":
+            station = str(data.get("stationName") or "stacja")
+            self.announcer.say(f"Zatrzymano nagrywanie: {station}")
+        elif name == "radio.recordingFailed":
+            station = str(data.get("stationName") or "stacja")
+            reason = str(data.get("error") or "nie utworzono pliku")
+            self.announcer.say(f"Nie udało się nagrać {station}: {reason}")
         if name == "queue.advanced" or (
             name in ("playback.started", "playback.ended")
             and data.get("engine") == "files"
@@ -2248,6 +2275,14 @@ class LiteFrame(wx.Frame):
             self._station_delete()
         elif action is Action.STATION_IMPORT:
             self._station_import()
+        elif action is Action.RECORD_TOGGLE:
+            self._toggle_radio_recording()
+        elif action is Action.RECORD_PAUSE:
+            self._toggle_radio_recording_pause()
+        elif action is Action.RECORD_SPLIT:
+            self._split_radio_recording()
+        elif action is Action.RECORD_STOP_ALL:
+            self._stop_all_radio_recordings()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3444,7 +3479,152 @@ class LiteFrame(wx.Frame):
 
     def _selected_station(self) -> Station | None:
         row = self.navigator.sessions[SessionId.RADIO].model.selected_row
-        return self.stations.find(row.item_id) if row is not None else None
+        if row is None:
+            return None
+        saved = self.stations.find(row.item_id)
+        if saved is not None:
+            return saved
+        # Historia i Ulubione moga pokazywac stacje spoza biezacego zakresu
+        # Biblioteki. Wiersz nadal niesie zamierzona nazwe i adres; nigdy nie
+        # podstawiamy technicznej reprezentacji obiektu pod etykiete NVDA.
+        if row.kind == "station" and row.url:
+            return Station(id=row.item_id, name=row.title, url=row.url)
+        return None
+
+    def _recording_station(self) -> Station | None:
+        if self.navigator.active is not SessionId.RADIO:
+            self.announcer.say(
+                "Nagrywanie ręczne jest dostępne dla wybranej stacji radia internetowego"
+            )
+            return None
+        station = self._selected_station()
+        if station is None:
+            self.announcer.say("Wybierz stację radiową")
+        return station
+
+    def _toggle_radio_recording(self) -> None:
+        client = self.client
+        station = self._recording_station()
+        if client is None or station is None:
+            return
+
+        # Ustawienia mogly zostac zmienione w glownym AMC juz po starcie wx.
+        # Czytamy je ponownie bez zapisu i nie podmieniamy widoku listy.
+        snapshot = self.radio.load(previous=self._radio_snapshot)
+        payload = snapshot.recording.payload_for(station)
+
+        def done(result: dict) -> None:
+            action = (result or {}).get("action")
+            if action == "stopping":
+                self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
+            else:
+                self.announcer.say(f"Rozpoczynam nagrywanie w tle: {station.name}")
+
+        self.runner.submit(
+            "radio-recording-command",
+            lambda: client.toggle_radio_recording(payload),
+            done,
+            lambda error: self.announcer.say(f"Nie można zmienić nagrywania: {error}"),
+        )
+
+    def _toggle_radio_recording_pause(self) -> None:
+        client = self.client
+        station = self._recording_station()
+        if client is None or station is None:
+            return
+
+        def done(result: dict) -> None:
+            state = str((result or {}).get("state") or "")
+            if state == "paused":
+                position = format_duration((result or {}).get("positionSeconds"))
+                suffix = (
+                    ". Zapis oryginalnego strumienia pozostał aktywny"
+                    if int((result or {}).get("unpausableCount") or 0) else ""
+                )
+                self.announcer.say(
+                    f"Wstrzymano nagrywanie: {station.name}, {position}{suffix}"
+                )
+            elif state == "recording":
+                self.announcer.say(f"Wznowiono nagrywanie: {station.name}")
+            elif state == "notRecording":
+                self.announcer.say(f"Stacja nie jest nagrywana: {station.name}")
+            elif state == "starting":
+                self.announcer.say("Nagranie jeszcze się uruchamia")
+            elif state == "unsupported":
+                self.announcer.say(
+                    str((result or {}).get("reason") or "Pauza jest niedostępna")
+                )
+            else:
+                self.announcer.say(
+                    "Trwa finalizowanie albo rozpoczynanie części nagrania"
+                )
+
+        self.runner.submit(
+            "radio-recording-command",
+            lambda: client.toggle_radio_recording_pause(station.id, station.url),
+            done,
+            lambda error: self.announcer.say(
+                f"Nie można zmienić pauzy nagrania: {error}"
+            ),
+        )
+
+    def _split_radio_recording(self) -> None:
+        client = self.client
+        station = self._recording_station()
+        if client is None or station is None:
+            return
+
+        def done(result: dict) -> None:
+            state = str((result or {}).get("state") or "")
+            if state == "split":
+                path = str((result or {}).get("currentPath") or "").strip()
+                suffix = f": {Path(path).name}" if path else ""
+                self.announcer.say(
+                    f"Rozpoczęto nową część nagrania {station.name}{suffix}"
+                )
+            elif state == "tooSoon":
+                self.announcer.say(
+                    "Nowa część nagrania już trwa. Ponowne T pominięte"
+                )
+            elif state == "notRecording":
+                self.announcer.say(f"Stacja nie jest nagrywana: {station.name}")
+            elif state == "starting":
+                self.announcer.say("Nagranie jeszcze się uruchamia")
+            elif state == "stopping":
+                self.announcer.say("Nagranie jest już zatrzymywane")
+            else:
+                self.announcer.say(
+                    "Trwa finalizowanie albo rozpoczynanie części nagrania"
+                )
+
+        self.announcer.say(f"Zapisuję bieżącą część nagrania: {station.name}")
+        self.runner.submit(
+            "radio-recording-command",
+            lambda: client.split_radio_recording(station.id, station.url),
+            done,
+            lambda error: self.announcer.say(f"Nie można podzielić nagrania: {error}"),
+        )
+
+    def _stop_all_radio_recordings(self) -> None:
+        client = self.client
+        if client is None:
+            return
+
+        def done(result: dict) -> None:
+            count = int((result or {}).get("stopping") or 0)
+            if count == 0:
+                self.announcer.say("Brak trwających nagrań")
+            elif count == 1:
+                self.announcer.say("Zatrzymuję nagrywanie")
+            else:
+                self.announcer.say(f"Zatrzymuję wszystkie nagrania: {count}")
+
+        self.runner.submit(
+            "radio-recording-command",
+            client.stop_all_radio_recordings,
+            done,
+            lambda error: self.announcer.say(f"Nie można zatrzymać nagrań: {error}"),
+        )
 
     def _refuse_station_edit(self) -> bool:
         """Odmowa edycji stacji we wspolnym profilu. ``True`` = nie kontynuuj.
