@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .collation import HostCollation, HostCollationUnavailable, order_library_rows
-from .library_db import LibraryDatabase, breadcrumb_rows, folder_rows
+from .library_db import LibraryDatabase, LibraryItem, breadcrumb_rows, folder_rows
 from .list_model import Row
 from .profile_layout import ProfileLayout, resolve_layout
 
@@ -112,6 +112,11 @@ class LibrarySource:
         """
         with self._open() as db:
             return db.local_state().library_view
+
+    def recorded_radio_items(self) -> list[LibraryItem]:
+        """Pliki nagran radia, takze dostepne poza zwykla Biblioteka."""
+        with self._open() as db:
+            return db.recorded_radio_items()
 
     def use_collation(self, collation: "HostCollation | None") -> None:
         """Podepnij kolejnosc liczona przez host C#.

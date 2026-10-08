@@ -169,6 +169,10 @@ class LibraryItem:
     is_available: bool
     is_in_library: bool
     is_radio_recording: bool
+    # Osobny czas zakonczenia nagrania. Nie jest czasem modyfikacji pliku ani
+    # pozycja odtwarzania; sluzy do chronologii widoku Historii nagrywania.
+    # Domyslne zero zachowuje zgodnosc ze starszymi kopiami schematu i testami.
+    radio_recording_completed_utc_ticks: int = 0
 
     @property
     def duration_seconds(self) -> float:
@@ -354,9 +358,11 @@ class LibraryDatabase:
     def active_items_under(
         self, folder: str | None, limit: int | None = None
     ) -> list[LibraryItem]:
+        completed = self._recording_completed_expression()
         sql = (
             "SELECT id, title, path, duration_ticks, is_favorite, is_available, "
-            f"is_in_library, is_radio_recording FROM local_items WHERE {_ACTIVE}"
+            f"is_in_library, is_radio_recording, {completed} "
+            f"FROM local_items WHERE {_ACTIVE}"
         )
         args: list[object] = []
         if folder:
@@ -368,6 +374,33 @@ class LibraryDatabase:
             sql += " LIMIT ?"
             args.append(limit)
         return [_item(row) for row in self.connection.execute(sql, args)]
+
+    def recorded_radio_items(self) -> list[LibraryItem]:
+        """Dostepne pliki oznaczone przez AMC jako nagrania radia.
+
+        Celowo nie wymagamy ``is_in_library``. Plik nagrania moze istniec i
+        byc odtwarzalny, mimo ze uzytkownik nie wlaczyl go do zwyklej
+        Biblioteki. Historia nagrywania odpowiada na pytanie „co nagralem”,
+        nie „co nalezy do Biblioteki”.
+        """
+        completed = self._recording_completed_expression()
+        rows = self.connection.execute(
+            "SELECT id, title, path, duration_ticks, is_favorite, is_available, "
+            f"is_in_library, is_radio_recording, {completed} "
+            "FROM local_items "
+            "WHERE is_radio_recording = 1 AND is_available = 1"
+        ).fetchall()
+        return [_item(row) for row in rows]
+
+    def _recording_completed_expression(self) -> str:
+        """Kolumna v9 albo uczciwe zero dla starszej bazy, bez migracji."""
+        columns = {
+            str(row["name"])
+            for row in self.connection.execute("PRAGMA table_info(local_items)")
+        }
+        if "radio_recording_completed_utc_ticks" in columns:
+            return "radio_recording_completed_utc_ticks"
+        return "0 AS radio_recording_completed_utc_ticks"
 
 
 def _like_prefix(folder: str) -> str:
@@ -385,6 +418,9 @@ def _item(row: sqlite3.Row) -> LibraryItem:
         is_available=bool(row["is_available"]),
         is_in_library=bool(row["is_in_library"]),
         is_radio_recording=bool(row["is_radio_recording"]),
+        radio_recording_completed_utc_ticks=int(
+            row["radio_recording_completed_utc_ticks"]
+        ),
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -16,9 +17,11 @@ install_wx_stub()
 
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.host_client import LiteHostClient
+from amc_wx_lite.library_db import LibraryDatabase, LibraryItem
 from amc_wx_lite.navigation import LibraryView, Navigator, SessionId
 from amc_wx_lite.profile_layout import read_only_mirror
 from amc_wx_lite.radio_recording import (
+    RadioRecordingHistoryEntry,
     RadioRecordingPreferences,
     active_recording_rows,
     format_duration,
@@ -287,6 +290,65 @@ def test_missing_recording_is_visible_but_enter_refuses_honestly() -> None:
     nav.apply_library_view(LibraryView.RECORDED_RADIO_FILES, "Historia nagrywania", [row])
     message = nav.activate_selected()[0]
     assert "nie istnieje już na dysku" in message.text
+
+
+def test_recorded_files_merge_without_duplicates_and_include_outside_library() -> None:
+    completed = RadioRecordingHistoryEntry(
+        "historia", "radio", "Stara nazwa", r"D:\Nagrania\audycja.mp3",
+        "completed", "", "", 0, 200, 1,
+    )
+    stopped = RadioRecordingHistoryEntry(
+        "przerwane", "radio", "Radio Przerwane", r"D:\Nagrania\czesc.mp3",
+        "stopped", "", "", 0, 300, 1,
+    )
+    files = [
+        LibraryItem(
+            "plik-1", "Audycja z Biblioteki", r"D:\Nagrania\audycja.mp3",
+            650_000_000, True, True, True, True, 200,
+        ),
+        LibraryItem(
+            "plik-2", "Nagranie poza Biblioteką", r"D:\Nagrania\nowe.mp3",
+            0, False, True, False, True, 400,
+        ),
+        LibraryItem(
+            "plik-3", "Część przerwana", r"D:\Nagrania\czesc.mp3",
+            0, False, True, True, True, 300,
+        ),
+    ]
+    rows = recording_history_rows(
+        [completed, stopped],
+        recorded_files=files,
+        path_probe=lambda path: "available",
+    )
+    assert len(rows) == 3
+    assert sum("audycja.mp3" in (row.path or "").casefold() for row in rows) == 1
+    outside = next(row for row in rows if row.path and row.path.endswith("nowe.mp3"))
+    assert outside.detail == "poza Biblioteką"
+    interrupted = next(row for row in rows if row.title.startswith("Zatrzymane"))
+    assert interrupted.path == r"D:\Nagrania\czesc.mp3"
+    assert all("plik-" not in row.title for row in rows)
+
+
+def test_database_reads_recordings_outside_library_and_old_schema() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "library.db"
+        connection = sqlite3.connect(path)
+        connection.executescript("""
+            CREATE TABLE local_items (
+                id TEXT, title TEXT, path TEXT, duration_ticks INTEGER,
+                is_favorite INTEGER, is_available INTEGER, is_in_library INTEGER,
+                is_radio_recording INTEGER
+            );
+            INSERT INTO local_items VALUES
+                ('1', 'Poza Biblioteką', 'D:\\Nagrania\\poza.mp3', 0, 0, 1, 0, 1),
+                ('2', 'Zwykły plik', 'D:\\Muzyka\\zwykly.mp3', 0, 0, 1, 1, 0);
+        """)
+        connection.commit()
+        connection.close()
+        with LibraryDatabase(path) as database:
+            items = database.recorded_radio_items()
+        assert [item.title for item in items] == ["Poza Biblioteką"]
+        assert items[0].radio_recording_completed_utc_ticks == 0
 
 
 def test_transient_recording_preview_restores_session_view_and_selection() -> None:

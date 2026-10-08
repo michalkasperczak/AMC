@@ -26,6 +26,7 @@ Lekki wariant ma byc lekki; pelny AMC zostaje nietkniety.
 from __future__ import annotations
 
 import os
+import sqlite3
 from pathlib import Path
 
 import wx
@@ -3732,6 +3733,8 @@ class LiteFrame(wx.Frame):
             snapshot = self.radio.load(previous=previous)
             current_entries = ()
             current_error = ""
+            recorded_files = ()
+            library_error = ""
             if client is not None:
                 try:
                     payload = client.radio_recording_history()
@@ -3743,15 +3746,22 @@ class LiteFrame(wx.Frame):
                     })
                 except (HostError, HostUnavailable, OSError) as error:
                     current_error = str(error)
+            library = getattr(self, "library", None)
+            if library is not None and library.is_available:
+                try:
+                    recorded_files = tuple(library.recorded_radio_items())
+                except (OSError, sqlite3.Error) as error:
+                    library_error = str(error)
             known_ids = {entry.id for entry in current_entries}
             combined = current_entries + tuple(
                 entry for entry in snapshot.recording_history if entry.id not in known_ids
             )
             return (
                 snapshot,
-                recording_history_rows(combined),
+                recording_history_rows(combined, recorded_files=recorded_files),
                 len(current_entries),
                 current_error,
+                library_error,
             )
 
         def done(result) -> None:
@@ -3763,7 +3773,7 @@ class LiteFrame(wx.Frame):
                 is not LibraryView.RECORDED_RADIO_FILES
             ):
                 return
-            snapshot, rows, current_count, current_error = result
+            snapshot, rows, current_count, current_error, library_error = result
             self._radio_snapshot = snapshot
             self.stations = snapshot.list
             if announce and snapshot.load_error and not rows:
@@ -3790,6 +3800,10 @@ class LiteFrame(wx.Frame):
                 if announce and current_error:
                     self.announcer.say(
                         "Historia bieżącej sesji nagrywania jest chwilowo niedostępna"
+                    )
+                if announce and library_error:
+                    self.announcer.say(
+                        "Lista zapisanych plików nagrań jest chwilowo niedostępna"
                     )
 
         def failed(error: Exception) -> None:

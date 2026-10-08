@@ -12,10 +12,13 @@ import os
 import stat
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import TYPE_CHECKING, Callable, Sequence
 
 from .state_store import Station
 from .list_model import Row
+
+if TYPE_CHECKING:
+    from .library_db import LibraryItem
 
 
 _FORMATS = ("Mp3", "Aac", "Flac", "Original", "Wav")
@@ -263,6 +266,78 @@ def _folder_label(path: str) -> str:
     return f"folder {name}" if name else ""
 
 
+def _normalized_recording_path(path: str) -> str:
+    if not path:
+        return ""
+    return ntpath.normcase(ntpath.normpath(path.strip()))
+
+
+def _recorded_file_detail(item: "LibraryItem") -> str:
+    parts: list[str] = []
+    if item.duration_ticks > 0:
+        parts.append(format_duration(item.duration_ticks / 10_000_000))
+    if item.is_favorite:
+        parts.append("ulubione")
+    if not item.is_in_library:
+        parts.append("poza Biblioteką")
+    return ", ".join(parts)
+
+
+def _merge_recorded_files(
+    entries: Sequence[RadioRecordingHistoryEntry],
+    recorded_files: Sequence["LibraryItem"],
+) -> tuple[list[RadioRecordingHistoryEntry], dict[str, str]]:
+    """Polacz historie prob z istniejacymi plikami bez podwojnych wierszy."""
+    interrupted_paths = {
+        _normalized_recording_path(entry.path)
+        for entry in entries
+        if entry.outcome in ("stopped", "interrupted") and entry.path
+    }
+    usable_files = [
+        item
+        for item in recorded_files
+        if item.is_radio_recording
+        and item.is_available
+        and item.path
+        and _normalized_recording_path(item.path) not in interrupted_paths
+    ]
+    file_paths = {_normalized_recording_path(item.path) for item in usable_files}
+    history_only = [
+        entry
+        for entry in entries
+        if entry.outcome == "failed"
+        or not entry.path
+        or _normalized_recording_path(entry.path) not in file_paths
+    ]
+    history_by_path = {
+        _normalized_recording_path(entry.path): entry
+        for entry in entries
+        if entry.path
+    }
+    details: dict[str, str] = {}
+    merged = list(history_only)
+    for item in usable_files:
+        source = history_by_path.get(_normalized_recording_path(item.path))
+        entry_id = f"plik-biblioteki:{item.id}"
+        merged.append(RadioRecordingHistoryEntry(
+            id=entry_id,
+            station_id=source.station_id if source else "",
+            station_name=item.title.strip() or _file_name(item.path) or "Nagranie radia",
+            path=item.path,
+            outcome="completed",
+            reason="",
+            schedule_name="",
+            started_utc_ticks=source.started_utc_ticks if source else 0,
+            finished_utc_ticks=(
+                item.radio_recording_completed_utc_ticks
+                or (source.finished_utc_ticks if source else 0)
+            ),
+            saved_file_count=1,
+        ))
+        details[entry_id] = _recorded_file_detail(item)
+    return merged, details
+
+
 def _path_state(path: str) -> str:
     """``available`` / ``missing`` / ``unavailable`` bez wyjatku w GUI."""
     if not path:
@@ -278,11 +353,13 @@ def _path_state(path: str) -> str:
 def recording_history_rows(
     entries: tuple[RadioRecordingHistoryEntry, ...] | list[RadioRecordingHistoryEntry],
     *,
+    recorded_files: Sequence["LibraryItem"] = (),
     now: datetime | None = None,
     path_probe: Callable[[str], str] = _path_state,
 ) -> list[Row]:
     """Wiersze „Historii nagrywania” zgodne z kolejnoscia etykiet AMC."""
     now_value = now or datetime.now().astimezone()
+    merged_entries, file_details = _merge_recorded_files(entries, recorded_files)
     outcome_labels = {
         "completed": "Nagrane",
         "stopped": "Zatrzymane",
@@ -290,7 +367,10 @@ def recording_history_rows(
         "failed": "Nieudane",
     }
     rows: list[Row] = []
-    for entry in sorted(entries, key=lambda value: value.finished_utc_ticks, reverse=True):
+    for entry in sorted(
+        merged_entries,
+        key=lambda value: (-value.finished_utc_ticks, value.station_name.casefold()),
+    ):
         station_name = entry.station_name or "Nieznana stacja"
         playable = entry.outcome in ("completed", "stopped", "interrupted") and bool(entry.path)
         state = path_probe(entry.path) if playable else "missing"
@@ -308,7 +388,7 @@ def recording_history_rows(
 
         parts = [outcome, station_name]
         file_name = _file_name(entry.path)
-        if file_name and file_name not in ", ".join(parts):
+        if file_name and file_name.casefold() not in ", ".join(parts).casefold():
             parts.append(file_name)
         parts.append(_when_label(entry.finished_utc_ticks, now_value))
         if entry.schedule_name:
@@ -344,6 +424,7 @@ def recording_history_rows(
             title=label,
             kind="track",
             path=path,
+            detail=file_details.get(entry.id, ""),
             show_kind=False,
             activation_message=activation_message,
         ))
