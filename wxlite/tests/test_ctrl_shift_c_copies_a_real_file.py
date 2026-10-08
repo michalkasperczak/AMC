@@ -55,10 +55,9 @@ wklejenia, a my nie wolno nam ogłosic sukcesu kopiowania pliku.
 
 CZEGO TU NIE MA, swiadomie
 --------------------------
-Nie dodajemy zaznaczenia wielokrotnego (lista jest ``LC_SINGLE_SEL``),
-nie ruszamy ``Ctrl+C`` (``COPIED_NAME_MESSAGE``), nie dotykamy podcastow
-(ta sesja jeszcze nie istnieje w wxlite) i nie wchodzimy na zywy schowek
-Windows -- ``wx.TheClipboard`` jest tu wstrzykiwany jako atrapa.
+Nie dotykamy podcastow (ta sesja jeszcze nie istnieje w wxlite) i nie
+wchodzimy na zywy schowek Windows -- ``wx.TheClipboard`` jest tu
+wstrzykiwany jako atrapa. Wielokrotny wybor ma osobne testy kontraktu.
 """
 
 from __future__ import annotations

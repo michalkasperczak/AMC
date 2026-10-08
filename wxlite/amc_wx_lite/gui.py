@@ -185,6 +185,34 @@ def player_time_label(position: float | None, duration: float | None) -> str:
 COPIED_NAME_MESSAGE = "Skopiowano nazwę"
 
 
+def format_item_count(count: int) -> str:
+    """Polska odmiana licznika elementow zgodna z pelnym AMC."""
+    if count == 1:
+        return "1 element"
+    last_two_digits = count % 100
+    last_digit = count % 10
+    suffix = (
+        "elementy"
+        if 2 <= last_digit <= 4 and not 12 <= last_two_digits <= 14
+        else "elementów"
+    )
+    return f"{count} {suffix}"
+
+
+def format_file_count(count: int) -> str:
+    """Polska odmiana licznika plikow zgodna z pelnym AMC."""
+    if count == 1:
+        return "1 plik"
+    last_two_digits = count % 100
+    last_digit = count % 10
+    suffix = (
+        "pliki"
+        if 2 <= last_digit <= 4 and not 12 <= last_two_digits <= 14
+        else "plików"
+    )
+    return f"{count} {suffix}"
+
+
 def is_local_path(source: str | None) -> bool:
     """``TryGetLocalPath`` -- MainWindow.xaml.cs:5378-5390, regula za regula.
 
@@ -579,7 +607,11 @@ class MediaListCtrl(wx.ListCtrl):
                  state: object | None = None) -> None:
         super().__init__(
             parent,
-            style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.BORDER_SUNKEN,
+            # Bez ``LC_SINGLE_SEL``: pelne AMC pozwala zaznaczyc Shift/Ctrl
+            # kilka wierszy, a polecenia schowka dzialaja na calym wyborze.
+            # SysListView32 zachowuje przy tym zwykla obsluge klawiatury i
+            # role dostepnosci -- nie budujemy wlasnego mechanizmu wyboru.
+            style=wx.LC_REPORT | wx.BORDER_SUNKEN,
         )
         self.model = model
         #: STAN SESJI, ktorej liste pokazujemy (``navigation.SessionState``).
@@ -858,11 +890,32 @@ class MediaListCtrl(wx.ListCtrl):
         Przy niepustym wyniku ``sync_rows`` wybiera pierwszy widoczny wiersz,
         jeżeli poprzedni wybór wypadł z filtra. Tutaj mapujemy już jego ID.
         """
+        wanted = self._wanted_visible_index()
+        # W liscie wielokrotnego wyboru ``GetFirstSelected`` zwraca PIERWSZY
+        # z zaznaczonych wierszy, a niekoniecznie wiersz z fokusem. Jezeli
+        # chciany wiersz juz nalezy do zaznaczenia, podajemy go planerowi jako
+        # zaznaczony. Inaczej kazdy tick uznawalby poprawny zakres Shift za
+        # rozjazd i ponownie dotykal kontrolki (oraz NVDA).
+        selected = wanted if self._is_index_selected(wanted) else self.GetFirstSelected()
         return list_sync.plan_cursor(
-            wanted=self._wanted_visible_index(),
-            selected=self.GetFirstSelected(),
+            wanted=wanted,
+            selected=selected,
             focused=self.GetFocusedItem(),
         )
+
+    def _is_index_selected(self, index: int) -> bool:
+        """Czy konkretny widoczny wiersz nalezy do natywnego zaznaczenia."""
+        if index < 0:
+            return False
+        try:
+            return bool(
+                self.GetItemState(index, wx.LIST_STATE_SELECTED)
+                & wx.LIST_STATE_SELECTED
+            )
+        except (AttributeError, TypeError):
+            # Minimalne atrapy testowe sprzed obslugi wielokrotnego wyboru
+            # znaja tylko pierwszy zaznaczony wiersz.
+            return self.GetFirstSelected() == index
 
     def _wanted_visible_index(self) -> int:
         """Indeks wybranego wiersza W WIDOCZNEJ liscie albo -1.
@@ -908,7 +961,7 @@ class MediaListCtrl(wx.ListCtrl):
         wanted = wx.LIST_STATE_SELECTED | wx.LIST_STATE_FOCUSED
         # Pytamy kontrolke, co JUZ ma -- bity, ktore sa na miejscu, pomijamy.
         mask = 0
-        if self.GetFirstSelected() != index:
+        if not self._is_index_selected(index):
             mask |= wx.LIST_STATE_SELECTED
         if self.GetFocusedItem() != index:
             mask |= wx.LIST_STATE_FOCUSED
@@ -934,6 +987,33 @@ class MediaListCtrl(wx.ListCtrl):
         if 0 <= index < len(self._shown):
             return self._shown[index].item_id
         return None
+
+    def selected_rows(self) -> list[Row]:
+        """Wszystkie zaznaczone wiersze w kolejnosci widocznej na liscie.
+
+        Model zachowuje jedno ID jako kursor/zakotwiczenie nawigacji. Pelny
+        zakres Shift/Ctrl jest natomiast stanem natywnej kontrolki Windows i
+        trzeba go odczytac przez ``GetFirstSelected``/``GetNextSelected``.
+        Mapowanie idzie przez ``_shown``, zeby filtr nie pomylil indeksu
+        widocznego z indeksem pelnego modelu.
+        """
+        item_ids: list[str] = []
+        seen: set[str] = set()
+        index = self.GetFirstSelected()
+        while index != -1:
+            item_id = self.shown_item_id(index)
+            if item_id is not None and item_id not in seen:
+                seen.add(item_id)
+                item_ids.append(item_id)
+            next_index = self.GetNextSelected(index)
+            # Prawdziwy ListCtrl zwraca indeks wiekszy albo -1. Wadliwa
+            # atrapa nie moze zawiesic aplikacji ani testu w petli bez konca.
+            if next_index != -1 and next_index <= index:
+                break
+            index = next_index
+
+        rows_by_id = {row.item_id: row for row in self.model.rows}
+        return [rows_by_id[item_id] for item_id in item_ids if item_id in rows_by_id]
 
     def visible_count(self) -> int:
         """Liczba wierszy POKAZANYCH teraz. Zrodlo liczby do statusu filtra."""
@@ -1593,6 +1673,7 @@ class LiteFrame(wx.Frame):
         control.Bind(wx.EVT_KEY_DOWN, self._on_key)
         control.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda _e: self._activate())
         control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)
+        control.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._on_item_deselected)
 
     def _bind_keys(self) -> None:
         self.Bind(wx.EVT_CHAR_HOOK, self._on_player_shortcut_hook)
@@ -2561,6 +2642,32 @@ class LiteFrame(wx.Frame):
         self._refresh_menu_state()
         event.Skip()
 
+    def _on_item_deselected(self, event: wx.ListEvent) -> None:
+        """Nie pozwol, by model wskazywal wiersz usuniety z zaznaczenia.
+
+        Przy Ctrl+klik lub skracaniu zakresu Shift natywna lista moze zostawic
+        fokus na wierszu juz niezaznaczonym. Model trzyma tylko kotwice kursora,
+        wiec przenosimy ja na inny faktycznie zaznaczony wiersz. Bez tego
+        nastepny tick ponownie zaznaczylby wlasnie odznaczony element.
+        """
+        control = event.GetEventObject()
+        if not isinstance(control, MediaListCtrl) or control.updating:
+            event.Skip()
+            return
+        item_id = control.shown_item_id(event.GetIndex())
+        model = self.navigator.session.model
+        if item_id is not None and model.selected_id == item_id:
+            replacement = -1
+            focused = control.GetFocusedItem()
+            if control._is_index_selected(focused):
+                replacement = focused
+            else:
+                replacement = control.GetFirstSelected()
+            replacement_id = control.shown_item_id(replacement)
+            model.select_id(replacement_id)
+            self._refresh_menu_state()
+        event.Skip()
+
     def _activate(self) -> None:
         self._run(self.navigator.activate_selected(
             stay_on_list_after_radio_enter=(
@@ -2699,17 +2806,46 @@ class LiteFrame(wx.Frame):
         self.runner.submit("folder", work, done, failed)
 
     def _copy_name(self) -> None:
-        """Ctrl+C: nazwa zaznaczonego elementu do schowka.
+        """Ctrl+C: nazwy zaznaczonych elementow, po jednej w wierszu.
 
-        Odpowiednik ``CopyActionItemName`` (MainWindow.xaml.cs:20717-20724).
-        Komunikat "Skopiowano nazwę" z MainWindow.xaml.cs:24372.
+        Odpowiednik ``CopyActionItemName`` (MainWindow.xaml.cs:24755): pelne
+        AMC czyta ``SelectedItems``, zachowuje kolejnosc listy i laczy nazwy
+        przez ``Environment.NewLine``.
         """
-        row = self.navigator.session.model.selected_row
-        if row is None or not row.title:
+        rows = [row for row in self._selected_action_rows() if row.title]
+        if not rows:
             self.announcer.say("Nie ma czego skopiować")
             return
-        if self._to_clipboard(row.title):
-            self.announcer.say(COPIED_NAME_MESSAGE)
+        self._clear_pending_external_moves()
+        if self._to_clipboard(os.linesep.join(row.title for row in rows)):
+            self.announcer.say(
+                COPIED_NAME_MESSAGE
+                if len(rows) == 1
+                else f"Skopiowano nazwy: {format_item_count(len(rows))}"
+            )
+
+    def _selected_action_rows(self) -> list[Row]:
+        """Wiersze dla polecenia: natywny wielokrotny wybor albo kursor.
+
+        ``ListModel`` celowo nadal przechowuje jedno ID, bo sluzy ono do
+        przywracania fokusu po zmianie widoku. Zakres zaznaczony Shiftem/Ctrl
+        zyje w kontrolce i tylko stamtad moze zostac odczytany bez utraty.
+        """
+        try:
+            rows = self._active_list().selected_rows()
+        except (AttributeError, TypeError):
+            # Testy czystej logiki oraz widok odtwarzacza nie musza miec
+            # zbudowanej natywnej kontrolki.
+            rows = []
+        if rows:
+            return rows
+        row = self.navigator.session.model.selected_row
+        return [] if row is None else [row]
+
+    def _clear_pending_external_moves(self) -> None:
+        pending = getattr(self, "pending_external_moves", None)
+        if pending is not None:
+            pending.clear()
 
     def _announce_quick_information(self) -> None:
         """Parametry zaznaczonego elementu, nie aktualnie odtwarzanego.
@@ -2781,7 +2917,7 @@ class LiteFrame(wx.Frame):
         return None if row is None else row.item_id
 
     def _copy_address(self) -> None:
-        """Ctrl+Shift+C: adres albo PRAWDZIWY PLIK zaznaczonego elementu.
+        """Ctrl+Shift+C: adresy albo PRAWDZIWE PLIKI calego zaznaczenia.
 
         Odpowiednik ``CopyItemLocations`` (MainWindow.xaml.cs:24744-24814).
         Tu wlasnie trafil adres, ktory wczesniej czytnik wymawial przy KAZDYM
@@ -2802,24 +2938,58 @@ class LiteFrame(wx.Frame):
         Slowa komunikatu nadal opisuja DANE, nie zamiar -- patrz
         ``copied_address_message``.
         """
-        row = self.navigator.session.model.selected_row
-        if row is None:
+        rows = self._selected_action_rows()
+        if not rows:
             self.announcer.say("Nie ma czego skopiować")
             return
-        address = row.address
-        if not address:
-            self.announcer.say("Ten element nie ma zapisanego adresu")
+        if any(not row.address for row in rows):
+            self.announcer.say(
+                "Ten element nie ma zapisanego adresu"
+                if len(rows) == 1
+                else "Co najmniej jeden zaznaczony element nie ma zapisanego adresu"
+            )
             return
-        drop = self._file_drop_path(address)
-        if drop is not None:
-            # Tekst sciezki idzie w postaci sprowadzonej do zwyklej sciezki --
-            # tak jak w oryginale, gdzie do tekstu trafia ``localPaths``
-            # (wynik ``TryGetLocalPath``), a nie surowe ``item.Source``.
-            if self._to_clipboard(drop, file_path=drop):
-                self.announcer.say(copied_address_message(row, file_copied=True))
+
+        entries: list[tuple[Row, str, str | None]] = []
+        for row in rows:
+            drop = self._file_drop_path(row.address)
+            # Tekst istniejacego pliku dostaje sprowadzona zwykla sciezke;
+            # pozostale elementy zachowuja swoj bezposredni adres.
+            entries.append((row, drop or row.address, drop))
+
+        file_paths: list[str] = []
+        seen_paths: set[str] = set()
+        for _row, _text, path in entries:
+            if path is None:
+                continue
+            key = os.path.normcase(path).casefold()
+            if key not in seen_paths:
+                seen_paths.add(key)
+                file_paths.append(path)
+
+        self._clear_pending_external_moves()
+        text = os.linesep.join(entry[1] for entry in entries)
+        if not self._to_clipboard(text, file_paths=file_paths or None):
             return
-        if self._to_clipboard(address):
-            self.announcer.say(copied_address_message(row))
+
+        if len(rows) == 1:
+            self.announcer.say(copied_address_message(
+                rows[0], file_copied=bool(file_paths)))
+        elif all(entry[2] is not None for entry in entries):
+            self.announcer.say(
+                f"Skopiowano pliki i pełne ścieżki: {format_file_count(len(file_paths))}"
+            )
+        elif file_paths:
+            address_count = sum(entry[2] is None for entry in entries)
+            self.announcer.say(
+                f"Skopiowano pliki: {len(file_paths)}; adresy: {address_count}"
+            )
+        elif all(row.kind == "station" for row in rows):
+            self.announcer.say(
+                f"Skopiowano bezpośrednie adresy: {format_item_count(len(rows))}"
+            )
+        else:
+            self.announcer.say(f"Skopiowano adresy: {format_item_count(len(rows))}")
 
     @staticmethod
     def _file_drop_path(address: str) -> str | None:
@@ -2847,7 +3017,7 @@ class LiteFrame(wx.Frame):
         return path if os.path.exists(path) else None
 
     def _cut_file(self) -> None:
-        """Ctrl+X: plik GOTOWY DO PRZENIESIENIA poza AMC.
+        """Ctrl+X: zaznaczone pliki GOTOWE DO PRZENIESIENIA poza AMC.
 
         Port ``CutLocalFilesForExternalMove`` (``MainWindow.xaml.cs:25277``).
         Michal uzywa tego w dzialajacym AMC i prosil o zgodne zachowanie.
@@ -2863,8 +3033,8 @@ class LiteFrame(wx.Frame):
         tylko ISTNIEJACY PLIK (``File.Exists``, :25289) -- folder sie nie
         kwalifikuje, choc do KOPIOWANIA jak najbardziej.
         """
-        row = self.navigator.session.model.selected_row
-        if row is None:
+        rows = self._selected_action_rows()
+        if not rows:
             self.announcer.say("Brak pliku do wycięcia")
             return
         # Widok zakladek: wiersz wskazuje ``bookmark:<id>``, czyli ani plik,
@@ -2872,23 +3042,43 @@ class LiteFrame(wx.Frame):
         if self.navigator.session.library_view is LibraryView.ALL_BOOKMARKS:
             self.announcer.say("Wycinanie plików nie działa na liście zakładek")
             return
-        path = self._cut_file_path(row.address)
-        if path is None:
+        entries = [(row, self._cut_file_path(row.address)) for row in rows]
+        if any(path is None for _row, path in entries):
             self.announcer.say(
                 "Wycinanie jest dostępne tylko dla istniejących plików lokalnych")
             return
-        payload = file_cut_clipboard_payload(path)
+        paths: list[str] = []
+        seen_paths: set[str] = set()
+        for _row, path in entries:
+            assert path is not None
+            key = os.path.normcase(path).casefold()
+            if key not in seen_paths:
+                seen_paths.add(key)
+                paths.append(path)
+        file_arguments = (
+            {"file_path": paths[0]}
+            if len(paths) == 1
+            else {"file_paths": paths}
+        )
         if not self._to_clipboard(
-            payload["text"],
-            file_path=payload["file_path"],
-            preferred_drop_effect=payload["preferred_drop_effect"],
+            os.linesep.join(paths),
+            preferred_drop_effect=DROPEFFECT_MOVE,
+            **file_arguments,
         ):
             return
         # Zapamietujemy OCZEKUJACE przeniesienie, tak jak oryginal. Samo
         # zapamietanie nic nie usuwa -- sluzy pozniejszemu rozpoznaniu, ze
         # plik juz nie lezy pod stara sciezka.
-        self.pending_external_moves[row.item_id] = path
-        self.announcer.say("Plik gotowy do przeniesienia. Wklej go w folderze docelowym")
+        self.pending_external_moves.clear()
+        for row, path in entries:
+            assert path is not None
+            self.pending_external_moves[row.item_id] = path
+        self.announcer.say(
+            "Plik gotowy do przeniesienia. Wklej go w folderze docelowym"
+            if len(paths) == 1
+            else f"Pliki gotowe do przeniesienia: {format_file_count(len(paths))}. "
+                 "Wklej je w folderze docelowym"
+        )
 
     @staticmethod
     def _cut_file_path(address: str) -> str | None:
@@ -2909,6 +3099,7 @@ class LiteFrame(wx.Frame):
         text: str,
         *,
         file_path: str | None = None,
+        file_paths: list[str] | None = None,
         preferred_drop_effect: int | None = None,
     ) -> bool:
         """Zapis do schowka Windows. Porazke MOWIMY, nie udajemy sukcesu.
@@ -2917,7 +3108,7 @@ class LiteFrame(wx.Frame):
         ``ClipboardRetry`` z AMC, ktory tez zwraca komunikat bledu zamiast
         komunikatu sukcesu.
 
-        ``file_path`` ustawia DODATKOWO format plikowy (``wx.FileDataObject``,
+        ``file_path``/``file_paths`` ustawiaja DODATKOWO format plikowy (``wx.FileDataObject``,
         czyli ``CF_HDROP``) obok tekstu -- jak ``SetFileDropList`` w oryginale.
         Bez niego zostaje JEDEN format tekstowy, dokladnie jak dotad; dlatego
         ``Ctrl+C`` (nazwa) i stacje nie zmieniaja zachowania ani o jotę.
@@ -2927,7 +3118,9 @@ class LiteFrame(wx.Frame):
                 self.announcer.say("Schowek jest zajęty, spróbuj ponownie")
                 return False
             try:
-                if file_path is None:
+                paths = file_paths if file_paths is not None else (
+                    [file_path] if file_path is not None else [])
+                if not paths:
                     data = wx.TextDataObject(text)
                 else:
                     # Kolejnosc jak w oryginale: najpierw tekst (``UnicodeText``),
@@ -2937,7 +3130,8 @@ class LiteFrame(wx.Frame):
                     data = wx.DataObjectComposite()
                     data.Add(wx.TextDataObject(text))
                     files = wx.FileDataObject()
-                    files.AddFile(file_path)
+                    for path in paths:
+                        files.AddFile(path)
                     data.Add(files, True)
                     if preferred_drop_effect is not None:
                         # ``Preferred DropEffect``: TRZECI format, ktorym shell

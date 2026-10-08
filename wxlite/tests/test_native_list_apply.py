@@ -142,6 +142,7 @@ def make_ctrl(model: ListModel, selected: int = -1, focused: int | None = None):
     # ``_cursor_target``/``_move_cursor`` tez z produkcji -- inaczej testowalibysmy
     # wlasna atrape kursora.
     for name in ("_cursor_target", "_move_cursor", "_wanted_visible_index",
+                 "_is_index_selected",
                  "shown_item_id", "visible_count"):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     return ctrl
