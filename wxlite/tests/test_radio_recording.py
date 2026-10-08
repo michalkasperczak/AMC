@@ -370,3 +370,13 @@ def test_transient_recording_preview_restores_session_view_and_selection() -> No
     assert nav.session.view is View.PLAYER
     assert nav.session.library_view is LibraryView.ALL_FILES
     assert nav.session.model.selected_id == "plik"
+
+
+def test_escape_and_backspace_share_the_recording_preview_exit_action() -> None:
+    for chord in (Chord("Escape"), Chord("Back")):
+        assert resolve(chord, player_view=False, radio_session=True) is (
+            Action.PARENT_FOLDER
+        )
+        assert resolve(chord, player_view=False, radio_session=False) is (
+            Action.PARENT_FOLDER
+        )

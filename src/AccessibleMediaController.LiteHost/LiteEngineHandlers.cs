@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.LiteHost.Protocol;
 using AccessibleMediaController.Windows.Services;
@@ -189,6 +191,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["radio.recordingStopAll"] = (_, _) => _recordings.StopAll(),
             ["radio.recordingStatus"] = (_, _) => _recordings.Status(),
             ["radio.recordingHistory"] = (_, _) => _recordings.History(),
+            ["radio.scheduleLabels"] = (request, _) => RadioScheduleLabels(request.Args),
             ["transport.pauseResume"] = (_, _) => PauseResume(),
             ["transport.stop"] = (_, _) => StopAll(),
             ["transport.seek"] = (request, _) => Seek(request.Args),
@@ -431,6 +434,48 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
 
         return new { collation = mode, culture = "pl-PL", keys };
+    }
+
+    private static object RadioScheduleLabels(JsonElement args)
+    {
+        if (!args.TryGetProperty("schedules", out var source)
+            || source.ValueKind != JsonValueKind.Array)
+        {
+            throw new LiteRequestException("Brak listy harmonogramów");
+        }
+        if (source.GetArrayLength() > 10_000)
+            throw new LiteRequestException("Lista harmonogramów jest zbyt długa");
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        options.Converters.Add(new JsonStringEnumConverter());
+        var schedules = JsonSerializer.Deserialize<List<RadioRecordingScheduleSettings>>(
+            source.GetRawText(), options) ?? [];
+        var activeIds = args.TryGetProperty("activeIds", out var activeSource)
+            && activeSource.ValueKind == JsonValueKind.Array
+            ? activeSource.EnumerateArray()
+                .Where(value => value.ValueKind == JsonValueKind.String)
+                .Select(value => value.GetString())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        return new
+        {
+            schedules = schedules
+                .OrderBy(schedule => schedule.NextStartUtcTicks)
+                .Select(schedule => new
+                {
+                    id = schedule.Id,
+                    navigationText = RadioSchedulePresentation.DisplayName(schedule),
+                    label = RadioSchedulePresentation.BuildLabel(
+                        schedule,
+                        activeIds.Contains(schedule.Id)),
+                    enabled = schedule.Enabled
+                })
+                .ToArray()
+        };
     }
 
     private const string AmcPlMode = "AMC_PL";

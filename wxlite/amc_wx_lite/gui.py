@@ -19,7 +19,8 @@ Zasady dostepnosci przyjete tutaj (i dlaczego):
 * Jedna brama komunikatow: ``Announcer``. Zadnego sleepMode, zadnego zapisu
   do appModules NVDA.
 
-Czego tu nie ma swiadomie: WebView2, Sonos, harmonogramow, uslug startowych.
+Czego tu nie ma swiadomie: WebView2, Sonos, uruchamiania ani edycji
+harmonogramow i uslug startowych. Harmonogramy mozna bezpiecznie przegladac.
 Lekki wariant ma byc lekki; pelny AMC zostaje nietkniety.
 """
 
@@ -89,6 +90,7 @@ from .transport_parity import (
 )
 from . import session_options
 from .radio_source import RadioSource
+from .radio_schedules import schedule_rows
 from .radio_recording import (
     active_recording_rows,
     format_duration,
@@ -2310,6 +2312,8 @@ class LiteFrame(wx.Frame):
             self._show_active_radio_recordings()
         elif action is Action.VIEW_RECORDED_RADIO_FILES:
             self._show_radio_recording_history()
+        elif action is Action.MANAGE_RADIO_SCHEDULES:
+            self._show_radio_schedules()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3812,6 +3816,48 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(f"Nie można wczytać historii nagrywania: {error}")
 
         self.runner.submit("radio-recording-history", work, done, failed)
+
+    def _show_radio_schedules(self) -> None:
+        """Ctrl+Shift+H: plany czytane z profilu, etykiety liczone przez C#."""
+        if self.navigator.active is not SessionId.RADIO:
+            self.announcer.say(
+                "Harmonogram nagrywania jest dostępny w sesji Radio internetowe"
+            )
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik odtwarzania jest niedostępny")
+            return
+        previous = self._radio_snapshot
+
+        def work():
+            snapshot = self.radio.load(previous=previous)
+            payload = client.radio_schedule_labels(list(snapshot.recording_schedules))
+            return snapshot, schedule_rows(payload)
+
+        def done(result) -> None:
+            if self.navigator.active is not SessionId.RADIO:
+                return
+            snapshot, rows = result
+            self._radio_snapshot = snapshot
+            self.stations = snapshot.list
+            if snapshot.load_error and not rows:
+                self.announcer.say(snapshot.load_error)
+                return
+            events = self.navigator.apply_radio_view(
+                LibraryView.RADIO_RECORDING_SCHEDULES,
+                "Harmonogram nagrywania, tylko do odczytu",
+                rows,
+            )
+            self._run(events)
+            if snapshot.load_error:
+                self.announcer.say(snapshot.load_error)
+
+        def failed(error: Exception) -> None:
+            if self.navigator.active is SessionId.RADIO:
+                self.announcer.say(f"Nie można wczytać harmonogramu nagrywania: {error}")
+
+        self.runner.submit("radio-schedules", work, done, failed)
 
     def _refuse_station_edit(self) -> bool:
         """Odmowa edycji stacji we wspolnym profilu. ``True`` = nie kontynuuj.

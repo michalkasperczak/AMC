@@ -64,6 +64,9 @@ class LibraryView(Enum):
     #: Utrwalona historia nagrywania radia: udane, zatrzymane, przerwane i
     #: nieudane proby. Widok mieszka w sesji Pliki lokalne jak w pelnym AMC.
     RECORDED_RADIO_FILES = "recordedRadioFiles"
+    #: Plany nagrywania z profilu AMC. Python tylko je pokazuje; nie uruchamia
+    #: drugiego harmonogramu obok wlasciciela C#.
+    RADIO_RECORDING_SCHEDULES = "radioRecordingSchedules"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -692,6 +695,7 @@ class Navigator:
         LibraryView.ITEM_BOOKMARKS,
         LibraryView.ACTIVE_RADIO_RECORDINGS,
         LibraryView.RECORDED_RADIO_FILES,
+        LibraryView.RADIO_RECORDING_SCHEDULES,
     )
 
     def open_item_bookmarks(self) -> list[object]:
@@ -1059,6 +1063,7 @@ class Navigator:
             LibraryView.FAVORITES,
             LibraryView.HISTORY,
             LibraryView.ACTIVE_RADIO_RECORDINGS,
+            LibraryView.RADIO_RECORDING_SCHEDULES,
         ):
             raise ValueError("Nieobslugiwany widok Radia")
         state = self.sessions[SessionId.RADIO]

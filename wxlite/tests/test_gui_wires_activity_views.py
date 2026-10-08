@@ -27,6 +27,7 @@ NEW_ACTIONS = (
     Action.VIEW_ITEM_BOOKMARKS,
     Action.VIEW_FOLDERS,
     Action.SHOW_LIST,
+    Action.MANAGE_RADIO_SCHEDULES,
 )
 
 
@@ -51,14 +52,17 @@ def test_every_new_action_is_handled_in_the_window() -> None:
 
 #: Widoki czytane z PROFILU (SQLite). Kazdy z nich musi miec klucz danych,
 #: bo ``_VIEW_KEYS[view]`` bez wpisu to ``KeyError`` w watku roboczym.
-#: ``LIVE_QUEUE`` i ``ACTIVE_RADIO_RECORDINGS`` sa tu CELOWO nieobecne:
-#: oba pochodza z biezacego stanu hosta, nie z SQLite profilu.
-_HOST_BACKED_VIEWS = (
+#: Ponizsze widoki sa tu CELOWO nieobecne: pochodza ze stanu hosta albo
+#: ``state.json``, nie z SQLite profilu.
+_NON_SQLITE_VIEWS = (
     LibraryView.LIVE_QUEUE,
     LibraryView.ACTIVE_RADIO_RECORDINGS,
     # Historia jest czytana z radio.recordingHistory w state.json, a nie z
     # lokalnych widokow SQLite obslugiwanych przez _VIEW_KEYS.
     LibraryView.RECORDED_RADIO_FILES,
+    # Harmonogramy sa czytane z radio.recordingSchedules w state.json, a ich
+    # etykiety sklada wspolny kod C# uzywany takze przez glowne AMC.
+    LibraryView.RADIO_RECORDING_SCHEDULES,
 )
 
 
@@ -80,7 +84,7 @@ def test_every_library_view_has_a_data_key() -> None:
     missing = [
         v.name
         for v in LibraryView
-        if v.name not in mapped and v not in _HOST_BACKED_VIEWS
+        if v.name not in mapped and v not in _NON_SQLITE_VIEWS
     ]
     assert not missing, f"widoki bez klucza danych: {missing}"
 

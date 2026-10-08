@@ -2871,6 +2871,18 @@ static void TestRadioRecordingSchedule()
     Equal(
         new DateTime(2026, 8, 31, 20, 0, 0, DateTimeKind.Utc),
         RadioScheduleCalculator.FindNextStartUtc(schedule, start));
+    Equal(
+        "wybrane dni: poniedziałek, piątek",
+        RadioSchedulePresentation.BuildRecurrenceLabel(schedule));
+    Equal("1 godzina 30 minut", RadioSchedulePresentation.FormatDurationMinutes(90));
+    Equal(
+        "Plan nagrywania",
+        RadioSchedulePresentation.DisplayName(new RadioRecordingScheduleSettings()));
+    schedule.ActiveDays = [(DayOfWeek)99];
+    Equal(
+        "wybrane dni: nieznany dzień",
+        RadioSchedulePresentation.BuildRecurrenceLabel(schedule));
+    schedule.ActiveDays = [DayOfWeek.Monday, DayOfWeek.Friday];
 
     var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-schedule-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);

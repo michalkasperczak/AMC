@@ -81,6 +81,10 @@ class RadioSnapshot:
     #: Utrwalona historia wszystkich prob nagrywania z tego samego odczytu
     #: profilu. Obejmuje takze proby nieudane, ktore nie maja pliku.
     recording_history: tuple[RadioRecordingHistoryEntry, ...] = ()
+    #: Surowe plany nagrywania z profilu. Python ich nie interpretuje ani nie
+    #: uruchamia; wysyla je do wspolnego formattera C#, ktory zna strefy czasu,
+    #: odmiane jednostek i szablony nazw plikow.
+    recording_schedules: tuple[dict, ...] = ()
 
     @property
     def stations(self) -> list[Station]:
@@ -206,6 +210,17 @@ def stations_from_amc_state(
 
     current = radio.get("currentItemId")
     return stations, current if isinstance(current, str) and current else None
+
+
+def recording_schedules_from_amc_state(raw: dict) -> tuple[dict, ...]:
+    """Plany z profilu bez mutacji i bez drugiego harmonogramu w Pythonie."""
+    radio = raw.get("radio")
+    if not isinstance(radio, dict):
+        return ()
+    schedules = radio.get("recordingSchedules")
+    if not isinstance(schedules, list):
+        return ()
+    return tuple(dict(schedule) for schedule in schedules if isinstance(schedule, dict))
 
 
 #: Nazwy trybow = nazwy ``CollectionSortMode`` (``AppSettings.cs:27-32``).
@@ -350,6 +365,7 @@ class RadioSource:
             collection_sort_modes=collection_sort_modes_from_amc_state(raw),
             recording=preferences_from_amc_state(raw),
             recording_history=recording_history_from_amc_state(raw),
+            recording_schedules=recording_schedules_from_amc_state(raw),
         )
 
     def _read_failure(
@@ -373,6 +389,7 @@ class RadioSource:
                 scope=scope,
                 recording=previous.recording,
                 recording_history=previous.recording_history,
+                recording_schedules=previous.recording_schedules,
             )
         return RadioSnapshot(
             list=StationList(), from_amc_profile=True, load_error=message, scope=scope

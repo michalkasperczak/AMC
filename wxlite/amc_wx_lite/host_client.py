@@ -427,6 +427,14 @@ class LiteHostClient:
         """Historia biezacego procesu hosta; profil WPF pozostaje read-only."""
         return self.call("radio.recordingHistory", timeout=5.0)
 
+    def radio_schedule_labels(self, schedules: list[dict]) -> Any:
+        """Etykiety planow liczone wspolnym formatterem C# AMC."""
+        return self.call(
+            "radio.scheduleLabels",
+            {"schedules": schedules, "activeIds": []},
+            timeout=5.0,
+        )
+
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 
