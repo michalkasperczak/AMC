@@ -51,8 +51,12 @@ def test_every_new_action_is_handled_in_the_window() -> None:
 
 #: Widoki czytane z PROFILU (SQLite). Kazdy z nich musi miec klucz danych,
 #: bo ``_VIEW_KEYS[view]`` bez wpisu to ``KeyError`` w watku roboczym.
-#: ``LIVE_QUEUE`` jest tu CELOWO nieobecny -- patrz test ponizej.
-_HOST_BACKED_VIEWS = (LibraryView.LIVE_QUEUE,)
+#: ``LIVE_QUEUE`` i ``ACTIVE_RADIO_RECORDINGS`` sa tu CELOWO nieobecne:
+#: oba pochodza z biezacego stanu hosta, nie z SQLite profilu.
+_HOST_BACKED_VIEWS = (
+    LibraryView.LIVE_QUEUE,
+    LibraryView.ACTIVE_RADIO_RECORDINGS,
+)
 
 
 def test_every_library_view_has_a_data_key() -> None:
@@ -106,6 +110,20 @@ def test_live_queue_view_is_not_read_from_the_profile() -> None:
     assert "queue_status()" in SOURCE, (
         "gui.py nie wola queue.status -- zywego widoku kolejki nie ma z czego zbudowac"
     )
+
+
+def test_active_radio_recordings_are_read_from_the_host_not_the_profile() -> None:
+    keys = None
+    for node in ast.walk(TREE):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_VIEW_KEYS" for t in node.targets
+        ):
+            keys = node.value
+            break
+    assert isinstance(keys, ast.Dict)
+    mapped = {k.attr for k in keys.keys if isinstance(k, ast.Attribute)}
+    assert "ACTIVE_RADIO_RECORDINGS" not in mapped
+    assert "radio_recording_status" in SOURCE
 
 
 def test_play_track_forwards_the_bookmark_position() -> None:

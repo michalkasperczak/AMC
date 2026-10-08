@@ -58,6 +58,9 @@ class LibraryView(Enum):
     #: ``CommandIds.ViewBookmarks`` i Ctrl+B. Szerszy zbior niz
     #: ``ITEM_BOOKMARKS``, wiec osobna wartosc, a nie przelacznik.
     ALL_BOOKMARKS = "allBookmarks"
+    #: Biezacy stan nagrywania radia z hosta. To nie jest utrwalona historia
+    #: ani lista plikow na dysku, dlatego ma osobna tozsamosc widoku.
+    ACTIVE_RADIO_RECORDINGS = "activeRadioRecordings"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -604,6 +607,7 @@ class Navigator:
         LibraryView.SAVED_QUEUE,
         LibraryView.LIVE_QUEUE,
         LibraryView.ITEM_BOOKMARKS,
+        LibraryView.ACTIVE_RADIO_RECORDINGS,
     )
 
     def open_item_bookmarks(self) -> list[object]:
@@ -966,7 +970,12 @@ class Navigator:
         order_matches_amc: bool = True,
     ) -> list[object]:
         """Odpowiedz loadera Radia nie rusza listy ani wyboru Plikow."""
-        if view not in (None, LibraryView.FAVORITES, LibraryView.HISTORY):
+        if view not in (
+            None,
+            LibraryView.FAVORITES,
+            LibraryView.HISTORY,
+            LibraryView.ACTIVE_RADIO_RECORDINGS,
+        ):
             raise ValueError("Nieobslugiwany widok Radia")
         state = self.sessions[SessionId.RADIO]
         old_key = state.library_view.value if state.library_view else "library"

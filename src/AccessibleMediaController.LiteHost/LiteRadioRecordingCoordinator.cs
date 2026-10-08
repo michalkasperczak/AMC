@@ -274,6 +274,7 @@ internal sealed class LiteRadioRecordingCoordinator : IDisposable
         recordingId = active.Id,
         stationId = active.StationId,
         stationName = active.StationName,
+        url = active.StreamUrl,
         state = active.Control.StopRequested
             ? "stopping"
             : active.Control.IsReady

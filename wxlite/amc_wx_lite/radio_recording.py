@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .state_store import Station
+from .list_model import Row
 
 
 _FORMATS = ("Mp3", "Aac", "Flac", "Original", "Wav")
@@ -106,3 +107,54 @@ def format_duration(seconds: object) -> str:
     hours, rest = divmod(total, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
+
+
+def active_recording_rows(payload: object) -> list[Row]:
+    """Czytelne wiersze widoku ``Nagrywane`` z odpowiedzi hosta.
+
+    Techniczne ``recordingId`` nie trafia do tytulu ani opisu. Gdy jedna
+    stacja ma kilka nagran, pokazujemy ja raz, tak jak pelne AMC.
+    """
+    if not isinstance(payload, dict):
+        return []
+    entries = payload.get("recordings")
+    if not isinstance(entries, list):
+        return []
+    rows: list[Row] = []
+    seen: set[str] = set()
+    state_labels = {
+        "starting": "przygotowywanie nagrania",
+        "recording": "nagrywanie trwa",
+        "paused": "nagrywanie wstrzymane",
+        "stopping": "zatrzymywanie nagrania",
+    }
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        station_id = entry.get("stationId")
+        station_name = entry.get("stationName")
+        url = entry.get("url")
+        if not isinstance(station_id, str) or not station_id:
+            continue
+        if station_id in seen:
+            continue
+        seen.add(station_id)
+        title = station_name.strip() if isinstance(station_name, str) else ""
+        if not title:
+            title = "Stacja bez nazwy"
+        state = str(entry.get("state") or "")
+        detail = state_labels.get(state, "stan nagrania nieznany")
+        if state in ("recording", "paused"):
+            detail += f", {format_duration(entry.get('durationSeconds'))}"
+        completed = entry.get("completedFileCount")
+        if isinstance(completed, int) and not isinstance(completed, bool) and completed > 0:
+            detail += f", zapisane części: {completed}"
+        rows.append(Row(
+            item_id=station_id,
+            title=title,
+            kind="station",
+            url=url.strip() if isinstance(url, str) and url.strip() else None,
+            detail=detail,
+            show_kind=False,
+        ))
+    return rows

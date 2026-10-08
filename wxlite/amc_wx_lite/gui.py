@@ -87,7 +87,7 @@ from .transport_parity import (
 )
 from . import session_options
 from .radio_source import RadioSource
-from .radio_recording import format_duration
+from .radio_recording import active_recording_rows, format_duration
 from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
 
@@ -1878,6 +1878,10 @@ class LiteFrame(wx.Frame):
             station = str(data.get("stationName") or "stacja")
             reason = str(data.get("error") or "nie utworzono pliku")
             self.announcer.say(f"Nie udało się nagrać {station}: {reason}")
+        if name.startswith("radio.recording"):
+            radio_state = self.navigator.sessions[SessionId.RADIO]
+            if radio_state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS:
+                self._show_active_radio_recordings(announce=False)
         if name == "queue.advanced" or (
             name in ("playback.started", "playback.ended")
             and data.get("engine") == "files"
@@ -2283,6 +2287,8 @@ class LiteFrame(wx.Frame):
             self._split_radio_recording()
         elif action is Action.RECORD_STOP_ALL:
             self._stop_all_radio_recordings()
+        elif action is Action.VIEW_ACTIVE_RECORDINGS:
+            self._show_active_radio_recordings()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3624,6 +3630,44 @@ class LiteFrame(wx.Frame):
             client.stop_all_radio_recordings,
             done,
             lambda error: self.announcer.say(f"Nie można zatrzymać nagrań: {error}"),
+        )
+
+    def _show_active_radio_recordings(self, *, announce: bool = True) -> None:
+        """Pokaz stan hosta, bez ujawniania technicznych identyfikatorow."""
+        client = self.client
+        if client is None:
+            if announce:
+                self.announcer.say("Silnik odtwarzania jest niedostępny")
+            return
+        if announce and self.navigator.active is not SessionId.RADIO:
+            self._switch_session(SessionId.RADIO)
+        preferred_id = self.navigator.sessions[SessionId.RADIO].model.selected_id
+
+        def done(payload: dict) -> None:
+            events = self.navigator.apply_radio_view(
+                LibraryView.ACTIVE_RADIO_RECORDINGS,
+                "Nagrywane",
+                active_recording_rows(payload),
+                preferred_id=preferred_id,
+            )
+            if self.navigator.active is not SessionId.RADIO:
+                return
+            if announce:
+                self._run(events)
+            else:
+                # Odswiezenie po zdarzeniu nie moze zagluszac komunikatu o
+                # starcie, zatrzymaniu lub bledzie nagrania.
+                self._sync_views()
+
+        def failed(error: Exception) -> None:
+            if announce and self.navigator.active is SessionId.RADIO:
+                self.announcer.say(f"Nie można wczytać trwających nagrań: {error}")
+
+        self.runner.submit(
+            "radio-recordings-view",
+            client.radio_recording_status,
+            done,
+            failed,
         )
 
     def _refuse_station_edit(self) -> bool:

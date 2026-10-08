@@ -162,6 +162,7 @@ class Action(Enum):
     RECORD_PAUSE = "radio.recording.pause"
     RECORD_SPLIT = "radio.recording.split"
     RECORD_STOP_ALL = "radio.recording.stopAll"
+    VIEW_ACTIVE_RECORDINGS = "radio.recording.activeView"
     #: Przelacznik odczytu POZYCJI wiersza na liscie stacji ("3 z 37").
     #:
     #: Nie ma odpowiednika w pelnym AMC i nie moze go dostac: to ustawienie
@@ -348,6 +349,7 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     # Ctrl+R dziala na liscie i w odtwarzaczu; Shift+Spacja steruje pauza.
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
+    "Alt+R": Action.VIEW_ACTIVE_RECORDINGS,
 }
 
 # Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
@@ -357,6 +359,7 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
     "T": Action.RECORD_SPLIT,
+    "Alt+R": Action.VIEW_ACTIVE_RECORDINGS,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role
@@ -504,6 +507,7 @@ def describe() -> list[tuple[str, str]]:
         Action.RECORD_PAUSE: "Wstrzymaj albo wznow nagrywanie wybranej stacji",
         Action.RECORD_SPLIT: "Zapisz biezaca czesc i rozpocznij nowa",
         Action.RECORD_STOP_ALL: "Zatrzymaj wszystkie nagrania radia",
+        Action.VIEW_ACTIVE_RECORDINGS: "Pokaz trwajace nagrania radia",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
         Action.VIEW_FAVORITES: "Ulubione",
         Action.VIEW_PLAYLISTS: "Playlisty",
