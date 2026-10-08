@@ -2498,6 +2498,7 @@ class LiteFrame(wx.Frame):
         if not force and current not in (
             LibraryView.ACTIVE_RADIO_RECORDINGS,
             LibraryView.RECORDED_RADIO_FILES,
+            LibraryView.RADIO_RECORDING_SCHEDULES,
         ):
             return False
         self._transient_preview_return = None
@@ -3819,15 +3820,12 @@ class LiteFrame(wx.Frame):
 
     def _show_radio_schedules(self) -> None:
         """Ctrl+Shift+H: plany czytane z profilu, etykiety liczone przez C#."""
-        if self.navigator.active is not SessionId.RADIO:
-            self.announcer.say(
-                "Harmonogram nagrywania jest dostępny w sesji Radio internetowe"
-            )
-            return
         client = self.client
         if client is None:
             self.announcer.say("Silnik odtwarzania jest niedostępny")
             return
+        self._begin_transient_preview()
+        self.navigator.active = SessionId.RADIO
         previous = self._radio_snapshot
 
         def work():
@@ -3836,7 +3834,7 @@ class LiteFrame(wx.Frame):
             return snapshot, schedule_rows(payload)
 
         def done(result) -> None:
-            if self.navigator.active is not SessionId.RADIO:
+            if self._transient_preview_return is None:
                 return
             snapshot, rows = result
             self._radio_snapshot = snapshot
@@ -3855,6 +3853,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             if self.navigator.active is SessionId.RADIO:
+                self._restore_transient_preview(announce=False, force=True)
                 self.announcer.say(f"Nie można wczytać harmonogramu nagrywania: {error}")
 
         self.runner.submit("radio-schedules", work, done, failed)

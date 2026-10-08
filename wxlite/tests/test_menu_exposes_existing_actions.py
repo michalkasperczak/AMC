@@ -205,6 +205,7 @@ def test_radio_items_declare_they_need_the_radio_session() -> None:
     global_previews = {
         Action.VIEW_ACTIVE_RECORDINGS,
         Action.VIEW_RECORDED_RADIO_FILES,
+        Action.MANAGE_RADIO_SCHEDULES,
     }
     for item in radio.items:
         if item.is_separator or item.action in global_previews:

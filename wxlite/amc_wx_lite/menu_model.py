@@ -205,7 +205,7 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("&Historia nagrywania", Action.VIEW_RECORDED_RADIO_FILES,
                      shortcut="Alt+Shift+R"),
             MenuItem("Harmonogra&m nagrywania", Action.MANAGE_RADIO_SCHEDULES,
-                     shortcut="Ctrl+Shift+H", needs_radio_session=True),
+                     shortcut="Ctrl+Shift+H"),
             SEPARATOR,
             # Przelacznik licznika "3 z 37" na liscie stacji. Ustawienie
             # PRYWATNE portu wx (``state.radio_announce_position``) -- pelne

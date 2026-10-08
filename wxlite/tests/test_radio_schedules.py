@@ -106,16 +106,16 @@ def test_host_client_requests_the_csharp_schedule_formatter() -> None:
     )]
 
 
-def test_schedule_shortcut_is_radio_only_in_list_and_player() -> None:
+def test_schedule_shortcut_matches_full_amc_from_every_session_and_view() -> None:
     chord = Chord("H", ctrl=True, shift=True)
     for player in (False, True):
-        assert resolve(chord, player_view=player, radio_session=True) is (
-            Action.MANAGE_RADIO_SCHEDULES
-        )
-        assert resolve(chord, player_view=player, radio_session=False) is None
+        for radio in (False, True):
+            assert resolve(chord, player_view=player, radio_session=radio) is (
+                Action.MANAGE_RADIO_SCHEDULES
+            )
 
 
-def test_escape_and_backspace_both_leave_schedule_view_for_radio_stations() -> None:
+def test_escape_and_backspace_both_leave_unanchored_schedule_view_for_stations() -> None:
     rows = schedule_rows({"schedules": [{
         "id": "plan",
         "navigationText": "Plan",
@@ -134,3 +134,31 @@ def test_escape_and_backspace_both_leave_schedule_view_for_radio_stations() -> N
         assert isinstance(intent, OpenLibraryView)
         assert intent.view is None
         assert intent.target_session_id is SessionId.RADIO
+
+
+def test_schedule_preview_restores_the_exact_previous_session_and_player() -> None:
+    navigator = Navigator()
+    navigator.apply_library_view(
+        LibraryView.ALL_FILES,
+        "Wszystkie pliki",
+        schedule_rows({"schedules": [{
+            "id": "plik",
+            "navigationText": "Plik",
+            "label": "Plik",
+        }]}),
+    )
+    navigator.session.now_playing_id = "plik"
+    navigator.show_player()
+    snapshot = navigator.capture_transient_navigation()
+    navigator.active = SessionId.RADIO
+    navigator.apply_radio_view(
+        LibraryView.RADIO_RECORDING_SCHEDULES,
+        "Harmonogram nagrywania",
+        [],
+    )
+
+    navigator.restore_transient_navigation(snapshot)
+
+    assert navigator.active is SessionId.FILES
+    assert navigator.session.view.name == "PLAYER"
+    assert navigator.session.library_view is LibraryView.ALL_FILES

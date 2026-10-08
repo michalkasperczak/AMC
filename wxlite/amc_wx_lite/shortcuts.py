@@ -351,7 +351,6 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     # Ctrl+R dziala na liscie i w odtwarzaczu; Shift+Spacja steruje pauza.
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
-    "Ctrl+Shift+H": Action.MANAGE_RADIO_SCHEDULES,
 }
 
 # Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
@@ -361,7 +360,6 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
     "T": Action.RECORD_SPLIT,
-    "Ctrl+Shift+H": Action.MANAGE_RADIO_SCHEDULES,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role
@@ -434,6 +432,7 @@ LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
 for _table in (LIST_VIEW, PLAYER_VIEW):
     _table["Alt+R"] = Action.VIEW_ACTIVE_RECORDINGS
     _table["Alt+Shift+R"] = Action.VIEW_RECORDED_RADIO_FILES
+    _table["Ctrl+Shift+H"] = Action.MANAGE_RADIO_SCHEDULES
 
 
 def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action | None:
