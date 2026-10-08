@@ -125,6 +125,10 @@ class SessionState:
     now_playing_title: str = ""
     # ID wybrany w chwili wejscia do odtwarzacza. Escape wraca DOKLADNIE tu.
     list_anchor_id: str | None = None
+    #: Pierwotny fokus listy przy wejsciu do odtwarzacza. ``list_anchor_id``
+    #: moze potem sledzic Page Up/Page Down; ta wartosc pozwala opcji
+    #: ``FollowPlaybackOnPlayerExit = false`` wrocic do miejsca startu.
+    player_entry_anchor_id: str | None = None
     #: Ktory nazwany widok Biblioteki jest na liscie. ``None`` = przegladamy
     #: foldery (dotychczasowe zachowanie, nietkniete).
     library_view: "LibraryView | None" = None
@@ -189,6 +193,7 @@ class TransientNavigationSnapshot:
     rows: tuple[Row, ...]
     selected_id: str | None
     list_anchor_id: str | None
+    player_entry_anchor_id: str | None
     folder_path: str | None
     breadcrumb: tuple[tuple[str, str], ...]
     library_view: LibraryView | None
@@ -405,6 +410,7 @@ class Navigator:
             rows=tuple(state.model.rows),
             selected_id=state.model.selected_id,
             list_anchor_id=state.list_anchor_id,
+            player_entry_anchor_id=state.player_entry_anchor_id,
             folder_path=state.folder_path,
             breadcrumb=tuple(state.breadcrumb),
             library_view=state.library_view,
@@ -427,6 +433,7 @@ class Navigator:
         state = self.sessions[snapshot.session_id]
         state.view = snapshot.view
         state.list_anchor_id = snapshot.list_anchor_id
+        state.player_entry_anchor_id = snapshot.player_entry_anchor_id
         state.folder_path = snapshot.folder_path
         state.breadcrumb = list(snapshot.breadcrumb)
         state.library_view = snapshot.library_view
@@ -453,6 +460,7 @@ class Navigator:
             return self.back_to_list()
         if state.now_playing_id is None:
             return [Announce("Nic nie jest odtwarzane")]
+        state.player_entry_anchor_id = state.model.selected_id
         state.list_anchor_id = state.model.selected_id
         state.view = View.PLAYER
         return [Announce(f"Odtwarzacz, {state.now_playing_title}")]
@@ -463,26 +471,30 @@ class Navigator:
         if state.view is View.LIST:
             if state.now_playing_id is None:
                 return [Announce("Nic nie jest odtwarzane")]
+            state.player_entry_anchor_id = state.model.selected_id
             state.list_anchor_id = state.model.selected_id
             state.view = View.PLAYER
             return [Announce(f"Odtwarzacz, {state.now_playing_title}")]
         return self.back_to_list()
 
-    def back_to_list(self) -> list[object]:
+    def back_to_list(self, *, follow_playback: bool = True) -> list[object]:
         """Escape z odtwarzacza: TA SAMA lista i TO SAMO zaznaczenie."""
         state = self.session
         if state.view is View.LIST:
             return []
         state.view = View.LIST
-        if state.list_anchor_id is not None:
-            state.model.select_id(state.list_anchor_id)
+        target = state.list_anchor_id if follow_playback else state.player_entry_anchor_id
+        if target is not None:
+            state.model.select_id(target)
         row = state.model.selected_row
         suffix = f", {row.title}" if row is not None else ""
         return [Announce(f"Lista{suffix}")]
 
     # ------------------------------------------------------------- aktywacja
 
-    def activate_selected(self) -> list[object]:
+    def activate_selected(
+        self, *, stay_on_list_after_radio_enter: bool = False
+    ) -> list[object]:
         """Enter. Folder otwiera, utwor/stacje odtwarza i przechodzi do odtwarzacza."""
         state = self.session
         row = state.model.selected_row
@@ -508,6 +520,7 @@ class Navigator:
             return [Announce(row.activation_message)]
 
         if row.kind == "station":
+            state.player_entry_anchor_id = row.item_id
             state.list_anchor_id = row.item_id
             state.now_playing_id = row.item_id
             state.now_playing_title = row.title
@@ -518,7 +531,8 @@ class Navigator:
                 if candidate.kind == "station" and candidate.url
             )
             state.playback_uses_queue = False
-            state.view = View.PLAYER
+            if not stay_on_list_after_radio_enter:
+                state.view = View.PLAYER
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
 
         # Żywa kolejka ma już ścieżki w hoście. Payload listy niesie tylko ID.
@@ -539,6 +553,7 @@ class Navigator:
         if state.library_view is LibraryView.SAVED_QUEUE:
             return self._activate_queue_row(row)
 
+        state.player_entry_anchor_id = row.item_id
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
@@ -568,6 +583,7 @@ class Navigator:
         if not playable:
             return [Announce("Kolejka jest pusta")]
 
+        state.player_entry_anchor_id = row.item_id
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
@@ -596,6 +612,7 @@ class Navigator:
         migawka widoku.
         """
         state = self.session
+        state.player_entry_anchor_id = row.item_id
         state.list_anchor_id = row.item_id
         state.now_playing_id = row.item_id
         state.now_playing_title = row.title
@@ -641,6 +658,7 @@ class Navigator:
             return [Announce("Nie znajduję pliku tej zakładki")]
 
         path, position_seconds, title = target
+        state.player_entry_anchor_id = row.item_id
         state.list_anchor_id = row.item_id
         state.now_playing_id = f"file:{path}"
         state.now_playing_title = title
@@ -659,6 +677,31 @@ class Navigator:
             # Komunikat mowi, ze to SKOK do zapisanej pozycji, a nie
             # zwykly start od zera.
             Announce(f"{title}, od zakładki"),
+        ]
+
+    def activate_radio_preset(
+        self,
+        target: Row,
+        sequence: tuple[Row, ...],
+        *,
+        open_player: bool,
+    ) -> list[object]:
+        """Uruchom preset Radia, pozostawiajac liste albo pokazujac odtwarzacz."""
+        state = self.sessions[SessionId.RADIO]
+        was_player = state.view is View.PLAYER
+        if not was_player:
+            state.player_entry_anchor_id = state.model.selected_id
+        state.list_anchor_id = target.item_id
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = profile_material_id(target.item_id)
+        state.playback_source_rows = sequence
+        state.playback_uses_queue = False
+        if was_player or open_player:
+            state.view = View.PLAYER
+        return [
+            PlayStation(target.url or "", target.item_id, target.title),
+            Announce(target.title),
         ]
 
     def go_to_parent(self) -> list[object]:

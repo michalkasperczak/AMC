@@ -58,6 +58,14 @@ class Options:
     #: sama wartosc domyslna ``True``. Sesja moze je nadpisac w Opcjach sesji
     #: (``session_options.resolve_pause_on_player_exit``).
     pause_on_player_exit: bool = True
+    #: Po wyjsciu z odtwarzacza fokus moze sledzic element wybrany w nim
+    #: Page Up/Page Down. Domysl taki sam jak ``AppSettings`` pelnego AMC.
+    follow_playback_on_player_exit: bool = True
+    #: Preset moze grac w tle albo otworzyc odtwarzacz. Pelne AMC domyslnie
+    #: zostawia fokus w biezacym widoku.
+    open_player_when_activating_preset: bool = False
+    #: Enter na stacji moze zaczac granie bez zabierania fokusu z listy.
+    stay_on_list_after_radio_enter: bool = False
 
     def audio_payload(self) -> dict:
         return {
@@ -87,6 +95,12 @@ class Options:
         # moze po cichu zmienic tego, czy Escape zatrzymuje odtwarzanie.
         if type(self.pause_on_player_exit) is not bool:
             self.pause_on_player_exit = True
+        if type(self.follow_playback_on_player_exit) is not bool:
+            self.follow_playback_on_player_exit = True
+        if type(self.open_player_when_activating_preset) is not bool:
+            self.open_player_when_activating_preset = False
+        if type(self.stay_on_list_after_radio_enter) is not bool:
+            self.stay_on_list_after_radio_enter = False
         return self
 
 

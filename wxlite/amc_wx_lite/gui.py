@@ -46,6 +46,7 @@ from .list_model import (
     rows_from_stations,
 )
 from . import menu_model
+from . import profile_presets
 from .navigation import (
     Announce,
     LIBRARY_VIEW_FOLDERS,
@@ -63,7 +64,7 @@ from .navigation import (
     View,
     view_context,
 )
-from .shortcuts import Action, Chord, describe, resolve
+from .shortcuts import Action, Chord, describe, preset_slot, resolve
 from .profile_layout import resolve_layout
 from .quick_info import (
     HOST_ERROR_MESSAGE,
@@ -125,6 +126,17 @@ _SPECIAL_KEYS = {
     wx.WXK_PAGEUP: "Prior",
     wx.WXK_PAGEDOWN: "Next",
 }
+
+# Pelne wx udostepnia te stale, ale lekki zastepnik testowy nie musi. Budujemy
+# rozszerzenie warunkowo, zeby test dostepnosci GUI nie musial udawac calej
+# klawiatury numerycznej tylko dlatego, ze presety obsluguja ja produkcyjnie.
+for _wx_name, _key_name in (
+    *((f"WXK_NUMPAD{digit}", str(digit)) for digit in range(10)),
+    ("WXK_NUMPAD_SUBTRACT", "-"),
+    ("WXK_NUMPAD_ADD", "+"),
+):
+    if hasattr(wx, _wx_name):
+        _SPECIAL_KEYS[getattr(wx, _wx_name)] = _key_name
 
 
 def chord_from_event(event: wx.KeyEvent) -> Chord:
@@ -1201,6 +1213,65 @@ class SessionOptionsDialog(wx.Dialog):
         return result
 
 
+class GeneralPlaybackOptionsDialog(wx.Dialog):
+    """Najwazniejsze opcje interfejsu przeniesione z Ustawien pelnego AMC."""
+
+    def __init__(self, parent: wx.Window, options) -> None:
+        super().__init__(parent, title="Ustawienia — interfejs i odtwarzanie")
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+
+        self.pause = wx.CheckBox(
+            panel, label="&Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
+        )
+        self.pause.SetName("Wstrzymuj odtwarzanie po wyjściu z odtwarzacza")
+        self.pause.SetValue(options.pause_on_player_exit)
+
+        self.follow = wx.CheckBox(
+            panel,
+            label="Po wyjściu ustaw &fokus na aktualnie odtwarzanym elemencie",
+        )
+        self.follow.SetName(
+            "Po wyjściu ustaw fokus na aktualnie odtwarzanym elemencie"
+        )
+        self.follow.SetValue(options.follow_playback_on_player_exit)
+
+        self.open_preset = wx.CheckBox(
+            panel, label="Po uruchomieniu presetu &otwieraj odtwarzacz"
+        )
+        self.open_preset.SetName("Po uruchomieniu presetu otwieraj odtwarzacz")
+        self.open_preset.SetValue(options.open_player_when_activating_preset)
+
+        self.radio_enter = wx.CheckBox(
+            panel, label="Pozostawaj na li&ście po uruchomieniu stacji Enterem"
+        )
+        self.radio_enter.SetName(
+            "Pozostawaj na liście po uruchomieniu stacji Enterem"
+        )
+        self.radio_enter.SetValue(options.stay_on_list_after_radio_enter)
+
+        for control in (self.pause, self.follow, self.open_preset, self.radio_enter):
+            layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 10)
+        panel.SetSizer(layout)
+
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.ALL | wx.EXPAND, 12)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(outer)
+        self.Fit()
+        self.pause.SetFocus()
+
+    @property
+    def values(self) -> dict[str, bool]:
+        return {
+            "pause_on_player_exit": self.pause.GetValue(),
+            "follow_playback_on_player_exit": self.follow.GetValue(),
+            "open_player_when_activating_preset": self.open_preset.GetValue(),
+            "stay_on_list_after_radio_enter": self.radio_enter.GetValue(),
+        }
+
+
 class LiteFrame(wx.Frame):
     """Okno glowne: panel listy i panel odtwarzacza, przelaczane jak w AMC."""
 
@@ -2249,6 +2320,10 @@ class LiteFrame(wx.Frame):
             self._leave_player_to_list()
         elif action is Action.SESSION_OPTIONS:
             self._show_session_options()
+        elif action is Action.GENERAL_SETTINGS:
+            self._show_general_playback_options()
+        elif (slot := preset_slot(action)) is not None:
+            self._activate_preset(slot)
         elif action is Action.PLAY_PAUSE:
             self._play_pause()
         elif action is Action.ADD_BOOKMARK:
@@ -2487,7 +2562,88 @@ class LiteFrame(wx.Frame):
         event.Skip()
 
     def _activate(self) -> None:
-        self._run(self.navigator.activate_selected())
+        self._run(self.navigator.activate_selected(
+            stay_on_list_after_radio_enter=(
+                self.navigator.active is SessionId.RADIO
+                and self.options.stay_on_list_after_radio_enter
+            )
+        ))
+
+    def _activate_preset(self, slot: int) -> None:
+        """Uruchom istniejacy preset biezacej sesji z profilu AMC."""
+        session = self.navigator.active
+        spoken = profile_presets.shortcut_label(slot, spoken=True)
+
+        def work():
+            return profile_presets.resolve_preset(
+                self.layout.state_json, session, slot
+            )
+
+        def done(resolved: profile_presets.ResolvedPreset) -> None:
+            # Preset nalezy do sesji z chwili nacisniecia. Odpowiedz po zmianie
+            # sesji nie moze uruchomic materialu w obcym kontekscie.
+            if self.navigator.active is not session:
+                return
+            entry = resolved.entry
+            if entry is None:
+                self.announcer.say(
+                    f"Preset {spoken} pusty. Przypisanie presetów przeniesiemy w kolejnym kroku."
+                )
+                return
+
+            if session is SessionId.RADIO:
+                target = resolved.radio_target
+                if target is None:
+                    self.announcer.say(
+                        f"Preset {spoken} jest niedostępny. Stacji nie ma już w profilu."
+                    )
+                    return
+                sequence = tuple(
+                    Row(
+                        item_id=item.item_id,
+                        title=item.title,
+                        kind="station",
+                        url=item.url,
+                        show_kind=False,
+                    )
+                    for item in resolved.radio_sequence
+                )
+                target_row = next(
+                    item for item in sequence if item.item_id == target.item_id
+                )
+                self._run(self.navigator.activate_radio_preset(
+                    target_row,
+                    sequence,
+                    open_player=self.options.open_player_when_activating_preset,
+                ))
+                return
+
+            kind = entry.target_kind.casefold()
+            if kind == "folder" and entry.location:
+                self._open_library(entry.location)
+                return
+            if kind == "amcplaylist":
+                playlist_id = entry.location
+                if not playlist_id and ":" in entry.target_id:
+                    playlist_id = entry.target_id.split(":", 1)[1]
+                if playlist_id:
+                    self._open_library_view(OpenLibraryView(
+                        view=LibraryView.PLAYLIST_CONTENTS,
+                        playlist_id=playlist_id,
+                        target_session_id=SessionId.FILES,
+                    ))
+                    return
+            self.announcer.say(
+                f"Preset {spoken} istnieje, ale ten rodzaj materiału nie jest jeszcze przeniesiony."
+            )
+
+        def failed(error: Exception) -> None:
+            if isinstance(error, profile_presets.PresetProfileError):
+                self.announcer.say(str(error))
+            else:
+                self.announcer.say("Nie udało się odczytać presetu")
+
+        self.runner.submit("preset", work, done, failed)
 
     def _switch_session(self, session_id: SessionId) -> None:
         self._run(self.navigator.switch_session(session_id))
@@ -3149,7 +3305,31 @@ class LiteFrame(wx.Frame):
         session = self.navigator.active
         if self.navigator.session.view is View.PLAYER:
             self._pause_on_player_exit_if_needed(session)
-        self._run(self.navigator.back_to_list())
+        self._run(self.navigator.back_to_list(
+            follow_playback=self.options.follow_playback_on_player_exit
+        ))
+
+    def _show_general_playback_options(self) -> None:
+        """Ustawienia ogolne wxPython z natychmiastowym, atomowym zapisem."""
+        dialog = GeneralPlaybackOptionsDialog(self, self.options)
+        chosen: dict[str, bool] | None = None
+        try:
+            if dialog.ShowModal() == wx.ID_OK:
+                chosen = dialog.values
+        finally:
+            dialog.Destroy()
+        if chosen is None:
+            return
+
+        previous = {name: getattr(self.options, name) for name in chosen}
+        for name, value in chosen.items():
+            setattr(self.options, name, value)
+        if not self._save_state():
+            for name, value in previous.items():
+                setattr(self.options, name, value)
+            self.state.options = self.options
+            return
+        self.announcer.say("Zapisano ustawienia interfejsu i odtwarzania")
 
     def _show_session_options(self) -> None:
         """Opcje sesji: dialog, wybor sesji, Zapisz/Anuluj, zapis i SKUTEK.

@@ -146,6 +146,19 @@ class Action(Enum):
     # CommandIds.SettingsToggleSeekMessages, Ctrl+Shift+G
     # (MainWindow.xaml.cs:21670 i 22188).
     TOGGLE_SEEK_MESSAGES = "settings.toggleSeekMessages"
+    GENERAL_SETTINGS = "settings.general"
+    PRESET_1 = "preset.1"
+    PRESET_2 = "preset.2"
+    PRESET_3 = "preset.3"
+    PRESET_4 = "preset.4"
+    PRESET_5 = "preset.5"
+    PRESET_6 = "preset.6"
+    PRESET_7 = "preset.7"
+    PRESET_8 = "preset.8"
+    PRESET_9 = "preset.9"
+    PRESET_10 = "preset.10"
+    PRESET_11 = "preset.11"
+    PRESET_12 = "preset.12"
     OPEN_FOLDER_DIALOG = "files.openFolder"
     OPEN_FILE_DIALOG = "files.openFile"
     COPY_NAME = "clipboard.copyName"
@@ -342,6 +355,25 @@ LIST_VIEW: dict[str, Action] = {
     "F1": Action.HELP,
 }
 
+PRESET_ACTIONS: dict[int, Action] = {
+    slot: Action[f"PRESET_{slot}"] for slot in range(1, 13)
+}
+PRESET_SHORTCUTS: dict[str, int] = {
+    **{f"Ctrl+Shift+{slot}": slot for slot in range(1, 10)},
+    "Ctrl+Shift+0": 10,
+    "Ctrl+Shift+-": 11,
+    "Ctrl+Shift+=": 12,
+    "Ctrl+Shift++": 12,
+}
+
+
+def preset_slot(action: Action) -> int | None:
+    return next((slot for slot, candidate in PRESET_ACTIONS.items() if candidate is action), None)
+
+
+for _chord, _slot in PRESET_SHORTCUTS.items():
+    LIST_VIEW[_chord] = PRESET_ACTIONS[_slot]
+
 # Dodatkowo w sesji radiowej: zarzadzanie wlasna lista stacji.
 RADIO_LIST_VIEW: dict[str, Action] = {
     "Ctrl+N": Action.STATION_ADD,
@@ -429,6 +461,9 @@ PLAYER_VIEW: dict[str, Action] = {
     # Globalne zatrzymanie dziala niezaleznie od aktualnej sesji, jak w WPF.
     "Ctrl+Alt+Shift+R": Action.RECORD_STOP_ALL,
 }
+
+for _chord, _slot in PRESET_SHORTCUTS.items():
+    PLAYER_VIEW[_chord] = PRESET_ACTIONS[_slot]
 
 # To samo globalne polecenie z widoku listy.
 LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
@@ -557,6 +592,10 @@ def describe() -> list[tuple[str, str]]:
             "ktore sesja umie wykonac"
         ),
     }
+    labels.update({
+        action: f"Uruchom preset {slot} bieżącej sesji"
+        for slot, action in PRESET_ACTIONS.items()
+    })
     # Nazwy klawiszy w pomocy musza byc TAKIE, jak na klawiaturze. Wewnetrzne
     # "Prior"/"Next" (z wx) czytnik przeczytalby jako obce slowa, a uzytkownik
     # nie znalazlby tych klawiszy pod palcami.

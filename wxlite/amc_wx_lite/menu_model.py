@@ -358,6 +358,16 @@ def build_menus() -> tuple[Menu, ...]:
         ),
     )
 
+    settings = Menu(
+        "&Ustawienia",
+        (
+            MenuItem(
+                "&Interfejs i zachowanie odtwarzania…",
+                Action.GENERAL_SETTINGS,
+            ),
+        ),
+    )
+
     help_menu = Menu("Pomo&c", (MenuItem("&Skróty klawiszowe", Action.HELP, shortcut="F1"),))
 
-    return (files, library, radio, playback, view, audio, help_menu)
+    return (files, library, radio, playback, view, audio, settings, help_menu)
