@@ -304,6 +304,49 @@ def recording_history_from_amc_state(raw: object) -> tuple[RadioRecordingHistory
     return tuple(result)
 
 
+def recording_history_payload_from_event(payload: object) -> dict | None:
+    """Zamien koncowe zdarzenie hosta na wpis prywatnej historii wxPython.
+
+    Surowy identyfikator pozostaje w modelu i sluzy tylko do usuwania
+    duplikatow. Funkcja nie buduje zadnej etykiety dostepnosciowej.
+    """
+    if not isinstance(payload, dict):
+        return None
+    recording_id = payload.get("recordingId")
+    if not isinstance(recording_id, str) or not recording_id.strip():
+        return None
+    source = {
+        "id": recording_id,
+        "stationId": payload.get("stationId"),
+        "stationName": payload.get("stationName"),
+        "path": payload.get("path"),
+        "outcome": payload.get("outcome"),
+        "reason": payload.get("error"),
+        "scheduleName": payload.get("scheduleName"),
+        "startedUtcTicks": payload.get("startedUtcTicks"),
+        "finishedUtcTicks": payload.get("finishedUtcTicks"),
+        "savedFileCount": payload.get("savedFileCount"),
+    }
+    entries = recording_history_from_amc_state({
+        "radio": {"recordingHistory": [source]}
+    })
+    if not entries:
+        return None
+    entry = entries[0]
+    return {
+        "id": entry.id,
+        "stationId": entry.station_id,
+        "stationName": entry.station_name,
+        "path": entry.path,
+        "outcome": entry.outcome,
+        "reason": entry.reason,
+        "scheduleName": entry.schedule_name,
+        "startedUtcTicks": entry.started_utc_ticks,
+        "finishedUtcTicks": entry.finished_utc_ticks,
+        "savedFileCount": entry.saved_file_count,
+    }
+
+
 def _when_label(ticks: int, now: datetime) -> str:
     if ticks <= 0:
         return "nieznany czas"

@@ -96,6 +96,7 @@ from .radio_recording import (
     active_recording_rows,
     format_duration,
     recording_history_from_amc_state,
+    recording_history_payload_from_event,
     recording_history_rows,
     station_activity_rows,
 )
@@ -1394,6 +1395,7 @@ class LiteFrame(wx.Frame):
         self._last_recording_status: dict = {}
         self._status_poll_pending = False
         self._recording_status_poll_pending = False
+        self._recording_history_persist_error = False
         #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
@@ -2081,6 +2083,13 @@ class LiteFrame(wx.Frame):
             scheduled = bool(str(data.get("scheduleName") or "").strip())
             subject = "wykonać zaplanowanego nagrania" if scheduled else "nagrać"
             self.announcer.say(f"Nie udało się {subject} {station}: {reason}")
+        terminal_recording_event = name in (
+            "radio.recordingFinished",
+            "radio.recordingStopped",
+            "radio.recordingFailed",
+        )
+        if terminal_recording_event:
+            self._remember_recording_result(data)
         if name.startswith("radio.recording"):
             # Zdarzenie opisuje pojedyncza zmiane, natomiast lista potrzebuje
             # pelnej migawki wszystkich nagran. Odswiezamy ja bez dodatkowego
@@ -2089,11 +2098,7 @@ class LiteFrame(wx.Frame):
             radio_state = self.navigator.sessions[SessionId.RADIO]
             if radio_state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS:
                 self._show_active_radio_recordings(announce=False)
-        if name in (
-            "radio.recordingFinished",
-            "radio.recordingStopped",
-            "radio.recordingFailed",
-        ):
+        if terminal_recording_event:
             files_state = self.navigator.sessions[SessionId.FILES]
             if files_state.library_view is LibraryView.RECORDED_RADIO_FILES:
                 self._show_radio_recording_history(announce=False)
@@ -4243,6 +4248,26 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
+    def _remember_recording_result(self, payload: object) -> bool:
+        """Utrwal wynik w prywatnym stanie bez zmiany profilu pelnego AMC."""
+        entry = recording_history_payload_from_event(payload)
+        if entry is None:
+            return False
+        history = [
+            item for item in getattr(self.state, "recording_history", [])
+            if isinstance(item, dict) and item.get("id") != entry["id"]
+        ]
+        self.state.recording_history = [entry, *history][:1_000]
+        try:
+            self.store.save(self.state)
+        except (OSError, TypeError, ValueError):
+            # Komunikat o zakonczeniu nagrania pozostaje pojedynczy. Problem
+            # zapisu wyjasnimy po otwarciu Historii, gdzie jest istotny.
+            self._recording_history_persist_error = True
+            return False
+        self._recording_history_persist_error = False
+        return True
+
     def _show_radio_recording_history(self, *, announce: bool = True) -> None:
         """Alt+Shift+R: utrwalone wyniki prob, razem z nieudanymi."""
         if announce:
@@ -4250,6 +4275,10 @@ class LiteFrame(wx.Frame):
             self.navigator.active = SessionId.FILES
         previous = self._radio_snapshot
         client = self.client
+        private_history = list(getattr(self.state, "recording_history", []))
+        persistence_error = bool(
+            getattr(self, "_recording_history_persist_error", False)
+        )
 
         def work():
             snapshot = self.radio.load(previous=previous)
@@ -4268,22 +4297,28 @@ class LiteFrame(wx.Frame):
                     })
                 except (HostError, HostUnavailable, OSError) as error:
                     current_error = str(error)
+            private_entries = recording_history_from_amc_state({
+                "radio": {"recordingHistory": private_history}
+            })
             library = getattr(self, "library", None)
             if library is not None and library.is_available:
                 try:
                     recorded_files = tuple(library.recorded_radio_items())
                 except (OSError, sqlite3.Error) as error:
                     library_error = str(error)
-            known_ids = {entry.id for entry in current_entries}
-            combined = current_entries + tuple(
-                entry for entry in snapshot.recording_history if entry.id not in known_ids
-            )
+            combined = list(current_entries)
+            known_ids = {entry.id for entry in combined}
+            for entry in (*private_entries, *snapshot.recording_history):
+                if entry.id in known_ids:
+                    continue
+                known_ids.add(entry.id)
+                combined.append(entry)
             return (
                 snapshot,
                 recording_history_rows(combined, recorded_files=recorded_files),
-                len(current_entries),
                 current_error,
                 library_error,
+                persistence_error,
             )
 
         def done(result) -> None:
@@ -4295,7 +4330,7 @@ class LiteFrame(wx.Frame):
                 is not LibraryView.RECORDED_RADIO_FILES
             ):
                 return
-            snapshot, rows, current_count, current_error, library_error = result
+            snapshot, rows, current_error, library_error, history_save_error = result
             self._radio_snapshot = snapshot
             self.stations = snapshot.list
             if announce and snapshot.load_error and not rows:
@@ -4314,11 +4349,6 @@ class LiteFrame(wx.Frame):
                     self._sync_views()
                 if announce and snapshot.load_error:
                     self.announcer.say(snapshot.load_error)
-                if announce and current_count:
-                    self.announcer.say(
-                        "Najnowsze nagrania z tej sesji są widoczne, ale nie są "
-                        "jeszcze zapisywane we wspólnym profilu AMC"
-                    )
                 if announce and current_error:
                     self.announcer.say(
                         "Historia bieżącej sesji nagrywania jest chwilowo niedostępna"
@@ -4326,6 +4356,10 @@ class LiteFrame(wx.Frame):
                 if announce and library_error:
                     self.announcer.say(
                         "Lista zapisanych plików nagrań jest chwilowo niedostępna"
+                    )
+                if announce and history_save_error:
+                    self.announcer.say(
+                        "Nie udało się zapisać prywatnej historii nagrywania"
                     )
 
         def failed(error: Exception) -> None:

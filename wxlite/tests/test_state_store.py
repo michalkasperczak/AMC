@@ -62,6 +62,54 @@ def test_round_trip_keeps_options_and_stations() -> None:
     assert [s.url for s in loaded.stations] == ["http://a/1"]
 
 
+def test_round_trip_keeps_private_recording_history() -> None:
+    store, _ = temp_store()
+    state = LiteState(recording_history=[{
+        "id": "nagranie-1",
+        "stationId": "stacja-1",
+        "stationName": "Radio Test",
+        "path": r"D:\Nagrania\audycja.mp3",
+        "outcome": "Stopped",
+        "reason": "",
+        "scheduleName": "Poranna audycja",
+        "startedUtcTicks": 100,
+        "finishedUtcTicks": 200,
+        "savedFileCount": 1,
+        "technicalObject": {"nie": "zapisuj"},
+    }])
+    store.save(state)
+    loaded = store.load()
+    assert loaded.recording_history == [{
+        "id": "nagranie-1",
+        "stationId": "stacja-1",
+        "stationName": "Radio Test",
+        "path": r"D:\Nagrania\audycja.mp3",
+        "reason": "",
+        "scheduleName": "Poranna audycja",
+        "outcome": "stopped",
+        "startedUtcTicks": 100,
+        "finishedUtcTicks": 200,
+        "savedFileCount": 1,
+    }]
+
+
+def test_recording_history_rejects_invalid_ids_and_duplicate_objects() -> None:
+    store, directory = temp_store()
+    (directory / StateStore.FILE_NAME).write_text(json.dumps({
+        "recording_history": [
+            {"id": "", "stationName": "bez identyfikatora"},
+            {"id": "jedno", "stationName": {"repr": "nie"}, "savedFileCount": True},
+            {"id": "jedno", "stationName": "duplikat"},
+            "obcy obiekt",
+        ]
+    }), encoding="utf-8")
+    history = store.load().recording_history
+    assert len(history) == 1
+    assert history[0]["id"] == "jedno"
+    assert history[0]["stationName"] == ""
+    assert history[0]["savedFileCount"] == 0
+
+
 def test_missing_file_gives_defaults_not_an_error() -> None:
     store, _ = temp_store()
     state = store.load()

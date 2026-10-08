@@ -27,12 +27,64 @@ from amc_wx_lite.radio_recording import (
     format_duration,
     preferences_from_amc_state,
     recording_history_from_amc_state,
+    recording_history_payload_from_event,
     recording_history_rows,
     station_activity_rows,
 )
 from amc_wx_lite.radio_source import RadioSource
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 from amc_wx_lite.state_store import Station
+
+
+def test_terminal_recording_event_becomes_sanitized_private_history() -> None:
+    payload = recording_history_payload_from_event({
+        "recordingId": "techniczne-id",
+        "stationId": "radio-test",
+        "stationName": " Radio Test ",
+        "path": r"D:\Nagrania\test.mp3",
+        "outcome": "Stopped",
+        "error": "",
+        "scheduleName": " Poranna audycja ",
+        "startedUtcTicks": 100,
+        "finishedUtcTicks": 200,
+        "savedFileCount": 1,
+        "technicalObject": {"nie": "zapisuj"},
+    })
+    assert payload == {
+        "id": "techniczne-id",
+        "stationId": "radio-test",
+        "stationName": "Radio Test",
+        "path": r"D:\Nagrania\test.mp3",
+        "outcome": "stopped",
+        "reason": "",
+        "scheduleName": "Poranna audycja",
+        "startedUtcTicks": 100,
+        "finishedUtcTicks": 200,
+        "savedFileCount": 1,
+    }
+
+
+def test_gui_persists_terminal_recording_once_in_private_state() -> None:
+    saves = []
+    state = SimpleNamespace(recording_history=[{
+        "id": "techniczne-id", "stationName": "stara nazwa"
+    }])
+    frame = SimpleNamespace(
+        state=state,
+        store=SimpleNamespace(save=lambda saved: saves.append(saved.recording_history.copy())),
+        _recording_history_persist_error=False,
+    )
+    event = {
+        "recordingId": "techniczne-id",
+        "stationId": "radio-test",
+        "stationName": "Nowa nazwa",
+        "outcome": "Completed",
+        "savedFileCount": 1,
+    }
+    assert LiteFrame._remember_recording_result(frame, event) is True
+    assert len(state.recording_history) == 1
+    assert state.recording_history[0]["stationName"] == "Nowa nazwa"
+    assert len(saves) == 1
 
 
 def test_profile_recording_settings_and_station_folder_reach_one_payload() -> None:

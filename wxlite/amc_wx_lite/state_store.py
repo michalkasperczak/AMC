@@ -113,6 +113,11 @@ class LiteState:
     #: Pusty slownik = kazda sesja dziedziczy ustawienia ogolne, czyli
     #: zachowanie sprzed tego przyrostu.
     session_overrides: dict = field(default_factory=dict)
+    #: Prywatna historia prob nagrywania wxPython. Nie trafia do profilu
+    #: pelnego AMC, ale przezywa ponowne uruchomienie lekkiego interfejsu.
+    #: Wartosci sa zwyklymi danymi protokolu; etykiety NVDA powstaja dopiero
+    #: w ``radio_recording.py``.
+    recording_history: list[dict] = field(default_factory=list)
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -136,6 +141,48 @@ def _read_session_overrides(raw: object) -> dict:
         overrides = SessionPlaybackOverrides.from_payload(value)
         if not overrides.is_empty:
             result[key] = overrides
+    return result
+
+
+def _read_recording_history(raw: object) -> list[dict]:
+    """Wczytaj najwyzej 1000 bezpiecznych wpisow prywatnej historii.
+
+    Nie przechowujemy dowolnych obiektow ani nieznanych pol z pliku. Dzieki
+    temu uszkodzony lub recznie zmieniony stan nie moze pozniej wyciec jako
+    reprezentacja obiektu do listy dostepnej dla NVDA.
+    """
+    if not isinstance(raw, list):
+        return []
+    result: list[dict] = []
+    seen: set[str] = set()
+    text_fields = ("stationId", "stationName", "path", "reason", "scheduleName")
+    for item in raw:
+        if len(result) >= 1_000:
+            break
+        if not isinstance(item, dict):
+            continue
+        entry_id = item.get("id")
+        if not isinstance(entry_id, str) or not entry_id.strip():
+            continue
+        entry_id = entry_id.strip()
+        if entry_id in seen:
+            continue
+        seen.add(entry_id)
+        entry: dict = {"id": entry_id}
+        for name in text_fields:
+            value = item.get(name)
+            entry[name] = value.strip() if isinstance(value, str) else ""
+        outcome = item.get("outcome")
+        entry["outcome"] = (
+            outcome.strip().casefold()
+            if isinstance(outcome, str)
+            and outcome.strip().casefold() in ("completed", "stopped", "interrupted", "failed")
+            else "completed"
+        )
+        for name in ("startedUtcTicks", "finishedUtcTicks", "savedFileCount"):
+            value = item.get(name)
+            entry[name] = max(0, value) if isinstance(value, int) and not isinstance(value, bool) else 0
+        result.append(entry)
     return result
 
 
@@ -208,6 +255,7 @@ class StateStore:
             stations=stations,
             navigation=navigation if isinstance(navigation, dict) else {},
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
+            recording_history=_read_recording_history(raw.get("recording_history")),
         )
 
     # -------------------------------------------------------------- zapis
@@ -227,6 +275,7 @@ class StateStore:
                 for key, overrides in (state.session_overrides or {}).items()
                 if not overrides.is_empty
             },
+            "recording_history": _read_recording_history(state.recording_history),
         }
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 
