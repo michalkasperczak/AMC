@@ -62,6 +62,10 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
 10. `Ctrl+O` pozostaje kontekstowe jak w głównym AMC: w Plikach wybiera plik,
     a w Radiu importuje M3U/PLS. `Ctrl+I` nie jest już błędnie zajęte przez
     import stacji.
+11. Pozycja Widok → „Pobrane” jest dostępna w sesji Podcasty i YouTube.
+    Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
+    także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
+    początku; Enter odtwarza lokalny plik zwykłym torem silnika C#.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -73,8 +77,8 @@ Zapis postępu jest wąską transakcją jednego odcinka. Host odmawia drugiemu
 oknu wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne
 AMC, które mogłoby później nadpisać całą migawkę. Dodawanie, usuwanie,
 odświeżanie i pobieranie nie są jeszcze przeniesione do wxPython. Widoki
-„Nowe odcinki i materiały” oraz „W trakcie słuchania” są już przeniesione;
-pozostałe widoki specjalne nadal czekają.
+„Nowe odcinki i materiały”, „W trakcie słuchania” oraz „Pobrane” są już
+przeniesione; pozostałe widoki specjalne nadal czekają.
 
 Test bez danych użytkownika:
 

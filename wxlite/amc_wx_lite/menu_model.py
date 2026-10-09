@@ -362,6 +362,8 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("W &trakcie słuchania", Action.VIEW_PODCAST_IN_PROGRESS,
                      shortcut="Ctrl+Shift+I", accelerator=False,
                      needs_podcast_session=True),
+            MenuItem("Po&brane", Action.VIEW_PODCAST_DOWNLOADS,
+                     needs_podcast_session=True),
             SEPARATOR,
             # ``accelerator=False``: ZMIERZONE na zywym GUI (statusclip-1).
             # Z akceleratorem pozycja byla WYLACZONA na liscie (nic nie gralo),

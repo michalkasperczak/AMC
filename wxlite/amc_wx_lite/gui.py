@@ -3098,6 +3098,8 @@ class LiteFrame(wx.Frame):
             self._show_podcast_inbox()
         elif action is Action.VIEW_PODCAST_IN_PROGRESS:
             self._show_podcast_in_progress()
+        elif action is Action.VIEW_PODCAST_DOWNLOADS:
+            self._show_podcast_downloads()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3709,10 +3711,22 @@ class LiteFrame(wx.Frame):
             OpenPodcastAggregateView(LibraryView.PODCAST_IN_PROGRESS)
         )
 
+    def _show_podcast_downloads(self) -> None:
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Pobrane odcinki są dostępne w sesji Podcasty i YouTube"
+            )
+            return
+        self._transient_preview_return = None
+        self._open_podcast_aggregate(
+            OpenPodcastAggregateView(LibraryView.PODCAST_DOWNLOADS)
+        )
+
     def _open_podcast_aggregate(self, intent: OpenPodcastAggregateView) -> None:
         if intent.view not in (
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
+            LibraryView.PODCAST_DOWNLOADS,
         ):
             return
         if not self.podcasts.is_available:
@@ -3734,7 +3748,9 @@ class LiteFrame(wx.Frame):
                     loaded_count=requested,
                     collation=getattr(self, "_collation", None),
                 )
-            return self.podcasts.in_progress(loaded_count=requested)
+            if intent.view is LibraryView.PODCAST_IN_PROGRESS:
+                return self.podcasts.in_progress(loaded_count=requested)
+            return self.podcasts.downloads(loaded_count=requested)
 
         def done(page) -> None:
             if (
@@ -3751,7 +3767,11 @@ class LiteFrame(wx.Frame):
             heading = (
                 "Nowe odcinki i materiały"
                 if intent.view is LibraryView.PODCAST_INBOX
-                else "W trakcie słuchania"
+                else (
+                    "W trakcie słuchania"
+                    if intent.view is LibraryView.PODCAST_IN_PROGRESS
+                    else "Pobrane"
+                )
             )
             events = self.navigator.apply_podcast_aggregate(
                 intent.view,

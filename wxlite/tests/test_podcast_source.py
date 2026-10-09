@@ -85,17 +85,19 @@ def _insert_episode(
     is_started: int = 0,
     is_played: int = 0,
     resume_seconds: int = 90,
+    download_path: str | None = None,
 ) -> None:
     connection = sqlite3.connect(path)
     connection.execute(
         """
         INSERT INTO podcast_episodes VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, '', ?
+            ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, '', ?
         )
         """,
         (
             item_id, ordinal, subscription_id, title, published,
             is_new, is_started, is_played,
+            download_path,
             _episode_payload(
                 f"https://example.invalid/{item_id}",
                 feed_ordinal=feed_ordinal,
@@ -289,3 +291,50 @@ def test_inbox_reads_the_saved_podcast_sort_mode_without_writing_state() -> None
         source = PodcastSource(layout)
         assert source.inbox_sort_mode() == "Alphabetical"
         assert layout.state_json.read_bytes() == before
+
+
+def test_downloads_include_only_existing_files_even_from_archived_sources() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        newest = base / "najnowszy.mp3"
+        archived = base / "archiwalny.mp3"
+        newest.write_bytes(b"audio-new")
+        archived.write_bytes(b"audio-archived")
+        _insert_episode(
+            path,
+            item_id="new-download",
+            subscription_id="rss-id",
+            title="Najnowszy",
+            ordinal=0,
+            published=300,
+            download_path=str(newest),
+        )
+        _insert_episode(
+            path,
+            item_id="archived-download",
+            subscription_id="hidden-id",
+            title="Archiwalny",
+            ordinal=1,
+            published=200,
+            download_path=str(archived),
+        )
+        _insert_episode(
+            path,
+            item_id="missing-download",
+            subscription_id="rss-id",
+            title="Brak pliku",
+            ordinal=2,
+            published=400,
+            download_path=str(base / "nie-istnieje.mp3"),
+        )
+
+        page = PodcastSource(private_sandbox(base)).downloads()
+
+        assert [row.item_id for row in page.rows] == [
+            "new-download", "archived-download"
+        ]
+        assert page.rows[0].path == str(newest)
+        assert "Audycja tygodnia" in page.rows[0].detail
+        assert "Ukryty" in page.rows[1].detail
+        assert all("missing-download" not in row.item_id for row in page.rows)

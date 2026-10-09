@@ -78,6 +78,7 @@ class LibraryView(Enum):
     #: widokiem sesji Podcasty i YouTube pod Ctrl+Shift+I.
     PODCAST_INBOX = "podcastInbox"
     PODCAST_IN_PROGRESS = "podcastInProgress"
+    PODCAST_DOWNLOADS = "podcastDownloads"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -565,6 +566,7 @@ class Navigator:
             if state.library_view in (
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_IN_PROGRESS,
+                LibraryView.PODCAST_DOWNLOADS,
             ):
                 return [OpenPodcastAggregateView(state.library_view, load_more=True)]
             if not state.library_playlist_id:
@@ -1353,6 +1355,7 @@ class Navigator:
         if view not in (
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
+            LibraryView.PODCAST_DOWNLOADS,
         ):
             raise ValueError("To nie jest zbiorczy widok podcastów")
         state = self.sessions[SessionId.PODCASTS]
@@ -1370,6 +1373,8 @@ class Navigator:
             message = "Nowe odcinki i materiały, brak nowych materiałów"
         elif view is LibraryView.PODCAST_IN_PROGRESS and count == 0:
             message = "W trakcie słuchania, brak rozpoczętych odcinków"
+        elif view is LibraryView.PODCAST_DOWNLOADS and count == 0:
+            message = "Pobrane, brak pobranych odcinków"
         else:
             message = f"{heading}, {count} {_items_word(count)}"
         if not order_matches_amc:

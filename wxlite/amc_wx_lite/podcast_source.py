@@ -412,7 +412,10 @@ class PodcastSource:
         modes = collection_sort_modes_from_amc_state(raw, session="podcasts")
         return modes.get("nowe odcinki", SORT_ADDED_NEWEST)
 
-    def _aggregate_records(self, where: str) -> list[_EpisodeRecord]:
+    def _aggregate_records(
+        self, where: str, *, library_only: bool = True
+    ) -> list[_EpisodeRecord]:
+        membership = "s.is_in_library = 1 AND " if library_only else ""
         try:
             with closing(self._open()) as connection:
                 records = connection.execute(
@@ -424,7 +427,7 @@ class PodcastSource:
                     FROM podcast_episodes AS e
                     JOIN podcast_subscriptions AS s
                       ON s.id = e.subscription_id
-                    WHERE s.is_in_library = 1 AND ({where})
+                    WHERE {membership}({where})
                     ORDER BY e.ordinal
                     """
                 ).fetchall()
@@ -514,6 +517,26 @@ class PodcastSource:
             records,
             loaded_count=loaded_count,
             view="in-progress",
+            order_matches_amc=True,
+        )
+
+    def downloads(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
+        """Episodes whose downloaded file still exists, including archived sources."""
+        records = self._aggregate_records(
+            "e.download_path IS NOT NULL AND length(trim(e.download_path)) > 0",
+            library_only=False,
+        )
+        records = [
+            record for record in records
+            if record.download_path and Path(record.download_path).is_file()
+        ]
+        # The full AMC specifies only PublishedUtcTicks descending here. The
+        # SQL input order remains stable for equal publication times.
+        records.sort(key=lambda record: record.published_ticks, reverse=True)
+        return self._aggregate_page(
+            records,
+            loaded_count=loaded_count,
+            view="downloads",
             order_matches_amc=True,
         )
 

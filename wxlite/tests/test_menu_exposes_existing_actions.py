@@ -273,6 +273,17 @@ def test_existing_menus_are_preserved() -> None:
         assert expected in titles, f"zgubione menu {expected}"
 
 
+def test_podcast_aggregate_views_are_discoverable_and_contextual() -> None:
+    view = next(menu for menu in menu_model.build_menus() if menu.title == "&Widok")
+    by_action = {item.action: item for item in view.items if item.action is not None}
+    assert Action.VIEW_PODCAST_INBOX in by_action
+    assert Action.VIEW_PODCAST_IN_PROGRESS in by_action
+    assert Action.VIEW_PODCAST_DOWNLOADS in by_action
+    assert not by_action[Action.VIEW_PODCAST_INBOX].needs_podcast_session
+    assert by_action[Action.VIEW_PODCAST_IN_PROGRESS].needs_podcast_session
+    assert by_action[Action.VIEW_PODCAST_DOWNLOADS].needs_podcast_session
+
+
 def test_audio_menu_keeps_its_tempo_submenu_marker() -> None:
     """Podmenu algorytmow buduje GUI (radio-itemy) -- model ma je zapowiedziec."""
     audio = next(m for m in menu_model.build_menus() if "Dźwięk" in m.title)

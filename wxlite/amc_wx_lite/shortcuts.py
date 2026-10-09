@@ -194,6 +194,7 @@ class Action(Enum):
     MANAGE_RADIO_SCHEDULES = "radio.recording.schedules"
     VIEW_PODCAST_INBOX = "podcasts.inbox"
     VIEW_PODCAST_IN_PROGRESS = "podcasts.inProgress"
+    VIEW_PODCAST_DOWNLOADS = "podcasts.downloads"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -604,6 +605,7 @@ def describe() -> list[tuple[str, str]]:
         Action.MANAGE_RADIO_SCHEDULES: "Pokaz harmonogram nagrywania radia",
         Action.VIEW_PODCAST_INBOX: "Nowe odcinki i materiały",
         Action.VIEW_PODCAST_IN_PROGRESS: "W trakcie słuchania",
+        Action.VIEW_PODCAST_DOWNLOADS: "Pobrane odcinki podcastów",
         Action.VIEW_PRESETS: "Pokaż presety aktywnej sesji",
         Action.ASSIGN_PRESET: "Utwórz preset lub przypisz bieżący element",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",

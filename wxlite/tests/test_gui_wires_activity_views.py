@@ -30,6 +30,7 @@ NEW_ACTIONS = (
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_PODCAST_IN_PROGRESS,
+    Action.VIEW_PODCAST_DOWNLOADS,
 )
 
 
@@ -71,6 +72,7 @@ _NON_SQLITE_VIEWS = (
     LibraryView.PODCAST_EPISODES,
     LibraryView.PODCAST_INBOX,
     LibraryView.PODCAST_IN_PROGRESS,
+    LibraryView.PODCAST_DOWNLOADS,
 )
 
 
