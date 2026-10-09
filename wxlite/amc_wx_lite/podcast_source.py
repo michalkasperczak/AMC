@@ -76,6 +76,7 @@ class PodcastEpisodePage:
 @dataclass(frozen=True, slots=True)
 class _EpisodeRecord:
     item_id: str
+    subscription_id: str
     title: str
     parent_title: str
     source_kind: int
@@ -205,6 +206,7 @@ def _episode_row(record: _EpisodeRecord, *, aggregate: bool) -> Row:
             0.0,
             _as_int(_get(record.payload, "ResumePositionTicks", 0)) / 10_000_000,
         ),
+        parent_id=record.subscription_id,
     )
 
 
@@ -212,6 +214,7 @@ def _materialize_episode(record: sqlite3.Row) -> _EpisodeRecord:
     payload = _payload(record["payload_json"])
     return _EpisodeRecord(
         item_id=str(record["id"]),
+        subscription_id=str(record["subscription_id"]),
         title=_clean_text(record["title"], "Odcinek bez nazwy"),
         parent_title=_clean_text(record["parent_title"], "Podcast bez nazwy"),
         source_kind=_source_kind(_payload(record["parent_payload_json"])),
@@ -390,6 +393,7 @@ class PodcastSource:
                 show_kind=False,
                 activation_message=None if playable else "Ten odcinek nie ma adresu do odtworzenia",
                 position_seconds=max(0.0, _as_int(_get(data, "ResumePositionTicks", 0)) / 10_000_000),
+                parent_id=subscription_id,
             ))
 
         if has_more:
@@ -421,7 +425,7 @@ class PodcastSource:
             with closing(self._open()) as connection:
                 records = connection.execute(
                     f"""
-                    SELECT e.id, e.title, e.published_utc_ticks, e.is_new,
+                    SELECT e.id, e.subscription_id, e.title, e.published_utc_ticks, e.is_new,
                            e.is_started, e.is_played, e.download_path,
                            e.payload_json, s.title AS parent_title,
                            s.payload_json AS parent_payload_json

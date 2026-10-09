@@ -94,6 +94,20 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+O",
                      accelerator=False),
             MenuItem("Otwórz &folder", Action.OPEN_FOLDER_DIALOG, shortcut="Ctrl+Shift+O"),
+            MenuItem(
+                "Odśwież wybrane źródło pod&castów",
+                Action.REFRESH_PODCAST,
+                shortcut="F5",
+                accelerator=False,
+                needs_podcast_session=True,
+            ),
+            MenuItem(
+                "Odśwież &wszystkie źródła podcastów",
+                Action.REFRESH_PODCAST_LIBRARY,
+                shortcut="Ctrl+F5",
+                accelerator=False,
+                needs_podcast_session=True,
+            ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #

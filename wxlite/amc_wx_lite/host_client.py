@@ -400,6 +400,14 @@ class LiteHostClient:
         """Zapisz żywą pozycję odcinka przez wąską operację hosta C#."""
         return self.call("podcast.checkpoint", timeout=15.0)
 
+    def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
+        """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
+        args = {"subscriptionId": subscription_id} if subscription_id else {}
+        # Duża biblioteka YouTube wykonuje yt-dlp kolejno dla wielu źródeł.
+        # Wywołanie biegnie poza kolejką transportu, ale odpowiedź może zająć
+        # znacznie dłużej niż zwykłe polecenie odtwarzania.
+        return self.call("podcast.refresh", args, timeout=3600.0)
+
     def add_bookmark(self, *, item_id: str, item_title: str) -> Any:
         return self.call(
             "bookmark.add",

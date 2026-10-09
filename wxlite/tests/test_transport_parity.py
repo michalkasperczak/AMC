@@ -99,6 +99,7 @@ from amc_wx_lite.shortcuts import (
     LIST_VIEW,
     PLAYER_VIEW,
     PODCAST_INBOX_LIST_VIEW,
+    PODCAST_SESSION_VIEW,
     RADIO_LIST_VIEW,
     RADIO_PLAYER_VIEW,
     Action,
@@ -637,6 +638,7 @@ def test_menu_shortcut_labels_still_tell_the_truth() -> None:
     real: dict[str, set[Action]] = {}
     for table in (
         PODCAST_INBOX_LIST_VIEW,
+        PODCAST_SESSION_VIEW,
         LIST_VIEW,
         RADIO_LIST_VIEW,
         RADIO_PLAYER_VIEW,

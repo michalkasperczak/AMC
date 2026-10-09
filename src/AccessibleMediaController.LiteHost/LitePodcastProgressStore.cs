@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.LiteHost.Protocol;
 using Microsoft.Data.Sqlite;
 
@@ -18,7 +19,7 @@ internal sealed class LitePodcastProgressStore : IDisposable
     public const string OwnerLockFileName = "amc-lite-podcast-owner.lock";
 
     private readonly FileStream _ownerLock;
-    private readonly PodcastPlaybackCheckpointStore _store;
+    private readonly PodcastLibraryMutationStore _store;
     private readonly Func<bool> _fullAmcIsRunning;
 
     private LitePodcastProgressStore(
@@ -27,7 +28,7 @@ internal sealed class LitePodcastProgressStore : IDisposable
         Func<bool> fullAmcIsRunning)
     {
         _ownerLock = ownerLock;
-        _store = new PodcastPlaybackCheckpointStore(databasePath);
+        _store = new PodcastLibraryMutationStore(databasePath);
         _fullAmcIsRunning = fullAmcIsRunning;
     }
 
@@ -76,7 +77,8 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
         try
         {
-            var result = _store.Save(episodeId, position, duration, completed);
+            var result = _store.SavePlaybackCheckpoint(
+                episodeId, position, duration, completed);
             return new
             {
                 saved = true,
@@ -103,6 +105,80 @@ internal sealed class LitePodcastProgressStore : IDisposable
                 "Baza Podcastów jest chwilowo niedostępna.");
         }
     }
+
+    public IReadOnlyList<PodcastRefreshTarget> GetRefreshTargets(string? subscriptionId)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.GetRefreshTargets(subscriptionId);
+        }
+        catch (Exception exception) when (exception is KeyNotFoundException
+            or InvalidOperationException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] odczyt źródeł podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
+    public int GetInboxCount()
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.GetInboxCount();
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] licznik nowych podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
+    public PodcastRefreshResult ApplyRefresh(
+        string subscriptionId,
+        PodcastFeedDocument feed,
+        BookmarkSettings? bookmarks = null)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.ApplyRefresh(
+                subscriptionId,
+                feed,
+                DateTime.UtcNow,
+                bookmarks);
+        }
+        catch (Exception exception) when (exception is KeyNotFoundException
+            or InvalidOperationException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] zapis odświeżenia podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
+    private void EnsureFullAmcIsClosed(string message)
+    {
+        if (_fullAmcIsRunning()) throw new LiteRequestException(message);
+    }
+
+    private static bool IsDatabaseFailure(Exception exception) => exception is
+        IOException
+        or InvalidDataException
+        or UnauthorizedAccessException
+        or SqliteException
+        or JsonException;
 
     public void Dispose() => _ownerLock.Dispose();
 

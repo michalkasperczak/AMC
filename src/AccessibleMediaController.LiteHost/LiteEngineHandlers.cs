@@ -41,6 +41,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteQueueStore? _queueStore;
     private readonly LiteBookmarkStore? _bookmarkStore;
     private readonly LitePodcastProgressStore? _podcastProgressStore;
+    private readonly LitePodcastRefreshCoordinator? _podcastRefresh;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
 
@@ -94,6 +95,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
         _podcastProgressStore = podcastProgressStore;
+        _podcastRefresh = podcastProgressStore is null
+            ? null
+            : new LitePodcastRefreshCoordinator(podcastProgressStore, bookmarkStore);
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -225,6 +229,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["transport.setRate"] = (request, _) => SetRate(request.Args),
             ["transport.status"] = (_, _) => Status(),
             ["podcast.checkpoint"] = (_, _) => SaveCurrentPodcastProgress(),
+            [LitePodcastRefreshCoordinator.Operation] = (request, _) =>
+                RefreshPodcasts(request.Args),
             ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
@@ -1148,6 +1154,16 @@ internal sealed class LiteEngineHandlers : IDisposable
         return _podcastProgressStore.Save(episodeId, position, duration, completed);
     }
 
+    private object RefreshPodcasts(JsonElement args)
+    {
+        if (_podcastRefresh is null)
+        {
+            throw new LiteRequestException(
+                "Odświeżanie nie ma dostępu do biblioteki Podcastów i YouTube.");
+        }
+        return _podcastRefresh.Refresh(args);
+    }
+
     private void TrySaveCurrentPodcastProgress()
     {
         if (_podcastProgressStore is null) return;
@@ -1306,6 +1322,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         // tej samej kopii profilu dostawalby odmowe po juz zamknietym procesie,
         // czyli trwalosc dzialalaby raz.
         _queueStore?.Dispose();
+        _podcastRefresh?.Dispose();
         _podcastProgressStore?.Dispose();
     }
 }

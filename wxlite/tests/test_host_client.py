@@ -159,6 +159,19 @@ def test_podcast_checkpoint_is_a_narrow_host_operation() -> None:
         client.close()
 
 
+def test_podcast_refresh_uses_one_narrow_host_operation() -> None:
+    client = make_client()
+    try:
+        current = client.refresh_podcasts("podcast-stable-id")
+        all_sources = client.refresh_podcasts()
+        assert current["op"] == "podcast.refresh"
+        assert current["args"] == {"subscriptionId": "podcast-stable-id"}
+        assert all_sources["op"] == "podcast.refresh"
+        assert all_sources["args"] == {}
+    finally:
+        client.close()
+
+
 def test_host_error_is_raised_as_host_error_not_crash() -> None:
     client = make_client()
     try:

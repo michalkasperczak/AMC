@@ -156,6 +156,39 @@ def test_alt_digits_sort_only_inside_the_podcast_inbox() -> None:
     ) is Action.OPEN_FILE_DIALOG
 
 
+def test_podcast_refresh_matches_the_full_amc_context() -> None:
+    # Ctrl+F5 zawsze odswieza cala Biblioteke podcastow. F5 odswieza biezace
+    # zrodlo, z jednym swiadomym wyjatkiem: w globalnej skrzynce odswieza
+    # wszystkie zrodla, bo wiersze moga pochodzic z wielu podcastow.
+    for player in (False, True):
+        assert resolve(
+            Chord("F5", ctrl=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.REFRESH_PODCAST_LIBRARY
+        assert resolve(
+            Chord("F5"),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.REFRESH_PODCAST
+
+    assert resolve(
+        Chord("F5"),
+        player_view=False,
+        radio_session=False,
+        podcast_session=True,
+        podcast_inbox=True,
+    ) is Action.REFRESH_PODCAST_LIBRARY
+    assert resolve(
+        Chord("F5"),
+        player_view=False,
+        radio_session=False,
+        podcast_session=False,
+    ) is None
+
+
 def test_delete_does_nothing_in_the_files_session() -> None:
     # Zabezpieczenie: Delete nie moze dotykac plikow uzytkownika.
     assert resolve(Chord("Delete"), player_view=False, radio_session=False) is None

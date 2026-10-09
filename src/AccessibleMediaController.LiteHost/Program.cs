@@ -104,7 +104,10 @@ internal static class Program
                 LiteAudioClipOperations.RemoveOperation,
                 // Dopisywanie buduje i weryfikuje nowy plik obok celu. Takze
                 // musi pozostawic status i anulowanie responsywne.
-                LiteAudioClipOperations.AppendOperation
+                LiteAudioClipOperations.AppendOperation,
+                // RSS i yt-dlp nie moga blokowac pauzy, statusu ani nagrywania.
+                // Zapis bazy na koncu pozostaje chroniony przez jednego pisarza.
+                LitePodcastRefreshCoordinator.Operation
             ]);
 
         Console.Error.WriteLine(

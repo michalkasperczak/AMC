@@ -1792,6 +1792,7 @@ class LiteFrame(wx.Frame):
         self._podcast_checkpoint_pending = False
         self._podcast_checkpoint_due = 0.0
         self._podcast_checkpoint_active = False
+        self._podcast_refresh_pending = False
         self._last_podcast_progress_error: str | None = None
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
@@ -2973,6 +2974,7 @@ class LiteFrame(wx.Frame):
             player_view=player,
             radio_session=radio,
             podcast_inbox=podcast_inbox,
+            podcast_session=self.navigator.active is SessionId.PODCASTS,
         )
         if action is None:
             # Klawisz NIE jest nasz: oddajemy go kontrolce, zeby natywna
@@ -3142,6 +3144,10 @@ class LiteFrame(wx.Frame):
             Action.SORT_PODCAST_INBOX_BY_PODCAST,
         ):
             self._set_podcast_inbox_sort(action)
+        elif action is Action.REFRESH_PODCAST:
+            self._refresh_podcasts(refresh_all=False)
+        elif action is Action.REFRESH_PODCAST_LIBRARY:
+            self._refresh_podcasts(refresh_all=True)
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3661,7 +3667,12 @@ class LiteFrame(wx.Frame):
         else:
             self._sync_views()
 
-    def _open_podcast_library(self, preferred_id: str | None = None) -> None:
+    def _open_podcast_library(
+        self,
+        preferred_id: str | None = None,
+        *,
+        completion_message: str = "",
+    ) -> None:
         """Load the shared AMC podcast/channel library outside the GUI thread."""
         if not self.podcasts.is_available:
             if self.navigator.active is SessionId.PODCASTS:
@@ -3672,10 +3683,22 @@ class LiteFrame(wx.Frame):
             return self.podcasts.subscriptions()
 
         def done(subscriptions) -> None:
+            if completion_message:
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                if (
+                    self.navigator.active is not SessionId.PODCASTS
+                    or state.view is not View.LIST
+                    or state.library_view is not LibraryView.PODCAST_LIBRARY
+                ):
+                    return
             events = self.navigator.apply_podcast_library(
                 subscription_rows(subscriptions), preferred_id=preferred_id
             )
-            self._apply_podcast_result(events)
+            if completion_message:
+                self._sync_views()
+                self.announcer.say(completion_message)
+            else:
+                self._apply_podcast_result(events)
 
         def failed(error: Exception) -> None:
             if self.navigator.active is SessionId.PODCASTS:
@@ -3684,9 +3707,17 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("podcast-view", work, done, failed)
 
-    def _open_podcast_view(self, intent: OpenPodcastView) -> None:
+    def _open_podcast_view(
+        self,
+        intent: OpenPodcastView,
+        *,
+        completion_message: str = "",
+    ) -> None:
         if not intent.subscription_id:
-            self._open_podcast_library(preferred_id=intent.preferred_id)
+            self._open_podcast_library(
+                preferred_id=intent.preferred_id,
+                completion_message=completion_message,
+            )
             return
 
         subscription_id = intent.subscription_id
@@ -3705,6 +3736,15 @@ class LiteFrame(wx.Frame):
             return subscription, page
 
         def done(result) -> None:
+            if completion_message:
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                if (
+                    self.navigator.active is not SessionId.PODCASTS
+                    or state.view is not View.LIST
+                    or state.library_view is not LibraryView.PODCAST_EPISODES
+                    or state.library_playlist_id != subscription_id
+                ):
+                    return
             subscription, page = result
             self._podcast_loaded_counts[subscription_id] = page.loaded_count
             preferred = intent.preferred_id
@@ -3718,7 +3758,11 @@ class LiteFrame(wx.Frame):
                 page.rows,
                 preferred_id=preferred,
             )
-            self._apply_podcast_result(events)
+            if completion_message:
+                self._sync_views()
+                self.announcer.say(completion_message)
+            else:
+                self._apply_podcast_result(events)
 
         def failed(error: Exception) -> None:
             if self.navigator.active is SessionId.PODCASTS:
@@ -3812,7 +3856,12 @@ class LiteFrame(wx.Frame):
             announcement=label,
         ))
 
-    def _open_podcast_aggregate(self, intent: OpenPodcastAggregateView) -> None:
+    def _open_podcast_aggregate(
+        self,
+        intent: OpenPodcastAggregateView,
+        *,
+        completion_message: str = "",
+    ) -> None:
         if intent.view not in (
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
@@ -3850,6 +3899,14 @@ class LiteFrame(wx.Frame):
                 and self._transient_preview_return is None
             ):
                 return
+            if completion_message:
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                if (
+                    self.navigator.active is not SessionId.PODCASTS
+                    or state.view is not View.LIST
+                    or state.library_view is not intent.view
+                ):
+                    return
             self._podcast_loaded_counts[key] = page.loaded_count
             if (
                 intent.view is LibraryView.PODCAST_INBOX
@@ -3882,7 +3939,13 @@ class LiteFrame(wx.Frame):
                 order_matches_amc=page.order_matches_amc,
             )
             count = sum(1 for row in page.rows if row.kind == "episode")
-            if self.navigator.active is SessionId.PODCASTS and intent.announcement:
+            if completion_message:
+                # Wynik odswiezenia ma zastapic zwykly naglowek widoku. Lista
+                # zostaje najpierw podmieniona, a czytnik dostaje jeden,
+                # konkretny komunikat z licznikami -- rowniez gdy jest pusta.
+                self._sync_views()
+                self.announcer.say(completion_message)
+            elif self.navigator.active is SessionId.PODCASTS and intent.announcement:
                 # Przy zmianie porzadku najwazniejsza jest nowa wlasciwosc,
                 # nie powtorny naglowek ani techniczna wartosc modelu.
                 self._sync_views()
@@ -3921,6 +3984,116 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(message)
 
         self.runner.submit("podcast-view", work, done, failed)
+
+    def _current_podcast_subscription_id(self) -> str | None:
+        """Zrodlo dla F5 bez ujawniania technicznego identyfikatora w UI."""
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        if state.library_view is LibraryView.PODCAST_EPISODES:
+            return state.library_playlist_id
+        row = state.model.selected_row
+        if state.library_view is LibraryView.PODCAST_LIBRARY:
+            return row.item_id if row is not None and row.kind == "podcast" else None
+        if row is not None and row.kind == "episode":
+            return row.parent_id
+        return None
+
+    def _refresh_podcasts(self, *, refresh_all: bool) -> None:
+        """F5/Ctrl+F5: wspolny mechanizm odswiezania glownego AMC.
+
+        Host C# pozostaje jedynym pisarzem ``podcasts.db``. Praca sieciowa
+        biegnie w tle i nie zatrzymuje odtwarzania. Po odpowiedzi odczytujemy
+        na nowo tylko widok, ktory uzytkownik nadal ma przed soba.
+        """
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Odświeżanie źródeł jest dostępne w sesji Podcasty i YouTube"
+            )
+            return
+        if self._podcast_refresh_pending:
+            self.announcer.say("Odświeżanie źródeł już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę odświeżyć źródeł")
+            return
+
+        subscription_id = None if refresh_all else self._current_podcast_subscription_id()
+        if not refresh_all and not subscription_id:
+            self.announcer.say("Zaznacz podcast albo otwórz jego listę odcinków")
+            return
+
+        self._podcast_refresh_pending = True
+        self.status_bar.show(
+            "Odświeżanie wszystkich źródeł podcastów"
+            if refresh_all
+            else "Odświeżanie wybranego źródła podcastów"
+        )
+
+        def work() -> dict:
+            result = client.refresh_podcasts(subscription_id)
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_refresh_pending = False
+            requested = max(0, int(payload.get("requested") or 0))
+            succeeded = max(0, int(payload.get("succeeded") or 0))
+            added = max(0, int(payload.get("addedEpisodes") or 0))
+            inbox = max(0, int(payload.get("inboxCount") or 0))
+            message = (
+                f"Odświeżono źródła: {succeeded} z {requested}. "
+                f"Nowe teraz: {added}. W skrzynce: {inbox}."
+            )
+            self.status_bar.show(message)
+
+            # Tak jak w glownym AMC wynik nie wyrywa uzytkownika z odtwarzacza
+            # ani z innej sesji. Zmiany sa w bazie i pojawia sie przy kolejnym
+            # otwarciu listy.
+            if self.navigator.active is not SessionId.PODCASTS:
+                return
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            if state.view is not View.LIST:
+                return
+            preferred_id = state.model.selected_id
+            if state.library_view is LibraryView.PODCAST_LIBRARY:
+                self._open_podcast_library(
+                    preferred_id=preferred_id,
+                    completion_message=message,
+                )
+            elif state.library_view is LibraryView.PODCAST_EPISODES:
+                current_id = state.library_playlist_id
+                if current_id:
+                    self._open_podcast_view(
+                        OpenPodcastView(
+                            subscription_id=current_id,
+                            preferred_id=preferred_id,
+                        ),
+                        completion_message=message,
+                    )
+            elif state.library_view in (
+                LibraryView.PODCAST_INBOX,
+                LibraryView.PODCAST_IN_PROGRESS,
+                LibraryView.PODCAST_DOWNLOADS,
+            ):
+                self._open_podcast_aggregate(
+                    OpenPodcastAggregateView(
+                        state.library_view,
+                        preferred_id=preferred_id,
+                    ),
+                    completion_message=message,
+                )
+
+        def failed(error: Exception) -> None:
+            self._podcast_refresh_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się odświeżyć źródeł podcastów"
+            )
+            self.status_bar.show(message)
+            if self.navigator.active is SessionId.PODCASTS:
+                self.announcer.say(message)
+
+        self.runner.submit("podcast-refresh", work, done, failed)
 
     def _begin_transient_preview(self) -> None:
         if self._transient_preview_return is None:

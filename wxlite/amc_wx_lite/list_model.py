@@ -69,6 +69,10 @@ class Row:
     # Punkt wznowienia podcastu lub innego dlugiego materialu. W modelu zostaje
     # liczba; czytnik dostaje tylko przygotowany wyzej tekst ``detail``.
     position_seconds: float = 0.0
+    # Stabilne ID nadrzędnego źródła, używane np. przez F5 na odcinku ze
+    # zbiorczego widoku. To pole modelu nigdy nie trafia do kolumn, nazwy
+    # dostępnej ani komunikatu NVDA.
+    parent_id: str | None = None
 
     @property
     def is_openable(self) -> bool:

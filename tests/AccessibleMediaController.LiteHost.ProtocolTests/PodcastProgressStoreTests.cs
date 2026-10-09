@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.LiteHost.Protocol;
 using Microsoft.Data.Sqlite;
 
@@ -49,6 +50,38 @@ internal static class PodcastProgressStoreTests
                     "naturalny koniec zeruje punkt wznowienia");
                 Assert.True(!completed.IsNew && completed.IsStarted && completed.IsPlayed,
                     "naturalny koniec oznacza odcinek jako odtworzony");
+
+                var targets = store.GetRefreshTargets(null);
+                Assert.True(targets.Count == 1 && targets[0].SubscriptionId == "sub-1",
+                    "odswiezenie calej biblioteki wybiera tylko zapisane zrodla");
+                var feed = new PodcastFeedDocument(
+                    "sub-1",
+                    "Podcast po odswiezeniu",
+                    "Autor",
+                    "Opis",
+                    new Uri("https://example.invalid/feed.xml"),
+                    null,
+                    [new PodcastFeedEpisode(
+                        "ep-2",
+                        "source-2",
+                        "Nowy odcinek",
+                        "Autor",
+                        "Opis",
+                        DateTimeOffset.UtcNow,
+                        TimeSpan.FromMinutes(12),
+                        new Uri("https://example.invalid/episode-2.mp3"),
+                        null,
+                        "audio/mpeg",
+                        null)]);
+                var refreshed = store.ApplyRefresh("sub-1", feed);
+                Assert.True(refreshed.AddedEpisodes == 1,
+                    "odswiezenie dopisuje nowy odcinek");
+                Assert.True(refreshed.RetainedEpisodesAbsentFromFeed == 1,
+                    "odswiezenie zachowuje archiwalny odcinek nieobecny w RSS");
+                Assert.True(refreshed.InboxCount == 1 && store.GetInboxCount() == 1,
+                    "licznik skrzynki obejmuje nowy nieodtworzony odcinek");
+                Assert.True(ReadEpisode(database, "ep-2").Title == "Nowy odcinek",
+                    "nowy odcinek zostaje zapisany w tej samej bazie");
             }
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
@@ -64,13 +97,13 @@ internal static class PodcastProgressStoreTests
             var refused = false;
             try
             {
-                blocked.Save("ep-1", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), false);
+                blocked.GetRefreshTargets(null);
             }
             catch (LiteRequestException)
             {
                 refused = true;
             }
-            Assert.True(refused, "dzialajace glowne AMC musi zablokowac zapis postepu");
+            Assert.True(refused, "dzialajace glowne AMC musi zablokowac odswiezenie");
         }
         finally
         {
@@ -78,18 +111,27 @@ internal static class PodcastProgressStoreTests
         }
     }
 
-    private static PodcastEpisodeSettings ReadEpisode(string path)
+    private static PodcastEpisodeSettings ReadEpisode(string path, string episodeId = "ep-1")
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
         connection.Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = 'ep-1';";
+        command.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", episodeId);
         return JsonSerializer.Deserialize<PodcastEpisodeSettings>(
             Convert.ToString(command.ExecuteScalar())!)!;
     }
 
     private static void CreateDatabase(string path)
     {
+        var subscription = new PodcastSubscriptionSettings
+        {
+            Id = "sub-1",
+            Title = "Podcast",
+            FeedUrl = "https://example.invalid/feed.xml",
+            IsInLibrary = true,
+            SourceKind = PodcastSourceKind.Rss
+        };
         var episode = new PodcastEpisodeSettings
         {
             Id = "ep-1",
@@ -133,6 +175,17 @@ internal static class PodcastProgressStoreTests
             INSERT INTO untouched(id, value) VALUES(1, 'zostaje');
             """;
         command.ExecuteNonQuery();
+        using var insertSubscription = connection.CreateCommand();
+        insertSubscription.CommandText = """
+            INSERT INTO podcast_subscriptions(
+                id, ordinal, title, feed_url, is_in_library,
+                last_refresh_utc_ticks, content_hash, payload_json)
+            VALUES('sub-1', 0, 'Podcast', 'https://example.invalid/feed.xml',
+                   1, 0, 'seed', $payload);
+            """;
+        insertSubscription.Parameters.AddWithValue(
+            "$payload", JsonSerializer.Serialize(subscription));
+        insertSubscription.ExecuteNonQuery();
         using var insert = connection.CreateCommand();
         insert.CommandText = """
             INSERT INTO podcast_episodes(

@@ -149,6 +149,7 @@ def test_rss_episodes_follow_date_order_and_expose_resume_state() -> None:
         assert "w trakcie" in first.detail
         assert first.path == "https://example.invalid/newer"
         assert first.address == "https://example.invalid/newer"
+        assert first.parent_id == "rss-id"
         assert "newer" not in first.title and "newer" not in first.detail
 
 
@@ -224,6 +225,7 @@ def test_inbox_contains_only_new_unplayed_library_items_with_parent_labels() -> 
         assert "Audycja tygodnia" in page.rows[0].detail
         assert "Kanał dostępny" in page.rows[1].detail
         assert "materiał YouTube" in page.rows[1].detail
+        assert [row.parent_id for row in page.rows] == ["rss-id", "yt-id"]
         spoken = " ".join(row.title + " " + row.detail for row in page.rows)
         assert "new-rss" not in spoken and "new-yt" not in spoken
         assert page.order_matches_amc

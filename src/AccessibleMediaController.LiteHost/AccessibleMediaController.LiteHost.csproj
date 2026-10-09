@@ -124,6 +124,14 @@
              Link="Engine\WindowsPowerRequest.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"
              Link="Engine\YtDlpComponentManager.cs" />
+    <!-- Odświeżanie Podcastów i YouTube korzysta z dokładnie tych samych
+         ograniczonych klientów sieciowych co główne AMC. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\PodcastFeedClient.cs"
+             Link="Engine\PodcastFeedClient.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeChannelFeedClient.cs"
+             Link="Engine\YouTubeChannelFeedClient.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeCollectionClient.cs"
+             Link="Engine\YouTubeCollectionClient.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />

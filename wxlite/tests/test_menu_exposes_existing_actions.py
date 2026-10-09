@@ -26,6 +26,7 @@ from amc_wx_lite.shortcuts import (
     LIST_VIEW,
     PLAYER_VIEW,
     PODCAST_INBOX_LIST_VIEW,
+    PODCAST_SESSION_VIEW,
     RADIO_LIST_VIEW,
     RADIO_PLAYER_VIEW,
     Action,
@@ -142,6 +143,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     real: dict[str, set[Action]] = {}
     for table in (
         PODCAST_INBOX_LIST_VIEW,
+        PODCAST_SESSION_VIEW,
         LIST_VIEW,
         RADIO_LIST_VIEW,
         RADIO_PLAYER_VIEW,
@@ -198,6 +200,20 @@ def test_podcast_inbox_sort_menu_is_contextual_checkable_and_user_facing() -> No
         assert item.needs_podcast_inbox and item.checkable
         assert not item.accelerator
         assert label_part.casefold() in item.label.casefold()
+
+
+def test_podcast_refresh_menu_is_contextual_and_does_not_steal_f5() -> None:
+    expected = {
+        Action.REFRESH_PODCAST: "F5",
+        Action.REFRESH_PODCAST_LIBRARY: "Ctrl+F5",
+    }
+    found = {item.action: item for item in all_items() if item.action in expected}
+    assert set(found) == set(expected)
+    for action, shortcut in expected.items():
+        item = found[action]
+        assert item.shortcut == shortcut
+        assert item.needs_podcast_session
+        assert not item.accelerator
 
 
 def test_every_item_is_keyboard_reachable() -> None:

@@ -372,6 +372,104 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public IReadOnlyList<PodcastRefreshTarget> GetRefreshTargets(string? subscriptionId)
+    {
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            if (!string.IsNullOrWhiteSpace(subscriptionId))
+            {
+                var selected = settings.Subscriptions.FirstOrDefault(subscription =>
+                    subscription.IsInLibrary
+                    && string.Equals(subscription.Id, subscriptionId, StringComparison.Ordinal));
+                if (selected is null)
+                    throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
+                if (!IsRefreshable(selected.SourceKind))
+                {
+                    throw new InvalidOperationException(
+                        "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
+                }
+                return [ToRefreshTarget(selected)];
+            }
+
+            return settings.Subscriptions
+                .Where(subscription => subscription.IsInLibrary && IsRefreshable(subscription.SourceKind))
+                .Select(ToRefreshTarget)
+                .ToArray();
+        }
+    }
+
+    public int GetInboxCount()
+    {
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var librarySubscriptionIds = settings.Subscriptions
+                .Where(subscription => subscription.IsInLibrary)
+                .Select(subscription => subscription.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            return settings.Episodes.Count(episode =>
+                episode.IsNew
+                && !episode.IsPlayed
+                && librarySubscriptionIds.Contains(episode.SubscriptionId));
+        }
+    }
+
+    public PodcastRefreshResult ApplyRefresh(
+        string subscriptionId,
+        PodcastFeedDocument feed,
+        DateTime refreshUtc,
+        BookmarkSettings? bookmarks = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(subscriptionId);
+        ArgumentNullException.ThrowIfNull(feed);
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var selected = settings.Subscriptions.FirstOrDefault(subscription =>
+                subscription.IsInLibrary
+                && string.Equals(subscription.Id, subscriptionId, StringComparison.Ordinal));
+            if (selected is null)
+                throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
+            if (!IsRefreshable(selected.SourceKind))
+            {
+                throw new InvalidOperationException(
+                    "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
+            }
+
+            var update = PodcastLibraryUpdater.Apply(
+                settings,
+                feed,
+                selected.HasCustomTitle ? selected.Title : null,
+                refreshUtc,
+                bookmarks,
+                selected.SourceKind,
+                addToLibrary: false);
+            Save(settings);
+            return new PodcastRefreshResult(
+                update.Subscription.Title,
+                update.AddedEpisodes,
+                update.UpdatedEpisodes,
+                update.RetainedEpisodesAbsentFromFeed,
+                GetInboxCount());
+        }
+    }
+
+    private static bool IsRefreshable(PodcastSourceKind sourceKind) => sourceKind is
+        PodcastSourceKind.Rss
+        or PodcastSourceKind.YouTubeChannel
+        or PodcastSourceKind.YouTubePlaylist;
+
+    private static PodcastRefreshTarget ToRefreshTarget(PodcastSubscriptionSettings subscription) =>
+        new(
+            subscription.Id,
+            subscription.Title,
+            subscription.FeedUrl,
+            subscription.SourceKind);
+
     private static Dictionary<string, StoredFingerprint> ReadHashes(
         SqliteConnection connection,
         SqliteTransaction transaction,

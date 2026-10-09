@@ -198,6 +198,8 @@ class Action(Enum):
     SORT_PODCAST_INBOX_ADDED = "podcasts.inbox.sort.added"
     SORT_PODCAST_INBOX_ALPHABETICAL = "podcasts.inbox.sort.alphabetical"
     SORT_PODCAST_INBOX_BY_PODCAST = "podcasts.inbox.sort.byPodcast"
+    REFRESH_PODCAST = "podcasts.refresh.current"
+    REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -518,6 +520,14 @@ PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
     "Alt+1": Action.SORT_PODCAST_INBOX_ADDED,
     "Alt+2": Action.SORT_PODCAST_INBOX_ALPHABETICAL,
     "Alt+3": Action.SORT_PODCAST_INBOX_BY_PODCAST,
+    "F5": Action.REFRESH_PODCAST_LIBRARY,
+}
+
+# Kontekst sesji, niezaleznie od listy/odtwarzacza. F5 w skrzynce jest
+# przesloniete powyzej, dokladnie jak w glownym AMC.
+PODCAST_SESSION_VIEW: dict[str, Action] = {
+    "F5": Action.REFRESH_PODCAST,
+    "Ctrl+F5": Action.REFRESH_PODCAST_LIBRARY,
 }
 
 
@@ -527,6 +537,7 @@ def resolve(
     player_view: bool,
     radio_session: bool,
     podcast_inbox: bool = False,
+    podcast_session: bool = False,
 ) -> Action | None:
     """Znajdz akcje dla klawisza w DANYM widoku. Brak wpisu = klawisz zostaje
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
@@ -537,6 +548,11 @@ def resolve(
     # znaczenie Folderow/Wszystkich plikow, a Alt+3 pozostaje wolne.
     if not player_view and podcast_inbox and canonical in PODCAST_INBOX_LIST_VIEW:
         return PODCAST_INBOX_LIST_VIEW[canonical]
+    # Parity z głównym AMC: Ctrl+F5 zawsze odświeża wszystkie źródła sesji,
+    # F5 w skrzynce robi to samo, a F5 w pozostałych widokach odświeża źródło
+    # bieżącego podcastu lub odcinka.
+    if podcast_session and canonical in PODCAST_SESSION_VIEW:
+        return PODCAST_SESSION_VIEW[canonical]
     # Widoki Radia sa dostepne takze z odtwarzacza, bez wychodzenia Escape.
     # Ta sama akcja co na liscie/menu; nie przenosimy edycji stacji do PLAYER.
     if radio_session and canonical in ("Ctrl+L", "Ctrl+U", "Ctrl+H"):
@@ -592,6 +608,8 @@ def describe() -> list[tuple[str, str]]:
         Action.CLIP_APPEND: "Dopisz zaznaczony fragment na koncu pliku",
         Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
+        Action.REFRESH_PODCAST: "Odśwież wybrany podcast, kanał lub playlistę",
+        Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
         Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",
