@@ -1,6 +1,12 @@
 # AMC — ustalenia projektu
 
 - Kanoniczne repozytorium: `D:\Projekty Codex\Accessible Multimedia Controller`.
+- Aktywny katalog prac nad integracją interfejsu wxPython:
+  `D:\Projekty Codex\AMC - integracja wxPython`. Użytkownik 9 października
+  2026 r. wyraził stałą zgodę na pracę w tym katalogu także po wznowieniu
+  zadania; nie pytaj ponownie o wybór katalogu roboczego.
+- Zmiany z aktywnego katalogu integracji wxPython pozostają lokalne. Nie
+  wysyłaj ich do GitHuba bez osobnej, aktualnej zgody użytkownika na publikację.
 - Użytkownik 9 września 2026 r. udzielił stałej zgody na publikowanie zmian
   AMC i przygotowanych wydań w `michalkasperczak/AMC` na GitHubie. Kolejne
   zwykłe publikacje w tym repozytorium nie wymagają ponownego pytania.
