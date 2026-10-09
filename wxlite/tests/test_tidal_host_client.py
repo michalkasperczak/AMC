@@ -90,6 +90,34 @@ def test_tidal_desktop_play_sends_only_catalog_identity_and_restart_choice() -> 
     assert "credential" not in serialized
 
 
+def test_tidal_desktop_play_container_names_only_album_or_playlist() -> None:
+    calls: list[tuple[str, dict | None, float]] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {"success": True}
+    )
+
+    client.tidal_desktop_play_container(
+        item_id="tidal:playlists:7",
+        external_id="playlists:7",
+        title="Playlista próby",
+        kind="playlist",
+        restart_consent=False,
+    )
+
+    assert calls == [(
+        "tidal.desktopPlay",
+        {
+            "itemId": "tidal:playlists:7",
+            "externalId": "playlists:7",
+            "title": "Playlista próby",
+            "kind": "playlist",
+            "restartConsent": False,
+        },
+        90.0,
+    )]
+
+
 def test_tidal_external_transport_is_a_named_narrow_operation() -> None:
     calls: list[tuple[str, dict | None, float]] = []
     client = LiteHostClient(Path("host.exe"))

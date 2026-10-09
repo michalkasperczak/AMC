@@ -247,6 +247,8 @@ def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
     assert '"Prior", "Next", "Shift+Prior", "Shift+Next"' in on_key_source
     assert "self._tidal_external_skip(forward)" in on_key_source
     assert "self._queue_step(forward)" in on_key_source
+    assert 'chord.canonical == "Ctrl+Return"' in on_key_source
+    assert "play_selected_tidal_container()" in on_key_source
 
     dispatch = next(
         node for node in ast.walk(TREE)
@@ -262,3 +264,11 @@ def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
     )
     announce_source = ast.get_source_segment(SOURCE, announce) or ""
     assert "client.tidal_external_state" in announce_source
+
+    run = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_run"
+    )
+    run_source = ast.get_source_segment(SOURCE, run) or ""
+    assert "isinstance(intent, PlayTidalContainer)" in run_source
+    assert "self._play_tidal_container(intent)" in run_source

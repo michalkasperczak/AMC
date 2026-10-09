@@ -12,6 +12,7 @@ from amc_wx_lite.navigation import (
     Navigator,
     OpenLibraryView,
     OpenTidalContainer,
+    PlayTidalContainer,
     PlayTidalTrack,
     SessionId,
 )
@@ -103,6 +104,59 @@ def test_tidal_album_activation_requests_the_shared_online_catalog() -> None:
         artist="Wykonawca",
     )]
     assert not any(isinstance(event, OpenLibraryView) for event in events)
+
+
+def test_ctrl_enter_hands_a_whole_tidal_album_to_original_tidal() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    album = Row(
+        "tidal:albums:123",
+        "Album próby",
+        "album",
+        service_id="albums:123",
+        service_kind="album",
+    )
+    nav.apply_tidal_view(
+        LibraryView.TIDAL_LIBRARY, "Biblioteka TIDAL", [album]
+    )
+
+    events = nav.play_selected_tidal_container()
+
+    assert events == [PlayTidalContainer(
+        item_id="tidal:albums:123",
+        title="Album próby",
+        service_id="albums:123",
+        kind="album",
+    )]
+    assert nav.session.view.value == "list"
+
+    nav.note_tidal_playback_started(
+        album.item_id, album.title, uses_external_queue=True
+    )
+    assert nav.step_playback_source(True) is None
+
+
+def test_ctrl_enter_refuses_a_track_without_leaking_its_identity() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    nav.apply_tidal_view(
+        LibraryView.TIDAL_FAVORITES,
+        "Ulubione TIDAL",
+        [Row(
+            "tidal:tracks:secret",
+            "Utwór próby",
+            "track",
+            service_id="tracks:secret",
+            service_kind="track",
+        )],
+    )
+
+    events = nav.play_selected_tidal_container()
+
+    assert events == [Announce(
+        "Ctrl+Enter odtwarza cały album albo playlistę TIDAL"
+    )]
+    assert "secret" not in events[0].text
 
 
 def test_tidal_artist_categories_and_backspace_restore_exact_focus() -> None:

@@ -87,6 +87,7 @@ from .navigation import (
     PlayQueueAt,
     PlayStation,
     PlayMedia,
+    PlayTidalContainer,
     PlayTidalTrack,
     PlayTrack,
     SessionId,
@@ -3836,6 +3837,13 @@ class LiteFrame(wx.Frame):
         if not player and chord.canonical == "Escape" and self.filter_box.GetValue():
             self._clear_filter_and_return()
             return
+        if (
+            not player
+            and self.navigator.active is SessionId.TIDAL
+            and chord.canonical == "Ctrl+Return"
+        ):
+            self._run(self.navigator.play_selected_tidal_container())
+            return
         # Pelne AMC przechwytuje Page Up/Page Down w sesji TIDAL takze na
         # liscie, bo zewnetrzny TIDAL nie ma widoku odtwarzacza AMC. Bez tej
         # galezi klawisze przewijalyby tylko strone listy i transport bylby
@@ -4164,6 +4172,8 @@ class LiteFrame(wx.Frame):
                 self._play_media(intent)
             elif isinstance(intent, PlayTidalTrack):
                 self._play_tidal_track(intent)
+            elif isinstance(intent, PlayTidalContainer):
+                self._play_tidal_container(intent)
         self._sync_views()
 
     def _sync_views(self) -> None:
@@ -6409,6 +6419,36 @@ class LiteFrame(wx.Frame):
 
     def _play_tidal_track(self, intent: PlayTidalTrack) -> None:
         """Hand one track to original TIDAL; AMC itself plays no audio here."""
+        self._play_tidal_item(
+            intent,
+            lambda client, restart_consent: client.tidal_desktop_play(
+                item_id=intent.item_id,
+                external_id=intent.service_id,
+                title=intent.title,
+                related_album_external_id=intent.related_album_service_id,
+                restart_consent=restart_consent,
+            ),
+        )
+
+    def _play_tidal_container(self, intent: PlayTidalContainer) -> None:
+        """Hand a whole album or playlist to original TIDAL."""
+        self._play_tidal_item(
+            intent,
+            lambda client, restart_consent: client.tidal_desktop_play_container(
+                item_id=intent.item_id,
+                external_id=intent.service_id,
+                title=intent.title,
+                kind=intent.kind,
+                restart_consent=restart_consent,
+            ),
+        )
+
+    def _play_tidal_item(
+        self,
+        intent: PlayTidalTrack | PlayTidalContainer,
+        request: Callable[[LiteHostClient, bool], dict],
+    ) -> None:
+        """Shared confirmation and rollback for external TIDAL hand-offs."""
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie działa, nie mogę sterować TIDALem")
@@ -6433,13 +6473,7 @@ class LiteFrame(wx.Frame):
 
         def submit(restart_consent: bool) -> None:
             def work() -> dict:
-                return client.tidal_desktop_play(
-                    item_id=intent.item_id,
-                    external_id=intent.service_id,
-                    title=intent.title,
-                    related_album_external_id=intent.related_album_service_id,
-                    restart_consent=restart_consent,
-                )
+                return request(client, restart_consent)
 
             def done(payload: dict) -> None:
                 result = payload or {}
@@ -6489,7 +6523,9 @@ class LiteFrame(wx.Frame):
 
                 self._tidal_desktop_has_playback = True
                 self.navigator.note_tidal_playback_started(
-                    intent.item_id, intent.title
+                    intent.item_id,
+                    intent.title,
+                    uses_external_queue=isinstance(intent, PlayTidalContainer),
                 )
                 self.announcer.say(message)
                 self._sync_views()

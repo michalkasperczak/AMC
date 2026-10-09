@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.LiteHost.Protocol;
 
 namespace AccessibleMediaController.LiteHost.ProtocolTests;
@@ -13,6 +14,7 @@ internal static class TidalCatalogContractTests
         RefusesMismatchedKindsAndExternalIds();
         ResultContainsOnlyIntentionalModelFields();
         ReadsExternalDesktopPlaybackWithoutPrivateData();
+        ReadsExternalDesktopContainerPlayback();
         ReadsOnlyKnownExternalTransportCommands();
         RefusesUnknownExternalTransportCommands();
     }
@@ -155,6 +157,27 @@ internal static class TidalCatalogContractTests
             Check(exception.Message.Contains("Nieznane polecenie", StringComparison.Ordinal),
                 "odmowa nie nazywa przyczyny");
         }
+    }
+
+    private static void ReadsExternalDesktopContainerPlayback()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+          "itemId":"tidal:playlists:7",
+          "externalId":"playlists:7",
+          "title":"Playlista próby",
+          "kind":"playlist",
+          "restartConsent":false,
+          "token":"nie może wejść do planu"
+        }
+        """);
+        var command = LiteTidalDesktopContract.ReadPlayRequest(document.RootElement);
+        Check(command.Request.Kind == TidalDesktopPlayKind.Container,
+            "playlista nie zostala kontenerem");
+        Check(command.Request.PageUri.EndsWith("/playlist/7", StringComparison.Ordinal),
+            "plan nie otwiera wlasciwej playlisty");
+        Check(!command.Request.PageUri.Contains("token", StringComparison.OrdinalIgnoreCase),
+            "prywatne pole wycieklo do planu kontenera");
     }
 
     private static void ReadsOnlyKnownExternalTransportCommands()

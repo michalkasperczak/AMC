@@ -456,6 +456,28 @@ class LiteHostClient:
             timeout=90.0,
         )
 
+    def tidal_desktop_play_container(
+        self,
+        *,
+        item_id: str,
+        external_id: str,
+        title: str,
+        kind: str,
+        restart_consent: bool = False,
+    ) -> Any:
+        """Play a complete TIDAL album or playlist in original TIDAL."""
+        return self.call(
+            "tidal.desktopPlay",
+            {
+                "itemId": item_id,
+                "externalId": external_id,
+                "title": title,
+                "kind": kind,
+                "restartConsent": bool(restart_consent),
+            },
+            timeout=90.0,
+        )
+
     def tidal_external_transport(self, command: str) -> Any:
         """Control only the system media session exposed by original TIDAL."""
         return self.call(

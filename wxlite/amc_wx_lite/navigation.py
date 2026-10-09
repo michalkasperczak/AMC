@@ -353,6 +353,18 @@ class PlayTidalTrack:
 
 
 @dataclass(slots=True)
+class PlayTidalContainer:
+    """Przekaz caly album albo playliste do oryginalnego TIDALa."""
+
+    item_id: str
+    title: str
+    service_id: str
+    kind: str
+    previous_item_id: str = ""
+    previous_title: str = ""
+
+
+@dataclass(slots=True)
 class PlayFromQueue:
     """Zlecenie: uruchom ZYWA kolejke hosta od wskazanego wiersza.
 
@@ -786,6 +798,35 @@ class Navigator:
             artist_section=row.service_section,
         )
 
+    def play_selected_tidal_container(self) -> list[object]:
+        """Ctrl+Enter: oddaj album lub playliste oryginalnemu TIDALowi."""
+        state = self.session
+        if state.session_id is not SessionId.TIDAL:
+            return [Announce("To polecenie działa tylko w TIDAL")]
+        row = state.model.selected_row
+        if row is None:
+            return [Announce("Lista jest pusta")]
+        if row.kind not in ("album", "playlist"):
+            return [Announce(
+                "Ctrl+Enter odtwarza cały album albo playlistę TIDAL"
+            )]
+        if row.service_kind != row.kind or not row.service_id:
+            return [Announce(
+                "Ten element nie ma danych potrzebnych do odtworzenia "
+                "w oryginalnym TIDALu"
+            )]
+
+        state.list_anchor_id = row.item_id
+        state.pending_material_id = row.item_id
+        return [PlayTidalContainer(
+            item_id=row.item_id,
+            title=row.title,
+            service_id=row.service_id,
+            kind=row.kind,
+            previous_item_id=state.current_material_id,
+            previous_title=state.now_playing_title,
+        )]
+
     @staticmethod
     def _tidal_track_intent(row: Row) -> PlayTidalTrack | Announce:
         """Build an external-player request without ever speaking its IDs."""
@@ -1160,7 +1201,9 @@ class Navigator:
         state.current_material_id = state.pending_material_id
         state.pending_material_id = ""
 
-    def note_tidal_playback_started(self, item_id: str, title: str) -> None:
+    def note_tidal_playback_started(
+        self, item_id: str, title: str, *, uses_external_queue: bool = False
+    ) -> None:
         """Commit external TIDAL state only after its controller confirms play."""
         if not item_id:
             return
@@ -1171,6 +1214,12 @@ class Navigator:
         state.pending_material_id = ""
         state.list_anchor_id = item_id
         state.model.select_id(item_id)
+        if uses_external_queue:
+            # Ctrl+Enter oddaje TIDALowi caly album/playliste. AMC nie zna
+            # wtedy kolejnosci utworow, wiec Page Up/Down musi isc do kolejki
+            # oryginalnego odtwarzacza, nie do starej listy zrodlowej AMC.
+            state.playback_source_rows = ()
+            state.playback_uses_queue = True
 
     def restore_tidal_playback_after_failed_handoff(
         self, previous_id: str, previous_title: str
