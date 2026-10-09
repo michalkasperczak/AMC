@@ -98,7 +98,31 @@ internal sealed partial class LiteRadioRecordingCoordinator
                         navigationText = RadioSchedulePresentation.DisplayName(schedule),
                         label = RadioSchedulePresentation.BuildLabel(
                             schedule, activeIds.Contains(schedule.Id)),
-                        enabled = schedule.Enabled
+                        enabled = schedule.Enabled,
+                        // Efektywny model wraca do wxPython, poniewaz host
+                        // przesuwa terminy cykliczne i wylacza wykonany plan
+                        // jednorazowy w pamieci. Bez tych pol edytor pokazywal
+                        // stary termin z prywatnego pliku, a nastepny zapis
+                        // mogl cofnac wykonawce do poprzedniego wystapienia.
+                        name = schedule.Name,
+                        stationId = schedule.StationId,
+                        stationName = schedule.StationName,
+                        streamUrl = schedule.StreamUrl,
+                        nextStartUtcTicks = schedule.NextStartUtcTicks,
+                        timeZoneId = schedule.TimeZoneId,
+                        durationMinutes = schedule.DurationMinutes,
+                        segmentMinutes = schedule.SegmentMinutes,
+                        recurrence = schedule.Recurrence.ToString(),
+                        activeDays = schedule.ActiveDays.Select(day => day.ToString()).ToArray(),
+                        outputFolder = schedule.OutputFolder,
+                        fileNameTemplate = schedule.FileNameTemplate,
+                        recordingFormat = schedule.RecordingFormat?.ToString(),
+                        recordingBitrateKbps = schedule.RecordingBitrateKbps,
+                        wakeComputer = schedule.WakeComputer,
+                        suppressedOccurrenceStartUtcTicks = schedule.SuppressedOccurrenceStartUtcTicks,
+                        lastFailureUtcTicks = schedule.LastFailureUtcTicks,
+                        lastFailureMessage = schedule.LastFailureMessage,
+                        lastFailureAcknowledged = schedule.LastFailureAcknowledged
                     })
                     .ToArray()
             };

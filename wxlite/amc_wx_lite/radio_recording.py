@@ -53,6 +53,7 @@ class RadioRecordingPreferences:
     default_folder: str | None = None
     folder_preset: str = "radio"
     station_folders: dict[str, str] = field(default_factory=dict)
+    prefer_station_folder_in_new_schedules: bool = True
 
     def payload_for(self, station: Station) -> dict:
         """Argumenty hosta. Id jest techniczne; nazwa jest jedyna etykieta UI."""
@@ -122,6 +123,9 @@ def preferences_from_amc_state(raw: dict) -> RadioRecordingPreferences:
         default_folder=configured,
         folder_preset=folder_preset,
         station_folders=station_folders,
+        prefer_station_folder_in_new_schedules=(
+            radio.get("preferStationFolderInNewSchedules") is not False
+        ),
     )
 
 

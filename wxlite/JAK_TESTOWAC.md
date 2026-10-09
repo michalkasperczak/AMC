@@ -231,7 +231,13 @@ Próba widoków aktywności: `amc_pomoc/wx-full-profile-after421/activity-gui-af
 
 - SQLite: `mode=ro`, dziennikWAL uwzględniany. Błąd odczytu nie przechodzi automatycznie na `immutable=1`.
 - ID są napisami. Dostępność i członkostwo w Bibliotece pochodzą z danychAMC, nie z `Path.exists` na innym komputerze.
-- Jeden właścicielC# ma zapisywać wspólne dane; Python nie uruchamia drugiego harmonogramu. Implementacja wszystkich mutacji pozostaje kolejnym etapem.
+- Jeden wykonawca C# prowadzi zegar i nagrywanie; Python nie uruchamia drugiego
+  harmonogramu. `Ctrl+Shift+H` otwiera natywne zarządzanie planami wxPython.
+  Zmiany są zapisywane w prywatnym `AMC-wx-Lite\state.json`, a nie we wspólnym
+  profilu WPF, i od razu synchronizowane z działającym hostem. `Insert` dodaje,
+  `Ctrl+D` powiela jako wyłączoną kopię, `Enter` edytuje, `Spacja` przełącza,
+  a `Delete` usuwa. Po wykonaniu host zwraca przesunięty lub wyłączony plan,
+  który wxPython utrwala w swojej kopii.
 - Foldery:AMC_PL. Kolekcje alfabetyczne: właściwy osobny tryb tytułu iOrdinalIgnoreCase ścieżki. Zgoda jednego korpusu nie dowodzi równoważności dwóch komparatorów.
 - ProtokółJSON-lines, identyfikatorynapisy, limit64KiB po stronie żądania, wsady dzielone po bajtach. Nowe tryby kluczy wymagają nowegoLiteHost; klient odmawia niezgodnego trybu starego hosta.
 - Host wykorzystuje istniejące silnikiAMC, nie własny dekoderPython. Sprawdzenie Roslynem lub kluczy w osobnej sondzie nie zastępuje kompilacji i uruchomienia rzeczywistego hostaWindows.

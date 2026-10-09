@@ -125,7 +125,7 @@ def test_schedule_rows_expose_only_the_user_label_not_the_object_or_id() -> None
     assert "techniczne-id" not in rows[0].title
     assert "dict" not in rows[0].title and "{" not in rows[0].title
     assert "wykonywany automatycznie" in (rows[0].activation_message or "")
-    assert "Edycję planu" in (rows[0].activation_message or "")
+    assert "zarządzanie harmonogramami" in (rows[0].activation_message or "")
 
 
 def test_host_client_requests_the_csharp_schedule_formatter() -> None:

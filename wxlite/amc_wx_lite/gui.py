@@ -19,9 +19,9 @@ Zasady dostepnosci przyjete tutaj (i dlaczego):
 * Jedna brama komunikatow: ``Announcer``. Zadnego sleepMode, zadnego zapisu
   do appModules NVDA.
 
-Czego tu nie ma swiadomie: WebView2, Sonos ani edycji harmonogramow i uslug
-startowych. Plany sa wykonywane przez host C#, a edycja pozostaje w glownym AMC.
-Lekki wariant ma byc lekki; pelny AMC zostaje nietkniety.
+Czego tu nie ma swiadomie: WebView2, Sonos ani uslug startowych. Plany sa
+edytowane w natywnym oknie wxPython i wykonywane przez host C#. Pelny AMC
+zostaje nietkniety: wxPython zapisuje wlasne, kompletne nadpisanie planow.
 """
 
 from __future__ import annotations
@@ -108,7 +108,8 @@ from .transport_parity import (
 )
 from . import session_options
 from .radio_source import RadioSource
-from .radio_schedules import schedule_rows
+from .radio_schedule_dialogs import RadioSchedulesDialog
+from . import radio_schedule_settings
 from .radio_recording import (
     active_recording_rows,
     format_duration,
@@ -1768,7 +1769,9 @@ class LiteFrame(wx.Frame):
         self.navigator = Navigator()
         self._transient_preview_return: TransientNavigationSnapshot | None = None
         # Biblioteka AMC (SQLite, tylko odczyt). Wlascicielem zapisu profilu
-        # pozostaje host C#; ten wariant nigdy nie prowadzi harmonogramow.
+        # Wykonawca nagran i zegara pozostaje w hoscie C#. Interfejs wxPython
+        # moze teraz edytowac prywatna kopie planow, ale sam nie uruchamia
+        # drugiego, konkurencyjnego zegara.
         self.library = LibrarySource()
         self.navigator.restore(state.navigation)
 
@@ -2355,7 +2358,7 @@ class LiteFrame(wx.Frame):
         # calego odtwarzacza.
         radio_snapshot = getattr(self, "_radio_snapshot", None)
         schedule_payload = (
-            LiteFrame._radio_schedule_sync_payload(radio_snapshot)
+            LiteFrame._radio_schedule_sync_payload(radio_snapshot, self.state)
             if radio_snapshot is not None
             else None
         )
@@ -5721,59 +5724,131 @@ class LiteFrame(wx.Frame):
         self.runner.submit("radio-recording-history", work, done, failed)
 
     def _show_radio_schedules(self) -> None:
-        """Ctrl+Shift+H: wykonywane plany, nadal edytowane w glownym AMC."""
+        """Ctrl+Shift+H: natywne zarzadzanie planami wykonywanymi przez host."""
         client = self.client
         if client is None:
             self.announcer.say("Silnik odtwarzania jest niedostępny")
             return
-        self._begin_transient_preview()
-        self.navigator.active = SessionId.RADIO
         previous = self._radio_snapshot
 
         def work():
             snapshot = self.radio.load(previous=previous)
-            payload = client.sync_radio_schedules(
-                self._radio_schedule_sync_payload(snapshot)
+            schedules = radio_schedule_settings.effective_schedules(
+                snapshot.recording_schedules,
+                self.state.radio_schedule_overrides,
             )
-            return snapshot, schedule_rows(payload)
+            wake = radio_schedule_settings.effective_wake(
+                snapshot.wake_scheduled_recordings,
+                self.state.radio_schedule_wake_override,
+            )
+            payload = client.sync_radio_schedules(
+                self._radio_schedule_sync_payload(snapshot, self.state)
+            )
+            return snapshot, schedules, wake, payload
 
         def done(result) -> None:
-            if self._transient_preview_return is None:
-                return
-            snapshot, rows = result
+            snapshot, schedules, wake, payload = result
             self._radio_snapshot = snapshot
             self.stations = snapshot.list
-            if snapshot.load_error and not rows:
+            schedules = radio_schedule_settings.schedules_from_host_status(
+                payload, schedules
+            )
+            if self.state.radio_schedule_overrides is not None:
+                # Host jest zrodlem prawdy o wykonanym terminie: po nagraniu
+                # jednorazowym wylacza plan, a cykliczny przesuwa. Utrwalamy
+                # te zmiany w prywatnym pliku wxPython, nie w profilu WPF.
+                previous_effective = self.state.radio_schedule_overrides
+                self.state.radio_schedule_overrides = schedules
+                try:
+                    self.store.save(self.state)
+                except Exception:
+                    self.state.radio_schedule_overrides = previous_effective
+                    self.announcer.say(
+                        "Nie udało się zapisać aktualnego terminu harmonogramu"
+                    )
+            if snapshot.load_error and not schedules:
                 self.announcer.say(snapshot.load_error)
                 return
-            events = self.navigator.apply_radio_view(
-                LibraryView.RADIO_RECORDING_SCHEDULES,
-                "Harmonogram nagrywania",
-                rows,
-            )
-            self._run(events)
+
+            def commit(updated: list[dict], updated_wake: bool):
+                old_schedules = self.state.radio_schedule_overrides
+                old_wake = self.state.radio_schedule_wake_override
+                self.state.radio_schedule_overrides = (
+                    radio_schedule_settings.clone_schedules(updated)
+                )
+                self.state.radio_schedule_wake_override = bool(updated_wake)
+                try:
+                    self.store.save(self.state)
+                    synced = client.sync_radio_schedules(
+                        self._radio_schedule_sync_payload(snapshot, self.state)
+                    )
+                    self.state.radio_schedule_overrides = (
+                        radio_schedule_settings.schedules_from_host_status(
+                            synced, self.state.radio_schedule_overrides
+                        )
+                    )
+                    self.store.save(self.state)
+                    return synced
+                except Exception:
+                    # Zapis i wykonawca sa jedna zmiana z punktu widzenia
+                    # uzytkownika. Gdy ktorykolwiek etap zawiedzie, wracamy do
+                    # poprzednich danych i probujemy przywrocic je hostowi.
+                    self.state.radio_schedule_overrides = old_schedules
+                    self.state.radio_schedule_wake_override = old_wake
+                    try:
+                        self.store.save(self.state)
+                    except Exception:
+                        pass
+                    try:
+                        client.sync_radio_schedules(
+                            self._radio_schedule_sync_payload(snapshot, self.state)
+                        )
+                    except Exception:
+                        pass
+                    raise
+
+            with RadioSchedulesDialog(
+                self,
+                stations=snapshot.stations,
+                recording=snapshot.recording,
+                schedules=schedules,
+                wake_scheduled_recordings=wake,
+                labels_payload=payload,
+                commit=commit,
+            ) as dialog:
+                dialog.ShowModal()
+            if self.navigator.view is View.LIST:
+                self._active_list().SetFocus()
+            else:
+                self.play_button.SetFocus()
             if snapshot.load_error:
                 self.announcer.say(snapshot.load_error)
 
         def failed(error: Exception) -> None:
-            if self.navigator.active is SessionId.RADIO:
-                self._restore_transient_preview(announce=False, force=True)
-                self.announcer.say(f"Nie można wczytać harmonogramu nagrywania: {error}")
+            self.announcer.say(f"Nie można wczytać harmonogramu nagrywania: {error}")
 
         self.runner.submit("radio-schedules", work, done, failed)
 
     @staticmethod
-    def _radio_schedule_sync_payload(snapshot) -> dict:
-        """Jedyny kontrakt planow: surowe ustawienia wchodza do hosta C#."""
+    def _radio_schedule_sync_payload(snapshot, state: LiteState | None = None) -> dict:
+        """Efektywne plany ida do hosta; profil pelnego AMC pozostaje read-only."""
         recording = snapshot.recording
+        schedules = radio_schedule_settings.effective_schedules(
+            snapshot.recording_schedules,
+            state.radio_schedule_overrides if state is not None else None,
+        )
+        wake = radio_schedule_settings.effective_wake(
+            snapshot.wake_scheduled_recordings,
+            state.radio_schedule_wake_override if state is not None else None,
+        )
         return {
-            "schedules": list(snapshot.recording_schedules),
+            "schedules": schedules,
             "defaultFolder": recording.default_folder or "",
             "folderPreset": recording.folder_preset,
             "stationFolders": dict(recording.station_folders),
             "recordingFormat": recording.format,
             "recordingBitrateKbps": recording.bitrate_kbps,
-            "wakeScheduledRecordings": bool(snapshot.wake_scheduled_recordings),
+            "wakeScheduledRecordings": wake,
         }
 
     def _refuse_station_edit(self) -> bool:

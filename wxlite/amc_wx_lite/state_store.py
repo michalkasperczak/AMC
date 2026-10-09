@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .audio_clip import read_clip_selections
 from .profile_presets import read_preset_overrides
+from .radio_schedule_settings import read_schedule_overrides
 
 
 @dataclass(slots=True)
@@ -131,6 +132,12 @@ class LiteState:
     #: usunal wszystkie presety tej sesji. To rozroznienie pozwala zachowac
     #: zgodnosc bez zapisywania do wspolnego ``state.json``.
     preset_overrides: dict[str, list[dict]] = field(default_factory=dict)
+    #: Prywatny, kompletny zestaw harmonogramow wxPython. ``None`` oznacza:
+    #: nadal odczytuj plany z profilu pelnego AMC. Pusta lista oznacza:
+    #: uzytkownik swiadomie usunal wszystkie plany w interfejsie wxPython.
+    radio_schedule_overrides: list[dict] | None = None
+    #: Jak wyzej dla ogolnego wybudzania. ``None`` dziedziczy profil AMC.
+    radio_schedule_wake_override: bool | None = None
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -263,6 +270,10 @@ class StateStore:
             stations.append(Station(id=station_id, name=name.strip(), url=url.strip()))
 
         navigation = raw.get("navigation")
+        raw_wake_override = raw.get("radio_schedule_wake_override")
+        wake_override = (
+            raw_wake_override if type(raw_wake_override) is bool else None
+        )
         return LiteState(
             options=options,
             stations=stations,
@@ -271,6 +282,12 @@ class StateStore:
             recording_history=_read_recording_history(raw.get("recording_history")),
             clip_selections=read_clip_selections(raw.get("clip_selections")),
             preset_overrides=read_preset_overrides(raw.get("preset_overrides")),
+            radio_schedule_overrides=(
+                read_schedule_overrides(raw.get("radio_schedule_overrides"))
+                if "radio_schedule_overrides" in raw
+                else None
+            ),
+            radio_schedule_wake_override=wake_override,
         )
 
     # -------------------------------------------------------------- zapis
@@ -296,6 +313,16 @@ class StateStore:
             # swiadoma decyzja i rozni sie od braku prywatnego nadpisania.
             "preset_overrides": read_preset_overrides(state.preset_overrides),
         }
+        # Brak klucza oznacza dalsze dziedziczenie profilu. Pusta lista jest
+        # natomiast wazna decyzja uzytkownika i musi zostac zapisana.
+        if state.radio_schedule_overrides is not None:
+            payload["radio_schedule_overrides"] = (
+                read_schedule_overrides(state.radio_schedule_overrides) or []
+            )
+        if type(state.radio_schedule_wake_override) is bool:
+            payload["radio_schedule_wake_override"] = (
+                state.radio_schedule_wake_override
+            )
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 
         # Plik tymczasowy MUSI lezec w tym samym folderze: os.replace jest

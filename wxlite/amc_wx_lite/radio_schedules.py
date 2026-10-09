@@ -34,7 +34,7 @@ def schedule_rows(payload: object) -> list[Row]:
             show_kind=False,
             activation_message=(
                 f"{name}. Plan jest wykonywany automatycznie przez AMC wxPython. "
-                "Edycję planu wykonaj w głównym AMC"
+                "Ctrl+Shift+H otwiera zarządzanie harmonogramami"
             ),
         ))
     return rows
