@@ -10172,6 +10172,22 @@ class LiteFrame(wx.Frame):
 class LiteApp(wx.App):
     def OnInit(self) -> bool:  # noqa: N802 - API wx
         self.SetAppName(APP_NAME)
+        # Drugi frontend nie może uruchamiać drugiego właściciela postępu
+        # podcastów ani osobnego silnika audio. Wcześniej takie okno otwierało
+        # się bez hosta: lista była widoczna, lecz Enter, Ctrl+R i informacje
+        # pod lewą strzałką nie działały. Checker musi pozostać polem aplikacji
+        # przez cały MainLoop; zmienna lokalna zostałaby zwolniona za wcześnie.
+        self._instance_checker = wx.SingleInstanceChecker(
+            f"{APP_NAME}-{wx.GetUserId()}"
+        )
+        if self._instance_checker.IsAnotherRunning():
+            wx.MessageBox(
+                "AMC Python jest już uruchomione. Zamknij poprzednie okno "
+                "przed uruchomieniem nowej wersji.",
+                "AMC Python",
+                wx.OK | wx.ICON_INFORMATION,
+            )
+            return False
         store = StateStore()
         frame = LiteFrame(store, store.load())
         frame.Show()

@@ -17,9 +17,14 @@ Obie sesje wymagają jeszcze odbioru na obudzonych urządzeniach; testy kodu nie
 są takim odbiorem. Spotify jest odłożone. Aktualizacje na wzór „Sygnalisty”
 zostaną podjęte po odzyskaniu i sprawdzeniu właściwego źródła lub ticketu.
 
-Pełny runner Python: **1191 PASS / 0 FAIL / 138 historycznych SKIP**. Testy
+Pełny runner Python: **1192 PASS / 0 FAIL / 138 historycznych SKIP**. Testy
 protokołu C#: **14 zestawów OK**. Szczegółowy, bieżący stan i kolejność prac:
 `AMC_PYTHON_STAN_2026-10-10_PL.md` w katalogu głównym repozytorium.
+
+Interfejs odmawia teraz uruchomienia drugiego równoległego okna i podaje
+jednoznaczny komunikat. Wcześniej drugie okno mogło pozostać bez hosta, gdy
+pierwsze trzymało blokadę postępu podcastów; wtedy lista była widoczna, ale
+Enter, Ctrl+R i lewa strzałka nie miały wykonawcy.
 
 ## 09.10 — Opcje odtwarzania podcastu i odcinka
 

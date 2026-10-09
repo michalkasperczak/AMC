@@ -10,6 +10,55 @@ from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.host_client import LiteHostClient, HostUnavailable
 
 
+def test_second_instance_is_refused_before_opening_an_engine_less_window():
+    calls = []
+
+    class Checker:
+        def __init__(self, name):
+            calls.append(("checker", name))
+
+        def IsAnotherRunning(self):  # noqa: N802 - wx API
+            return True
+
+    app = SimpleNamespace(
+        SetAppName=lambda name: calls.append(("app-name", name)),
+    )
+    old_checker = getattr(gui.wx, "SingleInstanceChecker", None)
+    old_user = getattr(gui.wx, "GetUserId", None)
+    old_icon = gui.wx.ICON_INFORMATION
+    old_message = gui.wx.MessageBox
+    old_store = gui.StateStore
+    try:
+        gui.wx.SingleInstanceChecker = Checker
+        gui.wx.GetUserId = lambda: "test-user"
+        gui.wx.ICON_INFORMATION = 0x0800
+        gui.wx.MessageBox = lambda message, title, flags: calls.append(
+            ("message", message, title, flags)
+        )
+        gui.StateStore = lambda: (_ for _ in ()).throw(
+            AssertionError("Stan ani host nie mogą być otwierane w drugim oknie")
+        )
+
+        assert gui.LiteApp.OnInit(app) is False
+        assert app._instance_checker is not None
+        assert any(call[0] == "checker" for call in calls)
+        message = next(call for call in calls if call[0] == "message")
+        assert "już uruchomione" in message[1]
+        assert "AMC-wx-Lite" not in message[1]
+    finally:
+        if old_checker is None:
+            delattr(gui.wx, "SingleInstanceChecker")
+        else:
+            gui.wx.SingleInstanceChecker = old_checker
+        if old_user is None:
+            delattr(gui.wx, "GetUserId")
+        else:
+            gui.wx.GetUserId = old_user
+        gui.wx.ICON_INFORMATION = old_icon
+        gui.wx.MessageBox = old_message
+        gui.StateStore = old_store
+
+
 def test_engine_handshake_is_deferred_to_background():
     queued = []
     calls = []

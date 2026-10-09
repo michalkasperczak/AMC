@@ -99,7 +99,7 @@ pobrany do tego repozytorium.
 
 ## Dowody automatyczne tego przyrostu
 
-- pełny runner Python: 1191 zaliczonych, 0 błędów, 138 historycznych pominięć;
+- pełny runner Python: 1192 zaliczone, 0 błędów, 138 historycznych pominięć;
 - testy protokołu C#: 14 zestawów zaliczonych;
 - LiteHost zbudowany i opublikowany dla Windows x64 bez błędów i ostrzeżeń;
 - pakiet uruchomieniowy przeszedł sprawdzenie środowiska z Pythonem 3.14.7,
@@ -107,6 +107,11 @@ pobrany do tego repozytorium.
 
 Testy protokołu dowodzą granic danych i obsługi poleceń. Nie zastępują odbioru
 żywego konta TIDAL, urządzeń WiiM/Sonos ani mowy NVDA.
+
+Drugie równoległe uruchomienie interfejsu jest blokowane przed otwarciem okna.
+Zapobiega to sytuacji, w której starszy host trzyma zapis postępu podcastów,
+a nowe okno pokazuje listy, lecz nie wykonuje Enter, Ctrl+R ani informacji pod
+lewą strzałką.
 
 ## Najbliższa kolejność prac
 
