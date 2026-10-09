@@ -93,7 +93,11 @@ def _podcasts(path: Path) -> None:
 
 def test_profile_edits_go_through_the_real_host() -> None:
     assert HOST.exists(), "Najpierw zbuduj LiteHost w konfiguracji Release"
-    with tempfile.TemporaryDirectory(prefix="amc-profile-mutations-") as raw:
+    temporary_root = ROOT / ".tmp-tests"
+    temporary_root.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="amc-profile-mutations-", dir=temporary_root
+    ) as raw:
         root = Path(raw)
         media = root / "nagranie.mp3"
         media.write_bytes(b"test")

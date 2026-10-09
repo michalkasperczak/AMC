@@ -3008,15 +3008,30 @@ class LiteFrame(wx.Frame):
             self._on_filter_key(event)
             return
 
-        # Native dialog processing on a button consumes player keys before
-        # KEY_DOWN. The existing resolver passes unknown keys (e.g. Tab) on.
-        if self.navigator.view is not View.PLAYER:
-            event.Skip()
-            return
         focus = wx.Window.FindFocus()
         if focus is None or wx.GetTopLevelParent(focus) is not self:
             event.Skip()
             return
+
+        # Windowsowa kontrolka listy potrafi przejac F2 (wlasna edycja
+        # etykiety) oraz Delete, zanim dotra do EVT_KEY_DOWN kontrolki. Te
+        # cztery gesty sa poleceniami AMC, wiec przechwytujemy je juz na
+        # poziomie okna. Reszte klawiszy listy nadal dostaje natywna kontrolka
+        # -- szczegolnie strzalki, Home/End i wyszukiwanie przyrostowe NVDA.
+        if self.navigator.view is not View.PLAYER:
+            if chord_from_event(event).canonical in {
+                "F2",
+                "Shift+F2",
+                "Delete",
+                "Shift+Delete",
+            }:
+                self._on_key(event)
+                return
+            event.Skip()
+            return
+
+        # Native dialog processing on a button consumes player keys before
+        # KEY_DOWN. The existing resolver passes unknown keys (e.g. Tab) on.
         self._on_key(event)
 
     def _on_key(self, event: wx.KeyEvent) -> None:

@@ -11,7 +11,8 @@ from typing import Any
 
 SOURCE = Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
 
-def _call(*, player=True, arrow=True, foreign=False, time_key=False, in_filter=False):
+def _call(*, player=True, arrow=True, foreign=False, time_key=False,
+          in_filter=False, list_chord="Tab"):
     tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
     methods: list[ast.stmt] = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                and n.name == "_on_player_shortcut_hook"]
@@ -33,7 +34,11 @@ def _call(*, player=True, arrow=True, foreign=False, time_key=False, in_filter=F
                          GetTopLevelParent=lambda focus: focus.owner)
     event = SimpleNamespace(GetKeyCode=lambda: 69 if time_key else 2 if arrow else 9,
                             Skip=lambda: actions.append("skip"))
-    ns: dict[str, Any] = {"wx": wx, "View": view}
+    ns: dict[str, Any] = {
+        "wx": wx,
+        "View": view,
+        "chord_from_event": lambda _event: SimpleNamespace(canonical=list_chord),
+    }
     exec(compile(ast.Module(body=methods, type_ignores=[]), str(SOURCE), "exec"), ns)
     ns["_on_player_shortcut_hook"](frame, event)
     return actions
@@ -47,6 +52,10 @@ def test_ctrl_e_dociera_do_tej_samej_obslugi_przed_dialogiem():
 def test_lista_i_tabulator_zachowuja_natywna_nawigacje():
     assert _call(player=False) == ["skip"]
     assert _call(arrow=False) == ["skip"]
+
+def test_f2_i_delete_listy_docieraja_do_amc_przed_natywna_kontrolka():
+    for chord in ("F2", "Shift+F2", "Delete", "Shift+Delete"):
+        assert _call(player=False, list_chord=chord) == ["key"]
 
 def test_strzalka_w_modalnym_dialogu_nie_steruje_odtwarzaczem():
     assert _call(foreign=True) == ["skip"]
