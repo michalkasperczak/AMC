@@ -459,7 +459,13 @@ class Navigator:
     def restore_transient_navigation(
         self, snapshot: TransientNavigationSnapshot
     ) -> list[object]:
-        """Escape z podgladu oddaje sesje, widok, wiersz i odtwarzacz."""
+        """Escape z podgladu oddaje sesje, widok, wiersz i odtwarzacz.
+
+        Powrot jest celowo cichy. Po podmianie danych natywna lista Windows
+        sama wypowiada odzyskany wiersz pod fokusem. Osobne zdanie
+        ``Powrot: Radio internetowe, lista`` dublowalo te informacje i
+        opoznialo dojscie do nazwy stacji, ktora jest dla uzytkownika wazna.
+        """
         self.active = snapshot.session_id
         state = self.sessions[snapshot.session_id]
         state.view = snapshot.view
@@ -478,8 +484,7 @@ class Navigator:
         state.library_return_view = snapshot.library_return_view
         state.view_selected_ids = dict(snapshot.view_selected_ids)
         state.model.replace(list(snapshot.rows), preferred_id=snapshot.selected_id)
-        where = "odtwarzacz" if state.view is View.PLAYER else "lista"
-        return [Announce(f"Powrót: {self._session_name(snapshot.session_id)}, {where}")]
+        return []
 
     # ---------------------------------------------------------------- widoki
 

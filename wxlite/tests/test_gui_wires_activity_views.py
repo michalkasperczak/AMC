@@ -147,6 +147,18 @@ def test_escape_from_transient_preview_restores_without_verbose_return_message()
     assert "_restore_transient_preview(self, announce=False)" in source
 
 
+def test_empty_recording_view_speaks_exact_count_after_native_empty_event() -> None:
+    """Systemowe ``pusto, nieznane`` nie moze zostac ostatnim komunikatem."""
+    method = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_announce_after_native_list_update"
+    )
+    source = ast.get_source_segment(SOURCE, method) or ""
+    assert "CallLater" in source
+    assert "self.announcer.say" in source
+
+
 def test_play_track_forwards_the_bookmark_position() -> None:
     """Bez ``position_seconds`` zakladka odtworzylaby plik od zera."""
     assert "position_seconds=intent.position_seconds" in SOURCE, (

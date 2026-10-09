@@ -3698,6 +3698,22 @@ class LiteFrame(wx.Frame):
             self._sync_views()
         return True
 
+    def _announce_after_native_list_update(self, text: str) -> None:
+        """Daj SysListView32 zakonczyc zdarzenia pustki, potem podaj wynik.
+
+        Usuniecie ostatniego wiersza generuje w Windows osobne zdarzenie
+        dostepnosciowe. Samo ``CallAfter`` bywa za wczesne: NVDA potrafi wtedy
+        dopisac PO naszym komunikacie systemowe ``pusto, nieznane``. Krotki
+        jednorazowy timer nie blokuje GUI i sprawia, ze koncowa, pozostajaca
+        informacja jest jednoznaczna: ``Nagrywane, zero elementow``.
+        """
+        call_later = getattr(wx, "CallLater", None)
+        if callable(call_later):
+            call_later(90, self.announcer.say, text)
+        else:
+            # Atrapy wx w testach bez CallLater zachowuja dotychczasowa droge.
+            wx.CallAfter(self.announcer.say, text)
+
     # ---------------------------------------------------------------- pliki
 
     def _open_folder(self, path: str, preferred_id: str | None = None) -> None:
@@ -5826,7 +5842,7 @@ class LiteFrame(wx.Frame):
                     # kontrolki, zdarzenie usuniecia ostatniego wiersza
                     # dopisywalo na koncu mylace "nieznane".
                     self._sync_views()
-                    wx.CallAfter(self.announcer.say, events[0].text)
+                    self._announce_after_native_list_update(events[0].text)
             else:
                 # Odswiezenie po zdarzeniu nie moze zagluszac komunikatu o
                 # starcie, zatrzymaniu lub bledzie nagrania.

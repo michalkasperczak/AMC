@@ -548,12 +548,13 @@ def test_transient_recording_preview_restores_session_view_and_selection() -> No
 
     nav.active = SessionId.RADIO
     nav.apply_radio_view(LibraryView.ACTIVE_RADIO_RECORDINGS, "Nagrywane", [])
-    nav.restore_transient_navigation(snapshot)
+    events = nav.restore_transient_navigation(snapshot)
 
     assert nav.active is SessionId.FILES
     assert nav.session.view is View.PLAYER
     assert nav.session.library_view is LibraryView.ALL_FILES
     assert nav.session.model.selected_id == "plik"
+    assert events == [], "natywna kontrolka wypowie odzyskany element bez komunikatu Powrót"
 
 
 def test_empty_active_recordings_have_an_exact_user_facing_count() -> None:
