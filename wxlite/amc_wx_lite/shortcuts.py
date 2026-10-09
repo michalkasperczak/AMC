@@ -93,6 +93,7 @@ class Action(Enum):
     SESSION_FILES = "session.files"
     SESSION_RADIO = "session.radio"
     SESSION_PODCASTS = "session.podcasts"
+    SESSION_TIDAL = "session.tidal"
     ACTIVATE = "activate"
     PARENT_FOLDER = "parent"
     SHOW_PLAYER = "view.player"
@@ -275,6 +276,47 @@ class Action(Enum):
     HELP = "help"
 
 
+# Pierwszy etap TIDAL jest plaskim katalogiem tylko do odczytu. Jawna lista
+# bezpiecznych polecen jest celowo restrykcyjna: nowy skrot dodany w przyszlosci
+# nie moze przypadkiem zaczac nagrywac radia, zmieniac podcastow albo sterowac
+# lokalnym odtwarzaczem tylko dlatego, ze zapomniano dopisac kolejny zakaz.
+TIDAL_READ_ONLY_ACTIONS = frozenset({
+    Action.SESSION_FILES,
+    Action.SESSION_RADIO,
+    Action.SESSION_PODCASTS,
+    Action.SESSION_TIDAL,
+    Action.ACTIVATE,
+    Action.PARENT_FOLDER,
+    Action.SHOW_LIST,
+    Action.SESSION_OPTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
+    Action.GENERAL_SETTINGS,
+    Action.TOGGLE_SEEK_MESSAGES,
+    Action.VIEW_PRESETS,
+    Action.ASSIGN_PRESET,
+    Action.PRESET_1,
+    Action.PRESET_2,
+    Action.PRESET_3,
+    Action.PRESET_4,
+    Action.PRESET_5,
+    Action.PRESET_6,
+    Action.PRESET_7,
+    Action.PRESET_8,
+    Action.PRESET_9,
+    Action.PRESET_10,
+    Action.PRESET_11,
+    Action.PRESET_12,
+    Action.QUICK_INFORMATION,
+    Action.COPY_NAME,
+    Action.COPY_ADDRESS,
+    Action.FOCUS_FILTER,
+    Action.VIEW_LIBRARY,
+    Action.VIEW_FAVORITES,
+    Action.VIEW_PLAYLISTS,
+    Action.HELP,
+})
+
+
 @dataclass(frozen=True, slots=True)
 class Chord:
     """Klawisz + modyfikatory. Nazwy klawiszy wlasne, zeby nie wiazac sie z wx."""
@@ -303,6 +345,7 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+1": Action.SESSION_FILES,
     "Ctrl+2": Action.SESSION_RADIO,
     "Ctrl+3": Action.SESSION_PODCASTS,
+    "Ctrl+4": Action.SESSION_TIDAL,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
     # Kontekstowe polecenia edycji z głównego AMC. F2 zmienia nazwę
@@ -456,6 +499,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+1": Action.SESSION_FILES,
     "Ctrl+2": Action.SESSION_RADIO,
     "Ctrl+3": Action.SESSION_PODCASTS,
+    "Ctrl+4": Action.SESSION_TIDAL,
     "Escape": Action.SHOW_LIST,
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
@@ -627,6 +671,7 @@ def describe() -> list[tuple[str, str]]:
         Action.SESSION_FILES: "Pliki lokalne",
         Action.SESSION_RADIO: "Radio internetowe",
         Action.SESSION_PODCASTS: "Podcasty i YouTube",
+        Action.SESSION_TIDAL: "TIDAL",
         Action.ACTIVATE: "Otworz folder albo odtworz",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.SHOW_PLAYER: "Widok odtwarzacza",

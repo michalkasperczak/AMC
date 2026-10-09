@@ -263,6 +263,7 @@ def test_manual_queue_result_reports_refused_save() -> None:
         frame._refresh_status = lambda: None
         payload = {"persistError": "test odmowy", "moved": False}
         frame.client = SimpleNamespace(
+            configure_audio=lambda **k: {},
             queue_set=lambda *a, **k: payload,
             queue_play_at=lambda *a, **k: payload,
             queue_next=lambda **k: payload,

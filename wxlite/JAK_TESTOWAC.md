@@ -442,6 +442,31 @@ Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszys
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
 
+## Pierwszy etap TIDAL
+
+- `Ctrl+4` z listy i odtwarzacza przełącza do sesji TIDAL. Powrót do innej
+  sesji i ponowne `Ctrl+4` ma zachować poprzedni widok oraz zaznaczony element.
+- `Ctrl+L`, `Ctrl+U` i `Ctrl+P` otwierają Bibliotekę, Ulubione i Playlisty.
+  Strzałki mają być obsługiwane przez zwykłą listę wx i NVDA ma czytać
+  wyłącznie celowe nazwy, rodzaje oraz szczegóły — nigdy ID usługi, prywatnego
+  uchwytu odtwarzania ani reprezentacji obiektu.
+- `Ctrl+C` kopiuje nazwę, a `Ctrl+Shift+C` publiczny adres, jeżeli był zapisany.
+- Lewa strzałka czyta tylko dostępne informacje katalogowe i uczciwie mówi, że
+  format audio nie jest znany z zapisanej migawki.
+- Enter na utworze, albumie, artyście albo playliście ma podać krótką informację
+  o niepodłączonym jeszcze katalogu lub odtwarzaniu. Nie może przejść do lokalnej
+  playlisty ani oznajmić uruchomienia TIDAL.
+- Backspace na głównym widoku TIDAL niczego nie oznajmia i nie zmienia sesji.
+
+## Zanik wybranego urządzenia audio
+
+Podczas grającego radia odłącz urządzenie wybrane przez `Shift+A`. Oczekiwane:
+jednorazowy komunikat o urządzeniu domyślnym i dalsze odtwarzanie tej samej
+stacji bez wybierania innej. Powtórz próbę w pauzie: po odłączeniu wyjścia
+materiał ma pozostać wstrzymany. Aktywne nagrywanie i timeshift nie mogą zostać
+zatrzymane. Nie odłączaj urządzenia używanego do pracy z czytnikiem ekranu bez
+zapewnionego innego słyszalnego wyjścia.
+
 ### Zwykła natywna lista: jak sprawdzać aktualizacje (po migracji z `LC_VIRTUAL`)
 
 Lista jest zwykłą `wx.ListCtrl` (`LC_REPORT`) i trzyma teksty u siebie. Kontrolka

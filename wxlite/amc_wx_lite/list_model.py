@@ -31,6 +31,9 @@ KIND_LABELS: dict[str, str] = {
     # czytnik mowilby w kolumnie "Rodzaj" pustke i nie bylo by roznicy miedzy
     # playlista a utworem.
     "playlist": "playlista",
+    "album": "album",
+    "artist": "wykonawca",
+    "video": "wideo",
     "podcast": "podcast",
     "episode": "odcinek",
     "loadMore": "",
@@ -77,7 +80,9 @@ class Row:
     @property
     def is_openable(self) -> bool:
         """Czy Enter ma WEJSC w element, zamiast go odtworzyc."""
-        return self.kind in ("folder", "parent", "playlist", "podcast", "loadMore")
+        return self.kind in (
+            "folder", "parent", "playlist", "album", "artist", "podcast", "loadMore"
+        )
 
     @property
     def kind_label(self) -> str:

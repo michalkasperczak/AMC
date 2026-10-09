@@ -54,6 +54,14 @@ def test_private_default_choice_overrides_a_profile_device() -> None:
     assert selected is None
 
 
+def test_tidal_output_is_not_saved_before_its_player_supports_selection() -> None:
+    assert effective_output_device_id(
+        SessionId.TIDAL,
+        {"tidal": "technical-device"},
+        {"tidal": "profile-device"},
+    ) is None
+
+
 def test_output_choice_uses_only_the_explicit_user_label() -> None:
     choices = choices_from_payload({"devices": [{
         "id": "{technical-endpoint-id}",
@@ -97,3 +105,9 @@ def test_host_contract_contains_selection_and_runtime_radio_recovery() -> None:
     assert "OutputDevicePlaybackStopped" in radio
     assert "RestartPlaybackOutput" in radio
     assert "TryReplaceOutput" in radio
+    # Ustalona polityka: odłączone wyjście jest zastępowane domyślnym,
+    # odtwarzanie trwa dalej, a świadoma pauza pozostaje pauzą.
+    assert "outputDeviceId: null" in radio
+    assert "remainPaused = _pauseRequested" in radio
+    assert "if (!remainPaused)" in radio
+    assert "AudioOutputPauseGuard.Play" in radio

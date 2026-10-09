@@ -15,7 +15,12 @@ from pathlib import Path
 from .navigation import SessionId
 
 
-_SESSION_KEYS = {session.value for session in SessionId}
+_SUPPORTED_OUTPUT_SESSIONS = (
+    SessionId.FILES,
+    SessionId.RADIO,
+    SessionId.PODCASTS,
+)
+_SESSION_KEYS = {session.value for session in _SUPPORTED_OUTPUT_SESSIONS}
 _PROFILE_TO_LITE = {"local": SessionId.FILES.value}
 _MAXIMUM_DEVICE_ID_LENGTH = 4_096
 

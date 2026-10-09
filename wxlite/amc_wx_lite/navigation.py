@@ -26,6 +26,7 @@ class SessionId(Enum):
     FILES = "files"
     RADIO = "radio"
     PODCASTS = "podcasts"
+    TIDAL = "tidal"
 
 
 class LibraryView(Enum):
@@ -81,6 +82,11 @@ class LibraryView(Enum):
     #: chwilowym podgladem pod Ctrl+I.
     PODCAST_INBOX = "podcastInbox"
     PODCAST_DOWNLOADS = "podcastDownloads"
+    #: Pierwszy etap sesji TIDAL: trwale zapisany cache kolekcji z profilu
+    #: AMC. Osobne wartosci zapobiegaja pomyleniu ich z lokalna Biblioteka.
+    TIDAL_LIBRARY = "tidalLibrary"
+    TIDAL_FAVORITES = "tidalFavorites"
+    TIDAL_PLAYLISTS = "tidalPlaylists"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -243,6 +249,14 @@ class OpenPodcastView:
     subscription_title: str = ""
     preferred_id: str | None = None
     load_more: bool = False
+
+
+@dataclass(slots=True)
+class OpenTidalView:
+    """Load one persisted TIDAL collection view without writing the profile."""
+
+    view: LibraryView
+    preferred_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -418,6 +432,7 @@ class Navigator:
             SessionId.FILES: SessionState(SessionId.FILES),
             SessionId.RADIO: SessionState(SessionId.RADIO),
             SessionId.PODCASTS: SessionState(SessionId.PODCASTS),
+            SessionId.TIDAL: SessionState(SessionId.TIDAL),
         }
         self.active = SessionId.FILES
 
@@ -450,6 +465,7 @@ class Navigator:
             SessionId.FILES: "Pliki lokalne",
             SessionId.RADIO: "Radio internetowe",
             SessionId.PODCASTS: "Podcasty i YouTube",
+            SessionId.TIDAL: "TIDAL",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
@@ -566,6 +582,14 @@ class Navigator:
         if row.kind == "parent":
             return self.go_to_parent()
 
+        if row.activation_message:
+            # Wiersz zostaje zaznaczony i widoczny. Sprawdzamy to PRZED
+            # semantyka kontenera, bo cache TIDAL uzywa prawdziwych rodzajow
+            # album/playlista/wykonawca, lecz katalog online nie jest jeszcze
+            # podlaczony. Bez tej kolejnosci playlista TIDAL wpadla by do
+            # lokalnego ``OpenLibraryView`` i udawala playliste plikow.
+            return [Announce(row.activation_message)]
+
         if row.kind == "playlist":
             return self._enter_playlist(row)
 
@@ -596,11 +620,6 @@ class Navigator:
             if state.folder_path:
                 state.breadcrumb.append((state.folder_path, row.item_id))
             return [OpenFolder(row.path)]
-
-        if row.activation_message:
-            # Wiersz zostaje zaznaczony i widoczny. To zamierzona odmowa
-            # (np. nieudane nagranie), nie powod do wejscia w odtwarzacz.
-            return [Announce(row.activation_message)]
 
         if row.kind == "station":
             state.player_entry_anchor_id = row.item_id
@@ -853,6 +872,10 @@ class Navigator:
         if state.session_id is SessionId.PODCASTS:
             if state.library_view is LibraryView.PODCAST_EPISODES:
                 return [OpenPodcastView(preferred_id=state.library_return_id)]
+            return []
+        if state.session_id is SessionId.TIDAL:
+            # Pierwszy etap TIDAL ma plaskie, trwale widoki kolekcji. Na ich
+            # korzeniu Backspace niczego nie zmysla i nie przenosi do plikow.
             return []
         # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
         # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z
@@ -1396,6 +1419,57 @@ class Navigator:
             message = "Pobrane, brak pobranych odcinków"
         else:
             message = f"{heading}, {count} {_items_word(count)}"
+        if not order_matches_amc:
+            message = f"{message}, kolejność zastępcza"
+        return [Announce(message)]
+
+    # --------------------------------------------------------------- TIDAL
+
+    def open_tidal_view(
+        self,
+        view: LibraryView,
+        *,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Request one persisted TIDAL collection view."""
+        if view not in (
+            LibraryView.TIDAL_LIBRARY,
+            LibraryView.TIDAL_FAVORITES,
+            LibraryView.TIDAL_PLAYLISTS,
+        ):
+            return [Announce("Ten widok nie jest dostępny w TIDAL")]
+        return [OpenTidalView(view=view, preferred_id=preferred_id)]
+
+    def apply_tidal_view(
+        self,
+        view: LibraryView,
+        heading: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+        order_matches_amc: bool = True,
+    ) -> list[object]:
+        """Apply TIDAL rows without touching another session or exposing IDs."""
+        if view not in (
+            LibraryView.TIDAL_LIBRARY,
+            LibraryView.TIDAL_FAVORITES,
+            LibraryView.TIDAL_PLAYLISTS,
+        ):
+            raise ValueError("To nie jest widok TIDAL")
+        state = self.sessions[SessionId.TIDAL]
+        previous = state.library_view
+        if previous is not None and state.model.selected_id:
+            state.view_selected_ids[previous.value] = state.model.selected_id
+        remembered = state.view_selected_ids.get(view.value)
+        state.library_view = view
+        state.library_playlist_id = None
+        state.library_return_view = heading
+        state.model.replace(rows, preferred_id=preferred_id or remembered)
+        state.view = View.LIST
+        message = (
+            f"{heading}, {len(rows)} {_items_word(len(rows))}"
+            if rows else f"{heading}, pusto"
+        )
         if not order_matches_amc:
             message = f"{message}, kolejność zastępcza"
         return [Announce(message)]

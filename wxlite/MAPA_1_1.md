@@ -384,8 +384,26 @@ własnej normalizacji diakrytyków.
   harmonogramy wykonywane przez host C# oraz osobne komunikaty stanu. `Alt+D`
   na liście i w odtwarzaczu czyta nazwę stacji, dostępne parametry audio oraz
   bieżącą audycję lub utwór tym samym formatterem co główne AMC.
-- Do dalszego portu pozostają pozostałe sesje i ich pełna obsługa (TIDAL,
-  WiiM, Sonos i Spotify), dalsze ustawienia oraz pozostała redakcja materiałów.
+- TIDAL ma pierwszy, jawnie ograniczony etap sesji wxPython: `Ctrl+4` otwiera
+  tylko do odczytu zapisaną przez główne AMC migawkę katalogu. `Ctrl+L`,
+  `Ctrl+U` i `Ctrl+P` pokazują odpowiednio Bibliotekę, Ulubione i Playlisty,
+  zachowując osobny widok oraz zaznaczenie tej sesji. Nazwa, wykonawca, rodzaj,
+  czas i publiczny adres są oddzielone od identyfikatorów technicznych. Nie ma
+  jeszcze katalogu online, wchodzenia do albumów i playlist, odtwarzania ani
+  zmian konta; Enter mówi o tym wprost i nie udaje powodzenia. Pełnego
+  odtwarzania TIDAL nie uznajemy za potwierdzone.
+- Do dalszego portu pozostaje pełna obsługa TIDAL, a następnie WiiM, Sonos i
+  Spotify, dalsze ustawienia oraz pozostała redakcja materiałów.
+
+## Polityka zaniku wybranego urządzenia audio
+
+Jeżeli podczas odtwarzania wybrane wyjście znika, host zachowuje ten wybór dla
+sesji, lecz bieżący tor przełącza na urządzenie domyślne. Materiał gra dalej od
+bieżącego miejsca. Jeżeli użytkownik wcześniej wstrzymał odtwarzanie, wymiana
+wyjścia nie wznawia go samodzielnie. Radio zachowuje przy tym dekoder, bufor
+timeshift i aktywne nagrywanie. Powrót zapamiętanego urządzenia nie przenosi
+dźwięku samoczynnie w trakcie bieżącego materiału; wybór zostanie użyty przy
+następnym uruchomieniu albo po świadomej zmianie przez `Shift+A`.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.
 

@@ -81,6 +81,7 @@ from .navigation import (
     OpenPodcastAggregateView,
     OpenPodcastView,
     OpenQueueView,
+    OpenTidalView,
     PlayFromQueue,
     PlayQueueAt,
     PlayStation,
@@ -91,7 +92,14 @@ from .navigation import (
     View,
     view_context,
 )
-from .shortcuts import Action, Chord, describe, preset_slot, resolve
+from .shortcuts import (
+    Action,
+    Chord,
+    TIDAL_READ_ONLY_ACTIONS,
+    describe,
+    preset_slot,
+    resolve,
+)
 from .profile_layout import resolve_layout
 from .podcast_source import (
     PAGE_SIZE as PODCAST_PAGE_SIZE,
@@ -145,6 +153,13 @@ from .radio_recording import (
     station_activity_rows,
 )
 from .state_store import LiteState, Station, StationList, StateStore
+from .tidal_source import (
+    TidalProfileError,
+    TidalSource,
+    VIEW_FAVORITES as TIDAL_VIEW_FAVORITES,
+    VIEW_LIBRARY as TIDAL_VIEW_LIBRARY,
+    VIEW_PLAYLISTS as TIDAL_VIEW_PLAYLISTS,
+)
 
 APP_NAME = "AMC-wx-Lite"
 TEMPO_LABELS = {1: "Mowa – Speedy", 2: "Muzyka – Signalsmith", 0: "Dotychczasowy – SoundTouch"}
@@ -2403,6 +2418,7 @@ class LiteFrame(wx.Frame):
         # drugiego, konkurencyjnego zegara.
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
+        self.tidal = TidalSource(self.layout)
         self._podcast_loaded_counts: dict[str, int] = {}
         # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
         # pierwszego odczytu widoku trzymamy bezpieczny domysl; wynik strony
@@ -2500,14 +2516,22 @@ class LiteFrame(wx.Frame):
             "Podcasty i YouTube",
             self.navigator.sessions[SessionId.PODCASTS],
         )
+        self.tidal_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.TIDAL].model,
+            "TIDAL",
+            self.navigator.sessions[SessionId.TIDAL],
+        )
         self.radio_list.Hide()
         self.podcasts_list.Hide()
+        self.tidal_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
         list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
         list_sizer.Add(self.files_list, 1, wx.EXPAND)
         list_sizer.Add(self.radio_list, 1, wx.EXPAND)
         list_sizer.Add(self.podcasts_list, 1, wx.EXPAND)
+        list_sizer.Add(self.tidal_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
         # --- widok odtwarzacza (zwykle kontrolki, nie wlasne rysowanie)
@@ -2763,7 +2787,9 @@ class LiteFrame(wx.Frame):
 
     def _bind_keys(self) -> None:
         self.Bind(wx.EVT_CHAR_HOOK, self._on_player_shortcut_hook)
-        for control in (self.files_list, self.radio_list, self.podcasts_list):
+        for control in (
+            self.files_list, self.radio_list, self.podcasts_list, self.tidal_list
+        ):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
             control.Bind(wx.EVT_KEY_DOWN, self._on_key)
@@ -3490,6 +3516,12 @@ class LiteFrame(wx.Frame):
                 preferred_id=self.navigator.sessions[SessionId.PODCASTS].library_return_id
             )
             return
+        if self.navigator.active is SessionId.TIDAL:
+            self._open_tidal_view(OpenTidalView(
+                LibraryView.TIDAL_LIBRARY,
+                preferred_id=self.navigator.sessions[SessionId.TIDAL].library_return_id,
+            ))
+            return
         if not self.library.is_available:
             self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
             return
@@ -3585,6 +3617,45 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(f"Nie mogę wczytać listy radia: {error}")
 
         self.runner.submit("radio-view", work, done, failed)
+
+    def _open_tidal_view(self, intent: OpenTidalView) -> None:
+        """Read one persisted TIDAL collection view outside the GUI thread."""
+        scopes = {
+            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
+            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
+            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
+        }
+        scope = scopes.get(intent.view)
+        if scope is None:
+            self.announcer.say("Ten widok nie jest dostępny w TIDAL")
+            return
+
+        def work():
+            return self.tidal.load_view(scope)
+
+        def done(result) -> None:
+            events = self.navigator.apply_tidal_view(
+                intent.view,
+                result.heading,
+                list(result.rows),
+                preferred_id=intent.preferred_id,
+                order_matches_amc=result.order_matches_amc,
+            )
+            # Wynik aktualizuje tylko stan TIDAL. Jeśli użytkownik zdążył
+            # przejść do innej sesji, nie przenosimy tam fokusu ani mowy.
+            if self.navigator.active is SessionId.TIDAL:
+                self._run(events)
+
+        def failed(error: Exception) -> None:
+            if self.navigator.active is not SessionId.TIDAL:
+                return
+            self.announcer.say(
+                str(error)
+                if isinstance(error, TidalProfileError)
+                else "Nie udało się odczytać biblioteki TIDAL"
+            )
+
+        self.runner.submit("tidal-view", work, done, failed)
 
     def _open_library_view(self, intent: OpenLibraryView) -> None:
         """Wczytanie nazwanego widoku Biblioteki -- tak samo POZA watkiem GUI.
@@ -3732,6 +3803,17 @@ class LiteFrame(wx.Frame):
                 "Do podcastów wrócisz skrótem Ctrl+L"
             )
             return
+        if self.navigator.active is SessionId.TIDAL:
+            if action is Action.SHOW_PLAYER:
+                self.announcer.say(
+                    "Odtwarzacz TIDAL nie jest jeszcze podłączony w interfejsie wxPython"
+                )
+                return
+            if action not in TIDAL_READ_ONLY_ACTIONS:
+                self.announcer.say(
+                    "Ta funkcja TIDAL nie jest jeszcze podłączona w interfejsie wxPython"
+                )
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -3741,6 +3823,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_PODCASTS:
             self._transient_preview_return = None
             self._switch_session(SessionId.PODCASTS)
+        elif action is Action.SESSION_TIDAL:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.TIDAL)
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
@@ -3916,10 +4001,15 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_aggregate(
                     OpenPodcastAggregateView(LibraryView.PODCAST_FAVORITES)
                 )
+            elif self.navigator.active is SessionId.TIDAL:
+                self._open_tidal_view(OpenTidalView(LibraryView.TIDAL_FAVORITES))
             else:
                 self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
         elif action is Action.VIEW_PLAYLISTS:
-            self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
+            if self.navigator.active is SessionId.TIDAL:
+                self._open_tidal_view(OpenTidalView(LibraryView.TIDAL_PLAYLISTS))
+            else:
+                self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
         elif action is Action.VIEW_FOLDERS:
             # Foldery Biblioteki dzialaly juz z menu kontekstu startu; tutaj
             # dostaja jawne wejscie (Alt+1, jak MainWindow.xaml:446).
@@ -3974,6 +4064,8 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_view(intent)
             elif isinstance(intent, OpenPodcastAggregateView):
                 self._open_podcast_aggregate(intent)
+            elif isinstance(intent, OpenTidalView):
+                self._open_tidal_view(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayFromQueue):
@@ -3995,6 +4087,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES: "Pliki lokalne",
             SessionId.RADIO: "Radio internetowe",
             SessionId.PODCASTS: "Podcasty i YouTube",
+            SessionId.TIDAL: "TIDAL",
         }[self.navigator.active])
 
         active_list = self._active_list()
@@ -4003,6 +4096,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "files_list", None),
                 getattr(self, "radio_list", None),
                 getattr(self, "podcasts_list", None),
+                getattr(self, "tidal_list", None),
             )
             if candidate is not None
         )
@@ -4060,7 +4154,9 @@ class LiteFrame(wx.Frame):
             return self.files_list
         if self.navigator.active is SessionId.RADIO:
             return self.radio_list
-        return self.podcasts_list
+        if self.navigator.active is SessionId.PODCASTS:
+            return self.podcasts_list
+        return self.tidal_list
 
     def _on_item_focused(self, event: wx.ListEvent) -> None:
         """Fokus jest kotwica akcji takze wtedy, gdy wiersz nie jest wybrany.
@@ -4435,6 +4531,13 @@ class LiteFrame(wx.Frame):
             state = self.navigator.sessions[SessionId.PODCASTS]
             if not state.model.rows:
                 self._open_podcast_library(preferred_id=state.list_anchor_id)
+        elif session_id is SessionId.TIDAL:
+            state = self.navigator.sessions[SessionId.TIDAL]
+            if not state.model.rows:
+                self._open_tidal_view(OpenTidalView(
+                    LibraryView.TIDAL_LIBRARY,
+                    preferred_id=state.list_anchor_id,
+                ))
 
     # ------------------------------------------------ Podcasty i YouTube
 
@@ -5781,8 +5884,20 @@ class LiteFrame(wx.Frame):
         Cache i uzupełnianie przez silnik działają poza wątkiem GUI;
         wspólny formatter Core składa napis, bramka odrzuca spóźniony wynik.
         """
-        client = self.client
         row = self.navigator.session.model.selected_row
+        if self.navigator.active is SessionId.TIDAL:
+            if row is None:
+                self.announcer.say("Lista TIDAL jest pusta")
+                return
+            parts = [row.title]
+            if row.detail:
+                parts.append(row.detail)
+            if row.kind_label:
+                parts.append(row.kind_label)
+            parts.append("format audio nie został udostępniony przez zapisany katalog TIDAL")
+            self.announcer.say(", ".join(dict.fromkeys(parts)))
+            return
+        client = self.client
         plan = quick_info_plan(
             row,
             session=self.navigator.active.value,
@@ -7265,6 +7380,12 @@ class LiteFrame(wx.Frame):
 
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
+        if self.navigator.active is SessionId.TIDAL:
+            self.announcer.say(
+                "TIDAL korzysta z urządzenia domyślnego swojego odtwarzacza. "
+                "Osobny wybór urządzenia nie jest jeszcze dostępny"
+            )
+            return
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
@@ -7393,6 +7514,12 @@ class LiteFrame(wx.Frame):
         nim wx oddal by go z powrotem oknu modalnemu.
         """
         opened = self.navigator.active
+        if not session_options.capabilities_for(opened).has_options:
+            self.announcer.say(
+                f"Sesja {session_options.session_display_name(opened)} nie ma jeszcze "
+                "opcji wykonywanych przez ten interfejs"
+            )
+            return
         drafts = {
             session: session_options.effective_overrides(self.state, session)
             for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
@@ -7880,6 +8007,16 @@ class LiteFrame(wx.Frame):
                     state.library_view,
                     preferred_id=preferred_id,
                 ))
+            return
+        if self.navigator.active is SessionId.TIDAL:
+            view = state.library_view
+            if view not in (
+                LibraryView.TIDAL_LIBRARY,
+                LibraryView.TIDAL_FAVORITES,
+                LibraryView.TIDAL_PLAYLISTS,
+            ):
+                view = LibraryView.TIDAL_LIBRARY
+            self._open_tidal_view(OpenTidalView(view, preferred_id=preferred_id))
             return
         if state.library_view is None:
             self._open_library(state.folder_path or None, preferred_id=preferred_id)

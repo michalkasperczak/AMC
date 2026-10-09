@@ -6,6 +6,7 @@ from pathlib import Path
 
 from amc_wx_lite import quick_info
 from amc_wx_lite.list_model import Row
+from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.profile_layout import read_only_mirror
 from test_wire_compatibility import make_client
 
@@ -76,6 +77,7 @@ def test_handler_czyta_cache_w_zadaniu_tla_i_przekazuje_do_hosta():
     method = next(node for node in frame.body if isinstance(node, ast.FunctionDef) and node.name == "_announce_quick_information")
     calls, jobs, reads = [], [], []
     namespace = dict(vars(quick_info))
+    namespace["SessionId"] = SessionId
     def cached(layout, row, session):
         reads.append((layout, row.item_id, session))
         return {"durationTicks": 123456789, "bitrateKbps": 320, "sampleRateHz": 48000}

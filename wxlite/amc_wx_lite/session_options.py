@@ -298,6 +298,7 @@ SESSION_DISPLAY_NAMES: dict[SessionId, str] = {
     SessionId.FILES: "Pliki lokalne",
     SessionId.RADIO: "Radio",
     SessionId.PODCASTS: "Podcasty i YouTube",
+    SessionId.TIDAL: "TIDAL",
 }
 
 

@@ -5,6 +5,7 @@ from types import SimpleNamespace as N
 from amc_wx_lite import quick_info
 from amc_wx_lite.host_client import HostError
 from amc_wx_lite.list_model import Row
+from amc_wx_lite.navigation import SessionId
 from test_quick_information_gui_wiring import _method, HANDLER
 from test_wire_compatibility import make_client
 
@@ -24,6 +25,7 @@ def test_klient_zachowuje_kod_bledu_z_prawdziwego_procesu():
 
 def test_handler_czyta_krotka_odmowe_zamiast_bledu_elementu():
     namespace = dict(vars(quick_info))
+    namespace["SessionId"] = SessionId
     exec(compile(ast.Module(body=[_method(HANDLER)], type_ignores=[]), "gui-handler", "exec"), namespace)
     row = Row("wybrany", "Plik", "track", path="D:\\a.mp3")
     failures, spoken = [], []

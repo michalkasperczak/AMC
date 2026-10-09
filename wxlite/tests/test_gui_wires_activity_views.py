@@ -77,6 +77,11 @@ _NON_SQLITE_VIEWS = (
     LibraryView.PODCAST_QUEUE,
     LibraryView.PODCAST_INBOX,
     LibraryView.PODCAST_DOWNLOADS,
+    # Pierwsze widoki TIDAL czytaja state.json przez osobny TidalSource.
+    # Nie wolno kierowac ich do lokalnego LibrarySource/library.db.
+    LibraryView.TIDAL_LIBRARY,
+    LibraryView.TIDAL_FAVORITES,
+    LibraryView.TIDAL_PLAYLISTS,
 )
 
 
