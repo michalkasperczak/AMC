@@ -115,7 +115,10 @@ internal static class Program
                 // transportu ani zapisu postepu odtwarzania.
                 LitePodcastDownloadCoordinator.Operation,
                 // Sprawdzenie nowego źródła również wykonuje sieć lub yt-dlp.
-                LitePodcastAddCoordinator.Operation
+                LitePodcastAddCoordinator.Operation,
+                // Import pobiera maksymalnie cztery RSS równolegle. Nie może
+                // zatrzymać transportu ani komunikatów o nagrywaniu.
+                LitePodcastOpmlCoordinator.ImportOperation
             ]);
 
         Console.Error.WriteLine(

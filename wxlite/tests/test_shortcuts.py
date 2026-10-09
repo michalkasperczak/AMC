@@ -204,6 +204,28 @@ def test_ctrl_n_adds_the_kind_used_by_the_current_session() -> None:
     ) is Action.STATION_ADD
 
 
+def test_ctrl_o_imports_opml_only_in_the_podcast_session() -> None:
+    for player in (False, True):
+        assert resolve(
+            Chord("O", ctrl=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.IMPORT_PODCAST_OPML
+    assert resolve(
+        Chord("O", ctrl=True),
+        player_view=False,
+        radio_session=False,
+        podcast_session=False,
+    ) is Action.OPEN_FILE_DIALOG
+    assert resolve(
+        Chord("O", ctrl=True),
+        player_view=False,
+        radio_session=True,
+        podcast_session=False,
+    ) is Action.STATION_IMPORT
+
+
 def test_ctrl_d_downloads_podcasts_but_keeps_file_clip_append() -> None:
     for player in (False, True):
         assert resolve(

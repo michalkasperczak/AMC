@@ -251,6 +251,22 @@ def test_podcast_add_menu_is_contextual_and_does_not_steal_ctrl_n() -> None:
     assert "dodaj" in item.label.replace("&", "").casefold()
 
 
+def test_podcast_opml_menu_is_contextual_and_keeps_ctrl_o_in_resolver() -> None:
+    imported = next(
+        entry for entry in all_items()
+        if entry.action is Action.IMPORT_PODCAST_OPML
+    )
+    exported = next(
+        entry for entry in all_items()
+        if entry.action is Action.EXPORT_PODCAST_OPML
+    )
+    assert imported.shortcut == "Ctrl+O"
+    assert imported.needs_podcast_session and not imported.accelerator
+    assert exported.shortcut is None and exported.needs_podcast_session
+    assert "opml" in imported.label.replace("&", "").casefold()
+    assert "opml" in exported.label.replace("&", "").casefold()
+
+
 def test_every_item_is_keyboard_reachable() -> None:
     """Kazda pozycja ma znacznik '&' -- inaczej nie ma dostepu z klawiatury."""
     for item in all_items():

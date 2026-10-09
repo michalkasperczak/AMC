@@ -166,6 +166,17 @@ internal static class PodcastProgressStoreTests
                         false),
                     null).AddedEpisode,
                     "powtorne dodanie tego samego medium aktualizuje zamiast dublowac");
+
+                var opmlEntries = store.GetOpmlEntries();
+                Assert.True(opmlEntries.Count == 2,
+                    "eksport OPML obejmuje tylko zapisane podcasty RSS");
+                Assert.True(opmlEntries.Any(entry =>
+                        entry.Title == "Moja nazwa podcastu"
+                        && entry.FeedUri.AbsoluteUri == "https://example.invalid/new-feed.xml"),
+                    "eksport OPML zachowuje nazwe uzytkownika i adres RSS");
+                Assert.True(opmlEntries.All(entry =>
+                        !entry.FeedUri.AbsoluteUri.Contains("youtube", StringComparison.OrdinalIgnoreCase)),
+                    "publiczne media internetowe nie moga udawac RSS w eksporcie");
             }
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))

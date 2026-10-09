@@ -44,6 +44,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LitePodcastRefreshCoordinator? _podcastRefresh;
     private readonly LitePodcastDownloadCoordinator? _podcastDownloads;
     private readonly LitePodcastAddCoordinator? _podcastAdd;
+    private readonly LitePodcastOpmlCoordinator? _podcastOpml;
     private readonly LiteProfileMutationStore? _profileMutations;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
@@ -109,6 +110,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastAdd = podcastProgressStore is null
             ? null
             : new LitePodcastAddCoordinator(podcastProgressStore, bookmarkStore);
+        _podcastOpml = podcastProgressStore is null
+            ? null
+            : new LitePodcastOpmlCoordinator(podcastProgressStore, bookmarkStore);
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -246,6 +250,12 @@ internal sealed class LiteEngineHandlers : IDisposable
                 DownloadPodcastEpisodes(request.Args, events),
             [LitePodcastAddCoordinator.Operation] = (request, _) =>
                 AddPodcastSource(request.Args),
+            [LitePodcastOpmlCoordinator.InspectOperation] = (request, _) =>
+                PodcastOpmlInspect(request.Args),
+            [LitePodcastOpmlCoordinator.ImportOperation] = (request, _) =>
+                PodcastOpmlImport(request.Args),
+            [LitePodcastOpmlCoordinator.ExportOperation] = (request, _) =>
+                PodcastOpmlExport(request.Args),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -1395,6 +1405,18 @@ internal sealed class LiteEngineHandlers : IDisposable
         };
     }
 
+    private object PodcastOpmlInspect(JsonElement args) =>
+        (_podcastOpml ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).Inspect(args);
+
+    private object PodcastOpmlImport(JsonElement args) =>
+        (_podcastOpml ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).Import(args);
+
+    private object PodcastOpmlExport(JsonElement args) =>
+        (_podcastOpml ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).Export(args);
+
     private object ConfigureAudio(JsonElement args)
     {
         var settings = LiteAudioSettings.Read(args);
@@ -1450,6 +1472,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastRefresh?.Dispose();
         _podcastDownloads?.Dispose();
         _podcastAdd?.Dispose();
+        _podcastOpml?.Dispose();
         _podcastProgressStore?.Dispose();
     }
 }

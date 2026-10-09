@@ -60,8 +60,10 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
    materiały z kanałów i playlist YouTube mają jawne określenie „materiał
    YouTube”. Identyfikatory bazy i rekordy modelu nie trafiają do mowy NVDA.
 10. `Ctrl+O` pozostaje kontekstowe jak w głównym AMC: w Plikach wybiera plik,
-    a w Radiu importuje M3U/PLS. `Ctrl+I` nie jest już błędnie zajęte przez
-    import stacji.
+    w Radiu importuje M3U/PLS, a w Podcastach otwiera import OPML. Import OPML
+    pokazuje natywną listę: wszystkie źródła są początkowo zaznaczone, Spacja
+    przełącza bieżące, a `Ctrl+A` zaznacza wszystkie. `Ctrl+I` nie jest już
+    błędnie zajęte przez import stacji.
 11. Pozycja Widok → „Pobrane” jest dostępna w sesji Podcasty i YouTube.
     Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
     także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
@@ -79,6 +81,9 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     `Delete` usuwa źródło z Biblioteki, `F5` odświeża bieżące źródło,
     `Ctrl+F5` wszystkie źródła, a `Ctrl+D` pobiera jeden lub wiele zaznaczonych
     odcinków. Zaznaczenie wielokrotne działa także przez `Ctrl+Spacja`.
+15. Pliki → „Eksportuj bibliotekę podcastów do OPML” zapisuje wyłącznie
+    podcasty RSS należące do Biblioteki. Parser i eksporter pochodzą ze
+    wspólnego Core AMC; Python nie interpretuje XML-u i nie zapisuje bazy.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -87,13 +92,13 @@ syntetyczny plik przez nowe polecenie `media.play` i zgłosił
 `playback.duration` oraz `playback.started`.
 
 Zapis postępu jest wąską transakcją jednego odcinka. Dodawanie, zmiana nazwy,
-usuwanie, odświeżanie i pobieranie także przechodzą przez jednego właściciela
+usuwanie, odświeżanie, pobieranie i import OPML także przechodzą przez jednego właściciela
 C# i nigdy nie otwierają bazy do zapisu z Pythona. Host odmawia drugiemu oknu
 wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne AMC,
 które mogłoby później nadpisać całą migawkę. Widoki „Nowe odcinki i materiały”
 wraz z trzema trybami sortowania, „W trakcie słuchania” oraz „Pobrane” są już
-przeniesione; import i eksport OPML oraz pozostałe widoki specjalne nadal
-czekają.
+przeniesione. Import i eksport OPML są przeniesione; nadal czekają pozostałe
+widoki specjalne.
 
 Test bez danych użytkownika:
 

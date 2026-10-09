@@ -419,6 +419,26 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries()
+    {
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var result = new List<PodcastOpmlEntry>();
+            foreach (var subscription in settings.Subscriptions.Where(item =>
+                         item.IsInLibrary && item.SourceKind == PodcastSourceKind.Rss))
+            {
+                if (!TryPublicHttpUri(subscription.FeedUrl, out var feed)) continue;
+                var homepage = TryPublicHttpUri(subscription.HomepageUrl, out var page)
+                    ? page
+                    : null;
+                result.Add(new PodcastOpmlEntry(subscription.Title, feed, homepage));
+            }
+            return result;
+        }
+    }
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds)
     {
@@ -706,6 +726,19 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         PodcastSourceKind.Rss
         or PodcastSourceKind.YouTubeChannel
         or PodcastSourceKind.YouTubePlaylist;
+
+    private static bool TryPublicHttpUri(string? value, out Uri uri)
+    {
+        if (Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var parsed)
+            && parsed.Scheme is "http" or "https"
+            && string.IsNullOrEmpty(parsed.UserInfo))
+        {
+            uri = parsed;
+            return true;
+        }
+        uri = null!;
+        return false;
+    }
 
     private static PodcastRefreshTarget ToRefreshTarget(PodcastSubscriptionSettings subscription) =>
         new(

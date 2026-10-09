@@ -221,6 +221,19 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries()
+    {
+        try
+        {
+            return _store.GetOpmlEntries();
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] eksport OPML podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,

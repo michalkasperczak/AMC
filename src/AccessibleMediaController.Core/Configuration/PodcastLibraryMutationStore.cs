@@ -50,6 +50,9 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
         string? titleOverride) =>
         _database.AddInternetMedia(media, titleOverride);
 
+    public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries() =>
+        _database.GetOpmlEntries();
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,

@@ -102,6 +102,18 @@ def build_menus() -> tuple[Menu, ...]:
                 needs_podcast_session=True,
             ),
             MenuItem(
+                "Importuj podcasty z OP&ML",
+                Action.IMPORT_PODCAST_OPML,
+                shortcut="Ctrl+O",
+                accelerator=False,
+                needs_podcast_session=True,
+            ),
+            MenuItem(
+                "&Eksportuj bibliotekę podcastów do OPML",
+                Action.EXPORT_PODCAST_OPML,
+                needs_podcast_session=True,
+            ),
+            MenuItem(
                 "Odśwież wybrane źródło pod&castów",
                 Action.REFRESH_PODCAST,
                 shortcut="F5",

@@ -313,7 +313,11 @@ własnej normalizacji diakrytyków.
   RSS/Atom, kanał albo playlistę YouTube i pojedynczy publiczny materiał
   YouTube wspólnym torem C#. `F2` zmienia nazwę źródła, `Delete` usuwa je z
   Biblioteki, `F5`/`Ctrl+F5` odświeża, a `Ctrl+D` pobiera zaznaczone odcinki.
-  Nadal brakuje importu i eksportu OPML oraz pozostałych widoków specjalnych.
+  `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
+  `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
+  do OPML. Obie drogi korzystają ze wspólnego parsera i eksportera Core;
+  techniczne rekordy ani podpisane adresy nie trafiają do mowy. Nadal brakuje
+  pozostałych widoków specjalnych.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

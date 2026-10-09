@@ -428,6 +428,22 @@ class LiteHostClient:
             timeout=24 * 3600.0,
         )
 
+    def inspect_podcast_opml(self, path: str) -> Any:
+        """Odczytaj bezpieczne etykiety źródeł przez wspólny parser AMC."""
+        return self.call("podcast.opml.inspect", {"path": path}, timeout=30.0)
+
+    def import_podcast_opml(self, path: str, feed_urls: list[str]) -> Any:
+        """Pobierz i dodaj wybrane RSS z uprzednio sprawdzonego OPML."""
+        return self.call(
+            "podcast.opml.import",
+            {"path": path, "feedUrls": list(dict.fromkeys(feed_urls))},
+            timeout=24 * 3600.0,
+        )
+
+    def export_podcast_opml(self, path: str) -> Any:
+        """Zapisz RSS z Biblioteki przez wspólny eksporter AMC."""
+        return self.call("podcast.opml.export", {"path": path}, timeout=30.0)
+
     def rename_library_item(self, item_id: str, title: str) -> Any:
         return self.call(
             "library.renameTitle", {"itemId": item_id, "title": title}, timeout=20.0

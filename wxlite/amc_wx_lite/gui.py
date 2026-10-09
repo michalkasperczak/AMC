@@ -1129,6 +1129,107 @@ class PodcastSourceDialog(wx.Dialog):
         return self.address_field.GetValue().strip(), self.title_field.GetValue().strip()
 
 
+class PodcastOpmlImportDialog(wx.Dialog):
+    """Wybór źródeł bez ujawniania obiektów ani identyfikatorów NVDA."""
+
+    def __init__(self, parent: wx.Window, entries: list[dict]) -> None:
+        super().__init__(parent, title="Importuj podcasty z OPML")
+        self._entries = [
+            {
+                "label": str(entry.get("label") or "Podcast").strip() or "Podcast",
+                "feedUrl": str(entry.get("feedUrl") or "").strip(),
+            }
+            for entry in entries
+            if str(entry.get("feedUrl") or "").strip()
+        ]
+        self._included = [True] * len(self._entries)
+
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        help_text = (
+            "Wszystkie podcasty są początkowo zaznaczone. "
+            "Spacja zmienia stan bieżącej pozycji, Ctrl+A zaznacza wszystkie."
+        )
+        help_label = wx.StaticText(panel, label=help_text)
+        help_label.SetName(help_text)
+        help_label.Wrap(620)
+        layout.Add(help_label, 0, wx.ALL | wx.EXPAND, 10)
+
+        self.sources = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self.sources.SetName("Podcasty do importu")
+        self.sources.SetToolTip(help_text)
+        layout.Add(self.sources, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        import_button = wx.Button(self, wx.ID_OK, label="&Importuj zaznaczone")
+        import_button.SetName("Importuj zaznaczone podcasty")
+        import_button.SetDefault()
+        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
+        cancel.SetName("Anuluj import podcastów")
+        buttons.AddButton(import_button)
+        buttons.AddButton(cancel)
+        buttons.Realize()
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.SetMinSize((700, 480))
+        self._refresh_labels(selected=0)
+        self.sources.Bind(wx.EVT_KEY_DOWN, self._on_key)
+        self.Bind(wx.EVT_BUTTON, self._on_accept, id=wx.ID_OK)
+        self.sources.SetFocus()
+
+    def _label(self, index: int) -> str:
+        state = "zaznaczony" if self._included[index] else "niezaznaczony"
+        return f"{self._entries[index]['label']}, {state}"
+
+    def _refresh_labels(self, *, selected: int) -> None:
+        labels = [self._label(index) for index in range(len(self._entries))]
+        if self.sources.GetCount() != len(labels):
+            self.sources.Set(labels)
+        else:
+            for index, label in enumerate(labels):
+                if self.sources.GetString(index) != label:
+                    self.sources.SetString(index, label)
+        if self._entries:
+            self.sources.SetSelection(max(0, min(selected, len(self._entries) - 1)))
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        chord = chord_from_event(event)
+        selected = self.sources.GetSelection()
+        if chord.canonical == "Space" and 0 <= selected < len(self._included):
+            self._included[selected] = not self._included[selected]
+            self._refresh_labels(selected=selected)
+            return
+        if chord.canonical == "Ctrl+A":
+            self._included = [True] * len(self._included)
+            self._refresh_labels(selected=max(0, selected))
+            return
+        event.Skip()
+
+    def _on_accept(self, _event: wx.CommandEvent) -> None:
+        if not self.selected_feed_urls:
+            wx.MessageBox(
+                "Zaznacz co najmniej jeden podcast do importu.",
+                "Import OPML",
+                wx.OK | wx.ICON_INFORMATION,
+                self,
+            )
+            self.sources.SetFocus()
+            return
+        self.EndModal(wx.ID_OK)
+
+    @property
+    def selected_feed_urls(self) -> list[str]:
+        return [
+            entry["feedUrl"]
+            for entry, included in zip(self._entries, self._included)
+            if included
+        ]
+
+
 def _preset_slot_from_event(event: wx.KeyEvent) -> int | None:
     """Cyfra/minus/rownosc w dialogach presetow, bez nazw technicznych wx."""
     if event.ControlDown() or event.AltDown() or event.ShiftDown():
@@ -1893,6 +1994,7 @@ class LiteFrame(wx.Frame):
         self._podcast_refresh_pending = False
         self._podcast_download_pending = False
         self._podcast_add_pending = False
+        self._podcast_opml_pending = False
         self._last_podcast_progress_error: str | None = None
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
@@ -3278,6 +3380,10 @@ class LiteFrame(wx.Frame):
             self._show_radio_schedules()
         elif action is Action.ADD_PODCAST_SOURCE:
             self._add_podcast_source()
+        elif action is Action.IMPORT_PODCAST_OPML:
+            self._import_podcast_opml()
+        elif action is Action.EXPORT_PODCAST_OPML:
+            self._export_podcast_opml()
         elif action is Action.VIEW_PODCAST_INBOX:
             self._show_podcast_inbox()
         elif action is Action.VIEW_PODCAST_IN_PROGRESS:
@@ -4223,6 +4329,168 @@ class LiteFrame(wx.Frame):
             self.announcer.say(message)
 
         self.runner.submit("podcast-add", work, done, failed)
+
+    def _import_podcast_opml(self) -> None:
+        """Ctrl+O w sesji podcastów: sprawdź OPML, wybierz i zaimportuj RSS."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say("Import OPML jest dostępny w sesji Podcasty i YouTube")
+            return
+        if self._podcast_opml_pending:
+            self.announcer.say("Import lub eksport OPML już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zaimportować podcastów")
+            return
+
+        with wx.FileDialog(
+            self,
+            message="Importuj podcasty z OPML",
+            wildcard="Pliki OPML i XML (*.opml;*.xml)|*.opml;*.xml|Wszystkie pliki (*.*)|*.*",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as picker:
+            if picker.ShowModal() != wx.ID_OK:
+                return
+            path = picker.GetPath()
+
+        self._podcast_opml_pending = True
+        started = "Odczytywanie listy podcastów z OPML"
+        self.status_field.SetLabel(started)
+        self.status_bar.show(started)
+        self.announcer.say(started)
+
+        def inspect() -> dict:
+            result = client.inspect_podcast_opml(path)
+            return result if isinstance(result, dict) else {}
+
+        def inspected(payload: dict) -> None:
+            entries = payload.get("entries")
+            if not isinstance(entries, list) or not entries:
+                self._podcast_opml_pending = False
+                self.announcer.say("Plik OPML nie zawiera adresów podcastów")
+                return
+            with PodcastOpmlImportDialog(self, entries) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    self._podcast_opml_pending = False
+                    message = "Import OPML anulowany"
+                    self.status_field.SetLabel(message)
+                    self.status_bar.show(message)
+                    return
+                selected = dialog.selected_feed_urls
+
+            message = f"Importowanie podcastów: {len(selected)}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+            def import_selected() -> dict:
+                result = client.import_podcast_opml(path, selected)
+                return result if isinstance(result, dict) else {}
+
+            def imported(result: dict) -> None:
+                self._podcast_opml_pending = False
+                imported_count = max(0, int(result.get("imported") or 0))
+                failed_count = max(0, int(result.get("failed") or 0))
+                completed = (
+                    f"Zaimportowano podcasty: {imported_count}. "
+                    f"Niepowodzenia: {failed_count}"
+                )
+                self.status_field.SetLabel(completed)
+                self.status_bar.show(completed)
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                if (
+                    self.navigator.active is SessionId.PODCASTS
+                    and state.view is View.LIST
+                    and state.library_view is LibraryView.PODCAST_LIBRARY
+                ):
+                    self._open_podcast_library(completion_message=completed)
+                else:
+                    self.announcer.say(completed)
+
+            def import_failed(error: Exception) -> None:
+                self._podcast_opml_pending = False
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się zaimportować podcastów"
+                )
+                self.status_field.SetLabel(message)
+                self.status_bar.show(message)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "podcast-opml-import",
+                import_selected,
+                imported,
+                import_failed,
+            )
+
+        def inspect_failed(error: Exception) -> None:
+            self._podcast_opml_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się odczytać pliku OPML"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-opml-inspect", inspect, inspected, inspect_failed)
+
+    def _export_podcast_opml(self) -> None:
+        """Eksportuj zapisane podcasty RSS przez wspólny eksporter Core."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say("Eksport OPML jest dostępny w sesji Podcasty i YouTube")
+            return
+        if self._podcast_opml_pending:
+            self.announcer.say("Import lub eksport OPML już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę wyeksportować podcastów")
+            return
+
+        with wx.FileDialog(
+            self,
+            message="Eksportuj bibliotekę podcastów do OPML",
+            defaultFile="Podcasty AMC.opml",
+            wildcard="Pliki OPML (*.opml)|*.opml|Pliki XML (*.xml)|*.xml",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as picker:
+            if picker.ShowModal() != wx.ID_OK:
+                return
+            path = picker.GetPath()
+
+        self._podcast_opml_pending = True
+        started = "Eksportowanie biblioteki podcastów do OPML"
+        self.status_field.SetLabel(started)
+        self.status_bar.show(started)
+
+        def work() -> dict:
+            result = client.export_podcast_opml(path)
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_opml_pending = False
+            count = max(0, int(payload.get("count") or 0))
+            message = f"Wyeksportowano podcasty: {count}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_opml_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się wyeksportować biblioteki podcastów"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-opml-export", work, done, failed)
 
     def _refresh_podcasts(self, *, refresh_all: bool) -> None:
         """F5/Ctrl+F5: wspolny mechanizm odswiezania glownego AMC.

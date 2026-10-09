@@ -197,6 +197,28 @@ def test_podcast_add_uses_one_narrow_host_operation() -> None:
         client.close()
 
 
+def test_podcast_opml_uses_named_narrow_host_operations() -> None:
+    client = make_client()
+    try:
+        inspected = client.inspect_podcast_opml("D:/wymiana/podcasty.opml")
+        imported = client.import_podcast_opml(
+            "D:/wymiana/podcasty.opml",
+            ["https://example.invalid/a.xml", "https://example.invalid/a.xml"],
+        )
+        exported = client.export_podcast_opml("D:/wymiana/eksport.opml")
+        assert inspected["op"] == "podcast.opml.inspect"
+        assert inspected["args"] == {"path": "D:/wymiana/podcasty.opml"}
+        assert imported["op"] == "podcast.opml.import"
+        assert imported["args"] == {
+            "path": "D:/wymiana/podcasty.opml",
+            "feedUrls": ["https://example.invalid/a.xml"],
+        }
+        assert exported["op"] == "podcast.opml.export"
+        assert exported["args"] == {"path": "D:/wymiana/eksport.opml"}
+    finally:
+        client.close()
+
+
 def test_profile_mutations_use_narrow_named_operations() -> None:
     client = make_client()
     try:
