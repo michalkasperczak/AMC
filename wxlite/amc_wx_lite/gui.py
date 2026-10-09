@@ -89,6 +89,7 @@ from .shortcuts import Action, Chord, describe, preset_slot, resolve
 from .profile_layout import resolve_layout
 from .podcast_source import (
     PAGE_SIZE as PODCAST_PAGE_SIZE,
+    PodcastDescription,
     PodcastProfileError,
     PodcastSource,
     SORT_ADDED_NEWEST,
@@ -1230,6 +1231,71 @@ class PodcastOpmlImportDialog(wx.Dialog):
         ]
 
 
+class PodcastDescriptionDialog(wx.Dialog):
+    """Native read-only long-form text, with no embedded browser surface."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        information: PodcastDescription,
+        copy_text: Callable[[str], bool],
+    ) -> None:
+        super().__init__(parent, title=information.window_title)
+        self._information = information.text
+        self._copy_text = copy_text
+
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        content_label = wx.StaticText(panel, label="&Treść opisu i informacje:")
+        self.content = wx.TextCtrl(
+            panel,
+            value=information.text,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2,
+        )
+        # To jest świadomie przygotowany tekst użytkowy, nigdy repr obiektu,
+        # identyfikator ani nazwa klasy. Tak samo pełny AMC rozpoczyna fokus od
+        # początku właściwego opisu, zamiast od technicznej roli kontrolki.
+        self.content.SetName(
+            information.initial_focus_name or information.window_title
+        )
+        self.content.SetInsertionPoint(0)
+        layout.Add(content_label, 0, wx.BOTTOM, 4)
+        layout.Add(self.content, 1, wx.EXPAND)
+
+        self.copy_status = wx.StaticText(panel, label="")
+        self.copy_status.SetName("Stan kopiowania")
+        layout.Add(self.copy_status, 0, wx.TOP | wx.EXPAND, 8)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        copy_button = wx.Button(self, wx.ID_COPY, label="&Kopiuj wszystko")
+        copy_button.SetName("Kopiuj całą treść")
+        close_button = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
+        close_button.SetName("Zamknij opis")
+        buttons.AddButton(copy_button)
+        buttons.AddButton(close_button)
+        buttons.Realize()
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.ALL | wx.EXPAND, 12)
+        outer.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(outer)
+        self.SetMinSize((700, 520))
+        self.Bind(wx.EVT_BUTTON, self._on_copy, id=wx.ID_COPY)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        self.content.SetFocus()
+
+    def _on_copy(self, _event: wx.CommandEvent) -> None:
+        if self._copy_text(self._information):
+            self.copy_status.SetLabel("Skopiowano całą treść")
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        if chord_from_event(event).canonical == "Escape":
+            self.EndModal(wx.ID_CANCEL)
+            return
+        event.Skip()
+
+
 def _preset_slot_from_event(event: wx.KeyEvent) -> int | None:
     """Cyfra/minus/rownosc w dialogach presetow, bez nazw technicznych wx."""
     if event.ControlDown() or event.AltDown() or event.ShiftDown():
@@ -2280,6 +2346,11 @@ class LiteFrame(wx.Frame):
             and session.library_view is LibraryView.PODCAST_INBOX
         )
         has_row = session.model.selected_row is not None
+        selected_kind = (
+            session.model.selected_row.kind
+            if session.model.selected_row is not None
+            else ""
+        )
         podcast_sort_actions = {
             Action.SORT_PODCAST_INBOX_ADDED: SORT_ADDED_NEWEST,
             Action.SORT_PODCAST_INBOX_ALPHABETICAL: SORT_ALPHABETICAL,
@@ -2296,6 +2367,14 @@ class LiteFrame(wx.Frame):
             if entry.needs_playback and not playing:
                 enabled = False
             if entry.needs_selection and not has_row:
+                enabled = False
+            if entry.needs_podcast_item and (
+                not podcasts or selected_kind not in ("podcast", "episode")
+            ):
+                enabled = False
+            if entry.needs_podcast_episode and (
+                not podcasts or selected_kind != "episode"
+            ):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
@@ -3406,6 +3485,10 @@ class LiteFrame(wx.Frame):
             self._download_podcast_episodes()
         elif action is Action.SAVE_PODCAST_EPISODE_AS:
             self._save_podcast_episode_as()
+        elif action is Action.SHOW_PODCAST_DESCRIPTION:
+            self._show_podcast_description()
+        elif action is Action.GO_TO_RELATED_PODCAST:
+            self._go_to_related_podcast()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -4825,6 +4908,109 @@ class LiteFrame(wx.Frame):
             self.announcer.say(message)
 
         self.runner.submit("podcast-save-as-info", prepare, prepared, failed)
+
+    def _show_podcast_description(self) -> None:
+        """Alt+D: description first, then metadata, in a native text field."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Pełny opis jest dostępny dla podcastu albo odcinka"
+            )
+            return
+        row = self.navigator.sessions[SessionId.PODCASTS].model.selected_row
+        if row is None or row.kind not in ("podcast", "episode"):
+            self.announcer.say(
+                "Pełny opis jest dostępny dla podcastu albo odcinka"
+            )
+            return
+        requested_id = row.item_id
+        requested_kind = row.kind
+
+        def work() -> PodcastDescription | None:
+            return self.podcasts.description(requested_id, requested_kind)
+
+        def done(information: PodcastDescription | None) -> None:
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            current = state.model.selected_row
+            if (
+                self.navigator.active is not SessionId.PODCASTS
+                or current is None
+                or current.item_id != requested_id
+            ):
+                return
+            if information is None:
+                self.announcer.say(
+                    "Ten podcast nie zawiera opisu"
+                    if requested_kind == "podcast"
+                    else "Ten odcinek nie zawiera opisu"
+                )
+                return
+
+            def copy_text(text: str) -> bool:
+                copied = self._to_clipboard(text)
+                if copied:
+                    self.announcer.say("Skopiowano całą treść")
+                return copied
+
+            with PodcastDescriptionDialog(self, information, copy_text) as dialog:
+                dialog.ShowModal()
+
+        def failed(error: Exception) -> None:
+            message = (
+                str(error)
+                if isinstance(error, PodcastProfileError)
+                else "Nie udało się odczytać opisu"
+            )
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-description", work, done, failed)
+
+    def _go_to_related_podcast(self) -> None:
+        """Open the selected episode's parent and keep focus on the episode."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Dla tego elementu nie znaleziono podcastu w Bibliotece"
+            )
+            return
+        row = self.navigator.sessions[SessionId.PODCASTS].model.selected_row
+        if row is None or row.kind != "episode":
+            self.announcer.say(
+                "Dla tego elementu nie znaleziono podcastu w Bibliotece"
+            )
+            return
+        episode_id = row.item_id
+
+        def work():
+            return self.podcasts.related_podcast(episode_id)
+
+        def done(subscription) -> None:
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            current = state.model.selected_row
+            if (
+                self.navigator.active is not SessionId.PODCASTS
+                or current is None
+                or current.item_id != episode_id
+            ):
+                return
+            if subscription is None:
+                self.announcer.say(
+                    "Dla tego elementu nie znaleziono podcastu w Bibliotece"
+                )
+                return
+            state.library_return_id = subscription.subscription_id
+            self._open_podcast_view(OpenPodcastView(
+                subscription_id=subscription.subscription_id,
+                subscription_title=subscription.title,
+                preferred_id=episode_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(
+                str(error)
+                if isinstance(error, PodcastProfileError)
+                else "Nie udało się odnaleźć podcastu tego odcinka"
+            )
+
+        self.runner.submit("podcast-go-to-related", work, done, failed)
 
     def _reload_podcast_list_after_download(
         self, preferred_id: str, completion_message: str

@@ -259,6 +259,22 @@ def test_ctrl_s_saves_one_podcast_copy_but_keeps_file_clip_export() -> None:
     ) is Action.CLIP_EXPORT
 
 
+def test_alt_d_opens_description_only_in_the_podcast_session() -> None:
+    for player in (False, True):
+        assert resolve(
+            Chord("D", alt=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.SHOW_PODCAST_DESCRIPTION
+    assert resolve(
+        Chord("D", alt=True),
+        player_view=False,
+        radio_session=False,
+        podcast_session=False,
+    ) is None
+
+
 def test_f2_and_delete_match_contextual_library_editing() -> None:
     # Delete usuwa tylko z bieżącego widoku; dopiero Shift+Delete prowadzi
     # przez potwierdzenie do systemowego Kosza. F2 nie zmienia pliku na dysku,

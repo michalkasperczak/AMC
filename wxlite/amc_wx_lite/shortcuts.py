@@ -210,6 +210,8 @@ class Action(Enum):
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
+    SHOW_PODCAST_DESCRIPTION = "podcasts.description"
+    GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -553,6 +555,10 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
     # fragmentu, które pod Ctrl+D pozostaje w sesji Plików lokalnych.
     "Ctrl+D": Action.DOWNLOAD_PODCAST_EPISODES,
     "Ctrl+S": Action.SAVE_PODCAST_EPISODE_AS,
+    # Pełny AMC udostępnia pełny opis podcastu lub odcinka pod Alt+D zarówno
+    # z listy, jak i z odtwarzacza. Sam opis pozostaje zwykłym tekstem tylko
+    # do odczytu; skrót nie otwiera strony internetowej.
+    "Alt+D": Action.SHOW_PODCAST_DESCRIPTION,
 }
 
 
@@ -641,6 +647,8 @@ def describe() -> list[tuple[str, str]]:
         Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
         Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",
         Action.SAVE_PODCAST_EPISODE_AS: "Zapisz jeden odcinek podcastu jako plik",
+        Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
+        Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
         Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",

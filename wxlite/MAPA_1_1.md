@@ -314,7 +314,10 @@ własnej normalizacji diakrytyków.
   YouTube wspólnym torem C#. `F2` zmienia nazwę źródła, `Delete` usuwa je z
   Biblioteki, `F5`/`Ctrl+F5` odświeża, `Ctrl+D` pobiera zaznaczone odcinki,
   a `Ctrl+S` zapisuje jeden odcinek pod jawnie wybraną nazwą bez zmiany jego
-  stanu „Pobrane”.
+  stanu „Pobrane”. `Alt+D` otwiera natywne pole tylko do odczytu: najpierw
+  pełny opis podcastu lub odcinka, a dopiero pod nim właściwości. Polecenie
+  „Przejdź do podcastu tego odcinka” otwiera źródło nadrzędne i zachowuje
+  fokus na tym odcinku; podcast usunięty z Biblioteki nie jest udawany.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
   do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,

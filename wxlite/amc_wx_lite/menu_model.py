@@ -69,6 +69,11 @@ class MenuItem:
     needs_playback: bool = False
     #: Wymaga zaznaczonego wiersza na liscie (kopiowanie, otwarcie).
     needs_selection: bool = False
+    #: Wymaga zaznaczonego podcastu albo odcinka, nie np. „Załaduj więcej”.
+    needs_podcast_item: bool = False
+    #: Wymaga zaznaczonego odcinka; wykonanie sprawdza jeszcze członkostwo
+    #: podcastu w Bibliotece na świeżym, tylko do odczytu odczycie SQLite.
+    needs_podcast_episode: bool = False
     is_separator: bool = False
 
 
@@ -148,6 +153,14 @@ def build_menus() -> tuple[Menu, ...]:
                 needs_podcast_session=True,
                 needs_selection=True,
             ),
+            MenuItem(
+                "Pełny &opis podcastu lub odcinka…",
+                Action.SHOW_PODCAST_DESCRIPTION,
+                shortcut="Alt+D",
+                accelerator=False,
+                needs_podcast_session=True,
+                needs_podcast_item=True,
+            ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #
@@ -221,6 +234,12 @@ def build_menus() -> tuple[Menu, ...]:
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),
+            MenuItem(
+                "Przejdź do podcastu tego o&dcinka",
+                Action.GO_TO_RELATED_PODCAST,
+                needs_podcast_session=True,
+                needs_podcast_episode=True,
+            ),
             SEPARATOR,
             MenuItem("&Skopiuj nazwę", Action.COPY_NAME, shortcut="Ctrl+C",
                      needs_selection=True),

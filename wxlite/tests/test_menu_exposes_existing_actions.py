@@ -255,6 +255,25 @@ def test_podcast_save_as_menu_is_contextual_and_does_not_steal_ctrl_s() -> None:
     assert "zapisz" in item.label.replace("&", "").casefold()
 
 
+def test_podcast_description_and_go_to_parent_have_precise_gates() -> None:
+    description = next(
+        entry for entry in all_items()
+        if entry.action is Action.SHOW_PODCAST_DESCRIPTION
+    )
+    go_to = next(
+        entry for entry in all_items()
+        if entry.action is Action.GO_TO_RELATED_PODCAST
+    )
+    assert description.shortcut == "Alt+D"
+    assert description.needs_podcast_session
+    assert description.needs_podcast_item
+    assert not description.accelerator
+    assert go_to.shortcut is None
+    assert go_to.needs_podcast_session
+    assert go_to.needs_podcast_episode
+    assert "podcast" in go_to.label.replace("&", "").casefold()
+
+
 def test_podcast_add_menu_is_contextual_and_does_not_steal_ctrl_n() -> None:
     item = next(
         entry for entry in all_items()

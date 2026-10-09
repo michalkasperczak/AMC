@@ -387,3 +387,110 @@ def test_downloads_include_only_existing_files_even_from_archived_sources() -> N
         assert "Audycja tygodnia" in page.rows[0].detail
         assert "Ukryty" in page.rows[1].detail
         assert all("missing-download" not in row.item_id for row in page.rows)
+
+
+def test_full_description_starts_with_content_and_never_exposes_ids() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        connection = sqlite3.connect(path)
+        podcast_payload = {
+            "SourceKind": 0,
+            "Author": "© 2026 Autor audycji",
+            "Description": "Pierwszy akapit.\nDrugi akapit.",
+            "HomepageUrl": "https://example.invalid/podcast",
+            "IsFavorite": True,
+        }
+        connection.execute(
+            """
+            UPDATE podcast_subscriptions
+            SET feed_url = ?, last_refresh_utc_ticks = ?, payload_json = ?
+            WHERE id = ?
+            """,
+            (
+                "https://example.invalid/feed.xml",
+                638_900_000_000_000_000,
+                json.dumps(podcast_payload),
+                "rss-id",
+            ),
+        )
+        connection.commit()
+        connection.close()
+        _insert_episode(
+            path,
+            item_id="private-episode-id",
+            subscription_id="rss-id",
+            title="Odcinek próbny",
+            ordinal=0,
+            published=638_900_000_000_000_000,
+        )
+        connection = sqlite3.connect(path)
+        episode_payload = {
+            "Author": "Prowadzący",
+            "Description": "Opis odcinka.\nDalsza część.",
+            "MediaUrl": "https://example.invalid/audio.mp3",
+            "PageUrl": "https://example.invalid/episode",
+            "DurationTicks": 3_725 * 10_000_000,
+        }
+        connection.execute(
+            "UPDATE podcast_episodes SET payload_json = ? WHERE id = ?",
+            (json.dumps(episode_payload), "private-episode-id"),
+        )
+        connection.commit()
+        connection.close()
+
+        source = PodcastSource(private_sandbox(base))
+        podcast = source.description("rss-id", "podcast")
+        episode = source.description("private-episode-id", "episode")
+
+        assert podcast is not None and episode is not None
+        assert podcast.text.startswith("Pierwszy akapit.\nDrugi akapit.\n\nPodcast")
+        assert "Autor: 2026 Autor audycji" in podcast.text
+        assert "Odcinki: 1" in podcast.text
+        assert "Opis:" not in podcast.text
+        assert episode.text.startswith("Opis odcinka.\nDalsza część.\n\nOdcinek podcastu")
+        assert "Podcast: Audycja tygodnia" in episode.text
+        assert "Czas: 1:02:05" in episode.text
+        spoken = podcast.text + episode.text + podcast.initial_focus_name
+        assert "private-episode-id" not in spoken and "rss-id" not in spoken
+
+
+def test_empty_description_and_archived_parent_are_reported_without_guessing() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(
+            path,
+            item_id="archived-episode",
+            subscription_id="hidden-id",
+            title="Archiwalny odcinek",
+            ordinal=0,
+            published=100,
+        )
+        source = PodcastSource(private_sandbox(base))
+
+        assert source.description("rss-id", "podcast") is None
+        assert source.description("archived-episode", "episode") is None
+        assert source.related_podcast("archived-episode") is None
+
+
+def test_related_podcast_returns_only_user_facing_parent_data() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(
+            path,
+            item_id="episode-to-open",
+            subscription_id="rss-id",
+            title="Wybrany odcinek",
+            ordinal=0,
+            published=100,
+        )
+        related = PodcastSource(private_sandbox(base)).related_podcast(
+            "episode-to-open"
+        )
+
+        assert related is not None
+        assert related.subscription_id == "rss-id"
+        assert related.title == "Audycja tygodnia"
+        assert "episode-to-open" not in related.title

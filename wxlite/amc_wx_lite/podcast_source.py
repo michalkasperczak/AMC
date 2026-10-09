@@ -9,6 +9,7 @@ rows.  JSON records and technical identifiers are never used as spoken labels.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
@@ -74,6 +75,19 @@ class PodcastEpisodePage:
 
 
 @dataclass(frozen=True, slots=True)
+class PodcastDescription:
+    """Long-form user text for the native description dialog.
+
+    Identifiers stay outside this value.  The dialog receives only the title,
+    the requested description and intentional, human-readable metadata.
+    """
+
+    window_title: str
+    text: str
+    initial_focus_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class _EpisodeRecord:
     item_id: str
     subscription_id: str
@@ -93,6 +107,80 @@ def _clean_text(value: object, fallback: str) -> str:
         return fallback
     cleaned = " ".join(value.replace("\x00", " ").split())
     return cleaned or fallback
+
+
+def _long_text(value: object) -> str:
+    """Keep paragraph boundaries while removing unsafe/control-only noise."""
+    if not isinstance(value, str):
+        return ""
+    normalized = value.replace("\x00", " ").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [" ".join(line.split()).strip() for line in normalized.split("\n")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
+
+
+def _author_label(value: object) -> str:
+    """Port ``PodcastMetadataPresentation.FormatAuthor`` for spoken details."""
+    author = _clean_text(value, "")
+    if not author:
+        return ""
+    marker = re.compile(r"^(?:\s*(?:©|℗|®|™|\([CPR]\))\s*)+", re.IGNORECASE)
+    cleaned = marker.sub("", author).lstrip("&+/\\|,;:-–—·• ")
+    return cleaned or author
+
+
+def _date_time_label(ticks: int) -> str:
+    if ticks <= 0:
+        return "jeszcze nie"
+    try:
+        value = (_DOTNET_EPOCH + timedelta(microseconds=ticks // 10)).astimezone()
+    except (OverflowError, OSError, ValueError):
+        return "jeszcze nie"
+    return f"{value.day:02d}.{value.month:02d}.{value.year:04d}, {value.hour:02d}:{value.minute:02d}"
+
+
+def _clock_duration(ticks: int) -> str:
+    seconds = max(0, ticks // 10_000_000)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
+
+
+def _container_label(source_kind: int) -> str:
+    return {
+        1: "Media internetowe",
+        2: "Kanał YouTube",
+        3: "Playlista YouTube",
+    }.get(source_kind, "Podcast")
+
+
+def _description_text(description: str, details: list[str]) -> str:
+    body = description.strip()
+    metadata = "\n".join(line for line in details if line).strip()
+    if not body:
+        return metadata
+    if not metadata:
+        return body
+    return f"{body}\n\n{metadata}"
+
+
+def _initial_focus_name(description: str) -> str:
+    normalized = " ".join(description.split())
+    if len(normalized) <= 500:
+        return normalized
+    sentence_end = max(
+        (index + 1 for index, character in enumerate(normalized[:500]) if character in ".!?"),
+        default=0,
+    )
+    if sentence_end >= 40:
+        return normalized[:sentence_end]
+    word_end = normalized.rfind(" ", 0, 500)
+    if word_end < 1:
+        word_end = 500
+    return normalized[:word_end].rstrip() + "…"
 
 
 def _payload(raw: object) -> dict:
@@ -326,6 +414,199 @@ class PodcastSource:
             subscription_id=str(record["id"]),
             title=_clean_text(record["title"], "Podcast bez nazwy"),
             source_kind=_source_kind(data),
+        )
+
+    def description(self, item_id: str, item_kind: str) -> PodcastDescription | None:
+        """Return the same description-first information exposed by full AMC."""
+        if item_kind == "podcast":
+            return self._subscription_description(item_id)
+        if item_kind == "episode":
+            return self._episode_description(item_id)
+        return None
+
+    def related_podcast(self, episode_id: str) -> PodcastSubscription | None:
+        """Resolve an episode's parent only when it remains in the Library."""
+        try:
+            with closing(self._open()) as connection:
+                record = connection.execute(
+                    """
+                    SELECT s.id, s.title, s.payload_json
+                    FROM podcast_episodes AS e
+                    JOIN podcast_subscriptions AS s
+                      ON s.id = e.subscription_id
+                    WHERE e.id = ? AND s.is_in_library = 1
+                    """,
+                    (episode_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odnaleźć podcastu tego odcinka: {error}"
+            ) from error
+        if record is None:
+            return None
+        payload = _payload(record["payload_json"])
+        return PodcastSubscription(
+            subscription_id=str(record["id"]),
+            title=_clean_text(record["title"], "Podcast bez nazwy"),
+            source_kind=_source_kind(payload),
+        )
+
+    def _subscription_description(self, item_id: str) -> PodcastDescription | None:
+        try:
+            with closing(self._open()) as connection:
+                record = connection.execute(
+                    """
+                    SELECT s.title, s.feed_url, s.is_in_library,
+                           s.last_refresh_utc_ticks, s.payload_json,
+                           (SELECT COUNT(*) FROM podcast_episodes AS e
+                            WHERE e.subscription_id = s.id) AS episode_count
+                    FROM podcast_subscriptions AS s
+                    WHERE s.id = ?
+                    """,
+                    (item_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać opisu podcastu: {error}"
+            ) from error
+        if record is None:
+            return None
+
+        payload = _payload(record["payload_json"])
+        description = _long_text(_get(payload, "Description", ""))
+        if not description:
+            return None
+        source_kind = _source_kind(payload)
+        internet_media = source_kind == 1
+        youtube = source_kind in (2, 3)
+        title = _clean_text(record["title"], "Podcast bez nazwy")
+        author = _author_label(_get(payload, "Author", ""))
+        feed_url = str(record["feed_url"] or "").strip()
+        homepage = str(_get(payload, "HomepageUrl", "") or "").strip()
+        in_library = _as_bool(record["is_in_library"])
+        favorite = _as_bool(_get(payload, "IsFavorite", False))
+        details = [
+            _container_label(source_kind),
+            f"Nazwa: {title}",
+        ]
+        if author:
+            details.append(f"Autor: {author}")
+        details.append(
+            f"{'Materiały' if internet_media or youtube else 'Odcinki'}: "
+            f"{max(0, _as_int(record['episode_count']))}"
+        )
+        if not internet_media:
+            details.append(
+                "Ostatnie odświeżenie: "
+                + _date_time_label(_as_int(record["last_refresh_utc_ticks"]))
+            )
+        details.extend((
+            f"Ulubiony: {'tak' if favorite else 'nie'}",
+            f"W Bibliotece: {'tak' if in_library else 'nie'}",
+        ))
+        if not internet_media and feed_url:
+            details.append(
+                f"{'Adres YouTube' if youtube else 'Kanał RSS lub Atom'}: {feed_url}"
+            )
+        if homepage:
+            details.append(f"Strona: {homepage}")
+        return PodcastDescription(
+            window_title="Opis podcastu",
+            text=_description_text(description, details),
+            initial_focus_name=_initial_focus_name(description),
+        )
+
+    def _episode_description(self, item_id: str) -> PodcastDescription | None:
+        try:
+            with closing(self._open()) as connection:
+                record = connection.execute(
+                    """
+                    SELECT e.title, e.published_utc_ticks, e.is_new,
+                           e.is_started, e.is_played, e.download_path,
+                           e.payload_json, s.title AS parent_title, s.feed_url,
+                           s.payload_json AS parent_payload_json
+                    FROM podcast_episodes AS e
+                    LEFT JOIN podcast_subscriptions AS s
+                      ON s.id = e.subscription_id
+                    WHERE e.id = ?
+                    """,
+                    (item_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać opisu odcinka: {error}"
+            ) from error
+        if record is None:
+            return None
+
+        payload = _payload(record["payload_json"])
+        description = _long_text(_get(payload, "Description", ""))
+        if not description:
+            return None
+        parent_payload = _payload(record["parent_payload_json"])
+        source_kind = _source_kind(parent_payload)
+        internet_media = source_kind == 1
+        youtube = source_kind in (2, 3)
+        title = _clean_text(record["title"], "Odcinek bez nazwy")
+        parent_title = _clean_text(record["parent_title"], "")
+        author = _clean_text(_get(payload, "Author", ""), "")
+        duration_ticks = _as_int(_get(payload, "DurationTicks", 0))
+        media_url = str(_get(payload, "MediaUrl", "") or "").strip()
+        page_url = str(_get(payload, "PageUrl", "") or "").strip()
+        feed_url = str(record["feed_url"] or "").strip()
+        homepage = str(_get(parent_payload, "HomepageUrl", "") or "").strip()
+        details = [
+            "Medium internetowe" if internet_media else (
+                "Materiał YouTube" if youtube else "Odcinek podcastu"
+            ),
+            f"Tytuł: {title}",
+        ]
+        if parent_title:
+            container = (
+                "Kolekcja" if internet_media else (
+                    _container_label(source_kind) if youtube else "Podcast"
+                )
+            )
+            details.append(f"{container}: {parent_title}")
+        if author:
+            details.append(
+                f"{'Kanał' if internet_media or youtube else 'Autor'}: {author}"
+            )
+        if not internet_media:
+            published = _date_time_label(_as_int(record["published_utc_ticks"]))
+            details.append(
+                f"Data publikacji: {'nieznana' if published == 'jeszcze nie' else published}"
+            )
+        if duration_ticks > 0:
+            details.append(f"Czas: {_clock_duration(duration_ticks)}")
+        details.extend((
+            "Stan odsłuchania: " + _progress_label(
+                is_new=_as_bool(record["is_new"]),
+                is_started=_as_bool(record["is_started"]),
+                is_played=_as_bool(record["is_played"]),
+            ),
+            f"Pobrany: {'tak' if str(record['download_path'] or '').strip() else 'nie'}",
+        ))
+        if internet_media or youtube:
+            address = page_url or media_url
+            if address:
+                details.append(f"Adres strony: {address}")
+        else:
+            if media_url:
+                details.append(f"Źródło audio: {media_url}")
+            if page_url:
+                details.append(f"Strona odcinka: {page_url}")
+            if feed_url:
+                details.append(f"Kanał RSS lub Atom: {feed_url}")
+        if not internet_media and homepage:
+            details.append(
+                f"{'Strona kanału' if youtube else 'Strona podcastu'}: {homepage}"
+            )
+
+        return PodcastDescription(
+            window_title="Opis odcinka",
+            text=_description_text(description, details),
+            initial_focus_name=_initial_focus_name(description),
         )
 
     def episodes(self, subscription_id: str, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
