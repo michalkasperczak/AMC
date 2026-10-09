@@ -1031,6 +1031,47 @@ class StationDialog(wx.Dialog):
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
 
 
+class RenameItemDialog(wx.Dialog):
+    """Jednoznacznie nazwane pole zmiany nazwy, bez technicznych wartości."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        title: str,
+        prompt: str,
+        field_name: str,
+        value: str,
+        help_text: str = "",
+    ) -> None:
+        super().__init__(parent, title=title)
+        panel = wx.Panel(self)
+        inner = wx.BoxSizer(wx.VERTICAL)
+        if help_text:
+            help_label = wx.StaticText(panel, label=help_text)
+            help_label.Wrap(460)
+            inner.Add(help_label, 0, wx.ALL | wx.EXPAND, 10)
+        label = wx.StaticText(panel, label=prompt)
+        self.field = wx.TextCtrl(panel, value=value, size=(420, -1))
+        self.field.SetName(field_name)
+        inner.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        inner.Add(self.field, 0, wx.ALL | wx.EXPAND, 10)
+        panel.SetSizer(inner)
+
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.Fit()
+        self.field.SetFocus()
+        self.field.SelectAll()
+
+    @property
+    def value(self) -> str:
+        return self.field.GetValue().strip()
+
+
 def _preset_slot_from_event(event: wx.KeyEvent) -> int | None:
     """Cyfra/minus/rownosc w dialogach presetow, bez nazw technicznych wx."""
     if event.ControlDown() or event.AltDown() or event.ShiftDown():
@@ -2374,6 +2415,7 @@ class LiteFrame(wx.Frame):
         layout = getattr(self, "layout", None)
         library_db = getattr(layout, "library_db", None)
         podcasts_db = getattr(layout, "podcasts_db", None)
+        state_json = getattr(layout, "state_json", None)
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
@@ -2386,6 +2428,11 @@ class LiteFrame(wx.Frame):
             podcasts_db=(
                 str(podcasts_db)
                 if podcasts_db is not None and podcasts_db.exists()
+                else None
+            ),
+            state_json=(
+                str(state_json)
+                if state_json is not None and state_json.exists()
                 else None
             ),
             on_event=self._on_engine_event,
@@ -3108,6 +3155,14 @@ class LiteFrame(wx.Frame):
             self._copy_address()
         elif action is Action.CUT_FILE:
             self._cut_file()
+        elif action is Action.RENAME_LIBRARY_ITEM:
+            self._rename_library_item()
+        elif action is Action.RENAME_LOCAL_FILE:
+            self._rename_local_file()
+        elif action is Action.REMOVE_SELECTED:
+            self._remove_selected_items()
+        elif action is Action.RECYCLE_SELECTED:
+            self._recycle_selected_files()
         elif action is Action.FOCUS_FILTER:
             self._focus_filter()
         elif action is Action.STATION_ADD:
@@ -6071,6 +6126,267 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.RADIO:
             self._sync_views()
 
+    # ------------------------------------------------------- edycja Biblioteki
+
+    def _single_edit_row(self, what: str) -> Row | None:
+        rows = self._selected_action_rows()
+        if len(rows) != 1:
+            self.announcer.say(f"Do {what} wybierz jeden element")
+            return None
+        return rows[0]
+
+    def _profile_edit_client(self) -> LiteHostClient | None:
+        if self.client is None:
+            self.announcer.say("Silnik nie działa. Zmiana nie została zapisana")
+            return None
+        return self.client
+
+    def _current_profile_view_name(self) -> str:
+        view = self.navigator.session.library_view
+        return "library" if view is None else view.value
+
+    def _refresh_profile_view(self, preferred_id: str | None = None) -> None:
+        """Wczytaj ponownie TEN SAM widok po wąskiej zmianie hosta."""
+        state = self.navigator.session
+        if self.navigator.active is SessionId.RADIO:
+            self._open_radio_view(OpenLibraryView(
+                view=state.library_view,
+                preferred_id=preferred_id,
+                target_session_id=SessionId.RADIO,
+            ))
+            return
+        if self.navigator.active is SessionId.PODCASTS:
+            self._open_podcast_library(preferred_id=preferred_id)
+            return
+        if state.library_view is None:
+            self._open_library(state.folder_path or None, preferred_id=preferred_id)
+            return
+        if state.library_view is LibraryView.LIVE_QUEUE:
+            self._open_queue_view()
+            return
+        if state.library_view is LibraryView.RECORDED_RADIO_FILES:
+            self._show_radio_recording_history()
+            return
+        if state.library_view not in self._VIEW_KEYS:
+            self.announcer.say("Zmiana została zapisana. Odśwież bieżący widok")
+            return
+        self._open_library_view(OpenLibraryView(
+            view=state.library_view,
+            playlist_id=state.library_playlist_id,
+            preferred_id=preferred_id,
+            item_id=state.library_item_id,
+            target_session_id=SessionId.FILES,
+        ))
+
+    def _rename_library_item(self) -> None:
+        if self.navigator.active is SessionId.RADIO:
+            self._station_edit()
+            return
+        row = self._single_edit_row("zmiany nazwy")
+        if row is None:
+            return
+        if self.navigator.active is SessionId.PODCASTS:
+            if row.kind != "podcast":
+                self.announcer.say(
+                    "Wybierz podcast lub kanał na głównej liście. "
+                    "Nazwy odcinków pochodzą ze źródła"
+                )
+                return
+            client = self._profile_edit_client()
+            if client is None:
+                return
+            with RenameItemDialog(
+                self,
+                title="Zmień nazwę podcastu lub kanału",
+                prompt="&Nowa nazwa podcastu lub kanału:",
+                field_name="Nowa nazwa podcastu lub kanału",
+                value=row.title,
+                help_text=(
+                    "Zmiana dotyczy nazwy wyświetlanej przez AMC. "
+                    "Nazwa w źródle RSS lub YouTube pozostanie bez zmian."
+                ),
+            ) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    return
+                title = dialog.value
+            if not title:
+                self.announcer.say("Nowa nazwa podcastu lub kanału nie może być pusta")
+                return
+
+            def done(_payload: object) -> None:
+                self._refresh_profile_view(preferred_id=row.item_id)
+                self.announcer.say(f"Zmieniono nazwę podcastu lub kanału: {title}")
+
+            self.runner.submit(
+                "profile-edit",
+                lambda: client.rename_podcast_subscription(row.item_id, title),
+                done,
+                lambda error: self.announcer.say(f"Nie zmieniono nazwy: {error}"),
+            )
+            return
+
+        if row.kind != "track":
+            self.announcer.say("Wybrany element nie jest plikiem lokalnym")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        with RenameItemDialog(
+            self,
+            title="Zmień nazwę w Bibliotece",
+            prompt="&Nowa nazwa w Bibliotece:",
+            field_name="Nowa nazwa w Bibliotece",
+            value=row.title,
+            help_text="Plik na dysku nie zmieni nazwy.",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            title = dialog.value
+        if not title:
+            self.announcer.say("Nowa nazwa w Bibliotece nie może być pusta")
+            return
+        if title == row.title:
+            self.announcer.say("Nazwa w Bibliotece nie została zmieniona")
+            return
+
+        def done(_payload: object) -> None:
+            self._refresh_profile_view(preferred_id=row.item_id)
+            self.announcer.say(f"Zmieniono nazwę w Bibliotece: {title}")
+
+        self.runner.submit(
+            "profile-edit",
+            lambda: client.rename_library_item(row.item_id, title),
+            done,
+            lambda error: self.announcer.say(f"Nie zmieniono nazwy: {error}"),
+        )
+
+    def _rename_local_file(self) -> None:
+        if self.navigator.active is not SessionId.FILES:
+            self.announcer.say("Zmiana nazwy pliku na dysku jest dostępna w Plikach lokalnych")
+            return
+        row = self._single_edit_row("zmiany nazwy pliku")
+        if row is None:
+            return
+        if row.kind != "track" or not row.path:
+            self.announcer.say("Wybrany element nie jest plikiem lokalnym")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        current_name = Path(row.path).stem
+        with RenameItemDialog(
+            self,
+            title="Zmień nazwę pliku na dysku",
+            prompt="&Nowa nazwa pliku bez rozszerzenia:",
+            field_name="Nowa nazwa pliku bez rozszerzenia",
+            value=current_name,
+            help_text="Rozszerzenie pliku pozostanie bez zmian.",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            new_name = dialog.value
+        if not new_name:
+            self.announcer.say("Nowa nazwa pliku nie może być pusta")
+            return
+
+        def done(payload: object) -> None:
+            data = payload if isinstance(payload, dict) else {}
+            file_name = str(data.get("fileName") or new_name)
+            self._refresh_profile_view(preferred_id=row.item_id)
+            self.announcer.say(f"Zmieniono nazwę pliku na dysku: {file_name}")
+
+        self.runner.submit(
+            "profile-edit",
+            lambda: client.rename_local_file(row.item_id, new_name),
+            done,
+            lambda error: self.announcer.say(f"Nie zmieniono nazwy pliku: {error}"),
+        )
+
+    def _remove_selected_items(self) -> None:
+        rows = [
+            row for row in self._selected_action_rows()
+            if row.kind not in ("parent", "folder", "playlist", "loadMore")
+        ]
+        if not rows:
+            self.announcer.say("Brak elementu do usunięcia")
+            return
+        if self.navigator.active is SessionId.PODCASTS and any(
+            row.kind != "podcast" for row in rows
+        ):
+            self.announcer.say("Usuń źródło z głównej listy Podcastów i YouTube")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        session_id = self.navigator.active.value
+        view = self._current_profile_view_name()
+        item_ids = [row.item_id for row in rows]
+        titles = [row.title for row in rows]
+
+        def done(_payload: object) -> None:
+            self._refresh_profile_view()
+            label = titles[0] if len(titles) == 1 else format_item_count(len(titles))
+            if view == LibraryView.HISTORY.value:
+                message = f"Usunięto z Historii odtwarzania: {label}. Pliki i Biblioteka pozostały bez zmian"
+            elif view == LibraryView.FAVORITES.value:
+                message = f"Usunięto z Ulubionych: {label}"
+            elif view in (LibraryView.SAVED_QUEUE.value, LibraryView.LIVE_QUEUE.value):
+                message = f"Usunięto z Kolejki: {label}"
+            elif session_id == SessionId.FILES.value:
+                message = f"Usunięto z Biblioteki: {label}. Plik pozostał na dysku"
+            elif session_id == SessionId.PODCASTS.value:
+                message = f"Usunięto z Biblioteki podcastów: {label}"
+            else:
+                message = f"Usunięto stację: {label}"
+            self.announcer.say(message)
+
+        self.runner.submit(
+            "profile-edit",
+            lambda: client.remove_profile_items(session_id, view, item_ids),
+            done,
+            lambda error: self.announcer.say(f"Nie usunięto: {error}"),
+        )
+
+    def _recycle_selected_files(self) -> None:
+        if self.navigator.active is not SessionId.FILES:
+            self.announcer.say("Przenoszenie do Kosza jest dostępne tylko dla plików lokalnych")
+            return
+        rows = [row for row in self._selected_action_rows() if row.kind == "track" and row.path]
+        if not rows:
+            self.announcer.say("Brak pliku do przeniesienia do Kosza")
+            return
+        label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        if wx.MessageBox(
+            f"Przenieść do Kosza: {label}?\n\n"
+            "Pliki zostaną też usunięte z AMC. Można je odzyskać z systemowego Kosza.",
+            "Przenieś pliki do Kosza",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+            self,
+        ) != wx.YES:
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        item_ids = [row.item_id for row in rows]
+
+        def done(payload: object) -> None:
+            data = payload if isinstance(payload, dict) else {}
+            removed = data.get("removed") if isinstance(data.get("removed"), list) else []
+            failures = data.get("failures") if isinstance(data.get("failures"), list) else []
+            self._refresh_profile_view()
+            if removed:
+                removed_label = rows[0].title if len(removed) == 1 else format_item_count(len(removed))
+                self.announcer.say(f"Przeniesiono do Kosza i usunięto z AMC: {removed_label}")
+            if failures:
+                self.announcer.say("Nie przeniesiono do Kosza: " + "; ".join(map(str, failures)))
+
+        self.runner.submit(
+            "profile-edit",
+            lambda: client.recycle_local_files(item_ids),
+            done,
+            lambda error: self.announcer.say(f"Nie przeniesiono do Kosza: {error}"),
+        )
+
     # ------------------------------------------------------------- stacje
 
     def _selected_station(self) -> Station | None:
@@ -6568,8 +6884,6 @@ class LiteFrame(wx.Frame):
         self.announcer.say(f"Dodano {station.name}")
 
     def _station_edit(self) -> None:
-        if self._refuse_station_edit():
-            return
         station = self._selected_station()
         if station is None:
             self.announcer.say("Nie wybrano stacji")
@@ -6578,6 +6892,22 @@ class LiteFrame(wx.Frame):
             if dialog.ShowModal() != wx.ID_OK:
                 return
             name, url = dialog.values
+        if not self.radio.may_edit:
+            client = self._profile_edit_client()
+            if client is None:
+                return
+
+            def done(_payload: object) -> None:
+                self._refresh_profile_view(preferred_id=station.id)
+                self.announcer.say(f"Zapisano nazwę i adres stacji: {name}")
+
+            self.runner.submit(
+                "profile-edit",
+                lambda: client.edit_radio_station(station.id, name, url),
+                done,
+                lambda error: self.announcer.say(f"Nie zapisano stacji: {error}"),
+            )
+            return
         try:
             self.stations.edit(station.id, name, url)
         except ValueError as error:
@@ -6587,8 +6917,6 @@ class LiteFrame(wx.Frame):
         self.announcer.say(f"Zapisano {name or url}")
 
     def _station_delete(self) -> None:
-        if self._refuse_station_edit():
-            return
         station = self._selected_station()
         if station is None:
             self.announcer.say("Nie wybrano stacji")
@@ -6597,6 +6925,23 @@ class LiteFrame(wx.Frame):
             f"Usunac stacje {station.name}?", "Potwierdzenie",
             wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self,
         ) != wx.YES:
+            return
+        if not self.radio.may_edit:
+            client = self._profile_edit_client()
+            if client is None:
+                return
+            view = self._current_profile_view_name()
+
+            def done(_payload: object) -> None:
+                self._refresh_profile_view()
+                self.announcer.say(f"Usunięto {station.name}")
+
+            self.runner.submit(
+                "profile-edit",
+                lambda: client.remove_profile_items("radio", view, [station.id]),
+                done,
+                lambda error: self.announcer.say(f"Nie usunięto stacji: {error}"),
+            )
             return
         self.stations.remove(station.id)
         self._reload_stations()

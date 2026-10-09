@@ -189,10 +189,17 @@ def test_podcast_refresh_matches_the_full_amc_context() -> None:
     ) is None
 
 
-def test_delete_does_nothing_in_the_files_session() -> None:
-    # Zabezpieczenie: Delete nie moze dotykac plikow uzytkownika.
-    assert resolve(Chord("Delete"), player_view=False, radio_session=False) is None
+def test_f2_and_delete_match_contextual_library_editing() -> None:
+    # Delete usuwa tylko z bieżącego widoku; dopiero Shift+Delete prowadzi
+    # przez potwierdzenie do systemowego Kosza. F2 nie zmienia pliku na dysku,
+    # a Shift+F2 ma osobną, jawną akcję plikową.
+    assert resolve(Chord("F2"), player_view=False, radio_session=False) is Action.RENAME_LIBRARY_ITEM
+    assert resolve(Chord("F2", shift=True), player_view=False, radio_session=False) is Action.RENAME_LOCAL_FILE
+    assert resolve(Chord("Delete"), player_view=False, radio_session=False) is Action.REMOVE_SELECTED
+    assert resolve(Chord("Delete", shift=True), player_view=False, radio_session=False) is Action.RECYCLE_SELECTED
+    # W Radiu F2 i Delete zachowują wcześniejsze, dokładniejsze akcje stacji.
     assert resolve(Chord("Delete"), player_view=False, radio_session=True) is Action.STATION_DELETE
+    assert resolve(Chord("F2"), player_view=False, radio_session=True) is Action.STATION_EDIT
 
 
 def test_help_listing_is_not_empty_and_has_no_duplicates() -> None:

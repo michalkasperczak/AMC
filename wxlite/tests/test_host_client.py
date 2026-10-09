@@ -172,6 +172,45 @@ def test_podcast_refresh_uses_one_narrow_host_operation() -> None:
         client.close()
 
 
+def test_profile_mutations_use_narrow_named_operations() -> None:
+    client = make_client()
+    try:
+        calls = [
+            client.rename_library_item("local-1", "Nowa nazwa"),
+            client.rename_local_file("local-1", "nowy plik"),
+            client.rename_podcast_subscription("podcast-1", "Nowy podcast"),
+            client.edit_radio_station(
+                "radio-1", "Nowe radio", "https://example.invalid/radio"
+            ),
+            client.remove_profile_items("files", "favorites", ["local-1"]),
+            client.recycle_local_files(["local-1"]),
+        ]
+        assert [call["op"] for call in calls] == [
+            "library.renameTitle",
+            "library.renameFile",
+            "podcast.renameSubscription",
+            "radio.editStation",
+            "library.remove",
+            "library.recycle",
+        ]
+    finally:
+        client.close()
+
+
+def test_state_json_path_is_passed_explicitly_to_the_host() -> None:
+    client = LiteHostClient(
+        "host.exe",
+        library_db="library.db",
+        podcasts_db="podcasts.db",
+        state_json="state.json",
+    )
+    assert client._command()[-6:] == [
+        "--library-db", "library.db",
+        "--podcasts-db", "podcasts.db",
+        "--state-json", "state.json",
+    ]
+
+
 def test_host_error_is_raised_as_host_error_not_crash() -> None:
     client = make_client()
     try:

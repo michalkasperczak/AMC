@@ -172,7 +172,10 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
         if item.shortcut:
             by_shortcut.setdefault(item.shortcut, []).append(item)
     duplicates = {key: values for key, values in by_shortcut.items() if len(values) > 1}
-    assert set(duplicates) <= {"Ctrl+O", "Alt+1", "Alt+2"}, duplicates
+    # F2/Delete są teraz tak samo kontekstowe jak w pełnym AMC: ogólna
+    # pozycja Biblioteki obsługuje pliki i podcasty, a menu Radio ma bardziej
+    # szczegółową nazwę tej samej intencji dla stacji.
+    assert set(duplicates) <= {"Ctrl+O", "Alt+1", "Alt+2", "F2", "Delete"}, duplicates
     for item in duplicates.get("Ctrl+O", []):
         assert not item.accelerator, (
             "kontekstowe Ctrl+O musi dojsc do resolvera sesji, a nie do "

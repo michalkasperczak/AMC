@@ -189,6 +189,15 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Skopiuj &adres", Action.COPY_ADDRESS, shortcut="Ctrl+Shift+C",
                      needs_selection=True),
             SEPARATOR,
+            MenuItem("Zmień nazwę w Bibliote&ce", Action.RENAME_LIBRARY_ITEM,
+                     shortcut="F2", accelerator=False, needs_selection=True),
+            MenuItem("Zmień nazwę pliku na dysku, plik ory&ginalny", Action.RENAME_LOCAL_FILE,
+                     shortcut="Shift+F2", accelerator=False, needs_selection=True),
+            MenuItem("Usuń z bieżącego widoku, plik pozos&taje", Action.REMOVE_SELECTED,
+                     shortcut="Delete", accelerator=False, needs_selection=True),
+            MenuItem("Przenieś do Kosza, operac&ja plikowa", Action.RECYCLE_SELECTED,
+                     shortcut="Shift+Delete", accelerator=False, needs_selection=True),
+            SEPARATOR,
             # Oryginal ma te pozycje w TYM SAMYM menu co widoki Kolejka/
             # Historia/Zakladki, po separatorze (MainWindow.xaml:490-491):
             #   <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" />

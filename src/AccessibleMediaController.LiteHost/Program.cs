@@ -80,12 +80,15 @@ internal static class Program
             return 2;
         }
 
+        var profileMutations = OpenProfileMutationStore(args);
+
         var bookmarkStore = OpenBookmarkStore(args);
         using var handlers = new LiteEngineHandlers(
             timeshiftMinutes,
             store,
             bookmarkStore,
-            podcastStore);
+            podcastStore,
+            profileMutations);
         // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
         // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
         // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
@@ -211,5 +214,25 @@ internal static class Program
             return LitePodcastProgressStore.Open(Path.GetFullPath(args[index + 1]));
         }
         return null;
+    }
+
+    private static LiteProfileMutationStore? OpenProfileMutationStore(string[] args)
+    {
+        static string? ReadPath(string[] values, string name)
+        {
+            for (var index = 0; index < values.Length - 1; index++)
+            {
+                if (string.Equals(values[index], name, StringComparison.Ordinal))
+                    return Path.GetFullPath(values[index + 1]);
+            }
+            return null;
+        }
+
+        var library = ReadPath(args, "--library-db");
+        var podcasts = ReadPath(args, "--podcasts-db");
+        var state = ReadPath(args, "--state-json");
+        return library is not null && podcasts is not null && state is not null
+            ? new LiteProfileMutationStore(library, podcasts, state)
+            : null;
     }
 }

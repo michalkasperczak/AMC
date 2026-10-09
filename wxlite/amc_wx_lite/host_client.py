@@ -96,6 +96,7 @@ class LiteHostClient:
         queue_write: bool = False,
         library_db: str | Path | None = None,
         podcasts_db: str | Path | None = None,
+        state_json: str | Path | None = None,
         on_event: Callable[[str, dict], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         spawn: Callable[..., Any] | None = None,
@@ -113,6 +114,7 @@ class LiteHostClient:
         self.queue_write = bool(queue_write) and self.profile_dir is not None
         self.library_db = str(library_db) if library_db else None
         self.podcasts_db = str(podcasts_db) if podcasts_db else None
+        self.state_json = str(state_json) if state_json else None
         self._on_event = on_event
         self._on_stderr = on_stderr
         self._spawn = spawn or subprocess.Popen
@@ -148,6 +150,8 @@ class LiteHostClient:
             command += ["--library-db", self.library_db]
         if self.podcasts_db is not None:
             command += ["--podcasts-db", self.podcasts_db]
+        if self.state_json is not None:
+            command += ["--state-json", self.state_json]
         return command
 
     def start(self) -> None:
@@ -407,6 +411,44 @@ class LiteHostClient:
         # Wywołanie biegnie poza kolejką transportu, ale odpowiedź może zająć
         # znacznie dłużej niż zwykłe polecenie odtwarzania.
         return self.call("podcast.refresh", args, timeout=3600.0)
+
+    def rename_library_item(self, item_id: str, title: str) -> Any:
+        return self.call(
+            "library.renameTitle", {"itemId": item_id, "title": title}, timeout=20.0
+        )
+
+    def rename_local_file(self, item_id: str, name: str) -> Any:
+        return self.call(
+            "library.renameFile", {"itemId": item_id, "name": name}, timeout=30.0
+        )
+
+    def rename_podcast_subscription(self, subscription_id: str, title: str) -> Any:
+        return self.call(
+            "podcast.renameSubscription",
+            {"subscriptionId": subscription_id, "title": title},
+            timeout=20.0,
+        )
+
+    def edit_radio_station(self, station_id: str, name: str, url: str) -> Any:
+        return self.call(
+            "radio.editStation",
+            {"stationId": station_id, "name": name, "url": url},
+            timeout=20.0,
+        )
+
+    def remove_profile_items(
+        self, session_id: str, view: str, item_ids: list[str]
+    ) -> Any:
+        return self.call(
+            "library.remove",
+            {"sessionId": session_id, "view": view, "itemIds": item_ids},
+            timeout=30.0,
+        )
+
+    def recycle_local_files(self, item_ids: list[str]) -> Any:
+        return self.call(
+            "library.recycle", {"itemIds": item_ids}, timeout=120.0
+        )
 
     def add_bookmark(self, *, item_id: str, item_title: str) -> Any:
         return self.call(

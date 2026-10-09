@@ -181,6 +181,10 @@ class Action(Enum):
     #: MOVE), warunkiem (tylko istniejacy PLIK, nie folder) i komunikatem --
     #: ``CutLocalFilesForExternalMove`` (MainWindow.xaml.cs:25277).
     CUT_FILE = "clipboard.cutFile"
+    RENAME_LIBRARY_ITEM = "library.renameItem"
+    RENAME_LOCAL_FILE = "library.renameFile"
+    REMOVE_SELECTED = "library.removeSelected"
+    RECYCLE_SELECTED = "library.recycleSelected"
     STATION_ADD = "radio.add"
     STATION_EDIT = "radio.edit"
     STATION_DELETE = "radio.delete"
@@ -288,6 +292,14 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+3": Action.SESSION_PODCASTS,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
+    # Kontekstowe polecenia edycji z głównego AMC. F2 zmienia nazwę
+    # widoczną w Bibliotece (albo nazwę/adres stacji, albo nazwę źródła
+    # podcastów), Shift+F2 zmienia prawdziwą nazwę pliku. Delete nie dotyka
+    # pliku; Shift+Delete po potwierdzeniu wysyła plik do systemowego Kosza.
+    "F2": Action.RENAME_LIBRARY_ITEM,
+    "Shift+F2": Action.RENAME_LOCAL_FILE,
+    "Delete": Action.REMOVE_SELECTED,
+    "Shift+Delete": Action.RECYCLE_SELECTED,
     # Escape NA LISCIE. ``MainWindow.xaml.cs:20797-20828`` kieruje go do
     # ``ReturnToMediaListFromEscape``, a ta (cs:22551-22563) przy PUSTYM
     # filtrze wola ``NavigateToParentLevel()`` -- czyli to samo wyjscie o
@@ -631,6 +643,10 @@ def describe() -> list[tuple[str, str]]:
         Action.COPY_NAME: "Skopiuj nazwe",
         Action.COPY_ADDRESS: "Skopiuj adres",
         Action.CUT_FILE: "Wytnij plik",
+        Action.RENAME_LIBRARY_ITEM: "Zmień nazwę w Bibliotece lub nazwę źródła",
+        Action.RENAME_LOCAL_FILE: "Zmień nazwę pliku na dysku",
+        Action.REMOVE_SELECTED: "Usuń z bieżącego widoku bez kasowania pliku",
+        Action.RECYCLE_SELECTED: "Przenieś zaznaczone pliki do Kosza",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmien stacje",
         Action.STATION_DELETE: "Usun stacje",

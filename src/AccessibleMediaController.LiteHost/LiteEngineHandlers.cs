@@ -42,6 +42,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteBookmarkStore? _bookmarkStore;
     private readonly LitePodcastProgressStore? _podcastProgressStore;
     private readonly LitePodcastRefreshCoordinator? _podcastRefresh;
+    private readonly LiteProfileMutationStore? _profileMutations;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
 
@@ -75,7 +76,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private bool _paused;
 
     public LiteEngineHandlers(int timeshiftMinutes)
-        : this(timeshiftMinutes, null, null, null)
+        : this(timeshiftMinutes, null, null, null, null)
     {
     }
 
@@ -89,12 +90,14 @@ internal sealed class LiteEngineHandlers : IDisposable
         int timeshiftMinutes,
         LiteQueueStore? queueStore,
         LiteBookmarkStore? bookmarkStore = null,
-        LitePodcastProgressStore? podcastProgressStore = null)
+        LitePodcastProgressStore? podcastProgressStore = null,
+        LiteProfileMutationStore? profileMutations = null)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
         _podcastProgressStore = podcastProgressStore;
+        _profileMutations = profileMutations;
         _podcastRefresh = podcastProgressStore is null
             ? null
             : new LitePodcastRefreshCoordinator(podcastProgressStore, bookmarkStore);
@@ -231,6 +234,12 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["podcast.checkpoint"] = (_, _) => SaveCurrentPodcastProgress(),
             [LitePodcastRefreshCoordinator.Operation] = (request, _) =>
                 RefreshPodcasts(request.Args),
+            ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
+            ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
+            ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
+            ["library.recycle"] = (request, _) => RecycleLocalFiles(request.Args),
+            ["podcast.renameSubscription"] = (request, _) => RenamePodcastSubscription(request.Args),
+            ["radio.editStation"] = (request, _) => EditRadioStation(request.Args),
             ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
@@ -264,6 +273,90 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.next"] = (_, events) => QueueRelative(1, events),
             ["queue.previous"] = (_, events) => QueueRelative(-1, events)
         };
+    }
+
+    private LiteProfileMutationStore RequireProfileMutations() =>
+        _profileMutations ?? throw new LiteRequestException(
+            "Host nie dostał pełnych ścieżek profilu AMC. Edycja jest niedostępna.");
+
+    private object RenameLibraryTitle(JsonElement args) =>
+        RequireProfileMutations().RenameLibraryItem(
+            LiteArgs.RequireText(args, "itemId"),
+            LiteArgs.RequireText(args, "title"));
+
+    private object RenameLocalFile(JsonElement args)
+    {
+        var itemId = LiteArgs.RequireText(args, "itemId");
+        if (IsCurrentFilesItem(itemId)) StopAll();
+        return RequireProfileMutations().RenameLocalFile(
+            itemId,
+            LiteArgs.RequireText(args, "name"));
+    }
+
+    private object RenamePodcastSubscription(JsonElement args) =>
+        RequireProfileMutations().RenamePodcastSubscription(
+            LiteArgs.RequireText(args, "subscriptionId"),
+            LiteArgs.RequireText(args, "title"));
+
+    private object EditRadioStation(JsonElement args)
+    {
+        var stationId = LiteArgs.RequireText(args, "stationId");
+        var result = RequireProfileMutations().EditRadioStation(
+            stationId,
+            LiteArgs.RequireText(args, "name"),
+            LiteArgs.RequireText(args, "url"));
+        // Pełne AMC zatrzymuje aktualną stację tylko po zmianie adresu.
+        // Nazwę można poprawić bez przerywania słuchania.
+        if (result.StreamChanged && IsCurrentRadioItem(stationId)) StopAll();
+        return result;
+    }
+
+    private object RemoveProfileItems(JsonElement args) =>
+        RequireProfileMutations().Remove(
+            LiteArgs.RequireText(args, "sessionId"),
+            LiteArgs.RequireText(args, "view"),
+            ReadIds(args));
+
+    private object RecycleLocalFiles(JsonElement args)
+    {
+        var ids = ReadIds(args);
+        if (ids.Any(IsCurrentFilesItem)) StopAll();
+        return RequireProfileMutations().RecycleLocalFiles(ids);
+    }
+
+    private bool IsCurrentFilesItem(string itemId)
+    {
+        lock (_gate)
+        {
+            return string.Equals(_activeEngine, "files", StringComparison.Ordinal)
+                && string.Equals(_filesItem?.Id, itemId, StringComparison.Ordinal);
+        }
+    }
+
+    private bool IsCurrentRadioItem(string itemId)
+    {
+        lock (_gate)
+        {
+            return string.Equals(_activeEngine, "radio", StringComparison.Ordinal)
+                && string.Equals(_radioItem?.Id, itemId, StringComparison.Ordinal);
+        }
+    }
+
+    private static string[] ReadIds(JsonElement args)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty("itemIds", out var values)
+            || values.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Brak listy elementów.");
+        var result = values.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()?.Trim() ?? string.Empty)
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Take(1_000)
+            .ToArray();
+        if (result.Length == 0) throw new LiteRequestException("Brak listy elementów.");
+        return result;
     }
 
     private object RemoveAudioClip(JsonElement args, LiteEventSink events)

@@ -122,6 +122,8 @@
              Link="Engine\SystemWakeTimer.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\WindowsPowerRequest.cs"
              Link="Engine\WindowsPowerRequest.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\WindowsRecycleBin.cs"
+             Link="Engine\WindowsRecycleBin.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YtDlpComponentManager.cs"
              Link="Engine\YtDlpComponentManager.cs" />
     <!-- Odświeżanie Podcastów i YouTube korzysta z dokładnie tych samych
