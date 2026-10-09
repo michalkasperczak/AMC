@@ -158,6 +158,33 @@ def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
     downloads = nav.apply_podcast_aggregate(
         LibraryView.PODCAST_DOWNLOADS, "Pobrane", []
     )
+    favorites = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_FAVORITES, "Ulubione", []
+    )
     assert inbox[0].text == "Nowe odcinki i materiały, brak nowych materiałów"
     assert progress[0].text == "W trakcie słuchania, brak rozpoczętych odcinków"
     assert downloads[0].text == "Pobrane, brak pobranych odcinków"
+    assert favorites[0].text == "Ulubione, brak ulubionych podcastów i odcinków"
+
+
+def test_favorites_count_sources_and_episodes_and_load_more_stays_in_view() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    events = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_FAVORITES,
+        "Ulubione",
+        [
+            Row("source", "Audycja", "podcast"),
+            _episode("favorite"),
+            Row("more", "Załaduj więcej ulubionych", "loadMore"),
+        ],
+        preferred_id="more",
+    )
+
+    assert events[0].text == "Ulubione, 2 pozycje"
+    request = next(
+        effect for effect in nav.activate_selected()
+        if isinstance(effect, OpenPodcastAggregateView)
+    )
+    assert request.view is LibraryView.PODCAST_FAVORITES
+    assert request.load_more

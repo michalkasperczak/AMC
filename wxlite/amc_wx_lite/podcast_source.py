@@ -22,6 +22,8 @@ from .collation import (
     HostCollationUnavailable,
 )
 from .library_activity import ordinal_sort_key
+from .library_db import LibraryDatabase
+from .library_views import _stored_order
 from .list_model import Row
 from .profile_layout import ProfileLayout, resolve_layout
 from .radio_source import (
@@ -100,6 +102,19 @@ class _EpisodeRecord:
     is_played: bool
     download_path: str
     payload: dict
+
+
+@dataclass(frozen=True, slots=True)
+class _FavoriteRecord:
+    """One favorite with the fields used by ``OrderCurrentCollection``.
+
+    ``row`` contains only intentional user-facing text.  ``artist`` is kept
+    outside the row solely for the exact C# alphabetical tie-break; it is
+    never exposed as an object representation or technical identifier.
+    """
+
+    row: Row
+    artist: str
 
 
 def _clean_text(value: object, fallback: str) -> str:
@@ -697,6 +712,181 @@ class PodcastSource:
             return SORT_ADDED_NEWEST
         modes = collection_sort_modes_from_amc_state(raw, session="podcasts")
         return modes.get("nowe odcinki", SORT_ADDED_NEWEST)
+
+    def favorites_sort_mode(self) -> str:
+        """Saved ordering of podcast favorites; missing data means newest."""
+        try:
+            raw = json.loads(self.layout.state_json.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+            return SORT_ADDED_NEWEST
+        if not isinstance(raw, dict):
+            return SORT_ADDED_NEWEST
+        modes = collection_sort_modes_from_amc_state(raw, session="podcasts")
+        return modes.get("ulubione", SORT_ADDED_NEWEST)
+
+    def _favorite_subscriptions(self) -> list[_FavoriteRecord]:
+        """Favorite sources in the same base order as full AMC's working set."""
+        try:
+            with closing(self._open()) as connection:
+                records = connection.execute(
+                    """
+                    SELECT id, title, payload_json
+                    FROM podcast_subscriptions
+                    ORDER BY ordinal
+                    """
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać ulubionych podcastów: {error}"
+            ) from error
+
+        result: list[_FavoriteRecord] = []
+        for record in records:
+            item_id = str(record["id"] or "").strip()
+            if not item_id:
+                continue
+            payload = _payload(record["payload_json"])
+            if not _as_bool(_get(payload, "IsFavorite", False)):
+                continue
+            subscription = PodcastSubscription(
+                subscription_id=item_id,
+                title=_clean_text(record["title"], "Podcast bez nazwy"),
+                source_kind=_source_kind(payload),
+            )
+            result.append(_FavoriteRecord(
+                row=subscription.as_row(),
+                artist=_author_label(_get(payload, "Author", "")),
+            ))
+        return result
+
+    def _favorite_order(self, table: str) -> list[str] | None:
+        """Read one host-owned order table without ever opening it for write."""
+        database: LibraryDatabase | None = None
+        try:
+            database = LibraryDatabase(self.layout.library_db)
+            return _stored_order(database, table, "podcasts")
+        except Exception:
+            # The list remains usable and the caller marks its order as a
+            # fallback instead of pretending it matches AMC.
+            return None
+        finally:
+            if database is not None:
+                database.close()
+
+    @staticmethod
+    def _manual_favorite_order(
+        records: list[_FavoriteRecord], stored: list[str]
+    ) -> list[_FavoriteRecord]:
+        """Port ``LocalLibraryManualOrder.Order`` over mixed podcast rows."""
+        first: dict[str, int] = {}
+        for index, item_id in enumerate(stored):
+            first.setdefault(str(item_id), index)
+        sentinel = len(stored) + 1
+        return [
+            record
+            for _, _, record in sorted(
+                (
+                    (first.get(record.row.item_id, sentinel), original, record)
+                    for original, record in enumerate(records)
+                ),
+                key=lambda triple: (triple[0], triple[1]),
+            )
+        ]
+
+    @staticmethod
+    def _alphabetical_favorites(
+        records: list[_FavoriteRecord],
+        collation: HostCollation | None,
+    ) -> tuple[list[_FavoriteRecord], bool]:
+        """C# keys: navigation title, title, artist, then ordinal ID."""
+        fallback = sorted(
+            records,
+            key=lambda record: (
+                record.row.title.casefold(),
+                record.artist.casefold(),
+                record.row.item_id,
+            ),
+        )
+        if collation is None:
+            return fallback, False
+        try:
+            # Stable least-significant-first sorting reproduces the four
+            # ``OrderBy``/``ThenBy`` keys used by OrderCurrentCollection.
+            ordered = sorted(records, key=lambda record: record.row.item_id)
+            ordered = collation.sort_rows(
+                ordered,
+                key=lambda record: record.artist,
+                mode=COLLATION_TITLE_IGNORE_CASE,
+            )
+            ordered = collation.sort_rows(
+                ordered,
+                key=lambda record: record.row.title,
+                mode=COLLATION_TITLE_IGNORE_CASE,
+            )
+            return ordered, True
+        except HostCollationUnavailable:
+            return fallback, False
+
+    def favorites(
+        self,
+        *,
+        loaded_count: int = PAGE_SIZE,
+        sort_mode: str | None = None,
+        collation: HostCollation | None = None,
+    ) -> PodcastEpisodePage:
+        """Favorite subscriptions and episodes, exactly as Ctrl+U in AMC."""
+        records = self._favorite_subscriptions()
+        for episode in self._aggregate_records(
+            "e.is_favorite = 1", library_only=False
+        ):
+            author = _author_label(_get(episode.payload, "Author", ""))
+            records.append(_FavoriteRecord(
+                row=_episode_row(episode, aggregate=True),
+                artist=author or episode.parent_title,
+            ))
+
+        mode = sort_mode or self.favorites_sort_mode()
+        if mode not in (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM):
+            mode = SORT_ADDED_NEWEST
+
+        order_matches_amc = True
+        if mode == SORT_ALPHABETICAL:
+            records, order_matches_amc = self._alphabetical_favorites(
+                records, collation
+            )
+        else:
+            table = (
+                "favorite_order"
+                if mode == SORT_CUSTOM
+                else "favorite_added_order"
+            )
+            stored = self._favorite_order(table)
+            if stored is None:
+                stored = []
+                order_matches_amc = False
+            records = self._manual_favorite_order(records, stored)
+            if mode == SORT_ADDED_NEWEST:
+                records.reverse()
+
+        requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
+        visible = records[:requested]
+        rows = [record.row for record in visible]
+        remaining = max(0, len(records) - len(visible))
+        if remaining:
+            rows.append(Row(
+                item_id=f"podcast-load-more:favorites:{requested}",
+                title="Załaduj więcej ulubionych",
+                kind="loadMore",
+                detail=f"pozostało {remaining}",
+                show_kind=False,
+            ))
+        return PodcastEpisodePage(
+            rows=rows,
+            loaded_count=len(visible),
+            has_more=bool(remaining),
+            order_matches_amc=order_matches_amc,
+            sort_mode=mode,
+        )
 
     def _aggregate_records(
         self, where: str, *, library_only: bool = True

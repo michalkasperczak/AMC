@@ -547,6 +547,9 @@ PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
 # Kontekst sesji, niezaleznie od listy/odtwarzacza. F5 w skrzynce jest
 # przesloniete powyzej, dokladnie jak w glownym AMC.
 PODCAST_SESSION_VIEW: dict[str, Action] = {
+    # Ctrl+U jest widokiem bieżącej sesji także z odtwarzacza. W Podcastach
+    # obejmuje ulubione kanały i odcinki, a nie Bibliotekę plików lokalnych.
+    "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+N": Action.ADD_PODCAST_SOURCE,
     "Ctrl+O": Action.IMPORT_PODCAST_OPML,
     "F5": Action.REFRESH_PODCAST,

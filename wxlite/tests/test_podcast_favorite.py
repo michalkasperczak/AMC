@@ -128,3 +128,20 @@ def test_non_podcast_rows_are_never_sent_as_private_ids() -> None:
 
     assert frame.calls == []
     assert frame.spoken == ["Zaznacz podcast albo odcinek"]
+
+
+def test_delete_in_podcast_favorites_uses_the_favorite_transaction() -> None:
+    calls: list[str] = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            session=SimpleNamespace(
+                library_view=LibraryView.PODCAST_FAVORITES,
+            ),
+        ),
+        _toggle_podcast_favorite=lambda: calls.append("toggle"),
+    )
+
+    gui.LiteFrame._remove_selected_items(frame)
+
+    assert calls == ["toggle"]

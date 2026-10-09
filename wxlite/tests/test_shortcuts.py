@@ -291,6 +291,16 @@ def test_ctrl_shift_u_toggles_podcast_favorites_in_list_and_player() -> None:
     ) is None
 
 
+def test_ctrl_u_opens_podcast_favorites_from_list_and_player() -> None:
+    for player in (False, True):
+        assert resolve(
+            Chord("U", ctrl=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.VIEW_FAVORITES
+
+
 def test_f2_and_delete_match_contextual_library_editing() -> None:
     # Delete usuwa tylko z bieżącego widoku; dopiero Shift+Delete prowadzi
     # przez potwierdzenie do systemowego Kosza. F2 nie zmienia pliku na dysku,

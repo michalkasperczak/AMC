@@ -326,14 +326,21 @@ własnej normalizacji diakrytyków.
   pojedynczego pisarza C#. Dla wielokrotnego zaznaczenia zachowuje regułę
   głównego AMC: jeżeli wszystkie elementy są ulubione, usuwa stan wszystkim;
   w przeciwnym razie ustawia go wszystkim. W mowie pozostaje nazwa jednego
-  elementu albo sama liczba elementów, nigdy identyfikator bazy.
+  elementu albo sama liczba elementów, nigdy identyfikator bazy. `Ctrl+U`
+  otwiera teraz wspólny widok ulubionych podcastów, kanałów i odcinków także
+  z odtwarzacza. Kolejność dodania i kolejność własna czyta z tabel głównego
+  AMC, a alfabetyczną układa kluczami hosta C#. `Delete` w tym widoku usuwa
+  całe wielokrotne zaznaczenie wyłącznie z Ulubionych; nie archiwizuje źródła
+  i nie usuwa pobranego pliku. Widok zachowuje 150-elementowe stronicowanie,
+  fokus oraz jawnie nazywa kolejność zastępczą, gdy zapisu porządku nie da się
+  bezpiecznie odczytać.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
   do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,
   a kanały wraz z playlistami jako OPML. Wszystkie te drogi korzystają ze
   wspólnych parserów i eksporterów Core;
   techniczne rekordy ani podpisane adresy nie trafiają do mowy. Nadal brakuje
-  pozostałych widoków specjalnych.
+  pozostałych widoków specjalnych poza przeniesionymi Ulubionymi.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

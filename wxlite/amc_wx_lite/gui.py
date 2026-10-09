@@ -3306,7 +3306,6 @@ class LiteFrame(wx.Frame):
             self.navigator.active is SessionId.PODCASTS
             and action in {
                 Action.VIEW_ALL_FILES,
-                Action.VIEW_FAVORITES,
                 Action.VIEW_PLAYLISTS,
                 Action.VIEW_FOLDERS,
                 Action.VIEW_HISTORY,
@@ -3495,7 +3494,13 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
-            self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
+            if self.navigator.active is SessionId.PODCASTS:
+                self._transient_preview_return = None
+                self._open_podcast_aggregate(
+                    OpenPodcastAggregateView(LibraryView.PODCAST_FAVORITES)
+                )
+            else:
+                self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
         elif action is Action.VIEW_PLAYLISTS:
             self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
         elif action is Action.VIEW_FOLDERS:
@@ -4207,6 +4212,7 @@ class LiteFrame(wx.Frame):
         completion_message: str = "",
     ) -> None:
         if intent.view not in (
+            LibraryView.PODCAST_FAVORITES,
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
@@ -4227,6 +4233,11 @@ class LiteFrame(wx.Frame):
         sort_mode_override = self.state.podcast_inbox_sort_mode
 
         def work():
+            if intent.view is LibraryView.PODCAST_FAVORITES:
+                return self.podcasts.favorites(
+                    loaded_count=requested,
+                    collation=getattr(self, "_collation", None),
+                )
             if intent.view is LibraryView.PODCAST_INBOX:
                 return self.podcasts.inbox(
                     loaded_count=requested,
@@ -4264,15 +4275,19 @@ class LiteFrame(wx.Frame):
             preferred = intent.preferred_id
             if intent.load_more and previous_count < len(page.rows):
                 candidate = page.rows[previous_count]
-                if candidate.kind == "episode":
+                if candidate.kind in ("podcast", "episode"):
                     preferred = candidate.item_id
             heading = (
-                "Nowe odcinki i materiały"
-                if intent.view is LibraryView.PODCAST_INBOX
+                "Ulubione"
+                if intent.view is LibraryView.PODCAST_FAVORITES
                 else (
-                    "W trakcie słuchania"
-                    if intent.view is LibraryView.PODCAST_IN_PROGRESS
-                    else "Pobrane"
+                    "Nowe odcinki i materiały"
+                    if intent.view is LibraryView.PODCAST_INBOX
+                    else (
+                        "W trakcie słuchania"
+                        if intent.view is LibraryView.PODCAST_IN_PROGRESS
+                        else "Pobrane"
+                    )
                 )
             )
             events = self.navigator.apply_podcast_aggregate(
@@ -4282,7 +4297,9 @@ class LiteFrame(wx.Frame):
                 preferred_id=preferred,
                 order_matches_amc=page.order_matches_amc,
             )
-            count = sum(1 for row in page.rows if row.kind == "episode")
+            count = sum(
+                1 for row in page.rows if row.kind in ("podcast", "episode")
+            )
             if completion_message:
                 # Wynik odswiezenia ma zastapic zwykly naglowek widoku. Lista
                 # zostaje najpierw podmieniona, a czytnik dostaje jeden,
@@ -4724,6 +4741,7 @@ class LiteFrame(wx.Frame):
                         completion_message=message,
                     )
             elif state.library_view in (
+                LibraryView.PODCAST_FAVORITES,
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
@@ -5117,6 +5135,7 @@ class LiteFrame(wx.Frame):
                 )
                 return True
         elif state.library_view in (
+            LibraryView.PODCAST_FAVORITES,
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
@@ -7137,7 +7156,24 @@ class LiteFrame(wx.Frame):
             ))
             return
         if self.navigator.active is SessionId.PODCASTS:
-            self._open_podcast_library(preferred_id=preferred_id)
+            if state.library_view is LibraryView.PODCAST_LIBRARY:
+                self._open_podcast_library(preferred_id=preferred_id)
+            elif state.library_view is LibraryView.PODCAST_EPISODES:
+                if state.library_playlist_id:
+                    self._open_podcast_view(OpenPodcastView(
+                        subscription_id=state.library_playlist_id,
+                        preferred_id=preferred_id,
+                    ))
+            elif state.library_view in (
+                LibraryView.PODCAST_FAVORITES,
+                LibraryView.PODCAST_INBOX,
+                LibraryView.PODCAST_IN_PROGRESS,
+                LibraryView.PODCAST_DOWNLOADS,
+            ):
+                self._open_podcast_aggregate(OpenPodcastAggregateView(
+                    state.library_view,
+                    preferred_id=preferred_id,
+                ))
             return
         if state.library_view is None:
             self._open_library(state.folder_path or None, preferred_id=preferred_id)
@@ -7284,6 +7320,17 @@ class LiteFrame(wx.Frame):
         )
 
     def _remove_selected_items(self) -> None:
+        if (
+            self.navigator.active is SessionId.PODCASTS
+            and self.navigator.session.library_view
+            is LibraryView.PODCAST_FAVORITES
+        ):
+            # Wszystkie wiersze tego widoku są ulubione, więc wspólna
+            # transakcja ToggleFavorites usuwa dokładnie całe zaznaczenie.
+            # Dotyczy zarówno źródeł, jak i odcinków i zachowuje wielokrotny
+            # wybór kontrolki Windows.
+            self._toggle_podcast_favorite()
+            return
         rows = [
             row for row in self._selected_action_rows()
             if row.kind not in ("parent", "folder", "playlist", "loadMore")

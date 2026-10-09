@@ -73,6 +73,7 @@ _NON_SQLITE_VIEWS = (
     # wolno kierowac ich do lokalnego LibrarySource/library.db przez _VIEW_KEYS.
     LibraryView.PODCAST_LIBRARY,
     LibraryView.PODCAST_EPISODES,
+    LibraryView.PODCAST_FAVORITES,
     LibraryView.PODCAST_INBOX,
     LibraryView.PODCAST_IN_PROGRESS,
     LibraryView.PODCAST_DOWNLOADS,

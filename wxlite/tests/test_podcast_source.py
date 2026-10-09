@@ -91,6 +91,7 @@ def _insert_episode(
     is_new: int = 1,
     is_started: int = 0,
     is_played: int = 0,
+    is_favorite: int = 0,
     resume_seconds: int = 90,
     download_path: str | None = None,
 ) -> None:
@@ -98,12 +99,13 @@ def _insert_episode(
     connection.execute(
         """
         INSERT INTO podcast_episodes VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, '', ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, '', ?
         )
         """,
         (
             item_id, ordinal, subscription_id, title, published,
             is_new, is_started, is_played,
+            is_favorite,
             download_path,
             _episode_payload(
                 f"https://example.invalid/{item_id}",
@@ -111,6 +113,48 @@ def _insert_episode(
                 resume_seconds=resume_seconds,
             ),
         ),
+    )
+    connection.commit()
+    connection.close()
+
+
+def _favorite_subscription(path: Path, item_id: str) -> None:
+    connection = sqlite3.connect(path)
+    raw = connection.execute(
+        "SELECT payload_json FROM podcast_subscriptions WHERE id = ?",
+        (item_id,),
+    ).fetchone()[0]
+    payload = json.loads(raw)
+    payload["IsFavorite"] = True
+    connection.execute(
+        "UPDATE podcast_subscriptions SET payload_json = ? WHERE id = ?",
+        (json.dumps(payload), item_id),
+    )
+    connection.commit()
+    connection.close()
+
+
+def _favorite_order_database(
+    base: Path, *, custom: list[str], added: list[str]
+) -> None:
+    connection = sqlite3.connect(base / "library.db")
+    connection.executescript(
+        """
+        CREATE TABLE favorite_order (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        );
+        CREATE TABLE favorite_added_order (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        );
+        """
+    )
+    connection.executemany(
+        "INSERT INTO favorite_order VALUES ('podcasts', ?, ?)",
+        enumerate(custom),
+    )
+    connection.executemany(
+        "INSERT INTO favorite_added_order VALUES ('podcasts', ?, ?)",
+        enumerate(added),
     )
     connection.commit()
     connection.close()
@@ -387,6 +431,98 @@ def test_downloads_include_only_existing_files_even_from_archived_sources() -> N
         assert "Audycja tygodnia" in page.rows[0].detail
         assert "Ukryty" in page.rows[1].detail
         assert all("missing-download" not in row.item_id for row in page.rows)
+
+
+def test_favorites_mix_sources_and_episodes_in_the_saved_added_order() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _favorite_subscription(path, "rss-id")
+        _insert_episode(
+            path,
+            item_id="favorite-archived-episode",
+            subscription_id="hidden-id",
+            title="Archiwalny ulubiony odcinek",
+            ordinal=0,
+            published=200,
+            is_favorite=1,
+        )
+        _insert_episode(
+            path,
+            item_id="ordinary-episode",
+            subscription_id="rss-id",
+            title="Zwykły odcinek",
+            ordinal=1,
+            published=300,
+        )
+        _favorite_order_database(
+            base,
+            custom=["rss-id", "favorite-archived-episode"],
+            added=["rss-id", "favorite-archived-episode"],
+        )
+
+        page = PodcastSource(private_sandbox(base)).favorites()
+
+        assert [row.item_id for row in page.rows] == [
+            "favorite-archived-episode", "rss-id"
+        ]
+        assert [row.kind for row in page.rows] == ["episode", "podcast"]
+        assert "Ukryty" in page.rows[0].detail
+        spoken = " ".join(row.title + " " + row.detail for row in page.rows)
+        assert "favorite-archived-episode" not in spoken
+        assert "rss-id" not in spoken
+        assert "ordinary-episode" not in spoken
+        assert page.order_matches_amc
+        assert page.sort_mode == SORT_ADDED_NEWEST
+
+
+def test_favorites_support_custom_and_exact_alphabetical_order() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _favorite_subscription(path, "rss-id")
+        _insert_episode(
+            path,
+            item_id="favorite-episode",
+            subscription_id="yt-id",
+            title="Alfa materiał",
+            ordinal=0,
+            published=100,
+            is_favorite=1,
+        )
+        _favorite_order_database(
+            base,
+            custom=["rss-id", "favorite-episode"],
+            added=["favorite-episode", "rss-id"],
+        )
+        source = PodcastSource(private_sandbox(base))
+
+        custom = source.favorites(sort_mode=SORT_CUSTOM)
+        alphabetical = source.favorites(
+            sort_mode=SORT_ALPHABETICAL,
+            collation=_ExactCasefoldCollation(),
+        )
+
+        assert [row.item_id for row in custom.rows] == [
+            "rss-id", "favorite-episode"
+        ]
+        assert [row.item_id for row in alphabetical.rows] == [
+            "favorite-episode", "rss-id"
+        ]
+        assert custom.order_matches_amc
+        assert alphabetical.order_matches_amc
+
+
+def test_favorites_name_missing_order_as_fallback_instead_of_pretending() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _favorite_subscription(path, "rss-id")
+
+        page = PodcastSource(private_sandbox(base)).favorites()
+
+        assert [row.item_id for row in page.rows] == ["rss-id"]
+        assert not page.order_matches_amc
 
 
 def test_full_description_starts_with_content_and_never_exposes_ids() -> None:

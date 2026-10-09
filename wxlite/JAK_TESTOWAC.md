@@ -91,6 +91,11 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     wygenerowaną przez wspólny `PodcastDownloadNaming`. Powstaje niezależna
     kopia; pole pobrania w bibliotece pozostaje niezmienione. W sesji plików
     ten sam skrót nadal eksportuje zaznaczony fragment audio.
+18. `Ctrl+Shift+U` zmienia Ulubione dla wspólnego zaznaczenia podcastów i
+    odcinków. `Ctrl+U` pokazuje oba rodzaje w jednym widoku również z
+    odtwarzacza. `Delete` w tym widoku wyłącza stan Ulubionych, ale nie usuwa
+    źródła z Biblioteki ani pobranego pliku. Enter na podcaście otwiera jego
+    odcinki, a Enter na odcinku odtwarza go zwykłym torem silnika.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
