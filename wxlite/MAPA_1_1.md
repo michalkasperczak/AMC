@@ -315,7 +315,9 @@ własnej normalizacji diakrytyków.
   Biblioteki, `F5`/`Ctrl+F5` odświeża, a `Ctrl+D` pobiera zaznaczone odcinki.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
-  do OPML. Obie drogi korzystają ze wspólnego parsera i eksportera Core;
+  do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,
+  a kanały wraz z playlistami jako OPML. Wszystkie te drogi korzystają ze
+  wspólnych parserów i eksporterów Core;
   techniczne rekordy ani podpisane adresy nie trafiają do mowy. Nadal brakuje
   pozostałych widoków specjalnych.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.

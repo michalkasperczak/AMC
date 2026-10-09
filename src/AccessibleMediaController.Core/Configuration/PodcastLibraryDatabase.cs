@@ -439,6 +439,35 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public IReadOnlyList<YouTubeCollectionExportEntry> GetYouTubeCollectionsForExport()
+    {
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var result = new List<YouTubeCollectionExportEntry>();
+            foreach (var subscription in settings.Subscriptions.Where(item =>
+                         item.IsInLibrary
+                         && item.SourceKind is PodcastSourceKind.YouTubeChannel
+                             or PodcastSourceKind.YouTubePlaylist))
+            {
+                if (!YouTubeSubscriptionsExporter.TryParseSubscriptionId(
+                        subscription.Id,
+                        out var sourceIdentifier,
+                        out var isChannel))
+                {
+                    continue;
+                }
+                result.Add(new YouTubeCollectionExportEntry(
+                    subscription.Title,
+                    sourceIdentifier,
+                    isChannel,
+                    subscription.HomepageUrl));
+            }
+            return result;
+        }
+    }
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds)
     {

@@ -16,6 +16,7 @@ internal sealed class LitePodcastOpmlCoordinator : IDisposable
     public const string InspectOperation = "podcast.opml.inspect";
     public const string ImportOperation = "podcast.opml.import";
     public const string ExportOperation = "podcast.opml.export";
+    public const string ExportYouTubeOperation = "podcast.youtube.export";
 
     private const int MaximumParallelFetches = 4;
     private readonly LitePodcastProgressStore _podcasts;
@@ -139,6 +140,53 @@ internal sealed class LitePodcastOpmlCoordinator : IDisposable
             or ArgumentException)
         {
             throw new LiteRequestException("Nie można zapisać pliku OPML: " + exception.Message);
+        }
+    }
+
+    public object ExportYouTube(JsonElement args)
+    {
+        var path = NormalizePath(LiteArgs.RequirePath(args, "path"));
+        var directory = Path.GetDirectoryName(path);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            throw new LiteRequestException("Folder docelowy eksportu YouTube nie istnieje.");
+        var collections = _podcasts.GetYouTubeCollectionsForExport();
+        if (collections.Count == 0)
+        {
+            throw new LiteRequestException(
+                "Biblioteka nie zawiera kanałów ani playlist YouTube, które można wyeksportować.");
+        }
+
+        var asOpml = string.Equals(
+            Path.GetExtension(path),
+            ".opml",
+            StringComparison.OrdinalIgnoreCase);
+        var channelCount = collections.Count(entry => entry.IsChannel);
+        if (!asOpml && channelCount == 0)
+        {
+            throw new LiteRequestException(
+                "Plik subskrypcji YouTube obejmuje tylko kanały, a biblioteka zawiera same playlisty. Wybierz zapis do OPML.");
+        }
+        try
+        {
+            File.WriteAllBytes(
+                path,
+                asOpml
+                    ? YouTubeSubscriptionsExporter.WriteFeedOpml(collections)
+                    : YouTubeSubscriptionsExporter.WriteTakeoutCsv(collections));
+            return new
+            {
+                format = asOpml ? "opml" : "csv",
+                exported = asOpml ? collections.Count : channelCount,
+                skippedPlaylists = asOpml ? 0 : collections.Count - channelCount,
+                path
+            };
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or ArgumentException)
+        {
+            throw new LiteRequestException("Nie można zapisać pliku: " + exception.Message);
         }
     }
 

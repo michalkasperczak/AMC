@@ -444,6 +444,10 @@ class LiteHostClient:
         """Zapisz RSS z Biblioteki przez wspólny eksporter AMC."""
         return self.call("podcast.opml.export", {"path": path}, timeout=30.0)
 
+    def export_youtube_subscriptions(self, path: str) -> Any:
+        """Zapisz kanały jako Takeout CSV albo kanały i playlisty jako OPML."""
+        return self.call("podcast.youtube.export", {"path": path}, timeout=30.0)
+
     def rename_library_item(self, item_id: str, title: str) -> Any:
         return self.call(
             "library.renameTitle", {"itemId": item_id, "title": title}, timeout=20.0

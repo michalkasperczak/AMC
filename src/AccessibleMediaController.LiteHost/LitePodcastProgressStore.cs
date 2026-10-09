@@ -234,6 +234,19 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public IReadOnlyList<YouTubeCollectionExportEntry> GetYouTubeCollectionsForExport()
+    {
+        try
+        {
+            return _store.GetYouTubeCollectionsForExport();
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] eksport kanałów YouTube: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,

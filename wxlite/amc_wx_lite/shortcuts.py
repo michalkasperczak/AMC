@@ -205,6 +205,7 @@ class Action(Enum):
     ADD_PODCAST_SOURCE = "podcasts.source.add"
     IMPORT_PODCAST_OPML = "podcasts.opml.import"
     EXPORT_PODCAST_OPML = "podcasts.opml.export"
+    EXPORT_YOUTUBE_SUBSCRIPTIONS = "podcasts.youtube.export"
     REFRESH_PODCAST = "podcasts.refresh.current"
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
@@ -633,6 +634,7 @@ def describe() -> list[tuple[str, str]]:
         Action.ADD_PODCAST_SOURCE: "Dodaj podcast, kanał YouTube lub medium internetowe",
         Action.IMPORT_PODCAST_OPML: "Importuj podcasty z OPML",
         Action.EXPORT_PODCAST_OPML: "Eksportuj bibliotekę podcastów do OPML",
+        Action.EXPORT_YOUTUBE_SUBSCRIPTIONS: "Eksportuj kanały i playlisty YouTube",
         Action.REFRESH_PODCAST: "Odśwież wybrany podcast, kanał lub playlistę",
         Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
         Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",

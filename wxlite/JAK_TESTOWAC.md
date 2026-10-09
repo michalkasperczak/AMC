@@ -84,6 +84,9 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
 15. Pliki → „Eksportuj bibliotekę podcastów do OPML” zapisuje wyłącznie
     podcasty RSS należące do Biblioteki. Parser i eksporter pochodzą ze
     wspólnego Core AMC; Python nie interpretuje XML-u i nie zapisuje bazy.
+16. Pliki → „Eksportuj kanały i playlisty YouTube” zapisuje kanały jako CSV
+    zgodny z Google Takeout albo kanały wraz z playlistami jako OPML. CSV nie
+    udaje obsługi playlist: komunikat jawnie podaje liczbę pominiętych.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -97,8 +100,8 @@ C# i nigdy nie otwierają bazy do zapisu z Pythona. Host odmawia drugiemu oknu
 wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne AMC,
 które mogłoby później nadpisać całą migawkę. Widoki „Nowe odcinki i materiały”
 wraz z trzema trybami sortowania, „W trakcie słuchania” oraz „Pobrane” są już
-przeniesione. Import i eksport OPML są przeniesione; nadal czekają pozostałe
-widoki specjalne.
+przeniesione. Import i eksport OPML oraz eksport kanałów i playlist YouTube są
+przeniesione; nadal czekają pozostałe widoki specjalne.
 
 Test bez danych użytkownika:
 

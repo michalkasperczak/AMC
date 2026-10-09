@@ -114,6 +114,11 @@ def build_menus() -> tuple[Menu, ...]:
                 needs_podcast_session=True,
             ),
             MenuItem(
+                "Eksportuj kanały i playlisty &YouTube",
+                Action.EXPORT_YOUTUBE_SUBSCRIPTIONS,
+                needs_podcast_session=True,
+            ),
+            MenuItem(
                 "Odśwież wybrane źródło pod&castów",
                 Action.REFRESH_PODCAST,
                 shortcut="F5",

@@ -138,6 +138,30 @@ internal static class PodcastProgressStoreTests
                 Assert.True(savedSource.IsInLibrary && savedSource.RefreshIntervalMinutes == 60,
                     "nowy RSS dostaje czlonkostwo i domyslny odstep odswiezania");
 
+                var youTubeFeed = new PodcastFeedDocument(
+                    "youtube-channel:UCabc_DEF-123",
+                    "Kanał testowy",
+                    "Autor YouTube",
+                    "Opis",
+                    new Uri("https://www.youtube.com/feeds/videos.xml?channel_id=UCabc_DEF-123"),
+                    new Uri("https://www.youtube.com/channel/UCabc_DEF-123"),
+                    [new PodcastFeedEpisode(
+                        "youtube-ep-1",
+                        "youtube-source-1",
+                        "Materiał kanału",
+                        "Autor YouTube",
+                        "Opis",
+                        DateTimeOffset.UtcNow,
+                        TimeSpan.FromMinutes(5),
+                        new Uri("https://example.invalid/youtube-audio.m4a"),
+                        null,
+                        "audio/mp4",
+                        null)]);
+                store.AddSource(
+                    youTubeFeed,
+                    null,
+                    PodcastSourceKind.YouTubeChannel);
+
                 var internet = store.AddInternetMedia(
                     new PodcastInternetMediaSource(
                         "https://www.youtube.com/watch?v=test123",
@@ -177,6 +201,13 @@ internal static class PodcastProgressStoreTests
                 Assert.True(opmlEntries.All(entry =>
                         !entry.FeedUri.AbsoluteUri.Contains("youtube", StringComparison.OrdinalIgnoreCase)),
                     "publiczne media internetowe nie moga udawac RSS w eksporcie");
+                var youTubeCollections = store.GetYouTubeCollectionsForExport();
+                Assert.True(youTubeCollections.Count == 1,
+                    "eksport YouTube obejmuje tylko zapisane kanaly i playlisty");
+                Assert.True(youTubeCollections[0].IsChannel
+                    && youTubeCollections[0].SourceIdentifier == "UCabc_DEF-123"
+                    && youTubeCollections[0].Title == "Kanał testowy",
+                    "eksport YouTube oddziela identyfikator modelu od etykiety uzytkownika");
             }
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))

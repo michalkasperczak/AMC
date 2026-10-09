@@ -267,6 +267,16 @@ def test_podcast_opml_menu_is_contextual_and_keeps_ctrl_o_in_resolver() -> None:
     assert "opml" in exported.label.replace("&", "").casefold()
 
 
+def test_youtube_export_menu_is_contextual_and_has_no_fake_shortcut() -> None:
+    item = next(
+        entry for entry in all_items()
+        if entry.action is Action.EXPORT_YOUTUBE_SUBSCRIPTIONS
+    )
+    assert item.shortcut is None
+    assert item.needs_podcast_session
+    assert "youtube" in item.label.replace("&", "").casefold()
+
+
 def test_every_item_is_keyboard_reachable() -> None:
     """Kazda pozycja ma znacznik '&' -- inaczej nie ma dostepu z klawiatury."""
     for item in all_items():

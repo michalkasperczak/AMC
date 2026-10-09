@@ -53,6 +53,9 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
     public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries() =>
         _database.GetOpmlEntries();
 
+    public IReadOnlyList<YouTubeCollectionExportEntry> GetYouTubeCollectionsForExport() =>
+        _database.GetYouTubeCollectionsForExport();
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,

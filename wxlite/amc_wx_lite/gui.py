@@ -3384,6 +3384,8 @@ class LiteFrame(wx.Frame):
             self._import_podcast_opml()
         elif action is Action.EXPORT_PODCAST_OPML:
             self._export_podcast_opml()
+        elif action is Action.EXPORT_YOUTUBE_SUBSCRIPTIONS:
+            self._export_youtube_subscriptions()
         elif action is Action.VIEW_PODCAST_INBOX:
             self._show_podcast_inbox()
         elif action is Action.VIEW_PODCAST_IN_PROGRESS:
@@ -4491,6 +4493,75 @@ class LiteFrame(wx.Frame):
             self.announcer.say(message)
 
         self.runner.submit("podcast-opml-export", work, done, failed)
+
+    def _export_youtube_subscriptions(self) -> None:
+        """Eksportuj kanały jako Takeout CSV albo wszystkie kolekcje jako OPML."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Eksport kanałów YouTube jest dostępny w sesji Podcasty i YouTube"
+            )
+            return
+        if self._podcast_opml_pending:
+            self.announcer.say("Import lub eksport źródeł już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę wyeksportować kanałów YouTube")
+            return
+
+        with wx.FileDialog(
+            self,
+            message="Eksportuj kanały YouTube",
+            defaultFile="Kanaly YouTube AMC.csv",
+            wildcard=(
+                "Subskrypcje YouTube (*.csv)|*.csv|"
+                "Kanały i playlisty jako OPML (*.opml)|*.opml|"
+                "Wszystkie pliki (*.*)|*.*"
+            ),
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as picker:
+            if picker.ShowModal() != wx.ID_OK:
+                return
+            path = picker.GetPath()
+
+        self._podcast_opml_pending = True
+        started = "Eksportowanie kanałów YouTube"
+        self.status_field.SetLabel(started)
+        self.status_bar.show(started)
+
+        def work() -> dict:
+            result = client.export_youtube_subscriptions(path)
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_opml_pending = False
+            exported = max(0, int(payload.get("exported") or 0))
+            skipped = max(0, int(payload.get("skippedPlaylists") or 0))
+            if str(payload.get("format") or "").casefold() == "opml":
+                message = f"Wyeksportowano kanały i playlisty YouTube: {exported}"
+            elif skipped:
+                message = (
+                    f"Wyeksportowano kanały YouTube: {exported}; "
+                    f"pominięto playlisty: {skipped}"
+                )
+            else:
+                message = f"Wyeksportowano kanały YouTube: {exported}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_opml_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się wyeksportować kanałów YouTube"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-youtube-export", work, done, failed)
 
     def _refresh_podcasts(self, *, refresh_all: bool) -> None:
         """F5/Ctrl+F5: wspolny mechanizm odswiezania glownego AMC.

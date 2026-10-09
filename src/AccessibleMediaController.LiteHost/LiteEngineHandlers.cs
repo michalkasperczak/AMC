@@ -256,6 +256,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 PodcastOpmlImport(request.Args),
             [LitePodcastOpmlCoordinator.ExportOperation] = (request, _) =>
                 PodcastOpmlExport(request.Args),
+            [LitePodcastOpmlCoordinator.ExportYouTubeOperation] = (request, _) =>
+                PodcastYouTubeExport(request.Args),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -1416,6 +1418,10 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object PodcastOpmlExport(JsonElement args) =>
         (_podcastOpml ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).Export(args);
+
+    private object PodcastYouTubeExport(JsonElement args) =>
+        (_podcastOpml ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).ExportYouTube(args);
 
     private object ConfigureAudio(JsonElement args)
     {

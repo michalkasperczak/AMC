@@ -206,6 +206,7 @@ def test_podcast_opml_uses_named_narrow_host_operations() -> None:
             ["https://example.invalid/a.xml", "https://example.invalid/a.xml"],
         )
         exported = client.export_podcast_opml("D:/wymiana/eksport.opml")
+        youtube = client.export_youtube_subscriptions("D:/wymiana/youtube.csv")
         assert inspected["op"] == "podcast.opml.inspect"
         assert inspected["args"] == {"path": "D:/wymiana/podcasty.opml"}
         assert imported["op"] == "podcast.opml.import"
@@ -215,6 +216,8 @@ def test_podcast_opml_uses_named_narrow_host_operations() -> None:
         }
         assert exported["op"] == "podcast.opml.export"
         assert exported["args"] == {"path": "D:/wymiana/eksport.opml"}
+        assert youtube["op"] == "podcast.youtube.export"
+        assert youtube["args"] == {"path": "D:/wymiana/youtube.csv"}
     finally:
         client.close()
 
