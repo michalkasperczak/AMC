@@ -119,7 +119,7 @@ def build_menus() -> tuple[Menu, ...]:
                 needs_podcast_session=True,
             ),
             MenuItem(
-                "Eksportuj kanały i playlisty &YouTube",
+                "Eksportuj subskrypcje &YouTube",
                 Action.EXPORT_YOUTUBE_SUBSCRIPTIONS,
                 needs_podcast_session=True,
             ),

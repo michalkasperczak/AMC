@@ -84,9 +84,12 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
 15. Pliki → „Eksportuj bibliotekę podcastów do OPML” zapisuje wyłącznie
     podcasty RSS należące do Biblioteki. Parser i eksporter pochodzą ze
     wspólnego Core AMC; Python nie interpretuje XML-u i nie zapisuje bazy.
-16. Pliki → „Eksportuj kanały i playlisty YouTube” zapisuje kanały jako CSV
-    zgodny z Google Takeout albo kanały wraz z playlistami jako OPML. CSV nie
-    udaje obsługi playlist: komunikat jawnie podaje liczbę pominiętych.
+16. Pliki → „Eksportuj subskrypcje YouTube” zapisuje kanały jako CSV zgodny
+    z Google Takeout i importem NewPipe oraz FreeTube albo kanały wraz
+    z playlistami jako OPML do czytników RSS. Pole „Typ pliku” opisuje
+    zastosowanie obu formatów i zawsze nadaje właściwe rozszerzenie, również
+    po przełączeniu z CSV na OPML. CSV nie udaje obsługi playlist: komunikat
+    jawnie podaje liczbę pominiętych.
 17. `Ctrl+S` na jednym odcinku otwiera natywny dialog „Zapisz jako” z nazwą
     wygenerowaną przez wspólny `PodcastDownloadNaming`. Powstaje niezależna
     kopia; pole pobrania w bibliotece pozostaje niezmienione. W sesji plików

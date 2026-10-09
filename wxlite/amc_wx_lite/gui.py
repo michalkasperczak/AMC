@@ -143,6 +143,24 @@ from .state_store import LiteState, Station, StationList, StateStore
 APP_NAME = "AMC-wx-Lite"
 TEMPO_LABELS = {1: "Mowa – Speedy", 2: "Muzyka – Signalsmith", 0: "Dotychczasowy – SoundTouch"}
 
+YOUTUBE_EXPORT_CSV_FILTER = 0
+YOUTUBE_EXPORT_OPML_FILTER = 1
+YOUTUBE_EXPORT_WILDCARD = (
+    "CSV kanałów, zgodny z Google Takeout, NewPipe i FreeTube (*.csv)|*.csv|"
+    "OPML dla kanałów i playlist, do czytników RSS (*.opml)|*.opml"
+)
+
+
+def youtube_export_path_for_filter(path: str, filter_index: int) -> str:
+    """Nadaj rozszerzenie odpowiadające formatowi wybranemu w dialogu.
+
+    Natywny dialog Windows potrafi zachować poprzednie ``.csv`` w nazwie,
+    mimo że użytkownik przeszedł na filtr OPML. Format wybiera jawnie pole
+    „Typ pliku”, więc to jego wybór ma pierwszeństwo przed starym rozszerzeniem.
+    """
+    suffix = ".opml" if filter_index == YOUTUBE_EXPORT_OPML_FILTER else ".csv"
+    return str(Path(path).with_suffix(suffix))
+
 # Mapowanie klawiszy wx -> wlasne nazwy z shortcuts.py. Trzymamy to w JEDNYM
 # miejscu, zeby tablica skrotow nie zalezala od wx (da sie ja testowac w WSL).
 _SPECIAL_KEYS = {
@@ -4612,7 +4630,7 @@ class LiteFrame(wx.Frame):
         self.runner.submit("podcast-opml-export", work, done, failed)
 
     def _export_youtube_subscriptions(self) -> None:
-        """Eksportuj kanały jako Takeout CSV albo wszystkie kolekcje jako OPML."""
+        """Eksportuj kanały do innych klientów albo wszystkie źródła do OPML."""
         if self.navigator.active is not SessionId.PODCASTS:
             self.announcer.say(
                 "Eksport kanałów YouTube jest dostępny w sesji Podcasty i YouTube"
@@ -4628,18 +4646,17 @@ class LiteFrame(wx.Frame):
 
         with wx.FileDialog(
             self,
-            message="Eksportuj kanały YouTube",
+            message="Eksportuj subskrypcje YouTube",
             defaultFile="Kanaly YouTube AMC.csv",
-            wildcard=(
-                "Subskrypcje YouTube (*.csv)|*.csv|"
-                "Kanały i playlisty jako OPML (*.opml)|*.opml|"
-                "Wszystkie pliki (*.*)|*.*"
-            ),
+            wildcard=YOUTUBE_EXPORT_WILDCARD,
             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
         ) as picker:
             if picker.ShowModal() != wx.ID_OK:
                 return
-            path = picker.GetPath()
+            path = youtube_export_path_for_filter(
+                picker.GetPath(),
+                picker.GetFilterIndex(),
+            )
 
         self._podcast_opml_pending = True
         started = "Eksportowanie kanałów YouTube"
@@ -4655,14 +4672,21 @@ class LiteFrame(wx.Frame):
             exported = max(0, int(payload.get("exported") or 0))
             skipped = max(0, int(payload.get("skippedPlaylists") or 0))
             if str(payload.get("format") or "").casefold() == "opml":
-                message = f"Wyeksportowano kanały i playlisty YouTube: {exported}"
+                message = (
+                    f"Wyeksportowano kanały i playlisty YouTube: {exported}. "
+                    "Plik OPML jest przeznaczony do czytników RSS"
+                )
             elif skipped:
                 message = (
                     f"Wyeksportowano kanały YouTube: {exported}; "
-                    f"pominięto playlisty: {skipped}"
+                    f"pominięto playlisty: {skipped}. "
+                    "Plik CSV można importować w NewPipe i FreeTube"
                 )
             else:
-                message = f"Wyeksportowano kanały YouTube: {exported}"
+                message = (
+                    f"Wyeksportowano kanały YouTube: {exported}. "
+                    "Plik CSV można importować w NewPipe i FreeTube"
+                )
             self.status_field.SetLabel(message)
             self.status_bar.show(message)
             self.announcer.say(message)

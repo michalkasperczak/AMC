@@ -117,7 +117,12 @@ def install_wx_stub() -> None:
 
 install_wx_stub()
 
-from amc_wx_lite.gui import chord_from_event, format_time  # noqa: E402
+from amc_wx_lite.gui import (  # noqa: E402
+    YOUTUBE_EXPORT_WILDCARD,
+    chord_from_event,
+    format_time,
+    youtube_export_path_for_filter,
+)
 from amc_wx_lite.shortcuts import Action, resolve  # noqa: E402
 
 
@@ -141,6 +146,15 @@ class FakeKeyEvent:
 
     def AltDown(self) -> bool:  # noqa: N802
         return self._alt
+
+
+def test_youtube_export_format_is_explicit_and_follows_selected_file_type() -> None:
+    assert "NewPipe" in YOUTUBE_EXPORT_WILDCARD
+    assert "FreeTube" in YOUTUBE_EXPORT_WILDCARD
+    assert "CSV kanałów" in YOUTUBE_EXPORT_WILDCARD
+    assert "czytników RSS" in YOUTUBE_EXPORT_WILDCARD
+    assert youtube_export_path_for_filter("Kanaly YouTube AMC.csv", 1).endswith(".opml")
+    assert youtube_export_path_for_filter("Kanaly YouTube AMC.opml", 0).endswith(".csv")
 
 
 # ------------------------------------------------- klawisz -> akord -> akcja

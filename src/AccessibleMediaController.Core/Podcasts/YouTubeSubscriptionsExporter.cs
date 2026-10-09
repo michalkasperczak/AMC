@@ -20,8 +20,8 @@ public sealed record YouTubeCollectionExportEntry(
 /// other programs actually accept:
 /// <list type="bullet">
 ///   <item>the Google Takeout <c>subscriptions.csv</c> column layout
-///     (<c>Channel Id,Channel Url,Channel Title</c>), which YouTube itself and
-///     the subscription-transfer tools read;</item>
+///     (<c>Channel Id,Channel Url,Channel Title</c>), which NewPipe, FreeTube
+///     and other Google Takeout importers read;</item>
 ///   <item>OPML pointing at <c>youtube.com/feeds/videos.xml</c>, which podcast
 ///     programs and feed readers read.</item>
 /// </list>

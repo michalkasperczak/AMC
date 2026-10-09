@@ -340,8 +340,10 @@ własnej normalizacji diakrytyków.
   odcinka, pobranego pliku ani źródła.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
-  do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,
-  a kanały wraz z playlistami jako OPML. Wszystkie te drogi korzystają ze
+  do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV
+  przeznaczony m.in. do NewPipe i FreeTube, a kanały wraz z playlistami jako
+  OPML do czytników RSS. Wybrany w natywnym dialogu typ pliku rozstrzyga
+  format i nadaje właściwe rozszerzenie. Wszystkie te drogi korzystają ze
   wspólnych parserów i eksporterów Core;
   techniczne rekordy ani podpisane adresy nie trafiają do mowy. Nadal brakuje
   pozostałych widoków specjalnych poza przeniesionymi Ulubionymi.
