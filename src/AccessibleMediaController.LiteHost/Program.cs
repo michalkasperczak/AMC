@@ -18,7 +18,6 @@ internal static class Program
         // sie tam znalezc, inaczej frontend straci synchronizacje.
         // Diagnostyka i wyjatki ida na stderr.
         var standardOutput = Console.Out;
-        Console.SetOut(Console.Error);
 
         // Protokol jest w UTF-8 i MUSI byc czytany jako UTF-8.
         //
@@ -30,6 +29,17 @@ internal static class Program
         // (1333 z 2596). Dotyczy to kazdej operacji z polskim tekstem --
         // takze sciezek plikow do odtwarzania, nie tylko kolejnosci listy.
         var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        // stderr tez jest czytany jako UTF-8 przez klienta. Domyslna strona
+        // kodowa konsoli Windows (CP852/CP1250) psula polskie komunikaty, a
+        // przy anulowaniu potrafila nawet zakonczyc watek czytajacy bledem
+        // UnicodeDecodeError. Jawny writer utrzymuje jeden kontrakt kodowania
+        // dla calego procesu, rowniez dla stack trace i bibliotek ponizej.
+        var diagnosticOutput = new StreamWriter(Console.OpenStandardError(), utf8)
+        {
+            AutoFlush = true
+        };
+        Console.SetError(diagnosticOutput);
+        Console.SetOut(diagnosticOutput);
         var protocolInput = new StreamReader(
             Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
         var protocolOutput = new StreamWriter(Console.OpenStandardOutput(), utf8)
@@ -70,7 +80,11 @@ internal static class Program
                 LiteQuickInformation.Operation,
                 // Eksport moze trwac dlugo. Odtwarzanie, pauza i status nie
                 // moga na ten czas utknac za dekoderem/FFmpeg.
-                LiteAudioClipOperations.ExportOperation
+                LiteAudioClipOperations.ExportOperation,
+                // Usuwanie tez uzywa FFmpeg i po potwierdzeniu moze trwac
+                // wiele minut. Osobna komenda anulowania musi w tym czasie
+                // pozostac osiagalna przez zwykla, serialna sciezke.
+                LiteAudioClipOperations.RemoveOperation
             ]);
 
         Console.Error.WriteLine(

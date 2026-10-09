@@ -117,6 +117,10 @@ class LiteHostClient:
         self._process: Any = None
         self._next_id = 0
         self._id_lock = threading.Lock()
+        # Eksport/edycja dzialaja wspolbieznie ze statusem i anulowaniem.
+        # Jeden zapis JSON-lines musi pozostac jednym calym wierszem; bez
+        # zamka dwa watki moglyby przeplec write/flush i uszkodzic protokol.
+        self._write_lock = threading.Lock()
         self._pending: dict[str, queue.Queue] = {}
         self._pending_lock = threading.Lock()
         self._reader: threading.Thread | None = None
@@ -167,6 +171,11 @@ class LiteHostClient:
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
+            # Host ustawia UTF-8 jawnie. ``replace`` jest ostatnia bariera na
+            # wypadek, gdy obca biblioteka zapisze surowy bajt na stderr:
+            # diagnostyka moze stracic jeden znak, ale watek czytajacy i cala
+            # komunikacja z silnikiem nie moga przez to zginac.
+            errors="replace",
             bufsize=1,
             creationflags=creation,
         )
@@ -194,6 +203,14 @@ class LiteHostClient:
                 process.kill()
             except Exception:
                 pass
+        # Proces juz zakonczyl zapis do potokow. Poczekaj, az oba czytniki
+        # odbiora EOF, zanim interpreter albo okno zwolni obiekty strumieni;
+        # inaczej szybkie zamkniecie po anulowaniu potrafilo wypisac surowe
+        # ``Exception in thread`` mimo poprawnego wyniku operacji.
+        current_thread = threading.current_thread()
+        for reader in (self._reader, self._stderr_reader):
+            if reader is not None and reader is not current_thread:
+                reader.join(timeout=1.0)
         # Obudz wszystkich czekajacych, zeby nie wisieli do konca limitu.
         with self._pending_lock:
             waiting = list(self._pending.values())
@@ -270,8 +287,9 @@ class LiteHostClient:
             {"id": request_id, "op": op, "args": args or {}}, ensure_ascii=False
         )
         try:
-            process.stdin.write(payload + "\n")
-            process.stdin.flush()
+            with self._write_lock:
+                process.stdin.write(payload + "\n")
+                process.stdin.flush()
         except (OSError, ValueError) as error:
             with self._pending_lock:
                 self._pending.pop(request_id, None)
@@ -373,19 +391,63 @@ class LiteHostClient:
         start_seconds: float,
         end_seconds: float,
         format_value: str,
+        operation_id: str | None = None,
     ) -> Any:
         """Zapisz zaznaczenie wspolnym ``AudioClipExporter`` z pelnego AMC."""
+        args = {
+            "sourcePath": source_path,
+            "destinationPath": destination_path,
+            "startSeconds": float(start_seconds),
+            "endSeconds": float(end_seconds),
+            "format": format_value,
+        }
+        if operation_id:
+            args["operationId"] = operation_id
         return self.call(
             "audio.clipExport",
-            {
-                "sourcePath": source_path,
-                "destinationPath": destination_path,
-                "startSeconds": float(start_seconds),
-                "endSeconds": float(end_seconds),
-                "format": format_value,
-            },
+            args,
             # Duzy material lub konwersja do WAV/FLAC moze trwac wiele minut.
             timeout=3_600.0,
+        )
+
+    def audio_clip_removal_capabilities(self, source_path: str) -> Any:
+        """Sprawdz FFmpeg, lokalnosc, typ i zapis pliku przed ostrzezeniem."""
+        return self.call(
+            "audio.clipRemoveCapabilities",
+            {"sourcePath": source_path},
+            timeout=15.0,
+        )
+
+    def remove_audio_clip(
+        self,
+        *,
+        source_path: str,
+        start_seconds: float,
+        end_seconds: float,
+        source_duration_seconds: float,
+        keep_backup: bool,
+        operation_id: str,
+    ) -> Any:
+        """Usun zaznaczenie wspolnym edytorem pelnego AMC."""
+        return self.call(
+            "audio.clipRemoveOriginal",
+            {
+                "sourcePath": source_path,
+                "startSeconds": float(start_seconds),
+                "endSeconds": float(end_seconds),
+                "sourceDurationSeconds": float(source_duration_seconds),
+                "keepBackup": bool(keep_backup),
+                "operationId": operation_id,
+            },
+            timeout=3_600.0,
+        )
+
+    def cancel_audio_clip(self, operation_id: str) -> Any:
+        """Popros host o przerwanie dokladnie jednej operacji fragmentu."""
+        return self.call(
+            "audio.clipCancel",
+            {"operationId": operation_id},
+            timeout=5.0,
         )
 
     # ----------------------------------------------------------------- kolejka

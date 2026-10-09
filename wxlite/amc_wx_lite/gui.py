@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -39,8 +40,11 @@ from .audio_clip import (
     AudioClipFormatChoice,
     AudioClipSelection,
     clip_context_from_status,
+    describe_backup_outcome,
     format_choices_from_payload,
     format_clip_time,
+    load_keep_audio_edit_backups,
+    remove_clip_confirmation_text,
     restore_clip_selection,
     suggested_clip_file_name,
     update_clip_selections,
@@ -1486,6 +1490,10 @@ class LiteFrame(wx.Frame):
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
         self._audio_clip_export_percent = -1
+        self._audio_clip_export_operation_id: str | None = None
+        self._audio_clip_edit_in_progress = False
+        self._audio_clip_edit_percent = -1
+        self._audio_clip_edit_operation_id: str | None = None
         #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
@@ -2098,12 +2106,41 @@ class LiteFrame(wx.Frame):
             # Postep ma byc dostepny przez pole i NVDA+End, ale NIE moze
             # przerywac mowy co 5%. Zdarzenie koncowe jest oglaszane raz przez
             # odpowiedz operacji w ``_start_audio_clip_export``.
-            if self._audio_clip_export_in_progress:
+            operation_id = str(data.get("operationId") or "")
+            if (
+                self._audio_clip_export_in_progress
+                and operation_id == (self._audio_clip_export_operation_id or "")
+            ):
                 percent = max(0, min(100, int(data.get("percent") or 0)))
                 if percent != self._audio_clip_export_percent:
                     self._audio_clip_export_percent = percent
                     file_name = str(data.get("name") or "").strip()
                     text = f"Zapisywanie fragmentu: {percent}%"
+                    if file_name:
+                        text += f". {file_name}"
+                    self.status_field.SetLabel(text)
+                    self.status_bar.show(text)
+        elif name == "audio.clipRemoveStarted":
+            operation_id = str(data.get("operationId") or "")
+            if (
+                self._audio_clip_edit_in_progress
+                and operation_id == (self._audio_clip_edit_operation_id or "")
+            ):
+                self.announcer.say("Usuwanie fragmentu. Odtwarzanie zatrzymano")
+        elif name == "audio.clipRemoveProgress":
+            # Jak przy eksporcie: postep jest dostepny w pasku, ale nie
+            # przerywa NVDA co kilka procent. Id operacji odrzuca spoznione
+            # zdarzenie poprzedniej edycji.
+            operation_id = str(data.get("operationId") or "")
+            if (
+                self._audio_clip_edit_in_progress
+                and operation_id == (self._audio_clip_edit_operation_id or "")
+            ):
+                percent = max(0, min(100, int(data.get("percent") or 0)))
+                if percent != self._audio_clip_edit_percent:
+                    self._audio_clip_edit_percent = percent
+                    file_name = str(data.get("name") or "").strip()
+                    text = f"Usuwanie fragmentu: {percent}%"
                     if file_name:
                         text += f". {file_name}"
                     self.status_field.SetLabel(text)
@@ -2571,6 +2608,8 @@ class LiteFrame(wx.Frame):
             self._jump_to_relative_audio_clip_boundary(direction=1)
         elif action is Action.CLIP_EXPORT:
             self._export_audio_clip()
+        elif action is Action.CLIP_REMOVE:
+            self._remove_audio_clip()
         elif action is Action.CLIP_CLEAR:
             self._clear_audio_clip_selection()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
@@ -3603,6 +3642,9 @@ class LiteFrame(wx.Frame):
         if self._audio_clip_export_in_progress:
             self.announcer.say("Zapisywanie fragmentu już trwa")
             return
+        if self._audio_clip_edit_in_progress:
+            self.announcer.say("Usuwanie fragmentu już trwa")
+            return
 
         def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
             if not selection.is_complete:
@@ -3694,8 +3736,10 @@ class LiteFrame(wx.Frame):
         client = self.client
         if client is None or not selection.is_complete:
             return
+        operation_id = uuid.uuid4().hex
         self._audio_clip_export_in_progress = True
         self._audio_clip_export_percent = 0
+        self._audio_clip_export_operation_id = operation_id
         progress_text = f"Zapisywanie fragmentu: 0%. {Path(destination).name}"
         self.status_field.SetLabel(progress_text)
         self.status_bar.show(progress_text)
@@ -3704,6 +3748,7 @@ class LiteFrame(wx.Frame):
         def done(payload: dict) -> None:
             self._audio_clip_export_in_progress = False
             self._audio_clip_export_percent = 100
+            self._audio_clip_export_operation_id = None
             name = str((payload or {}).get("name") or Path(destination).name)
             self.announcer.say(f"Fragment zapisany: {name}")
             self._restore_focus_after_dialog()
@@ -3711,6 +3756,7 @@ class LiteFrame(wx.Frame):
         def failed(error: Exception) -> None:
             self._audio_clip_export_in_progress = False
             self._audio_clip_export_percent = -1
+            self._audio_clip_export_operation_id = None
             self.announcer.say(f"Nie udało się zapisać fragmentu: {error}")
             self._restore_focus_after_dialog()
 
@@ -3722,6 +3768,188 @@ class LiteFrame(wx.Frame):
                 start_seconds=selection.start_seconds or 0.0,
                 end_seconds=selection.end_seconds or 0.0,
                 format_value=chosen.value,
+                operation_id=operation_id,
+            ),
+            done,
+            failed,
+        )
+
+    def _remove_audio_clip(self) -> None:
+        if self._audio_clip_edit_in_progress:
+            self.announcer.say("Usuwanie fragmentu już trwa")
+            return
+        if self._audio_clip_export_in_progress:
+            self.announcer.say("Zapisywanie fragmentu już trwa")
+            return
+
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if not selection.is_complete:
+                self.announcer.say(
+                    "Zaznacz początek klawiszem I i koniec klawiszem O"
+                )
+                return
+            client = self.client
+            if client is None:
+                return
+
+            def prepare() -> tuple[object, bool]:
+                capabilities = client.audio_clip_removal_capabilities(
+                    context.source_path
+                )
+                keep_backup = load_keep_audio_edit_backups(
+                    self.layout.state_json
+                )
+                return capabilities, keep_backup
+
+            def prepared(result: tuple[object, bool]) -> None:
+                capabilities, keep_backup = result
+                if not isinstance(capabilities, dict):
+                    self.announcer.say(
+                        "Nie można sprawdzić możliwości edycji pliku. Oryginalny plik nie został zmieniony"
+                    )
+                    return
+                if capabilities.get("available") is not True:
+                    message = str(capabilities.get("message") or "").strip()
+                    self.announcer.say(
+                        message
+                        or "Usuwanie fragmentu z tego pliku jest niedostępne"
+                    )
+                    return
+                self._confirm_audio_clip_removal(
+                    context,
+                    selection,
+                    keep_backup=keep_backup,
+                )
+
+            self.runner.submit(
+                "audio-clip-remove-preflight",
+                prepare,
+                prepared,
+                lambda error: self.announcer.say(str(error)),
+            )
+
+        self._request_audio_clip_context(ready)
+
+    def _confirm_audio_clip_removal(
+        self,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        *,
+        keep_backup: bool,
+    ) -> None:
+        if not selection.is_complete:
+            return
+        dialog = wx.MessageDialog(
+            self,
+            remove_clip_confirmation_text(
+                selection.start_seconds or 0.0,
+                selection.end_seconds or 0.0,
+                keep_backup=keep_backup,
+            ),
+            "Usuń fragment z oryginalnego pliku",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+        )
+        try:
+            # Jawne etykiety sa wazne dla NVDA: uzytkownik slyszy skutek
+            # przycisku, a nie samo ogolne "Tak" / "Nie".
+            if hasattr(dialog, "SetName"):
+                dialog.SetName("Potwierdzenie usunięcia fragmentu")
+            if hasattr(dialog, "SetYesNoLabels"):
+                dialog.SetYesNoLabels(
+                    "Tak, usuń fragment",
+                    "Nie, pozostaw plik",
+                )
+            confirmed = dialog.ShowModal() == wx.ID_YES
+        finally:
+            dialog.Destroy()
+        self._restore_focus_after_dialog()
+        if not confirmed:
+            return
+        self._start_audio_clip_removal(
+            context,
+            selection,
+            keep_backup=keep_backup,
+        )
+
+    def _start_audio_clip_removal(
+        self,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        *,
+        keep_backup: bool,
+    ) -> None:
+        client = self.client
+        if client is None or not selection.is_complete:
+            return
+        operation_id = uuid.uuid4().hex
+        self._audio_clip_edit_in_progress = True
+        self._audio_clip_edit_percent = 0
+        self._audio_clip_edit_operation_id = operation_id
+        progress_text = f"Usuwanie fragmentu: 0%. {Path(context.source_path).name}"
+        self.status_field.SetLabel(progress_text)
+        self.status_bar.show(progress_text)
+
+        def done(payload: dict) -> None:
+            self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_percent = 100
+            self._audio_clip_edit_operation_id = None
+            result = payload if isinstance(payload, dict) else {}
+            raw_duration = result.get("durationSeconds")
+            duration = (
+                float(raw_duration)
+                if isinstance(raw_duration, (int, float))
+                and not isinstance(raw_duration, bool)
+                else max(
+                    0.0,
+                    context.duration_seconds
+                    - ((selection.end_seconds or 0.0) - (selection.start_seconds or 0.0)),
+                )
+            )
+            next_position = min(selection.start_seconds or 0.0, duration)
+            self._last_status = {
+                **self._last_status,
+                "positionSeconds": next_position,
+                "durationSeconds": duration,
+                "paused": False,
+            }
+            empty = AudioClipSelection(
+                item_id=context.item_id,
+                source_path=context.source_path,
+            )
+            self._persist_audio_clip_selection(empty)
+
+            backup_path = result.get("backupPath")
+            backup_text = describe_backup_outcome(
+                keep_backup,
+                backup_path if isinstance(backup_path, str) else None,
+            )
+            if isinstance(backup_path, str) and backup_path.strip():
+                backup_text += " " + Path(backup_path).name
+            message = f"Fragment usunięty. {backup_text}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+            self._restore_focus_after_dialog()
+
+        def failed(error: Exception) -> None:
+            self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_percent = -1
+            self._audio_clip_edit_operation_id = None
+            message = f"Nie udało się usunąć fragmentu: {error}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+            self._restore_focus_after_dialog()
+
+        self.runner.submit(
+            "audio-clip-remove",
+            lambda: client.remove_audio_clip(
+                source_path=context.source_path,
+                start_seconds=selection.start_seconds or 0.0,
+                end_seconds=selection.end_seconds or 0.0,
+                source_duration_seconds=context.duration_seconds,
+                keep_backup=keep_backup,
+                operation_id=operation_id,
             ),
             done,
             failed,
@@ -4998,6 +5226,25 @@ class LiteFrame(wx.Frame):
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         self.timer.Stop()
+        # Dlugie operacje fragmentu sa jawnie anulowane przed EOF hosta.
+        # Edytory C# usuwaja swoje pliki techniczne i nie dotykaja oryginalu
+        # przed zweryfikowanym, atomowym etapem podmiany.
+        if self.client is not None:
+            operation_ids = {
+                value
+                for value in (
+                    self._audio_clip_export_operation_id,
+                    self._audio_clip_edit_operation_id,
+                )
+                if value
+            }
+            for operation_id in operation_ids:
+                try:
+                    self.client.cancel_audio_clip(operation_id)
+                except Exception:
+                    # ``client.close`` ma jeszcze awaryjne zamkniecie procesu;
+                    # okna nie blokujemy osobnym komunikatem podczas wyjscia.
+                    pass
         self.gate.cancel_all()
         self._save_state()
         # Znaczniki zdejmujemy PRZED zniszczeniem okna: dokumentacja

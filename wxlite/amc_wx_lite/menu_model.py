@@ -230,6 +230,42 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Dodaj &zakładkę", Action.ADD_BOOKMARK, shortcut="B",
                      accelerator=False, needs_playback=True),
             SEPARATOR,
+            # Zaznaczanie i edycja fragmentu. Kazda pozycja prowadzi do tej
+            # samej akcji co klawisz w PLAYER_VIEW; brak akceleratora okna jest
+            # celowy, bo Ctrl+X na liscie oznacza wyciecie calego pliku do
+            # przeniesienia, a I/O naleza tam do wyszukiwania przyrostowego.
+            MenuItem("Ustaw początek &fragmentu", Action.CLIP_MARK_START,
+                     shortcut="I", accelerator=False, needs_playback=True),
+            MenuItem("Ustaw koniec fra&gmentu", Action.CLIP_MARK_END,
+                     shortcut="O", accelerator=False, needs_playback=True),
+            MenuItem("Prz&ejdź do początku fragmentu", Action.CLIP_JUMP_START,
+                     shortcut="Shift+I", accelerator=False, needs_playback=True),
+            MenuItem("Przejdź do końca fragmen&tu", Action.CLIP_JUMP_END,
+                     shortcut="Shift+O", accelerator=False, needs_playback=True),
+            # ``Prior`` / ``Next`` sa wewnetrznymi nazwami klawiszy w tablicy.
+            # Do etykiety dla uzytkownika trafiaja prawdziwe nazwy Page Up /
+            # Page Down, bez ujawniania identyfikatora modelu.
+            MenuItem("Wróć do poprzedniej granicy odsłuc&hu, Alt+Page Up",
+                     Action.CLIP_PREVIOUS_BOUNDARY,
+                     accelerator=False, needs_playback=True),
+            MenuItem("Prze&jdź do następnej granicy fragmentu, Alt+Page Down",
+                     Action.CLIP_NEXT_BOUNDARY,
+                     accelerator=False, needs_playback=True),
+            MenuItem("Zapisz zaznaczony fragment jako nowy p&lik…", Action.CLIP_EXPORT,
+                     shortcut="Ctrl+S", accelerator=False, needs_playback=True),
+            # Ctrl+X wystepuje juz w menu Pliki dla calego pliku. Tu gest jest
+            # wpisany w celowa etykiete wraz z kontekstem, ale nie jako drugi
+            # akcelerator okna, ktory odebralby go liscie.
+            MenuItem(
+                "Usuń zaznaczony fragment z oryginału &bez ponownego kodowania… "
+                "(Ctrl+X w odtwarzaczu)",
+                Action.CLIP_REMOVE,
+                accelerator=False,
+                needs_playback=True,
+            ),
+            MenuItem("Wyczyść zaznaczenie fragmentu, Shift+&X", Action.CLIP_CLEAR,
+                     accelerator=False, needs_playback=True),
+            SEPARATOR,
             # Przewijanie. CZTERY kroki oryginalu (MainWindow.xaml.cs:21583-21590):
             # 10 s goly, 30 s z Shift, 60 s z Ctrl, czas z ustawien z Ctrl+Alt.
             # Dotad zadnego z nich nie bylo w menu, wiec uzytkownik, ktory nie

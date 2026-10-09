@@ -212,8 +212,14 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["audio.outputs"] = (_, _) => ListOutputs(),
             ["audio.clipCapabilities"] = (request, _) =>
                 LiteAudioClipOperations.Capabilities(request.Args),
+            [LiteAudioClipOperations.RemoveCapabilitiesOperation] = (request, _) =>
+                LiteAudioClipOperations.RemoveCapabilities(request.Args),
             [LiteAudioClipOperations.ExportOperation] = (request, events) =>
                 LiteAudioClipOperations.Export(request.Args, events),
+            [LiteAudioClipOperations.RemoveOperation] = (request, events) =>
+                RemoveAudioClip(request.Args, events),
+            [LiteAudioClipOperations.CancelOperation] = (request, _) =>
+                LiteAudioClipOperations.Cancel(request.Args),
             ["library.collationKeys"] = (request, _) => CollationKeys(request.Args),
             // LEWA STRZALKA na liscie: krotka informacja uzupelniajaca.
             // Port drogi ``AnnounceQuickMediaInformation`` (cs:5485-5541):
@@ -229,6 +235,81 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.next"] = (_, events) => QueueRelative(1, events),
             ["queue.previous"] = (_, events) => QueueRelative(-1, events)
         };
+    }
+
+    private object RemoveAudioClip(JsonElement args, LiteEventSink events)
+    {
+        var requestedPath = LiteArgs.RequirePath(args, "sourcePath");
+        string currentId;
+        lock (_gate)
+        {
+            if (_activeEngine != "files"
+                || _filesItem is null
+                || string.IsNullOrWhiteSpace(_filesItem.Source)
+                || !SameLocalPath(_filesItem.Source, requestedPath))
+            {
+                throw new LiteRequestException(
+                    "Bieżący plik zmienił się przed rozpoczęciem edycji. Oryginalny plik nie został zmieniony.");
+            }
+            currentId = _filesItem.Id;
+        }
+
+        // Zwolnij uchwyt dekodera przed oczekiwaniem na wyłączny dostęp.
+        // Edytor i tak sprawdza dostęp ponownie; ten krok odpowiada kolejności
+        // pełnego AMC i nie pozwala własnemu odtwarzaczowi blokować pliku.
+        StopAll();
+        events.Publish("audio.clipRemoveStarted", new
+        {
+            operationId = LiteArgs.ReadText(args, "operationId") ?? string.Empty,
+            name = Path.GetFileName(requestedPath)
+        });
+        var result = LiteAudioClipOperations.Remove(args, events);
+
+        lock (_gate)
+        {
+            if (_filesItem is not null
+                && string.Equals(_filesItem.Id, currentId, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(_filesItem.Source)
+                && SameLocalPath(_filesItem.Source, result.SourcePath))
+            {
+                var duration = TimeSpan.FromSeconds(result.DurationSeconds);
+                _filesItem.Duration = duration;
+                if (result.SampleRateHz > 0) _filesItem.SampleRateHz = result.SampleRateHz;
+                _filesItem.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
+                    new FileInfo(result.SourcePath).Length,
+                    duration);
+                _filesItem.IsBitrateEstimated = _filesItem.BitrateKbps.HasValue;
+                _filesDurationId = currentId;
+                _filesDuration = duration;
+                _paused = false;
+            }
+        }
+
+        return new
+        {
+            operationId = result.OperationId,
+            path = result.SourcePath,
+            name = result.SourceName,
+            backupPath = result.BackupPath,
+            durationSeconds = result.DurationSeconds,
+            sampleRateHz = result.SampleRateHz,
+            keepBackup = result.KeepBackup
+        };
+    }
+
+    private static bool SameLocalPath(string left, string right)
+    {
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(left),
+                Path.GetFullPath(right),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private object AddBookmark(JsonElement args)

@@ -85,6 +85,10 @@
              Link="Engine\FfmpegRadioWaveProvider.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\AudioClipExporter.cs"
              Link="Engine\AudioClipExporter.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AudioClipOriginalEditor.cs"
+             Link="Engine\AudioClipOriginalEditor.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AudioEditBackupRetention.cs"
+             Link="Engine\AudioEditBackupRetention.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\LiveVorbisWaveProvider.cs"
              Link="Engine\LiveVorbisWaveProvider.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\LegacyIcyAudioStream.cs"

@@ -146,6 +146,7 @@ class Action(Enum):
     CLIP_PREVIOUS_BOUNDARY = "audio.clip.previousBoundary"
     CLIP_NEXT_BOUNDARY = "audio.clip.nextBoundary"
     CLIP_EXPORT = "audio.clip.export"
+    CLIP_REMOVE = "editing.clip.removeFromOriginal"
     CLIP_CLEAR = "audio.clip.clear"
     #: Home/End w odtwarzaczu. ID WPROST z oryginalu (CommandIds.cs:40-41),
     #: zeby przyszly port komend sieciowych i palety nie wymyslal wlasnych.
@@ -418,9 +419,9 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+B": Action.VIEW_ALL_BOOKMARKS,
     # Zaznaczenie fragmentu i jego plikowe operacje. Gesty wprost z obu
     # sciezek klawiatury pelnego AMC (MainWindow.xaml.cs:21619-21627 oraz
-    # 22430-22438). Destrukcyjne Ctrl+X zostanie podlaczone dopiero razem z
-    # pelnym mechanizmem kopii bezpieczenstwa i potwierdzenia -- nie tworzymy
-    # martwego ani uproszczonego skrotu.
+    # 22430-22438). Ctrl+X jest tutaj inna akcja niz wyciecie pliku na liscie:
+    # dziala tylko w odtwarzaczu i prowadzi przez potwierdzenie, wspolny edytor
+    # C#, kopie bezpieczenstwa i weryfikacje zapisanego wyniku.
     "I": Action.CLIP_MARK_START,
     "O": Action.CLIP_MARK_END,
     "Shift+I": Action.CLIP_JUMP_START,
@@ -428,6 +429,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Alt+Prior": Action.CLIP_PREVIOUS_BOUNDARY,
     "Alt+Next": Action.CLIP_NEXT_BOUNDARY,
     "Ctrl+S": Action.CLIP_EXPORT,
+    "Ctrl+X": Action.CLIP_REMOVE,
     "Shift+X": Action.CLIP_CLEAR,
     # Poprzedni/nastepny utwor kolejki. Gesty z oryginalu (MainWindow.xaml:714
     # i :717 -- menu odtwarzacza, te same akceleratory na przyciskach :995-1000).

@@ -4,16 +4,21 @@ import math
 from pathlib import Path
 
 from amc_wx_lite.audio_clip import (
+    AudioEditSettingsReadError,
     AudioClipSelection,
     clip_context_from_status,
+    describe_backup_outcome,
     format_choices_from_payload,
     format_clip_time,
+    load_keep_audio_edit_backups,
     read_clip_selections,
+    remove_clip_confirmation_text,
     restore_clip_selection,
     suggested_clip_file_name,
     update_clip_selections,
 )
 from amc_wx_lite.host_client import LiteHostClient
+from amc_wx_lite.menu_model import build_menus
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 
 
@@ -163,11 +168,23 @@ def test_player_shortcuts_match_full_amc_clip_gestures() -> None:
         Chord("Prior", alt=True): Action.CLIP_PREVIOUS_BOUNDARY,
         Chord("Next", alt=True): Action.CLIP_NEXT_BOUNDARY,
         Chord("S", ctrl=True): Action.CLIP_EXPORT,
+        Chord("X", ctrl=True): Action.CLIP_REMOVE,
         Chord("X", shift=True): Action.CLIP_CLEAR,
     }
     for chord, action in expected.items():
         assert resolve(chord, player_view=True, radio_session=False) is action
         assert resolve(chord, player_view=False, radio_session=False) is not action
+
+    menu_actions = {
+        item.action: item
+        for menu in build_menus()
+        for item in menu.items
+        if item.action in expected.values()
+    }
+    assert set(menu_actions) == set(expected.values())
+    assert menu_actions[Action.CLIP_REMOVE].shortcut is None
+    assert "Ctrl+X w odtwarzaczu" in menu_actions[Action.CLIP_REMOVE].label
+    assert menu_actions[Action.CLIP_REMOVE].accelerator is False
 
 
 def test_host_client_sends_exact_export_payload() -> None:
@@ -194,3 +211,87 @@ def test_host_client_sends_exact_export_payload() -> None:
         },
         3_600.0,
     )]
+
+
+def test_audio_edit_backup_setting_is_strict_and_read_only(tmp_path: Path) -> None:
+    state = tmp_path / "state.json"
+    assert load_keep_audio_edit_backups(state) is False
+
+    state.write_text(
+        '{"settings":{"keepAudioEditBackups":true}}',
+        encoding="utf-8",
+    )
+    assert load_keep_audio_edit_backups(state) is True
+
+    state.write_text(
+        '{"settings":{"keepAudioEditBackups":"true"}}',
+        encoding="utf-8",
+    )
+    assert load_keep_audio_edit_backups(state) is False
+
+    state.write_text("nie json", encoding="utf-8")
+    try:
+        load_keep_audio_edit_backups(state)
+    except AudioEditSettingsReadError as error:
+        assert "Oryginalny plik nie został zmieniony" in str(error)
+    else:
+        raise AssertionError("Uszkodzony profil nie zatrzymał destrukcyjnej edycji")
+
+
+def test_remove_confirmation_and_backup_result_use_user_facing_text() -> None:
+    warning = remove_clip_confirmation_text(1.25, 3.5, keep_backup=False)
+    assert "1:01.250" not in warning
+    assert "0:01.250" in warning
+    assert "0:03.500" in warning
+    assert "Nie będzie można z niej cofnąć cięcia" in warning
+    assert describe_backup_outcome(False, "") == (
+        "Kopia poprzedniej wersji została usunięta po sprawdzeniu pliku."
+    )
+    assert "zachowano" in describe_backup_outcome(False, r"C:\kopia.amc-backup")
+    assert describe_backup_outcome(True, r"C:\kopia.amc-backup") == (
+        "Zachowano kopię poprzedniej wersji."
+    )
+
+
+def test_host_client_sends_exact_remove_and_cancel_payloads() -> None:
+    client = object.__new__(LiteHostClient)
+    calls: list[tuple[str, dict, float]] = []
+    client.call = lambda op, args=None, timeout=10.0: calls.append(  # type: ignore[method-assign]
+        (op, args or {}, timeout)
+    ) or {"ok": True}
+
+    client.audio_clip_removal_capabilities(r"C:\źródło.wav")
+    client.remove_audio_clip(
+        source_path=r"C:\źródło.wav",
+        start_seconds=1.25,
+        end_seconds=3.5,
+        source_duration_seconds=10.0,
+        keep_backup=True,
+        operation_id="abc123",
+    )
+    client.cancel_audio_clip("abc123")
+
+    assert calls == [
+        (
+            "audio.clipRemoveCapabilities",
+            {"sourcePath": r"C:\źródło.wav"},
+            15.0,
+        ),
+        (
+            "audio.clipRemoveOriginal",
+            {
+                "sourcePath": r"C:\źródło.wav",
+                "startSeconds": 1.25,
+                "endSeconds": 3.5,
+                "sourceDurationSeconds": 10.0,
+                "keepBackup": True,
+                "operationId": "abc123",
+            },
+            3_600.0,
+        ),
+        (
+            "audio.clipCancel",
+            {"operationId": "abc123"},
+            5.0,
+        ),
+    ]

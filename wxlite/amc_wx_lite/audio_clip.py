@@ -7,6 +7,7 @@ tworzy celowe, uzytkowe etykiety. Faktyczny eksport wykonuje wspolny silnik C#
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,76 @@ from typing import Callable
 
 
 MAX_SAVED_CLIP_SELECTIONS = 1_000
+
+
+class AudioEditSettingsReadError(RuntimeError):
+    """Profil istnieje, ale nie mozna bezpiecznie ustalic polityki kopii."""
+
+
+def load_keep_audio_edit_backups(state_path: Path) -> bool:
+    """Czytaj ustawienie pelnego AMC bez zapisywania jego profilu.
+
+    Brak pliku albo brak pola ma znaczyc ``False``: to dokladnie domysl
+    ``AppSettings.KeepAudioEditBackups`` i zachowanie starych profili. Blad
+    istniejacego pliku jest inny -- destrukcyjnej operacji nie wolno wtedy
+    rozpoczac ze zgadnieta polityka kopii.
+    """
+    try:
+        raw = json.loads(Path(state_path).read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        return False
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
+        raise AudioEditSettingsReadError(
+            "Nie można odczytać ustawienia kopii bezpieczeństwa z profilu AMC. "
+            "Oryginalny plik nie został zmieniony"
+        ) from error
+    if not isinstance(raw, dict):
+        raise AudioEditSettingsReadError(
+            "Profil AMC ma nieoczekiwaną zawartość. Oryginalny plik nie został zmieniony"
+        )
+    settings = raw.get("settings")
+    if not isinstance(settings, dict):
+        return False
+    # Wylacznie prawdziwy boolean moze wlaczyc zachowywanie kopii. Napis
+    # ``"false"`` nie moze stac sie w Pythonie wartoscia prawdziwa.
+    return settings.get("keepAudioEditBackups") is True
+
+
+def remove_clip_confirmation_text(
+    start_seconds: float,
+    end_seconds: float,
+    *,
+    keep_backup: bool,
+) -> str:
+    """Dokladna, uzytkowa tresc ostrzezenia z pelnego AMC."""
+    backup_notice = (
+        "Kopia bezpieczeństwa zostanie zachowana po edycji. "
+        if keep_backup
+        else (
+            "Kopia bezpieczeństwa zostanie usunięta po sprawdzeniu zapisanego "
+            "pliku. Nie będzie można z niej cofnąć cięcia. "
+        )
+    )
+    return (
+        "Czy usunąć z oryginalnego pliku fragment od "
+        f"{format_clip_time(start_seconds)} do {format_clip_time(end_seconds)}?\n\n"
+        "AMC zatrzyma odtwarzanie i zachowa jakość bez ponownej kompresji. "
+        + backup_notice
+        + "W formatach stratnych granice mogą zostać dopasowane do najbliższej "
+        "ramki kodeka."
+    )
+
+
+def describe_backup_outcome(keep_backup: bool, backup_path: str | None) -> str:
+    """Opisuj rzeczywisty wynik, nie samo zyczenie dotyczace kopii."""
+    if not isinstance(backup_path, str) or not backup_path.strip():
+        return "Kopia poprzedniej wersji została usunięta po sprawdzeniu pliku."
+    if keep_backup:
+        return "Zachowano kopię poprzedniej wersji."
+    return (
+        "Plik został wyedytowany, ale kopię poprzedniej wersji zachowano, "
+        "bo jej nie usunięto."
+    )
 
 
 @dataclass(slots=True)
