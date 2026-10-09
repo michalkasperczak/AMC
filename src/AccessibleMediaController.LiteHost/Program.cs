@@ -84,7 +84,10 @@ internal static class Program
                 // Usuwanie tez uzywa FFmpeg i po potwierdzeniu moze trwac
                 // wiele minut. Osobna komenda anulowania musi w tym czasie
                 // pozostac osiagalna przez zwykla, serialna sciezke.
-                LiteAudioClipOperations.RemoveOperation
+                LiteAudioClipOperations.RemoveOperation,
+                // Dopisywanie buduje i weryfikuje nowy plik obok celu. Takze
+                // musi pozostawic status i anulowanie responsywne.
+                LiteAudioClipOperations.AppendOperation
             ]);
 
         Console.Error.WriteLine(

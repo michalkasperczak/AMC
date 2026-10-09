@@ -418,6 +418,42 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def audio_clip_append_capabilities(
+        self,
+        source_path: str,
+        target_path: str,
+    ) -> Any:
+        """Sprawdz oba pliki i format celu przed rozpoczeciem dopisywania."""
+        return self.call(
+            "audio.clipAppendCapabilities",
+            {"sourcePath": source_path, "targetPath": target_path},
+            timeout=15.0,
+        )
+
+    def append_audio_clip(
+        self,
+        *,
+        source_path: str,
+        target_path: str,
+        start_seconds: float,
+        end_seconds: float,
+        keep_backup: bool,
+        operation_id: str,
+    ) -> Any:
+        """Dopisz zaznaczenie wspolnym ``AudioClipAppender`` pelnego AMC."""
+        return self.call(
+            "audio.clipAppend",
+            {
+                "sourcePath": source_path,
+                "targetPath": target_path,
+                "startSeconds": float(start_seconds),
+                "endSeconds": float(end_seconds),
+                "keepBackup": bool(keep_backup),
+                "operationId": operation_id,
+            },
+            timeout=3_600.0,
+        )
+
     def remove_audio_clip(
         self,
         *,

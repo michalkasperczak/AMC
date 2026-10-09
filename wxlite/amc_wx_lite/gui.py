@@ -39,6 +39,7 @@ from .audio_clip import (
     AudioClipContext,
     AudioClipFormatChoice,
     AudioClipSelection,
+    append_clip_confirmation_text,
     clip_context_from_status,
     describe_backup_outcome,
     format_choices_from_payload,
@@ -1494,6 +1495,7 @@ class LiteFrame(wx.Frame):
         self._audio_clip_edit_in_progress = False
         self._audio_clip_edit_percent = -1
         self._audio_clip_edit_operation_id: str | None = None
+        self._audio_clip_edit_kind: str | None = None
         #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
@@ -2145,6 +2147,34 @@ class LiteFrame(wx.Frame):
                         text += f". {file_name}"
                     self.status_field.SetLabel(text)
                     self.status_bar.show(text)
+        elif name == "audio.clipAppendStarted":
+            operation_id = str(data.get("operationId") or "")
+            if (
+                self._audio_clip_edit_in_progress
+                and self._audio_clip_edit_kind == "append"
+                and operation_id == (self._audio_clip_edit_operation_id or "")
+            ):
+                file_name = str(data.get("name") or "").strip()
+                text = "Dopisywanie fragmentu rozpoczęte"
+                if file_name:
+                    text += f": {file_name}"
+                self.announcer.say(text)
+        elif name == "audio.clipAppendProgress":
+            operation_id = str(data.get("operationId") or "")
+            if (
+                self._audio_clip_edit_in_progress
+                and self._audio_clip_edit_kind == "append"
+                and operation_id == (self._audio_clip_edit_operation_id or "")
+            ):
+                percent = max(0, min(100, int(data.get("percent") or 0)))
+                if percent != self._audio_clip_edit_percent:
+                    self._audio_clip_edit_percent = percent
+                    file_name = str(data.get("name") or "").strip()
+                    text = f"Dopisywanie fragmentu: {percent}%"
+                    if file_name:
+                        text += f". {file_name}"
+                    self.status_field.SetLabel(text)
+                    self.status_bar.show(text)
         elif name == "playback.started":
             # POTWIERDZENIE startu. Dopiero teraz material jest "biezacy" dla
             # Ctrl+B: samo wyslanie ``files.play`` jeszcze niczego nie dowodzi.
@@ -2608,6 +2638,8 @@ class LiteFrame(wx.Frame):
             self._jump_to_relative_audio_clip_boundary(direction=1)
         elif action is Action.CLIP_EXPORT:
             self._export_audio_clip()
+        elif action is Action.CLIP_APPEND:
+            self._append_audio_clip()
         elif action is Action.CLIP_REMOVE:
             self._remove_audio_clip()
         elif action is Action.CLIP_CLEAR:
@@ -3643,7 +3675,11 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Zapisywanie fragmentu już trwa")
             return
         if self._audio_clip_edit_in_progress:
-            self.announcer.say("Usuwanie fragmentu już trwa")
+            self.announcer.say(
+                "Dopisywanie fragmentu już trwa"
+                if self._audio_clip_edit_kind == "append"
+                else "Usuwanie fragmentu już trwa"
+            )
             return
 
         def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
@@ -3774,9 +3810,191 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
+    def _append_audio_clip(self) -> None:
+        if self._audio_clip_edit_in_progress:
+            self.announcer.say(
+                "Dopisywanie fragmentu już trwa"
+                if self._audio_clip_edit_kind == "append"
+                else "Usuwanie fragmentu już trwa"
+            )
+            return
+        if self._audio_clip_export_in_progress:
+            self.announcer.say("Zapisywanie fragmentu już trwa")
+            return
+
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if not selection.is_complete:
+                self.announcer.say(
+                    "Zaznacz początek klawiszem I i koniec klawiszem O"
+                )
+                return
+            client = self.client
+            if client is None:
+                return
+
+            with wx.FileDialog(
+                self,
+                "Wybierz istniejący plik, na końcu którego dopisać fragment",
+                defaultDir=str(Path(context.source_path).parent),
+                wildcard=(
+                    "Obsługiwane audio (*.wav;*.flac;*.mp3;*.m4a;*.aac;*.ogg;*.oga;*.opus)|"
+                    "*.wav;*.flac;*.mp3;*.m4a;*.aac;*.ogg;*.oga;*.opus"
+                ),
+                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+            ) as file_dialog:
+                if file_dialog.ShowModal() != wx.ID_OK:
+                    self._restore_focus_after_dialog()
+                    return
+                target_path = file_dialog.GetPath()
+            self._restore_focus_after_dialog()
+
+            def prepare() -> tuple[object, bool]:
+                capabilities = client.audio_clip_append_capabilities(
+                    context.source_path,
+                    target_path,
+                )
+                keep_backup = load_keep_audio_edit_backups(
+                    self.layout.state_json
+                )
+                return capabilities, keep_backup
+
+            def prepared(result: tuple[object, bool]) -> None:
+                capabilities, keep_backup = result
+                if not isinstance(capabilities, dict):
+                    self.announcer.say(
+                        "Nie można sprawdzić możliwości dopisania fragmentu. Pliki nie zostały zmienione"
+                    )
+                    return
+                if capabilities.get("available") is not True:
+                    message = str(capabilities.get("message") or "").strip()
+                    self.announcer.say(
+                        message
+                        or "Dopisanie fragmentu do tego pliku jest niedostępne"
+                    )
+                    return
+                if capabilities.get("requiresLossyReencode") is True:
+                    if not self._confirm_audio_clip_append(keep_backup=keep_backup):
+                        return
+                self._start_audio_clip_append(
+                    context,
+                    selection,
+                    target_path=target_path,
+                    keep_backup=keep_backup,
+                )
+
+            self.runner.submit(
+                "audio-clip-append-preflight",
+                prepare,
+                prepared,
+                lambda error: self.announcer.say(str(error)),
+            )
+
+        self._request_audio_clip_context(ready)
+
+    def _confirm_audio_clip_append(self, *, keep_backup: bool) -> bool:
+        dialog = wx.MessageDialog(
+            self,
+            append_clip_confirmation_text(keep_backup=keep_backup),
+            "Ponowna kompresja pliku docelowego",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+        )
+        try:
+            if hasattr(dialog, "SetName"):
+                dialog.SetName("Potwierdzenie dopisania fragmentu")
+            if hasattr(dialog, "SetYesNoLabels"):
+                dialog.SetYesNoLabels(
+                    "Tak, dopisz fragment",
+                    "Nie, pozostaw plik",
+                )
+            confirmed = dialog.ShowModal() == wx.ID_YES
+        finally:
+            dialog.Destroy()
+        self._restore_focus_after_dialog()
+        if not confirmed:
+            self.announcer.say("Dopisywanie fragmentu anulowane")
+        return confirmed
+
+    def _start_audio_clip_append(
+        self,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        *,
+        target_path: str,
+        keep_backup: bool,
+    ) -> None:
+        client = self.client
+        if client is None or not selection.is_complete:
+            return
+        operation_id = uuid.uuid4().hex
+        self._audio_clip_edit_in_progress = True
+        self._audio_clip_edit_kind = "append"
+        self._audio_clip_edit_percent = 0
+        self._audio_clip_edit_operation_id = operation_id
+        target_name = Path(target_path).name
+        progress_text = f"Dopisywanie fragmentu: 0%. {target_name}"
+        self.status_field.SetLabel(progress_text)
+        self.status_bar.show(progress_text)
+
+        def done(payload: dict) -> None:
+            self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_kind = None
+            self._audio_clip_edit_percent = 100
+            self._audio_clip_edit_operation_id = None
+            result = payload if isinstance(payload, dict) else {}
+            backup_path = result.get("backupPath")
+            backup_text = describe_backup_outcome(
+                keep_backup,
+                backup_path if isinstance(backup_path, str) else None,
+            )
+            if isinstance(backup_path, str) and backup_path.strip():
+                backup_text += " " + Path(backup_path).name
+            warning = result.get("reencodeWarning")
+            warning_text = ""
+            if isinstance(warning, str) and warning.strip():
+                # Backend może dopisać do ostrzeżenia nazwę kopii. Los kopii
+                # opisujemy niżej na podstawie osobnego, rzeczywistego pola.
+                warning_text = warning.strip().split(" Poprzednia wersja", 1)[0]
+            message = f"Fragment dopisany na końcu: {target_name}."
+            if warning_text:
+                message += f" {warning_text}"
+            message += f" {backup_text}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+            self._restore_focus_after_dialog()
+
+        def failed(error: Exception) -> None:
+            self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_kind = None
+            self._audio_clip_edit_percent = -1
+            self._audio_clip_edit_operation_id = None
+            message = f"Nie udało się dopisać fragmentu: {error}"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+            self._restore_focus_after_dialog()
+
+        self.runner.submit(
+            "audio-clip-append",
+            lambda: client.append_audio_clip(
+                source_path=context.source_path,
+                target_path=target_path,
+                start_seconds=selection.start_seconds or 0.0,
+                end_seconds=selection.end_seconds or 0.0,
+                keep_backup=keep_backup,
+                operation_id=operation_id,
+            ),
+            done,
+            failed,
+        )
+
     def _remove_audio_clip(self) -> None:
         if self._audio_clip_edit_in_progress:
-            self.announcer.say("Usuwanie fragmentu już trwa")
+            self.announcer.say(
+                "Dopisywanie fragmentu już trwa"
+                if self._audio_clip_edit_kind == "append"
+                else "Usuwanie fragmentu już trwa"
+            )
             return
         if self._audio_clip_export_in_progress:
             self.announcer.say("Zapisywanie fragmentu już trwa")
@@ -3883,6 +4101,7 @@ class LiteFrame(wx.Frame):
             return
         operation_id = uuid.uuid4().hex
         self._audio_clip_edit_in_progress = True
+        self._audio_clip_edit_kind = "remove"
         self._audio_clip_edit_percent = 0
         self._audio_clip_edit_operation_id = operation_id
         progress_text = f"Usuwanie fragmentu: 0%. {Path(context.source_path).name}"
@@ -3891,6 +4110,7 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_kind = None
             self._audio_clip_edit_percent = 100
             self._audio_clip_edit_operation_id = None
             result = payload if isinstance(payload, dict) else {}
@@ -3933,6 +4153,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._audio_clip_edit_in_progress = False
+            self._audio_clip_edit_kind = None
             self._audio_clip_edit_percent = -1
             self._audio_clip_edit_operation_id = None
             message = f"Nie udało się usunąć fragmentu: {error}"

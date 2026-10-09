@@ -214,10 +214,14 @@ internal sealed class LiteEngineHandlers : IDisposable
                 LiteAudioClipOperations.Capabilities(request.Args),
             [LiteAudioClipOperations.RemoveCapabilitiesOperation] = (request, _) =>
                 LiteAudioClipOperations.RemoveCapabilities(request.Args),
+            [LiteAudioClipOperations.AppendCapabilitiesOperation] = (request, _) =>
+                LiteAudioClipOperations.AppendCapabilities(request.Args),
             [LiteAudioClipOperations.ExportOperation] = (request, events) =>
                 LiteAudioClipOperations.Export(request.Args, events),
             [LiteAudioClipOperations.RemoveOperation] = (request, events) =>
                 RemoveAudioClip(request.Args, events),
+            [LiteAudioClipOperations.AppendOperation] = (request, events) =>
+                AppendAudioClip(request.Args, events),
             [LiteAudioClipOperations.CancelOperation] = (request, _) =>
                 LiteAudioClipOperations.Cancel(request.Args),
             ["library.collationKeys"] = (request, _) => CollationKeys(request.Args),
@@ -293,6 +297,41 @@ internal sealed class LiteEngineHandlers : IDisposable
             backupPath = result.BackupPath,
             durationSeconds = result.DurationSeconds,
             sampleRateHz = result.SampleRateHz,
+            keepBackup = result.KeepBackup
+        };
+    }
+
+    private object AppendAudioClip(JsonElement args, LiteEventSink events)
+    {
+        var requestedSource = LiteArgs.RequirePath(args, "sourcePath");
+        lock (_gate)
+        {
+            if (_activeEngine != "files"
+                || _filesItem is null
+                || string.IsNullOrWhiteSpace(_filesItem.Source)
+                || !SameLocalPath(_filesItem.Source, requestedSource))
+            {
+                throw new LiteRequestException(
+                    "Bieżący plik zmienił się przed rozpoczęciem dopisywania. Pliki nie zostały zmienione.");
+            }
+        }
+
+        // Źródło pozostaje odtwarzane: dopisywanie zmienia wyłącznie osobny
+        // plik docelowy, tak samo jak okno pełnego AMC. Wspólny appender sam
+        // blokuje cel, buduje wynik obok niego i podmienia go dopiero po
+        // sprawdzeniu długości i tożsamości.
+        var result = LiteAudioClipOperations.Append(args, events);
+        return new
+        {
+            operationId = result.OperationId,
+            path = result.TargetPath,
+            name = result.TargetName,
+            backupPath = result.BackupPath,
+            targetDurationBeforeSeconds = result.TargetDurationBeforeSeconds,
+            appendedDurationSeconds = result.AppendedDurationSeconds,
+            targetDurationAfterSeconds = result.TargetDurationAfterSeconds,
+            targetWasReencoded = result.TargetWasReencoded,
+            reencodeWarning = result.ReencodeWarning,
             keepBackup = result.KeepBackup
         };
     }

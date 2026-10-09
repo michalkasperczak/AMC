@@ -146,6 +146,7 @@ class Action(Enum):
     CLIP_PREVIOUS_BOUNDARY = "audio.clip.previousBoundary"
     CLIP_NEXT_BOUNDARY = "audio.clip.nextBoundary"
     CLIP_EXPORT = "audio.clip.export"
+    CLIP_APPEND = "audio.clip.appendToFile"
     CLIP_REMOVE = "editing.clip.removeFromOriginal"
     CLIP_CLEAR = "audio.clip.clear"
     #: Home/End w odtwarzaczu. ID WPROST z oryginalu (CommandIds.cs:40-41),
@@ -429,6 +430,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Alt+Prior": Action.CLIP_PREVIOUS_BOUNDARY,
     "Alt+Next": Action.CLIP_NEXT_BOUNDARY,
     "Ctrl+S": Action.CLIP_EXPORT,
+    "Ctrl+D": Action.CLIP_APPEND,
     "Ctrl+X": Action.CLIP_REMOVE,
     "Shift+X": Action.CLIP_CLEAR,
     # Poprzedni/nastepny utwor kolejki. Gesty z oryginalu (MainWindow.xaml:714
@@ -554,6 +556,7 @@ def describe() -> list[tuple[str, str]]:
         Action.CLIP_PREVIOUS_BOUNDARY: "Poprzednia granica fragmentu",
         Action.CLIP_NEXT_BOUNDARY: "Nastepna granica fragmentu",
         Action.CLIP_EXPORT: "Zapisz zaznaczony fragment jako nowy plik",
+        Action.CLIP_APPEND: "Dopisz zaznaczony fragment na koncu pliku",
         Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i

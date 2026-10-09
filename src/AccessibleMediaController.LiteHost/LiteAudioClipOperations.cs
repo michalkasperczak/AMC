@@ -16,6 +16,8 @@ internal static class LiteAudioClipOperations
     internal const string ExportOperation = "audio.clipExport";
     internal const string RemoveCapabilitiesOperation = "audio.clipRemoveCapabilities";
     internal const string RemoveOperation = "audio.clipRemoveOriginal";
+    internal const string AppendCapabilitiesOperation = "audio.clipAppendCapabilities";
+    internal const string AppendOperation = "audio.clipAppend";
     internal const string CancelOperation = "audio.clipCancel";
     private const double MaximumMediaSeconds = 31_536_000d;
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> Operations =
@@ -93,6 +95,97 @@ internal static class LiteAudioClipOperations
             return new { available = false, message = exception.Message };
         }
         return new { available = true, message = string.Empty };
+    }
+
+    internal static object AppendCapabilities(JsonElement args)
+    {
+        var sourcePath = LiteArgs.RequirePath(args, "sourcePath");
+        var targetPath = LiteArgs.RequirePath(args, "targetPath");
+        try
+        {
+            if (string.Equals(
+                    Path.GetFullPath(sourcePath),
+                    Path.GetFullPath(targetPath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return new
+                {
+                    available = false,
+                    message = "Plik docelowy musi być inny niż źródło fragmentu.",
+                    requiresLossyReencode = false
+                };
+            }
+            if (!File.Exists(sourcePath))
+            {
+                return new
+                {
+                    available = false,
+                    message = "Nie znaleziono pliku źródłowego.",
+                    requiresLossyReencode = false
+                };
+            }
+            if (!File.Exists(targetPath))
+            {
+                return new
+                {
+                    available = false,
+                    message = "Nie znaleziono pliku, do którego fragment miał zostać dołączony.",
+                    requiresLossyReencode = false
+                };
+            }
+            foreach (var candidate in new[] { sourcePath, targetPath })
+            {
+                var availability = CloudFileAvailability.GetEditAvailability(candidate);
+                if (!availability.CanEdit)
+                {
+                    return new
+                    {
+                        available = false,
+                        message = availability.Message,
+                        requiresLossyReencode = false
+                    };
+                }
+            }
+            if ((File.GetAttributes(targetPath) & FileAttributes.ReadOnly) != 0)
+            {
+                return new
+                {
+                    available = false,
+                    message = "Plik docelowy jest tylko do odczytu.",
+                    requiresLossyReencode = false
+                };
+            }
+            if (!AudioClipAppender.SupportsTarget(targetPath))
+            {
+                return new
+                {
+                    available = false,
+                    message = "Ten format wymaga składnika FFmpeg lub nie jest obsługiwany. "
+                        + "Wybierz WAV, FLAC, MP3, M4A, AAC, Ogg albo Opus.",
+                    requiresLossyReencode = false
+                };
+            }
+            var extension = Path.GetExtension(targetPath).ToLowerInvariant();
+            return new
+            {
+                available = true,
+                message = string.Empty,
+                targetName = Path.GetFileName(targetPath),
+                requiresLossyReencode = extension is not (".wav" or ".flac")
+            };
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException)
+        {
+            return new
+            {
+                available = false,
+                message = exception.Message,
+                requiresLossyReencode = false
+            };
+        }
     }
 
     internal static object Export(JsonElement args, LiteEventSink events)
@@ -230,6 +323,69 @@ internal static class LiteAudioClipOperations
         }
     }
 
+    internal static LiteAudioClipAppendOutcome Append(JsonElement args, LiteEventSink events)
+    {
+        var sourcePath = LiteArgs.RequirePath(args, "sourcePath");
+        var targetPath = LiteArgs.RequirePath(args, "targetPath");
+        var startSeconds = LiteArgs.ReadDouble(
+            args, "startSeconds", -1d, 0d, MaximumMediaSeconds);
+        var endSeconds = LiteArgs.ReadDouble(
+            args, "endSeconds", -1d, 0d, MaximumMediaSeconds);
+        if (startSeconds < 0d || endSeconds <= startSeconds)
+            throw new LiteRequestException("Początek i koniec fragmentu są nieprawidłowe.");
+
+        var keepBackup = LiteArgs.ReadBool(args, "keepBackup", false);
+        var targetName = Path.GetFileName(targetPath);
+        var (operationId, cancellation) = BeginOperation(args);
+        var lastPercent = -5;
+        var progress = new InlineProgress(value =>
+        {
+            var percent = Math.Clamp((int)Math.Round(value * 100d), 0, 100);
+            if (percent < 100 && percent < lastPercent + 5) return;
+            lastPercent = percent;
+            events.Publish("audio.clipAppendProgress", new
+            {
+                operationId,
+                percent,
+                name = targetName
+            });
+        });
+        events.Publish("audio.clipAppendStarted", new { operationId, name = targetName });
+        try
+        {
+            var result = AudioClipAppender.AppendAsync(
+                    new AudioClipAppendRequest(
+                        sourcePath,
+                        targetPath,
+                        TimeSpan.FromSeconds(startSeconds),
+                        TimeSpan.FromSeconds(endSeconds)),
+                    progress,
+                    cancellation.Token,
+                    keepBackup)
+                .GetAwaiter()
+                .GetResult();
+            return new LiteAudioClipAppendOutcome(
+                operationId,
+                targetPath,
+                targetName,
+                result.BackupPath,
+                result.TargetDurationBefore.TotalSeconds,
+                result.AppendedDuration.TotalSeconds,
+                result.TargetDurationAfter.TotalSeconds,
+                result.TargetWasReencoded,
+                result.ReencodeWarning,
+                keepBackup);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new LiteRequestException("Dopisywanie fragmentu zostało anulowane.");
+        }
+        finally
+        {
+            EndOperation(operationId, cancellation);
+        }
+    }
+
     internal static object Cancel(JsonElement args)
     {
         var operationId = LiteArgs.RequireText(args, "operationId");
@@ -305,4 +461,16 @@ internal sealed record LiteAudioClipRemovalOutcome(
     string BackupPath,
     double DurationSeconds,
     int SampleRateHz,
+    bool KeepBackup);
+
+internal sealed record LiteAudioClipAppendOutcome(
+    string OperationId,
+    string TargetPath,
+    string TargetName,
+    string BackupPath,
+    double TargetDurationBeforeSeconds,
+    double AppendedDurationSeconds,
+    double TargetDurationAfterSeconds,
+    bool TargetWasReencoded,
+    string? ReencodeWarning,
     bool KeepBackup);

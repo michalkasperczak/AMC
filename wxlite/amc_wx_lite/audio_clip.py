@@ -75,6 +75,22 @@ def remove_clip_confirmation_text(
     )
 
 
+def append_clip_confirmation_text(*, keep_backup: bool) -> str:
+    """Ostrzeżenie pełnego AMC przed ponowną kompresją pliku docelowego."""
+    backup_notice = (
+        "Kopia poprzedniej wersji pozostanie obok pliku po edycji. "
+        if keep_backup
+        else "Kopia poprzedniej wersji zostanie usunięta po sprawdzeniu zapisanego pliku. "
+    )
+    backup_notice += "Przy błędzie lub niepewnym wyniku kopia zostanie zachowana."
+    return (
+        "Dopisanie do tego formatu wymaga ponownej kompresji całej zawartości "
+        "pliku i może obniżyć jej jakość. "
+        + backup_notice
+        + " Czy dopisać fragment?"
+    )
+
+
 def describe_backup_outcome(keep_backup: bool, backup_path: str | None) -> str:
     """Opisuj rzeczywisty wynik, nie samo zyczenie dotyczace kopii."""
     if not isinstance(backup_path, str) or not backup_path.strip():

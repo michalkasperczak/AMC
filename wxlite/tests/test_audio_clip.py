@@ -6,6 +6,7 @@ from pathlib import Path
 from amc_wx_lite.audio_clip import (
     AudioEditSettingsReadError,
     AudioClipSelection,
+    append_clip_confirmation_text,
     clip_context_from_status,
     describe_backup_outcome,
     format_choices_from_payload,
@@ -168,6 +169,7 @@ def test_player_shortcuts_match_full_amc_clip_gestures() -> None:
         Chord("Prior", alt=True): Action.CLIP_PREVIOUS_BOUNDARY,
         Chord("Next", alt=True): Action.CLIP_NEXT_BOUNDARY,
         Chord("S", ctrl=True): Action.CLIP_EXPORT,
+        Chord("D", ctrl=True): Action.CLIP_APPEND,
         Chord("X", ctrl=True): Action.CLIP_REMOVE,
         Chord("X", shift=True): Action.CLIP_CLEAR,
     }
@@ -185,6 +187,8 @@ def test_player_shortcuts_match_full_amc_clip_gestures() -> None:
     assert menu_actions[Action.CLIP_REMOVE].shortcut is None
     assert "Ctrl+X w odtwarzaczu" in menu_actions[Action.CLIP_REMOVE].label
     assert menu_actions[Action.CLIP_REMOVE].accelerator is False
+    assert menu_actions[Action.CLIP_APPEND].shortcut == "Ctrl+D"
+    assert menu_actions[Action.CLIP_APPEND].accelerator is False
 
 
 def test_host_client_sends_exact_export_payload() -> None:
@@ -251,15 +255,28 @@ def test_remove_confirmation_and_backup_result_use_user_facing_text() -> None:
     assert describe_backup_outcome(True, r"C:\kopia.amc-backup") == (
         "Zachowano kopię poprzedniej wersji."
     )
+    append_warning = append_clip_confirmation_text(keep_backup=False)
+    assert "ponownej kompresji całej zawartości" in append_warning
+    assert "Kopia poprzedniej wersji zostanie usunięta" in append_warning
+    assert "Czy dopisać fragment?" in append_warning
 
 
-def test_host_client_sends_exact_remove_and_cancel_payloads() -> None:
+def test_host_client_sends_exact_append_remove_and_cancel_payloads() -> None:
     client = object.__new__(LiteHostClient)
     calls: list[tuple[str, dict, float]] = []
     client.call = lambda op, args=None, timeout=10.0: calls.append(  # type: ignore[method-assign]
         (op, args or {}, timeout)
     ) or {"ok": True}
 
+    client.audio_clip_append_capabilities(r"C:\źródło.wav", r"C:\cel.flac")
+    client.append_audio_clip(
+        source_path=r"C:\źródło.wav",
+        target_path=r"C:\cel.flac",
+        start_seconds=1.25,
+        end_seconds=3.5,
+        keep_backup=False,
+        operation_id="append123",
+    )
     client.audio_clip_removal_capabilities(r"C:\źródło.wav")
     client.remove_audio_clip(
         source_path=r"C:\źródło.wav",
@@ -272,6 +289,23 @@ def test_host_client_sends_exact_remove_and_cancel_payloads() -> None:
     client.cancel_audio_clip("abc123")
 
     assert calls == [
+        (
+            "audio.clipAppendCapabilities",
+            {"sourcePath": r"C:\źródło.wav", "targetPath": r"C:\cel.flac"},
+            15.0,
+        ),
+        (
+            "audio.clipAppend",
+            {
+                "sourcePath": r"C:\źródło.wav",
+                "targetPath": r"C:\cel.flac",
+                "startSeconds": 1.25,
+                "endSeconds": 3.5,
+                "keepBackup": False,
+                "operationId": "append123",
+            },
+            3_600.0,
+        ),
         (
             "audio.clipRemoveCapabilities",
             {"sourcePath": r"C:\źródło.wav"},

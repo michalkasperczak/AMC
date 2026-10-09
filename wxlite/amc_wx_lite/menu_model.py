@@ -253,6 +253,13 @@ def build_menus() -> tuple[Menu, ...]:
                      accelerator=False, needs_playback=True),
             MenuItem("Zapisz zaznaczony fragment jako nowy p&lik…", Action.CLIP_EXPORT,
                      shortcut="Ctrl+S", accelerator=False, needs_playback=True),
+            MenuItem(
+                "&Dopisz zaznaczony fragment na końcu istniejącego pliku…",
+                Action.CLIP_APPEND,
+                shortcut="Ctrl+D",
+                accelerator=False,
+                needs_playback=True,
+            ),
             # Ctrl+X wystepuje juz w menu Pliki dla calego pliku. Tu gest jest
             # wpisany w celowa etykiete wraz z kontekstem, ale nie jako drugi
             # akcelerator okna, ktory odebralby go liscie.
@@ -287,7 +294,7 @@ def build_menus() -> tuple[Menu, ...]:
             # wiec nie ma powodu odbierac im podpisu-akceleratora.
             MenuItem("Przewiń &wstecz 10 sekund", Action.SEEK_BACK_10,
                      shortcut="Left", accelerator=False, needs_playback=True),
-            MenuItem("Przewiń w przó&d 10 sekund", Action.SEEK_FORWARD_10,
+            MenuItem("Przewiń w przód &10 sekund", Action.SEEK_FORWARD_10,
                      shortcut="Right", accelerator=False, needs_playback=True),
             MenuItem("Przewiń wstecz &30 sekund", Action.SEEK_BACK_30,
                      shortcut="Shift+Left", needs_playback=True),

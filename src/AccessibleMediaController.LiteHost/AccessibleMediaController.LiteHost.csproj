@@ -87,6 +87,8 @@
              Link="Engine\AudioClipExporter.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\AudioClipOriginalEditor.cs"
              Link="Engine\AudioClipOriginalEditor.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\AudioClipAppender.cs"
+             Link="Engine\AudioClipAppender.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\AudioEditBackupRetention.cs"
              Link="Engine\AudioEditBackupRetention.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\LiveVorbisWaveProvider.cs"
