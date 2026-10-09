@@ -420,6 +420,22 @@ class LiteHostClient:
             timeout=24 * 3600.0,
         )
 
+    def podcast_save_as_info(self, episode_id: str) -> Any:
+        """Pobierz wspólną z AMC propozycję nazwy i folderu dialogu."""
+        return self.call(
+            "podcast.downloadSaveAsInfo",
+            {"episodeId": episode_id},
+            timeout=20.0,
+        )
+
+    def save_podcast_episode_as(self, episode_id: str, path: str) -> Any:
+        """Zapisz jedną kopię pod wskazaną nazwą bez zmiany stanu pobrania."""
+        return self.call(
+            "podcast.downloadSaveAs",
+            {"episodeId": episode_id, "path": path},
+            timeout=24 * 3600.0,
+        )
+
     def add_podcast_source(self, address: str, title: str = "") -> Any:
         """Sprawdź i dodaj RSS, kolekcję YouTube albo publiczne medium."""
         return self.call(

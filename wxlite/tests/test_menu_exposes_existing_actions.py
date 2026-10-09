@@ -176,7 +176,7 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     # pozycja Biblioteki obsługuje pliki i podcasty, a menu Radio ma bardziej
     # szczegółową nazwę tej samej intencji dla stacji.
     assert set(duplicates) <= {
-        "Ctrl+O", "Ctrl+N", "Ctrl+D", "Alt+1", "Alt+2", "F2", "Delete"
+        "Ctrl+O", "Ctrl+N", "Ctrl+D", "Ctrl+S", "Alt+1", "Alt+2", "F2", "Delete"
     }, duplicates
     for item in duplicates.get("Ctrl+O", []):
         assert not item.accelerator, (
@@ -192,6 +192,10 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     for item in duplicates.get("Ctrl+D", []):
         assert not item.accelerator, (
             "kontekstowe Ctrl+D musi rozstrzygnąć sesja podcastów albo plików"
+        )
+    for item in duplicates.get("Ctrl+S", []):
+        assert not item.accelerator, (
+            "kontekstowe Ctrl+S musi rozstrzygnąć zapis odcinka albo fragmentu"
         )
     for item in duplicates.get("Ctrl+N", []):
         assert not item.accelerator, (
@@ -238,6 +242,17 @@ def test_podcast_download_menu_is_contextual_and_does_not_steal_ctrl_d() -> None
     assert item.needs_podcast_session and item.needs_selection
     assert not item.accelerator
     assert "pobierz" in item.label.replace("&", "").casefold()
+
+
+def test_podcast_save_as_menu_is_contextual_and_does_not_steal_ctrl_s() -> None:
+    item = next(
+        entry for entry in all_items()
+        if entry.action is Action.SAVE_PODCAST_EPISODE_AS
+    )
+    assert item.shortcut == "Ctrl+S"
+    assert item.needs_podcast_session and item.needs_selection
+    assert not item.accelerator
+    assert "zapisz" in item.label.replace("&", "").casefold()
 
 
 def test_podcast_add_menu_is_contextual_and_does_not_steal_ctrl_n() -> None:

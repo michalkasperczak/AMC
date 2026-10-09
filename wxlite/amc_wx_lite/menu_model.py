@@ -140,6 +140,14 @@ def build_menus() -> tuple[Menu, ...]:
                 needs_podcast_session=True,
                 needs_selection=True,
             ),
+            MenuItem(
+                "Zapisz odcinek &jako…",
+                Action.SAVE_PODCAST_EPISODE_AS,
+                shortcut="Ctrl+S",
+                accelerator=False,
+                needs_podcast_session=True,
+                needs_selection=True,
+            ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #

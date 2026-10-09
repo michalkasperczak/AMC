@@ -114,6 +114,7 @@ internal static class Program
                 // Pobieranie RSS/YouTube jest dlugie, ale nie moze blokowac
                 // transportu ani zapisu postepu odtwarzania.
                 LitePodcastDownloadCoordinator.Operation,
+                LitePodcastDownloadCoordinator.SaveAsOperation,
                 // Sprawdzenie nowego źródła również wykonuje sieć lub yt-dlp.
                 LitePodcastAddCoordinator.Operation,
                 // Import pobiera maksymalnie cztery RSS równolegle. Nie może

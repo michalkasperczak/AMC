@@ -13,6 +13,8 @@ namespace AccessibleMediaController.LiteHost;
 internal sealed class LitePodcastDownloadCoordinator : IDisposable
 {
     public const string Operation = "podcast.download";
+    public const string SaveAsInfoOperation = "podcast.downloadSaveAsInfo";
+    public const string SaveAsOperation = "podcast.downloadSaveAs";
     private const int MaximumBatchSize = 100;
 
     private readonly LitePodcastProgressStore _podcasts;
@@ -160,6 +162,137 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
         {
             Volatile.Write(ref _downloadInProgress, 0);
         }
+    }
+
+    public object SaveAsInfo(JsonElement args)
+    {
+        var target = GetSingleTarget(args);
+        return new
+        {
+            title = target.Title,
+            suggestedFileName = PodcastDownloadNaming.SuggestedFileName(
+                target.Title,
+                target.MediaUrl,
+                target.MediaType),
+            initialFolder = PodcastDownloadFolderResolver.ResolveDialogInitialFolder(
+                target.ConfiguredDownloadsFolder)
+        };
+    }
+
+    public object SaveAs(JsonElement args, LiteEventSink events)
+    {
+        if (Interlocked.CompareExchange(ref _downloadInProgress, 1, 0) != 0)
+            throw new LiteRequestException("Pobieranie odcinków już trwa.");
+
+        try
+        {
+            var target = GetSingleTarget(args);
+            var destination = NormalizeDestination(LiteArgs.RequirePath(args, "path"));
+            if (!Uri.TryCreate(target.MediaUrl, UriKind.Absolute, out var source)
+                || source.Scheme is not ("http" or "https"))
+            {
+                throw new LiteRequestException("Odcinek nie ma prawidłowego adresu audio.");
+            }
+
+            PublishProgress(events, target, 0, 1, percent: 0);
+            PodcastDownloadResult result;
+            try
+            {
+                if (YouTubeSourceResolver.IsYouTubeUrl(target.MediaUrl))
+                {
+                    result = YouTubeMediaDownloader.DownloadMp3Async(
+                            target.MediaUrl,
+                            destination,
+                            _cancellation.Token,
+                            overwrite: true)
+                        .GetAwaiter()
+                        .GetResult();
+                }
+                else
+                {
+                    var lastProgressUtc = DateTime.MinValue;
+                    var lastPercent = -1;
+                    var progress = new InlineProgress<PodcastDownloadProgress>(value =>
+                    {
+                        var percent = value.TotalBytes is > 0
+                            ? (int)Math.Clamp(
+                                value.BytesReceived * 100 / value.TotalBytes.Value,
+                                0,
+                                100)
+                            : -1;
+                        var now = DateTime.UtcNow;
+                        if (percent == lastPercent
+                            && now - lastProgressUtc < TimeSpan.FromSeconds(1)) return;
+                        if (now - lastProgressUtc < TimeSpan.FromMilliseconds(500)
+                            && percent is not 100) return;
+                        lastProgressUtc = now;
+                        lastPercent = percent;
+                        PublishProgress(events, target, 0, 1, percent, value.BytesReceived);
+                    });
+                    result = _downloader.DownloadAsync(
+                            source,
+                            destination,
+                            progress,
+                            _cancellation.Token,
+                            overwrite: true)
+                        .GetAwaiter()
+                        .GetResult();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is HttpRequestException
+                or IOException
+                or UnauthorizedAccessException
+                or InvalidDataException
+                or ArgumentException
+                or NotSupportedException
+                or TimeoutException)
+            {
+                throw new LiteRequestException("Nie można pobrać odcinka: " + exception.Message);
+            }
+
+            PublishProgress(events, target, 0, 1, percent: 100);
+            return new
+            {
+                title = target.Title,
+                fileName = Path.GetFileName(result.Path),
+                bytesWritten = result.BytesWritten
+            };
+        }
+        finally
+        {
+            Volatile.Write(ref _downloadInProgress, 0);
+        }
+    }
+
+    private PodcastDownloadTarget GetSingleTarget(JsonElement args)
+    {
+        var episodeId = LiteArgs.RequireText(args, "episodeId");
+        var target = _podcasts.GetDownloadTargets([episodeId]).FirstOrDefault();
+        return target ?? throw new LiteRequestException(
+            "Odcinka nie ma już w bibliotece Podcastów i YouTube.");
+    }
+
+    private static string NormalizeDestination(string path)
+    {
+        string destination;
+        try
+        {
+            destination = Path.GetFullPath(path);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or NotSupportedException
+            or PathTooLongException)
+        {
+            throw new LiteRequestException("Wskazana ścieżka pliku jest niepoprawna.");
+        }
+        var directory = Path.GetDirectoryName(destination);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            throw new LiteRequestException("Folder docelowy nie istnieje.");
+        return destination;
     }
 
     private static string[] ReadEpisodeIds(JsonElement args)

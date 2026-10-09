@@ -182,6 +182,24 @@ def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() 
         client.close()
 
 
+def test_podcast_save_as_uses_separate_info_and_copy_operations() -> None:
+    client = make_client()
+    try:
+        info = client.podcast_save_as_info("episode-1")
+        saved = client.save_podcast_episode_as(
+            "episode-1", "D:/wymiana/Wybrany odcinek.mp3"
+        )
+        assert info["op"] == "podcast.downloadSaveAsInfo"
+        assert info["args"] == {"episodeId": "episode-1"}
+        assert saved["op"] == "podcast.downloadSaveAs"
+        assert saved["args"] == {
+            "episodeId": "episode-1",
+            "path": "D:/wymiana/Wybrany odcinek.mp3",
+        }
+    finally:
+        client.close()
+
+
 def test_podcast_add_uses_one_narrow_host_operation() -> None:
     client = make_client()
     try:

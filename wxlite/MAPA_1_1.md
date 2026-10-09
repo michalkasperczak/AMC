@@ -312,7 +312,9 @@ własnej normalizacji diakrytyków.
   150 pozycji i nie ujawniają technicznych identyfikatorów. `Ctrl+N` dodaje
   RSS/Atom, kanał albo playlistę YouTube i pojedynczy publiczny materiał
   YouTube wspólnym torem C#. `F2` zmienia nazwę źródła, `Delete` usuwa je z
-  Biblioteki, `F5`/`Ctrl+F5` odświeża, a `Ctrl+D` pobiera zaznaczone odcinki.
+  Biblioteki, `F5`/`Ctrl+F5` odświeża, `Ctrl+D` pobiera zaznaczone odcinki,
+  a `Ctrl+S` zapisuje jeden odcinek pod jawnie wybraną nazwą bez zmiany jego
+  stanu „Pobrane”.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
   do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,

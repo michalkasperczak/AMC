@@ -3404,6 +3404,8 @@ class LiteFrame(wx.Frame):
             self._refresh_podcasts(refresh_all=True)
         elif action is Action.DOWNLOAD_PODCAST_EPISODES:
             self._download_podcast_episodes()
+        elif action is Action.SAVE_PODCAST_EPISODE_AS:
+            self._save_podcast_episode_as()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -4740,6 +4742,89 @@ class LiteFrame(wx.Frame):
             self.announcer.say(message)
 
         self.runner.submit("podcast-download", work, done, failed)
+
+    def _save_podcast_episode_as(self) -> None:
+        """Ctrl+S: jedna jawnie nazwana kopia, bez zmiany pola Pobrane."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say("Zapisywanie odcinka jest dostępne w sesji Podcasty i YouTube")
+            return
+        if self._podcast_download_pending:
+            self.announcer.say("Pobieranie odcinków już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zapisać odcinka")
+            return
+
+        rows = [row for row in self._selected_action_rows() if row.kind == "episode"]
+        if len(rows) != 1:
+            self.announcer.say(
+                "Zapisz jako działa dla jednego odcinka. Wybierz jeden odcinek i spróbuj ponownie"
+            )
+            return
+        row = rows[0]
+        self._podcast_download_pending = True
+        self.status_bar.show("Przygotowywanie zapisu odcinka")
+
+        def prepare() -> dict:
+            result = client.podcast_save_as_info(row.item_id)
+            return result if isinstance(result, dict) else {}
+
+        def prepared(info: dict) -> None:
+            suggested = str(
+                info.get("suggestedFileName") or "Odcinek podcastu.mp3"
+            ).strip()
+            initial_folder = str(info.get("initialFolder") or "").strip()
+            extension = Path(suggested).suffix or ".mp3"
+            with wx.FileDialog(
+                self,
+                message="Zapisz odcinek podcastu jako",
+                defaultDir=initial_folder,
+                defaultFile=suggested,
+                wildcard=(
+                    f"Plik audio (*{extension})|*{extension}|"
+                    "Wszystkie pliki (*.*)|*.*"
+                ),
+                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+            ) as picker:
+                if picker.ShowModal() != wx.ID_OK:
+                    self._podcast_download_pending = False
+                    return
+                destination = picker.GetPath()
+
+            started = f"Pobieranie odcinka: {row.title}"
+            self.status_field.SetLabel(started)
+            self.status_bar.show(started)
+            self.announcer.say("Pobieranie odcinka")
+
+            def work() -> dict:
+                result = client.save_podcast_episode_as(row.item_id, destination)
+                return result if isinstance(result, dict) else {}
+
+            def done(payload: dict) -> None:
+                self._podcast_download_pending = False
+                file_name = str(
+                    payload.get("fileName") or Path(destination).name
+                ).strip()
+                message = f"Zapisano odcinek jako: {file_name}"
+                self.status_field.SetLabel(message)
+                self.status_bar.show(message)
+                self.announcer.say(message)
+
+            self.runner.submit("podcast-save-as", work, done, failed)
+
+        def failed(error: Exception) -> None:
+            self._podcast_download_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się zapisać odcinka"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-save-as-info", prepare, prepared, failed)
 
     def _reload_podcast_list_after_download(
         self, preferred_id: str, completion_message: str

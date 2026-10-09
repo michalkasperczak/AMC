@@ -138,3 +138,82 @@ def test_progress_is_visible_in_status_without_interrupting_nvda() -> None:
         "Pobieranie 2 z 3: 47%. Rozmowa tygodnia",
     ]
     assert spoken == []
+
+
+def test_ctrl_s_uses_suggested_name_and_speaks_only_the_file_name() -> None:
+    row = Row(item_id="private-episode-1", title="Pierwszy odcinek", kind="episode")
+    calls: list[tuple] = []
+    spoken: list[str] = []
+    statuses: list[str] = []
+
+    def info(episode_id):
+        calls.append(("info", episode_id))
+        return {
+            "title": "Pierwszy odcinek",
+            "suggestedFileName": "Pierwszy odcinek.mp3",
+            "initialFolder": "D:/Pobrane",
+        }
+
+    def save(episode_id, path):
+        calls.append(("save", episode_id, path))
+        return {"fileName": "Wybrana kopia.mp3", "bytesWritten": 123}
+
+    def submit(_name, work, done, failed):
+        try:
+            done(work())
+        except Exception as error:
+            failed(error)
+
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.PODCASTS),
+        client=SimpleNamespace(
+            podcast_save_as_info=info,
+            save_podcast_episode_as=save,
+        ),
+        runner=SimpleNamespace(submit=submit),
+        announcer=SimpleNamespace(say=spoken.append),
+        status_field=SimpleNamespace(SetLabel=statuses.append),
+        status_bar=SimpleNamespace(show=statuses.append),
+        _podcast_download_pending=False,
+        _selected_action_rows=lambda: [row],
+    )
+
+    class Picker:
+        def __init__(self, _parent, **kwargs):
+            calls.append(("dialog", kwargs["defaultDir"], kwargs["defaultFile"]))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def ShowModal(self):  # noqa: N802 - API wx
+            return gui.wx.ID_OK
+
+        def GetPath(self):  # noqa: N802 - API wx
+            return "D:/Inny folder/Wybrana kopia.mp3"
+
+    original = gui.wx.FileDialog
+    gui.wx.FileDialog = Picker
+    gui.wx.FD_SAVE = 1
+    gui.wx.FD_OVERWRITE_PROMPT = 2
+    try:
+        gui.LiteFrame._save_podcast_episode_as(frame)
+    finally:
+        gui.wx.FileDialog = original
+
+    assert calls == [
+        ("info", "private-episode-1"),
+        ("dialog", "D:/Pobrane", "Pierwszy odcinek.mp3"),
+        (
+            "save",
+            "private-episode-1",
+            "D:/Inny folder/Wybrana kopia.mp3",
+        ),
+    ]
+    assert frame._podcast_download_pending is False
+    assert spoken[-1] == "Zapisano odcinek jako: Wybrana kopia.mp3"
+    exposed = " ".join(spoken + statuses)
+    assert "private-episode" not in exposed
+    assert "D:/Inny folder" not in exposed

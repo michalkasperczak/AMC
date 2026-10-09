@@ -248,6 +248,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 RefreshPodcasts(request.Args),
             [LitePodcastDownloadCoordinator.Operation] = (request, events) =>
                 DownloadPodcastEpisodes(request.Args, events),
+            [LitePodcastDownloadCoordinator.SaveAsInfoOperation] = (request, _) =>
+                PodcastDownloadSaveAsInfo(request.Args),
+            [LitePodcastDownloadCoordinator.SaveAsOperation] = (request, events) =>
+                PodcastDownloadSaveAs(request.Args, events),
             [LitePodcastAddCoordinator.Operation] = (request, _) =>
                 AddPodcastSource(request.Args),
             [LitePodcastOpmlCoordinator.InspectOperation] = (request, _) =>
@@ -1410,6 +1414,14 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object PodcastOpmlInspect(JsonElement args) =>
         (_podcastOpml ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).Inspect(args);
+
+    private object PodcastDownloadSaveAsInfo(JsonElement args) =>
+        (_podcastDownloads ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).SaveAsInfo(args);
+
+    private object PodcastDownloadSaveAs(JsonElement args, LiteEventSink events) =>
+        (_podcastDownloads ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).SaveAs(args, events);
 
     private object PodcastOpmlImport(JsonElement args) =>
         (_podcastOpml ?? throw new LiteRequestException(

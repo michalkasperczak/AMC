@@ -209,6 +209,7 @@ class Action(Enum):
     REFRESH_PODCAST = "podcasts.refresh.current"
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
+    SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -551,6 +552,7 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
     # odtwarzaczu bieżący odcinek. Ma pierwszeństwo przed plikowym dopisywaniem
     # fragmentu, które pod Ctrl+D pozostaje w sesji Plików lokalnych.
     "Ctrl+D": Action.DOWNLOAD_PODCAST_EPISODES,
+    "Ctrl+S": Action.SAVE_PODCAST_EPISODE_AS,
 }
 
 
@@ -638,6 +640,7 @@ def describe() -> list[tuple[str, str]]:
         Action.REFRESH_PODCAST: "Odśwież wybrany podcast, kanał lub playlistę",
         Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
         Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",
+        Action.SAVE_PODCAST_EPISODE_AS: "Zapisz jeden odcinek podcastu jako plik",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
         Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",

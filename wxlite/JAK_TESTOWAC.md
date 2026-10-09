@@ -87,6 +87,10 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
 16. Pliki → „Eksportuj kanały i playlisty YouTube” zapisuje kanały jako CSV
     zgodny z Google Takeout albo kanały wraz z playlistami jako OPML. CSV nie
     udaje obsługi playlist: komunikat jawnie podaje liczbę pominiętych.
+17. `Ctrl+S` na jednym odcinku otwiera natywny dialog „Zapisz jako” z nazwą
+    wygenerowaną przez wspólny `PodcastDownloadNaming`. Powstaje niezależna
+    kopia; pole pobrania w bibliotece pozostaje niezmienione. W sesji plików
+    ten sam skrót nadal eksportuje zaznaczony fragment audio.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
