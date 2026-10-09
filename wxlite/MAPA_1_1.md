@@ -1,5 +1,26 @@
 # AMC Python — zakres względem pełnego AMC
 
+## 09.10 — Opcje odtwarzania podcastu i odcinka
+
+`Dźwięk → Opcje odtwarzania elementu…` oraz `Alt+Shift+Enter` otwierają
+natywny dialog dla zaznaczonego podcastu lub odcinka; skrót działa również
+w odtwarzaczu dla bieżącego odcinka. Dostępne są: zasada wznawiania,
+prędkość, normalizacja, łagodne przejścia, cisza i algorytm zmiany tempa.
+Podcast ma ponadto częstotliwość odświeżania i własny folder pobierania.
+
+Odcinek dziedziczy po podcaście. Ustawienia dźwięku i prędkość przechodzą
+dalej do sesji i ustawień ogólnych; domyślną zasadą pozycji podcastu jest
+jawnie opisane pamiętanie miejsca.
+Wartości modelu pozostają oddzielone od etykiet czytanych przez NVDA;
+`1,00 razy` jest jawnie opisane jako normalna prędkość. Zapis przechodzi
+przez jedynego właściciela bazy w hoście C#, a tor odtwarzania rozstrzyga
+dziedziczenie przed otwarciem materiału. Usunięcie indywidualnej prędkości
+wraca do prędkości zadanej przez sesję, nie do poprzedniego nadpisania.
+
+Prawdziwe ukryte okno wxPython na Windows potwierdziło pierwszy fokus,
+celowe nazwy kontrolek, zmianę wyboru i ponowne otwarcie. Żywy odbiór NVDA
+pozostaje do wykonania w pakiecie testowym.
+
 ## 07.10 — Opcje sesji: domknięty przyrost, przed dostawą
 
 Kod bbe40bcd i końcowa korekta rodzica w tym commicie. Wspólne wejście
@@ -30,14 +51,17 @@ Wspólne wejście do opcji odtwarzania **wybranej sesji**: pozycja
 `Dźwięk → Opcje sesji…` i `Ctrl+Alt+Enter` (lista i odtwarzacz).
 Dialog pokazuje WYŁĄCZNIE opcje, które dana sesja naprawdę wykona:
 
-| Opcja | Pliki lokalne | Radio | Dlaczego |
-|---|---|---|---|
-| Normalizacja głośności | tak | **nie** | `RadioMediaOutput` nie ma wykonawcy |
-| Łagodne przejścia | tak | **nie** | to samo |
-| Cisza między utworami | tak | **nie** | radio nie ma granicy utworów |
-| Po wyjściu z odtwarzacza | tak | tak | polityka okna, nie wyjścia audio |
+| Opcja | Pliki lokalne | Radio | Podcasty i YouTube | Dlaczego |
+|---|---|---|---|---|
+| Normalizacja głośności | tak | **nie** | tak | `RadioMediaOutput` nie ma wykonawcy |
+| Łagodne przejścia | tak | **nie** | tak | to samo |
+| Cisza między utworami | tak | **nie** | tak | radio nie ma granicy utworów |
+| Po wyjściu z odtwarzacza | tak | tak | tak | polityka okna, nie wyjścia audio |
 
 Radio dostaje więc jedną kontrolkę, a nie cztery z trzema martwymi.
+Podcasty mają wykonawczy tor plikowy, dlatego dostają te same cztery pola co
+Pliki lokalne. Indywidualne tempo i pozycja startowa są w osobnym dialogu
+elementu opisanym wyżej, nie w opcjach całej sesji.
 Tempo/wysokość i pozycja startowa **nie** są tu wystawione — port nie ma
 dla nich wykonawcy per sesja.
 

@@ -74,6 +74,62 @@ internal static class PodcastProgressStoreTests
                     && !ReadEpisodeFavoriteColumn(database, "ep-1"),
                     "czyszczenie pozostawia oba reprezentowane stany spojne");
 
+                var initialPodcastOptions = store.GetPlaybackOptions(
+                    PodcastPlaybackOptionsTarget.Podcast, "sub-1");
+                Assert.Equal("Podcast", initialPodcastOptions.Title,
+                    "odczyt opcji zwraca wylacznie celowy tytul uzytkownika");
+                var podcastOptions = store.SetPlaybackOptions(
+                    PodcastPlaybackOptionsTarget.Podcast,
+                    "sub-1",
+                    new PodcastPlaybackOptionsChange(
+                        ResumePositionMode.StartFromBeginning,
+                        1.25d,
+                        true,
+                        false,
+                        1000,
+                        PlaybackTempoAlgorithm.Speech,
+                        30,
+                        Path.Combine(root, "pobrane-podcastu")));
+                Assert.True(
+                    podcastOptions.ResumePositionMode == ResumePositionMode.StartFromBeginning
+                    && podcastOptions.PlaybackRateOverride == 1.25d
+                    && podcastOptions.TempoAlgorithmOverride == PlaybackTempoAlgorithm.Speech
+                    && podcastOptions.RefreshIntervalMinutes == 30
+                    && !podcastOptions.ShouldRememberPosition,
+                    "opcje calego podcastu wracaja po zapisie bez utraty wartosci");
+                Assert.True(
+                    ReadSubscription(database, "sub-1").TempoAlgorithmOverride
+                        == PlaybackTempoAlgorithm.Speech,
+                    "zmiana samego algorytmu tempa jest czescia odcisku i trafia do bazy");
+
+                var inheritedEpisodeOptions = store.GetPlaybackOptions(
+                    PodcastPlaybackOptionsTarget.Episode, "ep-1");
+                Assert.True(
+                    inheritedEpisodeOptions.PlaybackRateOverride is null
+                    && inheritedEpisodeOptions.ResolvedPlaybackRateOverride == 1.25d
+                    && inheritedEpisodeOptions.ResolvedTempoAlgorithmOverride
+                        == PlaybackTempoAlgorithm.Speech
+                    && !inheritedEpisodeOptions.ShouldRememberPosition,
+                    "odcinek dziedziczy rozstrzygniete opcje podcastu bez udawania wlasnych");
+                var episodeOptions = store.SetPlaybackOptions(
+                    PodcastPlaybackOptionsTarget.Episode,
+                    "ep-1",
+                    new PodcastPlaybackOptionsChange(
+                        ResumePositionMode.Remember,
+                        0.75d,
+                        null,
+                        true,
+                        0,
+                        PlaybackTempoAlgorithm.Music,
+                        null,
+                        null));
+                Assert.True(
+                    episodeOptions.ShouldRememberPosition
+                    && episodeOptions.ResolvedPlaybackRateOverride == 0.75d
+                    && episodeOptions.ResolvedTempoAlgorithmOverride
+                        == PlaybackTempoAlgorithm.Music,
+                    "wlasne opcje odcinka maja pierwszenstwo przed podcastem");
+
                 var targets = store.GetRefreshTargets(null);
                 Assert.True(targets.Count == 1 && targets[0].SubscriptionId == "sub-1",
                     "odswiezenie calej biblioteki wybiera tylko zapisane zrodla");

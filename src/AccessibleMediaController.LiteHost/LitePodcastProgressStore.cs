@@ -163,6 +163,49 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public PodcastPlaybackOptionsSnapshot GetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId)
+    {
+        try
+        {
+            return _store.GetPlaybackOptions(target, itemId);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or KeyNotFoundException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] odczyt opcji podcastu: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
+    public PodcastPlaybackOptionsSnapshot SetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId,
+        PodcastPlaybackOptionsChange change)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesna zmiana opcji podcastu z dwóch wersji mogłaby utracić dane.");
+        try
+        {
+            return _store.SetPlaybackOptions(target, itemId, change);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or KeyNotFoundException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] zapis opcji podcastu: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds)
     {

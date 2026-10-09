@@ -78,7 +78,12 @@ internal sealed class LiteEngineHandlers : IDisposable
     private string? _filesDurationId;
     private int _volume = 35;
     private double _rate = 1d;
+    // Tempo zadane przez sesje jest baza dla materialu. _rate moze byc
+    // chwilowo zastapione indywidualnym ustawieniem podcastu lub odcinka,
+    // dlatego nie wolno uzywac go do powrotu z takiego nadpisania.
+    private double _requestedRate = 1d;
     private bool _paused;
+    private PlaybackAudioSettings _configuredAudioSettings = new();
 
     public LiteEngineHandlers(int timeshiftMinutes)
         : this(timeshiftMinutes, null, null, null, null)
@@ -270,6 +275,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 PodcastYouTubeExport(request.Args),
             ["podcast.toggleFavorite"] = (request, _) =>
                 TogglePodcastFavorites(request.Args),
+            ["podcast.playbackOptions"] = (request, _) =>
+                GetPodcastPlaybackOptions(request.Args),
+            ["podcast.playbackOptions.set"] = (request, _) =>
+                SetPodcastPlaybackOptions(request.Args),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -354,6 +363,161 @@ internal sealed class LiteEngineHandlers : IDisposable
             changed = result.ChangedCount
         };
     }
+
+    private object GetPodcastPlaybackOptions(JsonElement args)
+    {
+        var snapshot = RequirePodcastStore().GetPlaybackOptions(
+            ReadPodcastPlaybackOptionsTarget(args),
+            LiteArgs.RequireText(args, "itemId"));
+        return PodcastPlaybackOptionsPayload(snapshot);
+    }
+
+    private object SetPodcastPlaybackOptions(JsonElement args)
+    {
+        var target = ReadPodcastPlaybackOptionsTarget(args);
+        var itemId = LiteArgs.RequireText(args, "itemId");
+        var refreshInterval = target == PodcastPlaybackOptionsTarget.Podcast
+            ? ReadRequiredInt(args, "refreshIntervalMinutes")
+            : (int?)null;
+        var snapshot = RequirePodcastStore().SetPlaybackOptions(
+            target,
+            itemId,
+            new PodcastPlaybackOptionsChange(
+                ReadResumePositionMode(args),
+                ReadNullableDouble(args, "playbackRate"),
+                ReadNullableBool(args, "loudnessNormalization"),
+                ReadNullableBool(args, "smoothTrackTransitions"),
+                ReadNullableInt(args, "interTrackSilenceMs"),
+                ReadNullableTempoAlgorithm(args),
+                refreshInterval,
+                target == PodcastPlaybackOptionsTarget.Podcast
+                    ? LiteArgs.ReadText(args, "downloadsFolder")
+                    : null));
+
+        var appliesOnNextPlayback = true;
+        lock (_gate)
+        {
+            if (_activeEngine == "files"
+                && _filesItem?.Kind == MediaItemKind.Episode
+                && string.Equals(_filesItem.Id, itemId, StringComparison.Ordinal))
+            {
+                var effectiveAudio = ResolvePodcastAudio(snapshot);
+                EnsureTempoAlgorithmAvailable(effectiveAudio.TempoAlgorithm);
+                _files.ConfigureAudioProcessing(effectiveAudio);
+                var rate = snapshot.ResolvedPlaybackRateOverride ?? _requestedRate;
+                _rate = rate;
+                _files.SetPlaybackRate(rate);
+            }
+        }
+        return new
+        {
+            options = PodcastPlaybackOptionsPayload(snapshot),
+            appliesOnNextPlayback
+        };
+    }
+
+    private LitePodcastProgressStore RequirePodcastStore() =>
+        _podcastProgressStore ?? throw new LiteRequestException(
+            "Host nie dostał bazy Podcastów i YouTube. Opcje odtwarzania są niedostępne.");
+
+    private static PodcastPlaybackOptionsTarget ReadPodcastPlaybackOptionsTarget(
+        JsonElement args) => LiteArgs.RequireText(args, "target") switch
+        {
+            "podcast" => PodcastPlaybackOptionsTarget.Podcast,
+            "episode" => PodcastPlaybackOptionsTarget.Episode,
+            _ => throw new LiteRequestException(
+                "Opcje odtwarzania dotyczą podcastu albo odcinka.")
+        };
+
+    private static ResumePositionMode ReadResumePositionMode(JsonElement args)
+    {
+        var value = ReadRequiredInt(args, "resumePositionMode");
+        return Enum.IsDefined(typeof(ResumePositionMode), value)
+            ? (ResumePositionMode)value
+            : throw new LiteRequestException("Nieznany sposób wznawiania odtwarzania.");
+    }
+
+    private static int ReadRequiredInt(JsonElement args, string name)
+    {
+        if (args.ValueKind == JsonValueKind.Object
+            && args.TryGetProperty(name, out var property)
+            && property.ValueKind == JsonValueKind.Number
+            && property.TryGetInt32(out var value))
+        {
+            return value;
+        }
+        throw new LiteRequestException($"Brak prawidłowej wartości \"{name}\".");
+    }
+
+    private static int? ReadNullableInt(JsonElement args, string name)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty(name, out var property)
+            || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        if (property.ValueKind == JsonValueKind.Number
+            && property.TryGetInt32(out var value)) return value;
+        throw new LiteRequestException($"Nieprawidłowa wartość \"{name}\".");
+    }
+
+    private static double? ReadNullableDouble(JsonElement args, string name)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty(name, out var property)
+            || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        if (property.ValueKind == JsonValueKind.Number
+            && property.TryGetDouble(out var value)
+            && double.IsFinite(value)) return value;
+        throw new LiteRequestException($"Nieprawidłowa wartość \"{name}\".");
+    }
+
+    private static bool? ReadNullableBool(JsonElement args, string name)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty(name, out var property)
+            || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        return property.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new LiteRequestException($"Nieprawidłowa wartość \"{name}\".")
+        };
+    }
+
+    private static PlaybackTempoAlgorithm? ReadNullableTempoAlgorithm(JsonElement args)
+    {
+        var value = ReadNullableInt(args, "tempoAlgorithm");
+        if (value is null) return null;
+        return Enum.IsDefined(typeof(PlaybackTempoAlgorithm), value.Value)
+            ? (PlaybackTempoAlgorithm)value.Value
+            : throw new LiteRequestException("Nieznany sposób przeliczania tempa.");
+    }
+
+    private static object PodcastPlaybackOptionsPayload(
+        PodcastPlaybackOptionsSnapshot snapshot) => new
+    {
+        target = snapshot.Target == PodcastPlaybackOptionsTarget.Podcast
+            ? "podcast"
+            : "episode",
+        itemId = snapshot.ItemId,
+        title = snapshot.Title,
+        resumePositionMode = (int)snapshot.ResumePositionMode,
+        playbackRate = snapshot.PlaybackRateOverride,
+        loudnessNormalization = snapshot.LoudnessNormalizationOverride,
+        smoothTrackTransitions = snapshot.SmoothTrackTransitionsOverride,
+        interTrackSilenceMs = snapshot.InterTrackSilenceMillisecondsOverride,
+        tempoAlgorithm = (int?)snapshot.TempoAlgorithmOverride,
+        refreshIntervalMinutes = snapshot.RefreshIntervalMinutes,
+        downloadsFolder = snapshot.DownloadsFolder
+    };
 
     private object EditRadioStation(JsonElement args)
     {
@@ -610,6 +774,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             _volume = _queue.CurrentVolume;
             _rate = _queue.CurrentRate;
+            _requestedRate = _queue.CurrentRate;
         }
         return QueuePayload(status);
     }
@@ -1073,6 +1238,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ForgetStaleFilesDurationLocked(item.Id);
             _volume = volume;
             _rate = rate;
+            _requestedRate = rate;
             _paused = false;
         }
         // BEZPOSREDNIE odtworzenie wychodzi z kolejki: koniec tego utworu nie
@@ -1115,7 +1281,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
             args, "positionSeconds", 0d, 0d, 604_800d));
         var volume = LiteArgs.ReadInt(args, "volume", _volume, 0, 100);
-        var rate = LiteArgs.ReadDouble(args, "rate", _rate, 0.5d, 2.0d);
+        var requestedRate = LiteArgs.ReadDouble(args, "rate", _rate, 0.5d, 2.0d);
         var item = new MediaItem
         {
             Id = LiteArgs.RequireText(args, "id"),
@@ -1123,6 +1289,29 @@ internal sealed class LiteEngineHandlers : IDisposable
             Kind = MediaItemKind.Episode,
             Source = source
         };
+        PodcastPlaybackOptionsSnapshot? playbackOptions = null;
+        if (_podcastProgressStore is not null)
+        {
+            try
+            {
+                playbackOptions = _podcastProgressStore.GetPlaybackOptions(
+                    PodcastPlaybackOptionsTarget.Episode,
+                    item.Id);
+            }
+            catch (LiteRequestException)
+            {
+                // Publiczny material moze byc odtwarzany przed dodaniem do
+                // Biblioteki. Brak rekordu oznacza wtedy zwykle ustawienia
+                // sesji, nie odmowe odtwarzania.
+            }
+        }
+        if (playbackOptions?.ShouldRememberPosition == false)
+            position = TimeSpan.Zero;
+        var rate = playbackOptions?.ResolvedPlaybackRateOverride ?? requestedRate;
+        var audio = playbackOptions is null
+            ? CloneAudioSettings(_configuredAudioSettings)
+            : ResolvePodcastAudio(playbackOptions);
+        EnsureTempoAlgorithmAvailable(audio.TempoAlgorithm);
 
         lock (_gate)
         {
@@ -1133,10 +1322,12 @@ internal sealed class LiteEngineHandlers : IDisposable
             ForgetStaleFilesDurationLocked(item.Id);
             _volume = volume;
             _rate = rate;
+            _requestedRate = requestedRate;
             _paused = false;
         }
         _queue.DetachFromDirectPlay();
         ConfigureOutputForSession("podcasts");
+        _files.ConfigureAudioProcessing(audio);
         _files.Play(item, position, volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
     }
@@ -1339,6 +1530,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         lock (_gate)
         {
             _rate = rate;
+            _requestedRate = rate;
             engine = _activeEngine;
         }
         if (engine == "radio")
@@ -1538,8 +1730,8 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object ConfigureAudio(JsonElement args)
     {
         var settings = LiteAudioSettings.Read(args);
-        if (settings.TempoAlgorithm != PlaybackTempoAlgorithm.SoundTouch && !AmcTempoNativeLibrary.IsAvailable)
-            throw new LiteRequestException("Nowe silniki tempa są niedostępne. Wybierz SoundTouch lub napraw pakiet programu.");
+        EnsureTempoAlgorithmAvailable(settings.TempoAlgorithm);
+        lock (_gate) _configuredAudioSettings = CloneAudioSettings(settings);
         _files.ConfigureAudioProcessing(settings);
         _radio.ConfigureTempoAlgorithm(settings.TempoAlgorithm);
         return new
@@ -1551,6 +1743,41 @@ internal sealed class LiteEngineHandlers : IDisposable
             tempoAlgorithmAvailable = true,
             appliesOnNextPlayback = true
         };
+    }
+
+    private PlaybackAudioSettings ResolvePodcastAudio(
+        PodcastPlaybackOptionsSnapshot options)
+    {
+        PlaybackAudioSettings configured;
+        lock (_gate) configured = CloneAudioSettings(_configuredAudioSettings);
+        if (options.ResolvedLoudnessNormalizationOverride is bool loudness)
+            configured.LoudnessNormalizationEnabled = loudness;
+        if (options.ResolvedSmoothTrackTransitionsOverride is bool transitions)
+            configured.SmoothTrackTransitionsEnabled = transitions;
+        if (options.ResolvedInterTrackSilenceMillisecondsOverride is int silence)
+            configured.InterTrackSilenceMilliseconds = silence;
+        if (options.ResolvedTempoAlgorithmOverride is PlaybackTempoAlgorithm tempo)
+            configured.TempoAlgorithm = tempo;
+        return configured;
+    }
+
+    private static PlaybackAudioSettings CloneAudioSettings(
+        PlaybackAudioSettings source) => new()
+    {
+        LoudnessNormalizationEnabled = source.LoudnessNormalizationEnabled,
+        SmoothTrackTransitionsEnabled = source.SmoothTrackTransitionsEnabled,
+        InterTrackSilenceMilliseconds = source.InterTrackSilenceMilliseconds,
+        TempoAlgorithm = source.TempoAlgorithm
+    };
+
+    private static void EnsureTempoAlgorithmAvailable(PlaybackTempoAlgorithm algorithm)
+    {
+        if (algorithm != PlaybackTempoAlgorithm.SoundTouch
+            && !AmcTempoNativeLibrary.IsAvailable)
+        {
+            throw new LiteRequestException(
+                "Nowe silniki tempa są niedostępne. Wybierz SoundTouch lub napraw pakiet programu.");
+        }
     }
 
     private void ConfigureOutputForSession(string sessionId)

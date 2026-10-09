@@ -546,6 +546,41 @@ def test_nie_rusza_cudzej_grajacej_sesji():
     )
 
 
+def test_zapis_podcastow_czeka_do_startu_i_nie_przestawia_grajacego_pliku():
+    """Pliki i Podcasty dzielą wyjście, ale mają osobne ustawienia sesji."""
+    state = LiteState(options=Options())
+    client = FakeClient()
+
+    result = session_options.apply_session_options(
+        state,
+        SessionId.PODCASTS,
+        SessionPlaybackOverrides(loudness_normalization=True),
+        client=client,
+    )
+
+    assert result.saved is True
+    assert result.applies_on_next_playback is True
+    assert client.calls == [], "zapis Podcastów nie rusza wspólnego wyjścia teraz"
+    assert state.session_overrides["podcasts"].loudness_normalization is True
+
+
+def test_wycofanie_opcji_podcastow_też_czeka_do_nastepnego_startu():
+    state = LiteState(options=Options())
+    previous = SessionPlaybackOverrides(loudness_normalization=True)
+    state.session_overrides["podcasts"] = previous
+    client = FakeClient()
+
+    session_options.restore_session_options(
+        state,
+        SessionId.PODCASTS,
+        SessionPlaybackOverrides(),
+        client=client,
+    )
+
+    assert client.calls == []
+    assert "podcasts" not in state.session_overrides
+
+
 def test_nie_wstrzymuje_gdy_juz_wstrzymane():
     """Druga pauza wznowilaby odtwarzanie -- dokladnie odwrotnie niz opcja."""
     frame, client = _pause_frame(

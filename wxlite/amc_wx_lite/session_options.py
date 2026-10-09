@@ -13,11 +13,14 @@ liczy to w ``SessionPlaybackOptionsEditor.Describe`` (cs:18-31):
     SupportsPlayerExitPause: known && id != "wiim"
     SupportsResumePosition:  local || podcasts || spotify
 
-Przelozenie na port, ktory ma DWIE sesje (``files`` i ``radio``):
+Przełożenie na port, który ma trzy sesje (``files``, ``radio`` i
+``podcasts``):
 
-* ``files`` to odpowiednik ``local``: ``LiteEngineHandlers.cs:770`` wola
+* ``files`` to odpowiednik ``local``: ``LiteEngineHandlers`` woła
   ``_files.ConfigureAudioProcessing(settings)``, czyli ``WindowsMediaOutput``
-  z pelnym lancuchem DSP. Przetwarzanie dzwieku ma wykonawce -> TAK.
+  z pełnym łańcuchem DSP. Podcasty korzystają z tego samego wykonawcy, ale
+  przed startem dostają własny bazowy zestaw sesji; host nakłada następnie
+  ustawienia podcastu i odcinka. Obie sesje mają więc rzeczywiste DSP.
 * ``radio`` NIE ma odpowiednika w ``SupportsAudioProcessing``. Potwierdza to
   sam silnik: ``LiteEngineHandlers.cs:771`` wola dla radia TYLKO
   ``_radio.ConfigureTempoAlgorithm(...)``, a ``RadioMediaOutput`` nie ma
@@ -25,7 +28,7 @@ Przelozenie na port, ktory ma DWIE sesje (``files`` i ``radio``):
   Wystawienie tych trzech pol w sesji Radio dalo by MARTWE KONTROLKI --
   zapisalyby sie i nic by nie zrobily.
 * Wstrzymanie po wyjsciu z odtwarzacza dziala na POZIOMIE OKNA (Escape wola
-  ``transport.pauseResume``), nie w silniku, wiec maja je OBIE sesje -- tak
+  ``transport.pauseResume``), nie w silniku, wiec maja je wszystkie sesje -- tak
   jak w oryginale, gdzie wyjatkiem jest tylko obce urzadzenie ``wiim``.
 * ``SupportsPlaybackRate`` jest w oryginale ZAWSZE falszem: dialog sesji nie
   zapisuje wyboru predkosci, a algorytm tempa zostaje osobna funkcja (menu
@@ -37,18 +40,16 @@ Przelozenie na port, ktory ma DWIE sesje (``files`` i ``radio``):
 
 ZAKRES W SILNIKU (dlaczego protokol zostaje bez zmian)
 ------------------------------------------------------
-``ConfigureAudio`` (``LiteEngineHandlers.cs:765-781``) jednym wywolaniem
-dotyka obu wyjsc, wiec na pierwszy rzut oka wybor sesji mogl by przestawic
-obce granie. Ale rozdzial jest JUZ zrobiony po stronie pol: do radia idzie
-wylacznie ``settings.TempoAlgorithm``, a sesja -- zgodnie z punktem wyzej --
-tego pola NIE nadpisuje. Pola, ktore sesja zmienia (normalizacja, przejscia,
-cisza) trafiaja wylacznie do ``_files``. Dlatego:
+``ConfigureAudio`` jednym wywołaniem ustawia wspólne wyjście plików i
+podcastów. Rozdział następuje tuż przed świadomym startem: ``_play_track`` i
+drogi kolejki podają bazę sesji Pliki, a ``_play_media`` bazę sesji Podcasty;
+host dokłada do niej ustawienie podcastu i odcinka. Do radia trafia wyłącznie
+algorytm tempa. Dlatego:
 
 * nie dodajemy ``sessionId`` do ``audio.configure`` -- byla by to zmiana
   protokolu bez pokrycia w zachowaniu, a starsi klienci musieliby ja znac;
-* ``scope_for_session`` nazywa zakres JAWNIE, zeby nastepny etap (gdyby radio
-  dostalo wlasne pola) mial gdzie go wpisac, a test pilnowal, ze zakres nie
-  jest domyslnie "oba".
+* ``scope_for_session`` nazywa zakres JAWNIE, a odtwarzacz wybiera bazę przed
+  każdym startem zamiast pozostawiać ustawienia poprzedniej sesji.
 """
 
 from __future__ import annotations
@@ -118,9 +119,9 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
     ),
     SessionId.PODCASTS: SessionCapabilities(
-        # Odcinki korzystaja z tego samego wyjscia plikowego, ale port nie
-        # przelacza jeszcze osobnych nadpisan przetwarzania przy kazdym starcie.
-        supports_audio_processing=False,
+        # Przed ``media.play`` frontend ustawia bazę tej sesji, a host nakłada
+        # nadpisania podcastu i odcinka przed wywołaniem WindowsMediaOutput.
+        supports_audio_processing=True,
         supports_playback_rate=False,
         supports_player_exit_pause=True,
     ),
@@ -264,12 +265,11 @@ def effective_overrides(state, session: SessionId) -> SessionPlaybackOverrides:
 def engine_audio_payload(state) -> dict:
     """JEDEN efektywny payload ``audio.configure`` dla TRWALEGO stanu.
 
-    Dlaczego liczy go sesja ``files``: przetwarzanie dzwieku ma wykonawce
-    WYLACZNIE w niej (``LiteEngineHandlers.cs:770``), a radio czyta z tego
-    wywolania tylko ``tempoAlgorithm``, ktorego sesja nie nadpisuje. Kazda
-    droga, ktora konfiguruje dzwiek (start procesu, zmiana algorytmu tempa),
-    musi uzyc TEJ funkcji -- inaczej jedna z nich zdmuchnie wybory sesji
-    ustawieniem ogolnym.
+    Przy starcie nie ma jeszcze materiału, więc wspólny WindowsMediaOutput
+    dostaje bazę sesji Pliki. Przed każdym późniejszym startem Plików lub
+    Podcastów właściwa droga odtwarzania ustawia bazę swojej sesji. Radio
+    czyta z tego wywołania tylko ``tempoAlgorithm``, którego sesja nie
+    nadpisuje.
     """
     return resolve_audio_payload(
         state.options, effective_overrides(state, SessionId.FILES)
@@ -352,7 +352,11 @@ def restore_session_options(
         state.session_overrides.pop(session.value, None)
     else:
         state.session_overrides[session.value] = effective
-    if client is None or not caps.supports_audio_processing:
+    if (
+        client is None
+        or not caps.supports_audio_processing
+        or session is SessionId.PODCASTS
+    ):
         return
     try:
         client.configure_audio(**resolve_audio_payload(state.options, effective))
@@ -373,10 +377,12 @@ def apply_session_options(
     gdy przyjal. Odwrotna kolejnosc dawalaby "zapisano" po odmowie i profil
     rozjechalby sie z tym, co naprawde gra.
 
-    Wywolujemy silnik WYLACZNIE wtedy, gdy zmieniane sa pola, ktore silnik
-    wykonuje. Opcja ``pause_on_player_exit`` dziala w OKNIE (Escape), wiec dla
-    sesji Radio -- ktora innych pol nie ma -- nie ma po co dotykac silnika i
-    ryzykowac przestawienia grajacych plikow lokalnych.
+    Wywołujemy silnik od razu tylko dla sesji Pliki. Podcasty używają tego
+    samego WindowsMediaOutput, więc ich wybory zapisujemy teraz, a stosujemy
+    tuż przed następnym ``media.play``. Dzięki temu zmiana Podcastów nie
+    przestawia aktualnie grającego pliku. Opcja ``pause_on_player_exit``
+    działa w oknie, a Radio nie ma pól DSP, więc te przypadki nie dotykają
+    silnika.
     """
     caps = capabilities_for(session)
     effective = overrides.restricted_to(caps)
@@ -396,7 +402,11 @@ def apply_session_options(
     if previous is not None and caps.supports_audio_processing:
         needs_engine = True
 
-    applies_next = False
+    deferred_until_playback = session is SessionId.PODCASTS and needs_engine
+    if deferred_until_playback:
+        needs_engine = False
+
+    applies_next = deferred_until_playback
     if needs_engine:
         if client is None:
             return ApplyResult(

@@ -496,6 +496,27 @@ class LiteHostClient:
             timeout=30.0,
         )
 
+    def podcast_playback_options(self, item_id: str, target: str) -> Any:
+        """Odczytaj opcje podcastu albo odcinka bez ujawniania ich w UI."""
+        return self.call(
+            "podcast.playbackOptions",
+            {"itemId": item_id, "target": target},
+            timeout=20.0,
+        )
+
+    def set_podcast_playback_options(
+        self,
+        item_id: str,
+        target: str,
+        values: dict[str, Any],
+    ) -> Any:
+        """Zapisz kompletny wybor przez waska brame hosta C#."""
+        return self.call(
+            "podcast.playbackOptions.set",
+            {"itemId": item_id, "target": target, **values},
+            timeout=30.0,
+        )
+
     def edit_radio_station(self, station_id: str, name: str, url: str) -> Any:
         return self.call(
             "radio.editStation",

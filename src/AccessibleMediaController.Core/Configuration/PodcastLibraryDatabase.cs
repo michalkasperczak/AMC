@@ -538,6 +538,206 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public PodcastPlaybackOptionsSnapshot GetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            return BuildPlaybackOptions(settings, target, itemId);
+        }
+    }
+
+    public PodcastPlaybackOptionsSnapshot SetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId,
+        PodcastPlaybackOptionsChange change)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+        ArgumentNullException.ThrowIfNull(change);
+        ValidatePlaybackOptions(target, change);
+
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            switch (target)
+            {
+                case PodcastPlaybackOptionsTarget.Podcast:
+                {
+                    var subscription = settings.Subscriptions.FirstOrDefault(candidate =>
+                        candidate.IsInLibrary
+                        && string.Equals(candidate.Id, itemId, StringComparison.Ordinal))
+                        ?? throw new KeyNotFoundException(
+                            "Tego podcastu nie ma już w Bibliotece.");
+                    subscription.ResumePositionMode = change.ResumePositionMode;
+                    subscription.PlaybackRateOverride = change.PlaybackRateOverride;
+                    subscription.LoudnessNormalizationOverride =
+                        change.LoudnessNormalizationOverride;
+                    subscription.SmoothTrackTransitionsOverride =
+                        change.SmoothTrackTransitionsOverride;
+                    subscription.InterTrackSilenceMillisecondsOverride =
+                        change.InterTrackSilenceMillisecondsOverride;
+                    subscription.TempoAlgorithmOverride = change.TempoAlgorithmOverride;
+                    subscription.RefreshIntervalMinutes = change.RefreshIntervalMinutes!.Value;
+                    subscription.DownloadsFolder = NormalizeOptionalFolder(change.DownloadsFolder);
+                    break;
+                }
+                case PodcastPlaybackOptionsTarget.Episode:
+                {
+                    var episode = settings.Episodes.FirstOrDefault(candidate =>
+                        string.Equals(candidate.Id, itemId, StringComparison.Ordinal))
+                        ?? throw new KeyNotFoundException(
+                            "Tego odcinka nie ma już w Bibliotece.");
+                    episode.ResumePositionMode = change.ResumePositionMode;
+                    episode.PlaybackRateOverride = change.PlaybackRateOverride;
+                    episode.LoudnessNormalizationOverride =
+                        change.LoudnessNormalizationOverride;
+                    episode.SmoothTrackTransitionsOverride =
+                        change.SmoothTrackTransitionsOverride;
+                    episode.InterTrackSilenceMillisecondsOverride =
+                        change.InterTrackSilenceMillisecondsOverride;
+                    episode.TempoAlgorithmOverride = change.TempoAlgorithmOverride;
+                    break;
+                }
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(target));
+            }
+            Save(settings);
+            return BuildPlaybackOptions(settings, target, itemId);
+        }
+    }
+
+    private static PodcastPlaybackOptionsSnapshot BuildPlaybackOptions(
+        PodcastSettings settings,
+        PodcastPlaybackOptionsTarget target,
+        string itemId)
+    {
+        PodcastEpisodeSettings? episode = null;
+        PodcastSubscriptionSettings? subscription;
+        if (target == PodcastPlaybackOptionsTarget.Podcast)
+        {
+            subscription = settings.Subscriptions.FirstOrDefault(candidate =>
+                candidate.IsInLibrary
+                && string.Equals(candidate.Id, itemId, StringComparison.Ordinal));
+        }
+        else if (target == PodcastPlaybackOptionsTarget.Episode)
+        {
+            episode = settings.Episodes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, itemId, StringComparison.Ordinal));
+            subscription = episode is null
+                ? null
+                : settings.Subscriptions.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, episode.SubscriptionId, StringComparison.Ordinal));
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(target));
+        }
+
+        if (subscription is null || target == PodcastPlaybackOptionsTarget.Episode && episode is null)
+        {
+            throw new KeyNotFoundException(target == PodcastPlaybackOptionsTarget.Podcast
+                ? "Tego podcastu nie ma już w Bibliotece."
+                : "Tego odcinka nie ma już w Bibliotece.");
+        }
+
+        var itemResume = episode?.ResumePositionMode ?? subscription.ResumePositionMode;
+        var itemRate = episode is null
+            ? subscription.PlaybackRateOverride
+            : episode.PlaybackRateOverride;
+        var itemLoudness = episode is null
+            ? subscription.LoudnessNormalizationOverride
+            : episode.LoudnessNormalizationOverride;
+        var itemTransitions = episode is null
+            ? subscription.SmoothTrackTransitionsOverride
+            : episode.SmoothTrackTransitionsOverride;
+        var itemSilence = episode is null
+            ? subscription.InterTrackSilenceMillisecondsOverride
+            : episode.InterTrackSilenceMillisecondsOverride;
+        var itemTempo = episode is null
+            ? subscription.TempoAlgorithmOverride
+            : episode.TempoAlgorithmOverride;
+
+        return new PodcastPlaybackOptionsSnapshot(
+            target,
+            itemId,
+            episode?.Title ?? subscription.Title,
+            itemResume,
+            itemRate,
+            itemLoudness,
+            itemTransitions,
+            itemSilence,
+            itemTempo,
+            target == PodcastPlaybackOptionsTarget.Podcast
+                ? subscription.RefreshIntervalMinutes
+                : null,
+            target == PodcastPlaybackOptionsTarget.Podcast
+                ? subscription.DownloadsFolder
+                : null,
+            PodcastPlaybackSettingsResolver.ShouldRememberPosition(
+                episode, subscription),
+            episode?.PlaybackRateOverride ?? subscription.PlaybackRateOverride,
+            episode?.LoudnessNormalizationOverride
+                ?? subscription.LoudnessNormalizationOverride,
+            episode?.SmoothTrackTransitionsOverride
+                ?? subscription.SmoothTrackTransitionsOverride,
+            episode?.InterTrackSilenceMillisecondsOverride
+                ?? subscription.InterTrackSilenceMillisecondsOverride,
+            episode?.TempoAlgorithmOverride ?? subscription.TempoAlgorithmOverride);
+    }
+
+    private static void ValidatePlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        PodcastPlaybackOptionsChange change)
+    {
+        if (!Enum.IsDefined(change.ResumePositionMode))
+            throw new ArgumentException("Nieznany sposób wznawiania odtwarzania.");
+        if (change.PlaybackRateOverride is double rate
+            && !new[] { 0.50d, 0.75d, 1.00d, 1.25d, 1.50d, 1.75d, 2.00d }
+                .Any(candidate => Math.Abs(candidate - rate) < 0.001d))
+        {
+            throw new ArgumentException("Nieobsługiwana prędkość odtwarzania.");
+        }
+        if (change.InterTrackSilenceMillisecondsOverride is int silence
+            && !PlaybackAudioSettingsRules.IsSupportedSilence(silence))
+        {
+            throw new ArgumentException("Nieobsługiwana długość ciszy po odcinku.");
+        }
+        if (change.TempoAlgorithmOverride is PlaybackTempoAlgorithm algorithm
+            && !Enum.IsDefined(algorithm))
+        {
+            throw new ArgumentException("Nieznany sposób przeliczania tempa.");
+        }
+        if (target == PodcastPlaybackOptionsTarget.Podcast)
+        {
+            int[] allowedIntervals = [0, 15, 30, 60, 180, 360, 720, 1440];
+            if (change.RefreshIntervalMinutes is not int interval
+                || !allowedIntervals.Contains(interval))
+            {
+                throw new ArgumentException("Nieobsługiwany odstęp odświeżania podcastu.");
+            }
+        }
+        else if (change.RefreshIntervalMinutes is not null
+                 || change.DownloadsFolder is not null)
+        {
+            throw new ArgumentException(
+                "Odstęp odświeżania i folder pobrań dotyczą całego podcastu, nie odcinka.");
+        }
+    }
+
+    private static string? NormalizeOptionalFolder(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder)) return null;
+        var trimmed = folder.Trim();
+        if (!System.IO.Path.IsPathFullyQualified(trimmed) || trimmed.Any(char.IsControl))
+            throw new ArgumentException("Folder pobierania musi być pełną ścieżką.");
+        return System.IO.Path.GetFullPath(trimmed);
+    }
+
     public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries()
     {
         lock (_gate)
@@ -942,6 +1142,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         hash.Add(item.LoudnessNormalizationOverride);
         hash.Add(item.SmoothTrackTransitionsOverride);
         hash.Add(item.InterTrackSilenceMillisecondsOverride);
+        hash.Add((int?)item.TempoAlgorithmOverride);
         hash.Add(item.IsFavorite);
         hash.Add(item.IsInLibrary);
         return hash.ToString();
@@ -973,6 +1174,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         hash.Add(item.LoudnessNormalizationOverride);
         hash.Add(item.SmoothTrackTransitionsOverride);
         hash.Add(item.InterTrackSilenceMillisecondsOverride);
+        hash.Add((int?)item.TempoAlgorithmOverride);
         hash.Add(item.DownloadPath);
         hash.Add(item.IsNew);
         hash.Add(item.IsStarted);

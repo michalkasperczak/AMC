@@ -28,6 +28,17 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
         IReadOnlyCollection<string> episodeIds) =>
         _database.ToggleFavorites(subscriptionIds, episodeIds);
 
+    public PodcastPlaybackOptionsSnapshot GetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId) =>
+        _database.GetPlaybackOptions(target, itemId);
+
+    public PodcastPlaybackOptionsSnapshot SetPlaybackOptions(
+        PodcastPlaybackOptionsTarget target,
+        string itemId,
+        PodcastPlaybackOptionsChange change) =>
+        _database.SetPlaybackOptions(target, itemId, change);
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds) =>
         _database.GetDownloadTargets(episodeIds);
@@ -103,6 +114,50 @@ public sealed record PodcastFavoriteToggleResult(
     bool Favorite,
     int RequestedCount,
     int ChangedCount);
+
+public enum PodcastPlaybackOptionsTarget
+{
+    Podcast,
+    Episode
+}
+
+/// <summary>
+/// Pelny, zweryfikowany wybor z okna opcji. Puste wartosci oznaczaja
+/// dziedziczenie z szerszego zakresu, nigdy domyslne <c>false</c>.
+/// </summary>
+public sealed record PodcastPlaybackOptionsChange(
+    ResumePositionMode ResumePositionMode,
+    double? PlaybackRateOverride,
+    bool? LoudnessNormalizationOverride,
+    bool? SmoothTrackTransitionsOverride,
+    int? InterTrackSilenceMillisecondsOverride,
+    PlaybackTempoAlgorithm? TempoAlgorithmOverride,
+    int? RefreshIntervalMinutes,
+    string? DownloadsFolder);
+
+/// <summary>
+/// Dane dialogu oraz wartosci rozstrzygniete dla odtwarzacza. Tytul jest
+/// jedynym tekstem przeznaczonym do pokazania uzytkownikowi; identyfikatory
+/// pozostaja w kontrakcie technicznym i nie sa etykietami kontrolek.
+/// </summary>
+public sealed record PodcastPlaybackOptionsSnapshot(
+    PodcastPlaybackOptionsTarget Target,
+    string ItemId,
+    string Title,
+    ResumePositionMode ResumePositionMode,
+    double? PlaybackRateOverride,
+    bool? LoudnessNormalizationOverride,
+    bool? SmoothTrackTransitionsOverride,
+    int? InterTrackSilenceMillisecondsOverride,
+    PlaybackTempoAlgorithm? TempoAlgorithmOverride,
+    int? RefreshIntervalMinutes,
+    string? DownloadsFolder,
+    bool ShouldRememberPosition,
+    double? ResolvedPlaybackRateOverride,
+    bool? ResolvedLoudnessNormalizationOverride,
+    bool? ResolvedSmoothTrackTransitionsOverride,
+    int? ResolvedInterTrackSilenceMillisecondsOverride,
+    PlaybackTempoAlgorithm? ResolvedTempoAlgorithmOverride);
 
 public sealed record PodcastSourceAddResult(
     string SubscriptionId,

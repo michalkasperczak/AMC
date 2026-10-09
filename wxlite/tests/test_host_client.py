@@ -198,6 +198,39 @@ def test_podcast_favorite_uses_one_narrow_operation_and_separates_item_kinds() -
         client.close()
 
 
+def test_podcast_playback_options_use_named_read_and_write_operations() -> None:
+    client = make_client()
+    try:
+        read = client.podcast_playback_options("episode-1", "episode")
+        saved = client.set_podcast_playback_options(
+            "episode-1",
+            "episode",
+            {
+                "resumePositionMode": 1,
+                "playbackRate": 1.0,
+                "loudnessNormalization": None,
+                "smoothTrackTransitions": True,
+                "interTrackSilenceMs": 0,
+                "tempoAlgorithm": 1,
+            },
+        )
+        assert read["op"] == "podcast.playbackOptions"
+        assert read["args"] == {"itemId": "episode-1", "target": "episode"}
+        assert saved["op"] == "podcast.playbackOptions.set"
+        assert saved["args"] == {
+            "itemId": "episode-1",
+            "target": "episode",
+            "resumePositionMode": 1,
+            "playbackRate": 1.0,
+            "loudnessNormalization": None,
+            "smoothTrackTransitions": True,
+            "interTrackSilenceMs": 0,
+            "tempoAlgorithm": 1,
+        }
+    finally:
+        client.close()
+
+
 def test_podcast_save_as_uses_separate_info_and_copy_operations() -> None:
     client = make_client()
     try:

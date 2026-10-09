@@ -62,13 +62,20 @@ def test_pliki_lokalne_dostaja_przetwarzanie_dzwieku_ktore_silnik_umie():
     assert files.has_options is True
 
 
+def test_podcasty_dostaja_wlasne_przetwarzanie_dzwieku_przed_startem():
+    podcasts = capabilities_for(SessionId.PODCASTS)
+    assert podcasts.supports_audio_processing is True
+    assert podcasts.supports_player_exit_pause is True
+    assert podcasts.has_options is True
+
+
 def test_sesja_nie_zapisuje_algorytmu_tempa_ani_predkosci():
     """SessionPlaybackOptionsEditor.cs:28 -- SupportsPlaybackRate: false.
 
     Algorytm tempa zostaje OSOBNA funkcja (menu Dzwiek, globalnie). Gdyby
     sesja go zapisywala, dwa miejsca ustawialyby to samo pole silnika.
     """
-    for session in (SessionId.FILES, SessionId.RADIO):
+    for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS):
         caps = capabilities_for(session)
         assert caps.supports_playback_rate is False
     assert "tempo_algorithm" not in SESSION_OPTION_IDS
@@ -145,6 +152,7 @@ def test_zakres_sesji_nie_rusza_obcego_silnika():
     """
     assert scope_for_session(SessionId.FILES) == "files"
     assert scope_for_session(SessionId.RADIO) == "radio"
+    assert scope_for_session(SessionId.PODCASTS) == "podcasts"
 
 
 # ------------------------------------------------------- trwalosc prywatna

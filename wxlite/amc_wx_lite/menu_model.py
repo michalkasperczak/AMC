@@ -532,6 +532,13 @@ def build_menus() -> tuple[Menu, ...]:
                 shortcut="Ctrl+Alt+Return",
                 accelerator=True,
             ),
+            MenuItem(
+                "Opcje odtwarzania &elementu…",
+                Action.PODCAST_PLAYBACK_OPTIONS,
+                shortcut="Alt+Shift+Return",
+                accelerator=False,
+                needs_podcast_session=True,
+            ),
         ),
     )
 

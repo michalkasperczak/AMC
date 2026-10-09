@@ -139,6 +139,12 @@ def _recording_frame():
     sent: list[dict] = []
 
     class Client:
+        def configure_audio(self, **_settings):
+            # Przed odtworzeniem produkcja przełącza bazowy tor sesji Pliki.
+            # Ten test mierzy wyłącznie kontrakt kolejki, więc konfiguracja
+            # dźwięku jest celowo wykonana, ale nie trafia do listy payloadów.
+            return {"ok": True}
+
         def queue_set(self, items, *, session_id="local", order=None):
             sent.append({"items": items, "sessionId": session_id, "order": order})
             return {"ok": True}
@@ -149,7 +155,18 @@ def _recording_frame():
 
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.client = Client()
-    frame.options = SimpleNamespace(volume=35, rate=1.0, session="local")
+    frame.options = SimpleNamespace(
+        volume=35,
+        rate=1.0,
+        session="local",
+        audio_payload=lambda: {
+            "loudnessNormalization": False,
+            "smoothTrackTransitions": False,
+            "interTrackSilenceMs": 0,
+            "tempoAlgorithm": 0,
+        },
+    )
+    frame.state = SimpleNamespace(session_overrides={})
     frame.announcer = SimpleNamespace(say=lambda *a, **k: None)
     # Runner wykonuje zadanie NATYCHMIAST i w tym samym watku: chcemy zmierzyc
     # payload, a nie polityke watkow (ta ma swoje testy).

@@ -117,6 +117,16 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
 18. `Ctrl+H` w sesji Podcasty i YouTube pokazuje zapisaną Historię
     odtwarzania tej sesji, również z odtwarzacza. `Delete` usuwa zaznaczenie
     tylko z Historii; źródło, odcinek i pobrany plik pozostają bez zmian.
+19. `Alt+Shift+Enter` na podcaście albo odcinku otwiera jego natywne opcje
+    odtwarzania. Ten sam skrót działa w odtwarzaczu dla bieżącego odcinka.
+    Odcinek może dziedziczyć po podcaście. Dźwięk i prędkość przechodzą dalej
+    do sesji lub ustawienia ogólnego, a domyślna zasada pozycji brzmi jawnie
+    „pamiętaj pozycję”. Etykieta `1,00 razy — normalna prędkość` odróżnia wartość
+    neutralną od wolniejszych i szybszych. Dla całego podcastu można ponadto
+    ustawić częstotliwość odświeżania oraz własny folder pobierania.
+    Sprawdź pierwszy fokus, rozwinięcie każdego wyboru, strzałki, Anuluj,
+    Zapisz, powrót fokusu i ponowne otwarcie z zapisanymi wartościami. Zapis
+    nadal wykonuje wyłącznie host C# i jest odmawiany przy drugim pisarzu.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -176,10 +186,11 @@ czerwieni 4 testy, a odwrócenie warunku `ID_OK` czerwieni test Anuluj.
 Dołożenie payloadu z nieobsługiwaną ciszą czerwieni zestaw C#. Testy więc
 rozróżniają, a nie tylko świecą zielono.
 
-**Czego to NIE mierzy:** żywego NVDA ani prawdziwego wxWidgets. W tym
-środowisku nie ma wxPython, więc dialog wykonuje się na atrapach wx
-(`tests/test_session_options_dialog.py`). Mowa, kolejność Tab i fokus po
-zamknięciu wymagają osobnego odbioru z czytnikiem na pulpicie.
+Dialog opcji odtwarzania podcastu został dodatkowo otwarty w prawdziwym,
+ukrytym oknie wxPython na Windows. Sprawdzono pierwszy fokus, celową nazwę
+kontrolki, etykietę prędkości normalnej, zmianę wyboru i ponowne otwarcie z
+tym wyborem. To nie zastępuje odbioru żywym NVDA: mowa, pełna kolejność Tab
+oraz fokus po Zapisz i Anuluj wymagają sprawdzenia przez użytkownika.
 
 ## Biblioteka radia i lokalna Historia — odbiór kolejnego przyrostu
 

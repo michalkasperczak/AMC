@@ -175,8 +175,17 @@ def test_radio_nie_dostaje_kontrolek_ktorych_nie_wykona():
     assert controls["pause"] is not None, "wyjscie z odtwarzacza dotyczy obu sesji"
 
 
+def test_podcasty_dostaja_kontrolki_dsp_ktore_maja_wykonawce():
+    dialog = _build(
+        SessionId.PODCASTS, Options(), session_options.SessionPlaybackOverrides()
+    )
+    controls = _controls(dialog)
+    for name in ("loudness", "transitions", "silence", "pause"):
+        assert controls[name] is not None, f"Podcasty wykonuja {name}"
+
+
 def test_liczba_kontrolek_zgadza_sie_ze_zdolnosciami():
-    for session in (SessionId.FILES, SessionId.RADIO):
+    for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS):
         dialog = _build(
             session, Options(), session_options.SessionPlaybackOverrides()
         )
@@ -217,6 +226,20 @@ def test_cisza_oferuje_tylko_dlugosci_przyjmowane_przez_silnik():
         session_options.inter_track_silence_label(v)
         for v in session_options.INTER_TRACK_SILENCE_CHOICES
     ], "etykiety ciszy brzmia jak w oryginale"
+
+
+def test_predkosc_elementu_wyjasnia_wartosc_normalna_wolniejsza_i_szybsza():
+    from amc_wx_lite import gui
+
+    labels = [
+        gui.PodcastPlaybackOptionsDialog._rate_label(value)
+        for value in (0.75, 1.00, 1.25)
+    ]
+    assert labels == [
+        "0,75 razy — wolniej",
+        "1,00 razy — normalna prędkość",
+        "1,25 razy — szybciej",
+    ]
 
 
 def test_otwarcie_pokazuje_ZAPISANY_wybor_a_nie_domysl():

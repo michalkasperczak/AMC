@@ -181,12 +181,23 @@ def test_podcast_refresh_matches_the_full_amc_context() -> None:
         podcast_session=True,
         podcast_inbox=True,
     ) is Action.REFRESH_PODCAST_LIBRARY
-    assert resolve(
-        Chord("F5"),
-        player_view=False,
-        radio_session=False,
-        podcast_session=False,
-    ) is None
+
+
+def test_alt_shift_enter_opens_podcast_item_options_in_list_and_player() -> None:
+    chord = Chord("Return", alt=True, shift=True)
+    for player in (False, True):
+        assert resolve(
+            chord,
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.PODCAST_PLAYBACK_OPTIONS
+        assert resolve(
+            chord,
+            player_view=player,
+            radio_session=False,
+            podcast_session=False,
+        ) is None
 
 
 def test_ctrl_n_adds_the_kind_used_by_the_current_session() -> None:

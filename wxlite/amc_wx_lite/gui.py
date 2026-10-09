@@ -1615,6 +1615,303 @@ class PresetAssignmentDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 
+class PodcastPlaybackOptionsDialog(wx.Dialog):
+    """Natywne opcje jednego podcastu albo odcinka.
+
+    Kontrolki dostają wyłącznie jawne polskie napisy. Wartości protokołu są
+    przechowywane obok listy etykiet, więc NVDA nie może przeczytać numeru
+    enuma, identyfikatora ani reprezentacji obiektu.
+    """
+
+    _RATES: tuple[float, ...] = (0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00)
+    _SILENCES: tuple[int, ...] = (0, 500, 1000, 2000, 3000, 5000)
+    _REFRESH: tuple[tuple[str, int], ...] = (
+        ("Tylko ręcznie", 0),
+        ("Co 15 minut", 15),
+        ("Co 30 minut", 30),
+        ("Co godzinę", 60),
+        ("Co 3 godziny", 180),
+        ("Co 6 godzin", 360),
+        ("Co 12 godzin", 720),
+        ("Raz dziennie", 1440),
+    )
+
+    def __init__(self, parent: wx.Window, options: dict) -> None:
+        self._target = "podcast" if options.get("target") == "podcast" else "episode"
+        podcast = self._target == "podcast"
+        super().__init__(
+            parent,
+            title="Opcje podcastu" if podcast else "Opcje odcinka podcastu",
+        )
+        panel = wx.ScrolledWindow(self, style=wx.VSCROLL)
+        panel.SetScrollRate(0, 12)
+        form = wx.FlexGridSizer(0, 2, 8, 8)
+        form.AddGrowableCol(1, 1)
+        self._first: wx.Choice | None = None
+
+        title = str(options.get("title") or (
+            "Podcast bez nazwy" if podcast else "Odcinek bez nazwy"
+        )).strip()
+        heading = wx.StaticText(panel, label=title)
+        heading.SetName(title)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(heading, 0, wx.ALL | wx.EXPAND, 12)
+
+        resume_inherited = (
+            "Domyślnie dla Podcastów — pamiętaj pozycję"
+            if podcast
+            else "Według podcastu; bez ustawienia — pamiętaj pozycję"
+        )
+        self.resume = self._add_choice(
+            panel,
+            form,
+            "&Pozycja odtwarzania odcinków:" if podcast else "&Pozycja odtwarzania odcinka:",
+            "Pozycja odtwarzania odcinków podcastu" if podcast else "Pozycja odtwarzania tego odcinka",
+            (
+                ("Pamiętaj pozycję odtwarzania", 1),
+                ("Zawsze od początku", 2),
+                (resume_inherited, 0),
+            ),
+            self._integer(options.get("resumePositionMode"), 0),
+        )
+
+        inherited_rate = (
+            "Według prędkości sesji"
+            if podcast
+            else "Według podcastu lub prędkości sesji"
+        )
+        rate_choices: tuple[tuple[str, float | None], ...] = (
+            (inherited_rate, None),
+        ) + tuple((self._rate_label(rate), rate) for rate in self._RATES)
+        self.rate = self._add_choice(
+            panel,
+            form,
+            "P&rędkość odcinków podcastu:" if podcast else "P&rędkość tego odcinka:",
+            "Prędkość odcinków podcastu" if podcast else "Prędkość tego odcinka",
+            rate_choices,
+            self._number_or_none(options.get("playbackRate")),
+        )
+
+        inherited = (
+            "Według ustawienia globalnego"
+            if podcast
+            else "Według podcastu, sesji lub ustawienia globalnego"
+        )
+        tristate: tuple[tuple[str, bool | None], ...] = (
+            (inherited, None),
+            ("Włączone", True),
+            ("Wyłączone", False),
+        )
+        self.loudness = self._add_choice(
+            panel, form, "&Normalizacja głośności:", "Normalizacja głośności",
+            tristate, self._bool_or_none(options.get("loudnessNormalization")),
+        )
+        self.transitions = self._add_choice(
+            panel, form, "Łagodne p&rzejścia:", "Łagodne przejścia",
+            tristate, self._bool_or_none(options.get("smoothTrackTransitions")),
+        )
+
+        silence_choices: tuple[tuple[str, int | None], ...] = (
+            (inherited, None),
+        ) + tuple(
+            (
+                "Bez dodatkowej ciszy"
+                if value == 0
+                else f"Cisza: {session_options.inter_track_silence_label(value)}",
+                value,
+            )
+            for value in self._SILENCES
+        )
+        self.silence = self._add_choice(
+            panel,
+            form,
+            "&Cisza po odcinkach podcastu:" if podcast else "&Cisza po tym odcinku:",
+            "Cisza po odcinkach podcastu" if podcast else "Cisza po tym odcinku",
+            silence_choices,
+            self._integer_or_none(options.get("interTrackSilenceMs")),
+        )
+
+        tempo_choices: tuple[tuple[str, int | None], ...] = (
+            (inherited, None),
+            ("Mowa — Speedy", 1),
+            ("Muzyka — Signalsmith", 2),
+            ("Dotychczasowy — SoundTouch", 0),
+        )
+        self.tempo = self._add_choice(
+            panel, form, "Spo&sób przeliczania tempa:", "Sposób przeliczania tempa",
+            tempo_choices, self._integer_or_none(options.get("tempoAlgorithm")),
+        )
+
+        self.refresh: wx.Choice | None = None
+        self.folder_mode: wx.Choice | None = None
+        self.folder_text: wx.TextCtrl | None = None
+        self.folder_button: wx.Button | None = None
+        if podcast:
+            self.refresh = self._add_choice(
+                panel, form, "Automatyczne &odświeżanie podcastu:",
+                "Automatyczne odświeżanie podcastu", self._REFRESH,
+                self._integer(options.get("refreshIntervalMinutes"), 0),
+            )
+            folder = str(options.get("downloadsFolder") or "").strip()
+            folder_modes: tuple[tuple[str, bool], ...] = (
+                ("Zgodnie z ustawieniem Podcastów", False),
+                ("Własny folder dla tego podcastu", True),
+            )
+            self.folder_mode = self._add_choice(
+                panel, form, "&Folder pobierania odcinków:",
+                "Folder pobierania odcinków tego podcastu", folder_modes,
+                bool(folder),
+            )
+            label = wx.StaticText(panel, label="Własny f&older pobierania:")
+            folder_row = wx.BoxSizer(wx.HORIZONTAL)
+            self.folder_text = wx.TextCtrl(panel, value=folder, style=wx.TE_READONLY)
+            self.folder_text.SetName("Własny folder pobierania tego podcastu")
+            self.folder_button = wx.Button(panel, label="&Wybierz…")
+            self.folder_button.SetName("Wybierz własny folder pobierania tego podcastu")
+            self.folder_button.Bind(wx.EVT_BUTTON, self._choose_folder)
+            self.folder_mode.Bind(wx.EVT_CHOICE, self._update_folder_controls)
+            folder_row.Add(self.folder_text, 1, wx.RIGHT | wx.EXPAND, 8)
+            folder_row.Add(self.folder_button, 0)
+            form.AddMany(((label, 0, wx.ALIGN_CENTER_VERTICAL), (folder_row, 1, wx.EXPAND)))
+            self._update_folder_controls(None)
+
+        outer.Add(form, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        panel.SetSizer(outer)
+
+        self.save_button = wx.Button(self, wx.ID_OK, label="&Zapisz")
+        self.save_button.SetName("Zapisz opcje odtwarzania")
+        self.save_button.SetDefault()
+        self.save_button.Bind(wx.EVT_BUTTON, self._save)
+        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
+        cancel.SetName("Anuluj opcje odtwarzania")
+        buttons = wx.BoxSizer(wx.HORIZONTAL)
+        buttons.Add(self.save_button, 0, wx.RIGHT, 8)
+        buttons.Add(cancel, 0)
+
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self.SetMinSize((680, 620))
+        self.SetSize((760, 780))
+        if self._first is not None:
+            self._first.SetFocus()
+
+    @staticmethod
+    def _integer(value, fallback: int) -> int:
+        return value if type(value) is int else fallback
+
+    @staticmethod
+    def _integer_or_none(value) -> int | None:
+        return value if type(value) is int else None
+
+    @staticmethod
+    def _number_or_none(value) -> float | None:
+        return float(value) if type(value) in (int, float) else None
+
+    @staticmethod
+    def _bool_or_none(value) -> bool | None:
+        return value if type(value) is bool else None
+
+    @staticmethod
+    def _rate_label(rate: float) -> str:
+        value = f"{rate:.2f}".replace(".", ",")
+        if rate < 1.0:
+            return f"{value} razy — wolniej"
+        if rate > 1.0:
+            return f"{value} razy — szybciej"
+        return f"{value} razy — normalna prędkość"
+
+    def _add_choice(self, panel, grid, label, name, choices, current) -> wx.Choice:
+        static = wx.StaticText(panel, label=label)
+        control = wx.Choice(panel, choices=[text for text, _ in choices])
+        control.SetName(name)
+        control._amc_values = [value for _, value in choices]  # type: ignore[attr-defined]
+        index = next(
+            (
+                i for i, (_, value) in enumerate(choices)
+                if value == current and type(value) is type(current)
+            ),
+            0,
+        )
+        control.SetSelection(index)
+        grid.AddMany(((static, 0, wx.ALIGN_CENTER_VERTICAL), (control, 1, wx.EXPAND)))
+        if self._first is None:
+            self._first = control
+        return control
+
+    @staticmethod
+    def _choice_value(control: wx.Choice | None):
+        if control is None or control.GetSelection() < 0:
+            return None
+        return control._amc_values[control.GetSelection()]  # type: ignore[attr-defined]
+
+    def _update_folder_controls(self, _event) -> None:
+        custom = self._choice_value(self.folder_mode) is True
+        if self.folder_text is not None:
+            self.folder_text.Enable(custom)
+        if self.folder_button is not None:
+            self.folder_button.Enable(custom)
+
+    def _choose_folder(self, _event) -> None:
+        initial = self.folder_text.GetValue() if self.folder_text is not None else ""
+        with wx.DirDialog(
+            self,
+            "Wybierz folder pobierania odcinków tego podcastu",
+            defaultPath=initial,
+            style=wx.DD_DIR_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() == wx.ID_OK and self.folder_text is not None:
+                self.folder_text.SetValue(dialog.GetPath())
+        if self.folder_button is not None:
+            self.folder_button.SetFocus()
+
+    def _save(self, _event) -> None:
+        if self._choice_value(self.folder_mode) is True:
+            folder = self.folder_text.GetValue().strip() if self.folder_text else ""
+            if not folder or not Path(folder).is_absolute():
+                dialog = wx.MessageDialog(
+                    self,
+                    "Wybierz pełną ścieżkę własnego folderu albo użyj folderu ogólnego Podcastów.",
+                    "Folder pobierania podcastu",
+                    wx.OK | wx.ICON_INFORMATION,
+                )
+                try:
+                    dialog.SetName("Folder pobierania podcastu")
+                    dialog.ShowModal()
+                finally:
+                    dialog.Destroy()
+                if self.folder_button is not None:
+                    self.folder_button.SetFocus()
+                return
+        self.EndModal(wx.ID_OK)
+
+    @property
+    def values(self) -> dict[str, object]:
+        podcast = self._target == "podcast"
+        custom_folder = podcast and self._choice_value(self.folder_mode) is True
+        return {
+            "resumePositionMode": self._choice_value(self.resume),
+            "playbackRate": self._choice_value(self.rate),
+            "loudnessNormalization": self._choice_value(self.loudness),
+            "smoothTrackTransitions": self._choice_value(self.transitions),
+            "interTrackSilenceMs": self._choice_value(self.silence),
+            "tempoAlgorithm": self._choice_value(self.tempo),
+            **(
+                {
+                    "refreshIntervalMinutes": self._choice_value(self.refresh),
+                    "downloadsFolder": (
+                        self.folder_text.GetValue().strip()
+                        if custom_folder and self.folder_text is not None
+                        else None
+                    ),
+                }
+                if podcast
+                else {}
+            ),
+        }
+
+
 class SessionOptionsDialog(wx.Dialog):
     """Opcje sesji. Pokazuje WYLACZNIE opcje, ktore ta sesja umie wykonac.
 
@@ -3609,6 +3906,8 @@ class LiteFrame(wx.Frame):
             self._go_to_related_podcast()
         elif action is Action.TOGGLE_PODCAST_FAVORITE:
             self._toggle_podcast_favorite()
+        elif action is Action.PODCAST_PLAYBACK_OPTIONS:
+            self._show_podcast_playback_options()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -5237,6 +5536,100 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("podcast-favorite", work, done, failed)
 
+    def _show_podcast_playback_options(self) -> None:
+        """Alt+Shift+Enter: opcje zaznaczonego podcastu albo odcinka."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Opcje są dostępne dla podcastu albo odcinka"
+            )
+            return
+        if getattr(self, "_podcast_options_pending", False):
+            self.announcer.say("Opcje odtwarzania są już otwierane")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę otworzyć opcji")
+            return
+
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        row = state.model.selected_row if state.view is View.LIST else next(
+            (
+                candidate for candidate in state.playback_source_rows
+                if candidate.item_id == state.now_playing_id
+            ),
+            None,
+        )
+        if row is None and state.view is View.PLAYER and state.now_playing_id:
+            row = Row(
+                item_id=state.now_playing_id,
+                title=state.now_playing_title or "Odcinek bez nazwy",
+                kind="episode",
+            )
+        if row is None or row.kind not in ("podcast", "episode"):
+            self.announcer.say("Zaznacz podcast albo odcinek")
+            return
+
+        item_id = row.item_id
+        target = row.kind
+        item_title = row.title
+        self._podcast_options_pending = True
+
+        def prepared(payload: dict) -> None:
+            options = payload if isinstance(payload, dict) else {}
+            dialog = PodcastPlaybackOptionsDialog(self, options)
+            chosen: dict[str, object] | None = None
+            try:
+                if dialog.ShowModal() == wx.ID_OK:
+                    chosen = dialog.values
+            finally:
+                dialog.Destroy()
+            if chosen is None:
+                self._podcast_options_pending = False
+                self._restore_focus_after_dialog()
+                return
+
+            def saved(result: dict) -> None:
+                self._podcast_options_pending = False
+                saved_options = (
+                    result.get("options")
+                    if isinstance(result, dict) and isinstance(result.get("options"), dict)
+                    else {}
+                )
+                title = str(saved_options.get("title") or item_title).strip()
+                label = "podcastu" if target == "podcast" else "odcinka"
+                message = f"Zapisano opcje {label}: {title}"
+                if isinstance(result, dict) and result.get("appliesOnNextPlayback"):
+                    message += ". Ustawienia toru dźwięku obowiązują od następnego otwarcia materiału"
+                self.status_field.SetLabel(message)
+                self.status_bar.show(message)
+                self.announcer.say(message)
+                self._restore_focus_after_dialog()
+
+            def save_failed(error: Exception) -> None:
+                self._podcast_options_pending = False
+                self.announcer.say(f"Nie zapisano opcji odtwarzania: {error}")
+                self._restore_focus_after_dialog()
+
+            self.runner.submit(
+                "podcast-options-save",
+                lambda: client.set_podcast_playback_options(
+                    item_id, target, chosen or {}
+                ),
+                saved,
+                save_failed,
+            )
+
+        def failed(error: Exception) -> None:
+            self._podcast_options_pending = False
+            self.announcer.say(f"Nie można otworzyć opcji odtwarzania: {error}")
+
+        self.runner.submit(
+            "podcast-options-read",
+            lambda: client.podcast_playback_options(item_id, target),
+            prepared,
+            failed,
+        )
+
     def _reload_podcast_list_after_download(
         self, preferred_id: str, completion_message: str
     ) -> bool:
@@ -5726,6 +6119,14 @@ class LiteFrame(wx.Frame):
         self._pending_playback_session = SessionId.FILES
 
         def work() -> dict:
+            client.configure_audio(
+                **session_options.resolve_audio_payload(
+                    self.options,
+                    session_options.effective_overrides(
+                        self.state, SessionId.FILES
+                    ),
+                )
+            )
             return client.play_file(
                 intent.path,
                 volume=self.options.volume,
@@ -5760,6 +6161,17 @@ class LiteFrame(wx.Frame):
         self._pending_playback_session = SessionId.PODCASTS
 
         def work() -> dict:
+            # Jeden WindowsMediaOutput obsługuje Pliki i Podcasty. Przed
+            # każdym startem ustawiamy bazę WŁAŚCIWEJ sesji; host nakłada na
+            # nią jeszcze nadpisania podcastu i odcinka z podcasts.db.
+            client.configure_audio(
+                **session_options.resolve_audio_payload(
+                    self.options,
+                    session_options.effective_overrides(
+                        self.state, SessionId.PODCASTS
+                    ),
+                )
+            )
             return client.play_media(
                 intent.source,
                 item_id=intent.item_id,
@@ -6548,6 +6960,14 @@ class LiteFrame(wx.Frame):
         order = [row.item_id for row in intent.rows]
 
         def work() -> dict:
+            client.configure_audio(
+                **session_options.resolve_audio_payload(
+                    self.options,
+                    session_options.effective_overrides(
+                        self.state, SessionId.FILES
+                    ),
+                )
+            )
             client.queue_set(items, order=order)
             return client.queue_play_at(
                 intent.item_id, volume=self.options.volume, rate=self.options.rate
@@ -6698,6 +7118,14 @@ class LiteFrame(wx.Frame):
             return
 
         def work() -> dict:
+            client.configure_audio(
+                **session_options.resolve_audio_payload(
+                    self.options,
+                    session_options.effective_overrides(
+                        self.state, SessionId.FILES
+                    ),
+                )
+            )
             return client.queue_play_at(
                 intent.item_id, volume=self.options.volume, rate=self.options.rate
             )
