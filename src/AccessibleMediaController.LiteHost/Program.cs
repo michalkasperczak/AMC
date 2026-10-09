@@ -83,6 +83,7 @@ internal static class Program
         var profileMutations = OpenProfileMutationStore(args);
         using var tidalCatalog = OpenTidalCatalog(args);
         using var wiim = OpenWiiM(args);
+        using var sonos = new LiteSonosCoordinator(new LiteSonosAccountOwner());
 
         var bookmarkStore = OpenBookmarkStore(args);
         using var handlers = new LiteEngineHandlers(
@@ -92,7 +93,8 @@ internal static class Program
             podcastStore,
             profileMutations,
             tidalCatalog,
-            wiim);
+            wiim,
+            sonos);
         // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
         // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
         // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
@@ -127,6 +129,8 @@ internal static class Program
                 // Oficjalny katalog TIDAL wykonuje siec i odswiezenie tokenu,
                 // ale nie moze blokowac transportu ani nagrywania radia.
                 LiteTidalCatalogContract.ContainerItemsOperation,
+                LiteTidalCatalogContract.CollectionViewOperation,
+                LiteTidalCatalogContract.MembershipOperation,
                 // Uruchomienie TIDALa i wczytanie strony albumu trwa nawet
                 // kilkadziesiat sekund. Radio, nagrywanie i status lokalnego
                 // odtwarzacza musza w tym czasie pozostac responsywne.
@@ -135,7 +139,12 @@ internal static class Program
                 // Urzadzenie sieciowe moze odpowiadac kilka sekund. Nie moze
                 // w tym czasie blokowac lokalnego radia ani nagrywania.
                 LiteWiiMContract.SnapshotOperation,
-                LiteWiiMContract.TransportOperation
+                LiteWiiMContract.TransportOperation,
+                // Sonos korzysta z chmury i odnowienia konta. Wszystkie trzy
+                // operacje muszą pozostawić radio i nagrywanie responsywne.
+                LiteSonosContract.TargetsOperation,
+                LiteSonosContract.SnapshotOperation,
+                LiteSonosContract.TransportOperation
             ]);
 
         Console.Error.WriteLine(

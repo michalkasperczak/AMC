@@ -300,6 +300,10 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Action.VIEW_LIBRARY,
         Action.VIEW_FAVORITES,
         Action.VIEW_PLAYLISTS,
+        Action.VIEW_SAVED_QUEUE,
+        Action.ADD_TO_QUEUE,
+        Action.TIDAL_TOGGLE_LIBRARY,
+        Action.TIDAL_TOGGLE_FAVORITE,
         Action.VIEW_ACTIVE_RECORDINGS,
         Action.VIEW_RECORDED_RADIO_FILES,
         Action.MANAGE_RADIO_SCHEDULES,
@@ -317,3 +321,43 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Path(__file__).resolve().parents[1] / "amc_wx_lite" / "gui.py"
     ).read_text(encoding="utf-8")
     assert "action not in TIDAL_SUPPORTED_ACTIONS" in gui
+
+
+def test_tidal_collection_shortcuts_are_contextual() -> None:
+    assert resolve(
+        Chord("L", ctrl=True, shift=True),
+        player_view=False,
+        radio_session=False,
+        tidal_session=True,
+    ) is Action.TIDAL_TOGGLE_LIBRARY
+    assert resolve(
+        Chord("U", ctrl=True, shift=True),
+        player_view=False,
+        radio_session=False,
+        tidal_session=True,
+    ) is Action.TIDAL_TOGGLE_FAVORITE
+    assert resolve(
+        Chord("U", ctrl=True, shift=True),
+        player_view=False,
+        radio_session=False,
+    ) is None
+
+
+def test_tidal_queue_is_its_own_accessible_view() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    track = Row(
+        "tidal:tracks:1",
+        "Utwór",
+        "track",
+        service_id="tracks:1",
+        service_kind="track",
+        related_album_service_id="albums:44",
+    )
+
+    events = nav.apply_tidal_queue([track])
+
+    assert events == [Announce("Kolejka TIDAL, 1 pozycja")]
+    assert nav.session.library_view is LibraryView.TIDAL_QUEUE
+    assert nav.session.model.selected_row == track
+    assert isinstance(nav.activate_selected()[0], PlayTidalTrack)

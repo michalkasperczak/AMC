@@ -95,6 +95,7 @@ class Action(Enum):
     SESSION_PODCASTS = "session.podcasts"
     SESSION_TIDAL = "session.tidal"
     SESSION_WIIM = "session.wiim"
+    SESSION_SONOS = "session.sonos"
     ACTIVATE = "activate"
     PARENT_FOLDER = "parent"
     SHOW_PLAYER = "view.player"
@@ -106,6 +107,8 @@ class Action(Enum):
     QUEUE_PREVIOUS = "queue.previous"
     ADD_TO_QUEUE = "action.queue.add"
     TOGGLE_PLAY_NEXT = "action.queue.playNextToggle"
+    TIDAL_TOGGLE_LIBRARY = "tidal.library.toggle"
+    TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     SEEK_BACK_10 = "seek.back10"
     SEEK_FORWARD_10 = "seek.forward10"
     # Shift to 30 s (MainWindow.xaml.cs:21585-21586). Dostarczona wersja
@@ -286,12 +289,16 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_PODCASTS,
     Action.SESSION_TIDAL,
     Action.SESSION_WIIM,
+    Action.SESSION_SONOS,
     Action.ACTIVATE,
     Action.PARENT_FOLDER,
     Action.SHOW_LIST,
     Action.PLAY_PAUSE,
     Action.QUEUE_NEXT,
     Action.QUEUE_PREVIOUS,
+    Action.ADD_TO_QUEUE,
+    Action.TIDAL_TOGGLE_LIBRARY,
+    Action.TIDAL_TOGGLE_FAVORITE,
     Action.TIME_ELAPSED,
     Action.TIME_REMAINING,
     Action.TIME_TOTAL,
@@ -320,6 +327,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_LIBRARY,
     Action.VIEW_FAVORITES,
     Action.VIEW_PLAYLISTS,
+    Action.VIEW_SAVED_QUEUE,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
@@ -336,6 +344,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_PODCASTS,
     Action.SESSION_TIDAL,
     Action.SESSION_WIIM,
+    Action.SESSION_SONOS,
     Action.ACTIVATE,
     Action.PARENT_FOLDER,
     Action.SHOW_PLAYER,
@@ -343,6 +352,61 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.PLAY_PAUSE,
     Action.QUEUE_NEXT,
     Action.QUEUE_PREVIOUS,
+    Action.VOLUME_UP_5,
+    Action.VOLUME_DOWN_5,
+    Action.VOLUME_UP_1,
+    Action.VOLUME_DOWN_1,
+    Action.TIME_ELAPSED,
+    Action.TIME_REMAINING,
+    Action.TIME_TOTAL,
+    Action.SELECT_AUDIO_OUTPUT,
+    Action.GENERAL_SETTINGS,
+    Action.TOGGLE_SEEK_MESSAGES,
+    Action.QUICK_INFORMATION,
+    Action.COPY_NAME,
+    Action.FOCUS_FILTER,
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.MANAGE_RADIO_SCHEDULES,
+    Action.VIEW_PODCAST_INBOX,
+    Action.HELP,
+})
+
+
+# Sonos jest autonomicznym odtwarzaczem sieciowym. Polecenia spoza tej listy
+# nie mogą przypadkiem trafić do lokalnego silnika plików.
+SONOS_SUPPORTED_ACTIONS = frozenset({
+    Action.SESSION_FILES,
+    Action.SESSION_RADIO,
+    Action.SESSION_PODCASTS,
+    Action.SESSION_TIDAL,
+    Action.SESSION_WIIM,
+    Action.SESSION_SONOS,
+    Action.ACTIVATE,
+    Action.PARENT_FOLDER,
+    Action.SHOW_PLAYER,
+    Action.SHOW_LIST,
+    Action.PLAY_PAUSE,
+    Action.QUEUE_NEXT,
+    Action.QUEUE_PREVIOUS,
+    Action.SEEK_BACK_10,
+    Action.SEEK_FORWARD_10,
+    Action.SEEK_BACK_30,
+    Action.SEEK_FORWARD_30,
+    Action.SEEK_BACK_60,
+    Action.SEEK_FORWARD_60,
+    Action.SEEK_BACK_CUSTOM,
+    Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_PERCENT_0,
+    Action.SEEK_PERCENT_10,
+    Action.SEEK_PERCENT_20,
+    Action.SEEK_PERCENT_30,
+    Action.SEEK_PERCENT_40,
+    Action.SEEK_PERCENT_50,
+    Action.SEEK_PERCENT_60,
+    Action.SEEK_PERCENT_70,
+    Action.SEEK_PERCENT_80,
+    Action.SEEK_PERCENT_90,
     Action.VOLUME_UP_5,
     Action.VOLUME_DOWN_5,
     Action.VOLUME_UP_1,
@@ -394,6 +458,7 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+3": Action.SESSION_PODCASTS,
     "Ctrl+4": Action.SESSION_TIDAL,
     "Ctrl+5": Action.SESSION_WIIM,
+    "Ctrl+6": Action.SESSION_SONOS,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
     # Kontekstowe polecenia edycji z głównego AMC. F2 zmienia nazwę
@@ -549,6 +614,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+3": Action.SESSION_PODCASTS,
     "Ctrl+4": Action.SESSION_TIDAL,
     "Ctrl+5": Action.SESSION_WIIM,
+    "Ctrl+6": Action.SESSION_SONOS,
     "Escape": Action.SHOW_LIST,
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
@@ -681,6 +747,12 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
 }
 
 
+TIDAL_SESSION_VIEW: dict[str, Action] = {
+    "Ctrl+Shift+L": Action.TIDAL_TOGGLE_LIBRARY,
+    "Ctrl+Shift+U": Action.TIDAL_TOGGLE_FAVORITE,
+}
+
+
 def resolve(
     chord: Chord,
     *,
@@ -688,6 +760,7 @@ def resolve(
     radio_session: bool,
     podcast_inbox: bool = False,
     podcast_session: bool = False,
+    tidal_session: bool = False,
 ) -> Action | None:
     """Znajdz akcje dla klawisza w DANYM widoku. Brak wpisu = klawisz zostaje
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
@@ -703,6 +776,8 @@ def resolve(
     # bieżącego podcastu lub odcinka.
     if podcast_session and canonical in PODCAST_SESSION_VIEW:
         return PODCAST_SESSION_VIEW[canonical]
+    if tidal_session and canonical in TIDAL_SESSION_VIEW:
+        return TIDAL_SESSION_VIEW[canonical]
     # Widoki Radia sa dostepne takze z odtwarzacza, bez wychodzenia Escape.
     # Ta sama akcja co na liscie/menu; nie przenosimy edycji stacji do PLAYER.
     if radio_session and canonical in ("Ctrl+L", "Ctrl+U", "Ctrl+H"):
@@ -722,6 +797,7 @@ def describe() -> list[tuple[str, str]]:
         Action.SESSION_PODCASTS: "Podcasty i YouTube",
         Action.SESSION_TIDAL: "TIDAL",
         Action.SESSION_WIIM: "WiiM",
+        Action.SESSION_SONOS: "Sonos",
         Action.ACTIVATE: "Otworz folder albo odtworz",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.SHOW_PLAYER: "Widok odtwarzacza",
@@ -731,6 +807,8 @@ def describe() -> list[tuple[str, str]]:
         Action.QUEUE_PREVIOUS: "Poprzedni utwor kolejki",
         Action.ADD_TO_QUEUE: "Dodaj zaznaczenie do kolejki albo je usun",
         Action.TOGGLE_PLAY_NEXT: "Ustaw albo usun odtwarzanie jako nastepne",
+        Action.TIDAL_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki TIDAL",
+        Action.TIDAL_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych TIDAL",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",

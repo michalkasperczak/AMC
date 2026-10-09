@@ -87,6 +87,26 @@ def test_round_trip_keeps_private_podcast_inbox_sort_override() -> None:
     assert store.load().podcast_inbox_sort_mode == "Custom"
 
 
+def test_round_trip_keeps_only_safe_private_tidal_queue_fields() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(tidal_queue_items=[{
+        "itemId": "tidal:tracks:1",
+        "externalId": "tracks:1",
+        "title": "Utwór",
+        "kind": "track",
+        "artist": "Wykonawca",
+        "relatedAlbumExternalId": "albums:44",
+        "relatedAlbumTitle": "Album",
+        "token": "nie zapisuj",
+    }]))
+
+    loaded = store.load().tidal_queue_items
+
+    assert len(loaded) == 1
+    assert loaded[0]["title"] == "Utwór"
+    assert "token" not in loaded[0]
+
+
 def test_unknown_podcast_sort_value_is_not_restored_or_rewritten() -> None:
     store, directory = temp_store()
     store.path.write_text(json.dumps({

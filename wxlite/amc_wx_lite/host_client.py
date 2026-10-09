@@ -430,6 +430,26 @@ class LiteHostClient:
             args["artistSection"] = artist_section
         return self.call("tidal.containerItems", args, timeout=120.0)
 
+    def tidal_collection_view(self, view: str) -> Any:
+        """Synchronize and read one account collection view in the C# host."""
+        return self.call("tidal.collectionView", {"view": view}, timeout=180.0)
+
+    def tidal_collection_membership(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        mode: str,
+        add: bool | None = None,
+    ) -> Any:
+        """Change account collection through C# without exposing credentials."""
+        args: dict[str, Any] = {
+            "mode": mode,
+            "items": items,
+        }
+        if add is not None:
+            args["add"] = bool(add)
+        return self.call("tidal.collectionMembership", args, timeout=120.0)
+
     def tidal_desktop_play(
         self,
         *,
@@ -519,6 +539,39 @@ class LiteHostClient:
             args,
             timeout=30.0,
         )
+
+    def sonos_targets(self) -> Any:
+        """List Sonos groups; account tokens never leave the C# host."""
+        return self.call("sonos.targets", timeout=60.0)
+
+    def sonos_snapshot(self, household_id: str, group_id: str) -> Any:
+        """Read the current state of one group from the shared Sonos core."""
+        return self.call(
+            "sonos.snapshot",
+            {"householdId": household_id, "groupId": group_id},
+            timeout=45.0,
+        )
+
+    def sonos_transport(
+        self,
+        household_id: str,
+        group_id: str,
+        command: str,
+        *,
+        volume: int | None = None,
+        seconds: float | None = None,
+    ) -> Any:
+        """Send one allowlisted command to a group selected from fresh topology."""
+        args: dict[str, object] = {
+            "householdId": household_id,
+            "groupId": group_id,
+            "command": command,
+        }
+        if volume is not None:
+            args["volume"] = max(0, min(100, int(volume)))
+        if seconds is not None:
+            args["seconds"] = float(seconds)
+        return self.call("sonos.transport", args, timeout=45.0)
 
     def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
         """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
@@ -946,6 +999,8 @@ def default_host_path() -> Path:
     here = Path(__file__).resolve()
     name = "amc_lite_host.exe" if os.name == "nt" else "amc_lite_host"
     candidates = [
+        here.parent.parent / "host-next-2" / name,
+        here.parent.parent.parent / "host-next-2" / name,
         here.parent.parent / "host-next" / name,
         here.parent.parent.parent / "host-next" / name,
         here.parent.parent / "host" / name,

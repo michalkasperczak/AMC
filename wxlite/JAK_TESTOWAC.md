@@ -2,6 +2,39 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## TIDAL, WiiM i Sonos — odbiór 10 października
+
+TIDAL:
+
+1. `Ctrl+4` otwiera sesję TIDAL.
+2. Na albumie, wykonawcy lub playliście `Ctrl+Shift+L` ma zmienić stan
+   Biblioteki i podać jeden końcowy komunikat.
+3. Na utworze lub materiale wideo `Ctrl+Shift+U` ma zmienić stan Ulubionych.
+4. Zaznacz kilka utworów, także nieprzylegających przez `Ctrl+Spacja`.
+   `Ctrl+Shift+Q` ma dodać lub usunąć całe zaznaczenie z prywatnej Kolejki.
+   `Ctrl+Q` ma pokazać tę samą kolejność także po ponownym uruchomieniu.
+5. Enter na utworze lub albumie ma przekazać odtwarzanie do oficjalnej
+   aplikacji TIDAL. Nie oczekuj od tej drogi własnego pełnego odtwarzacza AMC.
+
+WiiM:
+
+1. Obudź urządzenie i naciśnij `Ctrl+5`.
+2. Sprawdź wykrycie, aktywację, Enter, Spację, następny/poprzedni, głośność,
+   przewijanie, szybkie informacje i powrót fokusu po zmianie sesji.
+
+Sonos:
+
+1. Obudź głośniki i naciśnij `Ctrl+6`.
+2. Lista ma czytać wyłącznie nazwy grup i stan użytkowy. Enter aktywuje grupę.
+3. Sprawdź Spację, następny/poprzedni, głośność, przewijanie, szybkie
+   informacje oraz zachowanie po zmianie sesji.
+4. Nazwy klas, identyfikatory i dane uwierzytelniające nie mogą pojawić się w
+   mowie NVDA, schowku ani komunikatach.
+
+Brak urządzeń lub uśpione urządzenia nie jest zaliczeniem ani błędem kodu.
+Zapisz wtedy wynik jako „nieprzetestowane na żywo”. Spotify nie należy do tego
+etapu. Moduł aktualizacji będzie sprawdzany osobno po weryfikacji „Sygnalisty”.
+
 ## Nagrywanie radia — potwierdzenie po Ctrl+R
 
 `Ctrl+R` na stacji od razu mówi jedno krótkie zdanie:

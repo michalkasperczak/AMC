@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.LiteHost.Protocol;
 using AccessibleMediaController.Windows.Services;
 
@@ -21,7 +22,10 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
     };
 
     private readonly object _gate = new();
+    private readonly object _collectionGate = new();
     private TidalIntegrationService? _integration;
+    private IReadOnlyList<MediaItem>? _collectionSnapshot;
+    private bool _collectionSyncAttempted;
 
     public object GetContainerItems(JsonElement args)
     {
@@ -39,6 +43,64 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
             items);
     }
 
+    public object ChangeMembership(JsonElement args)
+    {
+        lock (_collectionGate)
+        {
+            var request = LiteTidalCatalogContract.ReadMembershipRequest(args);
+            var result = RequireIntegration().ChangeCollectionMembershipAsync(
+                    request.Items,
+                    request.RequestedAddition,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            _collectionSnapshot = result.Items;
+            var label = result.ChangedCount == 1
+                ? request.Items[0].Title
+                : $"{result.ChangedCount} elementów";
+            var destination = request.Mode == "favorite" ? "Ulubionych" : "Biblioteki";
+            var message = result.Added
+                ? $"Dodano do {destination} TIDAL: {label}"
+                : $"Usunięto z {destination} TIDAL: {label}";
+            return new LiteTidalMembershipResult(
+                result.Added,
+                result.ChangedCount,
+                request.Items.Select(item => item.Id).ToArray(),
+                message);
+        }
+    }
+
+    public object GetCollectionView(JsonElement args)
+    {
+        var view = LiteTidalCatalogContract.ReadCollectionView(args);
+        lock (_collectionGate)
+        {
+            var integration = RequireIntegration();
+            var warning = string.Empty;
+            if (!_collectionSyncAttempted)
+            {
+                _collectionSyncAttempted = true;
+                try
+                {
+                    var synchronized = integration.SynchronizeAsync(CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                    _collectionSnapshot = synchronized.Items;
+                    warning = string.Join("; ", synchronized.Warnings);
+                }
+                catch (Exception exception)
+                {
+                    warning = "Nie udało się odświeżyć kolekcji TIDAL; pokazano ostatni zapis. "
+                        + exception.Message;
+                }
+            }
+            return LiteTidalCatalogContract.CreateCollectionViewResult(
+                view,
+                _collectionSnapshot ?? [],
+                warning);
+        }
+    }
+
     private TidalIntegrationService RequireIntegration()
     {
         lock (_gate)
@@ -46,10 +108,11 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
             if (_integration is not null) return _integration;
             var settings = ReadSettings();
             var integration = new TidalIntegrationService(settings);
-            integration.RestoreCachedCollection(
-                settings.CachedCollectionItems
-                    .Select(item => item.ToMediaItem())
-                    .ToArray());
+            var cached = settings.CachedCollectionItems
+                .Select(item => item.ToMediaItem())
+                .ToArray();
+            integration.RestoreCachedCollection(cached);
+            _collectionSnapshot = cached;
             _integration = integration;
             return integration;
         }

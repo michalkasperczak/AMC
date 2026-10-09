@@ -73,6 +73,7 @@ from . import menu_model
 from . import profile_presets
 from .navigation import (
     ActivateWiiMDevice,
+    ActivateSonosGroup,
     Announce,
     LIBRARY_VIEW_FOLDERS,
     LibraryView,
@@ -100,6 +101,7 @@ from .shortcuts import (
     Action,
     Chord,
     TIDAL_SUPPORTED_ACTIONS,
+    SONOS_SUPPORTED_ACTIONS,
     WIIM_SUPPORTED_ACTIONS,
     describe,
     preset_slot,
@@ -110,6 +112,12 @@ from .wiim_source import (
     device_rows as wiim_device_rows,
     now_playing_label as wiim_now_playing_label,
     snapshot as wiim_snapshot,
+)
+from .sonos_source import (
+    SonosPayloadError,
+    target_rows as sonos_target_rows,
+    now_playing_label as sonos_now_playing_label,
+    snapshot as sonos_snapshot,
 )
 from .profile_layout import resolve_layout
 from .podcast_source import (
@@ -172,6 +180,8 @@ from .tidal_source import (
     VIEW_LIBRARY as TIDAL_VIEW_LIBRARY,
     VIEW_PLAYLISTS as TIDAL_VIEW_PLAYLISTS,
     container_result_from_host,
+    queue_payload as tidal_queue_payload,
+    queue_rows as tidal_queue_rows,
 )
 
 APP_NAME = "AMC-wx-Lite"
@@ -2432,6 +2442,7 @@ class LiteFrame(wx.Frame):
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
         self.tidal = TidalSource(self.layout)
+        self._tidal_queue_rows = list(tidal_queue_rows(state.tidal_queue_items))
         # Kazde otwarcie katalogu ma numer. Odpowiedz rozpoczęta przed
         # opuszczeniem sesji nie moze po powrocie podmienic nowszej listy.
         self._tidal_navigation_version = 0
@@ -2485,6 +2496,10 @@ class LiteFrame(wx.Frame):
         self._wiim_snapshot: dict = {}
         self._wiim_active_device_id = ""
         self._wiim_status_poll_pending = False
+        self._sonos_snapshot: dict = {}
+        self._sonos_active_household_id = ""
+        self._sonos_active_group_id = ""
+        self._sonos_status_poll_pending = False
         self._radio_activity_cues: dict[tuple[bool, bool], object] = {}
 
         self._build_ui()
@@ -2552,10 +2567,17 @@ class LiteFrame(wx.Frame):
             "Urządzenia WiiM",
             self.navigator.sessions[SessionId.WIIM],
         )
+        self.sonos_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.SONOS].model,
+            "Grupy Sonos",
+            self.navigator.sessions[SessionId.SONOS],
+        )
         self.radio_list.Hide()
         self.podcasts_list.Hide()
         self.tidal_list.Hide()
         self.wiim_list.Hide()
+        self.sonos_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
         list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
@@ -2564,6 +2586,7 @@ class LiteFrame(wx.Frame):
         list_sizer.Add(self.podcasts_list, 1, wx.EXPAND)
         list_sizer.Add(self.tidal_list, 1, wx.EXPAND)
         list_sizer.Add(self.wiim_list, 1, wx.EXPAND)
+        list_sizer.Add(self.sonos_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
         # --- widok odtwarzacza (zwykle kontrolki, nie wlasne rysowanie)
@@ -2825,6 +2848,7 @@ class LiteFrame(wx.Frame):
             self.podcasts_list,
             self.tidal_list,
             self.wiim_list,
+            self.sonos_list,
         ):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
@@ -3514,6 +3538,10 @@ class LiteFrame(wx.Frame):
             self._load_wiim_devices(
                 preferred_id=self.navigator.sessions[SessionId.WIIM].list_anchor_id
             )
+        if getattr(self.navigator, "active", None) is SessionId.SONOS:
+            self._load_sonos_targets(
+                preferred_id=self.navigator.sessions[SessionId.SONOS].list_anchor_id
+            )
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\micha) na tej maszynie nie istnieja, lista pod
@@ -3659,7 +3687,7 @@ class LiteFrame(wx.Frame):
         self.runner.submit("radio-view", work, done, failed)
 
     def _open_tidal_view(self, intent: OpenTidalView) -> None:
-        """Read one persisted TIDAL collection view outside the GUI thread."""
+        """Read one account collection view, with the saved cache as fallback."""
         scopes = {
             LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
             LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
@@ -3671,9 +3699,38 @@ class LiteFrame(wx.Frame):
             return
         self._tidal_navigation_version += 1
         version = self._tidal_navigation_version
+        client = self.client
 
         def work():
-            return self.tidal.load_view(scope)
+            if client is not None:
+                try:
+                    payload = client.tidal_collection_view(scope)
+                    result = container_result_from_host(payload)
+                    warning = (
+                        str(payload.get("warning") or "").strip()
+                        if isinstance(payload, dict) else ""
+                    )
+                    return (
+                        result.heading,
+                        list(result.rows),
+                        True,
+                        warning,
+                    )
+                except Exception as error:
+                    cached = self.tidal.load_view(scope)
+                    return (
+                        cached.heading,
+                        list(cached.rows),
+                        cached.order_matches_amc,
+                        f"Nie udało się odświeżyć TIDAL; pokazano ostatni zapis: {error}",
+                    )
+            cached = self.tidal.load_view(scope)
+            return (
+                cached.heading,
+                list(cached.rows),
+                cached.order_matches_amc,
+                "",
+            )
 
         def done(result) -> None:
             if (
@@ -3683,14 +3740,16 @@ class LiteFrame(wx.Frame):
                 return
             events = self.navigator.apply_tidal_view(
                 intent.view,
-                result.heading,
-                list(result.rows),
+                result[0],
+                result[1],
                 preferred_id=intent.preferred_id,
-                order_matches_amc=result.order_matches_amc,
+                order_matches_amc=result[2],
             )
             # Wynik aktualizuje tylko stan TIDAL. Jeśli użytkownik zdążył
             # przejść do innej sesji, nie przenosimy tam fokusu ani mowy.
             self._run(events)
+            if result[3]:
+                self.announcer.say(result[3])
 
         def failed(error: Exception) -> None:
             if (
@@ -3897,6 +3956,7 @@ class LiteFrame(wx.Frame):
             radio_session=radio,
             podcast_inbox=podcast_inbox,
             podcast_session=self.navigator.active is SessionId.PODCASTS,
+            tidal_session=self.navigator.active is SessionId.TIDAL,
         )
         if action is None:
             # Klawisz NIE jest nasz: oddajemy go kontrolce, zeby natywna
@@ -3941,6 +4001,12 @@ class LiteFrame(wx.Frame):
                     "To polecenie nie jest dostępne w sesji WiiM"
                 )
                 return
+        if self.navigator.active is SessionId.SONOS:
+            if action not in SONOS_SUPPORTED_ACTIONS:
+                self.announcer.say(
+                    "To polecenie nie jest dostępne w sesji Sonos"
+                )
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -3956,6 +4022,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_WIIM:
             self._transient_preview_return = None
             self._switch_session(SessionId.WIIM)
+        elif action is Action.SESSION_SONOS:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.SONOS)
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
@@ -4014,6 +4083,13 @@ class LiteFrame(wx.Frame):
             self._queue_step(action is Action.QUEUE_NEXT)
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
             self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
+        elif action in (
+            Action.TIDAL_TOGGLE_LIBRARY,
+            Action.TIDAL_TOGGLE_FAVORITE,
+        ):
+            self._toggle_tidal_membership(
+                favorite=action is Action.TIDAL_TOGGLE_FAVORITE
+            )
         elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
             # Krok czyta parytet transportu: 10 / 30 / 60 s i czas z ustawien
             # AMC (MainWindow.xaml.cs:21583-21590, 22387-22394). Wartosc
@@ -4160,6 +4236,8 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_aggregate(
                     OpenPodcastAggregateView(LibraryView.PODCAST_QUEUE)
                 )
+            elif self.navigator.active is SessionId.TIDAL:
+                self._open_tidal_queue()
             else:
                 self._run(self.navigator.open_queue_view())
         elif action is Action.VIEW_ITEM_BOOKMARKS:
@@ -4214,6 +4292,8 @@ class LiteFrame(wx.Frame):
                 self._play_tidal_container(intent)
             elif isinstance(intent, ActivateWiiMDevice):
                 self._activate_wiim_device(intent)
+            elif isinstance(intent, ActivateSonosGroup):
+                self._activate_sonos_group(intent)
         self._sync_views()
 
     def _sync_views(self) -> None:
@@ -4227,6 +4307,7 @@ class LiteFrame(wx.Frame):
             SessionId.PODCASTS: "Podcasty i YouTube",
             SessionId.TIDAL: "TIDAL",
             SessionId.WIIM: "WiiM",
+            SessionId.SONOS: "Sonos",
         }[self.navigator.active])
 
         active_list = self._active_list()
@@ -4237,6 +4318,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "podcasts_list", None),
                 getattr(self, "tidal_list", None),
                 getattr(self, "wiim_list", None),
+                getattr(self, "sonos_list", None),
             )
             if candidate is not None
         )
@@ -4285,18 +4367,35 @@ class LiteFrame(wx.Frame):
         # aktywny, bo jest jawnie kierowany do sesji systemowej TIDALa.
         tidal_external = self.navigator.active is SessionId.TIDAL
         wiim_remote = self.navigator.active is SessionId.WIIM
+        sonos_remote = self.navigator.active is SessionId.SONOS
         wiim_ready = (
             not wiim_remote
             or bool(self._wiim_snapshot)
             and self._wiim_snapshot.get("deviceId")
             == self._wiim_active_device_id
         )
-        self.volume_slider.Enable(not tidal_external and wiim_ready)
-        self.rate_slider.Enable(not (tidal_external or wiim_remote))
+        sonos_ready = (
+            not sonos_remote
+            or bool(self._sonos_snapshot)
+            and self._sonos_snapshot.get("groupId")
+            == self._sonos_active_group_id
+        )
+        sonos_volume = (
+            sonos_ready
+            and self._sonos_snapshot.get("fixedVolume") is not True
+            and self._sonos_snapshot.get("volume") is not None
+        )
+        self.volume_slider.Enable(
+            not tidal_external and wiim_ready
+            and (not sonos_remote or sonos_volume)
+        )
+        self.rate_slider.Enable(not (tidal_external or wiim_remote or sonos_remote))
 
         if want_player:
             if wiim_remote and self._wiim_snapshot:
                 self._apply_wiim_snapshot(self._wiim_snapshot, announce=False)
+            elif sonos_remote and self._sonos_snapshot:
+                self._apply_sonos_snapshot(self._sonos_snapshot, announce=False)
             else:
                 self.now_playing.SetLabel(
                     session.now_playing_title or "Nic nie jest odtwarzane"
@@ -4318,6 +4417,8 @@ class LiteFrame(wx.Frame):
             return self.podcasts_list
         if self.navigator.active is SessionId.WIIM:
             return self.wiim_list
+        if self.navigator.active is SessionId.SONOS:
+            return self.sonos_list
         return self.tidal_list
 
     def _on_item_focused(self, event: wx.ListEvent) -> None:
@@ -4706,6 +4807,10 @@ class LiteFrame(wx.Frame):
             state = self.navigator.sessions[SessionId.WIIM]
             if not state.model.rows:
                 self._load_wiim_devices(preferred_id=state.list_anchor_id)
+        elif session_id is SessionId.SONOS:
+            state = self.navigator.sessions[SessionId.SONOS]
+            if not state.model.rows:
+                self._load_sonos_targets(preferred_id=state.list_anchor_id)
 
     # --------------------------------------------------------------- WiiM
 
@@ -4852,6 +4957,153 @@ class LiteFrame(wx.Frame):
             done,
             lambda error: self.announcer.say(
                 f"Nie udało się sterować urządzeniem WiiM: {error}"
+            ),
+        )
+
+    # ---------------------------------------------------------------- Sonos
+
+    def _load_sonos_targets(self, preferred_id: str | None = None) -> None:
+        """Wczytaj grupy przez wspólny Core; token konta zostaje w C#."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+
+        def done(payload: object) -> None:
+            try:
+                rows = list(sonos_target_rows(payload))
+            except SonosPayloadError as error:
+                self.announcer.say(str(error))
+                return
+            events = self.navigator.apply_sonos_targets(rows, preferred_id)
+            if self.navigator.active is SessionId.SONOS:
+                self._run(events)
+            else:
+                self._sync_views()
+
+        self.runner.submit(
+            "sonos-targets",
+            client.sonos_targets,
+            done,
+            lambda error: self.announcer.say(
+                f"Nie udało się odczytać grup Sonos: {error}"
+            ),
+        )
+
+    def _activate_sonos_group(self, intent: ActivateSonosGroup) -> None:
+        client = self.client
+        if client is None:
+            self._run(self.navigator.back_to_list())
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+        self._sonos_active_household_id = intent.household_id
+        self._sonos_active_group_id = intent.group_id
+        self._sonos_snapshot = {}
+        self.now_playing.SetLabel(intent.title)
+        self._set_transport_label(playing=False, preparing=True)
+
+        def done(payload: object) -> None:
+            try:
+                state = sonos_snapshot(payload)
+            except SonosPayloadError as error:
+                failed(error)
+                return
+            if (
+                state.get("householdId") != self._sonos_active_household_id
+                or state.get("groupId") != self._sonos_active_group_id
+            ):
+                return
+            self._sonos_snapshot = state
+            if (
+                self.navigator.active is SessionId.SONOS
+                and self.navigator.view is View.PLAYER
+            ):
+                self._apply_sonos_snapshot(state, announce=True)
+
+        def failed(error: Exception) -> None:
+            state = self.navigator.sessions[SessionId.SONOS]
+            state.view = View.LIST
+            if self.navigator.active is SessionId.SONOS:
+                self._sync_views()
+                self.announcer.say(str(error))
+
+        self.runner.submit(
+            "sonos-snapshot",
+            lambda: client.sonos_snapshot(intent.household_id, intent.group_id),
+            done,
+            failed,
+        )
+
+    def _apply_sonos_snapshot(
+        self, state: dict, *, announce: bool = False
+    ) -> None:
+        """Pokaż tylko jawne etykiety stanu, bez identyfikatorów Sonosa."""
+        label = sonos_now_playing_label(state)
+        if self.now_playing.GetLabel() != label:
+            self.now_playing.SetLabel(label)
+        self.now_playing.SetName("Teraz odtwarzane")
+        time_label = player_time_label(
+            state.get("positionSeconds"), state.get("durationSeconds")
+        )
+        if self.time_label.GetLabel() != time_label:
+            self.time_label.SetLabel(time_label)
+        volume = state.get("volume")
+        if isinstance(volume, int) and self.volume_slider.GetValue() != volume:
+            self.volume_slider.SetValue(volume)
+        self.volume_slider.Enable(
+            isinstance(volume, int) and state.get("fixedVolume") is not True
+        )
+        playback = str(state.get("playbackState") or "").casefold()
+        self._set_transport_label(
+            playing=playback in {"odtwarzanie", "playing", "play"}
+        )
+        if announce:
+            message = str(state.get("message") or "").strip()
+            self.announcer.say(message or label)
+
+    def _sonos_transport(
+        self,
+        command: str,
+        *,
+        volume: int | None = None,
+        seconds: float | None = None,
+    ) -> None:
+        client = self.client
+        household_id = self._sonos_active_household_id
+        group_id = self._sonos_active_group_id
+        if client is None or not household_id or not group_id:
+            self.announcer.say(
+                "Brak aktywnej grupy Sonos. Naciśnij Enter na grupie"
+            )
+            return
+
+        def done(payload: object) -> None:
+            try:
+                state = sonos_snapshot(payload)
+            except SonosPayloadError as error:
+                self.announcer.say(str(error))
+                return
+            if (
+                state.get("householdId") != self._sonos_active_household_id
+                or state.get("groupId") != self._sonos_active_group_id
+            ):
+                return
+            self._sonos_snapshot = state
+            if self.navigator.active is SessionId.SONOS:
+                self._apply_sonos_snapshot(state, announce=True)
+
+        self.runner.submit(
+            "sonos-transport",
+            lambda: client.sonos_transport(
+                household_id,
+                group_id,
+                command,
+                volume=volume,
+                seconds=seconds,
+            ),
+            done,
+            lambda error: self.announcer.say(
+                f"Nie udało się sterować grupą Sonos: {error}"
             ),
         )
 
@@ -6238,6 +6490,26 @@ class LiteFrame(wx.Frame):
                 parts.append(row.detail)
             self.announcer.say(", ".join(parts))
             return
+        if self.navigator.active is SessionId.SONOS:
+            if self.navigator.view is View.PLAYER and self._sonos_snapshot:
+                parts = [
+                    str(self._sonos_snapshot.get(name) or "").strip()
+                    for name in (
+                        "title", "source", "stateText", "volumeText",
+                        "positionText",
+                    )
+                ]
+                parts = list(dict.fromkeys(part for part in parts if part))
+                self.announcer.say(", ".join(parts) or "Brak informacji Sonos")
+                return
+            if row is None:
+                self.announcer.say("Lista Sonos jest pusta")
+                return
+            parts = [row.title]
+            if row.detail:
+                parts.append(row.detail)
+            self.announcer.say(", ".join(parts))
+            return
         client = self.client
         plan = quick_info_plan(
             row,
@@ -6673,6 +6945,68 @@ class LiteFrame(wx.Frame):
                 title=intent.title,
                 kind=intent.kind,
                 restart_consent=restart_consent,
+            ),
+        )
+
+    def _toggle_tidal_membership(self, *, favorite: bool) -> None:
+        """Ctrl+Shift+U/L: zmień prawdziwą kolekcję konta TIDAL."""
+        if self.navigator.active is not SessionId.TIDAL:
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zmienić kolekcji TIDAL")
+            return
+        rows = self._selected_action_rows()
+        allowed = {"track", "video"} if favorite else {"album", "artist", "playlist"}
+        rows = [
+            row for row in rows
+            if row.kind in allowed and row.service_id and row.item_id
+        ]
+        if not rows:
+            self.announcer.say(
+                "Do Ulubionych TIDAL wybierz utwór lub materiał wideo"
+                if favorite else
+                "Do Biblioteki TIDAL wybierz album, wykonawcę albo playlistę"
+            )
+            return
+        items = [
+            {
+                "itemId": row.item_id,
+                "externalId": row.service_id,
+                "title": row.title,
+                "kind": row.kind,
+                "artist": row.artist_name,
+                "publicUri": row.url or "",
+            }
+            for row in rows
+        ]
+        active_view = self.navigator.sessions[SessionId.TIDAL].library_view
+        preferred_id = rows[0].item_id
+
+        def done(payload: dict) -> None:
+            result = payload or {}
+            message = str(result.get("message") or "").strip()
+            self.announcer.say(message or "Zmieniono kolekcję TIDAL")
+            relevant_views = (
+                {LibraryView.TIDAL_FAVORITES}
+                if favorite else
+                {LibraryView.TIDAL_LIBRARY, LibraryView.TIDAL_PLAYLISTS}
+            )
+            if active_view in relevant_views:
+                self._open_tidal_view(OpenTidalView(
+                    active_view,
+                    preferred_id=preferred_id if bool(result.get("added")) else None,
+                ))
+
+        self.runner.submit(
+            "tidal-membership",
+            lambda: client.tidal_collection_membership(
+                items,
+                mode="favorite" if favorite else "library",
+            ),
+            done,
+            lambda error: self.announcer.say(
+                f"Nie udało się zmienić kolekcji TIDAL: {error}"
             ),
         )
 
@@ -7598,6 +7932,9 @@ class LiteFrame(wx.Frame):
         etapu portu. Nie składamy aktywnej kolejki ponownie, więc grający plik,
         pozycja, pauza i wyjście audio pozostają nietknięte.
         """
+        if self.navigator.active is SessionId.TIDAL and not play_next:
+            self._toggle_tidal_queue()
+            return
         if self.navigator.active is not SessionId.FILES:
             self.announcer.say("To polecenie dotyczy Biblioteki plików")
             return
@@ -7652,6 +7989,59 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie mogę zmienić kolejki: {error}")
 
         self.runner.submit("queue-membership", lambda: call(items), done, failed)
+
+    def _open_tidal_queue(self, preferred_id: str | None = None) -> None:
+        self._transient_preview_return = None
+        self._run(self.navigator.apply_tidal_queue(
+            list(self._tidal_queue_rows),
+            preferred_id=preferred_id,
+        ))
+
+    def _toggle_tidal_queue(self) -> None:
+        """Ctrl+Shift+Q: prywatna, trwała kolejka do oryginalnego TIDALa."""
+        selected = [
+            row for row in self._selected_action_rows()
+            if row.kind == "track" and row.service_id
+            and row.related_album_service_id
+        ]
+        if not selected:
+            self.announcer.say(
+                "Do kolejki TIDAL wybierz utwór, który ma dane albumu"
+            )
+            return
+        existing = {row.item_id for row in self._tidal_queue_rows}
+        remove = all(row.item_id in existing for row in selected)
+        selected_ids = {row.item_id for row in selected}
+        if remove:
+            self._tidal_queue_rows = [
+                row for row in self._tidal_queue_rows
+                if row.item_id not in selected_ids
+            ]
+        else:
+            self._tidal_queue_rows.extend(
+                row for row in selected if row.item_id not in existing
+            )
+        previous = list(self.state.tidal_queue_items)
+        self.state.tidal_queue_items = tidal_queue_payload(self._tidal_queue_rows)
+        try:
+            self.store.save(self.state)
+        except OSError as error:
+            self.state.tidal_queue_items = previous
+            self.announcer.say(f"Nie zapisano kolejki TIDAL: {error}")
+            return
+        label = (
+            selected[0].title if len(selected) == 1
+            else format_item_count(len(selected))
+        )
+        self.announcer.say(
+            f"Usunięto z kolejki TIDAL: {label}"
+            if remove else f"Dodano do kolejki TIDAL: {label}"
+        )
+        state = self.navigator.sessions[SessionId.TIDAL]
+        if state.library_view is LibraryView.TIDAL_QUEUE:
+            self._open_tidal_queue(
+                preferred_id=None if remove else selected[0].item_id
+            )
 
     def _refresh_live_queue(self) -> None:
         """Odśwież już otwartą kolejkę bez nawigacji i przejmowania fokusu."""
@@ -7725,6 +8115,9 @@ class LiteFrame(wx.Frame):
         """
         if self.navigator.active is SessionId.WIIM:
             self._wiim_transport("next" if forward else "previous")
+            return
+        if self.navigator.active is SessionId.SONOS:
+            self._sonos_transport("next" if forward else "previous")
             return
 
         source_intents = self.navigator.step_playback_source(forward)
@@ -7881,6 +8274,12 @@ class LiteFrame(wx.Frame):
             self.announcer.say(
                 "WiiM odtwarza na własnym urządzeniu sieciowym. "
                 "Wybierz urządzenie z listy sesji WiiM"
+            )
+            return
+        if self.navigator.active is SessionId.SONOS:
+            self.announcer.say(
+                "Sonos odtwarza na własnej grupie głośników. "
+                "Wybierz grupę z listy sesji Sonos"
             )
             return
         if self.navigator.active is SessionId.TIDAL:
@@ -8161,6 +8560,9 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.WIIM:
             self._wiim_transport("toggle")
             return
+        if self.navigator.active is SessionId.SONOS:
+            self._sonos_transport("toggle")
+            return
 
         def done(payload: dict) -> None:
             paused = bool((payload or {}).get("paused"))
@@ -8193,6 +8595,9 @@ class LiteFrame(wx.Frame):
     def _seek(self, delta: float) -> None:
         client = self.client
         if client is None:
+            return
+        if self.navigator.active is SessionId.SONOS:
+            self._sonos_transport("seekRelative", seconds=delta)
             return
         self.runner.submit(
             "transport",
@@ -8265,6 +8670,26 @@ class LiteFrame(wx.Frame):
         client = self.client
         if client is None:
             return
+        if self.navigator.active is SessionId.SONOS:
+            duration = self._sonos_snapshot.get("durationSeconds")
+            position = self._sonos_snapshot.get("positionSeconds")
+            if (
+                not isinstance(duration, (int, float))
+                or isinstance(duration, bool)
+                or duration <= 0
+                or not isinstance(position, (int, float))
+                or isinstance(position, bool)
+            ):
+                self.announcer.say(
+                    "Sonos nie podał czasu potrzebnego do skoku procentowego"
+                )
+                return
+            delta = float(duration) * percent / 100.0 - float(position)
+            if abs(delta) < 0.001:
+                self.announcer.say(f"{percent}%")
+                return
+            self._sonos_transport("seekRelative", seconds=delta)
+            return
         duration = self._last_status.get("durationSeconds")
         if not isinstance(duration, (int, float)) or duration <= 0:
             # cs:546-551 -- brak czasu trwania to blad wykonania, mowiony
@@ -8305,12 +8730,25 @@ class LiteFrame(wx.Frame):
             if command is not None:
                 self._wiim_transport(command)
                 return
+        if self.navigator.active is SessionId.SONOS:
+            command = {
+                5: "volumeUp5",
+                -5: "volumeDown5",
+                1: "volumeUp1",
+                -1: "volumeDown1",
+            }.get(delta)
+            if command is not None:
+                self._sonos_transport(command)
+                return
         self._set_volume(self.options.volume + delta)
 
     def _set_volume(self, value: int) -> None:
         value = max(0, min(100, int(value)))
         if self.navigator.active is SessionId.WIIM:
             self._wiim_transport("setVolume", volume=value)
+            return
+        if self.navigator.active is SessionId.SONOS:
+            self._sonos_transport("setVolume", volume=value)
             return
         self.options.volume = value
         self.volume_slider.SetValue(value)
@@ -8368,6 +8806,19 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(text)
             else:
                 self.announcer.say("Urządzenie WiiM nie podało tego czasu")
+            return
+        if self.navigator.active is SessionId.SONOS:
+            state = self._sonos_snapshot
+            text = time_announcement(
+                action,
+                self.messages,
+                position=state.get("positionSeconds"),
+                duration=state.get("durationSeconds"),
+            )
+            if text is not None:
+                self.announcer.say(text)
+            else:
+                self.announcer.say("Sonos nie podał tego czasu")
             return
         status = self._last_status
         text = time_announcement(
@@ -8462,6 +8913,7 @@ class LiteFrame(wx.Frame):
         # Etykiete czasu nadal zmieniamy tylko w widoku odtwarzacza.
         self._refresh_status()
         self._refresh_wiim_status()
+        self._refresh_sonos_status()
         self._refresh_recording_status()
         self._checkpoint_podcast_if_due()
 
@@ -8515,6 +8967,7 @@ class LiteFrame(wx.Frame):
             self._last_status = payload
             remote_player = (
                 self.navigator.active is SessionId.WIIM
+                or self.navigator.active is SessionId.SONOS
                 or (
                     self.navigator.active is SessionId.TIDAL
                     and self._tidal_desktop_has_playback
@@ -8576,6 +9029,48 @@ class LiteFrame(wx.Frame):
         self.runner.submit(
             "wiim-status",
             lambda: client.wiim_snapshot(device_id),
+            done,
+            failed,
+        )
+
+    def _refresh_sonos_status(self) -> None:
+        """Cichy odczyt aktywnej grupy, bez nakładania zapytań timera."""
+        client = self.client
+        household_id = self._sonos_active_household_id
+        group_id = self._sonos_active_group_id
+        if (
+            client is None
+            or not household_id
+            or not group_id
+            or self.navigator.active is not SessionId.SONOS
+            or self.navigator.view is not View.PLAYER
+            or getattr(self, "_sonos_status_poll_pending", False)
+        ):
+            return
+        self._sonos_status_poll_pending = True
+
+        def done(payload: object) -> None:
+            self._sonos_status_poll_pending = False
+            try:
+                state = sonos_snapshot(payload)
+            except SonosPayloadError:
+                return
+            if (
+                self.navigator.active is not SessionId.SONOS
+                or self.navigator.view is not View.PLAYER
+                or state.get("householdId") != self._sonos_active_household_id
+                or state.get("groupId") != self._sonos_active_group_id
+            ):
+                return
+            self._sonos_snapshot = state
+            self._apply_sonos_snapshot(state, announce=False)
+
+        def failed(_error: Exception) -> None:
+            self._sonos_status_poll_pending = False
+
+        self.runner.submit(
+            "sonos-status",
+            lambda: client.sonos_snapshot(household_id, group_id),
             done,
             failed,
         )

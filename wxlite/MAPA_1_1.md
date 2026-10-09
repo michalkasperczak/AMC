@@ -1,5 +1,26 @@
 # AMC Python — zakres względem pełnego AMC
 
+## 10.10 — TIDAL, WiiM i Sonos; stan przed odbiorem urządzeń
+
+Strategia pozostaje bez zmian: wxPython zastępuje interfejs, a LiteHost używa
+sprawdzonego rdzenia C# dla odtwarzania, nagrywania, harmonogramów, timeshiftu
+i integracji usług. Nie powstaje równoległy silnik Python.
+
+W TIDAL `Ctrl+Shift+L` zmienia Bibliotekę albumów, wykonawców i playlist,
+`Ctrl+Shift+U` zmienia Ulubione utworów i wideo, a `Ctrl+Shift+Q` zmienia
+prywatną, trwałą Kolejkę wxPython otwieraną przez `Ctrl+Q`. Enter nadal
+przekazuje odtwarzanie do oficjalnego TIDAL. Tokeny pozostają w C#.
+
+WiiM oraz nowa sesja Sonos są podłączone przez istniejące usługi AMC. Sonos
+korzysta ze wspólnego magazynu poświadczeń i nie ujawnia tokenu w protokole.
+Obie sesje wymagają jeszcze odbioru na obudzonych urządzeniach; testy kodu nie
+są takim odbiorem. Spotify jest odłożone. Aktualizacje na wzór „Sygnalisty”
+zostaną podjęte po odzyskaniu i sprawdzeniu właściwego źródła lub ticketu.
+
+Pełny runner Python: **1191 PASS / 0 FAIL / 138 historycznych SKIP**. Testy
+protokołu C#: **14 zestawów OK**. Szczegółowy, bieżący stan i kolejność prac:
+`AMC_PYTHON_STAN_2026-10-10_PL.md` w katalogu głównym repozytorium.
+
 ## 09.10 — Opcje odtwarzania podcastu i odcinka
 
 `Dźwięk → Opcje odtwarzania elementu…` oraz `Alt+Shift+Enter` otwierają

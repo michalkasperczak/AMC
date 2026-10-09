@@ -153,6 +153,10 @@
              Link="Engine\TidalDesktopController.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\ExternalMediaController.cs"
              Link="Engine\ExternalMediaController.cs" />
+    <!-- Sonos korzysta z tego samego zaszyfrowanego magazynu DPAPI co główne
+         AMC. Plik nie zależy od WPF i jest linkowany zamiast kopiowany. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\SonosDpapiCredentialStore.cs"
+             Link="Engine\SonosDpapiCredentialStore.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />

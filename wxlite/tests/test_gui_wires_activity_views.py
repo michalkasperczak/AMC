@@ -84,6 +84,8 @@ _NON_SQLITE_VIEWS = (
     LibraryView.TIDAL_PLAYLISTS,
     # Zawartosc kontenera pochodzi z oficjalnego katalogu przez host C#.
     LibraryView.TIDAL_CONTAINER,
+    # Prywatna kolejka TIDAL jest zapisana w state.json AMC-wx-Lite.
+    LibraryView.TIDAL_QUEUE,
 )
 
 

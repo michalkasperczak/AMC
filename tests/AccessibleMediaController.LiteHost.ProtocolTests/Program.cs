@@ -17,6 +17,7 @@ internal static class Program
         ("--podcast-progress", PodcastProgressStoreTests.Run),
         ("--tidal-catalog", TidalCatalogContractTests.Run),
         ("--wiim", WiiMContractTests.Run),
+        ("--sonos", SonosContractTests.Run),
     ];
 
     public static int Main(string[] args)

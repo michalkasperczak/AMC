@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 
 namespace AccessibleMediaController.LiteHost.Protocol;
 
@@ -14,10 +15,22 @@ namespace AccessibleMediaController.LiteHost.Protocol;
 public static class LiteTidalCatalogContract
 {
     public const string ContainerItemsOperation = "tidal.containerItems";
+    public const string CollectionViewOperation = "tidal.collectionView";
+    public const string MembershipOperation = "tidal.collectionMembership";
 
     private static readonly IReadOnlyDictionary<string, MediaItemKind> Kinds =
         new Dictionary<string, MediaItemKind>(StringComparer.OrdinalIgnoreCase)
         {
+            ["album"] = MediaItemKind.Album,
+            ["artist"] = MediaItemKind.Artist,
+            ["playlist"] = MediaItemKind.Playlist
+        };
+
+    private static readonly IReadOnlyDictionary<string, MediaItemKind> CollectionKinds =
+        new Dictionary<string, MediaItemKind>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["track"] = MediaItemKind.Track,
+            ["video"] = MediaItemKind.Video,
             ["album"] = MediaItemKind.Album,
             ["artist"] = MediaItemKind.Artist,
             ["playlist"] = MediaItemKind.Playlist
@@ -97,10 +110,110 @@ public static class LiteTidalCatalogContract
                 .ToArray());
     }
 
+    public static string ReadCollectionView(JsonElement args)
+    {
+        var view = LiteArgs.RequireText(args, "view").Trim().ToLowerInvariant();
+        return view is "library" or "favorites" or "playlists"
+            ? view
+            : throw new LiteRequestException("Nieznany widok kolekcji TIDAL.");
+    }
+
+    public static LiteTidalCollectionViewResult CreateCollectionViewResult(
+        string view,
+        IReadOnlyList<MediaItem> items,
+        string warning = "")
+    {
+        var filtered = view switch
+        {
+            "favorites" => items.Where(item => item.IsAvailable
+                && TidalCollectionSemantics.UsesFavorites(item.Kind)
+                && item.IsFavorite),
+            "playlists" => items.Where(item => item.IsAvailable
+                && item.Kind == MediaItemKind.Playlist
+                && item.IsInLibrary),
+            _ => items.Where(item => item.IsAvailable
+                && TidalCollectionSemantics.UsesLibrary(item.Kind)
+                && item.IsInLibrary)
+        };
+        var heading = view switch
+        {
+            "favorites" => "Ulubione TIDAL",
+            "playlists" => "Playlisty TIDAL",
+            _ => "Biblioteka TIDAL"
+        };
+        return new LiteTidalCollectionViewResult(
+            heading,
+            filtered.Select(LiteTidalCatalogItem.FromMediaItem)
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray(),
+            warning);
+    }
+
+    public static LiteTidalMembershipRequest ReadMembershipRequest(JsonElement args)
+    {
+        var mode = LiteArgs.RequireText(args, "mode").Trim().ToLowerInvariant();
+        if (mode is not ("favorite" or "library"))
+            throw new LiteRequestException("Nieznany rodzaj kolekcji TIDAL.");
+        if (!args.TryGetProperty("items", out var rawItems)
+            || rawItems.ValueKind != JsonValueKind.Array)
+        {
+            throw new LiteRequestException("Nie przekazano elementów TIDAL.");
+        }
+
+        var items = new List<MediaItem>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var raw in rawItems.EnumerateArray())
+        {
+            if (raw.ValueKind != JsonValueKind.Object) continue;
+            var id = LiteArgs.RequireText(raw, "itemId").Trim();
+            var externalId = LiteArgs.RequireText(raw, "externalId").Trim();
+            var title = LiteArgs.RequireText(raw, "title").Trim();
+            var kindName = LiteArgs.RequireText(raw, "kind").Trim();
+            if (!CollectionKinds.TryGetValue(kindName, out var kind)
+                || !ExternalIdMatchesKind(externalId, kind))
+            {
+                throw new LiteRequestException(
+                    "Element TIDAL ma nieprawidłową tożsamość katalogową.");
+            }
+            var expectedMode = TidalCollectionSemantics.UsesFavorites(kind)
+                ? "favorite"
+                : "library";
+            if (!string.Equals(mode, expectedMode, StringComparison.Ordinal))
+            {
+                throw new LiteRequestException(mode == "favorite"
+                    ? "Do Ulubionych TIDAL można dodać utwory i materiały wideo."
+                    : "Do Biblioteki TIDAL można dodać albumy, wykonawców i playlisty.");
+            }
+            if (!seen.Add(id)) continue;
+            items.Add(new MediaItem
+            {
+                Id = id,
+                ExternalId = externalId,
+                Title = title,
+                Artist = LiteArgs.ReadText(raw, "artist")?.Trim() ?? string.Empty,
+                Kind = kind,
+                PublicUri = LiteArgs.ReadText(raw, "publicUri")?.Trim()
+            });
+        }
+        if (items.Count == 0)
+            throw new LiteRequestException("Brak elementów TIDAL możliwych do zapisania.");
+
+        bool? requestedAddition = null;
+        if (args.TryGetProperty("add", out var add))
+        {
+            if (add.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                throw new LiteRequestException("Pole add musi mieć wartość logiczną.");
+            requestedAddition = add.GetBoolean();
+        }
+        return new LiteTidalMembershipRequest(mode, items, requestedAddition);
+    }
+
     private static bool ExternalIdMatchesKind(string externalId, MediaItemKind kind)
     {
         var prefix = kind switch
         {
+            MediaItemKind.Track => "tracks:",
+            MediaItemKind.Video => "videos:",
             MediaItemKind.Album => "albums:",
             MediaItemKind.Artist => "artists:",
             MediaItemKind.Playlist => "playlists:",
@@ -112,6 +225,17 @@ public static class LiteTidalCatalogContract
     }
 }
 
+public sealed record LiteTidalMembershipRequest(
+    string Mode,
+    IReadOnlyList<MediaItem> Items,
+    bool? RequestedAddition);
+
+public sealed record LiteTidalMembershipResult(
+    [property: JsonPropertyName("added")] bool Added,
+    [property: JsonPropertyName("changed")] int Changed,
+    [property: JsonPropertyName("itemIds")] IReadOnlyList<string> ItemIds,
+    [property: JsonPropertyName("message")] string Message);
+
 public sealed record LiteTidalContainerRequest(
     MediaItem Container,
     ArtistBrowseSection? ArtistSection);
@@ -119,6 +243,11 @@ public sealed record LiteTidalContainerRequest(
 public sealed record LiteTidalContainerResult(
     [property: JsonPropertyName("heading")] string Heading,
     [property: JsonPropertyName("items")] IReadOnlyList<LiteTidalCatalogItem> Items);
+
+public sealed record LiteTidalCollectionViewResult(
+    [property: JsonPropertyName("heading")] string Heading,
+    [property: JsonPropertyName("items")] IReadOnlyList<LiteTidalCatalogItem> Items,
+    [property: JsonPropertyName("warning")] string Warning);
 
 public sealed record LiteTidalCatalogItem(
     [property: JsonPropertyName("id")] string Id,

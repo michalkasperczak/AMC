@@ -33,6 +33,37 @@ def _read_podcast_inbox_sort_mode(raw: object) -> str | None:
     return raw if isinstance(raw, str) and raw in _PODCAST_INBOX_SORT_MODES else None
 
 
+def _read_tidal_queue(raw: object) -> list[dict]:
+    """Wczytaj tylko pola potrzebne do kolejki TIDAL, bez dowolnych rekordów."""
+    if not isinstance(raw, list):
+        return []
+    result: list[dict] = []
+    seen: set[str] = set()
+    text_fields = (
+        "itemId", "externalId", "title", "kind", "artist", "publicUri",
+        "relatedAlbumExternalId", "relatedAlbumTitle",
+    )
+    for raw_item in raw:
+        if len(result) >= 2_000 or not isinstance(raw_item, dict):
+            continue
+        item = {
+            name: value.strip() if isinstance(value := raw_item.get(name), str) else ""
+            for name in text_fields
+        }
+        if (
+            not item["itemId"]
+            or item["itemId"] in seen
+            or not item["externalId"]
+            or not item["title"]
+            or item["kind"] != "track"
+            or not item["relatedAlbumExternalId"]
+        ):
+            continue
+        seen.add(item["itemId"])
+        result.append(item)
+    return result
+
+
 @dataclass(slots=True)
 class Station:
     """Stacja z WLASNEJ listy uzytkownika."""
@@ -159,6 +190,10 @@ class LiteState:
     #: Prywatne nadpisanie kolejnosci widoku „Nowe odcinki”. ``None`` znaczy:
     #: czytaj wybor glownego AMC, ale nigdy nie zapisuj do jego ``state.json``.
     podcast_inbox_sort_mode: str | None = None
+    #: Prywatna kolejka utworów przekazywanych do oryginalnego TIDALa.
+    #: Nie zapisujemy jej do wspólnego state.json, aby dwa programy nie
+    #: ścigały się o profil. Pola techniczne pozostają wyłącznie modelem.
+    tidal_queue_items: list[dict] = field(default_factory=list)
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -315,6 +350,7 @@ class StateStore:
             podcast_inbox_sort_mode=_read_podcast_inbox_sort_mode(
                 raw.get("podcast_inbox_sort_mode")
             ),
+            tidal_queue_items=_read_tidal_queue(raw.get("tidal_queue_items")),
         )
 
     # -------------------------------------------------------------- zapis
@@ -358,6 +394,7 @@ class StateStore:
         )
         if podcast_sort_mode is not None:
             payload["podcast_inbox_sort_mode"] = podcast_sort_mode
+        payload["tidal_queue_items"] = _read_tidal_queue(state.tidal_queue_items)
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 
         # Plik tymczasowy MUSI lezec w tym samym folderze: os.replace jest

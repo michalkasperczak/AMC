@@ -17,6 +17,9 @@ internal static class TidalCatalogContractTests
         ReadsExternalDesktopContainerPlayback();
         ReadsOnlyKnownExternalTransportCommands();
         RefusesUnknownExternalTransportCommands();
+        ReadsCollectionMembershipWithoutCredentials();
+        RefusesWrongCollectionShortcutForKind();
+        CollectionViewContainsOnlyIntentionalFields();
     }
 
     private static void ReadsAContainerWithoutAcceptingPrivatePlaybackData()
@@ -188,6 +191,71 @@ internal static class TidalCatalogContractTests
             Check(LiteTidalDesktopContract.ReadTransportCommand(document.RootElement) == command,
                 $"nie przyjeto znanego polecenia {command}");
         }
+    }
+
+    private static void ReadsCollectionMembershipWithoutCredentials()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+          "mode":"favorite",
+          "items":[{
+            "itemId":"tidal:tracks:1",
+            "externalId":"tracks:1",
+            "title":"Utwór",
+            "kind":"track",
+            "artist":"Wykonawca",
+            "token":"sekret",
+            "source":"uchwyt"
+          }]
+        }
+        """);
+        var request = LiteTidalCatalogContract.ReadMembershipRequest(document.RootElement);
+        Check(request.Mode == "favorite" && request.Items.Count == 1,
+            "nie odczytano zmiany Ulubionych");
+        Check(request.Items[0].Source is null, "prywatne źródło weszło do zmiany kolekcji");
+    }
+
+    private static void RefusesWrongCollectionShortcutForKind()
+    {
+        using var document = JsonDocument.Parse("""
+        {"mode":"library","items":[{
+          "itemId":"tidal:tracks:1","externalId":"tracks:1",
+          "title":"Utwór","kind":"track"
+        }]}
+        """);
+        try
+        {
+            LiteTidalCatalogContract.ReadMembershipRequest(document.RootElement);
+            throw new InvalidOperationException("Ctrl+Shift+L przyjął utwór zamiast kontenera");
+        }
+        catch (LiteRequestException exception)
+        {
+            Check(exception.Message.Contains("Biblioteki TIDAL", StringComparison.Ordinal),
+                "odmowa nie nazywa właściwej kolekcji");
+        }
+    }
+
+    private static void CollectionViewContainsOnlyIntentionalFields()
+    {
+        var item = new MediaItem
+        {
+            Id = "tidal:tracks:1",
+            ExternalId = "tracks:1",
+            Title = "Utwór",
+            Kind = MediaItemKind.Track,
+            IsFavorite = true,
+            IsAvailable = true,
+            Source = "private-token"
+        };
+        var result = LiteTidalCatalogContract.CreateCollectionViewResult(
+            "favorites", [item]);
+        var json = LiteJson.Serialize(result);
+        Check(json.Contains("Ulubione TIDAL", StringComparison.Ordinal),
+            "brak użytkowego nagłówka");
+        Check(!json.Contains("private-token", StringComparison.Ordinal),
+            "źródło odtwarzania wyciekło do widoku");
+        Check(!json.Contains("\"source\"", StringComparison.OrdinalIgnoreCase),
+            "widok zawiera pole źródła");
     }
 
     private static void Check(bool condition, string message)

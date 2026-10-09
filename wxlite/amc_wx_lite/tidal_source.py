@@ -387,6 +387,65 @@ def artist_overview_rows(artist: Row) -> tuple[Row, ...]:
     )
 
 
+def queue_rows(payload: object) -> tuple[Row, ...]:
+    """Odtwórz prywatną kolejkę wyłącznie z jawnego, wąskiego modelu."""
+    if not isinstance(payload, list):
+        return ()
+    rows: list[Row] = []
+    seen: set[str] = set()
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        item_id = _text(entry.get("itemId"))
+        service_id = _text(entry.get("externalId"))
+        title = _text(entry.get("title"))
+        album_id = _text(entry.get("relatedAlbumExternalId"))
+        if (
+            not item_id or item_id in seen or not service_id or not title
+            or _kind(entry.get("kind")) != "track" or not album_id
+        ):
+            continue
+        seen.add(item_id)
+        artist = _text(entry.get("artist"))
+        rows.append(Row(
+            item_id=item_id,
+            title=title,
+            kind="track",
+            url=_text(entry.get("publicUri")) or None,
+            detail=artist if artist.casefold() != title.casefold() else "",
+            service_id=service_id,
+            service_kind="track",
+            artist_name=artist,
+            related_album_service_id=album_id,
+            related_album_title=_text(entry.get("relatedAlbumTitle")),
+        ))
+    return tuple(rows)
+
+
+def queue_payload(rows: Sequence[Row]) -> list[dict[str, str]]:
+    """Zapisz tylko pola niezbędne do ponownego przekazania utworu."""
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if (
+            row.kind != "track" or not row.item_id or row.item_id in seen
+            or not row.service_id or not row.related_album_service_id
+        ):
+            continue
+        seen.add(row.item_id)
+        result.append({
+            "itemId": row.item_id,
+            "externalId": row.service_id,
+            "title": row.title,
+            "kind": "track",
+            "artist": row.artist_name,
+            "publicUri": row.url or "",
+            "relatedAlbumExternalId": row.related_album_service_id,
+            "relatedAlbumTitle": row.related_album_title,
+        })
+    return result
+
+
 def build_view(raw: object, view: str) -> TidalViewResult:
     if view not in TIDAL_VIEWS:
         raise ValueError("Nieznany widok TIDAL")

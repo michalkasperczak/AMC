@@ -15,6 +15,8 @@ from amc_wx_lite.tidal_source import (
     VIEW_PLAYLISTS,
     artist_overview_rows,
     build_view,
+    queue_payload,
+    queue_rows,
     container_result_from_host,
     items_from_amc_state,
 )
@@ -213,4 +215,25 @@ def test_tidal_source_names_profile_failures_for_the_user(tmp_path) -> None:
         assert "FileNotFoundError" not in str(error)
     else:
         raise AssertionError("brak profilu powinien być jawną odmową")
+
+
+def test_private_tidal_queue_round_trip_keeps_ids_out_of_labels() -> None:
+    row = Row(
+        "tidal:tracks:secret",
+        "Utwór próby",
+        "track",
+        service_id="tracks:secret",
+        service_kind="track",
+        artist_name="Wykonawca",
+        related_album_service_id="albums:44",
+        related_album_title="Album",
+    )
+
+    restored = queue_rows(queue_payload([row]))
+
+    assert len(restored) == 1
+    assert restored[0].title == "Utwór próby"
+    assert restored[0].detail == "Wykonawca"
+    assert "secret" not in restored[0].title
+    assert "secret" not in restored[0].detail
 

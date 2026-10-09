@@ -6,6 +6,9 @@
 
 ## Aktualny stan i dokumentacja rozwoju
 
+- [AMC Python — stan prac 10 października 2026](AMC_PYTHON_STAN_2026-10-10_PL.md):
+  decyzja o interfejsie wxPython i wspólnym rdzeniu C#, TIDAL, WiiM, Sonos,
+  granice bezpieczeństwa, dowody oraz kolejność dalszych prac.
 - [Wydania i opisy zmian](https://github.com/michalkasperczak/AMC/releases).
 - [Przygotowywane alfa414 — odtwarzacz i sterowanie Sonosem](ZMIANY_0.1.0-alpha.414_PL.md).
 - [Zmiany alfa413 — lista głośników i grup Sonos](ZMIANY_0.1.0-alpha.413_PL.md).
@@ -14,6 +17,12 @@
 - [Zasady projektu](AGENTS.md), [scenariusze testów](TESTY_ZADANIA_PL.md) i [rejestr ryzyk](REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md).
 
 Opisy starszych wersji poniżej są historią tych wydań, nie samodzielną informacją o obecnym stanie każdej funkcji. Prace oznaczone jako niewydane nie są jeszcze dostępne w instalatorze.
+
+Sesja Spotify w AMC Python jest obecnie świadomie odłożona. WiiM i Sonos mają
+gotowy kod integracyjny, ale wymagają odbioru na obudzonych urządzeniach.
+Moduł aktualizacji na wzór „Sygnalisty” pozostaje zadaniem końcowym i wymaga
+najpierw odzyskania właściwego źródła lub ticketu; dokumentacja nie przypisuje
+tej nazwy do niezweryfikowanego repozytorium.
 
 
 ## Zachowuj kopie po edycji

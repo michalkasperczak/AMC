@@ -31,7 +31,7 @@ internal sealed class SonosAccountOwner : IDisposable
     /// login/result i login/refresh. NIE wpisujemy tu sciezki zwrotnej
     /// (/sonos/callback): ona nalezy do brokera i Sonos, nie do klienta.
     /// </summary>
-    internal const string DefaultBrokerOrigin = "https://hermes.tail6caad7.ts.net/";
+    internal const string DefaultBrokerOrigin = SonosIntegrationDefaults.BrokerOrigin;
 
     /// <summary>
     /// JAWNY identyfikator klienta tej integracji Sonos. To ta sama publiczna
@@ -42,7 +42,7 @@ internal sealed class SonosAccountOwner : IDisposable
     /// Jest STALA KONFIGURACJI programu, a nie polem w interfejsie: tester ani
     /// uzytkownik nie ma wpisywac zadnych kluczy, zeby zobaczyc swoje glosniki.
     /// </summary>
-    internal const string IntegrationApiKey = "b051a8f0-499c-4deb-9f66-843a752c36e4";
+    internal const string IntegrationApiKey = SonosIntegrationDefaults.ControlApiKey;
 
     private SonosControlApiClient? _controlApi;
     private SonosControlApiDeviceApi? _deviceApi;

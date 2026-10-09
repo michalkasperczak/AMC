@@ -37,6 +37,7 @@ KIND_LABELS: dict[str, str] = {
     "podcast": "podcast",
     "episode": "odcinek",
     "device": "urządzenie",
+    "sonosGroup": "grupa",
     "loadMore": "",
     "parent": "",
 }

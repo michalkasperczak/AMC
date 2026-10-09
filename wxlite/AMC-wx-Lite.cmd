@@ -23,9 +23,11 @@ if not defined RUNTIME (
   exit /b 2
 )
 
-rem Silnik: host-next jest bezpiecznym wydaniem przygotowanym, gdy poprzedni
-rem host jest jeszcze uzywany przez dzialajaca aplikacje. Przy kolejnym
-rem uruchomieniu ma pierwszenstwo przed starszym folderem host\.
+rem Kolejny bezpieczny slot wydania. Nie nadpisujemy plikow hosta uzywanych
+rem przez dzialajace okno; nowe uruchomienie wybiera najnowszy slot.
+if not defined AMC_LITE_HOST (
+  if exist "%HERE%host-next-2\amc_lite_host.exe" set "AMC_LITE_HOST=%HERE%host-next-2\amc_lite_host.exe"
+)
 if not defined AMC_LITE_HOST (
   if exist "%HERE%host-next\amc_lite_host.exe" set "AMC_LITE_HOST=%HERE%host-next\amc_lite_host.exe"
 )

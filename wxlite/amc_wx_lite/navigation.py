@@ -28,6 +28,7 @@ class SessionId(Enum):
     PODCASTS = "podcasts"
     TIDAL = "tidal"
     WIIM = "wiim"
+    SONOS = "sonos"
 
 
 class LibraryView(Enum):
@@ -88,6 +89,7 @@ class LibraryView(Enum):
     TIDAL_LIBRARY = "tidalLibrary"
     TIDAL_FAVORITES = "tidalFavorites"
     TIDAL_PLAYLISTS = "tidalPlaylists"
+    TIDAL_QUEUE = "tidalQueue"
     #: Zawartosc albumu, playlisty albo jednej kategorii wykonawcy. To nadal
     #: sesja TIDAL, lecz Backspace ma tu odtworzyc dokladna poprzednia liste.
     TIDAL_CONTAINER = "tidalContainer"
@@ -375,6 +377,16 @@ class ActivateWiiMDevice:
 
 
 @dataclass(slots=True)
+class ActivateSonosGroup:
+    """Wybierz grupę Sonos; identyfikatory nie są tekstem dostępnym."""
+
+    item_id: str
+    title: str
+    household_id: str
+    group_id: str
+
+
+@dataclass(slots=True)
 class PlayFromQueue:
     """Zlecenie: uruchom ZYWA kolejke hosta od wskazanego wiersza.
 
@@ -506,6 +518,7 @@ class Navigator:
             SessionId.PODCASTS: SessionState(SessionId.PODCASTS),
             SessionId.TIDAL: SessionState(SessionId.TIDAL),
             SessionId.WIIM: SessionState(SessionId.WIIM),
+            SessionId.SONOS: SessionState(SessionId.SONOS),
         }
         self.active = SessionId.FILES
 
@@ -546,6 +559,20 @@ class Navigator:
             else "WiiM, brak zapisanych urządzeń"
         )]
 
+    def apply_sonos_targets(
+        self, rows: list[Row], preferred_id: str | None = None
+    ) -> list[object]:
+        """Wstaw grupy Sonos bez zmiany stanu pozostałych sesji."""
+        state = self.sessions[SessionId.SONOS]
+        state.model.replace(rows, preferred_id=preferred_id or state.list_anchor_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"Sonos, {count} {_items_word(count)}"
+            if count
+            else "Sonos, brak dostępnych grup"
+        )]
+
     @staticmethod
     def _session_name(session_id: SessionId) -> str:
         return {
@@ -554,6 +581,7 @@ class Navigator:
             SessionId.PODCASTS: "Podcasty i YouTube",
             SessionId.TIDAL: "TIDAL",
             SessionId.WIIM: "WiiM",
+            SessionId.SONOS: "Sonos",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
@@ -687,6 +715,27 @@ class Navigator:
                 item_id=row.item_id,
                 title=row.title,
                 device_id=row.service_id,
+            )]
+
+        if state.session_id is SessionId.SONOS:
+            if (
+                row.kind != "sonosGroup"
+                or row.service_kind != "sonosGroup"
+                or not row.parent_id
+                or not row.service_id
+            ):
+                return [Announce("Nie można wybrać tej grupy Sonos")]
+            state.player_entry_anchor_id = row.item_id
+            state.list_anchor_id = row.item_id
+            state.now_playing_id = row.item_id
+            state.now_playing_title = row.title
+            state.current_material_id = row.item_id
+            state.view = View.PLAYER
+            return [ActivateSonosGroup(
+                item_id=row.item_id,
+                title=row.title,
+                household_id=row.parent_id,
+                group_id=row.service_id,
             )]
 
         if state.session_id is SessionId.TIDAL:
@@ -1116,8 +1165,8 @@ class Navigator:
                 state.view = View.LIST
             # Na korzeniu kolekcji Backspace jest celowo cichy.
             return []
-        if state.session_id is SessionId.WIIM:
-            # Lista urządzeń jest korzeniem sesji, nie folderem dysku.
+        if state.session_id in (SessionId.WIIM, SessionId.SONOS):
+            # Lista urządzeń lub grup jest korzeniem sesji, nie folderem dysku.
             return []
         # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
         # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z
@@ -1774,6 +1823,28 @@ class Navigator:
             if rows else f"{heading}, pusto"
         )
         return [Announce(message)]
+
+    def apply_tidal_queue(
+        self,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Pokaż prywatną kolejkę TIDAL bez mieszania jej z lokalnym hostem."""
+        state = self.sessions[SessionId.TIDAL]
+        state.library_view = LibraryView.TIDAL_QUEUE
+        state.library_playlist_id = None
+        state.library_return_view = "Kolejka TIDAL"
+        state.tidal_heading = "Kolejka TIDAL"
+        state.tidal_context = None
+        state.tidal_history.clear()
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"Kolejka TIDAL, {count} {_items_word(count)}"
+            if count else "Kolejka TIDAL, zero elementów"
+        )]
 
     # ----------------------------------------------------------- odtwarzanie
 

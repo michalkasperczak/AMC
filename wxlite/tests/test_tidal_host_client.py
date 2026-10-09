@@ -145,3 +145,38 @@ def test_tidal_external_state_uses_the_same_narrow_transport_boundary() -> None:
     assert calls == [(
         "tidal.externalTransport", {"command": "state"}, 15.0
     )]
+
+
+def test_tidal_collection_calls_never_send_credentials() -> None:
+    calls: list[tuple[str, dict | None, float]] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {}
+    )
+
+    client.tidal_collection_view("favorites")
+    client.tidal_collection_membership([{
+        "itemId": "tidal:tracks:1",
+        "externalId": "tracks:1",
+        "title": "Utwór",
+        "kind": "track",
+    }], mode="favorite")
+
+    assert calls == [
+        ("tidal.collectionView", {"view": "favorites"}, 180.0),
+        (
+            "tidal.collectionMembership",
+            {
+                "mode": "favorite",
+                "items": [{
+                    "itemId": "tidal:tracks:1",
+                    "externalId": "tracks:1",
+                    "title": "Utwór",
+                    "kind": "track",
+                }],
+            },
+            120.0,
+        ),
+    ]
+    assert "token" not in repr(calls).casefold()
+    assert "credential" not in repr(calls).casefold()
