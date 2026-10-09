@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .audio_clip import read_clip_selections
+from .audio_output import read_output_overrides
 from .profile_presets import read_preset_overrides
 from .radio_activity import normalize_state_position
 from .radio_schedule_settings import read_schedule_overrides
@@ -131,6 +132,9 @@ class LiteState:
     #: Pusty slownik = kazda sesja dziedziczy ustawienia ogolne, czyli
     #: zachowanie sprzed tego przyrostu.
     session_overrides: dict = field(default_factory=dict)
+    #: Wyjscie audio per sesja. Brak klucza dziedziczy wybor glownego AMC,
+    #: pusty napis oznacza jawny wybor urzadzenia domyslnego Windows.
+    audio_output_device_ids_by_session: dict[str, str] = field(default_factory=dict)
     #: Prywatna historia prob nagrywania wxPython. Nie trafia do profilu
     #: pelnego AMC, ale przezywa ponowne uruchomienie lekkiego interfejsu.
     #: Wartosci sa zwyklymi danymi protokolu; etykiety NVDA powstaja dopiero
@@ -296,6 +300,9 @@ class StateStore:
             stations=stations,
             navigation=navigation if isinstance(navigation, dict) else {},
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
+            audio_output_device_ids_by_session=read_output_overrides(
+                raw.get("audio_output_device_ids_by_session")
+            ),
             recording_history=_read_recording_history(raw.get("recording_history")),
             clip_selections=read_clip_selections(raw.get("clip_selections")),
             preset_overrides=read_preset_overrides(raw.get("preset_overrides")),
@@ -327,6 +334,9 @@ class StateStore:
                 for key, overrides in (state.session_overrides or {}).items()
                 if not overrides.is_empty
             },
+            "audio_output_device_ids_by_session": read_output_overrides(
+                state.audio_output_device_ids_by_session
+            ),
             "recording_history": _read_recording_history(state.recording_history),
             "clip_selections": read_clip_selections(state.clip_selections),
             # NIE usuwamy pustych list. Dla presetow pusty wpis sesji jest

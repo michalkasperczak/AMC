@@ -400,6 +400,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
         _radioOutput.NowPlayingChanged += RadioOutput_NowPlayingChanged;
+        _radioOutput.OutputDeviceFallback += RadioOutput_OutputDeviceFallback;
         _radioOutput.NormalTempoResumed += RadioOutput_NormalTempoResumed;
         NormalizeTransientBookmarkViewsAtStartup();
         NormalizePlaylistViewsAtStartup();
@@ -10982,6 +10983,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AnnounceEssential("Radio: przywrócono normalną prędkość. Odtwarzanie jest blisko transmisji na żywo.");
         if (_playerViewActive && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+    }
+
+    private void RadioOutput_OutputDeviceFallback(
+        object? sender,
+        AudioOutputFallbackEventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+                RadioOutput_OutputDeviceFallback(sender, e)));
+            return;
+        }
+        if (_isClosing || !ReferenceEquals(sender, _radioOutput)) return;
+        AnnounceEssential(
+            "Wybrane urządzenie audio jest niedostępne. Radio gra na urządzeniu domyślnym");
     }
 
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)

@@ -507,6 +507,14 @@ def build_menus() -> tuple[Menu, ...]:
         (
             MenuItem("&Algorytm przyspieszania", builtin="tempo-submenu"),
             SEPARATOR,
+            # Bez akceleratora okna: Shift+A ma dzialac w liscie i
+            # odtwarzaczu, ale w polu tekstowym nadal musi wpisywac wielkie A.
+            MenuItem(
+                "&Urządzenie audio bieżącej sesji…",
+                Action.SELECT_AUDIO_OUTPUT,
+                shortcut="Shift+A",
+                accelerator=False,
+            ),
             # Opcje dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
             # jest skrótem okna, więc rejestrujemy natywny akcelerator;
             # sama obsługa KEY_DOWN listy nie uruchamiała dialogu w próbie wx.

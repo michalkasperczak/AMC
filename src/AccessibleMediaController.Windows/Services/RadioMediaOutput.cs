@@ -20,6 +20,11 @@ public sealed class RadioNowPlayingChangedEventArgs(MediaItem item, string? stre
     public string? StreamTitle { get; } = streamTitle;
 }
 
+public sealed class AudioOutputFallbackEventArgs(MediaItem item) : EventArgs
+{
+    public MediaItem Item { get; } = item;
+}
+
 internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration);
 
 /// <summary>
@@ -62,6 +67,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
     public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
     public event EventHandler<RadioNowPlayingChangedEventArgs>? NowPlayingChanged;
+    public event EventHandler<AudioOutputFallbackEventArgs>? OutputDeviceFallback;
     public event EventHandler? RecordingFailed;
     public event EventHandler? NormalTempoResumed;
 
@@ -101,6 +107,24 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 ? null
                 : deviceId.Trim();
         }
+    }
+
+    /// <summary>
+    /// Rebuilds only WASAPI output for the current station. The decoder,
+    /// time-shift buffer and an active recording remain untouched.
+    /// </summary>
+    public bool RestartPlaybackOutput()
+    {
+        RadioPipeline? pipeline;
+        string? outputDeviceId;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            pipeline = _pipeline;
+            outputDeviceId = _outputDeviceId;
+        }
+        return pipeline is not null
+            && ReplacePlaybackOutput(pipeline, outputDeviceId, announceFallback: true);
     }
 
     public bool IsPreparing
@@ -250,17 +274,37 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         if (reusable is not null)
         {
             reusable.Volume.Volume = _volume / 100f;
-            AudioOutputPauseGuard.Play(
-                reusable.Output,
-                () =>
+            // A removed USB endpoint leaves the old WasapiOut stopped. Merely
+            // calling Play on that object is a no-op, which used to make the
+            // SAME station silent until another station rebuilt the pipeline.
+            // Recreate only the output; keep reception, time-shift and recording.
+            var outputRebuilt = false;
+            if (reusable.Output?.PlaybackState == PlaybackState.Stopped)
+            {
+                string? outputDeviceId;
+                lock (_gate)
                 {
-                    lock (_gate)
+                    outputDeviceId = _outputDeviceId;
+                }
+                outputRebuilt = ReplacePlaybackOutput(
+                    reusable,
+                    outputDeviceId,
+                    announceFallback: true);
+            }
+            if (!outputRebuilt)
+            {
+                AudioOutputPauseGuard.Play(
+                    reusable.Output,
+                    () =>
                     {
-                        return _disposed
-                            || !ReferenceEquals(_pipeline, reusable)
-                            || _pauseRequested;
-                    }
-                });
+                        lock (_gate)
+                        {
+                            return _disposed
+                                || !ReferenceEquals(_pipeline, reusable)
+                                || _pauseRequested;
+                        }
+                    });
+            }
             PublishPipelineStreamTitle(reusable, reusable.StreamTitle);
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
@@ -404,6 +448,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 cancellation,
                 reader as IRadioStreamTitleSource,
                 Pipeline_StreamTitleChanged);
+            pipeline.AttachOutputStoppedHandler((_, args) =>
+                OutputDevicePlaybackStopped(pipeline, args));
             pipeline.StartStreamTitleTracking();
             openedReader = null;
             preparedOutputLease = null;
@@ -1278,6 +1324,107 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         });
     }
 
+    private void OutputDevicePlaybackStopped(RadioPipeline pipeline, StoppedEventArgs args)
+    {
+        if (args.Exception is null
+            || !AudioOutputDeviceCatalog.IsDevicePlaybackFailure(args.Exception))
+        {
+            return;
+        }
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
+        }
+
+        DiagnosticLog.Warning(
+            "audio-device",
+            $"Wyjście radia zostało odłączone; przełączanie na domyślne. "
+            + $"Błąd {args.Exception.GetType().Name}: {args.Exception.Message}");
+        _ = Task.Run(() =>
+        {
+            ReplacePlaybackOutput(
+                pipeline,
+                outputDeviceId: null,
+                announceFallback: true,
+                failedDevice: true);
+        });
+    }
+
+    private bool ReplacePlaybackOutput(
+        RadioPipeline pipeline,
+        string? outputDeviceId,
+        bool announceFallback,
+        bool failedDevice = false)
+    {
+        if (!pipeline.TryBeginOutputRecovery()) return false;
+        AudioOutputDeviceLease? replacement = null;
+        try
+        {
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return false;
+            }
+
+            replacement = AudioOutputDeviceCatalog.CreateInitializedOutput(
+                outputDeviceId,
+                180,
+                output => output.Init(pipeline.Volume));
+            if (!pipeline.TryReplaceOutput(replacement, out var previous)) return false;
+            replacement = null;
+            previous?.Dispose();
+
+            bool remainPaused;
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return false;
+                remainPaused = _pauseRequested;
+            }
+            if (!remainPaused)
+            {
+                AudioOutputPauseGuard.Play(
+                    pipeline.Output,
+                    () =>
+                    {
+                        lock (_gate)
+                        {
+                            return _disposed
+                                || !ReferenceEquals(_pipeline, pipeline)
+                                || _pauseRequested;
+                        }
+                    });
+            }
+
+            var usedFallback = pipeline.OutputUsesDefaultDevice
+                && (failedDevice || !string.IsNullOrWhiteSpace(outputDeviceId));
+            if (announceFallback && usedFallback)
+            {
+                RaiseOnCapturedContext(() => OutputDeviceFallback?.Invoke(
+                    this,
+                    new AudioOutputFallbackEventArgs(pipeline.Item)));
+            }
+            return true;
+        }
+        catch (Exception exception) when (AudioOutputDeviceCatalog.IsDevicePlaybackFailure(exception))
+        {
+            DiagnosticLog.Error(
+                "audio-device",
+                $"Nie udało się odbudować wyjścia radia: {pipeline.Item.Title}.",
+                exception);
+            if (failedDevice)
+            {
+                RaisePlaybackFailed(
+                    pipeline.Item,
+                    "Urządzenie audio zostało odłączone i nie udało się uruchomić wyjścia domyślnego.");
+            }
+            return false;
+        }
+        finally
+        {
+            replacement?.Dispose();
+            pipeline.EndOutputRecovery();
+        }
+    }
+
     private void RaiseRecordingFailed(Exception exception)
     {
         DiagnosticLog.Error(
@@ -1345,11 +1492,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         Action<RadioPipeline, string?> streamTitleChanged) : IDisposable
     {
         private readonly object _readerGate = new();
+        private readonly object _outputGate = new();
         private IWaveProvider _reader = reader;
         private IDisposable? _readerLifetime = readerLifetime;
         private ResolvedRadioSource _resolvedSource = resolvedSource;
         private IRadioStreamTitleSource? _streamTitleSource = streamTitleSource;
         private readonly Action<RadioPipeline, string?> _streamTitleChanged = streamTitleChanged;
+        private AudioOutputDeviceLease? _outputLease = outputLease;
+        private EventHandler<StoppedEventArgs>? _outputStoppedHandler;
+        private int _outputRecovery;
         private int _disposed;
         public string? StreamTitle
         {
@@ -1369,9 +1520,72 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public TimeshiftTempoStage? TempoStage { get; } = tempoStage;
         public VolumeSampleProvider Volume { get; } = volume;
-        public WasapiOut? Output => outputLease?.Output;
+        public WasapiOut? Output
+        {
+            get
+            {
+                lock (_outputGate) return _outputLease?.Output;
+            }
+        }
+        public bool OutputUsesDefaultDevice
+        {
+            get
+            {
+                lock (_outputGate) return _outputLease?.UsesDefaultDevice ?? true;
+            }
+        }
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task? CaptureTask { get; set; }
+
+        public void AttachOutputStoppedHandler(EventHandler<StoppedEventArgs> handler)
+        {
+            ArgumentNullException.ThrowIfNull(handler);
+            lock (_outputGate)
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                if (_outputStoppedHandler is not null && _outputLease is not null)
+                {
+                    _outputLease.Output.PlaybackStopped -= _outputStoppedHandler;
+                }
+                _outputStoppedHandler = handler;
+                if (_outputLease is not null)
+                {
+                    _outputLease.Output.PlaybackStopped += handler;
+                }
+            }
+        }
+
+        public bool TryBeginOutputRecovery() =>
+            Volatile.Read(ref _disposed) == 0
+            && Interlocked.CompareExchange(ref _outputRecovery, 1, 0) == 0;
+
+        public void EndOutputRecovery() => Interlocked.Exchange(ref _outputRecovery, 0);
+
+        public bool TryReplaceOutput(
+            AudioOutputDeviceLease replacement,
+            out AudioOutputDeviceLease? previous)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+            lock (_outputGate)
+            {
+                if (Volatile.Read(ref _disposed) != 0)
+                {
+                    previous = null;
+                    return false;
+                }
+                previous = _outputLease;
+                if (previous is not null && _outputStoppedHandler is not null)
+                {
+                    previous.Output.PlaybackStopped -= _outputStoppedHandler;
+                }
+                _outputLease = replacement;
+                if (_outputStoppedHandler is not null)
+                {
+                    replacement.Output.PlaybackStopped += _outputStoppedHandler;
+                }
+                return true;
+            }
+        }
 
         public void StartStreamTitleTracking()
         {
@@ -1428,6 +1642,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             Cancellation.Cancel();
             IDisposable? currentLifetime;
+            AudioOutputDeviceLease? currentOutput;
             lock (_readerGate)
             {
                 if (_streamTitleSource is not null)
@@ -1438,6 +1653,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 currentLifetime = _readerLifetime;
                 _readerLifetime = null;
             }
+            lock (_outputGate)
+            {
+                currentOutput = _outputLease;
+                if (currentOutput is not null && _outputStoppedHandler is not null)
+                {
+                    currentOutput.Output.PlaybackStopped -= _outputStoppedHandler;
+                }
+                _outputStoppedHandler = null;
+                _outputLease = null;
+            }
             try { Buffer.StopRecording(); }
             catch (Exception exception)
             {
@@ -1446,14 +1671,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                     "Nie udało się zakończyć nagrania podczas zamykania stacji.",
                     exception);
             }
-            try { Output?.Stop(); } catch (Exception) { }
+            try { currentOutput?.Output.Stop(); } catch (Exception) { }
             // Zwolnienie bufora transmisji USUWA plik na dysku (gdy bufor jest
             // duzy i lezy w pliku). Bez tego pliki odkladalyby sie przy kazdej
             // zmianie stacji - dokladnie to, o co pytal Michal 15.09.2026.
             try { TempoStage?.Dispose(); } catch (Exception) { }
             try { Buffer.Dispose(); } catch (Exception) { }
             try { currentLifetime?.Dispose(); } catch (Exception) { }
-            try { outputLease?.Dispose(); } catch (Exception) { }
+            try { currentOutput?.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
         }
     }

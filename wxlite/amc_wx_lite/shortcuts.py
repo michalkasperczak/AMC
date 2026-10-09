@@ -158,6 +158,7 @@ class Action(Enum):
     # (MainWindow.xaml.cs:21670 i 22188).
     TOGGLE_SEEK_MESSAGES = "settings.toggleSeekMessages"
     GENERAL_SETTINGS = "settings.general"
+    SELECT_AUDIO_OUTPUT = "audio.selectOutput"
     PRESET_1 = "preset.1"
     PRESET_2 = "preset.2"
     PRESET_3 = "preset.3"
@@ -387,6 +388,8 @@ LIST_VIEW: dict[str, Action] = {
     # Opcje sesji: TEN SAM gest co w odtwarzaczu, bo zakres (sesja) jest ten
     # sam niezaleznie od widoku.
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
+    # Pelne AMC: Shift+A wybiera wyjscie audio osobno dla biezacej sesji.
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     # Zarzadzanie presetami z pelnego AMC (MainWindow.xaml:428-435).
     "Ctrl+Alt+P": Action.VIEW_PRESETS,
     "Ctrl+Alt+Shift+P": Action.ASSIGN_PRESET,
@@ -514,6 +517,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "End": Action.TRACK_END,
     # Opcje sesji dzialaja takze z odtwarzacza: zakres to SESJA, nie widok.
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     "Ctrl+Alt+P": Action.VIEW_PRESETS,
     "Ctrl+Alt+Shift+P": Action.ASSIGN_PRESET,
     "F1": Action.HELP,
@@ -736,6 +740,9 @@ def describe() -> list[tuple[str, str]]:
         Action.SESSION_OPTIONS: (
             "Opcje odtwarzania tej sesji: dialog pokazuje tylko opcje, "
             "ktore sesja umie wykonac"
+        ),
+        Action.SELECT_AUDIO_OUTPUT: (
+            "Wybierz urządzenie audio dla bieżącej sesji"
         ),
     }
     labels.update({

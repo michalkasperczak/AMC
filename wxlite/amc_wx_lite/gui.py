@@ -51,6 +51,12 @@ from .audio_clip import (
     suggested_clip_file_name,
     update_clip_selections,
 )
+from .audio_output import (
+    AudioOutputChoice,
+    choices_from_payload,
+    effective_output_device_id,
+    read_profile_outputs,
+)
 from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
@@ -1912,6 +1918,53 @@ class AudioClipExportDialog(wx.Dialog):
         return self._choices[index] if 0 <= index < len(self._choices) else None
 
 
+class AudioOutputDeviceDialog(wx.Dialog):
+    """Natywny wybor wyjscia; do wx trafiaja tylko jawne etykiety."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        session_name: str,
+        choices: tuple[AudioOutputChoice, ...],
+        selected_device_id: str | None,
+    ) -> None:
+        super().__init__(parent, title=f"Urządzenie audio — {session_name}")
+        self._choices = choices
+        panel = wx.Panel(self)
+        label = wx.StaticText(panel, label="&Urządzenie audio:")
+        self.device_choice = wx.Choice(
+            panel,
+            choices=[choice.label for choice in choices],
+        )
+        self.device_choice.SetName("Urządzenie audio")
+        selected = next(
+            (
+                index
+                for index, choice in enumerate(choices)
+                if choice.device_id == selected_device_id
+            ),
+            0,
+        )
+        if choices:
+            self.device_choice.SetSelection(selected)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self.device_choice, 1, wx.EXPAND)
+        panel.SetSizer(row)
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.ALL | wx.EXPAND, 12)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizerAndFit(outer)
+        self.device_choice.SetFocus()
+
+    @property
+    def selected_choice(self) -> AudioOutputChoice | None:
+        index = self.device_choice.GetSelection()
+        return self._choices[index] if 0 <= index < len(self._choices) else None
+
+
 class GeneralPlaybackOptionsDialog(wx.Dialog):
     """Najwazniejsze opcje interfejsu przeniesione z Ustawien pelnego AMC."""
 
@@ -2038,6 +2091,7 @@ class LiteFrame(wx.Frame):
         # Uklad rozstrzygamy RAZ: ten sam obiekt decyduje tez o tym, czy host
         # dostanie zgode na zapis kolejki (patrz _queue_persistence_arguments).
         self.layout = resolve_layout()
+        self._profile_audio_outputs = read_profile_outputs(self.layout.state_json)
         # Przelaczniki komunikatow i czas wlasny z PRAWDZIWEGO profilu AMC.
         # Tylko odczyt: wlascicielem state.json zostaje host C#.
         self.messages: MessagePolicy = load_message_policy(self.layout)
@@ -2704,6 +2758,36 @@ class LiteFrame(wx.Frame):
         # ``options.audio_payload()`` dawal hostowi ustawienie ogolne, wiec
         # zapis wracal z dysku BEZ TRWALEGO SKUTKU w silniku.
         settings = session_options.engine_audio_payload(self.state)
+        profile_audio_outputs = getattr(self, "_profile_audio_outputs", None)
+        if profile_audio_outputs is None:
+            profile_audio_outputs = (
+                read_profile_outputs(state_json)
+                if state_json is not None
+                else {}
+            )
+        private_audio_outputs = getattr(
+            self.state,
+            "audio_output_device_ids_by_session",
+            {},
+        )
+        # Część testów uruchamia samą tę metodę, bez importów modułu GUI.
+        # Produkcja zawsze używa wspólnego, walidującego resolvera; poniższa
+        # mała rezerwa zachowuje zgodność takiej izolowanej próby metody.
+        output_resolver = globals().get("effective_output_device_id")
+        if output_resolver is None:
+            def output_resolver(session, private, profile):
+                key = session.value
+                if isinstance(private, dict) and key in private:
+                    return private[key] or None
+                return profile.get(key) or None if isinstance(profile, dict) else None
+        output_devices = {
+            session.value: output_resolver(
+                session,
+                private_audio_outputs,
+                profile_audio_outputs,
+            )
+            for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
+        }
         # ``_start_engine`` bywa tez wywolywane przez lekkie tryby testowe i
         # awaryjne, ktore nie otwieraja profilu radia. Brak migawki oznacza
         # wtedy po prostu brak planow do zsynchronizowania, a nie blad startu
@@ -2720,6 +2804,15 @@ class LiteFrame(wx.Frame):
                 client.start()
                 client.hello()
                 result = client.configure_audio(**settings)
+                for session_id, device_id in output_devices.items():
+                    client.call(
+                        "audio.selectOutput",
+                        {
+                            "sessionId": session_id,
+                            "deviceId": device_id,
+                            "restart": False,
+                        },
+                    )
                 if schedule_payload is not None:
                     client.sync_radio_schedules(schedule_payload)
                 return result
@@ -2754,7 +2847,12 @@ class LiteFrame(wx.Frame):
     def _handle_engine_event(self, name: str, data: dict) -> None:
         if not self._window_alive():
             return
-        if name == "audio.clipExportProgress":
+        if name == "audio.outputFallback":
+            self.announcer.say(
+                "Wybrane urządzenie audio jest niedostępne. "
+                "Radio gra na urządzeniu domyślnym"
+            )
+        elif name == "audio.clipExportProgress":
             # Postep ma byc dostepny przez pole i NVDA+End, ale NIE moze
             # przerywac mowy co 5%. Zdarzenie koncowe jest oglaszane raz przez
             # odpowiedz operacji w ``_start_audio_clip_export``.
@@ -3366,6 +3464,8 @@ class LiteFrame(wx.Frame):
             self._leave_player_to_list()
         elif action is Action.SESSION_OPTIONS:
             self._show_session_options()
+        elif action is Action.SELECT_AUDIO_OUTPUT:
+            self._choose_audio_output()
         elif action is Action.GENERAL_SETTINGS:
             self._show_general_playback_options()
         elif action is Action.VIEW_PRESETS:
@@ -6668,6 +6768,98 @@ class LiteFrame(wx.Frame):
         self._run(self.navigator.back_to_list(
             follow_playback=self.options.follow_playback_on_player_exit
         ))
+
+    def _choose_audio_output(self) -> None:
+        """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+        session = self.navigator.active
+        session_name = session_options.session_display_name(session)
+        previous_device_id = effective_output_device_id(
+            session,
+            self.state.audio_output_device_ids_by_session,
+            self._profile_audio_outputs,
+        )
+
+        def prepared(payload: dict) -> None:
+            choices = choices_from_payload(payload)
+            if not choices:
+                self.announcer.say("Nie udało się odczytać urządzeń audio")
+                return
+            dialog = AudioOutputDeviceDialog(
+                self,
+                session_name,
+                choices,
+                previous_device_id,
+            )
+            selected: AudioOutputChoice | None = None
+            try:
+                if dialog.ShowModal() == wx.ID_OK:
+                    selected = dialog.selected_choice
+            finally:
+                dialog.Destroy()
+            self._restore_focus_after_dialog()
+            if selected is None:
+                return
+
+            def applied(result: dict) -> None:
+                previous_private = dict(
+                    self.state.audio_output_device_ids_by_session
+                )
+                next_private = dict(previous_private)
+                next_private[session.value] = selected.device_id or ""
+                self.state.audio_output_device_ids_by_session = next_private
+                if not self._save_state():
+                    self.state.audio_output_device_ids_by_session = previous_private
+                    # Silnik zdazyl zastosowac wybor. Przywracamy poprzedni w
+                    # tle, zeby RAM, dzwiek i stan na dysku znow byly zgodne.
+                    self.runner.submit(
+                        "audio-output-rollback",
+                        lambda: client.select_audio_output(
+                            session.value,
+                            previous_device_id,
+                            restart=True,
+                        ),
+                        lambda _payload: None,
+                        lambda _error: None,
+                    )
+                    return
+                if selected.device_id is not None and bool(
+                    (result or {}).get("usingDefault")
+                ):
+                    self.announcer.say(
+                        f"Zapamiętano dla sesji {session_name}: {selected.label}. "
+                        "Urządzenie jest teraz niedostępne, dlatego używane jest "
+                        "urządzenie domyślne"
+                    )
+                else:
+                    self.announcer.say(
+                        f"Dla sesji {session_name} wybrano: {selected.label}"
+                    )
+
+            self.runner.submit(
+                "audio-output-select",
+                lambda: client.select_audio_output(
+                    session.value,
+                    selected.device_id,
+                    restart=True,
+                ),
+                applied,
+                lambda error: self.announcer.say(
+                    f"Nie zmieniono urządzenia audio: {error}"
+                ),
+            )
+
+        self.runner.submit(
+            "audio-output-list",
+            lambda: client.audio_outputs(previous_device_id),
+            prepared,
+            lambda error: self.announcer.say(
+                f"Nie udało się odczytać urządzeń audio: {error}"
+            ),
+        )
 
     def _show_general_playback_options(self) -> None:
         """Ustawienia ogolne wxPython z natychmiastowym, atomowym zapisem."""

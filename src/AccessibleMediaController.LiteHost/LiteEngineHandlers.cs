@@ -57,6 +57,8 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private MediaItem? _filesItem;
     private MediaItem? _radioItem;
+    private readonly Dictionary<string, string?> _outputDeviceIdsBySession =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     /// Czas trwania ZMIERZONY przez dekoder, nie wziety z <see cref="MediaItem"/>.
@@ -201,6 +203,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 tempoFallbackReason = _radio.TempoFallbackReason });
         _radio.NowPlayingChanged += (_, e) => Publish("radio.nowPlaying",
             new { id = e.Item.Id, station = e.Item.Title, streamTitle = e.StreamTitle });
+        _radio.OutputDeviceFallback += (_, e) => Publish("audio.outputFallback",
+            new { engine = "radio", id = e.Item.Id, title = e.Item.Title });
     }
 
     private void Publish(string name, object data) => _events?.Publish(name, data);
@@ -273,7 +277,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
-            ["audio.outputs"] = (_, _) => ListOutputs(),
+            ["audio.outputs"] = (request, _) => ListOutputs(request.Args),
+            ["audio.selectOutput"] = (request, _) => SelectOutput(request.Args),
             ["audio.clipCapabilities"] = (request, _) =>
                 LiteAudioClipOperations.Capabilities(request.Args),
             [LiteAudioClipOperations.RemoveCapabilitiesOperation] = (request, _) =>
@@ -571,6 +576,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object QueuePlayAt(JsonElement args, LiteEventSink events)
     {
         _events = events;
+        ConfigureOutputForSession("files");
         lock (_gate)
         {
             // Jedno slyszalne zrodlo naraz, jak w files.play.
@@ -597,6 +603,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object QueueRelative(int direction, LiteEventSink events)
     {
         _events = events;
+        ConfigureOutputForSession("files");
         if (!_queue.PlayRelative(direction))
         {
             // Odmowa jest WYNIKIEM, nie bledem: na koncu kolejki nie ma gdzie
@@ -1051,6 +1058,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         // BEZPOSREDNIE odtworzenie wychodzi z kolejki: koniec tego utworu nie
         // moze jej przesunac. Zachowanie files.play pozostaje niezmienione.
         _queue.DetachFromDirectPlay();
+        ConfigureOutputForSession("files");
         _files.Play(item, position, volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
     }
@@ -1108,6 +1116,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _paused = false;
         }
         _queue.DetachFromDirectPlay();
+        ConfigureOutputForSession("podcasts");
         _files.Play(item, position, volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
     }
@@ -1143,6 +1152,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         // Radio TEZ wychodzi z kolejki: dotad odlaczalo ja tylko files.play,
         // wiec koniec utworu z czasu przed stacja mogl ja cicho przesunac.
         _queue.DetachFromDirectPlay();
+        ConfigureOutputForSession("radio");
         _radio.Play(item, TimeSpan.Zero, volume, 1d);
         return new { ok = true, engine = "radio", id = item.Id, title = item.Title };
     }
@@ -1489,13 +1499,94 @@ internal sealed class LiteEngineHandlers : IDisposable
         };
     }
 
-    private static object ListOutputs() =>
-        new
+    private void ConfigureOutputForSession(string sessionId)
+    {
+        string? deviceId;
+        lock (_gate) _outputDeviceIdsBySession.TryGetValue(sessionId, out deviceId);
+        if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
         {
-            devices = AudioOutputDeviceCatalog.Enumerate(null)
+            _radio.ConfigureOutputDevice(deviceId);
+        }
+        else
+        {
+            _files.ConfigureOutputDevice(deviceId);
+        }
+    }
+
+    private object SelectOutput(JsonElement args)
+    {
+        var sessionId = LiteArgs.RequireText(args, "sessionId");
+        if (sessionId is not ("files" or "radio" or "podcasts"))
+            throw new LiteRequestException("Ta sesja nie obsługuje wyboru urządzenia audio.");
+        var deviceId = LiteArgs.ReadText(args, "deviceId")?.Trim();
+        var restart = LiteArgs.ReadBool(args, "restart", true);
+
+        bool active;
+        bool paused;
+        MediaItem? item;
+        int volume;
+        double rate;
+        lock (_gate)
+        {
+            _outputDeviceIdsBySession[sessionId] = deviceId;
+            active = sessionId switch
+            {
+                "radio" => _activeEngine == "radio",
+                "podcasts" => _activeEngine == "files"
+                    && _filesItem?.Kind == MediaItemKind.Episode,
+                _ => _activeEngine == "files"
+                    && _filesItem?.Kind != MediaItemKind.Episode
+            };
+            paused = _paused;
+            item = sessionId == "radio" ? _radioItem : _filesItem;
+            volume = _volume;
+            rate = _rate;
+        }
+
+        var rebuilt = false;
+        if (active)
+        {
+            ConfigureOutputForSession(sessionId);
+            if (restart && item is not null)
+            {
+                if (sessionId == "radio")
+                {
+                    rebuilt = _radio.RestartPlaybackOutput();
+                }
+                else if (_files.LoadedItemId is not null || _files.IsPreparing)
+                {
+                    var position = _files.Position;
+                    _files.Stop();
+                    if (!paused) _files.Play(item, position, volume, rate);
+                    // Przy pauzie stary tor zostal domkniety, a nowy wybor
+                    // wejdzie przy wznowieniu bez krotkiego dzwieku.
+                    rebuilt = true;
+                }
+            }
+        }
+
+        var available = AudioOutputDeviceCatalog.IsAvailable(deviceId);
+        return new
+        {
+            sessionId,
+            deviceId,
+            available,
+            active,
+            rebuilt,
+            usingDefault = string.IsNullOrWhiteSpace(deviceId) || !available
+        };
+    }
+
+    private static object ListOutputs(JsonElement args)
+    {
+        var selectedDeviceId = LiteArgs.ReadText(args, "selectedDeviceId");
+        return new
+        {
+            devices = AudioOutputDeviceCatalog.Enumerate(selectedDeviceId)
                 .Select(device => new { id = device.Id, name = device.Label, available = device.IsAvailable })
                 .ToArray()
         };
+    }
 
     public void Dispose()
     {

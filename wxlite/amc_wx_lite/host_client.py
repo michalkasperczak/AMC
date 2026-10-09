@@ -734,6 +734,32 @@ class LiteHostClient:
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 
+    def audio_outputs(self, selected_device_id: str | None = None) -> Any:
+        """Lista jawnie nazwanych wyjsc, wraz z niedostepnym zapisanym wyborem."""
+        return self.call(
+            "audio.outputs",
+            {"selectedDeviceId": selected_device_id},
+            timeout=5.0,
+        )
+
+    def select_audio_output(
+        self,
+        session_id: str,
+        device_id: str | None,
+        *,
+        restart: bool = True,
+    ) -> Any:
+        """Zapamietaj wyjscie sesji i, gdy gra, odtworz jej tor audio."""
+        return self.call(
+            "audio.selectOutput",
+            {
+                "sessionId": session_id,
+                "deviceId": device_id,
+                "restart": restart,
+            },
+            timeout=10.0,
+        )
+
 
 def default_host_path() -> Path:
     """Gdzie szukac silnika. Kolejnosc: zmienna srodowiskowa, obok programu,
