@@ -152,9 +152,6 @@ def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
     inbox = nav.apply_podcast_aggregate(
         LibraryView.PODCAST_INBOX, "Nowe odcinki i materiały", []
     )
-    progress = nav.apply_podcast_aggregate(
-        LibraryView.PODCAST_IN_PROGRESS, "W trakcie słuchania", []
-    )
     downloads = nav.apply_podcast_aggregate(
         LibraryView.PODCAST_DOWNLOADS, "Pobrane", []
     )
@@ -168,7 +165,6 @@ def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
         LibraryView.PODCAST_QUEUE, "Kolejka", []
     )
     assert inbox[0].text == "Nowe odcinki i materiały, brak nowych materiałów"
-    assert progress[0].text == "W trakcie słuchania, brak rozpoczętych odcinków"
     assert downloads[0].text == "Pobrane, brak pobranych odcinków"
     assert favorites[0].text == "Ulubione, brak ulubionych podcastów i odcinków"
     assert history[0].text == "Historia odtwarzania, brak odtworzonych odcinków"

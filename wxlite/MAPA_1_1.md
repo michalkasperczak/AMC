@@ -306,9 +306,11 @@ własnej normalizacji diakrytyków.
   naturalnym końcu. Python pozostaje czytelnikiem `podcasts.db`; blokada drugiego
   hosta i wykrycie starego WPF chronią przed dwoma pisarzami. `Ctrl+I` ma już
   globalny, chwilowy widok „Nowe odcinki i materiały” z dokładnym powrotem po
-  Escape, `Ctrl+Shift+I` widok „W trakcie słuchania” w sesji podcastów, a menu
-  Widok zawiera „Pobrane” dla plików faktycznie istniejących na dysku.
-  Pierwsze dwa filtrują wyłącznie źródła pozostające w Bibliotece; Pobrane
+  Escape, a menu Widok zawiera „Pobrane” dla plików faktycznie istniejących na
+  dysku. Widok „W trakcie słuchania” i jego skrót `Ctrl+Shift+I` zostały
+  świadomie usunięte; pozycja wznowienia nadal jest zapisywana, a materiały
+  pozostają dostępne przez Historię, Ulubione i Kolejkę. Nowe odcinki filtrują
+  wyłącznie źródła pozostające w Bibliotece; Pobrane
   zachowują też materiały z później zarchiwizowanych źródeł jak główne AMC.
   „Nowe odcinki” obsługują też zgodne z głównym AMC `Alt+1`, `Alt+2` i
   `Alt+3`: według dodania, alfabetycznie i według podcastu. Prywatnie zapisany

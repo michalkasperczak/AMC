@@ -78,10 +78,8 @@ class LibraryView(Enum):
     PODCAST_HISTORY = "podcastHistory"
     PODCAST_QUEUE = "podcastQueue"
     #: Zbiorcze widoki z glownego AMC. ``PODCAST_INBOX`` jest globalnym,
-    #: chwilowym podgladem pod Ctrl+I; ``PODCAST_IN_PROGRESS`` jest pelnym
-    #: widokiem sesji Podcasty i YouTube pod Ctrl+Shift+I.
+    #: chwilowym podgladem pod Ctrl+I.
     PODCAST_INBOX = "podcastInbox"
-    PODCAST_IN_PROGRESS = "podcastInProgress"
     PODCAST_DOWNLOADS = "podcastDownloads"
 
 
@@ -581,7 +579,6 @@ class Navigator:
                 LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_QUEUE,
                 LibraryView.PODCAST_INBOX,
-                LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
             ):
                 return [OpenPodcastAggregateView(state.library_view, load_more=True)]
@@ -1373,7 +1370,6 @@ class Navigator:
             LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_QUEUE,
             LibraryView.PODCAST_INBOX,
-            LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
         ):
             raise ValueError("To nie jest zbiorczy widok podcastów")
@@ -1396,8 +1392,6 @@ class Navigator:
             message = "Kolejka, zero elementów"
         elif view is LibraryView.PODCAST_INBOX and count == 0:
             message = "Nowe odcinki i materiały, brak nowych materiałów"
-        elif view is LibraryView.PODCAST_IN_PROGRESS and count == 0:
-            message = "W trakcie słuchania, brak rozpoczętych odcinków"
         elif view is LibraryView.PODCAST_DOWNLOADS and count == 0:
             message = "Pobrane, brak pobranych odcinków"
         else:

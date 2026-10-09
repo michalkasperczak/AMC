@@ -53,53 +53,50 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
    materiały”. Są w nim tylko nowe, nieodtworzone materiały ze źródeł nadal
    należących do Biblioteki. `Escape` wraca do dokładnej poprzedniej sesji,
    listy, filtra i zaznaczenia bez komunikatu „Powrót”.
-8. `Ctrl+Shift+I` otwiera „W trakcie słuchania” wyłącznie w sesji Podcasty i
-   YouTube. Poza nią podaje krótką instrukcję. Widok zawiera rozpoczęte i
-   nieukończone materiały, najpierw z najdalszą zapisaną pozycją.
-9. Zbiorcze widoki ładują po 150 pozycji. Każdy wiersz ma nazwę źródła, a
+8. Zbiorcze widoki ładują po 150 pozycji. Każdy wiersz ma nazwę źródła, a
    materiały z kanałów i playlist YouTube mają jawne określenie „materiał
    YouTube”. Identyfikatory bazy i rekordy modelu nie trafiają do mowy NVDA.
-10. `Ctrl+O` pozostaje kontekstowe jak w głównym AMC: w Plikach wybiera plik,
+9. `Ctrl+O` pozostaje kontekstowe jak w głównym AMC: w Plikach wybiera plik,
     w Radiu importuje M3U/PLS, a w Podcastach otwiera import OPML. Import OPML
     pokazuje natywną listę: wszystkie źródła są początkowo zaznaczone, Spacja
     przełącza bieżące, a `Ctrl+A` zaznacza wszystkie. `Ctrl+I` nie jest już
     błędnie zajęte przez import stacji.
-11. Pozycja Widok → „Pobrane” jest dostępna w sesji Podcasty i YouTube.
+10. Pozycja Widok → „Pobrane” jest dostępna w sesji Podcasty i YouTube.
     Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
     także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
     początku; Enter odtwarza lokalny plik zwykłym torem silnika C#.
-12. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
+11. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
     `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek
     według jego ID i przeżywa restart wxPython. Zapis trafia wyłącznie do
     prywatnego stanu `AMC-wx-Lite`; wspólny `state.json` pozostaje nietknięty.
-13. `Ctrl+N` w sesji Podcasty i YouTube otwiera natywny formularz dodawania.
+12. `Ctrl+N` w sesji Podcasty i YouTube otwiera natywny formularz dodawania.
     Przyjmuje RSS/Atom, kanał lub playlistę YouTube oraz pojedynczy publiczny
     materiał YouTube. Adres sprawdza ten sam klient C# co w głównym AMC;
     tymczasowy podpisany adres audio z YouTube nigdy nie trafia do bazy.
-14. `F2` na głównej liście zmienia własną nazwę podcastu lub kanału,
+13. `F2` na głównej liście zmienia własną nazwę podcastu lub kanału,
     `Delete` usuwa źródło z Biblioteki, `F5` odświeża bieżące źródło,
     `Ctrl+F5` wszystkie źródła, a `Ctrl+D` pobiera jeden lub wiele zaznaczonych
     odcinków. Zaznaczenie wielokrotne działa także przez `Ctrl+Spacja`.
-15. Pliki → „Eksportuj bibliotekę podcastów do OPML” zapisuje wyłącznie
+14. Pliki → „Eksportuj bibliotekę podcastów do OPML” zapisuje wyłącznie
     podcasty RSS należące do Biblioteki. Parser i eksporter pochodzą ze
     wspólnego Core AMC; Python nie interpretuje XML-u i nie zapisuje bazy.
-16. Pliki → „Eksportuj subskrypcje YouTube” zapisuje kanały jako CSV zgodny
+15. Pliki → „Eksportuj subskrypcje YouTube” zapisuje kanały jako CSV zgodny
     z Google Takeout i importem NewPipe oraz FreeTube albo kanały wraz
     z playlistami jako OPML do czytników RSS. Pole „Typ pliku” opisuje
     zastosowanie obu formatów i zawsze nadaje właściwe rozszerzenie, również
     po przełączeniu z CSV na OPML. CSV nie udaje obsługi playlist: komunikat
     jawnie podaje liczbę pominiętych.
-17. `Ctrl+S` na jednym odcinku otwiera natywny dialog „Zapisz jako” z nazwą
+16. `Ctrl+S` na jednym odcinku otwiera natywny dialog „Zapisz jako” z nazwą
     wygenerowaną przez wspólny `PodcastDownloadNaming`. Powstaje niezależna
     kopia; pole pobrania w bibliotece pozostaje niezmienione. W sesji plików
     ten sam skrót nadal eksportuje zaznaczony fragment audio.
-18. `Ctrl+Shift+U` zmienia Ulubione dla wspólnego zaznaczenia podcastów i
+17. `Ctrl+Shift+U` zmienia Ulubione dla wspólnego zaznaczenia podcastów i
     odcinków. `Ctrl+U` pokazuje oba rodzaje w jednym widoku również z
     odtwarzacza. `Delete` w tym widoku wyłącza stan Ulubionych, ale nie usuwa
     źródła z Biblioteki ani pobranego pliku. Enter na podcaście otwiera jego
     odcinki, a Enter na odcinku odtwarza go zwykłym torem silnika.
-19. `Ctrl+H` w sesji Podcasty i YouTube pokazuje zapisaną Historię
+18. `Ctrl+H` w sesji Podcasty i YouTube pokazuje zapisaną Historię
     odtwarzania tej sesji, również z odtwarzacza. `Delete` usuwa zaznaczenie
     tylko z Historii; źródło, odcinek i pobrany plik pozostają bez zmian.
 
@@ -114,9 +111,11 @@ usuwanie, odświeżanie, pobieranie i import OPML także przechodzą przez jedne
 C# i nigdy nie otwierają bazy do zapisu z Pythona. Host odmawia drugiemu oknu
 wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne AMC,
 które mogłoby później nadpisać całą migawkę. Widoki „Nowe odcinki i materiały”
-wraz z trzema trybami sortowania, „W trakcie słuchania” oraz „Pobrane” są już
-przeniesione. Import i eksport OPML oraz eksport kanałów i playlist YouTube są
-przeniesione; nadal czekają pozostałe widoki specjalne.
+wraz z trzema trybami sortowania oraz „Pobrane” są już przeniesione. Widok
+„W trakcie słuchania” został świadomie usunięty: rozpoczęty materiał można
+odnaleźć w Historii, Ulubionych albo Kolejce. Import i eksport OPML oraz
+eksport kanałów i playlist YouTube są przeniesione; nadal czekają pozostałe
+widoki specjalne.
 
 Test bez danych użytkownika:
 

@@ -197,7 +197,6 @@ class Action(Enum):
     VIEW_RECORDED_RADIO_FILES = "radio.recording.completedView"
     MANAGE_RADIO_SCHEDULES = "radio.recording.schedules"
     VIEW_PODCAST_INBOX = "podcasts.inbox"
-    VIEW_PODCAST_IN_PROGRESS = "podcasts.inProgress"
     VIEW_PODCAST_DOWNLOADS = "podcasts.downloads"
     SORT_PODCAST_INBOX_ADDED = "podcasts.inbox.sort.added"
     SORT_PODCAST_INBOX_ALPHABETICAL = "podcasts.inbox.sort.alphabetical"
@@ -534,7 +533,6 @@ for _table in (LIST_VIEW, PLAYER_VIEW):
     _table["Alt+Shift+R"] = Action.VIEW_RECORDED_RADIO_FILES
     _table["Ctrl+Shift+H"] = Action.MANAGE_RADIO_SCHEDULES
     _table["Ctrl+I"] = Action.VIEW_PODCAST_INBOX
-    _table["Ctrl+Shift+I"] = Action.VIEW_PODCAST_IN_PROGRESS
 
 
 PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
@@ -697,7 +695,6 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_RECORDED_RADIO_FILES: "Pokaz historie nagrywania radia",
         Action.MANAGE_RADIO_SCHEDULES: "Pokaz harmonogram nagrywania radia",
         Action.VIEW_PODCAST_INBOX: "Nowe odcinki i materiały",
-        Action.VIEW_PODCAST_IN_PROGRESS: "W trakcie słuchania",
         Action.VIEW_PODCAST_DOWNLOADS: "Pobrane odcinki podcastów",
         Action.SORT_PODCAST_INBOX_ADDED: (
             "Nowe odcinki: według dodania, najnowsze na początku"

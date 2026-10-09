@@ -3483,8 +3483,6 @@ class LiteFrame(wx.Frame):
             self._export_youtube_subscriptions()
         elif action is Action.VIEW_PODCAST_INBOX:
             self._show_podcast_inbox()
-        elif action is Action.VIEW_PODCAST_IN_PROGRESS:
-            self._show_podcast_in_progress()
         elif action is Action.VIEW_PODCAST_DOWNLOADS:
             self._show_podcast_downloads()
         elif action in (
@@ -4162,18 +4160,6 @@ class LiteFrame(wx.Frame):
             OpenPodcastAggregateView(LibraryView.PODCAST_INBOX)
         )
 
-    def _show_podcast_in_progress(self) -> None:
-        if self.navigator.active is not SessionId.PODCASTS:
-            self.announcer.say(
-                "Materiały w trakcie słuchania są dostępne w sesji "
-                "Podcasty i YouTube"
-            )
-            return
-        self._transient_preview_return = None
-        self._open_podcast_aggregate(
-            OpenPodcastAggregateView(LibraryView.PODCAST_IN_PROGRESS)
-        )
-
     def _show_podcast_downloads(self) -> None:
         if self.navigator.active is not SessionId.PODCASTS:
             self.announcer.say(
@@ -4244,7 +4230,6 @@ class LiteFrame(wx.Frame):
             LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_QUEUE,
             LibraryView.PODCAST_INBOX,
-            LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
         ):
             return
@@ -4278,8 +4263,6 @@ class LiteFrame(wx.Frame):
                     sort_mode=sort_mode_override,
                     collation=getattr(self, "_collation", None),
                 )
-            if intent.view is LibraryView.PODCAST_IN_PROGRESS:
-                return self.podcasts.in_progress(loaded_count=requested)
             return self.podcasts.downloads(loaded_count=requested)
 
         def done(page) -> None:
@@ -4316,7 +4299,6 @@ class LiteFrame(wx.Frame):
                 LibraryView.PODCAST_HISTORY: "Historia odtwarzania",
                 LibraryView.PODCAST_QUEUE: "Kolejka",
                 LibraryView.PODCAST_INBOX: "Nowe odcinki i materiały",
-                LibraryView.PODCAST_IN_PROGRESS: "W trakcie słuchania",
                 LibraryView.PODCAST_DOWNLOADS: "Pobrane",
             }[intent.view]
             events = self.navigator.apply_podcast_aggregate(
@@ -4780,7 +4762,6 @@ class LiteFrame(wx.Frame):
                 LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_QUEUE,
                 LibraryView.PODCAST_INBOX,
-                LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
             ):
                 self._open_podcast_aggregate(
@@ -5176,7 +5157,6 @@ class LiteFrame(wx.Frame):
             LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_QUEUE,
             LibraryView.PODCAST_INBOX,
-            LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
         ):
             self._open_podcast_aggregate(
@@ -7208,7 +7188,6 @@ class LiteFrame(wx.Frame):
                 LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_QUEUE,
                 LibraryView.PODCAST_INBOX,
-                LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
             ):
                 self._open_podcast_aggregate(OpenPodcastAggregateView(

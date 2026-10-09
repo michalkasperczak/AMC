@@ -109,7 +109,6 @@ def test_skrot_ktory_ma_dzialac_bez_odtwarzania_nie_moze_byc_bramkowanym_akceler
     przelaczanie_widoku = {
         Action.SHOW_PLAYER,
         Action.SHOW_LIST,
-        Action.VIEW_PODCAST_IN_PROGRESS,
     }
     winne = [
         (item.label, item.shortcut)
@@ -428,10 +427,8 @@ def test_podcast_aggregate_views_are_discoverable_and_contextual() -> None:
     view = next(menu for menu in menu_model.build_menus() if menu.title == "&Widok")
     by_action = {item.action: item for item in view.items if item.action is not None}
     assert Action.VIEW_PODCAST_INBOX in by_action
-    assert Action.VIEW_PODCAST_IN_PROGRESS in by_action
     assert Action.VIEW_PODCAST_DOWNLOADS in by_action
     assert not by_action[Action.VIEW_PODCAST_INBOX].needs_podcast_session
-    assert by_action[Action.VIEW_PODCAST_IN_PROGRESS].needs_podcast_session
     assert by_action[Action.VIEW_PODCAST_DOWNLOADS].needs_podcast_session
 
 

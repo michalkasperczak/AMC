@@ -1132,23 +1132,6 @@ class PodcastSource:
             sort_mode=mode,
         )
 
-    def in_progress(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
-        """Started, not-yet-played episodes, ordered like the full AMC."""
-        records = self._aggregate_records("e.is_started = 1 AND e.is_played = 0")
-        records.sort(
-            key=lambda record: (
-                _as_int(_get(record.payload, "ResumePositionTicks", 0)),
-                record.published_ticks,
-            ),
-            reverse=True,
-        )
-        return self._aggregate_page(
-            records,
-            loaded_count=loaded_count,
-            view="in-progress",
-            order_matches_amc=True,
-        )
-
     def downloads(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
         """Episodes whose downloaded file still exists, including archived sources."""
         records = self._aggregate_records(

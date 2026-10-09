@@ -366,32 +366,6 @@ def test_inbox_supports_the_three_orders_from_the_full_amc() -> None:
         ))
 
 
-def test_in_progress_is_ordered_by_resume_position_then_date() -> None:
-    with _temporary_folder() as folder:
-        base = Path(folder)
-        path = _database(base)
-        _insert_episode(path, item_id="short", subscription_id="rss-id",
-                        title="Krótko", ordinal=0, published=900,
-                        is_new=0, is_started=1, resume_seconds=10)
-        _insert_episode(path, item_id="long-old", subscription_id="rss-id",
-                        title="Długo starsze", ordinal=1, published=100,
-                        is_started=1, resume_seconds=200)
-        _insert_episode(path, item_id="long-new", subscription_id="yt-id",
-                        title="Długo nowsze", ordinal=2, published=200,
-                        is_started=1, resume_seconds=200)
-        _insert_episode(path, item_id="finished", subscription_id="rss-id",
-                        title="Zakończony", ordinal=3, published=1000,
-                        is_started=1, is_played=1, resume_seconds=400)
-
-        page = PodcastSource(private_sandbox(base)).in_progress()
-
-        assert [row.item_id for row in page.rows] == [
-            "long-new", "long-old", "short"
-        ]
-        assert page.rows[0].position_seconds == 200.0
-        assert page.order_matches_amc
-
-
 def test_aggregate_page_reports_exact_remaining_count() -> None:
     with _temporary_folder() as folder:
         base = Path(folder)
