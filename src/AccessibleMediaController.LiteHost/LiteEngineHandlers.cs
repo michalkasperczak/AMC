@@ -48,6 +48,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteProfileMutationStore? _profileMutations;
     private readonly LiteTidalCatalogCoordinator? _tidalCatalog;
     private readonly LiteTidalDesktopCoordinator _tidalDesktop = new();
+    private readonly LiteWiiMCoordinator? _wiim;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
 
@@ -104,7 +105,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteBookmarkStore? bookmarkStore = null,
         LitePodcastProgressStore? podcastProgressStore = null,
         LiteProfileMutationStore? profileMutations = null,
-        LiteTidalCatalogCoordinator? tidalCatalog = null)
+        LiteTidalCatalogCoordinator? tidalCatalog = null,
+        LiteWiiMCoordinator? wiim = null)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
@@ -112,6 +114,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastProgressStore = podcastProgressStore;
         _profileMutations = profileMutations;
         _tidalCatalog = tidalCatalog;
+        _wiim = wiim;
         _podcastRefresh = podcastProgressStore is null
             ? null
             : new LitePodcastRefreshCoordinator(podcastProgressStore, bookmarkStore);
@@ -283,6 +286,12 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _tidalDesktop.Play(request.Args),
             [LiteTidalDesktopContract.TransportOperation] = (request, _) =>
                 _tidalDesktop.Transport(request.Args),
+            [LiteWiiMContract.DevicesOperation] = (_, _) =>
+                RequireWiiM().ListDevices(),
+            [LiteWiiMContract.SnapshotOperation] = (request, _) =>
+                RequireWiiM().Snapshot(request.Args),
+            [LiteWiiMContract.TransportOperation] = (request, _) =>
+                RequireWiiM().Transport(request.Args),
             ["podcast.toggleFavorite"] = (request, _) =>
                 TogglePodcastFavorites(request.Args),
             ["podcast.playbackOptions"] = (request, _) =>
@@ -1749,6 +1758,10 @@ internal sealed class LiteEngineHandlers : IDisposable
         (_tidalCatalog ?? throw new LiteRequestException(
             "Host nie ma dostępu do profilu AMC potrzebnego do katalogu TIDAL."))
         .GetContainerItems(args);
+
+    private LiteWiiMCoordinator RequireWiiM() =>
+        _wiim ?? throw new LiteRequestException(
+            "Host nie ma dostępu do profilu AMC potrzebnego do obsługi WiiM.");
 
     private object ConfigureAudio(JsonElement args)
     {

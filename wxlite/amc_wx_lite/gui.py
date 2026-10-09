@@ -72,6 +72,7 @@ from .list_model import (
 from . import menu_model
 from . import profile_presets
 from .navigation import (
+    ActivateWiiMDevice,
     Announce,
     LIBRARY_VIEW_FOLDERS,
     LibraryView,
@@ -99,9 +100,16 @@ from .shortcuts import (
     Action,
     Chord,
     TIDAL_SUPPORTED_ACTIONS,
+    WIIM_SUPPORTED_ACTIONS,
     describe,
     preset_slot,
     resolve,
+)
+from .wiim_source import (
+    WiiMPayloadError,
+    device_rows as wiim_device_rows,
+    now_playing_label as wiim_now_playing_label,
+    snapshot as wiim_snapshot,
 )
 from .profile_layout import resolve_layout
 from .podcast_source import (
@@ -2472,6 +2480,11 @@ class LiteFrame(wx.Frame):
         # Oryginalny TIDAL jest osobnym odtwarzaczem. Ta flaga wlacza tylko
         # jego transport; nie udaje stanu lokalnego WindowsMediaOutput.
         self._tidal_desktop_has_playback = False
+        # Migawka autonomicznego urządzenia. Nie jest stanem lokalnego
+        # WindowsMediaOutput i nie może zostać nadpisana przez jego timer.
+        self._wiim_snapshot: dict = {}
+        self._wiim_active_device_id = ""
+        self._wiim_status_poll_pending = False
         self._radio_activity_cues: dict[tuple[bool, bool], object] = {}
 
         self._build_ui()
@@ -2533,9 +2546,16 @@ class LiteFrame(wx.Frame):
             "TIDAL",
             self.navigator.sessions[SessionId.TIDAL],
         )
+        self.wiim_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.WIIM].model,
+            "Urządzenia WiiM",
+            self.navigator.sessions[SessionId.WIIM],
+        )
         self.radio_list.Hide()
         self.podcasts_list.Hide()
         self.tidal_list.Hide()
+        self.wiim_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
         list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
@@ -2543,6 +2563,7 @@ class LiteFrame(wx.Frame):
         list_sizer.Add(self.radio_list, 1, wx.EXPAND)
         list_sizer.Add(self.podcasts_list, 1, wx.EXPAND)
         list_sizer.Add(self.tidal_list, 1, wx.EXPAND)
+        list_sizer.Add(self.wiim_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
         # --- widok odtwarzacza (zwykle kontrolki, nie wlasne rysowanie)
@@ -2799,7 +2820,11 @@ class LiteFrame(wx.Frame):
     def _bind_keys(self) -> None:
         self.Bind(wx.EVT_CHAR_HOOK, self._on_player_shortcut_hook)
         for control in (
-            self.files_list, self.radio_list, self.podcasts_list, self.tidal_list
+            self.files_list,
+            self.radio_list,
+            self.podcasts_list,
+            self.tidal_list,
+            self.wiim_list,
         ):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
@@ -3485,6 +3510,10 @@ class LiteFrame(wx.Frame):
             self._open_podcast_library(
                 preferred_id=self.navigator.sessions[SessionId.PODCASTS].list_anchor_id
             )
+        if getattr(self.navigator, "active", None) is SessionId.WIIM:
+            self._load_wiim_devices(
+                preferred_id=self.navigator.sessions[SessionId.WIIM].list_anchor_id
+            )
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\micha) na tej maszynie nie istnieja, lista pod
@@ -3906,6 +3935,12 @@ class LiteFrame(wx.Frame):
                     "Ta funkcja nie dotyczy odtwarzania w oryginalnym TIDALu"
                 )
                 return
+        if self.navigator.active is SessionId.WIIM:
+            if action not in WIIM_SUPPORTED_ACTIONS:
+                self.announcer.say(
+                    "To polecenie nie jest dostępne w sesji WiiM"
+                )
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -3918,6 +3953,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_TIDAL:
             self._transient_preview_return = None
             self._switch_session(SessionId.TIDAL)
+        elif action is Action.SESSION_WIIM:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.WIIM)
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
@@ -4174,6 +4212,8 @@ class LiteFrame(wx.Frame):
                 self._play_tidal_track(intent)
             elif isinstance(intent, PlayTidalContainer):
                 self._play_tidal_container(intent)
+            elif isinstance(intent, ActivateWiiMDevice):
+                self._activate_wiim_device(intent)
         self._sync_views()
 
     def _sync_views(self) -> None:
@@ -4186,6 +4226,7 @@ class LiteFrame(wx.Frame):
             SessionId.RADIO: "Radio internetowe",
             SessionId.PODCASTS: "Podcasty i YouTube",
             SessionId.TIDAL: "TIDAL",
+            SessionId.WIIM: "WiiM",
         }[self.navigator.active])
 
         active_list = self._active_list()
@@ -4195,6 +4236,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "radio_list", None),
                 getattr(self, "podcasts_list", None),
                 getattr(self, "tidal_list", None),
+                getattr(self, "wiim_list", None),
             )
             if candidate is not None
         )
@@ -4242,11 +4284,23 @@ class LiteFrame(wx.Frame):
         # uzytkownik jest w odtwarzaczu TIDAL. Przycisk gra/pauza pozostaje
         # aktywny, bo jest jawnie kierowany do sesji systemowej TIDALa.
         tidal_external = self.navigator.active is SessionId.TIDAL
-        self.volume_slider.Enable(not tidal_external)
-        self.rate_slider.Enable(not tidal_external)
+        wiim_remote = self.navigator.active is SessionId.WIIM
+        wiim_ready = (
+            not wiim_remote
+            or bool(self._wiim_snapshot)
+            and self._wiim_snapshot.get("deviceId")
+            == self._wiim_active_device_id
+        )
+        self.volume_slider.Enable(not tidal_external and wiim_ready)
+        self.rate_slider.Enable(not (tidal_external or wiim_remote))
 
         if want_player:
-            self.now_playing.SetLabel(session.now_playing_title or "Nic nie jest odtwarzane")
+            if wiim_remote and self._wiim_snapshot:
+                self._apply_wiim_snapshot(self._wiim_snapshot, announce=False)
+            else:
+                self.now_playing.SetLabel(
+                    session.now_playing_title or "Nic nie jest odtwarzane"
+                )
             if changed:
                 self.play_button.SetFocus()
         elif changed:
@@ -4262,6 +4316,8 @@ class LiteFrame(wx.Frame):
             return self.radio_list
         if self.navigator.active is SessionId.PODCASTS:
             return self.podcasts_list
+        if self.navigator.active is SessionId.WIIM:
+            return self.wiim_list
         return self.tidal_list
 
     def _on_item_focused(self, event: wx.ListEvent) -> None:
@@ -4646,6 +4702,158 @@ class LiteFrame(wx.Frame):
                     LibraryView.TIDAL_LIBRARY,
                     preferred_id=state.list_anchor_id,
                 ))
+        elif session_id is SessionId.WIIM:
+            state = self.navigator.sessions[SessionId.WIIM]
+            if not state.model.rows:
+                self._load_wiim_devices(preferred_id=state.list_anchor_id)
+
+    # --------------------------------------------------------------- WiiM
+
+    def _load_wiim_devices(self, preferred_id: str | None = None) -> None:
+        """Wczytaj wyłącznie zapisane urządzenia; adresy pozostają w C#."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+
+        def done(payload: object) -> None:
+            try:
+                rows = list(wiim_device_rows(payload))
+            except WiiMPayloadError as error:
+                self.announcer.say(str(error))
+                return
+            selected_id = preferred_id
+            if selected_id is None and isinstance(payload, dict):
+                raw_items = payload.get("items")
+                if isinstance(raw_items, list):
+                    selected = next((
+                        item for item in raw_items
+                        if isinstance(item, dict) and item.get("selected") is True
+                    ), None)
+                    if isinstance(selected, dict):
+                        candidate = selected.get("itemId")
+                        if isinstance(candidate, str) and any(
+                            row.item_id == candidate for row in rows
+                        ):
+                            selected_id = candidate
+            events = self.navigator.apply_wiim_devices(rows, selected_id)
+            if self.navigator.active is SessionId.WIIM:
+                self._run(events)
+            else:
+                self._sync_views()
+
+        self.runner.submit(
+            "wiim-devices",
+            client.wiim_devices,
+            done,
+            lambda error: self.announcer.say(
+                f"Nie udało się odczytać urządzeń WiiM: {error}"
+            ),
+        )
+
+    def _activate_wiim_device(self, intent: ActivateWiiMDevice) -> None:
+        client = self.client
+        if client is None:
+            self._run(self.navigator.back_to_list())
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+        self._wiim_active_device_id = intent.device_id
+        self._wiim_snapshot = {}
+        # Tytuł urządzenia jest uczciwym stanem przejściowym, zanim przyjdzie
+        # migawka utworu. Nie pokazujemy technicznego identyfikatora.
+        self.now_playing.SetLabel(intent.title)
+        self._set_transport_label(playing=False, preparing=True)
+
+        def done(payload: object) -> None:
+            try:
+                state = wiim_snapshot(payload)
+            except WiiMPayloadError as error:
+                failed(error)
+                return
+            if state.get("deviceId") != self._wiim_active_device_id:
+                return
+            self._wiim_snapshot = state
+            if (
+                self.navigator.active is SessionId.WIIM
+                and self.navigator.view is View.PLAYER
+            ):
+                self._apply_wiim_snapshot(state, announce=True)
+
+        def failed(error: Exception) -> None:
+            state = self.navigator.sessions[SessionId.WIIM]
+            state.view = View.LIST
+            if self.navigator.active is SessionId.WIIM:
+                self._sync_views()
+                self.announcer.say(str(error))
+
+        self.runner.submit(
+            "wiim-snapshot",
+            lambda: client.wiim_snapshot(intent.device_id),
+            done,
+            failed,
+        )
+
+    def _apply_wiim_snapshot(
+        self, state: dict, *, announce: bool = False
+    ) -> None:
+        """Pokaż migawkę WiiM bez przepuszczania repr, adresu ani Id."""
+        label = wiim_now_playing_label(state)
+        if self.now_playing.GetLabel() != label:
+            self.now_playing.SetLabel(label)
+        # Nazwa kontrolki jest stałą etykietą pola. Treść utworu pozostaje
+        # jego wartością/tekstem, więc po przejściu do innej sesji nie może
+        # zostać stara nazwa WiiM czytana nad nowym tytułem.
+        self.now_playing.SetName("Teraz odtwarzane")
+        time_label = player_time_label(
+            state.get("positionSeconds"), state.get("durationSeconds")
+        )
+        if self.time_label.GetLabel() != time_label:
+            self.time_label.SetLabel(time_label)
+        volume = int(state.get("volume") or 0)
+        if self.volume_slider.GetValue() != volume:
+            self.volume_slider.SetValue(volume)
+        self.volume_slider.Enable(True)
+        playback = str(state.get("playbackState") or "").casefold()
+        self._set_transport_label(
+            playing=playback in {"odtwarzanie", "playing", "play"}
+        )
+        if announce:
+            message = str(state.get("message") or "").strip()
+            self.announcer.say(message or label)
+
+    def _wiim_transport(
+        self, command: str, *, volume: int | None = None
+    ) -> None:
+        client = self.client
+        device_id = self._wiim_active_device_id
+        if client is None or not device_id:
+            self.announcer.say(
+                "Brak aktywnego urządzenia WiiM. Naciśnij Enter na urządzeniu"
+            )
+            return
+
+        def done(payload: object) -> None:
+            try:
+                state = wiim_snapshot(payload)
+            except WiiMPayloadError as error:
+                self.announcer.say(str(error))
+                return
+            if state.get("deviceId") != self._wiim_active_device_id:
+                return
+            self._wiim_snapshot = state
+            if self.navigator.active is SessionId.WIIM:
+                self._apply_wiim_snapshot(state, announce=True)
+
+        self.runner.submit(
+            "wiim-transport",
+            lambda: client.wiim_transport(
+                device_id, command, volume=volume
+            ),
+            done,
+            lambda error: self.announcer.say(
+                f"Nie udało się sterować urządzeniem WiiM: {error}"
+            ),
+        )
 
     # ------------------------------------------------ Podcasty i YouTube
 
@@ -6004,6 +6212,31 @@ class LiteFrame(wx.Frame):
                 parts.append(row.kind_label)
             parts.append("format audio nie został udostępniony przez zapisany katalog TIDAL")
             self.announcer.say(", ".join(dict.fromkeys(parts)))
+            return
+        if self.navigator.active is SessionId.WIIM:
+            if self.navigator.view is View.PLAYER and self._wiim_snapshot:
+                parts = [
+                    str(self._wiim_snapshot.get(name) or "").strip()
+                    for name in (
+                        "title", "subtitle", "artist", "album", "source",
+                        "playbackState",
+                    )
+                ]
+                parts = list(dict.fromkeys(part for part in parts if part))
+                volume = int(self._wiim_snapshot.get("volume") or 0)
+                parts.append(
+                    "wyciszone" if self._wiim_snapshot.get("muted")
+                    else f"głośność {volume}%"
+                )
+                self.announcer.say(", ".join(parts))
+                return
+            if row is None:
+                self.announcer.say("Lista WiiM jest pusta")
+                return
+            parts = [row.title]
+            if row.detail:
+                parts.append(row.detail)
+            self.announcer.say(", ".join(parts))
             return
         client = self.client
         plan = quick_info_plan(
@@ -7490,6 +7723,10 @@ class LiteFrame(wx.Frame):
         Dawniej każde naciśnięcie szło do ``queue.*`` i zwykły plik albo stacja
         kończyły komunikatem „początek/koniec kolejki”.
         """
+        if self.navigator.active is SessionId.WIIM:
+            self._wiim_transport("next" if forward else "previous")
+            return
+
         source_intents = self.navigator.step_playback_source(forward)
         if source_intents is not None:
             self._run(source_intents)
@@ -7590,10 +7827,9 @@ class LiteFrame(wx.Frame):
 
         Trzy warunki odmowy, kazdy z powodem:
 
-        * ``_playing_session`` inne niz wychodzaca sesja -- host ma JEDNO
-          wyjscie, a ``transport.pauseResume`` nie zna zakresu; wstrzymanie
-          ruszylo by CUDZE granie (oryginal rozwiazuje to samo przez wyjatki
-          dla ``wiim``/Sonos, ktorych port nie ma),
+        * ``_playing_session`` inne niz wychodzaca sesja -- lokalny host ma
+          JEDNO wyjscie, a ``transport.pauseResume`` nie zna zakresu;
+          autonomiczny WiiM ma osobny tor i nigdy nie trafia do tej metody,
         * nic nie gra w tej sesji (odpowiednik ``session.HasCurrentItem``),
         * host juz jest wstrzymany -- ``pauseResume`` to przelacznik, wiec
           drugie wywolanie WZNOWILO by odtwarzanie, czyli dokladnie odwrotnie
@@ -7641,6 +7877,12 @@ class LiteFrame(wx.Frame):
 
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
+        if self.navigator.active is SessionId.WIIM:
+            self.announcer.say(
+                "WiiM odtwarza na własnym urządzeniu sieciowym. "
+                "Wybierz urządzenie z listy sesji WiiM"
+            )
+            return
         if self.navigator.active is SessionId.TIDAL:
             self.announcer.say(
                 "TIDAL korzysta z urządzenia domyślnego swojego odtwarzacza. "
@@ -7916,6 +8158,10 @@ class LiteFrame(wx.Frame):
             )
             return
 
+        if self.navigator.active is SessionId.WIIM:
+            self._wiim_transport("toggle")
+            return
+
         def done(payload: dict) -> None:
             paused = bool((payload or {}).get("paused"))
             # Etykieta zawsze zgodna ze stanem: po wstrzymaniu przycisk ma juz
@@ -8049,10 +8295,23 @@ class LiteFrame(wx.Frame):
             self.announcer.say(text)
 
     def _adjust_volume(self, delta: int) -> None:
+        if self.navigator.active is SessionId.WIIM:
+            command = {
+                5: "volumeUp5",
+                -5: "volumeDown5",
+                1: "volumeUp1",
+                -1: "volumeDown1",
+            }.get(delta)
+            if command is not None:
+                self._wiim_transport(command)
+                return
         self._set_volume(self.options.volume + delta)
 
     def _set_volume(self, value: int) -> None:
         value = max(0, min(100, int(value)))
+        if self.navigator.active is SessionId.WIIM:
+            self._wiim_transport("setVolume", volume=value)
+            return
         self.options.volume = value
         self.volume_slider.SetValue(value)
         # Glosnosc tez ma swoj przelacznik (CommandRouter.cs:566-575) i swoj
@@ -8096,6 +8355,19 @@ class LiteFrame(wx.Frame):
         """
         if self.navigator.active is SessionId.TIDAL:
             self._announce_tidal_time(action)
+            return
+        if self.navigator.active is SessionId.WIIM:
+            state = self._wiim_snapshot
+            text = time_announcement(
+                action,
+                self.messages,
+                position=state.get("positionSeconds"),
+                duration=state.get("durationSeconds"),
+            )
+            if text is not None:
+                self.announcer.say(text)
+            else:
+                self.announcer.say("Urządzenie WiiM nie podało tego czasu")
             return
         status = self._last_status
         text = time_announcement(
@@ -8189,6 +8461,7 @@ class LiteFrame(wx.Frame):
         # wiersz stacji uczciwie mowi, czy jest odtwarzany albo nagrywany.
         # Etykiete czasu nadal zmieniamy tylko w widoku odtwarzacza.
         self._refresh_status()
+        self._refresh_wiim_status()
         self._refresh_recording_status()
         self._checkpoint_podcast_if_due()
 
@@ -8240,11 +8513,14 @@ class LiteFrame(wx.Frame):
             if not payload:
                 return
             self._last_status = payload
-            tidal_external = (
-                self.navigator.active is SessionId.TIDAL
-                and self._tidal_desktop_has_playback
+            remote_player = (
+                self.navigator.active is SessionId.WIIM
+                or (
+                    self.navigator.active is SessionId.TIDAL
+                    and self._tidal_desktop_has_playback
+                )
             )
-            if self.navigator.view is View.PLAYER and not tidal_external:
+            if self.navigator.view is View.PLAYER and not remote_player:
                 position = payload.get("positionSeconds")
                 duration = payload.get("durationSeconds")
                 label = player_time_label(position, duration)
@@ -8256,7 +8532,7 @@ class LiteFrame(wx.Frame):
             # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
             # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
             # odswiezenie statusu nie jest gestem uzytkownika.
-            if "paused" in payload and not tidal_external:
+            if "paused" in payload and not remote_player:
                 self._set_transport_label(playing=not bool(payload.get("paused")))
             self._apply_radio_activity_status()
 
@@ -8264,6 +8540,45 @@ class LiteFrame(wx.Frame):
             self._status_poll_pending = False
 
         self.runner.submit("status", client.status, done, failed)
+
+    def _refresh_wiim_status(self) -> None:
+        """Cichy odczyt aktywnego WiiM, tak jak okresowy odczyt w AMC."""
+        client = self.client
+        device_id = self._wiim_active_device_id
+        if (
+            client is None
+            or not device_id
+            or self.navigator.active is not SessionId.WIIM
+            or self.navigator.view is not View.PLAYER
+            or getattr(self, "_wiim_status_poll_pending", False)
+        ):
+            return
+        self._wiim_status_poll_pending = True
+
+        def done(payload: object) -> None:
+            self._wiim_status_poll_pending = False
+            try:
+                state = wiim_snapshot(payload)
+            except WiiMPayloadError:
+                return
+            if (
+                self.navigator.active is not SessionId.WIIM
+                or self.navigator.view is not View.PLAYER
+                or state.get("deviceId") != self._wiim_active_device_id
+            ):
+                return
+            self._wiim_snapshot = state
+            self._apply_wiim_snapshot(state, announce=False)
+
+        def failed(_error: Exception) -> None:
+            self._wiim_status_poll_pending = False
+
+        self.runner.submit(
+            "wiim-status",
+            lambda: client.wiim_snapshot(device_id),
+            done,
+            failed,
+        )
 
     def _refresh_recording_status(self) -> None:
         """Pobierz jedna migawke nagran bez mowy i bez nakladania zapytan."""

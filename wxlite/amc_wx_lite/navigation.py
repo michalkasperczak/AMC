@@ -27,6 +27,7 @@ class SessionId(Enum):
     RADIO = "radio"
     PODCASTS = "podcasts"
     TIDAL = "tidal"
+    WIIM = "wiim"
 
 
 class LibraryView(Enum):
@@ -365,6 +366,15 @@ class PlayTidalContainer:
 
 
 @dataclass(slots=True)
+class ActivateWiiMDevice:
+    """Wybierz zapisane urzadzenie i odczytaj jego rzeczywisty stan."""
+
+    item_id: str
+    title: str
+    device_id: str
+
+
+@dataclass(slots=True)
 class PlayFromQueue:
     """Zlecenie: uruchom ZYWA kolejke hosta od wskazanego wiersza.
 
@@ -495,6 +505,7 @@ class Navigator:
             SessionId.RADIO: SessionState(SessionId.RADIO),
             SessionId.PODCASTS: SessionState(SessionId.PODCASTS),
             SessionId.TIDAL: SessionState(SessionId.TIDAL),
+            SessionId.WIIM: SessionState(SessionId.WIIM),
         }
         self.active = SessionId.FILES
 
@@ -521,6 +532,20 @@ class Navigator:
         detail = f", {row.title}" if row is not None and state.view is View.LIST else ""
         return [Announce(f"{self._session_name(session_id)}, {where}{detail}")]
 
+    def apply_wiim_devices(
+        self, rows: list[Row], preferred_id: str | None = None
+    ) -> list[object]:
+        """Wstaw liste urzadzen bez zmiany stanu innych sesji."""
+        state = self.sessions[SessionId.WIIM]
+        state.model.replace(rows, preferred_id=preferred_id or state.list_anchor_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"WiiM, {count} {_items_word(count)}"
+            if count
+            else "WiiM, brak zapisanych urządzeń"
+        )]
+
     @staticmethod
     def _session_name(session_id: SessionId) -> str:
         return {
@@ -528,6 +553,7 @@ class Navigator:
             SessionId.RADIO: "Radio internetowe",
             SessionId.PODCASTS: "Podcasty i YouTube",
             SessionId.TIDAL: "TIDAL",
+            SessionId.WIIM: "WiiM",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
@@ -643,6 +669,25 @@ class Navigator:
 
         if row.kind == "parent":
             return self.go_to_parent()
+
+        if state.session_id is SessionId.WIIM:
+            if (
+                row.kind != "device"
+                or row.service_kind != "device"
+                or not row.service_id
+            ):
+                return [Announce("Nie można wybrać tego urządzenia WiiM")]
+            state.player_entry_anchor_id = row.item_id
+            state.list_anchor_id = row.item_id
+            state.now_playing_id = row.item_id
+            state.now_playing_title = row.title
+            state.current_material_id = row.item_id
+            state.view = View.PLAYER
+            return [ActivateWiiMDevice(
+                item_id=row.item_id,
+                title=row.title,
+                device_id=row.service_id,
+            )]
 
         if state.session_id is SessionId.TIDAL:
             target = self._tidal_target_from_row(row)
@@ -1070,6 +1115,9 @@ class Navigator:
                 )
                 state.view = View.LIST
             # Na korzeniu kolekcji Backspace jest celowo cichy.
+            return []
+        if state.session_id is SessionId.WIIM:
+            # Lista urządzeń jest korzeniem sesji, nie folderem dysku.
             return []
         # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
         # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z

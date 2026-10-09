@@ -461,6 +461,7 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Sesja: Podcasty i &YouTube", Action.SESSION_PODCASTS,
                      shortcut="Ctrl+3"),
             MenuItem("Sesja: &TIDAL", Action.SESSION_TIDAL, shortcut="Ctrl+4"),
+            MenuItem("Sesja: &WiiM", Action.SESSION_WIIM, shortcut="Ctrl+5"),
             SEPARATOR,
             MenuItem("&Nowe odcinki i materiały", Action.VIEW_PODCAST_INBOX,
                      shortcut="Ctrl+I"),

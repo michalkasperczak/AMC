@@ -27,6 +27,7 @@ SESSION_PROFILE_KEYS = {
     SessionId.RADIO: "radio",
     SessionId.PODCASTS: "podcasts",
     SessionId.TIDAL: "tidal",
+    SessionId.WIIM: "wiim",
 }
 
 

@@ -232,7 +232,8 @@ def test_tidal_external_player_is_wired_without_reusing_local_transport_state() 
         if isinstance(node, ast.FunctionDef) and node.name == "_refresh_status"
     )
     refresh_source = ast.get_source_segment(SOURCE, refresh) or ""
-    assert "and not tidal_external" in refresh_source
+    assert "and not remote_player" in refresh_source
+    assert "self.navigator.active is SessionId.WIIM" in refresh_source
 
 
 def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:

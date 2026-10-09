@@ -82,6 +82,7 @@ internal static class Program
 
         var profileMutations = OpenProfileMutationStore(args);
         using var tidalCatalog = OpenTidalCatalog(args);
+        using var wiim = OpenWiiM(args);
 
         var bookmarkStore = OpenBookmarkStore(args);
         using var handlers = new LiteEngineHandlers(
@@ -90,7 +91,8 @@ internal static class Program
             bookmarkStore,
             podcastStore,
             profileMutations,
-            tidalCatalog);
+            tidalCatalog,
+            wiim);
         // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
         // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
         // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
@@ -129,7 +131,11 @@ internal static class Program
                 // kilkadziesiat sekund. Radio, nagrywanie i status lokalnego
                 // odtwarzacza musza w tym czasie pozostac responsywne.
                 LiteTidalDesktopContract.PlayOperation,
-                LiteTidalDesktopContract.TransportOperation
+                LiteTidalDesktopContract.TransportOperation,
+                // Urzadzenie sieciowe moze odpowiadac kilka sekund. Nie moze
+                // w tym czasie blokowac lokalnego radia ani nagrywania.
+                LiteWiiMContract.SnapshotOperation,
+                LiteWiiMContract.TransportOperation
             ]);
 
         Console.Error.WriteLine(
@@ -249,6 +255,12 @@ internal static class Program
     {
         var state = ReadArgumentPath(args, "--state-json");
         return state is null ? null : new LiteTidalCatalogCoordinator(state);
+    }
+
+    private static LiteWiiMCoordinator? OpenWiiM(string[] args)
+    {
+        var state = ReadArgumentPath(args, "--state-json");
+        return state is null ? null : new LiteWiiMCoordinator(state);
     }
 
     private static string? ReadArgumentPath(string[] values, string name)

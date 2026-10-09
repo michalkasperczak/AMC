@@ -494,6 +494,32 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def wiim_devices(self) -> Any:
+        """List configured WiiM devices without exposing their IP addresses."""
+        return self.call("wiim.devices", timeout=15.0)
+
+    def wiim_snapshot(self, device_id: str) -> Any:
+        """Read the current state of one configured WiiM device."""
+        return self.call(
+            "wiim.snapshot", {"deviceId": device_id}, timeout=30.0
+        )
+
+    def wiim_transport(
+        self, device_id: str, command: str, *, volume: int | None = None
+    ) -> Any:
+        """Send one named transport command to the selected WiiM."""
+        args: dict[str, object] = {
+            "deviceId": device_id,
+            "command": command,
+        }
+        if volume is not None:
+            args["volume"] = max(0, min(100, int(volume)))
+        return self.call(
+            "wiim.transport",
+            args,
+            timeout=30.0,
+        )
+
     def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
         """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
         args = {"subscriptionId": subscription_id} if subscription_id else {}
@@ -920,6 +946,8 @@ def default_host_path() -> Path:
     here = Path(__file__).resolve()
     name = "amc_lite_host.exe" if os.name == "nt" else "amc_lite_host"
     candidates = [
+        here.parent.parent / "host-next" / name,
+        here.parent.parent.parent / "host-next" / name,
         here.parent.parent / "host" / name,
         here.parent.parent.parent / "host" / name,
         here.parents[3]

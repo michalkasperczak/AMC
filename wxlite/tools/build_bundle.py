@@ -13,6 +13,7 @@ Czego NIE robi swiadomie:
 Uzycie (w WSL albo na Windows):
     python3 tools/build_bundle.py --out /tmp/AMC-wx-Lite
     python3 tools/build_bundle.py --out /tmp/AMC-wx-Lite --runtime /mnt/c/.../runtime
+    python3 tools/build_bundle.py --out /tmp/AMC-wx-Lite --host-subdir host-next
 """
 
 from __future__ import annotations
@@ -62,7 +63,11 @@ def copy_python_code(target: Path) -> list[str]:
     return copied
 
 
-def copy_host(target: Path, host_dir: Path) -> tuple[list[str], dict]:
+def copy_host(
+    target: Path,
+    host_dir: Path,
+    host_subdir: str = "host",
+) -> tuple[list[str], dict]:
     """Skopiuj silnik. Brak buildu to BLAD, nie cicha atrapa."""
     if not host_dir.exists():
         raise SystemExit(
@@ -71,7 +76,12 @@ def copy_host(target: Path, host_dir: Path) -> tuple[list[str], dict]:
             "  /home/michal/dotnet/dotnet publish "
             "src/AccessibleMediaController.LiteHost -c Release -r win-x64 --self-contained false"
         )
-    destination = target / "host"
+    if Path(host_subdir).name != host_subdir or host_subdir in {"", ".", ".."}:
+        raise SystemExit(
+            "Nazwa folderu hosta musi byc pojedyncza bezpieczna nazwa, "
+            "np. host albo host-next."
+        )
+    destination = target / host_subdir
     destination.mkdir(parents=True, exist_ok=True)
     copied = []
     hashes = {}
@@ -80,8 +90,13 @@ def copy_host(target: Path, host_dir: Path) -> tuple[list[str], dict]:
             relative = source.relative_to(host_dir)
             output = destination / relative
             output.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, output)
-            copied.append(f"host/{relative.as_posix()}")
+            try:
+                shutil.copy2(source, output)
+            except PermissionError as error:
+                raise SystemExit(
+                    f"Nie można podmienić pliku hosta {output}: {error}"
+                ) from error
+            copied.append(f"{host_subdir}/{relative.as_posix()}")
             if source.suffix.lower() in {".exe", ".dll"}:
                 hashes[relative.as_posix()] = sha256(source)
     executable = destination / "amc_lite_host.exe"
@@ -119,6 +134,14 @@ def main() -> int:
     parser.add_argument("--out", required=True, type=Path, help="folder docelowy")
     parser.add_argument("--host", type=Path, default=HOST_PUBLISH, help="folder z publish silnika")
     parser.add_argument(
+        "--host-subdir",
+        default="host",
+        help=(
+            "folder silnika w pakiecie; host-next pozwala przygotowac nowa "
+            "wersje bez zamykania uruchomionego hosta"
+        ),
+    )
+    parser.add_argument(
         "--runtime",
         type=Path,
         default=None,
@@ -139,9 +162,10 @@ def main() -> int:
     }
 
     manifest["files"] += copy_python_code(target)
-    host_files, host_hashes = copy_host(target, args.host)
+    host_files, host_hashes = copy_host(target, args.host, args.host_subdir)
     manifest["files"] += host_files
     manifest["hostHashes"] = host_hashes
+    manifest["hostFolder"] = args.host_subdir
 
     if args.runtime is not None:
         manifest["files"] += copy_runtime(target, args.runtime)

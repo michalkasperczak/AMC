@@ -29,6 +29,38 @@ def test_dependency_licenses_are_not_dropped_from_host_package():
         assert "host/licenses/tempo-engines/license.txt" in copied
 
 
+def test_host_can_be_staged_without_touching_running_host_folder():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source, target = root / "source", root / "bundle"
+        source.mkdir()
+        (source / "amc_lite_host.exe").write_bytes(b"NEW_SYNTHETIC_HOST")
+        old_host = target / "host"
+        old_host.mkdir(parents=True)
+        old_executable = old_host / "amc_lite_host.exe"
+        old_executable.write_bytes(b"RUNNING_SYNTHETIC_HOST")
+
+        copied, _ = bundle.copy_host(target, source, "host-next")
+
+        assert old_executable.read_bytes() == b"RUNNING_SYNTHETIC_HOST"
+        assert (target / "host-next" / "amc_lite_host.exe").read_bytes() == b"NEW_SYNTHETIC_HOST"
+        assert "host-next/amc_lite_host.exe" in copied
+
+
+def test_host_subfolder_rejects_path_traversal():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source = root / "source"
+        source.mkdir()
+        (source / "amc_lite_host.exe").write_bytes(b"SYNTHETIC")
+        try:
+            bundle.copy_host(root / "bundle", source, "../outside")
+        except SystemExit as error:
+            assert "bezpieczna nazwa" in str(error)
+        else:
+            raise AssertionError("folder hosta nie moze wychodzic poza pakiet")
+
+
 def test_embedded_path_is_patched_in_copy_not_source():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)

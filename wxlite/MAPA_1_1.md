@@ -392,12 +392,24 @@ własnej normalizacji diakrytyków.
   playlisty oraz trzy kategorie wykonawcy można otwierać przez istniejącą
   oficjalną integrację katalogu C# i ten sam Windows Credential Manager;
   token nie przechodzi przez protokół Pythona. Backspace odtwarza poprzednią
-  listę i fokus, a przełączanie sesji zachowuje otwarty kontener. Nie ma jeszcze
-  odtwarzania TIDAL ani zmian konta; Enter na utworze lub wideo mówi o tym
-  wprost i nie udaje powodzenia. Pełnego odtwarzania TIDAL nie uznajemy za
-  potwierdzone, a nawigacja online wymaga jeszcze odbioru na żywym koncie z NVDA.
-- Do dalszego portu pozostaje pełna obsługa TIDAL, a następnie WiiM, Sonos i
-  Spotify, dalsze ustawienia oraz pozostała redakcja materiałów.
+  listę i fokus, a przełączanie sesji zachowuje otwarty kontener. Enter na
+  utworze przekazuje go do oryginalnej aplikacji TIDAL, Ctrl+Enter przekazuje
+  album albo playlistę. Spacja oraz następny/poprzedni sterują wyłącznie
+  sesją multimedialną oryginalnego TIDAL-a; AMC nie pokazuje fałszywego
+  własnego odtwarzacza. Odczyt czasu jest dostępny tylko wtedy, gdy TIDAL
+  rzeczywiście udostępni go systemowi. Zmiany konta nadal należą do TIDAL-a.
+- WiiM ma pierwszy działający tor autonomicznej sesji pod `Ctrl+5`. Lista
+  urządzeń pochodzi z profilu AMC, ale adresy sieciowe pozostają wyłącznie po
+  stronie hosta C# i nie trafiają do nazw czytanych przez NVDA. Enter odczytuje
+  prawdziwy stan urządzenia i otwiera odtwarzacz; Spacja, Page Up/Page Down,
+  strzałki głośności, suwak oraz odczyt czasu prowadzą przez wąskie operacje
+  `wiim.*`, nigdy przez lokalny silnik audio. Stan jest odświeżany okresowo.
+  Próba na dwóch urządzeniach zapisanych w bieżącym profilu potwierdziła listę
+  i bezpieczny komunikat braku odpowiedzi; oba urządzenia były w czasie próby
+  niedostępne, więc żywy transport wymaga jeszcze odbioru na włączonym WiiM.
+- Do dalszego portu pozostają zaawansowane funkcje WiiM (presety, wejścia,
+  wyjścia, korektor, powtarzanie i timer), a następnie Sonos i Spotify, dalsze
+  ustawienia oraz pozostała redakcja materiałów.
 
 ## Polityka zaniku wybranego urządzenia audio
 

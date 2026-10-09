@@ -300,11 +300,14 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Action.VIEW_LIBRARY,
         Action.VIEW_FAVORITES,
         Action.VIEW_PLAYLISTS,
+        Action.VIEW_ACTIVE_RECORDINGS,
+        Action.VIEW_RECORDED_RADIO_FILES,
+        Action.MANAGE_RADIO_SCHEDULES,
+        Action.VIEW_PODCAST_INBOX,
     } <= TIDAL_SUPPORTED_ACTIONS
     assert {
         Action.SHOW_PLAYER,
         Action.RECORD_TOGGLE,
-        Action.MANAGE_RADIO_SCHEDULES,
         Action.ADD_PODCAST_SOURCE,
         Action.DOWNLOAD_PODCAST_EPISODES,
         Action.REMOVE_SELECTED,

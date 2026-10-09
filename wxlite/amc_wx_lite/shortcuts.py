@@ -94,6 +94,7 @@ class Action(Enum):
     SESSION_RADIO = "session.radio"
     SESSION_PODCASTS = "session.podcasts"
     SESSION_TIDAL = "session.tidal"
+    SESSION_WIIM = "session.wiim"
     ACTIVATE = "activate"
     PARENT_FOLDER = "parent"
     SHOW_PLAYER = "view.player"
@@ -284,6 +285,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
     Action.SESSION_TIDAL,
+    Action.SESSION_WIIM,
     Action.ACTIVATE,
     Action.PARENT_FOLDER,
     Action.SHOW_LIST,
@@ -318,6 +320,46 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_LIBRARY,
     Action.VIEW_FAVORITES,
     Action.VIEW_PLAYLISTS,
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.MANAGE_RADIO_SCHEDULES,
+    Action.VIEW_PODCAST_INBOX,
+    Action.HELP,
+})
+
+
+# WiiM jest autonomicznym odtwarzaczem sieciowym. Dopoki polecenie nie ma
+# jawnej drogi ``wiim.*`` w hoscie, nie moze trafic do lokalnego silnika audio.
+WIIM_SUPPORTED_ACTIONS = frozenset({
+    Action.SESSION_FILES,
+    Action.SESSION_RADIO,
+    Action.SESSION_PODCASTS,
+    Action.SESSION_TIDAL,
+    Action.SESSION_WIIM,
+    Action.ACTIVATE,
+    Action.PARENT_FOLDER,
+    Action.SHOW_PLAYER,
+    Action.SHOW_LIST,
+    Action.PLAY_PAUSE,
+    Action.QUEUE_NEXT,
+    Action.QUEUE_PREVIOUS,
+    Action.VOLUME_UP_5,
+    Action.VOLUME_DOWN_5,
+    Action.VOLUME_UP_1,
+    Action.VOLUME_DOWN_1,
+    Action.TIME_ELAPSED,
+    Action.TIME_REMAINING,
+    Action.TIME_TOTAL,
+    Action.SELECT_AUDIO_OUTPUT,
+    Action.GENERAL_SETTINGS,
+    Action.TOGGLE_SEEK_MESSAGES,
+    Action.QUICK_INFORMATION,
+    Action.COPY_NAME,
+    Action.FOCUS_FILTER,
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.MANAGE_RADIO_SCHEDULES,
+    Action.VIEW_PODCAST_INBOX,
     Action.HELP,
 })
 
@@ -351,6 +393,7 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+2": Action.SESSION_RADIO,
     "Ctrl+3": Action.SESSION_PODCASTS,
     "Ctrl+4": Action.SESSION_TIDAL,
+    "Ctrl+5": Action.SESSION_WIIM,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
     # Kontekstowe polecenia edycji z głównego AMC. F2 zmienia nazwę
@@ -505,6 +548,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+2": Action.SESSION_RADIO,
     "Ctrl+3": Action.SESSION_PODCASTS,
     "Ctrl+4": Action.SESSION_TIDAL,
+    "Ctrl+5": Action.SESSION_WIIM,
     "Escape": Action.SHOW_LIST,
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
@@ -677,6 +721,7 @@ def describe() -> list[tuple[str, str]]:
         Action.SESSION_RADIO: "Radio internetowe",
         Action.SESSION_PODCASTS: "Podcasty i YouTube",
         Action.SESSION_TIDAL: "TIDAL",
+        Action.SESSION_WIIM: "WiiM",
         Action.ACTIVATE: "Otworz folder albo odtworz",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.SHOW_PLAYER: "Widok odtwarzacza",

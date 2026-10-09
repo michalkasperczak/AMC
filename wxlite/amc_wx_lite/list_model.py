@@ -36,6 +36,7 @@ KIND_LABELS: dict[str, str] = {
     "video": "wideo",
     "podcast": "podcast",
     "episode": "odcinek",
+    "device": "urządzenie",
     "loadMore": "",
     "parent": "",
 }

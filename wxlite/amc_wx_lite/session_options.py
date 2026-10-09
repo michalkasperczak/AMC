@@ -299,6 +299,7 @@ SESSION_DISPLAY_NAMES: dict[SessionId, str] = {
     SessionId.RADIO: "Radio",
     SessionId.PODCASTS: "Podcasty i YouTube",
     SessionId.TIDAL: "TIDAL",
+    SessionId.WIIM: "WiiM",
 }
 
 
