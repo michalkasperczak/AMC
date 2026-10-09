@@ -351,6 +351,21 @@ internal sealed class LiteProfileMutationStore
 
     private object RemovePodcasts(string view, IReadOnlyList<string> itemIds)
     {
+        if (string.Equals(view, "podcastHistory", StringComparison.Ordinal))
+        {
+            using var historyConnection = OpenDatabase(_libraryDatabasePath);
+            using var historyTransaction = historyConnection.BeginTransaction();
+            foreach (var id in itemIds)
+            {
+                Execute(
+                    historyConnection,
+                    historyTransaction,
+                    "DELETE FROM playback_history WHERE session_id = 'podcasts' COLLATE NOCASE AND item_id = $id;",
+                    ("$id", id));
+            }
+            historyTransaction.Commit();
+            return new { removedCount = itemIds.Count };
+        }
         if (!string.Equals(view, "podcastLibrary", StringComparison.Ordinal))
             throw new LiteRequestException("Usuń źródło z głównej listy Podcastów i YouTube.");
         using var connection = OpenDatabase(_podcastsDatabasePath);

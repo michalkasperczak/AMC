@@ -773,6 +773,71 @@ class PodcastSource:
             if database is not None:
                 database.close()
 
+    def _history_ids(self) -> list[str]:
+        """Podcast history IDs in persisted newest-first order."""
+        database: LibraryDatabase | None = None
+        try:
+            database = LibraryDatabase(self.layout.library_db)
+            rows = database.connection.execute(
+                """
+                SELECT item_id
+                FROM playback_history
+                WHERE session_id = ? COLLATE NOCASE
+                ORDER BY ordinal
+                """,
+                ("podcasts",),
+            )
+            seen: set[str] = set()
+            result: list[str] = []
+            for row in rows:
+                item_id = str(row[0] or "")
+                if not item_id.strip() or item_id in seen:
+                    continue
+                seen.add(item_id)
+                result.append(item_id)
+                if len(result) >= 500:
+                    break
+            return result
+        except Exception as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać historii podcastów: {error}"
+            ) from error
+        finally:
+            if database is not None:
+                database.close()
+
+    def _episode_records_by_ids(
+        self, item_ids: list[str]
+    ) -> dict[str, _EpisodeRecord]:
+        """Read at most the 500 IDs allowed by PlaybackHistory."""
+        if not item_ids:
+            return {}
+        placeholders = ", ".join("?" for _ in item_ids)
+        try:
+            with closing(self._open()) as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT e.id, e.subscription_id, e.title,
+                           e.published_utc_ticks, e.is_new, e.is_started,
+                           e.is_played, e.download_path, e.payload_json,
+                           s.title AS parent_title,
+                           s.payload_json AS parent_payload_json
+                    FROM podcast_episodes AS e
+                    JOIN podcast_subscriptions AS s
+                      ON s.id = e.subscription_id
+                    WHERE e.id IN ({placeholders})
+                    """,
+                    item_ids,
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać historii podcastów: {error}"
+            ) from error
+        return {
+            record.item_id: record
+            for record in (_materialize_episode(row) for row in rows)
+        }
+
     @staticmethod
     def _manual_favorite_order(
         records: list[_FavoriteRecord], stored: list[str]
@@ -886,6 +951,18 @@ class PodcastSource:
             has_more=bool(remaining),
             order_matches_amc=order_matches_amc,
             sort_mode=mode,
+        )
+
+    def history(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
+        """Played podcast episodes in the persisted order of full AMC."""
+        item_ids = self._history_ids()
+        by_id = self._episode_records_by_ids(item_ids)
+        records = [by_id[item_id] for item_id in item_ids if item_id in by_id]
+        return self._aggregate_page(
+            records,
+            loaded_count=loaded_count,
+            view="history",
+            order_matches_amc=True,
         )
 
     def _aggregate_records(

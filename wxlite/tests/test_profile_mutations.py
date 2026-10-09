@@ -63,6 +63,12 @@ def _library(path: Path, media: Path) -> None:
         db.execute(
             "INSERT INTO bookmarks(id,session_id,item_id,item_title) VALUES('b','local','local-1','Stara nazwa')"
         )
+        db.execute(
+            "INSERT INTO playback_history VALUES('podcasts',0,'episode-1')"
+        )
+        db.execute(
+            "INSERT INTO playback_history VALUES('podcasts',1,'episode-kept')"
+        )
         db.commit()
 
 
@@ -144,6 +150,9 @@ def test_profile_edits_go_through_the_real_host() -> None:
             client.remove_profile_items(
                 "podcasts", "podcastLibrary", ["podcast-1"]
             )
+            client.remove_profile_items(
+                "podcasts", "podcastHistory", ["episode-1"]
+            )
             client.remove_profile_items("radio", "library", ["radio-1"])
         finally:
             client.close()
@@ -168,6 +177,11 @@ def test_profile_edits_go_through_the_real_host() -> None:
                 "SELECT item_title FROM bookmarks WHERE id='b'"
             ).fetchone()
             assert bookmark == ("Nazwa biblioteczna",)
+            podcast_history = db.execute(
+                "SELECT item_id FROM playback_history "
+                "WHERE session_id='podcasts' ORDER BY ordinal"
+            ).fetchall()
+            assert podcast_history == [("episode-kept",)]
         with closing(sqlite3.connect(podcasts)) as db:
             title, in_library, payload = db.execute(
                 "SELECT title,is_in_library,payload_json FROM podcast_subscriptions WHERE id='podcast-1'"

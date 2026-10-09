@@ -3308,7 +3308,6 @@ class LiteFrame(wx.Frame):
                 Action.VIEW_ALL_FILES,
                 Action.VIEW_PLAYLISTS,
                 Action.VIEW_FOLDERS,
-                Action.VIEW_HISTORY,
                 Action.VIEW_SAVED_QUEUE,
                 Action.VIEW_ITEM_BOOKMARKS,
                 Action.VIEW_ALL_BOOKMARKS,
@@ -3510,7 +3509,13 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_LIBRARY:
             self._return_to_library()
         elif action is Action.VIEW_HISTORY:
-            self._run(self.navigator.open_library_view(LibraryView.HISTORY))
+            if self.navigator.active is SessionId.PODCASTS:
+                self._transient_preview_return = None
+                self._open_podcast_aggregate(
+                    OpenPodcastAggregateView(LibraryView.PODCAST_HISTORY)
+                )
+            else:
+                self._run(self.navigator.open_library_view(LibraryView.HISTORY))
         elif action is Action.VIEW_SAVED_QUEUE:
             self._run(self.navigator.open_queue_view())
         elif action is Action.VIEW_ITEM_BOOKMARKS:
@@ -4213,6 +4218,7 @@ class LiteFrame(wx.Frame):
     ) -> None:
         if intent.view not in (
             LibraryView.PODCAST_FAVORITES,
+            LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
@@ -4238,6 +4244,8 @@ class LiteFrame(wx.Frame):
                     loaded_count=requested,
                     collation=getattr(self, "_collation", None),
                 )
+            if intent.view is LibraryView.PODCAST_HISTORY:
+                return self.podcasts.history(loaded_count=requested)
             if intent.view is LibraryView.PODCAST_INBOX:
                 return self.podcasts.inbox(
                     loaded_count=requested,
@@ -4281,12 +4289,16 @@ class LiteFrame(wx.Frame):
                 "Ulubione"
                 if intent.view is LibraryView.PODCAST_FAVORITES
                 else (
-                    "Nowe odcinki i materiały"
-                    if intent.view is LibraryView.PODCAST_INBOX
+                    "Historia odtwarzania"
+                    if intent.view is LibraryView.PODCAST_HISTORY
                     else (
-                        "W trakcie słuchania"
-                        if intent.view is LibraryView.PODCAST_IN_PROGRESS
-                        else "Pobrane"
+                        "Nowe odcinki i materiały"
+                        if intent.view is LibraryView.PODCAST_INBOX
+                        else (
+                            "W trakcie słuchania"
+                            if intent.view is LibraryView.PODCAST_IN_PROGRESS
+                            else "Pobrane"
+                        )
                     )
                 )
             )
@@ -4742,6 +4754,7 @@ class LiteFrame(wx.Frame):
                     )
             elif state.library_view in (
                 LibraryView.PODCAST_FAVORITES,
+                LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
@@ -5136,6 +5149,7 @@ class LiteFrame(wx.Frame):
                 return True
         elif state.library_view in (
             LibraryView.PODCAST_FAVORITES,
+            LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
@@ -7166,6 +7180,7 @@ class LiteFrame(wx.Frame):
                     ))
             elif state.library_view in (
                 LibraryView.PODCAST_FAVORITES,
+                LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
@@ -7338,8 +7353,11 @@ class LiteFrame(wx.Frame):
         if not rows:
             self.announcer.say("Brak elementu do usunięcia")
             return
-        if self.navigator.active is SessionId.PODCASTS and any(
-            row.kind != "podcast" for row in rows
+        if (
+            self.navigator.active is SessionId.PODCASTS
+            and self.navigator.session.library_view
+            is not LibraryView.PODCAST_HISTORY
+            and any(row.kind != "podcast" for row in rows)
         ):
             self.announcer.say("Usuń źródło z głównej listy Podcastów i YouTube")
             return
@@ -7354,7 +7372,10 @@ class LiteFrame(wx.Frame):
         def done(_payload: object) -> None:
             self._refresh_profile_view()
             label = titles[0] if len(titles) == 1 else format_item_count(len(titles))
-            if view == LibraryView.HISTORY.value:
+            if view in (
+                LibraryView.HISTORY.value,
+                LibraryView.PODCAST_HISTORY.value,
+            ):
                 message = f"Usunięto z Historii odtwarzania: {label}. Pliki i Biblioteka pozostały bez zmian"
             elif view == LibraryView.FAVORITES.value:
                 message = f"Usunięto z Ulubionych: {label}"

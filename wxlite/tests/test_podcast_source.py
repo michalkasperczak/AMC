@@ -160,6 +160,23 @@ def _favorite_order_database(
     connection.close()
 
 
+def _history_database(base: Path, item_ids: list[str]) -> None:
+    connection = sqlite3.connect(base / "library.db")
+    connection.execute(
+        """
+        CREATE TABLE playback_history (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        )
+        """
+    )
+    connection.executemany(
+        "INSERT INTO playback_history VALUES ('PoDcAsTs', ?, ?)",
+        enumerate(item_ids),
+    )
+    connection.commit()
+    connection.close()
+
+
 def test_subscription_rows_use_only_intentional_labels_and_hide_non_members() -> None:
     with _temporary_folder() as folder:
         base = Path(folder)
@@ -523,6 +540,48 @@ def test_favorites_name_missing_order_as_fallback_instead_of_pretending() -> Non
 
         assert [row.item_id for row in page.rows] == ["rss-id"]
         assert not page.order_matches_amc
+
+
+def test_history_uses_persisted_order_and_keeps_archived_episode_labels() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(
+            path,
+            item_id="newest-history",
+            subscription_id="rss-id",
+            title="Najnowszy słuchany",
+            ordinal=0,
+            published=300,
+        )
+        _insert_episode(
+            path,
+            item_id="archived-history",
+            subscription_id="hidden-id",
+            title="Archiwalny słuchany",
+            ordinal=1,
+            published=200,
+        )
+        _history_database(base, [
+            "newest-history",
+            "missing-private-id",
+            "archived-history",
+            "newest-history",
+        ])
+
+        page = PodcastSource(private_sandbox(base)).history()
+
+        assert [row.item_id for row in page.rows] == [
+            "newest-history", "archived-history"
+        ]
+        assert all(row.kind == "episode" for row in page.rows)
+        assert "Audycja tygodnia" in page.rows[0].detail
+        assert "Ukryty" in page.rows[1].detail
+        spoken = " ".join(row.title + " " + row.detail for row in page.rows)
+        assert "missing-private-id" not in spoken
+        assert "newest-history" not in spoken
+        assert "archived-history" not in spoken
+        assert page.order_matches_amc
 
 
 def test_full_description_starts_with_content_and_never_exposes_ids() -> None:

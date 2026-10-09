@@ -550,6 +550,7 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
     # Ctrl+U jest widokiem bieżącej sesji także z odtwarzacza. W Podcastach
     # obejmuje ulubione kanały i odcinki, a nie Bibliotekę plików lokalnych.
     "Ctrl+U": Action.VIEW_FAVORITES,
+    "Ctrl+H": Action.VIEW_HISTORY,
     "Ctrl+N": Action.ADD_PODCAST_SOURCE,
     "Ctrl+O": Action.IMPORT_PODCAST_OPML,
     "F5": Action.REFRESH_PODCAST,

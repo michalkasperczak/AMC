@@ -161,10 +161,14 @@ def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
     favorites = nav.apply_podcast_aggregate(
         LibraryView.PODCAST_FAVORITES, "Ulubione", []
     )
+    history = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_HISTORY, "Historia odtwarzania", []
+    )
     assert inbox[0].text == "Nowe odcinki i materiały, brak nowych materiałów"
     assert progress[0].text == "W trakcie słuchania, brak rozpoczętych odcinków"
     assert downloads[0].text == "Pobrane, brak pobranych odcinków"
     assert favorites[0].text == "Ulubione, brak ulubionych podcastów i odcinków"
+    assert history[0].text == "Historia odtwarzania, brak odtworzonych odcinków"
 
 
 def test_favorites_count_sources_and_episodes_and_load_more_stays_in_view() -> None:
@@ -187,4 +191,22 @@ def test_favorites_count_sources_and_episodes_and_load_more_stays_in_view() -> N
         if isinstance(effect, OpenPodcastAggregateView)
     )
     assert request.view is LibraryView.PODCAST_FAVORITES
+    assert request.load_more
+
+
+def test_podcast_history_load_more_keeps_history_identity() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_HISTORY,
+        "Historia odtwarzania",
+        [_episode("heard"), Row("more", "Załaduj więcej odcinków", "loadMore")],
+        preferred_id="more",
+    )
+
+    request = next(
+        effect for effect in nav.activate_selected()
+        if isinstance(effect, OpenPodcastAggregateView)
+    )
+    assert request.view is LibraryView.PODCAST_HISTORY
     assert request.load_more

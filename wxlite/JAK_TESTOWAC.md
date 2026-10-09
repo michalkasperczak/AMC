@@ -96,6 +96,9 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     odtwarzacza. `Delete` w tym widoku wyłącza stan Ulubionych, ale nie usuwa
     źródła z Biblioteki ani pobranego pliku. Enter na podcaście otwiera jego
     odcinki, a Enter na odcinku odtwarza go zwykłym torem silnika.
+19. `Ctrl+H` w sesji Podcasty i YouTube pokazuje zapisaną Historię
+    odtwarzania tej sesji, również z odtwarzacza. `Delete` usuwa zaznaczenie
+    tylko z Historii; źródło, odcinek i pobrany plik pozostają bez zmian.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487

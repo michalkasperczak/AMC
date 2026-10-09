@@ -333,7 +333,11 @@ własnej normalizacji diakrytyków.
   całe wielokrotne zaznaczenie wyłącznie z Ulubionych; nie archiwizuje źródła
   i nie usuwa pobranego pliku. Widok zachowuje 150-elementowe stronicowanie,
   fokus oraz jawnie nazywa kolejność zastępczą, gdy zapisu porządku nie da się
-  bezpiecznie odczytać.
+  bezpiecznie odczytać. `Ctrl+H` otwiera Historię odtwarzania podcastów także
+  z odtwarzacza. Odcinki są w dokładnej, zapisanej kolejności najnowszy
+  pierwszy, a materiały ze źródeł później usuniętych z Biblioteki zachowują
+  nazwę źródła. `Delete` usuwa w tym widoku tylko wpis historii; nie usuwa
+  odcinka, pobranego pliku ani źródła.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
   do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,

@@ -75,6 +75,7 @@ class LibraryView(Enum):
     PODCAST_EPISODES = "podcastEpisodes"
     #: Wspólny widok Ctrl+U: ulubione źródła oraz ulubione odcinki.
     PODCAST_FAVORITES = "podcastFavorites"
+    PODCAST_HISTORY = "podcastHistory"
     #: Zbiorcze widoki z glownego AMC. ``PODCAST_INBOX`` jest globalnym,
     #: chwilowym podgladem pod Ctrl+I; ``PODCAST_IN_PROGRESS`` jest pelnym
     #: widokiem sesji Podcasty i YouTube pod Ctrl+Shift+I.
@@ -576,6 +577,7 @@ class Navigator:
         if row.kind == "loadMore":
             if state.library_view in (
                 LibraryView.PODCAST_FAVORITES,
+                LibraryView.PODCAST_HISTORY,
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_IN_PROGRESS,
                 LibraryView.PODCAST_DOWNLOADS,
@@ -1366,6 +1368,7 @@ class Navigator:
         """Apply an aggregate episode view with a stable, user-facing name."""
         if view not in (
             LibraryView.PODCAST_FAVORITES,
+            LibraryView.PODCAST_HISTORY,
             LibraryView.PODCAST_INBOX,
             LibraryView.PODCAST_IN_PROGRESS,
             LibraryView.PODCAST_DOWNLOADS,
@@ -1384,6 +1387,8 @@ class Navigator:
         count = sum(1 for row in rows if row.kind in ("podcast", "episode"))
         if view is LibraryView.PODCAST_FAVORITES and count == 0:
             message = "Ulubione, brak ulubionych podcastów i odcinków"
+        elif view is LibraryView.PODCAST_HISTORY and count == 0:
+            message = "Historia odtwarzania, brak odtworzonych odcinków"
         elif view is LibraryView.PODCAST_INBOX and count == 0:
             message = "Nowe odcinki i materiały, brak nowych materiałów"
         elif view is LibraryView.PODCAST_IN_PROGRESS and count == 0:
