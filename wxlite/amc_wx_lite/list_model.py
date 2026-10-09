@@ -84,6 +84,12 @@ class Row:
     service_kind: str | None = None
     artist_name: str = ""
     service_section: str | None = None
+    # Relacja katalogowa potrzebna do wskazania utworu w ORYGINALNYM TIDALu.
+    # TIDAL desktop nie przyjmuje pewnie adresu pojedynczego utworu: wspolny
+    # kontroler AMC otwiera album i klika w nim wiersz o danym tytule. To pole
+    # pozostaje wylacznie w modelu; nazwa dostepna wiersza go nie zawiera.
+    related_album_service_id: str | None = None
+    related_album_title: str = ""
 
     @property
     def is_openable(self) -> bool:

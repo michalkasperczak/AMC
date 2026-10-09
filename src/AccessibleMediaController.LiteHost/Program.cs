@@ -124,7 +124,12 @@ internal static class Program
                 LitePodcastOpmlCoordinator.ImportOperation,
                 // Oficjalny katalog TIDAL wykonuje siec i odswiezenie tokenu,
                 // ale nie moze blokowac transportu ani nagrywania radia.
-                LiteTidalCatalogContract.ContainerItemsOperation
+                LiteTidalCatalogContract.ContainerItemsOperation,
+                // Uruchomienie TIDALa i wczytanie strony albumu trwa nawet
+                // kilkadziesiat sekund. Radio, nagrywanie i status lokalnego
+                // odtwarzacza musza w tym czasie pozostac responsywne.
+                LiteTidalDesktopContract.PlayOperation,
+                LiteTidalDesktopContract.TransportOperation
             ]);
 
         Console.Error.WriteLine(

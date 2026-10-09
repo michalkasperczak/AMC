@@ -57,3 +57,48 @@ def test_tidal_artist_section_is_an_explicit_model_value() -> None:
     )
 
     assert calls[0][1]["artistSection"] == "albums"
+
+
+def test_tidal_desktop_play_sends_only_catalog_identity_and_restart_choice() -> None:
+    calls: list[tuple[str, dict | None, float]] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {"success": True}
+    )
+
+    client.tidal_desktop_play(
+        item_id="tidal:tracks:1",
+        external_id="tracks:1",
+        title="Utwór",
+        related_album_external_id="albums:44",
+        restart_consent=True,
+    )
+
+    assert calls == [(
+        "tidal.desktopPlay",
+        {
+            "itemId": "tidal:tracks:1",
+            "externalId": "tracks:1",
+            "title": "Utwór",
+            "relatedAlbumExternalId": "albums:44",
+            "restartConsent": True,
+        },
+        90.0,
+    )]
+    serialized = repr(calls).casefold()
+    assert "token" not in serialized
+    assert "credential" not in serialized
+
+
+def test_tidal_external_transport_is_a_named_narrow_operation() -> None:
+    calls: list[tuple[str, dict | None, float]] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {"handled": True}
+    )
+
+    client.tidal_external_transport("toggle")
+
+    assert calls == [(
+        "tidal.externalTransport", {"command": "toggle"}, 15.0
+    )]

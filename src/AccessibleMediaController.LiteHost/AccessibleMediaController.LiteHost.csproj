@@ -147,6 +147,12 @@
              Link="Engine\TidalCredentialStore.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\TidalOAuthClient.cs"
              Link="Engine\TidalOAuthClient.cs" />
+    <!-- Pelne odtwarzanie TIDAL pozostaje w oryginalnej aplikacji. Linkujemy
+         sprawdzony kontroler wskazywania utworu i oficjalne sterowanie SMTC. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\TidalDesktopController.cs"
+             Link="Engine\TidalDesktopController.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\ExternalMediaController.cs"
+             Link="Engine\ExternalMediaController.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />

@@ -276,18 +276,21 @@ class Action(Enum):
     HELP = "help"
 
 
-# Pierwszy etap TIDAL jest plaskim katalogiem tylko do odczytu. Jawna lista
-# bezpiecznych polecen jest celowo restrykcyjna: nowy skrot dodany w przyszlosci
-# nie moze przypadkiem zaczac nagrywac radia, zmieniac podcastow albo sterowac
-# lokalnym odtwarzaczem tylko dlatego, ze zapomniano dopisac kolejny zakaz.
-TIDAL_READ_ONLY_ACTIONS = frozenset({
+# TIDAL ma osobny tor: katalog czyta oficjalne API, a dzwiek odtwarza oryginalna
+# aplikacja TIDAL. Jawna lista obslugiwanych polecen jest celowo restrykcyjna:
+# nowy skrot nie moze przypadkiem trafic do lokalnego silnika AMC.
+TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
     Action.SESSION_TIDAL,
     Action.ACTIVATE,
     Action.PARENT_FOLDER,
+    Action.SHOW_PLAYER,
     Action.SHOW_LIST,
+    Action.PLAY_PAUSE,
+    Action.QUEUE_NEXT,
+    Action.QUEUE_PREVIOUS,
     Action.SESSION_OPTIONS,
     Action.SELECT_AUDIO_OUTPUT,
     Action.GENERAL_SETTINGS,

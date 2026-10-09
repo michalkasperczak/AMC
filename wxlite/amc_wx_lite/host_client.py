@@ -430,6 +430,40 @@ class LiteHostClient:
             args["artistSection"] = artist_section
         return self.call("tidal.containerItems", args, timeout=120.0)
 
+    def tidal_desktop_play(
+        self,
+        *,
+        item_id: str,
+        external_id: str,
+        title: str,
+        related_album_external_id: str,
+        restart_consent: bool = False,
+    ) -> Any:
+        """Point the original TIDAL desktop app at one exact track.
+
+        The opaque IDs are transport data only.  Credentials and playback
+        sources stay inside the shared C# implementation.
+        """
+        return self.call(
+            "tidal.desktopPlay",
+            {
+                "itemId": item_id,
+                "externalId": external_id,
+                "title": title,
+                "relatedAlbumExternalId": related_album_external_id,
+                "restartConsent": bool(restart_consent),
+            },
+            timeout=90.0,
+        )
+
+    def tidal_external_transport(self, command: str) -> Any:
+        """Control only the system media session exposed by original TIDAL."""
+        return self.call(
+            "tidal.externalTransport",
+            {"command": command},
+            timeout=15.0,
+        )
+
     def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
         """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
         args = {"subscriptionId": subscription_id} if subscription_id else {}

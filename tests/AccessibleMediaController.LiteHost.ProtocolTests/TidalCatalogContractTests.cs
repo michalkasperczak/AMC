@@ -12,6 +12,8 @@ internal static class TidalCatalogContractTests
         ReadsOnlyKnownArtistSections();
         RefusesMismatchedKindsAndExternalIds();
         ResultContainsOnlyIntentionalModelFields();
+        ReadsExternalDesktopPlaybackWithoutPrivateData();
+        RefusesUnknownExternalTransportCommands();
     }
 
     private static void ReadsAContainerWithoutAcceptingPrivatePlaybackData()
@@ -82,6 +84,8 @@ internal static class TidalCatalogContractTests
             Duration = TimeSpan.FromMinutes(3),
             Source = "private-playback-handle",
             PublicUri = "https://tidal.com/browse/track/1",
+            RelatedAlbumExternalId = "albums:44",
+            RelatedAlbumTitle = "Album próby",
             IsFavorite = true,
             IsAvailable = true
         };
@@ -109,6 +113,47 @@ internal static class TidalCatalogContractTests
             "prywatny uchwyt wyciekł do JSON");
         Check(!json.Contains("token", StringComparison.OrdinalIgnoreCase),
             "odpowiedź zawiera pole tokenu");
+        Check(item.GetProperty("relatedAlbumExternalId").GetString() == "albums:44",
+            "brak relacji albumu potrzebnej oryginalnemu TIDALowi");
+    }
+
+    private static void ReadsExternalDesktopPlaybackWithoutPrivateData()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+          "itemId":"tidal:tracks:1",
+          "externalId":"tracks:1",
+          "title":"Utwór próby",
+          "relatedAlbumExternalId":"albums:44",
+          "restartConsent":true,
+          "token":"nie może wejść do planu",
+          "source":"prywatny uchwyt"
+        }
+        """);
+        var command = LiteTidalDesktopContract.ReadPlayRequest(document.RootElement);
+        Check(command.ItemId == "tidal:tracks:1", "zgubiono stabilną tożsamość");
+        Check(command.ExternalId == "tracks:1", "zgubiono tożsamość katalogową");
+        Check(command.Request.TrackTitle == "Utwór próby", "zgubiono tytuł utworu");
+        Check(command.Request.PageUri.EndsWith("/album/44", StringComparison.Ordinal),
+            "plan nie otwiera właściwego albumu");
+        Check(command.RestartConsent, "zgubiono świadomą zgodę na restart");
+        Check(!command.Request.PageUri.Contains("token", StringComparison.OrdinalIgnoreCase),
+            "prywatne pole wyciekło do planu");
+    }
+
+    private static void RefusesUnknownExternalTransportCommands()
+    {
+        using var document = JsonDocument.Parse("""{"command":"seek"}""");
+        try
+        {
+            LiteTidalDesktopContract.ReadTransportCommand(document.RootElement);
+            throw new InvalidOperationException("przyjęto przewijanie niedostępne w TIDALu");
+        }
+        catch (LiteRequestException exception)
+        {
+            Check(exception.Message.Contains("Nieznane polecenie", StringComparison.Ordinal),
+                "odmowa nie nazywa przyczyny");
+        }
     }
 
     private static void Check(bool condition, string message)

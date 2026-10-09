@@ -69,6 +69,8 @@ class TidalCachedItem:
     kind: str
     duration_ticks: int
     public_uri: str | None
+    related_album_service_id: str | None
+    related_album_title: str
     added_ticks: int | None
     is_favorite: bool
     is_in_library: bool
@@ -144,6 +146,10 @@ def items_from_amc_state(raw: object) -> tuple[TidalCachedItem, ...]:
             kind=kind,
             duration_ticks=_ticks(entry.get("durationTicks")),
             public_uri=public_uri,
+            related_album_service_id=(
+                _text(entry.get("relatedAlbumExternalId")) or None
+            ),
+            related_album_title=_text(entry.get("relatedAlbumTitle")),
             added_ticks=_optional_ticks(entry.get("collectionAddedUtcTicks")),
             is_favorite=entry.get("isFavorite") is True,
             is_in_library=entry.get("isInLibrary") is True,
@@ -277,9 +283,11 @@ def _row(item: TidalCachedItem) -> Row:
         unavailable = (
             "Ten element TIDAL nie ma danych katalogowych potrzebnych do otwarcia"
         )
+    elif item.kind == "track" and item.service_id and item.related_album_service_id:
+        unavailable = None
     else:
         unavailable = (
-            "Odtwarzanie TIDAL z interfejsu wxPython nie jest jeszcze dostępne"
+            "Tego elementu nie da się przekazać do oryginalnego TIDALa"
         )
     return Row(
         item_id=item.item_id,
@@ -291,6 +299,8 @@ def _row(item: TidalCachedItem) -> Row:
         service_id=item.service_id,
         service_kind=item.kind,
         artist_name=item.artist,
+        related_album_service_id=item.related_album_service_id,
+        related_album_title=item.related_album_title,
     )
 
 
@@ -310,9 +320,14 @@ def _host_item_row(entry: object) -> Row | None:
     duration = _ticks(entry.get("durationTicks"))
     if duration:
         details.append(format_duration(duration / 10_000_000))
-    activation_message = None if kind in _CONTAINER_KINDS else (
-        "Odtwarzanie TIDAL z interfejsu wxPython nie jest jeszcze dostępne"
+    related_album_service_id = (
+        _text(entry.get("relatedAlbumExternalId")) or None
     )
+    related_album_title = _text(entry.get("relatedAlbumTitle"))
+    activation_message = None if (
+        kind in _CONTAINER_KINDS
+        or (kind == "track" and related_album_service_id)
+    ) else "Tego elementu nie da się przekazać do oryginalnego TIDALa"
     return Row(
         item_id=item_id,
         title=title,
@@ -323,6 +338,8 @@ def _host_item_row(entry: object) -> Row | None:
         service_id=service_id,
         service_kind=kind,
         artist_name=artist,
+        related_album_service_id=related_album_service_id,
+        related_album_title=related_album_title,
     )
 
 

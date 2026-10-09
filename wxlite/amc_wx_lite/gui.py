@@ -87,6 +87,7 @@ from .navigation import (
     PlayQueueAt,
     PlayStation,
     PlayMedia,
+    PlayTidalTrack,
     PlayTrack,
     SessionId,
     TransientNavigationSnapshot,
@@ -96,7 +97,7 @@ from .navigation import (
 from .shortcuts import (
     Action,
     Chord,
-    TIDAL_READ_ONLY_ACTIONS,
+    TIDAL_SUPPORTED_ACTIONS,
     describe,
     preset_slot,
     resolve,
@@ -2467,6 +2468,9 @@ class LiteFrame(wx.Frame):
         #: ``transport.pauseResume`` nie zna zakresu sesji.
         self._playing_session: SessionId | None = None
         self._pending_playback_session: SessionId | None = None
+        # Oryginalny TIDAL jest osobnym odtwarzaczem. Ta flaga wlacza tylko
+        # jego transport; nie udaje stanu lokalnego WindowsMediaOutput.
+        self._tidal_desktop_has_playback = False
         self._radio_activity_cues: dict[tuple[bool, bool], object] = {}
 
         self._build_ui()
@@ -3865,14 +3869,9 @@ class LiteFrame(wx.Frame):
             )
             return
         if self.navigator.active is SessionId.TIDAL:
-            if action is Action.SHOW_PLAYER:
+            if action not in TIDAL_SUPPORTED_ACTIONS:
                 self.announcer.say(
-                    "Odtwarzacz TIDAL nie jest jeszcze podłączony w interfejsie wxPython"
-                )
-                return
-            if action not in TIDAL_READ_ONLY_ACTIONS:
-                self.announcer.say(
-                    "Ta funkcja TIDAL nie jest jeszcze podłączona w interfejsie wxPython"
+                    "Ta funkcja nie dotyczy odtwarzania w oryginalnym TIDALu"
                 )
                 return
         if action is Action.SESSION_FILES:
@@ -4139,6 +4138,8 @@ class LiteFrame(wx.Frame):
                 self._play_station(intent)
             elif isinstance(intent, PlayMedia):
                 self._play_media(intent)
+            elif isinstance(intent, PlayTidalTrack):
+                self._play_tidal_track(intent)
         self._sync_views()
 
     def _sync_views(self) -> None:
@@ -4201,6 +4202,14 @@ class LiteFrame(wx.Frame):
         for control in other_lists:
             control.Hide()
         self.panel.Layout()
+
+        # Dzwiek TIDALa nie przechodzi przez AMC. Pozostawienie aktywnych
+        # suwakow glosnosci i tempa zmienialoby ukryty lokalny silnik, choc
+        # uzytkownik jest w odtwarzaczu TIDAL. Przycisk gra/pauza pozostaje
+        # aktywny, bo jest jawnie kierowany do sesji systemowej TIDALa.
+        tidal_external = self.navigator.active is SessionId.TIDAL
+        self.volume_slider.Enable(not tidal_external)
+        self.rate_slider.Enable(not tidal_external)
 
         if want_player:
             self.now_playing.SetLabel(session.now_playing_title or "Nic nie jest odtwarzane")
@@ -6374,6 +6383,104 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
+    def _play_tidal_track(self, intent: PlayTidalTrack) -> None:
+        """Hand one track to original TIDAL; AMC itself plays no audio here."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę sterować TIDALem")
+            return
+
+        had_playback = self._tidal_desktop_has_playback
+        previous_id = intent.previous_item_id if had_playback else ""
+        previous_title = intent.previous_title if previous_id else ""
+
+        self.announcer.say(f"{intent.title}: przekazuję do oryginalnego TIDALa")
+        self._set_transport_label(playing=False, preparing=True)
+
+        def restore_or_fail(message: str) -> None:
+            if had_playback and previous_id:
+                self.navigator.restore_tidal_playback_after_failed_handoff(
+                    previous_id, previous_title
+                )
+                self._set_transport_label(playing=True)
+                self.announcer.say(message)
+                self._sync_views()
+                return
+            self._tidal_desktop_has_playback = False
+            self._run(self.navigator.note_playback_failed(message, SessionId.TIDAL))
+
+        def submit(restart_consent: bool) -> None:
+            def work() -> dict:
+                return client.tidal_desktop_play(
+                    item_id=intent.item_id,
+                    external_id=intent.service_id,
+                    title=intent.title,
+                    related_album_external_id=intent.related_album_service_id,
+                    restart_consent=restart_consent,
+                )
+
+            def done(payload: dict) -> None:
+                result = payload or {}
+                message = str(
+                    result.get("message")
+                    or "Nie udało się przekazać elementu oryginalnemu TIDALowi"
+                )
+                if bool(result.get("needsRestartConsent")):
+                    self.announcer.say(message)
+                    question = (
+                        message
+                        + ". Zamknąć oryginalny TIDAL i uruchomić go ponownie?"
+                    )
+                    dialog = wx.MessageDialog(
+                        self,
+                        question,
+                        "Odtwarzanie w oryginalnym TIDALu",
+                        wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+                    )
+                    try:
+                        if hasattr(dialog, "SetName"):
+                            dialog.SetName(
+                                "Potwierdzenie ponownego uruchomienia TIDALa"
+                            )
+                        if hasattr(dialog, "SetYesNoLabels"):
+                            dialog.SetYesNoLabels(
+                                "Tak, uruchom ponownie",
+                                "Nie, pozostaw TIDAL bez zmian",
+                            )
+                        answer = dialog.ShowModal()
+                    finally:
+                        dialog.Destroy()
+                    self._restore_focus_after_dialog()
+                    if answer == wx.ID_YES:
+                        self.announcer.say(
+                            f"{intent.title}: uruchamiam ponownie oryginalny TIDAL"
+                        )
+                        submit(True)
+                    else:
+                        restore_or_fail(
+                            "Odtwarzanie w oryginalnym TIDALu anulowane"
+                        )
+                    return
+                if not bool(result.get("success")):
+                    restore_or_fail(message)
+                    return
+
+                self._tidal_desktop_has_playback = True
+                self.navigator.note_tidal_playback_started(
+                    intent.item_id, intent.title
+                )
+                self.time_label.SetLabel("Czas: niedostępny")
+                self._set_transport_label(playing=True)
+                self.announcer.say(message)
+                self._sync_views()
+
+            submit_error = lambda error: restore_or_fail(
+                f"Nie udało się przekazać elementu oryginalnemu TIDALowi: {error}"
+            )
+            self.runner.submit("tidal-playback", work, done, submit_error)
+
+        submit(False)
+
     def _add_bookmark(self) -> None:
         """B w odtwarzaczu: szybka zakladka przez waski zapis hosta C#."""
         if self.navigator.active is not SessionId.FILES:
@@ -7332,6 +7439,10 @@ class LiteFrame(wx.Frame):
             self._run(source_intents)
             return
 
+        if self.navigator.active is SessionId.TIDAL:
+            self._tidal_external_skip(forward)
+            return
+
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie dziala")
@@ -7360,6 +7471,35 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie moge zmienic utworu: {error}")
 
         self.runner.submit("playback", work, done, failed)
+
+    def _tidal_external_skip(self, forward: bool) -> None:
+        """Fallback to TIDAL's own queue only when AMC has no source list."""
+        client = self.client
+        if client is None or not self._tidal_desktop_has_playback:
+            self.announcer.say("Najpierw uruchom utwór w oryginalnym TIDALu")
+            return
+
+        command = "next" if forward else "previous"
+
+        def done(payload: dict) -> None:
+            result = payload or {}
+            if not bool(result.get("handled")):
+                self._tidal_desktop_has_playback = False
+            self.announcer.say(str(
+                result.get("message")
+                or ("Oryginalny TIDAL nie ma następnego utworu"
+                    if forward else
+                    "Oryginalny TIDAL nie ma poprzedniego utworu")
+            ))
+
+        self.runner.submit(
+            "tidal-transport",
+            lambda: client.tidal_external_transport(command),
+            done,
+            lambda error: self.announcer.say(
+                f"Nie mogę sterować oryginalnym TIDALem: {error}"
+            ),
+        )
 
     def _play_station(self, intent: PlayStation) -> None:
         client = self.client
@@ -7695,6 +7835,35 @@ class LiteFrame(wx.Frame):
         if client is None:
             return
 
+        if self.navigator.active is SessionId.TIDAL:
+            if not self._tidal_desktop_has_playback:
+                self.announcer.say(
+                    "Najpierw uruchom utwór w oryginalnym TIDALu"
+                )
+                return
+
+            def tidal_done(payload: dict) -> None:
+                result = payload or {}
+                if not bool(result.get("handled")):
+                    self._tidal_desktop_has_playback = False
+                elif "isPlaying" in result:
+                    self._set_transport_label(
+                        playing=bool(result.get("isPlaying"))
+                    )
+                self.announcer.say(str(
+                    result.get("message") or "Oryginalny TIDAL nie odpowiada"
+                ))
+
+            self.runner.submit(
+                "tidal-transport",
+                lambda: client.tidal_external_transport("toggle"),
+                tidal_done,
+                lambda error: self.announcer.say(
+                    f"Nie mogę sterować oryginalnym TIDALem: {error}"
+                ),
+            )
+            return
+
         def done(payload: dict) -> None:
             paused = bool((payload or {}).get("paused"))
             # Etykieta zawsze zgodna ze stanem: po wstrzymaniu przycisk ma juz
@@ -7951,7 +8120,11 @@ class LiteFrame(wx.Frame):
             if not payload:
                 return
             self._last_status = payload
-            if self.navigator.view is View.PLAYER:
+            tidal_external = (
+                self.navigator.active is SessionId.TIDAL
+                and self._tidal_desktop_has_playback
+            )
+            if self.navigator.view is View.PLAYER and not tidal_external:
                 position = payload.get("positionSeconds")
                 duration = payload.get("durationSeconds")
                 label = player_time_label(position, duration)
@@ -7963,7 +8136,7 @@ class LiteFrame(wx.Frame):
             # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
             # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
             # odswiezenie statusu nie jest gestem uzytkownika.
-            if "paused" in payload:
+            if "paused" in payload and not tidal_external:
                 self._set_transport_label(playing=not bool(payload.get("paused")))
             self._apply_radio_activity_status()
 

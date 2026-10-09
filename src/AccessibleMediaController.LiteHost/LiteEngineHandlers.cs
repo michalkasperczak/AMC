@@ -47,6 +47,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LitePodcastOpmlCoordinator? _podcastOpml;
     private readonly LiteProfileMutationStore? _profileMutations;
     private readonly LiteTidalCatalogCoordinator? _tidalCatalog;
+    private readonly LiteTidalDesktopCoordinator _tidalDesktop = new();
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
 
@@ -278,6 +279,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 PodcastYouTubeExport(request.Args),
             [LiteTidalCatalogContract.ContainerItemsOperation] = (request, _) =>
                 TidalContainerItems(request.Args),
+            [LiteTidalDesktopContract.PlayOperation] = (request, _) =>
+                _tidalDesktop.Play(request.Args),
+            [LiteTidalDesktopContract.TransportOperation] = (request, _) =>
+                _tidalDesktop.Transport(request.Args),
             ["podcast.toggleFavorite"] = (request, _) =>
                 TogglePodcastFavorites(request.Args),
             ["podcast.playbackOptions"] = (request, _) =>
@@ -1918,5 +1923,6 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastAdd?.Dispose();
         _podcastOpml?.Dispose();
         _podcastProgressStore?.Dispose();
+        _tidalDesktop.Dispose();
     }
 }

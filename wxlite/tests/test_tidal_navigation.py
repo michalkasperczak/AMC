@@ -12,9 +12,10 @@ from amc_wx_lite.navigation import (
     Navigator,
     OpenLibraryView,
     OpenTidalContainer,
+    PlayTidalTrack,
     SessionId,
 )
-from amc_wx_lite.shortcuts import Action, Chord, TIDAL_READ_ONLY_ACTIONS, resolve
+from amc_wx_lite.shortcuts import Action, Chord, TIDAL_SUPPORTED_ACTIONS, resolve
 
 
 def test_ctrl_4_selects_tidal_from_list_and_player() -> None:
@@ -170,27 +171,87 @@ def test_backspace_at_tidal_collection_root_is_silent_and_stays_in_tidal() -> No
     assert nav.active is SessionId.TIDAL
 
 
-def test_read_only_tidal_cannot_trigger_another_sessions_operations() -> None:
+def test_enter_on_tidal_track_hands_it_to_original_tidal_and_keeps_source_order() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    tracks = [
+        Row(
+            f"tidal:tracks:{number}",
+            f"Utwór {number}",
+            "track",
+            service_id=f"tracks:{number}",
+            service_kind="track",
+            related_album_service_id="albums:44",
+        )
+        for number in (1, 2)
+    ]
+    nav.apply_tidal_container(
+        OpenTidalContainer("album", "albums:44", "Album", "album"),
+        "Album, Album",
+        tracks,
+    )
+
+    events = nav.activate_selected()
+
+    assert events == [PlayTidalTrack(
+        item_id="tidal:tracks:1",
+        title="Utwór 1",
+        service_id="tracks:1",
+        related_album_service_id="albums:44",
+    )]
+    assert nav.session.playback_source_rows == tuple(tracks)
+    assert nav.session.view.value == "player"
+
+
+def test_tidal_next_uses_the_visible_amc_list_not_an_internal_audio_queue() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    tracks = [
+        Row(
+            f"tidal:tracks:{number}", f"Utwór {number}", "track",
+            service_id=f"tracks:{number}", service_kind="track",
+            related_album_service_id=f"albums:{number}",
+        )
+        for number in (1, 2)
+    ]
+    nav.apply_tidal_view(LibraryView.TIDAL_FAVORITES, "Ulubione TIDAL", tracks)
+    nav.activate_selected()
+    nav.note_tidal_playback_started("tidal:tracks:1", "Utwór 1")
+
+    events = nav.step_playback_source(True)
+
+    assert events == [PlayTidalTrack(
+        "tidal:tracks:2", "Utwór 2", "tracks:2", "albums:2",
+        previous_item_id="tidal:tracks:1",
+        previous_title="Utwór 1",
+    )]
+    # Dopiero potwierdzenie z kontrolera zmienia bieżący element.
+    assert nav.session.now_playing_id == "tidal:tracks:1"
+
+
+def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() -> None:
     assert {
         Action.ACTIVATE,
+        Action.SHOW_PLAYER,
+        Action.PLAY_PAUSE,
+        Action.QUEUE_NEXT,
+        Action.QUEUE_PREVIOUS,
         Action.COPY_NAME,
         Action.COPY_ADDRESS,
         Action.FOCUS_FILTER,
         Action.VIEW_LIBRARY,
         Action.VIEW_FAVORITES,
         Action.VIEW_PLAYLISTS,
-    } <= TIDAL_READ_ONLY_ACTIONS
+    } <= TIDAL_SUPPORTED_ACTIONS
     assert {
-        Action.SHOW_PLAYER,
-        Action.PLAY_PAUSE,
         Action.RECORD_TOGGLE,
         Action.MANAGE_RADIO_SCHEDULES,
         Action.ADD_PODCAST_SOURCE,
         Action.DOWNLOAD_PODCAST_EPISODES,
         Action.REMOVE_SELECTED,
-    }.isdisjoint(TIDAL_READ_ONLY_ACTIONS)
+    }.isdisjoint(TIDAL_SUPPORTED_ACTIONS)
 
     gui = (
         Path(__file__).resolve().parents[1] / "amc_wx_lite" / "gui.py"
     ).read_text(encoding="utf-8")
-    assert "action not in TIDAL_READ_ONLY_ACTIONS" in gui
+    assert "action not in TIDAL_SUPPORTED_ACTIONS" in gui

@@ -208,3 +208,38 @@ def test_bookmark_view_asks_the_data_layer_for_the_file_id() -> None:
     """``item_id`` i mapa celow musza przejsc przez okno do nawigatora."""
     assert "item_id=item_id" in SOURCE
     assert "bookmark_targets=result.bookmark_targets" in SOURCE
+
+
+def test_tidal_external_player_is_wired_without_reusing_local_transport_state() -> None:
+    run = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_run"
+    )
+    run_source = ast.get_source_segment(SOURCE, run) or ""
+    assert "isinstance(intent, PlayTidalTrack)" in run_source
+    assert "self._play_tidal_track(intent)" in run_source
+
+    play_pause = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_play_pause"
+    )
+    play_pause_source = ast.get_source_segment(SOURCE, play_pause) or ""
+    assert 'tidal_external_transport("toggle")' in play_pause_source
+    assert "self.navigator.active is SessionId.TIDAL" in play_pause_source
+
+    refresh = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_refresh_status"
+    )
+    refresh_source = ast.get_source_segment(SOURCE, refresh) or ""
+    assert "and not tidal_external" in refresh_source
+
+
+def test_tidal_player_disables_local_volume_and_rate_controls() -> None:
+    sync = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_sync_views"
+    )
+    sync_source = ast.get_source_segment(SOURCE, sync) or ""
+    assert "self.volume_slider.Enable(not tidal_external)" in sync_source
+    assert "self.rate_slider.Enable(not tidal_external)" in sync_source

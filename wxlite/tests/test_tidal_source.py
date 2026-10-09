@@ -56,7 +56,9 @@ def _state() -> dict:
             _entry("artist-1", "Artysta", "Artist", isInLibrary=True,
                    collectionAddedUtcTicks=300),
             _entry("track-1", "Utwór", "Track", isFavorite=True,
-                   collectionAddedUtcTicks=250),
+                   collectionAddedUtcTicks=250,
+                   relatedAlbumExternalId="albums:44",
+                   relatedAlbumTitle="Album utworu"),
             _entry("video-1", "Wideo", "Video", isFavorite=True,
                    collectionAddedUtcTicks=350),
             _entry("track-library", "Nie kontener", "Track", isInLibrary=True),
@@ -137,6 +139,8 @@ def test_online_container_payload_is_sanitized_before_becoming_rows() -> None:
                 "kind": "track",
                 "durationTicks": 1_800_000_000,
                 "publicUri": "https://tidal.com/browse/track/1",
+                "relatedAlbumExternalId": "albums:44",
+                "relatedAlbumTitle": "Album próby",
                 "source": "private-handle",
                 "token": "secret",
             },
@@ -148,9 +152,9 @@ def test_online_container_payload_is_sanitized_before_becoming_rows() -> None:
     row = result.rows[0]
     assert row.title == "Utwór"
     assert row.detail == "Wykonawca, 3:00"
-    assert row.activation_message == (
-        "Odtwarzanie TIDAL z interfejsu wxPython nie jest jeszcze dostępne"
-    )
+    assert row.activation_message is None
+    assert row.related_album_service_id == "albums:44"
+    assert row.related_album_title == "Album próby"
     assert "tracks:1" not in " ".join((row.title, row.kind_label, row.detail))
 
 

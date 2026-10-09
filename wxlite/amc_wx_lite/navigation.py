@@ -336,6 +336,23 @@ class PlayMedia:
 
 
 @dataclass(slots=True)
+class PlayTidalTrack:
+    """Przekaz jeden utwor do oryginalnej aplikacji TIDAL.
+
+    To nie jest zrodlo dzwieku dla silnika AMC. Id albumu pozostaje polem
+    modelu potrzebnym wspolnemu kontrolerowi C#; nie wolno skladac go do
+    komunikatu ani nazwy dostepnej.
+    """
+
+    item_id: str
+    title: str
+    service_id: str
+    related_album_service_id: str
+    previous_item_id: str = ""
+    previous_title: str = ""
+
+
+@dataclass(slots=True)
 class PlayFromQueue:
     """Zlecenie: uruchom ZYWA kolejke hosta od wskazanego wiersza.
 
@@ -621,6 +638,24 @@ class Navigator:
                 if target.kind == "artist" and target.artist_section is None:
                     return self._open_tidal_artist_overview(row, target)
                 return [target]
+            if row.kind == "track":
+                intent = self._tidal_track_intent(row)
+                if isinstance(intent, Announce):
+                    return [intent]
+                intent.previous_item_id = state.current_material_id
+                intent.previous_title = state.now_playing_title
+                state.player_entry_anchor_id = row.item_id
+                state.list_anchor_id = row.item_id
+                state.now_playing_id = row.item_id
+                state.now_playing_title = row.title
+                state.pending_material_id = row.item_id
+                state.playback_source_rows = tuple(
+                    candidate for candidate in state.model.rows
+                    if candidate.kind == "track"
+                )
+                state.playback_uses_queue = False
+                state.view = View.PLAYER
+                return [intent]
 
         if row.activation_message:
             # Wiersz zostaje zaznaczony i widoczny. Kontenery TIDAL sa
@@ -747,6 +782,26 @@ class Navigator:
             artist=row.artist_name,
             public_uri=row.url,
             artist_section=row.service_section,
+        )
+
+    @staticmethod
+    def _tidal_track_intent(row: Row) -> PlayTidalTrack | Announce:
+        """Build an external-player request without ever speaking its IDs."""
+        if not row.service_id:
+            return Announce(
+                "Ten utwór nie ma identyfikatora TIDAL. "
+                "Nie można go przekazać do oryginalnego programu"
+            )
+        if not row.related_album_service_id:
+            return Announce(
+                "Ten utwór nie ma przypisanego albumu, a oryginalny TIDAL "
+                "otwiera utwory tylko przez stronę albumu"
+            )
+        return PlayTidalTrack(
+            item_id=row.item_id,
+            title=row.title,
+            service_id=row.service_id,
+            related_album_service_id=row.related_album_service_id,
         )
 
     @staticmethod
@@ -1102,6 +1157,28 @@ class Navigator:
             return
         state.current_material_id = state.pending_material_id
         state.pending_material_id = ""
+
+    def note_tidal_playback_started(self, item_id: str, title: str) -> None:
+        """Commit external TIDAL state only after its controller confirms play."""
+        if not item_id:
+            return
+        state = self.sessions[SessionId.TIDAL]
+        state.now_playing_id = item_id
+        state.now_playing_title = title
+        state.current_material_id = item_id
+        state.pending_material_id = ""
+        state.list_anchor_id = item_id
+        state.model.select_id(item_id)
+
+    def restore_tidal_playback_after_failed_handoff(
+        self, previous_id: str, previous_title: str
+    ) -> None:
+        """Keep the already playing external track when a new handoff fails."""
+        state = self.sessions[SessionId.TIDAL]
+        state.pending_material_id = ""
+        state.current_material_id = previous_id
+        state.now_playing_id = previous_id or None
+        state.now_playing_title = previous_title
 
     def _remember_view_selection(self, state: SessionState) -> None:
         """Zapisz zaznaczenie BIEZACEGO widoku, zanim lista sie zmieni.
@@ -1646,6 +1723,12 @@ class Navigator:
             )]
 
         target = rows[target_index]
+        if state.session_id is SessionId.TIDAL and target.kind == "track":
+            intent = self._tidal_track_intent(target)
+            if isinstance(intent, PlayTidalTrack):
+                intent.previous_item_id = state.current_material_id
+                intent.previous_title = state.now_playing_title
+            return [intent]
         state.list_anchor_id = target.item_id
         state.model.select_id(target.item_id)
         state.now_playing_id = target.item_id
