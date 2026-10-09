@@ -234,8 +234,87 @@ def test_gui_toggle_uses_station_label_and_profile_preferences() -> None:
     LiteFrame._toggle_radio_recording(frame)
     assert client.payload["stationName"] == "Radio Test"
     assert client.payload["bitrateKbps"] == 160
-    # Polecenie nie dubluje potwierdzenia zdarzenia recordingStarted.
+    # Dokladnie jedno, natychmiastowe potwierdzenie -- bez nazwy pliku.
+    assert messages == ["Rozpoczynam nagrywanie w tle: Radio Test"]
+
+
+def test_gui_toggle_announces_stopping_without_technical_values() -> None:
+    class Runner:
+        def submit(self, key, work, done, failed):
+            assert key == "radio-recording-command"
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    class Client:
+        def toggle_radio_recording(self, _payload):
+            return {
+                "action": "stopping",
+                "recordingId": "techniczne-id",
+                "stationId": "stacja-1",
+            }
+
+    messages: list[str] = []
+    station = Station("stacja-1", "Radio Test", "https://example.invalid/live")
+    frame = SimpleNamespace(
+        client=Client(),
+        runner=Runner(),
+        radio=SimpleNamespace(load=lambda previous: SimpleNamespace(
+            recording=RadioRecordingPreferences()
+        )),
+        _radio_snapshot=object(),
+        _recording_station=lambda: station,
+        _refresh_recording_status=lambda: None,
+        announcer=SimpleNamespace(say=messages.append),
+    )
+    LiteFrame._toggle_radio_recording(frame)
+    assert messages == ["Zatrzymuję nagrywanie: Radio Test"]
+    assert "techniczne-id" not in messages[0]
+
+
+def test_manual_started_event_refreshes_state_without_second_announcement() -> None:
+    messages: list[str] = []
+    refreshes: list[str] = []
+    frame = SimpleNamespace(
+        _window_alive=lambda: True,
+        announcer=SimpleNamespace(say=messages.append),
+        _refresh_recording_status=lambda: refreshes.append("status"),
+        navigator=SimpleNamespace(
+            sessions={
+                SessionId.RADIO: SimpleNamespace(library_view=LibraryView.FAVORITES),
+            }
+        ),
+    )
+    LiteFrame._handle_engine_event(frame, "radio.recordingStarted", {
+        "stationName": "Radio Test",
+        "path": r"D:\Nagrania\radio-test.mp3",
+        "scheduleName": "",
+    })
     assert messages == []
+    assert refreshes == ["status"]
+
+
+def test_scheduled_started_event_is_still_announced() -> None:
+    messages: list[str] = []
+    frame = SimpleNamespace(
+        _window_alive=lambda: True,
+        announcer=SimpleNamespace(say=messages.append),
+        _refresh_recording_status=lambda: None,
+        navigator=SimpleNamespace(
+            sessions={
+                SessionId.RADIO: SimpleNamespace(library_view=LibraryView.FAVORITES),
+            }
+        ),
+    )
+    LiteFrame._handle_engine_event(frame, "radio.recordingStarted", {
+        "stationName": "Radio Test",
+        "path": r"D:\Nagrania\radio-test.mp3",
+        "scheduleName": "Poranna audycja",
+    })
+    assert messages == [
+        "Zaplanowane nagrywanie działa: Radio Test: radio-test.mp3"
+    ]
 
 
 def test_station_rows_expose_playback_and_recording_without_technical_values() -> None:

@@ -2,6 +2,26 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## Nagrywanie radia — potwierdzenie po Ctrl+R
+
+`Ctrl+R` na stacji od razu mówi jedno krótkie zdanie:
+„Rozpoczynam nagrywanie w tle: nazwa stacji”. Ponowne zdarzenie faktycznego
+otwarcia pliku nie czyta już nazwy pliku i nie zagłusza nawigacji NVDA.
+Ponowne `Ctrl+R` mówi „Zatrzymuję nagrywanie: nazwa stacji”. Stan wiersza
+stacji oraz widok `Alt+R` nadal są odświeżane z rzeczywistego stanu hosta.
+Start z harmonogramu pozostaje wypowiadany, bo nie poprzedza go gest
+użytkownika.
+
+Tor został sprawdzony końcowo na rzeczywistym LiteHost i jednej zapisanej
+stacji, bez zmiany profilu: start MP3, aktywny stan, zatrzymanie, historia oraz
+niepusty plik w katalogu tymczasowym. Powtarzalna próba znajduje się w
+`tools/probe_radio_recording.py`. Testy modelu i komunikatów:
+
+```powershell
+python wxlite\run_tests.py radio_recording
+# oczekiwane: 23 zdane, 0 błędów
+```
+
 ## Podcasty i YouTube — pierwszy działający etap
 
 Skrót `Ctrl+3` przełącza na trzecią sesję „Podcasty i YouTube”. Lista czyta

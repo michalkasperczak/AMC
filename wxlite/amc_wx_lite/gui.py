@@ -2451,8 +2451,15 @@ class LiteFrame(wx.Frame):
             path = str(data.get("path") or "").strip()
             suffix = f": {Path(path).name}" if path else ""
             scheduled = bool(str(data.get("scheduleName") or "").strip())
-            prefix = "Zaplanowane nagrywanie działa" if scheduled else "Nagrywanie działa w tle"
-            self.announcer.say(f"{prefix}: {station}{suffix}")
+            # Reczne Ctrl+R dostaje jedno, natychmiastowe potwierdzenie z
+            # odpowiedzi ``recordingToggle``. Drugie zdanie z nazwa pliku,
+            # nadchodzace chwile pozniej, tylko zagluszalo nawigacje NVDA.
+            # Harmonogram nie ma takiego gestu uzytkownika, wiec jego
+            # rzeczywisty start nadal musi zostac wypowiedziany.
+            if scheduled:
+                self.announcer.say(
+                    f"Zaplanowane nagrywanie działa: {station}{suffix}"
+                )
         elif name == "radio.recordingFinished":
             station = str(data.get("stationName") or "stacja")
             scheduled = bool(str(data.get("scheduleName") or "").strip())
@@ -5464,8 +5471,18 @@ class LiteFrame(wx.Frame):
         payload = snapshot.recording.payload_for(station)
 
         def done(result: dict) -> None:
-            # Nie dublujemy mowy: o faktycznym starcie/zatrzymaniu informuje
-            # zdarzenie hosta. Migawka natychmiast uaktualnia stan na liscie.
+            # Parzystosc ze starym AMC: gest Ctrl+R od razu daje jedno
+            # krotkie potwierdzenie. Zdarzenie recordingStarted uaktualnia
+            # liste, ale dla nagrania recznego nie powtarza komunikatu ani
+            # nazwy pliku. Blad uruchomienia nadal przyjdzie osobnym
+            # recordingFailed, wiec nie udajemy, ze plik juz istnieje.
+            action = str((result or {}).get("action") or "")
+            if action == "starting":
+                self.announcer.say(
+                    f"Rozpoczynam nagrywanie w tle: {station.name}"
+                )
+            elif action == "stopping":
+                self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
             self._refresh_recording_status()
 
         self.runner.submit(
