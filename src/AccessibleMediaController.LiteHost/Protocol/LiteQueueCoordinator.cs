@@ -78,6 +78,16 @@ internal sealed class LiteQueueCoordinator
         /// </summary>
         double ResumeSeconds);
 
+    /// <summary>
+    /// Wynik grupowej zmiany czlonkostwa. <paramref name="Added"/> opisuje
+    /// JEDNA decyzje dla calego zaznaczenia, tak jak
+    /// <see cref="FolderContentsMembership"/> w pelnym AMC.
+    /// </summary>
+    internal sealed record QueueMutationResult(
+        QueueStatus Status,
+        bool Added,
+        int Changed);
+
     private readonly IMediaOutput _output;
     private readonly object _gate = new();
 
@@ -723,6 +733,143 @@ internal sealed class LiteQueueCoordinator
     }
 
     /// <summary>
+    /// Dodaje/usuwa zaznaczone pliki ze zwyklej kolejki albo z bloku
+    /// "odtworz nastepne" BEZ podmieniania aktywnej sesji i BEZ przerywania
+    /// dzwieku. Decyzja jest grupowa: jesli choc jeden zaznaczony element ma
+    /// dana flage, polecenie zdejmuje ja ze wszystkich; w przeciwnym razie
+    /// ustawia ja wszystkim. To dokladnie kontrakt
+    /// <see cref="FolderContentsMembership.ToggleQueue"/> i
+    /// <see cref="FolderContentsMembership.TogglePlayNext"/>.
+    /// </summary>
+    public QueueMutationResult ToggleMembership(JsonElement args, bool playNext)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty("items", out var items)
+            || items.ValueKind != JsonValueKind.Array)
+        {
+            throw new LiteRequestException("Brak wymaganego argumentu \"items\" (tablica).");
+        }
+        if (items.GetArrayLength() == 0)
+        {
+            throw new LiteRequestException("Nie wybrano zadnej pozycji kolejki.");
+        }
+        if (items.GetArrayLength() > MaximumRows)
+        {
+            throw new LiteRequestException($"Kolejka przekracza {MaximumRows} pozycji.");
+        }
+
+        var sessionId = LiteArgs.ReadText(args, "sessionId") ?? LiteQueueStore.LocalSessionId;
+        if (!string.Equals(sessionId, LiteQueueStore.LocalSessionId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new LiteRequestException("Ta wersja obsluguje zmiane kolejki plikow lokalnych.");
+        }
+
+        var candidates = new List<MediaItem>(items.GetArrayLength());
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var element in items.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                throw new LiteRequestException("Kazda pozycja kolejki musi byc obiektem.");
+            }
+            var id = LiteArgs.RequireText(element, "id");
+            if (!seen.Add(id))
+            {
+                throw new LiteRequestException($"Powtorzone Id w zaznaczeniu kolejki: {id}");
+            }
+            candidates.Add(new MediaItem
+            {
+                Id = id,
+                Title = LiteArgs.ReadText(element, "title") ?? id,
+                Kind = MediaItemKind.Track,
+                Source = LiteArgs.ReadText(element, "path")
+            });
+        }
+
+        lock (_gate)
+        {
+            var session = _session;
+            var created = session is null;
+            if (session is null)
+            {
+                session = new DemoMediaSession(
+                    LiteQueueStore.LocalSessionId, "Kolejka", [], _output);
+                session.SetVolume(_volume);
+                if (session.SupportsPlaybackRate) session.SetDefaultPlaybackRate(_rate);
+            }
+
+            var selectedExisting = candidates
+                .Select(candidate => Find(session, candidate.Id))
+                .Where(item => item is not null)
+                .Select(item => item!)
+                .ToArray();
+            var add = playNext
+                ? !selectedExisting.Any(item => item.IsPlayNext)
+                : !selectedExisting.Any(item => item.IsInQueue || item.IsPlayNext);
+
+            var previousOrder = session.QueueItemIds.ToArray();
+            if (add)
+            {
+                var newItems = candidates
+                    .Where(candidate => Find(session, candidate.Id) is null)
+                    .ToArray();
+                if (session.Items.Count + newItems.Length > MaximumRows)
+                {
+                    throw new LiteRequestException($"Kolejka przekracza {MaximumRows} pozycji.");
+                }
+                var missingPath = newItems.FirstOrDefault(item => string.IsNullOrWhiteSpace(item.Source));
+                if (missingPath is not null)
+                {
+                    throw new LiteRequestException(
+                        $"Brak sciezki pliku dla pozycji: {missingPath.Title}");
+                }
+                session.AddItemsById(newItems);
+            }
+
+            var changed = 0;
+            foreach (var candidate in candidates)
+            {
+                var item = Find(session, candidate.Id);
+                if (item is null) continue;
+                if (playNext)
+                {
+                    if (item.IsPlayNext == add) continue;
+                    item.IsPlayNext = add;
+                }
+                else
+                {
+                    var wasMember = item.IsInQueue || item.IsPlayNext;
+                    if (wasMember == add && (add || !item.IsPlayNext)) continue;
+                    item.IsInQueue = add;
+                    if (!add) item.IsPlayNext = false;
+                }
+                changed++;
+            }
+
+            // SetQueueOrder wywoluje wspolna normalizacje Core. Nowe pozycje
+            // trafiaja na koniec zapisanego porzadku, ale play-next jest
+            // priorytetyzowany dopiero przez silnik odtwarzania.
+            session.SetQueueOrder(previousOrder.Concat(add
+                ? candidates.Select(candidate => candidate.Id)
+                : []));
+            if (created)
+            {
+                session.SetPlaybackContext(session.QueueItemIds, isQueueContext: true);
+                // Publikujemy nowa sesje dopiero PO calej walidacji. Odmowa
+                // (np. brak sciezki nowego pliku) nie moze po cichu zamienic
+                // stanu "nigdy nie wczytano" na pusty obiekt kolejki.
+                _session = session;
+                _sessionId = LiteQueueStore.LocalSessionId;
+                _advanceToken = null;
+                _leading = false;
+            }
+            _initialized = true;
+            if (changed > 0) PersistLocked(session);
+            return new QueueMutationResult(BuildStatus(session), add, changed);
+        }
+    }
+
+    /// <summary>
     /// Enter z widoku kolejki: start od WSKAZANEGO wiersza. Opcjonalne
     /// <c>volume</c> i <c>rate</c> sa ZADANIEM uzytkownika i musza dojsc do
     /// silnika: oddajemy je sesji PRZED <c>Play</c>, bo to ona podaje
@@ -1028,11 +1175,28 @@ internal sealed class LiteQueueCoordinator
     private QueueStatus BuildStatus(DemoMediaSession session)
     {
         var currentId = session.HasCurrentItem ? session.CurrentItem.Id : null;
-        // Wiersze bierzemy w KOLEJNOSCI SESJI (QueueItemIds), nie w kolejnosci
-        // Items: to sesja wie, co jeszcze zostalo do odtworzenia.
-        var rows = session.QueueItemIds
+        // Najpierw bierzemy pozostale pozycje z KOLEJNOSCI SESJI. Widok ma
+        // jednak pokazac rzeczywiste nastepstwo: blok "odtworz nastepne"
+        // wyprzedza zwykla kolejke (ta sama stabilna regula, ktorej uzywa
+        // ContinueAfterPlaybackEnded). Gdy kolejka prowadzi transport, biezacy
+        // utwor pozostaje pierwszy, a priorytet dotyczy tego, co zagra po nim.
+        var orderedItems = session.QueueItemIds
             .Select(itemId => Find(session, itemId))
             .Where(item => item is not null)
+            .Select(item => item!)
+            .ToArray();
+        var currentQueued = _leading
+            ? orderedItems.FirstOrDefault(item =>
+                string.Equals(item.Id, currentId, StringComparison.Ordinal))
+            : null;
+        var visibleOrder = (currentQueued is null
+                ? orderedItems.OrderByDescending(item => item.IsPlayNext)
+                : new[] { currentQueued }.Concat(
+                    orderedItems
+                        .Where(item => !string.Equals(item.Id, currentId, StringComparison.Ordinal))
+                        .OrderByDescending(item => item.IsPlayNext)))
+            .ToArray();
+        var rows = visibleOrder
             .Select(item => new QueueRow(
                 item!.Id,
                 item.Title,

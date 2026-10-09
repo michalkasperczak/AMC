@@ -102,6 +102,8 @@ class Action(Enum):
     # akcje maja sens tylko wtedy, gdy kolejka naprawde prowadzi odtwarzanie.
     QUEUE_NEXT = "queue.next"
     QUEUE_PREVIOUS = "queue.previous"
+    ADD_TO_QUEUE = "action.queue.add"
+    TOGGLE_PLAY_NEXT = "action.queue.playNextToggle"
     SEEK_BACK_10 = "seek.back10"
     SEEK_FORWARD_10 = "seek.forward10"
     # Shift to 30 s (MainWindow.xaml.cs:21585-21586). Dostarczona wersja
@@ -366,6 +368,11 @@ LIST_VIEW: dict[str, Action] = {
     # Biblioteki z KAZDEGO nazwanego widoku (Ulubione, Historia, ...).
     "Ctrl+L": Action.VIEW_LIBRARY,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    # Jednoznaczny zestaw bez dawnego duplikatu Shift+Enter:
+    # Ctrl+Shift+Q zmienia zwykla kolejke, Ctrl+Shift+Enter ustawia blok
+    # „odtworz nastepne”. Sam Shift+Enter zostaje wolny na przyszla funkcje.
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+H": Action.VIEW_HISTORY,
     # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
     # zakladki. Teraz mamy ten zbior naprawde (GetForDisplay), wiec skrot
@@ -472,6 +479,8 @@ PLAYER_VIEW: dict[str, Action] = {
     # i :717 -- menu odtwarzacza, te same akceleratory na przyciskach :995-1000).
     "Prior": Action.QUEUE_PREVIOUS,
     "Next": Action.QUEUE_NEXT,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Left": Action.SEEK_BACK_10,
     "Right": Action.SEEK_FORWARD_10,
     # Cztery pary krokow z oryginalu (MainWindow.xaml.cs:21583-21590,
@@ -618,6 +627,8 @@ def describe() -> list[tuple[str, str]]:
         Action.PLAY_PAUSE: "Pauza albo wznowienie",
         Action.QUEUE_NEXT: "Nastepny utwor kolejki",
         Action.QUEUE_PREVIOUS: "Poprzedni utwor kolejki",
+        Action.ADD_TO_QUEUE: "Dodaj zaznaczenie do kolejki albo je usun",
+        Action.TOGGLE_PLAY_NEXT: "Ustaw albo usun odtwarzanie jako nastepne",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",

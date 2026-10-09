@@ -125,6 +125,8 @@ internal static class QueueCoordinatorTests
         EnterOdWybranegoWiersza();
         NaturalnyKoniecIdzieKolejnosciaKolejkiNieAlfabetem();
         BlokOdtworzNastepneWyprzedzaZwykla();
+        WidokPokazujeRzeczywisteNastepstwo();
+        GrupowaZmianaNiePrzerywaAktywnejKolejki();
         NastepnyPoprzedniUzywajaRzeczywistejKolejki();
         PauzaZachowujePozycjeIPrzeskokJejNieCofa();
         StaryEventNiePrzeskakujeDwochUtworow();
@@ -219,6 +221,90 @@ internal static class QueueCoordinatorTests
         var next = queue.HandlePlaybackEnded("file:B.wav");
         Assert.True(next?.Id == "file:C.wav",
             "pozycja z 'odtworz nastepne' wyprzedza zwykla kolejke, mimo pozniejszej kolejnosci");
+    }
+
+    /// <summary>
+    /// Ctrl+Q ma pokazywac ten sam porzadek, ktory zastosuje naturalny koniec:
+    /// przed startem blok priorytetowy jest pierwszy, a podczas gry biezacy
+    /// utwor zostaje pierwszy i dopiero po nim widac rzeczywiste nastepstwo.
+    /// </summary>
+    private static void WidokPokazujeRzeczywisteNastepstwo()
+    {
+        var queue = new LiteQueueCoordinator(new RecordingOutput());
+        queue.Set(Args($$"""
+            {"sessionId":"local","items":[
+              {"id":"file:B.wav","title":"B","path":{{Json(PathOf("B.wav"))}},"isInQueue":true},
+              {"id":"file:A.wav","title":"A","path":{{Json(PathOf("A.wav"))}},"isInQueue":true},
+              {"id":"file:C.wav","title":"C","path":{{Json(PathOf("C.wav"))}},"isPlayNext":true}
+            ],"order":["file:B.wav","file:A.wav","file:C.wav"]}
+            """));
+
+        Assert.True(queue.Status().Rows.Select(row => row.Id).SequenceEqual(
+                new[] { "file:C.wav", "file:B.wav", "file:A.wav" }),
+            "przed startem widok stawia play-next przed zwykla kolejka");
+
+        queue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+        Assert.True(queue.Status().Rows.Select(row => row.Id).SequenceEqual(
+                new[] { "file:B.wav", "file:C.wav", "file:A.wav" }),
+            "podczas gry widok pokazuje biezacy, potem play-next, potem zwykla kolejke");
+    }
+
+    /// <summary>
+    /// Operacje z wielokrotnego zaznaczenia dopisuja do zywej sesji. Nie wolno
+    /// robic queue.set, bo podmieniloby transport i zgubilo pozycje.
+    /// </summary>
+    private static void GrupowaZmianaNiePrzerywaAktywnejKolejki()
+    {
+        var refused = new LiteQueueCoordinator(new RecordingOutput());
+        var missingPathRefused = false;
+        try
+        {
+            refused.ToggleMembership(Args("""
+                {"sessionId":"local","items":[{"id":"bez-pliku","title":"Bez pliku"}]}
+                """), playNext: false);
+        }
+        catch (LiteRequestException) { missingPathRefused = true; }
+        Assert.True(missingPathRefused && !refused.Status().Initialized,
+            "odmowa nowego pliku bez sciezki nie inicjalizuje pustej kolejki");
+
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        var added = queue.ToggleMembership(Args($$"""
+            {"sessionId":"local","items":[
+              {"id":"file:A.wav","title":"A","path":{{Json(PathOf("A.wav"))}}},
+              {"id":"file:B.wav","title":"B","path":{{Json(PathOf("B.wav"))}}}
+            ]}
+            """), playNext: false);
+        Assert.True(added.Added && added.Changed == 2,
+            "dwa nowe pliki zostaly dodane jedna decyzja grupowa");
+
+        queue.PlayAt(Args("""{"itemId":"file:A.wav"}"""));
+        var playsBefore = output.Plays.Count;
+        var next = queue.ToggleMembership(Args($$"""
+            {"sessionId":"local","items":[
+              {"id":"file:C.wav","title":"C","path":{{Json(PathOf("C.wav"))}}}
+            ]}
+            """), playNext: true);
+        Assert.True(next.Added && next.Changed == 1,
+            "nowa pozycja dostala priorytet odtworz nastepne");
+        Assert.True(output.Plays.Count == playsBefore && queue.Status().CurrentId == "file:A.wav",
+            "zmiana kolejki nie uruchamia ponownie i nie zmienia biezacego pliku");
+        Assert.True(queue.Status().Rows.Select(row => row.Id).SequenceEqual(
+                new[] { "file:A.wav", "file:C.wav", "file:B.wav" }),
+            "widok aktywnej kolejki pokazuje rzeczywiste nastepstwo A, C, B");
+        Assert.True(queue.HandlePlaybackEnded("file:A.wav")?.Id == "file:C.wav",
+            "po koncu A faktycznie startuje oznaczone jako nastepne C");
+
+        var removed = queue.ToggleMembership(Args("""
+            {"sessionId":"local","items":[
+              {"id":"file:B.wav","title":"B"},
+              {"id":"file:C.wav","title":"C"}
+            ]}
+            """), playNext: false);
+        Assert.True(!removed.Added && removed.Changed == 2,
+            "obecność jednego zaznaczonego w kolejce zdejmuje członkostwo z całej grupy");
+        Assert.True(output.Plays.Count == playsBefore + 1,
+            "usunięcie z kolejki nie zatrzymuje już grającego C");
     }
 
     /// <summary>Nastepny/Poprzedni chodza po RZECZYWISTEJ kolejce.</summary>

@@ -324,6 +324,26 @@ def test_f2_and_delete_match_contextual_library_editing() -> None:
     assert resolve(Chord("F2"), player_view=False, radio_session=True) is Action.STATION_EDIT
 
 
+def test_queue_shortcuts_are_distinct_and_shift_enter_stays_free() -> None:
+    """Zwykla kolejka i play-next nie moga byc dwiema nazwami tej samej akcji."""
+    for player in (False, True):
+        assert resolve(
+            Chord("Q", ctrl=True, shift=True),
+            player_view=player,
+            radio_session=False,
+        ) is Action.ADD_TO_QUEUE
+        assert resolve(
+            Chord("Return", ctrl=True, shift=True),
+            player_view=player,
+            radio_session=False,
+        ) is Action.TOGGLE_PLAY_NEXT
+        assert resolve(
+            Chord("Return", shift=True),
+            player_view=player,
+            radio_session=False,
+        ) is None
+
+
 def test_help_listing_is_not_empty_and_has_no_duplicates() -> None:
     entries = describe()
     assert len(entries) > 15

@@ -683,6 +683,32 @@ class LiteHostClient:
     def queue_status(self) -> Any:
         return self.call("queue.status", timeout=5.0)
 
+    def queue_toggle_membership(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        session_id: str = "local",
+    ) -> Any:
+        """Dodaj/usuń zaznaczenie ze zwykłej kolejki bez jej przebudowy."""
+        return self.call(
+            "queue.toggleMembership",
+            {"sessionId": session_id, "items": items},
+            timeout=60.0,
+        )
+
+    def queue_toggle_play_next(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        session_id: str = "local",
+    ) -> Any:
+        """Ustaw/usuń „odtwórz następne” dla całego zaznaczenia."""
+        return self.call(
+            "queue.togglePlayNext",
+            {"sessionId": session_id, "items": items},
+            timeout=60.0,
+        )
+
     def import_playlist(self, path: str) -> Any:
         return self.call("radio.importPlaylist", {"path": path}, timeout=60.0)
 

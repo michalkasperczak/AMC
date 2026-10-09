@@ -303,6 +303,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             [LiteQuickInformation.Operation] = (request, _) => QuickInformation(request.Args),
             // ZYWA kolejka. "set" tylko wczytuje stan i NIC nie odtwarza.
             ["queue.set"] = (request, _) => QueueSet(request.Args),
+            ["queue.toggleMembership"] = (request, _) => QueueToggleMembership(request.Args, playNext: false),
+            ["queue.togglePlayNext"] = (request, _) => QueueToggleMembership(request.Args, playNext: true),
             ["queue.status"] = (_, _) => QueueStatusPayload(),
             ["queue.playAt"] = (request, events) => QueuePlayAt(request.Args, events),
             ["queue.next"] = (_, events) => QueueRelative(1, events),
@@ -573,6 +575,16 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object QueueStatusPayload() => QueuePayload(_queue.Status());
 
+    /// <summary>
+    /// Grupowa zmiana kolejki z listy wxPython. Nie dotyka transportu: aktywny
+    /// utwor gra dalej, a zmiana obowiazuje przy kolejnym przejsciu.
+    /// </summary>
+    private object QueueToggleMembership(JsonElement args, bool playNext)
+    {
+        var result = _queue.ToggleMembership(args, playNext);
+        return QueuePayload(result.Status, added: result.Added, changed: result.Changed);
+    }
+
     private object QueuePlayAt(JsonElement args, LiteEventSink events)
     {
         _events = events;
@@ -650,7 +662,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         _filesDurationId = null;
     }
 
-    private static object QueuePayload(LiteQueueCoordinator.QueueStatus status, bool? moved = null) =>
+    private static object QueuePayload(
+        LiteQueueCoordinator.QueueStatus status,
+        bool? moved = null,
+        bool? added = null,
+        int? changed = null) =>
         new
         {
             rows = status.Rows
@@ -683,7 +699,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             // jedno za drugie i przywracal zapisany porzadek, czyli skonsumowane
             // utwory wracaly do kolejki.
             initialized = status.Initialized,
-            moved
+            moved,
+            added,
+            changed
         };
 
     /// <summary>

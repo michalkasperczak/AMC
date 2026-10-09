@@ -3500,6 +3500,8 @@ class LiteFrame(wx.Frame):
             self._clear_audio_clip_selection()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
+        elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
+            self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
         elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
             # Krok czyta parytet transportu: 10 / 30 / 60 s i czas z ustawien
             # AMC (MainWindow.xaml.cs:21583-21590, 22387-22394). Wartosc
@@ -6590,6 +6592,68 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
 
         self.runner.submit("folder", work, done, failed)
+
+    def _toggle_queue_membership(self, play_next: bool) -> None:
+        """Zmień kolejkę dla natywnego wielokrotnego zaznaczenia.
+
+        Operacja dotyczy na razie Biblioteki plików lokalnych — dokładnie tego
+        etapu portu. Nie składamy aktywnej kolejki ponownie, więc grający plik,
+        pozycja, pauza i wyjście audio pozostają nietknięte.
+        """
+        if self.navigator.active is not SessionId.FILES:
+            self.announcer.say("To polecenie dotyczy Biblioteki plików")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zmienić kolejki")
+            return
+
+        rows = self._selected_action_rows()
+        if not rows:
+            self.announcer.say("Nie wybrano żadnego pliku")
+            return
+        if any(row.kind != "track" for row in rows):
+            self.announcer.say("Do kolejki można dodać tylko pliki")
+            return
+
+        items = [
+            {"id": row.item_id, "title": row.title, "path": row.path}
+            for row in rows
+        ]
+        call = (
+            client.queue_toggle_play_next
+            if play_next
+            else client.queue_toggle_membership
+        )
+
+        def done(payload: dict) -> None:
+            payload = payload or {}
+            self._note_queue_persistence(payload)
+            changed = int(payload.get("changed") or 0)
+            if changed <= 0:
+                self.announcer.say("Kolejka bez zmian")
+                return
+            label = rows[0].title if changed == 1 else format_item_count(changed)
+            added = bool(payload.get("added"))
+            if play_next:
+                message = (
+                    f"Ustawiono jako następne: {label}"
+                    if added
+                    else f"Usunięto z odtwarzania jako następne: {label}"
+                )
+            else:
+                message = (
+                    f"Dodano do kolejki: {label}"
+                    if added
+                    else f"Usunięto z kolejki: {label}"
+                )
+            self.announcer.say(message)
+            self._refresh_live_queue()
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(f"Nie mogę zmienić kolejki: {error}")
+
+        self.runner.submit("queue-membership", lambda: call(items), done, failed)
 
     def _refresh_live_queue(self) -> None:
         """Odśwież już otwartą kolejkę bez nawigacji i przejmowania fokusu."""
