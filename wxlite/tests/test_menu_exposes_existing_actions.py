@@ -163,7 +163,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
 
 
 def test_no_duplicate_labels_or_shortcuts() -> None:
-    """Only AMC's intentional contextual Ctrl+O may be repeated."""
+    """Powtórzenia są tylko celowymi skrótami kontekstowymi AMC."""
     items = all_items()
     labels = [item.label for item in items]
     assert len(labels) == len(set(labels)), "powtorzona nazwa pozycji"
@@ -175,7 +175,9 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     # F2/Delete są teraz tak samo kontekstowe jak w pełnym AMC: ogólna
     # pozycja Biblioteki obsługuje pliki i podcasty, a menu Radio ma bardziej
     # szczegółową nazwę tej samej intencji dla stacji.
-    assert set(duplicates) <= {"Ctrl+O", "Alt+1", "Alt+2", "F2", "Delete"}, duplicates
+    assert set(duplicates) <= {
+        "Ctrl+O", "Ctrl+D", "Alt+1", "Alt+2", "F2", "Delete"
+    }, duplicates
     for item in duplicates.get("Ctrl+O", []):
         assert not item.accelerator, (
             "kontekstowe Ctrl+O musi dojsc do resolvera sesji, a nie do "
@@ -186,6 +188,10 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
         assert len(contextual) == 2
         assert all(not item.accelerator for item in contextual), (
             f"kontekstowe {chord} nie moze byc akceleratorem okna"
+        )
+    for item in duplicates.get("Ctrl+D", []):
+        assert not item.accelerator, (
+            "kontekstowe Ctrl+D musi rozstrzygnąć sesja podcastów albo plików"
         )
 
 
@@ -217,6 +223,17 @@ def test_podcast_refresh_menu_is_contextual_and_does_not_steal_f5() -> None:
         assert item.shortcut == shortcut
         assert item.needs_podcast_session
         assert not item.accelerator
+
+
+def test_podcast_download_menu_is_contextual_and_does_not_steal_ctrl_d() -> None:
+    item = next(
+        entry for entry in all_items()
+        if entry.action is Action.DOWNLOAD_PODCAST_EPISODES
+    )
+    assert item.shortcut == "Ctrl+D"
+    assert item.needs_podcast_session and item.needs_selection
+    assert not item.accelerator
+    assert "pobierz" in item.label.replace("&", "").casefold()
 
 
 def test_every_item_is_keyboard_reachable() -> None:

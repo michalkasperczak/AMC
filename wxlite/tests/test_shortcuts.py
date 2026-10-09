@@ -189,6 +189,23 @@ def test_podcast_refresh_matches_the_full_amc_context() -> None:
     ) is None
 
 
+def test_ctrl_d_downloads_podcasts_but_keeps_file_clip_append() -> None:
+    for player in (False, True):
+        assert resolve(
+            Chord("D", ctrl=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.DOWNLOAD_PODCAST_EPISODES
+
+    assert resolve(
+        Chord("D", ctrl=True),
+        player_view=True,
+        radio_session=False,
+        podcast_session=False,
+    ) is Action.CLIP_APPEND
+
+
 def test_f2_and_delete_match_contextual_library_editing() -> None:
     # Delete usuwa tylko z bieżącego widoku; dopiero Shift+Delete prowadzi
     # przez potwierdzenie do systemowego Kosza. F2 nie zmienia pliku na dysku,

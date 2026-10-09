@@ -172,6 +172,16 @@ def test_podcast_refresh_uses_one_narrow_host_operation() -> None:
         client.close()
 
 
+def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() -> None:
+    client = make_client()
+    try:
+        result = client.download_podcast_episodes(["episode-1", "episode-1", "episode-2"])
+        assert result["op"] == "podcast.download"
+        assert result["args"] == {"episodeIds": ["episode-1", "episode-2"]}
+    finally:
+        client.close()
+
+
 def test_profile_mutations_use_narrow_named_operations() -> None:
     client = make_client()
     try:

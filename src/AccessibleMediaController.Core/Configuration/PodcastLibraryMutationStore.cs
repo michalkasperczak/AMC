@@ -23,6 +23,15 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
 
     public int GetInboxCount() => _database.GetInboxCount();
 
+    public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
+        IReadOnlyCollection<string> episodeIds) =>
+        _database.GetDownloadTargets(episodeIds);
+
+    public PodcastDownloadPathResult SaveDownloadPath(
+        string episodeId,
+        string downloadPath) =>
+        _database.SaveDownloadPath(episodeId, downloadPath);
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,
@@ -43,3 +52,20 @@ public sealed record PodcastRefreshResult(
     int UpdatedEpisodes,
     int RetainedEpisodesAbsentFromFeed,
     int InboxCount);
+
+/// <summary>
+/// Minimalny, niemutowalny opis odcinka potrzebny do pobrania. Nie przenosi
+/// calego profilu ani surowego JSON-u poza warstwe konfiguracji.
+/// </summary>
+public sealed record PodcastDownloadTarget(
+    string EpisodeId,
+    string Title,
+    string MediaUrl,
+    string? MediaType,
+    string? DownloadPath,
+    string? ConfiguredDownloadsFolder);
+
+public sealed record PodcastDownloadPathResult(
+    string EpisodeId,
+    string DownloadPath,
+    bool Changed);

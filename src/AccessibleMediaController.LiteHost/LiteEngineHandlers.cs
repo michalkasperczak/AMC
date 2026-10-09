@@ -42,6 +42,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteBookmarkStore? _bookmarkStore;
     private readonly LitePodcastProgressStore? _podcastProgressStore;
     private readonly LitePodcastRefreshCoordinator? _podcastRefresh;
+    private readonly LitePodcastDownloadCoordinator? _podcastDownloads;
     private readonly LiteProfileMutationStore? _profileMutations;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
@@ -101,6 +102,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastRefresh = podcastProgressStore is null
             ? null
             : new LitePodcastRefreshCoordinator(podcastProgressStore, bookmarkStore);
+        _podcastDownloads = podcastProgressStore is null
+            ? null
+            : new LitePodcastDownloadCoordinator(podcastProgressStore);
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -234,6 +238,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["podcast.checkpoint"] = (_, _) => SaveCurrentPodcastProgress(),
             [LitePodcastRefreshCoordinator.Operation] = (request, _) =>
                 RefreshPodcasts(request.Args),
+            [LitePodcastDownloadCoordinator.Operation] = (request, events) =>
+                DownloadPodcastEpisodes(request.Args, events),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -1257,6 +1263,16 @@ internal sealed class LiteEngineHandlers : IDisposable
         return _podcastRefresh.Refresh(args);
     }
 
+    private object DownloadPodcastEpisodes(JsonElement args, LiteEventSink events)
+    {
+        if (_podcastDownloads is null)
+        {
+            throw new LiteRequestException(
+                "Pobieranie nie ma dostępu do biblioteki Podcastów i YouTube.");
+        }
+        return _podcastDownloads.Download(args, events);
+    }
+
     private void TrySaveCurrentPodcastProgress()
     {
         if (_podcastProgressStore is null) return;
@@ -1416,6 +1432,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         // czyli trwalosc dzialalaby raz.
         _queueStore?.Dispose();
         _podcastRefresh?.Dispose();
+        _podcastDownloads?.Dispose();
         _podcastProgressStore?.Dispose();
     }
 }

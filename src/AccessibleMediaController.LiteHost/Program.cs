@@ -110,7 +110,10 @@ internal static class Program
                 LiteAudioClipOperations.AppendOperation,
                 // RSS i yt-dlp nie moga blokowac pauzy, statusu ani nagrywania.
                 // Zapis bazy na koncu pozostaje chroniony przez jednego pisarza.
-                LitePodcastRefreshCoordinator.Operation
+                LitePodcastRefreshCoordinator.Operation,
+                // Pobieranie RSS/YouTube jest dlugie, ale nie moze blokowac
+                // transportu ani zapisu postepu odtwarzania.
+                LitePodcastDownloadCoordinator.Operation
             ]);
 
         Console.Error.WriteLine(

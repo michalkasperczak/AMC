@@ -204,6 +204,7 @@ class Action(Enum):
     SORT_PODCAST_INBOX_BY_PODCAST = "podcasts.inbox.sort.byPodcast"
     REFRESH_PODCAST = "podcasts.refresh.current"
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
+    DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -540,6 +541,10 @@ PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
 PODCAST_SESSION_VIEW: dict[str, Action] = {
     "F5": Action.REFRESH_PODCAST,
     "Ctrl+F5": Action.REFRESH_PODCAST_LIBRARY,
+    # Jak w głównym AMC: na liście pobiera całe zaznaczenie, a w
+    # odtwarzaczu bieżący odcinek. Ma pierwszeństwo przed plikowym dopisywaniem
+    # fragmentu, które pod Ctrl+D pozostaje w sesji Plików lokalnych.
+    "Ctrl+D": Action.DOWNLOAD_PODCAST_EPISODES,
 }
 
 
@@ -622,6 +627,7 @@ def describe() -> list[tuple[str, str]]:
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         Action.REFRESH_PODCAST: "Odśwież wybrany podcast, kanał lub playlistę",
         Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
+        Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
         Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",

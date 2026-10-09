@@ -82,6 +82,30 @@ internal static class PodcastProgressStoreTests
                     "licznik skrzynki obejmuje nowy nieodtworzony odcinek");
                 Assert.True(ReadEpisode(database, "ep-2").Title == "Nowy odcinek",
                     "nowy odcinek zostaje zapisany w tej samej bazie");
+
+                var downloadTargets = store.GetDownloadTargets(["ep-1", "ep-1", "missing"]);
+                Assert.True(downloadTargets.Count == 1,
+                    "pobieranie zwraca tylko istniejace odcinki bez duplikatow");
+                var target = downloadTargets[0];
+                Assert.Equal("Odcinek", target.Title,
+                    "cel pobrania ma wylacznie nazwe przeznaczona dla uzytkownika");
+                Assert.Equal(
+                    Path.Combine(root, "pobrane-podcastu"),
+                    target.ConfiguredDownloadsFolder,
+                    "folder zrodla ma pierwszenstwo przed folderem globalnym");
+
+                var downloadedPath = Path.Combine(root, "pobrane-podcastu", "Odcinek.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(downloadedPath)!);
+                File.WriteAllBytes(downloadedPath, [1, 2, 3]);
+                var savedDownload = store.SaveDownloadPath("ep-1", downloadedPath);
+                Assert.True(savedDownload.Changed,
+                    "pierwszy zapis sciezki pobranego odcinka zmienia rekord");
+                Assert.Equal(
+                    Path.GetFullPath(downloadedPath),
+                    ReadEpisode(database).DownloadPath,
+                    "waska mutacja zapisuje sciezke takze w payloadzie odcinka");
+                Assert.True(!store.SaveDownloadPath("ep-1", downloadedPath).Changed,
+                    "powtorzenie tej samej sciezki jest idempotentne");
             }
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
@@ -130,7 +154,9 @@ internal static class PodcastProgressStoreTests
             Title = "Podcast",
             FeedUrl = "https://example.invalid/feed.xml",
             IsInLibrary = true,
-            SourceKind = PodcastSourceKind.Rss
+            SourceKind = PodcastSourceKind.Rss,
+            DownloadsFolder = Path.Combine(
+                Path.GetDirectoryName(path)!, "pobrane-podcastu")
         };
         var episode = new PodcastEpisodeSettings
         {
@@ -155,7 +181,8 @@ internal static class PodcastProgressStoreTests
                 youtube_refresh_interval_minutes INTEGER NOT NULL DEFAULT 60,
                 automatic_refresh_batch_size INTEGER NOT NULL DEFAULT 4
             );
-            INSERT INTO podcast_state(singleton, volume, playback_rate) VALUES(1, 35, 1.0);
+            INSERT INTO podcast_state(singleton, downloads_folder, volume, playback_rate)
+            VALUES(1, $downloads, 35, 1.0);
             CREATE TABLE podcast_subscriptions (
                 id TEXT PRIMARY KEY, ordinal INTEGER NOT NULL, title TEXT NOT NULL,
                 feed_url TEXT NOT NULL, is_in_library INTEGER NOT NULL,
@@ -174,6 +201,8 @@ internal static class PodcastProgressStoreTests
             CREATE TABLE untouched (id INTEGER PRIMARY KEY, value TEXT NOT NULL);
             INSERT INTO untouched(id, value) VALUES(1, 'zostaje');
             """;
+        command.Parameters.AddWithValue(
+            "$downloads", Path.Combine(Path.GetDirectoryName(path)!, "pobrane-globalne"));
         command.ExecuteNonQuery();
         using var insertSubscription = connection.CreateCommand();
         insertSubscription.CommandText = """

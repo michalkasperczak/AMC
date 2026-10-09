@@ -134,6 +134,10 @@
              Link="Engine\YouTubeChannelFeedClient.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeCollectionClient.cs"
              Link="Engine\YouTubeCollectionClient.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\PodcastEpisodeDownloader.cs"
+             Link="Engine\PodcastEpisodeDownloader.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeMediaDownloader.cs"
+             Link="Engine\YouTubeMediaDownloader.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />

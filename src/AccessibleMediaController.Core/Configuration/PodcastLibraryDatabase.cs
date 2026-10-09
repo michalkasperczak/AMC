@@ -417,6 +417,109 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
+        IReadOnlyCollection<string> episodeIds)
+    {
+        ArgumentNullException.ThrowIfNull(episodeIds);
+        var requestedIds = episodeIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (requestedIds.Length == 0) return [];
+
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var episodes = settings.Episodes.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var subscriptions = settings.Subscriptions.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var result = new List<PodcastDownloadTarget>(requestedIds.Length);
+            foreach (var episodeId in requestedIds)
+            {
+                if (!episodes.TryGetValue(episodeId, out var episode)) continue;
+                subscriptions.TryGetValue(episode.SubscriptionId, out var subscription);
+                result.Add(new PodcastDownloadTarget(
+                    episode.Id,
+                    episode.Title,
+                    episode.MediaUrl,
+                    episode.MediaType,
+                    episode.DownloadPath,
+                    PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(
+                        settings.DownloadsFolder,
+                        subscription)));
+            }
+            return result;
+        }
+    }
+
+    public PodcastDownloadPathResult SaveDownloadPath(
+        string episodeId,
+        string downloadPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(episodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(downloadPath);
+        var fullPath = System.IO.Path.GetFullPath(downloadPath);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("Pobrany plik odcinka nie istnieje.", fullPath);
+
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var transaction = connection.BeginTransaction();
+
+            PodcastEpisodeSettings episode;
+            using (var read = connection.CreateCommand())
+            {
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+                read.Parameters.AddWithValue("$id", episodeId);
+                var payload = read.ExecuteScalar() as string;
+                if (string.IsNullOrWhiteSpace(payload))
+                    throw new KeyNotFoundException(
+                        "Odcinka nie ma już w bibliotece Podcastów i YouTube.");
+                episode = JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                    payload,
+                    PayloadJsonOptions)
+                    ?? throw new InvalidDataException(
+                        "Nie można odczytać zapisanego stanu odcinka.");
+            }
+
+            var changed = !string.Equals(
+                episode.DownloadPath,
+                fullPath,
+                StringComparison.OrdinalIgnoreCase);
+            if (changed)
+            {
+                episode.DownloadPath = fullPath;
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    UPDATE podcast_episodes SET
+                        download_path = $download,
+                        content_hash = $hash,
+                        payload_json = $payload
+                    WHERE id = $id;
+                    """,
+                    ("$download", fullPath),
+                    ("$hash", Fingerprint(episode)),
+                    ("$payload", JsonSerializer.Serialize(episode, PayloadJsonOptions)),
+                    ("$id", episode.Id));
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO metadata(key, value) VALUES('last_saved_utc', $value)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+                    """,
+                    ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+            }
+            transaction.Commit();
+            return new PodcastDownloadPathResult(episode.Id, fullPath, changed);
+        }
+    }
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,

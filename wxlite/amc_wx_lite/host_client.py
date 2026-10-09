@@ -412,6 +412,14 @@ class LiteHostClient:
         # znacznie dłużej niż zwykłe polecenie odtwarzania.
         return self.call("podcast.refresh", args, timeout=3600.0)
 
+    def download_podcast_episodes(self, episode_ids: list[str]) -> Any:
+        """Pobierz zaznaczone odcinki przez wspólny downloader AMC."""
+        return self.call(
+            "podcast.download",
+            {"episodeIds": list(dict.fromkeys(episode_ids))},
+            timeout=24 * 3600.0,
+        )
+
     def rename_library_item(self, item_id: str, title: str) -> Any:
         return self.call(
             "library.renameTitle", {"itemId": item_id, "title": title}, timeout=20.0

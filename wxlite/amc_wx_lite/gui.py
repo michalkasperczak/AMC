@@ -1834,6 +1834,7 @@ class LiteFrame(wx.Frame):
         self._podcast_checkpoint_due = 0.0
         self._podcast_checkpoint_active = False
         self._podcast_refresh_pending = False
+        self._podcast_download_pending = False
         self._last_podcast_progress_error: str | None = None
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
@@ -2513,6 +2514,21 @@ class LiteFrame(wx.Frame):
                         text += f". {file_name}"
                     self.status_field.SetLabel(text)
                     self.status_bar.show(text)
+        elif name == "podcast.downloadProgress":
+            if self._podcast_download_pending:
+                current = max(1, int(data.get("current") or 1))
+                total = max(current, int(data.get("total") or current))
+                title = str(data.get("title") or "odcinek").strip() or "odcinek"
+                percent = int(data.get("percent") or 0)
+                text = (
+                    f"Pobieranie {current} z {total}: {title}"
+                    if percent < 0
+                    else f"Pobieranie {current} z {total}: {percent}%. {title}"
+                )
+                # Postęp jest dostępny przez pasek stanu i NVDA+End, lecz nie
+                # przerywa mowy co kilka procent.
+                self.status_field.SetLabel(text)
+                self.status_bar.show(text)
         elif name == "audio.clipRemoveStarted":
             operation_id = str(data.get("operationId") or "")
             if (
@@ -3203,6 +3219,8 @@ class LiteFrame(wx.Frame):
             self._refresh_podcasts(refresh_all=False)
         elif action is Action.REFRESH_PODCAST_LIBRARY:
             self._refresh_podcasts(refresh_all=True)
+        elif action is Action.DOWNLOAD_PODCAST_EPISODES:
+            self._download_podcast_episodes()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -4149,6 +4167,120 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(message)
 
         self.runner.submit("podcast-refresh", work, done, failed)
+
+    def _download_podcast_episodes(self) -> None:
+        """Ctrl+D: pobierz jeden lub wiele zaznaczonych odcinków."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say("Pobieranie odcinków jest dostępne w sesji Podcasty i YouTube")
+            return
+        if self._podcast_download_pending:
+            self.announcer.say("Pobieranie odcinków już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę pobrać odcinków")
+            return
+
+        rows: list[Row] = []
+        seen: set[str] = set()
+        for row in self._selected_action_rows():
+            if row.kind != "episode" or row.item_id in seen:
+                continue
+            seen.add(row.item_id)
+            rows.append(row)
+        if not rows:
+            self.announcer.say("Zaznacz co najmniej jeden odcinek podcastu")
+            return
+
+        episode_ids = [row.item_id for row in rows]
+        preferred_id = rows[0].item_id
+        self._podcast_download_pending = True
+        started = (
+            "Pobieranie odcinka"
+            if len(rows) == 1
+            else f"Pobieranie odcinków: {len(rows)}"
+        )
+        self.announcer.say(started)
+
+        def work() -> dict:
+            result = client.download_podcast_episodes(episode_ids)
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_download_pending = False
+            requested = max(0, int(payload.get("requested") or len(rows)))
+            downloaded = max(0, int(payload.get("downloaded") or 0))
+            already = max(0, int(payload.get("alreadyDownloaded") or 0))
+            failed_count = max(0, int(payload.get("failed") or 0))
+            if requested > 1:
+                parts = [f"Pobrano: {downloaded}"]
+                if already:
+                    parts.append(f"już pobrane: {already}")
+                if failed_count:
+                    parts.append(f"niepowodzenia: {failed_count}")
+                message = ". ".join(parts)
+            elif downloaded:
+                message = f"Pobrano odcinek: {rows[0].title}"
+            elif already:
+                message = f"Odcinek jest już pobrany: {rows[0].title}"
+            else:
+                detail = str(payload.get("firstFailure") or "").strip()
+                message = (
+                    f"Nie można pobrać odcinka: {detail}"
+                    if detail
+                    else "Nie udało się pobrać odcinka"
+                )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            if not self._reload_podcast_list_after_download(preferred_id, message):
+                self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_download_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się pobrać odcinków"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-download", work, done, failed)
+
+    def _reload_podcast_list_after_download(
+        self, preferred_id: str, completion_message: str
+    ) -> bool:
+        """Odśwież tylko nadal otwartą listę, bez wyrywania z odtwarzacza."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            return False
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        if state.view is not View.LIST:
+            return False
+        if state.library_view is LibraryView.PODCAST_EPISODES:
+            if state.library_playlist_id:
+                self._open_podcast_view(
+                    OpenPodcastView(
+                        subscription_id=state.library_playlist_id,
+                        preferred_id=preferred_id,
+                    ),
+                    completion_message=completion_message,
+                )
+                return True
+        elif state.library_view in (
+            LibraryView.PODCAST_INBOX,
+            LibraryView.PODCAST_IN_PROGRESS,
+            LibraryView.PODCAST_DOWNLOADS,
+        ):
+            self._open_podcast_aggregate(
+                OpenPodcastAggregateView(
+                    state.library_view,
+                    preferred_id=preferred_id,
+                ),
+                completion_message=completion_message,
+            )
+            return True
+        return False
 
     def _begin_transient_preview(self) -> None:
         if self._transient_preview_return is None:
