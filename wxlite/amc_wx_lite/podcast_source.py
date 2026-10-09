@@ -70,6 +70,7 @@ class PodcastEpisodePage:
     loaded_count: int
     has_more: bool
     order_matches_amc: bool = True
+    sort_mode: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -501,6 +502,7 @@ class PodcastSource:
             loaded_count=loaded_count,
             view="inbox",
             order_matches_amc=order_matches_amc,
+            sort_mode=mode,
         )
 
     def in_progress(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
@@ -547,6 +549,7 @@ class PodcastSource:
         loaded_count: int,
         view: str,
         order_matches_amc: bool,
+        sort_mode: str | None = None,
     ) -> PodcastEpisodePage:
         requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
         visible = records[:requested]
@@ -561,6 +564,7 @@ class PodcastSource:
             loaded_count=len(visible),
             has_more=bool(remaining),
             order_matches_amc=order_matches_amc,
+            sort_mode=sort_mode,
         )
 
 

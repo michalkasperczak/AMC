@@ -80,6 +80,26 @@ def test_round_trip_keeps_radio_activity_presentation_options() -> None:
     assert loaded.radio_recording_state_sound is True
 
 
+def test_round_trip_keeps_private_podcast_inbox_sort_override() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(podcast_inbox_sort_mode="Custom"))
+
+    assert store.load().podcast_inbox_sort_mode == "Custom"
+
+
+def test_unknown_podcast_sort_value_is_not_restored_or_rewritten() -> None:
+    store, directory = temp_store()
+    store.path.write_text(json.dumps({
+        "podcast_inbox_sort_mode": "CollectionSortMode.Custom { technical = 1 }"
+    }), encoding="utf-8")
+
+    loaded = store.load()
+    assert loaded.podcast_inbox_sort_mode is None
+    store.save(loaded)
+    payload = json.loads(store.path.read_text(encoding="utf-8"))
+    assert "podcast_inbox_sort_mode" not in payload
+
+
 def test_invalid_radio_activity_options_return_to_safe_defaults() -> None:
     options = Options(
         radio_playback_state_position="enum-z-kodu",

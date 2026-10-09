@@ -25,6 +25,7 @@ from amc_wx_lite import menu_model
 from amc_wx_lite.shortcuts import (
     LIST_VIEW,
     PLAYER_VIEW,
+    PODCAST_INBOX_LIST_VIEW,
     RADIO_LIST_VIEW,
     RADIO_PLAYER_VIEW,
     Action,
@@ -139,7 +140,13 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     ``setdefault`` przepuszczalo F6 tylko dzieki kolejnosci tablic.
     """
     real: dict[str, set[Action]] = {}
-    for table in (LIST_VIEW, RADIO_LIST_VIEW, RADIO_PLAYER_VIEW, PLAYER_VIEW):
+    for table in (
+        PODCAST_INBOX_LIST_VIEW,
+        LIST_VIEW,
+        RADIO_LIST_VIEW,
+        RADIO_PLAYER_VIEW,
+        PLAYER_VIEW,
+    ):
         for chord, action in table.items():
             real.setdefault(chord, set()).add(action)
 
@@ -163,12 +170,34 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
         if item.shortcut:
             by_shortcut.setdefault(item.shortcut, []).append(item)
     duplicates = {key: values for key, values in by_shortcut.items() if len(values) > 1}
-    assert set(duplicates) <= {"Ctrl+O"}, duplicates
+    assert set(duplicates) <= {"Ctrl+O", "Alt+1", "Alt+2"}, duplicates
     for item in duplicates.get("Ctrl+O", []):
         assert not item.accelerator, (
             "kontekstowe Ctrl+O musi dojsc do resolvera sesji, a nie do "
             f"pierwszego akceleratora menu: {item.label}"
         )
+    for chord in ("Alt+1", "Alt+2"):
+        contextual = duplicates.get(chord, [])
+        assert len(contextual) == 2
+        assert all(not item.accelerator for item in contextual), (
+            f"kontekstowe {chord} nie moze byc akceleratorem okna"
+        )
+
+
+def test_podcast_inbox_sort_menu_is_contextual_checkable_and_user_facing() -> None:
+    expected = {
+        Action.SORT_PODCAST_INBOX_ADDED: ("Alt+1", "dodania"),
+        Action.SORT_PODCAST_INBOX_ALPHABETICAL: ("Alt+2", "Alfabetycznie"),
+        Action.SORT_PODCAST_INBOX_BY_PODCAST: ("Alt+3", "podcast"),
+    }
+    found = {item.action: item for item in all_items() if item.action in expected}
+    assert set(found) == set(expected)
+    for action, (shortcut, label_part) in expected.items():
+        item = found[action]
+        assert item.shortcut == shortcut
+        assert item.needs_podcast_inbox and item.checkable
+        assert not item.accelerator
+        assert label_part.casefold() in item.label.casefold()
 
 
 def test_every_item_is_keyboard_reachable() -> None:

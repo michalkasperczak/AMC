@@ -24,6 +24,14 @@ from .radio_activity import normalize_state_position
 from .radio_schedule_settings import read_schedule_overrides
 
 
+_PODCAST_INBOX_SORT_MODES = {"AddedNewest", "Alphabetical", "Custom"}
+
+
+def _read_podcast_inbox_sort_mode(raw: object) -> str | None:
+    """Only a known model value may survive in the private state file."""
+    return raw if isinstance(raw, str) and raw in _PODCAST_INBOX_SORT_MODES else None
+
+
 @dataclass(slots=True)
 class Station:
     """Stacja z WLASNEJ listy uzytkownika."""
@@ -144,6 +152,9 @@ class LiteState:
     radio_schedule_overrides: list[dict] | None = None
     #: Jak wyzej dla ogolnego wybudzania. ``None`` dziedziczy profil AMC.
     radio_schedule_wake_override: bool | None = None
+    #: Prywatne nadpisanie kolejnosci widoku „Nowe odcinki”. ``None`` znaczy:
+    #: czytaj wybor glownego AMC, ale nigdy nie zapisuj do jego ``state.json``.
+    podcast_inbox_sort_mode: str | None = None
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -294,6 +305,9 @@ class StateStore:
                 else None
             ),
             radio_schedule_wake_override=wake_override,
+            podcast_inbox_sort_mode=_read_podcast_inbox_sort_mode(
+                raw.get("podcast_inbox_sort_mode")
+            ),
         )
 
     # -------------------------------------------------------------- zapis
@@ -329,6 +343,11 @@ class StateStore:
             payload["radio_schedule_wake_override"] = (
                 state.radio_schedule_wake_override
             )
+        podcast_sort_mode = _read_podcast_inbox_sort_mode(
+            state.podcast_inbox_sort_mode
+        )
+        if podcast_sort_mode is not None:
+            payload["podcast_inbox_sort_mode"] = podcast_sort_mode
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 
         # Plik tymczasowy MUSI lezec w tym samym folderze: os.replace jest

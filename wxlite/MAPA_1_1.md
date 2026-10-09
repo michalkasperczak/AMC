@@ -306,8 +306,10 @@ własnej normalizacji diakrytyków.
   Widok zawiera „Pobrane” dla plików faktycznie istniejących na dysku.
   Pierwsze dwa filtrują wyłącznie źródła pozostające w Bibliotece; Pobrane
   zachowują też materiały z później zarchiwizowanych źródeł jak główne AMC.
-  Wszystkie mają stronicowanie po 150 pozycji i nie ujawniają technicznych
-  identyfikatorów. Nadal brakuje
+  „Nowe odcinki” obsługują też zgodne z głównym AMC `Alt+1`, `Alt+2` i
+  `Alt+3`: według dodania, alfabetycznie i według podcastu. Prywatnie zapisany
+  wybór nie zmienia wspólnego profilu. Wszystkie widoki mają stronicowanie po
+  150 pozycji i nie ujawniają technicznych identyfikatorów. Nadal brakuje
   dodawania, usuwania, odświeżania, pobierania i pozostałych widoków specjalnych.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 

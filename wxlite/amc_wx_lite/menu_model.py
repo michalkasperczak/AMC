@@ -55,6 +55,8 @@ class MenuItem:
     needs_radio_session: bool = False
     #: Widok dostepny wylacznie wewnatrz sesji Podcasty i YouTube.
     needs_podcast_session: bool = False
+    #: Te trzy pozycje sa aktywne tylko w zbiorczym widoku Nowych odcinkow.
+    needs_podcast_inbox: bool = False
     #: Pozycja PRZELACZNIKA: wx ma ja wstawic jako ``AppendCheckItem``.
     #:
     #: Nie jest to kosmetyka. Zwykla pozycja menu nie niesie stanu, wiec
@@ -125,9 +127,13 @@ def build_menus() -> tuple[Menu, ...]:
             # "_Biblioteka" Ctrl+L -- pozycji tej w porcie brakowalo, wiec
             # z Ulubionych i Historii nie bylo jak wrocic jednym gestem.
             MenuItem("&Biblioteka", Action.VIEW_LIBRARY, shortcut="Ctrl+L"),
-            MenuItem("&Foldery Biblioteki", Action.VIEW_FOLDERS, shortcut="Alt+1"),
+            # Alt+1/Alt+2 maja inne znaczenie w „Nowych odcinkach”. Obie
+            # pozycje musza wiec tylko POKAZYWAC skrot, nie rejestrowac
+            # akceleratora okna, ktory wyprzedzilby resolver kontekstowy.
+            MenuItem("&Foldery Biblioteki", Action.VIEW_FOLDERS,
+                     shortcut="Alt+1", accelerator=False),
             MenuItem("&Wszystkie pliki alfabetycznie", Action.VIEW_ALL_FILES,
-                     shortcut="Alt+2"),
+                     shortcut="Alt+2", accelerator=False),
             MenuItem("&Ulubione", Action.VIEW_FAVORITES, shortcut="Ctrl+U"),
             MenuItem("&Playlisty", Action.VIEW_PLAYLISTS, shortcut="Ctrl+P"),
             MenuItem("Pr&esety…", Action.VIEW_PRESETS, shortcut="Ctrl+Alt+P"),
@@ -364,6 +370,22 @@ def build_menus() -> tuple[Menu, ...]:
                      needs_podcast_session=True),
             MenuItem("Po&brane", Action.VIEW_PODCAST_DOWNLOADS,
                      needs_podcast_session=True),
+            SEPARATOR,
+            # Skroty sa kontekstowe. Nie robimy z nich akceleratorow okna:
+            # wyszarzone poza skrzynka podcastow Alt+1/Alt+2 polknelyby wtedy
+            # prawidlowe polecenia Biblioteki lokalnej przed resolverem.
+            MenuItem("Według &dodania — najnowsze najpierw",
+                     Action.SORT_PODCAST_INBOX_ADDED, shortcut="Alt+1",
+                     accelerator=False, checkable=True,
+                     needs_podcast_inbox=True),
+            MenuItem("&Alfabetycznie",
+                     Action.SORT_PODCAST_INBOX_ALPHABETICAL, shortcut="Alt+2",
+                     accelerator=False, checkable=True,
+                     needs_podcast_inbox=True),
+            MenuItem("Według podcast&u",
+                     Action.SORT_PODCAST_INBOX_BY_PODCAST, shortcut="Alt+3",
+                     accelerator=False, checkable=True,
+                     needs_podcast_inbox=True),
             SEPARATOR,
             # ``accelerator=False``: ZMIERZONE na zywym GUI (statusclip-1).
             # Z akceleratorem pozycja byla WYLACZONA na liscie (nic nie gralo),

@@ -98,6 +98,7 @@ from amc_wx_lite.profile_layout import private_sandbox, read_only_mirror
 from amc_wx_lite.shortcuts import (
     LIST_VIEW,
     PLAYER_VIEW,
+    PODCAST_INBOX_LIST_VIEW,
     RADIO_LIST_VIEW,
     RADIO_PLAYER_VIEW,
     Action,
@@ -634,7 +635,13 @@ def test_menu_shortcut_labels_still_tell_the_truth() -> None:
     liczy sie, czy akcja z menu jest W OGOLE pod tym klawiszem.
     """
     real: dict[str, set[Action]] = {}
-    for table in (LIST_VIEW, RADIO_LIST_VIEW, RADIO_PLAYER_VIEW, PLAYER_VIEW):
+    for table in (
+        PODCAST_INBOX_LIST_VIEW,
+        LIST_VIEW,
+        RADIO_LIST_VIEW,
+        RADIO_PLAYER_VIEW,
+        PLAYER_VIEW,
+    ):
         for chord, action in table.items():
             real.setdefault(chord, set()).add(action)
     for menu in menu_model.build_menus():

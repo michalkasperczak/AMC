@@ -31,6 +31,9 @@ NEW_ACTIONS = (
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_PODCAST_IN_PROGRESS,
     Action.VIEW_PODCAST_DOWNLOADS,
+    Action.SORT_PODCAST_INBOX_ADDED,
+    Action.SORT_PODCAST_INBOX_ALPHABETICAL,
+    Action.SORT_PODCAST_INBOX_BY_PODCAST,
 )
 
 
@@ -163,6 +166,27 @@ def test_empty_recording_view_speaks_exact_count_after_native_empty_event() -> N
     source = ast.get_source_segment(SOURCE, method) or ""
     assert "CallLater" in source
     assert "self.announcer.say" in source
+
+
+def test_podcast_inbox_sort_reuses_the_source_and_preserves_selection() -> None:
+    method = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_set_podcast_inbox_sort"
+    )
+    source = ast.get_source_segment(SOURCE, method) or ""
+    assert "preferred_id=state.model.selected_id" in source
+    assert "self.state.podcast_inbox_sort_mode = mode" in source
+    assert "self._open_podcast_aggregate" in source
+
+    loader = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_open_podcast_aggregate"
+    )
+    loader_source = ast.get_source_segment(SOURCE, loader) or ""
+    assert "sort_mode=sort_mode_override" in loader_source
+    assert "self.announcer.say(intent.announcement)" in loader_source
 
 
 def test_play_track_forwards_the_bookmark_position() -> None:

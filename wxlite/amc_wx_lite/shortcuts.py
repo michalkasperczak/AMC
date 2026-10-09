@@ -195,6 +195,9 @@ class Action(Enum):
     VIEW_PODCAST_INBOX = "podcasts.inbox"
     VIEW_PODCAST_IN_PROGRESS = "podcasts.inProgress"
     VIEW_PODCAST_DOWNLOADS = "podcasts.downloads"
+    SORT_PODCAST_INBOX_ADDED = "podcasts.inbox.sort.added"
+    SORT_PODCAST_INBOX_ALPHABETICAL = "podcasts.inbox.sort.alphabetical"
+    SORT_PODCAST_INBOX_BY_PODCAST = "podcasts.inbox.sort.byPodcast"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -511,11 +514,29 @@ for _table in (LIST_VIEW, PLAYER_VIEW):
     _table["Ctrl+Shift+I"] = Action.VIEW_PODCAST_IN_PROGRESS
 
 
-def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action | None:
+PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
+    "Alt+1": Action.SORT_PODCAST_INBOX_ADDED,
+    "Alt+2": Action.SORT_PODCAST_INBOX_ALPHABETICAL,
+    "Alt+3": Action.SORT_PODCAST_INBOX_BY_PODCAST,
+}
+
+
+def resolve(
+    chord: Chord,
+    *,
+    player_view: bool,
+    radio_session: bool,
+    podcast_inbox: bool = False,
+) -> Action | None:
     """Znajdz akcje dla klawisza w DANYM widoku. Brak wpisu = klawisz zostaje
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
     table = PLAYER_VIEW if player_view else LIST_VIEW
     canonical = chord.canonical
+    # W „Nowych odcinkach” te same cyfry co w glownym AMC zmieniaja
+    # kolejnosc. Poza tym jednym widokiem Alt+1/Alt+2 zachowuja lokalne
+    # znaczenie Folderow/Wszystkich plikow, a Alt+3 pozostaje wolne.
+    if not player_view and podcast_inbox and canonical in PODCAST_INBOX_LIST_VIEW:
+        return PODCAST_INBOX_LIST_VIEW[canonical]
     # Widoki Radia sa dostepne takze z odtwarzacza, bez wychodzenia Escape.
     # Ta sama akcja co na liscie/menu; nie przenosimy edycji stacji do PLAYER.
     if radio_session and canonical in ("Ctrl+L", "Ctrl+U", "Ctrl+H"):
@@ -606,6 +627,11 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_PODCAST_INBOX: "Nowe odcinki i materiały",
         Action.VIEW_PODCAST_IN_PROGRESS: "W trakcie słuchania",
         Action.VIEW_PODCAST_DOWNLOADS: "Pobrane odcinki podcastów",
+        Action.SORT_PODCAST_INBOX_ADDED: (
+            "Nowe odcinki: według dodania, najnowsze na początku"
+        ),
+        Action.SORT_PODCAST_INBOX_ALPHABETICAL: "Nowe odcinki: alfabetycznie",
+        Action.SORT_PODCAST_INBOX_BY_PODCAST: "Nowe odcinki: według podcastu",
         Action.VIEW_PRESETS: "Pokaż presety aktywnej sesji",
         Action.ASSIGN_PRESET: "Utwórz preset lub przypisz bieżący element",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
@@ -654,7 +680,13 @@ def describe() -> list[tuple[str, str]]:
 
     seen: set[Action] = set()
     out: list[tuple[str, str]] = []
-    for table in (LIST_VIEW, RADIO_LIST_VIEW, RADIO_PLAYER_VIEW, PLAYER_VIEW):
+    for table in (
+        PODCAST_INBOX_LIST_VIEW,
+        LIST_VIEW,
+        RADIO_LIST_VIEW,
+        RADIO_PLAYER_VIEW,
+        PLAYER_VIEW,
+    ):
         for chord, action in table.items():
             if action in seen:
                 continue

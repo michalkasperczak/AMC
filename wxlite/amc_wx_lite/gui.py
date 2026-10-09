@@ -91,6 +91,9 @@ from .podcast_source import (
     PAGE_SIZE as PODCAST_PAGE_SIZE,
     PodcastProfileError,
     PodcastSource,
+    SORT_ADDED_NEWEST,
+    SORT_ALPHABETICAL,
+    SORT_CUSTOM,
     subscription_rows,
 )
 from .quick_info import (
@@ -1767,6 +1770,12 @@ class LiteFrame(wx.Frame):
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
         self._podcast_loaded_counts: dict[str, int] = {}
+        # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
+        # pierwszego odczytu widoku trzymamy bezpieczny domysl; wynik strony
+        # niesie potem faktycznie uzyty tryb i aktualizuje zaznaczenie menu.
+        self._podcast_inbox_sort_mode = (
+            state.podcast_inbox_sort_mode or SORT_ADDED_NEWEST
+        )
         self.navigator.restore(state.navigation)
 
         # Brama zna zycie okna, wiec spozniony wynik nie dotknie zniszczonego
@@ -2062,12 +2071,24 @@ class LiteFrame(wx.Frame):
         # korzysta ``_announce_time`` -- nie po wlasnym liczniku.
         playing = bool(self._last_status)
         session = self.navigator.sessions[self.navigator.active]
+        podcast_inbox = (
+            podcasts
+            and session.view is View.LIST
+            and session.library_view is LibraryView.PODCAST_INBOX
+        )
         has_row = session.model.selected_row is not None
+        podcast_sort_actions = {
+            Action.SORT_PODCAST_INBOX_ADDED: SORT_ADDED_NEWEST,
+            Action.SORT_PODCAST_INBOX_ALPHABETICAL: SORT_ALPHABETICAL,
+            Action.SORT_PODCAST_INBOX_BY_PODCAST: SORT_CUSTOM,
+        }
         for item, entry in self._menu_items:
             enabled = True
             if entry.needs_radio_session and not radio:
                 enabled = False
             if entry.needs_podcast_session and not podcasts:
+                enabled = False
+            if entry.needs_podcast_inbox and not podcast_inbox:
                 enabled = False
             if entry.needs_playback and not playing:
                 enabled = False
@@ -2075,6 +2096,11 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
+            if entry.checkable and entry.action in podcast_sort_actions:
+                item.Check(
+                    podcast_sort_actions[entry.action]
+                    == self._podcast_inbox_sort_mode
+                )
     def _bind_list(self, control: MediaListCtrl) -> None:
         """Wspolne powiazania klawiatury i wyboru dla list plikow i radia."""
         control.Bind(wx.EVT_KEY_DOWN, self._on_key)
@@ -2933,11 +2959,21 @@ class LiteFrame(wx.Frame):
         chord = chord_from_event(event)
         player = self.navigator.view is View.PLAYER
         radio = self.navigator.active is SessionId.RADIO
+        podcast_inbox = (
+            not player
+            and self.navigator.active is SessionId.PODCASTS
+            and self.navigator.session.library_view is LibraryView.PODCAST_INBOX
+        )
         # WPF czyści aktywny filtr także wtedy, gdy fokus jest już na wynikach.
         if not player and chord.canonical == "Escape" and self.filter_box.GetValue():
             self._clear_filter_and_return()
             return
-        action = resolve(chord, player_view=player, radio_session=radio)
+        action = resolve(
+            chord,
+            player_view=player,
+            radio_session=radio,
+            podcast_inbox=podcast_inbox,
+        )
         if action is None:
             # Klawisz NIE jest nasz: oddajemy go kontrolce, zeby natywna
             # nawigacja i czytnik ekranu dzialaly bez zmian.
@@ -3100,6 +3136,12 @@ class LiteFrame(wx.Frame):
             self._show_podcast_in_progress()
         elif action is Action.VIEW_PODCAST_DOWNLOADS:
             self._show_podcast_downloads()
+        elif action in (
+            Action.SORT_PODCAST_INBOX_ADDED,
+            Action.SORT_PODCAST_INBOX_ALPHABETICAL,
+            Action.SORT_PODCAST_INBOX_BY_PODCAST,
+        ):
+            self._set_podcast_inbox_sort(action)
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3722,6 +3764,54 @@ class LiteFrame(wx.Frame):
             OpenPodcastAggregateView(LibraryView.PODCAST_DOWNLOADS)
         )
 
+    def _set_podcast_inbox_sort(self, action: Action) -> None:
+        """Alt+1/2/3 in the podcast inbox, with a private durable choice."""
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        if (
+            self.navigator.active is not SessionId.PODCASTS
+            or state.view is not View.LIST
+            or state.library_view is not LibraryView.PODCAST_INBOX
+        ):
+            self.announcer.say(
+                "Sortowanie Alt+1, Alt+2 i Alt+3 działa w Nowych odcinkach"
+            )
+            return
+
+        choices = {
+            Action.SORT_PODCAST_INBOX_ADDED: (
+                SORT_ADDED_NEWEST,
+                "Według dodania, najnowsze na początku",
+            ),
+            Action.SORT_PODCAST_INBOX_ALPHABETICAL: (
+                SORT_ALPHABETICAL,
+                "Alfabetycznie",
+            ),
+            Action.SORT_PODCAST_INBOX_BY_PODCAST: (
+                SORT_CUSTOM,
+                "Według podcastu",
+            ),
+        }
+        choice = choices.get(action)
+        if choice is None:
+            return
+        mode, label = choice
+        previous_override = self.state.podcast_inbox_sort_mode
+        previous_effective = self._podcast_inbox_sort_mode
+        self.state.podcast_inbox_sort_mode = mode
+        self._podcast_inbox_sort_mode = mode
+        if not self._save_state():
+            self.state.podcast_inbox_sort_mode = previous_override
+            self._podcast_inbox_sort_mode = previous_effective
+            self._refresh_menu_state()
+            return
+
+        self._refresh_menu_state()
+        self._open_podcast_aggregate(OpenPodcastAggregateView(
+            LibraryView.PODCAST_INBOX,
+            preferred_id=state.model.selected_id,
+            announcement=label,
+        ))
+
     def _open_podcast_aggregate(self, intent: OpenPodcastAggregateView) -> None:
         if intent.view not in (
             LibraryView.PODCAST_INBOX,
@@ -3741,11 +3831,13 @@ class LiteFrame(wx.Frame):
             if intent.load_more
             else max(PODCAST_PAGE_SIZE, previous_count)
         )
+        sort_mode_override = self.state.podcast_inbox_sort_mode
 
         def work():
             if intent.view is LibraryView.PODCAST_INBOX:
                 return self.podcasts.inbox(
                     loaded_count=requested,
+                    sort_mode=sort_mode_override,
                     collation=getattr(self, "_collation", None),
                 )
             if intent.view is LibraryView.PODCAST_IN_PROGRESS:
@@ -3759,6 +3851,15 @@ class LiteFrame(wx.Frame):
             ):
                 return
             self._podcast_loaded_counts[key] = page.loaded_count
+            if (
+                intent.view is LibraryView.PODCAST_INBOX
+                and page.sort_mode in (
+                    SORT_ADDED_NEWEST,
+                    SORT_ALPHABETICAL,
+                    SORT_CUSTOM,
+                )
+            ):
+                self._podcast_inbox_sort_mode = page.sort_mode
             preferred = intent.preferred_id
             if intent.load_more and previous_count < len(page.rows):
                 candidate = page.rows[previous_count]
@@ -3781,7 +3882,19 @@ class LiteFrame(wx.Frame):
                 order_matches_amc=page.order_matches_amc,
             )
             count = sum(1 for row in page.rows if row.kind == "episode")
-            if self.navigator.active is SessionId.PODCASTS and count == 0:
+            if self.navigator.active is SessionId.PODCASTS and intent.announcement:
+                # Przy zmianie porzadku najwazniejsza jest nowa wlasciwosc,
+                # nie powtorny naglowek ani techniczna wartosc modelu.
+                self._sync_views()
+                if count:
+                    self.announcer.say(intent.announcement)
+                else:
+                    message = next(
+                        (event.text for event in events if isinstance(event, Announce)),
+                        heading,
+                    )
+                    self.announcer.say(f"{intent.announcement}, {message}")
+            elif self.navigator.active is SessionId.PODCASTS and count == 0:
                 self._sync_views()
                 message = next(
                     (event.text for event in events if isinstance(event, Announce)),

@@ -7,7 +7,14 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from amc_wx_lite.podcast_source import PAGE_SIZE, PodcastSource, subscription_rows
+from amc_wx_lite.podcast_source import (
+    PAGE_SIZE,
+    SORT_ADDED_NEWEST,
+    SORT_ALPHABETICAL,
+    SORT_CUSTOM,
+    PodcastSource,
+    subscription_rows,
+)
 from amc_wx_lite.profile_layout import private_sandbox
 
 
@@ -220,6 +227,46 @@ def test_inbox_contains_only_new_unplayed_library_items_with_parent_labels() -> 
         spoken = " ".join(row.title + " " + row.detail for row in page.rows)
         assert "new-rss" not in spoken and "new-yt" not in spoken
         assert page.order_matches_amc
+
+
+def test_inbox_supports_the_three_orders_from_the_full_amc() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(path, item_id="rss-new", subscription_id="rss-id",
+                        title="Zebra", ordinal=0, published=300)
+        _insert_episode(path, item_id="yt-middle", subscription_id="yt-id",
+                        title="Alfa", ordinal=1, published=200)
+        _insert_episode(path, item_id="rss-old", subscription_id="rss-id",
+                        title="Beta", ordinal=2, published=100)
+        source = PodcastSource(private_sandbox(base))
+        collation = _ExactCasefoldCollation()
+
+        added = source.inbox(
+            sort_mode=SORT_ADDED_NEWEST, collation=collation
+        )
+        alphabetical = source.inbox(
+            sort_mode=SORT_ALPHABETICAL, collation=collation
+        )
+        by_podcast = source.inbox(
+            sort_mode=SORT_CUSTOM, collation=collation
+        )
+
+        assert [row.item_id for row in added.rows] == [
+            "rss-new", "yt-middle", "rss-old"
+        ]
+        assert [row.item_id for row in alphabetical.rows] == [
+            "yt-middle", "rss-old", "rss-new"
+        ]
+        assert [row.item_id for row in by_podcast.rows] == [
+            "rss-new", "rss-old", "yt-middle"
+        ]
+        assert added.sort_mode == SORT_ADDED_NEWEST
+        assert alphabetical.sort_mode == SORT_ALPHABETICAL
+        assert by_podcast.sort_mode == SORT_CUSTOM
+        assert all(page.order_matches_amc for page in (
+            added, alphabetical, by_podcast
+        ))
 
 
 def test_in_progress_is_ordered_by_resume_position_then_date() -> None:

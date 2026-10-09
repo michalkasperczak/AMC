@@ -119,6 +119,38 @@ def test_ctrl_i_is_global_podcast_inbox_and_radio_import_uses_ctrl_o() -> None:
     assert resolve(
         Chord("O", ctrl=True), player_view=True, radio_session=True
     ) is Action.STATION_IMPORT
+
+
+def test_alt_digits_sort_only_inside_the_podcast_inbox() -> None:
+    expected = {
+        "1": Action.SORT_PODCAST_INBOX_ADDED,
+        "2": Action.SORT_PODCAST_INBOX_ALPHABETICAL,
+        "3": Action.SORT_PODCAST_INBOX_BY_PODCAST,
+    }
+    for key, action in expected.items():
+        assert resolve(
+            Chord(key, alt=True),
+            player_view=False,
+            radio_session=False,
+            podcast_inbox=True,
+        ) is action
+
+    # Poza tym widokiem dotychczasowe znaczenia lokalne nie moga zniknac.
+    assert resolve(
+        Chord("1", alt=True), player_view=False, radio_session=False
+    ) is Action.VIEW_FOLDERS
+    assert resolve(
+        Chord("2", alt=True), player_view=False, radio_session=False
+    ) is Action.VIEW_ALL_FILES
+    assert resolve(
+        Chord("3", alt=True), player_view=False, radio_session=False
+    ) is None
+    assert resolve(
+        Chord("1", alt=True),
+        player_view=True,
+        radio_session=False,
+        podcast_inbox=True,
+    ) is None
     assert resolve(
         Chord("O", ctrl=True), player_view=False, radio_session=False
     ) is Action.OPEN_FILE_DIALOG

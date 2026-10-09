@@ -66,6 +66,11 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
     także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
     początku; Enter odtwarza lokalny plik zwykłym torem silnika C#.
+12. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
+    `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
+    Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek
+    według jego ID i przeżywa restart wxPython. Zapis trafia wyłącznie do
+    prywatnego stanu `AMC-wx-Lite`; wspólny `state.json` pozostaje nietknięty.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -77,8 +82,9 @@ Zapis postępu jest wąską transakcją jednego odcinka. Host odmawia drugiemu
 oknu wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne
 AMC, które mogłoby później nadpisać całą migawkę. Dodawanie, usuwanie,
 odświeżanie i pobieranie nie są jeszcze przeniesione do wxPython. Widoki
-„Nowe odcinki i materiały”, „W trakcie słuchania” oraz „Pobrane” są już
-przeniesione; pozostałe widoki specjalne nadal czekają.
+„Nowe odcinki i materiały” wraz z trzema trybami sortowania, „W trakcie
+słuchania” oraz „Pobrane” są już przeniesione; pozostałe widoki specjalne
+nadal czekają.
 
 Test bez danych użytkownika:
 

@@ -250,6 +250,9 @@ class OpenPodcastAggregateView:
     view: LibraryView
     preferred_id: str | None = None
     load_more: bool = False
+    #: Jednorazowy kontekst po zmianie sortowania; zawiera wylacznie jawna,
+    #: polska etykiete, nigdy wartosc modelu ani identyfikator komendy.
+    announcement: str = ""
 
 
 @dataclass(slots=True)
