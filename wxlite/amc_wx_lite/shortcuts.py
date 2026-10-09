@@ -213,6 +213,7 @@ class Action(Enum):
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     SHOW_PODCAST_DESCRIPTION = "podcasts.description"
+    CURRENT_RADIO_BROADCAST_INFORMATION = "radio.currentBroadcastInformation"
     GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
     TOGGLE_PODCAST_FAVORITE = "podcasts.favorite.toggle"
     VIEW_ALL_FILES = "library.allFiles"
@@ -434,6 +435,7 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     # Ctrl+R dziala na liscie i w odtwarzaczu; Shift+Spacja steruje pauza.
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
+    "Alt+D": Action.CURRENT_RADIO_BROADCAST_INFORMATION,
 }
 
 # Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
@@ -444,6 +446,7 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
     "T": Action.RECORD_SPLIT,
+    "Alt+D": Action.CURRENT_RADIO_BROADCAST_INFORMATION,
 }
 
 # Skroty W WIDOKU ODTWARZACZA. Tu strzalki sa wolne, wiec przejmuja role
@@ -669,6 +672,9 @@ def describe() -> list[tuple[str, str]]:
         Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",
         Action.SAVE_PODCAST_EPISODE_AS: "Zapisz jeden odcinek podcastu jako plik",
         Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
+        Action.CURRENT_RADIO_BROADCAST_INFORMATION: (
+            "Odczytaj bieżącą audycję lub utwór w Radiu"
+        ),
         Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",
         Action.TOGGLE_PODCAST_FAVORITE: (
             "Dodaj zaznaczone podcasty lub odcinki do ulubionych albo je usuń"

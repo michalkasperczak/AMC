@@ -228,6 +228,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["files.play"] = (request, events) => PlayFile(request.Args, events),
             ["media.play"] = (request, events) => PlayMedia(request.Args, events),
             ["radio.play"] = (request, events) => PlayStation(request.Args, events),
+            ["radio.currentBroadcastInformation"] = (_, _) =>
+                CurrentRadioBroadcastInformation(),
             ["radio.recordingToggle"] = (request, events) =>
                 _recordings.Toggle(request.Args, events),
             ["radio.recordingPauseToggle"] = (request, _) =>
@@ -1221,6 +1223,40 @@ internal sealed class LiteEngineHandlers : IDisposable
             else _files.Pause();
             return new { paused = true, engine = _activeEngine, queue = false };
         }
+    }
+
+    /// <summary>
+    /// Tekst Alt+D sklada host C# tym samym formatterem parametrow audio, co
+    /// pelne AMC. Frontend dostaje gotowa, celowa etykiete dla uzytkownika,
+    /// nigdy reprezentacje obiektu ani identyfikator urzadzenia lub stacji.
+    /// </summary>
+    private object CurrentRadioBroadcastInformation()
+    {
+        MediaItem? item;
+        lock (_gate)
+        {
+            item = _activeEngine == "radio" ? _radioItem : null;
+        }
+        if (item is null)
+        {
+            throw new LiteRequestException("Najpierw uruchom stację radiową.");
+        }
+
+        var parts = new List<string> { item.Title };
+        var audio = AudioParametersFormatter.FormatCompact(item);
+        if (!string.IsNullOrWhiteSpace(audio)) parts.Add(audio);
+
+        var streamTitle = _radio.CurrentStreamTitle;
+        if (!string.IsNullOrWhiteSpace(streamTitle)
+            && !NowPlayingParts.SameValue(item.Title, streamTitle))
+        {
+            parts.Add(streamTitle.Trim());
+        }
+        else
+        {
+            parts.Add("brak nazwy bieżącej audycji lub utworu");
+        }
+        return new { text = string.Join(", ", parts) };
     }
 
     private object StopAll()

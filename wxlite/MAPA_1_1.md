@@ -352,10 +352,16 @@ własnej normalizacji diakrytyków.
   „Odtwórz następny” przed częścią zwykłą. `Enter`, `Page Up`, `Page Down`,
   stronicowanie i `Delete` działają bez ujawniania technicznych identyfikatorów;
   usunięcie czyści flagi odcinka oraz wszystkie trzy tabele kolejności jedną
-  transakcją C#. Do przeniesienia nadal pozostają polecenia dodawania odcinka
-  do kolejki i „Odtwórz następny” oraz automatyczne zużywanie kolejki po
-  naturalnym końcu odcinka.
-- Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
+  transakcją C#. `Ctrl+Shift+Q` przyrostowo dodaje lub usuwa całe zaznaczenie
+  ze zwykłej kolejki, a `Ctrl+Shift+Enter` przełącza blok „Odtwórz następny”.
+  Host zachowuje stabilny porządek obu bloków, zapisuje go i zużywa kolejkę po
+  naturalnym końcu odcinka bez przebudowy toru odtwarzania.
+- Radio ma działające nagrywanie ręczne i w tle, historię, podział pliku,
+  harmonogramy wykonywane przez host C# oraz osobne komunikaty stanu. `Alt+D`
+  na liście i w odtwarzaczu czyta nazwę stacji, dostępne parametry audio oraz
+  bieżącą audycję lub utwór tym samym formatterem co główne AMC.
+- Do dalszego portu pozostają pozostałe sesje i ich pełna obsługa (TIDAL,
+  WiiM, Sonos i Spotify), dalsze ustawienia oraz pozostała redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.
 

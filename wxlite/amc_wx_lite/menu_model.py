@@ -314,6 +314,14 @@ def build_menus() -> tuple[Menu, ...]:
                      shortcut="Alt+Shift+R"),
             MenuItem("Harmonogra&m nagrywania", Action.MANAGE_RADIO_SCHEDULES,
                      shortcut="Ctrl+Shift+H"),
+            SEPARATOR,
+            MenuItem(
+                "Bieżąca audycja lub u&twór",
+                Action.CURRENT_RADIO_BROADCAST_INFORMATION,
+                shortcut="Alt+D",
+                accelerator=False,
+                needs_radio_session=True,
+            ),
         ),
     )
 

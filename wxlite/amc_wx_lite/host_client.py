@@ -738,6 +738,10 @@ class LiteHostClient:
     def radio_recording_status(self) -> Any:
         return self.call("radio.recordingStatus", timeout=5.0)
 
+    def current_radio_broadcast_information(self) -> Any:
+        """Tekst Alt+D zlozony wspolnym formatterem hosta C# AMC."""
+        return self.call("radio.currentBroadcastInformation", timeout=5.0)
+
     def radio_recording_history(self) -> Any:
         """Historia biezacego procesu hosta; profil WPF pozostaje read-only."""
         return self.call("radio.recordingHistory", timeout=5.0)

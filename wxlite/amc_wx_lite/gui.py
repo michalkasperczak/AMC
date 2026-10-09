@@ -3603,6 +3603,8 @@ class LiteFrame(wx.Frame):
             self._save_podcast_episode_as()
         elif action is Action.SHOW_PODCAST_DESCRIPTION:
             self._show_podcast_description()
+        elif action is Action.CURRENT_RADIO_BROADCAST_INFORMATION:
+            self._announce_current_radio_broadcast_information()
         elif action is Action.GO_TO_RELATED_PODCAST:
             self._go_to_related_podcast()
         elif action is Action.TOGGLE_PODCAST_FAVORITE:
@@ -7727,6 +7729,27 @@ class LiteFrame(wx.Frame):
         if station is None:
             self.announcer.say("Wybierz stację radiową")
         return station
+
+    def _announce_current_radio_broadcast_information(self) -> None:
+        """Alt+D: stacja, parametry audio i aktualna audycja albo utwor."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik odtwarzania jest niedostępny")
+            return
+
+        def done(payload: object) -> None:
+            data = payload if isinstance(payload, dict) else {}
+            text = str(data.get("text") or "").strip()
+            self.announcer.say(
+                text or "Brak informacji o bieżącej audycji lub utworze"
+            )
+
+        self.runner.submit(
+            "radio-current-broadcast",
+            client.current_radio_broadcast_information,
+            done,
+            lambda error: self.announcer.say(str(error)),
+        )
 
     def _toggle_radio_recording(self) -> None:
         client = self.client

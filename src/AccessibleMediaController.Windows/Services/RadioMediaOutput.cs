@@ -79,6 +79,21 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         }
     }
 
+    /// <summary>
+    /// Biezaca nazwa audycji albo utworu przekazana przez strumien ICY/HLS.
+    /// Zwracamy wyłącznie tekst uzytkowy; identyfikatory dekodera i techniczny
+    /// stan potoku pozostaja wewnatrz silnika.
+    /// </summary>
+    public string? CurrentStreamTitle
+    {
+        get
+        {
+            RadioPipeline? pipeline;
+            lock (_gate) pipeline = _pipeline;
+            return pipeline?.StreamTitle;
+        }
+    }
+
     public TimeSpan Position
     {
         get

@@ -281,6 +281,16 @@ def test_profile_mutations_use_narrow_named_operations() -> None:
         client.close()
 
 
+def test_current_radio_information_uses_a_narrow_read_only_operation() -> None:
+    client = make_client()
+    try:
+        result = client.current_radio_broadcast_information()
+        assert result["op"] == "radio.currentBroadcastInformation"
+        assert result["args"] == {}
+    finally:
+        client.close()
+
+
 def test_state_json_path_is_passed_explicitly_to_the_host() -> None:
     client = LiteHostClient(
         "host.exe",

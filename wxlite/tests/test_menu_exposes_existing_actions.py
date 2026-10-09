@@ -173,9 +173,11 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     duplicates = {key: values for key, values in by_shortcut.items() if len(values) > 1}
     # F2/Delete są teraz tak samo kontekstowe jak w pełnym AMC: ogólna
     # pozycja Biblioteki obsługuje pliki i podcasty, a menu Radio ma bardziej
-    # szczegółową nazwę tej samej intencji dla stacji.
+    # szczegółową nazwę tej samej intencji dla stacji. Alt+D również jest
+    # kontekstowe: w Radiu czyta bieżącą audycję, a w Podcastach pełny opis.
     assert set(duplicates) <= {
-        "Ctrl+O", "Ctrl+N", "Ctrl+D", "Ctrl+S", "Alt+1", "Alt+2", "F2", "Delete"
+        "Ctrl+O", "Ctrl+N", "Ctrl+D", "Ctrl+S", "Alt+1", "Alt+2", "Alt+D",
+        "F2", "Delete"
     }, duplicates
     for item in duplicates.get("Ctrl+O", []):
         assert not item.accelerator, (

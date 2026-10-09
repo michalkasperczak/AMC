@@ -28,6 +28,24 @@ przyjęcie terminu, samoczynny start, aktywny stan, zapis MP3, historię oraz
 wyłączenie wykonanego planu jednorazowego. Próba z rzeczywistym LiteHost i
 zapisaną stacją została zaliczona 9 października 2026 r.
 
+## Radio — bieżąca audycja lub utwór pod Alt+D
+
+W sesji Radia `Alt+D` działa zarówno na liście, jak i w odtwarzaczu. Host C#
+składa komunikat w tej samej kolejności co główne AMC: nazwa stacji, dostępne
+parametry audio, a następnie nazwa audycji lub utworu przekazana przez
+strumień. Gdy strumień nie podaje nazwy, komunikat kończy się jednoznacznym
+„brak nazwy bieżącej audycji lub utworu”. W Podcastach ten sam skrót nadal
+otwiera pełny opis podcastu albo odcinka.
+
+Sprawdzenie ręczne:
+
+1. Uruchom stację, która podaje tytuły ICY, i naciśnij `Alt+D` na liście.
+2. Przejdź do odtwarzacza klawiszem `F6` i ponów `Alt+D`.
+3. W obu miejscach komunikat powinien zaczynać się nazwą stacji, nie
+   identyfikatorem ani adresem. Jeżeli są znane, parametry mają brzmieć np.
+   „192 kb/s, 44,1 kHz”, a na końcu ma być bieżący tytuł.
+4. Przejdź do Podcastów i sprawdź, że `Alt+D` nadal pokazuje pełny opis.
+
 ## Podcasty i YouTube — odczyt, odtwarzanie i trwały postęp
 
 Skrót `Ctrl+3` przełącza na trzecią sesję „Podcasty i YouTube”. Lista czyta
@@ -404,7 +422,7 @@ Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Te
 
 ## Znane ograniczenia
 
-Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich funkcji zapisu, usług i ustawień oryginału. Kolejka żywego silnika DZIAŁA (Ctrl+Q oddaje `queue.status`, naturalne przejścia zmierzone), ale kolejność po `queue.set` NIE jest jeszcze zapisywana do profilu — trwały pisarz pozostaje poza zakresem. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
+Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich usług i ustawień oryginału. Kolejka żywego silnika DZIAŁA (`Ctrl+Q` pokazuje stan, `Ctrl+Shift+Q` zmienia zwykłą kolejkę, a `Ctrl+Shift+Enter` blok „Odtwórz następny”); naturalne przejścia i trwały zapis prywatnej kolejki zostały zmierzone. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
 
