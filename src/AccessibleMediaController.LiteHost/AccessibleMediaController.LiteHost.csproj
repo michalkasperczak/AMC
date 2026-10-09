@@ -138,6 +138,15 @@
              Link="Engine\PodcastEpisodeDownloader.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeMediaDownloader.cs"
              Link="Engine\YouTubeMediaDownloader.cs" />
+    <!-- Katalog TIDAL: dokladnie ten sam klient, odswiezanie tokenu i
+         Menedzer poswiadczen co w glownym AMC. Bez WPF i bez kopiowania
+         sekretow do Pythona albo protokolu. -->
+    <Compile Include="..\AccessibleMediaController.Windows\Services\TidalIntegrationService.cs"
+             Link="Engine\TidalIntegrationService.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\TidalCredentialStore.cs"
+             Link="Engine\TidalCredentialStore.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\TidalOAuthClient.cs"
+             Link="Engine\TidalOAuthClient.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AccessibleMediaController.Windows\Services\PlaybackTempoStream.cs" Link="Engine\PlaybackTempoStream.cs" />

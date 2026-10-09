@@ -81,6 +81,7 @@ internal static class Program
         }
 
         var profileMutations = OpenProfileMutationStore(args);
+        using var tidalCatalog = OpenTidalCatalog(args);
 
         var bookmarkStore = OpenBookmarkStore(args);
         using var handlers = new LiteEngineHandlers(
@@ -88,7 +89,8 @@ internal static class Program
             store,
             bookmarkStore,
             podcastStore,
-            profileMutations);
+            profileMutations,
+            tidalCatalog);
         // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
         // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
         // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
@@ -119,7 +121,10 @@ internal static class Program
                 LitePodcastAddCoordinator.Operation,
                 // Import pobiera maksymalnie cztery RSS równolegle. Nie może
                 // zatrzymać transportu ani komunikatów o nagrywaniu.
-                LitePodcastOpmlCoordinator.ImportOperation
+                LitePodcastOpmlCoordinator.ImportOperation,
+                // Oficjalny katalog TIDAL wykonuje siec i odswiezenie tokenu,
+                // ale nie moze blokowac transportu ani nagrywania radia.
+                LiteTidalCatalogContract.ContainerItemsOperation
             ]);
 
         Console.Error.WriteLine(
@@ -227,21 +232,27 @@ internal static class Program
 
     private static LiteProfileMutationStore? OpenProfileMutationStore(string[] args)
     {
-        static string? ReadPath(string[] values, string name)
-        {
-            for (var index = 0; index < values.Length - 1; index++)
-            {
-                if (string.Equals(values[index], name, StringComparison.Ordinal))
-                    return Path.GetFullPath(values[index + 1]);
-            }
-            return null;
-        }
-
-        var library = ReadPath(args, "--library-db");
-        var podcasts = ReadPath(args, "--podcasts-db");
-        var state = ReadPath(args, "--state-json");
+        var library = ReadArgumentPath(args, "--library-db");
+        var podcasts = ReadArgumentPath(args, "--podcasts-db");
+        var state = ReadArgumentPath(args, "--state-json");
         return library is not null && podcasts is not null && state is not null
             ? new LiteProfileMutationStore(library, podcasts, state)
             : null;
+    }
+
+    private static LiteTidalCatalogCoordinator? OpenTidalCatalog(string[] args)
+    {
+        var state = ReadArgumentPath(args, "--state-json");
+        return state is null ? null : new LiteTidalCatalogCoordinator(state);
+    }
+
+    private static string? ReadArgumentPath(string[] values, string name)
+    {
+        for (var index = 0; index < values.Length - 1; index++)
+        {
+            if (string.Equals(values[index], name, StringComparison.Ordinal))
+                return Path.GetFullPath(values[index + 1]);
+        }
+        return null;
     }
 }

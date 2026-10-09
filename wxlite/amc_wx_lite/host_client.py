@@ -404,6 +404,32 @@ class LiteHostClient:
         """Zapisz żywą pozycję odcinka przez wąską operację hosta C#."""
         return self.call("podcast.checkpoint", timeout=15.0)
 
+    def tidal_container_items(
+        self,
+        *,
+        item_id: str,
+        external_id: str,
+        title: str,
+        kind: str,
+        artist: str = "",
+        public_uri: str | None = None,
+        artist_section: str | None = None,
+    ) -> Any:
+        """Read a TIDAL container without moving credentials through Python."""
+        args: dict[str, Any] = {
+            "itemId": item_id,
+            "externalId": external_id,
+            "title": title,
+            "kind": kind,
+        }
+        if artist:
+            args["artist"] = artist
+        if public_uri:
+            args["publicUri"] = public_uri
+        if artist_section:
+            args["artistSection"] = artist_section
+        return self.call("tidal.containerItems", args, timeout=120.0)
+
     def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
         """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
         args = {"subscriptionId": subscription_id} if subscription_id else {}

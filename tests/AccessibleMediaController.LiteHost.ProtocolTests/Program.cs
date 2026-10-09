@@ -15,6 +15,7 @@ internal static class Program
         ("--quickinfo", QuickInformationTests.Run),
         ("--bookmarks", BookmarkStoreTests.Run),
         ("--podcast-progress", PodcastProgressStoreTests.Run),
+        ("--tidal-catalog", TidalCatalogContractTests.Run),
     ];
 
     public static int Main(string[] args)

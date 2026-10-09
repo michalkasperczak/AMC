@@ -87,6 +87,9 @@ class LibraryView(Enum):
     TIDAL_LIBRARY = "tidalLibrary"
     TIDAL_FAVORITES = "tidalFavorites"
     TIDAL_PLAYLISTS = "tidalPlaylists"
+    #: Zawartosc albumu, playlisty albo jednej kategorii wykonawcy. To nadal
+    #: sesja TIDAL, lecz Backspace ma tu odtworzyc dokladna poprzednia liste.
+    TIDAL_CONTAINER = "tidalContainer"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -197,6 +200,12 @@ class SessionState:
     #: hosta (Zapisana kolejka albo Zywa kolejka). Zwykly plik, zakladka i
     #: stacja nie moga pytac ``queue.previous``/``queue.next``.
     playback_uses_queue: bool = False
+    #: Biezacy naglowek i stos nawigacji katalogu TIDAL sa stanem jednej
+    #: sesji. Przelaczenie Ctrl+1/Ctrl+4 nie moze wyrzucac uzytkownika z
+    #: albumu ani zmieniac zaznaczenia.
+    tidal_heading: str = "Biblioteka TIDAL"
+    tidal_context: "OpenTidalContainer | None" = None
+    tidal_history: list["TidalNavigationSnapshot"] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,6 +266,30 @@ class OpenTidalView:
 
     view: LibraryView
     preferred_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OpenTidalContainer:
+    """Read one online TIDAL container through the existing C# integration."""
+
+    item_id: str
+    service_id: str
+    title: str
+    kind: str
+    artist: str = ""
+    public_uri: str | None = None
+    artist_section: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TidalNavigationSnapshot:
+    """Exact accessible list state restored by Backspace in TIDAL."""
+
+    view: LibraryView
+    heading: str
+    rows: tuple[Row, ...]
+    selected_id: str | None
+    context: OpenTidalContainer | None
 
 
 @dataclass(slots=True)
@@ -582,12 +615,17 @@ class Navigator:
         if row.kind == "parent":
             return self.go_to_parent()
 
+        if state.session_id is SessionId.TIDAL:
+            target = self._tidal_target_from_row(row)
+            if target is not None:
+                if target.kind == "artist" and target.artist_section is None:
+                    return self._open_tidal_artist_overview(row, target)
+                return [target]
+
         if row.activation_message:
-            # Wiersz zostaje zaznaczony i widoczny. Sprawdzamy to PRZED
-            # semantyka kontenera, bo cache TIDAL uzywa prawdziwych rodzajow
-            # album/playlista/wykonawca, lecz katalog online nie jest jeszcze
-            # podlaczony. Bez tej kolejnosci playlista TIDAL wpadla by do
-            # lokalnego ``OpenLibraryView`` i udawala playliste plikow.
+            # Wiersz zostaje zaznaczony i widoczny. Kontenery TIDAL sa
+            # rozpoznane wyzej po jawnych polach modelu, dlatego zwykla
+            # playlista lokalna nadal trafia do swojej dotychczasowej drogi.
             return [Announce(row.activation_message)]
 
         if row.kind == "playlist":
@@ -691,6 +729,55 @@ class Navigator:
         state.playback_uses_queue = False
         state.view = View.PLAYER
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def _tidal_target_from_row(self, row: Row) -> OpenTidalContainer | None:
+        """Build a service request without putting its identifiers in speech."""
+        if not row.service_id or row.service_kind not in ("album", "artist", "playlist"):
+            return None
+        if row.service_section not in (None, "albums", "tracks", "similarArtists"):
+            return None
+        title = row.artist_name if row.service_section else row.title
+        if not title:
+            return None
+        return OpenTidalContainer(
+            item_id=row.item_id,
+            service_id=row.service_id,
+            title=title,
+            kind=row.service_kind,
+            artist=row.artist_name,
+            public_uri=row.url,
+            artist_section=row.service_section,
+        )
+
+    @staticmethod
+    def _tidal_snapshot(state: SessionState) -> TidalNavigationSnapshot:
+        return TidalNavigationSnapshot(
+            view=state.library_view or LibraryView.TIDAL_LIBRARY,
+            heading=state.tidal_heading,
+            rows=tuple(state.model.rows),
+            selected_id=state.model.selected_id,
+            context=state.tidal_context,
+        )
+
+    def _open_tidal_artist_overview(
+        self,
+        row: Row,
+        target: OpenTidalContainer,
+    ) -> list[object]:
+        from .tidal_source import artist_overview_rows
+
+        state = self.session
+        rows = list(artist_overview_rows(row))
+        if not rows:
+            return [Announce("Nie można otworzyć tego wykonawcy TIDAL")]
+        state.tidal_history.append(self._tidal_snapshot(state))
+        state.library_view = LibraryView.TIDAL_CONTAINER
+        state.tidal_heading = f"Wykonawca, {row.title}"
+        state.library_return_view = state.tidal_heading
+        state.tidal_context = target
+        state.model.replace(rows)
+        state.view = View.LIST
+        return [Announce(f"{state.tidal_heading}, {len(rows)} {_items_word(len(rows))}")]
 
     def _activate_queue_row(self, row: Row) -> list[object]:
         """Enter w widoku Zapisanej kolejki: start ZYWEJ kolejki od tego wiersza.
@@ -874,8 +961,17 @@ class Navigator:
                 return [OpenPodcastView(preferred_id=state.library_return_id)]
             return []
         if state.session_id is SessionId.TIDAL:
-            # Pierwszy etap TIDAL ma plaskie, trwale widoki kolekcji. Na ich
-            # korzeniu Backspace niczego nie zmysla i nie przenosi do plikow.
+            if state.tidal_history:
+                previous = state.tidal_history.pop()
+                state.library_view = previous.view
+                state.tidal_heading = previous.heading
+                state.library_return_view = previous.heading
+                state.tidal_context = previous.context
+                state.model.replace(
+                    list(previous.rows), preferred_id=previous.selected_id
+                )
+                state.view = View.LIST
+            # Na korzeniu kolekcji Backspace jest celowo cichy.
             return []
         # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
         # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z
@@ -1458,12 +1554,19 @@ class Navigator:
             raise ValueError("To nie jest widok TIDAL")
         state = self.sessions[SessionId.TIDAL]
         previous = state.library_view
-        if previous is not None and state.model.selected_id:
+        if previous in (
+            LibraryView.TIDAL_LIBRARY,
+            LibraryView.TIDAL_FAVORITES,
+            LibraryView.TIDAL_PLAYLISTS,
+        ) and state.model.selected_id:
             state.view_selected_ids[previous.value] = state.model.selected_id
         remembered = state.view_selected_ids.get(view.value)
         state.library_view = view
         state.library_playlist_id = None
         state.library_return_view = heading
+        state.tidal_heading = heading
+        state.tidal_context = None
+        state.tidal_history.clear()
         state.model.replace(rows, preferred_id=preferred_id or remembered)
         state.view = View.LIST
         message = (
@@ -1472,6 +1575,28 @@ class Navigator:
         )
         if not order_matches_amc:
             message = f"{message}, kolejność zastępcza"
+        return [Announce(message)]
+
+    def apply_tidal_container(
+        self,
+        intent: OpenTidalContainer,
+        heading: str,
+        rows: list[Row],
+    ) -> list[object]:
+        """Apply one verified online result and retain an exact Backspace path."""
+        state = self.sessions[SessionId.TIDAL]
+        state.tidal_history.append(self._tidal_snapshot(state))
+        state.library_view = LibraryView.TIDAL_CONTAINER
+        state.library_playlist_id = None
+        state.library_return_view = heading
+        state.tidal_heading = heading
+        state.tidal_context = intent
+        state.model.replace(rows)
+        state.view = View.LIST
+        message = (
+            f"{heading}, {len(rows)} {_items_word(len(rows))}"
+            if rows else f"{heading}, pusto"
+        )
         return [Announce(message)]
 
     # ----------------------------------------------------------- odtwarzanie

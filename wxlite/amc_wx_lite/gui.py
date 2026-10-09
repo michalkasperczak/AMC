@@ -81,6 +81,7 @@ from .navigation import (
     OpenPodcastAggregateView,
     OpenPodcastView,
     OpenQueueView,
+    OpenTidalContainer,
     OpenTidalView,
     PlayFromQueue,
     PlayQueueAt,
@@ -154,11 +155,13 @@ from .radio_recording import (
 )
 from .state_store import LiteState, Station, StationList, StateStore
 from .tidal_source import (
+    TidalContainerPayloadError,
     TidalProfileError,
     TidalSource,
     VIEW_FAVORITES as TIDAL_VIEW_FAVORITES,
     VIEW_LIBRARY as TIDAL_VIEW_LIBRARY,
     VIEW_PLAYLISTS as TIDAL_VIEW_PLAYLISTS,
+    container_result_from_host,
 )
 
 APP_NAME = "AMC-wx-Lite"
@@ -2419,6 +2422,9 @@ class LiteFrame(wx.Frame):
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
         self.tidal = TidalSource(self.layout)
+        # Kazde otwarcie katalogu ma numer. Odpowiedz rozpoczęta przed
+        # opuszczeniem sesji nie moze po powrocie podmienic nowszej listy.
+        self._tidal_navigation_version = 0
         self._podcast_loaded_counts: dict[str, int] = {}
         # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
         # pierwszego odczytu widoku trzymamy bezpieczny domysl; wynik strony
@@ -3629,11 +3635,18 @@ class LiteFrame(wx.Frame):
         if scope is None:
             self.announcer.say("Ten widok nie jest dostępny w TIDAL")
             return
+        self._tidal_navigation_version += 1
+        version = self._tidal_navigation_version
 
         def work():
             return self.tidal.load_view(scope)
 
         def done(result) -> None:
+            if (
+                version != self._tidal_navigation_version
+                or self.navigator.active is not SessionId.TIDAL
+            ):
+                return
             events = self.navigator.apply_tidal_view(
                 intent.view,
                 result.heading,
@@ -3643,11 +3656,13 @@ class LiteFrame(wx.Frame):
             )
             # Wynik aktualizuje tylko stan TIDAL. Jeśli użytkownik zdążył
             # przejść do innej sesji, nie przenosimy tam fokusu ani mowy.
-            if self.navigator.active is SessionId.TIDAL:
-                self._run(events)
+            self._run(events)
 
         def failed(error: Exception) -> None:
-            if self.navigator.active is not SessionId.TIDAL:
+            if (
+                version != self._tidal_navigation_version
+                or self.navigator.active is not SessionId.TIDAL
+            ):
                 return
             self.announcer.say(
                 str(error)
@@ -3656,6 +3671,52 @@ class LiteFrame(wx.Frame):
             )
 
         self.runner.submit("tidal-view", work, done, failed)
+
+    def _open_tidal_container(self, intent: OpenTidalContainer) -> None:
+        """Open album, playlist or artist section through the shared C# API."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+        self._tidal_navigation_version += 1
+        version = self._tidal_navigation_version
+
+        def work():
+            payload = client.tidal_container_items(
+                item_id=intent.item_id,
+                external_id=intent.service_id,
+                title=intent.title,
+                kind=intent.kind,
+                artist=intent.artist,
+                public_uri=intent.public_uri,
+                artist_section=intent.artist_section,
+            )
+            return container_result_from_host(payload)
+
+        def done(result) -> None:
+            if (
+                version != self._tidal_navigation_version
+                or self.navigator.active is not SessionId.TIDAL
+            ):
+                return
+            self._run(self.navigator.apply_tidal_container(
+                intent,
+                result.heading,
+                list(result.rows),
+            ))
+
+        def failed(error: Exception) -> None:
+            if (
+                version != self._tidal_navigation_version
+                or self.navigator.active is not SessionId.TIDAL
+            ):
+                return
+            if isinstance(error, (HostError, TidalContainerPayloadError)):
+                self.announcer.say(str(error))
+            else:
+                self.announcer.say("Nie udało się otworzyć katalogu TIDAL")
+
+        self.runner.submit("tidal-navigation", work, done, failed)
 
     def _open_library_view(self, intent: OpenLibraryView) -> None:
         """Wczytanie nazwanego widoku Biblioteki -- tak samo POZA watkiem GUI.
@@ -4066,6 +4127,8 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_aggregate(intent)
             elif isinstance(intent, OpenTidalView):
                 self._open_tidal_view(intent)
+            elif isinstance(intent, OpenTidalContainer):
+                self._open_tidal_container(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayFromQueue):
@@ -4526,6 +4589,8 @@ class LiteFrame(wx.Frame):
         self.runner.submit("preset", work, done, failed)
 
     def _switch_session(self, session_id: SessionId) -> None:
+        if self.navigator.active is SessionId.TIDAL and session_id is not SessionId.TIDAL:
+            self._tidal_navigation_version += 1
         self._run(self.navigator.switch_session(session_id))
         if session_id is SessionId.PODCASTS:
             state = self.navigator.sessions[SessionId.PODCASTS]

@@ -442,7 +442,7 @@ Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszys
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
 
-## Pierwszy etap TIDAL
+## TIDAL — kolekcje i nawigacja katalogu
 
 - `Ctrl+4` z listy i odtwarzacza przełącza do sesji TIDAL. Powrót do innej
   sesji i ponowne `Ctrl+4` ma zachować poprzedni widok oraz zaznaczony element.
@@ -453,10 +453,18 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
 - `Ctrl+C` kopiuje nazwę, a `Ctrl+Shift+C` publiczny adres, jeżeli był zapisany.
 - Lewa strzałka czyta tylko dostępne informacje katalogowe i uczciwie mówi, że
   format audio nie jest znany z zapisanej migawki.
-- Enter na utworze, albumie, artyście albo playliście ma podać krótką informację
-  o niepodłączonym jeszcze katalogu lub odtwarzaniu. Nie może przejść do lokalnej
-  playlisty ani oznajmić uruchomienia TIDAL.
-- Backspace na głównym widoku TIDAL niczego nie oznajmia i nie zmienia sesji.
+- Enter na albumie i playliście otwiera ich zawartość przez tę samą oficjalną
+  integrację TIDAL i ten sam magazyn poświadczeń Windows co główne AMC. Python
+  nie otrzymuje tokenu ani prywatnego uchwytu odtwarzania. Enter na wykonawcy
+  pokazuje trzy kategorie: Albumy, Utwory i Podobni wykonawcy; Enter na kategorii
+  pobiera właściwą listę katalogu.
+- Backspace z zawartości wraca do dokładnej poprzedniej listy i zaznaczonego
+  kontenera. Backspace na głównym widoku TIDAL niczego nie oznajmia i nie
+  zmienia sesji. Przełączenie do innej sesji i powrót zachowuje także wnętrze
+  otwartego kontenera.
+- Enter na utworze lub wideo nadal uczciwie odmawia odtwarzania. Ten etap
+  podłącza nawigację katalogu, nie tor chronionego odtwarzania TIDAL ani zmianę
+  konta. Nie należy uznawać testów protokołu za odbiór żywego konta i NVDA.
 
 ## Zanik wybranego urządzenia audio
 

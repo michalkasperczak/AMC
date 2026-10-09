@@ -384,14 +384,18 @@ własnej normalizacji diakrytyków.
   harmonogramy wykonywane przez host C# oraz osobne komunikaty stanu. `Alt+D`
   na liście i w odtwarzaczu czyta nazwę stacji, dostępne parametry audio oraz
   bieżącą audycję lub utwór tym samym formatterem co główne AMC.
-- TIDAL ma pierwszy, jawnie ograniczony etap sesji wxPython: `Ctrl+4` otwiera
-  tylko do odczytu zapisaną przez główne AMC migawkę katalogu. `Ctrl+L`,
+- TIDAL ma jawnie ograniczony etap sesji wxPython: `Ctrl+4` otwiera
+  tylko do odczytu zapisaną przez główne AMC migawkę kolekcji. `Ctrl+L`,
   `Ctrl+U` i `Ctrl+P` pokazują odpowiednio Bibliotekę, Ulubione i Playlisty,
   zachowując osobny widok oraz zaznaczenie tej sesji. Nazwa, wykonawca, rodzaj,
-  czas i publiczny adres są oddzielone od identyfikatorów technicznych. Nie ma
-  jeszcze katalogu online, wchodzenia do albumów i playlist, odtwarzania ani
-  zmian konta; Enter mówi o tym wprost i nie udaje powodzenia. Pełnego
-  odtwarzania TIDAL nie uznajemy za potwierdzone.
+  czas i publiczny adres są oddzielone od identyfikatorów technicznych. Albumy,
+  playlisty oraz trzy kategorie wykonawcy można otwierać przez istniejącą
+  oficjalną integrację katalogu C# i ten sam Windows Credential Manager;
+  token nie przechodzi przez protokół Pythona. Backspace odtwarza poprzednią
+  listę i fokus, a przełączanie sesji zachowuje otwarty kontener. Nie ma jeszcze
+  odtwarzania TIDAL ani zmian konta; Enter na utworze lub wideo mówi o tym
+  wprost i nie udaje powodzenia. Pełnego odtwarzania TIDAL nie uznajemy za
+  potwierdzone, a nawigacja online wymaga jeszcze odbioru na żywym koncie z NVDA.
 - Do dalszego portu pozostaje pełna obsługa TIDAL, a następnie WiiM, Sonos i
   Spotify, dalsze ustawienia oraz pozostała redakcja materiałów.
 

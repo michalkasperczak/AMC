@@ -11,6 +11,7 @@ from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
     OpenLibraryView,
+    OpenTidalContainer,
     SessionId,
 )
 from amc_wx_lite.shortcuts import Action, Chord, TIDAL_READ_ONLY_ACTIONS, resolve
@@ -74,6 +75,91 @@ def test_tidal_playlist_activation_does_not_open_a_local_playlist() -> None:
     events = nav.activate_selected()
     assert events == [Announce("Katalog online nie jest jeszcze podłączony")]
     assert not any(isinstance(event, OpenLibraryView) for event in events)
+
+
+def test_tidal_album_activation_requests_the_shared_online_catalog() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    nav.apply_tidal_view(
+        LibraryView.TIDAL_LIBRARY,
+        "Biblioteka TIDAL",
+        [Row(
+            "tidal:albums:123",
+            "Album próby",
+            "album",
+            service_id="albums:123",
+            service_kind="album",
+            artist_name="Wykonawca",
+        )],
+    )
+
+    events = nav.activate_selected()
+    assert events == [OpenTidalContainer(
+        item_id="tidal:albums:123",
+        service_id="albums:123",
+        title="Album próby",
+        kind="album",
+        artist="Wykonawca",
+    )]
+    assert not any(isinstance(event, OpenLibraryView) for event in events)
+
+
+def test_tidal_artist_categories_and_backspace_restore_exact_focus() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    artist = Row(
+        "tidal:artists:7",
+        "Artysta",
+        "artist",
+        service_id="artists:7",
+        service_kind="artist",
+    )
+    nav.apply_tidal_view(LibraryView.TIDAL_LIBRARY, "Biblioteka TIDAL", [artist])
+
+    events = nav.activate_selected()
+    assert events == [Announce("Wykonawca, Artysta, 3 pozycje")]
+    assert [row.title for row in nav.session.model.rows] == [
+        "Albumy", "Utwory", "Podobni wykonawcy"
+    ]
+    assert "artists:7" not in events[0].text
+
+    section = nav.activate_selected()[0]
+    assert isinstance(section, OpenTidalContainer)
+    assert section.artist_section == "albums"
+    assert section.title == "Artysta"
+
+    assert nav.go_to_parent() == []
+    assert nav.session.model.selected_id == "tidal:artists:7"
+    assert nav.session.model.selected_row == artist
+
+
+def test_tidal_container_survives_session_switch_and_backspace() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    album = Row(
+        "tidal:albums:123",
+        "Album próby",
+        "album",
+        service_id="albums:123",
+        service_kind="album",
+    )
+    nav.apply_tidal_view(LibraryView.TIDAL_LIBRARY, "Biblioteka TIDAL", [album])
+    intent = nav.activate_selected()[0]
+    assert isinstance(intent, OpenTidalContainer)
+    nav.apply_tidal_container(
+        intent,
+        "Album, Album próby",
+        [Row("tidal:tracks:1", "Utwór", "track")],
+    )
+
+    nav.switch_session(SessionId.FILES)
+    nav.switch_session(SessionId.TIDAL)
+    assert nav.session.library_view is LibraryView.TIDAL_CONTAINER
+    assert nav.session.model.selected_row.title == "Utwór"
+
+    assert nav.go_to_parent() == []
+    assert nav.session.library_view is LibraryView.TIDAL_LIBRARY
+    assert nav.session.model.selected_row == album
 
 
 def test_backspace_at_tidal_collection_root_is_silent_and_stays_in_tidal() -> None:

@@ -82,6 +82,8 @@ _NON_SQLITE_VIEWS = (
     LibraryView.TIDAL_LIBRARY,
     LibraryView.TIDAL_FAVORITES,
     LibraryView.TIDAL_PLAYLISTS,
+    # Zawartosc kontenera pochodzi z oficjalnego katalogu przez host C#.
+    LibraryView.TIDAL_CONTAINER,
 )
 
 

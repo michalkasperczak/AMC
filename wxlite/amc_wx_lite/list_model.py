@@ -76,6 +76,14 @@ class Row:
     # zbiorczego widoku. To pole modelu nigdy nie trafia do kolumn, nazwy
     # dostępnej ani komunikatu NVDA.
     parent_id: str | None = None
+    # Wewnętrzna tożsamość zdalnego katalogu. Jest przekazywana wyłącznie do
+    # hosta usługi; tekst listy, nazwa dostępna i komunikaty nigdy jej nie
+    # składają. ``service_kind`` oddziela rodzaj kontenera od rodzaju wiersza
+    # nawigacyjnego, np. folderu „Albumy” wykonawcy TIDAL.
+    service_id: str | None = None
+    service_kind: str | None = None
+    artist_name: str = ""
+    service_section: str | None = None
 
     @property
     def is_openable(self) -> bool:

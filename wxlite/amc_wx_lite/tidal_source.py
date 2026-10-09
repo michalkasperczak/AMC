@@ -63,6 +63,7 @@ class TidalProfileError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class TidalCachedItem:
     item_id: str
+    service_id: str | None
     title: str
     artist: str
     kind: str
@@ -80,6 +81,16 @@ class TidalViewResult:
     heading: str
     rows: tuple[Row, ...]
     order_matches_amc: bool
+
+
+@dataclass(frozen=True, slots=True)
+class TidalContainerResult:
+    heading: str
+    rows: tuple[Row, ...]
+
+
+class TidalContainerPayloadError(RuntimeError):
+    """A malformed host answer that must not become accessible list text."""
 
 
 def _text(value: object) -> str:
@@ -127,6 +138,7 @@ def items_from_amc_state(raw: object) -> tuple[TidalCachedItem, ...]:
         public_uri = _text(entry.get("publicUri")) or None
         result.append(TidalCachedItem(
             item_id=item_id,
+            service_id=_text(entry.get("externalId")) or None,
             title=title,
             artist=_text(entry.get("artist")),
             kind=kind,
@@ -259,10 +271,11 @@ def _row(item: TidalCachedItem) -> Row:
         details.append(item.artist)
     if item.duration_ticks > 0:
         details.append(format_duration(item.duration_ticks / 10_000_000))
-    if item.kind in _CONTAINER_KINDS:
+    if item.kind in _CONTAINER_KINDS and item.service_id:
+        unavailable = None
+    elif item.kind in _CONTAINER_KINDS:
         unavailable = (
-            "Otwieranie albumów, playlist i wykonawców TIDAL "
-            "będzie dostępne po podłączeniu katalogu online"
+            "Ten element TIDAL nie ma danych katalogowych potrzebnych do otwarcia"
         )
     else:
         unavailable = (
@@ -275,6 +288,85 @@ def _row(item: TidalCachedItem) -> Row:
         url=item.public_uri,
         detail=", ".join(details),
         activation_message=unavailable,
+        service_id=item.service_id,
+        service_kind=item.kind,
+        artist_name=item.artist,
+    )
+
+
+def _host_item_row(entry: object) -> Row | None:
+    if not isinstance(entry, dict):
+        return None
+    item_id = _text(entry.get("id"))
+    service_id = _text(entry.get("externalId"))
+    title = _text(entry.get("title"))
+    kind = _kind(entry.get("kind"))
+    if not item_id or not service_id or not title or kind is None:
+        return None
+    artist = _text(entry.get("artist"))
+    details: list[str] = []
+    if artist and artist.casefold() != title.casefold():
+        details.append(artist)
+    duration = _ticks(entry.get("durationTicks"))
+    if duration:
+        details.append(format_duration(duration / 10_000_000))
+    activation_message = None if kind in _CONTAINER_KINDS else (
+        "Odtwarzanie TIDAL z interfejsu wxPython nie jest jeszcze dostępne"
+    )
+    return Row(
+        item_id=item_id,
+        title=title,
+        kind=kind,
+        url=_text(entry.get("publicUri")) or None,
+        detail=", ".join(details),
+        activation_message=activation_message,
+        service_id=service_id,
+        service_kind=kind,
+        artist_name=artist,
+    )
+
+
+def container_result_from_host(payload: object) -> TidalContainerResult:
+    """Sanitize one online answer before it reaches wx or NVDA."""
+
+    if not isinstance(payload, dict):
+        raise TidalContainerPayloadError("Katalog TIDAL zwrócił nieprawidłową odpowiedź")
+    heading = _text(payload.get("heading"))
+    raw_items = payload.get("items")
+    if not heading or not isinstance(raw_items, list):
+        raise TidalContainerPayloadError("Katalog TIDAL zwrócił niepełną odpowiedź")
+    rows: list[Row] = []
+    seen: set[str] = set()
+    for entry in raw_items:
+        row = _host_item_row(entry)
+        if row is None or row.item_id in seen:
+            continue
+        seen.add(row.item_id)
+        rows.append(row)
+    return TidalContainerResult(heading=heading, rows=tuple(rows))
+
+
+def artist_overview_rows(artist: Row) -> tuple[Row, ...]:
+    """The same three user-facing categories as the full AMC TIDAL view."""
+
+    if artist.kind != "artist" or not artist.service_id:
+        return ()
+    sections = (
+        ("albums", "Albumy"),
+        ("tracks", "Utwory"),
+        ("similarArtists", "Podobni wykonawcy"),
+    )
+    return tuple(
+        Row(
+            item_id=f"tidal-section:{artist.item_id}:{section}",
+            title=label,
+            kind="folder",
+            service_id=artist.service_id,
+            service_kind="artist",
+            artist_name=artist.title,
+            service_section=section,
+        )
+        for section, label in sections
     )
 
 

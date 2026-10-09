@@ -46,6 +46,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LitePodcastAddCoordinator? _podcastAdd;
     private readonly LitePodcastOpmlCoordinator? _podcastOpml;
     private readonly LiteProfileMutationStore? _profileMutations;
+    private readonly LiteTidalCatalogCoordinator? _tidalCatalog;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
 
@@ -86,7 +87,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private PlaybackAudioSettings _configuredAudioSettings = new();
 
     public LiteEngineHandlers(int timeshiftMinutes)
-        : this(timeshiftMinutes, null, null, null, null)
+        : this(timeshiftMinutes, null, null, null, null, null)
     {
     }
 
@@ -101,13 +102,15 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteQueueStore? queueStore,
         LiteBookmarkStore? bookmarkStore = null,
         LitePodcastProgressStore? podcastProgressStore = null,
-        LiteProfileMutationStore? profileMutations = null)
+        LiteProfileMutationStore? profileMutations = null,
+        LiteTidalCatalogCoordinator? tidalCatalog = null)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
         _podcastProgressStore = podcastProgressStore;
         _profileMutations = profileMutations;
+        _tidalCatalog = tidalCatalog;
         _podcastRefresh = podcastProgressStore is null
             ? null
             : new LitePodcastRefreshCoordinator(podcastProgressStore, bookmarkStore);
@@ -273,6 +276,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 PodcastOpmlExport(request.Args),
             [LitePodcastOpmlCoordinator.ExportYouTubeOperation] = (request, _) =>
                 PodcastYouTubeExport(request.Args),
+            [LiteTidalCatalogContract.ContainerItemsOperation] = (request, _) =>
+                TidalContainerItems(request.Args),
             ["podcast.toggleFavorite"] = (request, _) =>
                 TogglePodcastFavorites(request.Args),
             ["podcast.playbackOptions"] = (request, _) =>
@@ -1734,6 +1739,11 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object PodcastYouTubeExport(JsonElement args) =>
         (_podcastOpml ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).ExportYouTube(args);
+
+    private object TidalContainerItems(JsonElement args) =>
+        (_tidalCatalog ?? throw new LiteRequestException(
+            "Host nie ma dostępu do profilu AMC potrzebnego do katalogu TIDAL."))
+        .GetContainerItems(args);
 
     private object ConfigureAudio(JsonElement args)
     {
