@@ -110,6 +110,9 @@ def test_periodic_cursor_sync_does_not_break_a_shift_selection() -> None:
     class CursorList:
         filter_query = ""
 
+        def GetItemCount(self) -> int:  # noqa: N802
+            return len(model.rows)
+
         def GetFirstSelected(self) -> int:  # noqa: N802
             return 0
 
@@ -148,6 +151,7 @@ def test_deselecting_the_cursor_moves_model_anchor_to_a_still_selected_row() -> 
     control.updating = False
     control.GetFocusedItem = lambda: 2
     control.GetFirstSelected = lambda: 0
+    control.GetItemCount = lambda: len(model.rows)
     control.GetItemState = lambda index, _mask: 4 if index == 0 else 0
 
     class Event:

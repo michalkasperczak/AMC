@@ -840,7 +840,14 @@ class MediaListCtrl(wx.ListCtrl):
 
     def _is_index_selected(self, index: int) -> bool:
         """Czy konkretny widoczny wiersz nalezy do natywnego zaznaczenia."""
-        if index < 0:
+        # Model moze juz wskazywac pierwszy wiersz, gdy natywna kontrolka jest
+        # jeszcze pusta (pierwsze ladowanie albo zmiana widoku). Na prawdziwym
+        # wxMSW ``GetItemState(0)`` przy ``GetItemCount()==0`` nie zwraca po
+        # prostu zera: podnosi ``wxAssertionError: invalid list control item
+        # index``. Wyjatek przerywal ``sync_rows`` PRZED ``InsertItem``. Model
+        # mial wtedy stacje/plik (wiec Enter go uruchamial), ale SysListView32
+        # nie mial zadnych dzieci, dlatego strzalki nie dawaly NVDA tekstu.
+        if index < 0 or index >= self.GetItemCount():
             return False
         try:
             return bool(

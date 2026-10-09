@@ -90,6 +90,13 @@ class FakePlainList:
     def GetFocusedItem(self) -> int:  # noqa: N802
         return self._focused
 
+    def GetItemState(self, index: int, _mask: int) -> int:  # noqa: N802
+        """Jak wxMSW: pytanie o nieistniejacy wiersz jest bledem testu."""
+        assert 0 <= index < len(self.rows), "GetItemState poza lista"
+        import wx
+
+        return wx.LIST_STATE_SELECTED if index == self._selected else 0
+
     def SetItemState(self, index: int, state: int, mask: int) -> None:  # noqa: N802
         self.calls.append(("SetItemState", index, state, mask))
         self._selected = index
@@ -152,6 +159,23 @@ def seed(ctrl, model: ListModel, rows: list[Row]) -> None:
 
 
 # ---------------------------------------------------- 1. brak zmian = brak operacji
+
+
+def test_initial_fill_never_queries_state_of_a_row_not_yet_inserted() -> None:
+    """Regresja z zywego wxMSW: ``GetItemState(0)`` na pustej kontrolce rzuca.
+
+    Model wybiera pierwszy element przed wypelnieniem widoku. Plan kursora ma
+    najpierw uznac go za jeszcze niezaznaczony, potem wstawic wiersz i dopiero
+    wtedy zapytac/ustawic jego stan.
+    """
+    model = ListModel()
+    model.replace([track("1", "Alfa")])
+    ctrl = make_ctrl(model)
+
+    ctrl.sync_rows()
+
+    assert ctrl.texts == [("Alfa", "utwór", "")]
+    assert ctrl.GetFirstSelected() == 0
 
 
 def test_second_sync_without_data_change_touches_the_list_zero_times() -> None:

@@ -315,6 +315,11 @@ Co sprawdzać:
   wysyłają `EVT_LIST_ITEM_SELECTED`; bramka `updating` pilnuje, żeby przejściowy
   indeks nie wszedł jako nowy wybór. Prawdziwy ruch użytkownika musi nadal dojść.
 - **Strzałki natywne.** Góra/dół działają same, bez naszej obsługi.
+- **Pierwsze wypełnienie na prawdziwym wxMSW.** Model wybiera wiersz 0 przed
+  wstawieniem go do kontrolki. Nie wolno wywołać `GetItemState(0)`, dopóki
+  `GetItemCount()` wynosi 0; wx zgłasza wtedy asercję i przerywa synchronizację
+  przed `InsertItem`. Sam działający Enter nie dowodzi, że kontrolka ma wiersze,
+  ponieważ aktywacja korzysta z osobnego modelu.
 - **Pusta lista i przejścia mały↔duży** (np. 1 → 2475 → 9) bez degradacji mowy.
 
 Pomiar czasu planu na pełnej skali: `python3 tools/measure_list_sync.py 2476`.
