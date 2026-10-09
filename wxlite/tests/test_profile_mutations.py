@@ -69,6 +69,12 @@ def _library(path: Path, media: Path) -> None:
         db.execute(
             "INSERT INTO playback_history VALUES('podcasts',1,'episode-kept')"
         )
+        for table in (
+            "queue_order", "queue_regular_order", "queue_play_next_order"
+        ):
+            db.execute(
+                f"INSERT INTO {table} VALUES('podcasts',0,'episode-queue')"
+            )
         db.commit()
 
 
@@ -87,12 +93,22 @@ def _podcasts(path: Path) -> None:
                 id TEXT PRIMARY KEY, title TEXT, is_in_library INTEGER,
                 payload_json TEXT);
             CREATE TABLE podcast_episodes(
-                id TEXT PRIMARY KEY, subscription_id TEXT, payload_json TEXT);
+                id TEXT PRIMARY KEY, subscription_id TEXT,
+                is_in_queue INTEGER, is_play_next INTEGER,
+                payload_json TEXT);
             """
         )
         db.execute(
             "INSERT INTO podcast_subscriptions VALUES(?,?,1,?)",
             ("podcast-1", "Stary podcast", json.dumps(payload)),
+        )
+        db.execute(
+            "INSERT INTO podcast_episodes VALUES(?,?,1,1,?)",
+            (
+                "episode-queue",
+                "podcast-1",
+                json.dumps({"IsInQueue": True, "IsPlayNext": True}),
+            ),
         )
         db.commit()
 
@@ -153,6 +169,9 @@ def test_profile_edits_go_through_the_real_host() -> None:
             client.remove_profile_items(
                 "podcasts", "podcastHistory", ["episode-1"]
             )
+            client.remove_profile_items(
+                "podcasts", "podcastQueue", ["episode-queue"]
+            )
             client.remove_profile_items("radio", "library", ["radio-1"])
         finally:
             client.close()
@@ -182,6 +201,12 @@ def test_profile_edits_go_through_the_real_host() -> None:
                 "WHERE session_id='podcasts' ORDER BY ordinal"
             ).fetchall()
             assert podcast_history == [("episode-kept",)]
+            for table in (
+                "queue_order", "queue_regular_order", "queue_play_next_order"
+            ):
+                assert db.execute(
+                    f"SELECT item_id FROM {table} WHERE session_id='podcasts'"
+                ).fetchall() == []
         with closing(sqlite3.connect(podcasts)) as db:
             title, in_library, payload = db.execute(
                 "SELECT title,is_in_library,payload_json FROM podcast_subscriptions WHERE id='podcast-1'"
@@ -190,6 +215,14 @@ def test_profile_edits_go_through_the_real_host() -> None:
             assert in_library == 0
             assert json.loads(payload)["HasCustomTitle"] is True
             assert json.loads(payload)["IsInLibrary"] is False
+            queue_row = db.execute(
+                "SELECT is_in_queue,is_play_next,payload_json "
+                "FROM podcast_episodes WHERE id='episode-queue'"
+            ).fetchone()
+            assert queue_row[:2] == (0, 0)
+            queue_payload = json.loads(queue_row[2])
+            assert queue_payload["IsInQueue"] is False
+            assert queue_payload["IsPlayNext"] is False
         radio = json.loads(state.read_text(encoding="utf-8"))["radio"]["stations"][0]
         assert radio["name"] == "Nowe radio"
         assert radio["streamUrl"] == "https://example.invalid/new"

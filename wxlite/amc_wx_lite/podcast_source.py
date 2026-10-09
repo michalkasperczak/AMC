@@ -806,32 +806,72 @@ class PodcastSource:
             if database is not None:
                 database.close()
 
+    def _queue_ids(self, table: str) -> list[str]:
+        """Read one persisted podcast queue order owned by the C# profile."""
+        if table not in (
+            "queue_order",
+            "queue_regular_order",
+            "queue_play_next_order",
+        ):
+            raise ValueError("Nieznana tabela kolejki podcastów")
+        database: LibraryDatabase | None = None
+        try:
+            database = LibraryDatabase(self.layout.library_db)
+            rows = database.connection.execute(
+                f"""
+                SELECT item_id
+                FROM {table}
+                WHERE session_id = ? COLLATE NOCASE
+                ORDER BY ordinal
+                """,
+                ("podcasts",),
+            )
+            seen: set[str] = set()
+            result: list[str] = []
+            for row in rows:
+                item_id = str(row[0] or "")
+                if not item_id.strip() or item_id in seen:
+                    continue
+                seen.add(item_id)
+                result.append(item_id)
+            return result
+        except Exception as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać kolejki podcastów: {error}"
+            ) from error
+        finally:
+            if database is not None:
+                database.close()
+
     def _episode_records_by_ids(
         self, item_ids: list[str]
     ) -> dict[str, _EpisodeRecord]:
-        """Read at most the 500 IDs allowed by PlaybackHistory."""
+        """Read requested episode IDs in chunks below SQLite's parameter cap."""
         if not item_ids:
             return {}
-        placeholders = ", ".join("?" for _ in item_ids)
+        rows: list[sqlite3.Row] = []
         try:
             with closing(self._open()) as connection:
-                rows = connection.execute(
-                    f"""
-                    SELECT e.id, e.subscription_id, e.title,
-                           e.published_utc_ticks, e.is_new, e.is_started,
-                           e.is_played, e.download_path, e.payload_json,
-                           s.title AS parent_title,
-                           s.payload_json AS parent_payload_json
-                    FROM podcast_episodes AS e
-                    JOIN podcast_subscriptions AS s
-                      ON s.id = e.subscription_id
-                    WHERE e.id IN ({placeholders})
-                    """,
-                    item_ids,
-                ).fetchall()
+                for start in range(0, len(item_ids), 400):
+                    part = item_ids[start:start + 400]
+                    placeholders = ", ".join("?" for _ in part)
+                    rows.extend(connection.execute(
+                        f"""
+                        SELECT e.id, e.subscription_id, e.title,
+                               e.published_utc_ticks, e.is_new, e.is_started,
+                               e.is_played, e.download_path, e.payload_json,
+                               s.title AS parent_title,
+                               s.payload_json AS parent_payload_json
+                        FROM podcast_episodes AS e
+                        JOIN podcast_subscriptions AS s
+                          ON s.id = e.subscription_id
+                        WHERE e.id IN ({placeholders})
+                        """,
+                        part,
+                    ).fetchall())
         except sqlite3.Error as error:
             raise PodcastProfileError(
-                f"Nie można odczytać historii podcastów: {error}"
+                f"Nie można odczytać odcinków podcastów: {error}"
             ) from error
         return {
             record.item_id: record
@@ -962,6 +1002,41 @@ class PodcastSource:
             records,
             loaded_count=loaded_count,
             view="history",
+            order_matches_amc=True,
+        )
+
+    def queue(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
+        """Persisted podcast queue, with Play Next entries kept first.
+
+        The three order tables are authoritative, exactly as in
+        ``TransientQueuePersistence.Restore``. Columns in ``podcasts.db`` are
+        only an earlier snapshot and therefore cannot recreate consumed rows.
+        """
+        stored = self._queue_ids("queue_order")
+        regular = set(self._queue_ids("queue_regular_order"))
+        play_next = set(self._queue_ids("queue_play_next_order"))
+        legacy_regular = not regular and not play_next
+
+        by_id = self._episode_records_by_ids(stored)
+        entries: list[tuple[int, bool, _EpisodeRecord]] = []
+        for position, item_id in enumerate(stored):
+            record = by_id.get(item_id)
+            if record is None:
+                continue
+            in_queue = legacy_regular or item_id in regular
+            is_play_next = item_id in play_next
+            if not in_queue and not is_play_next:
+                continue
+            entries.append((position, is_play_next, record))
+
+        # Stable equivalent of manual order followed by
+        # OrderByDescending(IsPlayNext).
+        entries.sort(key=lambda entry: entry[0])
+        entries.sort(key=lambda entry: not entry[1])
+        return self._aggregate_page(
+            [entry[2] for entry in entries],
+            loaded_count=loaded_count,
+            view="queue",
             order_matches_amc=True,
         )
 

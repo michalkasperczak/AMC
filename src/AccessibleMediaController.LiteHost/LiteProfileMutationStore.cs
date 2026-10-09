@@ -366,6 +366,50 @@ internal sealed class LiteProfileMutationStore
             historyTransaction.Commit();
             return new { removedCount = itemIds.Count };
         }
+        if (string.Equals(view, "podcastQueue", StringComparison.Ordinal))
+        {
+            // Jedna transakcja obejmuje podcasts.db oraz dolaczony library.db,
+            // aby flagi odcinka i trzy listy porzadku nie mogly sie rozjechac.
+            using var queueConnection = OpenDatabase(_podcastsDatabasePath);
+            using (var attach = queueConnection.CreateCommand())
+            {
+                attach.CommandText = "ATTACH DATABASE $path AS library;";
+                attach.Parameters.AddWithValue("$path", _libraryDatabasePath);
+                attach.ExecuteNonQuery();
+            }
+            using var queueTransaction = queueConnection.BeginTransaction();
+            var removedFromQueue = 0;
+            foreach (var id in itemIds)
+            {
+                string? payloadText;
+                using (var read = queueConnection.CreateCommand())
+                {
+                    read.Transaction = queueTransaction;
+                    read.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+                    read.Parameters.AddWithValue("$id", id);
+                    payloadText = read.ExecuteScalar() as string;
+                }
+                if (payloadText is null) continue;
+                var payload = ParseObject(payloadText, "Dane odcinka są uszkodzone.");
+                payload["IsInQueue"] = false;
+                payload["IsPlayNext"] = false;
+                Execute(queueConnection, queueTransaction,
+                    "UPDATE podcast_episodes SET is_in_queue = 0, is_play_next = 0, payload_json = $payload WHERE id = $id;",
+                    ("$payload", payload.ToJsonString()), ("$id", id));
+                foreach (var table in new[]
+                         {
+                             "queue_order", "queue_regular_order", "queue_play_next_order"
+                         })
+                {
+                    Execute(queueConnection, queueTransaction,
+                        $"DELETE FROM library.{table} WHERE session_id = 'podcasts' COLLATE NOCASE AND item_id = $id;",
+                        ("$id", id));
+                }
+                removedFromQueue++;
+            }
+            queueTransaction.Commit();
+            return new { removedCount = removedFromQueue };
+        }
         if (!string.Equals(view, "podcastLibrary", StringComparison.Ordinal))
             throw new LiteRequestException("Usuń źródło z głównej listy Podcastów i YouTube.");
         using var connection = OpenDatabase(_podcastsDatabasePath);

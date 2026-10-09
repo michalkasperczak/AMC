@@ -345,8 +345,14 @@ własnej normalizacji diakrytyków.
   OPML do czytników RSS. Wybrany w natywnym dialogu typ pliku rozstrzyga
   format i nadaje właściwe rozszerzenie. Wszystkie te drogi korzystają ze
   wspólnych parserów i eksporterów Core;
-  techniczne rekordy ani podpisane adresy nie trafiają do mowy. Nadal brakuje
-  pozostałych widoków specjalnych poza przeniesionymi Ulubionymi.
+  techniczne rekordy ani podpisane adresy nie trafiają do mowy. `Ctrl+Q`
+  otwiera zapisaną kolejkę odcinków w kolejności głównego AMC, z pozycjami
+  „Odtwórz następny” przed częścią zwykłą. `Enter`, `Page Up`, `Page Down`,
+  stronicowanie i `Delete` działają bez ujawniania technicznych identyfikatorów;
+  usunięcie czyści flagi odcinka oraz wszystkie trzy tabele kolejności jedną
+  transakcją C#. Do przeniesienia nadal pozostają polecenia dodawania odcinka
+  do kolejki i „Odtwórz następny” oraz automatyczne zużywanie kolejki po
+  naturalnym końcu odcinka.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

@@ -75,6 +75,7 @@ _NON_SQLITE_VIEWS = (
     LibraryView.PODCAST_EPISODES,
     LibraryView.PODCAST_FAVORITES,
     LibraryView.PODCAST_HISTORY,
+    LibraryView.PODCAST_QUEUE,
     LibraryView.PODCAST_INBOX,
     LibraryView.PODCAST_IN_PROGRESS,
     LibraryView.PODCAST_DOWNLOADS,

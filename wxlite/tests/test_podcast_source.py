@@ -177,6 +177,40 @@ def _history_database(base: Path, item_ids: list[str]) -> None:
     connection.close()
 
 
+def _queue_database(
+    base: Path,
+    *,
+    order: list[str],
+    regular: list[str],
+    play_next: list[str],
+) -> None:
+    connection = sqlite3.connect(base / "library.db")
+    connection.executescript(
+        """
+        CREATE TABLE queue_order (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        );
+        CREATE TABLE queue_regular_order (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        );
+        CREATE TABLE queue_play_next_order (
+            session_id TEXT NOT NULL, ordinal INTEGER NOT NULL, item_id TEXT NOT NULL
+        );
+        """
+    )
+    for table, values in (
+        ("queue_order", order),
+        ("queue_regular_order", regular),
+        ("queue_play_next_order", play_next),
+    ):
+        connection.executemany(
+            f"INSERT INTO {table} VALUES ('PoDcAsTs', ?, ?)",
+            enumerate(values),
+        )
+    connection.commit()
+    connection.close()
+
+
 def test_subscription_rows_use_only_intentional_labels_and_hide_non_members() -> None:
     with _temporary_folder() as folder:
         base = Path(folder)
@@ -582,6 +616,58 @@ def test_history_uses_persisted_order_and_keeps_archived_episode_labels() -> Non
         assert "newest-history" not in spoken
         assert "archived-history" not in spoken
         assert page.order_matches_amc
+
+
+def test_queue_uses_persisted_membership_and_places_play_next_first() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        for ordinal, item_id in enumerate(
+            ("regular-b", "play-next", "regular-a", "ignored")
+        ):
+            _insert_episode(
+                path,
+                item_id=item_id,
+                subscription_id="rss-id",
+                title=item_id,
+                ordinal=ordinal,
+                published=ordinal,
+            )
+        _queue_database(
+            base,
+            order=["regular-b", "play-next", "regular-a", "missing", "ignored"],
+            regular=["regular-b", "regular-a"],
+            play_next=["play-next"],
+        )
+
+        page = PodcastSource(private_sandbox(base)).queue()
+
+        assert [row.title for row in page.rows] == [
+            "play-next",
+            "regular-b",
+            "regular-a",
+        ]
+        assert all(row.kind == "episode" for row in page.rows)
+
+
+def test_queue_accepts_legacy_order_when_membership_tables_are_empty() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        for ordinal, item_id in enumerate(("one", "two")):
+            _insert_episode(
+                path,
+                item_id=item_id,
+                subscription_id="rss-id",
+                title=item_id,
+                ordinal=ordinal,
+                published=ordinal,
+            )
+        _queue_database(base, order=["two", "one"], regular=[], play_next=[])
+
+        page = PodcastSource(private_sandbox(base)).queue()
+
+        assert [row.title for row in page.rows] == ["two", "one"]
 
 
 def test_full_description_starts_with_content_and_never_exposes_ids() -> None:

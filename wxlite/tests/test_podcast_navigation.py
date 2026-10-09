@@ -164,11 +164,15 @@ def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
     history = nav.apply_podcast_aggregate(
         LibraryView.PODCAST_HISTORY, "Historia odtwarzania", []
     )
+    queue = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_QUEUE, "Kolejka", []
+    )
     assert inbox[0].text == "Nowe odcinki i materiały, brak nowych materiałów"
     assert progress[0].text == "W trakcie słuchania, brak rozpoczętych odcinków"
     assert downloads[0].text == "Pobrane, brak pobranych odcinków"
     assert favorites[0].text == "Ulubione, brak ulubionych podcastów i odcinków"
     assert history[0].text == "Historia odtwarzania, brak odtworzonych odcinków"
+    assert queue[0].text == "Kolejka, zero elementów"
 
 
 def test_favorites_count_sources_and_episodes_and_load_more_stays_in_view() -> None:
@@ -209,4 +213,39 @@ def test_podcast_history_load_more_keeps_history_identity() -> None:
         if isinstance(effect, OpenPodcastAggregateView)
     )
     assert request.view is LibraryView.PODCAST_HISTORY
+    assert request.load_more
+
+
+def test_podcast_queue_plays_in_saved_order_and_load_more_keeps_identity() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_QUEUE,
+        "Kolejka",
+        [
+            _episode("first"),
+            _episode("second"),
+            Row("more", "Załaduj więcej odcinków", "loadMore"),
+        ],
+        preferred_id="first",
+    )
+
+    play = next(
+        effect for effect in nav.activate_selected()
+        if isinstance(effect, PlayMedia)
+    )
+    assert play.item_id == "first"
+    next_play = next(
+        effect for effect in (nav.step_playback_source(True) or [])
+        if isinstance(effect, PlayMedia)
+    )
+    assert next_play.item_id == "second"
+
+    nav.session.view = View.LIST
+    nav.session.model.select_id("more")
+    request = next(
+        effect for effect in nav.activate_selected()
+        if isinstance(effect, OpenPodcastAggregateView)
+    )
+    assert request.view is LibraryView.PODCAST_QUEUE
     assert request.load_more

@@ -387,6 +387,20 @@ Wąskie przebiegi wybiera się fragmentem nazwy modułu, np. `library_view_navig
 
 Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Ten dokument nie potwierdza publicznego wydania ani instalacji na komputerze Michała.
 
+### Kolejka podcastów i YouTube
+
+- Przejdź do sesji „Podcasty i YouTube” i naciśnij `Ctrl+Q`. Widok ma pokazać
+  odcinki w kolejności zapisanej przez główne AMC; pozycje „Odtwórz następny”
+  są przed zwykłą częścią kolejki.
+- Pusta kolejka ma powiedzieć „Kolejka, zero elementów” bez identyfikatorów
+  bazy ani technicznych nazw rekordów.
+- `Enter` odtwarza zaznaczony odcinek. `Page Up` i `Page Down` przechodzą po
+  widocznej kolejności źródłowej.
+- `Delete` usuwa zaznaczony odcinek tylko z kolejki podcastów. Nie usuwa
+  subskrypcji, pobranego pliku ani historii. Po ponownym `Ctrl+Q` usunięta
+  pozycja nie może wrócić.
+- Stronicowanie zachowuje próg 150 pozycji i wiersz „Wczytaj więcej”.
+
 ## Znane ograniczenia
 
 Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich funkcji zapisu, usług i ustawień oryginału. Kolejka żywego silnika DZIAŁA (Ctrl+Q oddaje `queue.status`, naturalne przejścia zmierzone), ale kolejność po `queue.set` NIE jest jeszcze zapisywana do profilu — trwały pisarz pozostaje poza zakresem. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
