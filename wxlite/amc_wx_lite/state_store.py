@@ -18,6 +18,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .audio_clip import read_clip_selections
+
 
 @dataclass(slots=True)
 class Station:
@@ -118,6 +120,11 @@ class LiteState:
     #: Wartosci sa zwyklymi danymi protokolu; etykiety NVDA powstaja dopiero
     #: w ``radio_recording.py``.
     recording_history: list[dict] = field(default_factory=list)
+    #: Niedestrukcyjne znaczniki I/O dla lokalnych plikow. Tak jak historia
+    #: nagran sa prywatne dla wxPython i nie zapisuja sie do profilu WPF.
+    #: Magazyn przechowuje jedynie wartosci modelu; tekst dla NVDA powstaje w
+    #: ``audio_clip.py`` i nigdy nie jest serializowany jako repr obiektu.
+    clip_selections: list[dict] = field(default_factory=list)
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -256,6 +263,7 @@ class StateStore:
             navigation=navigation if isinstance(navigation, dict) else {},
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
             recording_history=_read_recording_history(raw.get("recording_history")),
+            clip_selections=read_clip_selections(raw.get("clip_selections")),
         )
 
     # -------------------------------------------------------------- zapis
@@ -276,6 +284,7 @@ class StateStore:
                 if not overrides.is_empty
             },
             "recording_history": _read_recording_history(state.recording_history),
+            "clip_selections": read_clip_selections(state.clip_selections),
         }
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 

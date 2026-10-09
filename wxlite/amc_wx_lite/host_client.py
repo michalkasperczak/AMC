@@ -357,6 +357,37 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def audio_clip_capabilities(self, source_path: str) -> Any:
+        """Dostepne sposoby zapisu i rozszerzenia liczone przez silnik AMC."""
+        return self.call(
+            "audio.clipCapabilities",
+            {"sourcePath": source_path},
+            timeout=10.0,
+        )
+
+    def export_audio_clip(
+        self,
+        *,
+        source_path: str,
+        destination_path: str,
+        start_seconds: float,
+        end_seconds: float,
+        format_value: str,
+    ) -> Any:
+        """Zapisz zaznaczenie wspolnym ``AudioClipExporter`` z pelnego AMC."""
+        return self.call(
+            "audio.clipExport",
+            {
+                "sourcePath": source_path,
+                "destinationPath": destination_path,
+                "startSeconds": float(start_seconds),
+                "endSeconds": float(end_seconds),
+                "format": format_value,
+            },
+            # Duzy material lub konwersja do WAV/FLAC moze trwac wiele minut.
+            timeout=3_600.0,
+        )
+
     # ----------------------------------------------------------------- kolejka
     #
     # ZYWA kolejka hosta. Nastepstwo utworow liczy sesja Core po stronie C#;

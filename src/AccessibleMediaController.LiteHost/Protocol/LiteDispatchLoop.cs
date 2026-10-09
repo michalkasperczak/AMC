@@ -132,9 +132,9 @@ public sealed class LiteDispatchLoop(
             {
                 if (line.Trim().Length == 0) continue;
 
-                // Tylko wskazana operacja (dzis: odczyt metadanych dla lewej
-                // strzalki) moze ominac kolejke. Pozostale polecenia nadal
-                // ida SERIALNIE, wiec ich wzajemna kolejnosc sie nie zmienia.
+                // Tylko jawnie wskazane, dlugie operacje moga ominac kolejke.
+                // Pozostale polecenia nadal ida SERIALNIE, wiec ich wzajemna
+                // kolejnosc sie nie zmienia.
                 var outcome = LiteRequestReader.Read(line);
                 if (!TryBeginConcurrent(outcome, events, WriteLine, slots, inFlight))
                 {

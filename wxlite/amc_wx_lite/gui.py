@@ -29,10 +29,22 @@ from __future__ import annotations
 import os
 import sqlite3
 from pathlib import Path
+from typing import Callable
 
 import wx
 
 from .async_gate import BackgroundRunner, StaleResultGate
+from .audio_clip import (
+    AudioClipContext,
+    AudioClipFormatChoice,
+    AudioClipSelection,
+    clip_context_from_status,
+    format_choices_from_payload,
+    format_clip_time,
+    restore_clip_selection,
+    suggested_clip_file_name,
+    update_clip_selections,
+)
 from .collation import HostCollation
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
@@ -1295,6 +1307,82 @@ class SessionOptionsDialog(wx.Dialog):
         return result
 
 
+class AudioClipExportDialog(wx.Dialog):
+    """Dostepny wybor SPOSOBU zapisu, oddzielony od wartosci protokolu.
+
+    ``wx.Choice`` dostaje wylacznie jawne polskie etykiety. Wartosci
+    ``original/flac/wav`` sa przechowywane osobno, wiec nazwa enumu ani repr
+    obiektu nie moze trafic do UI Automation i mowy NVDA.
+    """
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        choices: list[AudioClipFormatChoice],
+        notice: str,
+    ) -> None:
+        super().__init__(parent, title="Zapisz fragment audio")
+        panel = wx.Panel(self)
+        outer = wx.BoxSizer(wx.VERTICAL)
+
+        start = format_clip_time(selection.start_seconds or 0.0)
+        end = format_clip_time(selection.end_seconds or 0.0)
+        duration = format_clip_time(
+            (selection.end_seconds or 0.0) - (selection.start_seconds or 0.0)
+        )
+        summary = wx.StaticText(
+            panel,
+            label=(
+                f"{context.title}. Od {start} do {end}. "
+                f"Długość fragmentu: {duration}."
+            ),
+        )
+        summary.SetName(summary.GetLabel())
+        outer.Add(summary, 0, wx.ALL | wx.EXPAND, 12)
+
+        label = wx.StaticText(panel, label="&Sposób zapisu:")
+        self.format_choice = wx.Choice(panel, choices=[choice.label for choice in choices])
+        self.format_choice.SetName("Sposób zapisu fragmentu")
+        self._choices = choices
+        self.format_choice.SetSelection(0)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self.format_choice, 1, wx.EXPAND)
+        outer.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+
+        notice_text = wx.StaticText(panel, label=notice)
+        notice_text.SetName(notice)
+        outer.Add(notice_text, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        safety = wx.StaticText(
+            panel,
+            label=(
+                "Plik źródłowy nigdy nie jest zmieniany. "
+                "Wynik zostanie zapisany jako nowy plik."
+            ),
+        )
+        safety.SetName(safety.GetLabel())
+        outer.Add(safety, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        ok = self.FindWindowById(wx.ID_OK)
+        if ok is not None:
+            ok.SetLabel("&Wybierz plik…")
+            ok.SetName("Wybierz plik")
+        shell = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(outer)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizerAndFit(shell)
+
+    @property
+    def selected_format(self) -> AudioClipFormatChoice | None:
+        index = self.format_choice.GetSelection()
+        return self._choices[index] if 0 <= index < len(self._choices) else None
+
+
 class GeneralPlaybackOptionsDialog(wx.Dialog):
     """Najwazniejsze opcje interfejsu przeniesione z Ustawien pelnego AMC."""
 
@@ -1396,6 +1484,8 @@ class LiteFrame(wx.Frame):
         self._status_poll_pending = False
         self._recording_status_poll_pending = False
         self._recording_history_persist_error = False
+        self._audio_clip_export_in_progress = False
+        self._audio_clip_export_percent = -1
         #: Ktora sesja NAPRAWDE gra na hoscie. Host ma jedno wyjscie, wiec
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
@@ -2004,7 +2094,21 @@ class LiteFrame(wx.Frame):
     def _handle_engine_event(self, name: str, data: dict) -> None:
         if not self._window_alive():
             return
-        if name == "playback.started":
+        if name == "audio.clipExportProgress":
+            # Postep ma byc dostepny przez pole i NVDA+End, ale NIE moze
+            # przerywac mowy co 5%. Zdarzenie koncowe jest oglaszane raz przez
+            # odpowiedz operacji w ``_start_audio_clip_export``.
+            if self._audio_clip_export_in_progress:
+                percent = max(0, min(100, int(data.get("percent") or 0)))
+                if percent != self._audio_clip_export_percent:
+                    self._audio_clip_export_percent = percent
+                    file_name = str(data.get("name") or "").strip()
+                    text = f"Zapisywanie fragmentu: {percent}%"
+                    if file_name:
+                        text += f". {file_name}"
+                    self.status_field.SetLabel(text)
+                    self.status_bar.show(text)
+        elif name == "playback.started":
             # POTWIERDZENIE startu. Dopiero teraz material jest "biezacy" dla
             # Ctrl+B: samo wyslanie ``files.play`` jeszcze niczego nie dowodzi.
             # Pole nazywa sie ``id`` (LiteEngineHandlers.cs:54), nie
@@ -2453,6 +2557,22 @@ class LiteFrame(wx.Frame):
             self._play_pause()
         elif action is Action.ADD_BOOKMARK:
             self._add_bookmark()
+        elif action is Action.CLIP_MARK_START:
+            self._mark_audio_clip(start=True)
+        elif action is Action.CLIP_MARK_END:
+            self._mark_audio_clip(start=False)
+        elif action is Action.CLIP_JUMP_START:
+            self._jump_to_audio_clip_boundary(end=False)
+        elif action is Action.CLIP_JUMP_END:
+            self._jump_to_audio_clip_boundary(end=True)
+        elif action is Action.CLIP_PREVIOUS_BOUNDARY:
+            self._jump_to_relative_audio_clip_boundary(direction=-1)
+        elif action is Action.CLIP_NEXT_BOUNDARY:
+            self._jump_to_relative_audio_clip_boundary(direction=1)
+        elif action is Action.CLIP_EXPORT:
+            self._export_audio_clip()
+        elif action is Action.CLIP_CLEAR:
+            self._clear_audio_clip_selection()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
         elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
@@ -3286,6 +3406,325 @@ class LiteFrame(wx.Frame):
             ),
             done,
             lambda error: self.announcer.say(f"Nie można dodać zakładki: {error}"),
+        )
+
+    # ------------------------------------------------------ fragmenty audio
+
+    def _request_audio_clip_context(
+        self,
+        on_ready: Callable[[AudioClipContext, AudioClipSelection], None],
+    ) -> None:
+        """Pobierz pozycje i tozsamosc z hosta, nie ze starego ticka GUI."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, wycinanie fragmentu jest niedostępne")
+            return
+
+        def work() -> tuple[dict, bool]:
+            payload = client.status() or {}
+            source = payload.get("source")
+            # File.Exists dla dysku sieciowego/chmury moze czekac. Nie robimy
+            # tego na watku GUI, bo podczas czekania NVDA stracilby cale okno.
+            exists = (
+                Path(source).is_file()
+                if isinstance(source, str) and source.strip()
+                else False
+            )
+            return payload, exists
+
+        def done(result: tuple[dict, bool]) -> None:
+            payload, source_exists = result
+            self._last_status = payload or {}
+            context, error = clip_context_from_status(
+                payload,
+                files_session_active=self.navigator.active is SessionId.FILES,
+                player_view_active=self.navigator.view is View.PLAYER,
+                path_exists=lambda _path: source_exists,
+            )
+            if context is None:
+                self.announcer.say(error or "Bieżący element nie jest lokalnym plikiem multimedialnym")
+                return
+            selection = restore_clip_selection(
+                self.state.clip_selections,
+                context.item_id,
+                context.source_path,
+                context.duration_seconds,
+            )
+            on_ready(context, selection)
+
+        self.runner.submit(
+            "audio-clip-context",
+            work,
+            done,
+            lambda error: self.announcer.say(
+                f"Nie można odczytać położenia fragmentu: {error}"
+            ),
+        )
+
+    def _persist_audio_clip_selection(self, selection: AudioClipSelection) -> bool:
+        previous = list(self.state.clip_selections)
+        self.state.clip_selections = update_clip_selections(previous, selection)
+        self.state.options = self.options.clamp()
+        self.state.navigation = self.navigator.snapshot()
+        try:
+            self.store.save(self.state)
+        except OSError as error:
+            self.state.clip_selections = previous
+            self.announcer.say(f"Nie mogę zapisać zaznaczenia fragmentu: {error}")
+            return False
+        return True
+
+    def _mark_audio_clip(self, *, start: bool) -> None:
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if start:
+                accepted = selection.set_start(
+                    context.item_id,
+                    context.source_path,
+                    context.position_seconds,
+                    context.duration_seconds,
+                )
+                if not accepted:
+                    self.announcer.say(
+                        "Początek fragmentu musi znajdować się przed jego końcem"
+                    )
+                    return
+            else:
+                accepted = selection.set_end(
+                    context.item_id,
+                    context.source_path,
+                    context.position_seconds,
+                    context.duration_seconds,
+                )
+                if not accepted:
+                    self.announcer.say(
+                        "Koniec fragmentu musi znajdować się po jego początku"
+                    )
+                    return
+            if not self._persist_audio_clip_selection(selection):
+                return
+
+            if start:
+                time = format_clip_time(selection.start_seconds or 0.0)
+                text = f"Początek fragmentu: {time}"
+                if selection.end_seconds is not None:
+                    text += ". Długość: " + format_clip_time(
+                        selection.end_seconds - (selection.start_seconds or 0.0)
+                    )
+            else:
+                time = format_clip_time(selection.end_seconds or 0.0)
+                text = f"Koniec fragmentu: {time}"
+                if selection.start_seconds is not None:
+                    text += ". Długość: " + format_clip_time(
+                        (selection.end_seconds or 0.0) - selection.start_seconds
+                    )
+                else:
+                    text += ". Ustaw początek klawiszem I"
+            self.announcer.say(text)
+
+        self._request_audio_clip_context(ready)
+
+    def _clear_audio_clip_selection(self) -> None:
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if selection.start_seconds is None and selection.end_seconds is None:
+                self.announcer.say("Ten plik nie ma zaznaczonego fragmentu")
+                return
+            # Zachowujemy tozsamosc do usuniecia rekordu. ``Clear`` modelu C#
+            # zeruje ja, a WPF przekazuje potem osobno biezacy MediaItem.
+            empty = AudioClipSelection(
+                item_id=context.item_id,
+                source_path=context.source_path,
+            )
+            if self._persist_audio_clip_selection(empty):
+                self.announcer.say("Zaznaczenie fragmentu wyczyszczone")
+
+        self._request_audio_clip_context(ready)
+
+    def _seek_to_audio_clip_position(self, target: float, label: str) -> None:
+        client = self.client
+        if client is None:
+            return
+
+        def done(payload: dict) -> None:
+            raw_position = (payload or {}).get("positionSeconds")
+            position = (
+                float(raw_position)
+                if isinstance(raw_position, (int, float)) and not isinstance(raw_position, bool)
+                else target
+            )
+            self._last_status = {**self._last_status, "positionSeconds": position}
+            if self.messages.seek_messages and self.messages.speaks_routine:
+                self.announcer.say(f"{label} fragmentu: {format_clip_time(position)}")
+
+        self.runner.submit(
+            "audio-clip-seek",
+            lambda: client.seek_to_position(target),
+            done,
+            lambda error: self.announcer.say(f"Nie mogę przejść do granicy fragmentu: {error}"),
+        )
+
+    def _jump_to_audio_clip_boundary(self, *, end: bool) -> None:
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if not selection.matches(context.item_id, context.source_path):
+                self.announcer.say("Ten plik nie ma zaznaczonego fragmentu")
+                return
+            position = selection.end_seconds if end else selection.start_seconds
+            if position is None:
+                self.announcer.say(
+                    "Nie ustawiono końca fragmentu"
+                    if end
+                    else "Nie ustawiono początku fragmentu"
+                )
+                return
+            self._seek_to_audio_clip_position(position, "Koniec" if end else "Początek")
+
+        self._request_audio_clip_context(ready)
+
+    def _jump_to_relative_audio_clip_boundary(self, *, direction: int) -> None:
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if not selection.matches(context.item_id, context.source_path):
+                self.announcer.say("Ten plik nie ma zaznaczonego fragmentu")
+                return
+            position = selection.find_relative_boundary(
+                context.position_seconds, direction
+            )
+            if position is None:
+                self.announcer.say(
+                    "Brak poprzedniej granicy fragmentu"
+                    if direction < 0
+                    else "Brak następnej granicy fragmentu"
+                )
+                return
+            label = "Początek" if position == selection.start_seconds else "Koniec"
+            self._seek_to_audio_clip_position(position, label)
+
+        self._request_audio_clip_context(ready)
+
+    def _export_audio_clip(self) -> None:
+        if self._audio_clip_export_in_progress:
+            self.announcer.say("Zapisywanie fragmentu już trwa")
+            return
+
+        def ready(context: AudioClipContext, selection: AudioClipSelection) -> None:
+            if not selection.is_complete:
+                self.announcer.say(
+                    "Zaznacz początek klawiszem I i koniec klawiszem O"
+                )
+                return
+            client = self.client
+            if client is None:
+                return
+
+            def capabilities_done(payload: dict) -> None:
+                choices = format_choices_from_payload(payload)
+                if not choices:
+                    self.announcer.say("Brak dostępnego sposobu zapisu fragmentu")
+                    return
+                notice = str((payload or {}).get("notice") or "").strip()
+                self._choose_audio_clip_destination(
+                    context, selection, choices, notice
+                )
+
+            self.runner.submit(
+                "audio-clip-capabilities",
+                lambda: client.audio_clip_capabilities(context.source_path),
+                capabilities_done,
+                lambda error: self.announcer.say(
+                    f"Nie można przygotować zapisu fragmentu: {error}"
+                ),
+            )
+
+        self._request_audio_clip_context(ready)
+
+    def _choose_audio_clip_destination(
+        self,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        choices: list[AudioClipFormatChoice],
+        notice: str,
+    ) -> None:
+        dialog = AudioClipExportDialog(
+            self,
+            context=context,
+            selection=selection,
+            choices=choices,
+            notice=notice,
+        )
+        chosen: AudioClipFormatChoice | None = None
+        try:
+            dialog.format_choice.SetFocus()
+            if dialog.ShowModal() == wx.ID_OK:
+                chosen = dialog.selected_format
+        finally:
+            dialog.Destroy()
+        if chosen is None:
+            self._restore_focus_after_dialog()
+            return
+
+        wildcard = (
+            f"Plik FLAC (*{chosen.extension})|*{chosen.extension}"
+            if chosen.value == "flac"
+            else f"Plik WAV (*{chosen.extension})|*{chosen.extension}"
+            if chosen.value == "wav"
+            else f"Oryginalny format (*{chosen.extension})|*{chosen.extension}"
+        )
+        default_name = suggested_clip_file_name(context.title, chosen.extension)
+        with wx.FileDialog(
+            self,
+            "Zapisz zaznaczony fragment jako nowy plik",
+            defaultDir=str(Path(context.source_path).parent),
+            defaultFile=default_name,
+            wildcard=wildcard,
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as file_dialog:
+            if file_dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            destination = file_dialog.GetPath()
+        if not Path(destination).suffix:
+            destination += chosen.extension
+        self._start_audio_clip_export(context, selection, chosen, destination)
+
+    def _start_audio_clip_export(
+        self,
+        context: AudioClipContext,
+        selection: AudioClipSelection,
+        chosen: AudioClipFormatChoice,
+        destination: str,
+    ) -> None:
+        client = self.client
+        if client is None or not selection.is_complete:
+            return
+        self._audio_clip_export_in_progress = True
+        self._audio_clip_export_percent = 0
+        progress_text = f"Zapisywanie fragmentu: 0%. {Path(destination).name}"
+        self.status_field.SetLabel(progress_text)
+        self.status_bar.show(progress_text)
+        self.announcer.say(f"Rozpoczęto zapisywanie fragmentu: {Path(destination).name}")
+
+        def done(payload: dict) -> None:
+            self._audio_clip_export_in_progress = False
+            self._audio_clip_export_percent = 100
+            name = str((payload or {}).get("name") or Path(destination).name)
+            self.announcer.say(f"Fragment zapisany: {name}")
+            self._restore_focus_after_dialog()
+
+        def failed(error: Exception) -> None:
+            self._audio_clip_export_in_progress = False
+            self._audio_clip_export_percent = -1
+            self.announcer.say(f"Nie udało się zapisać fragmentu: {error}")
+            self._restore_focus_after_dialog()
+
+        self.runner.submit(
+            "audio-clip-export",
+            lambda: client.export_audio_clip(
+                source_path=context.source_path,
+                destination_path=destination,
+                start_seconds=selection.start_seconds or 0.0,
+                end_seconds=selection.end_seconds or 0.0,
+                format_value=chosen.value,
+            ),
+            done,
+            failed,
         )
 
     def _play_from_queue(self, intent: PlayFromQueue) -> None:

@@ -110,6 +110,24 @@ def test_recording_history_rejects_invalid_ids_and_duplicate_objects() -> None:
     assert history[0]["savedFileCount"] == 0
 
 
+def test_round_trip_keeps_private_audio_clip_selections() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        store = StateStore(Path(raw))
+        state = LiteState(clip_selections=[{
+            "itemId": "file:żółć",
+            "sourcePath": r"D:\Muzyka\Żółć.wav",
+            "startSeconds": 1.25,
+            "endSeconds": 9.75,
+        }])
+        store.save(state)
+        assert store.load().clip_selections == [{
+            "itemId": "file:żółć",
+            "sourcePath": r"D:\Muzyka\Żółć.wav",
+            "startSeconds": 1.25,
+            "endSeconds": 9.75,
+        }]
+
+
 def test_missing_file_gives_defaults_not_an_error() -> None:
     store, _ = temp_store()
     state = store.load()

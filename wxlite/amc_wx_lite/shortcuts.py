@@ -139,6 +139,14 @@ class Action(Enum):
     TIME_REMAINING = "time.remaining"
     TIME_TOTAL = "time.total"
     ADD_BOOKMARK = "action.bookmark.add"
+    CLIP_MARK_START = "audio.clip.markStart"
+    CLIP_MARK_END = "audio.clip.markEnd"
+    CLIP_JUMP_START = "audio.clip.jumpStart"
+    CLIP_JUMP_END = "audio.clip.jumpEnd"
+    CLIP_PREVIOUS_BOUNDARY = "audio.clip.previousBoundary"
+    CLIP_NEXT_BOUNDARY = "audio.clip.nextBoundary"
+    CLIP_EXPORT = "audio.clip.export"
+    CLIP_CLEAR = "audio.clip.clear"
     #: Home/End w odtwarzaczu. ID WPROST z oryginalu (CommandIds.cs:40-41),
     #: zeby przyszly port komend sieciowych i palety nie wymyslal wlasnych.
     TRACK_START = "transport.trackStart"
@@ -408,6 +416,19 @@ PLAYER_VIEW: dict[str, Action] = {
     # Ctrl+B pozostaje zbiorcza lista zakladek i nie jest aliasem tej akcji.
     "B": Action.ADD_BOOKMARK,
     "Ctrl+B": Action.VIEW_ALL_BOOKMARKS,
+    # Zaznaczenie fragmentu i jego plikowe operacje. Gesty wprost z obu
+    # sciezek klawiatury pelnego AMC (MainWindow.xaml.cs:21619-21627 oraz
+    # 22430-22438). Destrukcyjne Ctrl+X zostanie podlaczone dopiero razem z
+    # pelnym mechanizmem kopii bezpieczenstwa i potwierdzenia -- nie tworzymy
+    # martwego ani uproszczonego skrotu.
+    "I": Action.CLIP_MARK_START,
+    "O": Action.CLIP_MARK_END,
+    "Shift+I": Action.CLIP_JUMP_START,
+    "Shift+O": Action.CLIP_JUMP_END,
+    "Alt+Prior": Action.CLIP_PREVIOUS_BOUNDARY,
+    "Alt+Next": Action.CLIP_NEXT_BOUNDARY,
+    "Ctrl+S": Action.CLIP_EXPORT,
+    "Shift+X": Action.CLIP_CLEAR,
     # Poprzedni/nastepny utwor kolejki. Gesty z oryginalu (MainWindow.xaml:714
     # i :717 -- menu odtwarzacza, te same akceleratory na przyciskach :995-1000).
     "Prior": Action.QUEUE_PREVIOUS,
@@ -524,6 +545,14 @@ def describe() -> list[tuple[str, str]]:
         Action.TIME_REMAINING: "Czas pozostaly",
         Action.TIME_TOTAL: "Czas calkowity",
         Action.ADD_BOOKMARK: "Dodaj zakladke w biezacym miejscu",
+        Action.CLIP_MARK_START: "Ustaw poczatek fragmentu",
+        Action.CLIP_MARK_END: "Ustaw koniec fragmentu",
+        Action.CLIP_JUMP_START: "Skocz do poczatku fragmentu",
+        Action.CLIP_JUMP_END: "Skocz do konca fragmentu",
+        Action.CLIP_PREVIOUS_BOUNDARY: "Poprzednia granica fragmentu",
+        Action.CLIP_NEXT_BOUNDARY: "Nastepna granica fragmentu",
+        Action.CLIP_EXPORT: "Zapisz zaznaczony fragment jako nowy plik",
+        Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.

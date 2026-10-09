@@ -59,13 +59,19 @@ internal static class Program
 
         var bookmarkStore = OpenBookmarkStore(args);
         using var handlers = new LiteEngineHandlers(timeshiftMinutes, store, bookmarkStore);
-        // JAWNY opt-in: tylko odczyt informacji dla lewej strzalki wychodzi
-        // poza kolejke, bo czyta metadane pliku/strumienia synchronicznie
-        // (limity kilku sekund) i w petli serialnej wstrzymywal transport.
-        // Pozostale polecenia zostaja uporzadkowane serialnie.
+        // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
+        // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
+        // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
+        // wszystkie pozostale polecenia sa uporzadkowane serialnie.
         var loop = new LiteDispatchLoop(
             handlers.Build(),
-            concurrentOperations: [LiteQuickInformation.Operation]);
+            concurrentOperations:
+            [
+                LiteQuickInformation.Operation,
+                // Eksport moze trwac dlugo. Odtwarzanie, pauza i status nie
+                // moga na ten czas utknac za dekoderem/FFmpeg.
+                LiteAudioClipOperations.ExportOperation
+            ]);
 
         Console.Error.WriteLine(
             $"[amc-lite-host] start, bufor transmisji {timeshiftMinutes} min, protokol 1");

@@ -210,6 +210,10 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
             ["audio.outputs"] = (_, _) => ListOutputs(),
+            ["audio.clipCapabilities"] = (request, _) =>
+                LiteAudioClipOperations.Capabilities(request.Args),
+            [LiteAudioClipOperations.ExportOperation] = (request, events) =>
+                LiteAudioClipOperations.Export(request.Args, events),
             ["library.collationKeys"] = (request, _) => CollationKeys(request.Args),
             // LEWA STRZALKA na liscie: krotka informacja uzupelniajaca.
             // Port drogi ``AnnounceQuickMediaInformation`` (cs:5485-5541):
@@ -952,6 +956,10 @@ internal sealed class LiteEngineHandlers : IDisposable
             paused,
             id = item?.Id,
             title = item?.Title,
+            // Sciezka jest czescia WEWNETRZNEGO protokolu, potrzebna do
+            // sprawdzenia tozsamosci zaznaczenia i wywolania wspolnego
+            // eksportera. Frontend nie uzywa jej jako nazwy kontrolki.
+            source = engine == "files" ? item?.Source : null,
             positionSeconds = position.TotalSeconds,
             durationSeconds = duration.TotalSeconds,
             volume = _volume,
