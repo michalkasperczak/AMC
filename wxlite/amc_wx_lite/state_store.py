@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .audio_clip import read_clip_selections
+from .profile_presets import read_preset_overrides
 
 
 @dataclass(slots=True)
@@ -125,6 +126,11 @@ class LiteState:
     #: Magazyn przechowuje jedynie wartosci modelu; tekst dla NVDA powstaje w
     #: ``audio_clip.py`` i nigdy nie jest serializowany jako repr obiektu.
     clip_selections: list[dict] = field(default_factory=list)
+    #: Prywatne presety sesji. BRAK klucza sesji = nadal czytaj presety z
+    #: profilu pelnego AMC. Obecny klucz z pusta lista = uzytkownik swiadomie
+    #: usunal wszystkie presety tej sesji. To rozroznienie pozwala zachowac
+    #: zgodnosc bez zapisywania do wspolnego ``state.json``.
+    preset_overrides: dict[str, list[dict]] = field(default_factory=dict)
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -264,6 +270,7 @@ class StateStore:
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
             recording_history=_read_recording_history(raw.get("recording_history")),
             clip_selections=read_clip_selections(raw.get("clip_selections")),
+            preset_overrides=read_preset_overrides(raw.get("preset_overrides")),
         )
 
     # -------------------------------------------------------------- zapis
@@ -285,6 +292,9 @@ class StateStore:
             },
             "recording_history": _read_recording_history(state.recording_history),
             "clip_selections": read_clip_selections(state.clip_selections),
+            # NIE usuwamy pustych list. Dla presetow pusty wpis sesji jest
+            # swiadoma decyzja i rozni sie od braku prywatnego nadpisania.
+            "preset_overrides": read_preset_overrides(state.preset_overrides),
         }
         text = json.dumps(payload, ensure_ascii=False, indent=2)
 

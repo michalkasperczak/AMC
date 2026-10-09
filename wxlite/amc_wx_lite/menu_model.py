@@ -124,6 +124,12 @@ def build_menus() -> tuple[Menu, ...]:
                      shortcut="Alt+2"),
             MenuItem("&Ulubione", Action.VIEW_FAVORITES, shortcut="Ctrl+U"),
             MenuItem("&Playlisty", Action.VIEW_PLAYLISTS, shortcut="Ctrl+P"),
+            MenuItem("Pr&esety…", Action.VIEW_PRESETS, shortcut="Ctrl+Alt+P"),
+            MenuItem(
+                "Utwórz lub p&rzypisz preset…",
+                Action.ASSIGN_PRESET,
+                shortcut="Ctrl+Alt+Shift+P",
+            ),
             SEPARATOR,
             # Trzy odczyty aktywnosci. Skroty ODCZYTANE z kodu:
             #   MainWindow.xaml:488 "_Historia odtwarzania" Ctrl+H

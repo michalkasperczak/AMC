@@ -169,6 +169,8 @@ class Action(Enum):
     PRESET_10 = "preset.10"
     PRESET_11 = "preset.11"
     PRESET_12 = "preset.12"
+    VIEW_PRESETS = "presets.view"
+    ASSIGN_PRESET = "presets.assign"
     OPEN_FOLDER_DIALOG = "files.openFolder"
     OPEN_FILE_DIALOG = "files.openFile"
     COPY_NAME = "clipboard.copyName"
@@ -362,6 +364,9 @@ LIST_VIEW: dict[str, Action] = {
     # Opcje sesji: TEN SAM gest co w odtwarzaczu, bo zakres (sesja) jest ten
     # sam niezaleznie od widoku.
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
+    # Zarzadzanie presetami z pelnego AMC (MainWindow.xaml:428-435).
+    "Ctrl+Alt+P": Action.VIEW_PRESETS,
+    "Ctrl+Alt+Shift+P": Action.ASSIGN_PRESET,
     "F1": Action.HELP,
 }
 
@@ -482,6 +487,8 @@ PLAYER_VIEW: dict[str, Action] = {
     "End": Action.TRACK_END,
     # Opcje sesji dzialaja takze z odtwarzacza: zakres to SESJA, nie widok.
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
+    "Ctrl+Alt+P": Action.VIEW_PRESETS,
+    "Ctrl+Alt+Shift+P": Action.ASSIGN_PRESET,
     "F1": Action.HELP,
     # Globalne zatrzymanie dziala niezaleznie od aktualnej sesji, jak w WPF.
     "Ctrl+Alt+Shift+R": Action.RECORD_STOP_ALL,
@@ -591,6 +598,8 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_ACTIVE_RECORDINGS: "Pokaz trwajace nagrania radia",
         Action.VIEW_RECORDED_RADIO_FILES: "Pokaz historie nagrywania radia",
         Action.MANAGE_RADIO_SCHEDULES: "Pokaz harmonogram nagrywania radia",
+        Action.VIEW_PRESETS: "Pokaż presety aktywnej sesji",
+        Action.ASSIGN_PRESET: "Utwórz preset lub przypisz bieżący element",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
         Action.VIEW_FAVORITES: "Ulubione",
         Action.VIEW_PLAYLISTS: "Playlisty",

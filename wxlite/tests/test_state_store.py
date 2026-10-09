@@ -128,6 +128,33 @@ def test_round_trip_keeps_private_audio_clip_selections() -> None:
         }]
 
 
+def test_round_trip_keeps_private_preset_override_including_empty_session() -> None:
+    with tempfile.TemporaryDirectory(prefix="amc-wx-state-") as directory:
+        store = StateStore(directory)
+        state = LiteState(preset_overrides={
+            "files": [{
+                "slot": 4,
+                "targetId": "dir:D:\\Muzyka",
+                "targetKind": "folder",
+                "targetTitle": "Muzyka",
+                "targetLocation": "D:\\Muzyka",
+            }],
+            "radio": [],
+        })
+
+        store.save(state)
+        loaded = store.load()
+
+        assert loaded.preset_overrides["radio"] == []
+        assert loaded.preset_overrides["files"] == [{
+            "slot": 4,
+            "targetId": "dir:D:\\Muzyka",
+            "targetKind": "folder",
+            "targetTitle": "Muzyka",
+            "targetLocation": "D:\\Muzyka",
+        }]
+
+
 def test_missing_file_gives_defaults_not_an_error() -> None:
     store, _ = temp_store()
     state = store.load()

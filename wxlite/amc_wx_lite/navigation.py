@@ -704,6 +704,33 @@ class Navigator:
             Announce(target.title),
         ]
 
+    def activate_local_preset(
+        self,
+        target: Row,
+        *,
+        open_player: bool,
+    ) -> list[object]:
+        """Uruchom preset pliku bez gubienia biezacego widoku Biblioteki.
+
+        Preset moze grac w tle albo otworzyc odtwarzacz, dokladnie jak preset
+        Radia. Nie budujemy z niego kolejki: to jeden jawnie przypisany plik.
+        """
+        if target.kind != "track" or not target.path:
+            return [Announce("Ten preset nie wskazuje pliku do odtworzenia")]
+        state = self.sessions[SessionId.FILES]
+        was_player = state.view is View.PLAYER
+        if not was_player:
+            state.player_entry_anchor_id = state.model.selected_id
+        state.list_anchor_id = target.item_id
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = profile_material_id(target.item_id)
+        state.playback_source_rows = (target,)
+        state.playback_uses_queue = False
+        if was_player or open_player:
+            state.view = View.PLAYER
+        return [PlayTrack(target.path, target.item_id, target.title), Announce(target.title)]
+
     def go_to_parent(self) -> list[object]:
         """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze.
 

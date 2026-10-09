@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 from amc_wx_lite.list_model import Row
-from amc_wx_lite.navigation import LibraryView, Navigator, SessionId, View
+from amc_wx_lite.navigation import LibraryView, Navigator, PlayTrack, SessionId, View
 from amc_wx_lite.state_store import LiteState, Options, StateStore
 
 
@@ -81,6 +81,22 @@ def test_radio_preset_can_play_in_background_and_keep_focus() -> None:
     assert nav.session.model.selected_id == "visible"
     assert nav.session.now_playing_id == "preset2"
     assert nav.session.playback_source_rows == sequence
+
+
+def test_local_file_preset_can_play_in_background_and_keep_focus() -> None:
+    nav = Navigator()
+    visible = _track("visible")
+    target = _track("preset")
+    nav.apply_folder("C:\\", [visible], preferred_id="visible")
+
+    intents = nav.activate_local_preset(target, open_player=False)
+
+    assert nav.session.view is View.LIST
+    assert nav.session.model.selected_id == "visible"
+    assert nav.session.now_playing_id == "preset"
+    assert nav.session.playback_source_rows == (target,)
+    assert isinstance(intents[0], PlayTrack)
+    assert intents[0].path == target.path
 
 
 def test_new_options_round_trip_and_reject_non_boolean_values() -> None:

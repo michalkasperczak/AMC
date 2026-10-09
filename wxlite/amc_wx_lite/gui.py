@@ -1086,6 +1086,301 @@ class StationDialog(wx.Dialog):
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
 
 
+def _preset_slot_from_event(event: wx.KeyEvent) -> int | None:
+    """Cyfra/minus/rownosc w dialogach presetow, bez nazw technicznych wx."""
+    if event.ControlDown() or event.AltDown() or event.ShiftDown():
+        return None
+    key = chord_from_event(event).key
+    if key in {str(value) for value in range(1, 10)}:
+        return int(key)
+    return {"0": 10, "-": 11, "=": 12, "+": 12}.get(key)
+
+
+class PresetListDialog(wx.Dialog):
+    """Dostepna lista 12 miejsc. Do kontrolek trafiaja tylko jawne etykiety."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        choices: tuple[profile_presets.PresetChoice, ...],
+        session_name: str,
+        current_target_id: str | None,
+    ) -> None:
+        super().__init__(parent, title=f"Presety — {session_name}")
+        self._choices = choices
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+
+        description_text = (
+            f"Presety sesji {session_name}. Cyfry wybierają miejsce. "
+            "Enter lub Spacja uruchamia zajętą pozycję. "
+            "Ctrl+Alt+Shift+P przypisuje bieżący element."
+        )
+        description = wx.StaticText(panel, label=description_text)
+        description.SetName(description_text)
+        layout.Add(description, 0, wx.ALL | wx.EXPAND, 12)
+
+        self.preset_list = wx.ListBox(
+            panel,
+            choices=[choice.label for choice in choices],
+            style=wx.LB_SINGLE,
+        )
+        self.preset_list.SetName(f"Presety, {session_name}")
+        self.preset_list.SetToolTip(
+            "Cyfra, minus lub znak równości wybiera miejsce. Enter albo Spacja uruchamia."
+        )
+        selected = next(
+            (index for index, choice in enumerate(choices)
+             if choice.target_id is not None and choice.target_id == current_target_id),
+            -1,
+        )
+        if selected < 0:
+            selected = next(
+                (index for index, choice in enumerate(choices) if choice.target_id is not None),
+                0,
+            )
+        self.preset_list.SetSelection(selected)
+        layout.Add(self.preset_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
+
+        self.status = wx.StaticText(panel, label="Gotowe")
+        self.status.SetName("Gotowe")
+        self._announcer = Announcer(self.status)
+        layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        self.activate_button = wx.Button(self, wx.ID_OK, label="&Uruchom")
+        self.activate_button.SetName("Uruchom preset")
+        self.activate_button.SetDefault()
+        close = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
+        close.SetName("Zamknij listę presetów")
+        buttons.AddButton(self.activate_button)
+        buttons.AddButton(close)
+        buttons.Realize()
+
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self.SetMinSize((620, 430))
+        self.Fit()
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        self.activate_button.Bind(wx.EVT_BUTTON, self._activate)
+        self.preset_list.Bind(wx.EVT_LISTBOX_DCLICK, self._activate)
+        self.preset_list.SetFocus()
+
+    @property
+    def selected_choice(self) -> profile_presets.PresetChoice | None:
+        index = self.preset_list.GetSelection()
+        return self._choices[index] if 0 <= index < len(self._choices) else None
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        slot = _preset_slot_from_event(event)
+        if slot is not None:
+            self.preset_list.SetSelection(slot - 1)
+            return
+        code = event.GetKeyCode()
+        if not event.ControlDown() and not event.AltDown() and not event.ShiftDown():
+            if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_SPACE):
+                self._activate(event)
+                return
+        event.Skip()
+
+    def _activate(self, _event) -> None:
+        choice = self.selected_choice
+        if choice is None:
+            return
+        if choice.target_id is None:
+            self._announcer.say(
+                f"Preset {choice.spoken_shortcut_label} pusty. "
+                "Ctrl+Alt+Shift+P przypisuje bieżący element"
+            )
+            return
+        self.EndModal(wx.ID_OK)
+
+
+class PresetAssignmentDialog(wx.Dialog):
+    """Przypisanie z ochrona zajetego miejsca i osobnym trybem usuwania."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        target: profile_presets.PresetTarget,
+        choices: tuple[profile_presets.PresetChoice, ...],
+        first_free_slot: int | None,
+        initial_slot: int,
+        session_name: str,
+    ) -> None:
+        super().__init__(parent, title=f"Przypisz preset — {session_name}")
+        self._target = target
+        self._choices = choices
+        self.selected_slot = 0
+        self.selected_action = ""
+        self._remove_pending = False
+        self._last_requested_slot: int | None = None
+        self._replacement_armed_slot: int | None = None
+
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        if first_free_slot is not None:
+            free = profile_presets.shortcut_label(first_free_slot, spoken=True)
+            description_text = (
+                f"Dodaj preset: {target.title}. Pierwsze wolne miejsce: "
+                f"preset {profile_presets.shortcut_label(first_free_slot)}, "
+                f"skrót Ctrl+Shift+{free}. Naciśnij cyfrę, minus albo znak "
+                "równości, a następnie Enter. Escape anuluje."
+            )
+        else:
+            description_text = (
+                f"Dodaj preset: {target.title}. Nie ma wolnego miejsca. "
+                "Aby zastąpić zajęty preset, wskaż dwukrotnie to samo miejsce "
+                "i naciśnij Enter. Escape anuluje."
+            )
+        description = wx.StaticText(panel, label=description_text)
+        description.SetName(description_text)
+        layout.Add(description, 0, wx.ALL | wx.EXPAND, 12)
+
+        self.preset_list = wx.ListBox(
+            panel,
+            choices=[choice.label for choice in choices],
+            style=wx.LB_SINGLE,
+        )
+        self.preset_list.SetName("Miejsca presetów")
+        self.preset_list.SetToolTip(
+            "Cyfra, minus lub znak równości wybiera miejsce. "
+            "Enter zapisuje lub zastępuje. Delete przygotowuje usunięcie."
+        )
+        self.preset_list.SetSelection(max(0, min(len(choices) - 1, initial_slot - 1)))
+        layout.Add(self.preset_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
+
+        self.status = wx.StaticText(panel, label="Gotowe")
+        self.status.SetName("Gotowe")
+        self._announcer = Announcer(self.status)
+        layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        self.save_button = wx.Button(self, wx.ID_OK, label="&Zapisz")
+        self.save_button.SetName("Zapisz preset")
+        self.save_button.SetDefault()
+        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
+        cancel.SetName("Anuluj przypisanie presetu")
+        buttons.AddButton(self.save_button)
+        buttons.AddButton(cancel)
+        buttons.Realize()
+
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self.SetMinSize((650, 460))
+        self.Fit()
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        self.preset_list.Bind(wx.EVT_LISTBOX, self._on_list_selection)
+        self.save_button.Bind(wx.EVT_BUTTON, self._confirm)
+        self.preset_list.SetFocus()
+
+    @property
+    def selected_choice(self) -> profile_presets.PresetChoice | None:
+        index = self.preset_list.GetSelection()
+        return self._choices[index] if 0 <= index < len(self._choices) else None
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        slot = _preset_slot_from_event(event)
+        if slot is not None:
+            self._select_slot(slot, announce=True)
+            return
+        if not event.ControlDown() and not event.AltDown() and not event.ShiftDown():
+            code = event.GetKeyCode()
+            if code == wx.WXK_DELETE:
+                self._prepare_removal()
+                return
+            if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+                self._confirm(event)
+                return
+        event.Skip()
+
+    def _on_list_selection(self, event) -> None:
+        self._remove_pending = False
+        self._last_requested_slot = None
+        self._replacement_armed_slot = None
+        event.Skip()
+
+    def _select_slot(self, slot: int, *, announce: bool) -> None:
+        self._remove_pending = False
+        previous = self.selected_choice
+        repeated = (
+            self._last_requested_slot == slot
+            and previous is not None
+            and previous.slot == slot
+        )
+        self._last_requested_slot = slot
+        self.preset_list.SetSelection(slot - 1)
+        choice = self.selected_choice
+        if choice is None:
+            return
+        replaces_other = (
+            choice.target_id is not None and choice.target_id != self._target.target_id
+        )
+        self._replacement_armed_slot = slot if replaces_other and repeated else None
+        if not announce:
+            return
+        slot_name = f"Preset {choice.slot_label}"
+        if choice.target_id is None:
+            text = f"{slot_name} pusty. {self._target.title}. Enter zapisuje, Escape anuluje"
+        elif not replaces_other:
+            text = f"{slot_name} już zawiera ten element. Enter zatwierdza, Escape anuluje"
+        elif self._replacement_armed_slot == slot:
+            text = (
+                f"Potwierdzono {slot_name}. Enter zastępuje element "
+                f"{choice.target_title} elementem {self._target.title}, Escape anuluje"
+            )
+        else:
+            text = (
+                f"{slot_name} zajęty: {choice.target_title}. Naciśnij ponownie "
+                f"{choice.spoken_shortcut_label}, a następnie Enter, aby zastąpić; "
+                "inny klawisz wybiera inne miejsce; Escape anuluje"
+            )
+        self._announcer.say(text)
+
+    def _prepare_removal(self) -> None:
+        choice = self.selected_choice
+        if choice is None:
+            return
+        if choice.target_id is None:
+            self._announcer.say(f"Preset {choice.slot_label} jest już pusty")
+            return
+        self._remove_pending = True
+        self._announcer.say(
+            f"Usunąć preset {choice.slot_label}: {choice.target_title}? "
+            "Enter potwierdza, Escape anuluje"
+        )
+
+    def _confirm(self, _event) -> None:
+        choice = self.selected_choice
+        if choice is None:
+            return
+        replaces_other = (
+            choice.target_id is not None and choice.target_id != self._target.target_id
+        )
+        if (
+            not self._remove_pending
+            and replaces_other
+            and self._replacement_armed_slot != choice.slot
+        ):
+            self._announcer.say(
+                f"Preset {choice.slot_label} jest zajęty przez {choice.target_title}. "
+                f"Naciśnij dwa razy {choice.spoken_shortcut_label}, a następnie "
+                "Enter, aby zastąpić, albo Escape, aby anulować"
+            )
+            return
+        self.selected_slot = choice.slot
+        self.selected_action = "remove" if self._remove_pending else "save"
+        self.EndModal(wx.ID_OK)
+
+
 class SessionOptionsDialog(wx.Dialog):
     """Opcje sesji. Pokazuje WYLACZNIE opcje, ktore ta sesja umie wykonac.
 
@@ -2618,6 +2913,10 @@ class LiteFrame(wx.Frame):
             self._show_session_options()
         elif action is Action.GENERAL_SETTINGS:
             self._show_general_playback_options()
+        elif action is Action.VIEW_PRESETS:
+            self._show_presets()
+        elif action is Action.ASSIGN_PRESET:
+            self._assign_preset()
         elif (slot := preset_slot(action)) is not None:
             self._activate_preset(slot)
         elif action is Action.PLAY_PAUSE:
@@ -2911,14 +3210,166 @@ class LiteFrame(wx.Frame):
             )
         ))
 
+    def _current_preset_target(self) -> profile_presets.PresetTarget | None:
+        """Element listy albo faktycznie odtwarzany element widoku gracza."""
+        session = self.navigator.active
+        state = self.navigator.session
+        row = state.model.selected_row
+        if state.view is View.PLAYER and state.now_playing_id:
+            row = next(
+                (
+                    candidate for candidate in (
+                        *state.playback_source_rows,
+                        *state.model.rows,
+                    )
+                    if candidate.item_id == state.now_playing_id
+                ),
+                None,
+            )
+            # Plik otwarty bezposrednio przez Ctrl+O moze nie miec jeszcze
+            # wiersza w Bibliotece, ale host zwraca jego prawdziwa sciezke.
+            if row is None and session is SessionId.FILES:
+                source = self._last_status.get("source")
+                if isinstance(source, str) and source.strip():
+                    row = Row(
+                        item_id=state.now_playing_id,
+                        title=state.now_playing_title or Path(source).name,
+                        kind="track",
+                        path=source.strip(),
+                    )
+        return profile_presets.target_from_row(session, row)
+
+    def _preset_inputs(self, session: SessionId) -> tuple[dict, list[dict]]:
+        """Niezmienne migawki dla watku odczytujacego duzy profil AMC."""
+        overrides = {
+            key: [dict(item) for item in value]
+            for key, value in self.state.preset_overrides.items()
+        }
+        stations = self.stations.as_payload() if session is SessionId.RADIO else []
+        return overrides, stations
+
+    def _show_presets(self) -> None:
+        """Ctrl+Alt+P: jawna lista 12 miejsc, bez zapisu i bez technicznych ID."""
+        session = self.navigator.active
+        target = self._current_preset_target()
+        current_target_id = target.target_id if target is not None else None
+        overrides, _stations = self._preset_inputs(session)
+
+        def work() -> tuple[profile_presets.PresetEntry, ...]:
+            return profile_presets.effective_entries(
+                self.layout.state_json, session, overrides
+            )
+
+        def done(entries: tuple[profile_presets.PresetEntry, ...]) -> None:
+            if self.navigator.active is not session:
+                return
+            session_name = session_options.session_display_name(session)
+            with PresetListDialog(
+                self,
+                choices=profile_presets.choices(entries),
+                session_name=session_name,
+                current_target_id=current_target_id,
+            ) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
+                    return
+                choice = dialog.selected_choice
+            if choice is not None:
+                self._activate_preset(choice.slot)
+
+        def failed(error: Exception) -> None:
+            if isinstance(error, profile_presets.PresetProfileError):
+                self.announcer.say(str(error))
+            else:
+                self.announcer.say("Nie udało się odczytać presetów")
+
+        self.runner.submit("preset", work, done, failed)
+
+    def _assign_preset(self) -> None:
+        """Ctrl+Alt+Shift+P: trwale zapisz tylko prywatne nadpisanie wxPython."""
+        session = self.navigator.active
+        target = self._current_preset_target()
+        if target is None:
+            self.announcer.say(
+                f"Wybierz element sesji {session_options.session_display_name(session)}, "
+                "który chcesz przypisać do presetu"
+            )
+            return
+        overrides, _stations = self._preset_inputs(session)
+
+        def work() -> tuple[profile_presets.PresetEntry, ...]:
+            return profile_presets.effective_entries(
+                self.layout.state_json, session, overrides
+            )
+
+        def done(entries: tuple[profile_presets.PresetEntry, ...]) -> None:
+            if self.navigator.active is not session:
+                return
+            free = profile_presets.first_free_slot(entries)
+            initial = profile_presets.existing_target_slot(entries, target.target_id) or free or 1
+            with PresetAssignmentDialog(
+                self,
+                target=target,
+                choices=profile_presets.choices(entries),
+                first_free_slot=free,
+                initial_slot=initial,
+                session_name=session_options.session_display_name(session),
+            ) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
+                    return
+                slot = dialog.selected_slot
+                action = dialog.selected_action
+
+            updated = (
+                profile_presets.remove_entry(entries, slot)
+                if action == "remove"
+                else profile_presets.replace_entry(entries, target, slot)
+            )
+            previous = {
+                key: [dict(item) for item in value]
+                for key, value in self.state.preset_overrides.items()
+            }
+            next_overrides = {
+                key: [dict(item) for item in value]
+                for key, value in previous.items()
+            }
+            next_overrides[session.value] = profile_presets.entries_payload(updated)
+            self.state.preset_overrides = next_overrides
+            try:
+                self.store.save(self.state)
+            except Exception:
+                self.state.preset_overrides = previous
+                self.announcer.say("Nie udało się zapisać presetów. Niczego nie zmieniono")
+                return
+
+            spoken = profile_presets.shortcut_label(slot, spoken=True)
+            if action == "remove":
+                self.announcer.say(f"Usunięto preset {spoken}")
+            else:
+                self.announcer.say(f"Zapisano preset {spoken}: {target.title}")
+
+        def failed(error: Exception) -> None:
+            if isinstance(error, profile_presets.PresetProfileError):
+                self.announcer.say(str(error))
+            else:
+                self.announcer.say("Nie udało się przygotować przypisania presetu")
+
+        self.runner.submit("preset", work, done, failed)
+
     def _activate_preset(self, slot: int) -> None:
-        """Uruchom istniejacy preset biezacej sesji z profilu AMC."""
+        """Uruchom preset profilu AMC albo jego prywatne nadpisanie wxPython."""
         session = self.navigator.active
         spoken = profile_presets.shortcut_label(slot, spoken=True)
+        overrides, stations = self._preset_inputs(session)
 
         def work():
             return profile_presets.resolve_preset(
-                self.layout.state_json, session, slot
+                self.layout.state_json,
+                session,
+                slot,
+                overrides=overrides,
+                current_stations=stations,
             )
 
         def done(resolved: profile_presets.ResolvedPreset) -> None:
@@ -2929,7 +3380,7 @@ class LiteFrame(wx.Frame):
             entry = resolved.entry
             if entry is None:
                 self.announcer.say(
-                    f"Preset {spoken} pusty. Przypisanie presetów przeniesiemy w kolejnym kroku."
+                    f"Preset {spoken} pusty. Ctrl+Alt+Shift+P przypisuje bieżący element."
                 )
                 return
 
@@ -2975,6 +3426,18 @@ class LiteFrame(wx.Frame):
                         target_session_id=SessionId.FILES,
                     ))
                     return
+            if kind in ("track", "file") and entry.location:
+                target_row = Row(
+                    item_id=entry.target_id,
+                    title=entry.title or Path(entry.location).name,
+                    kind="track",
+                    path=entry.location,
+                )
+                self._run(self.navigator.activate_local_preset(
+                    target_row,
+                    open_player=self.options.open_player_when_activating_preset,
+                ))
+                return
             self.announcer.say(
                 f"Preset {spoken} istnieje, ale ten rodzaj materiału nie jest jeszcze przeniesiony."
             )
