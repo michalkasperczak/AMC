@@ -59,6 +59,13 @@ class Row:
     # wymienic bez zgubienia zwyklych informacji wiersza. Pole zawiera juz
     # tekst uzytkowy -- nigdy enum, identyfikator ani reprezentacje obiektu.
     state_detail: str = ""
+    # Stan, ktory uzytkownik wybral PRZED nazwa. Surowy ``title`` pozostaje
+    # nietkniety dla kopiowania, wyszukiwania i uruchamiania stacji.
+    state_prefix: str = ""
+    # Flagi sluza wylacznie do opcjonalnego sygnalu przy fokusie. Nie sa
+    # tekstem dostepnosciowym i nie ujawniaja technicznego stanu hosta.
+    playback_activity: bool = False
+    recording_activity: bool = False
     # Punkt wznowienia podcastu lub innego dlugiego materialu. W modelu zostaje
     # liczba; czytnik dostaje tylko przygotowany wyzej tekst ``detail``.
     position_seconds: float = 0.0
@@ -141,7 +148,11 @@ class ListModel:
         if row is None:
             return ""
         if column == 0:
-            return row.title
+            return (
+                f"{row.state_prefix} {row.title}"
+                if row.state_prefix
+                else row.title
+            )
         if column == 1:
             return row.kind_label if row.show_kind else ""
         if column == 2:

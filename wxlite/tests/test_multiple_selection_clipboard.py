@@ -136,7 +136,48 @@ def test_periodic_cursor_sync_does_not_break_a_shift_selection() -> None:
     assert gui.MediaListCtrl._cursor_target(control) is None
 
 
-def test_deselecting_the_cursor_moves_model_anchor_to_a_still_selected_row() -> None:
+def test_ctrl_arrow_focus_is_kept_until_ctrl_space_toggles_it() -> None:
+    model = ListModel()
+    rows = [
+        row("a", "Alfa.mp3", "C:\\m\\Alfa.mp3"),
+        row("b", "Beta.mp3", "C:\\m\\Beta.mp3"),
+        row("c", "Gamma.mp3", "C:\\m\\Gamma.mp3"),
+    ]
+    model.replace(rows)
+    model.select_id("a")
+    control = gui.MediaListCtrl.__new__(gui.MediaListCtrl)
+    control.model = model
+    control._shown = list_sync.model_row_texts(model)
+    control.filter_query = ""
+    control.updating = False
+    control.GetFocusedItem = lambda: 2
+    control.GetFirstSelected = lambda: 0
+    control.GetItemCount = lambda: len(model.rows)
+    control.GetItemState = lambda index, _mask: 4 if index == 0 else 0
+
+    class Event:
+        def GetEventObject(self):  # noqa: N802
+            return control
+
+        def GetIndex(self) -> int:  # noqa: N802
+            return 2
+
+        def Skip(self) -> None:  # noqa: N802
+            pass
+
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame.navigator = SimpleNamespace(session=SimpleNamespace(model=model))
+    frame._refresh_menu_state = lambda: None
+
+    frame._on_item_focused(Event())
+
+    assert model.selected_id == "c"
+    # Wiersz C ma tylko fokus, a A pozostaje zaznaczony. Najblizszy tick nie
+    # moze zaznaczyc C za uzytkownika przed nacisnieciem Ctrl+Spacji.
+    assert control._cursor_target() is None
+
+
+def test_deselecting_focused_row_keeps_it_as_ctrl_space_anchor() -> None:
     model = ListModel()
     rows = [
         row("a", "Alfa.mp3", "C:\\m\\Alfa.mp3"),
@@ -170,7 +211,58 @@ def test_deselecting_the_cursor_moves_model_anchor_to_a_still_selected_row() -> 
 
     frame._on_item_deselected(Event())
 
+    assert model.selected_id == "c"
+
+
+def test_deselecting_nonfocused_anchor_moves_to_selected_focus() -> None:
+    model = ListModel()
+    rows = [
+        row("a", "Alfa.mp3", "C:\\m\\Alfa.mp3"),
+        row("b", "Beta.mp3", "C:\\m\\Beta.mp3"),
+        row("c", "Gamma.mp3", "C:\\m\\Gamma.mp3"),
+    ]
+    model.replace(rows)
+    model.select_id("c")
+    control = gui.MediaListCtrl.__new__(gui.MediaListCtrl)
+    control.model = model
+    control._shown = list_sync.model_row_texts(model)
+    control.updating = False
+    control.GetFocusedItem = lambda: 0
+    control.GetFirstSelected = lambda: 0
+    control.GetItemCount = lambda: len(model.rows)
+    control.GetItemState = lambda index, _mask: 4 if index == 0 else 0
+
+    class Event:
+        def GetEventObject(self):  # noqa: N802
+            return control
+
+        def GetIndex(self) -> int:  # noqa: N802
+            return 2
+
+        def Skip(self) -> None:  # noqa: N802
+            pass
+
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame.navigator = SimpleNamespace(session=SimpleNamespace(model=model))
+    frame._refresh_menu_state = lambda: None
+
+    frame._on_item_deselected(Event())
+
     assert model.selected_id == "a"
+
+
+def test_native_list_focus_event_is_bound_for_ctrl_arrow_navigation() -> None:
+    import wx
+
+    bindings: list[object] = []
+    control = SimpleNamespace(
+        Bind=lambda event_type, _handler: bindings.append(event_type)
+    )
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+
+    frame._bind_list(control)
+
+    assert wx.EVT_LIST_ITEM_FOCUSED in bindings
 
 
 def test_ctrl_shift_c_copies_all_selected_real_files() -> None:

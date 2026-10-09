@@ -62,6 +62,38 @@ def test_round_trip_keeps_options_and_stations() -> None:
     assert [s.url for s in loaded.stations] == ["http://a/1"]
 
 
+def test_round_trip_keeps_radio_activity_presentation_options() -> None:
+    store, _ = temp_store()
+    state = LiteState(options=Options(
+        radio_playback_state_position="before",
+        radio_recording_state_position="off",
+        radio_playback_state_sound=True,
+        radio_recording_state_sound=True,
+    ))
+
+    store.save(state)
+    loaded = store.load().options
+
+    assert loaded.radio_playback_state_position == "before"
+    assert loaded.radio_recording_state_position == "off"
+    assert loaded.radio_playback_state_sound is True
+    assert loaded.radio_recording_state_sound is True
+
+
+def test_invalid_radio_activity_options_return_to_safe_defaults() -> None:
+    options = Options(
+        radio_playback_state_position="enum-z-kodu",
+        radio_recording_state_position="",
+        radio_playback_state_sound="tak",  # type: ignore[arg-type]
+        radio_recording_state_sound=1,  # type: ignore[arg-type]
+    ).clamp()
+
+    assert options.radio_playback_state_position == "after"
+    assert options.radio_recording_state_position == "after"
+    assert options.radio_playback_state_sound is False
+    assert options.radio_recording_state_sound is False
+
+
 def test_round_trip_keeps_private_recording_history() -> None:
     store, _ = temp_store()
     state = LiteState(recording_history=[{

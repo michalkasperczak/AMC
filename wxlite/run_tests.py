@@ -12,8 +12,10 @@ Uzycie:  python3 run_tests.py [fragment_nazwy ...]
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import os
 import sys
+import tempfile
 import traceback
 import unittest
 from pathlib import Path
@@ -43,7 +45,7 @@ def collect(module, stem: str) -> list[tuple[str, object]]:
     for name in sorted(vars(module)):
         value = getattr(module, name)
         if name.startswith("test_") and callable(value) and not isinstance(value, type):
-            found.append((f"{stem}::{name}", value))
+            found.append((f"{stem}::{name}", _function_runner(value)))
             continue
         if isinstance(value, type) and issubclass(value, unittest.TestCase):
             for method in sorted(dir(value)):
@@ -51,6 +53,32 @@ def collect(module, stem: str) -> list[tuple[str, object]]:
                     continue
                 found.append((f"{stem}::{name}.{method}", _case_runner(value, method)))
     return found
+
+
+def _function_runner(function):
+    """Minimalna obsluga standardowego fixture ``tmp_path`` z pytest.
+
+    Runner obiecuje uruchamiac te same funkcje ``test_*`` bez instalowania
+    pytest. Dwie funkcje uzywaja tylko jego najprostszego fixture; przekazanie
+    bezpiecznego katalogu tymczasowego jest lepsze niz ciche pomijanie albo
+    staly czerwony wynik calego zestawu.
+    """
+    parameters = tuple(inspect.signature(function).parameters)
+    if not parameters:
+        return function
+    if parameters != ("tmp_path",):
+        def unsupported() -> None:
+            raise TypeError(
+                f"Nieobslugiwane argumenty testu {function.__name__}: "
+                + ", ".join(parameters)
+            )
+        return unsupported
+
+    def run_with_tmp_path() -> None:
+        with tempfile.TemporaryDirectory(prefix="amc-wx-test-") as directory:
+            function(Path(directory))
+
+    return run_with_tmp_path
 
 
 def _case_runner(case: type, method: str):

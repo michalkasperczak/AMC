@@ -137,6 +137,16 @@ def test_active_radio_recordings_are_read_from_the_host_not_the_profile() -> Non
     assert "radio_recording_status" in SOURCE
 
 
+def test_escape_from_transient_preview_restores_without_verbose_return_message() -> None:
+    """Po Escape ma przemowic odzyskany wiersz, nie opis technicznego widoku."""
+    dispatch = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_dispatch"
+    )
+    source = ast.get_source_segment(SOURCE, dispatch) or ""
+    assert "_restore_transient_preview(self, announce=False)" in source
+
+
 def test_play_track_forwards_the_bookmark_position() -> None:
     """Bez ``position_seconds`` zakladka odtworzylaby plik od zera."""
     assert "position_seconds=intent.position_seconds" in SOURCE, (

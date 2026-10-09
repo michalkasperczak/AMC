@@ -100,6 +100,12 @@ from .quick_info import (
     quick_info_reply,
     read_cached_information,
 )
+from .radio_activity import (
+    STATE_POSITION_LABELS,
+    activity_cue_wav,
+    state_position_index,
+    state_position_value,
+)
 from .transport_parity import (
     PLAYBACK_RATE_MAX,
     PLAYBACK_RATE_MIN,
@@ -826,16 +832,27 @@ class MediaListCtrl(wx.ListCtrl):
         jeżeli poprzedni wybór wypadł z filtra. Tutaj mapujemy już jego ID.
         """
         wanted = self._wanted_visible_index()
+        first_selected = self.GetFirstSelected()
+        focused = self.GetFocusedItem()
+        # W wielokrotnym wyborze Ctrl+strzalka legalnie przesuwa SAM fokus na
+        # niezaznaczony wiersz, aby Ctrl+Spacja mogla go potem dolaczyc albo
+        # odlaczyc. Jezeli model juz wskazuje ten fokus i jakies zaznaczenie
+        # istnieje, stan natywnej listy jest spojny -- brak bitu SELECTED na
+        # fokusie jest zamierzony, a nie usterka do naprawienia. Dawna droga
+        # ponownie zaznaczala wiersz przy najblizszym ticku i psula wybor
+        # nieprzylegajacy.
+        if focused == wanted and first_selected != -1:
+            return None
         # W liscie wielokrotnego wyboru ``GetFirstSelected`` zwraca PIERWSZY
         # z zaznaczonych wierszy, a niekoniecznie wiersz z fokusem. Jezeli
         # chciany wiersz juz nalezy do zaznaczenia, podajemy go planerowi jako
         # zaznaczony. Inaczej kazdy tick uznawalby poprawny zakres Shift za
         # rozjazd i ponownie dotykal kontrolki (oraz NVDA).
-        selected = wanted if self._is_index_selected(wanted) else self.GetFirstSelected()
+        selected = wanted if self._is_index_selected(wanted) else first_selected
         return list_sync.plan_cursor(
             wanted=wanted,
             selected=selected,
-            focused=self.GetFocusedItem(),
+            focused=focused,
         )
 
     def _is_index_selected(self, index: int) -> bool:
@@ -1646,6 +1663,51 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         for control in (self.pause, self.follow, self.open_preset, self.radio_enter):
             layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 10)
+
+        activity_heading = wx.StaticText(
+            panel, label="Komunikaty stanu stacji radiowej"
+        )
+        activity_heading.SetName("Komunikaty stanu stacji radiowej")
+        layout.Add(activity_heading, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 8)
+
+        playback_label = wx.StaticText(
+            panel, label="Stan &odtwarzania przy nazwie stacji:"
+        )
+        self.playback_position = wx.Choice(
+            panel, choices=list(STATE_POSITION_LABELS)
+        )
+        self.playback_position.SetName("Stan odtwarzania przy nazwie stacji")
+        self.playback_position.SetSelection(
+            state_position_index(options.radio_playback_state_position)
+        )
+        layout.Add(playback_label, 0, wx.BOTTOM, 4)
+        layout.Add(self.playback_position, 0, wx.BOTTOM | wx.EXPAND, 10)
+
+        recording_label = wx.StaticText(
+            panel, label="Stan &nagrywania przy nazwie stacji:"
+        )
+        self.recording_position = wx.Choice(
+            panel, choices=list(STATE_POSITION_LABELS)
+        )
+        self.recording_position.SetName("Stan nagrywania przy nazwie stacji")
+        self.recording_position.SetSelection(
+            state_position_index(options.radio_recording_state_position)
+        )
+        layout.Add(recording_label, 0, wx.BOTTOM, 4)
+        layout.Add(self.recording_position, 0, wx.BOTTOM | wx.EXPAND, 10)
+
+        self.playback_sound = wx.CheckBox(
+            panel, label="Krótki &dźwięk dla odtwarzanej stacji"
+        )
+        self.playback_sound.SetName("Krótki dźwięk dla odtwarzanej stacji")
+        self.playback_sound.SetValue(options.radio_playback_state_sound)
+        self.recording_sound = wx.CheckBox(
+            panel, label="Krótki dźwięk dla nagrywanej stacji"
+        )
+        self.recording_sound.SetName("Krótki dźwięk dla nagrywanej stacji")
+        self.recording_sound.SetValue(options.radio_recording_state_sound)
+        layout.Add(self.playback_sound, 0, wx.BOTTOM | wx.EXPAND, 10)
+        layout.Add(self.recording_sound, 0, wx.BOTTOM | wx.EXPAND, 10)
         panel.SetSizer(layout)
 
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
@@ -1657,12 +1719,20 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.pause.SetFocus()
 
     @property
-    def values(self) -> dict[str, bool]:
+    def values(self) -> dict[str, object]:
         return {
             "pause_on_player_exit": self.pause.GetValue(),
             "follow_playback_on_player_exit": self.follow.GetValue(),
             "open_player_when_activating_preset": self.open_preset.GetValue(),
             "stay_on_list_after_radio_enter": self.radio_enter.GetValue(),
+            "radio_playback_state_position": state_position_value(
+                self.playback_position.GetSelection()
+            ),
+            "radio_recording_state_position": state_position_value(
+                self.recording_position.GetSelection()
+            ),
+            "radio_playback_state_sound": self.playback_sound.GetValue(),
+            "radio_recording_state_sound": self.recording_sound.GetValue(),
         }
 
 
@@ -1721,6 +1791,7 @@ class LiteFrame(wx.Frame):
         #: ``transport.pauseResume`` nie zna zakresu sesji.
         self._playing_session: SessionId | None = None
         self._pending_playback_session: SessionId | None = None
+        self._radio_activity_cues: dict[tuple[bool, bool], object] = {}
 
         self._build_ui()
         self._bind_keys()
@@ -1999,6 +2070,7 @@ class LiteFrame(wx.Frame):
         """Wspolne powiazania klawiatury i wyboru dla list plikow i radia."""
         control.Bind(wx.EVT_KEY_DOWN, self._on_key)
         control.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda _e: self._activate())
+        control.Bind(wx.EVT_LIST_ITEM_FOCUSED, self._on_item_focused)
         control.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_item_selected)
         control.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._on_item_deselected)
 
@@ -2878,7 +2950,11 @@ class LiteFrame(wx.Frame):
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
-            if not LiteFrame._restore_transient_preview(self):
+            # Po Escape/Backspace z podgladu nie dopowiadamy technicznego
+            # "Powrot, Radio internetowe, lista". Natywna lista odzyskuje
+            # poprzedni wiersz i to wlasnie jego nazwe ma od razu przeczytac
+            # NVDA.
+            if not LiteFrame._restore_transient_preview(self, announce=False):
                 self._run(self.navigator.go_to_parent())
         elif action is Action.SHOW_PLAYER:
             # F6 w odtwarzaczu TEZ wraca na liste (navigator.show_player), wiec
@@ -3124,6 +3200,60 @@ class LiteFrame(wx.Frame):
             return self.radio_list
         return self.podcasts_list
 
+    def _on_item_focused(self, event: wx.ListEvent) -> None:
+        """Fokus jest kotwica akcji takze wtedy, gdy wiersz nie jest wybrany.
+
+        To natywny etap windowsowego wyboru nieprzylegajacego:
+        Ctrl+strzalka przesuwa fokus bez kasowania dotychczasowych zaznaczen,
+        a Ctrl+Spacja przelacza dopiero ten wiersz. Model przechowuje jedno ID
+        wlasnie jako kotwice nawigacji; pelny zbior zaznaczen nadal pozostaje
+        w SysListView32 i nie jest tu kopiowany ani emulowany.
+        """
+        control = event.GetEventObject()
+        if not isinstance(control, MediaListCtrl) or control.updating:
+            event.Skip()
+            return
+        item_id = control.shown_item_id(event.GetIndex())
+        if item_id is not None:
+            self.navigator.session.model.select_id(item_id)
+            self._refresh_menu_state()
+            self._play_radio_activity_cue(self.navigator.session.model.selected_row)
+        event.Skip()
+
+    def _play_radio_activity_cue(self, row: Row | None) -> None:
+        """Opcjonalny, krotki sygnal stanu. Nie dotyka hosta ani audio AMC."""
+        if (
+            row is None
+            or row.kind != "station"
+            or getattr(self.navigator, "active", None) is not SessionId.RADIO
+        ):
+            return
+        playback = bool(
+            row.playback_activity and self.options.radio_playback_state_sound
+        )
+        recording = bool(
+            row.recording_activity and self.options.radio_recording_state_sound
+        )
+        if not playback and not recording:
+            return
+        try:
+            import wx.adv as wxadv
+
+            key = (playback, recording)
+            sound = self._radio_activity_cues.get(key)
+            if sound is None:
+                sound = wxadv.Sound()
+                if not sound.CreateFromData(
+                    activity_cue_wav(playback=playback, recording=recording)
+                ):
+                    return
+                self._radio_activity_cues[key] = sound
+            sound.Play(wxadv.SOUND_ASYNC)
+        except (ImportError, AttributeError, RuntimeError):
+            # Sygnal jest dodatkiem. Jego brak nie moze zepsuc strzalek ani
+            # wypowiadania nazwy stacji przez natywna liste.
+            return
+
     def _on_item_selected(self, event: wx.ListEvent) -> None:
         """Zaznaczenie z klawiatury/myszy wraca do modelu, zeby ID pozostal
         stabilny po odswiezeniu listy.
@@ -3165,9 +3295,10 @@ class LiteFrame(wx.Frame):
         """Nie pozwol, by model wskazywal wiersz usuniety z zaznaczenia.
 
         Przy Ctrl+klik lub skracaniu zakresu Shift natywna lista moze zostawic
-        fokus na wierszu juz niezaznaczonym. Model trzyma tylko kotwice kursora,
-        wiec przenosimy ja na inny faktycznie zaznaczony wiersz. Bez tego
-        nastepny tick ponownie zaznaczylby wlasnie odznaczony element.
+        fokus na wierszu juz niezaznaczonym. To POPRAWNY stan dla Ctrl+Spacji:
+        kotwica modelu zostaje wtedy na fokusie, a ``_cursor_target`` nie
+        zamienia go z powrotem w zaznaczenie. Gdy fokus jest gdzie indziej,
+        kotwice przenosimy na rzeczywiscie zaznaczony wiersz.
         """
         control = event.GetEventObject()
         if not isinstance(control, MediaListCtrl) or control.updating:
@@ -3176,14 +3307,15 @@ class LiteFrame(wx.Frame):
         item_id = control.shown_item_id(event.GetIndex())
         model = self.navigator.session.model
         if item_id is not None and model.selected_id == item_id:
-            replacement = -1
             focused = control.GetFocusedItem()
-            if control._is_index_selected(focused):
-                replacement = focused
-            else:
-                replacement = control.GetFirstSelected()
-            replacement_id = control.shown_item_id(replacement)
-            model.select_id(replacement_id)
+            if focused != event.GetIndex():
+                replacement = (
+                    focused
+                    if control._is_index_selected(focused)
+                    else control.GetFirstSelected()
+                )
+                replacement_id = control.shown_item_id(replacement)
+                model.select_id(replacement_id)
             self._refresh_menu_state()
         event.Skip()
 
@@ -5003,7 +5135,7 @@ class LiteFrame(wx.Frame):
     def _show_general_playback_options(self) -> None:
         """Ustawienia ogolne wxPython z natychmiastowym, atomowym zapisem."""
         dialog = GeneralPlaybackOptionsDialog(self, self.options)
-        chosen: dict[str, bool] | None = None
+        chosen: dict[str, object] | None = None
         try:
             if dialog.ShowModal() == wx.ID_OK:
                 chosen = dialog.values
@@ -5020,6 +5152,9 @@ class LiteFrame(wx.Frame):
                 setattr(self.options, name, value)
             self.state.options = self.options
             return
+        # Zmiana dotyczy tylko tekstu/sygnalu wierszy. Odtwarzanie,
+        # nagrywanie, harmonogramy i timeshift pozostaja nietkniete.
+        self._apply_radio_activity_status()
         self.announcer.say("Zapisano ustawienia interfejsu i odtwarzania")
 
     def _show_session_options(self) -> None:
@@ -5424,6 +5559,8 @@ class LiteFrame(wx.Frame):
             state.model.rows,
             transport_status=self._last_status,
             recording_status=self._last_recording_status,
+            playback_position=self.options.radio_playback_state_position,
+            recording_position=self.options.radio_recording_state_position,
         )
         if rows == state.model.rows:
             return
@@ -5608,16 +5745,25 @@ class LiteFrame(wx.Frame):
         def done(payload: dict) -> None:
             if announce and self._transient_preview_return is None:
                 return
+            rows = active_recording_rows(payload)
             events = self.navigator.apply_radio_view(
                 LibraryView.ACTIVE_RADIO_RECORDINGS,
                 "Nagrywane",
-                active_recording_rows(payload),
+                rows,
                 preferred_id=preferred_id,
             )
             if self.navigator.active is not SessionId.RADIO:
                 return
             if announce:
-                self._run(events)
+                if rows:
+                    self._run(events)
+                else:
+                    # Najpierw opróżniamy natywna liste, a dopiero potem
+                    # wypowiadamy wynik. Gdy komunikat szedl przed zmiana
+                    # kontrolki, zdarzenie usuniecia ostatniego wiersza
+                    # dopisywalo na koncu mylace "nieznane".
+                    self._sync_views()
+                    wx.CallAfter(self.announcer.say, events[0].text)
             else:
                 # Odswiezenie po zdarzeniu nie moze zagluszac komunikatu o
                 # starcie, zatrzymaniu lub bledzie nagrania.

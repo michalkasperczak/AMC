@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .audio_clip import read_clip_selections
 from .profile_presets import read_preset_overrides
+from .radio_activity import normalize_state_position
 from .radio_schedule_settings import read_schedule_overrides
 
 
@@ -61,6 +62,15 @@ class Options:
     open_player_when_activating_preset: bool = False
     #: Enter na stacji moze zaczac granie bez zabierania fokusu z listy.
     stay_on_list_after_radio_enter: bool = False
+    #: Polozenie slowa opisujacego odtwarzanie wzgledem nazwy stacji.
+    #: Wartosc modelu nigdy nie jest pokazywana uzytkownikowi; dialog mapuje
+    #: ja na pelne polskie etykiety.
+    radio_playback_state_position: str = "after"
+    #: Niezalezna pozycja komunikatu o nagrywaniu.
+    radio_recording_state_position: str = "after"
+    #: Delikatne sygnaly przy przejsciu fokusu na aktywna stacje.
+    radio_playback_state_sound: bool = False
+    radio_recording_state_sound: bool = False
 
     def audio_payload(self) -> dict:
         return {
@@ -91,6 +101,16 @@ class Options:
             self.open_player_when_activating_preset = False
         if type(self.stay_on_list_after_radio_enter) is not bool:
             self.stay_on_list_after_radio_enter = False
+        self.radio_playback_state_position = normalize_state_position(
+            self.radio_playback_state_position
+        )
+        self.radio_recording_state_position = normalize_state_position(
+            self.radio_recording_state_position
+        )
+        if type(self.radio_playback_state_sound) is not bool:
+            self.radio_playback_state_sound = False
+        if type(self.radio_recording_state_sound) is not bool:
+            self.radio_recording_state_sound = False
         return self
 
 

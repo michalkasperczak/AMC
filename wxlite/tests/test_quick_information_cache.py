@@ -34,9 +34,15 @@ def test_cache_pliku_czytany_po_tozsamosci_i_bez_filtra_czlonkostwa():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         db_path = root / "library.db"
-        with sqlite3.connect(db_path) as db:
+        db = sqlite3.connect(db_path)
+        try:
             db.execute("CREATE TABLE local_items(id TEXT, path TEXT, duration_ticks INTEGER, bitrate_kbps INTEGER, sample_rate_hz INTEGER, is_in_library INTEGER)")
             db.execute("INSERT INTO local_items VALUES(?,?,?,?,?,?)", ("selected", "D:\\Muzyka\\Łąka.mp3", 123456789, 320, 48000, 0))
+            db.commit()
+        finally:
+            # Context manager sqlite3 zatwierdza transakcje, ale NIE zamyka
+            # uchwytu. Na Windows blokowal przez to usuniecie katalogu testu.
+            db.close()
         before = db_path.read_bytes()
         row = Row("selected", "Łąka", "track", path="D:\\Muzyka\\Łąka.mp3")
         assert hasattr(quick_info, "read_cached_information"), "czas nie może być stałym zerem"

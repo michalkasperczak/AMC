@@ -1250,7 +1250,15 @@ class Navigator:
         state.model.replace(rows, preferred_id=preferred_id or state.view_selected_ids.get(key))
         state.view = View.LIST
         # Nazwe wiersza czyta natywna lista, nie powtarzamy jej w komunikacie.
-        message = heading if rows else f"{heading}, pusto"
+        if rows:
+            message = heading
+        elif view is LibraryView.ACTIVE_RADIO_RECORDINGS:
+            # Konkretna liczba jest szybsza i jednoznaczna. To rowniez
+            # komunikat koncowy po aktualizacji pustej natywnej listy, dzieki
+            # czemu NVDA nie zostawia uzytkownika ze slowem "nieznane".
+            message = f"{heading}, zero elementów"
+        else:
+            message = f"{heading}, pusto"
         if not order_matches_amc:
             # Ta sama formula, co w ``apply_library_view``: zastepcza kolejnosc
             # jest NAZWANA, a nie przemilczana.

@@ -347,7 +347,7 @@ def test_station_rows_expose_playback_and_recording_without_technical_values() -
         },
     )
     assert decorated[0].detail == "stereo"
-    assert decorated[0].state_detail == "odtwarzanie, nagrywanie"
+    assert decorated[0].state_detail == "odtwarzane, nagrywane"
     assert decorated[1].state_detail == "nagrywanie wstrzymane"
     assert "sekret" not in " ".join(row.state_detail for row in decorated)
 
@@ -554,6 +554,19 @@ def test_transient_recording_preview_restores_session_view_and_selection() -> No
     assert nav.session.view is View.PLAYER
     assert nav.session.library_view is LibraryView.ALL_FILES
     assert nav.session.model.selected_id == "plik"
+
+
+def test_empty_active_recordings_have_an_exact_user_facing_count() -> None:
+    nav = Navigator()
+
+    events = nav.apply_radio_view(
+        LibraryView.ACTIVE_RADIO_RECORDINGS,
+        "Nagrywane",
+        [],
+    )
+
+    assert len(events) == 1
+    assert events[0].text == "Nagrywane, zero elementów"
 
 
 def test_escape_and_backspace_share_the_recording_preview_exit_action() -> None:

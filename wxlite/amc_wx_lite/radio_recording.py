@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Callable, Sequence
 
 from .state_store import Station
 from .list_model import Row
+from .radio_activity import join_spoken_prefix, normalize_state_position
 
 if TYPE_CHECKING:
     from .library_db import LibraryItem
@@ -196,6 +197,8 @@ def station_activity_rows(
     *,
     transport_status: object,
     recording_status: object,
+    playback_position: str = "after",
+    recording_position: str = "after",
 ) -> list[Row]:
     """Dopisz do zwyklych wierszy stacji ich zywy, czytelny stan.
 
@@ -224,37 +227,82 @@ def station_activity_rows(
                 str(entry.get("state") or "")
             )
 
+    playback_position = normalize_state_position(playback_position)
+    recording_position = normalize_state_position(recording_position)
+
     result: list[Row] = []
     for row in rows:
         if row.kind != "station":
-            result.append(row if not row.state_detail else replace(row, state_detail=""))
+            result.append(
+                row
+                if not (
+                    row.state_detail
+                    or row.state_prefix
+                    or row.playback_activity
+                    or row.recording_activity
+                )
+                else replace(
+                    row,
+                    state_detail="",
+                    state_prefix="",
+                    playback_activity=False,
+                    recording_activity=False,
+                )
+            )
             continue
 
-        labels: list[str] = []
+        playback_label = ""
         if radio_loaded and row.item_id == loaded_id:
-            labels.append("odtwarzanie wstrzymane" if paused else "odtwarzanie")
+            playback_label = "odtwarzanie wstrzymane" if paused else "odtwarzane"
 
         recording_states = states_by_station.get(row.item_id, [])
         active_states = [state for state in recording_states if state != "stopping"]
+        recording_label = ""
         if "stopping" in recording_states and not active_states:
-            labels.append("zatrzymywanie nagrania")
+            recording_label = "zatrzymywanie nagrania"
         elif "starting" in active_states and not any(
             state in ("recording", "paused") for state in active_states
         ):
-            labels.append("przygotowywanie nagrania")
+            recording_label = "przygotowywanie nagrania"
         else:
             ready = [state for state in active_states if state in ("recording", "paused")]
             paused_count = ready.count("paused")
             if ready and paused_count == 0:
-                labels.append("nagrywanie")
+                recording_label = "nagrywane"
             elif ready and paused_count == len(ready):
-                labels.append("nagrywanie wstrzymane")
+                recording_label = "nagrywanie wstrzymane"
             elif ready:
-                labels.append("część nagrań wstrzymana")
+                recording_label = "część nagrań wstrzymana"
 
-        state_detail = ", ".join(labels)
+        before: list[str] = []
+        after: list[str] = []
+        for label, position in (
+            (playback_label, playback_position),
+            (recording_label, recording_position),
+        ):
+            if not label or position == "off":
+                continue
+            (before if position == "before" else after).append(label)
+
+        state_prefix = join_spoken_prefix(before)
+        state_detail = ", ".join(after)
+        playback_activity = bool(playback_label)
+        recording_activity = bool(recording_label)
         result.append(
-            row if row.state_detail == state_detail else replace(row, state_detail=state_detail)
+            row
+            if (
+                row.state_detail == state_detail
+                and row.state_prefix == state_prefix
+                and row.playback_activity == playback_activity
+                and row.recording_activity == recording_activity
+            )
+            else replace(
+                row,
+                state_detail=state_detail,
+                state_prefix=state_prefix,
+                playback_activity=playback_activity,
+                recording_activity=recording_activity,
+            )
         )
     return result
 
