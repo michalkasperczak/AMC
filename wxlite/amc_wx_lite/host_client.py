@@ -545,6 +545,14 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def remove_bookmarks(self, bookmark_ids: list[str]) -> Any:
+        """Usuń zaznaczone zakładki bez usuwania ich materiałów."""
+        return self.call(
+            "bookmark.remove",
+            {"itemIds": list(dict.fromkeys(bookmark_ids))},
+            timeout=20.0,
+        )
+
     def audio_clip_capabilities(self, source_path: str) -> Any:
         """Dostepne sposoby zapisu i rozszerzenia liczone przez silnik AMC."""
         return self.call(

@@ -138,6 +138,71 @@ internal sealed class LiteBookmarkStore
     }
 
     /// <summary>
+    /// Usuwa wyłącznie bit zakładki dla wskazanych wpisów. Wpis będący także
+    /// rozdziałem zostaje w bazie jako rozdział, zgodnie z
+    /// <see cref="BookmarkIndex.Remove"/>. Zwykła zakładka znika w całości.
+    /// </summary>
+    public object Remove(IReadOnlyCollection<string> bookmarkIds)
+    {
+        ArgumentNullException.ThrowIfNull(bookmarkIds);
+        var ids = bookmarkIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Take(1_000)
+            .ToArray();
+        if (ids.Length == 0)
+            throw new LiteRequestException("Brak zakładek do usunięcia.");
+        if (!File.Exists(_databasePath))
+            throw new LiteRequestException("Nie znajduję bazy Biblioteki AMC.");
+        if (_fullAmcIsRunning())
+        {
+            throw new LiteRequestException(
+                "Zamknij najpierw główne AMC. Równoczesne usuwanie zakładek z dwóch wersji mogłoby utracić dane.");
+        }
+
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            var removed = 0;
+            foreach (var id in ids)
+            {
+                int? purpose = null;
+                using (var read = connection.CreateCommand())
+                {
+                    read.Transaction = transaction;
+                    read.CommandText = """
+                        SELECT purpose FROM bookmarks
+                        WHERE id = $id AND (purpose & 1) != 0;
+                        """;
+                    read.Parameters.AddWithValue("$id", id);
+                    var value = read.ExecuteScalar();
+                    if (value is not null && value is not DBNull)
+                        purpose = Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                }
+                if (purpose is null) continue;
+
+                using var change = connection.CreateCommand();
+                change.Transaction = transaction;
+                change.Parameters.AddWithValue("$id", id);
+                if ((purpose.Value & (int)BookmarkPurpose.Chapter) != 0)
+                {
+                    change.CommandText =
+                        "UPDATE bookmarks SET purpose = purpose & ~1 WHERE id = $id;";
+                }
+                else
+                {
+                    change.CommandText = "DELETE FROM bookmarks WHERE id = $id;";
+                }
+                removed += change.ExecuteNonQuery();
+            }
+            transaction.Commit();
+            return new { requestedCount = ids.Length, removedCount = removed };
+        }
+    }
+
+    /// <summary>
     /// Wczytuje i zapisuje wyłącznie tabelę zakładek w jednej sekcji
     /// krytycznej. Odświeżanie kanału może dzięki temu użyć wspólnego
     /// ChapterIndex bez nadpisywania Biblioteki, historii ani kolejki.

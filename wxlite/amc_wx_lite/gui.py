@@ -8027,6 +8027,13 @@ class LiteFrame(wx.Frame):
 
     def _remove_selected_items(self) -> None:
         if (
+            self.navigator.active is SessionId.FILES
+            and self.navigator.session.library_view
+            in (LibraryView.ITEM_BOOKMARKS, LibraryView.ALL_BOOKMARKS)
+        ):
+            self._remove_selected_bookmarks()
+            return
+        if (
             self.navigator.active is SessionId.PODCASTS
             and self.navigator.session.library_view
             is LibraryView.PODCAST_FAVORITES
@@ -8089,6 +8096,61 @@ class LiteFrame(wx.Frame):
             lambda: client.remove_profile_items(session_id, view, item_ids),
             done,
             lambda error: self.announcer.say(f"Nie usunięto: {error}"),
+        )
+
+    def _remove_selected_bookmarks(self) -> None:
+        """Delete w widoku zakładek usuwa wpisy, nigdy pliki źródłowe."""
+        state = self.navigator.session
+        rows = self._selected_action_rows()
+        bookmark_rows = [
+            row for row in rows if row.item_id.startswith("bookmark:")
+        ]
+        if not bookmark_rows or len(bookmark_rows) != len(rows):
+            self.announcer.say("Brak zakładki do usunięcia")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+
+        selected_ids = {row.item_id for row in bookmark_rows}
+        first_index = min(
+            (
+                index for index, row in enumerate(state.model.rows)
+                if row.item_id in selected_ids
+            ),
+            default=0,
+        )
+        remaining = [
+            row for row in state.model.rows if row.item_id not in selected_ids
+        ]
+        preferred_id = (
+            remaining[min(first_index, len(remaining) - 1)].item_id
+            if remaining
+            else None
+        )
+        bookmark_ids = [
+            row.item_id.removeprefix("bookmark:") for row in bookmark_rows
+        ]
+        label = (
+            bookmark_rows[0].title
+            if len(bookmark_rows) == 1
+            else format_item_count(len(bookmark_rows))
+        )
+
+        def done(payload: object) -> None:
+            data = payload if isinstance(payload, dict) else {}
+            removed = int(data.get("removedCount") or 0)
+            if removed <= 0:
+                self.announcer.say("Zakładki bez zmian")
+                return
+            self._refresh_profile_view(preferred_id=preferred_id)
+            self.announcer.say(f"Usunięto z Zakładek: {label}")
+
+        self.runner.submit(
+            "bookmark-remove",
+            lambda: client.remove_bookmarks(bookmark_ids),
+            done,
+            lambda error: self.announcer.say(f"Nie usunięto zakładki: {error}"),
         )
 
     def _recycle_selected_files(self) -> None:

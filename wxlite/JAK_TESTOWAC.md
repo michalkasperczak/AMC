@@ -350,6 +350,11 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
     - Zaznacz kilka plików Shiftem, potem kilka nieprzyległych przez Ctrl+Spację. Ctrl+Shift+Q dodaje albo usuwa całe zaznaczenie ze zwykłej kolejki. Ctrl+Shift+Enter ustawia albo zdejmuje „odtwórz następne”. Shift+Enter niczego nie przechwytuje. Jeśli plik już gra, żadna z tych operacji nie może przerwać dźwięku ani wyzerować czasu.
     - W kolejce zawierającej bieżący B, zwykły A i oznaczony jako następny C widok ma pokazać B, C, A, a naturalny koniec B ma rzeczywiście uruchomić C.
     - Ctrl+Shift+B, nie Ctrl+B. Ctrl+B to teraz OSOBNY, szerszy widok zbiorczy (`GetForDisplay` / `all_bookmark_rows`); Ctrl+Shift+B zostaje przy węższym `GetForItem` dla jednego pliku. Dwa skróty, dwa widoki — sprawdzaj, że się nie podmieniają.
+    - W obu widokach zakładek zaznacz kilka wpisów, także nieprzylegających
+      przez Ctrl+Spację, i naciśnij Delete. Mają zniknąć wszystkie zaznaczone
+      zakładki, fokus ma przejść na najbliższy pozostały wpis, a pliki
+      źródłowe muszą pozostać nietknięte. Wpis będący jednocześnie zakładką
+      i rozdziałem pozostaje w bazie jako rozdział.
     - Backspace z zakładek ma wrócić na TEN plik. Sprawdzaj ID zaznaczenia, nie numer wiersza — po powrocie do Wszystkich plików numer jest inny (zmierzono 2309 z 2476).
 11. Fizyczny skok zakładki mierz pozycją z ŻYWEGO hosta (`transport.status`), nie oczekiwanym payloadem. `play.file` dostaje `positionSeconds` w jednym wywołaniu — nie wysyłaj seeka obok play, bo pozycja ginie przy starcie nowego pliku. Materiał do próby zrób SYNTETYCZNY: wygenerowany plik plus wstrzyknięty rekord w OSOBNEJ kopii pełnej bazy (nie w małej próbce, nie na pliku użytkownika). Przy wstrzykiwaniu zarejestruj zastępczą kolację `AMC_PL`, inaczej `INSERT` padnie na indeksie. Pozycję daj z częścią ułamkową (próba:83,456s) — kontrakt to dzielenie `/ 10_000_000`, nie `//`.
 

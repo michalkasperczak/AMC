@@ -1,6 +1,7 @@
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.LiteHost.Protocol;
 using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace AccessibleMediaController.LiteHost.ProtocolTests;
 
@@ -36,8 +37,39 @@ internal static class BookmarkStoreTests
                     ChapterOrigin = ChapterOrigin.Provider,
                     ChapterSourceId = "podcast-feed"
                 });
+                settings.Entries.Add(new BookmarkEntry
+                {
+                    Id = "bookmark-and-chapter",
+                    SessionId = "local",
+                    SessionName = "Pliki lokalne",
+                    ItemId = "plik-1",
+                    ItemTitle = "Nagranie",
+                    Name = "Zakładka i rozdział",
+                    PositionTicks = TimeSpan.FromMinutes(2).Ticks,
+                    CreatedUtcTicks = DateTime.UtcNow.Ticks,
+                    Purpose = BookmarkPurpose.Bookmark | BookmarkPurpose.Chapter,
+                    ChapterOrigin = ChapterOrigin.User
+                });
                 return true;
             });
+
+            string quickBookmarkId;
+            using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+            {
+                connection.Open();
+                using var quick = connection.CreateCommand();
+                quick.CommandText = """
+                    SELECT id FROM bookmarks
+                    WHERE item_id = 'plik-1' AND purpose = 1
+                    ORDER BY ordinal LIMIT 1;
+                    """;
+                quickBookmarkId = Convert.ToString(quick.ExecuteScalar())!;
+            }
+            var removal = JsonSerializer.SerializeToElement(store.Remove(
+                [quickBookmarkId, "bookmark-and-chapter", "missing"]));
+            Assert.True(removal.GetProperty("requestedCount").GetInt32() == 3
+                && removal.GetProperty("removedCount").GetInt32() == 2,
+                "usuwanie raportuje tylko rzeczywiscie zmienione zakladki");
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
             {
@@ -45,7 +77,13 @@ internal static class BookmarkStoreTests
                 using var count = connection.CreateCommand();
                 count.CommandText = "SELECT COUNT(*) FROM bookmarks;";
                 Assert.True(Convert.ToInt64(count.ExecuteScalar()) == 2L,
-                    "duplikat pozostaje jeden, a rozdzial jest zapisany osobno");
+                    "zwykla zakladka znika, a oba rozdzialy zostaja");
+                using var combined = connection.CreateCommand();
+                combined.CommandText =
+                    "SELECT purpose FROM bookmarks WHERE id = 'bookmark-and-chapter';";
+                Assert.True(Convert.ToInt32(combined.ExecuteScalar())
+                    == (int)BookmarkPurpose.Chapter,
+                    "usuniecie zakladki zachowuje ten sam wpis jako rozdzial");
                 using var sentinel = connection.CreateCommand();
                 sentinel.CommandText = "SELECT value FROM untouched WHERE id = 1;";
                 Assert.Equal("zostaje", Convert.ToString(sentinel.ExecuteScalar()),
@@ -63,6 +101,16 @@ internal static class BookmarkStoreTests
                 refused = true;
             }
             Assert.True(refused, "dzialajace stare AMC musi zablokowac zapis");
+            refused = false;
+            try
+            {
+                blocked.Remove(["bookmark-and-chapter"]);
+            }
+            catch (LiteRequestException)
+            {
+                refused = true;
+            }
+            Assert.True(refused, "dzialajace stare AMC musi blokowac tez usuwanie");
         }
         finally
         {

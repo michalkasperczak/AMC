@@ -47,3 +47,17 @@ def test_client_add_bookmark_uses_narrow_operation() -> None:
         {"itemId": "plik-1", "itemTitle": "Nagranie"},
         15.0,
     )]
+
+
+def test_client_removes_unique_bookmarks_with_a_narrow_operation() -> None:
+    calls: list[tuple] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, timeout=None: calls.append((op, args, timeout)) or {}
+
+    client.remove_bookmarks(["b-1", "b-1", "b-2"])
+
+    assert calls == [(
+        "bookmark.remove",
+        {"itemIds": ["b-1", "b-2"]},
+        20.0,
+    )]

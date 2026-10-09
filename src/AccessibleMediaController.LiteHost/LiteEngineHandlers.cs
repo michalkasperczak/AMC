@@ -286,6 +286,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["podcast.renameSubscription"] = (request, _) => RenamePodcastSubscription(request.Args),
             ["radio.editStation"] = (request, _) => EditRadioStation(request.Args),
             ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
+            ["bookmark.remove"] = (request, _) => RemoveBookmarks(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
             ["audio.outputs"] = (request, _) => ListOutputs(request.Args),
@@ -727,6 +728,13 @@ internal sealed class LiteEngineHandlers : IDisposable
         if (duration <= TimeSpan.Zero)
             throw new LiteRequestException("Nie można dodać zakładki: czas trwania materiału jest nieznany.");
         return _bookmarkStore.Add(itemId, itemTitle, position, DateTime.UtcNow);
+    }
+
+    private object RemoveBookmarks(JsonElement args)
+    {
+        if (_bookmarkStore is null)
+            throw new LiteRequestException("Usuwanie zakładek nie ma dostępu do Biblioteki AMC.");
+        return _bookmarkStore.Remove(ReadIds(args));
     }
 
     /// <summary>
