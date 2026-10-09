@@ -235,11 +235,30 @@ def test_tidal_external_player_is_wired_without_reusing_local_transport_state() 
     assert "and not tidal_external" in refresh_source
 
 
-def test_tidal_player_disables_local_volume_and_rate_controls() -> None:
-    sync = next(
-        node for node in ast.walk(TREE)
-        if isinstance(node, ast.FunctionDef) and node.name == "_sync_views"
+def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
+    on_key_source = next(
+        source
+        for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_on_key"
+        if "SessionId.TIDAL" in (
+            source := ast.get_source_segment(SOURCE, node) or ""
+        )
     )
-    sync_source = ast.get_source_segment(SOURCE, sync) or ""
-    assert "self.volume_slider.Enable(not tidal_external)" in sync_source
-    assert "self.rate_slider.Enable(not tidal_external)" in sync_source
+    assert '"Prior", "Next", "Shift+Prior", "Shift+Next"' in on_key_source
+    assert "self._tidal_external_skip(forward)" in on_key_source
+    assert "self._queue_step(forward)" in on_key_source
+
+    dispatch = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_dispatch"
+    )
+    dispatch_source = ast.get_source_segment(SOURCE, dispatch) or ""
+    assert "nie ma " in dispatch_source
+    assert "odtwarzacza AMC" in dispatch_source
+
+    announce = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_announce_tidal_time"
+    )
+    announce_source = ast.get_source_segment(SOURCE, announce) or ""
+    assert "client.tidal_external_state" in announce_source

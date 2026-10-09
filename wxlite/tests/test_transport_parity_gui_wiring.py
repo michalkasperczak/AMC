@@ -24,6 +24,7 @@ from test_gui_logic import install_wx_stub
 install_wx_stub()
 
 from amc_wx_lite import gui  # noqa: E402  (zastepnik wx musi byc pierwszy)
+from amc_wx_lite.navigation import SessionId  # noqa: E402
 from amc_wx_lite.shortcuts import Action  # noqa: E402
 from amc_wx_lite.transport_parity import MessagePolicy  # noqa: E402
 
@@ -220,6 +221,35 @@ def test_uzytkownik_moze_dopisac_slowo_w_szablonie() -> None:
     )
     frame._dispatch(Action.TIME_ELAPSED)
     assert spoken == ["Minęło 3:51"]
+
+
+def make_tidal_frame(payload: dict):
+    """Minimalna atrapa sciezki SMTC oryginalnego TIDALa."""
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    spoken: list[str] = []
+    frame.announcer = SimpleNamespace(say=spoken.append)
+    frame.messages = MessagePolicy()
+    frame.navigator = SimpleNamespace(active=SessionId.TIDAL)
+    frame._tidal_desktop_has_playback = True
+    frame.client = SimpleNamespace(tidal_external_state=lambda: payload)
+    frame.runner = FakeRunner(payload)
+    return frame, spoken
+
+
+def test_tidal_mowi_tylko_czas_udostepniony_przez_oryginalna_aplikacje() -> None:
+    frame, spoken = make_tidal_frame({
+        "hasSession": True,
+        "positionSeconds": None,
+        "durationSeconds": 600.0,
+    })
+
+    frame._announce_time(Action.TIME_TOTAL)
+    frame._announce_time(Action.TIME_ELAPSED)
+
+    assert spoken == [
+        "10:00",
+        "Oryginalny TIDAL nie podaje czasu od początku",
+    ]
 
 
 # -------------------------------------------------------------------- predkosc

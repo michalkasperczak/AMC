@@ -13,6 +13,7 @@ internal static class TidalCatalogContractTests
         RefusesMismatchedKindsAndExternalIds();
         ResultContainsOnlyIntentionalModelFields();
         ReadsExternalDesktopPlaybackWithoutPrivateData();
+        ReadsOnlyKnownExternalTransportCommands();
         RefusesUnknownExternalTransportCommands();
     }
 
@@ -153,6 +154,16 @@ internal static class TidalCatalogContractTests
         {
             Check(exception.Message.Contains("Nieznane polecenie", StringComparison.Ordinal),
                 "odmowa nie nazywa przyczyny");
+        }
+    }
+
+    private static void ReadsOnlyKnownExternalTransportCommands()
+    {
+        foreach (var command in new[] { "toggle", "next", "previous", "state" })
+        {
+            using var document = JsonDocument.Parse($$"""{"command":"{{command}}"}""");
+            Check(LiteTidalDesktopContract.ReadTransportCommand(document.RootElement) == command,
+                $"nie przyjeto znanego polecenia {command}");
         }
     }
 

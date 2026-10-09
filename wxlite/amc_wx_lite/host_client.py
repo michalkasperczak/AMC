@@ -464,6 +464,14 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def tidal_external_state(self) -> Any:
+        """Read the deliberately partial SMTC state exposed by TIDAL."""
+        return self.call(
+            "tidal.externalTransport",
+            {"command": "state"},
+            timeout=15.0,
+        )
+
     def refresh_podcasts(self, subscription_id: str | None = None) -> Any:
         """Odśwież jedno źródło lub całą bibliotekę przez właściciela C#."""
         args = {"subscriptionId": subscription_id} if subscription_id else {}

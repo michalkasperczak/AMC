@@ -52,8 +52,27 @@ internal sealed class LiteTidalDesktopCoordinator : IDisposable
             "toggle" => Toggle(),
             "next" => Skip(forward: true),
             "previous" => Skip(forward: false),
+            "state" => State(),
             _ => throw new LiteRequestException(
                 "Nieznane polecenie sterowania oryginalnym TIDALem.")
+        };
+    }
+
+    private object State()
+    {
+        var state = external.GetStateAsync().GetAwaiter().GetResult();
+        return new
+        {
+            hasSession = state.HasSession,
+            title = state.Title,
+            artist = state.Artist,
+            durationSeconds = state.Duration > TimeSpan.Zero
+                ? state.Duration.TotalSeconds
+                : (double?)null,
+            positionSeconds = state.HasPosition
+                ? state.Position.TotalSeconds
+                : (double?)null,
+            isPlaying = state.IsPlaying
         };
     }
 

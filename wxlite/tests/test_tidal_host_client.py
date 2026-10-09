@@ -102,3 +102,18 @@ def test_tidal_external_transport_is_a_named_narrow_operation() -> None:
     assert calls == [(
         "tidal.externalTransport", {"command": "toggle"}, 15.0
     )]
+
+
+def test_tidal_external_state_uses_the_same_narrow_transport_boundary() -> None:
+    calls: list[tuple[str, dict | None, float]] = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {"hasSession": True}
+    )
+
+    result = client.tidal_external_state()
+
+    assert result == {"hasSession": True}
+    assert calls == [(
+        "tidal.externalTransport", {"command": "state"}, 15.0
+    )]

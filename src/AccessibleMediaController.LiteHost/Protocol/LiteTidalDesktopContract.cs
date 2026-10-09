@@ -54,7 +54,7 @@ public static class LiteTidalDesktopContract
         var command = LiteArgs.RequireText(args, "command").Trim();
         return command switch
         {
-            "toggle" or "next" or "previous" => command,
+            "toggle" or "next" or "previous" or "state" => command,
             _ => throw new LiteRequestException(
                 "Nieznane polecenie sterowania oryginalnym TIDALem.")
         };

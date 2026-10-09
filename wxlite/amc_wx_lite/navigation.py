@@ -654,7 +654,9 @@ class Navigator:
                     if candidate.kind == "track"
                 )
                 state.playback_uses_queue = False
-                state.view = View.PLAYER
+                # Oryginalny TIDAL odtwarza poza AMC. Pelne AMC pozostawia tu
+                # fokus na liscie i nie udaje, ze ma wlasny widok odtwarzacza.
+                state.view = View.LIST
                 return [intent]
 
         if row.activation_message:

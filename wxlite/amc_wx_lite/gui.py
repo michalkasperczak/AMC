@@ -3836,6 +3836,24 @@ class LiteFrame(wx.Frame):
         if not player and chord.canonical == "Escape" and self.filter_box.GetValue():
             self._clear_filter_and_return()
             return
+        # Pelne AMC przechwytuje Page Up/Page Down w sesji TIDAL takze na
+        # liscie, bo zewnetrzny TIDAL nie ma widoku odtwarzacza AMC. Bez tej
+        # galezi klawisze przewijalyby tylko strone listy i transport bylby
+        # dostepny dopiero po otwarciu sztucznego, mylacego odtwarzacza.
+        if (
+            not player
+            and self.navigator.active is SessionId.TIDAL
+            and self._tidal_desktop_has_playback
+            and chord.canonical in (
+                "Prior", "Next", "Shift+Prior", "Shift+Next"
+            )
+        ):
+            forward = chord.key == "Next"
+            if chord.shift:
+                self._tidal_external_skip(forward)
+            else:
+                self._queue_step(forward)
+            return
         action = resolve(
             chord,
             player_view=player,
@@ -3869,6 +3887,12 @@ class LiteFrame(wx.Frame):
             )
             return
         if self.navigator.active is SessionId.TIDAL:
+            if action is Action.SHOW_PLAYER:
+                self.announcer.say(
+                    "TIDAL odtwarza w oryginalnej aplikacji i nie ma "
+                    "odtwarzacza AMC"
+                )
+                return
             if action not in TIDAL_SUPPORTED_ACTIONS:
                 self.announcer.say(
                     "Ta funkcja nie dotyczy odtwarzania w oryginalnym TIDALu"
@@ -6395,14 +6419,12 @@ class LiteFrame(wx.Frame):
         previous_title = intent.previous_title if previous_id else ""
 
         self.announcer.say(f"{intent.title}: przekazuję do oryginalnego TIDALa")
-        self._set_transport_label(playing=False, preparing=True)
 
         def restore_or_fail(message: str) -> None:
             if had_playback and previous_id:
                 self.navigator.restore_tidal_playback_after_failed_handoff(
                     previous_id, previous_title
                 )
-                self._set_transport_label(playing=True)
                 self.announcer.say(message)
                 self._sync_views()
                 return
@@ -6469,8 +6491,6 @@ class LiteFrame(wx.Frame):
                 self.navigator.note_tidal_playback_started(
                     intent.item_id, intent.title
                 )
-                self.time_label.SetLabel("Czas: niedostępny")
-                self._set_transport_label(playing=True)
                 self.announcer.say(message)
                 self._sync_views()
 
@@ -7846,10 +7866,6 @@ class LiteFrame(wx.Frame):
                 result = payload or {}
                 if not bool(result.get("handled")):
                     self._tidal_desktop_has_playback = False
-                elif "isPlaying" in result:
-                    self._set_transport_label(
-                        playing=bool(result.get("isPlaying"))
-                    )
                 self.announcer.say(str(
                     result.get("message") or "Oryginalny TIDAL nie odpowiada"
                 ))
@@ -8042,6 +8058,9 @@ class LiteFrame(wx.Frame):
         release .383 pokazuje "3:51". Slowo pojawia sie tylko wtedy, gdy
         uzytkownik sam wpisal je do szablonu w ustawieniach AMC.
         """
+        if self.navigator.active is SessionId.TIDAL:
+            self._announce_tidal_time(action)
+            return
         status = self._last_status
         text = time_announcement(
             action,
@@ -8051,6 +8070,71 @@ class LiteFrame(wx.Frame):
         )
         if text is not None:
             self.announcer.say(text)
+
+    def _announce_tidal_time(self, action: Action) -> None:
+        """Read only time values that original TIDAL actually exposes."""
+        client = self.client
+        if client is None or not self._tidal_desktop_has_playback:
+            self.announcer.say("Najpierw uruchom utwór w oryginalnym TIDALu")
+            return
+
+        def done(payload: dict) -> None:
+            state = payload or {}
+            if not bool(state.get("hasSession")):
+                self._tidal_desktop_has_playback = False
+                self.announcer.say(
+                    "Oryginalny TIDAL nie podaje teraz czasu utworu"
+                )
+                return
+            raw_position = state.get("positionSeconds")
+            raw_duration = state.get("durationSeconds")
+            position = (
+                float(raw_position)
+                if isinstance(raw_position, (int, float))
+                and not isinstance(raw_position, bool)
+                else None
+            )
+            duration = (
+                float(raw_duration)
+                if isinstance(raw_duration, (int, float))
+                and not isinstance(raw_duration, bool)
+                and raw_duration > 0
+                else None
+            )
+            if action is Action.TIME_ELAPSED and position is None:
+                self.announcer.say(
+                    "Oryginalny TIDAL nie podaje czasu od początku"
+                )
+                return
+            if action is Action.TIME_TOTAL and duration is None:
+                self.announcer.say(
+                    "Oryginalny TIDAL nie podaje czasu całkowitego"
+                )
+                return
+            if action is Action.TIME_REMAINING and (
+                position is None or duration is None
+            ):
+                self.announcer.say(
+                    "Oryginalny TIDAL nie podaje czasu pozostałego"
+                )
+                return
+            text = time_announcement(
+                action,
+                self.messages,
+                position=position,
+                duration=duration,
+            )
+            if text is not None:
+                self.announcer.say(text)
+
+        self.runner.submit(
+            "tidal-state",
+            client.tidal_external_state,
+            done,
+            lambda error: self.announcer.say(
+                f"Nie mogę odczytać czasu z oryginalnego TIDALa: {error}"
+            ),
+        )
 
     def _toggle_seek_messages(self) -> None:
         """Ctrl+Shift+G -- przelacznik komunikatow przewijania.

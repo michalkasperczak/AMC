@@ -200,7 +200,9 @@ def test_enter_on_tidal_track_hands_it_to_original_tidal_and_keeps_source_order(
         related_album_service_id="albums:44",
     )]
     assert nav.session.playback_source_rows == tuple(tracks)
-    assert nav.session.view.value == "player"
+    # Odtwarzanie nalezy do oryginalnego TIDALa. AMC pozostaje na liscie
+    # zamiast otwierac sztuczny widok lokalnego odtwarzacza.
+    assert nav.session.view.value == "list"
 
 
 def test_tidal_next_uses_the_visible_amc_list_not_an_internal_audio_queue() -> None:
@@ -232,10 +234,12 @@ def test_tidal_next_uses_the_visible_amc_list_not_an_internal_audio_queue() -> N
 def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() -> None:
     assert {
         Action.ACTIVATE,
-        Action.SHOW_PLAYER,
         Action.PLAY_PAUSE,
         Action.QUEUE_NEXT,
         Action.QUEUE_PREVIOUS,
+        Action.TIME_ELAPSED,
+        Action.TIME_REMAINING,
+        Action.TIME_TOTAL,
         Action.COPY_NAME,
         Action.COPY_ADDRESS,
         Action.FOCUS_FILTER,
@@ -244,6 +248,7 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Action.VIEW_PLAYLISTS,
     } <= TIDAL_SUPPORTED_ACTIONS
     assert {
+        Action.SHOW_PLAYER,
         Action.RECORD_TOGGLE,
         Action.MANAGE_RADIO_SCHEDULES,
         Action.ADD_PODCAST_SOURCE,
