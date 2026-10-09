@@ -532,7 +532,14 @@ class Navigator:
         return self.back_to_list()
 
     def back_to_list(self, *, follow_playback: bool = True) -> list[object]:
-        """Escape z odtwarzacza: TA SAMA lista i TO SAMO zaznaczenie."""
+        """Escape z odtwarzacza: TA SAMA lista i TO SAMO zaznaczenie.
+
+        Gdy wiersz istnieje, powrot jest celowo cichy: po pokazaniu i
+        zafokusowaniu natywna lista Windows sama czyta jego nazwe, kolumny i
+        pozycje. Wlasne ``Lista, nazwa`` dublowalo ten odczyt i opoznialo
+        najwazniejsza informacje. Pusta lista niczego sama nie wypowie, wiec
+        tylko ona zachowuje jednoznaczny komunikat.
+        """
         state = self.session
         if state.view is View.LIST:
             return []
@@ -541,8 +548,7 @@ class Navigator:
         if target is not None:
             state.model.select_id(target)
         row = state.model.selected_row
-        suffix = f", {row.title}" if row is not None else ""
-        return [Announce(f"Lista{suffix}")]
+        return [] if row is not None else [Announce("Lista, zero elementów")]
 
     # ------------------------------------------------------------- aktywacja
 

@@ -294,6 +294,10 @@ własnej normalizacji diakrytyków.
 ## Najbliższe braki
 
 - Mechanizm wszystkich dotychczasowych list jest odebrany; nie powtarzamy zamkniętego audytu W02. Pozostaje wdrażanie kolejnych funkcji przez ten sam mechanizm.
+- Powrót `Escape`/`F6` z odtwarzacza nie dodaje już własnego „Lista, nazwa”.
+  Natywna lista odzyskuje fokus i sama czyta dokładnie zaznaczony wiersz;
+  własny komunikat „Lista, zero elementów” pozostaje tylko wtedy, gdy podczas
+  odtwarzania wszystkie wiersze naprawdę zniknęły.
 - Dalsze widoki Biblioteki i wyszukiwanie. Filtr listy `Ctrl+K` jest odebrany (sekcja wyżej). Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
 - Radio: oddzielenie Biblioteki według `isInLibrary` oraz krótki odczyt pozycji i jego wyłącznik są **odebrane** (sekcja „Scalone Radio i lewa strzałka” niżej). Historia nagrywania scala teraz wpisy prób z dostępnymi plikami oznaczonymi w `library.db`, także spoza zwykłego członkostwa Biblioteki; nie dubluje tej samej ścieżki i nie zmienia profilu.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.

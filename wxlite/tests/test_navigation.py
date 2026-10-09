@@ -264,7 +264,11 @@ def test_shortcuts_match_amc_sources() -> None:
 
 def test_station_management_keys_only_in_radio_session() -> None:
     assert resolve(Chord("Delete"), player_view=False, radio_session=True) is Action.STATION_DELETE
-    assert resolve(Chord("Delete"), player_view=False, radio_session=False) is None
+    # Poza Radiem ten sam klawisz nie usuwa stacji, ale nie jest już pusty:
+    # zgodnie z głównym AMC usuwa zaznaczenie z bieżącego widoku Biblioteki.
+    assert resolve(
+        Chord("Delete"), player_view=False, radio_session=False
+    ) is Action.REMOVE_SELECTED
 
 
 def test_escape_na_liscie_wychodzi_o_poziom_wyzej() -> None:

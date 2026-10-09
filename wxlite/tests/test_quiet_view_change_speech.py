@@ -95,3 +95,30 @@ def test_empty_folder_says_it_is_empty() -> None:
     nav = Navigator()
     said = [t.text for t in nav.apply_folder("D:\\puste", []) if isinstance(t, Announce)][0]
     assert "pust" in said.lower()
+
+
+def test_escape_from_player_leaves_the_focused_row_to_the_native_list() -> None:
+    """Bez własnego „Lista, nazwa”; SysListView32 przeczyta wiersz raz."""
+    nav = Navigator()
+    rows = [track("1", "Alfa"), track("2", "Beta")]
+    nav.apply_folder("D:\\test", rows, preferred_id="2")
+    nav.activate_selected()
+
+    events = nav.back_to_list()
+
+    assert events == []
+    assert nav.sessions[SessionId.FILES].model.selected_id == "2"
+
+
+def test_escape_from_player_still_reports_an_empty_list_when_rows_vanished() -> None:
+    """Pusta kontrolka nie ma elementu, który NVDA mógłby przeczytać sama."""
+    nav = Navigator()
+    nav.apply_folder("D:\\test", [track("1", "Alfa")])
+    nav.activate_selected()
+    nav.sessions[SessionId.FILES].model.replace([])
+
+    events = nav.back_to_list()
+
+    assert [event.text for event in events if isinstance(event, Announce)] == [
+        "Lista, zero elementów"
+    ]
