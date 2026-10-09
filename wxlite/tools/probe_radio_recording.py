@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -25,6 +26,9 @@ if str(WXLITE_ROOT) not in sys.path:
 
 from amc_wx_lite.host_client import LiteHostClient  # noqa: E402
 from amc_wx_lite.radio_source import SCOPE_LIBRARY, stations_from_amc_state  # noqa: E402
+
+
+DOTNET_UNIX_EPOCH_TICKS = 621_355_968_000_000_000
 
 
 class _StreamingHandler(http.server.BaseHTTPRequestHandler):
@@ -86,6 +90,11 @@ def main() -> int:
         "--format",
         default="Mp3",
         choices=("Mp3", "Aac", "Flac", "Wav", "Original"),
+    )
+    parser.add_argument(
+        "--schedule",
+        action="store_true",
+        help="sprawdź wykonanie planu zamiast ręcznego Ctrl+R",
     )
     args = parser.parse_args()
 
@@ -166,18 +175,63 @@ def main() -> int:
         client = LiteHostClient(host, on_event=on_event)
         try:
             client.start()
-            started = client.toggle_radio_recording(
-                {
-                    "stationId": station_id,
-                    "stationName": station_name,
-                    "url": url,
-                    "format": args.format,
-                    "bitrateKbps": 192,
-                    "folder": str(output_dir),
-                }
-            )
-            if started.get("action") != "starting":
-                raise RuntimeError(f"Host nie przyjął startu: {started!r}")
+            recording_request = {
+                "stationId": station_id,
+                "stationName": station_name,
+                "url": url,
+                "format": args.format,
+                "bitrateKbps": 192,
+                "folder": str(output_dir),
+            }
+            if args.schedule:
+                start_utc = datetime.now(timezone.utc) + timedelta(seconds=3)
+                start_ticks = (
+                    int(start_utc.timestamp() * 10_000_000)
+                    + DOTNET_UNIX_EPOCH_TICKS
+                )
+                schedule_id = "proba-harmonogramu"
+                synced = client.sync_radio_schedules({
+                    "schedules": [{
+                        "id": schedule_id,
+                        "name": "Próba harmonogramu",
+                        "stationId": station_id,
+                        "stationName": station_name,
+                        "streamUrl": url,
+                        "nextStartUtcTicks": start_ticks,
+                        "timeZoneId": "",
+                        "durationMinutes": 1,
+                        "segmentMinutes": 0,
+                        "recurrence": "Once",
+                        "activeDays": [],
+                        "outputFolder": str(output_dir),
+                        "fileNameTemplate": "Próba harmonogramu - {data} {czas}",
+                        "recordingFormat": args.format,
+                        "recordingBitrateKbps": 192,
+                        "wakeComputer": False,
+                        "enabled": True,
+                    }],
+                    "defaultFolder": str(output_dir),
+                    "folderPreset": "radio",
+                    "stationFolders": {},
+                    "recordingFormat": args.format,
+                    "recordingBitrateKbps": 192,
+                    "wakeScheduledRecordings": False,
+                })
+                schedules = synced.get("schedules") or []
+                if not schedules or schedules[0].get("id") != schedule_id:
+                    raise RuntimeError(f"Host nie przyjął harmonogramu: {synced!r}")
+                scheduled_name, _scheduled_event = _wait_for_event(
+                    condition,
+                    events,
+                    {"radio.recordingScheduled", "radio.recordingFailed"},
+                    15.0,
+                )
+                if scheduled_name == "radio.recordingFailed":
+                    raise RuntimeError("Plan nie rozpoczął wykonania.")
+            else:
+                started = client.toggle_radio_recording(recording_request)
+                if started.get("action") != "starting":
+                    raise RuntimeError(f"Host nie przyjął startu: {started!r}")
 
             name, start_event = _wait_for_event(
                 condition,
@@ -196,18 +250,16 @@ def main() -> int:
                 raise RuntimeError(f"Nieprawidłowy stan aktywnego nagrania: {status!r}")
 
             time.sleep(2.0)
-            stopping = client.toggle_radio_recording(
-                {
-                    "stationId": station_id,
-                    "stationName": station_name,
-                    "url": url,
-                    "format": args.format,
-                    "bitrateKbps": 192,
-                    "folder": str(output_dir),
-                }
-            )
-            if stopping.get("action") != "stopping":
-                raise RuntimeError(f"Host nie przyjął zatrzymania: {stopping!r}")
+            if args.schedule:
+                stopping = client.stop_all_radio_recordings()
+                if stopping.get("stopping") != 1:
+                    raise RuntimeError(
+                        f"Host nie przyjął zatrzymania planu: {stopping!r}"
+                    )
+            else:
+                stopping = client.toggle_radio_recording(recording_request)
+                if stopping.get("action") != "stopping":
+                    raise RuntimeError(f"Host nie przyjął zatrzymania: {stopping!r}")
 
             _terminal_name, terminal = _wait_for_event(
                 condition,
@@ -235,9 +287,18 @@ def main() -> int:
             history_rows = history.get("recordings") or []
             if not history_rows or history_rows[0].get("stationName") != station_name:
                 raise RuntimeError(f"Brak wyniku w historii: {history!r}")
+            if args.schedule:
+                schedule_status = client.radio_schedule_status()
+                schedule_rows = schedule_status.get("schedules") or []
+                if not schedule_rows or schedule_rows[0].get("enabled") is not False:
+                    raise RuntimeError(
+                        "Jednorazowy plan nie został wyłączony po wykonaniu: "
+                        f"{schedule_status!r}"
+                    )
 
             print(
                 "OK: start, stan aktywny, zatrzymanie, historia i plik; "
+                f"tryb={'harmonogram' if args.schedule else 'ręczny'}, "
                 f"format={args.format}, bajty={recording_path.stat().st_size}"
             )
         finally:

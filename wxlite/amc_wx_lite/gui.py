@@ -2446,20 +2446,20 @@ class LiteFrame(wx.Frame):
             if title:
                 self.now_playing.SetLabel(title)
                 self.announcer.say(title)
-        elif name == "radio.recordingStarted":
+        elif name == "radio.recordingScheduled":
+            # To zdarzenie przychodzi DOKLADNIE wtedy, gdy termin staje sie
+            # wymagalny i host zaklada aktywne nagranie. Bez tej galezi plan
+            # wygladal na martwy az do otwarcia dekodera albo bledu.
             station = str(data.get("stationName") or "stacja")
-            path = str(data.get("path") or "").strip()
-            suffix = f": {Path(path).name}" if path else ""
-            scheduled = bool(str(data.get("scheduleName") or "").strip())
-            # Reczne Ctrl+R dostaje jedno, natychmiastowe potwierdzenie z
-            # odpowiedzi ``recordingToggle``. Drugie zdanie z nazwa pliku,
-            # nadchodzace chwile pozniej, tylko zagluszalo nawigacje NVDA.
-            # Harmonogram nie ma takiego gestu uzytkownika, wiec jego
-            # rzeczywisty start nadal musi zostac wypowiedziany.
-            if scheduled:
-                self.announcer.say(
-                    f"Zaplanowane nagrywanie działa: {station}{suffix}"
-                )
+            self.announcer.say(
+                f"Rozpoczynam zaplanowane nagrywanie: {station}"
+            )
+        elif name == "radio.recordingStarted":
+            # Reczne Ctrl+R potwierdza odpowiedz ``recordingToggle``, a plan
+            # potwierdza ``recordingScheduled``. Zdarzenie otwarcia pliku ma
+            # tylko odswiezyc stan listy; drugie zdanie z nazwa pliku
+            # zagluszaloby nawigacje NVDA.
+            pass
         elif name == "radio.recordingFinished":
             station = str(data.get("stationName") or "stacja")
             scheduled = bool(str(data.get("scheduleName") or "").strip())

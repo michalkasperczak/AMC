@@ -295,26 +295,34 @@ def test_manual_started_event_refreshes_state_without_second_announcement() -> N
     assert refreshes == ["status"]
 
 
-def test_scheduled_started_event_is_still_announced() -> None:
+def test_scheduled_due_event_is_announced_once_and_file_start_is_silent() -> None:
     messages: list[str] = []
+    refreshes: list[str] = []
     frame = SimpleNamespace(
         _window_alive=lambda: True,
         announcer=SimpleNamespace(say=messages.append),
-        _refresh_recording_status=lambda: None,
+        _refresh_recording_status=lambda: refreshes.append("status"),
         navigator=SimpleNamespace(
             sessions={
                 SessionId.RADIO: SimpleNamespace(library_view=LibraryView.FAVORITES),
             }
         ),
     )
+    LiteFrame._handle_engine_event(frame, "radio.recordingScheduled", {
+        "stationName": "Radio Test",
+        "scheduleName": "Poranna audycja",
+        "recordingId": "techniczne-id",
+    })
     LiteFrame._handle_engine_event(frame, "radio.recordingStarted", {
         "stationName": "Radio Test",
         "path": r"D:\Nagrania\radio-test.mp3",
         "scheduleName": "Poranna audycja",
     })
     assert messages == [
-        "Zaplanowane nagrywanie działa: Radio Test: radio-test.mp3"
+        "Rozpoczynam zaplanowane nagrywanie: Radio Test"
     ]
+    assert refreshes == ["status", "status"]
+    assert "techniczne-id" not in messages[0]
 
 
 def test_station_rows_expose_playback_and_recording_without_technical_values() -> None:

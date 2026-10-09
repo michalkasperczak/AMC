@@ -9,8 +9,9 @@ To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem w
 otwarcia pliku nie czyta już nazwy pliku i nie zagłusza nawigacji NVDA.
 Ponowne `Ctrl+R` mówi „Zatrzymuję nagrywanie: nazwa stacji”. Stan wiersza
 stacji oraz widok `Alt+R` nadal są odświeżane z rzeczywistego stanu hosta.
-Start z harmonogramu pozostaje wypowiadany, bo nie poprzedza go gest
-użytkownika.
+Gdy nadchodzi termin planu, interfejs mówi jedno zdanie „Rozpoczynam
+zaplanowane nagrywanie: nazwa stacji”. Późniejsze otwarcie pliku tylko
+odświeża stan listy i nie powtarza komunikatu.
 
 Tor został sprawdzony końcowo na rzeczywistym LiteHost i jednej zapisanej
 stacji, bez zmiany profilu: start MP3, aktywny stan, zatrzymanie, historia oraz
@@ -21,6 +22,11 @@ niepusty plik w katalogu tymczasowym. Powtarzalna próba znajduje się w
 python wxlite\run_tests.py radio_recording
 # oczekiwane: 23 zdane, 0 błędów
 ```
+
+Ten sam próbnik z parametrem `--schedule` sprawdza pełną drogę planu:
+przyjęcie terminu, samoczynny start, aktywny stan, zapis MP3, historię oraz
+wyłączenie wykonanego planu jednorazowego. Próba z rzeczywistym LiteHost i
+zapisaną stacją została zaliczona 9 października 2026 r.
 
 ## Podcasty i YouTube — pierwszy działający etap
 
