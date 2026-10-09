@@ -106,6 +106,66 @@ internal static class PodcastProgressStoreTests
                     "waska mutacja zapisuje sciezke takze w payloadzie odcinka");
                 Assert.True(!store.SaveDownloadPath("ep-1", downloadedPath).Changed,
                     "powtorzenie tej samej sciezki jest idempotentne");
+
+                var addedFeed = new PodcastFeedDocument(
+                    "sub-new",
+                    "Nowy podcast ze źródła",
+                    "Nowy autor",
+                    "Nowy opis",
+                    new Uri("https://example.invalid/new-feed.xml"),
+                    null,
+                    [new PodcastFeedEpisode(
+                        "ep-new",
+                        "source-new",
+                        "Pierwszy nowy odcinek",
+                        "Nowy autor",
+                        "Opis",
+                        DateTimeOffset.UtcNow,
+                        TimeSpan.FromMinutes(8),
+                        new Uri("https://example.invalid/new-episode.mp3"),
+                        null,
+                        "audio/mpeg",
+                        null)]);
+                var addedSource = store.AddSource(
+                    addedFeed,
+                    "Moja nazwa podcastu",
+                    PodcastSourceKind.Rss);
+                Assert.True(addedSource.AddedSubscription && !addedSource.RestoredSubscription,
+                    "jawne dodanie tworzy nowe zrodlo w Bibliotece");
+                Assert.Equal("Moja nazwa podcastu", addedSource.Title,
+                    "wlasna nazwa jest tekstem uzytkownika, nie identyfikatorem");
+                var savedSource = ReadSubscription(database, "sub-new");
+                Assert.True(savedSource.IsInLibrary && savedSource.RefreshIntervalMinutes == 60,
+                    "nowy RSS dostaje czlonkostwo i domyslny odstep odswiezania");
+
+                var internet = store.AddInternetMedia(
+                    new PodcastInternetMediaSource(
+                        "https://www.youtube.com/watch?v=test123",
+                        "Publiczny materiał",
+                        "Kanał testowy",
+                        TimeSpan.FromMinutes(3),
+                        false),
+                    null);
+                Assert.True(internet.AddedEpisode,
+                    "jawne dodanie publicznego medium tworzy odcinek");
+                var savedInternet = ReadEpisode(database, internet.EpisodeId);
+                Assert.Equal(
+                    PublicInternetMediaCollections.SavedId,
+                    savedInternet.SubscriptionId,
+                    "publiczne medium trafia do zapisanej kolekcji, nie do podgladow");
+                Assert.Equal(
+                    "https://www.youtube.com/watch?v=test123",
+                    savedInternet.MediaUrl,
+                    "w bazie zostaje stabilny adres strony, nie podpisany strumien");
+                Assert.True(!store.AddInternetMedia(
+                    new PodcastInternetMediaSource(
+                        "https://www.youtube.com/watch?v=test123",
+                        "Publiczny materiał",
+                        "Kanał testowy",
+                        TimeSpan.FromMinutes(3),
+                        false),
+                    null).AddedEpisode,
+                    "powtorne dodanie tego samego medium aktualizuje zamiast dublowac");
             }
 
             using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
@@ -143,6 +203,17 @@ internal static class PodcastProgressStoreTests
         command.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
         command.Parameters.AddWithValue("$id", episodeId);
         return JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+            Convert.ToString(command.ExecuteScalar())!)!;
+    }
+
+    private static PodcastSubscriptionSettings ReadSubscription(string path, string subscriptionId)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", subscriptionId);
+        return JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
             Convert.ToString(command.ExecuteScalar())!)!;
     }
 

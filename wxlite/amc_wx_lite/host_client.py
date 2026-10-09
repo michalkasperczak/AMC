@@ -420,6 +420,14 @@ class LiteHostClient:
             timeout=24 * 3600.0,
         )
 
+    def add_podcast_source(self, address: str, title: str = "") -> Any:
+        """Sprawdź i dodaj RSS, kolekcję YouTube albo publiczne medium."""
+        return self.call(
+            "podcast.add",
+            {"address": address, "title": title},
+            timeout=24 * 3600.0,
+        )
+
     def rename_library_item(self, item_id: str, title: str) -> Any:
         return self.call(
             "library.renameTitle", {"itemId": item_id, "title": title}, timeout=20.0

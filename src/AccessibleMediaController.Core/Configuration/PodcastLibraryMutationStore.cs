@@ -32,6 +32,24 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
         string downloadPath) =>
         _database.SaveDownloadPath(episodeId, downloadPath);
 
+    public PodcastSourceAddResult AddSource(
+        PodcastFeedDocument feed,
+        string? titleOverride,
+        PodcastSourceKind sourceKind,
+        DateTime addedUtc,
+        BookmarkSettings? bookmarks = null) =>
+        _database.AddSource(
+            feed,
+            titleOverride,
+            sourceKind,
+            addedUtc,
+            bookmarks);
+
+    public PodcastInternetMediaAddResult AddInternetMedia(
+        PodcastInternetMediaSource media,
+        string? titleOverride) =>
+        _database.AddInternetMedia(media, titleOverride);
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,
@@ -69,3 +87,30 @@ public sealed record PodcastDownloadPathResult(
     string EpisodeId,
     string DownloadPath,
     bool Changed);
+
+public sealed record PodcastSourceAddResult(
+    string SubscriptionId,
+    string Title,
+    PodcastSourceKind SourceKind,
+    bool AddedSubscription,
+    bool RestoredSubscription,
+    int AddedEpisodes,
+    int UpdatedEpisodes,
+    int AvailableEpisodes);
+
+/// <summary>
+/// Trwaly opis publicznego materialu. Tymczasowy podpisany adres strumienia
+/// pozostaje w resolverze i nigdy nie trafia do bazy.
+/// </summary>
+public sealed record PodcastInternetMediaSource(
+    string PageUrl,
+    string Title,
+    string Channel,
+    TimeSpan Duration,
+    bool IsLive);
+
+public sealed record PodcastInternetMediaAddResult(
+    string SubscriptionId,
+    string EpisodeId,
+    string Title,
+    bool AddedEpisode);

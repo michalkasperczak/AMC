@@ -189,6 +189,21 @@ def test_podcast_refresh_matches_the_full_amc_context() -> None:
     ) is None
 
 
+def test_ctrl_n_adds_the_kind_used_by_the_current_session() -> None:
+    for player in (False, True):
+        assert resolve(
+            Chord("N", ctrl=True),
+            player_view=player,
+            radio_session=False,
+            podcast_session=True,
+        ) is Action.ADD_PODCAST_SOURCE
+    assert resolve(
+        Chord("N", ctrl=True),
+        player_view=False,
+        radio_session=True,
+    ) is Action.STATION_ADD
+
+
 def test_ctrl_d_downloads_podcasts_but_keeps_file_clip_append() -> None:
     for player in (False, True):
         assert resolve(

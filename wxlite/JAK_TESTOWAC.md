@@ -71,6 +71,14 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek
     według jego ID i przeżywa restart wxPython. Zapis trafia wyłącznie do
     prywatnego stanu `AMC-wx-Lite`; wspólny `state.json` pozostaje nietknięty.
+13. `Ctrl+N` w sesji Podcasty i YouTube otwiera natywny formularz dodawania.
+    Przyjmuje RSS/Atom, kanał lub playlistę YouTube oraz pojedynczy publiczny
+    materiał YouTube. Adres sprawdza ten sam klient C# co w głównym AMC;
+    tymczasowy podpisany adres audio z YouTube nigdy nie trafia do bazy.
+14. `F2` na głównej liście zmienia własną nazwę podcastu lub kanału,
+    `Delete` usuwa źródło z Biblioteki, `F5` odświeża bieżące źródło,
+    `Ctrl+F5` wszystkie źródła, a `Ctrl+D` pobiera jeden lub wiele zaznaczonych
+    odcinków. Zaznaczenie wielokrotne działa także przez `Ctrl+Spacja`.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -78,13 +86,14 @@ wierszy z poprawną paginacją. Osobno rzeczywisty opublikowany LiteHost otworzy
 syntetyczny plik przez nowe polecenie `media.play` i zgłosił
 `playback.duration` oraz `playback.started`.
 
-Zapis postępu jest wąską transakcją jednego odcinka. Host odmawia drugiemu
-oknu wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne
-AMC, które mogłoby później nadpisać całą migawkę. Dodawanie, usuwanie,
-odświeżanie i pobieranie nie są jeszcze przeniesione do wxPython. Widoki
-„Nowe odcinki i materiały” wraz z trzema trybami sortowania, „W trakcie
-słuchania” oraz „Pobrane” są już przeniesione; pozostałe widoki specjalne
-nadal czekają.
+Zapis postępu jest wąską transakcją jednego odcinka. Dodawanie, zmiana nazwy,
+usuwanie, odświeżanie i pobieranie także przechodzą przez jednego właściciela
+C# i nigdy nie otwierają bazy do zapisu z Pythona. Host odmawia drugiemu oknu
+wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne AMC,
+które mogłoby później nadpisać całą migawkę. Widoki „Nowe odcinki i materiały”
+wraz z trzema trybami sortowania, „W trakcie słuchania” oraz „Pobrane” są już
+przeniesione; import i eksport OPML oraz pozostałe widoki specjalne nadal
+czekają.
 
 Test bez danych użytkownika:
 

@@ -113,7 +113,9 @@ internal static class Program
                 LitePodcastRefreshCoordinator.Operation,
                 // Pobieranie RSS/YouTube jest dlugie, ale nie moze blokowac
                 // transportu ani zapisu postepu odtwarzania.
-                LitePodcastDownloadCoordinator.Operation
+                LitePodcastDownloadCoordinator.Operation,
+                // Sprawdzenie nowego źródła również wykonuje sieć lub yt-dlp.
+                LitePodcastAddCoordinator.Operation
             ]);
 
         Console.Error.WriteLine(

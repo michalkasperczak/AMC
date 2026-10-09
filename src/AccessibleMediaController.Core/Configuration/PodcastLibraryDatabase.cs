@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using AccessibleMediaController.Core.Podcasts;
 using Microsoft.Data.Sqlite;
@@ -517,6 +519,145 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             }
             transaction.Commit();
             return new PodcastDownloadPathResult(episode.Id, fullPath, changed);
+        }
+    }
+
+    public PodcastSourceAddResult AddSource(
+        PodcastFeedDocument feed,
+        string? titleOverride,
+        PodcastSourceKind sourceKind,
+        DateTime addedUtc,
+        BookmarkSettings? bookmarks = null)
+    {
+        ArgumentNullException.ThrowIfNull(feed);
+        if (sourceKind is not (PodcastSourceKind.Rss
+            or PodcastSourceKind.YouTubeChannel
+            or PodcastSourceKind.YouTubePlaylist))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sourceKind),
+                "Ten rodzaj źródła nie jest kanałem podcastu ani kolekcją YouTube.");
+        }
+
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var update = PodcastLibraryUpdater.Apply(
+                settings,
+                feed,
+                titleOverride,
+                addedUtc,
+                bookmarks,
+                sourceKind,
+                addToLibrary: true);
+            if (update.AddedSubscription)
+            {
+                update.Subscription.RefreshIntervalMinutes = sourceKind switch
+                {
+                    PodcastSourceKind.Rss => settings.RssRefreshIntervalMinutes,
+                    PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist =>
+                        settings.YouTubeRefreshIntervalMinutes,
+                    _ => 0
+                };
+            }
+            Save(settings);
+            return new PodcastSourceAddResult(
+                update.Subscription.Id,
+                update.Subscription.Title,
+                update.Subscription.SourceKind,
+                update.AddedSubscription,
+                update.RestoredSubscription,
+                update.AddedEpisodes,
+                update.UpdatedEpisodes,
+                feed.Episodes.Count);
+        }
+    }
+
+    public PodcastInternetMediaAddResult AddInternetMedia(
+        PodcastInternetMediaSource media,
+        string? titleOverride)
+    {
+        ArgumentNullException.ThrowIfNull(media);
+        if (!Uri.TryCreate(media.PageUrl.Trim(), UriKind.Absolute, out var page)
+            || page.Scheme is not ("http" or "https")
+            || !string.IsNullOrEmpty(page.UserInfo))
+        {
+            throw new ArgumentException(
+                "Adres medium musi używać protokołu HTTP albo HTTPS bez danych logowania.",
+                nameof(media));
+        }
+
+        lock (_gate)
+        {
+            var settings = new PodcastSettings();
+            LoadInto(settings);
+            var collection = settings.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(
+                    subscription.Id,
+                    PublicInternetMediaCollections.SavedId,
+                    StringComparison.Ordinal));
+            if (collection is null)
+            {
+                collection = new PodcastSubscriptionSettings
+                {
+                    Id = PublicInternetMediaCollections.SavedId,
+                    Title = PublicInternetMediaCollections.SavedTitle,
+                    Description = "Publiczne materiały internetowe zapisane w Bibliotece.",
+                    FeedUrl = "https://amc.invalid/public-internet-media",
+                    SourceKind = PodcastSourceKind.PublicInternetMedia,
+                    RefreshIntervalMinutes = 0,
+                    IsInLibrary = true
+                };
+                settings.Subscriptions.Add(collection);
+            }
+            collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+            collection.IsInLibrary = true;
+
+            // Identyfikator musi być bitowo zgodny z pełnym AMC: ono haszuje
+            // przycięty adres podany resolverowi, nie ponownie serializowany Uri.
+            var stableAddress = media.PageUrl.Trim();
+            var episodeId = "internet-media:"
+                + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(stableAddress)))
+                    .ToLowerInvariant();
+            var episode = settings.Episodes.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, episodeId, StringComparison.Ordinal))
+                ?? settings.Episodes.FirstOrDefault(candidate =>
+                    string.Equals(
+                        candidate.MediaUrl,
+                        stableAddress,
+                        StringComparison.OrdinalIgnoreCase));
+            var added = episode is null;
+            if (episode is null)
+            {
+                episode = new PodcastEpisodeSettings
+                {
+                    Id = episodeId,
+                    IsNew = false
+                };
+                settings.Episodes.Add(episode);
+            }
+            episode.SubscriptionId = collection.Id;
+            episode.SourceIdentifier = stableAddress;
+            episode.Title = string.IsNullOrWhiteSpace(titleOverride)
+                ? media.Title.Trim()
+                : titleOverride.Trim();
+            if (episode.Title.Length == 0)
+                episode.Title = media.IsLive ? "YouTube na żywo" : "Materiał YouTube";
+            episode.Author = media.Channel.Trim();
+            episode.Description = media.IsLive
+                ? "Publiczna transmisja YouTube. Adres audio jest sprawdzany ponownie przy każdym odtwarzaniu."
+                : "Publiczny materiał YouTube. Adres audio jest sprawdzany ponownie przy każdym odtwarzaniu.";
+            episode.MediaUrl = stableAddress;
+            episode.PageUrl = stableAddress;
+            episode.MediaType = "video/youtube";
+            episode.DurationTicks = Math.Max(0, media.Duration.Ticks);
+            Save(settings);
+            return new PodcastInternetMediaAddResult(
+                collection.Id,
+                episode.Id,
+                episode.Title,
+                added);
         }
     }
 

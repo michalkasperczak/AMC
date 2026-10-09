@@ -182,6 +182,21 @@ def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() 
         client.close()
 
 
+def test_podcast_add_uses_one_narrow_host_operation() -> None:
+    client = make_client()
+    try:
+        result = client.add_podcast_source(
+            "https://example.invalid/feed.xml", "Moja nazwa"
+        )
+        assert result["op"] == "podcast.add"
+        assert result["args"] == {
+            "address": "https://example.invalid/feed.xml",
+            "title": "Moja nazwa",
+        }
+    finally:
+        client.close()
+
+
 def test_profile_mutations_use_narrow_named_operations() -> None:
     client = make_client()
     try:

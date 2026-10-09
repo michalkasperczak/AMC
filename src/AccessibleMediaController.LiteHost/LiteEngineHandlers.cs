@@ -43,6 +43,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LitePodcastProgressStore? _podcastProgressStore;
     private readonly LitePodcastRefreshCoordinator? _podcastRefresh;
     private readonly LitePodcastDownloadCoordinator? _podcastDownloads;
+    private readonly LitePodcastAddCoordinator? _podcastAdd;
     private readonly LiteProfileMutationStore? _profileMutations;
     private string? _lastPodcastProgressError;
     private bool _currentPodcastCompleted;
@@ -105,6 +106,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastDownloads = podcastProgressStore is null
             ? null
             : new LitePodcastDownloadCoordinator(podcastProgressStore);
+        _podcastAdd = podcastProgressStore is null
+            ? null
+            : new LitePodcastAddCoordinator(podcastProgressStore, bookmarkStore);
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -240,6 +244,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 RefreshPodcasts(request.Args),
             [LitePodcastDownloadCoordinator.Operation] = (request, events) =>
                 DownloadPodcastEpisodes(request.Args, events),
+            [LitePodcastAddCoordinator.Operation] = (request, _) =>
+                AddPodcastSource(request.Args),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -1273,6 +1279,16 @@ internal sealed class LiteEngineHandlers : IDisposable
         return _podcastDownloads.Download(args, events);
     }
 
+    private object AddPodcastSource(JsonElement args)
+    {
+        if (_podcastAdd is null)
+        {
+            throw new LiteRequestException(
+                "Dodawanie nie ma dostępu do biblioteki Podcastów i YouTube.");
+        }
+        return _podcastAdd.Add(args);
+    }
+
     private void TrySaveCurrentPodcastProgress()
     {
         if (_podcastProgressStore is null) return;
@@ -1433,6 +1449,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _queueStore?.Dispose();
         _podcastRefresh?.Dispose();
         _podcastDownloads?.Dispose();
+        _podcastAdd?.Dispose();
         _podcastProgressStore?.Dispose();
     }
 }

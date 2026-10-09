@@ -95,6 +95,13 @@ def build_menus() -> tuple[Menu, ...]:
                      accelerator=False),
             MenuItem("Otwórz &folder", Action.OPEN_FOLDER_DIALOG, shortcut="Ctrl+Shift+O"),
             MenuItem(
+                "Dodaj podcast, kanał YouTube lub medium &internetowe",
+                Action.ADD_PODCAST_SOURCE,
+                shortcut="Ctrl+N",
+                accelerator=False,
+                needs_podcast_session=True,
+            ),
+            MenuItem(
                 "Odśwież wybrane źródło pod&castów",
                 Action.REFRESH_PODCAST,
                 shortcut="F5",
@@ -225,7 +232,7 @@ def build_menus() -> tuple[Menu, ...]:
         "&Radio",
         (
             MenuItem("&Dodaj stację", Action.STATION_ADD, shortcut="Ctrl+N",
-                     needs_radio_session=True),
+                     accelerator=False, needs_radio_session=True),
             MenuItem("&Zmień stację", Action.STATION_EDIT, shortcut="F2",
                      needs_radio_session=True),
             MenuItem("&Usuń stację", Action.STATION_DELETE, shortcut="Delete",

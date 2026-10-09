@@ -309,8 +309,11 @@ własnej normalizacji diakrytyków.
   „Nowe odcinki” obsługują też zgodne z głównym AMC `Alt+1`, `Alt+2` i
   `Alt+3`: według dodania, alfabetycznie i według podcastu. Prywatnie zapisany
   wybór nie zmienia wspólnego profilu. Wszystkie widoki mają stronicowanie po
-  150 pozycji i nie ujawniają technicznych identyfikatorów. Nadal brakuje
-  dodawania, usuwania, odświeżania, pobierania i pozostałych widoków specjalnych.
+  150 pozycji i nie ujawniają technicznych identyfikatorów. `Ctrl+N` dodaje
+  RSS/Atom, kanał albo playlistę YouTube i pojedynczy publiczny materiał
+  YouTube wspólnym torem C#. `F2` zmienia nazwę źródła, `Delete` usuwa je z
+  Biblioteki, `F5`/`Ctrl+F5` odświeża, a `Ctrl+D` pobiera zaznaczone odcinki.
+  Nadal brakuje importu i eksportu OPML oraz pozostałych widoków specjalnych.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

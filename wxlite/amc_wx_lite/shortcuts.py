@@ -202,6 +202,7 @@ class Action(Enum):
     SORT_PODCAST_INBOX_ADDED = "podcasts.inbox.sort.added"
     SORT_PODCAST_INBOX_ALPHABETICAL = "podcasts.inbox.sort.alphabetical"
     SORT_PODCAST_INBOX_BY_PODCAST = "podcasts.inbox.sort.byPodcast"
+    ADD_PODCAST_SOURCE = "podcasts.source.add"
     REFRESH_PODCAST = "podcasts.refresh.current"
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
@@ -539,6 +540,7 @@ PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
 # Kontekst sesji, niezaleznie od listy/odtwarzacza. F5 w skrzynce jest
 # przesloniete powyzej, dokladnie jak w glownym AMC.
 PODCAST_SESSION_VIEW: dict[str, Action] = {
+    "Ctrl+N": Action.ADD_PODCAST_SOURCE,
     "F5": Action.REFRESH_PODCAST,
     "Ctrl+F5": Action.REFRESH_PODCAST_LIBRARY,
     # Jak w głównym AMC: na liście pobiera całe zaznaczenie, a w
@@ -625,6 +627,7 @@ def describe() -> list[tuple[str, str]]:
         Action.CLIP_APPEND: "Dopisz zaznaczony fragment na koncu pliku",
         Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
+        Action.ADD_PODCAST_SOURCE: "Dodaj podcast, kanał YouTube lub medium internetowe",
         Action.REFRESH_PODCAST: "Odśwież wybrany podcast, kanał lub playlistę",
         Action.REFRESH_PODCAST_LIBRARY: "Odśwież wszystkie źródła podcastów",
         Action.DOWNLOAD_PODCAST_EPISODES: "Pobierz zaznaczone odcinki podcastów",

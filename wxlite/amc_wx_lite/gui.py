@@ -1072,6 +1072,63 @@ class RenameItemDialog(wx.Dialog):
         return self.field.GetValue().strip()
 
 
+class PodcastSourceDialog(wx.Dialog):
+    """Natywny formularz dodawania źródła Podcastów i YouTube."""
+
+    def __init__(self, parent: wx.Window) -> None:
+        super().__init__(
+            parent,
+            title="Nowy podcast, kanał YouTube lub medium internetowe",
+        )
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+
+        help_text = (
+            "Wpisz adres kanału RSS lub Atom, kanału albo playlisty YouTube, "
+            "lub pojedynczego publicznego materiału YouTube. Po zatwierdzeniu "
+            "AMC sprawdzi adres i doda źródło do Biblioteki."
+        )
+        help_label = wx.StaticText(panel, label=help_text)
+        help_label.SetName(help_text)
+        help_label.Wrap(520)
+        layout.Add(help_label, 0, wx.ALL | wx.EXPAND, 10)
+
+        address_label = wx.StaticText(panel, label="&Adres źródła:")
+        self.address_field = wx.TextCtrl(panel, value="", size=(500, -1))
+        self.address_field.SetName("Adres źródła")
+        layout.Add(address_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.address_field, 0, wx.ALL | wx.EXPAND, 10)
+
+        title_label = wx.StaticText(panel, label="Własna &nazwa, opcjonalnie:")
+        self.title_field = wx.TextCtrl(panel, value="", size=(500, -1))
+        self.title_field.SetName("Własna nazwa, opcjonalnie")
+        layout.Add(title_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.title_field, 0, wx.ALL | wx.EXPAND, 10)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        add_button = wx.Button(self, wx.ID_OK, label="&Sprawdź i dodaj")
+        add_button.SetName("Sprawdź i dodaj źródło")
+        add_button.SetDefault()
+        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
+        cancel.SetName("Anuluj dodawanie źródła")
+        buttons.AddButton(add_button)
+        buttons.AddButton(cancel)
+        buttons.Realize()
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.SetMinSize((620, 360))
+        self.Fit()
+        self.address_field.SetFocus()
+
+    @property
+    def values(self) -> tuple[str, str]:
+        return self.address_field.GetValue().strip(), self.title_field.GetValue().strip()
+
+
 def _preset_slot_from_event(event: wx.KeyEvent) -> int | None:
     """Cyfra/minus/rownosc w dialogach presetow, bez nazw technicznych wx."""
     if event.ControlDown() or event.AltDown() or event.ShiftDown():
@@ -1835,6 +1892,7 @@ class LiteFrame(wx.Frame):
         self._podcast_checkpoint_active = False
         self._podcast_refresh_pending = False
         self._podcast_download_pending = False
+        self._podcast_add_pending = False
         self._last_podcast_progress_error: str | None = None
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
@@ -3218,6 +3276,8 @@ class LiteFrame(wx.Frame):
             self._show_radio_recording_history()
         elif action is Action.MANAGE_RADIO_SCHEDULES:
             self._show_radio_schedules()
+        elif action is Action.ADD_PODCAST_SOURCE:
+            self._add_podcast_source()
         elif action is Action.VIEW_PODCAST_INBOX:
             self._show_podcast_inbox()
         elif action is Action.VIEW_PODCAST_IN_PROGRESS:
@@ -4084,6 +4144,85 @@ class LiteFrame(wx.Frame):
         if row is not None and row.kind == "episode":
             return row.parent_id
         return None
+
+    def _add_podcast_source(self) -> None:
+        """Ctrl+N: dodaj RSS, kolekcję YouTube albo publiczne medium."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Dodawanie źródła jest dostępne w sesji Podcasty i YouTube"
+            )
+            return
+        if self._podcast_add_pending:
+            self.announcer.say("Dodawanie źródła już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę dodać źródła")
+            return
+
+        with PodcastSourceDialog(self) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            address, title = dialog.values
+        if not address:
+            self.announcer.say("Wpisz adres źródła")
+            return
+
+        self._podcast_add_pending = True
+        started = "Sprawdzanie i dodawanie źródła"
+        self.status_field.SetLabel(started)
+        self.status_bar.show(started)
+        self.announcer.say(started)
+
+        def work() -> dict:
+            result = client.add_podcast_source(address, title)
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_add_pending = False
+            source_title = str(payload.get("title") or title or "źródło").strip()
+            source_label = str(payload.get("sourceLabel") or "źródło").strip()
+            count = max(0, int(payload.get("itemCount") or 0))
+            if bool(payload.get("added")):
+                change = "Dodano"
+            elif bool(payload.get("restored")):
+                change = "Ponownie dodano"
+            else:
+                change = "Zaktualizowano"
+            message = (
+                f"{change}: {source_label}: {source_title}. "
+                f"Pozycji: {count}"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+
+            subscription_id = str(payload.get("subscriptionId") or "").strip()
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            if (
+                subscription_id
+                and self.navigator.active is SessionId.PODCASTS
+                and state.view is View.LIST
+                and state.library_view is LibraryView.PODCAST_LIBRARY
+            ):
+                self._open_podcast_library(
+                    preferred_id=subscription_id,
+                    completion_message=message,
+                )
+                return
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_add_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się dodać źródła"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-add", work, done, failed)
 
     def _refresh_podcasts(self, *, refresh_all: bool) -> None:
         """F5/Ctrl+F5: wspolny mechanizm odswiezania glownego AMC.

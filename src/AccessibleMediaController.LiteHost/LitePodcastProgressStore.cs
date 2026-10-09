@@ -176,6 +176,51 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public PodcastSourceAddResult AddSource(
+        PodcastFeedDocument feed,
+        string? titleOverride,
+        PodcastSourceKind sourceKind,
+        BookmarkSettings? bookmarks = null)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne dodawanie źródeł z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.AddSource(
+                feed,
+                titleOverride,
+                sourceKind,
+                DateTime.UtcNow,
+                bookmarks);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] dodawanie źródła podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
+    public PodcastInternetMediaAddResult AddInternetMedia(
+        PodcastInternetMediaSource media,
+        string? titleOverride)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne dodawanie materiałów z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.AddInternetMedia(media, titleOverride);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] dodawanie medium internetowego: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastRefreshResult ApplyRefresh(
         string subscriptionId,
         PodcastFeedDocument feed,
