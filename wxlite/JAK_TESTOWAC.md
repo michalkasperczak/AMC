@@ -2,6 +2,34 @@
 
 To rozwijany równoległy interfejs pełnegoAMC. Nie jest jeszcze zamiennikiem wszystkich funkcji programu. Katalog i nazwa uruchamiacza `wxlite` są historyczne; nie oznaczają decyzji o ograniczeniu docelowego zakresu do dwóch sesji.
 
+## Podcasty i YouTube — pierwszy działający etap
+
+Skrót `Ctrl+3` przełącza na trzecią sesję „Podcasty i YouTube”. Lista czyta
+pozycje należące do Biblioteki z tego samego `podcasts.db`, którego używa pełne
+AMC, ale otwiera bazę wyłącznie przez SQLite `mode=ro`. Nazwy kontrolek i
+wierszy zawierają tylko tekst przeznaczony dla użytkownika; identyfikatory,
+rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
+
+1. `Enter` na podcaście, kanale lub playliście otwiera jego odcinki.
+2. `Enter` na odcinku uruchamia istniejący silnik multimediów C# AMC. Jeżeli
+   baza ma zapamiętaną pozycję, odtwarzanie zaczyna się od niej.
+3. `Backspace` wraca na dokładnie to samo źródło, a `Ctrl+L` wraca do głównej
+   Biblioteki podcastów.
+4. Widok ładuje po 150 odcinków. Wiersz „Załaduj więcej odcinków” dokłada
+   następną stronę i przenosi wybór na pierwszy nowo dołożony odcinek.
+5. `Page Up` i `Page Down` w odtwarzaczu przechodzą po odtwarzalnych odcinkach
+   bieżącej listy. `Ctrl+Shift+C` na odcinku kopiuje bezpośredni adres medium.
+
+Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
+tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
+wierszy z poprawną paginacją. Osobno rzeczywisty opublikowany LiteHost otworzył
+syntetyczny plik przez nowe polecenie `media.play` i zgłosił
+`playback.duration` oraz `playback.started`.
+
+To jest etap odczytu i odtwarzania. Dodawanie, usuwanie, odświeżanie oraz
+pobieranie odcinków, zapis postępu odsłuchu i pozostałe specjalne widoki
+podcastów nie są jeszcze przeniesione do wxPython.
+
 ## Opcje sesji — jak to sprawdzić (ten przyrost)
 
 Testy bezokienne (wszystko, co zmierzone):
@@ -176,7 +204,12 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
 2. Alt+2: wszystkie lokalne pliki alfabetycznie. Porównaj liczność ze źródłem, nie z wpisaną na stałe liczbą.
 3. Ctrl+U: Ulubione. Zachowaj właściwą kolejność i wybór.
 4. Ctrl+P: playlisty; Enter do zawartości; Backspace na tę samą playlistę.
-5. Ctrl+C: nazwa, pojedyncze potwierdzenie na każde świadome naciśnięcie. Ctrl+Shift+C: pełna ścieżka jakoTEKST, komunikat „Skopiowano pełną ścieżkę". Sprawdź rzeczywistą zawartość schowka zWindows (`Get-Clipboard`, czytaj bajty i dekoduj sam — `text=True` wywala się na polskich znakach), nie sam komunikat. Komunikat celowo NIE mówi o skopiowaniu pliku: obsługi formatuFileDrop nadal nie ma.
+5. Ctrl+C: nazwa lub nazwy zaznaczonych pozycji, każda w osobnym wierszu.
+   Ctrl+Shift+C na istniejących plikach ustawia jednocześnie tekst pełnych
+   ścieżek oraz Windows `CF_HDROP`, więc pliki można wkleić do folderu. Dla
+   kilku zaznaczeń kolejność odpowiada kolejności listy. Dla pozycji
+   internetowej skrót kopiuje adres jako tekst. Sprawdź rzeczywistą zawartość
+   schowka, nie sam komunikat.
 6. Ctrl+Shift+O: zwykły dialog folderu, nie Biblioteka (Ctrl+O to dialog PLIKU — do 06.10.2026 port miał te dwa gesty odwrotnie). W zmierzonym dialogu pierwszyEnter wybiera wpisany folder, drugi zatwierdza; kontroluj rzeczywisty fokus i zamknięcie okna zamiast wysyłać gesty w ciemno.
 7. Na dostępnym pliku:Enter, Spacja, Spacja. Stan przycisku Odtwórz/Wstrzymaj ma zgadzać się z działaniem; cisza czytnika i sam tekst statusu nie dowodzą komunikatuNVDA.
 8. Ctrl+2: Radio z `radio.stations` wspólnego profilu. W trybie tylko do odczytu dodawanie/zmiana/usuwanie/import nadal mają odmówić uczciwie. Prywatna lista piaskownicy to odrębny tryb, nie zapis doAMC.

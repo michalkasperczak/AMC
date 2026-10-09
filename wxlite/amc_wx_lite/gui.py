@@ -71,10 +71,12 @@ from .navigation import (
     Navigator,
     OpenFolder,
     OpenLibraryView,
+    OpenPodcastView,
     OpenQueueView,
     PlayFromQueue,
     PlayQueueAt,
     PlayStation,
+    PlayMedia,
     PlayTrack,
     SessionId,
     TransientNavigationSnapshot,
@@ -83,6 +85,12 @@ from .navigation import (
 )
 from .shortcuts import Action, Chord, describe, preset_slot, resolve
 from .profile_layout import resolve_layout
+from .podcast_source import (
+    PAGE_SIZE as PODCAST_PAGE_SIZE,
+    PodcastProfileError,
+    PodcastSource,
+    subscription_rows,
+)
 from .quick_info import (
     HOST_ERROR_MESSAGE,
     QUICK_INFO_OP,
@@ -557,34 +565,6 @@ class NativeStatusBar:
         return self._text
 
 
-class MediaListAccessible(wx.Accessible):
-    """Udostepnia przez MSAA nazwe i role samej kontrolki listy.
-
-    Sonda MSAA wykazala brak accName klienta SysListView32 mimo SetName;
-    z ta nakladka accName jest dostepne. Nie jest to jeszcze dowod usuniecia
-    komunikatu "nieznane" przy fizycznym wejsciu na pusta liste z NVDA.
-    Dla dzieci pozostaje dotychczasowa implementacja natywna. Kwity pomiaru
-    interfejsu: list-speech-after422/zdarzenia15.jsonl.
-    """
-
-    def __init__(self, window: wx.Window) -> None:
-        super().__init__(window)
-        self._window = window
-
-    def GetName(self, childId):  # noqa: N802 - API wx
-        if childId == 0:
-            name = self._window.GetName()
-            if name:
-                return (wx.ACC_OK, name)
-        return (wx.ACC_NOT_IMPLEMENTED, "")
-
-    def GetRole(self, childId):  # noqa: N802 - API wx
-        # Rola 0 na pustej liscie byla drugim polem objawu F03.
-        if childId == 0:
-            return (wx.ACC_OK, wx.ROLE_SYSTEM_LIST)
-        return (wx.ACC_NOT_IMPLEMENTED, wx.ROLE_NONE)
-
-
 #: Stale MSAA (winuser.h). Uzywamy ich do JEDNEGO zdarzenia: zejscia listy do
 #: zera wierszy. Nazwy wlasne, zeby nie wiazac sie z wersja ``comtypes``.
 EVENT_OBJECT_FOCUS = 0x8005
@@ -614,8 +594,9 @@ class MediaListCtrl(wx.ListCtrl):
     i nadpisuje WYLACZNIE to, co sie rozni.
 
     Co ZOSTAJE bez zmian: te same trzy kolumny, te same ``item_id`` z
-    ``ListModel``, ta sama nakladka nazwy/roli, ta sama trwala kontrolka (bez
-    ``Destroy``/rekreacji HWND -- ta droga zostala zmierzona i wycofana).
+    ``ListModel`` i ta sama trwala kontrolka (bez ``Destroy``/rekreacji HWND --
+    ta droga zostala zmierzona i wycofana). Drzewo dostepnosci wierszy nalezy
+    do natywnego SysListView32; nie instalujemy na nim ``wx.Accessible``.
     Strzalki, Home/End i pisanie-po-pierwszej-literze naleza do kontrolki;
     na zwyklej liscie dziala to natywnie, bez naszego udzialu.
 
@@ -667,11 +648,14 @@ class MediaListCtrl(wx.ListCtrl):
         #: ``sync_rows`` (jedno pole dla wszystkich list, jak ``FilterBox``).
         #: Pusty = zachowanie dokladnie takie jak przed dodaniem filtra.
         self.filter_query: str = ""
-        # Nazwa dla czytnika ekranu i Narratora.
+        # Natywne SysListView32 MUSI pozostac wlascicielem calego drzewa
+        # dostepnosci. Wczesniejsza nakladka ``wx.Accessible`` podawala nazwe
+        # samej listy, ale na rzeczywistym NVDA zaslaniala jej dzieci: strzalki
+        # przesuwaly fokus i Enter dzialal, a czytnik nie dostawal nazw wierszy.
+        # ``SetLabel`` ustawia tekst natywnego okna, ``SetName`` zachowuje
+        # jawna nazwe po stronie wx; nie podmieniamy providera MSAA/UIA.
+        self.SetLabel(label)
         self.SetName(label)
-        # Bez tego nazwa wyzej NIE dociera do MSAA (zmierzone -- patrz
-        # ``MediaListAccessible``).
-        self.SetAccessible(MediaListAccessible(self))
 
     # ------------------------------------------------------------ aktualizacja
 
@@ -1417,6 +1401,7 @@ class SessionOptionsDialog(wx.Dialog):
         self._drafts: dict = {
             SessionId.FILES: session_options.SessionPlaybackOverrides(),
             SessionId.RADIO: session_options.SessionPlaybackOverrides(),
+            SessionId.PODCASTS: session_options.SessionPlaybackOverrides(),
         }
         if drafts:
             self._drafts.update(drafts)
@@ -1432,7 +1417,7 @@ class SessionOptionsDialog(wx.Dialog):
         # kontrolki dialog konfigurowal WYLACZNIE sesje, ktora wlasnie gra, a
         # wymaganie jest odwrotne -- skonfigurowac druga sesje BEZ przelaczenia
         # odsluchu. Dialog nie dotyka ani ``_switch_session``, ani transportu.
-        sessions = [SessionId.FILES, SessionId.RADIO]
+        sessions = [SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS]
         self._sessions = sessions
         row = wx.BoxSizer(wx.HORIZONTAL)
         label = wx.StaticText(panel, label="Konfigurowana &sesja:")
@@ -1773,6 +1758,8 @@ class LiteFrame(wx.Frame):
         # moze teraz edytowac prywatna kopie planow, ale sam nie uruchamia
         # drugiego, konkurencyjnego zegara.
         self.library = LibrarySource()
+        self.podcasts = PodcastSource(self.layout)
+        self._podcast_loaded_counts: dict[str, int] = {}
         self.navigator.restore(state.navigation)
 
         # Brama zna zycie okna, wiec spozniony wynik nie dotknie zniszczonego
@@ -1798,6 +1785,7 @@ class LiteFrame(wx.Frame):
         #: wyjscie z odtwarzacza PLIKOW nie moze wstrzymac grajacego radia --
         #: ``transport.pauseResume`` nie zna zakresu sesji.
         self._playing_session: SessionId | None = None
+        self._pending_playback_session: SessionId | None = None
 
         self._build_ui()
         self._bind_keys()
@@ -1846,12 +1834,20 @@ class LiteFrame(wx.Frame):
             self.list_panel, self.navigator.sessions[SessionId.RADIO].model, "Stacje radiowe",
             self.navigator.sessions[SessionId.RADIO],
         )
+        self.podcasts_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.PODCASTS].model,
+            "Podcasty i YouTube",
+            self.navigator.sessions[SessionId.PODCASTS],
+        )
         self.radio_list.Hide()
+        self.podcasts_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
         list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
         list_sizer.Add(self.files_list, 1, wx.EXPAND)
         list_sizer.Add(self.radio_list, 1, wx.EXPAND)
+        list_sizer.Add(self.podcasts_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
         # --- widok odtwarzacza (zwykle kontrolki, nie wlasne rysowanie)
@@ -2081,7 +2077,7 @@ class LiteFrame(wx.Frame):
 
     def _bind_keys(self) -> None:
         self.Bind(wx.EVT_CHAR_HOOK, self._on_player_shortcut_hook)
-        for control in (self.files_list, self.radio_list):
+        for control in (self.files_list, self.radio_list, self.podcasts_list):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button, self.volume_slider, self.rate_slider):
             control.Bind(wx.EVT_KEY_DOWN, self._on_key)
@@ -2255,7 +2251,14 @@ class LiteFrame(wx.Frame):
         wanted = self.filter_state.text_for_view(context)
         if self.filter_box.GetValue() != wanted:
             self._set_filter_text(wanted)
-        for control in (self.files_list, self.radio_list):
+        for control in tuple(
+            candidate for candidate in (
+                getattr(self, "files_list", None),
+                getattr(self, "radio_list", None),
+                getattr(self, "podcasts_list", None),
+            )
+            if candidate is not None
+        ):
             control.filter_query = wanted if control is self._active_list() else ""
 
     def _set_tempo_algorithm(self, value: int) -> None:
@@ -2482,7 +2485,12 @@ class LiteFrame(wx.Frame):
             # Dlatego tozsamosc bierzemy z kandydata zapisanego przy zlecaniu,
             # a z hosta tylko FAKT, ze start sie udal.
             if data.get("engine") == "files":
-                self.navigator.note_playback_started()
+                target = self._pending_playback_session
+                if target not in (SessionId.FILES, SessionId.PODCASTS):
+                    target = SessionId.FILES
+                self.navigator.note_playback_started(target)
+                self._playing_session = target
+                self._pending_playback_session = None
             if data.get("tempoFallbackReason"):
                 self.announcer.say(
                     "Wybrany algorytm tempa jest niedostępny. Używany SoundTouch."
@@ -2500,8 +2508,11 @@ class LiteFrame(wx.Frame):
                 str(data.get("id") or ""), str(data.get("title") or "")
             ))
         elif name == "playback.failed":
+            failed_session = self._pending_playback_session or self._playing_session
+            self._pending_playback_session = None
             self._run(self.navigator.note_playback_failed(
-                f"Nie udalo sie odtworzyc: {data.get('message', 'blad')}"
+                f"Nie udalo sie odtworzyc: {data.get('message', 'blad')}",
+                failed_session,
             ))
         elif name == "radio.nowPlaying":
             title = str(data.get("streamTitle") or "").strip()
@@ -2656,6 +2667,10 @@ class LiteFrame(wx.Frame):
         # cisze takze wtedy, gdy profil byl uszkodzony albo zajety.
         if self._radio_snapshot.load_error:
             self.announcer.say(self._radio_snapshot.load_error)
+        if getattr(self.navigator, "active", None) is SessionId.PODCASTS:
+            self._open_podcast_library(
+                preferred_id=self.navigator.sessions[SessionId.PODCASTS].list_anchor_id
+            )
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\micha) na tej maszynie nie istnieja, lista pod
@@ -2692,6 +2707,11 @@ class LiteFrame(wx.Frame):
         """
         if self.navigator.active is SessionId.RADIO:
             self._run(self.navigator.return_to_library(LIBRARY_VIEW_FOLDERS))
+            return
+        if self.navigator.active is SessionId.PODCASTS:
+            self._open_podcast_library(
+                preferred_id=self.navigator.sessions[SessionId.PODCASTS].library_return_id
+            )
             return
         if not self.library.is_available:
             self.announcer.say(self.library.describe() or "Biblioteka niedostepna")
@@ -2892,12 +2912,35 @@ class LiteFrame(wx.Frame):
         self._dispatch(action)
 
     def _dispatch(self, action: Action) -> None:
+        if (
+            self.navigator.active is SessionId.PODCASTS
+            and action in {
+                Action.VIEW_ALL_FILES,
+                Action.VIEW_FAVORITES,
+                Action.VIEW_PLAYLISTS,
+                Action.VIEW_FOLDERS,
+                Action.VIEW_HISTORY,
+                Action.VIEW_SAVED_QUEUE,
+                Action.VIEW_ITEM_BOOKMARKS,
+                Action.VIEW_ALL_BOOKMARKS,
+                Action.OPEN_FOLDER_DIALOG,
+                Action.OPEN_FILE_DIALOG,
+            }
+        ):
+            self.announcer.say(
+                "To polecenie dotyczy Biblioteki plików. "
+                "Do podcastów wrócisz skrótem Ctrl+L"
+            )
+            return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
         elif action is Action.SESSION_RADIO:
             self._transient_preview_return = None
             self._switch_session(SessionId.RADIO)
+        elif action is Action.SESSION_PODCASTS:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.PODCASTS)
         elif action is Action.ACTIVATE:
             self._activate()
         elif action is Action.PARENT_FOLDER:
@@ -3059,6 +3102,8 @@ class LiteFrame(wx.Frame):
                 self._open_library_view(intent)
             elif isinstance(intent, OpenQueueView):
                 self._open_queue_view()
+            elif isinstance(intent, OpenPodcastView):
+                self._open_podcast_view(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayFromQueue):
@@ -3067,6 +3112,8 @@ class LiteFrame(wx.Frame):
                 self._play_queue_at(intent)
             elif isinstance(intent, PlayStation):
                 self._play_station(intent)
+            elif isinstance(intent, PlayMedia):
+                self._play_media(intent)
         self._sync_views()
 
     def _sync_views(self) -> None:
@@ -3074,12 +3121,22 @@ class LiteFrame(wx.Frame):
         session = self.navigator.session
         # Menu musi zgadzac sie z kontekstem, ktory wlasnie sie zmienil.
         self._refresh_menu_state()
-        self.session_label.SetLabel(
-            "Pliki lokalne" if self.navigator.active is SessionId.FILES else "Radio internetowe"
-        )
+        self.session_label.SetLabel({
+            SessionId.FILES: "Pliki lokalne",
+            SessionId.RADIO: "Radio internetowe",
+            SessionId.PODCASTS: "Podcasty i YouTube",
+        }[self.navigator.active])
 
         active_list = self._active_list()
-        other_list = self.radio_list if active_list is self.files_list else self.files_list
+        all_lists = tuple(
+            candidate for candidate in (
+                getattr(self, "files_list", None),
+                getattr(self, "radio_list", None),
+                getattr(self, "podcasts_list", None),
+            )
+            if candidate is not None
+        )
+        other_lists = tuple(control for control in all_lists if control is not active_list)
         # FILTR TEGO WIDOKU przywracamy PRZED ``sync_rows``, bo on wlasnie
         # liczy stan zadany listy. Port ``RestoreFilterForCurrentView``
         # (MainWindow.xaml.cs:10196-10204): wejscie w widok oddaje jego wlasny
@@ -3120,12 +3177,15 @@ class LiteFrame(wx.Frame):
             active_list is self.radio_list and not want_player
         ))
 
-        changed = self.player_panel.IsShown() != want_player or other_list.IsShown()
+        changed = self.player_panel.IsShown() != want_player or any(
+            control.IsShown() for control in other_lists
+        )
 
         self.list_panel.Show(not want_player)
         self.player_panel.Show(want_player)
         active_list.Show(not want_player)
-        other_list.Hide()
+        for control in other_lists:
+            control.Hide()
         self.panel.Layout()
 
         if want_player:
@@ -3136,11 +3196,14 @@ class LiteFrame(wx.Frame):
             active_list.SetFocus()
 
     def _active_list(self) -> MediaListCtrl:
-        return (
-            self.files_list
-            if self.navigator.active is SessionId.FILES
-            else self.radio_list
-        )
+        # Galazie zamiast slownika: testy logiki buduja lekkie okno tylko z
+        # kontrolkami sesji, ktora sprawdzaja. Slownik obliczalby wszystkie
+        # wartosci z gory i pytal o ``podcasts_list`` nawet przy sesji Plikow.
+        if self.navigator.active is SessionId.FILES:
+            return self.files_list
+        if self.navigator.active is SessionId.RADIO:
+            return self.radio_list
+        return self.podcasts_list
 
     def _on_item_selected(self, event: wx.ListEvent) -> None:
         """Zaznaczenie z klawiatury/myszy wraca do modelu, zeby ID pozostal
@@ -3455,6 +3518,85 @@ class LiteFrame(wx.Frame):
 
     def _switch_session(self, session_id: SessionId) -> None:
         self._run(self.navigator.switch_session(session_id))
+        if session_id is SessionId.PODCASTS:
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            if not state.model.rows:
+                self._open_podcast_library(preferred_id=state.list_anchor_id)
+
+    # ------------------------------------------------ Podcasty i YouTube
+
+    def _apply_podcast_result(self, events: list[object]) -> None:
+        """Apply data silently when its session is no longer on screen."""
+        if self.navigator.active is SessionId.PODCASTS:
+            self._run(events)
+        else:
+            self._sync_views()
+
+    def _open_podcast_library(self, preferred_id: str | None = None) -> None:
+        """Load the shared AMC podcast/channel library outside the GUI thread."""
+        if not self.podcasts.is_available:
+            if self.navigator.active is SessionId.PODCASTS:
+                self.announcer.say("Nie znaleziono biblioteki podcastów AMC")
+            return
+
+        def work():
+            return self.podcasts.subscriptions()
+
+        def done(subscriptions) -> None:
+            events = self.navigator.apply_podcast_library(
+                subscription_rows(subscriptions), preferred_id=preferred_id
+            )
+            self._apply_podcast_result(events)
+
+        def failed(error: Exception) -> None:
+            if self.navigator.active is SessionId.PODCASTS:
+                self.announcer.say(str(error) if isinstance(error, PodcastProfileError)
+                                   else "Nie udało się odczytać biblioteki podcastów")
+
+        self.runner.submit("podcast-view", work, done, failed)
+
+    def _open_podcast_view(self, intent: OpenPodcastView) -> None:
+        if not intent.subscription_id:
+            self._open_podcast_library(preferred_id=intent.preferred_id)
+            return
+
+        subscription_id = intent.subscription_id
+        previous_count = self._podcast_loaded_counts.get(subscription_id, 0)
+        requested = (
+            max(PODCAST_PAGE_SIZE, previous_count + PODCAST_PAGE_SIZE)
+            if intent.load_more
+            else max(PODCAST_PAGE_SIZE, previous_count)
+        )
+
+        def work():
+            subscription = self.podcasts.subscription(subscription_id)
+            if subscription is None:
+                raise PodcastProfileError("Tego podcastu nie ma już w Bibliotece.")
+            page = self.podcasts.episodes(subscription_id, loaded_count=requested)
+            return subscription, page
+
+        def done(result) -> None:
+            subscription, page = result
+            self._podcast_loaded_counts[subscription_id] = page.loaded_count
+            preferred = intent.preferred_id
+            if intent.load_more and previous_count < len(page.rows):
+                candidate = page.rows[previous_count]
+                if candidate.kind == "episode":
+                    preferred = candidate.item_id
+            events = self.navigator.apply_podcast_episodes(
+                subscription_id,
+                subscription.title,
+                page.rows,
+                preferred_id=preferred,
+            )
+            self._apply_podcast_result(events)
+
+        def failed(error: Exception) -> None:
+            if self.navigator.active is SessionId.PODCASTS:
+                self.announcer.say(str(error) if isinstance(error, PodcastProfileError)
+                                   else "Nie udało się odczytać odcinków")
+
+        self.runner.submit("podcast-view", work, done, failed)
 
     def _begin_transient_preview(self) -> None:
         if self._transient_preview_return is None:
@@ -3889,6 +4031,8 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Silnik nie dziala, nie moge odtworzyc")
             return
 
+        self._pending_playback_session = SessionId.FILES
+
         def work() -> dict:
             return client.play_file(
                 intent.path,
@@ -3906,7 +4050,43 @@ class LiteFrame(wx.Frame):
             self._refresh_status()
 
         def failed(error: Exception) -> None:
-            self._run(self.navigator.note_playback_failed(f"Nie udalo sie odtworzyc: {error}"))
+            if self._pending_playback_session is SessionId.FILES:
+                self._pending_playback_session = None
+            self._run(self.navigator.note_playback_failed(
+                f"Nie udalo sie odtworzyc: {error}", SessionId.FILES
+            ))
+
+        self.runner.submit("playback", work, done, failed)
+
+    def _play_media(self, intent: PlayMedia) -> None:
+        """Play an episode/YouTube item through the existing C# audio engine."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę odtworzyć")
+            return
+
+        self._pending_playback_session = SessionId.PODCASTS
+
+        def work() -> dict:
+            return client.play_media(
+                intent.source,
+                item_id=intent.item_id,
+                title=intent.title,
+                volume=self.options.volume,
+                rate=self.options.rate,
+                position_seconds=intent.position_seconds,
+            )
+
+        def done(_payload: dict) -> None:
+            self._playing_session = SessionId.PODCASTS
+            self._refresh_status()
+
+        def failed(error: Exception) -> None:
+            if self._pending_playback_session is SessionId.PODCASTS:
+                self._pending_playback_session = None
+            self._run(self.navigator.note_playback_failed(
+                f"Nie udało się odtworzyć: {error}", SessionId.PODCASTS
+            ))
 
         self.runner.submit("playback", work, done, failed)
 
@@ -3914,7 +4094,7 @@ class LiteFrame(wx.Frame):
         """B w odtwarzaczu: szybka zakladka przez waski zapis hosta C#."""
         if self.navigator.active is not SessionId.FILES:
             self.announcer.say(
-                "Zakładki nagrywanego radia nie są jeszcze dostępne w tej wersji"
+                "Zakładki w tej sesji nie są jeszcze dostępne w tej wersji"
             )
             return
         state = self.navigator.session
@@ -4938,7 +5118,7 @@ class LiteFrame(wx.Frame):
         opened = self.navigator.active
         drafts = {
             session: session_options.effective_overrides(self.state, session)
-            for session in (SessionId.FILES, SessionId.RADIO)
+            for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
         }
         dialog = SessionOptionsDialog(
             self, opened, self.options, drafts[opened], drafts=drafts
@@ -4973,7 +5153,7 @@ class LiteFrame(wx.Frame):
         """
         poprzednie = {
             session: session_options.effective_overrides(self.state, session)
-            for session in (SessionId.FILES, SessionId.RADIO)
+            for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
         }
         zmienione = [
             session

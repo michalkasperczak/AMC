@@ -205,7 +205,7 @@ Niżej zachowana historia wcześniejszych odebranych przyrostów.
 - Pozycja liczona jako `position_ticks / 10_000_000` z zachowaną częścią ułamkową (bez `//`).
 - Backspace z widoku zakładek wraca na TEN plik (zmierzone: wiersz 2309 z 2476, to samo ID), nie na wiersz pierwszy.
 - Foldery Biblioteki są w menu (Alt+1), a „Powrót na listę” wywołuje istniejące SHOW_LIST. Prawdziwy PLAYER→LIST przez menu został odebrany w `all-bookmarks-gui-after422/parent-acceptance.json`; wcześniejszy niepełny P13 nie jest dowodem tego przejścia.
-- Pusta lista jest odebrana: `MediaListAccessible` udostępnia nazwę i rolę, a `_announce_empty_list` zgłasza samą kontrolkę po zniknięciu ostatniego dziecka. Żywy NVDA czyta listę zamiast „nieznane”; Backspace wraca na właściwy plik. Kwity `native-empty-final-after422/` i końcowy `native-w02-valid-retest-after422/parent-final/`.
+- Korekta 09.10.2026: wcześniejszy odbiór `MediaListAccessible` nie obejmował później zgłoszonej regresji zwykłych wierszy. Na rzeczywistym stanowisku nakładka podawała nazwę samej listy, ale zasłaniała jej natywne dzieci: strzałki i Enter działały, a NVDA nie czytał nazw. Nakładka została wycofana z `MediaListCtrl`; etykieta pozostaje przez `SetLabel`/`SetName`, zaś wiersze znów należą do providera `SysListView32`. `_announce_empty_list` nadal zgłasza samą kontrolkę po zniknięciu ostatniego dziecka. Wymagany jest ponowny żywy odbiór obu przypadków: niepustej listy pod strzałkami i pustej listy.
 
 ## Mowa listy — odebrany zakres i pozostałe ograniczenia
 

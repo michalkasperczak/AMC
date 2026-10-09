@@ -31,6 +31,9 @@ KIND_LABELS: dict[str, str] = {
     # czytnik mowilby w kolumnie "Rodzaj" pustke i nie bylo by roznicy miedzy
     # playlista a utworem.
     "playlist": "playlista",
+    "podcast": "podcast",
+    "episode": "odcinek",
+    "loadMore": "",
     "parent": "",
 }
 
@@ -56,11 +59,14 @@ class Row:
     # wymienic bez zgubienia zwyklych informacji wiersza. Pole zawiera juz
     # tekst uzytkowy -- nigdy enum, identyfikator ani reprezentacje obiektu.
     state_detail: str = ""
+    # Punkt wznowienia podcastu lub innego dlugiego materialu. W modelu zostaje
+    # liczba; czytnik dostaje tylko przygotowany wyzej tekst ``detail``.
+    position_seconds: float = 0.0
 
     @property
     def is_openable(self) -> bool:
         """Czy Enter ma WEJSC w element, zamiast go odtworzyc."""
-        return self.kind in ("folder", "parent", "playlist")
+        return self.kind in ("folder", "parent", "playlist", "podcast", "loadMore")
 
     @property
     def kind_label(self) -> str:

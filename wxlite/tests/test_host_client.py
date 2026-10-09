@@ -125,6 +125,30 @@ def test_call_returns_result_from_real_child_process() -> None:
         client.close()
 
 
+def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> None:
+    client = make_client()
+    try:
+        result = client.play_media(
+            "https://example.invalid/watch?v=abc",
+            item_id="episode-stable-id",
+            title="Rozmowa tygodnia",
+            volume=37,
+            rate=1.25,
+            position_seconds=91.5,
+        )
+        assert result["op"] == "media.play"
+        assert result["args"] == {
+            "source": "https://example.invalid/watch?v=abc",
+            "id": "episode-stable-id",
+            "title": "Rozmowa tygodnia",
+            "volume": 37,
+            "rate": 1.25,
+            "positionSeconds": 91.5,
+        }
+    finally:
+        client.close()
+
+
 def test_host_error_is_raised_as_host_error_not_crash() -> None:
     client = make_client()
     try:

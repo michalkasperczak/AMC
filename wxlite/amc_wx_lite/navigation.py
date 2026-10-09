@@ -25,6 +25,7 @@ class View(Enum):
 class SessionId(Enum):
     FILES = "files"
     RADIO = "radio"
+    PODCASTS = "podcasts"
 
 
 class LibraryView(Enum):
@@ -67,6 +68,11 @@ class LibraryView(Enum):
     #: Plany nagrywania z profilu AMC. Python tylko je pokazuje; nie uruchamia
     #: drugiego harmonogramu obok wlasciciela C#.
     RADIO_RECORDING_SCHEDULES = "radioRecordingSchedules"
+    #: Glowna lista podcastow/kanalow oraz zawartosc jednego zrodla.
+    #: Osobne wartosci pozwalaja Backspace i filtrom rozpoznac poziom bez
+    #: ujawniania technicznego Id podcastu w nazwie dostepnej.
+    PODCAST_LIBRARY = "podcastLibrary"
+    PODCAST_EPISODES = "podcastEpisodes"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -222,6 +228,16 @@ class OpenFolder:
 
 
 @dataclass(slots=True)
+class OpenPodcastView:
+    """Load the podcast library or episodes of one selected source."""
+
+    subscription_id: str | None = None
+    subscription_title: str = ""
+    preferred_id: str | None = None
+    load_more: bool = False
+
+
+@dataclass(slots=True)
 class PlayTrack:
     path: str
     item_id: str
@@ -240,6 +256,16 @@ class PlayStation:
     url: str
     item_id: str
     title: str
+
+
+@dataclass(slots=True)
+class PlayMedia:
+    """Play a local or HTTP media source while preserving its stable AMC Id."""
+
+    source: str
+    item_id: str
+    title: str
+    position_seconds: float = 0.0
 
 
 @dataclass(slots=True)
@@ -371,6 +397,7 @@ class Navigator:
         self.sessions: dict[SessionId, SessionState] = {
             SessionId.FILES: SessionState(SessionId.FILES),
             SessionId.RADIO: SessionState(SessionId.RADIO),
+            SessionId.PODCASTS: SessionState(SessionId.PODCASTS),
         }
         self.active = SessionId.FILES
 
@@ -399,7 +426,11 @@ class Navigator:
 
     @staticmethod
     def _session_name(session_id: SessionId) -> str:
-        return "Pliki lokalne" if session_id is SessionId.FILES else "Radio internetowe"
+        return {
+            SessionId.FILES: "Pliki lokalne",
+            SessionId.RADIO: "Radio internetowe",
+            SessionId.PODCASTS: "Podcasty i YouTube",
+        }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
         """Zapamietaj dokladne miejsce przed wspolnym podgladem."""
@@ -507,6 +538,19 @@ class Navigator:
         if row.kind == "playlist":
             return self._enter_playlist(row)
 
+        if row.kind == "podcast":
+            state.library_return_id = row.item_id
+            return [OpenPodcastView(row.item_id, row.title)]
+
+        if row.kind == "loadMore":
+            if not state.library_playlist_id:
+                return [Announce("Nie wiadomo, dla którego podcastu wczytać odcinki")]
+            return [OpenPodcastView(
+                state.library_playlist_id,
+                state.library_return_view or "Podcast",
+                load_more=True,
+            )]
+
         if row.kind == "folder":
             if not row.path:
                 return [Announce("Brak sciezki folderu")]
@@ -534,6 +578,30 @@ class Navigator:
             if not stay_on_list_after_radio_enter:
                 state.view = View.PLAYER
             return [PlayStation(row.url or "", row.item_id, row.title), Announce(row.title)]
+
+        if row.kind == "episode":
+            if not row.path:
+                return [Announce("Ten odcinek nie ma adresu do odtworzenia")]
+            state.player_entry_anchor_id = row.item_id
+            state.list_anchor_id = row.item_id
+            state.now_playing_id = row.item_id
+            state.now_playing_title = row.title
+            state.pending_material_id = row.item_id
+            state.playback_source_rows = tuple(
+                candidate for candidate in state.model.rows
+                if candidate.kind == "episode" and candidate.path
+            )
+            state.playback_uses_queue = False
+            state.view = View.PLAYER
+            return [
+                PlayMedia(
+                    row.path,
+                    row.item_id,
+                    row.title,
+                    position_seconds=row.position_seconds,
+                ),
+                Announce(row.title),
+            ]
 
         # Żywa kolejka ma już ścieżki w hoście. Payload listy niesie tylko ID.
         if state.library_view is LibraryView.LIVE_QUEUE:
@@ -743,13 +811,19 @@ class Navigator:
         zwyklym przegladaniu dysku pod Ctrl+O) -- wtedy komunikat zostaje.
         """
         state = self.session
+        if state.session_id is SessionId.PODCASTS:
+            if state.library_view is LibraryView.PODCAST_EPISODES:
+                return [OpenPodcastView(preferred_id=state.library_return_id)]
+            return []
         # W nazwanym widoku Biblioteki nie ma wiersza rodzica, ale Backspace
         # nadal ma WYJSC: z zawartosci playlisty na liste playlist, a z
         # widoku plaskiego z powrotem do Folderow (MainWindow.xaml.cs:20832).
         if state.library_view is not None:
             return self._leave_library_view()
         if state.session_id is SessionId.RADIO:
-            return [Announce("To jest Biblioteka radia")]
+            # Escape/Backspace na najwyzszym poziomie niczego nie zmienia.
+            # Nie oglaszamy oczywistego naglowka po kazdym przypadkowym Esc.
+            return []
 
         parent_row = next((r for r in state.model.rows if r.kind == "parent"), None)
         if parent_row is None:
@@ -848,7 +922,7 @@ class Navigator:
             )
         ]
 
-    def note_playback_started(self) -> None:
+    def note_playback_started(self, session_id: SessionId = SessionId.FILES) -> None:
         """Host POTWIERDZIL start. Dopiero teraz material jest biezacy.
 
         Rozdzielone od ``activate_selected``, bo samo wyslanie ``files.play``
@@ -861,7 +935,7 @@ class Navigator:
         Tozsamosc znamy po swojej stronie (``pending_material_id``); z hosta
         bierzemy tylko FAKT udanego startu.
         """
-        state = self.sessions[SessionId.FILES]
+        state = self.sessions[session_id]
         if not state.pending_material_id:
             # Host potrafi zwrocic ``file:<path>``, ktore profilowym Id nie
             # jest. Bez kandydata nie ma z czego zlozyc tozsamosci -- i lepiej
@@ -1089,6 +1163,10 @@ class Navigator:
         "folder nadrzedny", jak dotad.
         """
         state = self.session
+        if state.session_id is SessionId.PODCASTS:
+            if state.library_view is LibraryView.PODCAST_EPISODES:
+                return [OpenPodcastView(preferred_id=state.library_return_id)]
+            return []
         if state.session_id is SessionId.RADIO:
             return [OpenLibraryView(view=None, target_session_id=SessionId.RADIO)]
         if state.library_view is LibraryView.PLAYLIST_CONTENTS:
@@ -1186,6 +1264,50 @@ class Navigator:
         suffix = f", {row.title}" if row is not None else ", lista pusta"
         return [Announce(f"Stacje: {len(rows)}{suffix}")]
 
+    def apply_podcast_library(
+        self, rows: list[Row], preferred_id: str | None = None
+    ) -> list[object]:
+        """Apply the shared podcast/YouTube source list without touching files."""
+        state = self.sessions[SessionId.PODCASTS]
+        if state.library_view is LibraryView.PODCAST_EPISODES and state.model.selected_id:
+            state.view_selected_ids[state.library_playlist_id or ""] = state.model.selected_id
+        state.library_view = LibraryView.PODCAST_LIBRARY
+        state.library_playlist_id = None
+        state.library_return_view = None
+        state.model.replace(rows, preferred_id=preferred_id or state.library_return_id)
+        state.view = View.LIST
+        state.library_return_id = state.model.selected_id
+        return [Announce(
+            f"Podcasty i YouTube, {len(rows)} {_items_word(len(rows))}"
+            if rows else "Podcasty i YouTube, pusto"
+        )]
+
+    def apply_podcast_episodes(
+        self,
+        subscription_id: str,
+        subscription_title: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Apply one podcast/channel while remembering the exact parent row."""
+        state = self.sessions[SessionId.PODCASTS]
+        if state.library_view is LibraryView.PODCAST_LIBRARY:
+            state.library_return_id = state.model.selected_id or subscription_id
+        state.library_view = LibraryView.PODCAST_EPISODES
+        state.library_playlist_id = subscription_id
+        # This field is normally a saved library view name.  In the podcast
+        # session it holds only the intentional parent title for announcements.
+        state.library_return_view = subscription_title
+        remembered = state.view_selected_ids.get(subscription_id)
+        state.model.replace(rows, preferred_id=preferred_id or remembered)
+        state.view = View.LIST
+        count = sum(1 for row in rows if row.kind == "episode")
+        return [Announce(
+            f"{subscription_title}, {count} {_items_word(count)}"
+            if count else f"{subscription_title}, pusto"
+        )]
+
     # ----------------------------------------------------------- odtwarzanie
 
     def step_playback_source(self, forward: bool) -> list[object] | None:
@@ -1243,6 +1365,16 @@ class Navigator:
                 PlayStation(target.url or "", target.item_id, target.title),
                 Announce(target.title),
             ]
+        if target.kind == "episode":
+            return [
+                PlayMedia(
+                    target.path or "",
+                    target.item_id,
+                    target.title,
+                    position_seconds=target.position_seconds,
+                ),
+                Announce(target.title),
+            ]
         return [
             PlayTrack(target.path or "", target.item_id, target.title),
             Announce(target.title),
@@ -1267,9 +1399,11 @@ class Navigator:
         state.pending_material_id = ""
         return [Announce(title)] if title else []
 
-    def note_playback_failed(self, message: str) -> list[object]:
+    def note_playback_failed(
+        self, message: str, session_id: SessionId | None = None
+    ) -> list[object]:
         """Blad odtwarzania wraca na LISTE: w odtwarzaczu nie ma co robic."""
-        state = self.session
+        state = self.sessions[session_id] if session_id is not None else self.session
         state.now_playing_id = None
         state.now_playing_title = ""
         # Nieudany start NIE moze zostawic materialu jako biezacego: Ctrl+B

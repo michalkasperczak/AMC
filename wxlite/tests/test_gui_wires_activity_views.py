@@ -63,6 +63,10 @@ _NON_SQLITE_VIEWS = (
     # Harmonogramy sa czytane z radio.recordingSchedules w state.json, a ich
     # etykiety sklada wspolny kod C# uzywany takze przez glowne AMC.
     LibraryView.RADIO_RECORDING_SCHEDULES,
+    # Oba widoki podcastow ida przez osobne PodcastSource/podcasts.db. Nie
+    # wolno kierowac ich do lokalnego LibrarySource/library.db przez _VIEW_KEYS.
+    LibraryView.PODCAST_LIBRARY,
+    LibraryView.PODCAST_EPISODES,
 )
 
 

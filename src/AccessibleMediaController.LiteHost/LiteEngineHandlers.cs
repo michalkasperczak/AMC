@@ -186,6 +186,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["host.shutdown"] = (_, _) => new { ok = true },
             ["files.listFolder"] = (request, _) => ListFolder(request.Args),
             ["files.play"] = (request, events) => PlayFile(request.Args, events),
+            ["media.play"] = (request, events) => PlayMedia(request.Args, events),
             ["radio.play"] = (request, events) => PlayStation(request.Args, events),
             ["radio.recordingToggle"] = (request, events) =>
                 _recordings.Toggle(request.Args, events),
@@ -867,6 +868,61 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         // BEZPOSREDNIE odtworzenie wychodzi z kolejki: koniec tego utworu nie
         // moze jej przesunac. Zachowanie files.play pozostaje niezmienione.
+        _queue.DetachFromDirectPlay();
+        _files.Play(item, position, volume, rate);
+        return new { ok = true, engine = "files", id = item.Id, title = item.Title };
+    }
+
+    /// <summary>
+    /// Odtwarza material spoza lokalnego drzewa plikow (na poczatku odcinek
+    /// podcastu lub material YouTube) tym samym WindowsMediaOutput, ktorego
+    /// uzywa pelne AMC. Zachowuje stabilne Id z profilu; nie przerabia go na
+    /// <c>file:path</c>, dzieki czemu zdarzenia mozna przypisac do odcinka.
+    /// </summary>
+    private object PlayMedia(JsonElement args, LiteEventSink events)
+    {
+        _events = events;
+        var source = LiteArgs.RequireText(args, "source").Trim();
+        var isRemote = Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https";
+        if (!isRemote)
+        {
+            try
+            {
+                source = Path.GetFullPath(source);
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                                              or NotSupportedException
+                                              or PathTooLongException)
+            {
+                throw new LiteRequestException("Źródło materiału jest nieprawidłowe.");
+            }
+            if (!File.Exists(source))
+                throw new LiteRequestException("Nie znaleziono pliku materiału.");
+        }
+
+        var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
+            args, "positionSeconds", 0d, 0d, 604_800d));
+        var volume = LiteArgs.ReadInt(args, "volume", _volume, 0, 100);
+        var rate = LiteArgs.ReadDouble(args, "rate", _rate, 0.5d, 2.0d);
+        var item = new MediaItem
+        {
+            Id = LiteArgs.RequireText(args, "id"),
+            Title = LiteArgs.ReadText(args, "title") ?? "Materiał",
+            Kind = MediaItemKind.Episode,
+            Source = source
+        };
+
+        lock (_gate)
+        {
+            if (_activeEngine != "files") _radio.Stop();
+            _activeEngine = "files";
+            _filesItem = item;
+            ForgetStaleFilesDurationLocked(item.Id);
+            _volume = volume;
+            _rate = rate;
+            _paused = false;
+        }
         _queue.DetachFromDirectPlay();
         _files.Play(item, position, volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };

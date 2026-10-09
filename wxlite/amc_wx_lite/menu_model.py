@@ -361,6 +361,8 @@ def build_menus() -> tuple[Menu, ...]:
         (
             MenuItem("Sesja: &Pliki lokalne", Action.SESSION_FILES, shortcut="Ctrl+1"),
             MenuItem("Sesja: &Radio", Action.SESSION_RADIO, shortcut="Ctrl+2"),
+            MenuItem("Sesja: Podcasty i &YouTube", Action.SESSION_PODCASTS,
+                     shortcut="Ctrl+3"),
             SEPARATOR,
             # ``accelerator=False``: ZMIERZONE na zywym GUI (statusclip-1).
             # Z akceleratorem pozycja byla WYLACZONA na liscie (nic nie gralo),

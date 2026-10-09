@@ -334,6 +334,30 @@ class LiteHostClient:
             args["positionSeconds"] = float(position_seconds)
         return self.call("files.play", args, timeout=60.0)
 
+    def play_media(
+        self,
+        source: str,
+        *,
+        item_id: str,
+        title: str,
+        volume: int,
+        rate: float,
+        position_seconds: float = 0.0,
+    ) -> Any:
+        """Play a podcast/YouTube source while retaining its stable AMC Id."""
+        return self.call(
+            "media.play",
+            {
+                "source": source,
+                "id": item_id,
+                "title": title,
+                "volume": volume,
+                "rate": rate,
+                "positionSeconds": max(0.0, float(position_seconds)),
+            },
+            timeout=120.0,
+        )
+
     def play_station(self, url: str, *, volume: int, item_id: str, title: str) -> Any:
         return self.call(
             "radio.play",

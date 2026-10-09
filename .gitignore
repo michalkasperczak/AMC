@@ -13,3 +13,4 @@ node_modules/
 AMC-NVDA-*.nvda-addon
 __pycache__/
 .smoke-out/
+.tmp-tests/

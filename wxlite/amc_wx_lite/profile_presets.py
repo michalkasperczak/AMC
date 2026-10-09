@@ -25,6 +25,7 @@ PRESET_COUNT = 12
 SESSION_PROFILE_KEYS = {
     SessionId.FILES: "local",
     SessionId.RADIO: "radio",
+    SessionId.PODCASTS: "podcasts",
 }
 
 

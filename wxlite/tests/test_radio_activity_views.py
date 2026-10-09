@@ -87,10 +87,8 @@ def test_radio_views_resolve_from_player_as_well_as_list():
             assert resolve(Chord(key, ctrl=True), player_view=player, radio_session=True) is action
 
 
-def test_radio_library_backspace_does_not_describe_a_local_folder():
-    from amc_wx_lite.navigation import Announce
+def test_radio_library_escape_or_backspace_is_quiet():
     nav = Navigator()
     nav.switch_session(SessionId.RADIO)
     commands = nav.go_to_parent()
-    assert all(isinstance(x, Announce) for x in commands)
-    assert "folder" not in " ".join(x.text.lower() for x in commands)
+    assert commands == []

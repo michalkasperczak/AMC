@@ -92,6 +92,7 @@ from enum import Enum
 class Action(Enum):
     SESSION_FILES = "session.files"
     SESSION_RADIO = "session.radio"
+    SESSION_PODCASTS = "session.podcasts"
     ACTIVATE = "activate"
     PARENT_FOLDER = "parent"
     SHOW_PLAYER = "view.player"
@@ -283,6 +284,7 @@ class Chord:
 LIST_VIEW: dict[str, Action] = {
     "Ctrl+1": Action.SESSION_FILES,
     "Ctrl+2": Action.SESSION_RADIO,
+    "Ctrl+3": Action.SESSION_PODCASTS,
     "Return": Action.ACTIVATE,
     "Back": Action.PARENT_FOLDER,
     # Escape NA LISCIE. ``MainWindow.xaml.cs:20797-20828`` kieruje go do
@@ -415,6 +417,7 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
 PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+1": Action.SESSION_FILES,
     "Ctrl+2": Action.SESSION_RADIO,
+    "Ctrl+3": Action.SESSION_PODCASTS,
     "Escape": Action.SHOW_LIST,
     "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
@@ -528,6 +531,7 @@ def describe() -> list[tuple[str, str]]:
     labels = {
         Action.SESSION_FILES: "Pliki lokalne",
         Action.SESSION_RADIO: "Radio internetowe",
+        Action.SESSION_PODCASTS: "Podcasty i YouTube",
         Action.ACTIVATE: "Otworz folder albo odtworz",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.SHOW_PLAYER: "Widok odtwarzacza",

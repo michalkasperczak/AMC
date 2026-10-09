@@ -117,6 +117,13 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         # Wstrzymanie jest na poziomie okna, wiec radio tez je ma.
         supports_player_exit_pause=True,
     ),
+    SessionId.PODCASTS: SessionCapabilities(
+        # Odcinki korzystaja z tego samego wyjscia plikowego, ale port nie
+        # przelacza jeszcze osobnych nadpisan przetwarzania przy kazdym starcie.
+        supports_audio_processing=False,
+        supports_playback_rate=False,
+        supports_player_exit_pause=True,
+    ),
 }
 
 
@@ -290,6 +297,7 @@ def resolve_pause_on_player_exit(
 SESSION_DISPLAY_NAMES: dict[SessionId, str] = {
     SessionId.FILES: "Pliki lokalne",
     SessionId.RADIO: "Radio",
+    SessionId.PODCASTS: "Podcasty i YouTube",
 }
 
 
