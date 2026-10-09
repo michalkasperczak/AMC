@@ -141,6 +141,28 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public PodcastFavoriteToggleResult ToggleFavorites(
+        IReadOnlyCollection<string> subscriptionIds,
+        IReadOnlyCollection<string> episodeIds)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesna zmiana ulubionych z dwóch wersji mogłaby utracić dane.");
+        try
+        {
+            return _store.ToggleFavorites(subscriptionIds, episodeIds);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or KeyNotFoundException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] zmiana ulubionych podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds)
     {

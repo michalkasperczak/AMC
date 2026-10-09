@@ -182,6 +182,22 @@ def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() 
         client.close()
 
 
+def test_podcast_favorite_uses_one_narrow_operation_and_separates_item_kinds() -> None:
+    client = make_client()
+    try:
+        result = client.toggle_podcast_favorites(
+            ["podcast-1", "podcast-1", "podcast-2"],
+            ["episode-1", "episode-1"],
+        )
+        assert result["op"] == "podcast.toggleFavorite"
+        assert result["args"] == {
+            "subscriptionIds": ["podcast-1", "podcast-2"],
+            "episodeIds": ["episode-1"],
+        }
+    finally:
+        client.close()
+
+
 def test_podcast_save_as_uses_separate_info_and_copy_operations() -> None:
     client = make_client()
     try:

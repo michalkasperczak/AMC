@@ -481,6 +481,21 @@ class LiteHostClient:
             timeout=20.0,
         )
 
+    def toggle_podcast_favorites(
+        self,
+        subscription_ids: list[str],
+        episode_ids: list[str],
+    ) -> Any:
+        """Set the whole selection to favorite, or clear it when all are set."""
+        return self.call(
+            "podcast.toggleFavorite",
+            {
+                "subscriptionIds": list(dict.fromkeys(subscription_ids)),
+                "episodeIds": list(dict.fromkeys(episode_ids)),
+            },
+            timeout=30.0,
+        )
+
     def edit_radio_station(self, station_id: str, name: str, url: str) -> Any:
         return self.call(
             "radio.editStation",

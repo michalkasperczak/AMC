@@ -2059,6 +2059,7 @@ class LiteFrame(wx.Frame):
         self._podcast_checkpoint_active = False
         self._podcast_refresh_pending = False
         self._podcast_download_pending = False
+        self._podcast_favorite_pending = False
         self._podcast_add_pending = False
         self._podcast_opml_pending = False
         self._last_podcast_progress_error: str | None = None
@@ -3489,6 +3490,8 @@ class LiteFrame(wx.Frame):
             self._show_podcast_description()
         elif action is Action.GO_TO_RELATED_PODCAST:
             self._go_to_related_podcast()
+        elif action is Action.TOGGLE_PODCAST_FAVORITE:
+            self._toggle_podcast_favorite()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -5011,6 +5014,88 @@ class LiteFrame(wx.Frame):
             )
 
         self.runner.submit("podcast-go-to-related", work, done, failed)
+
+    def _toggle_podcast_favorite(self) -> None:
+        """Ctrl+Shift+U: jeden wspólny stan dla całego zaznaczenia."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Ulubione podcasty są dostępne w sesji Podcasty i YouTube"
+            )
+            return
+        if getattr(self, "_podcast_favorite_pending", False):
+            self.announcer.say("Zmiana stanu ulubionych już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zmienić ulubionych")
+            return
+
+        rows: list[Row] = []
+        seen: set[tuple[str, str]] = set()
+        for row in self._selected_action_rows():
+            if row.kind not in ("podcast", "episode") or not row.item_id:
+                continue
+            key = (row.kind, row.item_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(row)
+        if not rows:
+            self.announcer.say("Zaznacz podcast albo odcinek")
+            return
+
+        subscription_ids = [row.item_id for row in rows if row.kind == "podcast"]
+        episode_ids = [row.item_id for row in rows if row.kind == "episode"]
+        preferred_id = rows[0].item_id
+        self._podcast_favorite_pending = True
+
+        def work() -> dict:
+            result = client.toggle_podcast_favorites(
+                subscription_ids,
+                episode_ids,
+            )
+            return result if isinstance(result, dict) else {}
+
+        def done(payload: dict) -> None:
+            self._podcast_favorite_pending = False
+            favorite = bool(payload.get("favorite"))
+            label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+            message = (
+                f"Dodano do ulubionych: {label}"
+                if favorite
+                else f"Usunięto z ulubionych: {label}"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+
+            if self.navigator.active is not SessionId.PODCASTS:
+                self.announcer.say(message)
+                return
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            if state.view is not View.LIST:
+                self.announcer.say(message)
+                return
+            if state.library_view is LibraryView.PODCAST_LIBRARY:
+                self._open_podcast_library(
+                    preferred_id=preferred_id,
+                    completion_message=message,
+                )
+                return
+            if not self._reload_podcast_list_after_download(preferred_id, message):
+                self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_favorite_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się zmienić stanu ulubionych"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-favorite", work, done, failed)
 
     def _reload_podcast_list_after_download(
         self, preferred_id: str, completion_message: str

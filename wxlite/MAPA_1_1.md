@@ -318,6 +318,11 @@ własnej normalizacji diakrytyków.
   pełny opis podcastu lub odcinka, a dopiero pod nim właściwości. Polecenie
   „Przejdź do podcastu tego odcinka” otwiera źródło nadrzędne i zachowuje
   fokus na tym odcinku; podcast usunięty z Biblioteki nie jest udawany.
+  `Ctrl+Shift+U` zmienia stan Ulubionych podcastów i odcinków przez tego samego
+  pojedynczego pisarza C#. Dla wielokrotnego zaznaczenia zachowuje regułę
+  głównego AMC: jeżeli wszystkie elementy są ulubione, usuwa stan wszystkim;
+  w przeciwnym razie ustawia go wszystkim. W mowie pozostaje nazwa jednego
+  elementu albo sama liczba elementów, nigdy identyfikator bazy.
   `Ctrl+O` w tej sesji importuje wybrane RSS z OPML (Spacja przełącza,
   `Ctrl+A` zaznacza wszystkie), a menu Pliki eksportuje zapisane podcasty RSS
   do OPML. To samo menu eksportuje kanały jako zgodny z Google Takeout CSV,

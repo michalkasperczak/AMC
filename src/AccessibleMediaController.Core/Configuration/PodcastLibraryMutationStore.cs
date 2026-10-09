@@ -23,6 +23,11 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
 
     public int GetInboxCount() => _database.GetInboxCount();
 
+    public PodcastFavoriteToggleResult ToggleFavorites(
+        IReadOnlyCollection<string> subscriptionIds,
+        IReadOnlyCollection<string> episodeIds) =>
+        _database.ToggleFavorites(subscriptionIds, episodeIds);
+
     public IReadOnlyList<PodcastDownloadTarget> GetDownloadTargets(
         IReadOnlyCollection<string> episodeIds) =>
         _database.GetDownloadTargets(episodeIds);
@@ -93,6 +98,11 @@ public sealed record PodcastDownloadPathResult(
     string EpisodeId,
     string DownloadPath,
     bool Changed);
+
+public sealed record PodcastFavoriteToggleResult(
+    bool Favorite,
+    int RequestedCount,
+    int ChangedCount);
 
 public sealed record PodcastSourceAddResult(
     string SubscriptionId,

@@ -419,6 +419,125 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public PodcastFavoriteToggleResult ToggleFavorites(
+        IReadOnlyCollection<string> subscriptionIds,
+        IReadOnlyCollection<string> episodeIds)
+    {
+        ArgumentNullException.ThrowIfNull(subscriptionIds);
+        ArgumentNullException.ThrowIfNull(episodeIds);
+        var requestedSubscriptions = subscriptionIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var requestedEpisodes = episodeIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (requestedSubscriptions.Length + requestedEpisodes.Length == 0)
+            throw new ArgumentException("Nie wybrano podcastu ani odcinka.");
+
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var transaction = connection.BeginTransaction();
+            var subscriptions = new List<PodcastSubscriptionSettings>();
+            foreach (var id in requestedSubscriptions)
+            {
+                using var read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE id = $id AND is_in_library = 1;";
+                read.Parameters.AddWithValue("$id", id);
+                var payload = read.ExecuteScalar() as string;
+                var item = string.IsNullOrWhiteSpace(payload)
+                    ? null
+                    : JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
+                        payload,
+                        PayloadJsonOptions);
+                if (item is null)
+                    throw new KeyNotFoundException(
+                        "Niektórych wybranych podcastów nie ma już w Bibliotece.");
+                subscriptions.Add(item);
+            }
+
+            var episodes = new List<PodcastEpisodeSettings>();
+            foreach (var id in requestedEpisodes)
+            {
+                using var read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+                read.Parameters.AddWithValue("$id", id);
+                var payload = read.ExecuteScalar() as string;
+                var item = string.IsNullOrWhiteSpace(payload)
+                    ? null
+                    : JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                        payload,
+                        PayloadJsonOptions);
+                if (item is null)
+                    throw new KeyNotFoundException(
+                        "Niektórych wybranych odcinków nie ma już w Bibliotece.");
+                episodes.Add(item);
+            }
+
+            var favorite = !subscriptions.All(item => item.IsFavorite)
+                || !episodes.All(item => item.IsFavorite);
+            var changed = 0;
+            foreach (var item in subscriptions)
+            {
+                if (item.IsFavorite == favorite) continue;
+                item.IsFavorite = favorite;
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    UPDATE podcast_subscriptions
+                    SET content_hash = $hash, payload_json = $payload
+                    WHERE id = $id;
+                    """,
+                    ("$hash", Fingerprint(item)),
+                    ("$payload", JsonSerializer.Serialize(item, PayloadJsonOptions)),
+                    ("$id", item.Id));
+                changed++;
+            }
+            foreach (var item in episodes)
+            {
+                if (item.IsFavorite == favorite) continue;
+                item.IsFavorite = favorite;
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    UPDATE podcast_episodes
+                    SET is_favorite = $favorite,
+                        content_hash = $hash,
+                        payload_json = $payload
+                    WHERE id = $id;
+                    """,
+                    ("$favorite", favorite),
+                    ("$hash", Fingerprint(item)),
+                    ("$payload", JsonSerializer.Serialize(item, PayloadJsonOptions)),
+                    ("$id", item.Id));
+                changed++;
+            }
+            if (changed > 0)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO metadata(key, value) VALUES('last_saved_utc', $value)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+                    """,
+                    ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+            }
+            transaction.Commit();
+            return new PodcastFavoriteToggleResult(
+                favorite,
+                subscriptions.Count + episodes.Count,
+                changed);
+        }
+    }
+
     public IReadOnlyList<PodcastOpmlEntry> GetOpmlEntries()
     {
         lock (_gate)

@@ -51,6 +51,29 @@ internal static class PodcastProgressStoreTests
                 Assert.True(!completed.IsNew && completed.IsStarted && completed.IsPlayed,
                     "naturalny koniec oznacza odcinek jako odtworzony");
 
+                var madeFavorite = store.ToggleFavorites(["sub-1"], ["ep-1"]);
+                Assert.True(madeFavorite.Favorite && madeFavorite.RequestedCount == 2
+                    && madeFavorite.ChangedCount == 2,
+                    "pierwsze polecenie ustawia caly mieszany wybor jako ulubiony");
+                Assert.True(ReadSubscription(database, "sub-1").IsFavorite
+                    && ReadEpisode(database).IsFavorite
+                    && ReadEpisodeFavoriteColumn(database, "ep-1"),
+                    "stan ulubionego jest spojny w payloadzie i kolumnie odcinka");
+
+                var clearedEpisode = store.ToggleFavorites([], ["ep-1"]);
+                Assert.True(!clearedEpisode.Favorite && clearedEpisode.ChangedCount == 1,
+                    "wybor zlozony z samych ulubionych jest czyszczony");
+                var normalizedMixed = store.ToggleFavorites(["sub-1"], ["ep-1"]);
+                Assert.True(normalizedMixed.Favorite && normalizedMixed.ChangedCount == 1,
+                    "mieszany stan zaznaczenia ustawia wszystkie elementy jako ulubione");
+                var clearedAll = store.ToggleFavorites(["sub-1"], ["ep-1"]);
+                Assert.True(!clearedAll.Favorite && clearedAll.ChangedCount == 2,
+                    "ponowienie na calym ulubionym zaznaczeniu usuwa stan wszystkim");
+                Assert.True(!ReadSubscription(database, "sub-1").IsFavorite
+                    && !ReadEpisode(database).IsFavorite
+                    && !ReadEpisodeFavoriteColumn(database, "ep-1"),
+                    "czyszczenie pozostawia oba reprezentowane stany spojne");
+
                 var targets = store.GetRefreshTargets(null);
                 Assert.True(targets.Count == 1 && targets[0].SubscriptionId == "sub-1",
                     "odswiezenie calej biblioteki wybiera tylko zapisane zrodla");
@@ -257,6 +280,16 @@ internal static class PodcastProgressStoreTests
         command.Parameters.AddWithValue("$id", subscriptionId);
         return JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
             Convert.ToString(command.ExecuteScalar())!)!;
+    }
+
+    private static bool ReadEpisodeFavoriteColumn(string path, string episodeId)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT is_favorite FROM podcast_episodes WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", episodeId);
+        return Convert.ToInt32(command.ExecuteScalar()) != 0;
     }
 
     private static void CreateDatabase(string path)

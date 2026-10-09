@@ -212,6 +212,7 @@ class Action(Enum):
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     SHOW_PODCAST_DESCRIPTION = "podcasts.description"
     GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
+    TOGGLE_PODCAST_FAVORITE = "podcasts.favorite.toggle"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -559,6 +560,9 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
     # z listy, jak i z odtwarzacza. Sam opis pozostaje zwykłym tekstem tylko
     # do odczytu; skrót nie otwiera strony internetowej.
     "Alt+D": Action.SHOW_PODCAST_DESCRIPTION,
+    # Pelny AMC zmienia wspolnie cale zaznaczenie: gdy wszystkie elementy sa
+    # ulubione, usuwa stan; w przeciwnym razie dodaje go wszystkim.
+    "Ctrl+Shift+U": Action.TOGGLE_PODCAST_FAVORITE,
 }
 
 
@@ -649,6 +653,9 @@ def describe() -> list[tuple[str, str]]:
         Action.SAVE_PODCAST_EPISODE_AS: "Zapisz jeden odcinek podcastu jako plik",
         Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
         Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",
+        Action.TOGGLE_PODCAST_FAVORITE: (
+            "Dodaj zaznaczone podcasty lub odcinki do ulubionych albo je usuń"
+        ),
         # Skok procentowy. Dziesiec wierszy, bo oryginal ma dziesiec komend i
         # uzytkownik szuka w pomocy konkretnej cyfry, nie opisu rodziny.
         Action.SEEK_PERCENT_0: "Skok na poczatek utworu (0%)",

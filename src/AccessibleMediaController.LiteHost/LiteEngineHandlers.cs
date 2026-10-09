@@ -262,6 +262,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 PodcastOpmlExport(request.Args),
             [LitePodcastOpmlCoordinator.ExportYouTubeOperation] = (request, _) =>
                 PodcastYouTubeExport(request.Args),
+            ["podcast.toggleFavorite"] = (request, _) =>
+                TogglePodcastFavorites(request.Args),
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
@@ -326,6 +328,24 @@ internal sealed class LiteEngineHandlers : IDisposable
             LiteArgs.RequireText(args, "subscriptionId"),
             LiteArgs.RequireText(args, "title"));
 
+    private object TogglePodcastFavorites(JsonElement args)
+    {
+        var subscriptions = ReadOptionalIds(args, "subscriptionIds");
+        var episodes = ReadOptionalIds(args, "episodeIds");
+        if (subscriptions.Length + episodes.Length == 0)
+            throw new LiteRequestException("Wybierz podcast albo odcinek.");
+        var store = _podcastProgressStore
+            ?? throw new LiteRequestException(
+                "Host nie dostał bazy Podcastów i YouTube. Zmiana ulubionych jest niedostępna.");
+        var result = store.ToggleFavorites(subscriptions, episodes);
+        return new
+        {
+            favorite = result.Favorite,
+            requested = result.RequestedCount,
+            changed = result.ChangedCount
+        };
+    }
+
     private object EditRadioStation(JsonElement args)
     {
         var stationId = LiteArgs.RequireText(args, "stationId");
@@ -385,6 +405,22 @@ internal sealed class LiteEngineHandlers : IDisposable
             .ToArray();
         if (result.Length == 0) throw new LiteRequestException("Brak listy elementów.");
         return result;
+    }
+
+    private static string[] ReadOptionalIds(JsonElement args, string propertyName)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty(propertyName, out var values))
+            return [];
+        if (values.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException($"Argument \"{propertyName}\" nie jest listą.");
+        return values.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()?.Trim() ?? string.Empty)
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Take(1_000)
+            .ToArray();
     }
 
     private object RemoveAudioClip(JsonElement args, LiteEventSink events)
