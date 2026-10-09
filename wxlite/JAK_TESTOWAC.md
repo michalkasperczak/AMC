@@ -361,9 +361,10 @@ python3 mk_receipt.py <kwit> <speech.txt> receipt.json
 - **W menu wx `End` nie skacze na koniec.** Nawiguj strzałkami w dół; `End`
   zostawia kursor na pierwszej pozycji i cicho zmierzysz nie tę pozycję, co
   chciałeś.
-- **Wyłącznik pozycji mierz w OBIE strony.** Włączenie mówi krótko; wyłączenie
-  przy dodatku starszym niż 0.4 musi powiedzieć, że licznik zostanie. Brak tego
-  zdania to usterka, nawet gdy `radio_announce_position` zapisało się poprawnie.
+- **Listy mierzymy bez nakładek.** Biblioteka, Radio, Podcasty, harmonogramy i
+  presety mają korzystać z natywnych obiektów wx/Windows. Nie wolno dołączać
+  `wx.Accessible`, znacznika HWND ani `chooseNVDAObjectOverlayClasses` do
+  zmiany nazw wierszy lub informacji o ich pozycji.
 - **Nie licz pierwszego snapshotu.** Pierwsze ujęcie pada przed załadowaniem
   wierszy; jego `model_count=0` opisuje sondę, nie profil. Bierz maksimum z
   przebiegu.

@@ -48,7 +48,6 @@ class FakePlainList:
         #: ``FakeState`` i wtedy ``_view_context`` zwraca prawdziwa tozsamosc.
         self.state = None
         self.updating = False
-        self._was_empty: bool | None = None
         #: Filtr listy. Pusty = atrapa zachowuje sie tak jak PRZED dodaniem
         #: filtrowania, wiec wszystkie dotychczasowe pomiary mechanizmu list
         #: mierza dokladnie to samo co wczesniej.
@@ -132,12 +131,9 @@ def make_ctrl(model: ListModel, selected: int = -1, focused: int | None = None):
     # innego kontraktu niz dziala w aplikacji.
     ctrl._shown = []
     ctrl.updating = False
-    # Przejscie "lista stala sie pusta" liczy ``sync_rows``; produkcja startuje
-    # z ``None`` ("jeszcze nie synchronizowano").
-    ctrl._was_empty = None
     for name in ("sync_rows", "sync_cursor", "_apply_ops", "fill_initial",
-                 "_announce_empty_list", "_plan_usuwa_fokus_i_wstawia",
-                 "_wymienia_caly_widok", "_view_context"):
+                 "_plan_usuwa_fokus_i_wstawia", "_wymienia_caly_widok",
+                 "_view_context"):
         setattr(ctrl, name, getattr(MediaListCtrl, name).__get__(ctrl, FakePlainList))
     # ``_cursor_target``/``_move_cursor`` tez z produkcji -- inaczej testowalibysmy
     # wlasna atrape kursora.

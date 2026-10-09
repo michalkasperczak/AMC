@@ -46,15 +46,6 @@ class Options:
     inter_track_silence_ms: int = 0
     tempo_algorithm: int = 1
     last_folder: str | None = None
-    #: Czy lista stacji ma czytac POZYCJE wiersza ("3 z 37").
-    #:
-    #: Domysl ``False`` jest uzgodniony: na liscie radia liczy sie nazwa
-    #: stacji, a licznik powtarzany przy kazdej strzalce wydluza odczyt.
-    #: Wykonawca ukrywania jest nakladka NVDA (``radio_position``), bo licznik
-    #: pochodzi z NATYWNEGO ``positionInfo`` czytnika, nie z naszych
-    #: komunikatow. Ustawienie jest PRYWATNE dla portu wx -- pelne AMC nie
-    #: dostaje tu zadnego nowego wariantu.
-    radio_announce_position: bool = False
     #: Czy wyjscie z odtwarzacza (Escape, F6) ma wstrzymac odtwarzanie.
     #:
     #: Ustawienie OGOLNE, dziedziczone przez sesje bez wlasnego wyboru -- port
@@ -90,13 +81,8 @@ class Options:
             self.inter_track_silence_ms = 0
         if type(self.tempo_algorithm) is not int or self.tempo_algorithm not in (0, 1, 2):
             self.tempo_algorithm = 1
-        # STRICT ``is not bool``, nie ``bool(...)``: napis "tak" albo "false" z
-        # recznie poprawionego pliku jest prawdziwy po rzutowaniu i wlaczylby
-        # licznik po cichu. Obca wartosc wraca do uzgodnionego domyslu.
-        if type(self.radio_announce_position) is not bool:
-            self.radio_announce_position = False
-        # Ten sam STRICT powod co wyzej: napis z recznie poprawionego pliku nie
-        # moze po cichu zmienic tego, czy Escape zatrzymuje odtwarzanie.
+        # STRICT ``is not bool``, nie ``bool(...)``: napis z recznie
+        # poprawionego pliku nie moze po cichu zmienic zachowania Escape.
         if type(self.pause_on_player_exit) is not bool:
             self.pause_on_player_exit = True
         if type(self.follow_playback_on_player_exit) is not bool:

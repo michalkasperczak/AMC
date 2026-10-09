@@ -126,7 +126,6 @@ from .radio_recording import (
     recording_history_rows,
     station_activity_rows,
 )
-from . import radio_position
 from .state_store import LiteState, Station, StationList, StateStore
 
 APP_NAME = "AMC-wx-Lite"
@@ -565,13 +564,6 @@ class NativeStatusBar:
         return self._text
 
 
-#: Stale MSAA (winuser.h). Uzywamy ich do JEDNEGO zdarzenia: zejscia listy do
-#: zera wierszy. Nazwy wlasne, zeby nie wiazac sie z wersja ``comtypes``.
-EVENT_OBJECT_FOCUS = 0x8005
-OBJID_CLIENT = -4
-CHILDID_SELF = 0
-
-
 #: Sentinel "kontekst jeszcze nieznany". ``None`` nie nadaje sie na te role:
 #: widok Folderow ma ``library_view=None`` i to POPRAWNY kontrakt, wiec
 #: ``None`` jest zwyklym, legalnym kontekstem widoku.
@@ -640,10 +632,6 @@ class MediaListCtrl(wx.ListCtrl):
         #: wstawieniu pierwszego wiersza) wszedlby do modelu JAKO NOWY WYBOR i
         #: skasowal wybor uzytkownika. Czytane przez ``MediaListFrame``.
         self.updating = False
-        #: Czy OSTATNI przebieg skonczyl sie pusta lista. ``None`` = jeszcze nie
-        #: synchronizowano. Zapowiedz pustki nalezy do PRZEJSCIA do zera
-        #: wierszy; bez tego tick statusu powtarzalby ja przy kazdym przebiegu.
-        self._was_empty: bool | None = None
         #: TEKST FILTRA obowiazujacy dla tej listy. Ustawia go okno przed
         #: ``sync_rows`` (jedno pole dla wszystkich list, jak ``FilterBox``).
         #: Pusty = zachowanie dokladnie takie jak przed dodaniem filtra.
@@ -678,10 +666,6 @@ class MediaListCtrl(wx.ListCtrl):
         # TOZSAMOSC WIDOKU, ktory wlasnie mamy pokazac. Potrzebna, bo pelna
         # podmiana listy nalezy do ZMIANY WIDOKU, a nie do zmiany danych w nim.
         context = self._view_context()
-        # Przejscie do pustki liczymy PRZED zmiana stanu, zeby zapowiedz dotyczyla
-        # PRZEJSCIA (pusto->pusto na ticku statusu to ZERO zdarzen).
-        became_empty = not desired and self._was_empty is not True
-        self._was_empty = not desired
         cursor = self._cursor_target()
         if not ops:
             # Nowa lista oznacza zakonczone zastosowanie danych przez model.
@@ -693,10 +677,6 @@ class MediaListCtrl(wx.ListCtrl):
                 # Nic sie nie zmienilo i kursor jest na miejscu: ZERO operacji.
                 # To jest cel calej zmiany -- sam komunikat, Ctrl+C czy tick
                 # statusu nie dotykaja listy.
-                if became_empty:
-                    # Wyjatek: pierwsze wejscie od razu w pusty widok. Planu nie
-                    # ma (nie bylo czego usuwac), ale obiekt dostepny sie zmienil.
-                    self._announce_empty_list()
                 # Brak operacji kontrolki nie wyklucza nowego, identycznego
                 # wyniku loadera. Kontekst takiego wyniku zapisano wyzej.
                 return
@@ -731,55 +711,6 @@ class MediaListCtrl(wx.ListCtrl):
         finally:
             self.Thaw()
             self.updating = False
-        # Dopiero po odmrozeniu: zdarzenie ma opisywac stan KONCOWY.
-        if became_empty:
-            self._announce_empty_list()
-
-    def _announce_empty_list(self) -> None:
-        """Po zejsciu do ZERA wierszy oglos SAMA LISTE jako dostepny obiekt.
-
-        PO CO TO JEST (zmierzone, nie wywnioskowane). Na zywym NVDA wejscie w
-        widok bez wierszy dawalo ``name=''`` i ``role=0``, choc sama kontrolka
-        oddaje ``accName`` i ``accRole=33``. A/B z kontrolka standardowa na tej
-        samej ``MediaListCtrl`` pokazalo roznice: nasza droga do zera to petla
-        ``DeleteItem``, a SysListView32 przy kazdym usunieciu wiersza PRZED
-        kursorem przesuwa fokus na nizszy indeks -- wiec na liscie konczacej z
-        zerem wierszy poszly ``EVENT_OBJECT_FOCUS`` z ``idChild=2``, potem
-        ``idChild=1``, czyli na dzieci, ktorych po oproznieniu NIE MA
-        (``get_accChild(1)`` -> ``0x80070057``). ``DeleteAllItems`` nie wysyla
-        wtedy nic i ostatnim zdarzeniem zostaje fokus z czasow niepustej listy.
-        W obu drogach czytnik trzyma USUNIETE dziecko: lista ma fokus
-        klawiatury, a ``accFocus`` jest VT_EMPTY, bo dziecka z fokusem nie ma.
-
-        CO TU ROBIMY: wysylamy JEDNO zdarzenie na ``CHILDID_SELF`` -- zgloszenie
-        realnej zmiany dostepnego obiektu, ktorym jest teraz sama lista. Fokus
-        klawiatury JUZ na niej jest (``HasFocus``), wiec nie przestawiamy
-        niczego i nie udajemy danych. Czego tu nie ma: sztucznych wierszy,
-        uciszania czytnika, globalnych hookow i odtwarzania HWND.
-
-        Zdarzenie leci TYLKO gdy lista ma fokus klawiatury -- zapowiedz dotyczy
-        tego, co uzytkownik ma pod reka; lista w ukrytym panelu tez przechodzi
-        przez ``sync_rows``.
-        """
-        if not self.HasFocus():
-            return
-        try:
-            self._notify(EVENT_OBJECT_FOCUS, int(self.GetHandle()),
-                         OBJID_CLIENT, CHILDID_SELF)
-        except Exception:
-            # Zapowiedz jest DODATKIEM. Lista musi sie opruznic nawet gdy MSAA
-            # odmowi -- blad powiadomienia nie moze wywrocic aktualizacji GUI.
-            pass
-
-    @staticmethod
-    def _notify(event: int, hwnd: int, obj_id: int, child_id: int) -> None:
-        """Cienka osloda na ``NotifyWinEvent``. Osobno, zeby test ja podmienil."""
-        import ctypes
-
-        ctypes.windll.user32.NotifyWinEvent(  # type: ignore[attr-defined]
-            ctypes.c_uint(event), ctypes.c_void_p(hwnd),
-            ctypes.c_long(obj_id), ctypes.c_long(child_id))
-
     def _view_context(self) -> tuple | None:
         """Tozsamosc widoku z sesji, albo ``None`` gdy sesji nie znamy.
 
@@ -1737,9 +1668,6 @@ class LiteFrame(wx.Frame):
         self.store = store
         self.state = state
         self.options = state.options
-        #: Znaczniki HWND dla nakladki NVDA. Pamietaja, co juz stoi, wiec
-        #: wolanie ich ze wspolnego ``_sync_views`` nie meczy ``user32``.
-        self._radio_markers = radio_position.WindowMarkers()
         # Stacje: w trybie wspolnego profilu zrodlem jest state.json AMC
         # (radio.stations), a nie prywatna kopia -- inaczej Radio bylo puste.
         # Uklad rozstrzygamy RAZ: ten sam obiekt decyduje tez o tym, czy host
@@ -2060,14 +1988,6 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
-            # Stan zaznaczenia przy TEJ SAMEJ drodze co wlaczanie pozycji, zeby
-            # ptaszek nigdy nie rozjechal sie z ustawieniem (takze po starcie i
-            # po nieudanym zapisie, ktory wycofal wartosc).
-            if entry.action is Action.TOGGLE_RADIO_POSITION:
-                wanted = self.options.radio_announce_position
-                if item.IsChecked() != wanted:
-                    item.Check(wanted)
-
     def _bind_list(self, control: MediaListCtrl) -> None:
         """Wspolne powiazania klawiatury i wyboru dla list plikow i radia."""
         control.Bind(wx.EVT_KEY_DOWN, self._on_key)
@@ -3020,8 +2940,6 @@ class LiteFrame(wx.Frame):
             self._seek_to_track_edge(action is Action.TRACK_END)
         elif action is Action.TOGGLE_SEEK_MESSAGES:
             self._toggle_seek_messages()
-        elif action is Action.TOGGLE_RADIO_POSITION:
-            self._toggle_radio_position()
         elif action is Action.OPEN_FOLDER_DIALOG:
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
@@ -3164,19 +3082,6 @@ class LiteFrame(wx.Frame):
         active_list.sync_rows()
 
         want_player = session.view is View.PLAYER
-        # ZNACZNIK POZYCJI. Stoi w tej jednej, wspolnej drodze odswiezania,
-        # bo tylko tutaj wiemy, ktora lista jest aktywna. Trzy rzeczy naraz:
-        #  * znakujemy WYLACZNIE liste radia -- lista plikow i kazde inne okno
-        #    maja licznik nietkniety,
-        #  * znacznik ustawiamy przy KAZDYM przejsciu, nie raz przy tworzeniu
-        #    okna, bo opcja zmienia sie bez ponownego fokusu i nakladka musi
-        #    widziec AKTUALNY tryb,
-        #  * z listy plikow i z odtwarzacza znacznik ZDEJMUJEMY, zeby zostawic
-        #    po sobie czysty HWND.
-        self._apply_radio_position_marker(radio_list_shown=(
-            active_list is self.radio_list and not want_player
-        ))
-
         changed = self.player_panel.IsShown() != want_player or any(
             control.IsShown() for control in other_lists
         )
@@ -5424,82 +5329,6 @@ class LiteFrame(wx.Frame):
         result = self.messages.toggle_seek_messages()
         self.announcer.say(result.message)
 
-    def _toggle_radio_position(self) -> None:
-        """Opcja menu Radio: odczyt pozycji stacji.
-
-        To ustawienie jest NASZE: port wx trzyma je w swoim ``state.json``,
-        wiec tutaj zapisujemy naprawde (inaczej niz przy komunikatach
-        przewijania, gdzie wlascicielem pliku jest host C#).
-
-        Kolejnosc ma znaczenie i jest celowa:
-
-        1. ZAPIS. Gdy zapis padnie, zostaje POPRZEDNI stan -- nie przestawiamy
-           ani pola w pamieci, ani znacznika, i mowimy o bledzie. Opcja, ktora
-           "dziala do restartu", byla by gorsza od jawnej odmowy.
-        2. ZNACZNIK. Dopiero po udanym zapisie oznaczamy HWND listy, zeby
-           nakladka w dodatku zobaczyla nowy tryb BEZ ponownego wejscia w
-           liste.
-        3. KOMUNIKAT. Mowi stan opcji, a przy braku dzialajacej nakladki mowi
-           TAKZE, ze sam licznik na razie zostanie. Nie udajemy skutku,
-           ktorego nie ma.
-        """
-        previous = self.options.radio_announce_position
-        new_value = not previous
-        # Zapis przez te sama droge, ktorej uzywa zamykanie okna: stan w
-        # ``self.state.options`` jest zrodlem dla ``store.save``.
-        self.options.radio_announce_position = new_value
-        self.state.options = self.options
-        try:
-            self.store.save(self.state)
-        except Exception:
-            # WYCOFANIE do poprzedniej wartosci: znacznika nie ruszalismy, wiec
-            # po tym wierszu i pamiec, i HWND opisuja ten sam, stary stan.
-            self.options.radio_announce_position = previous
-            self.state.options = self.options
-            self._refresh_menu_state()
-            self.announcer.say(
-                "Nie udało się zapisać ustawienia. Odczyt pozycji stacji "
-                "zostaje bez zmian."
-            )
-            return
-
-        marked = self._apply_radio_position_marker(
-            radio_list_shown=self._radio_list_is_shown()
-        )
-        # Ptaszek w menu przez te sama droge co reszta stanu menu.
-        self._refresh_menu_state()
-        # Ostrzegamy TYLKO wtedy, gdy ukrywanie jest zadane, a nie widzimy
-        # wykonawcy. ``marked`` to nasza strona (znacznik stoi),
-        # ``overlay_addon_installed`` to strona dodatku.
-        self.announcer.say(radio_position.announcement(
-            hide_position=not new_value,
-            overlay_available=radio_position.overlay_addon_installed(),
-            marker_applied=marked,
-        ))
-
-    def _radio_list_is_shown(self) -> bool:
-        return (
-            self.navigator.view is not View.PLAYER
-            and self._active_list() is self.radio_list
-        )
-
-    def _apply_radio_position_marker(self, radio_list_shown: bool) -> bool:
-        """Oznacz albo odznacz HWND listy radia. Zwraca: czy znacznik stoi.
-
-        Zwrocone ``False`` znaczy "ukrywanie NIE jest w tej chwili czynne" --
-        albo lista nie jest pokazana, albo oznaczenie sie nie udalo. Dzwoniacy
-        uzywa tego do komunikatu, zeby nie obiecywac ciszy, ktorej nie bedzie.
-        """
-        try:
-            handle = int(self.radio_list.GetHandle())
-        except Exception:
-            return False
-        return self._radio_markers.apply(
-            handle,
-            is_radio_list=radio_list_shown,
-            hide_position=not self.options.radio_announce_position,
-        )
-
     # ------------------------------------------------------------- status
 
     def _on_timer(self, _event: wx.TimerEvent) -> None:
@@ -6186,14 +6015,6 @@ class LiteFrame(wx.Frame):
                     pass
         self.gate.cancel_all()
         self._save_state()
-        # Znaczniki zdejmujemy PRZED zniszczeniem okna: dokumentacja
-        # ``SetPropW`` zada usuniecia wlasnych wpisow najpozniej w obsludze
-        # ``WM_NCDESTROY``. Idzie przed ``client.close()``, zeby nie zalezalo
-        # od powodzenia rozlaczenia z hostem.
-        try:
-            self._radio_markers.forget(int(self.radio_list.GetHandle()))
-        except Exception:
-            pass
         if self.client is not None:
             self.client.close()
         event.Skip()

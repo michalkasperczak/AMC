@@ -212,19 +212,6 @@ def build_menus() -> tuple[Menu, ...]:
                      shortcut="Alt+Shift+R"),
             MenuItem("Harmonogra&m nagrywania", Action.MANAGE_RADIO_SCHEDULES,
                      shortcut="Ctrl+Shift+H"),
-            SEPARATOR,
-            # Przelacznik licznika "3 z 37" na liscie stacji. Ustawienie
-            # PRYWATNE portu wx (``state.radio_announce_position``) -- pelne
-            # AMC nie dostaje tu nowego wariantu.
-            #
-            # Samo odznaczenie tej pozycji NIE uciszy licznika: mowi go NVDA z
-            # natywnego ``positionInfo``, wiec ukrycie wykonuje nakladka w
-            # dodatku AMC (wersja 0.4.0+). Przy starszym albo braku dodatku
-            # ustawienie zapisze sie, a licznik zostanie -- i tak to wtedy
-            # nazywamy w komunikacie, zamiast obiecywac skutek.
-            MenuItem("Odczyt &pozycji stacji na liście",
-                     Action.TOGGLE_RADIO_POSITION,
-                     checkable=True, needs_radio_session=True),
         ),
     )
 
