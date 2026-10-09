@@ -56,11 +56,16 @@ def _database(base: Path) -> Path:
     return path
 
 
-def _episode_payload(url: str, *, feed_ordinal: int | None = None) -> str:
+def _episode_payload(
+    url: str,
+    *,
+    feed_ordinal: int | None = None,
+    resume_seconds: int = 90,
+) -> str:
     payload = {
         "MediaUrl": url,
         "DurationTicks": 3_900 * 10_000_000,
-        "ResumePositionTicks": 90 * 10_000_000,
+        "ResumePositionTicks": resume_seconds * 10_000_000,
     }
     if feed_ordinal is not None:
         payload["FeedOrdinal"] = feed_ordinal
@@ -79,6 +84,7 @@ def _insert_episode(
     is_new: int = 1,
     is_started: int = 0,
     is_played: int = 0,
+    resume_seconds: int = 90,
 ) -> None:
     connection = sqlite3.connect(path)
     connection.execute(
@@ -90,7 +96,11 @@ def _insert_episode(
         (
             item_id, ordinal, subscription_id, title, published,
             is_new, is_started, is_played,
-            _episode_payload(f"https://example.invalid/{item_id}", feed_ordinal=feed_ordinal),
+            _episode_payload(
+                f"https://example.invalid/{item_id}",
+                feed_ordinal=feed_ordinal,
+                resume_seconds=resume_seconds,
+            ),
         ),
     )
     connection.commit()
@@ -174,3 +184,108 @@ def test_connection_is_query_only() -> None:
                 raise AssertionError("Biblioteka podcastów została otwarta do zapisu")
         finally:
             connection.close()
+
+
+class _ExactCasefoldCollation:
+    def sort_rows(self, rows, *, key, mode):
+        del mode
+        return sorted(rows, key=lambda row: key(row).casefold())
+
+
+def test_inbox_contains_only_new_unplayed_library_items_with_parent_labels() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(path, item_id="new-rss", subscription_id="rss-id",
+                        title="B odcinek", ordinal=0, published=300)
+        _insert_episode(path, item_id="new-yt", subscription_id="yt-id",
+                        title="A materiał", ordinal=1, published=200)
+        _insert_episode(path, item_id="played", subscription_id="rss-id",
+                        title="Odtworzony", ordinal=2, published=400, is_played=1)
+        _insert_episode(path, item_id="old", subscription_id="rss-id",
+                        title="Nienowy", ordinal=3, published=500, is_new=0)
+        _insert_episode(path, item_id="hidden", subscription_id="hidden-id",
+                        title="Ukryty", ordinal=4, published=600)
+
+        page = PodcastSource(private_sandbox(base)).inbox(
+            collation=_ExactCasefoldCollation()
+        )
+
+        assert [row.item_id for row in page.rows] == ["new-rss", "new-yt"]
+        assert "Audycja tygodnia" in page.rows[0].detail
+        assert "Kanał dostępny" in page.rows[1].detail
+        assert "materiał YouTube" in page.rows[1].detail
+        spoken = " ".join(row.title + " " + row.detail for row in page.rows)
+        assert "new-rss" not in spoken and "new-yt" not in spoken
+        assert page.order_matches_amc
+
+
+def test_in_progress_is_ordered_by_resume_position_then_date() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(path, item_id="short", subscription_id="rss-id",
+                        title="Krótko", ordinal=0, published=900,
+                        is_new=0, is_started=1, resume_seconds=10)
+        _insert_episode(path, item_id="long-old", subscription_id="rss-id",
+                        title="Długo starsze", ordinal=1, published=100,
+                        is_started=1, resume_seconds=200)
+        _insert_episode(path, item_id="long-new", subscription_id="yt-id",
+                        title="Długo nowsze", ordinal=2, published=200,
+                        is_started=1, resume_seconds=200)
+        _insert_episode(path, item_id="finished", subscription_id="rss-id",
+                        title="Zakończony", ordinal=3, published=1000,
+                        is_started=1, is_played=1, resume_seconds=400)
+
+        page = PodcastSource(private_sandbox(base)).in_progress()
+
+        assert [row.item_id for row in page.rows] == [
+            "long-new", "long-old", "short"
+        ]
+        assert page.rows[0].position_seconds == 200.0
+        assert page.order_matches_amc
+
+
+def test_aggregate_page_reports_exact_remaining_count() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        for number in range(PAGE_SIZE + 2):
+            _insert_episode(
+                path,
+                item_id=f"inbox-{number}",
+                subscription_id="rss-id",
+                title=f"Odcinek {number}",
+                ordinal=number,
+                published=number,
+            )
+        page = PodcastSource(private_sandbox(base)).inbox(
+            collation=_ExactCasefoldCollation()
+        )
+
+        assert page.loaded_count == PAGE_SIZE and page.has_more
+        assert page.rows[-1].kind == "loadMore"
+        assert page.rows[-1].detail == "pozostało 2"
+
+
+def test_inbox_reads_the_saved_podcast_sort_mode_without_writing_state() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        _database(base)
+        layout = private_sandbox(base)
+        layout.state_json.write_text(json.dumps({
+            "sessionNavigation": {
+                "sessions": {
+                    "PoDcAsTs": {
+                        "collectionSortModes": {
+                            "NOWE ODCINKI": "Alphabetical"
+                        }
+                    }
+                }
+            }
+        }), encoding="utf-8")
+        before = layout.state_json.read_bytes()
+
+        source = PodcastSource(layout)
+        assert source.inbox_sort_mode() == "Alphabetical"
+        assert layout.state_json.read_bytes() == before

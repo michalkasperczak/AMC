@@ -15,8 +15,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .collation import (
+    COLLATION_TITLE_IGNORE_CASE,
+    HostCollation,
+    HostCollationUnavailable,
+)
+from .library_activity import ordinal_sort_key
 from .list_model import Row
 from .profile_layout import ProfileLayout, resolve_layout
+from .radio_source import (
+    SORT_ADDED_NEWEST,
+    SORT_ALPHABETICAL,
+    SORT_CUSTOM,
+    collection_sort_modes_from_amc_state,
+)
 
 
 PAGE_SIZE = 150
@@ -57,6 +69,21 @@ class PodcastEpisodePage:
     rows: list[Row]
     loaded_count: int
     has_more: bool
+    order_matches_amc: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class _EpisodeRecord:
+    item_id: str
+    title: str
+    parent_title: str
+    source_kind: int
+    published_ticks: int
+    is_new: bool
+    is_started: bool
+    is_played: bool
+    download_path: str
+    payload: dict
 
 
 def _clean_text(value: object, fallback: str) -> str:
@@ -138,6 +165,72 @@ def _source_kind(payload: dict) -> int:
         }
         return by_name.get(value.replace("_", "").casefold(), 0)
     return _as_int(value)
+
+
+def _episode_row(record: _EpisodeRecord, *, aggregate: bool) -> Row:
+    """One episode with only intentional, user-facing accessible text."""
+    media_url = str(_get(record.payload, "MediaUrl", "") or "").strip()
+    local_download = (
+        record.download_path
+        if record.download_path and Path(record.download_path).is_file()
+        else ""
+    )
+    source = local_download or media_url
+    detail_parts = [
+        _date_label(record.published_ticks),
+        _duration_label(_as_int(_get(record.payload, "DurationTicks", 0))),
+        _progress_label(
+            is_new=record.is_new,
+            is_started=record.is_started,
+            is_played=record.is_played,
+        ),
+    ]
+    if aggregate and record.parent_title.casefold() != record.title.casefold():
+        detail_parts.insert(0, record.parent_title)
+    if aggregate and record.source_kind in (2, 3):
+        detail_parts.append("materiał YouTube")
+    return Row(
+        item_id=record.item_id,
+        title=record.title,
+        kind="episode",
+        path=source or None,
+        url=media_url or None,
+        detail=", ".join(detail_parts),
+        show_kind=False,
+        activation_message=(
+            None if source else "Ten odcinek nie ma adresu do odtworzenia"
+        ),
+        position_seconds=max(
+            0.0,
+            _as_int(_get(record.payload, "ResumePositionTicks", 0)) / 10_000_000,
+        ),
+    )
+
+
+def _materialize_episode(record: sqlite3.Row) -> _EpisodeRecord:
+    payload = _payload(record["payload_json"])
+    return _EpisodeRecord(
+        item_id=str(record["id"]),
+        title=_clean_text(record["title"], "Odcinek bez nazwy"),
+        parent_title=_clean_text(record["parent_title"], "Podcast bez nazwy"),
+        source_kind=_source_kind(_payload(record["parent_payload_json"])),
+        published_ticks=_as_int(record["published_utc_ticks"]),
+        is_new=_as_bool(record["is_new"]),
+        is_started=_as_bool(record["is_started"]),
+        is_played=_as_bool(record["is_played"]),
+        download_path=str(record["download_path"] or "").strip(),
+        payload=payload,
+    )
+
+
+def _load_more_row(*, view: str, requested: int, remaining: int) -> Row:
+    return Row(
+        item_id=f"podcast-load-more:{view}:{requested}",
+        title="Załaduj więcej odcinków",
+        kind="loadMore",
+        detail=f"pozostało {remaining}",
+        show_kind=False,
+    )
 
 
 class PodcastSource:
@@ -307,6 +400,145 @@ class PodcastSource:
                 show_kind=False,
             ))
         return PodcastEpisodePage(rows, len(visible), has_more)
+
+    def inbox_sort_mode(self) -> str:
+        """Saved ordering of ``Nowe odcinki``; missing data means newest."""
+        try:
+            raw = json.loads(self.layout.state_json.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+            return SORT_ADDED_NEWEST
+        if not isinstance(raw, dict):
+            return SORT_ADDED_NEWEST
+        modes = collection_sort_modes_from_amc_state(raw, session="podcasts")
+        return modes.get("nowe odcinki", SORT_ADDED_NEWEST)
+
+    def _aggregate_records(self, where: str) -> list[_EpisodeRecord]:
+        try:
+            with closing(self._open()) as connection:
+                records = connection.execute(
+                    f"""
+                    SELECT e.id, e.title, e.published_utc_ticks, e.is_new,
+                           e.is_started, e.is_played, e.download_path,
+                           e.payload_json, s.title AS parent_title,
+                           s.payload_json AS parent_payload_json
+                    FROM podcast_episodes AS e
+                    JOIN podcast_subscriptions AS s
+                      ON s.id = e.subscription_id
+                    WHERE s.is_in_library = 1 AND ({where})
+                    ORDER BY e.ordinal
+                    """
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać odcinków: {error}"
+            ) from error
+        return [_materialize_episode(record) for record in records]
+
+    @staticmethod
+    def _title_sort(
+        records: list[_EpisodeRecord],
+        *,
+        key,
+        collation: HostCollation | None,
+    ) -> tuple[list[_EpisodeRecord], bool]:
+        if collation is None:
+            return sorted(records, key=lambda record: key(record).casefold()), False
+        try:
+            return (
+                collation.sort_rows(
+                    records,
+                    key=key,
+                    mode=COLLATION_TITLE_IGNORE_CASE,
+                ),
+                True,
+            )
+        except HostCollationUnavailable:
+            return sorted(records, key=lambda record: key(record).casefold()), False
+
+    def inbox(
+        self,
+        *,
+        loaded_count: int = PAGE_SIZE,
+        sort_mode: str | None = None,
+        collation: HostCollation | None = None,
+    ) -> PodcastEpisodePage:
+        """New and unplayed episodes of sources that remain in the library."""
+        records = self._aggregate_records("e.is_new = 1 AND e.is_played = 0")
+        mode = sort_mode or self.inbox_sort_mode()
+        if mode not in (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM):
+            mode = SORT_ADDED_NEWEST
+
+        # Stable sorts run from the least significant key to the primary key.
+        records.sort(key=lambda record: ordinal_sort_key(record.item_id))
+        order_matches_amc = True
+        if mode == SORT_ALPHABETICAL:
+            records.sort(key=lambda record: record.published_ticks, reverse=True)
+            records, exact = self._title_sort(
+                records, key=lambda record: record.title, collation=collation
+            )
+            order_matches_amc &= exact
+        elif mode == SORT_CUSTOM:
+            records, exact_episode = self._title_sort(
+                records, key=lambda record: record.title, collation=collation
+            )
+            records.sort(key=lambda record: record.published_ticks, reverse=True)
+            records, exact_parent = self._title_sort(
+                records, key=lambda record: record.parent_title, collation=collation
+            )
+            order_matches_amc &= exact_episode and exact_parent
+        else:
+            records, exact = self._title_sort(
+                records, key=lambda record: record.title, collation=collation
+            )
+            records.sort(key=lambda record: record.published_ticks, reverse=True)
+            order_matches_amc &= exact
+
+        return self._aggregate_page(
+            records,
+            loaded_count=loaded_count,
+            view="inbox",
+            order_matches_amc=order_matches_amc,
+        )
+
+    def in_progress(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
+        """Started, not-yet-played episodes, ordered like the full AMC."""
+        records = self._aggregate_records("e.is_started = 1 AND e.is_played = 0")
+        records.sort(
+            key=lambda record: (
+                _as_int(_get(record.payload, "ResumePositionTicks", 0)),
+                record.published_ticks,
+            ),
+            reverse=True,
+        )
+        return self._aggregate_page(
+            records,
+            loaded_count=loaded_count,
+            view="in-progress",
+            order_matches_amc=True,
+        )
+
+    @staticmethod
+    def _aggregate_page(
+        records: list[_EpisodeRecord],
+        *,
+        loaded_count: int,
+        view: str,
+        order_matches_amc: bool,
+    ) -> PodcastEpisodePage:
+        requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
+        visible = records[:requested]
+        rows = [_episode_row(record, aggregate=True) for record in visible]
+        remaining = max(0, len(records) - len(visible))
+        if remaining:
+            rows.append(
+                _load_more_row(view=view, requested=requested, remaining=remaining)
+            )
+        return PodcastEpisodePage(
+            rows=rows,
+            loaded_count=len(visible),
+            has_more=bool(remaining),
+            order_matches_amc=order_matches_amc,
+        )
 
 
 def subscription_rows(subscriptions: list[PodcastSubscription]) -> list[Row]:

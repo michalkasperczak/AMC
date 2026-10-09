@@ -73,6 +73,11 @@ class LibraryView(Enum):
     #: ujawniania technicznego Id podcastu w nazwie dostepnej.
     PODCAST_LIBRARY = "podcastLibrary"
     PODCAST_EPISODES = "podcastEpisodes"
+    #: Zbiorcze widoki z glownego AMC. ``PODCAST_INBOX`` jest globalnym,
+    #: chwilowym podgladem pod Ctrl+I; ``PODCAST_IN_PROGRESS`` jest pelnym
+    #: widokiem sesji Podcasty i YouTube pod Ctrl+Shift+I.
+    PODCAST_INBOX = "podcastInbox"
+    PODCAST_IN_PROGRESS = "podcastInProgress"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -233,6 +238,15 @@ class OpenPodcastView:
 
     subscription_id: str | None = None
     subscription_title: str = ""
+    preferred_id: str | None = None
+    load_more: bool = False
+
+
+@dataclass(slots=True)
+class OpenPodcastAggregateView:
+    """Load one top-level aggregate without exposing a technical source ID."""
+
+    view: LibraryView
     preferred_id: str | None = None
     load_more: bool = False
 
@@ -548,6 +562,11 @@ class Navigator:
             return [OpenPodcastView(row.item_id, row.title)]
 
         if row.kind == "loadMore":
+            if state.library_view in (
+                LibraryView.PODCAST_INBOX,
+                LibraryView.PODCAST_IN_PROGRESS,
+            ):
+                return [OpenPodcastAggregateView(state.library_view, load_more=True)]
             if not state.library_playlist_id:
                 return [Announce("Nie wiadomo, dla którego podcastu wczytać odcinki")]
             return [OpenPodcastView(
@@ -1320,6 +1339,42 @@ class Navigator:
             f"{subscription_title}, {count} {_items_word(count)}"
             if count else f"{subscription_title}, pusto"
         )]
+
+    def apply_podcast_aggregate(
+        self,
+        view: LibraryView,
+        heading: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+        order_matches_amc: bool = True,
+    ) -> list[object]:
+        """Apply an aggregate episode view with a stable, user-facing name."""
+        if view not in (
+            LibraryView.PODCAST_INBOX,
+            LibraryView.PODCAST_IN_PROGRESS,
+        ):
+            raise ValueError("To nie jest zbiorczy widok podcastów")
+        state = self.sessions[SessionId.PODCASTS]
+        previous = state.library_view
+        if previous is not None and state.model.selected_id:
+            state.view_selected_ids[previous.value] = state.model.selected_id
+        remembered = state.view_selected_ids.get(view.value)
+        state.library_view = view
+        state.library_playlist_id = None
+        state.library_return_view = heading
+        state.model.replace(rows, preferred_id=preferred_id or remembered)
+        state.view = View.LIST
+        count = sum(1 for row in rows if row.kind == "episode")
+        if view is LibraryView.PODCAST_INBOX and count == 0:
+            message = "Nowe odcinki i materiały, brak nowych materiałów"
+        elif view is LibraryView.PODCAST_IN_PROGRESS and count == 0:
+            message = "W trakcie słuchania, brak rozpoczętych odcinków"
+        else:
+            message = f"{heading}, {count} {_items_word(count)}"
+        if not order_matches_amc:
+            message = f"{message}, kolejność zastępcza"
+        return [Announce(message)]
 
     # ----------------------------------------------------------- odtwarzanie
 

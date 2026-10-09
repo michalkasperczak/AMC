@@ -4,6 +4,7 @@ from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
+    OpenPodcastAggregateView,
     OpenPodcastView,
     PlayMedia,
     SessionId,
@@ -120,3 +121,39 @@ def test_top_level_escape_or_backspace_is_quiet() -> None:
     nav.apply_podcast_library([])
     effects = nav.go_to_parent()
     assert effects == []
+
+
+def test_aggregate_episode_plays_and_load_more_keeps_aggregate_identity() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_INBOX,
+        "Nowe odcinki i materiały",
+        [_episode("new"), Row("more", "Załaduj więcej odcinków", "loadMore")],
+        preferred_id="more",
+    )
+
+    effects = nav.activate_selected()
+    request = next(
+        effect for effect in effects if isinstance(effect, OpenPodcastAggregateView)
+    )
+    assert request.view is LibraryView.PODCAST_INBOX and request.load_more
+    assert nav.go_to_parent() == []
+
+    nav.session.model.select_id("new")
+    play = next(
+        effect for effect in nav.activate_selected() if isinstance(effect, PlayMedia)
+    )
+    assert play.item_id == "new"
+
+
+def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
+    nav = Navigator()
+    inbox = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_INBOX, "Nowe odcinki i materiały", []
+    )
+    progress = nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_IN_PROGRESS, "W trakcie słuchania", []
+    )
+    assert inbox[0].text == "Nowe odcinki i materiały, brak nowych materiałów"
+    assert progress[0].text == "W trakcie słuchania, brak rozpoczętych odcinków"

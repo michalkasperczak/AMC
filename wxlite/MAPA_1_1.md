@@ -300,8 +300,12 @@ własnej normalizacji diakrytyków.
 - Podcasty i YouTube mają już wąski zapis postępu przez jednego właściciela C#:
   checkpoint co 15 sekund, stan „w trakcie” po minucie i „odtworzony” po
   naturalnym końcu. Python pozostaje czytelnikiem `podcasts.db`; blokada drugiego
-  hosta i wykrycie starego WPF chronią przed dwoma pisarzami. Nadal brakuje
-  dodawania, usuwania, odświeżania, pobierania i specjalnych widoków podcastów.
+  hosta i wykrycie starego WPF chronią przed dwoma pisarzami. `Ctrl+I` ma już
+  globalny, chwilowy widok „Nowe odcinki i materiały” z dokładnym powrotem po
+  Escape, a `Ctrl+Shift+I` widok „W trakcie słuchania” w sesji podcastów.
+  Oba filtrują wyłącznie źródła pozostające w Bibliotece, mają stronicowanie
+  po 150 pozycji i nie ujawniają technicznych identyfikatorów. Nadal brakuje
+  dodawania, usuwania, odświeżania, pobierania i pozostałych widoków specjalnych.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

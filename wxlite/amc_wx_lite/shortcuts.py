@@ -192,6 +192,8 @@ class Action(Enum):
     VIEW_ACTIVE_RECORDINGS = "radio.recording.activeView"
     VIEW_RECORDED_RADIO_FILES = "radio.recording.completedView"
     MANAGE_RADIO_SCHEDULES = "radio.recording.schedules"
+    VIEW_PODCAST_INBOX = "podcasts.inbox"
+    VIEW_PODCAST_IN_PROGRESS = "podcasts.inProgress"
     VIEW_ALL_FILES = "library.allFiles"
     VIEW_FAVORITES = "library.favorites"
     VIEW_PLAYLISTS = "library.playlists"
@@ -389,7 +391,9 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     "Ctrl+N": Action.STATION_ADD,
     "F2": Action.STATION_EDIT,
     "Delete": Action.STATION_DELETE,
-    "Ctrl+I": Action.STATION_IMPORT,
+    # W pelnym AMC import jest kontekstowym Ctrl+O w sesji Radia. Ctrl+I
+    # nalezy globalnie do widoku nowych odcinkow i materialow.
+    "Ctrl+O": Action.STATION_IMPORT,
     # Skroty nagrywania z pelnego AMC (MainWindow.xaml.cs:21396-21446).
     # Ctrl+R dziala na liscie i w odtwarzaczu; Shift+Spacja steruje pauza.
     "Ctrl+R": Action.RECORD_TOGGLE,
@@ -399,6 +403,7 @@ RADIO_LIST_VIEW: dict[str, Action] = {
 # Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
 # T i R musza pozostac natywnej kontroli (wyszukiwanie przyrostowe).
 RADIO_PLAYER_VIEW: dict[str, Action] = {
+    "Ctrl+O": Action.STATION_IMPORT,
     "R": Action.RECORD_TOGGLE,
     "Ctrl+R": Action.RECORD_TOGGLE,
     "Shift+Space": Action.RECORD_PAUSE,
@@ -501,6 +506,8 @@ for _table in (LIST_VIEW, PLAYER_VIEW):
     _table["Alt+R"] = Action.VIEW_ACTIVE_RECORDINGS
     _table["Alt+Shift+R"] = Action.VIEW_RECORDED_RADIO_FILES
     _table["Ctrl+Shift+H"] = Action.MANAGE_RADIO_SCHEDULES
+    _table["Ctrl+I"] = Action.VIEW_PODCAST_INBOX
+    _table["Ctrl+Shift+I"] = Action.VIEW_PODCAST_IN_PROGRESS
 
 
 def resolve(chord: Chord, *, player_view: bool, radio_session: bool) -> Action | None:
@@ -595,6 +602,8 @@ def describe() -> list[tuple[str, str]]:
         Action.VIEW_ACTIVE_RECORDINGS: "Pokaz trwajace nagrania radia",
         Action.VIEW_RECORDED_RADIO_FILES: "Pokaz historie nagrywania radia",
         Action.MANAGE_RADIO_SCHEDULES: "Pokaz harmonogram nagrywania radia",
+        Action.VIEW_PODCAST_INBOX: "Nowe odcinki i materiały",
+        Action.VIEW_PODCAST_IN_PROGRESS: "W trakcie słuchania",
         Action.VIEW_PRESETS: "Pokaż presety aktywnej sesji",
         Action.ASSIGN_PRESET: "Utwórz preset lub przypisz bieżący element",
         Action.VIEW_ALL_FILES: "Wszystkie pliki alfabetycznie",
@@ -651,5 +660,11 @@ def describe() -> list[tuple[str, str]]:
             label = chord
             for internal, spoken in readable_keys.items():
                 label = label.replace(internal, spoken)
+            # Ctrl+O jest celowo kontekstowe. Dwa identyczne naglowki w
+            # pomocy wygladalyby jak sprzecznosc i ``dict(describe())``
+            # zgubilby pierwszy. Dopowiadamy sesje tylko przy imporcie Radia;
+            # zwykle Ctrl+O nadal brzmi po prostu jak wybor pliku.
+            if action is Action.STATION_IMPORT:
+                label = f"{label} (Radio internetowe)"
             out.append((label, labels.get(action, action.value)))
     return out

@@ -49,6 +49,19 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
    i przy zamknięciu. Po minucie odcinek dostaje stan „w trakcie”. Naturalny
    koniec ustawia „odtworzony” i zeruje punkt wznowienia, tak jak pełne AMC.
    Python nadal otwiera `podcasts.db` wyłącznie w `mode=ro`.
+7. `Ctrl+I` z dowolnej sesji otwiera chwilowy widok „Nowe odcinki i
+   materiały”. Są w nim tylko nowe, nieodtworzone materiały ze źródeł nadal
+   należących do Biblioteki. `Escape` wraca do dokładnej poprzedniej sesji,
+   listy, filtra i zaznaczenia bez komunikatu „Powrót”.
+8. `Ctrl+Shift+I` otwiera „W trakcie słuchania” wyłącznie w sesji Podcasty i
+   YouTube. Poza nią podaje krótką instrukcję. Widok zawiera rozpoczęte i
+   nieukończone materiały, najpierw z najdalszą zapisaną pozycją.
+9. Zbiorcze widoki ładują po 150 pozycji. Każdy wiersz ma nazwę źródła, a
+   materiały z kanałów i playlist YouTube mają jawne określenie „materiał
+   YouTube”. Identyfikatory bazy i rekordy modelu nie trafiają do mowy NVDA.
+10. `Ctrl+O` pozostaje kontekstowe jak w głównym AMC: w Plikach wybiera plik,
+    a w Radiu importuje M3U/PLS. `Ctrl+I` nie jest już błędnie zajęte przez
+    import stacji.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -59,14 +72,15 @@ syntetyczny plik przez nowe polecenie `media.play` i zgłosił
 Zapis postępu jest wąską transakcją jednego odcinka. Host odmawia drugiemu
 oknu wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne
 AMC, które mogłoby później nadpisać całą migawkę. Dodawanie, usuwanie,
-odświeżanie, pobieranie oraz pozostałe specjalne widoki podcastów nie są
-jeszcze przeniesione do wxPython.
+odświeżanie i pobieranie nie są jeszcze przeniesione do wxPython. Widoki
+„Nowe odcinki i materiały” oraz „W trakcie słuchania” są już przeniesione;
+pozostałe widoki specjalne nadal czekają.
 
 Test bez danych użytkownika:
 
 ```powershell
 dotnet tests\AccessibleMediaController.LiteHost.ProtocolTests\bin\Release\net8.0\amc_lite_protocol_tests.dll --podcast-progress
-python wxlite\run_tests.py podcast_progress podcast_source podcast_navigation
+python wxlite\run_tests.py podcast_progress podcast_source podcast_navigation shortcuts
 ```
 
 Zestaw C# sprawdza na osobnej bazie: 30 sekund bez zmiany statusu, 75 sekund

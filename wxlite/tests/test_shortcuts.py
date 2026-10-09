@@ -102,6 +102,28 @@ def test_station_management_only_in_the_radio_session() -> None:
         assert resolve(chord, player_view=False, radio_session=False) is not expected
 
 
+def test_ctrl_i_is_global_podcast_inbox_and_radio_import_uses_ctrl_o() -> None:
+    ctrl_i = Chord("I", ctrl=True)
+    ctrl_shift_i = Chord("I", ctrl=True, shift=True)
+    for player in (False, True):
+        for radio in (False, True):
+            assert resolve(
+                ctrl_i, player_view=player, radio_session=radio
+            ) is Action.VIEW_PODCAST_INBOX
+            assert resolve(
+                ctrl_shift_i, player_view=player, radio_session=radio
+            ) is Action.VIEW_PODCAST_IN_PROGRESS
+    assert resolve(
+        Chord("O", ctrl=True), player_view=False, radio_session=True
+    ) is Action.STATION_IMPORT
+    assert resolve(
+        Chord("O", ctrl=True), player_view=True, radio_session=True
+    ) is Action.STATION_IMPORT
+    assert resolve(
+        Chord("O", ctrl=True), player_view=False, radio_session=False
+    ) is Action.OPEN_FILE_DIALOG
+
+
 def test_delete_does_nothing_in_the_files_session() -> None:
     # Zabezpieczenie: Delete nie moze dotykac plikow uzytkownika.
     assert resolve(Chord("Delete"), player_view=False, radio_session=False) is None

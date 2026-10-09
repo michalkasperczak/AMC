@@ -104,7 +104,11 @@ def test_skrot_ktory_ma_dzialac_bez_odtwarzania_nie_moze_byc_bramkowanym_akceler
     """
     from amc_wx_lite import shortcuts
 
-    przelaczanie_widoku = {Action.SHOW_PLAYER, Action.SHOW_LIST}
+    przelaczanie_widoku = {
+        Action.SHOW_PLAYER,
+        Action.SHOW_LIST,
+        Action.VIEW_PODCAST_IN_PROGRESS,
+    }
     winne = [
         (item.label, item.shortcut)
         for item in all_items()
@@ -150,12 +154,21 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
 
 
 def test_no_duplicate_labels_or_shortcuts() -> None:
-    """Nazwa i skrot nie moga sie dublowac -- czytnik czytalby dwa razy to samo."""
+    """Only AMC's intentional contextual Ctrl+O may be repeated."""
     items = all_items()
     labels = [item.label for item in items]
     assert len(labels) == len(set(labels)), "powtorzona nazwa pozycji"
-    shortcuts = [item.shortcut for item in items if item.shortcut]
-    assert len(shortcuts) == len(set(shortcuts)), "ten sam skrot w dwoch miejscach"
+    by_shortcut: dict[str, list[menu_model.MenuItem]] = {}
+    for item in items:
+        if item.shortcut:
+            by_shortcut.setdefault(item.shortcut, []).append(item)
+    duplicates = {key: values for key, values in by_shortcut.items() if len(values) > 1}
+    assert set(duplicates) <= {"Ctrl+O"}, duplicates
+    for item in duplicates.get("Ctrl+O", []):
+        assert not item.accelerator, (
+            "kontekstowe Ctrl+O musi dojsc do resolvera sesji, a nie do "
+            f"pierwszego akceleratora menu: {item.label}"
+        )
 
 
 def test_every_item_is_keyboard_reachable() -> None:

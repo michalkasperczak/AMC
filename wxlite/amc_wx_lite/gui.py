@@ -72,6 +72,7 @@ from .navigation import (
     Navigator,
     OpenFolder,
     OpenLibraryView,
+    OpenPodcastAggregateView,
     OpenPodcastView,
     OpenQueueView,
     PlayFromQueue,
@@ -2056,6 +2057,7 @@ class LiteFrame(wx.Frame):
         if not hasattr(self, "_menu_items"):
             return
         radio = self.navigator.active is SessionId.RADIO
+        podcasts = self.navigator.active is SessionId.PODCASTS
         # "Cos gra" rozpoznajemy po TYM SAMYM statusie z hosta, z ktorego
         # korzysta ``_announce_time`` -- nie po wlasnym liczniku.
         playing = bool(self._last_status)
@@ -2064,6 +2066,8 @@ class LiteFrame(wx.Frame):
         for item, entry in self._menu_items:
             enabled = True
             if entry.needs_radio_session and not radio:
+                enabled = False
+            if entry.needs_podcast_session and not podcasts:
                 enabled = False
             if entry.needs_playback and not playing:
                 enabled = False
@@ -3090,6 +3094,10 @@ class LiteFrame(wx.Frame):
             self._show_radio_recording_history()
         elif action is Action.MANAGE_RADIO_SCHEDULES:
             self._show_radio_schedules()
+        elif action is Action.VIEW_PODCAST_INBOX:
+            self._show_podcast_inbox()
+        elif action is Action.VIEW_PODCAST_IN_PROGRESS:
+            self._show_podcast_in_progress()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.VIEW_FAVORITES:
@@ -3136,6 +3144,8 @@ class LiteFrame(wx.Frame):
                 self._open_queue_view()
             elif isinstance(intent, OpenPodcastView):
                 self._open_podcast_view(intent)
+            elif isinstance(intent, OpenPodcastAggregateView):
+                self._open_podcast_aggregate(intent)
             elif isinstance(intent, PlayTrack):
                 self._play_track(intent)
             elif isinstance(intent, PlayFromQueue):
@@ -3673,6 +3683,112 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("podcast-view", work, done, failed)
 
+    def _show_podcast_inbox(self) -> None:
+        """Ctrl+I: global preview that Escape restores exactly."""
+        self._begin_transient_preview()
+        self.navigator.active = SessionId.PODCASTS
+        # Oznaczamy widok od razu, zanim watek SQLite odda dane. Escape ma
+        # dzialac takze podczas wczytywania, a spozniony wynik po Escape nie
+        # moze ponownie otworzyc podgladu.
+        podcast_state = self.navigator.sessions[SessionId.PODCASTS]
+        podcast_state.library_view = LibraryView.PODCAST_INBOX
+        podcast_state.view = View.LIST
+        self._open_podcast_aggregate(
+            OpenPodcastAggregateView(LibraryView.PODCAST_INBOX)
+        )
+
+    def _show_podcast_in_progress(self) -> None:
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(
+                "Materiały w trakcie słuchania są dostępne w sesji "
+                "Podcasty i YouTube"
+            )
+            return
+        self._transient_preview_return = None
+        self._open_podcast_aggregate(
+            OpenPodcastAggregateView(LibraryView.PODCAST_IN_PROGRESS)
+        )
+
+    def _open_podcast_aggregate(self, intent: OpenPodcastAggregateView) -> None:
+        if intent.view not in (
+            LibraryView.PODCAST_INBOX,
+            LibraryView.PODCAST_IN_PROGRESS,
+        ):
+            return
+        if not self.podcasts.is_available:
+            self._restore_transient_preview(announce=False, force=True)
+            self.announcer.say("Nie znaleziono biblioteki podcastów AMC")
+            return
+
+        key = intent.view.value
+        previous_count = self._podcast_loaded_counts.get(key, 0)
+        requested = (
+            max(PODCAST_PAGE_SIZE, previous_count + PODCAST_PAGE_SIZE)
+            if intent.load_more
+            else max(PODCAST_PAGE_SIZE, previous_count)
+        )
+
+        def work():
+            if intent.view is LibraryView.PODCAST_INBOX:
+                return self.podcasts.inbox(
+                    loaded_count=requested,
+                    collation=getattr(self, "_collation", None),
+                )
+            return self.podcasts.in_progress(loaded_count=requested)
+
+        def done(page) -> None:
+            if (
+                intent.view is LibraryView.PODCAST_INBOX
+                and self._transient_preview_return is None
+            ):
+                return
+            self._podcast_loaded_counts[key] = page.loaded_count
+            preferred = intent.preferred_id
+            if intent.load_more and previous_count < len(page.rows):
+                candidate = page.rows[previous_count]
+                if candidate.kind == "episode":
+                    preferred = candidate.item_id
+            heading = (
+                "Nowe odcinki i materiały"
+                if intent.view is LibraryView.PODCAST_INBOX
+                else "W trakcie słuchania"
+            )
+            events = self.navigator.apply_podcast_aggregate(
+                intent.view,
+                heading,
+                page.rows,
+                preferred_id=preferred,
+                order_matches_amc=page.order_matches_amc,
+            )
+            count = sum(1 for row in page.rows if row.kind == "episode")
+            if self.navigator.active is SessionId.PODCASTS and count == 0:
+                self._sync_views()
+                message = next(
+                    (event.text for event in events if isinstance(event, Announce)),
+                    heading,
+                )
+                self._announce_after_native_list_update(message)
+            else:
+                self._apply_podcast_result(events)
+
+        def failed(error: Exception) -> None:
+            if (
+                intent.view is LibraryView.PODCAST_INBOX
+                and self._transient_preview_return is None
+            ):
+                return
+            message = (
+                str(error) if isinstance(error, PodcastProfileError)
+                else "Nie udało się odczytać odcinków"
+            )
+            if intent.view is LibraryView.PODCAST_INBOX:
+                self._restore_transient_preview(announce=False, force=True)
+                self.announcer.say(message)
+            elif self.navigator.active is SessionId.PODCASTS:
+                self.announcer.say(message)
+
+        self.runner.submit("podcast-view", work, done, failed)
+
     def _begin_transient_preview(self) -> None:
         if self._transient_preview_return is None:
             self._transient_preview_return = self.navigator.capture_transient_navigation()
@@ -3688,6 +3804,7 @@ class LiteFrame(wx.Frame):
             LibraryView.ACTIVE_RADIO_RECORDINGS,
             LibraryView.RECORDED_RADIO_FILES,
             LibraryView.RADIO_RECORDING_SCHEDULES,
+            LibraryView.PODCAST_INBOX,
         ):
             return False
         self._transient_preview_return = None

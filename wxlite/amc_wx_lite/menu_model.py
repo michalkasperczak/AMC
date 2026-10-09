@@ -53,6 +53,8 @@ class MenuItem:
     accelerator: bool = True
     #: Wylaczana poza sesja radiowa, zamiast udawac, ze zadziala.
     needs_radio_session: bool = False
+    #: Widok dostepny wylacznie wewnatrz sesji Podcasty i YouTube.
+    needs_podcast_session: bool = False
     #: Pozycja PRZELACZNIKA: wx ma ja wstawic jako ``AppendCheckItem``.
     #:
     #: Nie jest to kosmetyka. Zwykla pozycja menu nie niesie stanu, wiec
@@ -84,7 +86,11 @@ def build_menus() -> tuple[Menu, ...]:
         (
             # Kolejnosc i gesty z oryginalu (MainWindow.xaml:42-49): pliki pod
             # Ctrl+O, folder pod Ctrl+Shift+O.
-            MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+O"),
+            # Ctrl+O jest kontekstowe (Pliki / Radio / Podcasty) jak w AMC.
+            # Nie robimy z zadnej pozycji akceleratora okna, bo pierwsza
+            # widoczna pozycja przejelaby gest przed resolverem sesji.
+            MenuItem("Otwórz &plik", Action.OPEN_FILE_DIALOG, shortcut="Ctrl+O",
+                     accelerator=False),
             MenuItem("Otwórz &folder", Action.OPEN_FOLDER_DIALOG, shortcut="Ctrl+Shift+O"),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
@@ -188,8 +194,8 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("&Usuń stację", Action.STATION_DELETE, shortcut="Delete",
                      accelerator=False, needs_radio_session=True),
             SEPARATOR,
-            MenuItem("&Importuj M3U/PLS", Action.STATION_IMPORT, shortcut="Ctrl+I",
-                     needs_radio_session=True),
+            MenuItem("&Importuj M3U/PLS", Action.STATION_IMPORT, shortcut="Ctrl+O",
+                     accelerator=False, needs_radio_session=True),
             SEPARATOR,
             MenuItem("&Nagrywaj albo zatrzymaj wybraną stację",
                      Action.RECORD_TOGGLE, shortcut="Ctrl+R",
@@ -350,6 +356,12 @@ def build_menus() -> tuple[Menu, ...]:
             MenuItem("Sesja: &Radio", Action.SESSION_RADIO, shortcut="Ctrl+2"),
             MenuItem("Sesja: Podcasty i &YouTube", Action.SESSION_PODCASTS,
                      shortcut="Ctrl+3"),
+            SEPARATOR,
+            MenuItem("&Nowe odcinki i materiały", Action.VIEW_PODCAST_INBOX,
+                     shortcut="Ctrl+I"),
+            MenuItem("W &trakcie słuchania", Action.VIEW_PODCAST_IN_PROGRESS,
+                     shortcut="Ctrl+Shift+I", accelerator=False,
+                     needs_podcast_session=True),
             SEPARATOR,
             # ``accelerator=False``: ZMIERZONE na zywym GUI (statusclip-1).
             # Z akceleratorem pozycja byla WYLACZONA na liscie (nic nie gralo),
