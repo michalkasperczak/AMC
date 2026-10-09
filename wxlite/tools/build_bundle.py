@@ -94,6 +94,15 @@ def copy_runtime(target: Path, runtime: Path) -> list[str]:
     if not runtime.exists():
         raise SystemExit(f"Wskazany runtime nie istnieje: {runtime}")
     destination = target / "runtime"
+    # Przy aktualizacji pakietu na miejscu wskazany, juz sprawdzony runtime
+    # moze byc zarazem katalogiem docelowym. Nie kasujemy wtedy zrodla;
+    # wpisujemy tylko jego istniejace pliki do nowego manifestu.
+    if runtime.resolve() == destination.resolve():
+        return [
+            p.relative_to(target).as_posix()
+            for p in sorted(destination.rglob("*"))
+            if p.is_file()
+        ]
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(runtime, destination)

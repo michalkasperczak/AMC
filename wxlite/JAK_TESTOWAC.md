@@ -28,7 +28,7 @@ przyjęcie terminu, samoczynny start, aktywny stan, zapis MP3, historię oraz
 wyłączenie wykonanego planu jednorazowego. Próba z rzeczywistym LiteHost i
 zapisaną stacją została zaliczona 9 października 2026 r.
 
-## Podcasty i YouTube — pierwszy działający etap
+## Podcasty i YouTube — odczyt, odtwarzanie i trwały postęp
 
 Skrót `Ctrl+3` przełącza na trzecią sesję „Podcasty i YouTube”. Lista czyta
 pozycje należące do Biblioteki z tego samego `podcasts.db`, którego używa pełne
@@ -45,6 +45,10 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
    następną stronę i przenosi wybór na pierwszy nowo dołożony odcinek.
 5. `Page Up` i `Page Down` w odtwarzaczu przechodzą po odtwarzalnych odcinkach
    bieżącej listy. `Ctrl+Shift+C` na odcinku kopiuje bezpośredni adres medium.
+6. Pozycja jest zapisywana przez host C# co 15 sekund, przed zmianą materiału
+   i przy zamknięciu. Po minucie odcinek dostaje stan „w trakcie”. Naturalny
+   koniec ustawia „odtworzony” i zeruje punkt wznowienia, tak jak pełne AMC.
+   Python nadal otwiera `podcasts.db` wyłącznie w `mode=ro`.
 
 Próba zgodności została wykonana na kopii prawdziwej bazy bez wypisywania
 tytułów ani adresów: 305 źródeł w Bibliotece, pierwsze 20 źródeł zwróciło 2487
@@ -52,9 +56,24 @@ wierszy z poprawną paginacją. Osobno rzeczywisty opublikowany LiteHost otworzy
 syntetyczny plik przez nowe polecenie `media.play` i zgłosił
 `playback.duration` oraz `playback.started`.
 
-To jest etap odczytu i odtwarzania. Dodawanie, usuwanie, odświeżanie oraz
-pobieranie odcinków, zapis postępu odsłuchu i pozostałe specjalne widoki
-podcastów nie są jeszcze przeniesione do wxPython.
+Zapis postępu jest wąską transakcją jednego odcinka. Host odmawia drugiemu
+oknu wxPython prawa pisarza i odmawia zapisu, gdy wykryje uruchomione główne
+AMC, które mogłoby później nadpisać całą migawkę. Dodawanie, usuwanie,
+odświeżanie, pobieranie oraz pozostałe specjalne widoki podcastów nie są
+jeszcze przeniesione do wxPython.
+
+Test bez danych użytkownika:
+
+```powershell
+dotnet tests\AccessibleMediaController.LiteHost.ProtocolTests\bin\Release\net8.0\amc_lite_protocol_tests.dll --podcast-progress
+python wxlite\run_tests.py podcast_progress podcast_source podcast_navigation
+```
+
+Zestaw C# sprawdza na osobnej bazie: 30 sekund bez zmiany statusu, 75 sekund
+ze stanem „w trakcie”, naturalny koniec oraz nienaruszenie obcej tabeli.
+Żywy odbiór wznowienia na profilu użytkownika wymaga bezpiecznego restartu
+pakietu; nie wolno zamykać działającego okna podczas nagrywania tylko po to,
+żeby podmienić zablokowany plik hosta.
 
 ## Opcje sesji — jak to sprawdzić (ten przyrost)
 

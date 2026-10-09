@@ -149,6 +149,16 @@ def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> 
         client.close()
 
 
+def test_podcast_checkpoint_is_a_narrow_host_operation() -> None:
+    client = make_client()
+    try:
+        result = client.checkpoint_podcast()
+        assert result["op"] == "podcast.checkpoint"
+        assert result["args"] == {}
+    finally:
+        client.close()
+
+
 def test_host_error_is_raised_as_host_error_not_crash() -> None:
     client = make_client()
     try:

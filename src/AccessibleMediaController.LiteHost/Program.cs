@@ -67,8 +67,25 @@ internal static class Program
             return 2;
         }
 
+        LitePodcastProgressStore? podcastStore;
+        try
+        {
+            podcastStore = OpenPodcastProgressStore(args);
+        }
+        catch (LitePodcastProgressStoreDenied denied)
+        {
+            Console.Error.WriteLine("[amc-lite-host] ODMOWA zapisu postępu podcastów: " + denied.Message);
+            store?.Dispose();
+            Console.SetOut(standardOutput);
+            return 2;
+        }
+
         var bookmarkStore = OpenBookmarkStore(args);
-        using var handlers = new LiteEngineHandlers(timeshiftMinutes, store, bookmarkStore);
+        using var handlers = new LiteEngineHandlers(
+            timeshiftMinutes,
+            store,
+            bookmarkStore,
+            podcastStore);
         // JAWNY opt-in: poza kolejke wychodza tylko operacje, ktore moga dlugo
         // czytac/dekodowac plik: informacja pod lewa strzalka oraz eksport
         // zaznaczonego fragmentu. Transport nadal pozostaje responsywny, a
@@ -95,6 +112,9 @@ internal static class Program
         Console.Error.WriteLine(store is null
             ? "[amc-lite-host] kolejka BEZ trwalosci (brak --profile-dir)"
             : $"[amc-lite-host] kolejka: profil {store.ProfileDirectory}, tryb {store.Mode}");
+        Console.Error.WriteLine(podcastStore is null
+            ? "[amc-lite-host] postęp podcastów BEZ zapisu (brak --podcasts-db)"
+            : "[amc-lite-host] postęp podcastów: wąski zapis C#");
 
         try
         {
@@ -176,6 +196,16 @@ internal static class Program
             if (!string.Equals(args[index], "--library-db", StringComparison.Ordinal)) continue;
             var path = Path.GetFullPath(args[index + 1]);
             return File.Exists(path) ? new LiteBookmarkStore(path) : null;
+        }
+        return null;
+    }
+
+    private static LitePodcastProgressStore? OpenPodcastProgressStore(string[] args)
+    {
+        for (var index = 0; index < args.Length - 1; index++)
+        {
+            if (!string.Equals(args[index], "--podcasts-db", StringComparison.Ordinal)) continue;
+            return LitePodcastProgressStore.Open(Path.GetFullPath(args[index + 1]));
         }
         return null;
     }

@@ -76,6 +76,13 @@ def test_profile_directory_is_passed_to_the_host() -> None:
     )
 
 
+def test_podcast_database_is_passed_as_a_separate_narrow_store() -> None:
+    command = _spawned_command(podcasts_db=r"C:\profil\podcasts.db")
+    assert "--podcasts-db" in command
+    assert command[command.index("--podcasts-db") + 1] == r"C:\profil\podcasts.db"
+    assert "--queue-write" not in command
+
+
 def test_write_mode_requires_and_accompanies_the_profile_directory() -> None:
     command = _spawned_command(profile_dir="/kopia", queue_write=True)
     assert command[command.index("--profile-dir") + 1] == "/kopia"
@@ -148,9 +155,11 @@ def test_private_copy_starts_a_persisting_host() -> None:
     with tempfile.TemporaryDirectory() as directory:
         base = Path(directory)
         (base / "library.db").write_bytes(b"")
+        (base / "podcasts.db").write_bytes(b"")
         kwargs = _start_with(private_sandbox(base))
     assert kwargs.get("profile_dir") == str(base)
     assert kwargs.get("queue_write") is True
+    assert kwargs.get("podcasts_db") == str(base / "podcasts.db")
 
 
 def test_shared_profile_stays_read_only() -> None:
@@ -162,9 +171,11 @@ def test_shared_profile_stays_read_only() -> None:
     with tempfile.TemporaryDirectory() as directory:
         base = Path(directory)
         (base / "library.db").write_bytes(b"")
+        (base / "podcasts.db").write_bytes(b"")
         kwargs = _start_with(read_only_mirror(local_dir=base, profile_dir=base))
     assert not kwargs.get("profile_dir")
     assert not kwargs.get("queue_write")
+    assert kwargs.get("podcasts_db") == str(base / "podcasts.db")
 
 
 def test_sandbox_without_a_database_does_not_break_plain_file_playback() -> None:

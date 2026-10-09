@@ -1,0 +1,147 @@
+using System.Text.Json;
+using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.LiteHost.Protocol;
+using Microsoft.Data.Sqlite;
+
+namespace AccessibleMediaController.LiteHost.ProtocolTests;
+
+internal static class PodcastProgressStoreTests
+{
+    public static void Run()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(), "amc-podcast-progress-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(root);
+        try
+        {
+            var database = Path.Combine(root, "podcasts.db");
+            CreateDatabase(database);
+            using (var store = LitePodcastProgressStore.Open(database, () => false))
+            {
+                var secondWriterDenied = false;
+                try
+                {
+                    using var _ = LitePodcastProgressStore.Open(database, () => false);
+                }
+                catch (LitePodcastProgressStoreDenied)
+                {
+                    secondWriterDenied = true;
+                }
+                Assert.True(secondWriterDenied, "drugi host nie moze zostac drugim pisarzem postepu");
+
+                store.Save("ep-1", TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(10), false);
+                var early = ReadEpisode(database);
+                Assert.True(early.ResumePositionTicks == TimeSpan.FromSeconds(30).Ticks,
+                    "pierwszy checkpoint zachowuje pozycje");
+                Assert.True(early.IsNew && !early.IsStarted && !early.IsPlayed,
+                    "przed minuta odcinek nadal jest nowy");
+
+                store.Save("ep-1", TimeSpan.FromSeconds(75), TimeSpan.FromMinutes(10), false);
+                var started = ReadEpisode(database);
+                Assert.True(started.ResumePositionTicks == TimeSpan.FromSeconds(75).Ticks,
+                    "kolejny checkpoint przesuwa pozycje");
+                Assert.True(!started.IsNew && started.IsStarted && !started.IsPlayed,
+                    "po minucie stan ma brzmiec w trakcie");
+
+                store.Save("ep-1", TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10), true);
+                var completed = ReadEpisode(database);
+                Assert.True(completed.ResumePositionTicks == 0L,
+                    "naturalny koniec zeruje punkt wznowienia");
+                Assert.True(!completed.IsNew && completed.IsStarted && completed.IsPlayed,
+                    "naturalny koniec oznacza odcinek jako odtworzony");
+            }
+
+            using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT value FROM untouched WHERE id = 1;";
+                Assert.Equal("zostaje", Convert.ToString(command.ExecuteScalar()),
+                    "waski zapis nie moze dotknac obcych danych");
+            }
+
+            using var blocked = LitePodcastProgressStore.Open(database, () => true);
+            var refused = false;
+            try
+            {
+                blocked.Save("ep-1", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), false);
+            }
+            catch (LiteRequestException)
+            {
+                refused = true;
+            }
+            Assert.True(refused, "dzialajace glowne AMC musi zablokowac zapis postepu");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static PodcastEpisodeSettings ReadEpisode(string path)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = 'ep-1';";
+        return JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+            Convert.ToString(command.ExecuteScalar())!)!;
+    }
+
+    private static void CreateDatabase(string path)
+    {
+        var episode = new PodcastEpisodeSettings
+        {
+            Id = "ep-1",
+            SubscriptionId = "sub-1",
+            Title = "Odcinek",
+            MediaUrl = "https://example.invalid/episode.mp3",
+            IsNew = true
+        };
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE podcast_state (
+                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                downloads_folder TEXT NULL,
+                current_item_id TEXT NULL,
+                volume INTEGER NOT NULL,
+                playback_rate REAL NOT NULL,
+                rss_refresh_interval_minutes INTEGER NOT NULL DEFAULT 60,
+                youtube_refresh_interval_minutes INTEGER NOT NULL DEFAULT 60,
+                automatic_refresh_batch_size INTEGER NOT NULL DEFAULT 4
+            );
+            INSERT INTO podcast_state(singleton, volume, playback_rate) VALUES(1, 35, 1.0);
+            CREATE TABLE podcast_subscriptions (
+                id TEXT PRIMARY KEY, ordinal INTEGER NOT NULL, title TEXT NOT NULL,
+                feed_url TEXT NOT NULL, is_in_library INTEGER NOT NULL,
+                last_refresh_utc_ticks INTEGER NOT NULL, content_hash TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            CREATE TABLE podcast_episodes (
+                id TEXT PRIMARY KEY, ordinal INTEGER NOT NULL,
+                subscription_id TEXT NOT NULL, title TEXT NOT NULL,
+                published_utc_ticks INTEGER NOT NULL, is_new INTEGER NOT NULL,
+                is_started INTEGER NOT NULL, is_played INTEGER NOT NULL,
+                is_favorite INTEGER NOT NULL, is_in_queue INTEGER NOT NULL,
+                is_play_next INTEGER NOT NULL, download_path TEXT NULL,
+                content_hash TEXT NOT NULL, payload_json TEXT NOT NULL
+            );
+            CREATE TABLE untouched (id INTEGER PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO untouched(id, value) VALUES(1, 'zostaje');
+            """;
+        command.ExecuteNonQuery();
+        using var insert = connection.CreateCommand();
+        insert.CommandText = """
+            INSERT INTO podcast_episodes(
+                id, ordinal, subscription_id, title, published_utc_ticks,
+                is_new, is_started, is_played, is_favorite, is_in_queue,
+                is_play_next, download_path, content_hash, payload_json)
+            VALUES('ep-1', 0, 'sub-1', 'Odcinek', 0, 1, 0, 0, 0, 0, 0, NULL, 'seed', $payload);
+            """;
+        insert.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(episode));
+        insert.ExecuteNonQuery();
+    }
+}

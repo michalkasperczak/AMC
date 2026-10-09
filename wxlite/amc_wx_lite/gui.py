@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import time
 import uuid
 from pathlib import Path
 from typing import Callable
@@ -1778,6 +1779,10 @@ class LiteFrame(wx.Frame):
         self._last_recording_status: dict = {}
         self._status_poll_pending = False
         self._recording_status_poll_pending = False
+        self._podcast_checkpoint_pending = False
+        self._podcast_checkpoint_due = 0.0
+        self._podcast_checkpoint_active = False
+        self._last_podcast_progress_error: str | None = None
         self._recording_history_persist_error = False
         self._audio_clip_export_in_progress = False
         self._audio_clip_export_percent = -1
@@ -2337,6 +2342,7 @@ class LiteFrame(wx.Frame):
         self._last_persist_error: str | None = None
         layout = getattr(self, "layout", None)
         library_db = getattr(layout, "library_db", None)
+        podcasts_db = getattr(layout, "podcasts_db", None)
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
@@ -2344,6 +2350,13 @@ class LiteFrame(wx.Frame):
             # hostowi C# wyłącznie możliwość wykonania wąskiej, transakcyjnej
             # operacji ``bookmark.add`` z własną bramką konfliktu WPF.
             library_db=(str(library_db) if library_db is not None and library_db.exists() else None),
+            # Python nadal otwiera baze w mode=ro. Ta sciezka daje hostowi C#
+            # wylacznie waska transakcje postepu jednego odcinka.
+            podcasts_db=(
+                str(podcasts_db)
+                if podcasts_db is not None and podcasts_db.exists()
+                else None
+            ),
             on_event=self._on_engine_event,
             on_stderr=lambda line: None,
             **persistence,  # type: ignore[arg-type]
@@ -2489,6 +2502,9 @@ class LiteFrame(wx.Frame):
                     target = SessionId.FILES
                 self.navigator.note_playback_started(target)
                 self._playing_session = target
+                self._podcast_checkpoint_active = target is SessionId.PODCASTS
+                if self._podcast_checkpoint_active:
+                    self._podcast_checkpoint_due = 0.0
                 self._pending_playback_session = None
             if data.get("tempoFallbackReason"):
                 self.announcer.say(
@@ -2500,6 +2516,8 @@ class LiteFrame(wx.Frame):
             # nazwa nastepnego byloby tylko halasem, dlatego milczymy i czekamy.
             if not data.get("queueContinues"):
                 self.announcer.say("Koniec utworu")
+            if getattr(self, "_playing_session", None) is SessionId.PODCASTS:
+                self._podcast_checkpoint_active = False
         elif name == "queue.advanced":
             # NATURALNE przejscie policzone przez sesje Core po stronie hosta.
             # GUI tylko odwzorowuje to, co host NAPRAWDE zaczal grac.
@@ -2509,10 +2527,16 @@ class LiteFrame(wx.Frame):
         elif name == "playback.failed":
             failed_session = self._pending_playback_session or self._playing_session
             self._pending_playback_session = None
+            if failed_session is SessionId.PODCASTS:
+                self._podcast_checkpoint_active = False
             self._run(self.navigator.note_playback_failed(
                 f"Nie udalo sie odtworzyc: {data.get('message', 'blad')}",
                 failed_session,
             ))
+        elif name == "podcast.progressSaveFailed":
+            self._note_podcast_progress_error(
+                str(data.get("message") or "Nie udało się zapisać postępu odcinka")
+            )
         elif name == "radio.nowPlaying":
             title = str(data.get("streamTitle") or "").strip()
             if title:
@@ -5486,6 +5510,45 @@ class LiteFrame(wx.Frame):
         # Etykiete czasu nadal zmieniamy tylko w widoku odtwarzacza.
         self._refresh_status()
         self._refresh_recording_status()
+        self._checkpoint_podcast_if_due()
+
+    def _checkpoint_podcast_if_due(self) -> None:
+        """Co 15 sekund zlec zapis jak w pelnym AMC, bez dodatkowej mowy."""
+        client = self.client
+        if (
+            client is None
+            or not self._podcast_checkpoint_active
+            or self._podcast_checkpoint_pending
+            or time.monotonic() < self._podcast_checkpoint_due
+        ):
+            return
+        self._podcast_checkpoint_pending = True
+        # Termin przesuwamy PRZED zadaniem: szybkie ticki nie moga ustawic
+        # kilku rownoleglych zapisow tego samego czasu.
+        self._podcast_checkpoint_due = time.monotonic() + 15.0
+
+        def done(_payload: dict) -> None:
+            self._podcast_checkpoint_pending = False
+            self._last_podcast_progress_error = None
+
+        def failed(error: Exception) -> None:
+            self._podcast_checkpoint_pending = False
+            self._note_podcast_progress_error(str(error))
+
+        self.runner.submit(
+            "podcast-checkpoint",
+            client.checkpoint_podcast,
+            done,
+            failed,
+        )
+
+    def _note_podcast_progress_error(self, message: str) -> None:
+        """Jedna slyszalna informacja na przyczyne; timer nie jest logiem."""
+        cleaned = message.strip() or "Nie udało się zapisać postępu odcinka"
+        if cleaned == self._last_podcast_progress_error:
+            return
+        self._last_podcast_progress_error = cleaned
+        self.announcer.say(f"Nie zapisano postępu odcinka: {cleaned}")
 
     def _refresh_status(self) -> None:
         client = self.client

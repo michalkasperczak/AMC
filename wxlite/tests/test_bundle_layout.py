@@ -39,3 +39,15 @@ def test_embedded_path_is_patched_in_copy_not_source():
         bundle.copy_runtime(root / "bundle", runtime)
         assert "../app" in (root / "bundle" / "runtime" / "python314._pth").read_text().splitlines()
         assert (runtime / "python314._pth").read_text() == text
+
+
+def test_runtime_can_be_reused_in_place_during_bundle_update():
+    with tempfile.TemporaryDirectory() as folder:
+        target = Path(folder) / "bundle"
+        runtime = target / "runtime"
+        runtime.mkdir(parents=True)
+        marker = runtime / "python.exe"
+        marker.write_bytes(b"sprawdzony-runtime")
+        copied = bundle.copy_runtime(target, runtime)
+        assert marker.read_bytes() == b"sprawdzony-runtime"
+        assert "runtime/python.exe" in copied

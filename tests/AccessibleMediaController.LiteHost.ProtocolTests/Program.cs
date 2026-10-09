@@ -14,6 +14,7 @@ internal static class Program
         ("--persistence", QueuePersistenceTests.Run),
         ("--quickinfo", QuickInformationTests.Run),
         ("--bookmarks", BookmarkStoreTests.Run),
+        ("--podcast-progress", PodcastProgressStoreTests.Run),
     ];
 
     public static int Main(string[] args)

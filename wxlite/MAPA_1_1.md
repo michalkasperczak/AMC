@@ -297,6 +297,11 @@ własnej normalizacji diakrytyków.
 - Dalsze widoki Biblioteki i wyszukiwanie. Filtr listy `Ctrl+K` jest odebrany (sekcja wyżej). Historia i oba zakresy zakładek są odczytem. Żywa kolejka jest odebrana na pełnej kopii przez rodzica (`parent-speech-full-profile/`): naturalne B→A→C, C wybrane PRZED przejściem i zachowane, samoaktualizacja otwartej listy, prawdziwa mowa NVDA oraz 0 po wyczerpaniu i ponownym Ctrl+Q. Trwała kolejność jest odebrana na prywatnej kopii (sekcja niżej); czas wznowienia jest już odebrany; nadal brak mutacji zakładek i bezpiecznego wspólnego pisarza ze starym WPF.
 - Radio: oddzielenie Biblioteki według `isInLibrary` oraz krótki odczyt pozycji i jego wyłącznik są **odebrane** (sekcja „Scalone Radio i lewa strzałka” niżej). Historia nagrywania scala teraz wpisy prób z dostępnymi plikami oznaczonymi w `library.db`, także spoza zwykłego członkostwa Biblioteki; nie dubluje tej samej ścieżki i nie zmienia profilu.
 - Zapis Ulubionych, playlist, kolejności i pozostałego stanu przez jednego właścicielaC#.
+- Podcasty i YouTube mają już wąski zapis postępu przez jednego właściciela C#:
+  checkpoint co 15 sekund, stan „w trakcie” po minucie i „odtworzony” po
+  naturalnym końcu. Python pozostaje czytelnikiem `podcasts.db`; blokada drugiego
+  hosta i wykrycie starego WPF chronią przed dwoma pisarzami. Nadal brakuje
+  dodawania, usuwania, odświeżania, pobierania i specjalnych widoków podcastów.
 - Pozostałe sesje i ich pełna obsługa, nagrywanie/harmonogramy, pozostałe ustawienia, presety oraz redakcja materiałów.
 
 Nie policzono rzetelnie procentu zgodności całego programu. Dawne237pozycji/196skrótów to historyczny spisWPF z421, nie aktualny mianownik pokrycia i nie dowód dostępności każdej funkcji.

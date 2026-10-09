@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using AccessibleMediaController.Core.Podcasts;
 using Microsoft.Data.Sqlite;
 
 namespace AccessibleMediaController.Core.Configuration;
@@ -256,6 +257,119 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             """,
             ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
         transaction.Commit();
+    }
+
+    public PodcastPlaybackCheckpointResult SavePlaybackCheckpoint(
+        string episodeId,
+        TimeSpan position,
+        TimeSpan duration,
+        bool completed)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(episodeId);
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var transaction = connection.BeginTransaction();
+
+            PodcastEpisodeSettings episode;
+            using (var read = connection.CreateCommand())
+            {
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+                read.Parameters.AddWithValue("$id", episodeId);
+                var payload = read.ExecuteScalar() as string;
+                if (string.IsNullOrWhiteSpace(payload))
+                {
+                    throw new KeyNotFoundException(
+                        "Odcinka nie ma już w bibliotece Podcastów i YouTube.");
+                }
+                episode = JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                    payload,
+                    PayloadJsonOptions)
+                    ?? throw new InvalidDataException(
+                        "Nie można odczytać zapisanego stanu odcinka.");
+            }
+
+            var previousPosition = episode.ResumePositionTicks;
+            var previousDuration = episode.DurationTicks;
+            var previousNew = episode.IsNew;
+            var previousStarted = episode.IsStarted;
+            var previousPlayed = episode.IsPlayed;
+
+            var normalizedDuration = duration > TimeSpan.Zero
+                ? Math.Max(0, duration.Ticks)
+                : episode.DurationTicks;
+            episode.DurationTicks = normalizedDuration;
+            if (completed)
+            {
+                // Ten sam skutek co DemoMediaSession.ContinueAfterPlaybackEnded:
+                // odtworzony odcinek przy kolejnym jawnym uruchomieniu zaczyna
+                // sie od poczatku, a jego stan na liscie brzmi "odtworzony".
+                episode.ResumePositionTicks = 0;
+                PodcastEpisodeProgress.MarkPlayed(episode);
+            }
+            else
+            {
+                var ticks = Math.Max(0, position.Ticks);
+                if (normalizedDuration > 0) ticks = Math.Min(ticks, normalizedDuration);
+                episode.ResumePositionTicks = ticks;
+                PodcastEpisodeProgress.UpdateFromPosition(
+                    episode,
+                    TimeSpan.FromTicks(ticks));
+            }
+
+            var changed = previousPosition != episode.ResumePositionTicks
+                || previousDuration != episode.DurationTicks
+                || previousNew != episode.IsNew
+                || previousStarted != episode.IsStarted
+                || previousPlayed != episode.IsPlayed;
+            if (changed)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    UPDATE podcast_episodes SET
+                        is_new = $new,
+                        is_started = $started,
+                        is_played = $played,
+                        content_hash = $hash,
+                        payload_json = $payload
+                    WHERE id = $id;
+                    """,
+                    ("$new", episode.IsNew),
+                    ("$started", episode.IsStarted),
+                    ("$played", episode.IsPlayed),
+                    ("$hash", Fingerprint(episode)),
+                    ("$payload", JsonSerializer.Serialize(episode, PayloadJsonOptions)),
+                    ("$id", episode.Id));
+            }
+
+            Execute(
+                connection,
+                transaction,
+                "UPDATE podcast_state SET current_item_id = $id WHERE singleton = 1;",
+                ("$id", episode.Id));
+            if (changed)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO metadata(key, value) VALUES('last_saved_utc', $value)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+                    """,
+                    ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+            }
+            transaction.Commit();
+            return new PodcastPlaybackCheckpointResult(
+                changed,
+                completed,
+                TimeSpan.FromTicks(episode.ResumePositionTicks),
+                TimeSpan.FromTicks(episode.DurationTicks),
+                PodcastEpisodeProgress.GetLabel(episode));
+        }
     }
 
     private static Dictionary<string, StoredFingerprint> ReadHashes(

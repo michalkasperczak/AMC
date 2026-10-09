@@ -40,6 +40,9 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// </summary>
     private readonly LiteQueueStore? _queueStore;
     private readonly LiteBookmarkStore? _bookmarkStore;
+    private readonly LitePodcastProgressStore? _podcastProgressStore;
+    private string? _lastPodcastProgressError;
+    private bool _currentPodcastCompleted;
 
     /// <summary>
     /// Ktory silnik gra TERAZ. Dwie sesje maja osobne wyjscia, ale dzwiek
@@ -71,7 +74,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private bool _paused;
 
     public LiteEngineHandlers(int timeshiftMinutes)
-        : this(timeshiftMinutes, null, null)
+        : this(timeshiftMinutes, null, null, null)
     {
     }
 
@@ -84,11 +87,13 @@ internal sealed class LiteEngineHandlers : IDisposable
     public LiteEngineHandlers(
         int timeshiftMinutes,
         LiteQueueStore? queueStore,
-        LiteBookmarkStore? bookmarkStore = null)
+        LiteBookmarkStore? bookmarkStore = null,
+        LitePodcastProgressStore? podcastProgressStore = null)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
+        _podcastProgressStore = podcastProgressStore;
         _queue = new LiteQueueCoordinator(_files, queueStore);
 
         _files.PlaybackFailed += (_, e) => Publish("playback.failed",
@@ -98,6 +103,18 @@ internal sealed class LiteEngineHandlers : IDisposable
                 tempoFallbackReason = _files.TempoFallbackReason });
         _files.PlaybackEnded += (_, e) =>
         {
+            if (e.Item.Kind == MediaItemKind.Episode)
+            {
+                TimeSpan duration;
+                lock (_gate)
+                {
+                    _currentPodcastCompleted = true;
+                    duration = string.Equals(_filesDurationId, e.Item.Id, StringComparison.Ordinal)
+                        ? _filesDuration
+                        : e.Item.Duration;
+                }
+                TrySavePodcastProgress(e.Item.Id, TimeSpan.Zero, duration, completed: true);
+            }
             // Czy kolejka poprowadzi dalej? Pytamy PRZED ogloszeniem konca, zeby
             // okno nie mowilo "Koniec utworu" w chwili, gdy zaraz zacznie grac
             // nastepna pozycja. Samo pytanie nic nie zmienia w kolejce.
@@ -207,6 +224,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["transport.setVolume"] = (request, _) => SetVolume(request.Args),
             ["transport.setRate"] = (request, _) => SetRate(request.Args),
             ["transport.status"] = (_, _) => Status(),
+            ["podcast.checkpoint"] = (_, _) => SaveCurrentPodcastProgress(),
             ["bookmark.add"] = (request, _) => AddBookmark(request.Args),
             ["radio.importPlaylist"] = (request, _) => ImportPlaylist(request.Args),
             ["audio.configure"] = (request, _) => ConfigureAudio(request.Args),
@@ -841,6 +859,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _events = events;
         var path = LiteArgs.RequirePath(args, "path");
         if (!File.Exists(path)) throw new LiteRequestException($"Nie znaleziono pliku: {path}");
+        TrySaveCurrentPodcastProgress();
 
         var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(args, "positionSeconds", 0d, 0d, 86_400d));
         var volume = LiteArgs.ReadInt(args, "volume", _volume, 0, 100);
@@ -900,6 +919,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             if (!File.Exists(source))
                 throw new LiteRequestException("Nie znaleziono pliku materiału.");
         }
+        TrySaveCurrentPodcastProgress();
 
         var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
             args, "positionSeconds", 0d, 0d, 604_800d));
@@ -918,6 +938,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             if (_activeEngine != "files") _radio.Stop();
             _activeEngine = "files";
             _filesItem = item;
+            _currentPodcastCompleted = false;
             ForgetStaleFilesDurationLocked(item.Id);
             _volume = volume;
             _rate = rate;
@@ -937,6 +958,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             throw new LiteRequestException("Adres stacji musi być adresem HTTP lub HTTPS.");
         }
+        TrySaveCurrentPodcastProgress();
 
         var volume = LiteArgs.ReadInt(args, "volume", _volume, 0, 100);
         var item = new MediaItem
@@ -1012,6 +1034,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object StopAll()
     {
+        TrySaveCurrentPodcastProgress();
         // Gdy transport prowadzi KOLEJKA, zatrzymanie idzie przez jej sesje.
         // Samo _files.Stop() zostawialo sesje w stanie "gra" (IsPlaying), wiec
         // kolejne pauza/wznowienie i queue.status klamaly o dzwieku.
@@ -1100,6 +1123,73 @@ internal sealed class LiteEngineHandlers : IDisposable
         var byQueue = _queue.SetRate(rate);
         if (!byQueue) _files.SetPlaybackRate(rate);
         return new { rate, engine, queue = byQueue };
+    }
+
+    private object SaveCurrentPodcastProgress()
+    {
+        if (_podcastProgressStore is null)
+            throw new LiteRequestException(
+                "Zapisywanie postępu nie ma dostępu do biblioteki Podcastów i YouTube.");
+
+        string episodeId;
+        TimeSpan duration;
+        bool completed;
+        lock (_gate)
+        {
+            if (_activeEngine != "files" || _filesItem?.Kind != MediaItemKind.Episode)
+                throw new LiteRequestException("Nie jest teraz odtwarzany odcinek podcastu.");
+            episodeId = _filesItem.Id;
+            duration = string.Equals(_filesDurationId, episodeId, StringComparison.Ordinal)
+                ? _filesDuration
+                : _filesItem.Duration;
+            completed = _currentPodcastCompleted;
+        }
+        var position = completed ? TimeSpan.Zero : _files.Position;
+        return _podcastProgressStore.Save(episodeId, position, duration, completed);
+    }
+
+    private void TrySaveCurrentPodcastProgress()
+    {
+        if (_podcastProgressStore is null) return;
+        string? episodeId;
+        TimeSpan duration;
+        bool completed;
+        lock (_gate)
+        {
+            if (_activeEngine != "files" || _filesItem?.Kind != MediaItemKind.Episode) return;
+            episodeId = _filesItem.Id;
+            duration = string.Equals(_filesDurationId, episodeId, StringComparison.Ordinal)
+                ? _filesDuration
+                : _filesItem.Duration;
+            completed = _currentPodcastCompleted;
+        }
+        TrySavePodcastProgress(
+            episodeId,
+            completed ? TimeSpan.Zero : _files.Position,
+            duration,
+            completed);
+    }
+
+    private void TrySavePodcastProgress(
+        string episodeId,
+        TimeSpan position,
+        TimeSpan duration,
+        bool completed)
+    {
+        if (_podcastProgressStore is null) return;
+        try
+        {
+            _podcastProgressStore.Save(episodeId, position, duration, completed);
+            _lastPodcastProgressError = null;
+        }
+        catch (Exception exception)
+        {
+            var message = exception.Message;
+            if (string.Equals(message, _lastPodcastProgressError, StringComparison.Ordinal)) return;
+            _lastPodcastProgressError = message;
+            Publish("podcast.progressSaveFailed", new { message });
+            Console.Error.WriteLine("[lite-host] nie zapisano postępu podcastu: " + message);
+        }
     }
 
     private object Status()
@@ -1200,6 +1290,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             if (_queue.OwnsCurrent(_filesItem?.Id)) _queue.NotePosition(_files.Position);
             _queue.SaveResumeCheckpoint();
+            TrySaveCurrentPodcastProgress();
         }
         catch (Exception exception)
         {
@@ -1215,5 +1306,6 @@ internal sealed class LiteEngineHandlers : IDisposable
         // tej samej kopii profilu dostawalby odmowe po juz zamknietym procesie,
         // czyli trwalosc dzialalaby raz.
         _queueStore?.Dispose();
+        _podcastProgressStore?.Dispose();
     }
 }

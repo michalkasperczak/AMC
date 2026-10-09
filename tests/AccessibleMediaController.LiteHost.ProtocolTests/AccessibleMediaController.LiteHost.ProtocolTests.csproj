@@ -18,5 +18,7 @@
              Link="Protocol\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteBookmarkStore.cs"
              Link="LiteBookmarkStore.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LitePodcastProgressStore.cs"
+             Link="LitePodcastProgressStore.cs" />
   </ItemGroup>
 </Project>

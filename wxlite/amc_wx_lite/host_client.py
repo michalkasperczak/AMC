@@ -95,6 +95,7 @@ class LiteHostClient:
         profile_dir: str | Path | None = None,
         queue_write: bool = False,
         library_db: str | Path | None = None,
+        podcasts_db: str | Path | None = None,
         on_event: Callable[[str, dict], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         spawn: Callable[..., Any] | None = None,
@@ -111,6 +112,7 @@ class LiteHostClient:
         # kontraktu, zeby okno nie startowalo z gwarantowanym bledem.
         self.queue_write = bool(queue_write) and self.profile_dir is not None
         self.library_db = str(library_db) if library_db else None
+        self.podcasts_db = str(podcasts_db) if podcasts_db else None
         self._on_event = on_event
         self._on_stderr = on_stderr
         self._spawn = spawn or subprocess.Popen
@@ -144,6 +146,8 @@ class LiteHostClient:
                 command.append("--queue-write")
         if self.library_db is not None:
             command += ["--library-db", self.library_db]
+        if self.podcasts_db is not None:
+            command += ["--podcasts-db", self.podcasts_db]
         return command
 
     def start(self) -> None:
@@ -391,6 +395,10 @@ class LiteHostClient:
 
     def status(self) -> Any:
         return self.call("transport.status", timeout=5.0)
+
+    def checkpoint_podcast(self) -> Any:
+        """Zapisz żywą pozycję odcinka przez wąską operację hosta C#."""
+        return self.call("podcast.checkpoint", timeout=15.0)
 
     def add_bookmark(self, *, item_id: str, item_title: str) -> Any:
         return self.call(
