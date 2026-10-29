@@ -9132,8 +9132,20 @@ class LiteFrame(wx.Frame):
         self.podcasts = PodcastSource(self.layout)
         private_tidal_enabled = "session.tidal" in _RELEASE_PROFILE.capabilities
         self.tidal = TidalSource(self.layout) if private_tidal_enabled else None
+        # Radio Archiwista: leniwe źródło (utworzone tutaj, gdy profil
+        # udostępnia sesję) i stan pomocniczy widoku godzin.
+        self._radioarchiwista = None
+        self._radioarchiwista_hours_loaded = 0
+        self._radioarchiwista_playing_id: str | None = None
+        self._radioarchiwista_downloads: set[str] = set()
         self.search_sources = SearchSources(
-            self.library, self.radio, self.podcasts, self.tidal
+            self.library,
+            self.radio,
+            self.podcasts,
+            self.tidal,
+            self._radioarchiwista_source()
+            if _radioarchiwista_module is not None
+            else None,
         )
         if private_tidal_enabled:
             self._tidal_queue_rows = list(tidal_queue_rows(state.tidal_queue_items))
@@ -9304,12 +9316,6 @@ class LiteFrame(wx.Frame):
         self._frontier_smart_snapshot: dict = {}
         self._frontier_smart_active_device_id = ""
         self._frontier_smart_status_poll_pending = False
-        # Radio Archiwista: leniwe źródło (utworzone przy pierwszym wejściu)
-        # i stan pomocniczy widoku godzin.
-        self._radioarchiwista = None
-        self._radioarchiwista_hours_loaded = 0
-        self._radioarchiwista_playing_id: str | None = None
-        self._radioarchiwista_downloads: set[str] = set()
         # Frontier/FSAPI potrafi odpowiadać przez kilka sekund. Szybkie
         # klawisze głośności nie mogą tworzyć osobnych równoległych żądań:
         # zapamiętujemy wyłącznie ostatnią wartość i wysyłamy ją po bieżącej.
@@ -11788,6 +11794,15 @@ class LiteFrame(wx.Frame):
                 OpenTidalView(target, preferred_id=item_id),
                 after_refresh=complete,
             )
+            return
+        if entry.session_id is SessionId.RADIOARCHIWISTA:
+            # Stacja -> lista stacji, nagranie -> ulubione. Oba widoki
+            # działają offline, więc wejście jest natychmiastowe.
+            if entry.row.kind == "recording":
+                self._open_radioarchiwista_favorites(preferred_id=item_id)
+            else:
+                self._open_radioarchiwista_stations(preferred_id=item_id)
+            complete()
             return
         if entry.session_id in SPEAKER_SESSIONS:
             state = self.navigator.sessions[entry.session_id]
@@ -18381,7 +18396,9 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("radioarchiwista", work, done, failed)
 
-    def _open_radioarchiwista_favorites(self) -> None:
+    def _open_radioarchiwista_favorites(
+        self, preferred_id: str | None = None,
+    ) -> None:
         """Ulubione nagrania: w pełni offline, bez dotykania katalogu."""
 
         source = self._radioarchiwista_source()
@@ -18399,6 +18416,7 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.apply_radioarchiwista_rows(
                 LibraryView.RADIOARCHIWISTA_FAVORITES,
                 rows,
+                preferred_id=preferred_id,
             ))
 
         def failed(error: Exception) -> None:

@@ -287,6 +287,7 @@ def station_rows(index: StationsIndex) -> list[Row]:
             detail=f"{station.archive_count} nagrań" if station.archive_count else "",
             show_kind=False,
             service_id=station.slug,
+            service_kind="rarchStation",
         )
         for station in sorted(index.stations, key=lambda s: s.public_name.casefold())
     ]
@@ -788,6 +789,26 @@ class RadioarchiwistaSource:
         return tuple(collected), stamp
 
     # -- Ulubione --------------------------------------------------------
+
+    def search_rows(self) -> list[Row]:
+        """Wiersze do globalnego wyszukiwania AMC: tylko zapisane dane.
+
+        Stacje dokłada wyłącznie z ważnego cache (wyszukiwanie nie może
+        schodzić do sieci), ulubione nagrania zawsze, bo mieszkają
+        w profilu.
+        """
+        url = resolve_catalog_path(self.catalog_base(), "./data/stations.json")
+        rows: list[Row] = []
+        cached = self._load_cached(
+            url, ttl_seconds=STATIONS_TTL_SECONDS, force=False,
+        )
+        if cached is not None:
+            rows.extend(station_rows(parse_stations_index(cached.payload)))
+        rows.extend(favorite_rows(
+            self.load_favorites(),
+            positions=self.load_positions(),
+        ))
+        return rows
 
     def load_favorites(self) -> list[dict]:
         try:

@@ -413,3 +413,40 @@ def test_recording_by_id_pamietta_dzien_i_ulubione(tmp_path: Path) -> None:
     )
     assert favorite_rows[0].position_seconds == 240.0
     assert favorite_rows[0].kind == "recording"
+
+
+def test_station_rows_niosa_service_kind_dla_nawigacji() -> None:
+    # Regresja: Enter na stacji działa dzięki service_kind; bez niego
+    # nawigator nie rozpoznaje wiersza poziomu stacji.
+    rows = rarch.station_rows(rarch.parse_stations_index(_fixture()[rarch.DEFAULT_CATALOG_BASE + "data/stations.json"]))
+    assert rows
+    assert all(row.service_kind == "rarchStation" for row in rows)
+    assert {row.service_id for row in rows} == {"r357", "pr1"}
+
+
+def test_search_rows_bez_sieci_vracaja_ulubione(tmp_path: Path) -> None:
+    source, calls = _source(tmp_path)
+    source.toggle_favorite(_favorite_first_recording(source))
+    calls.clear()
+    rows = source.search_rows()
+    # Kluczowa obietnica: wyszukiwanie nie schodzi do sieci.
+    assert calls == []
+    assert "recording" in [row.kind for row in rows]
+
+
+def test_search_rows_dokladaja_stacje_z_cache(tmp_path: Path) -> None:
+    source, calls = _source(tmp_path)
+    source.stations()  # rozgrzewa cache stacji
+    source.toggle_favorite(_favorite_first_recording(source))
+    calls.clear()
+    rows = source.search_rows()
+    assert calls == []
+    kinds = [row.kind for row in rows]
+    assert kinds.count("folder") == 2  # Radio 357, PR1
+    assert kinds.count("recording") == 1
+
+
+def _favorite_first_recording(source) -> object:
+    # W fixture tylko PR1 ma shard dnia 29.10.2026.
+    recordings, _ = source.recordings("pr1", 2026, 10, 29)
+    return recordings[0]
