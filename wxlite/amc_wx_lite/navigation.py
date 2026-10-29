@@ -1248,6 +1248,8 @@ class Navigator:
 
     @staticmethod
     def _session_name(session_id: SessionId) -> str:
+        # Ta mapa musi pokrywac caly enum SessionId: switch_session oglasza
+        # nazwe przy KAZDYM przelaczeniu, a brak wpisu ubijal GUI (KeyError).
         return {
             SessionId.FILES: "Pliki lokalne",
             SessionId.RADIO: "Radio",
@@ -1257,6 +1259,7 @@ class Navigator:
             SessionId.SONOS: "Sonos",
             SessionId.SPOTIFY: "Spotify",
             SessionId.FRONTIER_SMART: "Frontier Smart",
+            SessionId.RADIOARCHIWISTA: "Radio Archiwista",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:

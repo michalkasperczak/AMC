@@ -15876,6 +15876,7 @@ class LiteFrame(wx.Frame):
             SessionId.WIIM: "WiiM",
             SessionId.SONOS: "Sonos",
             SessionId.FRONTIER_SMART: "Frontier Smart",
+            SessionId.RADIOARCHIWISTA: "Radio Archiwista",
         }[self.navigator.active]))
 
         active_list = self._active_list()

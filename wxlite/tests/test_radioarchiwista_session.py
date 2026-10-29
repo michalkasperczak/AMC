@@ -282,3 +282,27 @@ def test_blad_sieci_zostawia_widok_i_zaznaczenie() -> None:
     assert isinstance(intents[0], Announce)
     assert state.library_view is LibraryView.RADIOARCHIWISTA_STATIONS
     assert state.model.selected_id == "rarch:station:pr1"
+
+
+def test_nazwa_sesji_jest_zdefiniowana_dla_calego_enumu() -> None:
+    # Regresja z zywej maszyny: brak wpisu RADIOARCHIWISTA w mapie nazw
+    # navigatora ubijal cale GUI (KeyError w switch_session przy Ctrl+4),
+    # a testy przechodzily, bo nikt nie przelaczal NA te sesje. Mapa musi
+    # pokrywac CALY enum — inaczej pierwszy uzytkownik nowej sesji traci okno.
+    for session_id in SessionId:
+        name = Navigator._session_name(session_id)
+        assert isinstance(name, str) and name.strip()
+
+
+def test_przelaczenie_na_i_z_radioarchiwisty_oglasza_nazwe() -> None:
+    # Ctrl+4 wchodzil w sesje, ale kazde przełączenie ogłasza nazwe PRZEZ
+    # mape nazw; sprawdzamy obie strony dla kazdej sesji, lacznie z powrotem.
+    for target in SessionId:
+        navigator = Navigator()
+        navigator.active = SessionId.RADIOARCHIWISTA
+        intents = navigator.switch_session(target)
+        assert intents and isinstance(intents[0], Announce)
+        assert intents[0].text.strip()
+        back = navigator.switch_session(SessionId.RADIOARCHIWISTA)
+        assert back and isinstance(back[0], Announce)
+        assert "Radio Archiwista" in back[0].text
