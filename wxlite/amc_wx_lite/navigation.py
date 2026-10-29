@@ -33,6 +33,7 @@ class SessionId(Enum):
     SONOS = "sonos"
     SPOTIFY = "spotify"
     FRONTIER_SMART = "frontierSmart"
+    RADIOARCHIWISTA = "radioarchiwista"
 
 
 class LibraryView(Enum):
@@ -129,6 +130,15 @@ class LibraryView(Enum):
     SONOS_FAVORITES = "sonosFavorites"
     SONOS_PLAYLISTS = "sonosPlaylists"
     SONOS_OWN_STREAMS = "sonosOwnStreams"
+    #: Poziomy katalogu nagrań Radio Archiwisty. Osobne wartości pozwalają
+    #: Backspace i filtrom rozpoznać poziom bez wstawiania identyfikatora
+    #: stacji do nazwy dostępnej.
+    RADIOARCHIWISTA_STATIONS = "radioarchiwistaStations"
+    RADIOARCHIWISTA_YEARS = "radioarchiwistaYears"
+    RADIOARCHIWISTA_MONTHS = "radioarchiwistaMonths"
+    RADIOARCHIWISTA_DAYS = "radioarchiwistaDays"
+    RADIOARCHIWISTA_HOURS = "radioarchiwistaHours"
+    RADIOARCHIWISTA_FAVORITES = "radioarchiwistaFavorites"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie

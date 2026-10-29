@@ -39,6 +39,7 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "session.wiim": "WiiM",
         "session.sonos": "Sonos",
         "session.frontierSmart": "Frontier Smart",
+        "session.radioarchiwista": "Radio Archiwista",
         "view.allFiles": "Wszystkie pliki",
         "view.favorites": "Ulubione",
         "view.playlists": "Playlisty",
@@ -140,6 +141,7 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "session.wiim": "WiiM",
         "session.sonos": "Sonos",
         "session.frontierSmart": "Frontier Smart",
+        "session.radioarchiwista": "Radio Archiwista",
         "view.allFiles": "All files",
         "view.favorites": "Favorites",
         "view.playlists": "Playlists",
@@ -332,6 +334,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "session.sonos": "Sonos",
     "session.spotify": "Spotify",
     "session.frontierSmart": "Frontier Smart",
+    "session.radioarchiwista": "Radio Archiwista",
     "session.list": "Session manager",
     "transport.playPause": "Play or pause",
     "transport.toggleMute": "Mute or unmute",
@@ -545,6 +548,8 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "sonos.ownStreams.paste": "Paste the Sonos stream",
     "sonos.target.select": "Select a Sonos group",
     "frontierSmart.mode.select": "Select Frontier Smart mode",
+    "radioarchiwista.favorite.toggle": "Toggle favorite recording",
+    "radioarchiwista.download.selected": "Download the selected recording",
 }
 
 

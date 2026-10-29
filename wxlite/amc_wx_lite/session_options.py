@@ -155,6 +155,16 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         False, False, False, True, supports_player_entry_behavior=True
     ),
     SessionId.FRONTIER_SMART: SessionCapabilities(False, False, False, True),
+    # Radio Archiwista gra przez ten sam tor media.play co Podcasty: prędkość,
+    # wznowienie pozycji i obróbka audio działają identycznie.
+    SessionId.RADIOARCHIWISTA: SessionCapabilities(
+        supports_audio_processing=True,
+        supports_playback_rate=True,
+        supports_resume_position=True,
+        supports_player_exit_pause=True,
+        supports_player_entry_behavior=True,
+        supports_preset_entry_behavior=True,
+    ),
     # WiiM odtwarza na urzadzeniu i historycznie nie mial pauzy po wyjsciu.
     SessionId.WIIM: SessionCapabilities(
         False, False, False, False, supports_player_entry_behavior=True
@@ -440,6 +450,7 @@ SESSION_DISPLAY_NAMES: dict[SessionId, str] = {
     SessionId.SONOS: "Sonos",
     SessionId.SPOTIFY: "Spotify",
     SessionId.FRONTIER_SMART: "Frontier Smart",
+    SessionId.RADIOARCHIWISTA: "Radio Archiwista",
 }
 
 

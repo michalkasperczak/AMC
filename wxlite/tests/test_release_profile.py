@@ -75,9 +75,11 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
         "files", "radio", "podcasts", "wiim", "frontierSmart"
     )
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
+    # Radio Archiwista jest dostępny wyłącznie w AMC Test do czasu
+    # ustabilizowania sesji; do Public trafi świadomą decyzją.
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session not in {"tidal", "spotify", "sonos"}
+        if session not in {"tidal", "spotify", "sonos", "radioarchiwista"}
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
     assert "spotify" not in public_text
@@ -91,6 +93,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
         and "tidal" not in capability.casefold()
         and "sonos" not in capability.casefold()
         and "youtube.account" not in capability.casefold()
+        and "radioarchiwista" not in capability.casefold()
     )
 
 
