@@ -93,6 +93,14 @@ _NON_SQLITE_VIEWS = (
     # backendu, nie z lokalnej bazy plików ani podcasts.db.
     LibraryView.YOUTUBE_BROADCASTS,
     LibraryView.YOUTUBE_BROADCASTS_AGGREGATE,
+    # Widoki Radio Archiwisty czytają publiczny katalog HTTP przez własny
+    # moduł źródła z cache w profilu, nie z library.db ani podcasts.db.
+    LibraryView.RADIOARCHIWISTA_STATIONS,
+    LibraryView.RADIOARCHIWISTA_YEARS,
+    LibraryView.RADIOARCHIWISTA_MONTHS,
+    LibraryView.RADIOARCHIWISTA_DAYS,
+    LibraryView.RADIOARCHIWISTA_HOURS,
+    LibraryView.RADIOARCHIWISTA_FAVORITES,
     # Pierwsze widoki TIDAL czytaja state.json przez osobny TidalSource.
     # Nie wolno kierowac ich do lokalnego LibrarySource/library.db.
     LibraryView.TIDAL_LIBRARY,
