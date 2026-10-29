@@ -1088,3 +1088,19 @@ Starting with `alpha.286`, the Radio `Recording` view no longer repeats the
 obvious “Internet Radio” session name whenever focus enters the list. A session
 switch announces the slot, view, station and recording state. Other Radio views
 retain the full session name where it remains useful context.
+
+## Radio Archiwista in AMC Test
+
+The **Radio Archiwista** session browses a public archive of radio
+recordings (radioarchiwista.github.io, 43 stations, about 242 thousand
+hours) and plays any hour through the same path as podcasts: playback rate,
+position resume and audio processing work identically. The station list
+leads through years, months and days to hourly recordings; the "Latest
+recordings" row gathers the newest published hour from every station that
+recorded it. `Ctrl+D` downloads the selected recording as MP3 with progress
+and cancellation, `Ctrl+Shift+U` toggles it as a favorite, `Ctrl+U` shows
+favorites offline, and `F5` refreshes the catalog. The catalog is public,
+so the session needs no sign-in; a profile cache keeps recently browsed
+days available offline as well. The session ships only in the AMC Test
+profile and is disabled by default — enable it in the Session manager
+(`Ctrl+Shift+S`), which assigns a `Ctrl+1–9` shortcut.
