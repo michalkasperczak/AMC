@@ -36,6 +36,7 @@ from .release_profile import PUBLIC_PROFILE_ID, current_profile
 from .shortcuts import (
     Action,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     RECOGNITION_HISTORY_SESSIONS,
     SONOS_SUPPORTED_ACTIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
@@ -184,6 +185,7 @@ class Menu:
 SEPARATOR = MenuItem(is_separator=True)
 FILES_ONLY = (SessionId.FILES,)
 PODCASTS_ONLY = (SessionId.PODCASTS,)
+RADIOARCHIWISTA_ONLY = (SessionId.RADIOARCHIWISTA,)
 RADIO_ONLY = (SessionId.RADIO,)
 STABLE_TIMELINE_SESSIONS = (
     SessionId.FILES,
@@ -246,6 +248,7 @@ def menus_for_session(
         SessionId.SONOS: SONOS_SUPPORTED_ACTIONS,
         SessionId.SPOTIFY: SPOTIFY_SUPPORTED_ACTIONS,
         SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
+        SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     }.get(session_id)
     menus: list[Menu] = []
     for described in build_menus(
@@ -630,6 +633,29 @@ def build_menus(
                 accelerator=False,
                 needs_description_item=True,
                 visible_sessions=SPOTIFY_ONLY,
+            ),
+            MenuItem(
+                "Odśwież &katalog Radio Archiwisty",
+                Action.RADIOARCHIWISTA_REFRESH,
+                shortcut="F5",
+                accelerator=False,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
+            MenuItem(
+                "Zmień stan &ulubionych nagrania",
+                Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+                shortcut="Ctrl+Shift+U",
+                accelerator=False,
+                needs_selection=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
+            MenuItem(
+                "&Pobierz zaznaczone nagranie",
+                Action.RADIOARCHIWISTA_DOWNLOAD,
+                shortcut="Ctrl+D",
+                accelerator=False,
+                needs_selection=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.

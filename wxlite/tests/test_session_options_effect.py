@@ -862,7 +862,9 @@ def test_kazda_droga_startu_bierze_predkosc_wlasciwej_sesji():
         }
     }
     assert "_session_default_rate(SessionId.FILES)" in methods["_play_track"]
-    assert "_session_default_rate(SessionId.PODCASTS)" in methods["_play_media"]
+    # _play_media jest wspoldzielone przez Podcasty i Radio Archiwista:
+    # tempo bierze z parametru sesji przekazanego przez wywolujacego.
+    assert "_session_default_rate(session_id)" in methods["_play_media"]
     for name in ("_play_from_queue", "_play_queue_at", "_queue_step"):
         assert "_session_default_rate(SessionId.FILES)" in methods[name]
 

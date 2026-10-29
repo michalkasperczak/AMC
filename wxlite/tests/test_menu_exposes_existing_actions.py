@@ -26,6 +26,7 @@ from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.shortcuts import (
     FILES_SESSION_VIEW,
     FRONTIER_SMART_SESSION_VIEW,
+    RADIOARCHIWISTA_SESSION_VIEW,
     LIST_VIEW,
     PLAYER_VIEW,
     PODCAST_INBOX_LIST_VIEW,
@@ -160,6 +161,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     for table in (
         FILES_SESSION_VIEW,
         FRONTIER_SMART_SESSION_VIEW,
+        RADIOARCHIWISTA_SESSION_VIEW,
         PODCAST_LIBRARY_LIST_VIEW,
         PODCAST_INBOX_LIST_VIEW,
         PODCAST_SESSION_VIEW,

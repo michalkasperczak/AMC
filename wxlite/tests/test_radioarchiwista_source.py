@@ -357,3 +357,59 @@ def test_pobieranie_pustego_pliku_to_blad() -> None:
         else:
             raise AssertionError("pusty plik nie może uchodzić za pobrany")
         assert not destination.with_name(destination.name + ".part").exists()
+
+
+def test_najnowsze_nagrania_ostatniej_godziny(tmp_path: Path) -> None:
+    catalog = _fixture()
+    day_url = "https://radioarchiwista.github.io/data/stations/pr1/2026/10/29.json"
+    catalog[day_url]["archives"].append(
+        {
+            "archive_item_identifier": "pr1-2026-10-29",
+            "audio_url": "https://archive.org/download/pr1-2026-10-29/godz20.mp3",
+            "completeness_ratio": 1.0,
+            "day": 29,
+            "duration_seconds": 3600.0,
+            "hour": 20,
+            "local_date_label": "29.10.2026",
+            "local_hour_label": "20:00",
+            "local_label": "29.10.2026 20:00 czasu polskiego",
+            "local_started_at": "2026-10-29T20:00:00+01:00",
+            "status": "published",
+            "utc_started_at": "2026-10-29T19:00:00+00:00",
+        }
+    )
+    source, _calls = _source(tmp_path, catalog)
+    recordings, stamp = source.latest_recordings()
+    assert stamp.startswith("2026-10-29T19")
+    # Tylko nagranie godziny 19:00 UTC; Radio 357 nie ma shardów i jest pominięte.
+    assert [rec.local_hour_label for rec in recordings] == ["20:00"]
+
+
+def test_najnowsze_nagrania_odmawiaja_gdy_nikt_nie_nagra(tmp_path: Path) -> None:
+    source, _calls = _source(tmp_path)  # brak nagrania godziny 19:00 UTC
+    try:
+        source.latest_recordings()
+    except rarch.RadioarchiwistaError as error:
+        assert "ostatniej godziny" in str(error)
+    else:
+        raise AssertionError("oczekiwano uczciwej odmowy")
+
+
+def test_recording_by_id_pamietta_dzien_i_ulubione(tmp_path: Path) -> None:
+    source, _calls = _source(tmp_path)
+    recordings, _from_cache = source.recordings("pr1", 2026, 10, 29)
+    found = source.recording_by_id(recordings[0].item_id)
+    assert found is not None and found.audio_url == recordings[0].audio_url
+
+    fresh, _calls2 = _source(tmp_path)
+    assert fresh.recording_by_id(recordings[0].item_id) is None
+    fresh.toggle_favorite(recordings[0])
+    again = fresh.recording_by_id(recordings[0].item_id)
+    assert again is not None and again.audio_url == recordings[0].audio_url
+
+    favorite_rows = rarch.favorite_rows(
+        fresh.load_favorites(),
+        positions={recordings[0].item_id: 240.0},
+    )
+    assert favorite_rows[0].position_seconds == 240.0
+    assert favorite_rows[0].kind == "recording"

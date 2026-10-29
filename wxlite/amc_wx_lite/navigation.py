@@ -357,6 +357,13 @@ class OpenRadioarchiwistaStations:
 
 
 @dataclass(slots=True)
+class OpenRadioarchiwistaLatest:
+    """Nagrania ostatniej opublikowanej godziny, ze wszystkich stacji."""
+
+    refresh: bool = False
+
+
+@dataclass(slots=True)
 class OpenRadioarchiwistaLevel:
     """Jeden poziom katalogu nagrań: lata, miesiące, dni albo godziny."""
 
@@ -3104,6 +3111,9 @@ class Navigator:
                 ),
                 Announce(row.title),
             ]
+        if row.service_kind == "rarchLatest":
+            self._push_radioarchiwista_history(state)
+            return [OpenRadioarchiwistaLatest()]
         if row.service_kind == "rarchStation" and row.service_id:
             self._push_radioarchiwista_history(state)
             state.library_return_id = row.item_id

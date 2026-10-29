@@ -82,6 +82,27 @@ def recording_row(item_id: str = "rarch:rec:a", position: float = 0.0) -> Row:
     )
 
 
+def test_enter_na_najnowszych_otwiera_ostatnia_godzine() -> None:
+    from amc_wx_lite.navigation import OpenRadioarchiwistaLatest
+
+    navigator = make_navigator()
+    latest = Row(
+        item_id="rarch:latest",
+        title="Najnowsze nagrania",
+        kind="folder",
+        service_kind="rarchLatest",
+        show_kind=False,
+    )
+    navigator.apply_radioarchiwista_rows(
+        LibraryView.RADIOARCHIWISTA_STATIONS, [latest, station_row()]
+    )
+    navigator.sessions[SessionId.RADIOARCHIWISTA].model.select_id("rarch:latest")
+    intents = navigator.activate_selected()
+    assert isinstance(intents[0], OpenRadioarchiwistaLatest)
+    back = navigator.go_to_parent()
+    assert isinstance(back[0], OpenRadioarchiwistaStations)
+
+
 def test_stacje_i_wejscie_w_lata() -> None:
     navigator = make_navigator()
     intents = navigator.apply_radioarchiwista_rows(

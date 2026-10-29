@@ -550,6 +550,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "frontierSmart.mode.select": "Select Frontier Smart mode",
     "radioarchiwista.favorite.toggle": "Toggle favorite recording",
     "radioarchiwista.download.selected": "Download the selected recording",
+    "radioarchiwista.catalog.refresh": "Refresh the Radio Archiwista catalog",
 }
 
 
@@ -557,6 +558,13 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
     "&Wyświetlaj po uruchomieniu:": "Show at &startup:",
+    # Radio Archiwista: komunikaty pobierania i ulubionych.
+    "Pobieram nagranie": "Downloading recording",
+    "To nagranie jest właśnie pobierane": "This recording is already being downloaded",
+    "Zaznacz nagranie, aby je pobrać": "Select a recording to download it",
+    "Zaznacz nagranie, aby zmienić ulubione": "Select a recording to change favorites",
+    "Wczytuję najnowsze nagrania": "Loading the latest recordings",
+    "Sesja Radio Archiwista nie jest dostępna w tym profilu": "Radio Archiwista session is not available in this profile",
     "Wyświetlaj po uruchomieniu": "Show at startup",
     "Ostatnia używana sesja": "Last used session",
     "Menedżer sesji": "Session manager",

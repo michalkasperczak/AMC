@@ -343,6 +343,7 @@ class Action(Enum):
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     RADIOARCHIWISTA_DOWNLOAD = "radioarchiwista.download.selected"
+    RADIOARCHIWISTA_REFRESH = "radioarchiwista.catalog.refresh"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
     SAVE_YOUTUBE_VIDEO_AS = "podcasts.youtube.video.saveAs"
@@ -1060,6 +1061,19 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
 })
 
 
+# Radio Archiwista: sterowanie odtwarzaniem jak Frontier Smart (wspólny tor
+# PlayMedia), a do tego trzy akcje własne katalogu nagrań.
+RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
+    FRONTIER_SMART_SUPPORTED_ACTIONS
+    | {
+        Action.VIEW_FAVORITES,
+        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+        Action.RADIOARCHIWISTA_DOWNLOAD,
+        Action.RADIOARCHIWISTA_REFRESH,
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class Chord:
     """Klawisz + modyfikatory. Nazwy klawiszy wlasne, zeby nie wiazac sie z wx."""
@@ -1621,6 +1635,7 @@ FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
 # Sesja Radio Archiwista: katalog jest publiczny, więc Ctrl+F5 to odświeżenie
 # katalogu, nie okno konta. Skróty materiału są zgodne z Podcastami.
 RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
+    "F5": Action.RADIOARCHIWISTA_REFRESH,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,

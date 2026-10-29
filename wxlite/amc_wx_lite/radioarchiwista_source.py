@@ -29,7 +29,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -388,15 +388,28 @@ def _recording_row_from_record(recording: ArchiveRecording) -> Row:
     )
 
 
-def favorite_rows(favorites: list[dict]) -> list[Row]:
+def favorite_rows(
+    favorites: list[dict],
+    *,
+    positions: dict[str, float] | None = None,
+) -> list[Row]:
     """Wiersze ulubionych nagrań: najnowsze dodane na górze, bez sieci."""
 
+    positions = positions or {}
     ordered = sorted(
         favorites,
         key=lambda item: (_as_float(item.get("added_at")), _clean_text(item.get("item_id"))),
         reverse=True,
     )
-    return [_recording_row_from_record(_favorite_to_recording(item)) for item in ordered]
+    rows = [
+        _recording_row_from_record(_favorite_to_recording(item)) for item in ordered
+    ]
+    if positions:
+        rows = [
+            replace(row, position_seconds=positions.get(row.item_id, 0.0))
+            for row in rows
+        ]
+    return rows
 
 
 def _favorite_to_recording(item: dict) -> ArchiveRecording:
@@ -513,6 +526,9 @@ class RadioarchiwistaSource:
         self._favorites_path = self._dir / "favorites.json"
         self._positions_path = self._dir / "positions.json"
         self._clock = clock
+        #: Materiały ostatnio wczytanych dni; akcje na zaznaczonym wierszu
+        #: nie pobierają niczego drugi raz.
+        self._recent_recordings: dict[str, ArchiveRecording] = {}
         if fetch_json is None:
             def _default_fetch(url: str) -> object:
                 with urllib.request.urlopen(url, timeout=_FETCH_TIMEOUT_SECONDS) as response:
@@ -678,7 +694,12 @@ class RadioarchiwistaSource:
             month=month,
             day=day,
         )
-        return parse_recordings(payload, station), from_cache
+        parsed = parse_recordings(payload, station)
+        if len(self._recent_recordings) > 5000:
+            self._recent_recordings.clear()
+        for recording in parsed:
+            self._recent_recordings[recording.item_id] = recording
+        return parsed, from_cache
 
     def latest_day(
         self,
@@ -706,6 +727,65 @@ class RadioarchiwistaSource:
         day = days[0]
         recordings, from_cache = self.recordings(slug, year, month, day, force=force)
         return recordings, year, month, day, from_cache
+
+    def recording_by_id(self, item_id: str) -> ArchiveRecording | None:
+        """Materiał dla akcji na zaznaczonym wierszu, bez drugiego pobierania."""
+
+        found = self._recent_recordings.get(item_id)
+        if found is not None:
+            return found
+        for item in self.load_favorites():
+            if item.get("item_id") == item_id:
+                return _favorite_to_recording(item)
+        return None
+
+    def latest_recordings(
+        self,
+        *,
+        force: bool = False,
+    ) -> tuple[tuple[ArchiveRecording, ...], str]:
+        """Nagrania ostatniej opublikowanej godziny ze stacji, które ją nagrały.
+
+        Jednym Enterem słucha się „tej godziny” bez wchodzenia w drzewko
+        stacji. Stacje bez tego dnia w katalogu są po prostu pomijane:
+        niespójności publicznego katalogu nie mogą blokować całego widoku.
+        """
+
+        index, _ = self.stations(force=force)
+        stamp = index.latest_hour_started_at
+        if not stamp:
+            raise RadioarchiwistaError(
+                "Katalog nie podaje najnowszej godziny nagrań"
+            )
+        date_parts = stamp[:10].split("-")
+        if len(date_parts) != 3:
+            raise RadioarchiwistaError(
+                "Katalog podaje niezrozumiałą godzinę nagrań"
+            )
+        try:
+            year, month, day = (int(part) for part in date_parts)
+        except ValueError as error:
+            raise RadioarchiwistaError(
+                "Katalog podaje niezrozumiałą godzinę nagrań"
+            ) from error
+        hour_stamp = stamp[:13]
+        collected: list[ArchiveRecording] = []
+        for station in index.stations:
+            try:
+                recordings, _ = self.recordings(
+                    station.slug, year, month, day, force=force
+                )
+            except RadioarchiwistaError:
+                continue
+            for recording in recordings:
+                if recording.utc_started_at[:13] == hour_stamp:
+                    collected.append(recording)
+        if not collected:
+            raise RadioarchiwistaError(
+                "Żadna stacja nie ma jeszcze nagrań ostatniej godziny"
+            )
+        collected.sort(key=lambda rec: (rec.station_name.casefold(), rec.item_id))
+        return tuple(collected), stamp
 
     # -- Ulubione --------------------------------------------------------
 
