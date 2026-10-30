@@ -104,3 +104,24 @@ po ich wykonaniu.
 - Paczka i instalator: `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.450 Radio Archiwista duze listy 2026-10-30`.
   Instalacja: **nie wykonano**; uruchomione AMC Test nie zostało zamknięte.
   Publikacja: **nie wykonano**. Odbiór mowy NVDA: **nie wykonano**.
+
+### Instalacja i publikacja — 30.10.2026
+
+- Późniejsza decyzja użytkownika „GitHub i instaluj aktualizację” zastępuje
+  wstrzymanie instalacji opisane wyżej. Aktualizator z alpha.448 sprawdził
+  sumę instalatora i poprosił uruchomione AMC Test o zwykłe zamknięcie.
+  Zamknięcie powiodło się; nie wymuszano zakończenia procesu.
+- Instalator alpha.450 zakończył pracę. Rejestr Windows podaje
+  `0.1.0-alpha.450`; manifest zainstalowanego programu wskazuje
+  `481302de6d810d510578c7782365479c23a745c7`, profil `test`,
+  godzinę `20:36` i identyfikator paczki `0e387059`. Nowa instancja
+  `AMC.exe`, prywatny `python.exe` i host uruchomiły się z katalogu
+  `C:\Users\micha\AppData\Local\Programs\AMC Test`. Okno zgłosiło
+  „AMC Test — 30.10.2026, 20:36”.
+- Gałąź źródłowa jest na GitHubie pod commitem dokumentacyjnym `10622a22`.
+  Wydanie beta `test-2026.10.30.2036` celuje w commit paczki `481302de`.
+  Zdalny instalator ma 133629195 bajtów i SHA-256 zgodne z lokalnym plikiem.
+  Opublikowano też manifest kanału Test i plik integralności.
+- Automatyczna kontrola okna potwierdziła uruchomienie GUI i etykiety
+  pozycji zwykłej listy Radia. Ręczny odbiór mowy NVDA na dużej liście
+  Plików lokalnych pozostaje otwarty; nie przypisujemy mu wyniku zaliczonego.

@@ -151,3 +151,17 @@
   133629195 bajtów i SHA-256
   `c88a44003acf913c9b9275d0c73796242fc57c936b25dab0e0021ce0c6994539`.
   Instalacja, publikacja i odbiór NVDA pozostają do wykonania.
+
+### Wynik wydania alpha.450 — 30.10.2026
+
+- Na późniejsze polecenie użytkownika wykonano bezpieczną aktualizację
+  działającego AMC Test. Aktualizator poprosił aplikację o zwykłe zamknięcie;
+  nagrywania nie przerwano wymuszeniem. Windows rejestruje wersję
+  `0.1.0-alpha.450`, a zainstalowany manifest potwierdza commit paczki
+  `481302de6d810d510578c7782365479c23a745c7`. Uruchomiono jedną nową
+  instancję z prywatnym runtime i hostem.
+- Opublikowano GitHub prerelease `test-2026.10.30.2036` z instalatorem,
+  plikiem integralności i `amc-update-test.json`. Zdalny instalator ma
+  właściwy rozmiar i SHA-256. Gałąź źródłowa wskazuje `10622a22`.
+- Odbiór rzeczywistej mowy NVDA i prób na żywym katalogu pozostają do
+  wykonania przez użytkownika; kontrolowany start nie zastępuje tych prób.
