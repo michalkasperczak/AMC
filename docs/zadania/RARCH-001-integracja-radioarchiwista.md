@@ -211,3 +211,11 @@
 - Testy izolowanego kodu: 120 zaliczonych, 1 celowo pominięty, niezwiązany test opisu `Ctrl+N` Podcastów. Test `--transport-routing` hosta zaliczony. Kompilacja LiteHosta Release zaliczona bez ostrzeżeń po przywróceniu pakietów.
 - Test regresji wykrył, że `Ctrl+Shift+C` w odtwarzaczu używał dawnego zaznaczenia listy; poprawiono go i ponowiono test. Usunięto omyłkową zmianę wyboru elementu w poleceniu wycinania pliku.
 - Kod, testy i kompilacja są osobnymi wynikami. Identyfikatory commitu i paczki oraz wynik instalacji i publikacji należy dopisać po tych czynnościach. Odbiór mowy NVDA i transmisji z żywego serwera pozostaje zadaniem ręcznym.
+
+### Wynik wydania alpha.451
+
+- Commit źródła `f5c3690216fcbc4f2a2aa581bf8293164c3205b0` z gałęzi `codex/amc-test-radioarchiwista-large-lists-alpha450` został wysłany do `michalkasperczak/AMC`. Stan źródeł podczas budowy był czysty.
+- Pełna paczka `test` przeszła kontrolę integralności i kontrolowany start GUI z hostem. Instalator `AMC-Test-2026-10-30-2314.exe` ma 133626910 bajtów i SHA-256 `ecaf69b380cd0bd2110464f8e48f3465311371bb2e57df290d5d05aad9960ee4`; kontrola sekretów pakietu zaliczona.
+- Aktualizator poprzedniego AMC Test poprosił aplikację o zwykłe zamknięcie. Okno nie odmówiło; host i poprzedni runtime zakończyły się bez wymuszenia. Nowy manifest instalacji wskazuje `f5c36902`, profil `test` i `30.10.2026, 23:14`. Uruchomiła się jedna instancja `AMC.exe`, prywatny `python.exe` i LiteHost z katalogu `C:\Users\micha\AppData\Local\Programs\AMC Test`; okno zgłosiło `AMC Test — 30.10.2026, 23:14`.
+- GitHub prerelease `test-2026.10.30.2314` celuje w ten sam commit. Zdalny instalator, plik integralności i `amc-update-test.json` mają potwierdzone nazwy, stany i rozmiary; zdalny digest instalatora jest równy lokalnemu SHA-256. Adres: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.30.2314.
+- Nie wykonano rzeczywistego odsłuchu mowy NVDA ani prób strumieniowania, pobierania i kolejki na żywym serwerze z tej instalacji. Wymagają odbioru użytkownika przed przeniesieniem do AMC Public.

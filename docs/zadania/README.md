@@ -61,8 +61,8 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 - `PODRAD-001` — **W trakcie; dwa domyślnie wyłączone przełączniki osobnych folderów Radia i Podcastów, celowane testy oraz build hosta zaliczone; bez instalacji i próby NVDA**. Szczegóły:
   [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
 
-- `RARCH-001` — **W trakcie; poprawki po pierwszym odbiorze przygotowane
-  do osobnego wydania AMC Test 0.1.0-alpha.451; potrzebny odbiór NVDA;
+- `RARCH-001` — **W trakcie odbioru; poprawki po pierwszym odbiorze wydane
+  i zainstalowane w AMC Test 0.1.0-alpha.451; potrzebny odbiór NVDA;
   kod, testy i pull request
   [michalkasperczak/AMC#4](https://github.com/michalkasperczak/AMC/pull/4)
   (gałąź `radioarchiwista-sesja`, autor radioarchiwista) są gotowe;
