@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -654,6 +655,8 @@ class RadioarchiwistaSource:
         self._cache_dir = self._dir / "cache"
         self._settings_path = self._dir / "settings.json"
         self._favorites_path = self._dir / "favorites.json"
+        self._queue_path = self._dir / "queue.json"
+        self._queue_lock = threading.Lock()
         self._positions_path = self._dir / "positions.json"
         self._clock = clock
         #: Materiały ostatnio wczytanych dni; akcje na zaznaczonym wierszu
@@ -884,6 +887,9 @@ class RadioarchiwistaSource:
         for item in self.load_favorites():
             if item.get("item_id") == item_id:
                 return _favorite_to_recording(item)
+        for item in self.load_queue():
+            if item.get("item_id") == item_id:
+                return _favorite_to_recording(item)
         return None
 
     def latest_recordings(
@@ -964,6 +970,57 @@ class RadioarchiwistaSource:
         if not isinstance(data, list):
             return []
         return [item for item in data if isinstance(item, dict)]
+
+    def load_queue(self) -> list[dict]:
+        """Lokalna kolejka archiwum, niezależna od kolejki plików hosta."""
+        try:
+            data = json.loads(self._queue_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+    def queue_rows(self) -> list[Row]:
+        positions = self.load_positions()
+        return [
+            replace(_recording_row_from_record(_favorite_to_recording(item)),
+                    position_seconds=positions.get(_clean_text(item.get("item_id")), 0.0))
+            for item in self.load_queue()
+        ]
+
+    def toggle_queue(
+        self, recording: ArchiveRecording, *, play_next: bool = False,
+        current_id: str | None = None,
+    ) -> bool:
+        """Dodaj albo usuń nagranie; „następne” wstawia po grającym."""
+        with self._queue_lock:
+            return self._toggle_queue_locked(
+                recording, play_next=play_next, current_id=current_id,
+            )
+
+    def _toggle_queue_locked(
+        self, recording: ArchiveRecording, *, play_next: bool,
+        current_id: str | None,
+    ) -> bool:
+        queue = self.load_queue()
+        if any(_clean_text(item.get("item_id")) == recording.item_id for item in queue):
+            queue = [item for item in queue if _clean_text(item.get("item_id")) != recording.item_id]
+            added = False
+        else:
+            entry = favorite_record(recording, self._clock())
+            position = len(queue)
+            if play_next:
+                position = next(
+                    (index + 1 for index, item in enumerate(queue)
+                     if _clean_text(item.get("item_id")) == current_id),
+                    0,
+                )
+            queue.insert(position, entry)
+            added = True
+        self._dir.mkdir(parents=True, exist_ok=True)
+        temporary = self._queue_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(queue, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(self._queue_path)
+        return added
 
     def save_favorites(self, favorites: list[dict]) -> None:
         self._dir.mkdir(parents=True, exist_ok=True)

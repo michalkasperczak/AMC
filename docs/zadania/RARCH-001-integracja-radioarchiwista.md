@@ -165,3 +165,49 @@
   właściwy rozmiar i SHA-256. Gałąź źródłowa wskazuje `10622a22`.
 - Odbiór rzeczywistej mowy NVDA i prób na żywym katalogu pozostają do
   wykonania przez użytkownika; kontrolowany start nie zastępuje tych prób.
+
+## Korekta po pierwszym odbiorze — 30.10.2026
+
+### Zachowanie widoczne dla użytkownika
+
+- Lewa strzałka na liście nagrań podaje dostępny czas trwania. Nie czyta wielkości pliku jako bitrate ani nie podaje bitrate bez danych.
+- W odtwarzaczu cyfry `0–9` przechodzą do odpowiedniego procentu nagrania. `B` dodaje zakładkę, `Ctrl+Shift+B` zakładkę nazwaną; `Shift+Page Up/Down` przechodzi po zakładkach. Rozdziały użytkownika korzystają ze skrótów odtwarzacza Podcastów. Brak rozdziałów daje komunikat o braku pozycji.
+- `Spacja` na liście wstrzymuje lub wznawia grające nagranie. `Page Up/Down` w odtwarzaczu przechodzi między nagraniami aktualnej listy, a link jest używany jako źródło kolejnego nagrania.
+- `Ctrl+Shift+U` zmienia ulubione także z odtwarzacza. `Ctrl+Shift+C` kopiuje bezpośredni link do grającego lub zaznaczonego nagrania; komunikat brzmi „Skopiowano link do nagrania”. `Ctrl+L` wraca do pełnej listy stacji.
+- `Ctrl+Shift+Q` dodaje lub usuwa nagranie z lokalnej kolejki, `Ctrl+Shift+Enter` umieszcza je za bieżącym nagraniem, `Ctrl+Q` otwiera kolejkę. Enter uruchamia nagranie z kolejki, a po jego naturalnym końcu odtwarzanie przechodzi do następnego. Kolejka jest zapisana w profilu i nie zmienia strony internetowej ani kolejki lokalnych plików AMC.
+- Lista podczas odtwarzania i pauzy pokazuje odpowiednio „Odtwarzane” i „Wstrzymane”.
+
+### Uzasadnienie i decyzje
+
+- Decyzja użytkownika z 30.10.2026 zastępuje rozważanie lokalnego ukrywania stacji przez `Ctrl+Shift+L`: pełna lista stacji pozostaje widoczna; nie dodajemy usuwania ani filtrowania katalogu tym skrótem.
+- Sterowanie nagraniem ma działać jak w Podcastach i YouTube. Różnią się źródło katalogu, drzewo dat, ograniczenia pobierania i strumieniowania serwera.
+- Kolejka hosta C# obsługuje lokalne ścieżki plików. Nagrania archiwum mają adresy HTTPS, dlatego sesja używa własnej lokalnej kolejki profilu. Przegląd kolejek innych sesji zapisano osobno jako `QUEUE-002`.
+
+### Testy i wynik
+
+- 30.10.2026: końcowa regresja źródła, nawigacji, skrótów, menu, palety i stanu odtwarzania: **162 zaliczone, 1 pominięty celowo** (niezwiązany, równolegle zmieniany opis `Ctrl+N` Podcastów). Osobny test menu i nowych skrótów: **10 zaliczonych**.
+- Host `AccessibleMediaController.LiteHost` zbudowany w konfiguracji Release, bez ostrzeżeń i błędów.
+- Konsolowy test protokołu `--transport-routing`: **TransportRoutingTests: OK**. Próba `dotnet test` na projekcie konsolowym nie uruchamiała zestawów; wynik pochodzi z właściwego `dotnet run`.
+- W szerszym, nieodfiltrowanym zestawie pozostała jedna niezwiązana porażka w równolegle zmienionym opisie `Ctrl+N` Podcastów. Dwie wykryte rozbieżności nowego menu zostały poprawione i zaliczyły ponowną próbę.
+- Instalacji ani ręcznej próby NVDA tego przyrostu jeszcze nie wykonano. W chwili sprawdzania AMC Test był uruchomiony; nie zamykano ani nie podmieniano aplikacji.
+
+### Znane ograniczenia
+
+- Zbiorczy widok `Ctrl+B` oraz lista zakładek zaznaczonego nagrania nie są jeszcze podłączone w tej sesji; dodawanie i nawigacja po zakładkach w odtwarzaczu są zaimplementowane. Potrzebny ręczny odbiór z rzeczywistym nagraniem i NVDA.
+- Dalsze korzystanie z kolejki po przełączeniu na inne sesje wymaga próby na żywo; testy potwierdzają źródło HTTPS i przejście do następnego elementu, nie rzeczywisty streaming serwera.
+- Format pełnej kopii AMC nie ma jeszcze osobnej sekcji danych Radio Archiwisty; nie należy przedstawiać kopii jako potwierdzonej migracji jego kolejki, ulubionych i pozycji. Dane pozostają w lokalnym katalogu profilu.
+
+### Materiał do dokumentacji użytkownika
+
+> W Radio Archiwiście wybierz stację i nagranie. `F6` otwiera odtwarzacz; `Spacja` działa także na liście. Cyfry `0–9` przewijają procentowo, `B` zapisuje zakładkę, a `Ctrl+Shift+C` kopiuje link. `Ctrl+Shift+Q` dodaje nagranie do lokalnej kolejki, którą otwiera `Ctrl+Q`. `Ctrl+L` pokazuje ponownie wszystkie stacje. Aplikacja nie usuwa stacji z internetowego katalogu.
+
+### Wersja i commit
+
+- Poprawki znajdują się w kanonicznym drzewie roboczym gałęzi `codex/konfigurowalne-skroty-20261026`. Brak osobnego commitu i nowej instalacji; w tym samym drzewie są równoległe, niezależne zmiany innych zadań. Numer następnej wersji zostanie nadany przy wspólnej integracji.
+
+## Osobna aktualizacja AMC Test — 30.10.2026
+
+- Nowsza decyzja użytkownika zastępuje plan wspólnej integracji z poprzedniej sekcji: wydać poprawki Radio Archiwisty osobno jako `0.1.0-alpha.451`, nie czekając na równoległe testowanie Spotify. Gałąź wydania oparta na zainstalowanej alpha.450; wybrano tylko zmiany archiwum i jego testy.
+- Testy izolowanego kodu: 120 zaliczonych, 1 celowo pominięty, niezwiązany test opisu `Ctrl+N` Podcastów. Test `--transport-routing` hosta zaliczony. Kompilacja LiteHosta Release zaliczona bez ostrzeżeń po przywróceniu pakietów.
+- Test regresji wykrył, że `Ctrl+Shift+C` w odtwarzaczu używał dawnego zaznaczenia listy; poprawiono go i ponowiono test. Usunięto omyłkową zmianę wyboru elementu w poleceniu wycinania pliku.
+- Kod, testy i kompilacja są osobnymi wynikami. Identyfikatory commitu i paczki oraz wynik instalacji i publikacji należy dopisać po tych czynnościach. Odbiór mowy NVDA i transmisji z żywego serwera pozostaje zadaniem ręcznym.

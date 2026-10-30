@@ -61,7 +61,9 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 - `PODRAD-001` — **W trakcie; dwa domyślnie wyłączone przełączniki osobnych folderów Radia i Podcastów, celowane testy oraz build hosta zaliczone; bez instalacji i próby NVDA**. Szczegóły:
   [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
 
-- `RARCH-001` — **W trakcie; kod, testy i pull request
+- `RARCH-001` — **W trakcie; poprawki po pierwszym odbiorze przygotowane
+  do osobnego wydania AMC Test 0.1.0-alpha.451; potrzebny odbiór NVDA;
+  kod, testy i pull request
   [michalkasperczak/AMC#4](https://github.com/michalkasperczak/AMC/pull/4)
   (gałąź `radioarchiwista-sesja`, autor radioarchiwista) są gotowe;
   pozostaje odbiór właściciela i ręczny odbiór NVDA na AMC Test** —
@@ -72,6 +74,10 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   `Ctrl+Shift+U`, odświeżanie `F5`, globalne wyszukiwanie bez sieci.
   Bez sterowania nagrywaniem. Szczegóły:
   [RARCH-001-integracja-radioarchiwista.md](RARCH-001-integracja-radioarchiwista.md).
+
+- `QUEUE-002` — **Oczekuje na osobny przegląd** — kolejki Podcastów i YouTube,
+  Spotify oraz TIDAL nie wchodzą do poprawki Radio Archiwisty. Szczegóły:
+  [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `EDIT-001` — **Zrobione w źródłach; 3 testy kontraktu, celowany test
   rzeczywistego wycinania oraz kompilacja LiteHosta są zaliczone; poprawka nie

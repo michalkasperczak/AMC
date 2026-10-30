@@ -1548,9 +1548,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             throw new LiteRequestException("Nawigacja po zakładkach nie ma dostępu do Biblioteki AMC.");
 
         var target = ResolveTransportTarget(args);
-        if (target.SessionId is not ("files" or "podcasts" or "spotify"))
+        if (target.SessionId is not ("files" or "podcasts" or "spotify" or "radioarchiwista"))
             throw new LiteRequestException(
-                "Nawigacja po zakładkach jest dostępna dla plików lokalnych, podcastów i Spotify.");
+                "Nawigacja po zakładkach nie jest dostępna w tej sesji.");
         var direction = Math.Sign(LiteArgs.ReadInt(args, "direction", 0, -1, 1));
         var namedOnly = LiteArgs.ReadBool(args, "namedOnly", false);
         if (direction == 0)
@@ -1754,9 +1754,9 @@ internal sealed class LiteEngineHandlers : IDisposable
                 "spotify",
                 "Spotify");
         }
-        if (target.SessionId is not ("files" or "podcasts"))
+        if (target.SessionId is not ("files" or "podcasts" or "radioarchiwista"))
             throw new LiteRequestException(
-                "Zakładki i rozdziały są dostępne dla plików lokalnych, podcastów i Spotify.");
+                "Zakładki i rozdziały nie są dostępne w tej sesji.");
         lock (_gate)
         {
             RequireTargetOwnsFilesItemLocked(target);
@@ -1768,6 +1768,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             if (duration <= TimeSpan.Zero)
                 throw new LiteRequestException("Czas trwania materiału jest nieznany.");
             var podcast = target.SessionId == "podcasts";
+            var archive = target.SessionId == "radioarchiwista";
             return new TimelineContext(
                 "files",
                 item.Id,
@@ -1781,8 +1782,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 },
                 _files.Position,
                 duration,
-                podcast ? "podcasts" : "local",
-                podcast ? "Podcasty i YouTube" : "Pliki lokalne");
+                archive ? "radioarchiwista" : podcast ? "podcasts" : "local",
+                archive ? "Radio Archiwista" : podcast ? "Podcasty i YouTube" : "Pliki lokalne");
         }
     }
 

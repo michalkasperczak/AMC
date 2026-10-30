@@ -140,6 +140,7 @@ class LibraryView(Enum):
     RADIOARCHIWISTA_DAYS = "radioarchiwistaDays"
     RADIOARCHIWISTA_HOURS = "radioarchiwistaHours"
     RADIOARCHIWISTA_FAVORITES = "radioarchiwistaFavorites"
+    RADIOARCHIWISTA_QUEUE = "radioarchiwistaQueue"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -271,6 +272,7 @@ class SessionState:
     radioarchiwista_day: int | None = None
     #: Stos powrotu: (widok, slug, rok, miesiąc, dzień, Id wiersza).
     radioarchiwista_history: list[tuple[object, str, int | None, int | None, int | None, str | None]] = field(default_factory=list)
+    radioarchiwista_queue_active: bool = False
     #: Stan jednej sesji Spotify. Jest niezależny od TIDAL-a mimo wspólnego
     #: kontraktu DTO: przełączenie sesji nie może zgubić listy ani fokusu.
     spotify_heading: str = "Biblioteka Spotify"
@@ -850,6 +852,8 @@ _RADIOARCHIWISTA_HEADING_KEYS = {
 
 
 def radioarchiwista_heading(view: LibraryView) -> str:
+    if view is LibraryView.RADIOARCHIWISTA_QUEUE:
+        return "Kolejka Radio Archiwisty"
     key = _RADIOARCHIWISTA_HEADING_KEYS.get(view)
     if key is None:
         return i18n.tr("session.radioarchiwista")
@@ -3154,6 +3158,9 @@ class Navigator:
                     and not candidate.activation_message
                 ),
             )
+            state.radioarchiwista_queue_active = (
+                state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
+            )
             state.view = (
                 View.PLAYER if open_player_on_activation else View.LIST
             )
@@ -3219,6 +3226,8 @@ class Navigator:
 
         state = self.session
         if state.library_view is LibraryView.RADIOARCHIWISTA_FAVORITES:
+            return [OpenRadioarchiwistaStations()]
+        if state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE:
             return [OpenRadioarchiwistaStations()]
         if not state.radioarchiwista_history:
             return []
@@ -4004,8 +4013,42 @@ class Navigator:
                 ),
                 Announce(target.title),
             ]
+        if state.session_id is SessionId.RADIOARCHIWISTA and target.kind == "recording":
+            return [
+                PlayMedia(
+                    target.url or "",
+                    target.item_id,
+                    target.title,
+                    position_seconds=target.position_seconds,
+                ),
+                Announce(target.title),
+            ]
         return [
             PlayTrack(target.path or "", target.item_id, target.title),
+            Announce(target.title),
+        ]
+
+    def continue_radioarchiwista_queue_after_end(self) -> list[object]:
+        """Po końcu MP3 przejdź do następnego nagrania lokalnej kolejki."""
+        state = self.sessions[SessionId.RADIOARCHIWISTA]
+        if not state.radioarchiwista_queue_active or not state.now_playing_id:
+            return []
+        rows = state.playback_source_rows
+        current = next(
+            (index for index, row in enumerate(rows)
+             if row.item_id == state.now_playing_id), -1,
+        )
+        if current < 0 or current + 1 >= len(rows):
+            return []
+        target = rows[current + 1]
+        if target.kind != "recording" or not target.url:
+            return []
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = profile_material_id(target.item_id)
+        return [
+            PlayMedia(target.url, target.item_id, target.title,
+                      position_seconds=target.position_seconds),
             Announce(target.title),
         ]
 

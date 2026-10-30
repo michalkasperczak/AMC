@@ -193,6 +193,7 @@ STABLE_TIMELINE_SESSIONS = (
     SessionId.FILES,
     SessionId.PODCASTS,
     SessionId.SPOTIFY,
+    SessionId.RADIOARCHIWISTA,
 )
 SHUFFLE_SESSIONS = (
     SessionId.FILES,
@@ -212,8 +213,8 @@ SPOTIFY_ONLY = (SessionId.SPOTIFY,)
 FRONTIER_SMART_ONLY = (SessionId.FRONTIER_SMART,)
 LOCAL_MEDIA = (SessionId.FILES, SessionId.PODCASTS)
 PLAYBACK_RATE_SESSIONS = (*LOCAL_MEDIA, SessionId.SPOTIFY)
-QUEUE_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL)
-PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS)
+QUEUE_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL, SessionId.RADIOARCHIWISTA)
+PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY)
@@ -300,6 +301,17 @@ def menus_for_session(
                     shortcut=ctrl_f5.shortcut,
                     accelerator=False,
                 )
+            if session_id is SessionId.RADIOARCHIWISTA:
+                archive_labels = {
+                    Action.VIEW_LIBRARY: "Wszystkie st&acje Radio Archiwisty",
+                    Action.VIEW_SAVED_QUEUE: "&Kolejka nagrań Radio Archiwisty",
+                    Action.ADD_TO_QUEUE: "&Dodaj nagranie do kolejki lub usuń",
+                    Action.TOGGLE_PLAY_NEXT: "Odtwórz nagranie jako &następne",
+                    Action.COPY_ADDRESS: "Skopiuj &link do nagrania",
+                    Action.FOCUS_FILTER: "Filtru&j listę",
+                }
+                if entry.action in archive_labels:
+                    entry = replace(entry, label=archive_labels[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
                 Action.VIEW_CHAPTERS,
                 Action.ADD_NAMED_CHAPTER,

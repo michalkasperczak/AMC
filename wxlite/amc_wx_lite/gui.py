@@ -1390,6 +1390,8 @@ def copied_address_message(row: Row, *, file_copied: bool = False) -> str:
         Tak samo jak przed ta zmiana: komunikat nigdy nie obiecuje czynnosci,
         ktorej program nie wykonal.
     """
+    if row.kind == "recording":
+        return "Skopiowano link do nagrania"
     if row.kind in {"station", "wiimNetworkStream", "sonosOwnStream"}:
         return "Skopiowano bezpośredni adres"
     return "Skopiowano plik i pełną ścieżkę" if file_copied else "Skopiowano pełną ścieżkę"
@@ -9970,7 +9972,14 @@ class LiteFrame(wx.Frame):
             information_row is not None
             and looks_like_local_path(getattr(information_row, "path", ""))
         )
-        selected_row = session.model.selected_row
+        selected_row = (
+            information_row
+            if self.navigator.active is SessionId.RADIOARCHIWISTA
+            and session.view is View.PLAYER
+            else session.model.selected_row
+        )
+        if self.navigator.active is SessionId.RADIOARCHIWISTA and session.view is View.PLAYER:
+            has_row = selected_row is not None
         selected_kind = (
             selected_row.kind
             if selected_row is not None
@@ -10179,6 +10188,12 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_selection and not has_row:
                 enabled = False
+            if (
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+                and entry.action is Action.COPY_ADDRESS
+                and not (selected_row is not None and selected_row.address)
+            ):
+                enabled = False
             if entry.action is Action.RENAME_LIBRARY_ITEM and not (
                 selected_row is not None
                 and (
@@ -10228,6 +10243,9 @@ class LiteFrame(wx.Frame):
                         and selected_kind == "track"
                         and bool(selected_row.service_id)
                         and bool(selected_row.related_album_service_id)
+                        or self.navigator.active is SessionId.RADIOARCHIWISTA
+                        and selected_kind == "recording"
+                        and bool(selected_row.url)
                     )
                 )
                 if not queue_item:
@@ -10239,6 +10257,9 @@ class LiteFrame(wx.Frame):
                     and selected_kind == "track"
                     or self.navigator.active is SessionId.PODCASTS
                     and selected_kind == "episode"
+                    or self.navigator.active is SessionId.RADIOARCHIWISTA
+                    and selected_kind == "recording"
+                    and bool(selected_row.url)
                 )
             ):
                 enabled = False
@@ -12649,12 +12670,13 @@ class LiteFrame(wx.Frame):
             # a z hosta tylko FAKT, ze start sie udal.
             if data.get("engine") == "files":
                 target = self._pending_playback_session
-                if target not in (SessionId.FILES, SessionId.PODCASTS):
+                if target not in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     target = SessionId.FILES
                 self.navigator.note_playback_started(target)
                 self._playing_session = target
                 self._playing_sessions.discard(SessionId.FILES)
                 self._playing_sessions.discard(SessionId.PODCASTS)
+                self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
                 self._playing_sessions.add(target)
                 self._podcast_checkpoint_active = target is SessionId.PODCASTS
                 if self._podcast_checkpoint_active:
@@ -12736,13 +12758,23 @@ class LiteFrame(wx.Frame):
                 ended_session = SessionId.SPOTIFY
             elif engine == "files":
                 candidate = getattr(self, "_playing_session", None)
-                if candidate in (SessionId.FILES, SessionId.PODCASTS):
+                if candidate in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     ended_session = candidate
+                elif SessionId.RADIOARCHIWISTA in playing_sessions:
+                    ended_session = SessionId.RADIOARCHIWISTA
                 elif SessionId.PODCASTS in playing_sessions:
                     ended_session = SessionId.PODCASTS
                 else:
                     ended_session = SessionId.FILES
             if not data.get("queueContinues") and ended_session is not None:
+                if ended_session is SessionId.RADIOARCHIWISTA:
+                    continuation = self.navigator.continue_radioarchiwista_queue_after_end()
+                    if continuation:
+                        play = next((intent for intent in continuation if isinstance(intent, PlayMedia)), None)
+                        if play is not None:
+                            self._play_media(play, session_id=SessionId.RADIOARCHIWISTA)
+                            self.announcer.say(play.title)
+                        return
                 continue_shuffled = getattr(
                     getattr(self, "navigator", None),
                     "continue_shuffled_after_end",
@@ -12764,6 +12796,7 @@ class LiteFrame(wx.Frame):
             if data.get("engine") == "files" and not data.get("queueContinues"):
                 playing_sessions.discard(SessionId.FILES)
                 playing_sessions.discard(SessionId.PODCASTS)
+                playing_sessions.discard(SessionId.RADIOARCHIWISTA)
                 self._playing_sessions = playing_sessions
             if data.get("engine") == "spotify":
                 playing_sessions.discard(SessionId.SPOTIFY)
@@ -13276,6 +13309,9 @@ class LiteFrame(wx.Frame):
         """
         if self.navigator.active is SessionId.RADIO:
             self._run(self.navigator.return_to_library(LIBRARY_VIEW_FOLDERS))
+            return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            self._open_radioarchiwista_stations()
             return
         if self.navigator.active is SessionId.PODCASTS:
             self._open_podcast_library(
@@ -14306,7 +14342,7 @@ class LiteFrame(wx.Frame):
             # Biblioteki. Ctrl+Spacja nadal należy do wielokrotnego zaznaczenia.
             if (
                 getattr(getattr(self.navigator, "active", None), "value", "")
-                == "sonos"
+                in ("sonos", "radioarchiwista")
                 and canonical == "Space"
             ):
                 self._on_key(event)
@@ -14544,6 +14580,7 @@ class LiteFrame(wx.Frame):
             chord,
             player_view=player,
             radio_session=radio,
+            radioarchiwista_session=self.navigator.active is SessionId.RADIOARCHIWISTA,
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
             radio_collection=radio_collection,
             radio_playlist_contents=radio_playlist_contents,
@@ -15224,7 +15261,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_HISTORY:
             self._show_playback_history_preview()
         elif action is Action.VIEW_SAVED_QUEUE:
-            if self.navigator.active is SessionId.PODCASTS:
+            if self.navigator.active is SessionId.RADIOARCHIWISTA:
+                self._open_radioarchiwista_queue()
+            elif self.navigator.active is SessionId.PODCASTS:
                 self._transient_preview_return = None
                 self._open_podcast_aggregate(
                     OpenPodcastAggregateView(LibraryView.PODCAST_QUEUE)
@@ -18640,7 +18679,7 @@ class LiteFrame(wx.Frame):
         """Przełącz ulubione zaznaczonego nagrania i odśwież jego wiersz."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
-        row = state.model.selected_row
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
         if row is None or row.kind != "recording":
             self.announcer.say(i18n.tr("rarch.selectForFavorite"))
             return
@@ -18687,11 +18726,69 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("radioarchiwista.favorite", work, done, failed)
 
+    def _open_radioarchiwista_queue(self) -> None:
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+
+        def done(rows: list[Row]) -> None:
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                LibraryView.RADIOARCHIWISTA_QUEUE, rows,
+            ))
+
+        self.runner.submit(
+            "radioarchiwista.queue.read", source.queue_rows, done,
+            lambda error: self.announcer.say(f"Nie można odczytać kolejki: {error}"),
+        )
+
+    def _toggle_radioarchiwista_queue(self, play_next: bool) -> None:
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
+        if row is None or row.kind != "recording" or not row.url:
+            self.announcer.say("Wybierz nagranie do kolejki")
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+
+        def work() -> tuple[bool, list[Row]]:
+            recording = source.recording_by_id(row.item_id)
+            if recording is None:
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Nie znam tego nagrania"
+                )
+            added = source.toggle_queue(
+                recording, play_next=play_next,
+                current_id=state.now_playing_id,
+            )
+            return added, source.queue_rows()
+
+        def done(result: tuple[bool, list[Row]]) -> None:
+            added, rows = result
+            if state.radioarchiwista_queue_active:
+                state.playback_source_rows = tuple(rows)
+            if state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE:
+                self._run(self.navigator.apply_radioarchiwista_rows(
+                    LibraryView.RADIOARCHIWISTA_QUEUE, rows,
+                    preferred_id=row.item_id,
+                ))
+            self.announcer.say(
+                ("Dodano do kolejki: " if added else "Usunięto z kolejki: ")
+                + row.title
+            )
+
+        self.runner.submit(
+            "radioarchiwista.queue.write", work, done,
+            lambda error: self.announcer.say(f"Nie można zmienić kolejki: {error}"),
+        )
+
     def _download_radioarchiwista_recording(self) -> None:
         """Pobierz nagranie bez nadpisywania pliku, z postępem i anulowaniem."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
-        row = state.model.selected_row
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
         if row is None or row.kind != "recording" or not row.url:
             self.announcer.say(i18n.tr("rarch.selectForDownload"))
             return
@@ -18800,6 +18897,8 @@ class LiteFrame(wx.Frame):
             )
         elif view is LibraryView.RADIOARCHIWISTA_FAVORITES:
             self._open_radioarchiwista_favorites()
+        elif view is LibraryView.RADIOARCHIWISTA_QUEUE:
+            self._open_radioarchiwista_queue()
         elif view is LibraryView.RADIOARCHIWISTA_HOURS and not state.radioarchiwista_slug:
             self._open_radioarchiwista_latest(
                 refresh=True, preferred_id=state.model.selected_id
@@ -24350,6 +24449,16 @@ class LiteFrame(wx.Frame):
                 return
             self._announce_spotify_information(row)
             return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            if row is None or row.kind != "recording":
+                self.announcer.say("Brak dodatkowych informacji o nagraniu")
+            elif row.duration_ticks > 0:
+                self.announcer.say(
+                    f"Czas: {format_duration(row.duration_ticks / 10_000_000)}"
+                )
+            else:
+                self.announcer.say("Brak dodatkowych informacji o nagraniu")
+            return
         if self.navigator.active is SessionId.WIIM:
             if self.navigator.view is View.PLAYER and self._wiim_snapshot:
                 parts = [
@@ -24554,7 +24663,14 @@ class LiteFrame(wx.Frame):
         Slowa komunikatu nadal opisuja DANE, nie zamiar -- patrz
         ``copied_address_message``.
         """
-        rows = self._selected_action_rows()
+        rows = (
+            [row] if (row := LiteFrame._description_target_row(
+                self, SessionId.RADIOARCHIWISTA
+            )) is not None else []
+        ) if (
+            self.navigator.active is SessionId.RADIOARCHIWISTA
+            and self.navigator.view is View.PLAYER
+        ) else self._selected_action_rows()
         if not rows:
             self.announcer.say("Nie ma czego skopiować")
             return
@@ -25805,6 +25921,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Nawigacja po zakładkach jest dostępna dla plików lokalnych, podcastów i Spotify"
@@ -25873,6 +25990,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -25922,6 +26040,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -26002,6 +26121,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -27069,6 +27189,9 @@ class LiteFrame(wx.Frame):
         ponownie, więc grający plik, pozycja, pauza i wyjście audio pozostają
         nietknięte.
         """
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            self._toggle_radioarchiwista_queue(play_next)
+            return
         if self.navigator.active is SessionId.PODCASTS:
             self._toggle_podcast_queue(play_next)
             return
@@ -29451,6 +29574,7 @@ class LiteFrame(wx.Frame):
             SessionId.RADIO,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         )
         active = self.navigator.active
         if active in local_sessions:
@@ -29459,6 +29583,8 @@ class LiteFrame(wx.Frame):
             requested_session = SessionId.RADIO
         elif SessionId.PODCASTS in self._playing_sessions:
             requested_session = SessionId.PODCASTS
+        elif SessionId.RADIOARCHIWISTA in self._playing_sessions:
+            requested_session = SessionId.RADIOARCHIWISTA
         elif SessionId.SPOTIFY in self._playing_sessions:
             requested_session = SessionId.SPOTIFY
         else:
@@ -29500,6 +29626,7 @@ class LiteFrame(wx.Frame):
                 SessionId.FILES,
                 SessionId.PODCASTS,
                 SessionId.SPOTIFY,
+                SessionId.RADIOARCHIWISTA,
             ):
                 refresh_activity = getattr(
                     self, "_refresh_native_playback_activity_view", None
@@ -29801,6 +29928,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return
         LiteFrame._apply_native_playback_activity_status(self, active)
@@ -29819,6 +29947,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return ""
         state = self.navigator.sessions[entry.session_id]
@@ -32012,6 +32141,7 @@ class LiteFrame(wx.Frame):
             chord,
             player_view=player,
             radio_session=self.navigator.active is SessionId.RADIO,
+            radioarchiwista_session=self.navigator.active is SessionId.RADIOARCHIWISTA,
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
             radio_collection=(
                 not player

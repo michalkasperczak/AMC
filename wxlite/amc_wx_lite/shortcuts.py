@@ -1077,6 +1077,11 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
     })
     | {
         Action.VIEW_FAVORITES,
+        Action.VIEW_LIBRARY,
+        Action.VIEW_SAVED_QUEUE,
+        Action.ADD_TO_QUEUE,
+        Action.TOGGLE_PLAY_NEXT,
+        Action.COPY_ADDRESS,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RADIOARCHIWISTA_DOWNLOAD,
         Action.RADIOARCHIWISTA_REFRESH,
@@ -1086,6 +1091,12 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.SEEK_BACK_CUSTOM, Action.SEEK_FORWARD_CUSTOM,
         Action.RATE_UP, Action.RATE_DOWN, Action.RATE_RESET,
         Action.TRACK_START, Action.TRACK_END,
+        *(Action[f"SEEK_PERCENT_{percent}"] for percent in range(0, 100, 10)),
+        Action.ADD_BOOKMARK, Action.ADD_NAMED_BOOKMARK,
+        Action.PREVIOUS_BOOKMARK, Action.NEXT_BOOKMARK,
+        Action.PREVIOUS_NAMED_BOOKMARK, Action.NEXT_NAMED_BOOKMARK,
+        Action.ADD_NAMED_CHAPTER, Action.PREVIOUS_CHAPTER,
+        Action.NEXT_CHAPTER, Action.VIEW_CHAPTERS,
     }
 )
 
@@ -1655,6 +1666,10 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+    "Ctrl+Shift+C": Action.COPY_ADDRESS,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
 }
 
@@ -1958,6 +1973,7 @@ def _resolve_default(
     wiim_session: bool = False,
     wiim_streams: bool = False,
     frontier_smart_session: bool = False,
+    radioarchiwista_session: bool = False,
     sonos_session: bool = False,
     sonos_own_streams: bool = False,
     service_history: bool = False,
@@ -2090,6 +2106,8 @@ def _resolve_default(
         and canonical in FRONTIER_SMART_SESSION_VIEW
     ):
         return FRONTIER_SMART_SESSION_VIEW[canonical]
+    if radioarchiwista_session and canonical in RADIOARCHIWISTA_SESSION_VIEW:
+        return RADIOARCHIWISTA_SESSION_VIEW[canonical]
     if sonos_session and canonical in SONOS_OWN_STREAMS_VIEW:
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
@@ -2664,6 +2682,16 @@ def describe(
 
 def describe_action(action: Action, session_label: str | None = None) -> str:
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
+    if (session_label or "").casefold() == "radio archiwista":
+        archive_labels = {
+            Action.VIEW_LIBRARY: "Pokaż pełną listę stacji Radio Archiwisty",
+            Action.VIEW_SAVED_QUEUE: "Pokaż lokalną kolejkę nagrań Radio Archiwisty",
+            Action.ADD_TO_QUEUE: "Dodaj nagranie do lokalnej kolejki albo je usuń",
+            Action.TOGGLE_PLAY_NEXT: "Dodaj nagranie za bieżącym w lokalnej kolejce albo je usuń",
+            Action.COPY_ADDRESS: "Skopiuj bezpośredni link do nagrania",
+        }
+        if action in archive_labels:
+            return i18n.command_description(action.value, archive_labels[action])
     ctrl_f5 = ctrl_f5_presentation(session_label)
     if ctrl_f5 is not None and ctrl_f5.action is action:
         return ctrl_f5.description
