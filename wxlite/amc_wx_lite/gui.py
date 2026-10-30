@@ -13071,6 +13071,15 @@ class LiteFrame(wx.Frame):
             self._load_sonos_targets(
                 preferred_id=self.navigator.sessions[SessionId.SONOS].list_anchor_id
             )
+        if getattr(self.navigator, "active", None) is SessionId.RADIOARCHIWISTA:
+            # Start z zapamietana sesja katalogu nagrań: bez tego lista była
+            # pusta az do pierwszego Ctrl+4, bo restore odtwarza tylko sesje,
+            # widok i fokus -- wiersze pobiera dopiero otwarcie poziomu.
+            self._open_radioarchiwista_stations(
+                preferred_id=self.navigator.sessions[
+                    SessionId.RADIOARCHIWISTA
+                ].list_anchor_id
+            )
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
         # profilu (D:\, C:\Users\<użytkownik>) na tej maszynie nie istnieją, lista pod
