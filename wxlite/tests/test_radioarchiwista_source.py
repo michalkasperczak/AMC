@@ -176,7 +176,7 @@ def test_nagrania_dnia_rosnaco_z_kompletnoscia_i_pozycja() -> None:
     assert "pozostało 50 min" in positioned[1].detail
 
     starred = rarch.recording_rows(recordings, favorite_ids={recordings[1].item_id})
-    assert starred[1].state_prefix == "★ "
+    assert starred[1].state_prefix == "★"
     assert starred[0].state_prefix == ""
 
 
@@ -362,6 +362,131 @@ def test_pobieranie_pustego_pliku_to_blad() -> None:
         else:
             raise AssertionError("pusty plik nie może uchodzić za pobrany")
         assert not destination.with_name(destination.name + ".part").exists()
+
+
+def _day_recordings() -> tuple:
+    parsed = rarch.parse_stations_index(
+        _fixture()["https://radioarchiwista.github.io/data/stations.json"]
+    )
+    station = parsed.find("pr1")
+    assert station is not None
+    day_payload = _fixture()[
+        "https://radioarchiwista.github.io/data/stations/pr1/2026/10/29.json"
+    ]
+    return rarch.parse_recordings(day_payload, station)
+
+
+def test_nazwa_pliku_pobrania_jest_bezpieczna_i_stabilna() -> None:
+    from dataclasses import replace
+
+    recordings = _day_recordings()
+    assert recordings
+
+    first = recordings[0]
+    name = rarch.recording_filename(first)
+    assert name == rarch.recording_filename(first)
+    assert name.endswith(".mp3")
+    assert " " not in name
+    assert len(Path(name).stem) <= 100
+
+    # Bez etykiety lokalnej (stare ulubione) nazwa składa się ze sluga
+    # i tytułu, więc pobieranie i znacznik dalej się zgadzają.
+    fallback = rarch.recording_filename(replace(first, local_label=""))
+    assert fallback.startswith("pr1-")
+
+    # Samotne ogonki i znaki Windows nie mogą trafić do nazwy pliku.
+    brzydka = rarch.recording_filename(
+        replace(first, local_label="Ąę Śź ć:\\ł ą?*")
+    )
+    assert brzydka == "nagranie.mp3"
+
+
+def test_znaczniki_pobranych_w_wierszach(tmp_path: Path) -> None:
+    recordings = tuple(_day_recordings())
+    target = tmp_path / "pobrane"
+
+    # Bez folderu (None) zbiór pobranych jest pusty, nic nie zaznaczamy.
+    assert rarch.downloaded_item_ids(recordings, None) == set()
+    assert target.exists() is False
+    empty = rarch.recording_rows(
+        recordings,
+        downloaded_ids=rarch.downloaded_item_ids(recordings, target),
+    )
+    assert empty[0].state_prefix == ""
+    assert "Pobrany: tak" not in empty[0].detail
+
+    target.mkdir()
+    name = rarch.recording_filename(recordings[0])
+    (target / name).write_bytes(b"mp3")
+    downloaded = rarch.downloaded_item_ids(recordings, target)
+    assert downloaded == {recordings[0].item_id}
+
+    rows = rarch.recording_rows(recordings, downloaded_ids=downloaded)
+    assert rows[0].state_prefix == "Pobrane"
+    assert "Pobrany: tak" in rows[0].detail
+    assert rows[1].state_prefix == ""
+    assert rows[1].detail == ""
+
+    both = rarch.recording_rows(
+        recordings,
+        favorite_ids={recordings[0].item_id},
+        downloaded_ids=downloaded,
+    )
+    assert both[0].state_prefix == "★ Pobrane"
+
+    latest = rarch.latest_rows(recordings, downloaded_ids=downloaded)
+    assert latest[0].state_prefix == "Pobrane"
+
+
+def test_ulubione_dostaja_znacznik_pobrania_i_pamietaja_etykiete(
+    tmp_path: Path,
+) -> None:
+    recordings = _day_recordings()
+    first = recordings[0]
+
+    # Zapis ulubionego przenosi local_label, więc nazwa pliku w widoku
+    # ulubionych jest ta sama co w widoku dnia.
+    record = rarch.favorite_record(first, 1.0)
+    restored = rarch._favorite_to_recording(record)
+    assert restored.local_label == first.local_label
+    assert rarch.recording_filename(restored) == rarch.recording_filename(first)
+
+    rows = rarch.favorite_rows([record], downloads_dir=None)
+    assert rows[0].state_prefix == ""
+
+    (tmp_path / rarch.recording_filename(first)).write_bytes(b"mp3")
+    marked = rarch.favorite_rows([record], downloads_dir=tmp_path)
+    assert marked[0].state_prefix == "Pobrane"
+
+
+def test_podsumowanie_pobierania_w_tonie_podcastow() -> None:
+    assert (
+        rarch.download_summary(requested=3, downloaded=2, already=1, failed=0)
+        == "Pobrano: 2. już pobrane: 1"
+    )
+    assert (
+        rarch.download_summary(requested=3, downloaded=1, already=0, failed=2)
+        == "Pobrano: 1. niepowodzenia: 2"
+    )
+    assert (
+        rarch.download_summary(requested=1, downloaded=1, already=0, failed=0,
+                               first_title="Jedynka, 14:00")
+        == "Pobrano nagranie: Jedynka, 14:00"
+    )
+    assert (
+        rarch.download_summary(requested=1, downloaded=0, already=1, failed=0,
+                               first_title="Jedynka, 14:00")
+        == "Nagranie jest już pobrane: Jedynka, 14:00"
+    )
+    assert (
+        rarch.download_summary(requested=1, downloaded=0, already=0, failed=1,
+                               first_failure="sieć padła")
+        == "Nie można pobrać nagrania: sieć padła"
+    )
+    assert (
+        rarch.download_summary(requested=1, downloaded=0, already=0, failed=1)
+        == "Nie udało się pobrać nagrania"
+    )
 
 
 def test_najnowsze_nagrania_ostatniej_godziny(tmp_path: Path) -> None:

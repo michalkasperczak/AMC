@@ -376,6 +376,8 @@ def day_rows(slug: str, year: int, month: int, days: tuple[int, ...]) -> list[Ro
 def _recording_details(
     recording: ArchiveRecording,
     position: float,
+    *,
+    downloaded: bool = False,
 ) -> str:
     """Szczegóły wiersza nagrania w języku interfejsu."""
 
@@ -391,7 +393,29 @@ def _recording_details(
         details.append(i18n.tr(
             "rarch.detail.remaining", minutes=int(remaining // 60),
         ))
+    if downloaded:
+        details.append(i18n.tr("rarch.detail.downloaded"))
     return ", ".join(details)
+
+
+def row_state_prefix(
+    item_id: str,
+    favorite_ids: set[str],
+    downloaded_ids: set[str],
+) -> str:
+    """Prefiks stanu wiersza nagrania: ulubione i pobrane, czytelne dla NVDA.
+
+    Ulubione to symbol jak dotąd; pobranie to SŁOWO, bo symbol strzałki
+    bywa niemy w syntezach mowy. Części składowe łączy spacja, a renderer
+    listy sam dodaje odstęp przed tytułem.
+    """
+
+    parts: list[str] = []
+    if item_id in favorite_ids:
+        parts.append("\u2605")
+    if item_id in downloaded_ids:
+        parts.append(i18n.tr("rarch.downloaded.mark"))
+    return " ".join(parts)
 
 
 def recording_rows(
@@ -399,12 +423,14 @@ def recording_rows(
     *,
     positions: dict[str, float] | None = None,
     favorite_ids: set[str] | None = None,
+    downloaded_ids: set[str] | None = None,
     loaded_count: int = PAGE_SIZE,
 ) -> list[Row]:
     """Wiersze nagrań jednego dnia, rosnąco wg godziny, ze stronnicowaniem."""
 
     positions = positions or {}
     favorite_ids = favorite_ids or set()
+    downloaded_ids = downloaded_ids or set()
     rows: list[Row] = []
     for recording in recordings[:max(0, loaded_count)]:
         position = positions.get(recording.item_id, 0.0)
@@ -412,14 +438,19 @@ def recording_rows(
             item_id=recording.item_id,
             title=recording.local_hour_label or f"{recording.hour:02d}:00",
             kind="recording",
-            detail=_recording_details(recording, position),
+            detail=_recording_details(
+                recording, position,
+                downloaded=recording.item_id in downloaded_ids,
+            ),
             show_kind=False,
             url=recording.audio_url,
             service_id=recording.station_slug,
             service_start_utc=recording.utc_started_at,
             position_seconds=position,
             duration_ticks=int(recording.duration_seconds * 10_000_000),
-            state_prefix="★ " if recording.item_id in favorite_ids else "",
+            state_prefix=row_state_prefix(
+                recording.item_id, favorite_ids, downloaded_ids,
+            ),
             parent_id=station_item_id(recording.station_slug),
         ))
     if len(recordings) > loaded_count:
@@ -472,6 +503,7 @@ def latest_rows(
     *,
     positions: dict[str, float] | None = None,
     favorite_ids: set[str] | None = None,
+    downloaded_ids: set[str] | None = None,
 ) -> list[Row]:
     """Wiersze widoku „Najnowsza godzina” ze wszystkich stacji.
 
@@ -481,6 +513,7 @@ def latest_rows(
 
     positions = positions or {}
     favorite_ids = favorite_ids or set()
+    downloaded_ids = downloaded_ids or set()
     rows: list[Row] = []
     for recording in recordings:
         date_label = recording.local_date_label
@@ -498,14 +531,19 @@ def latest_rows(
             item_id=recording.item_id,
             title=title,
             kind="recording",
-            detail=_recording_details(recording, position),
+            detail=_recording_details(
+                recording, position,
+                downloaded=recording.item_id in downloaded_ids,
+            ),
             show_kind=False,
             url=recording.audio_url,
             service_id=recording.station_slug,
             service_start_utc=recording.utc_started_at,
             position_seconds=position,
             duration_ticks=int(recording.duration_seconds * 10_000_000),
-            state_prefix="★ " if recording.item_id in favorite_ids else "",
+            state_prefix=row_state_prefix(
+                recording.item_id, favorite_ids, downloaded_ids,
+            ),
             parent_id=station_item_id(recording.station_slug),
         ))
     return rows
@@ -530,6 +568,7 @@ def favorite_rows(
     favorites: list[dict],
     *,
     positions: dict[str, float] | None = None,
+    downloads_dir: Path | None = None,
 ) -> list[Row]:
     """Wiersze ulubionych nagrań: najnowsze dodane na górze, bez sieci."""
 
@@ -542,6 +581,16 @@ def favorite_rows(
     rows = [
         _recording_row_from_record(_favorite_to_recording(item)) for item in ordered
     ]
+    if downloads_dir is not None:
+        # Znacznik pobrania jak w widoku dnia: cała lista to ulubione,
+        # więc gwiazdka by się tylko powtarzała.
+        for index, item in enumerate(ordered):
+            recording = _favorite_to_recording(item)
+            if (downloads_dir / recording_filename(recording)).is_file():
+                rows[index] = replace(
+                    rows[index],
+                    state_prefix=i18n.tr("rarch.downloaded.mark"),
+                )
     if positions:
         rows = [
             replace(row, position_seconds=positions.get(row.item_id, 0.0))
@@ -560,7 +609,10 @@ def _favorite_to_recording(item: dict) -> ArchiveRecording:
         duration_seconds=_as_float(item.get("duration_seconds")),
         local_date_label=_clean_text(item.get("local_date_label")),
         local_hour_label=_clean_text(item.get("local_hour_label")),
-        local_label=_clean_text(item.get("title")),
+        local_label=(
+            _clean_text(item.get("local_label"))
+            or _clean_text(item.get("title"))
+        ),
         utc_started_at=_clean_text(item.get("utc_started_at")),
         hour=_as_int(item.get("hour"), -1),
         completeness_ratio=_as_float(item.get("completeness_ratio"), 1.0),
@@ -580,12 +632,102 @@ def favorite_record(recording: ArchiveRecording, added_at: float) -> dict:
         "duration_seconds": recording.duration_seconds,
         "local_date_label": recording.local_date_label,
         "local_hour_label": recording.local_hour_label,
+        "local_label": recording.local_label,
         "utc_started_at": recording.utc_started_at,
         "hour": recording.hour,
         "completeness_ratio": recording.completeness_ratio,
         "status": recording.status,
         "added_at": added_at,
     }
+
+
+def _safe_mp3_name(label: str) -> str:
+    """Nazwa pliku bezpieczna dla Windows: bez ogonków, spacji i ukośników."""
+
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:100]
+    return f"{safe or 'nagranie'}.mp3"
+
+
+def recording_filename(recording: ArchiveRecording) -> str:
+    """Deterministyczna nazwa pliku pobranego nagrania w folderze AMC.
+
+    Ta sama funkcja decyduje o znaczniku „pobrane” w liście i o celu
+    pobrania, więc plik i znacznik nigdy się nie rozjadą. Etykieta
+    ``local_label`` jest czytelna dla człowieka i stabilna w ramach katalogu; gdy jej
+    brak (ulubione dodane przed tym polem), składamy ją ze sluga i tytułu.
+    """
+
+    label = (
+        recording.local_label
+        if recording.local_label
+        else f"{recording.station_slug or 'nagranie'} {recording.title}".strip()
+    )
+    return _safe_mp3_name(label)
+
+
+def row_recording(row: Row) -> ArchiveRecording:
+    """Nagranie z wiersza listy, gdy katalog nie zna identyfikatora."""
+
+    return ArchiveRecording(
+        station_slug=row.service_id or "?",
+        station_name="Radio Archiwista",
+        item_id=row.item_id,
+        title=row.title,
+        audio_url=row.url or "",
+        duration_seconds=max(0.0, (row.duration_ticks or 0) / 10_000_000),
+        local_date_label="",
+        local_hour_label="",
+        local_label=row.title,
+        utc_started_at=row.service_start_utc or "",
+        hour=-1,
+        completeness_ratio=1.0,
+        status="published",
+    )
+
+
+def downloaded_item_ids(
+    recordings: tuple[ArchiveRecording, ...] | list[ArchiveRecording],
+    downloads_dir: Path | None,
+) -> set[str]:
+    """Identyfikatory nagrań mających plik w folderze pobierania.
+
+    Sprawdzenie jest czysto dyskowe: działa offline i nie rusza katalogu.
+    """
+
+    if downloads_dir is None:
+        return set()
+    return {
+        recording.item_id
+        for recording in recordings
+        if (downloads_dir / recording_filename(recording)).is_file()
+    }
+
+
+def download_summary(
+    *,
+    requested: int,
+    downloaded: int,
+    already: int,
+    failed: int,
+    first_failure: str = "",
+    first_title: str = "",
+) -> str:
+    """Komunikat po Ctrl+D, w tonie podsumowań pobierania podcastów."""
+
+    if requested > 1:
+        parts = [i18n.tr("rarch.download.count.done", count=downloaded)]
+        if already:
+            parts.append(i18n.tr("rarch.download.count.already", count=already))
+        if failed:
+            parts.append(i18n.tr("rarch.download.count.failed", count=failed))
+        return ". ".join(parts)
+    if downloaded:
+        return i18n.tr("rarch.download.doneOne", title=first_title)
+    if already:
+        return i18n.tr("rarch.download.alreadyOne", title=first_title)
+    if first_failure:
+        return i18n.tr("rarch.download.failedOne", reason=first_failure)
+    return i18n.tr("rarch.download.failedNoReason")
 
 
 #: Pobieranie pliku strumieniowo, bez wx i bez wątków: wołane w tle GUI.

@@ -343,6 +343,7 @@ class Action(Enum):
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     RADIOARCHIWISTA_DOWNLOAD = "radioarchiwista.download.selected"
+    RADIOARCHIWISTA_SAVE_AS = "radioarchiwista.download.saveAs"
     RADIOARCHIWISTA_REFRESH = "radioarchiwista.catalog.refresh"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
@@ -1069,6 +1070,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.VIEW_FAVORITES,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RADIOARCHIWISTA_DOWNLOAD,
+        Action.RADIOARCHIWISTA_SAVE_AS,
         Action.RADIOARCHIWISTA_REFRESH,
     }
 )
@@ -1640,6 +1642,7 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
+    "Ctrl+S": Action.RADIOARCHIWISTA_SAVE_AS,
 }
 
 

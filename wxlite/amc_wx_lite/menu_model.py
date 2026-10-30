@@ -657,6 +657,14 @@ def build_menus(
                 needs_selection=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
+            MenuItem(
+                "Zapisz nagranie &jako…",
+                Action.RADIOARCHIWISTA_SAVE_AS,
+                shortcut="Ctrl+S",
+                accelerator=False,
+                needs_selection=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #

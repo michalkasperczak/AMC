@@ -14998,6 +14998,8 @@ class LiteFrame(wx.Frame):
             self._toggle_radioarchiwista_favorite()
         elif action is Action.RADIOARCHIWISTA_DOWNLOAD:
             self._download_radioarchiwista_recording()
+        elif action is Action.RADIOARCHIWISTA_SAVE_AS:
+            self._save_radioarchiwista_recording_as()
         elif action is Action.RADIOARCHIWISTA_REFRESH:
             self._refresh_radioarchiwista_view()
         elif action is Action.VIEW_FAVORITES:
@@ -18299,6 +18301,7 @@ class LiteFrame(wx.Frame):
         if source is None:
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
+        downloads_dir = self._radioarchiwista_downloads_dir()
 
         def work() -> tuple[LibraryView, list[Row]]:
             if intent.view is LibraryView.RADIOARCHIWISTA_YEARS:
@@ -18341,6 +18344,9 @@ class LiteFrame(wx.Frame):
                     recordings,
                     positions=source.load_positions(),
                     favorite_ids=source.favorite_ids(),
+                    downloaded_ids=_radioarchiwista_module.downloaded_item_ids(
+                        recordings, downloads_dir,
+                    ),
                     loaded_count=self._radioarchiwista_hours_loaded,
                 )
             return intent.view, rows
@@ -18372,6 +18378,7 @@ class LiteFrame(wx.Frame):
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
         self.announcer.say(i18n.tr("rarch.latest.loading"))
+        downloads_dir = self._radioarchiwista_downloads_dir()
 
         def work() -> tuple[list[Row], str]:
             recordings, stamp = source.latest_recordings(force=refresh)
@@ -18379,6 +18386,9 @@ class LiteFrame(wx.Frame):
                 recordings,
                 positions=source.load_positions(),
                 favorite_ids=source.favorite_ids(),
+                downloaded_ids=_radioarchiwista_module.downloaded_item_ids(
+                    recordings, downloads_dir,
+                ),
             )
             # Godzina w czasie lokalnym stacji, nie UTC: znacznik katalogu
             # mylil sluchacza polskich stacji (23:00 UTC to polskie 00:00/01:00).
@@ -18415,11 +18425,13 @@ class LiteFrame(wx.Frame):
         if source is None:
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
+        downloads_dir = self._radioarchiwista_downloads_dir()
 
         def work() -> list[Row]:
             return _radioarchiwista_module.favorite_rows(
                 source.load_favorites(),
                 positions=source.load_positions(),
+                downloads_dir=downloads_dir,
             )
 
         def done(rows: list[Row]) -> None:
@@ -18459,12 +18471,19 @@ class LiteFrame(wx.Frame):
 
         def done(result: tuple[bool, str]) -> None:
             added, title = result
-            prefix = "\u2605 " if added else ""
+            mark = i18n.tr("rarch.downloaded.mark")
             refreshed = [
                 replace(
                     candidate,
                     state_prefix=(
-                        prefix if candidate.item_id == row.item_id
+                        _radioarchiwista_module.row_state_prefix(
+                            candidate.item_id,
+                            {candidate.item_id} if added else set(),
+                            {candidate.item_id}
+                            if mark in candidate.state_prefix
+                            else set(),
+                        )
+                        if candidate.item_id == row.item_id
                         else candidate.state_prefix
                     ),
                 )
@@ -18484,14 +18503,164 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("radioarchiwista", work, done, failed)
 
-    def _download_radioarchiwista_recording(self) -> None:
-        """Pobierz zaznaczone nagranie do folderu profilu Pythona."""
+    def _radioarchiwista_downloads_dir(self) -> Path | None:
+        """Folder pobierania wspólny z Podcastami: opcja GUI, potem baza
+        podcastów (ta sama, z której korzysta silnik), na końcu domyślne
+        silnika. Brak wszystkiego to uczciwa odmowa, nie cicha zmiana celu."""
 
-        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
-        row = state.model.selected_row
-        if row is None or row.kind != "recording" or not row.url:
+        folder = str(
+            getattr(self.options, "podcast_downloads_folder", "") or ""
+        ).strip()
+        if not folder:
+            try:
+                folder = str(
+                    self.podcasts.global_settings().downloads_folder or ""
+                ).strip()
+            except Exception:  # noqa: BLE001 - świeży profil nie ma jeszcze bazy
+                folder = ""
+        if folder:
+            return Path(folder)
+        client = self.client
+        if client is not None:
+            try:
+                raw = client.general_settings_defaults()
+                if isinstance(raw, dict):
+                    folder = str(
+                        raw.get("podcastDownloadsFolder") or ""
+                    ).strip()
+            except Exception:  # noqa: BLE001 - silnik może nie działać
+                folder = ""
+        if folder:
+            return Path(folder)
+        return None
+
+    def _download_radioarchiwista_recording(self) -> None:
+        """Ctrl+D: pobierz zaznaczone nagrania do folderu pobierania AMC."""
+
+        rows: list[Row] = []
+        seen: set[str] = set()
+        for row in self._selected_action_rows():
+            if row.kind != "recording" or not row.url or row.item_id in seen:
+                continue
+            seen.add(row.item_id)
+            rows.append(row)
+        if not rows:
             self.announcer.say(i18n.tr("rarch.selectForDownload"))
             return
+        if any(row.item_id in self._radioarchiwista_downloads for row in rows):
+            self.announcer.say(i18n.tr("rarch.download.busy"))
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        downloads_dir = self._radioarchiwista_downloads_dir()
+        if downloads_dir is None:
+            self.announcer.say(i18n.tr("rarch.download.noFolder"))
+            return
+
+        first_title = rows[0].title
+        self.announcer.say(
+            i18n.tr("rarch.download.startedMany", count=len(rows))
+            if len(rows) > 1
+            else i18n.tr("rarch.download.started")
+        )
+
+        def work() -> dict:
+            downloaded = already = failed = 0
+            first_failure = ""
+            for row in rows:
+                recording = source.recording_by_id(row.item_id)
+                if recording is None:
+                    recording = _radioarchiwista_module.row_recording(row)
+                destination = (
+                    downloads_dir
+                    / _radioarchiwista_module.recording_filename(recording)
+                )
+                if destination.is_file():
+                    already += 1
+                    continue
+                try:
+                    _radioarchiwista_module.stream_to_file(
+                        row.url, destination,
+                    )
+                    downloaded += 1
+                except Exception as error:  # noqa: BLE001 - jedno nagranie nie zatrzymuje reszty
+                    failed += 1
+                    if not first_failure:
+                        first_failure = str(error)
+            return {
+                "requested": len(rows),
+                "downloaded": downloaded,
+                "already": already,
+                "failed": failed,
+                "firstFailure": first_failure,
+                "ids": [row.item_id for row in rows],
+            }
+
+        def done(payload: dict) -> None:
+            for row in rows:
+                self._radioarchiwista_downloads.discard(row.item_id)
+            message = _radioarchiwista_module.download_summary(
+                requested=int(payload.get("requested") or len(rows)),
+                downloaded=int(payload.get("downloaded") or 0),
+                already=int(payload.get("already") or 0),
+                failed=int(payload.get("failed") or 0),
+                first_failure=str(payload.get("firstFailure") or "").strip(),
+                first_title=first_title,
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self._apply_radioarchiwista_download_marks(payload.get("ids") or [])
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            for row in rows:
+                self._radioarchiwista_downloads.discard(row.item_id)
+            message = i18n.tr("rarch.download.failed", error=error)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        for row in rows:
+            self._radioarchiwista_downloads.add(row.item_id)
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _apply_radioarchiwista_download_marks(self, item_ids: list[str]) -> None:
+        """Dopisz znacznik „Pobrane” wierszom bieżącego widoku po pobraniu."""
+
+        wanted = {item_id for item_id in item_ids}
+        if not wanted:
+            return
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        mark = i18n.tr("rarch.downloaded.mark")
+        updated: list[Row] = []
+        changed = False
+        for candidate in state.model.rows:
+            if (
+                candidate.item_id in wanted
+                and candidate.kind == "recording"
+                and mark not in candidate.state_prefix
+            ):
+                prefix = f"{candidate.state_prefix} {mark}".strip()
+                updated.append(replace(candidate, state_prefix=prefix))
+                changed = True
+            else:
+                updated.append(candidate)
+        if changed:
+            state.model.replace(updated, preferred_id=state.model.selected_id)
+
+    def _save_radioarchiwista_recording_as(self) -> None:
+        """Ctrl+S: zapisz jedno zaznaczone nagranie w wybranym miejscu."""
+
+        rows = [
+            row for row in self._selected_action_rows()
+            if row.kind == "recording" and row.url
+        ]
+        if len(rows) != 1:
+            self.announcer.say(i18n.tr("rarch.saveAs.selectOne"))
+            return
+        row = rows[0]
         if row.item_id in self._radioarchiwista_downloads:
             self.announcer.say(i18n.tr("rarch.download.busy"))
             return
@@ -18499,33 +18668,48 @@ class LiteFrame(wx.Frame):
         if source is None:
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
-        target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+        recording = source.recording_by_id(row.item_id)
+        if recording is None:
+            recording = _radioarchiwista_module.row_recording(row)
+        suggested = _radioarchiwista_module.recording_filename(recording)
+        initial_folder = str(
+            self._radioarchiwista_downloads_dir() or Path.home()
+        )
+        with wx.FileDialog(
+            self,
+            message=i18n.tr("rarch.saveAs.title"),
+            defaultDir=initial_folder,
+            defaultFile=suggested,
+            wildcard="Plik MP3 (*.mp3)|*.mp3|Wszystkie pliki (*.*)|*.*",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as picker:
+            if picker.ShowModal() != wx.ID_OK:
+                return
+            destination = Path(picker.GetPath())
+
+        self.announcer.say(i18n.tr("rarch.download.started"))
+        self._radioarchiwista_downloads.add(row.item_id)
 
         def work() -> Path:
-            recording = source.recording_by_id(row.item_id)
-            label = (
-                recording.local_label
-                if recording is not None and recording.local_label
-                else f"{row.service_id or 'nagranie'} {row.title}"
-            )
-            safe = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:100]
             return _radioarchiwista_module.stream_to_file(
-                row.url,
-                target_dir / f"{safe}.mp3",
+                row.url, destination,
             )
 
         def done(path: Path) -> None:
             self._radioarchiwista_downloads.discard(row.item_id)
-            self.announcer.say(i18n.tr("rarch.download.done", path=path))
+            message = i18n.tr("rarch.download.done", path=path)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self._apply_radioarchiwista_download_marks([row.item_id])
+            self.announcer.say(message)
 
         def failed(error: Exception) -> None:
             self._radioarchiwista_downloads.discard(row.item_id)
-            self._run(self.navigator.apply_radioarchiwista_message(
-                i18n.tr("rarch.download.failed", error=error)
-            ))
+            message = i18n.tr("rarch.download.failed", error=error)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
 
-        self._radioarchiwista_downloads.add(row.item_id)
-        self.announcer.say(i18n.tr("rarch.download.started"))
         self.runner.submit("radioarchiwista", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:

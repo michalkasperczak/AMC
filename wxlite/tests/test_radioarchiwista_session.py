@@ -384,7 +384,7 @@ def test_najnowsze_nazywaja_stacje_w_tytule() -> None:
     assert rows[1].title == "Radio 357, 29.10.2026 23:00"
     # Ulubiona z gwiazdka, niepelne z opisem w szczegolach.
     assert rows[0].state_prefix == ""
-    assert rows[1].state_prefix == "★ "
+    assert rows[1].state_prefix == "★"
     assert "niepełne" in rows[1].detail
 
 
