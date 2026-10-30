@@ -1,6 +1,6 @@
 # RARCH-001 — sesja Radio Archiwista
 
-- Status: **Po przeglądzie kodu i testach integracyjnych; kandydat AMC Test alpha.449, budowa i odbiór NVDA w toku**.
+- Status: **Kod przejrzany, pakiet i instalator alpha.449 zbudowane; instalacja wstrzymana do wspólnego wydania z poprawką dużych list, odbiór NVDA oczekuje**.
 - Data: 29.10.2026; decyzja o wdrożeniu w Test: 30.10.2026.
 - Profil: wyłącznie AMC Test (`session.radioarchiwista` w capabilities;
   AMC Public nie widzi sesji, dopóki się nie ustabilizuje).
@@ -117,3 +117,24 @@
   `511999f1`. Commit kandydata, budowa, instalator, instalacja i wynik
   testu NVDA zostaną dopisane po wykonaniu tych etapów; żadnego z nich
   nie należy wywodzić z samych testów źródeł.
+
+
+## Zmiana planu wydania — 30.10.2026
+
+- Po zbudowaniu osobnego kandydata alpha.449 otrzymano informację z równoległego
+  zadania o decyzji użytkownika, aby dołączyć poprawkę dużych list do jednego
+  wydania AMC Test. Ta decyzja zastępuje wcześniejszy plan osobnej instalacji
+  alpha.449. Nie uruchomiono instalatora i nie opublikowano wydania; działające
+  AMC Test pozostawiono bez zmian.
+- Pakiet Test z czystego commitu `dcaf53f3214c1a447ca6f87757e4926a293acb5e`
+  przeszedł kompilację .NET, sprawdzenie integralności i kontrolowany start
+  interfejsu oraz hosta. Instalator ma 133619010 bajtów i SHA-256
+  `f7f209714b82547030bf2fbdb6fda6b8c4c1219fee81bbede377a55ae583c48f`.
+- Pełna regresja z dokładnego commitu: 2172 zaliczone, 150 pominiętych,
+  7 błędów. Dwa błędy wynikały z brakującego standardowego artefaktu hosta
+  Release; po jego zbudowaniu oba testy przeszły. Pozostałe pięć dotyczy
+  starszych testów aktualizatora, opisu podcastów i atrap startu.
+- Kandydat i szkic listy zmian leżą w
+  `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.449 Radio Archiwista 2026-10-30`.
+  Są zachowane do porównania; wspólne wydanie wymaga nowego commitu, nowej
+  wersji, testów, budowy, instalacji i odbioru NVDA.
