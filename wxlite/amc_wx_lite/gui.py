@@ -14422,6 +14422,9 @@ class LiteFrame(wx.Frame):
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
             ),
+            radioarchiwista_session=(
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+            ),
             sonos_own_streams=(
                 not player
                 and self.navigator.active is SessionId.SONOS
@@ -31984,6 +31987,9 @@ class LiteFrame(wx.Frame):
             sonos_session=self.navigator.active is SessionId.SONOS,
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
+            ),
+            radioarchiwista_session=(
+                self.navigator.active is SessionId.RADIOARCHIWISTA
             ),
             sonos_own_streams=(
                 not player

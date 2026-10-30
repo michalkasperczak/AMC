@@ -388,6 +388,51 @@ def test_najnowsze_nazywaja_stacje_w_tytule() -> None:
     assert "niepełne" in rows[1].detail
 
 
+def test_skraty_sesji_rozstrzygaja_sie_dla_radioarchiwisty() -> None:
+    from amc_wx_lite.shortcuts import (
+        Action, chord_from_canonical, resolve,
+    )
+
+    # W sesji Radio Archiwisty klawisz musi dac AKCJE tej sesji, nie
+    # podleciec do generycznej tabeli listy (objaw: Ctrl+D i Ctrl+S martwe,
+    # bo tylko menu i paleta znaly akcje).
+    oczekiwane = {
+        "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
+        "Ctrl+S": Action.RADIOARCHIWISTA_SAVE_AS,
+        "Ctrl+U": Action.VIEW_FAVORITES,
+        "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+        "F5": Action.RADIOARCHIWISTA_REFRESH,
+    }
+    for canonical, action in oczekiwane.items():
+        chord = chord_from_canonical(canonical)
+        assert chord is not None, canonical
+        assert resolve(
+            chord,
+            player_view=False,
+            radio_session=False,
+            radioarchiwista_session=True,
+        ) is action, canonical
+
+    # Bez flagi sesji (np. w Plikach) Ctrl+D/Ctrl+S nie sa skrotami rarch.
+    for canonical in ("Ctrl+D", "Ctrl+S"):
+        chord = chord_from_canonical(canonical)
+        assert chord is not None, canonical
+        assert resolve(
+            chord,
+            player_view=False,
+            radio_session=False,
+            files_session=True,
+        ) is None, canonical
+
+    # GUI przekazuje flage sesji w obu miejscach rozstrzygania klawiszy.
+    from pathlib import Path
+
+    zrodlo_gui = Path(__file__).resolve().parents[1].joinpath(
+        "amc_wx_lite/gui.py"
+    ).read_text(encoding="utf-8")
+    assert zrodlo_gui.count("radioarchiwista_session=") >= 2
+
+
 def test_odmiana_i_kompletnosc_kluczy_rarch() -> None:
     from amc_wx_lite import i18n
 

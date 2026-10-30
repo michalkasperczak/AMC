@@ -1945,6 +1945,7 @@ def _resolve_default(
     wiim_session: bool = False,
     wiim_streams: bool = False,
     frontier_smart_session: bool = False,
+    radioarchiwista_session: bool = False,
     sonos_session: bool = False,
     sonos_own_streams: bool = False,
     service_history: bool = False,
@@ -2077,6 +2078,11 @@ def _resolve_default(
         and canonical in FRONTIER_SMART_SESSION_VIEW
     ):
         return FRONTIER_SMART_SESSION_VIEW[canonical]
+    if (
+        radioarchiwista_session
+        and canonical in RADIOARCHIWISTA_SESSION_VIEW
+    ):
+        return RADIOARCHIWISTA_SESSION_VIEW[canonical]
     if sonos_session and canonical in SONOS_OWN_STREAMS_VIEW:
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
