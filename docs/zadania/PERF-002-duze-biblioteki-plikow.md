@@ -80,3 +80,14 @@ z PR #6). Gałąź: `codex/perf-002-large-lists-20261030` w osobnym drzewie
 `D:\Projekty Codex\AMC build worktrees\perf-002-large-lists-20261030`.
 Commit kodu i testów: `3cf6fd89d6d496a0eb2820022cc7b177d19cafce`.
 Build: brak. Instalacja: brak. Publikacja: brak.
+
+## Wspólny kandydat Test z Radioarchiwistą — 30.10.2026
+
+Na polecenie użytkownika od 30.10.2026 przygotowano wspólną gałąź
+`codex/amc-test-radioarchiwista-large-lists-alpha450` z czystego commitu
+Radioarchiwisty `dcaf53f3214c1a447ca6f87757e4926a293acb5e`.
+Poprawka list jest w commicie `a814e65a`; wersja techniczna kandydata to
+`0.1.0-alpha.450`. Starsze wpisy w tym rekordzie opisują wcześniejszy,
+samodzielny kandydat źródłowy i nie potwierdzają budowy ani instalacji
+wspólnej wersji. Wyniki wspólnych testów, builda i instalacji należy dopisać
+po ich wykonaniu.
