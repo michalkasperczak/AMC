@@ -33,6 +33,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from . import i18n
 from .list_model import Row
 
 
@@ -277,14 +278,23 @@ def parse_recordings(payload: object, station: StationRecord) -> tuple[ArchiveRe
 
 
 def station_rows(index: StationsIndex) -> list[Row]:
-    """Wiersze poziomu stacji. Id i liczniki zostają poza tekstem domyślnym."""
+    """Wiersze poziomu stacji.
+
+    Licznik nagrań wchodzi do TYTUŁU, a nie do kolumny „Szczegóły":
+    czytnik ekranu ogłasza wtedy „Polskie Radio 24, 4916 nagrań" jednym
+    ciągiem, zamiast wymieniać nagłówek kolumny przed liczbą.
+    """
 
     return [
         Row(
             item_id=station_item_id(station.slug),
-            title=station.public_name,
+            title=(
+                f"{station.public_name}, {i18n.recordings_phrase(station.archive_count)}"
+                if station.archive_count
+                else station.public_name
+            ),
             kind="folder",
-            detail=f"{station.archive_count} nagrań" if station.archive_count else "",
+            detail="",
             show_kind=False,
             service_id=station.slug,
             service_kind="rarchStation",
@@ -293,39 +303,78 @@ def station_rows(index: StationsIndex) -> list[Row]:
     ]
 
 
-def _period_rows(items: tuple[int, ...], item_id_prefix: str, labels: dict[int, str]) -> list[Row]:
+def _period_rows(
+    items: tuple[int, ...],
+    item_id_prefix: str,
+    *,
+    service_kind: str,
+    service_id: str,
+    label_for: Callable[[int], str],
+) -> list[Row]:
+    # service_kind i service_id są OBOWIĄZKOWE: bez nich nawigacja nie
+    # rozpoznaje poziomu katalogu i Enter kończy się „nie można otworzyć".
     return [
         Row(
             item_id=f"{item_id_prefix}:{value}",
-            title=labels.get(value, str(value)),
+            title=label_for(value),
             kind="folder",
             show_kind=False,
+            service_kind=service_kind,
+            service_id=service_id,
         )
         for value in items
     ]
 
 
 def year_rows(slug: str, years: tuple[int, ...]) -> list[Row]:
-    return _period_rows(years, f"rarch:years:{check_slug(slug)}", {})
-
-
-_MONTH_LABELS = {
-    1: "styczeń", 2: "luty", 3: "marzec", 4: "kwiecień",
-    5: "maj", 6: "czerwiec", 7: "lipiec", 8: "sierpień",
-    9: "wrzesień", 10: "październik", 11: "listopad", 12: "grudzień",
-}
+    return _period_rows(
+        years,
+        f"rarch:years:{check_slug(slug)}",
+        service_kind="rarchYear",
+        service_id=check_slug(slug),
+        label_for=str,
+    )
 
 
 def month_rows(slug: str, year: int, months: tuple[int, ...]) -> list[Row]:
-    return _period_rows(months, f"rarch:months:{check_slug(slug)}:{year}", _MONTH_LABELS)
+    return _period_rows(
+        months,
+        f"rarch:months:{check_slug(slug)}:{year}",
+        service_kind="rarchMonth",
+        service_id=check_slug(slug),
+        label_for=i18n.month_name,
+    )
 
 
 def day_rows(slug: str, year: int, month: int, days: tuple[int, ...]) -> list[Row]:
     return _period_rows(
         days,
         f"rarch:days:{check_slug(slug)}:{year}:{month}",
-        {day: f"{day:02d}.{month:02d}.{year}" for day in days},
+        service_kind="rarchDay",
+        service_id=check_slug(slug),
+        label_for=lambda day: f"{day:02d}.{month:02d}.{year}",
     )
+
+
+def _recording_details(
+    recording: ArchiveRecording,
+    position: float,
+) -> str:
+    """Szczegóły wiersza nagrania w języku interfejsu."""
+
+    details: list[str] = []
+    if not recording.is_complete:
+        details.append(i18n.tr("rarch.detail.incomplete"))
+    if recording.status and recording.status != "published":
+        details.append(i18n.tr(
+            "rarch.detail.status", status=recording.status,
+        ))
+    if position > 1.0 and recording.duration_seconds > 0:
+        remaining = max(0.0, recording.duration_seconds - position)
+        details.append(i18n.tr(
+            "rarch.detail.remaining", minutes=int(remaining // 60),
+        ))
+    return ", ".join(details)
 
 
 def recording_rows(
@@ -341,20 +390,12 @@ def recording_rows(
     favorite_ids = favorite_ids or set()
     rows: list[Row] = []
     for recording in recordings[:max(0, loaded_count)]:
-        details: list[str] = []
-        if not recording.is_complete:
-            details.append("nagranie niepełne")
-        if recording.status and recording.status != "published":
-            details.append(f"status: {recording.status}")
         position = positions.get(recording.item_id, 0.0)
-        if position > 1.0 and recording.duration_seconds > 0:
-            remaining = max(0.0, recording.duration_seconds - position)
-            details.append(f"pozostało {int(remaining // 60)} min")
         rows.append(Row(
             item_id=recording.item_id,
             title=recording.local_hour_label or f"{recording.hour:02d}:00",
             kind="recording",
-            detail=", ".join(details),
+            detail=_recording_details(recording, position),
             show_kind=False,
             url=recording.audio_url,
             service_id=recording.station_slug,
@@ -367,9 +408,55 @@ def recording_rows(
     if len(recordings) > loaded_count:
         rows.append(Row(
             item_id="rarch:load-more",
-            title=f"Wczytaj więcej (pokazane {len(rows)} z {len(recordings)})",
+            title=i18n.tr(
+                "rarch.loadMore.row", shown=len(rows), total=len(recordings),
+            ),
             kind="loadMore",
             show_kind=False,
+        ))
+    return rows
+
+
+def latest_rows(
+    recordings: tuple[ArchiveRecording, ...],
+    *,
+    positions: dict[str, float] | None = None,
+    favorite_ids: set[str] | None = None,
+) -> list[Row]:
+    """Wiersze widoku „Najnowsze nagrania" ze wszystkich stacji.
+
+    Tytuł MUSI nazywać stację: w przeciwieństwie do widoku dnia jednej
+    stacji, sama godzina nie mówi, do której stacji należy nagranie.
+    """
+
+    positions = positions or {}
+    favorite_ids = favorite_ids or set()
+    rows: list[Row] = []
+    for recording in recordings:
+        date_label = recording.local_date_label
+        hour_label = (
+            recording.local_hour_label or f"{recording.hour:02d}:00"
+            if recording.hour >= 0
+            else ""
+        )
+        when = " ".join(part for part in (date_label, hour_label) if part)
+        title = (
+            f"{recording.station_name}, {when}" if when else recording.station_name
+        )
+        position = positions.get(recording.item_id, 0.0)
+        rows.append(Row(
+            item_id=recording.item_id,
+            title=title,
+            kind="recording",
+            detail=_recording_details(recording, position),
+            show_kind=False,
+            url=recording.audio_url,
+            service_id=recording.station_slug,
+            service_start_utc=recording.utc_started_at,
+            position_seconds=position,
+            duration_ticks=int(recording.duration_seconds * 10_000_000),
+            state_prefix="★ " if recording.item_id in favorite_ids else "",
+            parent_id=station_item_id(recording.station_slug),
         ))
     return rows
 
