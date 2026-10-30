@@ -416,3 +416,42 @@ def test_odmiana_i_kompletnosc_kluczy_rarch() -> None:
         assert not missing, missing
     finally:
         i18n.configure("pl")
+
+
+def test_start_zapamietanej_sesji_dociaga_stacje() -> None:
+    """Start z aktywna sesja Radio Archiwista nie moze pokazywac pustej listy.
+
+    Navigator.restore odtwarza sesje, widok i fokus, ale wiersze katalogu
+    pobiera dopiero otwarcie poziomu. Wczesniej robilo to wylacznie Ctrl+4,
+    wiec po restarcie z zapamietana sesja uzytkownik widzial pusta liste.
+    """
+    from types import SimpleNamespace
+
+    from amc_wx_lite.gui import LiteFrame
+
+    navigator = make_navigator()
+    navigator.sessions[SessionId.RADIOARCHIWISTA].list_anchor_id = "rarch:anchor"
+    opened: list[str | None] = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        announcer=SimpleNamespace(say=lambda *_args, **_kwargs: None),
+        stations=SimpleNamespace(as_payload=lambda: []),
+        _radio_snapshot=SimpleNamespace(current_id=None, load_error=None),
+        options=SimpleNamespace(last_folder=""),
+        library=SimpleNamespace(is_available=False, describe=lambda: ""),
+        messages=SimpleNamespace(custom_seek_seconds=300),
+        _radio_effective_sort_modes={},
+        _run=lambda _intents: None,
+        _open_radio_view=lambda _intent, **_kwargs: None,
+        _open_podcast_library=lambda **_kwargs: None,
+        _load_wiim_devices=lambda **_kwargs: None,
+        _load_frontier_smart_devices=lambda **_kwargs: None,
+        _load_sonos_targets=lambda **_kwargs: None,
+        _open_radioarchiwista_stations=(
+            lambda preferred_id=None, **_kwargs: opened.append(preferred_id)
+        ),
+    )
+    LiteFrame._load_initial_content(frame)
+    assert opened == ["rarch:anchor"], (
+        "Start z zapamietana sesja Radio Archiwista nie otworzyl katalogu stacji"
+    )
