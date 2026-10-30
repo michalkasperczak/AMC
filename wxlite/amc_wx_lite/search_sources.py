@@ -31,11 +31,13 @@ class SearchSources:
         radio: RadioSource,
         podcasts: PodcastSource,
         tidal: object | None,
+        radioarchiwista: object | None = None,
     ) -> None:
         self.library = library
         self.radio = radio
         self.podcasts = podcasts
         self.tidal = tidal
+        self.radioarchiwista = radioarchiwista
 
     def collect(self, session_ids: tuple[SessionId, ...]) -> SearchCollection:
         entries: list[SearchEntry] = []
@@ -99,6 +101,23 @@ class SearchSources:
                     for row in result.rows
                 )
             return results
+        if session_id is SessionId.RADIOARCHIWISTA:
+            # Stacje z ważnego cache i ulubione nagrania z profilu;
+            # globalne wyszukiwanie nie schodzi do sieci (źródło gwarantuje
+            # to w ``search_rows``).
+            if self.radioarchiwista is None:
+                return []
+            rows = self.radioarchiwista.search_rows()
+            return [
+                SearchEntry(
+                    SessionId.RADIOARCHIWISTA,
+                    row,
+                    LibraryView.RADIOARCHIWISTA_FAVORITES
+                    if row.kind == "recording"
+                    else LibraryView.RADIOARCHIWISTA_STATIONS,
+                )
+                for row in rows
+            ]
         # WiiM i Sonos nie udają globalnego katalogu. Ich rzeczywiście
         # wczytane listy są migawkami stanu nawigatora i dokłada je warstwa
         # GUI przez wspólny kontrakt ``speaker_search_entries``.
@@ -115,4 +134,5 @@ class SearchSources:
             SessionId.SONOS: "Sonos",
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.SPOTIFY: "Spotify",
+            SessionId.RADIOARCHIWISTA: "Radio Archiwista",
         }[session_id]

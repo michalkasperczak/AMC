@@ -14,6 +14,7 @@ import random
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
+from . import i18n
 from .list_model import ListModel, Row
 
 
@@ -33,6 +34,7 @@ class SessionId(Enum):
     SONOS = "sonos"
     SPOTIFY = "spotify"
     FRONTIER_SMART = "frontierSmart"
+    RADIOARCHIWISTA = "radioarchiwista"
 
 
 class LibraryView(Enum):
@@ -129,6 +131,15 @@ class LibraryView(Enum):
     SONOS_FAVORITES = "sonosFavorites"
     SONOS_PLAYLISTS = "sonosPlaylists"
     SONOS_OWN_STREAMS = "sonosOwnStreams"
+    #: Poziomy katalogu nagrań Radio Archiwisty. Osobne wartości pozwalają
+    #: Backspace i filtrom rozpoznać poziom bez wstawiania identyfikatora
+    #: stacji do nazwy dostępnej.
+    RADIOARCHIWISTA_STATIONS = "radioarchiwistaStations"
+    RADIOARCHIWISTA_YEARS = "radioarchiwistaYears"
+    RADIOARCHIWISTA_MONTHS = "radioarchiwistaMonths"
+    RADIOARCHIWISTA_DAYS = "radioarchiwistaDays"
+    RADIOARCHIWISTA_HOURS = "radioarchiwistaHours"
+    RADIOARCHIWISTA_FAVORITES = "radioarchiwistaFavorites"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -251,6 +262,15 @@ class SessionState:
     tidal_heading: str = "Biblioteka TIDAL"
     tidal_context: "OpenTidalContainer | None" = None
     tidal_history: list["TidalNavigationSnapshot"] = field(default_factory=list)
+    #: Położenie w katalogu Radio Archiwisty: stacja, rok, miesiąc, dzień.
+    #: Sama hierarchia nie mieści się w ``folder_path``; te pola mówią,
+    #: który shard katalogu ma być widoczny i dokąd wraca Backspace.
+    radioarchiwista_slug: str = ""
+    radioarchiwista_year: int | None = None
+    radioarchiwista_month: int | None = None
+    radioarchiwista_day: int | None = None
+    #: Stos powrotu: (widok, slug, rok, miesiąc, dzień, Id wiersza).
+    radioarchiwista_history: list[tuple[object, str, int | None, int | None, int | None, str | None]] = field(default_factory=list)
     #: Stan jednej sesji Spotify. Jest niezależny od TIDAL-a mimo wspólnego
     #: kontraktu DTO: przełączenie sesji nie może zgubić listy ani fokusu.
     spotify_heading: str = "Biblioteka Spotify"
@@ -327,6 +347,35 @@ class OpenPodcastView:
     subscription_title: str = ""
     preferred_id: str | None = None
     load_more: bool = False
+
+
+@dataclass(slots=True)
+class OpenRadioarchiwistaStations:
+    """Lista stacji publicznego katalogu Radio Archiwisty."""
+
+    preferred_id: str | None = None
+    refresh: bool = False
+
+
+@dataclass(slots=True)
+class OpenRadioarchiwistaLatest:
+    """Nagrania ostatniej opublikowanej godziny, ze wszystkich stacji."""
+
+    refresh: bool = False
+
+
+@dataclass(slots=True)
+class OpenRadioarchiwistaLevel:
+    """Jeden poziom katalogu nagrań: lata, miesiące, dni albo godziny."""
+
+    view: "LibraryView"
+    slug: str
+    year: int | None = None
+    month: int | None = None
+    day: int | None = None
+    load_more: bool = False
+    refresh: bool = False
+    preferred_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -750,6 +799,63 @@ def _items_word(count: int) -> str:
     return "pozycji"
 
 
+def _radioarchiwista_period(row: Row) -> tuple[str, int | None, int | None, int | None, "LibraryView"] | None:
+    """Poziom katalogu ukryty w wierszu roku/miesiąca/dnia.
+
+    Format ``item_id`` jest wewnętrznym kontraktem modułu źródła
+    (``rarch:years:{slug}:{rok}`` itd.); slug nie zawiera dwukropka, więc
+    podział od końca jest jednoznaczny.
+    """
+
+    kind = row.service_kind or ""
+    parts = row.item_id.split(":")
+    try:
+        if kind == "rarchYear" and row.service_id and len(parts) == 4:
+            return (
+                row.service_id,
+                int(parts[-1]),
+                None,
+                None,
+                LibraryView.RADIOARCHIWISTA_MONTHS,
+            )
+        if kind == "rarchMonth" and row.service_id and len(parts) == 5:
+            return (
+                row.service_id,
+                int(parts[-2]),
+                int(parts[-1]),
+                None,
+                LibraryView.RADIOARCHIWISTA_DAYS,
+            )
+        if kind == "rarchDay" and row.service_id and len(parts) == 6:
+            return (
+                row.service_id,
+                int(parts[-3]),
+                int(parts[-2]),
+                int(parts[-1]),
+                LibraryView.RADIOARCHIWISTA_HOURS,
+            )
+    except ValueError:
+        return None
+    return None
+
+
+_RADIOARCHIWISTA_HEADING_KEYS = {
+    LibraryView.RADIOARCHIWISTA_STATIONS: "rarch.heading.stations",
+    LibraryView.RADIOARCHIWISTA_YEARS: "rarch.heading.years",
+    LibraryView.RADIOARCHIWISTA_MONTHS: "rarch.heading.months",
+    LibraryView.RADIOARCHIWISTA_DAYS: "rarch.heading.days",
+    LibraryView.RADIOARCHIWISTA_HOURS: "rarch.heading.hours",
+    LibraryView.RADIOARCHIWISTA_FAVORITES: "rarch.heading.favorites",
+}
+
+
+def radioarchiwista_heading(view: LibraryView) -> str:
+    key = _RADIOARCHIWISTA_HEADING_KEYS.get(view)
+    if key is None:
+        return i18n.tr("session.radioarchiwista")
+    return i18n.tr(key)
+
+
 class Navigator:
     """Maszyna stanow calego interfejsu.
 
@@ -767,6 +873,7 @@ class Navigator:
             SessionId.SONOS: SessionState(SessionId.SONOS),
             SessionId.SPOTIFY: SessionState(SessionId.SPOTIFY),
             SessionId.FRONTIER_SMART: SessionState(SessionId.FRONTIER_SMART),
+            SessionId.RADIOARCHIWISTA: SessionState(SessionId.RADIOARCHIWISTA),
         }
         self.active = SessionId.FILES
         # Osobny punkt podmiany pozwala testom sprawdzic dokladna kolejnosc
@@ -1149,6 +1256,8 @@ class Navigator:
 
     @staticmethod
     def _session_name(session_id: SessionId) -> str:
+        # Ta mapa musi pokrywac caly enum SessionId: switch_session oglasza
+        # nazwe przy KAZDYM przelaczeniu, a brak wpisu ubijal GUI (KeyError).
         return {
             SessionId.FILES: "Pliki lokalne",
             SessionId.RADIO: "Radio",
@@ -1158,6 +1267,7 @@ class Navigator:
             SessionId.SONOS: "Sonos",
             SessionId.SPOTIFY: "Spotify",
             SessionId.FRONTIER_SMART: "Frontier Smart",
+            SessionId.RADIOARCHIWISTA: "Radio Archiwista",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
@@ -1470,6 +1580,11 @@ class Navigator:
                 # fokus na liscie i nie udaje, ze ma wlasny widok odtwarzacza.
                 state.view = View.LIST
                 return [intent]
+
+        if state.session_id is SessionId.RADIOARCHIWISTA:
+            return self._activate_radioarchiwista_row(
+                row, open_player_on_activation=open_player_on_activation
+            )
 
         if state.session_id is SessionId.SPOTIFY:
             if row.activation_message:
@@ -2128,6 +2243,8 @@ class Navigator:
             ):
                 return self._leave_library_view()
             return []
+        if state.session_id is SessionId.RADIOARCHIWISTA:
+            return self._leave_radioarchiwista_view()
         if state.session_id is SessionId.TIDAL:
             if state.tidal_history:
                 previous = state.tidal_history.pop()
@@ -2668,6 +2785,8 @@ class Navigator:
         Osobne podglady aktywnosci nadal zamykaja sie do swojej listy bazowej.
         """
         state = self.session
+        if state.session_id is SessionId.RADIOARCHIWISTA:
+            return self._leave_radioarchiwista_view()
         if state.session_id is SessionId.PODCASTS:
             if state.library_view is LibraryView.PODCAST_EPISODES:
                 return [OpenPodcastView(preferred_id=state.library_return_id)]
@@ -2921,6 +3040,158 @@ class Navigator:
             row.item_id,
             row.title,
             force_refresh=force_refresh,
+        )]
+
+    def apply_radioarchiwista_rows(
+        self,
+        view: "LibraryView",
+        rows: list[Row],
+        *,
+        slug: str = "",
+        year: int | None = None,
+        month: int | None = None,
+        day: int | None = None,
+        preferred_id: str | None = None,
+        announcement: str = "",
+    ) -> list[object]:
+        """Pokaż jeden poziom katalogu nagrań Radio Archiwisty.
+
+        Stan sesji pamięta, który shard jest widoczny, żeby F5 i „wczytaj
+        więcej" znały kontekst bez składania go z tekstu wierszy.
+        """
+
+        state = self.sessions[SessionId.RADIOARCHIWISTA]
+        self._remember_view_selection(state)
+        state.library_view = view
+        state.library_playlist_id = None
+        state.radioarchiwista_slug = slug
+        state.radioarchiwista_year = year
+        state.radioarchiwista_month = month
+        state.radioarchiwista_day = day
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        state.library_return_id = preferred_id or state.model.selected_id
+        count = sum(1 for row in rows if row.kind != "loadMore")
+        heading = radioarchiwista_heading(view)
+        if announcement:
+            message = announcement
+        elif count:
+            phrase = (
+                i18n.recordings_phrase(count)
+                if view is LibraryView.RADIOARCHIWISTA_HOURS
+                else i18n.items_phrase(count)
+            )
+            message = i18n.tr("rarch.view.count", heading=heading, phrase=phrase)
+        else:
+            message = i18n.tr("rarch.view.empty", heading=heading)
+        return [Announce(message)]
+
+    def apply_radioarchiwista_message(self, message: str) -> list[object]:
+        """Uczciwa odmowa: błąd sieci nie zmienia widoku ani zaznaczenia."""
+
+        return [Announce(message)]
+
+    def _activate_radioarchiwista_row(
+        self, row: Row, *, open_player_on_activation: bool = True
+    ) -> list[object]:
+        state = self.session
+        if row.activation_message:
+            return [Announce(row.activation_message)]
+        if row.kind == "recording":
+            if not row.url:
+                return [Announce(i18n.tr("rarch.recording.noAudio"))]
+            state.player_entry_anchor_id = row.item_id
+            state.list_anchor_id = row.item_id
+            state.now_playing_id = row.item_id
+            state.now_playing_title = row.title
+            state.pending_material_id = profile_material_id(row.item_id)
+            self._set_playback_source(
+                state,
+                tuple(
+                    candidate
+                    for candidate in state.model.rows
+                    if candidate.kind == "recording"
+                    and not candidate.activation_message
+                ),
+            )
+            state.view = (
+                View.PLAYER if open_player_on_activation else View.LIST
+            )
+            return [
+                PlayMedia(
+                    row.url,
+                    row.item_id,
+                    row.title,
+                    position_seconds=row.position_seconds,
+                ),
+                Announce(row.title),
+            ]
+        if row.service_kind == "rarchLatest":
+            self._push_radioarchiwista_history(state)
+            return [OpenRadioarchiwistaLatest()]
+        if row.service_kind == "rarchStation" and row.service_id:
+            self._push_radioarchiwista_history(state)
+            state.library_return_id = row.item_id
+            return [OpenRadioarchiwistaLevel(
+                LibraryView.RADIOARCHIWISTA_YEARS,
+                row.service_id,
+            )]
+        level = _radioarchiwista_period(row)
+        if level is not None:
+            slug, year, month, day, target_view = level
+            self._push_radioarchiwista_history(state)
+            state.library_return_id = row.item_id
+            return [OpenRadioarchiwistaLevel(
+                target_view,
+                slug,
+                year=year,
+                month=month,
+                day=day,
+            )]
+        if row.kind == "loadMore":
+            view = state.library_view
+            if view is LibraryView.RADIOARCHIWISTA_HOURS:
+                return [OpenRadioarchiwistaLevel(
+                    view,
+                    state.radioarchiwista_slug,
+                    year=state.radioarchiwista_year,
+                    month=state.radioarchiwista_month,
+                    day=state.radioarchiwista_day,
+                    load_more=True,
+                )]
+            return [Announce(i18n.tr("rarch.loadMore.unknown"))]
+        return [Announce(i18n.tr("rarch.open.failed"))]
+
+    def _push_radioarchiwista_history(self, state: SessionState) -> None:
+        state.radioarchiwista_history.append(
+            (
+                state.library_view,
+                state.radioarchiwista_slug,
+                state.radioarchiwista_year,
+                state.radioarchiwista_month,
+                state.radioarchiwista_day,
+                state.model.selected_id,
+            )
+        )
+
+    def _leave_radioarchiwista_view(self) -> list[object]:
+        """Backspace/Escape: poziom wyżej, na opuszczonym wierszu."""
+
+        state = self.session
+        if state.library_view is LibraryView.RADIOARCHIWISTA_FAVORITES:
+            return [OpenRadioarchiwistaStations()]
+        if not state.radioarchiwista_history:
+            return []
+        view, slug, year, month, day, return_id = state.radioarchiwista_history.pop()
+        if view is LibraryView.RADIOARCHIWISTA_STATIONS or view is None:
+            return [OpenRadioarchiwistaStations(preferred_id=return_id)]
+        return [OpenRadioarchiwistaLevel(
+            view,
+            slug,
+            year=year,
+            month=month,
+            day=day,
+            preferred_id=return_id,
         )]
 
     def apply_youtube_broadcasts(

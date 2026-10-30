@@ -31,7 +31,7 @@ import re
 import sys
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -168,6 +168,9 @@ from .navigation import (
     OpenPodcastPlaylistView,
     OpenPodcastView,
     OpenYouTubeBroadcasts,
+    OpenRadioarchiwistaLatest,
+    OpenRadioarchiwistaLevel,
+    OpenRadioarchiwistaStations,
     OpenQueueView,
     OpenSpotifyCollectionView,
     OpenSpotifyContainer,
@@ -236,6 +239,10 @@ if "session.frontier-smart" in _RELEASE_PROFILE.capabilities:
         snapshot as frontier_smart_snapshot,
         waiting_for_pin as frontier_smart_waiting_for_pin,
     )
+if "session.radioarchiwista" in _RELEASE_PROFILE.capabilities:
+    from . import radioarchiwista_source as _radioarchiwista_module
+else:
+    _radioarchiwista_module = None
 from .wiim_source import (
     WiiMOptionChoice,
     WiiMPresetChoice,
@@ -9125,8 +9132,20 @@ class LiteFrame(wx.Frame):
         self.podcasts = PodcastSource(self.layout)
         private_tidal_enabled = "session.tidal" in _RELEASE_PROFILE.capabilities
         self.tidal = TidalSource(self.layout) if private_tidal_enabled else None
+        # Radio Archiwista: leniwe źródło (utworzone tutaj, gdy profil
+        # udostępnia sesję) i stan pomocniczy widoku godzin.
+        self._radioarchiwista = None
+        self._radioarchiwista_hours_loaded = 0
+        self._radioarchiwista_playing_id: str | None = None
+        self._radioarchiwista_downloads: set[str] = set()
         self.search_sources = SearchSources(
-            self.library, self.radio, self.podcasts, self.tidal
+            self.library,
+            self.radio,
+            self.podcasts,
+            self.tidal,
+            self._radioarchiwista_source()
+            if _radioarchiwista_module is not None
+            else None,
         )
         if private_tidal_enabled:
             self._tidal_queue_rows = list(tidal_queue_rows(state.tidal_queue_items))
@@ -9414,6 +9433,12 @@ class LiteFrame(wx.Frame):
             "Urządzenia Frontier Smart",
             self.navigator.sessions[SessionId.FRONTIER_SMART],
         )
+        self.radioarchiwista_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.RADIOARCHIWISTA].model,
+            "Radio Archiwista",
+            self.navigator.sessions[SessionId.RADIOARCHIWISTA],
+        )
         self.sonos_list = MediaListCtrl(
             self.list_panel,
             self.navigator.sessions[SessionId.SONOS].model,
@@ -9426,6 +9451,7 @@ class LiteFrame(wx.Frame):
         self.spotify_list.Hide()
         self.wiim_list.Hide()
         self.frontier_smart_list.Hide()
+        self.radioarchiwista_list.Hide()
         self.sonos_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
@@ -9437,6 +9463,7 @@ class LiteFrame(wx.Frame):
         list_sizer.Add(self.spotify_list, 1, wx.EXPAND)
         list_sizer.Add(self.wiim_list, 1, wx.EXPAND)
         list_sizer.Add(self.frontier_smart_list, 1, wx.EXPAND)
+        list_sizer.Add(self.radioarchiwista_list, 1, wx.EXPAND)
         list_sizer.Add(self.sonos_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
@@ -10489,6 +10516,7 @@ class LiteFrame(wx.Frame):
             self.spotify_list,
             self.wiim_list,
             self.frontier_smart_list,
+            self.radioarchiwista_list,
             self.sonos_list,
         ):
             self._bind_list(control)
@@ -11767,6 +11795,15 @@ class LiteFrame(wx.Frame):
                 after_refresh=complete,
             )
             return
+        if entry.session_id is SessionId.RADIOARCHIWISTA:
+            # Stacja -> lista stacji, nagranie -> ulubione. Oba widoki
+            # działają offline, więc wejście jest natychmiastowe.
+            if entry.row.kind == "recording":
+                self._open_radioarchiwista_favorites(preferred_id=item_id)
+            else:
+                self._open_radioarchiwista_stations(preferred_id=item_id)
+            complete()
+            return
         if entry.session_id in SPEAKER_SESSIONS:
             state = self.navigator.sessions[entry.session_id]
             if state.library_view is not entry.source_view:
@@ -13033,6 +13070,15 @@ class LiteFrame(wx.Frame):
         if getattr(self.navigator, "active", None) is SessionId.SONOS:
             self._load_sonos_targets(
                 preferred_id=self.navigator.sessions[SessionId.SONOS].list_anchor_id
+            )
+        if getattr(self.navigator, "active", None) is SessionId.RADIOARCHIWISTA:
+            # Start z zapamietana sesja katalogu nagrań: bez tego lista była
+            # pusta az do pierwszego Ctrl+4, bo restore odtwarza tylko sesje,
+            # widok i fokus -- wiersze pobiera dopiero otwarcie poziomu.
+            self._open_radioarchiwista_stations(
+                preferred_id=self.navigator.sessions[
+                    SessionId.RADIOARCHIWISTA
+                ].list_anchor_id
             )
         # Biblioteka AMC ma PIERWSZENSTWO nad przegladaniem dysku. Dawniej
         # bylo odwrotnie: pytalismy ``Path(folder).exists()``, a skoro sciezki
@@ -14376,6 +14422,9 @@ class LiteFrame(wx.Frame):
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
             ),
+            radioarchiwista_session=(
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+            ),
             sonos_own_streams=(
                 not player
                 and self.navigator.active is SessionId.SONOS
@@ -14490,6 +14539,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_FRONTIER_SMART:
             self._transient_preview_return = None
             self._switch_session(SessionId.FRONTIER_SMART)
+        elif action is Action.SESSION_RADIOARCHIWISTA:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.RADIOARCHIWISTA)
         elif action is Action.SESSION_LIST:
             self._show_session_list()
         elif action is Action.SESSION_ENABLE:
@@ -14945,6 +14997,14 @@ class LiteFrame(wx.Frame):
             self._show_podcast_playback_options()
         elif action is Action.VIEW_ALL_FILES:
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
+        elif action is Action.TOGGLE_RADIOARCHIWISTA_FAVORITE:
+            self._toggle_radioarchiwista_favorite()
+        elif action is Action.RADIOARCHIWISTA_DOWNLOAD:
+            self._download_radioarchiwista_recording()
+        elif action is Action.RADIOARCHIWISTA_SAVE_AS:
+            self._save_radioarchiwista_recording_as()
+        elif action is Action.RADIOARCHIWISTA_REFRESH:
+            self._refresh_radioarchiwista_view()
         elif action is Action.VIEW_FAVORITES:
             if self.navigator.active is SessionId.PODCASTS:
                 self._transient_preview_return = None
@@ -14958,6 +15018,8 @@ class LiteFrame(wx.Frame):
                     LibraryView.SONOS_FAVORITES,
                     household_id=self._sonos_content_household_id(),
                 ))
+            elif self.navigator.active is SessionId.RADIOARCHIWISTA:
+                self._open_radioarchiwista_favorites()
             else:
                 self._run(self.navigator.open_library_view(LibraryView.FAVORITES))
         elif action is Action.VIEW_PLAYLISTS:
@@ -15678,6 +15740,14 @@ class LiteFrame(wx.Frame):
                 self._open_library_view(intent)
             elif isinstance(intent, OpenQueueView):
                 self._open_queue_view()
+            elif isinstance(intent, OpenRadioarchiwistaStations):
+                self._open_radioarchiwista_stations(
+                    intent.preferred_id, refresh=intent.refresh
+                )
+            elif isinstance(intent, OpenRadioarchiwistaLevel):
+                self._open_radioarchiwista_level(intent)
+            elif isinstance(intent, OpenRadioarchiwistaLatest):
+                self._open_radioarchiwista_latest(refresh=intent.refresh)
             elif isinstance(intent, OpenPodcastView):
                 self._open_podcast_view(intent)
             elif isinstance(intent, OpenYouTubeBroadcasts):
@@ -15713,7 +15783,10 @@ class LiteFrame(wx.Frame):
             elif isinstance(intent, PlayStation):
                 self._play_station(intent)
             elif isinstance(intent, PlayMedia):
-                self._play_media(intent)
+                if self.navigator.active is SessionId.RADIOARCHIWISTA:
+                    self._play_media(intent, session_id=SessionId.RADIOARCHIWISTA)
+                else:
+                    self._play_media(intent)
             elif isinstance(intent, PlayTidalTrack):
                 self._play_tidal_track(intent)
             elif isinstance(intent, PlayTidalContainer):
@@ -15817,6 +15890,7 @@ class LiteFrame(wx.Frame):
             SessionId.WIIM: "WiiM",
             SessionId.SONOS: "Sonos",
             SessionId.FRONTIER_SMART: "Frontier Smart",
+            SessionId.RADIOARCHIWISTA: "Radio Archiwista",
         }[self.navigator.active]))
 
         active_list = self._active_list()
@@ -15866,6 +15940,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "wiim_list", None),
                 getattr(self, "sonos_list", None),
                 getattr(self, "frontier_smart_list", None),
+                getattr(self, "radioarchiwista_list", None),
             )
             if candidate is not None
         )
@@ -16005,6 +16080,8 @@ class LiteFrame(wx.Frame):
             return self.sonos_list
         if self.navigator.active is SessionId.FRONTIER_SMART:
             return self.frontier_smart_list
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            return self.radioarchiwista_list
         return self.tidal_list
 
     def _on_item_focused(self, event: wx.ListEvent) -> None:
@@ -18105,6 +18182,12 @@ class LiteFrame(wx.Frame):
                     preferred_id=state.list_anchor_id,
                     configure_if_empty=True,
                 )
+        elif session_id is SessionId.RADIOARCHIWISTA:
+            state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+            if not state.model.rows:
+                self._open_radioarchiwista_stations(
+                    preferred_id=state.list_anchor_id
+                )
         elif session_id is SessionId.SONOS:
             state = self.navigator.sessions[SessionId.SONOS]
             if not state.model.rows:
@@ -18135,6 +18218,11 @@ class LiteFrame(wx.Frame):
                 or self.navigator.sessions[SessionId.SONOS].sonos_target_rows
                 else "Wymaga zalogowania"
             ),
+            SessionId.RADIOARCHIWISTA: (
+                "Gotowa"
+                if self.navigator.sessions[SessionId.RADIOARCHIWISTA].model.rows
+                else "Wymaga wczytania katalogu nagrań"
+            ),
             SessionId.SPOTIFY: (
                 "Połączona, odtwarzanie ograniczone"
                 if getattr(self, "_spotify_account_connected", None) is True
@@ -18150,6 +18238,504 @@ class LiteFrame(wx.Frame):
             if cached.rows:
                 ready[SessionId.TIDAL] = "Połączona, odtwarzanie ograniczone"
         return ready
+
+    # ---------------------------------------------------- Radio Archiwista
+
+    def _radioarchiwista_source(self):
+        """Źródło katalogu nagrań; None, gdy profil nie ma tej sesji."""
+
+        source = getattr(self, "_radioarchiwista", None)
+        if source is None:
+            if _radioarchiwista_module is None:
+                return None
+            source = _radioarchiwista_module.RadioarchiwistaSource(
+                Path(self.layout.lite_settings_dir) / "radioarchiwista"
+            )
+            self._radioarchiwista = source
+        return source
+
+    def _open_radioarchiwista_stations(
+        self,
+        preferred_id: str | None = None,
+        *,
+        refresh: bool = False,
+    ) -> None:
+        """Stacje katalogu nagrań ze skrótem „Najnowsze” na górze."""
+
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        self.announcer.say(
+            i18n.tr("rarch.catalog.refreshing" if refresh else "rarch.catalog.loading")
+        )
+
+        def work() -> list[Row]:
+            index, _from_cache = source.stations(force=refresh)
+            rows = _radioarchiwista_module.station_rows(index)
+            rows.insert(0, Row(
+                item_id="rarch:latest",
+                title=i18n.tr("rarch.latest.menu"),
+                kind="folder",
+                show_kind=False,
+                service_kind="rarchLatest",
+            ))
+            return rows
+
+        def done(rows: list[Row]) -> None:
+            self._radioarchiwista_hours_loaded = 0
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                LibraryView.RADIOARCHIWISTA_STATIONS,
+                rows,
+                preferred_id=preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.apply_radioarchiwista_message(
+                i18n.tr("rarch.error", error=error)
+            ))
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _open_radioarchiwista_level(self, intent: OpenRadioarchiwistaLevel) -> None:
+        """Jeden poziom katalogu: lata, miesiące, dni albo nagrania dnia."""
+
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        downloads_dir = self._radioarchiwista_downloads_dir()
+
+        def work() -> tuple[LibraryView, list[Row]]:
+            if intent.view is LibraryView.RADIOARCHIWISTA_YEARS:
+                years, _cached = source.years(intent.slug, force=intent.refresh)
+                rows = _radioarchiwista_module.year_rows(intent.slug, years)
+            elif intent.view is LibraryView.RADIOARCHIWISTA_MONTHS:
+                months, _cached = source.months(
+                    intent.slug, intent.year or 0, force=intent.refresh
+                )
+                rows = _radioarchiwista_module.month_rows(
+                    intent.slug, intent.year or 0, months
+                )
+            elif intent.view is LibraryView.RADIOARCHIWISTA_DAYS:
+                days, _cached = source.days(
+                    intent.slug,
+                    intent.year or 0,
+                    intent.month or 0,
+                    force=intent.refresh,
+                )
+                rows = _radioarchiwista_module.day_rows(
+                    intent.slug, intent.year or 0, intent.month or 0, days
+                )
+            else:
+                recordings, _cached = source.recordings(
+                    intent.slug,
+                    intent.year or 0,
+                    intent.month or 0,
+                    intent.day or 0,
+                    force=intent.refresh,
+                )
+                if intent.load_more:
+                    self._radioarchiwista_hours_loaded += (
+                        _radioarchiwista_module.PAGE_SIZE
+                    )
+                else:
+                    self._radioarchiwista_hours_loaded = (
+                        _radioarchiwista_module.PAGE_SIZE
+                    )
+                rows = _radioarchiwista_module.recording_rows(
+                    recordings,
+                    positions=source.load_positions(),
+                    favorite_ids=source.favorite_ids(),
+                    downloaded_ids=_radioarchiwista_module.downloaded_item_ids(
+                        recordings, downloads_dir,
+                    ),
+                    loaded_count=self._radioarchiwista_hours_loaded,
+                )
+            return intent.view, rows
+
+        def done(result: tuple[LibraryView, list[Row]]) -> None:
+            view, rows = result
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                view,
+                rows,
+                slug=intent.slug,
+                year=intent.year,
+                month=intent.month,
+                day=intent.day,
+                preferred_id=intent.preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.apply_radioarchiwista_message(
+                i18n.tr("rarch.error", error=error)
+            ))
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _open_radioarchiwista_latest(self, *, refresh: bool = False) -> None:
+        """Nagrania ostatniej opublikowanej godziny ze wszystkich stacji."""
+
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        self.announcer.say(i18n.tr("rarch.latest.loading"))
+        downloads_dir = self._radioarchiwista_downloads_dir()
+
+        def work() -> tuple[list[Row], str]:
+            recordings, stamp = source.latest_recordings(force=refresh)
+            rows = _radioarchiwista_module.latest_rows(
+                recordings,
+                positions=source.load_positions(),
+                favorite_ids=source.favorite_ids(),
+                downloaded_ids=_radioarchiwista_module.downloaded_item_ids(
+                    recordings, downloads_dir,
+                ),
+            )
+            # Godzina w czasie lokalnym stacji, nie UTC: znacznik katalogu
+            # mylil sluchacza polskich stacji (23:00 UTC to polskie 00:00/01:00).
+            label = _radioarchiwista_module.latest_local_label(recordings, stamp)
+            return rows, label
+
+        def done(result: tuple[list[Row], str]) -> None:
+            rows, label = result
+            self._radioarchiwista_hours_loaded = len(rows)
+            count = sum(1 for row in rows if row.kind != "loadMore")
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                LibraryView.RADIOARCHIWISTA_HOURS,
+                rows,
+                announcement=i18n.tr(
+                    "rarch.latest.announcement",
+                    label=label,
+                    phrase=i18n.recordings_phrase(count),
+                ),
+            ))
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.apply_radioarchiwista_message(
+                i18n.tr("rarch.error", error=error)
+            ))
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _open_radioarchiwista_favorites(
+        self, preferred_id: str | None = None,
+    ) -> None:
+        """Ulubione nagrania: w pełni offline, bez dotykania katalogu."""
+
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        downloads_dir = self._radioarchiwista_downloads_dir()
+
+        def work() -> list[Row]:
+            return _radioarchiwista_module.favorite_rows(
+                source.load_favorites(),
+                positions=source.load_positions(),
+                downloads_dir=downloads_dir,
+            )
+
+        def done(rows: list[Row]) -> None:
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                LibraryView.RADIOARCHIWISTA_FAVORITES,
+                rows,
+                preferred_id=preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.apply_radioarchiwista_message(
+                i18n.tr("rarch.error", error=error)
+            ))
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _toggle_radioarchiwista_favorite(self) -> None:
+        """Przełącz ulubione zaznaczonego nagrania i odśwież jego wiersz."""
+
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        row = state.model.selected_row
+        if row is None or row.kind != "recording":
+            self.announcer.say(i18n.tr("rarch.selectForFavorite"))
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+
+        def work() -> tuple[bool, str]:
+            recording = source.recording_by_id(row.item_id)
+            if recording is None:
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Nie znam tego nagrania"
+                )
+            return source.toggle_favorite(recording), recording.title
+
+        def done(result: tuple[bool, str]) -> None:
+            added, title = result
+            mark = i18n.tr("rarch.downloaded.mark")
+            refreshed = [
+                replace(
+                    candidate,
+                    state_prefix=(
+                        _radioarchiwista_module.row_state_prefix(
+                            candidate.item_id,
+                            {candidate.item_id} if added else set(),
+                            {candidate.item_id}
+                            if mark in candidate.state_prefix
+                            else set(),
+                        )
+                        if candidate.item_id == row.item_id
+                        else candidate.state_prefix
+                    ),
+                )
+                for candidate in state.model.rows
+            ]
+            state.model.replace(refreshed, preferred_id=row.item_id)
+            message = i18n.tr(
+                "rarch.favorite.added" if added else "rarch.favorite.removed",
+                title=title,
+            )
+            self._run(self.navigator.apply_radioarchiwista_message(message))
+
+        def failed(error: Exception) -> None:
+            self._run(self.navigator.apply_radioarchiwista_message(
+                i18n.tr("rarch.error", error=error)
+            ))
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _radioarchiwista_downloads_dir(self) -> Path | None:
+        """Folder pobierania wspólny z Podcastami: opcja GUI, potem baza
+        podcastów (ta sama, z której korzysta silnik), na końcu domyślne
+        silnika. Brak wszystkiego to uczciwa odmowa, nie cicha zmiana celu."""
+
+        folder = str(
+            getattr(self.options, "podcast_downloads_folder", "") or ""
+        ).strip()
+        if not folder:
+            try:
+                folder = str(
+                    self.podcasts.global_settings().downloads_folder or ""
+                ).strip()
+            except Exception:  # noqa: BLE001 - świeży profil nie ma jeszcze bazy
+                folder = ""
+        if folder:
+            return Path(folder)
+        client = self.client
+        if client is not None:
+            try:
+                raw = client.general_settings_defaults()
+                if isinstance(raw, dict):
+                    folder = str(
+                        raw.get("podcastDownloadsFolder") or ""
+                    ).strip()
+            except Exception:  # noqa: BLE001 - silnik może nie działać
+                folder = ""
+        if folder:
+            return Path(folder)
+        return None
+
+    def _download_radioarchiwista_recording(self) -> None:
+        """Ctrl+D: pobierz zaznaczone nagrania do folderu pobierania AMC."""
+
+        rows: list[Row] = []
+        seen: set[str] = set()
+        for row in self._selected_action_rows():
+            if row.kind != "recording" or not row.url or row.item_id in seen:
+                continue
+            seen.add(row.item_id)
+            rows.append(row)
+        if not rows:
+            self.announcer.say(i18n.tr("rarch.selectForDownload"))
+            return
+        if any(row.item_id in self._radioarchiwista_downloads for row in rows):
+            self.announcer.say(i18n.tr("rarch.download.busy"))
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        downloads_dir = self._radioarchiwista_downloads_dir()
+        if downloads_dir is None:
+            self.announcer.say(i18n.tr("rarch.download.noFolder"))
+            return
+
+        first_title = rows[0].title
+        self.announcer.say(
+            i18n.tr("rarch.download.startedMany", count=len(rows))
+            if len(rows) > 1
+            else i18n.tr("rarch.download.started")
+        )
+
+        def work() -> dict:
+            downloaded = already = failed = 0
+            first_failure = ""
+            for row in rows:
+                recording = source.recording_by_id(row.item_id)
+                if recording is None:
+                    recording = _radioarchiwista_module.row_recording(row)
+                destination = (
+                    downloads_dir
+                    / _radioarchiwista_module.recording_filename(recording)
+                )
+                if destination.is_file():
+                    already += 1
+                    continue
+                try:
+                    _radioarchiwista_module.stream_to_file(
+                        row.url, destination,
+                    )
+                    downloaded += 1
+                except Exception as error:  # noqa: BLE001 - jedno nagranie nie zatrzymuje reszty
+                    failed += 1
+                    if not first_failure:
+                        first_failure = str(error)
+            return {
+                "requested": len(rows),
+                "downloaded": downloaded,
+                "already": already,
+                "failed": failed,
+                "firstFailure": first_failure,
+                "ids": [row.item_id for row in rows],
+            }
+
+        def done(payload: dict) -> None:
+            for row in rows:
+                self._radioarchiwista_downloads.discard(row.item_id)
+            message = _radioarchiwista_module.download_summary(
+                requested=int(payload.get("requested") or len(rows)),
+                downloaded=int(payload.get("downloaded") or 0),
+                already=int(payload.get("already") or 0),
+                failed=int(payload.get("failed") or 0),
+                first_failure=str(payload.get("firstFailure") or "").strip(),
+                first_title=first_title,
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self._apply_radioarchiwista_download_marks(payload.get("ids") or [])
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            for row in rows:
+                self._radioarchiwista_downloads.discard(row.item_id)
+            message = i18n.tr("rarch.download.failed", error=error)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        for row in rows:
+            self._radioarchiwista_downloads.add(row.item_id)
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _apply_radioarchiwista_download_marks(self, item_ids: list[str]) -> None:
+        """Dopisz znacznik „Pobrane” wierszom bieżącego widoku po pobraniu."""
+
+        wanted = {item_id for item_id in item_ids}
+        if not wanted:
+            return
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        mark = i18n.tr("rarch.downloaded.mark")
+        updated: list[Row] = []
+        changed = False
+        for candidate in state.model.rows:
+            if (
+                candidate.item_id in wanted
+                and candidate.kind == "recording"
+                and mark not in candidate.state_prefix
+            ):
+                prefix = f"{candidate.state_prefix} {mark}".strip()
+                updated.append(replace(candidate, state_prefix=prefix))
+                changed = True
+            else:
+                updated.append(candidate)
+        if changed:
+            state.model.replace(updated, preferred_id=state.model.selected_id)
+
+    def _save_radioarchiwista_recording_as(self) -> None:
+        """Ctrl+S: zapisz jedno zaznaczone nagranie w wybranym miejscu."""
+
+        rows = [
+            row for row in self._selected_action_rows()
+            if row.kind == "recording" and row.url
+        ]
+        if len(rows) != 1:
+            self.announcer.say(i18n.tr("rarch.saveAs.selectOne"))
+            return
+        row = rows[0]
+        if row.item_id in self._radioarchiwista_downloads:
+            self.announcer.say(i18n.tr("rarch.download.busy"))
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        recording = source.recording_by_id(row.item_id)
+        if recording is None:
+            recording = _radioarchiwista_module.row_recording(row)
+        suggested = _radioarchiwista_module.recording_filename(recording)
+        initial_folder = str(
+            self._radioarchiwista_downloads_dir() or Path.home()
+        )
+        with wx.FileDialog(
+            self,
+            message=i18n.tr("rarch.saveAs.title"),
+            defaultDir=initial_folder,
+            defaultFile=suggested,
+            wildcard="Plik MP3 (*.mp3)|*.mp3|Wszystkie pliki (*.*)|*.*",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as picker:
+            if picker.ShowModal() != wx.ID_OK:
+                return
+            destination = Path(picker.GetPath())
+
+        self.announcer.say(i18n.tr("rarch.download.started"))
+        self._radioarchiwista_downloads.add(row.item_id)
+
+        def work() -> Path:
+            return _radioarchiwista_module.stream_to_file(
+                row.url, destination,
+            )
+
+        def done(path: Path) -> None:
+            self._radioarchiwista_downloads.discard(row.item_id)
+            message = i18n.tr("rarch.download.done", path=path)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self._apply_radioarchiwista_download_marks([row.item_id])
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._radioarchiwista_downloads.discard(row.item_id)
+            message = i18n.tr("rarch.download.failed", error=error)
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("radioarchiwista", work, done, failed)
+
+    def _refresh_radioarchiwista_view(self) -> None:
+        """F5: ponowne wczytanie bieżącego poziomu z pominięciem cache."""
+
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        view = state.library_view
+        if view is None or view is LibraryView.RADIOARCHIWISTA_STATIONS:
+            self._open_radioarchiwista_stations(
+                state.model.selected_id, refresh=True
+            )
+        elif view is LibraryView.RADIOARCHIWISTA_FAVORITES:
+            self._open_radioarchiwista_favorites()
+        else:
+            self._open_radioarchiwista_level(OpenRadioarchiwistaLevel(
+                view,
+                state.radioarchiwista_slug,
+                year=state.radioarchiwista_year,
+                month=state.radioarchiwista_month,
+                day=state.radioarchiwista_day,
+                refresh=True,
+                preferred_id=state.model.selected_id,
+            ))
 
     def _sessions_blocked_from_disabling(self) -> set[SessionId]:
         """Wewnętrzne odtwarzanie i nagrywanie; urządzeń nie zatrzymujemy."""
@@ -24444,14 +25030,20 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
-    def _play_media(self, intent: PlayMedia) -> None:
+    def _play_media(
+        self,
+        intent: PlayMedia,
+        session_id: SessionId = SessionId.PODCASTS,
+    ) -> None:
         """Play an episode/YouTube item through the existing C# audio engine."""
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie działa, nie mogę odtworzyć")
             return
 
-        self._pending_playback_session = SessionId.PODCASTS
+        self._pending_playback_session = session_id
+        if session_id is SessionId.RADIOARCHIWISTA:
+            self._radioarchiwista_playing_id = intent.item_id
 
         def work() -> dict:
             session_options.configure_resume_preferences(
@@ -24464,7 +25056,7 @@ class LiteFrame(wx.Frame):
                 **session_options.resolve_audio_payload(
                     self.options,
                     session_options.effective_overrides(
-                        self.state, SessionId.PODCASTS
+                        self.state, session_id
                     ),
                 )
             )
@@ -24473,21 +25065,21 @@ class LiteFrame(wx.Frame):
                 item_id=intent.item_id,
                 title=intent.title,
                 volume=self.options.volume,
-                rate=self._session_default_rate(SessionId.PODCASTS),
+                rate=self._session_default_rate(session_id),
                 position_seconds=intent.position_seconds,
             )
 
         def done(_payload: dict) -> None:
-            self._playing_session = SessionId.PODCASTS
+            self._playing_session = session_id
             self._playing_sessions.discard(SessionId.FILES)
-            self._playing_sessions.add(SessionId.PODCASTS)
+            self._playing_sessions.add(session_id)
             self._refresh_status()
 
         def failed(error: Exception) -> None:
-            if self._pending_playback_session is SessionId.PODCASTS:
+            if self._pending_playback_session is session_id:
                 self._pending_playback_session = None
             self._run(self.navigator.note_playback_failed(
-                f"Nie udało się odtworzyć: {error}", SessionId.PODCASTS
+                f"Nie udało się odtworzyć: {error}", session_id
             ))
 
         self.runner.submit("playback", work, done, failed)
@@ -27636,6 +28228,7 @@ class LiteFrame(wx.Frame):
                 self.spotify_list,
                 self.wiim_list,
                 self.frontier_smart_list,
+                self.radioarchiwista_list,
                 self.sonos_list,
             ):
                 media_list.relocalize_interface()
@@ -28017,6 +28610,24 @@ class LiteFrame(wx.Frame):
             }
             self._transport_status_by_session[session] = updated
             self._last_status = updated
+            if (
+                session is SessionId.RADIOARCHIWISTA
+                and paused
+                and self._radioarchiwista_playing_id
+            ):
+                # Pauza to jedyny moment, w którym zapamiętujemy punkt
+                # wznowienia nagrania; zapis nie może przerwać komunikatu.
+                position = updated.get("positionSeconds")
+                if isinstance(position, (int, float)) and position > 1.0:
+                    source = self._radioarchiwista_source()
+                    if source is not None:
+                        try:
+                            source.save_position(
+                                self._radioarchiwista_playing_id,
+                                float(position),
+                            )
+                        except OSError:
+                            pass
             # Etykieta zawsze zgodna ze stanem: po wstrzymaniu przycisk ma juz
             # proponowac odtwarzanie (MainWindow.xaml.cs:2560).
             self._set_transport_label(playing=not paused)
@@ -31376,6 +31987,9 @@ class LiteFrame(wx.Frame):
             sonos_session=self.navigator.active is SessionId.SONOS,
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
+            ),
+            radioarchiwista_session=(
+                self.navigator.active is SessionId.RADIOARCHIWISTA
             ),
             sonos_own_streams=(
                 not player

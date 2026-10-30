@@ -104,12 +104,14 @@ TEST_PROFILE = ReleaseProfile(
         "sonos",
         "spotify",
         "frontierSmart",
+        "radioarchiwista",
     ),
     capabilities=_COMMON_CAPABILITIES
     + (
         "session.spotify",
         "session.tidal",
         "session.frontier-smart",
+        "session.radioarchiwista",
         "spotify.playlists",
         "youtube.account.readonly",
     ),

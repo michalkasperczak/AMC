@@ -194,3 +194,38 @@ def test_fresh_empty_profile_is_a_valid_search_catalog() -> None:
 
     assert result.entries == ()
     assert result.warnings == ()
+
+
+def test_radioarchiwista_doklada_stacje_i_ulubione_bez_sieci() -> None:
+    class _Radioarchiwista:
+        def search_rows(self):
+            return [
+                Row("rarch:station:pr1", "Polskie Radio Program 1", "folder"),
+                Row(
+                    "rarch:pr1:2026-10-29T14:00:00+00:00",
+                    "Polskie Radio Program 1, 29.10.2026 15:00",
+                    "recording",
+                ),
+            ]
+
+    sources = SearchSources(
+        _Library(),
+        _Radio(),
+        _Podcasts(),
+        _Tidal(),
+        _Radioarchiwista(),
+    )
+    result = sources.collect((SessionId.RADIOARCHIWISTA,))
+    assert not result.warnings
+    views = [entry.source_view for entry in result.entries]
+    assert views == [
+        LibraryView.RADIOARCHIWISTA_STATIONS,
+        LibraryView.RADIOARCHIWISTA_FAVORITES,
+    ]
+
+
+def test_radioarchiwista_bez_zrodla_nie_psuje_wyszukiwania() -> None:
+    sources = SearchSources(_Library(), _Radio(), _Podcasts(), _Tidal())
+    result = sources.collect((SessionId.RADIOARCHIWISTA, SessionId.FILES))
+    assert not result.warnings
+    assert [entry.row.item_id for entry in result.entries] == ["f"]

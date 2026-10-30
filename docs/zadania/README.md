@@ -52,6 +52,19 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
+- `RARCH-001` — **Zakończone; PR
+  [michalkasperczak/AMC#4](https://github.com/michalkasperczak/AMC/pull/4)
+  (gałąź `radioarchiwista-sesja`, autor radioarchiwista) przygotowany
+  do odbioru i zdjęty z draftu 30.10.2026; ręczny odbiór Michała
+  na AMC Test zakończony** —
+  sesja „Radio Archiwista” wyłącznie w profilu Test: przeglądanie
+  publicznego katalogu nagrań (stacja → rok → miesiąc → dzień → godzina,
+  „Najnowsze nagrania”), odtwarzanie wspólnym torem podcastów (tempo,
+  wznowienie pozycji), pobieranie MP3 `Ctrl+D`, ulubione `Ctrl+U`/
+  `Ctrl+Shift+U`, odświeżanie `F5`, globalne wyszukiwanie bez sieci.
+  Bez sterowania nagrywaniem. Szczegóły:
+  [RARCH-001-integracja-radioarchiwista.md](RARCH-001-integracja-radioarchiwista.md).
+
 - `EDIT-001` — **Zrobione w źródłach; 3 testy kontraktu, celowany test
   rzeczywistego wycinania oraz kompilacja LiteHosta są zaliczone; poprawka nie
   została jeszcze zainstalowana ani wydana** —

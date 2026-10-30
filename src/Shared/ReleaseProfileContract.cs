@@ -64,12 +64,13 @@ internal static class ReleaseProfileContract
         "AMC-wx-Lite/cache",
         "AMC-wx-Lite/logs",
         "AccessibleMediaController.Test",
-        ["files", "radio", "podcasts", "tidal", "wiim", "sonos", "spotify", "frontierSmart"],
+        ["files", "radio", "podcasts", "tidal", "wiim", "sonos", "spotify", "frontierSmart", "radioarchiwista"],
         CommonCapabilities.Concat(
         [
             "session.spotify",
             "session.tidal",
             "session.frontier-smart",
+            "session.radioarchiwista",
             "spotify.playlists",
             "youtube.account.readonly",
         ]).ToArray(),

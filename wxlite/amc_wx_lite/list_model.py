@@ -44,6 +44,9 @@ KIND_LABELS: dict[str, str] = {
     "wiimSource": "",
     "wiimNetworkStream": "strumień sieciowy",
     "sonosGroup": "grupa",
+    # Godzinne nagranie Radio Archiwisty. To materiał do odtworzenia, więc
+    # czytnik słyszy rodzaj, a nie pustą kolumnę ani adres archive.org.
+    "recording": "nagranie",
     "loadMore": "",
     "parent": "",
 }

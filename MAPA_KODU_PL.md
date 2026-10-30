@@ -1,5 +1,22 @@
 # AMC — mapa kodu
 
+## Radio Archiwista: sesja katalogu nagrań (RARCH-001, AMC Test)
+
+`radioarchiwista_source.py` to bezoknowe źródło publicznego katalogu
+(radioarchiwista.github.io, catalog_version 2): shardy stacja/rok/miesiąc/dzień,
+cache w profilu z awaryjnym starym zapisem, stabilne id
+`radioarchiwista:{slug}:{utc_started_at}`, ulubione i pozycje w profilu,
+pobieranie MP3 z postępem i anulowaniem, odmowa przy nieznanej wersji katalogu.
+Nawigacja (`navigation.py`) to widoki RADIOARCHIWISTA_* z jednostronnym stosem
+powrotu; enter na nagraniu idzie przez wspólny `PlayMedia` (tor podcastów),
+a Backspace wraca i staje na opuszczonym wierszu. GUI (`gui.py`) parametryzuje
+`_play_media` sesją i zapisuje pozycję przy pauzie; import modułu jest bramkowany
+capability `session.radioarchiwista` profilu wydania (Public jej nie ma).
+`search_sources.py` dokłada stacje z ważnego cache i ulubione — globalne
+wyszukiwanie nie schodzi do sieci. Wiersze stacji muszą mieć
+`service_kind="rarchStation"`: nawigator rozpoznaje poziom po tej wartości,
+nie po prefiksie id. Szczegóły i wyniki odbioru: `docs/zadania/RARCH-001-integracja-radioarchiwista.md`.
+
 ## Opcje sesji wx — końcowe podłączenie
 
 `session_options.engine_audio_payload` łączy prywatne nadpisania plików

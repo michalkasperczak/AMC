@@ -1871,3 +1871,19 @@ Od `alpha.286` widok `Nagrywane` w Radiu nie powtarza przy każdym wejściu
 oczywistej nazwy sesji „Radio internetowe”. Po przełączeniu sesji NVDA czyta
 numer sesji, nazwę widoku, stację i stan nagrywania. Pełna nazwa sesji pozostaje
 w pozostałych widokach, gdzie pomaga rozpoznać bieżący kontekst.
+
+## Radio Archiwista w AMC Test
+
+Sesja **Radio Archiwista** przegląda publiczne archiwum nagrań radiowych
+(radioarchiwista.github.io, 43 stacje, ok. 242 tys. godzin) i odtwarza
+dowolną godzinę przez ten sam tor co podcasty: tempo, wznowienie pozycji
+i obróbka audio działają identycznie. Lista stacji prowadzi przez lata,
+miesiące i dni do nagrań godzinowych; pozycja „Najnowsze nagrania” zbiera
+ostatnią opublikowaną godzinę ze wszystkich stacji, które ją nagrały.
+`Ctrl+D` pobiera zaznaczone nagranie jako MP3 z postępem i anulowaniem,
+`Ctrl+Shift+U` dodaje je do ulubionych, `Ctrl+U` pokazuje ulubione offline,
+a `F5` odświeża katalog. Katalog jest publiczny, więc sesja nie wymaga
+logowania; cache w profilu pozwala wracać do ostatnio przeglądanych dni
+także bez sieci. Sesja jest dostępna wyłącznie w profilu AMC Test
+i domyślnie wyłączona — włącza się ją w Menedżerze sesji (`Ctrl+Shift+S`),
+który przydziela skrót `Ctrl+1–9`.

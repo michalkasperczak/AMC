@@ -26,6 +26,9 @@ internal static class TransportRoutingTests
             "Podcasty używają lokalnego toru plikowego, ale zachowują nazwę sesji.");
         Assert.True(spotify == new LiteTransportTarget("spotify", "spotify"),
             "Spotify ma własny tor Librespot i nie może trafić do plików.");
+        var radioarchiwista = LiteTransportRouting.Resolve("radioarchiwista", "radio", false);
+        Assert.True(radioarchiwista == new LiteTransportTarget("radioarchiwista", "files"),
+            "Radio Archiwista używa lokalnego toru plikowego i zachowuje nazwę sesji.");
     }
 
     private static void LegacyCallsKeepTheLastEngine()

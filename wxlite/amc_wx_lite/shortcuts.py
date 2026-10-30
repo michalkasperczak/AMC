@@ -104,6 +104,7 @@ class Action(Enum):
     SESSION_SONOS = "session.sonos"
     SESSION_SPOTIFY = "session.spotify"
     SESSION_FRONTIER_SMART = "session.frontierSmart"
+    SESSION_RADIOARCHIWISTA = "session.radioarchiwista"
     SESSION_LIST = "session.list"
     SESSION_ENABLE = "session.enable"
     SESSION_DISABLE_CURRENT = "session.disableCurrent"
@@ -341,6 +342,9 @@ class Action(Enum):
     REFRESH_PODCAST = "podcasts.refresh.current"
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
+    RADIOARCHIWISTA_DOWNLOAD = "radioarchiwista.download.selected"
+    RADIOARCHIWISTA_SAVE_AS = "radioarchiwista.download.saveAs"
+    RADIOARCHIWISTA_REFRESH = "radioarchiwista.catalog.refresh"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
     SAVE_YOUTUBE_VIDEO_AS = "podcasts.youtube.video.saveAs"
@@ -352,6 +356,7 @@ class Action(Enum):
     VIEW_RADIO_RECOGNITION_HISTORY = "radio.recognition.history"
     GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
     TOGGLE_PODCAST_FAVORITE = "podcasts.favorite.toggle"
+    TOGGLE_RADIOARCHIWISTA_FAVORITE = "radioarchiwista.favorite.toggle"
     TOGGLE_PODCAST_LIBRARY = "podcasts.library.toggle"
     PODCAST_PLAYBACK_OPTIONS = "podcasts.playbackOptions"
     VIEW_ALL_FILES = "library.allFiles"
@@ -591,6 +596,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -676,6 +682,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -806,6 +813,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -896,6 +904,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1009,6 +1018,7 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1050,6 +1060,20 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.REPORT_PROBLEM,
     Action.VERSION_INFO,
 })
+
+
+# Radio Archiwista: sterowanie odtwarzaniem jak Frontier Smart (wspólny tor
+# PlayMedia), a do tego trzy akcje własne katalogu nagrań.
+RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
+    FRONTIER_SMART_SUPPORTED_ACTIONS
+    | {
+        Action.VIEW_FAVORITES,
+        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+        Action.RADIOARCHIWISTA_DOWNLOAD,
+        Action.RADIOARCHIWISTA_SAVE_AS,
+        Action.RADIOARCHIWISTA_REFRESH,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1610,6 +1634,18 @@ FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
 }
 
 
+# Sesja Radio Archiwista: katalog jest publiczny, więc Ctrl+F5 to odświeżenie
+# katalogu, nie okno konta. Skróty materiału są zgodne z Podcastami.
+RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
+    "F5": Action.RADIOARCHIWISTA_REFRESH,
+    "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
+    "Ctrl+U": Action.VIEW_FAVORITES,
+    "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+    "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
+    "Ctrl+S": Action.RADIOARCHIWISTA_SAVE_AS,
+}
+
+
 # Klawisze odtwarzacza WiiM z pełnego AMC. Muszą mieć pierwszeństwo przed
 # lokalnym zaznaczaniem fragmentu (I/O) i zwykłymi poleceniami plików.
 WIIM_PLAYER_VIEW: dict[str, Action] = {
@@ -1669,6 +1705,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     WIIM_SESSION_VIEW,
     WIIM_PLAYER_VIEW,
     FRONTIER_SMART_SESSION_VIEW,
+    RADIOARCHIWISTA_SESSION_VIEW,
     SONOS_SESSION_VIEW,
     SONOS_OWN_STREAMS_VIEW,
     LIST_VIEW,
@@ -1701,6 +1738,7 @@ _PROTECTED_SHORTCUT_ACTIONS = frozenset({
     Action.SESSION_SONOS,
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_LIST,
     Action.PREVIOUS_SESSION,
     Action.NEXT_SESSION,
@@ -1907,6 +1945,7 @@ def _resolve_default(
     wiim_session: bool = False,
     wiim_streams: bool = False,
     frontier_smart_session: bool = False,
+    radioarchiwista_session: bool = False,
     sonos_session: bool = False,
     sonos_own_streams: bool = False,
     service_history: bool = False,
@@ -2039,6 +2078,11 @@ def _resolve_default(
         and canonical in FRONTIER_SMART_SESSION_VIEW
     ):
         return FRONTIER_SMART_SESSION_VIEW[canonical]
+    if (
+        radioarchiwista_session
+        and canonical in RADIOARCHIWISTA_SESSION_VIEW
+    ):
+        return RADIOARCHIWISTA_SESSION_VIEW[canonical]
     if sonos_session and canonical in SONOS_OWN_STREAMS_VIEW:
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
@@ -2132,6 +2176,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_SONOS: "Sonos",
         Action.SESSION_SPOTIFY: "Spotify",
         Action.SESSION_FRONTIER_SMART: "Frontier Smart",
+        Action.SESSION_RADIOARCHIWISTA: "Radio Archiwista",
         Action.SESSION_LIST: (
             "Menedżer sesji: Enter przełącza, Spacja włącza lub wyłącza, "
             "Alt+strzałka zmienia kolejność"
