@@ -22,8 +22,13 @@ internal static class LiteTransportRouting
                 "files" => new("files", "files"),
                 "podcasts" => new("podcasts", "files"),
                 "spotify" => new("spotify", "spotify"),
+                // Radio Archiwista odtwarza przez media.play na lokalnym torze
+                // plikowym; bez tego wpisu host odrzucał przewijanie, pauzę
+                // i głośność sesji.
+                "radioarchiwista" => new("radioarchiwista", "files"),
                 _ => throw new LiteRequestException(
-                    "Transport obsługuje sesje Pliki, Podcasty, Radio i Spotify.")
+                    "Transport obsługuje sesje Pliki, Podcasty, Radio, "
+                    + "Spotify i Radio Archiwista.")
             };
         }
 

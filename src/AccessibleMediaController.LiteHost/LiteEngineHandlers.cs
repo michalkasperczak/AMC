@@ -2488,7 +2488,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private bool TargetOwnsFilesItemLocked(string sessionId) =>
         _filesItem is not null
-        && (sessionId == "podcasts"
+        && (sessionId is "podcasts" or "radioarchiwista"
             ? _filesItem.Kind == MediaItemKind.Episode
             : _filesItem.Kind != MediaItemKind.Episode);
 
