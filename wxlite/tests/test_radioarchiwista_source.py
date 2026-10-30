@@ -455,3 +455,36 @@ def _favorite_first_recording(source) -> object:
     # W fixture tylko PR1 ma shard dnia 29.10.2026.
     recordings, _ = source.recordings("pr1", 2026, 10, 29)
     return recordings[0]
+
+
+def test_starsze_nagrania_ogg_dostaja_url_mp3(tmp_path: Path) -> None:
+    # Archiwum 2025 i wczesniejsze trzyma nagrania jako OGG; Media Foundation
+    # ich nie dekoduje, a archive.org wystawia transkod MP3 pod ta sama nazwa.
+    katalog = _fixture()
+    dzien = "https://radioarchiwista.github.io/data/stations/pr1/2026/10/29.json"
+    katalog[dzien]["archives"][0]["audio_url"] = (
+        "https://archive.org/download/pr1-2025-10-27/pr1_2025-10-27T23-00-00Z.ogg"
+    )
+    source, _calls = _source(tmp_path, katalog)
+    recordings, _from_cache = source.recordings("pr1", 2026, 10, 29)
+    # Katalog dnia sortuje rosnaco po godzinie; podmieniony wpis godziny 15.
+    assert recordings[1].audio_url == (
+        "https://archive.org/download/pr1-2025-10-27/pr1_2025-10-27T23-00-00Z.mp3"
+    )
+    assert all(not rec.audio_url.endswith(".ogg") for rec in recordings)
+
+    # Ulubione zapisane przed poprawka, jeszcze z adresem OGG, wraca jako MP3.
+    favorites_path = tmp_path / "radioarchiwista" / "favorites.json"
+    favorites_path.write_text(json.dumps([
+        {
+            "item_id": "rarch:rec:pr1:stary",
+            "station_slug": "pr1",
+            "station_name": "Polskie Radio Program 1",
+            "title": "27.10.2025 23:00",
+            "audio_url": "https://archive.org/download/pr1-2025-10-27/pr1_2025-10-27T23-00-00Z.ogg",
+            "utc_started_at": "2025-10-27T23:00:00+00:00",
+        }
+    ]), encoding="utf-8")
+    rows = rarch.favorite_rows(source.load_favorites())
+    assert len(rows) == 1
+    assert rows[0].url.endswith("pr1_2025-10-27T23-00-00Z.mp3")

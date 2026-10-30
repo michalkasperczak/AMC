@@ -240,6 +240,21 @@ def parse_days(payload: object) -> tuple[int, ...]:
     return tuple(sorted({_as_int(day) for day in days if 1 <= _as_int(day) <= 31}, reverse=True))
 
 
+def _prefer_mp3_url(url: str) -> str:
+    """Zamień końcówkę .ogg/.oga na .mp3.
+
+    Archiwum 2025 i wcześniejszych lat przechowuje nagrania jako Ogg Vorbis,
+    ale obok każdego pliku serwer archive.org wystawia transkod MP3 pod tą
+    samą nazwą. Odtwarzacz sieciowy AMC idzie przez Media Foundation, który
+    nie dekoduje OGG, więc sesja prosi o MP3 od razu; pobieranie również
+    dostaje plik o powszechnie odtwarzalnym formacie.
+    """
+
+    if url.lower().endswith((".ogg", ".oga")):
+        return url[: url.rfind(".")] + ".mp3"
+    return url
+
+
 def parse_recordings(payload: object, station: StationRecord) -> tuple[ArchiveRecording, ...]:
     data = _require_mapping(payload, "katalogu dnia")
     raw_archives = data.get("archives")
@@ -255,6 +270,7 @@ def parse_recordings(payload: object, station: StationRecord) -> tuple[ArchiveRe
         if not audio_url or not utc_started_at or utc_started_at in seen:
             continue
         seen.add(utc_started_at)
+        audio_url = _prefer_mp3_url(audio_url)
         date_label = _clean_text(raw.get("local_date_label"))
         hour_label = _clean_text(raw.get("local_hour_label"))
         item_id = recording_item_id(station.slug, utc_started_at)
@@ -506,7 +522,7 @@ def _favorite_to_recording(item: dict) -> ArchiveRecording:
         station_name=_clean_text(item.get("station_name"), "Radio Archiwista"),
         item_id=_clean_text(item.get("item_id"), "rarch:rec:nieznany"),
         title=_clean_text(item.get("title"), "Nagranie"),
-        audio_url=_clean_text(item.get("audio_url")),
+        audio_url=_prefer_mp3_url(_clean_text(item.get("audio_url"))),
         duration_seconds=_as_float(item.get("duration_seconds")),
         local_date_label=_clean_text(item.get("local_date_label")),
         local_hour_label=_clean_text(item.get("local_hour_label")),
