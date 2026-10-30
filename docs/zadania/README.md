@@ -52,6 +52,11 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
+- `PERF-001` — **W trakcie; PR #6 Huberta zastosowany lokalnie, 65/65 testów celowanych zaliczonych, bez commitu, builda, instalacji i publikacji** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).
+
+- `PODRAD-001` — **W trakcie; dwa domyślnie wyłączone przełączniki osobnych folderów Radia i Podcastów, celowane testy oraz build hosta zaliczone; bez instalacji i próby NVDA**. Szczegóły:
+  [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
+
 - `RARCH-001` — **W trakcie; kod, testy i pull request
   [michalkasperczak/AMC#4](https://github.com/michalkasperczak/AMC/pull/4)
   (gałąź `radioarchiwista-sesja`, autor radioarchiwista) są gotowe;

@@ -22,6 +22,11 @@ using AccessibleMediaController.Core.Tidal;
 // testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
 if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
     return LibrespotHostFixture.Run(args);
+if (args.Length == 1 && args[0] == "--podcast-download-naming")
+{
+    try { TestPodcastDownloadNaming(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--spotify-membership")
 {
     try { SpotifyMembershipWriteTests.Run(); return 0; }
@@ -1764,6 +1769,11 @@ static void TestPodcastDownloadNaming()
             "\"'...",
             "https://cdn.example.test/audio.mp3",
             "audio/mpeg"));
+    Equal("_CON", PodcastDownloadNaming.SuggestedFolderName("CON", "Nieznany podcast"));
+    Equal("Podcast - Odcinki", PodcastDownloadNaming.SuggestedFolderName(
+        "Podcast/Odcinki", "Nieznany podcast"));
+    Equal("Nieznany podcast", PodcastDownloadNaming.SuggestedFolderName(
+        "...", "Nieznany podcast"));
     var longName = PodcastDownloadNaming.SuggestedFileName(
         new string('ą', 200),
         "https://cdn.example.test/audio.mp3",

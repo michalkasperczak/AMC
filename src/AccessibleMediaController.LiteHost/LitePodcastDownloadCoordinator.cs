@@ -38,6 +38,8 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
         try
         {
             var episodeIds = ReadEpisodeIds(args);
+            var separateSourceFolders = LiteArgs.ReadBool(
+                args, "separateSourceFolders", false);
             var targets = _podcasts.GetDownloadTargets(episodeIds)
                 .ToDictionary(target => target.EpisodeId, StringComparer.Ordinal);
             var downloaded = 0;
@@ -72,6 +74,13 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
 
                     var folder = PodcastDownloadFolderResolver.Resolve(
                         target.ConfiguredDownloadsFolder);
+                    if (separateSourceFolders)
+                    {
+                        folder = Path.Combine(folder,
+                            PodcastDownloadNaming.SuggestedFolderName(
+                                target.SourceTitle, "Nieznany podcast"));
+                    }
+                    if (separateSourceFolders) Directory.CreateDirectory(folder);
                     var destination = PodcastDownloadNaming.UniquePath(
                         folder,
                         PodcastDownloadNaming.SuggestedFileName(

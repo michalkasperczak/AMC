@@ -1342,11 +1342,16 @@ class LiteHostClient:
             timeout=10.0,
         )
 
-    def download_podcast_episodes(self, episode_ids: list[str]) -> Any:
+    def download_podcast_episodes(
+        self, episode_ids: list[str], *, separate_source_folders: bool = False
+    ) -> Any:
         """Pobierz zaznaczone odcinki przez wspólny downloader AMC."""
         return self.call(
             "podcast.download",
-            {"episodeIds": list(dict.fromkeys(episode_ids))},
+            {
+                "episodeIds": list(dict.fromkeys(episode_ids)),
+                "separateSourceFolders": separate_source_folders,
+            },
             timeout=24 * 3600.0,
         )
 

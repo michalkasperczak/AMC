@@ -996,7 +996,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                     episode.DownloadPath,
                     PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(
                         settings.DownloadsFolder,
-                        subscription)));
+                        subscription),
+                    subscription?.Title));
             }
             return result;
         }

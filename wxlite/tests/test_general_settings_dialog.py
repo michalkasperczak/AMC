@@ -92,6 +92,14 @@ def test_settings_pages_and_storage_controls_follow_the_user_workflow() -> None:
     assert 'recording_heading.SetName("Sekcja zapisywanie nagrań radia")' in dialog
     assert 'podcast_storage_heading.SetName(' in dialog
     assert 'podcast_refresh_heading.SetName(' in dialog
+    assert dialog.index("self.recording_folder = FocusableReadOnlyTextCtrl(") < dialog.index(
+        "self.radio_separate_station_folders = wx.CheckBox("
+    ) < dialog.index("self.recording_format = wx.Choice(")
+    assert dialog.index("self.podcast_folder = FocusableReadOnlyTextCtrl(") < dialog.index(
+        "self.podcast_separate_source_folders = wx.CheckBox("
+    ) < dialog.index("self.youtube_video_format = wx.Choice(")
+    assert 'self.radio_separate_station_folders.SetName(' in dialog
+    assert 'self.podcast_separate_source_folders.SetName(' in dialog
 
 
 def test_message_options_precede_the_inline_template_editor() -> None:

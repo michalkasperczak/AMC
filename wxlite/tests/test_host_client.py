@@ -311,7 +311,14 @@ def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() 
     try:
         result = client.download_podcast_episodes(["episode-1", "episode-1", "episode-2"])
         assert result["op"] == "podcast.download"
-        assert result["args"] == {"episodeIds": ["episode-1", "episode-2"]}
+        assert result["args"] == {
+            "episodeIds": ["episode-1", "episode-2"],
+            "separateSourceFolders": False,
+        }
+        separated = client.download_podcast_episodes(
+            ["episode-1"], separate_source_folders=True
+        )
+        assert separated["args"]["separateSourceFolders"] is True
     finally:
         client.close()
 

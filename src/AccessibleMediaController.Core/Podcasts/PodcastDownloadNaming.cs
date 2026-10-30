@@ -28,6 +28,9 @@ public static class PodcastDownloadNaming
         return baseName + ResolveExtension(mediaUrl, mediaType);
     }
 
+    public static string SuggestedFolderName(string? title, string fallback) =>
+        SanitizeBaseName(title, fallback);
+
     public static string SuggestedVideoBaseName(string? title) =>
         SanitizeBaseName(title, "Wideo internetowe");
 

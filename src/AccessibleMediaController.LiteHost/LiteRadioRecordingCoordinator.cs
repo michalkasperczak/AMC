@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.LiteHost.Protocol;
 using AccessibleMediaController.Windows.Services;
@@ -581,13 +582,23 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
                 "AMC — Pobrane podcasty")
             : systemRadioFolder;
         var configuredFolder = ReadOptionalPath(args, "folder");
+        var systemFallbackFolder = systemRadioFolder;
+        if (LiteArgs.ReadBool(args, "separateStationFolders", false))
+        {
+            var stationFolder = PodcastDownloadNaming.SuggestedFolderName(
+                stationName, "Nieznana stacja");
+            configuredFolder = configuredFolder is null
+                ? null : Path.Combine(configuredFolder, stationFolder);
+            defaultFolder = Path.Combine(defaultFolder, stationFolder);
+            systemFallbackFolder = Path.Combine(systemFallbackFolder, stationFolder);
+        }
         return new RecordingRequest(
             stationId,
             stationName,
             streamUrl,
             configuredFolder ?? defaultFolder,
             defaultFolder,
-            systemRadioFolder,
+            systemFallbackFolder,
             format,
             bitrate);
     }

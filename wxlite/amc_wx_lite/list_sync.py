@@ -32,7 +32,7 @@ import difflib
 from dataclasses import dataclass
 from typing import Sequence
 
-from .list_model import ListModel
+from .list_model import ListModel, Row
 from . import list_filter
 
 #: Liczba kolumn listy. ZACHOWANA bez zmian: "Nazwa", "Rodzaj", "Szczegoly".
@@ -80,7 +80,11 @@ class SetField:
 ListOp = DeleteRow | InsertRow | SetField
 
 
-def model_row_texts(model: ListModel, query: str | None = None) -> list[RowText]:
+def model_row_texts(
+    model: ListModel,
+    query: str | None = None,
+    cache: dict[int, tuple[Row, RowText]] | None = None,
+) -> list[RowText]:
     """Zadany stan listy wyliczony z ISTNIEJACEGO modelu.
 
     Teksty bierzemy z ``ListModel.text_for`` -- dokladnie tej funkcji, ktora
@@ -103,15 +107,33 @@ def model_row_texts(model: ListModel, query: str | None = None) -> list[RowText]
 
     ``text_for`` wolamy z PRAWDZIWYM indeksem wiersza w modelu, zeby kolumny
     byly liczone dokladnie tak jak bez filtra.
+
+    ``cache`` (opcjonalny) pamieta tekst kazdego pokazanego ``Row``. Tekst
+    zalezy tylko od niezmiennego wiersza, a zmiana stanu odtwarzania podmienia
+    jeden czy dwa wiersze i zostawia reszte jako te same obiekty. Bez tego
+    pauza albo nastepny utwor formatowaly od nowa wszystkie 42 866 wierszy.
+    Po wywolaniu ``cache`` zawiera tylko wiersze z tego wyniku.
     """
-    return [
-        RowText(
-            item_id=row.item_id,
-            texts=tuple(model.text_for(index, column) for column in range(COLUMN_COUNT)),
-        )
-        for index, row in enumerate(model.rows)
-        if list_filter.row_is_visible(row, query)
-    ]
+    known = cache if cache is not None else {}
+    fresh: dict[int, tuple[Row, RowText]] = {}
+    result: list[RowText] = []
+    for index, row in enumerate(model.rows):
+        if not list_filter.row_is_visible(row, query):
+            continue
+        hit = known.get(id(row))
+        if hit is not None and hit[0] is row:
+            row_text = hit[1]
+        else:
+            row_text = RowText(
+                item_id=row.item_id,
+                texts=tuple(model.text_for(index, column) for column in range(COLUMN_COUNT)),
+            )
+        fresh[id(row)] = (row, row_text)
+        result.append(row_text)
+    if cache is not None:
+        cache.clear()
+        cache.update(fresh)
+    return result
 
 
 def plan_row_updates(

@@ -358,11 +358,13 @@ class Options:
     radio_recording_bitrate_kbps: int | None = None
     radio_recordings_folder: str | None = None
     radio_use_podcast_downloads_folder: bool | None = None
+    radio_separate_station_folders: bool = False
     radio_prefer_station_folder_in_new_schedules: bool | None = None
     #: Globalne ustawienia Podcastow. ``None`` dziedziczy dotychczasowa
     #: wartosc z podcasts.db; po pierwszym zapisie karta staje sie ich
     #: jawnym wlascicielem i host stosuje je takze przy kolejnym starcie.
     podcast_downloads_folder: str | None = None
+    podcast_separate_source_folders: bool = False
     podcast_rss_refresh_interval_minutes: int | None = None
     podcast_youtube_refresh_interval_minutes: int | None = None
     podcast_automatic_refresh_batch_size: int | None = None
@@ -551,6 +553,10 @@ class Options:
             ) is not bool
         ):
             self.radio_prefer_station_folder_in_new_schedules = None
+        if type(self.radio_separate_station_folders) is not bool:
+            self.radio_separate_station_folders = False
+        if type(self.podcast_separate_source_folders) is not bool:
+            self.podcast_separate_source_folders = False
         if self.podcast_downloads_folder is not None:
             self.podcast_downloads_folder = str(
                 self.podcast_downloads_folder
