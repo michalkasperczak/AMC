@@ -18380,13 +18380,15 @@ class LiteFrame(wx.Frame):
                 positions=source.load_positions(),
                 favorite_ids=source.favorite_ids(),
             )
-            return rows, stamp
+            # Godzina w czasie lokalnym stacji, nie UTC: znacznik katalogu
+            # mylil sluchacza polskich stacji (23:00 UTC to polskie 00:00/01:00).
+            label = _radioarchiwista_module.latest_local_label(recordings, stamp)
+            return rows, label
 
         def done(result: tuple[list[Row], str]) -> None:
-            rows, stamp = result
+            rows, label = result
             self._radioarchiwista_hours_loaded = len(rows)
             count = sum(1 for row in rows if row.kind != "loadMore")
-            label = stamp[:16].replace("T", " ")
             self._run(self.navigator.apply_radioarchiwista_rows(
                 LibraryView.RADIOARCHIWISTA_HOURS,
                 rows,

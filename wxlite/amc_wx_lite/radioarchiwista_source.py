@@ -433,13 +433,46 @@ def recording_rows(
     return rows
 
 
+def latest_local_label(
+    recordings: tuple[ArchiveRecording, ...],
+    stamp: str = "",
+) -> str:
+    """Etykieta godziny widoku „Najnowsza godzina” w czasie LOKALNYM stacji.
+
+    Znacznik katalogu (``latest_hour_started_at``) jest w UTC i mylił
+    słuchacza: polskie stacje nagrywają godzinę polską. Etykietę bierzemy z
+    pierwszego nagrania, bo tam katalog podaje czas lokalny stacji; bez
+    nagrań konwertujemy znacznik na czas warszawski.
+    """
+
+    for recording in recordings:
+        when = " ".join(
+            part
+            for part in (recording.local_date_label, recording.local_hour_label)
+            if part
+        )
+        if when:
+            return when
+    if not stamp:
+        return ""
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        warsaw = moment.astimezone(ZoneInfo("Europe/Warsaw"))
+        return warsaw.strftime("%d.%m.%Y %H:%M")
+    except Exception:  # noqa: BLE001 - etykieta nie moze wywrocic widoku
+        return stamp[:16].replace("T", " ")
+
+
 def latest_rows(
     recordings: tuple[ArchiveRecording, ...],
     *,
     positions: dict[str, float] | None = None,
     favorite_ids: set[str] | None = None,
 ) -> list[Row]:
-    """Wiersze widoku „Najnowsze nagrania" ze wszystkich stacji.
+    """Wiersze widoku „Najnowsza godzina” ze wszystkich stacji.
 
     Tytuł MUSI nazywać stację: w przeciwieństwie do widoku dnia jednej
     stacji, sama godzina nie mówi, do której stacji należy nagranie.

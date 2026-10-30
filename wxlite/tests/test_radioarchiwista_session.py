@@ -405,7 +405,7 @@ def test_odmiana_i_kompletnosc_kluczy_rarch() -> None:
         assert i18n.recordings_phrase(1) == "1 recording"
         assert i18n.recordings_phrase(3) == "3 recordings"
         assert i18n.month_name(10) == "October"
-        assert i18n.tr("rarch.latest.menu") == "Latest recordings"
+        assert i18n.tr("rarch.latest.menu") == "Latest hour"
         # Kompletnosc: kazdy klucz rarch.* z PL ma odpowiednik w EN.
         polish = i18n.catalogs()[i18n.POLISH]
         english = i18n.catalogs()[i18n.ENGLISH]

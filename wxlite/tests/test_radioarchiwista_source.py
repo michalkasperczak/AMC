@@ -488,3 +488,28 @@ def test_starsze_nagrania_ogg_dostaja_url_mp3(tmp_path: Path) -> None:
     rows = rarch.favorite_rows(source.load_favorites())
     assert len(rows) == 1
     assert rows[0].url.endswith("pr1_2025-10-27T23-00-00Z.mp3")
+
+
+def test_najnowsza_godzina_etykieta_czasu_lokalnego() -> None:
+    # Zgłoszenie z odbioru: komunikat widoku podawał godzinę UTC, a to są
+    # stacje polskie. Etykieta ma iść z czasu lokalnego nagrań, a bez nagrań
+    # z konwersji znacznika katalogu na czas warszawski.
+    from amc_wx_lite import radioarchiwista_source as rarch2
+
+    nagranie = rarch2.ArchiveRecording(
+        station_slug="pr1", station_name="Polskie Radio Program 1",
+        item_id="rarch:rec:pr1:a", title="x",
+        audio_url="https://example.net/a.mp3", duration_seconds=3600.0,
+        local_date_label="29.10.2026", local_hour_label="23:00",
+        local_label="29.10 23:00", utc_started_at="2026-10-29T23:00:00Z",
+        hour=23, completeness_ratio=1.0, status="published",
+    )
+    assert rarch2.latest_local_label((nagranie,), "2026-10-29T21:00:00Z") == (
+        "29.10.2026 23:00"
+    )
+    # Pusty widok: 23:00 UTC konwertuje sie na polska 00:00 dnia nastepnego
+    # (koniec pazdziernika 2026 to czas zimowy, CET, +1).
+    assert rarch2.latest_local_label((), "2026-10-29T23:00:00+00:00") == (
+        "30.10.2026 00:00"
+    )
+    assert rarch2.latest_local_label((), "") == ""
