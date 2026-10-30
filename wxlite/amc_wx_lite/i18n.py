@@ -44,8 +44,13 @@ _CATALOGS: dict[str, dict[str, str]] = {
         # rarch.recordings.one/few/many i rarch.items.one/few/many).
         "rarch.session.unavailable":
             "Sesja Radio Archiwista nie jest dostępna w tym profilu",
+        "rarch.command.unavailable": "To polecenie nie jest dostępne w sesji Radio Archiwista",
         "rarch.catalog.loading": "Wczytuję stacje Radio Archiwisty",
         "rarch.catalog.refreshing": "Odświeżam katalog Radio Archiwisty",
+        "rarch.catalog.addressTitle": "Adres katalogu Radio Archiwisty",
+        "rarch.catalog.addressPrompt": "Adres katalogu nagrań (HTTPS):",
+        "rarch.catalog.addressSaved": "Zapisano adres katalogu Radio Archiwisty",
+        "rarch.catalog.addressFailed": "Nie zapisano adresu katalogu: {error}",
         "rarch.latest.loading": "Wczytuję najnowsze nagrania",
         "rarch.latest.menu": "Najnowsze nagrania",
         "rarch.latest.announcement":
@@ -55,7 +60,11 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.favorite.added": "Dodano do ulubionych: {title}",
         "rarch.favorite.removed": "Usunięto z ulubionych: {title}",
         "rarch.selectForDownload": "Zaznacz nagranie, aby je pobrać",
-        "rarch.download.busy": "To nagranie jest właśnie pobierane",
+        "rarch.download.busy": "Trwa już pobieranie nagrania",
+        "rarch.download.title": "Pobieranie nagrania Radio Archiwisty",
+        "rarch.download.progress": "Pobrano {percent} procent. Anuluj, aby przerwać pobieranie.",
+        "rarch.download.waiting": "Pobieram nagranie. Anuluj, aby przerwać pobieranie.",
+        "rarch.download.cancelled": "Anulowano pobieranie nagrania",
         "rarch.download.started": "Pobieram nagranie",
         "rarch.download.done": "Pobrano nagranie do: {path}",
         "rarch.download.failed": "Nie udało się pobrać nagrania: {error}",
@@ -197,8 +206,13 @@ _CATALOGS: dict[str, dict[str, str]] = {
         # Radio Archiwista: sesja komunikatow (stabilne klucze).
         "rarch.session.unavailable":
             "The Radio Archiwista session is not available in this profile",
+        "rarch.command.unavailable": "This command is not available in Radio Archiwista",
         "rarch.catalog.loading": "Loading Radio Archiwista stations",
         "rarch.catalog.refreshing": "Refreshing the Radio Archiwista catalog",
+        "rarch.catalog.addressTitle": "Radio Archiwista catalog address",
+        "rarch.catalog.addressPrompt": "Recording catalog address (HTTPS):",
+        "rarch.catalog.addressSaved": "Radio Archiwista catalog address saved",
+        "rarch.catalog.addressFailed": "Could not save catalog address: {error}",
         "rarch.latest.loading": "Loading the latest recordings",
         "rarch.latest.menu": "Latest recordings",
         "rarch.latest.announcement":
@@ -208,7 +222,11 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.favorite.added": "Added to favorites: {title}",
         "rarch.favorite.removed": "Removed from favorites: {title}",
         "rarch.selectForDownload": "Select a recording to download it",
-        "rarch.download.busy": "This recording is already being downloaded",
+        "rarch.download.busy": "A recording download is already in progress",
+        "rarch.download.title": "Downloading Radio Archiwista recording",
+        "rarch.download.progress": "Downloaded {percent} percent. Cancel to stop downloading.",
+        "rarch.download.waiting": "Downloading recording. Cancel to stop downloading.",
+        "rarch.download.cancelled": "Recording download cancelled",
         "rarch.download.started": "Downloading recording",
         "rarch.download.done": "Recording downloaded to: {path}",
         "rarch.download.failed": "Could not download the recording: {error}",

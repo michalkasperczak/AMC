@@ -141,6 +141,8 @@ class MenuItem:
     #: Rozdzielenie tej bramki od samego ``needs_selection`` zapobiega
     #: oferowaniu polecenia m.in. na folderze, albumie TIDAL albo w WiiM.
     needs_favorite_item: bool = False
+    #: Nagranie Radio Archiwisty z dostępnym adresem audio.
+    needs_radioarchiwista_recording: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
     #: AMC. Podcast nagłówkowy, kontener TIDAL i urządzenie sieciowe odpadają.
     needs_playlist_item: bool = False
@@ -282,6 +284,7 @@ def menus_for_session(
                     SessionId.WIIM: "d",
                     SessionId.SONOS: "g",
                     SessionId.FRONTIER_SMART: "r",
+                    SessionId.RADIOARCHIWISTA: "a",
                 }[session_id]
                 key_index = ctrl_f5.name.casefold().find(access_key)
                 label = (
@@ -405,6 +408,7 @@ def build_menus(
                     SessionId.SPOTIFY,
                     SessionId.WIIM,
                     SessionId.FRONTIER_SMART,
+                    SessionId.RADIOARCHIWISTA,
                 ),
             ),
             MenuItem(
@@ -647,6 +651,7 @@ def build_menus(
                 shortcut="Ctrl+Shift+U",
                 accelerator=False,
                 needs_selection=True,
+                needs_radioarchiwista_recording=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             MenuItem(
@@ -655,6 +660,7 @@ def build_menus(
                 shortcut="Ctrl+D",
                 accelerator=False,
                 needs_selection=True,
+                needs_radioarchiwista_recording=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             SEPARATOR,

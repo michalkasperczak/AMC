@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, replace
@@ -202,6 +203,7 @@ from .shortcuts import (
     Action,
     Chord,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
     PRESET_SHORTCUTS,
     RECOGNITION_HISTORY_SESSIONS,
@@ -10135,6 +10137,12 @@ class LiteFrame(wx.Frame):
                 self.navigator.active, set()
             ):
                 enabled = False
+            if entry.needs_radioarchiwista_recording and not (
+                selected_kind == "recording"
+                and selected_row is not None
+                and bool(selected_row.url)
+            ):
+                enabled = False
             if entry.needs_playlist_item and selected_kind not in playlist_kinds.get(
                 self.navigator.active, set()
             ):
@@ -14595,6 +14603,12 @@ class LiteFrame(wx.Frame):
                     "To polecenie nie jest dostępne w sesji Frontier Smart"
                 )
                 return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            if action not in RADIOARCHIWISTA_SUPPORTED_ACTIONS:
+                self.announcer.say(
+                    i18n.tr("rarch.command.unavailable")
+                )
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -18332,6 +18346,30 @@ class LiteFrame(wx.Frame):
             self._radioarchiwista = source
         return source
 
+    def _show_radioarchiwista_catalog_settings(self) -> None:
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        with wx.TextEntryDialog(
+            self,
+            i18n.tr("rarch.catalog.addressPrompt"),
+            i18n.tr("rarch.catalog.addressTitle"),
+            source.catalog_base(),
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            address = dialog.GetValue().strip()
+        self._restore_focus_after_dialog()
+        try:
+            source.set_catalog_base(address)
+        except (OSError, ValueError, _radioarchiwista_module.RadioarchiwistaError) as error:
+            self.announcer.say(i18n.tr("rarch.catalog.addressFailed", error=error))
+            return
+        self.announcer.say(i18n.tr("rarch.catalog.addressSaved"))
+        self._open_radioarchiwista_stations(refresh=True)
+
     def _open_radioarchiwista_stations(
         self,
         preferred_id: str | None = None,
@@ -18373,7 +18411,7 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _open_radioarchiwista_level(self, intent: OpenRadioarchiwistaLevel) -> None:
         """Jeden poziom katalogu: lata, miesiące, dni albo nagrania dnia."""
@@ -18445,9 +18483,11 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
-    def _open_radioarchiwista_latest(self, *, refresh: bool = False) -> None:
+    def _open_radioarchiwista_latest(
+        self, *, refresh: bool = False, preferred_id: str | None = None
+    ) -> None:
         """Nagrania ostatniej opublikowanej godziny ze wszystkich stacji."""
 
         source = self._radioarchiwista_source()
@@ -18473,6 +18513,7 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.apply_radioarchiwista_rows(
                 LibraryView.RADIOARCHIWISTA_HOURS,
                 rows,
+                preferred_id=preferred_id,
                 announcement=i18n.tr(
                     "rarch.latest.announcement",
                     label=label,
@@ -18485,7 +18526,7 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _open_radioarchiwista_favorites(
         self, preferred_id: str | None = None,
@@ -18515,7 +18556,7 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _toggle_radioarchiwista_favorite(self) -> None:
         """Przełącz ulubione zaznaczonego nagrania i odśwież jego wiersz."""
@@ -18550,6 +18591,9 @@ class LiteFrame(wx.Frame):
                     ),
                 )
                 for candidate in state.model.rows
+                if added
+                or state.library_view is not LibraryView.RADIOARCHIWISTA_FAVORITES
+                or candidate.item_id != row.item_id
             ]
             state.model.replace(refreshed, preferred_id=row.item_id)
             message = i18n.tr(
@@ -18563,17 +18607,17 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.favorite", work, done, failed)
 
     def _download_radioarchiwista_recording(self) -> None:
-        """Pobierz zaznaczone nagranie do folderu profilu Pythona."""
+        """Pobierz nagranie bez nadpisywania pliku, z postępem i anulowaniem."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
         row = state.model.selected_row
         if row is None or row.kind != "recording" or not row.url:
             self.announcer.say(i18n.tr("rarch.selectForDownload"))
             return
-        if row.item_id in self._radioarchiwista_downloads:
+        if self._radioarchiwista_downloads:
             self.announcer.say(i18n.tr("rarch.download.busy"))
             return
         source = self._radioarchiwista_source()
@@ -18581,33 +18625,91 @@ class LiteFrame(wx.Frame):
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
         target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+        cancel_event = threading.Event()
+        dialog = wx.ProgressDialog(
+            i18n.tr("rarch.download.title"),
+            i18n.tr("rarch.download.progress", percent=0),
+            maximum=100,
+            parent=self,
+            style=wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME,
+        )
+        dialog.SetName(i18n.tr("rarch.download.title"))
+        last_percent = -1
+        progress_known = False
+        pulse_timer: wx.CallLater | None = None
+
+        def tick() -> None:
+            if dialog.IsBeingDeleted():
+                return
+            if not progress_known:
+                result = dialog.Pulse(i18n.tr("rarch.download.waiting"))
+                if result is False or isinstance(result, tuple) and not result[0]:
+                    cancel_event.set()
+            if dialog.WasCancelled():
+                cancel_event.set()
+            if not cancel_event.is_set() and pulse_timer is not None:
+                pulse_timer.Start(250)
+
+        def show_progress(percent: int) -> None:
+            nonlocal progress_known
+            if dialog.IsBeingDeleted():
+                return
+            progress_known = True
+            result = dialog.Update(
+                percent,
+                i18n.tr("rarch.download.progress", percent=percent),
+            )
+            if result is False or isinstance(result, tuple) and not result[0]:
+                cancel_event.set()
+            if dialog.WasCancelled():
+                cancel_event.set()
+
+        def progress(percent: int) -> None:
+            nonlocal last_percent
+            if percent != last_percent:
+                last_percent = percent
+                wx.CallAfter(show_progress, percent)
+
+        def finish() -> None:
+            if pulse_timer is not None:
+                pulse_timer.Stop()
+            if not dialog.IsBeingDeleted():
+                dialog.Destroy()
+            self._radioarchiwista_downloads.discard(row.item_id)
 
         def work() -> Path:
             recording = source.recording_by_id(row.item_id)
-            label = (
-                recording.local_label
-                if recording is not None and recording.local_label
-                else f"{row.service_id or 'nagranie'} {row.title}"
+            if recording is None:
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Nie znam tego nagrania"
+                )
+            target = _radioarchiwista_module.download_destination(
+                target_dir, recording
             )
-            safe = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:100]
             return _radioarchiwista_module.stream_to_file(
                 row.url,
-                target_dir / f"{safe}.mp3",
+                target,
+                progress=progress,
+                should_cancel=cancel_event.is_set,
             )
 
         def done(path: Path) -> None:
-            self._radioarchiwista_downloads.discard(row.item_id)
+            finish()
             self.announcer.say(i18n.tr("rarch.download.done", path=path))
 
         def failed(error: Exception) -> None:
-            self._radioarchiwista_downloads.discard(row.item_id)
-            self._run(self.navigator.apply_radioarchiwista_message(
-                i18n.tr("rarch.download.failed", error=error)
-            ))
+            finish()
+            message = (
+                i18n.tr("rarch.download.cancelled")
+                if cancel_event.is_set()
+                else i18n.tr("rarch.download.failed", error=error)
+            )
+            self._run(self.navigator.apply_radioarchiwista_message(message))
 
         self._radioarchiwista_downloads.add(row.item_id)
+        pulse_timer = wx.CallLater(250, tick)
         self.announcer.say(i18n.tr("rarch.download.started"))
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.download", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:
         """F5: ponowne wczytanie bieżącego poziomu z pominięciem cache."""
@@ -18620,6 +18722,10 @@ class LiteFrame(wx.Frame):
             )
         elif view is LibraryView.RADIOARCHIWISTA_FAVORITES:
             self._open_radioarchiwista_favorites()
+        elif view is LibraryView.RADIOARCHIWISTA_HOURS and not state.radioarchiwista_slug:
+            self._open_radioarchiwista_latest(
+                refresh=True, preferred_id=state.model.selected_id
+            )
         else:
             self._open_radioarchiwista_level(OpenRadioarchiwistaLevel(
                 view,
@@ -18752,6 +18858,9 @@ class LiteFrame(wx.Frame):
             return
         if session_id is SessionId.FRONTIER_SMART:
             wx.CallAfter(self._show_frontier_smart_devices)
+            return
+        if session_id is SessionId.RADIOARCHIWISTA:
+            wx.CallAfter(self._show_radioarchiwista_catalog_settings)
             return
         if session_id is SessionId.SONOS:
             self._show_sonos_account()
@@ -31958,6 +32067,7 @@ class LiteFrame(wx.Frame):
             SessionId.WIIM: WIIM_SUPPORTED_ACTIONS,
             SessionId.SONOS: SONOS_SUPPORTED_ACTIONS,
             SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
+            SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
         }.get(self.navigator.active)
         return supported is None or action in supported
 

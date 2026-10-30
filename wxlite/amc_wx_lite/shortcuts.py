@@ -546,6 +546,12 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
         "Pokaż zapisane urządzenia Frontier Smart i opcjonalnie wyszukaj nowe",
         "Ctrl+F5",
     ),
+    "radio archiwista": CommandPresentation(
+        Action.SESSION_CONFIGURE_CURRENT,
+        "Adres katalogu Radio Archiwisty",
+        "Ustaw adres katalogu nagrań Radio Archiwisty",
+        "Ctrl+F5",
+    ),
 }
 
 
@@ -1061,15 +1067,25 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
 })
 
 
-# Radio Archiwista: sterowanie odtwarzaniem jak Frontier Smart (wspólny tor
-# PlayMedia), a do tego trzy akcje własne katalogu nagrań.
+# Radio Archiwista korzysta z lokalnego odtwarzacza, więc przewijanie i
+# prędkość są dostępne; tryb urządzenia i presety nie mają tu znaczenia.
 RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
-    FRONTIER_SMART_SUPPORTED_ACTIONS
+    (FRONTIER_SMART_SUPPORTED_ACTIONS - {
+        Action.VIEW_PRESETS,
+        Action.FRONTIER_SMART_SELECT_MODE,
+        *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
+    })
     | {
         Action.VIEW_FAVORITES,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RADIOARCHIWISTA_DOWNLOAD,
         Action.RADIOARCHIWISTA_REFRESH,
+        Action.SEEK_BACK_10, Action.SEEK_FORWARD_10,
+        Action.SEEK_BACK_30, Action.SEEK_FORWARD_30,
+        Action.SEEK_BACK_60, Action.SEEK_FORWARD_60,
+        Action.SEEK_BACK_CUSTOM, Action.SEEK_FORWARD_CUSTOM,
+        Action.RATE_UP, Action.RATE_DOWN, Action.RATE_RESET,
+        Action.TRACK_START, Action.TRACK_END,
     }
 )
 
@@ -1632,8 +1648,8 @@ FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
 }
 
 
-# Sesja Radio Archiwista: katalog jest publiczny, więc Ctrl+F5 to odświeżenie
-# katalogu, nie okno konta. Skróty materiału są zgodne z Podcastami.
+# Sesja Radio Archiwista: F5 odświeża katalog, Ctrl+F5 ustawia jego adres.
+# Skróty materiału są zgodne z Podcastami.
 RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "F5": Action.RADIOARCHIWISTA_REFRESH,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
@@ -2218,6 +2234,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SPOTIFY_VIEW_PLAYLISTS: "Spotify: Playlisty",
         Action.SPOTIFY_VIEW_PODCASTS: "Spotify: Podcasty",
         Action.SPOTIFY_VIEW_EPISODES: "Spotify: Zapisane odcinki",
+        Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
+        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń nagranie z ulubionych",
+        Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",
@@ -2524,6 +2543,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         WIIM_SESSION_VIEW,
         WIIM_PLAYER_VIEW,
         FRONTIER_SMART_SESSION_VIEW,
+        RADIOARCHIWISTA_SESSION_VIEW,
         SONOS_SESSION_VIEW,
         LIST_VIEW,
         RADIO_COLLECTION_LIST_VIEW,

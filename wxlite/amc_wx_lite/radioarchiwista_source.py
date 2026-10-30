@@ -93,7 +93,7 @@ def _as_float(value: object, fallback: float = 0.0) -> float:
 def check_slug(slug: str) -> str:
     """Waliduj identyfikator stacji, zanim trafi do ścieżki katalogu."""
 
-    if not _SLUG_PATTERN.match(slug or ""):
+    if not _SLUG_PATTERN.fullmatch(slug or ""):
         raise RadioarchiwistaError("Nieprawidłowy identyfikator stacji katalogu")
     return slug
 
@@ -196,7 +196,7 @@ def parse_stations_index(payload: object) -> StationsIndex:
         if not isinstance(raw, dict):
             continue
         slug = _clean_text(raw.get("slug"))
-        if not slug or slug in seen:
+        if not slug or slug in seen or not _SLUG_PATTERN.fullmatch(slug):
             continue
         seen.add(slug)
         stations.append(StationRecord(
@@ -554,6 +554,28 @@ def favorite_record(recording: ArchiveRecording, added_at: float) -> dict:
     }
 
 
+def download_destination(directory: Path, recording: ArchiveRecording) -> Path:
+    """Użytkowa, stabilna nazwa bez kolizji stacji i powtórnej godziny DST.
+
+    Pobranie tego samego materiału ponownie tworzy kolejny plik. Nie
+    nadpisujemy wcześniej zapisanego nagrania, które mogło być edytowane.
+    """
+
+    label = f"{recording.station_name} {recording.local_label or recording.title}"
+    label = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "-", label)
+    label = re.sub(r"\s+", " ", label).strip(" .-")[:80].rstrip(" .-")
+    label = label or "Nagranie"
+    identity = hashlib.sha256(recording.item_id.encode("utf-8")).hexdigest()[:12]
+    stem = f"{label}-{identity}"
+    directory = Path(directory)
+    for number in range(1, 1001):
+        suffix = "" if number == 1 else f"-{number}"
+        candidate = directory / f"{stem}{suffix}.mp3"
+        if not candidate.exists():
+            return candidate
+    raise RadioarchiwistaError("Nie można wybrać wolnej nazwy pliku nagrania")
+
+
 #: Pobieranie pliku strumieniowo, bez wx i bez wątków: wołane w tle GUI.
 def stream_to_file(
     url: str,
@@ -569,6 +591,8 @@ def stream_to_file(
     usuwany, a wywołujący dostaje uczciwy komunikat.
     """
 
+    if destination.exists():
+        raise RadioarchiwistaError("Plik nagrania już istnieje")
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".part")
     opener = fetch or (lambda target: urllib.request.urlopen(target, timeout=_DOWNLOAD_TIMEOUT_SECONDS))
@@ -592,6 +616,8 @@ def stream_to_file(
                     progress(min(100, downloaded * 100 // total))
         if partial.stat().st_size == 0:
             raise RadioarchiwistaError("Pobrany plik jest pusty")
+        if destination.exists():
+            raise RadioarchiwistaError("Plik nagrania już istnieje")
         partial.replace(destination)
     except RadioarchiwistaError:
         partial.unlink(missing_ok=True)
@@ -658,6 +684,23 @@ class RadioarchiwistaSource:
             json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+    def set_catalog_base(self, address: str) -> None:
+        """Zapisz wyłącznie pełny adres HTTPS katalogu."""
+        parsed = urllib.parse.urlsplit(address.strip())
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise RadioarchiwistaError("Podaj pełny adres katalogu HTTPS")
+        normalized = urllib.parse.urlunsplit((
+            "https", parsed.netloc, parsed.path.rstrip("/") + "/", "", ""
+        ))
+        self.write_settings(catalog_base=normalized)
 
     def catalog_base(self) -> str:
         base = _clean_text(self.read_settings().get("catalog_base"))
