@@ -16,13 +16,16 @@ from .radio_activity import join_spoken_prefix, normalize_state_position
 
 
 MAX_ITEMS_PER_SESSION = 500
-SUPPORTED_SESSIONS = frozenset({"wiim", "sonos"})
+SUPPORTED_SESSIONS = frozenset({
+    "wiim", "sonos", "frontierSmart", "tidal", "radioarchiwista",
+})
 
 _KINDS = frozenset({
     "track",
     "station",
     "video",
     "episode",
+    "recording",
     "album",
     "playlist",
     "wiimNetworkStream",
@@ -147,6 +150,18 @@ def history_rows(session_id: str, raw: object) -> tuple[Row, ...]:
             "Ten wpis pokazuje materiał zaobserwowany przez Sonos. "
             "Sonos nie udostępnił danych potrzebnych do ponownego "
             "uruchomienia go z Historii"
+        ),
+        "frontierSmart": (
+            "Ten wpis pokazuje materiał zaobserwowany przez Frontier Smart. "
+            "Urządzenie nie udostępniło celu potrzebnego do ponownego "
+            "uruchomienia go z Historii"
+        ),
+        "tidal": (
+            "Ten wpis nie zawiera danych potrzebnych do ponownego "
+            "uruchomienia go w TIDALu"
+        ),
+        "radioarchiwista": (
+            "To nagranie nie ma już adresu potrzebnego do ponownego odtworzenia"
         ),
     }[session_id]
     return tuple(
@@ -295,6 +310,29 @@ def observed_sonos_row(state: dict) -> Row | None:
         title=title,
         kind="track" if duration > 0 else "station",
         detail=source,
+        duration_ticks=int(duration * 10_000_000),
+    )
+
+
+def observed_frontier_smart_row(state: dict) -> Row | None:
+    """Zapisz tylko materiał zgłoszony przez grające urządzenie."""
+
+    if _text(state.get("playbackState")).casefold() != "odtwarzanie":
+        return None
+    title = _text(state.get("title")) or _text(state.get("subtitle"))
+    if not title:
+        return None
+    artist = _text(state.get("artist"))
+    album = _text(state.get("album"))
+    source = _text(state.get("deviceTitle"))
+    duration = _number(state.get("durationSeconds"))
+    return Row(
+        item_id=_observed_id("frontierSmart", title, artist, album, source),
+        title=title,
+        kind="track" if duration > 0 else "station",
+        detail=source,
+        artist_name=artist,
+        related_album_title=album,
         duration_ticks=int(duration * 10_000_000),
     )
 

@@ -477,8 +477,8 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Action.RECORD_TOGGLE,
         Action.ADD_PODCAST_SOURCE,
         Action.DOWNLOAD_PODCAST_EPISODES,
-        Action.REMOVE_SELECTED,
     }.isdisjoint(TIDAL_SUPPORTED_ACTIONS)
+    assert Action.REMOVE_SELECTED in TIDAL_SUPPORTED_ACTIONS
 
     gui = (
         Path(__file__).resolve().parents[1] / "amc_wx_lite" / "gui.py"

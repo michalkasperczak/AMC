@@ -8,11 +8,16 @@ from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId
 from amc_wx_lite.playback_history import (
     activity_rows,
     history_rows,
+    observed_frontier_smart_row,
     observed_sonos_row,
     observed_wiim_row,
     record_row,
+    normalize_histories,
 )
-from amc_wx_lite.shortcuts import Action, Chord, resolve
+from amc_wx_lite.shortcuts import (
+    Action, Chord, resolve, FRONTIER_SMART_SUPPORTED_ACTIONS,
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS, TIDAL_SUPPORTED_ACTIONS,
+)
 from amc_wx_lite.state_store import LiteState
 
 
@@ -160,7 +165,10 @@ def test_snapshot_recorder_keeps_sessions_separate_and_ignores_duplicates() -> N
 
 
 def test_ctrl_h_keeps_each_streamer_in_its_own_session() -> None:
-    for session_id in (SessionId.WIIM, SessionId.SONOS):
+    for session_id in (
+        SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+        SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+    ):
         navigator = Navigator()
         navigator.active = session_id
         navigator.session.model.replace([])
@@ -189,6 +197,88 @@ def test_ctrl_h_keeps_each_streamer_in_its_own_session() -> None:
         assert navigator.session.model.selected_row.title == "Własny wpis"
         assert len(events) == 1
         assert "Historia odtwarzania" in events[0][0].text
+
+
+def test_new_session_history_contract_and_persistence() -> None:
+    for supported in (
+        TIDAL_SUPPORTED_ACTIONS, FRONTIER_SMART_SUPPORTED_ACTIONS,
+        RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+    ):
+        assert Action.VIEW_HISTORY in supported
+        assert Action.REMOVE_SELECTED in supported
+
+    archive = Row(
+        "archive:recording:one", "TOK FM, 30.10.2026 23:00", "recording",
+        url="https://example.org/recording.mp3",
+    )
+    tidal = Row(
+        "tidal:track:one", "Utwór", "track", service_id="track-one",
+        related_album_service_id="album-one",
+    )
+    saved = normalize_histories({
+        "radioarchiwista": record_row([], archive, replay_supported=True),
+        "tidal": record_row([], tidal, replay_supported=True),
+    })
+    archive_row = history_rows("radioarchiwista", saved["radioarchiwista"])[0]
+    tidal_row = history_rows("tidal", saved["tidal"])[0]
+    assert archive_row.url == archive.url
+    assert archive_row.activation_message is None
+    assert tidal_row.related_album_service_id == "album-one"
+    assert tidal_row.activation_message is None
+
+    navigator = Navigator()
+    navigator.active = SessionId.RADIOARCHIWISTA
+    navigator.apply_service_history(SessionId.RADIOARCHIWISTA, [archive_row])
+    assert any(event.__class__.__name__ == "PlayMedia"
+               for event in navigator.activate_selected())
+
+
+def test_frontier_history_only_records_confirmed_playback() -> None:
+    assert observed_frontier_smart_row({
+        "playbackState": "wstrzymane", "title": "Nie zapisuj",
+    }) is None
+    row = observed_frontier_smart_row({
+        "playbackState": "odtwarzanie", "title": "Radio TOK FM",
+        "deviceTitle": "Radio w salonie",
+    })
+    assert row is not None
+    assert row.title == "Radio TOK FM"
+    assert row.detail == "Radio w salonie"
+    saved = record_row([], row, replay_supported=False)
+    restored = history_rows("frontierSmart", saved)[0]
+    assert "Frontier Smart" in restored.activation_message
+    navigator = Navigator()
+    navigator.active = SessionId.FRONTIER_SMART
+    navigator.apply_service_history(SessionId.FRONTIER_SMART, [restored])
+    assert isinstance(navigator.activate_selected()[0], Announce)
+
+
+def test_escape_returns_from_new_session_history_to_same_selection() -> None:
+    for session_id in (
+        SessionId.FRONTIER_SMART, SessionId.TIDAL,
+        SessionId.RADIOARCHIWISTA,
+    ):
+        navigator = Navigator()
+        navigator.active = session_id
+        navigator.session.model.replace([
+            Row("one", "Pierwszy", "track"),
+            Row("two", "Drugi", "track"),
+        ], preferred_id="two")
+        frame = SimpleNamespace(
+            navigator=navigator,
+            state=LiteState(),
+            _transient_preview_return=None,
+            _announce_transient_preview=lambda events: None,
+            _sync_views=lambda: None,
+        )
+        frame._begin_transient_preview = (
+            lambda current=frame: LiteFrame._begin_transient_preview(current)
+        )
+        LiteFrame._show_playback_history_preview(frame)
+        assert navigator.session.library_view is LibraryView.SERVICE_HISTORY
+        assert LiteFrame._restore_transient_preview(frame, announce=False)
+        assert navigator.active is session_id
+        assert navigator.session.model.selected_id == "two"
 
 
 def test_enter_on_observed_history_row_explains_api_limit() -> None:

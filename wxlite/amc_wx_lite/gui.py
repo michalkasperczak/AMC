@@ -139,6 +139,7 @@ if "session.spotify" in _RELEASE_PROFILE.capabilities:
 from .playback_history import (
     activity_rows as streamer_activity_rows,
     history_rows as streamer_history_rows,
+    observed_frontier_smart_row,
     observed_sonos_row,
     observed_wiim_row,
     record_row as record_streamer_history_row,
@@ -12673,7 +12674,24 @@ class LiteFrame(wx.Frame):
                 target = self._pending_playback_session
                 if target not in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     target = SessionId.FILES
+                archive_row = None
+                if target is SessionId.RADIOARCHIWISTA:
+                    archive_state = self.navigator.sessions[target]
+                    archive_row = next((
+                        row for row in archive_state.playback_source_rows
+                        if row.item_id == archive_state.now_playing_id
+                        and row.kind == "recording" and row.url
+                    ), None)
+                    if archive_row is None:
+                        selected = archive_state.model.selected_row
+                        if (selected is not None and selected.kind == "recording"
+                                and selected.url and selected.item_id == archive_state.now_playing_id):
+                            archive_row = selected
                 self.navigator.note_playback_started(target)
+                if archive_row is not None:
+                    self._record_streamer_history_row(
+                        target, archive_row, replay_supported=True,
+                    )
                 self._playing_session = target
                 self._playing_sessions.discard(SessionId.FILES)
                 self._playing_sessions.discard(SessionId.PODCASTS)
@@ -14067,25 +14085,18 @@ class LiteFrame(wx.Frame):
     def _record_streamer_history_snapshot(
         self, session_id: SessionId, snapshot: dict
     ) -> None:
-        """Zapisz wyłącznie potwierdzony stan grającego WiiM albo Sonosa."""
+        """Zapisz wyłącznie potwierdzony stan grającego urządzenia."""
 
         row = (
             observed_wiim_row(snapshot)
             if session_id is SessionId.WIIM
             else observed_sonos_row(snapshot)
             if session_id is SessionId.SONOS
+            else observed_frontier_smart_row(snapshot)
+            if session_id is SessionId.FRONTIER_SMART
             else None
         )
         if row is None:
-            return
-        previous = list(
-            self.state.playback_history_by_session.get(session_id.value, ())
-        )
-        if (
-            previous
-            and str(previous[0].get("title") or "").strip().casefold()
-            == row.title.strip().casefold()
-        ):
             return
         recorder = getattr(self, "_record_streamer_history_row", None)
         if callable(recorder):
@@ -20083,6 +20094,7 @@ class LiteFrame(wx.Frame):
         *,
         announce: bool = False,
     ) -> None:
+        self._record_streamer_history_snapshot(SessionId.FRONTIER_SMART, state)
         label = frontier_smart_now_playing_label(state)
         if self.navigator.active is SessionId.FRONTIER_SMART:
             self.navigator.session.now_playing_title = label
@@ -24051,7 +24063,10 @@ class LiteFrame(wx.Frame):
             )
             return
 
-        if origin in (SessionId.WIIM, SessionId.SONOS):
+        if origin in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
             rows = list(streamer_history_rows(
                 origin.value,
                 self.state.playback_history_by_session.get(origin.value, ()),
@@ -24061,8 +24076,7 @@ class LiteFrame(wx.Frame):
             )
             return
 
-        # Pozostałe sesje zachowują dotychczasową drogę. Ten przyrost nie
-        # zmienia osobnych kontraktów TIDAL ani lokalnych plików.
+        # Pliki lokalne korzystają z historii silnika biblioteki.
         self.navigator.active = SessionId.FILES
         self._open_library_view(OpenLibraryView(
             LibraryView.HISTORY,
@@ -25762,6 +25776,33 @@ class LiteFrame(wx.Frame):
                     intent.title,
                     uses_external_queue=isinstance(intent, PlayTidalContainer),
                 )
+                tidal_state = self.navigator.sessions[SessionId.TIDAL]
+                confirmed_row = next((
+                    row for row in (*tidal_state.playback_source_rows,
+                                    *tidal_state.model.rows)
+                    if row.item_id == intent.item_id
+                ), None)
+                if confirmed_row is None:
+                    confirmed_row = Row(
+                        item_id=intent.item_id,
+                        title=intent.title,
+                        kind=("track" if isinstance(intent, PlayTidalTrack)
+                              else intent.kind),
+                        service_id=intent.service_id,
+                        related_album_service_id=(
+                            intent.related_album_service_id
+                            if isinstance(intent, PlayTidalTrack) else None
+                        ),
+                    )
+                self._record_streamer_history_row(
+                    SessionId.TIDAL,
+                    confirmed_row,
+                    replay_supported=(
+                        isinstance(intent, PlayTidalTrack)
+                        and bool(confirmed_row.related_album_service_id)
+                        and bool(confirmed_row.service_id)
+                    ),
+                )
                 self.announcer.say(message)
                 self._sync_views()
 
@@ -26298,7 +26339,10 @@ class LiteFrame(wx.Frame):
                 return list(self.podcasts.history(loaded_count=500).rows)
             if origin is SessionId.SPOTIFY:
                 return list(spotify_history_rows(spotify_history))
-            if origin in (SessionId.WIIM, SessionId.SONOS):
+            if origin in (
+                SessionId.WIIM, SessionId.SONOS,
+                SessionId.RADIOARCHIWISTA, SessionId.FRONTIER_SMART,
+            ):
                 return list(streamer_history_rows(origin.value, streamer_history))
             return []
 
@@ -26343,6 +26387,8 @@ class LiteFrame(wx.Frame):
                 SessionId.SPOTIFY: LibraryView.SPOTIFY_HISTORY,
                 SessionId.WIIM: LibraryView.SERVICE_HISTORY,
                 SessionId.SONOS: LibraryView.SERVICE_HISTORY,
+                SessionId.RADIOARCHIWISTA: LibraryView.SERVICE_HISTORY,
+                SessionId.FRONTIER_SMART: LibraryView.SERVICE_HISTORY,
             }[origin]
             intents = self.navigator.activate_selected()
             self.navigator.restore_transient_navigation(snapshot)
@@ -30434,7 +30480,10 @@ class LiteFrame(wx.Frame):
 
     def _remove_selected_items(self) -> None:
         if (
-            self.navigator.active in (SessionId.WIIM, SessionId.SONOS)
+            self.navigator.active in (
+                SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+                SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+            )
             and self.navigator.session.library_view
             is LibraryView.SERVICE_HISTORY
         ):
@@ -30602,10 +30651,13 @@ class LiteFrame(wx.Frame):
         )
 
     def _remove_streamer_history_entries(self) -> None:
-        """Delete usuwa migawki Historii, nigdy źródło WiiM ani Sonosa."""
+        """Delete usuwa tylko wpisy historii bieżącej sesji."""
 
         session_id = self.navigator.active
-        if session_id not in (SessionId.WIIM, SessionId.SONOS):
+        if session_id not in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
             return
         selected = self._selected_action_rows()
         if not selected:
@@ -30649,9 +30701,14 @@ class LiteFrame(wx.Frame):
             if len(selected) == 1
             else format_item_count(len(selected))
         )
+        source_message = (
+            "Urządzenie i źródło pozostały bez zmian"
+            if session_id in (SessionId.WIIM, SessionId.SONOS)
+            else "Materiał źródłowy pozostał bez zmian"
+        )
         self.announcer.say(
             f"Usunięto z Historii {SESSION_LABELS[session_id]}: {label}. "
-            "Urządzenie i źródło pozostały bez zmian"
+            + source_message
         )
 
     def _remove_selected_bookmarks(self) -> None:
@@ -32272,7 +32329,10 @@ class LiteFrame(wx.Frame):
                 self.options.session_order
             )
         if (
-            self.navigator.active in (SessionId.WIIM, SessionId.SONOS)
+            self.navigator.active in (
+                SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+                SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+            )
             and action is Action.REMOVE_SELECTED
         ):
             return (

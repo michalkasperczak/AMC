@@ -1424,6 +1424,9 @@ class Navigator:
         if row.kind == "parent":
             return self.go_to_parent()
 
+        if state.library_view is LibraryView.SERVICE_HISTORY and row.activation_message:
+            return [Announce(row.activation_message)]
+
         if state.session_id is SessionId.WIIM:
             # Wpis Historii pozostaje czytelny, gdy urządzenie nie oddało
             # stabilnego celu potrzebnego do ponownego uruchomienia.
@@ -3468,8 +3471,11 @@ class Navigator:
     ) -> list[object]:
         """Pokaż prywatną Historię bez przechodzenia do Plików lokalnych."""
 
-        if session_id not in (SessionId.WIIM, SessionId.SONOS):
-            raise ValueError("Historia streamerów wymaga sesji WiiM albo Sonos")
+        if session_id not in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
+            raise ValueError("Ta sesja nie przechowuje osobnej historii")
         state = self.sessions[session_id]
         remembered = state.view_selected_ids.get(
             LibraryView.SERVICE_HISTORY.value
