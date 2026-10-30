@@ -18250,12 +18250,10 @@ class LiteFrame(wx.Frame):
 
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
         self.announcer.say(
-            "Odświeżam katalog Radio Archiwisty"
-            if refresh
-            else "Wczytuję stacje Radio Archiwisty"
+            i18n.tr("rarch.catalog.refreshing" if refresh else "rarch.catalog.loading")
         )
 
         def work() -> list[Row]:
@@ -18263,7 +18261,7 @@ class LiteFrame(wx.Frame):
             rows = _radioarchiwista_module.station_rows(index)
             rows.insert(0, Row(
                 item_id="rarch:latest",
-                title="Najnowsze nagrania",
+                title=i18n.tr("rarch.latest.menu"),
                 kind="folder",
                 show_kind=False,
                 service_kind="rarchLatest",
@@ -18280,7 +18278,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Radio Archiwista: {error}"
+                i18n.tr("rarch.error", error=error)
             ))
 
         self.runner.submit("radioarchiwista", work, done, failed)
@@ -18290,7 +18288,7 @@ class LiteFrame(wx.Frame):
 
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
 
         def work() -> tuple[LibraryView, list[Row]]:
@@ -18352,7 +18350,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Radio Archiwista: {error}"
+                i18n.tr("rarch.error", error=error)
             ))
 
         self.runner.submit("radioarchiwista", work, done, failed)
@@ -18362,17 +18360,16 @@ class LiteFrame(wx.Frame):
 
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
-        self.announcer.say("Wczytuję najnowsze nagrania")
+        self.announcer.say(i18n.tr("rarch.latest.loading"))
 
         def work() -> tuple[list[Row], str]:
             recordings, stamp = source.latest_recordings(force=refresh)
-            rows = _radioarchiwista_module.recording_rows(
+            rows = _radioarchiwista_module.latest_rows(
                 recordings,
                 positions=source.load_positions(),
                 favorite_ids=source.favorite_ids(),
-                loaded_count=len(recordings),
             )
             return rows, stamp
 
@@ -18384,15 +18381,16 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.apply_radioarchiwista_rows(
                 LibraryView.RADIOARCHIWISTA_HOURS,
                 rows,
-                announcement=(
-                    f"Najnowsze nagrania, godzina {label} UTC, "
-                    f"{count} nagrań"
+                announcement=i18n.tr(
+                    "rarch.latest.announcement",
+                    label=label,
+                    phrase=i18n.recordings_phrase(count),
                 ),
             ))
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Radio Archiwista: {error}"
+                i18n.tr("rarch.error", error=error)
             ))
 
         self.runner.submit("radioarchiwista", work, done, failed)
@@ -18404,7 +18402,7 @@ class LiteFrame(wx.Frame):
 
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
 
         def work() -> list[Row]:
@@ -18422,7 +18420,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Radio Archiwista: {error}"
+                i18n.tr("rarch.error", error=error)
             ))
 
         self.runner.submit("radioarchiwista", work, done, failed)
@@ -18433,11 +18431,11 @@ class LiteFrame(wx.Frame):
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
         row = state.model.selected_row
         if row is None or row.kind != "recording":
-            self.announcer.say("Zaznacz nagranie, aby zmienić ulubione")
+            self.announcer.say(i18n.tr("rarch.selectForFavorite"))
             return
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
 
         def work() -> tuple[bool, str]:
@@ -18462,14 +18460,15 @@ class LiteFrame(wx.Frame):
                 for candidate in state.model.rows
             ]
             state.model.replace(refreshed, preferred_id=row.item_id)
-            message = (
-                "Dodano do ulubionych: " if added else "Usunięto z ulubionych: "
-            ) + title
+            message = i18n.tr(
+                "rarch.favorite.added" if added else "rarch.favorite.removed",
+                title=title,
+            )
             self._run(self.navigator.apply_radioarchiwista_message(message))
 
         def failed(error: Exception) -> None:
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Radio Archiwista: {error}"
+                i18n.tr("rarch.error", error=error)
             ))
 
         self.runner.submit("radioarchiwista", work, done, failed)
@@ -18480,14 +18479,14 @@ class LiteFrame(wx.Frame):
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
         row = state.model.selected_row
         if row is None or row.kind != "recording" or not row.url:
-            self.announcer.say("Zaznacz nagranie, aby je pobrać")
+            self.announcer.say(i18n.tr("rarch.selectForDownload"))
             return
         if row.item_id in self._radioarchiwista_downloads:
-            self.announcer.say("To nagranie jest właśnie pobierane")
+            self.announcer.say(i18n.tr("rarch.download.busy"))
             return
         source = self._radioarchiwista_source()
         if source is None:
-            self.announcer.say("Sesja Radio Archiwista nie jest dostępna w tym profilu")
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
         target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
 
@@ -18506,16 +18505,16 @@ class LiteFrame(wx.Frame):
 
         def done(path: Path) -> None:
             self._radioarchiwista_downloads.discard(row.item_id)
-            self.announcer.say(f"Pobrano nagranie do: {path}")
+            self.announcer.say(i18n.tr("rarch.download.done", path=path))
 
         def failed(error: Exception) -> None:
             self._radioarchiwista_downloads.discard(row.item_id)
             self._run(self.navigator.apply_radioarchiwista_message(
-                f"Nie udało się pobrać nagrania: {error}"
+                i18n.tr("rarch.download.failed", error=error)
             ))
 
         self._radioarchiwista_downloads.add(row.item_id)
-        self.announcer.say("Pobieram nagranie")
+        self.announcer.say(i18n.tr("rarch.download.started"))
         self.runner.submit("radioarchiwista", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:

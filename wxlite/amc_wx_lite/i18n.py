@@ -40,6 +40,58 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "session.sonos": "Sonos",
         "session.frontierSmart": "Frontier Smart",
         "session.radioarchiwista": "Radio Archiwista",
+        # Radio Archiwista: komunikaty sesji (stabilne klucze, odmiana przez
+        # rarch.recordings.one/few/many i rarch.items.one/few/many).
+        "rarch.session.unavailable":
+            "Sesja Radio Archiwista nie jest dostępna w tym profilu",
+        "rarch.catalog.loading": "Wczytuję stacje Radio Archiwisty",
+        "rarch.catalog.refreshing": "Odświeżam katalog Radio Archiwisty",
+        "rarch.latest.loading": "Wczytuję najnowsze nagrania",
+        "rarch.latest.menu": "Najnowsze nagrania",
+        "rarch.latest.announcement":
+            "Najnowsze nagrania, godzina {label} UTC, {phrase}",
+        "rarch.error": "Radio Archiwista: {error}",
+        "rarch.selectForFavorite": "Zaznacz nagranie, aby zmienić ulubione",
+        "rarch.favorite.added": "Dodano do ulubionych: {title}",
+        "rarch.favorite.removed": "Usunięto z ulubionych: {title}",
+        "rarch.selectForDownload": "Zaznacz nagranie, aby je pobrać",
+        "rarch.download.busy": "To nagranie jest właśnie pobierane",
+        "rarch.download.started": "Pobieram nagranie",
+        "rarch.download.done": "Pobrano nagranie do: {path}",
+        "rarch.download.failed": "Nie udało się pobrać nagrania: {error}",
+        "rarch.recording.noAudio": "To nagranie nie ma dostępnego pliku audio",
+        "rarch.open.failed": "Nie można otworzyć tego elementu Radio Archiwisty",
+        "rarch.loadMore.unknown": "Nie wiadomo, dla którego widoku wczytać więcej",
+        "rarch.loadMore.row": "Wczytaj więcej (pokazane {shown} z {total})",
+        "rarch.view.count": "{heading}, {phrase}",
+        "rarch.view.empty": "{heading}, pusto",
+        "rarch.heading.stations": "Radio Archiwista, stacje",
+        "rarch.heading.years": "Lata",
+        "rarch.heading.months": "Miesiące",
+        "rarch.heading.days": "Dni",
+        "rarch.heading.hours": "Nagrania",
+        "rarch.heading.favorites": "Ulubione nagrania",
+        "rarch.recordings.one": "{count} nagranie",
+        "rarch.recordings.few": "{count} nagrania",
+        "rarch.recordings.many": "{count} nagrań",
+        "rarch.items.one": "{count} pozycja",
+        "rarch.items.few": "{count} pozycje",
+        "rarch.items.many": "{count} pozycji",
+        "rarch.detail.incomplete": "nagranie niepełne",
+        "rarch.detail.status": "status: {status}",
+        "rarch.detail.remaining": "pozostało {minutes} min",
+        "rarch.month.1": "styczeń",
+        "rarch.month.2": "luty",
+        "rarch.month.3": "marzec",
+        "rarch.month.4": "kwiecień",
+        "rarch.month.5": "maj",
+        "rarch.month.6": "czerwiec",
+        "rarch.month.7": "lipiec",
+        "rarch.month.8": "sierpień",
+        "rarch.month.9": "wrzesień",
+        "rarch.month.10": "październik",
+        "rarch.month.11": "listopad",
+        "rarch.month.12": "grudzień",
         "view.allFiles": "Wszystkie pliki",
         "view.favorites": "Ulubione",
         "view.playlists": "Playlisty",
@@ -142,6 +194,57 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "session.sonos": "Sonos",
         "session.frontierSmart": "Frontier Smart",
         "session.radioarchiwista": "Radio Archiwista",
+        # Radio Archiwista: sesja komunikatow (stabilne klucze).
+        "rarch.session.unavailable":
+            "The Radio Archiwista session is not available in this profile",
+        "rarch.catalog.loading": "Loading Radio Archiwista stations",
+        "rarch.catalog.refreshing": "Refreshing the Radio Archiwista catalog",
+        "rarch.latest.loading": "Loading the latest recordings",
+        "rarch.latest.menu": "Latest recordings",
+        "rarch.latest.announcement":
+            "Latest recordings, {label} UTC, {phrase}",
+        "rarch.error": "Radio Archiwista: {error}",
+        "rarch.selectForFavorite": "Select a recording to change favorites",
+        "rarch.favorite.added": "Added to favorites: {title}",
+        "rarch.favorite.removed": "Removed from favorites: {title}",
+        "rarch.selectForDownload": "Select a recording to download it",
+        "rarch.download.busy": "This recording is already being downloaded",
+        "rarch.download.started": "Downloading recording",
+        "rarch.download.done": "Recording downloaded to: {path}",
+        "rarch.download.failed": "Could not download the recording: {error}",
+        "rarch.recording.noAudio": "This recording has no audio file available",
+        "rarch.open.failed": "Cannot open this Radio Archiwista item",
+        "rarch.loadMore.unknown": "Unknown view for loading more",
+        "rarch.loadMore.row": "Load more ({shown} of {total} shown)",
+        "rarch.view.count": "{heading}, {phrase}",
+        "rarch.view.empty": "{heading}, empty",
+        "rarch.heading.stations": "Radio Archiwista, stations",
+        "rarch.heading.years": "Years",
+        "rarch.heading.months": "Months",
+        "rarch.heading.days": "Days",
+        "rarch.heading.hours": "Recordings",
+        "rarch.heading.favorites": "Favorite recordings",
+        "rarch.recordings.one": "{count} recording",
+        "rarch.recordings.few": "{count} recordings",
+        "rarch.recordings.many": "{count} recordings",
+        "rarch.items.one": "{count} item",
+        "rarch.items.few": "{count} items",
+        "rarch.items.many": "{count} items",
+        "rarch.detail.incomplete": "incomplete recording",
+        "rarch.detail.status": "status: {status}",
+        "rarch.detail.remaining": "{minutes} min remaining",
+        "rarch.month.1": "January",
+        "rarch.month.2": "February",
+        "rarch.month.3": "March",
+        "rarch.month.4": "April",
+        "rarch.month.5": "May",
+        "rarch.month.6": "June",
+        "rarch.month.7": "July",
+        "rarch.month.8": "August",
+        "rarch.month.9": "September",
+        "rarch.month.10": "October",
+        "rarch.month.11": "November",
+        "rarch.month.12": "December",
         "view.allFiles": "All files",
         "view.favorites": "Favorites",
         "view.playlists": "Playlists",
@@ -299,6 +402,45 @@ def text_for(language: str, key: str, **values: object) -> str:
     concrete = language if language in SUPPORTED_LANGUAGES else POLISH
     text = _CATALOGS[concrete][key]
     return text.format(**values) if values else text
+
+
+def plural_category(language: str, count: int) -> str:
+    """Zwraca kategorię odmiany liczebnika: one, few albo many.
+
+    Polski: 1 → one; końcówka 2-4 poza 12-14 → few; reszta → many.
+    Angielski: 1 → one; reszta → many (kategoria few trafia do many).
+    """
+
+    if count == 1:
+        return "one"
+    if language != ENGLISH and count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return "few"
+    return "many"
+
+
+def plural_phrase(key_prefix: str, count: int) -> str:
+    """tr() z kluczem odmienionym przez kategorię, np. rarch.recordings.many."""
+
+    category = plural_category(active_language(), count)
+    return tr(f"{key_prefix}.{category}", count=count)
+
+
+def recordings_phrase(count: int) -> str:
+    """„1 nagranie", „3 nagrania", „4916 nagrań" w języku interfejsu."""
+
+    return plural_phrase("rarch.recordings", count)
+
+
+def items_phrase(count: int) -> str:
+    """„1 pozycja", „3 pozycje", „5 pozycji" w języku interfejsu."""
+
+    return plural_phrase("rarch.items", count)
+
+
+def month_name(month: int) -> str:
+    """Nazwa miesiąca katalogu Radio Archiwista w języku interfejsu."""
+
+    return tr(f"rarch.month.{max(1, min(12, month))}")
 
 
 def language_choices() -> tuple[tuple[str, str], ...]:
@@ -558,13 +700,8 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
     "&Wyświetlaj po uruchomieniu:": "Show at &startup:",
-    # Radio Archiwista: komunikaty pobierania i ulubionych.
-    "Pobieram nagranie": "Downloading recording",
-    "To nagranie jest właśnie pobierane": "This recording is already being downloaded",
-    "Zaznacz nagranie, aby je pobrać": "Select a recording to download it",
-    "Zaznacz nagranie, aby zmienić ulubione": "Select a recording to change favorites",
-    "Wczytuję najnowsze nagrania": "Loading the latest recordings",
-    "Sesja Radio Archiwista nie jest dostępna w tym profilu": "Radio Archiwista session is not available in this profile",
+    # Radio Archiwista: komunikaty sesji ida przez stabilne klucze rarch.*
+    # w _CATALOGS (odmiana liczebnikow), nie przez statyczne literaly.
     "Wyświetlaj po uruchomieniu": "Show at startup",
     "Ostatnia używana sesja": "Last used session",
     "Menedżer sesji": "Session manager",

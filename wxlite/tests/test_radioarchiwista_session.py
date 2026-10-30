@@ -306,3 +306,113 @@ def test_przelaczenie_na_i_z_radioarchiwisty_oglasza_nazwe() -> None:
         back = navigator.switch_session(SessionId.RADIOARCHIWISTA)
         assert back and isinstance(back[0], Announce)
         assert "Radio Archiwista" in back[0].text
+
+
+def test_enter_dziala_na_wierszach_prosty_z_builderow_katalogu() -> None:
+    # Regresja z odbioru: buildery year_rows/month_rows/day_rows NIE
+    # ustawialy service_kind ani service_id, wiec Enter konczyl sie
+    # „nie można otworzyć". Testy hierarchii przechodzily, bo uzywaly
+    # receznych helperow z service_kind. Tu wiersze ida PROSTO z
+    # produkcyjnych builderow, bez przerabiania.
+    from amc_wx_lite import radioarchiwista_source as source
+
+    navigator = make_navigator()
+    state = navigator.sessions[SessionId.RADIOARCHIWISTA]
+
+    navigator.apply_radioarchiwista_rows(
+        LibraryView.RADIOARCHIWISTA_YEARS,
+        source.year_rows("pr1", (2025,)),
+        slug="pr1",
+        preferred_id="rarch:years:pr1:2025",
+    )
+    state.model.select_id("rarch:years:pr1:2025")
+    entered = navigator.activate_selected()[0]
+    assert isinstance(entered, OpenRadioarchiwistaLevel)
+    assert entered.view is LibraryView.RADIOARCHIWISTA_MONTHS
+
+    navigator.apply_radioarchiwista_rows(
+        LibraryView.RADIOARCHIWISTA_MONTHS,
+        source.month_rows("pr1", 2025, (10,)),
+        slug="pr1",
+        year=2025,
+        preferred_id="rarch:months:pr1:2025:10",
+    )
+    state.model.select_id("rarch:months:pr1:2025:10")
+    entered = navigator.activate_selected()[0]
+    assert isinstance(entered, OpenRadioarchiwistaLevel)
+    assert entered.view is LibraryView.RADIOARCHIWISTA_DAYS
+
+    navigator.apply_radioarchiwista_rows(
+        LibraryView.RADIOARCHIWISTA_DAYS,
+        source.day_rows("pr1", 2025, 10, (28,)),
+        slug="pr1",
+        year=2025,
+        month=10,
+        preferred_id="rarch:days:pr1:2025:10:28",
+    )
+    state.model.select_id("rarch:days:pr1:2025:10:28")
+    entered = navigator.activate_selected()[0]
+    assert isinstance(entered, OpenRadioarchiwistaLevel)
+    assert entered.view is LibraryView.RADIOARCHIWISTA_HOURS
+
+
+def test_najnowsze_nazywaja_stacje_w_tytule() -> None:
+    # Zgłoszenie z odbioru: w widoku „Najnowsze" byla sama godzina (23:00)
+    # i nie wiadomo, ktorej stacji dotyczy. Tytul musi nazywac stacje.
+    from amc_wx_lite import radioarchiwista_source as source
+
+    recordings = (
+        source.ArchiveRecording(
+            station_slug="pr1", station_name="Polskie Radio Program 1",
+            item_id="rarch:rec:pr1:a", title="29.10 23:00",
+            audio_url="https://example.net/a.mp3", duration_seconds=3600.0,
+            local_date_label="29.10.2026", local_hour_label="23:00",
+            local_label="29.10 23:00", utc_started_at="2026-10-29T23:00:00Z",
+            hour=23, completeness_ratio=1.0, status="published",
+        ),
+        source.ArchiveRecording(
+            station_slug="r357", station_name="Radio 357",
+            item_id="rarch:rec:r357:b", title="29.10 23:00",
+            audio_url="https://example.net/b.mp3", duration_seconds=1800.0,
+            local_date_label="29.10.2026", local_hour_label="23:00",
+            local_label="29.10 23:00", utc_started_at="2026-10-29T23:00:00Z",
+            hour=23, completeness_ratio=0.4, status="published",
+        ),
+    )
+    rows = source.latest_rows(recordings, favorite_ids={"rarch:rec:r357:b"})
+    assert rows[0].title == "Polskie Radio Program 1, 29.10.2026 23:00"
+    assert rows[1].title == "Radio 357, 29.10.2026 23:00"
+    # Ulubiona z gwiazdka, niepelne z opisem w szczegolach.
+    assert rows[0].state_prefix == ""
+    assert rows[1].state_prefix == "★ "
+    assert "niepełne" in rows[1].detail
+
+
+def test_odmiana_i_kompletnosc_kluczy_rarch() -> None:
+    from amc_wx_lite import i18n
+
+    i18n.configure("pl")
+    assert i18n.recordings_phrase(1) == "1 nagranie"
+    assert i18n.recordings_phrase(3) == "3 nagrania"
+    assert i18n.recordings_phrase(5) == "5 nagrań"
+    assert i18n.recordings_phrase(12) == "12 nagrań"
+    assert i18n.recordings_phrase(22) == "22 nagrania"
+    assert i18n.recordings_phrase(4916) == "4916 nagrań"
+    assert i18n.month_name(10) == "październik"
+
+    i18n.configure("en")
+    try:
+        assert i18n.recordings_phrase(1) == "1 recording"
+        assert i18n.recordings_phrase(3) == "3 recordings"
+        assert i18n.month_name(10) == "October"
+        assert i18n.tr("rarch.latest.menu") == "Latest recordings"
+        # Kompletnosc: kazdy klucz rarch.* z PL ma odpowiednik w EN.
+        polish = i18n.catalogs()[i18n.POLISH]
+        english = i18n.catalogs()[i18n.ENGLISH]
+        missing = sorted(
+            key for key in polish
+            if key.startswith("rarch.") and key not in english
+        )
+        assert not missing, missing
+    finally:
+        i18n.configure("pl")

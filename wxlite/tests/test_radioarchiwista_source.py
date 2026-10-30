@@ -131,11 +131,16 @@ def test_parse_stations_index_odrzuca_nieznana_wersje() -> None:
         raise AssertionError("oczekiwano odmowy przy nieznanej wersji katalogu")
 
 
-def test_station_rows_sa_posortowane_i_bez_identyfikatorow() -> None:
+def test_station_rows_sa_posortowane_z_licznikiem_w_tytule() -> None:
     parsed = rarch.parse_stations_index(_fixture()["https://radioarchiwista.github.io/data/stations.json"])
     rows = rarch.station_rows(parsed)
-    assert [row.title for row in rows] == ["Polskie Radio Program 1", "Radio 357"]
-    assert rows[0].detail == "4895 nagrań"
+    assert [row.title for row in rows] == [
+        "Polskie Radio Program 1, 4895 nagrań",
+        "Radio 357, 5100 nagrań",
+    ]
+    # Licznik w TYTULE, nie w kolumnie szczegolow: czytnik ekranu ogłasza
+    # caly wiersz jednym ciagiem, bez naglowka kolumny przed liczba.
+    assert all(row.detail == "" for row in rows)
     assert rows[0].item_id == "rarch:station:pr1"
     assert all("pr1" not in row.title for row in rows)
 

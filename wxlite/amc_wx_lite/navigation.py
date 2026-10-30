@@ -14,6 +14,7 @@ import random
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
+from . import i18n
 from .list_model import ListModel, Row
 
 
@@ -838,14 +839,21 @@ def _radioarchiwista_period(row: Row) -> tuple[str, int | None, int | None, int 
     return None
 
 
-_RADIOARCHIWISTA_HEADINGS = {
-    LibraryView.RADIOARCHIWISTA_STATIONS: "Radio Archiwista, stacje",
-    LibraryView.RADIOARCHIWISTA_YEARS: "Lata",
-    LibraryView.RADIOARCHIWISTA_MONTHS: "Miesiące",
-    LibraryView.RADIOARCHIWISTA_DAYS: "Dni",
-    LibraryView.RADIOARCHIWISTA_HOURS: "Nagrania",
-    LibraryView.RADIOARCHIWISTA_FAVORITES: "Ulubione nagrania",
+_RADIOARCHIWISTA_HEADING_KEYS = {
+    LibraryView.RADIOARCHIWISTA_STATIONS: "rarch.heading.stations",
+    LibraryView.RADIOARCHIWISTA_YEARS: "rarch.heading.years",
+    LibraryView.RADIOARCHIWISTA_MONTHS: "rarch.heading.months",
+    LibraryView.RADIOARCHIWISTA_DAYS: "rarch.heading.days",
+    LibraryView.RADIOARCHIWISTA_HOURS: "rarch.heading.hours",
+    LibraryView.RADIOARCHIWISTA_FAVORITES: "rarch.heading.favorites",
 }
+
+
+def radioarchiwista_heading(view: LibraryView) -> str:
+    key = _RADIOARCHIWISTA_HEADING_KEYS.get(view)
+    if key is None:
+        return i18n.tr("session.radioarchiwista")
+    return i18n.tr(key)
 
 
 class Navigator:
@@ -3064,14 +3072,18 @@ class Navigator:
         state.view = View.LIST
         state.library_return_id = preferred_id or state.model.selected_id
         count = sum(1 for row in rows if row.kind != "loadMore")
-        heading = _RADIOARCHIWISTA_HEADINGS.get(view, "Radio Archiwista")
+        heading = radioarchiwista_heading(view)
         if announcement:
             message = announcement
         elif count:
-            noun = "nagrania" if view is LibraryView.RADIOARCHIWISTA_HOURS else "pozycje"
-            message = f"{heading}, {count} {noun}"
+            phrase = (
+                i18n.recordings_phrase(count)
+                if view is LibraryView.RADIOARCHIWISTA_HOURS
+                else i18n.items_phrase(count)
+            )
+            message = i18n.tr("rarch.view.count", heading=heading, phrase=phrase)
         else:
-            message = f"{heading}, pusto"
+            message = i18n.tr("rarch.view.empty", heading=heading)
         return [Announce(message)]
 
     def apply_radioarchiwista_message(self, message: str) -> list[object]:
@@ -3087,7 +3099,7 @@ class Navigator:
             return [Announce(row.activation_message)]
         if row.kind == "recording":
             if not row.url:
-                return [Announce("To nagranie nie ma dostępnego pliku audio")]
+                return [Announce(i18n.tr("rarch.recording.noAudio"))]
             state.player_entry_anchor_id = row.item_id
             state.list_anchor_id = row.item_id
             state.now_playing_id = row.item_id
@@ -3147,8 +3159,8 @@ class Navigator:
                     day=state.radioarchiwista_day,
                     load_more=True,
                 )]
-            return [Announce("Nie wiadomo, dla którego widoku wczytać więcej")]
-        return [Announce("Nie można otworzyć tego elementu Radio Archiwisty")]
+            return [Announce(i18n.tr("rarch.loadMore.unknown"))]
+        return [Announce(i18n.tr("rarch.open.failed"))]
 
     def _push_radioarchiwista_history(self, state: SessionState) -> None:
         state.radioarchiwista_history.append(
