@@ -91,3 +91,16 @@ Poprawka list jest w commicie `a814e65a`; wersja techniczna kandydata to
 samodzielny kandydat źródłowy i nie potwierdzają budowy ani instalacji
 wspólnej wersji. Wyniki wspólnych testów, builda i instalacji należy dopisać
 po ich wykonaniu.
+
+### Wynik wspólnego kandydata alpha.450
+
+- 30.10.2026: 210 celowanych testów Plików, nawigacji, odtwarzacza i Radio
+  Archiwisty zaliczonych w przypiętym środowisku wxPython 4.3.1/Python 3.14.
+- Paczka z commitu `481302de6d810d510578c7782365479c23a745c7` przeszła
+  kompilację .NET, pełną kontrolę integralności i kontrolowany start
+  interfejsu oraz hosta. Instalator `0.1.0-alpha.450` powstał z tego
+  samego commitu i ma 133629195 bajtów, SHA-256
+  `c88a44003acf913c9b9275d0c73796242fc57c936b25dab0e0021ce0c6994539`.
+- Paczka i instalator: `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.450 Radio Archiwista duze listy 2026-10-30`.
+  Instalacja: **nie wykonano**; uruchomione AMC Test nie zostało zamknięte.
+  Publikacja: **nie wykonano**. Odbiór mowy NVDA: **nie wykonano**.

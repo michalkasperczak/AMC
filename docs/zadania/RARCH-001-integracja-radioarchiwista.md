@@ -138,3 +138,16 @@
   `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.449 Radio Archiwista 2026-10-30`.
   Są zachowane do porównania; wspólne wydanie wymaga nowego commitu, nowej
   wersji, testów, budowy, instalacji i odbioru NVDA.
+
+## Wspólny kandydat alpha.450 — 30.10.2026
+
+- Gałąź `codex/amc-test-radioarchiwista-large-lists-alpha450` łączy kod
+  Radio Archiwisty z poprawką dużych list lokalnych (`a814e65a`). Wersja
+  techniczna to `0.1.0-alpha.450`; profil Public pozostaje bez tej sesji.
+- 210 celowanych testów obu funkcji i powiązanej nawigacji zaliczonych.
+  Paczka z commitu `481302de6d810d510578c7782365479c23a745c7` przeszła
+  kompilację, pełną kontrolę integralności i kontrolowany start.
+- Instalator w `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.450 Radio Archiwista duze listy 2026-10-30\instalator` ma
+  133629195 bajtów i SHA-256
+  `c88a44003acf913c9b9275d0c73796242fc57c936b25dab0e0021ce0c6994539`.
+  Instalacja, publikacja i odbiór NVDA pozostają do wykonania.
