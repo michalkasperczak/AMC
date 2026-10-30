@@ -1,8 +1,8 @@
-"""Przyrostowa aktualizacja ZWYKLEJ natywnej listy Windows.
+"""Przyrostowa aktualizacja zwyklych natywnych list Windows.
 
-JEDEN wspolny mechanizm dla WSZYSTKICH list AMC-wx-Lite. Zadnej wirtualizacji:
-kontrolka jest zwyklym ``wx.ListCtrl(LC_REPORT)`` i trzyma teksty u siebie, tak
-jak listy SARY i WinZappa, ktore uzytkownik wskazal jako dzialajace dobrze.
+Plan operacji sluzy zwyklym listom AMC. Pliki lokalne uzywaja tych samych
+wierszy i tekstow, lecz przy duzej bibliotece wystawiaja licznik listy
+wlascicielskiej oraz odswiezaja pojedyncze zmienione indeksy.
 
 CO TEN MODUL ROBI I CZEGO NIE ROBI
 

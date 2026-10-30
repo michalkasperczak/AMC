@@ -2,14 +2,11 @@
 
 Zasady dostepnosci przyjete tutaj (i dlaczego):
 
-* ``wx.ListCtrl`` w trybie ``LC_REPORT`` -- ZWYKLA natywna lista Windows, tak
-  jak w SARA i WinZappie. Teksty siedza w kontrolce, a przy zmianie danych
-  aktualizujemy TYLKO faktycznie zmienione wiersze i pola (``list_sync``).
-  Czytnik ekranu dostaje zwykla, natywna liste z rolami i nazwami -- dziala
-  bez dodatku NVDA i z Narratorem. Wirtualizacja (``LC_VIRTUAL`` +
-  ``OnGetItemText``) ZOSTALA USUNIETA: jej cache tekstu dawal czytnikowi
-  stara nazwe z nowym licznikiem, a ``SetItemCount`` przestawial cala liste
-  nawet wtedy, gdy dane sie nie zmienily.
+* Pozostale sesje uzywaja zwyklej natywnej listy ``LC_REPORT`` i aktualizacji
+  przyrostowych. Pliki lokalne uzywaja ``LC_VIRTUAL``: biblioteka 42 tys.
+  utworow nie moze tworzyc 42 tys. natywnych wierszy. Teksty pochodza z tego
+  samego modelu, a zmienione pozycje odswiezamy punktowo. Nie powtarzamy
+  dawnego ``SetItemCount`` + ``RefreshItems`` dla calej listy na kazdy tick.
 * Strzalki, Home/End, Tab i pisanie-po-pierwszej-literze naleza do KONTROLKI.
   Nie przejmujemy ich. Przejmujemy tylko to, co ma wlasne znaczenie w AMC
   (Enter, Backspace, F6, Escape, Spacja, Ctrl+cyfra...).
@@ -1628,19 +1625,18 @@ _BRAK_KONTEKSTU = object()
 
 
 class MediaListCtrl(wx.ListCtrl):
-    """ZWYKLA natywna lista Windows z aktualizacja tylko tego, co sie zmienilo.
+    """Natywna lista Windows; Pliki lokalne moga uzyc trybu wlascicielskiego.
 
-    DLACZEGO NIE JEST JUZ WIRTUALNA. Kontrolka byla ``LC_VIRTUAL`` i oddawala
+    Poprzednio kontrolka byla ``LC_VIRTUAL`` i oddawala
     tekst na zadanie przez ``OnGetItemText``. Kazde odswiezenie widoku szlo
     wtedy jedna droga: ``SetItemCount`` + ``RefreshItems(0, n-1)`` -- rowniez
     gdy dane sie nie zmienily, bo ``_sync_views`` konczy KAZDY przebieg
     ``_run`` (takze po samym komunikacie, Ctrl+C czy ticku statusu). Na 2476
     wierszach bylo to odswiezenie calej listy na kazde nacisniecie klawisza.
 
-    Zatwierdzony kierunek: zwykle natywne listy (jak w SARA i WinZapp, ktore
-    uzytkownik wskazal jako dzialajace dobrze) plus aktualizacje przyrostowe.
-    Kontrolka trzyma teksty u siebie, a ``sync_rows`` dopisuje, usuwa, przenosi
-    i nadpisuje WYLACZNIE to, co sie rozni.
+    Pozostale sesje zachowuja zwykle natywne listy i aktualizacje przyrostowe.
+    Pliki lokalne maja tryb wlascicielski: licznik pozycji zmienia sie jednym
+    wywolaniem, a cache Windows odswiezamy tylko dla zmienionych indeksow.
 
     Co ZOSTAJE bez zmian: te same trzy kolumny, te same ``item_id`` z
     ``ListModel`` i ta sama trwala kontrolka (bez ``Destroy``/rekreacji HWND --
@@ -1654,16 +1650,17 @@ class MediaListCtrl(wx.ListCtrl):
     """
 
     def __init__(self, parent: wx.Window, model: ListModel, label: str,
-                 state: object | None = None) -> None:
+                 state: object | None = None, *, virtual: bool = False) -> None:
         super().__init__(
             parent,
             # Bez ``LC_SINGLE_SEL``: pelne AMC pozwala zaznaczyc Shift/Ctrl
             # kilka wierszy, a polecenia schowka dzialaja na calym wyborze.
             # SysListView32 zachowuje przy tym zwykla obsluge klawiatury i
             # role dostepnosci -- nie budujemy wlasnego mechanizmu wyboru.
-            style=wx.LC_REPORT | wx.BORDER_SUNKEN,
+            style=wx.LC_REPORT | wx.BORDER_SUNKEN | (wx.LC_VIRTUAL if virtual else 0),
         )
         self.model = model
+        self._virtual = virtual
         #: STAN SESJI, ktorej liste pokazujemy (``navigation.SessionState``).
         #: Sluzy WYLACZNIE do odczytu tozsamosci widoku w ``_view_context``;
         #: kontrolka nic w nim nie zmienia. ``None`` = brak wiedzy o widoku, co
@@ -1693,6 +1690,7 @@ class MediaListCtrl(wx.ListCtrl):
         #: ``list_sync.model_row_texts``): zmiana jednego wiersza nie formatuje
         #: od nowa calej listy.
         self._row_text_cache: dict = {}
+        self.player_covers = False
         #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
         #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
         #: przy ruchu uzytkownika. Bez tej bramki przejsciowy indeks (np. 0 po
@@ -1744,16 +1742,30 @@ class MediaListCtrl(wx.ListCtrl):
             self.SetColumn(index, column)
         self.set_accessible_label(self._accessible_label_source)
 
+    def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API
+        """Lista Plikow pozostaje przy odtwarzaczu, lecz Tab ja omija."""
+        return not self.player_covers and super().AcceptsFocusFromKeyboard()
+
+    def OnGetItemText(self, item: int, column: int) -> str:  # noqa: N802 - wx API
+        """Tekst widocznego wiersza dla natywnej listy wlascicielskiej."""
+        if 0 <= item < len(self._shown):
+            texts = self._shown[item].texts
+            if 0 <= column < len(texts):
+                return texts[column]
+        return ""
+
     # ------------------------------------------------------------ aktualizacja
 
     def sync_rows(self) -> None:
         """Dociagnij kontrolke do modelu. Brak zmian = ZERO operacji.
 
-        To jest cala zatwierdzona zasada w jednym miejscu: plan wylicza
-        ``list_sync``, my go tylko nakladamy. Gdy plan jest pusty i kursor jest
-        na miejscu, nie wolamy nawet ``Freeze`` -- bo zamrozenie kontrolki tez
-        jest operacja na kontrolce.
+        Zwykla lista naklada plan z ``list_sync``. Lista Plikow stosuje licznik
+        wierszy i punktowe odswiezenie. Kursor na miejscu nie wymaga nawet
+        ``Freeze`` -- zamrozenie kontrolki tez jest operacja na kontrolce.
         """
+        if getattr(self, "_virtual", False):
+            self._sync_virtual_rows()
+            return
         # Model nigdy nie zmienia listy w miejscu (``ListModel.replace`` zawsze
         # tworzy nowa), a tekst wiersza zalezy tylko od wiersza i filtra. Ta sama
         # lista i ten sam filtr to wiec te same teksty: zostaje najwyzej kursor.
@@ -1828,6 +1840,63 @@ class MediaListCtrl(wx.ListCtrl):
         finally:
             self.Thaw()
             self.updating = False
+
+    def _sync_virtual_rows(self) -> None:
+        """Podmien licznik wlascicielskiej listy, bez tysiecy InsertItem.
+
+        Zmiana jednego napisu uzywa RefreshItem. Zmiana kolejnosci lub zakresu
+        zeruje licznik przed nowym stanem, aby cache UIA nie laczyl starego
+        wiersza z nowym indeksem. Niezmieniony model nie dotyka kontrolki.
+        """
+        query = list_filter.normalized_query(self.filter_query)
+        if (
+            self.model.rows is self._synced_rows
+            and query == self._synced_query
+            and (not query or not self._shown or self._wanted_visible_index() >= 0)
+        ):
+            self._move_cursor_quietly(self._cursor_target())
+            return
+        desired = list_sync.model_row_texts(
+            self.model, self.filter_query, self._row_text_cache,
+        )
+        if self.filter_query and desired and not any(
+            row.item_id == self.model.selected_id for row in desired
+        ):
+            self.model.select_id(desired[0].item_id)
+        old = self._shown
+        same_ids = len(old) == len(desired) and all(
+            before.item_id == after.item_id
+            for before, after in zip(old, desired)
+        )
+        changed = (
+            [
+                index for index, (before, after) in enumerate(zip(old, desired))
+                if before.texts != after.texts
+            ]
+            if same_ids else []
+        )
+        reset = not same_ids or len(changed) > 128 or self.GetItemCount() != len(old)
+        self.updating = True
+        try:
+            if reset and self.GetItemCount():
+                self.SetItemCount(0)
+            self._shown = desired  # OnGetItemText moze przyjsc wewnatrz SetItemCount.
+            if reset:
+                if desired:
+                    self.SetItemCount(len(desired))
+            else:
+                for index in changed:
+                    self.RefreshItem(index)
+            self._synced_rows = self.model.rows
+            self._synced_query = query
+            self._shown_context = self._view_context()
+            self._shown_rows_source = self.model.rows
+            target = self._cursor_target()
+            if target is not None:
+                self._move_cursor(target)
+        finally:
+            self.updating = False
+
     def _view_context(self) -> tuple | None:
         """Tozsamosc widoku z sesji, albo ``None`` gdy sesji nie znamy.
 
@@ -9476,7 +9545,7 @@ class LiteFrame(wx.Frame):
         self._restoring_filter = False
         self.files_list = MediaListCtrl(
             self.list_panel, self.navigator.sessions[SessionId.FILES].model, "Pliki lokalne",
-            self.navigator.sessions[SessionId.FILES],
+            self.navigator.sessions[SessionId.FILES], virtual=True,
         )
         self.radio_list = MediaListCtrl(
             self.list_panel, self.navigator.sessions[SessionId.RADIO].model, "Stacje radiowe",
@@ -16073,9 +16142,18 @@ class LiteFrame(wx.Frame):
             control.IsShown() for control in other_lists
         )
 
-        self.list_panel.Show(not want_player)
+        # Przy Plikach nie chowamy natywnej listy: samo ponowne pokazanie po
+        # Escape odbudowywalo UI Automation i zatrzymywalo NVDA na 10-34 s.
+        # W odtwarzaczu Tab omija liste (AcceptsFocusFromKeyboard), a fokus
+        # pozostaje na przycisku odtwarzania.
+        keep_file_list = (
+            self.navigator.active is SessionId.FILES
+            and getattr(active_list, "_virtual", False)
+        )
+        self.list_panel.Show(not want_player or keep_file_list)
         self.player_panel.Show(want_player)
-        active_list.Show(not want_player)
+        active_list.Show(not want_player or keep_file_list)
+        active_list.player_covers = want_player and keep_file_list
         for control in other_lists:
             control.Hide()
         self.panel.Layout()
