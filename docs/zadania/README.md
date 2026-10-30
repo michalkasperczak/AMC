@@ -56,6 +56,8 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 - `PERF-001` — **W trakcie; PR #6 Huberta zastosowany lokalnie, 65/65 testów celowanych zaliczonych, bez commitu, builda, instalacji i publikacji** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).
 
+- `PERF-002` — **W trakcie; izolowany kandydat źródłowy, testy bez okien i próba rzeczywistej kontrolki zaliczone; czeka na odbiór NVDA, bez instalacji i publikacji** — duża lista Plików lokalnych i powrót Escape ze zgłoszenia #5. Szczegóły: [PERF-002-duze-biblioteki-plikow.md](PERF-002-duze-biblioteki-plikow.md).
+
 - `PODRAD-001` — **W trakcie; dwa domyślnie wyłączone przełączniki osobnych folderów Radia i Podcastów, celowane testy oraz build hosta zaliczone; bez instalacji i próby NVDA**. Szczegóły:
   [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
 
