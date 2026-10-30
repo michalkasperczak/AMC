@@ -1,7 +1,8 @@
 # RARCH-001 — sesja Radio Archiwista
 
-- Status: **W trakcie; kod i testy gotowe w gałęzi `radioarchiwista-sesja`,
-  oczekuje na pull request i ręczny odbiór na AMC Test**.
+- Status: **Zakończone; gałąź `radioarchiwista-sesja` oddana w PR
+  michalkasperczak/AMC#4 (przygotowany do odbioru, zdjęty z draftu);
+  ręczny odbiór Michała na AMC Test zakończony 30.10.2026**.
 - Data: 29.10.2026.
 - Profil: wyłącznie AMC Test (`session.radioarchiwista` w capabilities;
   AMC Public nie widzi sesji, dopóki się nie ustabilizuje).
@@ -18,7 +19,9 @@
   pozycję.
 - `Ctrl+D` pobiera wszystkie zaznaczone nagrania (MP3 z archive.org)
   do wspólnego folderu pobierania AMC, czyli tego samego, w którym
-  lądują odcinki podcastów. Plik już istniejący jest pomijany
+  lądują odcinki podcastów. Plik dostaje nazwę
+  „Stacja RRRR-MM-DD GG-MM.mp3”, np. „Polskie Radio Program 3
+  2026-10-30 15-00.mp3”. Plik już istniejący jest pomijany
   („już pobrane”), a na koniec pada podsumowanie w tonie podcastów:
   „Pobrano: X. już pobrane: Y. niepowodzenia: Z”. Przerwane pobieranie
   nie zostawia pliku (częściowy ląduje jako `.part` i jest usuwany).
@@ -104,11 +107,14 @@
   limit 120 s na start.
 - Nagrania oznaczone statusem innym niż „published" są pokazywane
   i opisane zgodnie z danymi katalogu.
-- Do ręcznego odbioru pozostaje: przejście całego drzewka na żywym
-  katalogu, odtworzenie z wznowieniem i tempem, pobranie pojedynczego
-  i wielu nagrań do folderu podcastów (znacznik „Pobrane" po powrocie
-  do widoku), „Zapisz jako" Ctrl+S, ulubione na żywo, odświeżenie F5,
-  wyszukiwanie globalne i NVDA (odczyt wierszy, komunikaty postępu).
+- Ręczny odbiór na AMC Test (Windows + NVDA) wykonany 30.10.2026;
+  Michał potwierdził: Enter w „Najnowszych”, pobieranie Ctrl+D wielu
+  zaznaczonych, Ctrl+S, skróty sesji z klawiatury i nazwy plików
+  („teraz działa pięknie”). Paczka Test z czubka gałęzi, integralność
+  manifestu i smoke na maszynie Michała za każdym razem zielone.
+- Do samodzielnej weryfikacji właściciela przy przenoszeniu commitów
+  pozostają punkty listy wyżej (drzewko, wznowienie i tempo, ulubione,
+  F5, wyszukiwanie globalne, NVDA).
 
 ## Materiał do dokumentacji użytkownika
 
@@ -117,5 +123,16 @@
 > pozycją i tempem. Ctrl+D zapisze zaznaczone nagrania jako pliki MP3
 > w folderze pobierania (wspólnym z podcastami), Ctrl+S zapisze jedno
 > nagranie w wybranym miejscu, Ctrl+Shift+U doda je do ulubionych,
-> a F5 odświeży katalog. Pobrane nagrania widać w liście po słowie
+> a F5 odświeży katalog. Pobrane nagrania lądują w folderze pobierania
+> pod nazwą „Stacja RRRR-MM-DD GG-MM.mp3” i widać je w liście po słowie
 > „Pobrane”.
+
+## Wersja i commit
+
+- Oddanie PR 30.10.2026: czubek gałęzi `radioarchiwista-sesja`
+  (commity od `dc098d27` przez `9d474ea1`, `3363859d` do `f1f4a18f`,
+  plus dokumentacja); 18 commitów względem `main`.
+- Regresja przy oddaniu: **2020 zaliczonych, 31 padnięć, 149 pominiętych**
+  (31 padnięć identycznych z czystą linią; przed fixem nazw plików
+  pomiar dał 2019 zaliczonych, test nazwy domknął się jednym zdaniem
+  więcej).
