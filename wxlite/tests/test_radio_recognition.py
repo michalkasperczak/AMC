@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 
 from amc_wx_lite import menu_model, radio_recognition
-from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.gui import LiteFrame, RadioRecognitionHistoryDialog
 from amc_wx_lite.host_client import LiteHostClient
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.shortcuts import Action, Chord, resolve
@@ -183,3 +183,56 @@ def test_paused_sources_do_not_keep_automatic_recognition_awake() -> None:
         "paused": False,
     }
     assert LiteFrame._recognition_source_available(frame) is True
+
+
+def test_new_automatic_result_refreshes_open_history_with_announcements_off() -> None:
+    for announcements in (False, True):
+        events: list[str] = []
+        history: list[dict] = []
+        payload = {
+            "requested": 1,
+            "recognized": [_host_entry(ticks=radio_recognition.now_dotnet_ticks())],
+        }
+
+        def submit(_name, work, done, _failed):
+            done(work())
+
+        frame = SimpleNamespace(
+            client=SimpleNamespace(recognize_radio_tracks=lambda _scope: payload),
+            runner=SimpleNamespace(submit=submit),
+            state=SimpleNamespace(recognized_tracks=history),
+            options=Options(
+                radio_recognition_monitoring=True,
+                radio_recognition_announcements=announcements,
+            ),
+            messages=SimpleNamespace(speaks_routine=True),
+            announcer=SimpleNamespace(say=lambda _message: events.append("spoken")),
+            _radio_recognition_pending=False,
+            _radio_recognition_history_dialog=SimpleNamespace(
+                refresh_after_recognition=lambda: events.append("refreshed")
+            ),
+            _save_state=lambda: events.append("saved"),
+        )
+
+        LiteFrame._recognize_radio_track(frame, automatic=True)
+
+        assert len(history) == 1
+        assert events[:2] == ["saved", "refreshed"]
+        assert events.count("spoken") == int(announcements)
+
+
+def test_live_history_refresh_preserves_filter_and_selected_entry() -> None:
+    calls: list[object] = []
+    dialog = SimpleNamespace(
+        _selected_entry=lambda: {"id": "old-track"},
+        history=SimpleNamespace(GetSelections=lambda: [4]),
+        _refresh_filters=lambda: calls.append("filters"),
+        _refresh_rows=lambda **kwargs: calls.append(kwargs),
+    )
+
+    RadioRecognitionHistoryDialog.refresh_after_recognition(dialog)
+
+    assert calls == [
+        "filters",
+        {"fallback_index": 4, "preferred_id": "old-track"},
+    ]

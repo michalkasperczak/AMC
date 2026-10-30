@@ -6808,6 +6808,15 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         self.status.SetLabel(text)
         self.status.SetName(text)
 
+    def refresh_after_recognition(self) -> None:
+        """Show new results while keeping the current station filter and selection."""
+        selected = self._selected_entry()
+        selected_id = str(selected.get("id") or "") if selected is not None else None
+        selections = self.history.GetSelections()
+        fallback_index = selections[0] if selections else 0
+        self._refresh_filters()
+        self._refresh_rows(fallback_index=fallback_index, preferred_id=selected_id)
+
     def _selected_entries(self) -> list[dict]:
         return [
             self._visible[index]
@@ -9258,6 +9267,7 @@ class LiteFrame(wx.Frame):
         self._podcast_automatic_refresh_due = time.monotonic() + 60.0
         self._last_automatic_podcast_error: str | None = None
         self._radio_recognition_pending = False
+        self._radio_recognition_history_dialog: RadioRecognitionHistoryDialog | None = None
         self._radio_recognition_due = (
             time.monotonic() + 6.0
             if self.options.radio_recognition_monitoring
@@ -30541,6 +30551,9 @@ class LiteFrame(wx.Frame):
 
             if merged.added:
                 self._save_state()
+                history_dialog = getattr(self, "_radio_recognition_history_dialog", None)
+                if history_dialog is not None:
+                    history_dialog.refresh_after_recognition()
                 if automatic:
                     if (
                         self.options.radio_recognition_announcements
@@ -30674,11 +30687,13 @@ class LiteFrame(wx.Frame):
         )
         changed = False
         requested_action = None
+        self._radio_recognition_history_dialog = dialog
         try:
             dialog.ShowModal()
             changed = dialog.changed
             requested_action = dialog.requested_action
         finally:
+            self._radio_recognition_history_dialog = None
             dialog.Destroy()
         if changed:
             self._save_state()
