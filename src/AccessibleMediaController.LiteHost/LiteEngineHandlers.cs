@@ -303,6 +303,21 @@ internal sealed class LiteEngineHandlers : IDisposable
             {
                 _filesDurationId = e.Item.Id;
                 _filesDuration = e.Duration;
+                if (_filesItem is not null && string.Equals(_filesItem.Id, e.Item.Id, StringComparison.Ordinal))
+                {
+                    if (e.SampleRateHz > 0) _filesItem.SampleRateHz = e.SampleRateHz;
+                    if (e.Duration > TimeSpan.Zero && File.Exists(_filesItem.Source))
+                    {
+                        try
+                        {
+                            _filesItem.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
+                                new FileInfo(_filesItem.Source).Length, e.Duration);
+                            _filesItem.IsBitrateEstimated = _filesItem.BitrateKbps.HasValue;
+                        }
+                        catch (IOException) { }
+                        catch (UnauthorizedAccessException) { }
+                    }
+                }
             }
             Publish("playback.duration",
                 new { engine = "files", id = e.Item.Id, seconds = e.Duration.TotalSeconds, sampleRateHz = e.SampleRateHz });
@@ -3270,6 +3285,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         var currentBroadcastText = engine == "radio" && item is not null
             ? BuildCurrentRadioBroadcastText(item)
             : null;
+        var currentPlaybackText = item is null
+            ? "Nic nie jest odtwarzane"
+            : currentBroadcastText ?? string.Join(", ",
+                new[] { item.Title, AudioParametersFormatter.FormatCompact(item) }
+                    .Where(part => !string.IsNullOrWhiteSpace(part)));
         return new
         {
             engine,
@@ -3294,6 +3314,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 ? null
                 : engine == "radio" ? _radio.LoadedItemId : _files.LoadedItemId,
             currentBroadcastText,
+            currentPlaybackText,
             // Sam utwór dla tytułu okna (NVDA+T); pasek stanu ma pełny opis wyżej.
             streamTitle = engine == "radio" && item is not null ? CurrentRadioStreamTitle(item) : null
         };

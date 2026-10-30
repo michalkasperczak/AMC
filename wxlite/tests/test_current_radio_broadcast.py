@@ -124,6 +124,22 @@ def test_nvda_end_receives_the_same_user_facing_broadcast_text() -> None:
     assert shown == ["Program Trzeci, 192 kb/s, Serwis informacyjny"]
 
 
+def test_nvda_end_receives_playback_text_for_file_and_archive() -> None:
+    shown: list[str] = []
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame._last_status = {}
+    frame.status_bar = SimpleNamespace(show=shown.append)
+
+    for session in ("files", "radioarchiwista"):
+        frame._update_native_playback_status({
+            "sessionId": session,
+            "currentPlaybackText": "Nagranie, 192 kb/s, 44,1 kHz",
+            "id": "rarch:rec:nie-czytaj",
+        })
+
+    assert shown == ["Nagranie, 192 kb/s, 44,1 kHz"] * 2
+
+
 def test_host_uses_shared_audio_formatter_and_no_technical_id_in_text() -> None:
     root = Path(__file__).resolve().parents[2]
     host = (

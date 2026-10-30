@@ -56,6 +56,17 @@ def test_archive_shortcuts_route_in_list_and_player() -> None:
         assert action in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     assert Action.ADD_BOOKMARK in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     assert Action.NEXT_BOOKMARK in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+    for key, action in (
+        ("B", Action.ADD_BOOKMARK),
+        ("Ctrl+Shift+B", Action.ADD_NAMED_BOOKMARK),
+        ("Shift+Prior", Action.PREVIOUS_BOOKMARK),
+        ("Shift+Next", Action.NEXT_BOOKMARK),
+    ):
+        assert resolve(
+            chord_from_canonical(key), player_view=True, radio_session=False,
+            radioarchiwista_session=True,
+        ) is action
+        assert action in RADIOARCHIWISTA_SUPPORTED_ACTIONS
 
 
 def test_archive_queue_menu_and_copy_label() -> None:
@@ -84,6 +95,68 @@ def test_archive_queue_menu_and_copy_label() -> None:
     row = Row("rarch:rec:a", "08:00", "recording", url="https://archive.org/a.mp3")
     assert row.address == "https://archive.org/a.mp3"
     assert copied_address_message(row) == "Skopiowano link do nagrania"
+
+
+def test_archive_player_context_menu_contains_copy_link() -> None:
+    recording_row = Row(
+        "rarch:rec:playing", "Grające", "recording",
+        url="https://archive.org/playing.mp3",
+    )
+    entry = next(
+        item
+        for menu in menu_model.menus_for_session(SessionId.RADIOARCHIWISTA)
+        for item in menu.items
+        if item.action is Action.COPY_ADDRESS
+    )
+    native = SimpleNamespace(
+        IsEnabled=lambda: True,
+        GetItemLabel=lambda: "Skopiuj &link do nagrania\tCtrl+Shift+C",
+    )
+    frame = LiteFrame.__new__(LiteFrame)
+    frame.navigator = SimpleNamespace(
+        session=SimpleNamespace(model=SimpleNamespace(selected_row=recording_row)),
+    )
+    frame._menu_items = [(native, entry)]
+    frame._refresh_menu_state = lambda: None
+
+    groups = frame._context_menu_command_groups(player=True)
+    labels = [command.label for group in groups for command in group]
+
+    assert "Skopiuj link do nagrania (Ctrl+Shift+C)" in labels
+
+
+def test_archive_bookmark_reaches_shared_writer() -> None:
+    messages: list[str] = []
+    requests: list[dict] = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed) -> None:
+            done(work())
+
+    state = SimpleNamespace(
+        current_material_id="rarch:rec:playing",
+        pending_material_id="",
+        now_playing_title="Nagranie 08:00",
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.RADIOARCHIWISTA, session=state),
+        client=SimpleNamespace(add_bookmark=lambda **args: (
+            requests.append(args) or {"added": True, "positionSeconds": 120}
+        )),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=messages.append),
+    )
+
+    LiteFrame._add_bookmark(frame)
+
+    assert requests == [{
+        "item_id": "rarch:rec:playing",
+        "item_title": "Nagranie 08:00",
+        "session_id": "radioarchiwista",
+        "name": None,
+    }]
+    assert messages == ["Dodano zakładkę: 2:00"]
 
 
 def test_archive_queue_persists_and_reorders(tmp_path: Path) -> None:

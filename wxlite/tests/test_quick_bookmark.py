@@ -68,7 +68,10 @@ def test_playback_menu_exposes_bookmark_navigation_for_stable_timeline_sessions(
     assert "Shift+Page Down" in following.label.replace("&", "")
     assert previous.needs_playback and not previous.needs_files_session
     assert following.needs_playback and not following.needs_files_session
-    stable = (SessionId.FILES, SessionId.PODCASTS, SessionId.SPOTIFY)
+    stable = (
+        SessionId.FILES, SessionId.PODCASTS, SessionId.SPOTIFY,
+        SessionId.RADIOARCHIWISTA,
+    )
     assert previous.visible_sessions == stable
     assert following.visible_sessions == stable
     named = entries[Action.ADD_NAMED_BOOKMARK]

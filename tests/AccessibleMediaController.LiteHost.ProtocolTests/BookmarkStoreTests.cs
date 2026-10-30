@@ -181,6 +181,20 @@ internal static class BookmarkStoreTests
             }
             Assert.True(refused, "dzialajace stare AMC musi blokowac tez usuwanie");
 
+            var archiveId = "rarch:rec:pr1-20261030-0800";
+            var archiveBookmark = JsonSerializer.SerializeToElement(store.Add(
+                "radioarchiwista", "Radio Archiwista", archiveId,
+                "Program 1, 08:00", TimeSpan.FromSeconds(75), DateTime.UtcNow));
+            Assert.True(archiveBookmark.GetProperty("added").GetBoolean(),
+                "B zapisuje zakladke Radio Archiwisty w jego wlasnej sesji");
+            Assert.True(store.FindRelative(
+                    "radioarchiwista", archiveId, TimeSpan.Zero, direction: 1)
+                    ?.PositionTicks == TimeSpan.FromSeconds(75).Ticks,
+                "nawigacja odnajduje zapisana zakladke nagrania");
+            Assert.True(store.FindRelative(
+                    "local", archiveId, TimeSpan.Zero, direction: 1) is null,
+                "zakladka Archiwisty nie trafia do sesji plikow lokalnych");
+
             TestRadioRecordingImport(root);
         }
         finally

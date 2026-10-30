@@ -2300,7 +2300,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         Action.ADD_PODCAST_SOURCE: (
-            "Dodaj podcast, SoundCloud, kanał YouTube, stronę Facebooka lub medium internetowe"
+            "Dodaj podcast, SoundCloud, kanał YouTube lub medium internetowe"
         ),
         Action.IMPORT_PODCAST_OPML: "Importuj podcasty z OPML",
         Action.EXPORT_PODCAST_OPML: "Eksportuj bibliotekę podcastów do OPML",

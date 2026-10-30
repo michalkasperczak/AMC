@@ -649,6 +649,7 @@ _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.TIME_TOTAL,
     ),
     (
+        Action.COPY_ADDRESS,
         Action.SELECT_AUDIO_OUTPUT,
         Action.SESSION_OPTIONS,
         Action.SHOW_LIST,
@@ -14280,6 +14281,14 @@ class LiteFrame(wx.Frame):
             return False
 
     def _on_player_shortcut_hook(self, event: wx.KeyEvent) -> None:
+        # NVDA+End ma dotrzeć do czytnika również w polu filtra i w pomocy.
+        if (
+            chord_from_event(event).canonical in {"Up", "Down", "End"}
+            and getattr(self, "_screen_reader_modifier_down", lambda: False)()
+        ):
+            event.Skip()
+            return
+
         # Pomoc klawiatury musi być pierwszą bramką. W przeciwnym razie
         # pole filtra albo natywna lista wykonałyby opisywany skrót, zanim
         # AMC zdążyłby go tylko nazwać.
@@ -14315,19 +14324,6 @@ class LiteFrame(wx.Frame):
             else:
                 self._show_context_menu(self._active_list(), player=False)
             return
-        screen_reader_modifier_down = getattr(
-            self,
-            "_screen_reader_modifier_down",
-            lambda: False,
-        )
-        if (
-            self.navigator.view is View.PLAYER
-            and canonical in {"Up", "Down", "End"}
-            and screen_reader_modifier_down()
-        ):
-            event.Skip()
-            return
-
         # Windowsowa kontrolka listy potrafi przejac F2 (wlasna edycja
         # etykiety) oraz Delete, zanim dotra do EVT_KEY_DOWN kontrolki. Te
         # cztery gesty sa poleceniami AMC, wiec przechwytujemy je juz na
@@ -16197,6 +16193,20 @@ class LiteFrame(wx.Frame):
             control.Hide()
         self.panel.Layout()
 
+        if self.navigator.active in (
+            SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+            SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+        ):
+            snapshot = getattr(self, "_transport_status_by_session", {}).get(
+                self.navigator.active
+            )
+            if snapshot:
+                self._update_native_playback_status(snapshot)
+        elif self.navigator.active is SessionId.TIDAL:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(self._nvda_now_playing_message())
+
         # Dzwiek TIDALa nie przechodzi przez AMC. Pozostawienie aktywnych
         # suwakow glosnosci i tempa zmienialoby ukryty lokalny silnik, choc
         # uzytkownik jest w odtwarzaczu TIDAL. Przycisk gra/pauza pozostaje
@@ -16262,10 +16272,6 @@ class LiteFrame(wx.Frame):
                 self.now_playing.SetLabel(
                     session.now_playing_title or "Nic nie jest odtwarzane"
                 )
-            if self.navigator.active is SessionId.RADIO:
-                # F6 najpierw oglasza wejscie do odtwarzacza. Natychmiast potem
-                # przywracamy z ostatniej migawki wlasciwa tresc NVDA+End.
-                self._update_native_playback_status(self._last_status)
             if changed:
                 self.play_button.SetFocus()
         elif changed:
@@ -19693,6 +19699,10 @@ class LiteFrame(wx.Frame):
         label = wiim_now_playing_label(state)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
+        if self.navigator.active is SessionId.WIIM:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         # Nazwa kontrolki jest stałą etykietą pola. Treść utworu pozostaje
         # jego wartością/tekstem, więc po przejściu do innej sesji nie może
         # zostać stara nazwa WiiM czytana nad nowym tytułem.
@@ -20076,6 +20086,9 @@ class LiteFrame(wx.Frame):
         label = frontier_smart_now_playing_label(state)
         if self.navigator.active is SessionId.FRONTIER_SMART:
             self.navigator.session.now_playing_title = label
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
         self.now_playing.SetName("Teraz odtwarzane")
@@ -20458,6 +20471,10 @@ class LiteFrame(wx.Frame):
         label = sonos_now_playing_label(state)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
+        if self.navigator.active is SessionId.SONOS:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         self.now_playing.SetName("Teraz odtwarzane")
         time_label = player_time_label(
             state.get("positionSeconds"), state.get("durationSeconds")
@@ -25764,6 +25781,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Zakładki w tej sesji nie są jeszcze dostępne w tej wersji"
@@ -26040,7 +26058,6 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
-            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -29404,9 +29421,14 @@ class LiteFrame(wx.Frame):
         nie zgaduje bitrate'u.
         """
         status = payload if isinstance(payload, dict) else self._last_status
-        text = str(status.get("currentBroadcastText") or "").strip()
+        text = str(
+            status.get("currentPlaybackText")
+            or status.get("currentBroadcastText")
+            or status.get("title")
+            or "Nic nie jest odtwarzane"
+        ).strip()
         bar = getattr(self, "status_bar", None)
-        if text and bar is not None:
+        if bar is not None:
             bar.show(text)
 
     def _on_timer(self, _event: wx.TimerEvent) -> None:
@@ -29596,7 +29618,8 @@ class LiteFrame(wx.Frame):
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload
-            self._update_native_playback_status(payload)
+            if self.navigator.active is requested_session:
+                self._update_native_playback_status(payload)
             remote_player = (
                 self.navigator.active is SessionId.WIIM
                 or self.navigator.active is SessionId.SONOS
