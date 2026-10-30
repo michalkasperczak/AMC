@@ -1,6 +1,6 @@
 # RARCH-001 — sesja Radio Archiwista
 
-- Status: **W trakcie; kod PR #4 włączony do lokalnej gałęzi AMC Test; testy celowane zaliczone, trwa przygotowanie instalacji i ręczny odbiór NVDA**.
+- Status: **Po przeglądzie kodu i testach integracyjnych; kandydat AMC Test alpha.449, budowa i odbiór NVDA w toku**.
 - Data: 29.10.2026; decyzja o wdrożeniu w Test: 30.10.2026.
 - Profil: wyłącznie AMC Test (`session.radioarchiwista` w capabilities;
   AMC Public nie widzi sesji, dopóki się nie ustabilizuje).
@@ -86,3 +86,34 @@
 ## Wersja i commit
 
 - Integracja bazuje na PR #4 (`b940f133`) z gałęzi Radio Archiwisty; wersja kandydata AMC Test: `0.1.0-alpha.446`. Identyfikator commitu pakietu i wynik instalacji zostaną dopisane po budowie.
+
+
+## Przegląd kodu i kandydat alpha.449 — 30.10.2026
+
+- Decyzja użytkownika z 30.10.2026 o wznowieniu i wdrożeniu zastąpiła
+  wstrzymanie podczas równoległych poprawek Michała Dziwisza. Wydanie Test
+  alpha.449 bazuje na faktycznie zainstalowanym alpha.448 (`5e474b92`),
+  więc zachowuje zmiany Huberta z PR #7 i #8. Profil Public nadal nie
+  udostępnia sesji Radio Archiwista.
+- Przegląd znalazł i usunął: błędne F5 w „Najnowszych nagraniach”, gubienie
+  zakończenia pobierania podczas nawigacji, nadpisywanie plików o tej samej
+  etykiecie godziny, brak postępu i anulowania w GUI, pozostawianie
+  usuniętego nagrania w Ulubionych, martwe Ctrl+F5, niezgodny zestaw
+  poleceń lokalnego odtwarzacza oraz menu oferujące pobieranie na stacji.
+- Polecenia: F5 odświeża bieżący widok; Ctrl+F5 otwiera adres katalogu
+  HTTPS; Ctrl+U otwiera Ulubione; Ctrl+Shift+U przełącza ulubione nagranie;
+  Ctrl+D pobiera zaznaczone nagranie. Menu, paleta, pełna pomoc i pomoc
+  kontekstowa korzystają z tych samych akcji. Pobieranie ma standardowe
+  okno postępu z przyciskiem Anuluj; sukces, odmowa i anulowanie są
+  oznajmiane. Nazwa pliku zawiera stację i stabilny skrót identyfikatora,
+  a ponowne pobranie tworzy kolejny plik.
+- Testy czystej integracji na bazie alpha.448: 283 zaliczone, 1 pominięty
+  (źródło, sesja, GUI bez okna, skróty, menu, i18n, szybkie listy, nagrywanie
+  radia i pobieranie podcastów). W głównym repo pełna regresja przed
+  poprawką szablonu i18n dała 2202 zaliczone, 114 pominiętych i 7 błędów;
+  2 błędy i18n usunięto i ponownie sprawdzono, pozostałe 5 dotyczy
+  aktualizatora/startu i opisu podcastów, niezwiązanych z Radio Archiwistą.
+- Wersja: `0.1.0-alpha.449`. Commit kodu na bazie alpha.448:
+  `511999f1`. Commit kandydata, budowa, instalator, instalacja i wynik
+  testu NVDA zostaną dopisane po wykonaniu tych etapów; żadnego z nich
+  nie należy wywodzić z samych testów źródeł.
