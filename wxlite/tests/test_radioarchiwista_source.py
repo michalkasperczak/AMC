@@ -383,22 +383,33 @@ def test_nazwa_pliku_pobrania_jest_bezpieczna_i_stabilna() -> None:
     assert recordings
 
     first = recordings[0]
+    # Decyzja Michała z 30.10.2026: nazwa stacji, data i godzina
+    # (z myślnikiem, bo dwukropek jest zakazany w Windows), bez frazy
+    # „czasu polskiego” i bez uppercase slugów.
     name = rarch.recording_filename(first)
+    assert name == "Polskie Radio Program 1 2026-10-29 00-00.mp3"
     assert name == rarch.recording_filename(first)
     assert name.endswith(".mp3")
-    assert " " not in name
     assert len(Path(name).stem) <= 100
+    assert "czasu polskiego" not in name
 
-    # Bez etykiety lokalnej (stare ulubione) nazwa składa się ze sluga
-    # i tytułu, więc pobieranie i znacznik dalej się zgadzają.
+    # Nazwa składa się z pól katalogu, nie z local_label, więc stare
+    # ulubione bez etykiety dostają ten sam plik i znacznik.
     fallback = rarch.recording_filename(replace(first, local_label=""))
-    assert fallback.startswith("pr1-")
+    assert fallback == name
 
-    # Samotne ogonki i znaki Windows nie mogą trafić do nazwy pliku.
+    # Znaki zakazane w Windows znikają, ogonki i spacje zostają.
     brzydka = rarch.recording_filename(
-        replace(first, local_label="Ąę Śź ć:\\ł ą?*")
+        replace(first, station_name='Zła / Nazwa: stacji?')
     )
-    assert brzydka == "nagranie.mp3"
+    assert brzydka == "Zła Nazwa stacji 2026-10-29 00-00.mp3"
+
+    # Bez daty wracamy do etykiety nagrania, nadal bezpiecznie.
+    bez_daty = rarch.recording_filename(
+        replace(first, local_date_label="", local_label="")
+    )
+    assert bez_daty.endswith(".mp3")
+    assert "29.10" not in bez_daty or bez_daty.startswith("pr1")
 
 
 def test_znaczniki_pobranych_w_wierszach(tmp_path: Path) -> None:

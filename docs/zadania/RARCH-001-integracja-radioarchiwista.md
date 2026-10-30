@@ -48,6 +48,11 @@
   z jednej funkcji (`recording_filename`), więc znacznik w liście i cel
   pobrania nigdy się nie rozjadają; ulubione przenoszą `local_label`,
   żeby nazwa była ta sama w widoku dnia i ulubionych.
+- Nazwa pliku (decyzja z 30.10.2026): „Stacja RRRR-MM-DD GG-MM.mp3",
+  np. „Polskie Radio Program 3 2026-10-30 15-00.mp3". Składniki biorą się
+  z pól katalogu (nazwa stacji, data, godzina), nie z etykiety
+  „czasu polskiego"; dwukropek godziny zamienia się na myślnik
+  (zakazany znak Windows), spacje i ogonki zostają.
 - Nawigacja odwzorowuje shardy katalogu (stacja/rok/miesiąc/dzień), więc
   każdy widok pobiera jeden mały plik JSON; `catalog_version` jest sprawdzany
   i nieznana wersja kończy się uczciwą odmową zamiast błędów parsowania.
@@ -68,8 +73,9 @@
   odmowa przy nieznanej wersji, cache i jego wiek, ulubione i pozycje,
   pobieranie z postępem, anulowaniem i odmową przy pustym pliku,
   „Najnowsze nagrania" ostatniej godziny, `search_rows` bez sieci,
-  nazwa pliku pobrania (bezpieczna, stabilna, fallback sluga,
-  ogonki i znaki Windows), znaczniki „Pobrane"/„Pobrany: tak"
+  nazwa pliku pobrania (stacja, data i godzina z decyzji 30.10.2026;
+  fallback etykiety przy braku daty; ogonki i spacje zostają, znaki
+  zakazane Windows znikają), znaczniki „Pobrane”/„Pobrany: tak”
   w wierszach dnia, najnowszych i ulubionych, przenoszenie `local_label`
   przez ulubione oraz podsumowanie pobierania w tonie podcastów.
 - Nawigacja (`test_radioarchiwista_session.py`): przejścia poziomów,

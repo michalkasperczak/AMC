@@ -641,27 +641,87 @@ def favorite_record(recording: ArchiveRecording, added_at: float) -> dict:
     }
 
 
-def _safe_mp3_name(label: str) -> str:
-    """Nazwa pliku bezpieczna dla Windows: bez ogonków, spacji i ukośników."""
+_FILENAME_ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
-    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:100]
+
+def _safe_mp3_name(label: str) -> str:
+    """Nazwa pliku bezpieczna dla Windows, z zachowanymi spacjami i ogonkami."""
+
+    safe = _FILENAME_ILLEGAL.sub("", label)
+    safe = re.sub(r"\s+", " ", safe).strip(" .")
+    if len(safe) > 100:
+        safe = safe[:100].rstrip(" .")
     return f"{safe or 'nagranie'}.mp3"
 
 
-def recording_filename(recording: ArchiveRecording) -> str:
-    """Deterministyczna nazwa pliku pobranego nagrania w folderze AMC.
+def _iso_date_token(recording: ArchiveRecording) -> str:
+    """Data nagrania jako RRRR-MM-DD z etykiet lokalnych katalogu.
 
-    Ta sama funkcja decyduje o znaczniku „pobrane” w liście i o celu
-    pobrania, więc plik i znacznik nigdy się nie rozjadą. Etykieta
-    ``local_label`` jest czytelna dla człowieka i stabilna w ramach katalogu; gdy jej
-    brak (ulubione dodane przed tym polem), składamy ją ze sluga i tytułu.
+    Katalog używa formatu „DD.MM.RRRR”, etykieta całego nagrania bywa
+    w ISO; przyjmujemy oba, żeby nazwa pliku zawsze była ISO.
     """
 
-    label = (
-        recording.local_label
-        if recording.local_label
-        else f"{recording.station_slug or 'nagranie'} {recording.title}".strip()
-    )
+    for text in (recording.local_date_label, recording.local_label):
+        if not text:
+            continue
+        iso = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", text)
+        if iso:
+            return (
+                f"{int(iso.group(1)):04d}-"
+                f"{int(iso.group(2)):02d}-"
+                f"{int(iso.group(3)):02d}"
+            )
+        dotted = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", text)
+        if dotted:
+            return (
+                f"{int(dotted.group(3)):04d}-"
+                f"{int(dotted.group(2)):02d}-"
+                f"{int(dotted.group(1)):02d}"
+            )
+    return ""
+
+
+def _hour_token(recording: ArchiveRecording) -> str:
+    """Godzina jako GG-MM (dwukropek jest zakazany w nazwach Windows)."""
+
+    for text in (recording.local_hour_label, recording.local_label):
+        if text:
+            matched = re.search(r"(\d{1,2}):(\d{2})", text)
+            if matched:
+                return (
+                    f"{int(matched.group(1)):02d}-{int(matched.group(2)):02d}"
+                )
+    if recording.hour >= 0:
+        return f"{recording.hour:02d}-00"
+    return ""
+
+
+def recording_filename(recording: ArchiveRecording) -> str:
+    """Nazwa pliku pobrania: „Stacja RRRR-MM-DD GG-MM.mp3”.
+
+    Decyzja Michała z 30.10.2026: nazwa stacji, data i godzina bez frazy
+    „czasu polskiego”, z naturalnymi spacjami i ogonkami (np. „Polskie Radio
+    Program 3 2026-10-30 15-00.mp3”). Ta sama funkcja decyduje o znaczniku
+    „pobrane” w liście i o celu pobrania, więc plik i znacznik nigdy się
+    nie rozjadają. Gdy katalog nie da daty, wracamy do etykiety nagrania.
+    """
+
+    date_token = _iso_date_token(recording)
+    if date_token:
+        label = " ".join(
+            part
+            for part in (
+                recording.station_name,
+                date_token,
+                _hour_token(recording),
+            )
+            if part
+        )
+    else:
+        label = (
+            recording.local_label
+            or f"{recording.station_slug or 'nagranie'} {recording.title}".strip()
+        )
     return _safe_mp3_name(label)
 
 
