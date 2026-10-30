@@ -78,6 +78,10 @@
 - Kontrakty sesji: skróty, allowlisty, kolejność sesji, profil wydania
   (Public wyklucza sesję do czasu ustabilizowania), menu i mnemoniki,
   paleta, pomoc, i18n PL/EN (w tym szablon „Pobrano nagranie do: {arg0}").
+- Skróty z klawiatury: każdy skrót sesji rozstrzyga się przez `resolve()`
+  z flagą `radioarchiwista_session=True` (dodane po zgłoszeniu Michala,
+  ze Ctrl+D i Ctrl+S nie działają: tabela widoku istniała, ale resolver
+  i gui nie znaly flagi sesji; fix w 3363859d).
 - Wyszukiwanie: agregacja stacji i ulubionych bez sieci, brak źródła
   nie psuje pozostałych wyników.
 - Pełna regresja wxlite po dopracowaniu pobierania (30.10.2026):
