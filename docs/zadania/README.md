@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
+
 Ten katalog jest kanonicznym miejscem zapisywania osobnych zadań, które mają
 przetrwać między rozmowami i być czytelne zarówno dla Codexa, jak i Hermesa.
 Rejestr nie uruchamia pracy samodzielnie. Zadanie rozpoczyna się dopiero po

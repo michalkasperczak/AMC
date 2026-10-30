@@ -9554,6 +9554,11 @@ class LiteFrame(wx.Frame):
         self.play_button = wx.Button(
             self.player_panel, label=transport_button_label(playing=False)
         )
+        # Podpis MUSI powstac przed kontrolka. Windows (oleacc) bierze nazwe
+        # suwaka i listy wyboru z poprzedzajacego je podpisu, a skrot z ``&``
+        # przenosi fokus na NASTEPNA kontrolke. Podpis tworzony po kontrolce
+        # dawal w NVDA samo "suwak, 40" i "lista rozwijana, 1,00 razy".
+        volume_label = wx.StaticText(self.player_panel, label="&Głośność:")
         self.volume_slider = wx.Slider(
             self.player_panel, value=self.options.volume, minValue=0, maxValue=100,
             style=wx.SL_HORIZONTAL,
@@ -9563,6 +9568,7 @@ class LiteFrame(wx.Frame):
         # udostępnia NVDA ich znaczenie i natywnie obsługuje Home/End; suwak
         # procentowy wystawiał niejasne liczby 100 i 200 oraz sugerował
         # wartości, których silnik w ogóle nie przyjmuje.
+        rate_label = wx.StaticText(self.player_panel, label="&Prędkość:")
         self.rate_choice = wx.Choice(
             self.player_panel,
             choices=[playback_rate_choice_label(rate) for rate in PLAYBACK_RATES],
@@ -9577,9 +9583,9 @@ class LiteFrame(wx.Frame):
             (self.now_playing, 0),
             (self.time_label, 0),
             (self.play_button, 0),
-            (wx.StaticText(self.player_panel, label="&Glosnosc:"), 0),
+            (volume_label, 0),
             (self.volume_slider, 0),
-            (wx.StaticText(self.player_panel, label="&Predkosc:"), 0),
+            (rate_label, 0),
             (self.rate_choice, 0),
         ):
             player_sizer.Add(control, flag, wx.ALL | wx.EXPAND, 6)
@@ -23888,7 +23894,7 @@ class LiteFrame(wx.Frame):
             return
         path = files[0]
         self._switch_session(SessionId.FILES)
-        self._play_track(PlayTrack(path, f"file:{path}", Path(path).name))
+        self._run(self.navigator.play_local_file(path, Path(path).stem))
         self._open_folder(str(Path(path).parent), preferred_id=f"file:{path}")
 
     def _add_shell_files_to_queue(self, files: tuple[str, ...]) -> None:
@@ -24850,7 +24856,7 @@ class LiteFrame(wx.Frame):
                 return
             path = dialog.GetPath()
             self._switch_session(SessionId.FILES)
-            self._play_track(PlayTrack(path, f"file:{path}", Path(path).name))
+            self._run(self.navigator.play_local_file(path, Path(path).stem))
             folder = str(Path(path).parent)
             self._open_folder(folder, preferred_id=f"file:{path}")
 

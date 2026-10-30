@@ -876,6 +876,9 @@ class Navigator:
             SessionId.RADIOARCHIWISTA: SessionState(SessionId.RADIOARCHIWISTA),
         }
         self.active = SessionId.FILES
+        # Plik z ``play_local_file``, na którego folder jeszcze czekamy.
+        # Zużywa go pierwsze ``apply_folder``.
+        self._opened_file_id: str | None = None
         # Osobny punkt podmiany pozwala testom sprawdzic dokladna kolejnosc
         # bez uzalezniania ich od globalnego generatora liczb losowych.
         self._shuffle_rows = random.shuffle
@@ -1759,6 +1762,27 @@ class Navigator:
         )
         state.view = View.PLAYER if open_player_on_activation else View.LIST
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def play_local_file(self, path: str, title: str) -> list[object]:
+        """Plik spoza listy: okno „Otwórz plik” albo Eksplorator i Total Commander.
+
+        Ten sam stan co Enter na wierszu folderu. Wcześniej GUI wysyłało
+        ``files.play`` z pominięciem nawigatora: plik grał, a F6 mówił „Nic
+        nie jest odtwarzane” albo otwierał poprzedni utwór, a Page Down
+        skakał po poprzednim folderze. Folder wczytuje się dopiero po starcie,
+        dlatego źródłem jest na razie sam plik. ``apply_folder`` poszerza je
+        o utwory folderu.
+        """
+        row = Row(f"file:{path}", title, "track", path=path)
+        state = self.sessions[SessionId.FILES]
+        state.player_entry_anchor_id = row.item_id
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.pending_material_id = profile_material_id(row.item_id)
+        self._set_playback_source(state, (row,))
+        self._opened_file_id = row.item_id
+        return [PlayTrack(path, row.item_id, row.title)]
 
     def _tidal_target_from_row(self, row: Row) -> OpenTidalContainer | None:
         """Build a service request without putting its identifiers in speech."""
@@ -2868,6 +2892,22 @@ class Navigator:
         state.bookmark_targets = {}
         state.bookmark_contexts = {}
         state.model.replace(rows, preferred_id=preferred_id)
+        # Plik z ``play_local_file`` gra już, a teraz znamy jego folder. Page
+        # Up i Page Down mają chodzić po utworach folderu, jak po Enter. Tylko
+        # raz i tylko dla tego pliku: Ctrl+L i odświeżenia Biblioteki też tu
+        # wracają z grającym wierszem, a źródła z Enter, presetu czy playlisty
+        # nie wolno podmieniać. Pliku spoza listy folderu (np. .m3u) też nie.
+        opened, self._opened_file_id = self._opened_file_id, None
+        tracks = tuple(
+            candidate for candidate in state.model.rows
+            if candidate.kind == "track" and candidate.path
+        )
+        if (
+            opened is not None
+            and opened == preferred_id == state.now_playing_id
+            and any(candidate.item_id == opened for candidate in tracks)
+        ):
+            self._set_playback_source(state, tracks)
         state.view = View.LIST
         row = state.model.selected_row
         name = path.rstrip("/\\").rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or path

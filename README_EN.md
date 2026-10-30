@@ -1,5 +1,9 @@
 # Accessible Media Controller — Windows prototype
 
+## Public alpha.448 candidate: player fixes
+
+After opening a local file from Explorer, Total Commander, or the “Open file” dialog, `F6` opens the player with that file as the current track. `Page Up` and `Page Down` move through tracks in its folder when the file is present in the folder list. In the player, NVDA reads “Volume” and “Speed” with the controls' values; `Alt+V` and `Alt+S` focus those controls when available. This is a candidate for review, not an installed or published release.
+
 ## Pending after alpha415: copy addresses without titles
 
 `Ctrl+Shift+C` in media lists, the player, search results and presets copies only locations, one per line, without item titles. Podcast direct audio/feed addresses and the existing YouTube item URL selection are unchanged; this does not create a new raw audio stream URL or guarantee external-speaker playback. Local file-drop data and full paths are preserved, as is ordinary `Ctrl+C` name/description copying. A WiiM hardware preset without a URL no longer substitutes its name. Older name-and-link descriptions below are historical. Windows/NVDA acceptance and release are still pending.
