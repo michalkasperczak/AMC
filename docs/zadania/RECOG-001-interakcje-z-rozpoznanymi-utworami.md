@@ -1,5 +1,67 @@
 # RECOG-001 — interakcje z rozpoznanymi utworami
 
+## Korekta po zgłoszeniu użytkownika z 30.10.2026 — widoczność nowych wyników
+
+### Zachowanie widoczne dla użytkownika
+
+- Nowy wynik automatyczny dopisuje się do otwartego okna „Rozpoznane utwory” bez konieczności jego zamykania. Bieżący filtr stacji i zaznaczony utwór pozostają wybrane.
+- Przełącznik „Oznajmiaj rozpoznane utwory” wpływa wyłącznie na mowę. Wynik jest zapisywany i pokazywany na liście także po wyłączeniu oznajmiania.
+
+### Uzasadnienie i decyzje
+
+- Korekta zastępuje wcześniejsze uznanie nieruchomej, otwartej listy za ograniczenie. Użytkownik zgłosił, że wyniki pojawiły się dopiero po przełączeniu oznajmiania. Bezpośrednio przed tym przełączeniem, przy wyłączonym oznajmianiu, stan profilu zawierał już 7 wyników z ostatnich 30 minut. Włączenie mowy nie było warunkiem zapisu; ponowne otwarcie listy mogło ujawnić wcześniej zapisane wpisy.
+- Dziennik hosta z 30.10 zawiera przygotowanie podpisów akustycznych, ale nie rejestruje rozstrzygnięcia każdej automatycznej próby ani zmian przełącznika. Nie da się z niego odtworzyć dokładnej chwili przełączenia. Dane profilu potwierdzają zapis wyników przy wyłączonej mowie.
+
+### Testy i wynik
+
+- 36 testów celowanych rozpoznawania, interakcji z historią i wspólnych powierzchni poleceń zaliczonych; 1 niezwiązany test polecenia podcastowego wyłączony z przebiegu. Nowe testy obejmują zapis i odświeżenie otwartego okna przy włączonym oraz wyłączonym oznajmianiu, a także zachowanie filtra i zaznaczenia. `git diff --check` bez błędów.
+
+### Znane ograniczenia
+
+- Poprawka jest tylko w źródłach. Zainstalowany AMC Test nadal wymaga zamknięcia i ponownego otwarcia okna, aby pokazać wynik dodany podczas jego otwarcia. Nie przeprowadzono ręcznego testu NVDA ani instalacji podczas bieżącej pracy aplikacji.
+
+### Wersja i commit
+
+- Źródła: gałąź `codex/konfigurowalne-skroty-20261026`, poprawka kodu w commicie `ad01ad72` (bazowy `50201e94b59141e5ec87e6b6b5eef33e70b42f9d`). Uruchomiony AMC Test znajduje się w `C:\Users\micha\AppData\Local\Programs\AMC Test` i wskazuje rewizję `cbf71ad1ba86f2b2d638eb3128b26d5ff73456e1`, pakiet `e6945c5c`. Build, instalacja i publikacja: nie wykonano.
+- Korekta tożsamości instalacji z 30.10.2026: wcześniejszy zapis audytu wskazujący `D:\Projekty Codex\AMC Python` i rewizję `4c8fceda…` dotyczył innej kopii na dysku, a nie uruchomionego AMC Test. Ten zapis nie jest podstawą do aktualizacji bieżącej instalacji.
+
+### Materiał do dokumentacji użytkownika
+
+> Wyłączenie oznajmiania rozpoznanych utworów wycisza tylko automatyczne komunikaty. Obserwowanie może nadal zapisywać wyniki do historii otwieranej przez `Ctrl+Alt+S`. Po zainstalowaniu tej poprawki otwarta historia będzie aktualizowana po nowym wyniku i zachowa wybrany filtr oraz utwór.
+
+## Kontrola zgłoszenia z 30.10.2026 — znaczenie poleceń Radia
+
+### Zachowanie widoczne dla użytkownika
+
+- `S` w odtwarzaczu Radia rozpoznaje bieżący utwór na żądanie z próbki dźwięku.
+- `Shift+S` / Radio, „Obserwuj rozpoznawanie” zapisuje przełącznik automatycznych prób. Zakres w ustawieniach może obejmować odtwarzaną stację, nagrywane stacje albo oba źródła. Po starcie źródła pierwsza próba jest planowana po około 6 sekundach; po wyniku kolejne próby następują po około minucie, a po braku rozpoznania po około 15 sekundach.
+- `Ctrl+Alt+Shift+S` / Radio, „Oznajmiaj rozpoznane utwory” decyduje, czy nowy wynik automatyczny zostanie wypowiedziany. Wyłączenie mowy nie zatrzymuje obserwowania ani zapisu historii.
+- `Ctrl+Alt+S` / Radio, „Rozpoznane utwory…” otwiera historię; samo nie rozpoczyna rozpoznawania. W oknie można wybrać filtr „Wszystkie stacje”.
+- Tytuł odczytywany po Enter na stacji pochodzi z metadanych ICY nadawanych przez radio. Nie jest wynikiem rozpoznawania próbki przez Shazam.
+
+### Uzasadnienie i decyzje
+
+- W bieżącym profilu AMC Test obserwowanie było włączone dla odtwarzanej i nagrywanych stacji, lecz oznajmianie automatycznych wyników było wyłączone. O 14:06 historia zawierała 7 rozpoznań z ostatnich 30 minut, najnowsze z 14:05:08. Dlatego zgłoszona cisza nie dowodziła zatrzymania silnika. Dane dotyczą wyłącznie liczby i czasu wpisów; tytułów ani nazw stacji nie zapisywano w raporcie.
+- Automatyczne odpowiedzi „nie rozpoznano” oraz duplikaty są obecnie pomijane w mowie; wyjątek transportowy trafia do paska stanu. To może sprawiać wrażenie braku działania i wymaga późniejszej decyzji o sposobie dostępnego, nieuciążliwego raportowania stanu.
+
+### Testy i wynik
+
+- 30.10.2026: 24 celowane testy źródeł rozpoznawania i wspólnych powierzchni poleceń zaliczone; 1 niezwiązany test polecenia podcastowego wyłączony z tego przebiegu. Użyto systemowego Pythona 3.14.2 z zależnościami wxPython z dołączonego runtime'u, bez uruchamiania GUI i bez zmiany instalacji.
+- Odczytano stan profilu i manifest kopii `D:\Projekty Codex\AMC Python`, która wskazywała rewizję `4c8fceda738afd0163040a400150007d16f8409c`. Późniejsza kontrola procesu wykazała, że bieżący AMC Test działa z osobnej instalacji opisanej w korekcie wyżej. Nie budowano, nie instalowano i nie publikowano nowej wersji. Nie wykonano ręcznego testu NVDA ani żywego wywołania usługi rozpoznawania.
+
+### Znane ograniczenia
+
+- Historia przechowuje najwyżej 2000 wpisów. W instalacji sprawdzanej 30.10 otwarta lista nie odświeżała wierszy w trakcie nowego automatycznego wyniku; zachowanie to zostało poprawione w źródłach w korekcie opisanej wyżej.
+- Samo odczytanie tytułu ze strumienia nie potwierdza, że akustyczne rozpoznawanie Shazam powiedzie się dla tego fragmentu audycji.
+
+### Wersja i commit
+
+- Audyt przed poprawką kodu; źródła `50201e94b59141e5ec87e6b6b5eef33e70b42f9d`. Wtedy odczytano kopię `4c8fceda738afd0163040a400150007d16f8409c`, którą późniejsza kontrola procesu wykluczyła jako uruchomiony AMC Test.
+
+### Materiał do dokumentacji użytkownika
+
+> W Radiu naciśnij `S`, aby rozpoznać utwór z dźwięku na żądanie. `Shift+S` włącza lub wyłącza automatyczne obserwowanie, a `Ctrl+Alt+Shift+S` osobno włącza wypowiadanie nowych wyników. `Ctrl+Alt+S` pokazuje już zapisane rozpoznania. Informacja o utworze odczytana natychmiast po włączeniu stacji może pochodzić bezpośrednio z metadanych nadawcy i nie oznacza, że Shazam rozpoznał dźwięk.
+
 - Status: **W trakcie; poprawki Test są w opublikowanym `alpha.438`, a profil
   Public z korektą usuwającą wewnętrzne akcje Spotify/TIDAL jest w stabilnym
   `alpha.440`. Pozostaje ręczny odbiór z NVDA**.
