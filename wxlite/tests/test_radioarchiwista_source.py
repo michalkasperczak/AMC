@@ -390,6 +390,49 @@ def test_najnowsze_nagrania_ostatniej_godziny(tmp_path: Path) -> None:
     assert [rec.local_hour_label for rec in recordings] == ["20:00"]
 
 
+def test_najnowsza_godzina_laczy_nagrania_wielu_stacji(tmp_path: Path) -> None:
+    catalog = _fixture()
+    pr1_day = catalog["https://radioarchiwista.github.io/data/stations/pr1/2026/10/29.json"]
+    pr1_day["archives"].append({
+        "archive_item_identifier": "pr1-2026-10-29",
+        "audio_url": "https://archive.org/download/pr1-2026-10-29/godz20.mp3",
+        "completeness_ratio": 1.0,
+        "day": 29,
+        "duration_seconds": 3600.0,
+        "hour": 20,
+        "local_date_label": "29.10.2026",
+        "local_hour_label": "20:00",
+        "local_label": "29.10.2026 20:00 czasu polskiego",
+        "local_started_at": "2026-10-29T20:00:00+01:00",
+        "status": "published",
+        "utc_started_at": "2026-10-29T19:00:00+00:00",
+    })
+    catalog["https://radioarchiwista.github.io/data/stations/r357/2026/10/29.json"] = {
+        "archives": [{
+            "archive_item_identifier": "r357-2026-10-29",
+            "audio_url": "https://archive.org/download/r357-2026-10-29/godz20.mp3",
+            "completeness_ratio": 1.0,
+            "day": 29,
+            "duration_seconds": 3600.0,
+            "hour": 20,
+            "local_date_label": "29.10.2026",
+            "local_hour_label": "20:00",
+            "local_label": "29.10.2026 20:00 czasu polskiego",
+            "local_started_at": "2026-10-29T20:00:00+01:00",
+            "status": "published",
+            "utc_started_at": "2026-10-29T19:00:00+00:00",
+        }]
+    }
+    source, _calls = _source(tmp_path, catalog)
+    recordings, _stamp = source.latest_recordings()
+    # Dni stacji czytane równolegle nadal dają jeden scalony, posortowany
+    # widok: obie stacje nagrały godzinę 19:00 UTC.
+    assert [rec.station_name for rec in recordings] == [
+        "Polskie Radio Program 1",
+        "Radio 357",
+    ]
+
+
 def test_najnowsze_nagrania_odmawiaja_gdy_nikt_nie_nagra(tmp_path: Path) -> None:
     source, _calls = _source(tmp_path)  # brak nagrania godziny 19:00 UTC
     try:

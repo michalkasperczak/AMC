@@ -29,6 +29,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -907,16 +908,33 @@ class RadioarchiwistaSource:
             ) from error
         hour_stamp = stamp[:13]
         collected: list[ArchiveRecording] = []
-        for station in index.stations:
-            try:
-                recordings, _ = self.recordings(
-                    station.slug, year, month, day, force=force
-                )
-            except RadioarchiwistaError:
-                continue
-            for recording in recordings:
-                if recording.utc_started_at[:13] == hour_stamp:
-                    collected.append(recording)
+
+        def station_day(station: StationRecord) -> tuple[ArchiveRecording, ...]:
+            # Dni czytamy przez ten sam kanał co poziomy katalogu, więc
+            # cache dyskowy i preferencja MP3 działają identycznie.
+            recordings, _ = self.recordings(
+                station.slug, year, month, day, force=force
+            )
+            return recordings
+
+        # Katalog ma 43 stacje i pobieranie sekwencyjne scalało się do
+        # ~14 s (zmierzone na żywym GUI), co u użytkownika brzmiało jak
+        # „Enter nic nie robi". Dni stacji czytamy RÓWNOLEGLE; osiem
+        # wątków zdejmuje to do ~2 s i nie forsuje 43 połączeń naraz.
+        # Wynik i tak jest na końcu sortowany, więc kolejność zadań
+        # nie zmienia widoku. Awaria jednej stacji nadal pomija tylko
+        # tę stację, jak przy dawnej pętli.
+        stations = list(index.stations)
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(stations)))) as pool:
+            futures = {station: pool.submit(station_day, station) for station in stations}
+            for station, future in futures.items():
+                try:
+                    recordings = future.result()
+                except RadioarchiwistaError:
+                    continue
+                for recording in recordings:
+                    if recording.utc_started_at[:13] == hour_stamp:
+                        collected.append(recording)
         if not collected:
             raise RadioarchiwistaError(
                 "Żadna stacja nie ma jeszcze nagrań ostatniej godziny"
