@@ -1,8 +1,7 @@
 # RARCH-001 — sesja Radio Archiwista
 
-- Status: **W trakcie; kod i testy gotowe w gałęzi `radioarchiwista-sesja`,
-  oczekuje na pull request i ręczny odbiór na AMC Test**.
-- Data: 29.10.2026.
+- Status: **W trakcie; kod PR #4 włączony do lokalnej gałęzi AMC Test; testy celowane zaliczone, trwa przygotowanie instalacji i ręczny odbiór NVDA**.
+- Data: 29.10.2026; decyzja o wdrożeniu w Test: 30.10.2026.
 - Profil: wyłącznie AMC Test (`session.radioarchiwista` w capabilities;
   AMC Public nie widzi sesji, dopóki się nie ustabilizuje).
 
@@ -26,6 +25,8 @@
 - Katalog jest publiczny: bez logowania, bez okna konta.
 
 ## Uzasadnienie i decyzje
+
+- 30.10.2026: użytkownik zatwierdził wdrożenie najpierw w swojej wersji AMC Test. Przeniesienie do AMC Public nastąpi dopiero po dobrym odbiorze Test; ta decyzja zastępuje wcześniejszy stan oczekiwania na decyzję właściciela.
 
 - Nagrania to gotowe pliki, więc v1 świadomie nie steruje nagrywaniem
   (to rola serwera archiwizującego); pobieranie jest pełnoprawną funkcją.
@@ -57,12 +58,12 @@
   paleta, pomoc, i18n PL/EN (w tym szablon „Pobrano nagranie do: {arg0}").
 - Wyszukiwanie: agregacja stacji i ulubionych bez sieci, brak źródła
   nie psuje pozostałych wyników.
-- Pełna regresja wxlite: **2094 zaliczone, 41 padnięć — wszystkie
+- Autor PR podał wynik pełnej regresji wxlite: **2094 zaliczone, 41 padnięć — wszystkie
   potwierdzone jako istniejące już na main (baseline worktree), zero
   nowych**; 149 pominiętych wymaga prawdziwego wxPython.
-- Zmiana .NET ograniczona do `src/Shared/ReleaseProfileContract.cs`
-  (lista sesji Test + capability), bez zmian funkcjonalnych; kompilacji
-  nie wykonano w tej gałęzi.
+- Zmiany .NET obejmują kontrakt profilu Test, routing transportu i obsługę elementu odtwarzanego w hoście. 30.10.2026: zestaw `--transport-routing` zaliczony, kompilacja LiteHosta Release zaliczona bez ostrzeżeń.
+
+- 30.10.2026: celowane testy pytest sesji, źródła, profili, wyszukiwania, transportu i menu: **155 zaliczonych** w przypiętym środowisku wxPython 4.3.1/Python 3.14. Próba żywego katalogu: HTTP 200, wersja 2, 43 stacje; Program 1, 30.10.2026 — 13 nagrań, bez próby odtwarzania.
 
 ## Znane ograniczenia i ręczny odbiór
 
@@ -81,3 +82,7 @@
 > stację, rok, miesiąc i dzień, a Enter odtworzy nagranie z zachowaną
 > pozycją i tempem. Ctrl+D zapisze nagranie jako plik MP3, Ctrl+Shift+U
 > doda je do ulubionych, a F5 odświeży katalog.
+
+## Wersja i commit
+
+- Integracja bazuje na PR #4 (`b940f133`) z gałęzi Radio Archiwisty; wersja kandydata AMC Test: `0.1.0-alpha.446`. Identyfikator commitu pakietu i wynik instalacji zostaną dopisane po budowie.
