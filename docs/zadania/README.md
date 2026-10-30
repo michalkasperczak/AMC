@@ -151,7 +151,7 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 - `RECOG-001` — **W trakcie; poprawki Test są w opublikowanym `alpha.438`, a
   korekta Public usuwająca wewnętrzne działania Spotify/TIDAL jest w
   stabilnym `alpha.440`. Poprawka odświeżania otwartej historii po nowym
-  rozpoznaniu jest w źródłach, bez instalacji; pozostaje ręczny odbiór NVDA** — prawa strzałka
+  rozpoznaniu jest zainstalowana w AMC Test 30.10.2026; pozostaje ręczny odbiór NVDA** — prawa strzałka
   od razu fokusuje pierwszy element, obie listy potwierdzają kopiowanie przez
   lokalny region aktywny, a historia jest dostępna z listy i odtwarzacza
   Plików lokalnych oraz Radia, lecz nie z pozostałych sesji. Pełne podmenu

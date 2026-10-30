@@ -18,16 +18,23 @@
 
 ### Znane ograniczenia
 
-- Poprawka jest tylko w źródłach. Zainstalowany AMC Test nadal wymaga zamknięcia i ponownego otwarcia okna, aby pokazać wynik dodany podczas jego otwarcia. Nie przeprowadzono ręcznego testu NVDA ani instalacji podczas bieżącej pracy aplikacji.
+- Nie przeprowadzono jeszcze ręcznego odbioru skrótu i zmian listy z NVDA podczas napływu rzeczywistego nowego rozpoznania. Testy automatyczne obejmują tę zmianę przy obu ustawieniach oznajmiania.
 
 ### Wersja i commit
 
-- Źródła: gałąź `codex/konfigurowalne-skroty-20261026`, poprawka kodu w commicie `ad01ad72` (bazowy `50201e94b59141e5ec87e6b6b5eef33e70b42f9d`). Uruchomiony AMC Test znajduje się w `C:\Users\micha\AppData\Local\Programs\AMC Test` i wskazuje rewizję `cbf71ad1ba86f2b2d638eb3128b26d5ff73456e1`, pakiet `e6945c5c`. Build, instalacja i publikacja: nie wykonano.
+- Źródła: gałąź `codex/konfigurowalne-skroty-20261026`, poprawka kodu w commicie `ad01ad72` (bazowy `50201e94b59141e5ec87e6b6b5eef33e70b42f9d`). Wcześniejsza instalacja w `C:\Users\micha\AppData\Local\Programs\AMC Test` wskazywała rewizję `cbf71ad1ba86f2b2d638eb3128b26d5ff73456e1`, pakiet `e6945c5c`. Zapis o niewykonanej instalacji zastępuje poniższy wynik z 30.10.2026.
 - Korekta tożsamości instalacji z 30.10.2026: wcześniejszy zapis audytu wskazujący `D:\Projekty Codex\AMC Python` i rewizję `4c8fceda…` dotyczył innej kopii na dysku, a nie uruchomionego AMC Test. Ten zapis nie jest podstawą do aktualizacji bieżącej instalacji.
+
+### Instalacja i kontrola z 30.10.2026
+
+- Po potwierdzeniu przez użytkownika braku nagrań zbudowano z czystego worktree commit `3e5cd96ce073c9960507b05b90caeb610f0049b7`, paczkę `e83fec1e` (`2026.10.30-3e5cd96ce073c9960507b05b90caeb610f0049b7-e83fec1e`). Test integralności i izolowany start paczki kandydującej przeszły. Skrypt promocji użył `-SkipTests`, ponieważ wcześniej przeszło 36 testów celowanych; pełnej regresji nie uruchomiono.
+- Aktualizator podmienił instalację w `C:\Users\micha\AppData\Local\Programs\AMC Test`. Pierwszy test startu po instalacji nie przeszedł: host zakończył pracę, ponieważ w katalogu `host` pozostało 459 plików starego, samodzielnego runtime'u .NET spoza nowego manifestu. Przeniesiono je bez kasowania do `D:\Projekty Codex\AMC build worktrees\radio-history-20261030\.test-output\stale-host-runtime-backup-20261030` (167 281 728 bajtów). Po tym izolowany start zainstalowanego interfejsu i hosta przeszedł. Jest to osobna usterka migracji instalacji, nie mechanizmu rozpoznawania.
+- Uruchomiono zainstalowane AMC Test: procesy `AMC.exe`, `runtime\python.exe` i `host\amc_lite_host.exe` pochodzą z powyższego katalogu; tytuł okna `AMC Test — 30.10.2026, 14:28`. Stan profilu po restarcie nadal zawiera 2000 rozpoznań (limit historii), a oznajmianie jest wyłączone. Nie wykonano ręcznego testu NVDA ani rzeczywistej nowej próby rozpoznawania; nie publikowano wydania.
+- Dziennik przy zamykaniu starej wersji odnotował zakończenie czterech nagrań o 14:25, mimo wcześniejszego zgłoszenia braku nagrań. Log potwierdza wynik `Completed` i zapis jednego pliku dla każdej z tych stacji. Odczytowo sprawdzono, że wszystkie cztery pliki istnieją (razem 176 008 667 bajtów); ich zawartości nie otwierano. W przyszłych aktualizacjach trzeba sprawdzać żywy stan hosta tuż przed zamknięciem.
 
 ### Materiał do dokumentacji użytkownika
 
-> Wyłączenie oznajmiania rozpoznanych utworów wycisza tylko automatyczne komunikaty. Obserwowanie może nadal zapisywać wyniki do historii otwieranej przez `Ctrl+Alt+S`. Po zainstalowaniu tej poprawki otwarta historia będzie aktualizowana po nowym wyniku i zachowa wybrany filtr oraz utwór.
+> Wyłączenie oznajmiania rozpoznanych utworów wycisza tylko automatyczne komunikaty. Obserwowanie nadal zapisuje wyniki do historii otwieranej przez `Ctrl+Alt+S`. Otwarta historia aktualizuje się po nowym wyniku i zachowuje wybrany filtr oraz utwór.
 
 ## Kontrola zgłoszenia z 30.10.2026 — znaczenie poleceń Radia
 
@@ -196,10 +203,9 @@ nie wykonywało zapytań sieciowych.
   rozszerzonych komunikatach, Escape, ponowne otwarcie, `Ctrl+C`,
   `Ctrl+Shift+C`, `Ctrl+Enter`, oba kierunki przenoszenia oraz fokus utworu po
   otwarciu albumu w Spotify i TIDAL.
-- Najnowsza korekta oznajmiania nie jest jeszcze zbudowana ani zainstalowana,
-  a korekta zakresu `Ctrl+Alt+S` również pozostaje wyłącznie w źródłach.
-  Bieżąca instalacja może zatem nadal kopiować poprawnie bez wypowiedzenia
-  potwierdzenia i udostępniać historię tylko w dotychczasowym kontekście.
+- Stan historyczny sprzed instalacji 30.10.2026: korekta oznajmiania i zakresu
+  `Ctrl+Alt+S` była wtedy wyłącznie w źródłach. Aktualny stan instalacji
+  opisano w sekcji „Instalacja i kontrola z 30.10.2026”.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -244,7 +250,7 @@ wtedy łącze wyszukiwania i ogłasza ten zakres jednoznacznie.
   `wxlite/tests/test_recognition_actions.py`.
 - Stan korekty: źródła i testy celowane gotowe; build, instalacja i publikacja
   nie były wykonywane.
-- Ostatni zainstalowany commit tego zadania: `4c8fceda738afd0163040a400150007d16f8409c` —
+- Poprzednio zainstalowany commit tego zadania, przed 30.10.2026: `4c8fceda738afd0163040a400150007d16f8409c` —
   `fix(amc-test): skroc mowe listy rozpoznanych utworow`.
 - Pakiet: `faef4e7f`.
 - Etykieta: `2026.10.26-4c8fceda738afd0163040a400150007d16f8409c-faef4e7f`.
