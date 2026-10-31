@@ -67,10 +67,10 @@ public static class LiteSpotifyCatalogContract
         Login: login,
         Playback: true,
         collectionWrite
-            ? "Katalog i odtwarzanie Spotify mają osobne stany połączenia. "
-                + "Zmiany kolekcji wykonuje oficjalne API, a dźwięk odtwarza natywna sesja Librespot."
-            : "Katalog i odtwarzanie Spotify mają osobne stany połączenia. "
-                + "Katalog pozostaje tylko do odczytu, a dźwięk odtwarza natywna sesja Librespot.");
+            ? "Jedno logowanie Spotify służy katalogowi i odtwarzaniu. "
+                + "Zmiany kolekcji wykonuje oficjalne API, a dźwięk odtwarza Spotify w ukrytym Google Chrome. Wymagane konto Premium."
+            : "Jedno logowanie Spotify służy katalogowi i odtwarzaniu. "
+                + "Katalog pozostaje tylko do odczytu, a dźwięk odtwarza Spotify w ukrytym Google Chrome. Wymagane konto Premium.");
 
     public static LiteSpotifyAccountStatusResult CreateAccountStatus(
         LiteSpotifyAccountProbe probe)
@@ -104,11 +104,11 @@ public static class LiteSpotifyCatalogContract
         {
             true => new LiteSpotifyConnectionStatus(
                 "connected", true, true,
-                "Konto odtwarzania Spotify jest zapisane i gotowe dla natywnej sesji.",
+                "Logowanie Spotify jest zapisane. Odtwarzanie wymaga konta Premium i Google Chrome.",
                 null, "nieznany"),
             false => new LiteSpotifyConnectionStatus(
                 "disconnected", true, false,
-                "Konto odtwarzania Spotify nie jest połączone.",
+                "Zaloguj Spotify, aby korzystać z katalogu i odtwarzania.",
                 null, "nieznany"),
             null => new LiteSpotifyConnectionStatus(
                 "unavailable", true, false,

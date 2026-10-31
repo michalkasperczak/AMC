@@ -19770,15 +19770,9 @@ class LiteFrame(wx.Frame):
             save_spotify_client_id=(
                 save_spotify_client_id if session_id is SessionId.SPOTIFY else None
             ),
-            start_spotify_pairing=(
-                start_spotify_pairing if session_id is SessionId.SPOTIFY else None
-            ),
-            check_spotify_pairing=(
-                check_spotify_pairing if session_id is SessionId.SPOTIFY else None
-            ),
-            cancel_spotify_pairing=(
-                cancel_spotify_pairing if session_id is SessionId.SPOTIFY else None
-            ),
+            start_spotify_pairing=None,
+            check_spotify_pairing=None,
+            cancel_spotify_pairing=None,
             on_closed=account_closed,
             redirect_uri=redirect_uri,
             needs_setup=needs_setup,

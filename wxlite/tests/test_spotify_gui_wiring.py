@@ -31,7 +31,7 @@ class ImmediateRunner:
             failed(error)
 
 
-def test_spotify_account_setup_and_pairing_use_explicit_host_operations(monkeypatch) -> None:
+def test_spotify_account_setup_uses_one_login_without_pairing(monkeypatch) -> None:
     calls = []
     spoken = []
 
@@ -79,11 +79,9 @@ def test_spotify_account_setup_and_pairing_use_explicit_host_operations(monkeypa
 
         def Show(self):  # noqa: N802 - wx API
             self.options["save_spotify_client_id"](self, "a" * 32)
-            self.options["start_spotify_pairing"](self)
-            assert self.pairing_code.value == "ABCD-EFGH"
-            assert self.pairing_address.value == "https://www.spotify.com/pair"
-            self.options["check_spotify_pairing"](self)
-            self.options["cancel_spotify_pairing"](self)
+            assert self.options["start_spotify_pairing"] is None
+            assert self.options["check_spotify_pairing"] is None
+            assert self.options["cancel_spotify_pairing"] is None
             calls.append("show")
 
     client = SimpleNamespace(
@@ -117,16 +115,15 @@ def test_spotify_account_setup_and_pairing_use_explicit_host_operations(monkeypa
     LiteFrame._show_service_account(frame, SessionId.SPOTIFY)
 
     assert ("configure", "a" * 32) in calls
-    assert calls.count("start") == 1
-    assert calls.count("check") == 1
-    assert calls.count("cancel") == 1
+    assert "start" not in calls
+    assert "check" not in calls
+    assert "cancel" not in calls
     assert calls[-1] == "raise"
-    assert any("ABCD-EFGH" in message for message in spoken)
+    assert "Brak konfiguracji. Brak połączenia." in spoken
     dialog = frame._service_account_dialogs[SessionId.SPOTIFY]
-    dialog.pairing_active = True
     dialog.options["on_closed"](dialog)
     assert calls[-1] == "restore-focus"
-    assert calls.count("cancel") == 2
+    assert "cancel" not in calls
     assert SessionId.SPOTIFY not in frame._service_account_dialogs
 
 

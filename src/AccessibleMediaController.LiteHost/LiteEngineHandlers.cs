@@ -388,7 +388,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 {
                     host = "amc-lite-host",
                     protocol = 1,
-                    engine = "AMC WindowsMediaOutput + RadioMediaOutput + Spotify Librespot"
+                    engine = "AMC WindowsMediaOutput + RadioMediaOutput + Spotify Web Playback SDK"
                 };
             },
             ["host.shutdown"] = (_, _) => new { ok = true },

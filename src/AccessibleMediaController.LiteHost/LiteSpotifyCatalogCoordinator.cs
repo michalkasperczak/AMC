@@ -7,6 +7,15 @@ using AccessibleMediaController.LiteHost.Protocol;
 
 namespace AccessibleMediaController.LiteHost;
 
+internal sealed record LiteSpotifyAccessToken(
+    string AccessToken, bool AllowsPlayback, bool AllowsRemoteControl);
+
+internal interface ILiteSpotifyPlaybackCredentialBackend
+{
+    Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
+        CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Spotify catalogue surface exposed by LiteHost. Authentication starts only
 /// through the explicit login operation; ordinary reads and writes reuse the
@@ -15,6 +24,11 @@ namespace AccessibleMediaController.LiteHost;
 internal sealed class LiteSpotifyCatalogCoordinator(
     ILiteSpotifyReadOnlyBackend backend) : IDisposable
 {
+    internal Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
+        CancellationToken cancellationToken) =>
+        backend is ILiteSpotifyPlaybackCredentialBackend provider
+            ? provider.GetPlaybackCredentialsAsync(cancellationToken)
+            : throw new LiteRequestException("Logowanie odtwarzacza Spotify nie jest dostępne.");
     private readonly object _collectionGate = new();
     private IReadOnlyList<MediaItem> _collectionSnapshot = backend.CachedCollection;
     private bool _hasCollectionCache = backend.CachedCollection.Count > 0;

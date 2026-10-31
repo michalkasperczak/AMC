@@ -17,7 +17,8 @@ namespace AccessibleMediaController.LiteHost;
 /// </summary>
 internal sealed class LiteSpotifyWindowsCatalogBackend :
     ILiteSpotifyWriteBackend,
-    ILiteSpotifyAccountBackend
+    ILiteSpotifyAccountBackend,
+    ILiteSpotifyPlaybackCredentialBackend
 {
     private const string CatalogCredentialTarget = "AccessibleMediaController/Spotify";
     private const string PlaybackCredentialTarget =
@@ -47,6 +48,17 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
             .Select(item => item.ToMediaItem())
             .ToArray();
         _integration = new SpotifyIntegrationService(_settings);
+    }
+
+    public async Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
+        CancellationToken cancellationToken)
+    {
+        var token = await _integration.GetPlaybackCredentialsAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return new LiteSpotifyAccessToken(
+            token.AccessToken,
+            token.AllowsPlayback,
+            SpotifyScopes.AllowsRemoteControl(_settings.GrantedScope));
     }
 
     public async Task<LiteSpotifyLoginOutcome> LoginAsync(
@@ -151,7 +163,7 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
         CatalogConnected: ProbeCredential(CatalogCredentialTarget),
         AccountDisplayName: _settings.AccountDisplayName,
         AccountProduct: _settings.AccountProduct,
-        PlaybackConnected: ProbeCredential(PlaybackCredentialTarget),
+        PlaybackConnected: ProbeCredential(CatalogCredentialTarget),
         RedirectUri: _settings.RedirectUri);
 
     public async Task<LiteSpotifyCollectionRefresh> RefreshCollectionAsync(

@@ -120,7 +120,8 @@ internal static class Program
         var commonDataSnapshot = OpenCommonDataSnapshot(args);
         using var tidalCatalog = OpenTidalCatalog(args);
         using var spotifyCatalog = OpenSpotifyCatalog(args);
-        using var spotifyPlayback = new LiteSpotifyPlaybackCoordinator();
+        using var spotifyPlayback = new LiteSpotifyPlaybackCoordinator(
+            spotifyCatalog is null ? null : spotifyCatalog.GetPlaybackCredentialsAsync);
         using var wiim = OpenWiiM(args);
         using var frontierSmart = OpenFrontierSmart(args);
         var componentUpdates = new LiteComponentUpdateCoordinator(
