@@ -873,7 +873,11 @@
     "wykonać zaplanowanego nagrania": "",
     "zaplanowane ": "",
     "Playlista nie zawiera nowych prawidłowych stacji": "",
-    "Playlista nie zawiera stacji radiowych": ""
+    "Playlista nie zawiera stacji radiowych": "",
+    "&Filtr stacji:": "",
+    "Filtr stacji": "",
+    "Wpisz część nazwy stacji. Shift+Tab wraca do przefiltrowanej listy rozpoznanych utworów.": "",
+    "Brak rozpoznań dla wpisanego filtra stacji": ""
   },
   "legacyTemplates": {
     "&Nazwa {arg0}:": "",
@@ -1191,7 +1195,9 @@
     "{arg0}: przekazuję do oryginalnego TIDALa": "",
     "{arg0}: uruchamiam ponownie oryginalny TIDAL": "",
     "{arg0}: {arg1}": "",
-    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": ""
+    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "",
+    "Skopiowano link {arg0}": "",
+    "Skopiowano link wyszukiwania {arg0}": ""
   },
   "messageTemplateLabels": {
     "favorite.added": "",

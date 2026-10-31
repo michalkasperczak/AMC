@@ -763,7 +763,11 @@
     "wykonać zaplanowanego nagrania": "make a scheduled recording",
     "zaplanowane ": "scheduled ",
     "Playlista nie zawiera nowych prawidłowych stacji": "The playlist contains no new valid stations",
-    "Playlista nie zawiera stacji radiowych": "The playlist contains no radio stations"
+    "Playlista nie zawiera stacji radiowych": "The playlist contains no radio stations",
+    "&Filtr stacji:": "&Station filter:",
+    "Filtr stacji": "Station filter",
+    "Wpisz część nazwy stacji. Shift+Tab wraca do przefiltrowanej listy rozpoznanych utworów.": "Type part of a station name. Shift+Tab returns to the filtered list of recognized songs.",
+    "Brak rozpoznań dla wpisanego filtra stacji": "No recognized songs match the station filter"
   },
   "templates": {
     "&Nazwa {arg0}:": "&Name {arg0}:",
@@ -1081,6 +1085,8 @@
     "{arg0}: przekazuję do oryginalnego TIDALa": "{arg0}: forwarding to the original TIDAL",
     "{arg0}: uruchamiam ponownie oryginalny TIDAL": "{arg0}: restarting the original TIDAL",
     "{arg0}: {arg1}": "{arg0}: {arg1}",
-    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "{arg0}: {arg1}: {arg2}. Item: {arg3}"
+    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "{arg0}: {arg1}: {arg2}. Item: {arg3}",
+    "Skopiowano link {arg0}": "{arg0} link copied",
+    "Skopiowano link wyszukiwania {arg0}": "{arg0} search link copied"
   }
 }

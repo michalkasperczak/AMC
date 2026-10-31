@@ -1,5 +1,33 @@
 # RECOG-001 — interakcje z rozpoznanymi utworami
 
+## Korekta użytkownika z 31.10.2026 — lista, filtr i kopiowanie linku
+
+### Zachowanie widoczne dla użytkownika
+
+- `Ctrl+Alt+S` otwiera historię z fokusem na liście rozpoznanych utworów. `Tab` przechodzi do pola edycyjnego „Filtr stacji”; wpisanie „GDA” od razu pokazuje tylko wpisy stacji o pasującej nazwie, np. Radia Gdańsk. `Shift+Tab` wraca do przefiltrowanej listy. Osobny wybór lub rozwijanie stacji nie jest potrzebne.
+- `Ctrl+Shift+C` na utworze w historii po skutecznym skopiowaniu dokładnego łącza do Spotify mówi tylko „Skopiowano link Spotify”. Nie mówi wcześniej o przygotowywaniu łącza. Dla innych usług nazywa właściwą usługę, a w profilu Public opisuje łącze wyszukiwania.
+
+### Uzasadnienie i decyzje
+
+- Ta korekta zastępuje projekt opisany niżej jako „Korekta z 31.10.2026 — filtr stacji i fokus”: pole tekstowe ma być jedynym filtrem, a lista pierwszym przystankiem klawiatury. Wcześniejsza kombinacja pola tekstowego i listy wyboru stacji dodawała zbędny krok.
+- Komunikat kopiowania pojawia się dopiero po sukcesie schowka. W razie nieznalezienia dokładnego dopasowania pozostaje komunikat o błędzie; program nie udaje wtedy skopiowania linku.
+
+### Testy i wynik
+
+- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+
+### Znane ograniczenia
+
+- Wynik dotyczy źródeł i testów bez widocznego interfejsu. Build, instalację i publikację trzeba raportować osobno po ich wykonaniu.
+
+### Materiał do dokumentacji użytkownika
+
+> Otwórz historię przez `Ctrl+Alt+S`. Z listy naciśnij `Tab`, wpisz część nazwy stacji i wróć `Shift+Tab` do pasujących utworów. `Ctrl+Shift+C` kopiuje łącze wybranego utworu; po sukcesie usłyszysz „Skopiowano link Spotify”, jeśli Spotify jest usługą domyślną.
+
+### Wersja i commit
+
+- Zmiany w źródłach z 31.10.2026; commit i tożsamość paczki do wpisania po zamknięciu przyrostu.
+
 ## Korekta po zgłoszeniu użytkownika z 30.10.2026 — widoczność nowych wyników
 
 ### Zachowanie widoczne dla użytkownika
@@ -228,6 +256,26 @@ wtedy łącze wyszukiwania i ogłasza ten zakres jednoznacznie.
 > łącza Apple Music rozwiązywane dopiero na żądanie.
 
 ## Wersja i commit
+
+### Zastąpiony projekt z 31.10.2026 — filtr stacji i fokus
+
+Wcześniejszy opis pojedynczego filtra „Wszystkie stacje” jest zastąpiony:
+`Ctrl+Alt+S` ustawia fokus w polu tekstowym „Szukaj stacji”. Wpisana część
+nazwy zawęża stacje i rozpoznane utwory. `Tab` prowadzi do osobnego pola kombi
+„Stacja”, gdzie strzałki pozwalają przejrzeć „Wszystkie stacje” albo
+„Wszystkie pasujące stacje” i nazwy poszczególnych stacji. Zmiana wyboru
+odświeża wyniki bez odbierania fokusu. Następny `Tab` przechodzi do listy
+utworów; `Shift+Tab` wraca do wyboru stacji. Przy braku dopasowań stan brzmi
+„Brak stacji pasujących do filtra”. Zamknięcie okna wraca do miejsca wywołania.
+
+Przyczyna: wcześniejsza obsługa `EVT_CHOICE` po każdej zmianie stacji wywoływała
+`history.SetFocus()`, więc strzałka w polu kombi od razu przenosiła użytkownika
+na utwory. Nie było też osobnego pola tekstowego. Aktualny profil ma 2000
+rozpoznań z 35 stacji; sprawdzono tylko liczbę i strukturę, bez publikowania
+treści historii. Weryfikacja źródeł: test filtra, zmiany stacji i utrzymania
+fokusu oraz testy menu, skrótu, palety i tłumaczeń. Ręczny odsłuch NVDA
+pozostaje do wykonania. Wersję, commit, build, instalację i publikację należy
+wpisać po zakończeniu wydania.
 
 - Najnowszy test kontraktu i opis w kodzie: `1246fc2d` —
   `test: preserve recognized history return context`.
