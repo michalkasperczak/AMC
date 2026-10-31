@@ -91,8 +91,8 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   `MM:SS` i zapis fragmentu MP3 przez `Ctrl+Shift+D`; szczegóły i wyniki
   w [RARCH-002-pobieranie-fragmentow.md](RARCH-002-pobieranie-fragmentow.md).
 
-- `TEST-20261031-SPOTIFY` — **zbiorcza aktualizacja AMC Test `alpha.458`
-  w przygotowaniu** — gotowe poprawki konta i katalogu Spotify #9–#11
+- `TEST-20261031-SPOTIFY` — **AMC Test `alpha.458` opublikowany; lokalna
+  instalacja czeka na potwierdzenie zakończenia nagrywania** — poprawki konta i katalogu Spotify #9–#11
   połączone z podstawą `alpha.457`; pozostałe sprawdzone nowości były już
   w tej podstawie. [Wyniki i ograniczenia](TEST-20261031-spotify-alpha458.md).
 
