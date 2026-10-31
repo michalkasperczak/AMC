@@ -366,6 +366,21 @@ Zapisz wtedy wynik jako „nieprzetestowane na żywo”. Spotify nie należy do 
 etapu. Moduł aktualizacji będzie sprawdzany osobno po weryfikacji „Sygnalisty”:
 `https://github.com/michaldziwisz/sygnalista`.
 
+## Konto i parowanie Spotify w AMC Test alpha.458
+
+W sesji Spotify naciśnij `Ctrl+F5`. Na koncie bez konfiguracji fokus powinien
+trafić do pola Client ID. Tab ma przejść przez adres powrotu, panel Spotify,
+zapis identyfikatora, parowanie oraz przyciski zamknięcia. Skopiuj adres
+powrotu i sprawdź, czy kończy się ukośnikiem. Błędny Client ID powinien
+pozostawić fokus w polu i dać czytelny komunikat. Ponowne `Ctrl+F5` ma podnieść
+to samo okno, a główne AMC ma pozostać dostępne także podczas logowania.
+Sprawdź kod i adres parowania, „Sprawdź parowanie”, „Anuluj parowanie”, Escape,
+zamknięcie w trakcie oczekiwania, powrót fokusu oraz ponowne otwarcie.
+Pomoc `Ctrl+F1`, paleta `Ctrl+Shift+K` i menu mają opisywać obecne czynności
+konta. TIDAL używa tego samego otwartego okna bez blokowania AMC.
+Odbiór prawdziwego logowania, dźwięku i wypowiedzi NVDA zapisuj osobno od
+testów bez konta. Nie zmieniaj konta produkcyjnego dla samego testu.
+
 ## Wyszukiwanie i odczyt nagranych plików
 
 `Ctrl+F` pyta bieżącą sesję lub usługę, a `Ctrl+Shift+F` przeszukuje wszystkie

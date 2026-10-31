@@ -1876,6 +1876,25 @@ oczywistej nazwy sesji „Radio internetowe”. Po przełączeniu sesji NVDA czy
 numer sesji, nazwę widoku, stację i stan nagrywania. Pełna nazwa sesji pozostaje
 w pozostałych widokach, gdzie pomaga rozpoznać bieżący kontekst.
 
+## Konto Spotify w AMC Test
+
+`Ctrl+F5` w sesji Spotify otwiera okno konta. Jeżeli katalog nie jest jeszcze
+skonfigurowany, wpisz **Client ID** aplikacji Spotify i wybierz „Zapisz
+identyfikator aplikacji”. Okno zawiera adres powrotu do skopiowania do panelu
+aplikacji Spotify. Adres musi być wpisany dokładnie, łącznie z końcowym
+ukośnikiem. Nie wpisuj Client Secret ani hasła w AMC. „Zaloguj w przeglądarce”
+łączy katalog, a „Połącz odtwarzacz Spotify” rozpoczyna osobne parowanie
+odtwarzania. Kod i adres parowania można odczytać oraz skopiować; „Sprawdź
+parowanie” podaje wynik, a „Anuluj parowanie” kończy oczekiwanie.
+
+Okno konta pozostawia główne AMC dostępne. Ponowne `Ctrl+F5` podnosi to samo
+okno. Po pełnej synchronizacji kolekcja Spotify jest zapisywana lokalnie;
+niepełna odpowiedź nie zastępuje ostatniego poprawnego katalogu. Komunikat
+błędu odtwarzania Librespot wyjaśnia także możliwą odmowę klucza audio.
+Wersja nie zmienia silnika odtwarzania na Chrome ani Soloist. Funkcja Spotify
+pozostaje dostępna wyłącznie w AMC Test; logowanie i parowanie wymagają próby
+na prawdziwym koncie przed uznaniem ich za odebrane.
+
 ## Radio Archiwista w AMC Test
 
 Sesja **Radio Archiwista** przegląda publiczne archiwum nagrań radiowych

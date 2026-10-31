@@ -33,6 +33,11 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
     private readonly SpotifyIntegrationService _integration;
     private readonly SpotifyApiClient _api = new();
     private readonly string _statePath;
+    private readonly SpotifyLibrespotAuthenticationService _pairingService = new();
+    private readonly object _pairingGate = new();
+    private CancellationTokenSource? _pairingCancellation;
+    private Task? _pairingTask;
+    private bool _pairingWasCancelled;
 
     public LiteSpotifyWindowsCatalogBackend(string statePath)
     {
@@ -65,6 +70,80 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
         }
     }
 
+    public void ConfigureClientId(string clientId)
+    {
+        var previous = _settings.ClientId;
+        _settings.ClientId = clientId;
+        try
+        {
+            LiteAccountSettingsStore.UpdateSection(_statePath, "spotify", _settings);
+        }
+        catch
+        {
+            _settings.ClientId = previous;
+            throw;
+        }
+    }
+
+    public async Task<LiteSpotifyPairingRequest> StartPairingAsync(
+        CancellationToken cancellationToken)
+    {
+        lock (_pairingGate)
+        {
+            if (_pairingTask is { IsCompleted: false })
+                throw new LiteRequestException("Parowanie Spotify już trwa.");
+        }
+        var request = await _pairingService.RequestPairingAsync(cancellationToken)
+            .ConfigureAwait(false);
+        lock (_pairingGate)
+        {
+            _pairingCancellation?.Dispose();
+            _pairingCancellation = new CancellationTokenSource();
+            var token = _pairingCancellation.Token;
+            _pairingWasCancelled = false;
+            _pairingTask = Task.Run(() =>
+                _pairingService.CompletePairingAsync(request, token));
+        }
+        return new LiteSpotifyPairingRequest(
+            request.UserCode, request.VerificationUri.AbsoluteUri);
+    }
+
+    public LiteSpotifyPairingStatusResult PairingStatus()
+    {
+        lock (_pairingGate)
+        {
+            if (_pairingWasCancelled || _pairingTask?.IsCanceled == true)
+                return new("cancelled", "Parowanie odtwarzacza Spotify anulowano.");
+            if (_pairingTask is null)
+                return new("notStarted", "Parowanie odtwarzacza Spotify nie zostało rozpoczęte.");
+            if (!_pairingTask.IsCompleted)
+                return new("pending", "Czekam na zatwierdzenie kodu na stronie Spotify.");
+            if (_pairingTask.IsCompletedSuccessfully)
+                return new("connected", "Odtwarzacz Spotify został połączony.");
+            var failure = _pairingTask.Exception?.GetBaseException();
+            return failure is LibrespotHostException hostFailure
+                ? hostFailure.Code switch
+                {
+                    SpotifyLibrespotAuthenticationService.PairingDeniedCode =>
+                        new("denied", "Spotify odmówił parowania odtwarzacza. Spróbuj ponownie."),
+                    SpotifyLibrespotAuthenticationService.PairingExpiredCode =>
+                        new("expired", "Kod parowania Spotify wygasł. Rozpocznij parowanie ponownie."),
+                    _ => new("failed", "Nie udało się połączyć odtwarzacza Spotify.")
+                }
+                : new("failed", "Nie udało się połączyć odtwarzacza Spotify.");
+        }
+    }
+
+    public void CancelPairing()
+    {
+        lock (_pairingGate)
+        {
+            if (_pairingTask is not { IsCompleted: false }) return;
+            _pairingWasCancelled = true;
+            _pairingCancellation?.Cancel();
+        }
+    }
+
     public IReadOnlyList<MediaItem> CachedCollection { get; }
 
     public LiteSpotifyAccountProbe ReadAccountStatus() => new(
@@ -72,7 +151,8 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
         CatalogConnected: ProbeCredential(CatalogCredentialTarget),
         AccountDisplayName: _settings.AccountDisplayName,
         AccountProduct: _settings.AccountProduct,
-        PlaybackConnected: ProbeCredential(PlaybackCredentialTarget));
+        PlaybackConnected: ProbeCredential(PlaybackCredentialTarget),
+        RedirectUri: _settings.RedirectUri);
 
     public async Task<LiteSpotifyCollectionRefresh> RefreshCollectionAsync(
         CancellationToken cancellationToken)
@@ -82,6 +162,15 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
         {
             var result = await _integration.SynchronizeAsync(cancellationToken)
                 .ConfigureAwait(false);
+            // A partial response may omit entire categories. Keep the last
+            // durable snapshot until all four catalogue categories succeed.
+            if (result.IsComplete)
+            {
+                _settings.CachedCollectionItems = result.Items
+                    .Select(TidalCachedCollectionItemSettings.FromMediaItem)
+                    .ToList();
+                LiteAccountSettingsStore.UpdateSection(_statePath, "spotify", _settings);
+            }
             return new LiteSpotifyCollectionRefresh(
                 result.Items,
                 result.Warnings.Count > 0 || !result.IsComplete);
@@ -437,6 +526,9 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
 
     public void Dispose()
     {
+        CancelPairing();
+        _pairingService.Dispose();
+        _pairingCancellation?.Dispose();
         _api.Dispose();
         _integration.Dispose();
     }

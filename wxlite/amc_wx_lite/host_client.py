@@ -655,6 +655,19 @@ class LiteHostClient:
         """Start OAuth only after an explicit user action in the account dialog."""
         return self.call("spotify.login", timeout=360.0)
 
+    def spotify_configure(self, client_id: str) -> Any:
+        """Store the user's public Spotify application identifier."""
+        return self.call("spotify.configure", {"clientId": client_id}, timeout=15.0)
+
+    def spotify_pairing_start(self) -> Any:
+        return self.call("spotify.pairingStart", timeout=30.0)
+
+    def spotify_pairing_status(self) -> Any:
+        return self.call("spotify.pairingStatus", timeout=15.0)
+
+    def spotify_pairing_cancel(self) -> Any:
+        return self.call("spotify.pairingCancel", timeout=15.0)
+
     def spotify_collection_root(self) -> Any:
         """Read the user-facing Spotify collection categories."""
         return self.call("spotify.collectionRoot", timeout=15.0)

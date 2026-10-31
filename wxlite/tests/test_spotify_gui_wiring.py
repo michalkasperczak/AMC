@@ -31,6 +31,105 @@ class ImmediateRunner:
             failed(error)
 
 
+def test_spotify_account_setup_and_pairing_use_explicit_host_operations(monkeypatch) -> None:
+    calls = []
+    spoken = []
+
+    class Field:
+        def __init__(self):
+            self.value = ""
+
+        def SetValue(self, value):  # noqa: N802 - wx API
+            self.value = value
+
+        def SetFocus(self):  # noqa: N802 - wx API
+            calls.append("focus-field")
+
+    class Dialog:
+        def __init__(self, _parent, service_name, _status, _start_login, **options):
+            assert service_name == "Spotify"
+            assert options["needs_setup"] is True
+            assert options["redirect_uri"] == "http://127.0.0.1:43822/spotify/callback/"
+            self.options = options
+            self.client_id = Field()
+            self.pairing_code = Field()
+            self.pairing_address = Field()
+            self.pairing_button = Field()
+            self.check_pairing_button = Field()
+            self.pairing_active = False
+            self._login_started = False
+
+        def Raise(self):  # noqa: N802 - wx API
+            calls.append("raise")
+
+        def focus_primary_action(self):
+            calls.append("focus-primary")
+
+        def IsBeingDeleted(self):  # noqa: N802 - wx API
+            return False
+
+        def set_status(self, message):
+            calls.append(("status", message))
+
+        def set_busy(self, busy):
+            calls.append(("busy", busy))
+
+        def finish(self, message, **_kwargs):
+            self.set_status(message)
+
+        def Show(self):  # noqa: N802 - wx API
+            self.options["save_spotify_client_id"](self, "a" * 32)
+            self.options["start_spotify_pairing"](self)
+            assert self.pairing_code.value == "ABCD-EFGH"
+            assert self.pairing_address.value == "https://www.spotify.com/pair"
+            self.options["check_spotify_pairing"](self)
+            self.options["cancel_spotify_pairing"](self)
+            calls.append("show")
+
+    client = SimpleNamespace(
+        spotify_account_status=lambda: {
+            "catalog": {"configured": False, "label": "Brak konfiguracji."},
+            "playback": {"label": "Brak połączenia."},
+            "redirectUri": "http://127.0.0.1:43822/spotify/callback/",
+        },
+        spotify_configure=lambda value: calls.append(("configure", value)) or {},
+        spotify_pairing_start=lambda: calls.append("start") or {
+            "userCode": "ABCD-EFGH",
+            "verificationUri": "https://www.spotify.com/pair",
+        },
+        spotify_pairing_status=lambda: calls.append("check") or {
+            "state": "pending",
+            "message": "Czekam na zatwierdzenie.",
+        },
+        spotify_pairing_cancel=lambda: calls.append("cancel") or {},
+    )
+    frame = SimpleNamespace(
+        client=client,
+        runner=ImmediateRunner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _service_account_status_message=LiteFrame._service_account_status_message,
+        _restore_focus_after_dialog=lambda: calls.append("restore-focus"),
+        _window_alive=lambda: True,
+    )
+    monkeypatch.setattr(gui_module, "ServiceAccountDialog", Dialog)
+    monkeypatch.setattr(gui_module.wx, "CallAfter", lambda callback, *args: callback(*args))
+
+    LiteFrame._show_service_account(frame, SessionId.SPOTIFY)
+
+    assert ("configure", "a" * 32) in calls
+    assert calls.count("start") == 1
+    assert calls.count("check") == 1
+    assert calls.count("cancel") == 1
+    assert calls[-1] == "raise"
+    assert any("ABCD-EFGH" in message for message in spoken)
+    dialog = frame._service_account_dialogs[SessionId.SPOTIFY]
+    dialog.pairing_active = True
+    dialog.options["on_closed"](dialog)
+    assert calls[-1] == "restore-focus"
+    assert calls.count("cancel") == 2
+    assert SessionId.SPOTIFY not in frame._service_account_dialogs
+
+
 def test_spotify_rate_command_reaches_the_embedded_engine() -> None:
     calls = []
     selections = []

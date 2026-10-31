@@ -4493,6 +4493,13 @@ class ServiceAccountDialog(wx.Dialog):
         service_name: str,
         status: str,
         start_login: Callable[["ServiceAccountDialog"], None],
+        save_spotify_client_id: Callable[["ServiceAccountDialog", str], None] | None = None,
+        start_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        check_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        cancel_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        on_closed: Callable[["ServiceAccountDialog"], None] | None = None,
+        redirect_uri: str = "",
+        needs_setup: bool = False,
     ) -> None:
         super().__init__(
             parent,
@@ -4502,21 +4509,75 @@ class ServiceAccountDialog(wx.Dialog):
         self.SetName(f"Konto {service_name}")
         self._service_name = service_name
         self._start_login = start_login
+        self._save_spotify_client_id = save_spotify_client_id
+        self._start_spotify_pairing = start_spotify_pairing
+        self._check_spotify_pairing = check_spotify_pairing
+        self._cancel_spotify_pairing = cancel_spotify_pairing
+        self._on_closed = on_closed
+        self.pairing_active = False
+        self._login_started = False
+        self._needs_setup = needs_setup
         self._busy = False
 
         heading = wx.StaticText(self, label=f"Konto {service_name}")
         heading.SetName(f"Konto {service_name}")
-        explanation = wx.StaticText(
-            self,
-            label=(
+        if service_name == "Spotify":
+            explanation_text = (
+                "Do katalogu Spotify potrzebujesz Client ID aplikacji deweloperskiej. "
+                "Jej właściciel musi mieć Premium i dopisać Twoje konto do listy "
+                "użytkowników; możesz też użyć własnej aplikacji. W panelu Spotify "
+                "wpisz pokazany adres powrotu dokładnie, z końcowym ukośnikiem. "
+                "Nie wklejaj Client Secret. Hasło wpisujesz tylko na stronie Spotify."
+            )
+        else:
+            explanation_text = (
                 f"Zaloguj się zwykłym kontem na oficjalnej stronie {service_name}. "
                 "Hasło wpisujesz wyłącznie w przeglądarce. AMC nie wymaga "
                 "przepisywania kodu."
-            ),
+            )
+        explanation = wx.StaticText(
+            self,
+            label=explanation_text,
         )
         explanation.Wrap(620)
         self.status = wx.StaticText(self, label=status)
         self.status.SetName(f"Stan konta {service_name}: {status}")
+        if save_spotify_client_id is not None:
+            self.client_id_label = wx.StaticText(self, label="&Client ID:")
+            self.client_id = wx.TextCtrl(self)
+            self.client_id.SetName("Identyfikator aplikacji Spotify, Client ID")
+            self.redirect_uri_label = wx.StaticText(self, label="&Adres powrotu:")
+            self.redirect_uri = FocusableReadOnlyTextCtrl(self, value=redirect_uri)
+            self.redirect_uri.SetName("Adres powrotu Spotify do skopiowania")
+            self.developer_url_label = wx.StaticText(self, label="&Panel aplikacji Spotify:")
+            self.developer_url = FocusableReadOnlyTextCtrl(
+                self, value="https://developer.spotify.com/dashboard"
+            )
+            self.developer_url.SetName("Adres panelu aplikacji Spotify do skopiowania")
+            self.save_button = wx.Button(self, label="Zapisz identyfikator aplikacji")
+            self.save_button.SetName("Zapisz identyfikator aplikacji Spotify")
+            self.save_button.Bind(wx.EVT_BUTTON, self._on_save_client_id)
+        else:
+            self.client_id = None
+            self.save_button = None
+        if start_spotify_pairing is not None:
+            self.pairing_button = wx.Button(self, label="Połącz odtwarzacz Spotify")
+            self.pairing_button.SetName("Rozpocznij parowanie odtwarzacza Spotify")
+            self.pairing_button.Bind(wx.EVT_BUTTON, self._on_start_pairing)
+            self.pairing_code_label = wx.StaticText(self, label="&Kod parowania:")
+            self.pairing_code = FocusableReadOnlyTextCtrl(self)
+            self.pairing_code.SetName("Kod parowania odtwarzacza Spotify")
+            self.pairing_address_label = wx.StaticText(self, label="&Strona parowania:")
+            self.pairing_address = FocusableReadOnlyTextCtrl(self)
+            self.pairing_address.SetName("Adres strony Spotify do wpisania kodu")
+            self.check_pairing_button = wx.Button(self, label="Sprawdź parowanie")
+            self.check_pairing_button.SetName("Sprawdź stan parowania odtwarzacza Spotify")
+            self.check_pairing_button.Bind(wx.EVT_BUTTON, self._on_check_pairing)
+            self.cancel_pairing_button = wx.Button(self, label="Anuluj parowanie")
+            self.cancel_pairing_button.SetName("Anuluj parowanie odtwarzacza Spotify")
+            self.cancel_pairing_button.Bind(wx.EVT_BUTTON, self._on_cancel_pairing)
+        else:
+            self.pairing_button = None
         self.login_button = wx.Button(self, label="Zaloguj w przeglądarce")
         self.login_button.SetName(f"Zaloguj konto {service_name} w przeglądarce")
         self.close_button = wx.Button(self, wx.ID_CANCEL, "Zamknij")
@@ -4529,37 +4590,99 @@ class ServiceAccountDialog(wx.Dialog):
         layout.Add(heading, 0, wx.ALL, 12)
         layout.Add(explanation, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
         layout.Add(self.status, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        if self.client_id is not None:
+            layout.Add(self.client_id_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.client_id, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.redirect_uri_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.redirect_uri, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.developer_url_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.developer_url, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.save_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        if self.pairing_button is not None:
+            layout.Add(self.pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+            layout.Add(self.pairing_code_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.pairing_code, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.pairing_address_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.pairing_address, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.check_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+            layout.Add(self.cancel_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         layout.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizerAndFit(layout)
         self.SetMinSize((680, 300))
 
         self.login_button.Bind(wx.EVT_BUTTON, self._on_login)
+        self.close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
         self.Bind(wx.EVT_CLOSE, self._on_close)
-        wx.CallAfter(self.login_button.SetFocus)
+        self.SetEscapeId(wx.ID_CANCEL)
+        wx.CallAfter(self.focus_primary_action)
+
+    def focus_primary_action(self) -> None:
+        if self.pairing_active and self.pairing_code is not None:
+            self.pairing_code.SetFocus()
+        elif self._needs_setup and self.client_id is not None:
+            self.client_id.SetFocus()
+        else:
+            self.login_button.SetFocus()
+
+    def _on_save_client_id(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self.client_id is None or self._save_spotify_client_id is None:
+            return
+        value = self.client_id.GetValue().strip()
+        self.set_busy(True)
+        self.set_status("Zapisywanie identyfikatora aplikacji Spotify")
+        self._save_spotify_client_id(self, value)
+
+    def _on_start_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._start_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self.set_status("Rozpoczynanie parowania odtwarzacza Spotify")
+        self._start_spotify_pairing(self)
+
+    def _on_check_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._check_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self._check_spotify_pairing(self)
+
+    def _on_cancel_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._cancel_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self._cancel_spotify_pairing(self)
 
     def _on_login(self, _event: wx.CommandEvent) -> None:
         if self._busy:
             return
+        self._login_started = True
         self.set_busy(True)
         self.set_status(
             f"Otwieranie oficjalnego logowania {self._service_name} w przeglądarce"
         )
         self._start_login(self)
 
-    def _on_close(self, event: wx.CloseEvent) -> None:
-        if self._busy:
-            self.set_status(
-                "Logowanie nadal trwa. Dokończ je w przeglądarce; "
-                "to okno zamkniesz po otrzymaniu wyniku."
-            )
-            event.Veto()
-            return
-        event.Skip()
+    def _on_close_button(self, _event: wx.CommandEvent) -> None:
+        self.Close()
+
+    def _on_close(self, _event: wx.CloseEvent) -> None:
+        if self._on_closed is not None:
+            self._on_closed(self)
+        self.Hide()
+        self.Destroy()
 
     def set_busy(self, busy: bool) -> None:
         self._busy = bool(busy)
         self.login_button.Enable(not self._busy)
-        self.close_button.Enable(not self._busy)
+        self.close_button.Enable(True)
+        if self.save_button is not None:
+            self.save_button.Enable(not self._busy)
+        if self.pairing_button is not None:
+            for button in (
+                self.pairing_button,
+                self.check_pairing_button,
+                self.cancel_pairing_button,
+            ):
+                button.Enable(not self._busy)
 
     def set_status(self, message: str) -> None:
         message = i18n.ui_text(message)
@@ -4569,10 +4692,13 @@ class ServiceAccountDialog(wx.Dialog):
         )
         self.Layout()
 
-    def finish(self, message: str) -> None:
+    def finish(self, message: str, *, focus_client_id: bool = False) -> None:
         self.set_status(message)
         self.set_busy(False)
-        self.login_button.SetFocus()
+        if focus_client_id and self.client_id is not None:
+            self.client_id.SetFocus()
+        else:
+            self.login_button.SetFocus()
 
 
 class YouTubeLiveChannelPickerDialog(wx.Dialog):
@@ -9443,6 +9569,7 @@ class LiteFrame(wx.Frame):
         self._quick_info_cache = QuickInfoMemoryCache()
 
         self.client: LiteHostClient | None = None
+        self._service_account_dialogs: dict[SessionId, ServiceAccountDialog] = {}
         # Zarządzanie kontem Sonos jest celowo modeless. Główne okno nie może
         # zostać wyłączone, gdy Windows albo czytnik ekranu zgubi fokus dziecka.
         self._sonos_account_dialog: SonosAccountDialog | None = None
@@ -19407,11 +19534,24 @@ class LiteFrame(wx.Frame):
         return " ".join(labels) or "Nie można teraz odczytać stanu konta Spotify."
 
     def _show_service_account(self, session_id: SessionId) -> None:
+        open_dialogs = getattr(self, "_service_account_dialogs", None)
+        if open_dialogs is None:
+            open_dialogs = {}
+            self._service_account_dialogs = open_dialogs
+        existing = open_dialogs.get(session_id)
+        if existing is not None:
+            if not existing.IsBeingDeleted():
+                existing.Show()
+                existing.Raise()
+                existing.focus_primary_action()
+                return
+            open_dialogs.pop(session_id, None)
         client = self.client
         service_name = "Spotify" if session_id is SessionId.SPOTIFY else "TIDAL"
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
+        payload: object = {}
         try:
             payload = (
                 client.spotify_account_status()
@@ -19423,6 +19563,152 @@ class LiteFrame(wx.Frame):
             status = str(error)
         except Exception:
             status = f"Nie można teraz odczytać stanu konta {service_name}."
+
+        catalog = payload.get("catalog") if isinstance(payload, dict) else None
+        needs_setup = (
+            session_id is SessionId.SPOTIFY
+            and isinstance(catalog, dict)
+            and catalog.get("configured") is False
+        )
+        redirect_uri = (
+            payload.get("redirectUri")
+            if isinstance(payload, dict)
+            else None
+        )
+        if not isinstance(redirect_uri, str) or not redirect_uri.startswith(
+            "http://127.0.0.1:"
+        ):
+            redirect_uri = "http://127.0.0.1:43822/spotify/callback/"
+
+        def dialog_alive(dialog: ServiceAccountDialog) -> bool:
+            try:
+                return (open_dialogs.get(session_id) is dialog
+                        and not dialog.IsBeingDeleted())
+            except RuntimeError:
+                return False
+
+        def save_spotify_client_id(dialog: ServiceAccountDialog, value: str) -> None:
+            def done(_result: object) -> None:
+                message = "Zapisano identyfikator aplikacji Spotify. Możesz się zalogować."
+                if dialog_alive(dialog):
+                    if dialog.client_id is not None:
+                        dialog.client_id.SetValue("")
+                    dialog._needs_setup = False
+                    dialog.finish(message)
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się zapisać identyfikatora aplikacji Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.finish(message, focus_client_id=True)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-account-configure",
+                lambda: client.spotify_configure(value),
+                done,
+                failed,
+            )
+
+        def start_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(result: object) -> None:
+                code = result.get("userCode") if isinstance(result, dict) else None
+                address = result.get("verificationUri") if isinstance(result, dict) else None
+                if not isinstance(code, str) or not isinstance(address, str):
+                    failed(ValueError("Nieprawidłowa odpowiedź parowania"))
+                    return
+                message = "Wpisz kod parowania na stronie Spotify."
+                if dialog_alive(dialog):
+                    dialog.pairing_code.SetValue(code)
+                    dialog.pairing_address.SetValue(address)
+                    dialog.pairing_active = True
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.pairing_code.SetFocus()
+                self.announcer.say(f"{message} Kod: {code}. Adres: {address}")
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się rozpocząć parowania odtwarzacza Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.finish(message)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-start",
+                client.spotify_pairing_start,
+                done,
+                failed,
+            )
+
+        def check_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(result: object) -> None:
+                state = result.get("state") if isinstance(result, dict) else None
+                message = result.get("message") if isinstance(result, dict) else None
+                if not isinstance(message, str) or not message.strip():
+                    message = "Nie można teraz sprawdzić parowania Spotify."
+                if dialog_alive(dialog):
+                    if state in {"connected", "failed", "expired", "denied", "cancelled"}:
+                        dialog.pairing_active = False
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.check_pairing_button.SetFocus()
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie można teraz sprawdzić parowania Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-status",
+                client.spotify_pairing_status,
+                done,
+                failed,
+            )
+
+        def cancel_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(_result: object) -> None:
+                message = "Anulowano parowanie odtwarzacza Spotify."
+                if dialog_alive(dialog):
+                    dialog.pairing_active = False
+                    dialog.pairing_code.SetValue("")
+                    dialog.pairing_address.SetValue("")
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.pairing_button.SetFocus()
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się anulować parowania Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-cancel",
+                client.spotify_pairing_cancel,
+                done,
+                failed,
+            )
 
         def start_login(dialog: ServiceAccountDialog) -> None:
             def work() -> object:
@@ -19442,7 +19728,7 @@ class LiteFrame(wx.Frame):
                     cache = getattr(self, "_service_destination_cache", None)
                     if isinstance(cache, ServiceDestinationCache):
                         cache.invalidate("spotify:playlists")
-                if not dialog.IsBeingDeleted():
+                if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
 
@@ -19452,7 +19738,7 @@ class LiteFrame(wx.Frame):
                     if isinstance(error, (HostError, HostUnavailable))
                     else f"Nie udało się zalogować konta {service_name}."
                 )
-                if not dialog.IsBeingDeleted():
+                if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
 
@@ -19463,18 +19749,44 @@ class LiteFrame(wx.Frame):
                 failed,
             )
 
-        with ServiceAccountDialog(
+        def account_closed(dialog: ServiceAccountDialog) -> None:
+            if open_dialogs.get(session_id) is dialog:
+                open_dialogs.pop(session_id, None)
+            if session_id is SessionId.SPOTIFY and dialog.pairing_active:
+                self.runner.submit(
+                    "spotify-pairing-close",
+                    client.spotify_pairing_cancel,
+                    lambda _result: None,
+                    lambda _error: None,
+                )
+            if not dialog._login_started and self._window_alive():
+                wx.CallAfter(self._restore_focus_after_dialog)
+
+        dialog = ServiceAccountDialog(
             self,
             service_name,
             status,
             start_login,
-        ) as dialog:
-            # Statyczny tekst stanu nie zawsze jest automatycznie czytany,
-            # ponieważ fokus trafia na przycisk logowania. Zlecenie po wejściu
-            # w pętlę modalną daje jeden jawny komunikat bez uruchamiania OAuth.
-            wx.CallAfter(self.announcer.say, status)
-            dialog.ShowModal()
-        self._restore_focus_after_dialog()
+            save_spotify_client_id=(
+                save_spotify_client_id if session_id is SessionId.SPOTIFY else None
+            ),
+            start_spotify_pairing=(
+                start_spotify_pairing if session_id is SessionId.SPOTIFY else None
+            ),
+            check_spotify_pairing=(
+                check_spotify_pairing if session_id is SessionId.SPOTIFY else None
+            ),
+            cancel_spotify_pairing=(
+                cancel_spotify_pairing if session_id is SessionId.SPOTIFY else None
+            ),
+            on_closed=account_closed,
+            redirect_uri=redirect_uri,
+            needs_setup=needs_setup,
+        )
+        open_dialogs[session_id] = dialog
+        dialog.Show()
+        dialog.Raise()
+        wx.CallAfter(self.announcer.say, status)
 
     def _show_youtube_account(self) -> None:
         client = self.client
@@ -32844,6 +33156,15 @@ class LiteFrame(wx.Frame):
                 _present_main_window(self)
                 return
         self.timer.Stop()
+        account_dialogs = getattr(self, "_service_account_dialogs", {})
+        self._service_account_dialogs = {}
+        for dialog in account_dialogs.values():
+            try:
+                if not dialog.IsBeingDeleted():
+                    dialog.Hide()
+                    dialog.Destroy()
+            except RuntimeError:
+                pass
         account_dialog = self._sonos_account_dialog
         self._sonos_account_dialog = None
         if account_dialog is not None:

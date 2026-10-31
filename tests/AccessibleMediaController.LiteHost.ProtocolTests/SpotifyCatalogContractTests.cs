@@ -14,6 +14,8 @@ internal static class SpotifyCatalogContractTests
         PlaybackRequestAcceptsOnlyTracksAndEpisodes();
         AccountStatusKeepsCatalogueAndPlaybackSeparate();
         MissingClientIdIsAnExplicitSafeState();
+        ConfigureClientIdRejectsSecretsAndUpdatesBackend();
+        PairingKeepsDeviceSecretOutOfProtocol();
         CollectionRootContainsOnlyUserFacingCategories();
         CollectionViewRequestUsesSafeCumulativePageSizes();
         CollectionViewsKeepUnavailableSavedItems();
@@ -41,6 +43,7 @@ internal static class SpotifyCatalogContractTests
         CoordinatorReadsEpisodeChaptersFromDescriptionWithoutMutation();
         CoordinatorShowsConfirmedCreatedPlaylistInCollectionImmediately();
         CoordinatorRefreshesPlaylistViewOnceWithoutFullCollectionSync();
+        CoordinatorLoadsCollectionAfterOpeningPlaylistsFirst();
         CoordinatorLoginInvalidatesPreviousPlaylistSnapshot();
     }
 
@@ -539,6 +542,43 @@ internal static class SpotifyCatalogContractTests
             "status albo możliwości uruchomiły operację katalogową");
     }
 
+    private static void ConfigureClientIdRejectsSecretsAndUpdatesBackend()
+    {
+        using var backend = new WritableFakeBackend();
+        using var coordinator = new LiteSpotifyCatalogCoordinator(backend);
+        using var valid = JsonDocument.Parse(
+            """{"clientId":"0123456789abcdef0123456789abcdef"}""");
+        using var invalid = JsonDocument.Parse(
+            """{"clientId":"a client secret and token"}""");
+        try
+        {
+            _ = coordinator.Configure(invalid.RootElement);
+            throw new InvalidOperationException("Nieprawidłowy Client ID został przyjęty.");
+        }
+        catch (LiteRequestException)
+        {
+        }
+        var result = LiteJson.Serialize(coordinator.Configure(valid.RootElement));
+        Check(backend.ClientId == "0123456789abcdef0123456789abcdef"
+            && !result.Contains(backend.ClientId, StringComparison.Ordinal),
+            "Zapis Client ID nie dotarł do backendu albo ujawnił go w odpowiedzi.");
+    }
+
+    private static void PairingKeepsDeviceSecretOutOfProtocol()
+    {
+        using var backend = new WritableFakeBackend();
+        using var coordinator = new LiteSpotifyCatalogCoordinator(backend);
+        var start = LiteJson.Serialize(coordinator.StartPairing());
+        var status = (LiteSpotifyPairingStatusResult)coordinator.PairingStatus();
+        var cancelled = (LiteSpotifyPairingStatusResult)coordinator.CancelPairing();
+        Check(start.Contains("ABCD-EFGH", StringComparison.Ordinal)
+            && start.Contains("https://www.spotify.com/pair", StringComparison.Ordinal)
+            && !start.Contains("device-secret", StringComparison.Ordinal)
+            && status.State == "pending"
+            && cancelled.State == "cancelled",
+            "Parowanie nie zwróciło wyłącznie kodu użytkownika i bezpiecznego stanu.");
+    }
+
     private static void CoordinatorRedactsCredentialProbeFailure()
     {
         const string secret = "credential target and token must stay private";
@@ -868,6 +908,37 @@ internal static class SpotifyCatalogContractTests
             "playlista utworzona wcześniej na koncie nie pojawiła się pod Ctrl+P");
     }
 
+    private static void CoordinatorLoadsCollectionAfterOpeningPlaylistsFirst()
+    {
+        using var backend = new WritableFakeBackend
+        {
+            PlaylistTargets =
+            [
+                new SpotifyPlaylistTarget(
+                    "playlist123", "Playlista", "owner", "Michał",
+                    false, false, true, "snapshot")
+            ],
+            RefreshedItems =
+            [
+                Item(MediaItemKind.Album, "album123", "Album z konta", library: true)
+            ]
+        };
+        using var coordinator = new LiteSpotifyCatalogCoordinator(backend);
+        using var playlists = JsonDocument.Parse("""{"view":"playlists","loadedCount":150}""");
+        using var albums = JsonDocument.Parse("""{"view":"albums","loadedCount":150}""");
+
+        var playlistView = (LiteSpotifyItemsResult)coordinator.CollectionView(playlists.RootElement);
+        var albumView = (LiteSpotifyItemsResult)coordinator.CollectionView(albums.RootElement);
+        _ = coordinator.CollectionView(albums.RootElement);
+
+        Check(playlistView.Items.Count == 1
+            && backend.PlaylistTargetCalls == 1
+            && backend.RefreshCalls == 1
+            && albumView.Items.Count == 1
+            && albumView.Items[0].Title == "Album z konta",
+            $"Otwarcie playlist jako pierwszych zablokowało pobranie albumów albo powtórzyło synchronizację: playlisty {playlistView.Items.Count}, albumy {albumView.Items.Count}, odświeżenia {backend.RefreshCalls}.");
+    }
+
     private static void CoordinatorLoginInvalidatesPreviousPlaylistSnapshot()
     {
         using var backend = new WritableFakeBackend
@@ -1026,7 +1097,10 @@ internal static class SpotifyCatalogContractTests
         public int PlaylistTargetCalls { get; private set; }
         public int LoginCalls { get; private set; }
         public int PodcastRefreshCalls { get; private set; }
+        public string ClientId { get; private set; } = string.Empty;
+        public bool PairingCancelled { get; private set; }
         public IReadOnlyList<SpotifyPlaylistTarget> PlaylistTargets { get; set; } = [];
+        public IReadOnlyList<MediaItem> RefreshedItems { get; set; } = [];
         public IReadOnlyList<MediaItem> RefreshedPodcasts { get; set; } = [];
 
         public IReadOnlyList<MediaItem> CachedCollection => [];
@@ -1038,12 +1112,14 @@ internal static class SpotifyCatalogContractTests
             CancellationToken cancellationToken)
         {
             RefreshCalls++;
-            return Task.FromResult(new LiteSpotifyCollectionRefresh([], false));
+            return Task.FromResult(new LiteSpotifyCollectionRefresh(RefreshedItems, false));
         }
 
         public Task<LiteSpotifyCollectionRefresh> RefreshAlbumsAsync(
             CancellationToken cancellationToken) =>
-            Task.FromResult(new LiteSpotifyCollectionRefresh([], false));
+            Task.FromResult(new LiteSpotifyCollectionRefresh(
+                RefreshedItems.Where(item => item.Kind == MediaItemKind.Album).ToArray(),
+                false));
 
         public Task<LiteSpotifyCollectionRefresh> RefreshPodcastsAsync(
             CancellationToken cancellationToken)
@@ -1105,6 +1181,19 @@ internal static class SpotifyCatalogContractTests
             LoginCalls++;
             return Task.FromResult(new LiteSpotifyLoginOutcome("Michał", "premium"));
         }
+
+        public void ConfigureClientId(string clientId) => ClientId = clientId;
+
+        public Task<LiteSpotifyPairingRequest> StartPairingAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new LiteSpotifyPairingRequest(
+                "ABCD-EFGH", "https://www.spotify.com/pair"));
+
+        public LiteSpotifyPairingStatusResult PairingStatus() => PairingCancelled
+            ? new("cancelled", "Anulowano")
+            : new("pending", "Czekam");
+
+        public void CancelPairing() => PairingCancelled = true;
 
         public void Dispose()
         {

@@ -495,6 +495,14 @@ internal sealed class LiteEngineHandlers : IDisposable
                 SpotifyAccountStatus(),
             [LiteSpotifyCatalogContract.LoginOperation] = (_, _) =>
                 SpotifyLogin(),
+            [LiteSpotifyCatalogContract.ConfigureOperation] = (request, _) =>
+                SpotifyConfigure(request.Args),
+            [LiteSpotifyCatalogContract.PairingStartOperation] = (_, _) =>
+                SpotifyPairingStart(),
+            [LiteSpotifyCatalogContract.PairingStatusOperation] = (_, _) =>
+                SpotifyPairingStatus(),
+            [LiteSpotifyCatalogContract.PairingCancelOperation] = (_, _) =>
+                SpotifyPairingCancel(),
             [LiteSpotifyCatalogContract.CollectionRootOperation] = (_, _) =>
                 SpotifyCollectionRoot(),
             [LiteSpotifyCatalogContract.CollectionViewOperation] = (request, _) =>
@@ -3430,6 +3438,14 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object SpotifyAccountStatus() => RequireSpotify().AccountStatus();
 
     private object SpotifyLogin() => RequireSpotify().Login();
+
+    private object SpotifyConfigure(JsonElement args) => RequireSpotify().Configure(args);
+
+    private object SpotifyPairingStart() => RequireSpotify().StartPairing();
+
+    private object SpotifyPairingStatus() => RequireSpotify().PairingStatus();
+
+    private object SpotifyPairingCancel() => RequireSpotify().CancelPairing();
 
     private object SpotifyCollectionRoot() => RequireSpotify().CollectionRoot();
 

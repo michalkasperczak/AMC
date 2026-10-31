@@ -16,6 +16,10 @@ public static class LiteSpotifyCatalogContract
     public const string CapabilitiesOperation = "spotify.capabilities";
     public const string AccountStatusOperation = "spotify.accountStatus";
     public const string LoginOperation = "spotify.login";
+    public const string ConfigureOperation = "spotify.configure";
+    public const string PairingStartOperation = "spotify.pairingStart";
+    public const string PairingStatusOperation = "spotify.pairingStatus";
+    public const string PairingCancelOperation = "spotify.pairingCancel";
     public const string CollectionRootOperation = "spotify.collectionRoot";
     public const string CollectionViewOperation = "spotify.collectionView";
     public const string ContainerItemsOperation = "spotify.containerItems";
@@ -112,7 +116,20 @@ public static class LiteSpotifyCatalogContract
                 null, "nieznany")
         };
 
-        return new LiteSpotifyAccountStatusResult(SessionId, catalog, playback);
+        return new LiteSpotifyAccountStatusResult(
+            SessionId, catalog, playback,
+            string.IsNullOrWhiteSpace(probe.RedirectUri)
+                ? "http://127.0.0.1:43822/spotify/callback/"
+                : probe.RedirectUri);
+    }
+
+    public static string ReadClientId(JsonElement args)
+    {
+        var value = LiteArgs.RequireText(args, "clientId").Trim();
+        if (value.Length != 32 || !value.All(Uri.IsHexDigit))
+            throw new LiteRequestException(
+                "Identyfikator aplikacji Spotify powinien mieć 32 znaki szesnastkowe. Nie wpisuj Client Secret.");
+        return value;
     }
 
     public static LiteSpotifyLoginResult CreateLoginResult(
@@ -663,15 +680,26 @@ public sealed record LiteSpotifyAccountProbe(
     bool? CatalogConnected,
     string AccountDisplayName,
     string AccountProduct,
-    bool? PlaybackConnected);
+    bool? PlaybackConnected,
+    string RedirectUri = "http://127.0.0.1:43822/spotify/callback/");
 
 public sealed record LiteSpotifyAccountStatusResult(
     [property: JsonPropertyName("sessionId")] string SessionId,
     [property: JsonPropertyName("catalog")] LiteSpotifyConnectionStatus Catalog,
-    [property: JsonPropertyName("playback")] LiteSpotifyConnectionStatus Playback);
+    [property: JsonPropertyName("playback")] LiteSpotifyConnectionStatus Playback,
+    [property: JsonPropertyName("redirectUri")] string RedirectUri);
 
 public sealed record LiteSpotifyLoginResult(
     [property: JsonPropertyName("connected")] bool Connected,
+    [property: JsonPropertyName("message")] string Message);
+
+public sealed record LiteSpotifyPairingStartResult(
+    [property: JsonPropertyName("userCode")] string UserCode,
+    [property: JsonPropertyName("verificationUri")] string VerificationUri,
+    [property: JsonPropertyName("message")] string Message);
+
+public sealed record LiteSpotifyPairingStatusResult(
+    [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("message")] string Message);
 
 public sealed record LiteSpotifyConnectionStatus(
