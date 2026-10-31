@@ -171,21 +171,32 @@ def test_transport_status_reuses_the_alt_d_formatter_for_nvda_end() -> None:
 
 
 
-def test_window_title_names_station_and_track_only_while_radio_plays() -> None:
+def test_window_title_keeps_build_date_while_radio_plays(monkeypatch) -> None:
     from amc_wx_lite.version_info import is_main_window_title
 
-    playing = {
-        "engine": "radio",
-        "playing": True,
-        "title": "Trance - DI.FM Premium",
-        "streamTitle": "Artysta - Utwór",
-    }
-    title = gui.radio_window_title(playing)
-    assert title == f"{gui.PRODUCT_NAME} — Trance - DI.FM Premium — Artysta - Utwór"
-    # Drugie uruchomienie nadal odnajduje okno po początku tytułu.
-    assert is_main_window_title(title)
-    assert gui.radio_window_title({**playing, "streamTitle": None}) == (
-        f"{gui.PRODUCT_NAME} — Trance - DI.FM Premium"
-    )
-    assert gui.radio_window_title({**playing, "playing": False}) is None
-    assert gui.radio_window_title(None) is None
+    expected = f"{gui.PRODUCT_NAME} — 31.10.2026, 20:21"
+    monkeypatch.setattr(gui, "window_title", lambda: expected)
+
+    class Frame:
+        title = f"{gui.PRODUCT_NAME} — Radio Poznań — Artysta - Utwór"
+        _transport_status_by_session = {
+            "radio": {
+                "engine": "radio",
+                "playing": True,
+                "title": "Radio Poznań",
+                "streamTitle": "Artysta - Utwór",
+            }
+        }
+
+        def GetTitle(self):
+            return self.title
+
+        def SetTitle(self, title):
+            self.title = title
+
+    frame = Frame()
+    gui.LiteFrame._update_window_title(frame)
+    assert frame.title == expected
+    assert is_main_window_title(frame.title)
+    gui.LiteFrame._update_window_title(frame)
+    assert frame.title == expected

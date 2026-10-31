@@ -781,23 +781,6 @@ def radio_timeshift_label(minutes: int) -> str:
     return f"{duration}, {storage}"
 
 
-def radio_window_title(radio_status: dict | None) -> str | None:
-    """Tytuł okna (NVDA+T) podczas radia: stacja i bieżący utwór, jak w AMC.
-
-    Początek „AMC Public — ” zostaje, bo po nim drugie uruchomienie odnajduje
-    okno. None, gdy radio nie gra: wtedy wraca zwykły tytuł z wersją.
-    """
-    status = radio_status or {}
-    station = str(status.get("title") or "").strip()
-    if status.get("engine") != "radio" or not status.get("playing") or not station:
-        return None
-    parts = [PRODUCT_NAME, station]
-    track = str(status.get("streamTitle") or "").strip()
-    if track:
-        parts.append(track)
-    return " — ".join(parts)
-
-
 def _windows_main_window() -> int:
     """Uchwyt poprzedniego głównego okna, bez szukania po procesach Pythona."""
     if os.name != "nt":
@@ -12792,6 +12775,9 @@ class LiteFrame(wx.Frame):
                 )
             )
         elif name == "audio.clipExportProgress":
+            fragment_progress = self.__dict__.get("_radioarchiwista_fragment_progress")
+            if callable(fragment_progress):
+                fragment_progress(data)
             # Postep ma byc dostepny przez pole i NVDA+End, ale NIE moze
             # przerywac mowy co 5%. Zdarzenie koncowe jest oglaszane raz przez
             # odpowiedz operacji w ``_start_audio_clip_export``.
@@ -19049,43 +19035,80 @@ class LiteFrame(wx.Frame):
             return
         target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
         cancel_event = threading.Event()
-        dialog = wx.ProgressDialog(
-            i18n.tr("rarch.download.title"),
-            i18n.tr("rarch.download.progress", percent=0),
-            maximum=100,
-            parent=self,
-            style=wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME,
-        )
+        # wx.ProgressDialog.Update(100) can enter its own completion loop.
+        # A modeless dialog keeps all updates on the GUI thread and leaves a
+        # stable, explicitly named Cancel button for NVDA to reread.
+        dialog = wx.Dialog(self, title=i18n.tr("rarch.download.title"))
         dialog.SetName(i18n.tr("rarch.download.title"))
-        last_percent = -1
-        progress_known = False
-        pulse_timer: wx.CallLater | None = None
+        panel = wx.Panel(dialog)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        status = wx.StaticText(panel, label=i18n.tr("rarch.download.waiting"))
+        status.SetName(i18n.tr("rarch.download.waiting"))
+        layout.Add(status, 0, wx.ALL | wx.EXPAND, 12)
+        gauge = wx.Gauge(panel, range=100)
+        gauge.SetName(i18n.tr("rarch.download.waiting"))
+        layout.Add(gauge, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        cancel_button = wx.Button(panel, label=i18n.tr("rarch.download.cancel.waiting"))
+        cancel_button.SetName(i18n.tr("rarch.download.cancel.waiting"))
+        layout.Add(cancel_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        panel.SetSizer(layout)
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        dialog.SetSizerAndFit(shell)
 
-        def tick() -> None:
-            if dialog.IsBeingDeleted():
+        last_percent = -1
+        finished = False
+
+        def log_stage(value: str) -> None:
+            store = self.__dict__.get("store")
+            if store is not None:
+                _append_frontend_log(store, f"Radio Archiwista, całe nagranie: {value}")
+
+        def cancel() -> None:
+            if finished or cancel_event.is_set():
                 return
-            if not progress_known:
-                result = dialog.Pulse(i18n.tr("rarch.download.waiting"))
-                if result is False or isinstance(result, tuple) and not result[0]:
-                    cancel_event.set()
-            if dialog.WasCancelled():
-                cancel_event.set()
-            if not cancel_event.is_set() and pulse_timer is not None:
-                pulse_timer.Start(250)
+            cancel_event.set()
+            log_stage("anulowanie")
+            label = i18n.tr("rarch.download.cancelling")
+            cancel_button.SetLabel(label)
+            cancel_button.SetName(label)
+            cancel_button.Disable()
+            status.SetLabel(label)
+            status.SetName(label)
+
+        def on_cancel(_event: wx.CommandEvent) -> None:
+            cancel()
+
+        def on_close(event: wx.CloseEvent) -> None:
+            if finished:
+                event.Skip()
+                return
+            cancel()
+            if event.CanVeto():
+                event.Veto()
+            else:
+                event.Skip()
+
+        cancel_button.Bind(wx.EVT_BUTTON, on_cancel)
+        dialog.Bind(wx.EVT_CLOSE, on_close)
+        dialog.Show()
+        cancel_button.SetFocus()
+        self.status_field.SetLabel(i18n.tr("rarch.download.waiting"))
+        self.status_bar.show(i18n.tr("rarch.download.waiting"))
 
         def show_progress(percent: int) -> None:
-            nonlocal progress_known
-            if dialog.IsBeingDeleted():
+            if finished or cancel_event.is_set() or dialog.IsBeingDeleted():
                 return
-            progress_known = True
-            result = dialog.Update(
-                percent,
-                i18n.tr("rarch.download.progress", percent=percent),
-            )
-            if result is False or isinstance(result, tuple) and not result[0]:
-                cancel_event.set()
-            if dialog.WasCancelled():
-                cancel_event.set()
+            label = i18n.tr("rarch.download.progress", percent=percent)
+            cancel_label = i18n.tr("rarch.download.cancel.progress", percent=percent)
+            status.SetLabel(label)
+            status.SetName(label)
+            gauge.SetValue(percent)
+            gauge.SetName(label)
+            cancel_button.SetLabel(cancel_label)
+            cancel_button.SetName(cancel_label)
+            self.status_field.SetLabel(label)
+            self.status_bar.show(label)
 
         def progress(percent: int) -> None:
             nonlocal last_percent
@@ -19094,11 +19117,12 @@ class LiteFrame(wx.Frame):
                 wx.CallAfter(show_progress, percent)
 
         def finish() -> None:
-            if pulse_timer is not None:
-                pulse_timer.Stop()
+            nonlocal finished
+            finished = True
             if not dialog.IsBeingDeleted():
                 dialog.Destroy()
             self._radioarchiwista_downloads.discard(row.item_id)
+            self._restore_focus_after_dialog()
 
         def work() -> Path:
             recording = source.recording_by_id(row.item_id)
@@ -19117,24 +19141,30 @@ class LiteFrame(wx.Frame):
             )
 
         def done(path: Path) -> None:
+            log_stage("zakończono")
             finish()
             saved = self._record_download(path, title=row.title, source="archive")
             message = i18n.tr("rarch.download.done", path=path)
             if not saved:
                 message += ". Nie zapisano wpisu w historii pobierania"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
             self.announcer.say(message)
 
         def failed(error: Exception) -> None:
+            log_stage("anulowano" if cancel_event.is_set() else f"błąd: {type(error).__name__}")
             finish()
             message = (
                 i18n.tr("rarch.download.cancelled")
                 if cancel_event.is_set()
                 else i18n.tr("rarch.download.failed", error=error)
             )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
             self._run(self.navigator.apply_radioarchiwista_message(message))
 
         self._radioarchiwista_downloads.add(row.item_id)
-        pulse_timer = wx.CallLater(250, tick)
+        log_stage("rozpoczęto")
         self.announcer.say(i18n.tr("rarch.download.started"))
         self.runner.submit("radioarchiwista.download", work, done, failed)
 
@@ -19156,92 +19186,181 @@ class LiteFrame(wx.Frame):
         if recording is None:
             self.announcer.say("Nie znam tego nagrania")
             return
-        dialog = RadioarchiwistaFragmentDialog(self, recording)
+        range_dialog = RadioarchiwistaFragmentDialog(self, recording)
         try:
-            selected = dialog.ShowModal() == wx.ID_OK
-            time_range = dialog.selected_range
+            selected = range_dialog.ShowModal() == wx.ID_OK
+            time_range = range_dialog.selected_range
         finally:
-            dialog.Destroy()
+            range_dialog.Destroy()
             self._restore_focus_after_dialog()
         if not selected or time_range is None:
             return
+
         start_seconds, end_seconds = time_range
         target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
         cancel_event = threading.Event()
-        operation_id = uuid.uuid4().hex
-        stage = "download"
+        export_started = threading.Event()
+        cancel_lock = threading.Lock()
         cancellation_sent = False
-        progress_dialog = wx.ProgressDialog(
-            "Pobieranie fragmentu Radio Archiwisty",
-            "Pobieram nagranie źródłowe",
-            maximum=100,
-            parent=self,
-            style=wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME,
-        )
-        progress_dialog.SetName("Pobieranie fragmentu Radio Archiwisty")
-        pulse_timer: wx.CallLater | None = None
+        operation_id = uuid.uuid4().hex
+        title = "Pobieranie fragmentu Radio Archiwisty"
+        waiting = "Pobieranie nagrania źródłowego, rozmiar pliku nieznany"
+        dialog = wx.Dialog(self, title=title)
+        dialog.SetName(title)
+        panel = wx.Panel(dialog)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        status = wx.StaticText(panel, label=waiting)
+        status.SetName(waiting)
+        layout.Add(status, 0, wx.ALL | wx.EXPAND, 12)
+        gauge = wx.Gauge(panel, range=100)
+        gauge.SetName(waiting)
+        layout.Add(gauge, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        cancel_button = wx.Button(panel, label="Anuluj pobieranie fragmentu")
+        cancel_button.SetName("Anuluj pobieranie fragmentu, rozmiar pliku nieznany")
+        layout.Add(cancel_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        panel.SetSizer(layout)
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        dialog.SetSizerAndFit(shell)
+        finished = False
+        stage = "download"
+        last_percent = -1
 
-        def tick() -> None:
+        def log_stage(value: str) -> None:
+            store = self.__dict__.get("store")
+            if store is not None:
+                _append_frontend_log(store, f"Radio Archiwista, fragment: {value}")
+
+        def set_status(value: str, button_value: str | None = None) -> None:
+            status.SetLabel(value)
+            status.SetName(value)
+            gauge.SetName(value)
+            self.status_field.SetLabel(value)
+            self.status_bar.show(value)
+            if button_value is not None and not cancel_event.is_set():
+                cancel_button.SetLabel(button_value)
+                cancel_button.SetName(button_value)
+
+        def request_export_cancel() -> None:
             nonlocal cancellation_sent
-            if progress_dialog.IsBeingDeleted():
-                return
-            if stage == "export":
-                result = progress_dialog.Pulse("Zapisuję fragment jako nowy plik")
-            else:
-                result = progress_dialog.Pulse("Pobieram nagranie źródłowe")
-            if result is False or isinstance(result, tuple) and not result[0]:
-                cancel_event.set()
-            if progress_dialog.WasCancelled():
-                cancel_event.set()
-            if cancel_event.is_set() and stage == "export" and not cancellation_sent:
+            with cancel_lock:
+                if not cancel_event.is_set() or not export_started.is_set() or cancellation_sent:
+                    return
                 cancellation_sent = True
-                self.runner.submit(
-                    "radioarchiwista.fragment.cancel",
-                    lambda: client.cancel_audio_clip(operation_id),
-                    lambda _result: None,
-                    lambda _error: None,
-                )
-            if pulse_timer is not None and not cancellation_sent:
-                pulse_timer.Start(250)
+            self.runner.submit(
+                "radioarchiwista.fragment.cancel",
+                lambda: client.cancel_audio_clip(operation_id),
+                lambda _result: None,
+                lambda _error: log_stage("nie udało się przekazać anulowania do hosta"),
+            )
+
+        def cancel() -> None:
+            if finished or cancel_event.is_set():
+                return
+            cancel_event.set()
+            log_stage("anulowanie")
+            set_status("Anulowanie pobierania fragmentu")
+            cancel_button.SetLabel("Anulowanie pobierania fragmentu")
+            cancel_button.SetName("Anulowanie pobierania fragmentu")
+            cancel_button.Disable()
+            request_export_cancel()
+
+        def on_close(event: wx.CloseEvent) -> None:
+            if finished:
+                event.Skip()
+                return
+            cancel()
+            if event.CanVeto():
+                event.Veto()
+            else:
+                event.Skip()
+
+        cancel_button.Bind(wx.EVT_BUTTON, lambda _event: cancel())
+        dialog.Bind(wx.EVT_CLOSE, on_close)
+        dialog.Show()
+        cancel_button.SetFocus()
+        set_status(waiting)
+
+        def show_download_progress(percent: int) -> None:
+            if finished or stage != "download" or cancel_event.is_set():
+                return
+            value = max(0, min(100, int(percent)))
+            gauge.SetValue(value)
+            set_status(
+                f"Pobieranie nagrania źródłowego: {value} procent",
+                f"Anuluj pobieranie fragmentu, {value} procent",
+            )
 
         def progress(percent: int) -> None:
-            if stage == "download":
-                wx.CallAfter(show_progress, percent)
+            nonlocal last_percent
+            if percent != last_percent:
+                last_percent = percent
+                wx.CallAfter(show_download_progress, percent)
 
-        def show_progress(percent: int) -> None:
-            if progress_dialog.IsBeingDeleted() or stage != "download":
+        def show_export_start() -> None:
+            nonlocal stage
+            if finished or cancel_event.is_set() or stage != "download":
                 return
-            result = progress_dialog.Update(percent, f"Pobieram nagranie: {percent}%")
-            if result is False or isinstance(result, tuple) and not result[0]:
-                cancel_event.set()
+            stage = "export"
+            gauge.SetValue(0)
+            set_status("Zapisywanie fragmentu, postęp nieznany", "Anuluj zapisywanie fragmentu")
 
-        def finish() -> None:
-            if pulse_timer is not None:
-                pulse_timer.Stop()
-            if not progress_dialog.IsBeingDeleted():
-                progress_dialog.Destroy()
+        def show_export_progress(data: object) -> None:
+            nonlocal stage
+            if finished or cancel_event.is_set() or not isinstance(data, dict):
+                return
+            if str(data.get("operationId") or "") != operation_id:
+                return
+            stage = "export"
+            percent = max(0, min(100, int(data.get("percent") or 0)))
+            gauge.SetValue(percent)
+            set_status(
+                f"Zapisywanie fragmentu: {percent} procent",
+                f"Anuluj zapisywanie fragmentu, {percent} procent",
+            )
+
+        def finish(outcome: str) -> None:
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            self.__dict__.pop("_radioarchiwista_fragment_progress", None)
             self._radioarchiwista_downloads.discard(row.item_id)
+            log_stage(outcome)
+            if not dialog.IsBeingDeleted():
+                dialog.Destroy()
+            self._restore_focus_after_dialog()
 
         def work() -> Path:
-            nonlocal stage
+            if cancel_event.is_set():
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Pobieranie fragmentu anulowane"
+                )
             caps = client.audio_clip_capabilities("nagranie.mp3")
             formats = caps.get("formats", []) if isinstance(caps, dict) else []
-            if not any(item.get("value") == "original" and item.get("available")
-                       for item in formats if isinstance(item, dict)):
+            if not any(
+                item.get("value") == "original" and item.get("available")
+                for item in formats if isinstance(item, dict)
+            ):
                 raise _radioarchiwista_module.RadioarchiwistaError(
                     "Zapis fragmentu MP3 wymaga składnika FFmpeg"
                 )
             target = _radioarchiwista_module.fragment_destination(
                 target_dir, recording, start_seconds, end_seconds
             )
+            if cancel_event.is_set():
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Pobieranie fragmentu anulowane"
+                )
 
             def export(source_path: str, destination_path: str, start: int, end: int) -> None:
-                nonlocal stage
-                stage = "export"
                 if cancel_event.is_set():
                     raise _radioarchiwista_module.RadioarchiwistaError(
                         "Pobieranie fragmentu anulowane"
                     )
+                wx.CallAfter(show_export_start)
+                export_started.set()
+                request_export_cancel()
                 client.export_audio_clip(
                     source_path=source_path,
                     destination_path=destination_path,
@@ -19257,22 +19376,28 @@ class LiteFrame(wx.Frame):
             )
 
         def done(path: Path) -> None:
-            finish()
+            finish("zakończono")
             saved = self._record_download(path, title=row.title, source="archive")
-            message = f"Fragment zapisany: {path.name}"
+            message = f"Fragment zapisany: {path}"
             if not saved:
                 message += ". Nie zapisano wpisu w historii pobierania"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
             self.announcer.say(message)
 
         def failed(error: Exception) -> None:
-            finish()
-            self.announcer.say(
+            finish("anulowano" if cancel_event.is_set() else f"błąd: {type(error).__name__}")
+            message = (
                 "Pobieranie fragmentu anulowane" if cancel_event.is_set()
                 else f"Nie udało się pobrać fragmentu: {error}"
             )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
 
         self._radioarchiwista_downloads.add(row.item_id)
-        pulse_timer = wx.CallLater(250, tick)
+        self._radioarchiwista_fragment_progress = show_export_progress
+        log_stage("rozpoczęto")
         self.announcer.say("Rozpoczęto pobieranie fragmentu Radio Archiwisty")
         self.runner.submit("radioarchiwista.fragment", work, done, failed)
 
@@ -30324,8 +30449,7 @@ class LiteFrame(wx.Frame):
             self._refresh_radio_transport_status()
 
     def _update_window_title(self) -> None:
-        radio = self._transport_status_by_session.get(SessionId.RADIO)
-        title = radio_window_title(radio) or i18n.ui_text(window_title())
+        title = i18n.ui_text(window_title())
         if self.GetTitle() != title:
             self.SetTitle(title)
 

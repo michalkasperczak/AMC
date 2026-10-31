@@ -54,6 +54,8 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
+- `RELEASE-20261031` — **Kandydat AMC Test alpha.461; testy zaliczone, instalacja i GitHub do weryfikacji** — wspólna aktualizacja tytułu, Radio Archiwisty i diagnostyki. [RELEASE-20261031-alpha461.md](RELEASE-20261031-alpha461.md).
+
 - `MODAL-001` — **W trakcie** — zabezpieczenie historii rozpoznawania i innych okien przed pozostawieniem wyłączonego głównego okna AMC; osobny przegląd po zgłoszeniu z 31.10.2026. Szczegóły: [MODAL-001-okna-blokujace-glowny-interfejs.md](MODAL-001-okna-blokujace-glowny-interfejs.md).
 
 - `PERF-001` — **W trakcie; PR #6 Huberta zastosowany lokalnie, 65/65 testów celowanych zaliczonych, bez commitu, builda, instalacji i publikacji** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).

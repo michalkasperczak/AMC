@@ -297,7 +297,9 @@ Sonos:
 
 Odbiór logowania z publicznym brokerem w AMC Test:
 
-1. Sprawdź, że tytuł okna to `AMC Test — 25.10.2026, 19:30`, a następnie
+1. Sprawdź przez NVDA+T, że tytuł okna podaje nazwę AMC Test oraz datę
+   i godzinę kompilacji, także podczas odtwarzania Radia. NVDA+End
+   odczytuje bieżącą audycję i dostępny bitrate. Następnie
    naciśnij `Ctrl+6` przy rozłączonym koncie.
 2. Lista ma zawierać jeden wiersz „Rozpocznij logowanie do Sonos”. NVDA ma
    przeczytać wyłącznie tę nazwę i użytkowy opis „Enter otwiera konto Sonos”,

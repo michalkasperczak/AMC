@@ -63,7 +63,10 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.download.busy": "Trwa już pobieranie nagrania",
         "rarch.download.title": "Pobieranie nagrania Radio Archiwisty",
         "rarch.download.progress": "Pobrano {percent} procent. Anuluj, aby przerwać pobieranie.",
-        "rarch.download.waiting": "Pobieram nagranie. Anuluj, aby przerwać pobieranie.",
+        "rarch.download.waiting": "Pobieram nagranie. Rozmiar pliku jeszcze nieznany.",
+        "rarch.download.cancel.waiting": "Anuluj pobieranie, rozmiar pliku nieznany",
+        "rarch.download.cancel.progress": "Anuluj pobieranie, pobrano {percent} procent",
+        "rarch.download.cancelling": "Anulowanie pobierania…",
         "rarch.download.cancelled": "Anulowano pobieranie nagrania",
         "rarch.download.started": "Pobieram nagranie",
         "rarch.download.done": "Pobrano nagranie do: {path}",
@@ -225,7 +228,10 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.download.busy": "A recording download is already in progress",
         "rarch.download.title": "Downloading Radio Archiwista recording",
         "rarch.download.progress": "Downloaded {percent} percent. Cancel to stop downloading.",
-        "rarch.download.waiting": "Downloading recording. Cancel to stop downloading.",
+        "rarch.download.waiting": "Downloading recording. File size is not yet known.",
+        "rarch.download.cancel.waiting": "Cancel download, file size unknown",
+        "rarch.download.cancel.progress": "Cancel download, {percent} percent downloaded",
+        "rarch.download.cancelling": "Cancelling download…",
         "rarch.download.cancelled": "Recording download cancelled",
         "rarch.download.started": "Downloading recording",
         "rarch.download.done": "Recording downloaded to: {path}",
@@ -717,6 +723,12 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Anulowanie pobierania fragmentu": "Cancelling excerpt download",
+    "Anuluj pobieranie fragmentu": "Cancel excerpt download",
+    "Anuluj pobieranie fragmentu, rozmiar pliku nieznany": "Cancel excerpt download, file size unknown",
+    "Pobieranie nagrania źródłowego, rozmiar pliku nieznany": "Downloading source recording, file size unknown",
+    "Rozpoznane utwory. Enter otwiera utwór, Ctrl+Enter album w usłudze domyślnej, prawa strzałka pokazuje działania, lewa podaje krótką informację. Ctrl+C kopiuje opis, Ctrl+Shift+C dokładne łącze. Alt+strzałka w górę lub w dół zmienia kolejność, Delete usuwa. Tab przechodzi do filtra stacji.": "Recognized tracks. Enter opens the track, Ctrl+Enter opens the album in the default service, Right Arrow shows actions, Left Arrow gives brief information. Ctrl+C copies the description, Ctrl+Shift+C copies the exact link. Alt+Up or Down changes order, Delete removes. Tab moves to the station filter.",
+    "Rozpoznane utwory. Enter wyszukuje utwór, Ctrl+Enter album na stronie usługi domyślnej, prawa strzałka pokazuje działania, lewa podaje krótką informację. Ctrl+C kopiuje opis, Ctrl+Shift+C łącze wyszukiwania. Alt+strzałka w górę lub w dół zmienia kolejność, Delete usuwa. Tab przechodzi do filtra stacji.": "Recognized tracks. Enter searches for the track, Ctrl+Enter opens the album on the default service website, Right Arrow shows actions, Left Arrow gives brief information. Ctrl+C copies the description, Ctrl+Shift+C copies the search link. Alt+Up or Down changes order, Delete removes. Tab moves to the station filter.",
     "&Wyświetlaj po uruchomieniu:": "Show at &startup:",
     # Radio Archiwista: komunikaty sesji ida przez stabilne klucze rarch.*
     # w _CATALOGS (odmiana liczebnikow), nie przez statyczne literaly.

@@ -242,8 +242,12 @@ internal static class Program
         {
             Show(
                 bundle.Profile,
-                $"{bundle.Profile.DisplayName} zakończył uruchamianie z błędem. "
-                + "Uruchom AMC.exe z parametrem --sprawdz, aby sprawdzić pakiet.",
+                $"{bundle.Profile.DisplayName} zakończył się nieoczekiwanie "
+                + $"(kod 0x{unchecked((uint)process.ExitCode):X8}). "
+                + "AMC jest już zamknięty. Przycisk OK zamknie tylko tę diagnostykę. "
+                + "Kod zakończenia zapisano w dzienniku: " + ProcessLogPath(bundle.Profile)
+                + ". Po ponownym uruchomieniu AMC.exe można kontynuować pracę. "
+                + "Jeśli problem wróci, przekaż dziennik diagnostyczny do analizy.",
                 true);
         }
         return process.ExitCode;
@@ -364,6 +368,12 @@ internal static class Program
         string Title,
         string? PackageRoot);
 
+    private static string ProcessLogPath(ReleaseProfileDescriptor profile) =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            profile.LogFolder.Replace('/', Path.DirectorySeparatorChar),
+            "launcher.log");
+
     private static void AppendProcessLog(
         ReleaseProfileDescriptor profile,
         string output,
@@ -376,10 +386,8 @@ internal static class Program
             return;
         try
         {
-            var root = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                profile.LogFolder.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(root);
+            var logPath = ProcessLogPath(profile);
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
             var text = string.Join(
                 Environment.NewLine,
                 new[]
@@ -389,7 +397,7 @@ internal static class Program
                     string.IsNullOrWhiteSpace(error) ? null : "Błędy:\n" + Limit(error),
                     "",
                 }.Where(value => value is not null));
-            File.AppendAllText(Path.Combine(root, "launcher.log"), text);
+            File.AppendAllText(logPath, text);
         }
         catch
         {
@@ -412,7 +420,7 @@ internal static class Program
             IntPtr.Zero,
             text,
             "Diagnostyka " + (profile?.DisplayName ?? "AMC"),
-            error ? 0x10u : 0x40u);
+            (error ? 0x10u : 0x40u) | 0x00010000u | 0x00040000u); // foreground, topmost
     }
 
     internal static bool IsMainWindowTitle(

@@ -650,6 +650,8 @@ def download_fragment(
             raise RadioarchiwistaError("Pobieranie fragmentu anulowane")
         try:
             export(str(source), str(destination), start_seconds, end_seconds)
+            if should_cancel is not None and should_cancel():
+                raise RadioarchiwistaError("Pobieranie fragmentu anulowane")
             if not destination.is_file() or destination.stat().st_size == 0:
                 raise RadioarchiwistaError("Nie udało się zapisać fragmentu nagrania")
         except Exception:
@@ -696,6 +698,8 @@ def stream_to_file(
                 downloaded += len(chunk)
                 if progress is not None and total > 0:
                     progress(min(100, downloaded * 100 // total))
+        if should_cancel is not None and should_cancel():
+            raise RadioarchiwistaError("Pobieranie anulowane")
         if partial.stat().st_size == 0:
             raise RadioarchiwistaError("Pobrany plik jest pusty")
         if destination.exists():
