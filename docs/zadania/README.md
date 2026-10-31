@@ -86,7 +86,8 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   `Ctrl+Shift+C` plik do wklejenia. Szczegóły:
   [DOWNLOADS-002-schowek-historii-pobran.md](DOWNLOADS-002-schowek-historii-pobran.md).
 
-- `RARCH-002` — **przygotowanie AMC Test `alpha.457`** — wybór zakresu
+- `RARCH-002` — **AMC Test `alpha.457` opublikowany i zainstalowany; 2220
+  testów regresji zaliczonych, odbiór NVDA oczekuje** — wybór zakresu
   `MM:SS` i zapis fragmentu MP3 przez `Ctrl+Shift+D`; szczegóły i wyniki
   w [RARCH-002-pobieranie-fragmentow.md](RARCH-002-pobieranie-fragmentow.md).
 

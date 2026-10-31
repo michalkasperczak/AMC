@@ -2,8 +2,8 @@
 
 - Życzenie użytkownika: 31.10.2026, po wydaniu `alpha.456`.
 - Wersja docelowa: AMC Test `0.1.0-alpha.457`.
-- Status: kod i pełna regresja gotowe; pakiet, publikacja i lokalna instalacja
-  do weryfikacji.
+- Status: **kod, testy, pakiet, wydanie GitHub i lokalna instalacja AMC Test
+  gotowe**. Ręczny odbiór z NVDA oczekuje na próbę użytkownika.
 - Wcześniejsza decyzja `RARCH-001` o pobieraniu pełnego nagrania przez `Ctrl+D`
   pozostaje aktualna. Ta funkcja dodaje osobny zapis zakresu.
 
@@ -43,10 +43,22 @@ https://github.com/radioarchiwista/radioarchiwista.github.io/blob/main/assets/pl
   0 błędów** (145,76 s). Pierwszy przebieg był zakłócony przez odmowę
   zapisu w katalogach tymczasowych piaskownicy. Powtórzono go z prawidłowym
   dostępem do projektowego `.tmp-tests`; wynik końcowy jest czysty.
-- Kompilacja hosta, pakiet, instalator, suma SHA-256 i publikacja: do
-  uzupełnienia po weryfikacji.
-- Instalacja i działająca wersja AMC Test: do uzupełnienia. Odbiór z NVDA
-  wymaga próby użytkownika.
+- Kompilacja hosta i kontrolowany start paczki: zaliczone. Pakiet obejmuje
+  2141 plików i commit `22281e80b0574bdcf26060c671432e94e1551630`.
+- Instalator `AMC-Test-2026-10-31-1438.exe`: 133627894 bajty, SHA-256
+  `2d53c23e06648a1718337ed29236fdb7f9cf43dc92b72ed7434c0b42d1bb04e0`.
+  GitHub potwierdził identyczny rozmiar i sumę. Pierwszy transfer wygasł przed
+  utworzeniem wydania; po potwierdzeniu braku znacznika i wydania ponowiono
+  wysyłanie, które zakończyło się powodzeniem.
+- Wydanie wstępne `test-2026.10.31.1438` opublikowane:
+  https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.31.1438
+- Instalacja w `C:\Users\micha\AppData\Local\Programs\AMC Test` zakończona.
+  Manifest wskazuje powyższy commit, a uruchomione są po jednej instancji
+  `AMC.exe`, `python.exe` i `amc_lite_host.exe` z katalogu instalacji.
+- Ręczny odbiór z NVDA: oczekuje na próbę użytkownika po instalacji.
+
+Instalator lokalny:
+`D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.457 fragmenty 2026-10-31\instalator\AMC-Test-2026-10-31-1438.exe`.
 
 ## Projekt instrukcji i opisu zmian do akceptacji użytkownika
 
