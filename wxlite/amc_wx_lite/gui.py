@@ -7057,24 +7057,13 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
 
     def _refresh_rows(self, fallback_index: int = 0, preferred_id: str | None = None) -> None:
         query = self.station_query.GetValue()
-        matching = [
+        self._visible = [
             entry for entry in self._entries
             if self._station_matches_query(
                 str(entry.get("stationName") or "Nieznana stacja"),
                 query,
             )
         ]
-        prefix = normalize_search_text(query).strip()
-        if prefix:
-            leading = [
-                entry for entry in matching
-                if normalize_search_text(
-                    str(entry.get("stationName") or "Nieznana stacja")
-                ).startswith(prefix)
-            ]
-            if leading:
-                matching = leading
-        self._visible = matching
         self.history.Set([radio_recognition.track_label(entry) for entry in self._visible])
         if self._visible:
             selection = max(0, min(fallback_index, len(self._visible) - 1))

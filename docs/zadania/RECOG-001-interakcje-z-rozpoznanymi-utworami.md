@@ -5,7 +5,6 @@
 ### Zachowanie widoczne dla użytkownika
 
 - `Ctrl+Alt+S` otwiera historię z fokusem na liście rozpoznanych utworów. `Tab` przechodzi do pola edycyjnego „Filtr stacji”; wpisanie „GDA” od razu pokazuje tylko wpisy stacji o pasującej nazwie, np. Radia Gdańsk. `Shift+Tab` wraca do przefiltrowanej listy. Osobny wybór lub rozwijanie stacji nie jest potrzebne.
-- Gdy wpisany tekst pasuje do początku nazwy stacji, takie stacje mają pierwszeństwo przed nazwami zawierającymi go dopiero dalej. Dzięki temu „GDA” pokazuje „Gdańsk”, pomijając „Plus Gdansk”; wpisanie innej części nazwy nadal może odnaleźć stację.
 - `Ctrl+Shift+C` na utworze w historii po skutecznym skopiowaniu dokładnego łącza do Spotify mówi tylko „Skopiowano link Spotify”. Nie mówi wcześniej o przygotowywaniu łącza. Dla innych usług nazywa właściwą usługę, a w profilu Public opisuje łącze wyszukiwania.
 
 ### Uzasadnienie i decyzje
