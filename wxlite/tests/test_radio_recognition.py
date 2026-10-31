@@ -226,36 +226,58 @@ def test_live_history_refresh_preserves_filter_and_selected_entry() -> None:
     dialog = SimpleNamespace(
         _selected_entry=lambda: {"id": "old-track"},
         history=SimpleNamespace(GetSelections=lambda: [4]),
-        _refresh_filters=lambda: calls.append("filters"),
         _refresh_rows=lambda **kwargs: calls.append(kwargs),
     )
 
     RadioRecognitionHistoryDialog.refresh_after_recognition(dialog)
 
-    assert calls == [
-        "filters",
-        {"fallback_index": 4, "preferred_id": "old-track"},
-    ]
+    assert calls == [{"fallback_index": 4, "preferred_id": "old-track"}]
 
 
-def test_history_station_query_and_choice_keep_distinct_keyboard_stops() -> None:
-    class Choice:
-        def __init__(self) -> None:
-            self.labels: list[str] = []
-            self.selection = -1
 
-        def GetSelection(self) -> int:
-            return self.selection
 
-        def SetSelection(self, index: int) -> None:
-            self.selection = index
+def test_history_tab_order_starts_with_tracks_then_station_query() -> None:
+    from pathlib import Path
 
-        def Set(self, labels: list[str]) -> None:
-            self.labels = labels
+    source = (Path(__file__).parents[1] / "amc_wx_lite" / "gui.py").read_text(
+        encoding="utf-8"
+    )
+    history = source.split("class RadioRecognitionHistoryDialog", 1)[1].split(
+        "class GeneralPlaybackOptionsDialog", 1
+    )[0]
+    assert history.index("self.history = wx.ListBox(panel") < history.index(
+        "self.station_query = wx.TextCtrl(panel)"
+    )
+    assert "wx.CallAfter(self.history.SetFocus)" in history
+    assert "self.station_filter" not in history
 
-        def GetStringSelection(self) -> str:
-            return self.labels[self.selection]
 
+def test_history_copy_spotify_link_announces_only_completed_copy() -> None:
+    entry = {"id": "recognized-1", "title": "Piosenka", "artist": "Wykonawca"}
+    messages: list[str] = []
+    copied: list[str] = []
+    match = {
+        "service": "spotify",
+        "title": "Piosenka",
+        "artist": "Wykonawca",
+        "publicUrl": "https://open.spotify.com/track/test",
+    }
+    dialog = SimpleNamespace(
+        _selected_entry=lambda: entry,
+        _default_service="spotify",
+        _internal_services=("spotify",),
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=messages.append,
+        _resolve_action=lambda _entry, _action, ready, _failed: ready(match),
+    )
+
+    RadioRecognitionHistoryDialog._copy_track_link(dialog)
+
+    assert copied == ["https://open.spotify.com/track/test"]
+    assert messages == ["Skopiowano link Spotify"]
+
+
+def test_history_station_query_filters_tracks_without_selecting_station() -> None:
     class History:
         def __init__(self) -> None:
             self.labels: list[str] = []
@@ -271,47 +293,35 @@ def test_history_station_query_and_choice_keep_distinct_keyboard_stops() -> None
             self.focused = True
 
     query = SimpleNamespace(value="", GetValue=lambda: query.value)
-    choice = Choice()
     history = History()
-    status = SimpleNamespace(SetLabel=lambda _value: None, SetName=lambda _value: None)
+    status_text: list[str] = []
+    status = SimpleNamespace(
+        SetLabel=lambda value: status_text.append(value),
+        SetName=lambda _value: None,
+    )
     dialog = SimpleNamespace(
         _entries=[
-            {"id": "a", "stationId": "1", "stationName": "Radio Poznań", "title": "A"},
+            {"id": "a", "stationId": "1", "stationName": "Radio Gdańsk", "title": "A"},
             {"id": "b", "stationId": "2", "stationName": "TOK FM", "title": "B"},
+            {"id": "c", "stationId": "1", "stationName": "Radio Gdańsk", "title": "C"},
         ],
-        _filter_keys=[],
         station_query=query,
-        station_filter=choice,
         history=history,
         status=status,
-        _station_key=RadioRecognitionHistoryDialog._station_key,
         _station_matches_query=RadioRecognitionHistoryDialog._station_matches_query,
     )
-    dialog._refresh_filters = lambda: RadioRecognitionHistoryDialog._refresh_filters(dialog)
     dialog._refresh_rows = lambda: RadioRecognitionHistoryDialog._refresh_rows(dialog)
 
-    dialog._refresh_filters()
     dialog._refresh_rows()
-    assert choice.labels == ["Wszystkie stacje", "Radio Poznań", "TOK FM"]
-    assert len(dialog._visible) == 2
-
-    choice.SetSelection(1)
-    RadioRecognitionHistoryDialog._on_filter(dialog, None)
-    assert [row["id"] for row in dialog._visible] == ["a"]
-    assert history.focused is False
-
-    query.value = "tok"
+    assert [row["id"] for row in dialog._visible] == ["a", "b", "c"]
+    query.value = "GDA"
     RadioRecognitionHistoryDialog._on_station_query(dialog, None)
-    assert choice.labels == ["Wszystkie pasujące stacje", "TOK FM"]
-    assert [row["id"] for row in dialog._visible] == ["b"]
-
-    choice.SetSelection(1)
-    RadioRecognitionHistoryDialog._on_filter(dialog, None)
-    assert [row["id"] for row in dialog._visible] == ["b"]
+    assert [row["id"] for row in dialog._visible] == ["a", "c"]
+    assert status_text[-1] == "Wpisów: 2, filtr stacji: GDA"
     assert history.focused is False
-    assert RadioRecognitionHistoryDialog._station_matches_query("Radio Poznań", "pozn")
+    assert RadioRecognitionHistoryDialog._station_matches_query("Radio Gdańsk", "gdansk")
 
     query.value = "nieistniejąca"
     RadioRecognitionHistoryDialog._on_station_query(dialog, None)
-    assert choice.labels == ["Wszystkie pasujące stacje"]
     assert dialog._visible == []
+    assert status_text[-1] == "Brak rozpoznań dla wpisanego filtra stacji"

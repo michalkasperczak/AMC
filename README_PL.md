@@ -862,6 +862,12 @@ odpowiedzią na żądanie. Bieżący stan jest zapisywany, widoczny w menu
 Odtwarzanie, menu kontekstowym odtwarzacza, Ustawieniach, palecie poleceń i
 spisie skrótów. Wyłączenie mowy jest potwierdzane jednoznacznym komunikatem.
 
+W oknie historii `Ctrl+Alt+S` fokus zaczyna na liście rozpoznanych utworów.
+`Tab` przechodzi do pola „Filtr stacji”, gdzie wpisanie części nazwy, np. „GDA”,
+od razu zawęża listę do pasujących stacji. `Shift+Tab` wraca do utworów.
+`Ctrl+Shift+C` kopiuje link wybranego utworu i po sukcesie potwierdza usługę,
+np. „Skopiowano link Spotify”, bez wcześniejszego komunikatu o przygotowaniu.
+
 Wersja `alpha.208` naprawia przewijanie sieciowych odcinków Podcastów,
 pozostawia bieżący odcinek w Kolejce do zakończenia lub przejścia dalej,
 ujednolica kolejność tytułu i autora oraz zapisuje własną nazwę podcastu z `F2`.

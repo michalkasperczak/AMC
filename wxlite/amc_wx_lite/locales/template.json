@@ -928,6 +928,10 @@
     "Wszystkie pasujące stacje": "",
     "Brak stacji pasujących do filtra": "",
     "Wybierz nagranie do kolejki": "",
+    "&Filtr stacji:": "",
+    "Filtr stacji": "",
+    "Brak rozpoznań dla wpisanego filtra stacji": "",
+    "Wpisz część nazwy stacji. Shift+Tab wraca do przefiltrowanej listy rozpoznanych utworów.": "",
     "Brak dodatkowych informacji o nagraniu": ""
   },
   "legacyTemplates": {
@@ -1253,6 +1257,8 @@
     "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "",
     "Nie można odczytać kolejki: {arg0}": "",
     "Nie można zmienić kolejki: {arg0}": "",
+    "Skopiowano link {arg0}": "",
+    "Skopiowano link wyszukiwania {arg0}": "",
     "Czas: {arg0}": ""
   },
   "messageTemplateLabels": {

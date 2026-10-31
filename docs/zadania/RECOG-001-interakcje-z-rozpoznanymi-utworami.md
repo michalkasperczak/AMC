@@ -1,5 +1,33 @@
 # RECOG-001 — interakcje z rozpoznanymi utworami
 
+## Korekta użytkownika z 31.10.2026 — lista, filtr i kopiowanie linku
+
+### Zachowanie widoczne dla użytkownika
+
+- `Ctrl+Alt+S` otwiera historię z fokusem na liście rozpoznanych utworów. `Tab` przechodzi do pola edycyjnego „Filtr stacji”; wpisanie „GDA” od razu pokazuje tylko wpisy stacji o pasującej nazwie, np. Radia Gdańsk. `Shift+Tab` wraca do przefiltrowanej listy. Osobny wybór lub rozwijanie stacji nie jest potrzebne.
+- `Ctrl+Shift+C` na utworze w historii po skutecznym skopiowaniu dokładnego łącza do Spotify mówi tylko „Skopiowano link Spotify”. Nie mówi wcześniej o przygotowywaniu łącza. Dla innych usług nazywa właściwą usługę, a w profilu Public opisuje łącze wyszukiwania.
+
+### Uzasadnienie i decyzje
+
+- Ta korekta zastępuje projekt opisany niżej jako „Korekta z 31.10.2026 — filtr stacji i fokus”: pole tekstowe ma być jedynym filtrem, a lista pierwszym przystankiem klawiatury. Wcześniejsza kombinacja pola tekstowego i listy wyboru stacji dodawała zbędny krok.
+- Komunikat kopiowania pojawia się dopiero po sukcesie schowka. W razie nieznalezienia dokładnego dopasowania pozostaje komunikat o błędzie; program nie udaje wtedy skopiowania linku.
+
+### Testy i wynik
+
+- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+
+### Znane ograniczenia
+
+- Wynik dotyczy źródeł i testów bez widocznego interfejsu. Build, instalację i publikację trzeba raportować osobno po ich wykonaniu.
+
+### Materiał do dokumentacji użytkownika
+
+> Otwórz historię przez `Ctrl+Alt+S`. Z listy naciśnij `Tab`, wpisz część nazwy stacji i wróć `Shift+Tab` do pasujących utworów. `Ctrl+Shift+C` kopiuje łącze wybranego utworu; po sukcesie usłyszysz „Skopiowano link Spotify”, jeśli Spotify jest usługą domyślną.
+
+### Wersja i commit
+
+- Zmiana źródłowa `833568c9` została przeniesiona na zainstalowaną bazę `a8d66cd7`; commit pakietu i wynik instalacji do wpisania po ich wykonaniu.
+
 ## Korekta po zgłoszeniu użytkownika z 30.10.2026 — widoczność nowych wyników
 
 ### Zachowanie widoczne dla użytkownika

@@ -130,8 +130,8 @@ def test_copy_confirmations_use_the_active_recognition_window_live_region() -> N
     assert 'self._set_status("Skopiowano nazwę działania")' in window
     assert 'self._set_status("Skopiowano łącze")' in window
     assert '"Skopiowano opis" if len(selected) == 1' in history
-    assert 'f"Skopiowano łącze do utworu w "' in history
-    assert 'f"Skopiowano łącze wyszukiwania w "' in history
+    assert 'f"Skopiowano link {recognition_service_label(action.service)}"' in history
+    assert 'f"Skopiowano link wyszukiwania "' in history
 
 
 def test_cached_copy_link_does_not_precede_confirmation_with_lookup_message() -> None:
@@ -144,7 +144,7 @@ def test_cached_copy_link_does_not_precede_confirmation_with_lookup_message() ->
     )[0]
 
     assert "recognition_cached_matches(self._entry).get(action.service) is None" in window
-    assert "recognition_cached_matches(entry).get(action.service) is None" in history
+    assert "Sprawdzam dokładne łącze do utworu" not in history
 
 
 def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> None:

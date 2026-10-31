@@ -809,6 +809,10 @@
     "Wszystkie pasujące stacje": "All matching stations",
     "Brak stacji pasujących do filtra": "No stations match the filter",
     "Wybierz nagranie do kolejki": "Select a recording for the queue",
+    "&Filtr stacji:": "&Station filter:",
+    "Filtr stacji": "Station filter",
+    "Brak rozpoznań dla wpisanego filtra stacji": "No recognized songs match the station filter",
+    "Wpisz część nazwy stacji. Shift+Tab wraca do przefiltrowanej listy rozpoznanych utworów.": "Type part of a station name. Shift+Tab returns to the filtered list of recognized songs.",
     "Brak dodatkowych informacji o nagraniu": "No additional information about this recording"
   },
   "templates": {
@@ -1134,6 +1138,8 @@
     "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "{arg0}: {arg1}: {arg2}. Item: {arg3}",
     "Nie można odczytać kolejki: {arg0}": "Cannot read the queue: {arg0}",
     "Nie można zmienić kolejki: {arg0}": "Cannot change the queue: {arg0}",
+    "Skopiowano link {arg0}": "{arg0} link copied",
+    "Skopiowano link wyszukiwania {arg0}": "{arg0} search link copied",
     "Czas: {arg0}": "Time: {arg0}"
   }
 }
