@@ -141,7 +141,8 @@ def test_global_stop_recordings_has_one_contract_in_every_session() -> None:
 
 def test_recognition_history_has_one_contract_in_files_and_radio_only() -> None:
     expected = (
-        "Pokaż rozpoznane utwory; Enter otwiera utwór, Ctrl+Enter album, "
+        "Pokaż rozpoznane utwory; wpisz nazwę stacji, wybierz stację, "
+        "Tab przechodzi do utworów. Enter otwiera utwór, Ctrl+Enter album, "
         "a prawa strzałka najważniejsze działania"
     )
     chord = Chord("S", ctrl=True, alt=True)

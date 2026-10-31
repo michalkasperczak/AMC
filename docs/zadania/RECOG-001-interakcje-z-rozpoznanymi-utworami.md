@@ -229,6 +229,26 @@ wtedy łącze wyszukiwania i ogłasza ten zakres jednoznacznie.
 
 ## Wersja i commit
 
+### Korekta z 31.10.2026 — filtr stacji i fokus
+
+Wcześniejszy opis pojedynczego filtra „Wszystkie stacje” jest zastąpiony:
+`Ctrl+Alt+S` ustawia fokus w polu tekstowym „Szukaj stacji”. Wpisana część
+nazwy zawęża stacje i rozpoznane utwory. `Tab` prowadzi do osobnego pola kombi
+„Stacja”, gdzie strzałki pozwalają przejrzeć „Wszystkie stacje” albo
+„Wszystkie pasujące stacje” i nazwy poszczególnych stacji. Zmiana wyboru
+odświeża wyniki bez odbierania fokusu. Następny `Tab` przechodzi do listy
+utworów; `Shift+Tab` wraca do wyboru stacji. Przy braku dopasowań stan brzmi
+„Brak stacji pasujących do filtra”. Zamknięcie okna wraca do miejsca wywołania.
+
+Przyczyna: wcześniejsza obsługa `EVT_CHOICE` po każdej zmianie stacji wywoływała
+`history.SetFocus()`, więc strzałka w polu kombi od razu przenosiła użytkownika
+na utwory. Nie było też osobnego pola tekstowego. Aktualny profil ma 2000
+rozpoznań z 35 stacji; sprawdzono tylko liczbę i strukturę, bez publikowania
+treści historii. Weryfikacja źródeł: test filtra, zmiany stacji i utrzymania
+fokusu oraz testy menu, skrótu, palety i tłumaczeń. Ręczny odsłuch NVDA
+pozostaje do wykonania. Wersję, commit, build, instalację i publikację należy
+wpisać po zakończeniu wydania.
+
 - Najnowszy test kontraktu i opis w kodzie: `1246fc2d` —
   `test: preserve recognized history return context`.
 - Zmienione pliki: `wxlite/amc_wx_lite/gui.py` i

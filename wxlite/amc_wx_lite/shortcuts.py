@@ -446,7 +446,8 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         Action.VIEW_RADIO_RECOGNITION_HISTORY,
         "Rozpoznane utwory…",
         (
-            "Pokaż rozpoznane utwory; Enter otwiera utwór, Ctrl+Enter album, "
+            "Pokaż rozpoznane utwory; wpisz nazwę stacji, wybierz stację, "
+            "Tab przechodzi do utworów. Enter otwiera utwór, Ctrl+Enter album, "
             "a prawa strzałka najważniejsze działania"
         ),
         "Ctrl+Alt+S",
@@ -2354,7 +2355,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Włącz lub wyłącz oznajmianie rozpoznanych utworów"
         ),
         Action.VIEW_RADIO_RECOGNITION_HISTORY: (
-            "Pokaż rozpoznane utwory; Enter otwiera utwór, Ctrl+Enter album, "
+            "Pokaż rozpoznane utwory; wpisz nazwę stacji, wybierz stację, "
+            "Tab przechodzi do utworów. Enter otwiera utwór, Ctrl+Enter album, "
             "a prawa strzałka najważniejsze działania"
         ),
         Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",

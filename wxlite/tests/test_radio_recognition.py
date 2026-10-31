@@ -236,3 +236,82 @@ def test_live_history_refresh_preserves_filter_and_selected_entry() -> None:
         "filters",
         {"fallback_index": 4, "preferred_id": "old-track"},
     ]
+
+
+def test_history_station_query_and_choice_keep_distinct_keyboard_stops() -> None:
+    class Choice:
+        def __init__(self) -> None:
+            self.labels: list[str] = []
+            self.selection = -1
+
+        def GetSelection(self) -> int:
+            return self.selection
+
+        def SetSelection(self, index: int) -> None:
+            self.selection = index
+
+        def Set(self, labels: list[str]) -> None:
+            self.labels = labels
+
+        def GetStringSelection(self) -> str:
+            return self.labels[self.selection]
+
+    class History:
+        def __init__(self) -> None:
+            self.labels: list[str] = []
+            self.focused = False
+
+        def Set(self, labels: list[str]) -> None:
+            self.labels = labels
+
+        def SetSelection(self, _index: int) -> None:
+            pass
+
+        def SetFocus(self) -> None:
+            self.focused = True
+
+    query = SimpleNamespace(value="", GetValue=lambda: query.value)
+    choice = Choice()
+    history = History()
+    status = SimpleNamespace(SetLabel=lambda _value: None, SetName=lambda _value: None)
+    dialog = SimpleNamespace(
+        _entries=[
+            {"id": "a", "stationId": "1", "stationName": "Radio Poznań", "title": "A"},
+            {"id": "b", "stationId": "2", "stationName": "TOK FM", "title": "B"},
+        ],
+        _filter_keys=[],
+        station_query=query,
+        station_filter=choice,
+        history=history,
+        status=status,
+        _station_key=RadioRecognitionHistoryDialog._station_key,
+        _station_matches_query=RadioRecognitionHistoryDialog._station_matches_query,
+    )
+    dialog._refresh_filters = lambda: RadioRecognitionHistoryDialog._refresh_filters(dialog)
+    dialog._refresh_rows = lambda: RadioRecognitionHistoryDialog._refresh_rows(dialog)
+
+    dialog._refresh_filters()
+    dialog._refresh_rows()
+    assert choice.labels == ["Wszystkie stacje", "Radio Poznań", "TOK FM"]
+    assert len(dialog._visible) == 2
+
+    choice.SetSelection(1)
+    RadioRecognitionHistoryDialog._on_filter(dialog, None)
+    assert [row["id"] for row in dialog._visible] == ["a"]
+    assert history.focused is False
+
+    query.value = "tok"
+    RadioRecognitionHistoryDialog._on_station_query(dialog, None)
+    assert choice.labels == ["Wszystkie pasujące stacje", "TOK FM"]
+    assert [row["id"] for row in dialog._visible] == ["b"]
+
+    choice.SetSelection(1)
+    RadioRecognitionHistoryDialog._on_filter(dialog, None)
+    assert [row["id"] for row in dialog._visible] == ["b"]
+    assert history.focused is False
+    assert RadioRecognitionHistoryDialog._station_matches_query("Radio Poznań", "pozn")
+
+    query.value = "nieistniejąca"
+    RadioRecognitionHistoryDialog._on_station_query(dialog, None)
+    assert choice.labels == ["Wszystkie pasujące stacje"]
+    assert dialog._visible == []

@@ -320,6 +320,8 @@ from .search_catalog import (
     SESSION_LABELS,
     SearchEntry,
     SearchResultAction,
+    normalize_search_text,
+    query_words,
     record_query as add_search_history,
     search as search_entries,
 )
@@ -6999,9 +7001,22 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         help_label.Wrap(700)
         layout.Add(help_label, 0, wx.ALL | wx.EXPAND, 10)
 
-        filter_label = wx.StaticText(panel, label="&Pokaż wpisy:")
+        query_label = wx.StaticText(panel, label="&Szukaj stacji:")
+        self.station_query = wx.TextCtrl(panel)
+        self.station_query.SetName("Szukaj stacji po nazwie")
+        self.station_query.SetHelpText(
+            "Wpisz część nazwy stacji. Tab przechodzi do wyboru stacji, "
+            "a następny Tab do rozpoznanych utworów."
+        )
+        layout.Add(query_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.station_query, 0, wx.ALL | wx.EXPAND, 10)
+
+        filter_label = wx.StaticText(panel, label="&Stacja:")
         self.station_filter = wx.Choice(panel)
-        self.station_filter.SetName("Filtr historii według stacji")
+        self.station_filter.SetName("Stacja rozpoznanych utworów")
+        self.station_filter.SetHelpText(
+            "Strzałkami wybierz stację. Tab przechodzi do rozpoznanych utworów."
+        )
         layout.Add(filter_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         layout.Add(self.station_filter, 0, wx.ALL | wx.EXPAND, 10)
 
@@ -7034,6 +7049,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         self.SetSizer(outer)
         self.SetMinSize((620, 420))
 
+        self.station_query.Bind(wx.EVT_TEXT, self._on_station_query)
         self.station_filter.Bind(wx.EVT_CHOICE, self._on_filter)
         self.history.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.history.Bind(wx.EVT_LISTBOX_DCLICK, self._on_open)
@@ -7043,7 +7059,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         delete_button.Bind(wx.EVT_BUTTON, self._on_delete)
         self._refresh_filters()
         self._refresh_rows()
-        wx.CallAfter(self.history.SetFocus)
+        wx.CallAfter(self.station_query.SetFocus)
 
     @staticmethod
     def _station_key(entry: dict) -> str:
@@ -7051,6 +7067,11 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         if station_id:
             return "id:" + station_id
         return "name:" + str(entry.get("stationName") or "").strip().casefold()
+
+    @staticmethod
+    def _station_matches_query(name: str, query: str) -> bool:
+        normalized = normalize_search_text(name)
+        return all(word in normalized for word in query_words(query))
 
     def _refresh_filters(self, preferred: str | None = None) -> None:
         if preferred is None and self._filter_keys:
@@ -7065,9 +7086,17 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             previous = stations.get(key)
             if previous is None or ticks > previous[1]:
                 stations[key] = (label or "Nieznana stacja", ticks)
-        ordered = sorted(stations.items(), key=lambda item: item[1][0].casefold())
+        query = self.station_query.GetValue()
+        ordered = sorted(
+            (
+                item for item in stations.items()
+                if self._station_matches_query(item[1][0], query)
+            ),
+            key=lambda item: item[1][0].casefold(),
+        )
         self._filter_keys = [None, *(key for key, _value in ordered)]
-        labels = ["Wszystkie stacje", *(value[0] for _key, value in ordered)]
+        all_label = "Wszystkie pasujące stacje" if query.strip() else "Wszystkie stacje"
+        labels = [all_label, *(value[0] for _key, value in ordered)]
         self.station_filter.Set(labels)
         try:
             selection = self._filter_keys.index(preferred)
@@ -7084,7 +7113,13 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         )
         self._visible = [
             entry for entry in self._entries
-            if filter_key is None or self._station_key(entry) == filter_key
+            if (
+                self._station_matches_query(
+                    str(entry.get("stationName") or "Nieznana stacja"),
+                    self.station_query.GetValue(),
+                )
+                and (filter_key is None or self._station_key(entry) == filter_key)
+            )
         ]
         self.history.Set([radio_recognition.track_label(entry) for entry in self._visible])
         if self._visible:
@@ -7101,7 +7136,10 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             filter_label = self.station_filter.GetStringSelection()
             text = f"Wpisów: {len(self._visible)}, {filter_label}"
         else:
-            text = "Historia jest pusta" if filter_key is None else "Brak wpisów dla wybranej stacji"
+            if self.station_query.GetValue().strip() and len(self._filter_keys) == 1:
+                text = "Brak stacji pasujących do filtra"
+            else:
+                text = "Historia jest pusta" if filter_key is None else "Brak wpisów dla wybranej stacji"
         self.status.SetLabel(text)
         self.status.SetName(text)
 
@@ -7425,9 +7463,12 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             if self.requested_action is None:
                 wx.CallAfter(self.history.SetFocus)
 
+    def _on_station_query(self, _event: wx.CommandEvent) -> None:
+        self._refresh_filters()
+        self._refresh_rows()
+
     def _on_filter(self, _event: wx.CommandEvent) -> None:
         self._refresh_rows()
-        self.history.SetFocus()
 
     def _on_key(self, event: wx.KeyEvent) -> None:
         chord = chord_from_event(event).canonical

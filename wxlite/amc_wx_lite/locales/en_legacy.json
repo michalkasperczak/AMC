@@ -798,7 +798,18 @@
     "wykonać zaplanowanego nagrania": "make a scheduled recording",
     "zaplanowane ": "scheduled ",
     "Playlista nie zawiera nowych prawidłowych stacji": "The playlist contains no new valid stations",
-    "Playlista nie zawiera stacji radiowych": "The playlist contains no radio stations"
+    "Playlista nie zawiera stacji radiowych": "The playlist contains no radio stations",
+    "&Szukaj stacji:": "&Search stations:",
+    "&Stacja:": "&Station:",
+    "Szukaj stacji po nazwie": "Search stations by name",
+    "Wpisz część nazwy stacji. Tab przechodzi do wyboru stacji, a następny Tab do rozpoznanych utworów.": "Type part of a station name. Tab moves to the station selector; the next Tab moves to recognized songs.",
+    "Stacja rozpoznanych utworów": "Station for recognized songs",
+    "Strzałkami wybierz stację. Tab przechodzi do rozpoznanych utworów.": "Use the arrow keys to choose a station. Tab moves to recognized songs.",
+    "Wszystkie stacje": "All stations",
+    "Wszystkie pasujące stacje": "All matching stations",
+    "Brak stacji pasujących do filtra": "No stations match the filter",
+    "Wybierz nagranie do kolejki": "Select a recording for the queue",
+    "Brak dodatkowych informacji o nagraniu": "No additional information about this recording"
   },
   "templates": {
     "{arg0} Kod: {arg1}. Adres: {arg2}": "{arg0} Code: {arg1}. Address: {arg2}",
@@ -1120,6 +1131,9 @@
     "{arg0}: przekazuję do oryginalnego TIDALa": "{arg0}: forwarding to the original TIDAL",
     "{arg0}: uruchamiam ponownie oryginalny TIDAL": "{arg0}: restarting the original TIDAL",
     "{arg0}: {arg1}": "{arg0}: {arg1}",
-    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "{arg0}: {arg1}: {arg2}. Item: {arg3}"
+    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "{arg0}: {arg1}: {arg2}. Item: {arg3}",
+    "Nie można odczytać kolejki: {arg0}": "Cannot read the queue: {arg0}",
+    "Nie można zmienić kolejki: {arg0}": "Cannot change the queue: {arg0}",
+    "Czas: {arg0}": "Time: {arg0}"
   }
 }
