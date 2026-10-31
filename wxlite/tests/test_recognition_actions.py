@@ -157,20 +157,26 @@ def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> No
         def SetFocus(self) -> None:
             events.append(f"focus:{self.name}")
 
-    class CancelledHistoryDialog:
-        def __init__(self, *_args, **_kwargs) -> None:
+    class HistoryDialog:
+        def __init__(self, *_args, **kwargs) -> None:
             self.changed = False
             self.requested_action = None
+            self.finished = kwargs["finished"]
 
-        def ShowModal(self) -> int:
+        def IsBeingDeleted(self) -> bool:
+            return False
+
+        def show_for_keyboard(self) -> None:
+            events.append("show")
+
+        def close(self) -> None:
             events.append("escape")
-            return 0
-
-        def Destroy(self) -> None:
-            events.append("destroy")
+            self.finished()
 
     original = gui_module.RadioRecognitionHistoryDialog
-    gui_module.RadioRecognitionHistoryDialog = CancelledHistoryDialog
+    original_call_after = gui_module.wx.CallAfter
+    gui_module.RadioRecognitionHistoryDialog = HistoryDialog
+    gui_module.wx.CallAfter = lambda work, *args: work(*args)
     try:
         for session, view, focus_name in (
             (SessionId.FILES, View.LIST, "files"),
@@ -197,6 +203,7 @@ def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> No
                 files_list=FocusTarget("files"),
                 radio_list=FocusTarget("radio"),
                 play_button=FocusTarget("player"),
+                _radio_recognition_history_dialog=None,
                 _detailed_hints=False,
                 _to_clipboard=lambda _text: True,
                 _resolve_recognition_match=lambda *_args: None,
@@ -210,12 +217,20 @@ def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> No
 
             LiteFrame._show_radio_recognition_history(frame)
 
+            dialog = frame._radio_recognition_history_dialog
+            assert dialog is not None
+            LiteFrame._show_radio_recognition_history(frame)
+            assert frame._radio_recognition_history_dialog is dialog
+            dialog.close()
+
             assert frame.navigator.active is session
             assert frame.navigator.session.view is view
             assert frame.navigator.session.model.selected_row is selected_row
-            assert events == ["escape", "destroy", f"focus:{focus_name}"]
+            assert events == ["show", "show", "escape", f"focus:{focus_name}"]
+            assert frame._radio_recognition_history_dialog is None
     finally:
         gui_module.RadioRecognitionHistoryDialog = original
+        gui_module.wx.CallAfter = original_call_after
 
 
 def test_catalogue_match_is_conservative_and_diacritic_tolerant() -> None:

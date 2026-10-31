@@ -9,6 +9,7 @@ Filtr nazwy stacji pozostaje wyszukiwaniem części nazwy. „GDA” ma pokazywa
 ### Zachowanie widoczne dla użytkownika
 
 - `Ctrl+Alt+S` otwiera historię z fokusem na liście rozpoznanych utworów. `Tab` przechodzi do pola edycyjnego „Filtr stacji”; wpisanie „GDA” od razu pokazuje tylko wpisy stacji o pasującej nazwie, np. Radia Gdańsk. `Shift+Tab` wraca do przefiltrowanej listy. Osobny wybór lub rozwijanie stacji nie jest potrzebne.
+- Korekta z 31.10.2026 (MODAL-001): historia otwiera się jako okno niemodalne. Można wrócić do głównego AMC bez zamykania historii; ponowne `Ctrl+Alt+S` przywołuje już otwarte okno. Zastępuje wcześniejsze zachowanie, w którym historia blokowała główne okno do zamknięcia.
 - `Ctrl+Shift+C` na utworze w historii po skutecznym skopiowaniu dokładnego łącza do Spotify mówi tylko „Skopiowano link Spotify”. Nie mówi wcześniej o przygotowywaniu łącza. Dla innych usług nazywa właściwą usługę, a w profilu Public opisuje łącze wyszukiwania.
 
 ### Uzasadnienie i decyzje

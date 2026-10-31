@@ -331,6 +331,7 @@ def _automatic_frame() -> tuple[SimpleNamespace, list[str], list[object]]:
 
     frame = SimpleNamespace(
         _application_update_pending=False,
+        _window_alive=lambda: True,
         announcer=SimpleNamespace(say=announcements.append),
         runner=Runner(),
         store=SimpleNamespace(directory=Path("nieuzywany")),
@@ -390,6 +391,8 @@ def test_automatic_check_opens_the_same_accessible_dialog_for_a_new_version(
 
     monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
     monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
 
     gui.LiteFrame._check_application_update(frame, automatic=True)
 
@@ -496,3 +499,40 @@ def test_automatic_check_waits_until_another_modal_is_closed(
     monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     scheduled.pop(0)()
     assert calls == [True]
+
+
+def test_completed_update_check_waits_until_history_window_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check = application_update.ApplicationUpdateCheck(
+        PROFILES["test"], "29.10.2026, 19:05", True, None
+    )
+    frame, _announcements, dialogs = _automatic_frame()
+    history = SimpleNamespace(IsShown=lambda: True)
+    delayed = []
+
+    class Dialog:
+        def __init__(self, _parent, received):
+            dialogs.append(received)
+
+        def ShowModal(self):
+            return gui.wx.ID_CANCEL
+
+        def Destroy(self):
+            return None
+
+    monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
+    monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "CallLater", lambda _ms, work: delayed.append(work))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [history])
+
+    gui.LiteFrame._check_application_update(frame, automatic=True)
+    assert dialogs == []
+    assert frame._application_update_pending
+    assert len(delayed) == 1
+
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    delayed.pop()()
+    assert dialogs == [check]
+    assert not frame._application_update_pending

@@ -248,7 +248,8 @@ def test_history_tab_order_starts_with_tracks_then_station_query() -> None:
     assert history.index("self.history = wx.ListBox(panel") < history.index(
         "self.station_query = wx.TextCtrl(panel)"
     )
-    assert "wx.CallAfter(self.history.SetFocus)" in history
+    assert "wx.CallAfter(self._focus_history)" in history
+    assert "self.history.SetFocus()" in history
     assert "self.station_filter" not in history
 
 

@@ -6961,6 +6961,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         submit,
         resolve_match,
         detailed_hints: bool,
+        finished: Callable[[], None],
         internal_services: tuple[str, ...] = DEFAULT_SERVICES,
     ) -> None:
         super().__init__(parent, title="Rozpoznane utwory", size=(760, 540))
@@ -6974,6 +6975,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             service for service in DEFAULT_SERVICES if service in internal_services
         )
         self._actions_window: RecognitionActionsWindow | None = None
+        self._finished = finished
+        self._closing = False
         self._visible: list[dict] = []
         self.changed = False
         self.requested_action: tuple[dict, RecognitionAction, dict | None] | None = None
@@ -7047,8 +7050,42 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         copy_button.Bind(wx.EVT_BUTTON, self._on_copy)
         export_button.Bind(wx.EVT_BUTTON, self._on_export)
         delete_button.Bind(wx.EVT_BUTTON, self._on_delete)
+        close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
         self._refresh_rows()
-        wx.CallAfter(self.history.SetFocus)
+
+    def show_for_keyboard(self) -> None:
+        self.Show()
+        self.Raise()
+        wx.CallAfter(self._focus_history)
+
+    def _focus_history(self) -> None:
+        if not self._closing and self.IsShown():
+            self.history.SetFocus()
+
+    def _on_close_button(self, _event: wx.CommandEvent) -> None:
+        self.Close()
+
+    def _on_close(self, _event: wx.CloseEvent) -> None:
+        if self._closing:
+            return
+        self._closing = True
+        actions = self._actions_window
+        self._actions_window = None
+        if actions is not None:
+            actions.Destroy()
+        finished = self._finished
+        self._finished = lambda: None
+        self.Hide()
+        self.Destroy()
+        finished()
+
+    def dispose_for_parent_close(self) -> None:
+        """Close with the frame without scheduling focus on a dead parent."""
+        if self._closing:
+            return
+        self._finished = lambda: None
+        self._on_close(None)
 
     @staticmethod
     def _station_matches_query(name: str, query: str) -> bool:
@@ -7114,6 +7151,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         announce_status(self.status, text)
 
     def _resolve_action(self, entry, action, ready, failed) -> None:
+        if self._closing:
+            return
         if not action.needs_match:
             ready(None)
             return
@@ -7123,6 +7162,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             return
 
         def done(match: dict | None) -> None:
+            if self._closing:
+                return
             if match is None:
                 failed(LookupError("no exact match"))
                 return
@@ -7134,7 +7175,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             "recognition-service-link",
             lambda: self._resolve_match(entry, action.service),
             done,
-            failed,
+            lambda error: None if self._closing else failed(error),
         )
 
     def _copy(self) -> None:
@@ -7202,8 +7243,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
 
         def ready(match: dict | None) -> None:
             self.requested_action = entry, action, match
-            if self.IsModal():
-                self.EndModal(wx.ID_OK)
+            self.Close()
 
         self._resolve_action(
             entry,
@@ -7279,12 +7319,11 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             if self._actions_window is actions_window:
                 self._actions_window = None
             if not executed:
-                wx.CallAfter(self.history.SetFocus)
+                wx.CallAfter(self._focus_history)
 
         def execute(selected_entry, action, match) -> None:
             self.requested_action = selected_entry, action, match
-            if self.IsModal():
-                self.EndModal(wx.ID_OK)
+            self.Close()
 
         actions_window = RecognitionActionsWindow(
             self,
@@ -7397,7 +7436,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         finally:
             menu.Destroy()
             if self.requested_action is None:
-                wx.CallAfter(self.history.SetFocus)
+                wx.CallAfter(self._focus_history)
 
     def _on_station_query(self, _event: wx.CommandEvent) -> None:
         self._refresh_rows()
@@ -7426,7 +7465,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 recognition_quick_information(entry) if entry is not None else "Brak wybranego wpisu"
             )
         elif chord == "Escape":
-            self.EndModal(wx.ID_CANCEL)
+            self.Close()
         else:
             event.Skip()
 
@@ -15504,13 +15543,10 @@ class LiteFrame(wx.Frame):
             if any(
                 window is not self
                 and window.IsShown()
-                and callable(getattr(window, "IsModal", None))
-                and bool(window.IsModal())
                 for window in wx.GetTopLevelWindows()
             ):
-                # Nie nakladaj drugiego modala na wybor sesji, Ustawienia ani
-                # inne rozpoczęte działanie. Sprawdzenie nadal odbędzie się w
-                # tym uruchomieniu, gdy użytkownik wróci do głównego okna.
+                # Nie nakładaj automatycznego modala na historię, konto ani
+                # inne okno. Sprawdzenie poczeka na powrót do głównego okna.
                 self._automatic_application_update_check_call = wx.CallLater(
                     5000, start
                 )
@@ -15537,17 +15573,31 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Sprawdzanie aktualizacji AMC")
 
         def done(check: ApplicationUpdateCheck) -> None:
-            self._application_update_pending = False
             if automatic and not check.available:
+                self._application_update_pending = False
                 return
-            dialog = ApplicationUpdateDialog(self, check)
-            try:
-                decision = dialog.ShowModal()
-            finally:
-                dialog.Destroy()
-                self._restore_focus_after_dialog()
-            if decision == wx.ID_OK and check.available:
-                self._download_application_update(check)
+
+            def present_when_free() -> None:
+                if not self._window_alive():
+                    self._application_update_pending = False
+                    return
+                if any(
+                    window is not self and window.IsShown()
+                    for window in wx.GetTopLevelWindows()
+                ):
+                    wx.CallLater(500, present_when_free)
+                    return
+                self._application_update_pending = False
+                dialog = ApplicationUpdateDialog(self, check)
+                try:
+                    decision = dialog.ShowModal()
+                finally:
+                    dialog.Destroy()
+                    self._restore_focus_after_dialog()
+                if decision == wx.ID_OK and check.available:
+                    self._download_application_update(check)
+
+            wx.CallAfter(present_when_free)
 
         def failed(error: Exception) -> None:
             self._application_update_pending = False
@@ -31713,12 +31763,37 @@ class LiteFrame(wx.Frame):
             )
 
     def _show_radio_recognition_history(self) -> None:
-        """Pokaż nakładkę bez zmiany sesji ani widoku miejsca wywołania.
+        """Pokaż niemodalną historię bez zmiany sesji ani widoku.
 
         Anulowanie, w tym Escape, wraca przez wspólną drogę fokusu do listy
         lub odtwarzacza tej samej sesji. Historia nie jest przejściem do
         sesji Radio tylko dlatego, że jej dane pochodzą z rozpoznawania Radia.
         """
+        existing = self._radio_recognition_history_dialog
+        if existing is not None:
+            try:
+                if not existing.IsBeingDeleted():
+                    existing.show_for_keyboard()
+                    return
+            except RuntimeError:
+                pass
+            self._radio_recognition_history_dialog = None
+
+        dialog: RadioRecognitionHistoryDialog | None = None
+
+        def finished() -> None:
+            if self._radio_recognition_history_dialog is dialog:
+                self._radio_recognition_history_dialog = None
+            if dialog is None:
+                return
+            if dialog.changed:
+                self._save_state()
+            requested_action = dialog.requested_action
+            if requested_action is None:
+                wx.CallAfter(self._restore_focus_after_dialog)
+            else:
+                wx.CallAfter(self._execute_recognition_action, *requested_action)
+
         dialog = RadioRecognitionHistoryDialog(
             self,
             self.state.recognized_tracks,
@@ -31727,6 +31802,7 @@ class LiteFrame(wx.Frame):
             submit=self.runner.submit,
             resolve_match=self._resolve_recognition_match,
             detailed_hints=self._detailed_hints,
+            finished=finished,
             internal_services=tuple(
                 service
                 for service, capability in (
@@ -31736,23 +31812,8 @@ class LiteFrame(wx.Frame):
                 if capability in current_profile().capabilities
             ),
         )
-        changed = False
-        requested_action = None
         self._radio_recognition_history_dialog = dialog
-        try:
-            dialog.ShowModal()
-            changed = dialog.changed
-            requested_action = dialog.requested_action
-        finally:
-            self._radio_recognition_history_dialog = None
-            dialog.Destroy()
-        if changed:
-            self._save_state()
-        if requested_action is None:
-            self._restore_focus_after_dialog()
-            return
-        entry, action, match = requested_action
-        self._execute_recognition_action(entry, action, match)
+        dialog.show_for_keyboard()
 
     @staticmethod
     def _recognition_query(entry: dict) -> str:
@@ -33123,6 +33184,14 @@ class LiteFrame(wx.Frame):
                 _present_main_window(self)
                 return
         self.timer.Stop()
+        history_dialog = self._radio_recognition_history_dialog
+        self._radio_recognition_history_dialog = None
+        if history_dialog is not None:
+            try:
+                if not history_dialog.IsBeingDeleted():
+                    history_dialog.dispose_for_parent_close()
+            except RuntimeError:
+                pass
         account_dialogs = getattr(self, "_service_account_dialogs", {})
         self._service_account_dialogs = {}
         for dialog in account_dialogs.values():
@@ -33175,11 +33244,59 @@ class LiteFrame(wx.Frame):
 class LiteApp(wx.App):
     _startup_smoke_timeout_seconds = 20.0
 
+    @staticmethod
+    def _frontmost_visible_modal(windows) -> wx.Window | None:
+        """Return the deepest visible modal, ignoring closing or hidden windows."""
+        candidates = []
+        for index, window in enumerate(windows):
+            try:
+                if (
+                    window.IsBeingDeleted()
+                    or not window.IsShown()
+                    or not window.IsModal()
+                ):
+                    continue
+                depth = 0
+                parent = window.GetParent()
+                while parent is not None:
+                    depth += 1
+                    parent = parent.GetParent()
+                candidates.append((depth, index, window))
+            except (AttributeError, RuntimeError):
+                continue
+        return max(candidates)[2] if candidates else None
+
+    def _raise_open_modal(self) -> None:
+        windows = tuple(wx.GetTopLevelWindows())
+        modal = self._frontmost_visible_modal(windows)
+        if modal is None:
+            return
+        active = wx.GetActiveWindow()
+        if active is not None and active not in windows and active is not self.GetTopWindow():
+            # A native child dialog (for example a file picker) owns focus.
+            return
+        modal.Raise()
+        focused = wx.Window.FindFocus()
+        while focused is not None:
+            if focused is modal:
+                return
+            focused = focused.GetParent()
+        modal.SetFocus()
+
+    def _on_activate_app(self, event: wx.ActivateEvent) -> None:
+        event.Skip()
+        if event.GetActive():
+            wx.CallAfter(self._raise_open_modal)
+
     def _on_init_dialog(self, event: wx.InitDialogEvent) -> None:
         """Translate every native dialog just before it is first presented."""
 
         i18n.localize_window_tree(event.GetEventObject())
         event.Skip()
+        # A delayed callback may start a modal loop while another window has
+        # focus. Put the actual active modal above the main window at the next
+        # event-loop turn, including when the user has not switched apps.
+        wx.CallAfter(self._raise_open_modal)
 
     def _finish_startup_smoke(
         self,
@@ -33235,6 +33352,7 @@ class LiteApp(wx.App):
 
     def OnInit(self) -> bool:  # noqa: N802 - API wx
         self.SetAppName(APP_NAME)
+        self.Bind(wx.EVT_ACTIVATE_APP, self._on_activate_app)
         if hasattr(wx, "EVT_INIT_DIALOG"):
             self.Bind(wx.EVT_INIT_DIALOG, self._on_init_dialog)
         # Drugi frontend nie może uruchamiać drugiego właściciela postępu
