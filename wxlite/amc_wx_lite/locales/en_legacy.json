@@ -19,6 +19,16 @@
     "privacy": "No runtime, profile, account, path, title, station, or device data"
   },
   "static": {
+    "&Koniec fragmentu:": "&End of fragment:",
+    "&Początek fragmentu:": "&Start of fragment:",
+    "Koniec fragmentu, minuty i sekundy": "End of fragment, minutes and seconds",
+    "Nie znam tego nagrania": "This recording is unavailable",
+    "Nieprawidłowy zakres fragmentu": "Invalid fragment range",
+    "Pobieram nagranie źródłowe": "Downloading source recording",
+    "Pobieranie fragmentu Radio Archiwisty": "Downloading Radio Archiwista fragment",
+    "Początek fragmentu, minuty i sekundy": "Start of fragment, minutes and seconds",
+    "Podaj początek i koniec jako minuty:sekundy, na przykład 12:30.": "Enter start and end as minutes:seconds, for example 12:30.",
+    "Rozpoczęto pobieranie fragmentu Radio Archiwisty": "Started downloading Radio Archiwista fragment",
     "&Adres (http/https):": "&Address (http/https):",
     "&Adres źródła:": "&Source address:",
     "&Aktualizuj": "&Update",
@@ -768,6 +778,7 @@
     "Playlista nie zawiera stacji radiowych": "The playlist contains no radio stations"
   },
   "templates": {
+    "{arg0}:{arg1}": "{arg0}:{arg1}",
     "&Nazwa {arg0}:": "&Name {arg0}:",
     "Adres {arg0}": "Address {arg0}",
     "Automatycznie dodano nowe odcinki: {arg0}": "New episodes added automatically: {arg0}",

@@ -675,6 +675,15 @@ def build_menus(
                 needs_radioarchiwista_recording=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
+            MenuItem(
+                "Pobierz &fragment nagrania…",
+                Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
+                shortcut="Ctrl+Shift+D",
+                accelerator=False,
+                needs_selection=True,
+                needs_radioarchiwista_recording=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
             SEPARATOR,
             # Backspace dzialal od dawna, ale wylacznie z klawiatury.
             #

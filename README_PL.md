@@ -1884,7 +1884,12 @@ dowolną godzinę przez ten sam tor co podcasty: tempo, wznowienie pozycji
 i obróbka audio działają identycznie. Lista stacji prowadzi przez lata,
 miesiące i dni do nagrań godzinowych; pozycja „Najnowsze nagrania” zbiera
 ostatnią opublikowaną godzinę ze wszystkich stacji, które ją nagrały.
-`Ctrl+D` pobiera zaznaczone nagranie jako MP3 z postępem i anulowaniem,
+`Ctrl+D` pobiera zaznaczone nagranie jako MP3 z postępem i anulowaniem.
+`Ctrl+Shift+D` otwiera wybór początku i końca fragmentu (`MM:SS` lub
+`GG:MM:SS`), pobiera nagranie źródłowe i zapisuje wycinek jako osobny MP3.
+Zapis wymaga składnika FFmpeg; granice mogą być dopasowane do ramki MP3.
+Oryginalne nagranie pozostaje bez zmian, a fragment trafia do Historii
+pobrań (`Ctrl+J`).
 `Ctrl+Shift+U` dodaje je do ulubionych, `Ctrl+U` pokazuje ulubione offline,
 a `F5` odświeża katalog. Katalog jest publiczny, więc sesja nie wymaga
 logowania; cache w profilu pozwala wracać do ostatnio przeglądanych dni

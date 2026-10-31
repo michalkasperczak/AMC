@@ -86,6 +86,10 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   `Ctrl+Shift+C` plik do wklejenia. Szczegóły:
   [DOWNLOADS-002-schowek-historii-pobran.md](DOWNLOADS-002-schowek-historii-pobran.md).
 
+- `RARCH-002` — **przygotowanie AMC Test `alpha.457`** — wybór zakresu
+  `MM:SS` i zapis fragmentu MP3 przez `Ctrl+Shift+D`; szczegóły i wyniki
+  w [RARCH-002-pobieranie-fragmentow.md](RARCH-002-pobieranie-fragmentow.md).
+
 - `QUEUE-002` — **Oczekuje na osobny przegląd** — kolejki Podcastów i YouTube,
   Spotify oraz TIDAL nie wchodzą do poprawki Radio Archiwisty. Szczegóły:
   [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).

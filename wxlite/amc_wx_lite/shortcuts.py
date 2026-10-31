@@ -344,6 +344,7 @@ class Action(Enum):
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     RADIOARCHIWISTA_DOWNLOAD = "radioarchiwista.download.selected"
+    RADIOARCHIWISTA_DOWNLOAD_FRAGMENT = "radioarchiwista.download.fragment"
     RADIOARCHIWISTA_REFRESH = "radioarchiwista.catalog.refresh"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
@@ -1098,6 +1099,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.COPY_ADDRESS,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RADIOARCHIWISTA_DOWNLOAD,
+        Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
         Action.RADIOARCHIWISTA_REFRESH,
         Action.SEEK_BACK_10, Action.SEEK_FORWARD_10,
         Action.SEEK_BACK_30, Action.SEEK_FORWARD_30,
@@ -1686,6 +1688,7 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
     "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
+    "Ctrl+Shift+D": Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
 }
 
 
@@ -2270,6 +2273,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń nagranie z ulubionych",
         Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
+        Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT: "Pobierz fragment nagrania Radio Archiwisty",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",

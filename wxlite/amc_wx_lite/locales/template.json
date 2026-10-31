@@ -138,6 +138,16 @@
     "view.youtubeBroadcasts": ""
   },
   "legacyUi": {
+    "&Koniec fragmentu:": "",
+    "&Początek fragmentu:": "",
+    "Koniec fragmentu, minuty i sekundy": "",
+    "Nie znam tego nagrania": "",
+    "Nieprawidłowy zakres fragmentu": "",
+    "Pobieram nagranie źródłowe": "",
+    "Pobieranie fragmentu Radio Archiwisty": "",
+    "Początek fragmentu, minuty i sekundy": "",
+    "Podaj początek i koniec jako minuty:sekundy, na przykład 12:30.": "",
+    "Rozpoczęto pobieranie fragmentu Radio Archiwisty": "",
     "&Adres (http/https):": "",
     "&Adres źródła:": "",
     "&Aktualizuj": "",
@@ -887,6 +897,7 @@
     "Playlista nie zawiera stacji radiowych": ""
   },
   "legacyTemplates": {
+    "{arg0}:{arg1}": "",
     "&Nazwa {arg0}:": "",
     "Adres {arg0}": "",
     "Automatycznie dodano nowe odcinki: {arg0}": "",

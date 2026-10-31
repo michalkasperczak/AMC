@@ -259,7 +259,7 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     # kontekstowe: w Radiu czyta informacje o bieżącym odtwarzaniu, a w
     # Podcastach pełny opis.
     assert set(duplicates) <= {
-        "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+S",
+        "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+Shift+D", "Ctrl+S",
         "Alt+1", "Alt+2", "Alt+3", "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",

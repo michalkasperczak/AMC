@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 import threading
 import time
 import urllib.error
@@ -575,6 +576,86 @@ def download_destination(directory: Path, recording: ArchiveRecording) -> Path:
         if not candidate.exists():
             return candidate
     raise RadioarchiwistaError("Nie można wybrać wolnej nazwy pliku nagrania")
+
+
+def parse_fragment_time(value: str) -> int:
+    """Czas wpisany jako MM:SS albo GG:MM:SS, bez domyślnej jednostki."""
+    parts = value.strip().split(":")
+    if len(parts) not in (2, 3) or any(
+        not part.isdigit() or len(part) > 8 for part in parts
+    ):
+        raise RadioarchiwistaError("Wpisz czas jako minuty:sekundy, na przykład 12:30")
+    numbers = [int(part) for part in parts]
+    if any(part >= 60 for part in numbers[1:]):
+        raise RadioarchiwistaError("Sekundy i minuty po dwukropku muszą być mniejsze niż 60")
+    return numbers[0] * 60 + numbers[1] if len(numbers) == 2 else (
+        numbers[0] * 3600 + numbers[1] * 60 + numbers[2]
+    )
+
+
+def fragment_range(recording: ArchiveRecording, start: str, end: str) -> tuple[int, int]:
+    start_seconds = parse_fragment_time(start)
+    end_seconds = parse_fragment_time(end)
+    if end_seconds <= start_seconds:
+        raise RadioarchiwistaError("Koniec fragmentu musi być późniejszy niż początek")
+    if recording.duration_seconds > 0 and end_seconds > recording.duration_seconds + 1:
+        raise RadioarchiwistaError("Koniec fragmentu wykracza poza czas nagrania")
+    if end_seconds > 31_536_000:
+        raise RadioarchiwistaError("Podany czas fragmentu jest zbyt długi")
+    return start_seconds, end_seconds
+
+
+def fragment_destination(
+    directory: Path, recording: ArchiveRecording, start_seconds: int, end_seconds: int
+) -> Path:
+    original = download_destination(directory, recording)
+    label = (
+        f"{original.stem} od-{start_seconds // 60:02d}-{start_seconds % 60:02d} "
+        f"do-{end_seconds // 60:02d}-{end_seconds % 60:02d}"
+    )
+    for number in range(1, 1001):
+        suffix = "" if number == 1 else f"-{number}"
+        candidate = Path(directory) / f"{label}{suffix}.mp3"
+        if not candidate.exists():
+            return candidate
+    raise RadioarchiwistaError("Nie można wybrać wolnej nazwy fragmentu")
+
+
+def download_fragment(
+    recording: ArchiveRecording,
+    destination: Path,
+    start_seconds: int,
+    end_seconds: int,
+    *,
+    export: Callable[[str, str, int, int], Any],
+    progress: Callable[[int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    fetch: Callable[[str], Any] | None = None,
+) -> Path:
+    """Pobierz MP3 do prywatnego pliku tymczasowego i zapisz nowy wycinek."""
+    if start_seconds < 0 or end_seconds <= start_seconds:
+        raise RadioarchiwistaError("Koniec fragmentu musi być późniejszy niż początek")
+    if destination.exists():
+        raise RadioarchiwistaError("Plik fragmentu już istnieje")
+    if not urllib.parse.urlsplit(recording.audio_url).path.lower().endswith(".mp3"):
+        raise RadioarchiwistaError("Przycinanie jest dostępne dla nagrań MP3")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="fragment-", dir=destination.parent) as folder:
+        source = Path(folder) / "nagranie.mp3"
+        stream_to_file(
+            recording.audio_url, source, progress=progress,
+            should_cancel=should_cancel, fetch=fetch,
+        )
+        if should_cancel is not None and should_cancel():
+            raise RadioarchiwistaError("Pobieranie fragmentu anulowane")
+        try:
+            export(str(source), str(destination), start_seconds, end_seconds)
+            if not destination.is_file() or destination.stat().st_size == 0:
+                raise RadioarchiwistaError("Nie udało się zapisać fragmentu nagrania")
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
+    return destination
 
 
 #: Pobieranie pliku strumieniowo, bez wx i bez wątków: wołane w tle GUI.

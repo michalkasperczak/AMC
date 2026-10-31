@@ -2947,6 +2947,55 @@ class StationDialog(wx.Dialog):
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
 
 
+class RadioarchiwistaFragmentDialog(wx.Dialog):
+    """Dwie dostępne granice czasowe bez zmiany źródłowego nagrania."""
+
+    def __init__(self, parent: wx.Window, recording: object) -> None:
+        super().__init__(parent, title="Pobierz fragment Radio Archiwisty")
+        self.recording = recording
+        self.selected_range: tuple[int, int] | None = None
+        panel = wx.Panel(self)
+        inner = wx.BoxSizer(wx.VERTICAL)
+        instruction = wx.StaticText(
+            panel,
+            label="Podaj początek i koniec jako minuty:sekundy, na przykład 12:30.",
+        )
+        inner.Add(instruction, 0, wx.ALL, 10)
+        start_label = wx.StaticText(panel, label="&Początek fragmentu:")
+        self.start_field = wx.TextCtrl(panel, value="0:00", size=(220, -1))
+        self.start_field.SetName("Początek fragmentu, minuty i sekundy")
+        end_label = wx.StaticText(panel, label="&Koniec fragmentu:")
+        duration = max(1, int(getattr(recording, "duration_seconds", 3600) or 3600))
+        self.end_field = wx.TextCtrl(
+            panel, value=f"{duration // 60}:{duration % 60:02d}", size=(220, -1)
+        )
+        self.end_field.SetName("Koniec fragmentu, minuty i sekundy")
+        for label, field in ((start_label, self.start_field), (end_label, self.end_field)):
+            inner.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+            inner.Add(field, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        panel.SetSizer(inner)
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.Fit()
+        self.Bind(wx.EVT_BUTTON, self._accept, id=wx.ID_OK)
+        self.start_field.SetFocus()
+        self.start_field.SelectAll()
+
+    def _accept(self, _event: wx.CommandEvent) -> None:
+        try:
+            self.selected_range = _radioarchiwista_module.fragment_range(
+                self.recording, self.start_field.GetValue(), self.end_field.GetValue()
+            )
+        except _radioarchiwista_module.RadioarchiwistaError as error:
+            wx.MessageBox(str(error), "Nieprawidłowy zakres fragmentu", wx.OK | wx.ICON_WARNING, self)
+            self.start_field.SetFocus()
+            return
+        self.EndModal(wx.ID_OK)
+
+
 class RenameItemDialog(wx.Dialog):
     """Jednoznacznie nazwane pole zmiany nazwy, bez technicznych wartości."""
 
@@ -15237,6 +15286,8 @@ class LiteFrame(wx.Frame):
             self._toggle_radioarchiwista_favorite()
         elif action is Action.RADIOARCHIWISTA_DOWNLOAD:
             self._download_radioarchiwista_recording()
+        elif action is Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT:
+            self._download_radioarchiwista_fragment()
         elif action is Action.RADIOARCHIWISTA_REFRESH:
             self._refresh_radioarchiwista_view()
         elif action is Action.VIEW_FAVORITES:
@@ -18936,6 +18987,144 @@ class LiteFrame(wx.Frame):
         pulse_timer = wx.CallLater(250, tick)
         self.announcer.say(i18n.tr("rarch.download.started"))
         self.runner.submit("radioarchiwista.download", work, done, failed)
+
+    def _download_radioarchiwista_fragment(self) -> None:
+        """Ctrl+Shift+D: zapisz wybrany zakres z odległego MP3 jako nowy plik."""
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
+        if row is None or row.kind != "recording" or not row.url:
+            self.announcer.say(i18n.tr("rarch.selectForDownload"))
+            return
+        if self._radioarchiwista_downloads:
+            self.announcer.say(i18n.tr("rarch.download.busy"))
+            return
+        source = self._radioarchiwista_source()
+        client = self.client
+        if source is None or client is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        recording = source.recording_by_id(row.item_id)
+        if recording is None:
+            self.announcer.say("Nie znam tego nagrania")
+            return
+        dialog = RadioarchiwistaFragmentDialog(self, recording)
+        try:
+            selected = dialog.ShowModal() == wx.ID_OK
+            time_range = dialog.selected_range
+        finally:
+            dialog.Destroy()
+            self._restore_focus_after_dialog()
+        if not selected or time_range is None:
+            return
+        start_seconds, end_seconds = time_range
+        target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+        cancel_event = threading.Event()
+        operation_id = uuid.uuid4().hex
+        stage = "download"
+        cancellation_sent = False
+        progress_dialog = wx.ProgressDialog(
+            "Pobieranie fragmentu Radio Archiwisty",
+            "Pobieram nagranie źródłowe",
+            maximum=100,
+            parent=self,
+            style=wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME,
+        )
+        progress_dialog.SetName("Pobieranie fragmentu Radio Archiwisty")
+        pulse_timer: wx.CallLater | None = None
+
+        def tick() -> None:
+            nonlocal cancellation_sent
+            if progress_dialog.IsBeingDeleted():
+                return
+            if stage == "export":
+                result = progress_dialog.Pulse("Zapisuję fragment jako nowy plik")
+            else:
+                result = progress_dialog.Pulse("Pobieram nagranie źródłowe")
+            if result is False or isinstance(result, tuple) and not result[0]:
+                cancel_event.set()
+            if progress_dialog.WasCancelled():
+                cancel_event.set()
+            if cancel_event.is_set() and stage == "export" and not cancellation_sent:
+                cancellation_sent = True
+                self.runner.submit(
+                    "radioarchiwista.fragment.cancel",
+                    lambda: client.cancel_audio_clip(operation_id),
+                    lambda _result: None,
+                    lambda _error: None,
+                )
+            if pulse_timer is not None and not cancellation_sent:
+                pulse_timer.Start(250)
+
+        def progress(percent: int) -> None:
+            if stage == "download":
+                wx.CallAfter(show_progress, percent)
+
+        def show_progress(percent: int) -> None:
+            if progress_dialog.IsBeingDeleted() or stage != "download":
+                return
+            result = progress_dialog.Update(percent, f"Pobieram nagranie: {percent}%")
+            if result is False or isinstance(result, tuple) and not result[0]:
+                cancel_event.set()
+
+        def finish() -> None:
+            if pulse_timer is not None:
+                pulse_timer.Stop()
+            if not progress_dialog.IsBeingDeleted():
+                progress_dialog.Destroy()
+            self._radioarchiwista_downloads.discard(row.item_id)
+
+        def work() -> Path:
+            nonlocal stage
+            caps = client.audio_clip_capabilities("nagranie.mp3")
+            formats = caps.get("formats", []) if isinstance(caps, dict) else []
+            if not any(item.get("value") == "original" and item.get("available")
+                       for item in formats if isinstance(item, dict)):
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Zapis fragmentu MP3 wymaga składnika FFmpeg"
+                )
+            target = _radioarchiwista_module.fragment_destination(
+                target_dir, recording, start_seconds, end_seconds
+            )
+
+            def export(source_path: str, destination_path: str, start: int, end: int) -> None:
+                nonlocal stage
+                stage = "export"
+                if cancel_event.is_set():
+                    raise _radioarchiwista_module.RadioarchiwistaError(
+                        "Pobieranie fragmentu anulowane"
+                    )
+                client.export_audio_clip(
+                    source_path=source_path,
+                    destination_path=destination_path,
+                    start_seconds=start,
+                    end_seconds=end,
+                    format_value="original",
+                    operation_id=operation_id,
+                )
+
+            return _radioarchiwista_module.download_fragment(
+                recording, target, start_seconds, end_seconds,
+                export=export, progress=progress, should_cancel=cancel_event.is_set,
+            )
+
+        def done(path: Path) -> None:
+            finish()
+            saved = self._record_download(path, title=row.title, source="archive")
+            message = f"Fragment zapisany: {path.name}"
+            if not saved:
+                message += ". Nie zapisano wpisu w historii pobierania"
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            finish()
+            self.announcer.say(
+                "Pobieranie fragmentu anulowane" if cancel_event.is_set()
+                else f"Nie udało się pobrać fragmentu: {error}"
+            )
+
+        self._radioarchiwista_downloads.add(row.item_id)
+        pulse_timer = wx.CallLater(250, tick)
+        self.announcer.say("Rozpoczęto pobieranie fragmentu Radio Archiwisty")
+        self.runner.submit("radioarchiwista.fragment", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:
         """F5: ponowne wczytanie bieżącego poziomu z pominięciem cache."""

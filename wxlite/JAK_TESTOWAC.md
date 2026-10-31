@@ -542,6 +542,14 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     że plik jest niedostępny. Porównaj nazwy obu poleceń w menu, palecie
     `Ctrl+Shift+K`, pomocy `F1` i pomocy klawiszowej `Ctrl+F1`. Ponownie otwórz
     listę i sprawdź fokus oraz strzałki.
+    Od `alpha.457` w Radio Archiwiście wybierz nagranie i naciśnij
+    `Ctrl+Shift+D`. Wpisz początek i koniec `MM:SS`, sprawdź Tab, Enter,
+    Escape, komunikat błędnego zakresu i powrót fokusu. Po zapisaniu
+    wycinek MP3 powinien pojawić się w Historii pobrań pod `Ctrl+J`;
+    oryginalne nagranie i inne pobrane pliki mają pozostać bez zmian.
+    Powtórz otwarcie z odtwarzacza `F6`. W Podcastach `Ctrl+Shift+D`
+    nadal pobiera wideo. Sprawdź nazwy i dostępność polecenia w menu Pliki,
+    palecie `Ctrl+Shift+K`, pomocy `F1` i `Ctrl+F1`.
 11. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
     `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek
