@@ -26,7 +26,7 @@ def test_settings_have_real_native_pages_and_explicit_accessible_names() -> None
     assert 'self.keep_audio_edit_backups.SetName("Zachowuj kopie po edycji")' in source
     assert '"Długość przeskoku pod Ctrl+Alt+strzałką w lewo i w prawo"' in source
     assert 'self.global_transient_previews.SetName(' in source
-    assert '"Wspólne podglądy nagrywania i nowych odcinków we wszystkich sesjach"' in source
+    assert '"Wspólne podglądy nowych odcinków i transmisji we wszystkich sesjach"' in source
     assert 'self.remember_local_playback_positions.SetName(' in source
     assert '"Pamiętaj pozycję odtwarzania lokalnych plików"' in source
     assert 'self.detailed_hints.SetName(' in source

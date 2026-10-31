@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import Row
-from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId
+from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId, View
 from amc_wx_lite.playback_history import (
     activity_rows,
     history_rows,
@@ -197,6 +197,47 @@ def test_ctrl_h_keeps_each_streamer_in_its_own_session() -> None:
         assert navigator.session.model.selected_row.title == "Własny wpis"
         assert len(events) == 1
         assert "Historia odtwarzania" in events[0][0].text
+
+
+def test_ctrl_h_reaches_wiim_and_frontier_history_from_list_and_player() -> None:
+    for session_id in (SessionId.WIIM, SessionId.FRONTIER_SMART):
+        for view in (View.LIST, View.PLAYER):
+            navigator = Navigator()
+            navigator.active = session_id
+            navigator.session.view = view
+            frame = SimpleNamespace(
+                navigator=navigator,
+                state=LiteState(playback_history_by_session={
+                    session_id.value: [{
+                        "itemId": f"{session_id.value}:observed:one",
+                        "title": "Odtwarzany materiał",
+                        "kind": "track",
+                        "replaySupported": False,
+                    }]
+                }),
+                _global_transient_previews=False,
+                messages=SimpleNamespace(custom_seek_seconds=300),
+                _transient_preview_return=None,
+                _announce_transient_preview=lambda events: None,
+                announcer=SimpleNamespace(say=lambda message: None),
+            )
+            frame._begin_transient_preview = (
+                lambda current=frame: LiteFrame._begin_transient_preview(current)
+            )
+            frame._show_playback_history_preview = (
+                lambda current=frame: LiteFrame._show_playback_history_preview(current)
+            )
+            action = resolve(
+                Chord("H", ctrl=True), player_view=view is View.PLAYER,
+                radio_session=False,
+                wiim_session=session_id is SessionId.WIIM,
+                frontier_smart_session=session_id is SessionId.FRONTIER_SMART,
+            )
+            assert action is Action.VIEW_HISTORY
+            LiteFrame._dispatch(frame, action)
+            assert navigator.active is session_id
+            assert navigator.session.library_view is LibraryView.SERVICE_HISTORY
+            assert navigator.session.model.selected_row.title == "Odtwarzany materiał"
 
 
 def test_new_session_history_contract_and_persistence() -> None:

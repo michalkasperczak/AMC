@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite import menu_model
+from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, Navigator, SessionId, View
 from amc_wx_lite.shortcuts import (
@@ -12,7 +14,12 @@ from amc_wx_lite.shortcuts import (
     Chord,
     GLOBAL_VIEW_SHORTCUTS,
     SONOS_SUPPORTED_ACTIONS,
+    SPOTIFY_SUPPORTED_ACTIONS,
     WIIM_SUPPORTED_ACTIONS,
+    FRONTIER_SMART_SUPPORTED_ACTIONS,
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+    describe,
+    keyboard_help_announcement,
     resolve,
 )
 from amc_wx_lite.state_store import LiteState
@@ -54,12 +61,7 @@ def test_global_view_shortcuts_resolve_before_provider_tables() -> None:
         (Chord("R", alt=True), Action.VIEW_ACTIVE_RECORDINGS),
         (Chord("R", alt=True, shift=True), Action.VIEW_RECORDED_RADIO_FILES),
     )
-    sessions = (
-        SessionId.RADIO,
-        SessionId.PODCASTS,
-        SessionId.WIIM,
-        SessionId.SONOS,
-    )
+    sessions = tuple(SessionId)
     for session in sessions:
         for player in (False, True):
             for chord, expected in cases:
@@ -70,6 +72,8 @@ def test_global_view_shortcuts_resolve_before_provider_tables() -> None:
                     podcast_session=session is SessionId.PODCASTS,
                     wiim_session=session is SessionId.WIIM,
                     sonos_session=session is SessionId.SONOS,
+                    frontier_smart_session=session is SessionId.FRONTIER_SMART,
+                    radioarchiwista_session=session is SessionId.RADIOARCHIWISTA,
                 ) is expected
 
 
@@ -195,25 +199,28 @@ def test_repeated_ctrl_i_loads_next_batch_and_preserves_preview_origin() -> None
 
 
 def test_remote_provider_gates_allow_the_global_history_action() -> None:
-    assert Action.VIEW_HISTORY in WIIM_SUPPORTED_ACTIONS
-    assert Action.VIEW_HISTORY in SONOS_SUPPORTED_ACTIONS
+    for supported in (
+        WIIM_SUPPORTED_ACTIONS, SONOS_SUPPORTED_ACTIONS,
+        SPOTIFY_SUPPORTED_ACTIONS,
+        FRONTIER_SMART_SUPPORTED_ACTIONS, RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+    ):
+        assert Action.VIEW_HISTORY in supported
+        assert Action.VIEW_ACTIVE_RECORDINGS in supported
+        assert Action.VIEW_RECORDED_RADIO_FILES in supported
     assert Action.REMOVE_SELECTED in WIIM_SUPPORTED_ACTIONS
     assert Action.REMOVE_SELECTED in SONOS_SUPPORTED_ACTIONS
 
 
-def test_disabled_global_mode_keeps_only_home_sessions() -> None:
-    assert is_transient_preview_available(
-        Action.VIEW_ACTIVE_RECORDINGS, SessionId.RADIO, global_previews=False
-    )
-    assert not is_transient_preview_available(
-        Action.VIEW_ACTIVE_RECORDINGS, SessionId.FILES, global_previews=False
-    )
-    assert is_transient_preview_available(
-        Action.VIEW_RECORDED_RADIO_FILES, SessionId.RADIO, global_previews=False
-    )
-    assert is_transient_preview_available(
-        Action.VIEW_RECORDED_RADIO_FILES, SessionId.FILES, global_previews=False
-    )
+def test_recording_and_playback_history_are_global_even_with_option_off() -> None:
+    for session in SessionId:
+        for action in (
+            Action.VIEW_ACTIVE_RECORDINGS,
+            Action.VIEW_RECORDED_RADIO_FILES,
+            Action.VIEW_HISTORY,
+        ):
+            assert is_transient_preview_available(
+                action, session, global_previews=False
+            )
     assert is_transient_preview_available(
         Action.VIEW_PODCAST_INBOX, SessionId.PODCASTS, global_previews=False
     )
@@ -223,12 +230,6 @@ def test_disabled_global_mode_keeps_only_home_sessions() -> None:
 
 
 def test_unavailable_messages_name_user_facing_home_sessions() -> None:
-    assert "Radio" in transient_preview_unavailable_message(
-        Action.VIEW_ACTIVE_RECORDINGS
-    )
-    assert "Pliki lokalne" in transient_preview_unavailable_message(
-        Action.VIEW_RECORDED_RADIO_FILES
-    )
     assert "Podcasty i YouTube" in transient_preview_unavailable_message(
         Action.VIEW_PODCAST_INBOX
     )
@@ -250,18 +251,100 @@ def test_profile_value_is_strict_and_private_override_wins(tmp_path: Path) -> No
     assert load_global_transient_previews(state) is True
 
 
-def test_window_blocks_global_shortcut_before_running_foreign_session_action() -> None:
-    spoken: list[str] = []
+def test_recording_views_execute_from_every_session_with_option_off() -> None:
+    for session in SessionId:
+        calls: list[str] = []
+        frame = SimpleNamespace(
+            navigator=Navigator(),
+            _global_transient_previews=False,
+            messages=SimpleNamespace(custom_seek_seconds=300),
+            announcer=SimpleNamespace(say=lambda message: calls.append(message)),
+            _show_active_radio_recordings=lambda: calls.append("active"),
+            _show_radio_recording_history=lambda: calls.append("recorded"),
+        )
+        frame.navigator.active = session
+        LiteFrame._dispatch(frame, Action.VIEW_ACTIVE_RECORDINGS)
+        LiteFrame._dispatch(frame, Action.VIEW_RECORDED_RADIO_FILES)
+        assert calls == ["active", "recorded"], session
+
+
+def test_recording_and_history_commands_match_menu_and_palette_in_every_session() -> None:
+    shortcuts = {
+        Action.VIEW_ACTIVE_RECORDINGS: "Alt+R",
+        Action.VIEW_RECORDED_RADIO_FILES: "Alt+Shift+R",
+        Action.VIEW_HISTORY: "Ctrl+H",
+    }
+    for session in SessionId:
+        menu_items = {
+            item.action: item
+            for menu in menu_model.menus_for_session(session)
+            for item in menu.items
+        }
+        palette_items = {
+            entry.action: entry for entry in entries_for_session(session)
+        }
+        descriptions = dict(describe(session.value, set(shortcuts)))
+        for action, shortcut in shortcuts.items():
+            assert action in menu_items, (session, action)
+            assert action in palette_items, (session, action)
+            name = menu_items[action].label.replace("&", "")
+            assert menu_items[action].shortcut == shortcut
+            assert palette_items[action].name == name
+            assert palette_items[action].shortcut == shortcut
+            assert descriptions[shortcut] == name
+            assert keyboard_help_announcement(
+                Chord("H", ctrl=True) if action is Action.VIEW_HISTORY
+                else Chord("R", alt=True, shift=action is Action.VIEW_RECORDED_RADIO_FILES),
+                action,
+                session.value,
+            ) == f"{shortcut}. {name}. {session.value}"
+
+
+def test_recording_previews_from_archive_restore_its_selection(monkeypatch) -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.RADIOARCHIWISTA
+    navigator.session.model.replace([
+        Row("first", "Pierwsze nagranie", "recording"),
+        Row("chosen", "Wybrane nagranie", "recording"),
+    ], preferred_id="chosen")
+    client = SimpleNamespace(
+        radio_recording_status=lambda: {"recordings": []},
+        radio_recording_history=lambda: {"recordings": []},
+    )
     frame = SimpleNamespace(
-        navigator=SimpleNamespace(active=SessionId.TIDAL),
-        _global_transient_previews=False,
-        announcer=SimpleNamespace(say=spoken.append),
+        navigator=navigator,
+        client=client,
+        state=LiteState(),
+        runner=SimpleNamespace(submit=lambda _name, work, done, _failed: done(work())),
+        radio=SimpleNamespace(load=lambda **_kwargs: SimpleNamespace(
+            load_error="", list=[],
+        )),
+        _radio_snapshot=None,
+        _transient_preview_return=None,
+        _announce_transient_preview=lambda _events: None,
+        _sync_views=lambda: None,
+        announcer=SimpleNamespace(say=lambda _message: None),
+    )
+    frame._begin_transient_preview = (
+        lambda: LiteFrame._begin_transient_preview(frame)
+    )
+    monkeypatch.setattr(
+        LiteFrame, "_with_radio_recording_options",
+        lambda _self, snapshot: snapshot,
     )
 
-    LiteFrame._dispatch(frame, Action.VIEW_ACTIVE_RECORDINGS)
-
-    assert len(spoken) == 1
-    assert "Radio" in spoken[0]
+    for show, target_session, target_view in (
+        (LiteFrame._show_active_radio_recordings,
+         SessionId.RADIO, LibraryView.ACTIVE_RADIO_RECORDINGS),
+        (LiteFrame._show_radio_recording_history,
+         SessionId.FILES, LibraryView.RECORDED_RADIO_FILES),
+    ):
+        show(frame)
+        assert navigator.active is target_session
+        assert navigator.session.library_view is target_view
+        assert LiteFrame._restore_transient_preview(frame, announce=False)
+        assert navigator.active is SessionId.RADIOARCHIWISTA
+        assert navigator.session.model.selected_id == "chosen"
 
 
 def test_window_runs_preview_in_its_home_session_when_global_mode_is_off() -> None:

@@ -7449,12 +7449,12 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.global_transient_previews = wx.CheckBox(
             general,
             label=(
-                "Wspólne podglądy &nagrywania i nowych odcinków "
+                "Wspólne podglądy &nowych odcinków i transmisji "
                 "we wszystkich sesjach"
             ),
         )
         self.global_transient_previews.SetName(
-            "Wspólne podglądy nagrywania i nowych odcinków we wszystkich sesjach"
+            "Wspólne podglądy nowych odcinków i transmisji we wszystkich sesjach"
         )
         self.global_transient_previews.SetValue(global_transient_previews)
 
