@@ -80,8 +80,9 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   historia pobranych plików Radio Archiwisty, Podcastów i wideo pod `Ctrl+J`.
   Szczegóły: [DOWNLOADS-001-historia-pobierania.md](DOWNLOADS-001-historia-pobierania.md).
 
-- `DOWNLOADS-002` — **AMC Test `alpha.456`, pełna regresja zaliczona; wydanie
-  i instalacja w toku** — w Historii pobrań `Ctrl+C` kopiuje ścieżkę, a
+- `DOWNLOADS-002` — **AMC Test `alpha.456` opublikowany na GitHubie i
+  zainstalowany; 2215 testów zaliczonych, odbiór NVDA oczekuje** — w Historii
+  pobrań `Ctrl+C` kopiuje ścieżkę, a
   `Ctrl+Shift+C` plik do wklejenia. Szczegóły:
   [DOWNLOADS-002-schowek-historii-pobran.md](DOWNLOADS-002-schowek-historii-pobran.md).
 

@@ -4,8 +4,8 @@
   `Ctrl+C` ma kopiować ścieżkę, a `Ctrl+Shift+C` plik do wklejenia. Zastępuje
   wcześniejsze, domyślne działanie `Ctrl+C` kopiujące nazwę na tej liście.
 - Wersja: AMC Test `0.1.0-alpha.456`.
-- Status: implementacja i pełna regresja gotowe; wydanie, instalacja oraz
-  odbiór NVDA do uzupełnienia.
+- Status: **kod, testy, pakiet, instalator, wydanie GitHub i lokalna instalacja
+  AMC Test gotowe**; ręczny odbiór NVDA oczekuje na użytkownika.
 
 ## Zachowanie
 
@@ -32,8 +32,21 @@
   13 podtestów zaliczonych, 0 błędów**. Pierwszy przebieg wykrył brak dwóch
   tłumaczeń i sprzężenie atrapy wx z kolejnością testów. Oba problemy
   poprawiono przed przebiegiem końcowym.
-- Build, instalator, GitHub i lokalna instalacja: do uzupełnienia.
+- Kompilacja hosta i kontrolowany start paczki: zaliczone; pakiet zawiera
+  2141 plików i commit źródłowy `3ee400134972385846a32ac959d702ec14b7262e`.
+- Instalator `AMC-Test-2026-10-31-1404.exe`: 133620120 bajtów, SHA-256
+  `a4608beade5a6da284a3199eeab922152e29f4b1169c1ff061f215699c794f87`.
+- GitHub: wydanie wstępne `test-2026.10.31.1404` opublikowane. Zdalny
+  instalator ma tę samą nazwę, rozmiar i sumę SHA-256.
+- Instalacja `C:\Users\micha\AppData\Local\Programs\AMC Test`: zaktualizowana,
+  manifest wskazuje commit wydania. Uruchomiona jest po jednej instancji
+  `AMC.exe`, Pythona i hosta.
 - Ręczny odbiór z NVDA: oczekuje na próbę użytkownika po instalacji.
+
+## Wersja i pliki
+
+GitHub: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.31.1404`.
+Instalator: `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.456 schowek pobran 2026-10-31\instalator\AMC-Test-2026-10-31-1404.exe`.
 
 ## Projekt instrukcji i opisu zmian
 
