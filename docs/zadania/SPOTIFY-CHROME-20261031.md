@@ -35,4 +35,13 @@ Wymagany jest systemowy Google Chrome z Widevine. Web Playback SDK i wewnętrzny
 
 ## Wersja i commit
 
-Kandydat: AMC Test `0.1.0-alpha.459`, gałąź `codex/amc-test-spotify-chrome-alpha459`, podstawa poprzedniego wydania `acbe251960fce7fe15253f08d9a6fb0747999940`. Commit, pełna regresja, samowystarczalny bundle, instalator, GitHub prerelease i instalacja lokalna: do uzupełnienia według faktycznego wyniku. Użytkownik sam wykona aktualizację po zakończeniu nagrywania; w tym zadaniu nie zamykać ani nie instalować bieżącego AMC.
+AMC Test `0.1.0-alpha.459`, gałąź `codex/amc-test-spotify-chrome-alpha459`, podstawa poprzedniego wydania `acbe251960fce7fe15253f08d9a6fb0747999940`. Commit źródłowy paczki: `4217efff92e6cf685e9ab6ed569d4bae8f58e164`.
+
+- Pełna regresja wxPython: 2213 zaliczonych, 150 pominiętych, 3 niepowodzenia z powodu brakującego standardowego hosta Release i brakującego wxPython w procesie potomnym testu. Po zbudowaniu hosta Release dwa testy integracyjne przeszły, a sonda okna Sonos uruchomiona bezpośrednio z właściwym wxPython zwróciła `MODELLESS_OK`. Protokół hosta: 28 zestawów zaliczonych.
+- Samowystarczalny bundle Test: `sourceDirty=false`, profil `test`, commit jak wyżej, `bundleId=21899544`, 2141 plików. Kontrola pełnej integralności i kontrolowany start interfejsu oraz hosta: zaliczone.
+- Instalator `AMC-Test-2026-10-31-1729.exe`: 133667591 bajtów, SHA-256 `558b308a467300c535ad819c22f7efc1df38760096d83593ae97909262258dd2`. Skan sekretów: zaliczony. GitHub prerelease `test-2026.10.31.1729` wskazuje dokładny commit i zawiera instalator, plik integralności oraz manifest aktualizacji. GitHub odczytowo potwierdził nazwę, rozmiar i taki sam digest SHA-256 instalatora.
+- Lokalna instalacja: nie wykonana. Użytkownik sam wykona aktualizację po zakończeniu nagrywania; nie zamykano bieżącego AMC.
+
+## Późniejsza korekta jakości — 31.10.2026
+
+Po publikacji źródeł i instalatora odczytano nowe [pomiary Huberta w #11](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6543596541). To zastępuje powyższe „brak potwierdzenia Lossless” bardziej konkretnym wynikiem: na jego koncie Premium i utworze `Refuse / Resist` ramka Web Playback SDK raportowała dekoder AAC, 44,1 kHz i wejście 16-bitowe. Bitrate nie był podany. W sprawdzonym torze Chrome gra więc **stratnie**, bez Lossless. Soloist 1.3.10 odtwarzał FLAC po wpisaniu dwóch nieudokumentowanych wartości do `prefs`; domyślnie grał Ogg Vorbis 160 kb/s. [Dodatkowa próba Huberta](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6543632323) wskazuje możliwość uniknięcia przeliczenia 44,1→48 kHz przy odpowiednim formacie wyjścia, ale dotyczy tylko jego urządzenia i utworu. Nie zmieniano toru AMC na Soloist w tym wydaniu. Opis GitHub i lokalny opis wydania zostały skorygowane, a [komentarz w #11](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6546199862) odczytowo potwierdzono; sam instalator nadal odpowiada commitowi `4217efff`.

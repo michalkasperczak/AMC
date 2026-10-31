@@ -16,4 +16,4 @@ Ten tekst jest szkicem do sprawdzenia i korekty użytkownika; nie jest opublikow
 - `Shift+A` obsługuje wyjścia Windows także przy odtwarzaniu Spotify w Chrome; sprawdzono przełączenie na Denona USB.
 - Wcześniejsze poprawki pola Client ID i zapisu kompletnej biblioteki pozostają dostępne.
 
-Jakość Lossless w tym trybie nie jest potwierdzona. AMC Test wymaga systemowego Google Chrome z Widevine. Ręczny odbiór NVDA i odsłuch w zainstalowanej wersji pozostają do wykonania po aktualizacji.
+W pomiarze Huberta Web Playback SDK dekodował AAC, więc sprawdzony tor Chrome gra stratnie i nie zapewnia Lossless. AMC Test wymaga systemowego Google Chrome z Widevine. Ręczny odbiór NVDA i odsłuch w zainstalowanej wersji pozostają do wykonania po aktualizacji.
