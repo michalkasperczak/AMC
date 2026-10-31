@@ -535,6 +535,13 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     otwarcie z każdej sesji. Usuń lub przenieś kopię testowego pliku i sprawdź,
     czy „Brak pliku” jest czytelne i Enter nie próbuje odtwarzać. Testuj bez
     naruszania własnych nagrań użytkownika.
+    Od `alpha.456` na dostępnej pozycji sprawdź `Ctrl+C`: schowek tekstowy ma
+    zawierać pełną ścieżkę. `Ctrl+Shift+C` ma pozwolić wkleić kopię pliku w
+    innym folderze Eksploratora lub Total Commandera. Na brakującym pliku
+    `Ctrl+C` ma nadal kopiować zapisaną ścieżkę, a `Ctrl+Shift+C` ma mówić,
+    że plik jest niedostępny. Porównaj nazwy obu poleceń w menu, palecie
+    `Ctrl+Shift+K`, pomocy `F1` i pomocy klawiszowej `Ctrl+F1`. Ponownie otwórz
+    listę i sprawdź fokus oraz strzałki.
 11. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
     `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek

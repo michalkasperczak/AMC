@@ -2671,6 +2671,8 @@ def describe(
     session_label: str | None = None,
     available_actions: set[Action] | None = None,
     shortcut_overrides: dict[Action, str] | None = None,
+    *,
+    downloaded_files: bool = False,
 ) -> list[tuple[str, str]]:
     """Tekst spisu F1 bez technicznych identyfikatorów poleceń.
 
@@ -2689,15 +2691,25 @@ def describe(
                 if ctrl_f5 is not None and ctrl_f5.action is action
                 else chord
             ),
-            describe_action(action, session_label),
+            describe_action(action, session_label, downloaded_files=downloaded_files),
         )
         for chord, _label, action in _help_entries()
         if available_actions is None or action in available_actions
     ]
 
 
-def describe_action(action: Action, session_label: str | None = None) -> str:
+DOWNLOAD_HISTORY_COPY_LABELS = {
+    Action.COPY_NAME: "Skopiuj pełną ścieżkę pobranego pliku",
+    Action.COPY_ADDRESS: "Skopiuj pobrany plik do wklejenia",
+}
+
+
+def describe_action(
+    action: Action, session_label: str | None = None, *, downloaded_files: bool = False
+) -> str:
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
+    if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
+        return DOWNLOAD_HISTORY_COPY_LABELS[action]
     if (session_label or "").casefold() == "radio archiwista":
         archive_labels = {
             Action.VIEW_LIBRARY: "Pokaż pełną listę stacji Radio Archiwisty",
@@ -2780,6 +2792,7 @@ def keyboard_help_announcement(
     session_label: str,
     *,
     available: bool = True,
+    downloaded_files: bool = False,
 ) -> str:
     """Zwięzły opis Ctrl+F1: skrót, polecenie i kontekst sesji."""
     shortcut = readable_chord(chord)
@@ -2789,7 +2802,7 @@ def keyboard_help_announcement(
             shortcut=shortcut,
             session=session_label,
         )
-    label = describe_action(action, session_label)
+    label = describe_action(action, session_label, downloaded_files=downloaded_files)
     if not available:
         return i18n.tr(
             "keyboardHelp.unavailable",

@@ -209,6 +209,7 @@ from .navigation import (
 from .shortcuts import (
     Action,
     Chord,
+    DOWNLOAD_HISTORY_COPY_LABELS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
@@ -10113,6 +10114,12 @@ class LiteFrame(wx.Frame):
         )
         blocked_sessions = self._sessions_blocked_from_disabling()
         for item, entry in self._menu_items:
+            if entry.action in {Action.COPY_NAME, Action.COPY_ADDRESS}:
+                label = (DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
+                         if self._in_download_history() else entry.label)
+                native_label = self._menu_native_label(entry, label)
+                if item.GetItemLabel() != native_label:
+                    item.SetItemLabel(native_label)
             enabled = True
             if entry.action is Action.SESSION_ENABLE and (
                 not inactive_sessions
@@ -10200,6 +10207,13 @@ class LiteFrame(wx.Frame):
             if entry.needs_player_view and session.view is not View.PLAYER:
                 enabled = False
             if entry.needs_selection and not has_row:
+                enabled = False
+            if (
+                entry.action is Action.COPY_ADDRESS
+                and self._in_download_history()
+                and (selected_row is None or not selected_row.path
+                     or not os.path.isfile(selected_row.path))
+            ):
                 enabled = False
             if (
                 self.navigator.active is SessionId.RADIOARCHIWISTA
@@ -10546,6 +10560,8 @@ class LiteFrame(wx.Frame):
                 label = label[:-len(suffix)]
         if entry.action is Action.STATION_EDIT:
             label = "Zmień nazwę lub adres stacji"
+        elif self._in_download_history() and entry.action in DOWNLOAD_HISTORY_COPY_LABELS:
+            label = DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
         elif entry.action is Action.EDIT_WIIM_NETWORK_STREAM:
             label = "Zmień nazwę lub adres strumienia WiiM…"
         elif entry.action is Action.EDIT_SONOS_OWN_STREAM:
@@ -19609,6 +19625,12 @@ class LiteFrame(wx.Frame):
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
         )
         entries = available_command_entries(entries, available_actions)
+        if self._in_download_history():
+            entries = tuple(
+                replace(entry, name=DOWNLOAD_HISTORY_COPY_LABELS[entry.action])
+                if entry.action in DOWNLOAD_HISTORY_COPY_LABELS else entry
+                for entry in entries
+            )
         with CommandPaletteDialog(self, entries) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 self._restore_focus_after_dialog()
@@ -24279,6 +24301,16 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
+    def _in_download_history(self) -> bool:
+        """Czy bieżąca lista jest historią pobranych plików."""
+        navigator = getattr(self, "navigator", None)
+        session = getattr(navigator, "session", None)
+        return (
+            getattr(navigator, "active", None) is SessionId.FILES
+            and getattr(session, "view", None) is View.LIST
+            and getattr(session, "library_view", None) is LibraryView.DOWNLOADED_FILES
+        )
+
     def _copy_name(self) -> None:
         """Ctrl+C: nazwy zaznaczonych elementow, po jednej w wierszu.
 
@@ -24291,6 +24323,23 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Nie ma czego skopiować")
             return
         self._clear_pending_external_moves()
+        if self._in_download_history():
+            entries = getattr(self, "_download_history_entries", {})
+            paths = [
+                entry.path if (entry := entries.get(row.item_id)) is not None
+                else row.path
+                for row in rows
+            ]
+            if any(not path for path in paths):
+                self.announcer.say("Nie ma zapisanej ścieżki do pobranego pliku")
+                return
+            if self._to_clipboard(os.linesep.join(paths)):
+                self.announcer.say(
+                    "Skopiowano pełną ścieżkę"
+                    if len(paths) == 1 else
+                    f"Skopiowano pełne ścieżki: {format_file_count(len(paths))}"
+                )
+            return
         text = os.linesep.join(row.title for row in rows)
         success_message = (
             COPIED_NAME_MESSAGE
@@ -24740,6 +24789,11 @@ class LiteFrame(wx.Frame):
         ) else self._selected_action_rows()
         if not rows:
             self.announcer.say("Nie ma czego skopiować")
+            return
+        if LiteFrame._in_download_history(self) and any(
+            not row.path or not os.path.isfile(row.path) for row in rows
+        ):
+            self.announcer.say("Plik niedostępny. Ctrl+C skopiuje zapisaną ścieżkę")
             return
         if any(not row.address for row in rows):
             self.announcer.say(
@@ -32506,6 +32560,7 @@ class LiteFrame(wx.Frame):
                     action is None
                     or self._action_available_in_active_session(action)
                 ),
+                downloaded_files=self._in_download_history(),
             )
         )
         return True
@@ -32533,6 +32588,7 @@ class LiteFrame(wx.Frame):
                 SESSION_LABELS[self.navigator.active],
                 available_actions,
                 shortcut_overrides,
+                downloaded_files=self._in_download_history(),
             )
         ]
         wx.MessageBox("\n".join(lines), "Skroty klawiszowe", wx.OK | wx.ICON_INFORMATION, self)

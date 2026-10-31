@@ -1906,3 +1906,11 @@ pojawiają się dzięki odczytowi ich istniejących lokalnych źródeł. Dawnych
 wideo zapisanych w dowolnych folderach AMC nie umie odnaleźć wstecz; nowe
 pobrania wideo zapisuje w historii od tej wersji. Dotychczasowy widok
 Podcasty → Pobrane nadal pokazuje same dostępne odcinki audio.
+
+Na liście Historii pobrań `Ctrl+C` kopiuje pełną ścieżkę zaznaczonego pliku
+jako tekst. `Ctrl+Shift+C` kopiuje istniejący plik do schowka Windows, aby
+można go było wkleić w innym folderze; w schowku jest również tekst ścieżki.
+Przy wielokrotnym zaznaczeniu działanie obejmuje wszystkie wybrane pliki.
+Jeżeli plik nie jest już dostępny, `Ctrl+C` nadal kopiuje zapisaną ścieżkę,
+a `Ctrl+Shift+C` informuje o braku pliku. W pozostałych widokach `Ctrl+C`
+nadal kopiuje nazwę elementu.
