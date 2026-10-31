@@ -1,7 +1,7 @@
 # DOWNLOADS-001 — wspólna historia pobierania
 
-- Status: **W trakcie; kod, testy pełne i build hosta gotowe, przed
-  zbudowaniem instalatora i instalacją**.
+- Status: **W trakcie ręcznego odbioru NVDA; kod, pełne testy, paczka,
+  instalator, wydanie GitHub i lokalna instalacja AMC Test są gotowe**.
 - Decyzja użytkownika: 31.10.2026. Wspólna lista pobranych plików w Radio
   Archiwiście i Podcastach, również wideo, analogiczna do historii nagrywania.
 - Wersja docelowa: AMC Test `0.1.0-alpha.455`.
@@ -39,8 +39,16 @@ Spotify jest oddzielnym zadaniem i nie jest częścią tej zmiany.
   **2211 zaliczonych, 143 pominięte, 13 podtestów zaliczonych, 0 błędów**.
   Wcześniejsze próby ujawniły stare atrapy wx i luki w katalogu angielskim;
   naprawiono je przed końcowym przebiegiem.
-- Instalator, publikacja, instalacja i ręczny odbiór NVDA: **w toku**.
-  Testy kodowe nie dowodzą odbioru NVDA.
+- Samowystarczalna paczka i instalator: **zbudowane**, kontrolowany start
+  interfejsu i hosta zaliczony. Instalator ma 133636988 bajtów i SHA-256
+  `85231cc00043c7e050e2f94a6a7aa1003de3be11721b553d0e64f16cb1e62176`.
+- GitHub: wydanie wstępne `test-2026.10.31.1335` **opublikowane**;
+  zdalny załącznik ma tę samą nazwę, rozmiar i SHA-256.
+- Instalacja użytkowa `C:\Users\micha\AppData\Local\Programs\AMC Test`:
+  **zaktualizowana i uruchomiona**. Manifest oraz pojedyncze procesy AMC,
+  Pythona i hosta po instalacji wskazują commit wydania.
+- Ręczny odbiór NVDA na żywym oknie: **oczekuje na próbę użytkownika**.
+  Testy kodowe nie dowodzą tego odbioru.
 
 ## Materiał do dokumentacji użytkownika — projekt
 
@@ -55,4 +63,8 @@ podcastów i wideo. Wpisy pozostają czytelne, jeśli plik został przeniesiony.
 
 ## Wersja i commit
 
-Do uzupełnienia po publikacji i instalacji.
+AMC Test `0.1.0-alpha.455`, nazwa okna `AMC Test — 31.10.2026, 13:35`.
+Commit źródeł instalatora: `e4347862bb90f27c87f6e82754aacd47d49bb29b`.
+GitHub: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.31.1335`.
+Instalator lokalny:
+`D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.455 pobrania 2026-10-31\instalator\AMC-Test-2026-10-31-1335.exe`.
