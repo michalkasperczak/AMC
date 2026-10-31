@@ -527,6 +527,14 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
     także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
     początku; Enter odtwarza lokalny plik zwykłym torem silnika C#.
+    W AMC Test od `alpha.455` `Ctrl+J` lub Widok → „Historia pobrań” otwiera
+    wspólną listę plików z Podcastów i Radio Archiwisty. Pobierz audio przez
+    `Ctrl+D`, wideo przez `Ctrl+Shift+D` i nagranie archiwum przez `Ctrl+D`.
+    Sprawdź przy użyciu NVDA: pierwszą pozycję, strzałki góra/dół, lewo
+    (źródło, data, rozmiar, folder), Enter, `F6`, `F5`, Escape i ponowne
+    otwarcie z każdej sesji. Usuń lub przenieś kopię testowego pliku i sprawdź,
+    czy „Brak pliku” jest czytelne i Enter nie próbuje odtwarzać. Testuj bez
+    naruszania własnych nagrań użytkownika.
 11. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
     `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek

@@ -75,6 +75,11 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   Bez sterowania nagrywaniem. Szczegóły:
   [RARCH-001-integracja-radioarchiwista.md](RARCH-001-integracja-radioarchiwista.md).
 
+- `DOWNLOADS-001` — **W trakcie; historia pobranych plików Radio Archiwisty,
+  Podcastów i wideo pod `Ctrl+J` ma 2211 zaliczonych testów regresji i build
+  hosta, przed instalatorem i instalacją**.
+  Szczegóły: [DOWNLOADS-001-historia-pobierania.md](DOWNLOADS-001-historia-pobierania.md).
+
 - `QUEUE-002` — **Oczekuje na osobny przegląd** — kolejki Podcastów i YouTube,
   Spotify oraz TIDAL nie wchodzą do poprawki Radio Archiwisty. Szczegóły:
   [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).

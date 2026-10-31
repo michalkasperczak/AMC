@@ -312,7 +312,7 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
 
 
 def test_podcast_ctrl_n_has_one_command_contract_on_every_surface() -> None:
-    expected = "Dodaj podcast, SoundCloud, kanał YouTube lub medium internetowe"
+    expected = "Dodaj podcast, SoundCloud, kanał YouTube, stronę Facebooka lub medium internetowe"
     chord = Chord("N", ctrl=True)
     assert resolve(
         chord,

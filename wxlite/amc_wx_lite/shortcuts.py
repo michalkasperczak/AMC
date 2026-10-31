@@ -306,6 +306,7 @@ class Action(Enum):
     VIEW_ACTIVE_RECORDINGS = "radio.recording.activeView"
     RECORDING_OUTPUT_INFORMATION = "radio.recording.outputInformation"
     VIEW_RECORDED_RADIO_FILES = "radio.recording.completedView"
+    VIEW_DOWNLOADED_FILES = "downloads.history"
     ADD_RADIO_SCHEDULE = "radio.recording.schedule.add"
     MANAGE_RADIO_SCHEDULES = "radio.recording.schedules"
     SORT_RADIO_COLLECTION_ADDED = "radio.collection.sort.added"
@@ -665,6 +666,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_SAVED_QUEUE,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -761,6 +763,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_HISTORY,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.VIEW_BACK,
     Action.VIEW_FORWARD,
     Action.PLAYBACK_HISTORY_OLDER,
@@ -889,6 +892,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.REMOVE_SELECTED,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -1003,6 +1007,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.FOCUS_FILTER,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -1065,6 +1070,7 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_HISTORY,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.REMOVE_SELECTED,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
     Action.HELP,
@@ -1497,6 +1503,7 @@ LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
 GLOBAL_VIEW_SHORTCUTS: dict[str, Action] = {
     "Alt+R": Action.VIEW_ACTIVE_RECORDINGS,
     "Alt+Shift+R": Action.VIEW_RECORDED_RADIO_FILES,
+    "Ctrl+J": Action.VIEW_DOWNLOADED_FILES,
     "Ctrl+I": Action.VIEW_PODCAST_INBOX,
     "Ctrl+Shift+I": Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
     "Ctrl+H": Action.VIEW_HISTORY,
@@ -2308,7 +2315,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.CLIP_CLEAR: "Wyczysc zaznaczenie fragmentu",
         Action.TOGGLE_SEEK_MESSAGES: "Automatyczne komunikaty odtwarzacza",
         Action.ADD_PODCAST_SOURCE: (
-            "Dodaj podcast, SoundCloud, kanał YouTube lub medium internetowe"
+            "Dodaj podcast, SoundCloud, kanał YouTube, stronę Facebooka lub medium internetowe"
         ),
         Action.IMPORT_PODCAST_OPML: "Importuj podcasty z OPML",
         Action.EXPORT_PODCAST_OPML: "Eksportuj bibliotekę podcastów do OPML",
@@ -2404,6 +2411,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Podaj format, nazwę pliku i folder bieżącego nagrania"
         ),
         Action.VIEW_RECORDED_RADIO_FILES: "Historia nagrywania",
+        Action.VIEW_DOWNLOADED_FILES: "Pobrane pliki Radio Archiwisty, podcastów i wideo",
         Action.ADD_RADIO_SCHEDULE: "Zaplanuj nagranie wybranej stacji",
         Action.MANAGE_RADIO_SCHEDULES: "Harmonogram nagrywania",
         Action.SORT_RADIO_COLLECTION_ADDED: (

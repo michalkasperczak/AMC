@@ -477,7 +477,7 @@ def build_menus(
                 visible_sessions=SONOS_ONLY,
             ),
             MenuItem(
-                "Dodaj podcast, SoundCloud, kanał YouTube lub medium &internetowe",
+                "Dodaj podcast, SoundCloud, kanał YouTube, stronę Facebooka lub medium &internetowe",
                 Action.ADD_PODCAST_SOURCE,
                 shortcut="Ctrl+N",
                 accelerator=False,
@@ -1542,6 +1542,8 @@ def build_menus(
     view = Menu(
         "&Widok",
         (
+            MenuItem("&Historia pobrań", Action.VIEW_DOWNLOADED_FILES,
+                     shortcut="Ctrl+J"),
             *session_items,
             MenuItem(
                 "Otwórz &Menedżer sesji…",

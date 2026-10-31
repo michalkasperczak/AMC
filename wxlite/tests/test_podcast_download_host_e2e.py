@@ -161,7 +161,7 @@ def _run_real_host_download(
             ["episode-private-id"],
             separate_source_folders=separate_source_folders,
         )
-        assert result == {
+        assert {key: value for key, value in result.items() if key != "files"} == {
             "requested": 1,
             "downloaded": 1,
             "alreadyDownloaded": 0,
@@ -177,6 +177,11 @@ def _run_real_host_download(
         assert row is not None
         saved_path = Path(row[0])
         assert saved_path.is_file()
+        assert result["files"] == [{
+            "episodeId": "episode-private-id",
+            "title": "Odcinek testowy",
+            "path": str(saved_path),
+        }]
         assert saved_path.parent == (
             downloads / "Podcast testowy" if separate_source_folders else downloads
         )

@@ -100,6 +100,15 @@ from .youtube_live import (
     dynamic_live_url as youtube_dynamic_live_url,
 )
 from .item_information import item_properties_text
+from .download_history import (
+    DownloadEntry,
+    DownloadHistoryStore,
+    download_information,
+    download_rows,
+    entries_from_archive_folder,
+    entries_from_podcast_rows,
+    merge_entries,
+)
 from . import i18n
 from . import nvda_bridge
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
@@ -9281,6 +9290,8 @@ class LiteFrame(wx.Frame):
         # drugiego, konkurencyjnego zegara.
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
+        self._download_history = DownloadHistoryStore(self.layout.lite_settings_dir)
+        self._download_history_entries: dict[str, DownloadEntry] = {}
         private_tidal_enabled = "session.tidal" in _RELEASE_PROFILE.capabilities
         self.tidal = TidalSource(self.layout) if private_tidal_enabled else None
         # Radio Archiwista: leniwe źródło (utworzone tutaj, gdy profil
@@ -15104,6 +15115,8 @@ class LiteFrame(wx.Frame):
             self._announce_recording_output_information()
         elif action is Action.VIEW_RECORDED_RADIO_FILES:
             self._show_radio_recording_history()
+        elif action is Action.VIEW_DOWNLOADED_FILES:
+            self._show_download_history()
         elif action is Action.ADD_RADIO_SCHEDULE:
             self._show_radio_schedules(create_for_selected=True)
         elif action is Action.MANAGE_RADIO_SCHEDULES:
@@ -16114,6 +16127,7 @@ class LiteFrame(wx.Frame):
             LibraryView.ITEM_BOOKMARKS: "Zakładki",
             LibraryView.ACTIVE_RADIO_RECORDINGS: "Nagrywane",
             LibraryView.RECORDED_RADIO_FILES: "Historia nagrywania",
+            LibraryView.DOWNLOADED_FILES: "Pobrane pliki",
             LibraryView.RADIO_RECORDING_SCHEDULES: "Harmonogramy nagrywania",
             LibraryView.SONOS_LIBRARY: "Biblioteka Sonos",
             LibraryView.SONOS_FAVORITES: "Ulubione Sonos",
@@ -18887,7 +18901,11 @@ class LiteFrame(wx.Frame):
 
         def done(path: Path) -> None:
             finish()
-            self.announcer.say(i18n.tr("rarch.download.done", path=path))
+            saved = self._record_download(path, title=row.title, source="archive")
+            message = i18n.tr("rarch.download.done", path=path)
+            if not saved:
+                message += ". Nie zapisano wpisu w historii pobierania"
+            self.announcer.say(message)
 
         def failed(error: Exception) -> None:
             finish()
@@ -23101,6 +23119,10 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             self._podcast_download_pending = False
+            if getattr(self, "_download_history", None) is not None:
+                LiteFrame._record_download_results(
+                    self, payload, source="podcast_audio"
+                )
             requested = max(0, int(payload.get("requested") or len(rows)))
             downloaded = max(0, int(payload.get("downloaded") or 0))
             already = max(0, int(payload.get("alreadyDownloaded") or 0))
@@ -23187,6 +23209,10 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             self._podcast_download_pending = False
+            if getattr(self, "_download_history", None) is not None:
+                LiteFrame._record_download_results(
+                    self, payload, source="podcast_video"
+                )
             downloaded = max(0, int(payload.get("downloaded") or 0))
             failed_count = max(0, int(payload.get("failed") or 0))
             if len(rows) > 1:
@@ -24095,6 +24121,7 @@ class LiteFrame(wx.Frame):
             LibraryView.PODCAST_HISTORY,
             LibraryView.ACTIVE_RADIO_RECORDINGS,
             LibraryView.RECORDED_RADIO_FILES,
+            LibraryView.DOWNLOADED_FILES,
             LibraryView.RADIO_RECORDING_SCHEDULES,
             LibraryView.PODCAST_INBOX,
             LibraryView.SPOTIFY_HISTORY,
@@ -24490,6 +24517,15 @@ class LiteFrame(wx.Frame):
             else:
                 self.announcer.say("Brak dodatkowych informacji o nagraniu")
             return
+        if (
+            self.navigator.active is SessionId.FILES
+            and self.navigator.session.library_view is LibraryView.DOWNLOADED_FILES
+        ):
+            entry = self._download_history_entries.get(row.item_id) if row else None
+            self.announcer.say(
+                download_information(entry) if entry else "Brak pobranego pliku"
+            )
+            return
         if self.navigator.active is SessionId.WIIM:
             if self.navigator.view is View.PLAYER and self._wiim_snapshot:
                 parts = [
@@ -24699,8 +24735,8 @@ class LiteFrame(wx.Frame):
                 self, SessionId.RADIOARCHIWISTA
             )) is not None else []
         ) if (
-            self.navigator.active is SessionId.RADIOARCHIWISTA
-            and self.navigator.view is View.PLAYER
+            getattr(self.navigator, "active", None) is SessionId.RADIOARCHIWISTA
+            and getattr(self.navigator, "view", None) is View.PLAYER
         ) else self._selected_action_rows()
         if not rows:
             self.announcer.say("Nie ma czego skopiować")
@@ -30139,6 +30175,9 @@ class LiteFrame(wx.Frame):
                 preferred_id=preferred_id,
             )
             return
+        if state.library_view is LibraryView.DOWNLOADED_FILES:
+            self._show_download_history(announce=False, preferred_id=preferred_id)
+            return
         if state.library_view not in self._VIEW_KEYS:
             self.announcer.say("Zmiana została zapisana. Odśwież bieżący widok")
             return
@@ -31745,6 +31784,87 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(f"Nie można wczytać historii nagrywania: {error}")
 
         self.runner.submit("radio-recording-history", work, done, failed)
+
+    def _record_download(self, path: str | Path, *, title: str, source: str) -> bool:
+        try:
+            self._download_history.record(path, title=title, source=source)
+        except (OSError, ValueError):
+            return False
+        return True
+
+    def _record_download_results(self, payload: dict, *, source: str) -> None:
+        failures = 0
+        for item in payload.get("files") or []:
+            if not isinstance(item, dict) or not item.get("path"):
+                continue
+            if not self._record_download(
+                str(item["path"]),
+                title=str(item.get("title") or ""),
+                source=source,
+            ):
+                failures += 1
+        if failures:
+            self.announcer.say("Nie zapisano części wpisów w historii pobierania")
+
+    def _show_download_history(
+        self, *, announce: bool = True, preferred_id: str | None = None
+    ) -> None:
+        """Ctrl+J: one list of archive, podcast audio and video downloads."""
+        if announce:
+            self._begin_transient_preview()
+            self.navigator.active = SessionId.FILES
+
+        def work() -> tuple[list[DownloadEntry], str]:
+            warnings: list[str] = []
+            try:
+                journal = self._download_history.load()
+            except OSError:
+                journal = []
+                warnings.append("Nie można odczytać zapisanej historii pobierania")
+            try:
+                podcast = entries_from_podcast_rows(
+                    self.podcasts.downloads(loaded_count=1_000_000).rows
+                )
+            except (OSError, ValueError, PodcastProfileError):
+                podcast = []
+                warnings.append("Nie można odczytać pobranych odcinków")
+            archive = entries_from_archive_folder(
+                Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+            )
+            return merge_entries(journal, podcast, archive), ". ".join(warnings)
+
+        def done(result: tuple[list[DownloadEntry], str]) -> None:
+            if announce and self._transient_preview_return is None:
+                return
+            if not announce and (
+                self.navigator.active is not SessionId.FILES
+                or self.navigator.sessions[SessionId.FILES].library_view
+                is not LibraryView.DOWNLOADED_FILES
+            ):
+                return
+            entries, warning = result
+            self._download_history_entries = {entry.item_id: entry for entry in entries}
+            events = self.navigator.apply_library_view(
+                LibraryView.DOWNLOADED_FILES,
+                "Pobrane pliki",
+                download_rows(entries),
+                preferred_id=preferred_id,
+                announce_count=False,
+                announce_position=True,
+            )
+            if announce:
+                self._announce_transient_preview(events)
+            else:
+                self._sync_views()
+            if warning:
+                self.announcer.say(warning)
+
+        def failed(error: Exception) -> None:
+            if announce:
+                self._restore_transient_preview(announce=False, force=True)
+                self.announcer.say("Nie można wczytać pobranych plików")
+
+        self.runner.submit("download-history", work, done, failed)
 
     def _show_radio_schedules(
         self,

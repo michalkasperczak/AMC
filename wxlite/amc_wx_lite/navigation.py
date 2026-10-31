@@ -74,6 +74,7 @@ class LibraryView(Enum):
     #: Utrwalona historia nagrywania radia: udane, zatrzymane, przerwane i
     #: nieudane proby. Widok mieszka w sesji Pliki lokalne jak w pelnym AMC.
     RECORDED_RADIO_FILES = "recordedRadioFiles"
+    DOWNLOADED_FILES = "downloadedFiles"
     #: Plany nagrywania z profilu AMC. Python tylko je pokazuje; nie uruchamia
     #: drugiego harmonogramu obok wlasciciela C#.
     RADIO_RECORDING_SCHEDULES = "radioRecordingSchedules"
@@ -2392,6 +2393,7 @@ class Navigator:
         LibraryView.ITEM_BOOKMARKS,
         LibraryView.ACTIVE_RADIO_RECORDINGS,
         LibraryView.RECORDED_RADIO_FILES,
+        LibraryView.DOWNLOADED_FILES,
         LibraryView.RADIO_RECORDING_SCHEDULES,
     )
 
@@ -2675,13 +2677,10 @@ class Navigator:
         # Ctrl+L (cs:701-705) wraca do zapamietanego widoku Biblioteki, a
         # ``folder_path`` ponizej musi byc wyczyszczone dla Backspace.
         self._remember_view_selection(state)
-        if (
-            state.library_view is LibraryView.RECORDED_RADIO_FILES
-            and state.model.selected_id is not None
-        ):
-            state.view_selected_ids[LibraryView.RECORDED_RADIO_FILES.value] = (
-                state.model.selected_id
-            )
+        if state.library_view in (
+            LibraryView.RECORDED_RADIO_FILES, LibraryView.DOWNLOADED_FILES
+        ) and state.model.selected_id is not None:
+            state.view_selected_ids[state.library_view.value] = state.model.selected_id
         if state.library_view is None and state.folder_path is not None:
             state.library_folder_path = state.folder_path
 
@@ -2706,8 +2705,8 @@ class Navigator:
         state.folder_path = None
         state.breadcrumb = []
         remembered_id = (
-            state.view_selected_ids.get(LibraryView.RECORDED_RADIO_FILES.value)
-            if view is LibraryView.RECORDED_RADIO_FILES
+            state.view_selected_ids.get(view.value)
+            if view in (LibraryView.RECORDED_RADIO_FILES, LibraryView.DOWNLOADED_FILES)
             else state.library_return_id
         )
         state.model.replace(rows, preferred_id=preferred_id or remembered_id)

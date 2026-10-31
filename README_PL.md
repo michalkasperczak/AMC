@@ -1891,3 +1891,18 @@ logowania; cache w profilu pozwala wracać do ostatnio przeglądanych dni
 także bez sieci. Sesja jest dostępna wyłącznie w profilu AMC Test
 i domyślnie wyłączona — włącza się ją w Menedżerze sesji (`Ctrl+Shift+S`),
 który przydziela skrót `Ctrl+1–9`.
+
+## Historia pobierania w AMC Test
+
+`Ctrl+J` z każdej sesji i z odtwarzacza otwiera jedną listę pobranych plików:
+nagrań Radio Archiwisty (`Ctrl+D`), dźwięku podcastów i materiałów internetowych
+(`Ctrl+D`) oraz wideo (`Ctrl+Shift+D`). Dostępna jest też pozycja Widok →
+Historia pobrań. Nazwa pliku jest pierwszą informacją na liście; strzałka w lewo
+lub `Alt+T` podaje źródło, datę pobrania, rozmiar i folder. Enter odtwarza plik,
+a Escape wraca do poprzedniej sesji i zaznaczenia. `F5` odświeża listę.
+Przeniesiony lub skasowany plik pozostaje w historii z komunikatem „Brak pliku”
+i nie jest odtwarzany. Starsze pobrane odcinki audio i nagrania Radio Archiwisty
+pojawiają się dzięki odczytowi ich istniejących lokalnych źródeł. Dawnych plików
+wideo zapisanych w dowolnych folderach AMC nie umie odnaleźć wstecz; nowe
+pobrania wideo zapisuje w historii od tej wersji. Dotychczasowy widok
+Podcasty → Pobrane nadal pokazuje same dostępne odcinki audio.

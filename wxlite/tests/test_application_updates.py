@@ -430,8 +430,9 @@ def test_automatic_check_is_scheduled_once_only_when_enabled(
         gui.wx,
         "CallLater",
         lambda milliseconds, callback: scheduled.append((milliseconds, callback)),
+        raising=False,
     )
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     frame = SimpleNamespace(
         _automatic_application_update_check_started=False,
         _automatic_application_update_check_call=None,
@@ -476,8 +477,9 @@ def test_automatic_check_waits_until_another_modal_is_closed(
         gui.wx,
         "CallLater",
         lambda _milliseconds, callback: scheduled.append(callback),
+        raising=False,
     )
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [modal])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [modal], raising=False)
     frame = SimpleNamespace(
         _automatic_application_update_check_started=False,
         _automatic_application_update_check_call=None,
@@ -491,6 +493,6 @@ def test_automatic_check_waits_until_another_modal_is_closed(
     assert calls == []
     assert len(scheduled) == 1
 
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     scheduled.pop(0)()
     assert calls == [True]

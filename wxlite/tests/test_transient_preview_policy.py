@@ -46,7 +46,7 @@ def test_global_preview_shortcuts_reach_dispatch_from_native_lists() -> None:
     frame_hook = inspect.getsource(LiteFrame._on_player_shortcut_hook)
     list_hook = inspect.getsource(LiteFrame._on_list_shortcut_hook)
     assert set(GLOBAL_VIEW_SHORTCUTS) == {
-        "Ctrl+I", "Ctrl+Shift+I", "Alt+R", "Alt+Shift+R", "Ctrl+H", "Ctrl+L",
+        "Ctrl+I", "Ctrl+Shift+I", "Alt+R", "Alt+Shift+R", "Ctrl+H", "Ctrl+J", "Ctrl+L",
     }
     # Obie bramki korzystaja z jednej tabeli zamiast kopiowac gesty do
     # adapterow. Sama nazwa tabeli w kodzie jest kontraktem tej sciezki.
@@ -57,6 +57,7 @@ def test_global_preview_shortcuts_reach_dispatch_from_native_lists() -> None:
 def test_global_view_shortcuts_resolve_before_provider_tables() -> None:
     cases = (
         (Chord("H", ctrl=True), Action.VIEW_HISTORY),
+        (Chord("J", ctrl=True), Action.VIEW_DOWNLOADED_FILES),
         (Chord("L", ctrl=True), Action.VIEW_LIBRARY),
         (Chord("R", alt=True), Action.VIEW_ACTIVE_RECORDINGS),
         (Chord("R", alt=True, shift=True), Action.VIEW_RECORDED_RADIO_FILES),
