@@ -1,5 +1,9 @@
 # RECOG-001 — interakcje z rozpoznanymi utworami
 
+## Korekta użytkownika z 31.10.2026 — znaczenie filtra „GDA”
+
+Filtr nazwy stacji pozostaje wyszukiwaniem części nazwy. „GDA” ma pokazywać rozpoznania ze stacji „Gdańsk”, „Plus Gdansk” i „Gdańsk Regiony”, jeśli są w historii. Propozycja pierwszeństwa początku nazwy z commita `8fe5c8de` została odrzucona przez użytkownika i wycofana commitem `b33f48d1`. Paczki z `8fe5c8de` nie instalowano. Zainstalowana wersja `d6d661cf` zachowuje właściwe wyszukiwanie części nazwy; nie wymaga kolejnej podmiany.
+
 ## Korekta użytkownika z 31.10.2026 — lista, filtr i kopiowanie linku
 
 ### Zachowanie widoczne dla użytkownika
