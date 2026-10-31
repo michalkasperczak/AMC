@@ -301,9 +301,10 @@ def test_history_station_query_filters_tracks_without_selecting_station() -> Non
     )
     dialog = SimpleNamespace(
         _entries=[
-            {"id": "a", "stationId": "1", "stationName": "Radio Gdańsk", "title": "A"},
+            {"id": "a", "stationId": "1", "stationName": "Gdańsk", "title": "A"},
             {"id": "b", "stationId": "2", "stationName": "TOK FM", "title": "B"},
-            {"id": "c", "stationId": "1", "stationName": "Radio Gdańsk", "title": "C"},
+            {"id": "c", "stationId": "1", "stationName": "Gdańsk", "title": "C"},
+            {"id": "d", "stationId": "3", "stationName": "Plus Gdansk", "title": "D"},
         ],
         station_query=query,
         history=history,
@@ -313,13 +314,17 @@ def test_history_station_query_filters_tracks_without_selecting_station() -> Non
     dialog._refresh_rows = lambda: RadioRecognitionHistoryDialog._refresh_rows(dialog)
 
     dialog._refresh_rows()
-    assert [row["id"] for row in dialog._visible] == ["a", "b", "c"]
+    assert [row["id"] for row in dialog._visible] == ["a", "b", "c", "d"]
     query.value = "GDA"
     RadioRecognitionHistoryDialog._on_station_query(dialog, None)
     assert [row["id"] for row in dialog._visible] == ["a", "c"]
     assert status_text[-1] == "Wpisów: 2, filtr stacji: GDA"
     assert history.focused is False
     assert RadioRecognitionHistoryDialog._station_matches_query("Radio Gdańsk", "gdansk")
+
+    query.value = "PLUS"
+    RadioRecognitionHistoryDialog._on_station_query(dialog, None)
+    assert [row["id"] for row in dialog._visible] == ["d"]
 
     query.value = "nieistniejąca"
     RadioRecognitionHistoryDialog._on_station_query(dialog, None)
