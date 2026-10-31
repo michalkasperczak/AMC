@@ -4,8 +4,8 @@
   i niedostarczone nowości do jednego następnego wydania po testach, z ochroną
   nagrania zaplanowanego na 15:00.
 - Wersja docelowa: `0.1.0-alpha.458`, wyłącznie profil AMC Test.
-- Status: **kod, regresja, pakiet i wydanie GitHub gotowe; instalacja i odbiór
-  na koncie do weryfikacji**.
+- Status: **kod, regresja, pakiet i wydanie GitHub gotowe; funkcje są w
+  zainstalowanej późniejszej alpha.460, odbiór na koncie do weryfikacji**.
 - Podstawa: zainstalowana `alpha.457`, commit
   `22281e80b0574bdcf26060c671432e94e1551630`.
 
@@ -84,8 +84,14 @@
 - GitHub: wydanie wstępne `test-2026.10.31.1637`, adres
   https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.31.1637.
   Zdalny instalator ma tę samą nazwę, rozmiar i sumę SHA-256.
-- Lokalna instalacja: oczekuje na potwierdzenie braku aktywnego nagrywania,
-  zgodnie z `AGENTS.md`; nie zatrzymano działającej aplikacji.
+- Korekta stanu z 31.10.2026: użytkownik potwierdził brak aktywnego nagrywania
+  i zezwolił na instalację. Przed podmianą ustalono, że lokalnie jest już
+  późniejszy pakiet `AMC Test — 31.10.2026, 17:54`, commit
+  `a8d66cd7319fe19f1eb25454b859a18f52651d0a` (`alpha.460`). Git potwierdza,
+  że zawiera commit `acbe2519` z alpha.458. Nie instalowano starszej alpha.458.
+  Diagnostyka `--sprawdz-pakiet` i `--sprawdz` lokalnej alpha.460 zwróciła 0.
+  Zwykły start z obecnej sesji narzędziowej nie utrzymał procesu interfejsu;
+  widoczny start i odbiór NVDA pozostają do potwierdzenia przez użytkownika.
 
 ## Projekt instrukcji i listy zmian
 
