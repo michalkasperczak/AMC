@@ -882,7 +882,18 @@
     "wykonać zaplanowanego nagrania": "",
     "zaplanowane ": "",
     "Playlista nie zawiera nowych prawidłowych stacji": "",
-    "Playlista nie zawiera stacji radiowych": ""
+    "Playlista nie zawiera stacji radiowych": "",
+    "&Szukaj stacji:": "",
+    "&Stacja:": "",
+    "Szukaj stacji po nazwie": "",
+    "Wpisz część nazwy stacji. Tab przechodzi do wyboru stacji, a następny Tab do rozpoznanych utworów.": "",
+    "Stacja rozpoznanych utworów": "",
+    "Strzałkami wybierz stację. Tab przechodzi do rozpoznanych utworów.": "",
+    "Wszystkie stacje": "",
+    "Wszystkie pasujące stacje": "",
+    "Brak stacji pasujących do filtra": "",
+    "Wybierz nagranie do kolejki": "",
+    "Brak dodatkowych informacji o nagraniu": ""
   },
   "legacyTemplates": {
     "&Nazwa {arg0}:": "",
@@ -1118,7 +1129,6 @@
     "Usunięto z Biblioteki: {arg0}. Plik pozostał na dysku": "",
     "Usunięto z Historii Spotify: {arg0}. Biblioteka Spotify pozostała bez zmian": "",
     "Usunięto z Historii odtwarzania: {arg0}. Pliki i Biblioteka pozostały bez zmian": "",
-    "Usunięto z Historii {arg0}: {arg1}. Urządzenie i źródło pozostały bez zmian": "",
     "Usunięto z Kolejki podcastów: {arg0}": "",
     "Usunięto z Kolejki: {arg0}": "",
     "Usunięto z Ulubionych: {arg0}": "",
@@ -1200,7 +1210,10 @@
     "{arg0}: przekazuję do oryginalnego TIDALa": "",
     "{arg0}: uruchamiam ponownie oryginalny TIDAL": "",
     "{arg0}: {arg1}": "",
-    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": ""
+    "{arg0}: {arg1}: {arg2}. Pozycji: {arg3}": "",
+    "Nie można odczytać kolejki: {arg0}": "",
+    "Nie można zmienić kolejki: {arg0}": "",
+    "Czas: {arg0}": ""
   },
   "messageTemplateLabels": {
     "favorite.added": "",

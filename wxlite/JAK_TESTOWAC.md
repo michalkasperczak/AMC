@@ -1037,11 +1037,16 @@ Na karcie Radio i nagrywanie sprawdź kolejno:
    sprawdź trzy jawnie nazwane zakresy: odtwarzana stacja, nagrywane stacje
    oraz oba rodzaje źródeł. Brak odpowiedniego źródła ma uśpić automat, nie
    powodować prób sieciowych co kilkanaście sekund.
-7. `Ctrl+Alt+S` otwiera trwałą historię. Strzałki mają czytać tytuł,
-   wykonawcę, stację i czas bez nazw klas ani identyfikatorów. `Ctrl+C` kopiuje
-   opis, `Ctrl+Shift+C` opis i łącza, Delete usuwa zaznaczone wpisy, a filtr
-   stacji pozostaje zwykłym, dostępnym wyborem. Usunięty wpis przejęty kiedyś
-   z pełnego AMC nie może wrócić po restarcie.
+7. `Ctrl+Alt+S` otwiera trwałą historię z fokusem w polu „Szukaj stacji”.
+   Wpisz fragment nazwy: lista stacji i wyników zawęża się bez zmiany fokusu.
+   `Tab` przechodzi do osobnego pola kombi „Stacja”; strzałki przeglądają
+   stacje i nie przenoszą fokusu do utworów. Kolejny `Tab` przechodzi do
+   wyników. Sprawdź „Wszystkie stacje”, kilka dopasowań, jedną stację, brak
+   dopasowań, `Shift+Tab`, zamknięcie i ponowne otwarcie. Na wynikach strzałki
+   mają czytać tytuł, wykonawcę, stację i czas bez nazw klas ani identyfikatorów.
+   `Ctrl+C` kopiuje opis, `Ctrl+Shift+C` dokładne łącze lub łącze wyszukiwania
+   zależnie od usługi, a Delete usuwa wpisy.
+   Usunięty wpis przejęty kiedyś z pełnego AMC nie może wrócić po restarcie.
 8. `Ctrl+Alt+Shift+S` przełącza samo oznajmianie. Po wyłączeniu automat nadal
    zapisuje wyniki do historii. Do Shazam wychodzi wyłącznie lokalnie
    obliczony podpis akustyczny; adres stacji i próbka PCM nie opuszczają hosta.
