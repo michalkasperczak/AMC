@@ -4,7 +4,7 @@
   i niedostarczone nowości do jednego następnego wydania po testach, z ochroną
   nagrania zaplanowanego na 15:00.
 - Wersja docelowa: `0.1.0-alpha.458`, wyłącznie profil AMC Test.
-- Status: **kod i regresja gotowe; pakiet, wydanie GitHub, instalacja i odbiór
+- Status: **kod, regresja, pakiet i wydanie GitHub gotowe; instalacja i odbiór
   na koncie do weryfikacji**.
 - Podstawa: zainstalowana `alpha.457`, commit
   `22281e80b0574bdcf26060c671432e94e1551630`.
@@ -73,7 +73,19 @@
 
 ## Wersja i commit
 
-- Do uzupełnienia po zbudowaniu, publikacji i bezpiecznej instalacji.
+- Źródła i pakiet: commit `acbe251960fce7fe15253f08d9a6fb0747999940`,
+  `0.1.0-alpha.458`, nazwa użytkowa `AMC Test — 31.10.2026, 16:37`.
+- Pakiet: 2141 plików; kontrolowany start interfejsu i hosta zaliczony.
+  Instalator:
+  `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.458 Spotify 2026-10-31\instalator\AMC-Test-2026-10-31-1637.exe`.
+- Weryfikacja instalatora: 133625328 bajtów,
+  SHA-256 `caee61ec7e580aabe891db9d0cef6301e5813d7a8f0481f57653552dcf07709b`;
+  kontrola sekretów zaliczona.
+- GitHub: wydanie wstępne `test-2026.10.31.1637`, adres
+  https://github.com/michalkasperczak/AMC/releases/tag/test-2026.10.31.1637.
+  Zdalny instalator ma tę samą nazwę, rozmiar i sumę SHA-256.
+- Lokalna instalacja: oczekuje na potwierdzenie braku aktywnego nagrywania,
+  zgodnie z `AGENTS.md`; nie zatrzymano działającej aplikacji.
 
 ## Projekt instrukcji i listy zmian
 
