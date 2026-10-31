@@ -14,11 +14,12 @@
 
 ### Testy i wynik
 
-- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych na bazie zainstalowanej wersji; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+- Paczka `a48651b1` zbudowana z commita `d6d661cf380a773cef662ef39a45ba8b9bc81143` przeszła próbę startu przed instalacją. Po instalacji kontrola integralności i kontrolowany start interfejsu oraz hosta przeszły; widoczne okno „AMC Test” odpowiada. Aktualizator pozostawił 459 bibliotek hosta z wcześniejszego pakietu, które zachowawczo przeniesiono do `.test-output/stale-host-runtime-backup-20261031` przed powtórną udaną próbą startu.
 
 ### Znane ograniczenia
 
-- Wynik dotyczy źródeł i testów bez widocznego interfejsu. Build, instalację i publikację trzeba raportować osobno po ich wykonaniu.
+- Automatyczne testy i próby startu nie zastępują ręcznego sprawdzenia kolejności Tab oraz mowy NVDA. Pakiet jest zainstalowany lokalnie; nie publikowano wydania.
 
 ### Materiał do dokumentacji użytkownika
 
@@ -26,7 +27,7 @@
 
 ### Wersja i commit
 
-- Zmiana źródłowa `833568c9` została przeniesiona na zainstalowaną bazę `a8d66cd7`; commit pakietu i wynik instalacji do wpisania po ich wykonaniu.
+- Zmiana źródłowa `833568c9` została przeniesiona na bazę wcześniej zainstalowanej wersji `a8d66cd7`; lokalnie zainstalowany pakiet `2026.10.31-d6d661cf380a773cef662ef39a45ba8b9bc81143-a48651b1` w `C:\Users\micha\AppData\Local\Programs\AMC Test`. Nie publikowano wydania.
 
 ## Korekta po zgłoszeniu użytkownika z 30.10.2026 — widoczność nowych wyników
 
