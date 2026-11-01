@@ -489,10 +489,17 @@ class LiteHostClient:
             timeout=120.0,
         )
 
-    def play_station(self, url: str, *, volume: int, item_id: str, title: str) -> Any:
+    def play_station(
+        self, url: str, *, volume: int, item_id: str, title: str,
+        audio: dict[str, Any] | None = None,
+    ) -> Any:
+        args = {"url": url, "volume": volume, "id": item_id, "title": title}
+        for name in ("bitrateKbps", "sampleRateHz", "codec", "isBitrateEstimated"):
+            if audio and name in audio:
+                args[name] = audio[name]
         return self.call(
             "radio.play",
-            {"url": url, "volume": volume, "id": item_id, "title": title},
+            args,
             timeout=90.0,
         )
 

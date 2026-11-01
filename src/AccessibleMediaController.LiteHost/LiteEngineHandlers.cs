@@ -341,7 +341,11 @@ internal sealed class LiteEngineHandlers : IDisposable
                 new { engine = "radio", title = e.Item.Title, id = e.Item.Id,
                     tempoFallbackReason = _radio.TempoFallbackReason,
                     historyError });
-            _ = EnrichCurrentRadioMetadataAsync(e.Item);
+            if (e.Item.BitrateKbps is null || e.Item.SampleRateHz is null
+                || string.IsNullOrWhiteSpace(e.Item.Codec))
+            {
+                _ = EnrichCurrentRadioMetadataAsync(e.Item);
+            }
         };
         _radio.NowPlayingChanged += (_, e) => Publish("radio.nowPlaying",
             new { id = e.Item.Id, station = e.Item.Title, streamTitle = e.StreamTitle });
@@ -2477,12 +2481,19 @@ internal sealed class LiteEngineHandlers : IDisposable
             throw new LiteRequestException("Adres stacji musi być adresem HTTP lub HTTPS.");
         }
         var volume = LiteArgs.ReadInt(args, "volume", _radioVolume, 0, 100);
+        var savedBitrate = LiteArgs.ReadInt(args, "bitrateKbps", 0, 0, int.MaxValue);
+        var savedSampleRate = LiteArgs.ReadInt(args, "sampleRateHz", 0, 0, int.MaxValue);
+        var savedCodec = LiteArgs.ReadText(args, "codec")?.Trim();
         var item = new MediaItem
         {
             Id = LiteArgs.ReadText(args, "id") ?? "station:" + url,
             Title = LiteArgs.ReadText(args, "title") ?? uri.Host,
             Kind = MediaItemKind.Station,
-            Source = url
+            Source = url,
+            BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(savedBitrate),
+            IsBitrateEstimated = LiteArgs.ReadBool(args, "isBitrateEstimated", false),
+            SampleRateHz = savedSampleRate is >= 8_000 and <= 384_000 ? savedSampleRate : null,
+            Codec = savedCodec is not null && savedCodec.Length <= 32 ? savedCodec : null
         };
 
         lock (_gate)

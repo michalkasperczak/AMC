@@ -12,15 +12,15 @@ Podczas odtwarzania stacji w sesji Radio naciśnij NVDA+End, aby odczytać pasek
 
 ## Uzasadnienie i decyzje
 
-Host pobierał parametry z dekodera przy starcie, lecz część strumieni ujawnia tylko częstotliwość. Osobne sondowanie metadanych działało w informacji o pozycji, ale nie aktualizowało bieżącej stacji. Po rozpoczęciu odtwarzania host uzupełnia wyłącznie brakujące pola z tego samego sondowania, bez blokowania interfejsu. Wynik spóźniony po zmianie stacji jest odrzucany. Tekst Radia zawiera także kodek, a wartość szacowana jest jawnie oznaczona.
+Host pobierał parametry z dekodera przy starcie, lecz część strumieni ujawnia tylko częstotliwość. Co ważne, zapisana stacja „Poznań” ma już w profilu 128 kb/s, AAC i 48 kHz, ale polecenie odtwarzania przekazywało tylko nazwę i adres. Odtwarzanie przekazuje teraz zapisane parametry tej samej stacji, po sprawdzeniu identyfikatora i adresu. Gdy brakuje pól, host uzupełnia je ze znanego sondowania strumienia, bez blokowania interfejsu. Wynik spóźniony po zmianie stacji jest odrzucany. Tekst Radia zawiera także kodek, a wartość szacowana jest jawnie oznaczona.
 
 ## Testy i wynik
 
-Kompilacja hosta z 1.11.2026: zaliczona, zero błędów i ostrzeżeń. Test formatu dla 128 AAC przy 48 kHz, szacowanego 192 MP3 oraz samej częstotliwości: zaliczony w zestawie Core. Pełny zestaw uruchomiony w sandboxie zgłosił błędy dostępu do katalogów tymczasowych; powtórka z właściwymi uprawnieniami zakończyła się kodem 0. Testy skrótów, menu i palety poleceń: 102 zaliczone. Rzeczywisty odczyt NVDA dla Radia Poznań wymaga bezpiecznego uruchomienia nowej instalacji i ręcznego odsłuchu.
+Kompilacja hosta z 1.11.2026 dla pierwszego etapu: zaliczona, zero błędów i ostrzeżeń. Test formatu dla 128 AAC przy 48 kHz, szacowanego 192 MP3 oraz samej częstotliwości: zaliczony w zestawie Core. Pełny zestaw uruchomiony w sandboxie zgłosił błędy dostępu do katalogów tymczasowych; powtórka z właściwymi uprawnieniami zakończyła się kodem 0. Po uzupełnieniu przekazywania zapisanych parametrów stacji: 155 testów odczytu Radia, klienta hosta, skrótów, menu i palety poleceń zaliczonych; osobny zestaw cache informacji: 55 zaliczonych, 2 pominięte warunkowo. Ponowna kompilacja hosta jest odłożona do końca zaplanowanych nagrań. Rzeczywisty odczyt NVDA dla Radia Poznań wymaga bezpiecznego uruchomienia nowej instalacji i ręcznego odsłuchu.
 
 ## Znane ograniczenia
 
-Nie każdy serwer udostępnia wiarygodny bitrate lub kodek. AMC nie wylicza bitrate'u z 48 kHz. Sondowanie może zająć do sześciu sekund. Podczas nagrania nie należy zastępować działającej instalacji.
+Nie każdy serwer udostępnia wiarygodny bitrate lub kodek. AMC nie wylicza bitrate'u z 48 kHz. Sondowanie brakujących danych może zająć kilkanaście sekund. Podczas nagrania nie należy zastępować działającej instalacji.
 
 ## Wersja i commit
 

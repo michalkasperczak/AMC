@@ -11,6 +11,7 @@ install_wx_stub()
 
 from amc_wx_lite import gui, menu_model  # noqa: E402
 from amc_wx_lite.shortcuts import Action, Chord, resolve  # noqa: E402
+from amc_wx_lite.navigation import PlayStation  # noqa: E402
 
 
 def test_alt_d_is_current_broadcast_in_both_radio_views() -> None:
@@ -124,6 +125,35 @@ def test_nvda_end_receives_the_same_user_facing_broadcast_text() -> None:
     assert shown == ["Program Trzeci, 192 kb/s, Serwis informacyjny"]
 
 
+def test_play_station_passes_saved_audio_parameters_to_host(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(gui, "read_cached_information", lambda *_args: {
+        "bitrateKbps": 128, "codec": "AAC", "sampleRateHz": 48_000,
+    })
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed) -> None:
+            done(work())
+
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame.client = SimpleNamespace(play_station=lambda *args, **kwargs: (
+        calls.append((args, kwargs)) or {"ok": True}
+    ))
+    frame.layout = SimpleNamespace()
+    frame.options = SimpleNamespace(volume=35)
+    frame.runner = Runner()
+    frame._playing_sessions = set()
+    frame._refresh_status = lambda: None
+
+    frame._play_station(PlayStation("https://example.invalid/poznan_aac", "poznan", "Poznań"))
+
+    assert len(calls) == 1
+    assert calls[0][1]["audio"] == {
+        "bitrateKbps": 128, "codec": "AAC", "sampleRateHz": 48_000,
+    }
+
+
 def test_nvda_end_receives_playback_text_for_file_and_archive() -> None:
     shown: list[str] = []
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
@@ -152,7 +182,7 @@ def test_host_uses_shared_audio_formatter_and_no_technical_id_in_text() -> None:
         host.index("private string BuildCurrentRadioBroadcastText(MediaItem item)") :
         host.index("private object StopTransport(JsonElement args)")
     ]
-    assert "AudioParametersFormatter.FormatCompact(item)" in method
+    assert "AudioParametersFormatter.FormatRadioCompact(item)" in method
     assert "NowPlayingParts.SameValue(item.Title, streamTitle)" in method
     assert "item.Id" not in method
 

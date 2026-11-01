@@ -28769,8 +28769,11 @@ class LiteFrame(wx.Frame):
         self._pending_playback_session = SessionId.RADIO
 
         def work() -> dict:
+            station = Row(intent.item_id, intent.title, "station", url=intent.url)
+            audio = read_cached_information(self.layout, station, "radio")
             return client.play_station(
-                intent.url, volume=self.options.volume, item_id=intent.item_id, title=intent.title
+                intent.url, volume=self.options.volume, item_id=intent.item_id,
+                title=intent.title, audio=audio,
             )
 
         def done(_payload: dict) -> None:
