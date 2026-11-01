@@ -2675,6 +2675,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             return;
         }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            DiagnosticLog.Warning("radio", $"Odczyt parametrów strumienia nie powiódł się ({exception.GetType().Name}).");
+            return;
+        }
         if (metadata is null) return;
         lock (_gate)
         {
