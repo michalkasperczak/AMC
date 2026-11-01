@@ -551,6 +551,12 @@ def schedule_blocks_application_update(
     now = now_utc_ticks
     if now is None:
         now = time.time_ns() // 100 + 621355968000000000
+    try:
+        protected_until = int(status.get("updateProtectedUntilUtcTicks") or 0)
+    except (TypeError, ValueError):
+        return True
+    if protected_until > now:
+        return True
     minute = 60 * 10_000_000
     for schedule in schedules:
         if not isinstance(schedule, dict):

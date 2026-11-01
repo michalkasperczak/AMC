@@ -337,6 +337,10 @@ def test_schedule_window_blocks_update_between_recording_segments() -> None:
     assert application_update.schedule_blocks_application_update(
         {"activeIds": ["nagranie"], "schedules": []}, now_utc_ticks=now
     )
+    assert application_update.schedule_blocks_application_update(
+        {"activeIds": [], "schedules": [], "updateProtectedUntilUtcTicks": now + minute},
+        now_utc_ticks=now,
+    )
     assert application_update.schedule_blocks_application_update(None)
 
 

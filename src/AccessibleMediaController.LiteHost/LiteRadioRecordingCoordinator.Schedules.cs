@@ -21,6 +21,7 @@ internal sealed partial class LiteRadioRecordingCoordinator
     private System.Threading.Timer? _scheduleTimer;
     private ScheduleDefaults _scheduleDefaults = ScheduleDefaults.SystemDefault;
     private int _processingSchedules;
+    private long _updateProtectedUntilUtcTicks;
 
     public object SyncSchedules(JsonElement args, LiteEventSink events)
     {
@@ -89,6 +90,7 @@ internal sealed partial class LiteRadioRecordingCoordinator
             return new
             {
                 activeIds = activeIds.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                updateProtectedUntilUtcTicks = _updateProtectedUntilUtcTicks,
                 schedules = _schedules.Values
                     .Select(item => item.Effective)
                     .OrderBy(schedule => schedule.NextStartUtcTicks)
@@ -199,6 +201,9 @@ internal sealed partial class LiteRadioRecordingCoordinator
             }
             var startUtc = new DateTime(snapshot.NextStartUtcTicks, DateTimeKind.Utc);
             deadlineUtc = startUtc.AddMinutes(Math.Clamp(snapshot.DurationMinutes, 1, 10_080));
+            _updateProtectedUntilUtcTicks = Math.Max(
+                _updateProtectedUntilUtcTicks,
+                deadlineUtc.AddMinutes(2).Ticks);
             defaults = _scheduleDefaults;
             var stationFolder = defaults.StationFolders.TryGetValue(snapshot.StationId, out var folder)
                 ? folder
