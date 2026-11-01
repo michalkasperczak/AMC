@@ -1084,14 +1084,15 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
 
 
 # Radio Archiwista korzysta z lokalnego odtwarzacza, więc przewijanie i
-# prędkość są dostępne; tryb urządzenia i presety nie mają tu znaczenia.
+# prędkość są dostępne; presety otwierają katalogi stacji i najnowsze nagrania.
 RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
     (FRONTIER_SMART_SUPPORTED_ACTIONS - {
-        Action.VIEW_PRESETS,
         Action.FRONTIER_SMART_SELECT_MODE,
-        *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
     })
     | {
+        Action.VIEW_PRESETS,
+        Action.ASSIGN_PRESET,
+        *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
         Action.VIEW_FAVORITES,
         Action.VIEW_LIBRARY,
         Action.VIEW_SAVED_QUEUE,

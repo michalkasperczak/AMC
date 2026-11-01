@@ -30,6 +30,7 @@ PRESET_COUNT = 12
 SESSION_PROFILE_KEYS = {
     SessionId.FILES: "local",
     SessionId.RADIO: "radio",
+    SessionId.RADIOARCHIWISTA: "radioarchiwista",
     SessionId.PODCASTS: "podcasts",
     SessionId.TIDAL: "tidal",
     SessionId.WIIM: "wiim",
@@ -78,6 +79,12 @@ class PresetEntry:
         if self.sonos_fixed_player_ids:
             payload["sonosFixedPlayerIds"] = list(self.sonos_fixed_player_ids)
         return payload
+
+
+RADIOARCHIWISTA_DEFAULT_ENTRIES = (
+    PresetEntry(1, "rarch:latest", "rarchLatest", "Najnowsze nagrania", None),
+    PresetEntry(2, "rarch:station:pr1", "rarchStation", "Program 1", "pr1"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,6 +379,18 @@ def target_from_row(session: SessionId, row: Row | None) -> PresetTarget | None:
     """Zamien widoczny element na cel tylko wtedy, gdy umiemy go uruchomic."""
     if row is None or row.kind == "parent" or not row.title.strip():
         return None
+    if session is SessionId.RADIOARCHIWISTA:
+        if row.service_kind == "rarchLatest":
+            return PresetTarget("rarch:latest", "rarchLatest", "Najnowsze nagrania", None)
+        if row.service_kind == "rarchStation" and row.service_id:
+            from .radioarchiwista_source import check_slug, station_item_id
+            try:
+                slug = check_slug(row.service_id)
+            except RuntimeError:
+                return None
+            title = row.title.rsplit(", ", 1)[0] if ", " in row.title else row.title
+            return PresetTarget(station_item_id(slug), "rarchStation", title, slug)
+        return None
     if session is SessionId.RADIO:
         if row.kind != "station" or not row.url:
             return None
@@ -633,6 +652,8 @@ def effective_entries(
     cleaned = read_preset_overrides(overrides)
     if session.value in cleaned:
         return _entry_list(cleaned[session.value])
+    if session is SessionId.RADIOARCHIWISTA:
+        return RADIOARCHIWISTA_DEFAULT_ENTRIES
     return _entries(_read_profile(path), session)
 
 
@@ -654,6 +675,12 @@ def resolve_preset(
     # Dla Radia profil nadal jest uzytecznym slownikiem stacji. Gdy prywatna
     # lista wystarcza, brak starego profilu nie moze jednak unieruchomic
     # swiadomie zapisanych presetow wxPython.
+    if session is SessionId.RADIOARCHIWISTA:
+        entries = (
+            _entry_list(cleaned_overrides[session.value])
+            if has_override else RADIOARCHIWISTA_DEFAULT_ENTRIES
+        )
+        return ResolvedPreset(next((item for item in entries if item.slot == slot), None))
     try:
         raw = _read_profile(path)
     except PresetProfileError:

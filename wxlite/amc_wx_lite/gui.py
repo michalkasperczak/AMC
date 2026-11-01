@@ -18052,6 +18052,25 @@ class LiteFrame(wx.Frame):
                 )
                 return
 
+            if session is SessionId.RADIOARCHIWISTA:
+                if entry.target_kind == "rarchLatest":
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_radioarchiwista_latest()
+                    return
+                if entry.target_kind == "rarchStation" and entry.location:
+                    try:
+                        slug = _radioarchiwista_module.check_slug(entry.location)
+                    except RuntimeError:
+                        self.announcer.say(f"Preset {spoken} ma nieprawidłowy identyfikator stacji")
+                        return
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_radioarchiwista_level(OpenRadioarchiwistaLevel(
+                        LibraryView.RADIOARCHIWISTA_YEARS, slug
+                    ))
+                    return
+                self.announcer.say(f"Preset {spoken} nie wskazuje folderu Radio Archiwisty")
+                return
+
             if session is SessionId.RADIO:
                 target = resolved.radio_target
                 if target is None:

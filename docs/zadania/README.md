@@ -54,6 +54,7 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
+- `RARCH-003` — presety katalogów Radio Archiwisty, domyślnie Najnowsze nagrania i Program 1. [RARCH-003-presety-katalogow.md](RARCH-003-presety-katalogow.md).
 - `RELEASE-20261031` — **Kandydat AMC Test alpha.461; testy zaliczone, instalacja i GitHub do weryfikacji** — wspólna aktualizacja tytułu, Radio Archiwisty i diagnostyki. [RELEASE-20261031-alpha461.md](RELEASE-20261031-alpha461.md).
 
 - `MODAL-001` — **W trakcie** — zabezpieczenie historii rozpoznawania i innych okien przed pozostawieniem wyłączonego głównego okna AMC; osobny przegląd po zgłoszeniu z 31.10.2026. Szczegóły: [MODAL-001-okna-blokujace-glowny-interfejs.md](MODAL-001-okna-blokujace-glowny-interfejs.md).

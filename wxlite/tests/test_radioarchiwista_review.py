@@ -99,5 +99,30 @@ def test_catalog_commands_match_menu_and_help() -> None:
     assert any(key == "Ctrl+F5" and "katalog" in value.lower() for key, value in help_text)
     assert Action.RATE_UP in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     assert Action.SEEK_FORWARD_10 in RADIOARCHIWISTA_SUPPORTED_ACTIONS
-    assert Action.VIEW_PRESETS not in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+    assert Action.VIEW_PRESETS in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+    assert Action.ASSIGN_PRESET in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+    assert Action.PRESET_1 in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     assert Action.FRONTIER_SMART_SELECT_MODE not in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+
+
+def test_radioarchiwista_preset_activation_opens_folder_or_latest() -> None:
+    from amc_wx_lite import profile_presets
+
+    calls = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.RADIOARCHIWISTA),
+        layout=SimpleNamespace(state_json=Path("missing-profile.json")),
+        _last_preset_slot_by_session={},
+        announcer=SimpleNamespace(say=lambda message: calls.append(("say", message))),
+        _preset_inputs=lambda session: ({}, []),
+        _open_radioarchiwista_latest=lambda: calls.append(("latest",)),
+        _open_radioarchiwista_level=lambda intent: calls.append(("level", intent)),
+    )
+    frame.runner = SimpleNamespace(submit=lambda key, work, done, failed: done(work()))
+    LiteFrame._activate_preset(frame, 1)
+    LiteFrame._activate_preset(frame, 2)
+    assert calls[0] == ("latest",)
+    assert calls[1][0] == "level"
+    assert calls[1][1].view is LibraryView.RADIOARCHIWISTA_YEARS
+    assert calls[1][1].slug == "pr1"
+    assert frame._last_preset_slot_by_session[SessionId.RADIOARCHIWISTA] == 2
