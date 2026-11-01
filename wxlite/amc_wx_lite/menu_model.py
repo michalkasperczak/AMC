@@ -777,7 +777,9 @@ def build_menus(
             ),
             *tuple(
                 MenuItem(
-                    f"Przypisz do presetu {slot % 10}",
+                    (f"&Przypisz do presetu 9" if slot == 9 else
+                     f"Przypisz do prese&tu 0" if slot == 10 else
+                     f"Przypisz do presetu &{slot}"),
                     Action[f"ASSIGN_PRESET_{slot}"],
                     shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
                     visible_sessions=RADIOARCHIWISTA_ONLY,
