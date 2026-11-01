@@ -291,6 +291,7 @@ def test_launch_uses_verified_updater_and_requests_installer_cleanup(
     assert arguments[0] == str(installer.parent / "AMC-Python-Updater.exe")
     assert Path(arguments[0]).read_bytes() == b"updater"
     assert "--cleanup-installer" in arguments
+    assert "--silent" in arguments
     assert arguments[arguments.index("--installer") + 1] == str(installer)
     assert arguments[arguments.index("--installer-sha256") + 1] == "3" * 64
     assert arguments[arguments.index("--target") + 1] == str(root)

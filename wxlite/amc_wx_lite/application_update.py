@@ -502,6 +502,7 @@ def launch_prepared_application_update(
         "--launch",
         "AMC.exe",
         "--cleanup-installer",
+        "--silent",
     ]
     try:
         return subprocess.Popen(  # noqa: S603 - jawny, zweryfikowany plik instalacji

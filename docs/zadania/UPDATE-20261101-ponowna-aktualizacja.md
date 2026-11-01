@@ -12,7 +12,7 @@ Polecenie „Sprawdź aktualizację AMC” jest dostępne w menu Pomoc i palecie
 
 ## Uzasadnienie i decyzje
 
-Pomocnik był startowany z katalogu instalacji i natychmiast tworzył kopię roboczą, przez co sam proces startowy kończył się wcześniej niż właściwa próba. Frontend nie mógł znać końcowego kodu. Teraz kopia pomocnika jest uruchamiana z unikalnego katalogu przygotowanego instalatora, poza katalogiem AMC, a frontend obserwuje kod zakończenia. Przed uruchomieniem pobiera świeży status nagrywania z hosta. Stan nieznany również blokuje próbę. Nadal działa niezależna ochrona po stronie pomocnika przed podmianą plików działającego programu.
+Pomocnik był startowany z katalogu instalacji i natychmiast tworzył kopię roboczą, przez co sam proces startowy kończył się wcześniej niż właściwa próba. Frontend nie mógł znać końcowego kodu. Teraz kopia pomocnika jest uruchamiana z unikalnego katalogu przygotowanego instalatora, poza katalogiem AMC, a frontend obserwuje kod zakończenia. Pomocnik nie pokazuje dodatkowego okna błędu; wynik przekazuje główne okno AMC przez NVDA. Przed uruchomieniem pobiera świeży status nagrywania z hosta. Stan nieznany również blokuje próbę. Nadal działa niezależna ochrona po stronie pomocnika przed podmianą plików działającego programu.
 
 Przy ręcznej aktualizacji alpha.463 1.11 o 19:31 pierwsza próba z absolutną wartością `--launch` została odrzucona przed instalacją, bo pomocnik wymaga ścieżki względnej. Druga próba z `AMC.exe` zakończyła się kodem 0. Po restarcie harmonogram wznowił nagrywanie „Jarosław” do drugiego pliku. Oznacza to, że wcześniejszy krótki brak aktywnego zapisu nie gwarantował końca okna harmonogramu. Właśnie dlatego poprawka bada bieżący status, a nowe wydanie nie może być instalowane podczas tego nagrania. Dziennik wskazuje lukę w nagraniu podczas podmiany; nie twierdzimy, że zapis jest kompletny.
 
@@ -26,4 +26,4 @@ Po pomyślnym zamknięciu AMC kod aktualizatora dociera do zamykanego procesu; n
 
 ## Wersja i commit
 
-Poprawka źródłowa po alpha.463, commit i numer następnej wersji do uzupełnienia po zapisaniu zmian. Opublikowana i zainstalowana alpha.463 pozostaje osobnym, już zweryfikowanym wydaniem.
+Poprawka źródłowa po alpha.463 jest kandydatem AMC Test 0.1.0-alpha.464. Commit wydania do uzupełnienia po zapisaniu zmian. Opublikowana i zainstalowana alpha.463 pozostaje osobnym, już zweryfikowanym wydaniem.
