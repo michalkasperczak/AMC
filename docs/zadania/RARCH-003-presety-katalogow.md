@@ -17,7 +17,7 @@ Wykorzystano istniejący dialog przypisania Ctrl+Alt+Shift+P i wspólny model po
 
 ## Weryfikacja
 
-- Testy jednostkowe: domyślne cele bez starego profilu, trwałe nadpisanie i pusta lista, odmowa dla pliku godzinnego, skróty/menu/pomoc, wywołanie nawigacji do „Najnowszych” i lat Programu 1. Skupiony zestaw: 31 zaliczonych; regresje sesji, skrótów i profilu wydania: 78 zaliczonych (1.11.2026).
+- Testy jednostkowe: domyślne cele bez starego profilu, trwałe nadpisanie i pusta lista, odmowa dla pliku godzinnego, skróty/menu/pomoc, wywołanie nawigacji do „Najnowszych” i lat Programu 1. Skupiony zestaw: 31 zaliczonych; regresje sesji, skrótów i profilu wydania: 79 zaliczonych (1.11.2026).
 - Manualny odsłuch NVDA, start aplikacji z nową paczką, instalacja i GitHub Release są odrębnymi etapami; nie są potwierdzone samymi testami.
 
 ## Szkic instrukcji i listy zmian do akceptacji użytkownika

@@ -555,6 +555,8 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "library.folderSources.refresh": "Refresh all Library folders",
     "presets.view": "Show presets",
     "presets.assign": "Create or assign a preset",
+    **{f"presets.assign.{slot}": f"Assign Radio Archiwista folder to preset {slot % 10}"
+       for slot in range(1, 11)},
     "library.itemBookmarks": "Item bookmarks",
     "library.allBookmarks": "All bookmarks",
     "clipboard.copyName": "Copy name",

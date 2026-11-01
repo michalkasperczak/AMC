@@ -543,3 +543,11 @@ def test_radioarchiwista_direct_assignment_shortcuts_are_session_specific() -> N
         assert menu_actions[action].shortcut == shortcut
         assert menu_actions[action].needs_radioarchiwista_preset_folder
         assert "Przypisz" in help_entries[shortcut]
+
+
+def test_direct_archive_preset_has_english_user_facing_name() -> None:
+    from amc_wx_lite import i18n
+    for slot in range(1, 11):
+        label = i18n.english_action_name(f"presets.assign.{slot}")
+        assert "Radio Archiwista folder" in label
+        assert label.endswith(f"preset {slot % 10}")
