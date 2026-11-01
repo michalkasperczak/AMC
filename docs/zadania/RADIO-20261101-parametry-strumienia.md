@@ -1,6 +1,6 @@
 # RADIO-20261101 — parametry bieżącej stacji radiowej
 
-Stan: w trakcie. Wersja docelowa: AMC Test 0.1.0-alpha.463.
+Stan: źródła i skupione testy gotowe; końcowa kompilacja, pakiet, wydanie i instalacja oczekują na koniec nagrań. Wersja docelowa: AMC Test 0.1.0-alpha.463.
 
 ## Zgłoszenie i decyzja
 
@@ -24,4 +24,4 @@ Nie każdy serwer udostępnia wiarygodny bitrate lub kodek. AMC nie wylicza bitr
 
 ## Wersja i commit
 
-Źródła w przygotowaniu dla 0.1.0-alpha.463. Commit, pakiet, instalacja i wydanie GitHub zostaną zapisane osobno po rzeczywistej weryfikacji.
+Zmiana formattera i sondowania: `cc7e3fd91588575b284c5549c92db7ad81947a65`. Przekazanie zapisanych danych stacji do hosta: `d482285311f9f4b47e4847ed4f4622a8761a7ccb`. Oba commity są zweryfikowane na gałęzi `codex/amc-test-title-20261031` repozytorium `michalkasperczak/AMC`. Pakiet, instalacja i wydanie GitHub nie zostały jeszcze wykonane; push źródeł nie jest wydaniem.
