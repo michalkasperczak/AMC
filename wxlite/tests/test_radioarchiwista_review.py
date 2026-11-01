@@ -126,3 +126,32 @@ def test_radioarchiwista_preset_activation_opens_folder_or_latest() -> None:
     assert calls[1][1].view is LibraryView.RADIOARCHIWISTA_YEARS
     assert calls[1][1].slug == "pr1"
     assert frame._last_preset_slot_by_session[SessionId.RADIOARCHIWISTA] == 2
+
+
+def test_radioarchiwista_direct_assignment_saves_private_station_preset() -> None:
+    from amc_wx_lite import profile_presets
+
+    messages = []
+    saved = []
+    state = SimpleNamespace(preset_overrides={})
+    target = profile_presets.PresetTarget(
+        "rarch:station:pr3", "rarchStation", "Program 3", "pr3"
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.RADIOARCHIWISTA),
+        layout=SimpleNamespace(state_json=Path("missing-profile.json")),
+        state=state,
+        store=SimpleNamespace(save=lambda current: saved.append(current.preset_overrides.copy())),
+        announcer=SimpleNamespace(say=messages.append),
+        _current_preset_target=lambda: target,
+        _preset_inputs=lambda session: (state.preset_overrides, []),
+    )
+    frame.runner = SimpleNamespace(submit=lambda key, work, done, failed: done(work()))
+    LiteFrame._assign_preset(frame, 3)
+    entries = profile_presets.effective_entries(
+        frame.layout.state_json, SessionId.RADIOARCHIWISTA, state.preset_overrides
+    )
+    assert [(entry.slot, entry.target_id) for entry in entries] == [
+        (1, "rarch:latest"), (2, "rarch:station:pr1"), (3, "rarch:station:pr3")
+    ]
+    assert saved and messages == ["Zapisano preset 3: Program 3"]

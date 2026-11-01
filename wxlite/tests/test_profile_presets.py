@@ -512,3 +512,34 @@ def test_radioarchiwista_preset_commands_share_shortcuts_help_and_menu() -> None
         assert chord in help_entries
     assert items[Action.VIEW_PRESETS].shortcut == "Ctrl+Alt+P"
     assert items[Action.ASSIGN_PRESET].shortcut == "Ctrl+Alt+Shift+P"
+
+
+def test_radioarchiwista_direct_assignment_shortcuts_are_session_specific() -> None:
+    from amc_wx_lite import menu_model
+    from amc_wx_lite.shortcuts import (
+        ASSIGN_PRESET_ACTIONS, RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+        chord_from_canonical, describe, resolve,
+    )
+
+    help_entries = dict(describe("Radio Archiwista", set(RADIOARCHIWISTA_SUPPORTED_ACTIONS)))
+    menu_actions = {
+        item.action: item
+        for menu in menu_model.menus_for_session(SessionId.RADIOARCHIWISTA)
+        for item in menu.items if item.action
+    }
+    other_actions = {
+        item.action
+        for menu in menu_model.menus_for_session(SessionId.SPOTIFY)
+        for item in menu.items if item.action
+    }
+    for slot, action in ASSIGN_PRESET_ACTIONS.items():
+        shortcut = f"Ctrl+Alt+Shift+{slot % 10}"
+        assert resolve(chord_from_canonical(shortcut), player_view=False,
+                       radio_session=False, radioarchiwista_session=True) is action
+        assert resolve(chord_from_canonical(shortcut), player_view=True,
+                       radio_session=False, radioarchiwista_session=True) is action
+        assert action not in other_actions
+        assert action in menu_actions
+        assert menu_actions[action].shortcut == shortcut
+        assert menu_actions[action].needs_radioarchiwista_preset_folder
+        assert "Przypisz" in help_entries[shortcut]

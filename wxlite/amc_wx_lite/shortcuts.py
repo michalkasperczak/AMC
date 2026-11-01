@@ -245,6 +245,16 @@ class Action(Enum):
     PRESET_12 = "preset.12"
     VIEW_PRESETS = "presets.view"
     ASSIGN_PRESET = "presets.assign"
+    ASSIGN_PRESET_1 = "presets.assign.1"
+    ASSIGN_PRESET_2 = "presets.assign.2"
+    ASSIGN_PRESET_3 = "presets.assign.3"
+    ASSIGN_PRESET_4 = "presets.assign.4"
+    ASSIGN_PRESET_5 = "presets.assign.5"
+    ASSIGN_PRESET_6 = "presets.assign.6"
+    ASSIGN_PRESET_7 = "presets.assign.7"
+    ASSIGN_PRESET_8 = "presets.assign.8"
+    ASSIGN_PRESET_9 = "presets.assign.9"
+    ASSIGN_PRESET_10 = "presets.assign.10"
     VIEW_WIIM_NETWORK_STREAMS = "wiim.networkStreams.view"
     WIIM_SELECT_INPUT = "wiim.input.select"
     WIIM_SELECT_OUTPUT = "wiim.output.select"
@@ -1092,6 +1102,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
     | {
         Action.VIEW_PRESETS,
         Action.ASSIGN_PRESET,
+        *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
         *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
         Action.VIEW_FAVORITES,
         Action.VIEW_LIBRARY,
@@ -1286,6 +1297,18 @@ LIST_VIEW: dict[str, Action] = {
 PRESET_ACTIONS: dict[int, Action] = {
     slot: Action[f"PRESET_{slot}"] for slot in range(1, 13)
 }
+ASSIGN_PRESET_ACTIONS: dict[int, Action] = {
+    slot: Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)
+}
+ASSIGN_PRESET_SHORTCUTS: dict[str, int] = {
+    f"Ctrl+Alt+Shift+{slot % 10}": slot for slot in range(1, 11)
+}
+
+
+def assign_preset_slot(action: Action) -> int | None:
+    return next((slot for slot, candidate in ASSIGN_PRESET_ACTIONS.items() if candidate is action), None)
+
+
 PRESET_SHORTCUTS: dict[str, int] = {
     **{f"Ctrl+Shift+{slot}": slot for slot in range(1, 10)},
     "Ctrl+Shift+0": 10,
@@ -1681,6 +1704,7 @@ FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
 # Sesja Radio Archiwista: F5 odświeża katalog, Ctrl+F5 ustawia jego adres.
 # Skróty materiału są zgodne z Podcastami.
 RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
+    **{chord: ASSIGN_PRESET_ACTIONS[slot] for chord, slot in ASSIGN_PRESET_SHORTCUTS.items()},
     "F5": Action.RADIOARCHIWISTA_REFRESH,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.VIEW_FAVORITES,
@@ -1802,6 +1826,7 @@ _PROTECTED_SHORTCUT_ACTIONS = frozenset({
     Action.PRESET_10,
     Action.PRESET_11,
     Action.PRESET_12,
+    *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
 })
 
 _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
@@ -2552,6 +2577,10 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.EXPORT_BACKUP: "Eksportuj dane AMC",
         Action.IMPORT_BACKUP: "Importuj dane AMC",
     }
+    labels.update({
+        action: f"Przypisz zaznaczoną stację lub Najnowsze nagrania do presetu {slot % 10}"
+        for slot, action in ASSIGN_PRESET_ACTIONS.items()
+    })
     labels.update({
         action: f"Uruchom preset {slot} bieżącej sesji"
         for slot, action in PRESET_ACTIONS.items()

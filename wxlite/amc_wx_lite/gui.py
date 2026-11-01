@@ -214,6 +214,8 @@ from .shortcuts import (
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
     PRESET_SHORTCUTS,
+    ASSIGN_PRESET_SHORTCUTS,
+    assign_preset_slot,
     RECOGNITION_HISTORY_SESSIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
     TIDAL_SUPPORTED_ACTIONS,
@@ -10419,6 +10421,12 @@ class LiteFrame(wx.Frame):
                 self.navigator.active, set()
             ):
                 enabled = False
+            if entry.needs_radioarchiwista_preset_folder and not (
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+                and selected_row is not None
+                and selected_row.service_kind in {"rarchStation", "rarchLatest"}
+            ):
+                enabled = False
             if entry.needs_radioarchiwista_recording and not (
                 selected_kind == "recording"
                 and selected_row is not None
@@ -10961,7 +10969,7 @@ class LiteFrame(wx.Frame):
             "Ctrl+,",
             "F5",
             "Ctrl+F5",
-        } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS):
+        } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
             # Ctrl+C musi zostac zatrzymane PRZED natywnym SysListView32,
             # zeby gest wykonal tylko polecenie AMC. Sam zapis do schowka jest
             # odroczony w ``_copy_name`` za okno kontroli dodatku NVDA, więc
@@ -14618,7 +14626,7 @@ class LiteFrame(wx.Frame):
                 "Alt+Shift+R",
                 "Alt+Up",
                 "Alt+Down",
-            } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS):
+            } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
                 self._on_key(event)
                 return
             event.Skip()
@@ -15105,6 +15113,8 @@ class LiteFrame(wx.Frame):
             self._export_sonos_own_streams()
         elif action is Action.ASSIGN_PRESET:
             self._assign_preset()
+        elif (assigned_slot := assign_preset_slot(action)) is not None:
+            self._assign_preset(assigned_slot)
         elif (slot := preset_slot(action)) is not None:
             self._activate_preset(slot)
         elif action is Action.PLAY_PAUSE:
@@ -17885,8 +17895,8 @@ class LiteFrame(wx.Frame):
             ),
         )
 
-    def _assign_preset(self) -> None:
-        """Ctrl+Alt+Shift+P: trwale zapisz tylko prywatne nadpisanie wxPython."""
+    def _assign_preset(self, direct_slot: int | None = None) -> None:
+        """Zapisz prywatny preset; cyfra w Radio Archiwiście działa bez dialogu."""
         session = self.navigator.active
         if session is SessionId.WIIM:
             self._show_wiim_presets(select_for_shortcut=True)
@@ -17927,26 +17937,31 @@ class LiteFrame(wx.Frame):
                     or target.sonos_household_id == fixed_row.parent_id
                 )
             )
-            with PresetAssignmentDialog(
-                self,
-                target=target,
-                choices=profile_presets.choices(entries),
-                first_free_slot=free,
-                initial_slot=initial,
-                session_name=session_options.session_display_name(session),
-                fixed_target_title=(fixed_row.title if fixed_row else ""),
-                fixed_target_available=fixed_available,
-                fixed_target_initially_selected=bool(
-                    existing is not None
-                    and existing.sonos_fixed_player_ids
-                ),
-            ) as dialog:
-                if dialog.ShowModal() != wx.ID_OK:
-                    self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
-                    return
-                slot = dialog.selected_slot
-                action = dialog.selected_action
-                fixed_selected = dialog.fixed_target_selected
+            if direct_slot is not None and session is SessionId.RADIOARCHIWISTA:
+                slot = direct_slot
+                action = "replace"
+                fixed_selected = False
+            else:
+                with PresetAssignmentDialog(
+                    self,
+                    target=target,
+                    choices=profile_presets.choices(entries),
+                    first_free_slot=free,
+                    initial_slot=initial,
+                    session_name=session_options.session_display_name(session),
+                    fixed_target_title=(fixed_row.title if fixed_row else ""),
+                    fixed_target_available=fixed_available,
+                    fixed_target_initially_selected=bool(
+                        existing is not None
+                        and existing.sonos_fixed_player_ids
+                    ),
+                ) as dialog:
+                    if dialog.ShowModal() != wx.ID_OK:
+                        self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
+                        return
+                    slot = dialog.selected_slot
+                    action = dialog.selected_action
+                    fixed_selected = dialog.fixed_target_selected
 
             assigned_target = target
             if action != "remove" and fixed_selected and fixed_row is not None:

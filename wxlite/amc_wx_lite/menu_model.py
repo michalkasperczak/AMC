@@ -143,6 +143,7 @@ class MenuItem:
     needs_favorite_item: bool = False
     #: Nagranie Radio Archiwisty z dostępnym adresem audio.
     needs_radioarchiwista_recording: bool = False
+    needs_radioarchiwista_preset_folder: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
     #: AMC. Podcast nagłówkowy, kontener TIDAL i urządzenie sieciowe odpadają.
     needs_playlist_item: bool = False
@@ -773,6 +774,16 @@ def build_menus(
                 "Utwórz lub p&rzypisz preset…",
                 Action.ASSIGN_PRESET,
                 shortcut="Ctrl+Alt+Shift+P",
+            ),
+            *tuple(
+                MenuItem(
+                    f"Przypisz do presetu {slot % 10}",
+                    Action[f"ASSIGN_PRESET_{slot}"],
+                    shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
+                    visible_sessions=RADIOARCHIWISTA_ONLY,
+                    needs_radioarchiwista_preset_folder=True,
+                )
+                for slot in range(1, 11)
             ),
             SEPARATOR,
             # Trzy odczyty aktywnosci. Skroty ODCZYTANE z kodu:
