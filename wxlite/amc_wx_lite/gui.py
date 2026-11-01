@@ -46,6 +46,7 @@ from .application_update import (
     launch_prepared_application_update,
     prepare_application_update,
     recording_blocks_application_update,
+    schedule_blocks_application_update,
     user_facing_update_error,
 )
 from .application_update_dialog import ApplicationUpdateDialog
@@ -15633,8 +15634,26 @@ class LiteFrame(wx.Frame):
                     raise ApplicationUpdateRecordingStatusError(
                         "Nie można potwierdzić zakończenia nagrywania"
                     ) from error
+                if not isinstance(status, dict):
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nieprawidłowy stan nagrywania"
+                    )
                 if recording_blocks_application_update(status):
                     raise ApplicationUpdateRecordingError("Trwa nagrywanie")
+                try:
+                    schedule_status = client.radio_schedule_status()
+                except Exception as error:
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nie można potwierdzić harmonogramu nagrywania"
+                    ) from error
+                if not isinstance(schedule_status, dict):
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nieprawidłowy stan harmonogramu nagrywania"
+                    )
+                if schedule_blocks_application_update(schedule_status):
+                    raise ApplicationUpdateRecordingError(
+                        "Trwa okno zaplanowanego nagrywania"
+                    )
             return prepared
 
         def done(prepared: PreparedApplicationUpdate) -> None:

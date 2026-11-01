@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -534,13 +535,47 @@ def recording_blocks_application_update(status: object) -> bool:
     )
 
 
+def schedule_blocks_application_update(
+    status: object, *, now_utc_ticks: int | None = None
+) -> bool:
+    """Chron również przerwy między plikami w bieżącym oknie harmonogramu."""
+
+    if not isinstance(status, dict):
+        return True
+    active_ids = status.get("activeIds")
+    schedules = status.get("schedules")
+    if not isinstance(active_ids, list) or not isinstance(schedules, list):
+        return True
+    if active_ids:
+        return True
+    now = now_utc_ticks
+    if now is None:
+        now = time.time_ns() // 100 + 621355968000000000
+    minute = 60 * 10_000_000
+    for schedule in schedules:
+        if not isinstance(schedule, dict):
+            return True
+        if not schedule.get("enabled"):
+            continue
+        try:
+            start = int(schedule["nextStartUtcTicks"])
+            duration = int(schedule["durationMinutes"])
+        except (KeyError, TypeError, ValueError):
+            return True
+        if duration <= 0 or start <= 0:
+            return True
+        if start - 5 * minute <= now <= start + (duration + 2) * minute:
+            return True
+    return False
+
+
 def user_facing_update_error(error: Exception) -> str:
     """Nie ujawniaj URL-i, sciezek ani typow wyjatkow w zwyklej mowie NVDA."""
 
     if isinstance(error, ApplicationUpdateNetworkError):
         return "Nie udało się połączyć z serwerem aktualizacji. Spróbuj ponownie później."
     if isinstance(error, ApplicationUpdateRecordingError):
-        return "Trwa nagrywanie. Aktualizacja nie została uruchomiona. Spróbuj ponownie po jego zakończeniu."
+        return "Trwa nagrywanie lub jego zaplanowane okno. Aktualizacja nie została uruchomiona. Spróbuj ponownie po zakończeniu."
     if isinstance(error, ApplicationUpdateRecordingStatusError):
         return "Nie można sprawdzić stanu nagrywania. Aktualizacja nie została uruchomiona. Spróbuj ponownie później."
     if isinstance(error, ApplicationUpdateIntegrityError):

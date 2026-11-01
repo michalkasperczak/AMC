@@ -308,6 +308,38 @@ def test_recording_status_blocks_update_even_when_recording_is_between_segments(
     assert application_update.recording_blocks_application_update(None)
 
 
+def test_schedule_window_blocks_update_between_recording_segments() -> None:
+    now = 638976500000000000
+    minute = 60 * 10_000_000
+
+    def status(start: int, duration: int = 14) -> dict:
+        return {
+            "activeIds": [],
+            "schedules": [{
+                "enabled": True,
+                "nextStartUtcTicks": start,
+                "durationMinutes": duration,
+            }],
+        }
+
+    assert application_update.schedule_blocks_application_update(
+        status(now - 2 * minute), now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(
+        status(now + 3 * minute), now_utc_ticks=now
+    )
+    assert not application_update.schedule_blocks_application_update(
+        status(now + 10 * minute), now_utc_ticks=now
+    )
+    assert not application_update.schedule_blocks_application_update(
+        status(now - 20 * minute), now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(
+        {"activeIds": ["nagranie"], "schedules": []}, now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(None)
+
+
 def test_second_check_during_installer_reports_progress_and_failed_stop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -327,7 +359,10 @@ def test_second_check_during_installer_reports_progress_and_failed_stop(
         _application_update_pending=False,
         announcer=SimpleNamespace(say=announcements.append),
         runner=Runner(),
-        client=SimpleNamespace(radio_recording_status=lambda: {"count": 0}),
+        client=SimpleNamespace(
+            radio_recording_status=lambda: {"count": 0},
+            radio_schedule_status=lambda: {"activeIds": [], "schedules": []},
+        ),
         store=SimpleNamespace(directory=Path("nieuzywany")),
         _window_alive=lambda: True,
     )

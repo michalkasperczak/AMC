@@ -476,7 +476,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.CHECK_APPLICATION_UPDATE: CommandPresentation(
         Action.CHECK_APPLICATION_UPDATE,
         "Sprawdź aktualizację AMC",
-        "Sprawdź i zainstaluj najnowsze wydanie z bieżącego kanału; podczas nagrywania instalacja nie rozpocznie się",
+        "Sprawdź i zainstaluj najnowsze wydanie z bieżącego kanału; podczas nagrywania i w jego zaplanowanym oknie instalacja nie rozpocznie się",
         "",
         "Sprawdź &aktualizację AMC…",
     ),
