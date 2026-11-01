@@ -1,6 +1,6 @@
 # UPDATE-20261101 — wynik i ponowne sprawdzenie aktualizacji AMC
 
-Stan: W trakcie. Data: 1.11.2026. Dotyczy bieżącej aplikacji wxPython AMC Test.
+Stan: W trakcie; alpha.464 opublikowana i zainstalowana, potrzebny ręczny odsłuch NVDA. Data: 1.11.2026. Dotyczy bieżącej aplikacji wxPython AMC Test.
 
 ## Zgłoszenie i decyzja
 
@@ -18,7 +18,7 @@ Przy ręcznej aktualizacji alpha.463 1.11 o 19:31 pierwsza próba z absolutną w
 
 ## Testy i wynik
 
-Alpha.463 z GitHuba jest lokalnie zainstalowana: manifest wskazuje commit `ae8ae822c0a1c734c382aebe270bbb17459769e1`, wersję 0.1.0-alpha.463. Wszystkie 2141 plików z manifestu mają zgodne SHA-256; działają procesy `AMC.exe`, prywatny Python i host z katalogu AMC Test. Nowa poprawka: 78 testów aktualizacji, palety i skrótów zaliczonych w przypiętym Pythonie 3.14 / wxPython 4.3.1. Kontrola hosta po zmianie wymaga kompilacji. Brak jeszcze builda, instalacji i wydania tej poprawki. Rzeczywiste komunikaty NVDA wymagają odbioru po bezpiecznej instalacji.
+Alpha.463 z GitHuba została najpierw lokalnie zainstalowana, z manifestem źródłowym `ae8ae822c0a1c734c382aebe270bbb17459769e1`. Następnie dla alpha.464: 78 testów aktualizacji, palety i skrótów zaliczonych w przypiętym Pythonie 3.14 / wxPython 4.3.1; host i pomocnik skompilowane; pełna integralność paczki i kontrolowany start zaliczone; skan sekretów instalatora zaliczony. Prerelease GitHub zweryfikowany odczytowo: docelowy commit `13dde8b3e14f61cf331843d5bbbc23ae9a92b102`, nazwa, rozmiar i SHA-256 zasobu zgodne. Lokalny aktualizator zakończył się kodem 0. Zainstalowany manifest wskazuje alpha.464 i ten sam commit; wszystkie 2141 plików mają zgodne SHA-256. Działa jedna instancja AMC Test z prywatnym Pythonem i hostem z katalogu docelowego. Rzeczywiste sprawdzenie kanału z tej instalacji zwróciło `available=False`, najnowszy tag `test-2026.11.01.1958`. Ręczny odsłuch komunikatów NVDA przy ponownej próbie pozostaje do odbioru; nie wywołano celowo błędu instalatora na głównej instalacji.
 
 ## Znane ograniczenia
 
@@ -26,4 +26,4 @@ Po pomyślnym zamknięciu AMC kod aktualizatora dociera do zamykanego procesu; n
 
 ## Wersja i commit
 
-Poprawka źródłowa po alpha.463 jest kandydatem AMC Test 0.1.0-alpha.464. Commit wydania do uzupełnienia po zapisaniu zmian. Opublikowana i zainstalowana alpha.463 pozostaje osobnym, już zweryfikowanym wydaniem.
+Wydanie AMC Test 0.1.0-alpha.464 pochodzi z commitu `13dde8b3e14f61cf331843d5bbbc23ae9a92b102`, tytuł użytkowy `01.11.2026, 19:58`. Instalator `AMC-Test-2026-11-01-1958.exe`, 133646036 bajtów, SHA-256 `e67e9f54d6b37bb8c93f7fe70fc86855004c3f633bdaf7f2f04a9158b83b0d0d`. GitHub prerelease: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.01.1958`.
