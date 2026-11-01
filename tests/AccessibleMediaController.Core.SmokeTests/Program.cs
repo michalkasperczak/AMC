@@ -3789,6 +3789,12 @@ static void TestAudioParametersFormatting()
         AudioParametersFormatter.Format(new MediaItem { SampleRateHz = 96_000 }, polish));
     Equal("brak danych audio", AudioParametersFormatter.Format(new MediaItem(), polish));
     Equal(string.Empty, AudioParametersFormatter.FormatCompact(new MediaItem(), polish));
+    Equal("128 kb/s, AAC, 48 kHz", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { BitrateKbps = 128, Codec = "AAC", SampleRateHz = 48_000 }, polish));
+    Equal("około 192 kb/s, MP3", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { BitrateKbps = 192, IsBitrateEstimated = true, Codec = "MP3" }, polish));
+    Equal("48 kHz", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { SampleRateHz = 48_000 }, polish));
 }
 
 static void TestLegacyStateMigration()

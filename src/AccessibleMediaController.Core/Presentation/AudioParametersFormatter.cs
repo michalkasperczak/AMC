@@ -46,4 +46,24 @@ public static class AudioParametersFormatter
 
         return string.Join(", ", parts);
     }
+
+    public static string FormatRadioCompact(MediaItem item, CultureInfo? culture = null)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        culture ??= CultureInfo.CurrentCulture;
+
+        var parts = new List<string>(3);
+        if (item.BitrateKbps is > 0)
+        {
+            parts.Add(item.IsBitrateEstimated
+                ? $"około {item.BitrateKbps} kb/s"
+                : $"{item.BitrateKbps} kb/s");
+        }
+        if (!string.IsNullOrWhiteSpace(item.Codec)) parts.Add(item.Codec.Trim());
+        if (item.SampleRateHz is > 0)
+        {
+            parts.Add($"{(item.SampleRateHz.Value / 1000d).ToString("0.##", culture)} kHz");
+        }
+        return string.Join(", ", parts);
+    }
 }

@@ -341,6 +341,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 new { engine = "radio", title = e.Item.Title, id = e.Item.Id,
                     tempoFallbackReason = _radio.TempoFallbackReason,
                     historyError });
+            _ = EnrichCurrentRadioMetadataAsync(e.Item);
         };
         _radio.NowPlayingChanged += (_, e) => Publish("radio.nowPlaying",
             new { id = e.Item.Id, station = e.Item.Title, streamTitle = e.StreamTitle });
@@ -2642,11 +2643,41 @@ internal sealed class LiteEngineHandlers : IDisposable
     private string BuildCurrentRadioBroadcastText(MediaItem item)
     {
         var parts = new List<string> { item.Title };
-        var audio = AudioParametersFormatter.FormatCompact(item);
+        var audio = AudioParametersFormatter.FormatRadioCompact(item);
         if (!string.IsNullOrWhiteSpace(audio)) parts.Add(audio);
 
         parts.Add(CurrentRadioStreamTitle(item) ?? "brak nazwy bieżącej audycji lub utworu");
         return string.Join(", ", parts);
+    }
+
+    private async Task EnrichCurrentRadioMetadataAsync(MediaItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Source)) return;
+        RadioAudioMetadata? metadata;
+        try
+        {
+            metadata = await RadioMediaOutput.TryReadStreamMetadataAsync(
+                item.Source, StreamMetadataTimeout).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or HttpRequestException
+            or InvalidDataException or TimeoutException or OperationCanceledException)
+        {
+            return;
+        }
+        if (metadata is null) return;
+        lock (_gate)
+        {
+            // Spóźniona odpowiedź poprzedniej stacji nie może opisać nowej.
+            if (!ReferenceEquals(_radioItem, item)) return;
+            if (item.BitrateKbps is null
+                && RadioAudioMetadataRules.NormalizeBitrateKbps(metadata.BitrateKbps) is int bitrate)
+            {
+                item.BitrateKbps = bitrate;
+                item.IsBitrateEstimated = metadata.IsBitrateEstimated;
+            }
+            item.SampleRateHz ??= metadata.SampleRateHz is > 0 ? metadata.SampleRateHz : null;
+            item.Codec ??= metadata.Codec;
+        }
     }
 
     /// <summary>Bieżący utwór z ICY, jeśli stacja go podaje i nie jest samą nazwą stacji.</summary>
