@@ -54,7 +54,9 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
-- `RADIO-20261101` — **W trakcie; alpha.463 opublikowana, instalacja wstrzymana przez nagranie** — bitrate i kodek bieżącej stacji w odczycie paska stanu NVDA+End oraz Alt+D. [RADIO-20261101-parametry-strumienia.md](RADIO-20261101-parametry-strumienia.md).
+- `UPDATE-20261101` — **W trakcie; alpha.463 zainstalowana, poprawka wyniku aktualizatora przetestowana w źródłach** — czytelny wynik i ochrona przed powtórnym sprawdzeniem podczas instalacji. [UPDATE-20261101-ponowna-aktualizacja.md](UPDATE-20261101-ponowna-aktualizacja.md).
+
+- `RADIO-20261101` — **W trakcie; alpha.463 opublikowana i zainstalowana, potrzebny odsłuch NVDA** — bitrate i kodek bieżącej stacji w odczycie paska stanu NVDA+End oraz Alt+D. [RADIO-20261101-parametry-strumienia.md](RADIO-20261101-parametry-strumienia.md).
 
 - `RARCH-003` — presety katalogów Radio Archiwisty, domyślnie Najnowsze nagrania i Program 1. [RARCH-003-presety-katalogow.md](RARCH-003-presety-katalogow.md).
 - `RELEASE-20261031` — **Kandydat AMC Test alpha.461; testy zaliczone, instalacja i GitHub do weryfikacji** — wspólna aktualizacja tytułu, Radio Archiwisty i diagnostyki. [RELEASE-20261031-alpha461.md](RELEASE-20261031-alpha461.md).

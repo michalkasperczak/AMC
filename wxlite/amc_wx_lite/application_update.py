@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import urllib.error
@@ -42,6 +43,14 @@ class ApplicationUpdateNetworkError(ApplicationUpdateError):
 
 class ApplicationUpdateIntegrityError(ApplicationUpdateError):
     """Metadane albo paczka nie spelnily kontraktu wydania."""
+
+
+class ApplicationUpdateRecordingError(ApplicationUpdateError):
+    """Aktywne nagrywanie musi się zakończyć przed podmianą programu."""
+
+
+class ApplicationUpdateRecordingStatusError(ApplicationUpdateError):
+    """Stan nagrywania jest nieznany, więc zamknięcie AMC byłoby ryzykowne."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -469,11 +478,19 @@ def prepare_application_update(
         raise
 
 
-def launch_prepared_application_update(prepared: PreparedApplicationUpdate) -> None:
-    """Uruchom sprawdzony helper; on zamknie AMC zwykla bezpieczna droga."""
+def launch_prepared_application_update(
+    prepared: PreparedApplicationUpdate,
+) -> subprocess.Popen[bytes]:
+    """Uruchom pomocnika poza instalacją, aby móc odczytać jego rzeczywisty wynik."""
+
+    helper = prepared.installer_path.parent / "AMC-Python-Updater.exe"
+    try:
+        shutil.copy2(prepared.updater_path, helper)
+    except OSError as error:
+        raise ApplicationUpdateError("Nie udało się przygotować aktualizatora") from error
 
     arguments = [
-        str(prepared.updater_path),
+        str(helper),
         "--installer",
         str(prepared.installer_path),
         "--installer-sha256",
@@ -487,7 +504,7 @@ def launch_prepared_application_update(prepared: PreparedApplicationUpdate) -> N
         "--cleanup-installer",
     ]
     try:
-        subprocess.Popen(  # noqa: S603 - jawny, zweryfikowany plik instalacji
+        return subprocess.Popen(  # noqa: S603 - jawny, zweryfikowany plik instalacji
             arguments,
             cwd=prepared.target_root,
             close_fds=True,
@@ -496,11 +513,35 @@ def launch_prepared_application_update(prepared: PreparedApplicationUpdate) -> N
         raise ApplicationUpdateError("Nie udało się uruchomić aktualizatora") from error
 
 
+def recording_blocks_application_update(status: object) -> bool:
+    """Użyj świeżej migawki hosta, nie pamięci podręcznej interfejsu."""
+
+    if not isinstance(status, dict):
+        return True
+    try:
+        if int(status.get("count") or 0) > 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    rows = status.get("recordings")
+    if not isinstance(rows, list):
+        return "count" not in status
+    return any(
+        isinstance(row, dict) and str(row.get("state") or "").lower()
+        not in ("finished", "stopped", "failed")
+        for row in rows
+    )
+
+
 def user_facing_update_error(error: Exception) -> str:
     """Nie ujawniaj URL-i, sciezek ani typow wyjatkow w zwyklej mowie NVDA."""
 
     if isinstance(error, ApplicationUpdateNetworkError):
         return "Nie udało się połączyć z serwerem aktualizacji. Spróbuj ponownie później."
+    if isinstance(error, ApplicationUpdateRecordingError):
+        return "Trwa nagrywanie. Aktualizacja nie została uruchomiona. Spróbuj ponownie po jego zakończeniu."
+    if isinstance(error, ApplicationUpdateRecordingStatusError):
+        return "Nie można sprawdzić stanu nagrywania. Aktualizacja nie została uruchomiona. Spróbuj ponownie później."
     if isinstance(error, ApplicationUpdateIntegrityError):
         return "Dane aktualizacji nie przeszły kontroli bezpieczeństwa. Nic nie zostało zainstalowane."
     return "Nie udało się przygotować aktualizacji. Nic nie zostało zainstalowane."

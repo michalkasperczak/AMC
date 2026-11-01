@@ -2,6 +2,8 @@
 
 Stan: źródła, testy, pakiet i wydanie GitHub gotowe; instalacja oczekuje na koniec nagrywania. Wersja: AMC Test 0.1.0-alpha.463.
 
+Korekta z 1.11.2026, 19:33: poprzedni zapis o oczekującej instalacji jest nieaktualny. Alpha.463 została zainstalowana i uruchomiona; wszystkie 2141 plików instalacji ma zgodne SHA-256. Po restarcie wznowił się zapis z okna harmonogramu, opisany w `UPDATE-20261101-ponowna-aktualizacja.md`. Nadal potrzebny ręczny odsłuch NVDA+End.
+
 ## Zgłoszenie i decyzja
 
 1.11.2026 użytkownik zgłosił, że NVDA+End dla Radia Poznań mówi 48 kHz i nazwę stacji, ale pomija bitrate i kodek, na przykład 128 AAC lub 192 kb/s. Odczyt ma podawać rzeczywistą wartość, kiedy silnik potrafi ją ustalić. Ta decyzja uzupełnia wcześniejszy projekt paska stanu wydania alpha.461; dotychczasowy sam odczyt częstotliwości nie był wystarczający.

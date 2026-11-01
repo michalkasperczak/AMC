@@ -39,10 +39,13 @@ import wx
 from .accessible_controls import FocusableReadOnlyTextCtrl
 from .application_update import (
     ApplicationUpdateCheck,
+    ApplicationUpdateRecordingError,
+    ApplicationUpdateRecordingStatusError,
     PreparedApplicationUpdate,
     check_for_application_update,
     launch_prepared_application_update,
     prepare_application_update,
+    recording_blocks_application_update,
     user_facing_update_error,
 )
 from .application_update_dialog import ApplicationUpdateDialog
@@ -15621,13 +15624,24 @@ class LiteFrame(wx.Frame):
         self.announcer.say("Pobieranie i sprawdzanie aktualizacji AMC")
 
         def work() -> object:
-            return prepare_application_update(check)
+            prepared = prepare_application_update(check)
+            client = getattr(self, "client", None)
+            if client is not None:
+                try:
+                    status = client.radio_recording_status()
+                except Exception as error:
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nie można potwierdzić zakończenia nagrywania"
+                    ) from error
+                if recording_blocks_application_update(status):
+                    raise ApplicationUpdateRecordingError("Trwa nagrywanie")
+            return prepared
 
         def done(prepared: PreparedApplicationUpdate) -> None:
-            self._application_update_pending = False
             try:
-                launch_prepared_application_update(prepared)
+                updater = launch_prepared_application_update(prepared)
             except Exception as error:  # noqa: BLE001 - szczegoly tylko do logu
+                self._application_update_pending = False
                 _append_frontend_log(
                     self.store,
                     "Uruchomienie aktualizatora AMC nie powiodło się: "
@@ -15636,8 +15650,50 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(user_facing_update_error(error))
                 return
             self.announcer.say(
-                "Aktualizacja jest gotowa. AMC zamknie się bezpiecznie, "
-                "zainstaluje nową wersję i uruchomi ponownie"
+                "Aktualizator został uruchomiony. AMC sprawdza, czy może się "
+                "bezpiecznie zamknąć. Ponowne sprawdzenie aktualizacji jest "
+                "wstrzymane do zakończenia tej próby"
+            )
+
+            def installed(exit_code: int) -> None:
+                self._application_update_pending = False
+                if not self._window_alive():
+                    return
+                if exit_code == 3:
+                    message = (
+                        "Aktualizacja została zatrzymana, ponieważ AMC nadal działa "
+                        "lub trwa nagrywanie. Spróbuj ponownie po jego zakończeniu"
+                    )
+                elif exit_code == 2:
+                    message = "Inny aktualizator AMC już działa"
+                elif exit_code != 0:
+                    message = (
+                        "Aktualizacja nie została zainstalowana. "
+                        "Szczegóły zapisano w dzienniku programu"
+                    )
+                else:
+                    message = "Aktualizator zakończył pracę"
+                if exit_code != 0:
+                    _append_frontend_log(
+                        self.store, f"Aktualizator AMC zakończył się kodem {exit_code}",
+                    )
+                self.announcer.say(message)
+
+            def monitoring_failed(error: Exception) -> None:
+                self._application_update_pending = False
+                _append_frontend_log(
+                    self.store,
+                    "Nie udało się odczytać wyniku aktualizatora AMC: "
+                    f"{type(error).__name__}: {error}",
+                )
+                if self._window_alive():
+                    self.announcer.say("Nie udało się odczytać wyniku aktualizacji AMC")
+
+            self.runner.submit(
+                "application-update-install",
+                updater.wait,
+                installed,
+                monitoring_failed,
             )
 
         def failed(error: Exception) -> None:

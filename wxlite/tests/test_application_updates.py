@@ -284,14 +284,104 @@ def test_launch_uses_verified_updater_and_requests_installer_cleanup(
         return object()
 
     monkeypatch.setattr(application_update.subprocess, "Popen", fake_popen)
-    launch_prepared_application_update(prepared)
+    process = launch_prepared_application_update(prepared)
 
     arguments = captured["arguments"]
-    assert arguments[0] == str(updater)
+    assert process is not None
+    assert arguments[0] == str(installer.parent / "AMC-Python-Updater.exe")
+    assert Path(arguments[0]).read_bytes() == b"updater"
     assert "--cleanup-installer" in arguments
     assert arguments[arguments.index("--installer") + 1] == str(installer)
     assert arguments[arguments.index("--installer-sha256") + 1] == "3" * 64
     assert arguments[arguments.index("--target") + 1] == str(root)
+
+
+def test_recording_status_blocks_update_even_when_recording_is_between_segments() -> None:
+    assert application_update.recording_blocks_application_update({"count": 1})
+    assert application_update.recording_blocks_application_update(
+        {"count": 0, "recordings": [{"state": "starting"}]}
+    )
+    assert not application_update.recording_blocks_application_update(
+        {"count": 0, "recordings": []}
+    )
+    assert application_update.recording_blocks_application_update(None)
+
+
+def test_second_check_during_installer_reports_progress_and_failed_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    announcements: list[str] = []
+    installer_completion: list[object] = []
+    launches: list[object] = []
+
+    class Runner:
+        @staticmethod
+        def submit(name, work, done, _failed):
+            if name == "application-update-install":
+                installer_completion.append(done)
+            else:
+                done(work())
+
+    frame = SimpleNamespace(
+        _application_update_pending=False,
+        announcer=SimpleNamespace(say=announcements.append),
+        runner=Runner(),
+        client=SimpleNamespace(radio_recording_status=lambda: {"count": 0}),
+        store=SimpleNamespace(directory=Path("nieuzywany")),
+        _window_alive=lambda: True,
+    )
+    monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
+    monkeypatch.setattr(
+        gui,
+        "launch_prepared_application_update",
+        lambda prepared: launches.append(prepared) or SimpleNamespace(wait=lambda: 3),
+    )
+    logs: list[str] = []
+    monkeypatch.setattr(gui, "_append_frontend_log", lambda _store, text: logs.append(text))
+
+    gui.LiteFrame._download_application_update(frame, object())
+    assert frame._application_update_pending
+    gui.LiteFrame._download_application_update(frame, object())
+    assert len(launches) == 1
+    assert announcements[-1] == "Sprawdzanie lub pobieranie aktualizacji już trwa"
+
+    installer_completion[0](3)
+    assert not frame._application_update_pending
+    assert "zatrzymana" in announcements[-1]
+    assert "kodem 3" in logs[-1]
+
+
+def test_update_does_not_launch_when_host_reports_recording(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    announcements: list[str] = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    frame = SimpleNamespace(
+        _application_update_pending=False,
+        announcer=SimpleNamespace(say=announcements.append),
+        runner=Runner(),
+        client=SimpleNamespace(radio_recording_status=lambda: {"count": 1}),
+        store=SimpleNamespace(directory=Path("nieuzywany")),
+    )
+    monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
+    monkeypatch.setattr(
+        gui,
+        "launch_prepared_application_update",
+        lambda _prepared: pytest.fail("Nie wolno uruchamiać aktualizatora"),
+    )
+    monkeypatch.setattr(gui, "_append_frontend_log", lambda *_args: None)
+
+    gui.LiteFrame._download_application_update(frame, object())
+    assert not frame._application_update_pending
+    assert "Trwa nagrywanie" in announcements[-1]
 
 
 def test_dialog_contract_names_controls_and_focuses_release_notes() -> None:
