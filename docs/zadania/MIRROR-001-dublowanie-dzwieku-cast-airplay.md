@@ -29,3 +29,9 @@ Jeden dodatkowy odbiornik Google Cast w Plikach, Radiu lub Podcastach. Brak peł
 ## Wersja i commit
 
 Planowana wersja AMC Test `0.1.0-alpha.466`; dokładny commit, wynik budowy, tag i stan instalacji zapisać po ich rzeczywistym potwierdzeniu. Główna gałąź robocza z innymi niezapisanymi zmianami pozostaje nienaruszona.
+
+## Wynik wydania — 02.11.2026, po budowie GitHub Actions
+
+Kod i celowane testy są zatwierdzone. Workflow GitHub Actions 41493428992 zakończył się powodzeniem: skompilował paczkę i instalator na Windows 2025 z .NET SDK 8.0.423, zweryfikował integralność oraz kontrolowany start programu i hosta, a następnie opublikował AMC Test jako prerelease. Użytkownik nie zlecił instalacji teraz; istniejąca instalacja pozostała bez zmian. Ręczny odbiór okna i komunikatów NVDA oraz dokładna synchronizacja pozostają otwarte.
+
+Wersja `0.1.0-alpha.466`, commit źródeł `cab4357e61bb861a44f03c04bbd0170effbd7a22`, tag `test-2026.11.02.1743`. Instalator ma 133742949 bajtów, SHA-256 `b81a56c7e164561babb107fbc2a06244431fa4df09c2336e4323ffa7503df23b`. Zdalne API potwierdziło przesłanie wszystkich trzech zasobów i tag wskazujący dokładny commit. Lokalna kopia z GitHub została pobrana i porównana z sumą oraz manifestem: `lokalna kopia instalatora AMC-Test-2026-11-02-1743.exe`. Nie publikowano nagrań użytkownika ani ich ścieżek.
