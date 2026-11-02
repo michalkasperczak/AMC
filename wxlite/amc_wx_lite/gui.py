@@ -8230,6 +8230,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.shell_open_with.SetValue(
             bool(shell_integration.get("openWithEnabled", False))
         )
+        self.shell_open_with.SetHelpText(
+            "Ta opcja udostępnia AMC jako wybór dla plików. "
+            "Nie ustawia AMC jako programu domyślnego."
+        )
         integration_layout.Add(
             self.shell_context_menu, 0, wx.BOTTOM | wx.EXPAND, 10
         )
@@ -8239,10 +8243,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         groups_heading = wx.StaticText(
             integration,
-            label="Udostępniaj AMC dla następujących &typów plików:",
+            label="Udostępniaj AMC dla następujących &typów plików (bez zmiany programu domyślnego):",
         )
         groups_heading.SetName(
-            "Udostępniaj AMC dla następujących typów plików"
+            "Udostępniaj AMC dla następujących typów plików, bez zmiany programu domyślnego"
         )
         integration_layout.Add(groups_heading, 0, wx.BOTTOM | wx.EXPAND, 8)
         self._shell_group_controls: list[tuple[str, wx.CheckBox]] = []
@@ -8264,6 +8268,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 if isinstance(raw_extensions, list) and isinstance(value, str)
             ] if isinstance(raw_extensions, list) else []
             help_parts = [description] if description else []
+            help_parts.append(
+                "Zaznaczenie udostępnia AMC w Windows, ale nie ustawia programu domyślnego."
+            )
             if extensions:
                 help_parts.append("Rozszerzenia: " + ", ".join(extensions) + ".")
             if help_parts:
@@ -8274,10 +8281,14 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         self.open_default_apps = wx.Button(
             integration,
-            label="Otwórz ustawienia aplikacji &domyślnych Windows…",
+            label="Wybierz domyślne typy plików dla AMC w &Windows…",
         )
         self.open_default_apps.SetName(
-            "Otwórz ustawienia aplikacji domyślnych Windows"
+            "Wybierz domyślne typy plików dla AMC w Windows"
+        )
+        self.open_default_apps.SetHelpText(
+            "Otwiera stronę AMC w ustawieniach aplikacji domyślnych, jeśli Windows to obsługuje. "
+            "Tam potwierdź wybrane formaty jako domyślne."
         )
         self.open_default_apps.Bind(
             wx.EVT_BUTTON, self._on_open_windows_default_apps
@@ -29142,35 +29153,49 @@ class LiteFrame(wx.Frame):
         if client is None or session.value not in CAST_SESSIONS:
             self.announcer.say(i18n.tr("mirror.unavailable"))
             return
-        if refresh or getattr(client, "_cast", None) is None:
-            self.announcer.say(i18n.tr("mirror.loading"))
+        primary_id = effective_output_device_id(
+            session,
+            self.state.audio_output_device_ids_by_session,
+            self._profile_audio_outputs,
+        )
+        self.announcer.say(i18n.tr("mirror.loading"))
 
         def failed(error: Exception) -> None:
             self.announcer.say(i18n.tr("mirror.failed", error=str(error)))
 
         def prepared(devices) -> None:
-            selected = client.mirror_selected_device_id(session.value)
-            with MirrorDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+            selected = client.mirror_selected_target_id(session.value)
+            with MirrorDeviceDialog(self, session_options.session_display_name(session),
+                                    devices, selected) as dialog:
                 result = dialog.ShowModal()
-                device_id = dialog.selected_device_id
+                target_id = dialog.selected_device_id
             self._restore_focus_after_dialog()
             if result == wx.ID_REFRESH:
                 wx.CallAfter(self._choose_cast_mirror, refresh=True)
                 return
             if result != wx.ID_OK:
                 return
+            choice = next((item for item in devices if item.device_id == target_id), None)
 
             def applied(payload: dict) -> None:
-                if device_id is None:
+                if target_id is None:
                     self.announcer.say(i18n.tr("mirror.stopped"))
                 else:
-                    self.announcer.say(i18n.tr("mirror.started", name=payload.get("name", "Google Cast")))
+                    self.announcer.say(i18n.tr("mirror.started", name=payload["name"]))
                 self._refresh_menu_state()
 
-            self.runner.submit("mirror-select",
-                lambda: client.select_cast_mirror(session.value, device_id), applied, failed)
+            self.runner.submit(
+                "mirror-select",
+                lambda: client.select_mirror_target(
+                    session.value, target_id, label=choice.label if choice else ""),
+                applied, failed,
+            )
 
-        self.runner.submit("mirror-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+        self.runner.submit(
+            "mirror-list",
+            lambda: client.mirror_targets(session.value, primary_id, refresh=refresh),
+            prepared, failed,
+        )
 
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""

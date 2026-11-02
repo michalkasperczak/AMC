@@ -1,5 +1,18 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## AMC Test alpha.467 — przygotowanie dublowania dźwięku
+
+W Plikach, Radiu i Podcastach `Shift+M` otwiera listę drugich wyjść AMC:
+lokalnych urządzeń Windows, Google Cast oraz AirPlay audio. `Shift+A` wybiera
+podstawowe lokalne wyjście, a `Shift+C` przełącza na Cast. Dodatkowy tor
+odtwarza tylko dźwięk AMC. Urządzenia mogą grać z opóźnieniem; AirPlay wymaga
+FFmpeg, a automatyczna zmiana utworu w kolejce oraz sterowanie tempem i
+głośnością AirPlay pozostają do dopracowania. To stan kandydata: kod i lokalna
+paczka zostały zbudowane, ale ręczny odbiór i wydanie są w toku.
+
+Zobacz [zapis zadania](docs/zadania/REL-20261102-alpha467-AirPlay-mirroring.md)
+oraz [szkic instrukcji i listy zmian](docs/zadania/REL-20261102-alpha467-przewodnik-szkic.md).
+
 ## Kandydat Public alpha.448: poprawki odtwarzacza
 
 Po otwarciu lokalnego pliku z Eksploratora, Total Commandera albo oknem „Otwórz plik” `F6` otwiera odtwarzacz z bieżącym tytułem bez rozszerzenia. `Page Up` i `Page Down` przechodzą po utworach z tego samego folderu, jeśli plik znajduje się na jego liście. W odtwarzaczu NVDA czyta nazwę suwaka „Głośność” i listy „Prędkość” razem z wartością; `Alt+G` i `Alt+P` przenoszą do tych kontrolek, gdy są dostępne. To kandydat do sprawdzenia, jeszcze nie zainstalowane ani opublikowane wydanie.
@@ -8,7 +21,7 @@ Po otwarciu lokalnego pliku z Eksploratora, Total Commandera albo oknem „Otwó
 
 Kod nowej funkcji używa **Shift+C** do wyboru Google Cast bieżącej sesji Plików, Radia lub Podcastów. **Shift+A** pozostaje lokalnym torem audio. Lista Cast zawiera nazwy urządzeń i pozycję **Ten komputer**; Enter wybiera, Escape anuluje, a ponowne otwarcie przywraca wybór. Polecenie jest także w menu Dźwięk, palecie i pomocy klawiatury.
 
-Podstawowy zakres obejmuje pojedyncze dostępne media, pauzę, głośność, przewijanie plików i powrót do komputera z zachowaniem pauzy i znanej pozycji. Radio jest przesyłane na żywo. Kolejki, tempo, zakładki, edycja i trwały zapis pozycji Cast po zamknięciu programu pozostają ograniczeniami tego etapu. Usługi z treściami chronionymi wymagają własnej obsługi Cast. Mirroring i proponowane Shift+M są osobnym pomysłem.
+Podstawowy zakres obejmuje pojedyncze dostępne media, pauzę, głośność, przewijanie plików i powrót do komputera z zachowaniem pauzy i znanej pozycji. Radio jest przesyłane na żywo. Kolejki, tempo, zakładki, edycja i trwały zapis pozycji Cast po zamknięciu programu pozostają ograniczeniami tego etapu. Usługi z treściami chronionymi wymagają własnej obsługi Cast. Ten akapit opisuje stan z 1 listopada; późniejszy etap Shift+M opisano wyżej.
 
 WiiM Sound przeszedł próby sprzętowe. Użytkownik zaliczył odbiór listy urządzeń z NVDA w osobnym oknie 01.11.2026. Paczka i użytkowa instalacja tej funkcji pozostają do wykonania. [Robocza instrukcja i lista zmian](docs/zadania/CAST-001-instrukcja-i-lista-zmian-szkic.md); [wyniki i stan zadania](docs/zadania/CAST-001-google-cast.md).
 

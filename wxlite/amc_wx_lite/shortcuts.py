@@ -142,6 +142,7 @@ class Action(Enum):
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     SPOTIFY_TOGGLE_LIBRARY = "spotify.library.toggle"
     SPOTIFY_TOGGLE_FAVORITE = "spotify.favorite.toggle"
+    PLAY_SPOTIFY_ALBUM = "spotify.album.play"
     # Prawa strzalka na liscie TIDAL. To polecenie jest kontekstowe: zależnie
     # od wiersza pokazuje przejście do albumu, wykonawcy albo oba kierunki.
     # Osobna akcja jest potrzebna przede wszystkim Pomocy klawiatury -- bez
@@ -229,6 +230,8 @@ class Action(Enum):
     EXPORT_BACKUP = "profile.backup.export"
     IMPORT_BACKUP = "profile.backup.import"
     SELECT_AUDIO_OUTPUT = "audio.selectOutput"
+    CAST_SESSION = "cast.session"
+    MIRROR_SESSION = "audio.mirrorSession"
     PREVIOUS_AUDIO_OUTPUT = "audio.previousOutput"
     NEXT_AUDIO_OUTPUT = "audio.nextOutput"
     PRESET_1 = "preset.1"
@@ -245,6 +248,16 @@ class Action(Enum):
     PRESET_12 = "preset.12"
     VIEW_PRESETS = "presets.view"
     ASSIGN_PRESET = "presets.assign"
+    ASSIGN_PRESET_1 = "presets.assign.1"
+    ASSIGN_PRESET_2 = "presets.assign.2"
+    ASSIGN_PRESET_3 = "presets.assign.3"
+    ASSIGN_PRESET_4 = "presets.assign.4"
+    ASSIGN_PRESET_5 = "presets.assign.5"
+    ASSIGN_PRESET_6 = "presets.assign.6"
+    ASSIGN_PRESET_7 = "presets.assign.7"
+    ASSIGN_PRESET_8 = "presets.assign.8"
+    ASSIGN_PRESET_9 = "presets.assign.9"
+    ASSIGN_PRESET_10 = "presets.assign.10"
     VIEW_WIIM_NETWORK_STREAMS = "wiim.networkStreams.view"
     WIIM_SELECT_INPUT = "wiim.input.select"
     WIIM_SELECT_OUTPUT = "wiim.output.select"
@@ -306,6 +319,7 @@ class Action(Enum):
     VIEW_ACTIVE_RECORDINGS = "radio.recording.activeView"
     RECORDING_OUTPUT_INFORMATION = "radio.recording.outputInformation"
     VIEW_RECORDED_RADIO_FILES = "radio.recording.completedView"
+    VIEW_DOWNLOADED_FILES = "downloads.history"
     ADD_RADIO_SCHEDULE = "radio.recording.schedule.add"
     MANAGE_RADIO_SCHEDULES = "radio.recording.schedules"
     SORT_RADIO_COLLECTION_ADDED = "radio.collection.sort.added"
@@ -343,6 +357,7 @@ class Action(Enum):
     REFRESH_PODCAST_LIBRARY = "podcasts.refresh.all"
     DOWNLOAD_PODCAST_EPISODES = "podcasts.download.selected"
     RADIOARCHIWISTA_DOWNLOAD = "radioarchiwista.download.selected"
+    RADIOARCHIWISTA_DOWNLOAD_FRAGMENT = "radioarchiwista.download.fragment"
     RADIOARCHIWISTA_REFRESH = "radioarchiwista.catalog.refresh"
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
@@ -440,6 +455,20 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.CAST_SESSION: CommandPresentation(
+        Action.CAST_SESSION,
+        "Google Cast bieżącej sesji…",
+        "Wybierz urządzenie Google Cast dla Plików, Radia lub Podcastów albo wróć do komputera; radio jest przesyłane na żywo",
+        "Shift+C",
+        "Google &Cast bieżącej sesji…",
+    ),
+    Action.MIRROR_SESSION: CommandPresentation(
+        Action.MIRROR_SESSION,
+        "Dubluj dźwięk AMC…",
+        "Wybierz drugie wyjście lokalne, Google Cast albo AirPlay dla pliku, radia lub podcastu; między urządzeniami może być opóźnienie",
+        "Shift+M",
+        "&Dubluj dźwięk AMC…",
+    ),
     Action.VIEW_RADIO_RECOGNITION_HISTORY: CommandPresentation(
         Action.VIEW_RADIO_RECOGNITION_HISTORY,
         "Rozpoznane utwory…",
@@ -464,7 +493,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.CHECK_APPLICATION_UPDATE: CommandPresentation(
         Action.CHECK_APPLICATION_UPDATE,
         "Sprawdź aktualizację AMC",
-        "Sprawdź i zainstaluj najnowsze wydanie z kanału przypisanego do tej wersji AMC",
+        "Sprawdź i zainstaluj najnowsze wydanie z bieżącego kanału; podczas nagrywania i w jego zaplanowanym oknie instalacja nie rozpocznie się",
         "",
         "Sprawdź &aktualizację AMC…",
     ),
@@ -520,7 +549,7 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "spotify": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto Spotify",
-        "Otwórz konto Spotify i możliwość ponownego logowania",
+        "Otwórz konto Spotify, ustaw identyfikator aplikacji, zaloguj katalog lub połącz odtwarzacz",
         "Ctrl+F5",
     ),
     "tidal": CommandPresentation(
@@ -545,6 +574,12 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
         Action.SESSION_CONFIGURE_CURRENT,
         "Urządzenia Frontier Smart",
         "Pokaż zapisane urządzenia Frontier Smart i opcjonalnie wyszukaj nowe",
+        "Ctrl+F5",
+    ),
+    "radio archiwista": CommandPresentation(
+        Action.SESSION_CONFIGURE_CURRENT,
+        "Adres katalogu Radio Archiwisty",
+        "Ustaw adres katalogu nagrań Radio Archiwisty",
         "Ctrl+F5",
     ),
 }
@@ -652,6 +687,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SEARCH_ALL,
     Action.VIEW_LIBRARY,
     Action.VIEW_HISTORY,
+    Action.REMOVE_SELECTED,
     Action.VIEW_BACK,
     Action.VIEW_FORWARD,
     Action.VIEW_FAVORITES,
@@ -659,6 +695,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_SAVED_QUEUE,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -724,9 +761,6 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.VOLUME_DOWN_5,
     Action.VOLUME_UP_1,
     Action.VOLUME_DOWN_1,
-    Action.RATE_DOWN,
-    Action.RATE_UP,
-    Action.RATE_RESET,
     Action.TIME_ELAPSED,
     Action.TIME_REMAINING,
     Action.TIME_TOTAL,
@@ -753,6 +787,9 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SEARCH_ALL,
     Action.VIEW_LIBRARY,
     Action.VIEW_HISTORY,
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.VIEW_BACK,
     Action.VIEW_FORWARD,
     Action.PLAYBACK_HISTORY_OLDER,
@@ -781,6 +818,9 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SPOTIFY_RELATIONS,
     Action.SPOTIFY_TOGGLE_LIBRARY,
     Action.SPOTIFY_TOGGLE_FAVORITE,
+    Action.PLAY_SPOTIFY_ALBUM,
+    Action.VIEW_SAVED_QUEUE,
+    Action.ADD_TO_QUEUE,
     Action.MANAGE_PLAYLIST_MEMBERSHIP,
     Action.SPOTIFY_VIEW_LIKED,
     Action.SPOTIFY_VIEW_ALBUMS,
@@ -805,6 +845,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
 # jawnej drogi ``wiim.*`` w hoscie, nie moze trafic do lokalnego silnika audio.
 WIIM_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -881,6 +922,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.REMOVE_SELECTED,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -896,6 +938,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
 # nie mogą przypadkiem trafić do lokalnego silnika plików.
 SONOS_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -995,6 +1038,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.FOCUS_FILTER,
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.MANAGE_RADIO_SCHEDULES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
@@ -1010,6 +1054,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
 # skierowaniem polecenia lokalnego silnika albo innej usługi do FSAPI.
 FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -1028,6 +1073,7 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.COMMAND_PALETTE,
     Action.SESSION_OPTIONS,
     Action.ACTIVATE,
+    Action.PARENT_FOLDER,
     Action.CLOSE_LIST_PREVIEW,
     Action.SHOW_PLAYER,
     Action.SHOW_LIST,
@@ -1053,6 +1099,11 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.ITEM_PROPERTIES,
     Action.COPY_NAME,
     Action.FOCUS_FILTER,
+    Action.VIEW_HISTORY,
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
+    Action.REMOVE_SELECTED,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
     Action.HELP,
     Action.KEYBOARD_HELP,
@@ -1062,15 +1113,42 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
 })
 
 
-# Radio Archiwista: sterowanie odtwarzaniem jak Frontier Smart (wspólny tor
-# PlayMedia), a do tego trzy akcje własne katalogu nagrań.
+# Radio Archiwista korzysta z lokalnego odtwarzacza, więc przewijanie i
+# prędkość są dostępne; presety otwierają katalogi stacji i najnowsze nagrania.
 RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
-    FRONTIER_SMART_SUPPORTED_ACTIONS
+    (FRONTIER_SMART_SUPPORTED_ACTIONS - {
+        Action.FRONTIER_SMART_SELECT_MODE,
+    })
     | {
+        Action.SELECT_AUDIO_OUTPUT,
+        Action.PREVIOUS_AUDIO_OUTPUT,
+        Action.NEXT_AUDIO_OUTPUT,
+        Action.VIEW_PRESETS,
+        Action.ASSIGN_PRESET,
+        *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
+        *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
         Action.VIEW_FAVORITES,
+        Action.VIEW_LIBRARY,
+        Action.VIEW_SAVED_QUEUE,
+        Action.ADD_TO_QUEUE,
+        Action.TOGGLE_PLAY_NEXT,
+        Action.COPY_ADDRESS,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RADIOARCHIWISTA_DOWNLOAD,
+        Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
         Action.RADIOARCHIWISTA_REFRESH,
+        Action.SEEK_BACK_10, Action.SEEK_FORWARD_10,
+        Action.SEEK_BACK_30, Action.SEEK_FORWARD_30,
+        Action.SEEK_BACK_60, Action.SEEK_FORWARD_60,
+        Action.SEEK_BACK_CUSTOM, Action.SEEK_FORWARD_CUSTOM,
+        Action.RATE_UP, Action.RATE_DOWN, Action.RATE_RESET,
+        Action.TRACK_START, Action.TRACK_END,
+        *(Action[f"SEEK_PERCENT_{percent}"] for percent in range(0, 100, 10)),
+        Action.ADD_BOOKMARK, Action.ADD_NAMED_BOOKMARK,
+        Action.PREVIOUS_BOOKMARK, Action.NEXT_BOOKMARK,
+        Action.PREVIOUS_NAMED_BOOKMARK, Action.NEXT_NAMED_BOOKMARK,
+        Action.ADD_NAMED_CHAPTER, Action.PREVIOUS_CHAPTER,
+        Action.NEXT_CHAPTER, Action.VIEW_CHAPTERS,
     }
 )
 
@@ -1226,6 +1304,8 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+,": Action.GENERAL_SETTINGS,
     # Pelne AMC: Shift+A wybiera wyjscie audio osobno dla biezacej sesji.
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
+    "Shift+C": Action.CAST_SESSION,
+    "Shift+M": Action.MIRROR_SESSION,
     # Szybka zmiana podczas odtwarzania, bez otwierania dialogu. Nawiasy sa
     # para kierunkowa i nie koliduja z istniejacymi skrótami transportu.
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
@@ -1242,6 +1322,18 @@ LIST_VIEW: dict[str, Action] = {
 PRESET_ACTIONS: dict[int, Action] = {
     slot: Action[f"PRESET_{slot}"] for slot in range(1, 13)
 }
+ASSIGN_PRESET_ACTIONS: dict[int, Action] = {
+    slot: Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)
+}
+ASSIGN_PRESET_SHORTCUTS: dict[str, int] = {
+    f"Ctrl+Alt+Shift+{slot % 10}": slot for slot in range(1, 11)
+}
+
+
+def assign_preset_slot(action: Action) -> int | None:
+    return next((slot for slot, candidate in ASSIGN_PRESET_ACTIONS.items() if candidate is action), None)
+
+
 PRESET_SHORTCUTS: dict[str, int] = {
     **{f"Ctrl+Shift+{slot}": slot for slot in range(1, 10)},
     "Ctrl+Shift+0": 10,
@@ -1440,6 +1532,8 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "Ctrl+,": Action.GENERAL_SETTINGS,
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
+    "Shift+C": Action.CAST_SESSION,
+    "Shift+M": Action.MIRROR_SESSION,
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
     "Ctrl+]": Action.NEXT_AUDIO_OUTPUT,
     "Ctrl+Alt+P": Action.VIEW_PRESETS,
@@ -1463,6 +1557,7 @@ LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
 GLOBAL_VIEW_SHORTCUTS: dict[str, Action] = {
     "Alt+R": Action.VIEW_ACTIVE_RECORDINGS,
     "Alt+Shift+R": Action.VIEW_RECORDED_RADIO_FILES,
+    "Ctrl+J": Action.VIEW_DOWNLOADED_FILES,
     "Ctrl+I": Action.VIEW_PODCAST_INBOX,
     "Ctrl+Shift+I": Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
     "Ctrl+H": Action.VIEW_HISTORY,
@@ -1564,6 +1659,7 @@ TIDAL_LIST_VIEW: dict[str, Action] = {
 
 SPOTIFY_LIST_VIEW: dict[str, Action] = {
     "Right": Action.SPOTIFY_RELATIONS,
+    "Ctrl+Return": Action.PLAY_SPOTIFY_ALBUM,
 }
 
 
@@ -1585,6 +1681,8 @@ SPOTIFY_SESSION_VIEW: dict[str, Action] = {
     "Alt+D": Action.SHOW_PODCAST_DESCRIPTION,
     "Ctrl+Shift+L": Action.SPOTIFY_TOGGLE_LIBRARY,
     "Ctrl+Shift+U": Action.SPOTIFY_TOGGLE_FAVORITE,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
 }
 
 
@@ -1606,6 +1704,7 @@ TIDAL_COLLECTION_LIST_VIEW: dict[str, Action] = {
 # plik playlisty i zapisuje znalezione strumienie w AMC. Zapisane strumienie
 # nie potrzebują już osobnego skrótu: są drugim elementem Biblioteki źródeł.
 WIIM_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     # Jak w historycznym AMC: Ctrl+F5 prowadzi do urządzeń, a zwykłe F5
     # odświeża bieżący widok bez otwierania konfiguracji.
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
@@ -1628,19 +1727,26 @@ WIIM_SESSION_VIEW: dict[str, Action] = {
 
 
 FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+Alt+M": Action.FRONTIER_SMART_SELECT_MODE,
 }
 
 
-# Sesja Radio Archiwista: katalog jest publiczny, więc Ctrl+F5 to odświeżenie
-# katalogu, nie okno konta. Skróty materiału są zgodne z Podcastami.
+# Sesja Radio Archiwista: F5 odświeża katalog, Ctrl+F5 ustawia jego adres.
+# Skróty materiału są zgodne z Podcastami.
 RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
+    **{chord: ASSIGN_PRESET_ACTIONS[slot] for chord, slot in ASSIGN_PRESET_SHORTCUTS.items()},
     "F5": Action.RADIOARCHIWISTA_REFRESH,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+    "Ctrl+Shift+C": Action.COPY_ADDRESS,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
+    "Ctrl+Shift+D": Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
 }
 
 
@@ -1662,6 +1768,7 @@ WIIM_PLAYER_VIEW: dict[str, Action] = {
 
 
 SONOS_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     # Jak w głównym AMC: grupy i głośniki są celem sterowania, nie Biblioteką.
     "Ctrl+F5": Action.SELECT_SONOS_TARGET,
     "Ctrl+U": Action.VIEW_FAVORITES,
@@ -1752,6 +1859,7 @@ _PROTECTED_SHORTCUT_ACTIONS = frozenset({
     Action.PRESET_10,
     Action.PRESET_11,
     Action.PRESET_12,
+    *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
 })
 
 _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
@@ -1761,7 +1869,7 @@ _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
     "Ctrl+Escape": "Menu Start Windows",
     "Ctrl+Alt+Delete": "Ekran zabezpieczeń Windows",
     "Ctrl+Shift+Escape": "Menedżer zadań Windows",
-    "Ctrl+Return": "Odtwórz kontener TIDAL",
+    "Ctrl+Return": "Odtwórz album Spotify albo kontener TIDAL",
     **{f"Ctrl+{slot}": "Przełączanie sesji" for slot in range(1, 10)},
 }
 
@@ -1943,6 +2051,7 @@ def _resolve_default(
     wiim_session: bool = False,
     wiim_streams: bool = False,
     frontier_smart_session: bool = False,
+    radioarchiwista_session: bool = False,
     sonos_session: bool = False,
     sonos_own_streams: bool = False,
     service_history: bool = False,
@@ -1951,6 +2060,12 @@ def _resolve_default(
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
     table = PLAYER_VIEW if player_view else LIST_VIEW
     canonical = chord.canonical
+    if spotify_session and canonical in {"Shift+,", "Shift+.", "Ctrl+."}:
+        return None
+    if canonical in {"Shift+C", "Shift+M"}:
+        action = Action.CAST_SESSION if canonical == "Shift+C" else Action.MIRROR_SESSION
+        return (action if not any((tidal_session, spotify_session, wiim_session,
+                sonos_session, frontier_smart_session, radioarchiwista_session)) else None)
     if canonical in GLOBAL_VIEW_SHORTCUTS:
         action = GLOBAL_VIEW_SHORTCUTS[canonical]
         if (
@@ -2075,11 +2190,13 @@ def _resolve_default(
         and canonical in FRONTIER_SMART_SESSION_VIEW
     ):
         return FRONTIER_SMART_SESSION_VIEW[canonical]
+    if radioarchiwista_session and canonical in RADIOARCHIWISTA_SESSION_VIEW:
+        return RADIOARCHIWISTA_SESSION_VIEW[canonical]
     if sonos_session and canonical in SONOS_OWN_STREAMS_VIEW:
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
         return SONOS_SESSION_VIEW[canonical]
-    if sonos_session and canonical in {"Shift+A", "Ctrl+[", "Ctrl+]"}:
+    if sonos_session and canonical in {"Ctrl+[", "Ctrl+]"}:
         # Sonos nie używa lokalnych wyjść Windows. Jego celem jest grupa pod
         # Ctrl+F5; nie wysyłamy tych gestów do dialogu urządzeń komputera.
         return None
@@ -2189,6 +2306,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Wybierz tryb urządzenia Frontier Smart"
         ),
         Action.ACTIVATE: "Otworz folder albo odtworz",
+        Action.PLAY_SPOTIFY_ALBUM: "Odtwórz cały album Spotify",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.CLOSE_LIST_PREVIEW: "Zamknij podglad lub podwidok",
         Action.SHOW_PLAYER: "Widok odtwarzacza",
@@ -2219,6 +2337,10 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SPOTIFY_VIEW_PLAYLISTS: "Spotify: Playlisty",
         Action.SPOTIFY_VIEW_PODCASTS: "Spotify: Podcasty",
         Action.SPOTIFY_VIEW_EPISODES: "Spotify: Zapisane odcinki",
+        Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
+        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń nagranie z ulubionych",
+        Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
+        Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT: "Pobierz fragment nagrania Radio Archiwisty",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",
         Action.SEEK_FORWARD_10: "Przewin 10 sekund w przod",
         Action.SEEK_BACK_30: "Przewin 30 sekund wstecz",
@@ -2298,9 +2420,11 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.TOGGLE_RADIO_RECOGNITION_ANNOUNCEMENTS: (
             "Włącz lub wyłącz oznajmianie rozpoznanych utworów"
         ),
-        Action.VIEW_RADIO_RECOGNITION_HISTORY: _STATIC_COMMAND_PRESENTATIONS[
-            Action.VIEW_RADIO_RECOGNITION_HISTORY
-        ].description,
+        Action.VIEW_RADIO_RECOGNITION_HISTORY: (
+            "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
+            "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
+            "Ctrl+Enter album, a prawa strzałka najważniejsze działania"
+        ),
         Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",
         Action.TOGGLE_PODCAST_FAVORITE: (
             "Dodaj zaznaczone podcasty lub odcinki do ulubionych albo je usuń"
@@ -2359,6 +2483,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Podaj format, nazwę pliku i folder bieżącego nagrania"
         ),
         Action.VIEW_RECORDED_RADIO_FILES: "Historia nagrywania",
+        Action.VIEW_DOWNLOADED_FILES: "Pobrane pliki Radio Archiwisty, podcastów i wideo",
         Action.ADD_RADIO_SCHEDULE: "Zaplanuj nagranie wybranej stacji",
         Action.MANAGE_RADIO_SCHEDULES: "Harmonogram nagrywania",
         Action.SORT_RADIO_COLLECTION_ADDED: (
@@ -2480,6 +2605,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SELECT_AUDIO_OUTPUT: (
             "Wybierz urządzenie audio dla bieżącej sesji"
         ),
+        Action.CAST_SESSION: _STATIC_COMMAND_PRESENTATIONS[Action.CAST_SESSION].description,
+        Action.MIRROR_SESSION: _STATIC_COMMAND_PRESENTATIONS[Action.MIRROR_SESSION].description,
         Action.PREVIOUS_AUDIO_OUTPUT: (
             "Poprzednie dostępne urządzenie audio bieżącej sesji"
         ),
@@ -2492,6 +2619,10 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.EXPORT_BACKUP: "Eksportuj dane AMC",
         Action.IMPORT_BACKUP: "Importuj dane AMC",
     }
+    labels.update({
+        action: f"Przypisz zaznaczoną stację lub Najnowsze nagrania do presetu {slot % 10}"
+        for slot, action in ASSIGN_PRESET_ACTIONS.items()
+    })
     labels.update({
         action: f"Uruchom preset {slot} bieżącej sesji"
         for slot, action in PRESET_ACTIONS.items()
@@ -2524,6 +2655,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         WIIM_SESSION_VIEW,
         WIIM_PLAYER_VIEW,
         FRONTIER_SMART_SESSION_VIEW,
+        RADIOARCHIWISTA_SESSION_VIEW,
         SONOS_SESSION_VIEW,
         LIST_VIEW,
         RADIO_COLLECTION_LIST_VIEW,
@@ -2617,6 +2749,8 @@ def describe(
     session_label: str | None = None,
     available_actions: set[Action] | None = None,
     shortcut_overrides: dict[Action, str] | None = None,
+    *,
+    downloaded_files: bool = False,
 ) -> list[tuple[str, str]]:
     """Tekst spisu F1 bez technicznych identyfikatorów poleceń.
 
@@ -2635,15 +2769,43 @@ def describe(
                 if ctrl_f5 is not None and ctrl_f5.action is action
                 else chord
             ),
-            describe_action(action, session_label),
+            describe_action(action, session_label, downloaded_files=downloaded_files),
         )
         for chord, _label, action in _help_entries()
         if available_actions is None or action in available_actions
     ]
 
 
-def describe_action(action: Action, session_label: str | None = None) -> str:
+DOWNLOAD_HISTORY_COPY_LABELS = {
+    Action.COPY_NAME: "Skopiuj pełną ścieżkę pobranego pliku",
+    Action.COPY_ADDRESS: "Skopiuj pobrany plik do wklejenia",
+}
+
+
+def describe_action(
+    action: Action, session_label: str | None = None, *, downloaded_files: bool = False
+) -> str:
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
+    if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
+        return DOWNLOAD_HISTORY_COPY_LABELS[action]
+    if (session_label or "").casefold() == "radio archiwista":
+        archive_labels = {
+            Action.VIEW_LIBRARY: "Pokaż pełną listę stacji Radio Archiwisty",
+            Action.VIEW_SAVED_QUEUE: "Pokaż lokalną kolejkę nagrań Radio Archiwisty",
+            Action.ADD_TO_QUEUE: "Dodaj nagranie do lokalnej kolejki albo je usuń",
+            Action.TOGGLE_PLAY_NEXT: "Dodaj nagranie za bieżącym w lokalnej kolejce albo je usuń",
+            Action.COPY_ADDRESS: "Skopiuj bezpośredni link do nagrania",
+        }
+        if action in archive_labels:
+            return i18n.command_description(action.value, archive_labels[action])
+    if (session_label or "").casefold() == "spotify":
+        queue_labels = {
+            Action.VIEW_SAVED_QUEUE: "Pokaż prywatną kolejkę Spotify w AMC",
+            Action.ADD_TO_QUEUE: "Dodaj utwór lub odcinek do kolejki Spotify albo usuń",
+            Action.PLAY_SPOTIFY_ALBUM: "Odtwórz cały album Spotify",
+        }
+        if action in queue_labels:
+            return i18n.command_description(action.value, queue_labels[action])
     ctrl_f5 = ctrl_f5_presentation(session_label)
     if ctrl_f5 is not None and ctrl_f5.action is action:
         return ctrl_f5.description
@@ -2716,6 +2878,7 @@ def keyboard_help_announcement(
     session_label: str,
     *,
     available: bool = True,
+    downloaded_files: bool = False,
 ) -> str:
     """Zwięzły opis Ctrl+F1: skrót, polecenie i kontekst sesji."""
     shortcut = readable_chord(chord)
@@ -2725,7 +2888,7 @@ def keyboard_help_announcement(
             shortcut=shortcut,
             session=session_label,
         )
-    label = describe_action(action, session_label)
+    label = describe_action(action, session_label, downloaded_files=downloaded_files)
     if not available:
         return i18n.tr(
             "keyboardHelp.unavailable",

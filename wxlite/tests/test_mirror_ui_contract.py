@@ -13,6 +13,8 @@ class MirrorUiContractTests(unittest.TestCase):
     def test_name_help_menu_and_palette_match(self):
         presentation = command_presentation(Action.MIRROR_SESSION)
         self.assertEqual(presentation.shortcut, "Shift+M")
+        self.assertIn("AirPlay", presentation.description)
+        self.assertIn("lokalne", presentation.description)
         self.assertEqual(describe_action(Action.MIRROR_SESSION), presentation.description)
         self.assertIn(("Shift+M", presentation.description), describe())
         for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS):

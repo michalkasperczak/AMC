@@ -174,6 +174,8 @@ class LiteHostClient:
         self._lifecycle_lock = threading.RLock()
         self._cast = None
         self._mirror = None
+        self._local_mirror = None
+        self._airplay_mirror = None
 
     # ------------------------------------------------------------ start/stop
 
@@ -246,6 +248,10 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
+        if getattr(self, "_airplay_mirror", None) is not None:
+            self._airplay_mirror.close()
+        if getattr(self, "_local_mirror", None) is not None:
+            self._local_mirror.close()
         if self._mirror is not None:
             self._mirror.close()
         if self._cast is not None:
@@ -346,6 +352,10 @@ class LiteHostClient:
         result = self._call_native(op, args, timeout=timeout)
         if self._mirror is not None:
             self._mirror.after_native(op, args or {}, result)
+        if getattr(self, "_local_mirror", None) is not None:
+            self._local_mirror.after_native(op, args or {}, result)
+        if getattr(self, "_airplay_mirror", None) is not None:
+            self._airplay_mirror.after_native(op, args or {}, result)
         return result
 
     def cast_devices(self, *, refresh: bool = False):
@@ -363,7 +373,7 @@ class LiteHostClient:
         return route.device.device_id if route else None
 
     def select_cast(self, session_id: str, device_id: str | None) -> dict:
-        if self.mirror_selected_device_id(session_id) is not None:
+        if self.mirror_selected_target_id(session_id) is not None:
             raise ValueError("Najpierw wyłącz dublowanie dźwięku przez Shift+M")
         if device_id is not None and self._mirror is not None and any(
                 route.device.device_id == device_id for route in self._mirror.routes.values()):
@@ -373,6 +383,115 @@ class LiteHostClient:
 
     def mirror_selected_device_id(self, session_id: str) -> str | None:
         return self._mirror.selected_device_id(session_id) if self._mirror else None
+
+    def mirror_targets(self, session_id: str, primary_id: str | None,
+                       *, refresh: bool = False):
+        from .audio_output import choices_from_payload
+        from .mirror_local import MirrorChoice
+        try:
+            cast_devices = self.cast_devices(refresh=refresh)
+        except Exception:
+            cast_devices = ()
+        cast = [MirrorChoice("cast:" + item.device_id,
+                             "Google Cast: " + item.label)
+                for item in cast_devices if item.available]
+        try:
+            local_devices = choices_from_payload(self.audio_outputs(primary_id, session_id))
+        except Exception:
+            if not cast:
+                raise
+            local_devices = ()
+        local = [MirrorChoice("local:" + item.device_id,
+                              "Wyjście lokalne: " + item.label)
+                 for item in local_devices
+                 if item.available and item.device_id is not None
+                 and item.device_id != primary_id]
+        airplay = []
+        try:
+            from .airplay_adapter import _library
+            _library(None)
+            import shutil
+            ffmpeg = shutil.which("ffmpeg")
+            if ffmpeg:
+                if getattr(self, "_airplay_mirror", None) is None:
+                    from .mirror_airplay import MirrorAirPlayRouter
+                    self._airplay_mirror = MirrorAirPlayRouter(
+                        lambda op, args: self._call_native(op, args, timeout=120),
+                        ffmpeg, self._on_event)
+                airplay = [MirrorChoice("airplay:" + item.device_id,
+                                        "AirPlay: " + item.label)
+                           for item in self._airplay_mirror.devices()]
+        except Exception:
+            pass
+        return tuple(local + cast + airplay)
+
+    def mirror_selected_target_id(self, session_id: str) -> str | None:
+        cast = self.mirror_selected_device_id(session_id)
+        if cast is not None:
+            return "cast:" + cast
+        local = (self._local_mirror.selected_device_id(session_id)
+                 if getattr(self, "_local_mirror", None) else None)
+        if local is not None:
+            return "local:" + local
+        airplay = (self._airplay_mirror.selected_device_id(session_id)
+                   if getattr(self, "_airplay_mirror", None) else None)
+        return "airplay:" + airplay if airplay is not None else None
+
+    def select_mirror_target(self, session_id: str, target_id: str | None,
+                             *, label: str = "") -> dict:
+        if target_id is None:
+            if self._mirror is not None:
+                self._mirror.disable(session_id)
+            if getattr(self, "_local_mirror", None) is not None:
+                self._local_mirror.disable(session_id)
+            if getattr(self, "_airplay_mirror", None) is not None:
+                self._airplay_mirror.disable(session_id)
+            return {"active": False}
+        kind, separator, device_id = target_id.partition(":")
+        if not separator or not device_id:
+            raise ValueError("Nieprawidłowy cel dublowania")
+        if kind == "cast":
+            result = self.select_cast_mirror(session_id, device_id)
+            if getattr(self, "_local_mirror", None) is not None:
+                self._local_mirror.disable(session_id)
+            if getattr(self, "_airplay_mirror", None) is not None:
+                self._airplay_mirror.disable(session_id)
+            return result
+        if kind == "local":
+            if self.cast_active(session_id):
+                raise ValueError("Najpierw wybierz Ten komputer przez Shift+C")
+            if self._local_mirror is None:
+                from .mirror_local import MirrorLocalRouter
+                self._local_mirror = MirrorLocalRouter(
+                    lambda op, args: self._call_native(op, args, timeout=120),
+                    lambda: LiteHostClient(self.executable,
+                                           release_profile=self.release_profile),
+                    self._on_event)
+            result = self._local_mirror.enable(session_id, device_id, label)
+            if self._mirror is not None:
+                self._mirror.disable(session_id)
+            if getattr(self, "_airplay_mirror", None) is not None:
+                self._airplay_mirror.disable(session_id)
+            return result
+        if kind == "airplay":
+            if self.cast_active(session_id):
+                raise ValueError("Najpierw wybierz Ten komputer przez Shift+C")
+            if getattr(self, "_airplay_mirror", None) is None:
+                import shutil
+                from .mirror_airplay import MirrorAirPlayRouter
+                ffmpeg = shutil.which("ffmpeg")
+                if not ffmpeg:
+                    raise ValueError("AirPlay wymaga FFmpeg w systemie")
+                self._airplay_mirror = MirrorAirPlayRouter(
+                    lambda op, args: self._call_native(op, args, timeout=120),
+                    ffmpeg, self._on_event)
+            result = self._airplay_mirror.enable(session_id, device_id)
+            if self._mirror is not None:
+                self._mirror.disable(session_id)
+            if getattr(self, "_local_mirror", None) is not None:
+                self._local_mirror.disable(session_id)
+            return result
+        raise ValueError("Nieobsługiwany rodzaj celu dublowania")
 
     def select_cast_mirror(self, session_id: str, device_id: str | None) -> dict:
         if device_id is None:

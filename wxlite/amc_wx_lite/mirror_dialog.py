@@ -1,4 +1,4 @@
-"""Keyboard-accessible selection of a second Google Cast audio target."""
+"""Keyboard-accessible selection of a second AMC audio target."""
 
 import wx
 
