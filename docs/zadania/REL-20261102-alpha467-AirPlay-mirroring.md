@@ -147,3 +147,23 @@ dlatego przed następnym testem sprawdzić dokładny proces i stan uprawnień
 sieciowych. Asystent nie zatwierdził ani nie odrzucił żądania Zapory; zgodnie
 z regułami narzędzia Computer Use nie steruje oknami zabezpieczeń ani
 żądaniami uprawnień. Brak nowej próby dźwiękowej i brak nowego wydania.
+
+## Próba podczas odtwarzania radia na WiiM — 02.11.2026
+
+Użytkownik poprosił o jeszcze jedną próbę AirPlay, gdy WiiM Pro Plus odtwarzał
+stację radiową własnym sposobem. Adres zapamiętany z wcześniejszych prób
+przestał przyjmować połączenia. Odczyt sieci i świeże wykrywanie RAOP
+potwierdziły nowy adres urządzenia. Wstępne `GET /info` pod nowym adresem
+zwróciło `200 OK`, również przez samą bibliotekę pyatv. Tym samym wcześniejsza
+hipoteza o niedziałającej stale usłudze RAOP wymaga korekty: usługa odpowiadała
+na zapytania kontrolne przed i po próbie.
+
+Pełny 20-sekundowy test poprawionego źródła AMC nie potwierdził rozpoczęcia
+strumienia. Po najwyżej jednej ponownej próbie router zgłosił brak odpowiedzi
+na zapytanie wstępne. Kod nie zapisał błędu pierwszego podejścia oddzielnie,
+więc nie przypisywać całego niepowodzenia do jednego etapu protokołu. Po
+teście nie pozostał proces FFmpeg. Nie wykonano dalszych prób dźwiękowych,
+nie zmieniono zgód zapory i nie zbudowano nowego wydania. Przy następnym
+podejściu dodać rozróżnienie diagnostyczne pierwszego i drugiego połączenia
+oraz sprawdzić wpływ istniejących alertów Zapory Windows bez automatycznego
+zatwierdzania ich.
