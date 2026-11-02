@@ -41,39 +41,49 @@ jobs:
           ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
           if (-not $iscc) { throw 'Brak Inno Setup 6 na runnerze' }
           "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          $sevenZip = @(
-            "$env:ProgramFiles\7-Zip\7z.exe",
-            "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
-          ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-          if (-not $sevenZip) { throw 'Brak 7-Zip na runnerze' }
-          "SEVEN_ZIP=$sevenZip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
 
       - name: Pobierz poprzedni zweryfikowany instalator jako źródło runtime i dodatku NVDA
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Path prior | Out-Null
+          $prior = Join-Path $env:RUNNER_TEMP 'amc-prior'
+          New-Item -ItemType Directory -Path $prior | Out-Null
           gh release download test-2026.11.02.0218 --repo michalkasperczak/AMC `
-            --pattern AMC-Test-2026-11-02-0218.exe --dir prior
+            --pattern AMC-Test-2026-11-02-0218.exe --dir $prior
           if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano poprzedniego instalatora' }
-          $installer = Join-Path prior 'AMC-Test-2026-11-02-0218.exe'
+          $installer = Join-Path $prior 'AMC-Test-2026-11-02-0218.exe'
           $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected = '262d75958dc07cb8777d6a28e554cdc92858a8d68ef516c22f3bc6c1a66d93c0'
           if ($actual -cne $expected) { throw 'Nieprawidłowy SHA-256 poprzedniego instalatora' }
-          & $env:SEVEN_ZIP x $installer '-oprior\extracted' -y
+          gh release download 670 --repo UserUnknownFactor/innoextract_win `
+            --pattern innoextract670.zip --dir $prior
+          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano narzędzia innoextract' }
+          $archive = Join-Path $prior 'innoextract670.zip'
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = '79b69b9b1fcd98f42ccd4b245efdf6a03bcfb674ba6af482f5a46891c9ed4d14'
+          if ($actual -cne $expected) { throw 'Nieprawidłowy SHA-256 narzędzia innoextract' }
+          $toolDir = Join-Path $prior 'tool'
+          Expand-Archive -LiteralPath $archive -DestinationPath $toolDir
+          $extract = Join-Path $prior 'extracted'
+          & (Join-Path $toolDir 'innoextract.exe') --extract --silent --output-dir $extract $installer
           if ($LASTEXITCODE -ne 0) { throw 'Nie udało się rozpakować poprzedniego instalatora' }
-          $runtimes = @(Get-ChildItem -LiteralPath 'prior\extracted' -Filter python.exe -File -Recurse | `
-            Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'python314._pth') })
-          if ($runtimes.Count -ne 1) { throw "Oczekiwano jednego runtime CPython 3.14; znaleziono $($runtimes.Count)" }
-          $addons = @(Get-ChildItem -LiteralPath 'prior\extracted' -Filter quickAppSwitcher-0.1.6.nvda-addon -File -Recurse)
-          if ($addons.Count -ne 1) { throw "Oczekiwano jednej paczki Quick App Switcher; znaleziono $($addons.Count)" }
-          $addonHash = (Get-FileHash -LiteralPath $addons[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $runtime = Join-Path $extract 'app\runtime'
+          $addon = Join-Path $extract 'tmp\quickAppSwitcher-0.1.6.nvda-addon'
+          if (-not (Test-Path -LiteralPath (Join-Path $runtime 'python314._pth')) `
+              -or -not (Test-Path -LiteralPath (Join-Path $runtime 'python.exe'))) {
+            throw 'Brak runtime CPython 3.14 w instalatorze'
+          }
+          if (-not (Test-Path -LiteralPath $addon -PathType Leaf)) {
+            throw 'Brak paczki Quick App Switcher w instalatorze'
+          }
+          $addonHash = (Get-FileHash -LiteralPath $addon -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($addonHash -cne '16dc660e6b3fece58af8ccb84ccc43824bcb7744e1f18a37ffa629685349a61f') {
             throw 'Nieprawidłowy SHA-256 dodatku NVDA'
           }
-          "AMC_RUNTIME=$($runtimes[0].DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "AMC_ADDON=$($addons[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          & $runtimes[0].FullName --version
+          "AMC_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AMC_ADDON=$addon" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & (Join-Path $runtime 'python.exe') --version
           if ($LASTEXITCODE -ne 0) { throw 'Runtime Pythona nie działa' }
 
       - name: Zbuduj i sprawdź samowystarczalną paczkę AMC Test
