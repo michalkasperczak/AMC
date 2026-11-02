@@ -80,7 +80,7 @@ def test_predkosc_i_wznowienie_odpowiadaja_realnym_mozliwosciom_sesji():
         assert caps.supports_playback_rate is True
         assert caps.supports_resume_position is True
     spotify = capabilities_for(SessionId.SPOTIFY)
-    assert spotify.supports_playback_rate is True
+    assert spotify.supports_playback_rate is False
     assert spotify.supports_resume_position is False
     assert capabilities_for(SessionId.RADIO).supports_playback_rate is False
     assert capabilities_for(SessionId.RADIO).supports_resume_position is False

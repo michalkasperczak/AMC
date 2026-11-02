@@ -150,6 +150,7 @@ class MenuItem:
     #: Wymaga elementu, który rzeczywiście może wejść do kolejki aktywnej
     #: sesji: pliku, odcinka albo utworu TIDAL z danymi albumu.
     needs_queue_item: bool = False
+    needs_spotify_album: bool = False
     #: Węższa odmiana kolejki: „odtwórz jako następne” działa tylko dla
     #: lokalnego pliku albo odcinka podcastu, nie dla TIDAL-a.
     needs_play_next_item: bool = False
@@ -213,13 +214,19 @@ SONOS_ONLY = (SessionId.SONOS,)
 SPOTIFY_ONLY = (SessionId.SPOTIFY,)
 FRONTIER_SMART_ONLY = (SessionId.FRONTIER_SMART,)
 LOCAL_MEDIA = (SessionId.FILES, SessionId.PODCASTS)
-PLAYBACK_RATE_SESSIONS = (*LOCAL_MEDIA, SessionId.SPOTIFY)
-QUEUE_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL, SessionId.RADIOARCHIWISTA)
+PLAYBACK_RATE_SESSIONS = LOCAL_MEDIA
+QUEUE_SESSIONS = (
+    SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL,
+    SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+)
 PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
-SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY)
-MUTE_SESSIONS = (*SESSION_AUDIO_OUTPUTS, SessionId.FRONTIER_SMART)
+SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA)
+NETWORK_DEVICE_SESSIONS = (
+    SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+)
+MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART)
 LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY)
 PLAYER_SESSIONS = (
     SessionId.FILES,
@@ -313,6 +320,13 @@ def menus_for_session(
                 }
                 if entry.action in archive_labels:
                     entry = replace(entry, label=archive_labels[entry.action])
+            if session_id is SessionId.SPOTIFY and entry.action in {
+                Action.VIEW_SAVED_QUEUE, Action.ADD_TO_QUEUE,
+            }:
+                entry = replace(entry, label={
+                    Action.VIEW_SAVED_QUEUE: "&Kolejka Spotify",
+                    Action.ADD_TO_QUEUE: "Dodaj lub usuń z kolejki S&potify",
+                }[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
                 Action.VIEW_CHAPTERS,
                 Action.ADD_NAMED_CHAPTER,
@@ -812,6 +826,12 @@ def build_menus(
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),
+            MenuItem(
+                "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,
+                shortcut="Ctrl+Return", accelerator=False,
+                needs_selection=True, needs_spotify_album=True,
+                visible_sessions=SPOTIFY_ONLY,
+            ),
             MenuItem(
                 "Szybkie informacje o elemencie (&0)",
                 Action.QUICK_INFORMATION,
@@ -1786,7 +1806,7 @@ def build_menus(
                 Action.SELECT_AUDIO_OUTPUT,
                 shortcut="Shift+A",
                 accelerator=False,
-                visible_sessions=SESSION_AUDIO_OUTPUTS,
+                visible_sessions=(*SESSION_AUDIO_OUTPUTS, *NETWORK_DEVICE_SESSIONS),
             ),
             MenuItem(
                 "&Poprzednie urządzenie audio",
@@ -1801,6 +1821,14 @@ def build_menus(
                 shortcut="Ctrl+]",
                 accelerator=False,
                 visible_sessions=SESSION_AUDIO_OUTPUTS,
+            ),
+            SEPARATOR,
+            MenuItem(
+                command_presentation(Action.CAST_SESSION).menu_label,
+                Action.CAST_SESSION,
+                shortcut=command_presentation(Action.CAST_SESSION).shortcut,
+                accelerator=False,
+                visible_sessions=LOCAL_AUDIO,
             ),
             # Ustawienia dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
             # jest skrótem okna, więc rejestrujemy natywny akcelerator;

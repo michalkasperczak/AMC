@@ -4,6 +4,14 @@
 
 Po otwarciu lokalnego pliku z Eksploratora, Total Commandera albo oknem „Otwórz plik” `F6` otwiera odtwarzacz z bieżącym tytułem bez rozszerzenia. `Page Up` i `Page Down` przechodzą po utworach z tego samego folderu, jeśli plik znajduje się na jego liście. W odtwarzaczu NVDA czyta nazwę suwaka „Głośność” i listy „Prędkość” razem z wartością; `Alt+G` i `Alt+P` przenoszą do tych kontrolek, gdy są dostępne. To kandydat do sprawdzenia, jeszcze nie zainstalowane ani opublikowane wydanie.
 
+## Przygotowywany Google Cast w AMC Python — 01.11.2026
+
+Kod nowej funkcji używa **Shift+C** do wyboru Google Cast bieżącej sesji Plików, Radia lub Podcastów. **Shift+A** pozostaje lokalnym torem audio. Lista Cast zawiera nazwy urządzeń i pozycję **Ten komputer**; Enter wybiera, Escape anuluje, a ponowne otwarcie przywraca wybór. Polecenie jest także w menu Dźwięk, palecie i pomocy klawiatury.
+
+Podstawowy zakres obejmuje pojedyncze dostępne media, pauzę, głośność, przewijanie plików i powrót do komputera z zachowaniem pauzy i znanej pozycji. Radio jest przesyłane na żywo. Kolejki, tempo, zakładki, edycja i trwały zapis pozycji Cast po zamknięciu programu pozostają ograniczeniami tego etapu. Usługi z treściami chronionymi wymagają własnej obsługi Cast. Mirroring i proponowane Shift+M są osobnym pomysłem.
+
+WiiM Sound przeszedł próby sprzętowe. Użytkownik zaliczył odbiór listy urządzeń z NVDA w osobnym oknie 01.11.2026. Paczka i użytkowa instalacja tej funkcji pozostają do wykonania. [Robocza instrukcja i lista zmian](docs/zadania/CAST-001-instrukcja-i-lista-zmian-szkic.md); [wyniki i stan zadania](docs/zadania/CAST-001-google-cast.md).
+
 ## Przygotowywana zmiana po alfa415: kopiowanie samych adresów
 
 `Ctrl+Shift+C` na listach, w odtwarzaczu, wynikach wyszukiwania oraz presetach kopiuje same łącza, bez nazwy elementu; przy wielu pozycjach po jednym adresie w wierszu. Dla podcastów zachowany jest bezpośredni adres audio lub kanału, a dla YouTube dotychczasowy adres materiału — nie powstaje przez to nowy adres strumienia audio ani gwarancja odtwarzania na zewnętrznym głośniku. Lokalne pliki nadal są kopiowane jako pliki i pełne ścieżki. `Ctrl+C` zachowuje dotychczasowe nazwy/opisy. Preset urządzenia WiiM bez adresu nie kopiuje nazwy w zastępstwie łącza. Starsze opisy par „nazwa i łącze” poniżej są historią. Ta poprawka wymaga jeszcze odbioru Windows/NVDA i wydania.

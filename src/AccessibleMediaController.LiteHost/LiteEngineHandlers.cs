@@ -90,6 +90,9 @@ internal sealed class LiteEngineHandlers : IDisposable
     private string _activeEngine = "files";
 
     private MediaItem? _filesItem;
+    private string? _filesSessionId;
+    private readonly Dictionary<string, (MediaItem Item, TimeSpan Position, int Volume, double Rate)> _filesSessions =
+        new(StringComparer.Ordinal);
     private MediaItem? _radioItem;
     private readonly Dictionary<string, string?> _outputDeviceIdsBySession =
         new(StringComparer.Ordinal);
@@ -198,23 +201,41 @@ internal sealed class LiteEngineHandlers : IDisposable
         };
         _files.PlaybackStarted += (_, e) =>
         {
+            // Kolejka może rozpocząć następny element przed aktualizacją
+            // _filesItem przez SyncCurrentFromQueue. Nie gubimy tego startu.
+            var startedByQueue = _queue.OwnsCurrent(e.Item.Id);
+            string? sessionId;
             lock (_gate)
             {
+                if (_filesItem?.Id != e.Item.Id)
+                {
+                    if (!startedByQueue) return;
+                    _filesItem = e.Item;
+                    _filesSessionId = e.Item.Kind == MediaItemKind.Episode
+                        ? "podcasts" : "files";
+                }
                 _filesPlaying = true;
                 _filesPaused = false;
+                sessionId = _filesSessionId;
             }
-            var historyError = TryRecordPlaybackHistory(
-                e.Item.Kind == MediaItemKind.Episode ? "podcasts" : "local",
-                e.Item.Id);
+            var historyError = sessionId == "radioarchiwista" ? null
+                : TryRecordPlaybackHistory(
+                    sessionId == "podcasts" ? "podcasts" : "local", e.Item.Id);
             Publish("playback.started",
-                new { engine = "files", title = e.Item.Title, id = e.Item.Id,
+                new { engine = "files", sessionId, title = e.Item.Title, id = e.Item.Id,
                     tempoFallbackReason = _files.TempoFallbackReason,
                     historyError });
         };
         _files.PlaybackEnded += (_, e) =>
         {
-            lock (_gate) _filesPlaying = false;
-            if (e.Item.Kind == MediaItemKind.Episode)
+            string? sessionId;
+            lock (_gate)
+            {
+                if (_filesItem?.Id != e.Item.Id) return;
+                _filesPlaying = false;
+                sessionId = _filesSessionId;
+            }
+            if (sessionId == "podcasts")
             {
                 TimeSpan duration;
                 lock (_gate)
@@ -245,7 +266,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             var queueContinues = _queue.WouldAdvanceAfter(e.Item.Id);
 
             Publish("playback.ended",
-                new { engine = "files", title = e.Item.Title, id = e.Item.Id, queueContinues });
+                new { engine = "files", sessionId, title = e.Item.Title, id = e.Item.Id, queueContinues });
 
             // NATURALNY koniec utworu. Nastepstwo liczy sesja Core w kolejce; tu
             // tylko podajemy jej zakonczony material. Gdy kolejka nie prowadzi
@@ -277,6 +298,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             {
                 _activeEngine = "files";
                 _filesItem = next;
+                _filesSessionId = next.Kind == MediaItemKind.Episode ? "podcasts" : "files";
                 _bookmarkNavigationCursor = null;
                 // Nowy strumien: dlugosc POPRZEDNIEGO przestaje obowiazywac.
                 // Zerujemy tylko wtedy, gdy zapamietany czas nie dotyczy JUZ
@@ -306,6 +328,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 if (_filesItem is not null && string.Equals(_filesItem.Id, e.Item.Id, StringComparison.Ordinal))
                 {
                     if (e.SampleRateHz > 0) _filesItem.SampleRateHz = e.SampleRateHz;
+                    // Bitrate szacujemy tylko dla rzeczywistego pliku.
                     if (e.Duration > TimeSpan.Zero && File.Exists(_filesItem.Source))
                     {
                         try
@@ -443,6 +466,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["transport.setVolume"] = (request, _) => SetVolume(request.Args),
             ["transport.setRate"] = (request, _) => SetRate(request.Args),
             ["transport.status"] = (request, _) => Status(request.Args),
+            ["cast.notePlayback"] = (request, _) => NoteCastPlayback(request.Args),
             ["podcast.checkpoint"] = (_, _) => SaveCurrentPodcastProgress(),
             ["local.checkpoint"] = (_, _) => SaveCurrentLocalResume(),
             ["local.resumeConfigure"] = (request, _) =>
@@ -1326,7 +1350,8 @@ internal sealed class LiteEngineHandlers : IDisposable
     {
         lock (_gate)
         {
-            return _filesItem?.Kind == MediaItemKind.Episode
+            return _filesSessionId == "podcasts"
+                && _filesItem?.Kind == MediaItemKind.Episode
                 && string.Equals(_filesItem.Id, itemId, StringComparison.Ordinal)
                 && (_files.LoadedItemId is not null || _files.IsPreparing);
         }
@@ -1934,6 +1959,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         lock (_gate)
         {
             _filesItem = current;
+            _filesSessionId = current.Kind == MediaItemKind.Episode ? "podcasts" : "files";
             ForgetStaleFilesDurationLocked(current.Id);
             _filesPaused = status.Paused;
         }
@@ -2337,6 +2363,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         if (!File.Exists(path)) throw new LiteRequestException($"Nie znaleziono pliku: {path}");
         TrySaveCurrentPodcastProgress();
         TrySaveCurrentLocalResume();
+        RememberFilesSession();
 
         var requestedId = LiteArgs.ReadText(args, "id") ?? "file:" + path;
         var hasExplicitPosition = args.TryGetProperty("positionSeconds", out _);
@@ -2362,6 +2389,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             _activeEngine = "files";
             _filesItem = item;
+            _filesSessionId = "files";
             _bookmarkNavigationCursor = null;
             // Nowy strumien: stary czas przestaje obowiazywac, zanim dekoder
             // zdazy podac nowy. Inaczej okno pokazywalo dlugosc POPRZEDNIEGO pliku.
@@ -2388,6 +2416,9 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object PlayMedia(JsonElement args, LiteEventSink events)
     {
         _events = events;
+        var sessionId = LiteArgs.ReadText(args, "sessionId")?.Trim() ?? "podcasts";
+        if (sessionId is not ("podcasts" or "radioarchiwista"))
+            throw new LiteRequestException("Materiał nie należy do sesji Podcasty ani Radio Archiwista.");
         var source = LiteArgs.RequireText(args, "source").Trim();
         var isRemote = Uri.TryCreate(source, UriKind.Absolute, out var uri)
             && uri.Scheme is "http" or "https";
@@ -2408,6 +2439,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         TrySaveCurrentPodcastProgress();
         TrySaveCurrentLocalResume();
+        RememberFilesSession();
 
         var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
             args, "positionSeconds", 0d, 0d, 604_800d));
@@ -2421,7 +2453,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             Source = source
         };
         PodcastPlaybackOptionsSnapshot? playbackOptions = null;
-        if (_podcastProgressStore is not null)
+        if (sessionId == "podcasts" && _podcastProgressStore is not null)
         {
             try
             {
@@ -2444,7 +2476,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ResumePositionMode.StartFromBeginning => false,
             _ => _podcastSessionResumeMode != ResumePositionMode.StartFromBeginning
         };
-        if (!shouldRememberPosition)
+        if (sessionId == "podcasts" && !shouldRememberPosition)
             position = TimeSpan.Zero;
         var rate = playbackOptions?.ResolvedPlaybackRateOverride ?? requestedRate;
         var audio = playbackOptions is null
@@ -2456,6 +2488,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             _activeEngine = "files";
             _filesItem = item;
+            _filesSessionId = sessionId;
             _bookmarkNavigationCursor = null;
             _currentPodcastCompleted = false;
             ForgetStaleFilesDurationLocked(item.Id);
@@ -2465,7 +2498,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _filesPaused = false;
         }
         _queue.DetachFromDirectPlay();
-        ConfigureOutputForSession("podcasts");
+        ConfigureOutputForSession(sessionId);
         _files.ConfigureAudioProcessing(audio);
         _files.Play(item, position, _filesMuted ? 0 : volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
@@ -2524,17 +2557,30 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private bool TargetOwnsFilesItemLocked(string sessionId) =>
         _filesItem is not null
-        && (sessionId is "podcasts" or "radioarchiwista"
-            ? _filesItem.Kind == MediaItemKind.Episode
-            : _filesItem.Kind != MediaItemKind.Episode);
+        && string.Equals(_filesSessionId, sessionId, StringComparison.Ordinal);
+
+    private void RememberFilesSession()
+    {
+        lock (_gate)
+        {
+            if (_filesItem is not null && _filesSessionId is not null)
+                _filesSessions[_filesSessionId] =
+                    (_filesItem, _files.Position, _filesVolume, _filesRate);
+        }
+    }
 
     private void RequireTargetOwnsFilesItemLocked(LiteTransportTarget target)
     {
         if (target.Engine != "files" || TargetOwnsFilesItemLocked(target.SessionId))
             return;
 
-        throw new LiteRequestException(
-            $"Najpierw uruchom materiał w sesji {(target.SessionId == "podcasts" ? "Podcasty" : "Pliki lokalne")}.");
+        var label = target.SessionId switch
+        {
+            "radioarchiwista" => "Radio Archiwista",
+            "podcasts" => "Podcasty",
+            _ => "Pliki lokalne"
+        };
+        throw new LiteRequestException($"Najpierw uruchom materiał w sesji {label}.");
     }
 
     private object PauseResume(JsonElement args)
@@ -2552,6 +2598,34 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private object PauseResumeResolved(LiteTransportTarget target)
     {
+        if (target.Engine == "files")
+        {
+            bool ownsCurrent;
+            lock (_gate) ownsCurrent = TargetOwnsFilesItemLocked(target.SessionId);
+            if (!ownsCurrent)
+            {
+                RememberFilesSession();
+                (MediaItem Item, TimeSpan Position, int Volume, double Rate) remembered;
+                lock (_gate)
+                {
+                    if (!_filesSessions.TryGetValue(target.SessionId, out remembered))
+                        RequireTargetOwnsFilesItemLocked(target);
+                    _activeEngine = "files";
+                    _filesSessionId = target.SessionId;
+                    _filesItem = remembered.Item;
+                    _filesVolume = remembered.Volume;
+                    _filesRate = remembered.Rate;
+                    _filesPaused = false;
+                    _filesPlaying = true;
+                    ForgetStaleFilesDurationLocked(remembered.Item.Id);
+                }
+                _queue.DetachFromDirectPlay();
+                ConfigureOutputForSession(target.SessionId);
+                _files.Play(remembered.Item, remembered.Position,
+                    _filesMuted ? 0 : remembered.Volume, remembered.Rate);
+                return new { paused = false, engine = "files", sessionId = target.SessionId, queue = false };
+            }
+        }
         // Gdy transport prowadzi KOLEJKA, pauza idzie przez jej sesje: tylko ona
         // zapamietuje pozycje tak, jak reszta AMC. Pytamy PRZED wejsciem w _gate,
         // zeby nie trzymac dwoch blokad naraz.
@@ -3104,7 +3178,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         bool completed;
         lock (_gate)
         {
-            if (_filesItem?.Kind != MediaItemKind.Episode)
+            if (_filesSessionId != "podcasts"
+                || _filesItem?.Kind != MediaItemKind.Episode)
                 throw new LiteRequestException("Nie jest teraz odtwarzany odcinek podcastu.");
             episodeId = _filesItem.Id;
             duration = string.Equals(_filesDurationId, episodeId, StringComparison.Ordinal)
@@ -3186,7 +3261,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         bool completed;
         lock (_gate)
         {
-            if (_filesItem?.Kind != MediaItemKind.Episode) return;
+            if (_filesSessionId != "podcasts"
+                || _filesItem?.Kind != MediaItemKind.Episode) return;
             episodeId = _filesItem.Id;
             duration = string.Equals(_filesDurationId, episodeId, StringComparison.Ordinal)
                 ? _filesDuration
@@ -3276,6 +3352,16 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
     }
 
+    private object NoteCastPlayback(JsonElement args)
+    {
+        var sessionId = LiteArgs.RequireText(args, "sessionId");
+        if (sessionId is not ("files" or "radio" or "podcasts"))
+            throw new LiteRequestException("Ta sesja nie obsługuje Google Cast.");
+        var itemId = LiteArgs.RequireText(args, "id");
+        var error = TryRecordPlaybackHistory(sessionId == "files" ? "local" : sessionId, itemId);
+        return new { historyError = error };
+    }
+
     private object Status(JsonElement args)
     {
         var target = ResolveTransportTarget(args);
@@ -3292,6 +3378,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         TimeSpan filesDuration;
         int volume;
         double rate;
+        TimeSpan? rememberedPosition = null;
         lock (_gate)
         {
             _activeEngine = engine;
@@ -3309,15 +3396,27 @@ internal sealed class LiteEngineHandlers : IDisposable
                 paused = _filesPaused;
                 playing = _filesPlaying;
                 muted = _filesMuted;
+                volume = _filesVolume;
+                rate = _filesRate;
                 item = TargetOwnsFilesItemLocked(target.SessionId) ? _filesItem : null;
                 if (item is null)
                 {
-                    paused = false;
+                    if (_filesSessions.TryGetValue(target.SessionId, out var remembered))
+                    {
+                        item = remembered.Item;
+                        rememberedPosition = remembered.Position;
+                        volume = remembered.Volume;
+                        rate = remembered.Rate;
+                    }
+                    paused = item is not null;
                     playing = false;
                     muted = false;
                 }
-                volume = _filesVolume;
-                rate = _filesRate;
+                else
+                {
+                    volume = _filesVolume;
+                    rate = _filesRate;
+                }
             }
             // Oddajemy czas TYLKO wtedy, gdy zmierzono go dla tego samego Id.
             filesDuration = item is not null
@@ -3326,9 +3425,9 @@ internal sealed class LiteEngineHandlers : IDisposable
                     : TimeSpan.Zero;
         }
 
-        var position = item is null
+        var position = rememberedPosition ?? (item is null
             ? TimeSpan.Zero
-            : engine == "radio" ? _radio.Position : _files.Position;
+            : engine == "radio" ? _radio.Position : _files.Position);
         // Dla plikow bierzemy czas zmierzony przez dekoder; MediaItem z listy
         // folderu go nie zna. Radio nie ma dlugosci - zostaje zero.
         var duration = engine == "radio"
@@ -3357,7 +3456,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             // Sciezka jest czescia WEWNETRZNEGO protokolu, potrzebna do
             // sprawdzenia tozsamosci zaznaczenia i wywolania wspolnego
             // eksportera. Frontend nie uzywa jej jako nazwy kontrolki.
-            source = engine == "files" ? item?.Source : null,
+            source = item?.Source,
             positionSeconds = position.TotalSeconds,
             durationSeconds = duration.TotalSeconds,
             volume,
@@ -3612,9 +3711,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         var sessionId = LiteArgs.RequireText(args, "sessionId");
         if (sessionId == LiteSpotifyCatalogContract.SessionId)
             return RequireSpotifyPlayback().SelectOutput(args);
-        if (sessionId is not ("files" or "radio" or "podcasts"))
+        if (sessionId is not ("files" or "radio" or "podcasts" or "radioarchiwista"))
             throw new LiteRequestException("Ta sesja nie obsługuje wyboru urządzenia audio.");
-        return sessionId is "files" or "podcasts"
+        return sessionId is "files" or "podcasts" or "radioarchiwista"
             ? RunLocalPlaybackStart(() => SelectOutputResolved(args, sessionId))
             : SelectOutputResolved(args, sessionId);
     }
@@ -3636,10 +3735,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             {
                 "radio" => _radioItem is not null
                     && (_radio.LoadedItemId is not null || _radio.IsPreparing),
-                "podcasts" => _filesItem?.Kind == MediaItemKind.Episode
-                    && (_files.LoadedItemId is not null || _files.IsPreparing),
-                _ => _filesItem is not null
-                    && _filesItem.Kind != MediaItemKind.Episode
+                _ => TargetOwnsFilesItemLocked(sessionId)
                     && (_files.LoadedItemId is not null || _files.IsPreparing)
             };
             item = sessionId == "radio" ? _radioItem : _filesItem;

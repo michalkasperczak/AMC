@@ -78,6 +78,9 @@ from .audio_output import (
     read_profile_outputs,
 )
 from .collation import HostCollation
+from .cast_dialog import CastDeviceDialog
+from .cast_session import CAST_SESSIONS, cast_action_available, cast_session_available
+from .cast_protocol import CastError
 from .command_palette import (
     CommandPaletteEntry,
     available_entries as available_command_entries,
@@ -451,6 +454,7 @@ if "session.spotify" in _RELEASE_PROFILE.capabilities:
         history_rows as spotify_history_rows,
         information_text as spotify_information_text,
         record_history_row as record_spotify_history_row,
+        queue_payload as spotify_queue_payload,
         root_result_from_payload as spotify_root_result_from_payload,
     )
 if "session.tidal" in _RELEASE_PROFILE.capabilities:
@@ -670,6 +674,7 @@ _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.COPY_ADDRESS,
         Action.SELECT_AUDIO_OUTPUT,
+        Action.CAST_SESSION,
         Action.SESSION_OPTIONS,
         Action.SHOW_LIST,
     ),
@@ -9499,6 +9504,9 @@ class LiteFrame(wx.Frame):
         else:
             self._tidal_queue_rows = []
             self._tidal_effective_sort_modes = {}
+        self._spotify_queue_rows = list(spotify_history_rows(
+            state.spotify_queue_items
+        )) if "session.spotify" in _RELEASE_PROFILE.capabilities else []
         self._spotify_effective_sort_modes = {
             scope: state.spotify_sort_modes.get(scope, SORT_ADDED_NEWEST)
             for scope in (
@@ -10441,6 +10449,13 @@ class LiteFrame(wx.Frame):
                 self.navigator.active, set()
             ):
                 enabled = False
+            if entry.needs_spotify_album and not (
+                self.navigator.active is SessionId.SPOTIFY
+                and selected_row is not None
+                and selected_row.kind == "album"
+                and bool(selected_row.service_id)
+            ):
+                enabled = False
             if entry.needs_queue_item:
                 queue_item = bool(
                     selected_row is not None
@@ -10453,6 +10468,9 @@ class LiteFrame(wx.Frame):
                         and selected_kind == "track"
                         and bool(selected_row.service_id)
                         and bool(selected_row.related_album_service_id)
+                        or self.navigator.active is SessionId.SPOTIFY
+                        and selected_kind in {"track", "episode"}
+                        and bool(selected_row.service_id)
                         or self.navigator.active is SessionId.RADIOARCHIWISTA
                         and selected_kind == "recording"
                         and bool(selected_row.url)
@@ -10540,6 +10558,12 @@ class LiteFrame(wx.Frame):
             if entry.needs_podcast_episode and (
                 not podcasts or selected_kind != "episode"
             ):
+                enabled = False
+            if self.client is not None and getattr(self.client, "cast_active", lambda _: False)(self.navigator.active.value):
+                if not cast_action_available(entry.action, True, self.navigator.active.value,
+                        self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
+                    enabled = False
+            if entry.action is Action.CAST_SESSION and not self._action_available_in_active_session(entry.action):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
@@ -10949,6 +10973,7 @@ class LiteFrame(wx.Frame):
         # Ctrl+Shift+0 ginie w natywnej liscie Windows przed EVT_KEY_DOWN,
         # choc minus i znak rownosci przechodza ta sama droga poprawnie.
         if canonical in {
+            "Space",
             "F2",
             "Shift+F2",
             "Delete",
@@ -12884,7 +12909,10 @@ class LiteFrame(wx.Frame):
             # Dlatego tozsamosc bierzemy z kandydata zapisanego przy zlecaniu,
             # a z hosta tylko FAKT, ze start sie udal.
             if data.get("engine") == "files":
-                target = self._pending_playback_session
+                try:
+                    target = SessionId(str(data.get("sessionId")))
+                except ValueError:
+                    target = self._pending_playback_session
                 if target not in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     target = SessionId.FILES
                 archive_row = None
@@ -12989,7 +13017,10 @@ class LiteFrame(wx.Frame):
             if engine == "spotify":
                 ended_session = SessionId.SPOTIFY
             elif engine == "files":
-                candidate = getattr(self, "_playing_session", None)
+                try:
+                    candidate = SessionId(str(data.get("sessionId")))
+                except ValueError:
+                    candidate = getattr(self, "_playing_session", None)
                 if candidate in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     ended_session = candidate
                 elif SessionId.RADIOARCHIWISTA in playing_sessions:
@@ -13072,7 +13103,11 @@ class LiteFrame(wx.Frame):
                 if callable(refresh_activity):
                     refresh_activity()
                 return
-            failed_session = self._pending_playback_session
+            failed_session = (
+                SessionId(data["sessionId"])
+                if data.get("cast") and data.get("sessionId") in CAST_SESSIONS
+                else self._pending_playback_session
+            )
             if failed_session is None and data.get("engine") == "radio":
                 failed_session = SessionId.RADIO
             if failed_session is None and data.get("engine") == "files":
@@ -13086,7 +13121,8 @@ class LiteFrame(wx.Frame):
                 )
             if failed_session is None:
                 failed_session = self._playing_session
-            self._pending_playback_session = None
+            if not data.get("cast") or self._pending_playback_session is failed_session:
+                self._pending_playback_session = None
             if failed_session is not None:
                 self._playing_sessions.discard(failed_session)
             if failed_session is SessionId.PODCASTS:
@@ -13205,6 +13241,11 @@ class LiteFrame(wx.Frame):
             "playback.failed",
             "queue.advanced",
         ):
+            if name == "playback.started":
+                # The previous poll can predate the new material.
+                refresh_status = getattr(self, "_refresh_status", None)
+                if callable(refresh_status):
+                    refresh_status()
             refresh_activity = getattr(
                 self, "_refresh_native_playback_activity_view", None
             )
@@ -14245,7 +14286,6 @@ class LiteFrame(wx.Frame):
             return
         self._pending_spotify_playback = intent
         self._pending_playback_session = SessionId.SPOTIFY
-        self.announcer.say("Przygotowywanie odtwarzania Spotify")
 
         def done(_payload: dict) -> None:
             # Przyjęcie polecenia nie znaczy jeszcze, że słychać dźwięk.
@@ -14277,7 +14317,7 @@ class LiteFrame(wx.Frame):
                 "external_id": intent.service_id,
                 "kind": intent.kind,
                 "volume": self.options.volume,
-                "playback_rate": self._session_default_rate(SessionId.SPOTIFY),
+                "playback_rate": 1.0,
                 **({"artist": intent.artist} if intent.artist else {}),
             }),
             done,
@@ -14556,15 +14596,11 @@ class LiteFrame(wx.Frame):
         if self.navigator.view is not View.PLAYER:
             # Ctrl+Shift+0 wymaga tej wczesnej drogi tak samo jak w starym
             # AMC; pozostawienie go kontrolce listy daje cisze i brak akcji.
-            # SysListView32 używa gołej Spacji do własnego zaznaczania i na
-            # Windows potrafi połknąć ją przed EVT_KEY_DOWN. W Sonos Spacja
-            # jest sterowaniem aktywną grupą również podczas przeglądania
-            # Biblioteki. Ctrl+Spacja nadal należy do wielokrotnego zaznaczenia.
-            if (
-                getattr(getattr(self.navigator, "active", None), "value", "")
-                in ("sonos", "radioarchiwista")
-                and canonical == "Space"
-            ):
+            # SysListView32 może połknąć gołą Spację przed EVT_KEY_DOWN.
+            # We wszystkich sesjach jest to polecenie transportu bieżącej
+            # sesji, także przy przeglądaniu listy. Ctrl+Spacja pozostaje
+            # natywnym wyborem wielu elementów.
+            if canonical == "Space":
                 self._on_key(event)
                 return
             if (
@@ -14859,6 +14895,12 @@ class LiteFrame(wx.Frame):
         self._dispatch(action)
 
     def _dispatch(self, action: Action) -> None:
+        if (action is Action.CAST_SESSION or (
+            getattr(self, "client", None) is not None and getattr(self.client, "cast_active", lambda _: False)(
+                self.navigator.active.value)
+        )) and not self._action_available_in_active_session(action):
+            self.announcer.say(i18n.tr("cast.unavailable" if action is Action.CAST_SESSION else "cast.unsupported"))
+            return
         if (
             action in TRANSIENT_PREVIEW_ACTIONS
             and not is_transient_preview_available(
@@ -15033,6 +15075,8 @@ class LiteFrame(wx.Frame):
             self._show_session_options()
         elif action is Action.SELECT_AUDIO_OUTPUT:
             self._choose_audio_output()
+        elif action is Action.CAST_SESSION:
+            self._choose_cast_output()
         elif action is Action.PREVIOUS_AUDIO_OUTPUT:
             self._cycle_audio_output(-1)
         elif action is Action.NEXT_AUDIO_OUTPUT:
@@ -15176,6 +15220,8 @@ class LiteFrame(wx.Frame):
             self._clear_audio_clip_selection()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
+        elif action is Action.PLAY_SPOTIFY_ALBUM:
+            self._play_selected_spotify_album()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
             self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
         elif action is Action.TOGGLE_FAVORITE:
@@ -15496,6 +15542,8 @@ class LiteFrame(wx.Frame):
                 )
             elif self.navigator.active is SessionId.TIDAL:
                 self._open_tidal_queue()
+            elif self.navigator.active is SessionId.SPOTIFY:
+                self._open_spotify_queue()
             else:
                 self._run(self.navigator.open_queue_view())
         elif action is Action.VIEW_ITEM_BOOKMARKS:
@@ -16424,6 +16472,7 @@ class LiteFrame(wx.Frame):
             LibraryView.SPOTIFY_LIBRARY: "Biblioteka Spotify",
             LibraryView.SPOTIFY_CONTAINER: session.spotify_heading,
             LibraryView.SPOTIFY_HISTORY: "Spotify — Historia odtwarzania",
+            LibraryView.SPOTIFY_QUEUE: "Kolejka Spotify",
             LibraryView.YOUTUBE_BROADCASTS: "Transmisje YouTube na żywo i zaplanowane",
             LibraryView.YOUTUBE_BROADCASTS_AGGREGATE: (
                 "Transmisje wybranych kanałów YouTube"
@@ -16515,6 +16564,12 @@ class LiteFrame(wx.Frame):
             )
             if snapshot:
                 self._update_native_playback_status(snapshot)
+            else:
+                # A session change must not leave the startup label in NVDA+End.
+                # The host can replace this with confirmed playback parameters.
+                self.status_bar.show(
+                    session.now_playing_title or "Nic nie jest odtwarzane"
+                )
         elif self.navigator.active is SessionId.TIDAL:
             bar = getattr(self, "status_bar", None)
             if bar is not None:
@@ -16565,6 +16620,7 @@ class LiteFrame(wx.Frame):
         )
         self.rate_choice.Enable(not (
             tidal_external
+            or self.navigator.active is SessionId.SPOTIFY
             or spotify_read_only
             or wiim_remote
             or sonos_remote
@@ -18294,12 +18350,26 @@ class LiteFrame(wx.Frame):
         # właściwy katalog. Wykonawca dostaje skrócony widok Albumy/Utwory.
         self._run(self.navigator.open_spotify_search_result(row))
 
+    def _play_selected_spotify_album(self) -> None:
+        """Ctrl+Enter plays the selected Spotify album in catalogue order."""
+        row = self.navigator.session.model.selected_row
+        if row is None or row.kind != "album":
+            self.announcer.say("Ctrl+Enter odtwarza cały album Spotify")
+            return
+        if not row.service_id:
+            self.announcer.say("Album nie ma danych potrzebnych do odtworzenia")
+            return
+        self._spotify_preset_playback_version += 1
+        self._play_spotify_album_preset(
+            row, request_version=self._spotify_preset_playback_version,
+        )
+
     def _play_spotify_album_preset(
         self,
         album: Row,
         *,
-        spoken_slot: str,
         request_version: int,
+        spoken_slot: str = "",
         attempt: int = 0,
     ) -> None:
         """Fetch and play an album without changing list, focus or selection."""
@@ -18310,14 +18380,25 @@ class LiteFrame(wx.Frame):
             return
 
         def work():
-            return spotify_container_result_from_payload(
-                client.spotify_container_items(
-                    external_id=album.service_id or "",
-                    title=album.title,
-                    kind="album",
-                    artist=album.artist_name,
+            loaded_count = 150
+            while True:
+                result = spotify_container_result_from_payload(
+                    client.spotify_container_items(
+                        external_id=album.service_id or "",
+                        title=album.title,
+                        kind="album",
+                        artist=album.artist_name,
+                        loaded_count=loaded_count,
+                    )
                 )
-            )
+                if not result.available or not result.has_more:
+                    return result
+                if len(result.rows) >= 2000 or len(result.rows) >= loaded_count:
+                    loaded_count = min(2000, loaded_count + 150)
+                else:
+                    return result
+                if loaded_count <= len(result.rows):
+                    return result
 
         def is_current() -> bool:
             return bool(
@@ -18329,10 +18410,11 @@ class LiteFrame(wx.Frame):
         def done(result) -> None:
             if not is_current():
                 return
+            prefix = f"Preset {spoken_slot}: " if spoken_slot else ""
             if not result.available:
                 self.announcer.say(
                     result.warning
-                    or f"Preset {spoken_slot}: Spotify nie udostępnił zawartości albumu {album.title}"
+                    or f"{prefix}Spotify nie udostępnił zawartości albumu {album.title}"
                 )
                 return
             playable = tuple(
@@ -18342,7 +18424,12 @@ class LiteFrame(wx.Frame):
             )
             if not playable:
                 self.announcer.say(
-                    f"Preset {spoken_slot}: album {album.title} nie zawiera utworów do odtworzenia"
+                    f"{prefix}Album {album.title} nie zawiera utworów do odtworzenia"
+                )
+                return
+            if result.has_more:
+                self.announcer.say(
+                    f"{prefix}Spotify nie udostępnił całej zawartości albumu {album.title}"
                 )
                 return
             intent = self.navigator.prepare_spotify_preset_playback(
@@ -18371,7 +18458,7 @@ class LiteFrame(wx.Frame):
                 )
                 return
             self.announcer.say(
-                f"Preset {spoken_slot}: nie udało się odtworzyć albumu {album.title}"
+                f"{'Preset '+spoken_slot+': ' if spoken_slot else ''}Nie udało się odtworzyć albumu {album.title}"
             )
 
         self.runner.submit("spotify-preset", work, done, failed)
@@ -26040,6 +26127,8 @@ class LiteFrame(wx.Frame):
 
     def _session_default_rate(self, session: SessionId) -> float:
         """Biezace tempo sesji albo jej trwala baza; element moze je nadpisac."""
+        if session is SessionId.SPOTIFY:
+            return 1.0
         runtime = getattr(self, "_runtime_rate_by_session", None)
         if not isinstance(runtime, dict):
             runtime = {}
@@ -26094,6 +26183,7 @@ class LiteFrame(wx.Frame):
         def done(_payload: dict) -> None:
             self._playing_session = SessionId.FILES
             self._playing_sessions.discard(SessionId.PODCASTS)
+            self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
             self._playing_sessions.add(SessionId.FILES)
             self._refresh_status()
 
@@ -26143,11 +26233,14 @@ class LiteFrame(wx.Frame):
                 volume=self.options.volume,
                 rate=self._session_default_rate(session_id),
                 position_seconds=intent.position_seconds,
+                session_id=session_id.value,
             )
 
         def done(_payload: dict) -> None:
             self._playing_session = session_id
             self._playing_sessions.discard(SessionId.FILES)
+            self._playing_sessions.discard(SessionId.PODCASTS)
+            self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
             self._playing_sessions.add(session_id)
             self._refresh_status()
 
@@ -28103,6 +28196,9 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.TIDAL and not play_next:
             self._toggle_tidal_queue()
             return
+        if self.navigator.active is SessionId.SPOTIFY and not play_next:
+            self._toggle_spotify_queue()
+            return
         if self.navigator.active is not SessionId.FILES:
             self.announcer.say("To polecenie dotyczy Biblioteki plików")
             return
@@ -28621,6 +28717,53 @@ class LiteFrame(wx.Frame):
             ),
         )
 
+    def _open_spotify_queue(self, preferred_id: str | None = None) -> None:
+        self._transient_preview_return = None
+        self._run(self.navigator.apply_spotify_queue(
+            list(self._spotify_queue_rows), preferred_id=preferred_id,
+        ))
+
+    def _toggle_spotify_queue(self) -> None:
+        selected = [
+            row for row in self._selected_action_rows()
+            if row.kind in {"track", "episode"} and row.service_id
+        ]
+        if not selected:
+            self.announcer.say("Do kolejki Spotify wybierz utwór lub odcinek")
+            return
+        previous_rows = list(self._spotify_queue_rows)
+        existing = {row.service_id for row in previous_rows}
+        remove = all(row.service_id in existing for row in selected)
+        selected_ids = {row.service_id for row in selected}
+        updated = (
+            [row for row in previous_rows if row.service_id not in selected_ids]
+            if remove else previous_rows + [
+                row for row in selected if row.service_id not in existing
+            ]
+        )
+        previous_payload = list(self.state.spotify_queue_items)
+        self.state.spotify_queue_items = spotify_queue_payload(updated)
+        try:
+            self.store.save(self.state)
+        except OSError as error:
+            self.state.spotify_queue_items = previous_payload
+            self.announcer.say(f"Nie zapisano kolejki Spotify: {error}")
+            return
+        self._spotify_queue_rows = list(spotify_history_rows(
+            self.state.spotify_queue_items
+        ))
+        label = selected[0].title if len(selected) == 1 else format_item_count(len(selected))
+        LiteFrame._announce_routine_text(self, LiteFrame._routine_template_text(
+            self, "queue.removed" if remove else "queue.added", item=label,
+        ))
+        spotify_state = self.navigator.sessions[SessionId.SPOTIFY]
+        if spotify_state.library_view is LibraryView.SPOTIFY_QUEUE:
+            spotify_state.model.replace(
+                list(self._spotify_queue_rows),
+                preferred_id=None if remove else selected[0].item_id,
+            )
+            self._sync_views()
+
     def _open_tidal_queue(self, preferred_id: str | None = None) -> None:
         self._transient_preview_return = None
         self._run(self.navigator.apply_tidal_queue(
@@ -28939,19 +29082,55 @@ class LiteFrame(wx.Frame):
             follow_playback=self.options.follow_playback_on_player_exit
         ))
 
+    def _choose_cast_output(self, *, refresh: bool = False) -> None:
+        client = self.client
+        session = self.navigator.active
+        if client is None or session.value not in CAST_SESSIONS:
+            return
+        if refresh or getattr(client, "_cast", None) is None:
+            self.announcer.say(i18n.tr("cast.loading"))
+
+        def failed(error: Exception) -> None:
+            message = str(error) if isinstance(error, CastError) else i18n.tr("cast.empty")
+            self.announcer.say(i18n.tr("cast.failed", error=message))
+
+        def prepared(devices) -> None:
+            selected = client.cast_selected_device_id(session.value)
+            with CastDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+                result = dialog.ShowModal()
+                device_id = dialog.selected_device_id
+            self._restore_focus_after_dialog()
+            if result == wx.ID_REFRESH:
+                wx.CallAfter(self._choose_cast_output, refresh=True)
+                return
+            if result != wx.ID_OK:
+                return
+
+            self.announcer.say(i18n.tr("cast.connecting", name=next(
+                (device.label for device in devices if device.device_id == device_id), i18n.tr("cast.local"))))
+
+            def applied(payload: dict) -> None:
+                self.announcer.say(i18n.tr("cast.selected", name=(
+                    i18n.tr("cast.local") if device_id is None else payload.get("name", "Google Cast"))))
+                if payload.get("warning"):
+                    self.announcer.say(str(payload["warning"]))
+                self._refresh_status()
+                self._refresh_menu_state()
+
+            self.runner.submit("cast-select", lambda: client.select_cast(session.value, device_id), applied, failed)
+
+        self.runner.submit("cast-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
         if self.navigator.active is SessionId.WIIM:
-            self.announcer.say(
-                "WiiM odtwarza na własnym urządzeniu sieciowym. "
-                "Wybierz urządzenie z listy sesji WiiM"
-            )
+            self._load_wiim_devices()
             return
         if self.navigator.active is SessionId.SONOS:
-            self.announcer.say(
-                "Sonos odtwarza na własnej grupie głośników. "
-                "Wybierz grupę z listy sesji Sonos"
-            )
+            self._select_sonos_target()
+            return
+        if self.navigator.active is SessionId.FRONTIER_SMART:
+            self._show_frontier_smart_devices()
             return
         if self.navigator.active is SessionId.TIDAL:
             self.announcer.say(
@@ -29720,6 +29899,33 @@ class LiteFrame(wx.Frame):
             return
 
         session = self.navigator.active
+        remembered_radio = None
+        if session is SessionId.RADIO:
+            radio_state = self.navigator.sessions[SessionId.RADIO]
+            remembered_id = radio_state.now_playing_id
+            if remembered_id:
+                remembered_radio = next((
+                    row for row in (
+                        *radio_state.playback_source_rows,
+                        *radio_state.model.rows,
+                    )
+                    if row.item_id == remembered_id
+                    and row.kind == "station" and row.url
+                ), None)
+
+        def pause_current_session() -> dict:
+            if session is SessionId.RADIO and remembered_radio is not None:
+                status = client.status(session.value) or {}
+                if not status.get("playing") and not status.get("paused"):
+                    client.play_station(
+                        remembered_radio.url,
+                        volume=self.options.volume,
+                        item_id=remembered_radio.item_id,
+                        title=remembered_radio.title,
+                    )
+                    return {"paused": False, "playing": True,
+                            "sessionId": session.value}
+            return client.pause_resume(session.value)
 
         def done(payload: dict) -> None:
             paused = bool((payload or {}).get("paused"))
@@ -29766,7 +29972,7 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit(
             "transport",
-            lambda session_id=session.value: client.pause_resume(session_id),
+            pause_current_session,
             done,
             lambda error: self.announcer.say(f"Blad: {error}"),
         )
@@ -30126,6 +30332,9 @@ class LiteFrame(wx.Frame):
             )
 
     def _set_rate(self, value: float) -> None:
+        if self.navigator.active is SessionId.SPOTIFY:
+            self.announcer.say("Spotify nie udostępnia trwałej zmiany prędkości w AMC")
+            return
         # Przyciecie jak SetPlaybackRate (DemoMediaSession.cs:381): do
         # NAJBLIZSZEGO szczebla drabiny, nie do dowolnej wartosci z suwaka.
         value = clamp_playback_rate(value)
@@ -30307,9 +30516,9 @@ class LiteFrame(wx.Frame):
     def _update_native_playback_status(self, payload: dict | None = None) -> None:
         """Wpisz do NVDA+End gotowy tekst hosta, bez wywolywania mowy.
 
-        Host C# sklada stacje, parametry audio i metadane strumienia tym samym
-        formatterem co Alt+D. Python nie pokazuje surowych identyfikatorow ani
-        nie zgaduje bitrate'u.
+        Host C# składa opis bieżącego materiału i dostępne parametry audio.
+        Dla Radia pozostaje wspólny formatter z Alt+D. Python nie pokazuje
+        surowych identyfikatorów ani nie zgaduje bitrate'u.
         """
         status = payload if isinstance(payload, dict) else self._last_status
         text = str(
@@ -30797,6 +31006,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return
         state = self.navigator.sessions[session_id]
@@ -33256,6 +33466,16 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action is Action.CAST_SESSION:
+            client = getattr(self, "client", None)
+            return cast_session_available(self.navigator.active.value,
+                getattr(self, "_transport_status_by_session", {}).get(self.navigator.active),
+                active=bool(client and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value)))
+        client = getattr(self, "client", None)
+        if client is not None and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value):
+            if not cast_action_available(action, True, self.navigator.active.value,
+                    self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
+                return False
         if action is Action.VIEW_RADIO_RECOGNITION_HISTORY:
             return self.navigator.active in RECOGNITION_HISTORY_SESSIONS
         target_session = next((

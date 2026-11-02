@@ -137,10 +137,10 @@ def test_wiim_command_gate_blocks_local_audio_features() -> None:
         Action.SEEK_FORWARD_10,
         Action.RECORD_TOGGLE,
         Action.ADD_TO_QUEUE,
-        Action.SELECT_AUDIO_OUTPUT,
         Action.PREVIOUS_AUDIO_OUTPUT,
         Action.NEXT_AUDIO_OUTPUT,
     }.isdisjoint(WIIM_SUPPORTED_ACTIONS)
+    assert Action.SELECT_AUDIO_OUTPUT in WIIM_SUPPORTED_ACTIONS
 
 
 def test_wiim_host_client_sends_only_device_id_command_and_volume() -> None:

@@ -9,6 +9,7 @@ outside every ordinary accessible label.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Sequence
 
 from .list_model import Row
 from .podcast_source import PodcastDescription
@@ -242,6 +243,16 @@ def record_history_row(raw: object, row: Row) -> list[dict]:
         entry,
         *(item for item in current if item["externalId"] != row.service_id),
     ])
+
+
+def queue_payload(rows: Sequence[Row]) -> list[dict]:
+    """Persist only playable rows, preserving the user-selected order."""
+    entries: list[dict] = []
+    for row in rows:
+        item = record_history_row([], row)
+        if item:
+            entries.append(item[0])
+    return normalize_history_payload(entries)
 
 
 def container_result_from_payload(payload: object) -> SpotifyContainerResult:

@@ -192,7 +192,7 @@ def test_frontier_smart_commands_have_menu_help_palette_and_execution_route() ->
         Action.TOGGLE_MUTE,
     } <= actions
     assert Action.RECORD_TOGGLE not in actions
-    assert Action.SELECT_AUDIO_OUTPUT not in actions
+    assert Action.SELECT_AUDIO_OUTPUT in actions
 
     mode_item = next(
         item

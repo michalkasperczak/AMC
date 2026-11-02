@@ -367,3 +367,15 @@ def test_private_spotify_history_drops_unknown_fields_and_keeps_500_items() -> N
     assert stored[0]["title"] == "Utwór 0"
     assert stored[1]["title"] == "Utwór 1"
     assert all("token" not in item for item in stored)
+
+def test_spotify_queue_payload_preserves_order_and_sanitizes_labels() -> None:
+    from amc_wx_lite.spotify_source import queue_payload
+
+    first = Row("private-1", "Pierwszy", "track", service_id="spotify:track:1")
+    second = Row("private-2", "Drugi", "track", service_id="spotify:track:2")
+    stored = queue_payload([first, second, first])
+    assert [item["title"] for item in stored] == ["Pierwszy", "Drugi"]
+    rows = history_rows(stored)
+    assert [row.title for row in rows] == ["Pierwszy", "Drugi"]
+    spoken = " ".join(ListModel(list(rows)).text_for(i, 0) for i in range(2))
+    assert "spotify:track:" not in spoken

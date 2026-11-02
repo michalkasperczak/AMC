@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from amc_wx_lite import menu_model
 from amc_wx_lite.audio_output import (
@@ -15,6 +16,7 @@ from amc_wx_lite.audio_output import (
     read_profile_outputs,
 )
 from amc_wx_lite.navigation import SessionId
+from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 from amc_wx_lite.state_store import LiteState, Options, StateStore
 
@@ -23,6 +25,125 @@ def test_shift_a_works_in_the_native_list_and_player() -> None:
     chord = Chord("A", shift=True)
     assert resolve(chord, player_view=False, radio_session=True) is Action.SELECT_AUDIO_OUTPUT
     assert resolve(chord, player_view=True, radio_session=False) is Action.SELECT_AUDIO_OUTPUT
+
+
+def test_shift_a_uses_the_network_device_picker_for_speaker_sessions() -> None:
+    for session, method in (
+        (SessionId.WIIM, "_load_wiim_devices"),
+        (SessionId.SONOS, "_select_sonos_target"),
+        (SessionId.FRONTIER_SMART, "_show_frontier_smart_devices"),
+    ):
+        calls: list[str] = []
+        frame = SimpleNamespace(navigator=SimpleNamespace(active=session))
+        setattr(frame, method, lambda method=method: calls.append(method))
+        LiteFrame._choose_audio_output(frame)
+        assert calls == [method]
+
+
+def test_shift_a_is_offered_only_with_a_real_picker_in_each_session() -> None:
+    for session in (
+        SessionId.RADIOARCHIWISTA,
+        SessionId.WIIM,
+        SessionId.SONOS,
+        SessionId.FRONTIER_SMART,
+    ):
+        menus = menu_model.menus_for_session(session)
+        assert any(
+            entry.action is Action.SELECT_AUDIO_OUTPUT and entry.shortcut == "Shift+A"
+            for menu in menus for entry in menu.items
+        ), session
+    for key in ("WIIM", "SONOS", "FRONTIER_SMART"):
+        assert resolve(
+            Chord("A", shift=True), player_view=True, radio_session=False,
+            **{f"{key.lower()}_session": True},
+        ) is Action.SELECT_AUDIO_OUTPUT
+
+
+def test_radioarchiwista_shift_a_requests_its_own_local_output_list() -> None:
+    calls: list[tuple[str | None, str]] = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.RADIOARCHIWISTA),
+        state=SimpleNamespace(audio_output_device_ids_by_session={}),
+        _profile_audio_outputs={},
+        client=SimpleNamespace(audio_outputs=lambda device, session: calls.append(
+            (device, session)
+        )),
+        runner=SimpleNamespace(submit=lambda _name, work, _done, _failed: work()),
+    )
+    LiteFrame._choose_audio_output(frame)
+    assert calls == [(None, "radioarchiwista")]
+    assert effective_output_device_id(
+        SessionId.RADIOARCHIWISTA,
+        {"radioarchiwista": "salon"},
+        {},
+    ) == "salon"
+
+
+def test_resumed_archive_start_is_attributed_to_archive_not_files() -> None:
+    started: list[SessionId] = []
+    frame = SimpleNamespace(
+        _window_alive=lambda: True,
+        navigator=SimpleNamespace(
+            sessions={SessionId.RADIOARCHIWISTA: SimpleNamespace(
+                playback_source_rows=(),
+                now_playing_id="recording-1",
+                model=SimpleNamespace(selected_row=None),
+            )},
+            note_playback_started=started.append,
+        ),
+        _pending_playback_session=None,
+        _playing_session=SessionId.FILES,
+        _playing_sessions={SessionId.FILES},
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _refresh_live_queue=lambda: None,
+    )
+    LiteFrame._handle_engine_event(frame, "playback.started", {
+        "engine": "files",
+        "sessionId": "radioarchiwista",
+        "id": "recording-1",
+        "title": "Nagranie",
+    })
+    assert started == [SessionId.RADIOARCHIWISTA]
+    assert frame._playing_sessions == {SessionId.RADIOARCHIWISTA}
+
+
+def test_space_restarts_only_the_remembered_radio_station_when_host_is_empty() -> None:
+    row = SimpleNamespace(
+        item_id="station-katedra", kind="station", url="https://example.invalid/radio",
+        title="Katedra",
+    )
+    calls: list[tuple] = []
+    tasks: list = []
+    client = SimpleNamespace(
+        status=lambda session: {"playing": False, "paused": False},
+        play_station=lambda url, **options: calls.append((url, options)),
+        pause_resume=lambda session: calls.append(("pause", session)),
+    )
+    frame = SimpleNamespace(
+        client=client,
+        navigator=SimpleNamespace(
+            active=SessionId.RADIO,
+            sessions={SessionId.RADIO: SimpleNamespace(
+                now_playing_id=row.item_id,
+                playback_source_rows=(row,),
+                model=SimpleNamespace(rows=()),
+            )},
+        ),
+        options=SimpleNamespace(volume=42),
+        runner=SimpleNamespace(submit=lambda _name, work, _done, _failed: tasks.append(work)),
+    )
+    LiteFrame._play_pause(frame)
+    assert tasks[0]() == {"paused": False, "playing": True, "sessionId": "radio"}
+    assert calls == [(row.url, {
+        "volume": 42, "item_id": row.item_id, "title": row.title,
+    })]
+
+    calls.clear()
+    client.status = lambda session: {"playing": True, "paused": False}
+    client.pause_resume = lambda session: calls.append(("pause", session)) or {"paused": True}
+    LiteFrame._play_pause(frame)
+    assert tasks[1]() == {"paused": True}
+    assert calls == [("pause", "radio")]
 
 
 def test_brackets_cycle_outputs_in_the_native_list_and_player() -> None:

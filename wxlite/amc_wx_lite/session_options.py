@@ -144,12 +144,11 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
     ),
-    # Dla sesji wykonywanych przez zewnetrzne uslugi dialog udostepnia tylko
-    # zachowanie okna. Spotify jest wyjątkiem: własny adapter nad Librespotem
-    # stosuje przypięte silniki AMC i naprawdę obsługuje prędkość 0,5..2,0x.
+    # Web Playback SDK does not expose a durable speed command. Changing
+    # an internal media element is transient and must not be advertised.
     SessionId.TIDAL: SessionCapabilities(False, False, False, True),
     SessionId.SPOTIFY: SessionCapabilities(
-        False, True, False, True, supports_player_entry_behavior=True
+        False, False, False, True, supports_player_entry_behavior=True
     ),
     SessionId.SONOS: SessionCapabilities(
         False, False, False, True, supports_player_entry_behavior=True

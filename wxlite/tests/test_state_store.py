@@ -833,3 +833,16 @@ def test_youtube_live_channel_selection_is_unique_bounded_and_persistent() -> No
     assert loaded.youtube_live_channel_ids[0] == "kanał-1"
     assert len(loaded.youtube_live_channel_ids) == 20
     assert len(set(loaded.youtube_live_channel_ids)) == 20
+
+
+def test_spotify_queue_round_trip_keeps_order_and_safe_fields() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(spotify_queue_items=[
+        {"itemId": "one", "externalId": "first", "title": "Pierwszy", "kind": "track", "token": "secret"},
+        {"itemId": "two", "externalId": "second", "title": "Drugi", "kind": "episode", "token": "secret"},
+    ]))
+
+    loaded = store.load().spotify_queue_items
+
+    assert [item["title"] for item in loaded] == ["Pierwszy", "Drugi"]
+    assert all("token" not in item for item in loaded)

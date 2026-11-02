@@ -125,3 +125,22 @@ def test_command_is_consistent_in_keyboard_menu_palette_and_help() -> None:
     assert any(item.action is action
                for item in entries_for_session(SessionId.RADIOARCHIWISTA))
     assert "fragment" in dict(describe("Radio Archiwista"))["Ctrl+Shift+D"].lower()
+
+
+def test_late_cancel_after_export_removes_new_fragment(tmp_path: Path) -> None:
+    destination = tmp_path / "fragment.mp3"
+    cancelled = False
+
+    def export(_source: str, target: str, _start: int, _end: int) -> None:
+        nonlocal cancelled
+        Path(target).write_bytes(b"MP3 fragment")
+        cancelled = True
+
+    with pytest.raises(RadioarchiwistaError, match="anulowane"):
+        download_fragment(
+            recording(), destination, 0, 60, export=export,
+            should_cancel=lambda: cancelled,
+            fetch=lambda _url: FakeResponse(b"MP3 source"),
+        )
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []

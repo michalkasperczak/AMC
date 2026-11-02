@@ -166,6 +166,7 @@ def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> 
             "volume": 37,
             "rate": 1.25,
             "positionSeconds": 91.5,
+            "sessionId": "podcasts",
         }
     finally:
         client.close()

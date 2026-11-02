@@ -172,6 +172,7 @@ class LiteHostClient:
         self._stderr_reader: threading.Thread | None = None
         self._closed = False
         self._lifecycle_lock = threading.RLock()
+        self._cast = None
 
     # ------------------------------------------------------------ start/stop
 
@@ -244,6 +245,8 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
+        if self._cast is not None:
+            self._cast.close()
         with self._lifecycle_lock:
             self._closed = True
             process = self._process
@@ -269,6 +272,12 @@ class LiteHostClient:
         for reader in (self._reader, self._stderr_reader):
             if reader is not None and reader is not current_thread:
                 reader.join(timeout=1.0)
+        for stream in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
+            if stream is not None:
+                try:
+                    stream.close()
+                except (OSError, ValueError, AttributeError):
+                    pass
         # Obudz wszystkich czekajacych, zeby nie wisieli do konca limitu.
         with self._pending_lock:
             waiting = list(self._pending.values())
@@ -326,6 +335,32 @@ class LiteHostClient:
     # ------------------------------------------------------------ wywolania
 
     def call(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
+        if self._cast is not None:
+            from .cast_session import UNHANDLED
+            result = self._cast.call(op, args or {})
+            if result is not UNHANDLED:
+                return result
+        return self._call_native(op, args, timeout=timeout)
+
+    def cast_devices(self, *, refresh: bool = False):
+        if self._cast is None:
+            from .cast_session import CastSessionRouter
+            self._cast = CastSessionRouter(
+                lambda op, args: self._call_native(op, args, timeout=120), self._on_event)
+        return self._cast.devices(refresh)
+
+    def cast_active(self, session_id: str) -> bool:
+        return self._cast is not None and self._cast.active(session_id)
+
+    def cast_selected_device_id(self, session_id: str) -> str | None:
+        route = self._cast.routes.get(session_id) if self._cast else None
+        return route.device.device_id if route else None
+
+    def select_cast(self, session_id: str, device_id: str | None) -> dict:
+        self.cast_devices()
+        return self._cast.select(session_id, device_id)
+
+    def _call_native(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
         """Wyslij zadanie i poczekaj na odpowiedz. ``HostError`` = blad tresci."""
         if self._closed or not self.alive:
             raise HostUnavailable("Silnik nie jest uruchomiony.")
@@ -474,6 +509,7 @@ class LiteHostClient:
         volume: int,
         rate: float,
         position_seconds: float = 0.0,
+        session_id: str = "podcasts",
     ) -> Any:
         """Play a podcast/YouTube source while retaining its stable AMC Id."""
         return self.call(
@@ -485,6 +521,7 @@ class LiteHostClient:
                 "volume": volume,
                 "rate": rate,
                 "positionSeconds": max(0.0, float(position_seconds)),
+                "sessionId": session_id,
             },
             timeout=120.0,
         )

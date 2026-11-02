@@ -142,6 +142,7 @@ class Action(Enum):
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     SPOTIFY_TOGGLE_LIBRARY = "spotify.library.toggle"
     SPOTIFY_TOGGLE_FAVORITE = "spotify.favorite.toggle"
+    PLAY_SPOTIFY_ALBUM = "spotify.album.play"
     # Prawa strzalka na liscie TIDAL. To polecenie jest kontekstowe: zależnie
     # od wiersza pokazuje przejście do albumu, wykonawcy albo oba kierunki.
     # Osobna akcja jest potrzebna przede wszystkim Pomocy klawiatury -- bez
@@ -229,6 +230,7 @@ class Action(Enum):
     EXPORT_BACKUP = "profile.backup.export"
     IMPORT_BACKUP = "profile.backup.import"
     SELECT_AUDIO_OUTPUT = "audio.selectOutput"
+    CAST_SESSION = "cast.session"
     PREVIOUS_AUDIO_OUTPUT = "audio.previousOutput"
     NEXT_AUDIO_OUTPUT = "audio.nextOutput"
     PRESET_1 = "preset.1"
@@ -452,6 +454,13 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.CAST_SESSION: CommandPresentation(
+        Action.CAST_SESSION,
+        "Google Cast bieżącej sesji…",
+        "Wybierz urządzenie Google Cast dla Plików, Radia lub Podcastów albo wróć do komputera; radio jest przesyłane na żywo",
+        "Shift+C",
+        "Google &Cast bieżącej sesji…",
+    ),
     Action.VIEW_RADIO_RECOGNITION_HISTORY: CommandPresentation(
         Action.VIEW_RADIO_RECOGNITION_HISTORY,
         "Rozpoznane utwory…",
@@ -744,9 +753,6 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.VOLUME_DOWN_5,
     Action.VOLUME_UP_1,
     Action.VOLUME_DOWN_1,
-    Action.RATE_DOWN,
-    Action.RATE_UP,
-    Action.RATE_RESET,
     Action.TIME_ELAPSED,
     Action.TIME_REMAINING,
     Action.TIME_TOTAL,
@@ -804,6 +810,9 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SPOTIFY_RELATIONS,
     Action.SPOTIFY_TOGGLE_LIBRARY,
     Action.SPOTIFY_TOGGLE_FAVORITE,
+    Action.PLAY_SPOTIFY_ALBUM,
+    Action.VIEW_SAVED_QUEUE,
+    Action.ADD_TO_QUEUE,
     Action.MANAGE_PLAYLIST_MEMBERSHIP,
     Action.SPOTIFY_VIEW_LIKED,
     Action.SPOTIFY_VIEW_ALBUMS,
@@ -828,6 +837,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
 # jawnej drogi ``wiim.*`` w hoscie, nie moze trafic do lokalnego silnika audio.
 WIIM_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -920,6 +930,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
 # nie mogą przypadkiem trafić do lokalnego silnika plików.
 SONOS_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -1035,6 +1046,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
 # skierowaniem polecenia lokalnego silnika albo innej usługi do FSAPI.
 FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
+    Action.SELECT_AUDIO_OUTPUT,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
     Action.SESSION_PODCASTS,
@@ -1100,6 +1112,9 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.FRONTIER_SMART_SELECT_MODE,
     })
     | {
+        Action.SELECT_AUDIO_OUTPUT,
+        Action.PREVIOUS_AUDIO_OUTPUT,
+        Action.NEXT_AUDIO_OUTPUT,
         Action.VIEW_PRESETS,
         Action.ASSIGN_PRESET,
         *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
@@ -1281,6 +1296,7 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+,": Action.GENERAL_SETTINGS,
     # Pelne AMC: Shift+A wybiera wyjscie audio osobno dla biezacej sesji.
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
+    "Shift+C": Action.CAST_SESSION,
     # Szybka zmiana podczas odtwarzania, bez otwierania dialogu. Nawiasy sa
     # para kierunkowa i nie koliduja z istniejacymi skrótami transportu.
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
@@ -1507,6 +1523,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "Ctrl+,": Action.GENERAL_SETTINGS,
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
+    "Shift+C": Action.CAST_SESSION,
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
     "Ctrl+]": Action.NEXT_AUDIO_OUTPUT,
     "Ctrl+Alt+P": Action.VIEW_PRESETS,
@@ -1632,6 +1649,7 @@ TIDAL_LIST_VIEW: dict[str, Action] = {
 
 SPOTIFY_LIST_VIEW: dict[str, Action] = {
     "Right": Action.SPOTIFY_RELATIONS,
+    "Ctrl+Return": Action.PLAY_SPOTIFY_ALBUM,
 }
 
 
@@ -1653,6 +1671,8 @@ SPOTIFY_SESSION_VIEW: dict[str, Action] = {
     "Alt+D": Action.SHOW_PODCAST_DESCRIPTION,
     "Ctrl+Shift+L": Action.SPOTIFY_TOGGLE_LIBRARY,
     "Ctrl+Shift+U": Action.SPOTIFY_TOGGLE_FAVORITE,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
 }
 
 
@@ -1674,6 +1694,7 @@ TIDAL_COLLECTION_LIST_VIEW: dict[str, Action] = {
 # plik playlisty i zapisuje znalezione strumienie w AMC. Zapisane strumienie
 # nie potrzebują już osobnego skrótu: są drugim elementem Biblioteki źródeł.
 WIIM_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     # Jak w historycznym AMC: Ctrl+F5 prowadzi do urządzeń, a zwykłe F5
     # odświeża bieżący widok bez otwierania konfiguracji.
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
@@ -1696,6 +1717,7 @@ WIIM_SESSION_VIEW: dict[str, Action] = {
 
 
 FRONTIER_SMART_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+Alt+M": Action.FRONTIER_SMART_SELECT_MODE,
 }
@@ -1736,6 +1758,7 @@ WIIM_PLAYER_VIEW: dict[str, Action] = {
 
 
 SONOS_SESSION_VIEW: dict[str, Action] = {
+    "Shift+A": Action.SELECT_AUDIO_OUTPUT,
     # Jak w głównym AMC: grupy i głośniki są celem sterowania, nie Biblioteką.
     "Ctrl+F5": Action.SELECT_SONOS_TARGET,
     "Ctrl+U": Action.VIEW_FAVORITES,
@@ -1836,7 +1859,7 @@ _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
     "Ctrl+Escape": "Menu Start Windows",
     "Ctrl+Alt+Delete": "Ekran zabezpieczeń Windows",
     "Ctrl+Shift+Escape": "Menedżer zadań Windows",
-    "Ctrl+Return": "Odtwórz kontener TIDAL",
+    "Ctrl+Return": "Odtwórz album Spotify albo kontener TIDAL",
     **{f"Ctrl+{slot}": "Przełączanie sesji" for slot in range(1, 10)},
 }
 
@@ -2027,6 +2050,11 @@ def _resolve_default(
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
     table = PLAYER_VIEW if player_view else LIST_VIEW
     canonical = chord.canonical
+    if spotify_session and canonical in {"Shift+,", "Shift+.", "Ctrl+."}:
+        return None
+    if canonical == "Shift+C":
+        return (Action.CAST_SESSION if not any((tidal_session, spotify_session, wiim_session,
+                sonos_session, frontier_smart_session, radioarchiwista_session)) else None)
     if canonical in GLOBAL_VIEW_SHORTCUTS:
         action = GLOBAL_VIEW_SHORTCUTS[canonical]
         if (
@@ -2157,7 +2185,7 @@ def _resolve_default(
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
         return SONOS_SESSION_VIEW[canonical]
-    if sonos_session and canonical in {"Shift+A", "Ctrl+[", "Ctrl+]"}:
+    if sonos_session and canonical in {"Ctrl+[", "Ctrl+]"}:
         # Sonos nie używa lokalnych wyjść Windows. Jego celem jest grupa pod
         # Ctrl+F5; nie wysyłamy tych gestów do dialogu urządzeń komputera.
         return None
@@ -2267,6 +2295,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Wybierz tryb urządzenia Frontier Smart"
         ),
         Action.ACTIVATE: "Otworz folder albo odtworz",
+        Action.PLAY_SPOTIFY_ALBUM: "Odtwórz cały album Spotify",
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.CLOSE_LIST_PREVIEW: "Zamknij podglad lub podwidok",
         Action.SHOW_PLAYER: "Widok odtwarzacza",
@@ -2565,6 +2594,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SELECT_AUDIO_OUTPUT: (
             "Wybierz urządzenie audio dla bieżącej sesji"
         ),
+        Action.CAST_SESSION: _STATIC_COMMAND_PRESENTATIONS[Action.CAST_SESSION].description,
         Action.PREVIOUS_AUDIO_OUTPUT: (
             "Poprzednie dostępne urządzenie audio bieżącej sesji"
         ),
@@ -2756,6 +2786,14 @@ def describe_action(
         }
         if action in archive_labels:
             return i18n.command_description(action.value, archive_labels[action])
+    if (session_label or "").casefold() == "spotify":
+        queue_labels = {
+            Action.VIEW_SAVED_QUEUE: "Pokaż prywatną kolejkę Spotify w AMC",
+            Action.ADD_TO_QUEUE: "Dodaj utwór lub odcinek do kolejki Spotify albo usuń",
+            Action.PLAY_SPOTIFY_ALBUM: "Odtwórz cały album Spotify",
+        }
+        if action in queue_labels:
+            return i18n.command_description(action.value, queue_labels[action])
     ctrl_f5 = ctrl_f5_presentation(session_label)
     if ctrl_f5 is not None and ctrl_f5.action is action:
         return ctrl_f5.description

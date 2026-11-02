@@ -536,6 +536,10 @@
 
 ## Nieuciążliwe testowanie
 
+- Uwaga użytkownika z 1 listopada 2026 r.: zatwierdzone, osobne okno próby
+  NVDA pokaż od razu na pierwszym planie, z fokusem na właściwej kontrolce.
+  Nie pozostawiaj go ukrytego za innymi oknami i nie wymagaj szukania go.
+  Aktywuj je przy otwarciu; nie wymuszaj stałego pozostawania na wierzchu.
 - Korekta użytkownika z 27 października 2026 r.: domyślnie uruchamiaj tylko
   testy celowane, bez widocznego interfejsu, dotyczące bezpośrednio zmienianego
   obszaru. Dobieraj ich zakres proporcjonalnie do ryzyka zmiany.

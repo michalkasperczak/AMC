@@ -4,6 +4,14 @@
 
 After opening a local file from Explorer, Total Commander, or the “Open file” dialog, `F6` opens the player with that file as the current track. `Page Up` and `Page Down` move through tracks in its folder when the file is present in the folder list. In the player, NVDA reads “Volume” and “Speed” with the controls' values; `Alt+V` and `Alt+S` focus those controls when available. This is a candidate for review, not an installed or published release.
 
+## Google Cast in preparation for AMC Python — November 1, 2026
+
+The new source implementation uses **Shift+C** to select Google Cast for the Files, Radio or Podcasts session. **Shift+A** selects the local audio path. The Cast picker contains device names and **This computer**; Enter confirms, Escape cancels, and reopening restores the selection. The command also appears in the Audio menu, command palette and keyboard help.
+
+This initial scope supports individual accessible media, pause, volume, seeking files, and returning to the computer with the known position and pause state. Radio is cast live. Continuous queues, playback speed, bookmarks, editing and persistent Cast resume positions remain limitations of this stage. Protected services require their own Cast integration. Mirroring and the proposed Shift+M are a separate idea.
+
+Hardware checks passed on WiiM Sound. The user accepted the device picker with NVDA in a standalone test window on November 1, 2026. Packaging and installation of this feature are still pending. [Draft guide and changelog in Polish](docs/zadania/CAST-001-instrukcja-i-lista-zmian-szkic.md); [task record and test evidence](docs/zadania/CAST-001-google-cast.md).
+
 ## Pending after alpha415: copy addresses without titles
 
 `Ctrl+Shift+C` in media lists, the player, search results and presets copies only locations, one per line, without item titles. Podcast direct audio/feed addresses and the existing YouTube item URL selection are unchanged; this does not create a new raw audio stream URL or guarantee external-speaker playback. Local file-drop data and full paths are preserved, as is ordinary `Ctrl+C` name/description copying. A WiiM hardware preset without a URL no longer substitutes its name. Older name-and-link descriptions below are historical. Windows/NVDA acceptance and release are still pending.

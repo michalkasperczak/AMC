@@ -116,6 +116,7 @@ class LibraryView(Enum):
     #: Własna historia potwierdzonych odtworzeń AMC Python. Nie jest to
     #: kompletna historia konta Spotify ani kolejny kontener katalogu.
     SPOTIFY_HISTORY = "spotifyHistory"
+    SPOTIFY_QUEUE = "spotifyQueue"
     #: Prywatna, osobna historia sesji WiiM albo Sonos. Nie jest to lokalna
     #: tabela plików i nie może przełączać aktywnej sesji.
     SERVICE_HISTORY = "serviceHistory"
@@ -248,6 +249,7 @@ class SessionState:
     #: kolejce. Trzymamy wiersze osobno, bo po uruchomieniu uzytkownik moze
     #: otworzyc inny widok, a nastepny element nadal ma pochodzic ze zrodla.
     playback_source_rows: tuple[Row, ...] = ()
+    spotify_auto_advance: bool = False
     #: Nielosowa migawka tego samego zrodla. Po wylaczeniu losowania wracamy
     #: do porzadku katalogu, nie do przypadkowej kolejnosci z pamieci.
     unshuffled_playback_source_rows: tuple[Row, ...] = ()
@@ -934,6 +936,10 @@ class Navigator:
         normalized = tuple(rows)
         state.unshuffled_playback_source_rows = normalized
         state.playback_uses_queue = uses_queue
+        if state.session_id is SessionId.SPOTIFY:
+            state.spotify_auto_advance = (
+                state.library_view is LibraryView.SPOTIFY_QUEUE
+            )
         state.playback_source_rows = (
             self._shuffled_source(normalized, state.now_playing_id)
             if state.shuffle_enabled and not uses_queue
@@ -989,7 +995,10 @@ class Navigator:
             return None
         state = self.sessions[session_id]
         if (
-            not state.shuffle_enabled
+            not (state.shuffle_enabled or (
+                session_id is SessionId.SPOTIFY
+                and state.spotify_auto_advance
+            ))
             or state.playback_uses_queue
             or not state.playback_source_rows
             or not state.now_playing_id
@@ -1016,8 +1025,9 @@ class Navigator:
             intent.previous_item_id = state.current_material_id
             intent.previous_title = previous_title
             intent.preserve_navigation = True
+            intent.success_announcement = target.title
             state.pending_material_id = target.item_id
-            return [intent, Announce(target.title)]
+            return [intent]
         if session_id is SessionId.PODCASTS:
             state.pending_material_id = target.item_id
             return [
@@ -2541,6 +2551,7 @@ class Navigator:
         intent.success_announcement = announcement or row.title
         state.pending_material_id = row.item_id
         self._set_playback_source(state, source_rows or (row,))
+        state.spotify_auto_advance = bool(source_rows and len(source_rows) > 1)
         return intent
 
     def restore_spotify_playback_after_failed_handoff(
@@ -3441,6 +3452,25 @@ class Navigator:
         return [Announce(
             f"{heading}, {len(rows)} {_items_word(len(rows))}"
             if rows else f"{heading}, pusto"
+        )]
+
+    def apply_spotify_queue(
+        self, rows: list[Row], *, preferred_id: str | None = None
+    ) -> list[object]:
+        """Show AMC's own saved Spotify playback sequence."""
+        state = self.sessions[SessionId.SPOTIFY]
+        state.library_view = LibraryView.SPOTIFY_QUEUE
+        state.library_playlist_id = None
+        state.library_return_view = "Kolejka Spotify"
+        state.spotify_heading = "Kolejka Spotify"
+        state.spotify_context = None
+        state.spotify_history.clear()
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"Kolejka Spotify, {count} {_items_word(count)}"
+            if count else "Kolejka Spotify, zero elementów"
         )]
 
     def apply_spotify_history(self, rows: list[Row]) -> list[object]:

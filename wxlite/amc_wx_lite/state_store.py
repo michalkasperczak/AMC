@@ -673,6 +673,8 @@ class LiteState:
     #: Nie udaje pełnej historii konta; wpis powstaje dopiero po potwierdzonym
     #: starcie Librespota. Identyfikatory są wyłącznie danymi modelu.
     spotify_playback_history: list[dict] = field(default_factory=list)
+    #: Prywatna kolejka AMC dla sesji Spotify, niezależna od kolejki konta.
+    spotify_queue_items: list[dict] = field(default_factory=list)
     #: Prywatne historie streamerów, których nie da się odbudować z lokalnej
     #: bazy plików. WiiM i Sonos zapisują migawki faktycznie grającego
     #: urządzenia; historia TIDAL i Spotify pozostaje na swoich drogach.
@@ -932,6 +934,9 @@ class StateStore:
             spotify_playback_history=_read_spotify_history(
                 raw.get("spotify_playback_history")
             ),
+            spotify_queue_items=_read_spotify_history(
+                raw.get("spotify_queue_items")
+            ),
             playback_history_by_session=normalize_histories(
                 raw.get("playback_history_by_session")
             ),
@@ -1026,6 +1031,9 @@ class StateStore:
         payload["search_history"] = _read_search_history(state.search_history)
         payload["spotify_playback_history"] = _read_spotify_history(
             state.spotify_playback_history
+        )
+        payload["spotify_queue_items"] = _read_spotify_history(
+            state.spotify_queue_items
         )
         payload["playback_history_by_session"] = normalize_histories(
             state.playback_history_by_session

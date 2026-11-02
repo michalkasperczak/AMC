@@ -211,3 +211,51 @@
 - Testy izolowanego kodu: 120 zaliczonych, 1 celowo pominięty, niezwiązany test opisu `Ctrl+N` Podcastów. Test `--transport-routing` hosta zaliczony. Kompilacja LiteHosta Release zaliczona bez ostrzeżeń po przywróceniu pakietów.
 - Test regresji wykrył, że `Ctrl+Shift+C` w odtwarzaczu używał dawnego zaznaczenia listy; poprawiono go i ponowiono test. Usunięto omyłkową zmianę wyboru elementu w poleceniu wycinania pliku.
 - Kod, testy i kompilacja są osobnymi wynikami. Identyfikatory commitu i paczki oraz wynik instalacji i publikacji należy dopisać po tych czynnościach. Odbiór mowy NVDA i transmisji z żywego serwera pozostaje zadaniem ręcznym.
+
+## Korekta Spacji i Shift+A — 01.11.2026
+
+### Zachowanie widoczne dla użytkownika
+
+- Spacja steruje materiałem bieżącej sesji. Host odróżnia odcinek Podcastów od nagrania Radio Archiwisty mimo wspólnego dekodera. Po powrocie do wcześniej używanej sesji Spacja wznawia jej ostatni materiał od zapamiętanej pozycji; bez wcześniejszego materiału podaje nazwę właściwej sesji i prosi o jego uruchomienie.
+- W zwykłym Radiu, gdy widok pamięta stację z adresem, lecz host nie ma już grającego ani wstrzymanego strumienia, Spacja uruchamia dokładnie tę zapamiętaną stację. Jeśli Radio już gra lub jest wstrzymane, Spacja pozostaje przełącznikiem pauzy.
+- Shift+A w Radio Archiwiście otwiera wybór lokalnego urządzenia audio tej sesji. W WiiM pokazuje listę urządzeń WiiM, w Sonosie listę głośników i grup, a w Frontier Smart istniejący wybór urządzeń. Enter na pozycji wybiera cel zgodnie z regułami danej sesji. Menu Dźwięk i pomoc poleceń korzystają z tych samych możliwości.
+
+### Uzasadnienie i decyzje
+
+- Zgłoszenie użytkownika z 01.11.2026 zastępuje wcześniejsze twierdzenie, że Spacja Radio Archiwisty była w pełni połączona: sam typ „odcinek” nie identyfikował sesji i mógł kierować pauzę do Podcastów. Wspólny tor zachowuje teraz jawną sesję właściciela i ostatni materiał oraz pozycję sesji wypartych przez inny materiał.
+- Zdarzenia startu i końca niosą teraz tę samą sesję, którą obsługuje host; interfejs nie przypisuje wznowionego nagrania archiwum do Plików tylko dlatego, że start nie był poprzedzony Enterem.
+- Shift+A w głośnikach sieciowych oznacza wybór celu w danej usłudze, a nie lokalnego wyjścia Windows. W lokalnym Radio Archiwiście oznacza wyjście Windows. Ctrl+[ i Ctrl+] nadal dotyczą lokalnych wyjść, nie przełączają głośników sieciowych.
+
+### Testy i wynik
+
+- Celowane testy Python bez widocznego interfejsu: końcowo 72 zaliczone dla transportu, Radio Archiwisty i wyboru urządzeń; 62 dla menu i palety oraz 74 dla parytetu transportu w osobnym procesie. Pięć początkowych błędów testu parytetu wynikało z niedostępnego katalogu tymczasowego piaskownicy; po skierowaniu TEMP do katalogu roboczego cały zestaw przeszedł. Połączenie wszystkich zestawów w jednym procesie ujawniło dwie zależności między atrapami testów prędkości i inicjalizacją GUI; zestawy uruchomione oddzielnie przechodzą. Kompilacja LiteHost Debug: 0 ostrzeżeń, 0 błędów. Konsolowy test protokołu `--transport-routing`: zaliczony.
+- Ręcznego odsłuchu i nawigacji NVDA nie wykonano.
+
+### Znane ograniczenia
+
+- Zapamiętanie materiału i pozycji sesji wypartych z jednego dekodera trwa w bieżącym procesie hosta; po restarcie obowiązują istniejące trwałe mechanizmy wznowienia danej usługi. Nie potwierdzono jeszcze żywego przejścia Podcasty → Radio Archiwista → Podcasty ani wyboru kilku fizycznych urządzeń z NVDA.
+
+### Materiał do dokumentacji użytkownika
+
+> W sesji z odtwarzanym wcześniej materiałem naciśnij Spację, aby go wstrzymać lub wznowić. Po przejściu z Podcastów do Radio Archiwisty Spacja dotyczy nagrania archiwum; powrót do Podcastów przywraca ich ostatni odcinek. W zwykłym Radiu Spacja może ponownie uruchomić zapamiętaną stację, gdy nie gra już żaden strumień Radia. Shift+A wybiera urządzenie audio sesji. W WiiM, Sonosie i Frontier Smart pokazuje urządzenia lub grupy tej usługi; w Radio Archiwiście pokazuje lokalne wyjścia dźwięku.
+
+### Wersja i commit
+
+- Zmiany źródłowe na bieżącej gałęzi `codex/konfigurowalne-skroty-20261026`, bez osobnego commitu. Nie powstała nowa instalacja ani wydanie.
+
+## Korekta Spacji na listach wszystkich sesji — 01.11.2026
+
+### Zachowanie i przyczyna
+
+- Goła Spacja z listy trafia do polecenia „Pauza albo wznowienie” w sesji bieżącej, także w WiiM, Sonosie i Frontier Smart. Ctrl+Spacja nadal wybiera wiele wierszy w natywnej liście Windows. W odtwarzaczu Spacja zachowuje to samo znaczenie.
+- Poprzednia wersja wczesnej obsługi listy obejmowała tylko Sonosa i Radio Archiwistę. Natywna lista mogła przejąć Spację w WiiM, Frontier Smart i innych sesjach przed routerem skrótów. Zgłoszenie użytkownika z 01.11.2026 rozszerza poprzednią decyzję o trasę klawisza we wszystkich sesjach.
+- Po przejściu routera WiiM wysyła `toggle` do aktywnego identyfikatora urządzenia, Sonos do aktywnej pary dom/grupa, a Frontier Smart do aktywnego urządzenia. Bez wybranego celu każda usługa podaje własny komunikat z instrukcją wyboru; nie steruje celem z innej sesji. Menu i pomoc podają wspólne polecenie Spacji. Shift+A wybiera cel sieciowy w tych sesjach.
+
+### Sprawdzenie i ograniczenia
+
+- Celowane testy skrótów, obu bramek klawiatury i kierowania transportu: 68 zaliczonych. Zestawy sesji WiiM, Sonos i Frontier Smart: 77 zaliczonych po uaktualnieniu przestarzałego oczekiwania testu Sonosa dotyczącego Shift+A. Te wyniki dotyczą źródła i atrap poleceń; nie potwierdzają fizycznej odpowiedzi urządzeń.
+- Nie uruchomiono widocznego GUI ani NVDA i nie zainstalowano nowej wersji. Sprawdzenie klawisza na prawdziwej liście Windows i fizycznych urządzeniach pozostaje do wykonania po świadomym uruchomieniu aplikacji. Bieżące zmiany nie mają osobnego commitu ani wydania.
+
+### Materiał do dokumentacji użytkownika
+
+> Na liście i w odtwarzaczu Spacja wstrzymuje lub wznawia materiał aktualnej sesji. W WiiM, Sonosie i Frontier Smart dotyczy wybranego urządzenia lub grupy. Shift+A wybiera cel w danej usłudze. Ctrl+Spacja na liście służy do zaznaczania wielu pozycji.

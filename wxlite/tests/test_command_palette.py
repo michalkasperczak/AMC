@@ -446,3 +446,15 @@ def test_spotify_playlist_command_matches_palette_and_contextual_keyboard_help()
     assert dict(describe("Spotify"))["Ctrl+Shift+P"] == (
         "Dodaj do playlist Spotify lub utwórz playlistę"
     )
+
+
+def test_spotify_tempo_is_absent_from_commands_but_podcasts_keep_it() -> None:
+    tempo = {Action.RATE_DOWN, Action.RATE_UP, Action.RATE_RESET}
+    spotify_actions = {item.action for item in entries_for_session(SessionId.SPOTIFY)}
+    podcast_actions = {item.action for item in entries_for_session(SessionId.PODCASTS)}
+    assert not spotify_actions & tempo
+    assert tempo <= podcast_actions
+    for key, modifiers in ((",", {"shift": True}), (".", {"shift": True}), (".", {"ctrl": True})):
+        chord = Chord(key, **modifiers)
+        assert resolve(chord, player_view=True, radio_session=False, spotify_session=True) is None
+        assert resolve(chord, player_view=True, radio_session=False, podcast_session=True) in tempo

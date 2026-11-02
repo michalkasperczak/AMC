@@ -536,3 +536,37 @@ def test_unplayable_row_refuses_once_without_exposing_private_identity() -> None
     assert events == [Announce("Ten materiał nie jest obecnie dostępny do odtworzenia")]
     assert "secret" not in events[0].text
     assert nav.session.view is View.LIST
+
+def test_spotify_queue_playback_advances_without_shuffle_or_changing_provider() -> None:
+    nav = Navigator()
+    nav.active = SessionId.SPOTIFY
+    first, second = _track(1), _track(2)
+    nav.apply_spotify_queue([first, second])
+    assert nav.session.library_view is LibraryView.SPOTIFY_QUEUE
+    assert nav.session.model.selected_row == first
+
+    started = nav.activate_selected()[0]
+    assert isinstance(started, PlaySpotifyItem)
+    assert started.service_id == first.service_id
+    nav.note_spotify_playback_started(first.item_id, first.title)
+    continuation = nav.continue_shuffled_after_end(SessionId.SPOTIFY)
+    assert continuation is not None
+    following = continuation[0]
+    assert isinstance(following, PlaySpotifyItem)
+    assert following.service_id == second.service_id
+    assert nav.sessions[SessionId.TIDAL].playback_source_rows == ()
+
+
+def test_entire_spotify_album_advances_after_first_track() -> None:
+    nav = Navigator()
+    nav.active = SessionId.SPOTIFY
+    first, second = _track(1), _track(2)
+    intent = nav.prepare_spotify_preset_playback(
+        first, source_rows=(first, second), announcement="Album użytkowy",
+    )
+    assert isinstance(intent, PlaySpotifyItem)
+    nav.note_spotify_playback_started(first.item_id, first.title, preserve_navigation=True)
+    continuation = nav.continue_shuffled_after_end(SessionId.SPOTIFY)
+    assert continuation is not None
+    assert isinstance(continuation[0], PlaySpotifyItem)
+    assert continuation[0].service_id == second.service_id
