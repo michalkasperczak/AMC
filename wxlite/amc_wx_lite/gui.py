@@ -7874,6 +7874,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.shell_open_with.SetValue(
             bool(shell_integration.get("openWithEnabled", False))
         )
+        self.shell_open_with.SetHelpText(
+            "Ta opcja udostępnia AMC jako wybór dla plików. "
+            "Nie ustawia AMC jako programu domyślnego."
+        )
         integration_layout.Add(
             self.shell_context_menu, 0, wx.BOTTOM | wx.EXPAND, 10
         )
@@ -7883,10 +7887,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         groups_heading = wx.StaticText(
             integration,
-            label="Udostępniaj AMC dla następujących &typów plików:",
+            label="Udostępniaj AMC dla następujących &typów plików (bez zmiany programu domyślnego):",
         )
         groups_heading.SetName(
-            "Udostępniaj AMC dla następujących typów plików"
+            "Udostępniaj AMC dla następujących typów plików, bez zmiany programu domyślnego"
         )
         integration_layout.Add(groups_heading, 0, wx.BOTTOM | wx.EXPAND, 8)
         self._shell_group_controls: list[tuple[str, wx.CheckBox]] = []
@@ -7908,6 +7912,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 if isinstance(raw_extensions, list) and isinstance(value, str)
             ] if isinstance(raw_extensions, list) else []
             help_parts = [description] if description else []
+            help_parts.append(
+                "Zaznaczenie udostępnia AMC w Windows, ale nie ustawia programu domyślnego."
+            )
             if extensions:
                 help_parts.append("Rozszerzenia: " + ", ".join(extensions) + ".")
             if help_parts:
@@ -7918,10 +7925,14 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         self.open_default_apps = wx.Button(
             integration,
-            label="Otwórz ustawienia aplikacji &domyślnych Windows…",
+            label="Wybierz domyślne typy plików dla AMC w &Windows…",
         )
         self.open_default_apps.SetName(
-            "Otwórz ustawienia aplikacji domyślnych Windows"
+            "Wybierz domyślne typy plików dla AMC w Windows"
+        )
+        self.open_default_apps.SetHelpText(
+            "Otwiera stronę AMC w ustawieniach aplikacji domyślnych, jeśli Windows to obsługuje. "
+            "Tam potwierdź wybrane formaty jako domyślne."
         )
         self.open_default_apps.Bind(
             wx.EVT_BUTTON, self._on_open_windows_default_apps

@@ -58,8 +58,8 @@ public static class ShellIntegrationRules
              ".mka", ".ac3", ".eac3", ".ec3", ".amr"]),
         new(
             "video",
-            "Filmy i pojemniki wideo",
-            "Włącz, jeśli AMC ma otwierać także filmy. Dźwięk z nich odtwarza tak samo.",
+            "Pliki wideo",
+            "Formaty filmów i innych plików wideo, które AMC może otwierać.",
             [".mkv", ".webm", ".mp4", ".m4v", ".mov", ".ogv", ".avi", ".wmv",
              ".mpeg", ".mpg", ".mpe", ".ts", ".mts", ".m2ts", ".vob", ".flv",
              ".3gp", ".3g2", ".3gp2", ".3gpp"]),

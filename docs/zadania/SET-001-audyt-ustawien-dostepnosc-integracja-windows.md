@@ -531,3 +531,44 @@ Kandydata nie zainstalowano ani nie opublikowano.
 Commit bieżącej korekty: `9684e757`. Kandydat użytkowy:
 `AMC Public — 29.10.2026, 19:24`, paczka `33e68ad6`. Kontrolowany start i
 instalator są zaliczone. Instalacji ani publikacji nie wykonano.
+
+
+## Korekta użytkownika — 02.11.2026: wybór programu domyślnego
+
+### Materiał do dokumentacji użytkownika
+
+W Ustawieniach (`Ctrl+,`) na karcie **Integracja z Windows** pola grup
+udostępniają AMC jako możliwy program do otwierania zaznaczonych formatów.
+Nie zmieniają programu domyślnego. Przycisk **Wybierz domyślne typy plików
+dla AMC w Windows** prowadzi, jeśli system to obsługuje, bezpośrednio do
+strony AMC w systemowych ustawieniach aplikacji domyślnych. Tam użytkownik
+zatwierdza potrzebne formaty. Grupa wideo nosi nazwę **Pliki wideo**.
+
+### Uzasadnienie i decyzje
+
+Użytkownik poprosił o pola wyboru w AMC, które trwale przypisują AMC do
+rozszerzeń, jak w starszych wersjach foobar2000. Niniejsza korekta zastępuje
+wcześniejszy opis sugerujący, że pola grup mogą ustawić domyślną aplikację.
+Windows 10/11 wymaga zmiany domyślności przez interfejs systemowy. Rejestracja
+formatów i bezpośredni odsyłacz do strony AMC są obsługiwanym zakresem.
+Nie używamy nieobsługiwanej modyfikacji danych wyboru użytkownika w rejestrze.
+Źródła: Microsoft Learn, `windows-integration/default-apps-platform` oraz
+`launch/launch-default-apps-settings`.
+
+### Testy i wynik
+
+Zmiana dotyczy nazw, opisu dostępności i tłumaczeń. Składnia Python: zaliczona.
+Celowane testy karty Ustawienia, klienta integracji i profili instalatora:
+40 zaliczonych (`python -B -m pytest -q -p no:cacheprovider` z `PYTHONPATH=wxlite`).
+Ręczny test z NVDA i faktyczne otwarcie strony AMC w Windows pozostają do odbioru.
+
+### Znane ograniczenia
+
+Pola grup w AMC nie mogą samodzielnie ustawić programu domyślnego. Na starszym
+Windows przycisk może otworzyć ogólną stronę aplikacji domyślnych.
+
+### Wersja i commit
+
+Kod roboczy w kanonicznym repozytorium AMC Test; bez nowego instalatora,
+instalacji i publikacji. Wcześniejsze wydanie `0.1.0-alpha.466` nie zawiera
+tej korekty.
