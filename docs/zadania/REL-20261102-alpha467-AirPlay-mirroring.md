@@ -136,3 +136,14 @@ WiiM z innym dostępnym odbiornikiem, np. zgodnym modelem Sonos; iPhone został
 wskazany przez użytkownika jako kandydat do sprawdzenia, bez potwierdzenia,
 że oferuje usługę odbiornika. Nie publikować kolejnego instalatora jako
 naprawionego AirPlay bez powtarzalnej próby sprzętowej.
+
+## Wskazówka o Zaporze Windows — 02.11.2026
+
+Użytkownik zgłosił niedostępne dla niego okno zabezpieczeń Windows po próbach.
+Podgląd ekranu pokazał alert Zapory Windows dla programu „Python” z wydawcą
+„Python Software Foundation”. Nie potwierdzono ścieżki procesu ani tego, że
+alert spowodował awarię RAOP. Może on dotyczyć procesu diagnostycznego,
+dlatego przed następnym testem sprawdzić dokładny proces i stan uprawnień
+sieciowych. Asystent nie zatwierdził ani nie odrzucił żądania Zapory; zgodnie
+z regułami narzędzia Computer Use nie steruje oknami zabezpieczeń ani
+żądaniami uprawnień. Brak nowej próby dźwiękowej i brak nowego wydania.
