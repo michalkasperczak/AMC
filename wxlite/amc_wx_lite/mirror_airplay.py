@@ -12,7 +12,7 @@ import subprocess
 import threading
 from typing import Callable
 
-from .airplay_adapter import AirPlayDevice, discover_airplay_devices
+from .airplay_adapter import AirPlayDevice, close_airplay_receiver, discover_airplay_devices
 from .mirror_core import MIRROR_SESSIONS, PLAY_OPERATIONS
 
 
@@ -104,7 +104,7 @@ class MirrorAirPlayRouter:
             if stream_task is not None and not stream_task.done():
                 stream_task.cancel()
                 await asyncio.gather(stream_task, return_exceptions=True)
-            receiver.close()
+            await close_airplay_receiver(receiver)
             if process is not None and process.returncode is None:
                 process.kill()
                 await asyncio.to_thread(process.wait)

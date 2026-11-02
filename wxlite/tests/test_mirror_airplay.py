@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import tempfile
 import unittest
 from pathlib import Path
@@ -214,6 +215,23 @@ class AirPlayAdapterTests(unittest.TestCase):
         with self.assertRaises(AirPlayUnavailable):
             complete_immediately(stream_local_file("air-1", "missing.wav", module=library))
         self.assertEqual(library.scans, [])
+
+    def test_file_proof_waits_for_receiver_cleanup(self):
+        library = FakeAirPlayLibrary()
+        protocol = library.const.Protocol.RAOP
+        library.configs = [config("air-1", "Gabinet", protocol)]
+        cleanup_complete = []
+
+        async def cleanup():
+            await asyncio.sleep(0)
+            cleanup_complete.append(True)
+
+        library.receiver.close = lambda: {asyncio.create_task(cleanup())}
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "clip.wav"
+            path.write_bytes(b"RIFF")
+            asyncio.run(stream_local_file("air-1", path, module=library))
+        self.assertEqual(cleanup_complete, [True])
 
 
 if __name__ == "__main__":

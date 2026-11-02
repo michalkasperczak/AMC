@@ -39,6 +39,13 @@ def _library(module: Any | None) -> Any:
     return pyatv
 
 
+async def close_airplay_receiver(receiver: Any) -> None:
+    """Wait for pyatv's connection cleanup before closing the event loop."""
+    pending = receiver.close()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
 async def discover_airplay_devices(*, module: Any | None = None,
                                    timeout: int = 4) -> tuple[AirPlayDevice, ...]:
     """Return only RAOP-capable devices with stable IDs and spoken names."""
@@ -84,4 +91,4 @@ async def stream_local_file(device_id: str, path: str | Path,
     try:
         await receiver.stream.stream_file(str(source))
     finally:
-        receiver.close()
+        await close_airplay_receiver(receiver)
