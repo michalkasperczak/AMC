@@ -74,3 +74,9 @@ integracji z Windows przywrócono z konkretnego commitu 9266fd4f.
 
 Planowana wersja `0.1.0-alpha.467`. Commit funkcji, instalator, zdalny workflow,
 tag i stan instalacji trzeba uzupełnić po ich rzeczywistym potwierdzeniu.
+
+## Wynik wydania — 02.11.2026, po GitHub Actions
+
+Commit funkcji `a415e5066d0b04078ee1146a83d16c94dd14fd7d` został wysłany na gałąź testową GitHub. Workflow 41508760594 przeszedł: pobrał bazę alpha.466 o sprawdzonej sumie, dołożył zamknięty zestaw bibliotek AirPlay, zbudował paczkę i instalator, sprawdził integralność i kontrolowany start, po czym opublikował prerelease `test-2026.11.02.1921`. Zdalny tag wskazuje dokładnie commit funkcji. Zasób `AMC-Test-2026-11-02-1921.exe` ma 143412542 bajty i SHA-256 `77dc6721591e5d0d9d5f79bb23482d3fff09e1326b9edebe657714cd69b78286`. Pobrana do folderu projektu kopia ma identyczny rozmiar i sumę, a plik integralności podaje profil `test`, wersję `0.1.0-alpha.467`, ten sam commit źródeł, wynik skanowania sekretów `passed` i sumę dodatku NVDA.
+
+Źródło, zaliczone testy, lokalna budowa, opublikowany instalator i instalacja użytkownika są odrębnymi stanami. Instalacji na komputerze użytkownika nie wykonano. Ręczny odsłuch AirPlay z nowego kodu, odsłuch dwóch lokalnych wyjść oraz odbiór NVDA w zainstalowanym alpha.467 nadal czekają na użytkownika. Dziewięć odłożonych dokumentów przeniesiono w obrębie tego samego dysku, więc fizycznie nie odzyskano miejsca; ich dokładne sumy zapisuje manifest archiwum. ZIP i stash pierwotnych 116 zmian pozostają zachowane.
