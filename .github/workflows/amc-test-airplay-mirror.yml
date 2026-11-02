@@ -1,14 +1,6 @@
 name: AMC Test — AirPlay i drugie wyjście
 
 on:
-  push:
-    branches:
-      - codex/konfigurowalne-skroty-20261026
-    paths:
-      - .github/workflows/amc-test-airplay-mirror.yml
-      - Directory.Build.props
-      - wxlite/**
-      - docs/zadania/REL-20261102-alpha467-notes.md
   workflow_dispatch:
 
 permissions:
