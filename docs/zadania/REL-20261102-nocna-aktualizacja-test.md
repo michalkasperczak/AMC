@@ -1,6 +1,6 @@
 # REL-20261102 — wspólna aktualizacja AMC Test po 02:00
 
-Status: **W trakcie — uruchomione 02.11.2026 o 02:05 Europe/Warsaw**. Harmonogram wstrzymany na początku przebiegu.
+Status: **Zrobione — wydano, zainstalowano i uruchomiono 02.11.2026; ręczny odbiór nowych zachowań pozostaje osobnym etapem.**
 
 ## Zgoda i zakres użytkownika — 01.11.2026
 
@@ -47,4 +47,24 @@ Przygotować roboczą listę zmian wspólnej aktualizacji z dokładnymi skrótam
 
 Nowy kandydat: `0.1.0-alpha.465`. Dokładny commit, manifest i datę paczki zapisać po budowie. Nie przypisywać starej wersji alpha.461 nowemu zakresowi.
 
-01.11.2026 zaktualizowano istniejący harmonogram `amc-test-alpha-461-nocna-instalacja-i-publikacja`, bez tworzenia duplikatu. Nazwa: „AMC Test — najnowsze poprawki, GitHub i instalacja po 02:00”. Stan ACTIVE, jednorazowo o 02:05, przypisany do bieżącej rozmowy `01a18547-613d-7232-bc1c-a13d4222464b`. Odczyt zapisanej konfiguracji potwierdził termin, stan i przypisanie. Harmonogram ma datowaną bramkę 02.11.2026, okno 02:00–06:00 i obowiązek wstrzymania powtórzeń. W tej chwili zadanie jest zaplanowane; nie wykonano publikacji ani instalacji.
+01.11.2026 zaktualizowano istniejący harmonogram `amc-test-alpha-461-nocna-instalacja-i-publikacja`, bez tworzenia duplikatu. Nazwa: „AMC Test — najnowsze poprawki, GitHub i instalacja po 02:00”. Stan ACTIVE, jednorazowo o 02:05, przypisany do bieżącej rozmowy `01a18547-613d-7232-bc1c-a13d4222464b`. Odczyt zapisanej konfiguracji potwierdził termin, stan i przypisanie. Harmonogram ma datowaną bramkę 02.11.2026, okno 02:00–06:00 i obowiązek wstrzymania powtórzeń. Był to zapis planowania z 01.11; rzeczywisty wynik z 02.11 znajduje się w sekcji końcowej poniżej.
+
+## Wynik końcowy — 02.11.2026, potwierdzony o 02:28
+
+**Zrobione: źródła, celowane testy, paczka, instalator, GitHub, lokalna instalacja i start.** Ten wynik zastępuje wcześniejszy plan i oczekiwanie na termin. Dotyczy wydania wspólnego, nie zaliczenia wszystkich otwartych odbiorów i pomysłów z kart funkcji.
+
+- Źródło: `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`, gałąź wydania `codex/amc-test-title-20261031`, istniejący worktree `D:\Projekty Codex\AMC build worktrees\amc-test-title-20261031`. Zachowano główną gałąź i jej pliki robocze. Baza wydania obejmuje faktycznie zainstalowany wcześniej commit `13dde8b3`; nie cofnięto historii pobrań, presetów, okien kont ani ochrony aktualizacji. Najpierw zapis trafił także do lokalnego origin, po czym wykonano właściwy push do zdalnego `github` i odczytowo potwierdzono commit na GitHubie.
+- Testy: **597 zaliczonych w 33 modułach Python**, po celowanym ponowieniu dotkniętych zestawów, oraz **5 zaliczonych zestawów protokołu**. Nie wykonano pełnej regresji GUI, nocnych odsłuchów ani nowych ręcznych prób NVDA.
+- Paczka: `0.1.0-alpha.465`, użytkowo **AMC Test — 02.11.2026, 02:18**, profil `test`, `sourceDirty=false`, `bundleId=4bc5bb50`, **2145 plików**. Samowystarczalna budowa, pełna integralność, zgodność manifestu i kontrolowany start interfejsu/hosta zaliczone. Tymczasowy katalog budowy został usunięty przez udokumentowany skrypt po weryfikacji.
+- Instalator: `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.465 wspolna 2026-11-02\instalator\AMC-Test-2026-11-02-0218.exe`; **133674923 bajty**, SHA-256 `262d75958dc07cb8777d6a28e554cdc92858a8d68ef516c22f3bc6c1a66d93c0`. Bramka instalatora i skan sekretów zaliczone. Dołączona ta sama paczka Quick App Switcher 0.1.6 co w poprzednim wydaniu (SHA-256 `16dc660e6b3fece58af8ccb84ccc43824bcb7744e1f18a37ffa629685349a61f`); nie instalowano dodatku i nie restartowano NVDA.
+- GitHub: prerelease `test-2026.11.02.0218` i źródła są opublikowane. Odczyt API potwierdził docelowy commit, kanał test, stan uploaded wszystkich trzech zasobów, nazwę i rozmiar instalatora oraz identyczny digest SHA-256.
+- Bezpieczeństwo: o 02:25 ponownie sprawdzono **63 włączone harmonogramy** i wszystkie rozpoczęte w ostatnich 12 godzinach wpisy historii. Nie było blokującego okna ani niezakończonego wpisu; ostatnie nocne nagranie miało koniec o 02:00. Zwykłe zamknięcie AMC dodatkowo pobrało świeży stan nagrywania z żywego hosta. Nie wymuszano zakończenia procesów.
+- Instalacja: własny `AMC-Python-Updater.exe` z nowej paczki otrzymał zweryfikowany instalator, jego SHA-256, katalog Test, `--wait-pid 22968`, `--launch AMC.exe`, `--silent`. **Kod aktualizatora 0** potwierdzono bezpośrednim `GetExitCodeProcess` procesu 3328. Pierwotne `Start-Process -Wait` obserwuje również uruchomionego potomka AMC; nie zatrzymywano programu tylko po to, aby zakończyć bierny obserwator. To nie jest nadal działający instalator ani druga aktualizacja.
+- Rzeczywista instalacja: `C:\Users\micha\AppData\Local\Programs\AMC Test`, dokładnie ten sam commit, pakiet i data. Pełna kontrola `AMC.exe --sprawdz-pakiet-pelny-cicho` zakończyła się **kodem 0**. Jedna instancja: launcher 26628, frontend 26796, host 44108; wszystkie z docelowej instalacji. Stare PID 39112/22968/39544 zakończone. Główne okno odpowiada, ma właściwy tytuł; start 02:26. AMC Public pozostawiono bez zmian.
+- Limit po zakończeniu: **76% wykorzystane, 24% pozostało**, reset **04.11.2026 o 07:45 Europe/Warsaw**. Dostępne dwa bezpłatne resety, żadnego nie użyto. Harmonogram pozostaje **PAUSED**; ponownej próby nie zaplanowano.
+
+Wydanie: [AMC Test — 02.11.2026, 02:18](https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218)
+
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218
+
+**Odbiór i ograniczenia:** listę Cast użytkownik odebrał z NVDA przed wydaniem. Ręczny odbiór nowych zachowań Spotify, Shift+A na urządzeniach, przejść Podcasty–Radio Archiwista oraz NVDA+End w głównym AMC pozostaje otwarty. Mirroring, trwałe tempo odcinków Spotify i rozszerzony zakres Cast nie zostały dodane ani oznaczone jako gotowe. [Szkic wspólnej instrukcji i listy zmian](REL-20261102-instrukcja-i-lista-zmian-szkic.md) pozostaje do korekty użytkownika.

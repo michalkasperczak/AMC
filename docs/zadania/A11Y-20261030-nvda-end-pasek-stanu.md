@@ -37,3 +37,9 @@ Status: W trakcie — poprawki źródeł, testy i kompilacja; bez instalacji i r
 ## Aktualizacja 01.11.2026
 
 Użytkownik zgłosił, że `NVDA+End` w odtwarzaczu ponownie wypowiada „Gotowe”, także przy przesyłaniu Spotify. Ta obserwacja zastępuje wcześniejsze założenie, że obecne źródła rozwiązują odbiór użytkownika. Po potwierdzonym starcie wywoływane jest odświeżenie statusu; przy wejściu do odtwarzacza przed pierwszą migawką hosta pasek dostaje znany tytuł. Testy źródeł nie stanowią ręcznego potwierdzenia w zainstalowanej wersji. Odbiór NVDA i instalacja pozostają otwarte; powiązane zadanie `SPOTIFY-20261101`.
+
+## Aktualizacja wydania — 02.11.2026
+
+Kod tego przyrostu jest wydany i zainstalowany we wspólnej aktualizacji **AMC Test — 02.11.2026, 02:18**, technicznie `0.1.0-alpha.465`, commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Ten wpis zastępuje wcześniejszy status „bez paczki/instalacji/publikacji”; zachowuje opisane ograniczenia oraz brakujące ręczne odbiory. Główna gałąź robocza pozostała nietknięta; wydanie scala przyrost z nowszą bazą instalacji w worktree wydania. Dokładne wyniki: [REL-20261102](REL-20261102-nocna-aktualizacja-test.md).
+
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218

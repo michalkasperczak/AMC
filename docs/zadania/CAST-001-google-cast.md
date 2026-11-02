@@ -1,6 +1,6 @@
 # CAST-001 — Google Cast jako wyjście odtwarzania
 
-Status: W trakcie — 01.11.2026 zaliczono testy podstawowego Cast, próby sprzętowe WiiM Sound oraz odbiór rzeczywistej listy z NVDA przez użytkownika. Paczka i instalacja pozostają do wykonania.
+Status: **Zrobione w podstawowym zakresie — AMC Test alpha.465 wydany i zainstalowany 02.11.2026. Ograniczenia oraz dodatkowy odbiór w głównym AMC opisano poniżej.**
 
 ## Nadrzędna korekta użytkownika 01.11.2026
 
@@ -121,3 +121,9 @@ Bieżące środowisko nie może pobrać dokumentacji Google Cast (usługa wyszuk
 
 ## Wersja i commit
 Źródła: gałąź `codex/konfigurowalne-skroty-20261026`; zmieniono wyłącznie tę kartę zadania i zachowano niezintegrowany prototyp. Brak nowego commitu, builda, instalacji i wydania.
+
+## Aktualizacja wydania — 02.11.2026
+
+Kod tego przyrostu jest wydany i zainstalowany we wspólnej aktualizacji **AMC Test — 02.11.2026, 02:18**, technicznie `0.1.0-alpha.465`, commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Ten wpis zastępuje wcześniejszy status „bez paczki/instalacji/publikacji”; zachowuje opisane ograniczenia oraz brakujące ręczne odbiory. Główna gałąź robocza pozostała nietknięta; wydanie scala przyrost z nowszą bazą instalacji w worktree wydania. Dokładne wyniki: [REL-20261102](REL-20261102-nocna-aktualizacja-test.md).
+
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218

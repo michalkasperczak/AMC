@@ -70,3 +70,9 @@ Historii pobrań pod Ctrl+J.”
 Opis zmian: „AMC Test pozwala pobierać wybrany fragment nagrania Radio
 Archiwisty. Zakres wpisuje się w dostępnym z klawiatury oknie, zapis odbywa
 się przez obecny silnik przycinania i pojawia w Historii pobrań.”
+
+## Aktualizacja wydania — 02.11.2026
+
+Kod tego przyrostu jest wydany i zainstalowany we wspólnej aktualizacji **AMC Test — 02.11.2026, 02:18**, technicznie `0.1.0-alpha.465`, commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Ten wpis zastępuje wcześniejszy status „bez paczki/instalacji/publikacji”; zachowuje opisane ograniczenia oraz brakujące ręczne odbiory. Główna gałąź robocza pozostała nietknięta; wydanie scala przyrost z nowszą bazą instalacji w worktree wydania. Dokładne wyniki: [REL-20261102](REL-20261102-nocna-aktualizacja-test.md).
+
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218

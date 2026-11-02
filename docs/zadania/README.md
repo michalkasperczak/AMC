@@ -9,20 +9,9 @@ jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
 ## Bieżący punkt wznowienia
 
-Najnowszą zainstalowaną wersją AMC Test jest 0.1.0-alpha.448 z commitu
-5e474b92b925e13bededbc251d8b0903704e8532, opublikowana i zainstalowana
-30.10.2026 o 20:04. Paczka, instalator, pełna integralność instalacji i
-kontrolowany start przeszły weryfikację; celowane testy: 195 zaliczonych.
-Ręczna próba NVDA pozostaje do wykonania. Dokładny zapis:
-[TEST-20261030-amc-test-alpha448.md](TEST-20261030-amc-test-alpha448.md).
+Najnowsza lokalna instalacja to **AMC Test — 02.11.2026, 02:18** (`0.1.0-alpha.465`), commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Wspólne wydanie Cast, Spotify oraz poprawek Spacji i Shift+A opublikowano na GitHubie i zainstalowano. Zaliczone: 597 testów Python, 5 zestawów protokołu, bramki pakietu/instalatora, integralność instalacji i start jednej instancji. Ręczny odbiór nowych zachowań Spotify, Shift+A i NVDA+End pozostaje otwarty; listę Cast użytkownik odebrał wcześniej. [Wyniki i dokładne ścieżki](REL-20261102-nocna-aktualizacja-test.md).
 
-Nadrzędny plan uporządkowania jednej linii źródeł, instalatorów, aktualizacji,
-GitHuba, profili danych oraz historycznego AMC WPF jest w:
-[REL-002-kanoniczne-wydania-test-public-github.md](REL-002-kanoniczne-wydania-test-public-github.md).
-Nie budować ani nie instalować kolejnej użytkowej wersji ze starego repozytorium
-WPF `D:\Projekty Codex\Accessible Multimedia Controller`.
-Stara instalacja WPF na dysku C została usunięta; repozytorium źródłowe pozostaje
-do kontrolowanej archiwizacji opisanej w REL-003.
+Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowując nowsze funkcje poprzedniej instalacji oraz główną brudną gałąź `codex/konfigurowalne-skroty-20261026`. Przy następnej budowie nie pomijać tej integracji.
 
 ## Zasady prowadzenia
 
@@ -76,7 +65,7 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   (gałąź `radioarchiwista-sesja`, autor radioarchiwista) są gotowe;
   pozostaje odbiór właściciela i ręczny odbiór NVDA na AMC Test** —
 
-- `REL-20261102` — **Oczekuje na 02.11.2026, 02:05 czasu polskiego** — użytkownik zatwierdził wspólną aktualizację AMC Test: najnowsze gotowe poprawki, szczególnie Cast, Spotify oraz Spacja i Shift+A; publikacja GitHub i instalacja po 02:00, po sprawdzeniu nagrywania i limitu. [REL-20261102-nocna-aktualizacja-test.md](REL-20261102-nocna-aktualizacja-test.md).
+- `REL-20261102` — **Zrobione: wspólne wydanie Test alpha.465 opublikowane, zainstalowane i uruchomione 02.11.2026 po 02:00**. [Wyniki](REL-20261102-nocna-aktualizacja-test.md).
 
 - `TITLE-001` — **W trakcie; kod i 17 testów zaliczonych, bez instalacji** — stała data kompilacji w tytule AMC Test; odtwarzanie czytane z NVDA+End. [TITLE-001-data-w-tytule-AMC-Test.md](TITLE-001-data-w-tytule-AMC-Test.md).
 
@@ -104,7 +93,7 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 - `SPOTIFY-OUTPUT-001` — **Zrobione jako badanie; brak potwierdzonego, wspieranego API do automatycznego wyboru fizycznego wyjścia oficjalnego Spotify** — `Shift+A` w AMC Test nadal rzeczywiście wybiera wyjście hosta Librespot (12 testów bez GUI zaliczonych). Oficjalna aplikacja może mieć wyjście ustawione ręcznie w Mikserze Windows; to nie jest wdrożenie `Shift+A`. [SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md](SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md).
 - `SPOTIFY-ISSUES-009-011` — **Poprawki źródeł i testy bez interfejsu, bez instalacji** — dodano konfigurację i parowanie z #9, naprawiono pobranie i zapis kolekcji z #10 oraz komunikat Librespot z #11. Nowe okno wymaga próby NVDA i odbioru na koncie. [SPOTIFY-ISSUES-009-011-20261030.md](SPOTIFY-ISSUES-009-011-20261030.md).
 
-- `CAST-001` — **W trakcie; 134 celowane testy, końcowe 20/20 Cast, kompilacja hosta, rzeczywiste przełączenie host → WiiM Sound → host oraz odbiór listy z NVDA przez użytkownika 01.11.2026 są zaliczone. Brak paczki i instalacji** — **Shift+C** wybiera Google Cast bieżącej sesji, a Shift+A pozostaje lokalnym torem audio. Wariant z Tab został zastąpiony. Mirroring i proponowane Shift+M są osobnym pomysłem. Wyniki, ograniczenia i punkt wznowienia: [CAST-001-google-cast.md](CAST-001-google-cast.md).
+- `CAST-001` — **Podstawowy zakres wydany i zainstalowany w Test alpha.465; lista odebrana z NVDA**. Shift+C wybiera Cast; Shift+A pozostaje torem sesji. [Zakres i ograniczenia](CAST-001-google-cast.md).
 
 - `DOWNLOADS-001` — **AMC Test `alpha.455` opublikowany na GitHubie i
   zainstalowany; 2211 zaliczonych testów, pozostaje ręczny odbiór NVDA** —
