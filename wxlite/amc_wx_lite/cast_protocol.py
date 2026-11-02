@@ -141,24 +141,54 @@ def _discovered_devices(packets: list[bytes]) -> tuple[CastDevice, ...]:
     return tuple(sorted(result.values(), key=lambda item: item.name.casefold()))
 
 
+def _multicast_ipv4_interfaces() -> tuple[str, ...]:
+    """List local IPv4 addresses; the default route may point at a VPN."""
+    try:
+        records = socket.getaddrinfo(socket.gethostname(), None,
+                                     socket.AF_INET, socket.SOCK_DGRAM)
+    except OSError:
+        return ()
+    addresses = dict.fromkeys(record[4][0] for record in records)
+    return tuple(address for address in addresses
+                 if address != "0.0.0.0" and not address.startswith(("127.", "169.254.")))
+
+
 def discover_cast_devices(timeout: float = 2.5) -> tuple[CastDevice, ...]:
-    """Discover receivers via a bounded mDNS query; never block the GUI thread."""
+    """Discover receivers across local interfaces within one bounded deadline."""
     query = (b"\x00" * 4 + struct.pack(">HHHH", 1, 0, 0, 0)
              + bytes((len("_googlecast"),)) + b"_googlecast"
              + bytes((len("_tcp"),)) + b"_tcp"
              + bytes((len("local"),)) + b"local\x00"
              + struct.pack(">HH", 12, 0x8001))
     packets: list[bytes] = []
-    deadline = time.monotonic() + max(0.1, timeout)
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(0.25)
-        sock.sendto(query, _MULTICAST)
-        while time.monotonic() < deadline:
+    sockets: list[socket.socket] = []
+    try:
+        # Keep the default route as a fallback when hostname resolution omits
+        # the active adapter. Each socket receives unicast mDNS replies.
+        for address in (None, *_multicast_ipv4_interfaces()):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
-                packet, _address = sock.recvfrom(65535)
-            except socket.timeout:
-                continue
-            packets.append(packet)
+                if address is not None:
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                    socket.inet_aton(address))
+                sock.sendto(query, _MULTICAST)
+                sockets.append(sock)
+            except OSError:
+                sock.close()
+        if not sockets:
+            return ()
+        deadline = time.monotonic() + max(0.1, timeout)
+        while (remaining := deadline - time.monotonic()) > 0:
+            readable, _, _ = select.select(sockets, [], [], min(0.25, remaining))
+            for sock in readable:
+                try:
+                    packet, _address = sock.recvfrom(65535)
+                except OSError:
+                    continue
+                packets.append(packet)
+    finally:
+        for sock in sockets:
+            sock.close()
     return _discovered_devices(packets)
 
 

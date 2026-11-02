@@ -1830,6 +1830,13 @@ def build_menus(
                 accelerator=False,
                 visible_sessions=LOCAL_AUDIO,
             ),
+            MenuItem(
+                command_presentation(Action.MIRROR_SESSION).menu_label,
+                Action.MIRROR_SESSION,
+                shortcut=command_presentation(Action.MIRROR_SESSION).shortcut,
+                accelerator=False,
+                visible_sessions=LOCAL_AUDIO,
+            ),
             # Ustawienia dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
             # jest skrótem okna, więc rejestrujemy natywny akcelerator;
             # sama obsługa KEY_DOWN listy nie uruchamiała dialogu w próbie wx.

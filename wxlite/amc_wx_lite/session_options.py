@@ -166,7 +166,9 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
     ),
     # WiiM odtwarza na urzadzeniu i historycznie nie mial pauzy po wyjsciu.
     SessionId.WIIM: SessionCapabilities(
-        False, False, False, False, supports_player_entry_behavior=True
+        False, False, False, False,
+        supports_player_entry_behavior=True,
+        supports_preset_entry_behavior=True,
     ),
 }
 

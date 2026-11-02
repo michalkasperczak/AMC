@@ -173,6 +173,7 @@ class LiteHostClient:
         self._closed = False
         self._lifecycle_lock = threading.RLock()
         self._cast = None
+        self._mirror = None
 
     # ------------------------------------------------------------ start/stop
 
@@ -245,6 +246,8 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
+        if self._mirror is not None:
+            self._mirror.close()
         if self._cast is not None:
             self._cast.close()
         with self._lifecycle_lock:
@@ -340,7 +343,10 @@ class LiteHostClient:
             result = self._cast.call(op, args or {})
             if result is not UNHANDLED:
                 return result
-        return self._call_native(op, args, timeout=timeout)
+        result = self._call_native(op, args, timeout=timeout)
+        if self._mirror is not None:
+            self._mirror.after_native(op, args or {}, result)
+        return result
 
     def cast_devices(self, *, refresh: bool = False):
         if self._cast is None:
@@ -357,8 +363,31 @@ class LiteHostClient:
         return route.device.device_id if route else None
 
     def select_cast(self, session_id: str, device_id: str | None) -> dict:
+        if self.mirror_selected_device_id(session_id) is not None:
+            raise ValueError("Najpierw wyłącz dublowanie dźwięku przez Shift+M")
+        if device_id is not None and self._mirror is not None and any(
+                route.device.device_id == device_id for route in self._mirror.routes.values()):
+            raise ValueError("To urządzenie już odtwarza dublowany dźwięk AMC")
         self.cast_devices()
         return self._cast.select(session_id, device_id)
+
+    def mirror_selected_device_id(self, session_id: str) -> str | None:
+        return self._mirror.selected_device_id(session_id) if self._mirror else None
+
+    def select_cast_mirror(self, session_id: str, device_id: str | None) -> dict:
+        if device_id is None:
+            return self._mirror.disable(session_id) if self._mirror else {"active": False}
+        if self.cast_active(session_id):
+            raise ValueError("Najpierw wybierz Ten komputer przez Shift+C")
+        if self._cast is not None and any(
+                route.device.device_id == device_id for route in self._cast.routes.values()):
+            raise ValueError("To urządzenie już odtwarza inną sesję AMC przez Google Cast")
+        if self._mirror is None:
+            from .mirror_core import MirrorCastRouter
+            self._mirror = MirrorCastRouter(
+                lambda op, args: self._call_native(op, args, timeout=120),
+                self._on_event, discover=lambda: self.cast_devices(refresh=True))
+        return self._mirror.enable(session_id, device_id)
 
     def _call_native(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
         """Wyslij zadanie i poczekaj na odpowiedz. ``HostError`` = blad tresci."""

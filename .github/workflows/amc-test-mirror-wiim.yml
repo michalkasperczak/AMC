@@ -1,0 +1,114 @@
+name: AMC Test — Shift+M i WiiM
+
+on:
+  push:
+    branches:
+      - codex/amc-test-mirror-wiim-20261102
+    paths:
+      - .github/workflows/amc-test-mirror-wiim.yml
+      - Directory.Build.props
+      - wxlite/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: amc-test-mirror-wiim-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-2025
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Pobierz dokładne źródła
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Sprawdź źródła i narzędzia
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rev-parse HEAD
+          dotnet --version
+          $iscc = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $iscc) { throw 'Brak Inno Setup 6 na runnerze' }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $sevenZip = @(
+            "$env:ProgramFiles\7-Zip\7z.exe",
+            "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
+          ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $sevenZip) { throw 'Brak 7-Zip na runnerze' }
+          "SEVEN_ZIP=$sevenZip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Pobierz poprzedni zweryfikowany instalator jako źródło runtime i dodatku NVDA
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path prior | Out-Null
+          gh release download test-2026.11.02.0218 --repo michalkasperczak/AMC `
+            --pattern AMC-Test-2026-11-02-0218.exe --dir prior
+          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano poprzedniego instalatora' }
+          $installer = Join-Path prior 'AMC-Test-2026-11-02-0218.exe'
+          $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = '262d75958dc07cb8777d6a28e554cdc92858a8d68ef516c22f3bc6c1a66d93c0'
+          if ($actual -cne $expected) { throw 'Nieprawidłowy SHA-256 poprzedniego instalatora' }
+          & $env:SEVEN_ZIP x $installer '-oprior\extracted' -y
+          if ($LASTEXITCODE -ne 0) { throw 'Nie udało się rozpakować poprzedniego instalatora' }
+          $runtimes = @(Get-ChildItem -LiteralPath 'prior\extracted' -Filter python.exe -File -Recurse | `
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'python314._pth') })
+          if ($runtimes.Count -ne 1) { throw "Oczekiwano jednego runtime CPython 3.14; znaleziono $($runtimes.Count)" }
+          $addons = @(Get-ChildItem -LiteralPath 'prior\extracted' -Filter quickAppSwitcher-0.1.6.nvda-addon -File -Recurse)
+          if ($addons.Count -ne 1) { throw "Oczekiwano jednej paczki Quick App Switcher; znaleziono $($addons.Count)" }
+          $addonHash = (Get-FileHash -LiteralPath $addons[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($addonHash -cne '16dc660e6b3fece58af8ccb84ccc43824bcb7744e1f18a37ffa629685349a61f') {
+            throw 'Nieprawidłowy SHA-256 dodatku NVDA'
+          }
+          "AMC_RUNTIME=$($runtimes[0].DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AMC_ADDON=$($addons[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & $runtimes[0].FullName --version
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime Pythona nie działa' }
+
+      - name: Zbuduj i sprawdź samowystarczalną paczkę AMC Test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\wxlite\tools\Build-AMCBundle.ps1 -Profile test `
+            -PythonRuntime $env:AMC_RUNTIME -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-test-bundle')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Skompiluj i sprawdź instalator
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\wxlite\tools\Build-AMCInstaller.ps1 -Profile test `
+            -BundleRoot (Join-Path $env:RUNNER_TEMP 'amc-test-bundle') `
+            -Version '0.1.0-alpha.466' `
+            -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-test-release') `
+            -NvdaAddonPath $env:AMC_ADDON -IsccPath $env:ISCC
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Opublikuj zweryfikowane wydanie wstępne AMC Test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\scripts\Publish-AMCRelease.ps1 -Profile test -Version '0.1.0-alpha.466' `
+            -ArtifactsDirectory (Join-Path $env:RUNNER_TEMP 'amc-test-release') `
+            -NotesPath '.\docs\zadania\REL-20261102-mirror-wiim-notes.md' -Publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Zachowaj potwierdzenia i instalator na 14 dni
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: amc-test-mirror-wiim-release
+          path: ${{ runner.temp }}/amc-test-release/
+          if-no-files-found: ignore
+          retention-days: 14

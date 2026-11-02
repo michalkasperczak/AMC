@@ -79,6 +79,7 @@ from .audio_output import (
 )
 from .collation import HostCollation
 from .cast_dialog import CastDeviceDialog
+from .mirror_dialog import MirrorDeviceDialog
 from .cast_session import CAST_SESSIONS, cast_action_available, cast_session_available
 from .cast_protocol import CastError
 from .command_palette import (
@@ -675,6 +676,7 @@ _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.COPY_ADDRESS,
         Action.SELECT_AUDIO_OUTPUT,
         Action.CAST_SESSION,
+        Action.MIRROR_SESSION,
         Action.SESSION_OPTIONS,
         Action.SHOW_LIST,
     ),
@@ -10563,7 +10565,7 @@ class LiteFrame(wx.Frame):
                 if not cast_action_available(entry.action, True, self.navigator.active.value,
                         self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
                     enabled = False
-            if entry.action is Action.CAST_SESSION and not self._action_available_in_active_session(entry.action):
+            if entry.action in (Action.CAST_SESSION, Action.MIRROR_SESSION) and not self._action_available_in_active_session(entry.action):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
@@ -12787,6 +12789,10 @@ class LiteFrame(wx.Frame):
         wx.CallAfter(self._handle_engine_event, name, data)
 
     def _handle_engine_event(self, name: str, data: dict) -> None:
+        if name == "mirror.failed":
+            self.announcer.say(str(data.get("message") or "Utracono dublowanie dźwięku"))
+            self._refresh_menu_state()
+            return
         if not self._window_alive():
             return
         if name == nvda_bridge.EVENT_NAME:
@@ -14895,11 +14901,13 @@ class LiteFrame(wx.Frame):
         self._dispatch(action)
 
     def _dispatch(self, action: Action) -> None:
-        if (action is Action.CAST_SESSION or (
+        if (action in (Action.CAST_SESSION, Action.MIRROR_SESSION) or (
             getattr(self, "client", None) is not None and getattr(self.client, "cast_active", lambda _: False)(
                 self.navigator.active.value)
         )) and not self._action_available_in_active_session(action):
-            self.announcer.say(i18n.tr("cast.unavailable" if action is Action.CAST_SESSION else "cast.unsupported"))
+            self.announcer.say(i18n.tr(
+                "cast.unavailable" if action is Action.CAST_SESSION else
+                "mirror.unavailable" if action is Action.MIRROR_SESSION else "cast.unsupported"))
             return
         if (
             action in TRANSIENT_PREVIEW_ACTIONS
@@ -15077,6 +15085,8 @@ class LiteFrame(wx.Frame):
             self._choose_audio_output()
         elif action is Action.CAST_SESSION:
             self._choose_cast_output()
+        elif action is Action.MIRROR_SESSION:
+            self._choose_cast_mirror()
         elif action is Action.PREVIOUS_AUDIO_OUTPUT:
             self._cycle_audio_output(-1)
         elif action is Action.NEXT_AUDIO_OUTPUT:
@@ -17604,7 +17614,8 @@ class LiteFrame(wx.Frame):
             session.now_playing_id = intent.item_id
             session.now_playing_title = intent.title
             session.current_material_id = intent.item_id
-            session.view = View.PLAYER
+            # Enter wybrał już widok w Navigatorze. Odpowiedź urządzenia
+            # aktualizuje odtwarzanie, ale nie może nadpisać wyboru sesji.
             self._wiim_snapshot = state
             record_history = getattr(self, "_record_streamer_history_row", None)
             if callable(record_history):
@@ -18003,7 +18014,11 @@ class LiteFrame(wx.Frame):
             session.now_playing_id = item_id
             session.now_playing_title = device_title
             session.current_material_id = item_id
-            session.view = View.PLAYER
+            session.view = (
+                View.PLAYER
+                if self._session_open_player_on_preset(SessionId.WIIM)
+                else View.LIST
+            )
             self._wiim_active_device_id = device_id
             self._wiim_snapshot = state
             record_history = getattr(self, "_record_streamer_history_row", None)
@@ -29121,6 +29136,42 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("cast-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
 
+    def _choose_cast_mirror(self, *, refresh: bool = False) -> None:
+        client = self.client
+        session = self.navigator.active
+        if client is None or session.value not in CAST_SESSIONS:
+            self.announcer.say(i18n.tr("mirror.unavailable"))
+            return
+        if refresh or getattr(client, "_cast", None) is None:
+            self.announcer.say(i18n.tr("mirror.loading"))
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(i18n.tr("mirror.failed", error=str(error)))
+
+        def prepared(devices) -> None:
+            selected = client.mirror_selected_device_id(session.value)
+            with MirrorDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+                result = dialog.ShowModal()
+                device_id = dialog.selected_device_id
+            self._restore_focus_after_dialog()
+            if result == wx.ID_REFRESH:
+                wx.CallAfter(self._choose_cast_mirror, refresh=True)
+                return
+            if result != wx.ID_OK:
+                return
+
+            def applied(payload: dict) -> None:
+                if device_id is None:
+                    self.announcer.say(i18n.tr("mirror.stopped"))
+                else:
+                    self.announcer.say(i18n.tr("mirror.started", name=payload.get("name", "Google Cast")))
+                self._refresh_menu_state()
+
+            self.runner.submit("mirror-select",
+                lambda: client.select_cast_mirror(session.value, device_id), applied, failed)
+
+        self.runner.submit("mirror-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
         if self.navigator.active is SessionId.WIIM:
@@ -33466,6 +33517,11 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action is Action.MIRROR_SESSION:
+            client = getattr(self, "client", None)
+            session_id = self.navigator.active.value
+            return (session_id in CAST_SESSIONS and not (client and
+                getattr(client, "cast_active", lambda _: False)(session_id)))
         if action is Action.CAST_SESSION:
             client = getattr(self, "client", None)
             return cast_session_available(self.navigator.active.value,

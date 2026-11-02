@@ -93,6 +93,9 @@ Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowuj
 - `SPOTIFY-OUTPUT-001` — **Zrobione jako badanie; brak potwierdzonego, wspieranego API do automatycznego wyboru fizycznego wyjścia oficjalnego Spotify** — `Shift+A` w AMC Test nadal rzeczywiście wybiera wyjście hosta Librespot (12 testów bez GUI zaliczonych). Oficjalna aplikacja może mieć wyjście ustawione ręcznie w Mikserze Windows; to nie jest wdrożenie `Shift+A`. [SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md](SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md).
 - `SPOTIFY-ISSUES-009-011` — **Poprawki źródeł i testy bez interfejsu, bez instalacji** — dodano konfigurację i parowanie z #9, naprawiono pobranie i zapis kolekcji z #10 oraz komunikat Librespot z #11. Nowe okno wymaga próby NVDA i odbioru na koncie. [SPOTIFY-ISSUES-009-011-20261030.md](SPOTIFY-ISSUES-009-011-20261030.md).
 
+- `MIRROR-001` — **Shift+M przygotowany do wydania AMC Test alpha.466; 51 testów celowanych przeszło, 1 pominięty, odbiór NVDA i pomiar opóźnienia otwarte**. Jeden dodatkowy odbiornik Google Cast; AirPlay i drugie lokalne wyjście pozostają osobnymi etapami. [Opis i wyniki](MIRROR-001-dublowanie-dzwieku-cast-airplay.md).
+- `SESSION-003` — **poprawka Enter i natywnych presetów WiiM przygotowana do wydania AMC Test alpha.466; ręczny odbiór NVDA otwarty**. [Opis i wyniki](SESSION-003-wiim-enter-i-presety.md).
+
 - `CAST-001` — **Podstawowy zakres wydany i zainstalowany w Test alpha.465; lista odebrana z NVDA**. Shift+C wybiera Cast; Shift+A pozostaje torem sesji. [Zakres i ograniczenia](CAST-001-google-cast.md).
 
 - `DOWNLOADS-001` — **AMC Test `alpha.455` opublikowany na GitHubie i
