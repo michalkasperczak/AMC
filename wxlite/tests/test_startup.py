@@ -75,6 +75,8 @@ def test_second_instance_is_kept_when_safe_close_cannot_be_confirmed():
 
     app = SimpleNamespace(
         SetAppName=lambda name: calls.append(("app-name", name)),
+        Bind=lambda *_args: None,
+        _on_activate_app=lambda _event: None,
     )
     old_checker = getattr(gui.wx, "SingleInstanceChecker", None)
     old_user = getattr(gui.wx, "GetUserId", None)
@@ -168,6 +170,8 @@ def test_safe_previous_instance_is_replaced_before_new_window_opens():
     app = SimpleNamespace(
         SetAppName=lambda name: calls.append(("app-name", name)),
         SetTopWindow=lambda value: calls.append(("top", value)),
+        Bind=lambda *_args: None,
+        _on_activate_app=lambda _event: None,
     )
     originals = (
         getattr(gui.wx, "SingleInstanceChecker", None),

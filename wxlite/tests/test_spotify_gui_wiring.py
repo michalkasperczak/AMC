@@ -31,14 +31,108 @@ class ImmediateRunner:
             failed(error)
 
 
-def test_spotify_rate_command_reaches_the_embedded_engine() -> None:
+def test_spotify_account_setup_uses_one_login_without_pairing(monkeypatch) -> None:
     calls = []
-    selections = []
+    spoken = []
+
+    class Field:
+        def __init__(self):
+            self.value = ""
+
+        def SetValue(self, value):  # noqa: N802 - wx API
+            self.value = value
+
+        def SetFocus(self):  # noqa: N802 - wx API
+            calls.append("focus-field")
+
+    class Dialog:
+        def __init__(self, _parent, service_name, _status, _start_login, **options):
+            assert service_name == "Spotify"
+            assert options["needs_setup"] is True
+            assert options["redirect_uri"] == "http://127.0.0.1:43822/spotify/callback/"
+            self.options = options
+            self.client_id = Field()
+            self.pairing_code = Field()
+            self.pairing_address = Field()
+            self.pairing_button = Field()
+            self.check_pairing_button = Field()
+            self.pairing_active = False
+            self._login_started = False
+
+        def Raise(self):  # noqa: N802 - wx API
+            calls.append("raise")
+
+        def focus_primary_action(self):
+            calls.append("focus-primary")
+
+        def IsBeingDeleted(self):  # noqa: N802 - wx API
+            return False
+
+        def set_status(self, message):
+            calls.append(("status", message))
+
+        def set_busy(self, busy):
+            calls.append(("busy", busy))
+
+        def finish(self, message, **_kwargs):
+            self.set_status(message)
+
+        def Show(self):  # noqa: N802 - wx API
+            self.options["save_spotify_client_id"](self, "a" * 32)
+            assert self.options["start_spotify_pairing"] is None
+            assert self.options["check_spotify_pairing"] is None
+            assert self.options["cancel_spotify_pairing"] is None
+            calls.append("show")
+
+    client = SimpleNamespace(
+        spotify_account_status=lambda: {
+            "catalog": {"configured": False, "label": "Brak konfiguracji."},
+            "playback": {"label": "Brak połączenia."},
+            "redirectUri": "http://127.0.0.1:43822/spotify/callback/",
+        },
+        spotify_configure=lambda value: calls.append(("configure", value)) or {},
+        spotify_pairing_start=lambda: calls.append("start") or {
+            "userCode": "ABCD-EFGH",
+            "verificationUri": "https://www.spotify.com/pair",
+        },
+        spotify_pairing_status=lambda: calls.append("check") or {
+            "state": "pending",
+            "message": "Czekam na zatwierdzenie.",
+        },
+        spotify_pairing_cancel=lambda: calls.append("cancel") or {},
+    )
+    frame = SimpleNamespace(
+        client=client,
+        runner=ImmediateRunner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _service_account_status_message=LiteFrame._service_account_status_message,
+        _restore_focus_after_dialog=lambda: calls.append("restore-focus"),
+        _window_alive=lambda: True,
+    )
+    monkeypatch.setattr(gui_module, "ServiceAccountDialog", Dialog)
+    monkeypatch.setattr(gui_module.wx, "CallAfter", lambda callback, *args: callback(*args))
+
+    LiteFrame._show_service_account(frame, SessionId.SPOTIFY)
+
+    assert ("configure", "a" * 32) in calls
+    assert "start" not in calls
+    assert "check" not in calls
+    assert "cancel" not in calls
+    assert calls[-1] == "raise"
+    assert "Brak konfiguracji. Brak połączenia." in spoken
+    dialog = frame._service_account_dialogs[SessionId.SPOTIFY]
+    dialog.options["on_closed"](dialog)
+    assert calls[-1] == "restore-focus"
+    assert "cancel" not in calls
+    assert SessionId.SPOTIFY not in frame._service_account_dialogs
+
+
+def test_spotify_rate_command_does_not_claim_transient_change() -> None:
+    calls = []
     spoken = []
     frame = SimpleNamespace(
         navigator=SimpleNamespace(active=SessionId.SPOTIFY),
         _runtime_rate_by_session={},
-        rate_choice=SimpleNamespace(SetSelection=selections.append),
         announcer=SimpleNamespace(say=spoken.append),
         client=SimpleNamespace(
             set_rate=lambda value, session_id: calls.append((value, session_id))
@@ -48,10 +142,9 @@ def test_spotify_rate_command_reaches_the_embedded_engine() -> None:
 
     LiteFrame._set_rate(frame, 1.25)
 
-    assert calls == [(1.25, "spotify")]
-    assert selections
-    assert spoken == ["Prędkość 1,25 razy"]
-    assert frame._runtime_rate_by_session[SessionId.SPOTIFY] == 1.25
+    assert calls == []
+    assert spoken == ["Spotify nie udostępnia trwałej zmiany prędkości w AMC"]
+    assert frame._runtime_rate_by_session == {}
 
 
 def test_deferred_spotify_feedback_outlasts_native_focus_speech(monkeypatch) -> None:
@@ -1034,12 +1127,12 @@ def test_spotify_playback_is_handed_to_librespot_without_committing_early() -> N
         "external_id": "private",
         "kind": "track",
         "volume": 37,
-        "playback_rate": 1.5,
+        "playback_rate": 1.0,
     }]
     assert frame._pending_spotify_playback is intent
     assert frame._pending_playback_session is SessionId.SPOTIFY
     assert restored == []
-    assert messages == ["Przygotowywanie odtwarzania Spotify"]
+    assert messages == []
     assert refreshed == [True]
 
 
@@ -1376,3 +1469,41 @@ def test_spotify_failed_event_restores_prior_item_and_list_context() -> None:
     assert frame._pending_playback_session is None
     assert SessionId.SPOTIFY not in frame._playing_sessions
     assert messages == ["Nie udało się odtworzyć Spotify: Brak połączenia"]
+
+
+def test_spotify_album_ctrl_enter_fetches_all_tracks_before_playback() -> None:
+    received = []
+    calls = []
+    messages = []
+    navigator = Navigator()
+    navigator.active = SessionId.SPOTIFY
+    album = Row("album", "Cały album", "album", service_id="AlbumId", service_kind="album")
+    navigator.apply_spotify_view("Albumy", [album])
+
+    def container_items(**values):
+        calls.append(values["loaded_count"])
+        tracks = [
+            {"id": f"track-{number}", "externalId": f"spotify-{number}",
+             "title": f"Utwór {number}", "kind": "track", "isAvailable": True}
+            for number in range(1, 153 if len(calls) > 1 else 151)
+        ]
+        return {"heading": "Cały album", "items": tracks,
+                "hasMore": len(calls) == 1}
+
+    frame = SimpleNamespace(
+        client=SimpleNamespace(spotify_container_items=container_items),
+        navigator=navigator, runner=ImmediateRunner(),
+        announcer=SimpleNamespace(say=messages.append),
+        _spotify_preset_playback_version=0, _run=received.extend,
+        _play_spotify_album_preset=lambda **_values: None,
+    )
+    frame._play_spotify_album_preset = lambda selected, **values: LiteFrame._play_spotify_album_preset(frame, selected, **values)
+
+    LiteFrame._play_selected_spotify_album(frame)
+
+    assert calls == [150, 300]
+    assert len(received) == 1
+    assert len(navigator.session.playback_source_rows) == 152
+    assert navigator.session.spotify_auto_advance
+    assert navigator.session.model.selected_row == album
+    assert messages == []

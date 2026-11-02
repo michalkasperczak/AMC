@@ -35,8 +35,8 @@ def _frame(*, result: dict | None = None):
     statuses: list[str] = []
     reloaded: list[tuple[str, str]] = []
 
-    def download(ids):
-        calls.append(list(ids))
+    def download(ids, *, separate_source_folders=False):
+        calls.append((list(ids), separate_source_folders))
         return result or {
             "requested": 2,
             "downloaded": 2,
@@ -80,11 +80,18 @@ def test_ctrl_d_passes_all_selected_episode_ids_and_reports_counts() -> None:
     frame = _frame()
     gui.LiteFrame._download_podcast_episodes(frame)
 
-    assert frame.calls == [["private-episode-1", "private-episode-2"]]
+    assert frame.calls == [(["private-episode-1", "private-episode-2"], False)]
     assert frame._podcast_download_pending is False
     assert frame.spoken == ["Pobieranie odcinków: 2", "Pobrano: 2"]
     assert frame.reloaded == [("private-episode-1", "Pobrano: 2")]
     assert "private-episode" not in " ".join(frame.spoken + frame.statuses)
+
+
+def test_ctrl_d_uses_source_folders_when_enabled() -> None:
+    frame = _frame()
+    frame.options = SimpleNamespace(podcast_separate_source_folders=True)
+    gui.LiteFrame._download_podcast_episodes(frame)
+    assert frame.calls == [(["private-episode-1", "private-episode-2"], True)]
 
 
 def test_ctrl_d_ignores_non_episode_rows() -> None:

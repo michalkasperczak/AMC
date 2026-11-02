@@ -54,3 +54,21 @@ def test_each_transport_operation_resolves_explicit_session() -> None:
         start = HOST.index(signature)
         body = HOST[start : start + 1200]
         assert "ResolveTransportTarget(args)" in body, signature
+
+
+def test_shared_decoder_remembers_the_actual_session_before_switching() -> None:
+    assert 'var sessionId = LiteArgs.ReadText(args, "sessionId")?.Trim() ?? "podcasts";' in HOST
+    assert '_filesSessionId = sessionId;' in HOST
+    assert '_filesSessionId = "files";' in HOST
+    assert 'string.Equals(_filesSessionId, sessionId, StringComparison.Ordinal)' in HOST
+    assert 'RememberFilesSession();' in _between(
+        'private object PlayMedia(JsonElement args, LiteEventSink events)',
+        'private object PlayStation(JsonElement args, LiteEventSink events)',
+    )
+    pause = _between(
+        'private object PauseResumeResolved(LiteTransportTarget target)',
+        'private string BuildCurrentRadioBroadcastText(MediaItem item)',
+    )
+    assert '_filesSessions.TryGetValue(target.SessionId, out remembered)' in pause
+    assert 'ConfigureOutputForSession(target.SessionId);' in pause
+    assert '_files.Play(remembered.Item, remembered.Position,' in pause

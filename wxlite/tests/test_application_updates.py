@@ -284,14 +284,144 @@ def test_launch_uses_verified_updater_and_requests_installer_cleanup(
         return object()
 
     monkeypatch.setattr(application_update.subprocess, "Popen", fake_popen)
-    launch_prepared_application_update(prepared)
+    process = launch_prepared_application_update(prepared)
 
     arguments = captured["arguments"]
-    assert arguments[0] == str(updater)
+    assert process is not None
+    assert arguments[0] == str(installer.parent / "AMC-Python-Updater.exe")
+    assert Path(arguments[0]).read_bytes() == b"updater"
     assert "--cleanup-installer" in arguments
+    assert "--silent" in arguments
     assert arguments[arguments.index("--installer") + 1] == str(installer)
     assert arguments[arguments.index("--installer-sha256") + 1] == "3" * 64
     assert arguments[arguments.index("--target") + 1] == str(root)
+
+
+def test_recording_status_blocks_update_even_when_recording_is_between_segments() -> None:
+    assert application_update.recording_blocks_application_update({"count": 1})
+    assert application_update.recording_blocks_application_update(
+        {"count": 0, "recordings": [{"state": "starting"}]}
+    )
+    assert not application_update.recording_blocks_application_update(
+        {"count": 0, "recordings": []}
+    )
+    assert application_update.recording_blocks_application_update(None)
+
+
+def test_schedule_window_blocks_update_between_recording_segments() -> None:
+    now = 638976500000000000
+    minute = 60 * 10_000_000
+
+    def status(start: int, duration: int = 14) -> dict:
+        return {
+            "activeIds": [],
+            "schedules": [{
+                "enabled": True,
+                "nextStartUtcTicks": start,
+                "durationMinutes": duration,
+            }],
+        }
+
+    assert application_update.schedule_blocks_application_update(
+        status(now - 2 * minute), now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(
+        status(now + 3 * minute), now_utc_ticks=now
+    )
+    assert not application_update.schedule_blocks_application_update(
+        status(now + 10 * minute), now_utc_ticks=now
+    )
+    assert not application_update.schedule_blocks_application_update(
+        status(now - 20 * minute), now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(
+        {"activeIds": ["nagranie"], "schedules": []}, now_utc_ticks=now
+    )
+    assert application_update.schedule_blocks_application_update(
+        {"activeIds": [], "schedules": [], "updateProtectedUntilUtcTicks": now + minute},
+        now_utc_ticks=now,
+    )
+    assert application_update.schedule_blocks_application_update(None)
+
+
+def test_second_check_during_installer_reports_progress_and_failed_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    announcements: list[str] = []
+    installer_completion: list[object] = []
+    launches: list[object] = []
+
+    class Runner:
+        @staticmethod
+        def submit(name, work, done, _failed):
+            if name == "application-update-install":
+                installer_completion.append(done)
+            else:
+                done(work())
+
+    frame = SimpleNamespace(
+        _application_update_pending=False,
+        announcer=SimpleNamespace(say=announcements.append),
+        runner=Runner(),
+        client=SimpleNamespace(
+            radio_recording_status=lambda: {"count": 0},
+            radio_schedule_status=lambda: {"activeIds": [], "schedules": []},
+        ),
+        store=SimpleNamespace(directory=Path("nieuzywany")),
+        _window_alive=lambda: True,
+    )
+    monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
+    monkeypatch.setattr(
+        gui,
+        "launch_prepared_application_update",
+        lambda prepared: launches.append(prepared) or SimpleNamespace(wait=lambda: 3),
+    )
+    logs: list[str] = []
+    monkeypatch.setattr(gui, "_append_frontend_log", lambda _store, text: logs.append(text))
+
+    gui.LiteFrame._download_application_update(frame, object())
+    assert frame._application_update_pending
+    gui.LiteFrame._download_application_update(frame, object())
+    assert len(launches) == 1
+    assert announcements[-1] == "Sprawdzanie lub pobieranie aktualizacji już trwa"
+
+    installer_completion[0](3)
+    assert not frame._application_update_pending
+    assert "zatrzymana" in announcements[-1]
+    assert "kodem 3" in logs[-1]
+
+
+def test_update_does_not_launch_when_host_reports_recording(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    announcements: list[str] = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    frame = SimpleNamespace(
+        _application_update_pending=False,
+        announcer=SimpleNamespace(say=announcements.append),
+        runner=Runner(),
+        client=SimpleNamespace(radio_recording_status=lambda: {"count": 1}),
+        store=SimpleNamespace(directory=Path("nieuzywany")),
+    )
+    monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
+    monkeypatch.setattr(
+        gui,
+        "launch_prepared_application_update",
+        lambda _prepared: pytest.fail("Nie wolno uruchamiać aktualizatora"),
+    )
+    monkeypatch.setattr(gui, "_append_frontend_log", lambda *_args: None)
+
+    gui.LiteFrame._download_application_update(frame, object())
+    assert not frame._application_update_pending
+    assert "Trwa nagrywanie" in announcements[-1]
 
 
 def test_dialog_contract_names_controls_and_focuses_release_notes() -> None:
@@ -331,6 +461,7 @@ def _automatic_frame() -> tuple[SimpleNamespace, list[str], list[object]]:
 
     frame = SimpleNamespace(
         _application_update_pending=False,
+        _window_alive=lambda: True,
         announcer=SimpleNamespace(say=announcements.append),
         runner=Runner(),
         store=SimpleNamespace(directory=Path("nieuzywany")),
@@ -390,6 +521,8 @@ def test_automatic_check_opens_the_same_accessible_dialog_for_a_new_version(
 
     monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
     monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
 
     gui.LiteFrame._check_application_update(frame, automatic=True)
 
@@ -430,8 +563,9 @@ def test_automatic_check_is_scheduled_once_only_when_enabled(
         gui.wx,
         "CallLater",
         lambda milliseconds, callback: scheduled.append((milliseconds, callback)),
+        raising=False,
     )
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     frame = SimpleNamespace(
         _automatic_application_update_check_started=False,
         _automatic_application_update_check_call=None,
@@ -476,8 +610,9 @@ def test_automatic_check_waits_until_another_modal_is_closed(
         gui.wx,
         "CallLater",
         lambda _milliseconds, callback: scheduled.append(callback),
+        raising=False,
     )
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [modal])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [modal], raising=False)
     frame = SimpleNamespace(
         _automatic_application_update_check_started=False,
         _automatic_application_update_check_call=None,
@@ -491,6 +626,43 @@ def test_automatic_check_waits_until_another_modal_is_closed(
     assert calls == []
     assert len(scheduled) == 1
 
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     scheduled.pop(0)()
     assert calls == [True]
+
+
+def test_completed_update_check_waits_until_history_window_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check = application_update.ApplicationUpdateCheck(
+        PROFILES["test"], "29.10.2026, 19:05", True, None
+    )
+    frame, _announcements, dialogs = _automatic_frame()
+    history = SimpleNamespace(IsShown=lambda: True)
+    delayed = []
+
+    class Dialog:
+        def __init__(self, _parent, received):
+            dialogs.append(received)
+
+        def ShowModal(self):
+            return gui.wx.ID_CANCEL
+
+        def Destroy(self):
+            return None
+
+    monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
+    monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "CallLater", lambda _ms, work: delayed.append(work))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [history])
+
+    gui.LiteFrame._check_application_update(frame, automatic=True)
+    assert dialogs == []
+    assert frame._application_update_pending
+    assert len(delayed) == 1
+
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    delayed.pop()()
+    assert dialogs == [check]
+    assert not frame._application_update_pending

@@ -100,7 +100,7 @@ internal static partial class SpotifyLibrespotLifecycleTests
     {
         Check(
             SpotifyLibrespotMediaOutput.FriendlyTrackFailure("trackUnavailable")
-                == "Spotify nie udostępnia tego utworu na tym koncie lub w tym kraju.",
+                == "Nie udało się odtworzyć tego utworu przez Librespot. Może być niedostępny dla konta lub kraju albo Spotify odmówił klucza audio tej sesji. Sprawdź, czy gra w oficjalnej aplikacji Spotify.",
             "Kod trackUnavailable z rzeczywistego hosta musi mieć właściwy komunikat");
         Check(
             SpotifyLibrespotMediaOutput.SafeTrackFailureCode("trackUnavailable")

@@ -4,7 +4,7 @@ using AccessibleMediaController.Core.Sessions;
 namespace AccessibleMediaController.LiteHost.Protocol;
 
 /// <summary>
-/// Wąski kontrakt przekazania jednego utworu lub odcinka do Librespota.
+/// Wąski kontrakt przekazania jednego utworu lub odcinka do odtwarzacza Spotify.
 /// Tokeny, prywatne źródła i dane procesu nie są częścią tego kontraktu.
 /// </summary>
 internal static class LiteSpotifyPlaybackContract

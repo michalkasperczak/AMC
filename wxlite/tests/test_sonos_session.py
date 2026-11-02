@@ -432,6 +432,7 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
 def test_sonos_command_gate_blocks_local_only_features() -> None:
     assert {
         Action.PLAY_PAUSE,
+        Action.SELECT_AUDIO_OUTPUT,
         Action.QUEUE_PREVIOUS,
         Action.QUEUE_NEXT,
         Action.SEEK_FORWARD_10,
@@ -460,7 +461,6 @@ def test_sonos_command_gate_blocks_local_only_features() -> None:
         Action.RATE_UP,
         Action.RECORD_TOGGLE,
         Action.ADD_TO_QUEUE,
-        Action.SELECT_AUDIO_OUTPUT,
         Action.PREVIOUS_AUDIO_OUTPUT,
         Action.NEXT_AUDIO_OUTPUT,
     }.isdisjoint(SONOS_SUPPORTED_ACTIONS)

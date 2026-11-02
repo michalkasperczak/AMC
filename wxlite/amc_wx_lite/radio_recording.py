@@ -60,6 +60,7 @@ class RadioRecordingPreferences:
     folder_preset: str = "radio"
     radio_default_folder: str | None = None
     station_folders: dict[str, str] = field(default_factory=dict)
+    separate_station_folders: bool = False
     prefer_station_folder_in_new_schedules: bool = True
 
     def payload_for(self, station: Station) -> dict:
@@ -72,9 +73,12 @@ class RadioRecordingPreferences:
             "bitrateKbps": self.bitrate_kbps,
             "folderPreset": self.folder_preset,
         }
-        folder = self.station_folders.get(station.id) or self.default_folder
+        station_folder = self.station_folders.get(station.id)
+        folder = station_folder or self.default_folder
         if folder:
             payload["folder"] = folder
+        if self.separate_station_folders and not station_folder:
+            payload["separateStationFolders"] = True
         return payload
 
 
@@ -152,6 +156,7 @@ def preferences_with_overrides(
     podcast_downloads_folder: str | None = None,
     override_podcast_downloads_folder: bool = False,
     prefer_station_folder: bool | None = None,
+    separate_station_folders: bool | None = None,
 ) -> RadioRecordingPreferences:
     """Naloz prywatne ustawienia wxPython na migawke profilu AMC.
 
@@ -212,6 +217,10 @@ def preferences_with_overrides(
         folder_preset=chosen_preset,
         radio_default_folder=own_radio_folder,
         prefer_station_folder_in_new_schedules=chosen_preference,
+        separate_station_folders=(
+            separate_station_folders if type(separate_station_folders) is bool
+            else base.separate_station_folders
+        ),
     )
 
 

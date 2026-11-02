@@ -10,7 +10,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from amc_wx_lite.shortcuts import GLOBAL_VIEW_SHORTCUTS, PRESET_SHORTCUTS
+from amc_wx_lite.shortcuts import (
+    ASSIGN_PRESET_SHORTCUTS, GLOBAL_VIEW_SHORTCUTS, PRESET_SHORTCUTS,
+)
 
 SOURCE = Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
 
@@ -57,6 +59,7 @@ def _call(*, player=True, arrow=True, foreign=False, time_key=False,
         "View": view,
         "GLOBAL_VIEW_SHORTCUTS": GLOBAL_VIEW_SHORTCUTS,
         "PRESET_SHORTCUTS": PRESET_SHORTCUTS,
+        "ASSIGN_PRESET_SHORTCUTS": ASSIGN_PRESET_SHORTCUTS,
         "chord_from_event": lambda _event: SimpleNamespace(canonical=list_chord),
     }
     exec(compile(ast.Module(body=methods, type_ignores=[]), str(SOURCE), "exec"), ns)
@@ -87,10 +90,35 @@ def test_shift_f10_otwiera_menu_odtwarzacza_przed_obsluga_przycisku():
     assert _call(player=True, list_chord="Shift+F10") == ["context-player"]
 
 
-def test_sonos_space_dociera_do_transportu_z_listy_bez_psucia_ctrl_space():
-    assert _call(player=False, list_chord="Space", session="sonos") == ["key"]
-    assert _call(player=False, list_chord="Ctrl+Space", session="sonos") == ["skip"]
-    assert _call(player=False, list_chord="Space", session="files") == ["skip"]
+def test_space_dociera_do_transportu_z_kazdej_listy_bez_psucia_ctrl_space():
+    for session in (
+        "files", "radio", "podcasts", "sonos", "wiim", "frontierSmart",
+        "radioarchiwista", "spotify", "tidal",
+    ):
+        assert _call(player=False, list_chord="Space", session=session) == ["key"]
+        assert _call(player=False, list_chord="Ctrl+Space", session=session) == ["skip"]
+
+
+def test_wewnetrzny_hook_listy_przekazuje_tylko_gola_spacje():
+    method = next(
+        node for node in ast.walk(_source_tree())
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_on_list_shortcut_hook"
+    )
+    for chord, expected in (("Space", "key"), ("Ctrl+Space", "skip")):
+        actions: list[str] = []
+        frame = SimpleNamespace(_on_key=lambda _event: actions.append("key"))
+        ns: dict[str, Any] = {
+            "chord_from_event": lambda _event: SimpleNamespace(canonical=chord),
+            "GLOBAL_VIEW_SHORTCUTS": GLOBAL_VIEW_SHORTCUTS,
+            "PRESET_SHORTCUTS": PRESET_SHORTCUTS,
+            "ASSIGN_PRESET_SHORTCUTS": ASSIGN_PRESET_SHORTCUTS,
+        }
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(SOURCE), "exec"), ns)
+        ns["_on_list_shortcut_hook"](
+            frame, SimpleNamespace(Skip=lambda: actions.append("skip"))
+        )
+        assert actions == [expected]
 
 
 def test_modyfikowane_polecenia_listy_nie_gina_w_wyszukiwaniu_windows():

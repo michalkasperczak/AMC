@@ -22,6 +22,11 @@ using AccessibleMediaController.Core.Tidal;
 // testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
 if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
     return LibrespotHostFixture.Run(args);
+if (args.Length == 1 && args[0] == "--podcast-download-naming")
+{
+    try { TestPodcastDownloadNaming(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--spotify-membership")
 {
     try { SpotifyMembershipWriteTests.Run(); return 0; }
@@ -1764,6 +1769,11 @@ static void TestPodcastDownloadNaming()
             "\"'...",
             "https://cdn.example.test/audio.mp3",
             "audio/mpeg"));
+    Equal("_CON", PodcastDownloadNaming.SuggestedFolderName("CON", "Nieznany podcast"));
+    Equal("Podcast - Odcinki", PodcastDownloadNaming.SuggestedFolderName(
+        "Podcast/Odcinki", "Nieznany podcast"));
+    Equal("Nieznany podcast", PodcastDownloadNaming.SuggestedFolderName(
+        "...", "Nieznany podcast"));
     var longName = PodcastDownloadNaming.SuggestedFileName(
         new string('ą', 200),
         "https://cdn.example.test/audio.mp3",
@@ -3779,6 +3789,12 @@ static void TestAudioParametersFormatting()
         AudioParametersFormatter.Format(new MediaItem { SampleRateHz = 96_000 }, polish));
     Equal("brak danych audio", AudioParametersFormatter.Format(new MediaItem(), polish));
     Equal(string.Empty, AudioParametersFormatter.FormatCompact(new MediaItem(), polish));
+    Equal("128 kb/s, AAC, 48 kHz", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { BitrateKbps = 128, Codec = "AAC", SampleRateHz = 48_000 }, polish));
+    Equal("około 192 kb/s, MP3", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { BitrateKbps = 192, IsBitrateEstimated = true, Codec = "MP3" }, polish));
+    Equal("48 kHz", AudioParametersFormatter.FormatRadioCompact(
+        new MediaItem { SampleRateHz = 48_000 }, polish));
 }
 
 static void TestLegacyStateMigration()

@@ -7,6 +7,15 @@ using AccessibleMediaController.LiteHost.Protocol;
 
 namespace AccessibleMediaController.LiteHost;
 
+internal sealed record LiteSpotifyAccessToken(
+    string AccessToken, bool AllowsPlayback, bool AllowsRemoteControl);
+
+internal interface ILiteSpotifyPlaybackCredentialBackend
+{
+    Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
+        CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Spotify catalogue surface exposed by LiteHost. Authentication starts only
 /// through the explicit login operation; ordinary reads and writes reuse the
@@ -15,8 +24,14 @@ namespace AccessibleMediaController.LiteHost;
 internal sealed class LiteSpotifyCatalogCoordinator(
     ILiteSpotifyReadOnlyBackend backend) : IDisposable
 {
+    internal Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
+        CancellationToken cancellationToken) =>
+        backend is ILiteSpotifyPlaybackCredentialBackend provider
+            ? provider.GetPlaybackCredentialsAsync(cancellationToken)
+            : throw new LiteRequestException("Logowanie odtwarzacza Spotify nie jest dostępne.");
     private readonly object _collectionGate = new();
     private IReadOnlyList<MediaItem> _collectionSnapshot = backend.CachedCollection;
+    private bool _hasCollectionCache = backend.CachedCollection.Count > 0;
     private bool _collectionRefreshAttempted;
     private bool _albumRefreshAttempted;
     private bool _podcastRefreshAttempted;
@@ -63,6 +78,7 @@ internal sealed class LiteSpotifyCatalogCoordinator(
                 // wiarygodna. Następny widok wykona dokładnie jeden świeży
                 // odczyt właściwej kategorii.
                 _collectionSnapshot = [];
+                _hasCollectionCache = false;
                 _collectionRefreshAttempted = false;
                 _albumRefreshAttempted = false;
                 _podcastRefreshAttempted = false;
@@ -76,6 +92,60 @@ internal sealed class LiteSpotifyCatalogCoordinator(
         {
             throw SafeRequestException(exception, LiteSpotifyCatalogContract.LoginOperation);
         }
+    }
+
+    public object Configure(JsonElement args)
+    {
+        if (backend is not ILiteSpotifyAccountBackend accountBackend)
+            throw new LiteRequestException("Ustawienia Spotify nie są dostępne w tym profilu AMC.");
+        var clientId = LiteSpotifyCatalogContract.ReadClientId(args);
+        try
+        {
+            accountBackend.ConfigureClientId(clientId);
+            return new { message = "Zapisano identyfikator aplikacji Spotify. Możesz rozpocząć logowanie katalogu." };
+        }
+        catch
+        {
+            throw new LiteRequestException("Nie udało się zapisać ustawień konta Spotify.");
+        }
+    }
+
+    public object StartPairing()
+    {
+        if (backend is not ILiteSpotifyAccountBackend accountBackend)
+            throw new LiteRequestException("Parowanie Spotify nie jest dostępne w tym profilu AMC.");
+        try
+        {
+            var result = accountBackend.StartPairingAsync(CancellationToken.None)
+                .GetAwaiter().GetResult();
+            return new LiteSpotifyPairingStartResult(
+                result.UserCode,
+                result.VerificationUri,
+                "Wpisz kod na stronie Spotify, a potem wróć do AMC Test.");
+        }
+        catch (LiteRequestException)
+        {
+            throw;
+        }
+        catch
+        {
+            throw new LiteRequestException("Nie udało się rozpocząć parowania odtwarzacza Spotify.");
+        }
+    }
+
+    public object PairingStatus()
+    {
+        if (backend is not ILiteSpotifyAccountBackend accountBackend)
+            throw new LiteRequestException("Parowanie Spotify nie jest dostępne w tym profilu AMC.");
+        return accountBackend.PairingStatus();
+    }
+
+    public object CancelPairing()
+    {
+        if (backend is not ILiteSpotifyAccountBackend accountBackend)
+            throw new LiteRequestException("Parowanie Spotify nie jest dostępne w tym profilu AMC.");
+        accountBackend.CancelPairing();
+        return new LiteSpotifyPairingStatusResult("cancelled", "Anulowano parowanie odtwarzacza Spotify.");
     }
 
     public object CollectionRoot() => LiteSpotifyCatalogContract.CreateCollectionRoot();
@@ -107,7 +177,7 @@ internal sealed class LiteSpotifyCatalogCoordinator(
             // Use the populated snapshot immediately.  A network refresh is
             // retained only as the fallback for a profile with no cache.
             if (!_collectionRefreshAttempted
-                && _collectionSnapshot.Count == 0
+                && !_hasCollectionCache
                 && account.CatalogConnected == true
                 && view is not ("podcasts" or "episodes")
                 && !(view == "playlists" && backend is ILiteSpotifyWriteBackend))
@@ -119,6 +189,7 @@ internal sealed class LiteSpotifyCatalogCoordinator(
                         .GetAwaiter()
                         .GetResult();
                     _collectionSnapshot = refreshed.Items;
+                    _hasCollectionCache = true;
                     if (refreshed.HadWarnings)
                     {
                         warning = "Nie wszystkie części kolekcji Spotify udało się odświeżyć.";
@@ -806,8 +877,18 @@ internal interface ILiteSpotifyWriteBackend : ILiteSpotifyReadOnlyBackend
 
 internal interface ILiteSpotifyAccountBackend : ILiteSpotifyReadOnlyBackend
 {
+    void ConfigureClientId(string clientId);
+
+    Task<LiteSpotifyPairingRequest> StartPairingAsync(CancellationToken cancellationToken);
+
+    LiteSpotifyPairingStatusResult PairingStatus();
+
+    void CancelPairing();
+
     Task<LiteSpotifyLoginOutcome> LoginAsync(CancellationToken cancellationToken);
 }
+
+internal sealed record LiteSpotifyPairingRequest(string UserCode, string VerificationUri);
 
 internal sealed record LiteSpotifyLoginOutcome(
     string AccountDisplayName,

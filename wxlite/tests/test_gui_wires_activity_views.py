@@ -75,6 +75,8 @@ _NON_SQLITE_VIEWS = (
     # Historia jest czytana z radio.recordingHistory w state.json, a nie z
     # lokalnych widokow SQLite obslugiwanych przez _VIEW_KEYS.
     LibraryView.RECORDED_RADIO_FILES,
+    # Dziennik pobrań składa prywatny zapis, bazę podcastów i folder archiwum.
+    LibraryView.DOWNLOADED_FILES,
     # Harmonogramy sa czytane z radio.recordingSchedules w state.json, a ich
     # etykiety sklada wspolny kod C# uzywany takze przez glowne AMC.
     LibraryView.RADIO_RECORDING_SCHEDULES,
@@ -101,6 +103,7 @@ _NON_SQLITE_VIEWS = (
     LibraryView.RADIOARCHIWISTA_DAYS,
     LibraryView.RADIOARCHIWISTA_HOURS,
     LibraryView.RADIOARCHIWISTA_FAVORITES,
+    LibraryView.RADIOARCHIWISTA_QUEUE,
     # Pierwsze widoki TIDAL czytaja state.json przez osobny TidalSource.
     # Nie wolno kierowac ich do lokalnego LibrarySource/library.db.
     LibraryView.TIDAL_LIBRARY,

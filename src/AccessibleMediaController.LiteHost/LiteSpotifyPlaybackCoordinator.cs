@@ -8,16 +8,15 @@ using AccessibleMediaController.Windows.Services;
 namespace AccessibleMediaController.LiteHost;
 
 /// <summary>
-/// Jeden tor odtwarzania Spotify dla interfejsu Python. Używa bez zmian
-/// sprawdzonego adaptera i osobnego procesu Librespot ze starego AMC, ale
-/// publikuje ten sam prosty kontrakt zdarzeń co pozostałe sesje LiteHosta.
+/// Jeden tor odtwarzania Spotify dla interfejsu Python. Oficjalny Web Playback
+/// SDK działa w osobnym, ukrytym Chrome i publikuje ten sam kontrakt zdarzeń.
 /// </summary>
-internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
+internal sealed class LiteSpotifyPlaybackCoordinator(
+    Func<CancellationToken, Task<LiteSpotifyAccessToken>>? credentials = null) : IDisposable
 {
     private const string SessionId = LiteSpotifyCatalogContract.SessionId;
     private readonly object gate = new();
-    private readonly SpotifyLibrespotAuthenticationService authentication = new();
-    private SpotifyLibrespotMediaOutput? output;
+    private LiteSpotifyChromeOutput? output;
     private LiteEventSink? events;
     private MediaItem? currentItem;
     private string? selectedDeviceName;
@@ -32,7 +31,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
     internal object Play(JsonElement args, LiteEventSink eventSink)
     {
         var request = LiteSpotifyPlaybackContract.ReadPlay(args);
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         int effectiveVolume;
         lock (gate)
         {
@@ -64,7 +63,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal object PauseResume()
     {
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         bool nextPaused;
         lock (gate)
         {
@@ -96,7 +95,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal object Stop()
     {
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         lock (gate)
         {
             target = output;
@@ -122,7 +121,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
             args, "deltaSeconds", double.NaN, -86_400d, 86_400d);
         var absolute = LiteArgs.ReadDouble(
             args, "positionSeconds", double.NaN, 0d, 86_400d);
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         lock (gate) target = RequireCurrentOutputLocked();
         var position = !double.IsNaN(absolute)
             ? TimeSpan.FromSeconds(absolute)
@@ -144,7 +143,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
     internal LiteSpotifyTimelineSnapshot Timeline()
     {
         MediaItem item;
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         lock (gate)
         {
             target = RequireCurrentOutputLocked();
@@ -181,7 +180,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal TimeSpan SeekTo(TimeSpan position)
     {
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         lock (gate) target = RequireCurrentOutputLocked();
         if (position < TimeSpan.Zero) position = TimeSpan.Zero;
         target.Seek(position);
@@ -190,7 +189,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal object SetVolume(JsonElement args)
     {
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         int nextVolume;
         bool isMuted;
         lock (gate)
@@ -212,7 +211,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal object SetRate(JsonElement args)
     {
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         double rate;
         lock (gate)
         {
@@ -233,7 +232,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     internal object ToggleMute()
     {
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         bool nextMuted;
         int currentVolume;
         lock (gate)
@@ -256,7 +255,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
     internal object Status()
     {
         MediaItem? item;
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         bool isPlaying;
         bool isPaused;
         bool isMuted;
@@ -296,7 +295,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
     internal object ListOutputs(JsonElement args)
     {
         var requested = LiteArgs.ReadText(args, "selectedDeviceId")?.Trim();
-        SpotifyLibrespotMediaOutput target;
+        LiteSpotifyChromeOutput target;
         lock (gate) target = EnsureOutputLocked();
         var devices = target.GetOutputDevicesAsync().GetAwaiter().GetResult();
         var choices = new List<LiteSpotifyOutputChoice>
@@ -305,9 +304,9 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
         };
         foreach (var device in devices
             .Where(device => !string.IsNullOrWhiteSpace(device.Name))
-            .DistinctBy(device => device.Name, StringComparer.OrdinalIgnoreCase))
+            .DistinctBy(device => device.Id, StringComparer.OrdinalIgnoreCase))
         {
-            choices.Add(new(device.Name, device.Name, true));
+            choices.Add(new(device.Id, device.Name, true));
         }
         if (!string.IsNullOrWhiteSpace(requested)
             && !choices.Any(choice => string.Equals(
@@ -322,10 +321,12 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
     {
         var deviceName = LiteArgs.ReadText(args, "deviceId")?.Trim();
         var restart = LiteArgs.ReadBool(args, "restart", true);
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         bool active;
+        string? previousDeviceName;
         lock (gate)
         {
+            previousDeviceName = selectedDeviceName;
             selectedDeviceName = deviceName;
             target = output;
             active = currentItem is not null && (playing || paused || preparing);
@@ -352,50 +353,51 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
             target ??= EnsureOutputLocked();
         }
 
-        if (!restart && !string.IsNullOrWhiteSpace(deviceName))
+        if (!restart)
         {
-            var unavailableDevice = target.PrepareConfiguredOutputAsync()
+            var configured = target.TrySetOutputDeviceAsync(deviceName)
                 .GetAwaiter().GetResult();
+            if (!configured)
+            {
+                target.TrySetOutputDeviceAsync(null).GetAwaiter().GetResult();
+                lock (gate) selectedDeviceName = null;
+            }
             return new
             {
                 sessionId = SessionId,
                 deviceId = deviceName,
-                available = unavailableDevice is null,
+                available = configured,
                 active = false,
                 rebuilt = false,
-                usingDefault = unavailableDevice is not null
+                usingDefault = !configured || string.IsNullOrWhiteSpace(deviceName)
             };
         }
 
         var changed = target.TrySetOutputDeviceAsync(deviceName)
             .GetAwaiter().GetResult();
         if (!changed)
+        {
+            lock (gate) selectedDeviceName = previousDeviceName;
             throw new LiteRequestException("Nie udało się zmienić urządzenia audio Spotify.");
+        }
         return new
         {
             sessionId = SessionId,
             deviceId = deviceName,
             available = true,
             active,
-            rebuilt = active && restart,
+            rebuilt = false,
             usingDefault = string.IsNullOrWhiteSpace(deviceName)
         };
     }
 
-    private SpotifyLibrespotMediaOutput EnsureOutputLocked()
+    private LiteSpotifyChromeOutput EnsureOutputLocked()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         if (output is not null) return output;
-        var executablePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "LibrespotHost",
-            "amc_spotify_librespot_host.exe");
-        output = new SpotifyLibrespotMediaOutput(
-            () => new LibrespotHostClient(
-                () => LibrespotHostProcess.Start(executablePath),
-                credentialProvider: authentication.GetAccessTokenAsync),
-            action => action(),
-            selectedDeviceName);
+        if (credentials is null)
+            throw new LiteRequestException("Najpierw skonfiguruj i zaloguj konto Spotify.");
+        output = new LiteSpotifyChromeOutput(credentials, selectedDeviceName);
         output.PlaybackPreparing += OnPlaybackPreparing;
         output.PlaybackStarted += OnPlaybackStarted;
         output.DurationAvailable += OnDurationAvailable;
@@ -404,7 +406,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
         return output;
     }
 
-    private SpotifyLibrespotMediaOutput RequireCurrentOutputLocked()
+    private LiteSpotifyChromeOutput RequireCurrentOutputLocked()
     {
         if (currentItem is null)
             throw new LiteRequestException("Najpierw uruchom materiał w Spotify.");
@@ -429,11 +431,10 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
         {
             if (!IsCurrentLocked(e.Item)) return;
             preparing = false;
-            playing = true;
-            paused = false;
+            playing = !paused;
             sink = events;
         }
-        var fallbackDeviceName = (sender as SpotifyLibrespotMediaOutput)?
+        var fallbackDeviceName = (sender as LiteSpotifyChromeOutput)?
             .TakeDefaultOutputFallbackNotice();
         sink?.Publish("playback.started", new
         {
@@ -504,7 +505,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
 
     public void Dispose()
     {
-        SpotifyLibrespotMediaOutput? target;
+        LiteSpotifyChromeOutput? target;
         lock (gate)
         {
             if (disposed) return;
@@ -514,7 +515,6 @@ internal sealed class LiteSpotifyPlaybackCoordinator : IDisposable
             events = null;
         }
         target?.Dispose();
-        authentication.Dispose();
     }
 }
 

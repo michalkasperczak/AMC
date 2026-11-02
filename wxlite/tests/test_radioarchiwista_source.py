@@ -326,6 +326,32 @@ def test_pobieranie_zapisuje_plik_i_zglasza_postep() -> None:
         assert progress_values and progress_values[-1] == 100
 
 
+def test_anulowanie_po_ostatnim_bajcie_nie_oglasza_sukcesu(tmp_path: Path) -> None:
+    payload = b"MP3" * 1000
+    cancelled = False
+
+    def mark_complete(percent: int) -> None:
+        nonlocal cancelled
+        if percent == 100:
+            cancelled = True
+
+    destination = tmp_path / "nagranie.mp3"
+    try:
+        rarch.stream_to_file(
+            "https://archive.org/download/x/a.mp3",
+            destination,
+            progress=mark_complete,
+            should_cancel=lambda: cancelled,
+            fetch=lambda _url: _FakeResponse(payload),
+        )
+    except rarch.RadioarchiwistaError as error:
+        assert "anulowane" in str(error)
+    else:
+        raise AssertionError("spóźnione anulowanie nie może zapisać pliku")
+    assert not destination.exists()
+    assert not destination.with_name(destination.name + ".part").exists()
+
+
 def test_pobieranie_anulowane_nie_zostawia_smieci() -> None:
     import tempfile
     with tempfile.TemporaryDirectory() as directory:

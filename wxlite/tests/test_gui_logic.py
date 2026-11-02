@@ -47,7 +47,7 @@ def install_wx_stub() -> None:
         # Flagi ukladu i przyciskow maja LICZBY (patrz nizej), nie atrapy.
         "SL_HORIZONTAL", "SL_LABELS", "FONTWEIGHT_BOLD", "DD_DIR_MUST_EXIST",
         "FD_OPEN", "FD_FILE_MUST_EXIST", "EVT_TIMER", "EVT_CLOSE", "EVT_KEY_DOWN",
-        "EVT_CHAR_HOOK", "EVT_CONTEXT_MENU",
+        "EVT_CHAR_HOOK", "EVT_CONTEXT_MENU", "EVT_ACTIVATE_APP",
         "EVT_HOTKEY",
         "EVT_LIST_ITEM_ACTIVATED", "EVT_LIST_ITEM_FOCUSED", "EVT_LIST_ITEM_SELECTED",
         "EVT_LIST_ITEM_DESELECTED",

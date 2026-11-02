@@ -172,7 +172,8 @@ public sealed record PodcastDownloadTarget(
     string MediaUrl,
     string? MediaType,
     string? DownloadPath,
-    string? ConfiguredDownloadsFolder);
+    string? ConfiguredDownloadsFolder,
+    string? SourceTitle);
 
 /// <summary>
 /// Minimalny opis odcinka potrzebny do wykrycia rozdziałów na wyraźne

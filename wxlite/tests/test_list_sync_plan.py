@@ -368,3 +368,31 @@ def test_plan_does_not_mutate_its_inputs() -> None:
     plan_row_updates(current, desired)
 
     assert current == snapshot_current and desired == snapshot_desired
+
+
+def test_row_text_cache_formats_only_rows_that_changed(monkeypatch) -> None:
+    """Pauza zmienia napis jednego wiersza; reszta biblioteki ma zostać nietknięta."""
+    from dataclasses import replace
+
+    model = ListModel()
+    model.replace([Row(str(i), f"Poz {i}", "track") for i in range(50)])
+    cache: dict = {}
+    model_row_texts(model, None, cache)
+    formatted = []
+    real = ListModel.text_for
+    monkeypatch.setattr(
+        ListModel,
+        "text_for",
+        lambda self, index, column=0: formatted.append(index) or real(self, index, column),
+    )
+
+    rows = list(model.rows)
+    rows[3] = replace(rows[3], playback_state="Wstrzymane")
+    model.replace(rows)
+    cached = model_row_texts(model, None, cache)
+
+    assert set(formatted) == {3}
+    assert cached[3].texts[0] == "Wstrzymane, Poz 3"
+    monkeypatch.setattr(ListModel, "text_for", real)
+    assert cached == model_row_texts(model)
+    assert len(cache) == 50

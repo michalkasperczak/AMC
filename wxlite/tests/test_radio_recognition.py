@@ -234,6 +234,50 @@ def test_live_history_refresh_preserves_filter_and_selected_entry() -> None:
     assert calls == [{"fallback_index": 4, "preferred_id": "old-track"}]
 
 
+
+
+def test_history_tab_order_starts_with_tracks_then_station_query() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "amc_wx_lite" / "gui.py").read_text(
+        encoding="utf-8"
+    )
+    history = source.split("class RadioRecognitionHistoryDialog", 1)[1].split(
+        "class GeneralPlaybackOptionsDialog", 1
+    )[0]
+    assert history.index("self.history = wx.ListBox(panel") < history.index(
+        "self.station_query = wx.TextCtrl(panel)"
+    )
+    assert "wx.CallAfter(self._focus_history)" in history
+    assert "self.history.SetFocus()" in history
+    assert "self.station_filter" not in history
+
+
+def test_history_copy_spotify_link_announces_only_completed_copy() -> None:
+    entry = {"id": "recognized-1", "title": "Piosenka", "artist": "Wykonawca"}
+    messages: list[str] = []
+    copied: list[str] = []
+    match = {
+        "service": "spotify",
+        "title": "Piosenka",
+        "artist": "Wykonawca",
+        "publicUrl": "https://open.spotify.com/track/test",
+    }
+    dialog = SimpleNamespace(
+        _selected_entry=lambda: entry,
+        _default_service="spotify",
+        _internal_services=("spotify",),
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=messages.append,
+        _resolve_action=lambda _entry, _action, ready, _failed: ready(match),
+    )
+
+    RadioRecognitionHistoryDialog._copy_track_link(dialog)
+
+    assert copied == ["https://open.spotify.com/track/test"]
+    assert messages == ["Skopiowano link Spotify"]
+
+
 def test_history_station_query_filters_tracks_without_selecting_station() -> None:
     class History:
         def __init__(self) -> None:
@@ -282,44 +326,3 @@ def test_history_station_query_filters_tracks_without_selecting_station() -> Non
     RadioRecognitionHistoryDialog._on_station_query(dialog, None)
     assert dialog._visible == []
     assert status_text[-1] == "Brak rozpoznań dla wpisanego filtra stacji"
-
-
-def test_history_tab_order_starts_with_tracks_then_station_query() -> None:
-    from pathlib import Path
-
-    source = (Path(__file__).parents[1] / "amc_wx_lite" / "gui.py").read_text(
-        encoding="utf-8"
-    )
-    history = source.split("class RadioRecognitionHistoryDialog", 1)[1].split(
-        "class GeneralPlaybackOptionsDialog", 1
-    )[0]
-    assert history.index("self.history = wx.ListBox(panel") < history.index(
-        "self.station_query = wx.TextCtrl(panel)"
-    )
-    assert "wx.CallAfter(self.history.SetFocus)" in history
-    assert "self.station_filter" not in history
-
-
-def test_history_copy_spotify_link_announces_only_completed_copy() -> None:
-    entry = {"id": "recognized-1", "title": "Piosenka", "artist": "Wykonawca"}
-    messages: list[str] = []
-    copied: list[str] = []
-    match = {
-        "service": "spotify",
-        "title": "Piosenka",
-        "artist": "Wykonawca",
-        "publicUrl": "https://open.spotify.com/track/test",
-    }
-    dialog = SimpleNamespace(
-        _selected_entry=lambda: entry,
-        _default_service="spotify",
-        _internal_services=("spotify",),
-        _copy_to_clipboard=lambda link: copied.append(link) or True,
-        _set_status=messages.append,
-        _resolve_action=lambda _entry, _action, ready, _failed: ready(match),
-    )
-
-    RadioRecognitionHistoryDialog._copy_track_link(dialog)
-
-    assert copied == ["https://open.spotify.com/track/test"]
-    assert messages == ["Skopiowano link Spotify"]

@@ -74,6 +74,7 @@ class LibraryView(Enum):
     #: Utrwalona historia nagrywania radia: udane, zatrzymane, przerwane i
     #: nieudane proby. Widok mieszka w sesji Pliki lokalne jak w pelnym AMC.
     RECORDED_RADIO_FILES = "recordedRadioFiles"
+    DOWNLOADED_FILES = "downloadedFiles"
     #: Plany nagrywania z profilu AMC. Python tylko je pokazuje; nie uruchamia
     #: drugiego harmonogramu obok wlasciciela C#.
     RADIO_RECORDING_SCHEDULES = "radioRecordingSchedules"
@@ -115,6 +116,7 @@ class LibraryView(Enum):
     #: Własna historia potwierdzonych odtworzeń AMC Python. Nie jest to
     #: kompletna historia konta Spotify ani kolejny kontener katalogu.
     SPOTIFY_HISTORY = "spotifyHistory"
+    SPOTIFY_QUEUE = "spotifyQueue"
     #: Prywatna, osobna historia sesji WiiM albo Sonos. Nie jest to lokalna
     #: tabela plików i nie może przełączać aktywnej sesji.
     SERVICE_HISTORY = "serviceHistory"
@@ -140,6 +142,7 @@ class LibraryView(Enum):
     RADIOARCHIWISTA_DAYS = "radioarchiwistaDays"
     RADIOARCHIWISTA_HOURS = "radioarchiwistaHours"
     RADIOARCHIWISTA_FAVORITES = "radioarchiwistaFavorites"
+    RADIOARCHIWISTA_QUEUE = "radioarchiwistaQueue"
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -246,6 +249,7 @@ class SessionState:
     #: kolejce. Trzymamy wiersze osobno, bo po uruchomieniu uzytkownik moze
     #: otworzyc inny widok, a nastepny element nadal ma pochodzic ze zrodla.
     playback_source_rows: tuple[Row, ...] = ()
+    spotify_auto_advance: bool = False
     #: Nielosowa migawka tego samego zrodla. Po wylaczeniu losowania wracamy
     #: do porzadku katalogu, nie do przypadkowej kolejnosci z pamieci.
     unshuffled_playback_source_rows: tuple[Row, ...] = ()
@@ -271,6 +275,7 @@ class SessionState:
     radioarchiwista_day: int | None = None
     #: Stos powrotu: (widok, slug, rok, miesiąc, dzień, Id wiersza).
     radioarchiwista_history: list[tuple[object, str, int | None, int | None, int | None, str | None]] = field(default_factory=list)
+    radioarchiwista_queue_active: bool = False
     #: Stan jednej sesji Spotify. Jest niezależny od TIDAL-a mimo wspólnego
     #: kontraktu DTO: przełączenie sesji nie może zgubić listy ani fokusu.
     spotify_heading: str = "Biblioteka Spotify"
@@ -850,6 +855,8 @@ _RADIOARCHIWISTA_HEADING_KEYS = {
 
 
 def radioarchiwista_heading(view: LibraryView) -> str:
+    if view is LibraryView.RADIOARCHIWISTA_QUEUE:
+        return "Kolejka Radio Archiwisty"
     key = _RADIOARCHIWISTA_HEADING_KEYS.get(view)
     if key is None:
         return i18n.tr("session.radioarchiwista")
@@ -876,6 +883,9 @@ class Navigator:
             SessionId.RADIOARCHIWISTA: SessionState(SessionId.RADIOARCHIWISTA),
         }
         self.active = SessionId.FILES
+        # Plik z ``play_local_file``, na którego folder jeszcze czekamy.
+        # Zużywa go pierwsze ``apply_folder``.
+        self._opened_file_id: str | None = None
         # Osobny punkt podmiany pozwala testom sprawdzic dokladna kolejnosc
         # bez uzalezniania ich od globalnego generatora liczb losowych.
         self._shuffle_rows = random.shuffle
@@ -926,6 +936,10 @@ class Navigator:
         normalized = tuple(rows)
         state.unshuffled_playback_source_rows = normalized
         state.playback_uses_queue = uses_queue
+        if state.session_id is SessionId.SPOTIFY:
+            state.spotify_auto_advance = (
+                state.library_view is LibraryView.SPOTIFY_QUEUE
+            )
         state.playback_source_rows = (
             self._shuffled_source(normalized, state.now_playing_id)
             if state.shuffle_enabled and not uses_queue
@@ -981,7 +995,10 @@ class Navigator:
             return None
         state = self.sessions[session_id]
         if (
-            not state.shuffle_enabled
+            not (state.shuffle_enabled or (
+                session_id is SessionId.SPOTIFY
+                and state.spotify_auto_advance
+            ))
             or state.playback_uses_queue
             or not state.playback_source_rows
             or not state.now_playing_id
@@ -1008,8 +1025,9 @@ class Navigator:
             intent.previous_item_id = state.current_material_id
             intent.previous_title = previous_title
             intent.preserve_navigation = True
+            intent.success_announcement = target.title
             state.pending_material_id = target.item_id
-            return [intent, Announce(target.title)]
+            return [intent]
         if session_id is SessionId.PODCASTS:
             state.pending_material_id = target.item_id
             return [
@@ -1417,6 +1435,9 @@ class Navigator:
         if row.kind == "parent":
             return self.go_to_parent()
 
+        if state.library_view is LibraryView.SERVICE_HISTORY and row.activation_message:
+            return [Announce(row.activation_message)]
+
         if state.session_id is SessionId.WIIM:
             # Wpis Historii pozostaje czytelny, gdy urządzenie nie oddało
             # stabilnego celu potrzebnego do ponownego uruchomienia.
@@ -1759,6 +1780,27 @@ class Navigator:
         )
         state.view = View.PLAYER if open_player_on_activation else View.LIST
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
+
+    def play_local_file(self, path: str, title: str) -> list[object]:
+        """Plik spoza listy: okno „Otwórz plik” albo Eksplorator i Total Commander.
+
+        Ten sam stan co Enter na wierszu folderu. Wcześniej GUI wysyłało
+        ``files.play`` z pominięciem nawigatora: plik grał, a F6 mówił „Nic
+        nie jest odtwarzane” albo otwierał poprzedni utwór, a Page Down
+        skakał po poprzednim folderze. Folder wczytuje się dopiero po starcie,
+        dlatego źródłem jest na razie sam plik. ``apply_folder`` poszerza je
+        o utwory folderu.
+        """
+        row = Row(f"file:{path}", title, "track", path=path)
+        state = self.sessions[SessionId.FILES]
+        state.player_entry_anchor_id = row.item_id
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.pending_material_id = profile_material_id(row.item_id)
+        self._set_playback_source(state, (row,))
+        self._opened_file_id = row.item_id
+        return [PlayTrack(path, row.item_id, row.title)]
 
     def _tidal_target_from_row(self, row: Row) -> OpenTidalContainer | None:
         """Build a service request without putting its identifiers in speech."""
@@ -2361,6 +2403,7 @@ class Navigator:
         LibraryView.ITEM_BOOKMARKS,
         LibraryView.ACTIVE_RADIO_RECORDINGS,
         LibraryView.RECORDED_RADIO_FILES,
+        LibraryView.DOWNLOADED_FILES,
         LibraryView.RADIO_RECORDING_SCHEDULES,
     )
 
@@ -2508,6 +2551,7 @@ class Navigator:
         intent.success_announcement = announcement or row.title
         state.pending_material_id = row.item_id
         self._set_playback_source(state, source_rows or (row,))
+        state.spotify_auto_advance = bool(source_rows and len(source_rows) > 1)
         return intent
 
     def restore_spotify_playback_after_failed_handoff(
@@ -2644,13 +2688,10 @@ class Navigator:
         # Ctrl+L (cs:701-705) wraca do zapamietanego widoku Biblioteki, a
         # ``folder_path`` ponizej musi byc wyczyszczone dla Backspace.
         self._remember_view_selection(state)
-        if (
-            state.library_view is LibraryView.RECORDED_RADIO_FILES
-            and state.model.selected_id is not None
-        ):
-            state.view_selected_ids[LibraryView.RECORDED_RADIO_FILES.value] = (
-                state.model.selected_id
-            )
+        if state.library_view in (
+            LibraryView.RECORDED_RADIO_FILES, LibraryView.DOWNLOADED_FILES
+        ) and state.model.selected_id is not None:
+            state.view_selected_ids[state.library_view.value] = state.model.selected_id
         if state.library_view is None and state.folder_path is not None:
             state.library_folder_path = state.folder_path
 
@@ -2675,8 +2716,8 @@ class Navigator:
         state.folder_path = None
         state.breadcrumb = []
         remembered_id = (
-            state.view_selected_ids.get(LibraryView.RECORDED_RADIO_FILES.value)
-            if view is LibraryView.RECORDED_RADIO_FILES
+            state.view_selected_ids.get(view.value)
+            if view in (LibraryView.RECORDED_RADIO_FILES, LibraryView.DOWNLOADED_FILES)
             else state.library_return_id
         )
         state.model.replace(rows, preferred_id=preferred_id or remembered_id)
@@ -2868,6 +2909,22 @@ class Navigator:
         state.bookmark_targets = {}
         state.bookmark_contexts = {}
         state.model.replace(rows, preferred_id=preferred_id)
+        # Plik z ``play_local_file`` gra już, a teraz znamy jego folder. Page
+        # Up i Page Down mają chodzić po utworach folderu, jak po Enter. Tylko
+        # raz i tylko dla tego pliku: Ctrl+L i odświeżenia Biblioteki też tu
+        # wracają z grającym wierszem, a źródła z Enter, presetu czy playlisty
+        # nie wolno podmieniać. Pliku spoza listy folderu (np. .m3u) też nie.
+        opened, self._opened_file_id = self._opened_file_id, None
+        tracks = tuple(
+            candidate for candidate in state.model.rows
+            if candidate.kind == "track" and candidate.path
+        )
+        if (
+            opened is not None
+            and opened == preferred_id == state.now_playing_id
+            and any(candidate.item_id == opened for candidate in tracks)
+        ):
+            self._set_playback_source(state, tracks)
         state.view = View.LIST
         row = state.model.selected_row
         name = path.rstrip("/\\").rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or path
@@ -3114,6 +3171,9 @@ class Navigator:
                     and not candidate.activation_message
                 ),
             )
+            state.radioarchiwista_queue_active = (
+                state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
+            )
             state.view = (
                 View.PLAYER if open_player_on_activation else View.LIST
             )
@@ -3179,6 +3239,8 @@ class Navigator:
 
         state = self.session
         if state.library_view is LibraryView.RADIOARCHIWISTA_FAVORITES:
+            return [OpenRadioarchiwistaStations()]
+        if state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE:
             return [OpenRadioarchiwistaStations()]
         if not state.radioarchiwista_history:
             return []
@@ -3392,6 +3454,25 @@ class Navigator:
             if rows else f"{heading}, pusto"
         )]
 
+    def apply_spotify_queue(
+        self, rows: list[Row], *, preferred_id: str | None = None
+    ) -> list[object]:
+        """Show AMC's own saved Spotify playback sequence."""
+        state = self.sessions[SessionId.SPOTIFY]
+        state.library_view = LibraryView.SPOTIFY_QUEUE
+        state.library_playlist_id = None
+        state.library_return_view = "Kolejka Spotify"
+        state.spotify_heading = "Kolejka Spotify"
+        state.spotify_context = None
+        state.spotify_history.clear()
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"Kolejka Spotify, {count} {_items_word(count)}"
+            if count else "Kolejka Spotify, zero elementów"
+        )]
+
     def apply_spotify_history(self, rows: list[Row]) -> list[object]:
         """Show AMC's confirmed Spotify plays as a transient named view."""
 
@@ -3419,8 +3500,11 @@ class Navigator:
     ) -> list[object]:
         """Pokaż prywatną Historię bez przechodzenia do Plików lokalnych."""
 
-        if session_id not in (SessionId.WIIM, SessionId.SONOS):
-            raise ValueError("Historia streamerów wymaga sesji WiiM albo Sonos")
+        if session_id not in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
+            raise ValueError("Ta sesja nie przechowuje osobnej historii")
         state = self.sessions[session_id]
         remembered = state.view_selected_ids.get(
             LibraryView.SERVICE_HISTORY.value
@@ -3964,8 +4048,42 @@ class Navigator:
                 ),
                 Announce(target.title),
             ]
+        if state.session_id is SessionId.RADIOARCHIWISTA and target.kind == "recording":
+            return [
+                PlayMedia(
+                    target.url or "",
+                    target.item_id,
+                    target.title,
+                    position_seconds=target.position_seconds,
+                ),
+                Announce(target.title),
+            ]
         return [
             PlayTrack(target.path or "", target.item_id, target.title),
+            Announce(target.title),
+        ]
+
+    def continue_radioarchiwista_queue_after_end(self) -> list[object]:
+        """Po końcu MP3 przejdź do następnego nagrania lokalnej kolejki."""
+        state = self.sessions[SessionId.RADIOARCHIWISTA]
+        if not state.radioarchiwista_queue_active or not state.now_playing_id:
+            return []
+        rows = state.playback_source_rows
+        current = next(
+            (index for index, row in enumerate(rows)
+             if row.item_id == state.now_playing_id), -1,
+        )
+        if current < 0 or current + 1 >= len(rows):
+            return []
+        target = rows[current + 1]
+        if target.kind != "recording" or not target.url:
+            return []
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = profile_material_id(target.item_id)
+        return [
+            PlayMedia(target.url, target.item_id, target.title,
+                      position_seconds=target.position_seconds),
             Announce(target.title),
         ]
 

@@ -119,10 +119,17 @@ def test_real_host_downloads_rss_episode_and_saves_only_download_path() -> None:
     with tempfile.TemporaryDirectory(
         prefix="podcast-download-", dir=temporary_root
     ) as directory:
-        _run_real_host_download(Path(directory))
+        _run_real_host_download(Path(directory), separate_source_folders=False)
+
+    with tempfile.TemporaryDirectory(
+        prefix="podcast-download-separated-", dir=temporary_root
+    ) as directory:
+        _run_real_host_download(Path(directory), separate_source_folders=True)
 
 
-def _run_real_host_download(tmp_path: Path) -> None:
+def _run_real_host_download(
+    tmp_path: Path, *, separate_source_folders: bool
+) -> None:
     host = (
         Path(__file__).resolve().parents[2]
         / "src"
@@ -150,8 +157,11 @@ def _run_real_host_download(tmp_path: Path) -> None:
     )
     try:
         client.start()
-        result = client.download_podcast_episodes(["episode-private-id"])
-        assert result == {
+        result = client.download_podcast_episodes(
+            ["episode-private-id"],
+            separate_source_folders=separate_source_folders,
+        )
+        assert {key: value for key, value in result.items() if key != "files"} == {
             "requested": 1,
             "downloaded": 1,
             "alreadyDownloaded": 0,
@@ -167,6 +177,14 @@ def _run_real_host_download(tmp_path: Path) -> None:
         assert row is not None
         saved_path = Path(row[0])
         assert saved_path.is_file()
+        assert result["files"] == [{
+            "episodeId": "episode-private-id",
+            "title": "Odcinek testowy",
+            "path": str(saved_path),
+        }]
+        assert saved_path.parent == (
+            downloads / "Podcast testowy" if separate_source_folders else downloads
+        )
         assert saved_path.read_bytes() == _AUDIO
         assert json.loads(row[1])["DownloadPath"] == str(saved_path)
         assert any(

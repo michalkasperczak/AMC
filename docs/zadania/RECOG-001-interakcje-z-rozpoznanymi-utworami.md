@@ -1,10 +1,15 @@
 # RECOG-001 — interakcje z rozpoznanymi utworami
 
+## Korekta użytkownika z 31.10.2026 — znaczenie filtra „GDA”
+
+Filtr nazwy stacji pozostaje wyszukiwaniem części nazwy. „GDA” ma pokazywać rozpoznania ze stacji „Gdańsk”, „Plus Gdansk” i „Gdańsk Regiony”, jeśli są w historii. Propozycja pierwszeństwa początku nazwy z commita `8fe5c8de` została odrzucona przez użytkownika i wycofana commitem `b33f48d1`. Paczki z `8fe5c8de` nie instalowano. Zainstalowana wersja `d6d661cf` zachowuje właściwe wyszukiwanie części nazwy; nie wymaga kolejnej podmiany.
+
 ## Korekta użytkownika z 31.10.2026 — lista, filtr i kopiowanie linku
 
 ### Zachowanie widoczne dla użytkownika
 
 - `Ctrl+Alt+S` otwiera historię z fokusem na liście rozpoznanych utworów. `Tab` przechodzi do pola edycyjnego „Filtr stacji”; wpisanie „GDA” od razu pokazuje tylko wpisy stacji o pasującej nazwie, np. Radia Gdańsk. `Shift+Tab` wraca do przefiltrowanej listy. Osobny wybór lub rozwijanie stacji nie jest potrzebne.
+- Korekta z 31.10.2026 (MODAL-001): historia otwiera się jako okno niemodalne. Można wrócić do głównego AMC bez zamykania historii; ponowne `Ctrl+Alt+S` przywołuje już otwarte okno. Zastępuje wcześniejsze zachowanie, w którym historia blokowała główne okno do zamknięcia.
 - `Ctrl+Shift+C` na utworze w historii po skutecznym skopiowaniu dokładnego łącza do Spotify mówi tylko „Skopiowano link Spotify”. Nie mówi wcześniej o przygotowywaniu łącza. Dla innych usług nazywa właściwą usługę, a w profilu Public opisuje łącze wyszukiwania.
 
 ### Uzasadnienie i decyzje
@@ -14,11 +19,12 @@
 
 ### Testy i wynik
 
-- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+- 31.10.2026: 39 testów celowanych rozpoznawania, działań i zgodności poleceń zaliczonych na bazie zainstalowanej wersji; 1 niezwiązany test podcastowy wyłączony. Test obejmuje filtr „GDA”, brak osobnego wyboru stacji, kolejność kontrolek, pojedynczy komunikat Spotify oraz zgodność pomocy z menu, skrótem i paletą. Ręczny odbiór NVDA pozostaje do wykonania.
+- Paczka `a48651b1` zbudowana z commita `d6d661cf380a773cef662ef39a45ba8b9bc81143` przeszła próbę startu przed instalacją. Po instalacji kontrola integralności i kontrolowany start interfejsu oraz hosta przeszły; widoczne okno „AMC Test” odpowiada. Aktualizator pozostawił 459 bibliotek hosta z wcześniejszego pakietu, które zachowawczo przeniesiono do `.test-output/stale-host-runtime-backup-20261031` przed powtórną udaną próbą startu.
 
 ### Znane ograniczenia
 
-- Wynik dotyczy źródeł i testów bez widocznego interfejsu. Build, instalację i publikację trzeba raportować osobno po ich wykonaniu.
+- Automatyczne testy i próby startu nie zastępują ręcznego sprawdzenia kolejności Tab oraz mowy NVDA. Pakiet jest zainstalowany lokalnie; nie publikowano wydania.
 
 ### Materiał do dokumentacji użytkownika
 
@@ -26,7 +32,7 @@
 
 ### Wersja i commit
 
-- Zmiany w źródłach z 31.10.2026; commit i tożsamość paczki do wpisania po zamknięciu przyrostu.
+- Zmiana źródłowa `833568c9` została przeniesiona na bazę wcześniej zainstalowanej wersji `a8d66cd7`; lokalnie zainstalowany pakiet `2026.10.31-d6d661cf380a773cef662ef39a45ba8b9bc81143-a48651b1` w `C:\Users\micha\AppData\Local\Programs\AMC Test`. Nie publikowano wydania.
 
 ## Korekta po zgłoszeniu użytkownika z 30.10.2026 — widoczność nowych wyników
 
@@ -257,7 +263,7 @@ wtedy łącze wyszukiwania i ogłasza ten zakres jednoznacznie.
 
 ## Wersja i commit
 
-### Zastąpiony projekt z 31.10.2026 — filtr stacji i fokus
+### Korekta z 31.10.2026 — filtr stacji i fokus
 
 Wcześniejszy opis pojedynczego filtra „Wszystkie stacje” jest zastąpiony:
 `Ctrl+Alt+S` ustawia fokus w polu tekstowym „Szukaj stacji”. Wpisana część

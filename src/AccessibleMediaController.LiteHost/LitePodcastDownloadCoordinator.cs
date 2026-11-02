@@ -38,6 +38,8 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
         try
         {
             var episodeIds = ReadEpisodeIds(args);
+            var separateSourceFolders = LiteArgs.ReadBool(
+                args, "separateSourceFolders", false);
             var targets = _podcasts.GetDownloadTargets(episodeIds)
                 .ToDictionary(target => target.EpisodeId, StringComparer.Ordinal);
             var downloaded = 0;
@@ -45,6 +47,7 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
             var failed = 0;
             string? firstFailure = null;
             string? singleTitle = null;
+            var files = new List<object>();
 
             for (var index = 0; index < episodeIds.Length; index++)
             {
@@ -61,6 +64,11 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
                         && File.Exists(target.DownloadPath))
                     {
                         alreadyDownloaded++;
+                        files.Add(new {
+                            episodeId = target.EpisodeId,
+                            title = target.Title,
+                            path = target.DownloadPath
+                        });
                         continue;
                     }
                     if (!Uri.TryCreate(target.MediaUrl, UriKind.Absolute, out var source)
@@ -72,6 +80,13 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
 
                     var folder = PodcastDownloadFolderResolver.Resolve(
                         target.ConfiguredDownloadsFolder);
+                    if (separateSourceFolders)
+                    {
+                        folder = Path.Combine(folder,
+                            PodcastDownloadNaming.SuggestedFolderName(
+                                target.SourceTitle, "Nieznany podcast"));
+                    }
+                    if (separateSourceFolders) Directory.CreateDirectory(folder);
                     var destination = PodcastDownloadNaming.UniquePath(
                         folder,
                         PodcastDownloadNaming.SuggestedFileName(
@@ -130,6 +145,11 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
 
                     _podcasts.SaveDownloadPath(target.EpisodeId, result.Path);
                     downloaded++;
+                    files.Add(new {
+                        episodeId = target.EpisodeId,
+                        title = target.Title,
+                        path = result.Path
+                    });
                     PublishProgress(events, target, index, episodeIds.Length, percent: 100);
                 }
                 catch (OperationCanceledException)
@@ -158,7 +178,8 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
                 alreadyDownloaded,
                 failed,
                 singleTitle,
-                firstFailure
+                firstFailure,
+                files
             };
         }
         finally
@@ -285,6 +306,7 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
             var failed = 0;
             string? firstFailure = null;
             string? fileName = null;
+            var files = new List<object>();
             for (var index = 0; index < episodeIds.Length; index++)
             {
                 if (!targets.TryGetValue(episodeIds[index], out var target))
@@ -309,6 +331,11 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
                         .GetResult();
                     downloaded++;
                     fileName ??= Path.GetFileName(result.Path);
+                    files.Add(new {
+                        episodeId = target.EpisodeId,
+                        title = target.Title,
+                        path = result.Path
+                    });
                     PublishProgress(events, target, index, episodeIds.Length, percent: 100);
                 }
                 catch (OperationCanceledException)
@@ -335,7 +362,8 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
                 downloaded,
                 failed,
                 firstFailure,
-                fileName
+                fileName,
+                files
             };
         }
         finally

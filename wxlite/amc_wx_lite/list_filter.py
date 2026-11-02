@@ -15,9 +15,8 @@ KONTRAKT PRZENIESIONY ZE ZRODEL pelnego AMC (odczytany, nie wymyslony):
 
 CZEGO TEN MODUL NIE ROBI I DLACZEGO:
 
-* nie dotyka ``ListModel`` ani ``list_sync``. Mechanizm list (tozsamosc po
-  ``item_id``, przyrostowy plan, brak ``LC_VIRTUAL``) jest ODEBRANY i zostaje
-  bez zmian. Filtr liczy, ktore wiersze sa WIDOCZNE; zrodlem prawdy o pelnym
+* nie dotyka ``ListModel`` ani ``list_sync``. Filtr liczy, ktore wiersze sa
+  WIDOCZNE w zwyklej lub wlascicielskiej liscie; zrodlem prawdy o pelnym
   zbiorze pozostaje model.
 * nie sortuje. ``Where`` w C# zachowuje kolejnosc, a widoki Kolejki i
   Zapisanej kolejki MAJA znaczaca kolejnosc, ktorej nie wolno przeliczyc.

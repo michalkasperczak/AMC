@@ -169,6 +169,20 @@ def test_profile_recording_settings_and_station_folder_reach_one_payload() -> No
     }
 
 
+def test_separate_station_folders_preserve_explicit_station_folder() -> None:
+    station = Station("one", "Radio One", "https://example.invalid/live")
+    base = RadioRecordingPreferences(
+        default_folder=r"D:\Radio",
+        station_folders={"one": r"D:\Custom"},
+    )
+    enabled = preferences_with_overrides(base, separate_station_folders=True)
+    assert enabled.payload_for(station)["folder"] == r"D:\Custom"
+    assert "separateStationFolders" not in enabled.payload_for(station)
+    other = Station("two", "Radio Two", station.url)
+    assert enabled.payload_for(other)["separateStationFolders"] is True
+    assert "separateStationFolders" not in base.payload_for(other)
+
+
 def test_empty_podcast_folder_is_resolved_by_windows_host_not_python_guess() -> None:
     preferences = preferences_from_amc_state({
         "radio": {

@@ -469,3 +469,85 @@ def test_preset_management_shortcuts_work_in_list_and_player() -> None:
     for table in (LIST_VIEW, PLAYER_VIEW):
         assert table["Ctrl+Alt+P"] is Action.VIEW_PRESETS
         assert table["Ctrl+Alt+Shift+P"] is Action.ASSIGN_PRESET
+
+
+def test_radioarchiwista_defaults_and_overrides_without_legacy_profile() -> None:
+    missing = Path(tempfile.gettempdir()) / "amc-rarch-missing-state-for-presets.json"
+    defaults = effective_entries(missing, SessionId.RADIOARCHIWISTA, {})
+    assert [(item.slot, item.target_kind, item.location) for item in defaults] == [
+        (1, "rarchLatest", None), (2, "rarchStation", "pr1")
+    ]
+    assert resolve_preset(missing, SessionId.RADIOARCHIWISTA, 2).entry == defaults[1]
+    custom = target_from_row(SessionId.RADIOARCHIWISTA, Row(
+        "rarch:station:pr3", "Program 3, 123 nagrania", "folder",
+        service_kind="rarchStation", service_id="pr3",
+    ))
+    assert custom is not None
+    assert custom.title == "Program 3"
+    assert target_from_row(SessionId.RADIOARCHIWISTA, Row(
+        "rarch:rec:pr3:hour", "Nagranie", "track", service_kind="rarchRecording"
+    )) is None
+    overrides = {SessionId.RADIOARCHIWISTA.value: entries_payload((custom.as_entry(2),))}
+    assert effective_entries(missing, SessionId.RADIOARCHIWISTA, overrides) == (custom.as_entry(2),)
+    assert effective_entries(missing, SessionId.RADIOARCHIWISTA, {SessionId.RADIOARCHIWISTA.value: []}) == ()
+    assert "pr3" not in choices((custom.as_entry(2),))[1].label
+
+
+def test_radioarchiwista_preset_commands_share_shortcuts_help_and_menu() -> None:
+    from amc_wx_lite import menu_model
+    from amc_wx_lite.shortcuts import RADIOARCHIWISTA_SUPPORTED_ACTIONS, chord_from_canonical, describe, resolve
+
+    supported = set(RADIOARCHIWISTA_SUPPORTED_ACTIONS)
+    menus = menu_model.menus_for_session(SessionId.RADIOARCHIWISTA)
+    items = {item.action: item for menu in menus for item in menu.items if item.action}
+    help_entries = dict(describe("Radio Archiwista", supported))
+    for chord, action in (
+        ("Ctrl+Alt+P", Action.VIEW_PRESETS),
+        ("Ctrl+Alt+Shift+P", Action.ASSIGN_PRESET),
+        ("Ctrl+Shift+1", Action.PRESET_1),
+        ("Ctrl+Shift+2", Action.PRESET_2),
+    ):
+        assert action in supported
+        assert resolve(chord_from_canonical(chord), player_view=False, radio_session=False, radioarchiwista_session=True) is action
+        assert chord in help_entries
+    assert items[Action.VIEW_PRESETS].shortcut == "Ctrl+Alt+P"
+    assert items[Action.ASSIGN_PRESET].shortcut == "Ctrl+Alt+Shift+P"
+
+
+def test_radioarchiwista_direct_assignment_shortcuts_are_session_specific() -> None:
+    from amc_wx_lite import menu_model
+    from amc_wx_lite.shortcuts import (
+        ASSIGN_PRESET_ACTIONS, RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+        chord_from_canonical, describe, resolve,
+    )
+
+    help_entries = dict(describe("Radio Archiwista", set(RADIOARCHIWISTA_SUPPORTED_ACTIONS)))
+    menu_actions = {
+        item.action: item
+        for menu in menu_model.menus_for_session(SessionId.RADIOARCHIWISTA)
+        for item in menu.items if item.action
+    }
+    other_actions = {
+        item.action
+        for menu in menu_model.menus_for_session(SessionId.SPOTIFY)
+        for item in menu.items if item.action
+    }
+    for slot, action in ASSIGN_PRESET_ACTIONS.items():
+        shortcut = f"Ctrl+Alt+Shift+{slot % 10}"
+        assert resolve(chord_from_canonical(shortcut), player_view=False,
+                       radio_session=False, radioarchiwista_session=True) is action
+        assert resolve(chord_from_canonical(shortcut), player_view=True,
+                       radio_session=False, radioarchiwista_session=True) is action
+        assert action not in other_actions
+        assert action in menu_actions
+        assert menu_actions[action].shortcut == shortcut
+        assert menu_actions[action].needs_radioarchiwista_preset_folder
+        assert "Przypisz" in help_entries[shortcut]
+
+
+def test_direct_archive_preset_has_english_user_facing_name() -> None:
+    from amc_wx_lite import i18n
+    for slot in range(1, 11):
+        label = i18n.english_action_name(f"presets.assign.{slot}")
+        assert "Radio Archiwista folder" in label
+        assert label.endswith(f"preset {slot % 10}")

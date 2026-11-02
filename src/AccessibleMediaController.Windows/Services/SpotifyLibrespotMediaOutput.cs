@@ -1062,7 +1062,7 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
         "invalid_token" or "invalidToken" or "token_expired" or "tokenExpired" =>
             "Logowanie do Spotify wygasło. Otwórz okno konta Spotify i zaloguj się ponownie.",
         "track_unavailable" or "trackUnavailable" =>
-            "Spotify nie udostępnia tego utworu na tym koncie lub w tym kraju.",
+            "Nie udało się odtworzyć tego utworu przez Librespot. Może być niedostępny dla konta lub kraju albo Spotify odmówił klucza audio tej sesji. Sprawdź, czy gra w oficjalnej aplikacji Spotify.",
         "audio_device_lost" or "audioDeviceLost"
             or "audio_device_unavailable" or "audioDeviceUnavailable" =>
             "Wybrane wyjście dźwięku przestało być dostępne. Wybierz inne wyjście w opcjach sesji.",

@@ -26,7 +26,7 @@ def test_settings_have_real_native_pages_and_explicit_accessible_names() -> None
     assert 'self.keep_audio_edit_backups.SetName("Zachowuj kopie po edycji")' in source
     assert '"Długość przeskoku pod Ctrl+Alt+strzałką w lewo i w prawo"' in source
     assert 'self.global_transient_previews.SetName(' in source
-    assert '"Wspólne podglądy nagrywania i nowych odcinków we wszystkich sesjach"' in source
+    assert '"Wspólne podglądy nowych odcinków i transmisji we wszystkich sesjach"' in source
     assert 'self.remember_local_playback_positions.SetName(' in source
     assert '"Pamiętaj pozycję odtwarzania lokalnych plików"' in source
     assert 'self.detailed_hints.SetName(' in source
@@ -92,6 +92,14 @@ def test_settings_pages_and_storage_controls_follow_the_user_workflow() -> None:
     assert 'recording_heading.SetName("Sekcja zapisywanie nagrań radia")' in dialog
     assert 'podcast_storage_heading.SetName(' in dialog
     assert 'podcast_refresh_heading.SetName(' in dialog
+    assert dialog.index("self.recording_folder = FocusableReadOnlyTextCtrl(") < dialog.index(
+        "self.radio_separate_station_folders = wx.CheckBox("
+    ) < dialog.index("self.recording_format = wx.Choice(")
+    assert dialog.index("self.podcast_folder = FocusableReadOnlyTextCtrl(") < dialog.index(
+        "self.podcast_separate_source_folders = wx.CheckBox("
+    ) < dialog.index("self.youtube_video_format = wx.Choice(")
+    assert 'self.radio_separate_station_folders.SetName(' in dialog
+    assert 'self.podcast_separate_source_folders.SetName(' in dialog
 
 
 def test_message_options_precede_the_inline_template_editor() -> None:

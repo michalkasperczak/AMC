@@ -358,11 +358,13 @@ class Options:
     radio_recording_bitrate_kbps: int | None = None
     radio_recordings_folder: str | None = None
     radio_use_podcast_downloads_folder: bool | None = None
+    radio_separate_station_folders: bool = False
     radio_prefer_station_folder_in_new_schedules: bool | None = None
     #: Globalne ustawienia Podcastow. ``None`` dziedziczy dotychczasowa
     #: wartosc z podcasts.db; po pierwszym zapisie karta staje sie ich
     #: jawnym wlascicielem i host stosuje je takze przy kolejnym starcie.
     podcast_downloads_folder: str | None = None
+    podcast_separate_source_folders: bool = False
     podcast_rss_refresh_interval_minutes: int | None = None
     podcast_youtube_refresh_interval_minutes: int | None = None
     podcast_automatic_refresh_batch_size: int | None = None
@@ -551,6 +553,10 @@ class Options:
             ) is not bool
         ):
             self.radio_prefer_station_folder_in_new_schedules = None
+        if type(self.radio_separate_station_folders) is not bool:
+            self.radio_separate_station_folders = False
+        if type(self.podcast_separate_source_folders) is not bool:
+            self.podcast_separate_source_folders = False
         if self.podcast_downloads_folder is not None:
             self.podcast_downloads_folder = str(
                 self.podcast_downloads_folder
@@ -667,6 +673,8 @@ class LiteState:
     #: Nie udaje pełnej historii konta; wpis powstaje dopiero po potwierdzonym
     #: starcie Librespota. Identyfikatory są wyłącznie danymi modelu.
     spotify_playback_history: list[dict] = field(default_factory=list)
+    #: Prywatna kolejka AMC dla sesji Spotify, niezależna od kolejki konta.
+    spotify_queue_items: list[dict] = field(default_factory=list)
     #: Prywatne historie streamerów, których nie da się odbudować z lokalnej
     #: bazy plików. WiiM i Sonos zapisują migawki faktycznie grającego
     #: urządzenia; historia TIDAL i Spotify pozostaje na swoich drogach.
@@ -926,6 +934,9 @@ class StateStore:
             spotify_playback_history=_read_spotify_history(
                 raw.get("spotify_playback_history")
             ),
+            spotify_queue_items=_read_spotify_history(
+                raw.get("spotify_queue_items")
+            ),
             playback_history_by_session=normalize_histories(
                 raw.get("playback_history_by_session")
             ),
@@ -1020,6 +1031,9 @@ class StateStore:
         payload["search_history"] = _read_search_history(state.search_history)
         payload["spotify_playback_history"] = _read_spotify_history(
             state.spotify_playback_history
+        )
+        payload["spotify_queue_items"] = _read_spotify_history(
+            state.spotify_queue_items
         )
         payload["playback_history_by_session"] = normalize_histories(
             state.playback_history_by_session

@@ -172,6 +172,8 @@ class LiteHostClient:
         self._stderr_reader: threading.Thread | None = None
         self._closed = False
         self._lifecycle_lock = threading.RLock()
+        self._cast = None
+        self._mirror = None
 
     # ------------------------------------------------------------ start/stop
 
@@ -244,6 +246,10 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
+        if self._mirror is not None:
+            self._mirror.close()
+        if self._cast is not None:
+            self._cast.close()
         with self._lifecycle_lock:
             self._closed = True
             process = self._process
@@ -269,6 +275,12 @@ class LiteHostClient:
         for reader in (self._reader, self._stderr_reader):
             if reader is not None and reader is not current_thread:
                 reader.join(timeout=1.0)
+        for stream in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
+            if stream is not None:
+                try:
+                    stream.close()
+                except (OSError, ValueError, AttributeError):
+                    pass
         # Obudz wszystkich czekajacych, zeby nie wisieli do konca limitu.
         with self._pending_lock:
             waiting = list(self._pending.values())
@@ -326,6 +338,58 @@ class LiteHostClient:
     # ------------------------------------------------------------ wywolania
 
     def call(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
+        if self._cast is not None:
+            from .cast_session import UNHANDLED
+            result = self._cast.call(op, args or {})
+            if result is not UNHANDLED:
+                return result
+        result = self._call_native(op, args, timeout=timeout)
+        if self._mirror is not None:
+            self._mirror.after_native(op, args or {}, result)
+        return result
+
+    def cast_devices(self, *, refresh: bool = False):
+        if self._cast is None:
+            from .cast_session import CastSessionRouter
+            self._cast = CastSessionRouter(
+                lambda op, args: self._call_native(op, args, timeout=120), self._on_event)
+        return self._cast.devices(refresh)
+
+    def cast_active(self, session_id: str) -> bool:
+        return self._cast is not None and self._cast.active(session_id)
+
+    def cast_selected_device_id(self, session_id: str) -> str | None:
+        route = self._cast.routes.get(session_id) if self._cast else None
+        return route.device.device_id if route else None
+
+    def select_cast(self, session_id: str, device_id: str | None) -> dict:
+        if self.mirror_selected_device_id(session_id) is not None:
+            raise ValueError("Najpierw wyłącz dublowanie dźwięku przez Shift+M")
+        if device_id is not None and self._mirror is not None and any(
+                route.device.device_id == device_id for route in self._mirror.routes.values()):
+            raise ValueError("To urządzenie już odtwarza dublowany dźwięk AMC")
+        self.cast_devices()
+        return self._cast.select(session_id, device_id)
+
+    def mirror_selected_device_id(self, session_id: str) -> str | None:
+        return self._mirror.selected_device_id(session_id) if self._mirror else None
+
+    def select_cast_mirror(self, session_id: str, device_id: str | None) -> dict:
+        if device_id is None:
+            return self._mirror.disable(session_id) if self._mirror else {"active": False}
+        if self.cast_active(session_id):
+            raise ValueError("Najpierw wybierz Ten komputer przez Shift+C")
+        if self._cast is not None and any(
+                route.device.device_id == device_id for route in self._cast.routes.values()):
+            raise ValueError("To urządzenie już odtwarza inną sesję AMC przez Google Cast")
+        if self._mirror is None:
+            from .mirror_core import MirrorCastRouter
+            self._mirror = MirrorCastRouter(
+                lambda op, args: self._call_native(op, args, timeout=120),
+                self._on_event, discover=lambda: self.cast_devices(refresh=True))
+        return self._mirror.enable(session_id, device_id)
+
+    def _call_native(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
         """Wyslij zadanie i poczekaj na odpowiedz. ``HostError`` = blad tresci."""
         if self._closed or not self.alive:
             raise HostUnavailable("Silnik nie jest uruchomiony.")
@@ -474,6 +538,7 @@ class LiteHostClient:
         volume: int,
         rate: float,
         position_seconds: float = 0.0,
+        session_id: str = "podcasts",
     ) -> Any:
         """Play a podcast/YouTube source while retaining its stable AMC Id."""
         return self.call(
@@ -485,14 +550,22 @@ class LiteHostClient:
                 "volume": volume,
                 "rate": rate,
                 "positionSeconds": max(0.0, float(position_seconds)),
+                "sessionId": session_id,
             },
             timeout=120.0,
         )
 
-    def play_station(self, url: str, *, volume: int, item_id: str, title: str) -> Any:
+    def play_station(
+        self, url: str, *, volume: int, item_id: str, title: str,
+        audio: dict[str, Any] | None = None,
+    ) -> Any:
+        args = {"url": url, "volume": volume, "id": item_id, "title": title}
+        for name in ("bitrateKbps", "sampleRateHz", "codec", "isBitrateEstimated"):
+            if audio and name in audio:
+                args[name] = audio[name]
         return self.call(
             "radio.play",
-            {"url": url, "volume": volume, "id": item_id, "title": title},
+            args,
             timeout=90.0,
         )
 
@@ -654,6 +727,19 @@ class LiteHostClient:
     def spotify_login(self) -> Any:
         """Start OAuth only after an explicit user action in the account dialog."""
         return self.call("spotify.login", timeout=360.0)
+
+    def spotify_configure(self, client_id: str) -> Any:
+        """Store the user's public Spotify application identifier."""
+        return self.call("spotify.configure", {"clientId": client_id}, timeout=15.0)
+
+    def spotify_pairing_start(self) -> Any:
+        return self.call("spotify.pairingStart", timeout=30.0)
+
+    def spotify_pairing_status(self) -> Any:
+        return self.call("spotify.pairingStatus", timeout=15.0)
+
+    def spotify_pairing_cancel(self) -> Any:
+        return self.call("spotify.pairingCancel", timeout=15.0)
 
     def spotify_collection_root(self) -> Any:
         """Read the user-facing Spotify collection categories."""
@@ -1342,11 +1428,16 @@ class LiteHostClient:
             timeout=10.0,
         )
 
-    def download_podcast_episodes(self, episode_ids: list[str]) -> Any:
+    def download_podcast_episodes(
+        self, episode_ids: list[str], *, separate_source_folders: bool = False
+    ) -> Any:
         """Pobierz zaznaczone odcinki przez wspólny downloader AMC."""
         return self.call(
             "podcast.download",
-            {"episodeIds": list(dict.fromkeys(episode_ids))},
+            {
+                "episodeIds": list(dict.fromkeys(episode_ids)),
+                "separateSourceFolders": separate_source_folders,
+            },
             timeout=24 * 3600.0,
         )
 

@@ -2,14 +2,11 @@
 
 Zasady dostepnosci przyjete tutaj (i dlaczego):
 
-* ``wx.ListCtrl`` w trybie ``LC_REPORT`` -- ZWYKLA natywna lista Windows, tak
-  jak w SARA i WinZappie. Teksty siedza w kontrolce, a przy zmianie danych
-  aktualizujemy TYLKO faktycznie zmienione wiersze i pola (``list_sync``).
-  Czytnik ekranu dostaje zwykla, natywna liste z rolami i nazwami -- dziala
-  bez dodatku NVDA i z Narratorem. Wirtualizacja (``LC_VIRTUAL`` +
-  ``OnGetItemText``) ZOSTALA USUNIETA: jej cache tekstu dawal czytnikowi
-  stara nazwe z nowym licznikiem, a ``SetItemCount`` przestawial cala liste
-  nawet wtedy, gdy dane sie nie zmienily.
+* Pozostale sesje uzywaja zwyklej natywnej listy ``LC_REPORT`` i aktualizacji
+  przyrostowych. Pliki lokalne uzywaja ``LC_VIRTUAL``: biblioteka 42 tys.
+  utworow nie moze tworzyc 42 tys. natywnych wierszy. Teksty pochodza z tego
+  samego modelu, a zmienione pozycje odswiezamy punktowo. Nie powtarzamy
+  dawnego ``SetItemCount`` + ``RefreshItems`` dla calej listy na kazdy tick.
 * Strzalki, Home/End, Tab i pisanie-po-pierwszej-literze naleza do KONTROLKI.
   Nie przejmujemy ich. Przejmujemy tylko to, co ma wlasne znaczenie w AMC
   (Enter, Backspace, F6, Escape, Spacja, Ctrl+cyfra...).
@@ -29,6 +26,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, replace
@@ -41,10 +39,14 @@ import wx
 from .accessible_controls import FocusableReadOnlyTextCtrl
 from .application_update import (
     ApplicationUpdateCheck,
+    ApplicationUpdateRecordingError,
+    ApplicationUpdateRecordingStatusError,
     PreparedApplicationUpdate,
     check_for_application_update,
     launch_prepared_application_update,
     prepare_application_update,
+    recording_blocks_application_update,
+    schedule_blocks_application_update,
     user_facing_update_error,
 )
 from .application_update_dialog import ApplicationUpdateDialog
@@ -76,6 +78,10 @@ from .audio_output import (
     read_profile_outputs,
 )
 from .collation import HostCollation
+from .cast_dialog import CastDeviceDialog
+from .mirror_dialog import MirrorDeviceDialog
+from .cast_session import CAST_SESSIONS, cast_action_available, cast_session_available
+from .cast_protocol import CastError
 from .command_palette import (
     CommandPaletteEntry,
     available_entries as available_command_entries,
@@ -102,6 +108,15 @@ from .youtube_live import (
     dynamic_live_url as youtube_dynamic_live_url,
 )
 from .item_information import item_properties_text
+from .download_history import (
+    DownloadEntry,
+    DownloadHistoryStore,
+    download_information,
+    download_rows,
+    entries_from_archive_folder,
+    entries_from_podcast_rows,
+    merge_entries,
+)
 from . import i18n
 from . import nvda_bridge
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
@@ -141,6 +156,7 @@ if "session.spotify" in _RELEASE_PROFILE.capabilities:
 from .playback_history import (
     activity_rows as streamer_activity_rows,
     history_rows as streamer_history_rows,
+    observed_frontier_smart_row,
     observed_sonos_row,
     observed_wiim_row,
     record_row as record_streamer_history_row,
@@ -201,9 +217,13 @@ from .navigation import (
 from .shortcuts import (
     Action,
     Chord,
+    DOWNLOAD_HISTORY_COPY_LABELS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
     PRESET_SHORTCUTS,
+    ASSIGN_PRESET_SHORTCUTS,
+    assign_preset_slot,
     RECOGNITION_HISTORY_SESSIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
     TIDAL_SUPPORTED_ACTIONS,
@@ -435,6 +455,7 @@ if "session.spotify" in _RELEASE_PROFILE.capabilities:
         history_rows as spotify_history_rows,
         information_text as spotify_information_text,
         record_history_row as record_spotify_history_row,
+        queue_payload as spotify_queue_payload,
         root_result_from_payload as spotify_root_result_from_payload,
     )
 if "session.tidal" in _RELEASE_PROFILE.capabilities:
@@ -652,7 +673,10 @@ _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.TIME_TOTAL,
     ),
     (
+        Action.COPY_ADDRESS,
         Action.SELECT_AUDIO_OUTPUT,
+        Action.CAST_SESSION,
+        Action.MIRROR_SESSION,
         Action.SESSION_OPTIONS,
         Action.SHOW_LIST,
     ),
@@ -768,23 +792,6 @@ def radio_timeshift_label(minutes: int) -> str:
     else:
         duration = f"{minutes} minut"
     return f"{duration}, {storage}"
-
-
-def radio_window_title(radio_status: dict | None) -> str | None:
-    """Tytuł okna (NVDA+T) podczas radia: stacja i bieżący utwór, jak w AMC.
-
-    Początek „AMC Public — ” zostaje, bo po nim drugie uruchomienie odnajduje
-    okno. None, gdy radio nie gra: wtedy wraca zwykły tytuł z wersją.
-    """
-    status = radio_status or {}
-    station = str(status.get("title") or "").strip()
-    if status.get("engine") != "radio" or not status.get("playing") or not station:
-        return None
-    parts = [PRODUCT_NAME, station]
-    track = str(status.get("streamTitle") or "").strip()
-    if track:
-        parts.append(track)
-    return " — ".join(parts)
 
 
 def _windows_main_window() -> int:
@@ -1393,6 +1400,8 @@ def copied_address_message(row: Row, *, file_copied: bool = False) -> str:
         Tak samo jak przed ta zmiana: komunikat nigdy nie obiecuje czynnosci,
         ktorej program nie wykonal.
     """
+    if row.kind == "recording":
+        return "Skopiowano link do nagrania"
     if row.kind in {"station", "wiimNetworkStream", "sonosOwnStream"}:
         return "Skopiowano bezpośredni adres"
     return "Skopiowano plik i pełną ścieżkę" if file_copied else "Skopiowano pełną ścieżkę"
@@ -1628,19 +1637,18 @@ _BRAK_KONTEKSTU = object()
 
 
 class MediaListCtrl(wx.ListCtrl):
-    """ZWYKLA natywna lista Windows z aktualizacja tylko tego, co sie zmienilo.
+    """Natywna lista Windows; Pliki lokalne moga uzyc trybu wlascicielskiego.
 
-    DLACZEGO NIE JEST JUZ WIRTUALNA. Kontrolka byla ``LC_VIRTUAL`` i oddawala
+    Poprzednio kontrolka byla ``LC_VIRTUAL`` i oddawala
     tekst na zadanie przez ``OnGetItemText``. Kazde odswiezenie widoku szlo
     wtedy jedna droga: ``SetItemCount`` + ``RefreshItems(0, n-1)`` -- rowniez
     gdy dane sie nie zmienily, bo ``_sync_views`` konczy KAZDY przebieg
     ``_run`` (takze po samym komunikacie, Ctrl+C czy ticku statusu). Na 2476
     wierszach bylo to odswiezenie calej listy na kazde nacisniecie klawisza.
 
-    Zatwierdzony kierunek: zwykle natywne listy (jak w SARA i WinZapp, ktore
-    uzytkownik wskazal jako dzialajace dobrze) plus aktualizacje przyrostowe.
-    Kontrolka trzyma teksty u siebie, a ``sync_rows`` dopisuje, usuwa, przenosi
-    i nadpisuje WYLACZNIE to, co sie rozni.
+    Pozostale sesje zachowuja zwykle natywne listy i aktualizacje przyrostowe.
+    Pliki lokalne maja tryb wlascicielski: licznik pozycji zmienia sie jednym
+    wywolaniem, a cache Windows odswiezamy tylko dla zmienionych indeksow.
 
     Co ZOSTAJE bez zmian: te same trzy kolumny, te same ``item_id`` z
     ``ListModel`` i ta sama trwala kontrolka (bez ``Destroy``/rekreacji HWND --
@@ -1654,16 +1662,17 @@ class MediaListCtrl(wx.ListCtrl):
     """
 
     def __init__(self, parent: wx.Window, model: ListModel, label: str,
-                 state: object | None = None) -> None:
+                 state: object | None = None, *, virtual: bool = False) -> None:
         super().__init__(
             parent,
             # Bez ``LC_SINGLE_SEL``: pelne AMC pozwala zaznaczyc Shift/Ctrl
             # kilka wierszy, a polecenia schowka dzialaja na calym wyborze.
             # SysListView32 zachowuje przy tym zwykla obsluge klawiatury i
             # role dostepnosci -- nie budujemy wlasnego mechanizmu wyboru.
-            style=wx.LC_REPORT | wx.BORDER_SUNKEN,
+            style=wx.LC_REPORT | wx.BORDER_SUNKEN | (wx.LC_VIRTUAL if virtual else 0),
         )
         self.model = model
+        self._virtual = virtual
         #: STAN SESJI, ktorej liste pokazujemy (``navigation.SessionState``).
         #: Sluzy WYLACZNIE do odczytu tozsamosci widoku w ``_view_context``;
         #: kontrolka nic w nim nie zmienia. ``None`` = brak wiedzy o widoku, co
@@ -1684,6 +1693,16 @@ class MediaListCtrl(wx.ListCtrl):
         self._shown_context: object = _BRAK_KONTEKSTU
         # ListModel.replace zawsze tworzy nowa liste, takze dla identycznych danych.
         self._shown_rows_source = self.model.rows
+        #: Lista modelu i znormalizowany filtr, ktore ``_shown`` NAPRAWDE
+        #: przedstawia. Ustawiane dopiero po sprawdzeniu kontrolki, wiec na
+        #: starcie puste: pierwsze ``sync_rows`` zawsze wypelnia liste.
+        self._synced_rows: object = None
+        self._synced_query: str | None = None
+        #: Teksty pokazanych wierszy wedlug obiektu ``Row`` (patrz
+        #: ``list_sync.model_row_texts``): zmiana jednego wiersza nie formatuje
+        #: od nowa calej listy.
+        self._row_text_cache: dict = {}
+        self.player_covers = False
         #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
         #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
         #: przy ruchu uzytkownika. Bez tej bramki przejsciowy indeks (np. 0 po
@@ -1735,17 +1754,49 @@ class MediaListCtrl(wx.ListCtrl):
             self.SetColumn(index, column)
         self.set_accessible_label(self._accessible_label_source)
 
+    def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API
+        """Lista Plikow pozostaje przy odtwarzaczu, lecz Tab ja omija."""
+        return not self.player_covers and super().AcceptsFocusFromKeyboard()
+
+    def OnGetItemText(self, item: int, column: int) -> str:  # noqa: N802 - wx API
+        """Tekst widocznego wiersza dla natywnej listy wlascicielskiej."""
+        if 0 <= item < len(self._shown):
+            texts = self._shown[item].texts
+            if 0 <= column < len(texts):
+                return texts[column]
+        return ""
+
     # ------------------------------------------------------------ aktualizacja
 
     def sync_rows(self) -> None:
         """Dociagnij kontrolke do modelu. Brak zmian = ZERO operacji.
 
-        To jest cala zatwierdzona zasada w jednym miejscu: plan wylicza
-        ``list_sync``, my go tylko nakladamy. Gdy plan jest pusty i kursor jest
-        na miejscu, nie wolamy nawet ``Freeze`` -- bo zamrozenie kontrolki tez
-        jest operacja na kontrolce.
+        Zwykla lista naklada plan z ``list_sync``. Lista Plikow stosuje licznik
+        wierszy i punktowe odswiezenie. Kursor na miejscu nie wymaga nawet
+        ``Freeze`` -- zamrozenie kontrolki tez jest operacja na kontrolce.
         """
-        desired = list_sync.model_row_texts(self.model, self.filter_query)
+        if getattr(self, "_virtual", False):
+            self._sync_virtual_rows()
+            return
+        # Model nigdy nie zmienia listy w miejscu (``ListModel.replace`` zawsze
+        # tworzy nowa), a tekst wiersza zalezy tylko od wiersza i filtra. Ta sama
+        # lista i ten sam filtr to wiec te same teksty: zostaje najwyzej kursor.
+        # Bez tej bramki kazdy tick statusu i kazdy klawisz budowal od nowa
+        # teksty wszystkich wierszy, przy 42 866 utworach okolo 0,3 s co sekunde.
+        # Przy filtrze idziemy pelna droga tylko wtedy, gdy wybrany wiersz z niego
+        # wypadl, bo wtedy ponizej wybieramy pierwszy widoczny.
+        query = list_filter.normalized_query(self.filter_query)
+        if (
+            self.model.rows is getattr(self, "_synced_rows", None)
+            and query == getattr(self, "_synced_query", None)
+            and (not query or not self._shown or self._wanted_visible_index() >= 0)
+        ):
+            self._move_cursor_quietly(self._cursor_target())
+            return
+        row_texts = getattr(self, "_row_text_cache", None)
+        if not isinstance(row_texts, dict):
+            row_texts = self._row_text_cache = {}
+        desired = list_sync.model_row_texts(self.model, self.filter_query, row_texts)
         if self.filter_query and desired and not any(
             row.item_id == self.model.selected_id for row in desired
         ):
@@ -1763,6 +1814,9 @@ class MediaListCtrl(wx.ListCtrl):
             if self.model.rows is not getattr(self, "_shown_rows_source", None):
                 self._shown_context = context
                 self._shown_rows_source = self.model.rows
+            # Pusty plan: kontrolka pokazuje dokladnie te wiersze i ten filtr.
+            self._synced_rows = self.model.rows
+            self._synced_query = query
             if cursor is None:
                 # Nic sie nie zmienilo i kursor jest na miejscu: ZERO operacji.
                 # To jest cel calej zmiany -- sam komunikat, Ctrl+C czy tick
@@ -1770,12 +1824,7 @@ class MediaListCtrl(wx.ListCtrl):
                 # Brak operacji kontrolki nie wyklucza nowego, identycznego
                 # wyniku loadera. Kontekst takiego wyniku zapisano wyzej.
                 return
-            # Sam kursor: jedno przejscie stanu, bez przemalowania listy.
-            self.updating = True
-            try:
-                self._move_cursor(cursor)
-            finally:
-                self.updating = False
+            self._move_cursor_quietly(cursor)
             # Samo przesuniecie kursora nie zmienia obiektu model.rows.
             return
         # Zmiana struktury/tekstu to JEDNO przemalowanie, nie seria krokow.
@@ -1788,6 +1837,8 @@ class MediaListCtrl(wx.ListCtrl):
         try:
             self._apply_ops(ops, desired, context)
             self._shown = desired
+            self._synced_rows = self.model.rows
+            self._synced_query = query
             # Kontekst ZAAPLIKOWANY, razem z danymi. Nie wczesniej: gdyby lecial
             # przed nalozeniem planu, przerwana aktualizacja zostawilaby liste z
             # danymi starego widoku, a bramke z kontekstem nowego.
@@ -1801,6 +1852,63 @@ class MediaListCtrl(wx.ListCtrl):
         finally:
             self.Thaw()
             self.updating = False
+
+    def _sync_virtual_rows(self) -> None:
+        """Podmien licznik wlascicielskiej listy, bez tysiecy InsertItem.
+
+        Zmiana jednego napisu uzywa RefreshItem. Zmiana kolejnosci lub zakresu
+        zeruje licznik przed nowym stanem, aby cache UIA nie laczyl starego
+        wiersza z nowym indeksem. Niezmieniony model nie dotyka kontrolki.
+        """
+        query = list_filter.normalized_query(self.filter_query)
+        if (
+            self.model.rows is self._synced_rows
+            and query == self._synced_query
+            and (not query or not self._shown or self._wanted_visible_index() >= 0)
+        ):
+            self._move_cursor_quietly(self._cursor_target())
+            return
+        desired = list_sync.model_row_texts(
+            self.model, self.filter_query, self._row_text_cache,
+        )
+        if self.filter_query and desired and not any(
+            row.item_id == self.model.selected_id for row in desired
+        ):
+            self.model.select_id(desired[0].item_id)
+        old = self._shown
+        same_ids = len(old) == len(desired) and all(
+            before.item_id == after.item_id
+            for before, after in zip(old, desired)
+        )
+        changed = (
+            [
+                index for index, (before, after) in enumerate(zip(old, desired))
+                if before.texts != after.texts
+            ]
+            if same_ids else []
+        )
+        reset = not same_ids or len(changed) > 128 or self.GetItemCount() != len(old)
+        self.updating = True
+        try:
+            if reset and self.GetItemCount():
+                self.SetItemCount(0)
+            self._shown = desired  # OnGetItemText moze przyjsc wewnatrz SetItemCount.
+            if reset:
+                if desired:
+                    self.SetItemCount(len(desired))
+            else:
+                for index in changed:
+                    self.RefreshItem(index)
+            self._synced_rows = self.model.rows
+            self._synced_query = query
+            self._shown_context = self._view_context()
+            self._shown_rows_source = self.model.rows
+            target = self._cursor_target()
+            if target is not None:
+                self._move_cursor(target)
+        finally:
+            self.updating = False
+
     def _view_context(self) -> tuple | None:
         """Tozsamosc widoku z sesji, albo ``None`` gdy sesji nie znamy.
 
@@ -1984,6 +2092,16 @@ class MediaListCtrl(wx.ListCtrl):
             if shown.item_id == selected_id:
                 return index
         return -1
+
+    def _move_cursor_quietly(self, index: int | None) -> None:
+        """Sam kursor: jedno przejscie stanu, bez przemalowania listy."""
+        if index is None:
+            return
+        self.updating = True
+        try:
+            self._move_cursor(index)
+        finally:
+            self.updating = False
 
     def _move_cursor(self, index: int) -> None:
         """Przestaw zaznaczenie i fokus, ustawiajac TYLKO brakujace bity.
@@ -2825,6 +2943,55 @@ class StationDialog(wx.Dialog):
     @property
     def values(self) -> tuple[str, str]:
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
+
+
+class RadioarchiwistaFragmentDialog(wx.Dialog):
+    """Dwie dostępne granice czasowe bez zmiany źródłowego nagrania."""
+
+    def __init__(self, parent: wx.Window, recording: object) -> None:
+        super().__init__(parent, title="Pobierz fragment Radio Archiwisty")
+        self.recording = recording
+        self.selected_range: tuple[int, int] | None = None
+        panel = wx.Panel(self)
+        inner = wx.BoxSizer(wx.VERTICAL)
+        instruction = wx.StaticText(
+            panel,
+            label="Podaj początek i koniec jako minuty:sekundy, na przykład 12:30.",
+        )
+        inner.Add(instruction, 0, wx.ALL, 10)
+        start_label = wx.StaticText(panel, label="&Początek fragmentu:")
+        self.start_field = wx.TextCtrl(panel, value="0:00", size=(220, -1))
+        self.start_field.SetName("Początek fragmentu, minuty i sekundy")
+        end_label = wx.StaticText(panel, label="&Koniec fragmentu:")
+        duration = max(1, int(getattr(recording, "duration_seconds", 3600) or 3600))
+        self.end_field = wx.TextCtrl(
+            panel, value=f"{duration // 60}:{duration % 60:02d}", size=(220, -1)
+        )
+        self.end_field.SetName("Koniec fragmentu, minuty i sekundy")
+        for label, field in ((start_label, self.start_field), (end_label, self.end_field)):
+            inner.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+            inner.Add(field, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        panel.SetSizer(inner)
+        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.Fit()
+        self.Bind(wx.EVT_BUTTON, self._accept, id=wx.ID_OK)
+        self.start_field.SetFocus()
+        self.start_field.SelectAll()
+
+    def _accept(self, _event: wx.CommandEvent) -> None:
+        try:
+            self.selected_range = _radioarchiwista_module.fragment_range(
+                self.recording, self.start_field.GetValue(), self.end_field.GetValue()
+            )
+        except _radioarchiwista_module.RadioarchiwistaError as error:
+            wx.MessageBox(str(error), "Nieprawidłowy zakres fragmentu", wx.OK | wx.ICON_WARNING, self)
+            self.start_field.SetFocus()
+            return
+        self.EndModal(wx.ID_OK)
 
 
 class RenameItemDialog(wx.Dialog):
@@ -4324,6 +4491,13 @@ class ServiceAccountDialog(wx.Dialog):
         service_name: str,
         status: str,
         start_login: Callable[["ServiceAccountDialog"], None],
+        save_spotify_client_id: Callable[["ServiceAccountDialog", str], None] | None = None,
+        start_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        check_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        cancel_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        on_closed: Callable[["ServiceAccountDialog"], None] | None = None,
+        redirect_uri: str = "",
+        needs_setup: bool = False,
     ) -> None:
         super().__init__(
             parent,
@@ -4333,21 +4507,75 @@ class ServiceAccountDialog(wx.Dialog):
         self.SetName(f"Konto {service_name}")
         self._service_name = service_name
         self._start_login = start_login
+        self._save_spotify_client_id = save_spotify_client_id
+        self._start_spotify_pairing = start_spotify_pairing
+        self._check_spotify_pairing = check_spotify_pairing
+        self._cancel_spotify_pairing = cancel_spotify_pairing
+        self._on_closed = on_closed
+        self.pairing_active = False
+        self._login_started = False
+        self._needs_setup = needs_setup
         self._busy = False
 
         heading = wx.StaticText(self, label=f"Konto {service_name}")
         heading.SetName(f"Konto {service_name}")
-        explanation = wx.StaticText(
-            self,
-            label=(
+        if service_name == "Spotify":
+            explanation_text = (
+                "Do katalogu Spotify potrzebujesz Client ID aplikacji deweloperskiej. "
+                "Jej właściciel musi mieć Premium i dopisać Twoje konto do listy "
+                "użytkowników; możesz też użyć własnej aplikacji. W panelu Spotify "
+                "wpisz pokazany adres powrotu dokładnie, z końcowym ukośnikiem. "
+                "Nie wklejaj Client Secret. Hasło wpisujesz tylko na stronie Spotify."
+            )
+        else:
+            explanation_text = (
                 f"Zaloguj się zwykłym kontem na oficjalnej stronie {service_name}. "
                 "Hasło wpisujesz wyłącznie w przeglądarce. AMC nie wymaga "
                 "przepisywania kodu."
-            ),
+            )
+        explanation = wx.StaticText(
+            self,
+            label=explanation_text,
         )
         explanation.Wrap(620)
         self.status = wx.StaticText(self, label=status)
         self.status.SetName(f"Stan konta {service_name}: {status}")
+        if save_spotify_client_id is not None:
+            self.client_id_label = wx.StaticText(self, label="&Client ID:")
+            self.client_id = wx.TextCtrl(self)
+            self.client_id.SetName("Identyfikator aplikacji Spotify, Client ID")
+            self.redirect_uri_label = wx.StaticText(self, label="&Adres powrotu:")
+            self.redirect_uri = FocusableReadOnlyTextCtrl(self, value=redirect_uri)
+            self.redirect_uri.SetName("Adres powrotu Spotify do skopiowania")
+            self.developer_url_label = wx.StaticText(self, label="&Panel aplikacji Spotify:")
+            self.developer_url = FocusableReadOnlyTextCtrl(
+                self, value="https://developer.spotify.com/dashboard"
+            )
+            self.developer_url.SetName("Adres panelu aplikacji Spotify do skopiowania")
+            self.save_button = wx.Button(self, label="Zapisz identyfikator aplikacji")
+            self.save_button.SetName("Zapisz identyfikator aplikacji Spotify")
+            self.save_button.Bind(wx.EVT_BUTTON, self._on_save_client_id)
+        else:
+            self.client_id = None
+            self.save_button = None
+        if start_spotify_pairing is not None:
+            self.pairing_button = wx.Button(self, label="Połącz odtwarzacz Spotify")
+            self.pairing_button.SetName("Rozpocznij parowanie odtwarzacza Spotify")
+            self.pairing_button.Bind(wx.EVT_BUTTON, self._on_start_pairing)
+            self.pairing_code_label = wx.StaticText(self, label="&Kod parowania:")
+            self.pairing_code = FocusableReadOnlyTextCtrl(self)
+            self.pairing_code.SetName("Kod parowania odtwarzacza Spotify")
+            self.pairing_address_label = wx.StaticText(self, label="&Strona parowania:")
+            self.pairing_address = FocusableReadOnlyTextCtrl(self)
+            self.pairing_address.SetName("Adres strony Spotify do wpisania kodu")
+            self.check_pairing_button = wx.Button(self, label="Sprawdź parowanie")
+            self.check_pairing_button.SetName("Sprawdź stan parowania odtwarzacza Spotify")
+            self.check_pairing_button.Bind(wx.EVT_BUTTON, self._on_check_pairing)
+            self.cancel_pairing_button = wx.Button(self, label="Anuluj parowanie")
+            self.cancel_pairing_button.SetName("Anuluj parowanie odtwarzacza Spotify")
+            self.cancel_pairing_button.Bind(wx.EVT_BUTTON, self._on_cancel_pairing)
+        else:
+            self.pairing_button = None
         self.login_button = wx.Button(self, label="Zaloguj w przeglądarce")
         self.login_button.SetName(f"Zaloguj konto {service_name} w przeglądarce")
         self.close_button = wx.Button(self, wx.ID_CANCEL, "Zamknij")
@@ -4360,37 +4588,99 @@ class ServiceAccountDialog(wx.Dialog):
         layout.Add(heading, 0, wx.ALL, 12)
         layout.Add(explanation, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
         layout.Add(self.status, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        if self.client_id is not None:
+            layout.Add(self.client_id_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.client_id, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.redirect_uri_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.redirect_uri, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.developer_url_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.developer_url, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.save_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        if self.pairing_button is not None:
+            layout.Add(self.pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+            layout.Add(self.pairing_code_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.pairing_code, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.pairing_address_label, 0, wx.LEFT | wx.RIGHT, 12)
+            layout.Add(self.pairing_address, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            layout.Add(self.check_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+            layout.Add(self.cancel_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         layout.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizerAndFit(layout)
         self.SetMinSize((680, 300))
 
         self.login_button.Bind(wx.EVT_BUTTON, self._on_login)
+        self.close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
         self.Bind(wx.EVT_CLOSE, self._on_close)
-        wx.CallAfter(self.login_button.SetFocus)
+        self.SetEscapeId(wx.ID_CANCEL)
+        wx.CallAfter(self.focus_primary_action)
+
+    def focus_primary_action(self) -> None:
+        if self.pairing_active and self.pairing_code is not None:
+            self.pairing_code.SetFocus()
+        elif self._needs_setup and self.client_id is not None:
+            self.client_id.SetFocus()
+        else:
+            self.login_button.SetFocus()
+
+    def _on_save_client_id(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self.client_id is None or self._save_spotify_client_id is None:
+            return
+        value = self.client_id.GetValue().strip()
+        self.set_busy(True)
+        self.set_status("Zapisywanie identyfikatora aplikacji Spotify")
+        self._save_spotify_client_id(self, value)
+
+    def _on_start_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._start_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self.set_status("Rozpoczynanie parowania odtwarzacza Spotify")
+        self._start_spotify_pairing(self)
+
+    def _on_check_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._check_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self._check_spotify_pairing(self)
+
+    def _on_cancel_pairing(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._cancel_spotify_pairing is None:
+            return
+        self.set_busy(True)
+        self._cancel_spotify_pairing(self)
 
     def _on_login(self, _event: wx.CommandEvent) -> None:
         if self._busy:
             return
+        self._login_started = True
         self.set_busy(True)
         self.set_status(
             f"Otwieranie oficjalnego logowania {self._service_name} w przeglądarce"
         )
         self._start_login(self)
 
-    def _on_close(self, event: wx.CloseEvent) -> None:
-        if self._busy:
-            self.set_status(
-                "Logowanie nadal trwa. Dokończ je w przeglądarce; "
-                "to okno zamkniesz po otrzymaniu wyniku."
-            )
-            event.Veto()
-            return
-        event.Skip()
+    def _on_close_button(self, _event: wx.CommandEvent) -> None:
+        self.Close()
+
+    def _on_close(self, _event: wx.CloseEvent) -> None:
+        if self._on_closed is not None:
+            self._on_closed(self)
+        self.Hide()
+        self.Destroy()
 
     def set_busy(self, busy: bool) -> None:
         self._busy = bool(busy)
         self.login_button.Enable(not self._busy)
-        self.close_button.Enable(not self._busy)
+        self.close_button.Enable(True)
+        if self.save_button is not None:
+            self.save_button.Enable(not self._busy)
+        if self.pairing_button is not None:
+            for button in (
+                self.pairing_button,
+                self.check_pairing_button,
+                self.cancel_pairing_button,
+            ):
+                button.Enable(not self._busy)
 
     def set_status(self, message: str) -> None:
         message = i18n.ui_text(message)
@@ -4400,10 +4690,13 @@ class ServiceAccountDialog(wx.Dialog):
         )
         self.Layout()
 
-    def finish(self, message: str) -> None:
+    def finish(self, message: str, *, focus_client_id: bool = False) -> None:
         self.set_status(message)
         self.set_busy(False)
-        self.login_button.SetFocus()
+        if focus_client_id and self.client_id is not None:
+            self.client_id.SetFocus()
+        else:
+            self.login_button.SetFocus()
 
 
 class YouTubeLiveChannelPickerDialog(wx.Dialog):
@@ -6664,6 +6957,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         submit,
         resolve_match,
         detailed_hints: bool,
+        finished: Callable[[], None],
         internal_services: tuple[str, ...] = DEFAULT_SERVICES,
     ) -> None:
         super().__init__(parent, title="Rozpoznane utwory", size=(760, 540))
@@ -6677,6 +6971,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             service for service in DEFAULT_SERVICES if service in internal_services
         )
         self._actions_window: RecognitionActionsWindow | None = None
+        self._finished = finished
+        self._closing = False
         self._visible: list[dict] = []
         self.changed = False
         self.requested_action: tuple[dict, RecognitionAction, dict | None] | None = None
@@ -6750,8 +7046,42 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         copy_button.Bind(wx.EVT_BUTTON, self._on_copy)
         export_button.Bind(wx.EVT_BUTTON, self._on_export)
         delete_button.Bind(wx.EVT_BUTTON, self._on_delete)
+        close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
         self._refresh_rows()
-        wx.CallAfter(self.history.SetFocus)
+
+    def show_for_keyboard(self) -> None:
+        self.Show()
+        self.Raise()
+        wx.CallAfter(self._focus_history)
+
+    def _focus_history(self) -> None:
+        if not self._closing and self.IsShown():
+            self.history.SetFocus()
+
+    def _on_close_button(self, _event: wx.CommandEvent) -> None:
+        self.Close()
+
+    def _on_close(self, _event: wx.CloseEvent) -> None:
+        if self._closing:
+            return
+        self._closing = True
+        actions = self._actions_window
+        self._actions_window = None
+        if actions is not None:
+            actions.Destroy()
+        finished = self._finished
+        self._finished = lambda: None
+        self.Hide()
+        self.Destroy()
+        finished()
+
+    def dispose_for_parent_close(self) -> None:
+        """Close with the frame without scheduling focus on a dead parent."""
+        if self._closing:
+            return
+        self._finished = lambda: None
+        self._on_close(None)
 
     @staticmethod
     def _station_matches_query(name: str, query: str) -> bool:
@@ -6817,6 +7147,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         announce_status(self.status, text)
 
     def _resolve_action(self, entry, action, ready, failed) -> None:
+        if self._closing:
+            return
         if not action.needs_match:
             ready(None)
             return
@@ -6826,6 +7158,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             return
 
         def done(match: dict | None) -> None:
+            if self._closing:
+                return
             if match is None:
                 failed(LookupError("no exact match"))
                 return
@@ -6837,7 +7171,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             "recognition-service-link",
             lambda: self._resolve_match(entry, action.service),
             done,
-            failed,
+            lambda error: None if self._closing else failed(error),
         )
 
     def _copy(self) -> None:
@@ -6905,8 +7239,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
 
         def ready(match: dict | None) -> None:
             self.requested_action = entry, action, match
-            if self.IsModal():
-                self.EndModal(wx.ID_OK)
+            self.Close()
 
         self._resolve_action(
             entry,
@@ -6982,12 +7315,11 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             if self._actions_window is actions_window:
                 self._actions_window = None
             if not executed:
-                wx.CallAfter(self.history.SetFocus)
+                wx.CallAfter(self._focus_history)
 
         def execute(selected_entry, action, match) -> None:
             self.requested_action = selected_entry, action, match
-            if self.IsModal():
-                self.EndModal(wx.ID_OK)
+            self.Close()
 
         actions_window = RecognitionActionsWindow(
             self,
@@ -7100,7 +7432,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         finally:
             menu.Destroy()
             if self.requested_action is None:
-                wx.CallAfter(self.history.SetFocus)
+                wx.CallAfter(self._focus_history)
 
     def _on_station_query(self, _event: wx.CommandEvent) -> None:
         self._refresh_rows()
@@ -7129,7 +7461,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 recognition_quick_information(entry) if entry is not None else "Brak wybranego wpisu"
             )
         elif chord == "Escape":
-            self.EndModal(wx.ID_CANCEL)
+            self.Close()
         else:
             event.Skip()
 
@@ -7310,12 +7642,12 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.global_transient_previews = wx.CheckBox(
             general,
             label=(
-                "Wspólne podglądy &nagrywania i nowych odcinków "
+                "Wspólne podglądy &nowych odcinków i transmisji "
                 "we wszystkich sesjach"
             ),
         )
         self.global_transient_previews.SetName(
-            "Wspólne podglądy nagrywania i nowych odcinków we wszystkich sesjach"
+            "Wspólne podglądy nowych odcinków i transmisji we wszystkich sesjach"
         )
         self.global_transient_previews.SetValue(global_transient_previews)
 
@@ -7515,6 +7847,18 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         radio_layout.Add(folder_label, 0, wx.BOTTOM, 4)
         radio_layout.Add(self.recording_folder, 0, wx.BOTTOM | wx.EXPAND, 8)
         radio_layout.Add(folder_buttons, 0, wx.BOTTOM | wx.EXPAND, 12)
+        self.radio_separate_station_folders = wx.CheckBox(
+            radio, label="Twórz osobny folder dla &każdej stacji radiowej"
+        )
+        self.radio_separate_station_folders.SetName(
+            "Twórz osobny folder dla każdej stacji radiowej"
+        )
+        self.radio_separate_station_folders.SetValue(
+            options.radio_separate_station_folders
+        )
+        radio_layout.Add(
+            self.radio_separate_station_folders, 0, wx.BOTTOM | wx.EXPAND, 12
+        )
 
         format_label = wx.StaticText(radio, label="&Format pliku:")
         self._recording_format_values = [
@@ -7737,6 +8081,18 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         podcasts_layout.Add(
             podcast_folder_buttons, 0, wx.BOTTOM | wx.EXPAND, 12
         )
+        self.podcast_separate_source_folders = wx.CheckBox(
+            podcasts, label="Twórz osobny folder dla &każdego podcastu lub kanału"
+        )
+        self.podcast_separate_source_folders.SetName(
+            "Twórz osobny folder dla każdego podcastu lub kanału"
+        )
+        self.podcast_separate_source_folders.SetValue(
+            options.podcast_separate_source_folders
+        )
+        podcasts_layout.Add(
+            self.podcast_separate_source_folders, 0, wx.BOTTOM | wx.EXPAND, 12
+        )
 
         youtube_video_format_label = wx.StaticText(
             podcasts, label="Format pobieranego &wideo internetowego:"
@@ -7874,10 +8230,6 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.shell_open_with.SetValue(
             bool(shell_integration.get("openWithEnabled", False))
         )
-        self.shell_open_with.SetHelpText(
-            "Ta opcja udostępnia AMC jako wybór dla plików. "
-            "Nie ustawia AMC jako programu domyślnego."
-        )
         integration_layout.Add(
             self.shell_context_menu, 0, wx.BOTTOM | wx.EXPAND, 10
         )
@@ -7887,10 +8239,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         groups_heading = wx.StaticText(
             integration,
-            label="Udostępniaj AMC dla następujących &typów plików (bez zmiany programu domyślnego):",
+            label="Udostępniaj AMC dla następujących &typów plików:",
         )
         groups_heading.SetName(
-            "Udostępniaj AMC dla następujących typów plików, bez zmiany programu domyślnego"
+            "Udostępniaj AMC dla następujących typów plików"
         )
         integration_layout.Add(groups_heading, 0, wx.BOTTOM | wx.EXPAND, 8)
         self._shell_group_controls: list[tuple[str, wx.CheckBox]] = []
@@ -7912,9 +8264,6 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 if isinstance(raw_extensions, list) and isinstance(value, str)
             ] if isinstance(raw_extensions, list) else []
             help_parts = [description] if description else []
-            help_parts.append(
-                "Zaznaczenie udostępnia AMC w Windows, ale nie ustawia programu domyślnego."
-            )
             if extensions:
                 help_parts.append("Rozszerzenia: " + ", ".join(extensions) + ".")
             if help_parts:
@@ -7925,14 +8274,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         self.open_default_apps = wx.Button(
             integration,
-            label="Wybierz domyślne typy plików dla AMC w &Windows…",
+            label="Otwórz ustawienia aplikacji &domyślnych Windows…",
         )
         self.open_default_apps.SetName(
-            "Wybierz domyślne typy plików dla AMC w Windows"
-        )
-        self.open_default_apps.SetHelpText(
-            "Otwiera stronę AMC w ustawieniach aplikacji domyślnych, jeśli Windows to obsługuje. "
-            "Tam potwierdź wybrane formaty jako domyślne."
+            "Otwórz ustawienia aplikacji domyślnych Windows"
         )
         self.open_default_apps.Bind(
             wx.EVT_BUTTON, self._on_open_windows_default_apps
@@ -8989,6 +9334,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 max(0, self.timeshift.GetSelection())
             ],
             "radio_recordings_folder": self._recording_folder_value,
+            "radio_separate_station_folders": (
+                self.radio_separate_station_folders.GetValue()
+            ),
             "radio_use_podcast_downloads_folder": (
                 self.recording_folder_mode.GetSelection() == 1
             ),
@@ -9005,6 +9353,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 self.wake_scheduled_recordings.GetValue()
             ),
             "podcast_downloads_folder": self._podcast_folder_value,
+            "podcast_separate_source_folders": (
+                self.podcast_separate_source_folders.GetValue()
+            ),
             "podcast_rss_refresh_interval_minutes": (
                 self.podcast_rss_interval.GetValue()
             ),
@@ -9123,6 +9474,8 @@ class LiteFrame(wx.Frame):
         # drugiego, konkurencyjnego zegara.
         self.library = LibrarySource()
         self.podcasts = PodcastSource(self.layout)
+        self._download_history = DownloadHistoryStore(self.layout.lite_settings_dir)
+        self._download_history_entries: dict[str, DownloadEntry] = {}
         private_tidal_enabled = "session.tidal" in _RELEASE_PROFILE.capabilities
         self.tidal = TidalSource(self.layout) if private_tidal_enabled else None
         # Radio Archiwista: leniwe źródło (utworzone tutaj, gdy profil
@@ -9153,6 +9506,9 @@ class LiteFrame(wx.Frame):
         else:
             self._tidal_queue_rows = []
             self._tidal_effective_sort_modes = {}
+        self._spotify_queue_rows = list(spotify_history_rows(
+            state.spotify_queue_items
+        )) if "session.spotify" in _RELEASE_PROFILE.capabilities else []
         self._spotify_effective_sort_modes = {
             scope: state.spotify_sort_modes.get(scope, SORT_ADDED_NEWEST)
             for scope in (
@@ -9224,6 +9580,7 @@ class LiteFrame(wx.Frame):
         self._quick_info_cache = QuickInfoMemoryCache()
 
         self.client: LiteHostClient | None = None
+        self._service_account_dialogs: dict[SessionId, ServiceAccountDialog] = {}
         # Zarządzanie kontem Sonos jest celowo modeless. Główne okno nie może
         # zostać wyłączone, gdy Windows albo czytnik ekranu zgubi fokus dziecka.
         self._sonos_account_dialog: SonosAccountDialog | None = None
@@ -9391,7 +9748,7 @@ class LiteFrame(wx.Frame):
         self._restoring_filter = False
         self.files_list = MediaListCtrl(
             self.list_panel, self.navigator.sessions[SessionId.FILES].model, "Pliki lokalne",
-            self.navigator.sessions[SessionId.FILES],
+            self.navigator.sessions[SessionId.FILES], virtual=True,
         )
         self.radio_list = MediaListCtrl(
             self.list_panel, self.navigator.sessions[SessionId.RADIO].model, "Stacje radiowe",
@@ -9471,6 +9828,11 @@ class LiteFrame(wx.Frame):
         self.play_button = wx.Button(
             self.player_panel, label=transport_button_label(playing=False)
         )
+        # Podpis MUSI powstac przed kontrolka. Windows (oleacc) bierze nazwe
+        # suwaka i listy wyboru z poprzedzajacego je podpisu, a skrot z ``&``
+        # przenosi fokus na NASTEPNA kontrolke. Podpis tworzony po kontrolce
+        # dawal w NVDA samo "suwak, 40" i "lista rozwijana, 1,00 razy".
+        volume_label = wx.StaticText(self.player_panel, label="&Głośność:")
         self.volume_slider = wx.Slider(
             self.player_panel, value=self.options.volume, minValue=0, maxValue=100,
             style=wx.SL_HORIZONTAL,
@@ -9480,6 +9842,7 @@ class LiteFrame(wx.Frame):
         # udostępnia NVDA ich znaczenie i natywnie obsługuje Home/End; suwak
         # procentowy wystawiał niejasne liczby 100 i 200 oraz sugerował
         # wartości, których silnik w ogóle nie przyjmuje.
+        rate_label = wx.StaticText(self.player_panel, label="&Prędkość:")
         self.rate_choice = wx.Choice(
             self.player_panel,
             choices=[playback_rate_choice_label(rate) for rate in PLAYBACK_RATES],
@@ -9494,9 +9857,9 @@ class LiteFrame(wx.Frame):
             (self.now_playing, 0),
             (self.time_label, 0),
             (self.play_button, 0),
-            (wx.StaticText(self.player_panel, label="&Glosnosc:"), 0),
+            (volume_label, 0),
             (self.volume_slider, 0),
-            (wx.StaticText(self.player_panel, label="&Predkosc:"), 0),
+            (rate_label, 0),
             (self.rate_choice, 0),
         ):
             player_sizer.Add(control, flag, wx.ALL | wx.EXPAND, 6)
@@ -9810,7 +10173,14 @@ class LiteFrame(wx.Frame):
             information_row is not None
             and looks_like_local_path(getattr(information_row, "path", ""))
         )
-        selected_row = session.model.selected_row
+        selected_row = (
+            information_row
+            if self.navigator.active is SessionId.RADIOARCHIWISTA
+            and session.view is View.PLAYER
+            else session.model.selected_row
+        )
+        if self.navigator.active is SessionId.RADIOARCHIWISTA and session.view is View.PLAYER:
+            has_row = selected_row is not None
         selected_kind = (
             selected_row.kind
             if selected_row is not None
@@ -9931,6 +10301,12 @@ class LiteFrame(wx.Frame):
         )
         blocked_sessions = self._sessions_blocked_from_disabling()
         for item, entry in self._menu_items:
+            if entry.action in {Action.COPY_NAME, Action.COPY_ADDRESS}:
+                label = (DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
+                         if self._in_download_history() else entry.label)
+                native_label = self._menu_native_label(entry, label)
+                if item.GetItemLabel() != native_label:
+                    item.SetItemLabel(native_label)
             enabled = True
             if entry.action is Action.SESSION_ENABLE and (
                 not inactive_sessions
@@ -10019,6 +10395,19 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_selection and not has_row:
                 enabled = False
+            if (
+                entry.action is Action.COPY_ADDRESS
+                and self._in_download_history()
+                and (selected_row is None or not selected_row.path
+                     or not os.path.isfile(selected_row.path))
+            ):
+                enabled = False
+            if (
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+                and entry.action is Action.COPY_ADDRESS
+                and not (selected_row is not None and selected_row.address)
+            ):
+                enabled = False
             if entry.action is Action.RENAME_LIBRARY_ITEM and not (
                 selected_row is not None
                 and (
@@ -10046,8 +10435,27 @@ class LiteFrame(wx.Frame):
                 self.navigator.active, set()
             ):
                 enabled = False
+            if entry.needs_radioarchiwista_preset_folder and not (
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+                and selected_row is not None
+                and selected_row.service_kind in {"rarchStation", "rarchLatest"}
+            ):
+                enabled = False
+            if entry.needs_radioarchiwista_recording and not (
+                selected_kind == "recording"
+                and selected_row is not None
+                and bool(selected_row.url)
+            ):
+                enabled = False
             if entry.needs_playlist_item and selected_kind not in playlist_kinds.get(
                 self.navigator.active, set()
+            ):
+                enabled = False
+            if entry.needs_spotify_album and not (
+                self.navigator.active is SessionId.SPOTIFY
+                and selected_row is not None
+                and selected_row.kind == "album"
+                and bool(selected_row.service_id)
             ):
                 enabled = False
             if entry.needs_queue_item:
@@ -10062,6 +10470,12 @@ class LiteFrame(wx.Frame):
                         and selected_kind == "track"
                         and bool(selected_row.service_id)
                         and bool(selected_row.related_album_service_id)
+                        or self.navigator.active is SessionId.SPOTIFY
+                        and selected_kind in {"track", "episode"}
+                        and bool(selected_row.service_id)
+                        or self.navigator.active is SessionId.RADIOARCHIWISTA
+                        and selected_kind == "recording"
+                        and bool(selected_row.url)
                     )
                 )
                 if not queue_item:
@@ -10073,6 +10487,9 @@ class LiteFrame(wx.Frame):
                     and selected_kind == "track"
                     or self.navigator.active is SessionId.PODCASTS
                     and selected_kind == "episode"
+                    or self.navigator.active is SessionId.RADIOARCHIWISTA
+                    and selected_kind == "recording"
+                    and bool(selected_row.url)
                 )
             ):
                 enabled = False
@@ -10143,6 +10560,12 @@ class LiteFrame(wx.Frame):
             if entry.needs_podcast_episode and (
                 not podcasts or selected_kind != "episode"
             ):
+                enabled = False
+            if self.client is not None and getattr(self.client, "cast_active", lambda _: False)(self.navigator.active.value):
+                if not cast_action_available(entry.action, True, self.navigator.active.value,
+                        self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
+                    enabled = False
+            if entry.action in (Action.CAST_SESSION, Action.MIRROR_SESSION) and not self._action_available_in_active_session(entry.action):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
@@ -10346,6 +10769,8 @@ class LiteFrame(wx.Frame):
                 label = label[:-len(suffix)]
         if entry.action is Action.STATION_EDIT:
             label = "Zmień nazwę lub adres stacji"
+        elif self._in_download_history() and entry.action in DOWNLOAD_HISTORY_COPY_LABELS:
+            label = DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
         elif entry.action is Action.EDIT_WIIM_NETWORK_STREAM:
             label = "Zmień nazwę lub adres strumienia WiiM…"
         elif entry.action is Action.EDIT_SONOS_OWN_STREAM:
@@ -10550,6 +10975,7 @@ class LiteFrame(wx.Frame):
         # Ctrl+Shift+0 ginie w natywnej liscie Windows przed EVT_KEY_DOWN,
         # choc minus i znak rownosci przechodza ta sama droga poprawnie.
         if canonical in {
+            "Space",
             "F2",
             "Shift+F2",
             "Delete",
@@ -10574,7 +11000,7 @@ class LiteFrame(wx.Frame):
             "Ctrl+,",
             "F5",
             "Ctrl+F5",
-        } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS):
+        } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
             # Ctrl+C musi zostac zatrzymane PRZED natywnym SysListView32,
             # zeby gest wykonal tylko polecenie AMC. Sam zapis do schowka jest
             # odroczony w ``_copy_name`` za okno kontroli dodatku NVDA, więc
@@ -12363,6 +12789,10 @@ class LiteFrame(wx.Frame):
         wx.CallAfter(self._handle_engine_event, name, data)
 
     def _handle_engine_event(self, name: str, data: dict) -> None:
+        if name == "mirror.failed":
+            self.announcer.say(str(data.get("message") or "Utracono dublowanie dźwięku"))
+            self._refresh_menu_state()
+            return
         if not self._window_alive():
             return
         if name == nvda_bridge.EVENT_NAME:
@@ -12388,6 +12818,9 @@ class LiteFrame(wx.Frame):
                 )
             )
         elif name == "audio.clipExportProgress":
+            fragment_progress = self.__dict__.get("_radioarchiwista_fragment_progress")
+            if callable(fragment_progress):
+                fragment_progress(data)
             # Postep ma byc dostepny przez pole i NVDA+End, ale NIE moze
             # przerywac mowy co 5%. Zdarzenie koncowe jest oglaszane raz przez
             # odpowiedz operacji w ``_start_audio_clip_export``.
@@ -12482,13 +12915,34 @@ class LiteFrame(wx.Frame):
             # Dlatego tozsamosc bierzemy z kandydata zapisanego przy zlecaniu,
             # a z hosta tylko FAKT, ze start sie udal.
             if data.get("engine") == "files":
-                target = self._pending_playback_session
-                if target not in (SessionId.FILES, SessionId.PODCASTS):
+                try:
+                    target = SessionId(str(data.get("sessionId")))
+                except ValueError:
+                    target = self._pending_playback_session
+                if target not in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     target = SessionId.FILES
+                archive_row = None
+                if target is SessionId.RADIOARCHIWISTA:
+                    archive_state = self.navigator.sessions[target]
+                    archive_row = next((
+                        row for row in archive_state.playback_source_rows
+                        if row.item_id == archive_state.now_playing_id
+                        and row.kind == "recording" and row.url
+                    ), None)
+                    if archive_row is None:
+                        selected = archive_state.model.selected_row
+                        if (selected is not None and selected.kind == "recording"
+                                and selected.url and selected.item_id == archive_state.now_playing_id):
+                            archive_row = selected
                 self.navigator.note_playback_started(target)
+                if archive_row is not None:
+                    self._record_streamer_history_row(
+                        target, archive_row, replay_supported=True,
+                    )
                 self._playing_session = target
                 self._playing_sessions.discard(SessionId.FILES)
                 self._playing_sessions.discard(SessionId.PODCASTS)
+                self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
                 self._playing_sessions.add(target)
                 self._podcast_checkpoint_active = target is SessionId.PODCASTS
                 if self._podcast_checkpoint_active:
@@ -12569,14 +13023,27 @@ class LiteFrame(wx.Frame):
             if engine == "spotify":
                 ended_session = SessionId.SPOTIFY
             elif engine == "files":
-                candidate = getattr(self, "_playing_session", None)
-                if candidate in (SessionId.FILES, SessionId.PODCASTS):
+                try:
+                    candidate = SessionId(str(data.get("sessionId")))
+                except ValueError:
+                    candidate = getattr(self, "_playing_session", None)
+                if candidate in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
                     ended_session = candidate
+                elif SessionId.RADIOARCHIWISTA in playing_sessions:
+                    ended_session = SessionId.RADIOARCHIWISTA
                 elif SessionId.PODCASTS in playing_sessions:
                     ended_session = SessionId.PODCASTS
                 else:
                     ended_session = SessionId.FILES
             if not data.get("queueContinues") and ended_session is not None:
+                if ended_session is SessionId.RADIOARCHIWISTA:
+                    continuation = self.navigator.continue_radioarchiwista_queue_after_end()
+                    if continuation:
+                        play = next((intent for intent in continuation if isinstance(intent, PlayMedia)), None)
+                        if play is not None:
+                            self._play_media(play, session_id=SessionId.RADIOARCHIWISTA)
+                            self.announcer.say(play.title)
+                        return
                 continue_shuffled = getattr(
                     getattr(self, "navigator", None),
                     "continue_shuffled_after_end",
@@ -12598,6 +13065,7 @@ class LiteFrame(wx.Frame):
             if data.get("engine") == "files" and not data.get("queueContinues"):
                 playing_sessions.discard(SessionId.FILES)
                 playing_sessions.discard(SessionId.PODCASTS)
+                playing_sessions.discard(SessionId.RADIOARCHIWISTA)
                 self._playing_sessions = playing_sessions
             if data.get("engine") == "spotify":
                 playing_sessions.discard(SessionId.SPOTIFY)
@@ -12641,7 +13109,11 @@ class LiteFrame(wx.Frame):
                 if callable(refresh_activity):
                     refresh_activity()
                 return
-            failed_session = self._pending_playback_session
+            failed_session = (
+                SessionId(data["sessionId"])
+                if data.get("cast") and data.get("sessionId") in CAST_SESSIONS
+                else self._pending_playback_session
+            )
             if failed_session is None and data.get("engine") == "radio":
                 failed_session = SessionId.RADIO
             if failed_session is None and data.get("engine") == "files":
@@ -12655,7 +13127,8 @@ class LiteFrame(wx.Frame):
                 )
             if failed_session is None:
                 failed_session = self._playing_session
-            self._pending_playback_session = None
+            if not data.get("cast") or self._pending_playback_session is failed_session:
+                self._pending_playback_session = None
             if failed_session is not None:
                 self._playing_sessions.discard(failed_session)
             if failed_session is SessionId.PODCASTS:
@@ -12774,6 +13247,11 @@ class LiteFrame(wx.Frame):
             "playback.failed",
             "queue.advanced",
         ):
+            if name == "playback.started":
+                # The previous poll can predate the new material.
+                refresh_status = getattr(self, "_refresh_status", None)
+                if callable(refresh_status):
+                    refresh_status()
             refresh_activity = getattr(
                 self, "_refresh_native_playback_activity_view", None
             )
@@ -13110,6 +13588,9 @@ class LiteFrame(wx.Frame):
         """
         if self.navigator.active is SessionId.RADIO:
             self._run(self.navigator.return_to_library(LIBRARY_VIEW_FOLDERS))
+            return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            self._open_radioarchiwista_stations()
             return
         if self.navigator.active is SessionId.PODCASTS:
             self._open_podcast_library(
@@ -13811,7 +14292,6 @@ class LiteFrame(wx.Frame):
             return
         self._pending_spotify_playback = intent
         self._pending_playback_session = SessionId.SPOTIFY
-        self.announcer.say("Przygotowywanie odtwarzania Spotify")
 
         def done(_payload: dict) -> None:
             # Przyjęcie polecenia nie znaczy jeszcze, że słychać dźwięk.
@@ -13843,7 +14323,7 @@ class LiteFrame(wx.Frame):
                 "external_id": intent.service_id,
                 "kind": intent.kind,
                 "volume": self.options.volume,
-                "playback_rate": self._session_default_rate(SessionId.SPOTIFY),
+                "playback_rate": 1.0,
                 **({"artist": intent.artist} if intent.artist else {}),
             }),
             done,
@@ -13864,25 +14344,18 @@ class LiteFrame(wx.Frame):
     def _record_streamer_history_snapshot(
         self, session_id: SessionId, snapshot: dict
     ) -> None:
-        """Zapisz wyłącznie potwierdzony stan grającego WiiM albo Sonosa."""
+        """Zapisz wyłącznie potwierdzony stan grającego urządzenia."""
 
         row = (
             observed_wiim_row(snapshot)
             if session_id is SessionId.WIIM
             else observed_sonos_row(snapshot)
             if session_id is SessionId.SONOS
+            else observed_frontier_smart_row(snapshot)
+            if session_id is SessionId.FRONTIER_SMART
             else None
         )
         if row is None:
-            return
-        previous = list(
-            self.state.playback_history_by_session.get(session_id.value, ())
-        )
-        if (
-            previous
-            and str(previous[0].get("title") or "").strip().casefold()
-            == row.title.strip().casefold()
-        ):
             return
         recorder = getattr(self, "_record_streamer_history_row", None)
         if callable(recorder):
@@ -14078,6 +14551,14 @@ class LiteFrame(wx.Frame):
             return False
 
     def _on_player_shortcut_hook(self, event: wx.KeyEvent) -> None:
+        # NVDA+End ma dotrzeć do czytnika również w polu filtra i w pomocy.
+        if (
+            chord_from_event(event).canonical in {"Up", "Down", "End"}
+            and getattr(self, "_screen_reader_modifier_down", lambda: False)()
+        ):
+            event.Skip()
+            return
+
         # Pomoc klawiatury musi być pierwszą bramką. W przeciwnym razie
         # pole filtra albo natywna lista wykonałyby opisywany skrót, zanim
         # AMC zdążyłby go tylko nazwać.
@@ -14113,19 +14594,6 @@ class LiteFrame(wx.Frame):
             else:
                 self._show_context_menu(self._active_list(), player=False)
             return
-        screen_reader_modifier_down = getattr(
-            self,
-            "_screen_reader_modifier_down",
-            lambda: False,
-        )
-        if (
-            self.navigator.view is View.PLAYER
-            and canonical in {"Up", "Down", "End"}
-            and screen_reader_modifier_down()
-        ):
-            event.Skip()
-            return
-
         # Windowsowa kontrolka listy potrafi przejac F2 (wlasna edycja
         # etykiety) oraz Delete, zanim dotra do EVT_KEY_DOWN kontrolki. Te
         # cztery gesty sa poleceniami AMC, wiec przechwytujemy je juz na
@@ -14134,15 +14602,11 @@ class LiteFrame(wx.Frame):
         if self.navigator.view is not View.PLAYER:
             # Ctrl+Shift+0 wymaga tej wczesnej drogi tak samo jak w starym
             # AMC; pozostawienie go kontrolce listy daje cisze i brak akcji.
-            # SysListView32 używa gołej Spacji do własnego zaznaczania i na
-            # Windows potrafi połknąć ją przed EVT_KEY_DOWN. W Sonos Spacja
-            # jest sterowaniem aktywną grupą również podczas przeglądania
-            # Biblioteki. Ctrl+Spacja nadal należy do wielokrotnego zaznaczenia.
-            if (
-                getattr(getattr(self.navigator, "active", None), "value", "")
-                == "sonos"
-                and canonical == "Space"
-            ):
+            # SysListView32 może połknąć gołą Spację przed EVT_KEY_DOWN.
+            # We wszystkich sesjach jest to polecenie transportu bieżącej
+            # sesji, także przy przeglądaniu listy. Ctrl+Spacja pozostaje
+            # natywnym wyborem wielu elementów.
+            if canonical == "Space":
                 self._on_key(event)
                 return
             if (
@@ -14208,7 +14672,7 @@ class LiteFrame(wx.Frame):
                 "Alt+Shift+R",
                 "Alt+Up",
                 "Alt+Down",
-            } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS):
+            } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
                 self._on_key(event)
                 return
             event.Skip()
@@ -14378,6 +14842,7 @@ class LiteFrame(wx.Frame):
             chord,
             player_view=player,
             radio_session=radio,
+            radioarchiwista_session=self.navigator.active is SessionId.RADIOARCHIWISTA,
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
             radio_collection=radio_collection,
             radio_playlist_contents=radio_playlist_contents,
@@ -14436,6 +14901,14 @@ class LiteFrame(wx.Frame):
         self._dispatch(action)
 
     def _dispatch(self, action: Action) -> None:
+        if (action in (Action.CAST_SESSION, Action.MIRROR_SESSION) or (
+            getattr(self, "client", None) is not None and getattr(self.client, "cast_active", lambda _: False)(
+                self.navigator.active.value)
+        )) and not self._action_available_in_active_session(action):
+            self.announcer.say(i18n.tr(
+                "cast.unavailable" if action is Action.CAST_SESSION else
+                "mirror.unavailable" if action is Action.MIRROR_SESSION else "cast.unsupported"))
+            return
         if (
             action in TRANSIENT_PREVIEW_ACTIONS
             and not is_transient_preview_available(
@@ -14504,6 +14977,12 @@ class LiteFrame(wx.Frame):
             if action not in FRONTIER_SMART_SUPPORTED_ACTIONS:
                 self.announcer.say(
                     "To polecenie nie jest dostępne w sesji Frontier Smart"
+                )
+                return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            if action not in RADIOARCHIWISTA_SUPPORTED_ACTIONS:
+                self.announcer.say(
+                    i18n.tr("rarch.command.unavailable")
                 )
                 return
         if action is Action.SESSION_FILES:
@@ -14604,6 +15083,10 @@ class LiteFrame(wx.Frame):
             self._show_session_options()
         elif action is Action.SELECT_AUDIO_OUTPUT:
             self._choose_audio_output()
+        elif action is Action.CAST_SESSION:
+            self._choose_cast_output()
+        elif action is Action.MIRROR_SESSION:
+            self._choose_cast_mirror()
         elif action is Action.PREVIOUS_AUDIO_OUTPUT:
             self._cycle_audio_output(-1)
         elif action is Action.NEXT_AUDIO_OUTPUT:
@@ -14688,6 +15171,8 @@ class LiteFrame(wx.Frame):
             self._export_sonos_own_streams()
         elif action is Action.ASSIGN_PRESET:
             self._assign_preset()
+        elif (assigned_slot := assign_preset_slot(action)) is not None:
+            self._assign_preset(assigned_slot)
         elif (slot := preset_slot(action)) is not None:
             self._activate_preset(slot)
         elif action is Action.PLAY_PAUSE:
@@ -14745,6 +15230,8 @@ class LiteFrame(wx.Frame):
             self._clear_audio_clip_selection()
         elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
             self._queue_step(action is Action.QUEUE_NEXT)
+        elif action is Action.PLAY_SPOTIFY_ALBUM:
+            self._play_selected_spotify_album()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
             self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
         elif action is Action.TOGGLE_FAVORITE:
@@ -14888,6 +15375,8 @@ class LiteFrame(wx.Frame):
             self._announce_recording_output_information()
         elif action is Action.VIEW_RECORDED_RADIO_FILES:
             self._show_radio_recording_history()
+        elif action is Action.VIEW_DOWNLOADED_FILES:
+            self._show_download_history()
         elif action is Action.ADD_RADIO_SCHEDULE:
             self._show_radio_schedules(create_for_selected=True)
         elif action is Action.MANAGE_RADIO_SCHEDULES:
@@ -14992,6 +15481,8 @@ class LiteFrame(wx.Frame):
             self._toggle_radioarchiwista_favorite()
         elif action is Action.RADIOARCHIWISTA_DOWNLOAD:
             self._download_radioarchiwista_recording()
+        elif action is Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT:
+            self._download_radioarchiwista_fragment()
         elif action is Action.RADIOARCHIWISTA_REFRESH:
             self._refresh_radioarchiwista_view()
         elif action is Action.VIEW_FAVORITES:
@@ -15052,13 +15543,17 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_HISTORY:
             self._show_playback_history_preview()
         elif action is Action.VIEW_SAVED_QUEUE:
-            if self.navigator.active is SessionId.PODCASTS:
+            if self.navigator.active is SessionId.RADIOARCHIWISTA:
+                self._open_radioarchiwista_queue()
+            elif self.navigator.active is SessionId.PODCASTS:
                 self._transient_preview_return = None
                 self._open_podcast_aggregate(
                     OpenPodcastAggregateView(LibraryView.PODCAST_QUEUE)
                 )
             elif self.navigator.active is SessionId.TIDAL:
                 self._open_tidal_queue()
+            elif self.navigator.active is SessionId.SPOTIFY:
+                self._open_spotify_queue()
             else:
                 self._run(self.navigator.open_queue_view())
         elif action is Action.VIEW_ITEM_BOOKMARKS:
@@ -15106,13 +15601,10 @@ class LiteFrame(wx.Frame):
             if any(
                 window is not self
                 and window.IsShown()
-                and callable(getattr(window, "IsModal", None))
-                and bool(window.IsModal())
                 for window in wx.GetTopLevelWindows()
             ):
-                # Nie nakladaj drugiego modala na wybor sesji, Ustawienia ani
-                # inne rozpoczęte działanie. Sprawdzenie nadal odbędzie się w
-                # tym uruchomieniu, gdy użytkownik wróci do głównego okna.
+                # Nie nakładaj automatycznego modala na historię, konto ani
+                # inne okno. Sprawdzenie poczeka na powrót do głównego okna.
                 self._automatic_application_update_check_call = wx.CallLater(
                     5000, start
                 )
@@ -15139,17 +15631,31 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Sprawdzanie aktualizacji AMC")
 
         def done(check: ApplicationUpdateCheck) -> None:
-            self._application_update_pending = False
             if automatic and not check.available:
+                self._application_update_pending = False
                 return
-            dialog = ApplicationUpdateDialog(self, check)
-            try:
-                decision = dialog.ShowModal()
-            finally:
-                dialog.Destroy()
-                self._restore_focus_after_dialog()
-            if decision == wx.ID_OK and check.available:
-                self._download_application_update(check)
+
+            def present_when_free() -> None:
+                if not self._window_alive():
+                    self._application_update_pending = False
+                    return
+                if any(
+                    window is not self and window.IsShown()
+                    for window in wx.GetTopLevelWindows()
+                ):
+                    wx.CallLater(500, present_when_free)
+                    return
+                self._application_update_pending = False
+                dialog = ApplicationUpdateDialog(self, check)
+                try:
+                    decision = dialog.ShowModal()
+                finally:
+                    dialog.Destroy()
+                    self._restore_focus_after_dialog()
+                if decision == wx.ID_OK and check.available:
+                    self._download_application_update(check)
+
+            wx.CallAfter(present_when_free)
 
         def failed(error: Exception) -> None:
             self._application_update_pending = False
@@ -15177,13 +15683,42 @@ class LiteFrame(wx.Frame):
         self.announcer.say("Pobieranie i sprawdzanie aktualizacji AMC")
 
         def work() -> object:
-            return prepare_application_update(check)
+            prepared = prepare_application_update(check)
+            client = getattr(self, "client", None)
+            if client is not None:
+                try:
+                    status = client.radio_recording_status()
+                except Exception as error:
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nie można potwierdzić zakończenia nagrywania"
+                    ) from error
+                if not isinstance(status, dict):
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nieprawidłowy stan nagrywania"
+                    )
+                if recording_blocks_application_update(status):
+                    raise ApplicationUpdateRecordingError("Trwa nagrywanie")
+                try:
+                    schedule_status = client.radio_schedule_status()
+                except Exception as error:
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nie można potwierdzić harmonogramu nagrywania"
+                    ) from error
+                if not isinstance(schedule_status, dict):
+                    raise ApplicationUpdateRecordingStatusError(
+                        "Nieprawidłowy stan harmonogramu nagrywania"
+                    )
+                if schedule_blocks_application_update(schedule_status):
+                    raise ApplicationUpdateRecordingError(
+                        "Trwa okno zaplanowanego nagrywania"
+                    )
+            return prepared
 
         def done(prepared: PreparedApplicationUpdate) -> None:
-            self._application_update_pending = False
             try:
-                launch_prepared_application_update(prepared)
+                updater = launch_prepared_application_update(prepared)
             except Exception as error:  # noqa: BLE001 - szczegoly tylko do logu
+                self._application_update_pending = False
                 _append_frontend_log(
                     self.store,
                     "Uruchomienie aktualizatora AMC nie powiodło się: "
@@ -15192,8 +15727,50 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(user_facing_update_error(error))
                 return
             self.announcer.say(
-                "Aktualizacja jest gotowa. AMC zamknie się bezpiecznie, "
-                "zainstaluje nową wersję i uruchomi ponownie"
+                "Aktualizator został uruchomiony. AMC sprawdza, czy może się "
+                "bezpiecznie zamknąć. Ponowne sprawdzenie aktualizacji jest "
+                "wstrzymane do zakończenia tej próby"
+            )
+
+            def installed(exit_code: int) -> None:
+                self._application_update_pending = False
+                if not self._window_alive():
+                    return
+                if exit_code == 3:
+                    message = (
+                        "Aktualizacja została zatrzymana, ponieważ AMC nadal działa "
+                        "lub trwa nagrywanie. Spróbuj ponownie po jego zakończeniu"
+                    )
+                elif exit_code == 2:
+                    message = "Inny aktualizator AMC już działa"
+                elif exit_code != 0:
+                    message = (
+                        "Aktualizacja nie została zainstalowana. "
+                        "Szczegóły zapisano w dzienniku programu"
+                    )
+                else:
+                    message = "Aktualizator zakończył pracę"
+                if exit_code != 0:
+                    _append_frontend_log(
+                        self.store, f"Aktualizator AMC zakończył się kodem {exit_code}",
+                    )
+                self.announcer.say(message)
+
+            def monitoring_failed(error: Exception) -> None:
+                self._application_update_pending = False
+                _append_frontend_log(
+                    self.store,
+                    "Nie udało się odczytać wyniku aktualizatora AMC: "
+                    f"{type(error).__name__}: {error}",
+                )
+                if self._window_alive():
+                    self.announcer.say("Nie udało się odczytać wyniku aktualizacji AMC")
+
+            self.runner.submit(
+                "application-update-install",
+                updater.wait,
+                installed,
+                monitoring_failed,
             )
 
         def failed(error: Exception) -> None:
@@ -15896,6 +16473,7 @@ class LiteFrame(wx.Frame):
             LibraryView.ITEM_BOOKMARKS: "Zakładki",
             LibraryView.ACTIVE_RADIO_RECORDINGS: "Nagrywane",
             LibraryView.RECORDED_RADIO_FILES: "Historia nagrywania",
+            LibraryView.DOWNLOADED_FILES: "Pobrane pliki",
             LibraryView.RADIO_RECORDING_SCHEDULES: "Harmonogramy nagrywania",
             LibraryView.SONOS_LIBRARY: "Biblioteka Sonos",
             LibraryView.SONOS_FAVORITES: "Ulubione Sonos",
@@ -15904,6 +16482,7 @@ class LiteFrame(wx.Frame):
             LibraryView.SPOTIFY_LIBRARY: "Biblioteka Spotify",
             LibraryView.SPOTIFY_CONTAINER: session.spotify_heading,
             LibraryView.SPOTIFY_HISTORY: "Spotify — Historia odtwarzania",
+            LibraryView.SPOTIFY_QUEUE: "Kolejka Spotify",
             LibraryView.YOUTUBE_BROADCASTS: "Transmisje YouTube na żywo i zaplanowane",
             LibraryView.YOUTUBE_BROADCASTS_AGGREGATE: (
                 "Transmisje wybranych kanałów YouTube"
@@ -15970,12 +16549,41 @@ class LiteFrame(wx.Frame):
             control.IsShown() for control in other_lists
         )
 
-        self.list_panel.Show(not want_player)
+        # Przy Plikach nie chowamy natywnej listy: samo ponowne pokazanie po
+        # Escape odbudowywalo UI Automation i zatrzymywalo NVDA na 10-34 s.
+        # W odtwarzaczu Tab omija liste (AcceptsFocusFromKeyboard), a fokus
+        # pozostaje na przycisku odtwarzania.
+        keep_file_list = (
+            self.navigator.active is SessionId.FILES
+            and getattr(active_list, "_virtual", False)
+        )
+        self.list_panel.Show(not want_player or keep_file_list)
         self.player_panel.Show(want_player)
-        active_list.Show(not want_player)
+        active_list.Show(not want_player or keep_file_list)
+        active_list.player_covers = want_player and keep_file_list
         for control in other_lists:
             control.Hide()
         self.panel.Layout()
+
+        if self.navigator.active in (
+            SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+            SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+        ):
+            snapshot = getattr(self, "_transport_status_by_session", {}).get(
+                self.navigator.active
+            )
+            if snapshot:
+                self._update_native_playback_status(snapshot)
+            else:
+                # A session change must not leave the startup label in NVDA+End.
+                # The host can replace this with confirmed playback parameters.
+                self.status_bar.show(
+                    session.now_playing_title or "Nic nie jest odtwarzane"
+                )
+        elif self.navigator.active is SessionId.TIDAL:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(self._nvda_now_playing_message())
 
         # Dzwiek TIDALa nie przechodzi przez AMC. Pozostawienie aktywnych
         # suwakow glosnosci i tempa zmienialoby ukryty lokalny silnik, choc
@@ -16022,6 +16630,7 @@ class LiteFrame(wx.Frame):
         )
         self.rate_choice.Enable(not (
             tidal_external
+            or self.navigator.active is SessionId.SPOTIFY
             or spotify_read_only
             or wiim_remote
             or sonos_remote
@@ -16042,10 +16651,6 @@ class LiteFrame(wx.Frame):
                 self.now_playing.SetLabel(
                     session.now_playing_title or "Nic nie jest odtwarzane"
                 )
-            if self.navigator.active is SessionId.RADIO:
-                # F6 najpierw oglasza wejscie do odtwarzacza. Natychmiast potem
-                # przywracamy z ostatniej migawki wlasciwa tresc NVDA+End.
-                self._update_native_playback_status(self._last_status)
             if changed:
                 self.play_button.SetFocus()
         elif changed:
@@ -17009,7 +17614,8 @@ class LiteFrame(wx.Frame):
             session.now_playing_id = intent.item_id
             session.now_playing_title = intent.title
             session.current_material_id = intent.item_id
-            session.view = View.PLAYER
+            # Enter wybrał już widok w Navigatorze. Odpowiedź urządzenia
+            # aktualizuje odtwarzanie, ale nie może nadpisać wyboru sesji.
             self._wiim_snapshot = state
             record_history = getattr(self, "_record_streamer_history_row", None)
             if callable(record_history):
@@ -17408,7 +18014,11 @@ class LiteFrame(wx.Frame):
             session.now_playing_id = item_id
             session.now_playing_title = device_title
             session.current_material_id = item_id
-            session.view = View.PLAYER
+            session.view = (
+                View.PLAYER
+                if self._session_open_player_on_preset(SessionId.WIIM)
+                else View.LIST
+            )
             self._wiim_active_device_id = device_id
             self._wiim_snapshot = state
             record_history = getattr(self, "_record_streamer_history_row", None)
@@ -17431,8 +18041,8 @@ class LiteFrame(wx.Frame):
             ),
         )
 
-    def _assign_preset(self) -> None:
-        """Ctrl+Alt+Shift+P: trwale zapisz tylko prywatne nadpisanie wxPython."""
+    def _assign_preset(self, direct_slot: int | None = None) -> None:
+        """Zapisz prywatny preset; cyfra w Radio Archiwiście działa bez dialogu."""
         session = self.navigator.active
         if session is SessionId.WIIM:
             self._show_wiim_presets(select_for_shortcut=True)
@@ -17473,26 +18083,31 @@ class LiteFrame(wx.Frame):
                     or target.sonos_household_id == fixed_row.parent_id
                 )
             )
-            with PresetAssignmentDialog(
-                self,
-                target=target,
-                choices=profile_presets.choices(entries),
-                first_free_slot=free,
-                initial_slot=initial,
-                session_name=session_options.session_display_name(session),
-                fixed_target_title=(fixed_row.title if fixed_row else ""),
-                fixed_target_available=fixed_available,
-                fixed_target_initially_selected=bool(
-                    existing is not None
-                    and existing.sonos_fixed_player_ids
-                ),
-            ) as dialog:
-                if dialog.ShowModal() != wx.ID_OK:
-                    self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
-                    return
-                slot = dialog.selected_slot
-                action = dialog.selected_action
-                fixed_selected = dialog.fixed_target_selected
+            if direct_slot is not None and session is SessionId.RADIOARCHIWISTA:
+                slot = direct_slot
+                action = "replace"
+                fixed_selected = False
+            else:
+                with PresetAssignmentDialog(
+                    self,
+                    target=target,
+                    choices=profile_presets.choices(entries),
+                    first_free_slot=free,
+                    initial_slot=initial,
+                    session_name=session_options.session_display_name(session),
+                    fixed_target_title=(fixed_row.title if fixed_row else ""),
+                    fixed_target_available=fixed_available,
+                    fixed_target_initially_selected=bool(
+                        existing is not None
+                        and existing.sonos_fixed_player_ids
+                    ),
+                ) as dialog:
+                    if dialog.ShowModal() != wx.ID_OK:
+                        self._active_list().SetFocus() if self.navigator.view is View.LIST else self.play_button.SetFocus()
+                        return
+                    slot = dialog.selected_slot
+                    action = dialog.selected_action
+                    fixed_selected = dialog.fixed_target_selected
 
             assigned_target = target
             if action != "remove" and fixed_selected and fixed_row is not None:
@@ -17596,6 +18211,25 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(
                     f"Preset {spoken} pusty. Ctrl+Alt+Shift+P przypisuje bieżący element."
                 )
+                return
+
+            if session is SessionId.RADIOARCHIWISTA:
+                if entry.target_kind == "rarchLatest":
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_radioarchiwista_latest()
+                    return
+                if entry.target_kind == "rarchStation" and entry.location:
+                    try:
+                        slug = _radioarchiwista_module.check_slug(entry.location)
+                    except RuntimeError:
+                        self.announcer.say(f"Preset {spoken} ma nieprawidłowy identyfikator stacji")
+                        return
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_radioarchiwista_level(OpenRadioarchiwistaLevel(
+                        LibraryView.RADIOARCHIWISTA_YEARS, slug
+                    ))
+                    return
+                self.announcer.say(f"Preset {spoken} nie wskazuje folderu Radio Archiwisty")
                 return
 
             if session is SessionId.RADIO:
@@ -17731,12 +18365,26 @@ class LiteFrame(wx.Frame):
         # właściwy katalog. Wykonawca dostaje skrócony widok Albumy/Utwory.
         self._run(self.navigator.open_spotify_search_result(row))
 
+    def _play_selected_spotify_album(self) -> None:
+        """Ctrl+Enter plays the selected Spotify album in catalogue order."""
+        row = self.navigator.session.model.selected_row
+        if row is None or row.kind != "album":
+            self.announcer.say("Ctrl+Enter odtwarza cały album Spotify")
+            return
+        if not row.service_id:
+            self.announcer.say("Album nie ma danych potrzebnych do odtworzenia")
+            return
+        self._spotify_preset_playback_version += 1
+        self._play_spotify_album_preset(
+            row, request_version=self._spotify_preset_playback_version,
+        )
+
     def _play_spotify_album_preset(
         self,
         album: Row,
         *,
-        spoken_slot: str,
         request_version: int,
+        spoken_slot: str = "",
         attempt: int = 0,
     ) -> None:
         """Fetch and play an album without changing list, focus or selection."""
@@ -17747,14 +18395,25 @@ class LiteFrame(wx.Frame):
             return
 
         def work():
-            return spotify_container_result_from_payload(
-                client.spotify_container_items(
-                    external_id=album.service_id or "",
-                    title=album.title,
-                    kind="album",
-                    artist=album.artist_name,
+            loaded_count = 150
+            while True:
+                result = spotify_container_result_from_payload(
+                    client.spotify_container_items(
+                        external_id=album.service_id or "",
+                        title=album.title,
+                        kind="album",
+                        artist=album.artist_name,
+                        loaded_count=loaded_count,
+                    )
                 )
-            )
+                if not result.available or not result.has_more:
+                    return result
+                if len(result.rows) >= 2000 or len(result.rows) >= loaded_count:
+                    loaded_count = min(2000, loaded_count + 150)
+                else:
+                    return result
+                if loaded_count <= len(result.rows):
+                    return result
 
         def is_current() -> bool:
             return bool(
@@ -17766,10 +18425,11 @@ class LiteFrame(wx.Frame):
         def done(result) -> None:
             if not is_current():
                 return
+            prefix = f"Preset {spoken_slot}: " if spoken_slot else ""
             if not result.available:
                 self.announcer.say(
                     result.warning
-                    or f"Preset {spoken_slot}: Spotify nie udostępnił zawartości albumu {album.title}"
+                    or f"{prefix}Spotify nie udostępnił zawartości albumu {album.title}"
                 )
                 return
             playable = tuple(
@@ -17779,7 +18439,12 @@ class LiteFrame(wx.Frame):
             )
             if not playable:
                 self.announcer.say(
-                    f"Preset {spoken_slot}: album {album.title} nie zawiera utworów do odtworzenia"
+                    f"{prefix}Album {album.title} nie zawiera utworów do odtworzenia"
+                )
+                return
+            if result.has_more:
+                self.announcer.say(
+                    f"{prefix}Spotify nie udostępnił całej zawartości albumu {album.title}"
                 )
                 return
             intent = self.navigator.prepare_spotify_preset_playback(
@@ -17808,7 +18473,7 @@ class LiteFrame(wx.Frame):
                 )
                 return
             self.announcer.say(
-                f"Preset {spoken_slot}: nie udało się odtworzyć albumu {album.title}"
+                f"{'Preset '+spoken_slot+': ' if spoken_slot else ''}Nie udało się odtworzyć albumu {album.title}"
             )
 
         self.runner.submit("spotify-preset", work, done, failed)
@@ -18243,6 +18908,30 @@ class LiteFrame(wx.Frame):
             self._radioarchiwista = source
         return source
 
+    def _show_radioarchiwista_catalog_settings(self) -> None:
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        with wx.TextEntryDialog(
+            self,
+            i18n.tr("rarch.catalog.addressPrompt"),
+            i18n.tr("rarch.catalog.addressTitle"),
+            source.catalog_base(),
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            address = dialog.GetValue().strip()
+        self._restore_focus_after_dialog()
+        try:
+            source.set_catalog_base(address)
+        except (OSError, ValueError, _radioarchiwista_module.RadioarchiwistaError) as error:
+            self.announcer.say(i18n.tr("rarch.catalog.addressFailed", error=error))
+            return
+        self.announcer.say(i18n.tr("rarch.catalog.addressSaved"))
+        self._open_radioarchiwista_stations(refresh=True)
+
     def _open_radioarchiwista_stations(
         self,
         preferred_id: str | None = None,
@@ -18284,7 +18973,7 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _open_radioarchiwista_level(self, intent: OpenRadioarchiwistaLevel) -> None:
         """Jeden poziom katalogu: lata, miesiące, dni albo nagrania dnia."""
@@ -18356,9 +19045,11 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
-    def _open_radioarchiwista_latest(self, *, refresh: bool = False) -> None:
+    def _open_radioarchiwista_latest(
+        self, *, refresh: bool = False, preferred_id: str | None = None
+    ) -> None:
         """Nagrania ostatniej opublikowanej godziny ze wszystkich stacji."""
 
         source = self._radioarchiwista_source()
@@ -18384,6 +19075,7 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.apply_radioarchiwista_rows(
                 LibraryView.RADIOARCHIWISTA_HOURS,
                 rows,
+                preferred_id=preferred_id,
                 announcement=i18n.tr(
                     "rarch.latest.announcement",
                     label=label,
@@ -18396,7 +19088,7 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _open_radioarchiwista_favorites(
         self, preferred_id: str | None = None,
@@ -18426,13 +19118,13 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _toggle_radioarchiwista_favorite(self) -> None:
         """Przełącz ulubione zaznaczonego nagrania i odśwież jego wiersz."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
-        row = state.model.selected_row
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
         if row is None or row.kind != "recording":
             self.announcer.say(i18n.tr("rarch.selectForFavorite"))
             return
@@ -18461,6 +19153,9 @@ class LiteFrame(wx.Frame):
                     ),
                 )
                 for candidate in state.model.rows
+                if added
+                or state.library_view is not LibraryView.RADIOARCHIWISTA_FAVORITES
+                or candidate.item_id != row.item_id
             ]
             state.model.replace(refreshed, preferred_id=row.item_id)
             message = i18n.tr(
@@ -18474,17 +19169,75 @@ class LiteFrame(wx.Frame):
                 i18n.tr("rarch.error", error=error)
             ))
 
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.favorite", work, done, failed)
+
+    def _open_radioarchiwista_queue(self) -> None:
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+
+        def done(rows: list[Row]) -> None:
+            self._run(self.navigator.apply_radioarchiwista_rows(
+                LibraryView.RADIOARCHIWISTA_QUEUE, rows,
+            ))
+
+        self.runner.submit(
+            "radioarchiwista.queue.read", source.queue_rows, done,
+            lambda error: self.announcer.say(f"Nie można odczytać kolejki: {error}"),
+        )
+
+    def _toggle_radioarchiwista_queue(self, play_next: bool) -> None:
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
+        if row is None or row.kind != "recording" or not row.url:
+            self.announcer.say("Wybierz nagranie do kolejki")
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+
+        def work() -> tuple[bool, list[Row]]:
+            recording = source.recording_by_id(row.item_id)
+            if recording is None:
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Nie znam tego nagrania"
+                )
+            added = source.toggle_queue(
+                recording, play_next=play_next,
+                current_id=state.now_playing_id,
+            )
+            return added, source.queue_rows()
+
+        def done(result: tuple[bool, list[Row]]) -> None:
+            added, rows = result
+            if state.radioarchiwista_queue_active:
+                state.playback_source_rows = tuple(rows)
+            if state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE:
+                self._run(self.navigator.apply_radioarchiwista_rows(
+                    LibraryView.RADIOARCHIWISTA_QUEUE, rows,
+                    preferred_id=row.item_id,
+                ))
+            self.announcer.say(
+                ("Dodano do kolejki: " if added else "Usunięto z kolejki: ")
+                + row.title
+            )
+
+        self.runner.submit(
+            "radioarchiwista.queue.write", work, done,
+            lambda error: self.announcer.say(f"Nie można zmienić kolejki: {error}"),
+        )
 
     def _download_radioarchiwista_recording(self) -> None:
-        """Pobierz zaznaczone nagranie do folderu profilu Pythona."""
+        """Pobierz nagranie bez nadpisywania pliku, z postępem i anulowaniem."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
-        row = state.model.selected_row
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
         if row is None or row.kind != "recording" or not row.url:
             self.announcer.say(i18n.tr("rarch.selectForDownload"))
             return
-        if row.item_id in self._radioarchiwista_downloads:
+        if self._radioarchiwista_downloads:
             self.announcer.say(i18n.tr("rarch.download.busy"))
             return
         source = self._radioarchiwista_source()
@@ -18492,33 +19245,372 @@ class LiteFrame(wx.Frame):
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
         target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+        cancel_event = threading.Event()
+        # wx.ProgressDialog.Update(100) can enter its own completion loop.
+        # A modeless dialog keeps all updates on the GUI thread and leaves a
+        # stable, explicitly named Cancel button for NVDA to reread.
+        dialog = wx.Dialog(self, title=i18n.tr("rarch.download.title"))
+        dialog.SetName(i18n.tr("rarch.download.title"))
+        panel = wx.Panel(dialog)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        status = wx.StaticText(panel, label=i18n.tr("rarch.download.waiting"))
+        status.SetName(i18n.tr("rarch.download.waiting"))
+        layout.Add(status, 0, wx.ALL | wx.EXPAND, 12)
+        gauge = wx.Gauge(panel, range=100)
+        gauge.SetName(i18n.tr("rarch.download.waiting"))
+        layout.Add(gauge, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        cancel_button = wx.Button(panel, label=i18n.tr("rarch.download.cancel.waiting"))
+        cancel_button.SetName(i18n.tr("rarch.download.cancel.waiting"))
+        layout.Add(cancel_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        panel.SetSizer(layout)
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        dialog.SetSizerAndFit(shell)
+
+        last_percent = -1
+        finished = False
+
+        def log_stage(value: str) -> None:
+            store = self.__dict__.get("store")
+            if store is not None:
+                _append_frontend_log(store, f"Radio Archiwista, całe nagranie: {value}")
+
+        def cancel() -> None:
+            if finished or cancel_event.is_set():
+                return
+            cancel_event.set()
+            log_stage("anulowanie")
+            label = i18n.tr("rarch.download.cancelling")
+            cancel_button.SetLabel(label)
+            cancel_button.SetName(label)
+            cancel_button.Disable()
+            status.SetLabel(label)
+            status.SetName(label)
+
+        def on_cancel(_event: wx.CommandEvent) -> None:
+            cancel()
+
+        def on_close(event: wx.CloseEvent) -> None:
+            if finished:
+                event.Skip()
+                return
+            cancel()
+            if event.CanVeto():
+                event.Veto()
+            else:
+                event.Skip()
+
+        cancel_button.Bind(wx.EVT_BUTTON, on_cancel)
+        dialog.Bind(wx.EVT_CLOSE, on_close)
+        dialog.Show()
+        cancel_button.SetFocus()
+        self.status_field.SetLabel(i18n.tr("rarch.download.waiting"))
+        self.status_bar.show(i18n.tr("rarch.download.waiting"))
+
+        def show_progress(percent: int) -> None:
+            if finished or cancel_event.is_set() or dialog.IsBeingDeleted():
+                return
+            label = i18n.tr("rarch.download.progress", percent=percent)
+            cancel_label = i18n.tr("rarch.download.cancel.progress", percent=percent)
+            status.SetLabel(label)
+            status.SetName(label)
+            gauge.SetValue(percent)
+            gauge.SetName(label)
+            cancel_button.SetLabel(cancel_label)
+            cancel_button.SetName(cancel_label)
+            self.status_field.SetLabel(label)
+            self.status_bar.show(label)
+
+        def progress(percent: int) -> None:
+            nonlocal last_percent
+            if percent != last_percent:
+                last_percent = percent
+                wx.CallAfter(show_progress, percent)
+
+        def finish() -> None:
+            nonlocal finished
+            finished = True
+            if not dialog.IsBeingDeleted():
+                dialog.Destroy()
+            self._radioarchiwista_downloads.discard(row.item_id)
+            self._restore_focus_after_dialog()
 
         def work() -> Path:
             recording = source.recording_by_id(row.item_id)
-            label = (
-                recording.local_label
-                if recording is not None and recording.local_label
-                else f"{row.service_id or 'nagranie'} {row.title}"
+            if recording is None:
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Nie znam tego nagrania"
+                )
+            target = _radioarchiwista_module.download_destination(
+                target_dir, recording
             )
-            safe = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:100]
             return _radioarchiwista_module.stream_to_file(
                 row.url,
-                target_dir / f"{safe}.mp3",
+                target,
+                progress=progress,
+                should_cancel=cancel_event.is_set,
             )
 
         def done(path: Path) -> None:
-            self._radioarchiwista_downloads.discard(row.item_id)
-            self.announcer.say(i18n.tr("rarch.download.done", path=path))
+            log_stage("zakończono")
+            finish()
+            saved = self._record_download(path, title=row.title, source="archive")
+            message = i18n.tr("rarch.download.done", path=path)
+            if not saved:
+                message += ". Nie zapisano wpisu w historii pobierania"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
 
         def failed(error: Exception) -> None:
-            self._radioarchiwista_downloads.discard(row.item_id)
-            self._run(self.navigator.apply_radioarchiwista_message(
-                i18n.tr("rarch.download.failed", error=error)
-            ))
+            log_stage("anulowano" if cancel_event.is_set() else f"błąd: {type(error).__name__}")
+            finish()
+            message = (
+                i18n.tr("rarch.download.cancelled")
+                if cancel_event.is_set()
+                else i18n.tr("rarch.download.failed", error=error)
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self._run(self.navigator.apply_radioarchiwista_message(message))
 
         self._radioarchiwista_downloads.add(row.item_id)
+        log_stage("rozpoczęto")
         self.announcer.say(i18n.tr("rarch.download.started"))
-        self.runner.submit("radioarchiwista", work, done, failed)
+        self.runner.submit("radioarchiwista.download", work, done, failed)
+
+    def _download_radioarchiwista_fragment(self) -> None:
+        """Ctrl+Shift+D: zapisz wybrany zakres z odległego MP3 jako nowy plik."""
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
+        if row is None or row.kind != "recording" or not row.url:
+            self.announcer.say(i18n.tr("rarch.selectForDownload"))
+            return
+        if self._radioarchiwista_downloads:
+            self.announcer.say(i18n.tr("rarch.download.busy"))
+            return
+        source = self._radioarchiwista_source()
+        client = self.client
+        if source is None or client is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        recording = source.recording_by_id(row.item_id)
+        if recording is None:
+            self.announcer.say("Nie znam tego nagrania")
+            return
+        range_dialog = RadioarchiwistaFragmentDialog(self, recording)
+        try:
+            selected = range_dialog.ShowModal() == wx.ID_OK
+            time_range = range_dialog.selected_range
+        finally:
+            range_dialog.Destroy()
+            self._restore_focus_after_dialog()
+        if not selected or time_range is None:
+            return
+
+        start_seconds, end_seconds = time_range
+        target_dir = Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+        cancel_event = threading.Event()
+        export_started = threading.Event()
+        cancel_lock = threading.Lock()
+        cancellation_sent = False
+        operation_id = uuid.uuid4().hex
+        title = "Pobieranie fragmentu Radio Archiwisty"
+        waiting = "Pobieranie nagrania źródłowego, rozmiar pliku nieznany"
+        dialog = wx.Dialog(self, title=title)
+        dialog.SetName(title)
+        panel = wx.Panel(dialog)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        status = wx.StaticText(panel, label=waiting)
+        status.SetName(waiting)
+        layout.Add(status, 0, wx.ALL | wx.EXPAND, 12)
+        gauge = wx.Gauge(panel, range=100)
+        gauge.SetName(waiting)
+        layout.Add(gauge, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        cancel_button = wx.Button(panel, label="Anuluj pobieranie fragmentu")
+        cancel_button.SetName("Anuluj pobieranie fragmentu, rozmiar pliku nieznany")
+        layout.Add(cancel_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        panel.SetSizer(layout)
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        dialog.SetSizerAndFit(shell)
+        finished = False
+        stage = "download"
+        last_percent = -1
+
+        def log_stage(value: str) -> None:
+            store = self.__dict__.get("store")
+            if store is not None:
+                _append_frontend_log(store, f"Radio Archiwista, fragment: {value}")
+
+        def set_status(value: str, button_value: str | None = None) -> None:
+            status.SetLabel(value)
+            status.SetName(value)
+            gauge.SetName(value)
+            self.status_field.SetLabel(value)
+            self.status_bar.show(value)
+            if button_value is not None and not cancel_event.is_set():
+                cancel_button.SetLabel(button_value)
+                cancel_button.SetName(button_value)
+
+        def request_export_cancel() -> None:
+            nonlocal cancellation_sent
+            with cancel_lock:
+                if not cancel_event.is_set() or not export_started.is_set() or cancellation_sent:
+                    return
+                cancellation_sent = True
+            self.runner.submit(
+                "radioarchiwista.fragment.cancel",
+                lambda: client.cancel_audio_clip(operation_id),
+                lambda _result: None,
+                lambda _error: log_stage("nie udało się przekazać anulowania do hosta"),
+            )
+
+        def cancel() -> None:
+            if finished or cancel_event.is_set():
+                return
+            cancel_event.set()
+            log_stage("anulowanie")
+            set_status("Anulowanie pobierania fragmentu")
+            cancel_button.SetLabel("Anulowanie pobierania fragmentu")
+            cancel_button.SetName("Anulowanie pobierania fragmentu")
+            cancel_button.Disable()
+            request_export_cancel()
+
+        def on_close(event: wx.CloseEvent) -> None:
+            if finished:
+                event.Skip()
+                return
+            cancel()
+            if event.CanVeto():
+                event.Veto()
+            else:
+                event.Skip()
+
+        cancel_button.Bind(wx.EVT_BUTTON, lambda _event: cancel())
+        dialog.Bind(wx.EVT_CLOSE, on_close)
+        dialog.Show()
+        cancel_button.SetFocus()
+        set_status(waiting)
+
+        def show_download_progress(percent: int) -> None:
+            if finished or stage != "download" or cancel_event.is_set():
+                return
+            value = max(0, min(100, int(percent)))
+            gauge.SetValue(value)
+            set_status(
+                f"Pobieranie nagrania źródłowego: {value} procent",
+                f"Anuluj pobieranie fragmentu, {value} procent",
+            )
+
+        def progress(percent: int) -> None:
+            nonlocal last_percent
+            if percent != last_percent:
+                last_percent = percent
+                wx.CallAfter(show_download_progress, percent)
+
+        def show_export_start() -> None:
+            nonlocal stage
+            if finished or cancel_event.is_set() or stage != "download":
+                return
+            stage = "export"
+            gauge.SetValue(0)
+            set_status("Zapisywanie fragmentu, postęp nieznany", "Anuluj zapisywanie fragmentu")
+
+        def show_export_progress(data: object) -> None:
+            nonlocal stage
+            if finished or cancel_event.is_set() or not isinstance(data, dict):
+                return
+            if str(data.get("operationId") or "") != operation_id:
+                return
+            stage = "export"
+            percent = max(0, min(100, int(data.get("percent") or 0)))
+            gauge.SetValue(percent)
+            set_status(
+                f"Zapisywanie fragmentu: {percent} procent",
+                f"Anuluj zapisywanie fragmentu, {percent} procent",
+            )
+
+        def finish(outcome: str) -> None:
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            self.__dict__.pop("_radioarchiwista_fragment_progress", None)
+            self._radioarchiwista_downloads.discard(row.item_id)
+            log_stage(outcome)
+            if not dialog.IsBeingDeleted():
+                dialog.Destroy()
+            self._restore_focus_after_dialog()
+
+        def work() -> Path:
+            if cancel_event.is_set():
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Pobieranie fragmentu anulowane"
+                )
+            caps = client.audio_clip_capabilities("nagranie.mp3")
+            formats = caps.get("formats", []) if isinstance(caps, dict) else []
+            if not any(
+                item.get("value") == "original" and item.get("available")
+                for item in formats if isinstance(item, dict)
+            ):
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Zapis fragmentu MP3 wymaga składnika FFmpeg"
+                )
+            target = _radioarchiwista_module.fragment_destination(
+                target_dir, recording, start_seconds, end_seconds
+            )
+            if cancel_event.is_set():
+                raise _radioarchiwista_module.RadioarchiwistaError(
+                    "Pobieranie fragmentu anulowane"
+                )
+
+            def export(source_path: str, destination_path: str, start: int, end: int) -> None:
+                if cancel_event.is_set():
+                    raise _radioarchiwista_module.RadioarchiwistaError(
+                        "Pobieranie fragmentu anulowane"
+                    )
+                wx.CallAfter(show_export_start)
+                export_started.set()
+                request_export_cancel()
+                client.export_audio_clip(
+                    source_path=source_path,
+                    destination_path=destination_path,
+                    start_seconds=start,
+                    end_seconds=end,
+                    format_value="original",
+                    operation_id=operation_id,
+                )
+
+            return _radioarchiwista_module.download_fragment(
+                recording, target, start_seconds, end_seconds,
+                export=export, progress=progress, should_cancel=cancel_event.is_set,
+            )
+
+        def done(path: Path) -> None:
+            finish("zakończono")
+            saved = self._record_download(path, title=row.title, source="archive")
+            message = f"Fragment zapisany: {path}"
+            if not saved:
+                message += ". Nie zapisano wpisu w historii pobierania"
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            finish("anulowano" if cancel_event.is_set() else f"błąd: {type(error).__name__}")
+            message = (
+                "Pobieranie fragmentu anulowane" if cancel_event.is_set()
+                else f"Nie udało się pobrać fragmentu: {error}"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self._radioarchiwista_downloads.add(row.item_id)
+        self._radioarchiwista_fragment_progress = show_export_progress
+        log_stage("rozpoczęto")
+        self.announcer.say("Rozpoczęto pobieranie fragmentu Radio Archiwisty")
+        self.runner.submit("radioarchiwista.fragment", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:
         """F5: ponowne wczytanie bieżącego poziomu z pominięciem cache."""
@@ -18531,6 +19623,12 @@ class LiteFrame(wx.Frame):
             )
         elif view is LibraryView.RADIOARCHIWISTA_FAVORITES:
             self._open_radioarchiwista_favorites()
+        elif view is LibraryView.RADIOARCHIWISTA_QUEUE:
+            self._open_radioarchiwista_queue()
+        elif view is LibraryView.RADIOARCHIWISTA_HOURS and not state.radioarchiwista_slug:
+            self._open_radioarchiwista_latest(
+                refresh=True, preferred_id=state.model.selected_id
+            )
         else:
             self._open_radioarchiwista_level(OpenRadioarchiwistaLevel(
                 view,
@@ -18664,6 +19762,9 @@ class LiteFrame(wx.Frame):
         if session_id is SessionId.FRONTIER_SMART:
             wx.CallAfter(self._show_frontier_smart_devices)
             return
+        if session_id is SessionId.RADIOARCHIWISTA:
+            wx.CallAfter(self._show_radioarchiwista_catalog_settings)
+            return
         if session_id is SessionId.SONOS:
             self._show_sonos_account()
             return
@@ -18792,11 +19893,24 @@ class LiteFrame(wx.Frame):
         return " ".join(labels) or "Nie można teraz odczytać stanu konta Spotify."
 
     def _show_service_account(self, session_id: SessionId) -> None:
+        open_dialogs = getattr(self, "_service_account_dialogs", None)
+        if open_dialogs is None:
+            open_dialogs = {}
+            self._service_account_dialogs = open_dialogs
+        existing = open_dialogs.get(session_id)
+        if existing is not None:
+            if not existing.IsBeingDeleted():
+                existing.Show()
+                existing.Raise()
+                existing.focus_primary_action()
+                return
+            open_dialogs.pop(session_id, None)
         client = self.client
         service_name = "Spotify" if session_id is SessionId.SPOTIFY else "TIDAL"
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
+        payload: object = {}
         try:
             payload = (
                 client.spotify_account_status()
@@ -18808,6 +19922,152 @@ class LiteFrame(wx.Frame):
             status = str(error)
         except Exception:
             status = f"Nie można teraz odczytać stanu konta {service_name}."
+
+        catalog = payload.get("catalog") if isinstance(payload, dict) else None
+        needs_setup = (
+            session_id is SessionId.SPOTIFY
+            and isinstance(catalog, dict)
+            and catalog.get("configured") is False
+        )
+        redirect_uri = (
+            payload.get("redirectUri")
+            if isinstance(payload, dict)
+            else None
+        )
+        if not isinstance(redirect_uri, str) or not redirect_uri.startswith(
+            "http://127.0.0.1:"
+        ):
+            redirect_uri = "http://127.0.0.1:43822/spotify/callback/"
+
+        def dialog_alive(dialog: ServiceAccountDialog) -> bool:
+            try:
+                return (open_dialogs.get(session_id) is dialog
+                        and not dialog.IsBeingDeleted())
+            except RuntimeError:
+                return False
+
+        def save_spotify_client_id(dialog: ServiceAccountDialog, value: str) -> None:
+            def done(_result: object) -> None:
+                message = "Zapisano identyfikator aplikacji Spotify. Możesz się zalogować."
+                if dialog_alive(dialog):
+                    if dialog.client_id is not None:
+                        dialog.client_id.SetValue("")
+                    dialog._needs_setup = False
+                    dialog.finish(message)
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się zapisać identyfikatora aplikacji Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.finish(message, focus_client_id=True)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-account-configure",
+                lambda: client.spotify_configure(value),
+                done,
+                failed,
+            )
+
+        def start_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(result: object) -> None:
+                code = result.get("userCode") if isinstance(result, dict) else None
+                address = result.get("verificationUri") if isinstance(result, dict) else None
+                if not isinstance(code, str) or not isinstance(address, str):
+                    failed(ValueError("Nieprawidłowa odpowiedź parowania"))
+                    return
+                message = "Wpisz kod parowania na stronie Spotify."
+                if dialog_alive(dialog):
+                    dialog.pairing_code.SetValue(code)
+                    dialog.pairing_address.SetValue(address)
+                    dialog.pairing_active = True
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.pairing_code.SetFocus()
+                self.announcer.say(f"{message} Kod: {code}. Adres: {address}")
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się rozpocząć parowania odtwarzacza Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.finish(message)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-start",
+                client.spotify_pairing_start,
+                done,
+                failed,
+            )
+
+        def check_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(result: object) -> None:
+                state = result.get("state") if isinstance(result, dict) else None
+                message = result.get("message") if isinstance(result, dict) else None
+                if not isinstance(message, str) or not message.strip():
+                    message = "Nie można teraz sprawdzić parowania Spotify."
+                if dialog_alive(dialog):
+                    if state in {"connected", "failed", "expired", "denied", "cancelled"}:
+                        dialog.pairing_active = False
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.check_pairing_button.SetFocus()
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie można teraz sprawdzić parowania Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-status",
+                client.spotify_pairing_status,
+                done,
+                failed,
+            )
+
+        def cancel_spotify_pairing(dialog: ServiceAccountDialog) -> None:
+            def done(_result: object) -> None:
+                message = "Anulowano parowanie odtwarzacza Spotify."
+                if dialog_alive(dialog):
+                    dialog.pairing_active = False
+                    dialog.pairing_code.SetValue("")
+                    dialog.pairing_address.SetValue("")
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                    dialog.pairing_button.SetFocus()
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error)
+                    if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się anulować parowania Spotify."
+                )
+                if dialog_alive(dialog):
+                    dialog.set_status(message)
+                    dialog.set_busy(False)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "spotify-pairing-cancel",
+                client.spotify_pairing_cancel,
+                done,
+                failed,
+            )
 
         def start_login(dialog: ServiceAccountDialog) -> None:
             def work() -> object:
@@ -18827,7 +20087,7 @@ class LiteFrame(wx.Frame):
                     cache = getattr(self, "_service_destination_cache", None)
                     if isinstance(cache, ServiceDestinationCache):
                         cache.invalidate("spotify:playlists")
-                if not dialog.IsBeingDeleted():
+                if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
 
@@ -18837,7 +20097,7 @@ class LiteFrame(wx.Frame):
                     if isinstance(error, (HostError, HostUnavailable))
                     else f"Nie udało się zalogować konta {service_name}."
                 )
-                if not dialog.IsBeingDeleted():
+                if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
 
@@ -18848,18 +20108,38 @@ class LiteFrame(wx.Frame):
                 failed,
             )
 
-        with ServiceAccountDialog(
+        def account_closed(dialog: ServiceAccountDialog) -> None:
+            if open_dialogs.get(session_id) is dialog:
+                open_dialogs.pop(session_id, None)
+            if session_id is SessionId.SPOTIFY and dialog.pairing_active:
+                self.runner.submit(
+                    "spotify-pairing-close",
+                    client.spotify_pairing_cancel,
+                    lambda _result: None,
+                    lambda _error: None,
+                )
+            if not dialog._login_started and self._window_alive():
+                wx.CallAfter(self._restore_focus_after_dialog)
+
+        dialog = ServiceAccountDialog(
             self,
             service_name,
             status,
             start_login,
-        ) as dialog:
-            # Statyczny tekst stanu nie zawsze jest automatycznie czytany,
-            # ponieważ fokus trafia na przycisk logowania. Zlecenie po wejściu
-            # w pętlę modalną daje jeden jawny komunikat bez uruchamiania OAuth.
-            wx.CallAfter(self.announcer.say, status)
-            dialog.ShowModal()
-        self._restore_focus_after_dialog()
+            save_spotify_client_id=(
+                save_spotify_client_id if session_id is SessionId.SPOTIFY else None
+            ),
+            start_spotify_pairing=None,
+            check_spotify_pairing=None,
+            cancel_spotify_pairing=None,
+            on_closed=account_closed,
+            redirect_uri=redirect_uri,
+            needs_setup=needs_setup,
+        )
+        open_dialogs[session_id] = dialog
+        dialog.Show()
+        dialog.Raise()
+        wx.CallAfter(self.announcer.say, status)
 
     def _show_youtube_account(self) -> None:
         client = self.client
@@ -19199,6 +20479,12 @@ class LiteFrame(wx.Frame):
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
         )
         entries = available_command_entries(entries, available_actions)
+        if self._in_download_history():
+            entries = tuple(
+                replace(entry, name=DOWNLOAD_HISTORY_COPY_LABELS[entry.action])
+                if entry.action in DOWNLOAD_HISTORY_COPY_LABELS else entry
+                for entry in entries
+            )
         with CommandPaletteDialog(self, entries) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 self._restore_focus_after_dialog()
@@ -19318,6 +20604,10 @@ class LiteFrame(wx.Frame):
         label = wiim_now_playing_label(state)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
+        if self.navigator.active is SessionId.WIIM:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         # Nazwa kontrolki jest stałą etykietą pola. Treść utworu pozostaje
         # jego wartością/tekstem, więc po przejściu do innej sesji nie może
         # zostać stara nazwa WiiM czytana nad nowym tytułem.
@@ -19698,9 +20988,13 @@ class LiteFrame(wx.Frame):
         *,
         announce: bool = False,
     ) -> None:
+        self._record_streamer_history_snapshot(SessionId.FRONTIER_SMART, state)
         label = frontier_smart_now_playing_label(state)
         if self.navigator.active is SessionId.FRONTIER_SMART:
             self.navigator.session.now_playing_title = label
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
         self.now_playing.SetName("Teraz odtwarzane")
@@ -20083,6 +21377,10 @@ class LiteFrame(wx.Frame):
         label = sonos_now_playing_label(state)
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
+        if self.navigator.active is SessionId.SONOS:
+            bar = getattr(self, "status_bar", None)
+            if bar is not None:
+                bar.show(label)
         self.now_playing.SetName("Teraz odtwarzane")
         time_label = player_time_label(
             state.get("positionSeconds"), state.get("durationSeconds")
@@ -22686,11 +23984,21 @@ class LiteFrame(wx.Frame):
         self.announcer.say(started)
 
         def work() -> dict:
-            result = client.download_podcast_episodes(episode_ids)
+            result = client.download_podcast_episodes(
+                episode_ids,
+                separate_source_folders=bool(
+                    getattr(getattr(self, "options", None),
+                            "podcast_separate_source_folders", False)
+                ),
+            )
             return result if isinstance(result, dict) else {}
 
         def done(payload: dict) -> None:
             self._podcast_download_pending = False
+            if getattr(self, "_download_history", None) is not None:
+                LiteFrame._record_download_results(
+                    self, payload, source="podcast_audio"
+                )
             requested = max(0, int(payload.get("requested") or len(rows)))
             downloaded = max(0, int(payload.get("downloaded") or 0))
             already = max(0, int(payload.get("alreadyDownloaded") or 0))
@@ -22777,6 +24085,10 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             self._podcast_download_pending = False
+            if getattr(self, "_download_history", None) is not None:
+                LiteFrame._record_download_results(
+                    self, payload, source="podcast_video"
+                )
             downloaded = max(0, int(payload.get("downloaded") or 0))
             failed_count = max(0, int(payload.get("failed") or 0))
             if len(rows) > 1:
@@ -23653,7 +24965,10 @@ class LiteFrame(wx.Frame):
             )
             return
 
-        if origin in (SessionId.WIIM, SessionId.SONOS):
+        if origin in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
             rows = list(streamer_history_rows(
                 origin.value,
                 self.state.playback_history_by_session.get(origin.value, ()),
@@ -23663,8 +24978,7 @@ class LiteFrame(wx.Frame):
             )
             return
 
-        # Pozostałe sesje zachowują dotychczasową drogę. Ten przyrost nie
-        # zmienia osobnych kontraktów TIDAL ani lokalnych plików.
+        # Pliki lokalne korzystają z historii silnika biblioteki.
         self.navigator.active = SessionId.FILES
         self._open_library_view(OpenLibraryView(
             LibraryView.HISTORY,
@@ -23683,6 +24997,7 @@ class LiteFrame(wx.Frame):
             LibraryView.PODCAST_HISTORY,
             LibraryView.ACTIVE_RADIO_RECORDINGS,
             LibraryView.RECORDED_RADIO_FILES,
+            LibraryView.DOWNLOADED_FILES,
             LibraryView.RADIO_RECORDING_SCHEDULES,
             LibraryView.PODCAST_INBOX,
             LibraryView.SPOTIFY_HISTORY,
@@ -23799,7 +25114,7 @@ class LiteFrame(wx.Frame):
             return
         path = files[0]
         self._switch_session(SessionId.FILES)
-        self._play_track(PlayTrack(path, f"file:{path}", Path(path).name))
+        self._run(self.navigator.play_local_file(path, Path(path).stem))
         self._open_folder(str(Path(path).parent), preferred_id=f"file:{path}")
 
     def _add_shell_files_to_queue(self, files: tuple[str, ...]) -> None:
@@ -23840,6 +25155,16 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
+    def _in_download_history(self) -> bool:
+        """Czy bieżąca lista jest historią pobranych plików."""
+        navigator = getattr(self, "navigator", None)
+        session = getattr(navigator, "session", None)
+        return (
+            getattr(navigator, "active", None) is SessionId.FILES
+            and getattr(session, "view", None) is View.LIST
+            and getattr(session, "library_view", None) is LibraryView.DOWNLOADED_FILES
+        )
+
     def _copy_name(self) -> None:
         """Ctrl+C: nazwy zaznaczonych elementow, po jednej w wierszu.
 
@@ -23852,6 +25177,23 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Nie ma czego skopiować")
             return
         self._clear_pending_external_moves()
+        if self._in_download_history():
+            entries = getattr(self, "_download_history_entries", {})
+            paths = [
+                entry.path if (entry := entries.get(row.item_id)) is not None
+                else row.path
+                for row in rows
+            ]
+            if any(not path for path in paths):
+                self.announcer.say("Nie ma zapisanej ścieżki do pobranego pliku")
+                return
+            if self._to_clipboard(os.linesep.join(paths)):
+                self.announcer.say(
+                    "Skopiowano pełną ścieżkę"
+                    if len(paths) == 1 else
+                    f"Skopiowano pełne ścieżki: {format_file_count(len(paths))}"
+                )
+            return
         text = os.linesep.join(row.title for row in rows)
         success_message = (
             COPIED_NAME_MESSAGE
@@ -24068,6 +25410,25 @@ class LiteFrame(wx.Frame):
                 return
             self._announce_spotify_information(row)
             return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            if row is None or row.kind != "recording":
+                self.announcer.say("Brak dodatkowych informacji o nagraniu")
+            elif row.duration_ticks > 0:
+                self.announcer.say(
+                    f"Czas: {format_duration(row.duration_ticks / 10_000_000)}"
+                )
+            else:
+                self.announcer.say("Brak dodatkowych informacji o nagraniu")
+            return
+        if (
+            self.navigator.active is SessionId.FILES
+            and self.navigator.session.library_view is LibraryView.DOWNLOADED_FILES
+        ):
+            entry = self._download_history_entries.get(row.item_id) if row else None
+            self.announcer.say(
+                download_information(entry) if entry else "Brak pobranego pliku"
+            )
+            return
         if self.navigator.active is SessionId.WIIM:
             if self.navigator.view is View.PLAYER and self._wiim_snapshot:
                 parts = [
@@ -24272,9 +25633,21 @@ class LiteFrame(wx.Frame):
         Slowa komunikatu nadal opisuja DANE, nie zamiar -- patrz
         ``copied_address_message``.
         """
-        rows = self._selected_action_rows()
+        rows = (
+            [row] if (row := LiteFrame._description_target_row(
+                self, SessionId.RADIOARCHIWISTA
+            )) is not None else []
+        ) if (
+            getattr(self.navigator, "active", None) is SessionId.RADIOARCHIWISTA
+            and getattr(self.navigator, "view", None) is View.PLAYER
+        ) else self._selected_action_rows()
         if not rows:
             self.announcer.say("Nie ma czego skopiować")
+            return
+        if LiteFrame._in_download_history(self) and any(
+            not row.path or not os.path.isfile(row.path) for row in rows
+        ):
+            self.announcer.say("Plik niedostępny. Ctrl+C skopiuje zapisaną ścieżkę")
             return
         if any(not row.address for row in rows):
             self.announcer.say(
@@ -24761,7 +26134,7 @@ class LiteFrame(wx.Frame):
                 return
             path = dialog.GetPath()
             self._switch_session(SessionId.FILES)
-            self._play_track(PlayTrack(path, f"file:{path}", Path(path).name))
+            self._run(self.navigator.play_local_file(path, Path(path).stem))
             folder = str(Path(path).parent)
             self._open_folder(folder, preferred_id=f"file:{path}")
 
@@ -24769,6 +26142,8 @@ class LiteFrame(wx.Frame):
 
     def _session_default_rate(self, session: SessionId) -> float:
         """Biezace tempo sesji albo jej trwala baza; element moze je nadpisac."""
+        if session is SessionId.SPOTIFY:
+            return 1.0
         runtime = getattr(self, "_runtime_rate_by_session", None)
         if not isinstance(runtime, dict):
             runtime = {}
@@ -24823,6 +26198,7 @@ class LiteFrame(wx.Frame):
         def done(_payload: dict) -> None:
             self._playing_session = SessionId.FILES
             self._playing_sessions.discard(SessionId.PODCASTS)
+            self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
             self._playing_sessions.add(SessionId.FILES)
             self._refresh_status()
 
@@ -24872,11 +26248,14 @@ class LiteFrame(wx.Frame):
                 volume=self.options.volume,
                 rate=self._session_default_rate(session_id),
                 position_seconds=intent.position_seconds,
+                session_id=session_id.value,
             )
 
         def done(_payload: dict) -> None:
             self._playing_session = session_id
             self._playing_sessions.discard(SessionId.FILES)
+            self._playing_sessions.discard(SessionId.PODCASTS)
+            self._playing_sessions.discard(SessionId.RADIOARCHIWISTA)
             self._playing_sessions.add(session_id)
             self._refresh_status()
 
@@ -25347,6 +26726,33 @@ class LiteFrame(wx.Frame):
                     intent.title,
                     uses_external_queue=isinstance(intent, PlayTidalContainer),
                 )
+                tidal_state = self.navigator.sessions[SessionId.TIDAL]
+                confirmed_row = next((
+                    row for row in (*tidal_state.playback_source_rows,
+                                    *tidal_state.model.rows)
+                    if row.item_id == intent.item_id
+                ), None)
+                if confirmed_row is None:
+                    confirmed_row = Row(
+                        item_id=intent.item_id,
+                        title=intent.title,
+                        kind=("track" if isinstance(intent, PlayTidalTrack)
+                              else intent.kind),
+                        service_id=intent.service_id,
+                        related_album_service_id=(
+                            intent.related_album_service_id
+                            if isinstance(intent, PlayTidalTrack) else None
+                        ),
+                    )
+                self._record_streamer_history_row(
+                    SessionId.TIDAL,
+                    confirmed_row,
+                    replay_supported=(
+                        isinstance(intent, PlayTidalTrack)
+                        and bool(confirmed_row.related_album_service_id)
+                        and bool(confirmed_row.service_id)
+                    ),
+                )
                 self.announcer.say(message)
                 self._sync_views()
 
@@ -25366,6 +26772,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Zakładki w tej sesji nie są jeszcze dostępne w tej wersji"
@@ -25523,6 +26930,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Nawigacja po zakładkach jest dostępna dla plików lokalnych, podcastów i Spotify"
@@ -25591,6 +26999,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -25720,6 +27129,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             self.announcer.say(
                 "Rozdziały są dostępne dla plików lokalnych, podcastów i Spotify"
@@ -25879,7 +27289,10 @@ class LiteFrame(wx.Frame):
                 return list(self.podcasts.history(loaded_count=500).rows)
             if origin is SessionId.SPOTIFY:
                 return list(spotify_history_rows(spotify_history))
-            if origin in (SessionId.WIIM, SessionId.SONOS):
+            if origin in (
+                SessionId.WIIM, SessionId.SONOS,
+                SessionId.RADIOARCHIWISTA, SessionId.FRONTIER_SMART,
+            ):
                 return list(streamer_history_rows(origin.value, streamer_history))
             return []
 
@@ -25924,6 +27337,8 @@ class LiteFrame(wx.Frame):
                 SessionId.SPOTIFY: LibraryView.SPOTIFY_HISTORY,
                 SessionId.WIIM: LibraryView.SERVICE_HISTORY,
                 SessionId.SONOS: LibraryView.SERVICE_HISTORY,
+                SessionId.RADIOARCHIWISTA: LibraryView.SERVICE_HISTORY,
+                SessionId.FRONTIER_SMART: LibraryView.SERVICE_HISTORY,
             }[origin]
             intents = self.navigator.activate_selected()
             self.navigator.restore_transient_navigation(snapshot)
@@ -26787,11 +28202,17 @@ class LiteFrame(wx.Frame):
         ponownie, więc grający plik, pozycja, pauza i wyjście audio pozostają
         nietknięte.
         """
+        if self.navigator.active is SessionId.RADIOARCHIWISTA:
+            self._toggle_radioarchiwista_queue(play_next)
+            return
         if self.navigator.active is SessionId.PODCASTS:
             self._toggle_podcast_queue(play_next)
             return
         if self.navigator.active is SessionId.TIDAL and not play_next:
             self._toggle_tidal_queue()
+            return
+        if self.navigator.active is SessionId.SPOTIFY and not play_next:
+            self._toggle_spotify_queue()
             return
         if self.navigator.active is not SessionId.FILES:
             self.announcer.say("To polecenie dotyczy Biblioteki plików")
@@ -27311,6 +28732,53 @@ class LiteFrame(wx.Frame):
             ),
         )
 
+    def _open_spotify_queue(self, preferred_id: str | None = None) -> None:
+        self._transient_preview_return = None
+        self._run(self.navigator.apply_spotify_queue(
+            list(self._spotify_queue_rows), preferred_id=preferred_id,
+        ))
+
+    def _toggle_spotify_queue(self) -> None:
+        selected = [
+            row for row in self._selected_action_rows()
+            if row.kind in {"track", "episode"} and row.service_id
+        ]
+        if not selected:
+            self.announcer.say("Do kolejki Spotify wybierz utwór lub odcinek")
+            return
+        previous_rows = list(self._spotify_queue_rows)
+        existing = {row.service_id for row in previous_rows}
+        remove = all(row.service_id in existing for row in selected)
+        selected_ids = {row.service_id for row in selected}
+        updated = (
+            [row for row in previous_rows if row.service_id not in selected_ids]
+            if remove else previous_rows + [
+                row for row in selected if row.service_id not in existing
+            ]
+        )
+        previous_payload = list(self.state.spotify_queue_items)
+        self.state.spotify_queue_items = spotify_queue_payload(updated)
+        try:
+            self.store.save(self.state)
+        except OSError as error:
+            self.state.spotify_queue_items = previous_payload
+            self.announcer.say(f"Nie zapisano kolejki Spotify: {error}")
+            return
+        self._spotify_queue_rows = list(spotify_history_rows(
+            self.state.spotify_queue_items
+        ))
+        label = selected[0].title if len(selected) == 1 else format_item_count(len(selected))
+        LiteFrame._announce_routine_text(self, LiteFrame._routine_template_text(
+            self, "queue.removed" if remove else "queue.added", item=label,
+        ))
+        spotify_state = self.navigator.sessions[SessionId.SPOTIFY]
+        if spotify_state.library_view is LibraryView.SPOTIFY_QUEUE:
+            spotify_state.model.replace(
+                list(self._spotify_queue_rows),
+                preferred_id=None if remove else selected[0].item_id,
+            )
+            self._sync_views()
+
     def _open_tidal_queue(self, preferred_id: str | None = None) -> None:
         self._transient_preview_return = None
         self._run(self.navigator.apply_tidal_queue(
@@ -27534,8 +29002,11 @@ class LiteFrame(wx.Frame):
         self._pending_playback_session = SessionId.RADIO
 
         def work() -> dict:
+            station = Row(intent.item_id, intent.title, "station", url=intent.url)
+            audio = read_cached_information(self.layout, station, "radio")
             return client.play_station(
-                intent.url, volume=self.options.volume, item_id=intent.item_id, title=intent.title
+                intent.url, volume=self.options.volume, item_id=intent.item_id,
+                title=intent.title, audio=audio,
             )
 
         def done(_payload: dict) -> None:
@@ -27626,19 +29097,91 @@ class LiteFrame(wx.Frame):
             follow_playback=self.options.follow_playback_on_player_exit
         ))
 
+    def _choose_cast_output(self, *, refresh: bool = False) -> None:
+        client = self.client
+        session = self.navigator.active
+        if client is None or session.value not in CAST_SESSIONS:
+            return
+        if refresh or getattr(client, "_cast", None) is None:
+            self.announcer.say(i18n.tr("cast.loading"))
+
+        def failed(error: Exception) -> None:
+            message = str(error) if isinstance(error, CastError) else i18n.tr("cast.empty")
+            self.announcer.say(i18n.tr("cast.failed", error=message))
+
+        def prepared(devices) -> None:
+            selected = client.cast_selected_device_id(session.value)
+            with CastDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+                result = dialog.ShowModal()
+                device_id = dialog.selected_device_id
+            self._restore_focus_after_dialog()
+            if result == wx.ID_REFRESH:
+                wx.CallAfter(self._choose_cast_output, refresh=True)
+                return
+            if result != wx.ID_OK:
+                return
+
+            self.announcer.say(i18n.tr("cast.connecting", name=next(
+                (device.label for device in devices if device.device_id == device_id), i18n.tr("cast.local"))))
+
+            def applied(payload: dict) -> None:
+                self.announcer.say(i18n.tr("cast.selected", name=(
+                    i18n.tr("cast.local") if device_id is None else payload.get("name", "Google Cast"))))
+                if payload.get("warning"):
+                    self.announcer.say(str(payload["warning"]))
+                self._refresh_status()
+                self._refresh_menu_state()
+
+            self.runner.submit("cast-select", lambda: client.select_cast(session.value, device_id), applied, failed)
+
+        self.runner.submit("cast-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+
+    def _choose_cast_mirror(self, *, refresh: bool = False) -> None:
+        client = self.client
+        session = self.navigator.active
+        if client is None or session.value not in CAST_SESSIONS:
+            self.announcer.say(i18n.tr("mirror.unavailable"))
+            return
+        if refresh or getattr(client, "_cast", None) is None:
+            self.announcer.say(i18n.tr("mirror.loading"))
+
+        def failed(error: Exception) -> None:
+            self.announcer.say(i18n.tr("mirror.failed", error=str(error)))
+
+        def prepared(devices) -> None:
+            selected = client.mirror_selected_device_id(session.value)
+            with MirrorDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+                result = dialog.ShowModal()
+                device_id = dialog.selected_device_id
+            self._restore_focus_after_dialog()
+            if result == wx.ID_REFRESH:
+                wx.CallAfter(self._choose_cast_mirror, refresh=True)
+                return
+            if result != wx.ID_OK:
+                return
+
+            def applied(payload: dict) -> None:
+                if device_id is None:
+                    self.announcer.say(i18n.tr("mirror.stopped"))
+                else:
+                    self.announcer.say(i18n.tr("mirror.started", name=payload.get("name", "Google Cast")))
+                self._refresh_menu_state()
+
+            self.runner.submit("mirror-select",
+                lambda: client.select_cast_mirror(session.value, device_id), applied, failed)
+
+        self.runner.submit("mirror-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
         if self.navigator.active is SessionId.WIIM:
-            self.announcer.say(
-                "WiiM odtwarza na własnym urządzeniu sieciowym. "
-                "Wybierz urządzenie z listy sesji WiiM"
-            )
+            self._load_wiim_devices()
             return
         if self.navigator.active is SessionId.SONOS:
-            self.announcer.say(
-                "Sonos odtwarza na własnej grupie głośników. "
-                "Wybierz grupę z listy sesji Sonos"
-            )
+            self._select_sonos_target()
+            return
+        if self.navigator.active is SessionId.FRONTIER_SMART:
+            self._show_frontier_smart_devices()
             return
         if self.navigator.active is SessionId.TIDAL:
             self.announcer.say(
@@ -28202,6 +29745,7 @@ class LiteFrame(wx.Frame):
             prefer_station_folder=(
                 options.radio_prefer_station_folder_in_new_schedules
             ),
+            separate_station_folders=options.radio_separate_station_folders,
         )
         return snapshot
 
@@ -28406,6 +29950,33 @@ class LiteFrame(wx.Frame):
             return
 
         session = self.navigator.active
+        remembered_radio = None
+        if session is SessionId.RADIO:
+            radio_state = self.navigator.sessions[SessionId.RADIO]
+            remembered_id = radio_state.now_playing_id
+            if remembered_id:
+                remembered_radio = next((
+                    row for row in (
+                        *radio_state.playback_source_rows,
+                        *radio_state.model.rows,
+                    )
+                    if row.item_id == remembered_id
+                    and row.kind == "station" and row.url
+                ), None)
+
+        def pause_current_session() -> dict:
+            if session is SessionId.RADIO and remembered_radio is not None:
+                status = client.status(session.value) or {}
+                if not status.get("playing") and not status.get("paused"):
+                    client.play_station(
+                        remembered_radio.url,
+                        volume=self.options.volume,
+                        item_id=remembered_radio.item_id,
+                        title=remembered_radio.title,
+                    )
+                    return {"paused": False, "playing": True,
+                            "sessionId": session.value}
+            return client.pause_resume(session.value)
 
         def done(payload: dict) -> None:
             paused = bool((payload or {}).get("paused"))
@@ -28452,7 +30023,7 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit(
             "transport",
-            lambda session_id=session.value: client.pause_resume(session_id),
+            pause_current_session,
             done,
             lambda error: self.announcer.say(f"Blad: {error}"),
         )
@@ -28812,6 +30383,9 @@ class LiteFrame(wx.Frame):
             )
 
     def _set_rate(self, value: float) -> None:
+        if self.navigator.active is SessionId.SPOTIFY:
+            self.announcer.say("Spotify nie udostępnia trwałej zmiany prędkości w AMC")
+            return
         # Przyciecie jak SetPlaybackRate (DemoMediaSession.cs:381): do
         # NAJBLIZSZEGO szczebla drabiny, nie do dowolnej wartosci z suwaka.
         value = clamp_playback_rate(value)
@@ -28993,14 +30567,19 @@ class LiteFrame(wx.Frame):
     def _update_native_playback_status(self, payload: dict | None = None) -> None:
         """Wpisz do NVDA+End gotowy tekst hosta, bez wywolywania mowy.
 
-        Host C# sklada stacje, parametry audio i metadane strumienia tym samym
-        formatterem co Alt+D. Python nie pokazuje surowych identyfikatorow ani
-        nie zgaduje bitrate'u.
+        Host C# składa opis bieżącego materiału i dostępne parametry audio.
+        Dla Radia pozostaje wspólny formatter z Alt+D. Python nie pokazuje
+        surowych identyfikatorów ani nie zgaduje bitrate'u.
         """
         status = payload if isinstance(payload, dict) else self._last_status
-        text = str(status.get("currentBroadcastText") or "").strip()
+        text = str(
+            status.get("currentPlaybackText")
+            or status.get("currentBroadcastText")
+            or status.get("title")
+            or "Nic nie jest odtwarzane"
+        ).strip()
         bar = getattr(self, "status_bar", None)
-        if text and bar is not None:
+        if bar is not None:
             bar.show(text)
 
     def _on_timer(self, _event: wx.TimerEvent) -> None:
@@ -29168,6 +30747,7 @@ class LiteFrame(wx.Frame):
             SessionId.RADIO,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         )
         active = self.navigator.active
         if active in local_sessions:
@@ -29176,6 +30756,8 @@ class LiteFrame(wx.Frame):
             requested_session = SessionId.RADIO
         elif SessionId.PODCASTS in self._playing_sessions:
             requested_session = SessionId.PODCASTS
+        elif SessionId.RADIOARCHIWISTA in self._playing_sessions:
+            requested_session = SessionId.RADIOARCHIWISTA
         elif SessionId.SPOTIFY in self._playing_sessions:
             requested_session = SessionId.SPOTIFY
         else:
@@ -29187,7 +30769,8 @@ class LiteFrame(wx.Frame):
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload
-            self._update_native_playback_status(payload)
+            if self.navigator.active is requested_session:
+                self._update_native_playback_status(payload)
             remote_player = (
                 self.navigator.active is SessionId.WIIM
                 or self.navigator.active is SessionId.SONOS
@@ -29217,6 +30800,7 @@ class LiteFrame(wx.Frame):
                 SessionId.FILES,
                 SessionId.PODCASTS,
                 SessionId.SPOTIFY,
+                SessionId.RADIOARCHIWISTA,
             ):
                 refresh_activity = getattr(
                     self, "_refresh_native_playback_activity_view", None
@@ -29237,8 +30821,7 @@ class LiteFrame(wx.Frame):
             self._refresh_radio_transport_status()
 
     def _update_window_title(self) -> None:
-        radio = self._transport_status_by_session.get(SessionId.RADIO)
-        title = radio_window_title(radio) or i18n.ui_text(window_title())
+        title = i18n.ui_text(window_title())
         if self.GetTitle() != title:
             self.SetTitle(title)
 
@@ -29474,19 +31057,34 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return
         state = self.navigator.sessions[session_id]
         playing, paused = self._native_playback_snapshot(session_id)
+        # Ta sama lista i ten sam stan odtwarzania daja ten sam wynik. Liczenie
+        # go przy kazdym ticku i klawiszu przechodzilo po wszystkich wierszach
+        # (42 866 w duzej bibliotece) i porownywalo je wszystkie.
+        playback = (state.current_material_id, playing, paused)
+        last = getattr(self, "_playback_activity_inputs", None)
+        if (
+            isinstance(last, tuple)
+            and last[0] is session_id
+            and last[1] is state.model.rows
+            and last[2] == playback
+        ):
+            return
         rows = playback_activity_rows(
             state.model.rows,
             current_item_id=state.current_material_id,
             playing=playing,
             paused=paused,
         )
-        if rows == state.model.rows:
-            return
-        state.model.replace(rows, preferred_id=state.model.selected_id)
+        if rows != state.model.rows:
+            state.model.replace(rows, preferred_id=state.model.selected_id)
+        # Jeden wpis zamiast slownika sesji: trzymamy najwyzej liste ostatnio
+        # liczonej sesji, a nie stare listy sesji odlozonych na bok.
+        self._playback_activity_inputs = (session_id, state.model.rows, playback)
 
     def _refresh_native_playback_activity_view(
         self, session_id: SessionId | None = None
@@ -29504,6 +31102,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return
         LiteFrame._apply_native_playback_activity_status(self, active)
@@ -29522,6 +31121,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.RADIOARCHIWISTA,
         ):
             return ""
         state = self.navigator.sessions[entry.session_id]
@@ -29643,6 +31243,9 @@ class LiteFrame(wx.Frame):
                 announce=False,
                 preferred_id=preferred_id,
             )
+            return
+        if state.library_view is LibraryView.DOWNLOADED_FILES:
+            self._show_download_history(announce=False, preferred_id=preferred_id)
             return
         if state.library_view not in self._VIEW_KEYS:
             self.announcer.say("Zmiana została zapisana. Odśwież bieżący widok")
@@ -29985,7 +31588,10 @@ class LiteFrame(wx.Frame):
 
     def _remove_selected_items(self) -> None:
         if (
-            self.navigator.active in (SessionId.WIIM, SessionId.SONOS)
+            self.navigator.active in (
+                SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+                SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+            )
             and self.navigator.session.library_view
             is LibraryView.SERVICE_HISTORY
         ):
@@ -30153,10 +31759,13 @@ class LiteFrame(wx.Frame):
         )
 
     def _remove_streamer_history_entries(self) -> None:
-        """Delete usuwa migawki Historii, nigdy źródło WiiM ani Sonosa."""
+        """Delete usuwa tylko wpisy historii bieżącej sesji."""
 
         session_id = self.navigator.active
-        if session_id not in (SessionId.WIIM, SessionId.SONOS):
+        if session_id not in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+            SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+        ):
             return
         selected = self._selected_action_rows()
         if not selected:
@@ -30200,9 +31809,14 @@ class LiteFrame(wx.Frame):
             if len(selected) == 1
             else format_item_count(len(selected))
         )
+        source_message = (
+            "Urządzenie i źródło pozostały bez zmian"
+            if session_id in (SessionId.WIIM, SessionId.SONOS)
+            else "Materiał źródłowy pozostał bez zmian"
+        )
         self.announcer.say(
             f"Usunięto z Historii {SESSION_LABELS[session_id]}: {label}. "
-            "Urządzenie i źródło pozostały bez zmian"
+            + source_message
         )
 
     def _remove_selected_bookmarks(self) -> None:
@@ -30646,12 +32260,37 @@ class LiteFrame(wx.Frame):
             )
 
     def _show_radio_recognition_history(self) -> None:
-        """Pokaż nakładkę bez zmiany sesji ani widoku miejsca wywołania.
+        """Pokaż niemodalną historię bez zmiany sesji ani widoku.
 
         Anulowanie, w tym Escape, wraca przez wspólną drogę fokusu do listy
         lub odtwarzacza tej samej sesji. Historia nie jest przejściem do
         sesji Radio tylko dlatego, że jej dane pochodzą z rozpoznawania Radia.
         """
+        existing = self._radio_recognition_history_dialog
+        if existing is not None:
+            try:
+                if not existing.IsBeingDeleted():
+                    existing.show_for_keyboard()
+                    return
+            except RuntimeError:
+                pass
+            self._radio_recognition_history_dialog = None
+
+        dialog: RadioRecognitionHistoryDialog | None = None
+
+        def finished() -> None:
+            if self._radio_recognition_history_dialog is dialog:
+                self._radio_recognition_history_dialog = None
+            if dialog is None:
+                return
+            if dialog.changed:
+                self._save_state()
+            requested_action = dialog.requested_action
+            if requested_action is None:
+                wx.CallAfter(self._restore_focus_after_dialog)
+            else:
+                wx.CallAfter(self._execute_recognition_action, *requested_action)
+
         dialog = RadioRecognitionHistoryDialog(
             self,
             self.state.recognized_tracks,
@@ -30660,6 +32299,7 @@ class LiteFrame(wx.Frame):
             submit=self.runner.submit,
             resolve_match=self._resolve_recognition_match,
             detailed_hints=self._detailed_hints,
+            finished=finished,
             internal_services=tuple(
                 service
                 for service, capability in (
@@ -30669,23 +32309,8 @@ class LiteFrame(wx.Frame):
                 if capability in current_profile().capabilities
             ),
         )
-        changed = False
-        requested_action = None
         self._radio_recognition_history_dialog = dialog
-        try:
-            dialog.ShowModal()
-            changed = dialog.changed
-            requested_action = dialog.requested_action
-        finally:
-            self._radio_recognition_history_dialog = None
-            dialog.Destroy()
-        if changed:
-            self._save_state()
-        if requested_action is None:
-            self._restore_focus_after_dialog()
-            return
-        entry, action, match = requested_action
-        self._execute_recognition_action(entry, action, match)
+        dialog.show_for_keyboard()
 
     @staticmethod
     def _recognition_query(entry: dict) -> str:
@@ -31240,6 +32865,87 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("radio-recording-history", work, done, failed)
 
+    def _record_download(self, path: str | Path, *, title: str, source: str) -> bool:
+        try:
+            self._download_history.record(path, title=title, source=source)
+        except (OSError, ValueError):
+            return False
+        return True
+
+    def _record_download_results(self, payload: dict, *, source: str) -> None:
+        failures = 0
+        for item in payload.get("files") or []:
+            if not isinstance(item, dict) or not item.get("path"):
+                continue
+            if not self._record_download(
+                str(item["path"]),
+                title=str(item.get("title") or ""),
+                source=source,
+            ):
+                failures += 1
+        if failures:
+            self.announcer.say("Nie zapisano części wpisów w historii pobierania")
+
+    def _show_download_history(
+        self, *, announce: bool = True, preferred_id: str | None = None
+    ) -> None:
+        """Ctrl+J: one list of archive, podcast audio and video downloads."""
+        if announce:
+            self._begin_transient_preview()
+            self.navigator.active = SessionId.FILES
+
+        def work() -> tuple[list[DownloadEntry], str]:
+            warnings: list[str] = []
+            try:
+                journal = self._download_history.load()
+            except OSError:
+                journal = []
+                warnings.append("Nie można odczytać zapisanej historii pobierania")
+            try:
+                podcast = entries_from_podcast_rows(
+                    self.podcasts.downloads(loaded_count=1_000_000).rows
+                )
+            except (OSError, ValueError, PodcastProfileError):
+                podcast = []
+                warnings.append("Nie można odczytać pobranych odcinków")
+            archive = entries_from_archive_folder(
+                Path(self.layout.lite_settings_dir) / "radioarchiwista" / "pobrane"
+            )
+            return merge_entries(journal, podcast, archive), ". ".join(warnings)
+
+        def done(result: tuple[list[DownloadEntry], str]) -> None:
+            if announce and self._transient_preview_return is None:
+                return
+            if not announce and (
+                self.navigator.active is not SessionId.FILES
+                or self.navigator.sessions[SessionId.FILES].library_view
+                is not LibraryView.DOWNLOADED_FILES
+            ):
+                return
+            entries, warning = result
+            self._download_history_entries = {entry.item_id: entry for entry in entries}
+            events = self.navigator.apply_library_view(
+                LibraryView.DOWNLOADED_FILES,
+                "Pobrane pliki",
+                download_rows(entries),
+                preferred_id=preferred_id,
+                announce_count=False,
+                announce_position=True,
+            )
+            if announce:
+                self._announce_transient_preview(events)
+            else:
+                self._sync_views()
+            if warning:
+                self.announcer.say(warning)
+
+        def failed(error: Exception) -> None:
+            if announce:
+                self._restore_transient_preview(announce=False, force=True)
+                self.announcer.say("Nie można wczytać pobranych plików")
+
+        self.runner.submit("download-history", work, done, failed)
+
     def _show_radio_schedules(
         self,
         *,
@@ -31715,6 +33421,7 @@ class LiteFrame(wx.Frame):
             chord,
             player_view=player,
             radio_session=self.navigator.active is SessionId.RADIO,
+            radioarchiwista_session=self.navigator.active is SessionId.RADIOARCHIWISTA,
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
             radio_collection=(
                 not player
@@ -31810,6 +33517,21 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action is Action.MIRROR_SESSION:
+            client = getattr(self, "client", None)
+            session_id = self.navigator.active.value
+            return (session_id in CAST_SESSIONS and not (client and
+                getattr(client, "cast_active", lambda _: False)(session_id)))
+        if action is Action.CAST_SESSION:
+            client = getattr(self, "client", None)
+            return cast_session_available(self.navigator.active.value,
+                getattr(self, "_transport_status_by_session", {}).get(self.navigator.active),
+                active=bool(client and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value)))
+        client = getattr(self, "client", None)
+        if client is not None and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value):
+            if not cast_action_available(action, True, self.navigator.active.value,
+                    self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
+                return False
         if action is Action.VIEW_RADIO_RECOGNITION_HISTORY:
             return self.navigator.active in RECOGNITION_HISTORY_SESSIONS
         target_session = next((
@@ -31822,7 +33544,10 @@ class LiteFrame(wx.Frame):
                 self.options.session_order
             )
         if (
-            self.navigator.active in (SessionId.WIIM, SessionId.SONOS)
+            self.navigator.active in (
+                SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+                SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+            )
             and action is Action.REMOVE_SELECTED
         ):
             return (
@@ -31848,6 +33573,7 @@ class LiteFrame(wx.Frame):
             SessionId.WIIM: WIIM_SUPPORTED_ACTIONS,
             SessionId.SONOS: SONOS_SUPPORTED_ACTIONS,
             SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
+            SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
         }.get(self.navigator.active)
         return supported is None or action in supported
 
@@ -31875,6 +33601,7 @@ class LiteFrame(wx.Frame):
                     action is None
                     or self._action_available_in_active_session(action)
                 ),
+                downloaded_files=self._in_download_history(),
             )
         )
         return True
@@ -31902,6 +33629,7 @@ class LiteFrame(wx.Frame):
                 SESSION_LABELS[self.navigator.active],
                 available_actions,
                 shortcut_overrides,
+                downloaded_files=self._in_download_history(),
             )
         ]
         wx.MessageBox("\n".join(lines), "Skroty klawiszowe", wx.OK | wx.ICON_INFORMATION, self)
@@ -31968,6 +33696,23 @@ class LiteFrame(wx.Frame):
                 _present_main_window(self)
                 return
         self.timer.Stop()
+        history_dialog = self._radio_recognition_history_dialog
+        self._radio_recognition_history_dialog = None
+        if history_dialog is not None:
+            try:
+                if not history_dialog.IsBeingDeleted():
+                    history_dialog.dispose_for_parent_close()
+            except RuntimeError:
+                pass
+        account_dialogs = getattr(self, "_service_account_dialogs", {})
+        self._service_account_dialogs = {}
+        for dialog in account_dialogs.values():
+            try:
+                if not dialog.IsBeingDeleted():
+                    dialog.Hide()
+                    dialog.Destroy()
+            except RuntimeError:
+                pass
         account_dialog = self._sonos_account_dialog
         self._sonos_account_dialog = None
         if account_dialog is not None:
@@ -32011,11 +33756,59 @@ class LiteFrame(wx.Frame):
 class LiteApp(wx.App):
     _startup_smoke_timeout_seconds = 20.0
 
+    @staticmethod
+    def _frontmost_visible_modal(windows) -> wx.Window | None:
+        """Return the deepest visible modal, ignoring closing or hidden windows."""
+        candidates = []
+        for index, window in enumerate(windows):
+            try:
+                if (
+                    window.IsBeingDeleted()
+                    or not window.IsShown()
+                    or not window.IsModal()
+                ):
+                    continue
+                depth = 0
+                parent = window.GetParent()
+                while parent is not None:
+                    depth += 1
+                    parent = parent.GetParent()
+                candidates.append((depth, index, window))
+            except (AttributeError, RuntimeError):
+                continue
+        return max(candidates)[2] if candidates else None
+
+    def _raise_open_modal(self) -> None:
+        windows = tuple(wx.GetTopLevelWindows())
+        modal = self._frontmost_visible_modal(windows)
+        if modal is None:
+            return
+        active = wx.GetActiveWindow()
+        if active is not None and active not in windows and active is not self.GetTopWindow():
+            # A native child dialog (for example a file picker) owns focus.
+            return
+        modal.Raise()
+        focused = wx.Window.FindFocus()
+        while focused is not None:
+            if focused is modal:
+                return
+            focused = focused.GetParent()
+        modal.SetFocus()
+
+    def _on_activate_app(self, event: wx.ActivateEvent) -> None:
+        event.Skip()
+        if event.GetActive():
+            wx.CallAfter(self._raise_open_modal)
+
     def _on_init_dialog(self, event: wx.InitDialogEvent) -> None:
         """Translate every native dialog just before it is first presented."""
 
         i18n.localize_window_tree(event.GetEventObject())
         event.Skip()
+        # A delayed callback may start a modal loop while another window has
+        # focus. Put the actual active modal above the main window at the next
+        # event-loop turn, including when the user has not switched apps.
+        wx.CallAfter(self._raise_open_modal)
 
     def _finish_startup_smoke(
         self,
@@ -32071,6 +33864,7 @@ class LiteApp(wx.App):
 
     def OnInit(self) -> bool:  # noqa: N802 - API wx
         self.SetAppName(APP_NAME)
+        self.Bind(wx.EVT_ACTIVATE_APP, self._on_activate_app)
         if hasattr(wx, "EVT_INIT_DIALOG"):
             self.Bind(wx.EVT_INIT_DIALOG, self._on_init_dialog)
         # Drugi frontend nie może uruchamiać drugiego właściciela postępu

@@ -20,6 +20,7 @@ _SUPPORTED_OUTPUT_SESSIONS = (
     SessionId.RADIO,
     SessionId.PODCASTS,
     SessionId.SPOTIFY,
+    SessionId.RADIOARCHIWISTA,
 )
 _SESSION_KEYS = {session.value for session in _SUPPORTED_OUTPUT_SESSIONS}
 _PROFILE_TO_LITE = {"local": SessionId.FILES.value}

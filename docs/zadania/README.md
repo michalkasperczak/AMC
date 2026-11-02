@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
+
 Ten katalog jest kanonicznym miejscem zapisywania osobnych zadań, które mają
 przetrwać między rozmowami i być czytelne zarówno dla Codexa, jak i Hermesa.
 Rejestr nie uruchamia pracy samodzielnie. Zadanie rozpoczyna się dopiero po
@@ -7,21 +9,9 @@ jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
 ## Bieżący punkt wznowienia
 
-Najnowszą bazą wszystkich dalszych prac jest AMC Test z commitu
-`4c8fceda738afd0163040a400150007d16f8409c`, pakiet `faef4e7f`, zbudowany,
-atomowo zainstalowany i uruchomiony 26.10.2026 o 14:03 w
-`D:\Projekty Codex\AMC Python`. Raport promocji potwierdza 2062 zaliczone
-testy, 111 kontrolowanie pominiętych i 13 zaliczonych podtestów oraz tytuł
-okna `AMC Test — 26.10.2026, 14:01`. Pozostaje ręczny odbiór funkcji z
-czterech najnowszych zadań.
+Najnowsza lokalna instalacja to **AMC Test — 02.11.2026, 02:18** (`0.1.0-alpha.465`), commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Wspólne wydanie Cast, Spotify oraz poprawek Spacji i Shift+A opublikowano na GitHubie i zainstalowano. Zaliczone: 597 testów Python, 5 zestawów protokołu, bramki pakietu/instalatora, integralność instalacji i start jednej instancji. Ręczny odbiór nowych zachowań Spotify, Shift+A i NVDA+End pozostaje otwarty; listę Cast użytkownik odebrał wcześniej. [Wyniki i dokładne ścieżki](REL-20261102-nocna-aktualizacja-test.md).
 
-Nadrzędny plan uporządkowania jednej linii źródeł, instalatorów, aktualizacji,
-GitHuba, profili danych oraz historycznego AMC WPF jest w:
-[REL-002-kanoniczne-wydania-test-public-github.md](REL-002-kanoniczne-wydania-test-public-github.md).
-Nie budować ani nie instalować kolejnej użytkowej wersji ze starego repozytorium
-WPF `D:\Projekty Codex\Accessible Multimedia Controller`.
-Stara instalacja WPF na dysku C została usunięta; repozytorium źródłowe pozostaje
-do kontrolowanej archiwizacji opisanej w REL-003.
+Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowując nowsze funkcje poprzedniej instalacji oraz główną brudną gałąź `codex/konfigurowalne-skroty-20261026`. Przy następnej budowie nie pomijać tej integracji.
 
 ## Zasady prowadzenia
 
@@ -52,10 +42,40 @@ do kontrolowanej archiwizacji opisanej w REL-003.
 
 ## Zadania
 
-- `RARCH-001` — **W trakcie; kod, testy i pull request
+- `UPDATE-20261101` — **W trakcie; alpha.464 opublikowana i zainstalowana, potrzebny odsłuch NVDA** — czytelny wynik i ochrona przed powtórnym sprawdzeniem podczas instalacji. [UPDATE-20261101-ponowna-aktualizacja.md](UPDATE-20261101-ponowna-aktualizacja.md).
+
+- `RADIO-20261101` — **W trakcie; alpha.463 opublikowana i zainstalowana, potrzebny odsłuch NVDA** — bitrate i kodek bieżącej stacji w odczycie paska stanu NVDA+End oraz Alt+D. [RADIO-20261101-parametry-strumienia.md](RADIO-20261101-parametry-strumienia.md).
+
+- `RARCH-003` — presety katalogów Radio Archiwisty, domyślnie Najnowsze nagrania i Program 1. [RARCH-003-presety-katalogow.md](RARCH-003-presety-katalogow.md).
+- `RELEASE-20261031` — **Kandydat AMC Test alpha.461; testy zaliczone, instalacja i GitHub do weryfikacji** — wspólna aktualizacja tytułu, Radio Archiwisty i diagnostyki. [RELEASE-20261031-alpha461.md](RELEASE-20261031-alpha461.md).
+
+- `MODAL-001` — **W trakcie** — zabezpieczenie historii rozpoznawania i innych okien przed pozostawieniem wyłączonego głównego okna AMC; osobny przegląd po zgłoszeniu z 31.10.2026. Szczegóły: [MODAL-001-okna-blokujace-glowny-interfejs.md](MODAL-001-okna-blokujace-glowny-interfejs.md).
+
+- `PERF-001` — **W trakcie; PR #6 Huberta zastosowany lokalnie, 65/65 testów celowanych zaliczonych, bez commitu, builda, instalacji i publikacji** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).
+
+- `PERF-002` — **W trakcie; izolowany kandydat źródłowy, testy bez okien i próba rzeczywistej kontrolki zaliczone; czeka na odbiór NVDA, bez instalacji i publikacji** — duża lista Plików lokalnych i powrót Escape ze zgłoszenia #5. Szczegóły: [PERF-002-duze-biblioteki-plikow.md](PERF-002-duze-biblioteki-plikow.md).
+
+- `PODRAD-001` — **W trakcie; dwa domyślnie wyłączone przełączniki osobnych folderów Radia i Podcastów, celowane testy oraz build hosta zaliczone; bez instalacji i próby NVDA**. Szczegóły:
+  [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
+
+- `RARCH-001` — **W trakcie; poprawki po pierwszym odbiorze przygotowane
+  do osobnego wydania AMC Test 0.1.0-alpha.451; potrzebny odbiór NVDA;
+  kod, testy i pull request
   [michalkasperczak/AMC#4](https://github.com/michalkasperczak/AMC/pull/4)
   (gałąź `radioarchiwista-sesja`, autor radioarchiwista) są gotowe;
   pozostaje odbiór właściciela i ręczny odbiór NVDA na AMC Test** —
+
+- `REL-20261102` — **Zrobione: wspólne wydanie Test alpha.465 opublikowane, zainstalowane i uruchomione 02.11.2026 po 02:00**. [Wyniki](REL-20261102-nocna-aktualizacja-test.md).
+
+- `TITLE-001` — **W trakcie; kod i 17 testów zaliczonych, bez instalacji** — stała data kompilacji w tytule AMC Test; odtwarzanie czytane z NVDA+End. [TITLE-001-data-w-tytule-AMC-Test.md](TITLE-001-data-w-tytule-AMC-Test.md).
+
+- `A11Y-20261030` — **W trakcie; źródła, testy i kompilacja bez instalacji** — `NVDA+End` ma odczytywać aktualny pasek stanu na liście i w odtwarzaczu różnych sesji. Ręczna próba NVDA pozostaje do wykonania. [A11Y-20261030-nvda-end-pasek-stanu.md](A11Y-20261030-nvda-end-pasek-stanu.md).
+
+- `PERF-001` — **W trakcie; poprawka #6 opublikowana w AMC Public alpha.448; bez lokalnej instalacji i ręcznej próby NVDA** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).
+
+- `RARCH-001` — **W trakcie; pierwsza wersja w AMC Test odebrana z uwagami,
+  poprawki pobierania, Spacji, Shift+A i diagnostyki w źródłach po testach i kompilacji;
+  czeka następna instalacja i ręczny odbiór NVDA** —
   sesja „Radio Archiwista” wyłącznie w profilu Test: przeglądanie
   publicznego katalogu nagrań (stacja → rok → miesiąc → dzień → godzina,
   „Najnowsze nagrania”), odtwarzanie wspólnym torem podcastów (tempo,
@@ -63,6 +83,45 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   `Ctrl+Shift+U`, odświeżanie `F5`, globalne wyszukiwanie bez sieci.
   Bez sterowania nagrywaniem. Szczegóły:
   [RARCH-001-integracja-radioarchiwista.md](RARCH-001-integracja-radioarchiwista.md).
+- `QUEUE-002` — **W trakcie: Spotify; pozostałe sesje oczekują** — kolejki Podcastów/YouTube,
+  Spotify i TIDAL; bez zmian tych sesji w przyroście Radio Archiwisty.
+  Szczegóły: [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
+- [UNDO-001 — przywracanie pozycji kolekcji](UNDO-001-przywracanie-pozycji-kolekcji.md): przegląd Ctrl+Z, trwałych porządków Ulubionych i kolejek oraz kontrakt cofania.
+- [RARCH-002 — pobieranie wycinka i diagnostyka awarii](RARCH-002-pobieranie-fragmentow.md): Ctrl+Shift+D w Radio Archiwiście, postęp dwóch etapów, analiza zrzutów wx, presety.
+- `SPOTIFY-ACCESS-001` — **Zrobione jako pakiet do recenzji, bez wysyłki** — uczciwe wstępne zapytanie o publiczny dostęp Spotify Web API dla pełnej sesji AMC, polskie streszczenie, potwierdzone fakty i zakresy, lista danych właściciela, dowodów oraz plan późniejszego formalnego wniosku. Aktualny kanał kontaktu i status kwotowy Client ID wymagają potwierdzenia; nie kontaktowano się ze Spotify. [SPOTIFY-ACCESS-001-zapytanie-o-publiczne-web-api.md](SPOTIFY-ACCESS-001-zapytanie-o-publiczne-web-api.md).
+
+- `SPOTIFY-OUTPUT-001` — **Zrobione jako badanie; brak potwierdzonego, wspieranego API do automatycznego wyboru fizycznego wyjścia oficjalnego Spotify** — `Shift+A` w AMC Test nadal rzeczywiście wybiera wyjście hosta Librespot (12 testów bez GUI zaliczonych). Oficjalna aplikacja może mieć wyjście ustawione ręcznie w Mikserze Windows; to nie jest wdrożenie `Shift+A`. [SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md](SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md).
+- `SPOTIFY-ISSUES-009-011` — **Poprawki źródeł i testy bez interfejsu, bez instalacji** — dodano konfigurację i parowanie z #9, naprawiono pobranie i zapis kolekcji z #10 oraz komunikat Librespot z #11. Nowe okno wymaga próby NVDA i odbioru na koncie. [SPOTIFY-ISSUES-009-011-20261030.md](SPOTIFY-ISSUES-009-011-20261030.md).
+
+- `MIRROR-001` — **Shift+M wydany w AMC Test alpha.466; 222 testy celowane zaliczone, 1 pominięty, odbiór NVDA i pomiar opóźnienia otwarte**. Jeden dodatkowy odbiornik Google Cast; AirPlay i drugie lokalne wyjście pozostają osobnymi etapami. [Opis i wyniki](MIRROR-001-dublowanie-dzwieku-cast-airplay.md).
+- `SESSION-003` — **poprawka Enter i natywnych presetów WiiM wydana w AMC Test alpha.466; ręczny odbiór NVDA otwarty**. [Opis i wyniki](SESSION-003-wiim-enter-i-presety.md).
+
+- `CAST-001` — **Podstawowy zakres wydany i zainstalowany w Test alpha.465; lista odebrana z NVDA**. Shift+C wybiera Cast; Shift+A pozostaje torem sesji. [Zakres i ograniczenia](CAST-001-google-cast.md).
+
+- `DOWNLOADS-001` — **AMC Test `alpha.455` opublikowany na GitHubie i
+  zainstalowany; 2211 zaliczonych testów, pozostaje ręczny odbiór NVDA** —
+  historia pobranych plików Radio Archiwisty, Podcastów i wideo pod `Ctrl+J`.
+  Szczegóły: [DOWNLOADS-001-historia-pobierania.md](DOWNLOADS-001-historia-pobierania.md).
+
+- `DOWNLOADS-002` — **AMC Test `alpha.456` opublikowany na GitHubie i
+  zainstalowany; 2215 testów zaliczonych, odbiór NVDA oczekuje** — w Historii
+  pobrań `Ctrl+C` kopiuje ścieżkę, a
+  `Ctrl+Shift+C` plik do wklejenia. Szczegóły:
+  [DOWNLOADS-002-schowek-historii-pobran.md](DOWNLOADS-002-schowek-historii-pobran.md).
+
+- `RARCH-002` — **AMC Test `alpha.457` opublikowany i zainstalowany; 2220
+  testów regresji zaliczonych, odbiór NVDA oczekuje** — wybór zakresu
+  `MM:SS` i zapis fragmentu MP3 przez `Ctrl+Shift+D`; szczegóły i wyniki
+  w [RARCH-002-pobieranie-fragmentow.md](RARCH-002-pobieranie-fragmentow.md).
+
+- `TEST-20261031-SPOTIFY` — **zbiorcza aktualizacja AMC Test `alpha.458`
+  w przygotowaniu** — gotowe poprawki konta i katalogu Spotify #9–#11
+  połączone z podstawą `alpha.457`; pozostałe sprawdzone nowości były już
+  w tej podstawie. [Wyniki i ograniczenia](TEST-20261031-spotify-alpha458.md).
+
+- `QUEUE-002` — **Oczekuje na osobny przegląd** — kolejki Podcastów i YouTube,
+  Spotify oraz TIDAL nie wchodzą do poprawki Radio Archiwisty. Szczegóły:
+  [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `EDIT-001` — **Zrobione w źródłach; 3 testy kontraktu, celowany test
   rzeczywistego wycinania oraz kompilacja LiteHosta są zaliczone; poprawka nie
@@ -96,6 +155,10 @@ do kontrolowanej archiwizacji opisanej w REL-003.
   wykrywaniem konfliktów, usuwaniem i przywracaniem skrótów oraz jednym
   kontraktem menu, palety i pomocy. Szczegóły:
   [KEY-001-konfigurowalne-skroty-klawiaturowe.md](KEY-001-konfigurowalne-skroty-klawiaturowe.md).
+
+- PODRAD-001 — **W trakcie odbioru NVDA; Test alpha.448 opublikowany i zainstalowany, Public alpha.448 opublikowany na GitHubie**. Dwa niezależne, domyślnie wyłączone przełączniki osobnych folderów: [PODRAD-001-osobne-foldery-stacji-i-podcastow.md](PODRAD-001-osobne-foldery-stacji-i-podcastow.md).
+- TEST-20261030 — **Wydano i zainstalowano AMC Test 0.1.0-alpha.448; ręczny odbiór NVDA oczekuje**. Wyniki: [TEST-20261030-amc-test-alpha448.md](TEST-20261030-amc-test-alpha448.md). [Szkic instrukcji i listy zmian](TEST-20261030-instrukcja-i-lista-zmian-szkic.md).
+- PUBLIC-20261030 — **Opublikowano AMC Public 0.1.0-alpha.448 na GitHubie; bez lokalnej instalacji i ręcznego odbioru NVDA**. Wyniki: [PUBLIC-20261030-wydanie-alpha448.md](PUBLIC-20261030-wydanie-alpha448.md).
 
 - `SET-001` — **W trakcie; kod priorytetów 1–3, pełna regresja, czysta paczka,
   instalator, wydanie GitHub i rzeczywista aktualizacja instalacji są
@@ -587,3 +650,5 @@ zmian, wymagający korekty użytkownika:
 
 Wystarczy powiedzieć na przykład: `Uruchom zadanie NVDA-001`. Agent ma wtedy
 odczytać rejestr oraz właściwy plik i wykonać wyłącznie wskazane zadanie.
+
+- `SPOTIFY-20261101` — **W trakcie; kod i testy bez instalacji i odsłuchu NVDA** — album `Ctrl+Enter`, prywatna kolejka `Ctrl+Q` / `Ctrl+Shift+Q`, ciszej przy Enter, otwarty odbiór `NVDA+End` i prawej strzałki w rozpoznanych utworach. [SPOTIFY-20261101-album-kolejka-komunikaty.md](SPOTIFY-20261101-album-kolejka-komunikaty.md).

@@ -394,6 +394,21 @@ def test_nvda_end_nie_jest_przejmowany() -> None:
         assert resolve(chord, player_view=True, radio_session=False) is None
 
 
+def test_nvda_end_przechodzi_przed_pomoca_i_filtrem() -> None:
+    frame = _new_frame()
+    frame._screen_reader_modifier_down = lambda: True
+    frame._handle_keyboard_help_event = lambda _event: (_ for _ in ()).throw(
+        AssertionError("pomoc AMC nie może przejąć NVDA+End")
+    )
+    passed: list[bool] = []
+    event = FakeKeyEvent(312)
+    event.Skip = lambda: passed.append(True)  # type: ignore[method-assign]
+
+    frame._on_player_shortcut_hook(event)
+
+    assert passed == [True]
+
+
 def test_pole_filtra_zachowuje_wlasny_escape_i_home() -> None:
     """W polu filtra Escape czysci filtr, a Home idzie do pola (edycja).
 

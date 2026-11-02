@@ -404,6 +404,20 @@ def test_zachowanie_entera_ma_jawne_etykiety_i_odseparowany_model():
     assert dialog.enter_behavior._amc_values == [None, True, False]
 
 
+def test_wiim_shows_enter_and_native_preset_choices():
+    dialog = _build(
+        SessionId.WIIM, Options(), session_options.SessionPlaybackOverrides()
+    )
+    assert dialog.enter_behavior.name == "Po uruchomieniu materiału Enterem"
+    assert dialog.preset_behavior.name == "Po uruchomieniu presetu"
+    assert dialog.preset_behavior.choices == [
+        "Jak ustawienie ogólne: pozostań na liście",
+        "Otwórz odtwarzacz",
+        "Pozostań na liście",
+    ]
+    assert dialog.preset_behavior._amc_values == [None, True, False]
+
+
 def test_wariant_dziedziczony_mowi_co_z_niego_wynika():
     """Port ``PlayerExitPausePolicy.DescribeSessionMode``.
 

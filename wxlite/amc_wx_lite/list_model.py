@@ -3,9 +3,8 @@
 Zasada: model NIE przechowuje widgetow. Trzyma wiersze i wybor po stabilnym
 ``item_id``, zeby po odswiezeniu folderu fokus nie skakal na pozycje 0.
 
-``text_for`` oddaje tekst komorki. Dawniej odpowiadal na ``OnGetItemText``
-wirtualnej kontrolki; teraz jest zrodlem tekstu dla ZWYKLEJ listy -- czyta go
-``list_sync.model_row_texts`` i porownuje z tym, co kontrolka juz pokazuje.
+``text_for`` oddaje tekst komorki. ``list_sync.model_row_texts`` przygotowuje
+z niego tekst zwyklej listy oraz listy wlascicielskiej Plikow lokalnych.
 Semantyka kolumn sie NIE zmienila, zmienilo sie tylko to, kiedy tekst trafia
 do kontrolki (raz przy zmianie, nie przy kazdym malowaniu).
 

@@ -24,6 +24,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -93,7 +95,7 @@ def _as_float(value: object, fallback: float = 0.0) -> float:
 def check_slug(slug: str) -> str:
     """Waliduj identyfikator stacji, zanim trafi do ścieżki katalogu."""
 
-    if not _SLUG_PATTERN.match(slug or ""):
+    if not _SLUG_PATTERN.fullmatch(slug or ""):
         raise RadioarchiwistaError("Nieprawidłowy identyfikator stacji katalogu")
     return slug
 
@@ -196,7 +198,7 @@ def parse_stations_index(payload: object) -> StationsIndex:
         if not isinstance(raw, dict):
             continue
         slug = _clean_text(raw.get("slug"))
-        if not slug or slug in seen:
+        if not slug or slug in seen or not _SLUG_PATTERN.fullmatch(slug):
             continue
         seen.add(slug)
         stations.append(StationRecord(
@@ -554,6 +556,110 @@ def favorite_record(recording: ArchiveRecording, added_at: float) -> dict:
     }
 
 
+def download_destination(directory: Path, recording: ArchiveRecording) -> Path:
+    """Użytkowa, stabilna nazwa bez kolizji stacji i powtórnej godziny DST.
+
+    Pobranie tego samego materiału ponownie tworzy kolejny plik. Nie
+    nadpisujemy wcześniej zapisanego nagrania, które mogło być edytowane.
+    """
+
+    label = f"{recording.station_name} {recording.local_label or recording.title}"
+    label = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "-", label)
+    label = re.sub(r"\s+", " ", label).strip(" .-")[:80].rstrip(" .-")
+    label = label or "Nagranie"
+    identity = hashlib.sha256(recording.item_id.encode("utf-8")).hexdigest()[:12]
+    stem = f"{label}-{identity}"
+    directory = Path(directory)
+    for number in range(1, 1001):
+        suffix = "" if number == 1 else f"-{number}"
+        candidate = directory / f"{stem}{suffix}.mp3"
+        if not candidate.exists():
+            return candidate
+    raise RadioarchiwistaError("Nie można wybrać wolnej nazwy pliku nagrania")
+
+
+def parse_fragment_time(value: str) -> int:
+    """Czas wpisany jako MM:SS albo GG:MM:SS, bez domyślnej jednostki."""
+    parts = value.strip().split(":")
+    if len(parts) not in (2, 3) or any(
+        not part.isdigit() or len(part) > 8 for part in parts
+    ):
+        raise RadioarchiwistaError("Wpisz czas jako minuty:sekundy, na przykład 12:30")
+    numbers = [int(part) for part in parts]
+    if any(part >= 60 for part in numbers[1:]):
+        raise RadioarchiwistaError("Sekundy i minuty po dwukropku muszą być mniejsze niż 60")
+    return numbers[0] * 60 + numbers[1] if len(numbers) == 2 else (
+        numbers[0] * 3600 + numbers[1] * 60 + numbers[2]
+    )
+
+
+def fragment_range(recording: ArchiveRecording, start: str, end: str) -> tuple[int, int]:
+    start_seconds = parse_fragment_time(start)
+    end_seconds = parse_fragment_time(end)
+    if end_seconds <= start_seconds:
+        raise RadioarchiwistaError("Koniec fragmentu musi być późniejszy niż początek")
+    if recording.duration_seconds > 0 and end_seconds > recording.duration_seconds + 1:
+        raise RadioarchiwistaError("Koniec fragmentu wykracza poza czas nagrania")
+    if end_seconds > 31_536_000:
+        raise RadioarchiwistaError("Podany czas fragmentu jest zbyt długi")
+    return start_seconds, end_seconds
+
+
+def fragment_destination(
+    directory: Path, recording: ArchiveRecording, start_seconds: int, end_seconds: int
+) -> Path:
+    original = download_destination(directory, recording)
+    label = (
+        f"{original.stem} od-{start_seconds // 60:02d}-{start_seconds % 60:02d} "
+        f"do-{end_seconds // 60:02d}-{end_seconds % 60:02d}"
+    )
+    for number in range(1, 1001):
+        suffix = "" if number == 1 else f"-{number}"
+        candidate = Path(directory) / f"{label}{suffix}.mp3"
+        if not candidate.exists():
+            return candidate
+    raise RadioarchiwistaError("Nie można wybrać wolnej nazwy fragmentu")
+
+
+def download_fragment(
+    recording: ArchiveRecording,
+    destination: Path,
+    start_seconds: int,
+    end_seconds: int,
+    *,
+    export: Callable[[str, str, int, int], Any],
+    progress: Callable[[int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    fetch: Callable[[str], Any] | None = None,
+) -> Path:
+    """Pobierz MP3 do prywatnego pliku tymczasowego i zapisz nowy wycinek."""
+    if start_seconds < 0 or end_seconds <= start_seconds:
+        raise RadioarchiwistaError("Koniec fragmentu musi być późniejszy niż początek")
+    if destination.exists():
+        raise RadioarchiwistaError("Plik fragmentu już istnieje")
+    if not urllib.parse.urlsplit(recording.audio_url).path.lower().endswith(".mp3"):
+        raise RadioarchiwistaError("Przycinanie jest dostępne dla nagrań MP3")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="fragment-", dir=destination.parent) as folder:
+        source = Path(folder) / "nagranie.mp3"
+        stream_to_file(
+            recording.audio_url, source, progress=progress,
+            should_cancel=should_cancel, fetch=fetch,
+        )
+        if should_cancel is not None and should_cancel():
+            raise RadioarchiwistaError("Pobieranie fragmentu anulowane")
+        try:
+            export(str(source), str(destination), start_seconds, end_seconds)
+            if should_cancel is not None and should_cancel():
+                raise RadioarchiwistaError("Pobieranie fragmentu anulowane")
+            if not destination.is_file() or destination.stat().st_size == 0:
+                raise RadioarchiwistaError("Nie udało się zapisać fragmentu nagrania")
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
+    return destination
+
+
 #: Pobieranie pliku strumieniowo, bez wx i bez wątków: wołane w tle GUI.
 def stream_to_file(
     url: str,
@@ -569,6 +675,8 @@ def stream_to_file(
     usuwany, a wywołujący dostaje uczciwy komunikat.
     """
 
+    if destination.exists():
+        raise RadioarchiwistaError("Plik nagrania już istnieje")
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".part")
     opener = fetch or (lambda target: urllib.request.urlopen(target, timeout=_DOWNLOAD_TIMEOUT_SECONDS))
@@ -590,8 +698,12 @@ def stream_to_file(
                 downloaded += len(chunk)
                 if progress is not None and total > 0:
                     progress(min(100, downloaded * 100 // total))
+        if should_cancel is not None and should_cancel():
+            raise RadioarchiwistaError("Pobieranie anulowane")
         if partial.stat().st_size == 0:
             raise RadioarchiwistaError("Pobrany plik jest pusty")
+        if destination.exists():
+            raise RadioarchiwistaError("Plik nagrania już istnieje")
         partial.replace(destination)
     except RadioarchiwistaError:
         partial.unlink(missing_ok=True)
@@ -628,6 +740,8 @@ class RadioarchiwistaSource:
         self._cache_dir = self._dir / "cache"
         self._settings_path = self._dir / "settings.json"
         self._favorites_path = self._dir / "favorites.json"
+        self._queue_path = self._dir / "queue.json"
+        self._queue_lock = threading.Lock()
         self._positions_path = self._dir / "positions.json"
         self._clock = clock
         #: Materiały ostatnio wczytanych dni; akcje na zaznaczonym wierszu
@@ -658,6 +772,23 @@ class RadioarchiwistaSource:
             json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+    def set_catalog_base(self, address: str) -> None:
+        """Zapisz wyłącznie pełny adres HTTPS katalogu."""
+        parsed = urllib.parse.urlsplit(address.strip())
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise RadioarchiwistaError("Podaj pełny adres katalogu HTTPS")
+        normalized = urllib.parse.urlunsplit((
+            "https", parsed.netloc, parsed.path.rstrip("/") + "/", "", ""
+        ))
+        self.write_settings(catalog_base=normalized)
 
     def catalog_base(self) -> str:
         base = _clean_text(self.read_settings().get("catalog_base"))
@@ -841,6 +972,9 @@ class RadioarchiwistaSource:
         for item in self.load_favorites():
             if item.get("item_id") == item_id:
                 return _favorite_to_recording(item)
+        for item in self.load_queue():
+            if item.get("item_id") == item_id:
+                return _favorite_to_recording(item)
         return None
 
     def latest_recordings(
@@ -921,6 +1055,57 @@ class RadioarchiwistaSource:
         if not isinstance(data, list):
             return []
         return [item for item in data if isinstance(item, dict)]
+
+    def load_queue(self) -> list[dict]:
+        """Lokalna kolejka archiwum, niezależna od kolejki plików hosta."""
+        try:
+            data = json.loads(self._queue_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+    def queue_rows(self) -> list[Row]:
+        positions = self.load_positions()
+        return [
+            replace(_recording_row_from_record(_favorite_to_recording(item)),
+                    position_seconds=positions.get(_clean_text(item.get("item_id")), 0.0))
+            for item in self.load_queue()
+        ]
+
+    def toggle_queue(
+        self, recording: ArchiveRecording, *, play_next: bool = False,
+        current_id: str | None = None,
+    ) -> bool:
+        """Dodaj albo usuń nagranie; „następne” wstawia po grającym."""
+        with self._queue_lock:
+            return self._toggle_queue_locked(
+                recording, play_next=play_next, current_id=current_id,
+            )
+
+    def _toggle_queue_locked(
+        self, recording: ArchiveRecording, *, play_next: bool,
+        current_id: str | None,
+    ) -> bool:
+        queue = self.load_queue()
+        if any(_clean_text(item.get("item_id")) == recording.item_id for item in queue):
+            queue = [item for item in queue if _clean_text(item.get("item_id")) != recording.item_id]
+            added = False
+        else:
+            entry = favorite_record(recording, self._clock())
+            position = len(queue)
+            if play_next:
+                position = next(
+                    (index + 1 for index, item in enumerate(queue)
+                     if _clean_text(item.get("item_id")) == current_id),
+                    0,
+                )
+            queue.insert(position, entry)
+            added = True
+        self._dir.mkdir(parents=True, exist_ok=True)
+        temporary = self._queue_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(queue, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(self._queue_path)
+        return added
 
     def save_favorites(self, favorites: list[dict]) -> None:
         self._dir.mkdir(parents=True, exist_ok=True)

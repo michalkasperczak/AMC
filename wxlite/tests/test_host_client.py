@@ -166,6 +166,7 @@ def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> 
             "volume": 37,
             "rate": 1.25,
             "positionSeconds": 91.5,
+            "sessionId": "podcasts",
         }
     finally:
         client.close()
@@ -257,6 +258,27 @@ def test_nvda_bridge_uses_only_named_registration_and_correlated_reply_operation
     ]
 
 
+def test_play_station_forwards_only_known_cached_audio_fields() -> None:
+    calls: list[tuple[str, dict | None, dict]] = []
+    client = object.__new__(LiteHostClient)
+    client.call = lambda op, args=None, **kwargs: calls.append((op, args, kwargs))  # type: ignore[method-assign]
+
+    client.play_station(
+        "https://example.invalid/poznan_aac", volume=35,
+        item_id="poznan", title="Poznań",
+        audio={"bitrateKbps": 128, "codec": "AAC", "sampleRateHz": 48_000,
+               "technicalId": "nie przekazuj"},
+    )
+
+    assert calls == [(
+        "radio.play",
+        {"url": "https://example.invalid/poznan_aac", "volume": 35,
+         "id": "poznan", "title": "Poznań", "bitrateKbps": 128,
+         "sampleRateHz": 48_000, "codec": "AAC"},
+        {"timeout": 90.0},
+    )]
+
+
 def test_podcast_checkpoint_is_a_narrow_host_operation() -> None:
     client = make_client()
     try:
@@ -311,7 +333,14 @@ def test_podcast_download_uses_one_narrow_host_operation_and_deduplicates_ids() 
     try:
         result = client.download_podcast_episodes(["episode-1", "episode-1", "episode-2"])
         assert result["op"] == "podcast.download"
-        assert result["args"] == {"episodeIds": ["episode-1", "episode-2"]}
+        assert result["args"] == {
+            "episodeIds": ["episode-1", "episode-2"],
+            "separateSourceFolders": False,
+        }
+        separated = client.download_podcast_episodes(
+            ["episode-1"], separate_source_folders=True
+        )
+        assert separated["args"]["separateSourceFolders"] is True
     finally:
         client.close()
 

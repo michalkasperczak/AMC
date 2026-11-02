@@ -14,7 +14,7 @@ from typing import Iterable
 from .list_model import Row
 
 
-PLAYABLE_KINDS = frozenset(("track", "episode", "video"))
+PLAYABLE_KINDS = frozenset(("track", "episode", "video", "recording"))
 
 
 def playback_state_label(*, playing: bool, paused: bool) -> str:

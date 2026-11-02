@@ -141,12 +141,16 @@ class MenuItem:
     #: Rozdzielenie tej bramki od samego ``needs_selection`` zapobiega
     #: oferowaniu polecenia m.in. na folderze, albumie TIDAL albo w WiiM.
     needs_favorite_item: bool = False
+    #: Nagranie Radio Archiwisty z dostępnym adresem audio.
+    needs_radioarchiwista_recording: bool = False
+    needs_radioarchiwista_preset_folder: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
     #: AMC. Podcast nagłówkowy, kontener TIDAL i urządzenie sieciowe odpadają.
     needs_playlist_item: bool = False
     #: Wymaga elementu, który rzeczywiście może wejść do kolejki aktywnej
     #: sesji: pliku, odcinka albo utworu TIDAL z danymi albumu.
     needs_queue_item: bool = False
+    needs_spotify_album: bool = False
     #: Węższa odmiana kolejki: „odtwórz jako następne” działa tylko dla
     #: lokalnego pliku albo odcinka podcastu, nie dla TIDAL-a.
     needs_play_next_item: bool = False
@@ -191,6 +195,7 @@ STABLE_TIMELINE_SESSIONS = (
     SessionId.FILES,
     SessionId.PODCASTS,
     SessionId.SPOTIFY,
+    SessionId.RADIOARCHIWISTA,
 )
 SHUFFLE_SESSIONS = (
     SessionId.FILES,
@@ -209,13 +214,19 @@ SONOS_ONLY = (SessionId.SONOS,)
 SPOTIFY_ONLY = (SessionId.SPOTIFY,)
 FRONTIER_SMART_ONLY = (SessionId.FRONTIER_SMART,)
 LOCAL_MEDIA = (SessionId.FILES, SessionId.PODCASTS)
-PLAYBACK_RATE_SESSIONS = (*LOCAL_MEDIA, SessionId.SPOTIFY)
-QUEUE_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL)
-PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS)
+PLAYBACK_RATE_SESSIONS = LOCAL_MEDIA
+QUEUE_SESSIONS = (
+    SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL,
+    SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+)
+PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
-SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY)
-MUTE_SESSIONS = (*SESSION_AUDIO_OUTPUTS, SessionId.FRONTIER_SMART)
+SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA)
+NETWORK_DEVICE_SESSIONS = (
+    SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
+)
+MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART)
 LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY)
 PLAYER_SESSIONS = (
     SessionId.FILES,
@@ -282,6 +293,7 @@ def menus_for_session(
                     SessionId.WIIM: "d",
                     SessionId.SONOS: "g",
                     SessionId.FRONTIER_SMART: "r",
+                    SessionId.RADIOARCHIWISTA: "a",
                 }[session_id]
                 key_index = ctrl_f5.name.casefold().find(access_key)
                 label = (
@@ -297,6 +309,24 @@ def menus_for_session(
                     shortcut=ctrl_f5.shortcut,
                     accelerator=False,
                 )
+            if session_id is SessionId.RADIOARCHIWISTA:
+                archive_labels = {
+                    Action.VIEW_LIBRARY: "Wszystkie st&acje Radio Archiwisty",
+                    Action.VIEW_SAVED_QUEUE: "&Kolejka nagrań Radio Archiwisty",
+                    Action.ADD_TO_QUEUE: "&Dodaj nagranie do kolejki lub usuń",
+                    Action.TOGGLE_PLAY_NEXT: "Odtwórz nagranie jako &następne",
+                    Action.COPY_ADDRESS: "Skopiuj &link do nagrania",
+                    Action.FOCUS_FILTER: "Filtru&j listę",
+                }
+                if entry.action in archive_labels:
+                    entry = replace(entry, label=archive_labels[entry.action])
+            if session_id is SessionId.SPOTIFY and entry.action in {
+                Action.VIEW_SAVED_QUEUE, Action.ADD_TO_QUEUE,
+            }:
+                entry = replace(entry, label={
+                    Action.VIEW_SAVED_QUEUE: "&Kolejka Spotify",
+                    Action.ADD_TO_QUEUE: "Dodaj lub usuń z kolejki S&potify",
+                }[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
                 Action.VIEW_CHAPTERS,
                 Action.ADD_NAMED_CHAPTER,
@@ -405,6 +435,7 @@ def build_menus(
                     SessionId.SPOTIFY,
                     SessionId.WIIM,
                     SessionId.FRONTIER_SMART,
+                    SessionId.RADIOARCHIWISTA,
                 ),
             ),
             MenuItem(
@@ -461,7 +492,7 @@ def build_menus(
                 visible_sessions=SONOS_ONLY,
             ),
             MenuItem(
-                "Dodaj podcast, SoundCloud, kanał YouTube lub medium &internetowe",
+                "Dodaj podcast, SoundCloud, kanał YouTube, stronę Facebooka lub medium &internetowe",
                 Action.ADD_PODCAST_SOURCE,
                 shortcut="Ctrl+N",
                 accelerator=False,
@@ -647,6 +678,7 @@ def build_menus(
                 shortcut="Ctrl+Shift+U",
                 accelerator=False,
                 needs_selection=True,
+                needs_radioarchiwista_recording=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             MenuItem(
@@ -655,6 +687,16 @@ def build_menus(
                 shortcut="Ctrl+D",
                 accelerator=False,
                 needs_selection=True,
+                needs_radioarchiwista_recording=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
+            MenuItem(
+                "Pobierz &fragment nagrania…",
+                Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
+                shortcut="Ctrl+Shift+D",
+                accelerator=False,
+                needs_selection=True,
+                needs_radioarchiwista_recording=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             SEPARATOR,
@@ -747,6 +789,18 @@ def build_menus(
                 Action.ASSIGN_PRESET,
                 shortcut="Ctrl+Alt+Shift+P",
             ),
+            *tuple(
+                MenuItem(
+                    (f"&Przypisz do presetu 9" if slot == 9 else
+                     f"Przypisz do prese&tu 0" if slot == 10 else
+                     f"Przypisz do presetu &{slot}"),
+                    Action[f"ASSIGN_PRESET_{slot}"],
+                    shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
+                    visible_sessions=RADIOARCHIWISTA_ONLY,
+                    needs_radioarchiwista_preset_folder=True,
+                )
+                for slot in range(1, 11)
+            ),
             SEPARATOR,
             # Trzy odczyty aktywnosci. Skroty ODCZYTANE z kodu:
             #   MainWindow.xaml:488 "_Historia odtwarzania" Ctrl+H
@@ -772,6 +826,12 @@ def build_menus(
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),
+            MenuItem(
+                "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,
+                shortcut="Ctrl+Return", accelerator=False,
+                needs_selection=True, needs_spotify_album=True,
+                visible_sessions=SPOTIFY_ONLY,
+            ),
             MenuItem(
                 "Szybkie informacje o elemencie (&0)",
                 Action.QUICK_INFORMATION,
@@ -1524,6 +1584,8 @@ def build_menus(
     view = Menu(
         "&Widok",
         (
+            MenuItem("&Historia pobrań", Action.VIEW_DOWNLOADED_FILES,
+                     shortcut="Ctrl+J"),
             *session_items,
             MenuItem(
                 "Otwórz &Menedżer sesji…",
@@ -1744,7 +1806,7 @@ def build_menus(
                 Action.SELECT_AUDIO_OUTPUT,
                 shortcut="Shift+A",
                 accelerator=False,
-                visible_sessions=SESSION_AUDIO_OUTPUTS,
+                visible_sessions=(*SESSION_AUDIO_OUTPUTS, *NETWORK_DEVICE_SESSIONS),
             ),
             MenuItem(
                 "&Poprzednie urządzenie audio",
@@ -1759,6 +1821,21 @@ def build_menus(
                 shortcut="Ctrl+]",
                 accelerator=False,
                 visible_sessions=SESSION_AUDIO_OUTPUTS,
+            ),
+            SEPARATOR,
+            MenuItem(
+                command_presentation(Action.CAST_SESSION).menu_label,
+                Action.CAST_SESSION,
+                shortcut=command_presentation(Action.CAST_SESSION).shortcut,
+                accelerator=False,
+                visible_sessions=LOCAL_AUDIO,
+            ),
+            MenuItem(
+                command_presentation(Action.MIRROR_SESSION).menu_label,
+                Action.MIRROR_SESSION,
+                shortcut=command_presentation(Action.MIRROR_SESSION).shortcut,
+                accelerator=False,
+                visible_sessions=LOCAL_AUDIO,
             ),
             # Ustawienia dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
             # jest skrótem okna, więc rejestrujemy natywny akcelerator;

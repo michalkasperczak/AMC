@@ -297,7 +297,9 @@ Sonos:
 
 Odbiór logowania z publicznym brokerem w AMC Test:
 
-1. Sprawdź, że tytuł okna to `AMC Test — 25.10.2026, 19:30`, a następnie
+1. Sprawdź przez NVDA+T, że tytuł okna podaje nazwę AMC Test oraz datę
+   i godzinę kompilacji, także podczas odtwarzania Radia. NVDA+End
+   odczytuje bieżącą audycję i dostępny bitrate. Następnie
    naciśnij `Ctrl+6` przy rozłączonym koncie.
 2. Lista ma zawierać jeden wiersz „Rozpocznij logowanie do Sonos”. NVDA ma
    przeczytać wyłącznie tę nazwę i użytkowy opis „Enter otwiera konto Sonos”,
@@ -365,6 +367,21 @@ Brak urządzeń lub uśpione urządzenia nie jest zaliczeniem ani błędem kodu.
 Zapisz wtedy wynik jako „nieprzetestowane na żywo”. Spotify nie należy do tego
 etapu. Moduł aktualizacji będzie sprawdzany osobno po weryfikacji „Sygnalisty”:
 `https://github.com/michaldziwisz/sygnalista`.
+
+## Konto i parowanie Spotify w AMC Test alpha.458
+
+W sesji Spotify naciśnij `Ctrl+F5`. Na koncie bez konfiguracji fokus powinien
+trafić do pola Client ID. Tab ma przejść przez adres powrotu, panel Spotify,
+zapis identyfikatora, parowanie oraz przyciski zamknięcia. Skopiuj adres
+powrotu i sprawdź, czy kończy się ukośnikiem. Błędny Client ID powinien
+pozostawić fokus w polu i dać czytelny komunikat. Ponowne `Ctrl+F5` ma podnieść
+to samo okno, a główne AMC ma pozostać dostępne także podczas logowania.
+Sprawdź kod i adres parowania, „Sprawdź parowanie”, „Anuluj parowanie”, Escape,
+zamknięcie w trakcie oczekiwania, powrót fokusu oraz ponowne otwarcie.
+Pomoc `Ctrl+F1`, paleta `Ctrl+Shift+K` i menu mają opisywać obecne czynności
+konta. TIDAL używa tego samego otwartego okna bez blokowania AMC.
+Odbiór prawdziwego logowania, dźwięku i wypowiedzi NVDA zapisuj osobno od
+testów bez konta. Nie zmieniaj konta produkcyjnego dla samego testu.
 
 ## Wyszukiwanie i odczyt nagranych plików
 
@@ -527,6 +544,29 @@ rekordy JSON i nazwy typów nie trafiają do mowy NVDA.
     Pokazuje tylko odcinki, których zapisany plik nadal istnieje na dysku,
     także gdy źródło zostało później usunięte z Biblioteki. Najnowsze są na
     początku; Enter odtwarza lokalny plik zwykłym torem silnika C#.
+    W AMC Test od `alpha.455` `Ctrl+J` lub Widok → „Historia pobrań” otwiera
+    wspólną listę plików z Podcastów i Radio Archiwisty. Pobierz audio przez
+    `Ctrl+D`, wideo przez `Ctrl+Shift+D` i nagranie archiwum przez `Ctrl+D`.
+    Sprawdź przy użyciu NVDA: pierwszą pozycję, strzałki góra/dół, lewo
+    (źródło, data, rozmiar, folder), Enter, `F6`, `F5`, Escape i ponowne
+    otwarcie z każdej sesji. Usuń lub przenieś kopię testowego pliku i sprawdź,
+    czy „Brak pliku” jest czytelne i Enter nie próbuje odtwarzać. Testuj bez
+    naruszania własnych nagrań użytkownika.
+    Od `alpha.456` na dostępnej pozycji sprawdź `Ctrl+C`: schowek tekstowy ma
+    zawierać pełną ścieżkę. `Ctrl+Shift+C` ma pozwolić wkleić kopię pliku w
+    innym folderze Eksploratora lub Total Commandera. Na brakującym pliku
+    `Ctrl+C` ma nadal kopiować zapisaną ścieżkę, a `Ctrl+Shift+C` ma mówić,
+    że plik jest niedostępny. Porównaj nazwy obu poleceń w menu, palecie
+    `Ctrl+Shift+K`, pomocy `F1` i pomocy klawiszowej `Ctrl+F1`. Ponownie otwórz
+    listę i sprawdź fokus oraz strzałki.
+    Od `alpha.457` w Radio Archiwiście wybierz nagranie i naciśnij
+    `Ctrl+Shift+D`. Wpisz początek i koniec `MM:SS`, sprawdź Tab, Enter,
+    Escape, komunikat błędnego zakresu i powrót fokusu. Po zapisaniu
+    wycinek MP3 powinien pojawić się w Historii pobrań pod `Ctrl+J`;
+    oryginalne nagranie i inne pobrane pliki mają pozostać bez zmian.
+    Powtórz otwarcie z odtwarzacza `F6`. W Podcastach `Ctrl+Shift+D`
+    nadal pobiera wideo. Sprawdź nazwy i dostępność polecenia w menu Pliki,
+    palecie `Ctrl+Shift+K`, pomocy `F1` i `Ctrl+F1`.
 11. W „Nowych odcinkach” `Alt+1` ustawia najnowsze według dodania,
     `Alt+2` porządek alfabetyczny, a `Alt+3` grupowanie według podcastu.
     Wybrany tryb jest zaznaczony w menu Widok, zachowuje wybrany odcinek
@@ -1037,11 +1077,16 @@ Na karcie Radio i nagrywanie sprawdź kolejno:
    sprawdź trzy jawnie nazwane zakresy: odtwarzana stacja, nagrywane stacje
    oraz oba rodzaje źródeł. Brak odpowiedniego źródła ma uśpić automat, nie
    powodować prób sieciowych co kilkanaście sekund.
-7. `Ctrl+Alt+S` otwiera trwałą historię. Strzałki mają czytać tytuł,
-   wykonawcę, stację i czas bez nazw klas ani identyfikatorów. `Ctrl+C` kopiuje
-   opis, `Ctrl+Shift+C` opis i łącza, Delete usuwa zaznaczone wpisy, a filtr
-   stacji pozostaje zwykłym, dostępnym wyborem. Usunięty wpis przejęty kiedyś
-   z pełnego AMC nie może wrócić po restarcie.
+7. `Ctrl+Alt+S` otwiera trwałą historię z fokusem w polu „Szukaj stacji”.
+   Wpisz fragment nazwy: lista stacji i wyników zawęża się bez zmiany fokusu.
+   `Tab` przechodzi do osobnego pola kombi „Stacja”; strzałki przeglądają
+   stacje i nie przenoszą fokusu do utworów. Kolejny `Tab` przechodzi do
+   wyników. Sprawdź „Wszystkie stacje”, kilka dopasowań, jedną stację, brak
+   dopasowań, `Shift+Tab`, zamknięcie i ponowne otwarcie. Na wynikach strzałki
+   mają czytać tytuł, wykonawcę, stację i czas bez nazw klas ani identyfikatorów.
+   `Ctrl+C` kopiuje opis, `Ctrl+Shift+C` dokładne łącze lub łącze wyszukiwania
+   zależnie od usługi, a Delete usuwa wpisy.
+   Usunięty wpis przejęty kiedyś z pełnego AMC nie może wrócić po restarcie.
 8. `Ctrl+Alt+Shift+S` przełącza samo oznajmianie. Po wyłączeniu automat nadal
    zapisuje wyniki do historii. Do Shazam wychodzi wyłącznie lokalnie
    obliczony podpis akustyczny; adres stacji i próbka PCM nie opuszczają hosta.

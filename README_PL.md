@@ -1,5 +1,17 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Kandydat Public alpha.448: poprawki odtwarzacza
+
+Po otwarciu lokalnego pliku z Eksploratora, Total Commandera albo oknem „Otwórz plik” `F6` otwiera odtwarzacz z bieżącym tytułem bez rozszerzenia. `Page Up` i `Page Down` przechodzą po utworach z tego samego folderu, jeśli plik znajduje się na jego liście. W odtwarzaczu NVDA czyta nazwę suwaka „Głośność” i listy „Prędkość” razem z wartością; `Alt+G` i `Alt+P` przenoszą do tych kontrolek, gdy są dostępne. To kandydat do sprawdzenia, jeszcze nie zainstalowane ani opublikowane wydanie.
+
+## Przygotowywany Google Cast w AMC Python — 01.11.2026
+
+Kod nowej funkcji używa **Shift+C** do wyboru Google Cast bieżącej sesji Plików, Radia lub Podcastów. **Shift+A** pozostaje lokalnym torem audio. Lista Cast zawiera nazwy urządzeń i pozycję **Ten komputer**; Enter wybiera, Escape anuluje, a ponowne otwarcie przywraca wybór. Polecenie jest także w menu Dźwięk, palecie i pomocy klawiatury.
+
+Podstawowy zakres obejmuje pojedyncze dostępne media, pauzę, głośność, przewijanie plików i powrót do komputera z zachowaniem pauzy i znanej pozycji. Radio jest przesyłane na żywo. Kolejki, tempo, zakładki, edycja i trwały zapis pozycji Cast po zamknięciu programu pozostają ograniczeniami tego etapu. Usługi z treściami chronionymi wymagają własnej obsługi Cast. Mirroring i proponowane Shift+M są osobnym pomysłem.
+
+WiiM Sound przeszedł próby sprzętowe. Użytkownik zaliczył odbiór listy urządzeń z NVDA w osobnym oknie 01.11.2026. Paczka i użytkowa instalacja tej funkcji pozostają do wykonania. [Robocza instrukcja i lista zmian](docs/zadania/CAST-001-instrukcja-i-lista-zmian-szkic.md); [wyniki i stan zadania](docs/zadania/CAST-001-google-cast.md).
+
 ## Przygotowywana zmiana po alfa415: kopiowanie samych adresów
 
 `Ctrl+Shift+C` na listach, w odtwarzaczu, wynikach wyszukiwania oraz presetach kopiuje same łącza, bez nazwy elementu; przy wielu pozycjach po jednym adresie w wierszu. Dla podcastów zachowany jest bezpośredni adres audio lub kanału, a dla YouTube dotychczasowy adres materiału — nie powstaje przez to nowy adres strumienia audio ani gwarancja odtwarzania na zewnętrznym głośniku. Lokalne pliki nadal są kopiowane jako pliki i pełne ścieżki. `Ctrl+C` zachowuje dotychczasowe nazwy/opisy. Preset urządzenia WiiM bez adresu nie kopiuje nazwy w zastępstwie łącza. Starsze opisy par „nazwa i łącze” poniżej są historią. Ta poprawka wymaga jeszcze odbioru Windows/NVDA i wydania.
@@ -1878,6 +1890,25 @@ oczywistej nazwy sesji „Radio internetowe”. Po przełączeniu sesji NVDA czy
 numer sesji, nazwę widoku, stację i stan nagrywania. Pełna nazwa sesji pozostaje
 w pozostałych widokach, gdzie pomaga rozpoznać bieżący kontekst.
 
+## Konto Spotify w AMC Test
+
+`Ctrl+F5` w sesji Spotify otwiera okno konta. Jeżeli katalog nie jest jeszcze
+skonfigurowany, wpisz **Client ID** aplikacji Spotify i wybierz „Zapisz
+identyfikator aplikacji”. Okno zawiera adres powrotu do skopiowania do panelu
+aplikacji Spotify. Adres musi być wpisany dokładnie, łącznie z końcowym
+ukośnikiem. Nie wpisuj Client Secret ani hasła w AMC. „Zaloguj w przeglądarce”
+łączy katalog, a „Połącz odtwarzacz Spotify” rozpoczyna osobne parowanie
+odtwarzania. Kod i adres parowania można odczytać oraz skopiować; „Sprawdź
+parowanie” podaje wynik, a „Anuluj parowanie” kończy oczekiwanie.
+
+Okno konta pozostawia główne AMC dostępne. Ponowne `Ctrl+F5` podnosi to samo
+okno. Po pełnej synchronizacji kolekcja Spotify jest zapisywana lokalnie;
+niepełna odpowiedź nie zastępuje ostatniego poprawnego katalogu. Komunikat
+błędu odtwarzania Librespot wyjaśnia także możliwą odmowę klucza audio.
+Wersja nie zmienia silnika odtwarzania na Chrome ani Soloist. Funkcja Spotify
+pozostaje dostępna wyłącznie w AMC Test; logowanie i parowanie wymagają próby
+na prawdziwym koncie przed uznaniem ich za odebrane.
+
 ## Radio Archiwista w AMC Test
 
 Sesja **Radio Archiwista** przegląda publiczne archiwum nagrań radiowych
@@ -1886,10 +1917,38 @@ dowolną godzinę przez ten sam tor co podcasty: tempo, wznowienie pozycji
 i obróbka audio działają identycznie. Lista stacji prowadzi przez lata,
 miesiące i dni do nagrań godzinowych; pozycja „Najnowsze nagrania” zbiera
 ostatnią opublikowaną godzinę ze wszystkich stacji, które ją nagrały.
-`Ctrl+D` pobiera zaznaczone nagranie jako MP3 z postępem i anulowaniem,
+`Ctrl+D` pobiera zaznaczone nagranie jako MP3 z postępem i anulowaniem.
+`Ctrl+Shift+D` otwiera wybór początku i końca fragmentu (`MM:SS` lub
+`GG:MM:SS`), pobiera nagranie źródłowe i zapisuje wycinek jako osobny MP3.
+Zapis wymaga składnika FFmpeg; granice mogą być dopasowane do ramki MP3.
+Oryginalne nagranie pozostaje bez zmian, a fragment trafia do Historii
+pobrań (`Ctrl+J`).
 `Ctrl+Shift+U` dodaje je do ulubionych, `Ctrl+U` pokazuje ulubione offline,
 a `F5` odświeża katalog. Katalog jest publiczny, więc sesja nie wymaga
 logowania; cache w profilu pozwala wracać do ostatnio przeglądanych dni
 także bez sieci. Sesja jest dostępna wyłącznie w profilu AMC Test
 i domyślnie wyłączona — włącza się ją w Menedżerze sesji (`Ctrl+Shift+S`),
 który przydziela skrót `Ctrl+1–9`.
+
+## Historia pobierania w AMC Test
+
+`Ctrl+J` z każdej sesji i z odtwarzacza otwiera jedną listę pobranych plików:
+nagrań Radio Archiwisty (`Ctrl+D`), dźwięku podcastów i materiałów internetowych
+(`Ctrl+D`) oraz wideo (`Ctrl+Shift+D`). Dostępna jest też pozycja Widok →
+Historia pobrań. Nazwa pliku jest pierwszą informacją na liście; strzałka w lewo
+lub `Alt+T` podaje źródło, datę pobrania, rozmiar i folder. Enter odtwarza plik,
+a Escape wraca do poprzedniej sesji i zaznaczenia. `F5` odświeża listę.
+Przeniesiony lub skasowany plik pozostaje w historii z komunikatem „Brak pliku”
+i nie jest odtwarzany. Starsze pobrane odcinki audio i nagrania Radio Archiwisty
+pojawiają się dzięki odczytowi ich istniejących lokalnych źródeł. Dawnych plików
+wideo zapisanych w dowolnych folderach AMC nie umie odnaleźć wstecz; nowe
+pobrania wideo zapisuje w historii od tej wersji. Dotychczasowy widok
+Podcasty → Pobrane nadal pokazuje same dostępne odcinki audio.
+
+Na liście Historii pobrań `Ctrl+C` kopiuje pełną ścieżkę zaznaczonego pliku
+jako tekst. `Ctrl+Shift+C` kopiuje istniejący plik do schowka Windows, aby
+można go było wkleić w innym folderze; w schowku jest również tekst ścieżki.
+Przy wielokrotnym zaznaczeniu działanie obejmuje wszystkie wybrane pliki.
+Jeżeli plik nie jest już dostępny, `Ctrl+C` nadal kopiuje zapisaną ścieżkę,
+a `Ctrl+Shift+C` informuje o braku pliku. W pozostałych widokach `Ctrl+C`
+nadal kopiuje nazwę elementu.

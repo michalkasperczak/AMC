@@ -12,8 +12,18 @@ from .shortcuts import Action
 TRANSIENT_PREVIEW_ACTIONS = frozenset({
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.VIEW_PODCAST_INBOX,
     Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
+    Action.VIEW_HISTORY,
+})
+
+# Te trzy listy są częstymi punktami nawigacji z każdej sesji. Ustawienie
+# wspólnych podglądów nadal dotyczy skrzynki nowych odcinków i transmisji.
+ALWAYS_AVAILABLE_PREVIEWS = frozenset({
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.VIEW_HISTORY,
 })
 
@@ -52,26 +62,15 @@ def is_transient_preview_available(
 ) -> bool:
     if action not in TRANSIENT_PREVIEW_ACTIONS:
         return False
-    if action is Action.VIEW_HISTORY:
+    if action in ALWAYS_AVAILABLE_PREVIEWS:
         return True
     if global_previews:
         return True
-    if action is Action.VIEW_ACTIVE_RECORDINGS:
-        return session is SessionId.RADIO
-    if action is Action.VIEW_RECORDED_RADIO_FILES:
-        return session in (SessionId.RADIO, SessionId.FILES)
     return session is SessionId.PODCASTS
 
 
 def transient_preview_unavailable_message(action: Action) -> str:
     suffix = " Wspólne podglądy ze wszystkich sesji włączysz w Ustawieniach"
-    if action is Action.VIEW_ACTIVE_RECORDINGS:
-        return "Widok nagrywanych stacji jest dostępny w sesji Radio." + suffix
-    if action is Action.VIEW_RECORDED_RADIO_FILES:
-        return (
-            "Historia nagrywania jest dostępna w sesjach Radio "
-            "i Pliki lokalne." + suffix
-        )
     if action is Action.VIEW_PODCAST_INBOX:
         return (
             "Nowe odcinki i materiały są dostępne w sesji Podcasty i YouTube."

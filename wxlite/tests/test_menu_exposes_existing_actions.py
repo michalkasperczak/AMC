@@ -38,6 +38,7 @@ from amc_wx_lite.shortcuts import (
     RADIO_LIST_VIEW,
     RADIO_PLAYER_VIEW,
     SPOTIFY_COLLECTION_LIST_VIEW,
+    SPOTIFY_LIST_VIEW,
     SPOTIFY_SESSION_VIEW,
     TIDAL_COLLECTION_LIST_VIEW,
     TIDAL_SESSION_VIEW,
@@ -172,6 +173,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
         RADIO_LIST_VIEW,
         RADIO_PLAYER_VIEW,
         SPOTIFY_COLLECTION_LIST_VIEW,
+        SPOTIFY_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
         TIDAL_COLLECTION_LIST_VIEW,
         TIDAL_SESSION_VIEW,
@@ -259,7 +261,7 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     # kontekstowe: w Radiu czyta informacje o bieżącym odtwarzaniu, a w
     # Podcastach pełny opis.
     assert set(duplicates) <= {
-        "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+S",
+        "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+Shift+D", "Ctrl+S",
         "Alt+1", "Alt+2", "Alt+3", "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
@@ -289,6 +291,10 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     for item in duplicates.get("Ctrl+D", []):
         assert not item.accelerator, (
             "kontekstowe Ctrl+D musi rozstrzygnąć sesja podcastów albo plików"
+        )
+    for item in duplicates.get("Ctrl+Shift+D", []):
+        assert not item.accelerator, (
+            "kontekstowe Ctrl+Shift+D musi rozstrzygnąć sesja"
         )
     for item in duplicates.get("Ctrl+S", []):
         assert not item.accelerator, (
@@ -558,12 +564,15 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.FILES,
         menu_model.SessionId.PODCASTS,
         menu_model.SessionId.TIDAL,
+        menu_model.SessionId.SPOTIFY,
+        menu_model.SessionId.RADIOARCHIWISTA,
     }
     assert play_next.shortcut == "Ctrl+Shift+Return"
     assert play_next.needs_selection and play_next.needs_play_next_item
     assert set(play_next.visible_sessions) == {
         menu_model.SessionId.FILES,
         menu_model.SessionId.PODCASTS,
+        menu_model.SessionId.RADIOARCHIWISTA,
     }
     assert not queue.accelerator and not play_next.accelerator
 
@@ -833,7 +842,7 @@ def test_playback_and_view_menus_do_not_mix_foreign_sessions() -> None:
     }.isdisjoint(sonos_library)
 
     sonos_audio = actions(menu_model.SessionId.SONOS, "Dźwię&k")
-    assert sonos_audio == {Action.SESSION_OPTIONS}
+    assert sonos_audio == {Action.SESSION_OPTIONS, Action.SELECT_AUDIO_OUTPUT}
 
 
 def test_every_session_has_the_accessible_session_list_command() -> None:
@@ -865,7 +874,7 @@ def test_current_session_mute_is_an_audio_checkable_playback_command() -> None:
     assert not item.accelerator
 
 
-def test_spotify_gets_embedded_player_commands_and_real_tempo_controls() -> None:
+def test_spotify_player_does_not_advertise_transient_tempo_controls() -> None:
     actions = {
         item.action
         for menu in menu_model.menus_for_session(menu_model.SessionId.SPOTIFY)
@@ -884,10 +893,8 @@ def test_spotify_gets_embedded_player_commands_and_real_tempo_controls() -> None
         Action.TIME_REMAINING,
         Action.TIME_TOTAL,
         Action.SELECT_AUDIO_OUTPUT,
-        Action.RATE_DOWN,
-        Action.RATE_UP,
-        Action.RATE_RESET,
     } <= actions
+    assert not {Action.RATE_DOWN, Action.RATE_UP, Action.RATE_RESET} & actions
 
 
 def test_file_menu_uses_the_active_session_instead_of_mixing_sources() -> None:

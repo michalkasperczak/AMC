@@ -48,7 +48,8 @@ def test_dialog_explains_browser_login_without_code_and_has_explicit_names() -> 
     assert 'SetName(f"Stan konta {service_name}: {status}")' in dialog
     assert 'SetName(f"Zaloguj konto {service_name} w przeglądarce")' in dialog
     assert "self.login_button.SetFocus" in dialog
-    assert "self.close_button.Enable(not self._busy)" in dialog
+    assert "self.close_button.Enable(True)" in dialog
+    assert "self.SetEscapeId(wx.ID_CANCEL)" in dialog
 
 
 def test_configure_routes_spotify_tidal_and_wiim_without_opening_browser_itself() -> None:
@@ -63,24 +64,35 @@ def test_configure_routes_spotify_tidal_and_wiim_without_opening_browser_itself(
     assert "webbrowser" not in section.casefold()
 
 
+def test_account_window_stays_modeless_during_external_login() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    section = source[source.index("    def _show_service_account") :]
+    section = section[:section.index("    def _show_youtube_account")]
+    assert "dialog.Show()" in section
+    assert "dialog.ShowModal()" not in section
+    assert "existing.focus_primary_action()" in section
+
+
 def test_opening_spotify_account_announces_current_status_without_login() -> None:
     spoken: list[str] = []
     shown: list[tuple[str, str]] = []
 
     class FakeDialog:
-        def __init__(self, _parent, service_name, status, _start_login) -> None:
+        def __init__(self, _parent, service_name, status, _start_login, **_options) -> None:
             self.service_name = service_name
             self.status = status
 
-        def __enter__(self):
-            return self
+        def IsBeingDeleted(self) -> bool:  # noqa: N802 - API wx
+            return False
 
-        def __exit__(self, *_args) -> None:
-            return None
+        def Raise(self) -> None:  # noqa: N802 - API wx
+            pass
 
-        def ShowModal(self) -> int:  # noqa: N802 - API wx
+        def Show(self) -> None:  # noqa: N802 - API wx
             shown.append((self.service_name, self.status))
-            return 0
+
+        def focus_primary_action(self) -> None:
+            pass
 
     original_dialog = gui_module.ServiceAccountDialog
     gui_module.ServiceAccountDialog = FakeDialog
@@ -104,8 +116,10 @@ def test_opening_spotify_account_announces_current_status_without_login() -> Non
                 LiteFrame._service_account_status_message
             ),
             _restore_focus_after_dialog=lambda: None,
+            _window_alive=lambda: True,
         )
 
+        LiteFrame._show_service_account(frame, SessionId.SPOTIFY)
         LiteFrame._show_service_account(frame, SessionId.SPOTIFY)
     finally:
         gui_module.ServiceAccountDialog = original_dialog
@@ -114,5 +128,5 @@ def test_opening_spotify_account_announces_current_status_without_login() -> Non
         "Katalog Spotify jest połączony: Michał. "
         "Konto odtwarzania Spotify jest zapisane i gotowe."
     )
-    assert shown == [("Spotify", expected)]
+    assert shown == [("Spotify", expected), ("Spotify", expected)]
     assert spoken == [expected]
