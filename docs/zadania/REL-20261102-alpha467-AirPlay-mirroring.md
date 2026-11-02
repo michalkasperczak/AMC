@@ -86,3 +86,32 @@ Commit funkcji `a415e5066d0b04078ee1146a83d16c94dd14fd7d` został wysłany na ga
 Po potwierdzeniu gotowości użytkownika uruchomiono z wydanej paczki 20-sekundowy sygnał testowy na wykrytym WiiM Pro Plus. Router AirPlay zgłosił rozpoczęcie i zakończenie bez błędu procesu, a po teście nie pozostał proces FFmpeg ani host AMC. Potwierdzenie dźwięku w kolumnach przez użytkownika pozostaje otwarte. Przy zamykaniu testowego interpretera pojawił się niekrytyczny komunikat `asyncio` o zamkniętym potoku Proactor; wymaga zbadania w kolejnej poprawce i nie wolno uznać tej próby za pełny odbiór.
 
 Korekta decyzji o skrótach jest w rozmowie: rekomendowany układ to `Shift+A` dla jednego głównego celu lokalnego, Cast lub AirPlay, `Shift+M` dla celu dodatkowego, `Shift+C` jako szybki wybór Cast. Wydane alpha.467 oferuje AirPlay wyłącznie jako dodatkowy cel w `Shift+M`. Zmiana głównego toru AirPlay wymaga osobnej implementacji; nie przedstawiać rekomendacji jako już wydanej funkcji.
+
+## Korekta po odsłuchu i diagnostyce — 02.11.2026
+
+Użytkownik potwierdził dźwięk pierwszej 20-sekundowej próby w kolumnach Denona
+przez WiiM Pro Plus. To zastępuje wcześniejsze zdanie „Potwierdzenie dźwięku
+pozostaje otwarte”. Powtórka była niesłyszalna. Późniejsza próba zgłosiła
+`mirror.failed` po ok. 10 sekundach: odbiornik nie odpowiedział na żądanie
+rozpoczęcia strumienia RAOP. Próba starszym wariantem AirPlay zakończyła się
+zamknięciem połączenia przez odbiornik. Następna próba wariantem automatycznym
+nie dostała już odpowiedzi na wstępne zapytanie RAOP. Potwierdzenie pojedynczego
+odsłuchu nie dowodzi stabilności AirPlay w alpha.467; powtarzalny odsłuch jest
+otwarty. Lokalny dźwięk AMC pozostaje niezależny od awarii AirPlay.
+
+Po tych wynikach źródło kandydata zmieniono: zwykły potok procesu FFmpeg
+usunął ostrzeżenie zamykania potoku Proactor z próby diagnostycznej. Router
+czeka na potwierdzenie odtwarzania przez RAOP przed zgłoszeniem włączenia
+dublowania, podejmuje najwyżej jedną ponowną próbę, jeśli odbiornik nie
+odpowiada przed rozpoczęciem, i zwraca czytelny komunikat z nazwą odbiornika
+bez tekstu protokołu. Testy celowane: 20 zaliczonych, w tym nowe przypadki
+niepowodzenia startu i ponawiania. To są zmiany źródła w następnej wersji;
+instalator alpha.467 ich nie zawiera. Nie zbudowano, nie zainstalowano ani nie
+opublikowano nowszego wydania po tej korekcie.
+
+Użytkownik zatwierdził przyszły układ skrótów: `Shift+A` wybierze jeden główny
+cel lokalny, Cast lub AirPlay; `Shift+M` drugi cel, a `Shift+C` zachowa szybki
+wybór Cast. Tego nie ma jeszcze w alpha.467. Przed następnym testem sprzętowym
+warto ponownie uruchomić usługę AirPlay na WiiM Pro Plus lub urządzenie,
+ponieważ przestało odpowiadać nawet na wstępne zapytanie. To hipoteza
+diagnostyczna, nie potwierdzona przyczyna usterki.

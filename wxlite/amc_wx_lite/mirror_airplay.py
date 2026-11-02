@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
+import subprocess
 import threading
 from typing import Callable
 
@@ -60,7 +61,7 @@ class MirrorAirPlayRouter:
         route = self.routes.get(session)
         return route.device.device_id if route else None
 
-    async def _stream(self, route: AirPlayRoute, position: float) -> None:
+    async def _stream_once(self, route: AirPlayRoute, position: float) -> None:
         import pyatv
         loop = asyncio.get_running_loop()
         route.loop = loop
@@ -75,27 +76,50 @@ class MirrorAirPlayRouter:
             raise RuntimeError("Wybrany odbiornik AirPlay jest niedostępny")
         receiver = await pyatv.connect(config, loop, protocol=protocol)
         process = None
+        stream_task = None
         try:
             if route.stopped:
                 return
-            flags = getattr(__import__("subprocess"), "CREATE_NO_WINDOW", 0)
-            process = await asyncio.create_subprocess_exec(
-                *ffmpeg_command(route.ffmpeg, route.source, position),
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            process = subprocess.Popen(
+                ffmpeg_command(route.ffmpeg, route.source, position),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 creationflags=flags,
             )
+            stream_task = asyncio.create_task(receiver.stream.stream_file(process.stdout))
+            while not stream_task.done():
+                await asyncio.sleep(0.1)
+                playback = await receiver.metadata.playing()
+                if playback.device_state == pyatv.const.DeviceState.Playing:
+                    route.ready.set()
+                    break
+            await stream_task
             route.ready.set()
-            await receiver.stream.stream_file(process.stdout)
-            return_code = await process.wait()
+            return_code = await asyncio.to_thread(process.wait)
             if return_code != 0 and not route.stopped:
                 raise RuntimeError("Nie udało się przygotować dźwięku dla AirPlay")
         finally:
+            if stream_task is not None and not stream_task.done():
+                stream_task.cancel()
+                await asyncio.gather(stream_task, return_exceptions=True)
             receiver.close()
             if process is not None and process.returncode is None:
                 process.kill()
-                await process.wait()
+                await asyncio.to_thread(process.wait)
+            if process is not None and process.stdout is not None:
+                process.stdout.close()
+
+    async def _stream(self, route: AirPlayRoute, position: float) -> None:
+        for attempt in range(2):
+            try:
+                await self._stream_once(route, position)
+                return
+            except TimeoutError as error:
+                if route.stopped or route.ready.is_set() or attempt:
+                    raise
+                await asyncio.sleep(1)
 
     def _start(self, session: str, route: AirPlayRoute, status: dict) -> None:
         route.source = str(status.get("source") or "")
@@ -121,12 +145,17 @@ class MirrorAirPlayRouter:
                 route.ready.set()
         route.worker = threading.Thread(target=run, name="AMC AirPlay", daemon=True)
         route.worker.start()
-        if not route.ready.wait(timeout=10):
+        if not route.ready.wait(timeout=35):
             route.stop()
             raise RuntimeError("Odbiornik AirPlay nie odpowiedział")
         if route.error is not None:
             route.stop()
-            raise route.error
+            if isinstance(route.error, RuntimeError):
+                raise route.error
+            raise RuntimeError(
+                f"{route.device.name} nie odpowiada przez AirPlay. "
+                "Sprawdź odbiornik i spróbuj ponownie."
+            ) from route.error
 
     def enable(self, session: str, device_id: str) -> dict:
         if session not in MIRROR_SESSIONS or not Path(self.ffmpeg).is_file():

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from amc_wx_lite.airplay_adapter import AirPlayDevice
-from amc_wx_lite.mirror_airplay import MirrorAirPlayRouter, ffmpeg_command
+from amc_wx_lite.mirror_airplay import AirPlayRoute, MirrorAirPlayRouter, ffmpeg_command
 
 
 class AirPlayRouteTests(unittest.TestCase):
@@ -66,6 +66,47 @@ class AirPlayRouteTests(unittest.TestCase):
         self.router.after_native("transport.seek", {"sessionId": "files"}, {})
         self.assertIsNone(self.router.selected_device_id("files"))
         self.assertEqual(self.events[0][0], "mirror.failed")
+
+    def test_startup_failure_uses_spoken_device_name_without_protocol_dump(self):
+        async def fail(route, position):
+            raise TimeoutError("no response to GET /info (RTSP/1.0)")
+
+        self.router._stream = fail
+        self.router._start = MirrorAirPlayRouter._start.__get__(self.router)
+        route = AirPlayRoute(self.device, str(self.ffmpeg))
+        with self.assertRaisesRegex(RuntimeError, "WiiM Pro Plus nie odpowiada przez AirPlay"):
+            self.router._start("files", route, self.status)
+
+
+class AirPlayRetryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_retries_once_when_receiver_does_not_answer_before_playback(self):
+        router = MirrorAirPlayRouter(lambda op, args: {}, "unused")
+        route = AirPlayRoute(AirPlayDevice("id", "WiiM"), "unused")
+        attempts = []
+
+        async def stream_once(current, position):
+            attempts.append(position)
+            if len(attempts) == 1:
+                raise TimeoutError("no response to GET /info")
+
+        router._stream_once = stream_once
+        await router._stream(route, 12.5)
+        self.assertEqual(attempts, [12.5, 12.5])
+
+    async def test_does_not_retry_after_receiver_confirmed_playback(self):
+        router = MirrorAirPlayRouter(lambda op, args: {}, "unused")
+        route = AirPlayRoute(AirPlayDevice("id", "WiiM"), "unused")
+        attempts = []
+
+        async def stream_once(current, position):
+            attempts.append(position)
+            route.ready.set()
+            raise TimeoutError("stream was interrupted")
+
+        router._stream_once = stream_once
+        with self.assertRaises(TimeoutError):
+            await router._stream(route, 0)
+        self.assertEqual(attempts, [0])
 
 
 if __name__ == "__main__":
