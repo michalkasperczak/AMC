@@ -35,3 +35,47 @@ Planowana wersja AMC Test `0.1.0-alpha.466`; dokładny commit, wynik budowy, tag
 Kod i celowane testy są zatwierdzone. Workflow GitHub Actions 41493428992 zakończył się powodzeniem: skompilował paczkę i instalator na Windows 2025 z .NET SDK 8.0.423, zweryfikował integralność oraz kontrolowany start programu i hosta, a następnie opublikował AMC Test jako prerelease. Użytkownik nie zlecił instalacji teraz; istniejąca instalacja pozostała bez zmian. Ręczny odbiór okna i komunikatów NVDA oraz dokładna synchronizacja pozostają otwarte.
 
 Wersja `0.1.0-alpha.466`, commit źródeł `cab4357e61bb861a44f03c04bbd0170effbd7a22`, tag `test-2026.11.02.1743`. Instalator ma 133742949 bajtów, SHA-256 `b81a56c7e164561babb107fbc2a06244431fa4df09c2336e4323ffa7503df23b`. Zdalne API potwierdziło przesłanie wszystkich trzech zasobów i tag wskazujący dokładny commit. Lokalna kopia z GitHub została pobrana i porównana z sumą oraz manifestem: `lokalna kopia instalatora AMC-Test-2026-11-02-1743.exe`. Nie publikowano nagrań użytkownika ani ich ścieżek.
+
+
+## Decyzja użytkownika — 02.11.2026: zakres następnej aktualizacji Test
+
+### Materiał do dokumentacji użytkownika — projekt
+
+`Shift+A` nadal wybiera podstawowe wyjście audio bieżącej sesji. W następnej
+aktualizacji `Shift+M` ma umożliwiać dodanie drugiego celu: innego lokalnego
+wyjścia Windows, odbiornika Google Cast albo odbiornika AirPlay audio. Dwa
+lokalne wyjścia oznaczają przykładowo głośniki komputera i Denona przez USB
+grające równocześnie ten sam dźwięk AMC. Nie obejmuje to mowy NVDA ani dźwięku
+innych aplikacji. Lista ma podawać użytkową nazwę i rodzaj celu bez odczytywania
+identyfikatorów technicznych. Wybór, anulowanie, ponowne otwarcie i powrót
+fokusu muszą działać z klawiaturą i NVDA.
+
+### Uzasadnienie i decyzje
+
+Użytkownik wyraźnie zatwierdził dwa lokalne wyjścia oraz AirPlay do **następnej
+aktualizacji AMC Test**. To rozszerza poprzedni etap `Shift+M` z samym Castem;
+nie zmienia zakresu opublikowanego wydania `0.1.0-alpha.466`. Drugi cel
+lokalny wymaga rozdzielenia PCM albo osobnego kontrolowanego toru w hoście.
+AirPlay wymaga działającego transportu sesyjnego oraz zamkniętego zestawu
+zależności; wcześniejszy dwusekundowy WAV był wyłącznie próbą techniczną.
+Nie deklarować synchronizacji bez pomiaru akustycznego.
+
+### Testy i wynik
+
+W tym zapisie nie zmieniono źródeł, nie uruchomiono testów, nie zbudowano ani
+nie zainstalowano następnej aktualizacji. Wcześniejsze próby sprzętowe
+potwierdziły możliwość otwarcia Denona USB i głośników komputera równocześnie
+oraz przesłania WAV do WiiM Pro Plus przez AirPlay. Przed wydaniem potrzebne są
+testy transportu, kolejki, pauzy, przewijania, awarii celu, pakowania pyatv,
+próba na sprzęcie i odbiór dialogu z NVDA.
+
+### Znane ograniczenia
+
+Wydanie `0.1.0-alpha.466` nadal oferuje tylko drugi cel Google Cast. Public
+pozostaje osobnym profilem wydania z tej samej bazy kodu; dostępność nowych
+celów w Public wymaga osobnego odbioru.
+
+### Wersja i commit
+
+Zapis decyzji po wydaniu `0.1.0-alpha.466`; kod następnej aktualizacji nie ma
+jeszcze wersji, kompilacji, instalacji ani publikacji.
