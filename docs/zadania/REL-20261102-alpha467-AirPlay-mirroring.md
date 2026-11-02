@@ -115,3 +115,10 @@ wybór Cast. Tego nie ma jeszcze w alpha.467. Przed następnym testem sprzętowy
 warto ponownie uruchomić usługę AirPlay na WiiM Pro Plus lub urządzenie,
 ponieważ przestało odpowiadać nawet na wstępne zapytanie. To hipoteza
 diagnostyczna, nie potwierdzona przyczyna usterki.
+
+Poprawkę źródła zatwierdzono w commicie `807df16c` i wysłano na gałąź testową.
+To uruchomiło starszy automatyczny workflow wydania. Bieg `41519618586`
+anulowano; krok publikacji został pominięty. Wyzwalacz workflow zmieniono w
+commicie `7a49f9a7` na uruchamianie ręczne. Opublikowany instalator alpha.467
+pozostaje zbudowany z wcześniejszego commitu `a415e506`; poprawka startu
+AirPlay jest obecnie wyłącznie w źródłach gałęzi testowej.
