@@ -122,3 +122,17 @@ anulowano; krok publikacji został pominięty. Wyzwalacz workflow zmieniono w
 commicie `7a49f9a7` na uruchamianie ręczne. Opublikowany instalator alpha.467
 pozostaje zbudowany z wcześniejszego commitu `a415e506`; poprawka startu
 AirPlay jest obecnie wyłącznie w źródłach gałęzi testowej.
+
+## Uzupełnienie od użytkownika — 02.11.2026
+
+Użytkownik uruchomił stację radiową bez AirPlay i potwierdził, że WiiM Pro
+Plus odtwarza ją prawidłowo. Koryguje to wcześniejszą ogólną interpretację
+„odbiornik nie odpowiada”: brak odpowiedzi stwierdzono konkretnie w usłudze
+AirPlay/RAOP podczas prób AMC; nie wykazano awarii zwykłego odtwarzania WiiM.
+Ponowne uruchomienie urządzenia pozostaje jedynie możliwą próbą diagnostyczną,
+nie wymogiem ani potwierdzoną naprawą. Dalszy odsłuch odłożono. Przy powrocie
+należy najpierw odczytać faktycznie wykrywane odbiorniki AirPlay i porównać
+WiiM z innym dostępnym odbiornikiem, np. zgodnym modelem Sonos; iPhone został
+wskazany przez użytkownika jako kandydat do sprawdzenia, bez potwierdzenia,
+że oferuje usługę odbiornika. Nie publikować kolejnego instalatora jako
+naprawionego AirPlay bez powtarzalnej próby sprzętowej.
