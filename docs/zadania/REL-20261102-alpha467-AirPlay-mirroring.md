@@ -167,3 +167,44 @@ nie zmieniono zgód zapory i nie zbudowano nowego wydania. Przy następnym
 podejściu dodać rozróżnienie diagnostyczne pierwszego i drugiego połączenia
 oraz sprawdzić wpływ istniejących alertów Zapory Windows bez automatycznego
 zatwierdzania ich.
+
+Użytkownik doprecyzował 02.11.2026, że radio na WiiM grało nieprzerwanie
+podczas tej próby. Zastępuje to niepewny opis stanu zwykłego odtwarzania w
+powyższym akapicie. Brak dźwięku dotyczył wyłącznie testowanego strumienia
+AirPlay z AMC; normalne radio nie zostało przerwane.
+
+## Porównanie z BlindRSS — 02.11.2026
+
+Użytkownik wskazał BlindRSS jako przykład obsługi AirPlay. Odczyt źródeł
+`serrebidev/BlindRSS` (`core/casting.py`, `caster_engine.py`, `requirements.txt`)
+pokazał, że aplikacja używa `pyatv>=0.18.0` i protokołu RAOP, czyli tej samej
+rodziny implementacji co AMC. Wykrywa urządzenia przez `pyatv.scan` i
+przyjmuje tylko odbiorniki z usługą RAOP niewymagającą parowania. Strumień
+uruchamia przez `pyatv.connect(..., protocol=RAOP)` oraz `stream_file`.
+
+BlindRSS konwertuje dźwięk do FLAC 44,1 kHz stereo, używa buforowanego,
+przewijalnego czytnika potoku FFmpeg i wypełnia jego początek przed wysłaniem.
+AMC wysyła MP3 z potoku FFmpeg. BlindRSS utrzymuje jedno połączenie RAOP przy
+przewijaniu i wznowieniu; AMC ponownie wykrywa i łączy się przy restarcie
+odtwarzania. Obserwacje te nie dowodzą, że zmiana formatu lub bufora naprawi
+niepowodzenie AMC przy zapytaniu RTSP. Ponadto `started.set()` w BlindRSS
+następuje po utworzeniu zadania strumienia, przed potwierdzeniem dźwięku przez
+odbiornik; nie jest to wzorzec potwierdzania faktycznego startu.
+
+Potwierdzona różnica w sprzątaniu: w `pyatv` 0.18 `receiver.close()` zwraca
+zadania asynchroniczne. BlindRSS czeka na nie przez `asyncio.gather`, a AMC
+dotąd zamykał pętlę bez czekania. W źródłach AMC poprawiono oczekiwanie na te
+zadania w torze mirroringu i jednorazowej próby pliku. Test jednostkowy
+sprawdza zakończenie sprzątania przed powrotem; wraz z istniejącymi testami
+AirPlay i mirroringu zaliczono 19 testów. Commit źródeł: `732902d2` na gałęzi
+`codex/konfigurowalne-skroty-20261026`. To poprawka porządku
+zamykania; wpływ na rzeczywisty WiiM nie został jeszcze potwierdzony.
+Nie instalowano ani nie uruchamiano BlindRSS. Nie wykonano kolejnego odsłuchu
+ani nie zbudowano nowego instalatora. Następna diagnostyka powinna zapisać
+oddzielnie błędy obu prób i etap RTSP, zanim zmienimy kodowanie strumienia.
+
+Źródła porównania:
+- https://github.com/serrebidev/BlindRSS/blob/main/core/casting.py
+- https://github.com/serrebidev/BlindRSS/blob/main/caster_engine.py
+- https://github.com/serrebidev/BlindRSS/blob/main/requirements.txt
+- https://github.com/postlund/pyatv/blob/v0.18.0/pyatv/core/facade.py
