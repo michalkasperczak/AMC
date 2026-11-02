@@ -569,6 +569,6 @@ Windows przycisk może otworzyć ogólną stronę aplikacji domyślnych.
 
 ### Wersja i commit
 
-Kod roboczy w kanonicznym repozytorium AMC Test; bez nowego instalatora,
-instalacji i publikacji. Wcześniejsze wydanie `0.1.0-alpha.466` nie zawiera
-tej korekty.
+Źródła i celowane testy: commit `9266fd4f` na bieżącej gałęzi AMC Test.
+Nie wykonano nowej kompilacji, instalacji ani publikacji. Wcześniejsze
+wydanie `0.1.0-alpha.466` nie zawiera tej korekty.
