@@ -10483,6 +10483,12 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_playlist_item and not (
                 selected_kind in playlist_kinds.get(self.navigator.active, set())
+                and (
+                    self.navigator.active is not SessionId.TIDAL
+                    or selected_row is not None
+                    and bool(selected_row.item_id)
+                    and bool(selected_row.service_id)
+                )
                 or self.navigator.active is SessionId.TIDAL
                 and LiteFrame._open_service_album_row(
                     self.navigator.active, session
