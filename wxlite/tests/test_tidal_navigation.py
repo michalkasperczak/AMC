@@ -14,6 +14,7 @@ from amc_wx_lite.navigation import (
     Navigator,
     OpenLibraryView,
     OpenTidalContainer,
+    OpenTidalView,
     PlayTidalContainer,
     PlayTidalTrack,
     SessionId,
@@ -382,6 +383,18 @@ def test_backspace_at_tidal_collection_root_is_silent_and_stays_in_tidal() -> No
     nav.active = SessionId.TIDAL
     nav.apply_tidal_view(LibraryView.TIDAL_LIBRARY, "Biblioteka TIDAL", [])
     assert nav.go_to_parent() == []
+    assert nav.active is SessionId.TIDAL
+
+
+def test_backspace_from_direct_recognized_album_loads_tidal_root() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    nav.apply_tidal_container(
+        OpenTidalContainer("recognized", "albums:44", "Album", "album"),
+        "Album", [Row("track-1", "Utwór", "track")],
+    )
+
+    assert nav.go_to_parent() == [OpenTidalView(LibraryView.TIDAL_LIBRARY)]
     assert nav.active is SessionId.TIDAL
 
 

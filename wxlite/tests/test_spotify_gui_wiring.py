@@ -277,6 +277,38 @@ def test_spotify_library_shortcut_calls_confirmed_host_write() -> None:
     assert frame._spotify_membership_pending is False
 
 
+def test_library_shortcut_saves_open_album_instead_of_selected_track() -> None:
+    requests, spoken = [], []
+    nav = Navigator()
+    nav.active = SessionId.SPOTIFY
+    album = OpenSpotifyContainer(
+        "recognized-album", "album-1", "Cały album", "album",
+        artist="Wykonawca", public_uri="https://open.spotify.com/album/album-1",
+    )
+    track = Row("track-1", "Utwór", "track", service_id="track-1")
+    nav.apply_spotify_container(album, "Cały album", [track])
+    frame = SimpleNamespace(
+        navigator=nav,
+        client=SimpleNamespace(
+            spotify_collection_membership=lambda items, *, mode, add=None: (
+                requests.append((items, mode, add))
+                or {"added": True, "message": "Dodano album do Biblioteki Spotify"}
+            )
+        ),
+        runner=ImmediateRunner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [track],
+        _spotify_membership_pending=False,
+    )
+
+    LiteFrame._toggle_spotify_membership(frame, favorite=False)
+
+    assert requests[0][0][0]["kind"] == "album"
+    assert requests[0][0][0]["externalId"] == "album-1"
+    assert requests[0][1:] == ("library", True)
+    assert spoken == ["Dodano album do Biblioteki Spotify"]
+
+
 def test_spotify_library_shortcut_removes_a_saved_episode_and_refreshes_view() -> None:
     calls = []
     spoken = []

@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from amc_wx_lite import apple_music_links, gui as gui_module, radio_recognition
-from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.gui import LiteFrame, RecognitionActionsWindow
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import SessionId, View
 from amc_wx_lite.recognition_actions import (
@@ -128,7 +128,7 @@ def test_copy_confirmations_use_the_active_recognition_window_live_region() -> N
         assert "self._announce(text)" not in section
 
     assert 'self._set_status("Skopiowano nazwę działania")' in window
-    assert 'self._set_status("Skopiowano łącze")' in window
+    assert 'f"Skopiowano link {service}"' in window
     assert '"Skopiowano opis" if len(selected) == 1' in history
     assert 'f"Skopiowano link {recognition_service_label(action.service)}"' in history
     assert 'f"Skopiowano link wyszukiwania "' in history
@@ -143,8 +143,90 @@ def test_cached_copy_link_does_not_precede_confirmation_with_lookup_message() ->
         "class GeneralPlaybackOptionsDialog", 1
     )[0]
 
-    assert "recognition_cached_matches(self._entry).get(action.service) is None" in window
+    assert "Sprawdzam dokładne łącze" not in window
     assert "Sprawdzam dokładne łącze do utworu" not in history
+
+
+def test_right_arrow_copy_uses_exact_album_link_without_preparation_message() -> None:
+    action = next(
+        item for item in all_actions(_entry(), SPOTIFY)
+        if item.action_id == "spotify.amc.album"
+    )
+    copied, spoken = [], []
+    window = SimpleNamespace(
+        _entry=_entry(),
+        _actions=[action],
+        _closing=False,
+        actions=SimpleNamespace(GetSelection=lambda: 0, SetFocus=lambda: None),
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=spoken.append,
+        _resolve_action=lambda _entry, _action, ready, _failed: ready(
+            match_from_row(SPOTIFY, _spotify_row())
+        ),
+    )
+    window._selected_action = RecognitionActionsWindow._selected_action.__get__(
+        window, type(window)
+    )
+
+    RecognitionActionsWindow._copy_link(window)
+
+    assert copied == ["https://open.spotify.com/album/album-1"]
+    assert spoken == ["Skopiowano link Spotify"]
+
+
+def test_right_arrow_copy_falls_back_to_named_album_search_if_exact_match_fails() -> None:
+    action = next(
+        item for item in all_actions(_entry(), TIDAL)
+        if item.action_id == "tidal.amc.album"
+    )
+    copied, spoken = [], []
+    window = SimpleNamespace(
+        _entry=_entry(),
+        _actions=[action],
+        _closing=False,
+        actions=SimpleNamespace(GetSelection=lambda: 0, SetFocus=lambda: None),
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=spoken.append,
+        _resolve_action=lambda _entry, _action, _ready, failed: failed(
+            LookupError("missing exact match")
+        ),
+    )
+    window._selected_action = RecognitionActionsWindow._selected_action.__get__(
+        window, type(window)
+    )
+
+    RecognitionActionsWindow._copy_link(window)
+
+    assert len(copied) == 1
+    assert "Osobista+Kolekcja+2" in copied[0]
+    assert spoken == ["Skopiowano link wyszukiwania TIDAL"]
+
+
+def test_direct_album_handoff_does_not_start_competing_root_load() -> None:
+    action = next(
+        item for item in all_actions(_entry(), SPOTIFY)
+        if item.action_id == "spotify.amc.album"
+    )
+    calls = []
+    frame = SimpleNamespace(
+        options=SimpleNamespace(session_order=(
+            SessionId.FILES, SessionId.RADIO, SessionId.SPOTIFY,
+        )),
+        announcer=SimpleNamespace(say=lambda message: calls.append(("say", message))),
+        _switch_session=lambda session, **options: calls.append(("session", session, options)),
+        _open_spotify_container=lambda intent: calls.append(("album", intent)),
+        _restore_focus_after_dialog=lambda: calls.append(("focus",)),
+    )
+
+    LiteFrame._show_recognition_match_in_amc(
+        frame, action, match_from_row(SPOTIFY, _spotify_row())
+    )
+
+    assert calls[0] == (
+        "session", SessionId.SPOTIFY, {"initialize_if_empty": False}
+    )
+    assert calls[1][0] == "album"
+    assert calls[1][1].service_id == "album-1"
 
 
 def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> None:
