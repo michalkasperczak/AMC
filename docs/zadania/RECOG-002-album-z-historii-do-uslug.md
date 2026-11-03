@@ -33,4 +33,7 @@ Status: **W trakcie; kod i testy celowane gotowe, bez nowego builda i instalacji
 
 ## Wersja i commit
 
-- Baza pracy: `0bad8716` na `codex/konfigurowalne-skroty-20261026` w kanonicznym repozytorium. Commit poprawki, identyfikator pakietu i data instalacji: do wpisania po wykonaniu.
+- Baza pracy: `0bad8716` na `codex/konfigurowalne-skroty-20261026` w kanonicznym repozytorium.
+- Commit kodu, testów i opisu: `09580684800e62d48ab09ffe21c058f5ec54f067`.
+- 3.11.2026 przed kompilacją: aktywna instalacja AMC Test działa z `C:\Users\micha\AppData\Local\Programs\AMC Test` i ma etykietę `2026.11.02-a415e5066d0b04078ee1146a83d16c94dd14fd7d-8e9b085e`. Starszy katalog `D:\Projekty Codex\AMC Python` nie jest aktywny.
+- Identyfikator nowego pakietu i data instalacji: brak, ponieważ stan nagrań w aktywnej instancji nie został jeszcze potwierdzony.
