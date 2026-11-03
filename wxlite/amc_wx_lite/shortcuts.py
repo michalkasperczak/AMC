@@ -650,6 +650,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.TOGGLE_FAVORITE,
     Action.TIDAL_TOGGLE_LIBRARY,
     Action.TIDAL_TOGGLE_FAVORITE,
+    Action.MANAGE_PLAYLIST_MEMBERSHIP,
     Action.TIDAL_RELATIONS,
     Action.SORT_TIDAL_COLLECTION_ADDED,
     Action.SORT_TIDAL_COLLECTION_ALPHABETICAL,
@@ -1647,6 +1648,7 @@ TIDAL_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+Shift+L": Action.TIDAL_TOGGLE_LIBRARY,
     "Ctrl+Shift+U": Action.TIDAL_TOGGLE_FAVORITE,
+    "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
 }
 
 
@@ -2833,6 +2835,13 @@ def describe_action(
     ):
         return i18n.command_description(
             action.value, "Dodaj do playlist Spotify lub utwórz playlistę"
+        )
+    if (
+        action is Action.MANAGE_PLAYLIST_MEMBERSHIP
+        and (session_label or "").casefold() == "tidal"
+    ):
+        return i18n.command_description(
+            action.value, "Dodaj do playlist TIDAL lub utwórz playlistę"
         )
     for _chord, label, candidate in _help_entries():
         if candidate is action:

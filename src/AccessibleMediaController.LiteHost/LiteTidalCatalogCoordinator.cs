@@ -50,6 +50,11 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
             integration.LoginAsync(CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
+            lock (_collectionGate)
+            {
+                _collectionSyncAttempted = false;
+                _collectionSnapshot = null;
+            }
             LiteAccountSettingsStore.UpdateSection(statePath, "tidal", settings);
             return LiteTidalCatalogContract.CreateLoginResult(settings.AccountDisplayName);
         }
@@ -152,6 +157,90 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
                 view,
                 _collectionSnapshot ?? [],
                 warning);
+        }
+    }
+
+    public object CreatePlaylist(JsonElement args)
+    {
+        var name = LiteTidalCatalogContract.ReadPlaylistName(args);
+        lock (_collectionGate)
+        {
+            var playlist = RequireIntegration().CreatePlaylistAsync(name, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            _collectionSnapshot = (_collectionSnapshot ?? [])
+                .Append(playlist)
+                .DistinctBy(item => item.ExternalId ?? item.Id, StringComparer.Ordinal)
+                .ToArray();
+            return new
+            {
+                playlist = LiteTidalCatalogItem.FromMediaItem(playlist),
+                message = $"Utworzono playlistę TIDAL: {playlist.Title}"
+            };
+        }
+    }
+
+    public object AddPlaylistItems(JsonElement args)
+    {
+        var request = LiteTidalCatalogContract.ReadPlaylistAddRequest(args);
+        lock (_collectionGate)
+        {
+            var integration = RequireIntegration();
+            var playlists = request.PlaylistExternalIds.Select(id =>
+                (_collectionSnapshot ?? []).FirstOrDefault(item =>
+                    item.Kind == MediaItemKind.Playlist
+                    && string.Equals(item.ExternalId, id, StringComparison.Ordinal))
+                ?? throw new LiteRequestException("Wybrana playlista TIDAL nie jest dostępna na koncie.")
+            ).ToArray();
+            var tracks = new List<MediaItem>();
+            foreach (var item in request.Items)
+            {
+                if (item.Kind == MediaItemKind.Album)
+                {
+                    var albumTracks = integration.GetContainerItemsAsync(
+                        item, CancellationToken.None).GetAwaiter().GetResult();
+                    tracks.AddRange(albumTracks.Where(track =>
+                        track.IsAvailable
+                        && track.Kind is MediaItemKind.Track or MediaItemKind.Video));
+                }
+                else
+                    tracks.Add(item);
+            }
+            tracks = tracks.DistinctBy(item => item.ExternalId ?? item.Id,
+                StringComparer.Ordinal).ToList();
+            if (tracks.Count == 0)
+                throw new LiteRequestException("Album TIDAL nie zawiera dostępnych utworów.");
+            var completed = new List<string>();
+            var completedIds = new List<string>();
+            var failed = new List<string>();
+            foreach (var playlist in playlists)
+            {
+                try
+                {
+                    integration.AddPlaylistItemsAsync(playlist, tracks, CancellationToken.None)
+                        .GetAwaiter().GetResult();
+                    completed.Add(playlist.Title);
+                    completedIds.Add(playlist.ExternalId!);
+                }
+                catch (Exception exception)
+                {
+                    var reason = exception is InvalidOperationException
+                        ? exception.Message
+                        : "błąd usługi TIDAL";
+                    failed.Add($"{playlist.Title}: {reason}");
+                }
+            }
+            var message = completed.Count > 0
+                ? $"Dodano {tracks.Count} utworów do {completed.Count} playlist TIDAL."
+                : "Nie dodano utworów do playlist TIDAL.";
+            if (failed.Count > 0)
+                message += $" Niepowodzenie: {string.Join("; ", failed)}";
+            return new
+            {
+                added = completed.Count > 0 ? tracks.Count : 0,
+                playlists = completed.Count,
+                succeededPlaylistExternalIds = completedIds,
+                message
+            };
         }
     }
 

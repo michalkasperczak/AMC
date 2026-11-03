@@ -146,13 +146,12 @@ from .playlist_dialog import (
 )
 from .problem_report_dialog import ProblemReportDialog
 _RELEASE_PROFILE = current_profile()
-if "session.spotify" in _RELEASE_PROFILE.capabilities:
-    from .spotify_playlist_dialog import (
-        SpotifyPlaylistDialog,
-        SpotifyPlaylistChoice,
-        SpotifyPlaylistPayloadError,
-        choices_from_payload as spotify_playlist_choices_from_payload,
-    )
+from .spotify_playlist_dialog import (
+    SpotifyPlaylistDialog,
+    SpotifyPlaylistChoice,
+    SpotifyPlaylistPayloadError,
+    choices_from_payload as spotify_playlist_choices_from_payload,
+)
 from .playback_history import (
     activity_rows as streamer_activity_rows,
     history_rows as streamer_history_rows,
@@ -10278,6 +10277,7 @@ class LiteFrame(wx.Frame):
             SessionId.RADIO: {"station"},
             SessionId.PODCASTS: {"episode"},
             SessionId.SPOTIFY: {"track", "episode"},
+            SessionId.TIDAL: {"track", "video", "album"},
         }
         playlist_contents = (
             session.view is View.LIST
@@ -10481,8 +10481,12 @@ class LiteFrame(wx.Frame):
                 and bool(selected_row.url)
             ):
                 enabled = False
-            if entry.needs_playlist_item and selected_kind not in playlist_kinds.get(
-                self.navigator.active, set()
+            if entry.needs_playlist_item and not (
+                selected_kind in playlist_kinds.get(self.navigator.active, set())
+                or self.navigator.active is SessionId.TIDAL
+                and LiteFrame._open_service_album_row(
+                    self.navigator.active, session
+                ) is not None
             ):
                 enabled = False
             if entry.needs_spotify_album and not (
@@ -20128,10 +20132,13 @@ class LiteFrame(wx.Frame):
                     returned = result.get("message")
                     if isinstance(returned, str) and returned.strip():
                         message = returned.strip()
-                if session_id is SessionId.SPOTIFY:
+                if session_id in (SessionId.SPOTIFY, SessionId.TIDAL):
                     cache = getattr(self, "_service_destination_cache", None)
                     if isinstance(cache, ServiceDestinationCache):
-                        cache.invalidate("spotify:playlists")
+                        cache.invalidate(
+                            "spotify:playlists" if session_id is SessionId.SPOTIFY
+                            else "tidal:playlists"
+                        )
                 if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
@@ -28367,6 +28374,9 @@ class LiteFrame(wx.Frame):
         if active is SessionId.SPOTIFY:
             self._manage_spotify_playlist_membership()
             return
+        if active is SessionId.TIDAL:
+            self._manage_tidal_playlist_membership()
+            return
         supported = {
             SessionId.FILES: ("local", "track", "Wybierz plik"),
             SessionId.RADIO: ("radio", "station", "Wybierz stację radiową"),
@@ -28458,6 +28468,162 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie mogę odczytać playlist: {error}")
 
         self.runner.submit("playlist-membership-load", load, loaded, load_failed)
+
+    def _manage_tidal_playlist_membership(self) -> None:
+        """Add tracks, videos or a complete album to account playlists."""
+        destination_scope = "tidal:playlists"
+        destination_cache = getattr(self, "_service_destination_cache", None)
+        if not isinstance(destination_cache, ServiceDestinationCache):
+            destination_cache = ServiceDestinationCache()
+            self._service_destination_cache = destination_cache
+        if self._playlist_membership_pending:
+            self.announcer.say("Zmiana playlist TIDAL już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę otworzyć playlist TIDAL")
+            return
+        rows = [
+            row for row in self._selected_action_rows()
+            if row.kind in {"track", "video", "album"}
+            and row.item_id and row.service_id
+        ]
+        album = LiteFrame._open_service_album_row(
+            SessionId.TIDAL, self.navigator.sessions[SessionId.TIDAL]
+        )
+        if album is not None:
+            rows = [album]
+        if not rows:
+            self.announcer.say("Do playlisty TIDAL wybierz utwór, wideo albo album")
+            return
+        items = [{
+            "itemId": row.item_id,
+            "externalId": row.service_id,
+            "title": row.title,
+            "artist": row.artist_name,
+            "kind": row.kind,
+        } for row in rows]
+        target_label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        self._playlist_membership_pending = True
+
+        def open_dialog() -> None:
+            selected_ids = set(remembered_destination_ids(
+                getattr(self, "state", None), destination_scope
+            ))
+            choices = [SpotifyPlaylistChoice(
+                destination.destination_id,
+                destination.name,
+                destination.accessible_label,
+                selected=destination.destination_id in selected_ids,
+            ) for destination in destination_cache.snapshot(destination_scope)]
+            with SpotifyPlaylistDialog(
+                self, choices=choices, target_label=target_label, provider="TIDAL"
+            ) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    self._playlist_membership_pending = False
+                    self._restore_focus_after_dialog()
+                    return
+                selected = dialog.selected_playlist_ids
+                new_names = [name for name, _ in dialog.new_playlists]
+            self._restore_focus_after_dialog()
+
+            def save() -> dict:
+                failures = []
+                created_destinations = []
+                for name in new_names:
+                    try:
+                        created = client.tidal_playlist_create(name)
+                        playlist = created.get("playlist") if isinstance(created, dict) else None
+                        external_id = (
+                            str(playlist.get("externalId") or "").strip()
+                            if isinstance(playlist, dict) else ""
+                        )
+                        if external_id:
+                            selected.append(external_id)
+                            created_destinations.append(ServiceDestination(
+                                external_id, name, f"Playlista TIDAL {name}"
+                            ))
+                        else:
+                            failures.append(f"Nie utworzono playlisty {name}")
+                    except Exception as error:
+                        failures.append(f"Nie utworzono playlisty {name}: {error}")
+                result = None
+                if selected:
+                    try:
+                        result = client.tidal_playlist_add_items(
+                            list(dict.fromkeys(selected)), items
+                        )
+                    except Exception as error:
+                        failures.append(f"Nie dodano utworów do playlist TIDAL: {error}")
+                return {"result": result, "failures": failures,
+                        "created": created_destinations, "selected": selected}
+
+            def saved(payload: dict) -> None:
+                self._playlist_membership_pending = False
+                result = payload.get("result")
+                message = str(result.get("message") or "").strip() if isinstance(result, dict) else ""
+                failures = payload.get("failures") or []
+                destination_cache.merge_confirmed(
+                    destination_scope, payload.get("created") or []
+                )
+                confirmed = (
+                    result.get("succeededPlaylistExternalIds")
+                    if isinstance(result, dict) else None
+                )
+                if isinstance(confirmed, list) and confirmed:
+                    state = getattr(self, "state", None)
+                    if state is not None:
+                        remember_destination_ids(
+                            state, destination_scope, confirmed
+                        )
+                        store = getattr(self, "store", None)
+                        if store is not None and callable(getattr(store, "save", None)):
+                            try:
+                                store.save(state)
+                            except (OSError, TypeError, ValueError):
+                                pass
+                self.announcer.say(" ".join([message, *failures]).strip()
+                                   or "Playlisty TIDAL bez zmian")
+
+            def failed(error: Exception) -> None:
+                self._playlist_membership_pending = False
+                self.announcer.say(f"Nie zapisano playlist TIDAL: {error}")
+
+            self.runner.submit("tidal-playlist-save", save, saved, failed)
+
+        def loaded(payload: object) -> None:
+            raw = payload.get("items") if isinstance(payload, dict) else None
+            if not isinstance(raw, list):
+                self._playlist_membership_pending = False
+                self.announcer.say("Nie udało się odczytać playlist TIDAL")
+                return
+            destinations = []
+            for entry in raw:
+                if not isinstance(entry, dict):
+                    continue
+                external_id = str(entry.get("externalId") or "").strip()
+                title = str(entry.get("title") or "").strip()
+                if external_id.startswith("playlists:") and title:
+                    destinations.append(ServiceDestination(
+                        external_id, title, f"Playlista TIDAL {title}"
+                    ))
+            destination_cache.replace(destination_scope, destinations)
+            open_dialog()
+
+        def load_failed(error: Exception) -> None:
+            self._playlist_membership_pending = False
+            self.announcer.say(f"Nie mogę odczytać playlist TIDAL: {error}")
+
+        if destination_cache.has_snapshot(destination_scope):
+            open_dialog()
+            return
+        self.announcer.say("Pobieram playlisty TIDAL")
+        self.runner.submit(
+            "tidal-playlist-load",
+            lambda: client.tidal_collection_view("playlists"),
+            loaded,
+            load_failed,
+        )
 
     def _manage_spotify_playlist_membership(self) -> None:
         """Ctrl+Shift+P: natywne playlisty konta Spotify, bez odtwarzania list."""

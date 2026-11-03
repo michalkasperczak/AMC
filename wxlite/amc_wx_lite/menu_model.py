@@ -917,6 +917,14 @@ def build_menus(
                 visible_sessions=SPOTIFY_ONLY,
             ),
             MenuItem(
+                "Doda&j do playlist TIDAL lub utwórz playlistę…",
+                Action.MANAGE_PLAYLIST_MEMBERSHIP,
+                shortcut="Ctrl+Shift+P",
+                accelerator=False,
+                needs_playlist_item=True,
+                visible_sessions=TIDAL_ONLY,
+            ),
+            MenuItem(
                 "Dodaj lub usuń z kolejki (&Q)",
                 Action.ADD_TO_QUEUE,
                 shortcut="Ctrl+Shift+Q",

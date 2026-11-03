@@ -20,6 +20,8 @@ public static class LiteTidalCatalogContract
     public const string ContainerItemsOperation = "tidal.containerItems";
     public const string CollectionViewOperation = "tidal.collectionView";
     public const string MembershipOperation = "tidal.collectionMembership";
+    public const string PlaylistCreateOperation = "tidal.playlistCreate";
+    public const string PlaylistAddItemsOperation = "tidal.playlistAddItems";
 
     private static readonly IReadOnlyDictionary<string, MediaItemKind> Kinds =
         new Dictionary<string, MediaItemKind>(StringComparer.OrdinalIgnoreCase)
@@ -274,6 +276,55 @@ public static class LiteTidalCatalogContract
         return new LiteTidalMembershipRequest(mode, items, requestedAddition);
     }
 
+    public static string ReadPlaylistName(JsonElement args)
+    {
+        var name = LiteArgs.RequireText(args, "name").Trim();
+        if (name.Length is < 1 or > 100)
+            throw new LiteRequestException("Nazwa playlisty TIDAL musi mieć od 1 do 100 znaków.");
+        return name;
+    }
+
+    public static LiteTidalPlaylistAddRequest ReadPlaylistAddRequest(JsonElement args)
+    {
+        if (!args.TryGetProperty("playlistExternalIds", out var rawPlaylists)
+            || rawPlaylists.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Wybierz playlistę TIDAL.");
+        var playlistIds = rawPlaylists.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (playlistIds.Length is < 1 or > 20
+            || playlistIds.Any(id => !ExternalIdMatchesKind(id, MediaItemKind.Playlist)))
+            throw new LiteRequestException("Wybierz od 1 do 20 playlist TIDAL.");
+        if (!args.TryGetProperty("items", out var rawItems)
+            || rawItems.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Wybierz utwór lub album TIDAL.");
+        var items = new List<MediaItem>();
+        foreach (var raw in rawItems.EnumerateArray())
+        {
+            if (raw.ValueKind != JsonValueKind.Object) continue;
+            var kindName = LiteArgs.RequireText(raw, "kind").Trim();
+            if (!CollectionKinds.TryGetValue(kindName, out var kind)
+                || kind is not (MediaItemKind.Track or MediaItemKind.Video or MediaItemKind.Album))
+                throw new LiteRequestException("Do playlisty TIDAL można dodać utwór, wideo albo album.");
+            var externalId = LiteArgs.RequireText(raw, "externalId").Trim();
+            if (!ExternalIdMatchesKind(externalId, kind))
+                throw new LiteRequestException("Element TIDAL ma nieprawidłową tożsamość katalogową.");
+            items.Add(new MediaItem
+            {
+                Id = LiteArgs.RequireText(raw, "itemId").Trim(),
+                ExternalId = externalId,
+                Title = LiteArgs.RequireText(raw, "title").Trim(),
+                Artist = LiteArgs.ReadText(raw, "artist")?.Trim() ?? string.Empty,
+                Kind = kind
+            });
+        }
+        if (items.Count is < 1 or > 500)
+            throw new LiteRequestException("Wybierz od 1 do 500 elementów TIDAL.");
+        return new LiteTidalPlaylistAddRequest(playlistIds, items);
+    }
+
     private static bool ExternalIdMatchesKind(string externalId, MediaItemKind kind)
     {
         var prefix = kind switch
@@ -295,6 +346,10 @@ public sealed record LiteTidalMembershipRequest(
     string Mode,
     IReadOnlyList<MediaItem> Items,
     bool? RequestedAddition);
+
+public sealed record LiteTidalPlaylistAddRequest(
+    IReadOnlyList<string> PlaylistExternalIds,
+    IReadOnlyList<MediaItem> Items);
 
 public sealed record LiteTidalAccountStatusResult(
     [property: JsonPropertyName("configured")] bool Configured,

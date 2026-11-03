@@ -212,3 +212,23 @@ def test_tidal_collection_calls_never_send_credentials() -> None:
     ]
     assert "token" not in repr(calls).casefold()
     assert "credential" not in repr(calls).casefold()
+
+
+def test_tidal_playlist_write_calls_have_only_destination_and_catalog_ids() -> None:
+    calls = []
+    client = LiteHostClient(Path("host.exe"))
+    client.call = lambda op, args=None, *, timeout=20.0: (
+        calls.append((op, args, timeout)) or {}
+    )
+    album = {"itemId": "album:7", "externalId": "albums:7",
+             "title": "Album", "kind": "album"}
+
+    client.tidal_playlist_create("Nowa")
+    client.tidal_playlist_add_items(["playlists:1"], [album])
+
+    assert calls == [
+        ("tidal.playlistCreate", {"name": "Nowa"}, 120.0),
+        ("tidal.playlistAddItems", {
+            "playlistExternalIds": ["playlists:1"], "items": [album]
+        }, 180.0),
+    ]

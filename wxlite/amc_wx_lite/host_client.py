@@ -1037,6 +1037,18 @@ class LiteHostClient:
         """Synchronize and read one account collection view in the C# host."""
         return self.call("tidal.collectionView", {"view": view}, timeout=180.0)
 
+    def tidal_playlist_create(self, name: str) -> Any:
+        return self.call("tidal.playlistCreate", {"name": name}, timeout=120.0)
+
+    def tidal_playlist_add_items(
+        self, playlist_external_ids: list[str], items: list[dict[str, Any]]
+    ) -> Any:
+        return self.call(
+            "tidal.playlistAddItems",
+            {"playlistExternalIds": playlist_external_ids, "items": items},
+            timeout=180.0,
+        )
+
     def tidal_collection_membership(
         self,
         items: list[dict[str, Any]],

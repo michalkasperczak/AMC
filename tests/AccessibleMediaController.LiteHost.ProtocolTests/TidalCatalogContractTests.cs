@@ -23,6 +23,7 @@ internal static class TidalCatalogContractTests
         ReadsCollectionMembershipWithoutCredentials();
         RefusesWrongCollectionShortcutForKind();
         CollectionViewContainsOnlyIntentionalFields();
+        ReadsPlaylistWriteWithoutPrivateData();
     }
 
     private static void AccountStatusAndLoginUseOnlyUserFacingLabels()
@@ -314,6 +315,40 @@ internal static class TidalCatalogContractTests
             "widok zawiera pole źródła");
         Check(json.Contains("\"collectionAddedUtcTicks\":123456", StringComparison.Ordinal),
             "widok nie przekazuje czasu dodania potrzebnego do sortowania");
+    }
+
+    private static void ReadsPlaylistWriteWithoutPrivateData()
+    {
+        using var document = JsonDocument.Parse("""
+        {"playlistExternalIds":["playlists:42"],"items":[{
+          "itemId":"tidal:albums:7","externalId":"albums:7",
+          "title":"Album próby","kind":"album","token":"sekret"
+        }]}
+        """);
+        var request = LiteTidalCatalogContract.ReadPlaylistAddRequest(document.RootElement);
+        Check(request.PlaylistExternalIds.SequenceEqual(["playlists:42"])
+            && request.Items.Count == 1
+            && request.Items[0].Kind == MediaItemKind.Album,
+            "nie odczytano albumu i docelowej playlisty TIDAL");
+        Check(request.Items[0].Source is null,
+            "prywatne źródło weszło do zapisu playlisty");
+
+        using var wrong = JsonDocument.Parse("""
+        {"playlistExternalIds":["tracks:42"],"items":[{
+          "itemId":"tidal:tracks:7","externalId":"tracks:7",
+          "title":"Utwór","kind":"track"
+        }]}
+        """);
+        try
+        {
+            LiteTidalCatalogContract.ReadPlaylistAddRequest(wrong.RootElement);
+            throw new InvalidOperationException("Przyjęto utwór jako playlistę TIDAL");
+        }
+        catch (LiteRequestException exception)
+        {
+            Check(exception.Message.Contains("playlist", StringComparison.OrdinalIgnoreCase),
+                "odmowa ma nieczytelny komunikat");
+        }
     }
 
     private static void Check(bool condition, string message)

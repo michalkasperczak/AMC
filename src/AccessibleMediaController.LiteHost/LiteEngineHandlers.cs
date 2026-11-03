@@ -518,6 +518,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 TidalCollectionView(request.Args),
             [LiteTidalCatalogContract.MembershipOperation] = (request, _) =>
                 TidalCollectionMembership(request.Args),
+            [LiteTidalCatalogContract.PlaylistCreateOperation] = (request, _) =>
+                RequireTidal().CreatePlaylist(request.Args),
+            [LiteTidalCatalogContract.PlaylistAddItemsOperation] = (request, _) =>
+                RequireTidal().AddPlaylistItems(request.Args),
             [LiteSpotifyCatalogContract.CapabilitiesOperation] = (_, _) =>
                 SpotifyCapabilities(),
             [LiteSpotifyCatalogContract.AccountStatusOperation] = (_, _) =>
