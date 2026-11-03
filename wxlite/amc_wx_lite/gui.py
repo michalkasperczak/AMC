@@ -6904,27 +6904,50 @@ class RecognitionActionsWindow(wx.Frame):
         if action is None:
             self._set_status("Brak wybranego działania")
             return
-        if (
-            action.needs_match
-            and recognition_cached_matches(self._entry).get(action.service) is None
-        ):
-            self._set_status("Sprawdzam dokładne łącze")
+
+        service = recognition_service_label(action.service)
+
+        def fallback() -> None:
+            if self._closing:
+                return
+            if action.needs_match:
+                query = dict(self._entry)
+                if action.entity == "album":
+                    query["title"] = query.get("album") or query.get("title")
+                elif action.entity == "artist":
+                    query["title"] = ""
+                link = recognition_search_links(query).get(service, "")
+                if link and self._copy_to_clipboard(link):
+                    self._set_status(f"Skopiowano link wyszukiwania {service}")
+                    self.actions.SetFocus()
+                    return
+            self._set_status(
+                f"Nie znaleziono łącza w {service}"
+                if service else "To działanie nie ma łącza do skopiowania"
+            )
+            self.actions.SetFocus()
 
         def ready(match: dict | None) -> None:
             if self._closing:
                 return
             link = recognition_action_url(action, match)
-            if link and self._copy_to_clipboard(link):
-                self._set_status("Skopiowano łącze")
+            if not link:
+                fallback()
+            elif self._copy_to_clipboard(link):
+                self._set_status(
+                    f"Skopiowano link wyszukiwania {service}"
+                    if service and action.operation == "open_url" else
+                    f"Skopiowano link {service}" if service else "Skopiowano link"
+                )
             else:
-                self._set_status("To działanie nie ma łącza do skopiowania")
+                self._set_status("Nie udało się skopiować łącza")
             self.actions.SetFocus()
 
         self._resolve_action(
             self._entry,
             action,
             ready,
-            lambda error: self._failure(action, error),
+            lambda _error: fallback(),
         )
 
     def _on_key(self, event: wx.KeyEvent) -> None:
@@ -10516,18 +10539,28 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_tidal_library_item and not (
                 self.navigator.active is SessionId.TIDAL
-                and selected_row is not None
-                and selected_kind in {"album", "artist", "playlist"}
-                and bool(selected_row.item_id)
-                and bool(selected_row.service_id)
+                and (
+                    selected_row is not None
+                    and selected_kind in {"album", "artist", "playlist"}
+                    and bool(selected_row.item_id)
+                    and bool(selected_row.service_id)
+                    or LiteFrame._open_service_album_row(
+                        self.navigator.active, session
+                    ) is not None
+                )
             ):
                 enabled = False
             if entry.needs_spotify_library_item and not (
                 self.navigator.active is SessionId.SPOTIFY
-                and selected_row is not None
-                and selected_kind in {"album", "artist", "podcast", "episode"}
-                and bool(selected_row.item_id)
-                and bool(selected_row.service_id)
+                and (
+                    selected_row is not None
+                    and selected_kind in {"album", "artist", "podcast", "episode"}
+                    and bool(selected_row.item_id)
+                    and bool(selected_row.service_id)
+                    or LiteFrame._open_service_album_row(
+                        self.navigator.active, session
+                    ) is not None
+                )
             ):
                 enabled = False
             if entry.needs_spotify_favorite_item and not (
@@ -18799,6 +18832,7 @@ class LiteFrame(wx.Frame):
         session_id: SessionId,
         *,
         configure_frontier_if_empty: bool = True,
+        initialize_if_empty: bool = True,
     ) -> None:
         if session_id not in session_order.normalize(self.options.session_order):
             self.announcer.say(
@@ -18825,14 +18859,14 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_library(preferred_id=state.list_anchor_id)
         elif session_id is SessionId.TIDAL:
             state = self.navigator.sessions[SessionId.TIDAL]
-            if not state.model.rows:
+            if initialize_if_empty and not state.model.rows:
                 self._open_tidal_view(OpenTidalView(
                     LibraryView.TIDAL_LIBRARY,
                     preferred_id=state.list_anchor_id,
                 ))
         elif session_id is SessionId.SPOTIFY:
             state = self.navigator.sessions[SessionId.SPOTIFY]
-            if not state.model.rows:
+            if initialize_if_empty and not state.model.rows:
                 self._open_spotify_view(OpenSpotifyView(
                     preferred_id=state.list_anchor_id,
                 ))
@@ -25246,6 +25280,38 @@ class LiteFrame(wx.Frame):
         )
         return [] if row is None else [row]
 
+    @staticmethod
+    def _open_service_album_row(session_id: SessionId, state) -> Row | None:
+        """The album is the collection target while its track list is open."""
+        if state is None:
+            return None
+        if session_id is SessionId.SPOTIFY:
+            context = getattr(state, "spotify_context", None)
+            expected_view = LibraryView.SPOTIFY_CONTAINER
+            context_type = OpenSpotifyContainer
+        elif session_id is SessionId.TIDAL:
+            context = getattr(state, "tidal_context", None)
+            expected_view = LibraryView.TIDAL_CONTAINER
+            context_type = OpenTidalContainer
+        else:
+            return None
+        if (
+            getattr(state, "library_view", None) is not expected_view
+            or not isinstance(context, context_type)
+            or context.kind != "album"
+            or not context.service_id
+        ):
+            return None
+        return Row(
+            item_id=context.item_id,
+            title=context.title,
+            kind="album",
+            service_id=context.service_id,
+            service_kind="album",
+            artist_name=context.artist,
+            url=context.public_uri,
+        )
+
     def _clear_pending_external_moves(self) -> None:
         pending = getattr(self, "pending_external_moves", None)
         if pending is not None:
@@ -26322,6 +26388,12 @@ class LiteFrame(wx.Frame):
             row for row in rows
             if row.kind in allowed and row.service_id and row.item_id
         ]
+        if not rows and not favorite:
+            album = LiteFrame._open_service_album_row(
+                SessionId.TIDAL, self.navigator.sessions[SessionId.TIDAL]
+            )
+            if album is not None:
+                rows = [album]
         if not rows:
             self.announcer.say(
                 "Do Ulubionych TIDAL wybierz utwór lub materiał wideo"
@@ -26408,6 +26480,12 @@ class LiteFrame(wx.Frame):
             row for row in rows
             if row.kind in allowed and row.service_id and row.item_id
         ]
+        if not rows and not favorite:
+            album = LiteFrame._open_service_album_row(
+                SessionId.SPOTIFY, self.navigator.sessions[SessionId.SPOTIFY]
+            )
+            if album is not None:
+                rows = [album]
         if not rows:
             self.announcer.say(
                 "Do Ulubionych Spotify wybierz utwór albo odcinek"
@@ -26533,6 +26611,9 @@ class LiteFrame(wx.Frame):
             kwargs = (
                 {"add": False}
                 if remove_from_current_collection
+                else {"add": True}
+                if not favorite and isinstance(context, OpenSpotifyContainer)
+                and context.kind == "album"
                 else {}
             )
             return client.spotify_collection_membership(
@@ -32407,6 +32488,13 @@ class LiteFrame(wx.Frame):
             self._restore_focus_after_dialog()
             return
         session_id = SessionId.SPOTIFY if service == SPOTIFY else SessionId.TIDAL
+        if session_id not in session_order.normalize(self.options.session_order):
+            self.announcer.say(
+                f"Sesja {session_order.session_name(session_id)} jest wyłączona. "
+                "Otwórz Menedżer sesji skrótem Ctrl+Shift+S"
+            )
+            self._restore_focus_after_dialog()
+            return
         if action.entity == "artist":
             artist = self._recognition_artist_row(match)
             if artist is None:
@@ -32425,7 +32513,7 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Usługa nie podała albumu tego utworu")
             self._restore_focus_after_dialog()
             return
-        self._switch_session(session_id)
+        self._switch_session(session_id, initialize_if_empty=False)
         if service == SPOTIFY:
             self._open_spotify_container(OpenSpotifyContainer(
                 item_id=f"{track.item_id}:recognized-album",

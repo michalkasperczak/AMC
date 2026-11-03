@@ -10,6 +10,7 @@ from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
+    OpenTidalContainer,
     SessionId,
     View,
 )
@@ -803,6 +804,41 @@ def test_tidal_catalog_add_and_saved_library_remove_are_explicit() -> None:
         {"mode": "library", "add": True},
         {"mode": "library", "add": False},
     ]
+
+
+def test_library_shortcut_saves_open_tidal_album_instead_of_selected_track() -> None:
+    requests, spoken = [], []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    album = OpenTidalContainer("recognized-album", "albums:44", "Cały album", "album")
+    track = Row("track-1", "Utwór", "track", service_id="tracks:1")
+    nav.apply_tidal_container(album, "Cały album", [track])
+    frame = SimpleNamespace(
+        navigator=nav,
+        client=SimpleNamespace(
+            tidal_collection_membership=lambda items, *, mode, add: (
+                requests.append((items, mode, add))
+                or {"added": True, "message": "Dodano album do Biblioteki TIDAL"}
+            )
+        ),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [track],
+        _tidal_membership_pending=False,
+    )
+
+    LiteFrame._toggle_tidal_membership(frame, favorite=False)
+
+    assert requests[0][0][0]["kind"] == "album"
+    assert requests[0][0][0]["externalId"] == "albums:44"
+    assert requests[0][1:] == ("library", True)
+    assert spoken == ["Dodano album do Biblioteki TIDAL"]
 
 
 def test_remote_radio_open_plays_without_profile_write() -> None:

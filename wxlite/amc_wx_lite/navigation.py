@@ -2298,6 +2298,8 @@ class Navigator:
                     list(previous.rows), preferred_id=previous.selected_id
                 )
                 state.view = View.LIST
+                if not previous.rows and previous.context is None:
+                    return [OpenTidalView(LibraryView.TIDAL_LIBRARY)]
             # Na korzeniu kolekcji Backspace jest celowo cichy.
             return []
         if state.session_id is SessionId.SPOTIFY:
@@ -2311,6 +2313,8 @@ class Navigator:
                     list(previous.rows), preferred_id=previous.selected_id
                 )
                 state.view = View.LIST
+                if not previous.rows and previous.context is None:
+                    return [OpenSpotifyView()]
             # Korzeń jednej sesji Spotify jest końcem nawigacji.
             return []
         if state.session_id is SessionId.WIIM:

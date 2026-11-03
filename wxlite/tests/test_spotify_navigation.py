@@ -9,6 +9,7 @@ from amc_wx_lite.navigation import (
     Navigator,
     OpenSpotifyCollectionView,
     OpenSpotifyContainer,
+    OpenSpotifyView,
     PlaySpotifyItem,
     SessionId,
     ShowSpotifyRelations,
@@ -487,6 +488,18 @@ def test_session_switch_preserves_nested_list_and_focus() -> None:
     assert event == Announce("Spotify, lista, Utwór 2")
     assert nav.session.library_view is LibraryView.SPOTIFY_CONTAINER
     assert nav.session.model.selected_row == tracks[1]
+
+
+def test_backspace_from_direct_recognized_album_loads_spotify_root() -> None:
+    nav = Navigator()
+    nav.active = SessionId.SPOTIFY
+    nav.apply_spotify_container(
+        OpenSpotifyContainer("recognized", "album-1", "Album", "album"),
+        "Album", [_track()],
+    )
+
+    assert nav.go_to_parent() == [OpenSpotifyView()]
+    assert nav.active is SessionId.SPOTIFY
 
 
 def test_search_result_opens_without_adding_it_to_the_saved_library() -> None:

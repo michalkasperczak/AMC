@@ -211,6 +211,8 @@ Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowuj
   Szczegóły:
   [REL-003-usuniecie-wpf-i-stan-youtube.md](REL-003-usuniecie-wpf-i-stan-youtube.md).
 
+- `RECOG-002` — **W trakcie; kod i testy celowane gotowe, bez nowego builda i instalacji** — poprawia kopiowanie linku z okna działań prawej strzałki, zapis całego otwartego albumu do Biblioteki Spotify lub TIDAL i powrót do listy usługi. Playlisty Spotify przyjmują zaznaczone utwory; playlisty TIDAL pozostają poza bieżącym kontraktem. Szczegóły: [RECOG-002-album-z-historii-do-uslug.md](RECOG-002-album-z-historii-do-uslug.md).
+
 - `RECOG-001` — **W trakcie; poprawki Test są w opublikowanym `alpha.438`, a
   korekta Public usuwająca wewnętrzne działania Spotify/TIDAL jest w
   stabilnym `alpha.440`. Poprawka odświeżania otwartej historii po nowym
