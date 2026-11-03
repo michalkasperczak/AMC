@@ -16,6 +16,7 @@ Status: **W trakcie; kod, testy celowane i kompilacja hosta gotowe, bez instalac
 - Otwarty album wyświetla wiersze utworów. Dotychczasowe `Ctrl+Shift+L` i bramka menu patrzyły wyłącznie na zaznaczony wiersz, więc odrzucały cały album. Teraz korzystają ze wspólnej tożsamości albumu przechowywanej w kontekście widoku.
 - Bezpośrednie wejście z historii do pustej sesji rozpoczynało dwa niezależne odczyty: korzenia i albumu. Późniejszy wynik korzenia mógł wyczyścić stos powrotu. Bezpośrednie przejście ładuje tylko album; `Backspace` w razie potrzeby ładuje korzeń.
 - **Korekta z 3.11.2026:** wcześniejszy zapis, że TIDAL nie obsługuje playlist konta, był nieprawdziwy jako opis całego toru. Sesja TIDAL czytała playlisty, a istniejąca usługa miała metody tworzenia playlist i dodawania do nich utworów. W AMC Test brakowało połączenia tych metod ze skrótem, menu i dialogiem. Niniejsza zmiana dodaje to połączenie. Powiązanie rozpoznania z biblioteką plików lokalnych pozostaje osobnym zadaniem.
+- **Doprecyzowanie użytkownika z 4.11.2026:** odbiór playlist TIDAL może być osobnym etapem; nie ma blokować dokończenia poprawki rozpoznanych utworów. Kod playlist pozostaje zapisany, ale samo jego istnienie nie oznacza odbioru na koncie TIDAL ani z NVDA.
 
 ## Materiał do dokumentacji użytkownika
 
