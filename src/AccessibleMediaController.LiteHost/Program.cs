@@ -65,6 +65,7 @@ internal static class Program
         };
 
         var timeshiftMinutes = ReadTimeshiftMinutes(args);
+        var timeshiftBufferFolder = ReadArgumentText(args, "--timeshift-buffer-folder");
 
         // Swiezy publiczny AMC dostaje od frontendu poprawne, lecz jeszcze
         // nieistniejace sciezki. Zanim zarejestrujemy operacje edycji,
@@ -149,7 +150,8 @@ internal static class Program
             spotifyPlayback,
             commonDataSnapshot,
             enableTidalNativePlayback: LiteTidalNativePlayRequest.IsEnabledForProfile(
-                ReadArgumentText(args, "--release-profile")));
+                ReadArgumentText(args, "--release-profile")),
+            timeshiftBufferFolder: timeshiftBufferFolder);
         using var nvdaRelay = new LiteNvdaRelay();
         using var nvdaBridge = new LiteNvdaBridge(nvdaRelay);
         var registeredHandlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(

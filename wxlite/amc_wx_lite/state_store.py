@@ -249,6 +249,7 @@ class Options:
     volume: int = 35
     rate: float = 1.0
     timeshift_minutes: int = 30
+    timeshift_buffer_folder: str | None = None
     #: Ekran po uruchomieniu. Wartość modelu pozostaje prywatna; dialog
     #: ustawień pokazuje wyłącznie pełne polskie etykiety.
     startup_target: str = "MediaList"
@@ -384,6 +385,10 @@ class Options:
         self.volume = max(0, min(100, int(self.volume)))
         self.rate = max(0.5, min(2.0, float(self.rate)))
         self.timeshift_minutes = max(1, min(720, int(self.timeshift_minutes)))
+        if isinstance(self.timeshift_buffer_folder, str):
+            self.timeshift_buffer_folder = self.timeshift_buffer_folder.strip() or None
+        else:
+            self.timeshift_buffer_folder = None
         # Te same dozwolone wartosci co PlaybackAudioSettingsRules w Core.
         allowed = (0, 500, 1000, 2000, 3000, 5000)
         if self.inter_track_silence_ms not in allowed:

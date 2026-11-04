@@ -33,7 +33,8 @@ internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeS
 /// accessible interface. The same ring provides pause and time-shift without
 /// creating unbounded temporary files.
 /// </summary>
-public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
+public sealed class RadioMediaOutput(
+    int timeshiftMinutes, bool audible = true, string? timeshiftFolder = null)
     : IMediaOutput, IPlaybackRateStateOutput, IDisposable
 {
     // Gorna granica bufora transmisji. ZGLOSZENIE Michala 15.09.2026: "10 min
@@ -50,6 +51,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
     private readonly object _gate = new();
     // Do 12 godzin bufora (byla godzina). Powyzej 24 minut bufor lezy na dysku.
     private readonly int _timeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 720);
+    private readonly string? _timeshiftFolder = string.IsNullOrWhiteSpace(timeshiftFolder)
+        ? null : timeshiftFolder;
     private RadioPipeline? _pipeline;
     private CancellationTokenSource? _preparationCancellation;
     private MediaItem? _requestedItem;
@@ -391,7 +394,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 reader.WaveFormat,
                 _timeshiftMinutes,
                 MaximumTimeshiftBytes,
-                RaiseRecordingFailed);
+                RaiseRecordingFailed,
+                _timeshiftFolder);
             // Do not announce a started station while the output still holds
             // only silence. The first decoded portion also proves that opening
             // the URL produced audio rather than headers followed by EOF.
@@ -1757,7 +1761,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
         private readonly MemoryMappedViewAccessor? _view;
         private readonly string? _filePath;
 
-        public TimeshiftRingStorage(long capacity)
+        public TimeshiftRingStorage(long capacity, string? folder)
         {
             Length = capacity;
             if (capacity <= InMemoryLimitBytes)
@@ -1773,7 +1777,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
                 // zabiciu programu nie zostaje po nim smiec przy nastepnym
                 // starcie systemu.
                 _filePath = Path.Combine(
-                    Path.GetTempPath(),
+                    folder ?? Path.GetTempPath(),
                     "AMC-timeshift-" + Guid.NewGuid().ToString("N") + ".buf");
                 var stream = new FileStream(
                     _filePath,
@@ -1794,10 +1798,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             }
             catch (Exception exception) when (exception is IOException
                 or UnauthorizedAccessException
-                or NotSupportedException)
+                or NotSupportedException
+                or ArgumentException)
             {
-                // Brak miejsca albo brak praw do katalogu tymczasowego nie moze
-                // przerwac sluchania radia - schodzimy do bufora w pamieci.
+                // Brak miejsca albo brak praw do wybranego folderu nie moze
+                // przerwac sluchania radia. Nie wracamy po cichu na dysk C:
+                // schodzimy do 64 MB bufora w pamieci i zapisujemy ostrzezenie.
+                DiagnosticLog.Warning(
+                    "radio-timeshift",
+                    "Nie udało się utworzyć bufora na dysku; użyto krótszego bufora w pamięci. "
+                    + exception.Message);
                 try { _view?.Dispose(); } catch (Exception) { }
                 try { _file?.Dispose(); } catch (Exception) { }
                 _view = null;
@@ -1884,7 +1894,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             WaveFormat waveFormat,
             int minutes,
             long maximumBytes,
-            Action<Exception> recordingFailed)
+            Action<Exception> recordingFailed,
+            string? timeshiftFolder)
         {
             WaveFormat = waveFormat;
             _recordingFailed = recordingFailed;
@@ -1892,7 +1903,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true)
             var requested = (long)waveFormat.AverageBytesPerSecond * Math.Max(1, minutes) * 60;
             var capacity = Math.Min(maximumBytes, Math.Max(waveFormat.AverageBytesPerSecond * 5L, requested));
             capacity -= capacity % _blockAlign;
-            _ring = new TimeshiftRingStorage(Math.Max(_blockAlign, capacity));
+            _ring = new TimeshiftRingStorage(
+                Math.Max(_blockAlign, capacity), timeshiftFolder);
         }
 
         /// <summary>Czy bufor lezy na dysku (duzy) czy w pamieci (maly).</summary>

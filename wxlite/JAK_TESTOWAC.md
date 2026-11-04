@@ -1086,7 +1086,13 @@ pozostawić starych tekstów pomocy.
 Na karcie Radio i nagrywanie sprawdź kolejno:
 
 1. Długość TimeShift od 10 minut do 12 godzin; NVDA ma czytać czas i miejsce
-   buforowania, a nie samą liczbę ani wartość modelu.
+   buforowania, a nie samą liczbę ani wartość modelu. Obok jest „Folder bufora
+   Time Shift”. Wybierz istniejący folder na dysku D:, zapisz, ponownie otwórz
+   Ustawienia i sprawdź odczyt ścieżki. Przycisk „Użyj folderu tymczasowego
+   Windows” przywraca domyślne położenie. Przetestuj Tab, wybór i anulowanie
+   folderu, powrót fokusu, strzałki na liście długości oraz ponowne otwarcie.
+   Nowy folder zaczyna działać po ponownym uruchomieniu AMC; nie zamykaj
+   programu podczas nagrywania.
 2. Wybór osobnego folderu oraz przycisk przywracający domyślny folder AMC.
    Pole ma podawać ścieżkę albo tekst „Domyślny folder nagrywania AMC”.
    Wybierz też „Ten sam folder co pobieranie Podcastów”, zapisz, ponownie
@@ -1100,7 +1106,8 @@ Na karcie Radio i nagrywanie sprawdź kolejno:
    plan `Shift+R`: ręczne nagranie i formularz planu mają użyć zapisanego
    folderu, formatu i bitrate'u. Nie przerywaj istniejącego nagrania tylko na
    potrzeby tego odbioru. Zmiana długości TimeShift działa od kolejnego startu
-   programu.
+   programu. Folder bufora Time Shift również zaczyna działać od kolejnego
+   startu programu.
 6. W odtwarzaczu Radia odczekaj co najmniej 12 sekund od uruchomienia stacji
    i naciśnij `S`. Ma paść „Rozpoznaję utwór”, a potem wynik albo uczciwa
    odmowa. `Shift+S` przełącza automatyczne obserwowanie. W Ustawieniach

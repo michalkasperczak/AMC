@@ -115,6 +115,7 @@ class LiteHostClient:
         executable: str | Path,
         *,
         timeshift_minutes: int = 30,
+        timeshift_buffer_folder: str | Path | None = None,
         profile_dir: str | Path | None = None,
         queue_write: bool = False,
         library_db: str | Path | None = None,
@@ -131,6 +132,9 @@ class LiteHostClient:
     ) -> None:
         self.executable = str(executable)
         self.timeshift_minutes = timeshift_minutes
+        self.timeshift_buffer_folder = (
+            str(timeshift_buffer_folder).strip() if timeshift_buffer_folder else None
+        )
         # TRWALOSC kolejki. Host zapisuje ja tylko wtedy, gdy dostanie JAWNA
         # sciezke wlasnej kopii profilu; ``queue_write`` jest osobna, swiadoma
         # zgoda na bycie jej pisarzem. Domyslnie oba sa puste, czyli host
@@ -187,6 +191,8 @@ class LiteHostClient:
         ``--profile-dir`` nie dotyka zadnego profilu.
         """
         command = [self.executable, "--timeshift-minutes", str(self.timeshift_minutes)]
+        if self.timeshift_buffer_folder:
+            command += ["--timeshift-buffer-folder", self.timeshift_buffer_folder]
         if self.profile_dir is not None:
             command += ["--profile-dir", self.profile_dir]
             if self.queue_write:

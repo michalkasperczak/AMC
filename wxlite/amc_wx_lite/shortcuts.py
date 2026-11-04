@@ -2674,7 +2674,10 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.NEXT_AUDIO_OUTPUT: (
             "Następne dostępne urządzenie audio bieżącej sesji"
         ),
-        Action.GENERAL_SETTINGS: "Ustawienia programu",
+        Action.GENERAL_SETTINGS: (
+            "Ustawienia programu; na karcie Radio i nagrywanie ustawisz "
+            "długość oraz folder bufora Time Shift"
+        ),
         Action.REFRESH_COMMON_DATA: "Odśwież dane z AMC Test",
         Action.COMMON_DATA_STATUS: "Stan synchronizacji danych z AMC Test",
         Action.EXPORT_BACKUP: "Eksportuj dane AMC",

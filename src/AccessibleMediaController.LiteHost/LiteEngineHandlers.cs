@@ -158,9 +158,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteSpotifyCatalogCoordinator? spotifyCatalog = null,
         LiteSpotifyPlaybackCoordinator? spotifyPlayback = null,
         LiteCommonDataSnapshotCoordinator? commonDataSnapshot = null,
-        bool enableTidalNativePlayback = false)
+        bool enableTidalNativePlayback = false,
+        string? timeshiftBufferFolder = null)
     {
-        _radio = new RadioMediaOutput(timeshiftMinutes);
+        _radio = new RadioMediaOutput(
+            timeshiftMinutes, timeshiftFolder: timeshiftBufferFolder);
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
         _recordings = new LiteRadioRecordingCoordinator(bookmarkStore);

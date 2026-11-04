@@ -402,6 +402,10 @@ zmian, wymagający korekty użytkownika:
   Zatwierdzona specyfikacja:
   `D:\Projekty Codex\Accessible Multimedia Controller\AMC13_TIMESHIFT_RADIA_2026-10-18.md`.
   Eksport fragmentów Time Shiftu pozostaje późniejszym rozszerzeniem.
+- `TSH-001` — **Kod i testy gotowe; wspólna aktualizacja z TIDAL w przygotowaniu** —
+  wybór folderu bufora Time Shift w ustawieniach Radia, z domyślnym
+  katalogiem tymczasowym Windows. Wynik i ograniczenia:
+  [TSH-001-folder-bufora-timeshift.md](TSH-001-folder-bufora-timeshift.md).
 - `AMC08` — **Po odbiorze instalacji 11:24 znaleziono i naprawiono rzeczywistą
   przyczynę pustego Tyflo Podcast: 10 rekordów `null` w 2873 elementach
   przerywało parser. Odcinki programu są teraz ładowane narastająco po 150;

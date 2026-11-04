@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -7949,6 +7950,54 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         radio_layout.Add(timeshift_label, 0, wx.BOTTOM, 4)
         radio_layout.Add(self.timeshift, 0, wx.BOTTOM | wx.EXPAND, 10)
 
+        self._timeshift_folder_value = str(
+            options.timeshift_buffer_folder or ""
+        ).strip()
+        timeshift_folder_label = wx.StaticText(
+            radio, label="Folder bufora Time Shift:"
+        )
+        self.timeshift_folder = FocusableReadOnlyTextCtrl(
+            radio,
+            value=(
+                self._timeshift_folder_value
+                or f"Folder tymczasowy Windows: {tempfile.gettempdir()}"
+            ),
+        )
+        self.timeshift_folder.SetName("Folder bufora Time Shift")
+        self.timeshift_folder.SetHelpText(
+            "Wybierz folder dla pliku bufora Time Shift. Zmiana działa po "
+            "ponownym uruchomieniu AMC; bieżący bufor pozostaje bez zmian."
+        )
+        timeshift_folder_buttons = wx.BoxSizer(wx.HORIZONTAL)
+        self.browse_timeshift_folder = wx.Button(
+            radio, label="&Wybierz folder…"
+        )
+        self.browse_timeshift_folder.SetName(
+            "Wybierz folder bufora Time Shift"
+        )
+        self.browse_timeshift_folder.SetHelpText(
+            "Wybierz istniejący folder na dysku z wolnym miejscem."
+        )
+        self.default_timeshift_folder = wx.Button(
+            radio, label="Użyj folderu tymczasowego &Windows"
+        )
+        self.default_timeshift_folder.SetName(
+            "Użyj folderu tymczasowego Windows dla bufora Time Shift"
+        )
+        self.browse_timeshift_folder.Bind(
+            wx.EVT_BUTTON, self._on_browse_timeshift_folder
+        )
+        self.default_timeshift_folder.Bind(
+            wx.EVT_BUTTON, self._on_default_timeshift_folder
+        )
+        timeshift_folder_buttons.Add(self.browse_timeshift_folder, 0, wx.RIGHT, 8)
+        timeshift_folder_buttons.Add(self.default_timeshift_folder, 0)
+        radio_layout.Add(timeshift_folder_label, 0, wx.BOTTOM, 4)
+        radio_layout.Add(self.timeshift_folder, 0, wx.BOTTOM | wx.EXPAND, 8)
+        radio_layout.Add(
+            timeshift_folder_buttons, 0, wx.BOTTOM | wx.EXPAND, 12
+        )
+
         self.recognition_monitoring = wx.CheckBox(
             radio, label="&Obserwuj i automatycznie rozpoznawaj utwory"
         )
@@ -8916,6 +8965,30 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         i18n.localize_window_tree(self, translate_items=True)
         self.pause.SetFocus()
 
+    def _on_browse_timeshift_folder(self, _event: wx.CommandEvent) -> None:
+        dialog = wx.DirDialog(
+            self,
+            message="Wybierz folder bufora Time Shift",
+            defaultPath=(self._timeshift_folder_value or tempfile.gettempdir()),
+            style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST,
+        )
+        try:
+            if dialog.ShowModal() != wx.ID_OK:
+                self.browse_timeshift_folder.SetFocus()
+                return
+            self._timeshift_folder_value = dialog.GetPath().strip()
+            self.timeshift_folder.SetValue(self._timeshift_folder_value)
+        finally:
+            dialog.Destroy()
+        self.timeshift_folder.SetFocus()
+
+    def _on_default_timeshift_folder(self, _event: wx.CommandEvent) -> None:
+        self._timeshift_folder_value = ""
+        self.timeshift_folder.SetValue(
+            f"Folder tymczasowy Windows: {tempfile.gettempdir()}"
+        )
+        self.timeshift_folder.SetFocus()
+
     def _on_browse_recording_folder(self, _event: wx.CommandEvent) -> None:
         dialog = wx.DirDialog(
             self,
@@ -9165,6 +9238,23 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             self.open_default_apps.SetFocus()
 
     def _on_save(self, event: wx.CommandEvent) -> None:
+        if self._timeshift_folder_value:
+            try:
+                folder = Path(self._timeshift_folder_value)
+                if not folder.is_dir():
+                    raise OSError("Folder nie istnieje")
+                with tempfile.TemporaryFile(dir=folder):
+                    pass
+            except (OSError, ValueError):
+                wx.MessageBox(
+                    "Folder bufora Time Shift nie jest dostępny do zapisu. "
+                    "Wybierz istniejący folder na dysku z wolnym miejscem.",
+                    "Nie zapisano ustawień",
+                    wx.OK | wx.ICON_WARNING,
+                    parent=self,
+                )
+                self.browse_timeshift_folder.SetFocus()
+                return
         parsed = parse_custom_seek_length(self.custom_seek.GetValue())
         if parsed is None:
             wx.MessageBox(
@@ -9369,6 +9459,7 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "timeshift_minutes": self._timeshift_values[
                 max(0, self.timeshift.GetSelection())
             ],
+            "timeshift_buffer_folder": (self._timeshift_folder_value or None),
             "radio_recordings_folder": self._recording_folder_value,
             "radio_separate_station_folders": (
                 self.radio_separate_station_folders.GetValue()
@@ -12631,6 +12722,7 @@ class LiteFrame(wx.Frame):
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
+            timeshift_buffer_folder=self.options.timeshift_buffer_folder,
             release_profile=current_profile().profile_id,
             youtube_client_id=youtube_client_id,
             youtube_client_secret_file=youtube_client_secret_file,
@@ -30171,7 +30263,7 @@ class LiteFrame(wx.Frame):
         self._apply_detailed_hints()
         # Komunikaty wierszy zmieniaja sie od razu. Nowe preferencje
         # nagrywania trafia do kolejnego Ctrl+R i nastepnej synchronizacji
-        # harmonogramow; dlugosc timeshiftu obowiazuje po restarcie hosta.
+        # harmonogramow; dlugosc i folder timeshiftu obowiazuja po restarcie hosta.
         self._apply_radio_activity_status()
         self._radio_recognition_due = (
             time.monotonic() + 6.0
@@ -30187,7 +30279,13 @@ class LiteFrame(wx.Frame):
         # Zapis na dysku jest juz zakonczony i to jest wlasciwy moment na
         # krotkie potwierdzenie. Konfiguracja hosta idzie dalej w tle i nie
         # moze opozniac komunikatu NVDA o kilka wywolan miedzyprocesowych.
-        self.announcer.say("Zapisano ustawienia")
+        if previous.get("timeshift_buffer_folder") != self.options.timeshift_buffer_folder:
+            self.announcer.say(
+                "Zapisano ustawienia. Nowy folder bufora Time Shift zostanie "
+                "użyty po ponownym uruchomieniu AMC."
+            )
+        else:
+            self.announcer.say("Zapisano ustawienia")
         client = self.client
         if client is None:
             return
