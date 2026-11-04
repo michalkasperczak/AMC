@@ -92,3 +92,36 @@ Użytkownik wyjaśnił, że nie może wpisywać nowego kodu przy każdej próbie
 ### Stan i commity
 
 Kod hosta i testy: `11f4d5eb`. Resolver, lokalne proxy i testy: `8deda9d5`. Instalacja użytkownika działała oddzielnie; żaden proces AMC nie został zatrzymany. Pełny utwór i słyszalny dźwięk w AMC pozostają niepotwierdzone. Brak nowej wersji, instalacji i wydania.
+
+## Następny etap GUI — projekt z 4 listopada 2026
+
+### Stan obecny i powód odroczenia
+
+W wxPython `Enter` na utworze TIDAL tworzy `PlayTidalTrack`, a `gui.py::_play_tidal_track` wywołuje `LiteHostClient.tidal_desktop_play` (`tidal.desktopPlay`). `Ctrl+Enter` na albumie lub playliście przekazuje cały kontener oryginalnej aplikacji. `Space`, następny/poprzedni i odczyt czasu używają `tidal.externalTransport` oraz częściowego stanu sesji multimedialnej Windows. Widok i komunikaty NVDA uczciwie wskazują oryginalny TIDAL. Nie ma jeszcze opcji natywnego odtwarzania w GUI, nowego skrótu, instalacji ani testu NVDA.
+
+Nie podłączać GUI do `tidalapi_amc_player_probe.run()`: ten jednorazowy próbnik uruchamia i zamyka własny proces LiteHost. Osobny magazyn sesji Windows jest przygotowany, lecz brak trwałego adaptera dla GUI, który odtwarza sesję, w razie potrzeby prowadzi dostępne logowanie urządzenia, rozwiązuje pojedynczy utwór, utrzymuje lokalne proxy przez czas odtwarzania i zamyka je przy końcu lub błędzie. Dodatkowo nie potwierdzono jeszcze słyszalnego pełnego utworu. Z tych przyczyn przełącznik GUI jest odroczony; dotychczasowy Enter pozostaje punktem powrotu.
+
+### Kontrakt wdrożenia po teście audio
+
+1. Dodać w AMC Test osobne, jawne polecenie „Odtwórz utwór w AMC Test (eksperymentalnie)” dla zaznaczonego utworu TIDAL. Enter i `Ctrl+Enter` zachowują dotychczasowe przekazanie do oryginalnego TIDALa. Nie dodawać komendy do profilu Public ani pokazywać jej bez gotowego adaptera i działającego hosta. Decyzja, czy później zmienić domyślny Enter, wymaga osobnego odbioru użytkownika.
+2. Adapter działa poza wątkiem wx, używa osobnego magazynu poświadczeń AMC Test i istniejącej instancji `LiteHostClient`, a do `tidal.nativePlay` przekazuje tylko cyfrowe ID, tytuł, pełny czas i `http://127.0.0.1:<port>/audio/<32-znakowy-token>`. Nie przenosi tokenu ani adresu upstream do GUI, zdarzeń, historii lub stanu aplikacji. Proxy żyje do `playback.ended`, `playback.failed`, jawnego Stop lub zamknięcia aplikacji; przy nowym utworze poprzednie proxy jest domykane po skutecznym przełączeniu. Błąd natywnego startu jest ogłaszany bez automatycznego uruchamiania oryginalnego TIDALa.
+3. Potwierdzenie startu pochodzi ze zdarzenia `playback.started` z `sessionId=tidal` i pasującym `id`, a nie z samej odpowiedzi `preparing=true`. W natywnej sesji `Space`, seek, Stop, głośność, mute, wyjście audio i odczyt czasu używają `transport.*` z `sessionId=tidal`; status/Alt+D mówi „TIDAL w AMC Test” i prawdziwy czas. Następny/poprzedni wymaga jawnej listy źródłowej AMC i nowego resolvera dla kolejnego ID; do czasu jego ukończenia polecenie ma być niedostępne w tym trybie, bez przekazania do zewnętrznej kolejki. Po zatrzymaniu lub błędzie GUI wraca do zwykłego stanu katalogu TIDAL.
+4. Dodać jedno źródło prawdy dla dostępności nowej komendy i wariantu transportu: `shortcuts.py` (Action, zbiór sesji, etykieta/opis), `menu_model.py`, dispatcher `gui.py`, paleta `command_palette.py`, kontekstowe `Ctrl+F1`, pełna pomoc F1 oraz instrukcja `wxlite/JAK_TESTOWAC.md` muszą odczytywać ten sam stan profilu i adaptera. Dla polecenia bez skrótu pomoc ma podać „Bez skrótu”; ewentualny nowy skrót dodać dopiero z testem kolizji. Etykiety i komunikaty NVDA są po polsku, bez ID, obiektu Python, adresu proxy i nazw pól protokołu.
+
+### Testy odbioru po wdrożeniu
+
+- Testy parytetu w Test/Public oraz przed/po gotowości adaptera: nazwa, opis, widoczność, enabled i wykonanie tego samego polecenia w menu, palecie, pełnej pomocy, `Ctrl+F1` i dispatcherze. Sprawdzić Enter/Ctrl+Enter jako niezmieniony punkt powrotu oraz brak martwej komendy w Public.
+- Test adaptera na fałszywym hoście i lokalnym serwerze: brak sekretów w wywołaniu i zdarzeniach, oczekiwanie na właściwy `playback.started`, bezpieczny błąd, odnowienie sesji, zamknięcie proxy przy Stop/End/Failed i przy zamknięciu okna. Test transportu: Space, seek, czas, mute, wyjście i zatrzymanie są kierowane do sesji `tidal`, bez zapisania historii/resume.
+- Ręczny odbiór na pojedynczym pełnym utworze powyżej 30 s: słyszalne próbki na wybranym wyjściu, prawdziwy postęp poza 30 s, pauza/wznowienie, seek i koniec. NVDA: początkowy fokus, nazwa komendy, nawigacja menu/palety, zamknięcie dialogu logowania, powrót fokusu po Anuluj/Zapisz i ponowne otwarcie. Nie uznawać samego `PLAYING` lub wzrostu licznika za sukces.
+
+Wersja, build, instalacja i publikacja po tym etapie: bez zmian. Projekt GUI nie jest implementacją.
+
+## Wynik pilota audio i logowania — 4 listopada 2026
+
+Ta sekcja zastępuje wcześniejsze stwierdzenie, że nie potwierdzono słyszalnego dźwięku. Po ponownym, bezpośrednim zatwierdzeniu kodu urządzenia oddzielna sesja `tidalapi` została zapisana w Menedżerze poświadczeń Windows pod osobnym kluczem AMC Test. Jednorazowy pilot wywołał testowy `tidal.nativePlay` przez lokalne proxy. Otrzymano `playback.started`, a później `transport.status` z pozycją **45 sekund** podczas odtwarzania; pilot zakończył się `played_beyond_30s` i zatrzymał testowy host. Użytkownik w trakcie tej próby wyraźnie potwierdził: **słyszę muzykę**. To pierwszy potwierdzony odsłuch rzeczywistego utworu TIDAL w torze audio AMC, odrębny od oryginalnej aplikacji TIDAL.
+
+Osobny proces sprawdził później `restore_session` z Menedżera poświadczeń: `session_reused=True`, bez nowego kodu i bez odtwarzania. Odczyt przed autoryzacją dał `credential_present=False`. Testy pilota i resolvera bez konta: 29/29. Testowy LiteHost uruchomił się również z nieistniejącym plikiem ustawień (`host_ready=True`); skasowano utworzoną wcześniej kopię `work/TID-001/pilot-state.json` o wielkości około 12 MB. Oryginalnego `state.json` użytkownika i działającej instalacji AMC Test nie zmieniono.
+
+Zakres potwierdzenia: faktycznie słyszalny dźwięk i postęp przez 45 sekund w **osobnym pilocie**, a nie w interfejsie wxPython. Nie sprawdzono jeszcze całego utworu, pauzy, seek, następny/poprzedni, wyjścia wybranego w GUI ani NVDA. Dokumentowany wcześniej plan odroczenia GUI nie jest już uzasadniony brakiem dźwięku; pozostaje potrzeba trwałego adaptera sesji/proxy oraz parytetu poleceń i pomocy. Do dalszego wdrożenia wyznaczono agentów równoległych. Brak nowej instalacji i wydania.
+
+Commity etapu: `11f4d5eb` (host), `8deda9d5` (resolver/proxy), `4695655c` (magazyn sesji i pilot), `d7a9994d` (wcześniejszy zapis). Sam wynik testu na koncie nie zawiera kodu, tokenu, manifestu ani adresu źródłowego.
