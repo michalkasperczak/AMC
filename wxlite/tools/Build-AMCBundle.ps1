@@ -94,6 +94,7 @@ function Assert-ManifestCoversAllFiles {
 }
 
 New-Item -ItemType Directory -Path $components -Force | Out-Null
+$buildSucceeded = $false
 try {
     $hostOutput = Join-Path $components "host"
     $launcher = Join-Path $components "launcher"
@@ -145,10 +146,14 @@ try {
 
     New-Item -ItemType Directory -Path (Split-Path -Parent $output) -Force | Out-Null
     Move-Item -LiteralPath $candidate -Destination $output
+    $buildSucceeded = $true
     Write-Output "Samowystarczalna paczka gotowa: $output"
 }
 finally {
-    if (Test-Path -LiteralPath $operationRoot) {
+    if ($buildSucceeded -and (Test-Path -LiteralPath $operationRoot)) {
         Remove-Item -LiteralPath $operationRoot -Recurse -Force
+    }
+    elseif (Test-Path -LiteralPath $operationRoot) {
+        Write-Warning "Zachowano niezweryfikowaną paczkę do diagnostyki: $operationRoot"
     }
 }
