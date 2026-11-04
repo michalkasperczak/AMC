@@ -77,6 +77,12 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         GuardedWaveStream Reader,
         DecoderKind DecoderKind);
 
+    private readonly record struct TransientFlacSource(string Address, TimeSpan Duration);
+    private static readonly System.Text.RegularExpressions.Regex LoopbackAudioUrlPattern = new(
+        @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}\z",
+        System.Text.RegularExpressions.RegexOptions.Compiled
+        | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
     private sealed class OwnedWaveStream(WaveStream inner, IDisposable owner) : WaveStream
     {
         private bool _disposed;
@@ -122,6 +128,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         public required EventHandler<StoppedEventArgs> StoppedHandler { get; init; }
         public required bool MayRequireRemoteAccess { get; init; }
         public required DecoderKind DecoderKind { get; init; }
+        public TransientFlacSource? TransientFlacSource { get; init; }
         public long SeekStartedTimestamp;
         public int SeekInProgress;
         public long LastObservedPositionTicks;
@@ -308,6 +315,60 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     }
 
     public void Play(MediaItem item, TimeSpan position, int volume, double playbackRate)
+        => PlayCore(item, position, volume, playbackRate, transientFlacSource: null);
+
+    /// <summary>
+    /// Plays a finite FLAC stream without putting its short-lived address in
+    /// MediaItem, events, or the host protocol. The item must carry only a
+    /// stable track identity; the address remains in the decoder process.
+    /// </summary>
+    public void PlayTransientFlac(
+        MediaItem item,
+        Uri streamUri,
+        TimeSpan duration,
+        TimeSpan position,
+        int volume,
+        double playbackRate)
+    {
+        ValidateTransientFlacRequest(item, streamUri, duration);
+        PlayCore(item, position, volume, playbackRate,
+            new TransientFlacSource(streamUri.AbsoluteUri, duration));
+    }
+
+    internal static void ValidateTransientFlacRequest(
+        MediaItem item,
+        Uri streamUri,
+        TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(streamUri);
+        if (item.Source is null
+            || !System.Text.RegularExpressions.Regex.IsMatch(
+                item.Source, @"\Atidal:track:[0-9]{1,18}\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            throw new ArgumentException("Utwór wymaga stałego identyfikatora TIDAL.", nameof(item));
+        var trackId = item.Source["tidal:track:".Length..];
+        if (item.Id != item.Source && item.Id != $"tidal:{trackId}")
+            throw new ArgumentException("Identyfikator utworu TIDAL jest nieprawidłowy.", nameof(item));
+        // FFmpeg receives this URI in its process command line. Accept only
+        // the short-lived capability exposed by AMC's loopback proxy, never
+        // an upstream signed TIDAL address.
+        if (!streamUri.IsAbsoluteUri
+            || !LoopbackAudioUrlPattern.IsMatch(streamUri.OriginalString)
+            || streamUri.Host != "127.0.0.1"
+            || !string.IsNullOrEmpty(streamUri.UserInfo)
+            || streamUri.Query.Length != 0
+            || streamUri.Fragment.Length != 0)
+            throw new ArgumentException("Adres strumienia FLAC jest nieprawidłowy.", nameof(streamUri));
+        if (duration <= TimeSpan.Zero || duration > TimeSpan.FromHours(24))
+            throw new ArgumentOutOfRangeException(nameof(duration), "Czas utworu jest nieprawidłowy.");
+    }
+
+    private void PlayCore(
+        MediaItem item,
+        TimeSpan position,
+        int volume,
+        double playbackRate,
+        TransientFlacSource? transientFlacSource)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (string.IsNullOrWhiteSpace(item.Source))
@@ -342,6 +403,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             reusable = _pipeline is not null
                 && startNotBeforeUtc <= DateTimeOffset.UtcNow
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
+                && _pipeline.TransientFlacSource == transientFlacSource
                 ? _pipeline
                 : null;
             remoteRetryDelay = mayRequireRemoteAccess && reusable is null
@@ -438,7 +500,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             resolvedVolume,
             resolvedRate,
             mp3DecoderMode: Mp3DecoderMode.Automatic,
-            startNotBeforeUtc: startNotBeforeUtc));
+            startNotBeforeUtc: startNotBeforeUtc,
+            transientFlacSource: transientFlacSource));
         _ = WatchPreparationTimeoutAsync(
             item,
             requestVersion,
@@ -488,7 +551,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         int requestedVolume,
         double requestedRate,
         Mp3DecoderMode mp3DecoderMode,
-        DateTimeOffset startNotBeforeUtc = default)
+        DateTimeOffset startNotBeforeUtc = default,
+        TransientFlacSource? transientFlacSource = null)
     {
         PlaybackPipeline? pipeline = null;
         try
@@ -497,7 +561,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             {
                 if (_disposed || requestVersion != _requestVersion) return;
             }
-            pipeline = CreatePipeline(item, requestVersion, mp3DecoderMode);
+            pipeline = CreatePipeline(item, requestVersion, mp3DecoderMode, transientFlacSource);
             var startDelay = startNotBeforeUtc - DateTimeOffset.UtcNow;
             if (startDelay > TimeSpan.Zero)
             {
@@ -604,17 +668,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private PlaybackPipeline CreatePipeline(
         MediaItem item,
         long requestVersion,
-        Mp3DecoderMode mp3DecoderMode)
+        Mp3DecoderMode mp3DecoderMode,
+        TransientFlacSource? transientFlacSource)
     {
         DiagnosticLog.Info("playback", $"Otwieranie dekodera: {item.Title}; żądanie {requestVersion}.");
-        var mayRequireRemoteAccess = MediaSourceAccessPolicy
-            .Classify(item.Source)
-            .RequiresRemoteAccess;
-        var selection = CreateReader(
-            item.Source!,
-            mp3DecoderMode,
-            allowManagedMp3Fallback: true,
-            mayRequireRemoteAccess);
+        var mayRequireRemoteAccess = transientFlacSource is not null
+            || MediaSourceAccessPolicy.Classify(item.Source).RequiresRemoteAccess;
+        var selection = transientFlacSource is { } source
+            ? CreateTransientFlacReader(item.Source!, source)
+            : CreateReader(
+                item.Source!,
+                mp3DecoderMode,
+                allowManagedMp3Fallback: true,
+                mayRequireRemoteAccess);
         var reader = selection.Reader;
         PlaybackTempoStream? tempoStream = null;
         AudioOutputDeviceLease? outputLease = null;
@@ -690,7 +756,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 TransitionProvider = transitionProvider,
                 StoppedHandler = handler,
                 MayRequireRemoteAccess = mayRequireRemoteAccess,
-                DecoderKind = selection.DecoderKind
+                DecoderKind = selection.DecoderKind,
+                TransientFlacSource = transientFlacSource
             };
             return pipeline;
         }
@@ -699,6 +766,29 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             outputLease?.Dispose();
             if (tempoStream is not null) tempoStream.Dispose();
             else reader.Dispose();
+            throw;
+        }
+    }
+
+    private static ReaderSelection CreateTransientFlacReader(
+        string stableSource,
+        TransientFlacSource source)
+        => new(
+            OpenTransientFlacReader(stableSource, source.Address, source.Duration),
+            DecoderKind.FfmpegLocal);
+
+    internal static GuardedWaveStream OpenTransientFlacReader(
+        string stableSource,
+        string address,
+        TimeSpan duration)
+    {
+        if (!FfmpegLocalAudioWaveStream.TryOpenNetwork(
+                address, duration, out var decoder))
+            throw new InvalidDataException("Nie udało się otworzyć sieciowego strumienia FLAC.");
+        try { return new GuardedWaveStream(decoder, stableSource); }
+        catch
+        {
+            decoder.Dispose();
             throw;
         }
     }
@@ -1826,7 +1916,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             position,
             volume,
             rate,
-            mp3DecoderMode: Mp3DecoderMode.Automatic));
+            mp3DecoderMode: Mp3DecoderMode.Automatic,
+            transientFlacSource: pipeline.TransientFlacSource));
         _ = WatchPreparationTimeoutAsync(
             pipeline.Item,
             requestVersion,

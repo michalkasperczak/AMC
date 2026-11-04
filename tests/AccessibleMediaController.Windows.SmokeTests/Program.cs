@@ -108,6 +108,11 @@ if (args.Contains("--diagnostic-redaction", StringComparer.Ordinal))
     DiagnosticLogRedactionTests.Run();
     return 0;
 }
+if (args.Contains("--transient-flac-output", StringComparer.Ordinal))
+{
+    TransientFlacOutputTests.Run();
+    return 0;
+}
 if (args.Contains("--radio-recording-stream-failure-only", StringComparer.Ordinal))
 {
     TestRadioRecordingControlKeepsPublishedFileAfterStreamFailure();
