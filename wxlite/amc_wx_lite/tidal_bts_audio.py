@@ -242,4 +242,3 @@ class RangeProxy:
         if self._thread is not None:
             self._thread.join(timeout=2)
             self._thread = None
-

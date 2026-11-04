@@ -164,4 +164,3 @@ def save_if_changed(session: object, store: object, previous: bytes | None) -> b
     if data != previous:
         store.write(data)
     return data
-
