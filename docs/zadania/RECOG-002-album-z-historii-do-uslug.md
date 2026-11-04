@@ -1,6 +1,6 @@
 # RECOG-002 — album z historii rozpoznawania w Spotify i TIDAL
 
-Status: **W trakcie; kod i testy celowane gotowe, bez nowego builda i instalacji**. Zgłoszenie: 3.11.2026.
+Status: **W trakcie; odizolowane źródła na GitHubie, testy celowane gotowe, bez pakietu i instalacji**. Zgłoszenie: 3.11.2026.
 
 ## Zachowanie widoczne dla użytkownika
 
@@ -37,3 +37,11 @@ Status: **W trakcie; kod i testy celowane gotowe, bez nowego builda i instalacji
 - Commit kodu, testów i opisu: `09580684800e62d48ab09ffe21c058f5ec54f067`.
 - 3.11.2026 przed kompilacją: aktywna instalacja AMC Test działa z `C:\Users\micha\AppData\Local\Programs\AMC Test` i ma etykietę `2026.11.02-a415e5066d0b04078ee1146a83d16c94dd14fd7d-8e9b085e`. Starszy katalog `D:\Projekty Codex\AMC Python` nie jest aktywny.
 - Identyfikator nowego pakietu i data instalacji: brak, ponieważ stan nagrań w aktywnej instancji nie został jeszcze potwierdzony.
+
+## Stan aktualizacji — 4.11.2026
+
+- Korekta użytkownika: odbiór playlist konta TIDAL może zostać osobnym etapem. Ten kandydat obejmuje rozpoznawanie, kopiowanie linku, zapis albumu do Biblioteki Spotify/TIDAL i nawigację; nie obejmuje późniejszych commitów zapisu do playlist TIDAL ani niezależnych zmian AirPlay.
+- Bazą jest dokładny commit działającej instalacji `a415e5066d0b04078ee1146a83d16c94dd14fd7d`, etykieta `2026.11.02-a415e5066d0b04078ee1146a83d16c94dd14fd7d-8e9b085e`. W odizolowanym katalogu `D:\Projekty Codex\AMC build worktrees\amc-test-recognition-release-20261104` przeniesiono tylko poprawkę jako commity `6c187748` i `44836a7e`.
+- Na tym kandydacie przeszło 216/216 celowanych testów Python (rozpoznawanie, nawigacja Spotify/TIDAL, menu i paleta) oraz osobno 6/6 testów okna playlist Spotify. Pierwsza próba miała 215 zaliczeń i błąd utworzenia katalogu tymczasowego pytest; po przygotowaniu katalogu zestaw przeszedł w całości.
+- Gałąź `codex/amc-test-recognition-release-20261104` została wysłana do `michalkasperczak/AMC`. Odczyt zdalnego refa potwierdził dokładnie `44836a7e3d0dd5aa2cd7361cb47b9a1c6dadeaf3`. To publikacja źródeł gałęzi, bez GitHub Release i bez instalatora.
+- Użytkownik potwierdził trwające nagranie. Nie zamykano AMC Test, nie rozpoczęto ciężkiego pakowania ani instalacji. Pakiet, prerelease na GitHubie, instalacja i odbiór NVDA pozostają do wykonania po zakończeniu nagrania i świeżej kontroli stanu.
