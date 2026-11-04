@@ -69,6 +69,7 @@ internal static class ReleaseProfileContract
         [
             "session.spotify",
             "session.tidal",
+            "tidal.native-playback",
             "session.frontier-smart",
             "session.radioarchiwista",
             "spotify.playlists",

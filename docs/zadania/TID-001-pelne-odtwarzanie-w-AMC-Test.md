@@ -163,3 +163,7 @@ Skrypty budowania Test przyjmują teraz jawne `-TidalSitePackages` z odizolowane
 ### Materiał do dokumentacji użytkownika — szkic
 
 > W AMC Test otwórz sesję TIDAL i zaznacz pojedynczy utwór. W menu Biblioteka wybierz „Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)”. Po starcie muzyki Spacja wstrzymuje i wznawia, Page Up i Page Down przechodzą do sąsiedniego utworu z bieżącej listy, a Shift+A wybiera lokalne wyjście dźwięku Windows. Enter nadal przekazuje utwór do oryginalnej aplikacji TIDAL. Gdy zapisane połączenie odtwarzania wygaśnie, AMC Test pokaże jednorazowy kod do zatwierdzenia na stronie TIDAL. TIDAL Connect nie jest obsługiwany przez to polecenie.
+
+### Korekta kontroli paczki — 4 listopada 2026
+
+Po wspólnym commicie zmiany folderu Time Shift `63bc2b36` testy celowane TIDAL i Time Shift przeszły 44/44. Pierwszy nowy bundle `alpha.469` nie przeszedł kontroli manifestu C# (kod 2), mimo zgodności rozmiarów i skrótów wszystkich 4193 plików. Przyczyną była brakująca deklaracja `tidal.native-playback` w kontrakcie profilu Test launchera i aktualizatora. Zsynchronizowano kontrakt C# z profilem Python; profil Public pozostaje bez tej możliwości. Testy launchera po poprawce: 39/39, w tym rozszerzenie profilu Test przy aktualizacji ze starszej wersji. Paczkę trzeba zbudować ponownie i przejść pełną kontrolę przed instalacją i wydaniem. Poprzednia paczka próbna po uruchomieniu niezależnych testów Pythona miała zmienione pliki `.pyc`; nie była podstawą nowego wydania.

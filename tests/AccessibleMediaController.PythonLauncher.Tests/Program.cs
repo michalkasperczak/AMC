@@ -14,6 +14,7 @@ internal static class Program
     [
         ("poprawny pakiet", ValidBundleIsAccepted),
         ("poprawny publiczny pakiet", ValidPublicBundleIsAccepted),
+        ("natywny TIDAL należy tylko do AMC Test", NativeTidalCapabilityIsTestOnly),
         ("manifest nie może przedefiniować profilu", TamperedProfileIsRejected),
         ("uszkodzony plik", CorruptStartupFileIsRejected),
         ("pełna integralność obejmuje pliki niestartowe", FullVerificationCoversNonStartupFiles),
@@ -88,6 +89,12 @@ internal static class Program
         var verified = BundleVerifier.Verify(fixture.Root);
         Equal("public", verified.Profile.ProfileId);
         Equal("AMC Public", verified.Profile.DisplayName);
+    }
+
+    private static void NativeTidalCapabilityIsTestOnly()
+    {
+        Equal(true, ReleaseProfileContract.Test.Capabilities.Contains("tidal.native-playback"));
+        Equal(false, ReleaseProfileContract.Public.Capabilities.Contains("tidal.native-playback"));
     }
 
     private static void TamperedProfileIsRejected()
@@ -589,7 +596,8 @@ internal static class Program
             sessionsOverride: ReleaseProfileContract.Test.Sessions
                 .Where(value => value != "frontierSmart").Reverse().ToArray(),
             capabilitiesOverride: ReleaseProfileContract.Test.Capabilities
-                .Where(value => value != "session.frontier-smart").Reverse().ToArray());
+                .Where(value => value is not "session.frontier-smart" and not "tidal.native-playback")
+                .Reverse().ToArray());
         var manifest = AccessibleMediaController.PythonUpdater.Program.LoadAndVerify(
             source.Root,
             target.Root,
