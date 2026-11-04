@@ -110,6 +110,7 @@ TEST_PROFILE = ReleaseProfile(
     + (
         "session.spotify",
         "session.tidal",
+        "tidal.native-playback",
         "session.frontier-smart",
         "session.radioarchiwista",
         "spotify.playlists",

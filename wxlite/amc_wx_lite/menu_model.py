@@ -41,6 +41,7 @@ from .shortcuts import (
     SONOS_SUPPORTED_ACTIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
     TIDAL_SUPPORTED_ACTIONS,
+    TIDAL_NATIVE_ONLY_ACTIONS,
     WIIM_SUPPORTED_ACTIONS,
     command_presentation,
     ctrl_f5_presentation,
@@ -158,6 +159,8 @@ class MenuItem:
     needs_podcast_library_item: bool = False
     #: Wymaga kontenera obsługiwanego przez Bibliotekę TIDAL.
     needs_tidal_library_item: bool = False
+    #: Eksperymentalny odtwarzacz AMC Test wymaga jednego utworu TIDAL.
+    needs_tidal_native_track: bool = False
     #: Wymaga albumu, wykonawcy, podcastu albo odcinka zapisywalnego przez
     #: Spotify. Odcinek jest jawnie wspierany przez ten sam kontrakt konta.
     needs_spotify_library_item: bool = False
@@ -222,12 +225,12 @@ QUEUE_SESSIONS = (
 PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
-SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA)
+SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.TIDAL)
 NETWORK_DEVICE_SESSIONS = (
     SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
 )
-MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART)
-LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY)
+MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART, SessionId.TIDAL)
+LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.TIDAL)
 PLAYER_SESSIONS = (
     SessionId.FILES,
     SessionId.RADIO,
@@ -236,6 +239,7 @@ PLAYER_SESSIONS = (
     SessionId.SONOS,
     SessionId.SPOTIFY,
     SessionId.FRONTIER_SMART,
+    SessionId.TIDAL,
 )
 
 
@@ -269,6 +273,10 @@ def menus_for_session(
         items: list[MenuItem] = []
         for entry in described.items:
             if entry.visible_sessions and session_id not in entry.visible_sessions:
+                continue
+            if (session_id is SessionId.TIDAL
+                    and current_profile().profile_id == PUBLIC_PROFILE_ID
+                    and entry.action in TIDAL_NATIVE_ONLY_ACTIONS):
                 continue
             if (
                 supported is not None
@@ -826,6 +834,15 @@ def build_menus(
             SEPARATOR,
             MenuItem("&Otwórz zaznaczone", Action.ACTIVATE, shortcut="Return",
                      needs_selection=True),
+            *(
+                (MenuItem(
+                    "Odtwórz utwór TIDAL &w AMC Test (eksperymentalnie)",
+                    Action.TIDAL_PLAY_NATIVE,
+                    needs_tidal_native_track=True,
+                    visible_sessions=TIDAL_ONLY,
+                ),)
+                if current_profile().profile_id != PUBLIC_PROFILE_ID else ()
+            ),
             MenuItem(
                 "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,
                 shortcut="Ctrl+Return", accelerator=False,
@@ -1254,6 +1271,15 @@ def build_menus(
         (
             MenuItem("&Pauza albo wznowienie", Action.PLAY_PAUSE, shortcut="Space",
                      accelerator=False, needs_playback=True),
+            MenuItem("&Zatrzymaj utwór TIDAL w AMC Test",
+                     Action.TIDAL_STOP_NATIVE, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("Pop&rzedni utwór TIDAL", Action.QUEUE_PREVIOUS,
+                     shortcut="Prior", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("&Następny utwór TIDAL", Action.QUEUE_NEXT,
+                     shortcut="Next", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
             MenuItem(
                 "Wycisz albo włącz dźwięk bieżącej sesji (&V)",
                 Action.TOGGLE_MUTE,

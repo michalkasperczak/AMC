@@ -808,7 +808,7 @@ def test_playback_and_view_menus_do_not_mix_foreign_sessions() -> None:
     assert Action.SORT_TIDAL_COLLECTION_ADDED in tidal_view
     assert Action.SORT_SPOTIFY_COLLECTION_ADDED not in tidal_view
     assert Action.VIEW_PODCAST_INBOX not in tidal_view
-    assert Action.SHOW_PLAYER not in tidal_view
+    assert Action.SHOW_PLAYER in tidal_view  # aktywne tylko po starcie w AMC Test
 
     spotify_view = actions(menu_model.SessionId.SPOTIFY, "&Widok")
     assert Action.SORT_SPOTIFY_COLLECTION_ADDED in spotify_view

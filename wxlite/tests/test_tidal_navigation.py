@@ -486,11 +486,13 @@ def test_tidal_supported_actions_cannot_trigger_another_sessions_operations() ->
         Action.VIEW_PODCAST_INBOX,
     } <= TIDAL_SUPPORTED_ACTIONS
     assert {
-        Action.SHOW_PLAYER,
         Action.RECORD_TOGGLE,
         Action.ADD_PODCAST_SOURCE,
         Action.DOWNLOAD_PODCAST_EPISODES,
     }.isdisjoint(TIDAL_SUPPORTED_ACTIONS)
+    # AMC Test udostępnia odtwarzacz wyłącznie po natywnym starcie; bramka
+    # bieżącego stanu działa wspólnie dla menu, palety i dyspozytora.
+    assert Action.SHOW_PLAYER in TIDAL_SUPPORTED_ACTIONS
     assert Action.REMOVE_SELECTED in TIDAL_SUPPORTED_ACTIONS
 
     gui = (

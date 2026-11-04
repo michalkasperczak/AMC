@@ -892,7 +892,8 @@ class StateStore:
             ),
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
             audio_output_device_ids_by_session=read_output_overrides(
-                raw.get("audio_output_device_ids_by_session")
+                raw.get("audio_output_device_ids_by_session"),
+                include_tidal_native=current_profile().profile_id == "test",
             ),
             recording_history=_read_recording_history(raw.get("recording_history")),
             recognized_tracks=read_tracks(raw.get("recognized_tracks")),
@@ -974,7 +975,8 @@ class StateStore:
                 if not overrides.is_empty
             },
             "audio_output_device_ids_by_session": read_output_overrides(
-                state.audio_output_device_ids_by_session
+                state.audio_output_device_ids_by_session,
+                include_tidal_native=current_profile().profile_id == "test",
             ),
             "recording_history": _read_recording_history(state.recording_history),
             "recognized_tracks": read_tracks(state.recognized_tracks),

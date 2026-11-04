@@ -1002,11 +1002,38 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
   kontenera. Backspace na głównym widoku TIDAL niczego nie oznajmia i nie
   zmienia sesji. Przełączenie do innej sesji i powrót zachowuje także wnętrze
   otwartego kontenera.
-- Enter na utworze lub wideo przekazuje materiał do oficjalnej aplikacji
-  TIDAL. `Ctrl+Enter` przekazuje cały album albo playlistę. AMC Python nie
-  udaje własnego chronionego odtwarzacza TIDAL ani zmiany konta; słyszalny
-  start, pauzę i następny/poprzedni trzeba odebrać na żywym koncie. Nie należy
-  uznawać testów protokołu za odbiór żywego konta i NVDA.
+- Enter na utworze lub wideo nadal przekazuje materiał do oficjalnej aplikacji
+  TIDAL. `Ctrl+Enter` nadal przekazuje cały album albo playlistę. W AMC Test
+  dla pojedynczego utworu z cyfrowym ID jest osobna pozycja **Biblioteka,
+  Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)**. Nie ma własnego skrótu;
+  można ją również wybrać w palecie `Ctrl+Shift+K` i znaleźć w pełnej pomocy
+  `F1`. W AMC Public tej pozycji nie ma.
+- Przy pierwszym logowaniu do eksperymentalnego odtwarzacza pojawia się
+  dostępne okno z adresem i jednorazowym kodem. Fokus zaczyna na polu kodu;
+  oba pola są tekstem do odczytu i mają osobne przyciski kopiowania. Użytkownik
+  sam otwiera adres w zewnętrznej przeglądarce. `Anuluj logowanie` kończy
+  próbę i przywraca fokus listy. Sesja audio ma osobny magazyn poświadczeń
+  Windows, niezależny od konta katalogu AMC.
+- Po potwierdzonym starcie otwiera się odtwarzacz AMC Test; `F6` wraca między
+  nim a listą. Natywny TIDAL używa `Space` do pauzy/wznowienia, lewo/prawo
+  w odtwarzaczu do skoku o 10 sekund, `Shift+Left/Right`, `Ctrl+Left/Right`
+  i `Ctrl+Alt+Left/Right` do przewijania,
+  `Page Up/Page Down` do poprzedniego/następnego utworu z zapamiętanej listy,
+  a `Ctrl+Shift+E/R/T` do odczytu czasu. **Odtwarzanie, Zatrzymaj utwór TIDAL
+  w AMC Test** kończy strumień. `Shift+A` wybiera lokalne urządzenie Windows
+  tylko podczas aktywnego odtwarzania w AMC Test; zewnętrzny TIDAL nadal
+  wybiera urządzenie we własnej aplikacji. To nie jest TIDAL Connect.
+- Parytet menu, palety, pomocy i skrótów należy sprawdzić w obu profilach,
+  przed i po starcie natywnego utworu. Odsłuchaj rzeczywisty utwór dłuższy
+  niż 30 sekund, potwierdź słyszalność na wybranym wyjściu, postęp, seek,
+  pauzę, następny/poprzedni i stan NVDA. Sam stan `PLAYING` nie wystarcza.
+
+Pełna paczka **AMC Test** wymaga odizolowanego źródła zależności TIDAL:
+`wxlite\tools\build_bundle.py --profile test --out <katalog-kandydata>
+--runtime <prywatny-runtime> --tidal-site-packages
+<osobny-venv\Lib\site-packages>`. Pakowarka sprawdza przypięte wersje i kopiuje
+pakiety do kandydata. Nie instaluj ich w runtime działającej aplikacji.
+Paczka Public nie przyjmuje `tidalapi` ani modułów natywnego TIDAL.
 
 ## Zanik wybranego urządzenia audio
 

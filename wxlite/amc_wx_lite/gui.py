@@ -75,6 +75,7 @@ from .audio_output import (
     audio_output_selection_message,
     choices_from_payload,
     effective_output_device_id,
+    read_output_overrides,
     read_profile_outputs,
 )
 from .collation import HostCollation
@@ -146,12 +147,13 @@ from .playlist_dialog import (
 )
 from .problem_report_dialog import ProblemReportDialog
 _RELEASE_PROFILE = current_profile()
-from .spotify_playlist_dialog import (
-    SpotifyPlaylistDialog,
-    SpotifyPlaylistChoice,
-    SpotifyPlaylistPayloadError,
-    choices_from_payload as spotify_playlist_choices_from_payload,
-)
+if "session.spotify" in _RELEASE_PROFILE.capabilities:
+    from .spotify_playlist_dialog import (
+        SpotifyPlaylistDialog,
+        SpotifyPlaylistChoice,
+        SpotifyPlaylistPayloadError,
+        choices_from_payload as spotify_playlist_choices_from_payload,
+    )
 from .playback_history import (
     activity_rows as streamer_activity_rows,
     history_rows as streamer_history_rows,
@@ -226,6 +228,7 @@ from .shortcuts import (
     RECOGNITION_HISTORY_SESSIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
     TIDAL_SUPPORTED_ACTIONS,
+    TIDAL_NATIVE_ONLY_ACTIONS,
     SONOS_SUPPORTED_ACTIONS,
     WIIM_SUPPORTED_ACTIONS,
     configurable_shortcuts,
@@ -9690,6 +9693,10 @@ class LiteFrame(wx.Frame):
         # Oryginalny TIDAL jest osobnym odtwarzaczem. Ta flaga wlacza tylko
         # jego transport; nie udaje stanu lokalnego WindowsMediaOutput.
         self._tidal_desktop_has_playback = False
+        self._tidal_native_adapter = None
+        self._tidal_native_has_playback = False
+        self._tidal_native_item_id: str | None = None
+        self._tidal_native_challenge_dialog: wx.Dialog | None = None
         # Migawka autonomicznego urządzenia. Nie jest stanem lokalnego
         # WindowsMediaOutput i nie może zostać nadpisana przez jego timer.
         self._wiim_snapshot: dict = {}
@@ -10118,7 +10125,10 @@ class LiteFrame(wx.Frame):
         # "Cos gra" rozpoznajemy po TYM SAMYM statusie z hosta, z ktorego
         # korzysta ``_announce_time`` -- nie po wlasnym liczniku.
         if self.navigator.active is SessionId.TIDAL:
-            playing = bool(getattr(self, "_tidal_desktop_has_playback", False))
+            playing = bool(
+                getattr(self, "_tidal_desktop_has_playback", False)
+                or getattr(self, "_tidal_native_has_playback", False)
+            )
         elif self.navigator.active is SessionId.WIIM:
             playing = bool(getattr(self, "_wiim_active_device_id", ""))
         elif self.navigator.active is SessionId.SONOS:
@@ -10405,6 +10415,31 @@ class LiteFrame(wx.Frame):
             if entry.excludes_youtube_video_item and youtube_video_items:
                 enabled = False
             if entry.needs_tidal_collection and not tidal_collection:
+                enabled = False
+            if entry.needs_tidal_native_track and not (
+                self.navigator.active is SessionId.TIDAL
+                and self._tidal_native_adapter is not None
+                and selected_row is not None
+                and selected_kind == "track"
+                and re.fullmatch(
+                    r"[0-9]{1,18}", str(selected_row.service_id or "")
+                ) is not None
+            ):
+                enabled = False
+            if (self.navigator.active is SessionId.TIDAL
+                    and entry.action in TIDAL_NATIVE_ONLY_ACTIONS
+                    and not self._tidal_native_has_playback):
+                enabled = False
+            if (self.navigator.active is SessionId.TIDAL
+                    and entry.action in {Action.SEEK_BACK_10, Action.SEEK_FORWARD_10}
+                    and session.view is not View.PLAYER):
+                enabled = False
+            if (self.navigator.active is SessionId.TIDAL
+                    and entry.action in {Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS}
+                    and self._tidal_native_has_playback
+                    and self._tidal_native_adjacent_row(
+                        entry.action is Action.QUEUE_NEXT
+                    ) is None):
                 enabled = False
             if entry.needs_spotify_collection and not spotify_collection:
                 enabled = False
@@ -12665,6 +12700,12 @@ class LiteFrame(wx.Frame):
                 SessionId.SPOTIFY,
             )
         }
+        if "tidal.native-playback" in _RELEASE_PROFILE.capabilities:
+            tidal_choice = read_output_overrides(
+                private_audio_outputs, include_tidal_native=True
+            ).get(SessionId.TIDAL.value)
+            if tidal_choice is not None:
+                output_devices[SessionId.TIDAL.value] = tidal_choice or None
         # ``_start_engine`` bywa tez wywolywane przez lekkie tryby testowe i
         # awaryjne, ktore nie otwieraja profilu radia. Brak migawki oznacza
         # wtedy po prostu brak planow do zsynchronizowania, a nie blad startu
@@ -12780,6 +12821,7 @@ class LiteFrame(wx.Frame):
                 raise
 
         def done(_result: dict) -> None:
+            self._initialize_tidal_native_adapter(client)
             youtube_available = bool(
                 youtube_capabilities_after_start
                 and youtube_capability_available(
@@ -12851,6 +12893,13 @@ class LiteFrame(wx.Frame):
             return
         if name == nvda_bridge.EVENT_NAME:
             self._handle_nvda_command(data)
+            return
+        if data.get("sessionId") == "tidal" and name in {
+            "playback.started", "playback.failed", "playback.ended"
+        }:
+            adapter = self._tidal_native_adapter
+            if adapter is not None:
+                adapter.handle_host_event(name, data)
             return
         if name == "audio.outputFallback":
             paused = bool(data.get("paused"))
@@ -13452,6 +13501,11 @@ class LiteFrame(wx.Frame):
         session = self.navigator.session
         session_name = SESSION_LABELS[self.navigator.active]
         if self.navigator.active is SessionId.TIDAL:
+            if self._tidal_native_has_playback:
+                snapshot = self._nvda_playback_snapshot()
+                title = session.now_playing_title.strip() or "Utwór TIDAL"
+                playback = "pauza" if snapshot.get("paused") else "odtwarzanie"
+                return f"{title}, TIDAL w AMC Test, {playback}."
             # TIDAL gra w obcej aplikacji. Dopóki nie przechowujemy ostatniej
             # migawki SMTC, nie wolno z samego tytułu wywnioskować „pauzy” ani
             # „odtwarzania”: byłby to wymyślony stan czytany globalnie przez
@@ -13512,6 +13566,8 @@ class LiteFrame(wx.Frame):
     def _nvda_now_playing_message(self) -> str:
         snapshot = self._nvda_playback_snapshot()
         if self.navigator.active is SessionId.TIDAL:
+            if self._tidal_native_has_playback:
+                return self.navigator.session.now_playing_title.strip() or "Utwór TIDAL w AMC Test"
             if not self._tidal_desktop_has_playback:
                 return "TIDAL, brak bieżącego materiału w AMC."
             title = self.navigator.session.now_playing_title.strip()
@@ -14865,13 +14921,14 @@ class LiteFrame(wx.Frame):
         if (
             not player
             and self.navigator.active is SessionId.TIDAL
-            and self._tidal_desktop_has_playback
+            and (self._tidal_desktop_has_playback
+                 or self._tidal_native_has_playback)
             and chord.canonical in (
                 "Prior", "Next", "Shift+Prior", "Shift+Next"
             )
         ):
             forward = chord.key == "Next"
-            if chord.shift:
+            if chord.shift and not self._tidal_native_has_playback:
                 self._tidal_external_skip(forward)
             else:
                 self._queue_step(forward)
@@ -14990,11 +15047,13 @@ class LiteFrame(wx.Frame):
             )
             return
         if self.navigator.active is SessionId.TIDAL:
-            if action is Action.SHOW_PLAYER:
+            if action is Action.SHOW_PLAYER and not self._tidal_native_has_playback:
                 self.announcer.say(
-                    "TIDAL odtwarza w oryginalnej aplikacji i nie ma "
-                    "odtwarzacza AMC"
+                    "TIDAL odtwarza w oryginalnej aplikacji i nie ma odtwarzacza AMC"
                 )
+                return
+            if action in TIDAL_NATIVE_ONLY_ACTIONS and not self._tidal_native_has_playback:
+                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
                 return
             if action not in TIDAL_SUPPORTED_ACTIONS:
                 self.announcer.say(
@@ -15286,6 +15345,10 @@ class LiteFrame(wx.Frame):
             self._queue_step(action is Action.QUEUE_NEXT)
         elif action is Action.PLAY_SPOTIFY_ALBUM:
             self._play_selected_spotify_album()
+        elif action is Action.TIDAL_PLAY_NATIVE:
+            self._play_tidal_native_selected()
+        elif action is Action.TIDAL_STOP_NATIVE:
+            self._stop_tidal_native()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
             self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
         elif action is Action.TOGGLE_FAVORITE:
@@ -26371,6 +26434,195 @@ class LiteFrame(wx.Frame):
             ),
         )
 
+    def _initialize_tidal_native_adapter(self, client: LiteHostClient) -> None:
+        """Attach the optional AMC Test player to this already running host."""
+        if "tidal.native-playback" not in _RELEASE_PROFILE.capabilities:
+            return
+        try:
+            import importlib.util
+            if importlib.util.find_spec("tidalapi") is None:
+                self._tidal_native_adapter = None
+                self._refresh_menu_state()
+                return
+            from .tidal_native_playback import TidalNativePlaybackAdapter
+
+            self._tidal_native_adapter = TidalNativePlaybackAdapter(
+                client,
+                self._show_tidal_native_challenge,
+                self._on_tidal_native_status,
+                lambda callback: wx.CallAfter(callback),
+            )
+        except ImportError:
+            # A source checkout may lack the optional TIDAL runtime. The
+            # command stays disabled and the original desktop route works.
+            self._tidal_native_adapter = None
+        self._refresh_menu_state()
+
+    def _close_tidal_native_challenge(self) -> None:
+        dialog = self._tidal_native_challenge_dialog
+        self._tidal_native_challenge_dialog = None
+        if dialog is not None:
+            try:
+                if not dialog.IsBeingDeleted():
+                    dialog.Hide()
+                    dialog.Destroy()
+            except RuntimeError:
+                pass
+            self._restore_focus_after_dialog()
+
+    def _show_tidal_native_challenge(self, address: str, code: str) -> None:
+        """Show a copyable device link and code without opening a browser."""
+        if not self._window_alive():
+            return
+        self._close_tidal_native_challenge()
+        dialog = wx.Dialog(self, title="Połącz odtwarzanie TIDAL z AMC Test")
+        dialog.SetName("Połącz odtwarzanie TIDAL z AMC Test")
+        panel = wx.Panel(dialog)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        instruction = wx.StaticText(panel, label=(
+            "Otwórz ten adres we własnej przeglądarce i zatwierdź kod. "
+            "Okno pozostanie otwarte do zakończenia logowania."
+        ))
+        layout.Add(instruction, 0, wx.ALL | wx.EXPAND, 10)
+        layout.Add(wx.StaticText(panel, label="Adres logowania TIDAL"), 0, wx.LEFT, 10)
+        address_field = wx.TextCtrl(panel, value=address, style=wx.TE_READONLY)
+        address_field.SetName("Adres logowania TIDAL")
+        layout.Add(address_field, 0, wx.ALL | wx.EXPAND, 10)
+        layout.Add(wx.StaticText(panel, label="Kod jednorazowy TIDAL"), 0, wx.LEFT, 10)
+        code_field = wx.TextCtrl(panel, value=code, style=wx.TE_READONLY)
+        code_field.SetName("Kod jednorazowy TIDAL")
+        layout.Add(code_field, 0, wx.ALL | wx.EXPAND, 10)
+        buttons = wx.BoxSizer(wx.HORIZONTAL)
+        copy_address = wx.Button(panel, label="Kopiuj adres")
+        copy_code = wx.Button(panel, label="Kopiuj kod")
+        cancel = wx.Button(panel, label="Anuluj logowanie")
+        for button in (copy_address, copy_code, cancel):
+            buttons.Add(button, 0, wx.ALL, 5)
+        layout.Add(buttons, 0, wx.ALL, 5)
+        panel.SetSizer(layout)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        dialog.SetSizerAndFit(outer)
+        copy_address.Bind(wx.EVT_BUTTON, lambda _event: self._to_clipboard(address))
+        copy_code.Bind(wx.EVT_BUTTON, lambda _event: self._to_clipboard(code))
+
+        def cancel_login(_event: wx.Event) -> None:
+            adapter = self._tidal_native_adapter
+            if adapter is not None:
+                adapter.stop()
+            self._close_tidal_native_challenge()
+
+        cancel.Bind(wx.EVT_BUTTON, cancel_login)
+        dialog.Bind(wx.EVT_CLOSE, cancel_login)
+        self._tidal_native_challenge_dialog = dialog
+        dialog.Show()
+        code_field.SetFocus()
+        self.announcer.say("Kod logowania TIDAL jest gotowy do skopiowania")
+
+    def _on_tidal_native_status(
+        self, kind: str, track_id: str, message: str
+    ) -> None:
+        if not self._window_alive():
+            return
+        if kind == "preparing":
+            self.announcer.say("Przygotowuję utwór TIDAL w AMC Test")
+        elif kind == "login_required":
+            self.announcer.say(message)
+        elif kind == "started":
+            self._close_tidal_native_challenge()
+            if track_id != getattr(self, "_tidal_native_pending_track_id", None):
+                return
+            self._tidal_native_active_track_id = track_id
+            self._tidal_native_has_playback = True
+            self.navigator.note_tidal_playback_started(
+                self._tidal_native_pending_item_id,
+                self._tidal_native_pending_title,
+            )
+            self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
+            self._playing_session = SessionId.TIDAL
+            self._playing_sessions.add(SessionId.TIDAL)
+            self.announcer.say(
+                f"{self._tidal_native_pending_title}: odtwarzanie w AMC Test"
+            )
+        elif kind in {"failed", "ended", "stopped"}:
+            self._close_tidal_native_challenge()
+            if track_id == getattr(self, "_tidal_native_active_track_id", None):
+                self._tidal_native_has_playback = False
+                self._tidal_native_active_track_id = None
+                self._playing_sessions.discard(SessionId.TIDAL)
+            self.announcer.say(message)
+        self._refresh_menu_state()
+        self._refresh_status()
+        self._sync_views()
+
+    def _play_tidal_native_row(
+        self, row: Row, *, preserve_source: bool = False
+    ) -> None:
+        adapter = self._tidal_native_adapter
+        if adapter is None or self.client is None:
+            self.announcer.say("Odtwarzacz TIDAL w AMC Test jest niedostępny")
+            return
+        track_id = str(row.service_id or "")
+        if row.kind != "track" or re.fullmatch(r"[0-9]{1,18}", track_id) is None:
+            self.announcer.say("Wybierz utwór TIDAL z poprawnymi danymi")
+            return
+        if not adapter.play(track_id, row.title):
+            self.announcer.say("Odtwarzacz TIDAL jest zajęty; spróbuj ponownie")
+            return
+        self._tidal_native_pending_track_id = track_id
+        self._tidal_native_pending_item_id = row.item_id
+        self._tidal_native_pending_title = row.title
+        state = self.navigator.sessions[SessionId.TIDAL]
+        if not preserve_source:
+            state.playback_source_rows = tuple(
+                candidate for candidate in state.model.rows
+                if candidate.kind == "track"
+                and re.fullmatch(r"[0-9]{1,18}", str(candidate.service_id or ""))
+            )
+            state.playback_uses_queue = False
+
+    def _play_tidal_native_selected(self) -> None:
+        if self.navigator.active is not SessionId.TIDAL:
+            return
+        row = self.navigator.session.model.selected_row
+        if row is None:
+            self.announcer.say("Wybierz utwór TIDAL")
+            return
+        self._play_tidal_native_row(row)
+
+    def _stop_tidal_native(self) -> None:
+        client = self.client
+        adapter = self._tidal_native_adapter
+        if client is None or adapter is None or not self._tidal_native_has_playback:
+            self.announcer.say("TIDAL w AMC Test nie odtwarza utworu")
+            return
+        self.runner.submit(
+            "tidal-native-stop",
+            lambda: client.stop(SessionId.TIDAL.value),
+            lambda _payload: adapter.stop(),
+            lambda _error: self.announcer.say(
+                "Nie udało się zatrzymać utworu TIDAL w AMC Test"
+            ),
+        )
+
+    def _tidal_native_adjacent_row(self, forward: bool) -> Row | None:
+        state = self.navigator.sessions[SessionId.TIDAL]
+        rows = state.playback_source_rows
+        current = state.now_playing_id
+        index = next(
+            (number for number, row in enumerate(rows) if row.item_id == current),
+            -1,
+        )
+        target = index + (1 if forward else -1)
+        if index < 0 or target < 0 or target >= len(rows):
+            return None
+        row = rows[target]
+        if row.kind != "track" or re.fullmatch(
+            r"[0-9]{1,18}", str(row.service_id or "")
+        ) is None:
+            return None
+        return row
+
     def _play_tidal_container(self, intent: PlayTidalContainer) -> None:
         """Hand a whole album or playlist to original TIDAL."""
         self._play_tidal_item(
@@ -29185,6 +29437,19 @@ class LiteFrame(wx.Frame):
             self._frontier_smart_transport("next" if forward else "previous")
             return
 
+        if (self.navigator.active is SessionId.TIDAL
+                and self._tidal_native_has_playback):
+            row = self._tidal_native_adjacent_row(forward)
+            if row is None:
+                self.announcer.say(
+                    "Brak następnego utworu na liście TIDAL w AMC Test"
+                    if forward else
+                    "Brak poprzedniego utworu na liście TIDAL w AMC Test"
+                )
+                return
+            self._play_tidal_native_row(row, preserve_source=True)
+            return
+
         source_intents = self.navigator.step_playback_source(forward)
         if source_intents is not None:
             self._run(source_intents)
@@ -29461,7 +29726,8 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.FRONTIER_SMART:
             self._show_frontier_smart_devices()
             return
-        if self.navigator.active is SessionId.TIDAL:
+        if (self.navigator.active is SessionId.TIDAL
+                and not self._tidal_native_has_playback):
             self.announcer.say(
                 "TIDAL korzysta z urządzenia domyślnego swojego odtwarzacza. "
                 "Osobny wybór urządzenia nie jest jeszcze dostępny"
@@ -29477,6 +29743,7 @@ class LiteFrame(wx.Frame):
             session,
             self.state.audio_output_device_ids_by_session,
             self._profile_audio_outputs,
+            native_tidal=session is SessionId.TIDAL,
         )
 
         def prepared(payload: dict) -> None:
@@ -29532,7 +29799,7 @@ class LiteFrame(wx.Frame):
                 "Wybierz grupę z listy sesji Sonos"
             )
             return
-        if session is SessionId.TIDAL:
+        if session is SessionId.TIDAL and not self._tidal_native_has_playback:
             self.announcer.say(
                 "TIDAL korzysta z urządzenia wybranego w oryginalnym odtwarzaczu"
             )
@@ -29546,6 +29813,7 @@ class LiteFrame(wx.Frame):
             session,
             self.state.audio_output_device_ids_by_session,
             self._profile_audio_outputs,
+            native_tidal=session is SessionId.TIDAL,
         )
 
         def prepared(payload: dict) -> None:
@@ -30193,6 +30461,19 @@ class LiteFrame(wx.Frame):
             return
 
         if self.navigator.active is SessionId.TIDAL:
+            if self._tidal_native_has_playback:
+                self.runner.submit(
+                    "tidal-native-transport",
+                    lambda: client.pause_resume(SessionId.TIDAL.value),
+                    lambda payload: self.announcer.say(
+                        "TIDAL w AMC Test: pauza" if (payload or {}).get("paused")
+                        else "TIDAL w AMC Test: wznowiono"
+                    ),
+                    lambda _error: self.announcer.say(
+                        "Nie udało się zmienić pauzy TIDAL w AMC Test"
+                    ),
+                )
+                return
             if not self._tidal_desktop_has_playback:
                 self.announcer.say(
                     "Najpierw uruchom utwór w oryginalnym TIDALu"
@@ -30758,8 +31039,18 @@ class LiteFrame(wx.Frame):
             self.announcer.say(text)
 
     def _announce_tidal_time(self, action: Action) -> None:
-        """Read only time values that original TIDAL actually exposes."""
+        """Read the active native or external TIDAL timeline."""
         client = self.client
+        if client is not None and self._tidal_native_has_playback:
+            self.runner.submit(
+                "tidal-native-time",
+                lambda: client.status(SessionId.TIDAL.value),
+                lambda payload: self._announce_time_from_status(action, payload),
+                lambda _error: self.announcer.say(
+                    "Nie udało się odczytać czasu TIDAL w AMC Test"
+                ),
+            )
+            return
         if client is None or not self._tidal_desktop_has_playback:
             self.announcer.say("Najpierw uruchom utwór w oryginalnym TIDALu")
             return
@@ -30821,6 +31112,17 @@ class LiteFrame(wx.Frame):
                 f"Nie mogę odczytać czasu z oryginalnego TIDALa: {error}"
             ),
         )
+
+    def _announce_time_from_status(self, action: Action, payload: dict) -> None:
+        state = payload or {}
+        self._transport_status_by_session[SessionId.TIDAL] = state
+        text = time_announcement(
+            action,
+            self.messages,
+            position=state.get("positionSeconds"),
+            duration=state.get("durationSeconds"),
+        )
+        self.announcer.say(text or "TIDAL w AMC Test nie podał czasu utworu")
 
     def _toggle_seek_messages(self) -> None:
         """Ctrl+Shift+G -- przelacznik komunikatow przewijania.
@@ -31028,7 +31330,9 @@ class LiteFrame(wx.Frame):
             SessionId.RADIOARCHIWISTA,
         )
         active = self.navigator.active
-        if active in local_sessions:
+        if active is SessionId.TIDAL and self._tidal_native_has_playback:
+            requested_session = SessionId.TIDAL
+        elif active in local_sessions:
             requested_session = active
         elif SessionId.RADIO in self._playing_sessions:
             requested_session = SessionId.RADIO
@@ -31056,6 +31360,7 @@ class LiteFrame(wx.Frame):
                 or (
                     self.navigator.active is SessionId.TIDAL
                     and self._tidal_desktop_has_playback
+                    and not self._tidal_native_has_playback
                 )
             )
             if self.navigator.view is View.PLAYER and not remote_player:
@@ -33802,6 +34107,25 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if self.navigator.active is SessionId.TIDAL:
+            if action is Action.TIDAL_PLAY_NATIVE:
+                row = self.navigator.session.model.selected_row
+                return bool(
+                    self._tidal_native_adapter is not None
+                    and row is not None and row.kind == "track"
+                    and re.fullmatch(r"[0-9]{1,18}", str(row.service_id or ""))
+                )
+            if action in TIDAL_NATIVE_ONLY_ACTIONS:
+                return bool(
+                    self._tidal_native_has_playback
+                    and (action not in {Action.SEEK_BACK_10, Action.SEEK_FORWARD_10}
+                         or self.navigator.session.view is View.PLAYER)
+                )
+            if (action in {Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS}
+                    and self._tidal_native_has_playback):
+                return self._tidal_native_adjacent_row(
+                    action is Action.QUEUE_NEXT
+                ) is not None
         if action is Action.MIRROR_SESSION:
             client = getattr(self, "client", None)
             session_id = self.navigator.active.value
@@ -34031,6 +34355,10 @@ class LiteFrame(wx.Frame):
                     pass
         self.gate.cancel_all()
         self._save_state()
+        native_adapter = self._tidal_native_adapter
+        if native_adapter is not None:
+            native_adapter.close()
+        self._close_tidal_native_challenge()
         if self.client is not None:
             self.client.close()
         self._windows_preset_10_hotkey.unregister()

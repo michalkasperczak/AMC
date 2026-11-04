@@ -36,14 +36,20 @@ class AudioOutputChoice:
     available: bool = True
 
 
-def read_output_overrides(raw: object) -> dict[str, str]:
+def read_output_overrides(
+    raw: object, *, include_tidal_native: bool = False
+) -> dict[str, str]:
     """Przyjmij tylko znane sesje oraz bezpieczne, tekstowe identyfikatory."""
 
     if not isinstance(raw, dict):
         return {}
     result: dict[str, str] = {}
     for key, value in raw.items():
-        if key not in _SESSION_KEYS or not isinstance(value, str):
+        if not isinstance(value, str):
+            continue
+        if key not in _SESSION_KEYS and not (
+            include_tidal_native and key == SessionId.TIDAL.value
+        ):
             continue
         normalized = value.strip()
         if len(normalized) <= _MAXIMUM_DEVICE_ID_LENGTH:
@@ -93,10 +99,16 @@ def effective_output_device_id(
     session: SessionId,
     private_overrides: object,
     profile_outputs: object,
+    *,
+    native_tidal: bool = False,
 ) -> str | None:
     """Prywatny wybor wygrywa; jego brak dziedziczy profil glownego AMC."""
 
-    private = read_output_overrides(private_overrides)
+    if session is SessionId.TIDAL and not native_tidal:
+        return None
+    private = read_output_overrides(
+        private_overrides, include_tidal_native=native_tidal
+    )
     if session.value in private:
         return private[session.value] or None
     profile = read_output_overrides(profile_outputs)

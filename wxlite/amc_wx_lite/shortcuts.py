@@ -140,6 +140,8 @@ class Action(Enum):
     MANAGE_PLAYLIST_MEMBERSHIP = "action.playlists.membership"
     TIDAL_TOGGLE_LIBRARY = "tidal.library.toggle"
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
+    TIDAL_PLAY_NATIVE = "tidal.native.play"
+    TIDAL_STOP_NATIVE = "tidal.native.stop"
     SPOTIFY_TOGGLE_LIBRARY = "spotify.library.toggle"
     SPOTIFY_TOGGLE_FAVORITE = "spotify.favorite.toggle"
     PLAY_SPOTIFY_ALBUM = "spotify.album.play"
@@ -455,6 +457,20 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.TIDAL_PLAY_NATIVE: CommandPresentation(
+        Action.TIDAL_PLAY_NATIVE,
+        "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)",
+        "Odtwórz zaznaczony utwór TIDAL w odtwarzaczu AMC Test; Enter nadal otwiera oryginalny TIDAL",
+        "",
+        "Odtwórz utwór TIDAL &w AMC Test (eksperymentalnie)",
+    ),
+    Action.TIDAL_STOP_NATIVE: CommandPresentation(
+        Action.TIDAL_STOP_NATIVE,
+        "Zatrzymaj utwór TIDAL w AMC Test",
+        "Zatrzymaj natywne odtwarzanie utworu TIDAL i zwolnij jego strumień",
+        "",
+        "&Zatrzymaj utwór TIDAL w AMC Test",
+    ),
     Action.CAST_SESSION: CommandPresentation(
         Action.CAST_SESSION,
         "Google Cast bieżącej sesji…",
@@ -650,6 +666,21 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.TOGGLE_FAVORITE,
     Action.TIDAL_TOGGLE_LIBRARY,
     Action.TIDAL_TOGGLE_FAVORITE,
+    Action.TIDAL_PLAY_NATIVE,
+    Action.TIDAL_STOP_NATIVE,
+    Action.SHOW_PLAYER,
+    Action.SELECT_AUDIO_OUTPUT,
+    Action.PREVIOUS_AUDIO_OUTPUT,
+    Action.NEXT_AUDIO_OUTPUT,
+    Action.SEEK_BACK_10,
+    Action.SEEK_FORWARD_10,
+    Action.SEEK_BACK_30,
+    Action.SEEK_FORWARD_30,
+    Action.SEEK_BACK_60,
+    Action.SEEK_FORWARD_60,
+    Action.SEEK_BACK_CUSTOM,
+    Action.SEEK_FORWARD_CUSTOM,
+    Action.TOGGLE_MUTE,
     Action.MANAGE_PLAYLIST_MEMBERSHIP,
     Action.TIDAL_RELATIONS,
     Action.SORT_TIDAL_COLLECTION_ADDED,
@@ -705,6 +736,26 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.UPDATE_MEDIA_COMPONENTS,
     Action.REPORT_PROBLEM,
     Action.VERSION_INFO,
+})
+
+
+# Polecenia TIDAL wymagające rzeczywiście aktywnego odtwarzania w AMC Test.
+# Menu, paleta, pomoc i dispatcher korzystają z tej samej bramki GUI.
+TIDAL_NATIVE_ONLY_ACTIONS = frozenset({
+    Action.TIDAL_STOP_NATIVE,
+    Action.SHOW_PLAYER,
+    Action.SELECT_AUDIO_OUTPUT,
+    Action.PREVIOUS_AUDIO_OUTPUT,
+    Action.NEXT_AUDIO_OUTPUT,
+    Action.SEEK_BACK_10,
+    Action.SEEK_FORWARD_10,
+    Action.SEEK_BACK_30,
+    Action.SEEK_FORWARD_30,
+    Action.SEEK_BACK_60,
+    Action.SEEK_FORWARD_60,
+    Action.SEEK_BACK_CUSTOM,
+    Action.SEEK_FORWARD_CUSTOM,
+    Action.TOGGLE_MUTE,
 })
 
 
@@ -1649,6 +1700,12 @@ TIDAL_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Shift+L": Action.TIDAL_TOGGLE_LIBRARY,
     "Ctrl+Shift+U": Action.TIDAL_TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
+    "Shift+Left": Action.SEEK_BACK_30,
+    "Shift+Right": Action.SEEK_FORWARD_30,
+    "Ctrl+Left": Action.SEEK_BACK_60,
+    "Ctrl+Right": Action.SEEK_FORWARD_60,
+    "Ctrl+Alt+Left": Action.SEEK_BACK_CUSTOM,
+    "Ctrl+Alt+Right": Action.SEEK_FORWARD_CUSTOM,
 }
 
 
@@ -2325,6 +2382,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.MANAGE_PLAYLIST_MEMBERSHIP: "Zmień przynależność do playlist",
         Action.TIDAL_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki TIDAL",
         Action.TIDAL_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych TIDAL",
+        Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)",
+        Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC Test",
         Action.SPOTIFY_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki Spotify",
         Action.SPOTIFY_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych Spotify",
         Action.TIDAL_RELATIONS: (
@@ -2724,6 +2783,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     # Polecenia bez własnego skrótu nadal należą do pełnej pomocy i palety.
     # Tekst „Bez skrótu” jest celową etykietą użytkową, nie identyfikatorem.
     for action in (
+        Action.TIDAL_PLAY_NATIVE,
+        Action.TIDAL_STOP_NATIVE,
         Action.SESSION_ENABLE,
         Action.SESSION_DISABLE_CURRENT,
         Action.SESSION_CONFIGURE_CURRENT,
@@ -2808,6 +2869,14 @@ def describe_action(
         }
         if action in queue_labels:
             return i18n.command_description(action.value, queue_labels[action])
+    if (session_label or "").casefold() == "tidal":
+        tidal_labels = {
+            Action.QUEUE_NEXT: "Następny utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
+            Action.QUEUE_PREVIOUS: "Poprzedni utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
+            Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC Test",
+        }
+        if action in tidal_labels:
+            return i18n.command_description(action.value, tidal_labels[action])
     ctrl_f5 = ctrl_f5_presentation(session_label)
     if ctrl_f5 is not None and ctrl_f5.action is action:
         return ctrl_f5.description
