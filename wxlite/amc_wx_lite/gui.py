@@ -15141,7 +15141,9 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.TIDAL:
             if action is Action.SHOW_PLAYER and not self._tidal_native_has_playback:
                 self.announcer.say(
-                    "F6 otwiera odtwarzacz AMC po uruchomieniu utworu poleceniem Biblioteka, Odtwórz utwór TIDAL w AMC Test. Enter otwiera oryginalny TIDAL."
+                    "F6 otwiera odtwarzacz AMC po uruchomieniu utworu "
+                    "poleceniem Biblioteka, Odtwórz utwór TIDAL w AMC Test. "
+                    "Enter otwiera oryginalny TIDAL."
                 )
                 return
             if action in TIDAL_NATIVE_ONLY_ACTIONS and not self._tidal_native_has_playback:
