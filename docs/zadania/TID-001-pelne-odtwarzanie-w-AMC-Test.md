@@ -69,6 +69,10 @@ Na obecnym etapie nie zmieniono sposobu odtwarzania ani skrótów AMC. Dodano ty
 
 Nie ma jeszcze pełnego strumienia TIDAL w AMC, rzeczywistego odsłuchu, testu NVDA ani nowej instalacji. HTTP 403 na obecnym tokenie wymaga osobnej diagnostyki logowania audio. `tidalapi` korzysta z nieoficjalnego interfejsu, którego działanie i uprawnienia mogą się zmienić.
 
-### Stan próby logowania 4 listopada 2026
+### Dwie pierwsze próby logowania 4 listopada 2026
 
-Dwa jednorazowe kody urządzenia wygasły przed zatwierdzeniem. Użytkownik wyjaśnił, że najpierw musi przejść logowanie TIDAL przez Google. Nie otrzymano tokenu z `tidalapi`, nie sprawdzono nim manifestu i nie wykonano odtwarzania. Kolejny kod należy wygenerować dopiero, gdy użytkownik będzie przy polu kodu. Żadnego kodu jednorazowego ani danych konta nie zapisano w tym pliku. Ta informacja doprecyzowuje wcześniejszy zapis o próbie oczekującej.
+Dwa jednorazowe kody urządzenia wygasły przed zatwierdzeniem. Użytkownik wyjaśnił, że najpierw musi przejść logowanie TIDAL przez Google. W tych dwóch próbach nie otrzymano tokenu z `tidalapi`, nie sprawdzono nim manifestu i nie wykonano odtwarzania. Kolejny kod należało wygenerować dopiero, gdy użytkownik będzie przy polu kodu. Żadnego kodu jednorazowego ani danych konta nie zapisano w tym pliku. Ta informacja doprecyzowuje wcześniejszy zapis o próbie oczekującej.
+
+### Wynik osobnego logowania 4 listopada 2026
+
+Po przejściu logowania TIDAL przez Google i zatwierdzeniu kodu urządzenia `tidalapi==0.8.11` otrzymało odpowiedź HTTP 200 z `assetPresentation=FULL` i poprawnie zakodowanym manifestem jednego utworu. Narzędzie zwróciło wyłącznie `full_manifest`, kod HTTP i wartość logiczną; token, treść manifestu oraz adres audio nie trafiły do odpowiedzi ani dokumentacji. Poprzedni HTTP 403 dotyczył **istniejącego tokenu katalogu AMC**, a nie konta abonenta jako takiego. Ten wynik potwierdza osobną ścieżkę uprawnienia do pełnego manifestu, lecz nie potwierdza jeszcze pobrania danych audio, ich dekodowania, słyszalności w AMC ani przewijania. Sesja testowa była tylko w pamięci i zniknęła po zakończeniu procesu; kolejna próba audio będzie wymagała nowego kodu, dopóki nie powstanie bezpieczny magazyn tej osobnej sesji.

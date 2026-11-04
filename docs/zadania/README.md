@@ -636,7 +636,7 @@ zmian, wymagający korekty użytkownika:
   bez publikowania roboczej historii i bez przełączania bieżącej gałęzi.
   Szczegóły:
   [REL-001-github-aktualizacje-sygnalista.md](REL-001-github-aktualizacje-sygnalista.md).
-- `TID-001` — **W trakcie; odwracalny pilot pełnego odtwarzania TIDAL w odtwarzaczu AMC Test, bez instalacji** — osobna diagnostyka uprawnienia do strumienia, ochrona tokenów i adresów, potem ewentualny adapter audio oraz test klawiatury i NVDA. Bieżący tor oryginalnego TIDALa pozostaje punktem powrotu. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
+- `TID-001` — **W trakcie; osobne logowanie dało pełny manifest HTTP 200, bez odsłuchu i instalacji** — osobna diagnostyka uprawnienia do strumienia, ochrona tokenów i adresów, potem ewentualny adapter audio oraz test klawiatury i NVDA. Bieżący tor oryginalnego TIDALa pozostaje punktem powrotu. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
 - `STR-001` — **W trakcie; bezsekretny prototyp wydawania tokenów Apple Music
   ma 12/12 testów, ale prawdziwe wdrożenie jest wstrzymane do próby
   MusicKit/WebView2/NVDA i decyzji o właścicielu Apple Developer Team** —
