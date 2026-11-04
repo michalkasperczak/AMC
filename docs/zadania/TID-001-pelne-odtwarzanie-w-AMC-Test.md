@@ -129,3 +129,27 @@ Commity etapu: `11f4d5eb` (host), `8deda9d5` (resolver/proxy), `4695655c` (magaz
 ### Doprecyzowanie użytkownika z 4 listopada 2026 — Shift+A i TIDAL Connect
 
 Użytkownik potwierdził działanie pilota i poprosił o sprawdzenie przeniesienia dźwięku przez Shift+A, ewentualnie TIDAL Connect. W obecnym GUI Shift+A dla sesji TIDAL zgłasza tylko urządzenie oryginalnego odtwarzacza; nowa sesja natywna ma już w hoście operacje `audio.outputs`/`audio.selectOutput` na lokalnych wyjściach Windows, lecz GUI musi rozpoznać ten tryb i dopiero wtedy udostępnić dialog. To pozwoli wybrać kartę/DAC Windows, a nie urządzenie TIDAL Connect. Oficjalna dokumentacja TIDAL podaje, że integracje TIDAL Connect są obecnie dostępne dla partnerów sprzętowych (`https://developer.tidal.com/documentation/connect`), a użytkownik wybiera zgodny głośnik w oryginalnej aplikacji TIDAL (`https://support.tidal.com/hc/en-us/articles/360004565898-Tidal-Connect`). `tidalapi` nie daje potwierdzonego publicznego sterowania TIDAL Connect. Nie reklamować zwykłego wyboru wyjścia Windows jako Connect; ewentualny Cast/UPnP byłby osobnym, późniejszym torem i wymaga testu jakości, opóźnienia oraz sterowania.
+
+## Wdrożenie GUI i paczka próbna — 4 listopada 2026
+
+Ten zapis zastępuje wcześniejszy plan odroczenia interfejsu: adapter i jawna komenda są już w kodzie AMC Test. Nie zastępuje potwierdzonego odbioru użytkownika z pilota, który dotyczył osobnego procesu.
+
+### Zachowanie i miejsca w interfejsie
+
+- W sesji TIDAL na **utworze** dostępne jest polecenie „Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)” w menu, palecie i pomocy, bez nowego skrótu. `Enter` na utworze i `Ctrl+Enter` na albumie lub playliście nadal przekazują odtwarzanie do oryginalnego TIDALa.
+- Podczas natywnego odtwarzania `Space` steruje pauzą, istniejące skróty seek i czasu dotyczą sesji AMC, `PageUp`/`PageDown` wybierają sąsiedni utwór z bieżącej listy AMC, a `Shift+A` otwiera wybór **lokalnego wyjścia Windows**. To nie jest TIDAL Connect. Status odróżnia „TIDAL w AMC Test” od oryginalnej aplikacji. Polecenie Stop kończy strumień i zamyka lokalne proxy. W profilu Public komenda natywna i jej moduły są niedostępne.
+- Logowanie do odtwarzania jest osobną sesją `tidalapi` w Menedżerze poświadczeń Windows. Dostępne okno podaje adres i kod urządzenia z etykietami dla czytnika ekranu. Poprzednie komunikaty o wygasłych kodach są historyczne; udany pilot zapisał sesję, którą osobny proces odczytał bez kolejnego kodu.
+
+### Kod, testy i build
+
+- Adapter wxPython i testy: `bf3fe6ef`; podłączenie GUI, transportu, menu, pomocy i zachowanie Public: `a0c2955b` (z poprawką `16ba61ca`). Próby hosta na syntetycznym 72-sekundowym FLAC, w tym pauza, seek, zmiana wyjścia i Stop: 1/1, commit `85e957f0`. Testy adaptera: 7/7; zestaw adapter/proxy/pilot/logowanie: 44/44; celowane testy GUI: 110/110. Wyniki testów syntetycznych nie dowodzą odsłuchu w oknie GUI.
+- Build Release LiteHost ukończony bez błędów i ostrzeżeń. Z HEAD `a0c2955b` utworzono przenośną paczkę Test `work/TID-001/bundle-candidate` (3734 pliki), z przypiętym `tidalapi==0.8.11` i zależnościami tylko dla Test. `AMC.exe --sprawdz-pakiet`, `AMC.exe --sprawdz`, diagnostyka wbudowanego Pythona i izolowany `--sprawdz-start-cicho` zakończyły się kodem 0. Jest to **paczka próbna**, nie instalacja ani wydanie.
+- Pełny zestaw layoutu uruchomiony w globalnym Pythonie: 34/35; jedyna porażka wynikała z braku wxPython w tym interpreterze. Ten jeden test powtórzono w interpreterze z zainstalowanego AMC Test i przeszedł. Nie oznacza to pełnego zestawu 35/35 w jednym środowisku.
+
+### Podgląd na kopii danych i pozostały odbiór
+
+- Uruchomiono paczkę obok instalacji użytkownika na oddzielnej nazwie blokady i kopiach `state.json`/`library.db`; nie zatrzymano działającego AMC Test. Podgląd otworzył prawdziwe okno, Menedżer sesji miał czytelne pozycje, klawiaturą włączono TIDAL, katalog pokazał 808 pozycji, a wybrany album zgłosił 13 utworów. Podczas dalszej nawigacji podgląd się zamknął; log hosta wskazuje zwykłe zamknięcie wejścia, a w bieżącej próbie nie powstał zrzut awarii. Nie potwierdzono jeszcze startu utworu z GUI ani zachowania NVDA.
+- Po zakończeniu procesu usunięto dokładnie pięć tymczasowych kopii plików stanu i baz z `C:\Users\micha\Documents\Codex\2026-11-04\w\work\tidal-preview-profile` (około 38 MB); oryginały użytkownika i zapis sesji w Menedżerze poświadczeń pozostały. Zachowano tylko niejawny dziennik techniczny podglądu i paczkę do następnej próby.
+- Do odbioru pozostaje jeden pełny utwór uruchomiony z GUI, pauza/wznowienie, seek, `PageUp`/`PageDown`, `Shift+A` na wskazanym wyjściu, fokus i etykiety odczytywane przez NVDA oraz decyzja, czy po akceptacji zmienić domyślne `Enter`. Nie instalowano i nie publikowano paczki, gdy używana instalacja AMC Test nadal działa.
+
+Wersja wydana: bez zmian. Commit źródłowy paczki: `a0c2955b`. Bieżący zapis zadania należy zacommitować oddzielnie. Nieoficjalny interfejs `tidalapi` może przestać działać; zaszyfrowane manifesty są odrzucane bez próby obchodzenia DRM. TIDAL Connect pozostaje poza tą integracją.
