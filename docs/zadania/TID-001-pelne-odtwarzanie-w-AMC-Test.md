@@ -76,3 +76,19 @@ Dwa jednorazowe kody urządzenia wygasły przed zatwierdzeniem. Użytkownik wyja
 ### Wynik osobnego logowania 4 listopada 2026
 
 Po przejściu logowania TIDAL przez Google i zatwierdzeniu kodu urządzenia `tidalapi==0.8.11` otrzymało odpowiedź HTTP 200 z `assetPresentation=FULL` i poprawnie zakodowanym manifestem jednego utworu. Narzędzie zwróciło wyłącznie `full_manifest`, kod HTTP i wartość logiczną; token, treść manifestu oraz adres audio nie trafiły do odpowiedzi ani dokumentacji. Poprzedni HTTP 403 dotyczył **istniejącego tokenu katalogu AMC**, a nie konta abonenta jako takiego. Ten wynik potwierdza osobną ścieżkę uprawnienia do pełnego manifestu, lecz nie potwierdza jeszcze pobrania danych audio, ich dekodowania, słyszalności w AMC ani przewijania. Sesja testowa była tylko w pamięci i zniknęła po zakończeniu procesu; kolejna próba audio będzie wymagała nowego kodu, dopóki nie powstanie bezpieczny magazyn tej osobnej sesji.
+
+## Wynik etapu 2 — 4 listopada 2026
+
+Dodano wyłącznie w profilu `test` operację `tidal.nativePlay` dla osobnego procesu LiteHost. Przyjmuje ona ID utworu, nazwę, czas oraz adres lokalnego proxy `127.0.0.1`; odrzuca zdalny URL, dodatkowe pola i nieprawidłowy token ścieżki. Sesja `tidal` korzysta z dotychczasowego toru audio, ale nie zapisuje podpisanego adresu TIDAL w modelu utworu, historii ani odpowiedzi protokołu. Dla pauzy, przewijania, zatrzymania i zmiany wyjścia istnieje rozróżnienie sesji. Publiczny profil nie rejestruje nowej operacji. Dotychczasowy `tidal.desktopPlay` pozostaje dostępny.
+
+Izolowany resolver Python dopuszcza tylko `assetPresentation=FULL`, BTS, `encryptionType=NONE`, jeden adres HTTPS z domeny audio TIDAL oraz rozpoznane FLAC/AAC/MP3. Lokalne proxy Range działa tylko w pamięci, na `127.0.0.1`, pod losową ścieżką, bez przekierowań. Test syntetycznego FLAC potwierdził odczyt próbek PCM i seek przez FFmpeg. Testy protokołu `--tidal-native --transport-routing`: 2/2; build Release LiteHost: 0 błędów i ostrzeżeń; testy resolvera/proxy: 9/9. Nie zainstalowano nowej aplikacji.
+
+Pierwszy pilot odtwarzania wygasł podczas logowania. W drugiej próbie logowanie się udało, ale narzędzie zakończyło się na zbyt wąskim warunku „tylko FLAC” (`lossless_flac_unavailable`), zanim uruchomiono hosta. Nie dowodzi to braku uprawnienia; format lub brak czasu nie były jeszcze osobno raportowane. Poprawiony pilot przyjmuje rozpoznane FLAC/AAC/MP3, sprawdza postęp odtwarzania przez 45 sekund i pokazuje dokładny bezpośredni adres autoryzacji urządzenia. Testy pilota bez konta: 12/12. Następny bezpośredni kod wygasł, ponieważ użytkownik nie mógł stale czekać na krótkie okno autoryzacji. Nie odtworzono jeszcze dźwięku TIDAL ani nie przeprowadzono odsłuchu i NVDA.
+
+### Korekta użytkownika z 4 listopada 2026 — logowanie
+
+Użytkownik wyjaśnił, że nie może wpisywać nowego kodu przy każdej próbie ani czekać stale na następny kod. Ta korekta zastępuje wcześniejszy plan kolejnych sesji wyłącznie w pamięci. Przed następnym kodem należy dodać osobny, chroniony przez Windows magazyn sesji odtwarzania i sprawdzić jej ponowne użycie po restarcie procesu. Nie zapisywać tokenu w pliku tekstowym ani nie łączyć go z obecnym logowaniem katalogu AMC. Połączenie urządzenia wymaga zatwierdzenia, a sam widok albumów w przeglądarce nie jest potwierdzeniem połączenia pilota.
+
+### Stan i commity
+
+Kod hosta i testy: `11f4d5eb`. Resolver, lokalne proxy i testy: `8deda9d5`. Instalacja użytkownika działała oddzielnie; żaden proces AMC nie został zatrzymany. Pełny utwór i słyszalny dźwięk w AMC pozostają niepotwierdzone. Brak nowej wersji, instalacji i wydania.
