@@ -36,3 +36,7 @@ Po zapisaniu zmiany NVDA otrzymuje komunikat, że nowy folder zadziała po ponow
 - Gałąź: `codex/konfigurowalne-skroty-20261026`.
 - Planowana wspólna wersja AMC Test z TIDAL: `alpha.469`; finalny numer i commit do zapisania po scaleniu.
 - Zmienione źródła: `state_store.py`, `host_client.py`, `gui.py`, `shortcuts.py`, `i18n.py`, `Program.cs`, `LiteEngineHandlers.cs`, `RadioMediaOutput.cs`; dodany `test_timeshift_buffer_folder.py`; zaktualizowana `wxlite/JAK_TESTOWAC.md`.
+
+## Wspólna publikacja — 4 listopada 2026
+
+Zmiana weszła do źródłowego commitu `89698cde` i opublikowanego wydania wstępnego AMC Test `test-2026.11.04.2106`. Paczka przeszła pełną kontrolę i kontrolowany start; instalator `AMC-Test-2026-11-04-2106.exe` przeszedł kontrolę poświadczeń i został zweryfikowany odczytem z GitHub. Lokalna instalacja i wybór folderu `D:\AMC Time Shift` czekają na potwierdzenie, że AMC Test nie nagrywa; nie wykonano jeszcze testu NVDA nowego pola w działającej instalacji.
