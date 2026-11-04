@@ -8,7 +8,7 @@ from amc_wx_lite import menu_model
 from amc_wx_lite.audio_output import effective_output_device_id
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.gui import LiteFrame, _LIST_CONTEXT_ACTION_GROUPS
-from amc_wx_lite.navigation import Row, SessionId
+from amc_wx_lite.navigation import Navigator, Row, SessionId, View
 from amc_wx_lite.shortcuts import (
     Action, Chord, TIDAL_NATIVE_ONLY_ACTIONS, describe, resolve,
 )
@@ -213,3 +213,38 @@ def test_context_help_disables_native_commands_for_external_tidal() -> None:
     assert LiteFrame._action_available_in_active_session(
         frame, Action.SELECT_AUDIO_OUTPUT,
     )
+
+
+def test_native_stop_returns_from_player_to_selected_track_list() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    state = nav.sessions[SessionId.TIDAL]
+    row = Row("tidal:tracks:1", "Utwór", "track", service_id="tracks:1")
+    state.model.replace([row])
+    state.view = View.PLAYER
+    state.now_playing_id = row.item_id
+    state.now_playing_title = row.title
+    state.current_material_id = row.item_id
+    state.playback_source_rows = (row,)
+    spoken: list[str] = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_active_track_id="1",
+        _tidal_native_has_playback=True,
+        _playing_session=SessionId.TIDAL,
+        _playing_sessions={SessionId.TIDAL},
+        _window_alive=lambda: True,
+        _close_tidal_native_challenge=lambda: None,
+        announcer=SimpleNamespace(say=spoken.append),
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    LiteFrame._on_tidal_native_status(frame, "stopped", "1", "Zatrzymano")
+    assert state.view is View.LIST
+    assert state.model.selected_id == row.item_id
+    assert state.now_playing_id is None
+    assert state.playback_source_rows == ()
+    assert frame._playing_session is None
+    assert not frame._tidal_native_has_playback
+    assert spoken == ["Zatrzymano"]

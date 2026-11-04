@@ -1024,7 +1024,7 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
   i `Ctrl+Alt+Left/Right` do przewijania,
   `Page Up/Page Down` do poprzedniego/następnego utworu z zapamiętanej listy,
   a `Ctrl+Shift+E/R/T` do odczytu czasu. **Odtwarzanie, Zatrzymaj utwór TIDAL
-  w AMC Test** kończy strumień. `Shift+A` wybiera lokalne urządzenie Windows
+  w AMC Test** kończy strumień i wraca do listy utworów. `Shift+A` wybiera lokalne urządzenie Windows
   tylko podczas aktywnego odtwarzania w AMC Test; zewnętrzny TIDAL nadal
   wybiera urządzenie we własnej aplikacji. To nie jest TIDAL Connect.
 - Parytet menu, palety, pomocy i skrótów należy sprawdzić w obu profilach,

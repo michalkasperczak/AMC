@@ -26745,6 +26745,16 @@ class LiteFrame(wx.Frame):
                 self._tidal_native_has_playback = False
                 self._tidal_native_active_track_id = None
                 self._playing_sessions.discard(SessionId.TIDAL)
+                if self._playing_session is SessionId.TIDAL:
+                    self._playing_session = None
+                tidal_state = self.navigator.sessions[SessionId.TIDAL]
+                tidal_state.now_playing_id = None
+                tidal_state.now_playing_title = ""
+                tidal_state.current_material_id = ""
+                tidal_state.pending_material_id = ""
+                tidal_state.playback_source_rows = ()
+                if tidal_state.view is View.PLAYER:
+                    tidal_state.view = View.LIST
             self.announcer.say(message)
         self._refresh_menu_state()
         self._refresh_status()
