@@ -24,6 +24,7 @@ internal static class Program
         ("--facebook-page", FacebookPageTests.Run),
         ("--fresh-profile", FreshProfileInitializationTests.Run),
         ("--tidal-catalog", TidalCatalogContractTests.Run),
+        ("--tidal-playback-probe", TidalPlaybackProbeTests.Run),
         ("--spotify-catalog", SpotifyCatalogContractTests.Run),
         ("--youtube-account", YouTubeAccountContractTests.Run),
         ("--account-settings", AccountSettingsStoreTests.Run),

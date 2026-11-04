@@ -510,6 +510,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 TidalSearch(request.Args),
             [LiteTidalCatalogContract.AccountStatusOperation] = (_, _) =>
                 TidalAccountStatus(),
+            [LiteTidalPlaybackProbe.Operation] = (request, _) =>
+                RequireTidal().ProbePlayback(request.Args),
             [LiteTidalCatalogContract.LoginOperation] = (_, _) =>
                 TidalLogin(),
             [LiteTidalCatalogContract.ContainerItemsOperation] = (request, _) =>

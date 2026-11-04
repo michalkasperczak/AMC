@@ -38,6 +38,32 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
             settings.AccountDisplayName);
     }
 
+    public object ProbePlayback(JsonElement args)
+    {
+        var trackId = LiteTidalPlaybackProbe.ReadTrackId(args);
+        try
+        {
+            var credentials = RequireIntegration()
+                .GetPlaybackCredentialsAsync(CancellationToken.None)
+                .GetAwaiter().GetResult();
+            using var client = new HttpClient(new HttpClientHandler
+            {
+                AllowAutoRedirect = false
+            }) { Timeout = TimeSpan.FromSeconds(15) };
+            return LiteTidalPlaybackProbe.RunAsync(
+                    client, trackId, credentials.AccessToken,
+                    _settings!.CountryCode, CancellationToken.None)
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception)
+        {
+            // Credential and HTTP exceptions may include private details.
+            // The protocol exposes only a fixed result code.
+            return new LiteTidalPlaybackProbeResult(
+                "unavailable", "credentials_unavailable", 0, false);
+        }
+    }
+
     public object Login()
     {
         var integration = RequireIntegration();

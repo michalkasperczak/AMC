@@ -226,6 +226,7 @@ internal static class Program
                 // Oficjalny katalog TIDAL wykonuje siec i odswiezenie tokenu,
                 // ale nie moze blokowac transportu ani nagrywania radia.
                 LiteTidalCatalogContract.SearchOperation,
+                LiteTidalPlaybackProbe.Operation,
                 LiteTidalCatalogContract.LoginOperation,
                 LiteTidalCatalogContract.ContainerItemsOperation,
                 LiteTidalCatalogContract.CollectionViewOperation,

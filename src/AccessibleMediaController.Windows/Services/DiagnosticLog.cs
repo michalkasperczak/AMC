@@ -1,6 +1,7 @@
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -9,6 +10,20 @@ internal static class DiagnosticLog
 {
     private const long MaximumLogBytes = 5 * 1024 * 1024;
     private const int RetainedFiles = 5;
+    private const string Redacted = "[ukryto]";
+    private const string RedactedNetworkAddress = "[adres sieciowy]";
+    private static readonly Regex UrlPattern = new(
+        @"https?://[^\s""'<>]+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex BearerPattern = new(
+        @"\bBearer\s+[^\s""',;\}\]]+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex AuthorizationPattern = new(
+        @"(?<prefix>\bAuthorization\s*[:=]\s*)[^\r\n]+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex SecretAssignmentPattern = new(
+        @"(?<prefix>\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|client[_-]?secret|api[_-]?key|x-tidal-token|token|password|signature|sig)\b[""']?\s*[:=]\s*[""']?)(?<value>[^\s""',;\}\]&]+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly object Gate = new();
     private static Channel<string>? _channel;
     private static Task? _writerTask;
@@ -80,8 +95,27 @@ internal static class DiagnosticLog
     {
         var channel = _channel;
         if (channel is null) return;
-        var line = $"{DateTimeOffset.Now:O} [{level}] [{area}] {message}";
+        var line = $"{DateTimeOffset.Now:O} [{level}] [{RedactSensitiveData(area)}] {RedactSensitiveData(message)}";
         channel.Writer.TryWrite(line);
+    }
+
+    internal static string RedactSensitiveData(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+
+        var redactedUrls = UrlPattern.Replace(value, match =>
+        {
+            // Signed audio URLs can carry credentials in the path as well as
+            // in the query. Keep only the origin for useful diagnostics.
+            return Uri.TryCreate(match.Value, UriKind.Absolute, out var uri)
+                ? $"{uri.Scheme}://{uri.Host}/{RedactedNetworkAddress}"
+                : RedactedNetworkAddress;
+        });
+        var redactedAuthorization = AuthorizationPattern.Replace(redactedUrls,
+            match => match.Groups["prefix"].Value + Redacted);
+        var redactedBearer = BearerPattern.Replace(redactedAuthorization, "Bearer " + Redacted);
+        return SecretAssignmentPattern.Replace(redactedBearer,
+            match => match.Groups["prefix"].Value + Redacted);
     }
 
     private static async Task WriteLoopAsync(ChannelReader<string> reader, string directory)

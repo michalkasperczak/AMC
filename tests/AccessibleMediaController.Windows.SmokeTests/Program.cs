@@ -103,6 +103,11 @@ if (args.Contains("--youtube-credential-boundary", StringComparer.Ordinal))
     YouTubeCredentialBoundaryTests.Run();
     return 0;
 }
+if (args.Contains("--diagnostic-redaction", StringComparer.Ordinal))
+{
+    DiagnosticLogRedactionTests.Run();
+    return 0;
+}
 if (args.Contains("--radio-recording-stream-failure-only", StringComparer.Ordinal))
 {
     TestRadioRecordingControlKeepsPublishedFileAfterStreamFailure();
