@@ -68,3 +68,7 @@ Na obecnym etapie nie zmieniono sposobu odtwarzania ani skrótów AMC. Dodano ty
 ### Znane ograniczenia
 
 Nie ma jeszcze pełnego strumienia TIDAL w AMC, rzeczywistego odsłuchu, testu NVDA ani nowej instalacji. HTTP 403 na obecnym tokenie wymaga osobnej diagnostyki logowania audio. `tidalapi` korzysta z nieoficjalnego interfejsu, którego działanie i uprawnienia mogą się zmienić.
+
+### Stan próby logowania 4 listopada 2026
+
+Dwa jednorazowe kody urządzenia wygasły przed zatwierdzeniem. Użytkownik wyjaśnił, że najpierw musi przejść logowanie TIDAL przez Google. Nie otrzymano tokenu z `tidalapi`, nie sprawdzono nim manifestu i nie wykonano odtwarzania. Kolejny kod należy wygenerować dopiero, gdy użytkownik będzie przy polu kodu. Żadnego kodu jednorazowego ani danych konta nie zapisano w tym pliku. Ta informacja doprecyzowuje wcześniejszy zapis o próbie oczekującej.
