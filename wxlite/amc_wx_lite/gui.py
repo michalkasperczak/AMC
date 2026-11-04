@@ -9895,7 +9895,7 @@ class LiteFrame(wx.Frame):
             self.list_panel,
             self.navigator.sessions[SessionId.TIDAL].model,
             "TIDAL",
-            self.navigator.sessions[SessionId.TIDAL],
+            self.navigator.sessions[SessionId.TIDAL], virtual=True,
         )
         self.spotify_list = MediaListCtrl(
             self.list_panel,
@@ -15141,7 +15141,7 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.TIDAL:
             if action is Action.SHOW_PLAYER and not self._tidal_native_has_playback:
                 self.announcer.say(
-                    "TIDAL odtwarza w oryginalnej aplikacji i nie ma odtwarzacza AMC"
+                    "F6 otwiera odtwarzacz AMC po uruchomieniu utworu poleceniem Biblioteka, Odtwórz utwór TIDAL w AMC Test. Enter otwiera oryginalny TIDAL."
                 )
                 return
             if action in TIDAL_NATIVE_ONLY_ACTIONS and not self._tidal_native_has_playback:
