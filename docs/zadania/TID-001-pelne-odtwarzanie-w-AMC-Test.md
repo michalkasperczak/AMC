@@ -153,3 +153,13 @@ Ten zapis zastępuje wcześniejszy plan odroczenia interfejsu: adapter i jawna k
 - Do odbioru pozostaje jeden pełny utwór uruchomiony z GUI, pauza/wznowienie, seek, `PageUp`/`PageDown`, `Shift+A` na wskazanym wyjściu, fokus i etykiety odczytywane przez NVDA oraz decyzja, czy po akceptacji zmienić domyślne `Enter`. Nie instalowano i nie publikowano paczki, gdy używana instalacja AMC Test nadal działa.
 
 Wersja wydana: bez zmian. Commit źródłowy paczki: `a0c2955b`. Bieżący zapis zadania należy zacommitować oddzielnie. Nieoficjalny interfejs `tidalapi` może przestać działać; zaszyfrowane manifesty są odrzucane bez próby obchodzenia DRM. TIDAL Connect pozostaje poza tą integracją.
+
+## Przygotowanie aktualizacji — 4 listopada 2026
+
+Użytkownik polecił wysłać kod na GitHub i zaktualizować AMC Test. Aktywna instalacja z godziny 12:40 pochodzi z commitu `ff2d2acc` i zawiera poprawki rozpoznawania nieobecne wcześniej w gałęzi TIDAL. Scalono oba kierunki bez konfliktów kodu; konflikty dwóch opisów rozwiązano z zachowaniem historii. Commit scalenia: `d3322097`. Testy celowane po scaleniu: 173/173 zaliczone na runtime wxPython z katalogiem bieżących źródeł na początku ścieżki modułów. Pierwsza próba testów wskazała starszy pakiet zainstalowany przed źródłami i zakończyła się błędem importu; po poprawieniu kolejności ścieżek przeszła w całości.
+
+Skrypty budowania Test przyjmują teraz jawne `-TidalSitePackages` z odizolowanego venv; Public odrzuca ten parametr. Numer techniczny nowego kandydata: `0.1.0-alpha.469`, po zainstalowanym `alpha.468`. To przygotowanie źródeł, jeszcze bez nowej paczki, instalacji, publikacji wydania ani testu GUI/NVDA.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+> W AMC Test otwórz sesję TIDAL i zaznacz pojedynczy utwór. W menu Biblioteka wybierz „Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)”. Po starcie muzyki Spacja wstrzymuje i wznawia, Page Up i Page Down przechodzą do sąsiedniego utworu z bieżącej listy, a Shift+A wybiera lokalne wyjście dźwięku Windows. Enter nadal przekazuje utwór do oryginalnej aplikacji TIDAL. Gdy zapisane połączenie odtwarzania wygaśnie, AMC Test pokaże jednorazowy kod do zatwierdzenia na stronie TIDAL. TIDAL Connect nie jest obsługiwany przez to polecenie.

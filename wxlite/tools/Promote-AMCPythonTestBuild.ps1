@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$InstallRoot = "D:\Projekty Codex\AMC Python",
+    [string]$TidalSitePackages = "",
     [switch]$SkipTests,
     [switch]$NoLaunch
 )
@@ -231,12 +232,22 @@ New-Item -ItemType Directory -Path $TemporaryRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $TestOutputRoot -Force | Out-Null
 $stagingRoot = Join-Path $TemporaryRoot ("AMC-Python-candidate-" + [guid]::NewGuid().ToString("N"))
 
-Invoke-Checked -FilePath $RuntimePython -ArgumentList @(
+if ([string]::IsNullOrWhiteSpace($TidalSitePackages)) {
+    throw "AMC Test wymaga -TidalSitePackages z osobnego venv."
+}
+$tidalSource = [IO.Path]::GetFullPath($TidalSitePackages)
+if (-not (Test-Path -LiteralPath $tidalSource -PathType Container)) {
+    throw "Nie istnieje katalog zależności TIDAL: $tidalSource"
+}
+$bundleArguments = @(
     $BuildTool,
     "--out", $stagingRoot,
+    "--profile", "test",
     "--runtime", (Join-Path $InstallRoot "runtime"),
+    "--tidal-site-packages", $tidalSource,
     "--clean"
-) -WorkingDirectory $WxliteRoot -Stage "Składanie paczki"
+)
+Invoke-Checked -FilePath $RuntimePython -ArgumentList $bundleArguments -WorkingDirectory $WxliteRoot -Stage "Składanie paczki"
 
 $candidateManifest = Read-BundleManifest -Root $stagingRoot
 Assert-ReleaseIdentity -Manifest $candidateManifest

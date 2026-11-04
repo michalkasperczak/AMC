@@ -1034,6 +1034,9 @@ Pełna paczka **AMC Test** wymaga odizolowanego źródła zależności TIDAL:
 <osobny-venv\Lib\site-packages>`. Pakowarka sprawdza przypięte wersje i kopiuje
 pakiety do kandydata. Nie instaluj ich w runtime działającej aplikacji.
 Paczka Public nie przyjmuje `tidalapi` ani modułów natywnego TIDAL.
+Skrypt `wxlite\tools\Build-AMCBundle.ps1` przyjmuje ten sam katalog przez
+`-TidalSitePackages <osobny-venv\Lib\site-packages>` przy `-Profile test`;
+`Promote-AMCPythonTestBuild.ps1` również wymaga tego parametru.
 
 ## Zanik wybranego urządzenia audio
 

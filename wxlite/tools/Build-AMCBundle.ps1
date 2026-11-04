@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory)] [ValidateSet("public", "test")] [string]$Profile,
     [Parameter(Mandatory)] [string]$PythonRuntime,
-    [Parameter(Mandatory)] [string]$OutputDirectory
+    [Parameter(Mandatory)] [string]$OutputDirectory,
+    [string]$TidalSitePackages = ""
 )
 
 Set-StrictMode -Version Latest
@@ -24,6 +25,19 @@ if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
 }
 if (Test-Path -LiteralPath $output) {
     throw "Folder docelowy już istnieje; zachowano go bez zmian: $output"
+}
+$tidalSource = ""
+if ($Profile -eq "test") {
+    if ([string]::IsNullOrWhiteSpace($TidalSitePackages)) {
+        throw "AMC Test wymaga -TidalSitePackages z osobnego venv."
+    }
+    $tidalSource = [IO.Path]::GetFullPath($TidalSitePackages)
+    if (-not (Test-Path -LiteralPath $tidalSource -PathType Container)) {
+        throw "Nie istnieje katalog zależności TIDAL: $tidalSource"
+    }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($TidalSitePackages)) {
+    throw "AMC Public nie przyjmuje zależności TIDAL."
 }
 function Invoke-Checked {
     param(
@@ -109,7 +123,7 @@ try {
         "-p:NuGetAudit=false", "-o", $updater
     )
 
-    Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList @(
+    $bundleArguments = @(
         $bundleTool,
         "--out", $candidate,
         "--profile", $Profile,
@@ -119,6 +133,10 @@ try {
         "--runtime", $runtime,
         "--clean"
     )
+    if ($Profile -eq "test") {
+        $bundleArguments += @("--tidal-site-packages", $tidalSource)
+    }
+    Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments
 
     Invoke-FullBundleCheck -LauncherPath (Join-Path $candidate "AMC.exe")
     & $startupSmokeTool -BundleRoot $candidate
