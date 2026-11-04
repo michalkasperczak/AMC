@@ -1004,10 +1004,14 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
   otwartego kontenera.
 - Enter na utworze lub wideo nadal przekazuje materiał do oficjalnej aplikacji
   TIDAL. `Ctrl+Enter` nadal przekazuje cały album albo playlistę. W AMC Test
-  dla pojedynczego utworu z cyfrowym ID jest osobna pozycja **Biblioteka,
-  Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)**. Nie ma własnego skrótu;
-  można ją również wybrać w palecie `Ctrl+Shift+K` i znaleźć w pełnej pomocy
-  `F1`. W AMC Public tej pozycji nie ma.
+  dla pojedynczego utworu jest osobna pozycja **Odtwórz utwór TIDAL w AMC Test
+  (eksperymentalnie)** w menu kontekstowym oraz w menu Biblioteka. Nie ma
+  własnego skrótu; można ją również wybrać w palecie `Ctrl+Shift+K` i znaleźć
+  w pełnej pomocy `F1`. W AMC Public tej pozycji nie ma.
+- Duża główna kolekcja TIDAL pokazuje pierwszych 150 pozycji oraz wiersz
+  **Załaduj więcej** na końcu. Enter na tym wierszu pokazuje kolejne 150
+  pozycji bez ponownego pobrania kolekcji. Filtr przeszukuje całą pobraną
+  kolekcję, również pozycje spoza pierwszej strony.
 - Przy pierwszym logowaniu do eksperymentalnego odtwarzacza pojawia się
   dostępne okno z adresem i jednorazowym kodem. Fokus zaczyna na polu kodu;
   oba pola są tekstem do odczytu i mają osobne przyciski kopiowania. Użytkownik

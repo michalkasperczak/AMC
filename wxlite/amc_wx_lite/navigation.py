@@ -399,6 +399,7 @@ class OpenTidalView:
 
     view: LibraryView
     preferred_id: str | None = None
+    load_more: bool = False
     #: Jednorazowy, gotowy komunikat po zmianie sortowania. Nie zawiera
     #: wartości modelu ani identyfikatora polecenia.
     announcement: str = ""
@@ -1576,6 +1577,14 @@ class Navigator:
             )]
 
         if state.session_id is SessionId.TIDAL:
+            if row.kind == "loadMore":
+                if state.library_view in (
+                    LibraryView.TIDAL_LIBRARY,
+                    LibraryView.TIDAL_FAVORITES,
+                    LibraryView.TIDAL_PLAYLISTS,
+                ):
+                    return [OpenTidalView(state.library_view, load_more=True)]
+                return [Announce("Nie można wczytać więcej w tym widoku TIDAL")]
             target = self._tidal_target_from_row(row)
             if target is not None:
                 if target.kind == "artist" and target.artist_section is None:
@@ -3887,6 +3896,7 @@ class Navigator:
         *,
         preferred_id: str | None = None,
         order_matches_amc: bool = True,
+        total_count: int | None = None,
     ) -> list[object]:
         """Apply TIDAL rows without touching another session or exposing IDs."""
         if view not in (
@@ -3912,10 +3922,14 @@ class Navigator:
         state.tidal_history.clear()
         state.model.replace(rows, preferred_id=preferred_id or remembered)
         state.view = View.LIST
+        shown_count = sum(row.kind != "loadMore" for row in rows)
+        count = max(shown_count, int(total_count)) if total_count is not None else shown_count
         message = (
-            f"{heading}, {len(rows)} {_items_word(len(rows))}"
-            if rows else f"{heading}, pusto"
+            f"{heading}, {count} {_items_word(count)}"
+            if count else f"{heading}, pusto"
         )
+        if count > shown_count:
+            message += f", pokazano {shown_count}; wybierz Załaduj więcej na końcu listy"
         if not order_matches_amc:
             message = f"{message}, kolejność zastępcza"
         return [Announce(message)]

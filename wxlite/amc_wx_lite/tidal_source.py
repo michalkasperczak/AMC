@@ -23,6 +23,8 @@ from .collation import (
     HostCollationUnavailable,
 )
 from .list_model import Row
+from . import list_filter
+from .paging import PAGE_SIZE, load_more_row
 from .profile_layout import ProfileLayout
 from .radio_recording import format_duration
 from .radio_source import (
@@ -62,6 +64,16 @@ _PROFILE_VIEW_NAMES = {
 }
 
 
+def native_track_id(external_id: object) -> str | None:
+    """Return the numeric playback ID from a catalog track ID."""
+    if not isinstance(external_id, str):
+        return None
+    value = external_id.removeprefix("tracks:")
+    if 1 <= len(value) <= 18 and value.isascii() and value.isdecimal():
+        return value
+    return None
+
+
 class TidalProfileError(RuntimeError):
     """A short, user-facing profile read failure."""
 
@@ -92,6 +104,24 @@ class TidalViewResult:
     rows: tuple[Row, ...]
     order_matches_amc: bool
     sort_mode: str
+
+
+def paged_collection_rows(
+    rows: Sequence[Row],
+    *,
+    scope: str,
+    query: str = "",
+    requested: int = PAGE_SIZE,
+) -> tuple[tuple[Row, ...], int, int]:
+    """Page a complete ordered snapshot, searching all titles before slicing."""
+
+    matches = list_filter.filter_rows(rows, query)
+    total = len(matches)
+    loaded = min(total, max(PAGE_SIZE, int(requested)))
+    visible = matches[:loaded]
+    if loaded < total:
+        visible.append(load_more_row(f"tidal:{scope}", loaded))
+    return tuple(visible), total, loaded
 
 
 @dataclass(frozen=True, slots=True)

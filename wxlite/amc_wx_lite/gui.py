@@ -466,6 +466,8 @@ if "session.tidal" in _RELEASE_PROFILE.capabilities:
         TidalContainerPayloadError,
         TidalProfileError,
         TidalSource,
+        native_track_id,
+        paged_collection_rows,
         container_result_from_host,
         queue_payload as tidal_queue_payload,
         queue_rows as tidal_queue_rows,
@@ -540,6 +542,7 @@ class _ContextMenuCommand:
 _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.ACTIVATE,
+        Action.TIDAL_PLAY_NATIVE,
         Action.QUICK_INFORMATION,
         Action.ITEM_PROPERTIES,
     ),
@@ -9633,6 +9636,12 @@ class LiteFrame(wx.Frame):
         else:
             self._tidal_queue_rows = []
             self._tidal_effective_sort_modes = {}
+        # Keep the complete ordered catalog off the native list. The list
+        # receives at most one page and an explicit "Załaduj więcej" row.
+        self._tidal_view_cache: dict[str, object] = {}
+        self._tidal_loaded_counts: dict[tuple[str, str], int] = {}
+        self._tidal_render_signature: tuple | None = None
+        self._tidal_rendered_rows: object = None
         self._spotify_queue_rows = list(spotify_history_rows(
             state.spotify_queue_items
         )) if "session.spotify" in _RELEASE_PROFILE.capabilities else []
@@ -9895,7 +9904,7 @@ class LiteFrame(wx.Frame):
             self.list_panel,
             self.navigator.sessions[SessionId.TIDAL].model,
             "TIDAL",
-            self.navigator.sessions[SessionId.TIDAL], virtual=True,
+            self.navigator.sessions[SessionId.TIDAL],
         )
         self.spotify_list = MediaListCtrl(
             self.list_panel,
@@ -10512,9 +10521,7 @@ class LiteFrame(wx.Frame):
                 and self._tidal_native_adapter is not None
                 and selected_row is not None
                 and selected_kind == "track"
-                and re.fullmatch(
-                    r"[0-9]{1,18}", str(selected_row.service_id or "")
-                ) is not None
+                and native_track_id(selected_row.service_id) is not None
             ):
                 enabled = False
             if (self.navigator.active is SessionId.TIDAL
@@ -12483,7 +12490,12 @@ class LiteFrame(wx.Frame):
         """
         query = self.filter_box.GetValue()
         active = self._active_list()
-        active.filter_query = query
+        tidal_page = (
+            self._sync_tidal_paged_model()
+            if getattr(self.navigator, "active", None) is SessionId.TIDAL
+            else None
+        )
+        active.filter_query = "" if tidal_page is not None else query
         active.sync_rows()
         # Bramki ``needs_selection`` zaleza od tego, CO sync_rows wybral --
         # ``MediaListCtrl.sync_rows`` ustawia wybor przez ``model.select_id``
@@ -12494,7 +12506,10 @@ class LiteFrame(wx.Frame):
         self._refresh_menu_state()
         if announce_status:
             self.announcer.say(
-                list_filter.results_status_text(query, active.visible_count())
+                list_filter.results_status_text(
+                    query,
+                    tidal_page[0] if tidal_page is not None else active.visible_count(),
+                )
             )
 
     def _on_filter_key(self, event: wx.KeyEvent) -> None:
@@ -12544,6 +12559,8 @@ class LiteFrame(wx.Frame):
             context = self._current_view_context()
             self.filter_state.clear_for_view(context)
             self._set_filter_text("")
+            if getattr(self.navigator, "active", None) is SessionId.TIDAL:
+                self._sync_tidal_paged_model()
             active.filter_query = ""
             active.sync_rows()
         active.SetFocus()
@@ -12593,10 +12610,22 @@ class LiteFrame(wx.Frame):
                 getattr(self, "files_list", None),
                 getattr(self, "radio_list", None),
                 getattr(self, "podcasts_list", None),
+                getattr(self, "tidal_list", None),
             )
             if candidate is not None
         ):
-            control.filter_query = wanted if control is self._active_list() else ""
+            tidal_paged = (
+                control is getattr(self, "tidal_list", None)
+                and self.navigator.active is SessionId.TIDAL
+                and self.navigator.session.library_view in (
+                    LibraryView.TIDAL_LIBRARY,
+                    LibraryView.TIDAL_FAVORITES,
+                    LibraryView.TIDAL_PLAYLISTS,
+                )
+            )
+            control.filter_query = (
+                wanted if control is self._active_list() and not tidal_paged else ""
+            )
 
     def _set_tempo_algorithm(self, value: int) -> None:
         """Persist only a selection acknowledged by the real host."""
@@ -13950,6 +13979,49 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("radio-view", work, done, failed)
 
+    def _sync_tidal_paged_model(
+        self, *, preferred_id: str | None = None,
+    ) -> tuple[int, int] | None:
+        """Show one native-list page, filtering the complete cached collection."""
+
+        if self.navigator.active is not SessionId.TIDAL:
+            return None
+        state = self.navigator.sessions[SessionId.TIDAL]
+        scope = {
+            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
+            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
+            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
+        }.get(state.library_view)
+        if scope is None or state.view is not View.LIST:
+            return None
+        result = self._tidal_view_cache.get(scope)
+        if result is None:
+            return None
+        query = list_filter.normalized_query(self.filter_box.GetValue())
+        key = (scope, query)
+        requested = requested_count(
+            self._tidal_loaded_counts.get(key, 0), load_more=False,
+        )
+        rows, total, loaded = paged_collection_rows(
+            result.rows, scope=scope, query=query, requested=requested,
+        )
+        self._tidal_loaded_counts[key] = loaded
+        signature = (scope, id(result), query, loaded)
+        if (self._tidal_render_signature == signature
+                and self._tidal_rendered_rows is state.model.rows
+                and preferred_id is None):
+            return total, loaded
+        previous = state.model.selected_row
+        wanted = preferred_id or state.model.selected_id
+        if (previous is not None and previous.kind == "loadMore"
+                and self._tidal_render_signature is not None
+                and self._tidal_render_signature[2] != query):
+            wanted = preferred_id
+        state.model.replace(rows, keep_selection=False, preferred_id=wanted)
+        self._tidal_render_signature = signature
+        self._tidal_rendered_rows = state.model.rows
+        return total, loaded
+
     def _open_tidal_view(
         self,
         intent: OpenTidalView,
@@ -13965,6 +14037,25 @@ class LiteFrame(wx.Frame):
         scope = scopes.get(intent.view)
         if scope is None:
             self.announcer.say("Ten widok nie jest dostępny w TIDAL")
+            return
+        if intent.load_more and scope in self._tidal_view_cache:
+            state = self.navigator.sessions[SessionId.TIDAL]
+            query = list_filter.normalized_query(self.filter_box.GetValue())
+            key = (scope, query)
+            previous = self._tidal_loaded_counts.get(key, 0)
+            self._tidal_loaded_counts[key] = requested_count(
+                previous, load_more=True,
+            )
+            result = self._tidal_view_cache[scope]
+            matches = list_filter.filter_rows(result.rows, query)
+            first_new = (
+                matches[previous].item_id if previous < len(matches) else None
+            )
+            count = self._sync_tidal_paged_model(preferred_id=first_new)
+            if count is not None:
+                self._sync_views()
+                total, loaded = count
+                self.announcer.say(f"Pokazano {loaded} z {total} pozycji TIDAL")
             return
         self._tidal_navigation_version += 1
         version = self._tidal_navigation_version
@@ -14012,13 +14103,22 @@ class LiteFrame(wx.Frame):
             ):
                 return
             view_result, warning = result
+            self._tidal_view_cache[scope] = view_result
             self._tidal_effective_sort_modes[scope] = view_result.sort_mode
+            requested = requested_count(
+                self._tidal_loaded_counts.get((scope, ""), 0), load_more=False,
+            )
+            visible_rows, _total, loaded = paged_collection_rows(
+                view_result.rows, scope=scope, requested=requested,
+            )
+            self._tidal_loaded_counts[(scope, "")] = loaded
             events = self.navigator.apply_tidal_view(
                 intent.view,
                 view_result.heading,
-                list(view_result.rows),
+                list(visible_rows),
                 preferred_id=intent.preferred_id,
                 order_matches_amc=view_result.order_matches_amc,
+                total_count=len(view_result.rows),
             )
             # Wynik aktualizuje tylko stan TIDAL. Jeśli użytkownik zdążył
             # przejść do innej sesji, nie przenosimy tam fokusu ani mowy.
@@ -16729,6 +16829,7 @@ class LiteFrame(wx.Frame):
         # (MainWindow.xaml.cs:10196-10204): wejscie w widok oddaje jego wlasny
         # tekst filtra, a nie tekst widoku, z ktorego przyszlismy.
         self._restore_filter_for_current_view()
+        self._sync_tidal_paged_model()
         # JEDNA droga odswiezenia dla WSZYSTKICH widokow, bez wymiany kontrolki.
         # ``sync_rows`` sam decyduje, czy jest co robic: gdy dane, kolejnosc,
         # teksty i kursor sa te same, nie wykonuje ZADNEJ operacji na liscie.
@@ -26656,8 +26757,8 @@ class LiteFrame(wx.Frame):
         if adapter is None or self.client is None:
             self.announcer.say("Odtwarzacz TIDAL w AMC Test jest niedostępny")
             return
-        track_id = str(row.service_id or "")
-        if row.kind != "track" or re.fullmatch(r"[0-9]{1,18}", track_id) is None:
+        track_id = native_track_id(row.service_id)
+        if row.kind != "track" or track_id is None:
             self.announcer.say("Wybierz utwór TIDAL z poprawnymi danymi")
             return
         if not adapter.play(track_id, row.title):
@@ -26671,7 +26772,7 @@ class LiteFrame(wx.Frame):
             state.playback_source_rows = tuple(
                 candidate for candidate in state.model.rows
                 if candidate.kind == "track"
-                and re.fullmatch(r"[0-9]{1,18}", str(candidate.service_id or ""))
+                and native_track_id(candidate.service_id) is not None
             )
             state.playback_uses_queue = False
 
@@ -26711,9 +26812,7 @@ class LiteFrame(wx.Frame):
         if index < 0 or target < 0 or target >= len(rows):
             return None
         row = rows[target]
-        if row.kind != "track" or re.fullmatch(
-            r"[0-9]{1,18}", str(row.service_id or "")
-        ) is None:
+        if row.kind != "track" or native_track_id(row.service_id) is None:
             return None
         return row
 
@@ -34213,7 +34312,7 @@ class LiteFrame(wx.Frame):
                 return bool(
                     self._tidal_native_adapter is not None
                     and row is not None and row.kind == "track"
-                    and re.fullmatch(r"[0-9]{1,18}", str(row.service_id or ""))
+                    and native_track_id(row.service_id) is not None
                 )
             if action in TIDAL_NATIVE_ONLY_ACTIONS:
                 return bool(

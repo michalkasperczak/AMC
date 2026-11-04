@@ -7,12 +7,13 @@ from types import SimpleNamespace
 from amc_wx_lite import menu_model
 from amc_wx_lite.audio_output import effective_output_device_id
 from amc_wx_lite.command_palette import entries_for_session
-from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.gui import LiteFrame, _LIST_CONTEXT_ACTION_GROUPS
 from amc_wx_lite.navigation import Row, SessionId
 from amc_wx_lite.shortcuts import (
     Action, Chord, TIDAL_NATIVE_ONLY_ACTIONS, describe, resolve,
 )
 from amc_wx_lite.state_store import LiteState, StateStore
+from amc_wx_lite.tidal_source import native_track_id
 
 
 def _menu_actions() -> set[Action]:
@@ -43,6 +44,34 @@ def test_native_command_has_one_test_profile_surface_and_no_public_surface(
     assert Action.TIDAL_PLAY_NATIVE not in {
         entry.action for entry in entries_for_session(SessionId.TIDAL)
     }
+
+
+def test_native_track_id_accepts_real_catalog_ids_and_rejects_other_kinds() -> None:
+    assert native_track_id("tracks:123") == "123"
+    assert native_track_id("123") == "123"
+    for value in ("albums:123", "tracks:", "tracks:abc", "tracks:1/2", None):
+        assert native_track_id(value) is None
+
+
+def test_native_command_is_in_track_context_menu() -> None:
+    assert Action.TIDAL_PLAY_NATIVE in _LIST_CONTEXT_ACTION_GROUPS[0]
+    assert Action.TIDAL_PLAY_NATIVE in _menu_actions()
+
+    row = Row("tidal:tracks:1", "Utwór", "track", service_id="tracks:1")
+    entry = SimpleNamespace(action=Action.TIDAL_PLAY_NATIVE, checkable=False)
+    native = SimpleNamespace(IsEnabled=lambda: True, GetItemLabel=lambda: "Odtwórz utwór TIDAL w AMC Test")
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(session=SimpleNamespace(
+            model=SimpleNamespace(selected_row=row),
+        )),
+        _menu_items=[(native, entry)],
+        _refresh_menu_state=lambda: None,
+        _relation_context_menu_commands=lambda: (),
+        _context_menu_entry_label=lambda _entry, label: label,
+    )
+    groups = LiteFrame._context_menu_command_groups(frame, player=False)
+    assert groups[0][0].label == "Odtwórz utwór TIDAL w AMC Test"
+    assert groups[0][0].action is Action.TIDAL_PLAY_NATIVE
 
 
 def test_native_transport_keys_use_tidal_session_without_stealing_list_arrows() -> None:
@@ -87,8 +116,8 @@ def test_native_output_choice_roundtrips_only_in_test_profile(monkeypatch) -> No
 def test_selected_track_starts_adapter_and_captures_its_list_for_skip() -> None:
     started: list[tuple[str, str]] = []
     rows = (
-        Row("tidal:tracks:1", "Pierwszy", "track", service_id="1"),
-        Row("tidal:tracks:2", "Drugi", "track", service_id="2"),
+        Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1"),
+        Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2"),
     )
     state = SimpleNamespace(
         model=SimpleNamespace(rows=rows), playback_source_rows=(),
@@ -111,7 +140,7 @@ def test_selected_track_starts_adapter_and_captures_its_list_for_skip() -> None:
 
 def test_native_skip_stays_in_amc_adapter() -> None:
     calls: list[tuple[str, bool]] = []
-    target = Row("tidal:tracks:2", "Drugi", "track", service_id="2")
+    target = Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2")
     frame = SimpleNamespace(
         navigator=SimpleNamespace(active=SessionId.TIDAL),
         _tidal_native_has_playback=True,
@@ -165,7 +194,7 @@ def test_native_seek_and_status_use_tidal_not_files_session() -> None:
 
 
 def test_context_help_disables_native_commands_for_external_tidal() -> None:
-    row = Row("tidal:tracks:1", "Utwór", "track", service_id="1")
+    row = Row("tidal:tracks:1", "Utwór", "track", service_id="tracks:1")
     frame = SimpleNamespace(
         navigator=SimpleNamespace(
             active=SessionId.TIDAL,
