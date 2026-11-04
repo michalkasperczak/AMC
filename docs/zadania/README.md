@@ -211,7 +211,7 @@ Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowuj
   Szczegóły:
   [REL-003-usuniecie-wpf-i-stan-youtube.md](REL-003-usuniecie-wpf-i-stan-youtube.md).
 
-- `RECOG-002` — **W trakcie; kod, 101 testów celowanych i kompilacja hosta gotowe, bez instalacji** — poprawia kopiowanie linku z okna działań prawej strzałki, zapis całego otwartego albumu do Biblioteki Spotify lub TIDAL i powrót do listy usługi. Kod dodawania albumu do playlist konta TIDAL jest zapisany; jego odbiór użytkownik wydzielił 4.11.2026 do osobnego etapu. Szczegóły: [RECOG-002-album-z-historii-do-uslug.md](RECOG-002-album-z-historii-do-uslug.md).
+- `RECOG-002` — **W trakcie; poprawki rozpoznawania są w zainstalowanym AMC Test 4.11.2026, 12:40; kod playlist TIDAL czeka na osobny odbiór** — poprawia kopiowanie linku z okna działań prawej strzałki, zapis całego otwartego albumu do Biblioteki Spotify lub TIDAL i powrót do listy usługi. Kod dodawania albumu do playlist konta TIDAL jest zapisany; jego odbiór użytkownik wydzielił 4.11.2026 do osobnego etapu. Szczegóły: [RECOG-002-album-z-historii-do-uslug.md](RECOG-002-album-z-historii-do-uslug.md).
 
 - `ECOSYSTEM-001` — **Zrobione: porównanie źródeł, bez zmian w programie** — obserwacje z Blindradio o rozpoznawaniu, historii i komunikatach NVDA; jedna sugestia na przyszłe zadanie. [ECOSYSTEM-001-Blindradio-rozpoznawanie.md](ECOSYSTEM-001-Blindradio-rozpoznawanie.md).
 

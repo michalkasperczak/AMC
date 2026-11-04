@@ -43,3 +43,9 @@ Status: **W trakcie; kod, testy celowane i kompilacja hosta gotowe, bez instalac
 - Końcowa bramka menu dla poprawnej tożsamości elementu TIDAL z 4.11.2026: `05086fa4`.
 - 3.11.2026 przed kompilacją: aktywna instalacja AMC Test działa z `C:\Users\micha\AppData\Local\Programs\AMC Test` i ma etykietę `2026.11.02-a415e5066d0b04078ee1146a83d16c94dd14fd7d-8e9b085e`. Starszy katalog `D:\Projekty Codex\AMC Python` nie jest aktywny.
 - Identyfikator nowego pakietu i data instalacji: brak, ponieważ stan nagrań w aktywnej instancji nie został jeszcze potwierdzony.
+
+## Uzgodnienie gałęzi i instalacji — 4 listopada 2026
+
+Osobna gałąź `codex/amc-test-recognition-release-20261104` dodała do bazy użytkowej poprawki rozpoznawania (`6c187748`, `44836a7e`), dokumentację punktu kontrolnego (`b6a837e1`) i przygotowanie `alpha.468` (`ff2d2acc`). Aktywna instalacja AMC Test z 4.11.2026, 12:40 wskazuje commit `ff2d2acc`. Wcześniejsze wpisy „bez instalacji” opisują stan przed tym wydaniem.
+
+Tamta gałąź celowo nie zawierała późniejszych zmian playlist TIDAL. Bieżące scalenie z gałęzią integracyjną zachowuje zarówno poprawki rozpoznawania, jak i przygotowany kod playlist TIDAL; odbiór playlist na koncie oraz z NVDA pozostaje osobnym etapem. Na odizolowanym kandydacie rozpoznawania przeszło 216/216 testów Python i osobno 6/6 testów dialogu playlist Spotify. Ten wynik nie zastępuje testów po obecnym scaleniu.
