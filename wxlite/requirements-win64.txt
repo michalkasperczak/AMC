@@ -22,6 +22,5 @@
 
 wxPython==4.3.1 --hash=sha256:bbb4cefea441cba77f81b0ac2f7445f0ad01f18fee3b72a78ed48298b3f8f0ab
 
-# Program nie uzywa zadnych innych pakietow z PyPI. Protokol, lista, stan i
-# testy stoja na samej bibliotece standardowej - to swiadoma decyzja, zeby
-# lekki wariant startowal szybko i dal sie spakowac bez niespodzianek.
+# Podstawowy runtime AMC używa wxPython. Eksperymentalny odtwarzacz TIDAL
+# tylko w AMC Test ma osobny przypięty zestaw w requirements-tidal-test.txt.

@@ -88,7 +88,30 @@ PROFILE_GATED_SERVICE_MODULES = {
     "spotify_playlist_dialog.py": "session.spotify",
     "spotify_source.py": "session.spotify",
     "tidal_source.py": "session.tidal",
+    "tidal_native_playback.py": "tidal.native-playback",
+    "tidal_bts_audio.py": "tidal.native-playback",
+    "tidalapi_session_store.py": "tidal.native-playback",
 }
+
+# Only these missing packages are copied from a dedicated, pinned test venv.
+# Existing shared requests/certifi/etc. stay in the supplied AMC runtime.
+TIDAL_TEST_PACKAGES = {
+    "tidalapi": ("tidalapi", "tidalapi-0.8.11.dist-info"),
+    "pyaes": ("pyaes", "pyaes-1.6.1.dist-info"),
+    "ratelimit": ("ratelimit", "ratelimit-2.2.1.dist-info"),
+    "mpegdash": ("mpegdash", "mpegdash-0.4.1.dist-info"),
+    "isodate": ("isodate", "isodate-0.7.2.dist-info"),
+    "dateutil": ("dateutil", "python_dateutil-2.9.0.post0.dist-info"),
+}
+TIDAL_SHARED_METADATA = (
+    "requests-2.34.2.dist-info",
+    "certifi-2026.10.23.dist-info",
+    "charset_normalizer-3.5.2.dist-info",
+    "idna-3.20.dist-info",
+    "urllib3-2.8.0.dist-info",
+    "six-1.17.0.dist-info",
+    "typing_extensions-4.16.0.dist-info",
+)
 
 
 def sha256(path: Path) -> str:
@@ -287,6 +310,14 @@ def copy_python_code(
         if source.exists():
             shutil.copy2(source, target / name)
             copied.append(name)
+    tidal_requirements = target / "requirements-tidal-test.txt"
+    if "tidal.native-playback" in selected_profile.capabilities:
+        source = source_wxlite / tidal_requirements.name
+        if source.is_file():
+            shutil.copy2(source, tidal_requirements)
+            copied.append(tidal_requirements.name)
+    elif tidal_requirements.is_file():
+        tidal_requirements.unlink()
     return copied
 
 
@@ -508,6 +539,63 @@ def copy_runtime(target: Path, runtime: Path) -> list[str]:
     return [p.relative_to(target).as_posix() for p in sorted(destination.rglob("*")) if p.is_file()]
 
 
+def copy_tidal_test_dependencies(
+    target: Path, profile: ReleaseProfile, source_site_packages: Path | None,
+) -> list[str]:
+    """Add the pinned private player only to an isolated AMC Test bundle.
+
+    Never install into the supplied runtime: it may belong to a running AMC.
+    A full Test build must name the isolated venv explicitly; refresh-only
+    builds instead require these packages already present in the bundle.
+    """
+    if "tidal.native-playback" not in profile.capabilities:
+        return []
+    destination = target / "runtime" / "Lib" / "site-packages"
+    if source_site_packages is None:
+        raise SystemExit("AMC Test TIDAL wymaga --tidal-site-packages z prywatnego venv.")
+    validate_tidal_dependency_sources(destination, source_site_packages)
+    copied: list[str] = []
+    for module_name, metadata_name in TIDAL_TEST_PACKAGES.values():
+        source_module = source_site_packages / module_name
+        source_metadata = source_site_packages / metadata_name
+        if not source_module.is_dir() or not source_metadata.is_dir():
+            raise SystemExit("Brakuje przypiętej zależności TIDAL w prywatnym venv.")
+        for source in (source_module, source_metadata):
+            output = destination / source.name
+            if output.exists():
+                raise SystemExit("Runtime AMC Test zawiera już składnik TIDAL; sprawdź jego wersję.")
+            shutil.copytree(source, output)
+            copied.extend(
+                p.relative_to(target).as_posix()
+                for p in sorted(output.rglob("*")) if p.is_file()
+            )
+    return copied
+
+
+def validate_tidal_dependency_sources(
+    runtime_site_packages: Path, source_site_packages: Path,
+) -> None:
+    if any(not (runtime_site_packages / name).is_dir() for name in TIDAL_SHARED_METADATA):
+        raise SystemExit("Runtime AMC Test nie zawiera zgodnych wspólnych zależności TIDAL.")
+    if any(
+        not (source_site_packages / name).is_dir()
+        for pair in TIDAL_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit("Prywatny venv nie zawiera przypiętych zależności TIDAL.")
+
+
+def validate_tidal_test_dependencies(target: Path, profile: ReleaseProfile) -> None:
+    """Reject a Python-only refresh when the installed Test runtime lacks TIDAL."""
+    if "tidal.native-playback" not in profile.capabilities:
+        return
+    root = target / "runtime" / "Lib" / "site-packages"
+    if any(
+        not (root / name).is_dir()
+        for pair in TIDAL_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit("Istniejąca paczka AMC Test nie zawiera zależności TIDAL; wykonaj pełny build.")
+
+
 def copy_updater(target: Path, updater_dir: Path) -> list[str]:
     executable = updater_dir / "AMC-Python-Updater.exe"
     if not executable.is_file():
@@ -566,6 +654,12 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
                 )
             )
             or Path(relative).name.casefold() in forbidden_names
+            or (
+                "tidal.native-playback" not in profile.capabilities
+                and relative.replace("\\", "/").casefold().startswith(
+                    "runtime/lib/site-packages/tidalapi"
+                )
+            )
         )
     ]
     if forbidden:
@@ -668,6 +762,12 @@ def main() -> int:
         default=None,
         help="prywatny runtime Pythona do dolozenia (nie trafia do Git)",
     )
+    parser.add_argument(
+        "--tidal-site-packages",
+        type=Path,
+        default=None,
+        help="site-packages przypiętego, osobnego venv TIDAL tylko dla AMC Test",
+    )
     parser.add_argument("--clean", action="store_true", help="wyczysc folder docelowy")
     parser.add_argument(
         "--refresh-python-only",
@@ -693,6 +793,7 @@ def main() -> int:
                 "Tryb --refresh-python-only nie moze zmienic profilu istniejacej paczki"
             )
         profile = profile_from_id(existing_profile_id)
+        validate_tidal_test_dependencies(target, profile)
         manifest.update(profile.manifest_fields())
         files = list(manifest.get("files") or [])
         files += copy_python_code(target, profile)
@@ -740,6 +841,17 @@ def main() -> int:
     # jego prywatnego hosta oraz setek plikow licencji zaleznosci.
     if profile_allows_librespot(profile):
         validate_librespot_package_source()
+    if "tidal.native-playback" in profile.capabilities:
+        if args.tidal_site_packages is None:
+            raise SystemExit("AMC Test TIDAL wymaga --tidal-site-packages z prywatnego venv.")
+        validate_tidal_dependency_sources(
+            args.runtime / "Lib" / "site-packages", args.tidal_site_packages
+        )
+    elif any(
+        (args.runtime / "Lib" / "site-packages" / name).exists()
+        for name in ("tidalapi", "tidalapi-0.8.11.dist-info")
+    ):
+        raise SystemExit("Publiczny runtime AMC nie może zawierać prywatnego tidalapi.")
 
     if args.clean and target.exists():
         shutil.rmtree(target)
@@ -765,6 +877,9 @@ def main() -> int:
     manifest["hostFolder"] = args.host_subdir
 
     manifest["files"] += copy_runtime(target, args.runtime)
+    manifest["files"] += copy_tidal_test_dependencies(
+        target, profile, args.tidal_site_packages
+    )
     manifest["runtime"] = "embedded"
 
     # Aktualizator akceptuje wyłącznie kompletne paczki. Sumy obejmują każdy

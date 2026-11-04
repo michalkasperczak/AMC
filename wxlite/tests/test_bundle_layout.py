@@ -32,6 +32,7 @@ def test_python_package_matches_isolated_runtime_app_path():
             target / "app" / "amc_wx_lite" / "locales" / "template.json"
         ).is_file()
         assert "app/amc_wx_lite/locales/en_legacy.json" in copied
+        assert (target / "requirements-tidal-test.txt").is_file()
         assert not (target / "AMC-wx-Lite.cmd").exists()
 
 
@@ -70,6 +71,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
         copied = bundle.copy_python_code(target, bundle.profile_from_id("public"))
 
         assert "app/amc_wx_lite/gui.py" in copied
+        assert not (target / "requirements-tidal-test.txt").exists()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
         assert not (package / "sonos_source.py").exists()
@@ -586,6 +588,56 @@ def test_runtime_can_be_reused_in_place_during_bundle_update():
         assert "runtime/python.exe" in copied
 
 
+def test_private_tidal_dependencies_are_copied_only_into_test_runtime():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        target = root / "bundle"
+        runtime_site = target / "runtime" / "Lib" / "site-packages"
+        source_site = root / "private-venv" / "Lib" / "site-packages"
+        runtime_site.mkdir(parents=True)
+        source_site.mkdir(parents=True)
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (runtime_site / name).mkdir()
+        for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
+            module = source_site / module_name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+            metadata = source_site / metadata_name
+            metadata.mkdir()
+            (metadata / "METADATA").write_text("test", encoding="utf-8")
+
+        copied = bundle.copy_tidal_test_dependencies(
+            target, bundle.profile_from_id("test"), source_site
+        )
+        assert "runtime/Lib/site-packages/tidalapi/__init__.py" in copied
+        assert (runtime_site / "tidalapi-0.8.11.dist-info" / "METADATA").is_file()
+        bundle.validate_tidal_test_dependencies(target, bundle.profile_from_id("test"))
+        assert bundle.copy_tidal_test_dependencies(
+            target, bundle.profile_from_id("public"), source_site
+        ) == []
+
+
+def test_private_tidal_dependency_gate_rejects_missing_and_public_leak():
+    with tempfile.TemporaryDirectory() as folder:
+        target = Path(folder)
+        test = bundle.profile_from_id("test")
+        try:
+            bundle.validate_tidal_test_dependencies(target, test)
+        except SystemExit as error:
+            assert "pełny build" in str(error)
+        else:
+            raise AssertionError("Test bez tidalapi musi odmówić Python-only refresh")
+        try:
+            bundle.validate_profile_files(
+                bundle.profile_from_id("public"),
+                ["runtime/Lib/site-packages/tidalapi/session.py"],
+            )
+        except SystemExit as error:
+            assert "Publiczny pakiet AMC" in str(error)
+        else:
+            raise AssertionError("Publiczny pakiet nie może zawierać tidalapi")
+
+
 def test_pinned_librespot_source_matches_local_provenance_and_license_inventory():
     provenance = bundle.validate_librespot_package_source()
     assert provenance["sha256"] == bundle.LIBRESPOT_HOST_SHA256
@@ -672,6 +724,32 @@ def test_full_bundle_validates_librespot_before_cleaning_existing_candidate():
         assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
 
 
+def test_full_test_bundle_requires_tidal_venv_before_cleaning_candidate():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        target = root / "bundle"
+        runtime = root / "runtime"
+        target.mkdir()
+        runtime.mkdir()
+        marker = target / "do-not-touch.txt"
+        marker.write_text("poprzedni kandydat", encoding="utf-8")
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                str(path), "--out", str(target), "--runtime", str(runtime),
+                "--clean",
+            ]
+            try:
+                bundle.main()
+            except SystemExit as error:
+                assert "--tidal-site-packages" in str(error)
+            else:
+                raise AssertionError("Test bez przypiętego venv musi odmówić")
+        finally:
+            sys.argv = original_argv
+        assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
+
+
 def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
@@ -679,6 +757,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
         launcher = root / "launcher-publish"
         updater = root / "updater-publish"
         runtime = root / "runtime-source"
+        tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
         unrelated_cwd = root / "unrelated-cwd"
         target = root / "bundle"
         for directory in (host, launcher, updater, runtime, unrelated_cwd):
@@ -689,6 +768,18 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
         (runtime / "python.exe").write_bytes(b"SYNTHETIC_PYTHON")
         (runtime / "pythonw.exe").write_bytes(b"SYNTHETIC_PYTHONW")
         (runtime / "python314._pth").write_text("python314.zip\n", encoding="utf-8")
+        runtime_site = runtime / "Lib" / "site-packages"
+        runtime_site.mkdir(parents=True)
+        tidal_site.mkdir(parents=True)
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (runtime_site / name).mkdir()
+        for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
+            module = tidal_site / module_name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+            metadata = tidal_site / metadata_name
+            metadata.mkdir()
+            (metadata / "METADATA").write_text("test", encoding="utf-8")
 
         original_argv = sys.argv
         original_cwd = Path.cwd()
@@ -701,6 +792,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
                 "--launcher", str(launcher),
                 "--updater", str(updater),
                 "--runtime", str(runtime),
+                "--tidal-site-packages", str(tidal_site),
             ]
             os.chdir(unrelated_cwd)
             assert bundle.main() == 0

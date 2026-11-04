@@ -1,0 +1,16 @@
+# Prywatne, eksperymentalne odtwarzanie TIDAL tylko w AMC Test.
+# Instalować wyłącznie w odizolowanym venv; build_bundle.py kopiuje przypięte
+# składniki do nowej paczki Test, nigdy do działającej instalacji AMC.
+tidalapi==0.8.11
+pyaes==1.6.1
+ratelimit==2.2.1
+mpegdash==0.4.1
+isodate==0.7.2
+python-dateutil==2.9.0.post0
+requests==2.34.2
+certifi==2026.10.23
+charset-normalizer==3.5.2
+idna==3.20
+urllib3==2.8.0
+six==1.17.0
+typing-extensions==4.16.0
