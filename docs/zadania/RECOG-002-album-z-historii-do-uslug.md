@@ -1,6 +1,6 @@
 # RECOG-002 — album z historii rozpoznawania w Spotify i TIDAL
 
-Status: **W trakcie; odizolowane źródła na GitHubie, testy celowane gotowe, bez pakietu i instalacji**. Zgłoszenie: 3.11.2026.
+Status: **Wydanie AMC Test alpha.468 opublikowane i zainstalowane; odbiór klawiatury oraz NVDA otwarty**. Zgłoszenie: 3.11.2026. Aktualizacja: 4.11.2026.
 
 ## Zachowanie widoczne dla użytkownika
 
@@ -46,3 +46,19 @@ Status: **W trakcie; odizolowane źródła na GitHubie, testy celowane gotowe, b
 - Gałąź `codex/amc-test-recognition-release-20261104` została wysłana do `michalkasperczak/AMC`. Odczyt zdalnego refa potwierdził dokładnie `44836a7e3d0dd5aa2cd7361cb47b9a1c6dadeaf3`. To publikacja źródeł gałęzi, bez GitHub Release i bez instalatora.
 - Użytkownik potwierdził trwające nagranie. Nie zamykano AMC Test, nie rozpoczęto ciężkiego pakowania ani instalacji. Pakiet, prerelease na GitHubie, instalacja i odbiór NVDA pozostają do wykonania po zakończeniu nagrania i świeżej kontroli stanu.
 - Techniczny numer przygotowanego następnego wydania Test: `0.1.0-alpha.468`; źródła wersji są gotowe, ale numer nie oznacza jeszcze zbudowanego ani opublikowanego instalatora.
+
+## Wynik wydania i instalacji — 4.11.2026
+
+Ten wynik zastępuje wcześniejszy w tej karcie stan „bez pakietu i instalacji” oraz wcześniejszy ref gałęzi. Korekta użytkownika z 4.11: nie pytać ponownie o nagrania, lecz czytać harmonogram i rzeczywisty stan; instalować po najbliższym nagraniu, nie wcześniej niż 13:10. Nie potwierdza to odbioru funkcji w NVDA.
+
+- Źródła wydania: czysty commit `ff2d2acc668462209b091d825eb21867af7c40df` na `codex/amc-test-recognition-release-20261104`, zdalny ref sprawdzony na GitHubie. Bazą pozostała faktycznie używana rewizja `a415e506`; poza poprawką rozpoznawania nie przeniesiono późniejszych playlist TIDAL ani zmian AirPlay.
+- Testy: 216/216 celowanych testów rozpoznawania, nawigacji, menu i palety; osobno 6/6 testów okna playlist Spotify; osobno 38/38 testów wersji i profili wydania. Razem 260 zaliczonych. Nie wykonano ręcznego odbioru NVDA ani rzeczywistego zapisu albumu na kontach użytkownika.
+- Paczka testowa `0.1.0-alpha.468`, etykieta `2026.11.04-ff2d2acc668462209b091d825eb21867af7c40df-1e5026a9`, 4042 pliki, `sourceDirty=false`. Pełna integralność i kontrolowany start interfejsu oraz hosta przeszły przed instalacją. Powtórna kontrola startu z ograniczonej piaskownicy zakończyła się błędem hosta, ale ten sam test poza nią przeszedł; nie była to wada paczki.
+- Instalator `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.468 rozpoznawanie 2026-11-04\instalator\AMC-Test-2026-11-04-1240.exe`: 143334716 bajtów, SHA-256 `4169d6b426bde678de5b9dc5c0b016772bc7c7efaf734273cc05ab082dea9e75`. Bramka instalatora, skan sekretów, dodatek Quick App Switcher 0.1.6 i izolowany start przeszły. Dodatek nie został automatycznie zainstalowany i NVDA nie restartowano.
+- GitHub: prerelease `test-2026.11.04.1240`, `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.04.1240`. Odczyt API potwierdził docelowy commit, `isPrerelease=true`, trzy przesłane zasoby oraz zgodny rozmiar i digest SHA-256 instalatora.
+- Przed instalacją dziennik potwierdził zakończenie nagrania z 13:00 o 13:06. Harmonogram na środę wskazywał to nagranie na 6 minut; po 13:10 nie było nowego startu w dzienniku. Starsze nagranie z 12:13 miało przerwany strumień i brak zwykłej linii końcowej; przed podmianą host już nie działał. Nie twierdzimy, że ten plik jest kompletny.
+- Pierwszy przebieg oficjalnego aktualizatora nie podmienił plików: host zakończył pracę, lecz stary interfejs i launcher pozostały. Po kilku minutach interfejs nie miał okna, nie pracował host, a plik stanu nie był właśnie zapisywany. Wymuszono zakończenie wyłącznie PID 45116 zawieszonego interfejsu; launcher PID 26232 zamknięto łagodnym `CloseMainWindow` po pojawieniu się okna diagnostycznego. Nie użyto wymuszonego zatrzymania podczas działania hosta. Drugi przebieg z tym samym zweryfikowanym instalatorem podmienił pliki.
+- Po instalacji o 13:18 w `C:\Users\micha\AppData\Local\Programs\AMC Test` manifest wskazuje dokładny commit i etykietę wydania. Jedna instancja uruchomiła launcher 39944, interfejs 1848 z głównym oknem oraz host 30316. Pełna kontrola zainstalowanego pakietu zakończyła się kodem 0. Skrypt izolowanego startu uruchomiony na działającej instalacji zgłosił jej już istniejące procesy jako „pozostałości”; nie używamy tego wyniku jako dowodu awarii nowej wersji. Identyczny test paczki przed instalacją przeszedł.
+- Otwarty problem: zawieszenie zamykania starego interfejsu w obecności okna historii rozpoznań. Wymaga osobnego odtworzenia i poprawki; aktualne wydanie nie ma potwierdzonego odbioru tego przypadku. Ścieżki klawiatury, mowa NVDA, rzeczywiste linki i zapisy w usługach też wymagają odbioru.
+- Szkic instrukcji i listy zmian zapisano poza wydaniem w `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.468 rozpoznawanie 2026-11-04\dokumentacja\Instrukcja i lista zmian - szkic.md`; wymaga korekty użytkownika i nie jest częścią opublikowanego release.
+- Limit Codex po zadaniu: 2% wykorzystane, 98% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw. Nie użyto bezpłatnych resetów.
