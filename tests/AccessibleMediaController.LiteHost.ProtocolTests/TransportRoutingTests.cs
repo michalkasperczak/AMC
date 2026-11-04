@@ -18,6 +18,7 @@ internal static class TransportRoutingTests
         var files = LiteTransportRouting.Resolve("files", "radio", true);
         var podcasts = LiteTransportRouting.Resolve("podcasts", "radio", false);
         var spotify = LiteTransportRouting.Resolve("spotify", "files", false);
+        var tidal = LiteTransportRouting.Resolve("tidal", "radio", false);
         Assert.True(radio == new LiteTransportTarget("radio", "radio"),
             "Radio ma własny tor niezależnie od ostatniego polecenia.");
         Assert.True(files == new LiteTransportTarget("files", "files"),
@@ -26,6 +27,8 @@ internal static class TransportRoutingTests
             "Podcasty używają lokalnego toru plikowego, ale zachowują nazwę sesji.");
         Assert.True(spotify == new LiteTransportTarget("spotify", "spotify"),
             "Spotify ma własny tor Librespot i nie może trafić do plików.");
+        Assert.True(tidal == new LiteTransportTarget("tidal", "files"),
+            "TIDAL zachowuje własną sesję na współdzielonym torze plikowym.");
         var radioarchiwista = LiteTransportRouting.Resolve("radioarchiwista", "radio", false);
         Assert.True(radioarchiwista == new LiteTransportTarget("radioarchiwista", "files"),
             "Radio Archiwista używa lokalnego toru plikowego i zachowuje nazwę sesji.");
@@ -51,7 +54,7 @@ internal static class TransportRoutingTests
     {
         try
         {
-            LiteTransportRouting.Resolve("tidal", "files", false);
+            LiteTransportRouting.Resolve("unknown", "files", false);
             throw new InvalidOperationException("Nieznana sesja nie została odrzucona.");
         }
         catch (LiteRequestException)

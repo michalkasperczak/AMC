@@ -22,13 +22,15 @@ internal static class LiteTransportRouting
                 "files" => new("files", "files"),
                 "podcasts" => new("podcasts", "files"),
                 "spotify" => new("spotify", "spotify"),
+                // The experimental TIDAL track shares the local output but
+                // keeps separate ownership and never enters local resume.
+                "tidal" => new("tidal", "files"),
                 // Radio Archiwista odtwarza przez media.play na lokalnym torze
                 // plikowym; bez tego wpisu host odrzucał przewijanie, pauzę
                 // i głośność sesji.
                 "radioarchiwista" => new("radioarchiwista", "files"),
                 _ => throw new LiteRequestException(
-                    "Transport obsługuje sesje Pliki, Podcasty, Radio, "
-                    + "Spotify i Radio Archiwista.")
+                    "Transport nie obsługuje tej sesji.")
             };
         }
 

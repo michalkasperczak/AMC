@@ -147,7 +147,9 @@ internal static class Program
             sonos,
             spotifyCatalog,
             spotifyPlayback,
-            commonDataSnapshot);
+            commonDataSnapshot,
+            enableTidalNativePlayback: LiteTidalNativePlayRequest.IsEnabledForProfile(
+                ReadArgumentText(args, "--release-profile")));
         using var nvdaRelay = new LiteNvdaRelay();
         using var nvdaBridge = new LiteNvdaBridge(nvdaRelay);
         var registeredHandlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(

@@ -19,6 +19,7 @@ namespace AccessibleMediaController.LiteHost;
 /// </summary>
 internal sealed class LiteEngineHandlers : IDisposable
 {
+    private sealed record TidalTransientPlayback(Uri ProxyUri, TimeSpan Duration);
     private sealed record BookmarkNavigationCursor(
         string ItemId,
         string BookmarkId,
@@ -75,6 +76,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteSpotifyCatalogCoordinator? _spotifyCatalog;
     private readonly LiteSpotifyPlaybackCoordinator? _spotifyPlayback;
     private readonly LiteCommonDataSnapshotCoordinator? _commonDataSnapshot;
+    private readonly bool _enableTidalNativePlayback;
     private readonly LiteTidalDesktopCoordinator _tidalDesktop = new();
     private readonly LiteWiiMCoordinator? _wiim;
     private readonly LiteFrontierSmartCoordinator? _frontierSmart;
@@ -91,6 +93,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private MediaItem? _filesItem;
     private string? _filesSessionId;
+    private TidalTransientPlayback? _tidalTransient;
     private readonly Dictionary<string, (MediaItem Item, TimeSpan Position, int Volume, double Rate)> _filesSessions =
         new(StringComparer.Ordinal);
     private MediaItem? _radioItem;
@@ -154,7 +157,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteSonosCoordinator? sonos = null,
         LiteSpotifyCatalogCoordinator? spotifyCatalog = null,
         LiteSpotifyPlaybackCoordinator? spotifyPlayback = null,
-        LiteCommonDataSnapshotCoordinator? commonDataSnapshot = null)
+        LiteCommonDataSnapshotCoordinator? commonDataSnapshot = null,
+        bool enableTidalNativePlayback = false)
     {
         _radio = new RadioMediaOutput(timeshiftMinutes);
         _queueStore = queueStore;
@@ -166,6 +170,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _spotifyCatalog = spotifyCatalog;
         _spotifyPlayback = spotifyPlayback;
         _commonDataSnapshot = commonDataSnapshot;
+        _enableTidalNativePlayback = enableTidalNativePlayback;
         _wiim = wiim;
         _frontierSmart = frontierSmart;
         _sonos = sonos;
@@ -195,9 +200,34 @@ internal sealed class LiteEngineHandlers : IDisposable
 
         _files.PlaybackFailed += (_, e) =>
         {
-            lock (_gate) _filesPlaying = false;
+            string? sessionId;
+            lock (_gate)
+            {
+                if (e.Item is not null && _filesItem is null
+                    && e.Item.Id.StartsWith("tidal:", StringComparison.Ordinal)) return;
+                if (e.Item is not null && _filesItem is not null
+                    && e.Item.Id != _filesItem.Id) return;
+                sessionId = _filesSessionId;
+                _filesPlaying = false;
+                _filesPaused = false;
+                if (sessionId == "tidal")
+                {
+                    _tidalTransient = null;
+                    _filesItem = null;
+                    _filesSessionId = null;
+                }
+            }
             Publish("playback.failed",
-                new { engine = "files", message = e.Message, title = e.Item?.Title });
+                new
+                {
+                    engine = "files",
+                    sessionId,
+                    id = e.Item?.Id,
+                    title = e.Item?.Title,
+                    message = sessionId == "tidal"
+                        ? "Nie udało się odtworzyć utworu TIDAL."
+                        : e.Message
+                });
         };
         _files.PlaybackStarted += (_, e) =>
         {
@@ -213,12 +243,13 @@ internal sealed class LiteEngineHandlers : IDisposable
                     _filesItem = e.Item;
                     _filesSessionId = e.Item.Kind == MediaItemKind.Episode
                         ? "podcasts" : "files";
+                    _tidalTransient = null;
                 }
                 _filesPlaying = true;
                 _filesPaused = false;
                 sessionId = _filesSessionId;
             }
-            var historyError = sessionId == "radioarchiwista" ? null
+            var historyError = sessionId is "radioarchiwista" or "tidal" ? null
                 : TryRecordPlaybackHistory(
                     sessionId == "podcasts" ? "podcasts" : "local", e.Item.Id);
             Publish("playback.started",
@@ -234,6 +265,13 @@ internal sealed class LiteEngineHandlers : IDisposable
                 if (_filesItem?.Id != e.Item.Id) return;
                 _filesPlaying = false;
                 sessionId = _filesSessionId;
+                if (sessionId == "tidal")
+                {
+                    _tidalTransient = null;
+                    _filesItem = null;
+                    _filesSessionId = null;
+                    _filesPaused = false;
+                }
             }
             if (sessionId == "podcasts")
             {
@@ -247,7 +285,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 }
                 TrySavePodcastProgress(e.Item.Id, TimeSpan.Zero, duration, completed: true);
             }
-            else if (!_queue.OwnsCurrent(e.Item.Id))
+            else if (sessionId != "tidal" && !_queue.OwnsCurrent(e.Item.Id))
             {
                 // Bezposredni lokalny plik zakonczony naturalnie nie moze
                 // wrocic przy kolejnym Enterze na stary, koncowy czas.
@@ -299,6 +337,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _activeEngine = "files";
                 _filesItem = next;
                 _filesSessionId = next.Kind == MediaItemKind.Episode ? "podcasts" : "files";
+                _tidalTransient = null;
                 _bookmarkNavigationCursor = null;
                 // Nowy strumien: dlugosc POPRZEDNIEGO przestaje obowiazywac.
                 // Zerujemy tylko wtedy, gdy zapamietany czas nie dotyczy JUZ
@@ -407,7 +446,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     public IReadOnlyDictionary<string, Func<LiteRequest, LiteEventSink, object?>> Build()
     {
-        return new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
+        var handlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(StringComparer.Ordinal)
         {
             ["host.hello"] = (_, events) =>
             {
@@ -758,6 +797,13 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.previous"] = (_, events) =>
                 RunLocalPlaybackStart(() => QueueRelative(-1, events))
         };
+        if (_enableTidalNativePlayback)
+        {
+            handlers.Add(LiteTidalNativePlayRequest.Operation,
+                (request, events) => RunLocalPlaybackStart(
+                    () => PlayTidalNative(request.Args, events)));
+        }
+        return handlers;
     }
 
     private object RunLocalPlaybackStart(Func<object> action)
@@ -1966,6 +2012,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             _filesItem = current;
             _filesSessionId = current.Kind == MediaItemKind.Episode ? "podcasts" : "files";
+            _tidalTransient = null;
             ForgetStaleFilesDurationLocked(current.Id);
             _filesPaused = status.Paused;
         }
@@ -2396,6 +2443,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _activeEngine = "files";
             _filesItem = item;
             _filesSessionId = "files";
+            _tidalTransient = null;
             _bookmarkNavigationCursor = null;
             // Nowy strumien: stary czas przestaje obowiazywac, zanim dekoder
             // zdazy podac nowy. Inaczej okno pokazywalo dlugosc POPRZEDNIEGO pliku.
@@ -2495,6 +2543,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _activeEngine = "files";
             _filesItem = item;
             _filesSessionId = sessionId;
+            _tidalTransient = null;
             _bookmarkNavigationCursor = null;
             _currentPodcastCompleted = false;
             ForgetStaleFilesDurationLocked(item.Id);
@@ -2508,6 +2557,78 @@ internal sealed class LiteEngineHandlers : IDisposable
         _files.ConfigureAudioProcessing(audio);
         _files.Play(item, position, _filesMuted ? 0 : volume, rate);
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
+    }
+
+    private object PlayTidalNative(JsonElement args, LiteEventSink events)
+    {
+        if (!_enableTidalNativePlayback)
+            throw new LiteRequestException(LiteTidalNativePlayRequest.DisabledMessage);
+        var request = LiteTidalNativePlayRequest.Parse(args);
+        _events = events;
+        TrySaveCurrentPodcastProgress();
+        TrySaveCurrentLocalResume();
+        RememberFilesSession();
+
+        var item = new MediaItem
+        {
+            Id = request.MediaItemId,
+            Title = request.Title,
+            Kind = MediaItemKind.Track,
+            Source = request.StableSource,
+            Duration = request.Duration
+        };
+        int volume;
+        bool muted;
+        lock (_gate)
+        {
+            _activeEngine = "files";
+            _filesItem = item;
+            _filesSessionId = "tidal";
+            _tidalTransient = new(request.ProxyUri, request.Duration);
+            _filesSessions.Remove("tidal");
+            _bookmarkNavigationCursor = null;
+            ForgetStaleFilesDurationLocked(item.Id);
+            _filesRate = 1d;
+            _requestedRate = 1d;
+            _filesPaused = false;
+            _filesPlaying = false;
+            volume = _filesVolume;
+            muted = _filesMuted;
+        }
+
+        _queue.DetachFromDirectPlay();
+        ConfigureOutputForSession("tidal");
+        try
+        {
+            _files.PlayTransientFlac(
+                item, request.ProxyUri, request.Duration, TimeSpan.Zero,
+                muted ? 0 : volume, 1d);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            lock (_gate)
+            {
+                if (_filesItem?.Id == item.Id && _filesSessionId == "tidal")
+                {
+                    _filesItem = null;
+                    _filesSessionId = null;
+                    _tidalTransient = null;
+                    _filesPlaying = false;
+                    _filesPaused = false;
+                }
+            }
+            // Exception text can include a loopback bearer capability.
+            throw new LiteRequestException("Nie udało się uruchomić utworu TIDAL.");
+        }
+        return new
+        {
+            ok = true,
+            engine = "files",
+            sessionId = "tidal",
+            id = item.Id,
+            title = item.Title,
+            preparing = true
+        };
     }
 
     private object PlayStation(JsonElement args, LiteEventSink events)
@@ -2552,6 +2673,8 @@ internal sealed class LiteEngineHandlers : IDisposable
     private LiteTransportTarget ResolveTransportTarget(JsonElement args)
     {
         var requested = LiteArgs.ReadText(args, "sessionId")?.Trim();
+        if (requested == "tidal" && !_enableTidalNativePlayback)
+            throw new LiteRequestException(LiteTidalNativePlayRequest.DisabledMessage);
         lock (_gate)
         {
             return LiteTransportRouting.Resolve(
@@ -2569,6 +2692,11 @@ internal sealed class LiteEngineHandlers : IDisposable
     {
         lock (_gate)
         {
+            if (_filesSessionId == "tidal")
+            {
+                _filesSessions.Remove("tidal");
+                return;
+            }
             if (_filesItem is not null && _filesSessionId is not null)
                 _filesSessions[_filesSessionId] =
                     (_filesItem, _files.Position, _filesVolume, _filesRate);
@@ -2582,6 +2710,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
         var label = target.SessionId switch
         {
+            "tidal" => "TIDAL",
             "radioarchiwista" => "Radio Archiwista",
             "podcasts" => "Podcasty",
             _ => "Pliki lokalne"
@@ -2610,6 +2739,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             lock (_gate) ownsCurrent = TargetOwnsFilesItemLocked(target.SessionId);
             if (!ownsCurrent)
             {
+                if (target.SessionId == "tidal")
+                    RequireTargetOwnsFilesItemLocked(target);
                 RememberFilesSession();
                 (MediaItem Item, TimeSpan Position, int Volume, double Rate) remembered;
                 lock (_gate)
@@ -2618,6 +2749,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                         RequireTargetOwnsFilesItemLocked(target);
                     _activeEngine = "files";
                     _filesSessionId = target.SessionId;
+                    _tidalTransient = null;
                     _filesItem = remembered.Item;
                     _filesVolume = remembered.Volume;
                     _filesRate = remembered.Rate;
@@ -2702,18 +2834,39 @@ internal sealed class LiteEngineHandlers : IDisposable
             {
                 _filesPaused = false;
                 _filesPlaying = true;
-                _files.Play(
-                    track,
-                    _files.Position,
-                    _filesMuted ? 0 : _filesVolume,
-                    _filesRate);
+                if (target.SessionId == "tidal")
+                {
+                    var transient = _tidalTransient
+                        ?? throw new LiteRequestException("Najpierw uruchom utwór TIDAL.");
+                    try
+                    {
+                        _files.PlayTransientFlac(
+                            track, transient.ProxyUri, transient.Duration,
+                            _files.Position, _filesMuted ? 0 : _filesVolume, _filesRate);
+                    }
+                    catch (Exception exception) when (exception is not OutOfMemoryException)
+                    {
+                        _filesPaused = true;
+                        _filesPlaying = false;
+                        throw new LiteRequestException("Nie udało się wznowić utworu TIDAL.");
+                    }
+                }
+                else
+                {
+                    _files.Play(
+                        track,
+                        _files.Position,
+                        _filesMuted ? 0 : _filesVolume,
+                        _filesRate);
+                }
             }
             else
             {
                 _filesPaused = true;
                 _files.Pause();
             }
-            saveLocalResume = track.Kind == MediaItemKind.Track;
+            saveLocalResume = track.Kind == MediaItemKind.Track
+                && target.SessionId != "tidal";
             result = new
             {
                 paused = _filesPaused,
@@ -2883,16 +3036,24 @@ internal sealed class LiteEngineHandlers : IDisposable
         TrySaveCurrentLocalResume();
         _queue.DetachFromDirectPlay();
         _files.Stop();
+        string? stoppedSessionId;
         lock (_gate)
         {
+            stoppedSessionId = _filesSessionId;
             _filesPaused = false;
             _filesPlaying = false;
+            if (stoppedSessionId == "tidal")
+            {
+                _tidalTransient = null;
+                _filesItem = null;
+                _filesSessionId = null;
+            }
         }
         return new
         {
             ok = true,
             engine = "files",
-            sessionId = _filesItem?.Kind == MediaItemKind.Episode ? "podcasts" : "files",
+            sessionId = stoppedSessionId ?? "files",
             queue = false,
             playing = false
         };
@@ -2942,13 +3103,22 @@ internal sealed class LiteEngineHandlers : IDisposable
         if (target < TimeSpan.Zero) target = TimeSpan.Zero;
 
         if (engine == "radio") _radio.Seek(target);
+        else if (targetSession.SessionId == "tidal")
+        {
+            try { _files.Seek(target); }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                throw new LiteRequestException("Nie udało się przewinąć utworu TIDAL.");
+            }
+        }
         else _files.Seek(target);
         // Przesuniecie czasu to ZDARZENIE WLASCICIELA: jesli transport prowadzi
         // kolejka, nowa pozycja ma trafic do punktu wznowienia. Koordynator sam
         // odrzuci czas, gdy material nie nalezy do kolejki.
         if (engine == "files")
         {
-            if (!_queue.NotePosition(target)) TrySaveCurrentLocalResume();
+            if (!_queue.NotePosition(target) && targetSession.SessionId != "tidal")
+                TrySaveCurrentLocalResume();
         }
         return new
         {
@@ -3048,7 +3218,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             return RequireSpotifyPlayback().SetVolume(args);
         }
         int current;
-        lock (_gate) current = target.Engine == "radio" ? _radioVolume : _filesVolume;
+        lock (_gate)
+        {
+            if (target.SessionId == "tidal") RequireTargetOwnsFilesItemLocked(target);
+            current = target.Engine == "radio" ? _radioVolume : _filesVolume;
+        }
         var volume = LiteArgs.ReadInt(args, "volume", current, 0, 100);
         lock (_gate)
         {
@@ -3138,7 +3312,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             return RequireSpotifyPlayback().SetRate(args);
         }
         double current;
-        lock (_gate) current = target.Engine == "radio" ? _radioRate : _filesRate;
+        lock (_gate)
+        {
+            if (target.SessionId == "tidal") RequireTargetOwnsFilesItemLocked(target);
+            current = target.Engine == "radio" ? _radioRate : _filesRate;
+        }
         var rate = LiteArgs.ReadDouble(args, "rate", current, 0.5d, 2.0d);
         lock (_gate)
         {
@@ -3324,6 +3502,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         lock (_gate) item = _filesItem;
         if (item is null
             || item.Kind != MediaItemKind.Track
+            || _filesSessionId == "tidal"
             || _queue.OwnsCurrent(item.Id)
             || string.IsNullOrWhiteSpace(item.Source))
         {
@@ -3456,13 +3635,14 @@ internal sealed class LiteEngineHandlers : IDisposable
             sessionId = target.SessionId,
             playing,
             paused,
+            preparing = engine == "files" && item is not null && _files.IsPreparing,
             muted,
             id = item?.Id,
             title = item?.Title,
             // Sciezka jest czescia WEWNETRZNEGO protokolu, potrzebna do
             // sprawdzenia tozsamosci zaznaczenia i wywolania wspolnego
             // eksportera. Frontend nie uzywa jej jako nazwy kontrolki.
-            source = item?.Source,
+            source = target.SessionId == "tidal" ? null : item?.Source,
             positionSeconds = position.TotalSeconds,
             durationSeconds = duration.TotalSeconds,
             volume,
@@ -3717,9 +3897,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         var sessionId = LiteArgs.RequireText(args, "sessionId");
         if (sessionId == LiteSpotifyCatalogContract.SessionId)
             return RequireSpotifyPlayback().SelectOutput(args);
-        if (sessionId is not ("files" or "radio" or "podcasts" or "radioarchiwista"))
+        if (sessionId == "tidal" && !_enableTidalNativePlayback)
+            throw new LiteRequestException(LiteTidalNativePlayRequest.DisabledMessage);
+        if (sessionId is not ("files" or "radio" or "podcasts" or "radioarchiwista" or "tidal"))
             throw new LiteRequestException("Ta sesja nie obsługuje wyboru urządzenia audio.");
-        return sessionId is "files" or "podcasts" or "radioarchiwista"
+        return sessionId is "files" or "podcasts" or "radioarchiwista" or "tidal"
             ? RunLocalPlaybackStart(() => SelectOutputResolved(args, sessionId))
             : SelectOutputResolved(args, sessionId);
     }
@@ -3732,6 +3914,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         bool active;
         bool paused;
         MediaItem? item;
+        TidalTransientPlayback? tidalTransient;
         int volume;
         double rate;
         lock (_gate)
@@ -3745,6 +3928,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                     && (_files.LoadedItemId is not null || _files.IsPreparing)
             };
             item = sessionId == "radio" ? _radioItem : _filesItem;
+            tidalTransient = sessionId == "tidal" ? _tidalTransient : null;
             paused = sessionId == "radio" ? _radioPaused : _filesPaused;
             volume = sessionId == "radio" ? _radioVolume : _filesVolume;
             rate = sessionId == "radio" ? _radioRate : _filesRate;
@@ -3764,11 +3948,30 @@ internal sealed class LiteEngineHandlers : IDisposable
                 {
                     var position = _files.Position;
                     _files.Stop();
-                    if (!paused) _files.Play(
-                        item,
-                        position,
-                        _filesMuted ? 0 : volume,
-                        rate);
+                    if (!paused)
+                    {
+                        if (sessionId == "tidal")
+                        {
+                            if (tidalTransient is null)
+                                throw new LiteRequestException("Najpierw uruchom utwór TIDAL.");
+                            try
+                            {
+                                _files.PlayTransientFlac(
+                                    item, tidalTransient.ProxyUri, tidalTransient.Duration,
+                                    position, _filesMuted ? 0 : volume, rate);
+                            }
+                            catch (Exception exception) when (exception is not OutOfMemoryException)
+                            {
+                                throw new LiteRequestException(
+                                    "Nie udało się zmienić wyjścia dźwięku TIDAL.");
+                            }
+                        }
+                        else
+                        {
+                            _files.Play(
+                                item, position, _filesMuted ? 0 : volume, rate);
+                        }
+                    }
                     // Przy pauzie stary tor zostal domkniety, a nowy wybor
                     // wejdzie przy wznowieniu bez krotkiego dzwieku.
                     rebuilt = true;
