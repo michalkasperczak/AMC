@@ -170,6 +170,21 @@ def test_nvda_end_receives_playback_text_for_file_and_archive() -> None:
     assert shown == ["Nagranie, 192 kb/s, 44,1 kHz"] * 2
 
 
+def test_nvda_end_receives_measured_tidal_bitrate_before_sample_rate() -> None:
+    shown: list[str] = []
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame._last_status = {}
+    frame.status_bar = SimpleNamespace(show=shown.append)
+
+    frame._update_native_playback_status({
+        "sessionId": "tidal",
+        "currentPlaybackText": "bez ciebie, 928 kb/s, 48 kHz",
+        "id": "tidal:track:internal-only",
+    })
+
+    assert shown == ["bez ciebie, 928 kb/s, 48 kHz"]
+
+
 def test_host_uses_shared_audio_formatter_and_no_technical_id_in_text() -> None:
     root = Path(__file__).resolve().parents[2]
     host = (

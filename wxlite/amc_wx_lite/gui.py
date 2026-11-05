@@ -17061,7 +17061,13 @@ class LiteFrame(wx.Frame):
         elif self.navigator.active is SessionId.TIDAL:
             bar = getattr(self, "status_bar", None)
             if bar is not None:
-                bar.show(self._nvda_now_playing_message())
+                snapshot = getattr(self, "_transport_status_by_session", {}).get(
+                    SessionId.TIDAL
+                )
+                if self._tidal_native_has_playback and snapshot:
+                    self._update_native_playback_status(snapshot)
+                else:
+                    bar.show(self._nvda_now_playing_message())
 
         # Dzwiek TIDALa nie przechodzi przez AMC. Pozostawienie aktywnych
         # suwakow glosnosci i tempa zmienialoby ukryty lokalny silnik, choc

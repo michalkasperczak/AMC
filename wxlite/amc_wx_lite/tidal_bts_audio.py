@@ -129,10 +129,36 @@ class RangeProxy:
         self._capability = secrets.token_urlsafe(24)
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+        self._bitrate_callback: Callable[[int], None] | None = None
+        self._bitrate_reported = False
+        self._bitrate_lock = threading.Lock()
+
+    def set_bitrate_callback(self, callback: Callable[[int], None]) -> None:
+        """Report compressed average once, using headers of the normal audio request."""
+        self._bitrate_callback = callback
+
+    def _report_bitrate(self, total_bytes: int) -> None:
+        duration = self._plan.duration_seconds
+        if duration is None or duration <= 0 or total_bytes <= 0:
+            return
+        kbps = round(total_bytes * 8 / duration / 1000)
+        if not 16 <= kbps <= 30_000:
+            return
+        with self._bitrate_lock:
+            if self._bitrate_reported or self._bitrate_callback is None:
+                return
+            self._bitrate_reported = True
+            callback = self._bitrate_callback
+        try:
+            callback(kbps)
+        except Exception:
+            # Informacja o bitrate nie moze zatrzymac strumienia audio.
+            pass
 
     def __enter__(self) -> RangeProxy:
         plan = self._plan
         opener = self._opener
+        owner = self
         capability_path = "/audio/" + self._capability
 
         class Handler(BaseHTTPRequestHandler):
@@ -183,6 +209,10 @@ class RangeProxy:
                         ):
                             self._empty(502)
                             return
+                        total_bytes = (
+                            int(content_range.rsplit("/", 1)[1]) if status == 206
+                            else int(length) if length is not None else 0
+                        )
                         self.send_response(status)
                         self.send_header("Content-Type", plan.mime_type)
                         self.send_header("Accept-Ranges", "bytes")
@@ -194,6 +224,7 @@ class RangeProxy:
                             self.send_header("Content-Range", content_range)
                         self.end_headers()
                         headers_sent = True
+                        owner._report_bitrate(total_bytes)
                         if not head_only:
                             while chunk := upstream.read(64 * 1024):
                                 self.wfile.write(chunk)

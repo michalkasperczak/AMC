@@ -121,6 +121,22 @@ class BtsAudioTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             _ = proxy.local_url
 
+    def test_proxy_reports_compressed_bitrate_once_from_normal_range_response(self) -> None:
+        upstream = FakeOpener()
+        values: list[int] = []
+        plan = audio.resolve_bts(payload(), duration_seconds=1)
+        local_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with audio.RangeProxy(plan, opener=upstream) as proxy:
+            proxy.set_bitrate_callback(values.append)
+            for _ in range(2):
+                request = urllib.request.Request(
+                    proxy.local_url, headers={"Range": "bytes=0-3"}
+                )
+                with local_opener.open(request, timeout=5) as response:
+                    self.assertEqual(response.read(), b"fLaC")
+        self.assertEqual(values, [33])  # 4096 * 8 / 1 s / 1000
+        self.assertEqual(len(upstream.calls), 2)  # no metadata-only request
+
     def test_proxy_rejects_invalid_range_without_upstream_request(self) -> None:
         upstream = FakeOpener()
         with audio.RangeProxy(audio.resolve_bts(payload()), opener=upstream) as proxy:

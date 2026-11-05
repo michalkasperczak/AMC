@@ -146,7 +146,9 @@ internal static partial class RadioStreamMetadataProbe
         }
 
         var parsed = ParseHlsManifest(manifest.ToString());
-        if (parsed.BitrateKbps is not null || parsed.Codec is not null) return parsed;
+        // Sam kodek nie wystarcza do komunikatu o bitrate.  W media-playliscie
+        // bez BANDWIDTH sproboj jeszcze oszacowac przeplywnosc z segmentu.
+        if (parsed.BitrateKbps is not null) return parsed;
         var declaredBitrate = BitrateFromUri(source);
         if (declaredBitrate is not null)
         {
@@ -156,7 +158,8 @@ internal static partial class RadioStreamMetadataProbe
                 CodecFromUri(source) ?? "AAC",
                 false);
         }
-        if (parsed.SegmentDurationSeconds is not > 0 || string.IsNullOrWhiteSpace(parsed.SegmentUri)) return null;
+        if (parsed.SegmentDurationSeconds is not > 0 || string.IsNullOrWhiteSpace(parsed.SegmentUri))
+            return parsed.Codec is not null ? parsed : null;
 
         var segmentUri = new Uri(source, parsed.SegmentUri);
         using var segmentRequest = new HttpRequestMessage(HttpMethod.Get, segmentUri);
@@ -173,8 +176,9 @@ internal static partial class RadioStreamMetadataProbe
             ? RadioAudioMetadataRules.NormalizeBitrateKbps((int)Math.Round(
                 length.Value * 8d / parsed.SegmentDurationSeconds.Value / 1000d))
             : null;
-        var codec = CodecFromContentType(contentType) ?? CodecFromExtension(segmentUri.AbsolutePath);
-        int? sampleRate = null;
+        var codec = CodecFromContentType(contentType) ?? CodecFromExtension(segmentUri.AbsolutePath)
+            ?? parsed.Codec;
+        int? sampleRate = parsed.SampleRateHz;
         if (estimatedBitrate is null || codec is null)
         {
             var sample = await ReadAudioSampleAsync(segmentResponse.Content, cancellationToken).ConfigureAwait(false);

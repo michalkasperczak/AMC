@@ -53,6 +53,7 @@ class DashAudioPlan:
     _media_template: str = field(repr=False, compare=False)
     _first_number: int = field(repr=False)
     _segment_count: int = field(repr=False)
+    bitrate_kbps: int | None = None
 
     def segment_url(self, number: int) -> str | None:
         if not self._first_number <= number < self._first_number + self._segment_count:
@@ -128,8 +129,14 @@ def resolve_dash(playback_info: object, *, duration_seconds: float | None) -> Da
         count += repeat + 1
     if not 0 < count <= 5000:
         raise DashResolutionError("invalid_manifest")
+    bandwidth = representations[0].get("bandwidth", "")
+    bitrate_kbps = None
+    if bandwidth.isascii() and bandwidth.isdecimal():
+        measured = round(int(bandwidth) / 1000)
+        if 16 <= measured <= 30_000:
+            bitrate_kbps = measured
     return DashAudioPlan(float(duration_seconds), bit_depth, sample_rate,
-                         raw, initialization, media, first, count)
+                         raw, initialization, media, first, count, bitrate_kbps)
 
 
 class DashProxy:

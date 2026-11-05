@@ -63,6 +63,11 @@ if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))
     TestYouTubeSourceResolver();
     return 0;
 }
+if (args.Contains("--radio-audio-metadata-only", StringComparer.Ordinal))
+{
+    TestRadioAudioMetadataValidation();
+    return 0;
+}
 if (args.Contains("--soundcloud-podcast-client", StringComparer.Ordinal))
 {
     TestSoundCloudPodcastClient();
@@ -5508,7 +5513,55 @@ static void TestRadioAudioMetadataValidation()
         && detectedAac.SampleRateHz == 44_100
         && detectedAac.BitrateKbps is > 20 and < 50,
         "Ograniczona próbka AAC nie podała wiarygodnych parametrów.");
+    TestRadioHlsSegmentBitrate();
     Console.WriteLine("OK: walidacja bitrate radia i stała BASS");
+}
+
+static void TestRadioHlsSegmentBitrate()
+{
+    using var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+    var server = Task.Run(async () =>
+    {
+        for (var index = 0; index < 2; index++)
+        {
+            using var connection = await listener.AcceptTcpClientAsync();
+            await using var stream = connection.GetStream();
+            using var reader = new StreamReader(stream, Encoding.ASCII,
+                detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+            _ = await reader.ReadLineAsync();
+            string? header;
+            do { header = await reader.ReadLineAsync(); }
+            while (!string.IsNullOrEmpty(header));
+            var body = index == 0
+                ? Encoding.ASCII.GetBytes("#EXTM3U\n#EXT-X-STREAM-INF:CODECS=\"mp4a.40.2\"\n" +
+                    "audio.aac\n#EXTINF:4,\nsegment.aac\n")
+                : new byte[64_000];
+            var response = Encoding.ASCII.GetBytes(
+                "HTTP/1.1 200 OK\r\nContent-Type: " +
+                (index == 0 ? "application/vnd.apple.mpegurl" : "audio/aac") +
+                "\r\nContent-Length: " + body.Length + "\r\nConnection: close\r\n\r\n");
+            await stream.WriteAsync(response);
+            await stream.WriteAsync(body);
+        }
+    });
+    try
+    {
+        var metadata = RadioStreamMetadataProbe.TryReadAsync(
+            $"http://127.0.0.1:{port}/live.m3u8", TimeSpan.FromSeconds(5))
+            .GetAwaiter().GetResult();
+        Assert(metadata?.BitrateKbps == 128 && metadata.Codec == "AAC"
+            && metadata.IsBitrateEstimated,
+            "Radio HLS z kodekiem, lecz bez BANDWIDTH musi oszacować 128 kb/s z segmentu.");
+        Assert(server.Wait(TimeSpan.FromSeconds(2)),
+            "Lokalny serwer testowy radia nie zakończył odpowiedzi.");
+    }
+    finally
+    {
+        listener.Stop();
+        _ = server.ContinueWith(_ => { }, TaskScheduler.Default);
+    }
 }
 
 static void TestRadioStreamTitleMetadata()

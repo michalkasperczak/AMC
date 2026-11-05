@@ -804,6 +804,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             handlers.Add(LiteTidalNativePlayRequest.Operation,
                 (request, events) => RunLocalPlaybackStart(
                     () => PlayTidalNative(request.Args, events)));
+            handlers.Add(LiteTidalNativePlayRequest.BitrateOperation,
+                (request, _) => UpdateTidalNativeBitrate(request.Args));
         }
         return handlers;
     }
@@ -2578,7 +2580,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             Title = request.Title,
             Kind = MediaItemKind.Track,
             Source = request.StableSource,
-            Duration = request.Duration
+            Duration = request.Duration,
+            BitrateKbps = request.BitrateKbps,
+            IsBitrateEstimated = request.BitrateKbps.HasValue
         };
         int volume;
         bool muted;
@@ -2632,6 +2636,25 @@ internal sealed class LiteEngineHandlers : IDisposable
             title = item.Title,
             preparing = true
         };
+    }
+
+    private object UpdateTidalNativeBitrate(JsonElement args)
+    {
+        var id = LiteArgs.RequireText(args, "id");
+        if (id.Length is < 1 or > 18 || id.Any(character => character is < '0' or > '9')
+            || !args.TryGetProperty("bitrateKbps", out var raw)
+            || raw.ValueKind != JsonValueKind.Number
+            || !raw.TryGetInt32(out var bitrate)
+            || bitrate is < 16 or > 30_000)
+            throw new LiteRequestException("Przepływność TIDAL jest nieprawidłowa.");
+        lock (_gate)
+        {
+            if (_filesSessionId != "tidal" || _filesItem?.Id != "tidal:" + id)
+                return new { ok = true, applied = false };
+            _filesItem.BitrateKbps = bitrate;
+            _filesItem.IsBitrateEstimated = true;
+        }
+        return new { ok = true, applied = true };
     }
 
     private object PlayStation(JsonElement args, LiteEventSink events)

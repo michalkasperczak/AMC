@@ -11,9 +11,11 @@ internal sealed record LiteTidalNativePlayRequest(
     string TrackId,
     string Title,
     Uri ProxyUri,
-    TimeSpan Duration)
+    TimeSpan Duration,
+    int? BitrateKbps)
 {
     internal const string Operation = "tidal.nativePlay";
+    internal const string BitrateOperation = "tidal.nativeBitrate";
     internal const string DisabledMessage =
         "Odtwarzanie TIDAL w AMC jest dostępne tylko w AMC Test.";
 
@@ -36,7 +38,7 @@ internal sealed record LiteTidalNativePlayRequest(
 
         foreach (var property in args.EnumerateObject())
         {
-            if (property.Name is not ("proxyUrl" or "id" or "title" or "durationSeconds"))
+            if (property.Name is not ("proxyUrl" or "id" or "title" or "durationSeconds" or "bitrateKbps"))
                 throw new LiteRequestException("Polecenie odtwarzania TIDAL zawiera nieznane dane.");
         }
 
@@ -70,6 +72,16 @@ internal sealed record LiteTidalNativePlayRequest(
             throw new LiteRequestException("Czas utworu TIDAL jest nieprawidłowy.");
         }
 
-        return new(id, title, proxyUri, TimeSpan.FromSeconds(durationSeconds));
+        int? bitrateKbps = null;
+        if (args.TryGetProperty("bitrateKbps", out var bitrateProperty))
+        {
+            if (bitrateProperty.ValueKind != JsonValueKind.Number
+                || !bitrateProperty.TryGetInt32(out var value)
+                || value is < 16 or > 30_000)
+                throw new LiteRequestException("Przepływność TIDAL jest nieprawidłowa.");
+            bitrateKbps = value;
+        }
+
+        return new(id, title, proxyUri, TimeSpan.FromSeconds(durationSeconds), bitrateKbps);
     }
 }

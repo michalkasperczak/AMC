@@ -44,6 +44,11 @@ internal static class TidalNativePlayRequestTests
             """);
         Assert.True(max.ProxyUri.AbsolutePath.EndsWith(".mpd", StringComparison.Ordinal),
             "manifest Max pozostaje na lokalnym proxy");
+        var withBitrate = Parse($$"""
+            {"id":"518279266","title":"Utwór Max","proxyUrl":"{{Url}}.mpd","durationSeconds":215.5,"bitrateKbps":5000}
+            """);
+        Assert.True(withBitrate.BitrateKbps == 5000,
+            "deklarowana przepływność skompresowanego strumienia");
     }
 
     private static void RejectsUnsafeUrlsAndExtraData()
@@ -92,6 +97,9 @@ internal static class TidalNativePlayRequestTests
         ExpectRejected($$"""
             {"id":"518279266","title":"Utwór","proxyUrl":"{{Url}}","durationSeconds":86401}
             """, "czas nie może przekroczyć doby");
+        ExpectRejected($$"""
+            {"id":"518279266","title":"Utwór","proxyUrl":"{{Url}}","durationSeconds":215,"bitrateKbps":48000}
+            """, "częstotliwość 48 kHz nie może udawać bitrate");
     }
 
     private static LiteTidalNativePlayRequest Parse(string json)

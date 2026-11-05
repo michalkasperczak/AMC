@@ -24,7 +24,7 @@ SECRET = "secret-signed-audio-or-token"
 def max_payload(*, media_host="https://sp-ad-fa.audio.tidal.com"):
     manifest = f'''<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static">
       <Period><AdaptationSet mimeType="audio/mp4">
-      <Representation id="1" codecs="flac" audioSamplingRate="192000">
+      <Representation id="1" codecs="flac" audioSamplingRate="192000" bandwidth="5000000">
       <SegmentTemplate timescale="192000" startNumber="1"
         initialization="https://sp-ad-fa.audio.tidal.com/init.mp4?sig=private"
         media="{media_host}/seg-$Number$.mp4?sig=private">
@@ -105,11 +105,15 @@ class FakeProxy:
         self.plan = plan
         self.entered = False
         self.closed = threading.Event()
+        self.bitrate_callback = None
         self.instances.append(self)
 
     def __enter__(self):
         self.entered = True
         return self
+
+    def set_bitrate_callback(self, callback):
+        self.bitrate_callback = callback
 
     def __exit__(self, *_):
         self.closed.set()
@@ -191,6 +195,20 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn(SECRET, str(self.statuses) + str(self.challenges))
         adapter.close()
 
+    def test_compressed_bitrate_reaches_host_without_restarting_audio(self):
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.assertTrue(self.host.called.wait(3))
+        proxy = FakeProxy.instances[0]
+        self.assertIsNotNone(proxy.bitrate_callback)
+        proxy.bitrate_callback(928)
+        self.wait_for(lambda: len(self.host.calls) == 2)
+        self.assertEqual(self.host.calls[1][0], "tidal.nativeBitrate")
+        self.assertEqual(self.host.calls[1][1], {"id": "123", "bitrateKbps": 928})
+        self.assertFalse(proxy.closed.is_set())
+        adapter.stop()
+        adapter.close()
+
     def test_max_manifest_is_selected_and_announced_after_host_starts(self):
         self.session.request.basic_request = lambda method, path, params: SimpleNamespace(
             status_code=200, json=lambda: max_payload(),
@@ -200,6 +218,7 @@ class AdapterTests(unittest.TestCase):
         self.assertTrue(self.host.called.wait(3))
         self.assertEqual(FakeProxy.instances[0].plan.bit_depth, 24)
         self.assertEqual(FakeProxy.instances[0].plan.sample_rate, 192000)
+        self.assertEqual(self.host.calls[0][1].get("bitrateKbps"), 5000)
         adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
         self.assertTrue(any("Jakość Max, FLAC 24 bit, 192 kHz" in message
                             for _, _, message in self.statuses))

@@ -167,6 +167,25 @@ class TidalNativePlaybackAdapter:
         with self._lock:
             return not self._closed and generation == self._generation and not self._cancel.is_set()
 
+    def _report_bitrate(self, generation: int, track_id: str, kbps: int) -> None:
+        """Update the host after the normal BTS request reveals total bytes."""
+        if not self._current(generation):
+            return
+
+        def update() -> None:
+            if not self._current(generation):
+                return
+            try:
+                self._host.call(
+                    "tidal.nativeBitrate", {"id": track_id, "bitrateKbps": kbps},
+                    timeout=10,
+                )
+            except Exception:
+                # Metadata must never interrupt audio or expose a signed URL.
+                pass
+
+        threading.Thread(target=update, name="AMC TIDAL bitrate", daemon=True).start()
+
     def play(self, track_id: str, title: str = "") -> bool:
         """Start preparation immediately; result arrives through status/event callbacks."""
         if not _track_id(track_id):
@@ -293,6 +312,11 @@ class TidalNativePlaybackAdapter:
             proxy_factory = (dash_audio.DashProxy if isinstance(plan, dash_audio.DashAudioPlan)
                              and self._proxy_factory is audio.RangeProxy else self._proxy_factory)
             proxy = proxy_factory(plan)
+            set_bitrate_callback = getattr(proxy, "set_bitrate_callback", None)
+            if callable(set_bitrate_callback):
+                set_bitrate_callback(
+                    lambda kbps: self._report_bitrate(generation, track_id, kbps)
+                )
             with _quiet_library():
                 proxy.__enter__()
             if not self._current(generation):
@@ -308,11 +332,16 @@ class TidalNativePlaybackAdapter:
                 self._track_id = track_id
                 self._quality_by_track[track_id] = quality_label
             with _quiet_library():
+                request_args = {
+                    "id": track_id, "title": safe_title,
+                    "proxyUrl": proxy.local_url,
+                    "durationSeconds": plan.duration_seconds,
+                }
+                if isinstance(plan, dash_audio.DashAudioPlan) and plan.bitrate_kbps is not None:
+                    request_args["bitrateKbps"] = plan.bitrate_kbps
                 accepted = self._host.call(
                     "tidal.nativePlay",
-                    {"id": track_id, "title": safe_title,
-                     "proxyUrl": proxy.local_url,
-                     "durationSeconds": plan.duration_seconds},
+                    request_args,
                     timeout=30,
                 )
             if not isinstance(accepted, dict) or accepted.get("ok") is not True \

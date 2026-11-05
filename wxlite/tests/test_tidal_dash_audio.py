@@ -49,6 +49,7 @@ class Opener:
 class DashTests(unittest.TestCase):
     def test_manifest_rewrites_signed_addresses_and_limits_segments(self):
         plan = resolve_dash(payload(), duration_seconds=12)
+        self.assertEqual(plan.bitrate_kbps, 5000)
         self.assertNotIn(SECRET, repr(plan))
         self.assertEqual(plan.segment_url(1).split("/seg-", 1)[1].split("?", 1)[0], "1.mp4")
         self.assertIsNone(plan.segment_url(4))
