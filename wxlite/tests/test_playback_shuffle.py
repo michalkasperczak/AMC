@@ -1,6 +1,9 @@
 """Losowanie R ma jeden kontrakt dla nawigacji, menu, pomocy i stanu."""
 
+from types import SimpleNamespace
+
 from amc_wx_lite import menu_model
+from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
@@ -77,15 +80,40 @@ def test_saved_shuffle_applies_on_new_file_source_and_continues_without_focus_mo
     nav.activate_selected()
     selected_before = nav.session.model.selected_id
 
-    first = nav.continue_shuffled_after_end(SessionId.FILES)
-    second = nav.continue_shuffled_after_end(SessionId.FILES)
+    first = nav.continue_source_after_end(SessionId.FILES)
+    second = nav.continue_source_after_end(SessionId.FILES)
 
     assert isinstance((first or [None])[0], PlayTrack)
     assert (first or [None])[0].item_id == "c"
     assert isinstance((second or [None])[0], PlayTrack)
     assert (second or [None])[0].item_id == "a"
-    assert nav.continue_shuffled_after_end(SessionId.FILES) is None
+    assert nav.continue_source_after_end(SessionId.FILES) is None
     assert nav.session.model.selected_id == selected_before
+
+
+def test_local_album_continues_in_order_without_shuffle_or_focus_move() -> None:
+    nav = Navigator()
+    nav.apply_folder(
+        r"C:\Muzyka", [_track("a"), _track("b"), _track("c")],
+        preferred_id="b",
+    )
+    nav.activate_selected()
+    selected = nav.session.model.selected_id
+
+    following = nav.continue_source_after_end(SessionId.FILES, "b")
+    assert isinstance((following or [None])[0], PlayTrack)
+    assert following[0].item_id == "c"
+    assert nav.session.model.selected_id == selected
+    assert nav.continue_source_after_end(SessionId.FILES, "b") is None
+    assert nav.continue_source_after_end(SessionId.FILES, "c") is None
+
+
+def test_podcast_inbox_does_not_autoplay_all_unplayed_episodes() -> None:
+    nav = Navigator()
+    state = nav.sessions[SessionId.PODCASTS]
+    state.now_playing_id = "p1"
+    nav._set_playback_source(state, (_episode("p1"), _episode("p2")))
+    assert nav.continue_source_after_end(SessionId.PODCASTS, "p1") is None
 
 
 def test_podcast_and_spotify_use_their_own_shuffled_sources() -> None:
@@ -97,7 +125,7 @@ def test_podcast_and_spotify_use_their_own_shuffled_sources() -> None:
     podcasts.now_playing_title = "Odcinek p1"
     nav._set_playback_source(podcasts, (_episode("p1"), _episode("p2")))
     nav.set_shuffle_enabled(SessionId.PODCASTS, True)
-    podcast_next = nav.continue_shuffled_after_end(SessionId.PODCASTS)
+    podcast_next = nav.continue_source_after_end(SessionId.PODCASTS)
     assert isinstance((podcast_next or [None])[0], PlayMedia)
     assert (podcast_next or [None])[0].item_id == "p2"
 
@@ -107,10 +135,51 @@ def test_podcast_and_spotify_use_their_own_shuffled_sources() -> None:
     spotify.current_material_id = "s1"
     nav._set_playback_source(spotify, (_spotify("s1"), _spotify("s2")))
     nav.set_shuffle_enabled(SessionId.SPOTIFY, True)
-    spotify_next = nav.continue_shuffled_after_end(SessionId.SPOTIFY)
+    spotify_next = nav.continue_source_after_end(SessionId.SPOTIFY)
     assert isinstance((spotify_next or [None])[0], PlaySpotifyItem)
     assert (spotify_next or [None])[0].item_id == "s2"
     assert (spotify_next or [None])[0].preserve_navigation is True
+
+
+def test_spotify_album_enter_continues_after_switching_to_another_session() -> None:
+    nav = Navigator()
+    nav.active = SessionId.SPOTIFY
+    first, second = _spotify("s1"), _spotify("s2")
+    nav.apply_spotify_view("Album", [first, second])
+    nav.activate_selected()
+    nav.note_spotify_playback_started(first.item_id, first.title)
+    nav.switch_session(SessionId.RADIO)
+
+    following = nav.continue_source_after_end(SessionId.SPOTIFY, first.item_id)
+    assert isinstance((following or [None])[0], PlaySpotifyItem)
+    assert following[0].item_id == second.item_id
+    assert following[0].preserve_navigation is True
+    assert nav.active is SessionId.RADIO
+    assert nav.continue_source_after_end(SessionId.SPOTIFY, first.item_id) is None
+
+
+def test_engine_end_dispatches_next_local_track_without_end_announcement() -> None:
+    nav = Navigator()
+    nav.apply_folder(r"C:\Muzyka", [_track("a"), _track("b")])
+    nav.activate_selected()
+    dispatched: list[object] = []
+    spoken: list[str] = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _playing_sessions={SessionId.FILES},
+        _playing_session=SessionId.FILES,
+        _window_alive=lambda: True,
+        _run=lambda intents: dispatched.extend(intents),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+
+    LiteFrame._handle_engine_event(frame, "playback.ended", {
+        "engine": "files", "sessionId": "files", "id": "a",
+        "queueContinues": False,
+    })
+    assert isinstance(dispatched[0], PlayTrack)
+    assert dispatched[0].item_id == "b"
+    assert spoken == []
 
 
 def test_shuffle_does_not_reorder_explicit_queue() -> None:
@@ -121,7 +190,7 @@ def test_shuffle_does_not_reorder_explicit_queue() -> None:
 
     assert nav.set_shuffle_enabled(SessionId.FILES, True) is True
     assert state.playback_source_rows == rows
-    assert nav.continue_shuffled_after_end(SessionId.FILES) is None
+    assert nav.continue_source_after_end(SessionId.FILES) is None
 
 
 def test_r_menu_help_and_palette_have_the_same_session_contract() -> None:

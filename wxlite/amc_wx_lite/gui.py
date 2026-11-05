@@ -13381,14 +13381,14 @@ class LiteFrame(wx.Frame):
                             self._play_media(play, session_id=SessionId.RADIOARCHIWISTA)
                             self.announcer.say(play.title)
                         return
-                continue_shuffled = getattr(
+                continue_source = getattr(
                     getattr(self, "navigator", None),
-                    "continue_shuffled_after_end",
+                    "continue_source_after_end",
                     None,
                 )
                 continuation = (
-                    continue_shuffled(ended_session)
-                    if callable(continue_shuffled)
+                    continue_source(ended_session, str(data.get("id") or ""))
+                    if callable(continue_source)
                     else []
                 )
                 if continuation:
@@ -26909,6 +26909,24 @@ class LiteFrame(wx.Frame):
             )
         elif kind in {"failed", "ended", "stopped"}:
             self._close_tidal_native_challenge()
+            if (
+                kind == "ended"
+                and track_id == getattr(self, "_tidal_native_active_track_id", None)
+            ):
+                following = self._tidal_native_adjacent_row(True)
+                if following is not None and self._play_tidal_native_row(
+                    following, preserve_source=True
+                ):
+                    # Zachowaj źródło albumu i odtwarzacz w trakcie
+                    # przygotowywania następnego utworu. Zdarzenie started
+                    # dopiero potwierdzi faktyczne odtwarzanie.
+                    self._tidal_native_active_track_id = native_track_id(
+                        following.service_id
+                    )
+                    self._tidal_native_has_playback = False
+                    self._refresh_menu_state()
+                    self._refresh_status()
+                    return
             if track_id == getattr(self, "_tidal_native_active_track_id", None):
                 self._tidal_native_has_playback = False
                 self._tidal_native_active_track_id = None
@@ -26930,18 +26948,18 @@ class LiteFrame(wx.Frame):
 
     def _play_tidal_native_row(
         self, row: Row, *, preserve_source: bool = False
-    ) -> None:
+    ) -> bool:
         adapter = self._tidal_native_adapter
         if adapter is None or self.client is None:
             self.announcer.say("Odtwarzacz TIDAL w AMC Test jest niedostępny")
-            return
+            return False
         track_id = native_track_id(row.service_id)
         if row.kind != "track" or track_id is None:
             self.announcer.say("Wybierz utwór TIDAL z poprawnymi danymi")
-            return
+            return False
         if not adapter.play(track_id, row.title):
             self.announcer.say("Odtwarzacz TIDAL jest zajęty; spróbuj ponownie")
-            return
+            return False
         self._tidal_native_pending_track_id = track_id
         self._tidal_native_pending_item_id = row.item_id
         self._tidal_native_pending_title = row.title
@@ -26954,6 +26972,7 @@ class LiteFrame(wx.Frame):
                 and native_track_id(candidate.service_id) is not None
             )
             state.playback_uses_queue = False
+        return True
 
     def _play_tidal_native_selected(self) -> None:
         if self.navigator.active is not SessionId.TIDAL:

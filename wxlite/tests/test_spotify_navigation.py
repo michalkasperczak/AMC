@@ -562,7 +562,7 @@ def test_spotify_queue_playback_advances_without_shuffle_or_changing_provider() 
     assert isinstance(started, PlaySpotifyItem)
     assert started.service_id == first.service_id
     nav.note_spotify_playback_started(first.item_id, first.title)
-    continuation = nav.continue_shuffled_after_end(SessionId.SPOTIFY)
+    continuation = nav.continue_source_after_end(SessionId.SPOTIFY)
     assert continuation is not None
     following = continuation[0]
     assert isinstance(following, PlaySpotifyItem)
@@ -579,7 +579,7 @@ def test_entire_spotify_album_advances_after_first_track() -> None:
     )
     assert isinstance(intent, PlaySpotifyItem)
     nav.note_spotify_playback_started(first.item_id, first.title, preserve_navigation=True)
-    continuation = nav.continue_shuffled_after_end(SessionId.SPOTIFY)
+    continuation = nav.continue_source_after_end(SessionId.SPOTIFY)
     assert continuation is not None
     assert isinstance(continuation[0], PlaySpotifyItem)
     assert continuation[0].service_id == second.service_id

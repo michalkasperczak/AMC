@@ -158,6 +158,10 @@ Wydanie alpha.472 powstało z gałęzi `codex/konfigurowalne-skroty-20261026` i 
   otwarcia pozostałych zbiorczych widoków. Szczegóły:
   [POD-20261105-wydajnosc-skrzynki-i-nawigacji.md](POD-20261105-wydajnosc-skrzynki-i-nawigacji.md).
 
+- `PLAY-20261105` — **Kod i testy gotowe; kandydat alpha.479** — naturalna
+  kontynuacja albumu lub listy w lokalnych plikach, Spotify i wewnętrznym TIDAL.
+  Szczegóły: [PLAY-20261105-kontynuacja-albumu.md](PLAY-20261105-kontynuacja-albumu.md).
+
 - `KEY-001` — **Zrobione; kod, pełna regresja, czysta paczka, instalator,
   wydanie GitHub i rzeczywista aktualizacja instalacji są zweryfikowane, a
   użytkownik zatwierdził obsługę klawiatury i skróty 28.10.2026** — osobna

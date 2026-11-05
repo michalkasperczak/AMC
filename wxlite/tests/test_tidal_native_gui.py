@@ -38,7 +38,8 @@ def test_native_command_has_one_test_profile_surface_and_no_public_surface(
     assert (
         "Bez skrótu",
         "Odtwórz zaznaczony utwór TIDAL w AMC Test z najwyższą dostępną "
-        "jakością, do Max; Enter otwiera oryginalny TIDAL",
+        "jakością, do Max; następny utwór bieżącej listy uruchomi się po "
+        "jego końcu; Enter otwiera oryginalny TIDAL",
     ) in describe("TIDAL", {Action.TIDAL_PLAY_NATIVE})
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
     assert Action.TIDAL_PLAY_NATIVE not in _menu_actions()
@@ -393,6 +394,59 @@ def test_native_stop_returns_from_player_to_selected_track_list() -> None:
     assert frame._playing_session is None
     assert not frame._tidal_native_has_playback
     assert spoken == ["Zatrzymano"]
+
+
+def test_native_album_continues_after_natural_end_and_stops_after_last_track() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    first = Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1")
+    second = Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2")
+    state = nav.sessions[SessionId.TIDAL]
+    state.model.replace([first, second], preferred_id=first.item_id)
+    state.playback_source_rows = (first, second)
+    state.now_playing_id = first.item_id
+    state.now_playing_title = first.title
+    state.view = View.PLAYER
+    started: list[tuple[str, str]] = []
+    spoken: list[str] = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_adapter=SimpleNamespace(
+            play=lambda track_id, title: started.append((track_id, title)) or True,
+        ),
+        client=object(),
+        _tidal_native_active_track_id="1",
+        _tidal_native_has_playback=True,
+        _playing_session=SessionId.TIDAL,
+        _playing_sessions={SessionId.TIDAL},
+        _window_alive=lambda: True,
+        _close_tidal_native_challenge=lambda: None,
+        announcer=SimpleNamespace(say=spoken.append),
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    frame._tidal_native_adjacent_row = (
+        lambda forward: LiteFrame._tidal_native_adjacent_row(frame, forward)
+    )
+    frame._play_tidal_native_row = (
+        lambda row, preserve_source=False: LiteFrame._play_tidal_native_row(
+            frame, row, preserve_source=preserve_source
+        )
+    )
+
+    LiteFrame._on_tidal_native_status(frame, "ended", "1", "Koniec utworu")
+    assert started == [("2", "Drugi")]
+    assert state.playback_source_rows == (first, second)
+    assert state.view is View.PLAYER
+    assert spoken == []
+    assert frame._tidal_native_active_track_id == "2"
+
+    state.now_playing_id = second.item_id
+    LiteFrame._on_tidal_native_status(frame, "ended", "2", "Koniec utworu")
+    assert started == [("2", "Drugi")]
+    assert state.view is View.LIST
+    assert spoken == ["Koniec utworu"]
 
 
 def test_native_time_input_uses_current_track_and_rejects_out_of_range() -> None:

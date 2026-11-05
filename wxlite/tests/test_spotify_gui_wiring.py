@@ -665,7 +665,7 @@ def test_left_arrow_reads_total_spotify_album_duration_without_moving_focus() ->
         announcer=SimpleNamespace(say=spoken.append),
     )
 
-    LiteFrame._announce_spotify_information(frame, album)
+    LiteFrame._announce_spotify_information(frame, album, ("duration",))
 
     assert len(spoken) == 1
     assert spoken[0] == "5:00"

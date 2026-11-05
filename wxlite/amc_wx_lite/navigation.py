@@ -938,9 +938,7 @@ class Navigator:
         state.unshuffled_playback_source_rows = normalized
         state.playback_uses_queue = uses_queue
         if state.session_id is SessionId.SPOTIFY:
-            state.spotify_auto_advance = (
-                state.library_view is LibraryView.SPOTIFY_QUEUE
-            )
+            state.spotify_auto_advance = len(normalized) > 1
         state.playback_source_rows = (
             self._shuffled_source(normalized, state.now_playing_id)
             if state.shuffle_enabled and not uses_queue
@@ -980,11 +978,12 @@ class Navigator:
         state = self.sessions[session_id]
         return self.set_shuffle_enabled(session_id, not state.shuffle_enabled)
 
-    def continue_shuffled_after_end(
+    def continue_source_after_end(
         self,
         session_id: SessionId,
+        ended_item_id: str = "",
     ) -> list[object] | None:
-        """Po naturalnym koncu uruchom kolejny element losowej sekwencji.
+        """Po naturalnym końcu uruchom kolejny utwór źródła.
 
         Funkcja dostaje sesje zdarzenia, a nie aktualnie ogladana sesje.
         Dzieki temu muzyka moze kontynuowac w tle bez przenoszenia fokusu.
@@ -996,13 +995,11 @@ class Navigator:
             return None
         state = self.sessions[session_id]
         if (
-            not (state.shuffle_enabled or (
-                session_id is SessionId.SPOTIFY
-                and state.spotify_auto_advance
-            ))
+            (session_id is SessionId.PODCASTS and not state.shuffle_enabled)
             or state.playback_uses_queue
             or not state.playback_source_rows
             or not state.now_playing_id
+            or (ended_item_id and ended_item_id != state.now_playing_id)
         ):
             return None
         current_index = next(
