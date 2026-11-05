@@ -1,6 +1,6 @@
 # PLAYER-20261105 — skok do czasu, procentu i zakładki
 
-Status: implementacja i testy źródeł gotowe; kandydat AMC Test alpha.472 do zbudowania i odbioru NVDA.
+Status: wydane na GitHubie i zainstalowane w AMC Test alpha.472; ręczny odbiór NVDA otwarty.
 
 ## Zgłoszenie i korekta użytkownika — 5.11.2026
 
@@ -24,4 +24,12 @@ W odtwarzaczu naciśnij `J`, wpisz czas `mm:ss` lub `hh:mm:ss` i zatwierdź Ente
 
 ## Wersja i commit
 
-Gałąź `codex/konfigurowalne-skroty-20261026`, baza `91511480`. Kandydat źródeł `0.1.0-alpha.472`; commit, build, instalacja i publikacja do uzupełnienia po rzeczywistym wykonaniu.
+Gałąź `codex/konfigurowalne-skroty-20261026`, baza `91511480`. Wydanie `0.1.0-alpha.472`, commit źródeł `5bce69ca`; wynik budowy, instalacji i GitHub opisano poniżej.
+
+## Wynik wydania i instalacji — 5.11.2026, 12:48
+
+Commit źródeł `5bce69ca7e3a050aa324a31cd0e3b5ee3e602cd3` został wysłany do `michalkasperczak/AMC`. Wydanie wstępne kanału test `test-2026.11.05.1248` opublikowano i odczytowo potwierdzono: instalator 143825210 bajtów, SHA-256 `f029b793830695d2f750dc4dfc8f7c0be531ed76fce360cb6c8108b244f3fb28`, plik integralności i manifest aktualizacji mają stan `uploaded`. Paczka Test zawiera 4194 pliki, `sourceDirty=false`, pełna kontrola i próbny start GUI/hosta przeszły. Testy poleceń i list Python: 160 zaliczonych; host: trzy zestawy protokołu zaliczone, kompilacja bez ostrzeżeń.
+
+Instalator: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers\AMC-Test-2026-11-05-1248.exe`. Stare AMC zamknięto łagodnie przez okno; jego własna bramka pobiera świeży stan nagrywania i odmawia zamknięcia podczas nagrania. Instalator zakończył się kodem 0. Zainstalowane `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe` ma ProductVersion `0.1.0-alpha.472`, dokładnie ten commit, `bundleId=225e63ef`; pełna kontrola instalacji zakończyła się kodem 0. Uruchomiono jeden launcher, jeden GUI i jeden host z tej instalacji; tytuł okna „AMC Test — 05.11.2026, 12:48”. Dodatek NVDA dołączono opcjonalnie do instalatora, ale nie instalowano go i nie restartowano NVDA.
+
+Odbiór mowy NVDA, działania nowych okien na żywym utworze TIDAL i pomiar płynności list na wolnym łączu pozostają otwarte. Kompilacja, testy i integralność nie zastępują tych prób. Limit Codex przy zakończeniu: 20% użyte, 80% pozostało, reset 11.11.2026 o 07:45 czasu warszawskiego.
