@@ -200,6 +200,7 @@ STABLE_TIMELINE_SESSIONS = (
     SessionId.SPOTIFY,
     SessionId.RADIOARCHIWISTA,
 )
+BOOKMARK_SESSIONS = (*STABLE_TIMELINE_SESSIONS, SessionId.TIDAL)
 SHUFFLE_SESSIONS = (
     SessionId.FILES,
     SessionId.PODCASTS,
@@ -231,6 +232,8 @@ NETWORK_DEVICE_SESSIONS = (
 )
 MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART, SessionId.TIDAL)
 LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.TIDAL)
+INPUT_TIME_SESSIONS = (*LOCAL_MEDIA, SessionId.SPOTIFY, SessionId.TIDAL, SessionId.RADIOARCHIWISTA, SessionId.SONOS)
+INPUT_PERCENT_SESSIONS = (*INPUT_TIME_SESSIONS, SessionId.RADIO)
 PLAYER_SESSIONS = (
     SessionId.FILES,
     SessionId.RADIO,
@@ -1381,44 +1384,44 @@ def build_menus(
                 needs_player_view=True,
                 visible_sessions=WIIM_ONLY,
             ),
-            MenuItem("Dodaj &zakładkę", Action.ADD_BOOKMARK, shortcut="B",
+            MenuItem("Dodaj zakładkę w bież&ącym miejscu", Action.ADD_BOOKMARK, shortcut="B",
                      accelerator=False, needs_playback=True,
-                     visible_sessions=STABLE_TIMELINE_SESSIONS),
+                     visible_sessions=BOOKMARK_SESSIONS),
             MenuItem(
                 "Dodaj nazwaną zakładk&ę…",
                 Action.ADD_NAMED_BOOKMARK,
                 shortcut="Ctrl+Shift+B",
                 accelerator=False,
                 needs_playback=True,
-                visible_sessions=STABLE_TIMELINE_SESSIONS,
+                visible_sessions=BOOKMARK_SESSIONS,
             ),
             MenuItem(
                 "&2. Poprzednia zakładka, Shift+Page Up",
                 Action.PREVIOUS_BOOKMARK,
                 accelerator=False,
                 needs_playback=True,
-                visible_sessions=STABLE_TIMELINE_SESSIONS,
+                visible_sessions=BOOKMARK_SESSIONS,
             ),
             MenuItem(
                 "&4. Następna zakładka, Shift+Page Down",
                 Action.NEXT_BOOKMARK,
                 accelerator=False,
                 needs_playback=True,
-                visible_sessions=STABLE_TIMELINE_SESSIONS,
+                visible_sessions=BOOKMARK_SESSIONS,
             ),
             MenuItem(
                 "Poprzednia nazwana zak&ładka, Ctrl+Shift+Page Up",
                 Action.PREVIOUS_NAMED_BOOKMARK,
                 accelerator=False,
                 needs_playback=True,
-                visible_sessions=STABLE_TIMELINE_SESSIONS,
+                visible_sessions=BOOKMARK_SESSIONS,
             ),
             MenuItem(
                 "Następna sp&óśród nazwanych zakładek, Ctrl+Shift+Page Down",
                 Action.NEXT_NAMED_BOOKMARK,
                 accelerator=False,
                 needs_playback=True,
-                visible_sessions=STABLE_TIMELINE_SESSIONS,
+                visible_sessions=BOOKMARK_SESSIONS,
             ),
             MenuItem(
                 "&5. Lista rozdziałów…",
@@ -1572,6 +1575,12 @@ def build_menus(
             MenuItem("Przewiń w przód o czas z ustawień &AMC",
                      Action.SEEK_FORWARD_CUSTOM, shortcut="Ctrl+Alt+Right",
                      needs_playback=True, visible_sessions=LOCAL_TIMELINE),
+            MenuItem("Skocz do okre&ślonego czasu…", Action.SEEK_INPUT_TIME,
+                     shortcut="J", accelerator=False, needs_playback=True,
+                     needs_player_view=True, visible_sessions=INPUT_TIME_SESSIONS),
+            MenuItem("Skocz do &żądanego procentu…", Action.SEEK_INPUT_PERCENT,
+                     shortcut="Shift+J", accelerator=False, needs_playback=True,
+                     needs_player_view=True, visible_sessions=INPUT_PERCENT_SESSIONS),
             MenuItem("Począt&ek utworu TIDAL", Action.TRACK_START,
                      shortcut="Home", accelerator=False, needs_playback=True,
                      visible_sessions=TIDAL_ONLY),
@@ -1584,6 +1593,8 @@ def build_menus(
                         "&Skok do 0% utworu TIDAL" if percent == 0 else
                         "Skok do 10% u&tworu TIDAL" if percent == 10 else
                         "Skok do 30% utworu TIDA&L" if percent == 30 else
+                        "Skok do 20% &bieżącego utworu TIDAL" if percent == 20 else
+                        "Skok do 40% &jego długości" if percent == 40 else
                         f"Skok do &{percent}% utworu TIDAL"
                     ),
                     Action[f"SEEK_PERCENT_{percent}"],

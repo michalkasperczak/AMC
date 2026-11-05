@@ -174,6 +174,8 @@ class Action(Enum):
     # (MainWindow.xaml.cs:21555-21557 -> CommandIds.SeekPercent(digit * 10)).
     # Osobne wartosci, bo oryginal ma osobne identyfikatory komend -- jedna
     # akcja z parametrem nie dalaby sie sprawdzic w tablicy skrotow.
+    SEEK_INPUT_TIME = "seek.inputTime"
+    SEEK_INPUT_PERCENT = "seek.inputPercent"
     SEEK_PERCENT_0 = "seek.percent.0"
     SEEK_PERCENT_10 = "seek.percent.10"
     SEEK_PERCENT_20 = "seek.percent.20"
@@ -679,6 +681,8 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_INPUT_TIME,
+    Action.SEEK_INPUT_PERCENT,
     Action.SEEK_PERCENT_0,
     Action.SEEK_PERCENT_10,
     Action.SEEK_PERCENT_20,
@@ -691,6 +695,12 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SEEK_PERCENT_90,
     Action.TRACK_START,
     Action.TRACK_END,
+    Action.ADD_BOOKMARK,
+    Action.ADD_NAMED_BOOKMARK,
+    Action.PREVIOUS_BOOKMARK,
+    Action.NEXT_BOOKMARK,
+    Action.PREVIOUS_NAMED_BOOKMARK,
+    Action.NEXT_NAMED_BOOKMARK,
     Action.VOLUME_UP_5,
     Action.VOLUME_DOWN_5,
     Action.VOLUME_UP_1,
@@ -770,6 +780,8 @@ TIDAL_NATIVE_ONLY_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_INPUT_TIME,
+    Action.SEEK_INPUT_PERCENT,
     Action.SEEK_PERCENT_0,
     Action.SEEK_PERCENT_10,
     Action.SEEK_PERCENT_20,
@@ -782,6 +794,12 @@ TIDAL_NATIVE_ONLY_ACTIONS = frozenset({
     Action.SEEK_PERCENT_90,
     Action.TRACK_START,
     Action.TRACK_END,
+    Action.ADD_BOOKMARK,
+    Action.ADD_NAMED_BOOKMARK,
+    Action.PREVIOUS_BOOKMARK,
+    Action.NEXT_BOOKMARK,
+    Action.PREVIOUS_NAMED_BOOKMARK,
+    Action.NEXT_NAMED_BOOKMARK,
     Action.VOLUME_UP_5,
     Action.VOLUME_DOWN_5,
     Action.VOLUME_UP_1,
@@ -828,6 +846,8 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_INPUT_TIME,
+    Action.SEEK_INPUT_PERCENT,
     Action.SEEK_PERCENT_0,
     Action.SEEK_PERCENT_10,
     Action.SEEK_PERCENT_20,
@@ -1056,6 +1076,8 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_INPUT_TIME,
+    Action.SEEK_INPUT_PERCENT,
     Action.SEEK_PERCENT_0,
     Action.SEEK_PERCENT_10,
     Action.SEEK_PERCENT_20,
@@ -1224,6 +1246,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.SEEK_BACK_30, Action.SEEK_FORWARD_30,
         Action.SEEK_BACK_60, Action.SEEK_FORWARD_60,
         Action.SEEK_BACK_CUSTOM, Action.SEEK_FORWARD_CUSTOM,
+        Action.SEEK_INPUT_TIME, Action.SEEK_INPUT_PERCENT,
         Action.RATE_UP, Action.RATE_DOWN, Action.RATE_RESET,
         Action.TRACK_START, Action.TRACK_END,
         *(Action[f"SEEK_PERCENT_{percent}"] for percent in range(0, 100, 10)),
@@ -1591,6 +1614,8 @@ PLAYER_VIEW: dict[str, Action] = {
     # Skok procentowy: cyfra bez modyfikatora (cs:21555-21557, 22348-22350).
     # W odtwarzaczu cyfry sa wolne; na liscie naleza do kontrolki, wiec tam ich
     # nie ma.
+    "J": Action.SEEK_INPUT_TIME,
+    "Shift+J": Action.SEEK_INPUT_PERCENT,
     "0": Action.SEEK_PERCENT_0,
     "1": Action.SEEK_PERCENT_10,
     "2": Action.SEEK_PERCENT_20,
@@ -2453,6 +2478,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.TIME_ELAPSED: "Czas miniony",
         Action.TIME_REMAINING: "Czas pozostaly",
         Action.TIME_TOTAL: "Czas calkowity",
+        Action.SEEK_INPUT_TIME: "Skocz do wpisanego czasu bieżącego materiału",
+        Action.SEEK_INPUT_PERCENT: "Skocz do wpisanego procentu bieżącego materiału",
         Action.ADD_BOOKMARK: "Dodaj zakladke w biezacym miejscu",
         Action.ADD_NAMED_BOOKMARK: "Dodaj nazwana zakladke w biezacym miejscu",
         Action.PREVIOUS_BOOKMARK: "Poprzednia zakładka",
@@ -2908,6 +2935,8 @@ def describe_action(
             Action.QUEUE_NEXT: "Następny utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
             Action.QUEUE_PREVIOUS: "Poprzedni utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
             Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC Test",
+            Action.SEEK_INPUT_TIME: "Skocz do wpisanego czasu utworu TIDAL w AMC Test",
+            Action.SEEK_INPUT_PERCENT: "Skocz do wpisanego procentu utworu TIDAL w AMC Test",
             Action.TRACK_START: "Przejdź na początek utworu TIDAL w AMC Test",
             Action.TRACK_END: "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC Test",
             Action.VOLUME_UP_5: "Zwiększ głośność utworu TIDAL o 5%",

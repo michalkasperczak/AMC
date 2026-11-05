@@ -358,3 +358,54 @@ def test_native_stop_returns_from_player_to_selected_track_list() -> None:
     assert frame._playing_session is None
     assert not frame._tidal_native_has_playback
     assert spoken == ["Zatrzymano"]
+
+
+def test_native_time_input_uses_current_track_and_rejects_out_of_range() -> None:
+    calls: list[tuple] = []
+    spoken: list[str] = []
+    status = {"id": "tidal:123", "durationSeconds": 2721}
+    client = SimpleNamespace(
+        status=lambda session: calls.append(("status", session)) or status,
+        seek_to_position=lambda seconds, session: calls.append(("seek", seconds, session)) or {"positionSeconds": seconds},
+    )
+    frame = SimpleNamespace(
+        client=client,
+        _tidal_native_active_track_id="123",
+        runner=SimpleNamespace(submit=lambda _name, work, done, _failed: done(work())),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._seek_tidal_native_absolute(frame, position_seconds=120)
+    assert calls == [("status", "tidal"), ("seek", 120.0, "tidal")]
+    assert spoken == ["2:00"]
+    LiteFrame._seek_tidal_native_absolute(frame, position_seconds=2722)
+    assert calls[-1] == ("status", "tidal")
+    assert spoken[-1] == "Podany czas przekracza długość utworu TIDAL"
+    status["id"] = "tidal:456"
+    LiteFrame._seek_tidal_native_absolute(frame, position_seconds=100)
+    assert calls[-1] == ("status", "tidal")
+    assert spoken[-1] == "Utwór TIDAL zmienił się, ponów skok"
+
+
+def test_native_tidal_bookmark_uses_playing_track_id() -> None:
+    sent: list[dict] = []
+    spoken: list[str] = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            session=SimpleNamespace(
+                current_material_id=None, pending_material_id=None,
+                now_playing_id="tidal:other", now_playing_title="Utwór"),
+        ),
+        _tidal_native_active_track_id="123",
+        _tidal_native_has_playback=True,
+        client=SimpleNamespace(add_bookmark=lambda **kwargs: sent.append(kwargs) or {
+            "added": True, "positionSeconds": 120,
+        }),
+        runner=SimpleNamespace(submit=lambda _name, work, done, _failed: done(work())),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._add_bookmark(frame)
+    assert sent == [{
+        "item_id": "tidal:123", "item_title": "Utwór", "session_id": "tidal", "name": None,
+    }]
+    assert spoken == ["Dodano zakładkę: 2:00"]

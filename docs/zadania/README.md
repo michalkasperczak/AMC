@@ -7,6 +7,9 @@ przetrwać między rozmowami i być czytelne zarówno dla Codexa, jak i Hermesa.
 Rejestr nie uruchamia pracy samodzielnie. Zadanie rozpoczyna się dopiero po
 jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
+- `LIST-20261105` — **Poprawka źródeł i testy gotowe; pomiar NVDA na wolnym łączu otwarty** — czas TIDAL bez słowa „Czas” i jedno przeliczenie menu na ruch strzałką. [Szczegóły](LIST-20261105-czas-tidal-i-strzalki.md).
+- `PLAYER-20261105` — **Implementacja i testy gotowe; odbiór NVDA otwarty** — J skacze do wpisanego czasu, Shift+J do procentu; zakładki działają w natywnym TIDAL. [Szczegóły](PLAYER-20261105-skoki-i-zakladki.md).
+
 ## Bieżący punkt wznowienia
 
 Najnowsza lokalna instalacja to **AMC Test — 02.11.2026, 02:18** (`0.1.0-alpha.465`), commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Wspólne wydanie Cast, Spotify oraz poprawek Spacji i Shift+A opublikowano na GitHubie i zainstalowano. Zaliczone: 597 testów Python, 5 zestawów protokołu, bramki pakietu/instalatora, integralność instalacji i start jednej instancji. Ręczny odbiór nowych zachowań Spotify, Shift+A i NVDA+End pozostaje otwarty; listę Cast użytkownik odebrał wcześniej. [Wyniki i dokładne ścieżki](REL-20261102-nocna-aktualizacja-test.md).

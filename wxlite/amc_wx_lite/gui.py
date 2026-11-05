@@ -661,6 +661,8 @@ _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.CLIP_CLEAR,
     ),
     (
+        Action.SEEK_INPUT_TIME,
+        Action.SEEK_INPUT_PERCENT,
         Action.SEEK_BACK_10,
         Action.SEEK_FORWARD_10,
         Action.SEEK_BACK_30,
@@ -15488,6 +15490,10 @@ class LiteFrame(wx.Frame):
             self._toggle_mute()
         elif action is Action.TOGGLE_SHUFFLE:
             self._toggle_playback_shuffle()
+        elif action is Action.SEEK_INPUT_TIME:
+            self._seek_from_input(percent=False)
+        elif action is Action.SEEK_INPUT_PERCENT:
+            self._seek_from_input(percent=True)
         elif action is Action.ADD_BOOKMARK:
             self._add_bookmark()
         elif action is Action.ADD_NAMED_BOOKMARK:
@@ -17068,8 +17074,19 @@ class LiteFrame(wx.Frame):
         if isinstance(control, MediaListCtrl):
             item_id = control.shown_item_id(event.GetIndex())
             if item_id is not None:
-                self.navigator.session.model.select_id(item_id)
-                self._refresh_menu_state()
+                model = self.navigator.session.model
+                # Windows usually sends FOCUSED and SELECTED for one arrow.
+                # FOCUSED already refreshed the menu for this row. A second
+                # full pass would only send redundant native menu updates.
+                # Podcast multi-selection is different: the selected set can
+                # change while the focused row remains the same.
+                already_current = (
+                    getattr(self.navigator, "active", None) is not SessionId.PODCASTS
+                    and getattr(model, "selected_id", None) == item_id
+                )
+                model.select_id(item_id)
+                if not already_current:
+                    self._refresh_menu_state()
                 event.Skip()
                 return
         self.navigator.session.model.select_index(event.GetIndex())
@@ -25744,7 +25761,7 @@ class LiteFrame(wx.Frame):
             parts: list[str] = []
             if row.duration_ticks > 0:
                 parts.append(
-                    f"Czas: {format_duration(row.duration_ticks / 10_000_000)}"
+                    format_duration(row.duration_ticks / 10_000_000)
                 )
             format_message = (
                 "format audio nie został udostępniony przez zapisany katalog TIDAL"
@@ -27331,6 +27348,7 @@ class LiteFrame(wx.Frame):
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
             SessionId.RADIOARCHIWISTA,
+            SessionId.TIDAL,
         ):
             self.announcer.say(
                 "Zakładki w tej sesji nie są jeszcze dostępne w tej wersji"
@@ -27338,6 +27356,9 @@ class LiteFrame(wx.Frame):
             return
         state = self.navigator.session
         item_id = state.current_material_id or state.pending_material_id
+        if self.navigator.active is SessionId.TIDAL:
+            track_id = getattr(self, "_tidal_native_active_track_id", None)
+            item_id = f"tidal:{track_id}" if track_id and self._tidal_native_has_playback else None
         if not item_id and self.navigator.active is SessionId.FILES:
             transient_id = str(state.now_playing_id or "")
             if transient_id.startswith("file:"):
@@ -27489,10 +27510,14 @@ class LiteFrame(wx.Frame):
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
             SessionId.RADIOARCHIWISTA,
+            SessionId.TIDAL,
         ):
             self.announcer.say(
                 "Nawigacja po zakładkach jest dostępna dla plików lokalnych, podcastów i Spotify"
             )
+            return
+        if self.navigator.active is SessionId.TIDAL and not self._tidal_native_has_playback:
+            self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
             return
         client = self.client
         if client is None:
@@ -31014,6 +31039,82 @@ class LiteFrame(wx.Frame):
         if self.messages.announces_arrow_seek and self.messages.speaks_routine:
             self.announcer.say(text)
 
+    def _seek_from_input(self, *, percent: bool) -> None:
+        """J / Shift+J: ask for one position, then use the active timeline."""
+        if self.navigator.active is SessionId.RADIO and not percent:
+            self.announcer.say("Radio na żywo nie ma stałej długości; użyj Shift+J do skoku po buforze")
+            return
+        from .seek_input import parse_percent, parse_time
+
+        title = "Skocz do procentu" if percent else "Skocz do czasu"
+        prompt = "&Procent (0–100):" if percent else "&Czas (mm:ss lub hh:mm:ss):"
+        with RenameItemDialog(
+            self, title=title, prompt=prompt, field_name=title,
+            value="", help_text="Enter zatwierdza. Escape anuluje.",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            raw = dialog.value
+        self._restore_focus_after_dialog()
+        try:
+            value = parse_percent(raw) if percent else parse_time(raw)
+        except ValueError as error:
+            self.announcer.say(str(error))
+            return
+        if percent:
+            self._seek_percent(value)
+        else:
+            self._seek_to_input_time(value)
+
+    def _seek_to_input_time(self, seconds: int) -> None:
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę skoczyć do czasu")
+            return
+        session = self.navigator.active
+        if session is SessionId.TIDAL:
+            if not self._tidal_native_has_playback:
+                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
+                return
+            self._seek_tidal_native_absolute(position_seconds=seconds)
+            return
+        if session is SessionId.SONOS:
+            snapshot = self._sonos_snapshot or {}
+            duration = snapshot.get("durationSeconds")
+            position = snapshot.get("positionSeconds")
+            if not isinstance(duration, (int, float)) or duration <= 0 or not isinstance(position, (int, float)):
+                self.announcer.say("Sonos nie podał czasu potrzebnego do skoku")
+                return
+            if seconds > duration:
+                self.announcer.say("Podany czas przekracza długość materiału")
+                return
+            self._sonos_transport("seekRelative", seconds=seconds - position)
+            return
+
+        def work():
+            status = client.status(session.value) or {}
+            duration = status.get("durationSeconds")
+            if not isinstance(duration, (int, float)) or isinstance(duration, bool) or duration <= 0:
+                return "unknown", None
+            if seconds > duration:
+                return "range", None
+            return "ok", client.seek_to_position(seconds, session.value)
+
+        def done(result):
+            outcome, _payload = result
+            if outcome == "unknown":
+                self.announcer.say("Czas trwania bieżącego materiału jest nieznany")
+            elif outcome == "range":
+                self.announcer.say("Podany czas przekracza długość materiału")
+            else:
+                self.announcer.say(format_duration(seconds))
+
+        self.runner.submit(
+            "seek-input-time", work, done,
+            lambda error: self.announcer.say(f"Nie mogę skoczyć do czasu: {error}"),
+        )
+
     def _seek_percent(self, percent: int) -> None:
         """Skok procentowy (gole cyfry 0..9) -- wlasna rodzina przelacznikow.
 
@@ -31085,7 +31186,8 @@ class LiteFrame(wx.Frame):
             self.announcer.say(text)
 
     def _seek_tidal_native_absolute(
-        self, *, percent: int | None = None, to_end: bool = False
+        self, *, percent: int | None = None, to_end: bool = False,
+        position_seconds: int | None = None,
     ) -> None:
         """Seek the currently playing TIDAL track using its own live status.
 
@@ -31109,14 +31211,17 @@ class LiteFrame(wx.Frame):
                 and 0 < raw_duration <= 86_400
                 else 0.0
             )
-            if (percent is not None or to_end) and not duration:
+            if (percent is not None or to_end or position_seconds is not None) and not duration:
                 return "duration", 0.0, 0.0, None
             target = (
+                float(position_seconds) if position_seconds is not None else
                 duration * percent / 100.0
                 if percent is not None else
                 max(0.0, duration - TRACK_END_MARGIN_SECONDS)
                 if to_end else 0.0
             )
+            if position_seconds is not None and target > duration:
+                return "range", target, duration, None
             payload = client.seek_to_position(target, SessionId.TIDAL.value)
             return "ok", target, duration, payload
 
@@ -31126,6 +31231,8 @@ class LiteFrame(wx.Frame):
             outcome, target, duration, payload = result
             if outcome == "changed":
                 self.announcer.say("Utwór TIDAL zmienił się, ponów skok")
+            elif outcome == "range":
+                self.announcer.say("Podany czas przekracza długość utworu TIDAL")
             elif outcome == "duration":
                 if percent is not None:
                     text = self.messages.percent_seek_text(
@@ -31134,9 +31241,11 @@ class LiteFrame(wx.Frame):
                     if text is not None:
                         self.announcer.say(text)
                 else:
-                    self.announcer.say("Nie znam czasu trwania, nie mogę skoczyć na koniec")
+                    self.announcer.say("Nie znam czasu trwania utworu TIDAL, nie mogę skoczyć do czasu" if position_seconds is not None else "Nie znam czasu trwania, nie mogę skoczyć na koniec")
             elif percent is not None:
                 self._announce_seek_percent(percent, payload, duration)
+            elif position_seconds is not None:
+                self.announcer.say(format_duration(target))
             else:
                 self._announce_track_edge(
                     format_clock(target) if to_end else "0:00"
@@ -34383,6 +34492,8 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if self.navigator.active is SessionId.RADIO and action is Action.SEEK_INPUT_TIME:
+            return False
         if self.navigator.active is SessionId.TIDAL:
             if action is Action.TIDAL_PLAY_NATIVE:
                 row = self.navigator.session.model.selected_row

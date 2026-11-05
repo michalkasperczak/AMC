@@ -70,7 +70,7 @@ def test_playback_menu_exposes_bookmark_navigation_for_stable_timeline_sessions(
     assert following.needs_playback and not following.needs_files_session
     stable = (
         SessionId.FILES, SessionId.PODCASTS, SessionId.SPOTIFY,
-        SessionId.RADIOARCHIWISTA,
+        SessionId.RADIOARCHIWISTA, SessionId.TIDAL,
     )
     assert previous.visible_sessions == stable
     assert following.visible_sessions == stable

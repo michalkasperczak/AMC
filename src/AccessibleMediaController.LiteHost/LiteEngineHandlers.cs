@@ -1655,7 +1655,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             throw new LiteRequestException("Nawigacja po zakładkach nie ma dostępu do Biblioteki AMC.");
 
         var target = ResolveTransportTarget(args);
-        if (target.SessionId is not ("files" or "podcasts" or "spotify" or "radioarchiwista"))
+        if (target.SessionId is not ("files" or "podcasts" or "spotify" or "radioarchiwista" or "tidal"))
             throw new LiteRequestException(
                 "Nawigacja po zakładkach nie jest dostępna w tej sesji.");
         var direction = Math.Sign(LiteArgs.ReadInt(args, "direction", 0, -1, 1));
@@ -1861,7 +1861,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 "spotify",
                 "Spotify");
         }
-        if (target.SessionId is not ("files" or "podcasts" or "radioarchiwista"))
+        if (target.SessionId is not ("files" or "podcasts" or "radioarchiwista" or "tidal"))
             throw new LiteRequestException(
                 "Zakładki i rozdziały nie są dostępne w tej sesji.");
         lock (_gate)
@@ -1876,6 +1876,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                 throw new LiteRequestException("Czas trwania materiału jest nieznany.");
             var podcast = target.SessionId == "podcasts";
             var archive = target.SessionId == "radioarchiwista";
+            var tidal = target.SessionId == "tidal";
             return new TimelineContext(
                 "files",
                 item.Id,
@@ -1889,8 +1890,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 },
                 _files.Position,
                 duration,
-                archive ? "radioarchiwista" : podcast ? "podcasts" : "local",
-                archive ? "Radio Archiwista" : podcast ? "Podcasty i YouTube" : "Pliki lokalne");
+                tidal ? "tidal" : archive ? "radioarchiwista" : podcast ? "podcasts" : "local",
+                tidal ? "TIDAL" : archive ? "Radio Archiwista" : podcast ? "Podcasty i YouTube" : "Pliki lokalne");
         }
     }
 

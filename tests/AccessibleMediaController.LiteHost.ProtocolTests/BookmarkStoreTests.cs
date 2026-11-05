@@ -21,6 +21,10 @@ internal static class BookmarkStoreTests
             var store = new LiteBookmarkStore(database, () => false);
 
             store.Add("plik-1", "Nagranie", TimeSpan.FromSeconds(12.4), DateTime.UtcNow);
+            store.Add("tidal", "TIDAL", "tidal:123", "Utwór", TimeSpan.FromSeconds(45), DateTime.UtcNow);
+            Assert.True(store.FindRelative("tidal", "tidal:123", TimeSpan.Zero, 1) is not null
+                && store.FindRelative("local", "tidal:123", TimeSpan.Zero, 1) is null,
+                "zakładka TIDAL ma własną sesję i nie przecieka do Plików");
             store.Add("plik-1", "Nagranie", TimeSpan.FromSeconds(12.8), DateTime.UtcNow);
             var named = JsonSerializer.SerializeToElement(store.Add(
                 "plik-1",
@@ -142,7 +146,7 @@ internal static class BookmarkStoreTests
                 connection.Open();
                 using var count = connection.CreateCommand();
                 count.CommandText = "SELECT COUNT(*) FROM bookmarks;";
-                Assert.True(Convert.ToInt64(count.ExecuteScalar()) == 3L,
+                Assert.True(Convert.ToInt64(count.ExecuteScalar()) == 4L,
                     "zwykla zakladka znika, a rozdzialy zostaja");
                 using var combined = connection.CreateCommand();
                 combined.CommandText =

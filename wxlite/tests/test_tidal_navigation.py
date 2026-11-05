@@ -58,7 +58,7 @@ def test_tidal_left_arrow_says_only_complementary_time_and_format() -> None:
     LiteFrame._announce_quick_information(frame)
 
     assert spoken == [
-        "Czas: 40:32, format audio nie został udostępniony "
+        "40:32, format audio nie został udostępniony "
         "przez zapisany katalog TIDAL"
     ]
 
@@ -553,3 +553,22 @@ def test_tidal_queue_is_its_own_accessible_view() -> None:
     assert nav.session.library_view is LibraryView.TIDAL_QUEUE
     assert nav.session.model.selected_row == track
     assert isinstance(nav.activate_selected()[0], PlayTidalTrack)
+
+
+def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
+    row = Row(
+        "track-1", "Piosenka", "track",
+        duration_ticks=2721 * 10_000_000,
+    )
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
+        ),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+
+    LiteFrame._announce_quick_information(frame)
+    assert spoken[0].startswith("45:21, ")
+    assert "Czas:" not in spoken[0]

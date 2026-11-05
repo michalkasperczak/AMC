@@ -829,7 +829,7 @@ def test_playback_and_view_menus_do_not_mix_foreign_sessions() -> None:
     assert Action.RATE_UP in files_playback
 
     remote_playback = actions(menu_model.SessionId.SONOS, "&Odtwarzanie")
-    assert remote_playback == {Action.PLAY_PAUSE}
+    assert remote_playback == {Action.PLAY_PAUSE, Action.SEEK_INPUT_TIME, Action.SEEK_INPUT_PERCENT}
 
     sonos_library = actions(menu_model.SessionId.SONOS, "&Biblioteka")
     assert {
