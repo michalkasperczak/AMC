@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from amc_wx_lite import menu_model
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.gui import LiteFrame, copied_address_message
+from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, Navigator, PlayMedia, SessionId, View
 from amc_wx_lite.playback_activity import activity_rows
@@ -213,6 +214,7 @@ def test_archive_left_reads_duration_without_file_size_or_bitrate() -> None:
     row = Row("rarch:rec:a", "08:00", "recording",
               url="https://archive.org/a.mp3", duration_ticks=3600 * 10_000_000)
     frame = SimpleNamespace(
+        state=LiteState(), options=Options(),
         navigator=SimpleNamespace(
             active=SessionId.RADIOARCHIWISTA,
             session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
@@ -220,7 +222,7 @@ def test_archive_left_reads_duration_without_file_size_or_bitrate() -> None:
         announcer=SimpleNamespace(say=messages.append),
     )
     LiteFrame._announce_quick_information(frame)
-    assert messages == ["Czas: 1:00:00"]
+    assert messages == ["1:00:00"]
 
 
 def test_archive_ctrl_l_returns_to_full_station_list() -> None:

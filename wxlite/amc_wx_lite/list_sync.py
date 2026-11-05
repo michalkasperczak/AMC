@@ -84,6 +84,7 @@ def model_row_texts(
     model: ListModel,
     query: str | None = None,
     cache: dict[int, tuple[Row, RowText]] | None = None,
+    reading_fields: tuple[str, ...] | None = None,
 ) -> list[RowText]:
     """Zadany stan listy wyliczony z ISTNIEJACEGO modelu.
 
@@ -126,7 +127,11 @@ def model_row_texts(
         else:
             row_text = RowText(
                 item_id=row.item_id,
-                texts=tuple(model.text_for(index, column) for column in range(COLUMN_COUNT)),
+                texts=tuple(
+                    model.text_for(index, column)
+                    if reading_fields is None else model.text_for(index, column, reading_fields)
+                    for column in range(COLUMN_COUNT)
+                ),
             )
         fresh[id(row)] = (row, row_text)
         result.append(row_text)

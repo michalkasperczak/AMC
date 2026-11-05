@@ -2699,8 +2699,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         # sama nazwa wiersza jest juz przeczytana przy nawigacji -- oryginal
         # celowo jej nie powtarza (QuickMediaInformationFormatter:8-10).
         Action.QUICK_INFORMATION: (
-            "Informacje uzupelniajace o zaznaczonym wierszu "
-            "(folder: sciezka)"
+            "Wybrane informacje uzupełniające o zaznaczonym wierszu; "
+            "zakres odczytu ustawisz na karcie Komunikaty dostępności"
         ),
         Action.ITEM_PROPERTIES: (
             "Właściwości i pełne informacje o zaznaczonym lub odtwarzanym elemencie"
@@ -2719,7 +2719,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         # tego uzytkownik nie wie, czego dotkna zmiany.
         Action.SESSION_OPTIONS: (
             "Ustawienia sesji: uruchamianie materiału, pozycja, domyślna "
-            "prędkość, dźwięk i zachowanie po wyjściu, zależnie od możliwości sesji"
+            "prędkość, dźwięk, zachowanie po wyjściu i odczyt listy, "
+            "zależnie od możliwości sesji"
         ),
         Action.SELECT_AUDIO_OUTPUT: (
             "Wybierz urządzenie audio dla bieżącej sesji"
@@ -2733,8 +2734,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Następne dostępne urządzenie audio bieżącej sesji"
         ),
         Action.GENERAL_SETTINGS: (
-            "Ustawienia programu; na karcie Radio i nagrywanie ustawisz "
-            "długość oraz folder bufora Time Shift"
+            "Ustawienia programu; na karcie Komunikaty dostępności ustawisz "
+            "odczyt listy strzałkami, a na karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
         ),
         Action.REFRESH_COMMON_DATA: "Odśwież dane z AMC Test",
         Action.COMMON_DATA_STATUS: "Stan synchronizacji danych z AMC Test",

@@ -123,6 +123,7 @@ from . import i18n
 from . import nvda_bridge
 from .library_source import LibrarySnapshot, LibrarySource, degradation_notice
 from . import list_sync
+from . import list_reading
 from . import list_filter
 from .live_region import announce_status
 from .list_model import (
@@ -1710,6 +1711,7 @@ class MediaListCtrl(wx.ListCtrl):
         #: ``list_sync.model_row_texts``): zmiana jednego wiersza nie formatuje
         #: od nowa calej listy.
         self._row_text_cache: dict = {}
+        self.reading_fields: tuple[str, ...] | None = None
         self.player_covers = False
         #: Czy trwa NASZA aktualizacja. Wstawianie wierszy i ``SetItemState``
         #: powoduja, ze kontrolka wysyla ``EVT_LIST_ITEM_SELECTED`` tak samo jak
@@ -1776,6 +1778,13 @@ class MediaListCtrl(wx.ListCtrl):
 
     # ------------------------------------------------------------ aktualizacja
 
+    def set_reading_fields(self, fields: tuple[str, ...]) -> None:
+        if self.reading_fields == fields:
+            return
+        self.reading_fields = fields
+        self._row_text_cache.clear()
+        self._synced_rows = None
+
     def sync_rows(self) -> None:
         """Dociagnij kontrolke do modelu. Brak zmian = ZERO operacji.
 
@@ -1804,7 +1813,9 @@ class MediaListCtrl(wx.ListCtrl):
         row_texts = getattr(self, "_row_text_cache", None)
         if not isinstance(row_texts, dict):
             row_texts = self._row_text_cache = {}
-        desired = list_sync.model_row_texts(self.model, self.filter_query, row_texts)
+        desired = list_sync.model_row_texts(
+            self.model, self.filter_query, row_texts, getattr(self, "reading_fields", None)
+        )
         if self.filter_query and desired and not any(
             row.item_id == self.model.selected_id for row in desired
         ):
@@ -1877,7 +1888,7 @@ class MediaListCtrl(wx.ListCtrl):
             self._move_cursor_quietly(self._cursor_target())
             return
         desired = list_sync.model_row_texts(
-            self.model, self.filter_query, self._row_text_cache,
+            self.model, self.filter_query, self._row_text_cache, getattr(self, "reading_fields", None),
         )
         if self.filter_query and desired and not any(
             row.item_id == self.model.selected_id for row in desired
@@ -6438,6 +6449,7 @@ class SessionOptionsDialog(wx.Dialog):
         overrides,
         *,
         remember_local_playback_positions: bool = True,
+        reading_override: dict | None = None,
     ) -> None:
         super().__init__(parent, title=session_options.dialog_title(session))
         self._options = options
@@ -6445,6 +6457,7 @@ class SessionOptionsDialog(wx.Dialog):
             remember_local_playback_positions
         )
         self._overrides = overrides
+        self._reading_override = reading_override
         self._session = session
         self._caps = session_options.capabilities_for(session)
         panel = wx.Panel(self)
@@ -6454,7 +6467,7 @@ class SessionOptionsDialog(wx.Dialog):
 
         # Zdolnosci aktywnej sesji decyduja o tym, ktore kontrolki istnieja.
         # Nie tworzymy kontrolek ukrytych, bo nadal trafialyby do kolejnosci Tab.
-        self._fields_panel: wx.Panel | None = None
+        self._fields_panel: wx.Window | None = None
         self._fields_slot = wx.BoxSizer(wx.VERTICAL)
         outer.Add(self._fields_slot, 1, wx.EXPAND)
 
@@ -6480,7 +6493,8 @@ class SessionOptionsDialog(wx.Dialog):
         options = self._options
         if self._fields_panel is not None:
             self._fields_slot.Clear(True)
-        panel = wx.Panel(self._panel)
+        panel = wx.ScrolledWindow(self._panel)
+        panel.SetScrollRate(0, 12)
         self._fields_panel = panel
         self._fields_slot.Add(panel, 1, wx.EXPAND)
         grid = wx.FlexGridSizer(0, 2, 8, 8)
@@ -6610,14 +6624,78 @@ class SessionOptionsDialog(wx.Dialog):
                 overrides.pause_on_player_exit,
             )
 
+        heading = wx.StaticText(panel, label="Odczyt listy w tej sesji")
+        heading.SetName("Odczyt listy w tej sesji")
+        grid.Add(heading, 0, wx.TOP | wx.EXPAND, 12)
+        grid.AddSpacer(1)
+        self.reading_mode = self._add_choice(
+            panel, grid, "&Zasady odczytu listy:", "Zasady odczytu listy w tej sesji",
+            (("Jak ustawienie ogólne", None),
+             ("Własne ustawienia tej sesji", True)),
+            True if self._reading_override is not None else None,
+        )
+        self._reading_checks = {}
+        for direction, label, allowed, labels, key in (
+            ("updown", "Strzałki góra i dół", list_reading.UPDOWN_FIELDS,
+             list_reading.UPDOWN_LABELS, "list_updown_fields"),
+            ("left", "Strzałka w lewo", list_reading.available_left_fields(self._session.value),
+             list_reading.LEFT_LABELS, "list_left_fields"),
+        ):
+            group = wx.StaticText(panel, label=label)
+            group.SetName(label)
+            grid.Add(group, 0, wx.TOP | wx.EXPAND, 8)
+            grid.AddSpacer(1)
+            current_fields = (
+                self._reading_override.get(key, getattr(options, key))
+                if isinstance(self._reading_override, dict)
+                else getattr(options, key)
+            )
+            checks = self._reading_checks[direction] = {}
+            for field in allowed:
+                field_label = labels[field]
+                control = wx.CheckBox(panel, label=field_label)
+                control.SetName(f"{label}: {field_label}")
+                control.SetValue(field in current_fields)
+                checks[field] = control
+                grid.Add(control, 0, wx.EXPAND)
+                grid.AddSpacer(1)
+        self.reading_mode.Bind(wx.EVT_CHOICE, self._on_reading_mode)
+        self._on_reading_mode(None)
+
         grid.AddGrowableCol(1, 1)
         inner = wx.BoxSizer(wx.VERTICAL)
         inner.Add(grid, 1, wx.ALL | wx.EXPAND, 12)
         panel.SetSizer(inner)
+        panel.FitInside()
         self.Fit()
+        # ScrolledWindow raportuje małą minimalną wysokość (około 102 px),
+        # mimo że ma pełen wirtualny układ. Daj kontrolkom rzeczywistą
+        # przestrzeń i pozostaw przewijanie długiej sekcji.
+        self.SetSize((max(620, self.GetSize().width), 650))
         self.Layout()
         if self._first is not None:
             self._first.SetFocus()
+
+    def _on_reading_mode(self, _event) -> None:
+        own = self._value(self.reading_mode) is True
+        for checks in self._reading_checks.values():
+            for control in checks.values():
+                control.Enable(own)
+
+    @property
+    def reading_override(self) -> dict | None:
+        if self._value(self.reading_mode) is not True:
+            return None
+        return {
+            "list_updown_fields": [
+                field for field in list_reading.UPDOWN_FIELDS
+                if self._reading_checks["updown"][field].GetValue()
+            ],
+            "list_left_fields": [
+                field for field in self._reading_checks["left"]
+                if self._reading_checks["left"][field].GetValue()
+            ],
+        }
 
     def _add_choice(self, panel, grid, label, name, choices, current) -> wx.Choice:
         """Jedna zwykla lista wyboru z etykieta. Etykieta ma skrot literowy."""
@@ -8751,6 +8829,29 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         ):
             messages_layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 10)
 
+        # Dwie niezależne sekcje: nawigacja czyta tylko gotowy wiersz,
+        # lewa strzałka może wykonać jawny pomiar parametrów pliku.
+        self.list_reading_checks = {}
+        for direction, heading, allowed, labels, selected in (
+            ("updown", "Odczyt listy: strzałki góra i dół",
+             list_reading.UPDOWN_FIELDS, list_reading.UPDOWN_LABELS,
+             options.list_updown_fields),
+            ("left", "Odczyt listy: strzałka w lewo",
+             list_reading.LEFT_FIELDS, list_reading.LEFT_LABELS,
+             options.list_left_fields),
+        ):
+            title = wx.StaticText(messages, label=heading)
+            title.SetName(heading)
+            messages_layout.Add(title, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 8)
+            checks = self.list_reading_checks[direction] = {}
+            for field in allowed:
+                label = labels[field]
+                control = wx.CheckBox(messages, label=label)
+                control.SetName(f"{heading}: {label}")
+                control.SetValue(field in selected)
+                checks[field] = control
+                messages_layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 6)
+
         self.detailed_hints = wx.CheckBox(
             messages,
             label=(
@@ -9412,6 +9513,14 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "message_bookmark_navigation_messages": (
                 self.message_bookmark_navigation_messages.GetValue()
             ),
+            "list_updown_fields": [
+                field for field in list_reading.UPDOWN_FIELDS
+                if self.list_reading_checks["updown"][field].GetValue()
+            ],
+            "list_left_fields": [
+                field for field in list_reading.LEFT_FIELDS
+                if self.list_reading_checks["left"][field].GetValue()
+            ],
             "message_percent_announcement": self._message_percent_values[
                 max(0, self.message_percent_announcement.GetSelection())
             ].value,
@@ -16777,6 +16886,12 @@ class LiteFrame(wx.Frame):
         }[self.navigator.active]))
 
         active_list = self._active_list()
+        reading_overrides = getattr(self.state, "list_reading_overrides", {}).get(
+            self.navigator.active.value
+        )
+        active_list.set_reading_fields(
+            list_reading.session_fields(self.options, reading_overrides, "updown", session=self.navigator.active.value)
+        )
         # Jawna, użytkowa nazwa BIEŻĄCEGO widoku. Model nadal przechowuje enum,
         # lecz NVDA nigdy go nie zobaczy; pozycję i licznik czyta natywna lista.
         view_label = {
@@ -25695,15 +25810,15 @@ class LiteFrame(wx.Frame):
                 f"Przeniesiono pliki poza AMC: {format_file_count(len(moved))}"
             )
 
-    def _announce_spotify_information(self, row: Row) -> None:
+    def _announce_spotify_information(self, row: Row, fields: tuple[str, ...]) -> None:
         """Read an album's real track durations before announcing its length."""
 
         if row.kind != "album" or row.duration_ticks > 0 or not row.service_id:
-            self.announcer.say(spotify_information_text(row))
+            self.announcer.say(spotify_information_text(row, fields=fields))
             return
         client = self.client
         if client is None:
-            self.announcer.say(spotify_information_text(row))
+            self.announcer.say(spotify_information_text(row, fields=fields))
             return
         requested_id = row.item_id
 
@@ -25729,6 +25844,7 @@ class LiteFrame(wx.Frame):
             self.announcer.say(spotify_information_text(
                 current,
                 duration_ticks=duration,
+                fields=fields,
             ))
 
         def failed(_error: Exception) -> None:
@@ -25738,7 +25854,7 @@ class LiteFrame(wx.Frame):
                 and current is not None
                 and current.item_id == requested_id
             ):
-                self.announcer.say(spotify_information_text(current))
+                self.announcer.say(spotify_information_text(current, fields=fields))
 
         self.runner.submit("spotify-album-information", work, done, failed)
 
@@ -25754,34 +25870,42 @@ class LiteFrame(wx.Frame):
             if callable(target_row)
             else self.navigator.session.model.selected_row
         )
+        reading_overrides = getattr(self.state, "list_reading_overrides", {}).get(
+            self.navigator.active.value
+        )
+        left_fields = list_reading.session_fields(
+            self.options, reading_overrides, "left", session=self.navigator.active.value
+        )
+        if row is not None and not left_fields:
+            self.announcer.say("Brak wybranych informacji")
+            return
         if self.navigator.active is SessionId.TIDAL:
             if row is None:
                 self.announcer.say("Lista TIDAL jest pusta")
                 return
             parts: list[str] = []
-            if row.duration_ticks > 0:
-                parts.append(
-                    format_duration(row.duration_ticks / 10_000_000)
+            if row.duration_ticks > 0 and "duration" in left_fields:
+                parts.append(format_duration(row.duration_ticks / 10_000_000))
+            if row.artist_name and "artist" in left_fields:
+                parts.append(row.artist_name)
+            self.announcer.say(
+                ", ".join(parts) or (
+                    "Brak wybranych informacji" if not left_fields
+                    else "Brak dodatkowych informacji"
                 )
-            format_message = (
-                "format audio nie został udostępniony przez zapisany katalog TIDAL"
             )
-            parts.append(format_message if parts else "F" + format_message[1:])
-            self.announcer.say(", ".join(parts))
             return
         if self.navigator.active is SessionId.SPOTIFY:
             if row is None:
                 self.announcer.say("Lista Spotify jest pusta")
                 return
-            self._announce_spotify_information(row)
+            self._announce_spotify_information(row, left_fields)
             return
         if self.navigator.active is SessionId.RADIOARCHIWISTA:
             if row is None or row.kind != "recording":
                 self.announcer.say("Brak dodatkowych informacji o nagraniu")
-            elif row.duration_ticks > 0:
-                self.announcer.say(
-                    f"Czas: {format_duration(row.duration_ticks / 10_000_000)}"
-                )
+            elif row.duration_ticks > 0 and "duration" in left_fields:
+                self.announcer.say(format_duration(row.duration_ticks / 10_000_000))
             else:
                 self.announcer.say("Brak dodatkowych informacji o nagraniu")
             return
@@ -25791,8 +25915,16 @@ class LiteFrame(wx.Frame):
         ):
             entry = self._download_history_entries.get(row.item_id) if row else None
             self.announcer.say(
-                download_information(entry) if entry else "Brak pobranego pliku"
+                download_information(entry) if entry and "other" in left_fields
+                else "Brak wybranych informacji"
             )
+            return
+        if self.navigator.active is SessionId.FRONTIER_SMART:
+            if row is None:
+                self.announcer.say("Lista Frontier Smart jest pusta")
+            else:
+                detail = row.detail.strip() if "other" in left_fields else ""
+                self.announcer.say(detail or "Brak dodatkowych informacji")
             return
         if self.navigator.active is SessionId.WIIM:
             if self.navigator.view is View.PLAYER and self._wiim_snapshot:
@@ -25859,7 +25991,8 @@ class LiteFrame(wx.Frame):
             return
 
         guard = plan.guard
-        request = plan.request
+        request = dict(plan.request)
+        request["fields"] = [field for field in left_fields if field != "other"]
         layout = self.layout
         assert row is not None
 
@@ -25871,7 +26004,7 @@ class LiteFrame(wx.Frame):
                 session=self.navigator.active.value,
                 view=self.navigator.view.value,
                 say=self.announcer.say,
-                extra_detail=folder_detail,
+                extra_detail=folder_detail if "other" in left_fields else None,
             )
 
         cache = getattr(self, "_quick_info_cache", None)
@@ -25930,11 +26063,14 @@ class LiteFrame(wx.Frame):
         if row is None:
             self.announcer.say(f"Lista {SESSION_LABELS[session]} jest pusta")
             return
+        reading_overrides = getattr(self.state, "list_reading_overrides", {}).get(session.value)
+        left_fields = list_reading.session_fields(self.options, reading_overrides, "left", session=session.value)
         plan = speaker_information_plan(
             row,
             session=session,
             view=self.navigator.view.value,
             alive=self._window_alive,
+            fields=left_fields,
         )
         if plan.message is not None:
             self.announcer.say(plan.message)
@@ -25943,7 +26079,7 @@ class LiteFrame(wx.Frame):
             return
         client = self.client
         if client is None:
-            self.announcer.say(speaker_information_text(row))
+            self.announcer.say(speaker_information_text(row, fields=left_fields))
             return
 
         def done(payload: object) -> None:
@@ -30418,6 +30554,7 @@ class LiteFrame(wx.Frame):
         # Kolejność sesji zmienia jednocześnie skróty, podpisy menu i paletę
         # poleceń, więc samo odświeżenie stanów zaznaczeń nie wystarcza.
         self._build_menu()
+        self._sync_views()
         if interface_language_changed:
             self.Layout()
             self.Refresh()
@@ -30585,11 +30722,14 @@ class LiteFrame(wx.Frame):
             remember_local_playback_positions=getattr(
                 self, "_remember_local_playback_positions", True
             ),
+            reading_override=self.state.list_reading_overrides.get(current.value),
         )
         chosen = None
+        chosen_reading = None
         try:
             if dialog.ShowModal() == wx.ID_OK:
                 chosen = dialog.overrides
+                chosen_reading = getattr(dialog, "reading_override", None)
         finally:
             dialog.Destroy()
 
@@ -30598,7 +30738,24 @@ class LiteFrame(wx.Frame):
                 self._restore_focus_after_dialog()
             return
 
-        self._apply_session_option_drafts({current: chosen})
+        previous_reading = self.state.list_reading_overrides.get(current.value)
+        if chosen_reading != previous_reading:
+            if chosen_reading is None:
+                self.state.list_reading_overrides.pop(current.value, None)
+            else:
+                self.state.list_reading_overrides[current.value] = chosen_reading
+            if not self._save_state():
+                if previous_reading is None:
+                    self.state.list_reading_overrides.pop(current.value, None)
+                else:
+                    self.state.list_reading_overrides[current.value] = previous_reading
+            else:
+                self._sync_views()
+                self.announcer.say("Zapisano odczyt listy dla tej sesji")
+        if chosen != current_overrides:
+            self._apply_session_option_drafts({current: chosen})
+        elif chosen_reading == previous_reading:
+            self.announcer.say("Ustawienia sesji bez zmian.")
         if parent is None:
             self._restore_focus_after_dialog()
 

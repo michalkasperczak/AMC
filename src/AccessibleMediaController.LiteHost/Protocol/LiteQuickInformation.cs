@@ -31,6 +31,7 @@ public sealed record LiteQuickInfoRequest(
     public string? Artist { get; init; }
     public string? Country { get; init; }
     public string? Language { get; init; }
+    public IReadOnlyList<string>? Fields { get; init; }
 }
 
 /// <summary>
@@ -104,14 +105,36 @@ public static class LiteQuickInformation
             Codec = LiteArgs.ReadText(args, "codec"),
             Artist = LiteArgs.ReadText(args, "artist"),
             Country = LiteArgs.ReadText(args, "country"),
-            Language = LiteArgs.ReadText(args, "language")
+            Language = LiteArgs.ReadText(args, "language"),
+            Fields = args.TryGetProperty("fields", out var fields) && fields.ValueKind == JsonValueKind.Array
+                ? fields.EnumerateArray()
+                    .Where(value => value.ValueKind == JsonValueKind.String)
+                    .Select(value => value.GetString() ?? string.Empty)
+                    .Take(16).ToArray()
+                : null
         };
     }
 
-    public static bool RequiresMetadata(LiteQuickInfoRequest request) =>
-        IsLocalSource(request.Source)
-            ? request.DurationTicks <= 0 || request.BitrateKbps is null || request.SampleRateHz is null
-            : request.Session == "radio" && (request.BitrateKbps is null || string.IsNullOrWhiteSpace(request.Codec));
+    public static bool RequiresMetadata(LiteQuickInfoRequest request)
+    {
+        if (request.Fields is null)
+        {
+            return IsLocalSource(request.Source)
+                ? request.DurationTicks <= 0 || request.BitrateKbps is null || request.SampleRateHz is null
+                : request.Session == "radio" && (request.BitrateKbps is null || string.IsNullOrWhiteSpace(request.Codec));
+        }
+        var fields = request.Fields;
+        if (IsLocalSource(request.Source))
+        {
+            return (fields.Contains("duration") && request.DurationTicks <= 0)
+                || (fields.Contains("bitrate") && request.BitrateKbps is null && request.DurationTicks <= 0)
+                || (fields.Contains("sampleRate") && request.SampleRateHz is null);
+        }
+        return request.Session == "radio"
+            && ((fields.Contains("bitrate") && request.BitrateKbps is null)
+                || (fields.Contains("format") && string.IsNullOrWhiteSpace(request.Codec))
+                || (fields.Contains("sampleRate") && request.SampleRateHz is null));
+    }
 
     public static string Build(
         LiteQuickInfoRequest request,
@@ -184,12 +207,12 @@ public static class LiteQuickInformation
             item.IsBitrateEstimated = item.BitrateKbps.HasValue && probe.BitrateKbps is null;
         }
 
-        return QuickMediaInformationFormatter.Format(
+        return QuickMediaInformationFormatter.FormatSelected(
             item,
             containerFormat,
             sizeBytes,
             probe.MayRequireCloudDownload,
-            unavailableFormatMessage: null,
+            request.Fields ?? ["duration", "bitrate", "size", "format", "sampleRate", "artist", "country", "language", "cloud"],
             culture ?? CultureInfo.CurrentCulture);
     }
 

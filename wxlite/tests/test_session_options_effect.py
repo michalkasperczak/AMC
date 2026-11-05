@@ -60,6 +60,7 @@ def real_method(name: str, env: dict | None = None):
         "View": View,
         "SessionId": SessionId,
         "session_options": session_options,
+        "_RELEASE_PROFILE": SimpleNamespace(capabilities=frozenset()),
         **(env or {}),
     }
     exec(compile(module, str(GUI_PATH), "exec"), namespace)
@@ -380,7 +381,8 @@ def test_nowy_proces_dostaje_wybory_sesji_a_nie_sam_global():
         _queue_persistence_arguments=lambda: {},
         _on_engine_event=lambda *a: None,
         _load_initial_content=lambda: None,
-            _schedule_automatic_application_update_check=lambda: None,
+        _initialize_tidal_native_adapter=lambda _client: None,
+        _schedule_automatic_application_update_check=lambda: None,
         _update_media_components=lambda *, automatic: None,
         _remember_local_playback_positions=True,
     )
@@ -428,7 +430,8 @@ def test_diagnostyka_hosta_trafia_do_dziennika_frontendu():
         _queue_persistence_arguments=lambda: {},
         _on_engine_event=lambda *a: None,
         _load_initial_content=lambda: None,
-            _schedule_automatic_application_update_check=lambda: None,
+        _initialize_tidal_native_adapter=lambda _client: None,
+        _schedule_automatic_application_update_check=lambda: None,
         _update_media_components=lambda *, automatic: None,
         _remember_local_playback_positions=True,
     )

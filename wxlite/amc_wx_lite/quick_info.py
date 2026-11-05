@@ -116,7 +116,8 @@ class QuickInfoMemoryCache:
             "sampleRateHz", "isBitrateEstimated", "codec", "artist",
             "country", "language",
         )
-        return tuple(request.get(name) for name in names)
+        return (*tuple(request.get(name) for name in names),
+                tuple(request.get("fields") or ()))
 
     def get(self, request: dict) -> dict | None:
         key = self._key(request)

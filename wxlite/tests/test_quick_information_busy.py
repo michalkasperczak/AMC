@@ -2,7 +2,8 @@
 import ast
 from types import SimpleNamespace as N
 
-from amc_wx_lite import quick_info
+from amc_wx_lite import quick_info, list_reading
+from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.host_client import HostError
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import SessionId
@@ -26,10 +27,11 @@ def test_klient_zachowuje_kod_bledu_z_prawdziwego_procesu():
 def test_handler_czyta_krotka_odmowe_zamiast_bledu_elementu():
     namespace = dict(vars(quick_info))
     namespace["SessionId"] = SessionId
+    namespace["list_reading"] = list_reading
     exec(compile(ast.Module(body=[_method(HANDLER)], type_ignores=[]), "gui-handler", "exec"), namespace)
     row = Row("wybrany", "Plik", "track", path="D:\\a.mp3")
     failures, spoken = [], []
-    obj = N(client=N(), layout=None,
+    obj = N(client=N(), layout=None, state=LiteState(), options=Options(),
             navigator=N(session=N(model=N(selected_row=row)), active=N(value="files"), view=N(value="list")),
             _selected_item_id=lambda: "wybrany", _window_alive=lambda: True,
             announcer=N(say=spoken.append),

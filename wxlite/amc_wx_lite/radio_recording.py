@@ -313,13 +313,21 @@ def active_recording_rows(payload: object) -> list[Row]:
         # zawiera wyłącznie nazwę pliku, żeby strzałki nie powtarzały
         # „Nagrywane” przy każdym elemencie.
         title = file_name or fallback or "plik bez nazwy"
+        duration_seconds = entry.get("durationSeconds")
+        duration_ticks = (
+            duration_seconds * 10_000_000
+            if type(duration_seconds) is int and 0 < duration_seconds < 10_000_000
+            else 0
+        )
         rows.append(Row(
             item_id=station_id,
             title=title,
             kind="station",
+            path=path.strip() if isinstance(path, str) and path.strip() else None,
             url=url.strip() if isinstance(url, str) and url.strip() else None,
             detail="",
             show_kind=False,
+            duration_ticks=duration_ticks,
         ))
     return rows
 

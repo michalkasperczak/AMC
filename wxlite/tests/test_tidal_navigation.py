@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from amc_wx_lite import menu_model
 from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     Announce,
@@ -48,6 +49,7 @@ def test_tidal_left_arrow_says_only_complementary_time_and_format() -> None:
     )
     spoken = []
     frame = SimpleNamespace(
+        state=LiteState(), options=Options(),
         navigator=SimpleNamespace(
             active=SessionId.TIDAL,
             session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
@@ -57,10 +59,7 @@ def test_tidal_left_arrow_says_only_complementary_time_and_format() -> None:
 
     LiteFrame._announce_quick_information(frame)
 
-    assert spoken == [
-        "40:32, format audio nie został udostępniony "
-        "przez zapisany katalog TIDAL"
-    ]
+    assert spoken == ["40:32"]
 
 
 def test_tidal_session_keeps_its_own_selection_across_switches() -> None:
@@ -562,6 +561,7 @@ def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
     )
     spoken = []
     frame = SimpleNamespace(
+        state=LiteState(), options=Options(),
         navigator=SimpleNamespace(
             active=SessionId.TIDAL,
             session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
@@ -570,5 +570,5 @@ def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
     )
 
     LiteFrame._announce_quick_information(frame)
-    assert spoken[0].startswith("45:21, ")
+    assert spoken[0] == "45:21"
     assert "Czas:" not in spoken[0]

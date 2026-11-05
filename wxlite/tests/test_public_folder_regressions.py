@@ -9,6 +9,7 @@ from test_gui_logic import install_wx_stub
 install_wx_stub()
 
 from amc_wx_lite import gui  # noqa: E402
+from amc_wx_lite.state_store import LiteState, Options
 from amc_wx_lite.list_model import Row  # noqa: E402
 from amc_wx_lite.navigation import Navigator, SessionId, View  # noqa: E402
 from amc_wx_lite.profile_layout import read_only_mirror  # noqa: E402
@@ -221,6 +222,7 @@ def test_repeated_left_arrow_reuses_measured_result(tmp_path) -> None:  # noqa: 
 
     frame = SimpleNamespace(
         navigator=navigator,
+        state=LiteState(), options=Options(),
         client=Client(),
         layout=read_only_mirror(tmp_path, tmp_path),
         runner=ImmediateRunner(),

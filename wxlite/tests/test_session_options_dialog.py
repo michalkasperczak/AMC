@@ -64,6 +64,27 @@ class FakeStaticText:
     def __init__(self, parent, label: str = "", **kwargs) -> None:
         self.label = label
 
+    def SetName(self, name: str) -> None:  # noqa: N802 - API wx
+        self.name = name
+
+
+class FakeCheckBox:
+    def __init__(self, parent, label: str = "", **kwargs) -> None:
+        self.label = label
+        self.value = False
+
+    def SetName(self, name: str) -> None:  # noqa: N802 - API wx
+        self.name = name
+
+    def SetValue(self, value: bool) -> None:  # noqa: N802 - API wx
+        self.value = value
+
+    def GetValue(self) -> bool:  # noqa: N802 - API wx
+        return self.value
+
+    def Enable(self, enabled: bool) -> None:  # noqa: N802 - API wx
+        self.enabled = enabled
+
 
 class FakeSizer:
     def __init__(self, *args, **kwargs) -> None:
@@ -79,6 +100,9 @@ class FakeSizer:
     def AddGrowableCol(self, *args, **kwargs) -> None:  # noqa: N802 - API wx
         pass
 
+    def AddSpacer(self, *args, **kwargs) -> None:  # noqa: N802 - API wx
+        pass
+
     def Clear(self, delete_windows=False) -> None:  # noqa: N802 - API wx
         self.items.clear()
 
@@ -90,13 +114,21 @@ class FakePanel:
     def SetSizer(self, sizer) -> None:  # noqa: N802 - API wx
         pass
 
+    def SetScrollRate(self, x, y) -> None:  # noqa: N802 - API wx
+        pass
+
+    def FitInside(self) -> None:  # noqa: N802 - API wx
+        pass
+
 
 def _build(session: SessionId, options: Options, overrides, *, exercise=None) -> object:
     """Zbuduj dialog na atrapach i zwroc gotowy obiekt."""
     saved = {name: getattr(wx, name, None) for name in
-             ("Choice", "StaticText", "FlexGridSizer", "BoxSizer", "Panel", "Dialog",
-              "EVT_CHOICE")}
+             ("Choice", "CheckBox", "StaticText", "FlexGridSizer", "BoxSizer", "Panel",
+              "ScrolledWindow", "Dialog", "EVT_CHOICE")}
     wx.Choice = FakeChoice
+    wx.CheckBox = FakeCheckBox
+    wx.ScrolledWindow = FakePanel
     wx.EVT_CHOICE = "evt-choice"
     wx.StaticText = FakeStaticText
     wx.FlexGridSizer = FakeSizer
@@ -124,6 +156,12 @@ def _build(session: SessionId, options: Options, overrides, *, exercise=None) ->
         def Layout(self) -> None:  # noqa: N802 - API wx
             # Budowa pol przelicza uklad dialogu.
             pass
+
+        def GetSize(self):  # noqa: N802 - API wx
+            return type("Size", (), {"height": 600, "width": 620})()
+
+        def SetSize(self, size) -> None:  # noqa: N802 - API wx
+            self.size = size
 
     wx.Dialog = FakeDialog
     # Import PO podstawieniu atrap: klasa dziedziczy po FakeDialog.
@@ -436,3 +474,27 @@ def test_wariant_dziedziczony_mowi_co_z_niego_wynika():
         SessionId.RADIO, options, session_options.SessionPlaybackOverrides()
     )
     assert "dalej" in dialog.pause.choices[0].lower()
+
+
+def test_reading_settings_inherit_and_show_only_session_capabilities() -> None:
+    inherited = _build(
+        SessionId.SPOTIFY, Options(), session_options.SessionPlaybackOverrides()
+    )
+    assert inherited.reading_override is None
+    assert inherited.reading_mode.choices == [
+        "Jak ustawienie ogólne", "Własne ustawienia tej sesji"
+    ]
+    assert "size" not in inherited._reading_checks["left"]
+    assert "duration" in inherited._reading_checks["left"]
+    assert all(not control.enabled for checks in inherited._reading_checks.values()
+               for control in checks.values())
+
+    own = _build(
+        SessionId.SONOS, Options(), session_options.SessionPlaybackOverrides(),
+        exercise=lambda dialog: dialog.reading_mode.SetSelection(1),
+    )
+    own._on_reading_mode(None)
+    assert "bitrate" in own._reading_checks["left"]
+    own._reading_checks["left"]["bitrate"].SetValue(False)
+    assert "bitrate" not in own.reading_override["list_left_fields"]
+    assert own._reading_checks["left"]["duration"].enabled

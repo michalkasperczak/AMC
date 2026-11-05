@@ -332,6 +332,9 @@ class Options:
     message_volume_messages: bool | None = None
     message_playback_messages: bool | None = None
     message_bookmark_navigation_messages: bool | None = None
+    #: Odczyt listy jest składany z danych wiersza, bez sieci przy strzałkach.
+    list_updown_fields: list[str] = field(default_factory=lambda: ["kind", "artist", "duration", "other", "status"])
+    list_left_fields: list[str] = field(default_factory=lambda: ["duration", "bitrate", "size", "format", "sampleRate", "artist", "country", "language", "cloud", "other"])
     message_percent_announcement: str | None = None
     #: Prywatne teksty komunikatow. Klucze sa filtrowane do zamknietego
     #: katalogu, a pusty tekst pozostaje swiadomym wylaczeniem zdarzenia.
@@ -467,6 +470,9 @@ class Options:
             value = getattr(self, name)
             if value is not None and type(value) is not bool:
                 setattr(self, name, None)
+        from .list_reading import LEFT_FIELDS, UPDOWN_FIELDS, normalize_fields
+        self.list_updown_fields = normalize_fields(self.list_updown_fields, UPDOWN_FIELDS)
+        self.list_left_fields = normalize_fields(self.list_left_fields, LEFT_FIELDS)
         if self.message_percent_announcement is not None:
             allowed_message_modes = ("Percent", "Time", "PercentAndTime")
             normalized_message_mode = str(
@@ -611,6 +617,7 @@ class LiteState:
     #: Pusty slownik = kazda sesja dziedziczy ustawienia ogolne, czyli
     #: zachowanie sprzed tego przyrostu.
     session_overrides: dict = field(default_factory=dict)
+    list_reading_overrides: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     #: Wyjscie audio per sesja. Brak klucza dziedziczy wybor glownego AMC,
     #: pusty napis oznacza jawny wybor urzadzenia domyslnego Windows.
     audio_output_device_ids_by_session: dict[str, str] = field(default_factory=dict)
@@ -686,6 +693,29 @@ class LiteState:
     playback_history_by_session: dict[str, list[dict]] = field(
         default_factory=dict
     )
+
+
+def _read_list_reading_overrides(raw: object) -> dict[str, dict[str, list[str]]]:
+    from .navigation import SessionId
+    from .list_reading import UPDOWN_FIELDS, available_left_fields, normalize_fields
+    result: dict[str, dict[str, list[str]]] = {}
+    if not isinstance(raw, dict):
+        return result
+    known = {session.value for session in SessionId}
+    for session, value in raw.items():
+        if session not in known or not isinstance(value, dict):
+            continue
+        if not all(name in value for name in ("list_updown_fields", "list_left_fields")):
+            continue
+        if not all(isinstance(value[name], list) for name in ("list_updown_fields", "list_left_fields")):
+            continue
+        result[session] = {
+            "list_updown_fields": normalize_fields(value["list_updown_fields"], UPDOWN_FIELDS),
+            "list_left_fields": normalize_fields(
+                value["list_left_fields"], available_left_fields(session)
+            ),
+        }
+    return result
 
 
 def _read_session_overrides(raw: object) -> dict:
@@ -829,6 +859,9 @@ class StateStore:
                     list(value) if isinstance(value, (list, tuple)) else []
                 )
                 continue
+            if key in ("list_updown_fields", "list_left_fields"):
+                setattr(options, key, value if isinstance(value, list) else None)
+                continue
             if key == "message_templates":
                 options.message_templates = (
                     normalize_message_templates(value)
@@ -896,6 +929,7 @@ class StateStore:
                 raw.get("shuffle_enabled_by_session")
             ),
             session_overrides=_read_session_overrides(raw.get("session_overrides")),
+            list_reading_overrides=_read_list_reading_overrides(raw.get("list_reading_overrides")),
             audio_output_device_ids_by_session=read_output_overrides(
                 raw.get("audio_output_device_ids_by_session"),
                 include_tidal_native=current_profile().profile_id == "test",
@@ -974,6 +1008,7 @@ class StateStore:
             ),
             # Puste wpisy sa USUWANE (jak cs:93): w pliku nie moga zostawac
             # wartosci nieodroznialne od braku decyzji uzytkownika.
+            "list_reading_overrides": _read_list_reading_overrides(state.list_reading_overrides),
             "session_overrides": {
                 key: overrides.to_payload()
                 for key, overrides in (state.session_overrides or {}).items()

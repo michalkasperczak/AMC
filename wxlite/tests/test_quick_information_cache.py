@@ -62,7 +62,7 @@ def test_prawdziwy_formatter_zachowuje_cache_gdy_sonda_nic_nie_dodaje():
         assert request is not None
         request.update(bitrateKbps=192, sampleRateHz=44100, codec="mp3", country="Polska", language="polski")
         result = client.call(quick_info.QUICK_INFO_OP, request)
-        assert result["text"] == "MP3, 192 kb/s, 44,1 kHz, Polska, polski", result
+        assert result["text"] == "192 kb/s, MP3, 44,1 kHz, Polska, polski", result
     finally:
         client.close()
 
@@ -78,6 +78,9 @@ def test_handler_czyta_cache_w_zadaniu_tla_i_przekazuje_do_hosta():
     calls, jobs, reads = [], [], []
     namespace = dict(vars(quick_info))
     namespace["SessionId"] = SessionId
+    from amc_wx_lite import list_reading
+    from amc_wx_lite.state_store import LiteState, Options
+    namespace["list_reading"] = list_reading
     def cached(layout, row, session):
         reads.append((layout, row.item_id, session))
         return {"durationTicks": 123456789, "bitrateKbps": 320, "sampleRateHz": 48000}
@@ -87,6 +90,7 @@ def test_handler_czyta_cache_w_zadaniu_tla_i_przekazuje_do_hosta():
     obj = N(client=N(call=lambda op, request, **kwargs: calls.append((op, request))),
             navigator=N(session=N(model=N(selected_row=row)), active=N(value="files"), view=N(value="list")),
             layout="private-copy", _selected_duration_ticks=lambda row: 0,
+            state=LiteState(), options=Options(),
             _window_alive=lambda: True, announcer=N(say=lambda text: None),
             runner=N(submit=lambda stream, work, answer, failed: jobs.append(work)))
     namespace["_announce_quick_information"](obj)

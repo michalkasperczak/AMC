@@ -386,6 +386,7 @@ def information_text(
     row: Row,
     *,
     duration_ticks: int | None = None,
+    fields: tuple[str, ...] | None = None,
 ) -> str:
     """One deliberate Left-Arrow announcement without technical values."""
 
@@ -398,13 +399,16 @@ def information_text(
     effective_duration = (
         row.duration_ticks if duration_ticks is None else max(0, duration_ticks)
     )
-    if effective_duration:
+    selected = set(fields) if fields is not None else {"duration", "other"}
+    if effective_duration and "duration" in selected:
         values.append(format_duration(effective_duration / 10_000_000))
-    if row.activation_message:
+    if row.artist_name and "artist" in selected:
+        values.append(row.artist_name)
+    if row.activation_message and "other" in selected:
         values.append(row.activation_message)
 
     if not values:
-        values.append("Brak dodatkowych informacji")
+        values.append("Brak wybranych informacji" if not selected else "Brak dodatkowych informacji")
 
     result: list[str] = []
     seen: set[str] = set()

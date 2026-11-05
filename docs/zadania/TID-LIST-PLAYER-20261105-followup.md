@@ -20,3 +20,8 @@ Po wydaniu alpha.472 użytkownik potwierdził, że listy reagują wyraźnie szyb
 ## Wersja i commit
 
 Planowana wersja `0.1.0-alpha.473`. Commit, budowę, instalację i publikację uzupełnić po faktycznym wyniku każdego kroku. Nie utożsamiać zaliczonych testów ze sprawdzonym odsłuchem NVDA.
+
+
+## Aktualizacja stanu — 5 listopada 2026, po publikacji
+
+Źródła alpha.473 z commitu `578d39fd75bc803b1052d4b350cb0402885fa664` zbudowano i opublikowano jako wstępne wydanie `test-2026.11.05.1414`. Zdalny załącznik instalatora został odczytowo zweryfikowany. Instalacji alpha.473 nie wykonywano, ponieważ użytkownik rozszerzył zakres o zbiorczą konfigurację odczytu list. Ostatnią zainstalowaną wersją pozostaje alpha.472. Korekta użytkownika z późniejszej godziny tego samego dnia zastępuje zdanie w punkcie 2 o komunikacie TIDAL o niedostępnym formacie: w alpha.474 brakujące parametry mają być pomijane. Szczegóły nowego zadania: `LIST-20261105-konfiguracja-odczytu.md`.

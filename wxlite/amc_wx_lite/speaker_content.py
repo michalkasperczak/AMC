@@ -88,7 +88,9 @@ def _distinct(parts: Iterable[str]) -> list[str]:
     return result
 
 
-def speaker_information_text(row: Row, measured: str = "") -> str:
+def speaker_information_text(
+    row: Row, measured: str = "", *, fields: tuple[str, ...] | None = None,
+) -> str:
     """Użytkowe parametry wiersza, bez identyfikatorów protokołu.
 
     Adres albo ścieżka są wypowiadane tylko z jawnego pola modelu. Ulubione i
@@ -107,13 +109,19 @@ def speaker_information_text(row: Row, measured: str = "") -> str:
     useful_measurement = measured.strip()
     if useful_measurement == NO_SOURCE_MESSAGE:
         useful_measurement = ""
+    if fields is None:
+        parts = _distinct((useful_measurement, speaker_kind_label(row), row.detail, location))
+        return ", ".join(parts) or NO_SOURCE_MESSAGE
+    if not fields:
+        return "Brak wybranych informacji"
     parts = _distinct((
         useful_measurement,
-        speaker_kind_label(row),
-        row.detail,
-        location,
+        row.artist_name if "artist" in fields else "",
+        speaker_kind_label(row) if "other" in fields else "",
+        row.detail if "other" in fields else "",
+        location if "other" in fields else "",
     ))
-    return ", ".join(parts) or NO_SOURCE_MESSAGE
+    return ", ".join(parts) or "Brak dodatkowych informacji"
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +132,7 @@ class SpeakerInformationPlan:
     message: str | None = None
     request: dict | None = None
     guard: QuickInfoGuard | None = None
+    fields: tuple[str, ...] | None = None
 
 
 def speaker_information_plan(
@@ -132,6 +141,7 @@ def speaker_information_plan(
     session: SessionId,
     view: str,
     alive: Callable[[], bool] | None = None,
+    fields: tuple[str, ...] | None = None,
 ) -> SpeakerInformationPlan:
     """Przygotuj natychmiastowy odczyt lub pomiar dostępnego adresu strumienia."""
 
@@ -142,20 +152,32 @@ def speaker_information_plan(
     if not row.address:
         return SpeakerInformationPlan(
             row=row,
-            message=speaker_information_text(row),
+            message=speaker_information_text(row, fields=fields),
+            fields=fields,
         )
 
     # Ten sam pomiar sieciowego źródła, którego używa Radio internetowe.
     # ``radio`` jest rodzajem sondy hosta, nie sesją prezentowaną użytkownikowi.
-    request = quick_info_request(row, session="radio")
+    if fields is not None and not any(
+        field in fields for field in ("bitrate", "format", "sampleRate", "duration")
+    ):
+        return SpeakerInformationPlan(
+            row=row, message=speaker_information_text(row, fields=fields), fields=fields
+        )
+    request = quick_info_request(row, session="radio", duration_ticks=row.duration_ticks)
     if request is None:
         return SpeakerInformationPlan(
             row=row,
-            message=speaker_information_text(row),
+            message=speaker_information_text(row, fields=fields),
+            fields=fields,
         )
+    if fields is not None:
+        request = dict(request)
+        request["fields"] = [field for field in fields if field != "other"]
     return SpeakerInformationPlan(
         row=row,
         request=request,
+        fields=fields,
         guard=QuickInfoGuard(
             item_id=row.item_id,
             session=session.value,
@@ -181,7 +203,7 @@ def speaker_information_reply(
     if not plan.guard.accepts(item_id=item_id, session=session, view=view):
         return
     measured = str((response or {}).get("text") or "").strip()
-    say(speaker_information_text(plan.row, measured))
+    say(speaker_information_text(plan.row, measured, fields=plan.fields))
 
 
 def speaker_information_failure(
@@ -197,4 +219,4 @@ def speaker_information_failure(
     if plan.row is None or plan.guard is None:
         return
     if plan.guard.accepts(item_id=item_id, session=session, view=view):
-        say(speaker_information_text(plan.row))
+        say(speaker_information_text(plan.row, fields=plan.fields))

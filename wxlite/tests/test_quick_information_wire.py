@@ -64,7 +64,7 @@ def test_plik_lokalny_dostaje_kontener_parametry_i_rozmiar() -> None:
     row = Row(item_id="file:7", title="Łąka", kind="track", path="D:\\Muzyka\\Łąka.flac")
     text = ask(row, session="files", probeExists=True, probeSizeBytes=5_242_880,
                probeBitrateKbps=320, probeSampleRateHz=44_100)["text"]
-    assert text.startswith("FLAC,"), text
+    assert text.startswith("320 kb/s, 5 MB, FLAC"), text
     assert "320 kb/s" in text, text
     # Polski separator dziesietny liczy formatter C#, nie Python.
     assert "44,1 kHz" in text, text
@@ -111,7 +111,7 @@ def test_stacja_dostaje_kodek_i_parametry_strumienia_bez_rozmiaru() -> None:
               url="https://stream.example.invalid/live")
     text = ask(row, session="radio", probeBitrateKbps=128, probeSampleRateHz=48_000,
                probeCodec="mp3")["text"]
-    assert text.startswith("MP3,"), text
+    assert text.startswith("128 kb/s, MP3"), text
     assert "128 kb/s" in text and "48 kHz" in text, text
     assert "MB" not in text and "KB" not in text, f"stacja bez rozmiaru: {text}"
     assert "0:00" not in text, f"stacja bez zerowego czasu: {text}"
@@ -140,7 +140,7 @@ def test_kontrakt_podcastu_dziala_ta_sama_droga_choc_listy_jeszcze_nie_ma() -> N
               url="https://feed.example.invalid/ep12.mp3")
     text = ask(row, session="podcasts", duration_ticks=30 * 60 * 10_000_000,
                podcast_media_length=24_117_248, podcast_media_type="audio/mpeg")["text"]
-    assert text.startswith("MP3,"), text
+    assert text.startswith("30:00, 107 kb/s, 23 MB, MP3"), text
     assert "23 MB" in text and "30:00" in text, text
     assert "107 kb/s" in text, f"bitrate z MediaLength i czasu: {text}"
 

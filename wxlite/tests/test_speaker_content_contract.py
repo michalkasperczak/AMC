@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from test_gui_logic import install_wx_stub
+
+install_wx_stub()
+
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import ListModel, Row
 from amc_wx_lite.navigation import LibraryView, SessionId, View

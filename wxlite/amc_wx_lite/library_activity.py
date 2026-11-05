@@ -126,6 +126,7 @@ def _track_row(item: LibraryItem) -> Row:
         kind="track",
         path=item.path,
         detail=_format_detail(item),
+        duration_ticks=item.duration_ticks,
     )
 
 

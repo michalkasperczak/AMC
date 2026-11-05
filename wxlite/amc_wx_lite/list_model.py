@@ -190,7 +190,7 @@ class ListModel:
             return self.rows[index]
         return None
 
-    def text_for(self, index: int, column: int = 0) -> str:
+    def text_for(self, index: int, column: int = 0, reading_fields=None) -> str:
         """Tekst komorki NA ZADANIE, osobna tresc dla KAZDEJ kolumny.
 
         Dlaczego nie jedno ``row.detail`` dla wszystkich kolumn poza zerowa:
@@ -212,6 +212,10 @@ class ListModel:
         row = self.row_at(index)
         if row is None:
             return ""
+        if reading_fields is not None:
+            from .list_reading import row_columns
+            columns = row_columns(row, reading_fields)
+            return columns[column] if 0 <= column < len(columns) else ""
         if column == 0:
             title = (
                 f"{row.state_prefix} {row.title}"

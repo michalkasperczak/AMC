@@ -19,6 +19,7 @@ internal static class QuickInformationTests
     public static void Run()
     {
         CachedParametersSkipMetadataRead();
+        SelectedFieldsControlProbeAndOrder();
         RequestIsReadFromProtocolArguments();
         MissingSourceIsRequestError();
         LocalFileUsesExtensionAndRealFileSize();
@@ -53,6 +54,30 @@ internal static class QuickInformationTests
         Assert.True(!Needs(file), "kompletne dane pliku nie wymagają dekodowania");
         Assert.True(Needs(file with { DurationTicks = 0 }), "brak czasu wymaga pomiaru pliku");
         Assert.True(!Needs(radio with { Session = "podcasts", Codec = null }), "odcinek nie jest sondowany jak radio");
+    }
+
+    private static void SelectedFieldsControlProbeAndOrder()
+    {
+        var file = new LiteQuickInfoRequest(
+            "files", "f", "Utwór", "track", @"D:\utwor.flac",
+            TimeSpan.FromMinutes(3).Ticks, null, null)
+            { Fields = ["duration", "size"], BitrateKbps = 320 };
+        Assert.True(!LiteQuickInformation.RequiresMetadata(file),
+            "wybrany czas i rozmiar nie otwierają dekodera przy znanym czasie");
+        var text = LiteQuickInformation.Build(file,
+            new LiteQuickInfoProbe { Exists = true, SizeBytes = 5_242_880 }, Polish);
+        Assert.True(text == "3:00, 5 MB", "wybrane pola i kolejność: " + text);
+        var none = LiteQuickInformation.Build(file with { Fields = [] },
+            new LiteQuickInfoProbe(), Polish);
+        Assert.True(none == "Brak wybranych informacji", none);
+
+        var radio = new LiteQuickInfoRequest(
+            "radio", "r", "Stacja", "station", "https://example.invalid/radio", 0, null, null)
+            { Fields = ["country"], Country = "Polska" };
+        Assert.True(!LiteQuickInformation.RequiresMetadata(radio),
+            "sam kraj nie powoduje sondowania strumienia");
+        Assert.True(LiteQuickInformation.Build(radio, new LiteQuickInfoProbe(), Polish) == "Polska",
+            "nie dodawaj kodeka ani bitrate bez wyboru");
     }
 
     private static void RequestIsReadFromProtocolArguments()
@@ -99,8 +124,8 @@ internal static class QuickInformationTests
         };
         var text = LiteQuickInformation.Build(request, probe, Polish);
         // Kolejnosc i jednostki naleza do formattera C#, nie do nas.
-        Assert.True(text.StartsWith("FLAC,", StringComparison.Ordinal),
-            "kontener z rozszerzenia, WIELKIMI literami: " + text);
+        Assert.True(text.StartsWith("320 kb/s, 5 MB", StringComparison.Ordinal),
+            "bitrate i rozmiar przed formatem, gdy czas jest nieznany: " + text);
         Assert.True(text.Contains("320 kb/s", StringComparison.Ordinal), text);
         Assert.True(text.Contains("44,1 kHz", StringComparison.Ordinal),
             "czestotliwosc po polsku, z przecinkiem: " + text);
@@ -123,7 +148,8 @@ internal static class QuickInformationTests
         // 5 760 000 B * 8 / 240 s / 1000 = 192 kb/s
         Assert.True(text.Contains("192 kb/s", StringComparison.Ordinal),
             "bitrate OSZACOWANY tym samym kodem Core: " + text);
-        Assert.True(text.Contains("4:00", StringComparison.Ordinal), text);
+        Assert.True(text.StartsWith("4:00, 192 kb/s, 5,49 MB", StringComparison.Ordinal),
+            "czas, bitrate i rozmiar w pierwszej kolejności: " + text);
     }
 
     private static void VideoFileKeepsNoEstimatedBitrate()
@@ -192,8 +218,8 @@ internal static class QuickInformationTests
             Codec = "mp3"
         };
         var text = LiteQuickInformation.Build(request, probe, Polish);
-        Assert.True(text.StartsWith("MP3,", StringComparison.Ordinal),
-            "kodek strumienia WIELKIMI literami: " + text);
+        Assert.True(text.StartsWith("128 kb/s, MP3", StringComparison.Ordinal),
+            "bitrate przed kodekiem strumienia: " + text);
         Assert.True(text.Contains("128 kb/s", StringComparison.Ordinal), text);
         Assert.True(text.Contains("48 kHz", StringComparison.Ordinal), text);
         // Stacja nie ma rozmiaru pliku ani dlugosci -- zera byly by zmysleniem.
@@ -217,7 +243,7 @@ internal static class QuickInformationTests
             "https://feed.example.invalid/ep12.mp3",
             TimeSpan.FromMinutes(30).Ticks, 24_117_248, "audio/mpeg");
         var text = LiteQuickInformation.Build(request, new LiteQuickInfoProbe(), Polish);
-        Assert.True(text.StartsWith("MP3,", StringComparison.Ordinal), text);
+        Assert.True(text.StartsWith("30:00, 107 kb/s, 23 MB, MP3", StringComparison.Ordinal), text);
         Assert.True(text.Contains("23 MB", StringComparison.Ordinal),
             "rozmiar z MediaLength kanalu: " + text);
         Assert.True(text.Contains("30:00", StringComparison.Ordinal), text);
