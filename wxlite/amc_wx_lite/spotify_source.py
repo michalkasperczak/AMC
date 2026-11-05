@@ -132,6 +132,7 @@ def _row(entry: object) -> Row | None:
         item_id=item_id,
         title=title,
         kind=kind,
+        show_kind=kind != "track",
         url=_text(entry.get("publicUri")) or None,
         detail=", ".join(details),
         activation_message=activation_message,
@@ -400,9 +401,14 @@ def information_text(
         row.duration_ticks if duration_ticks is None else max(0, duration_ticks)
     )
     selected = set(fields) if fields is not None else {"duration", "other"}
-    if effective_duration and "duration" in selected:
+    has_duration = bool(effective_duration and "duration" in selected)
+    if has_duration:
         values.append(format_duration(effective_duration / 10_000_000))
-    if row.artist_name and "artist" in selected:
+        if row.kind == "track":
+            values.append(row.title)
+    if row.artist_name and "artist" in selected and not (
+        row.kind == "track" and has_duration
+    ):
         values.append(row.artist_name)
     if row.activation_message and "other" in selected:
         values.append(row.activation_message)

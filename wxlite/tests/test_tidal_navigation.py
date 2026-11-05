@@ -570,5 +570,5 @@ def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
     )
 
     LiteFrame._announce_quick_information(frame)
-    assert spoken[0] == "45:21"
+    assert spoken[0] == "45:21, Piosenka"
     assert "Czas:" not in spoken[0]

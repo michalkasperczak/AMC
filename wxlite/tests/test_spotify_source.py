@@ -62,6 +62,9 @@ def test_explicit_payload_accepts_all_user_facing_spotify_kinds() -> None:
     assert all(row.service_id for row in result.rows)
     assert result.rows[-1].related_podcast_title == "Podcast użytkowy"
     assert result.rows[-1].collection_added_ticks == 638000000000000000
+    track = next(row for row in result.rows if row.kind == "track")
+    assert track.show_kind is False
+    assert SearchEntry(SessionId.SPOTIFY, track).kind_label == "utwór"
 
 
 def test_list_search_and_left_information_never_speak_ids_uri_enum_or_repr() -> None:
@@ -94,7 +97,7 @@ def test_list_search_and_left_information_never_speak_ids_uri_enum_or_repr() -> 
     assert "Odcinek" not in episode_information
 
 
-def test_left_information_does_not_repeat_the_focused_title_or_invent_bitrate() -> None:
+def test_left_information_reads_duration_then_track_title_without_inventing_bitrate() -> None:
     rows = (
         Row(
             "private-track", "Plastelina", "track",
@@ -108,9 +111,10 @@ def test_left_information_does_not_repeat_the_focused_title_or_invent_bitrate() 
         ),
     )
 
+    assert information_text(rows[0]) == "3:00, Plastelina"
+    assert information_text(rows[1]) == ""
     for row in rows:
         text = information_text(row)
-        assert row.title.casefold() not in text.casefold()
         assert "kb/s" not in text.casefold()
         assert "kbps" not in text.casefold()
 

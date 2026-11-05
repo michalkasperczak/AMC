@@ -69,14 +69,22 @@ class SearchEntry:
     @property
     def accessible_label(self) -> str:
         parts = [self.row.title]
-        if self.row.artist_name and self.row.artist_name not in parts:
-            parts.append(self.row.artist_name)
         if self.kind_label:
             parts.append(self.kind_label)
-        if self.row.detail and self.row.detail not in parts:
-            parts.append(self.row.detail)
+        parts.extend(self.detail_parts)
         parts.append(self.session_label)
         return ", ".join(part for part in parts if part)
+
+    @property
+    def detail_parts(self) -> tuple[str, ...]:
+        """Nie powtarzaj wykonawcy już obecnego na początku szczegółów."""
+        artist = self.row.artist_name.strip()
+        detail = self.row.detail.strip()
+        if artist and detail == artist:
+            detail = ""
+        elif artist and detail.startswith(artist + ", "):
+            detail = detail[len(artist) + 2:]
+        return tuple(part for part in (artist, detail) if part and part != self.row.title)
 
     @property
     def kind_label(self) -> str:

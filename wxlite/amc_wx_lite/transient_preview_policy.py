@@ -18,13 +18,14 @@ TRANSIENT_PREVIEW_ACTIONS = frozenset({
     Action.VIEW_HISTORY,
 })
 
-# Te trzy listy są częstymi punktami nawigacji z każdej sesji. Ustawienie
-# wspólnych podglądów nadal dotyczy skrzynki nowych odcinków i transmisji.
+# Te listy są częstymi punktami nawigacji z każdej sesji. Ustawienie
+# wspólnych podglądów nadal dotyczy transmisji wybranych kanałów.
 ALWAYS_AVAILABLE_PREVIEWS = frozenset({
     Action.VIEW_ACTIVE_RECORDINGS,
     Action.VIEW_RECORDED_RADIO_FILES,
     Action.VIEW_DOWNLOADED_FILES,
     Action.VIEW_HISTORY,
+    Action.VIEW_PODCAST_INBOX,
 })
 
 
@@ -71,11 +72,6 @@ def is_transient_preview_available(
 
 def transient_preview_unavailable_message(action: Action) -> str:
     suffix = " Wspólne podglądy ze wszystkich sesji włączysz w Ustawieniach"
-    if action is Action.VIEW_PODCAST_INBOX:
-        return (
-            "Nowe odcinki i materiały są dostępne w sesji Podcasty i YouTube."
-            + suffix
-        )
     if action is Action.VIEW_YOUTUBE_LIVE_AGGREGATE:
         return (
             "Transmisje wybranych kanałów są dostępne w sesji Podcasty "

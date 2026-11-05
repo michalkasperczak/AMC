@@ -3,7 +3,8 @@ from __future__ import annotations
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, SessionId
 from amc_wx_lite.search_catalog import SearchEntry, query_words, record_query, search
-from amc_wx_lite.search_sources import SearchSources
+from amc_wx_lite.search_sources import SearchSources, spotify_cached_entries
+from amc_wx_lite.spotify_source import record_history_row
 
 
 def entry(
@@ -55,9 +56,21 @@ def test_accessible_result_includes_intentional_artist_not_model_data() -> None:
         kind="episode",
     )
     assert result.accessible_label == (
-        "Odcinek, Kanał, odcinek, Podcasty i YouTube"
+        "Odcinek, odcinek, Kanał, Podcasty i YouTube"
     )
     assert "technical-id" not in result.accessible_label
+
+
+def test_search_result_keeps_kind_and_reads_artist_once() -> None:
+    result = entry(
+        SessionId.SPOTIFY, "private", "Plastelina",
+        artist="Daria ze Śląska", detail="Daria ze Śląska, 3:00",
+    )
+    assert result.kind_label == "utwór"
+    assert result.detail_parts == ("Daria ze Śląska", "3:00")
+    assert result.accessible_label == (
+        "Plastelina, utwór, Daria ze Śląska, 3:00, Spotify"
+    )
 
 
 def test_search_deduplicates_same_item_in_multiple_collection_views() -> None:
@@ -145,6 +158,22 @@ def test_sources_collect_all_cached_sessions_and_deduplicate_later() -> None:
     }
     assert len([item for item in result.entries if item.row.item_id == "t"]) == 3
     assert len(search(list(result.entries), "tidal")) == 1
+
+
+def test_spotify_cached_search_includes_history_and_deduplicates_loaded_row() -> None:
+    track = Row(
+        "spotify:track:known", "Znany utwór", "track",
+        service_id="known", service_kind="track", artist_name="Wykonawca",
+    )
+    history = record_history_row([], track)
+
+    assert [entry.row.title for entry in spotify_cached_entries((), history)] == [
+        "Znany utwór"
+    ]
+    entries = spotify_cached_entries((track,), history)
+    assert len(entries) == 1
+    assert entries[0].kind_label == "utwór"
+    assert entries[0].remote_kind == "spotifyCatalog"
 
 
 def test_one_source_failure_does_not_erase_other_global_results() -> None:

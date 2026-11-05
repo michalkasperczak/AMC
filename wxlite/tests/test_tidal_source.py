@@ -103,6 +103,7 @@ def test_tidal_items_keep_model_ids_out_of_spoken_data() -> None:
     assert row.title == "Utwór"
     assert row.kind == "track"
     assert row.kind_label == "utwór"
+    assert row.show_kind is False
     assert row.detail == "Wykonawca, 3:00"
     assert row.duration_ticks == 1_800_000_000
     assert row.url == "https://tidal.com/browse/track/track-1"

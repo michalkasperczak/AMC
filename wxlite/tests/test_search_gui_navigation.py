@@ -456,6 +456,59 @@ def test_spotify_search_uses_online_catalog_without_library_write() -> None:
     assert shown[0][1] == ()
 
 
+def test_global_search_uses_loaded_spotify_rows_without_catalog_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        gui_module.session_order, "available_sessions",
+        lambda: (SessionId.SPOTIFY,),
+    )
+    shown = []
+    track = Row(
+        "spotify:track:known", "Znany utwór", "track",
+        service_id="known", service_kind="track", artist_name="Wykonawca",
+    )
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(sessions={
+            SessionId.SPOTIFY: SimpleNamespace(
+                model=SimpleNamespace(rows=(track,))
+            ),
+        }),
+        state=SimpleNamespace(spotify_playback_history=[]),
+        search_sources=SimpleNamespace(
+            collect=lambda _sessions: SearchCollection((), ())
+        ),
+        client=SimpleNamespace(spotify_search=lambda _query: pytest.fail(
+            "Global search must use the local Spotify snapshot"
+        )),
+        runner=Runner(),
+        _search_dialog_alive=lambda _dialog: True,
+    )
+    dialog = SimpleNamespace(
+        catalog=None,
+        show_results=lambda entries, warnings: shown.append((entries, warnings)),
+        search_failed=lambda: pytest.fail("Search failed"),
+    )
+
+    LiteFrame._run_search_query(
+        frame, "znany", dialog, all_services=True,
+        session_before=SessionId.FILES,
+    )
+
+    assert len(shown[0][0]) == 1
+    entry = shown[0][0][0]
+    assert entry.session_id is SessionId.SPOTIFY
+    assert entry.kind_label == "utwór"
+    assert entry.remote_kind == "spotifyCatalog"
+    assert dialog.catalog.entries == (entry,)
+
+
 def test_spotify_search_right_arrow_uses_catalog_row_without_write() -> None:
     calls = []
     result = SearchEntry(
@@ -1007,7 +1060,7 @@ def test_global_search_includes_verified_soundcloud_directory_result(
     assert result.row.title == "Freta10"
     assert result.row.detail == "podcast SoundCloud"
     assert result.accessible_label == (
-        "Freta10, Dominikanie Warszawa-Freta, podcast, "
+        "Freta10, podcast, Dominikanie Warszawa-Freta, "
         "podcast SoundCloud, Podcasty i YouTube"
     )
     assert "152970424" not in result.accessible_label

@@ -139,15 +139,13 @@ def test_global_stop_recordings_has_one_contract_in_every_session() -> None:
         ) == f"Ctrl+Alt+Shift+R. {expected}. {SESSION_LABELS[session]}"
 
 
-def test_recognition_history_has_one_contract_in_files_and_radio_only() -> None:
+def test_recognition_history_has_one_contract_in_every_session() -> None:
     expected = (
         "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
         "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
         "Ctrl+Enter album, a prawa strzałka najważniejsze działania"
     )
     chord = Chord("S", ctrl=True, alt=True)
-    supported = {SessionId.FILES, SessionId.RADIO}
-
     for session in SessionId:
         context = {
             "radio_session": session is SessionId.RADIO,
@@ -170,25 +168,6 @@ def test_recognition_history_has_one_contract_in_files_and_radio_only() -> None:
             for item in entries_for_session(session)
             if item.action is Action.VIEW_RADIO_RECOGNITION_HISTORY
         ]
-
-        if session not in supported:
-            assert not menu_entries
-            assert not palette_entries
-            for player_view in (False, True):
-                assert resolve(
-                    chord,
-                    player_view=player_view,
-                    **context,
-                ) is None
-            assert keyboard_help_announcement(
-                chord,
-                None,
-                SESSION_LABELS[session],
-            ) == (
-                f"Ctrl+Alt+S. Brak polecenia w sesji "
-                f"{SESSION_LABELS[session]}"
-            )
-            continue
 
         assert len(menu_entries) == 1
         assert len(palette_entries) == 1

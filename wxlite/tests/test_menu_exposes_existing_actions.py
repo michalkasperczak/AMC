@@ -711,20 +711,16 @@ def test_radio_items_declare_they_need_the_radio_session() -> None:
         Action.VIEW_RECORDED_RADIO_FILES,
         Action.MANAGE_RADIO_SCHEDULES,
     }
-    local_and_radio = {Action.VIEW_RADIO_RECOGNITION_HISTORY}
+    global_previews.add(Action.VIEW_RADIO_RECOGNITION_HISTORY)
     for item in radio.items:
-        if item.is_separator or item.action in global_previews | local_and_radio:
+        if item.is_separator or item.action in global_previews:
             continue
         assert item.needs_radio_session, item.label
     for item in radio.items:
         if item.action in global_previews:
             assert not item.needs_radio_session, item.label
-        if item.action in local_and_radio:
-            assert not item.needs_radio_session, item.label
-            assert item.visible_sessions == (
-                SessionId.FILES,
-                SessionId.RADIO,
-            )
+        if item.action is Action.VIEW_RADIO_RECOGNITION_HISTORY:
+            assert item.visible_sessions == tuple(SessionId)
 
 
 def test_no_placeholder_items_for_things_we_do_not_have() -> None:

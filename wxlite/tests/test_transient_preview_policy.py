@@ -46,7 +46,7 @@ def test_global_preview_shortcuts_reach_dispatch_from_native_lists() -> None:
     frame_hook = inspect.getsource(LiteFrame._on_player_shortcut_hook)
     list_hook = inspect.getsource(LiteFrame._on_list_shortcut_hook)
     assert set(GLOBAL_VIEW_SHORTCUTS) == {
-        "Ctrl+I", "Ctrl+Shift+I", "Alt+R", "Alt+Shift+R", "Ctrl+H", "Ctrl+J", "Ctrl+L",
+        "Ctrl+I", "Ctrl+Shift+I", "Alt+R", "Alt+Shift+R", "Ctrl+H", "Ctrl+J", "Ctrl+L", "Ctrl+Alt+S",
     }
     # Obie bramki korzystaja z jednej tabeli zamiast kopiowac gesty do
     # adapterow. Sama nazwa tabeli w kodzie jest kontraktem tej sciezki.
@@ -305,27 +305,26 @@ def test_remote_provider_gates_allow_the_global_history_action() -> None:
     assert Action.REMOVE_SELECTED in SONOS_SUPPORTED_ACTIONS
 
 
-def test_recording_and_playback_history_are_global_even_with_option_off() -> None:
+def test_frequent_previews_are_global_even_with_option_off() -> None:
     for session in SessionId:
         for action in (
             Action.VIEW_ACTIVE_RECORDINGS,
             Action.VIEW_RECORDED_RADIO_FILES,
             Action.VIEW_HISTORY,
+            Action.VIEW_PODCAST_INBOX,
         ):
             assert is_transient_preview_available(
                 action, session, global_previews=False
             )
-    assert is_transient_preview_available(
-        Action.VIEW_PODCAST_INBOX, SessionId.PODCASTS, global_previews=False
-    )
     assert not is_transient_preview_available(
-        Action.VIEW_PODCAST_INBOX, SessionId.TIDAL, global_previews=False
+        Action.VIEW_YOUTUBE_LIVE_AGGREGATE, SessionId.TIDAL,
+        global_previews=False
     )
 
 
 def test_unavailable_messages_name_user_facing_home_sessions() -> None:
     assert "Podcasty i YouTube" in transient_preview_unavailable_message(
-        Action.VIEW_PODCAST_INBOX
+        Action.VIEW_YOUTUBE_LIVE_AGGREGATE
     )
 
 
@@ -345,7 +344,7 @@ def test_profile_value_is_strict_and_private_override_wins(tmp_path: Path) -> No
     assert load_global_transient_previews(state) is True
 
 
-def test_recording_views_execute_from_every_session_with_option_off() -> None:
+def test_global_preview_commands_execute_from_every_session_with_option_off() -> None:
     for session in SessionId:
         calls: list[str] = []
         frame = SimpleNamespace(
@@ -355,11 +354,15 @@ def test_recording_views_execute_from_every_session_with_option_off() -> None:
             announcer=SimpleNamespace(say=lambda message: calls.append(message)),
             _show_active_radio_recordings=lambda: calls.append("active"),
             _show_radio_recording_history=lambda: calls.append("recorded"),
+            _show_podcast_inbox=lambda: calls.append("inbox"),
+            _show_radio_recognition_history=lambda: calls.append("recognized"),
         )
         frame.navigator.active = session
         LiteFrame._dispatch(frame, Action.VIEW_ACTIVE_RECORDINGS)
         LiteFrame._dispatch(frame, Action.VIEW_RECORDED_RADIO_FILES)
-        assert calls == ["active", "recorded"], session
+        LiteFrame._dispatch(frame, Action.VIEW_PODCAST_INBOX)
+        LiteFrame._dispatch(frame, Action.VIEW_RADIO_RECOGNITION_HISTORY)
+        assert calls == ["active", "recorded", "inbox", "recognized"], session
 
 
 def test_recording_and_history_commands_match_menu_and_palette_in_every_session() -> None:

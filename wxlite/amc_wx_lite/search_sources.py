@@ -5,15 +5,39 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .library_source import LibrarySource
-from .list_model import rows_from_stations
+from .list_model import Row, rows_from_stations
 from .navigation import LibraryView, SessionId
 from .podcast_source import PodcastSource
 from .radio_source import RadioSource, SCOPE_LIBRARY
 from .search_catalog import SearchEntry
+from .spotify_source import history_rows as spotify_history_rows
 
 TIDAL_VIEW_LIBRARY = "library"
 TIDAL_VIEW_FAVORITES = "favorites"
 TIDAL_VIEW_PLAYLISTS = "playlists"
+
+
+def spotify_cached_entries(
+    loaded_rows: tuple[Row, ...], playback_history: list[dict]
+) -> tuple[SearchEntry, ...]:
+    """Expose already known Spotify items to global search without a request."""
+
+    seen: set[str] = set()
+    entries: list[SearchEntry] = []
+    for row in (*loaded_rows, *spotify_history_rows(playback_history)):
+        if (
+            not row.service_id
+            or row.kind not in (
+                "track", "episode", "album", "artist", "playlist", "podcast"
+            )
+            or row.item_id in seen
+        ):
+            continue
+        seen.add(row.item_id)
+        entries.append(
+            SearchEntry(SessionId.SPOTIFY, row, remote_kind="spotifyCatalog")
+        )
+    return tuple(entries)
 
 
 @dataclass(frozen=True, slots=True)

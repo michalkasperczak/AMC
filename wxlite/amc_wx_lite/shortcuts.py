@@ -518,10 +518,9 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
 }
 
 
-# Historia pochodzi z rozpoznawania Radia, lecz jest trwałym zbiorem i może
-# zostać otwarta także podczas pracy z lokalną Biblioteką. Pozostałe sesje nie
-# dostają skrótu, pozycji menu ani wpisu pomocy/palety.
-RECOGNITION_HISTORY_SESSIONS = (SessionId.FILES, SessionId.RADIO)
+# Rozpoznane utwory są trwałym zbiorem. Okno dialogowe wraca do miejsca,
+# z którego je otwarto, niezależnie od aktywnej sesji.
+RECOGNITION_HISTORY_SESSIONS = tuple(SessionId)
 
 
 def command_presentation(action: Action) -> CommandPresentation | None:
@@ -1258,6 +1257,21 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
     }
 )
 
+# Te podglądy można otworzyć z każdej sesji, także z adaptera usługi.
+# Jedna bramka zasila wykonanie, menu, paletę i pomoc.
+_GLOBAL_PREVIEW_ACTIONS = frozenset({
+    Action.VIEW_ACTIVE_RECORDINGS,
+    Action.VIEW_RECORDED_RADIO_FILES,
+    Action.VIEW_PODCAST_INBOX,
+    Action.VIEW_RADIO_RECOGNITION_HISTORY,
+})
+TIDAL_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+SPOTIFY_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+WIIM_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+SONOS_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+FRONTIER_SMART_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+
 
 @dataclass(frozen=True, slots=True)
 class Chord:
@@ -1472,7 +1486,6 @@ RADIO_LIST_VIEW: dict[str, Action] = {
     "Shift+Space": Action.RECORD_PAUSE,
     "Shift+R": Action.ADD_RADIO_SCHEDULE,
     "Alt+D": Action.CURRENT_RADIO_BROADCAST_INFORMATION,
-    "Ctrl+Alt+S": Action.VIEW_RADIO_RECOGNITION_HISTORY,
     "Ctrl+Alt+Shift+S": Action.TOGGLE_RADIO_RECOGNITION_ANNOUNCEMENTS,
     "Ctrl+Shift+L": Action.TOGGLE_RADIO_LIBRARY,
 }
@@ -1507,7 +1520,6 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
     "Alt+D": Action.CURRENT_RADIO_BROADCAST_INFORMATION,
     "S": Action.RECOGNIZE_RADIO_TRACK,
     "Shift+S": Action.TOGGLE_RADIO_RECOGNITION_MONITORING,
-    "Ctrl+Alt+S": Action.VIEW_RADIO_RECOGNITION_HISTORY,
     "Ctrl+Alt+Shift+S": Action.TOGGLE_RADIO_RECOGNITION_ANNOUNCEMENTS,
     # W Time Shifcie End nie oznacza końca pliku: wraca do transmisji na żywo.
     "End": Action.RADIO_JUMP_LIVE,
@@ -1670,6 +1682,7 @@ GLOBAL_VIEW_SHORTCUTS: dict[str, Action] = {
     "Ctrl+Shift+I": Action.VIEW_YOUTUBE_LIVE_AGGREGATE,
     "Ctrl+H": Action.VIEW_HISTORY,
     "Ctrl+L": Action.VIEW_LIBRARY,
+    "Ctrl+Alt+S": Action.VIEW_RADIO_RECOGNITION_HISTORY,
 }
 for _table in (LIST_VIEW, PLAYER_VIEW):
     _table.update(GLOBAL_VIEW_SHORTCUTS)
@@ -1687,7 +1700,6 @@ PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
 FILES_SESSION_VIEW: dict[str, Action] = {
     "F5": Action.REFRESH_LOCAL_LIBRARY,
     "Ctrl+F5": Action.MANAGE_LIBRARY_FOLDERS,
-    "Ctrl+Alt+S": Action.VIEW_RADIO_RECOGNITION_HISTORY,
 }
 
 # Główna Biblioteka źródeł ma ten sam układ cyfr, ale osobny model i osobne

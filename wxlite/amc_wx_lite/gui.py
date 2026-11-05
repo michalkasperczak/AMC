@@ -346,6 +346,7 @@ from .search_sources import (
     TIDAL_VIEW_FAVORITES,
     TIDAL_VIEW_LIBRARY,
     TIDAL_VIEW_PLAYLISTS,
+    spotify_cached_entries,
 )
 from .speaker_content import (
     SPEAKER_SESSIONS,
@@ -2584,9 +2585,7 @@ class SearchDialog(wx.Dialog):
                 self.results.InsertItem(index, title)
                 if entry.kind_label:
                     self.results.SetItem(index, 1, entry.kind_label)
-                details = [row.artist_name] if row.artist_name else []
-                if row.detail:
-                    details.append(row.detail)
+                details = list(entry.detail_parts)
                 if self._all_services:
                     details.append(entry.session_label)
                 if details:
@@ -7753,12 +7752,12 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         self.global_transient_previews = wx.CheckBox(
             general,
             label=(
-                "Wspólne podglądy &nowych odcinków i transmisji "
+                "Wspólny podgląd &transmisji wybranych kanałów "
                 "we wszystkich sesjach"
             ),
         )
         self.global_transient_previews.SetName(
-            "Wspólne podglądy nowych odcinków i transmisji we wszystkich sesjach"
+            "Wspólny podgląd transmisji wybranych kanałów we wszystkich sesjach"
         )
         self.global_transient_previews.SetValue(global_transient_previews)
 
@@ -11506,6 +11505,16 @@ class LiteFrame(wx.Frame):
             for session_id in sessions
             if session_id in SPEAKER_SESSIONS
         }
+        spotify_snapshot: tuple[Row, ...] = ()
+        spotify_history_snapshot: list[dict] = []
+        if (
+            SessionId.SPOTIFY in sessions
+            and getattr(self, "navigator", None) is not None
+        ):
+            spotify_snapshot = tuple(
+                self.navigator.sessions[SessionId.SPOTIFY].model.rows
+            )
+            spotify_history_snapshot = list(self.state.spotify_playback_history)
         cached = dialog.catalog
 
         def work() -> tuple[
@@ -11526,8 +11535,14 @@ class LiteFrame(wx.Frame):
                         source_view,
                     )
                 )
+                known_spotify_entries = (
+                    spotify_cached_entries(
+                        spotify_snapshot, spotify_history_snapshot
+                    )
+                    if SessionId.SPOTIFY in sessions else ()
+                )
                 collected = SearchCollection(
-                    (*base.entries, *loaded_speaker_entries),
+                    (*base.entries, *loaded_speaker_entries, *known_spotify_entries),
                     base.warnings,
                 )
             results = search_entries(list(collected.entries), query)
@@ -25895,9 +25910,14 @@ class LiteFrame(wx.Frame):
                 self.announcer.say("Lista TIDAL jest pusta")
                 return
             parts: list[str] = []
-            if row.duration_ticks > 0 and "duration" in left_fields:
+            has_duration = row.duration_ticks > 0 and "duration" in left_fields
+            if has_duration:
                 parts.append(format_duration(row.duration_ticks / 10_000_000))
-            if row.artist_name and "artist" in left_fields:
+                if row.kind == "track":
+                    parts.append(row.title)
+            if row.artist_name and "artist" in left_fields and not (
+                row.kind == "track" and has_duration
+            ):
                 parts.append(row.artist_name)
             if parts:
                 self.announcer.say(", ".join(parts))
