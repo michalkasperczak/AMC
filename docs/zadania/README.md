@@ -14,7 +14,7 @@ jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
 Najnowsza lokalna instalacja to **AMC Test — 05.11.2026, 12:48** (`0.1.0-alpha.472`), commit `5bce69ca7e3a050aa324a31cd0e3b5ee3e602cd3`. Wydanie testowe opublikowano na GitHubie; pełna kontrola 4194 plików instalacji oraz start jednej instancji przeszły. Ręczny odbiór NVDA i pomiar płynności list pozostają otwarte.
 
-Wydanie przygotowano w istniejącym worktree `amc-test-title-20261031`, zachowując nowsze funkcje poprzedniej instalacji oraz główną brudną gałąź `codex/konfigurowalne-skroty-20261026`. Przy następnej budowie nie pomijać tej integracji.
+Wydanie alpha.472 powstało z gałęzi `codex/konfigurowalne-skroty-20261026` i commitu `5bce69ca`. Późniejszy commit `88e7b484` aktualizuje wyłącznie dokumentację wydania. Przy kolejnej budowie zachować kompletny runtime obecnej instalacji, w tym zależności Cast i urządzeń sieciowych; prywatne zależności TIDAL są dołączane osobno.
 
 ## Zasady prowadzenia
 
