@@ -125,13 +125,16 @@ def model_row_texts(
         if hit is not None and hit[0] is row:
             row_text = hit[1]
         else:
+            if reading_fields is None:
+                texts = tuple(model.text_for(index, column) for column in range(COLUMN_COUNT))
+            else:
+                # Jedno złożenie trzech kolumn na wiersz. Poprzednia wersja
+                # wołała row_columns trzy razy podczas otwierania widoku.
+                from .list_reading import row_columns
+                texts = row_columns(row, reading_fields)
             row_text = RowText(
                 item_id=row.item_id,
-                texts=tuple(
-                    model.text_for(index, column)
-                    if reading_fields is None else model.text_for(index, column, reading_fields)
-                    for column in range(COLUMN_COUNT)
-                ),
+                texts=texts,
             )
         fresh[id(row)] = (row, row_text)
         result.append(row_text)

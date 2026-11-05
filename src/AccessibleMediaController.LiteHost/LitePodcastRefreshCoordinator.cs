@@ -52,10 +52,26 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         emptyIsError: true,
         automatic: false);
 
-    public object RefreshAutomatic() => RefreshCore(
-        _podcasts.GetDueRefreshTargets,
-        emptyIsError: false,
-        automatic: true);
+    public object RefreshAutomatic()
+    {
+        // Duża biblioteka może wymagać zapisu tysięcy odcinków. Automatyczny
+        // przebieg ustępuje sterowaniu odtwarzacza i interfejsowi; ręczne
+        // odświeżenie zachowuje zwykły priorytet.
+        var thread = Thread.CurrentThread;
+        var previousPriority = thread.Priority;
+        try
+        {
+            thread.Priority = ThreadPriority.BelowNormal;
+            return RefreshCore(
+                _podcasts.GetDueRefreshTargets,
+                emptyIsError: false,
+                automatic: true);
+        }
+        finally
+        {
+            thread.Priority = previousPriority;
+        }
+    }
 
     private object RefreshCore(
         Func<IReadOnlyList<PodcastRefreshTarget>> readTargets,

@@ -792,22 +792,28 @@ def recent_recording_history(
     """
 
     current_ids = {entry.id for entry in current_entries}
-    merged: list[RadioRecordingHistoryEntry] = []
+    candidates: list[RadioRecordingHistoryEntry] = []
     seen: set[str] = set()
     for entry in (*current_entries, *stored_entries):
         if entry.id in seen:
             continue
         seen.add(entry.id)
+        candidates.append(entry)
+    candidates.sort(
+        key=lambda value: (-value.finished_utc_ticks, value.station_name.casefold())
+    )
+    merged: list[RadioRecordingHistoryEntry] = []
+    maximum = max(1, int(limit))
+    for entry in candidates:
         if entry.id not in current_ids:
             if entry.outcome != "failed" and (
                 not entry.path or path_probe(entry.path) != "available"
             ):
                 continue
         merged.append(entry)
-    merged.sort(
-        key=lambda value: (-value.finished_utc_ticks, value.station_name.casefold())
-    )
-    return tuple(merged[:max(1, int(limit))])
+        if len(merged) >= maximum:
+            break
+    return tuple(merged)
 
 
 def recording_history_rows(

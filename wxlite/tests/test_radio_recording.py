@@ -874,13 +874,37 @@ def test_recorded_view_drops_stale_database_rows_whose_files_are_gone() -> None:
     assert [item.id for item in result] == ["jest"]
 
 
+def test_recording_history_uses_cached_radio_snapshot_instead_of_reloading_profile() -> None:
+    snapshot = object()
+    captured: list[object] = []
+
+    class Runner:
+        def submit(self, key, work, done, failed):
+            assert key == "radio-recording-history"
+            captured.append(work())
+
+    def unexpected_load(**_kwargs):
+        raise AssertionError("Historia nagrań nie potrzebuje ponownego odczytu profilu")
+
+    frame = SimpleNamespace(
+        _radio_snapshot=snapshot,
+        client=None,
+        radio=SimpleNamespace(load=unexpected_load),
+        state=SimpleNamespace(recording_history=[]),
+        runner=Runner(),
+    )
+    LiteFrame._show_radio_recording_history(frame, announce=False)
+    assert captured == [(snapshot, [], "")]
+
+
 def test_visible_recording_history_does_not_merge_stale_archives_forever() -> None:
     source = (
         Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
     ).read_text(encoding="utf-8")
     method = source[source.index("def _show_radio_recording_history") :]
     method = method[:method.index("def _show_radio_schedules")]
-    assert "recent_recording_history(current_entries, stored_entries)" in method
+    assert "recent_recording_history(" in method
+    assert "current_entries, stored_entries, path_probe=path_probe" in method
     assert "recorded_radio_items" not in method
     assert "snapshot.recording_history" not in method
 
@@ -909,6 +933,25 @@ def test_recent_recording_history_survives_restart_without_dead_folder_rows() ->
     )
 
     assert [item.id for item in merged] == ["bieżące", "dzisiejsze", "nieudane"]
+
+
+def test_recent_recording_history_checks_only_files_needed_for_visible_rows() -> None:
+    entries = [
+        RadioRecordingHistoryEntry(
+            str(index), "radio", str(index), f"D:/Nagrania/{index}.mp3",
+            "completed", "", "", 0, index, 1,
+        )
+        for index in range(200)
+    ]
+    checked: list[str] = []
+
+    def path_probe(path: str) -> str:
+        checked.append(path)
+        return "available"
+
+    result = recent_recording_history([], entries, path_probe=path_probe)
+    assert [entry.id for entry in result] == [str(index) for index in range(199, 99, -1)]
+    assert len(checked) == 100
 
 
 def test_database_reads_recordings_outside_library_and_old_schema() -> None:

@@ -506,12 +506,28 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             : utcNow.ToUniversalTime();
         lock (_gate)
         {
-            var settings = new PodcastSettings();
-            LoadInto(settings);
             using var connection = OpenConnection();
             EnsureSchema(connection);
+            int batchSize;
+            using (var state = connection.CreateCommand())
+            {
+                state.CommandText = "SELECT automatic_refresh_batch_size FROM podcast_state WHERE singleton = 1;";
+                batchSize = Convert.ToInt32(state.ExecuteScalar(), CultureInfo.InvariantCulture);
+            }
+            var subscriptions = new List<PodcastSubscriptionSettings>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE is_in_library = 1 ORDER BY ordinal;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var item = JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
+                        reader.GetString(0), PayloadJsonOptions);
+                    if (item is not null) subscriptions.Add(item);
+                }
+            }
             var refreshAttempts = ReadRefreshAttempts(connection);
-            return settings.Subscriptions
+            return subscriptions
                 .Where(subscription =>
                     subscription.IsInLibrary
                     && IsRefreshable(subscription.SourceKind)
@@ -531,7 +547,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                         >= TimeSpan.FromMinutes(
                             item.Subscription.RefreshIntervalMinutes).Ticks)
                 .OrderBy(item => item.LastActivityUtcTicks)
-                .Take(Math.Max(1, settings.AutomaticRefreshBatchSize))
+                .Take(Math.Max(1, batchSize))
                 .Select(item => ToRefreshTarget(item.Subscription))
                 .ToArray();
         }
@@ -579,16 +595,19 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
     {
         lock (_gate)
         {
-            var settings = new PodcastSettings();
-            LoadInto(settings);
-            var librarySubscriptionIds = settings.Subscriptions
-                .Where(subscription => subscription.IsInLibrary)
-                .Select(subscription => subscription.Id)
-                .ToHashSet(StringComparer.Ordinal);
-            return settings.Episodes.Count(episode =>
-                episode.IsNew
-                && !episode.IsPlayed
-                && librarySubscriptionIds.Contains(episode.SubscriptionId));
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT COUNT(*)
+                FROM podcast_episodes AS episode
+                JOIN podcast_subscriptions AS subscription
+                    ON subscription.id = episode.subscription_id
+                WHERE episode.is_new = 1
+                  AND episode.is_played = 0
+                  AND subscription.is_in_library = 1;
+                """;
+            return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
         }
     }
 

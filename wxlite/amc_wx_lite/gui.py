@@ -431,6 +431,7 @@ from .radio_source import RadioSource
 from .radio_schedule_dialogs import RadioScheduleEditorDialog, RadioSchedulesDialog
 from . import radio_schedule_settings
 from .radio_recording import (
+    _path_state as recording_path_state,
     active_recording_rows,
     current_station_recording_label,
     format_duration,
@@ -33935,9 +33936,14 @@ class LiteFrame(wx.Frame):
         client = self.client
 
         def work():
-            snapshot = LiteFrame._with_radio_recording_options(
-                self, self.radio.load(previous=previous)
-            )
+            # Historia nagrań korzysta z bieżącego hosta i własnego dziennika.
+            # Ponowny odczyt całego profilu Radia przy każdym Alt+Shift+R
+            # opóźniał wejście w tę listę bez dostarczania jej nowych danych.
+            snapshot = previous
+            if snapshot is None:
+                snapshot = LiteFrame._with_radio_recording_options(
+                    self, self.radio.load(previous=None)
+                )
             current_entries = ()
             current_error = ""
             if client is not None:
@@ -33958,10 +33964,20 @@ class LiteFrame(wx.Frame):
                     )
                 }
             })
+            path_states: dict[str, str] = {}
+
+            def path_probe(path: str) -> str:
+                if path not in path_states:
+                    path_states[path] = recording_path_state(path)
+                return path_states[path]
+
             return (
                 snapshot,
                 recording_history_rows(
-                    recent_recording_history(current_entries, stored_entries),
+                    recent_recording_history(
+                        current_entries, stored_entries, path_probe=path_probe
+                    ),
+                    path_probe=path_probe,
                 ),
                 current_error,
             )

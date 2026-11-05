@@ -30,4 +30,26 @@ Góra/dół nie odczyta bitrate ani rozmiaru, gdy nie ma ich w gotowym wierszu; 
 
 ## Wersja i commit
 
-Kandydat `0.1.0-alpha.474` po zbiorczej regresji. Commit, build, instalację i publikację zapisać osobno po ich weryfikacji.
+Kandydat `0.1.0-alpha.474` zainstalowano 5 listopada o 15:35 z commitu `085d5b804bb348f87b64a48f5328150d5adef162`. Użytkownik zgłosił tego dnia regresję szybkości lewo/prawo w odtwarzaczu i wejścia do historii nagrań `Alt+Shift+R`; ten odbiór zastępuje wcześniejszą ocenę, że nawigacja jest wystarczająco szybka. Alpha.474 nie opublikowano.
+
+## Korekta wydajności po odbiorze alpha.474 — 5 listopada 2026
+
+### Materiał do dokumentacji użytkownika
+
+`Alt+Shift+R` otwiera historię nagrywania z bieżącego hosta i zapamiętanych wpisów. Lista nadal pokazuje do 100 najnowszych dostępnych nagrań; otwarcie nie odczytuje ponownie całego profilu Radia, a sprawdzanie plików kończy się po znalezieniu 100 wierszy. Lewa i prawa strzałka w odtwarzaczu nadal przewijają utwór o dotychczasowy krok. Automatyczne odświeżanie podcastów nadal działa, lecz jego odczyty liczby nowych odcinków i wybór źródeł nie wczytują całej biblioteki odcinków.
+
+### Uzasadnienie i decyzje
+
+Profil działającej alpha.474 wskazał niemal pełne wykorzystanie rdzenia przez LiteHost, kiedy co minutę odświeżał 5 źródeł podcastów z biblioteki 90 546 odcinków. Wybranie źródeł i odczyt licznika ładowały całą bazę; zastąpiono je wąskimi zapytaniami SQLite. Automatyczne odświeżanie ma niższy priorytet wątku. `Alt+Shift+R` wcześniej ponownie odczytywało profil Radia około 12,6 MB oraz sprawdzało więcej ścieżek niż wyświetla; korzysta z bieżącego stanu i pamięci wyników sprawdzeń. Formatowanie trzech kolumn listy wykonuje się raz na wiersz zamiast trzy razy.
+
+### Testy i wynik
+
+Przed zbudowaniem nowej paczki: 50 testów Python zmienionych list i nagrań zaliczonych; testy podcastów Core i LiteHost oraz kompilacja LiteHost Release zaliczone. Syntetyczne formatowanie 50 tys. wierszy skróciło się z 0,766 s do 0,339 s. Rzeczywisty pomiar odczuć z NVDA i odsłuchu po instalacji wymagają odbioru użytkownika.
+
+### Znane ograniczenia
+
+Sam zapis odświeżonego źródła podcastów nadal używa pełnej operacji biblioteki, aby zachować kolejność i stan odcinków. Niższy priorytet ogranicza wpływ na interfejs, ale dużą bibliotekę trzeba sprawdzić w działającej instalacji. Poprawka nie zmienia sieciowego czasu otwarcia nowego widoku TIDAL lub Spotify.
+
+### Wersja i commit
+
+Poprawka jest przygotowywana jako `0.1.0-alpha.475`; commit, pakiet, instalację i publikację odnotować po osobnej weryfikacji.

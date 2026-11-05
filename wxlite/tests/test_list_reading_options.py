@@ -24,6 +24,24 @@ def test_updown_uses_existing_row_and_keeps_title() -> None:
     assert full[0].texts == ("Odtwarzane, Utwór", "utwór", "Wykonawca, 3:20, ulubione")
 
 
+def test_new_list_formats_each_row_once_for_three_columns(monkeypatch) -> None:
+    rows = [Row(str(index), f"Utwór {index}", "track", detail="Wykonawca, 3:20")
+            for index in range(200)]
+    model = ListModel()
+    model.replace(rows)
+    original = list_reading.row_columns
+    calls = 0
+
+    def counted(row, fields):
+        nonlocal calls
+        calls += 1
+        return original(row, fields)
+
+    monkeypatch.setattr(list_reading, "row_columns", counted)
+    model_row_texts(model, reading_fields=("artist", "duration", "other"))
+    assert calls == len(rows)
+
+
 def test_session_override_and_global_are_independent(tmp_path) -> None:
     state = LiteState(options=Options())
     state.options.list_updown_fields = ["duration"]
