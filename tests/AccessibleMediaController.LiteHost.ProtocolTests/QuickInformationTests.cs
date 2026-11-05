@@ -69,7 +69,7 @@ internal static class QuickInformationTests
         Assert.True(text == "3:00, 5 MB", "wybrane pola i kolejność: " + text);
         var none = LiteQuickInformation.Build(file with { Fields = [] },
             new LiteQuickInfoProbe(), Polish);
-        Assert.True(none == "Brak wybranych informacji", none);
+        Assert.True(none == "", "wyłączenie pól nie tworzy komunikatu o braku danych");
 
         var radio = new LiteQuickInfoRequest(
             "radio", "r", "Stacja", "station", "https://example.invalid/radio", 0, null, null)
@@ -272,7 +272,7 @@ internal static class QuickInformationTests
         var request = new LiteQuickInfoRequest(
             "files", "file:0", "Niedostepny", "track", @"D:\brak.mp3", 0, null, null);
         // Plik niedostepny: sonda NIE istnieje, nie ma rozmiaru ani metadanych.
-        // Oryginal mowi wtedy jedno zdanie, a nie "0 B, 0 kb/s".
+        // Dostępne parametry pozostają; brakujące są pomijane.
         var text = LiteQuickInformation.Build(
             request, new LiteQuickInfoProbe { Exists = false }, Polish);
         Assert.True(text == "MP3", "zostaje sam znany kontener z rozszerzenia: " + text);
@@ -281,8 +281,8 @@ internal static class QuickInformationTests
             "files", "file:00", "Bez rozszerzenia", "track", @"D:\plik", 0, null, null);
         var empty = LiteQuickInformation.Build(
             noExtension, new LiteQuickInfoProbe { Exists = false }, Polish);
-        Assert.True(empty == "Brak zapisanych informacji uzupełniających",
-            "brak danych = krotki uczciwy komunikat formattera: " + empty);
+        Assert.True(empty == "",
+            "brak danych nie jest czytany przy każdym naciśnięciu: " + empty);
         Assert.True(!empty.Contains("0 B", StringComparison.Ordinal)
             && !empty.Contains("0 kb/s", StringComparison.Ordinal),
             "zadnych zmyslonych zer: " + empty);

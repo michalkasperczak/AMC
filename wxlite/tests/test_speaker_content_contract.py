@@ -84,6 +84,25 @@ def test_left_arrow_describes_read_only_sonos_items_without_inventing_an_address
         assert "technical" not in text
 
 
+def test_missing_speaker_measurement_is_silent_when_no_selected_value_exists() -> None:
+    row = Row("stream", "Radio", "wiimNetworkStream", url="https://example.test/live")
+    plan = speaker_information_plan(
+        row, session=SessionId.WIIM, view="list", fields=("bitrate",)
+    )
+    assert plan.request is not None
+    said: list[str] = []
+    speaker_information_reply(
+        {"text": ""}, plan=plan, item_id=row.item_id,
+        session="wiim", view="list", say=said.append,
+    )
+    speaker_information_failure(
+        plan=plan, item_id=row.item_id,
+        session="wiim", view="list", say=said.append,
+    )
+    assert said == []
+    assert speaker_information_text(row, fields=()) == ""
+
+
 def test_late_speaker_information_does_not_follow_focus() -> None:
     for session in (SessionId.WIIM, SessionId.SONOS):
         kind = "wiimNetworkStream" if session is SessionId.WIIM else "sonosOwnStream"

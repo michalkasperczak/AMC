@@ -62,7 +62,7 @@ public static class QuickMediaInformationFormatter
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(fields);
         culture ??= CultureInfo.CurrentCulture;
-        if (fields.Count == 0) return "Brak wybranych informacji";
+        if (fields.Count == 0) return string.Empty;
 
         var parts = new List<string>();
         foreach (var field in fields)
@@ -93,9 +93,7 @@ public static class QuickMediaInformationFormatter
                     break;
             }
         }
-        return parts.Count == 0
-            ? "Brak zapisanych informacji uzupełniających"
-            : string.Join(", ", parts);
+        return string.Join(", ", parts);
     }
 
     private static string? NormalizeFormat(string? value)

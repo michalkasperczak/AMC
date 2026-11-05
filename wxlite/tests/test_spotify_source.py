@@ -130,6 +130,11 @@ def test_album_information_can_use_the_sum_of_real_track_durations() -> None:
     assert text == "3:00"
 
 
+def test_missing_spotify_duration_has_no_repeated_unavailable_message() -> None:
+    album = Row("album", "Płyta", "album")
+    assert information_text(album, fields=("duration",)) == ""
+
+
 def test_spotify_album_row_reads_known_total_duration_without_word_czas() -> None:
     result = container_result_from_payload({
         "heading": "Albumy Spotify",

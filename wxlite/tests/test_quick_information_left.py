@@ -52,6 +52,22 @@ def _no_source_row() -> Row:
     return Row(item_id="ghost:1", title="Wiersz bez zapisanego zrodla", kind="track")
 
 
+def test_optional_information_silently_omits_unavailable_fields() -> None:
+    guard = QuickInfoGuard(item_id="track:1", session="files", view="list")
+    spoken: list[str] = []
+    quick_info_reply(
+        {"text": ""}, guard=guard, item_id="track:1",
+        session="files", view="list", say=spoken.append, omit_missing=True,
+    )
+    assert spoken == []
+    quick_info_reply(
+        {"text": ""}, guard=guard, item_id="track:1",
+        session="files", view="list", say=spoken.append,
+        extra_detail="folder Muzyka", omit_missing=True,
+    )
+    assert spoken == ["folder Muzyka"]
+
+
 # ------------------------------------------------------- klawisz na LISCIE
 
 def test_lewa_strzalka_na_liscie_plikow_ma_wlasna_akcje() -> None:

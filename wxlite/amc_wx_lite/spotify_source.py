@@ -407,9 +407,6 @@ def information_text(
     if row.activation_message and "other" in selected:
         values.append(row.activation_message)
 
-    if not values:
-        values.append("Brak wybranych informacji" if not selected else "Brak dodatkowych informacji")
-
     result: list[str] = []
     seen: set[str] = set()
     for value in values:

@@ -418,6 +418,7 @@ def quick_info_reply(
     view: str,
     say: Callable[[str], None],
     extra_detail: str | None = None,
+    omit_missing: bool = False,
 ) -> None:
     """Krok 3: wypowiedz wynik, ale TYLKO jesli nadal opisuje ten sam wiersz.
 
@@ -430,11 +431,12 @@ def quick_info_reply(
     text = ((response or {}).get("text") or "").strip()
     # Pusta odpowiedz nie moze zamienic sie w CISZE: martwy klawisz to ten sam
     # objaw, ktory naprawiamy.
-    parts = [text or NO_SOURCE_MESSAGE]
+    parts = [text] if text else ([] if omit_missing else [NO_SOURCE_MESSAGE])
     detail = (extra_detail or "").strip()
-    if detail and detail.casefold() not in parts[0].casefold():
+    if detail and (not parts or detail.casefold() not in parts[0].casefold()):
         parts.append(detail)
-    say(", ".join(parts))
+    if parts:
+        say(", ".join(parts))
 
 
 def quick_info_failure(

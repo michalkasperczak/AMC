@@ -117,12 +117,12 @@ def test_stacja_dostaje_kodek_i_parametry_strumienia_bez_rozmiaru() -> None:
     assert "0:00" not in text, f"stacja bez zerowego czasu: {text}"
 
 
-def test_milczaca_stacja_dostaje_krotki_uczciwy_komunikat() -> None:
-    """Sonda strumienia nic nie zmierzyla -- jedno zdanie, nie zera."""
+def test_milczaca_stacja_nie_dostaje_komunikatu_o_braku_danych() -> None:
+    """Sonda strumienia nic nie zmierzyla -- nie powtarzamy komunikatu."""
     row = Row(item_id="station:9", title="Cicha stacja", kind="station",
               url="https://stream.example.invalid/milczy")
     text = ask(row, session="radio")["text"]
-    assert text == "Brak zapisanych informacji uzupełniających", text
+    assert text == "", text
     assert "0 kb/s" not in text, text
 
 

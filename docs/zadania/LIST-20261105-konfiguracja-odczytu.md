@@ -4,7 +4,7 @@ Status: **W trakcie**. Data: 5 listopada 2026. Użytkownik potwierdził, że po 
 
 ## Zakres i korekty użytkownika
 
-Pierwsza decyzja z 5 listopada: lewa strzałka na lokalnych plikach, także nagraniach, ma podawać najpierw długość, następnie bitrate i rozmiar. Góra/dół oraz lewa strzałka mają osobne wybory odczytywanych pól globalnie w karcie komunikatów i w opcjach sesji `Ctrl+Alt+Enter`, z możliwością dziedziczenia ustawień ogólnych. Użytkownik doprecyzował tego samego dnia, że mechanizm musi obejmować także Sonos, WiiM i Frontier Smart oraz dawać prostą drogę dodawania kolejnych sesji. Kolejna korekta z 5 listopada zastępuje wcześniejszy zamiar mówienia w TIDAL o niedostępnym formacie: nieobecnych parametrów nie wymieniać osobno. Dla dodanych strumieni Sonos i WiiM dopuszczony jest pomiar bitrate i kodeka na żądanie lewą strzałką.
+Pierwsza decyzja z 5 listopada: lewa strzałka na lokalnych plikach, także nagraniach, ma podawać najpierw długość, następnie bitrate i rozmiar. Góra/dół oraz lewa strzałka mają osobne wybory odczytywanych pól globalnie w karcie komunikatów i w opcjach sesji `Ctrl+Alt+Enter`, z możliwością dziedziczenia ustawień ogólnych. Użytkownik doprecyzował tego samego dnia, że mechanizm musi obejmować także Sonos, WiiM i Frontier Smart oraz dawać prostą drogę dodawania kolejnych sesji. Kolejna korekta z 5 listopada zastępuje wcześniejszy zamiar mówienia w TIDAL o niedostępnym formacie: nieobecnych parametrów nie wymieniać osobno. Dla dodanych strumieni Sonos i WiiM dopuszczony jest pomiar bitrate i kodeka na żądanie lewą strzałką. Ostatnie doprecyzowanie z 5 listopada zastępuje wcześniejszą decyzję o ogólnym komunikacie „Brak wybranych/dodatkowych informacji”: jeżeli wybranych danych nie ma, lewa strzałka zachowuje ciszę; nie powtarza komunikatu o braku parametru.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -12,7 +12,7 @@ Pierwsza decyzja z 5 listopada: lewa strzałka na lokalnych plikach, także nagr
 - `Ctrl+Alt+Enter` → **Ustawienia sesji** → **Zasady odczytu listy**: „Jak ustawienie ogólne” albo „Własne ustawienia tej sesji”. Po wyborze własnych ustawień dostępne są dwie grupy pól. Okno pokazuje tylko pola lewej strzałki możliwe dla tej sesji. Zapis działa od razu; Anuluj nie zapisuje. Fokus wraca do poprzedniego widoku.
 - Góra/dół czyta wyłącznie dane już obecne w wierszu. Przełączniki obejmują rodzaj, wykonawcę, długość, inne szczegóły i stan. Nie są wykonywane dodatkowe zapytania do sieci ani bazy przy każdym ruchu kursora.
 - Lewa strzałka czyta wybrane dane na żądanie. W lokalnym pliku kolejność to długość, bitrate, rozmiar, format, częstotliwość i pozostałe dostępne informacje. Na TIDAL katalog podaje długość i wykonawcę; brak formatu nie jest oznajmiany. W Spotify podawane są dostępne czas, wykonawca i inne szczegóły. Radio Archiwista podaje długość nagrania bez słowa „Czas”. Dla własnego strumienia WiiM lub Sonos aplikacja może zmierzyć bitrate i kodek; gdy ich brak, pomija je. Frontier Smart pokazuje wyłącznie opis udostępniony na liście urządzeń.
-- Gdy żadne pole nie jest wybrane, komunikat brzmi „Brak wybranych informacji”. Gdy wybrane pola nie mają danych, aplikacja podaje jedną krótką ogólną informację, bez listy niedostępnych parametrów.
+- Gdy żadne pole nie jest wybrane albo wybranych parametrów nie ma, lewa strzałka nie dodaje komunikatu. Jeśli dostępna jest tylko część parametrów, czyta wyłącznie tę część.
 
 ## Uzasadnienie i decyzje
 
@@ -22,7 +22,7 @@ Zmiany obejmują `list_reading.py`, `list_model.py`, `list_sync.py`, `gui.py`, `
 
 ## Testy i wynik
 
-Regresja Python zmienionych modułów: 438 testów zaliczonych. Po ostatniej korekcie walidacji ustawień i pomijania pustych pól: 91 testów zaliczonych. Dwa zestawy C# `--quickinfo --transport-routing` zaliczone; LiteHost Release zbudowany bez ostrzeżeń i błędów. Rzeczywiste okno wxPython utworzono i zamknięto dla ośmiu sesji: wysokość 650 px, dla Plików obszar wirtualny 740 px i widoczny 564 px, więc sekcja rzeczywiście się przewija. Nie uruchamiano w tej próbie normalnej instancji AMC ani nagrywania. Paczka, instalacja, wydanie GitHub i żywy odbiór NVDA wymagają osobnych wyników i zostaną dopisane po wykonaniu.
+Regresja Python zmienionych modułów: 438 testów zaliczonych przed ostatnim doprecyzowaniem. Po zmianie pomijania pustych informacji: 114 testów Python i dwa zestawy C# `--quickinfo --transport-routing` zaliczone; zestaw przewodu hosta wymagał aktualizacji oczekiwania na pustą wypowiedź i ponownego uruchomienia. LiteHost Release wcześniej zbudowany bez ostrzeżeń i błędów. Rzeczywiste okno wxPython utworzono i zamknięto dla ośmiu sesji: wysokość 650 px, dla Plików obszar wirtualny 740 px i widoczny 564 px, więc sekcja rzeczywiście się przewija. Nie uruchamiano w tej próbie normalnej instancji AMC ani nagrywania. Paczka, instalacja, wydanie GitHub i żywy odbiór NVDA wymagają osobnych wyników i zostaną dopisane po wykonaniu.
 
 ## Znane ograniczenia
 

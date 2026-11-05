@@ -113,7 +113,9 @@ def speaker_information_text(
         parts = _distinct((useful_measurement, speaker_kind_label(row), row.detail, location))
         return ", ".join(parts) or NO_SOURCE_MESSAGE
     if not fields:
-        return "Brak wybranych informacji"
+        return ""
+    if location == "adres nieudostępniony przez Sonos":
+        location = ""
     parts = _distinct((
         useful_measurement,
         row.artist_name if "artist" in fields else "",
@@ -121,7 +123,7 @@ def speaker_information_text(
         row.detail if "other" in fields else "",
         location if "other" in fields else "",
     ))
-    return ", ".join(parts) or "Brak dodatkowych informacji"
+    return ", ".join(parts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +205,9 @@ def speaker_information_reply(
     if not plan.guard.accepts(item_id=item_id, session=session, view=view):
         return
     measured = str((response or {}).get("text") or "").strip()
-    say(speaker_information_text(plan.row, measured, fields=plan.fields))
+    message = speaker_information_text(plan.row, measured, fields=plan.fields)
+    if message:
+        say(message)
 
 
 def speaker_information_failure(
@@ -219,4 +223,6 @@ def speaker_information_failure(
     if plan.row is None or plan.guard is None:
         return
     if plan.guard.accepts(item_id=item_id, session=session, view=view):
-        say(speaker_information_text(plan.row, fields=plan.fields))
+        message = speaker_information_text(plan.row, fields=plan.fields)
+        if message:
+            say(message)

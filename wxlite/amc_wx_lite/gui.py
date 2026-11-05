@@ -321,6 +321,7 @@ from .podcast_source import (
 from .paging import load_more_row, requested_count
 from .quick_info import (
     HOST_ERROR_MESSAGE,
+    NO_SOURCE_MESSAGE,
     QUICK_INFO_OP,
     QUICK_INFO_STREAM,
     QuickInfoMemoryCache,
@@ -25813,12 +25814,17 @@ class LiteFrame(wx.Frame):
     def _announce_spotify_information(self, row: Row, fields: tuple[str, ...]) -> None:
         """Read an album's real track durations before announcing its length."""
 
-        if row.kind != "album" or row.duration_ticks > 0 or not row.service_id:
-            self.announcer.say(spotify_information_text(row, fields=fields))
+        def announce_available(*, duration_ticks: int | None = None) -> None:
+            message = spotify_information_text(row, duration_ticks=duration_ticks, fields=fields)
+            if message:
+                self.announcer.say(message)
+
+        if "duration" not in fields or row.kind != "album" or row.duration_ticks > 0 or not row.service_id:
+            announce_available()
             return
         client = self.client
         if client is None:
-            self.announcer.say(spotify_information_text(row, fields=fields))
+            announce_available()
             return
         requested_id = row.item_id
 
@@ -25841,11 +25847,9 @@ class LiteFrame(wx.Frame):
             ):
                 return
             duration = spotify_container_duration_ticks(list(result.rows))
-            self.announcer.say(spotify_information_text(
-                current,
-                duration_ticks=duration,
-                fields=fields,
-            ))
+            message = spotify_information_text(current, duration_ticks=duration, fields=fields)
+            if message:
+                self.announcer.say(message)
 
         def failed(_error: Exception) -> None:
             current = self.navigator.sessions[SessionId.SPOTIFY].model.selected_row
@@ -25854,7 +25858,9 @@ class LiteFrame(wx.Frame):
                 and current is not None
                 and current.item_id == requested_id
             ):
-                self.announcer.say(spotify_information_text(current, fields=fields))
+                message = spotify_information_text(current, fields=fields)
+                if message:
+                    self.announcer.say(message)
 
         self.runner.submit("spotify-album-information", work, done, failed)
 
@@ -25877,7 +25883,6 @@ class LiteFrame(wx.Frame):
             self.options, reading_overrides, "left", session=self.navigator.active.value
         )
         if row is not None and not left_fields:
-            self.announcer.say("Brak wybranych informacji")
             return
         if self.navigator.active is SessionId.TIDAL:
             if row is None:
@@ -25888,12 +25893,8 @@ class LiteFrame(wx.Frame):
                 parts.append(format_duration(row.duration_ticks / 10_000_000))
             if row.artist_name and "artist" in left_fields:
                 parts.append(row.artist_name)
-            self.announcer.say(
-                ", ".join(parts) or (
-                    "Brak wybranych informacji" if not left_fields
-                    else "Brak dodatkowych informacji"
-                )
-            )
+            if parts:
+                self.announcer.say(", ".join(parts))
             return
         if self.navigator.active is SessionId.SPOTIFY:
             if row is None:
@@ -25902,29 +25903,24 @@ class LiteFrame(wx.Frame):
             self._announce_spotify_information(row, left_fields)
             return
         if self.navigator.active is SessionId.RADIOARCHIWISTA:
-            if row is None or row.kind != "recording":
-                self.announcer.say("Brak dodatkowych informacji o nagraniu")
-            elif row.duration_ticks > 0 and "duration" in left_fields:
+            if row is not None and row.kind == "recording" and row.duration_ticks > 0 and "duration" in left_fields:
                 self.announcer.say(format_duration(row.duration_ticks / 10_000_000))
-            else:
-                self.announcer.say("Brak dodatkowych informacji o nagraniu")
             return
         if (
             self.navigator.active is SessionId.FILES
             and self.navigator.session.library_view is LibraryView.DOWNLOADED_FILES
         ):
             entry = self._download_history_entries.get(row.item_id) if row else None
-            self.announcer.say(
-                download_information(entry) if entry and "other" in left_fields
-                else "Brak wybranych informacji"
-            )
+            if entry and "other" in left_fields:
+                self.announcer.say(download_information(entry))
             return
         if self.navigator.active is SessionId.FRONTIER_SMART:
             if row is None:
                 self.announcer.say("Lista Frontier Smart jest pusta")
             else:
                 detail = row.detail.strip() if "other" in left_fields else ""
-                self.announcer.say(detail or "Brak dodatkowych informacji")
+                if detail:
+                    self.announcer.say(detail)
             return
         if self.navigator.active is SessionId.WIIM:
             if self.navigator.view is View.PLAYER and self._wiim_snapshot:
@@ -25980,7 +25976,8 @@ class LiteFrame(wx.Frame):
             alive=self._window_alive,
         )
         if plan.message is not None:
-            self.announcer.say(plan.message)
+            if plan.message != NO_SOURCE_MESSAGE:
+                self.announcer.say(plan.message)
             return
         if plan.request is None or plan.guard is None:
             return
@@ -26005,6 +26002,7 @@ class LiteFrame(wx.Frame):
                 view=self.navigator.view.value,
                 say=self.announcer.say,
                 extra_detail=folder_detail if "other" in left_fields else None,
+                omit_missing=True,
             )
 
         cache = getattr(self, "_quick_info_cache", None)
@@ -26073,13 +26071,16 @@ class LiteFrame(wx.Frame):
             fields=left_fields,
         )
         if plan.message is not None:
-            self.announcer.say(plan.message)
+            if plan.message:
+                self.announcer.say(plan.message)
             return
         if plan.request is None or plan.guard is None:
             return
         client = self.client
         if client is None:
-            self.announcer.say(speaker_information_text(row, fields=left_fields))
+            message = speaker_information_text(row, fields=left_fields)
+            if message:
+                self.announcer.say(message)
             return
 
         def done(payload: object) -> None:
