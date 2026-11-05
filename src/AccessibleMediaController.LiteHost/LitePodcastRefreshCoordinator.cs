@@ -113,15 +113,42 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
             var inboxCount = _podcasts.GetInboxCount();
             var failures = new List<PodcastRefreshIssue>();
             var partialSources = new List<PodcastRefreshIssue>();
+            var pendingBatch = new List<(PodcastRefreshTarget Target, PodcastFeedDocument Feed)>();
+
+            void RecordSuccess(PodcastRefreshTarget target, PodcastFeedDocument feed,
+                PodcastRefreshResult result)
+            {
+                if (feed.EpisodesTruncated)
+                {
+                    partial++;
+                    partialSources.Add(new PodcastRefreshIssue(
+                        UserFacingTitle(target.Title),
+                        $"wczytano pierwsze {PodcastFeedParser.MaximumEpisodes} odcinków; kanał zawiera więcej pozycji"));
+                }
+                else
+                {
+                    succeeded++;
+                }
+                addedEpisodes += result.AddedEpisodes;
+                retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
+                inboxCount = result.InboxCount;
+            }
+
             foreach (var target in targets)
             {
                 try
                 {
                     if (automatic) _podcasts.MarkRefreshAttempt(target.SubscriptionId);
                     var feed = _fetch(target).GetAwaiter().GetResult();
+                    var hasChapters = feed.Episodes.Any(episode =>
+                        episode.Chapters is { Count: > 0 });
+                    if (automatic && !hasChapters)
+                    {
+                        pendingBatch.Add((target, feed));
+                        continue;
+                    }
                     PodcastRefreshResult result;
-                    if (_bookmarks is not null
-                        && feed.Episodes.Any(episode => episode.Chapters is { Count: > 0 }))
+                    if (_bookmarks is not null && hasChapters)
                     {
                         result = _bookmarks.MutateBookmarks(bookmarks =>
                             _podcasts.ApplyRefresh(
@@ -133,20 +160,7 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                     {
                         result = _podcasts.ApplyRefresh(target.SubscriptionId, feed);
                     }
-                    if (feed.EpisodesTruncated)
-                    {
-                        partial++;
-                        partialSources.Add(new PodcastRefreshIssue(
-                            UserFacingTitle(target.Title),
-                            $"wczytano pierwsze {PodcastFeedParser.MaximumEpisodes} odcinków; kanał zawiera więcej pozycji"));
-                    }
-                    else
-                    {
-                        succeeded++;
-                    }
-                    addedEpisodes += result.AddedEpisodes;
-                    retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
-                    inboxCount = result.InboxCount;
+                    RecordSuccess(target, feed, result);
                 }
                 catch (Exception exception) when (exception is HttpRequestException
                     or InvalidDataException
@@ -161,6 +175,18 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                     failures.Add(issue);
                     Console.Error.WriteLine(
                         $"[lite-host] nie odświeżono źródła „{issue.Title}”: {issue.Reason}");
+                }
+            }
+
+            if (pendingBatch.Count > 0)
+            {
+                var requests = pendingBatch.Select(item => new PodcastRefreshRequest(
+                    item.Target.SubscriptionId, item.Feed)).ToArray();
+                var results = _podcasts.ApplyRefreshBatch(requests);
+                for (var index = 0; index < results.Count; index++)
+                {
+                    RecordSuccess(pendingBatch[index].Target, pendingBatch[index].Feed,
+                        results[index]);
                 }
             }
 

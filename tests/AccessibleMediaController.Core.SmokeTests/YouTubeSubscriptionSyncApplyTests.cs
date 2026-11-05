@@ -1,4 +1,5 @@
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.YouTube;
 
 internal static class YouTubeSubscriptionSyncApplyTests
@@ -11,7 +12,53 @@ internal static class YouTubeSubscriptionSyncApplyTests
         ConflictDoesNotPartiallyMutateDatabase();
         KeepsFailedAutomaticRefreshFairAndPersistent();
         DeletesOnlyExpiredOrExplicitAccountData();
-        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube (6 scenariuszy)");
+        RefreshesSeveralSourcesWithOneDurableSave();
+        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube i seria podcastów (7 scenariuszy)");
+    }
+
+    private static void RefreshesSeveralSourcesWithOneDurableSave()
+    {
+        var settings = new PodcastSettings
+        {
+            Subscriptions = [
+                new PodcastSubscriptionSettings {
+                    Id = "batch-a", Title = "Pierwszy", FeedUrl = "https://example.invalid/a.xml",
+                    SourceKind = PodcastSourceKind.Rss, IsInLibrary = true },
+                new PodcastSubscriptionSettings {
+                    Id = "batch-b", Title = "Drugi", FeedUrl = "https://example.invalid/b.xml",
+                    SourceKind = PodcastSourceKind.Rss, IsInLibrary = true }
+            ]
+        };
+        WithDatabase(settings, (database, store) =>
+        {
+            static PodcastRefreshRequest Request(string id, string suffix) => new(
+                id,
+                new PodcastFeedDocument(
+                    id, id, "Autor", "Opis", new Uri($"https://example.invalid/{suffix}.xml"),
+                    null,
+                    [new PodcastFeedEpisode(
+                        $"{id}:episode", $"{id}:source", $"Odcinek {suffix}",
+                        "Autor", "Opis", DateTimeOffset.UtcNow,
+                        TimeSpan.FromMinutes(5),
+                        new Uri($"https://example.invalid/{suffix}.mp3"),
+                        null, "audio/mpeg", null)]));
+
+            var requests = new[] { Request("batch-a", "a"), Request("batch-b", "b") };
+            var first = store.ApplyRefreshBatch(requests, DateTime.UtcNow);
+            Assert(first.Count == 2 && first.All(result => result.AddedEpisodes == 1),
+                "Seria nie dodała po jednym odcinku do obu źródeł.");
+            Assert(first.All(result => result.InboxCount == 2),
+                "Wyniki serii nie zawierają końcowej liczby nowych odcinków.");
+            var reopened = new PodcastSettings();
+            database.LoadInto(reopened);
+            Assert(reopened.Episodes.Select(item => item.Id).ToHashSet(StringComparer.Ordinal)
+                       .SetEquals(["batch-a:episode", "batch-b:episode"]),
+                "Ponowny odczyt nie zachował obu źródeł serii.");
+            var again = store.ApplyRefreshBatch(requests, DateTime.UtcNow);
+            Assert(again.All(result => result.AddedEpisodes == 0)
+                   && store.GetInboxCount() == 2,
+                "Ponowienie serii zdublowało odcinki lub zmieniło skrzynkę.");
+        });
     }
 
     private static void AddsShellsForBoundedRefreshAndIsIdempotent()

@@ -456,6 +456,27 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public IReadOnlyList<PodcastRefreshResult> ApplyRefreshBatch(
+        IReadOnlyList<PodcastRefreshRequest> requests)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.ApplyRefreshBatch(requests, DateTime.UtcNow);
+        }
+        catch (Exception exception) when (exception is KeyNotFoundException
+            or InvalidOperationException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] seryjny zapis odświeżenia podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     private void EnsureFullAmcIsClosed(string message)
     {
         if (_fullAmcIsRunning()) throw new LiteRequestException(message);

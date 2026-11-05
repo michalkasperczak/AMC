@@ -1498,36 +1498,57 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subscriptionId);
         ArgumentNullException.ThrowIfNull(feed);
+        return ApplyRefreshBatch(
+            [new PodcastRefreshRequest(subscriptionId, feed)],
+            refreshUtc,
+            bookmarks)[0];
+    }
+
+    public IReadOnlyList<PodcastRefreshResult> ApplyRefreshBatch(
+        IReadOnlyList<PodcastRefreshRequest> requests,
+        DateTime refreshUtc,
+        BookmarkSettings? bookmarks = null)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        if (requests.Count == 0) return [];
         lock (_gate)
         {
             var settings = new PodcastSettings();
             LoadInto(settings);
-            var selected = settings.Subscriptions.FirstOrDefault(subscription =>
-                subscription.IsInLibrary
-                && string.Equals(subscription.Id, subscriptionId, StringComparison.Ordinal));
-            if (selected is null)
-                throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
-            if (!IsRefreshable(selected.SourceKind))
+            var results = new List<PodcastRefreshResult>(requests.Count);
+            foreach (var request in requests)
             {
-                throw new InvalidOperationException(
-                    "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
-            }
+                ArgumentException.ThrowIfNullOrWhiteSpace(request.SubscriptionId);
+                ArgumentNullException.ThrowIfNull(request.Feed);
+                var selected = settings.Subscriptions.FirstOrDefault(subscription =>
+                    subscription.IsInLibrary
+                    && string.Equals(subscription.Id, request.SubscriptionId, StringComparison.Ordinal));
+                if (selected is null)
+                    throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
+                if (!IsRefreshable(selected.SourceKind))
+                {
+                    throw new InvalidOperationException(
+                        "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
+                }
 
-            var update = PodcastLibraryUpdater.Apply(
-                settings,
-                feed,
-                selected.HasCustomTitle ? selected.Title : null,
-                refreshUtc,
-                bookmarks,
-                selected.SourceKind,
-                addToLibrary: false);
+                var update = PodcastLibraryUpdater.Apply(
+                    settings,
+                    request.Feed,
+                    selected.HasCustomTitle ? selected.Title : null,
+                    refreshUtc,
+                    bookmarks,
+                    selected.SourceKind,
+                    addToLibrary: false);
+                results.Add(new PodcastRefreshResult(
+                    update.Subscription.Title,
+                    update.AddedEpisodes,
+                    update.UpdatedEpisodes,
+                    update.RetainedEpisodesAbsentFromFeed,
+                    0));
+            }
             Save(settings);
-            return new PodcastRefreshResult(
-                update.Subscription.Title,
-                update.AddedEpisodes,
-                update.UpdatedEpisodes,
-                update.RetainedEpisodesAbsentFromFeed,
-                GetInboxCount());
+            var inboxCount = GetInboxCount();
+            return results.Select(result => result with { InboxCount = inboxCount }).ToArray();
         }
     }
 

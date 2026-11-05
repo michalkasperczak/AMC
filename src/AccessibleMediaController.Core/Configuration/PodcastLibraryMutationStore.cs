@@ -134,7 +134,16 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
         DateTime refreshUtc,
         BookmarkSettings? bookmarks = null) =>
         _database.ApplyRefresh(subscriptionId, feed, refreshUtc, bookmarks);
+
+    public IReadOnlyList<PodcastRefreshResult> ApplyRefreshBatch(
+        IReadOnlyList<PodcastRefreshRequest> requests,
+        DateTime refreshUtc) =>
+        _database.ApplyRefreshBatch(requests, refreshUtc);
 }
+
+public sealed record PodcastRefreshRequest(
+    string SubscriptionId,
+    PodcastFeedDocument Feed);
 
 public sealed record PodcastRefreshTarget(
     string SubscriptionId,
