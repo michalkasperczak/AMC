@@ -163,6 +163,7 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(self.host.calls[0][0], "tidal.nativePlay")
         self.assertEqual(self.host.calls[0][1]["title"], "Utwór testowy")
         self.assertEqual(self.host.calls[0][1]["proxyUrl"], proxy.local_url)
+        self.assertNotIn("preparing", [item[0] for item in self.statuses])
         adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
         self.assertIn("started", [item[0] for item in self.statuses])
         adapter.handle_host_event("playback.ended", {"sessionId": "tidal", "id": "tidal:123"})

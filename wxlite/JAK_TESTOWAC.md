@@ -1019,9 +1019,14 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
   próbę i przywraca fokus listy. Sesja audio ma osobny magazyn poświadczeń
   Windows, niezależny od konta katalogu AMC.
 - Po potwierdzonym starcie otwiera się odtwarzacz AMC Test; `F6` wraca między
-  nim a listą. Natywny TIDAL używa `Space` do pauzy/wznowienia, lewo/prawo
+  nim a listą. Start nie wypowiada komunikatu „Przygotowywanie utworu”;
+  słyszysz potwierdzenie rozpoczęcia albo konkretny błąd. Natywny TIDAL
+  używa `Space` do pauzy/wznowienia, lewo/prawo
   w odtwarzaczu do skoku o 10 sekund, `Shift+Left/Right`, `Ctrl+Left/Right`
   i `Ctrl+Alt+Left/Right` do przewijania,
+  cyfr `0–9` w odtwarzaczu do skoków co 10% (od 0% do 90%),
+  `Home` do początku, `End` do dziesięciu sekund przed końcem oraz
+  `Up/Down` i `Shift+Up/Down` do regulacji głośności o 5% lub 1%,
   `Page Up/Page Down` do poprzedniego/następnego utworu z zapamiętanej listy,
   a `Ctrl+Shift+E/R/T` do odczytu czasu. **Odtwarzanie, Zatrzymaj utwór TIDAL
   w AMC Test** kończy strumień i wraca do listy utworów. `Shift+A` wybiera lokalne urządzenie Windows

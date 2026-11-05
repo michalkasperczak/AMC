@@ -10,7 +10,8 @@ from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.gui import LiteFrame, _LIST_CONTEXT_ACTION_GROUPS
 from amc_wx_lite.navigation import Navigator, Row, SessionId, View
 from amc_wx_lite.shortcuts import (
-    Action, Chord, TIDAL_NATIVE_ONLY_ACTIONS, describe, resolve,
+    Action, Chord, TIDAL_NATIVE_ONLY_ACTIONS, TIDAL_SUPPORTED_ACTIONS,
+    describe, resolve,
 )
 from amc_wx_lite.state_store import LiteState, StateStore
 from amc_wx_lite.tidal_source import native_track_id
@@ -89,6 +90,109 @@ def test_native_transport_keys_use_tidal_session_without_stealing_list_arrows() 
     ) is not Action.SEEK_BACK_10
     assert Action.SELECT_AUDIO_OUTPUT in TIDAL_NATIVE_ONLY_ACTIONS
     assert Action.TIDAL_STOP_NATIVE in TIDAL_NATIVE_ONLY_ACTIONS
+
+
+def test_native_player_percent_edges_and_volume_match_spotify_surfaces(monkeypatch) -> None:
+    player_actions = {
+        *(Action[f"SEEK_PERCENT_{percent}"] for percent in range(0, 100, 10)),
+        Action.TRACK_START, Action.TRACK_END,
+        Action.VOLUME_UP_5, Action.VOLUME_DOWN_5,
+        Action.VOLUME_UP_1, Action.VOLUME_DOWN_1,
+    }
+    assert player_actions <= TIDAL_SUPPORTED_ACTIONS
+    assert player_actions <= TIDAL_NATIVE_ONLY_ACTIONS
+    assert resolve(Chord("5"), player_view=True, radio_session=False) is Action.SEEK_PERCENT_50
+    assert resolve(Chord("Home"), player_view=True, radio_session=False) is Action.TRACK_START
+    assert resolve(Chord("End"), player_view=True, radio_session=False) is Action.TRACK_END
+
+    monkeypatch.setenv("AMC_RELEASE_PROFILE", "test")
+    assert {Action.TRACK_START, Action.TRACK_END} <= _menu_actions()
+    assert player_actions <= {
+        entry.action for entry in entries_for_session(SessionId.TIDAL)
+    }
+    described = describe("TIDAL", player_actions)
+    assert len(described) == len(player_actions)
+    assert ("5", "Skok do 50% utworu TIDAL w AMC Test") in described
+    assert ("End", "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC Test") in described
+    monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
+    assert not player_actions.intersection(_menu_actions())
+    assert not player_actions.intersection({
+        entry.action for entry in entries_for_session(SessionId.TIDAL)
+    })
+
+
+def test_native_percent_uses_current_tidal_track_and_duration() -> None:
+    calls: list[tuple] = []
+    announcements: list[tuple] = []
+    client = SimpleNamespace(
+        status=lambda session: calls.append(("status", session)) or {
+            "id": "tidal:123", "durationSeconds": 200,
+        },
+        seek_to_position=lambda target, session: calls.append(
+            ("seek", target, session)
+        ) or {"positionSeconds": target},
+    )
+    frame = SimpleNamespace(
+        client=client,
+        _tidal_native_active_track_id="123",
+        runner=SimpleNamespace(submit=lambda _name, work, done, _failed: done(work())),
+        _announce_seek_percent=lambda percent, payload, duration: announcements.append(
+            (percent, payload["positionSeconds"], duration)
+        ),
+    )
+    LiteFrame._seek_tidal_native_absolute(frame, percent=50)
+    assert calls == [("status", "tidal"), ("seek", 100.0, "tidal")]
+    assert announcements == [(50, 100.0, 200.0)]
+
+
+def test_percent_home_end_and_volume_route_to_native_tidal() -> None:
+    seeks: list[dict] = []
+    volume_calls: list[tuple[int, str]] = []
+    slider = SimpleNamespace(SetValue=lambda value: None)
+    frame = SimpleNamespace(
+        client=SimpleNamespace(
+            set_volume=lambda value, session: volume_calls.append((value, session)),
+        ),
+        navigator=SimpleNamespace(active=SessionId.TIDAL),
+        _tidal_native_has_playback=True,
+        _seek_tidal_native_absolute=lambda **kwargs: seeks.append(kwargs),
+        volume_slider=slider,
+        options=SimpleNamespace(volume=50),
+        messages=SimpleNamespace(volume_text=lambda value: f"{value}%", speaks_routine=True),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        runner=SimpleNamespace(submit=lambda _name, work, _done, _failed: work()),
+    )
+    frame._set_volume = lambda value: LiteFrame._set_volume(frame, value)
+    LiteFrame._seek_percent(frame, 70)
+    LiteFrame._seek_to_track_edge(frame, False)
+    LiteFrame._seek_to_track_edge(frame, True)
+    LiteFrame._adjust_volume(frame, 5)
+    assert seeks == [{"percent": 70}, {"to_end": False}, {"to_end": True}]
+    assert volume_calls == [(55, "tidal")]
+
+
+def test_native_absolute_seek_refuses_old_or_unknown_timeline() -> None:
+    spoken: list[str] = []
+    seeks: list[tuple] = []
+    status = {"id": "tidal:other", "durationSeconds": 200}
+    frame = SimpleNamespace(
+        client=SimpleNamespace(
+            status=lambda _session: status,
+            seek_to_position=lambda *args: seeks.append(args),
+        ),
+        _tidal_native_active_track_id="123",
+        runner=SimpleNamespace(submit=lambda _name, work, done, _failed: done(work())),
+        announcer=SimpleNamespace(say=spoken.append),
+        messages=SimpleNamespace(percent_seek_text=lambda *_args, **_kwargs:
+            "Skok procentowy niedostępny: czas trwania jest nieznany"),
+    )
+    LiteFrame._seek_tidal_native_absolute(frame, percent=50)
+    assert seeks == []
+    assert spoken == ["Utwór TIDAL zmienił się, ponów skok"]
+    status.update({"id": "tidal:123", "durationSeconds": 0})
+    LiteFrame._seek_tidal_native_absolute(frame, percent=50)
+    assert seeks == []
+    assert spoken[-1] == "Skok procentowy niedostępny: czas trwania jest nieznany"
 
 
 def test_external_output_choice_is_unchanged_and_native_choice_is_separate() -> None:
@@ -209,9 +313,15 @@ def test_context_help_disables_native_commands_for_external_tidal() -> None:
     assert not LiteFrame._action_available_in_active_session(
         frame, Action.SELECT_AUDIO_OUTPUT,
     )
+    assert not LiteFrame._action_available_in_active_session(
+        frame, Action.SEEK_PERCENT_50,
+    )
     frame._tidal_native_has_playback = True
     assert LiteFrame._action_available_in_active_session(
         frame, Action.SELECT_AUDIO_OUTPUT,
+    )
+    assert LiteFrame._action_available_in_active_session(
+        frame, Action.SEEK_PERCENT_50,
     )
 
 

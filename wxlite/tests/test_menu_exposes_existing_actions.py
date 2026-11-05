@@ -266,8 +266,12 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
         "Alt+Up", "Alt+Down", "F2", "Delete", "Right",
-        "Ctrl+U", "Ctrl+P", "I", "O", "R", "S", "T"
+        "Ctrl+U", "Ctrl+P", "I", "O", "R", "S", "T", "End"
     }, duplicates
+    for item in duplicates.get("End", []):
+        assert not item.accelerator, (
+            "kontekstowe End dla Radia i utworu TIDAL nie może przejąć listy"
+        )
     for chord in ("Ctrl+U", "Ctrl+P"):
         for item in duplicates.get(chord, []):
             if item.action in {

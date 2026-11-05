@@ -26719,9 +26719,7 @@ class LiteFrame(wx.Frame):
     ) -> None:
         if not self._window_alive():
             return
-        if kind == "preparing":
-            self.announcer.say("Przygotowuję utwór TIDAL w AMC Test")
-        elif kind == "login_required":
+        if kind == "login_required":
             self.announcer.say(message)
         elif kind == "started":
             self._close_tidal_native_challenge()
@@ -30906,6 +30904,9 @@ class LiteFrame(wx.Frame):
         client = self.client
         if client is None:
             return
+        if self.navigator.active is SessionId.TIDAL and self._tidal_native_has_playback:
+            self._seek_tidal_native_absolute(to_end=to_end)
+            return
         if not to_end:
             self._audio_clip_track_end_intent = None
             self.runner.submit(
@@ -31023,6 +31024,9 @@ class LiteFrame(wx.Frame):
         client = self.client
         if client is None:
             return
+        if self.navigator.active is SessionId.TIDAL and self._tidal_native_has_playback:
+            self._seek_tidal_native_absolute(percent=percent)
+            return
         if self.navigator.active is SessionId.SONOS:
             duration = self._sonos_snapshot.get("durationSeconds")
             position = self._sonos_snapshot.get("positionSeconds")
@@ -31079,6 +31083,69 @@ class LiteFrame(wx.Frame):
         )
         if text is not None and self.messages.speaks_routine:
             self.announcer.say(text)
+
+    def _seek_tidal_native_absolute(
+        self, *, percent: int | None = None, to_end: bool = False
+    ) -> None:
+        """Seek the currently playing TIDAL track using its own live status.
+
+        The generic ``_last_status`` can still describe Radio just after a
+        session switch. Read the TIDAL timeline on the worker thread instead.
+        """
+        client = self.client
+        track_id = getattr(self, "_tidal_native_active_track_id", None)
+        if client is None or not track_id:
+            return
+
+        def work() -> tuple[str, float, float, dict | None]:
+            status = client.status(SessionId.TIDAL.value) or {}
+            if status.get("id") != f"tidal:{track_id}":
+                return "changed", 0.0, 0.0, None
+            raw_duration = status.get("durationSeconds")
+            duration = (
+                float(raw_duration)
+                if isinstance(raw_duration, (int, float))
+                and not isinstance(raw_duration, bool)
+                and 0 < raw_duration <= 86_400
+                else 0.0
+            )
+            if (percent is not None or to_end) and not duration:
+                return "duration", 0.0, 0.0, None
+            target = (
+                duration * percent / 100.0
+                if percent is not None else
+                max(0.0, duration - TRACK_END_MARGIN_SECONDS)
+                if to_end else 0.0
+            )
+            payload = client.seek_to_position(target, SessionId.TIDAL.value)
+            return "ok", target, duration, payload
+
+        def done(result: tuple[str, float, float, dict | None]) -> None:
+            if track_id != getattr(self, "_tidal_native_active_track_id", None):
+                return
+            outcome, target, duration, payload = result
+            if outcome == "changed":
+                self.announcer.say("Utwór TIDAL zmienił się, ponów skok")
+            elif outcome == "duration":
+                if percent is not None:
+                    text = self.messages.percent_seek_text(
+                        percent, position_seconds=None, duration_seconds=None
+                    )
+                    if text is not None:
+                        self.announcer.say(text)
+                else:
+                    self.announcer.say("Nie znam czasu trwania, nie mogę skoczyć na koniec")
+            elif percent is not None:
+                self._announce_seek_percent(percent, payload, duration)
+            else:
+                self._announce_track_edge(
+                    format_clock(target) if to_end else "0:00"
+                )
+
+        self.runner.submit(
+            "transport", work, done,
+            lambda error: self.announcer.say(f"Nie mogę przewinąć: {error}"),
+        )
 
     def _announce_radio_seek_percent(self, percent: int, payload: dict | None) -> None:
         result = payload or {}

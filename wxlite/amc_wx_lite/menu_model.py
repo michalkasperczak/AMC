@@ -1572,6 +1572,26 @@ def build_menus(
             MenuItem("Przewiń w przód o czas z ustawień &AMC",
                      Action.SEEK_FORWARD_CUSTOM, shortcut="Ctrl+Alt+Right",
                      needs_playback=True, visible_sessions=LOCAL_TIMELINE),
+            MenuItem("Począt&ek utworu TIDAL", Action.TRACK_START,
+                     shortcut="Home", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("&Dziesięć sekund przed końcem utworu TIDAL",
+                     Action.TRACK_END, shortcut="End", accelerator=False,
+                     needs_playback=True, visible_sessions=TIDAL_ONLY),
+            *(
+                MenuItem(
+                    (
+                        "&Skok do 0% utworu TIDAL" if percent == 0 else
+                        "Skok do 10% u&tworu TIDAL" if percent == 10 else
+                        "Skok do 30% utworu TIDA&L" if percent == 30 else
+                        f"Skok do &{percent}% utworu TIDAL"
+                    ),
+                    Action[f"SEEK_PERCENT_{percent}"],
+                    shortcut=str(percent // 10), accelerator=False,
+                    needs_playback=True, visible_sessions=TIDAL_ONLY,
+                )
+                for percent in range(0, 100, 10)
+            ),
             SEPARATOR,
             # Predkosc odtwarzania. Naglowki i akceleratory doslownie z
             # MainWindow.xaml:382-393 ("_Wolniej" Shift+, / "_Szybciej" Shift+.
@@ -1827,6 +1847,19 @@ def build_menus(
         # samego gestu przed lista, dlatego menu otwieramy przez Alt+K.
         "Dźwię&k",
         (
+            MenuItem("&Głośniej o 5% w TIDAL", Action.VOLUME_UP_5,
+                     shortcut="Up", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("&Ciszej o 5% w TIDAL", Action.VOLUME_DOWN_5,
+                     shortcut="Down", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("Głośniej o &1% w TIDAL", Action.VOLUME_UP_1,
+                     shortcut="Shift+Up", accelerator=False, needs_playback=True,
+                     visible_sessions=TIDAL_ONLY),
+            MenuItem("Ciszej o 1% w &TIDAL", Action.VOLUME_DOWN_1,
+                     shortcut="Shift+Down", accelerator=False,
+                     needs_playback=True, visible_sessions=TIDAL_ONLY),
+            SEPARATOR,
             MenuItem(
                 "&Algorytm przyspieszania",
                 builtin="tempo-submenu",

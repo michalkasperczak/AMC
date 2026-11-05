@@ -19,7 +19,6 @@ from . import tidalapi_session_store as session_store
 
 
 _MESSAGES = {
-    "preparing": "Przygotowywanie utworu TIDAL.",
     "login_required": "Wymagane jest logowanie do odtwarzania TIDAL.",
     "started": "Odtwarzanie TIDAL rozpoczęte.",
     "failed": "Nie udało się odtworzyć utworu TIDAL.",
@@ -175,7 +174,6 @@ class TidalNativePlaybackAdapter:
             self._cancel = threading.Event()
             self._pending = True
             self._pending_track_id = track_id
-        self._status("preparing", track_id)
         threading.Thread(
             target=self._prepare, args=(generation, track_id, title),
             name="AMC TIDAL playback", daemon=True,

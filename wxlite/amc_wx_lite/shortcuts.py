@@ -634,9 +634,8 @@ SESSION_INDEPENDENT_ACTIONS = frozenset({
 })
 
 
-# TIDAL ma osobny tor: katalog czyta oficjalne API, a dzwiek odtwarza oryginalna
-# aplikacja TIDAL. Jawna lista obslugiwanych polecen jest celowo restrykcyjna:
-# nowy skrot nie moze przypadkiem trafic do lokalnego silnika AMC.
+# TIDAL ma dwa tory odtwarzania. Polecenia lokalnego silnika sa dostepne
+# wylacznie podczas natywnego odtwarzania w AMC Test (druga bramka ponizej).
 TIDAL_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
     Action.SESSION_FILES,
@@ -680,6 +679,22 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_PERCENT_0,
+    Action.SEEK_PERCENT_10,
+    Action.SEEK_PERCENT_20,
+    Action.SEEK_PERCENT_30,
+    Action.SEEK_PERCENT_40,
+    Action.SEEK_PERCENT_50,
+    Action.SEEK_PERCENT_60,
+    Action.SEEK_PERCENT_70,
+    Action.SEEK_PERCENT_80,
+    Action.SEEK_PERCENT_90,
+    Action.TRACK_START,
+    Action.TRACK_END,
+    Action.VOLUME_UP_5,
+    Action.VOLUME_DOWN_5,
+    Action.VOLUME_UP_1,
+    Action.VOLUME_DOWN_1,
     Action.TOGGLE_MUTE,
     Action.MANAGE_PLAYLIST_MEMBERSHIP,
     Action.TIDAL_RELATIONS,
@@ -755,6 +770,22 @@ TIDAL_NATIVE_ONLY_ACTIONS = frozenset({
     Action.SEEK_FORWARD_60,
     Action.SEEK_BACK_CUSTOM,
     Action.SEEK_FORWARD_CUSTOM,
+    Action.SEEK_PERCENT_0,
+    Action.SEEK_PERCENT_10,
+    Action.SEEK_PERCENT_20,
+    Action.SEEK_PERCENT_30,
+    Action.SEEK_PERCENT_40,
+    Action.SEEK_PERCENT_50,
+    Action.SEEK_PERCENT_60,
+    Action.SEEK_PERCENT_70,
+    Action.SEEK_PERCENT_80,
+    Action.SEEK_PERCENT_90,
+    Action.TRACK_START,
+    Action.TRACK_END,
+    Action.VOLUME_UP_5,
+    Action.VOLUME_DOWN_5,
+    Action.VOLUME_UP_1,
+    Action.VOLUME_DOWN_1,
     Action.TOGGLE_MUTE,
 })
 
@@ -2877,7 +2908,18 @@ def describe_action(
             Action.QUEUE_NEXT: "Następny utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
             Action.QUEUE_PREVIOUS: "Poprzedni utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
             Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC Test",
+            Action.TRACK_START: "Przejdź na początek utworu TIDAL w AMC Test",
+            Action.TRACK_END: "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC Test",
+            Action.VOLUME_UP_5: "Zwiększ głośność utworu TIDAL o 5%",
+            Action.VOLUME_DOWN_5: "Zmniejsz głośność utworu TIDAL o 5%",
+            Action.VOLUME_UP_1: "Zwiększ głośność utworu TIDAL o 1%",
+            Action.VOLUME_DOWN_1: "Zmniejsz głośność utworu TIDAL o 1%",
         }
+        tidal_labels.update({
+            Action[f"SEEK_PERCENT_{percent}"]:
+                f"Skok do {percent}% utworu TIDAL w AMC Test"
+            for percent in range(0, 100, 10)
+        })
         if action in tidal_labels:
             return i18n.command_description(action.value, tidal_labels[action])
     ctrl_f5 = ctrl_f5_presentation(session_label)

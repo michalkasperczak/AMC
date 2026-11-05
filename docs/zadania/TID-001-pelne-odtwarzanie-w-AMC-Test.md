@@ -217,3 +217,29 @@ Commit `bbfd9873` wypchnięto do gałęzi `codex/konfigurowalne-skroty-20261026`
 Tuż przed instalacją nie działał żaden proces AMC Test; wcześniej użytkownik potwierdził brak nagrywania i zgodę na zamknięcie programu. Instalator uruchomiony w trybie cichym zakończył się kodem 0, bez instalowania dodatku NVDA. Zainstalowany `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe` ma ProductVersion `0.1.0-alpha.470`, manifest `sourceRevision=bbfd9873`, `sourceDirty=false` i `installId=AMC.Test.win-x64`. Pełna kontrola zainstalowanego pakietu zakończyła się kodem 0. Stabilny launcher otworzył dokładnie jedną instancję, PID 29856, z oknem „AMC Test — 05.11.2026, 00:56”; początkowy widok Radio miał fokus na liście i nie wyświetlił okna diagnostycznego. Nie sprawdzono jeszcze odsłuchu i mowy NVDA na instalacji użytkownika. Wcześniejszy izolowany podgląd GUI potwierdził pozycję polecenia, odczyt czasu, F6, przewijanie, następny/poprzedni i Shift+A na poziomie stanu interfejsu. Zdalna synchronizacja katalogu może nadal trwać kilkadziesiąt sekund, choć jej wynik pojawia się teraz po 150 wierszy; zachowanie startu z zapamiętaną sesją TIDAL na osobnej kopii profilu pozostaje do obserwacji.
 
 Szkic krótkiego changelogu do korekty użytkownika: TIDAL pokazuje katalog po 150 pozycji z wierszem „Załaduj więcej”; w menu kontekstowym utworu jest „Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)”; po uruchomieniu działają widok odtwarzacza, czas i przewijanie, a Stop wraca do listy. Enter nadal uruchamia dotychczasowe przekazanie do oryginalnego TIDAL. Nie publikować tego szkicu jako instrukcji bez odbioru NVDA i odsłuchu w zainstalowanym programie.
+
+### Korekta użytkownika: cyfry i płynność całego AMC — 5 listopada 2026
+
+Użytkownik potwierdził, że zainstalowane `alpha.470` uruchamia się, odtwarza TIDAL i pozwala przewijać utwór. Zgłosił brak skoków procentowych cyframi, możliwe braki innych funkcji odtwarzacza, zbędny komunikat „Przygotowywanie utworu” oraz lekkie spowolnienie strzałek Radia i przełączania sesji przez Ctrl+cyfry. To potwierdzenie zastępuje wcześniejszy brak odbioru odsłuchu w instalacji; nie stanowi jeszcze testu każdej funkcji i mowy NVDA.
+
+#### Uzasadnienie i decyzje
+
+Cyfry `0–9` były już przypisane do skoku co 10%, lecz sesja TIDAL odrzucała ich akcje przed wykonaniem. Tak samo blokowała Home/End i regulację głośności, choć lokalny host TIDAL obsługuje skok absolutny oraz głośność. Dopisano te akcje do jednej listy możliwości TIDAL i do bramki wymagającej natywnego odtwarzania; dlatego zewnętrzny TIDAL nie otrzymuje mylących poleceń. Skok procentowy i End odczytują na wątku roboczym bieżący status utworu TIDAL, sprawdzają jego identyfikator i czas, zamiast używać potencjalnie starego czasu Radia po zmianie sesji. Home używa tej samej drogi z pozycją zero. Zdarzenie „preparing” zostało usunięte z mowy; pozostały potwierdzenie startu, żądanie logowania i błędy. Nie włączono losowania TIDAL ani zakładek, których pojedynczy strumień natywny nie zapewnia.
+
+Porównanie kodu `alpha.469` i `alpha.470` nie wykazało zmian w obsłudze strzałek Radia ani Ctrl+cyfry. Nowe stronicowanie kończy się natychmiast poza TIDAL. W działającej instalacji proces GUI zużywał około 0,14 s CPU na 5 s, iCloudDrive 0,00 s, natomiast host audio okresowo 4,86 s CPU na 5 s, głównie na jednym wątku; później spadł do 0,08 s na 3 s bez restartu. Migawka stosów wątku pokazała odczyt pliku/potoku Windows, a osobny wątek automatycznego odświeżania podcastów czekał na wynik. Plik migawki: `work/TID-001/alpha470-host-stack-20261105.txt`, lokalny, prywatny, nie publikować. Nie dowodzi to źródła odczuwalnego opóźnienia. Potrzebne jest porównanie czasu reakcji strzałek i Ctrl+cyfry przy aktywnym TIDAL oraz po jego zatrzymaniu; nie zmieniono na ślepo obsługi Radia.
+
+#### Testy i wynik
+
+Celowane testy TIDAL, menu, palety i adaptera: 84/84. Szersza regresja TIDAL, menu, palety, skrótów i transportu: 201 zaliczonych, 2 istniejące niepowodzenia poza zmianą (stary oczekiwany opis Ctrl+, i pominięty w teście dynamiczny Ctrl+Enter albumu Spotify). Osobny starszy moduł `test_transport_parity_gui_wiring.py` nadal ma trzy błędy niepełnych atrap ramki, niezwiązane z nową funkcją. Test tłumaczeń ma 12 zaliczonych i 3 wcześniejsze niepowodzenia katalogu, obejmujące wiele istniejących komunikatów. Brak jeszcze kompilacji, instalacji i publikacji zmian po `alpha.470` oraz ręcznej próby NVDA cyfr, Home/End i głośności.
+
+#### Znane ograniczenia
+
+Natywne TIDAL nie oferuje tu TIDAL Connect. Enter nadal otwiera oryginalny TIDAL; natywny odtwarzacz uruchamia się z menu kontekstowego utworu. Skoki procentowe wymagają potwierdzonego czasu bieżącego utworu. Przyczyna okresowego obciążenia hosta i wpływ na odczuwalne opóźnienie Radia pozostają nieustalone bez pomiaru A/B.
+
+#### Materiał do dokumentacji użytkownika
+
+W odtwarzaczu TIDAL w AMC Test cyfry od `0` do `9` skaczą odpowiednio do 0–90% utworu. Home wraca na początek, End przechodzi dziesięć sekund przed końcem. Strzałki w górę i w dół zmieniają głośność o 5%, z Shift o 1%. Te funkcje są również opisane w menu Odtwarzanie lub Dźwięk, w palecie `Ctrl+Shift+K` i pomocy. Po wyborze utworu program potwierdza jego rozpoczęcie; nie czyta już komunikatu o przygotowywaniu. Funkcje te dotyczą odtwarzacza AMC, a nie przekazania do oryginalnego TIDAL przez Enter. To szkic do odbioru, bez automatycznej publikacji.
+
+#### Wersja i commit
+
+Powyższe poprawki istnieją obecnie w źródłach po wydaniu `alpha.470`; numer kolejnej wersji, commit, instalacja i wydanie: do zapisania po weryfikacji.

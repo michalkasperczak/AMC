@@ -640,7 +640,7 @@ zmian, wymagający korekty użytkownika:
   bez publikowania roboczej historii i bez przełączania bieżącej gałęzi.
   Szczegóły:
   [REL-001-github-aktualizacje-sygnalista.md](REL-001-github-aktualizacje-sygnalista.md).
-- `TID-001` — **W trakcie; użytkownik potwierdził 45 sekund słyszalnej muzyki w osobnym pilocie, GUI i paczka Test są gotowe do odbioru, bez instalacji tej funkcji** — natywne odtwarzanie z osobnym logowaniem i bezpiecznym powrotem do oryginalnego TIDALa. Pozostaje test z okna, Shift+A i NVDA. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
+- `TID-001` — **W trakcie; natywne odtwarzanie jest w zainstalowanym AMC Test alpha.470, użytkownik potwierdził dźwięk i przewijanie; poprawka cyfr i dalsza diagnostyka płynności są w źródłach** — sesja audio ma osobne logowanie i punkt powrotu do oryginalnego TIDALa. Pozostaje odbiór pełnego sterowania i NVDA oraz ustalenie źródła okresowego obciążenia hosta. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
 - `STR-001` — **W trakcie; bezsekretny prototyp wydawania tokenów Apple Music
   ma 12/12 testów, ale prawdziwe wdrożenie jest wstrzymane do próby
   MusicKit/WebView2/NVDA i decyzji o właścicielu Apple Developer Team** —
