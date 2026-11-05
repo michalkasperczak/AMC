@@ -168,6 +168,16 @@ def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> 
             "positionSeconds": 91.5,
             "sessionId": "podcasts",
         }
+        archive = client.play_media(
+            "https://example.invalid/archive.mp3",
+            item_id="archive-id",
+            title="Archiwum",
+            volume=37,
+            rate=1.0,
+            duration_seconds=3600.0,
+            session_id="radioarchiwista",
+        )
+        assert archive["args"]["durationSeconds"] == 3600.0
     finally:
         client.close()
 

@@ -140,6 +140,13 @@ def snapshot(payload: object) -> dict:
             if isinstance(value, (int, float)) and not isinstance(value, bool)
             else None
         )
+    bitrate = payload.get("bitrateKbps")
+    result["bitrateKbps"] = (
+        bitrate
+        if isinstance(bitrate, int) and not isinstance(bitrate, bool)
+        and 0 < bitrate <= 30_000
+        else None
+    )
     return result
 
 
@@ -223,6 +230,9 @@ def now_playing_label(state: dict) -> str:
             parts.append(value)
     if not parts:
         parts.append(_text(state.get("deviceTitle")) or "WiiM")
+    bitrate = state.get("bitrateKbps")
+    if isinstance(bitrate, int) and not isinstance(bitrate, bool) and 0 < bitrate <= 30_000:
+        parts.append(f"{bitrate} kb/s")
     if state.get("muted"):
         parts.append("wyciszone")
     return ", ".join(parts)

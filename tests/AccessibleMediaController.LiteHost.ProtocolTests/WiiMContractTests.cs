@@ -68,7 +68,8 @@ internal static class WiiMContractTests
             new WiiMPlaybackInformation(
                 "odtwarzanie", "radio internetowe", 35, false,
                 TimeSpan.FromSeconds(61), TimeSpan.FromSeconds(600)),
-            new WiiMTrackInformation("Audycja", "Radio", "", 48000, 24),
+            new WiiMTrackInformation("Audycja", "Radio", "", 48000, 24)
+            { BitrateKbps = 192 },
             []);
 
         var json = JsonSerializer.Serialize(
@@ -78,6 +79,7 @@ internal static class WiiMContractTests
         Check(root.GetProperty("title").GetString() == "Audycja", "brak tytułu");
         Check(root.GetProperty("volume").GetInt32() == 35, "brak głośności");
         Check(root.GetProperty("positionSeconds").GetDouble() == 61, "brak pozycji");
+        Check(root.GetProperty("bitrateKbps").GetInt32() == 192, "brak bitrate");
         Check(!json.Contains("192.168.1.40", StringComparison.Ordinal),
             "adres urządzenia wyciekł z migawki");
     }

@@ -15,6 +15,7 @@ internal static class Program
         ("--transport", QueueTransportTests.Run),
         ("--transport-routing", TransportRoutingTests.Run),
         ("--tidal-native", TidalNativePlayRequestTests.Run),
+        ("--remote-media-bitrate", RemoteMediaBitrateTests.Run),
         ("--persistence", QueuePersistenceTests.Run),
         ("--quickinfo", QuickInformationTests.Run),
         ("--bookmarks", BookmarkStoreTests.Run),

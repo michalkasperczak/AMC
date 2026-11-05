@@ -25,6 +25,7 @@ def _frame(session_id: SessionId) -> gui.LiteFrame:
     frame._last_recording_status = {}
     frame._wiim_snapshot = {}
     frame._sonos_snapshot = {}
+    frame._tidal_native_has_playback = False
     frame._tidal_desktop_has_playback = False
     return frame
 
@@ -40,6 +41,34 @@ def test_local_status_uses_only_user_facing_playback_values() -> None:
 
     assert frame._nvda_status_message() == (
         "Rozmowa dnia, Podcasty i YouTube, pauza, wyciszone, głośność 35%."
+    )
+
+
+def test_bit_rate_reaches_nvda_now_playing_and_status_for_archive() -> None:
+    frame = _frame(SessionId.RADIOARCHIWISTA)
+    frame.navigator.session.now_playing_title = "Audycja"
+    frame._transport_status_by_session[SessionId.RADIOARCHIWISTA] = {
+        "title": "Audycja",
+        "currentPlaybackText": "Audycja, około 128 kb/s, 48 kHz",
+        "paused": False,
+        "volume": 65,
+    }
+    assert frame._nvda_now_playing_message() == "Audycja, około 128 kb/s, 48 kHz"
+    assert frame._nvda_status_message() == (
+        "Audycja, około 128 kb/s, 48 kHz, Radio Archiwista, "
+        "odtwarzanie, głośność 65%."
+    )
+
+
+def test_wiim_bit_rate_reaches_both_nvda_commands() -> None:
+    frame = _frame(SessionId.WIIM)
+    frame._wiim_snapshot = {
+        "title": "Audycja", "artist": "Radio", "bitrateKbps": 192,
+        "playbackState": "odtwarzanie", "volume": 45,
+    }
+    assert frame._nvda_now_playing_message() == "Audycja, Radio, 192 kb/s"
+    assert frame._nvda_status_message() == (
+        "Audycja, Radio, 192 kb/s, WiiM, odtwarzanie, głośność 45%."
     )
 
 

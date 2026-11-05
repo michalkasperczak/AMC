@@ -94,12 +94,13 @@ def test_wiim_payload_is_allowlisted_for_accessible_text() -> None:
         "muted": False,
         "positionSeconds": 61,
         "durationSeconds": 600,
+        "bitrateKbps": 192,
         "message": "Audycja, odtwarzanie, głośność 35%",
         "address": "192.168.1.40",
         "runtimeObject": "WiiMDeviceSettings { Address = 192.168.1.40 }",
     })
 
-    assert now_playing_label(state) == "Audycja, Radio Poznań"
+    assert now_playing_label(state) == "Audycja, Radio Poznań, 192 kb/s"
     assert "address" not in state
     assert "runtimeObject" not in state
     assert "192.168.1.40" not in repr(state)

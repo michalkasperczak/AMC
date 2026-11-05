@@ -93,6 +93,7 @@ internal sealed class LiteEngineHandlers : IDisposable
 
     private MediaItem? _filesItem;
     private string? _filesSessionId;
+    private MediaItem? _remoteBitrateProbeItem;
     private TidalTransientPlayback? _tidalTransient;
     private readonly Dictionary<string, (MediaItem Item, TimeSpan Position, int Volume, double Rate)> _filesSessions =
         new(StringComparer.Ordinal);
@@ -362,6 +363,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             // porownujemy go z _filesItem, bo to zdarzenie potrafi wyprzedzic
             // zapis nowego biezacego materialu; para (Id, czas) jest odporna na
             // kolejnosc, a Status() i tak sprawdza zgodnosc Id.
+            MediaItem? remoteItem = null;
             lock (_gate)
             {
                 _filesDurationId = e.Item.Id;
@@ -381,8 +383,18 @@ internal sealed class LiteEngineHandlers : IDisposable
                         catch (IOException) { }
                         catch (UnauthorizedAccessException) { }
                     }
+                    else if (e.Duration > TimeSpan.Zero
+                        && _filesItem.BitrateKbps is null
+                        && (_filesSessionId is "podcasts" or "radioarchiwista")
+                        && !ReferenceEquals(_remoteBitrateProbeItem, _filesItem))
+                    {
+                        _remoteBitrateProbeItem = _filesItem;
+                        remoteItem = _filesItem;
+                    }
                 }
             }
+            if (remoteItem is not null)
+                _ = EnrichRemoteMediaBitrateAsync(remoteItem, e.Duration);
             Publish("playback.duration",
                 new { engine = "files", id = e.Item.Id, seconds = e.Duration.TotalSeconds, sampleRateHz = e.SampleRateHz });
         };
@@ -2509,7 +2521,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             Id = LiteArgs.RequireText(args, "id"),
             Title = LiteArgs.ReadText(args, "title") ?? "Materiał",
             Kind = MediaItemKind.Episode,
-            Source = source
+            Source = source,
+            Duration = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
+                args, "durationSeconds", 0d, 0d, 604_800d))
         };
         PodcastPlaybackOptionsSnapshot? playbackOptions = null;
         if (sessionId == "podcasts" && _podcastProgressStore is not null)
@@ -2561,6 +2575,20 @@ internal sealed class LiteEngineHandlers : IDisposable
         ConfigureOutputForSession(sessionId);
         _files.ConfigureAudioProcessing(audio);
         _files.Play(item, position, _filesMuted ? 0 : volume, rate);
+        if (isRemote && item.Duration > TimeSpan.Zero)
+        {
+            var probe = false;
+            lock (_gate)
+            {
+                if (ReferenceEquals(_filesItem, item)
+                    && !ReferenceEquals(_remoteBitrateProbeItem, item))
+                {
+                    _remoteBitrateProbeItem = item;
+                    probe = true;
+                }
+            }
+            if (probe) _ = EnrichRemoteMediaBitrateAsync(item, item.Duration);
+        }
         return new { ok = true, engine = "files", id = item.Id, title = item.Title };
     }
 
@@ -2910,6 +2938,24 @@ internal sealed class LiteEngineHandlers : IDisposable
     /// pelne AMC. Frontend dostaje gotowa, celowa etykiete dla uzytkownika,
     /// nigdy reprezentacje obiektu ani identyfikator urzadzenia lub stacji.
     /// </summary>
+    private async Task EnrichRemoteMediaBitrateAsync(MediaItem item, TimeSpan duration)
+    {
+        var bitrate = await LiteRemoteMediaBitrate.TryReadAsync(
+            item.Source, duration, TimeSpan.FromSeconds(6)).ConfigureAwait(false);
+        if (bitrate is null) return;
+        lock (_gate)
+        {
+            // Spóźniony pomiar poprzedniego odcinka nie opisuje nowego.
+            if (!ReferenceEquals(_filesItem, item)
+                || _filesSessionId is not ("podcasts" or "radioarchiwista")) return;
+            if (item.BitrateKbps is null)
+            {
+                item.BitrateKbps = bitrate;
+                item.IsBitrateEstimated = true;
+            }
+        }
+    }
+
     private string BuildCurrentRadioBroadcastText(MediaItem item)
     {
         var parts = new List<string> { item.Title };
