@@ -1,6 +1,6 @@
 # POD-20261105 — lekka skrzynka podcastów i spójny powrót
 
-Status: w trakcie, 5 listopada 2026. To nowe zgłoszenie użytkownika następuje po lokalnej instalacji alpha.477. Nie zastępuje zaakceptowanej funkcji doładowywania z YT-005; koryguje jej koszt na dużej bibliotece i zabezpiecza spóźnione wyniki.
+Status: lokalny kandydat alpha.478 zainstalowany, oczekuje na odbiór NVDA użytkownika, 5 listopada 2026. To nowe zgłoszenie użytkownika następuje po lokalnej instalacji alpha.477. Nie zastępuje zaakceptowanej funkcji doładowywania z YT-005; koryguje jej koszt na dużej bibliotece i zabezpiecza spóźnione wyniki.
 
 ## Zakres i decyzje użytkownika
 
@@ -30,7 +30,7 @@ Przy rzadkim przypadku, gdy tysiące odcinków mają identyczną datę na granic
 
 ## Wersja i commit
 
-Planowany lokalny kandydat `0.1.0-alpha.478`. Commit źródeł, build, instalację i publikację zapisać oddzielnie po faktycznej weryfikacji. Publikacja GitHub nastąpi dopiero po odbiorze rzeczywistego wydania zgodnie z zasadą projektu.
+Źródła i testy: commit `a1003fe99617595505834acc0d705d831044c478`, repozytorium czyste po commicie. Build pakietu: zaliczony kontrolowany start interfejsu i hosta, manifest z `sourceDirty=False` i tym commitem. Instalator `D:\Projekty Codex\AMC - integracja wxPython\publish\installers\AMC-Test-2026-11-05-2151.exe`, 143 840 853 bajty, SHA256 `D37722323F8DB5E1429BE1E6A7BD0725B99A0461BCEBFE6532F08D75E3E24A2D`; instalacja kod wyjścia 0. Uruchomione okno ma tytuł `AMC Test — 05.11.2026, 21:51`. Próba w zainstalowanym GUI: `Ctrl+I` pokazuje 150 pozycji i fokus listy, strzałka w dół działa, Escape przywraca listę Radia. Test mowy i subiektywnej szybkości NVDA należy do odbioru użytkownika. GitHub nieopublikowany do tego odbioru.
 
 ## Szkic instrukcji i listy zmian do zatwierdzenia
 
