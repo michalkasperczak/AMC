@@ -242,4 +242,4 @@ W odtwarzaczu TIDAL w AMC Test cyfry od `0` do `9` skaczą odpowiednio do 0–90
 
 #### Wersja i commit
 
-Powyższe poprawki istnieją obecnie w źródłach po wydaniu `alpha.470`; numer kolejnej wersji, commit, instalacja i wydanie: do zapisania po weryfikacji.
+Poprawki odtwarzacza mają commit `904d9d0a7251696b0fda37f5379d6521db92b017`. Wspólny numer następnego kandydata to `0.1.0-alpha.471`. Budowa, instalacja i wydanie: do zapisania po weryfikacji.
