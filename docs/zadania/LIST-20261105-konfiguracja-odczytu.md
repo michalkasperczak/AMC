@@ -52,4 +52,6 @@ Sam zapis odświeżonego źródła podcastów nadal używa pełnej operacji bibl
 
 ### Wersja i commit
 
-Poprawka jest przygotowywana jako `0.1.0-alpha.475`; commit, pakiet, instalację i publikację odnotować po osobnej weryfikacji.
+`0.1.0-alpha.475` z commitu `09c526479c567b3343b2cdb8485c5f68727aed05` zbudowano i zainstalowano 5 listopada o 20:40. Instalator: `publish/installers/AMC-Test-2026-11-05-2040.exe`, SHA-256 `133a1d84facf8ae85aeacab1cb9c2df5bd5acab7548d155c262bd454494bbdb9`. Kontrolowany start paczki i jej integralność przeszły, instalator zwrócił kod 0, tytuł działającego okna i manifest wskazują alpha.475 oraz ten commit. Dodatkowa pełna kontrola zainstalowanych plików utknęła bez zużycia CPU i została zakończona jako osobny proces diagnostyczny; nie należy jej mylić z zaliczonym sprawdzeniem paczki. Lokalny test otwarcia `Alt+Shift+R` po ponownym wywołaniu trwał około sekundy, a lista była wypełniona. W 5-sekundowym oknie automatycznego odświeżania host nadal zużył 3,05 s CPU. Dlatego alpha.475 pozostaje kandydatem i nie jest publikowana.
+
+Kolejny kandydat `0.1.0-alpha.476` ogranicza pełną kontrolę integralności bazy podcastów do pierwszego odczytu i odstępów co najmniej 10 minut; na bieżącej bibliotece samo `quick_check` zajmuje 0,517 s, więc powtarzanie go dla każdego z pięciu źródeł było zbędnym kosztem. Wynik testów, commit, budowę i instalację alpha.476 trzeba zapisać osobno.

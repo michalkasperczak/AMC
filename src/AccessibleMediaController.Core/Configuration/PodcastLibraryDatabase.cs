@@ -19,6 +19,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
     private const int DatabaseSchemaVersion = 3;
     private readonly object _gate = new();
     private static readonly JsonSerializerOptions PayloadJsonOptions = new();
+    private DateTime _lastIntegrityCheckUtc;
 
     public string Path { get; } = databasePath;
 
@@ -71,7 +72,16 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         {
             using var connection = OpenConnection();
             EnsureSchema(connection);
-            ValidateIntegrity(connection);
+            // Pełny quick_check na dużej bibliotece kosztuje około pół sekundy.
+            // W serii automatycznych odświeżeń LoadInto wykonywano go ponownie
+            // dla każdego źródła. Zachowujemy kontrolę przy pierwszym odczycie
+            // i okresowo, bez mnożenia pełnych skanów w jednej serii.
+            var now = DateTime.UtcNow;
+            if (now - _lastIntegrityCheckUtc >= TimeSpan.FromMinutes(10))
+            {
+                ValidateIntegrity(connection);
+                _lastIntegrityCheckUtc = now;
+            }
 
             using (var command = connection.CreateCommand())
             {
