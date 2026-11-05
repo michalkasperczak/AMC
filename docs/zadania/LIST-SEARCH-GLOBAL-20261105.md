@@ -28,4 +28,4 @@ Pierwsze otwarcie listy TIDAL może zależeć od łącza i trwać kilkanaście s
 
 ## Wersja i commit
 
-Planowana wersja: AMC Test 0.1.0-alpha.480. Commit: do uzupełnienia. Budowa: niewykonana. Instalacja: niewykonana. Publikacja: niewykonana; kandydat wymaga ręcznego odbioru.
+Planowana wersja: AMC Test 0.1.0-alpha.480. Commit kodu i testów: `d28eb97b`. Budowa: niewykonana. Instalacja: niewykonana. Publikacja: niewykonana; kandydat wymaga ręcznego odbioru.
