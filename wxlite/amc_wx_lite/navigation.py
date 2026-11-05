@@ -572,17 +572,16 @@ class PlayMedia:
 
 @dataclass(slots=True)
 class PlayTidalTrack:
-    """Przekaz jeden utwor do oryginalnej aplikacji TIDAL.
+    """Start one TIDAL track in the selected playback route.
 
-    To nie jest zrodlo dzwieku dla silnika AMC. Id albumu pozostaje polem
-    modelu potrzebnym wspolnemu kontrolerowi C#; nie wolno skladac go do
-    komunikatu ani nazwy dostepnej.
+    Album identity is optional for AMC playback; the explicit desktop route
+    still requires it. Opaque IDs never reach the accessible label.
     """
 
     item_id: str
     title: str
     service_id: str
-    related_album_service_id: str
+    related_album_service_id: str = ""
     previous_item_id: str = ""
     previous_title: str = ""
 
@@ -2034,22 +2033,16 @@ class Navigator:
 
     @staticmethod
     def _tidal_track_intent(row: Row) -> PlayTidalTrack | Announce:
-        """Build an external-player request without ever speaking its IDs."""
+        """Build a track request without ever speaking its IDs."""
         if not row.service_id:
             return Announce(
-                "Ten utwór nie ma identyfikatora TIDAL. "
-                "Nie można go przekazać do oryginalnego programu"
-            )
-        if not row.related_album_service_id:
-            return Announce(
-                "Ten utwór nie ma przypisanego albumu, a oryginalny TIDAL "
-                "otwiera utwory tylko przez stronę albumu"
+                "Ten utwór nie ma danych potrzebnych do odtwarzania TIDAL"
             )
         return PlayTidalTrack(
             item_id=row.item_id,
             title=row.title,
             service_id=row.service_id,
-            related_album_service_id=row.related_album_service_id,
+            related_album_service_id=row.related_album_service_id or "",
         )
 
     @staticmethod

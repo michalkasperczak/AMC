@@ -792,6 +792,7 @@ def test_spotify_load_more_requests_next_page_and_focuses_first_new_item() -> No
 
 def test_spotify_artist_section_uses_the_read_only_container_contract() -> None:
     received = []
+    completed = []
     intent = OpenSpotifyContainer(
         "private-row", "privateartist", "Wykonawca", "artist", section="tracks"
     )
@@ -799,20 +800,25 @@ def test_spotify_artist_section_uses_the_read_only_container_contract() -> None:
         client=SimpleNamespace(
             spotify_container_items=lambda **values: (
                 received.append(values)
-                or {"heading": "Utwory wykonawcy, Wykonawca", "items": []}
+                or {"heading": "Utwory wykonawcy, Wykonawca", "items": [
+                    {"id": "track-1", "externalId": "track-1",
+                     "title": "Utwór", "kind": "track"}
+                ]}
             )
         ),
         _spotify_navigation_version=0,
         navigator=SimpleNamespace(
             active=SessionId.SPOTIFY,
-            apply_spotify_container=lambda *_args: [],
+            apply_spotify_container=lambda *_args, **_kwargs: [],
         ),
         runner=ImmediateRunner(),
         announcer=SimpleNamespace(say=lambda _message: None),
-        _run=lambda _events: None,
+        _run=lambda _events: completed.append("applied"),
     )
 
-    LiteFrame._open_spotify_container(frame, intent)
+    LiteFrame._open_spotify_container(
+        frame, intent, after_open=lambda: completed.append("next album")
+    )
 
     assert received == [{
         "external_id": "privateartist",
@@ -822,6 +828,7 @@ def test_spotify_artist_section_uses_the_read_only_container_contract() -> None:
         "artist_section": "tracks",
         "loaded_count": 150,
     }]
+    assert completed == ["applied", "next album"]
 
 
 def test_spotify_podcast_load_more_requests_300_and_focuses_first_new_episode() -> None:
@@ -884,6 +891,7 @@ def test_spotify_podcast_load_more_requests_300_and_focuses_first_new_episode() 
 def test_unavailable_spotify_playlist_stays_on_the_current_list() -> None:
     applied = []
     spoken = []
+    fallback = []
     intent = OpenSpotifyContainer(
         "private-playlist-row", "privateplaylist", "Moja playlista", "playlist"
     )
@@ -906,9 +914,14 @@ def test_unavailable_spotify_playlist_stays_on_the_current_list() -> None:
         _run=lambda events: applied.append(events),
     )
 
-    LiteFrame._open_spotify_container(frame, intent)
+    LiteFrame._open_spotify_container(
+        frame, intent,
+        after_open=lambda: applied.append("unexpected next album"),
+        on_failure=lambda: fallback.append("open album directly"),
+    )
 
     assert applied == []
+    assert fallback == ["open album directly"]
     assert spoken == ["Spotify nie udostępnił zawartości tego elementu."]
 
 

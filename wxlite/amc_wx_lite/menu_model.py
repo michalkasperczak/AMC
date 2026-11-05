@@ -839,12 +839,18 @@ def build_menus(
                      needs_selection=True),
             *(
                 (MenuItem(
-                    "Odtwórz utwór TIDAL &w AMC Test (eksperymentalnie)",
+                    "Odtwórz utwór TIDAL &w AMC",
                     Action.TIDAL_PLAY_NATIVE,
                     needs_tidal_native_track=True,
                     visible_sessions=TIDAL_ONLY,
                 ),)
                 if current_profile().profile_id != PUBLIC_PROFILE_ID else ()
+            ),
+            MenuItem(
+                "Przekaż utwór do ory&ginalnego TIDALa",
+                Action.TIDAL_OPEN_ORIGINAL,
+                needs_selection=True,
+                visible_sessions=TIDAL_ONLY,
             ),
             MenuItem(
                 "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,

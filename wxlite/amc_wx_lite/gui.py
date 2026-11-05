@@ -547,6 +547,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.ACTIVATE,
         Action.TIDAL_PLAY_NATIVE,
+        Action.TIDAL_OPEN_ORIGINAL,
         Action.QUICK_INFORMATION,
         Action.ITEM_PROPERTIES,
     ),
@@ -10636,6 +10637,14 @@ class LiteFrame(wx.Frame):
                 and native_track_id(selected_row.service_id) is not None
             ):
                 enabled = False
+            if entry.action is Action.TIDAL_OPEN_ORIGINAL and not (
+                self.navigator.active is SessionId.TIDAL
+                and selected_row is not None
+                and selected_row.kind == "track"
+                and bool(selected_row.service_id)
+                and bool(selected_row.related_album_service_id)
+            ):
+                enabled = False
             if (self.navigator.active is SessionId.TIDAL
                     and entry.action in TIDAL_NATIVE_ONLY_ACTIONS
                     and not self._tidal_native_has_playback):
@@ -14282,7 +14291,11 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("tidal-view", work, done, failed)
 
-    def _open_tidal_container(self, intent: OpenTidalContainer) -> None:
+    def _open_tidal_container(
+        self, intent: OpenTidalContainer, *,
+        after_open: Callable[[], None] | None = None,
+        on_failure: Callable[[], None] | None = None,
+    ) -> None:
         """Open album, playlist or artist section through the shared C# API."""
         client = self.client
         if client is None:
@@ -14315,6 +14328,8 @@ class LiteFrame(wx.Frame):
                 list(result.rows),
                 preferred_id=intent.preferred_id,
             ))
+            if after_open is not None:
+                after_open()
 
         def failed(error: Exception) -> None:
             if (
@@ -14326,6 +14341,8 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(str(error))
             else:
                 self.announcer.say("Nie udało się otworzyć katalogu TIDAL")
+            if on_failure is not None:
+                on_failure()
 
         self.runner.submit("tidal-navigation", work, done, failed)
 
@@ -14544,6 +14561,8 @@ class LiteFrame(wx.Frame):
         intent: OpenSpotifyContainer,
         *,
         attempt: int = 0,
+        after_open: Callable[[], None] | None = None,
+        on_failure: Callable[[], None] | None = None,
     ) -> None:
         """Open an album, playlist, podcast or artist section read-only."""
 
@@ -14594,6 +14613,8 @@ class LiteFrame(wx.Frame):
                     result.warning
                     or "Spotify nie udostępnił zawartości tego elementu."
                 )
+                if on_failure is not None:
+                    on_failure()
                 return
             rows = list(result.rows)
             loaded_count = len(rows)
@@ -14612,6 +14633,8 @@ class LiteFrame(wx.Frame):
                 rows,
                 preferred_id=preferred_id,
             ))
+            if after_open is not None:
+                after_open()
             if result.warning:
                 self.announcer.say(result.warning)
             if result.has_more and intent.kind != "podcast":
@@ -14633,6 +14656,8 @@ class LiteFrame(wx.Frame):
                 retry=lambda: self._open_spotify_container(
                     intent,
                     attempt=attempt + 1,
+                    after_open=after_open,
+                    on_failure=on_failure,
                 ),
             ):
                 return
@@ -14641,6 +14666,8 @@ class LiteFrame(wx.Frame):
                 if isinstance(error, (HostError, SpotifyContainerPayloadError))
                 else "Nie udało się otworzyć zawartości Spotify"
             )
+            if on_failure is not None:
+                on_failure()
 
         self.runner.submit("spotify-navigation", work, done, failed)
 
@@ -15370,8 +15397,7 @@ class LiteFrame(wx.Frame):
             if action is Action.SHOW_PLAYER and not self._tidal_native_has_playback:
                 self.announcer.say(
                     "F6 otwiera odtwarzacz AMC po uruchomieniu utworu "
-                    "poleceniem Biblioteka, Odtwórz utwór TIDAL w AMC Test. "
-                    "Enter otwiera oryginalny TIDAL."
+                    "TIDAL klawiszem Enter"
                 )
                 return
             if action in TIDAL_NATIVE_ONLY_ACTIONS and not self._tidal_native_has_playback:
@@ -15673,6 +15699,8 @@ class LiteFrame(wx.Frame):
             self._play_selected_spotify_album()
         elif action is Action.TIDAL_PLAY_NATIVE:
             self._play_tidal_native_selected()
+        elif action is Action.TIDAL_OPEN_ORIGINAL:
+            self._play_tidal_original_selected()
         elif action is Action.TIDAL_STOP_NATIVE:
             self._stop_tidal_native()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
@@ -16797,7 +16825,7 @@ class LiteFrame(wx.Frame):
                 else:
                     self._play_media(intent)
             elif isinstance(intent, PlayTidalTrack):
-                self._play_tidal_track(intent)
+                self._play_tidal_native_intent(intent)
             elif isinstance(intent, PlayTidalContainer):
                 self._play_tidal_container(intent)
             elif isinstance(intent, PlaySpotifyItem):
@@ -26797,7 +26825,12 @@ class LiteFrame(wx.Frame):
         self.runner.submit("playback", work, done, failed)
 
     def _play_tidal_track(self, intent: PlayTidalTrack) -> None:
-        """Hand one track to original TIDAL; AMC itself plays no audio here."""
+        """Explicitly hand one track to the original TIDAL application."""
+        if not intent.related_album_service_id:
+            self.announcer.say(
+                "Oryginalny TIDAL wymaga danych albumu tego utworu"
+            )
+            return
         self._play_tidal_item(
             intent,
             lambda client, restart_consent: client.tidal_desktop_play(
@@ -26808,6 +26841,55 @@ class LiteFrame(wx.Frame):
                 restart_consent=restart_consent,
             ),
         )
+
+    def _play_tidal_original_selected(self) -> None:
+        if self.navigator.active is not SessionId.TIDAL:
+            return
+        row = self.navigator.session.model.selected_row
+        if row is None or row.kind != "track":
+            self.announcer.say("Wybierz utwór TIDAL")
+            return
+        intent = self.navigator._tidal_track_intent(row)
+        if isinstance(intent, Announce):
+            self.announcer.say(intent.text)
+            return
+        state = self.navigator.session
+        intent.previous_item_id = state.current_material_id
+        intent.previous_title = state.now_playing_title
+        self._play_tidal_track(intent)
+
+    def _play_tidal_native_intent(self, intent: PlayTidalTrack) -> None:
+        """Enter, search and Page Up/Down share the AMC playback route."""
+        state = self.navigator.sessions[SessionId.TIDAL]
+        row = next((
+            candidate for candidate in (*state.playback_source_rows, *state.model.rows)
+            if candidate.item_id == intent.item_id and candidate.kind == "track"
+        ), None)
+        if row is None:
+            row = Row(
+                item_id=intent.item_id,
+                title=intent.title,
+                kind="track",
+                service_id=intent.service_id,
+                service_kind="track",
+                related_album_service_id=intent.related_album_service_id,
+            )
+        self._tidal_native_previous_item_id = intent.previous_item_id
+        self._tidal_native_previous_title = intent.previous_title
+        source_has_row = any(
+            candidate.item_id == intent.item_id
+            for candidate in state.playback_source_rows
+        )
+        model_has_row = any(
+            candidate.item_id == intent.item_id for candidate in state.model.rows
+        )
+        preserve_source = source_has_row and (
+            state.view is View.PLAYER or not model_has_row
+        )
+        if not self._play_tidal_native_row(row, preserve_source=preserve_source):
+            self.navigator.restore_tidal_playback_after_failed_handoff(
+                intent.previous_item_id, intent.previous_title
+            )
 
     def _initialize_tidal_native_adapter(self, client: LiteHostClient) -> None:
         """Attach the optional AMC Test player to this already running host."""
@@ -26930,6 +27012,14 @@ class LiteFrame(wx.Frame):
         elif kind in {"failed", "ended", "stopped"}:
             self._close_tidal_native_challenge()
             if (
+                kind == "failed"
+                and track_id == getattr(self, "_tidal_native_pending_track_id", None)
+            ):
+                self.navigator.restore_tidal_playback_after_failed_handoff(
+                    getattr(self, "_tidal_native_previous_item_id", ""),
+                    getattr(self, "_tidal_native_previous_title", ""),
+                )
+            if (
                 kind == "ended"
                 and track_id == getattr(self, "_tidal_native_active_track_id", None)
             ):
@@ -27001,6 +27091,9 @@ class LiteFrame(wx.Frame):
         if row is None:
             self.announcer.say("Wybierz utwór TIDAL")
             return
+        state = self.navigator.session
+        self._tidal_native_previous_item_id = state.current_material_id
+        self._tidal_native_previous_title = state.now_playing_title
         self._play_tidal_native_row(row)
 
     def _stop_tidal_native(self) -> None:
@@ -33590,8 +33683,42 @@ class LiteFrame(wx.Frame):
             self._restore_focus_after_dialog()
             return
         self._switch_session(session_id, initialize_if_empty=False)
+        album_item_id = f"{track.item_id}:recognized-album"
+        artist_id = str(match.get("artistServiceId") or "").strip()
+        artist_name = str(
+            match.get("artistName") or match.get("artist") or track.artist_name
+        ).strip()
+
+        def open_album_after_artist() -> None:
+            # Backspace ma wrócić do albumów tego wykonawcy i wskazać album,
+            # nawet gdy leży poza pierwszą stroną odpowiedzi katalogu.
+            state = self.navigator.sessions[session_id]
+            album_row = next((
+                candidate for candidate in state.model.rows
+                if candidate.kind == "album" and candidate.service_id == album_id
+            ), None)
+            if album_row is None:
+                album_row = Row(
+                    item_id=album_item_id,
+                    title=album_title,
+                    kind="album",
+                    artist_name=artist_name,
+                    service_id=album_id,
+                    service_kind="album",
+                    related_artist_service_id=artist_id,
+                    related_artist_name=artist_name,
+                )
+                state.model.replace(
+                    [*state.model.rows, album_row],
+                    preferred_id=album_row.item_id,
+                )
+            else:
+                state.model.select_id(album_row.item_id)
+            self._sync_views()
+            open_album()
+
         if service == SPOTIFY:
-            self._open_spotify_container(OpenSpotifyContainer(
+            album_intent = OpenSpotifyContainer(
                 item_id=f"{track.item_id}:recognized-album",
                 service_id=album_id,
                 title=album_title,
@@ -33599,9 +33726,20 @@ class LiteFrame(wx.Frame):
                 artist=track.artist_name,
                 public_uri=str(match.get("albumUrl") or "") or None,
                 preferred_id=track.item_id,
-            ))
+            )
+            open_album = lambda: self._open_spotify_container(album_intent)
+            if artist_id and artist_name:
+                self._open_spotify_container(OpenSpotifyContainer(
+                    item_id=f"recognition:spotify:artist:{artist_id}:albums",
+                    service_id=artist_id,
+                    title=artist_name,
+                    kind="artist",
+                    section="albums",
+                ), after_open=open_album_after_artist, on_failure=open_album)
+            else:
+                open_album()
         else:
-            self._open_tidal_container(OpenTidalContainer(
+            album_intent = OpenTidalContainer(
                 item_id=f"{track.item_id}:recognized-album",
                 service_id=album_id,
                 title=album_title,
@@ -33609,7 +33747,18 @@ class LiteFrame(wx.Frame):
                 artist=track.artist_name,
                 public_uri=str(match.get("albumUrl") or "") or None,
                 preferred_id=track.item_id,
-            ))
+            )
+            open_album = lambda: self._open_tidal_container(album_intent)
+            if artist_id and artist_name:
+                self._open_tidal_container(OpenTidalContainer(
+                    item_id=f"recognition:tidal:artist:{artist_id}:albums",
+                    service_id=artist_id,
+                    title=artist_name,
+                    kind="artist",
+                    artist_section="albums",
+                ), after_open=open_album_after_artist, on_failure=open_album)
+            else:
+                open_album()
 
     def _execute_recognition_action(
         self,
@@ -33652,13 +33801,16 @@ class LiteFrame(wx.Frame):
             if action.service == SPOTIFY:
                 self._open_spotify_search_result(search_entry, relations=False)
             else:
-                # TIDAL intentionally follows AMC's existing hand-off to the
-                # original application.  There is no second internal player.
                 self._open_tidal_search_result(search_entry, relations=False)
             return
         if action.operation == "open_external":
             if action.service == TIDAL and action.entity == "track" and row is not None:
-                self._open_tidal_search_result(SearchEntry(SessionId.TIDAL, row), relations=False)
+                self._switch_session(SessionId.TIDAL, initialize_if_empty=False)
+                intent = self.navigator._tidal_track_intent(row)
+                if isinstance(intent, Announce):
+                    self.announcer.say(intent.text)
+                else:
+                    self._play_tidal_track(intent)
                 return
             address = recognition_action_url(action, match)
             if action.service == SPOTIFY and action.entity == "track":
@@ -34730,6 +34882,12 @@ class LiteFrame(wx.Frame):
                     self._tidal_native_adapter is not None
                     and row is not None and row.kind == "track"
                     and native_track_id(row.service_id) is not None
+                )
+            if action is Action.TIDAL_OPEN_ORIGINAL:
+                row = self.navigator.session.model.selected_row
+                return bool(
+                    row is not None and row.kind == "track"
+                    and row.service_id and row.related_album_service_id
                 )
             if action in TIDAL_NATIVE_ONLY_ACTIONS:
                 return bool(

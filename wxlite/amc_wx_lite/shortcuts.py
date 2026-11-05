@@ -141,6 +141,7 @@ class Action(Enum):
     TIDAL_TOGGLE_LIBRARY = "tidal.library.toggle"
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     TIDAL_PLAY_NATIVE = "tidal.native.play"
+    TIDAL_OPEN_ORIGINAL = "tidal.desktop.play"
     TIDAL_STOP_NATIVE = "tidal.native.stop"
     SPOTIFY_TOGGLE_LIBRARY = "spotify.library.toggle"
     SPOTIFY_TOGGLE_FAVORITE = "spotify.favorite.toggle"
@@ -461,10 +462,17 @@ class CommandPresentation:
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.TIDAL_PLAY_NATIVE: CommandPresentation(
         Action.TIDAL_PLAY_NATIVE,
-        "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)",
-        "Odtwórz zaznaczony utwór TIDAL w AMC Test z najwyższą dostępną jakością, do Max; następny utwór bieżącej listy uruchomi się po jego końcu; Enter otwiera oryginalny TIDAL",
+        "Odtwórz utwór TIDAL w AMC",
+        "Odtwórz zaznaczony utwór w AMC z najwyższą dostępną jakością, do Max; Enter na utworze uruchamia tę samą drogę i kontynuuje listę",
         "",
-        "Odtwórz utwór TIDAL &w AMC Test (eksperymentalnie)",
+        "Odtwórz utwór TIDAL &w AMC",
+    ),
+    Action.TIDAL_OPEN_ORIGINAL: CommandPresentation(
+        Action.TIDAL_OPEN_ORIGINAL,
+        "Przekaż utwór do oryginalnego TIDALa",
+        "Przekaż zaznaczony utwór do oryginalnej aplikacji TIDAL; wymaga danych albumu",
+        "",
+        "Przekaż utwór do ory&ginalnego TIDALa",
     ),
     Action.TIDAL_STOP_NATIVE: CommandPresentation(
         Action.TIDAL_STOP_NATIVE,
@@ -667,6 +675,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.TIDAL_TOGGLE_LIBRARY,
     Action.TIDAL_TOGGLE_FAVORITE,
     Action.TIDAL_PLAY_NATIVE,
+    Action.TIDAL_OPEN_ORIGINAL,
     Action.TIDAL_STOP_NATIVE,
     Action.SHOW_PLAYER,
     Action.SELECT_AUDIO_OUTPUT,
@@ -2450,7 +2459,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.MANAGE_PLAYLIST_MEMBERSHIP: "Zmień przynależność do playlist",
         Action.TIDAL_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki TIDAL",
         Action.TIDAL_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych TIDAL",
-        Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)",
+        Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC",
+        Action.TIDAL_OPEN_ORIGINAL: "Przekaż utwór do oryginalnego TIDALa",
         Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC Test",
         Action.SPOTIFY_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki Spotify",
         Action.SPOTIFY_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych Spotify",
@@ -2858,6 +2868,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     # Tekst „Bez skrótu” jest celową etykietą użytkową, nie identyfikatorem.
     for action in (
         Action.TIDAL_PLAY_NATIVE,
+        Action.TIDAL_OPEN_ORIGINAL,
         Action.TIDAL_STOP_NATIVE,
         Action.SESSION_ENABLE,
         Action.SESSION_DISABLE_CURRENT,

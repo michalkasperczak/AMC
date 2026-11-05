@@ -33,19 +33,25 @@ def test_native_command_has_one_test_profile_surface_and_no_public_surface(
     assert Action.TIDAL_STOP_NATIVE in actions
     entries = entries_for_session(SessionId.TIDAL)
     native = next(entry for entry in entries if entry.action is Action.TIDAL_PLAY_NATIVE)
-    assert native.name == "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)"
+    assert native.name == "Odtwórz utwór TIDAL w AMC"
     assert native.shortcut is None
     assert (
         "Bez skrótu",
-        "Odtwórz zaznaczony utwór TIDAL w AMC Test z najwyższą dostępną "
-        "jakością, do Max; następny utwór bieżącej listy uruchomi się po "
-        "jego końcu; Enter otwiera oryginalny TIDAL",
+        "Odtwórz zaznaczony utwór w AMC z najwyższą dostępną jakością, "
+        "do Max; Enter na utworze uruchamia tę samą drogę i kontynuuje listę",
     ) in describe("TIDAL", {Action.TIDAL_PLAY_NATIVE})
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
     assert Action.TIDAL_PLAY_NATIVE not in _menu_actions()
     assert Action.TIDAL_PLAY_NATIVE not in {
         entry.action for entry in entries_for_session(SessionId.TIDAL)
     }
+    monkeypatch.setenv("AMC_RELEASE_PROFILE", "test")
+    original = next(
+        entry for entry in entries_for_session(SessionId.TIDAL)
+        if entry.action is Action.TIDAL_OPEN_ORIGINAL
+    )
+    assert original.name == "Przekaż utwór do oryginalnego TIDALa"
+    assert Action.TIDAL_OPEN_ORIGINAL in _menu_actions()
 
 
 def test_native_track_id_accepts_real_catalog_ids_and_rejects_other_kinds() -> None:
@@ -242,6 +248,90 @@ def test_selected_track_starts_adapter_and_captures_its_list_for_skip() -> None:
     assert frame._tidal_native_pending_row is rows[0]
     assert state.playback_source_rows == rows
     assert state.playback_uses_queue is False
+
+
+def test_enter_track_without_album_uses_amc_route() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    row = Row(
+        "tidal:tracks:1", "Utwór", "track",
+        service_id="tracks:1", service_kind="track",
+    )
+    navigator.sessions[SessionId.TIDAL].model.replace([row])
+    intent = navigator.activate_selected()[0]
+    assert intent.related_album_service_id == ""
+    calls = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        _play_tidal_native_intent=lambda request: calls.append(request),
+        _play_tidal_track=lambda _request: raise_unexpected_external_play(),
+        _sync_views=lambda: None,
+    )
+
+    LiteFrame._run(frame, [intent])
+
+    assert calls == [intent]
+
+
+def raise_unexpected_external_play() -> None:
+    raise AssertionError("Enter must use the AMC player")
+
+
+def test_native_intent_preserves_album_source_when_stepping_from_player() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    rows = [
+        Row(f"tidal:tracks:{number}", f"Utwór {number}", "track",
+            service_id=f"tracks:{number}", service_kind="track")
+        for number in (1, 2)
+    ]
+    state = navigator.session
+    state.model.replace(rows)
+    state.playback_source_rows = tuple(rows)
+    state.view = View.PLAYER
+    calls = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        _play_tidal_native_row=lambda row, *, preserve_source: (
+            calls.append((row.item_id, preserve_source)) or True
+        ),
+    )
+
+    LiteFrame._play_tidal_native_intent(
+        frame, navigator._tidal_track_intent(rows[1])
+    )
+
+    assert calls == [(rows[1].item_id, True)]
+
+
+def test_original_tidal_route_remains_explicit_and_requires_album() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    row = Row(
+        "tidal:tracks:1", "Utwór", "track",
+        service_id="tracks:1", service_kind="track",
+        related_album_service_id="albums:2",
+    )
+    navigator.session.model.replace([row])
+    calls = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        announcer=SimpleNamespace(say=calls.append),
+        _play_tidal_track=lambda intent: calls.append(intent),
+    )
+
+    LiteFrame._play_tidal_original_selected(frame)
+
+    assert len(calls) == 1
+    assert calls[0].related_album_service_id == "albums:2"
+    navigator.session.model.replace([Row(
+        "tidal:tracks:3", "Bez albumu", "track",
+        service_id="tracks:3", service_kind="track",
+    )])
+    LiteFrame._play_tidal_track(frame, navigator._tidal_track_intent(
+        navigator.session.model.selected_row
+    ))
+    assert "wymaga danych albumu" in calls[1]
 
 
 def test_native_skip_stays_in_amc_adapter() -> None:

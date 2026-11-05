@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from amc_wx_lite import apple_music_links, gui as gui_module, radio_recognition
 from amc_wx_lite.gui import LiteFrame, RecognitionActionsWindow
 from amc_wx_lite.list_model import Row
-from amc_wx_lite.navigation import SessionId, View
+from amc_wx_lite.navigation import Navigator, SessionId, View
 from amc_wx_lite.recognition_actions import (
     APPLE_MUSIC,
     SPOTIFY,
@@ -208,13 +208,40 @@ def test_direct_album_handoff_does_not_start_competing_root_load() -> None:
         if item.action_id == "spotify.amc.album"
     )
     calls = []
+    navigator = Navigator()
+    navigator.sessions[SessionId.SPOTIFY].model.replace([
+        Row("root", "Biblioteka Spotify", "folder")
+    ])
+
+    def open_container(intent, *, after_open=None, on_failure=None):
+        calls.append(("container", intent))
+        if intent.kind == "artist":
+            navigator.apply_spotify_container(
+                intent, "Albumy wykonawcy", [
+                    Row("album", "Osobista Kolekcja 2", "album",
+                        service_id="album-1", service_kind="album")
+                ]
+            )
+            if after_open is not None:
+                after_open()
+        else:
+            navigator.apply_spotify_container(
+                intent, "Osobista Kolekcja 2", [_spotify_row()]
+            )
+
+    def switch_session(session, **options):
+        calls.append(("session", session, options))
+        navigator.active = session
+
     frame = SimpleNamespace(
         options=SimpleNamespace(session_order=(
             SessionId.FILES, SessionId.RADIO, SessionId.SPOTIFY,
         )),
         announcer=SimpleNamespace(say=lambda message: calls.append(("say", message))),
-        _switch_session=lambda session, **options: calls.append(("session", session, options)),
-        _open_spotify_container=lambda intent: calls.append(("album", intent)),
+        navigator=navigator,
+        _switch_session=switch_session,
+        _open_spotify_container=open_container,
+        _sync_views=lambda: None,
         _restore_focus_after_dialog=lambda: calls.append(("focus",)),
     )
 
@@ -225,8 +252,110 @@ def test_direct_album_handoff_does_not_start_competing_root_load() -> None:
     assert calls[0] == (
         "session", SessionId.SPOTIFY, {"initialize_if_empty": False}
     )
-    assert calls[1][0] == "album"
-    assert calls[1][1].service_id == "album-1"
+    assert [call[1].kind for call in calls[1:]] == ["artist", "album"]
+    assert calls[2][1].service_id == "album-1"
+    assert LiteFrame._open_service_album_row(
+        SessionId.SPOTIFY, navigator.session
+    ).service_id == "album-1"
+    navigator.go_to_parent()
+    assert navigator.session.spotify_heading == "Albumy wykonawcy"
+    assert navigator.session.model.selected_row.service_id == "album-1"
+    navigator.go_to_parent()
+    assert navigator.session.model.selected_row.item_id == "root"
+
+
+def test_recognized_tidal_album_returns_to_artist_albums() -> None:
+    action = next(
+        item for item in all_actions(_entry(), TIDAL)
+        if item.action_id == "tidal.amc.album"
+    )
+    track = Row(
+        "tidal:tracks:1", "Utwór", "track",
+        service_id="tracks:1", service_kind="track",
+        artist_name="Budka Suflera",
+        related_album_service_id="albums:2",
+        related_album_title="Album",
+        related_artist_service_id="artists:3",
+        related_artist_name="Budka Suflera",
+    )
+    navigator = Navigator()
+    navigator.sessions[SessionId.TIDAL].model.replace([
+        Row("root", "Biblioteka TIDAL", "folder")
+    ])
+    calls = []
+
+    def open_container(intent, *, after_open=None, on_failure=None):
+        calls.append(intent)
+        if intent.kind == "artist":
+            # Wynik albumu może leżeć poza pierwszą stroną katalogu.
+            navigator.apply_tidal_container(
+                intent, "Albumy wykonawcy", []
+            )
+            if after_open is not None:
+                after_open()
+        else:
+            navigator.apply_tidal_container(intent, "Album", [track])
+
+    def switch_session(session, **_options):
+        navigator.active = session
+
+    frame = SimpleNamespace(
+        options=SimpleNamespace(session_order=(SessionId.TIDAL,)),
+        navigator=navigator,
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _switch_session=switch_session,
+        _open_tidal_container=open_container,
+        _sync_views=lambda: None,
+        _restore_focus_after_dialog=lambda: None,
+    )
+
+    LiteFrame._show_recognition_match_in_amc(
+        frame, action, match_from_row(TIDAL, track)
+    )
+
+    assert [intent.kind for intent in calls] == ["artist", "album"]
+    assert calls[0].artist_section == "albums"
+    assert LiteFrame._open_service_album_row(
+        SessionId.TIDAL, navigator.session
+    ).service_id == "albums:2"
+    navigator.go_to_parent()
+    assert navigator.session.tidal_heading == "Albumy wykonawcy"
+    assert navigator.session.model.selected_row.service_id == "albums:2"
+    navigator.go_to_parent()
+    assert navigator.session.model.selected_row.item_id == "root"
+
+
+def test_explicit_original_tidal_recognition_action_keeps_desktop_route() -> None:
+    action = next(
+        item for item in all_actions(_entry(), TIDAL)
+        if item.action_id == "tidal.external.track"
+    )
+    row = Row(
+        "tidal:tracks:1", "Utwór", "track",
+        service_id="tracks:1", service_kind="track",
+        related_album_service_id="albums:2",
+    )
+    calls = []
+    frame = SimpleNamespace(
+        navigator=Navigator(),
+        _switch_session=lambda session, **options: calls.append(
+            ("session", session, options)
+        ),
+        _play_tidal_track=lambda intent: calls.append(("desktop", intent)),
+        _open_tidal_search_result=lambda *_args, **_kwargs: (
+            calls.append(("unexpected AMC route",))
+        ),
+    )
+
+    LiteFrame._execute_recognition_action(
+        frame, _entry(), action, match_from_row(TIDAL, row)
+    )
+
+    assert calls[0] == (
+        "session", SessionId.TIDAL, {"initialize_if_empty": False}
+    )
+    assert calls[1][0] == "desktop"
+    assert calls[1][1].related_album_service_id == "albums:2"
 
 
 def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> None:
