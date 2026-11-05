@@ -2,6 +2,8 @@
 
 Status: AMC Test alpha.479 zbudowano, zainstalowano i uruchomiono 5 listopada 2026; kontynuacja albumu czeka na ręczny odbiór NVDA.
 
+Korekta użytkownika z 5 listopada 2026 po instalacji alpha.479: Enter na utworze TIDAL ma domyślnie odtwarzać w AMC; wcześniejsze zdanie niżej o przekazaniu przez Enter do oryginalnego TIDALa jest zastąpione. Kod następnego kandydata i testy: [RECOG-TIDAL-20261105](RECOG-TIDAL-20261105.md).
+
 Instalator alpha.479: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers\AMC-Test-2026-11-05-2211.exe`; SHA-256: `718B58684355BC2E1D0C8BF9A01EE45ADAE6871BF483FFC226248E2BC79B6EDF`. Widoczny tytuł uruchomionej aplikacji: `AMC Test — 05.11.2026, 22:11`. Kod tej poprawki: commit `b9fac4d7`. Instalacja i uruchomienie nie dowodzą jeszcze naturalnej kontynuacji albumu; wymaga to testu odsłuchowego.
 
 ## Korekta zgłoszona przez użytkownika

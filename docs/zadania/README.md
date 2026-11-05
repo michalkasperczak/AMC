@@ -10,6 +10,7 @@ jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 - `LIST-20261105-konfiguracja-odczytu` — **W trakcie; test wydajności po alpha.476, kandydat alpha.477** — osobny odczyt góra/dół i lewej strzałki globalnie oraz dla sesji; poprawa regresji szybkości nagrań i hosta. [Szczegóły](LIST-20261105-konfiguracja-odczytu.md).
 - `TID-LIST-PLAYER-20261105` — **Alpha.473 opublikowana na GitHubie; nieinstalowana, czeka na zbiorczy pakiet** — Max FLAC, krótszy odczyt albumu, historia natywnego TIDAL, początek po Page Up/Down i audyt Spotify. [Szczegóły](TID-LIST-PLAYER-20261105-followup.md).
 - `LIST-SEARCH-GLOBAL-20261105` — **Kod i 240 testów gotowe; budowa i instalacja odłożone na koniec trwających nagrań** — krótszy odczyt TIDAL i Spotify, wyniki wyszukiwania z rodzajem pozycji oraz wspólne listy z każdej sesji. [Szczegóły](LIST-SEARCH-GLOBAL-20261105.md).
+- `RECOG-TIDAL-20261105` — **Kod i testy celowane gotowe; oczekuje na bezpieczną budowę** — rozpoznany album wraca do albumów wykonawcy; Enter uruchamia TIDAL w AMC, a przekazanie do oryginalnej aplikacji jest jawne. [Szczegóły](RECOG-TIDAL-20261105.md).
 - `LIST-20261105` — **Wydane i zainstalowane w Test alpha.472; odbiór NVDA otwarty** — czas TIDAL bez słowa „Czas” i jedno przeliczenie menu na ruch strzałką. [Szczegóły](LIST-20261105-czas-tidal-i-strzalki.md).
 - `PLAYER-20261105` — **Wydane i zainstalowane w Test alpha.472; odbiór NVDA otwarty** — J skacze do wpisanego czasu, Shift+J do procentu; zakładki działają w natywnym TIDAL. [Szczegóły](PLAYER-20261105-skoki-i-zakladki.md).
 

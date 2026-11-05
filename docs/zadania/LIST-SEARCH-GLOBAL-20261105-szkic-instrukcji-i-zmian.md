@@ -10,6 +10,8 @@ Alt+R otwiera aktywne nagrania, Alt+Shift+R nagrane pliki, Ctrl+I skrzynkę nowy
 
 Ctrl+Shift+F korzysta z zapisanych i już wczytanych danych. Wśród wyników Spotify mogą znaleźć się pozycje z obecnej listy i historii odtwarzania. Pełne wyszukiwanie katalogu Spotify lub TIDAL uruchamia się przez Ctrl+F po przejściu do właściwej sesji.
 
+Na albumie otwartym z listy rozpoznanych utworów Ctrl+Shift+L zapisuje album do Biblioteki Spotify lub TIDAL. Backspace wraca do albumów rozpoznanego wykonawcy i wskazuje ten album. Enter na utworze TIDAL uruchamia odtwarzanie w AMC. Przekazanie utworu do oryginalnego TIDALa pozostaje osobną pozycją menu Biblioteka i menu kontekstowego.
+
 ## Lista zmian
 
 - Krótszy odczyt utworów na listach TIDAL i Spotify.
@@ -17,5 +19,7 @@ Ctrl+Shift+F korzysta z zapisanych i już wczytanych danych. Wśród wyników Sp
 - Jasny rodzaj w wynikach wyszukiwania bez powtarzania wykonawcy w szczegółach.
 - Znane pozycje Spotify w wyszukiwaniu globalnym bez dodatkowego połączenia z katalogiem.
 - Cztery wspólne listy dostępne z każdej sesji, ze spójnymi skrótami, menu, paletą i pomocą.
+- Kontekstowy powrót z rozpoznanego albumu do albumów jego wykonawcy w Spotify i TIDAL.
+- Enter w TIDAL odtwarza w AMC; osobne polecenie przekazuje utwór do oryginalnej aplikacji.
 
-Stan: kod i 240 testów gotowe. Instalator i ręczny odbiór NVDA oczekują na zakończenie nagrań.
+Stan: oba etapy mają odpowiednio 240 i 231 zaliczonych testów. Instalator i ręczny odbiór NVDA oczekują na zakończenie nagrań.

@@ -1,5 +1,7 @@
 # TIDAL Max, komunikaty list i kontrola odtwarzacza — 5 listopada 2026
 
+Korekta użytkownika z 5 listopada 2026: Enter na utworze TIDAL w następnej wersji testowej uruchamia wewnętrzny odtwarzacz AMC, a przekazanie do oryginalnej aplikacji jest osobnym poleceniem. Zastępuje poniższe starsze opisy Enter. Szczegóły i wynik: [RECOG-TIDAL-20261105](RECOG-TIDAL-20261105.md).
+
 ## Zakres i decyzje użytkownika
 
 Po wydaniu alpha.472 użytkownik potwierdził, że listy reagują wyraźnie szybciej. Zlecił rzeczywistą najwyższą jakość TIDAL, usunięcie zbędnego słowa „album” przy czytaniu albumu, sprawdzenie skoków, zakładek, historii i kolejki, audyt jakości Spotify oraz wrażenia ucięcia początku po Page Up/Down. Obecna decyzja o jakości zastępuje stan z 5 listopada opisany w końcu `TID-001-pelne-odtwarzanie-w-AMC-Test.md`: alpha.472 żądała High; kandydat alpha.473 żąda Max, obsługuje jego manifest DASH, a przy niezgodnym wariancie wraca do High.
