@@ -242,4 +242,12 @@ W odtwarzaczu TIDAL w AMC Test cyfry od `0` do `9` skaczą odpowiednio do 0–90
 
 #### Wersja i commit
 
-Poprawki odtwarzacza mają commit `904d9d0a7251696b0fda37f5379d6521db92b017`. Wspólny numer następnego kandydata to `0.1.0-alpha.471`. Budowa, instalacja i wydanie: do zapisania po weryfikacji.
+Poprawki odtwarzacza mają commit `904d9d0a7251696b0fda37f5379d6521db92b017`. Wspólny numer następnego kandydata to `0.1.0-alpha.471`. Stan budowy i wydania uzupełnia następna sekcja; instalacja pozostaje osobnym krokiem.
+
+### Paczka i wydanie alpha.471 — 5 listopada 2026
+
+Commit wydania `9e3834850f2fa4047876a69adaba061fa741fca9` jest na gałęzi `codex/konfigurowalne-skroty-20261026`. Z niego zbudowano izolowaną paczkę Test z 4193 plikami, `sourceDirty=false`, ProductVersion `0.1.0-alpha.471` i nazwą okna `AMC Test — 05.11.2026, 01:45`. Pełna kontrola pakietu i kontrolowany start GUI/hosta zaliczone. Instalator `D:\Projekty Codex\AMC - integracja wxPython\publish\installers\AMC-Test-2026-11-05-0145.exe` ma 143839647 bajtów i SHA-256 `b295bca5b031ea21d7512f937a7edbf3856263795060f3094928b833aaf1ce5d`. Skan sekretów przeszedł; opcjonalny dodatek NVDA Quick App Switcher 0.1.6 ma tę samą sumę co w poprzednim wydaniu. Sama budowa instalatora nie zmieniła instalacji.
+
+Wydanie wstępne GitHub `test-2026.11.05.0145` jest opublikowane. Odczyt zdalny potwierdził instalator, plik integralności i manifest aktualizacji w stanie `uploaded`; rozmiar i suma instalatora są zgodne z lokalnymi. Manifest gotowości ma `published=true`. Stara instalacja `alpha.470` i jej instalator są nadal zachowane. Przed instalacją `alpha.471` zapytano użytkownika o aktywne lub bliskie nagrywanie; do odpowiedzi nie zamykać programu. Nowe cyfry, Home/End i głośność nie mają jeszcze odbioru w zainstalowanym oknie i NVDA, więc publikacja nie jest dowodem ich działania na komputerze użytkownika.
+
+Po potwierdzeniu przez użytkownika działania `alpha.470` usunięto tylko nieużywaną kopię profilu testowego `D:\Projekty Codex\AMC - integracja wxPython\work\TID-001\alpha470-preview-profile` (11 plików, około 75 MB) spod katalogu `work\TID-001`. Oryginalny profil, poświadczenia Windows i instalacja pozostały nienaruszone. Kopia diagnostyczna nie ma Kosza; jej źródłowe pliki pozostają w oryginalnym profilu i można utworzyć nową kopię do kolejnego testu. Paczki i instalatory zachowano do odbioru nowej wersji.
