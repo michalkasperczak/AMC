@@ -7,6 +7,7 @@ przetrwać między rozmowami i być czytelne zarówno dla Codexa, jak i Hermesa.
 Rejestr nie uruchamia pracy samodzielnie. Zadanie rozpoczyna się dopiero po
 jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
+- `TID-LIST-PLAYER-20261105` — **Kandydat alpha.473 w źródłach; testy i Release hosta zaliczone, paczka/instalacja przed wykonaniem** — Max FLAC, krótszy odczyt albumu, historia natywnego TIDAL, początek po Page Up/Down i audyt Spotify. [Szczegóły](TID-LIST-PLAYER-20261105-followup.md).
 - `LIST-20261105` — **Wydane i zainstalowane w Test alpha.472; odbiór NVDA otwarty** — czas TIDAL bez słowa „Czas” i jedno przeliczenie menu na ruch strzałką. [Szczegóły](LIST-20261105-czas-tidal-i-strzalki.md).
 - `PLAYER-20261105` — **Wydane i zainstalowane w Test alpha.472; odbiór NVDA otwarty** — J skacze do wpisanego czasu, Shift+J do procentu; zakładki działają w natywnym TIDAL. [Szczegóły](PLAYER-20261105-skoki-i-zakladki.md).
 

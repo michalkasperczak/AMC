@@ -462,7 +462,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.TIDAL_PLAY_NATIVE: CommandPresentation(
         Action.TIDAL_PLAY_NATIVE,
         "Odtwórz utwór TIDAL w AMC Test (eksperymentalnie)",
-        "Odtwórz zaznaczony utwór TIDAL w odtwarzaczu AMC Test; Enter nadal otwiera oryginalny TIDAL",
+        "Odtwórz zaznaczony utwór TIDAL w AMC Test z najwyższą dostępną jakością, do Max; Enter otwiera oryginalny TIDAL",
         "",
         "Odtwórz utwór TIDAL &w AMC Test (eksperymentalnie)",
     ),

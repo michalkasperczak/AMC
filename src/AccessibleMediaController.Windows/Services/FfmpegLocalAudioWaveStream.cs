@@ -435,6 +435,14 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
                 start.ArgumentList.Add(argument);
             }
         }
+        if (networkSource
+            && _path.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)
+            && _path.EndsWith(".mpd", StringComparison.Ordinal))
+        {
+            // TIDAL Max uses a private loopback MPEG-DASH manifest.
+            start.ArgumentList.Add("-f");
+            start.ArgumentList.Add("dash");
+        }
         foreach (var argument in new[]
         {
             "-i", _path,

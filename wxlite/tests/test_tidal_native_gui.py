@@ -37,8 +37,8 @@ def test_native_command_has_one_test_profile_surface_and_no_public_surface(
     assert native.shortcut is None
     assert (
         "Bez skrótu",
-        "Odtwórz zaznaczony utwór TIDAL w odtwarzaczu AMC Test; "
-        "Enter nadal otwiera oryginalny TIDAL",
+        "Odtwórz zaznaczony utwór TIDAL w AMC Test z najwyższą dostępną "
+        "jakością, do Max; Enter otwiera oryginalny TIDAL",
     ) in describe("TIDAL", {Action.TIDAL_PLAY_NATIVE})
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
     assert Action.TIDAL_PLAY_NATIVE not in _menu_actions()
@@ -238,6 +238,7 @@ def test_selected_track_starts_adapter_and_captures_its_list_for_skip() -> None:
     LiteFrame._play_tidal_native_row(frame, rows[0])
     assert started == [("1", "Pierwszy")]
     assert frame._tidal_native_pending_item_id == rows[0].item_id
+    assert frame._tidal_native_pending_row is rows[0]
     assert state.playback_source_rows == rows
     assert state.playback_uses_queue is False
 
@@ -323,6 +324,40 @@ def test_context_help_disables_native_commands_for_external_tidal() -> None:
     assert LiteFrame._action_available_in_active_session(
         frame, Action.SEEK_PERCENT_50,
     )
+
+
+def test_native_start_records_confirmed_tidal_history_for_ctrl_h() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    row = Row(
+        "tidal:tracks:1", "Utwór", "track", service_id="tracks:1",
+        related_album_service_id="albums:2", artist_name="Artystka",
+    )
+    nav.sessions[SessionId.TIDAL].model.replace([row])
+    records = []
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_pending_track_id="1",
+        _tidal_native_pending_item_id=row.item_id,
+        _tidal_native_pending_title=row.title,
+        _tidal_native_pending_row=row,
+        _playing_session=None,
+        _playing_sessions=set(),
+        _window_alive=lambda: True,
+        _close_tidal_native_challenge=lambda: None,
+        _record_streamer_history_row=lambda *args, **kwargs: records.append((args, kwargs)),
+        announcer=SimpleNamespace(say=spoken.append),
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    LiteFrame._on_tidal_native_status(
+        frame, "started", "1", "Odtwarzanie TIDAL rozpoczęte. Jakość Max, FLAC 24 bit, 192 kHz."
+    )
+    assert records == [((SessionId.TIDAL, row), {"replay_supported": True})]
+    assert "Jakość Max" in spoken[0]
+    assert nav.sessions[SessionId.TIDAL].view is View.PLAYER
 
 
 def test_native_stop_returns_from_player_to_selected_track_list() -> None:

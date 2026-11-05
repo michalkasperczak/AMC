@@ -39,6 +39,11 @@ internal static class TidalNativePlayRequestTests
         Assert.Equal("Przykładowy utwór", parsed.Title, "tytuł użytkowy");
         Assert.True(parsed.Duration == TimeSpan.FromSeconds(215.5), "pełny czas utworu");
         Assert.True(parsed.ProxyUri.Host == "127.0.0.1", "proxy tylko loopback");
+        var max = Parse($$"""
+            {"id":"518279266","title":"Utwór Max","proxyUrl":"{{Url}}.mpd","durationSeconds":215.5}
+            """);
+        Assert.True(max.ProxyUri.AbsolutePath.EndsWith(".mpd", StringComparison.Ordinal),
+            "manifest Max pozostaje na lokalnym proxy");
     }
 
     private static void RejectsUnsafeUrlsAndExtraData()
@@ -51,6 +56,7 @@ internal static class TidalNativePlayRequestTests
             "http://127.0.0.1:43117/other/" + Token,
             "http://127.0.0.1:43117/audio/short",
             Url + "?token=secret",
+            Url + ".mpd?token=secret",
             Url + "#fragment",
             "http://user:pass@127.0.0.1:43117/audio/" + Token,
             "http://127.0.0.1:0/audio/" + Token,

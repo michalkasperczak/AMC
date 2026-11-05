@@ -20,7 +20,7 @@ internal sealed record LiteTidalNativePlayRequest(
     private static readonly Regex TrackIdPattern = new(
         @"\A[0-9]{1,18}\z", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex ProxyUrlPattern = new(
-        @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}\z",
+        @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}(?:\.mpd)?\z",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     internal string MediaItemId => "tidal:" + TrackId;

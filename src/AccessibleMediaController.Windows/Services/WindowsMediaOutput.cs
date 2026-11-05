@@ -79,7 +79,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     private readonly record struct TransientFlacSource(string Address, TimeSpan Duration);
     private static readonly System.Text.RegularExpressions.Regex LoopbackAudioUrlPattern = new(
-        @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}\z",
+        @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}(?:\.mpd)?\z",
         System.Text.RegularExpressions.RegexOptions.Compiled
         | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
@@ -479,6 +479,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         if (previous is not null)
         {
             var fadePrevious = smoothTrackTransitions
+                && previous.TransientFlacSource is null
                 && previous.Output.PlaybackState == PlaybackState.Playing;
             if (fadePrevious) previous.TransitionProvider.BeginManualFadeOut();
             QueuePipelineDisposal(
@@ -714,7 +715,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 volumeProvider,
                 () => reader.CachedCurrentTime,
                 () => reader.TotalTime,
-                smoothTrackTransitions
+                smoothTrackTransitions && transientFlacSource is null
                     ? (int)SmoothTrackTransitionDuration.TotalMilliseconds
                     : 0);
             var outputReadMonitor = new DecoderReadMonitorSampleProvider(

@@ -261,3 +261,8 @@ Zainstalowany `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe` ma Produc
 ### Doprecyzowanie jakości natywnego TIDAL — 5 listopada 2026
 
 Użytkownik zapytał, czy odtwarzanie TIDAL w AMC Test odpowiada najwyższej jakości Max z oryginalnej aplikacji. Nie: obecny adapter `tidal_native_playback.py` wysyła `audioquality=LOSSLESS` i obsługuje pojedynczy manifest BTS. Oznacza to żądanie poziomu High; parser dopuszcza FLAC, ale także AAC/MP3 przy odpowiedzi usługi. Nie mierzy ani nie prezentuje rzeczywistej głębi bitowej i częstotliwości strumienia. Max/HiRes wymaga osobnej obsługi jakości `HI_RES_LOSSLESS`, manifestów DASH, sprawdzenia dostępności dla konkretnego utworu i jawnego potwierdzenia parametrów audio. Wydanie alpha.472 nie dodaje Max. Enter otwiera oryginalny TIDAL, którego ustawienie jakości jest osobne.
+
+
+### Korekta decyzji o jakości — 5 listopada 2026, po alpha.472
+
+Powyższe doprecyzowanie pozostaje prawdziwym opisem zainstalowanego wtedy alpha.472. Na nowe żądanie użytkownika przygotowano w źródłach kandydata alpha.473 z obsługą Max/HiRes FLAC i lokalnym proxy DASH. Wyniki rzeczywistego dekodowania, poprawki listy/historii i ograniczenia Spotify opisuje `TID-LIST-PLAYER-20261105-followup.md`. Sama zmiana źródeł nie oznacza jeszcze instalacji ani publikacji tego kandydata.

@@ -21,6 +21,21 @@ from tools import tidalapi_session_store as session_store  # noqa: E402
 SECRET = "secret-signed-audio-or-token"
 
 
+def max_payload(*, media_host="https://sp-ad-fa.audio.tidal.com"):
+    manifest = f'''<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static">
+      <Period><AdaptationSet mimeType="audio/mp4">
+      <Representation id="1" codecs="flac" audioSamplingRate="192000">
+      <SegmentTemplate timescale="192000" startNumber="1"
+        initialization="https://sp-ad-fa.audio.tidal.com/init.mp4?sig=private"
+        media="{media_host}/seg-$Number$.mp4?sig=private">
+      <SegmentTimeline><S d="768000" r="2"/></SegmentTimeline>
+      </SegmentTemplate></Representation></AdaptationSet></Period></MPD>'''
+    return {"assetPresentation": "FULL", "audioQuality": "HI_RES_LOSSLESS",
+            "bitDepth": 24, "sampleRate": 192000,
+            "manifestMimeType": "application/dash+xml",
+            "manifest": base64.b64encode(manifest.encode()).decode()}
+
+
 class FakeStore:
     def __init__(self, data=None):
         self.data = data
@@ -41,6 +56,7 @@ class FakeSession:
         self.refresh_token = "refresh-" + SECRET
         self.expiry_time = dt.datetime(2030, 1, 1)
         self.login_calls = 0
+        self.last_quality = None
         self.load_calls = 0
         self.worker_thread = None
         self.login_gate = None
@@ -68,6 +84,7 @@ class FakeSession:
         return SimpleNamespace(title=" Utwór testowy ", duration=180)
 
     def basic_request(self, method, path, params):
+        self.last_quality = params["audioquality"]
         manifest = {
             "mimeType": "audio/flac", "codecs": "flac",
             "encryptionType": "NONE",
@@ -155,6 +172,7 @@ class AdapterTests(unittest.TestCase):
         self.assertTrue(adapter.play("123", ""))
         self.assertTrue(self.host.called.wait(3))
         self.assertEqual(self.session.load_calls, 1)
+        self.assertEqual(self.session.last_quality, "HI_RES_LOSSLESS")
         self.assertEqual(self.session.login_calls, 0)
         self.assertEqual(self.challenges, [])
         self.assertTrue(adapter.is_active)
@@ -171,6 +189,53 @@ class AdapterTests(unittest.TestCase):
         self.wait_for(lambda: not adapter.is_active)
         self.assertEqual([item[0] for item in self.statuses][-1], "ended")
         self.assertNotIn(SECRET, str(self.statuses) + str(self.challenges))
+        adapter.close()
+
+    def test_max_manifest_is_selected_and_announced_after_host_starts(self):
+        self.session.request.basic_request = lambda method, path, params: SimpleNamespace(
+            status_code=200, json=lambda: max_payload(),
+        )
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.assertTrue(self.host.called.wait(3))
+        self.assertEqual(FakeProxy.instances[0].plan.bit_depth, 24)
+        self.assertEqual(FakeProxy.instances[0].plan.sample_rate, 192000)
+        adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
+        self.assertTrue(any("Jakość Max, FLAC 24 bit, 192 kHz" in message
+                            for _, _, message in self.statuses))
+        self.assertNotIn(SECRET, str(self.statuses))
+        adapter.stop()
+        self.assertTrue(FakeProxy.instances[0].closed.wait(3))
+        adapter.close()
+
+    def test_unsupported_max_manifest_falls_back_to_high_and_says_so(self):
+        requests = []
+
+        def request(method, path, params):
+            quality = params["audioquality"]
+            requests.append(quality)
+            if quality == "HI_RES_LOSSLESS":
+                return SimpleNamespace(
+                    status_code=200,
+                    json=lambda: max_payload(media_host="https://evil.example"),
+                )
+            original = self.session.basic_request(method, path, params)
+            data = original.json()
+            data["audioQuality"] = "LOSSLESS"
+            data["bitDepth"] = 16
+            data["sampleRate"] = 44100
+            return SimpleNamespace(status_code=200, json=lambda: data)
+
+        self.session.request.basic_request = request
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.assertTrue(self.host.called.wait(3))
+        self.assertEqual(requests, ["HI_RES_LOSSLESS", "LOSSLESS"])
+        adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
+        self.assertTrue(any("Jakość High, FLAC 16 bit, 44,1 kHz" in message
+                            for _, _, message in self.statuses))
+        adapter.stop()
+        self.assertTrue(FakeProxy.instances[0].closed.wait(3))
         adapter.close()
 
     def test_missing_session_displays_direct_challenge_and_saves_once(self):

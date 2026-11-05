@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from amc_wx_lite.list_model import Row
+from amc_wx_lite.list_model import ListModel, Row
 from amc_wx_lite.profile_layout import private_sandbox
 from amc_wx_lite.tidal_source import (
     SORT_ADDED_NEWEST,
@@ -116,6 +116,11 @@ def test_tidal_items_keep_model_ids_out_of_spoken_data() -> None:
     )
     assert album.related_artist_service_id == "artists:7"
     assert album.related_artist_name == "Wykonawca"
+    library = ListModel(rows=list(build_view(_state(), VIEW_LIBRARY).rows))
+    album_index = next(i for i, item in enumerate(library.rows) if item.item_id == "album-1")
+    assert library.text_for(album_index, 1) == ""
+    assert library.text_for(album_index, 0) == album.title
+    assert library.text_for(album_index, 2) == album.detail
     assert "artists:7" not in " ".join(
         (album.title, album.kind_label, album.detail)
     )

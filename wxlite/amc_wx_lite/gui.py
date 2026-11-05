@@ -26748,11 +26748,21 @@ class LiteFrame(wx.Frame):
                 self._tidal_native_pending_item_id,
                 self._tidal_native_pending_title,
             )
+            history_row = getattr(self, "_tidal_native_pending_row", None)
+            if (history_row is not None
+                    and history_row.item_id == self._tidal_native_pending_item_id):
+                self._record_streamer_history_row(
+                    SessionId.TIDAL, history_row,
+                    replay_supported=bool(
+                        history_row.service_id
+                        and history_row.related_album_service_id
+                    ),
+                )
             self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
             self._playing_session = SessionId.TIDAL
             self._playing_sessions.add(SessionId.TIDAL)
             self.announcer.say(
-                f"{self._tidal_native_pending_title}: odtwarzanie w AMC Test"
+                f"{self._tidal_native_pending_title}: {message}"
             )
         elif kind in {"failed", "ended", "stopped"}:
             self._close_tidal_native_challenge()
@@ -26792,6 +26802,7 @@ class LiteFrame(wx.Frame):
         self._tidal_native_pending_track_id = track_id
         self._tidal_native_pending_item_id = row.item_id
         self._tidal_native_pending_title = row.title
+        self._tidal_native_pending_row = row
         state = self.navigator.sessions[SessionId.TIDAL]
         if not preserve_source:
             state.playback_source_rows = tuple(

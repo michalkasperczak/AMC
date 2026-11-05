@@ -15,6 +15,7 @@ from collections.abc import Callable
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import tidal_bts_audio as audio
+from . import tidal_dash_audio as dash_audio
 from . import tidalapi_session_store as session_store
 
 
@@ -126,6 +127,7 @@ class TidalNativePlaybackAdapter:
         self._cancel = threading.Event()
         self._proxy: object | None = None
         self._track_id: str | None = None
+        self._quality_by_track: dict[str, str] = {}
         self._retired_proxy: object | None = None
         self._retired_track_id: str | None = None
         self._has_saved_session: bool | None = None
@@ -154,6 +156,11 @@ class TidalNativePlaybackAdapter:
 
     def _status(self, kind: str, track_id: str) -> None:
         message = _MESSAGES[kind]
+        if kind == "started":
+            with self._lock:
+                quality = self._quality_by_track.get(track_id)
+            if quality:
+                message += " " + quality
         self._dispatch(lambda: self._on_status(kind, track_id, message))
 
     def _current(self, generation: int) -> bool:
@@ -243,7 +250,7 @@ class TidalNativePlaybackAdapter:
                 duration = getattr(track, "duration", None)
                 response = session.request.basic_request(
                     "GET", "tracks/" + track_id + "/playbackinfopostpaywall",
-                    {"playbackmode": "STREAM", "audioquality": "LOSSLESS",
+                    {"playbackmode": "STREAM", "audioquality": "HI_RES_LOSSLESS",
                      "assetpresentation": "FULL"},
                 )
                 # basic_request may have refreshed the access token.
@@ -251,10 +258,41 @@ class TidalNativePlaybackAdapter:
                 if not 200 <= response.status_code < 300:
                     raise RuntimeError("manifest_unavailable")
                 payload = response.json()
-                plan = audio.resolve_bts(payload, duration_seconds=duration)
+                plan = None
+                if payload.get("manifestMimeType") == "application/dash+xml":
+                    try:
+                        plan = dash_audio.resolve_dash(payload, duration_seconds=duration)
+                    except dash_audio.DashResolutionError:
+                        # Unsupported HiRes variants must not stop a playable track.
+                        response = session.request.basic_request(
+                            "GET", "tracks/" + track_id + "/playbackinfopostpaywall",
+                            {"playbackmode": "STREAM", "audioquality": "LOSSLESS",
+                             "assetpresentation": "FULL"},
+                        )
+                        session_store.save_if_changed(session, store, previous)
+                        if not 200 <= response.status_code < 300:
+                            raise RuntimeError("fallback_unavailable")
+                        payload = response.json()
+                if plan is not None:
+                    quality_label = (f"Jakość Max, FLAC {plan.bit_depth} bit, "
+                                     f"{format(plan.sample_rate / 1000, 'g').replace('.', ',')} kHz.")
+                else:
+                    plan = audio.resolve_bts(payload, duration_seconds=duration)
+                    quality = payload.get("audioQuality")
+                    level = "High" if quality == "LOSSLESS" else "TIDAL"
+                    quality_label = f"Jakość {level}, {plan.codec.upper()}"
+                    depth = payload.get("bitDepth")
+                    rate = payload.get("sampleRate")
+                    if type(depth) is int and 8 <= depth <= 32:
+                        quality_label += f" {depth} bit"
+                    if type(rate) is int and 8_000 <= rate <= 384_000:
+                        quality_label += f", {rate / 1000:g} kHz".replace(".", ",")
+                    quality_label += "."
             if plan.duration_seconds is None or not self._current(generation):
                 raise RuntimeError("duration_unavailable")
-            proxy = self._proxy_factory(plan)
+            proxy_factory = (dash_audio.DashProxy if isinstance(plan, dash_audio.DashAudioPlan)
+                             and self._proxy_factory is audio.RangeProxy else self._proxy_factory)
+            proxy = proxy_factory(plan)
             with _quiet_library():
                 proxy.__enter__()
             if not self._current(generation):
@@ -268,6 +306,7 @@ class TidalNativePlaybackAdapter:
                 self._retired_track_id = previous_track
                 self._proxy = proxy
                 self._track_id = track_id
+                self._quality_by_track[track_id] = quality_label
             with _quiet_library():
                 accepted = self._host.call(
                     "tidal.nativePlay",
@@ -287,6 +326,7 @@ class TidalNativePlaybackAdapter:
                 if self._proxy is proxy and self._track_id == track_id:
                     self._proxy = previous_proxy
                     self._track_id = previous_track if previous_proxy is not None else None
+                    self._quality_by_track.pop(track_id, None)
                     if self._retired_proxy is previous_proxy:
                         self._retired_proxy = None
                         self._retired_track_id = None
@@ -329,6 +369,8 @@ class TidalNativePlaybackAdapter:
                 kind = None
             elif name == "playback.started":
                 proxy = self._retired_proxy
+                if self._retired_track_id is not None:
+                    self._quality_by_track.pop(self._retired_track_id, None)
                 self._retired_proxy = None
                 self._retired_track_id = None
                 kind = "started"
@@ -351,6 +393,9 @@ class TidalNativePlaybackAdapter:
                 return
         if kind is not None:
             self._status(kind, track_id)
+            if kind in ("failed", "ended"):
+                with self._lock:
+                    self._quality_by_track.pop(track_id, None)
         if proxy is not None:
             self._dispose_proxy(proxy)
         if extra_proxy is not None:
@@ -370,6 +415,7 @@ class TidalNativePlaybackAdapter:
             retired_proxy = self._retired_proxy
             self._retired_proxy = None
             self._retired_track_id = None
+            self._quality_by_track.clear()
         if proxy is not None:
             self._dispose_proxy(proxy)
         if retired_proxy is not None:
