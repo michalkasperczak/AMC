@@ -29,4 +29,4 @@ W plikach lokalnych, podcastach i Radiu Archiwista odczyt bieżącego materiału
 - Archiwista i zdalne odcinki szacują bitrate po rozpoczęciu odtwarzania z czasu i rozmiaru pliku; WiiM przekazuje wartość podaną przez urządzenie, a Spotify jawnie opisuje deklarowaną jakość Web Playera.
 - Komendy NVDA odczytują pełny opis materiału zamiast samego tytułu, gdy opis jest dostępny.
 
-Stan: poprzednie etapy mają odpowiednio 240 i 231 zaliczonych testów. Pierwsza poprawka bitrate miała 59 testów Pythona, 6 podtestów i dwa celowane przebiegi C#. Rozszerzenie z 6 listopada przeszło 142 testy Python oraz trzy zestawy C# w izolowanym checkoutcie. Nagranie zakończone; instalator i ręczny odbiór NVDA oczekują na wykonanie.
+Stan: poprzednie etapy mają odpowiednio 240 i 231 zaliczonych testów. Pierwsza poprawka bitrate miała 59 testów Pythona, 6 podtestów i dwa celowane przebiegi C#. Rozszerzenie z 6 listopada przeszło 142 testy Python oraz trzy zestawy C# w izolowanym checkoutcie. AMC Test alpha.480 został zbudowany, zainstalowany i uruchomiony z właściwym manifestem; ręczny odbiór mowy NVDA na rzeczywistych źródłach pozostaje do wykonania. Publikacji GitHub nie wykonano.
