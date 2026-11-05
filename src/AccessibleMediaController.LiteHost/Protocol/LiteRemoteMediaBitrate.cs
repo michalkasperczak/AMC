@@ -11,7 +11,7 @@ namespace AccessibleMediaController.LiteHost.Protocol;
 internal static class LiteRemoteMediaBitrate
 {
     internal static async Task<int?> TryReadAsync(
-        string source,
+        string? source,
         TimeSpan duration,
         TimeSpan timeout,
         HttpMessageHandler? handler = null)
