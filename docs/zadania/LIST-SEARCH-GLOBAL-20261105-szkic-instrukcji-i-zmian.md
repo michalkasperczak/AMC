@@ -12,6 +12,8 @@ Ctrl+Shift+F korzysta z zapisanych i już wczytanych danych. Wśród wyników Sp
 
 Na albumie otwartym z listy rozpoznanych utworów Ctrl+Shift+L zapisuje album do Biblioteki Spotify lub TIDAL. Backspace wraca do albumów rozpoznanego wykonawcy i wskazuje ten album. Enter na utworze TIDAL uruchamia odtwarzanie w AMC. Przekazanie utworu do oryginalnego TIDALa pozostaje osobną pozycją menu Biblioteka i menu kontekstowego.
 
+W odtwarzaczu TIDAL NVDA+End odczytuje dostępny bitrate w kb/s i częstotliwość w kHz. W radiu bieżący status oraz Alt+D również podają bitrate, gdy da się go wiarygodnie zmierzyć lub odczytać z metadanych strumienia.
+
 ## Lista zmian
 
 - Krótszy odczyt utworów na listach TIDAL i Spotify.
@@ -21,5 +23,6 @@ Na albumie otwartym z listy rozpoznanych utworów Ctrl+Shift+L zapisuje album do
 - Cztery wspólne listy dostępne z każdej sesji, ze spójnymi skrótami, menu, paletą i pomocą.
 - Kontekstowy powrót z rozpoznanego albumu do albumów jego wykonawcy w Spotify i TIDAL.
 - Enter w TIDAL odtwarza w AMC; osobne polecenie przekazuje utwór do oryginalnej aplikacji.
+- Bitrate TIDAL trafia do statusu odtwarzacza; radio HLS sprawdza segment audio także wtedy, gdy manifest podał sam kodek.
 
-Stan: oba etapy mają odpowiednio 240 i 231 zaliczonych testów. Instalator i ręczny odbiór NVDA oczekują na zakończenie nagrań.
+Stan: poprzednie etapy mają odpowiednio 240 i 231 zaliczonych testów. Poprawka bitrate ma 59 testów Pythona, 6 podtestów i dwa celowane przebiegi C#. Instalator i ręczny odbiór NVDA oczekują na zakończenie nagrania.
