@@ -30,4 +30,3 @@ Jeżeli wykonawca nie ma identyfikatora katalogowego albo lista jego albumów je
 ## Wersja i commit
 
 Planowany wspólny kandydat AMC Test 0.1.0-alpha.480. Commit kodu i testów: f5a709ec. Budowa: niewykonana. Instalacja: niewykonana. Publikacja: niewykonana.
-
