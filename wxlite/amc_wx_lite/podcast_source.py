@@ -15,6 +15,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TypeVar
 from urllib.parse import urlparse
 
 from .collation import (
@@ -151,6 +152,17 @@ class _EpisodeRecord:
     is_played: bool
     download_path: str
     payload: dict
+
+
+@dataclass(frozen=True, slots=True)
+class _InboxSortRecord:
+    item_id: str
+    title: str
+    parent_title: str
+    published_ticks: int
+
+
+_SortableRecord = TypeVar("_SortableRecord")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1469,11 +1481,11 @@ class PodcastSource:
 
     @staticmethod
     def _title_sort(
-        records: list[_EpisodeRecord],
+        records: list[_SortableRecord],
         *,
         key,
         collation: HostCollation | None,
-    ) -> tuple[list[_EpisodeRecord], bool]:
+    ) -> tuple[list[_SortableRecord], bool]:
         if collation is None:
             return sorted(records, key=lambda record: key(record).casefold()), False
         try:
@@ -1496,10 +1508,15 @@ class PodcastSource:
         collation: HostCollation | None = None,
     ) -> PodcastEpisodePage:
         """New and unplayed episodes of sources that remain in the library."""
-        records = self._aggregate_records("e.is_new = 1 AND e.is_played = 0")
         mode = sort_mode or self.inbox_sort_mode()
         if mode not in (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM):
             mode = SORT_ADDED_NEWEST
+
+        if mode == SORT_ADDED_NEWEST:
+            records, total_count = self._recent_inbox_records(loaded_count)
+        else:
+            records = self._inbox_sort_records()
+            total_count = len(records)
 
         # Stable sorts run from the least significant key to the primary key.
         records.sort(key=lambda record: ordinal_sort_key(record.item_id))
@@ -1526,13 +1543,97 @@ class PodcastSource:
             records.sort(key=lambda record: record.published_ticks, reverse=True)
             order_matches_amc &= exact
 
+        if mode != SORT_ADDED_NEWEST:
+            requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
+            selected_ids = [record.item_id for record in records[:requested]]
+            by_id = self._episode_records_by_ids(selected_ids)
+            records = [by_id[item_id] for item_id in selected_ids if item_id in by_id]
+
         return self._aggregate_page(
             records,
             loaded_count=loaded_count,
             view="inbox",
             order_matches_amc=order_matches_amc,
             sort_mode=mode,
+            total_count=total_count,
         )
+
+    def _inbox_sort_records(self) -> list[_InboxSortRecord]:
+        """Do sortowania całej skrzynki wystarczą cztery lekkie kolumny."""
+        try:
+            with closing(self._open()) as connection:
+                rows = connection.execute("""
+                    SELECT e.id, e.title, e.published_utc_ticks,
+                           s.title AS parent_title
+                    FROM podcast_episodes AS e
+                    JOIN podcast_subscriptions AS s
+                      ON s.id = e.subscription_id
+                    WHERE e.is_new = 1 AND e.is_played = 0
+                      AND s.is_in_library = 1
+                """).fetchall()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać odcinków: {error}"
+            ) from error
+        return [
+            _InboxSortRecord(
+                item_id=str(row["id"]),
+                title=_clean_text(row["title"], "Odcinek bez nazwy"),
+                parent_title=_clean_text(row["parent_title"], "Podcast bez nazwy"),
+                published_ticks=_as_int(row["published_utc_ticks"]),
+            )
+            for row in rows
+        ]
+
+    def _recent_inbox_records(
+        self, loaded_count: int
+    ) -> tuple[list[_EpisodeRecord], int]:
+        """Wczytaj bieżącą stronę i remis jej ostatniej daty, nie całą skrzynkę.
+
+        Datę sortujemy w SQLite dzięki indeksowi skrzynki. Przy równej dacie
+        kolejność tytułów nadal wyznacza istniejąca kolacja hosta, więc remis
+        na granicy strony musi w całości trafić do późniejszego sortowania.
+        """
+        requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
+        source = """
+            FROM podcast_episodes AS e
+            JOIN podcast_subscriptions AS s ON s.id = e.subscription_id
+            WHERE e.is_new = 1 AND e.is_played = 0 AND s.is_in_library = 1
+        """
+        fields = """
+            SELECT e.id, e.subscription_id, e.title, e.published_utc_ticks,
+                   e.is_new, e.is_started, e.is_played, e.download_path,
+                   e.payload_json, s.title AS parent_title,
+                   s.payload_json AS parent_payload_json
+        """
+        try:
+            with closing(self._open()) as connection:
+                connection.execute("BEGIN")
+                total_count = int(connection.execute(
+                    "SELECT COUNT(*) " + source
+                ).fetchone()[0])
+                rows = connection.execute(
+                    fields + source
+                    + " ORDER BY e.published_utc_ticks DESC LIMIT ?",
+                    (requested + 1,),
+                ).fetchall()
+                if (
+                    len(rows) > requested
+                    and rows[requested]["published_utc_ticks"]
+                        == rows[requested - 1]["published_utc_ticks"]
+                ):
+                    boundary = rows[requested - 1]["published_utc_ticks"]
+                    rows = connection.execute(
+                        fields + source
+                        + " AND e.published_utc_ticks >= ?"
+                        + " ORDER BY e.published_utc_ticks DESC",
+                        (boundary,),
+                    ).fetchall()
+        except sqlite3.Error as error:
+            raise PodcastProfileError(
+                f"Nie można odczytać odcinków: {error}"
+            ) from error
+        return [_materialize_episode(row) for row in rows], total_count
 
     def downloads(self, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
         """Episodes whose downloaded file still exists, including archived sources."""
@@ -1562,11 +1663,14 @@ class PodcastSource:
         view: str,
         order_matches_amc: bool,
         sort_mode: str | None = None,
+        total_count: int | None = None,
     ) -> PodcastEpisodePage:
         requested = max(PAGE_SIZE, _as_int(loaded_count, PAGE_SIZE))
         visible = records[:requested]
         rows = [_episode_row(record, aggregate=True) for record in visible]
-        remaining = max(0, len(records) - len(visible))
+        remaining = max(
+            0, (len(records) if total_count is None else total_count) - len(visible)
+        )
         if remaining:
             rows.append(
                 _load_more_row(view=view, requested=requested, remaining=remaining)

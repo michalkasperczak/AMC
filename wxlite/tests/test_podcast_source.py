@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+import amc_wx_lite.podcast_source as podcast_source_module
 from amc_wx_lite.podcast_source import (
     PAGE_SIZE,
     SORT_ADDED_NEWEST,
@@ -485,6 +486,54 @@ def test_aggregate_page_reports_exact_remaining_count() -> None:
         assert page.loaded_count == PAGE_SIZE and page.has_more
         assert page.rows[-1].kind == "loadMore"
         assert page.rows[-1].detail == "pozostało 2"
+
+
+def test_inbox_materializes_only_visible_dates_and_boundary_ties(monkeypatch) -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        for number in range(PAGE_SIZE - 1):
+            _insert_episode(
+                path, item_id=f"recent-{number}", subscription_id="rss-id",
+                title=f"Najnowszy {number}", ordinal=number,
+                published=1000 - number,
+            )
+        for offset, (item_id, title) in enumerate(
+            (("tie-z", "Zeta"), ("tie-a", "Alfa"), ("tie-m", "Mu"))
+        ):
+            _insert_episode(
+                path, item_id=item_id, subscription_id="rss-id",
+                title=title, ordinal=PAGE_SIZE - 1 + offset, published=10,
+            )
+        for number in range(48):
+            _insert_episode(
+                path, item_id=f"older-{number}", subscription_id="rss-id",
+                title=f"Starszy {number}", ordinal=PAGE_SIZE + 2 + number,
+                published=9 - number,
+            )
+
+        materialized: list[str] = []
+        original = podcast_source_module._materialize_episode
+
+        def materialize(row):
+            materialized.append(row["id"])
+            return original(row)
+
+        monkeypatch.setattr(podcast_source_module, "_materialize_episode", materialize)
+        page = PodcastSource(private_sandbox(base)).inbox(
+            sort_mode=SORT_ADDED_NEWEST, collation=_ExactCasefoldCollation()
+        )
+
+        assert page.rows[PAGE_SIZE - 1].item_id == "tie-a"
+        assert page.rows[-1].detail == "pozostało 50"
+        assert len(materialized) == PAGE_SIZE + 2
+        for mode in (SORT_ALPHABETICAL, SORT_CUSTOM):
+            materialized.clear()
+            sorted_page = PodcastSource(private_sandbox(base)).inbox(
+                sort_mode=mode, collation=_ExactCasefoldCollation()
+            )
+            assert sorted_page.rows[-1].detail == "pozostało 50"
+            assert len(materialized) == PAGE_SIZE
 
 
 def test_inbox_reads_the_saved_podcast_sort_mode_without_writing_state() -> None:

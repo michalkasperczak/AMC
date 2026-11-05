@@ -199,6 +199,99 @@ def test_repeated_ctrl_i_loads_next_batch_and_preserves_preview_origin() -> None
     assert frame._transient_preview_return is origin
 
 
+def test_late_inbox_result_cannot_replace_player_or_restored_session() -> None:
+    for leave_by in ("enter", "escape"):
+        navigator = Navigator()
+        navigator.active = SessionId.RADIO
+        navigator.session.model.replace(
+            [Row("station", "Wybrana stacja", "station")],
+            preferred_id="station",
+        )
+        callbacks = []
+        spoken: list[str] = []
+        frame = SimpleNamespace(
+            navigator=navigator,
+            _transient_preview_return=None,
+            _podcast_loaded_counts={},
+            podcasts=SimpleNamespace(is_available=True),
+            state=LiteState(),
+            runner=SimpleNamespace(submit=lambda _key, _work, done, failed:
+                                   callbacks.append((done, failed))),
+            announcer=SimpleNamespace(say=spoken.append),
+            _sync_views=lambda: None,
+        )
+        frame._begin_transient_preview = (
+            lambda: LiteFrame._begin_transient_preview(frame)
+        )
+        frame._open_podcast_aggregate = (
+            lambda intent, **kwargs: LiteFrame._open_podcast_aggregate(
+                frame, intent, **kwargs
+            )
+        )
+
+        LiteFrame._show_podcast_inbox(frame)
+        done, failed = callbacks[0]
+        if leave_by == "enter":
+            podcast_state = navigator.sessions[SessionId.PODCASTS]
+            podcast_state.model.replace(
+                [Row("episode", "Odcinek", "episode", path="https://example.invalid/a.mp3")],
+                preferred_id="episode",
+            )
+            navigator.activate_selected()
+            assert podcast_state.view is View.PLAYER
+        else:
+            assert LiteFrame._restore_transient_preview(frame, announce=False)
+            assert navigator.active is SessionId.RADIO
+
+        done(SimpleNamespace(rows=[], loaded_count=0, sort_mode="AddedNewest",
+                             order_matches_amc=True))
+        failed(RuntimeError("Spóźniony odczyt"))
+        assert spoken == []
+        if leave_by == "enter":
+            assert navigator.active is SessionId.PODCASTS
+            assert navigator.session.view is View.PLAYER
+            assert navigator.session.model.selected_id == "episode"
+        else:
+            assert navigator.active is SessionId.RADIO
+            assert navigator.session.model.selected_id == "station"
+
+
+def test_inbox_enter_player_and_two_returns_restore_each_session() -> None:
+    for origin in SessionId:
+        navigator = Navigator()
+        navigator.active = origin
+        navigator.session.model.replace(
+            [Row("first", "Pierwsza pozycja", "track"),
+             Row("chosen", "Wybrana pozycja", "track")],
+            preferred_id="chosen",
+        )
+        frame = SimpleNamespace(
+            navigator=navigator,
+            _transient_preview_return=None,
+            _sync_views=lambda: None,
+            _open_podcast_aggregate=lambda _intent, **_kwargs: None,
+        )
+        frame._begin_transient_preview = (
+            lambda: LiteFrame._begin_transient_preview(frame)
+        )
+
+        LiteFrame._show_podcast_inbox(frame)
+        navigator.apply_podcast_aggregate(
+            LibraryView.PODCAST_INBOX, "Nowe odcinki i materiały",
+            [Row("episode", "Nowy odcinek", "episode",
+                 path="https://example.invalid/episode.mp3")],
+            preferred_id="episode",
+        )
+        navigator.activate_selected()
+        assert navigator.session.view is View.PLAYER, origin
+        navigator.back_to_list()
+        assert navigator.session.view is View.LIST, origin
+        assert navigator.session.model.selected_id == "episode", origin
+        assert LiteFrame._restore_transient_preview(frame, announce=False), origin
+        assert navigator.active is origin
+        assert navigator.session.model.selected_id == "chosen"
+
+
 def test_remote_provider_gates_allow_the_global_history_action() -> None:
     for supported in (
         WIIM_SUPPORTED_ACTIONS, SONOS_SUPPORTED_ACTIONS,

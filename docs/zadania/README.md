@@ -153,6 +153,11 @@ Wydanie alpha.472 powstało z gałęzi `codex/konfigurowalne-skroty-20261026` i 
   przy zachowaniu dat przybliżonych. Szczegóły:
   [YT-005-skrzynka-ctrl-i-i-tytuly-youtube.md](YT-005-skrzynka-ctrl-i-i-tytuly-youtube.md).
 
+- `POD-20261105` — **W trakcie; kandydat alpha.478** — lekki odczyt skrzynki
+  `Ctrl+I`, stabilne Enter/Escape i powrót do poprzedniej sesji; audyt czasu
+  otwarcia pozostałych zbiorczych widoków. Szczegóły:
+  [POD-20261105-wydajnosc-skrzynki-i-nawigacji.md](POD-20261105-wydajnosc-skrzynki-i-nawigacji.md).
+
 - `KEY-001` — **Zrobione; kod, pełna regresja, czysta paczka, instalator,
   wydanie GitHub i rzeczywista aktualizacja instalacji są zweryfikowane, a
   użytkownik zatwierdził obsługę klawiatury i skróty 28.10.2026** — osobna

@@ -23781,6 +23781,17 @@ class LiteFrame(wx.Frame):
         )
         sort_mode_override = self.state.podcast_inbox_sort_mode
 
+        def inbox_is_current() -> bool:
+            if intent.view is not LibraryView.PODCAST_INBOX:
+                return True
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            return (
+                self._transient_preview_return is not None
+                and self.navigator.active is SessionId.PODCASTS
+                and state.view is View.LIST
+                and state.library_view is LibraryView.PODCAST_INBOX
+            )
+
         def work():
             if intent.view is LibraryView.PODCAST_FAVORITES:
                 return self.podcasts.favorites(
@@ -23800,10 +23811,7 @@ class LiteFrame(wx.Frame):
             return self.podcasts.downloads(loaded_count=requested)
 
         def done(page) -> None:
-            if (
-                intent.view is LibraryView.PODCAST_INBOX
-                and self._transient_preview_return is None
-            ):
+            if not inbox_is_current():
                 return
             if completion_message:
                 state = self.navigator.sessions[SessionId.PODCASTS]
@@ -23880,10 +23888,7 @@ class LiteFrame(wx.Frame):
                 self._apply_podcast_result(events)
 
         def failed(error: Exception) -> None:
-            if (
-                intent.view is LibraryView.PODCAST_INBOX
-                and self._transient_preview_return is None
-            ):
+            if not inbox_is_current():
                 return
             message = (
                 str(error) if isinstance(error, PodcastProfileError)
