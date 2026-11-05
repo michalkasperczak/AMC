@@ -14,6 +14,8 @@ Na albumie otwartym z listy rozpoznanych utworów Ctrl+Shift+L zapisuje album do
 
 W odtwarzaczu TIDAL NVDA+End odczytuje dostępny bitrate w kb/s i częstotliwość w kHz. W radiu bieżący status oraz Alt+D również podają bitrate, gdy da się go wiarygodnie zmierzyć lub odczytać z metadanych strumienia.
 
+W plikach lokalnych, podcastach i Radiu Archiwista odczyt bieżącego materiału podaje średni bitrate, jeżeli znany jest czas i rozmiar pliku. W Spotify Web Player odczyt podaje deklarowaną jakość usługi: AAC 256 kb/s dla muzyki Premium albo około 128 kb/s dla odcinka. To opis jakości usługi, nie pomiar konkretnego utworu. WiiM wypowiada bitrate, gdy urządzenie go udostępnia. Brakująca wartość jest pomijana. Te same pełne opisy są dostępne w odczycie bieżącego materiału i stanu przez dodatek NVDA.
+
 ## Lista zmian
 
 - Krótszy odczyt utworów na listach TIDAL i Spotify.
@@ -24,5 +26,7 @@ W odtwarzaczu TIDAL NVDA+End odczytuje dostępny bitrate w kb/s i częstotliwoś
 - Kontekstowy powrót z rozpoznanego albumu do albumów jego wykonawcy w Spotify i TIDAL.
 - Enter w TIDAL odtwarza w AMC; osobne polecenie przekazuje utwór do oryginalnej aplikacji.
 - Bitrate TIDAL trafia do statusu odtwarzacza; radio HLS sprawdza segment audio także wtedy, gdy manifest podał sam kodek.
+- Archiwista i zdalne odcinki szacują bitrate po rozpoczęciu odtwarzania z czasu i rozmiaru pliku; WiiM przekazuje wartość podaną przez urządzenie, a Spotify jawnie opisuje deklarowaną jakość Web Playera.
+- Komendy NVDA odczytują pełny opis materiału zamiast samego tytułu, gdy opis jest dostępny.
 
-Stan: poprzednie etapy mają odpowiednio 240 i 231 zaliczonych testów. Poprawka bitrate ma 59 testów Pythona, 6 podtestów i dwa celowane przebiegi C#. Instalator i ręczny odbiór NVDA oczekują na zakończenie nagrania.
+Stan: poprzednie etapy mają odpowiednio 240 i 231 zaliczonych testów. Pierwsza poprawka bitrate miała 59 testów Pythona, 6 podtestów i dwa celowane przebiegi C#. Rozszerzenie z 6 listopada przeszło 142 testy Python oraz trzy zestawy C# w izolowanym checkoutcie. Nagranie zakończone; instalator i ręczny odbiór NVDA oczekują na wykonanie.
