@@ -312,6 +312,32 @@ def test_ctrl_shift_zero_uses_physical_windows_key_for_preset_10(monkeypatch) ->
     assert resolve(chord, player_view=False, radio_session=False) is Action.PRESET_10
 
 
+def test_ctrl_i_control_character_uses_physical_i_for_both_inbox_shortcuts() -> None:
+    for shifted, expected in (
+        (False, Action.VIEW_PODCAST_INBOX),
+        (True, Action.VIEW_YOUTUBE_LIVE_AGGREGATE),
+    ):
+        chord = chord_from_event(FakeKeyEvent(
+            9, ctrl=True, shift=shifted, raw_code=0x49,
+        ))
+        assert chord.canonical == ("Ctrl+Shift+I" if shifted else "Ctrl+I")
+        assert resolve(
+            chord, player_view=False, radio_session=False,
+            podcast_session=True, youtube_account_available=True,
+        ) is expected
+
+
+def test_native_list_hook_forwards_both_inbox_shortcuts_when_wx_reports_tab() -> None:
+    calls: list[str] = []
+    frame = object.__new__(LiteFrame)
+    frame._on_key = lambda event: calls.append(chord_from_event(event).canonical)
+    for shifted in (False, True):
+        frame._on_list_shortcut_hook(FakeKeyEvent(
+            9, ctrl=True, shift=shifted, raw_code=0x49,
+        ))
+    assert calls == ["Ctrl+I", "Ctrl+Shift+I"]
+
+
 def test_ctrl_shift_zero_recovers_modifier_omitted_by_wx(monkeypatch) -> None:
     """Stare AMC też musiało dopełniać modyfikatory stanem klawiatury Win32."""
 

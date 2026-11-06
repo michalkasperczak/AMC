@@ -1220,6 +1220,11 @@ def chord_from_event(event: wx.KeyEvent) -> Chord:
             alt = alt or _windows_virtual_key_down(0x12)  # VK_MENU
             if ctrl and shift and not alt:
                 name = "0"
+        elif raw_code == 0x49 and ctrl and not alt:
+            # Ctrl+I is ASCII TAB (9). MSW can expose that control character
+            # through CHAR_HOOK instead of the physical I key. Keep the two
+            # inbox shortcuts out of Tab navigation and the player route.
+            name = "I"
     if name is None:
         if 32 < code < 127:
             name = chr(code).upper()

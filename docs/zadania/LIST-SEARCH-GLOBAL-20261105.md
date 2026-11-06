@@ -2,6 +2,12 @@
 
 Status: kod i 240 testów gotowe 5 listopada 2026; kandydat AMC Test alpha.480 czeka na budowę, instalację i odbiór NVDA po zakończeniu dwóch trwających nagrań.
 
+## Korekta skrótów skrzynki — 6 listopada 2026
+
+Użytkownik zgłosił, że `Ctrl+I` w Podcastach nie otwiera skrzynki, a zamiast tego słyszy „Nic nie jest odtwarzane”; zgłosił też możliwy problem z `Ctrl+Shift+I`. Ta obserwacja zastępuje wcześniejszą ocenę, że oba skróty działają w zainstalowanej wersji. W Windows zdarzenie `EVT_CHAR_HOOK` może przekazać `Ctrl+I` jako znak sterujący tabulacji (kod 9). Router rozpoznaje wówczas inny gest, choć fizyczny kod klawisza pozostaje `VK_I` (`0x49`). Normalizacja korzysta z tego kodu tylko dla Ctrl bez Alt, zachowując zwykłe przechodzenie między kontrolkami pod `Ctrl+Tab`.
+
+Test jednostkowy potwierdza mapowanie `Ctrl+I` i `Ctrl+Shift+I` oraz przejście obu przez bramkę natywnej listy. Próba na zainstalowanym oknie z NVDA, pełny build, publikacja na GitHubie i instalacja wymagają osobnego potwierdzenia. Poprawka nie zmienia nazw poleceń, menu ani pomocy; przywraca wykonanie już opisanych skrótów.
+
 ## Zgłoszenie i korekta użytkownika
 
 5 listopada 2026 użytkownik potwierdził, że w alpha.477 strzałki w odtwarzaczu i lista nagrań działają szybko. Pierwsze wczytanie TIDAL na wolnym łączu trwało około 20 sekund, Spotify krócej, natomiast dalsza nawigacja była szybka. Korekta zastępuje wcześniejsze zgłoszenie o stale wolnych listach. Nowe wymagania: zwykłe listy utworów TIDAL/Spotify nie czytają słowa „utwór”; lewa strzałka na utworze czyta czas i tytuł; wyniki wyszukiwania zachowują rodzaj pozycji; Alt+R, Alt+Shift+R, Ctrl+I i Ctrl+Alt+S działają z każdej sesji oraz Escape wraca do miejsca wywołania.
