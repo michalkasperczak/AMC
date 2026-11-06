@@ -42,3 +42,7 @@ Wspólny kandydat AMC Test 0.1.0-alpha.480. Wcześniejsze commity: 9a24c83c i 79
 - Instalator: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers\AMC-Test-2026-11-06-0046.exe`; 143829340 bajtów; SHA-256 `56a47ecb2e1f0aa29876edbdb74e7728d29d29c90a257072e580c6bea7b29b9a`. Kontrola sekretów i dołączonego Quick App Switchera 0.1.6 zaliczona.
 - Przed podmianą lista aktywnych nagrań była pusta. Starą wersję zamknięto zwykłą drogą; launcher, GUI i host zniknęły. Instalator zakończył się kodem 0 i zweryfikował zainstalowany pakiet oraz próbny start. Zainstalowany launcher ma ProductVersion `0.1.0-alpha.480`, manifest wskazuje powyższy commit i `bd9f68b0`. Uruchomiono jeden launcher, jeden proces GUI i jeden host ze stałej instalacji; tytuł okna: `AMC Test — 06.11.2026, 00:46`.
 - Dodatek NVDA był dołączony opcjonalnie, lecz nie został zainstalowany ani nie restartowano NVDA. Odsłuch rzeczywistego TIDAL, Radia, Spotify, Archiwisty i WiiM pozostaje do odbioru użytkownika.
+
+## Korekta kolejności wydań — 6 listopada 2026
+
+Po tej instalacji użytkownik wskazał, że przy dwóch lub trzech równoległych zadaniach aktualizację należy wstrzymać do zakończenia wszystkich i wykonać jedno wspólne wydanie. Ta decyzja zastępuje zastosowaną tu kolejność, w której alpha.480 zainstalowano bez równoległych, niezakończonych zmian skrzynki podcastów. Alpha.480 pozostaje faktem historycznym; następnej instalacji nie należy rozpoczynać przed ukończeniem i sprawdzeniem pozostałych zadań.
