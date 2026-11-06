@@ -142,7 +142,7 @@ from amc_wx_lite.gui import (  # noqa: E402
     session_selection_labels,
     youtube_export_path_for_filter,
 )
-from amc_wx_lite.shortcuts import Action, Chord, resolve  # noqa: E402
+from amc_wx_lite.shortcuts import Action, Chord, resolve, shortcut_enabled_in_view  # noqa: E402
 from amc_wx_lite.navigation import LibraryView, Navigator, SessionId, View  # noqa: E402
 from amc_wx_lite.list_model import Row  # noqa: E402
 
@@ -336,6 +336,34 @@ def test_native_list_hook_forwards_both_inbox_shortcuts_when_wx_reports_tab() ->
             9, ctrl=True, shift=shifted, raw_code=0x49,
         ))
     assert calls == ["Ctrl+I", "Ctrl+Shift+I"]
+
+
+def test_page_keys_scroll_all_native_lists_and_skip_tracks_only_in_player() -> None:
+    import wx
+
+    class PageEvent(FakeKeyEvent):
+        skipped = False
+
+        def Skip(self) -> None:  # noqa: N802 - wx API
+            self.skipped = True
+
+    frame = object.__new__(LiteFrame)
+    frame._handle_keyboard_help_event = lambda _event: False
+    for session in SessionId:
+        frame.navigator = types.SimpleNamespace(view=View.LIST, active=session)
+        for code in (wx.WXK_PAGEUP, wx.WXK_PAGEDOWN):
+            event = PageEvent(code)
+            frame._on_key(event)
+            assert event.skipped, session
+    for key, action in (("Prior", Action.QUEUE_PREVIOUS),
+                        ("Next", Action.QUEUE_NEXT)):
+        assert resolve(Chord(key), player_view=False, radio_session=False) is None
+        assert resolve(Chord(key), player_view=True, radio_session=False) is action
+        assert not shortcut_enabled_in_view(action, player_view=False)
+        assert shortcut_enabled_in_view(action, player_view=True)
+    assert resolve(
+        Chord("Prior", ctrl=True), player_view=False, radio_session=False,
+    ) is Action.PREVIOUS_SESSION
 
 
 def test_ctrl_shift_zero_recovers_modifier_omitted_by_wx(monkeypatch) -> None:

@@ -242,6 +242,7 @@ from .shortcuts import (
     resolve,
     serialize_shortcut_overrides,
     shortcut_conflict,
+    shortcut_enabled_in_view,
     validate_custom_shortcut,
 )
 if "session.frontier-smart" in _RELEASE_PROFILE.capabilities:
@@ -10712,6 +10713,18 @@ class LiteFrame(wx.Frame):
         )
         blocked_sessions = self._sessions_blocked_from_disabling()
         for item, entry in self._menu_items:
+            if entry.action in {Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS}:
+                # Page Up/Down skip tracks only in the player. Keep the menu
+                # action available on TIDAL lists without claiming a key that
+                # now belongs to native page navigation.
+                shown_entry = (
+                    entry if shortcut_enabled_in_view(
+                        entry.action, player_view=session.view is View.PLAYER
+                    ) else replace(entry, shortcut=None)
+                )
+                native_label = self._menu_native_label(shown_entry, entry.label)
+                if item.GetItemLabel() != native_label:
+                    item.SetItemLabel(native_label)
             if entry.action in {Action.COPY_NAME, Action.COPY_ADDRESS}:
                 label = (DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
                          if self._in_download_history() else entry.label)
@@ -15343,6 +15356,11 @@ class LiteFrame(wx.Frame):
             return
         chord = chord_from_event(event)
         player = self.navigator.view is View.PLAYER
+        if not player and chord.canonical in ("Prior", "Next"):
+            # On every native list these keys move a page. Playback skipping
+            # remains available in the player; the TIDAL list is no exception.
+            event.Skip()
+            return
         if (
             player
             and chord.canonical in {"Up", "Down", "End"}
@@ -15431,21 +15449,15 @@ class LiteFrame(wx.Frame):
         ):
             self._run(self.navigator.tidal_relations())
             return
-        # Pelne AMC przechwytuje Page Up/Page Down w sesji TIDAL takze na
-        # liscie, bo zewnetrzny TIDAL nie ma widoku odtwarzacza AMC. Bez tej
-        # galezi klawisze przewijalyby tylko strone listy i transport bylby
-        # dostepny dopiero po otwarciu sztucznego, mylacego odtwarzacza.
         if (
             not player
             and self.navigator.active is SessionId.TIDAL
             and (self._tidal_desktop_has_playback
                  or self._tidal_native_has_playback)
-            and chord.canonical in (
-                "Prior", "Next", "Shift+Prior", "Shift+Next"
-            )
+            and chord.canonical in ("Shift+Prior", "Shift+Next")
         ):
             forward = chord.key == "Next"
-            if chord.shift and not self._tidal_native_has_playback:
+            if not self._tidal_native_has_playback:
                 self._tidal_external_skip(forward)
             else:
                 self._queue_step(forward)
@@ -21150,6 +21162,13 @@ class LiteFrame(wx.Frame):
             shortcut_overrides=getattr(self, "shortcut_overrides", {}),
         )
         entries = available_command_entries(entries, available_actions)
+        if self.navigator.view is View.LIST:
+            entries = tuple(
+                replace(entry, shortcut=None)
+                if not shortcut_enabled_in_view(entry.action, player_view=False)
+                else entry
+                for entry in entries
+            )
         if self._in_download_history():
             entries = tuple(
                 replace(entry, name=DOWNLOAD_HISTORY_COPY_LABELS[entry.action])
@@ -35234,6 +35253,11 @@ class LiteFrame(wx.Frame):
             for item, entry in getattr(self, "_menu_items", ())
             if entry.action is not None and item.IsEnabled()
         }
+        if self.navigator.view is View.LIST:
+            available_actions = {
+                action for action in available_actions
+                if shortcut_enabled_in_view(action, player_view=False)
+            }
         shortcut_overrides = dict(getattr(self, "shortcut_overrides", {}))
         shortcut_overrides.update({
             session_order.SESSION_ACTIONS[session]: f"Ctrl+{slot}"
