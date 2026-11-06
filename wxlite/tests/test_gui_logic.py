@@ -85,6 +85,7 @@ def install_wx_stub() -> None:
     wx.ICON_WARNING = 0x0100  # type: ignore[attr-defined]
     wx.MOD_CONTROL = 0x0002  # type: ignore[attr-defined]
     wx.MOD_SHIFT = 0x0004  # type: ignore[attr-defined]
+    wx.LB_SINGLE = 0x0000  # type: ignore[attr-defined]
 
     # Flagi ukladu sizerow. Tez skladane operatorem ``|`` (``wx.ALL |
     # wx.EXPAND``), wiec musza byc liczbami. Wartosci ODCZYTANE z
@@ -120,7 +121,7 @@ def install_wx_stub() -> None:
         "Frame", "Panel", "App", "Dialog", "ListCtrl", "StaticText", "TextCtrl", "Button",
         "Slider", "Choice", "BoxSizer", "FlexGridSizer", "Timer", "MenuBar", "Menu", "KeyEvent",
         "ListEvent", "CommandEvent", "TimerEvent", "CloseEvent", "DirDialog", "FileDialog",
-        "Window",
+        "Window", "CheckListBox",
     ):
         setattr(wx, name, _Any)
 

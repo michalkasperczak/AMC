@@ -218,6 +218,28 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public int SetInboxSources(
+        IReadOnlyCollection<string> selectedIds,
+        IReadOnlyCollection<string> presentedIds)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesna zmiana źródeł skrzynki mogłaby utracić dane.");
+        try
+        {
+            return _store.SetInboxSources(selectedIds, presentedIds);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or KeyNotFoundException or InvalidOperationException)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] wybór źródeł skrzynki: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastFavoriteToggleResult ToggleFavorites(
         IReadOnlyCollection<string> subscriptionIds,
         IReadOnlyCollection<string> episodeIds)

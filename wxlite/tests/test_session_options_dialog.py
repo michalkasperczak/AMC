@@ -86,6 +86,47 @@ class FakeCheckBox:
         self.enabled = enabled
 
 
+class FakeCheckListBox:
+    def __init__(self, parent, choices=None, **kwargs) -> None:
+        self.choices = list(choices or [])
+        self.checked = [False] * len(self.choices)
+        self.selection = -1
+        self.enabled = True
+
+    def SetName(self, name):
+        self.name = name
+
+    def SetHelpText(self, help_text):
+        self.help_text = help_text
+
+    def SetMinSize(self, size):
+        self.minimum_size = size
+
+    def Bind(self, event, handler):
+        self.key_handler = handler
+
+    def Check(self, index, checked=True):
+        self.checked[index] = checked
+
+    def IsChecked(self, index):
+        return self.checked[index]
+
+    def GetSelection(self):
+        return self.selection
+
+    def SetSelection(self, index):
+        self.selection = index
+
+    def GetString(self, index):
+        return self.choices[index]
+
+    def SetString(self, index, value):
+        self.choices[index] = value
+
+    def Enable(self, enabled):
+        self.enabled = enabled
+
+
 class FakeSizer:
     def __init__(self, *args, **kwargs) -> None:
         self.items: list = []
@@ -125,11 +166,13 @@ def _build(session: SessionId, options: Options, overrides, *, exercise=None) ->
     """Zbuduj dialog na atrapach i zwroc gotowy obiekt."""
     saved = {name: getattr(wx, name, None) for name in
              ("Choice", "CheckBox", "StaticText", "FlexGridSizer", "BoxSizer", "Panel",
-              "ScrolledWindow", "Dialog", "EVT_CHOICE")}
+             "ScrolledWindow", "Dialog", "EVT_CHOICE", "CheckListBox", "EVT_KEY_DOWN")}
     wx.Choice = FakeChoice
     wx.CheckBox = FakeCheckBox
+    wx.CheckListBox = FakeCheckListBox
     wx.ScrolledWindow = FakePanel
     wx.EVT_CHOICE = "evt-choice"
+    wx.EVT_KEY_DOWN = "evt-key-down"
     wx.StaticText = FakeStaticText
     wx.FlexGridSizer = FakeSizer
     wx.BoxSizer = FakeSizer
@@ -484,17 +527,41 @@ def test_reading_settings_inherit_and_show_only_session_capabilities() -> None:
     assert inherited.reading_mode.choices == [
         "Jak ustawienie ogólne", "Własne ustawienia tej sesji"
     ]
-    assert "size" not in inherited._reading_checks["left"]
-    assert "duration" in inherited._reading_checks["left"]
-    assert all(not control.enabled for checks in inherited._reading_checks.values()
-               for control in checks.values())
+    assert "size" not in inherited._reading_lists["left"].fields
+    assert "duration" in inherited._reading_lists["left"].fields
+    assert all(not control.enabled for control in inherited._reading_lists.values())
 
     own = _build(
         SessionId.SONOS, Options(), session_options.SessionPlaybackOverrides(),
         exercise=lambda dialog: dialog.reading_mode.SetSelection(1),
     )
     own._on_reading_mode(None)
-    assert "bitrate" in own._reading_checks["left"]
-    own._reading_checks["left"]["bitrate"].SetValue(False)
+    assert "bitrate" in own._reading_lists["left"].fields
+    bitrate_index = own._reading_lists["left"].fields.index("bitrate")
+    own._reading_lists["left"].Check(bitrate_index, False)
     assert "bitrate" not in own.reading_override["list_left_fields"]
-    assert own._reading_checks["left"]["duration"].enabled
+    assert own._reading_lists["left"].enabled
+
+
+def test_reading_fields_move_with_alt_arrows_and_keep_checked_state() -> None:
+    own = _build(
+        SessionId.PODCASTS, Options(), session_options.SessionPlaybackOverrides(),
+        exercise=lambda dialog: dialog.reading_mode.SetSelection(1),
+    )
+    own._on_reading_mode(None)
+    fields = own._reading_lists["left"]
+    start = fields.fields.index("bitrate")
+    fields.SetSelection(start)
+    assert fields.move_selected(-1)
+    assert fields.GetSelection() == start - 1
+    assert own.reading_override["list_left_fields"][:2] == ["bitrate", "duration"]
+    assert fields.IsChecked(start - 1)
+    assert not fields.move_selected(-1)
+    assert "Alt+strzałka" in fields.name
+    event = type("Key", (), {
+        "AltDown": lambda self: True, "ControlDown": lambda self: False,
+        "ShiftDown": lambda self: False, "GetKeyCode": lambda self: wx.WXK_DOWN,
+        "Skip": lambda self: None,
+    })()
+    fields._on_key_down(event)
+    assert own.reading_override["list_left_fields"][:2] == ["duration", "bitrate"]

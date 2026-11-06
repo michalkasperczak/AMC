@@ -30,6 +30,7 @@ internal static class PodcastProgressStoreTests
 
             var database = Path.Combine(root, "podcasts.db");
             CreateDatabase(database);
+            TestInboxSourceChoice(root);
             using (var store = LitePodcastProgressStore.Open(database, () => false))
             {
                 var secondWriterDenied = false;
@@ -513,6 +514,37 @@ internal static class PodcastProgressStoreTests
             "po pelnym przebiegu zadne swiezo sprawdzone zrodlo nie powinno byc od razu nalezne");
     }
 
+    private static void TestInboxSourceChoice(string root)
+    {
+        var database = Path.Combine(root, "inbox-choice", "podcasts.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        CreateDatabase(database);
+        using var store = LitePodcastProgressStore.Open(database, () => false);
+        Assert.True(store.GetInboxCount() == 1, "wybrane źródło jest w skrzynce");
+        Assert.True(store.SetInboxSources([], []) == 0 && store.GetInboxCount() == 1,
+            "źródło dodane po otwarciu wyboru nie jest zmieniane");
+        Assert.True(store.SetInboxSources([], ["sub-1"]) == 0, "można wyłączyć wszystkie źródła");
+        using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT inbox_selection_customized FROM podcast_state WHERE singleton = 1;";
+            Assert.True(Convert.ToInt32(command.ExecuteScalar()) == 1,
+                "po pierwszym wyborze nowe źródła czekają na zaznaczenie");
+        }
+        Assert.True(store.GetInboxCount() == 0 && store.GetDueRefreshTargets().Count == 0,
+            "odznaczone źródło znika ze skrzynki i kolejki automatycznej");
+        Assert.True(store.GetRefreshTargets("sub-1").Count == 1,
+            "odznaczone źródło nadal można odświeżyć ręcznie");
+        Assert.True(ReadEpisode(database).Id == "ep-1",
+            "odznaczenie nie usuwa zapisanych odcinków");
+        Assert.True(store.SetInboxSources(["sub-1"], ["sub-1"]) == 1,
+            "można ponownie zaznaczyć źródło");
+        Assert.True(store.GetInboxCount() == 1
+            && ReadSubscription(database, "sub-1").RefreshIntervalMinutes == 60,
+            "ponowny wybór przywraca skrzynkę i poprzedni odstęp");
+    }
+
     private static void CreateDatabase(string path)
     {
         var subscription = new PodcastSubscriptionSettings
@@ -522,6 +554,7 @@ internal static class PodcastProgressStoreTests
             FeedUrl = "https://example.invalid/feed.xml",
             IsInLibrary = true,
             SourceKind = PodcastSourceKind.Rss,
+            RefreshIntervalMinutes = 60,
             DownloadsFolder = Path.Combine(
                 Path.GetDirectoryName(path)!, "pobrane-podcastu")
         };

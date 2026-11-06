@@ -419,6 +419,7 @@ def quick_info_reply(
     say: Callable[[str], None],
     extra_detail: str | None = None,
     omit_missing: bool = False,
+    fields: tuple[str, ...] | None = None,
 ) -> None:
     """Krok 3: wypowiedz wynik, ale TYLKO jesli nadal opisuje ten sam wiersz.
 
@@ -428,15 +429,51 @@ def quick_info_reply(
     """
     if not guard.accepts(item_id=item_id, session=session, view=view):
         return
-    text = ((response or {}).get("text") or "").strip()
-    # Pusta odpowiedz nie moze zamienic sie w CISZE: martwy klawisz to ten sam
-    # objaw, ktory naprawiamy.
-    parts = [text] if text else ([] if omit_missing else [NO_SOURCE_MESSAGE])
-    detail = (extra_detail or "").strip()
-    if detail and (not parts or detail.casefold() not in parts[0].casefold()):
-        parts.append(detail)
+    parts = ordered_quick_info_parts(response, fields, extra_detail)
+    if not parts and not omit_missing:
+        parts = [NO_SOURCE_MESSAGE]
     if parts:
         say(", ".join(parts))
+
+
+def ordered_quick_info_parts(
+    response: dict | None,
+    fields: tuple[str, ...] | None,
+    extra_detail: str | None = None,
+) -> list[str]:
+    """Merge host measurements and locally known details in the saved order."""
+    payload = response or {}
+    detail = (extra_detail or "").strip()
+    raw_parts = payload.get("parts")
+    values: list[str] = []
+    if fields is not None and isinstance(raw_parts, list):
+        by_field: dict[str, list[str]] = {}
+        for raw in raw_parts:
+            if isinstance(raw, dict) and isinstance(raw.get("field"), str):
+                value = raw.get("text")
+                if isinstance(value, str) and value.strip():
+                    by_field.setdefault(raw["field"], []).append(value.strip())
+        for field in fields:
+            if field == "other" and detail:
+                values.append(detail)
+            values.extend(by_field.get(field, ()))
+    else:
+        text = payload.get("text")
+        if isinstance(text, str) and text.strip():
+            values.append(text.strip())
+        if detail:
+            if fields is not None and "other" in fields and fields.index("other") == 0:
+                values.insert(0, detail)
+            else:
+                values.append(detail)
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        key = value.casefold()
+        if key not in seen:
+            seen.add(key)
+            result.append(value)
+    return result
 
 
 def quick_info_failure(

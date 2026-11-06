@@ -555,12 +555,6 @@ def build_menus(
                         visible_sessions=PODCASTS_ONLY,
                     ),
                     MenuItem(
-                        "Wybierz &kanały zbiorczej listy transmisji…",
-                        Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
-                        needs_podcast_session=True,
-                        visible_sessions=PODCASTS_ONLY,
-                    ),
-                    MenuItem(
                         "Uwzględniaj kanał na &zbiorczej liście transmisji",
                         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL,
                         needs_youtube_channel=True,
@@ -1967,6 +1961,20 @@ def build_menus(
                 Action.GENERAL_SETTINGS,
                 shortcut="Ctrl+,",
                 accelerator=False,
+            ),
+            MenuItem(
+                "&Wybierz źródła skrzynki podcastów…",
+                Action.CHOOSE_PODCAST_INBOX_SOURCES,
+                visible_sessions=PODCASTS_ONLY,
+            ),
+            *(
+                (MenuItem(
+                    "Wybierz &kanały do sprawdzania transmisji na żywo…",
+                    Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
+                    needs_podcast_session=True,
+                    visible_sessions=PODCASTS_ONLY,
+                ),)
+                if youtube_account_available else ()
             ),
             SEPARATOR,
             MenuItem(

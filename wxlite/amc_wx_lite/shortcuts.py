@@ -331,6 +331,7 @@ class Action(Enum):
     SORT_RADIO_COLLECTION_ALPHABETICAL = "radio.collection.sort.alphabetical"
     SORT_RADIO_COLLECTION_CUSTOM = "radio.collection.sort.custom"
     VIEW_PODCAST_INBOX = "podcasts.inbox"
+    CHOOSE_PODCAST_INBOX_SOURCES = "podcasts.inbox.chooseSources"
     VIEW_PODCAST_DOWNLOADS = "podcasts.downloads"
     SORT_PODCAST_INBOX_ADDED = "podcasts.inbox.sort.added"
     SORT_PODCAST_INBOX_ALPHABETICAL = "podcasts.inbox.sort.alphabetical"
@@ -2537,7 +2538,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.REFRESH_YOUTUBE_BROADCASTS: "Odśwież transmisje kanału YouTube",
         Action.ADD_YOUTUBE_LIVE_STATION: "Dodaj kanał jako dynamiczną stację YouTube na żywo",
         Action.VIEW_YOUTUBE_LIVE_AGGREGATE: "Pokaż transmisje wybranych kanałów YouTube",
-        Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS: "Wybierz kanały zbiorczej listy transmisji YouTube",
+        Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS: "Wybierz kanały do sprawdzania transmisji na żywo",
         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL: "Uwzględniaj kanał na zbiorczej liście transmisji",
         Action.REFRESH_YOUTUBE_LIVE_AGGREGATE: "Odśwież transmisje wybranych kanałów YouTube",
         Action.RECORD_YOUTUBE_LIVE_NOW: "Rozpocznij albo zatrzymaj nagrywanie transmisji YouTube",
@@ -2633,6 +2634,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SORT_RADIO_COLLECTION_ALPHABETICAL: "Radio: alfabetycznie",
         Action.SORT_RADIO_COLLECTION_CUSTOM: "Radio: kolejność własna",
         Action.VIEW_PODCAST_INBOX: "Nowe odcinki i materiały",
+        Action.CHOOSE_PODCAST_INBOX_SOURCES: "Wybierz źródła skrzynki podcastów",
         Action.VIEW_PODCAST_DOWNLOADS: "Pobrane odcinki podcastów",
         Action.SORT_PODCAST_INBOX_ADDED: (
             "Nowe odcinki: według dodania, najnowsze na początku"
@@ -2741,7 +2743,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         # tego uzytkownik nie wie, czego dotkna zmiany.
         Action.SESSION_OPTIONS: (
             "Ustawienia sesji: uruchamianie materiału, pozycja, domyślna "
-            "prędkość, dźwięk, zachowanie po wyjściu i odczyt listy, "
+            "prędkość, dźwięk, zachowanie po wyjściu i odczyt listy; "
+            "kolejność czytanych pól zmienisz Alt+strzałka w górę lub w dół, "
             "zależnie od możliwości sesji"
         ),
         Action.SELECT_AUDIO_OUTPUT: (
@@ -2757,7 +2760,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         ),
         Action.GENERAL_SETTINGS: (
             "Ustawienia programu; na karcie Komunikaty dostępności ustawisz "
-            "odczyt listy strzałkami, a na karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
+            "odczyt listy strzałkami i kolejność pól przez Alt+góra/dół, "
+            "a na karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
         ),
         Action.REFRESH_COMMON_DATA: "Odśwież dane z AMC Test",
         Action.COMMON_DATA_STATUS: "Stan synchronizacji danych z AMC Test",
@@ -2877,6 +2881,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.YOUTUBE_BROADCASTS,
         Action.ADD_YOUTUBE_LIVE_STATION,
         Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
+        Action.CHOOSE_PODCAST_INBOX_SOURCES,
         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL,
         Action.FRONTIER_SMART_SELECT_MODE,
         Action.REFRESH_COMMON_DATA,

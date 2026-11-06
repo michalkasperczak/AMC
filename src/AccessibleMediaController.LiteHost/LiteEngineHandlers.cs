@@ -721,6 +721,12 @@ internal sealed class LiteEngineHandlers : IDisposable
                 GetPodcastPlaybackOptions(request.Args),
             ["podcast.playbackOptions.set"] = (request, _) =>
                 SetPodcastPlaybackOptions(request.Args),
+            ["podcast.inboxSources.set"] = (request, _) => new
+            {
+                selected = RequirePodcastStore().SetInboxSources(
+                    ReadInboxSourceIds(request.Args, "subscriptionIds"),
+                    ReadInboxSourceIds(request.Args, "presentedIds"))
+            },
             ["library.renameTitle"] = (request, _) => RenameLibraryTitle(request.Args),
             ["library.renameFile"] = (request, _) => RenameLocalFile(request.Args),
             ["library.folderSources"] = (_, _) =>
@@ -1463,6 +1469,22 @@ internal sealed class LiteEngineHandlers : IDisposable
             .Where(value => value.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .Take(1_000)
+            .ToArray();
+    }
+
+    private static string[] ReadInboxSourceIds(JsonElement args, string propertyName)
+    {
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty(propertyName, out var values)
+            || values.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Brak listy źródeł skrzynki.");
+        if (values.GetArrayLength() > 50_000)
+            throw new LiteRequestException("Lista źródeł skrzynki jest zbyt długa.");
+        return values.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()?.Trim() ?? string.Empty)
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
 
@@ -2254,7 +2276,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             // odpowiedz dotyczy wiersza, ktory JESZCZE jest zaznaczony.
             itemId = request.ItemId,
             session = request.Session,
-            text = LiteQuickInformation.Build(request, probe, CultureInfo.CurrentCulture)
+            text = LiteQuickInformation.Build(request, probe, CultureInfo.CurrentCulture),
+            parts = LiteQuickInformation.BuildFieldParts(request, probe, CultureInfo.CurrentCulture)
+                .Select(part => new { field = part.Field, text = part.Text })
         };
     }
 

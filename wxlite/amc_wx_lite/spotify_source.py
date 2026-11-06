@@ -400,18 +400,19 @@ def information_text(
     effective_duration = (
         row.duration_ticks if duration_ticks is None else max(0, duration_ticks)
     )
-    selected = set(fields) if fields is not None else {"duration", "other"}
+    selected = fields if fields is not None else ("duration", "other")
     has_duration = bool(effective_duration and "duration" in selected)
-    if has_duration:
-        values.append(format_duration(effective_duration / 10_000_000))
-        if row.kind == "track":
-            values.append(row.title)
-    if row.artist_name and "artist" in selected and not (
-        row.kind == "track" and has_duration
-    ):
-        values.append(row.artist_name)
-    if row.activation_message and "other" in selected:
-        values.append(row.activation_message)
+    for field in selected:
+        if field == "duration" and has_duration:
+            values.append(format_duration(effective_duration / 10_000_000))
+            if row.kind == "track":
+                values.append(row.title)
+        elif field == "artist" and row.artist_name and not (
+            row.kind == "track" and has_duration
+        ):
+            values.append(row.artist_name)
+        elif field == "other" and row.activation_message:
+            values.append(row.activation_message)
 
     result: list[str] = []
     seen: set[str] = set()

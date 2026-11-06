@@ -67,6 +67,12 @@ internal static class QuickInformationTests
         var text = LiteQuickInformation.Build(file,
             new LiteQuickInfoProbe { Exists = true, SizeBytes = 5_242_880 }, Polish);
         Assert.True(text == "3:00, 5 MB", "wybrane pola i kolejność: " + text);
+        var reordered = file with { Fields = ["size", "duration"] };
+        var parts = LiteQuickInformation.BuildFieldParts(reordered,
+            new LiteQuickInfoProbe { Exists = true, SizeBytes = 5_242_880 }, Polish);
+        Assert.True(parts.Count == 2 && parts[0] == ("size", "5 MB")
+            && parts[1] == ("duration", "3:00"),
+            "host zachowuje osobne wartości w kolejności wybranej dla lewej strzałki");
         var none = LiteQuickInformation.Build(file with { Fields = [] },
             new LiteQuickInfoProbe(), Polish);
         Assert.True(none == "", "wyłączenie pól nie tworzy komunikatu o braku danych");

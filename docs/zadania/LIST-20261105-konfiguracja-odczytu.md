@@ -1,5 +1,31 @@
 # LIST-20261105 — konfigurowalny odczyt list
 
+## Korekta kolejności — 6 listopada 2026
+
+Użytkownik zdecydował, że same przełączniki pól nie wystarczają. Ta decyzja zastępuje wcześniejszy opis stałej kolejności odczytu. W ustawieniach ogólnych i w ustawieniach sesji można wybrać pola osobno dla góra/dół i lewej strzałki oraz przestawić je skrótami Alt+strzałka w górę i Alt+strzałka w dół. Nazwa pozycji pozostaje pierwsza przy nawigacji listą.
+
+### Materiał do dokumentacji użytkownika
+
+- `Ctrl+,` → **Komunikaty dostępności**: dwie listy pól odczytu. Spacja zaznacza lub odznacza pole. Alt+strzałka w górę / Alt+strzałka w dół przesuwa wskazane pole. Zapisane zostają zaznaczone pola w pokazanej kolejności.
+- `Ctrl+Alt+Enter` → **Ustawienia sesji**: wybór „Jak ustawienie ogólne” albo „Własne ustawienia tej sesji”. W drugim wariancie te same gesty ustawiają kolejność tylko dla bieżącej sesji. Lewa strzałka pokazuje wyłącznie pola obsługiwane w tej sesji.
+- Góra/dół czyta dane już znajdujące się w wierszu i nie pobiera nowych danych przy każdym ruchu. Lewa strzałka może zmierzyć wskazane parametry na żądanie; niedostępne wartości pomija.
+
+### Uzasadnienie i decyzje
+
+Zapis list pól zachowuje kolejność użytkownika zamiast odtwarzać porządek katalogu. Natywny wiersz ma zawsze trzy kolumny; po nazwie pierwsza wybrana informacja trafia do drugiej kolumny, a pozostałe do trzeciej. Host odsyła zmierzone informacje także jako osobne pola, aby frontend mógł wstawić lokalne szczegóły we właściwym miejscu. Dotychczasowe ustawienia pozostają czytelne bez migracji schematu.
+
+### Testy i wynik
+
+77 celowanych testów Python zaliczonych dla ustawień, zapisu i informacji pod lewą strzałką; zestaw C# `--quickinfo` zaliczony. Rozszerzony zestaw: 84 zaliczone, dwie porażki, z czego jedna to oczekiwanie starego opisu polecenia (zaktualizowane po próbie), a druga dotyczy niezależnego wyszukiwania globalnego bez sesji Spotify w atrapie. Ponowna weryfikacja, pełny build, GitHub, instalacja i żywy odbiór NVDA wymagają osobnych wyników.
+
+### Znane ograniczenia
+
+Nie przeprowadzono jeszcze rzeczywistej próby mowy NVDA w oknie ustawień. Kolejność pól odznaczonych nie jest zapisywana; po ponownym otwarciu trafiają za zaznaczone pola. Kolejność informacji dostępnych tylko w odtwarzaczu WiiM/Sonos pozostaje niezależna od ustawień listy.
+
+### Wersja i commit
+
+Kod roboczy; commit, wersja i instalacja zostaną dopisane po weryfikacji.
+
 Status: **W trakcie**. Data: 5 listopada 2026. Użytkownik potwierdził, że po alpha.472 listy działają wyraźnie szybciej. Nowe ustawienia nie mogą przywrócić sieci ani bazy do obsługi każdego ruchu kursora.
 
 ## Zakres i korekty użytkownika

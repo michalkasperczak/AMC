@@ -1541,6 +1541,16 @@ class LiteHostClient:
         """Odśwież tylko należne źródła, z limitem zapisanym w ustawieniach."""
         return self.call("podcast.refreshAutomatic", timeout=3600.0)
 
+    def set_podcast_inbox_sources(
+        self, subscription_ids: list[str], presented_ids: list[str]
+    ) -> Any:
+        """Zapisz jeden zbiorczy wybór źródeł przez właściciela bazy."""
+        return self.call(
+            "podcast.inboxSources.set",
+            {"subscriptionIds": subscription_ids, "presentedIds": presented_ids},
+            timeout=30.0,
+        )
+
     def podcast_global_settings(self) -> Any:
         """Odczytaj cztery globalne ustawienia bez surowych rekordów bazy."""
         return self.call("podcast.settingsGet", timeout=10.0)
