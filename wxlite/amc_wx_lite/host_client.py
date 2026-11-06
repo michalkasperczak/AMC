@@ -663,20 +663,24 @@ class LiteHostClient:
         volume: int,
         rate: float,
         position_seconds: float = 0.0,
+        duration_seconds: float = 0.0,
         session_id: str = "podcasts",
     ) -> Any:
         """Play a podcast/YouTube source while retaining its stable AMC Id."""
+        args = {
+            "source": source,
+            "id": item_id,
+            "title": title,
+            "volume": volume,
+            "rate": rate,
+            "positionSeconds": max(0.0, float(position_seconds)),
+            "sessionId": session_id,
+        }
+        if duration_seconds > 0:
+            args["durationSeconds"] = float(duration_seconds)
         return self.call(
             "media.play",
-            {
-                "source": source,
-                "id": item_id,
-                "title": title,
-                "volume": volume,
-                "rate": rate,
-                "positionSeconds": max(0.0, float(position_seconds)),
-                "sessionId": session_id,
-            },
+            args,
             timeout=120.0,
         )
 

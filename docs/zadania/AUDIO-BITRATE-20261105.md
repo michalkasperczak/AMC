@@ -1,16 +1,23 @@
 # AUDIO-BITRATE-20261105 — bitrate w odtwarzaczu i radiu
 
-Status: kod i testy celowane gotowe 5 listopada 2026; instalacja i odbiór NVDA oczekują na zakończenie nagrania.
+Status: kod i testy celowane rozszerzone 6 listopada 2026; rozszerzenie czeka na wspólną instalację i odbiór NVDA.
 
 ## Korekta użytkownika
 
 5 listopada 2026 użytkownik usłyszał w odtwarzaczu TIDAL „bez ciebie, 48 kHz” bez przepływności i zgłosił podobny brak w radiu. Ten raport zastępuje wcześniejsze założenie, że sam odczyt częstotliwości dowodzi pełnego opisu parametrów audio. Wartość 48 kHz oznacza częstotliwość próbkowania; nie wolno jej podawać jako bitrate.
+
+6 listopada 2026 użytkownik doprecyzował, że nie słyszał bitrate'u w żadnej sesji, w tym Spotify i Radio Archiwista. To zastępuje wcześniejszy zakres ograniczony do TIDAL i Radia. Odczyt bieżącego materiału i stanu przez dodatek NVDA również ma korzystać z pełnego opisu, a nie z samego tytułu.
 
 ## Zachowanie i miejsca
 
 - TIDAL w AMC: po uruchomieniu utworu status odtwarzania używany przez NVDA+End podaje tytuł, dostępny bitrate w kb/s i częstotliwość w kHz. Dla zwykłego pliku FLAC proxy oblicza średni bitrate z całkowitej liczby bajtów i czasu utworu przy pierwszym normalnym żądaniu dźwięku. Nie wykonuje dodatkowego żądania przed startem. Dla Max/DASH bierze deklarowaną przepływność reprezentacji z manifestu, jeśli istnieje.
 - Radio: gdy manifest HLS podaje kodek, ale nie podaje przepływności, pomiar nie kończy się na samym kodeku. Program może oszacować bitrate z rozmiaru i czasu pierwszego segmentu audio. Status radia i Alt+D używają tego samego formatu. Brak wiarygodnych danych nadal pozostaje brakiem danych, bez zmyślonej liczby.
 - Odtwarzacz TIDAL zachowuje kompletny status hosta po odświeżeniu widoku; ponowne narysowanie nie zastępuje go samym tytułem.
+- Pliki lokalne i nagrania: odtwarzacz szacuje średni bitrate z rozmiaru rzeczywistego pliku i czasu zgłoszonego przez dekoder; znane wartości trafiają do paska stanu i odczytu przez dodatek NVDA.
+- Radio Archiwista i zdalne odcinki: czas znany z listy jest przekazywany wraz z poleceniem odtwarzania. Po rozpoczęciu odtwarzania host wykonuje jedną ograniczoną czasowo próbę odczytu rozmiaru pliku przez HEAD lub żądanie zakresu bez pobierania treści. Z rozmiaru i czasu oblicza średnie kb/s. Gdy serwer nie ujawni rozmiaru, pomija liczbę.
+- Spotify Web Player: oficjalny odtwarzacz nie udostępnia pomiaru bitrate'u konkretnego utworu. Tekst mówi jawnie „jakość Spotify Web: AAC 256 kb/s” dla muzyki Premium oraz „około 128 kb/s” dla odcinków, zgodnie z deklaracją Spotify; nie przedstawia tego jako pomiaru pliku. Źródło: https://support.spotify.com/sg-en/article/audio-quality/ .
+- WiiM: gdy urządzenie podaje bitrate bieżącego materiału, host i filtr dostępności przekazują go do odczytu „teraz odtwarzane” w kb/s. Sonos i Frontier Smart nie przekazują takiej wartości w bieżącym kontrakcie urządzenia; komunikat po prostu ją pomija.
+- Most NVDA odczytuje gotowy pełny tekst hosta także w komendach stanu i bieżącego materiału dla TIDAL, Spotify, Radia, plików, podcastów i Archiwisty. Wcześniej część tych komend redukowała opis do samego tytułu.
 - Nie ma nowych skrótów ani poleceń. Pomoc, menu i paleta zachowują istniejące nazwy odczytu bieżącego odtwarzania.
 
 ## Dlaczego
@@ -21,8 +28,9 @@ Wewnętrzny tor TIDAL znał częstotliwość z dekodera, lecz nie przekazywał d
 
 - Python: 59 testów celowanych i 6 podtestów: proxy BTS, Max/DASH, adapter, status NVDA i radio.
 - C#: test protokołu TIDAL 1/1; test radia HLS z lokalnym serwerem przeszedł; sam host skompilowany bez ostrzeżeń i błędów.
+- Rozszerzenie z 6 listopada: 122 testy Python objętych modułów, w tym przekazanie czasu Archiwisty i odczyt NVDA; dwa zestawy C# (zdalny plik, WiiM) przeszły. Poprzednie wyniki nie są dowodem zainstalowania rozszerzenia.
 - Rzeczywiste konto TIDAL, stacje użytkownika i NVDA wymagają odsłuchu po instalacji. Przy strumieniu bez całkowitego rozmiaru, deklaracji przepływności ani mierzalnego segmentu liczba nie zostanie wypowiedziana. Wartości z manifestu i rozmiaru są średnie lub deklarowane, nie chwilową przepływnością każdej sekundy.
 
 ## Wersja i commit
 
-Wspólny kandydat AMC Test 0.1.0-alpha.480. Commit kodu i testów: 9a24c83c. Instalacja: niewykonana. Publikacja: niewykonana.
+AMC Test alpha.480 z commitu `d42dfe6f` zainstalowano 6 listopada, zanim powstało opisane wyżej rozszerzenie na pozostałe sesje. Wcześniejsze commity bazowe: `9a24c83c` i `79532f3c`. Rozszerzenie z 6 listopada jest przygotowane do wspólnego commitu; nie zostało zbudowane ani zainstalowane. Publikacja tego rozszerzenia: niewykonana.

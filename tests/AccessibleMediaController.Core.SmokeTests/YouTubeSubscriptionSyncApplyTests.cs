@@ -7,13 +7,34 @@ internal static class YouTubeSubscriptionSyncApplyTests
     internal static void Run()
     {
         AddsShellsForBoundedRefreshAndIsIdempotent();
+        NewAccountChannelsStayOutsideCustomizedInboxSelection();
         KeepsSuppressedUntilExplicitRestore();
         RemoteAbsenceDoesNotRemoveLocalSource();
         ConflictDoesNotPartiallyMutateDatabase();
         KeepsFailedAutomaticRefreshFairAndPersistent();
         DeletesOnlyExpiredOrExplicitAccountData();
         RefreshesSeveralSourcesWithOneDurableSave();
-        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube i seria podcastów (7 scenariuszy)");
+        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube i seria podcastów (8 scenariuszy)");
+    }
+
+    private static void NewAccountChannelsStayOutsideCustomizedInboxSelection()
+    {
+        var settings = new PodcastSettings
+        {
+            InboxSelectionCustomized = true,
+            YouTubeRefreshIntervalMinutes = 60
+        };
+        WithDatabase(settings, (database, store) =>
+        {
+            var result = store.ApplyYouTubeSubscriptions(
+                [Remote("UC-NEW-ACCOUNT", "Nowy kanał")]);
+            Assert(result.Added == 1,
+                "Synchronizacja nie dodała nowego kanału konta.");
+            var reopened = new PodcastSettings();
+            database.LoadInto(reopened);
+            Assert(reopened.Subscriptions.Single().RefreshIntervalMinutes == 0,
+                "Nowy kanał konta ominął ręczny wybór źródeł skrzynki.");
+        });
     }
 
     private static void RefreshesSeveralSourcesWithOneDurableSave()

@@ -13929,7 +13929,8 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
                 snapshot = self._nvda_playback_snapshot()
-                title = session.now_playing_title.strip() or "Utwór TIDAL"
+                title = str(snapshot.get("currentPlaybackText") or "").strip()
+                title = title or session.now_playing_title.strip() or "Utwór TIDAL"
                 playback = "pauza" if snapshot.get("paused") else "odtwarzanie"
                 return f"{title}, TIDAL w AMC Test, {playback}."
             # TIDAL gra w obcej aplikacji. Dopóki nie przechowujemy ostatniej
@@ -13944,8 +13945,17 @@ class LiteFrame(wx.Frame):
             return "TIDAL, materiał otwarty w oryginalnej aplikacji."
 
         snapshot = self._nvda_playback_snapshot()
+        device_title = ""
+        if self.navigator.active is SessionId.WIIM and snapshot:
+            device_title = wiim_now_playing_label(snapshot).strip()
+        elif self.navigator.active is SessionId.SONOS and snapshot:
+            device_title = sonos_now_playing_label(snapshot).strip()
+        elif self.navigator.active is SessionId.FRONTIER_SMART and snapshot:
+            device_title = frontier_smart_now_playing_label(snapshot).strip()
         title = str(
-            session.now_playing_title
+            device_title
+            or snapshot.get("currentPlaybackText")
+            or session.now_playing_title
             or snapshot.get("title")
             or snapshot.get("currentTitle")
             or ""
@@ -13993,7 +14003,9 @@ class LiteFrame(wx.Frame):
         snapshot = self._nvda_playback_snapshot()
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
-                return self.navigator.session.now_playing_title.strip() or "Utwór TIDAL w AMC Test"
+                return str(snapshot.get("currentPlaybackText") or "").strip() \
+                    or self.navigator.session.now_playing_title.strip() \
+                    or "Utwór TIDAL w AMC Test"
             if not self._tidal_desktop_has_playback:
                 return "TIDAL, brak bieżącego materiału w AMC."
             title = self.navigator.session.now_playing_title.strip()
@@ -14014,6 +14026,9 @@ class LiteFrame(wx.Frame):
             text = frontier_smart_now_playing_label(snapshot).strip()
             if text:
                 return text
+        text = str(snapshot.get("currentPlaybackText") or "").strip()
+        if text:
+            return text
         title = self.navigator.session.now_playing_title.strip()
         return title or f"{SESSION_LABELS[self.navigator.active]}, nic nie jest odtwarzane."
 
@@ -27043,6 +27058,7 @@ class LiteFrame(wx.Frame):
                 volume=self.options.volume,
                 rate=self._session_default_rate(session_id),
                 position_seconds=intent.position_seconds,
+                duration_seconds=intent.duration_seconds,
                 session_id=session_id.value,
             )
 

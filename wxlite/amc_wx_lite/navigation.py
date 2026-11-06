@@ -568,6 +568,7 @@ class PlayMedia:
     item_id: str
     title: str
     position_seconds: float = 0.0
+    duration_seconds: float = 0.0
 
 
 @dataclass(slots=True)
@@ -3186,6 +3187,7 @@ class Navigator:
                     row.item_id,
                     row.title,
                     position_seconds=row.position_seconds,
+                    duration_seconds=max(0, row.duration_ticks / 10_000_000),
                 ),
                 Announce(row.title),
             ]
@@ -4063,6 +4065,7 @@ class Navigator:
                     target.item_id,
                     target.title,
                     position_seconds=target.position_seconds,
+                    duration_seconds=max(0, target.duration_ticks / 10_000_000),
                 ),
                 Announce(target.title),
             ]
@@ -4091,7 +4094,8 @@ class Navigator:
         state.pending_material_id = profile_material_id(target.item_id)
         return [
             PlayMedia(target.url, target.item_id, target.title,
-                      position_seconds=target.position_seconds),
+                      position_seconds=target.position_seconds,
+                      duration_seconds=max(0, target.duration_ticks / 10_000_000)),
             Announce(target.title),
         ]
 

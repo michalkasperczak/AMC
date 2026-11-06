@@ -222,6 +222,8 @@ public static class LiteWiiMContract
             subtitle = UsefulMetadata(track.Subtitle),
             artist = UsefulMetadata(track.Artist),
             album = UsefulMetadata(track.Album),
+            bitrateKbps = track.BitrateKbps is > 0 and <= 30_000
+                ? track.BitrateKbps : null,
             source = UsefulMetadata(playback.Source),
             playbackState = Useful(playback.State),
             volume = Math.Clamp(playback.Volume, 0, 100),

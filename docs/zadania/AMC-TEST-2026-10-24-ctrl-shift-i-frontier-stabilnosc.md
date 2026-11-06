@@ -175,3 +175,7 @@ osobnym przyszłym zakresem, a nie częścią tej blokady.
 > Regulacja głośności Frontier Smart nie wysyła już długiej kolejki zmian do
 > radia. AMC zachowuje tylko ostatnią wartość wybraną podczas oczekiwania na
 > odpowiedź urządzenia.
+
+## Korekta lokalizacji polecenia — 6 listopada 2026
+
+Na prośbę użytkownika wybór kanałów do sprawdzania transmisji na żywo przeniesiono z menu **Pliki** do menu **Ustawienia**, obok wyboru źródeł skrzynki podcastów. Nowa nazwa polecenia brzmi **Wybierz kanały do sprawdzania transmisji na żywo…**. Ta decyzja zastępuje opis wcześniejszej lokalizacji w sekcji powyżej. Działanie `Ctrl+Shift+I` i wybranych kanałów nie uległo zmianie; kod przeniesienia pozostaje w roboczych źródłach zadania `POD-20261106`, bez nowej instalacji i odbioru NVDA.

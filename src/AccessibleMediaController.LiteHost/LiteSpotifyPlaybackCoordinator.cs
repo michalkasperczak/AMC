@@ -283,6 +283,14 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
             preparing = isPreparing,
             id = item?.Id,
             title = item?.Title,
+            // Web Playback SDK nie udostępnia pomiaru pojedynczego pliku.
+            // Spotify deklaruje AAC 256 kb/s dla Premium Web Player i
+            // około 128 kb/s dla odcinków w Web Player. Mówimy o jakości
+            // usługi, nie o zmierzonej przepływności tego materiału.
+            currentPlaybackText = item is null ? "Nic nie jest odtwarzane"
+                : item.Kind == MediaItemKind.Episode
+                    ? $"{item.Title}, jakość Spotify Web: około 128 kb/s"
+                    : $"{item.Title}, jakość Spotify Web: AAC 256 kb/s",
             positionSeconds = target?.Position.TotalSeconds ?? 0d,
             durationSeconds = item?.Duration.TotalSeconds ?? 0d,
             volume = currentVolume,

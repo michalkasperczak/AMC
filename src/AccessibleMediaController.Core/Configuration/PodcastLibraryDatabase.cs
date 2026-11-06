@@ -619,11 +619,15 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 WHERE episode.is_new = 1
                   AND episode.is_played = 0
                   AND subscription.is_in_library = 1
-                  AND episode.subscription_id IN (
-                      SELECT id FROM podcast_subscriptions
-                      WHERE is_in_library = 1
-                        AND COALESCE(CAST(json_extract(payload_json,
-                            '$.RefreshIntervalMinutes') AS INTEGER), 60) > 0
+                  AND (
+                      (SELECT inbox_selection_customized FROM podcast_state
+                       WHERE singleton = 1) = 0
+                      OR episode.subscription_id IN (
+                          SELECT id FROM podcast_subscriptions
+                          WHERE is_in_library = 1
+                            AND COALESCE(CAST(json_extract(payload_json,
+                                '$.RefreshIntervalMinutes') AS INTEGER), 60) > 0
+                      )
                   );
                 """;
             return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
