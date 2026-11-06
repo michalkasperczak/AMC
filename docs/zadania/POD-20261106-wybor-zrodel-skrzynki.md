@@ -2,6 +2,10 @@
 
 Status: **W trakcie — kod, testy bez okien i test hosta gotowe; bez instalacji oraz odbioru NVDA**.
 
+## Korekta po teście integracyjnym — 6 listopada 2026
+
+Test serii odświeżania wykrył, że licznik skrzynki filtrował odcinki po odstępie automatycznego odświeżania jeszcze przed pierwszym ręcznym wyborem źródeł. To zastępuje wcześniejsze założenie, że stara biblioteka zachowa domyślne liczenie bez migracji. Licznik filtruje po wybranych źródłach dopiero wtedy, gdy zapisano indywidualny wybór; wcześniej zachowuje dotychczasową liczbę wszystkich nowych odcinków. Test synchronizacji konta potwierdza też, że nowy kanał YouTube zostaje poza skrzynką po ręcznym ustawieniu źródeł. Zestaw Core obejmuje teraz 8 scenariuszy i przechodzi.
+
 ## Zgłoszenie i korekta użytkownika
 
 5 listopada 2026 użytkownik poprosił, aby `Ctrl+I` obejmowało tylko najważniejsze podcasty i kanały YouTube, a pozostałe źródła dało się sprawdzać ręcznie w ich widoku. 6 listopada zaakceptował wdrożenie i wybrał dokładną nazwę **Wybierz źródła skrzynki podcastów**. Ta nazwa zastępuje wcześniejszą roboczą propozycję „Wybierz źródła skrzynki”.
@@ -44,7 +48,7 @@ Po pierwszym zapisaniu wyboru nowo dodane podcasty i kanały pozostają poza skr
 
 ## Wersja i commit
 
-Praca w kanonicznym repozytorium `D:\Projekty Codex\AMC - integracja wxPython`, gałąź `codex/konfigurowalne-skroty-20261026`. Zmiany są w źródłach roboczych, bez osobnego commitu, pakietu, instalacji i publikacji. Repozytorium zawiera równoległe niezapisane zmiany innych zadań; nie należy ich mieszać z tym przyrostem.
+Praca w kanonicznym repozytorium `D:\Projekty Codex\AMC - integracja wxPython`, gałąź `codex/konfigurowalne-skroty-20261026`. Podstawowa funkcja: commit `e8d339ff`; korekta Ctrl+I i Ctrl+Shift+I: `b8a3dd6e`. Poprawka licznika oraz synchronizacji nowego kanału jest w przygotowaniu do wspólnego commitu. Pakiet, instalacja i publikacja tej wersji nie zostały wykonane. Repozytorium zawiera równoległe niezapisane zmiany innych zadań; wspólne wydanie wymaga ich połączenia i weryfikacji.
 
 ## Szkic instrukcji i listy zmian do korekty użytkownika
 

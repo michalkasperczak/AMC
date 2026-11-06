@@ -103,7 +103,8 @@ public static class YouTubeSubscriptionSyncApplier
                 SourceKind = PodcastSourceKind.YouTubeChannel,
                 HomepageUrl = $"https://www.youtube.com/channel/{Uri.EscapeDataString(action.ChannelId)}",
                 LastRefreshUtcTicks = 0,
-                RefreshIntervalMinutes = localPodcasts.YouTubeRefreshIntervalMinutes,
+                RefreshIntervalMinutes = localPodcasts.InboxSelectionCustomized
+                    ? 0 : localPodcasts.YouTubeRefreshIntervalMinutes,
                 IsInLibrary = true,
                 IsYouTubeAccountData = true,
                 YouTubeAccountDataRefreshedUtcTicks = refreshedAt
