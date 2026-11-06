@@ -961,6 +961,7 @@ def test_ctrl_f1_describes_keys_without_executing_them() -> None:
     frame.navigator = types.SimpleNamespace(
         view=View.LIST,
         active=SessionId.FILES,
+        session=session,
         sessions={SessionId.FILES: session},
     )
 
@@ -1143,6 +1144,7 @@ def test_shift_space_menu_names_and_marks_the_actual_recording_state() -> None:
     frame = object.__new__(LiteFrame)
     frame.navigator = types.SimpleNamespace(
         active=SessionId.RADIO,
+        session=session,
         sessions={SessionId.RADIO: session},
     )
     frame._last_status = {}
@@ -1221,6 +1223,7 @@ def test_mute_menu_names_and_marks_the_active_session_state() -> None:
     frame = object.__new__(LiteFrame)
     frame.navigator = types.SimpleNamespace(
         active=SessionId.FILES,
+        session=session,
         sessions={SessionId.FILES: session},
     )
     frame._last_status = {"engine": "media"}
@@ -1307,6 +1310,7 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
         frame = object.__new__(LiteFrame)
         frame.navigator = types.SimpleNamespace(
             active=active,
+            session=session,
             sessions={active: session},
         )
         frame._last_status = {}
