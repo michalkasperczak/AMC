@@ -69,7 +69,9 @@ def test_palette_can_follow_current_view_availability() -> None:
 def test_opcje_sesji_maja_jeden_kontrakt_menu_pomocy_i_palety() -> None:
     expected = (
         "Ustawienia sesji: uruchamianie materiału, pozycja, domyślna prędkość, "
-        "dźwięk, zachowanie po wyjściu i odczyt listy, zależnie od możliwości sesji"
+        "dźwięk, zachowanie po wyjściu i odczyt listy; "
+        "kolejność czytanych pól zmienisz Alt+strzałka w górę lub w dół, "
+        "zależnie od możliwości sesji"
     )
     chord = Chord("Return", ctrl=True, alt=True)
     assert resolve(chord, player_view=False, radio_session=False) is Action.SESSION_OPTIONS
@@ -384,6 +386,56 @@ def test_podcast_inbox_command_explains_repeated_ctrl_i_everywhere() -> None:
         Action.VIEW_PODCAST_INBOX,
         "Podcasty i YouTube",
     ) == f"Ctrl+I. {presentation.description}. Podcasty i YouTube"
+
+
+def test_choose_podcast_inbox_sources_is_one_menu_palette_and_help_command() -> None:
+    action = Action.CHOOSE_PODCAST_INBOX_SOURCES
+    name = "Wybierz źródła skrzynki podcastów"
+    menu_item = next(
+        item for menu in menu_model.menus_for_session(SessionId.PODCASTS)
+        for item in menu.items if item.action is action
+    )
+    palette_item = next(
+        item for item in entries_for_session(SessionId.PODCASTS)
+        if item.action is action
+    )
+    assert menu_item.label.replace("&", "").rstrip("…") == name
+    assert palette_item.name.rstrip("…") == name
+    assert palette_item.shortcut is None
+    assert ("Bez skrótu", name) in describe("Podcasty i YouTube", {action})
+    assert all(
+        not any(item.action is action for item in entries_for_session(session))
+        for session in SessionId if session is not SessionId.PODCASTS
+    )
+
+
+def test_both_source_pickers_are_together_in_settings_when_youtube_is_available() -> None:
+    menus = menu_model.menus_for_session(
+        SessionId.PODCASTS, youtube_account_available=True
+    )
+    settings = next(menu for menu in menus if menu.title.replace("&", "") == "Ustawienia")
+    actions = [item.action for item in settings.items]
+    assert actions.index(Action.CHOOSE_PODCAST_INBOX_SOURCES) + 1 == actions.index(
+        Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS
+    )
+    assert not any(
+        item.action is Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS
+        for menu in menus if menu is not settings for item in menu.items
+    )
+    action = Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS
+    item = next(item for item in settings.items if item.action is action)
+    palette_item = next(
+        entry for entry in entries_for_session(
+            SessionId.PODCASTS, youtube_account_available=True
+        ) if entry.action is action
+    )
+    assert item.label.replace("&", "").rstrip("…") == describe_action(action)
+    assert palette_item.name.rstrip("…") == describe_action(action)
+    assert item.shortcut is palette_item.shortcut is None
+    assert not any(
+        item.action is action for menu in menu_model.menus_for_session(SessionId.PODCASTS)
+        for item in menu.items
+    )
 
 
 def test_schedule_manager_name_and_shortcut_match_palette_and_keyboard_help() -> None:

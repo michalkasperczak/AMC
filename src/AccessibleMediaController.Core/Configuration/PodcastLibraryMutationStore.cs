@@ -44,6 +44,11 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
 
     public int GetInboxCount() => _database.GetInboxCount();
 
+    public int SetInboxSources(
+        IReadOnlyCollection<string> selectedIds,
+        IReadOnlyCollection<string> presentedIds) =>
+        _database.SetInboxSources(selectedIds, presentedIds);
+
     public PodcastFavoriteToggleResult ToggleFavorites(
         IReadOnlyCollection<string> subscriptionIds,
         IReadOnlyCollection<string> episodeIds) =>

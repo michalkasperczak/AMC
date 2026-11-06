@@ -16,7 +16,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class PodcastLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 3;
+    private const int DatabaseSchemaVersion = 4;
     private readonly object _gate = new();
     private static readonly JsonSerializerOptions PayloadJsonOptions = new();
     private DateTime _lastIntegrityCheckUtc;
@@ -88,7 +88,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 command.CommandText = """
                     SELECT downloads_folder, current_item_id, volume, playback_rate,
                            rss_refresh_interval_minutes, youtube_refresh_interval_minutes,
-                           automatic_refresh_batch_size
+                           automatic_refresh_batch_size, inbox_selection_customized
                     FROM podcast_state WHERE singleton = 1;
                     """;
                 using var reader = command.ExecuteReader();
@@ -101,6 +101,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                     settings.RssRefreshIntervalMinutes = reader.GetInt32(4);
                     settings.YouTubeRefreshIntervalMinutes = reader.GetInt32(5);
                     settings.AutomaticRefreshBatchSize = reader.GetInt32(6);
+                    settings.InboxSelectionCustomized = reader.GetInt32(7) != 0;
                 }
             }
 
@@ -144,8 +145,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             INSERT INTO podcast_state(
                 singleton, downloads_folder, current_item_id, volume, playback_rate,
                 rss_refresh_interval_minutes, youtube_refresh_interval_minutes,
-                automatic_refresh_batch_size)
-            VALUES(1, $downloads, $current, $volume, $rate, $rssInterval, $youTubeInterval, $batch)
+                automatic_refresh_batch_size, inbox_selection_customized)
+            VALUES(1, $downloads, $current, $volume, $rate, $rssInterval, $youTubeInterval, $batch, $inboxCustomized)
             ON CONFLICT(singleton) DO UPDATE SET
                 downloads_folder = excluded.downloads_folder,
                 current_item_id = excluded.current_item_id,
@@ -153,7 +154,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 playback_rate = excluded.playback_rate,
                 rss_refresh_interval_minutes = excluded.rss_refresh_interval_minutes,
                 youtube_refresh_interval_minutes = excluded.youtube_refresh_interval_minutes,
-                automatic_refresh_batch_size = excluded.automatic_refresh_batch_size;
+                automatic_refresh_batch_size = excluded.automatic_refresh_batch_size,
+                inbox_selection_customized = excluded.inbox_selection_customized;
             """,
             ("$downloads", settings.DownloadsFolder),
             ("$current", settings.CurrentItemId),
@@ -161,7 +163,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             ("$rate", settings.PlaybackRate),
             ("$rssInterval", settings.RssRefreshIntervalMinutes),
             ("$youTubeInterval", settings.YouTubeRefreshIntervalMinutes),
-            ("$batch", settings.AutomaticRefreshBatchSize));
+            ("$batch", settings.AutomaticRefreshBatchSize),
+            ("$inboxCustomized", settings.InboxSelectionCustomized));
 
         var subscriptionHashes = ReadHashes(connection, transaction, "podcast_subscriptions");
         for (var ordinal = 0; ordinal < settings.Subscriptions.Count; ordinal++)
@@ -615,9 +618,87 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                     ON subscription.id = episode.subscription_id
                 WHERE episode.is_new = 1
                   AND episode.is_played = 0
-                  AND subscription.is_in_library = 1;
+                  AND subscription.is_in_library = 1
+                  AND episode.subscription_id IN (
+                      SELECT id FROM podcast_subscriptions
+                      WHERE is_in_library = 1
+                        AND COALESCE(CAST(json_extract(payload_json,
+                            '$.RefreshIntervalMinutes') AS INTEGER), 60) > 0
+                  );
                 """;
             return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>Jedna transakcja zmienia wyłącznie odstępy wybranych źródeł.</summary>
+    public int SetInboxSources(
+        IReadOnlyCollection<string> selectedIds,
+        IReadOnlyCollection<string> presentedIds)
+    {
+        ArgumentNullException.ThrowIfNull(selectedIds);
+        ArgumentNullException.ThrowIfNull(presentedIds);
+        var selected = selectedIds.ToHashSet(StringComparer.Ordinal);
+        var presented = presentedIds.ToHashSet(StringComparer.Ordinal);
+        if (!selected.IsSubsetOf(presented))
+            throw new ArgumentException("Wybrane źródło nie było na otwartej liście.");
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            var sources = new List<PodcastSubscriptionSettings>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE is_in_library = 1;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var source = JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
+                        reader.GetString(0), PayloadJsonOptions);
+                    if (source is not null && IsRefreshable(source.SourceKind))
+                        sources.Add(source);
+                }
+            }
+            if (presented.Except(sources.Select(source => source.Id), StringComparer.Ordinal).Any())
+                throw new KeyNotFoundException("Niektórych wybranych źródeł nie ma już w Bibliotece. Otwórz wybór ponownie.");
+
+            int rssInterval;
+            int youTubeInterval;
+            using (var state = connection.CreateCommand())
+            {
+                state.CommandText = "SELECT rss_refresh_interval_minutes, youtube_refresh_interval_minutes FROM podcast_state WHERE singleton = 1;";
+                using var reader = state.ExecuteReader();
+                if (!reader.Read()) throw new InvalidOperationException("Brak ustawień podcastów.");
+                rssInterval = reader.GetInt32(0);
+                youTubeInterval = reader.GetInt32(1);
+            }
+            static int SupportedInterval(int value) => value is
+                15 or 30 or 60 or 180 or 360 or 720 or 1440 ? value : 60;
+            using var transaction = connection.BeginTransaction();
+            Execute(connection, transaction,
+                "UPDATE podcast_state SET inbox_selection_customized = 1 WHERE singleton = 1;");
+            foreach (var source in sources.Where(source => presented.Contains(source.Id)))
+            {
+                var interval = selected.Contains(source.Id)
+                    ? source.RefreshIntervalMinutes > 0
+                        ? source.RefreshIntervalMinutes
+                        : source.PreviousInboxRefreshIntervalMinutes > 0
+                            ? source.PreviousInboxRefreshIntervalMinutes
+                            : source.SourceKind is PodcastSourceKind.Rss or PodcastSourceKind.SoundCloudPodcast
+                                ? SupportedInterval(rssInterval)
+                                : SupportedInterval(youTubeInterval)
+                    : 0;
+                if (source.RefreshIntervalMinutes == interval) continue;
+                if (interval == 0 && source.RefreshIntervalMinutes > 0)
+                    source.PreviousInboxRefreshIntervalMinutes = source.RefreshIntervalMinutes;
+                source.RefreshIntervalMinutes = interval;
+                Execute(connection, transaction,
+                    "UPDATE podcast_subscriptions SET payload_json = $payload, content_hash = $hash WHERE id = $id;",
+                    ("$payload", JsonSerializer.Serialize(source, PayloadJsonOptions)),
+                    ("$hash", Fingerprint(source)),
+                    ("$id", source.Id));
+            }
+            transaction.Commit();
+            return selected.Count;
         }
     }
 
@@ -1232,7 +1313,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 addToLibrary: true);
             if (update.AddedSubscription)
             {
-                update.Subscription.RefreshIntervalMinutes = sourceKind switch
+                update.Subscription.RefreshIntervalMinutes = settings.InboxSelectionCustomized
+                    ? 0 : sourceKind switch
                 {
                     PodcastSourceKind.Rss or PodcastSourceKind.SoundCloudPodcast =>
                         settings.RssRefreshIntervalMinutes,
@@ -1620,6 +1702,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         hash.Add(item.HomepageUrl);
         hash.Add(item.LastRefreshUtcTicks);
         hash.Add(item.RefreshIntervalMinutes);
+        hash.Add(item.PreviousInboxRefreshIntervalMinutes);
         hash.Add(item.DownloadsFolder);
         hash.Add((int)item.ResumePositionMode);
         hash.Add(item.PlaybackRateOverride);
@@ -1760,7 +1843,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 id TEXT PRIMARY KEY,
                 removed_utc_ticks INTEGER NOT NULL
             );
-            PRAGMA user_version = 3;
+            PRAGMA user_version = 4;
             """;
         command.ExecuteNonQuery();
 
@@ -1770,6 +1853,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         EnsurePodcastStateColumn(connection, "rss_refresh_interval_minutes", "INTEGER NOT NULL DEFAULT 60");
         EnsurePodcastStateColumn(connection, "youtube_refresh_interval_minutes", "INTEGER NOT NULL DEFAULT 60");
         EnsurePodcastStateColumn(connection, "automatic_refresh_batch_size", "INTEGER NOT NULL DEFAULT 4");
+        EnsurePodcastStateColumn(connection, "inbox_selection_customized", "INTEGER NOT NULL DEFAULT 0");
 
         using var metadata = connection.CreateCommand();
         metadata.CommandText = """

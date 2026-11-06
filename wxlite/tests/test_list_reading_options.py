@@ -8,6 +8,7 @@ from amc_wx_lite.list_sync import model_row_texts
 from amc_wx_lite.state_store import LiteState, Options, StateStore
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.speaker_content import speaker_information_plan
+from amc_wx_lite.quick_info import ordered_quick_info_parts
 
 
 def test_updown_uses_existing_row_and_keeps_title() -> None:
@@ -19,9 +20,12 @@ def test_updown_uses_existing_row_and_keeps_title() -> None:
     model = ListModel()
     model.replace([row])
     only_time = model_row_texts(model, reading_fields=("duration",))
-    assert only_time[0].texts == ("Utwór", "", "3:20")
+    assert only_time[0].texts == ("Utwór", "3:20", "")
     full = model_row_texts(model, reading_fields=list_reading.UPDOWN_FIELDS)
-    assert full[0].texts == ("Odtwarzane, Utwór", "utwór", "Wykonawca, 3:20, ulubione")
+    assert full[0].texts == ("Utwór", "utwór", "Wykonawca, 3:20, ulubione, Odtwarzane")
+
+    reordered = model_row_texts(model, reading_fields=("duration", "artist", "kind"))
+    assert reordered[0].texts == ("Utwór", "3:20", "Wykonawca, utwór")
 
 
 def test_new_list_formats_each_row_once_for_three_columns(monkeypatch) -> None:
@@ -53,9 +57,19 @@ def test_session_override_and_global_are_independent(tmp_path) -> None:
     store = StateStore(tmp_path)
     loaded = store.load_payload(store.to_payload(state))
     assert list_reading.session_fields(loaded.options, loaded.list_reading_overrides.get("files"), "updown", session="files") == ("artist",)
-    assert list_reading.session_fields(loaded.options, loaded.list_reading_overrides.get("files"), "left", session="files") == ("duration", "size")
+    assert list_reading.session_fields(loaded.options, loaded.list_reading_overrides.get("files"), "left", session="files") == ("size", "duration")
     assert list_reading.session_fields(loaded.options, loaded.list_reading_overrides.get("tidal"), "left", session="tidal") == ("duration",)
     assert loaded.options.list_updown_fields == ["duration"]
+
+
+def test_global_order_survives_save_and_filters_unknown_duplicate_fields(tmp_path) -> None:
+    state = LiteState(options=Options())
+    state.options.list_updown_fields = ["duration", "kind", "duration", "unknown"]
+    state.options.list_left_fields = ["size", "bitrate", "duration", "size"]
+    store = StateStore(tmp_path)
+    loaded = store.load_payload(store.to_payload(state))
+    assert loaded.options.list_updown_fields == ["duration", "kind"]
+    assert loaded.options.list_left_fields == ["size", "bitrate", "duration"]
 
 
 def test_capabilities_hide_unavailable_fields() -> None:
@@ -73,3 +87,13 @@ def test_speaker_other_only_does_not_probe_stream() -> None:
     measured = speaker_information_plan(row, session=SessionId.WIIM, view="list", fields=("bitrate", "format"))
     assert measured.request is not None
     assert measured.request["fields"] == ["bitrate", "format"]
+
+
+def test_left_arrow_merges_measured_and_local_values_in_selected_order() -> None:
+    response = {"text": "3:20, 128 kb/s", "parts": [
+        {"field": "duration", "text": "3:20"},
+        {"field": "bitrate", "text": "128 kb/s"},
+    ]}
+    assert ordered_quick_info_parts(
+        response, ("bitrate", "other", "duration"), "folder Muzyka"
+    ) == ["128 kb/s", "folder Muzyka", "3:20"]

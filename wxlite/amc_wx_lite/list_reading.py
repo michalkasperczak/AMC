@@ -45,8 +45,8 @@ def available_left_fields(session: str) -> tuple[str, ...]:
 def normalize_fields(value: object, allowed: tuple[str, ...]) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return list(allowed)
-    chosen = set(item for item in value if isinstance(item, str))
-    return [item for item in allowed if item in chosen]
+    known = set(allowed)
+    return list(dict.fromkeys(item for item in value if isinstance(item, str) and item in known))
 
 
 def session_fields(options, overrides: Mapping[str, object] | None, direction: str, *, session: str = "") -> tuple[str, ...]:
@@ -69,29 +69,23 @@ def duration_text(ticks: int) -> str:
 
 def row_columns(row: Row, fields: Sequence[str]) -> tuple[str, str, str]:
     """Wyłącznie dane już zapisane w Row; żaden ruch kursora nie pyta hosta."""
-    selected = set(fields)
     title = row.title
-    if "status" in selected:
-        if row.state_prefix:
-            title = f"{row.state_prefix} {title}"
-        if row.playback_state:
-            title = f"{row.playback_state}, {title}"
-    kind = row.kind_label if "kind" in selected and row.show_kind else ""
     artist = row.artist_name.strip()
     duration = duration_text(row.duration_ticks) if row.duration_ticks > 0 else ""
-    values: list[str] = []
-    if "artist" in selected and artist:
-        values.append(artist)
-    if "duration" in selected and duration:
-        values.append(duration)
-    if "other" in selected and row.detail:
-        # Wiersze TIDAL i Spotify niosą wykonawcę i czas także w detail.
-        # Usuwamy tylko całe, dokładnie rozpoznane części; reszta zostaje.
-        remainder = [piece.strip() for piece in row.detail.split(", ")
-                     if piece.strip() and piece.strip() not in (artist, duration)]
-        values.extend(remainder)
-    if "status" in selected and row.state_detail.strip():
-        values.append(row.state_detail.strip())
-    # Jeden sens czytamy raz, nawet jeśli źródło podało go w dwóch polach.
-    unique = list(dict.fromkeys(value for value in values if value and value != title and value != kind))
-    return title, kind, ", ".join(unique)
+    # Trzy natywne kolumny pozostają, ale ich treść wynika z kolejności pól.
+    # Nazwa pozycji jest zawsze pierwsza; pozostałe wartości nie uruchamiają I/O.
+    details = [piece.strip() for piece in row.detail.split(", ")
+               if piece.strip() and piece.strip() not in (artist, duration)]
+    values_by_field = {
+        "kind": [row.kind_label] if row.show_kind else [],
+        "artist": [artist],
+        "duration": [duration],
+        "other": details,
+        "status": [row.playback_state, row.state_prefix, row.state_detail.strip()],
+    }
+    ordered: list[str] = []
+    for field in fields:
+        for value in values_by_field.get(field, ()):
+            if value and value != title and value not in ordered:
+                ordered.append(value)
+    return title, ordered[0] if ordered else "", ", ".join(ordered[1:])

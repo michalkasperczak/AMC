@@ -15,6 +15,7 @@ from .navigation import LibraryView, SessionId
 from .quick_info import (
     NO_SOURCE_MESSAGE,
     QuickInfoGuard,
+    ordered_quick_info_parts,
     quick_info_request,
 )
 from .search_catalog import SearchEntry
@@ -116,13 +117,17 @@ def speaker_information_text(
         return ""
     if location == "adres nieudostępniony przez Sonos":
         location = ""
-    parts = _distinct((
-        useful_measurement,
-        row.artist_name if "artist" in fields else "",
-        speaker_kind_label(row) if "other" in fields else "",
-        row.detail if "other" in fields else "",
-        location if "other" in fields else "",
-    ))
+    values: list[str] = []
+    measurement_added = False
+    for field in fields:
+        if field in ("duration", "bitrate", "format", "sampleRate") and not measurement_added:
+            values.append(useful_measurement)
+            measurement_added = True
+        elif field == "artist":
+            values.append(row.artist_name)
+        elif field == "other":
+            values.extend((speaker_kind_label(row), row.detail, location))
+    parts = _distinct(values)
     return ", ".join(parts)
 
 
@@ -205,7 +210,11 @@ def speaker_information_reply(
     if not plan.guard.accepts(item_id=item_id, session=session, view=view):
         return
     measured = str((response or {}).get("text") or "").strip()
-    message = speaker_information_text(plan.row, measured, fields=plan.fields)
+    if plan.fields is not None and isinstance((response or {}).get("parts"), list):
+        other = speaker_information_text(plan.row, fields=("other",))
+        message = ", ".join(ordered_quick_info_parts(response, plan.fields, other))
+    else:
+        message = speaker_information_text(plan.row, measured, fields=plan.fields)
     if message:
         say(message)
 

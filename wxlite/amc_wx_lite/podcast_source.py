@@ -54,6 +54,7 @@ class PodcastSubscription:
     # Trwała kolejność z ``podcast_subscriptions.ordinal``. Pozostaje danymi
     # modelu i nigdy nie wchodzi do etykiety dostępnościowej wiersza.
     ordinal: int = 0
+    refresh_interval_minutes: int = 0
 
     @property
     def kind_label(self) -> str:
@@ -580,6 +581,7 @@ class PodcastSource:
                 feed_url=str(record["feed_url"] or "").strip(),
                 author=_author_label(_get(data, "Author", "")),
                 ordinal=_as_int(record["ordinal"]),
+                refresh_interval_minutes=_as_int(_get(data, "RefreshIntervalMinutes", 60)),
             ))
         return result
 
@@ -1570,6 +1572,12 @@ class PodcastSource:
                       ON s.id = e.subscription_id
                     WHERE e.is_new = 1 AND e.is_played = 0
                       AND s.is_in_library = 1
+                      AND e.subscription_id IN (
+                          SELECT id FROM podcast_subscriptions
+                          WHERE is_in_library = 1
+                            AND COALESCE(CAST(json_extract(payload_json,
+                                '$.RefreshIntervalMinutes') AS INTEGER), 60) > 0
+                      )
                 """).fetchall()
         except sqlite3.Error as error:
             raise PodcastProfileError(
@@ -1599,6 +1607,12 @@ class PodcastSource:
             FROM podcast_episodes AS e
             JOIN podcast_subscriptions AS s ON s.id = e.subscription_id
             WHERE e.is_new = 1 AND e.is_played = 0 AND s.is_in_library = 1
+              AND e.subscription_id IN (
+                  SELECT id FROM podcast_subscriptions
+                  WHERE is_in_library = 1
+                    AND COALESCE(CAST(json_extract(payload_json,
+                        '$.RefreshIntervalMinutes') AS INTEGER), 60) > 0
+              )
         """
         fields = """
             SELECT e.id, e.subscription_id, e.title, e.published_utc_ticks,

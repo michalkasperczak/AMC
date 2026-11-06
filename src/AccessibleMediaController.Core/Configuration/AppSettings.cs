@@ -1011,6 +1011,9 @@ public sealed class PodcastSettings
     /// </summary>
     public int YouTubeRefreshIntervalMinutes { get; set; } = 60;
 
+    /// <summary>Po pierwszym wyborze nowe źródła czekają na jawne zaznaczenie.</summary>
+    public bool InboxSelectionCustomized { get; set; }
+
     /// <summary>
     /// Nadaje odstep odswiezania zrodlom w bibliotece, ktore go nie maja.
     /// Wersje do 353 ustawialy odstep TYLKO kanalom YouTube, wiec kanaly RSS
@@ -1020,6 +1023,7 @@ public sealed class PodcastSettings
     /// </summary>
     public int ApplyDefaultRefreshIntervals()
     {
+        if (InboxSelectionCustomized) return 0;
         var repaired = 0;
         foreach (var subscription in Subscriptions)
         {
@@ -1075,6 +1079,8 @@ public sealed class PodcastSubscriptionSettings
     public string? HomepageUrl { get; set; }
     public long LastRefreshUtcTicks { get; set; }
     public int RefreshIntervalMinutes { get; set; }
+    /// <summary>Ostatni odstęp przed wyłączeniem źródła w skrzynce.</summary>
+    public int PreviousInboxRefreshIntervalMinutes { get; set; }
     public string? DownloadsFolder { get; set; }
     public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
     public double? PlaybackRateOverride { get; set; }

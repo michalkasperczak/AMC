@@ -1691,9 +1691,9 @@ class MediaListCtrl(wx.ListCtrl):
         #: kontrolka nic w nim nie zmienia. ``None`` = brak wiedzy o widoku, co
         #: wylacza pelna podmiane (bezpieczny domysl: przyrostowo).
         self.state = state
-        self._column_labels = ("Nazwa", "Rodzaj", "Szczegoly")
+        self._column_labels = ("Nazwa", "Informacja", "Dalsze informacje")
         self.InsertColumn(0, i18n.ui_text(self._column_labels[0]), width=420)
-        self.InsertColumn(1, i18n.ui_text(self._column_labels[1]), width=120)
+        self.InsertColumn(1, i18n.ui_text(self._column_labels[1]), width=180)
         self.InsertColumn(2, i18n.ui_text(self._column_labels[2]), width=260)
         #: Stan POKAZANY w kontrolce. Jedyne zrodlo prawdy do porownania --
         #: odczytywanie tekstow z ``GetItemText`` przy kazdym odswiezeniu
@@ -4720,6 +4720,130 @@ class ServiceAccountDialog(wx.Dialog):
             self.login_button.SetFocus()
 
 
+class PodcastInboxSourcesDialog(wx.Dialog):
+    """Zbiorczy wybór źródeł skrzynki z trwałym stanem podczas filtrowania."""
+
+    def __init__(self, parent: wx.Window, sources) -> None:
+        text = i18n.ui_text
+        super().__init__(
+            parent, title=text("Wybierz źródła skrzynki podcastów"),
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
+        )
+        self.SetName(text("Wybierz źródła skrzynki podcastów"))
+        self._sources = tuple(sources)
+        self._selected = {
+            source.subscription_id: source.refresh_interval_minutes > 0
+            for source in self._sources
+        }
+        self._visible = list(self._sources)
+        self.result_ids: list[str] | None = None
+
+        explanation = wx.StaticText(
+            self,
+            label=text(
+                "Zaznaczone źródła AMC pokazuje pod Ctrl+I. Podcasty i kanały "
+                "YouTube sprawdza automatycznie; strony Facebooka sprawdza się ręcznie. "
+                "Pozostałe źródła możesz sprawdzić przez F5. Zapisane materiały "
+                "pozostają w Bibliotece."
+            ),
+        )
+        explanation.SetName(text("Informacja o źródłach skrzynki podcastów"))
+        explanation.Wrap(680)
+        self.filter_box = wx.TextCtrl(self)
+        self.filter_box.SetName(text("Filtruj źródła skrzynki podcastów"))
+        self.sources = wx.CheckListBox(self, style=wx.LB_SINGLE)
+        self.sources.SetName(text("Źródła skrzynki podcastów"))
+        self.status = wx.StaticText(self, label="")
+        self.status.SetName(text("Liczba źródeł skrzynki podcastów"))
+
+        select_visible = wx.Button(self, label=text("Zaznacz &widoczne"))
+        select_visible.SetName(text("Zaznacz widoczne źródła skrzynki"))
+        clear_visible = wx.Button(self, label=text("Odznacz w&idoczne"))
+        clear_visible.SetName(text("Odznacz widoczne źródła skrzynki"))
+        save = wx.Button(self, wx.ID_OK, text("&Zapisz"))
+        save.SetName(text("Zapisz źródła skrzynki podcastów"))
+        cancel = wx.Button(self, wx.ID_CANCEL, text("&Anuluj"))
+        cancel.SetName(text("Anuluj wybór źródeł skrzynki podcastów"))
+
+        actions = wx.BoxSizer(wx.HORIZONTAL)
+        actions.Add(select_visible, 0, wx.RIGHT, 8)
+        actions.Add(clear_visible, 0)
+        buttons = wx.StdDialogButtonSizer()
+        buttons.AddButton(save)
+        buttons.AddButton(cancel)
+        buttons.Realize()
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(explanation, 0, wx.ALL | wx.EXPAND, 12)
+        layout.Add(self.filter_box, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        layout.Add(self.sources, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
+        layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
+        layout.Add(actions, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        layout.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(layout)
+        self.SetMinSize((700, 460))
+        self.SetSize((760, 560))
+
+        self.filter_box.Bind(wx.EVT_TEXT, self._on_filter)
+        self.sources.Bind(wx.EVT_CHECKLISTBOX, self._on_checked)
+        select_visible.Bind(wx.EVT_BUTTON, lambda _e: self._set_visible(True))
+        clear_visible.Bind(wx.EVT_BUTTON, lambda _e: self._set_visible(False))
+        save.Bind(wx.EVT_BUTTON, self._on_save)
+        self._render()
+        wx.CallAfter(self.sources.SetFocus if self._visible else self.filter_box.SetFocus)
+
+    def _render(self) -> None:
+        self.sources.Clear()
+        for index, source in enumerate(self._visible):
+            self.sources.Append(f"{source.title}, {i18n.ui_text(source.kind_label)}")
+            self.sources.Check(index, self._selected[source.subscription_id])
+        if self._visible:
+            first_checked = next(
+                (index for index, source in enumerate(self._visible)
+                 if self._selected[source.subscription_id]), 0,
+            )
+            self.sources.SetSelection(first_checked)
+        self._update_status()
+
+    def _update_status(self) -> None:
+        chosen = sum(self._selected.values())
+        if i18n.active_language() == i18n.ENGLISH:
+            label = (f"Selected {chosen} of {len(self._sources)} sources. "
+                     f"Visible after filtering: {len(self._visible)}.")
+        else:
+            label = (f"Wybrano {chosen} z {len(self._sources)} źródeł. "
+                     f"Widoczne po filtrze: {len(self._visible)}.")
+        self.status.SetLabel(label)
+
+    def _on_filter(self, _event: wx.CommandEvent) -> None:
+        query = self.filter_box.GetValue().strip().casefold()
+        self._visible = [
+            source for source in self._sources
+            if query in source.title.casefold()
+            or query in i18n.ui_text(source.kind_label).casefold()
+        ]
+        self._render()
+
+    def _on_checked(self, event: wx.CommandEvent) -> None:
+        index = event.GetInt()
+        if 0 <= index < len(self._visible):
+            source_id = self._visible[index].subscription_id
+            self._selected[source_id] = self.sources.IsChecked(index)
+            self._update_status()
+
+    def _set_visible(self, checked: bool) -> None:
+        for source in self._visible:
+            self._selected[source.subscription_id] = checked
+        self._render()
+        self.sources.SetFocus()
+
+    def _on_save(self, _event: wx.CommandEvent) -> None:
+        self.result_ids = [
+            source.subscription_id for source in self._sources
+            if self._selected[source.subscription_id]
+        ]
+        self.EndModal(wx.ID_OK)
+
+
 class YouTubeLiveChannelPickerDialog(wx.Dialog):
     """Jawny wybór kanałów do oszczędnego skanu Ctrl+Shift+I."""
 
@@ -4731,10 +4855,10 @@ class YouTubeLiveChannelPickerDialog(wx.Dialog):
     ) -> None:
         super().__init__(
             parent,
-            title="Kanały zbiorczej listy transmisji",
+            title=i18n.ui_text("Wybierz kanały do sprawdzania transmisji na żywo"),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
-        self.SetName("Kanały zbiorczej listy transmisji")
+        self.SetName(i18n.ui_text("Wybierz kanały do sprawdzania transmisji na żywo"))
         self._channel_ids = [channel.subscription_id for channel in channels]
         selected = set(selected_ids)
         self.result_ids: list[str] | None = None
@@ -6415,6 +6539,54 @@ class SessionSelectionDialog(wx.Dialog):
         event.Skip()
 
 
+class ReadingFieldsList(wx.CheckListBox):
+    """Checked fields in their spoken order; Alt+Up/Down moves the focused item."""
+
+    def __init__(self, parent, heading: str, allowed, labels, selected) -> None:
+        chosen = list(list_reading.normalize_fields(selected, tuple(allowed)))
+        self.fields = chosen + [field for field in allowed if field not in chosen]
+        super().__init__(parent, choices=[i18n.ui_text(labels[field]) for field in self.fields], style=wx.LB_SINGLE)
+        instructions = i18n.ui_text("Spacja wybiera pole. Alt+strzałka w górę lub w dół zmienia kolejność")
+        self.SetName(f"{i18n.ui_text(heading)}. {instructions}")
+        self.SetHelpText(i18n.ui_text(
+            "Zaznacz pole i użyj Alt+strzałka w górę lub Alt+strzałka w dół, aby zmienić kolejność odczytu."
+        ))
+        self.SetMinSize((300, min(260, max(120, len(self.fields) * 24))))
+        for index in range(len(chosen)):
+            self.Check(index, True)
+        if self.fields:
+            self.SetSelection(0)
+        self.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+
+    def _on_key_down(self, event) -> None:
+        if event.AltDown() and not event.ControlDown() and not event.ShiftDown():
+            if event.GetKeyCode() == wx.WXK_UP:
+                self.move_selected(-1)
+                return
+            if event.GetKeyCode() == wx.WXK_DOWN:
+                self.move_selected(1)
+                return
+        event.Skip()
+
+    def move_selected(self, delta: int) -> bool:
+        index = self.GetSelection()
+        target = index + delta
+        if index < 0 or target < 0 or target >= len(self.fields):
+            return False
+        first_checked, second_checked = self.IsChecked(index), self.IsChecked(target)
+        self.fields[index], self.fields[target] = self.fields[target], self.fields[index]
+        first, second = self.GetString(index), self.GetString(target)
+        self.SetString(index, second)
+        self.SetString(target, first)
+        self.Check(index, second_checked)
+        self.Check(target, first_checked)
+        self.SetSelection(target)
+        return True
+
+    def selected_fields(self) -> list[str]:
+        return [field for index, field in enumerate(self.fields) if self.IsChecked(index)]
+
+
 class SessionOptionsDialog(wx.Dialog):
     """Ustawienia jednej sesji, bez technicznych wartości w mowie.
 
@@ -6636,7 +6808,7 @@ class SessionOptionsDialog(wx.Dialog):
              ("Własne ustawienia tej sesji", True)),
             True if self._reading_override is not None else None,
         )
-        self._reading_checks = {}
+        self._reading_lists = {}
         for direction, label, allowed, labels, key in (
             ("updown", "Strzałki góra i dół", list_reading.UPDOWN_FIELDS,
              list_reading.UPDOWN_LABELS, "list_updown_fields"),
@@ -6652,15 +6824,10 @@ class SessionOptionsDialog(wx.Dialog):
                 if isinstance(self._reading_override, dict)
                 else getattr(options, key)
             )
-            checks = self._reading_checks[direction] = {}
-            for field in allowed:
-                field_label = labels[field]
-                control = wx.CheckBox(panel, label=field_label)
-                control.SetName(f"{label}: {field_label}")
-                control.SetValue(field in current_fields)
-                checks[field] = control
-                grid.Add(control, 0, wx.EXPAND)
-                grid.AddSpacer(1)
+            control = ReadingFieldsList(panel, label, allowed, labels, current_fields)
+            self._reading_lists[direction] = control
+            grid.Add(control, 0, wx.EXPAND)
+            grid.AddSpacer(1)
         self.reading_mode.Bind(wx.EVT_CHOICE, self._on_reading_mode)
         self._on_reading_mode(None)
 
@@ -6680,23 +6847,16 @@ class SessionOptionsDialog(wx.Dialog):
 
     def _on_reading_mode(self, _event) -> None:
         own = self._value(self.reading_mode) is True
-        for checks in self._reading_checks.values():
-            for control in checks.values():
-                control.Enable(own)
+        for control in self._reading_lists.values():
+            control.Enable(own)
 
     @property
     def reading_override(self) -> dict | None:
         if self._value(self.reading_mode) is not True:
             return None
         return {
-            "list_updown_fields": [
-                field for field in list_reading.UPDOWN_FIELDS
-                if self._reading_checks["updown"][field].GetValue()
-            ],
-            "list_left_fields": [
-                field for field in self._reading_checks["left"]
-                if self._reading_checks["left"][field].GetValue()
-            ],
+            "list_updown_fields": self._reading_lists["updown"].selected_fields(),
+            "list_left_fields": self._reading_lists["left"].selected_fields(),
         }
 
     def _add_choice(self, panel, grid, label, name, choices, current) -> wx.Choice:
@@ -8833,7 +8993,7 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
 
         # Dwie niezależne sekcje: nawigacja czyta tylko gotowy wiersz,
         # lewa strzałka może wykonać jawny pomiar parametrów pliku.
-        self.list_reading_checks = {}
+        self.list_reading_lists = {}
         for direction, heading, allowed, labels, selected in (
             ("updown", "Odczyt listy: strzałki góra i dół",
              list_reading.UPDOWN_FIELDS, list_reading.UPDOWN_LABELS,
@@ -8845,14 +9005,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             title = wx.StaticText(messages, label=heading)
             title.SetName(heading)
             messages_layout.Add(title, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 8)
-            checks = self.list_reading_checks[direction] = {}
-            for field in allowed:
-                label = labels[field]
-                control = wx.CheckBox(messages, label=label)
-                control.SetName(f"{heading}: {label}")
-                control.SetValue(field in selected)
-                checks[field] = control
-                messages_layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 6)
+            control = ReadingFieldsList(messages, heading, allowed, labels, selected)
+            self.list_reading_lists[direction] = control
+            messages_layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 6)
 
         self.detailed_hints = wx.CheckBox(
             messages,
@@ -9515,14 +9670,8 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "message_bookmark_navigation_messages": (
                 self.message_bookmark_navigation_messages.GetValue()
             ),
-            "list_updown_fields": [
-                field for field in list_reading.UPDOWN_FIELDS
-                if self.list_reading_checks["updown"][field].GetValue()
-            ],
-            "list_left_fields": [
-                field for field in list_reading.LEFT_FIELDS
-                if self.list_reading_checks["left"][field].GetValue()
-            ],
+            "list_updown_fields": self.list_reading_lists["updown"].selected_fields(),
+            "list_left_fields": self.list_reading_lists["left"].selected_fields(),
             "message_percent_announcement": self._message_percent_values[
                 max(0, self.message_percent_announcement.GetSelection())
             ].value,
@@ -11519,6 +11668,7 @@ class LiteFrame(wx.Frame):
         if (
             SessionId.SPOTIFY in sessions
             and getattr(self, "navigator", None) is not None
+            and SessionId.SPOTIFY in self.navigator.sessions
         ):
             spotify_snapshot = tuple(
                 self.navigator.sessions[SessionId.SPOTIFY].model.rows
@@ -15897,6 +16047,8 @@ class LiteFrame(wx.Frame):
             self._schedule_youtube_live_recording()
         elif action is Action.VIEW_PODCAST_INBOX:
             self._show_podcast_inbox()
+        elif action is Action.CHOOSE_PODCAST_INBOX_SOURCES:
+            self._choose_podcast_inbox_sources()
         elif action is Action.VIEW_PODCAST_DOWNLOADS:
             self._show_podcast_downloads()
         elif action in (
@@ -23227,6 +23379,61 @@ class LiteFrame(wx.Frame):
             initial_start=initial_start,
         )
 
+    def _choose_podcast_inbox_sources(self) -> None:
+        """Wybór z Biblioteki, atomowy zapis przez hosta i powrót fokusu."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zapisać źródeł skrzynki")
+            return
+
+        def prepared(sources) -> None:
+            eligible = [
+                source for source in sources if source.source_kind in (0, 2, 3, 4, 5)
+            ]
+            with PodcastInboxSourcesDialog(self, eligible) as dialog:
+                accepted = dialog.ShowModal() == wx.ID_OK
+                chosen = dialog.result_ids
+            if not accepted or chosen is None:
+                self._restore_focus_after_dialog()
+                return
+
+            def saved(payload: dict) -> None:
+                count = int((payload or {}).get("selected") or 0)
+                message = f"Zapisano źródła skrzynki podcastów: {count}"
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                if (self.navigator.active is SessionId.PODCASTS
+                    and state.view is View.LIST
+                    and state.library_view is LibraryView.PODCAST_INBOX):
+                    self._open_podcast_aggregate(
+                        OpenPodcastAggregateView(LibraryView.PODCAST_INBOX),
+                        completion_message=message,
+                    )
+                else:
+                    self.announcer.say(message)
+                    self._restore_focus_after_dialog()
+
+            def save_failed(error: Exception) -> None:
+                self.announcer.say(f"Nie zapisano źródeł skrzynki podcastów: {error}")
+                self._restore_focus_after_dialog()
+
+            self.runner.submit(
+                "podcast-inbox-sources-save",
+                lambda: client.set_podcast_inbox_sources(
+                    chosen, [source.subscription_id for source in eligible]
+                ),
+                saved, save_failed,
+            )
+
+        self.runner.submit(
+            "podcast-inbox-sources-read",
+            self.podcasts.subscriptions,
+            prepared,
+            lambda error: self.announcer.say(
+                str(error) if isinstance(error, PodcastProfileError)
+                else "Nie udało się odczytać źródeł skrzynki podcastów"
+            ),
+        )
+
     def _show_podcast_inbox(self) -> None:
         """Ctrl+I: otwórz podgląd albo doładuj kolejne 150 pozycji."""
         podcast_state = self.navigator.sessions[SessionId.PODCASTS]
@@ -25960,14 +26167,15 @@ class LiteFrame(wx.Frame):
                 return
             parts: list[str] = []
             has_duration = row.duration_ticks > 0 and "duration" in left_fields
-            if has_duration:
-                parts.append(format_duration(row.duration_ticks / 10_000_000))
-                if row.kind == "track":
-                    parts.append(row.title)
-            if row.artist_name and "artist" in left_fields and not (
-                row.kind == "track" and has_duration
-            ):
-                parts.append(row.artist_name)
+            for field in left_fields:
+                if field == "duration" and has_duration:
+                    parts.append(format_duration(row.duration_ticks / 10_000_000))
+                    if row.kind == "track":
+                        parts.append(row.title)
+                elif field == "artist" and row.artist_name and not (
+                    row.kind == "track" and has_duration
+                ):
+                    parts.append(row.artist_name)
             if parts:
                 self.announcer.say(", ".join(parts))
             return
@@ -26078,6 +26286,7 @@ class LiteFrame(wx.Frame):
                 say=self.announcer.say,
                 extra_detail=folder_detail if "other" in left_fields else None,
                 omit_missing=True,
+                fields=left_fields,
             )
 
         cache = getattr(self, "_quick_info_cache", None)

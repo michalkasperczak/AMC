@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 import amc_wx_lite.podcast_source as podcast_source_module
@@ -424,6 +425,31 @@ def test_inbox_contains_only_new_unplayed_library_items_with_parent_labels() -> 
         spoken = " ".join(row.title + " " + row.detail for row in page.rows)
         assert "new-rss" not in spoken and "new-yt" not in spoken
         assert page.order_matches_amc
+
+
+def test_manual_only_source_stays_in_library_but_not_in_any_inbox_order() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(path, item_id="rss-new", subscription_id="rss-id",
+                        title="Podcast", ordinal=0, published=200)
+        _insert_episode(path, item_id="yt-new", subscription_id="yt-id",
+                        title="Film", ordinal=1, published=300)
+        with closing(sqlite3.connect(path)) as connection:
+            data = json.loads(connection.execute(
+                "SELECT payload_json FROM podcast_subscriptions WHERE id = 'yt-id'"
+            ).fetchone()[0])
+            data["RefreshIntervalMinutes"] = 0
+            connection.execute(
+                "UPDATE podcast_subscriptions SET payload_json = ? WHERE id = 'yt-id'",
+                (json.dumps(data),),
+            )
+            connection.commit()
+        source = PodcastSource(private_sandbox(base))
+        assert any(item.subscription_id == "yt-id" for item in source.subscriptions())
+        for mode in (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM):
+            page = source.inbox(sort_mode=mode, collation=_ExactCasefoldCollation())
+            assert [row.item_id for row in page.rows] == ["rss-new"]
 
 
 def test_inbox_supports_the_three_orders_from_the_full_amc() -> None:

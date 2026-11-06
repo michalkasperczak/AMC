@@ -85,6 +85,22 @@ public static class LiteQuickInformation
 {
     public const string Operation = "media.quickInformation";
 
+    /// <summary>Individual values for the requested order, including gaps for unavailable data.</summary>
+    public static IReadOnlyList<(string Field, string Text)> BuildFieldParts(
+        LiteQuickInfoRequest request, LiteQuickInfoProbe probe, CultureInfo? culture = null)
+    {
+        var fields = request.Fields ??
+            ["duration", "bitrate", "size", "format", "sampleRate", "artist", "country", "language", "cloud"];
+        var parts = new List<(string Field, string Text)>();
+        foreach (var field in fields)
+        {
+            var text = Build(request with { Fields = [field] }, probe, culture);
+            if (!string.IsNullOrWhiteSpace(text))
+                parts.Add((field, text));
+        }
+        return parts;
+    }
+
     public static LiteQuickInfoRequest ReadRequest(JsonElement args)
     {
         var podcastMediaLength = ReadLong(args, "podcastMediaLength");
