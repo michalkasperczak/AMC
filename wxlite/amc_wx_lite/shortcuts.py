@@ -1283,6 +1283,13 @@ FRONTIER_SMART_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 
 
+def shortcut_enabled_in_view(action: Action, *, player_view: bool) -> bool:
+    """Whether an action's advertised key works in the current view."""
+    return player_view or action not in {
+        Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class Chord:
     """Klawisz + modyfikatory. Nazwy klawiszy wlasne, zeby nie wiazac sie z wx."""
@@ -2961,8 +2968,8 @@ def describe_action(
             return i18n.command_description(action.value, queue_labels[action])
     if (session_label or "").casefold() == "tidal":
         tidal_labels = {
-            Action.QUEUE_NEXT: "Następny utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
-            Action.QUEUE_PREVIOUS: "Poprzedni utwór TIDAL z bieżącej listy lub oryginalnego odtwarzacza",
+            Action.QUEUE_NEXT: "Przejdź do następnego utworu TIDAL",
+            Action.QUEUE_PREVIOUS: "Przejdź do poprzedniego utworu TIDAL",
             Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC Test",
             Action.SEEK_INPUT_TIME: "Skocz do wpisanego czasu utworu TIDAL w AMC Test",
             Action.SEEK_INPUT_PERCENT: "Skocz do wpisanego procentu utworu TIDAL w AMC Test",
