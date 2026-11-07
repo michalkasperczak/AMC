@@ -10,20 +10,23 @@ internal static class TidalNativePlayRequestTests
 
     public static void Run()
     {
-        AcceptsOnlyExplicitTestProfile();
+        AcceptsOnlyKnownTidalProfiles();
         ParsesOneLocalTrackWithoutUpstreamData();
         RejectsUnsafeUrlsAndExtraData();
         RejectsBadIdentityTitleAndDuration();
+        PreservesSourceRateAndLabelsPcmSeparately();
         Console.WriteLine("TidalNativePlayRequestTests: OK");
     }
 
-    private static void AcceptsOnlyExplicitTestProfile()
+    private static void AcceptsOnlyKnownTidalProfiles()
     {
         Assert.True(LiteTidalNativePlayRequest.IsEnabledForProfile("test"),
             "TIDAL native w AMC Test jest dostępny.");
-        foreach (var profile in new string?[] { null, "", "public", "Test", "unknown" })
+        Assert.True(LiteTidalNativePlayRequest.IsEnabledForProfile("public"),
+            "TIDAL native w AMC Public jest dostępny.");
+        foreach (var profile in new string?[] { null, "", "Test", "Public", "unknown" })
             Assert.True(!LiteTidalNativePlayRequest.IsEnabledForProfile(profile),
-                "Publiczny, nieznany i brak profilu nie mogą uruchomić TIDAL native.");
+                "Nieznany i brak profilu nie mogą uruchomić TIDAL native.");
         Assert.True(!LiteTidalNativePlayRequest.DisabledMessage.Contains("http", StringComparison.Ordinal),
             "Odmowa profilu nie ujawnia adresu proxy.");
     }
@@ -106,6 +109,31 @@ internal static class TidalNativePlayRequestTests
     {
         using var document = JsonDocument.Parse(json);
         return LiteTidalNativePlayRequest.Parse(document.RootElement);
+    }
+
+    private static void PreservesSourceRateAndLabelsPcmSeparately()
+    {
+        var parsed = Parse($$"""
+            {"id":"42","title":"Max","proxyUrl":"{{Url}}.mpd","durationSeconds":8,
+             "sampleRateHz":192000,"sourceQualityLabel":"Max, FLAC 24 bit, 192 kHz"}
+            """);
+        Assert.True(parsed.SampleRateHz == 192000, "częstotliwość źródła trafia do silnika");
+        Assert.Equal("Max, FLAC 24 bit, 192 kHz", parsed.SourceQualityLabel!, "opis źródła");
+        var text = LiteTidalNativePlayRequest.FormatPlaybackText(
+            parsed.Title, parsed.SourceQualityLabel!, 5612, 192000);
+        Assert.True(text.Contains("źródło Max, FLAC 24 bit, 192 kHz", StringComparison.Ordinal)
+                    && text.Contains("5612 kb/s", StringComparison.Ordinal)
+                    && text.Contains("PCM w silniku 192 kHz", StringComparison.Ordinal),
+            "NVDA odróżnia format źródła i PCM");
+        Assert.True(LiteTidalNativePlayRequest.FormatPlaybackText("AAC", "stratna, AAC", 321, 44100)
+                .Contains("PCM w silniku 44,1 kHz", StringComparison.Ordinal), "polski zapis częstotliwości");
+        foreach (var value in new[] { "0", "384001", "true", "44100.5", "\"192000\"" })
+            ExpectRejected($$"""
+                {"id":"42","title":"Max","proxyUrl":"{{Url}}","durationSeconds":8,"sampleRateHz":{{value}}}
+                """, "nieprawidłowa częstotliwość");
+        ExpectRejected($$"""
+            {"id":"42","title":"Max","proxyUrl":"{{Url}}","durationSeconds":8,"sourceQualityLabel":"Max\nsekret"}
+            """, "opis źródła nie może zawierać znaków sterujących");
     }
 
     private static void ExpectRejected(string json, string reason)

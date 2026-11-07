@@ -20,7 +20,7 @@ internal static class TransientFlacOutputTests
         try
         {
             var flacPath = Path.Combine(root, "tone.flac");
-            CreateFlac(ffmpeg, flacPath);
+            CreateAudio(ffmpeg, flacPath);
             using var server = new LocalFlacServer(await File.ReadAllBytesAsync(flacPath));
             var transientUri = server.StreamUri;
             var item = new MediaItem
@@ -51,6 +51,45 @@ internal static class TransientFlacOutputTests
                 "Przewijanie sieciowego FLAC nie osiągnęło żądanej pozycji.");
             Assert(server.RequestCount >= 2,
                 "FFmpeg nie pobrał źródła ponownie po przewinięciu.");
+
+            // Exercise the real decoder at source rates, including byte-based
+            // duration and seeking, so a 48 kHz declaration cannot hide resampling.
+            foreach (var sampleRate in new[] { 44_100, 96_000, 192_000 })
+            {
+                var ratePath = Path.Combine(root, $"tone-{sampleRate}.flac");
+                CreateAudio(ffmpeg, ratePath, sampleRate);
+                using var rateServer = new LocalFlacServer(await File.ReadAllBytesAsync(ratePath));
+                using var rateReader = WindowsMediaOutput.OpenTransientFlacReader(
+                    item.Source, rateServer.StreamUri.AbsoluteUri, item.Duration, sampleRate);
+                Assert(rateReader.WaveFormat.SampleRate == sampleRate,
+                    $"Dekoder zmienił częstotliwość źródła {sampleRate} Hz.");
+                Assert(rateReader.Length == 8L * sampleRate * 2 * sizeof(float),
+                    "Długość PCM nie odpowiada częstotliwości źródła.");
+                Assert(rateReader.Read(samples, 0, samples.Length) > 0,
+                    "Dekoder HiRes nie dostarczył PCM.");
+                rateReader.CurrentTime = TimeSpan.FromSeconds(3);
+                Assert(rateReader.Read(samples, 0, samples.Length) > 0
+                       && rateReader.CurrentTime >= TimeSpan.FromSeconds(3)
+                       && rateReader.CurrentTime < TimeSpan.FromSeconds(3.2),
+                    "Przewijanie HiRes zmieniło jednostkę czasu.");
+
+                using var detectedReader = WindowsMediaOutput.OpenTransientFlacReader(
+                    item.Source, rateServer.StreamUri.AbsoluteUri, item.Duration);
+                Assert(detectedReader.WaveFormat.SampleRate == sampleRate,
+                    "Brak metadanych spowodował zmianę częstotliwości źródła.");
+            }
+
+            var aacPath = Path.Combine(root, "tone.m4a");
+            CreateAudio(ffmpeg, aacPath, 44_100, "aac");
+            using var aacServer = new LocalFlacServer(await File.ReadAllBytesAsync(aacPath), "audio/mp4");
+            using var aacReader = WindowsMediaOutput.OpenTransientFlacReader(
+                item.Source, aacServer.StreamUri.AbsoluteUri, item.Duration);
+            Assert(aacReader.WaveFormat.SampleRate == 44_100,
+                "AAC bez metadanych częstotliwości zostało przeliczone do 48 kHz.");
+            Assert(aacReader.Read(samples, 0, samples.Length) > 0, "AAC nie dostarczyło PCM.");
+            aacReader.CurrentTime = TimeSpan.FromSeconds(3);
+            Assert(aacReader.Read(samples, 0, samples.Length) > 0
+                && aacReader.CurrentTime < TimeSpan.FromSeconds(3.2), "Seek AAC utracił częstotliwość.");
 
             using var output = new WindowsMediaOutput();
             var unsafeItem = new MediaItem { Id = item.Id, Source = transientUri.AbsoluteUri };
@@ -94,7 +133,7 @@ internal static class TransientFlacOutputTests
         }
     }
 
-    private static void CreateFlac(string ffmpeg, string path)
+    private static void CreateAudio(string ffmpeg, string path, int sampleRate = 44_100, string codec = "flac")
     {
         var start = new ProcessStartInfo(ffmpeg)
         {
@@ -105,8 +144,8 @@ internal static class TransientFlacOutputTests
         foreach (var argument in new[]
         {
             "-nostdin", "-hide_banner", "-loglevel", "error",
-            "-f", "lavfi", "-i", "sine=frequency=440:duration=8",
-            "-c:a", "flac", "-y", path
+            "-f", "lavfi", "-i", $"sine=frequency=440:duration=8:sample_rate={sampleRate}",
+            "-c:a", codec, "-y", path
         }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start)
             ?? throw new InvalidOperationException("Nie uruchomiono FFmpeg w teście.");
@@ -140,14 +179,16 @@ internal static class TransientFlacOutputTests
     private sealed class LocalFlacServer : IDisposable
     {
         private readonly byte[] _flac;
+        private readonly string _contentType;
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
         private readonly CancellationTokenSource _cancellation = new();
         private readonly Task _serverTask;
         private int _requestCount;
 
-        internal LocalFlacServer(byte[] flac)
+        internal LocalFlacServer(byte[] flac, string contentType = "audio/flac")
         {
             _flac = flac;
+            _contentType = contentType;
             _listener.Start();
             var port = ((IPEndPoint)_listener.LocalEndpoint).Port;
             StreamUri = new Uri($"http://127.0.0.1:{port}/audio/{Capability}");
@@ -194,7 +235,7 @@ internal static class TransientFlacOutputTests
             var partial = offset > 0;
             var header = new StringBuilder()
                 .Append(partial ? "HTTP/1.1 206 Partial Content\r\n" : "HTTP/1.1 200 OK\r\n")
-                .Append("Content-Type: audio/flac\r\n")
+                .Append("Content-Type: ").Append(_contentType).Append("\r\n")
                 .Append("Accept-Ranges: bytes\r\n")
                 .Append("Content-Length: ").Append(_flac.Length - offset).Append("\r\n")
                 .Append("Connection: close\r\n");

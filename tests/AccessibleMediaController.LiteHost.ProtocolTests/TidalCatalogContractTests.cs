@@ -10,6 +10,7 @@ internal static class TidalCatalogContractTests
     public static void Run()
     {
         AccountStatusAndLoginUseOnlyUserFacingLabels();
+        ReadsClientIdWithoutSecret();
         ReadsSearchWithoutCredentials();
         SearchResultContainsOnlyIntentionalModelFields();
         ReadsAContainerWithoutAcceptingPrivatePlaybackData();
@@ -26,6 +27,24 @@ internal static class TidalCatalogContractTests
         ReadsPlaylistWriteWithoutPrivateData();
     }
 
+    private static void ReadsClientIdWithoutSecret()
+    {
+        using var valid = JsonDocument.Parse("""{"clientId":" public-id_123 "} """);
+        Check(LiteTidalCatalogContract.ReadClientId(valid.RootElement) == "public-id_123",
+            "konfiguracja TIDAL nie odczytuje identyfikatora aplikacji");
+        using var invalid = JsonDocument.Parse("""{"clientId":"wrong id"} """);
+        try
+        {
+            LiteTidalCatalogContract.ReadClientId(invalid.RootElement);
+            throw new InvalidOperationException("przyjęto niepoprawny identyfikator TIDAL");
+        }
+        catch (LiteRequestException exception)
+        {
+            Check(!exception.Message.Contains("wrong id", StringComparison.Ordinal),
+                "komunikat konfiguracji TIDAL ujawnia dane wejściowe");
+        }
+    }
+
     private static void AccountStatusAndLoginUseOnlyUserFacingLabels()
     {
         var status = LiteTidalCatalogContract.CreateAccountStatus(
@@ -33,13 +52,17 @@ internal static class TidalCatalogContractTests
             connected: true,
             accountDisplayName: "  Konto   próby  ");
         var login = LiteTidalCatalogContract.CreateLoginResult("Konto próby");
-        var json = LiteJson.Serialize(new { status, login });
+        var disconnect = LiteTidalCatalogContract.CreateDisconnectResult();
+        var json = LiteJson.Serialize(new { status, login, disconnect });
         Check(status.Configured && status.Connected
             && status.Label == "Konto TIDAL jest połączone: Konto próby.",
             "stan konta TIDAL nie ma jednoznacznej etykiety");
         Check(login.Connected
             && login.Message == "Zalogowano konto TIDAL: Konto próby.",
             "wynik logowania TIDAL nie ma użytkowego komunikatu");
+        Check(!disconnect.Connected
+            && disconnect.Message.Contains("Połączenie odtwarzacza pozostaje osobne.", StringComparison.Ordinal),
+            "odłączenie katalogu TIDAL nie wyjaśnia granicy odtwarzania");
         Check(!json.Contains("token", StringComparison.OrdinalIgnoreCase)
             && !json.Contains("credential", StringComparison.OrdinalIgnoreCase),
             "kontrakt konta TIDAL ujawnia poświadczenia");

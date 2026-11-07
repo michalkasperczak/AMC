@@ -477,10 +477,10 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     ),
     Action.TIDAL_STOP_NATIVE: CommandPresentation(
         Action.TIDAL_STOP_NATIVE,
-        "Zatrzymaj utwór TIDAL w AMC Test",
+        "Zatrzymaj utwór TIDAL w AMC",
         "Zatrzymaj natywne odtwarzanie utworu TIDAL i zwolnij jego strumień",
         "",
-        "&Zatrzymaj utwór TIDAL w AMC Test",
+        "&Zatrzymaj utwór TIDAL w AMC",
     ),
     Action.CAST_SESSION: CommandPresentation(
         Action.CAST_SESSION,
@@ -581,7 +581,7 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "tidal": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto i synchronizacja TIDAL",
-        "Otwórz konto, logowanie i synchronizację TIDAL",
+        "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu",
         "Ctrl+F5",
     ),
     "wiim": CommandPresentation(
@@ -773,7 +773,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
 })
 
 
-# Polecenia TIDAL wymagające rzeczywiście aktywnego odtwarzania w AMC Test.
+# Polecenia TIDAL wymagające rzeczywiście aktywnego odtwarzania w AMC.
 # Menu, paleta, pomoc i dispatcher korzystają z tej samej bramki GUI.
 TIDAL_NATIVE_ONLY_ACTIONS = frozenset({
     Action.TIDAL_STOP_NATIVE,
@@ -2469,7 +2469,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.TIDAL_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych TIDAL",
         Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC",
         Action.TIDAL_OPEN_ORIGINAL: "Przekaż utwór do oryginalnego TIDALa",
-        Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC Test",
+        Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC",
         Action.SPOTIFY_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki Spotify",
         Action.SPOTIFY_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych Spotify",
         Action.TIDAL_RELATIONS: (
@@ -2970,11 +2970,11 @@ def describe_action(
         tidal_labels = {
             Action.QUEUE_NEXT: "Przejdź do następnego utworu TIDAL",
             Action.QUEUE_PREVIOUS: "Przejdź do poprzedniego utworu TIDAL",
-            Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC Test",
-            Action.SEEK_INPUT_TIME: "Skocz do wpisanego czasu utworu TIDAL w AMC Test",
-            Action.SEEK_INPUT_PERCENT: "Skocz do wpisanego procentu utworu TIDAL w AMC Test",
-            Action.TRACK_START: "Przejdź na początek utworu TIDAL w AMC Test",
-            Action.TRACK_END: "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC Test",
+            Action.SELECT_AUDIO_OUTPUT: "Wybierz lokalne wyjście dźwięku dla utworu TIDAL w AMC",
+            Action.SEEK_INPUT_TIME: "Skocz do wpisanego czasu utworu TIDAL w AMC",
+            Action.SEEK_INPUT_PERCENT: "Skocz do wpisanego procentu utworu TIDAL w AMC",
+            Action.TRACK_START: "Przejdź na początek utworu TIDAL w AMC",
+            Action.TRACK_END: "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC",
             Action.VOLUME_UP_5: "Zwiększ głośność utworu TIDAL o 5%",
             Action.VOLUME_DOWN_5: "Zmniejsz głośność utworu TIDAL o 5%",
             Action.VOLUME_UP_1: "Zwiększ głośność utworu TIDAL o 1%",
@@ -2982,7 +2982,7 @@ def describe_action(
         }
         tidal_labels.update({
             Action[f"SEEK_PERCENT_{percent}"]:
-                f"Skok do {percent}% utworu TIDAL w AMC Test"
+                f"Skok do {percent}% utworu TIDAL w AMC"
             for percent in range(0, 100, 10)
         })
         if action in tidal_labels:

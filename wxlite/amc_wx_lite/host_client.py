@@ -1013,6 +1013,14 @@ class LiteHostClient:
         """Start OAuth only after an explicit user action in the account dialog."""
         return self.call("tidal.login", timeout=360.0)
 
+    def tidal_disconnect(self) -> Any:
+        """Remove only this profile's TIDAL catalogue connection."""
+        return self.call("tidal.disconnect", timeout=15.0)
+
+    def tidal_configure(self, client_id: str) -> Any:
+        """Store the user's public TIDAL application identifier."""
+        return self.call("tidal.configure", {"clientId": client_id}, timeout=15.0)
+
     def tidal_search(self, query: str) -> Any:
         """Search the official catalogue without changing the collection."""
         return self.call("tidal.search", {"query": query}, timeout=120.0)

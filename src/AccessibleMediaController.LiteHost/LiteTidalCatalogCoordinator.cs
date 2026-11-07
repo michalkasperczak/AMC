@@ -13,8 +13,14 @@ namespace AccessibleMediaController.LiteHost;
 /// co glowne AMC. Token nigdy nie trafia do odpowiedzi protokolu. Jawnie
 /// wywolane logowanie zapisuje go tylko w Menedzerze poswiadczen Windows.
 /// </summary>
-internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposable
+internal sealed class LiteTidalCatalogCoordinator(string statePath, string profileId = "test") : IDisposable
 {
+    internal static string CredentialTarget(string profileId) => profileId switch
+    {
+        "public" => "AccessibleMediaController.Public/TIDAL",
+        "test" => "AccessibleMediaController/TIDAL",
+        _ => throw new LiteRequestException("Nieznany profil wydania AMC.")
+    };
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -35,7 +41,33 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
         return LiteTidalCatalogContract.CreateAccountStatus(
             integration.IsConfigured,
             integration.HasStoredLogin,
-            settings.AccountDisplayName);
+            settings.AccountDisplayName,
+            settings.RedirectUri);
+    }
+
+    public object Configure(JsonElement args)
+    {
+        var clientId = LiteTidalCatalogContract.ReadClientId(args);
+        lock (_gate)
+        {
+            var settings = _settings ?? ReadSettings();
+            if (!string.Equals(settings.ClientId, clientId, StringComparison.Ordinal))
+            {
+                settings.ClientId = clientId;
+                try
+                {
+                    LiteAccountSettingsStore.UpdateSection(statePath, "tidal", settings);
+                }
+                catch
+                {
+                    throw new LiteRequestException("Nie udało się zapisać ustawień konta TIDAL.");
+                }
+                _integration?.Dispose();
+                _integration = null;
+                _settings = settings;
+            }
+        }
+        return new { message = "Zapisano identyfikator aplikacji TIDAL. Możesz rozpocząć logowanie." };
     }
 
     public object ProbePlayback(JsonElement args)
@@ -101,6 +133,29 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
         {
             throw new LiteRequestException("Nie udało się zalogować konta TIDAL.");
         }
+    }
+
+    public object Disconnect()
+    {
+        lock (_gate)
+        {
+            var integration = RequireIntegration();
+            try
+            {
+                integration.Disconnect();
+                LiteAccountSettingsStore.UpdateSection(statePath, "tidal", _settings!);
+            }
+            catch
+            {
+                throw new LiteRequestException("Nie udało się odłączyć konta katalogu TIDAL.");
+            }
+            lock (_collectionGate)
+            {
+                _collectionSyncAttempted = false;
+                _collectionSnapshot = null;
+            }
+        }
+        return LiteTidalCatalogContract.CreateDisconnectResult();
     }
 
     public object Search(JsonElement args)
@@ -277,7 +332,8 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath) : IDisposabl
             if (_integration is not null) return _integration;
             var settings = ReadSettings();
             _settings = settings;
-            var integration = new TidalIntegrationService(settings);
+            var integration = new TidalIntegrationService(
+                settings, credentialTarget: CredentialTarget(profileId));
             var cached = settings.CachedCollectionItems
                 .Select(item => item.ToMediaItem())
                 .ToArray();

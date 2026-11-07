@@ -4518,7 +4518,9 @@ class ServiceAccountDialog(wx.Dialog):
         service_name: str,
         status: str,
         start_login: Callable[["ServiceAccountDialog"], None],
-        save_spotify_client_id: Callable[["ServiceAccountDialog", str], None] | None = None,
+        save_client_id: Callable[["ServiceAccountDialog", str], None] | None = None,
+        disconnect_account: Callable[["ServiceAccountDialog"], None] | None = None,
+        connected: bool = False,
         start_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         check_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         cancel_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
@@ -4531,10 +4533,13 @@ class ServiceAccountDialog(wx.Dialog):
             title=f"Konto {service_name}",
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
+        self.SetTitle(i18n.ui_text(f"Konto {service_name}"))
         self.SetName(f"Konto {service_name}")
         self._service_name = service_name
         self._start_login = start_login
-        self._save_spotify_client_id = save_spotify_client_id
+        self._save_client_id = save_client_id
+        self._disconnect_account = disconnect_account
+        self._connected = bool(connected)
         self._start_spotify_pairing = start_spotify_pairing
         self._check_spotify_pairing = check_spotify_pairing
         self._cancel_spotify_pairing = cancel_spotify_pairing
@@ -4556,9 +4561,12 @@ class ServiceAccountDialog(wx.Dialog):
             )
         else:
             explanation_text = (
-                f"Zaloguj się zwykłym kontem na oficjalnej stronie {service_name}. "
-                "Hasło wpisujesz wyłącznie w przeglądarce. AMC nie wymaga "
-                "przepisywania kodu."
+                "Do katalogu TIDAL potrzebujesz Client ID aplikacji z panelu deweloperskiego. "
+                "Wpisz tam pokazany adres powrotu dokładnie. Po zalogowaniu AMC pokaże "
+                "Twoją Bibliotekę, Ulubione i Playlisty TIDAL. Przy pierwszym pełnym "
+                "odtworzeniu AMC może poprosić o osobne zatwierdzenie kodu odtwarzacza "
+                "na stronie TIDAL. Hasło wpisujesz wyłącznie w przeglądarce. "
+                "Logowanie do katalogu nie wymaga przepisywania kodu."
             )
         explanation = wx.StaticText(
             self,
@@ -4567,20 +4575,22 @@ class ServiceAccountDialog(wx.Dialog):
         explanation.Wrap(620)
         self.status = wx.StaticText(self, label=status)
         self.status.SetName(f"Stan konta {service_name}: {status}")
-        if save_spotify_client_id is not None:
+        if save_client_id is not None:
             self.client_id_label = wx.StaticText(self, label="&Client ID:")
             self.client_id = wx.TextCtrl(self)
-            self.client_id.SetName("Identyfikator aplikacji Spotify, Client ID")
+            self.client_id.SetName(f"Identyfikator aplikacji {service_name}, Client ID")
             self.redirect_uri_label = wx.StaticText(self, label="&Adres powrotu:")
             self.redirect_uri = FocusableReadOnlyTextCtrl(self, value=redirect_uri)
-            self.redirect_uri.SetName("Adres powrotu Spotify do skopiowania")
-            self.developer_url_label = wx.StaticText(self, label="&Panel aplikacji Spotify:")
+            self.redirect_uri.SetName(f"Adres powrotu {service_name} do skopiowania")
+            self.developer_url_label = wx.StaticText(self, label=f"&Panel aplikacji {service_name}:")
             self.developer_url = FocusableReadOnlyTextCtrl(
-                self, value="https://developer.spotify.com/dashboard"
+                self, value=("https://developer.spotify.com/dashboard"
+                             if service_name == "Spotify"
+                             else "https://developer.tidal.com/dashboard/")
             )
-            self.developer_url.SetName("Adres panelu aplikacji Spotify do skopiowania")
+            self.developer_url.SetName(f"Adres panelu aplikacji {service_name} do skopiowania")
             self.save_button = wx.Button(self, label="Zapisz identyfikator aplikacji")
-            self.save_button.SetName("Zapisz identyfikator aplikacji Spotify")
+            self.save_button.SetName(f"Zapisz identyfikator aplikacji {service_name}")
             self.save_button.Bind(wx.EVT_BUTTON, self._on_save_client_id)
         else:
             self.client_id = None
@@ -4603,13 +4613,28 @@ class ServiceAccountDialog(wx.Dialog):
             self.cancel_pairing_button.Bind(wx.EVT_BUTTON, self._on_cancel_pairing)
         else:
             self.pairing_button = None
-        self.login_button = wx.Button(self, label="Zaloguj w przeglądarce")
-        self.login_button.SetName(f"Zaloguj konto {service_name} w przeglądarce")
+        self.login_button = wx.Button(self, label=(
+            "Zaloguj ponownie w przeglądarce" if self._connected
+            else "Zaloguj w przeglądarce"
+        ))
+        self.login_button.SetName((
+            f"Zaloguj ponownie konto {service_name} w przeglądarce"
+            if self._connected else f"Zaloguj konto {service_name} w przeglądarce"
+        ))
+        if disconnect_account is not None:
+            self.disconnect_button = wx.Button(self, label=f"Odłącz konto katalogu {service_name}")
+            self.disconnect_button.SetName(f"Odłącz konto katalogu {service_name} w tym profilu AMC")
+            self.disconnect_button.Bind(wx.EVT_BUTTON, self._on_disconnect)
+            self.disconnect_button.Show(self._connected)
+        else:
+            self.disconnect_button = None
         self.close_button = wx.Button(self, wx.ID_CANCEL, "Zamknij")
         self.close_button.SetName("Zamknij okno konta")
 
         buttons = wx.BoxSizer(wx.HORIZONTAL)
         buttons.Add(self.login_button, 0, wx.RIGHT, 8)
+        if self.disconnect_button is not None:
+            buttons.Add(self.disconnect_button, 0, wx.RIGHT, 8)
         buttons.Add(self.close_button, 0)
         layout = wx.BoxSizer(wx.VERTICAL)
         layout.Add(heading, 0, wx.ALL, 12)
@@ -4646,16 +4671,54 @@ class ServiceAccountDialog(wx.Dialog):
             self.pairing_code.SetFocus()
         elif self._needs_setup and self.client_id is not None:
             self.client_id.SetFocus()
+        elif self._connected and self.disconnect_button is not None:
+            self.disconnect_button.SetFocus()
         else:
             self.login_button.SetFocus()
 
+    def set_connected(self, connected: bool) -> None:
+        self._connected = bool(connected)
+        label = (
+            "Zaloguj ponownie w przeglądarce" if self._connected
+            else "Zaloguj w przeglądarce"
+        )
+        accessible_name = (
+            f"Zaloguj ponownie konto {self._service_name} w przeglądarce"
+            if self._connected
+            else f"Zaloguj konto {self._service_name} w przeglądarce"
+        )
+        self.login_button.SetLabel(i18n.ui_text(label))
+        self.login_button.SetName(i18n.ui_text(accessible_name))
+        if self.disconnect_button is not None:
+            self.disconnect_button.Show(self._connected)
+        self.Layout()
+
+    def _on_disconnect(self, _event: wx.CommandEvent) -> None:
+        if self._busy or self._disconnect_account is None or not self._connected:
+            return
+        with wx.MessageDialog(
+            self,
+            i18n.ui_text(
+                f"Odłączyć konto katalogu {self._service_name} w tym profilu AMC? "
+                "Nie zmienia to konta w serwisie ani osobnego połączenia odtwarzacza."
+            ),
+            i18n.ui_text(f"Odłączenie konta katalogu {self._service_name}"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+        ) as confirmation:
+            if confirmation.ShowModal() != wx.ID_YES:
+                self.disconnect_button.SetFocus()
+                return
+        self.set_busy(True)
+        self.set_status(f"Odłączanie konta katalogu {self._service_name}")
+        self._disconnect_account(self)
+
     def _on_save_client_id(self, _event: wx.CommandEvent) -> None:
-        if self._busy or self.client_id is None or self._save_spotify_client_id is None:
+        if self._busy or self.client_id is None or self._save_client_id is None:
             return
         value = self.client_id.GetValue().strip()
         self.set_busy(True)
-        self.set_status("Zapisywanie identyfikatora aplikacji Spotify")
-        self._save_spotify_client_id(self, value)
+        self.set_status(f"Zapisywanie identyfikatora aplikacji {self._service_name}")
+        self._save_client_id(self, value)
 
     def _on_start_pairing(self, _event: wx.CommandEvent) -> None:
         if self._busy or self._start_spotify_pairing is None:
@@ -4698,6 +4761,8 @@ class ServiceAccountDialog(wx.Dialog):
     def set_busy(self, busy: bool) -> None:
         self._busy = bool(busy)
         self.login_button.Enable(not self._busy)
+        if self.disconnect_button is not None:
+            self.disconnect_button.Enable(not self._busy)
         self.close_button.Enable(True)
         if self.save_button is not None:
             self.save_button.Enable(not self._busy)
@@ -4722,6 +4787,8 @@ class ServiceAccountDialog(wx.Dialog):
         self.set_busy(False)
         if focus_client_id and self.client_id is not None:
             self.client_id.SetFocus()
+        elif self._connected and self.disconnect_button is not None:
+            self.disconnect_button.SetFocus()
         else:
             self.login_button.SetFocus()
 
@@ -13932,7 +13999,7 @@ class LiteFrame(wx.Frame):
                 title = str(snapshot.get("currentPlaybackText") or "").strip()
                 title = title or session.now_playing_title.strip() or "Utwór TIDAL"
                 playback = "pauza" if snapshot.get("paused") else "odtwarzanie"
-                return f"{title}, TIDAL w AMC Test, {playback}."
+                return f"{title}, TIDAL w AMC, {playback}."
             # TIDAL gra w obcej aplikacji. Dopóki nie przechowujemy ostatniej
             # migawki SMTC, nie wolno z samego tytułu wywnioskować „pauzy” ani
             # „odtwarzania”: byłby to wymyślony stan czytany globalnie przez
@@ -14005,7 +14072,7 @@ class LiteFrame(wx.Frame):
             if self._tidal_native_has_playback:
                 return str(snapshot.get("currentPlaybackText") or "").strip() \
                     or self.navigator.session.now_playing_title.strip() \
-                    or "Utwór TIDAL w AMC Test"
+                    or "Utwór TIDAL w AMC"
             if not self._tidal_desktop_has_playback:
                 return "TIDAL, brak bieżącego materiału w AMC."
             title = self.navigator.session.now_playing_title.strip()
@@ -14080,6 +14147,18 @@ class LiteFrame(wx.Frame):
             self._open_podcast_library(
                 preferred_id=self.navigator.sessions[SessionId.PODCASTS].list_anchor_id
             )
+        if getattr(self.navigator, "active", None) is SessionId.TIDAL:
+            tidal_state = self.navigator.sessions[SessionId.TIDAL]
+            tidal_view = tidal_state.library_view
+            if tidal_view not in (
+                LibraryView.TIDAL_LIBRARY,
+                LibraryView.TIDAL_FAVORITES,
+                LibraryView.TIDAL_PLAYLISTS,
+            ):
+                tidal_view = LibraryView.TIDAL_LIBRARY
+            self._open_tidal_view(OpenTidalView(
+                tidal_view, preferred_id=tidal_state.list_anchor_id,
+            ))
         if getattr(self.navigator, "active", None) is SessionId.WIIM:
             self._load_wiim_devices(
                 preferred_id=self.navigator.sessions[SessionId.WIIM].list_anchor_id
@@ -15583,7 +15662,7 @@ class LiteFrame(wx.Frame):
                 )
                 return
             if action in TIDAL_NATIVE_ONLY_ACTIONS and not self._tidal_native_has_playback:
-                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
+                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC")
                 return
             if action not in TIDAL_SUPPORTED_ACTIONS:
                 self.announcer.say(
@@ -20605,9 +20684,13 @@ class LiteFrame(wx.Frame):
 
         catalog = payload.get("catalog") if isinstance(payload, dict) else None
         needs_setup = (
-            session_id is SessionId.SPOTIFY
-            and isinstance(catalog, dict)
-            and catalog.get("configured") is False
+            isinstance(catalog, dict) and catalog.get("configured") is False
+            if session_id is SessionId.SPOTIFY
+            else isinstance(payload, dict) and payload.get("configured") is False
+        )
+        connected = (
+            isinstance(payload, dict) and payload.get("connected") is True
+            if session_id is SessionId.TIDAL else False
         )
         redirect_uri = (
             payload.get("redirectUri")
@@ -20617,7 +20700,11 @@ class LiteFrame(wx.Frame):
         if not isinstance(redirect_uri, str) or not redirect_uri.startswith(
             "http://127.0.0.1:"
         ):
-            redirect_uri = "http://127.0.0.1:43822/spotify/callback/"
+            redirect_uri = (
+                "http://127.0.0.1:43822/spotify/callback/"
+                if session_id is SessionId.SPOTIFY
+                else "http://127.0.0.1:43821/tidal/callback/"
+            )
 
         def dialog_alive(dialog: ServiceAccountDialog) -> bool:
             try:
@@ -20626,9 +20713,9 @@ class LiteFrame(wx.Frame):
             except RuntimeError:
                 return False
 
-        def save_spotify_client_id(dialog: ServiceAccountDialog, value: str) -> None:
+        def save_client_id(dialog: ServiceAccountDialog, value: str) -> None:
             def done(_result: object) -> None:
-                message = "Zapisano identyfikator aplikacji Spotify. Możesz się zalogować."
+                message = f"Zapisano identyfikator aplikacji {service_name}. Możesz się zalogować."
                 if dialog_alive(dialog):
                     if dialog.client_id is not None:
                         dialog.client_id.SetValue("")
@@ -20640,15 +20727,17 @@ class LiteFrame(wx.Frame):
                 message = (
                     str(error)
                     if isinstance(error, (HostError, HostUnavailable))
-                    else "Nie udało się zapisać identyfikatora aplikacji Spotify."
+                    else f"Nie udało się zapisać identyfikatora aplikacji {service_name}."
                 )
                 if dialog_alive(dialog):
                     dialog.finish(message, focus_client_id=True)
                 self.announcer.say(message)
 
             self.runner.submit(
-                "spotify-account-configure",
-                lambda: client.spotify_configure(value),
+                f"{session_id.value}-account-configure",
+                lambda: (client.spotify_configure(value)
+                         if session_id is SessionId.SPOTIFY
+                         else client.tidal_configure(value)),
                 done,
                 failed,
             )
@@ -20771,8 +20860,23 @@ class LiteFrame(wx.Frame):
                             else "tidal:playlists"
                         )
                 if dialog_alive(dialog):
+                    if session_id is SessionId.TIDAL:
+                        dialog.set_connected(True)
                     dialog.finish(message)
                 self.announcer.say(message)
+                if (session_id is SessionId.TIDAL
+                        and self.navigator.active is SessionId.TIDAL):
+                    state = self.navigator.sessions[SessionId.TIDAL]
+                    view = state.library_view
+                    if view not in (
+                        LibraryView.TIDAL_LIBRARY,
+                        LibraryView.TIDAL_FAVORITES,
+                        LibraryView.TIDAL_PLAYLISTS,
+                    ):
+                        view = LibraryView.TIDAL_LIBRARY
+                    self._open_tidal_view(OpenTidalView(
+                        view, preferred_id=state.list_anchor_id,
+                    ))
 
             def failed(error: Exception) -> None:
                 message = (
@@ -20787,6 +20891,43 @@ class LiteFrame(wx.Frame):
             self.runner.submit(
                 f"{session_id.value}-account-login",
                 work,
+                done,
+                failed,
+            )
+
+        def disconnect_account(dialog: ServiceAccountDialog) -> None:
+            def done(result: object) -> None:
+                message = (
+                    result.get("message") if isinstance(result, dict) else None
+                ) or "Odłączono konto katalogu TIDAL w tym profilu AMC."
+                cache = getattr(self, "_service_destination_cache", None)
+                if isinstance(cache, ServiceDestinationCache):
+                    cache.invalidate("tidal:playlists")
+                self._tidal_view_cache.clear()
+                self._tidal_render_signature = None
+                if dialog_alive(dialog):
+                    dialog.set_connected(False)
+                    dialog.finish(message)
+                if self.navigator.active is SessionId.TIDAL:
+                    state = self.navigator.sessions[SessionId.TIDAL]
+                    self._open_tidal_view(OpenTidalView(
+                        LibraryView.TIDAL_LIBRARY,
+                        preferred_id=state.list_anchor_id,
+                    ))
+                self.announcer.say(message)
+
+            def failed(error: Exception) -> None:
+                message = (
+                    str(error) if isinstance(error, (HostError, HostUnavailable))
+                    else "Nie udało się odłączyć konta katalogu TIDAL."
+                )
+                if dialog_alive(dialog):
+                    dialog.finish(message)
+                self.announcer.say(message)
+
+            self.runner.submit(
+                "tidal-account-disconnect",
+                client.tidal_disconnect,
                 done,
                 failed,
             )
@@ -20809,9 +20950,9 @@ class LiteFrame(wx.Frame):
             service_name,
             status,
             start_login,
-            save_spotify_client_id=(
-                save_spotify_client_id if session_id is SessionId.SPOTIFY else None
-            ),
+            save_client_id=save_client_id,
+            disconnect_account=(disconnect_account if session_id is SessionId.TIDAL else None),
+            connected=connected,
             start_spotify_pairing=None,
             check_spotify_pairing=None,
             cancel_spotify_pairing=None,
@@ -20820,6 +20961,7 @@ class LiteFrame(wx.Frame):
             needs_setup=needs_setup,
         )
         open_dialogs[session_id] = dialog
+        i18n.localize_window_tree(dialog)
         dialog.Show()
         dialog.Raise()
         wx.CallAfter(self.announcer.say, status)
@@ -27187,8 +27329,8 @@ class LiteFrame(wx.Frame):
         if not self._window_alive():
             return
         self._close_tidal_native_challenge()
-        dialog = wx.Dialog(self, title="Połącz odtwarzanie TIDAL z AMC Test")
-        dialog.SetName("Połącz odtwarzanie TIDAL z AMC Test")
+        dialog = wx.Dialog(self, title="Połącz odtwarzanie TIDAL z AMC")
+        dialog.SetName("Połącz odtwarzanie TIDAL z AMC")
         panel = wx.Panel(dialog)
         layout = wx.BoxSizer(wx.VERTICAL)
         instruction = wx.StaticText(panel, label=(
@@ -27316,13 +27458,24 @@ class LiteFrame(wx.Frame):
     ) -> bool:
         adapter = self._tidal_native_adapter
         if adapter is None or self.client is None:
-            self.announcer.say("Odtwarzacz TIDAL w AMC Test jest niedostępny")
+            self.announcer.say("Odtwarzacz TIDAL w AMC jest niedostępny")
             return False
         track_id = native_track_id(row.service_id)
         if row.kind != "track" or track_id is None:
             self.announcer.say("Wybierz utwór TIDAL z poprawnymi danymi")
             return False
-        if not adapter.play(track_id, row.title):
+        duration_ticks = row.duration_ticks
+        duration_seconds = (
+            duration_ticks / 10_000_000
+            if type(duration_ticks) is int and 0 < duration_ticks <= 864_000_000_000
+            else None
+        )
+        started = (
+            adapter.play(track_id, row.title, duration_seconds=duration_seconds)
+            if duration_seconds is not None
+            else adapter.play(track_id, row.title)
+        )
+        if not started:
             self.announcer.say("Odtwarzacz TIDAL jest zajęty; spróbuj ponownie")
             return False
         self._tidal_native_pending_track_id = track_id
@@ -27355,14 +27508,14 @@ class LiteFrame(wx.Frame):
         client = self.client
         adapter = self._tidal_native_adapter
         if client is None or adapter is None or not self._tidal_native_has_playback:
-            self.announcer.say("TIDAL w AMC Test nie odtwarza utworu")
+            self.announcer.say("TIDAL w AMC nie odtwarza utworu")
             return
         self.runner.submit(
             "tidal-native-stop",
             lambda: client.stop(SessionId.TIDAL.value),
             lambda _payload: adapter.stop(),
             lambda _error: self.announcer.say(
-                "Nie udało się zatrzymać utworu TIDAL w AMC Test"
+                "Nie udało się zatrzymać utworu TIDAL w AMC"
             ),
         )
 
@@ -28058,7 +28211,7 @@ class LiteFrame(wx.Frame):
             )
             return
         if self.navigator.active is SessionId.TIDAL and not self._tidal_native_has_playback:
-            self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
+            self.announcer.say("Najpierw uruchom utwór TIDAL w AMC")
             return
         client = self.client
         if client is None:
@@ -30209,9 +30362,9 @@ class LiteFrame(wx.Frame):
             row = self._tidal_native_adjacent_row(forward)
             if row is None:
                 self.announcer.say(
-                    "Brak następnego utworu na liście TIDAL w AMC Test"
+                    "Brak następnego utworu na liście TIDAL w AMC"
                     if forward else
-                    "Brak poprzedniego utworu na liście TIDAL w AMC Test"
+                    "Brak poprzedniego utworu na liście TIDAL w AMC"
                 )
                 return
             self._play_tidal_native_row(row, preserve_source=True)
@@ -31260,11 +31413,11 @@ class LiteFrame(wx.Frame):
                     "tidal-native-transport",
                     lambda: client.pause_resume(SessionId.TIDAL.value),
                     lambda payload: self.announcer.say(
-                        "TIDAL w AMC Test: pauza" if (payload or {}).get("paused")
-                        else "TIDAL w AMC Test: wznowiono"
+                        "TIDAL w AMC: pauza" if (payload or {}).get("paused")
+                        else "TIDAL w AMC: wznowiono"
                     ),
                     lambda _error: self.announcer.say(
-                        "Nie udało się zmienić pauzy TIDAL w AMC Test"
+                        "Nie udało się zmienić pauzy TIDAL w AMC"
                     ),
                 )
                 return
@@ -31637,7 +31790,7 @@ class LiteFrame(wx.Frame):
         session = self.navigator.active
         if session is SessionId.TIDAL:
             if not self._tidal_native_has_playback:
-                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC Test")
+                self.announcer.say("Najpierw uruchom utwór TIDAL w AMC")
                 return
             self._seek_tidal_native_absolute(position_seconds=seconds)
             return
@@ -31994,7 +32147,7 @@ class LiteFrame(wx.Frame):
                 lambda: client.status(SessionId.TIDAL.value),
                 lambda payload: self._announce_time_from_status(action, payload),
                 lambda _error: self.announcer.say(
-                    "Nie udało się odczytać czasu TIDAL w AMC Test"
+                    "Nie udało się odczytać czasu TIDAL w AMC"
                 ),
             )
             return
@@ -32069,7 +32222,7 @@ class LiteFrame(wx.Frame):
             position=state.get("positionSeconds"),
             duration=state.get("durationSeconds"),
         )
-        self.announcer.say(text or "TIDAL w AMC Test nie podał czasu utworu")
+        self.announcer.say(text or "TIDAL w AMC nie podał czasu utworu")
 
     def _toggle_seek_messages(self) -> None:
         """Ctrl+Shift+G -- przelacznik komunikatow przewijania.

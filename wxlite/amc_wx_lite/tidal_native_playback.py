@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 import threading
 import time
 from collections.abc import Callable
@@ -27,10 +28,27 @@ _MESSAGES = {
     "stopped": "Odtwarzanie TIDAL zatrzymane.",
 }
 
+_FAILURE_DETAILS = {
+    "session": "Nie udało się sprawdzić logowania odtwarzacza TIDAL.",
+    "login": "Nie udało się zalogować odtwarzacza TIDAL.",
+    "track": "Nie udało się pobrać danych utworu TIDAL.",
+    "manifest": "TIDAL nie udostępnił strumienia tego utworu.",
+    "proxy": "Nie udało się przygotować strumienia TIDAL w AMC.",
+    "host": "Silnik AMC nie przyjął strumienia TIDAL.",
+    "output": "Silnik audio AMC nie odtworzył strumienia TIDAL.",
+}
+
 
 def _track_id(value: object) -> bool:
     return (isinstance(value, str) and 1 <= len(value) <= 18
             and value.isascii() and value.isdecimal())
+
+
+def _duration(value: object) -> float | None:
+    if type(value) not in (int, float):
+        return None
+    seconds = float(value)
+    return seconds if math.isfinite(seconds) and 0 < seconds <= 86_400 else None
 
 
 def _login_code(value: object) -> str | None:
@@ -154,8 +172,9 @@ class TidalNativePlaybackAdapter:
         except Exception:
             pass
 
-    def _status(self, kind: str, track_id: str) -> None:
-        message = _MESSAGES[kind]
+    def _status(self, kind: str, track_id: str, failure_stage: str | None = None) -> None:
+        message = (_FAILURE_DETAILS.get(failure_stage, _MESSAGES[kind])
+                   if kind == "failed" else _MESSAGES[kind])
         if kind == "started":
             with self._lock:
                 quality = self._quality_by_track.get(track_id)
@@ -186,7 +205,9 @@ class TidalNativePlaybackAdapter:
 
         threading.Thread(target=update, name="AMC TIDAL bitrate", daemon=True).start()
 
-    def play(self, track_id: str, title: str = "") -> bool:
+    def play(
+        self, track_id: str, title: str = "", *, duration_seconds: float | None = None,
+    ) -> bool:
         """Start preparation immediately; result arrives through status/event callbacks."""
         if not _track_id(track_id):
             self._status("failed", str(track_id))
@@ -201,7 +222,8 @@ class TidalNativePlaybackAdapter:
             self._pending = True
             self._pending_track_id = track_id
         threading.Thread(
-            target=self._prepare, args=(generation, track_id, title),
+            target=self._prepare, args=(generation, track_id, title,
+                                        _duration(duration_seconds)),
             name="AMC TIDAL playback", daemon=True,
         ).start()
         return True
@@ -232,10 +254,14 @@ class TidalNativePlaybackAdapter:
                 continue
         return False
 
-    def _prepare(self, generation: int, track_id: str, title: str) -> None:
+    def _prepare(
+        self, generation: int, track_id: str, title: str,
+        catalog_duration: float | None,
+    ) -> None:
         proxy = None
         previous_proxy = None
         failed = False
+        failure_stage = "session"
         try:
             with _quiet_library():
                 if self._session_factory is None:
@@ -254,6 +280,7 @@ class TidalNativePlaybackAdapter:
             if not self._current(generation):
                 return
             if not restored:
+                failure_stage = "login"
                 if not self._login(session, generation, track_id):
                     raise RuntimeError("login_failed")
                 if not self._current(generation):
@@ -263,10 +290,19 @@ class TidalNativePlaybackAdapter:
                 with self._lock:
                     if generation == self._generation:
                         self._has_saved_session = True
+            failure_stage = "track"
             with _quiet_library():
-                track = session.track(track_id)
-                safe_title = _title(title or getattr(track, "title", None))
-                duration = getattr(track, "duration", None)
+                if catalog_duration is None:
+                    track = session.track(track_id)
+                    safe_title = _title(title or getattr(track, "title", None))
+                    duration = getattr(track, "duration", None)
+                else:
+                    # The official catalog can contain valid playable IDs that
+                    # tidalapi's older track metadata endpoint cannot find.
+                    # The catalog row already has the title and duration.
+                    safe_title = _title(title)
+                    duration = catalog_duration
+                failure_stage = "manifest"
                 response = session.request.basic_request(
                     "GET", "tracks/" + track_id + "/playbackinfopostpaywall",
                     {"playbackmode": "STREAM", "audioquality": "HI_RES_LOSSLESS",
@@ -298,7 +334,14 @@ class TidalNativePlaybackAdapter:
                 else:
                     plan = audio.resolve_bts(payload, duration_seconds=duration)
                     quality = payload.get("audioQuality")
-                    level = "High" if quality == "LOSSLESS" else "TIDAL"
+                    if plan.codec == "flac" and quality == "HI_RES_LOSSLESS":
+                        level = "Max"
+                    elif plan.codec == "flac" and quality == "LOSSLESS":
+                        level = "High"
+                    elif plan.codec in ("aac", "mp3"):
+                        level = "stratna"
+                    else:
+                        level = "nieustalona"
                     quality_label = f"Jakość {level}, {plan.codec.upper()}"
                     depth = payload.get("bitDepth")
                     rate = payload.get("sampleRate")
@@ -309,6 +352,7 @@ class TidalNativePlaybackAdapter:
                     quality_label += "."
             if plan.duration_seconds is None or not self._current(generation):
                 raise RuntimeError("duration_unavailable")
+            failure_stage = "proxy"
             proxy_factory = (dash_audio.DashProxy if isinstance(plan, dash_audio.DashAudioPlan)
                              and self._proxy_factory is audio.RangeProxy else self._proxy_factory)
             proxy = proxy_factory(plan)
@@ -336,9 +380,17 @@ class TidalNativePlaybackAdapter:
                     "id": track_id, "title": safe_title,
                     "proxyUrl": proxy.local_url,
                     "durationSeconds": plan.duration_seconds,
+                    "sourceQualityLabel": quality_label.removeprefix("Jakość ").rstrip("."),
                 }
+                if isinstance(plan, audio.BtsAudioPlan) and plan.codec in ("aac", "mp3"):
+                    request_args["sourceQualityLabel"] = f"{plan.codec.upper()}, jakość stratna"
+                source_rate = (plan.sample_rate if isinstance(plan, dash_audio.DashAudioPlan)
+                               else payload.get("sampleRate"))
+                if type(source_rate) is int and 8_000 <= source_rate <= 384_000:
+                    request_args["sampleRateHz"] = source_rate
                 if isinstance(plan, dash_audio.DashAudioPlan) and plan.bitrate_kbps is not None:
                     request_args["bitrateKbps"] = plan.bitrate_kbps
+                failure_stage = "host"
                 accepted = self._host.call(
                     "tidal.nativePlay",
                     request_args,
@@ -367,7 +419,7 @@ class TidalNativePlaybackAdapter:
                     self._pending = False
                     self._pending_track_id = None
             if failed and self._current(generation):
-                self._status("failed", track_id)
+                self._status("failed", track_id, failure_stage)
 
     @staticmethod
     def _dispose_proxy(proxy: object) -> None:
@@ -421,7 +473,8 @@ class TidalNativePlaybackAdapter:
             else:
                 return
         if kind is not None:
-            self._status(kind, track_id)
+            self._status(kind, track_id,
+                         "output" if kind == "failed" else None)
             if kind in ("failed", "ended"):
                 with self._lock:
                     self._quality_by_track.pop(track_id, None)

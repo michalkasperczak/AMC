@@ -23,10 +23,13 @@ internal static class TidalCredentialStore
     private const uint CredentialPersistLocalMachine = 2;
     private const int ErrorNotFound = 1168;
 
-    public static bool TryRead(out TidalTokenSet? tokens)
+    public static bool TryRead(out TidalTokenSet? tokens, string? targetName = null)
     {
         tokens = null;
-        if (!CredRead(TargetName, CredentialTypeGeneric, 0, out var credentialPointer))
+        if (Environment.GetEnvironmentVariable("AMC_STARTUP_SMOKE") == "1")
+            return false;
+        var target = targetName ?? TargetName;
+        if (!CredRead(target, CredentialTypeGeneric, 0, out var credentialPointer))
         {
             var error = Marshal.GetLastWin32Error();
             if (error == ErrorNotFound) return false;
@@ -46,7 +49,7 @@ internal static class TidalCredentialStore
         }
         catch (JsonException)
         {
-            Delete();
+            Delete(target);
             return false;
         }
         finally
@@ -55,8 +58,10 @@ internal static class TidalCredentialStore
         }
     }
 
-    public static void Write(TidalTokenSet tokens)
+    public static void Write(TidalTokenSet tokens, string? targetName = null)
     {
+        if (Environment.GetEnvironmentVariable("AMC_STARTUP_SMOKE") == "1")
+            throw new InvalidOperationException("Poświadczenia TIDAL są wyłączone podczas testu startu.");
         ArgumentNullException.ThrowIfNull(tokens);
         var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(tokens));
         var blob = Marshal.AllocCoTaskMem(bytes.Length);
@@ -66,7 +71,7 @@ internal static class TidalCredentialStore
             var credential = new NativeCredential
             {
                 Type = CredentialTypeGeneric,
-                TargetName = TargetName,
+                TargetName = targetName ?? TargetName,
                 CredentialBlobSize = (uint)bytes.Length,
                 CredentialBlob = blob,
                 Persist = CredentialPersistLocalMachine,
@@ -85,9 +90,11 @@ internal static class TidalCredentialStore
         }
     }
 
-    public static void Delete()
+    public static void Delete(string? targetName = null)
     {
-        if (CredDelete(TargetName, CredentialTypeGeneric, 0)) return;
+        if (Environment.GetEnvironmentVariable("AMC_STARTUP_SMOKE") == "1")
+            throw new InvalidOperationException("Poświadczenia TIDAL są wyłączone podczas testu startu.");
+        if (CredDelete(targetName ?? TargetName, CredentialTypeGeneric, 0)) return;
         var error = Marshal.GetLastWin32Error();
         if (error != ErrorNotFound)
         {

@@ -15,7 +15,9 @@ namespace AccessibleMediaController.LiteHost.Protocol;
 public static class LiteTidalCatalogContract
 {
     public const string AccountStatusOperation = "tidal.accountStatus";
+    public const string ConfigureOperation = "tidal.configure";
     public const string LoginOperation = "tidal.login";
+    public const string DisconnectOperation = "tidal.disconnect";
     public const string SearchOperation = "tidal.search";
     public const string ContainerItemsOperation = "tidal.containerItems";
     public const string CollectionViewOperation = "tidal.collectionView";
@@ -52,7 +54,8 @@ public static class LiteTidalCatalogContract
     public static LiteTidalAccountStatusResult CreateAccountStatus(
         bool configured,
         bool connected,
-        string? accountDisplayName)
+        string? accountDisplayName,
+        string? redirectUri = null)
     {
         var name = CleanLabel(accountDisplayName);
         var label = !configured
@@ -62,7 +65,7 @@ public static class LiteTidalCatalogContract
                     ? "Konto TIDAL jest połączone."
                     : $"Konto TIDAL jest połączone: {name}."
                 : "Konto TIDAL nie jest połączone.";
-        return new(configured, connected, label, name.Length == 0 ? null : name);
+        return new(configured, connected, label, name.Length == 0 ? null : name, redirectUri);
     }
 
     public static LiteTidalLoginResult CreateLoginResult(string? accountDisplayName)
@@ -73,6 +76,18 @@ public static class LiteTidalCatalogContract
             name.Length == 0
                 ? "Zalogowano konto TIDAL."
                 : $"Zalogowano konto TIDAL: {name}.");
+    }
+
+    public static LiteTidalLoginResult CreateDisconnectResult() =>
+        new(false, "Odłączono konto katalogu TIDAL w tym profilu AMC. Połączenie odtwarzacza pozostaje osobne.");
+
+    public static string ReadClientId(JsonElement args)
+    {
+        var value = LiteArgs.RequireText(args, "clientId").Trim();
+        if (value.Length is < 1 or > 256 || value.Any(char.IsWhiteSpace))
+            throw new LiteRequestException(
+                "Wpisz poprawny identyfikator aplikacji TIDAL. Nie wpisuj Client Secret.");
+        return value;
     }
 
     private static string CleanLabel(string? value)
@@ -355,7 +370,8 @@ public sealed record LiteTidalAccountStatusResult(
     [property: JsonPropertyName("configured")] bool Configured,
     [property: JsonPropertyName("connected")] bool Connected,
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("accountDisplayName")] string? AccountDisplayName);
+    [property: JsonPropertyName("accountDisplayName")] string? AccountDisplayName,
+    [property: JsonPropertyName("redirectUri")] string? RedirectUri);
 
 public sealed record LiteTidalLoginResult(
     [property: JsonPropertyName("connected")] bool Connected,

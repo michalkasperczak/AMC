@@ -58,6 +58,7 @@ class FakeSession:
         self.login_calls = 0
         self.last_quality = None
         self.load_calls = 0
+        self.track_calls = 0
         self.worker_thread = None
         self.login_gate = None
         self.request = SimpleNamespace(basic_request=self.basic_request)
@@ -81,6 +82,7 @@ class FakeSession:
         return True
 
     def track(self, track_id):
+        self.track_calls += 1
         return SimpleNamespace(title=" Utwór testowy ", duration=180)
 
     def basic_request(self, method, path, params):
@@ -209,6 +211,22 @@ class AdapterTests(unittest.TestCase):
         adapter.stop()
         adapter.close()
 
+    def test_catalog_metadata_plays_when_older_track_lookup_cannot_find_id(self):
+        def obsolete_track_lookup(_track_id):
+            raise RuntimeError(SECRET)
+
+        self.session.track = obsolete_track_lookup
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123", "Utwór z katalogu", duration_seconds=338.0))
+        self.assertTrue(self.host.called.wait(3))
+        self.wait_for(lambda: not adapter._pending)
+        self.assertFalse(any(kind == "failed" for kind, _, _ in self.statuses))
+        self.assertEqual(self.host.calls[0][1]["title"], "Utwór z katalogu")
+        self.assertEqual(self.host.calls[0][1]["durationSeconds"], 338.0)
+        self.assertNotIn(SECRET, str(self.statuses))
+        adapter.stop()
+        adapter.close()
+
     def test_max_manifest_is_selected_and_announced_after_host_starts(self):
         self.session.request.basic_request = lambda method, path, params: SimpleNamespace(
             status_code=200, json=lambda: max_payload(),
@@ -219,6 +237,9 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(FakeProxy.instances[0].plan.bit_depth, 24)
         self.assertEqual(FakeProxy.instances[0].plan.sample_rate, 192000)
         self.assertEqual(self.host.calls[0][1].get("bitrateKbps"), 5000)
+        self.assertEqual(self.host.calls[0][1].get("sampleRateHz"), 192000)
+        self.assertEqual(self.host.calls[0][1].get("sourceQualityLabel"),
+                         "Max, FLAC 24 bit, 192 kHz")
         adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
         self.assertTrue(any("Jakość Max, FLAC 24 bit, 192 kHz" in message
                             for _, _, message in self.statuses))
@@ -250,11 +271,37 @@ class AdapterTests(unittest.TestCase):
         self.assertTrue(adapter.play("123"))
         self.assertTrue(self.host.called.wait(3))
         self.assertEqual(requests, ["HI_RES_LOSSLESS", "LOSSLESS"])
+        self.assertEqual(self.host.calls[0][1].get("sampleRateHz"), 44100)
         adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
         self.assertTrue(any("Jakość High, FLAC 16 bit, 44,1 kHz" in message
                             for _, _, message in self.statuses))
         adapter.stop()
         self.assertTrue(FakeProxy.instances[0].closed.wait(3))
+        adapter.close()
+
+    def test_server_downgrade_to_aac_is_announced_as_lossy(self):
+        def request(method, path, params):
+            original = self.session.basic_request(method, path, params)
+            data = original.json()
+            manifest = json.loads(base64.b64decode(data["manifest"]))
+            manifest["mimeType"] = "audio/mp4"
+            manifest["codecs"] = "mp4a.40.2"
+            data["manifest"] = base64.b64encode(json.dumps(manifest).encode()).decode()
+            data["audioQuality"] = "HIGH"
+            return SimpleNamespace(status_code=200, json=lambda: data)
+
+        self.session.request.basic_request = request
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123", "AAC", duration_seconds=180))
+        self.assertTrue(self.host.called.wait(3))
+        adapter.handle_host_event("playback.started", {"sessionId": "tidal", "id": "tidal:123"})
+        self.assertTrue(any("Jakość stratna, AAC" in message
+                            for _, _, message in self.statuses))
+        self.assertEqual(self.host.calls[0][1].get("sourceQualityLabel"), "AAC, jakość stratna")
+        self.assertNotIn("sampleRateHz", self.host.calls[0][1])
+        self.assertFalse(any("Jakość Max" in message
+                             for _, _, message in self.statuses))
+        adapter.stop()
         adapter.close()
 
     def test_missing_session_displays_direct_challenge_and_saves_once(self):
@@ -297,7 +344,34 @@ class AdapterTests(unittest.TestCase):
         self.wait_for(lambda: any(item[0] == "failed" for item in self.statuses))
         self.assertTrue(FakeProxy.instances[0].closed.wait(3))
         self.assertFalse(adapter.is_active)
+        self.assertEqual(self.statuses[-1][2],
+                         "Silnik AMC nie przyjął strumienia TIDAL.")
         self.assertNotIn(SECRET, str(self.statuses) + str(self.challenges))
+        adapter.close()
+
+    def test_manifest_failure_reports_stage_without_signed_url(self):
+        self.session.request.basic_request = lambda *_args: (_ for _ in ()).throw(
+            RuntimeError(SECRET)
+        )
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.wait_for(lambda: any(item[0] == "failed" for item in self.statuses))
+        self.assertEqual(self.statuses[-1][2],
+                         "TIDAL nie udostępnił strumienia tego utworu.")
+        self.assertNotIn(SECRET, str(self.statuses))
+        adapter.close()
+
+    def test_audio_output_failure_reports_distinct_stage(self):
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.assertTrue(self.host.called.wait(3))
+        self.wait_for(lambda: not adapter._pending)
+        adapter.handle_host_event("playback.failed", {
+            "sessionId": "tidal", "id": "tidal:123", "message": SECRET,
+        })
+        self.assertEqual(self.statuses[-1][2],
+                         "Silnik audio AMC nie odtworzył strumienia TIDAL.")
+        self.assertNotIn(SECRET, str(self.statuses))
         adapter.close()
 
     def test_wrong_host_event_cannot_close_proxy(self):

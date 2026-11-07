@@ -24,7 +24,7 @@ def _menu_actions() -> set[Action]:
     }
 
 
-def test_native_command_has_one_test_profile_surface_and_no_public_surface(
+def test_native_command_has_one_surface_in_test_and_public(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "test")
@@ -41,8 +41,8 @@ def test_native_command_has_one_test_profile_surface_and_no_public_surface(
         "do Max; Enter na utworze uruchamia tę samą drogę i kontynuuje listę",
     ) in describe("TIDAL", {Action.TIDAL_PLAY_NATIVE})
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
-    assert Action.TIDAL_PLAY_NATIVE not in _menu_actions()
-    assert Action.TIDAL_PLAY_NATIVE not in {
+    assert Action.TIDAL_PLAY_NATIVE in _menu_actions()
+    assert Action.TIDAL_PLAY_NATIVE in {
         entry.action for entry in entries_for_session(SessionId.TIDAL)
     }
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "test")
@@ -67,7 +67,7 @@ def test_native_command_is_in_track_context_menu() -> None:
 
     row = Row("tidal:tracks:1", "Utwór", "track", service_id="tracks:1")
     entry = SimpleNamespace(action=Action.TIDAL_PLAY_NATIVE, checkable=False)
-    native = SimpleNamespace(IsEnabled=lambda: True, GetItemLabel=lambda: "Odtwórz utwór TIDAL w AMC Test")
+    native = SimpleNamespace(IsEnabled=lambda: True, GetItemLabel=lambda: "Odtwórz utwór TIDAL w AMC")
     frame = SimpleNamespace(
         navigator=SimpleNamespace(session=SimpleNamespace(
             model=SimpleNamespace(selected_row=row),
@@ -78,7 +78,7 @@ def test_native_command_is_in_track_context_menu() -> None:
         _context_menu_entry_label=lambda _entry, label: label,
     )
     groups = LiteFrame._context_menu_command_groups(frame, player=False)
-    assert groups[0][0].label == "Odtwórz utwór TIDAL w AMC Test"
+    assert groups[0][0].label == "Odtwórz utwór TIDAL w AMC"
     assert groups[0][0].action is Action.TIDAL_PLAY_NATIVE
 
 
@@ -119,13 +119,13 @@ def test_native_player_percent_edges_and_volume_match_spotify_surfaces(monkeypat
     }
     described = describe("TIDAL", player_actions)
     assert len(described) == len(player_actions)
-    assert ("5", "Skok do 50% utworu TIDAL w AMC Test") in described
-    assert ("End", "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC Test") in described
+    assert ("5", "Skok do 50% utworu TIDAL w AMC") in described
+    assert ("End", "Przejdź dziesięć sekund przed końcem utworu TIDAL w AMC") in described
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "public")
-    assert not player_actions.intersection(_menu_actions())
-    assert not player_actions.intersection({
+    assert player_actions <= _menu_actions()
+    assert player_actions <= {
         entry.action for entry in entries_for_session(SessionId.TIDAL)
-    })
+    }
 
 
 def test_native_percent_uses_current_tidal_track_and_duration() -> None:
@@ -248,6 +248,30 @@ def test_selected_track_starts_adapter_and_captures_its_list_for_skip() -> None:
     assert frame._tidal_native_pending_row is rows[0]
     assert state.playback_source_rows == rows
     assert state.playback_uses_queue is False
+
+
+def test_catalog_duration_reaches_native_player_without_metadata_lookup() -> None:
+    started = []
+    row = Row(
+        "tidal:tracks:1", "Change", "track", service_id="tracks:1",
+        duration_ticks=3_380_000_000,
+    )
+    state = SimpleNamespace(
+        model=SimpleNamespace(rows=(row,)), playback_source_rows=(),
+        playback_uses_queue=False,
+    )
+    frame = SimpleNamespace(
+        _tidal_native_adapter=SimpleNamespace(
+            play=lambda track_id, title, **kwargs: started.append(
+                (track_id, title, kwargs)
+            ) or True,
+        ),
+        client=object(),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        navigator=SimpleNamespace(sessions={SessionId.TIDAL: state}),
+    )
+    LiteFrame._play_tidal_native_row(frame, row)
+    assert started == [("1", "Change", {"duration_seconds": 338.0})]
 
 
 def test_enter_track_without_album_uses_amc_route() -> None:

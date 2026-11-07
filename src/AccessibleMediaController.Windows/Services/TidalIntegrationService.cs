@@ -26,7 +26,8 @@ internal sealed record TidalPlaybackCredentials(
 internal sealed class TidalIntegrationService(
     TidalSettings settings,
     TidalApiClient? apiClient = null,
-    Func<CancellationToken, Task<TidalTokenSet>>? tokenProvider = null) : IDisposable
+    Func<CancellationToken, Task<TidalTokenSet>>? tokenProvider = null,
+    string? credentialTarget = null) : IDisposable
 {
     private readonly TidalOAuthClient oauth = new();
     private readonly TidalApiClient api = apiClient ?? new();
@@ -50,7 +51,7 @@ internal sealed class TidalIntegrationService(
             if (storedLoginProbe is { } cached) return cached;
             try
             {
-                var found = TidalCredentialStore.TryRead(out _);
+                var found = TidalCredentialStore.TryRead(out _, credentialTarget);
                 storedLoginProbe = found;
                 storedLoginProbeFailure = null;
                 return found;
@@ -99,7 +100,7 @@ internal sealed class TidalIntegrationService(
         try
         {
             var tokens = await oauth.AuthorizeAsync(settings, cancellationToken).ConfigureAwait(false);
-            TidalCredentialStore.Write(tokens);
+            TidalCredentialStore.Write(tokens, credentialTarget);
             InvalidateStoredLoginProbe();
             accountUserId = null;
             DiagnosticLog.Info("tidal-auth", "Zalogowano konto TIDAL; token zapisano w Menedżerze poświadczeń Windows.");
@@ -480,7 +481,7 @@ internal sealed class TidalIntegrationService(
 
     public void Disconnect()
     {
-        TidalCredentialStore.Delete();
+        TidalCredentialStore.Delete(credentialTarget);
         InvalidateStoredLoginProbe();
         settings.AccountDisplayName = string.Empty;
         settings.LastSuccessfulSyncUtcTicks = 0;
@@ -510,13 +511,13 @@ internal sealed class TidalIntegrationService(
         if (tokenProvider is not null) return await tokenProvider(cancellationToken).ConfigureAwait(false);
         if (!IsConfigured)
             throw new InvalidOperationException("Najpierw wpisz identyfikator aplikacji TIDAL.");
-        if (!TidalCredentialStore.TryRead(out var tokens) || tokens is null)
+        if (!TidalCredentialStore.TryRead(out var tokens, credentialTarget) || tokens is null)
             throw new InvalidOperationException("Najpierw zaloguj się do TIDAL.");
         if (!string.Equals(tokens.ClientId, settings.ClientId, StringComparison.Ordinal))
             throw new InvalidOperationException("Identyfikator aplikacji TIDAL został zmieniony. Zaloguj się ponownie.");
         if (tokens.ExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1)) return tokens;
         var refreshed = await oauth.RefreshAsync(settings, tokens, cancellationToken).ConfigureAwait(false);
-        TidalCredentialStore.Write(refreshed);
+        TidalCredentialStore.Write(refreshed, credentialTarget);
         InvalidateStoredLoginProbe();
         DiagnosticLog.Info("tidal-auth", "Odświeżono logowanie TIDAL.");
         return refreshed;

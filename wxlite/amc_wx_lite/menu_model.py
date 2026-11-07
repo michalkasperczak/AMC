@@ -159,7 +159,7 @@ class MenuItem:
     needs_podcast_library_item: bool = False
     #: Wymaga kontenera obsługiwanego przez Bibliotekę TIDAL.
     needs_tidal_library_item: bool = False
-    #: Eksperymentalny odtwarzacz AMC Test wymaga jednego utworu TIDAL.
+    #: Eksperymentalny odtwarzacz AMC wymaga jednego utworu TIDAL.
     needs_tidal_native_track: bool = False
     #: Wymaga albumu, wykonawcy, podcastu albo odcinka zapisywalnego przez
     #: Spotify. Odcinek jest jawnie wspierany przez ten sam kontrakt konta.
@@ -278,7 +278,7 @@ def menus_for_session(
             if entry.visible_sessions and session_id not in entry.visible_sessions:
                 continue
             if (session_id is SessionId.TIDAL
-                    and current_profile().profile_id == PUBLIC_PROFILE_ID
+                    and "tidal.native-playback" not in current_profile().capabilities
                     and entry.action in TIDAL_NATIVE_ONLY_ACTIONS):
                 continue
             if (
@@ -838,7 +838,7 @@ def build_menus(
                     needs_tidal_native_track=True,
                     visible_sessions=TIDAL_ONLY,
                 ),)
-                if current_profile().profile_id != PUBLIC_PROFILE_ID else ()
+                if "tidal.native-playback" in current_profile().capabilities else ()
             ),
             MenuItem(
                 "Przekaż utwór do ory&ginalnego TIDALa",
@@ -1274,7 +1274,7 @@ def build_menus(
         (
             MenuItem("&Pauza albo wznowienie", Action.PLAY_PAUSE, shortcut="Space",
                      accelerator=False, needs_playback=True),
-            MenuItem("&Zatrzymaj utwór TIDAL w AMC Test",
+            MenuItem("&Zatrzymaj utwór TIDAL w AMC",
                      Action.TIDAL_STOP_NATIVE, needs_playback=True,
                      visible_sessions=TIDAL_ONLY),
             MenuItem("Pop&rzedni utwór TIDAL", Action.QUEUE_PREVIOUS,

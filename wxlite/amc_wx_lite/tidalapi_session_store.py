@@ -1,4 +1,4 @@
-"""Private AMC Test TIDAL OAuth storage in Windows Credential Manager.
+"""Profile-isolated TIDAL playback storage in Windows Credential Manager.
 
 The credential is intentionally separate from AMC's official TIDAL login.
 No token or signed media URL is written to a normal file or exception text.
@@ -9,13 +9,19 @@ from __future__ import annotations
 import ctypes
 import datetime as dt
 import json
+import os
 import sys
 from ctypes import wintypes
 
+from .release_profile import ReleaseProfile, current_profile
 
-_TARGET = "AccessibleMediaController.Test.TidalapiPlayback.v1"
 _MAX_BLOB_BYTES = 5 * 512
 _ERROR_NOT_FOUND = 1168
+
+
+def credential_target(profile: ReleaseProfile) -> str:
+    """Keep Test's existing target while isolating every release profile."""
+    return f"{profile.credential_namespace}.TidalapiPlayback.v1"
 
 
 class CredentialStoreError(Exception):
@@ -45,9 +51,14 @@ class _Credential(ctypes.Structure):
 class WindowsCredentialStore:
     """Read and write a per-user, local-machine generic credential."""
 
-    def __init__(self) -> None:
+    def __init__(self, profile: ReleaseProfile | None = None) -> None:
+        if os.environ.get("AMC_STARTUP_SMOKE") == "1":
+            raise CredentialStoreError()
         if sys.platform != "win32":
             raise CredentialStoreError()
+        selected_profile = profile or current_profile()
+        self._target = credential_target(selected_profile)
+        self._user_name = f"{selected_profile.display_name} TIDAL playback"
         try:
             library = ctypes.WinDLL("Advapi32.dll", use_last_error=True)
             library.CredReadW.argtypes = [
@@ -65,7 +76,7 @@ class WindowsCredentialStore:
 
     def read(self) -> bytes | None:
         pointer = ctypes.POINTER(_Credential)()
-        if not self._library.CredReadW(_TARGET, 1, 0, ctypes.byref(pointer)):
+        if not self._library.CredReadW(self._target, 1, 0, ctypes.byref(pointer)):
             if ctypes.get_last_error() == _ERROR_NOT_FOUND:
                 return None
             raise CredentialStoreError()
@@ -84,8 +95,8 @@ class WindowsCredentialStore:
         blob = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
         credential = _Credential()
         credential.Type = 1  # CRED_TYPE_GENERIC
-        credential.TargetName = _TARGET
-        credential.UserName = "AMC Test TIDAL playback"
+        credential.TargetName = self._target
+        credential.UserName = self._user_name
         credential.CredentialBlobSize = len(data)
         credential.CredentialBlob = blob
         credential.Persist = 2  # CRED_PERSIST_LOCAL_MACHINE

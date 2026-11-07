@@ -14,10 +14,14 @@ def test_tidal_account_operations_are_explicit_and_send_no_credentials() -> None
 
     client.tidal_account_status()
     client.tidal_login()
+    client.tidal_disconnect()
+    client.tidal_configure("public-id")
 
     assert calls == [
         ("tidal.accountStatus", None, 15.0),
         ("tidal.login", None, 360.0),
+        ("tidal.disconnect", None, 15.0),
+        ("tidal.configure", {"clientId": "public-id"}, 15.0),
     ]
     serialized = repr(calls).casefold()
     assert "token" not in serialized

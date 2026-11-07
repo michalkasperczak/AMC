@@ -93,7 +93,7 @@ PROFILE_GATED_SERVICE_MODULES = {
     "tidalapi_session_store.py": "tidal.native-playback",
 }
 
-# Only these missing packages are copied from a dedicated, pinned test venv.
+# Only these missing packages are copied from a dedicated, pinned venv.
 # Existing shared requests/certifi/etc. stay in the supplied AMC runtime.
 TIDAL_TEST_PACKAGES = {
     "tidalapi": ("tidalapi", "tidalapi-0.8.11.dist-info"),
@@ -542,17 +542,17 @@ def copy_runtime(target: Path, runtime: Path) -> list[str]:
 def copy_tidal_test_dependencies(
     target: Path, profile: ReleaseProfile, source_site_packages: Path | None,
 ) -> list[str]:
-    """Add the pinned private player only to an isolated AMC Test bundle.
+    """Add the pinned player to an isolated bundle with native TIDAL enabled.
 
     Never install into the supplied runtime: it may belong to a running AMC.
-    A full Test build must name the isolated venv explicitly; refresh-only
+    A full build must name the isolated venv explicitly; refresh-only
     builds instead require these packages already present in the bundle.
     """
     if "tidal.native-playback" not in profile.capabilities:
         return []
     destination = target / "runtime" / "Lib" / "site-packages"
     if source_site_packages is None:
-        raise SystemExit("AMC Test TIDAL wymaga --tidal-site-packages z prywatnego venv.")
+        raise SystemExit("Odtwarzacz TIDAL wymaga --tidal-site-packages z osobnego venv.")
     validate_tidal_dependency_sources(destination, source_site_packages)
     copied: list[str] = []
     for module_name, metadata_name in TIDAL_TEST_PACKAGES.values():
@@ -563,7 +563,7 @@ def copy_tidal_test_dependencies(
         for source in (source_module, source_metadata):
             output = destination / source.name
             if output.exists():
-                raise SystemExit("Runtime AMC Test zawiera już składnik TIDAL; sprawdź jego wersję.")
+                raise SystemExit("Runtime AMC zawiera już składnik TIDAL; sprawdź jego wersję.")
             shutil.copytree(source, output)
             copied.extend(
                 p.relative_to(target).as_posix()
@@ -593,7 +593,7 @@ def validate_tidal_test_dependencies(target: Path, profile: ReleaseProfile) -> N
         not (root / name).is_dir()
         for pair in TIDAL_TEST_PACKAGES.values() for name in pair
     ):
-        raise SystemExit("Istniejąca paczka AMC Test nie zawiera zależności TIDAL; wykonaj pełny build.")
+        raise SystemExit("Istniejąca paczka AMC nie zawiera zależności TIDAL; wykonaj pełny build.")
 
 
 def copy_updater(target: Path, updater_dir: Path) -> list[str]:
@@ -843,7 +843,7 @@ def main() -> int:
         validate_librespot_package_source()
     if "tidal.native-playback" in profile.capabilities:
         if args.tidal_site_packages is None:
-            raise SystemExit("AMC Test TIDAL wymaga --tidal-site-packages z prywatnego venv.")
+            raise SystemExit("Odtwarzacz TIDAL wymaga --tidal-site-packages z osobnego venv.")
         validate_tidal_dependency_sources(
             args.runtime / "Lib" / "site-packages", args.tidal_site_packages
         )
@@ -851,7 +851,7 @@ def main() -> int:
         (args.runtime / "Lib" / "site-packages" / name).exists()
         for name in ("tidalapi", "tidalapi-0.8.11.dist-info")
     ):
-        raise SystemExit("Publiczny runtime AMC nie może zawierać prywatnego tidalapi.")
+        raise SystemExit("Runtime bez odtwarzacza TIDAL nie może zawierać tidalapi.")
 
     if args.clean and target.exists():
         shutil.rmtree(target)

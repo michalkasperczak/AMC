@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace AccessibleMediaController.LiteHost.Protocol;
 
 /// <summary>
-/// A single AMC Test playback request. The protocol carries only the local
+/// A single AMC playback request. The protocol carries only the local
 /// loopback capability, never an upstream playback URL or credentials.
 /// </summary>
 internal sealed record LiteTidalNativePlayRequest(
@@ -12,12 +13,14 @@ internal sealed record LiteTidalNativePlayRequest(
     string Title,
     Uri ProxyUri,
     TimeSpan Duration,
-    int? BitrateKbps)
+    int? BitrateKbps,
+    int? SampleRateHz,
+    string? SourceQualityLabel)
 {
     internal const string Operation = "tidal.nativePlay";
     internal const string BitrateOperation = "tidal.nativeBitrate";
     internal const string DisabledMessage =
-        "Odtwarzanie TIDAL w AMC jest dostępne tylko w AMC Test.";
+        "Odtwarzanie TIDAL w tej wersji AMC jest niedostępne.";
 
     private static readonly Regex TrackIdPattern = new(
         @"\A[0-9]{1,18}\z", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -29,7 +32,7 @@ internal sealed record LiteTidalNativePlayRequest(
     internal string StableSource => "tidal:track:" + TrackId;
 
     internal static bool IsEnabledForProfile(string? releaseProfile) =>
-        string.Equals(releaseProfile, "test", StringComparison.Ordinal);
+        releaseProfile is "test" or "public";
 
     internal static LiteTidalNativePlayRequest Parse(JsonElement args)
     {
@@ -38,7 +41,8 @@ internal sealed record LiteTidalNativePlayRequest(
 
         foreach (var property in args.EnumerateObject())
         {
-            if (property.Name is not ("proxyUrl" or "id" or "title" or "durationSeconds" or "bitrateKbps"))
+            if (property.Name is not ("proxyUrl" or "id" or "title" or "durationSeconds" or "bitrateKbps"
+                or "sampleRateHz" or "sourceQualityLabel"))
                 throw new LiteRequestException("Polecenie odtwarzania TIDAL zawiera nieznane dane.");
         }
 
@@ -82,6 +86,39 @@ internal sealed record LiteTidalNativePlayRequest(
             bitrateKbps = value;
         }
 
-        return new(id, title, proxyUri, TimeSpan.FromSeconds(durationSeconds), bitrateKbps);
+        int? sampleRateHz = null;
+        if (args.TryGetProperty("sampleRateHz", out var sampleRateProperty))
+        {
+            if (sampleRateProperty.ValueKind != JsonValueKind.Number
+                || !sampleRateProperty.TryGetInt32(out var value)
+                || value is < 8_000 or > 384_000)
+                throw new LiteRequestException("Częstotliwość źródła TIDAL jest nieprawidłowa.");
+            sampleRateHz = value;
+        }
+        string? sourceQualityLabel = null;
+        if (args.TryGetProperty("sourceQualityLabel", out var qualityProperty))
+        {
+            if (qualityProperty.ValueKind != JsonValueKind.String)
+                throw new LiteRequestException("Opis jakości TIDAL jest nieprawidłowy.");
+            sourceQualityLabel = qualityProperty.GetString()?.Trim();
+            if (string.IsNullOrEmpty(sourceQualityLabel) || sourceQualityLabel.Length > 200
+                || sourceQualityLabel.Any(char.IsControl))
+                throw new LiteRequestException("Opis jakości TIDAL jest nieprawidłowy.");
+        }
+        return new(id, title, proxyUri, TimeSpan.FromSeconds(durationSeconds), bitrateKbps,
+            sampleRateHz, sourceQualityLabel);
+    }
+
+    internal static string FormatPlaybackText(
+        string title, string sourceQualityLabel, int? bitrateKbps, int? pcmSampleRateHz)
+    {
+        var parts = new List<string> { title, "źródło " + sourceQualityLabel.TrimEnd('.') };
+        if (bitrateKbps is > 0) parts.Add($"{bitrateKbps} kb/s");
+        if (pcmSampleRateHz is > 0)
+        {
+            var rate = (pcmSampleRateHz.Value / 1000d).ToString("0.###", CultureInfo.GetCultureInfo("pl-PL"));
+            parts.Add($"PCM w silniku {rate} kHz");
+        }
+        return string.Join(", ", parts);
     }
 }

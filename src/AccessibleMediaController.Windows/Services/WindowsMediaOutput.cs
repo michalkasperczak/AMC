@@ -77,7 +77,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         GuardedWaveStream Reader,
         DecoderKind DecoderKind);
 
-    private readonly record struct TransientFlacSource(string Address, TimeSpan Duration);
+    private readonly record struct TransientFlacSource(string Address, TimeSpan Duration, int? SampleRateHz);
     private static readonly System.Text.RegularExpressions.Regex LoopbackAudioUrlPattern = new(
         @"\Ahttp://127\.0\.0\.1:[1-9][0-9]{0,4}/audio/[A-Za-z0-9_-]{32}(?:\.mpd)?\z",
         System.Text.RegularExpressions.RegexOptions.Compiled
@@ -332,7 +332,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     {
         ValidateTransientFlacRequest(item, streamUri, duration);
         PlayCore(item, position, volume, playbackRate,
-            new TransientFlacSource(streamUri.AbsoluteUri, duration));
+            new TransientFlacSource(streamUri.AbsoluteUri, duration, item.SampleRateHz));
     }
 
     internal static void ValidateTransientFlacRequest(
@@ -775,16 +775,18 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         string stableSource,
         TransientFlacSource source)
         => new(
-            OpenTransientFlacReader(stableSource, source.Address, source.Duration),
+            OpenTransientFlacReader(stableSource, source.Address, source.Duration, source.SampleRateHz),
             DecoderKind.FfmpegLocal);
 
     internal static GuardedWaveStream OpenTransientFlacReader(
         string stableSource,
         string address,
-        TimeSpan duration)
+        TimeSpan duration,
+        int? sampleRateHz = null)
     {
         if (!FfmpegLocalAudioWaveStream.TryOpenNetwork(
-                address, duration, out var decoder))
+                address, duration, out var decoder, sampleRateHz,
+                preserveSourceSampleRate: true))
             throw new InvalidDataException("Nie udało się otworzyć sieciowego strumienia FLAC.");
         try { return new GuardedWaveStream(decoder, stableSource); }
         catch

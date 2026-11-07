@@ -88,6 +88,15 @@ def main(argv: list[str] | None = None) -> int:
                 from .gui import main as gui_main  # noqa: PLC0415
                 return gui_main()
             except Exception as error:  # noqa: BLE001
+                result_path = os.environ.get("AMC_STARTUP_SMOKE_RESULT")
+                if result_path:
+                    try:
+                        Path(result_path).write_text(
+                            f"FAILED: {type(error).__name__}: {error}",
+                            encoding="utf-8",
+                        )
+                    except OSError:
+                        pass
                 print(
                     f"Kontrolowany start interfejsu nie powiódł się: {error}",
                     file=sys.stderr,

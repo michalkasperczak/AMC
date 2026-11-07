@@ -236,7 +236,7 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
         SessionId.TIDAL: (
             Action.SESSION_CONFIGURE_CURRENT,
             "Konto i synchronizacja TIDAL",
-            "Otwórz konto, logowanie i synchronizację TIDAL",
+            "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu",
             "tidal_session",
         ),
         SessionId.WIIM: (

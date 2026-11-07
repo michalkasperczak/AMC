@@ -80,7 +80,11 @@ _PUBLIC_CAPABILITIES = tuple(
     capability
     for capability in _COMMON_CAPABILITIES
     if capability != "session.sonos"
-) + ("session.frontier-smart",)
+) + (
+    "session.frontier-smart",
+    "session.tidal",
+    "tidal.native-playback",
+)
 
 TEST_PROFILE = ReleaseProfile(
     profile_id=TEST_PROFILE_ID,
@@ -130,7 +134,7 @@ PUBLIC_PROFILE = ReleaseProfile(
     cache_folder="AMC/cache",
     log_folder="AMC/logs",
     credential_namespace="AccessibleMediaController.Public",
-    session_ids=("files", "radio", "podcasts", "wiim", "frontierSmart"),
+    session_ids=("files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"),
     capabilities=_PUBLIC_CAPABILITIES,
 )
 

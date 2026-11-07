@@ -10,7 +10,6 @@ from .navigation import LibraryView, SessionId
 from .podcast_source import PodcastSource
 from .radio_source import RadioSource, SCOPE_LIBRARY
 from .search_catalog import SearchEntry
-from .spotify_source import history_rows as spotify_history_rows
 
 TIDAL_VIEW_LIBRARY = "library"
 TIDAL_VIEW_FAVORITES = "favorites"
@@ -21,6 +20,7 @@ def spotify_cached_entries(
     loaded_rows: tuple[Row, ...], playback_history: list[dict]
 ) -> tuple[SearchEntry, ...]:
     """Expose already known Spotify items to global search without a request."""
+    from .spotify_source import history_rows as spotify_history_rows
 
     seen: set[str] = set()
     entries: list[SearchEntry] = []

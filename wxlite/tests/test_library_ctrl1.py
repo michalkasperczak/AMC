@@ -148,5 +148,26 @@ class LibraryLoadsUnderCtrl1(unittest.TestCase):
         self.assertTrue(any("Ctrl+O" in text for text in said), said)
 
 
+class TidalStartupView(unittest.TestCase):
+    def test_restored_tidal_session_opens_its_collection(self):
+        for remembered, expected in (
+            (None, gui.LibraryView.TIDAL_LIBRARY),
+            (gui.LibraryView.TIDAL_FAVORITES, gui.LibraryView.TIDAL_FAVORITES),
+        ):
+            with self.subTest(remembered=remembered):
+                frame = _frame(LibrarySource(private_sandbox("/nonexistent-amc-profile")), [], [])
+                frame.navigator.active = gui.SessionId.TIDAL
+                frame.navigator.sessions[gui.SessionId.TIDAL] = SimpleNamespace(
+                    library_view=remembered,
+                    list_anchor_id="remembered-item",
+                )
+                opened = []
+                frame._open_tidal_view = opened.append
+                gui.LiteFrame._load_initial_content(frame)
+                self.assertEqual(len(opened), 1)
+                self.assertIs(opened[0].view, expected)
+                self.assertEqual(opened[0].preferred_id, "remembered-item")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

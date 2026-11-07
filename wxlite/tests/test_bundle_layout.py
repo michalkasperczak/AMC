@@ -71,7 +71,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
         copied = bundle.copy_python_code(target, bundle.profile_from_id("public"))
 
         assert "app/amc_wx_lite/gui.py" in copied
-        assert not (target / "requirements-tidal-test.txt").exists()
+        assert (target / "requirements-tidal-test.txt").is_file()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
         assert not (package / "sonos_source.py").exists()
@@ -274,7 +274,7 @@ def test_public_gui_imports_without_private_service_modules():
                 (f"import sys; sys.path.insert(0, {str(target / 'app')!r}); "
                     "import amc_wx_lite.gui as gui; "
                     "assert gui._RELEASE_PROFILE.profile_id == 'public'; "
-                    "assert not hasattr(gui, 'TidalSource'); "
+                    "assert hasattr(gui, 'TidalSource'); "
                     "assert not hasattr(gui, 'SpotifyPlaylistDialog'); "
                     "assert not hasattr(gui, 'SonosPayloadError'); "
                     "assert hasattr(gui, 'FrontierSmartPayloadError')"
@@ -300,7 +300,7 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     assert manifest["installId"] == "AMC.Public.win-x64"
     assert manifest["updateChannel"] == "stable"
     assert manifest["sessions"] == [
-        "files", "radio", "podcasts", "wiim", "frontierSmart"
+        "files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"
     ]
     assert "spotify" not in " ".join(manifest["capabilities"]).casefold()
     assert manifest["credentialNamespace"] != (
@@ -588,7 +588,7 @@ def test_runtime_can_be_reused_in_place_during_bundle_update():
         assert "runtime/python.exe" in copied
 
 
-def test_private_tidal_dependencies_are_copied_only_into_test_runtime():
+def test_pinned_tidal_dependencies_are_copied_into_enabled_profiles():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         target = root / "bundle"
@@ -612,30 +612,35 @@ def test_private_tidal_dependencies_are_copied_only_into_test_runtime():
         assert "runtime/Lib/site-packages/tidalapi/__init__.py" in copied
         assert (runtime_site / "tidalapi-0.8.11.dist-info" / "METADATA").is_file()
         bundle.validate_tidal_test_dependencies(target, bundle.profile_from_id("test"))
-        assert bundle.copy_tidal_test_dependencies(
-            target, bundle.profile_from_id("public"), source_site
-        ) == []
+        public_target = root / "bundle-public"
+        public_site = public_target / "runtime" / "Lib" / "site-packages"
+        public_site.mkdir(parents=True)
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (public_site / name).mkdir()
+        public_copied = bundle.copy_tidal_test_dependencies(
+            public_target, bundle.profile_from_id("public"), source_site
+        )
+        assert "runtime/Lib/site-packages/tidalapi/__init__.py" in public_copied
+        bundle.validate_tidal_test_dependencies(
+            public_target, bundle.profile_from_id("public")
+        )
 
 
-def test_private_tidal_dependency_gate_rejects_missing_and_public_leak():
+def test_tidal_dependency_gate_rejects_missing_from_both_profiles():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
-        test = bundle.profile_from_id("test")
-        try:
-            bundle.validate_tidal_test_dependencies(target, test)
-        except SystemExit as error:
-            assert "pełny build" in str(error)
-        else:
-            raise AssertionError("Test bez tidalapi musi odmówić Python-only refresh")
-        try:
-            bundle.validate_profile_files(
-                bundle.profile_from_id("public"),
-                ["runtime/Lib/site-packages/tidalapi/session.py"],
-            )
-        except SystemExit as error:
-            assert "Publiczny pakiet AMC" in str(error)
-        else:
-            raise AssertionError("Publiczny pakiet nie może zawierać tidalapi")
+        for profile_name in ("test", "public"):
+            profile = bundle.profile_from_id(profile_name)
+            try:
+                bundle.validate_tidal_test_dependencies(target, profile)
+            except SystemExit as error:
+                assert "pełny build" in str(error)
+            else:
+                raise AssertionError(f"{profile_name} bez tidalapi musi odmówić odświeżenia")
+        bundle.validate_profile_files(
+            bundle.profile_from_id("public"),
+            ["runtime/Lib/site-packages/tidalapi/session.py"],
+        )
 
 
 def test_pinned_librespot_source_matches_local_provenance_and_license_inventory():
@@ -860,6 +865,19 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
         target = root / "public-bundle"
         for directory in (host, launcher, updater, runtime):
             directory.mkdir()
+        runtime_site = runtime / "Lib" / "site-packages"
+        tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
+        runtime_site.mkdir(parents=True)
+        tidal_site.mkdir(parents=True)
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (runtime_site / name).mkdir()
+        for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
+            module = tidal_site / module_name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+            metadata = tidal_site / metadata_name
+            metadata.mkdir()
+            (metadata / "METADATA").write_text("test", encoding="utf-8")
         (host / "amc_lite_host.exe").write_bytes(b"SYNTHETIC_LITE_HOST")
         (launcher / "AMC.exe").write_bytes(b"SYNTHETIC_LAUNCHER")
         (updater / "AMC-Python-Updater.exe").write_bytes(b"SYNTHETIC_UPDATER")
@@ -874,6 +892,7 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
                 str(path),
                 "--out", str(target),
                 "--profile", "public",
+                "--tidal-site-packages", str(tidal_site),
                 "--host", str(host),
                 "--launcher", str(launcher),
                 "--updater", str(updater),

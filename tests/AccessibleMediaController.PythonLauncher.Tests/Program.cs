@@ -14,7 +14,7 @@ internal static class Program
     [
         ("poprawny pakiet", ValidBundleIsAccepted),
         ("poprawny publiczny pakiet", ValidPublicBundleIsAccepted),
-        ("natywny TIDAL należy tylko do AMC Test", NativeTidalCapabilityIsTestOnly),
+        ("natywny TIDAL jest w Test i Public", NativeTidalCapabilityIsInBothProfiles),
         ("manifest nie może przedefiniować profilu", TamperedProfileIsRejected),
         ("uszkodzony plik", CorruptStartupFileIsRejected),
         ("pełna integralność obejmuje pliki niestartowe", FullVerificationCoversNonStartupFiles),
@@ -91,10 +91,10 @@ internal static class Program
         Equal("AMC Public", verified.Profile.DisplayName);
     }
 
-    private static void NativeTidalCapabilityIsTestOnly()
+    private static void NativeTidalCapabilityIsInBothProfiles()
     {
         Equal(true, ReleaseProfileContract.Test.Capabilities.Contains("tidal.native-playback"));
-        Equal(false, ReleaseProfileContract.Public.Capabilities.Contains("tidal.native-playback"));
+        Equal(true, ReleaseProfileContract.Public.Capabilities.Contains("tidal.native-playback"));
     }
 
     private static void TamperedProfileIsRejected()

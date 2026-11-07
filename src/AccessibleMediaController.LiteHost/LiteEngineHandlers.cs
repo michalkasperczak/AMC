@@ -19,7 +19,7 @@ namespace AccessibleMediaController.LiteHost;
 /// </summary>
 internal sealed class LiteEngineHandlers : IDisposable
 {
-    private sealed record TidalTransientPlayback(Uri ProxyUri, TimeSpan Duration);
+    private sealed record TidalTransientPlayback(Uri ProxyUri, TimeSpan Duration, string? SourceQualityLabel);
     private sealed record BookmarkNavigationCursor(
         string ItemId,
         string BookmarkId,
@@ -563,10 +563,14 @@ internal sealed class LiteEngineHandlers : IDisposable
                 TidalSearch(request.Args),
             [LiteTidalCatalogContract.AccountStatusOperation] = (_, _) =>
                 TidalAccountStatus(),
+            [LiteTidalCatalogContract.ConfigureOperation] = (request, _) =>
+                TidalConfigure(request.Args),
             [LiteTidalPlaybackProbe.Operation] = (request, _) =>
                 RequireTidal().ProbePlayback(request.Args),
             [LiteTidalCatalogContract.LoginOperation] = (_, _) =>
                 TidalLogin(),
+            [LiteTidalCatalogContract.DisconnectOperation] = (_, _) =>
+                RequireTidal().Disconnect(),
             [LiteTidalCatalogContract.ContainerItemsOperation] = (request, _) =>
                 TidalContainerItems(request.Args),
             [LiteTidalCatalogContract.CollectionViewOperation] = (request, _) =>
@@ -2634,6 +2638,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             Source = request.StableSource,
             Duration = request.Duration,
             BitrateKbps = request.BitrateKbps,
+            SampleRateHz = request.SampleRateHz,
             IsBitrateEstimated = request.BitrateKbps.HasValue
         };
         int volume;
@@ -2643,7 +2648,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _activeEngine = "files";
             _filesItem = item;
             _filesSessionId = "tidal";
-            _tidalTransient = new(request.ProxyUri, request.Duration);
+            _tidalTransient = new(request.ProxyUri, request.Duration, request.SourceQualityLabel);
             _filesSessions.Remove("tidal");
             _bookmarkNavigationCursor = null;
             ForgetStaleFilesDurationLocked(item.Id);
@@ -3660,8 +3665,10 @@ internal sealed class LiteEngineHandlers : IDisposable
         int volume;
         double rate;
         TimeSpan? rememberedPosition = null;
+        string? tidalSourceQualityLabel;
         lock (_gate)
         {
+            tidalSourceQualityLabel = target.SessionId == "tidal" ? _tidalTransient?.SourceQualityLabel : null;
             _activeEngine = engine;
             if (engine == "radio")
             {
@@ -3725,6 +3732,10 @@ internal sealed class LiteEngineHandlers : IDisposable
             : currentBroadcastText ?? string.Join(", ",
                 new[] { item.Title, AudioParametersFormatter.FormatCompact(item) }
                     .Where(part => !string.IsNullOrWhiteSpace(part)));
+        if (item is not null && tidalSourceQualityLabel is not null)
+            currentPlaybackText = LiteTidalNativePlayRequest.FormatPlaybackText(
+                item.Title, tidalSourceQualityLabel, item.BitrateKbps,
+                filesDuration > TimeSpan.Zero ? item.SampleRateHz : null);
         return new
         {
             engine,
@@ -3835,6 +3846,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             "Host nie ma dostępu do profilu AMC potrzebnego do katalogu TIDAL.");
 
     private object TidalAccountStatus() => RequireTidal().AccountStatus();
+
+    private object TidalConfigure(JsonElement args) => RequireTidal().Configure(args);
 
     private object TidalLogin() => RequireTidal().Login();
 

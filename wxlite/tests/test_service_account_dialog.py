@@ -42,14 +42,32 @@ def test_dialog_explains_browser_login_without_code_and_has_explicit_names() -> 
     source = SOURCE.read_text(encoding="utf-8")
     dialog = source[source.index("class ServiceAccountDialog") :]
     dialog = dialog[:dialog.index("class SessionSelectionDialog")]
-    assert 'label="Zaloguj w przeglądarce"' in dialog
-    assert "AMC nie wymaga " in dialog
-    assert '"przepisywania kodu."' in dialog
+    assert '"Zaloguj ponownie w przeglądarce" if self._connected' in dialog
+    assert 'else "Zaloguj w przeglądarce"' in dialog
+    assert 'label=f"Odłącz konto katalogu {service_name}"' in dialog
+    assert 'self.disconnect_button.Show(self._connected)' in dialog
+    assert 'self.disconnect_button.SetFocus()' in dialog
+    assert 'wx.NO_DEFAULT' in dialog
+    assert "Po zalogowaniu AMC pokaże " in dialog
+    assert "osobne zatwierdzenie kodu odtwarzacza " in dialog
+    assert '"Logowanie do katalogu nie wymaga przepisywania kodu."' in dialog
     assert 'SetName(f"Stan konta {service_name}: {status}")' in dialog
-    assert 'SetName(f"Zaloguj konto {service_name} w przeglądarce")' in dialog
+    assert 'f"Zaloguj konto {service_name} w przeglądarce"' in dialog
     assert "self.login_button.SetFocus" in dialog
     assert "self.close_button.Enable(True)" in dialog
     assert "self.SetEscapeId(wx.ID_CANCEL)" in dialog
+    assert 'self.SetTitle(i18n.ui_text(f"Konto {service_name}"))' in dialog
+
+
+def test_tidal_login_refreshes_visible_collection_and_disconnect_stays_separate() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    section = source[source.index("    def _show_service_account") :]
+    section = section[:section.index("    def _show_youtube_account")]
+    assert 'dialog.set_connected(True)' in section
+    assert 'self._open_tidal_view(OpenTidalView(' in section
+    assert 'client.tidal_disconnect' in section
+    assert 'dialog.set_connected(False)' in section
+    assert 'cache.invalidate("tidal:playlists")' in section
 
 
 def test_configure_routes_spotify_tidal_and_wiim_without_opening_browser_itself() -> None:
@@ -71,6 +89,7 @@ def test_account_window_stays_modeless_during_external_login() -> None:
     assert "dialog.Show()" in section
     assert "dialog.ShowModal()" not in section
     assert "existing.focus_primary_action()" in section
+    assert "i18n.localize_window_tree(dialog)" in section
 
 
 def test_opening_spotify_account_announces_current_status_without_login() -> None:

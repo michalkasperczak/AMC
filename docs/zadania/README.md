@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `AUTH-PUBLIC-20261106` — **Test v7 uruchomiony próbnie; znane częstotliwości 44,1/96/192 kHz zachowane, opis NVDA rozróżnia źródło i PCM** — testy dekodera i transportu 192 kHz przeszły. Dla „Sara” potwierdzono AAC 44,1 kHz, przy brakujących metadanych silnik nadal używa 48 kHz. Odbiór GUI Max, brakujące parametry, konto zewnętrzne i wydanie pozostają otwarte. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
+
 Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
 
 Ten katalog jest kanonicznym miejscem zapisywania osobnych zadań, które mają

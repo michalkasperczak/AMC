@@ -27,17 +27,14 @@ if (Test-Path -LiteralPath $output) {
     throw "Folder docelowy już istnieje; zachowano go bez zmian: $output"
 }
 $tidalSource = ""
-if ($Profile -eq "test") {
+if ($Profile -in @("test", "public")) {
     if ([string]::IsNullOrWhiteSpace($TidalSitePackages)) {
-        throw "AMC Test wymaga -TidalSitePackages z osobnego venv."
+        throw "Odtwarzacz TIDAL wymaga -TidalSitePackages z osobnego venv."
     }
     $tidalSource = [IO.Path]::GetFullPath($TidalSitePackages)
     if (-not (Test-Path -LiteralPath $tidalSource -PathType Container)) {
         throw "Nie istnieje katalog zależności TIDAL: $tidalSource"
     }
-}
-elseif (-not [string]::IsNullOrWhiteSpace($TidalSitePackages)) {
-    throw "AMC Public nie przyjmuje zależności TIDAL."
 }
 function Invoke-Checked {
     param(
@@ -134,7 +131,7 @@ try {
         "--runtime", $runtime,
         "--clean"
     )
-    if ($Profile -eq "test") {
+    if ($Profile -in @("test", "public")) {
         $bundleArguments += @("--tidal-site-packages", $tidalSource)
     }
     Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments

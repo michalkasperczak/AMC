@@ -430,7 +430,8 @@ internal static class Program
     private static LiteTidalCatalogCoordinator? OpenTidalCatalog(string[] args)
     {
         var state = ReadArgumentPath(args, "--state-json");
-        return state is null ? null : new LiteTidalCatalogCoordinator(state);
+        var profile = ReadArgumentText(args, "--release-profile") ?? "test";
+        return state is null ? null : new LiteTidalCatalogCoordinator(state, profile);
     }
 
     private static LiteSpotifyCatalogCoordinator? OpenSpotifyCatalog(string[] args)

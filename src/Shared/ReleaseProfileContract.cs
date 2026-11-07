@@ -50,6 +50,8 @@ internal static class ReleaseProfileContract
     private static readonly string[] PublicCapabilities = CommonCapabilities
         .Where(capability => capability != "session.sonos")
         .Append("session.frontier-smart")
+        .Append("session.tidal")
+        .Append("tidal.native-playback")
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Test = new(
@@ -94,7 +96,7 @@ internal static class ReleaseProfileContract
         "AMC/cache",
         "AMC/logs",
         "AccessibleMediaController.Public",
-        ["files", "radio", "podcasts", "wiim", "frontierSmart"],
+        ["files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"],
         PublicCapabilities,
         @"Local\AccessibleMultimediaController.PythonLauncher.Public.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Public.SingleInstance",

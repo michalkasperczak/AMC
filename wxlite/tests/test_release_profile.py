@@ -72,29 +72,29 @@ def test_profiles_have_distinct_identity_storage_channel_and_credentials() -> No
 
 def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> None:
     assert PUBLIC_PROFILE.session_ids == (
-        "files", "radio", "podcasts", "wiim", "frontierSmart"
+        "files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"
     )
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
     # Radio Archiwista jest dostępny wyłącznie w AMC Test do czasu
     # ustabilizowania sesji; do Public trafi świadomą decyzją.
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session not in {"tidal", "spotify", "sonos", "radioarchiwista"}
+        if session not in {"spotify", "sonos", "radioarchiwista"}
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
     assert "spotify" not in public_text
-    assert "tidal" not in public_text
+    assert "session.tidal" in public_text
+    assert "tidal.native-playback" in public_text
     assert "youtube.account" not in public_text
     assert "sonos" not in public_text
     assert "frontier-smart" in public_text
-    assert PUBLIC_PROFILE.capabilities == tuple(
+    assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
         if "spotify" not in capability.casefold()
-        and "tidal" not in capability.casefold()
         and "sonos" not in capability.casefold()
         and "youtube.account" not in capability.casefold()
         and "radioarchiwista" not in capability.casefold()
-    )
+    }
 
 
 def test_public_profile_keeps_presets_and_radio_timeshift_navigation() -> None:
@@ -132,13 +132,17 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
     assert "PublicCapabilities," in public_contract
     assert 'capability != "session.sonos"' in source
     assert '.Append("session.frontier-smart")' in source
+    assert '.Append("session.tidal")' in source
+    assert '.Append("tidal.native-playback")' in source
     assert "youtube.account.readonly" not in public_contract
     quoted = re.compile(r'"([^"]+)"')
     common = tuple(quoted.findall(common_match.group(1)))
     test_only = tuple(quoted.findall(test_only_match.group(1)))
     assert tuple(
         capability for capability in common if capability != "session.sonos"
-    ) + ("session.frontier-smart",) == PUBLIC_PROFILE.capabilities
+    ) + (
+        "session.frontier-smart", "session.tidal", "tidal.native-playback"
+    ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities
 
 
@@ -306,6 +310,7 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             SessionId.FILES,
             SessionId.RADIO,
             SessionId.PODCASTS,
+            SessionId.TIDAL,
             SessionId.WIIM,
             SessionId.FRONTIER_SMART,
         )
@@ -325,6 +330,7 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             Action.SESSION_FILES,
             Action.SESSION_RADIO,
             Action.SESSION_PODCASTS,
+            Action.SESSION_TIDAL,
             Action.SESSION_WIIM,
             Action.SESSION_FRONTIER_SMART,
         }
@@ -333,6 +339,6 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
         }
         assert visible_session_actions <= palette_actions
         assert Action.SESSION_SPOTIFY not in palette_actions
-        assert Action.SESSION_TIDAL not in palette_actions
+        assert Action.SESSION_TIDAL in palette_actions
         assert Action.SESSION_SONOS not in palette_actions
         assert Action.SESSION_FRONTIER_SMART in palette_actions

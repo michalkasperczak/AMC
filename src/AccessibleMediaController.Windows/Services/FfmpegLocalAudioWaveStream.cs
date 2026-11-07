@@ -20,6 +20,9 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private const int OutputSampleRate = 48_000;
     private const int OutputChannels = 2;
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(10);
+    private static readonly Regex SampleRatePattern = new(
+        @"Audio:[^\r\n]*?,\s*(?<rate>[0-9]{4,6})\s+Hz\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex DurationPattern = new(
         @"Duration:\s*(?<hours>\d+):(?<minutes>\d{2}):(?<seconds>\d{2}(?:\.\d+)?)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -85,7 +88,8 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         string executable,
         string path,
         TimeSpan duration,
-        bool liveStream = false)
+        bool liveStream = false,
+        int outputSampleRate = OutputSampleRate)
     {
         _executable = executable;
         _path = path;
@@ -94,7 +98,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             && networkUri.Scheme is "http" or "https"
                 ? networkUri.Host
                 : path;
-        WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(OutputSampleRate, OutputChannels);
+        WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(outputSampleRate, OutputChannels);
         // 2026-09-14: transmisja na zywo NIE MA konca. Podanie tu prawdziwej
         // dlugosci sprawia, ze warstwa wyzej traktuje strumien jak plik i po
         // dojsciu do "konca" wraca na poczatek - dzwiek cofal sie o kilka
@@ -222,10 +226,13 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     internal static bool TryOpenNetwork(
         string address,
         TimeSpan duration,
-        out FfmpegLocalAudioWaveStream reader)
+        out FfmpegLocalAudioWaveStream reader,
+        int? sampleRateHz = null,
+        bool preserveSourceSampleRate = false)
     {
         reader = null!;
-        if (duration <= TimeSpan.Zero
+        if (sampleRateHz is < 8_000 or > 384_000
+            || duration <= TimeSpan.Zero
             || !Uri.TryCreate(address, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https")
             || !string.IsNullOrWhiteSpace(uri.UserInfo))
@@ -237,13 +244,19 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         {
             try
             {
-                reader = new FfmpegLocalAudioWaveStream(executable, uri.AbsoluteUri, duration);
+                var outputRate = sampleRateHz ?? (preserveSourceSampleRate
+                    ? ProbeSampleRate(executable, uri.AbsoluteUri)
+                    : OutputSampleRate);
+                reader = new FfmpegLocalAudioWaveStream(
+                    executable, uri.AbsoluteUri, duration,
+                    outputSampleRate: outputRate);
                 return true;
             }
             catch (Exception exception) when (exception is IOException
                 or InvalidDataException
                 or InvalidOperationException
                 or NotSupportedException
+                or TimeoutException
                 or System.ComponentModel.Win32Exception)
             {
                 DiagnosticLog.Warning(
@@ -448,7 +461,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             "-i", _path,
             "-map", "0:a:0", "-vn",
             "-f", "f32le", "-acodec", "pcm_f32le",
-            "-ar", OutputSampleRate.ToString(CultureInfo.InvariantCulture),
+            "-ar", WaveFormat.SampleRate.ToString(CultureInfo.InvariantCulture),
             "-ac", OutputChannels.ToString(CultureInfo.InvariantCulture),
             "pipe:1"
         })
@@ -731,7 +744,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         _decoderError = null;
     }
 
-    private static TimeSpan ProbeDuration(string executable, string path)
+    private static string ProbeDiagnostic(string executable, string path)
     {
         var start = new ProcessStartInfo
         {
@@ -763,7 +776,23 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         }
         if (!Task.WaitAll([errorTask, outputTask], ProbeTimeout))
             throw new TimeoutException("Nie zakończono odczytu wyniku analizy pliku.");
-        var diagnostic = errorTask.GetAwaiter().GetResult();
+        return errorTask.GetAwaiter().GetResult();
+    }
+
+    private static int ProbeSampleRate(string executable, string address)
+    {
+        var match = SampleRatePattern.Match(ProbeDiagnostic(executable, address));
+        if (match.Success
+            && int.TryParse(match.Groups["rate"].Value, NumberStyles.None,
+                CultureInfo.InvariantCulture, out var sampleRate)
+            && sampleRate is >= 8_000 and <= 384_000)
+            return sampleRate;
+        throw new InvalidDataException("Nie udało się odczytać częstotliwości źródła audio.");
+    }
+
+    private static TimeSpan ProbeDuration(string executable, string path)
+    {
+        var diagnostic = ProbeDiagnostic(executable, path);
         var durationMatch = DurationPattern.Match(diagnostic);
         if (durationMatch.Success)
         {

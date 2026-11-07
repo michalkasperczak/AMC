@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import io
+import os
 import re
 import shutil
 import subprocess
 import sys
 import time
 import unittest
+import pytest
 from pathlib import Path
 
 from amc_wx_lite.host_client import LiteHostClient
@@ -56,14 +58,14 @@ class _SyntheticFlacUpstream:
         )
 
 
-def _silent_flac() -> bytes:
+def _silent_flac(sample_rate: int) -> bytes:
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         raise unittest.SkipTest("FFmpeg nie jest dostępny w PATH")
     result = subprocess.run(
         [
             ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
-            "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+            "-f", "lavfi", "-i", f"anullsrc=r={sample_rate}:cl=stereo",
             "-t", "72", "-c:a", "flac", "-f", "flac", "pipe:1",
         ],
         capture_output=True,
@@ -97,20 +99,33 @@ def _wait_for_position(client: LiteHostClient, minimum: float, *, timeout: float
     raise AssertionError(f"TIDAL nie osiągnął pozycji {minimum} s; ostatni stan: {last}")
 
 
-def test_real_host_tidal_transport_with_silent_loopback_flac() -> None:
+@pytest.mark.parametrize("source_rate,provide_metadata", [(192000, True), (44100, False)])
+def test_real_host_tidal_transport_with_silent_loopback_flac(
+    tmp_path, monkeypatch, source_rate, provide_metadata,
+) -> None:
     if sys.platform != "win32":
         raise unittest.SkipTest("Rzeczywisty LiteHost z wyjściem audio wymaga Windows")
     root = Path(__file__).resolve().parents[2]
-    host_executable = (
+    host_executable = Path(os.environ["AMC_LITE_HOST_EXE"]) if os.environ.get("AMC_LITE_HOST_EXE") else (
         root / "src" / "AccessibleMediaController.LiteHost" / "bin" / "Release"
         / "net8.0-windows10.0.19041.0" / "amc_lite_host.exe"
     )
     if not host_executable.is_file():
         raise unittest.SkipTest("Najpierw zbuduj LiteHost Release z bieżących źródeł")
 
+    state_path = tmp_path / "state.json"
+    state_path.write_text("{}", encoding="utf-8")
+    for name in ("APPDATA", "LOCALAPPDATA"):
+        directory = tmp_path / name
+        directory.mkdir()
+        monkeypatch.setenv(name, str(directory))
+
     events: list[tuple[str, dict]] = []
     stderr: list[str] = []
-    upstream = _SyntheticFlacUpstream(_silent_flac())
+    upstream = _SyntheticFlacUpstream(_silent_flac(source_rate))
+    spoken_rate = format(source_rate / 1000, "g").replace(".", ",")
+    expected_pcm = f"PCM w silniku {spoken_rate} kHz"
+    source_label = f"FLAC, {spoken_rate} kHz"
     plan = audio.BtsAudioPlan(
         codec="flac",
         mime_type="audio/flac",
@@ -120,6 +135,7 @@ def test_real_host_tidal_transport_with_silent_loopback_flac() -> None:
     with audio.RangeProxy(plan, opener=upstream) as proxy:
         client = LiteHostClient(
             host_executable,
+            state_json=state_path,
             release_profile="test",
             on_event=lambda name, data: events.append((name, data)),
             on_stderr=stderr.append,
@@ -133,6 +149,8 @@ def test_real_host_tidal_transport_with_silent_loopback_flac() -> None:
                     "title": "Cichy test transportu",
                     "proxyUrl": proxy.local_url,
                     "durationSeconds": 72,
+                    "sourceQualityLabel": source_label,
+                    **({"sampleRateHz": source_rate} if provide_metadata else {}),
                 },
                 timeout=30,
             )
@@ -142,13 +160,16 @@ def test_real_host_tidal_transport_with_silent_loopback_flac() -> None:
             status = _wait_for_position(client, 0.2)
             assert status["playing"] and status["sessionId"] == "tidal"
             assert status["durationSeconds"] >= 70
+            assert f"źródło {source_label}" in status["currentPlaybackText"]
+            assert expected_pcm in status["currentPlaybackText"]
 
             first_seek = client.call(
                 "transport.seek", {"sessionId": "tidal", "positionSeconds": 30},
                 timeout=30,
             )
             assert first_seek["sessionId"] == "tidal"
-            _wait_for_position(client, 29.5)
+            status = _wait_for_position(client, 29.5)
+            assert expected_pcm in status["currentPlaybackText"]
 
             paused = client.call("transport.pauseResume", {"sessionId": "tidal"})
             assert paused["paused"] is True
@@ -195,7 +216,8 @@ def test_real_host_tidal_transport_with_silent_loopback_flac() -> None:
                 time.sleep(0.1)
             else:
                 raise AssertionError("Zmiana wyjścia nie wznowiła cichego strumienia TIDAL")
-            _wait_for_position(client, 60.5)
+            status = _wait_for_position(client, 60.5)
+            assert expected_pcm in status["currentPlaybackText"]
 
             stopped = client.call("transport.stop", {"sessionId": "tidal"})
             assert stopped["sessionId"] == "tidal" and stopped["playing"] is False

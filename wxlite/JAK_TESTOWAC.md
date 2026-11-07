@@ -383,6 +383,21 @@ konta. TIDAL używa tego samego otwartego okna bez blokowania AMC.
 Odbiór prawdziwego logowania, dźwięku i wypowiedzi NVDA zapisuj osobno od
 testów bez konta. Nie zmieniaj konta produkcyjnego dla samego testu.
 
+### Próba konta TIDAL w izolowanej paczce Public z 6.11.2026
+
+Zamknij poprzednią paczkę próbną Public przed uruchomieniem nowej. W sesji
+TIDAL otwórz `Ctrl+F5`. Po zapisaniu Client ID i logowaniu w przeglądarce
+okno ma podać „Zalogowano konto TIDAL”, a przyciski mają brzmieć „Zaloguj
+ponownie w przeglądarce” i „Odłącz konto katalogu TIDAL”. Po zamknięciu okna
+sprawdź, czy Biblioteka TIDAL, Ulubione i Playlisty wczytują własne pozycje.
+Sprawdź też `Ctrl+F1`, pełną pomoc, paletę `Ctrl+Shift+K` i menu dla `Ctrl+F5`.
+W NVDA przejdź Tabem przez pole Client ID, adres powrotu, panel aplikacji,
+zapis, ponowne logowanie, odłączenie i zamknięcie. Sprawdź fokus po anulowaniu
+potwierdzenia odłączenia, po błędzie, po zamknięciu i po ponownym otwarciu.
+Nie wybieraj „Odłącz” na używanym koncie tylko dla testu; do tej próby użyj
+odrębnego profilu lub konta testowego. Pierwszy pełny utwór może poprosić o
+osobny kod urządzenia. Zanotuj osobno wynik logowania katalogu i odtwarzacza.
+
 ## Wyszukiwanie i odczyt nagranych plików
 
 `Ctrl+F` pyta bieżącą sesję lub usługę, a `Ctrl+Shift+F` przeszukuje wszystkie
@@ -1037,14 +1052,17 @@ Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/
   niż 30 sekund, potwierdź słyszalność na wybranym wyjściu, postęp, seek,
   pauzę, następny/poprzedni i stan NVDA. Sam stan `PLAYING` nie wystarcza.
 
-Pełna paczka **AMC Test** wymaga odizolowanego źródła zależności TIDAL:
+Pełna paczka **AMC Test lub AMC Public** wymaga odizolowanego źródła zależności TIDAL:
 `wxlite\tools\build_bundle.py --profile test --out <katalog-kandydata>
 --runtime <prywatny-runtime> --tidal-site-packages
 <osobny-venv\Lib\site-packages>`. Pakowarka sprawdza przypięte wersje i kopiuje
 pakiety do kandydata. Nie instaluj ich w runtime działającej aplikacji.
-Paczka Public nie przyjmuje `tidalapi` ani modułów natywnego TIDAL.
+Paczka Public przyjmuje te same przypięte zależności TIDAL. Przed wydaniem
+trzeba sprawdzić logowanie na świeżym profilu Public i pełny odsłuch na
+zewnętrznym koncie; przejście pakowarki nie zastępuje tego odbioru.
 Skrypt `wxlite\tools\Build-AMCBundle.ps1` przyjmuje ten sam katalog przez
-`-TidalSitePackages <osobny-venv\Lib\site-packages>` przy `-Profile test`;
+`-TidalSitePackages <osobny-venv\Lib\site-packages>` przy `-Profile test`
+albo `-Profile public`;
 `Promote-AMCPythonTestBuild.ps1` również wymaga tego parametru.
 
 ## Zanik wybranego urządzenia audio
