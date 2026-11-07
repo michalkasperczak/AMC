@@ -27322,10 +27322,11 @@ class LiteFrame(wx.Frame):
                     dialog.Destroy()
             except RuntimeError:
                 pass
-            self._restore_focus_after_dialog()
+            if not getattr(dialog, "_tidal_browser_opened", False):
+                self._restore_focus_after_dialog()
 
     def _show_tidal_native_challenge(self, address: str, code: str) -> None:
-        """Show a copyable device link and code without opening a browser."""
+        """Keep browser launch explicit and retain the copyable manual fallback."""
         if not self._window_alive():
             return
         self._close_tidal_native_challenge()
@@ -27333,10 +27334,9 @@ class LiteFrame(wx.Frame):
         dialog.SetName("Połącz odtwarzanie TIDAL z AMC")
         panel = wx.Panel(dialog)
         layout = wx.BoxSizer(wx.VERTICAL)
-        instruction = wx.StaticText(panel, label=(
-            "Otwórz ten adres we własnej przeglądarce i zatwierdź kod. "
-            "Okno pozostanie otwarte do zakończenia logowania."
-        ))
+        instruction = wx.StaticText(panel, label=i18n.tr("tidal.login.hint"))
+        instruction.SetName(i18n.tr("tidal.login.hint"))
+        instruction.Wrap(560)
         layout.Add(instruction, 0, wx.ALL | wx.EXPAND, 10)
         layout.Add(wx.StaticText(panel, label="Adres logowania TIDAL"), 0, wx.LEFT, 10)
         address_field = wx.TextCtrl(panel, value=address, style=wx.TE_READONLY)
@@ -27347,10 +27347,13 @@ class LiteFrame(wx.Frame):
         code_field.SetName("Kod jednorazowy TIDAL")
         layout.Add(code_field, 0, wx.ALL | wx.EXPAND, 10)
         buttons = wx.BoxSizer(wx.HORIZONTAL)
+        open_browser = wx.Button(panel, label=i18n.tr("tidal.login.open"))
+        open_browser.SetName(i18n.tr("tidal.login.open"))
+        open_browser.SetDefault()
         copy_address = wx.Button(panel, label="Kopiuj adres")
         copy_code = wx.Button(panel, label="Kopiuj kod")
         cancel = wx.Button(panel, label="Anuluj logowanie")
-        for button in (copy_address, copy_code, cancel):
+        for button in (open_browser, copy_address, copy_code, cancel):
             buttons.Add(button, 0, wx.ALL, 5)
         layout.Add(buttons, 0, wx.ALL, 5)
         panel.SetSizer(layout)
@@ -27359,6 +27362,27 @@ class LiteFrame(wx.Frame):
         dialog.SetSizerAndFit(outer)
         copy_address.Bind(wx.EVT_BUTTON, lambda _event: self._to_clipboard(address))
         copy_code.Bind(wx.EVT_BUTTON, lambda _event: self._to_clipboard(code))
+
+        def launch_browser(_event: wx.Event) -> None:
+            if self._open_tidal_native_login_page(address, code):
+                dialog._tidal_browser_opened = True
+                message = i18n.tr("tidal.login.pending")
+                instruction.SetLabel(message)
+                instruction.SetName(message)
+                instruction.Wrap(560)
+                dialog.Layout()
+                # This dialog is modeless: the main window stays enabled.
+                # Do not focus AMC after transferring control to the browser.
+            else:
+                message = i18n.tr("tidal.login.openFailed")
+                instruction.SetLabel(message)
+                instruction.SetName(message)
+                instruction.Wrap(560)
+                dialog.Layout()
+                address_field.SetFocus()
+                self.announcer.say(message)
+
+        open_browser.Bind(wx.EVT_BUTTON, launch_browser)
 
         def cancel_login(_event: wx.Event) -> None:
             adapter = self._tidal_native_adapter
@@ -27370,8 +27394,19 @@ class LiteFrame(wx.Frame):
         dialog.Bind(wx.EVT_CLOSE, cancel_login)
         self._tidal_native_challenge_dialog = dialog
         dialog.Show()
-        code_field.SetFocus()
-        self.announcer.say("Kod logowania TIDAL jest gotowy do skopiowania")
+        open_browser.SetFocus()
+        self.announcer.say(i18n.tr("tidal.login.hint"))
+
+    def _open_tidal_native_login_page(self, address: str, code: str) -> bool:
+        from .tidal_native_playback import _direct_login_address
+
+        safe_address = _direct_login_address(address, code)
+        if safe_address is None:
+            return False
+        try:
+            return bool(wx.LaunchDefaultBrowser(safe_address))
+        except Exception:
+            return False
 
     def _on_tidal_native_status(
         self, kind: str, track_id: str, message: str
@@ -27464,6 +27499,16 @@ class LiteFrame(wx.Frame):
         if row.kind != "track" or track_id is None:
             self.announcer.say("Wybierz utwór TIDAL z poprawnymi danymi")
             return False
+        if (getattr(self, "_tidal_native_has_playback", False)
+                and track_id == getattr(self, "_tidal_native_active_track_id", None)):
+            self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
+            self._refresh_menu_state()
+            self._refresh_status()
+            self._sync_views()
+            return True
+        if track_id == getattr(adapter, "requested_track_id", None):
+            self.announcer.say(i18n.tr("tidal.play.preparing"))
+            return True
         duration_ticks = row.duration_ticks
         duration_seconds = (
             duration_ticks / 10_000_000
@@ -29719,7 +29764,7 @@ class LiteFrame(wx.Frame):
                         if external_id:
                             selected.append(external_id)
                             created_destinations.append(ServiceDestination(
-                                external_id, name, f"Playlista TIDAL {name}"
+                                external_id, name, name
                             ))
                         else:
                             failures.append(f"Nie utworzono playlisty {name}")
@@ -29783,7 +29828,7 @@ class LiteFrame(wx.Frame):
                 title = str(entry.get("title") or "").strip()
                 if external_id.startswith("playlists:") and title:
                     destinations.append(ServiceDestination(
-                        external_id, title, f"Playlista TIDAL {title}"
+                        external_id, title, title
                     ))
             destination_cache.replace(destination_scope, destinations)
             open_dialog()

@@ -160,6 +160,14 @@ class TidalNativePlaybackAdapter:
         with self._lock:
             return self._has_saved_session
 
+    @property
+    def requested_track_id(self) -> str | None:
+        """The accepted preparation/stream, including the host-event handoff window."""
+        with self._lock:
+            if self._closed:
+                return None
+            return self._pending_track_id if self._pending else self._track_id
+
     def _dispatch(self, callback: Callable[[], None]) -> None:
         def safe_callback() -> None:
             try:

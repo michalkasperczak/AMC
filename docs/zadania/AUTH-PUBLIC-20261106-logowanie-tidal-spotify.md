@@ -1,6 +1,8 @@
 # AUTH-PUBLIC-20261106 — logowanie TIDAL i Spotify dla odbiorcy Public
 
-Status na 7.11.2026 przed budową alpha.482. Pełne odtwarzanie i rzeczywista jakość źródeł są potwierdzone. Źródła dokończonej poprawki zachowują częstotliwość także wtedy, gdy TIDAL nie podaje jej w metadanych. Cicha próba „Sara” przez rzeczywisty host potwierdziła PCM 44,1 kHz i etykietę „źródło AAC, jakość stratna”. Przeszły testy dekodera, transportu i 122 celowane testy Pythona. Zainstalowany AMC Test pozostaje alpha.481, a uruchomiona paczka próbna v7 zawiera wcześniejszy wariant. Instalator alpha.482, odbiór NVDA i zewnętrzne logowanie Public pozostają otwarte.
+Bieżący punkt wznowienia: użytkownik potwierdził świeże logowanie katalogu przez Google, kod pełnego odtwarzacza i audio TIDAL w Public alpha.482. Przygotowywany jest kandydat alpha.483 porządkujący przycisk przeglądarki, playlisty, powrót Enter i język systemowy. Zmiany są we wspólnym kodzie Test/Public. Nowa instalacja i odbiór NVDA poprawionego interfejsu pozostają otwarte; niczego nie opublikowano.
+
+Status na 7.11.2026 po instalacji alpha.482. Instalator z czystego commita `ed9d61acff8c71e517b5e25b5c454012b314397a` zainstalowano po aktualnym potwierdzeniu użytkownika o braku nagrywania i zaplanowanych nagrań. Pełna integralność 4196 plików instalacji przeszła (kod 0). Uruchomiono jedną instancję ze stałego `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe`; tytuł „AMC Test — 07.11.2026, 13:54”. Cicha próba „Sara” wcześniej potwierdziła PCM 44,1 kHz i etykietę „źródło AAC, jakość stratna”. Przeszły testy dekodera, transportu i 122 celowane testy Pythona. Użytkownik potwierdził odczyt NVDA dla „Sara”: AAC, jakość stratna, 321 kb/s, PCM w silniku 44,1 kHz. Odbiór AAC i Max przez użytkownika jest dodatni: „Cała naprzód” Misi Furtak odczytano jako FLAC 24 bit/96 kHz, 2287 kb/s, PCM w silniku 96 kHz. Zewnętrzne logowanie Public i publikacja pozostają otwarte. Nie opublikowano alpha.482.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -148,3 +150,175 @@ Zestawy Pythona: 69 testów adaptera, GUI, poświadczeń, palety i klienta hosta
 ### Wersja i commit
 
 Planowana aktualizacja Test alpha.482. Przygotowanie instalatora wymaga czystego commita zgodnego z paczką. Zmiany TIDAL są oddzielane od niezakończonego zadania presetów, które pozostaje w bieżącym checkoutcie. Commit i wyniki instalatora, instalacji oraz ewentualnej publikacji należy dopisać po rzeczywistym wykonaniu.
+
+## Gotowy instalator alpha.482, 7.11.2026
+
+Zmiany TIDAL zapisano na bieżącej gałęzi jako `ed9d61acff8c71e517b5e25b5c454012b314397a`. Pozostawiono poza commitem kod i testy presetów oraz ich wpis w rejestrze. Do pakowania utworzono zarządzany checkout tego samego commita `C:\Users\micha\.codex\worktrees\amc-tidal-alpha482\AMC - integracja wxPython`; źródła w nim pozostały czyste. Build powstał z kompletnego runtime Test i osobno przypiętych modułów TIDAL.
+
+Paczka `.test-output/amc-test-alpha482-20261107` obejmuje 4196 plików. Manifest potwierdza `sourceDirty=false`, właściwy commit i datę użytkową 07.11.2026, 13:54. Pełna integralność oraz kontrolowany start hosta i GUI przeszły. Test transportu wykonany ponownie na hostcie finalnej paczki z czystego checkoutu przeszedł 2/2.
+
+`Build-AMCInstaller.ps1 -Profile test -Version 0.1.0-alpha.482` z czystego checkoutu przygotował `D:\Projekty Codex\AMC - integracja wxPython\publish\alpha482-20261107\AMC-Test-2026-11-07-1354.exe` o wielkości 143857991 bajtów. Plik `.exe.integrity.json` potwierdza profil Test, wersję, commit i `secretScan=passed`; SHA-256 instalatora zgadza się z manifestem integralności. Instalator zawiera standardowo opcjonalną paczkę Quick App Switcher 0.1.6. Nie instalowano ani nie restartowano NVDA.
+
+`Publish-AMCRelease.ps1` wykonano w trybie przygotowania, bez `-Publish`. Powstały lokalne `amc-update-test.json`, `release-ready-test-0.1.0-alpha.482.json` i szkic opisu wydania. Instrukcja `AMC-Test-alpha482-instrukcja-szkic.md` i lista zmian `AMC-Test-alpha482-zmiany-szkic.md` znajdują się w tym samym folderze instalatora i wymagają odbioru użytkownika. Nie opublikowano wydania.
+
+Na etapie przygotowania instalacja oczekiwała na aktualne potwierdzenie braku nagrywania; uruchomiona była paczka próbna v7. Ten stan został zastąpiony wynikiem instalacji opisanym poniżej, po odpowiedzi użytkownika „Nadal nic nie nagrywa i nic nie jest zaplanowane”.
+
+Przed Public nadal trzeba dostarczyć produkcyjny Client ID aplikacji AMC i sprawdzić zwykłego użytkownika od świeżego logowania. Obecny Client ID w Test i zapisane sesje nie stanowią takiego testu. To ograniczenie przygotowania publicznego wydania pozostaje jawne w szkicu instrukcji.
+
+## Instalacja alpha.482 i punkt wznowienia, 7.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+Użytkownik korzysta teraz ze stałej instalacji `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe`, z nazwą okna „AMC Test — 07.11.2026, 13:54”. Nie musi uruchamiać paczki z `.test-output`. Do odbioru: odtworzyć „Sara” i nacisnąć NVDA+End. Oczekiwany odczyt zawiera „źródło AAC, jakość stratna” oraz „PCM w silniku 44,1 kHz”. Następnie można sprawdzić znany utwór Max. Wynik silnika nadal nie określa formatu końcowego urządzenia Windows.
+
+### Uzasadnienie i decyzje
+
+Aktualna odpowiedź użytkownika potwierdziła brak nagrywania i zaplanowanych nagrań. Łagodnie zamknięto wyłącznie próbny proces v7 (Python PID 13724), a następnie uruchomiono dokładny zweryfikowany instalator. Zachowano dane i poświadczenia użytkownika. Cicha instalacja nie instalowała dodatku ani nie restartowała NVDA. Instalacja do ręcznego odbioru pozostaje kandydatem; nie uruchamiano publikacji.
+
+### Testy i wynik
+
+Log `C:\Users\micha\Documents\Codex\2026-11-06\t\work\tidal_hires\install-alpha482.log` potwierdza „Installation process succeeded”, brak potrzeby restartu Windows i zakończenie o 14:48:21. Następnie `Start-Process` dokładnego zainstalowanego `AMC.exe` z argumentem `--sprawdz-pakiet-pelny-cicho`, `-WindowStyle Hidden -Wait -PassThru` zakończył kontrolę kodem 0. Manifest: 4196 plików, profil `test`, `sourceDirty=false`, commit `ed9d61acff8c71e517b5e25b5c454012b314397a`, data użytkowa 07.11.2026, 13:54. Wersja produktu `AMC.exe`: `0.1.0-alpha.482`.
+
+Start stabilnego launchera o 14:51:00 potwierdzono przez ścieżki i drzewo procesów: `AMC.exe` PID 39680 → `runtime\python.exe` PID 836 → `host\amc_lite_host.exe` PID 27008, wszystkie z katalogu instalacji AMC Test. Jedno okno: „AMC Test — 07.11.2026, 13:54”. Nie wykryto pozostawionej próbnej instancji. Rzeczywistej mowy NVDA po instalacji jeszcze nie potwierdzono; wysłano prośbę o odczyt „Sara”.
+
+### Znane ograniczenia
+
+Odbiór NVDA i odsłuch użytkownika pozostają otwarte. Użycie zapisanej sesji Test nie sprawdza logowania od zera. Produkcyjny Client ID AMC oraz świeże konto zewnętrzne Public wymagają osobnego sprawdzenia. Spotify nie włączono do Public. Nie publikowano źródeł ani instalatora alpha.482. Zachowano kandydat, szkice dokumentacji i wcześniejsze artefakty do czasu potwierdzenia zastępstwa.
+
+### Wersja i commit
+
+Zbudowany, zainstalowany i uruchomiony AMC Test `0.1.0-alpha.482`, nazwa użytkowa „AMC Test — 07.11.2026, 13:54”, commit źródeł `ed9d61acff8c71e517b5e25b5c454012b314397a`. Późniejszy zapis wyniku instalacji jest zmianą dokumentacji poza tym artefaktem. Stan limitu po tej bramce: 47% wykorzystane, 53% pozostało; reset 11.11.2026 o 07:45 czasu polskiego.
+
+## Odbiór NVDA dla „Sara”, 7.11.2026, 14:54
+
+Użytkownik po uruchomieniu zainstalowanej alpha.482 podał dokładny komunikat: „Sara, źródło AAC, jakość stratna, 321 kb/s, PCM w silniku 44,1 kHz”. Zastępuje to wcześniejszy status oczekiwania na odczyt tego utworu. Odczyt potwierdza rozpoznanie stratnego źródła i zachowanie częstotliwości PCM 44,1 kHz w silniku. Jest zgodny z niezależnym badaniem danych AAC oraz cichą próbą nowego hosta. Sama informacja o PCM nie potwierdza formatu na urządzeniu wyjściowym. Użytkownik nie podał osobnego wyniku odsłuchu ani nowego odczytu utworu Max w tej instalacji.
+
+Nie zmieniono kodu, wersji ani działających procesów. Nie ponawiano testów dla zmiany dokumentacji. Commit źródeł instalacji pozostaje `ed9d61acff8c71e517b5e25b5c454012b314397a`. Publikacja alpha.482 i świeże logowanie zewnętrzne Public nadal nie są wykonane. Następna weryfikacja jakości może użyć znanego utworu Max; po zamknięciu odbioru można dokończyć wydanie i uporządkować zbędne paczki z zachowaniem instalatora, źródeł, dokumentacji i danych użytkownika.
+## Odbiór NVDA dla Max — Misia Furtak, 7.11.2026
+
+Użytkownik podał odczyt: „Cała naprzód, źródło Max, FLAC 24 bit, 96 kHz, 2287 kb/s, PCM w silniku 96 kHz” i potwierdził „czyli tak jak miało być”. Jest to dodatni odbiór przypadku Max w zainstalowanej alpha.482, uzupełniający odebrany wcześniej przypadek AAC „Sara”. Zastępuje wcześniejsze oczekiwanie na nowy odczyt Max w tej instalacji. Format źródła i PCM silnika zgadzają się z niezależnym wcześniejszym pomiarem strumienia tego utworu. Format urządzenia Windows nadal nie był mierzony.
+
+Nie zmieniono kodu, wersji ani procesów; testów nie ponawiano dla zapisu dokumentacji. Commit instalacji pozostaje `ed9d61acff8c71e517b5e25b5c454012b314397a`. Odbiór jakości AAC i Max jest zamknięty dodatnio. Całe zadanie AUTH-PUBLIC pozostaje w trakcie: świeże logowanie zewnętrznego użytkownika i produkcyjna konfiguracja Client ID Public nadal wymagają sprawdzenia. Publikacja alpha.482 pozostaje osobną, niewykonaną czynnością.
+
+## Przygotowanie nowego logowania po nagraniu, 7.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+Użytkownik po potwierdzeniu jakości AAC i Max polecił zabezpieczyć stary profil i przygotować aktualizację do próby nowego logowania na własnym koncie Google. Jednocześnie podał, że teraz nagrywa i aktualizację wykona po 16:00. To aktualna informacja zastępująca wcześniejsze potwierdzenia braku nagrań; nie wolno użyć tych starszych odpowiedzi do restartu albo instalacji. Samo osiągnięcie 16:00 nie potwierdza zakończenia nagrania.
+
+Przygotowano osobny kandydat Public „AMC Public — 07.11.2026, 15:27” z tym samym sprawdzonym silnikiem alpha.482. Zadano opcjonalne pytanie, czy użytkownik zamierza testować osobny Public czy wyczyścić Test; do przygotowania przyjęto podaną użytkownikowi wersję Public. Test pozostaje uruchomiony bez zmian. Dokładna instrukcja `START-TUTAJ-po-16.txt` i szkic zmian `ZMIANY-Public-szkic.txt` są w `publish/public-login-alpha482-20261107`.
+
+Próba po zakończeniu nagrania: zainstalować Public, odświeżyć kopię przed resetem, zamknąć dokładnie jego instancję i wyczyścić wyłącznie katalogowe i odtwarzaczowe logowanie TIDAL Public oraz zapamiętaną kolekcję. Zachować Client ID i pozostałe ustawienia. Następnie Ctrl+Shift+S → TIDAL, Ctrl+F5 → logowanie, Google na stronie dostawcy, powrót do AMC i Ctrl+L → Biblioteka. Otworzyć album i Enter na utworze; jeśli będzie wymagany kod odtwarzacza, zatwierdzić go osobno na tym samym koncie. Sprawdzić pełny utwór, transport, NVDA+End i ponowne uruchomienie Public. Nie kasować sesji Google w przeglądarce ani nie odwoływać globalnie autoryzacji konta.
+
+### Uzasadnienie i decyzje
+
+Nie ma potrzeby ryzykować utraty działającego Test ani usuwać całego profilu z innymi funkcjami. Zabezpieczono pełne ustawienia i bazy nieaktywnego Public oraz dokładnie cztery wskazane wpisy Menedżera poświadczeń TIDAL Test/Public. Dodatkowo zapisano wstępną migawkę samego state.json Test; jego aktywnych baz nie kopiowano. Kopia jest zaszyfrowana Windows DPAPI dla bieżącego użytkownika i leży poza repozytorium oraz folderem publikacji:
+
+`D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-przed-logowaniem-od-zera.dpapi`
+
+Rozmiar kopii 46534310 bajtów, 9 pozycji. Sprawdzono odszyfrowanie, zgodność bajtów przed/po szyfrowaniu oraz SHA-256 każdej zapisanej pozycji. Przy kopii zapisano narzędzie i sumę zaszyfrowanego pliku. Nie ujawniano tokenów, identyfikatorów kont ani podpisanych adresów. Nie wykonywano wylogowania, kasowania poświadczeń, resetu, instalacji ani restartu.
+
+### Testy i wynik
+
+Migawki baz Public utworzono przez SQLite backup z połączenia read-only do bazy w pamięci; obejmują zatwierdzone dane WAL. Pierwsza kontrola quick_check wymagała kolacji AMC_PL z hosta. Nie zastępowano jej inną kolejnością sortowania: usunięto tę nieodpowiednią dla narzędzia bramkę i potwierdzono odczyt stron, wykonanie kopii oraz sumy danych. Nie jest to test poprawności indeksów aplikacji. Późniejsze odczytanie zaszyfrowanego pliku i ponowna weryfikacja wszystkich pozycji przeszły.
+
+Public złożono przez `prepare_public_alpha482.py`, używając projektowego `build_bundle.py --profile public` w czystym zarządzanym checkoutcie commita `ed9d61ac`. Każdy ponownie użyty plik hosta, launcher i aktualizator sprawdzono według sum finalnej paczki Test. Host Spotify Librespot i jego osobne licencje pominięto w wejściu Public. Użyto istniejącego runtime Public i przypiętych zależności TIDAL. Nie uruchamiano ponownej kompilacji ani szerokiej regresji. Powstały 3143 pliki manifestu; `sourceDirty=false`, właściwy commit, profil Public, TIDAL z pełnym odtwarzaczem, bez sesji Spotify. Pakowanie i kompresja miały obniżony priorytet. Pełna kontrola pakietu i kontrolowany start GUI/hosta z izolowanym stanem i zablokowanymi poświadczeniami przeszły w bramce Build-AMCInstaller.
+
+### Znane ograniczenia i punkt wznowienia
+
+Przed instalacją lub zmianą logowania uzyskać aktualne potwierdzenie zakończenia nagrania i braku bliskiego harmonogramu. Odświeżyć kopię bezpośrednio przed resetem; obecna jest migawką wstępną. Przywracanie po ewentualnej nieudanej próbie ma objąć tylko sekcję TIDAL Public i jego dwa wpisy logowania, bez nadpisywania późniejszych ustawień i danych Test.
+
+Obecny Public ma już skonfigurowany Client ID, ale jego prawo do obsługi innych osób nie jest potwierdzone. Próba na własnym koncie przez Google zbada nowe zatwierdzenie logowania i bibliotekę. Nie dowodzi logowania z całkowicie pustej instalacji ani dostępu produkcyjnego na koncie innej osoby. Wspólny Client ID AMC pozostaje osobnym warunkiem przygotowania dystrybucji. Nie dodano identyfikatora z profilu użytkownika do instalatora. Spotify pozostaje wyłączony w Public. Pełny tor TIDAL jest nieoficjalny. Nie publikowano kandydata ani kopii profilu. Porządki starych paczek odłożono do odbioru zastępstwa i zakończenia nagrywania.
+
+### Wersja i commit
+
+Public `0.1.0-alpha.482`, data użytkowa 07.11.2026, 15:27, źródła `ed9d61acff8c71e517b5e25b5c454012b314397a`. Zmiany presetów pozostają poza tym kandydatem. Instalacja Test ma datę użytkową 13:54 i nadal działa z tym samym drzewem procesów (launcher 39680, Python 836, host 27008). Wynik końcowego pakowania instalatora dopisano osobno po jego zakończeniu.
+
+### Gotowy instalator i stan końcowy przygotowania
+
+`Build-AMCInstaller.ps1 -Profile public -BundleRoot "D:\Projekty Codex\AMC - integracja wxPython\.test-output\amc-public-alpha482-login-20261107" -Version 0.1.0-alpha.482 -OutputDirectory "D:\Projekty Codex\AMC - integracja wxPython\publish\public-login-alpha482-20261107"` zakończył się powodzeniem. Instalator `AMC-Public-2026-11-07-1527.exe`: 133855367 bajtów. Obliczony SHA-256 zgadza się z plikiem `.exe.integrity.json`, który potwierdza profil Public, właściwy commit, wersję i `secretScan=passed`. Nie przygotowano publicznego kanału aktualizacji ani publikacji. Kandydat jest gotowy do lokalnej instalacji po zakończeniu nagrania.
+
+Końcowa kontrola procesów potwierdziła niezmienioną instancję Test (39680 → 836 → 27008) ze stałej instalacji i brak pozostawionych procesów nowej paczki Public. Nie wykonywano instalacji, resetu profilu, usunięcia poświadczeń ani otwarcia przeglądarki. Próba logowania przez Google i ponowne pobranie Biblioteki pozostają do wykonania z użytkownikiem. Użytkownik w odpowiedzi dopuścił próbę bezpośrednio w Public, chociaż początkowo zakładał nową próbę w Test; poprosił o wyjaśnienie pełnego zakresu kandydata, w tym Cast i AirPlay. Przygotowanie Public nie zmieniło żadnego z profili. Limit po przygotowaniu: 47% wykorzystane, 53% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.
+## Wyjaśnienie zakresu kandydata Public, 7.11.2026
+
+Użytkownik zapytał, czy paczka zawiera wszystkie udoskonalenia Test, w tym Google Cast i AirPlay. Dopuścił bezpośrednią próbę TIDAL w Public zamiast pierwotnie rozważanego ponownego logowania w Test. Nie polecił włączenia do Public wszystkich usług Test ani instalacji w czasie nagrania.
+
+Sprawdzono rzeczywisty manifest, model możliwości i wykonanie poleceń. Public ma Pliki, Radio, Podcasty i YouTube bez konta, TIDAL z pełnym odtwarzaniem, WiiM i Frontier Smart, nagrywanie i harmonogramy, zakładki, rozdziały, pomoc i paletę. Zawiera kod Google Cast, AirPlay i pyatv. Polecenia Cast oraz drugiego wyjścia są dostępne dla Plików, Radia i Podcastów; nie obiecywać przesyłania TIDAL przez te polecenia. W tej paczce nie powtarzano fizycznego testu odbiorników Cast/AirPlay.
+
+To wspólna baza źródeł Test alpha.482 z ograniczeniami profilu Public, nie pełny profil Test. Spotify, Sonos, Radioarchiwista i logowanie do konta YouTube pozostają wyłączone. Porównano treść 86 pakowanych modułów Pythona z bieżącym checkoutem, normalizując końce wierszy po wykryciu różnic CRLF/LF. Jedyna różnica treści to profile_presets.py: osobna, jeszcze niezatwierdzona poprawka krótszych etykiet miejsc presetów nie jest w kandydacie ani w instalacji Test alpha.482. Pozostałe pakowane moduły mają bieżącą treść. Nie zmieniano kodu ani nie wykonywano nowego buildu.
+
+Materiał użytkowy dopisano do instrukcji przy instalatorze. Kandydat pozostaje lokalny, nieinstalowany i nieopublikowany; nagranie w Test nie zostało przerwane. Kolejny etap po aktualnym potwierdzeniu zakończenia nagrania: zainstalować Public i przejść nowe logowanie Google, bibliotekę oraz pełne odtwarzanie. Zakres szerszego wydania Public i oddzielna poprawka presetów nie są automatycznie uznane za odebrane przez tę próbę.
+## Decyzja użytkownika o Spotify, 7.11.2026
+
+Użytkownik przypomniał dopracowany w Test wariant logowania i działający u niego tor Spotify (nazwa przekazana niejednoznacznie jako „soloist albo ten drugi”). Decyzję o przeniesieniu Spotify do Public wyraźnie odłożył na później. Brak Spotify w przygotowanym kandydacie Public jest ograniczeniem profilu, nie stwierdzeniem, że działający tor Test został uznany za niesprawny. Nie rozstrzygano teraz, który backend użytkownik miał na myśli, ani nie przypisywano jego odbioru do konkretnej implementacji bez sprawdzenia. Nie rozpoczynano nowego audytu, buildu ani włączania Spotify. Bieżąca próba Public nadal dotyczy TIDAL po zakończeniu nagrania. To ustalenie zastępuje ewentualną interpretację wyjaśnienia zakresu paczki jako decyzji o trwałym wykluczeniu Spotify z Public.
+## Zainstalowany Public i przygotowane logowanie od zera, 7.11.2026, 16:23
+
+### Materiał do dokumentacji użytkownika
+
+Po ponownej dyskusji Test/Public użytkownik wyraźnie polecił „Dobrze to instaluj. OK”. Zainstalowano i uruchomiono dokładny `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe`. Okno ma tytuł „AMC Public — 07.11.2026, 15:27”. Użytkownik wybiera to okno przez Alt+Tab, następnie Ctrl+Shift+S → TIDAL i Ctrl+F5 → „Zaloguj w przeglądarce”. Hasło i Google pozostają na stronie dostawcy. Po sukcesie Escape i Ctrl+L otwierają Bibliotekę. Pełny odtwarzacz ma również wyczyszczone lokalne poświadczenie i przy pierwszym utworze może wymagać osobnego kodu. Nie otwierano przeglądarki za użytkownika.
+
+### Uzasadnienie i decyzje
+
+Nowa zgoda po 16:00 zastępuje wcześniejsze odroczenie instalacji Public. Public przed instalacją nie był uruchomiony, zatem nie zamykano żadnej aplikacji. Działający Test pozostawiono bez zmian, niezależnie od jego aktualnej aktywności. Zweryfikowany instalator ma osobny identyfikator produktu, katalog, mutex i wpisy rejestru; nie używa Restart Managera do zamykania aplikacji.
+
+Bezpośrednio przed instalacją wykonano ponownie kopię, 46534294 bajty, 9 pozycji, z potwierdzonym odszyfrowaniem i sumami:
+`D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-bezposrednio-przed-instalacja.dpapi`
+Poprzednia kopia została zachowana. Nie zapisano jawnych tokenów ani danych kont w logach lub dokumentacji.
+
+### Testy i rzeczywisty wynik
+
+Pierwsze wywołanie Start-Process miało błędne cytowanie argumentu /DIR ze spacją i utworzyło świeży katalog `C:\Users\micha\AppData\Local\Programs\AMC`. Błąd wykryto w logu przed zwykłym uruchomieniem. Po zakończeniu instalacji sprawdzono manifest, profil, commit i brak aktywnego procesu z tego katalogu. Standardowy deinstalator tej konkretnej nowej kopii zakończył się kodem 0. Następnie ten sam instalator wywołano z poprawnym argumentem `/DIR="C:\Users\micha\AppData\Local\Programs\AMC Public"`. Log potwierdził właściwy katalog, powodzenie instalacji i brak restartu Windows. Końcowy kod 0. Nie ma już AMC.exe w omyłkowym katalogu. Dane profilu i instalacja Test nie były celem korekty.
+
+Log poprawnej instalacji: `C:\Users\micha\Documents\Codex\2026-11-06\t\work\tidal_public\install-public-alpha482-corrected.log`. Pełna kontrola dokładnego zainstalowanego AMC.exe z `--sprawdz-pakiet-pelny-cicho` zakończyła się kodem 0. Manifest: Public, 3143 pliki, czyste źródła, commit `ed9d61acff8c71e517b5e25b5c454012b314397a`; wersja produktu 0.1.0-alpha.482.
+
+`reset_public_tidal.py` najpierw przeszedł tryb bez zapisu. Sprawdził odszyfrowaną kopię, zgodność bieżącego state.json i dwóch wpisów logowania z kopią oraz brak mutexa działającego Public. Pierwszy start narzędzia wymagał jawnego dodania jego katalogu do sys.path z powodu izolowanego runtime; przed tą korektą nie zmieniono profilu. W trybie --apply zapis atomowy wyczyścił tylko nazwę konta, ostatnią playlistę, czas synchronizacji i kolekcję w sekcji TIDAL oraz usunął dokładnie dwa lokalne wpisy TIDAL Public. Zachowano Client ID i całą resztę JSON. Narzędzie ma cofnięcie zmian na błąd, którego nie trzeba było używać. Wynik: reset=True, tidalCredentialsAbsent=True, clientIdPreserved=True, otherSettingsPreserved=True, testTidalCredentialsUnchanged=True. Nie odwoływano uprawnień po stronie serwisu ani sesji Google.
+
+O 16:23 uruchomiono stabilny launcher Public PID 29012 → runtime\python.exe PID 47640 → host\amc_lite_host.exe PID 35204. Wszystkie ścieżki należą do właściwej instalacji AMC Public. Potwierdzono jedno okno Public o oczekiwanej nazwie. Istniejący Test pozostał z PID 39680 → 836 → 27008 i tytułem „AMC Test — 07.11.2026, 13:54”.
+
+### Znane ograniczenia
+
+Faktyczne nowe logowanie przez Google, pobranie Biblioteki, osobny kod pełnego odtwarzacza, odsłuch i ponowne uruchomienie Public pozostają do odbioru użytkownika. Test zachował swoje poświadczenia, więc nowe logowanie w Public nie jest migracją sesji między produktami. To próba własnego konta i już skonfigurowanego Client ID; dostęp produkcyjny dla innej osoby nadal nie jest dowiedziony. Spotify i pozostałe różnice profilu bez zmian. Instalacja lokalna nie oznacza publikacji; wydania i kanału aktualizacji Public nie opublikowano.
+
+### Wersja i commit
+
+Zainstalowany i uruchomiony Public 0.1.0-alpha.482, nazwa użytkowa „07.11.2026, 15:27”, źródła ed9d61acff8c71e517b5e25b5c454012b314397a. Aktualizacje dokumentacji i narzędzia jednorazowe nie zmieniają zawartości tego artefaktu. Limit po tej bramce: 48% wykorzystane, 52% pozostało; reset 11.11.2026 o 07:45 Europe/Warsaw.
+## Odbiór świeżego logowania i uwagi użytkownika, 7.11.2026
+
+Użytkownik potwierdził nowe logowanie katalogu przez Google, osobny kod odtwarzacza i pełne odtwarzanie w zainstalowanym Public. Zastępuje to oczekiwanie na wynik świeżego logowania na jego własnym koncie. Nie potwierdza konta innej osoby ani uprawnień produkcyjnych wspólnego Client ID.
+
+Do poprawienia w ramach bieżącego zadania: jawny przycisk otwierania zwykłej przeglądarki z kodem przy zachowaniu kopiowania; opis dwóch osobnych zatwierdzeń; sporadyczne odrzucenie Enter po Escape jako „zajęty”; angielski interfejs przy języku systemowym; okno Ctrl+Shift+P z nazwami playlist bez przedrostka „Playlista TIDAL”, literami, Enter i pamięcią potwierdzonego wyboru. Użytkownik zgłosił brak łącznego czasu My Mix jako drobne ograniczenie do wyjaśnienia.
+
+Odczyt CUA potwierdził angielskie menu i nagłówki w Public oraz bieżący utwór Max FLAC 24/192 z PCM 192 kHz. Próbę otwarcia Ctrl+Shift+P obserwowano jako „Pobieram playlisty TIDAL”; nie uzyskano czytelnego drzewa właściwego okna, nie zatwierdzano i nie zmieniano playlist na koncie. Nie jest to zaliczenie ręcznego testu tego okna. Skupiono się na kodzie i izolowanych testach.
+
+Izolowany proces z tym samym runtime wykazał locale.getlocale()[0] = Polish_Poland przed wx.App oraz None po utworzeniu wx.App; Windows UI LCID = 1045. To reprodukcja przyczyny języka, a nie zmiana ustawień użytkownika. Trwa poprawka wyboru języka na podstawie języka interfejsu Windows.
+## Poprawki interfejsu po odbiorze Public, kandydat alpha.483, 7.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+Pełna instrukcja i szkic changelogu: `docs/public/TIDAL_LOGOWANIE_PLAYLISTY_2026-11-07_SZKIC.md` oraz `docs/public/TIDAL_ALPHA483_ZMIANY_SZKIC.md`. Pierwsze logowanie w bieżącej architekturze ma osobne upoważnienia katalogu i pełnego odtwarzacza. Nowy przycisk „Otwórz przeglądarkę z kodem” jest domyślny; zachowano „Kopiuj adres”, „Kopiuj kod” i anulowanie. Okno jest modeless, główny AMC pozostaje dostępny, a automatyczne zamknięcie po sukcesie nie przywraca fokusu po wcześniejszym przejściu do przeglądarki. Błąd uruchomienia pozostawia adres do ręcznego skopiowania.
+
+Ctrl+Shift+P: TIDAL ma nazwy bez poprzedzającego „Playlista TIDAL”, co umożliwia natywne przechodzenie literami po nazwach. Enter na liście dodaje do wskazanego celu; po świadomym użyciu Spacji zatwierdza zestaw zaznaczeń. Bez ręcznego zaznaczania Enter wybiera bieżący wiersz zamiast dawnych zapamiętanych zaznaczeń. Zapis potwierdzony przez host nadal zapamiętuje cele, a ponowne otwarcie wybiera pierwszy potwierdzony cel. Anulowanie niczego nie zapamiętuje. Wspólne okno Spotify ma ten sam kontrakt. Dostosowano centralne opisy poleceń i instrukcje okna oraz szablon języków.
+
+Enter po Escape na tym samym grającym utworze otwiera odtwarzacz bez ponownego startu. W trakcie przygotowania identyczne żądanie jest rozpoznawane i ogłaszane jako trwające. Polski język systemowy jest ustalany według Windows UI, niezależnie od resetu locale przez wx.App. Jawny wybór angielskiego jest zachowany.
+
+### Uzasadnienie i decyzje
+
+Powtarzany przedrostek wierszy blokował wyszukiwanie literą nazwy. Natywny domyślny przycisk nie zapewniał jawnej obsługi Enter na liście, a brak potwierdzonego zapisu nie mógł zapamiętać celu. Naprawiono zachowanie w warstwie dialogu, bez obchodzenia kontroli uprawnień serwisu. Powtórne odtwarzanie tego samego strumienia było odrzucane przez adapter; GUI rozpoznaje istniejący strumień i przygotowanie zamiast tworzyć duplikat. Nie zmieniano formatu audio ani logowania kont użytkownika.
+
+### Testy i wynik
+
+66 celowanych testów obejmujących nowy zestaw, TIDAL/Spotify playlisty, GUI natywnego TIDAL i adapter przeszło. Początkowe próby wymagały użycia istniejącego interpretera z pytest (Programs\Python\Python314, nie pythoncore) i uzupełnienia atrap o MOD_NONE oraz GetLabel. Były to braki środowiska/atrap, nie zmiany produkcyjnego wx.
+
+Pełny test i18n ujawnił znane braki katalogu angielskiego i nieaktualny szablon. Szablon odtworzono projektowym export_translation_template.py, obejmując nowe klucze i wcześniejsze teksty TIDAL. Bramka języka i nowych zachowań: 32 zaliczone, 1 pominięty test wymagający prawdziwego wx w procesie z atrapą, 2 jawnie wyłączone wcześniejsze testy kompletności pełnego katalogu angielskiego. Te dwa braki pozostają ograniczeniem całego katalogu; nie podawać, że pełny i18n jest zielony. Osobny proces z prawdziwym runtime Public i wx.App potwierdził locale=None oraz nowy wynik wybranego języka pl.
+
+Dodatkowa próba prawdziwego okna z trzema fikcyjnymi playlistami (bez hosta i konta) pokazała w CUA celowe etykiety „Poranek, niezaznaczona”, „Ulubione, niezaznaczona”, „Wieczór, zaznaczona”. Narzędzie następnie zwracało niedostępny stan/elementy i obrazy spod okna; klawiatura oraz NVDA nie zostały odebrane. Zakończono wyłącznie dokładny proces tej jednorazowej próby PID 39320. Public i Test pozostały uruchomione. Następnie skrócono etykietę samej listy i zawinięto instrukcje, aby długi tekst nie stawał się jej automatyczną nazwą ani nie rozszerzał okna.
+
+### Znane ograniczenia
+
+Rzeczywisty nowy przycisk w przeglądarce, klawisz litery, Enter/Spacja, zapamiętanie celu, anulowanie i odczyt NVDA po aktualizacji wymagają odbioru użytkownika. Nie kasować ponownie działających sesji tylko dla testu playlist lub języka. Nowy przycisk można odebrać przy następnym rzeczywistym wymaganiu kodu.
+
+Kod katalogu wyświetla dodatni duration; brak lub nieobsługiwany format pozostawia czas nieznany. W bieżącej próbie nie pobrano odpowiedzi konkretnych My Mix użytkownika (trwały cachedCollectionItems Public jest pusty). Nie uznawać przypuszczenia o brakujących danych za dowiedzioną przyczynę tych miksów. Nie dodano sumowania częściowo pobranej playlisty ani fałszywego zera.
+
+### Wersja i commit
+
+Kandydat alpha.483. Przed instalacją należy przygotować i sprawdzić paczkę oraz ustalić aktualny stan nagrywania w zamykanym Public. Test nie wymaga zamykania. Źródła tej poprawki będą zapisane osobno od niezakończonej poprawki presetów. Wyniki builda, instalatora, instalacji i publikacji dopisać po wykonaniu. Limit przed budową: 49% wykorzystane, 51% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.

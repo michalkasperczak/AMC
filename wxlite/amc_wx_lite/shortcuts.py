@@ -581,7 +581,7 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "tidal": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto i synchronizacja TIDAL",
-        "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu",
+        "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu. Pełne odtwarzanie wymaga osobnego zatwierdzenia; przy pierwszym utworze możesz otworzyć przeglądarkę z kodem",
         "Ctrl+F5",
     ),
     "wiim": CommandPresentation(
@@ -3013,14 +3013,14 @@ def describe_action(
         and (session_label or "").casefold() == "spotify"
     ):
         return i18n.command_description(
-            action.value, "Dodaj do playlist Spotify lub utwórz playlistę"
+            action.value, "Dodaj do playlist Spotify lub utwórz playlistę. Litery wybierają nazwę, Enter dodaje do wskazanej playlisty, a Spacja pozwala zaznaczyć kilka celów. Ostatni potwierdzony wybór jest zapamiętywany"
         )
     if (
         action is Action.MANAGE_PLAYLIST_MEMBERSHIP
         and (session_label or "").casefold() == "tidal"
     ):
         return i18n.command_description(
-            action.value, "Dodaj do playlist TIDAL lub utwórz playlistę"
+            action.value, "Dodaj do playlist TIDAL lub utwórz playlistę. Litery wybierają nazwę, Enter dodaje do wskazanej playlisty, a Spacja pozwala zaznaczyć kilka celów. Ostatni potwierdzony wybór jest zapamiętywany"
         )
     for _chord, label, candidate in _help_entries():
         if candidate is action:

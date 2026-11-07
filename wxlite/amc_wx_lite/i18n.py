@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import locale
 import re
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -25,6 +26,14 @@ SUPPORTED_LANGUAGES = (POLISH, ENGLISH)
 
 _CATALOGS: dict[str, dict[str, str]] = {
     POLISH: {
+        "tidal.login.open": "Otwórz przeglądarkę z kodem",
+        "tidal.login.hint": "Katalog TIDAL jest połączony osobno. Teraz zatwierdź pełne odtwarzanie na tym samym koncie. Otwórz przeglądarkę z kodem albo skopiuj adres i kod. Możesz wrócić do AMC podczas oczekiwania.",
+        "tidal.login.pending": "Dokończ logowanie odtwarzacza TIDAL w przeglądarce. Możesz ponownie otworzyć stronę tym samym przyciskiem.",
+        "tidal.login.openFailed": "Nie udało się otworzyć przeglądarki. Skopiuj adres logowania i otwórz go samodzielnie.",
+        "tidal.play.preparing": "Trwa przygotowywanie tego utworu TIDAL",
+        "playlists.add.hint": "Dodaj do playlist {provider}: {target}. Enter dodaje do wskazanej playlisty. Spacja zaznacza kilka playlist, a Enter zatwierdza zaznaczenie. Litery przechodzą po nazwach.",
+        "playlists.add.navigation": "Strzałki i litery wybierają playlistę. Enter dodaje do wskazanej playlisty. Spacja pozwala zaznaczyć kilka playlist.",
+        "playlists.add.list": "Playlisty {provider}",
         "language.system": "Zgodny z systemem",
         "mirror.title": "Dublowanie dźwięku — {session}",
         "mirror.devices": "Drugie wyjście dźwięku AMC",
@@ -237,6 +246,14 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "shortcut.down": "strzałka w dół",
     },
     ENGLISH: {
+        "tidal.login.open": "Open browser with code",
+        "tidal.login.hint": "The TIDAL catalogue connects separately. Now approve full playback with the same account. Open the browser with the code, or copy the address and code. You can return to AMC while waiting.",
+        "tidal.login.pending": "Complete TIDAL player sign-in in your browser. Use the same button to open the page again.",
+        "tidal.login.openFailed": "Could not open the browser. Copy the sign-in address and open it yourself.",
+        "tidal.play.preparing": "This TIDAL track is being prepared",
+        "playlists.add.hint": "Add to {provider} playlists: {target}. Enter adds to the focused playlist. Space selects several playlists, then Enter confirms the selection. Type letters to find a name.",
+        "playlists.add.navigation": "Arrows and letters choose a playlist. Enter adds to the focused playlist. Space selects several playlists.",
+        "playlists.add.list": "{provider} playlists",
         "language.system": "Use system language",
         "mirror.title": "Audio mirroring — {session}",
         "mirror.devices": "Second AMC audio output",
@@ -463,10 +480,27 @@ def normalize_preference(value: object) -> str:
     return SYSTEM
 
 
+def _windows_ui_locale() -> str | None:
+    """wx.App may reset the C locale; the user's Windows UI language is stable."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.GetUserDefaultUILanguage.argtypes = []
+        kernel.GetUserDefaultUILanguage.restype = ctypes.c_ushort
+        return locale.windows_locale.get(kernel.GetUserDefaultUILanguage())
+    except (AttributeError, OSError):
+        return None
+
+
 def system_language(system_locale: str | None = None) -> str:
     """Map the Windows/user locale to a complete AMC language catalog."""
 
     raw = system_locale
+    if raw is None:
+        raw = _windows_ui_locale()
     if raw is None:
         try:
             raw = locale.getlocale()[0]

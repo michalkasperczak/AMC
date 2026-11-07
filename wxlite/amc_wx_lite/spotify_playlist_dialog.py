@@ -155,22 +155,21 @@ class SpotifyPlaylistDialog(wx.Dialog):
         )
         self._choices = list(choices)
         self._temporary_counter = 0
+        self._selection_touched = False
 
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
-        instruction = (
-            f"Dodaj do playlist {provider}: {target_label}. "
-            "Spacja zaznacza lub odznacza playlistę. Enter wykonuje zmianę."
-        )
+        instruction = i18n.tr("playlists.add.hint", provider=provider, target=target_label)
         heading = wx.StaticText(panel, label=instruction)
         heading.SetName(instruction)
+        heading.Wrap(630)
         layout.Add(heading, 0, wx.ALL | wx.EXPAND, 12)
 
+        list_label = i18n.tr("playlists.add.list", provider=provider)
+        layout.Add(wx.StaticText(panel, label=list_label), 0, wx.LEFT | wx.RIGHT, 12)
         self.playlist_list = wx.ListBox(panel, choices=[], style=wx.LB_SINGLE)
-        self.playlist_list.SetName(f"Playlisty {provider} do dodania")
-        self.playlist_list.SetToolTip(
-            "Strzałki wybierają playlistę. Spacja zmienia jej zaznaczenie."
-        )
+        self.playlist_list.SetName(list_label)
+        self.playlist_list.SetToolTip(i18n.tr("playlists.add.navigation"))
         layout.Add(self.playlist_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
 
         self.status = wx.StaticText(panel, label="Wybierz co najmniej jedną playlistę")
@@ -255,6 +254,7 @@ class SpotifyPlaylistDialog(wx.Dialog):
             self.status.SetLabel(i18n.ui_text("Brak playlisty do zaznaczenia"))
             return
         choice.selected = not choice.selected
+        self._selection_touched = True
         self._rebuild(choice.playlist_id)
 
     def _create(self, _event: object | None = None) -> None:
@@ -285,6 +285,7 @@ class SpotifyPlaylistDialog(wx.Dialog):
             new_public=is_public,
         )
         self._choices.append(choice)
+        self._selection_touched = True
         self._rebuild(choice.playlist_id)
         self.playlist_list.SetFocus()
         announce_status(
@@ -306,6 +307,17 @@ class SpotifyPlaylistDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
     def _on_key(self, event: wx.KeyEvent) -> None:
+        if (
+            event.GetModifiers() == wx.MOD_NONE
+            and event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER)
+            and self.playlist_list.HasFocus()
+        ):
+            if not self._selection_touched and (choice := self._selected_choice()) is not None:
+                for candidate in self._choices:
+                    candidate.selected = candidate is choice
+                self._rebuild(choice.playlist_id)
+            self._save()
+            return
         if (
             event.GetModifiers() == wx.MOD_NONE
             and event.GetKeyCode() == wx.WXK_SPACE
