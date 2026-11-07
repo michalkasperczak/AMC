@@ -66,7 +66,7 @@ Spotify usuwa przez URI, a nowe API nie wskazuje jednego wystąpienia utworu. Gd
 
 ## Wersja i commit
 
-Poprawka źródłowa na bazie dd8e6c03; wersja instalowana nadal Public alpha.484 / Test alpha.482. Commit i ewentualny instalator dopisać po zapisie. Limit po testach: 52% wykorzystane, 48% pozostało; reset 11.11.2026, 07:45 Europe/Warsaw.
+Poprawka źródłowa na bazie dd8e6c03: commit `99f37b2e` na `codex/konfigurowalne-skroty-20261026`. Wersja instalowana nadal Public alpha.484 / Test alpha.482; instalator nie powstał. Limit po testach: 52% wykorzystane, 48% pozostało; reset 11.11.2026, 07:45 Europe/Warsaw.
 
 ## Projekt instrukcji użytkownika i dziennika zmian
 
