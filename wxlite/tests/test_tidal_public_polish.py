@@ -13,7 +13,7 @@ install_wx_stub()
 from amc_wx_lite import gui, i18n
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import SessionId, View
-from amc_wx_lite.spotify_playlist_dialog import SpotifyPlaylistChoice, SpotifyPlaylistDialog
+from amc_wx_lite.service_playlist_dialog import SpotifyPlaylistChoice, SpotifyPlaylistDialog
 from amc_wx_lite.tidal_native_playback import TidalNativePlaybackAdapter
 from amc_wx_lite.shortcuts import Action, ctrl_f5_presentation, describe_action
 from amc_wx_lite.command_palette import entries_for_session

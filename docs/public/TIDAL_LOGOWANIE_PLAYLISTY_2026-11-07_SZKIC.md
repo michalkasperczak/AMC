@@ -1,6 +1,6 @@
 # TIDAL w AMC — logowanie i dodawanie do playlist
 
-Szkic instrukcji z 7 listopada 2026, do odbioru poprawki alpha.483. Obowiązuje po aktualizacji do paczki zawierającej tę poprawkę. Dotychczasowa instalacja alpha.482 ma wcześniejszy interfejs. Public i Test korzystają ze wspólnego kodu, lecz zachowują osobne logowania i dane.
+Szkic instrukcji z 7 listopada 2026, do odbioru poprawki alpha.484. Korekta po zgłoszeniu użytkownika: alpha.483 nie otwierała okna playlist w profilu Public z powodu importu dostępnego tylko przy Spotify. Opis poniżej obowiązuje po poprawce alpha.484. Public i Test korzystają ze wspólnego kodu, lecz zachowują osobne logowania i dane.
 
 ## Dlaczego przy pierwszym użyciu są dwa zatwierdzenia
 

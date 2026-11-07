@@ -287,7 +287,7 @@ def test_spotify_playlist_flow_caches_created_playlist_and_last_destinations() -
 
 
 def test_new_playlist_dialog_prepares_clear_selected_row_and_instruction() -> None:
-    import amc_wx_lite.spotify_playlist_dialog as playlist_dialog
+    import amc_wx_lite.service_playlist_dialog as playlist_dialog
 
     spoken: list[str] = []
     focused: list[bool] = []

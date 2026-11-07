@@ -1,5 +1,7 @@
 # AMC Public alpha.483 — szkic zmian
 
+Korekta 7.11.2026 po odbiorze użytkownika: okno playlist nie otwierało się w profilu Public. Ten etap nie został odebrany; naprawę zależności i blokady zawiera kandydat alpha.484.
+
 - Okno kodu TIDAL ma przycisk „Otwórz przeglądarkę z kodem”, domyślny fokus na nim i możliwość ręcznego kopiowania.
 - Instrukcja wyjaśnia osobne zatwierdzenie katalogu oraz pełnego odtwarzacza.
 - Listy celów TIDAL zaczynają się od nazwy, bez powtarzania „Playlista TIDAL”.

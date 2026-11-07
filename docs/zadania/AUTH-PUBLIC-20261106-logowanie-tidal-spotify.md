@@ -1,6 +1,6 @@
 # AUTH-PUBLIC-20261106 — logowanie TIDAL i Spotify dla odbiorcy Public
 
-Bieżący punkt wznowienia: użytkownik potwierdził świeże logowanie katalogu przez Google, kod pełnego odtwarzacza i audio TIDAL w Public alpha.482. Przygotowywany jest kandydat alpha.483 porządkujący przycisk przeglądarki, playlisty, powrót Enter i język systemowy. Zmiany są we wspólnym kodzie Test/Public. Nowa instalacja i odbiór NVDA poprawionego interfejsu pozostają otwarte; niczego nie opublikowano.
+Bieżący punkt wznowienia: odbiór Ctrl+Shift+P w zainstalowanym Public alpha.483 nie przeszedł — brak okna, potem blokada „już trwa”. Potwierdzono NameError zależności okna importowanej tylko dla Spotify. Poprawka alpha.484 przenosi UI do wspólnego modułu i zwalnia blokadę po błędzie. Test świeżego, odfiltrowanego Public i prawdziwy konstruktor wx przeszły. Przygotowywany jest nowy instalator. Nie kasować logowania i nie zamykać Test; instalacja i ponowny odbiór otwarte.
 
 Status na 7.11.2026 po instalacji alpha.482. Instalator z czystego commita `ed9d61acff8c71e517b5e25b5c454012b314397a` zainstalowano po aktualnym potwierdzeniu użytkownika o braku nagrywania i zaplanowanych nagrań. Pełna integralność 4196 plików instalacji przeszła (kod 0). Uruchomiono jedną instancję ze stałego `C:\Users\micha\AppData\Local\Programs\AMC Test\AMC.exe`; tytuł „AMC Test — 07.11.2026, 13:54”. Cicha próba „Sara” wcześniej potwierdziła PCM 44,1 kHz i etykietę „źródło AAC, jakość stratna”. Przeszły testy dekodera, transportu i 122 celowane testy Pythona. Użytkownik potwierdził odczyt NVDA dla „Sara”: AAC, jakość stratna, 321 kb/s, PCM w silniku 44,1 kHz. Odbiór AAC i Max przez użytkownika jest dodatni: „Cała naprzód” Misi Furtak odczytano jako FLAC 24 bit/96 kHz, 2287 kb/s, PCM w silniku 96 kHz. Zewnętrzne logowanie Public i publikacja pozostają otwarte. Nie opublikowano alpha.482.
 
@@ -322,3 +322,78 @@ Kod katalogu wyświetla dodatni duration; brak lub nieobsługiwany format pozost
 ### Wersja i commit
 
 Kandydat alpha.483. Przed instalacją należy przygotować i sprawdzić paczkę oraz ustalić aktualny stan nagrywania w zamykanym Public. Test nie wymaga zamykania. Źródła tej poprawki będą zapisane osobno od niezakończonej poprawki presetów. Wyniki builda, instalatora, instalacji i publikacji dopisać po wykonaniu. Limit przed budową: 49% wykorzystane, 51% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.
+## Gotowa paczka interfejsu alpha.483, 7.11.2026
+
+Commit `94e71bb126a45a03666cec527a5997f254082668` zapisano na bieżącej gałęzi bez niezakończonych zmian presetów i ich testów. Do budowy ponownie użyto zarządzanego checkoutu w `C:\Users\micha\.codex\worktrees\amc-tidal-alpha482\AMC - integracja wxPython`, ustawionego na ten nowy commit; nazwa katalogu nie wyznacza wersji. Build-AMCBundle.ps1 z profilem public, istniejącym runtime Public i osobno przypiętymi zależnościami TIDAL przygotował `.test-output/amc-public-alpha483-20261107`. Manifest: 3143 pliki, sourceDirty=false, właściwy commit, data użytkowa 07.11.2026, 17:01. Launcher ma wersję produktu 0.1.0-alpha.483. Pełna integralność i kontrolowany start GUI/hosta na izolowanym stanie z zablokowanymi poświadczeniami przeszły.
+
+Build-AMCInstaller.ps1 przygotował dokładny plik:
+`D:\Projekty Codex\AMC - integracja wxPython\publish\public-tidal-polish-alpha483-20261107\AMC-Public-2026-11-07-1701.exe`
+Rozmiar 133872509 bajtów. Manifest `.exe.integrity.json` potwierdza profil, wersję, commit i secretScan=passed. Obliczony SHA-256 zgadza się z manifestem. Instrukcja i szkic zmian znajdują się obok instalatora; zapisano lokalne GOTOWOSC-DO-ODBIORU.json bez publikowania kanału aktualizacji. Nie instalowano ani nie uruchamiano tej paczki na rzeczywistych danych użytkownika.
+
+Przed podmianą wysłano pytanie o aktualne nagrywanie i bliski harmonogram tylko w Public. Do końca przygotowania odpowiedź nie nadeszła. Instalacja pozostaje odłożona; nie wolno traktować wcześniejszych odpowiedzi z czasu alpha.482 jako aktualnego stanu. Po potwierdzeniu bezpieczeństwa wykonać świeżą zaszyfrowaną kopię obecnych danych i poświadczeń (po udanym logowaniu), zamknąć łagodnie tylko Public, uruchomić zweryfikowany instalator z właściwie cytowaną ścieżką AMC Public, sprawdzić integralność i uruchomić stabilny launcher. Zachować oba zaakceptowane logowania TIDAL; nie resetować ich ponownie. Test pozostaje uruchomiony.
+
+Ręczny odbiór po instalacji: polski interfejs przy języku systemowym, Ctrl+Shift+P bez przedrostków wierszy, U → Ulubione, Enter bez dodatkowej Spacji, kilka celów przez Spację, ponowne otwarcie na potwierdzonym celu, Escape bez zmiany zapamiętanego wyboru i powrót fokusu. Nowy przycisk przeglądarki można sprawdzić przy następnym wymaganym kodzie; nie wymuszać wylogowania dla samego testu. My Mix i dostęp produkcyjny innej osoby pozostają jawnie niepotwierdzone. Stare paczki zachowano do odbioru zastępstwa, bez usuwania kopii profili.
+## Instalacja poprawki Public alpha.483, 7.11.2026, 19:12–19:13
+
+### Materiał do dokumentacji użytkownika
+
+Po aktualnej odpowiedzi użytkownika „Tak możesz aktualizować wersję publiczną…” zaktualizowano wyłącznie Public. Uruchomiony program: `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe`, okno „AMC Public — 07.11.2026, 17:01”. CUA potwierdziło polskie menu „Pliki”, „Biblioteka”, „Odtwarzanie”, „Ustawienia”, „Pomoc” oraz nagłówki listy. TIDAL ma zachowane oba połączenia, więc nie należy ponownie przechodzić logowania tylko w celu sprawdzenia playlist lub języka. Test ma nadal okno „07.11.2026, 13:54” i nie był zamykany.
+
+Do odbioru użytkownika: w Public wybrać utwór, Ctrl+Shift+P, przejść U do „Ulubione”, sprawdzić nazwy bez przedrostka, Enter bez wcześniejszej Spacji, kilka celów przez Spację i ponowne otwarcie na potwierdzonym celu. Escape ma przywrócić poprzedni widok i fokus. Nowy przycisk przeglądarki pozostaje do sprawdzenia przy rzeczywistym wymaganiu kodu, bez wymuszania wylogowania.
+
+### Uzasadnienie i ochrona nagrań
+
+Nie zamieniono odpowiedzi użytkownika na nieudzielone dosłowne oświadczenie o braku nagrań. Sprawdzono bieżące procesy, ochronę normalnego zamknięcia i harmonogram zapisany w Public. Istniejący RadioScheduleCalculator z zainstalowanej biblioteki Core obliczył 0 niesupresowanych bieżących okien planu, 0 startów w ciągu 5 minut i najbliższy przyszły start 7.11 o 23:00 Europe/Warsaw. Kalkulator nie uruchamia ani nie zapisuje nagrań.
+
+Przez CUA wysłano Alt+F4 wyłącznie do starego Public (okno 5837368). _on_close aplikacji pobiera bieżący stan od właściciela nagrywania i odmawia zamknięcia przy aktywnych nagraniach lub braku odpowiedzi. Public zakończył się normalnie; nie wymuszano zakończenia procesu. Potwierdzono zniknięcie okna i brak procesów instalacji Public przed podmianą. Test pozostał uruchomiony.
+
+### Kopia, instalacja i wynik weryfikacji
+
+Po zamknięciu wykonano nową spójną kopię bieżącego profilu oraz poświadczeń po odebranym logowaniu:
+`D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-po-logowaniu-przed-alpha483.dpapi`
+Kopia DPAPI ma 46515510 bajtów i 9 pozycji; odszyfrowanie i sumy pozycji przeszły. Testowi skopiowano tylko wstępną migawkę state.json i wskazane wpisy TIDAL, bez jego aktywnych baz. Nie ujawniano tokenów ani nazw kont.
+
+Dokładny instalator alpha.483 z folderu `publish/public-tidal-polish-alpha483-20261107` uruchomiono z /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- oraz poprawnie cytowanym /DIR="C:\Users\micha\AppData\Local\Programs\AMC Public". Wynik kod 0. Log `C:\Users\micha\Documents\Codex\2026-11-06\t\work\tidal_polish\install-alpha483.log` potwierdza sukces o 19:11:45 i zakończenie o 19:11:59, bez restartu Windows.
+
+Pełna kontrola dokładnego zainstalowanego launchera --sprawdz-pakiet-pelny-cicho zakończyła się kodem 0. Manifest: profil public, 3143 pliki, sourceDirty=false, sourceRevision=94e71bb126a45a03666cec527a5997f254082668, data 07.11.2026, 17:01; wersja produktu 0.1.0-alpha.483.
+
+Przed zwykłym startem verify_preserved_login.py porównał aktualny profil z zaszyfrowaną kopią: publicTidalCredentialsUnchanged=True, publicTidalConnectionsPresent=2, publicStateUnchanged=True. Nie wykonywano resetu, migracji ani odwołania sesji TIDAL.
+
+O 19:12:19 uruchomiono stabilny Public: AMC.exe PID 28528 → runtime\python.exe PID 41476 → host\amc_lite_host.exe PID 23300, wszystkie ścieżki z właściwej instalacji. Jedno okno nowego Public (39126818). Test zachował PID 39680 → 836 → 27008 i czas startu 14:51. Nie pozostała stara instancja Public. Po starcie CUA potwierdziło poprawiony polski interfejs. Rzeczywisty odczyt playlist przez NVDA i nowy przycisk przeglądarki nie są jeszcze odebrane.
+
+### Dodatkowe rzeczywiste ustalenie, poza zmianą TIDAL
+
+Przed zamknięciem Public jego komunikat zawierał błąd zapisu gotowego nagrania „Tarnobrzeg” i adres zachowanego pliku:
+`C:\Users\micha\AppData\Local\AccessibleMediaController\recording-staging\0cc3141ec8f540dcbafbcb274f35c0cf.mp3.amc-partial`
+Odczyt filesystem potwierdził istnienie pliku, 12856367 bajtów, ostatni zapis 7.11 o 18:28. Nie odtwarzano go, nie przenoszono ani nie usuwano i nie oceniono kompletności nagrania. Nie ustalono przyczyny odmowy zapisu ani nie zmieniano harmonogramów i folderów. To osobny rzeczywisty problem do ewentualnego podjęcia; instalacja programu nie obejmuje tego katalogu. Nie mylić tego historycznego komunikatu z trwającym nagrywaniem lub skutkiem aktualizacji.
+
+### Znane ograniczenia, wersja i commit
+
+Zainstalowany, uruchomiony i sprawdzony technicznie Public 0.1.0-alpha.483, źródła 94e71bb126a45a03666cec527a5997f254082668. Odbiór NVDA opisanych zmian pozostaje otwarty, podobnie My Mix i produkcyjny dostęp innej osoby. Nie publikowano źródeł ani wydania Public. Nie usuwano kopii danych, pliku nagrania ani jedynego poprzedniego instalatora. Porządki zbędnych paczek pozostają po odbiorze zastępstwa. Limit po tej bramce: 50% wykorzystane, 50% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.
+## Korekta po nieudanym odbiorze playlist alpha.483, 7.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+Użytkownik zgłosił: po Ctrl+Shift+P na utworze nie było okna ani zrozumiałego wyniku, a drugi skrót podał „Zmiana playlist TIDAL już trwa”. Zastępuje to oczekiwanie, że alpha.483 jest odebraną poprawką tego okna. Pełne audio, zachowane logowanie i polski interfejs pozostają osobnymi sprawdzonymi wynikami. Szkic alpha.483 oznaczono jako nieodebrany w zakresie playlist; nowa korekta jest w szkicu alpha.484 i aktualnej instrukcji.
+
+Po poprawce nieudane otwarcie ma zwolnić blokadę i przywrócić fokus. Użytkownik usłyszy „Nie udało się otworzyć okna playlist TIDAL. Spróbuj ponownie.” Ponowne wywołanie może użyć już pobranej listy, bez restartu. Zwykłe Ctrl+Shift+P ma otworzyć dotychczasowe wspólne okno z obsługą Enter, Spacji, liter i potwierdzonego wyboru. Wiersz nowej playlisty TIDAL również zaczyna się od nazwy.
+
+### Uzasadnienie i przyczyna
+
+Odczyt launcher.log Public wykazał NameError: SpotifyPlaylistChoice przy tworzeniu choices w callbacku loaded. GUI importowało wspólne klasy pod warunkiem session.spotify, a moduł spotify_playlist_dialog.py był celowo wykluczony z pakietu Public. TIDAL używał tych klas mimo wyłączenia Spotify. Ślad zapisany przy zamknięciu starego Public o 19:09 dotyczy wcześniejszej wersji; warunek importu pozostał również w alpha.483.
+
+Poprzednie testy ładowały GUI jako Test, a późniejsza zmiana zmiennej profilu nie usuwała wcześniej zaimportowanych nazw. Atrapy runnera wywoływały callback synchronicznie i mogły kierować wyjątek UI do on_error, podczas gdy prawdziwy BackgroundRunner dostarcza on_success osobno w wątku GUI. To luka dotychczasowej weryfikacji — 66 zielonych testów nie dowodziło działającego okna w faktycznie odfiltrowanym Public.
+
+Przeniesiono implementację UI do service_playlist_dialog.py, dołączanego niezależnie od usług. GUI importuje wspólne klasy bez warunku Spotify. Stary moduł Spotify pozostaje cienkim eksportem zgodności, nadal wykluczonym z Public, tak jak spotify_source.py. Nie włączono Spotify w Public. Lokalna osłona wywołania okna czyści _playlist_membership_pending, przywraca fokus i podaje bezpieczny komunikat po błędzie konstrukcji/otwarcia. Do prywatnego dziennika trafia tylko typ błędu, nie surowe dane usługi. Nie zmieniano kont, poświadczeń ani faktycznych playlist podczas diagnostyki.
+
+### Testy i wynik
+
+Nowy test tworzy copy_python_code(profile=public), sprawdza fizyczną nieobecność modułów Spotify i uruchamia nowy proces z tym pakietem jako pierwszym na ścieżce. W tym procesie profil jest Public już przed importem GUI. Rzeczywisty przepływ adaptera z atrapą providera przechodzi pierwsze otwarcie, tworzenie, dodanie, pamięć wyboru i ponowne otwarcie. Osobny test prawdziwego BackgroundRunner z kolejką dostarczania odtwarza wyjątek konstruktora, potwierdza zwolnienie blokady i udaną anulowaną ponowną próbę z cache (jedno pobranie).
+
+Zestaw 89 testów: początkowo 88 zaliczonych i jeden stary test layoutu z założeniem „GUI Public nie ma SpotifyPlaylistDialog”. To założenie wykluczało właśnie współdzielone UI potrzebne TIDAL. Zastąpiono je sprawdzeniem pochodzenia klasy ze wspólnego modułu i dalszej nieobecności prywatnych modułów Spotify. Powtórzony poprawiony przypadek przeszedł 1/1; pozostałych 88 nie zmieniano.
+
+Osobny proces z prawdziwym runtime Public, wx.App i faktycznie odfiltrowanym katalogiem app skonstruował natywne okno bez pokazywania go i bez konta: filteredPublicImportsReady=True, nativeDialogConstructed=True, rememberedSelectionIndex=1, namesStartWithTitles=True. To test konstruktora i wyboru w kontrolce, nie ręczny odbiór NVDA ani zewnętrzny zapis do playlisty. Testy używają wyłącznie fikcyjnych nazw/identyfikatorów.
+
+### Znane ograniczenia, wersja i commit
+
+Kandydat alpha.484 wymaga jeszcze builda i instalacji. Rzeczywisty odbiór okna przez użytkownika pozostaje otwarty. Nie resetować działającego logowania; przy podmianie zachować normalną kontrolę nagrywania i harmonogramu Public oraz nie zamykać Test. Wcześniejsze dwa braki pełnego katalogu angielskiego pozostają poza tym zakresem. Nie publikowano kandydata. Nowy commit ma zawierać wyłącznie tę korektę i dokumentację, bez niezależnych presetów. Limit przed budową: 50% wykorzystane, 50% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.

@@ -41,6 +41,7 @@ def test_tidal_album_playlist_creation_and_cached_reopening() -> None:
         def __init__(self, _parent, *, choices, target_label, provider):
             assert provider == "TIDAL"
             assert target_label == "Cały album"
+            assert all(choice.description == choice.name for choice in choices)
             self.__class__.opened += 1
             if self.opened == 1:
                 assert [choice.name for choice in choices] == ["Istniejąca"]

@@ -275,7 +275,9 @@ def test_public_gui_imports_without_private_service_modules():
                     "import amc_wx_lite.gui as gui; "
                     "assert gui._RELEASE_PROFILE.profile_id == 'public'; "
                     "assert hasattr(gui, 'TidalSource'); "
-                    "assert not hasattr(gui, 'SpotifyPlaylistDialog'); "
+                    "assert gui.SpotifyPlaylistDialog.__module__ == 'amc_wx_lite.service_playlist_dialog'; "
+                    "assert 'amc_wx_lite.spotify_playlist_dialog' not in sys.modules; "
+                    "assert 'amc_wx_lite.spotify_source' not in sys.modules; "
                     "assert not hasattr(gui, 'SonosPayloadError'); "
                     "assert hasattr(gui, 'FrontierSmartPayloadError')"
                 ),

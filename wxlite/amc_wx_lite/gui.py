@@ -148,14 +148,13 @@ from .playlist_dialog import (
     choices_from_payload as playlist_choices_from_payload,
 )
 from .problem_report_dialog import ProblemReportDialog
+from .service_playlist_dialog import (
+    ServicePlaylistDialog as SpotifyPlaylistDialog,
+    ServicePlaylistChoice as SpotifyPlaylistChoice,
+    ServicePlaylistPayloadError as SpotifyPlaylistPayloadError,
+    choices_from_payload as spotify_playlist_choices_from_payload,
+)
 _RELEASE_PROFILE = current_profile()
-if "session.spotify" in _RELEASE_PROFILE.capabilities:
-    from .spotify_playlist_dialog import (
-        SpotifyPlaylistDialog,
-        SpotifyPlaylistChoice,
-        SpotifyPlaylistPayloadError,
-        choices_from_payload as spotify_playlist_choices_from_payload,
-    )
 from .playback_history import (
     activity_rows as streamer_activity_rows,
     history_rows as streamer_history_rows,
@@ -29730,6 +29729,17 @@ class LiteFrame(wx.Frame):
         self._playlist_membership_pending = True
 
         def open_dialog() -> None:
+            try:
+                show_dialog()
+            except Exception as error:
+                self._playlist_membership_pending = False
+                store = getattr(self, "store", None)
+                if isinstance(store, StateStore):
+                    _append_frontend_log(store, f"Okno playlist TIDAL: {type(error).__name__}")
+                self._restore_focus_after_dialog()
+                self.announcer.say(i18n.tr("tidal.playlists.openFailed"))
+
+        def show_dialog() -> None:
             selected_ids = set(remembered_destination_ids(
                 getattr(self, "state", None), destination_scope
             ))
