@@ -232,6 +232,75 @@ public sealed class SpotifyPlaylistWriteClient(HttpClient? httpClient = null) : 
         return new SpotifyPlaylistWriteResult(uniqueUris.Length, outcomes);
     }
 
+    public async Task<int> RemoveItemsAsync(
+        string accessToken,
+        string? grantedScope,
+        SpotifyPlaylistTarget target,
+        IReadOnlyList<string> itemUris,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(itemUris);
+        if (!target.CanEdit)
+            throw new SpotifyWriteBlockedException(
+                "Tej playlisty Spotify nie można edytować.",
+                SpotifyWriteBlockReason.Denied);
+        EnsureScope(grantedScope, target.IsPublic);
+        var uris = itemUris.Distinct(StringComparer.Ordinal).ToArray();
+        if (uris.Length is 0 or > MaxItemsPerRequest
+            || uris.Any(uri => !IsSupportedItemUri(uri)))
+            throw new SpotifyWriteBlockedException(
+                "Wybierz od 1 do 100 utworów lub odcinków z playlisty Spotify.",
+                SpotifyWriteBlockReason.UnsupportedKind);
+        // Nowy endpoint usuwa po URI, bez pozycji. Nie wolno usuwać wybranego
+        // wystąpienia, jeśli ta sama pozycja jest na playliście wielokrotnie.
+        var counts = await ReadUriCountsAsync(accessToken, target.Id, cancellationToken)
+            .ConfigureAwait(false);
+        if (uris.Any(uri => !counts.TryGetValue(uri, out var count) || count != 1))
+            throw new SpotifyWriteBlockedException(
+                "Pozycja nie jest już na playliście albo występuje na niej więcej niż raz. Odśwież playlistę; duplikatów nie można bezpiecznie usunąć pojedynczo.",
+                SpotifyWriteBlockReason.Denied);
+        var body = new Dictionary<string, object>
+        {
+            ["items"] = uris.Select(uri => new { uri }).ToArray()
+        };
+        if (!string.IsNullOrWhiteSpace(target.SnapshotId))
+            body["snapshot_id"] = target.SnapshotId;
+        using var response = await SendAsync(
+                HttpMethod.Delete,
+                $"{ApiRoot}/playlists/{Uri.EscapeDataString(target.Id)}/items",
+                accessToken,
+                JsonSerializer.Serialize(body),
+                cancellationToken)
+            .ConfigureAwait(false);
+        EnsureSuccess(response, $"usunięcia pozycji z playlisty {target.Name}");
+        return uris.Length;
+    }
+
+    private async Task<Dictionary<string, int>> ReadUriCountsAsync(
+        string accessToken, string playlistId, CancellationToken cancellationToken)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        string? next = $"{ApiRoot}/playlists/{Uri.EscapeDataString(playlistId)}/items?limit=100";
+        var pages = 0;
+        while (!string.IsNullOrWhiteSpace(next))
+        {
+            if (++pages > MaxPages)
+                throw new SpotifyWriteBlockedException(
+                    "Playlista jest zbyt długa, by bezpiecznie potwierdzić usunięcie.",
+                    SpotifyWriteBlockReason.Denied);
+            using var document = await GetJsonAsync(accessToken, next, cancellationToken)
+                .ConfigureAwait(false);
+            var root = document.RootElement;
+            if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                foreach (var entry in items.EnumerateArray())
+                    if (ReadPlaylistItemUri(entry) is { } uri)
+                        counts[uri] = counts.GetValueOrDefault(uri) + 1;
+            next = Text(root, "next");
+        }
+        return counts;
+    }
+
     private async Task<HashSet<string>> ReadExistingUrisAsync(
         string accessToken,
         string playlistId,

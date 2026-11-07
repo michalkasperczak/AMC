@@ -162,6 +162,9 @@ def test_spotify_playlist_operations_use_narrow_host_contracts() -> None:
     client.spotify_playlist_targets()
     client.spotify_playlist_create("Nowa", is_public=True)
     client.spotify_playlist_add_items(["playlist-1"], [item])
+    client.spotify_playlist_remove_items(
+        "playlist-1", [{"kind": "track", "externalId": "track-1"}]
+    )
 
     assert calls == [
         ("spotify.playlistTargets", None, 120.0),
@@ -173,6 +176,13 @@ def test_spotify_playlist_operations_use_narrow_host_contracts() -> None:
         (
             "spotify.playlistAddItems",
             {"playlistIds": ["playlist-1"], "items": [item]},
+            180.0,
+        ),
+        (
+            "spotify.playlistRemoveItems",
+            {"playlistId": "playlist-1", "items": [
+                {"kind": "track", "externalId": "track-1"}
+            ]},
             180.0,
         ),
     ]

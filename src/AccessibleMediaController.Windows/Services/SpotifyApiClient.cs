@@ -1219,7 +1219,13 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
 
     private static MediaItem? ReadPlaylistTrack(JsonElement entry)
     {
-        if (!entry.TryGetProperty("track", out var track) || track.ValueKind != JsonValueKind.Object) return null;
+        JsonElement track;
+        if (entry.TryGetProperty("item", out var current)
+            && current.ValueKind == JsonValueKind.Object)
+            track = current;
+        else if (!entry.TryGetProperty("track", out track)
+            || track.ValueKind != JsonValueKind.Object)
+            return null;
         // Playlisty mogą zawierać odcinki podcastów. Traktujemy je jako odcinki,
         // nie jako utwory, żeby lista mówiła prawdę o tym, co się otwiera.
         var typ = Tekst(track, "type");

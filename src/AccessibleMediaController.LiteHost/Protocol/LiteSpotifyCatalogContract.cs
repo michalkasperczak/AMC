@@ -29,6 +29,7 @@ public static class LiteSpotifyCatalogContract
     public const string PlaylistTargetsOperation = "spotify.playlistTargets";
     public const string PlaylistCreateOperation = "spotify.playlistCreate";
     public const string PlaylistAddItemsOperation = "spotify.playlistAddItems";
+    public const string PlaylistRemoveItemsOperation = "spotify.playlistRemoveItems";
 
     private const int MaximumQueryLength = 200;
     private const int MaximumLabelPartLength = 300;
@@ -371,6 +372,34 @@ public static class LiteSpotifyCatalogContract
         return new LiteSpotifyPlaylistAddRequest(playlistIds, items);
     }
 
+    public static LiteSpotifyPlaylistRemoveRequest ReadPlaylistRemoveRequest(JsonElement args)
+    {
+        var playlistId = LiteArgs.RequireText(args, "playlistId").Trim();
+        if (!TryNormalizeExternalId(playlistId, MediaItemKind.Playlist, out playlistId))
+            throw new LiteRequestException("Playlista Spotify ma nieprawidłowy identyfikator.");
+        if (!args.TryGetProperty("items", out var rawItems)
+            || rawItems.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Nie przekazano pozycji playlisty Spotify.");
+        var uris = new List<string>();
+        foreach (var raw in rawItems.EnumerateArray())
+        {
+            if (raw.ValueKind != JsonValueKind.Object)
+                throw new LiteRequestException("Nieprawidłowa pozycja playlisty Spotify.");
+            var kind = LiteArgs.RequireText(raw, "kind").Trim().ToLowerInvariant() switch
+            {
+                "track" => MediaItemKind.Track,
+                "episode" => MediaItemKind.Episode,
+                _ => throw new LiteRequestException("Z playlisty Spotify można usunąć tylko utwór albo odcinek.")
+            };
+            if (!TryNormalizeExternalId(LiteArgs.RequireText(raw, "externalId"), kind, out var id))
+                throw new LiteRequestException("Pozycja Spotify ma nieprawidłowy identyfikator.");
+            uris.Add($"spotify:{ServiceType(kind)}:{id}");
+        }
+        if (uris.Count == 0 || uris.Count > 100)
+            throw new LiteRequestException("Wybierz od 1 do 100 pozycji playlisty Spotify.");
+        return new LiteSpotifyPlaylistRemoveRequest(playlistId, uris.Distinct(StringComparer.Ordinal).ToArray());
+    }
+
     public static LiteSpotifyPlaylistTarget ToPlaylistTarget(SpotifyPlaylistTarget target) =>
         new(
             target.Id,
@@ -482,6 +511,7 @@ public static class LiteSpotifyCatalogContract
             PlaylistTargetsOperation => "Nie udało się odczytać playlist Spotify.",
             PlaylistCreateOperation => "Nie udało się utworzyć playlisty Spotify.",
             PlaylistAddItemsOperation => "Nie udało się dodać pozycji do playlist Spotify.",
+            PlaylistRemoveItemsOperation => "Nie udało się usunąć pozycji z playlisty Spotify.",
             _ => "Nie udało się odczytać danych Spotify."
         }
     };
@@ -749,6 +779,10 @@ public sealed record LiteSpotifyPlaylistCreateRequest(string Name, bool IsPublic
 public sealed record LiteSpotifyPlaylistAddRequest(
     IReadOnlyList<string> PlaylistIds,
     IReadOnlyList<MediaItem> Items);
+
+public sealed record LiteSpotifyPlaylistRemoveRequest(
+    string PlaylistId,
+    IReadOnlyList<string> ItemUris);
 
 public sealed record LiteSpotifyPlaylistTarget(
     [property: JsonPropertyName("id")] string Id,

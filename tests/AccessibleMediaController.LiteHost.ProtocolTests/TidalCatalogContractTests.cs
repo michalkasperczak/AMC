@@ -25,6 +25,7 @@ internal static class TidalCatalogContractTests
         RefusesWrongCollectionShortcutForKind();
         CollectionViewContainsOnlyIntentionalFields();
         ReadsPlaylistWriteWithoutPrivateData();
+        ReadsPlaylistRemovalOnlyWithEntryIds();
     }
 
     private static void ReadsClientIdWithoutSecret()
@@ -371,6 +372,29 @@ internal static class TidalCatalogContractTests
         {
             Check(exception.Message.Contains("playlist", StringComparison.OrdinalIgnoreCase),
                 "odmowa ma nieczytelny komunikat");
+        }
+    }
+
+    private static void ReadsPlaylistRemovalOnlyWithEntryIds()
+    {
+        using var valid = JsonDocument.Parse("""
+        {"playlistExternalId":"playlists:42","itemIds":[
+          "tidal:tracks:7:entry:first","tidal:tracks:7:entry:second"]}
+        """);
+        var request = LiteTidalCatalogContract.ReadPlaylistRemoveRequest(valid.RootElement);
+        Check(request.PlaylistExternalId == "playlists:42" && request.ItemIds.Count == 2,
+            "usunięcie playlisty musi zachować dwie osobne pozycje tego samego utworu");
+        using var invalid = JsonDocument.Parse("""
+        {"playlistExternalId":"playlists:42","itemIds":["tidal:tracks:7"]}
+        """);
+        try
+        {
+            LiteTidalCatalogContract.ReadPlaylistRemoveRequest(invalid.RootElement);
+            throw new InvalidOperationException("Przyjęto utwór bez identyfikatora pozycji playlisty");
+        }
+        catch (LiteRequestException)
+        {
+            // A catalogue track ID must never delete an arbitrary playlist entry.
         }
     }
 

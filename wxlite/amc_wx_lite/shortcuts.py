@@ -461,6 +461,12 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.REMOVE_SELECTED: CommandPresentation(
+        Action.REMOVE_SELECTED,
+        "Usuń z bieżącej listy",
+        "Usuń zaznaczone pozycje z bieżącej listy lub playlisty bez usuwania materiału źródłowego",
+        "Delete",
+    ),
     Action.TIDAL_PLAY_NATIVE: CommandPresentation(
         Action.TIDAL_PLAY_NATIVE,
         "Odtwórz utwór TIDAL w AMC",
@@ -2220,6 +2226,8 @@ def _resolve_default(
         return action
     if not player_view and service_history and canonical == "Delete":
         return Action.REMOVE_SELECTED
+    if not player_view and radio_playlist_contents and canonical == "Delete":
+        return Action.REMOVE_SELECTED
     if radio_session and canonical in RADIO_COLLECTION_LIST_VIEW:
         if not player_view and radio_collection:
             return RADIO_COLLECTION_LIST_VIEW[canonical]
@@ -2616,7 +2624,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Zmień nazwę pliku w Bibliotece, playlisty, podcastu lub kanału"
         ),
         Action.RENAME_LOCAL_FILE: "Zmień nazwę pliku na dysku",
-        Action.REMOVE_SELECTED: "Usuń z bieżącego widoku bez kasowania pliku",
+        Action.REMOVE_SELECTED: "Usuń zaznaczone pozycje z bieżącej listy lub playlisty bez usuwania materiału źródłowego",
         Action.RECYCLE_SELECTED: "Przenieś zaznaczone pliki do Kosza",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmień nazwę lub adres stacji",

@@ -11092,8 +11092,42 @@ class LiteFrame(wx.Frame):
                     and bool(selected_row.item_id)
                     and bool(selected_row.service_id)
                 )
-                if not (spotify_history_item or spotify_collection_item):
+                spotify_playlist_item = bool(
+                    self.navigator.active is SessionId.SPOTIFY
+                    and session.library_view is LibraryView.SPOTIFY_CONTAINER
+                    and isinstance(session.spotify_context, OpenSpotifyContainer)
+                    and session.spotify_context.kind == "playlist"
+                    and selected_row is not None
+                    and selected_kind in {"track", "episode"}
+                    and bool(selected_row.service_id)
+                )
+                if not (spotify_history_item or spotify_collection_item
+                        or spotify_playlist_item):
                     enabled = False
+            if entry.needs_tidal_playlist_entry and not (
+                self.navigator.active is SessionId.TIDAL
+                and session.library_view is LibraryView.TIDAL_CONTAINER
+                and isinstance(session.tidal_context, OpenTidalContainer)
+                and session.tidal_context.kind == "playlist"
+                and selected_row is not None
+                and selected_kind in {"track", "video"}
+                and ":entry:" in selected_row.item_id
+            ):
+                enabled = False
+            if entry.needs_radio_playlist_entry and not (
+                radio and session.library_view is LibraryView.PLAYLIST_CONTENTS
+                and selected_kind == "station"
+            ):
+                enabled = False
+            if entry.needs_service_history_item and not (
+                session.library_view is LibraryView.SERVICE_HISTORY
+                and selected_row is not None
+            ):
+                enabled = False
+            if entry.action is Action.STATION_DELETE and (
+                session.library_view is LibraryView.PLAYLIST_CONTENTS
+            ):
+                enabled = False
             if entry.needs_manual_order_context and not (
                 playlist_contents or radio_collection
             ):
@@ -15619,6 +15653,12 @@ class LiteFrame(wx.Frame):
         self._dispatch(action)
 
     def _dispatch(self, action: Action) -> None:
+        if (
+            action is Action.REMOVE_SELECTED
+            and not self._action_available_in_active_session(action)
+        ):
+            self.announcer.say("Usuwanie nie jest dostępne w tym widoku")
+            return
         if (action in (Action.CAST_SESSION, Action.MIRROR_SESSION) or (
             getattr(self, "client", None) is not None and getattr(self.client, "cast_active", lambda _: False)(
                 self.navigator.active.value)
@@ -15674,9 +15714,17 @@ class LiteFrame(wx.Frame):
                 and self.navigator.session.library_view
                 is LibraryView.SPOTIFY_HISTORY
             )
+            spotify_playlist_removal = (
+                action is Action.REMOVE_SELECTED
+                and self.navigator.session.library_view
+                is LibraryView.SPOTIFY_CONTAINER
+                and isinstance(self.navigator.session.spotify_context, OpenSpotifyContainer)
+                and self.navigator.session.spotify_context.kind == "playlist"
+            )
             if (
                 action not in SPOTIFY_SUPPORTED_ACTIONS
                 and not spotify_history_removal
+                and not spotify_playlist_removal
             ):
                 self.announcer.say(
                     "Ta funkcja nie jest jeszcze dostępna w sesji Spotify"
@@ -16087,7 +16135,10 @@ class LiteFrame(wx.Frame):
         elif action is Action.STATION_EDIT:
             self._station_edit()
         elif action is Action.STATION_DELETE:
-            self._station_delete()
+            if self.navigator.session.library_view is LibraryView.PLAYLIST_CONTENTS:
+                self._remove_selected_items()
+            else:
+                self._station_delete()
         elif action is Action.STATION_IMPORT:
             self._station_import()
         elif action is Action.STATION_EXPORT_FAVORITES:
@@ -27850,6 +27901,79 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
+    def _remove_spotify_playlist_items(self) -> None:
+        context = self.navigator.session.spotify_context
+        if getattr(self, "_spotify_playlist_removal_pending", False):
+            self.announcer.say("Usuwanie z playlisty Spotify już trwa")
+            return
+        rows = self._selected_action_rows()
+        if not rows or any(
+            row.kind not in {"track", "episode"} or not row.service_id
+            for row in rows
+        ):
+            self.announcer.say("Wybierz utwory lub odcinki otwartej playlisty Spotify")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zmienić playlisty Spotify")
+            return
+        label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        if wx.MessageBox(
+            f"Usunąć z playlisty Spotify {context.title}: {label}?\n\n"
+            "Utwory i odcinki pozostaną w katalogu Spotify oraz w innych playlistach.",
+            "Usuń z playlisty Spotify",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            self,
+        ) != wx.YES:
+            self._restore_focus_after_dialog()
+            return
+        self._restore_focus_after_dialog()
+        selected_ids = {row.item_id for row in rows}
+        model_rows = list(self.navigator.session.model.rows)
+        remaining = [row for row in model_rows if row.item_id not in selected_ids]
+        first_index = min(
+            (index for index, row in enumerate(model_rows)
+             if row.item_id in selected_ids), default=0,
+        )
+        preferred_id = (
+            remaining[min(first_index, len(remaining) - 1)].item_id
+            if remaining else None
+        )
+        self._spotify_playlist_removal_pending = True
+
+        def done(payload: object) -> None:
+            self._spotify_playlist_removal_pending = False
+            message = (
+                str(payload.get("message") or "").strip()
+                if isinstance(payload, dict) else ""
+            ) or f"Usunięto z playlisty Spotify: {label}"
+            if (
+                self.navigator.active is SessionId.SPOTIFY
+                and self.navigator.session.spotify_context == context
+            ):
+                self._open_spotify_container(
+                    replace(context, preferred_id=preferred_id),
+                    after_open=lambda: self.announcer.say(message),
+                    on_failure=lambda: self.announcer.say(message),
+                )
+            else:
+                self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._spotify_playlist_removal_pending = False
+            self.announcer.say(f"Nie usunięto z playlisty Spotify: {error}")
+
+        self.runner.submit(
+            "spotify-playlist-remove",
+            lambda: client.spotify_playlist_remove_items(
+                context.service_id,
+                [{"kind": row.kind, "externalId": row.service_id}
+                 for row in rows],
+            ),
+            done,
+            failed,
+        )
+
     def _remove_spotify_saved_items(self) -> None:
         """Delete: explicitly remove rows from the open account collection.
 
@@ -29710,11 +29834,6 @@ class LiteFrame(wx.Frame):
             if row.kind in {"track", "video", "album"}
             and row.item_id and row.service_id
         ]
-        album = LiteFrame._open_service_album_row(
-            SessionId.TIDAL, self.navigator.sessions[SessionId.TIDAL]
-        )
-        if album is not None:
-            rows = [album]
         if not rows:
             self.announcer.say("Do playlisty TIDAL wybierz utwór, wideo albo album")
             return
@@ -33326,6 +33445,14 @@ class LiteFrame(wx.Frame):
 
     def _remove_selected_items(self) -> None:
         if (
+            self.navigator.active is SessionId.TIDAL
+            and self.navigator.session.library_view is LibraryView.TIDAL_CONTAINER
+            and isinstance(self.navigator.session.tidal_context, OpenTidalContainer)
+            and self.navigator.session.tidal_context.kind == "playlist"
+        ):
+            self._remove_tidal_playlist_items()
+            return
+        if (
             self.navigator.active in (
                 SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
                 SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
@@ -33343,6 +33470,13 @@ class LiteFrame(wx.Frame):
             self._remove_spotify_history_entries()
             return
         if self.navigator.active is SessionId.SPOTIFY:
+            if (
+                self.navigator.session.library_view is LibraryView.SPOTIFY_CONTAINER
+                and isinstance(self.navigator.session.spotify_context, OpenSpotifyContainer)
+                and self.navigator.session.spotify_context.kind == "playlist"
+            ):
+                self._remove_spotify_playlist_items()
+                return
             self._remove_spotify_saved_items()
             return
         if (
@@ -33393,14 +33527,31 @@ class LiteFrame(wx.Frame):
         view = self._current_profile_view_name()
         playlist_id = (
             self.navigator.session.library_playlist_id
-            if view == LibraryView.PODCAST_PLAYLIST_CONTENTS.value
+            if view in (
+                LibraryView.PODCAST_PLAYLIST_CONTENTS.value,
+                LibraryView.PLAYLIST_CONTENTS.value,
+            )
             else None
         )
         item_ids = [row.item_id for row in rows]
         titles = [row.title for row in rows]
+        selected_ids = set(item_ids)
+        model_rows = list(self.navigator.session.model.rows)
+        first_index = min(
+            (index for index, row in enumerate(model_rows)
+             if row.item_id in selected_ids), default=0,
+        )
+        remaining = [row for row in model_rows if row.item_id not in selected_ids]
+        preferred_id = (
+            remaining[min(first_index, len(remaining) - 1)].item_id
+            if remaining else None
+        )
 
         def done(_payload: object) -> None:
-            self._refresh_profile_view()
+            if isinstance(_payload, dict) and int(_payload.get("removedCount") or 0) == 0:
+                self.announcer.say("Lista pozostała bez zmian")
+                return
+            self._refresh_profile_view(preferred_id=preferred_id)
             label = titles[0] if len(titles) == 1 else format_item_count(len(titles))
             if view in (
                 LibraryView.HISTORY.value,
@@ -33413,7 +33564,10 @@ class LiteFrame(wx.Frame):
                 message = f"Usunięto z Kolejki: {label}"
             elif view == LibraryView.PODCAST_QUEUE.value:
                 message = f"Usunięto z Kolejki podcastów: {label}"
-            elif view == LibraryView.PODCAST_PLAYLIST_CONTENTS.value:
+            elif view in (
+                LibraryView.PODCAST_PLAYLIST_CONTENTS.value,
+                LibraryView.PLAYLIST_CONTENTS.value,
+            ):
                 message = f"Usunięto z playlisty: {label}"
             elif session_id == SessionId.FILES.value:
                 message = f"Usunięto z Biblioteki: {label}. Plik pozostał na dysku"
@@ -33438,6 +33592,77 @@ class LiteFrame(wx.Frame):
             ),
             done,
             lambda error: self.announcer.say(f"Nie usunięto: {error}"),
+        )
+
+    def _remove_tidal_playlist_items(self) -> None:
+        """Delete only selected entries of the open TIDAL playlist."""
+        context = self.navigator.session.tidal_context
+        if getattr(self, "_tidal_playlist_removal_pending", False):
+            self.announcer.say("Usuwanie z playlisty TIDAL już trwa")
+            return
+        rows = self._selected_action_rows()
+        if not rows or any(
+            row.kind not in {"track", "video"} or ":entry:" not in row.item_id
+            for row in rows
+        ):
+            self.announcer.say("Wybierz pozycje otwartej playlisty TIDAL do usunięcia")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zmienić playlisty TIDAL")
+            return
+        label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        if wx.MessageBox(
+            f"Usunąć z playlisty TIDAL {context.title}: {label}?\n\n"
+            "Utwory pozostaną w katalogu TIDAL i w innych playlistach.",
+            "Usuń z playlisty TIDAL",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            self,
+        ) != wx.YES:
+            self._restore_focus_after_dialog()
+            return
+        self._restore_focus_after_dialog()
+        selected_ids = {row.item_id for row in rows}
+        remaining = [row for row in self.navigator.session.model.rows
+                     if row.item_id not in selected_ids]
+        first_index = min(
+            (index for index, row in enumerate(self.navigator.session.model.rows)
+             if row.item_id in selected_ids), default=0,
+        )
+        preferred_id = (
+            remaining[min(first_index, len(remaining) - 1)].item_id
+            if remaining else None
+        )
+        self._tidal_playlist_removal_pending = True
+
+        def done(payload: object) -> None:
+            self._tidal_playlist_removal_pending = False
+            message = (
+                str(payload.get("message") or "").strip()
+                if isinstance(payload, dict) else ""
+            ) or f"Usunięto z playlisty TIDAL: {label}"
+            if (
+                self.navigator.active is SessionId.TIDAL
+                and self.navigator.session.tidal_context == context
+            ):
+                self._open_tidal_container(
+                    replace(context, preferred_id=preferred_id),
+                    after_open=lambda: self.announcer.say(message),
+                )
+            else:
+                self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._tidal_playlist_removal_pending = False
+            self.announcer.say(f"Nie usunięto z playlisty TIDAL: {error}")
+
+        self.runner.submit(
+            "tidal-playlist-remove",
+            lambda: client.tidal_playlist_remove_items(
+                context.service_id, [row.item_id for row in rows]
+            ),
+            done,
+            failed,
         )
 
     def _remove_spotify_history_entries(self) -> None:
@@ -35399,6 +35624,10 @@ class LiteFrame(wx.Frame):
             return (
                 self.navigator.session.library_view
                 is LibraryView.SERVICE_HISTORY
+                or self.navigator.active is SessionId.TIDAL
+                and self.navigator.session.library_view is LibraryView.TIDAL_CONTAINER
+                and isinstance(self.navigator.session.tidal_context, OpenTidalContainer)
+                and self.navigator.session.tidal_context.kind == "playlist"
             )
         if (
             self.navigator.active is SessionId.SPOTIFY
@@ -35412,6 +35641,9 @@ class LiteFrame(wx.Frame):
                 and context.view in {
                     "liked", "albums", "artists", "podcasts", "episodes"
                 }
+                or self.navigator.session.library_view is LibraryView.SPOTIFY_CONTAINER
+                and isinstance(context, OpenSpotifyContainer)
+                and context.kind == "playlist"
             )
         supported = {
             SessionId.TIDAL: TIDAL_SUPPORTED_ACTIONS,

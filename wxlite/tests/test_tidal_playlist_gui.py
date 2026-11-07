@@ -1,4 +1,4 @@
-"""Account playlist flow from a recognized TIDAL album."""
+"""Account playlist flow respects the selected TIDAL rows."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def test_tidal_album_playlist_creation_and_cached_reopening() -> None:
 
         def __init__(self, _parent, *, choices, target_label, provider):
             assert provider == "TIDAL"
-            assert target_label == "Cały album"
+            assert target_label == "Pierwszy utwór"
             assert all(choice.description == choice.name for choice in choices)
             self.__class__.opened += 1
             if self.opened == 1:
@@ -110,14 +110,100 @@ def test_tidal_album_playlist_creation_and_cached_reopening() -> None:
     assert calls.count(("list", "playlists")) == 1
     assert calls[1] == ("create", "Nowa")
     assert calls[2][0:2] == ("add", ["playlists:1", "playlists:2"])
-    assert calls[2][2][0]["kind"] == "album"
-    assert calls[2][2][0]["externalId"] == "albums:7"
+    assert calls[2][2][0]["kind"] == "track"
+    assert calls[2][2][0]["externalId"] == "tracks:8"
     assert focused == [True, True]
     assert spoken.count("Pobieram playlisty TIDAL") == 1
     assert frame._playlist_membership_pending is False
     assert state.service_picker_destination_ids["tidal:playlists"] == [
         "playlists:1", "playlists:2"
     ]
+
+
+def test_tidal_playlist_uses_multiple_selected_tracks_or_explicit_album() -> None:
+    track_one = Row("track:8", "Pierwszy", "track", service_id="tracks:8")
+    track_two = Row("track:9", "Drugi", "track", service_id="tracks:9")
+    album = Row("album:7", "Cały album", "album", service_id="albums:7")
+    for selected, expected in (
+        ([track_one, track_two], ["tracks:8", "tracks:9"]),
+        ([album], ["albums:7"]),
+    ):
+        captured = []
+
+        class Runner:
+            @staticmethod
+            def submit(_name, work, done, failed):
+                try:
+                    done(work())
+                except Exception as error:
+                    failed(error)
+
+        class Dialog:
+            def __init__(self, *_args, **_kwargs):
+                self.selected_playlist_ids = ["playlists:1"]
+                self.new_playlists = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def ShowModal(self):
+                return gui.wx.ID_OK
+
+        nav = Navigator()
+        nav.active = SessionId.TIDAL
+        nav.apply_tidal_container(
+            OpenTidalContainer("album:7", "albums:7", "Cały album", "album"),
+            "Cały album", [track_one, track_two],
+        )
+        frame = SimpleNamespace(
+            navigator=nav,
+            client=SimpleNamespace(
+                tidal_collection_view=lambda _view: {"items": [
+                    {"externalId": "playlists:1", "title": "Lista"}
+                ]},
+                tidal_playlist_add_items=lambda _ids, items: (
+                    captured.extend(items) or {
+                        "message": "Dodano", "succeededPlaylistExternalIds": ["playlists:1"]
+                    }
+                ),
+            ),
+            runner=Runner(),
+            state=SimpleNamespace(service_picker_destination_ids={}),
+            store=SimpleNamespace(save=lambda _state: None),
+            announcer=SimpleNamespace(say=lambda _message: None),
+            _playlist_membership_pending=False,
+            _selected_action_rows=lambda: selected,
+            _restore_focus_after_dialog=lambda: None,
+        )
+        previous = gui.SpotifyPlaylistDialog
+        gui.SpotifyPlaylistDialog = Dialog
+        try:
+            gui.LiteFrame._manage_tidal_playlist_membership(frame)
+        finally:
+            gui.SpotifyPlaylistDialog = previous
+        assert [item["externalId"] for item in captured] == expected
+
+
+def test_tidal_playlist_with_no_selected_row_does_not_add_open_album() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    nav.apply_tidal_container(
+        OpenTidalContainer("album:7", "albums:7", "Cały album", "album"),
+        "Cały album", [],
+    )
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        client=object(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _playlist_membership_pending=False,
+        _selected_action_rows=lambda: [],
+    )
+    gui.LiteFrame._manage_tidal_playlist_membership(frame)
+    assert spoken == ["Do playlisty TIDAL wybierz utwór, wideo albo album"]
 
 
 def test_tidal_playlist_shortcut_uses_session_command() -> None:

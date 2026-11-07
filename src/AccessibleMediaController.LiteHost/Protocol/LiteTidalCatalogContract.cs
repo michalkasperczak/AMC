@@ -24,6 +24,7 @@ public static class LiteTidalCatalogContract
     public const string MembershipOperation = "tidal.collectionMembership";
     public const string PlaylistCreateOperation = "tidal.playlistCreate";
     public const string PlaylistAddItemsOperation = "tidal.playlistAddItems";
+    public const string PlaylistRemoveItemsOperation = "tidal.playlistRemoveItems";
 
     private static readonly IReadOnlyDictionary<string, MediaItemKind> Kinds =
         new Dictionary<string, MediaItemKind>(StringComparer.OrdinalIgnoreCase)
@@ -340,6 +341,25 @@ public static class LiteTidalCatalogContract
         return new LiteTidalPlaylistAddRequest(playlistIds, items);
     }
 
+    public static LiteTidalPlaylistRemoveRequest ReadPlaylistRemoveRequest(JsonElement args)
+    {
+        var playlistId = LiteArgs.RequireText(args, "playlistExternalId").Trim();
+        if (!ExternalIdMatchesKind(playlistId, MediaItemKind.Playlist))
+            throw new LiteRequestException("Nie wskazano otwartej playlisty TIDAL.");
+        if (!args.TryGetProperty("itemIds", out var rawItems)
+            || rawItems.ValueKind != JsonValueKind.Array)
+            throw new LiteRequestException("Wybierz pozycje playlisty TIDAL.");
+        var itemIds = rawItems.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (itemIds.Length is < 1 or > 500
+            || itemIds.Any(id => id.Length > 200 || !id.Contains(":entry:", StringComparison.Ordinal)))
+            throw new LiteRequestException("Wybierz od 1 do 500 pozycji otwartej playlisty TIDAL.");
+        return new LiteTidalPlaylistRemoveRequest(playlistId, itemIds);
+    }
+
     private static bool ExternalIdMatchesKind(string externalId, MediaItemKind kind)
     {
         var prefix = kind switch
@@ -365,6 +385,10 @@ public sealed record LiteTidalMembershipRequest(
 public sealed record LiteTidalPlaylistAddRequest(
     IReadOnlyList<string> PlaylistExternalIds,
     IReadOnlyList<MediaItem> Items);
+
+public sealed record LiteTidalPlaylistRemoveRequest(
+    string PlaylistExternalId,
+    IReadOnlyList<string> ItemIds);
 
 public sealed record LiteTidalAccountStatusResult(
     [property: JsonPropertyName("configured")] bool Configured,

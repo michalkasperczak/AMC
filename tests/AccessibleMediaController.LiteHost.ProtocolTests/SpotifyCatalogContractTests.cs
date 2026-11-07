@@ -26,6 +26,7 @@ internal static class SpotifyCatalogContractTests
         DescriptionRequestAcceptsOnlyPodcastMaterialsAndCleansText();
         MembershipRequestSeparatesFavoritesFromLibrary();
         PlaylistRequestsAcceptOnlyNamedTargetsAndPlayableItems();
+        PlaylistRemoveRequestKeepsOnlyPlayableUris();
         ContainerResultNeverUsesIdentifiersInItsHeading();
         ContainerKeepsRepeatedPlaylistOccurrencesDistinct();
         CoordinatorDoesNotAuthenticateForStatusOrCapabilities();
@@ -238,6 +239,29 @@ internal static class SpotifyCatalogContractTests
         Check(target.ToString() == target.AccessibleLabel
             && !target.AccessibleLabel.Contains("secret", StringComparison.Ordinal),
             "natywna lista mogłaby odczytać rekord albo identyfikator techniczny");
+    }
+
+    private static void PlaylistRemoveRequestKeepsOnlyPlayableUris()
+    {
+        using var request = JsonDocument.Parse("""
+        {"playlistId":"spotify:playlist:abc123","items":[
+          {"kind":"track","externalId":"track1"},
+          {"kind":"episode","externalId":"spotify:episode:episode2"}]}
+        """);
+        var parsed = LiteSpotifyCatalogContract.ReadPlaylistRemoveRequest(request.RootElement);
+        Check(parsed.PlaylistId == "abc123"
+            && parsed.ItemUris.SequenceEqual(
+                ["spotify:track:track1", "spotify:episode:episode2"]),
+            "usuwanie playlisty nie zachowuje tożsamości rodzaju i celu");
+        using var wrong = JsonDocument.Parse("""
+        {"playlistId":"abc123","items":[{"kind":"album","externalId":"bad"}]}
+        """);
+        try
+        {
+            LiteSpotifyCatalogContract.ReadPlaylistRemoveRequest(wrong.RootElement);
+            throw new InvalidOperationException("album przyjęto do usunięcia jako pozycję playlisty");
+        }
+        catch (LiteRequestException) { }
     }
 
     private static void AccountStatusKeepsCatalogueAndPlaybackSeparate()
@@ -1174,6 +1198,12 @@ internal static class SpotifyCatalogContractTests
             IReadOnlyList<MediaItem> items,
             CancellationToken cancellationToken) =>
             Task.FromResult(new SpotifyPlaylistWriteResult(items.Count, []));
+
+        public Task<int> RemovePlaylistItemsAsync(
+            string playlistId,
+            IReadOnlyList<string> itemUris,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(itemUris.Count);
 
         public Task<LiteSpotifyLoginOutcome> LoginAsync(
             CancellationToken cancellationToken)

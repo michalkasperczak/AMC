@@ -1609,12 +1609,12 @@ internal sealed class LiteProfileMutationStore
         lock (_gate)
         {
             if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
-                return RemoveRadio(view, ids);
+                return RemoveRadio(view, ids, playlistId);
             if (string.Equals(sessionId, "podcasts", StringComparison.Ordinal))
                 return RemovePodcasts(view, ids, playlistId);
             if (!string.Equals(sessionId, "files", StringComparison.Ordinal))
                 throw new LiteRequestException("Usuwanie w tej sesji nie jest jeszcze dostępne.");
-            return RemoveLocal(view, ids);
+            return RemoveLocal(view, ids, playlistId);
         }
     }
 
@@ -1689,10 +1689,24 @@ internal sealed class LiteProfileMutationStore
         }
     }
 
-    private object RemoveLocal(string view, IReadOnlyList<string> itemIds)
+    private object RemoveLocal(string view, IReadOnlyList<string> itemIds, string? playlistId)
     {
         using var connection = OpenDatabase(_libraryDatabasePath);
         using var transaction = connection.BeginTransaction();
+        if (string.Equals(view, "playlistContents", StringComparison.Ordinal))
+        {
+            var normalizedPlaylistId = CleanRequiredText(
+                playlistId ?? string.Empty, "Nie wskazano otwartej playlisty.");
+            var order = ReadPlaylistOrder(connection, transaction, "local", normalizedPlaylistId);
+            var removed = order.RemoveAll(itemIds.Contains);
+            if (removed > 0)
+            {
+                RewritePlaylistOrder(connection, transaction, normalizedPlaylistId, order);
+                TouchMetadata(connection, transaction);
+            }
+            transaction.Commit();
+            return new { removedCount = removed };
+        }
         var existing = itemIds.Select(id => ReadLocalItem(connection, transaction, id)).ToArray();
         if (string.Equals(view, "history", StringComparison.Ordinal))
         {
@@ -1735,8 +1749,24 @@ internal sealed class LiteProfileMutationStore
         return new { removedCount = existing.Length, titles = existing.Select(item => item.Title).ToArray() };
     }
 
-    private object RemoveRadio(string view, IReadOnlyList<string> itemIds)
+    private object RemoveRadio(string view, IReadOnlyList<string> itemIds, string? playlistId)
     {
+        if (string.Equals(view, "playlistContents", StringComparison.Ordinal))
+        {
+            var normalizedPlaylistId = CleanRequiredText(
+                playlistId ?? string.Empty, "Nie wskazano otwartej playlisty.");
+            using var connection = OpenDatabase(_libraryDatabasePath);
+            using var transaction = connection.BeginTransaction();
+            var order = ReadPlaylistOrder(connection, transaction, "radio", normalizedPlaylistId);
+            var removed = order.RemoveAll(itemIds.Contains);
+            if (removed > 0)
+            {
+                RewritePlaylistOrder(connection, transaction, normalizedPlaylistId, order);
+                TouchMetadata(connection, transaction);
+            }
+            transaction.Commit();
+            return new { removedCount = removed };
+        }
         if (string.Equals(view, "history", StringComparison.Ordinal))
         {
             using var connection = OpenDatabase(_libraryDatabasePath);

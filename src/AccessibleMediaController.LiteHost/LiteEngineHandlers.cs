@@ -581,6 +581,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 RequireTidal().CreatePlaylist(request.Args),
             [LiteTidalCatalogContract.PlaylistAddItemsOperation] = (request, _) =>
                 RequireTidal().AddPlaylistItems(request.Args),
+            [LiteTidalCatalogContract.PlaylistRemoveItemsOperation] = (request, _) =>
+                RequireTidal().RemovePlaylistItems(request.Args),
             [LiteSpotifyCatalogContract.CapabilitiesOperation] = (_, _) =>
                 SpotifyCapabilities(),
             [LiteSpotifyCatalogContract.AccountStatusOperation] = (_, _) =>
@@ -613,6 +615,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 SpotifyPlaylistCreate(request.Args),
             [LiteSpotifyCatalogContract.PlaylistAddItemsOperation] = (request, _) =>
                 SpotifyPlaylistAddItems(request.Args),
+            [LiteSpotifyCatalogContract.PlaylistRemoveItemsOperation] = (request, _) =>
+                RequireSpotify().RemovePlaylistItems(request.Args),
             [LiteSpotifyPlaybackContract.PlayOperation] = (request, events) =>
                 RequireSpotifyPlayback().Play(request.Args, events),
             [LiteTidalDesktopContract.PlayOperation] = (request, _) =>

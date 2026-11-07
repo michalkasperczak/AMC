@@ -346,6 +346,28 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
         }
     }
 
+    public async Task<int> RemovePlaylistItemsAsync(
+        string playlistId,
+        IReadOnlyList<string> itemUris,
+        CancellationToken cancellationToken)
+    {
+        EnsureCatalogReady();
+        try
+        {
+            return await _integration.RemoveItemsFromPlaylistAsync(
+                    playlistId, itemUris, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (SpotifyWriteBlockedException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw Translate(exception, cancellationToken);
+        }
+    }
+
     public async Task<string?> GetDescriptionAsync(
         LiteSpotifyDescriptionRequest request,
         CancellationToken cancellationToken)

@@ -235,6 +235,7 @@ internal static class Program
                 LiteTidalCatalogContract.ContainerItemsOperation,
                 LiteTidalCatalogContract.CollectionViewOperation,
                 LiteTidalCatalogContract.MembershipOperation,
+                LiteTidalCatalogContract.PlaylistRemoveItemsOperation,
                 // Spotify uses the same authenticated Web API pattern, but
                 // this first layer contains reads only and never starts OAuth.
                 LiteSpotifyCatalogContract.SearchOperation,
@@ -245,6 +246,7 @@ internal static class Program
                 LiteSpotifyCatalogContract.PlaylistTargetsOperation,
                 LiteSpotifyCatalogContract.PlaylistCreateOperation,
                 LiteSpotifyCatalogContract.PlaylistAddItemsOperation,
+                LiteSpotifyCatalogContract.PlaylistRemoveItemsOperation,
                 // OAuth i odczyt konta YouTube są jawne, a synchronizacja
                 // używa świeżego podglądu i jednej transakcji bazy Podcastów.
                 LiteYouTubeAccountContract.LoginOperation,

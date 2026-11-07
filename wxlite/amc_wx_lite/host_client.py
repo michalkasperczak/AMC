@@ -977,6 +977,15 @@ class LiteHostClient:
             timeout=180.0,
         )
 
+    def spotify_playlist_remove_items(
+        self, playlist_id: str, items: list[dict[str, Any]]
+    ) -> Any:
+        return self.call(
+            "spotify.playlistRemoveItems",
+            {"playlistId": playlist_id, "items": items},
+            timeout=180.0,
+        )
+
     def spotify_play(
         self,
         *,
@@ -1064,6 +1073,15 @@ class LiteHostClient:
         return self.call(
             "tidal.playlistAddItems",
             {"playlistExternalIds": playlist_external_ids, "items": items},
+            timeout=180.0,
+        )
+
+    def tidal_playlist_remove_items(
+        self, playlist_external_id: str, item_ids: list[str]
+    ) -> Any:
+        return self.call(
+            "tidal.playlistRemoveItems",
+            {"playlistExternalId": playlist_external_id, "itemIds": item_ids},
             timeout=180.0,
         )
 

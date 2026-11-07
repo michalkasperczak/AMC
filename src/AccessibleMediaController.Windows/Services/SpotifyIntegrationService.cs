@@ -495,6 +495,35 @@ internal sealed class SpotifyIntegrationService(
         }
     }
 
+    public async Task<int> RemoveItemsFromPlaylistAsync(
+        string playlistId,
+        IReadOnlyList<string> itemUris,
+        CancellationToken cancellationToken)
+    {
+        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            var profile = await ReadProfileAsync(tokens, cancellationToken).ConfigureAwait(false);
+            var targets = await playlistWriter.GetEditablePlaylistsAsync(
+                    tokens.AccessToken, profile.UserId, cancellationToken)
+                .ConfigureAwait(false);
+            var target = targets.SingleOrDefault(item => item.Id == playlistId);
+            if (target is null)
+                throw new SpotifyWriteBlockedException(
+                    "Ta playlista Spotify nie jest dostępna do edycji. Odśwież listę playlist.",
+                    SpotifyWriteBlockReason.Denied);
+            var scope = string.IsNullOrWhiteSpace(tokens.Scope) ? settings.GrantedScope : tokens.Scope;
+            return await playlistWriter.RemoveItemsAsync(
+                    tokens.AccessToken, scope, target, itemUris, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            operationGate.Release();
+        }
+    }
+
     private static string NormalizeSpotifyId(string id)
     {
         var candidate = id.Trim();

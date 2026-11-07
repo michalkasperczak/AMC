@@ -553,6 +553,33 @@ def test_profile_edits_go_through_the_real_host() -> None:
             )
             assert playlist_boundary["status"] == "boundary"
             assert playlist_boundary["moved"] is False
+            try:
+                client.remove_profile_items(
+                    "files", "playlistContents", ["local-1"],
+                    playlist_id="p-radio",
+                )
+            except HostError:
+                pass
+            else:
+                raise AssertionError("Obca playlista nie może być zmieniona")
+            assert client.remove_profile_items(
+                "files", "playlistContents", ["local-2"],
+                playlist_id="p-new",
+            ) == {"removedCount": 1}
+            assert client.remove_profile_items(
+                "radio", "playlistContents", ["radio-1"],
+                playlist_id="p-radio",
+            ) == {"removedCount": 1}
+            with closing(sqlite3.connect(library)) as database:
+                assert database.execute(
+                    "SELECT is_in_library FROM local_items WHERE id='local-2'"
+                ).fetchone() == (1,)
+                assert database.execute(
+                    "SELECT is_in_library FROM local_items WHERE id='local-1'"
+                ).fetchone() == (1,)
+                assert database.execute(
+                    "SELECT item_id FROM playlist_items WHERE playlist_id='p-radio'"
+                ).fetchall() == []
             removed_from_podcast_playlist = client.remove_profile_items(
                 "podcasts",
                 "podcastPlaylistContents",
@@ -635,7 +662,6 @@ def test_profile_edits_go_through_the_real_host() -> None:
             ).fetchall() == [
                 ("p-local", "local-2"),
                 ("p-new", "local-1"),
-                ("p-new", "local-2"),
             ]
             assert db.execute(
                 "SELECT name FROM playlists WHERE id='p-radio'"

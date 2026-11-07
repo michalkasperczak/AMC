@@ -14,6 +14,7 @@ internal static class SpotifyPlaylistWriteTests
         TestIdempotenceBatchesAndSnapshots();
         TestLaterBatchFailureKeepsEarlierSnapshot();
         TestPartialResult();
+        TestRemoveUniqueItemAndRejectDuplicate();
     }
 
     private static void TestScopes()
@@ -124,6 +125,33 @@ internal static class SpotifyPlaylistWriteTests
             "częściowy wynik zachowuje ostatni snapshot i jasny komunikat");
     }
 
+    private static void TestRemoveUniqueItemAndRejectDuplicate()
+    {
+        var stub = new PlaylistHttpStub();
+        stub.Items["own"] = ["spotify:track:one", "spotify:episode:two",
+            "spotify:track:duplicate", "spotify:track:duplicate"];
+        using var client = new SpotifyPlaylistWriteClient(new HttpClient(stub));
+        var target = new SpotifyPlaylistTarget(
+            "own", "Moja", "user1", "Użytkownik", false, false, true, "before");
+        var duplicateError = Throws(() => client.RemoveItemsAsync(
+            "token", SpotifyScopes.Requested, target,
+            ["spotify:track:duplicate"], CancellationToken.None)
+            .GetAwaiter().GetResult());
+        Check(duplicateError is SpotifyWriteBlockedException
+            && stub.Items["own"].Count == 4,
+            "duplikat nie uruchamia DELETE i nie znika z playlisty");
+        var removed = client.RemoveItemsAsync(
+            "token", SpotifyScopes.Requested, target,
+            ["spotify:track:one", "spotify:episode:two"], CancellationToken.None)
+            .GetAwaiter().GetResult();
+        Check(removed == 2 && stub.Items["own"].SequenceEqual(
+                ["spotify:track:duplicate", "spotify:track:duplicate"]),
+            "Delete usuwa tylko wybrane unikatowe pozycje");
+        Check(stub.Requests.Any(request => request.StartsWith("DELETE ", StringComparison.Ordinal)
+                && request.Contains("/playlists/own/items", StringComparison.Ordinal)),
+            "usuwanie używa aktualnego endpointu /items");
+    }
+
     private static Exception? Throws(Action action)
     {
         try { action(); return null; }
@@ -216,6 +244,15 @@ internal static class SpotifyPlaylistWriteTests
                     stored.AddRange(uris);
                     return Json(JsonSerializer.Serialize(new { snapshot_id = $"snapshot-{AddBatchSizes.Count}" }),
                         HttpStatusCode.Created);
+                }
+                if (request.Method == HttpMethod.Delete)
+                {
+                    var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                    using var document = JsonDocument.Parse(body);
+                    var uris = document.RootElement.GetProperty("items").EnumerateArray()
+                        .Select(value => value.GetProperty("uri").GetString()!).ToHashSet();
+                    Items[playlistId].RemoveAll(uri => uris.Contains(uri));
+                    return Json("""{"snapshot_id":"after-remove"}""");
                 }
             }
             return new HttpResponseMessage(HttpStatusCode.NotFound);

@@ -229,10 +229,15 @@ def test_tidal_playlist_write_calls_have_only_destination_and_catalog_ids() -> N
 
     client.tidal_playlist_create("Nowa")
     client.tidal_playlist_add_items(["playlists:1"], [album])
+    client.tidal_playlist_remove_items("playlists:1", ["track:7:entry:a"])
 
     assert calls == [
         ("tidal.playlistCreate", {"name": "Nowa"}, 120.0),
         ("tidal.playlistAddItems", {
             "playlistExternalIds": ["playlists:1"], "items": [album]
+        }, 180.0),
+        ("tidal.playlistRemoveItems", {
+            "playlistExternalId": "playlists:1",
+            "itemIds": ["track:7:entry:a"],
         }, 180.0),
     ]

@@ -731,6 +731,29 @@ internal sealed class LiteSpotifyCatalogCoordinator(
         }
     }
 
+    public object RemovePlaylistItems(JsonElement args)
+    {
+        var request = LiteSpotifyCatalogContract.ReadPlaylistRemoveRequest(args);
+        EnsureCatalogReady();
+        if (backend is not ILiteSpotifyWriteBackend writer)
+            throw new LiteRequestException("Ten silnik Spotify nie udostępnia zmiany playlist.");
+        try
+        {
+            var removed = writer.RemovePlaylistItemsAsync(
+                    request.PlaylistId, request.ItemUris, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            return new
+            {
+                removedCount = removed,
+                message = $"Usunięto {removed} pozycji z playlisty Spotify."
+            };
+        }
+        catch (Exception exception)
+        {
+            throw SafeRequestException(exception, LiteSpotifyCatalogContract.PlaylistRemoveItemsOperation);
+        }
+    }
+
     private void EnsureCatalogReady()
     {
         LiteSpotifyAccountProbe account;
@@ -794,18 +817,22 @@ internal sealed class LiteSpotifyCatalogCoordinator(
         if ((operation == LiteSpotifyCatalogContract.MembershipOperation
                 || operation == LiteSpotifyCatalogContract.PlaylistTargetsOperation
                 || operation == LiteSpotifyCatalogContract.PlaylistCreateOperation
-                || operation == LiteSpotifyCatalogContract.PlaylistAddItemsOperation)
+                || operation == LiteSpotifyCatalogContract.PlaylistAddItemsOperation
+                || operation == LiteSpotifyCatalogContract.PlaylistRemoveItemsOperation)
             && actual is SpotifyWriteBlockedException blockedWrite)
         {
             return blockedWrite.Reason switch
             {
                 SpotifyWriteBlockReason.MissingScope =>
-                    "Brakuje zgody Spotify na zmiany w kolekcji. "
+                    "Brakuje zgody Spotify na zmiany w kolekcji lub playliście. "
                         + "Zaloguj konto Spotify ponownie w ustawieniach AMC.",
                 SpotifyWriteBlockReason.Unauthorized =>
                     "Logowanie katalogu Spotify wygasło. Zaloguj konto ponownie.",
                 SpotifyWriteBlockReason.UnsupportedKind =>
-                    "Spotify nie pozwala zapisać tego rodzaju elementu.",
+                    "Spotify nie pozwala zmienić tego rodzaju elementu.",
+                SpotifyWriteBlockReason.Denied
+                    when operation == LiteSpotifyCatalogContract.PlaylistRemoveItemsOperation =>
+                    blockedWrite.Message,
                 _ => "Spotify odmówił zmiany kolekcji."
             };
         }
@@ -872,6 +899,11 @@ internal interface ILiteSpotifyWriteBackend : ILiteSpotifyReadOnlyBackend
     Task<SpotifyPlaylistWriteResult> AddPlaylistItemsAsync(
         IReadOnlyList<string> playlistIds,
         IReadOnlyList<MediaItem> items,
+        CancellationToken cancellationToken);
+
+    Task<int> RemovePlaylistItemsAsync(
+        string playlistId,
+        IReadOnlyList<string> itemUris,
         CancellationToken cancellationToken);
 }
 

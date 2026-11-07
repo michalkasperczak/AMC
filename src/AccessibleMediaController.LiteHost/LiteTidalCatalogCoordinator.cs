@@ -325,6 +325,62 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath, string profi
         }
     }
 
+    public object RemovePlaylistItems(JsonElement args)
+    {
+        var request = LiteTidalCatalogContract.ReadPlaylistRemoveRequest(args);
+        lock (_collectionGate)
+        {
+            var integration = RequireIntegration();
+            try
+            {
+                // A cached picker is never permission evidence. Resolve the account
+                // playlist and its entry IDs again immediately before the write.
+                var synchronized = integration.SynchronizeAsync(CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                _collectionSnapshot = synchronized.Items;
+                _collectionSyncAttempted = true;
+                var playlist = synchronized.Items.FirstOrDefault(item =>
+                    item.Kind == MediaItemKind.Playlist
+                    && string.Equals(item.ExternalId, request.PlaylistExternalId,
+                        StringComparison.Ordinal))
+                    ?? throw new LiteRequestException(
+                        "Ta playlista TIDAL nie jest dostępna na bieżącym koncie.");
+                var fresh = integration.GetContainerItemsAsync(
+                    playlist, CancellationToken.None).GetAwaiter().GetResult();
+                var chosen = request.ItemIds.Select(id =>
+                    fresh.FirstOrDefault(item =>
+                        string.Equals(item.Id, id, StringComparison.Ordinal)
+                        && item.Kind is MediaItemKind.Track or MediaItemKind.Video
+                        && !string.IsNullOrWhiteSpace(item.ContainerEntryId))
+                    ?? throw new LiteRequestException(
+                        "Wybrane pozycje zmieniły się w playliście TIDAL. Odśwież listę."))
+                    .ToArray();
+                integration.RemovePlaylistItemsAsync(
+                    playlist, chosen, CancellationToken.None).GetAwaiter().GetResult();
+                return new
+                {
+                    removedCount = chosen.Length,
+                    message = chosen.Length == 1
+                        ? "Usunięto pozycję z playlisty TIDAL."
+                        : $"Usunięto {chosen.Length} pozycji z playlisty TIDAL."
+                };
+            }
+            catch (LiteRequestException)
+            {
+                throw;
+            }
+            catch (InvalidOperationException exception)
+            {
+                throw new LiteRequestException(exception.Message);
+            }
+            catch
+            {
+                throw new LiteRequestException(
+                    "Nie udało się usunąć pozycji z playlisty TIDAL. Lista pozostała bez potwierdzenia zmian.");
+            }
+        }
+    }
+
     private TidalIntegrationService RequireIntegration()
     {
         lock (_gate)
