@@ -1,6 +1,6 @@
 # PLAYLIST-20261107 — Delete i zakres zaznaczenia
 
-Status: Poprawka źródłowa i testy zakończone 7.11.2026; budowa hosta zaliczona. Instalacja Public/Test, odsłuch NVDA i odbiór użytkownika pozostają do wykonania.
+Status: Public alpha.485 zainstalowany i uruchomiony 7.11.2026; kontrola techniczna przeszła. Odbiór Delete/Ctrl+Shift+P z NVDA i późniejsza pełna aktualizacja Test pozostają do wykonania.
 
 ## Zgłoszenie i kryteria akceptacji
 
@@ -56,7 +56,7 @@ Komunikaty NVDA: „Wybierz pozycje otwartej playlisty TIDAL do usunięcia”, �
 - Testy protokołu hosta `--tidal-catalog --spotify-catalog`: 2 zestawy zaliczone. Test klienta Spotify `--spotify-playlists`: zaliczony, w tym ochrona duplikatu i żądanie DELETE tylko dla wskazanych URI.
 - Budowa `AccessibleMediaController.LiteHost` Release bez restore: 0 błędów, 0 ostrzeżeń. `git diff --check`: bez błędów formatowania.
 - Szeroki przebieg `test_profile_mutations.py` bez podwyższonego dostępu zawiesił się na uruchomieniu hosta; przerwany. Ten sam właściwy test uruchomiony osobno z dostępem do D: przeszedł. Nie jest to wynik negatywny logiki.
-- Nie wykonano zdalnych operacji na rzeczywistych kontach, instalacji, widocznego testu klawiaturą/NVDA ani odbioru Public. Public alpha.484 i Test alpha.482 nie zostały zastąpione.
+- W testach nie wykonano zdalnych operacji na rzeczywistych kontach ani widocznego testu klawiaturą/NVDA. Wynik instalacji Public alpha.485 opisano poniżej. Test alpha.482 nie został zastąpiony.
 
 Interpreter pytest: C:\Users\micha\AppData\Local\Programs\Python\Python314\python.exe. Zależności wx są w runtime AMC Test; atrapy GUI używają test_gui_logic.install_wx_stub przed importem GUI. Dla odfiltrowanych profili świeży proces i profil przed importem. Nie ograniczać weryfikacji Public do zmiany środowiska po imporcie Test.
 
@@ -66,7 +66,17 @@ Spotify usuwa przez URI, a nowe API nie wskazuje jednego wystąpienia utworu. Gd
 
 ## Wersja i commit
 
-Poprawka źródłowa na bazie dd8e6c03: commit `99f37b2e` na `codex/konfigurowalne-skroty-20261026`. Wersja instalowana nadal Public alpha.484 / Test alpha.482; instalator nie powstał. Limit po testach: 52% wykorzystane, 48% pozostało; reset 11.11.2026, 07:45 Europe/Warsaw.
+Poprawka źródłowa na bazie dd8e6c03: commit `99f37b2e` na `codex/konfigurowalne-skroty-20261026`; zapis wyników `d2ece565`; numer alpha.485 w `c3007d5f`. Limit po testach: 52% wykorzystane, 48% pozostało; reset 11.11.2026, 07:45 Europe/Warsaw.
+
+## Instalacja Public alpha.485 — 7.11.2026
+
+Użytkownik polecił „To instaluj”. Z czystego zarządzanego worktree commita `c3007d5f` zbudowano pełną paczkę profilu Public. Pierwsza próba z runtime zainstalowanego Public zatrzymała się na ochronie przed podwójnym dołączeniem TIDAL. Utworzono wyłącznie tymczasową kopię runtime w `.test-tmp/public-runtime-base-alpha485`, usunięto z tej kopii 12 przypiętych składników TIDAL i ponowiono build, dołączając je ze źródła w zainstalowanym Public. Zainstalowane biblioteki i profil nie były zmieniane przez tę korektę. Pierwszy kandydat miał jeszcze numer skompilowanego launchera alpha.484; skrypt instalatora go odrzucił. Commit `c3007d5f` podniósł wersję, po czym paczkę zbudowano ponownie.
+
+Paczka `.test-output/amc-public-playlist-alpha485-20261107-v2`: profil Public, `sourceDirty=false`, źródła `c3007d5fc7448adb342cbd72aa7347a5a19ee20e`, launcher `0.1.0-alpha.485`, 3144 plików, bez modułów Spotify. Pełna kontrola integralności oraz kontrolowany start interfejsu i hosta przeszły. Instalator `D:\Projekty Codex\AMC - integracja wxPython\publish\public-playlist-alpha485-20261107\AMC-Public-2026-11-07-2302.exe`: 133863804 bajty, SHA-256 `8d7147a4172a9391a6fd0ebe70588d84c503f4fa502d3ab4ed9328a7935b1b32`; suma zgadza się z `.integrity.json`, profil/wersja/commit są zgodne, `secretScan=passed`. Bez publikacji w kanale aktualizacji ani w GitHub Releases.
+
+Przed instalacją Public był zamknięty. Zaszyfrowana kopia `D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-przed-alpha485.dpapi` przeszła odszyfrowanie i weryfikację sum: 46581846 bajtów, 9 pozycji. AMC Test pozostał uruchomiony; jego plików nie podmieniano. Cicha instalacja do `C:\Users\micha\AppData\Local\Programs\AMC Public` zakończyła się kodem 0 i logiem sukcesu o 23:11, bez restartu Windows. Log: `C:\Users\micha\Documents\Codex\2026-11-07\amc-playlisty-delete-20261107\work\install-alpha485.log`.
+
+Pełna kontrola 3144 plików zainstalowanej kopii: kod 0. Manifest: profil Public, commit `c3007d5f`, `sourceDirty=false`; ProductVersion alpha.485. Porównanie z zaszyfrowaną kopią wykazało `publicTidalCredentialsUnchanged=true`, `publicTidalConnectionsPresent=2`, `publicStateUnchanged=true`. Uruchomiono dokładne `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe`. Jedna instancja Public (launcher PID 24780, Python 9860, host 22712) pokazuje okno „AMC Public — 07.11.2026, 23:02”. Osobna instancja Test nadal działa w alpha.482, z launcherem PID 39680. Odbiór klawiaturą i NVDA nowego Delete oraz pojedynczego utworu Ctrl+Shift+P pozostaje do wykonania przez użytkownika; nie wykonywano zapisu na żywych playlistach w jego imieniu.
 
 ## Projekt instrukcji użytkownika i dziennika zmian
 
