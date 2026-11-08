@@ -51,14 +51,20 @@ class _Credential(ctypes.Structure):
 class WindowsCredentialStore:
     """Read and write a per-user, local-machine generic credential."""
 
-    def __init__(self, profile: ReleaseProfile | None = None) -> None:
+    def __init__(
+        self,
+        profile: ReleaseProfile | None = None,
+        *,
+        target_override: str | None = None,
+        user_name_override: str | None = None,
+    ) -> None:
         if os.environ.get("AMC_STARTUP_SMOKE") == "1":
             raise CredentialStoreError()
         if sys.platform != "win32":
             raise CredentialStoreError()
         selected_profile = profile or current_profile()
-        self._target = credential_target(selected_profile)
-        self._user_name = f"{selected_profile.display_name} TIDAL playback"
+        self._target = target_override or credential_target(selected_profile)
+        self._user_name = user_name_override or f"{selected_profile.display_name} TIDAL playback"
         try:
             library = ctypes.WinDLL("Advapi32.dll", use_last_error=True)
             library.CredReadW.argtypes = [
