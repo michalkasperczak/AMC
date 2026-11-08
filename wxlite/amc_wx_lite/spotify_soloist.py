@@ -112,6 +112,8 @@ class SoloistManager:
         return SoloistSetup(path, self.data_directory, True)
 
     def start(self) -> None:
+        if self._process is not None and self._process.poll() is None:
+            return
         setup = self.setup()
         if setup is None or not setup.executable.is_file():
             raise SoloistSetupError("Najpierw wskaż plik soloist.exe i zapisz klucz.")

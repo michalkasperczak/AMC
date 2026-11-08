@@ -21046,6 +21046,17 @@ class LiteFrame(wx.Frame):
                 wx.CallAfter(self._restore_focus_after_dialog)
 
         def open_spotify_soloist(dialog: ServiceAccountDialog) -> None:
+            existing_setup = getattr(self, "_spotify_soloist_dialog", None)
+            if existing_setup is not None:
+                try:
+                    if not existing_setup.IsBeingDeleted():
+                        existing_setup.Show()
+                        existing_setup.Raise()
+                        existing_setup.focus_primary_action()
+                        return
+                except RuntimeError:
+                    pass
+                self._spotify_soloist_dialog = None
             manager = getattr(self, "_spotify_soloist_manager", None)
             if manager is None:
                 try:
@@ -21055,11 +21066,23 @@ class LiteFrame(wx.Frame):
                     self.announcer.say(str(error))
                     return
                 self._spotify_soloist_manager = manager
-            with SpotifySoloistDialog(dialog, manager, self.announcer.say) as setup:
-                i18n.localize_window_tree(setup)
-                setup.ShowModal()
-            if dialog_alive(dialog) and dialog.soloist_button is not None:
-                dialog.soloist_button.SetFocus()
+            def setup_closed() -> None:
+                self._spotify_soloist_dialog = None
+                account = open_dialogs.get(session_id)
+                if account is not None and dialog_alive(account) and account.soloist_button is not None:
+                    account.Show()
+                    account.Raise()
+                    account.soloist_button.SetFocus()
+                elif self._window_alive():
+                    wx.CallAfter(self._restore_focus_after_dialog)
+
+            setup = SpotifySoloistDialog(
+                self, manager, self.announcer.say, on_closed=setup_closed,
+            )
+            self._spotify_soloist_dialog = setup
+            i18n.localize_window_tree(setup)
+            setup.Show()
+            setup.Raise()
 
         dialog = ServiceAccountDialog(
             self,
@@ -35870,6 +35893,15 @@ class LiteFrame(wx.Frame):
             try:
                 if not history_dialog.IsBeingDeleted():
                     history_dialog.dispose_for_parent_close()
+            except RuntimeError:
+                pass
+        soloist_dialog = getattr(self, "_spotify_soloist_dialog", None)
+        self._spotify_soloist_dialog = None
+        if soloist_dialog is not None:
+            try:
+                if not soloist_dialog.IsBeingDeleted():
+                    soloist_dialog.Hide()
+                    soloist_dialog.Destroy()
             except RuntimeError:
                 pass
         account_dialogs = getattr(self, "_service_account_dialogs", {})

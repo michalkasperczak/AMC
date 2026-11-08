@@ -89,11 +89,14 @@ def test_start_uses_loopback_and_hides_process_output(
     def fake_popen(args: list[str], **options: object) -> FakeProcess:
         seen["args"] = args
         seen["options"] = options
+        seen["starts"] = int(seen.get("starts", 0)) + 1
         return FakeProcess()
 
     monkeypatch.setattr("amc_wx_lite.spotify_soloist.subprocess.Popen", fake_popen)
     monkeypatch.setattr("amc_wx_lite.spotify_soloist.time.sleep", lambda _seconds: None)
     manager.start()
+    manager.start()
+    assert seen["starts"] == 1
     assert seen["args"][-2:] == ["--ws", "127.0.0.1:0"]
     assert seen["options"]["stdout"] is subprocess.DEVNULL
     assert seen["options"]["stderr"] is subprocess.DEVNULL

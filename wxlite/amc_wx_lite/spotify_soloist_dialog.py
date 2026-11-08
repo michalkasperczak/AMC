@@ -16,13 +16,16 @@ class SpotifySoloistDialog(wx.Dialog):
     def __init__(
         self, parent: wx.Window, manager: SoloistManager,
         announce: Callable[[str], None],
+        on_closed: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent, title="Odtwarzacz Spotify Soloist",
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.SetName("Konfiguracja odtwarzacza Spotify Soloist")
         self._manager = manager
         self._announce = announce
+        self._on_closed = on_closed
         self._busy = False
+        self._closed = False
         try:
             saved = manager.setup()
             initial_status = ("Zapisano ustawienia Soloist. Sprawdź połączenie."
@@ -96,8 +99,12 @@ class SpotifySoloistDialog(wx.Dialog):
         self.SetSizerAndFit(layout)
         self.SetMinSize((700, 360))
         self.SetEscapeId(wx.ID_CANCEL)
+        self.close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
         self.Bind(wx.EVT_CLOSE, self._on_close)
         wx.CallAfter(self.executable.SetFocus if not saved else self.start_button.SetFocus)
+
+    def focus_primary_action(self) -> None:
+        self.start_button.SetFocus() if self.executable.GetValue().strip() else self.executable.SetFocus()
 
     def _set_status(self, value: str) -> None:
         message = i18n.ui_text(value)
@@ -145,7 +152,10 @@ class SpotifySoloistDialog(wx.Dialog):
                 message = "Operacja Soloist nie powiodła się."
 
             def done() -> None:
-                if self.IsBeingDeleted():
+                try:
+                    if self._closed or self.IsBeingDeleted():
+                        return
+                except RuntimeError:
                     return
                 self._set_busy(False)
                 self._set_status(message)
@@ -164,8 +174,12 @@ class SpotifySoloistDialog(wx.Dialog):
     def _check(self, _event: wx.CommandEvent) -> None:
         self._run_background(self._manager.status, self.check_button)
 
-    def _on_close(self, event: wx.CloseEvent) -> None:
-        if self._busy and event.CanVeto():
-            event.Veto()
-            return
-        event.Skip()
+    def _on_close_button(self, _event: wx.CommandEvent) -> None:
+        self.Close()
+
+    def _on_close(self, _event: wx.CloseEvent) -> None:
+        self._closed = True
+        self.Hide()
+        if self._on_closed is not None:
+            self._on_closed()
+        self.Destroy()
