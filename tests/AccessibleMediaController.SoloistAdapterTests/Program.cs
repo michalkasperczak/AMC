@@ -82,6 +82,26 @@ using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
         "start po buforowaniu nie został zgłoszony");
 }
 
+var finishPlayback = new ManualResetEventSlim();
+using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
+    args => args[0] == "now"
+        ? (0, finishPlayback.IsSet
+            ? snapshot.Replace("\"playing\"", "\"idle\"").Replace(
+                "spotify:track:abc123", "")
+            : snapshot)
+        : (0, "")))
+{
+    var started = new ManualResetEventSlim();
+    var ended = new ManualResetEventSlim();
+    output.PlaybackStarted += (_, _) => started.Set();
+    output.PlaybackEnded += (_, _) => ended.Set();
+    output.Play(item, TimeSpan.Zero, 40, 1d);
+    Check(started.Wait(TimeSpan.FromSeconds(3)), "nie można rozpocząć testu końca utworu");
+    finishPlayback.Set();
+    Check(ended.Wait(TimeSpan.FromSeconds(4)),
+        "koniec utworu nie został zgłoszony kolejce AMC");
+}
+
 Check(LiteSpotifySoloistOutput.TryCreateFromSettings(null, null) is null,
     "brak konfiguracji nie wraca do Chrome");
 var installedSoloist = Environment.GetEnvironmentVariable("AMC_SOLOIST_TEST_EXE");
@@ -108,5 +128,5 @@ if (!string.IsNullOrWhiteSpace(installedSoloist))
     }
 }
 Console.WriteLine(string.IsNullOrWhiteSpace(installedSoloist)
-    ? "Soloist adapter: 5 checks passed"
-    : "Soloist adapter: 6 checks passed, including official binary fallback");
+    ? "Soloist adapter: 6 checks passed"
+    : "Soloist adapter: 7 checks passed, including official binary fallback");
