@@ -12,11 +12,13 @@ namespace AccessibleMediaController.LiteHost;
 /// SDK działa w osobnym, ukrytym Chrome i publikuje ten sam kontrakt zdarzeń.
 /// </summary>
 internal sealed class LiteSpotifyPlaybackCoordinator(
-    Func<CancellationToken, Task<LiteSpotifyAccessToken>>? credentials = null) : IDisposable
+    Func<CancellationToken, Task<LiteSpotifyAccessToken>>? credentials = null,
+    string? soloistSettingsPath = null,
+    string? soloistDataDirectory = null) : IDisposable
 {
     private const string SessionId = LiteSpotifyCatalogContract.SessionId;
     private readonly object gate = new();
-    private LiteSpotifyChromeOutput? output;
+    private ILiteSpotifyOutput? output;
     private LiteEventSink? events;
     private MediaItem? currentItem;
     private string? selectedDeviceName;
@@ -31,26 +33,30 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
     internal object Play(JsonElement args, LiteEventSink eventSink)
     {
         var request = LiteSpotifyPlaybackContract.ReadPlay(args);
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         int effectiveVolume;
+        double effectiveRate;
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             events = eventSink;
             currentItem = request.Item;
             volume = request.Volume;
-            playbackRate = request.PlaybackRate;
             paused = false;
             playing = false;
             preparing = true;
+            RefreshOutputLocked();
             target = EnsureOutputLocked();
             effectiveVolume = muted ? 0 : request.Volume;
+            effectiveRate = target is LiteSpotifySoloistOutput
+                ? 1d : request.PlaybackRate;
+            playbackRate = effectiveRate;
         }
         target.Play(
             request.Item,
             request.Position,
             effectiveVolume,
-            request.PlaybackRate);
+            effectiveRate);
         return new
         {
             ok = true,
@@ -63,7 +69,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal object PauseResume()
     {
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         bool nextPaused;
         lock (gate)
         {
@@ -95,7 +101,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal object Stop()
     {
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         lock (gate)
         {
             target = output;
@@ -121,7 +127,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
             args, "deltaSeconds", double.NaN, -86_400d, 86_400d);
         var absolute = LiteArgs.ReadDouble(
             args, "positionSeconds", double.NaN, 0d, 86_400d);
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         lock (gate) target = RequireCurrentOutputLocked();
         var position = !double.IsNaN(absolute)
             ? TimeSpan.FromSeconds(absolute)
@@ -143,7 +149,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
     internal LiteSpotifyTimelineSnapshot Timeline()
     {
         MediaItem item;
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         lock (gate)
         {
             target = RequireCurrentOutputLocked();
@@ -180,7 +186,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal TimeSpan SeekTo(TimeSpan position)
     {
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         lock (gate) target = RequireCurrentOutputLocked();
         if (position < TimeSpan.Zero) position = TimeSpan.Zero;
         target.Seek(position);
@@ -189,7 +195,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal object SetVolume(JsonElement args)
     {
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         int nextVolume;
         bool isMuted;
         lock (gate)
@@ -211,14 +217,17 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal object SetRate(JsonElement args)
     {
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         double rate;
         lock (gate)
         {
             rate = LiteArgs.ReadDouble(
                 args, "rate", playbackRate, 0.5d, 2d);
-            playbackRate = rate;
             target = output;
+            if (target is LiteSpotifySoloistOutput && Math.Abs(rate - 1d) > 0.0001d)
+                throw new LiteRequestException(
+                    "Spotify Soloist nie udostępnia zmiany prędkości odtwarzania.");
+            playbackRate = rate;
         }
         target?.SetPlaybackRate(rate);
         return new
@@ -232,7 +241,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     internal object ToggleMute()
     {
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         bool nextMuted;
         int currentVolume;
         lock (gate)
@@ -255,7 +264,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
     internal object Status()
     {
         MediaItem? item;
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         bool isPlaying;
         bool isPaused;
         bool isMuted;
@@ -288,6 +297,8 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
             // około 128 kb/s dla odcinków w Web Player. Mówimy o jakości
             // usługi, nie o zmierzonej przepływności tego materiału.
             currentPlaybackText = item is null ? "Nic nie jest odtwarzane"
+                : target is LiteSpotifySoloistOutput
+                    ? $"{item.Title}, Spotify Soloist, parametry strumienia niedostępne"
                 : item.Kind == MediaItemKind.Episode
                     ? $"{item.Title}, jakość Spotify Web: około 128 kb/s"
                     : $"{item.Title}, jakość Spotify Web: AAC 256 kb/s",
@@ -303,7 +314,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
     internal object ListOutputs(JsonElement args)
     {
         var requested = LiteArgs.ReadText(args, "selectedDeviceId")?.Trim();
-        LiteSpotifyChromeOutput target;
+        ILiteSpotifyOutput target;
         lock (gate) target = EnsureOutputLocked();
         var devices = target.GetOutputDevicesAsync().GetAwaiter().GetResult();
         var choices = new List<LiteSpotifyOutputChoice>
@@ -329,7 +340,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
     {
         var deviceName = LiteArgs.ReadText(args, "deviceId")?.Trim();
         var restart = LiteArgs.ReadBool(args, "restart", true);
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         bool active;
         string? previousDeviceName;
         lock (gate)
@@ -399,22 +410,56 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
         };
     }
 
-    private LiteSpotifyChromeOutput EnsureOutputLocked()
+    private ILiteSpotifyOutput EnsureOutputLocked()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         if (output is not null) return output;
+        var soloist = LiteSpotifySoloistOutput.TryCreateFromSettings(
+            soloistSettingsPath, soloistDataDirectory);
+        if (soloist is not null)
+        {
+            AttachOutputLocked(soloist);
+            return soloist;
+        }
         if (credentials is null)
             throw new LiteRequestException("Najpierw skonfiguruj i zaloguj konto Spotify.");
-        output = new LiteSpotifyChromeOutput(credentials, selectedDeviceName);
+        var chrome = new LiteSpotifyChromeOutput(credentials, selectedDeviceName);
+        AttachOutputLocked(chrome);
+        return chrome;
+    }
+
+    private void RefreshOutputLocked()
+    {
+        var soloist = LiteSpotifySoloistOutput.TryCreateFromSettings(
+            soloistSettingsPath, soloistDataDirectory);
+        if (soloist is not null)
+        {
+            if (output is LiteSpotifySoloistOutput)
+                soloist.Dispose();
+            else
+            {
+                output?.Dispose();
+                AttachOutputLocked(soloist);
+            }
+        }
+        else if (output is LiteSpotifySoloistOutput)
+        {
+            output.Dispose();
+            output = null;
+        }
+    }
+
+    private void AttachOutputLocked(ILiteSpotifyOutput selected)
+    {
+        output = selected;
         output.PlaybackPreparing += OnPlaybackPreparing;
         output.PlaybackStarted += OnPlaybackStarted;
         output.DurationAvailable += OnDurationAvailable;
         output.PlaybackEnded += OnPlaybackEnded;
         output.PlaybackFailed += OnPlaybackFailed;
-        return output;
     }
 
-    private LiteSpotifyChromeOutput RequireCurrentOutputLocked()
+    private ILiteSpotifyOutput RequireCurrentOutputLocked()
     {
         if (currentItem is null)
             throw new LiteRequestException("Najpierw uruchom materiał w Spotify.");
@@ -442,7 +487,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
             playing = !paused;
             sink = events;
         }
-        var fallbackDeviceName = (sender as LiteSpotifyChromeOutput)?
+        var fallbackDeviceName = (sender as ILiteSpotifyOutput)?
             .TakeDefaultOutputFallbackNotice();
         sink?.Publish("playback.started", new
         {
@@ -513,7 +558,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
 
     public void Dispose()
     {
-        LiteSpotifyChromeOutput? target;
+        ILiteSpotifyOutput? target;
         lock (gate)
         {
             if (disposed) return;

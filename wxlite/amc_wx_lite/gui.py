@@ -13179,6 +13179,18 @@ class LiteFrame(wx.Frame):
             youtube_client_id = None
             youtube_client_secret_file = None
             youtube_token_broker = None
+        ui_state_path = getattr(getattr(self, "store", None), "path", None)
+        try:
+            soloist_manager = (
+                SoloistManager(ui_state_path, profile=release_profile)
+                if ui_state_path is not None else None
+            )
+        except SoloistSetupError:
+            # Optional Soloist setup may never prevent the existing host from
+            # starting when Windows has no usable local data directory.
+            soloist_manager = None
+        if soloist_manager is not None:
+            self._spotify_soloist_manager = soloist_manager
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
@@ -13204,6 +13216,10 @@ class LiteFrame(wx.Frame):
                 if state_json is not None
                 else None
             ),
+            soloist_settings=(soloist_manager.settings_path
+                              if soloist_manager is not None else None),
+            soloist_data_dir=(soloist_manager.data_directory
+                              if soloist_manager is not None else None),
             on_event=self._on_engine_event,
             on_stderr=lambda line: _append_frontend_log(
                 self.store,

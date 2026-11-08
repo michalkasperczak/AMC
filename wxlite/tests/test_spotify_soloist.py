@@ -39,6 +39,7 @@ def test_soloist_key_is_only_in_credential_store(tmp_path: Path) -> None:
     raw = manager.settings_path.read_text(encoding="utf-8")
     assert "secret-key" not in raw
     assert json.loads(raw)["executable"] == str(executable)
+    assert json.loads(raw)["data_directory"] == str(manager.data_directory)
     assert manager.setup() == setup
 
 
@@ -53,6 +54,7 @@ def test_soloist_profiles_have_separate_credentials_and_data(tmp_path: Path) -> 
         credential_store=FakeCredentialStore(), local_app_data=tmp_path,
     )
     assert test.data_directory != public.data_directory
+    assert test.cache_directory != public.cache_directory
     assert test.settings_path != public.settings_path
 
 
@@ -95,3 +97,25 @@ def test_start_uses_loopback_and_hides_process_output(
     assert seen["args"][-2:] == ["--ws", "127.0.0.1:0"]
     assert seen["options"]["stdout"] is subprocess.DEVNULL
     assert seen["options"]["stderr"] is subprocess.DEVNULL
+
+
+def test_status_distinguishes_running_from_paired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "soloist.exe"
+    executable.write_bytes(b"test binary")
+    manager = SoloistManager(
+        tmp_path / "ui" / "state.json", credential_store=FakeCredentialStore(),
+        local_app_data=tmp_path,
+    )
+    manager.save(executable, "secret-key")
+    current_code = 3
+
+    def fake_run(args: list[str], **_options: object) -> subprocess.CompletedProcess[bytes]:
+        code = 0 if args[-1] == "status" else current_code
+        return subprocess.CompletedProcess(args, code, b"", b"private data")
+
+    monkeypatch.setattr("amc_wx_lite.spotify_soloist.subprocess.run", fake_run)
+    assert "Wybierz urządzenie" in manager.status()
+    current_code = 0
+    assert "gotowy do odtwarzania" in manager.status()

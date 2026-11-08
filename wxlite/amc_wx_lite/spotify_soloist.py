@@ -45,11 +45,12 @@ class SoloistManager:
         local_app_data: Path | None = None,
     ) -> None:
         self.profile = profile or current_profile()
-        self.settings_path = Path(ui_state_path).parent / "spotify-soloist.json"
+        self.settings_path = (Path(ui_state_path).parent / "spotify-soloist.json").resolve()
         root = local_app_data or Path(os.environ.get("LOCALAPPDATA", ""))
         if not root.is_absolute():
             raise SoloistSetupError("Nie można ustalić lokalnego katalogu danych Windows.")
         self.data_directory = root / self.profile.local_profile_folder / "soloist"
+        self.cache_directory = root / self.profile.cache_folder / "soloist"
         self._store = credential_store
         self._process: subprocess.Popen[bytes] | None = None
 
@@ -79,6 +80,9 @@ class SoloistManager:
             executable = Path(values["executable"])
             if not executable.is_absolute():
                 raise ValueError()
+            stored_data_directory = values.get("data_directory")
+            if stored_data_directory is not None and stored_data_directory != str(self.data_directory):
+                raise ValueError()
             return SoloistSetup(executable, self.data_directory, bool(self._read_key()))
         except SoloistSetupError:
             raise
@@ -99,7 +103,8 @@ class SoloistManager:
         temporary = self.settings_path.with_suffix(".tmp")
         try:
             temporary.write_text(
-                json.dumps({"version": 1, "executable": str(path)}), encoding="utf-8"
+                json.dumps({"version": 1, "executable": str(path),
+                            "data_directory": str(self.data_directory)}), encoding="utf-8"
             )
             temporary.replace(self.settings_path)
         except OSError:
@@ -114,11 +119,13 @@ class SoloistManager:
         if not key:
             raise SoloistSetupError("Brakuje klucza Soloist w Menedżerze poświadczeń Windows.")
         self.data_directory.mkdir(parents=True, exist_ok=True)
+        self.cache_directory.mkdir(parents=True, exist_ok=True)
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         try:
             self._process = subprocess.Popen(
                 [str(setup.executable), "--device-name", self.profile.display_name,
                  "--api-key", key, "--data-dir", str(self.data_directory),
+                 "--cache-dir", str(self.cache_directory),
                  "--ws", "127.0.0.1:0"],
                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL, creationflags=flags,
@@ -141,17 +148,25 @@ class SoloistManager:
         if setup is None or not setup.executable.is_file():
             return "Soloist nie jest skonfigurowany."
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-        try:
-            result = subprocess.run(
+        def check(*arguments: str) -> subprocess.CompletedProcess[bytes]:
+            return subprocess.run(
                 [str(setup.executable), "ctl", "--data-dir", str(self.data_directory),
-                 "status"], capture_output=True, timeout=8, check=False,
+                 *arguments], capture_output=True, timeout=8, check=False,
                 creationflags=flags,
             )
+        try:
+            result = check("status")
         except (OSError, subprocess.TimeoutExpired):
             return "Nie można teraz sprawdzić stanu Soloist."
         if result.returncode == 0:
-            # The CLI prints localized or version-specific details. Never speak
-            # arbitrary stdout or stderr, which might contain account data.
+            # ctl now succeeds only after Connect login. Never speak arbitrary
+            # stdout or stderr, which may contain account data.
+            try:
+                current = check("now", "--json")
+            except (OSError, subprocess.TimeoutExpired):
+                current = None
+            if current is not None and current.returncode == 0:
+                return "Soloist jest połączony ze Spotify i gotowy do odtwarzania."
             return "Soloist działa. Wybierz urządzenie AMC w aplikacji Spotify."
         return "Soloist nie działa lub nie można się z nim połączyć."
 

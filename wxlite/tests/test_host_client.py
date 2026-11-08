@@ -699,6 +699,19 @@ def test_state_json_path_is_passed_explicitly_to_the_host() -> None:
     ]
 
 
+def test_soloist_settings_are_separate_from_profile_state() -> None:
+    client = LiteHostClient(
+        "host.exe", state_json="profile/state.json",
+        soloist_settings="private/spotify-soloist.json",
+        soloist_data_dir="private/soloist-data",
+    )
+    assert client._command()[-6:] == [
+        "--state-json", "profile/state.json",
+        "--soloist-settings", "private/spotify-soloist.json",
+        "--soloist-data-dir", "private/soloist-data",
+    ]
+
+
 def test_release_profile_and_common_snapshot_are_passed_explicitly_to_host() -> None:
     client = LiteHostClient(
         "host.exe",
