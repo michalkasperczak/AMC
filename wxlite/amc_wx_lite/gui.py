@@ -290,6 +290,8 @@ if "session.sonos" in _RELEASE_PROFILE.capabilities:
         now_playing_label as sonos_now_playing_label,
         snapshot as sonos_snapshot,
     )
+if "sonos.local" in _RELEASE_PROFILE.capabilities:
+    from .sonos_local import LocalSonosClient
 from .profile_layout import common_data_snapshot_path, resolve_layout
 from .full_backup import (
     ALL_SECTIONS,
@@ -6367,8 +6369,8 @@ class SessionSelectionDialog(wx.Dialog):
             "Urządzenia Frontier Smart",
         ),
         SessionId.SONOS: (
-            "&Konto i głośniki Sonos…",
-            "Konto i głośniki Sonos",
+            "&Głośniki Sonos w sieci lokalnej…",
+            "Głośniki Sonos w sieci lokalnej",
         ),
     }
 
@@ -10050,6 +10052,10 @@ class LiteFrame(wx.Frame):
         self._quick_info_cache = QuickInfoMemoryCache()
 
         self.client: LiteHostClient | None = None
+        # Adapter lokalny ma ten sam kontrakt danych co dotychczasowy host
+        # chmurowy, ale nie wymaga konta ani OAuth. Powstaje razem z hostem,
+        # ponieważ nadal korzysta z niego do zarządzania „Moimi stacjami”.
+        self._sonos_local_client: object | None = None
         self._service_account_dialogs: dict[SessionId, ServiceAccountDialog] = {}
         # Zarządzanie kontem Sonos jest celowo modeless. Główne okno nie może
         # zostać wyłączone, gdy Windows albo czytnik ekranu zgubi fokus dziecka.
@@ -13186,6 +13192,13 @@ class LiteFrame(wx.Frame):
             **persistence,  # type: ignore[arg-type]
         )
         self.client = client
+        local_sonos_factory = globals().get("LocalSonosClient")
+        self._sonos_local_client = (
+            local_sonos_factory(client)
+            if "sonos.local" in release_profile.capabilities
+            and callable(local_sonos_factory)
+            else None
+        )
         # TEN SAM efektywny payload co w menu Dzwiek: nowy proces musi dostac
         # ustawienia ogolne PO nalozeniu zapisanych Opcji sesji. Sam
         # ``options.audio_payload()`` dawal hostowi ustawienie ogolne, wiec
@@ -13396,6 +13409,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self.client = None
+            self._sonos_local_client = None
             if _startup_smoke_mode():
                 self._startup_smoke_error = f"{type(error).__name__}: {error}"
             _append_frontend_log(
@@ -19504,7 +19518,7 @@ class LiteFrame(wx.Frame):
                 "Przypisz go ponownie. Nic nie uruchomiłem"
             )
             return
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -19679,7 +19693,7 @@ class LiteFrame(wx.Frame):
                 "Gotowa"
                 if getattr(self, "_sonos_active_group_id", "")
                 or self.navigator.sessions[SessionId.SONOS].sonos_target_rows
-                else "Wymaga zalogowania"
+                else "Wymaga wyszukania głośników"
             ),
             SessionId.RADIOARCHIWISTA: (
                 "Gotowa"
@@ -20575,7 +20589,7 @@ class LiteFrame(wx.Frame):
             wx.CallAfter(self._show_radioarchiwista_catalog_settings)
             return
         if session_id is SessionId.SONOS:
-            self._show_sonos_account()
+            self._select_sonos_target()
             return
 
     def _show_library_folders(self) -> None:
@@ -22053,13 +22067,26 @@ class LiteFrame(wx.Frame):
 
     # ---------------------------------------------------------------- Sonos
 
+    @staticmethod
+    def _sonos_control_client(frame: object) -> object | None:
+        """Zwróć lokalny transport, a host chmurowy zachowaj jako rezerwę."""
+
+        return (
+            getattr(frame, "_sonos_local_client", None)
+            or getattr(frame, "client", None)
+        )
+
     def _select_sonos_target(self) -> None:
-        """Ctrl+F5: wybór grupy po zalogowaniu, konfiguracja przy braku konta."""
-        client = self.client
+        """Ctrl+F5: wyszukaj grupy lokalne; konto jest tylko starą rezerwą."""
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
         preferred_id = self.navigator.sessions[SessionId.SONOS].list_anchor_id
+        if bool(getattr(client, "local_control", False)):
+            self.announcer.say("Wyszukuję głośniki i grupy Sonos w sieci lokalnej")
+            self._load_sonos_targets(preferred_id=preferred_id)
+            return
 
         def done(payload: object) -> None:
             if isinstance(payload, dict) and bool(payload.get("connected")):
@@ -22086,8 +22113,8 @@ class LiteFrame(wx.Frame):
         )
 
     def _load_sonos_targets(self, preferred_id: str | None = None) -> None:
-        """Wczytaj grupy przez wspólny Core; token konta zostaje w C#."""
-        client = self.client
+        """Wczytaj grupy przez aktywny lokalny albo zapasowy transport."""
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -22107,6 +22134,10 @@ class LiteFrame(wx.Frame):
                 ), None)
                 selected_id = active or selected_id
             events = self.navigator.apply_sonos_targets(rows, selected_id)
+            if not rows:
+                message = sonos_response_message(payload)
+                if message:
+                    events = [Announce(message)]
             selected = self.navigator.sessions[SessionId.SONOS].model.selected_row
             if selected is not None and selected.parent_id:
                 self._sonos_browse_household_id = selected.parent_id
@@ -22143,7 +22174,7 @@ class LiteFrame(wx.Frame):
     def _activate_sonos_group(
         self, intent: ActivateSonosGroup, *, attempt: int = 0
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self._run(self.navigator.back_to_list())
             self.announcer.say("Silnik nie jest gotowy")
@@ -22293,7 +22324,7 @@ class LiteFrame(wx.Frame):
         volume: int | None = None,
         seconds: float | None = None,
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
         if client is None or not household_id or not group_id:
@@ -22319,7 +22350,7 @@ class LiteFrame(wx.Frame):
             or getattr(self, "_sonos_retry_pending", False)
         ):
             return
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self._sonos_command_queue.clear()
             return
@@ -22441,7 +22472,7 @@ class LiteFrame(wx.Frame):
         *,
         announcement: str | None = None,
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -22965,7 +22996,7 @@ class LiteFrame(wx.Frame):
     def _play_sonos_material(
         self, intent: PlaySonosMaterial, *, attempt: int = 0
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -32784,7 +32815,7 @@ class LiteFrame(wx.Frame):
 
     def _refresh_sonos_status(self) -> None:
         """Cichy odczyt aktywnej grupy, bez nakładania zapytań timera."""
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
         if (

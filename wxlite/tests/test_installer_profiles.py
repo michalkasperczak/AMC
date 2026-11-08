@@ -75,6 +75,13 @@ def test_installer_never_forces_running_amc_to_close() -> None:
     assert "AppMutex={#LauncherMutex}" in ISS
 
 
+def test_both_installer_profiles_remove_retired_librespot_files() -> None:
+    shared_install_delete = ISS[ISS.index("[InstallDelete]"):ISS.index('#if Profil == "public"', ISS.index("[InstallDelete]"))]
+    assert 'Type: filesandordirs; Name: "{app}\\host\\LibrespotHost"' in shared_install_delete
+    assert 'Type: filesandordirs; Name: "{app}\\host\\licenses\\librespot-dependencies"' in shared_install_delete
+    assert 'Type: files; Name: "{app}\\host\\licenses\\librespot-MIT.txt"' in shared_install_delete
+
+
 def test_installer_shortcuts_are_optional_and_noicons_is_effective() -> None:
     assert "DisableProgramGroupPage=auto" in ISS
     assert "AllowNoIcons=yes" in ISS

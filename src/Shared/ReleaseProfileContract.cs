@@ -67,6 +67,7 @@ internal static class ReleaseProfileContract
             "tidal.native-playback",
             "session.frontier-smart",
             "session.radioarchiwista",
+            "sonos.local",
             "spotify.playlists",
             "youtube.account.readonly",
         ]).ToArray(),
@@ -78,7 +79,7 @@ internal static class ReleaseProfileContract
         ["AMC Test", "AMC Python"]);
 
     private static readonly string[] PublicCapabilities = Test.Capabilities
-        .Where(capability => capability != "session.sonos")
+        .Where(capability => capability is not ("session.sonos" or "sonos.local"))
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Public = new(

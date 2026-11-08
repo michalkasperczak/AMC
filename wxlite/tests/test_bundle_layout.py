@@ -16,6 +16,24 @@ bundle = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bundle)
 
 
+def _prepare_sonos_dependency_sources(
+    runtime_site: Path, source_site: Path,
+) -> None:
+    runtime_site.mkdir(parents=True, exist_ok=True)
+    source_site.mkdir(parents=True, exist_ok=True)
+    for name in bundle.SONOS_LOCAL_SHARED_METADATA:
+        (runtime_site / name).mkdir(exist_ok=True)
+    for names in bundle.SONOS_LOCAL_TEST_PACKAGES.values():
+        for name in names:
+            path = source_site / name
+            if name.endswith(".py"):
+                path.write_text("", encoding="utf-8")
+            else:
+                path.mkdir()
+                marker = "METADATA" if name.endswith(".dist-info") else "__init__.py"
+                (path / marker).write_text("test", encoding="utf-8")
+
+
 def test_python_package_matches_isolated_runtime_app_path():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
@@ -33,6 +51,7 @@ def test_python_package_matches_isolated_runtime_app_path():
         ).is_file()
         assert "app/amc_wx_lite/locales/en_legacy.json" in copied
         assert (target / "requirements-tidal-test.txt").is_file()
+        assert (target / "requirements-sonos-local-test.txt").is_file()
         assert not (target / "AMC-wx-Lite.cmd").exists()
 
 
@@ -72,6 +91,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
 
         assert "app/amc_wx_lite/gui.py" in copied
         assert (target / "requirements-tidal-test.txt").is_file()
+        assert not (target / "requirements-sonos-local-test.txt").exists()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
         assert not (package / "sonos_source.py").exists()
@@ -313,12 +333,18 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     )
 
 
-def test_public_profile_accepts_librespot_component():
-    public = bundle.profile_from_id("public")
-    bundle.validate_profile_files(
-        public,
-        ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
-    )
+def test_both_profiles_reject_retired_librespot_component():
+    for profile_id in ("public", "test"):
+        profile = bundle.profile_from_id(profile_id)
+        try:
+            bundle.validate_profile_files(
+                profile,
+                ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
+            )
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(f"LibreSpot nie moze trafic do profilu {profile_id}")
 
 
 def test_public_profile_rejects_any_listed_private_service_module():
@@ -643,6 +669,46 @@ def test_tidal_dependency_gate_rejects_missing_from_both_profiles():
         )
 
 
+def test_pinned_sonos_dependencies_are_copied_only_into_test_profile():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        target = root / "bundle"
+        runtime_site = target / "runtime" / "Lib" / "site-packages"
+        source_site = root / "sonos-venv" / "Lib" / "site-packages"
+        _prepare_sonos_dependency_sources(runtime_site, source_site)
+
+        copied = bundle.copy_sonos_local_dependencies(
+            target, bundle.profile_from_id("test"), source_site
+        )
+        assert "runtime/Lib/site-packages/soco/__init__.py" in copied
+        assert "runtime/Lib/site-packages/xmltodict.py" in copied
+        assert (runtime_site / "lxml-6.1.3.dist-info" / "METADATA").is_file()
+        bundle.validate_sonos_local_dependencies(
+            target, bundle.profile_from_id("test")
+        )
+
+        public_target = root / "bundle-public"
+        public_copied = bundle.copy_sonos_local_dependencies(
+            public_target, bundle.profile_from_id("public"), source_site
+        )
+        assert public_copied == []
+        bundle.validate_sonos_local_dependencies(
+            public_target, bundle.profile_from_id("public")
+        )
+
+
+def test_public_profile_rejects_local_sonos_dependencies():
+    try:
+        bundle.validate_profile_files(
+            bundle.profile_from_id("public"),
+            ["runtime/Lib/site-packages/soco/core.py"],
+        )
+    except SystemExit as error:
+        assert "niedozwolone składniki" in str(error)
+    else:
+        raise AssertionError("Publiczny profil nie może zawierać SoCo")
+
+
 def test_pinned_librespot_source_matches_local_provenance_and_license_inventory():
     provenance = bundle.validate_librespot_package_source()
     assert provenance["sha256"] == bundle.LIBRESPOT_HOST_SHA256
@@ -692,43 +758,6 @@ def test_librespot_provenance_mismatch_refuses_before_writing_package():
         assert not target.exists()
 
 
-def test_full_bundle_validates_librespot_before_cleaning_existing_candidate():
-    with tempfile.TemporaryDirectory() as folder:
-        root = Path(folder)
-        target = root / "bundle"
-        runtime = root / "runtime"
-        target.mkdir()
-        runtime.mkdir()
-        marker = target / "do-not-touch.txt"
-        marker.write_text("poprzedni kandydat", encoding="utf-8")
-
-        original_argv = sys.argv
-        original_validator = bundle.validate_librespot_package_source
-        try:
-            sys.argv = [
-                str(path),
-                "--out", str(target),
-                "--runtime", str(runtime),
-                "--clean",
-            ]
-
-            def refuse(*_args, **_kwargs):
-                raise SystemExit("Niespojna proweniencja")
-
-            bundle.validate_librespot_package_source = refuse
-            try:
-                bundle.main()
-            except SystemExit as error:
-                assert "Niespojna proweniencja" in str(error)
-            else:
-                raise AssertionError("Pelna paczka musi odmowic niespojnego hosta")
-        finally:
-            bundle.validate_librespot_package_source = original_validator
-            sys.argv = original_argv
-
-        assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
-
-
 def test_full_test_bundle_requires_tidal_venv_before_cleaning_candidate():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
@@ -755,7 +784,46 @@ def test_full_test_bundle_requires_tidal_venv_before_cleaning_candidate():
         assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
 
 
-def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it():
+def test_full_test_bundle_requires_sonos_venv_before_cleaning_candidate():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        target = root / "bundle"
+        runtime = root / "runtime"
+        runtime_site = runtime / "Lib" / "site-packages"
+        tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
+        target.mkdir()
+        runtime_site.mkdir(parents=True)
+        tidal_site.mkdir(parents=True)
+        marker = target / "do-not-touch.txt"
+        marker.write_text("poprzedni kandydat", encoding="utf-8")
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (runtime_site / name).mkdir(exist_ok=True)
+        for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
+            module = tidal_site / module_name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+            metadata = tidal_site / metadata_name
+            metadata.mkdir()
+            (metadata / "METADATA").write_text("test", encoding="utf-8")
+
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                str(path), "--out", str(target), "--runtime", str(runtime),
+                "--tidal-site-packages", str(tidal_site), "--clean",
+            ]
+            try:
+                bundle.main()
+            except SystemExit as error:
+                assert "--sonos-site-packages" in str(error)
+            else:
+                raise AssertionError("Test bez przypiętego venv Sonosa musi odmówić")
+        finally:
+            sys.argv = original_argv
+        assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
+
+
+def test_full_bundle_omits_retired_librespot_host():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         host = root / "host-publish"
@@ -763,6 +831,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
         updater = root / "updater-publish"
         runtime = root / "runtime-source"
         tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
+        sonos_site = root / "sonos-venv" / "Lib" / "site-packages"
         unrelated_cwd = root / "unrelated-cwd"
         target = root / "bundle"
         for directory in (host, launcher, updater, runtime, unrelated_cwd):
@@ -785,6 +854,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
             metadata = tidal_site / metadata_name
             metadata.mkdir()
             (metadata / "METADATA").write_text("test", encoding="utf-8")
+        _prepare_sonos_dependency_sources(runtime_site, sonos_site)
 
         original_argv = sys.argv
         original_cwd = Path.cwd()
@@ -798,6 +868,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
                 "--updater", str(updater),
                 "--runtime", str(runtime),
                 "--tidal-site-packages", str(tidal_site),
+                "--sonos-site-packages", str(sonos_site),
             ]
             os.chdir(unrelated_cwd)
             assert bundle.main() == 0
@@ -808,54 +879,13 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
         manifest_path = target / "bundle-manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         assert manifest_path.stat().st_size < 8 * 1024 * 1024
-        executable = (
-            "host-next/LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        )
-        provenance = (
-            "host-next/LibrespotHost/" + bundle.LIBRESPOT_HOST_PROVENANCE
-        )
-        librespot_manifest = manifest["librespotHost"]
-        assert librespot_manifest["executable"] == executable
-        assert librespot_manifest["pathFromLiteHostBase"] == (
-            "LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        )
-        assert librespot_manifest["sha256"] == bundle.LIBRESPOT_HOST_SHA256
-        assert librespot_manifest["bytes"] == bundle.LIBRESPOT_HOST_SIZE
-        assert librespot_manifest["provenance"] == provenance
-        assert manifest["hostHashes"][
-            "LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        ] == bundle.LIBRESPOT_HOST_SHA256
-        for relative in (
-            executable,
-            provenance,
-            "host-next/licenses/librespot-MIT.txt",
-            "host-next/licenses/librespot-dependencies/INDEX.txt",
-            "host-next/licenses/librespot-dependencies/inventory.json",
-        ):
-            assert relative in manifest["files"]
-            assert relative in manifest["fileHashes"]
-            assert manifest["fileHashes"][relative] == bundle.sha256(target / relative)
-            if "/licenses/" in relative:
-                assert relative in librespot_manifest["licenseFiles"]
-        expected_license_count = 1 + sum(
-            1
-            for item in (
-                bundle.LIBRESPOT_LICENSES_SOURCE / "librespot-dependencies"
-            ).rglob("*")
-            if item.is_file()
-        )
-        assert len(librespot_manifest["licenseFiles"]) == expected_license_count
-        for relative in librespot_manifest["licenseFiles"]:
-            assert relative in manifest["files"]
-            assert manifest["fileHashes"][relative] == bundle.sha256(target / relative)
-        assert executable in manifest["startupFiles"]
-        assert provenance in manifest["startupFiles"]
-        assert (target / executable).read_bytes() == (
-            bundle.LIBRESPOT_HOST_SOURCE / bundle.LIBRESPOT_HOST_BINARY
-        ).read_bytes()
+        assert "librespotHost" not in manifest
+        assert not any("librespot" in relative.casefold() for relative in manifest["files"])
+        assert not any("librespot" in relative.casefold() for relative in manifest["startupFiles"])
+        assert not (target / "host-next" / "LibrespotHost").exists()
 
 
-def test_full_public_bundle_includes_librespot_and_has_complete_sizes():
+def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         host = root / "host-publish"
@@ -907,8 +937,8 @@ def test_full_public_bundle_includes_librespot_and_has_complete_sizes():
             (target / "bundle-manifest.json").read_text(encoding="utf-8")
         )
         assert manifest["releaseProfile"] == "public"
-        assert manifest["librespotHost"]["sha256"] == bundle.LIBRESPOT_HOST_SHA256
-        assert any("librespot" in relative.casefold() for relative in manifest["files"])
+        assert "librespotHost" not in manifest
+        assert not any("librespot" in relative.casefold() for relative in manifest["files"])
         forbidden_modules = {
             name for name, capability in bundle.PROFILE_GATED_SERVICE_MODULES.items()
             if capability not in bundle.profile_from_id("public").capabilities

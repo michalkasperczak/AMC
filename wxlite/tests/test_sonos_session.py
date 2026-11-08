@@ -748,6 +748,45 @@ def test_ctrl_f5_routes_connected_account_to_targets_and_missing_account_to_logi
     ]
 
 
+def test_ctrl_f5_uses_local_discovery_without_account_check() -> None:
+    targets: list[str | None] = []
+    spoken: list[str] = []
+    account_checks: list[str] = []
+    local = SimpleNamespace(
+        local_control=True,
+        sonos_account_status=lambda: account_checks.append("unexpected"),
+    )
+    frame = SimpleNamespace(
+        _sonos_local_client=local,
+        client=SimpleNamespace(),
+        navigator=SimpleNamespace(
+            sessions={
+                SessionId.SONOS: SimpleNamespace(list_anchor_id="saved-group")
+            }
+        ),
+        announcer=SimpleNamespace(say=spoken.append),
+        _load_sonos_targets=lambda preferred_id=None: targets.append(preferred_id),
+    )
+
+    LiteFrame._select_sonos_target(frame)
+
+    assert targets == ["saved-group"]
+    assert account_checks == []
+    assert spoken == [
+        "Wyszukuję głośniki i grupy Sonos w sieci lokalnej"
+    ]
+
+
+def test_session_manager_describes_local_sonos_without_login_language() -> None:
+    source = Path(gui_module.__file__).read_text(encoding="utf-8")
+    section = source[source.index("    def _session_readiness") :]
+    section = section[:section.index("    # ---------------------------------------------------- Radio Archiwista")]
+    sonos = section[section.index("SessionId.SONOS:") :]
+    sonos = sonos[:sonos.index("SessionId.RADIOARCHIWISTA:")]
+    assert 'else "Wymaga wyszukania głośników"' in sonos
+    assert "Wymaga zalogowania" not in sonos
+
+
 def test_sonos_cut_and_paste_preserve_all_selected_stream_ids() -> None:
     spoken: list[str] = []
     calls: list[tuple[list[str], str]] = []

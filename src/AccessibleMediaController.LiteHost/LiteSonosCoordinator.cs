@@ -238,13 +238,17 @@ internal sealed class LiteSonosCoordinator(
         var request = LiteSonosContract.ReadMaterialsRequest(args);
         lock (gate)
         {
-            ResolveHousehold(request.HouseholdId);
             if (request.Kind == "ownStream")
             {
                 var profile = ReadOwnStreamsProfile();
                 return LiteSonosContract.CreateOwnStreamsResult(
                     profile.Streams, profile.Orders, profile.SortMode);
             }
+            // Własne stacje są częścią profilu AMC, nie konta Sonos. Dopiero
+            // ulubione i playlisty wymagają domu znanego zapleczu chmurowemu.
+            // Dzięki temu lokalny adapter UPnP może zachować tę samą listę
+            // także wtedy, gdy użytkownik nigdy nie łączył konta OAuth.
+            ResolveHousehold(request.HouseholdId);
             if (request.Kind == "favorite")
             {
                 if (backend is not ISonosFavoritesSessionBackend favoritesBackend)
