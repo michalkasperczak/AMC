@@ -47,13 +47,6 @@ internal static class ReleaseProfileContract
         "experimental",
     ];
 
-    private static readonly string[] PublicCapabilities = CommonCapabilities
-        .Where(capability => capability != "session.sonos")
-        .Append("session.frontier-smart")
-        .Append("session.tidal")
-        .Append("tidal.native-playback")
-        .ToArray();
-
     internal static readonly ReleaseProfileDescriptor Test = new(
         "test",
         "org.accessible-media-controller.test",
@@ -84,6 +77,10 @@ internal static class ReleaseProfileContract
         "AMC Python",
         ["AMC Test", "AMC Python"]);
 
+    private static readonly string[] PublicCapabilities = Test.Capabilities
+        .Where(capability => capability != "session.sonos")
+        .ToArray();
+
     internal static readonly ReleaseProfileDescriptor Public = new(
         "public",
         "org.accessible-media-controller.public",
@@ -96,7 +93,7 @@ internal static class ReleaseProfileContract
         "AMC/cache",
         "AMC/logs",
         "AccessibleMediaController.Public",
-        ["files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"],
+        Test.Sessions.Where(session => session != "sonos").ToArray(),
         PublicCapabilities,
         @"Local\AccessibleMultimediaController.PythonLauncher.Public.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Public.SingleInstance",

@@ -247,8 +247,7 @@ def copy_python_code(
 ) -> list[str]:
     """Skopiuj wyłącznie moduły dozwolone przez profil wydania.
 
-    Pełny AMC Test zachowuje wszystkie moduły. Publiczny AMC nie dostaje kodu
-    prywatnych usług tylko dlatego, że wspólne GUI umie go obsłużyć. Przy
+    AMC Public zachowuje moduły wszystkich włączonych usług poza Sonos. Przy
     odświeżeniu istniejącej paczki usuwamy dokładnie znane, niedozwolone pliki,
     aby stary kandydat nie zachował ich przez przypadek.
     """
@@ -837,8 +836,8 @@ def main() -> int:
 
     # Bramka jest przed --clean i przed pierwsza kopia: niespojna binarka albo
     # proweniencja nie moze nawet czesciowo przebudowac katalogu kandydata.
-    # Publiczny profil nie uzywa Spotify, wiec nie wymaga ani nie odczytuje
-    # jego prywatnego hosta oraz setek plikow licencji zaleznosci.
+    # Oba profile z aktywnym Spotify wymagaja przypietego hosta Librespot
+    # oraz licencji jego zaleznosci.
     if profile_allows_librespot(profile):
         validate_librespot_package_source()
     if "tidal.native-playback" in profile.capabilities:

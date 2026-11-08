@@ -125,17 +125,8 @@ class PresetChoice:
 
     @property
     def label(self) -> str:
-        position = (
-            f"Preset numer {self.slot_label}"
-            if self.slot <= 9
-            else f"Preset numer {self.slot_label}, klawisz {self.spoken_shortcut_label}"
-        )
-        shortcut = f"skrót Ctrl+Shift+{self.spoken_shortcut_label}"
-        return (
-            f"{position}, {shortcut} — {self.target_title}"
-            if self.target_id is not None
-            else f"{position}, {shortcut} — pusty"
-        )
+        title = self.target_title if self.target_id is not None else "pusty"
+        return f"{self.slot_label}, {title}, Ctrl+Shift+{self.spoken_shortcut_label}"
 
 
 @dataclass(frozen=True, slots=True)

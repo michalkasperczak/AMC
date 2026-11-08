@@ -310,9 +310,13 @@ def test_choice_labels_are_explicit_user_text_for_all_twelve_slots() -> None:
     labels = [choice.label for choice in choices(entries)]
 
     assert len(labels) == 12
-    assert labels[0].endswith("— Muzyka")
-    assert labels[1].endswith("— pusty")
-    assert labels[10].startswith("Preset numer -, klawisz minus")
+    assert labels[0] == "1, Muzyka, Ctrl+Shift+1"
+    radio = PresetEntry(8, "r8", "station", "Nazwa stacji", None)
+    assert choices((radio,))[7].label == "8, Nazwa stacji, Ctrl+Shift+8"
+    assert labels[1] == "2, pusty, Ctrl+Shift+2"
+    assert labels[9] == "0, pusty, Ctrl+Shift+0"
+    assert labels[10] == "-, pusty, Ctrl+Shift+minus"
+    assert labels[11] == "=, pusty, Ctrl+Shift+znak równości"
     assert "PresetEntry" not in " ".join(labels)
     assert "target_id" not in " ".join(labels)
 
@@ -391,7 +395,7 @@ def test_sonos_preset_keeps_safety_fields_out_of_its_spoken_label() -> None:
         "player-a", "player-b"
     ]
     label = choices((entry,))[3].label
-    assert label.endswith("— Radio domowe")
+    assert label == "4, Radio domowe, Ctrl+Shift+4"
     assert "house-private" not in label
     assert "player-a" not in label
 
@@ -490,7 +494,9 @@ def test_radioarchiwista_defaults_and_overrides_without_legacy_profile() -> None
     overrides = {SessionId.RADIOARCHIWISTA.value: entries_payload((custom.as_entry(2),))}
     assert effective_entries(missing, SessionId.RADIOARCHIWISTA, overrides) == (custom.as_entry(2),)
     assert effective_entries(missing, SessionId.RADIOARCHIWISTA, {SessionId.RADIOARCHIWISTA.value: []}) == ()
-    assert "pr3" not in choices((custom.as_entry(2),))[1].label
+    assert choices((custom.as_entry(2),))[1].label == (
+        "2, Program 3, Ctrl+Shift+2"
+    )
 
 
 def test_radioarchiwista_preset_commands_share_shortcuts_help_and_menu() -> None:

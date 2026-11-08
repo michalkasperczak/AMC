@@ -116,11 +116,25 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
         while (next is not null && pages++ < 200)
         {
             using var document = await GetDocumentAsync(next, accessToken, cancellationToken).ConfigureAwait(false);
-            result.AddRange(MapRelationshipResourcesInOrder(
+            var pageItems = MapRelationshipResourcesInOrder(
                 document.RootElement,
                 request.ExpectedTypes,
                 collectionExternalIds,
-                directMembersOnly: type == "artists"));
+                directMembersOnly: type == "artists");
+            // The artist's albums relationship can omit albums.artists in a
+            // partial API response. The parent artist is still a verified
+            // relationship for each direct album in this list.
+            if (type == "artists" && request.Relationship == "albums")
+                foreach (var album in pageItems)
+                    if (album.Kind == MediaItemKind.Album
+                        && string.IsNullOrWhiteSpace(album.RelatedArtistExternalId))
+                    {
+                        album.RelatedArtistExternalId = container.ExternalId;
+                        album.RelatedArtistName = container.Title;
+                        if (string.IsNullOrWhiteSpace(album.Artist))
+                            album.Artist = container.Title;
+                    }
+            result.AddRange(pageItems);
             next = TryGetNextPage(document.RootElement);
             if (next is not null)
                 await Task.Delay(250, cancellationToken).ConfigureAwait(false);

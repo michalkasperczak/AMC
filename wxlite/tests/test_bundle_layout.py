@@ -252,7 +252,7 @@ def test_public_package_rejects_all_google_login_configuration():
         assert not (test_package / bundle.YOUTUBE_OAUTH_PUBLIC_BROKER_RESOURCE).exists()
 
 
-def test_public_gui_imports_without_private_service_modules():
+def test_public_gui_imports_with_spotify_and_without_sonos():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
         bundle.copy_python_code(target, bundle.profile_from_id("public"))
@@ -272,12 +272,14 @@ def test_public_gui_imports_without_private_service_modules():
                 sys.executable,
                 "-c",
                 (f"import sys; sys.path.insert(0, {str(target / 'app')!r}); "
+                    f"sys.path.insert(1, {str(Path(__file__).parent)!r}); "
+                    "from test_gui_logic import install_wx_stub; install_wx_stub(); "
                     "import amc_wx_lite.gui as gui; "
                     "assert gui._RELEASE_PROFILE.profile_id == 'public'; "
                     "assert hasattr(gui, 'TidalSource'); "
                     "assert gui.SpotifyPlaylistDialog.__module__ == 'amc_wx_lite.service_playlist_dialog'; "
                     "assert 'amc_wx_lite.spotify_playlist_dialog' not in sys.modules; "
-                    "assert 'amc_wx_lite.spotify_source' not in sys.modules; "
+                    "assert 'amc_wx_lite.spotify_source' in sys.modules; "
                     "assert not hasattr(gui, 'SonosPayloadError'); "
                     "assert hasattr(gui, 'FrontierSmartPayloadError')"
                 ),
@@ -302,25 +304,21 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     assert manifest["installId"] == "AMC.Public.win-x64"
     assert manifest["updateChannel"] == "stable"
     assert manifest["sessions"] == [
-        "files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"
+        session for session in bundle.profile_from_id("test").session_ids
+        if session != "sonos"
     ]
-    assert "spotify" not in " ".join(manifest["capabilities"]).casefold()
+    assert "spotify" in " ".join(manifest["capabilities"]).casefold()
     assert manifest["credentialNamespace"] != (
         bundle.profile_from_id("test").credential_namespace
     )
 
 
-def test_public_profile_rejects_any_listed_librespot_component():
+def test_public_profile_accepts_librespot_component():
     public = bundle.profile_from_id("public")
-    try:
-        bundle.validate_profile_files(
-            public,
-            ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
-        )
-    except SystemExit as error:
-        assert "Publiczny pakiet AMC" in str(error)
-    else:
-        raise AssertionError("Publiczny profil nie moze zawierac hosta Librespot")
+    bundle.validate_profile_files(
+        public,
+        ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
+    )
 
 
 def test_public_profile_rejects_any_listed_private_service_module():
@@ -857,7 +855,7 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
         ).read_bytes()
 
 
-def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
+def test_full_public_bundle_includes_librespot_and_has_complete_sizes():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         host = root / "host-publish"
@@ -888,7 +886,6 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
         (runtime / "python314._pth").write_text("python314.zip\n", encoding="utf-8")
 
         original_argv = sys.argv
-        original_validator = bundle.validate_librespot_package_source
         try:
             sys.argv = [
                 str(path),
@@ -902,21 +899,16 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
                 "--clean",
             ]
 
-            def must_not_read_private_component(*_args, **_kwargs):
-                raise AssertionError("Publiczny build odczytal prywatny host Librespot")
-
-            bundle.validate_librespot_package_source = must_not_read_private_component
             assert bundle.main() == 0
         finally:
-            bundle.validate_librespot_package_source = original_validator
             sys.argv = original_argv
 
         manifest = json.loads(
             (target / "bundle-manifest.json").read_text(encoding="utf-8")
         )
         assert manifest["releaseProfile"] == "public"
-        assert "librespotHost" not in manifest
-        assert not any("librespot" in relative.casefold() for relative in manifest["files"])
+        assert manifest["librespotHost"]["sha256"] == bundle.LIBRESPOT_HOST_SHA256
+        assert any("librespot" in relative.casefold() for relative in manifest["files"])
         forbidden_modules = {
             name for name, capability in bundle.PROFILE_GATED_SERVICE_MODULES.items()
             if capability not in bundle.profile_from_id("public").capabilities

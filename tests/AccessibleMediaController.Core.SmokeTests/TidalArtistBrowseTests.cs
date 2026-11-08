@@ -21,6 +21,9 @@ internal static class TidalArtistBrowseTests
             CancellationToken.None, ArtistBrowseSection.Albums);
         Check(albums.Select(item => item.ExternalId).SequenceEqual(["albums:b", "albums:a"]),
             "Kolejność, paginacja lub odrzucenie obcych obiektów included");
+        Check(albums.All(item => item.RelatedArtistExternalId == "artists:one"
+            && item.RelatedArtistName == "Wykonawca" && item.Artist == "Wykonawca"),
+            "Albumy bez relacji artists w odpowiedzi nie prowadzą do otwartego wykonawcy");
         Check(handler.Paths.Count == 2 && handler.Paths.All(path => path.Contains("/relationships/albums")),
             "Albumy pobierają również inne kategorie");
         Check(handler.Paths[0].Contains("albums.artists") && handler.Paths[0].Contains("countryCode=PL"),

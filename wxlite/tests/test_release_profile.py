@@ -71,29 +71,22 @@ def test_profiles_have_distinct_identity_storage_channel_and_credentials() -> No
 
 
 def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> None:
-    assert PUBLIC_PROFILE.session_ids == (
-        "files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"
-    )
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
-    # Radio Archiwista jest dostępny wyłącznie w AMC Test do czasu
-    # ustabilizowania sesji; do Public trafi świadomą decyzją.
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session not in {"spotify", "sonos", "radioarchiwista"}
+        if session != "sonos"
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
-    assert "spotify" not in public_text
+    assert "spotify" in public_text
     assert "session.tidal" in public_text
     assert "tidal.native-playback" in public_text
-    assert "youtube.account" not in public_text
+    assert "youtube.account.readonly" in public_text
     assert "sonos" not in public_text
     assert "frontier-smart" in public_text
+    assert "radioarchiwista" in public_text
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
-        if "spotify" not in capability.casefold()
-        and "sonos" not in capability.casefold()
-        and "youtube.account" not in capability.casefold()
-        and "radioarchiwista" not in capability.casefold()
+        if capability != "session.sonos"
     }
 
 
@@ -131,17 +124,15 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
     assert 'capability != "session.sonos"' in source
-    assert '.Append("session.frontier-smart")' in source
-    assert '.Append("session.tidal")' in source
-    assert '.Append("tidal.native-playback")' in source
-    assert "youtube.account.readonly" not in public_contract
+    assert 'session != "sonos"' in source
+    assert re.search(r'Test\.Capabilities\s*\.Where', source)
+    assert 'Test.Sessions.Where' in source
     quoted = re.compile(r'"([^"]+)"')
     common = tuple(quoted.findall(common_match.group(1)))
     test_only = tuple(quoted.findall(test_only_match.group(1)))
     assert tuple(
-        capability for capability in common if capability != "session.sonos"
-    ) + (
-        "session.frontier-smart", "session.tidal", "tidal.native-playback"
+        capability for capability in common + test_only
+        if capability != "session.sonos"
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities
 
@@ -312,12 +303,14 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             SessionId.PODCASTS,
             SessionId.TIDAL,
             SessionId.WIIM,
+            SessionId.SPOTIFY,
             SessionId.FRONTIER_SMART,
+            SessionId.RADIOARCHIWISTA,
         )
         assert normalize(raw) == available_sessions()
         rows = dict(manager_labels(raw))
         assert set(rows) == set(available_sessions())
-        unchanged, message = enable(SessionId.SPOTIFY, raw)
+        unchanged, message = enable(SessionId.SONOS, raw)
         assert unchanged == available_sessions()
         assert message == "Ta sesja nie jest dostępna w tym wydaniu AMC"
 
@@ -332,13 +325,15 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             Action.SESSION_PODCASTS,
             Action.SESSION_TIDAL,
             Action.SESSION_WIIM,
+            Action.SESSION_SPOTIFY,
             Action.SESSION_FRONTIER_SMART,
+            Action.SESSION_RADIOARCHIWISTA,
         }
         palette_actions = {
             entry.action for entry in entries_for_session(SessionId.FILES, raw)
         }
         assert visible_session_actions <= palette_actions
-        assert Action.SESSION_SPOTIFY not in palette_actions
+        assert Action.SESSION_SPOTIFY in palette_actions
         assert Action.SESSION_TIDAL in palette_actions
         assert Action.SESSION_SONOS not in palette_actions
         assert Action.SESSION_FRONTIER_SMART in palette_actions

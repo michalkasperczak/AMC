@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_gui_logic import install_wx_stub
@@ -16,15 +17,16 @@ from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import Navigator, SessionId
 
 
-def test_filtered_public_imports_and_opens_tidal_picker_in_fresh_process(tmp_path):
+@pytest.mark.parametrize("profile_id", ["public", "test"])
+def test_filtered_profile_imports_and_opens_tidal_picker_in_fresh_process(tmp_path, profile_id):
     root = Path(__file__).resolve().parents[1]
     spec = importlib.util.spec_from_file_location("picker_bundle", root / "tools/build_bundle.py")
     builder = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(builder)
-    files = builder.copy_python_code(tmp_path, builder.profile_from_id("public"))
+    files = builder.copy_python_code(tmp_path, builder.profile_from_id(profile_id))
     assert "app/amc_wx_lite/service_playlist_dialog.py" in files
-    assert not (tmp_path / "app/amc_wx_lite/spotify_playlist_dialog.py").exists()
-    assert not (tmp_path / "app/amc_wx_lite/spotify_source.py").exists()
+    assert (tmp_path / "app/amc_wx_lite/spotify_playlist_dialog.py").exists()
+    assert (tmp_path / "app/amc_wx_lite/spotify_source.py").exists()
     code = """
 import sys
 sys.path.insert(0, sys.argv[1])
@@ -33,17 +35,17 @@ from test_gui_logic import install_wx_stub
 install_wx_stub()
 import amc_wx_lite.gui as gui
 from amc_wx_lite import service_playlist_dialog as shared
-assert gui._RELEASE_PROFILE.profile_id == 'public'
+assert gui._RELEASE_PROFILE.profile_id == sys.argv[3]
 assert gui.SpotifyPlaylistDialog is shared.ServicePlaylistDialog
 assert gui.SpotifyPlaylistChoice is shared.ServicePlaylistChoice
 assert 'amc_wx_lite.spotify_playlist_dialog' not in sys.modules
-assert 'amc_wx_lite.spotify_source' not in sys.modules
+assert 'amc_wx_lite.spotify_source' in sys.modules
 from test_tidal_playlist_gui import test_tidal_album_playlist_creation_and_cached_reopening
 test_tidal_album_playlist_creation_and_cached_reopening()
 print('FILTERED_PUBLIC_PICKER_OK')
 """
-    env = dict(os.environ, AMC_RELEASE_PROFILE="public")
-    result = subprocess.run([sys.executable, "-c", code, str(tmp_path / "app"), str(root / "tests")],
+    env = dict(os.environ, AMC_RELEASE_PROFILE=profile_id)
+    result = subprocess.run([sys.executable, "-c", code, str(tmp_path / "app"), str(root / "tests"), profile_id],
                             env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert "FILTERED_PUBLIC_PICKER_OK" in result.stdout

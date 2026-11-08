@@ -41,7 +41,7 @@ internal static class Program
         ("aktualizator zamyka tylko właściwe okno AMC", UpdaterTargetsOnlyInstalledAmcWindow),
         ("aktualizator przyjmuje zgodny profil", UpdaterAcceptsMatchingProfile),
         ("aktualizator przyjmuje starszą nazwę AMC Public", UpdaterAcceptsLegacyPublicName),
-        ("aktualizator przyjmuje wycofaną możliwość Google w starszym AMC Public", UpdaterAcceptsLegacyPublicGoogleCapability),
+        ("aktualizator rozszerza starszy AMC Public o nowe sesje", UpdaterAcceptsOlderPublicSubset),
         ("aktualizator migruje starszy AMC Public z Sonosa na Frontier Smart", UpdaterAcceptsLegacyPublicSonosProfile),
         ("aktualizator przyjmuje starszy zakres tego samego profilu", UpdaterAcceptsKnownProfileExpansion),
         ("aktualizator odrzuca nieznany zakres starego profilu", UpdaterRejectsUnknownInstalledCapability),
@@ -544,13 +544,17 @@ internal static class Program
         Equal("public", manifest.ReleaseProfile);
     }
 
-    private static void UpdaterAcceptsLegacyPublicGoogleCapability()
+    private static void UpdaterAcceptsOlderPublicSubset()
     {
         using var source = BundleFixture.Create(profile: ReleaseProfileContract.Public);
         using var target = BundleFixture.Create(
             profile: ReleaseProfileContract.Public,
+            sessionsOverride: ReleaseProfileContract.Public.Sessions
+                .Where(value => value is not ("spotify" or "radioarchiwista")).ToArray(),
             capabilitiesOverride: ReleaseProfileContract.Public.Capabilities
-                .Append("youtube.account.readonly").ToArray());
+                .Where(value => value is not (
+                    "session.spotify" or "spotify.playlists" or
+                    "session.radioarchiwista" or "youtube.account.readonly")).ToArray());
         var manifest = AccessibleMediaController.PythonUpdater.Program.LoadAndVerify(
             source.Root,
             target.Root,

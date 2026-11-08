@@ -236,7 +236,7 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
         SessionId.TIDAL: (
             Action.SESSION_CONFIGURE_CURRENT,
             "Konto i synchronizacja TIDAL",
-            "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu",
+            "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu. Pełne odtwarzanie wymaga osobnego zatwierdzenia; przy pierwszym utworze możesz otworzyć przeglądarkę z kodem",
             "tidal_session",
         ),
         SessionId.WIIM: (
@@ -475,7 +475,7 @@ def test_spotify_playlist_command_matches_palette_and_contextual_keyboard_help()
     assert "Dodaj do playlist Spotify lub utwórz playlistę" in message
     assert "Ctrl+Shift+P" in message
     assert dict(describe("Spotify"))["Ctrl+Shift+P"] == (
-        "Dodaj do playlist Spotify lub utwórz playlistę"
+        "Dodaj do playlist Spotify lub utwórz playlistę. Litery wybierają nazwę, Enter dodaje do wskazanej playlisty, a Spacja pozwala zaznaczyć kilka celów. Ostatni potwierdzony wybór jest zapamiętywany"
     )
 
 

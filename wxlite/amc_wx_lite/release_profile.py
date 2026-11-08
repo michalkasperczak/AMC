@@ -76,16 +76,6 @@ _COMMON_CAPABILITIES = (
     "experimental",
 )
 
-_PUBLIC_CAPABILITIES = tuple(
-    capability
-    for capability in _COMMON_CAPABILITIES
-    if capability != "session.sonos"
-) + (
-    "session.frontier-smart",
-    "session.tidal",
-    "tidal.native-playback",
-)
-
 TEST_PROFILE = ReleaseProfile(
     profile_id=TEST_PROFILE_ID,
     product_id="org.accessible-media-controller.test",
@@ -134,8 +124,13 @@ PUBLIC_PROFILE = ReleaseProfile(
     cache_folder="AMC/cache",
     log_folder="AMC/logs",
     credential_namespace="AccessibleMediaController.Public",
-    session_ids=("files", "radio", "podcasts", "tidal", "wiim", "frontierSmart"),
-    capabilities=_PUBLIC_CAPABILITIES,
+    session_ids=tuple(
+        session for session in TEST_PROFILE.session_ids if session != "sonos"
+    ),
+    capabilities=tuple(
+        capability for capability in TEST_PROFILE.capabilities
+        if capability != "session.sonos"
+    ),
 )
 
 PROFILES: dict[str, ReleaseProfile] = {

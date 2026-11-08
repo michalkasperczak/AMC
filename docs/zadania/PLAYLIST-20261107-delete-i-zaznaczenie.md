@@ -1,6 +1,6 @@
 # PLAYLIST-20261107 — Delete i zakres zaznaczenia
 
-Status: Public alpha.485 zainstalowany i uruchomiony 7.11.2026; kontrola techniczna przeszła. Odbiór Delete/Ctrl+Shift+P z NVDA i późniejsza pełna aktualizacja Test pozostają do wykonania.
+Status: Public alpha.485 zainstalowany i uruchomiony 7.11.2026; użytkownik 8.11.2026 potwierdził, że playlisty poprawnie się dodają i usuwają oraz działają. Pełna aktualizacja obu profili jest w przygotowaniu.
 
 ## Zgłoszenie i kryteria akceptacji
 
@@ -77,6 +77,10 @@ Paczka `.test-output/amc-public-playlist-alpha485-20261107-v2`: profil Public, `
 Przed instalacją Public był zamknięty. Zaszyfrowana kopia `D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-przed-alpha485.dpapi` przeszła odszyfrowanie i weryfikację sum: 46581846 bajtów, 9 pozycji. AMC Test pozostał uruchomiony; jego plików nie podmieniano. Cicha instalacja do `C:\Users\micha\AppData\Local\Programs\AMC Public` zakończyła się kodem 0 i logiem sukcesu o 23:11, bez restartu Windows. Log: `C:\Users\micha\Documents\Codex\2026-11-07\amc-playlisty-delete-20261107\work\install-alpha485.log`.
 
 Pełna kontrola 3144 plików zainstalowanej kopii: kod 0. Manifest: profil Public, commit `c3007d5f`, `sourceDirty=false`; ProductVersion alpha.485. Porównanie z zaszyfrowaną kopią wykazało `publicTidalCredentialsUnchanged=true`, `publicTidalConnectionsPresent=2`, `publicStateUnchanged=true`. Uruchomiono dokładne `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe`. Jedna instancja Public (launcher PID 24780, Python 9860, host 22712) pokazuje okno „AMC Public — 07.11.2026, 23:02”. Osobna instancja Test nadal działa w alpha.482, z launcherem PID 39680. Odbiór klawiaturą i NVDA nowego Delete oraz pojedynczego utworu Ctrl+Shift+P pozostaje do wykonania przez użytkownika; nie wykonywano zapisu na żywych playlistach w jego imieniu.
+
+## Odbiór użytkownika — 8.11.2026
+
+Użytkownik potwierdził prawidłowy odbiór playlist: dodawanie i usuwanie działa. To zastępuje wcześniejszy status oczekiwania na odbiór Public alpha.485. Nie jest to osobny test wszystkich przypadków Spotify ani potwierdzenie nowej instalacji Test. Użytkownik zlecił przygotowanie obu aktualizacji, włączenie Spotify do Public, jeśli wykonalne, oraz publikację na GitHubie po pełnej weryfikacji; Public ma zachować wszystkie funkcje Test poza Sonosem. Zgłosił też brak przejścia z albumu Roda Stewarta do wykonawcy w TIDAL Test. Szczegóły nowej poprawki i wydania: `AMC-20261108-wspolne-wydanie.md`.
 
 ## Projekt instrukcji użytkownika i dziennika zmian
 
