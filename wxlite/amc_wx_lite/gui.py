@@ -93,6 +93,8 @@ from .command_palette import (
 )
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .release_profile import current_profile
+from .spotify_soloist import SoloistManager, SoloistSetupError
+from .spotify_soloist_dialog import SpotifySoloistDialog
 from .youtube_account import (
     account_connected as youtube_account_connected,
     capability_available as youtube_capability_available,
@@ -4525,6 +4527,7 @@ class ServiceAccountDialog(wx.Dialog):
         start_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         check_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         cancel_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        open_spotify_soloist: Callable[["ServiceAccountDialog"], None] | None = None,
         on_closed: Callable[["ServiceAccountDialog"], None] | None = None,
         redirect_uri: str = "",
         needs_setup: bool = False,
@@ -4544,6 +4547,7 @@ class ServiceAccountDialog(wx.Dialog):
         self._start_spotify_pairing = start_spotify_pairing
         self._check_spotify_pairing = check_spotify_pairing
         self._cancel_spotify_pairing = cancel_spotify_pairing
+        self._open_spotify_soloist = open_spotify_soloist
         self._on_closed = on_closed
         self.pairing_active = False
         self._login_started = False
@@ -4558,7 +4562,9 @@ class ServiceAccountDialog(wx.Dialog):
                 "Jej właściciel musi mieć Premium i dopisać Twoje konto do listy "
                 "użytkowników; możesz też użyć własnej aplikacji. W panelu Spotify "
                 "wpisz pokazany adres powrotu dokładnie, z końcowym ukośnikiem. "
-                "Nie wklejaj Client Secret. Hasło wpisujesz tylko na stronie Spotify."
+                "Odtwarzacz Soloist wymaga osobnego klucza, który zapiszesz w jego "
+                "konfiguracji poniżej. Nie wklejaj Client Secret. Hasło wpisujesz "
+                "tylko na stronie Spotify."
             )
         else:
             explanation_text = (
@@ -4614,6 +4620,12 @@ class ServiceAccountDialog(wx.Dialog):
             self.cancel_pairing_button.Bind(wx.EVT_BUTTON, self._on_cancel_pairing)
         else:
             self.pairing_button = None
+        if open_spotify_soloist is not None:
+            self.soloist_button = wx.Button(self, label="Konfiguruj odtwarzacz Soloist")
+            self.soloist_button.SetName("Konfiguruj odtwarzacz Spotify Soloist")
+            self.soloist_button.Bind(wx.EVT_BUTTON, self._on_open_soloist)
+        else:
+            self.soloist_button = None
         self.login_button = wx.Button(self, label=(
             "Zaloguj ponownie w przeglądarce" if self._connected
             else "Zaloguj w przeglądarce"
@@ -4657,6 +4669,8 @@ class ServiceAccountDialog(wx.Dialog):
             layout.Add(self.pairing_address, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
             layout.Add(self.check_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
             layout.Add(self.cancel_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        if self.soloist_button is not None:
+            layout.Add(self.soloist_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         layout.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizerAndFit(layout)
         self.SetMinSize((680, 300))
@@ -4728,6 +4742,10 @@ class ServiceAccountDialog(wx.Dialog):
         self.set_status("Rozpoczynanie parowania odtwarzacza Spotify")
         self._start_spotify_pairing(self)
 
+    def _on_open_soloist(self, _event: wx.CommandEvent) -> None:
+        if not self._busy and self._open_spotify_soloist is not None:
+            self._open_spotify_soloist(self)
+
     def _on_check_pairing(self, _event: wx.CommandEvent) -> None:
         if self._busy or self._check_spotify_pairing is None:
             return
@@ -4774,6 +4792,8 @@ class ServiceAccountDialog(wx.Dialog):
                 self.cancel_pairing_button,
             ):
                 button.Enable(not self._busy)
+        if self.soloist_button is not None:
+            self.soloist_button.Enable(not self._busy)
 
     def set_status(self, message: str) -> None:
         message = i18n.ui_text(message)
@@ -21009,6 +21029,22 @@ class LiteFrame(wx.Frame):
             if not dialog._login_started and self._window_alive():
                 wx.CallAfter(self._restore_focus_after_dialog)
 
+        def open_spotify_soloist(dialog: ServiceAccountDialog) -> None:
+            manager = getattr(self, "_spotify_soloist_manager", None)
+            if manager is None:
+                try:
+                    manager = SoloistManager(self.store.path, profile=_RELEASE_PROFILE)
+                except SoloistSetupError as error:
+                    dialog.set_status(str(error))
+                    self.announcer.say(str(error))
+                    return
+                self._spotify_soloist_manager = manager
+            with SpotifySoloistDialog(dialog, manager, self.announcer.say) as setup:
+                i18n.localize_window_tree(setup)
+                setup.ShowModal()
+            if dialog_alive(dialog) and dialog.soloist_button is not None:
+                dialog.soloist_button.SetFocus()
+
         dialog = ServiceAccountDialog(
             self,
             service_name,
@@ -21020,6 +21056,8 @@ class LiteFrame(wx.Frame):
             start_spotify_pairing=None,
             check_spotify_pairing=None,
             cancel_spotify_pairing=None,
+            open_spotify_soloist=(open_spotify_soloist
+                                  if session_id is SessionId.SPOTIFY else None),
             on_closed=account_closed,
             redirect_uri=redirect_uri,
             needs_setup=needs_setup,
@@ -35864,6 +35902,12 @@ class LiteFrame(wx.Frame):
         if native_adapter is not None:
             native_adapter.close()
         self._close_tidal_native_challenge()
+        soloist_manager = getattr(self, "_spotify_soloist_manager", None)
+        if soloist_manager is not None:
+            try:
+                soloist_manager.close()
+            except OSError:
+                pass
         if self.client is not None:
             self.client.close()
         self._windows_preset_10_hotkey.unregister()
