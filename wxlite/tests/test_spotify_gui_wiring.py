@@ -78,7 +78,7 @@ def test_spotify_account_setup_uses_one_login_without_pairing(monkeypatch) -> No
             self.set_status(message)
 
         def Show(self):  # noqa: N802 - wx API
-            self.options["save_spotify_client_id"](self, "a" * 32)
+            self.options["save_client_id"](self, "a" * 32)
             assert self.options["start_spotify_pairing"] is None
             assert self.options["check_spotify_pairing"] is None
             assert self.options["cancel_spotify_pairing"] is None
