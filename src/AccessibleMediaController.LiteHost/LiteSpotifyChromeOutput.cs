@@ -18,7 +18,7 @@ namespace AccessibleMediaController.LiteHost;
 /// The catalogue service owns token refresh; the browser only receives short
 /// lived access tokens through a nonce protected loopback page.
 /// </summary>
-internal sealed class LiteSpotifyChromeOutput : IDisposable
+internal sealed class LiteSpotifyChromeOutput : ILiteSpotifyOutput
 {
     private const string SdkOrigin = "https://sdk.scdn.co";
     private readonly Func<CancellationToken, Task<LiteSpotifyAccessToken>> credentials;
@@ -57,13 +57,13 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         this.selectedOutputId = selectedOutputId;
     }
 
-    internal event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
-    internal event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
-    internal event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
-    internal event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
-    internal event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
+    public event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
+    public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
+    public event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
+    public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
+    public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
 
-    internal TimeSpan Position
+    public TimeSpan Position
     {
         get
         {
@@ -76,7 +76,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         }
     }
 
-    internal string? TakeDefaultOutputFallbackNotice()
+    public string? TakeDefaultOutputFallbackNotice()
     {
         lock (stateGate)
         {
@@ -86,7 +86,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         }
     }
 
-    internal void Play(MediaItem item, TimeSpan start, int nextVolume, double nextRate)
+    public void Play(MediaItem item, TimeSpan start, int nextVolume, double nextRate)
     {
         var rejection = SpotifyPlaybackItemContract.Rejection(item);
         if (rejection is not null)
@@ -206,7 +206,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         await wait.WaitAsync(ct).ConfigureAwait(false);
     }
 
-    internal void Pause()
+    public void Pause()
     {
         bool send;
         lock (stateGate)
@@ -221,7 +221,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         if (send) _ = CommandAsync("pause", null);
     }
 
-    internal void Resume()
+    public void Resume()
     {
         bool send;
         lock (stateGate)
@@ -236,7 +236,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         if (send) _ = CommandAsync("resume", null);
     }
 
-    internal void Stop()
+    public void Stop()
     {
         lock (stateGate)
         {
@@ -252,7 +252,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         _ = CommandAsync("pause", null);
     }
 
-    internal void Seek(TimeSpan next)
+    public void Seek(TimeSpan next)
     {
         lock (stateGate)
         {
@@ -262,13 +262,13 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         _ = CommandAsync("seek", null, (long)Math.Max(0, next.TotalMilliseconds));
     }
 
-    internal void SetVolume(int next)
+    public void SetVolume(int next)
     {
         lock (stateGate) volume = Math.Clamp(next, 0, 100);
         _ = SetVolumeInPlayerAsync(next, lifetime.Token);
     }
 
-    internal void SetPlaybackRate(double next)
+    public void SetPlaybackRate(double next)
     {
         lock (stateGate)
         {
@@ -320,7 +320,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
             .ConfigureAwait(false);
     }
 
-    internal Task<IReadOnlyList<LiteSpotifyChromeDevice>> GetOutputDevicesAsync()
+    public Task<IReadOnlyList<LiteSpotifyChromeDevice>> GetOutputDevicesAsync()
     {
         using var enumerator = new MMDeviceEnumerator();
         var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
@@ -338,7 +338,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
         return ResolveDevice(devices, wanted) is null ? wanted : null;
     }
 
-    internal async Task<bool> TrySetOutputDeviceAsync(string? wanted)
+    public async Task<bool> TrySetOutputDeviceAsync(string? wanted)
     {
         var devices = await GetOutputDevicesAsync().ConfigureAwait(false);
         var resolved = string.IsNullOrWhiteSpace(wanted) ? null : ResolveDevice(devices, wanted);

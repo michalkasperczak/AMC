@@ -122,7 +122,9 @@ internal static class Program
         using var tidalCatalog = OpenTidalCatalog(args);
         using var spotifyCatalog = OpenSpotifyCatalog(args);
         using var spotifyPlayback = new LiteSpotifyPlaybackCoordinator(
-            spotifyCatalog is null ? null : spotifyCatalog.GetPlaybackCredentialsAsync);
+            spotifyCatalog is null ? null : spotifyCatalog.GetPlaybackCredentialsAsync,
+            ReadArgumentPath(args, "--soloist-settings"),
+            ReadArgumentPath(args, "--soloist-data-dir"));
         using var wiim = OpenWiiM(args);
         using var frontierSmart = OpenFrontierSmart(args);
         var componentUpdates = new LiteComponentUpdateCoordinator(

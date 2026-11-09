@@ -230,7 +230,7 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
         SessionId.SPOTIFY: (
             Action.SESSION_CONFIGURE_CURRENT,
             "Konto Spotify",
-            "Otwórz konto Spotify, ustaw identyfikator aplikacji, zaloguj katalog lub połącz odtwarzacz",
+            "Otwórz konto Spotify, ustaw identyfikator aplikacji, zaloguj katalog lub skonfiguruj odtwarzacz Soloist",
             "spotify_session",
         ),
         SessionId.TIDAL: (
