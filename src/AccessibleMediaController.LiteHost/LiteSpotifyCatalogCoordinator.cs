@@ -94,6 +94,30 @@ internal sealed class LiteSpotifyCatalogCoordinator(
         }
     }
 
+    public object Disconnect()
+    {
+        if (backend is not ILiteSpotifyAccountBackend accountBackend)
+            throw new LiteRequestException("Wylogowanie Spotify nie jest dostępne w tym profilu AMC.");
+        try
+        {
+            accountBackend.Disconnect();
+            lock (_collectionGate)
+            {
+                _collectionSnapshot = [];
+                _hasCollectionCache = false;
+                _collectionRefreshAttempted = false;
+                _albumRefreshAttempted = false;
+                _podcastRefreshAttempted = false;
+                _playlistRefreshAttempted = false;
+            }
+            return new { message = "Wylogowano Spotify w tym profilu AMC." };
+        }
+        catch
+        {
+            throw new LiteRequestException("Nie udało się wylogować konta Spotify w AMC.");
+        }
+    }
+
     public object Configure(JsonElement args)
     {
         if (backend is not ILiteSpotifyAccountBackend accountBackend)
@@ -598,9 +622,13 @@ internal sealed class LiteSpotifyCatalogCoordinator(
                 var destination = request.Mode == "favorite"
                     ? "Ulubionych"
                     : "Biblioteki";
-                var message = result.Added
-                    ? $"Dodano do {destination} Spotify: {subject}"
-                    : $"Usunięto z {destination} Spotify: {subject}";
+                var message = changed == 0
+                    ? request.Mode == "favorite"
+                        ? "Ulubione Spotify bez zmian"
+                        : "Biblioteka Spotify bez zmian"
+                    : result.Added
+                        ? $"Dodano do {destination} Spotify: {subject}"
+                        : $"Usunięto z {destination} Spotify: {subject}";
                 if (result.FailedCount > 0)
                     message += $". Bez zmiany: {result.FailedCount} elementów";
                 return new LiteSpotifyMembershipResult(
@@ -910,6 +938,8 @@ internal interface ILiteSpotifyWriteBackend : ILiteSpotifyReadOnlyBackend
 internal interface ILiteSpotifyAccountBackend : ILiteSpotifyReadOnlyBackend
 {
     void ConfigureClientId(string clientId);
+
+    void Disconnect();
 
     Task<LiteSpotifyPairingRequest> StartPairingAsync(CancellationToken cancellationToken);
 

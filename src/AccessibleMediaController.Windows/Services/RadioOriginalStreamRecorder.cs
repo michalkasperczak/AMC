@@ -80,7 +80,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
         }
     }
 
-    public string FinalPath { get; }
+    public string FinalPath { get; private set; }
     public bool CanPause => false;
     public bool IsPaused => false;
     public TimeSpan RecordedDuration => TimeSpan.Zero;
@@ -202,7 +202,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
             }
             if (!File.Exists(_temporaryPath) || new FileInfo(_temporaryPath).Length == 0)
                 throw new InvalidDataException("Nie odebrano danych oryginalnego strumienia.");
-            RadioRecordingStagingStore.Publish(_temporaryPath, FinalPath);
+            FinalPath = RadioRecordingStagingStore.Publish(_temporaryPath, FinalPath, uniqueOnConflict: true);
             return FinalPath;
         }
         catch (Exception exception) when (exception is IOException

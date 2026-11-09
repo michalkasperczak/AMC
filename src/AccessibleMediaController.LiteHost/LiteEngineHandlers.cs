@@ -95,6 +95,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private string? _filesSessionId;
     private MediaItem? _remoteBitrateProbeItem;
     private TidalTransientPlayback? _tidalTransient;
+    private TidalTransientPlayback? _rememberedTidalTransient;
     private readonly Dictionary<string, (MediaItem Item, TimeSpan Position, int Volume, double Rate)> _filesSessions =
         new(StringComparer.Ordinal);
     private MediaItem? _radioItem;
@@ -589,6 +590,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 SpotifyAccountStatus(),
             [LiteSpotifyCatalogContract.LoginOperation] = (_, _) =>
                 SpotifyLogin(),
+            [LiteSpotifyCatalogContract.DisconnectOperation] = (_, _) =>
+                SpotifyDisconnect(),
             [LiteSpotifyCatalogContract.ConfigureOperation] = (request, _) =>
                 SpotifyConfigure(request.Args),
             [LiteSpotifyCatalogContract.PairingStartOperation] = (_, _) =>
@@ -2653,6 +2656,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             _filesItem = item;
             _filesSessionId = "tidal";
             _tidalTransient = new(request.ProxyUri, request.Duration, request.SourceQualityLabel);
+            _rememberedTidalTransient = null;
             _filesSessions.Remove("tidal");
             _bookmarkNavigationCursor = null;
             ForgetStaleFilesDurationLocked(item.Id);
@@ -2781,7 +2785,12 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             if (_filesSessionId == "tidal")
             {
-                _filesSessions.Remove("tidal");
+                if (_filesItem is not null && _tidalTransient is not null)
+                {
+                    _filesSessions["tidal"] =
+                        (_filesItem, _files.Position, _filesVolume, _filesRate);
+                    _rememberedTidalTransient = _tidalTransient;
+                }
                 return;
             }
             if (_filesItem is not null && _filesSessionId is not null)
@@ -2826,28 +2835,41 @@ internal sealed class LiteEngineHandlers : IDisposable
             lock (_gate) ownsCurrent = TargetOwnsFilesItemLocked(target.SessionId);
             if (!ownsCurrent)
             {
-                if (target.SessionId == "tidal")
-                    RequireTargetOwnsFilesItemLocked(target);
                 RememberFilesSession();
                 (MediaItem Item, TimeSpan Position, int Volume, double Rate) remembered;
+                TidalTransientPlayback? transient;
                 lock (_gate)
                 {
                     if (!_filesSessions.TryGetValue(target.SessionId, out remembered))
                         RequireTargetOwnsFilesItemLocked(target);
+                    transient = target.SessionId == "tidal"
+                        ? _rememberedTidalTransient : null;
+                    if (target.SessionId == "tidal" && transient is null)
+                        throw new LiteRequestException("Najpierw uruchom utwór TIDAL.");
                     _activeEngine = "files";
                     _filesSessionId = target.SessionId;
-                    _tidalTransient = null;
+                    _tidalTransient = transient;
                     _filesItem = remembered.Item;
                     _filesVolume = remembered.Volume;
                     _filesRate = remembered.Rate;
                     _filesPaused = false;
                     _filesPlaying = true;
+                    if (target.SessionId == "tidal")
+                    {
+                        _filesSessions.Remove("tidal");
+                        _rememberedTidalTransient = null;
+                    }
                     ForgetStaleFilesDurationLocked(remembered.Item.Id);
                 }
                 _queue.DetachFromDirectPlay();
                 ConfigureOutputForSession(target.SessionId);
-                _files.Play(remembered.Item, remembered.Position,
-                    _filesMuted ? 0 : remembered.Volume, remembered.Rate);
+                if (transient is null)
+                    _files.Play(remembered.Item, remembered.Position,
+                        _filesMuted ? 0 : remembered.Volume, remembered.Rate);
+                else
+                    _files.PlayTransientFlac(remembered.Item, transient.ProxyUri,
+                        transient.Duration, remembered.Position,
+                        _filesMuted ? 0 : remembered.Volume, remembered.Rate);
                 return new { paused = false, engine = "files", sessionId = target.SessionId, queue = false };
             }
         }
@@ -3082,6 +3104,11 @@ internal sealed class LiteEngineHandlers : IDisposable
                 // sesji nie może zatrzymać materiału należącego do drugiej.
                 if (!TargetOwnsFilesItemLocked(target.SessionId))
                 {
+                    if (target.SessionId == "tidal")
+                    {
+                        _filesSessions.Remove("tidal");
+                        _rememberedTidalTransient = null;
+                    }
                     return new
                     {
                         ok = true,
@@ -3672,7 +3699,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         string? tidalSourceQualityLabel;
         lock (_gate)
         {
-            tidalSourceQualityLabel = target.SessionId == "tidal" ? _tidalTransient?.SourceQualityLabel : null;
+            tidalSourceQualityLabel = target.SessionId == "tidal"
+                ? (_tidalTransient ?? _rememberedTidalTransient)?.SourceQualityLabel : null;
             _activeEngine = engine;
             if (engine == "radio")
             {
@@ -3883,6 +3911,12 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object SpotifyAccountStatus() => RequireSpotify().AccountStatus();
 
     private object SpotifyLogin() => RequireSpotify().Login();
+
+    private object SpotifyDisconnect()
+    {
+        _spotifyPlayback?.Stop();
+        return RequireSpotify().Disconnect();
+    }
 
     private object SpotifyConfigure(JsonElement args) => RequireSpotify().Configure(args);
 

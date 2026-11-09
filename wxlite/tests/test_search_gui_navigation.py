@@ -772,7 +772,7 @@ def test_online_tidal_library_action_uses_tidal_membership_not_podcast_import() 
     assert callable(calls[0][2])
 
 
-def test_online_tidal_library_action_explicitly_adds_instead_of_using_stale_cache() -> None:
+def test_online_tidal_library_action_uses_confirmed_membership_toggle() -> None:
     calls = []
 
     class Runner:
@@ -805,7 +805,7 @@ def test_online_tidal_library_action_explicitly_adds_instead_of_using_stale_cach
         favorite=False,
     )
 
-    assert calls[0][1] == {"mode": "library", "add": True}
+    assert calls[0][1] == {"mode": "library", "add": None}
     assert calls[-1] == ("say", "Dodano do Biblioteki TIDAL")
 
 
@@ -1081,10 +1081,14 @@ def test_global_search_includes_verified_soundcloud_directory_result(
         (SessionId.SPOTIFY, None, "album"),
     ),
 )
-def test_library_action_keeps_search_dialog_open(
+@pytest.mark.parametrize("action", (
+    SearchResultAction.LIBRARY, SearchResultAction.FAVORITE,
+))
+def test_membership_action_keeps_search_dialog_open(
     session_id: SessionId,
     remote_kind: str | None,
     kind: str,
+    action: SearchResultAction,
 ) -> None:
     direct_actions = []
     modal_results = []
@@ -1115,10 +1119,10 @@ def test_library_action_keeps_search_dialog_open(
 
     gui_module.SearchDialog._complete_selected(
         dialog,
-        SearchResultAction.LIBRARY,
+        action,
     )
 
-    assert direct_actions == [([result], SearchResultAction.LIBRARY, dialog)]
+    assert direct_actions == [([result], action, dialog)]
     assert modal_results == []
     assert dialog.selected_result is result
 
@@ -1209,7 +1213,7 @@ def test_radio_search_library_confirmation_uses_dialog_and_keeps_focus_context()
         client=SimpleNamespace(
             add_radio_station=lambda title, address: (
                 calls.append((title, address))
-                or {"preferredStationId": "saved-poznan"}
+                or {"preferredStationId": "saved-poznan", "addedCount": 1}
             )
         ),
         runner=Runner(),
@@ -1234,19 +1238,40 @@ def test_radio_search_library_confirmation_uses_dialog_and_keeps_focus_context()
     assert frame._radio_search_action_pending is False
 
 
-def test_saved_radio_search_result_stays_open_and_reports_existing_library_item() -> None:
+def test_saved_radio_search_result_toggles_library_without_closing_dialog() -> None:
     spoken = []
+    in_library = True
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def toggle(_ids):
+        nonlocal in_library
+        in_library = not in_library
+        return {"inLibrary": in_library, "changed": 1}
+
     result = SearchEntry(
         SessionId.RADIO,
         Row("saved-poznan", "Polskie Radio Poznań", "station"),
     )
     frame = SimpleNamespace(
         _search_dialog_alive=lambda _dialog: True,
+        _radio_search_action_pending=False,
+        client=SimpleNamespace(toggle_radio_library=toggle),
+        runner=Runner(),
         announcer=SimpleNamespace(
             say=lambda _message: pytest.fail(
                 "Główne okno nie może przejąć komunikatu wyszukiwarki"
             )
         ),
+    )
+    frame._change_saved_radio_search_result_membership = (
+        lambda entries, *, announce:
+        LiteFrame._change_saved_radio_search_result_membership(
+            frame, entries, announce=announce,
+        )
     )
     dialog = SimpleNamespace(
         IsShown=lambda: True,
@@ -1260,7 +1285,13 @@ def test_saved_radio_search_result_stays_open_and_reports_existing_library_item(
         dialog,
     )
 
-    assert spoken == ["Stacja jest już w Bibliotece: Polskie Radio Poznań"]
+    LiteFrame._execute_search_dialog_action(
+        frame, [result], SearchResultAction.LIBRARY, dialog,
+    )
+    assert spoken == [
+        "Usunięto z Biblioteki: Polskie Radio Poznań",
+        "Dodano do Biblioteki: Polskie Radio Poznań",
+    ]
 
 
 def test_ctrl_l_closes_search_then_uses_shared_library_command(monkeypatch) -> None:
@@ -1345,12 +1376,12 @@ def test_spotify_search_library_confirmation_stays_inside_search_dialog() -> Non
         announce=spoken.append,
     )
 
-    assert calls[0][1:] == ("library", True)
+    assert calls[0][1:] == ("library", None)
     assert spoken == ["Dodano do Biblioteki Spotify: Album użytkownika"]
     assert frame._spotify_membership_pending is False
 
 
-def test_saved_spotify_search_result_is_removed_without_closing_dialog() -> None:
+def test_saved_spotify_search_result_toggles_without_closing_dialog() -> None:
     calls = []
     spoken = []
     result = SearchEntry(
@@ -1390,9 +1421,40 @@ def test_saved_spotify_search_result_is_removed_without_closing_dialog() -> None
     )
 
     assert len(calls) == 1
-    assert calls[0][:3] == ([result], False, False)
+    assert calls[0][:3] == ([result], False, None)
     calls[0][3]("Usunięto z Biblioteki Spotify: Zapisany album")
     assert spoken == ["Usunięto z Biblioteki Spotify: Zapisany album"]
+
+
+@pytest.mark.parametrize(("session_id", "view"), (
+    (SessionId.TIDAL, LibraryView.TIDAL_LIBRARY),
+    (SessionId.SPOTIFY, LibraryView.SPOTIFY_LIBRARY),
+))
+def test_saved_service_search_result_uses_toggle_intent_after_each_press(
+    session_id: SessionId, view: LibraryView,
+) -> None:
+    calls = []
+    entry = SearchEntry(
+        session_id,
+        Row("saved-album", "Album", "album", service_id="album-1"),
+        view,
+    )
+    change = lambda entries, *, favorite, add, announce: calls.append(
+        (entries, favorite, add, announce)
+    )
+    frame = SimpleNamespace(
+        _search_dialog_alive=lambda _dialog: True,
+        _change_tidal_search_result_membership=change,
+        _change_spotify_search_result_membership=change,
+    )
+    dialog = SimpleNamespace(IsShown=lambda: True)
+    for _ in range(2):
+        LiteFrame._execute_search_dialog_action(
+            frame, [entry], SearchResultAction.LIBRARY, dialog,
+        )
+    assert [(items, favorite, add) for items, favorite, add, _ in calls] == [
+        ([entry], False, None), ([entry], False, None),
+    ]
 
 
 def test_saved_podcast_search_result_changes_source_without_navigation() -> None:
@@ -1616,8 +1678,9 @@ def test_remote_library_write_is_confirmed_inside_search_dialog(
     assert frame._podcast_add_pending is False
 
 
-def test_remote_library_does_not_claim_addition_without_host_confirmation() -> None:
+def test_remote_library_removes_already_saved_podcast() -> None:
     spoken = []
+    removed = []
 
     class Runner:
         @staticmethod
@@ -1633,13 +1696,17 @@ def test_remote_library_does_not_claim_addition_without_host_confirmation() -> N
                 "title": title,
                 "added": False,
                 "restored": False,
-            }
+            },
+            toggle_podcast_library=lambda ids: (
+                removed.append(ids) or {"added": False, "changed": 1}
+            ),
         ),
         status_field=SimpleNamespace(SetLabel=lambda _value: None),
         status_bar=SimpleNamespace(show=lambda _value: None),
         announcer=SimpleNamespace(say=lambda _value: None),
         runner=Runner(),
         _refresh_visible_podcast_library_after_search_add=lambda _value: None,
+        _refresh_visible_podcast_search_membership=lambda *args, **kwargs: None,
     )
     result = SearchEntry(
         SessionId.PODCASTS,
@@ -1660,12 +1727,13 @@ def test_remote_library_does_not_claim_addition_without_host_confirmation() -> N
         announce=spoken.append,
     )
 
-    assert spoken[-1] == "Element jest już w Bibliotece: Kanał YouTube"
-    assert not spoken[-1].startswith("Dodano")
+    assert removed == [["saved-source"]]
+    assert spoken[-1] == "Usunięto z Biblioteki: Kanał YouTube"
 
 
 def test_saved_youtube_video_names_its_library_collection() -> None:
     spoken = []
+    removed = []
 
     class Runner:
         @staticmethod
@@ -1682,13 +1750,17 @@ def test_saved_youtube_video_names_its_library_collection() -> None:
                 "sourceKind": "internetMedia",
                 "added": False,
                 "restored": False,
-            }
+            },
+            remove_profile_items=lambda session, view, ids: (
+                removed.append((session, view, ids)) or {"removedCount": 1}
+            ),
         ),
         status_field=SimpleNamespace(SetLabel=lambda _value: None),
         status_bar=SimpleNamespace(show=lambda _value: None),
         announcer=SimpleNamespace(say=lambda _value: None),
         runner=Runner(),
         _refresh_visible_podcast_library_after_search_add=lambda _value: None,
+        _refresh_visible_podcast_search_membership=lambda *args, **kwargs: None,
     )
     result = SearchEntry(
         SessionId.PODCASTS,
@@ -1709,8 +1781,12 @@ def test_saved_youtube_video_names_its_library_collection() -> None:
         announce=spoken.append,
     )
 
+    assert removed == [(
+        SessionId.PODCASTS.value, LibraryView.PODCAST_EPISODES.value,
+        ["saved-video"],
+    )]
     assert spoken[-1] == (
-        "Materiał jest już w Bibliotece, Media internetowe: Film YouTube"
+        "Usunięto z Biblioteki, Media internetowe: Film YouTube"
     )
 
 
@@ -1816,8 +1892,9 @@ def test_remote_podcast_favorite_is_added_then_favorited_without_navigation() ->
             "preferredEpisodeId": None,
             "title": title,
         },
-        toggle_podcast_favorites=lambda subscriptions, episodes: calls.append(
-            ("favorite", subscriptions, episodes)
+        toggle_podcast_favorites=lambda subscriptions, episodes: (
+            calls.append(("favorite", subscriptions, episodes))
+            or {"favorite": True, "changed": 1}
         ),
     )
     frame = SimpleNamespace(
@@ -1862,3 +1939,294 @@ def test_search_dialog_intercepts_enter_before_default_ok_processing() -> None:
     assert "if focus is self.query:" in dialog
     assert "self._on_query_key(event)" in dialog
     assert "if focus is self.results:" in dialog
+
+
+@pytest.mark.parametrize(("session_id", "kind"), (
+    (SessionId.FILES, "track"),
+    (SessionId.RADIO, "station"),
+    (SessionId.PODCASTS, "podcast"),
+))
+def test_saved_search_favorite_reports_both_confirmed_directions(
+    session_id: SessionId, kind: str,
+) -> None:
+    spoken = []
+    calls = []
+    favorite = False
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def toggle(*args, **kwargs):
+        nonlocal favorite
+        calls.append((args, kwargs))
+        favorite = not favorite
+        return {"favorite": favorite, "changed": 1}
+
+    row = Row("saved-item", "Pozycja", kind, path="D:/Muzyka/pozycja.mp3")
+    frame = SimpleNamespace(
+        client=SimpleNamespace(
+            toggle_profile_favorites=toggle,
+            toggle_podcast_favorites=toggle,
+        ),
+        runner=Runner(),
+    )
+    entry = SearchEntry(session_id, row)
+    for _ in range(2):
+        LiteFrame._change_saved_search_result_favorites(
+            frame, [entry], announce=spoken.append,
+        )
+
+    assert spoken == [
+        "Dodano do ulubionych: Pozycja",
+        "Usunięto z ulubionych: Pozycja",
+    ]
+    assert len(calls) == 2
+    assert frame._search_favorite_pending is False
+
+
+@pytest.mark.parametrize(("session_id", "favorite", "kind"), (
+    (SessionId.TIDAL, False, "album"),
+    (SessionId.TIDAL, True, "track"),
+    (SessionId.SPOTIFY, False, "album"),
+    (SessionId.SPOTIFY, True, "track"),
+))
+def test_online_search_membership_uses_confirmed_toggle_twice(
+    session_id: SessionId, favorite: bool, kind: str,
+) -> None:
+    spoken = []
+    requested = []
+    member = False
+    destination = "Ulubionych" if favorite else "Biblioteki"
+    service = "TIDAL" if session_id is SessionId.TIDAL else "Spotify"
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def membership(_items, *, mode, add):
+        nonlocal member
+        requested.append((mode, add))
+        assert add is None
+        member = not member
+        return {
+            "added": member,
+            "changed": 1,
+            "message": (
+                f"{'Dodano do' if member else 'Usunięto z'} "
+                f"{destination} {service}: Pozycja"
+            ),
+        }
+
+    client = SimpleNamespace(
+        tidal_collection_membership=membership,
+        spotify_collection_membership=membership,
+    )
+    frame = SimpleNamespace(
+        client=client, runner=Runner(),
+        _spotify_membership_pending=False,
+        _tidal_membership_pending=False,
+    )
+    entry = SearchEntry(
+        session_id,
+        Row("online-item", "Pozycja", kind, service_id="service-item"),
+        remote_kind="tidalCatalog" if service == "TIDAL" else "spotifyCatalog",
+    )
+    change = (
+        LiteFrame._change_tidal_search_result_membership
+        if service == "TIDAL"
+        else LiteFrame._change_spotify_search_result_membership
+    )
+    for _ in range(2):
+        change(frame, [entry], favorite=favorite, announce=spoken.append)
+
+    assert requested == [("favorite" if favorite else "library", None)] * 2
+    assert spoken == [
+        f"Dodano do {destination} {service}: Pozycja",
+        f"Usunięto z {destination} {service}: Pozycja",
+    ]
+
+
+def test_radio_directory_library_repeated_presses_add_remove_readd() -> None:
+    spoken = []
+    in_library = False
+    toggles = []
+    add_calls = 0
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    def add_station(_title, _address):
+        nonlocal in_library, add_calls
+        add_calls += 1
+        promoted = not in_library
+        in_library = True
+        return {
+            "preferredStationId": "station-1",
+            "addedCount": int(promoted and add_calls == 1),
+            "promotedCount": int(promoted and add_calls > 1),
+        }
+
+    def toggle(ids):
+        nonlocal in_library
+        toggles.append(ids)
+        in_library = not in_library
+        return {"inLibrary": in_library, "changed": 1}
+
+    frame = SimpleNamespace(
+        _radio_search_action_pending=False,
+        client=SimpleNamespace(
+            add_radio_station=add_station,
+            toggle_radio_library=toggle,
+        ),
+        runner=Runner(),
+        status_field=SimpleNamespace(SetLabel=lambda _value: None),
+        status_bar=SimpleNamespace(show=lambda _value: None),
+    )
+    entry = SearchEntry(
+        SessionId.RADIO,
+        Row("directory-1", "Stacja", "station", url="https://example.test/live"),
+        remote_kind="radioStation",
+    )
+    for _ in range(3):
+        LiteFrame._complete_remote_radio_search_result_action(
+            frame, [entry], SearchResultAction.LIBRARY, announce=spoken.append,
+        )
+
+    assert toggles == [["station-1"]]
+    assert in_library is True
+    assert spoken == [
+        "Dodano do Biblioteki: Stacja",
+        "Usunięto z Biblioteki: Stacja",
+        "Dodano do Biblioteki: Stacja",
+    ]
+
+
+@pytest.mark.parametrize("video", (False, True))
+def test_podcast_directory_library_repeated_presses_add_remove_readd(
+    video: bool,
+) -> None:
+    spoken = []
+    in_library = False
+    removed = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    def add_source(_address, title):
+        nonlocal in_library
+        added = not in_library
+        in_library = True
+        return {
+            "subscriptionId": "source-1",
+            "preferredEpisodeId": "episode-1" if video else None,
+            "title": title,
+            "added": added,
+            "restored": False,
+        }
+
+    def remove_source(ids):
+        nonlocal in_library
+        removed.append(ids)
+        in_library = False
+        return {"added": False, "changed": 1}
+
+    def remove_video(_session, _view, ids):
+        nonlocal in_library
+        removed.append(ids)
+        in_library = False
+        return {"removedCount": 1}
+
+    frame = SimpleNamespace(
+        _podcast_add_pending=False,
+        client=SimpleNamespace(
+            add_podcast_source=add_source,
+            toggle_podcast_library=remove_source,
+            remove_profile_items=remove_video,
+        ),
+        runner=Runner(),
+        status_field=SimpleNamespace(SetLabel=lambda _value: None),
+        status_bar=SimpleNamespace(show=lambda _value: None),
+        _refresh_visible_podcast_library_after_search_add=lambda _id: None,
+        _refresh_visible_podcast_search_membership=lambda *args, **kwargs: None,
+    )
+    entry = SearchEntry(
+        SessionId.PODCASTS,
+        Row("remote-1", "Pozycja", "episode" if video else "podcast",
+            url="https://example.test/item"),
+        remote_kind="youtubeVideo" if video else "rss",
+    )
+    for _ in range(3):
+        LiteFrame._complete_remote_search_result_action(
+            frame, [entry], SearchResultAction.LIBRARY,
+            announce=spoken.append,
+        )
+
+    assert removed == [["episode-1" if video else "source-1"]]
+    assert in_library is True
+    destination = "Biblioteki, Media internetowe" if video else "Biblioteki"
+    assert spoken[1::2] == [
+        f"Dodano do {destination}: Pozycja",
+        f"Usunięto z {destination}: Pozycja",
+        f"Dodano do {destination}: Pozycja",
+    ]
+
+
+def test_radioarchiwista_search_favorite_toggles_recording_twice() -> None:
+    spoken = []
+    favorite = False
+    recording = SimpleNamespace(title="Nagranie")
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def toggle(_recording):
+        nonlocal favorite
+        favorite = not favorite
+        return favorite
+
+    frame = SimpleNamespace(
+        _radioarchiwista_source=lambda: SimpleNamespace(
+            recording_by_id=lambda _id: recording,
+            toggle_favorite=toggle,
+        ),
+        runner=Runner(),
+    )
+    entry = SearchEntry(
+        SessionId.RADIOARCHIWISTA,
+        Row("recording-1", "Nagranie", "recording"),
+    )
+    for _ in range(2):
+        LiteFrame._change_saved_search_result_favorites(
+            frame, [entry], announce=spoken.append,
+        )
+    assert spoken == [
+        "Dodano do ulubionych: Nagranie",
+        "Usunięto z ulubionych: Nagranie",
+    ]
+
+
+@pytest.mark.parametrize("session_id", (SessionId.WIIM, SessionId.SONOS))
+def test_speaker_search_favorite_explains_unavailable_action(
+    session_id: SessionId,
+) -> None:
+    spoken = []
+    entry = SearchEntry(session_id, Row("source-1", "Źródło", "station"))
+    LiteFrame._change_saved_search_result_favorites(
+        SimpleNamespace(), [entry], announce=spoken.append,
+    )
+    assert spoken == ["Ulubione nie są dostępne dla tego wyniku"]

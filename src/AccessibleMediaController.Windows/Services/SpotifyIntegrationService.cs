@@ -66,7 +66,8 @@ internal sealed record SpotifyPlaybackCredentials(
 internal sealed class SpotifyIntegrationService(
     SpotifySettings settings,
     HttpClient? httpClient = null,
-    Func<CancellationToken, Task<SpotifyTokenSet>>? tokenProvider = null) : IDisposable
+    Func<CancellationToken, Task<SpotifyTokenSet>>? tokenProvider = null,
+    string credentialTarget = SpotifyCredentialStore.DefaultTargetName) : IDisposable
 {
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
 
@@ -106,7 +107,7 @@ internal sealed class SpotifyIntegrationService(
             if (storedLoginProbe is { } cached) return cached;
             try
             {
-                var found = SpotifyCredentialStore.TryRead(out _);
+                var found = SpotifyCredentialStore.TryRead(out _, credentialTarget);
                 storedLoginProbe = found;
                 storedLoginProbeFailure = null;
                 return found;
@@ -138,7 +139,7 @@ internal sealed class SpotifyIntegrationService(
         try
         {
             var tokens = await oauth.AuthorizeAsync(settings, cancellationToken).ConfigureAwait(false);
-            SpotifyCredentialStore.Write(tokens);
+            SpotifyCredentialStore.Write(tokens, credentialTarget);
             InvalidateStoredLoginProbe();
             settings.GrantedScope = tokens.Scope;
             DiagnosticLog.Info(
@@ -580,7 +581,7 @@ internal sealed class SpotifyIntegrationService(
 
     public void Disconnect()
     {
-        SpotifyCredentialStore.Delete();
+        SpotifyCredentialStore.Delete(credentialTarget);
         recentlyCreatedPlaylists.Clear();
         InvalidateStoredLoginProbe();
         settings.AccountDisplayName = string.Empty;
@@ -596,7 +597,7 @@ internal sealed class SpotifyIntegrationService(
         // poświadczeń Windows w ogóle.
         if (tokenProvider is not null)
             return await tokenProvider(cancellationToken).ConfigureAwait(false);
-        if (!SpotifyCredentialStore.TryRead(out var stored) || stored is null)
+        if (!SpotifyCredentialStore.TryRead(out var stored, credentialTarget) || stored is null)
             throw new InvalidOperationException("Nie ma zapisanego logowania Spotify. Zaloguj się w oknie konta Spotify.");
         // Identyfikator aplikacji zmieniony w ustawieniach unieważnia token:
         // Spotify wiąże token z konkretną rejestracją.
@@ -609,7 +610,7 @@ internal sealed class SpotifyIntegrationService(
 
         DiagnosticLog.Info("spotify-auth", "Odświeżanie tokenu Spotify.");
         var refreshed = await oauth.RefreshAsync(settings, stored, cancellationToken).ConfigureAwait(false);
-        SpotifyCredentialStore.Write(refreshed);
+        SpotifyCredentialStore.Write(refreshed, credentialTarget);
         // Spotify przy odswiezeniu czesto NIE powtarza listy zakresow. Puste
         // pole nie znaczy "odebrano uprawnienia" - nadpisanie go pustka kasowalo
         // wiedze o zakresie "streaming" i odtwarzanie zglaszalo nieprawdziwe

@@ -93,12 +93,13 @@ def test_sonos_dialog_focuses_a_meaningful_control_for_every_account_state() -> 
     ) == "status"
 
 
-def test_configure_sonos_opens_account_surface_not_a_spoken_dead_end() -> None:
+def test_configure_sonos_starts_local_target_selection_without_account_dialog() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     section = source[source.index("    def _configure_session") :]
     section = section[:section.index("    def _show_library_folders")]
     assert "if session_id is SessionId.SONOS:" in section
-    assert "self._show_sonos_account()" in section
+    assert "self._select_sonos_target()" in section
+    assert "self._show_sonos_account()" not in section
     assert 'SessionId.SONOS: "Wybierz dom i grupę Sonos"' not in section
     assert "elif isinstance(intent, OpenSonosAccount):" in source
 

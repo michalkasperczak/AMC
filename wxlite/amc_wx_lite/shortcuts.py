@@ -523,6 +523,13 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         "Ctrl+I",
         "&Nowe odcinki i materiały",
     ),
+    Action.REPORT_PROBLEM: CommandPresentation(
+        Action.REPORT_PROBLEM,
+        "Zgłoś błąd lub sugestię…",
+        "Zgłoś błąd lub sugestię",
+        "Ctrl+Alt+Z",
+        "Zgłoś &błąd lub sugestię…",
+    ),
     Action.CHECK_APPLICATION_UPDATE: CommandPresentation(
         Action.CHECK_APPLICATION_UPDATE,
         "Sprawdź aktualizację AMC",
@@ -581,13 +588,13 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "spotify": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto Spotify",
-        "Otwórz konto Spotify, ustaw identyfikator aplikacji, zaloguj katalog lub połącz odtwarzacz",
+        "Otwórz konto Spotify, zapisz lub skopiuj Client ID, zaloguj albo wyloguj konto oraz skonfiguruj odtwarzacz Soloist",
         "Ctrl+F5",
     ),
     "tidal": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto i synchronizacja TIDAL",
-        "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj ponownie lub odłącz konto katalogu. Pełne odtwarzanie wymaga osobnego zatwierdzenia; przy pierwszym utworze możesz otworzyć przeglądarkę z kodem",
+        "Otwórz konto TIDAL, ustaw identyfikator aplikacji katalogu, zaloguj lub wyloguj katalog. Pełne odtwarzanie wymaga osobnego zatwierdzenia; przy pierwszym utworze możesz otworzyć przeglądarkę z kodem",
         "Ctrl+F5",
     ),
     "wiim": CommandPresentation(
@@ -647,6 +654,7 @@ def ctrl_f5_presentation(session_label: str | None) -> CommandPresentation | Non
 SESSION_INDEPENDENT_ACTIONS = frozenset({
     Action.RECORD_STOP_ALL,
     Action.CHECK_APPLICATION_UPDATE,
+    Action.REPORT_PROBLEM,
 })
 
 
@@ -1335,6 +1343,7 @@ class ShortcutDefinition:
 # natywnego ListCtrl, zeby czytnik ekranu i Narrator dzialaly bez dodatku.
 LIST_VIEW: dict[str, Action] = {
     "Ctrl+Shift+K": Action.COMMAND_PALETTE,
+    "Ctrl+Alt+Z": Action.REPORT_PROBLEM,
     "Ctrl+Shift+S": Action.SESSION_LIST,
     "Ctrl+Prior": Action.PREVIOUS_SESSION,
     "Ctrl+Next": Action.NEXT_SESSION,
@@ -1552,6 +1561,7 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
 # z profilu globalnego AMC (przewijanie i glosnosc).
 PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Shift+K": Action.COMMAND_PALETTE,
+    "Ctrl+Alt+Z": Action.REPORT_PROBLEM,
     "Ctrl+Shift+S": Action.SESSION_LIST,
     "Ctrl+Prior": Action.PREVIOUS_SESSION,
     "Ctrl+Next": Action.NEXT_SESSION,
@@ -2752,7 +2762,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.UPDATE_MEDIA_COMPONENTS: (
             "Sprawdź, pobierz i zweryfikuj składniki FFmpeg i yt-dlp"
         ),
-        Action.REPORT_PROBLEM: "Zgłoś błąd lub sugestię",
+        Action.REPORT_PROBLEM: _STATIC_COMMAND_PRESENTATIONS[
+            Action.REPORT_PROBLEM
+        ].description,
         Action.VERSION_INFO: "Wersja programu",
         # Pomoc mowi WPROST, ze zakres to sesja, a nie zaznaczony plik -- bez
         # tego uzytkownik nie wie, czego dotkna zmiany.
@@ -2906,7 +2918,6 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.OPEN_CONTAINING_FOLDER,
         Action.CHECK_APPLICATION_UPDATE,
         Action.UPDATE_MEDIA_COMPONENTS,
-        Action.REPORT_PROBLEM,
     ):
         if action not in seen:
             out.append(("Bez skrótu", labels[action], action))

@@ -10,6 +10,7 @@ internal static class Program
 {
     private const int InvalidBundle = 2;
     private const int StartFailed = 3;
+    private const int UpdateInProgress = 4;
     private const int ExistingWindowWaitMilliseconds = 5_000;
     private const int PostUpdateWindowWaitMilliseconds = 15_000;
     private const int SafeReplacementWaitMilliseconds = 10_000;
@@ -30,6 +31,16 @@ internal static class Program
             string.Equals(argument, "--sprawdz-start-cicho", StringComparison.OrdinalIgnoreCase));
         try
         {
+            // Sprawdzamy przed odczytem pakietu: instalator może w tej
+            // chwili podmieniać nawet manifest i pliki startowe.
+            if (UpdateInProgressGate.ActiveProfile(AppContext.BaseDirectory) is { } updating)
+            {
+                if (!silentBundleCheck && !silentStartupCheck)
+                    Show(updating, $"Trwa aktualizacja {updating.DisplayName}. "
+                        + "Zaczekaj na zakończenie instalacji. "
+                        + "Program uruchomi się ponownie automatycznie.", false);
+                return UpdateInProgress;
+            }
             var bundle = BundleVerifier.Verify(
                 AppContext.BaseDirectory,
                 verifyAllFiles: fullBundleCheck);
@@ -56,6 +67,8 @@ internal static class Program
             // omija zwykłą dzierżawę pojedynczej instancji.
             if (silentStartupCheck)
             {
+                if (UpdateInProgressGate.ActiveProfile(bundle.Root) is not null)
+                    return UpdateInProgress;
                 return RunFrontend(
                     bundle,
                     args,
@@ -128,6 +141,13 @@ internal static class Program
                     }
                 }
 
+                if (UpdateInProgressGate.ActiveProfile(bundle.Root) is { } installing)
+                {
+                    Show(installing, $"Trwa aktualizacja {installing.DisplayName}. "
+                        + "Zaczekaj na zakończenie instalacji. "
+                        + "Program uruchomi się ponownie automatycznie.", false);
+                    return UpdateInProgress;
+                }
                 return RunFrontend(
                     bundle,
                     args,

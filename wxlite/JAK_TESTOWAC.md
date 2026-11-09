@@ -368,33 +368,31 @@ Zapisz wtedy wynik jako „nieprzetestowane na żywo”. Spotify nie należy do 
 etapu. Moduł aktualizacji będzie sprawdzany osobno po weryfikacji „Sygnalisty”:
 `https://github.com/michaldziwisz/sygnalista`.
 
-## Konto i parowanie Spotify w AMC Test alpha.458
+## Konto Spotify w AMC Test i Public
 
-W sesji Spotify naciśnij `Ctrl+F5`. Na koncie bez konfiguracji fokus powinien
-trafić do pola Client ID. Tab ma przejść przez adres powrotu, panel Spotify,
-zapis identyfikatora, parowanie oraz przyciski zamknięcia. Skopiuj adres
-powrotu i sprawdź, czy kończy się ukośnikiem. Błędny Client ID powinien
-pozostawić fokus w polu i dać czytelny komunikat. Ponowne `Ctrl+F5` ma podnieść
-to samo okno, a główne AMC ma pozostać dostępne także podczas logowania.
-Sprawdź kod i adres parowania, „Sprawdź parowanie”, „Anuluj parowanie”, Escape,
-zamknięcie w trakcie oczekiwania, powrót fokusu oraz ponowne otwarcie.
-Pomoc `Ctrl+F1`, paleta `Ctrl+Shift+K` i menu mają opisywać obecne czynności
-konta. TIDAL używa tego samego otwartego okna bez blokowania AMC.
-Odbiór prawdziwego logowania, dźwięku i wypowiedzi NVDA zapisuj osobno od
-testów bez konta. Nie zmieniaj konta produkcyjnego dla samego testu.
+W sesji Spotify naciśnij `Ctrl+F5`. Bez konfiguracji fokus trafia do pola
+Client ID. Tabem sprawdź pole, kopiowalny adres powrotu, panel Spotify,
+zapis identyfikatora, logowanie i zamknięcie. Po zapisaniu Client ID sprawdź
+przycisk „Kopiuj identyfikator aplikacji” i wynik w schowku. Po zalogowaniu
+przycisk „Zaloguj w przeglądarce” ma zniknąć, a „Wyloguj ze Spotify w AMC”
+ma być dostępny; nie wykonuj wylogowania na używanym koncie tylko dla testu.
+Po zapisie, anulowaniu potwierdzenia i ponownym otwarciu sprawdź fokus i
+odczyt NVDA. Pomoc `Ctrl+F1`, paleta `Ctrl+Shift+K` i menu mają opisywać
+aktualne czynności konta. Dźwięk i rzeczywiste logowanie oceniaj osobno od
+testów bez konta.
 
 ### Próba konta TIDAL w izolowanej paczce Public z 6.11.2026
 
 Zamknij poprzednią paczkę próbną Public przed uruchomieniem nowej. W sesji
 TIDAL otwórz `Ctrl+F5`. Po zapisaniu Client ID i logowaniu w przeglądarce
-okno ma podać „Zalogowano konto TIDAL”, a przyciski mają brzmieć „Zaloguj
-ponownie w przeglądarce” i „Odłącz konto katalogu TIDAL”. Po zamknięciu okna
+okno ma podać „Zalogowano konto TIDAL”, przycisk logowania ma ustąpić
+przyciskowi „Wyloguj z katalogu TIDAL w AMC”. Po zamknięciu okna
 sprawdź, czy Biblioteka TIDAL, Ulubione i Playlisty wczytują własne pozycje.
 Sprawdź też `Ctrl+F1`, pełną pomoc, paletę `Ctrl+Shift+K` i menu dla `Ctrl+F5`.
 W NVDA przejdź Tabem przez pole Client ID, adres powrotu, panel aplikacji,
-zapis, ponowne logowanie, odłączenie i zamknięcie. Sprawdź fokus po anulowaniu
-potwierdzenia odłączenia, po błędzie, po zamknięciu i po ponownym otwarciu.
-Nie wybieraj „Odłącz” na używanym koncie tylko dla testu; do tej próby użyj
+zapis, wylogowanie i zamknięcie. Sprawdź fokus po anulowaniu
+potwierdzenia wylogowania, po błędzie, po zamknięciu i po ponownym otwarciu.
+Nie wybieraj „Wyloguj” na używanym koncie tylko dla testu; do tej próby użyj
 odrębnego profilu lub konta testowego. Pierwszy pełny utwór może poprosić o
 osobny kod urządzenia. Zanotuj osobno wynik logowania katalogu i odtwarzacza.
 
@@ -1314,3 +1312,22 @@ python3 mk_receipt.py <kwit> <speech.txt> receipt.json
    albo uczciwie powiedzieć, że nic nie jest nagrywane; nie może wymagać
    wcześniejszego przełączenia do sesji Radia. Ta sama nazwa i skrót muszą być
    widoczne w menu, `Ctrl+F1`, pełnej pomocy i palecie `Ctrl+Shift+K`.
+
+## Tytuł głównego okna — próba NVDA+T, 09.11.2026
+
+W Ustawieniach ogólnych wybierz położenie tytułu odtwarzanego utworu:
+po nazwie i dacie AMC, przed nazwą AMC albo bez tytułu utworu. Otwórz
+ustawienia ponownie i sprawdź zachowany wybór oraz odczyt każdej pozycji
+listy klawiszami strzałek. Przy graniu utworu w Spotify, TIDAL, Radiu i
+Plikach użyj NVDA+T. Nazwa produktu i data kompilacji mają pozostać, a
+bieżący tytuł pojawić się w wybranym miejscu. Po zatrzymaniu odtwarzania
+NVDA+T nie powinno powtarzać dawnego utworu. NVDA+End nadal czyta szczegóły.
+Sprawdź też powrót fokusu po Zapisz i Anuluj oraz ponowne otwarcie.
+Sonos i pozostałe urządzenia sieciowe wymagają osobnego odbioru na sprzęcie.
+
+
+### AMC Test/Public — Sygnalista i instalacja po zgłoszeniu Huberta #14
+
+Po zainstalowaniu nowego kandydata przejdź kolejno do listy Plików, Radia, Spotify i TIDAL, a w Test także Sonosa. W każdej sesji naciśnij `Ctrl+Alt+Z`, sprawdź fokus na tytule raportu, przejście Tabem przez pola i powrót fokusu po Anuluj. Powtórz z odtwarzacza i po ponownym otwarciu. Porównaj nazwę i skrót w menu Pomoc, F1, pomocy klawiatury `Ctrl+F1` i palecie `Ctrl+Shift+K`. W Public sprawdź uczciwy tryb lokalny: podgląd, schowek i zapis, bez pozorowanej wysyłki. W Test zweryfikuj dostępność przycisku wysyłki, lecz nie twórz próbnego zgłoszenia bez osobnej zgody.
+
+Aktualizację sprawdzaj tylko na izolowanej, kompletnej kopii właściwego profilu. W chwili, gdy instalator podmienia runtime, uruchom skrót AMC z menu Start: powinien pojawić się komunikat o trwającej aktualizacji, bez startu Pythona. Po końcu potwierdź automatyczny start z właściwego folderu i pełną integralność manifestu. W osobnej sztucznie uszkodzonej kopii usuń jeden plik niestartowy po instalacji i sprawdź, że aktualizator nie restartuje AMC, zachowuje instalator i podaje jasny komunikat naprawy. Nie odtwarzaj awarii na działających instalacjach użytkownika.

@@ -256,6 +256,8 @@ class Options:
     #: Preferencja języka jest niezależna od konkretnego katalogu. Wartość
     #: ``system`` rozstrzyga się przy każdym starcie aplikacji.
     interface_language: str = "system"
+    #: Kolejność tytułu odtwarzanego materiału w tytule głównego okna.
+    window_title_playback_position: str = "after"
     loudness_normalization: bool = False
     smooth_track_transitions: bool = False
     inter_track_silence_ms: int = 0
@@ -401,6 +403,8 @@ class Options:
         if self.startup_target not in ("MediaList", "SessionList"):
             self.startup_target = "MediaList"
         self.interface_language = normalize_preference(self.interface_language)
+        if self.window_title_playback_position not in ("after", "before", "off"):
+            self.window_title_playback_position = "after"
         self.session_order = normalized_session_order_values(self.session_order)
         # STRICT ``is not bool``, nie ``bool(...)``: napis z recznie
         # poprawionego pliku nie moze po cichu zmienic zachowania Escape.

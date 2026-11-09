@@ -26,8 +26,9 @@ internal static class RadioLibraryMutationTests
             updateExistingTitles: true);
 
         var station = Stations(root).Single();
-        Assert.True(updated.UpdatedCount == 1 && updated.AddedCount == 0,
-            "ręczne dodanie tego samego adresu aktualizuje istniejącą stację");
+        Assert.True(updated.UpdatedCount == 1 && updated.AddedCount == 0
+                    && updated.PromotedCount == 1,
+            "ręczne dodanie tego samego adresu aktualizuje i przywraca stację");
         Assert.Equal("radio:old", updated.PreferredStationId,
             "fokus po aktualizacji wraca na istniejącą stację");
         Assert.Equal("Nowa nazwa", station["name"]?.GetValue<string>(),

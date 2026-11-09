@@ -15,6 +15,7 @@ internal static class SpotifyCatalogContractTests
         AccountStatusKeepsCatalogueAndPlaybackSeparate();
         MissingClientIdIsAnExplicitSafeState();
         ConfigureClientIdRejectsSecretsAndUpdatesBackend();
+        DisconnectKeepsApplicationIdAndClearsConnection();
         PairingKeepsDeviceSecretOutOfProtocol();
         CollectionRootContainsOnlyUserFacingCategories();
         CollectionViewRequestUsesSafeCumulativePageSizes();
@@ -40,6 +41,7 @@ internal static class SpotifyCatalogContractTests
         CoordinatorLoginInvalidatesPreviousPodcastSnapshot();
         CoordinatorRedactsBackendFailures();
         CoordinatorSearchesExactlyOnceWithoutMutatingAnything();
+        CoordinatorDoesNotAnnounceSuccessWithoutConfirmedChange();
         CoordinatorReadsOneDescriptionWithoutMutation();
         CoordinatorReadsEpisodeChaptersFromDescriptionWithoutMutation();
         CoordinatorShowsConfirmedCreatedPlaylistInCollectionImmediately();
@@ -284,6 +286,21 @@ internal static class SpotifyCatalogContractTests
             && !json.Contains("refresh", StringComparison.OrdinalIgnoreCase)
             && !json.Contains("spotifyLibrespot", StringComparison.OrdinalIgnoreCase),
             "status konta zawiera prywatne albo historyczne pole");
+    }
+
+    private static void DisconnectKeepsApplicationIdAndClearsConnection()
+    {
+        var backend = new WritableFakeBackend();
+        var coordinator = new LiteSpotifyCatalogCoordinator(backend);
+        backend.ConfigureClientId("0123456789abcdef0123456789abcdef");
+
+        coordinator.Disconnect();
+
+        var status = (LiteSpotifyAccountStatusResult)coordinator.AccountStatus();
+        Check(backend.DisconnectCalls == 1 && !status.Catalog.Connected,
+            "wylogowanie nie usunęło połączenia katalogu");
+        Check(backend.ClientId == "0123456789abcdef0123456789abcdef",
+            "wylogowanie nie powinno usuwać identyfikatora aplikacji");
     }
 
     private static void MissingClientIdIsAnExplicitSafeState()
@@ -845,6 +862,28 @@ internal static class SpotifyCatalogContractTests
             "wynik zmienił rodzaj albo wyszukiwanie wykonało mutację");
     }
 
+    private static void CoordinatorDoesNotAnnounceSuccessWithoutConfirmedChange()
+    {
+        using var backend = new WritableFakeBackend();
+        using var coordinator = new LiteSpotifyCatalogCoordinator(backend);
+        using var args = JsonDocument.Parse("""
+        {
+          "mode":"library",
+          "items":[{
+            "itemId":"spotify:album:album123",
+            "externalId":"album123",
+            "title":"Album",
+            "kind":"album"
+          }]
+        }
+        """);
+        var result = (LiteSpotifyMembershipResult)coordinator.ChangeMembership(
+            args.RootElement);
+        Check(result.Changed == 0
+            && result.Message == "Biblioteka Spotify bez zmian",
+            "brak potwierdzonej zmiany został przedstawiony jako dodanie");
+    }
+
     private static void CoordinatorReadsOneDescriptionWithoutMutation()
     {
         using var backend = new FakeBackend { Description = "Opis próby" };
@@ -1120,6 +1159,7 @@ internal static class SpotifyCatalogContractTests
         public int RefreshCalls { get; private set; }
         public int PlaylistTargetCalls { get; private set; }
         public int LoginCalls { get; private set; }
+        public int DisconnectCalls { get; private set; }
         public int PodcastRefreshCalls { get; private set; }
         public string ClientId { get; private set; } = string.Empty;
         public bool PairingCancelled { get; private set; }
@@ -1130,7 +1170,8 @@ internal static class SpotifyCatalogContractTests
         public IReadOnlyList<MediaItem> CachedCollection => [];
 
         public LiteSpotifyAccountProbe ReadAccountStatus() => new(
-            true, true, "Konto", "premium", true);
+            true, DisconnectCalls == 0, "Konto", "premium", DisconnectCalls == 0,
+            ClientId: ClientId);
 
         public Task<LiteSpotifyCollectionRefresh> RefreshCollectionAsync(
             CancellationToken cancellationToken)
@@ -1213,6 +1254,8 @@ internal static class SpotifyCatalogContractTests
         }
 
         public void ConfigureClientId(string clientId) => ClientId = clientId;
+
+        public void Disconnect() => DisconnectCalls++;
 
         public Task<LiteSpotifyPairingRequest> StartPairingAsync(
             CancellationToken cancellationToken) =>

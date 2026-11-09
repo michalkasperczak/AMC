@@ -63,6 +63,13 @@ def test_round_trip_keeps_options_and_stations() -> None:
     assert [s.url for s in loaded.stations] == ["http://a/1"]
 
 
+def test_window_title_preference_round_trips_and_rejects_unknown_value() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(options=Options(window_title_playback_position="before")))
+    assert store.load().options.window_title_playback_position == "before"
+    assert Options(window_title_playback_position="unexpected").clamp().window_title_playback_position == "after"
+
+
 def test_startup_target_round_trips_and_rejects_technical_garbage() -> None:
     store, _ = temp_store()
     store.save(LiteState(options=Options(startup_target="SessionList")))

@@ -5,6 +5,7 @@ from amc_wx_lite.version_info import (
     is_main_window_title,
     read_build_label,
     window_title,
+    window_title_with_playback,
 )
 
 
@@ -55,6 +56,18 @@ def test_invalid_manifest_never_leaks_technical_content(tmp_path) -> None:
 
     assert read_build_label(tmp_path) == ""
     assert window_title(tmp_path) == "AMC Test — wersja 0.1.0"
+
+
+def test_window_title_can_place_current_track_before_or_after_build_date() -> None:
+    base = "AMC Test — 09.11.2026, 18:06"
+    assert window_title_with_playback(base, "Artysta - Utwór", "after") == (
+        "AMC Test — 09.11.2026, 18:06 — Artysta - Utwór"
+    )
+    before = window_title_with_playback(base, "Artysta - Utwór", "before")
+    assert before == "Artysta - Utwór — AMC Test — 09.11.2026, 18:06"
+    assert is_main_window_title(before)
+    assert window_title_with_playback(base, "Artysta - Utwór", "off") == base
+    assert window_title_with_playback(base, "", "before") == base
 
 
 def test_main_window_matcher_excludes_diagnostic_alert() -> None:

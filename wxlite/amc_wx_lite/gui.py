@@ -93,6 +93,8 @@ from .command_palette import (
 )
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
 from .release_profile import current_profile
+from .spotify_soloist import SoloistManager, SoloistSetupError
+from .spotify_soloist_dialog import SpotifySoloistDialog
 from .youtube_account import (
     account_connected as youtube_account_connected,
     capability_available as youtube_capability_available,
@@ -290,6 +292,8 @@ if "session.sonos" in _RELEASE_PROFILE.capabilities:
         now_playing_label as sonos_now_playing_label,
         snapshot as sonos_snapshot,
     )
+if "sonos.local" in _RELEASE_PROFILE.capabilities:
+    from .sonos_local import LocalSonosClient
 from .profile_layout import common_data_snapshot_path, resolve_layout
 from .full_backup import (
     ALL_SECTIONS,
@@ -476,7 +480,7 @@ if "session.tidal" in _RELEASE_PROFILE.capabilities:
         queue_payload as tidal_queue_payload,
         queue_rows as tidal_queue_rows,
     )
-from .version_info import PRODUCT_NAME, is_main_window_title, window_title
+from .version_info import PRODUCT_NAME, is_main_window_title, window_title, window_title_with_playback
 
 APP_NAME = PRODUCT_NAME
 
@@ -2455,7 +2459,8 @@ class SearchDialog(wx.Dialog):
         self.results.SetHelpText(
             "Strzałki wybierają wynik. Enter przechodzi do wyniku na "
             "właściwej liście. Prawa strzałka pokazuje dostępne "
-            "relacje. Ctrl+Shift+L dodaje wynik katalogu do Biblioteki. "
+            "relacje. Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
+            "wyników. Ctrl+Shift+U zmienia stan Ulubionych. "
             "Ctrl+L zamyka wyszukiwanie i otwiera Bibliotekę. Escape zamyka okno."
             if detailed_hints
             else ""
@@ -2736,8 +2741,8 @@ class SearchDialog(wx.Dialog):
         self.selected_result = entry
         self.selected_results = selected or [entry]
         self.selected_action = action
-        if action is SearchResultAction.LIBRARY:
-            # Zmiana Biblioteki ma zostać wykonana w samym oknie wyszukiwania
+        if action in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE):
+            # Zmiana kolekcji ma zostać wykonana w samym oknie wyszukiwania
             # dla każdego źródła. Także brak obsługi ma zostać ogłoszony tutaj,
             # zamiast zamknąć modal i zgubić fokus. Dawna droga zapisanego
             # wyniku przechodziła do listy źródłowej i dopiero tam wykonywała
@@ -4520,9 +4525,12 @@ class ServiceAccountDialog(wx.Dialog):
         save_client_id: Callable[["ServiceAccountDialog", str], None] | None = None,
         disconnect_account: Callable[["ServiceAccountDialog"], None] | None = None,
         connected: bool = False,
+        saved_client_id: str = "",
+        copy_client_id: Callable[[str], bool] | None = None,
         start_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         check_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
         cancel_spotify_pairing: Callable[["ServiceAccountDialog"], None] | None = None,
+        open_spotify_soloist: Callable[["ServiceAccountDialog"], None] | None = None,
         on_closed: Callable[["ServiceAccountDialog"], None] | None = None,
         redirect_uri: str = "",
         needs_setup: bool = False,
@@ -4539,9 +4547,12 @@ class ServiceAccountDialog(wx.Dialog):
         self._save_client_id = save_client_id
         self._disconnect_account = disconnect_account
         self._connected = bool(connected)
+        self._saved_client_id = saved_client_id.strip()
+        self._copy_client_id = copy_client_id
         self._start_spotify_pairing = start_spotify_pairing
         self._check_spotify_pairing = check_spotify_pairing
         self._cancel_spotify_pairing = cancel_spotify_pairing
+        self._open_spotify_soloist = open_spotify_soloist
         self._on_closed = on_closed
         self.pairing_active = False
         self._login_started = False
@@ -4556,7 +4567,9 @@ class ServiceAccountDialog(wx.Dialog):
                 "Jej właściciel musi mieć Premium i dopisać Twoje konto do listy "
                 "użytkowników; możesz też użyć własnej aplikacji. W panelu Spotify "
                 "wpisz pokazany adres powrotu dokładnie, z końcowym ukośnikiem. "
-                "Nie wklejaj Client Secret. Hasło wpisujesz tylko na stronie Spotify."
+                "Odtwarzacz Soloist wymaga osobnego klucza, który zapiszesz w jego "
+                "konfiguracji poniżej. Nie wklejaj Client Secret. Hasło wpisujesz "
+                "tylko na stronie Spotify."
             )
         else:
             explanation_text = (
@@ -4576,7 +4589,7 @@ class ServiceAccountDialog(wx.Dialog):
         self.status.SetName(f"Stan konta {service_name}: {status}")
         if save_client_id is not None:
             self.client_id_label = wx.StaticText(self, label="&Client ID:")
-            self.client_id = wx.TextCtrl(self)
+            self.client_id = wx.TextCtrl(self, value=self._saved_client_id)
             self.client_id.SetName(f"Identyfikator aplikacji {service_name}, Client ID")
             self.redirect_uri_label = wx.StaticText(self, label="&Adres powrotu:")
             self.redirect_uri = FocusableReadOnlyTextCtrl(self, value=redirect_uri)
@@ -4588,12 +4601,35 @@ class ServiceAccountDialog(wx.Dialog):
                              else "https://developer.tidal.com/dashboard/")
             )
             self.developer_url.SetName(f"Adres panelu aplikacji {service_name} do skopiowania")
+            self.developer_open_button = None
+            if service_name == "Spotify":
+                self.developer_open_button = wx.Button(
+                    self, label="Otwórz panel Spotify, aby utworzyć aplikację"
+                )
+                self.developer_open_button.SetName(
+                    "Otwórz panel Spotify, aby utworzyć aplikację i skopiować Client ID"
+                )
+                self.developer_open_button.Bind(
+                    wx.EVT_BUTTON, self._on_open_developer_panel
+                )
             self.save_button = wx.Button(self, label="Zapisz identyfikator aplikacji")
             self.save_button.SetName(f"Zapisz identyfikator aplikacji {service_name}")
             self.save_button.Bind(wx.EVT_BUTTON, self._on_save_client_id)
+            self.copy_client_id_button = wx.Button(
+                self, label="Kopiuj identyfikator aplikacji"
+            ) if copy_client_id is not None else None
+            if self.copy_client_id_button is not None:
+                self.copy_client_id_button.SetName(
+                    f"Kopiuj identyfikator aplikacji {service_name}"
+                )
+                self.copy_client_id_button.Bind(
+                    wx.EVT_BUTTON, self._on_copy_client_id
+                )
         else:
             self.client_id = None
             self.save_button = None
+            self.copy_client_id_button = None
+            self.developer_open_button = None
         if start_spotify_pairing is not None:
             self.pairing_button = wx.Button(self, label="Połącz odtwarzacz Spotify")
             self.pairing_button.SetName("Rozpocznij parowanie odtwarzacza Spotify")
@@ -4612,17 +4648,21 @@ class ServiceAccountDialog(wx.Dialog):
             self.cancel_pairing_button.Bind(wx.EVT_BUTTON, self._on_cancel_pairing)
         else:
             self.pairing_button = None
-        self.login_button = wx.Button(self, label=(
-            "Zaloguj ponownie w przeglądarce" if self._connected
-            else "Zaloguj w przeglądarce"
-        ))
-        self.login_button.SetName((
-            f"Zaloguj ponownie konto {service_name} w przeglądarce"
-            if self._connected else f"Zaloguj konto {service_name} w przeglądarce"
-        ))
+        if open_spotify_soloist is not None:
+            self.soloist_button = wx.Button(self, label="Konfiguruj odtwarzacz Soloist")
+            self.soloist_button.SetName("Konfiguruj odtwarzacz Spotify Soloist")
+            self.soloist_button.Bind(wx.EVT_BUTTON, self._on_open_soloist)
+        else:
+            self.soloist_button = None
+        self.login_button = wx.Button(self, label="Zaloguj w przeglądarce")
+        self.login_button.SetName(f"Zaloguj konto {service_name} w przeglądarce")
         if disconnect_account is not None:
-            self.disconnect_button = wx.Button(self, label=f"Odłącz konto katalogu {service_name}")
-            self.disconnect_button.SetName(f"Odłącz konto katalogu {service_name} w tym profilu AMC")
+            logout_label = (
+                "Wyloguj ze Spotify w AMC" if service_name == "Spotify"
+                else "Wyloguj z katalogu TIDAL w AMC"
+            )
+            self.disconnect_button = wx.Button(self, label=logout_label)
+            self.disconnect_button.SetName(logout_label)
             self.disconnect_button.Bind(wx.EVT_BUTTON, self._on_disconnect)
             self.disconnect_button.Show(self._connected)
         else:
@@ -4646,7 +4686,11 @@ class ServiceAccountDialog(wx.Dialog):
             layout.Add(self.redirect_uri, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
             layout.Add(self.developer_url_label, 0, wx.LEFT | wx.RIGHT, 12)
             layout.Add(self.developer_url, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+            if self.developer_open_button is not None:
+                layout.Add(self.developer_open_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
             layout.Add(self.save_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+            if self.copy_client_id_button is not None:
+                layout.Add(self.copy_client_id_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         if self.pairing_button is not None:
             layout.Add(self.pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
             layout.Add(self.pairing_code_label, 0, wx.LEFT | wx.RIGHT, 12)
@@ -4655,10 +4699,13 @@ class ServiceAccountDialog(wx.Dialog):
             layout.Add(self.pairing_address, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
             layout.Add(self.check_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
             layout.Add(self.cancel_pairing_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        if self.soloist_button is not None:
+            layout.Add(self.soloist_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         layout.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizerAndFit(layout)
         self.SetMinSize((680, 300))
 
+        self.set_connected(self._connected)
         self.login_button.Bind(wx.EVT_BUTTON, self._on_login)
         self.close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
         self.Bind(wx.EVT_CLOSE, self._on_close)
@@ -4677,20 +4724,37 @@ class ServiceAccountDialog(wx.Dialog):
 
     def set_connected(self, connected: bool) -> None:
         self._connected = bool(connected)
-        label = (
-            "Zaloguj ponownie w przeglądarce" if self._connected
-            else "Zaloguj w przeglądarce"
-        )
-        accessible_name = (
-            f"Zaloguj ponownie konto {self._service_name} w przeglądarce"
-            if self._connected
-            else f"Zaloguj konto {self._service_name} w przeglądarce"
-        )
-        self.login_button.SetLabel(i18n.ui_text(label))
-        self.login_button.SetName(i18n.ui_text(accessible_name))
+        self.login_button.Show(not self._connected)
         if self.disconnect_button is not None:
             self.disconnect_button.Show(self._connected)
+        if self.client_id is not None:
+            self.client_id.SetEditable(not self._connected)
+        if self.save_button is not None:
+            self.save_button.Show(not self._connected)
+            save_label = (
+                "Zmień identyfikator aplikacji" if self._saved_client_id
+                else "Zapisz identyfikator aplikacji"
+            )
+            self.save_button.SetLabel(i18n.ui_text(save_label))
+            self.save_button.SetName(i18n.ui_text(
+                f"{save_label} {self._service_name}"
+            ))
+        if self.copy_client_id_button is not None:
+            self.copy_client_id_button.Show(bool(self._saved_client_id))
         self.Layout()
+
+    def set_saved_client_id(self, value: str) -> None:
+        self._saved_client_id = value.strip()
+        if self.client_id is not None:
+            self.client_id.SetValue(self._saved_client_id)
+        self.set_connected(self._connected)
+
+    def _on_copy_client_id(self, _event: wx.CommandEvent) -> None:
+        if self._busy or not self._saved_client_id or self._copy_client_id is None:
+            return
+        if self._copy_client_id(self._saved_client_id):
+            self.set_status(f"Skopiowano identyfikator aplikacji {self._service_name}")
+        self.copy_client_id_button.SetFocus()
 
     def _on_disconnect(self, _event: wx.CommandEvent) -> None:
         if self._busy or self._disconnect_account is None or not self._connected:
@@ -4698,10 +4762,10 @@ class ServiceAccountDialog(wx.Dialog):
         with wx.MessageDialog(
             self,
             i18n.ui_text(
-                f"Odłączyć konto katalogu {self._service_name} w tym profilu AMC? "
-                "Nie zmienia to konta w serwisie ani osobnego połączenia odtwarzacza."
+                f"Wylogować konto {self._service_name} z tego profilu AMC? "
+                "Nie usuwa to konta w serwisie ani identyfikatora aplikacji."
             ),
-            i18n.ui_text(f"Odłączenie konta katalogu {self._service_name}"),
+            i18n.ui_text(f"Wylogowanie konta {self._service_name}"),
             wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
         ) as confirmation:
             if confirmation.ShowModal() != wx.ID_YES:
@@ -4710,6 +4774,17 @@ class ServiceAccountDialog(wx.Dialog):
         self.set_busy(True)
         self.set_status(f"Odłączanie konta katalogu {self._service_name}")
         self._disconnect_account(self)
+
+    def _on_open_developer_panel(self, _event: wx.CommandEvent) -> None:
+        if self._busy:
+            return
+        address = self.developer_url.GetValue().strip()
+        if not wx.LaunchDefaultBrowser(address):
+            self.set_status(
+                "Nie udało się otworzyć panelu Spotify. "
+                "Skopiuj adres z pola Panel aplikacji Spotify."
+            )
+            self.developer_url.SetFocus()
 
     def _on_save_client_id(self, _event: wx.CommandEvent) -> None:
         if self._busy or self.client_id is None or self._save_client_id is None:
@@ -4726,6 +4801,10 @@ class ServiceAccountDialog(wx.Dialog):
         self.set_status("Rozpoczynanie parowania odtwarzacza Spotify")
         self._start_spotify_pairing(self)
 
+    def _on_open_soloist(self, _event: wx.CommandEvent) -> None:
+        if not self._busy and self._open_spotify_soloist is not None:
+            self._open_spotify_soloist(self)
+
     def _on_check_pairing(self, _event: wx.CommandEvent) -> None:
         if self._busy or self._check_spotify_pairing is None:
             return
@@ -4740,6 +4819,12 @@ class ServiceAccountDialog(wx.Dialog):
 
     def _on_login(self, _event: wx.CommandEvent) -> None:
         if self._busy:
+            return
+        if self._needs_setup and self.client_id is not None:
+            self.set_status(
+                f"Najpierw wpisz i zapisz Client ID aplikacji {self._service_name}."
+            )
+            self.client_id.SetFocus()
             return
         self._login_started = True
         self.set_busy(True)
@@ -4765,6 +4850,8 @@ class ServiceAccountDialog(wx.Dialog):
         self.close_button.Enable(True)
         if self.save_button is not None:
             self.save_button.Enable(not self._busy)
+        if self.copy_client_id_button is not None:
+            self.copy_client_id_button.Enable(not self._busy)
         if self.pairing_button is not None:
             for button in (
                 self.pairing_button,
@@ -4772,6 +4859,8 @@ class ServiceAccountDialog(wx.Dialog):
                 self.cancel_pairing_button,
             ):
                 button.Enable(not self._busy)
+        if self.soloist_button is not None:
+            self.soloist_button.Enable(not self._busy)
 
     def set_status(self, message: str) -> None:
         message = i18n.ui_text(message)
@@ -6367,8 +6456,8 @@ class SessionSelectionDialog(wx.Dialog):
             "Urządzenia Frontier Smart",
         ),
         SessionId.SONOS: (
-            "&Konto i głośniki Sonos…",
-            "Konto i głośniki Sonos",
+            "&Głośniki Sonos w sieci lokalnej…",
+            "Głośniki Sonos w sieci lokalnej",
         ),
     }
 
@@ -7926,6 +8015,34 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         general_layout.Add(
             self.startup_target, 0, wx.BOTTOM | wx.EXPAND, 12
         )
+
+        title_position_label = wx.StaticText(
+            general, label="Tytuł odtwarzanego utworu w tytule okna:"
+        )
+        self._title_position_values = ["after", "before", "off"]
+        self.title_position = wx.Choice(
+            general,
+            choices=[i18n.ui_text(label) for label in (
+                "Po nazwie i dacie AMC",
+                "Przed nazwą AMC",
+                "Nie pokazuj w tytule okna",
+            )],
+        )
+        self.title_position.SetName(
+            "Położenie tytułu odtwarzanego utworu w tytule okna"
+        )
+        self.title_position.SetHelpText(
+            "Zmienia odczyt NVDA+T. NVDA+End nadal czyta szczegóły odtwarzania."
+        )
+        selected_title_position = getattr(
+            options, "window_title_playback_position", "after"
+        )
+        self.title_position.SetSelection(
+            self._title_position_values.index(selected_title_position)
+            if selected_title_position in self._title_position_values else 0
+        )
+        general_layout.Add(title_position_label, 0, wx.BOTTOM, 4)
+        general_layout.Add(self.title_position, 0, wx.BOTTOM | wx.EXPAND, 12)
 
         self.pause = wx.CheckBox(
             general, label="&Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
@@ -9712,6 +9829,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "interface_language": self._interface_language_values[
                 max(0, self.interface_language.GetSelection())
             ],
+            "window_title_playback_position": self._title_position_values[
+                max(0, self.title_position.GetSelection())
+            ],
             "pause_on_player_exit": self.pause.GetValue(),
             "session_order": [session.value for session in self._session_order],
             "follow_playback_on_player_exit": self.follow.GetValue(),
@@ -10050,6 +10170,10 @@ class LiteFrame(wx.Frame):
         self._quick_info_cache = QuickInfoMemoryCache()
 
         self.client: LiteHostClient | None = None
+        # Adapter lokalny ma ten sam kontrakt danych co dotychczasowy host
+        # chmurowy, ale nie wymaga konta ani OAuth. Powstaje razem z hostem,
+        # ponieważ nadal korzysta z niego do zarządzania „Moimi stacjami”.
+        self._sonos_local_client: object | None = None
         self._service_account_dialogs: dict[SessionId, ServiceAccountDialog] = {}
         # Zarządzanie kontem Sonos jest celowo modeless. Główne okno nie może
         # zostać wyłączone, gdy Windows albo czytnik ekranu zgubi fokus dziecka.
@@ -11701,10 +11825,15 @@ class LiteFrame(wx.Frame):
                 announce=announce,
             )
             return
-        if not entries or action is not SearchResultAction.LIBRARY:
+        if not entries or action not in (
+            SearchResultAction.LIBRARY, SearchResultAction.FAVORITE
+        ):
             announce("Ta operacja nie jest dostępna dla wybranych wyników")
             return
         session_id = entries[0].session_id
+        if action is SearchResultAction.FAVORITE:
+            self._change_saved_search_result_favorites(entries, announce=announce)
+            return
         if session_id is SessionId.FILES:
             announce(
                 "Wynik lokalny jest już w Bibliotece. "
@@ -11717,27 +11846,185 @@ class LiteFrame(wx.Frame):
                 announce=announce,
             )
         elif session_id is SessionId.RADIO:
-            # Wynik zapisany wygrywa podczas scalania z katalogiem po tym
-            # samym adresie. Nie zamykamy wtedy wyszukiwarki ani nie udajemy
-            # ponownego zapisu; usuwanie stacji pozostaje jawnym Delete.
-            title = entries[0].row.title if len(entries) == 1 else f"{len(entries)} elementów"
-            announce(f"Stacja jest już w Bibliotece: {title}")
+            self._change_saved_radio_search_result_membership(
+                entries, announce=announce,
+            )
         elif session_id is SessionId.TIDAL:
             self._change_tidal_search_result_membership(
                 entries,
                 favorite=False,
-                add=False,
+                add=None,
                 announce=announce,
             )
         elif session_id is SessionId.SPOTIFY:
             self._change_spotify_search_result_membership(
                 entries,
                 favorite=False,
-                add=False,
+                add=None,
                 announce=announce,
             )
         else:
             announce("Ta operacja nie jest dostępna dla wybranych wyników")
+
+    def _change_saved_search_result_favorites(
+        self,
+        entries: list[SearchEntry],
+        *,
+        announce: Callable[[str], None],
+    ) -> None:
+        """Przełącz Ulubione zapisanego wyniku bez zamykania wyszukiwarki."""
+
+        session_id = entries[0].session_id
+        if session_id is SessionId.RADIOARCHIWISTA:
+            if getattr(self, "_search_favorite_pending", False):
+                announce("Zmiana stanu ulubionych już trwa")
+                return
+            rows = [entry.row for entry in entries]
+            if any(row.kind != "recording" for row in rows):
+                announce("Do Ulubionych Radio Archiwisty wybierz nagranie")
+                return
+            source = self._radioarchiwista_source()
+            if source is None:
+                announce("Ulubione Radio Archiwisty są niedostępne")
+                return
+            self._search_favorite_pending = True
+
+            def work() -> list[tuple[bool, str]]:
+                changes = []
+                for row in rows:
+                    recording = source.recording_by_id(row.item_id)
+                    if recording is None:
+                        raise ValueError("Nie znam tego nagrania")
+                    changes.append((source.toggle_favorite(recording), recording.title))
+                return changes
+
+            def done(changes: list[tuple[bool, str]]) -> None:
+                self._search_favorite_pending = False
+                added = sum(int(state) for state, _title in changes)
+                if len(changes) == 1:
+                    state, title = changes[0]
+                    announce(
+                        f"{'Dodano do' if state else 'Usunięto z'} ulubionych: {title}"
+                    )
+                else:
+                    announce(
+                        f"Dodano do ulubionych: {added}; "
+                        f"usunięto z ulubionych: {len(changes) - added} elementów"
+                    )
+
+            def failed(error: Exception) -> None:
+                self._search_favorite_pending = False
+                announce(f"Nie udało się zmienić ulubionych: {error}")
+
+            self.runner.submit("radioarchiwista-search-favorite", work, done, failed)
+            return
+        if session_id in (SessionId.TIDAL, SessionId.SPOTIFY):
+            change = (
+                self._change_tidal_search_result_membership
+                if session_id is SessionId.TIDAL
+                else self._change_spotify_search_result_membership
+            )
+            change(
+                entries,
+                favorite=True,
+                add=None,
+                announce=announce,
+            )
+            return
+        if session_id not in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS):
+            announce("Ulubione nie są dostępne dla tego wyniku")
+            return
+        if getattr(self, "_search_favorite_pending", False):
+            announce("Zmiana stanu ulubionych już trwa")
+            return
+        client = self.client
+        if client is None:
+            announce("Silnik nie działa, nie mogę zmienić ulubionych")
+            return
+        rows = [entry.row for entry in entries if entry.row.item_id]
+        if not rows:
+            announce("Wybierz pozycję do zmiany ulubionych")
+            return
+        label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        self._search_favorite_pending = True
+
+        def work() -> dict:
+            if session_id is SessionId.PODCASTS:
+                subscriptions = [row.item_id for row in rows if row.kind == "podcast"]
+                episodes = [row.item_id for row in rows if row.kind == "episode"]
+                if not subscriptions and not episodes:
+                    raise ValueError("Wybierz podcast albo odcinek")
+                return client.toggle_podcast_favorites(subscriptions, episodes)
+            ids = [row.item_id for row in rows]
+            if session_id is SessionId.FILES:
+                return client.toggle_profile_favorites(
+                    "files", ids, paths=[row.path or "" for row in rows],
+                )
+            return client.toggle_profile_favorites("radio", ids)
+
+        def done(payload: dict) -> None:
+            self._search_favorite_pending = False
+            result = payload if isinstance(payload, dict) else {}
+            changed = int(result.get("changed") or 0)
+            if changed <= 0:
+                announce("Ulubione bez zmian")
+            else:
+                announce(
+                    f"{'Dodano do' if result.get('favorite') else 'Usunięto z'} "
+                    f"ulubionych: {label}"
+                )
+
+        def failed(error: Exception) -> None:
+            self._search_favorite_pending = False
+            announce(f"Nie udało się zmienić ulubionych: {error}")
+
+        self.runner.submit("search-favorite", work, done, failed)
+
+    def _change_saved_radio_search_result_membership(
+        self,
+        entries: list[SearchEntry],
+        *,
+        announce: Callable[[str], None],
+    ) -> None:
+        """Przełącz Bibliotekę Radia według stanu potwierdzonego przez hosta."""
+
+        if getattr(self, "_radio_search_action_pending", False):
+            announce("Zmiana Biblioteki już trwa")
+            return
+        client = self.client
+        if client is None:
+            announce("Silnik nie działa, nie mogę zmienić Biblioteki")
+            return
+        ids = list(dict.fromkeys(
+            entry.row.item_id for entry in entries if entry.row.item_id
+        ))
+        if not ids:
+            announce("Wybierz stację radiową")
+            return
+        label = entries[0].row.title if len(ids) == 1 else format_item_count(len(ids))
+        self._radio_search_action_pending = True
+
+        def done(payload: dict) -> None:
+            self._radio_search_action_pending = False
+            result = payload if isinstance(payload, dict) else {}
+            if int(result.get("changed") or 0) <= 0:
+                announce("Biblioteka bez zmian")
+            else:
+                announce(
+                    f"{'Dodano do' if result.get('inLibrary') else 'Usunięto z'} "
+                    f"Biblioteki: {label}"
+                )
+
+        def failed(error: Exception) -> None:
+            self._radio_search_action_pending = False
+            announce(f"Nie udało się zmienić Biblioteki: {error}")
+
+        self.runner.submit(
+            "radio-search-library",
+            lambda: client.toggle_radio_library(ids),
+            done,
+            failed,
+        )
 
     def _record_search_query(self, scope: str, query: str) -> list[str]:
         history = add_search_history(
@@ -12229,8 +12516,9 @@ class LiteFrame(wx.Frame):
         self.status_bar.show(started)
         say(started)
 
-        def work() -> list[dict]:
+        def work() -> tuple[list[dict], dict | None, list[bool]]:
             payloads: list[dict] = []
+            membership_added: list[bool] = []
             for entry in entries:
                 payload = client.add_podcast_source(
                     entry.row.url or "",
@@ -12239,6 +12527,32 @@ class LiteFrame(wx.Frame):
                 if not isinstance(payload, dict):
                     raise ValueError("Nieprawidłowa odpowiedź silnika")
                 payloads.append(payload)
+                added = bool(payload.get("added") or payload.get("restored"))
+                if action is SearchResultAction.LIBRARY and not added:
+                    if entry.remote_kind == "youtubeVideo":
+                        episode_id = str(payload.get("preferredEpisodeId") or "").strip()
+                        if not episode_id:
+                            raise ValueError("Nie można ustalić zapisanego materiału")
+                        removed = client.remove_profile_items(
+                            SessionId.PODCASTS.value,
+                            LibraryView.PODCAST_EPISODES.value,
+                            [episode_id],
+                        )
+                        if not isinstance(removed, dict) or int(removed.get("removedCount") or 0) <= 0:
+                            raise ValueError("Nie potwierdzono usunięcia materiału")
+                    else:
+                        subscription_id = str(payload.get("subscriptionId") or "").strip()
+                        if not subscription_id:
+                            raise ValueError("Nie można ustalić zapisanego podcastu")
+                        removed = client.toggle_podcast_library([subscription_id])
+                        if (
+                            not isinstance(removed, dict)
+                            or removed.get("added") is not False
+                            or int(removed.get("changed") or 0) <= 0
+                        ):
+                            raise ValueError("Nie potwierdzono usunięcia z Biblioteki")
+                membership_added.append(added)
+            favorite_payload = None
             if action is SearchResultAction.FAVORITE:
                 subscriptions = [
                     str(payload.get("subscriptionId") or "").strip()
@@ -12252,31 +12566,36 @@ class LiteFrame(wx.Frame):
                 ]
                 subscriptions = [value for value in subscriptions if value]
                 episodes = [value for value in episodes if value]
-                client.toggle_podcast_favorites(subscriptions, episodes)
-            return payloads
+                favorite_payload = client.toggle_podcast_favorites(
+                    subscriptions, episodes,
+                )
+            return payloads, favorite_payload, membership_added
 
-        def done(payloads: list[dict]) -> None:
+        def done(result: tuple[list[dict], dict | None, list[bool]]) -> None:
             self._podcast_add_pending = False
+            payloads, favorite_payload, membership_added = result
             count = len(payloads)
             if action in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE):
                 if action is SearchResultAction.FAVORITE:
+                    favorite_result = (
+                        favorite_payload if isinstance(favorite_payload, dict) else {}
+                    )
+                    changed = int(favorite_result.get("changed") or 0)
+                    label = lead.row.title if count == 1 else format_item_count(count)
                     message = (
-                        f"Dodano do ulubionych: {lead.row.title}"
-                        if count == 1
-                        else f"Dodano do ulubionych: {count} elementów"
+                        f"{'Dodano do' if favorite_result.get('favorite') else 'Usunięto z'} "
+                        f"ulubionych: {label}"
+                        if changed > 0 else "Ulubione bez zmian"
                     )
                 else:
-                    changed = sum(
-                        bool(payload.get("added") or payload.get("restored"))
-                        for payload in payloads
-                    )
+                    changed = sum(membership_added)
                     confirmed_title = str(
                         payloads[0].get("title") or lead.row.title
                     ).strip()
                     if (
                         count == 1
                         and lead.remote_kind == "youtubeVideo"
-                        and changed == 1
+                        and membership_added[0]
                     ):
                         message = (
                             "Dodano do Biblioteki, Media internetowe: "
@@ -12284,23 +12603,22 @@ class LiteFrame(wx.Frame):
                         )
                     elif count == 1 and lead.remote_kind == "youtubeVideo":
                         message = (
-                            "Materiał jest już w Bibliotece, Media internetowe: "
+                            "Usunięto z Biblioteki, Media internetowe: "
                             f"{confirmed_title}"
                         )
                     elif count == 1 and changed == 1:
                         message = f"Dodano do Biblioteki: {confirmed_title}"
                     elif count == 1:
-                        message = (
-                            f"Element jest już w Bibliotece: {confirmed_title}"
-                        )
+                        message = f"Usunięto z Biblioteki: {confirmed_title}"
                     elif changed == count:
                         message = f"Dodano do Biblioteki: {count} elementów"
                     elif changed:
                         message = (
-                            f"Dodano do Biblioteki: {changed} z {count} elementów"
+                            f"Dodano do Biblioteki: {changed}; "
+                            f"usunięto z Biblioteki: {count - changed} elementów"
                         )
                     else:
-                        message = "Wybrane elementy są już w Bibliotece"
+                        message = f"Usunięto z Biblioteki: {count} elementów"
                 self.status_field.SetLabel(message)
                 self.status_bar.show(message)
                 say(message)
@@ -12311,9 +12629,16 @@ class LiteFrame(wx.Frame):
                         if str(payload.get("subscriptionId") or "").strip()
                     ), "")
                     if preferred_id:
-                        self._refresh_visible_podcast_library_after_search_add(
-                            preferred_id
-                        )
+                        if all(membership_added):
+                            self._refresh_visible_podcast_library_after_search_add(
+                                preferred_id
+                            )
+                        elif count == 1:
+                            self._refresh_visible_podcast_search_membership(
+                                preferred_id,
+                                preferred_episode_id=None,
+                                source_removed=lead.remote_kind != "youtubeVideo",
+                            )
                 return
 
             first = payloads[0]
@@ -12498,12 +12823,15 @@ class LiteFrame(wx.Frame):
         entries: list[SearchEntry],
         *,
         favorite: bool,
-        add: bool = True,
+        add: bool | None = None,
         announce: Callable[[str], None] | None = None,
     ) -> None:
         """Save online TIDAL rows only after an explicit collection command."""
 
         say = announce if announce is not None else self.announcer.say
+        if getattr(self, "_tidal_membership_pending", False):
+            say("Zmiana kolekcji TIDAL już trwa")
+            return
         client = self.client
         if client is None:
             say("Silnik nie działa, nie mogę zmienić kolekcji TIDAL")
@@ -12530,10 +12858,16 @@ class LiteFrame(wx.Frame):
             "artist": row.artist_name,
             "publicUri": row.url or "",
         } for row in rows]
+        self._tidal_membership_pending = True
 
         def done(payload: dict) -> None:
+            self._tidal_membership_pending = False
             message = str((payload or {}).get("message") or "").strip()
-            say(message or "Zmieniono kolekcję TIDAL")
+            say(message or "Nie otrzymano potwierdzenia zmiany kolekcji TIDAL")
+
+        def failed(error: Exception) -> None:
+            self._tidal_membership_pending = False
+            say(f"Nie udało się zmienić kolekcji TIDAL: {error}")
 
         self.runner.submit(
             "tidal-search-membership",
@@ -12543,9 +12877,7 @@ class LiteFrame(wx.Frame):
                 add=add,
             ),
             done,
-            lambda error: say(
-                f"Nie udało się zmienić kolekcji TIDAL: {error}"
-            ),
+            failed,
         )
 
     def _change_spotify_search_result_membership(
@@ -12553,7 +12885,7 @@ class LiteFrame(wx.Frame):
         entries: list[SearchEntry],
         *,
         favorite: bool,
-        add: bool = True,
+        add: bool | None = None,
         announce: Callable[[str], None] | None = None,
     ) -> None:
         """Save online Spotify rows only after an explicit collection action."""
@@ -12601,9 +12933,10 @@ class LiteFrame(wx.Frame):
             message = str(result.get("message") or "").strip()
             destination = "Ulubionych" if favorite else "Biblioteki"
             fallback = (
-                f"Dodano do {destination} Spotify"
-                if bool(result.get("added"))
-                else f"Usunięto z {destination} Spotify"
+                f"{'Dodano do' if result.get('added') else 'Usunięto z'} "
+                f"{destination} Spotify"
+                if int(result.get("changed") or 0) > 0
+                else "Nie otrzymano potwierdzenia zmiany kolekcji Spotify"
             )
             say(message or fallback)
 
@@ -12665,11 +12998,12 @@ class LiteFrame(wx.Frame):
         started = "Otwieranie stacji" if action is SearchResultAction.OPEN else "Przygotowywanie stacji"
         self.status_field.SetLabel(started)
         self.status_bar.show(started)
-        if action is not SearchResultAction.LIBRARY:
+        if action not in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE):
             say(started)
 
-        def work() -> tuple[list[dict], dict | None]:
+        def work() -> tuple[list[dict], dict | None, list[bool]]:
             payloads: list[dict] = []
+            membership_added: list[bool] = []
             for entry in entries:
                 payload = client.add_radio_station(
                     entry.row.title,
@@ -12678,6 +13012,22 @@ class LiteFrame(wx.Frame):
                 if not isinstance(payload, dict):
                     raise ValueError("Nieprawidłowa odpowiedź silnika")
                 payloads.append(payload)
+                added = bool(
+                    int(payload.get("addedCount") or 0)
+                    or int(payload.get("promotedCount") or 0)
+                )
+                if action is SearchResultAction.LIBRARY and not added:
+                    station_id = str(payload.get("preferredStationId") or "").strip()
+                    if not station_id:
+                        raise ValueError("Nie można ustalić zapisanej stacji")
+                    removed = client.toggle_radio_library([station_id])
+                    if (
+                        not isinstance(removed, dict)
+                        or removed.get("inLibrary") is not False
+                        or int(removed.get("changed") or 0) <= 0
+                    ):
+                        raise ValueError("Nie potwierdzono usunięcia stacji z Biblioteki")
+                membership_added.append(added)
             favorite_payload = None
             if action is SearchResultAction.FAVORITE:
                 ids = [
@@ -12688,11 +13038,11 @@ class LiteFrame(wx.Frame):
                 if ids:
                     result = client.toggle_profile_favorites("radio", ids)
                     favorite_payload = result if isinstance(result, dict) else {}
-            return payloads, favorite_payload
+            return payloads, favorite_payload, membership_added
 
-        def done(result: tuple[list[dict], dict | None]) -> None:
+        def done(result: tuple[list[dict], dict | None, list[bool]]) -> None:
             self._radio_search_action_pending = False
-            payloads, favorite_payload = result
+            payloads, favorite_payload, membership_added = result
             station_ids = [
                 str(payload.get("preferredStationId") or "").strip()
                 for payload in payloads
@@ -12702,7 +13052,6 @@ class LiteFrame(wx.Frame):
                 say("Nie udało się otworzyć stacji")
                 return
             if action in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE):
-                target = "ulubionych" if action is SearchResultAction.FAVORITE else "Biblioteki"
                 count = len(station_ids)
                 if action is SearchResultAction.FAVORITE and favorite_payload is not None:
                     changed = int(favorite_payload.get("changed") or 0)
@@ -12710,14 +13059,23 @@ class LiteFrame(wx.Frame):
                         message = "Ulubione bez zmian"
                     else:
                         message = (
-                            f"Dodano do ulubionych: {lead.row.title}"
-                            if count == 1 else f"Dodano do ulubionych: {count} elementów"
+                            f"{'Dodano do' if favorite_payload.get('favorite') else 'Usunięto z'} "
+                            f"ulubionych: {lead.row.title if count == 1 else format_item_count(count)}"
                         )
                 else:
-                    message = (
-                        f"Dodano do {target}: {lead.row.title}"
-                        if count == 1 else f"Dodano do {target}: {count} elementów"
-                    )
+                    added = sum(membership_added)
+                    label = lead.row.title if count == 1 else format_item_count(count)
+                    if count == 1:
+                        message = f"{'Dodano do' if added else 'Usunięto z'} Biblioteki: {label}"
+                    elif added == count:
+                        message = f"Dodano do Biblioteki: {label}"
+                    elif added == 0:
+                        message = f"Usunięto z Biblioteki: {label}"
+                    else:
+                        message = (
+                            f"Dodano do Biblioteki: {added}; "
+                            f"usunięto z Biblioteki: {count - added} elementów"
+                        )
                 self.status_field.SetLabel(message)
                 self.status_bar.show(message)
                 say(message)
@@ -13153,6 +13511,18 @@ class LiteFrame(wx.Frame):
             youtube_client_id = None
             youtube_client_secret_file = None
             youtube_token_broker = None
+        ui_state_path = getattr(getattr(self, "store", None), "path", None)
+        try:
+            soloist_manager = (
+                SoloistManager(ui_state_path, profile=release_profile)
+                if ui_state_path is not None else None
+            )
+        except SoloistSetupError:
+            # Optional Soloist setup may never prevent the existing host from
+            # starting when Windows has no usable local data directory.
+            soloist_manager = None
+        if soloist_manager is not None:
+            self._spotify_soloist_manager = soloist_manager
         client = LiteHostClient(
             default_host_path(),
             timeshift_minutes=self.options.timeshift_minutes,
@@ -13178,6 +13548,10 @@ class LiteFrame(wx.Frame):
                 if state_json is not None
                 else None
             ),
+            soloist_settings=(soloist_manager.settings_path
+                              if soloist_manager is not None else None),
+            soloist_data_dir=(soloist_manager.data_directory
+                              if soloist_manager is not None else None),
             on_event=self._on_engine_event,
             on_stderr=lambda line: _append_frontend_log(
                 self.store,
@@ -13186,6 +13560,13 @@ class LiteFrame(wx.Frame):
             **persistence,  # type: ignore[arg-type]
         )
         self.client = client
+        local_sonos_factory = globals().get("LocalSonosClient")
+        self._sonos_local_client = (
+            local_sonos_factory(client)
+            if "sonos.local" in release_profile.capabilities
+            and callable(local_sonos_factory)
+            else None
+        )
         # TEN SAM efektywny payload co w menu Dzwiek: nowy proces musi dostac
         # ustawienia ogolne PO nalozeniu zapisanych Opcji sesji. Sam
         # ``options.audio_payload()`` dawal hostowi ustawienie ogolne, wiec
@@ -13396,6 +13777,7 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self.client = None
+            self._sonos_local_client = None
             if _startup_smoke_mode():
                 self._startup_smoke_error = f"{type(error).__name__}: {error}"
             _append_frontend_log(
@@ -16512,8 +16894,9 @@ class LiteFrame(wx.Frame):
                 return
             self.announcer.say(
                 "Aktualizator został uruchomiony. AMC sprawdza, czy może się "
-                "bezpiecznie zamknąć. Ponowne sprawdzenie aktualizacji jest "
-                "wstrzymane do zakończenia tej próby"
+                "bezpiecznie zamknąć. Instalacja i sprawdzenie plików mogą "
+                "potrwać kilka minut. Nie uruchamiaj AMC ponownie; "
+                "aktualizator zrobi to po zakończeniu"
             )
 
             def installed(exit_code: int) -> None:
@@ -19504,7 +19887,7 @@ class LiteFrame(wx.Frame):
                 "Przypisz go ponownie. Nic nie uruchomiłem"
             )
             return
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -19679,7 +20062,7 @@ class LiteFrame(wx.Frame):
                 "Gotowa"
                 if getattr(self, "_sonos_active_group_id", "")
                 or self.navigator.sessions[SessionId.SONOS].sonos_target_rows
-                else "Wymaga zalogowania"
+                else "Wymaga wyszukania głośników"
             ),
             SessionId.RADIOARCHIWISTA: (
                 "Gotowa"
@@ -20575,7 +20958,7 @@ class LiteFrame(wx.Frame):
             wx.CallAfter(self._show_radioarchiwista_catalog_settings)
             return
         if session_id is SessionId.SONOS:
-            self._show_sonos_account()
+            self._select_sonos_target()
             return
 
     def _show_library_folders(self) -> None:
@@ -20740,7 +21123,13 @@ class LiteFrame(wx.Frame):
         )
         connected = (
             isinstance(payload, dict) and payload.get("connected") is True
-            if session_id is SessionId.TIDAL else False
+            if session_id is SessionId.TIDAL
+            else isinstance(catalog, dict) and catalog.get("connected") is True
+        )
+        saved_client_id = (
+            str(payload.get("clientId") or "").strip()
+            if session_id is SessionId.SPOTIFY and isinstance(payload, dict)
+            else ""
         )
         redirect_uri = (
             payload.get("redirectUri")
@@ -20767,8 +21156,7 @@ class LiteFrame(wx.Frame):
             def done(_result: object) -> None:
                 message = f"Zapisano identyfikator aplikacji {service_name}. Możesz się zalogować."
                 if dialog_alive(dialog):
-                    if dialog.client_id is not None:
-                        dialog.client_id.SetValue("")
+                    dialog.set_saved_client_id(value)
                     dialog._needs_setup = False
                     dialog.finish(message)
                 self.announcer.say(message)
@@ -20910,9 +21298,10 @@ class LiteFrame(wx.Frame):
                             else "tidal:playlists"
                         )
                 if dialog_alive(dialog):
-                    if session_id is SessionId.TIDAL:
-                        dialog.set_connected(True)
+                    dialog.set_connected(True)
                     dialog.finish(message)
+                if session_id is SessionId.SPOTIFY:
+                    self._spotify_account_connected = True
                 self.announcer.say(message)
                 if (session_id is SessionId.TIDAL
                         and self.navigator.active is SessionId.TIDAL):
@@ -20927,6 +21316,9 @@ class LiteFrame(wx.Frame):
                     self._open_tidal_view(OpenTidalView(
                         view, preferred_id=state.list_anchor_id,
                     ))
+                elif (session_id is SessionId.SPOTIFY
+                        and self.navigator.active is SessionId.SPOTIFY):
+                    self._open_spotify_view(OpenSpotifyView())
 
             def failed(error: Exception) -> None:
                 message = (
@@ -20949,12 +21341,24 @@ class LiteFrame(wx.Frame):
             def done(result: object) -> None:
                 message = (
                     result.get("message") if isinstance(result, dict) else None
-                ) or "Odłączono konto katalogu TIDAL w tym profilu AMC."
+                ) or f"Wylogowano {service_name} w tym profilu AMC."
                 cache = getattr(self, "_service_destination_cache", None)
                 if isinstance(cache, ServiceDestinationCache):
-                    cache.invalidate("tidal:playlists")
-                self._tidal_view_cache.clear()
-                self._tidal_render_signature = None
+                    cache.invalidate(
+                        "spotify:playlists" if session_id is SessionId.SPOTIFY
+                        else "tidal:playlists"
+                    )
+                if session_id is SessionId.TIDAL:
+                    self._tidal_view_cache.clear()
+                    self._tidal_render_signature = None
+                else:
+                    self._spotify_account_connected = False
+                    self._playing_sessions.discard(SessionId.SPOTIFY)
+                    if self._playing_session is SessionId.SPOTIFY:
+                        self._playing_session = None
+                    self.navigator.sessions[SessionId.SPOTIFY].now_playing_title = ""
+                    self._transport_status_by_session.pop(SessionId.SPOTIFY, None)
+                    self._update_window_title()
                 if dialog_alive(dialog):
                     dialog.set_connected(False)
                     dialog.finish(message)
@@ -20964,20 +21368,23 @@ class LiteFrame(wx.Frame):
                         LibraryView.TIDAL_LIBRARY,
                         preferred_id=state.list_anchor_id,
                     ))
+                elif self.navigator.active is SessionId.SPOTIFY:
+                    self._open_spotify_view(OpenSpotifyView())
                 self.announcer.say(message)
 
             def failed(error: Exception) -> None:
                 message = (
                     str(error) if isinstance(error, (HostError, HostUnavailable))
-                    else "Nie udało się odłączyć konta katalogu TIDAL."
+                    else f"Nie udało się wylogować konta {service_name}."
                 )
                 if dialog_alive(dialog):
                     dialog.finish(message)
                 self.announcer.say(message)
 
             self.runner.submit(
-                "tidal-account-disconnect",
-                client.tidal_disconnect,
+                f"{session_id.value}-account-disconnect",
+                (client.spotify_disconnect if session_id is SessionId.SPOTIFY
+                 else client.tidal_disconnect),
                 done,
                 failed,
             )
@@ -20995,17 +21402,61 @@ class LiteFrame(wx.Frame):
             if not dialog._login_started and self._window_alive():
                 wx.CallAfter(self._restore_focus_after_dialog)
 
+        def open_spotify_soloist(dialog: ServiceAccountDialog) -> None:
+            existing_setup = getattr(self, "_spotify_soloist_dialog", None)
+            if existing_setup is not None:
+                try:
+                    if not existing_setup.IsBeingDeleted():
+                        existing_setup.Show()
+                        existing_setup.Raise()
+                        existing_setup.focus_primary_action()
+                        return
+                except RuntimeError:
+                    pass
+                self._spotify_soloist_dialog = None
+            manager = getattr(self, "_spotify_soloist_manager", None)
+            if manager is None:
+                try:
+                    manager = SoloistManager(self.store.path, profile=_RELEASE_PROFILE)
+                except SoloistSetupError as error:
+                    dialog.set_status(str(error))
+                    self.announcer.say(str(error))
+                    return
+                self._spotify_soloist_manager = manager
+            def setup_closed() -> None:
+                self._spotify_soloist_dialog = None
+                account = open_dialogs.get(session_id)
+                if account is not None and dialog_alive(account) and account.soloist_button is not None:
+                    account.Show()
+                    account.Raise()
+                    account.soloist_button.SetFocus()
+                elif self._window_alive():
+                    wx.CallAfter(self._restore_focus_after_dialog)
+
+            setup = SpotifySoloistDialog(
+                self, manager, self.announcer.say, on_closed=setup_closed,
+            )
+            self._spotify_soloist_dialog = setup
+            i18n.localize_window_tree(setup)
+            setup.Show()
+            setup.Raise()
+
         dialog = ServiceAccountDialog(
             self,
             service_name,
             status,
             start_login,
             save_client_id=save_client_id,
-            disconnect_account=(disconnect_account if session_id is SessionId.TIDAL else None),
+            disconnect_account=disconnect_account,
             connected=connected,
+            saved_client_id=saved_client_id,
+            copy_client_id=(getattr(self, "_to_clipboard", None)
+                            if session_id is SessionId.SPOTIFY else None),
             start_spotify_pairing=None,
             check_spotify_pairing=None,
             cancel_spotify_pairing=None,
+            open_spotify_soloist=(open_spotify_soloist
+                                  if session_id is SessionId.SPOTIFY else None),
             on_closed=account_closed,
             redirect_uri=redirect_uri,
             needs_setup=needs_setup,
@@ -22053,13 +22504,26 @@ class LiteFrame(wx.Frame):
 
     # ---------------------------------------------------------------- Sonos
 
+    @staticmethod
+    def _sonos_control_client(frame: object) -> object | None:
+        """Zwróć lokalny transport, a host chmurowy zachowaj jako rezerwę."""
+
+        return (
+            getattr(frame, "_sonos_local_client", None)
+            or getattr(frame, "client", None)
+        )
+
     def _select_sonos_target(self) -> None:
-        """Ctrl+F5: wybór grupy po zalogowaniu, konfiguracja przy braku konta."""
-        client = self.client
+        """Ctrl+F5: wyszukaj grupy lokalne; konto jest tylko starą rezerwą."""
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
         preferred_id = self.navigator.sessions[SessionId.SONOS].list_anchor_id
+        if bool(getattr(client, "local_control", False)):
+            self.announcer.say("Wyszukuję głośniki i grupy Sonos w sieci lokalnej")
+            self._load_sonos_targets(preferred_id=preferred_id)
+            return
 
         def done(payload: object) -> None:
             if isinstance(payload, dict) and bool(payload.get("connected")):
@@ -22086,8 +22550,8 @@ class LiteFrame(wx.Frame):
         )
 
     def _load_sonos_targets(self, preferred_id: str | None = None) -> None:
-        """Wczytaj grupy przez wspólny Core; token konta zostaje w C#."""
-        client = self.client
+        """Wczytaj grupy przez aktywny lokalny albo zapasowy transport."""
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -22107,6 +22571,10 @@ class LiteFrame(wx.Frame):
                 ), None)
                 selected_id = active or selected_id
             events = self.navigator.apply_sonos_targets(rows, selected_id)
+            if not rows:
+                message = sonos_response_message(payload)
+                if message:
+                    events = [Announce(message)]
             selected = self.navigator.sessions[SessionId.SONOS].model.selected_row
             if selected is not None and selected.parent_id:
                 self._sonos_browse_household_id = selected.parent_id
@@ -22143,7 +22611,7 @@ class LiteFrame(wx.Frame):
     def _activate_sonos_group(
         self, intent: ActivateSonosGroup, *, attempt: int = 0
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self._run(self.navigator.back_to_list())
             self.announcer.say("Silnik nie jest gotowy")
@@ -22293,7 +22761,7 @@ class LiteFrame(wx.Frame):
         volume: int | None = None,
         seconds: float | None = None,
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
         if client is None or not household_id or not group_id:
@@ -22319,7 +22787,7 @@ class LiteFrame(wx.Frame):
             or getattr(self, "_sonos_retry_pending", False)
         ):
             return
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self._sonos_command_queue.clear()
             return
@@ -22441,7 +22909,7 @@ class LiteFrame(wx.Frame):
         *,
         announcement: str | None = None,
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -22965,7 +23433,7 @@ class LiteFrame(wx.Frame):
     def _play_sonos_material(
         self, intent: PlaySonosMaterial, *, attempt: int = 0
     ) -> None:
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
             return
@@ -31220,7 +31688,7 @@ class LiteFrame(wx.Frame):
                 self.sonos_list,
             ):
                 media_list.relocalize_interface()
-            self.SetTitle(i18n.ui_text(window_title()))
+        self._update_window_title()
         self.shortcut_overrides = chosen_shortcuts
         self._radio_snapshot = LiteFrame._with_radio_recording_options(
             self, self._radio_snapshot
@@ -31591,7 +32059,8 @@ class LiteFrame(wx.Frame):
                         else "TIDAL w AMC: wznowiono"
                     ),
                     lambda _error: self.announcer.say(
-                        "Nie udało się zmienić pauzy TIDAL w AMC"
+                        "TIDAL nie przyjął polecenia Spacji. "
+                        "Wybierz utwór ponownie z listy"
                     ),
                 )
                 return
@@ -32047,6 +32516,14 @@ class LiteFrame(wx.Frame):
             return
         duration = self._last_status.get("durationSeconds")
         if not isinstance(duration, (int, float)) or duration <= 0:
+            if (
+                self.navigator.active is SessionId.SPOTIFY
+                and self._last_status.get("preparing")
+            ):
+                self.announcer.say(
+                    "Spotify przygotowuje odtwarzanie. Spróbuj po rozpoczęciu utworu"
+                )
+                return
             # cs:546-551 -- brak czasu trwania to blad wykonania, mowiony
             # ZAWSZE, bo inaczej gest wygladalby na niedzialajacy.
             text = self.messages.percent_seek_text(
@@ -32649,7 +33126,12 @@ class LiteFrame(wx.Frame):
             # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
             # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
             # odswiezenie statusu nie jest gestem uzytkownika.
-            if "paused" in payload and not remote_player:
+            if requested_session is SessionId.SPOTIFY:
+                self._set_transport_label(
+                    playing=bool(payload.get("playing")),
+                    preparing=bool(payload.get("preparing")),
+                )
+            elif "paused" in payload and not remote_player:
                 self._set_transport_label(playing=not bool(payload.get("paused")))
             self._apply_radio_activity_status()
             self._update_window_title()
@@ -32678,7 +33160,41 @@ class LiteFrame(wx.Frame):
             self._refresh_radio_transport_status()
 
     def _update_window_title(self) -> None:
-        title = i18n.ui_text(window_title())
+        base = i18n.ui_text(window_title())
+        playing_sessions = getattr(self, "_playing_sessions", set())
+        preferred = getattr(self, "_playing_session", None)
+        active = self.navigator.active
+        session_id = (
+            preferred if preferred in playing_sessions
+            else active if active in playing_sessions else None
+        )
+        if session_id is None and active in (
+            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART
+        ):
+            session_id = active
+        playing_title = ""
+        if session_id is not None:
+            session = self.navigator.sessions[session_id]
+            snapshot = getattr(self, "_transport_status_by_session", {}).get(
+                session_id, {}
+            )
+            if session_id is SessionId.RADIO:
+                playing_title = str(snapshot.get("streamTitle") or "").strip()
+            elif session_id is active and session_id in (
+                SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART
+            ):
+                remote = self._nvda_playback_snapshot()
+                if session_id is SessionId.WIIM:
+                    playing_title = wiim_now_playing_label(remote).strip()
+                elif session_id is SessionId.SONOS:
+                    playing_title = sonos_now_playing_label(remote).strip()
+                else:
+                    playing_title = frontier_smart_now_playing_label(remote).strip()
+            playing_title = playing_title or str(
+                snapshot.get("title") or session.now_playing_title or ""
+            ).strip()
+        position = getattr(self.options, "window_title_playback_position", "after")
+        title = window_title_with_playback(base, playing_title, position)
         if self.GetTitle() != title:
             self.SetTitle(title)
 
@@ -32784,7 +33300,7 @@ class LiteFrame(wx.Frame):
 
     def _refresh_sonos_status(self) -> None:
         """Cichy odczyt aktywnej grupy, bez nakładania zapytań timera."""
-        client = self.client
+        client = LiteFrame._sonos_control_client(self)
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
         if (
@@ -35787,6 +36303,15 @@ class LiteFrame(wx.Frame):
                     history_dialog.dispose_for_parent_close()
             except RuntimeError:
                 pass
+        soloist_dialog = getattr(self, "_spotify_soloist_dialog", None)
+        self._spotify_soloist_dialog = None
+        if soloist_dialog is not None:
+            try:
+                if not soloist_dialog.IsBeingDeleted():
+                    soloist_dialog.Hide()
+                    soloist_dialog.Destroy()
+            except RuntimeError:
+                pass
         account_dialogs = getattr(self, "_service_account_dialogs", {})
         self._service_account_dialogs = {}
         for dialog in account_dialogs.values():
@@ -35833,6 +36358,12 @@ class LiteFrame(wx.Frame):
         if native_adapter is not None:
             native_adapter.close()
         self._close_tidal_native_challenge()
+        soloist_manager = getattr(self, "_spotify_soloist_manager", None)
+        if soloist_manager is not None:
+            try:
+                soloist_manager.close()
+            except OSError:
+                pass
         if self.client is not None:
             self.client.close()
         self._windows_preset_10_hotkey.unregister()

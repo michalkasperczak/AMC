@@ -522,7 +522,7 @@ def test_automatic_check_opens_the_same_accessible_dialog_for_a_new_version(
     monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
     monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
     monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
 
     gui.LiteFrame._check_application_update(frame, automatic=True)
 
@@ -654,15 +654,15 @@ def test_completed_update_check_waits_until_history_window_closes(
     monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
     monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
     monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
-    monkeypatch.setattr(gui.wx, "CallLater", lambda _ms, work: delayed.append(work))
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [history])
+    monkeypatch.setattr(gui.wx, "CallLater", lambda _ms, work: delayed.append(work), raising=False)
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [history], raising=False)
 
     gui.LiteFrame._check_application_update(frame, automatic=True)
     assert dialogs == []
     assert frame._application_update_pending
     assert len(delayed) == 1
 
-    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [])
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     delayed.pop()()
     assert dialogs == [check]
     assert not frame._application_update_pending

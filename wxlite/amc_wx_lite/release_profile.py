@@ -107,6 +107,7 @@ TEST_PROFILE = ReleaseProfile(
         "tidal.native-playback",
         "session.frontier-smart",
         "session.radioarchiwista",
+        "sonos.local",
         "spotify.playlists",
         "youtube.account.readonly",
     ),
@@ -129,7 +130,7 @@ PUBLIC_PROFILE = ReleaseProfile(
     ),
     capabilities=tuple(
         capability for capability in TEST_PROFILE.capabilities
-        if capability != "session.sonos"
+        if capability not in {"session.sonos", "sonos.local"}
     ),
 )
 

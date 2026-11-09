@@ -1,0 +1,1 @@
+https://amc-sygnalista-test.amc-sygnalista-worker.workers.dev/v1/report

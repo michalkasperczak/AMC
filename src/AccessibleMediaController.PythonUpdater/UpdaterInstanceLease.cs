@@ -4,6 +4,7 @@ internal sealed class UpdaterInstanceLease : IDisposable
 {
     private readonly Mutex _mutex;
     private bool _ownsMutex;
+    private bool _disposed;
 
     private UpdaterInstanceLease(Mutex mutex, bool ownsMutex)
     {
@@ -30,6 +31,8 @@ internal sealed class UpdaterInstanceLease : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         if (_ownsMutex)
         {
             _mutex.ReleaseMutex();

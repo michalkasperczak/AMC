@@ -68,7 +68,11 @@ class FakeRunner:
 def _new_frame() -> gui.LiteFrame:
     """Minimalna ramka ma własny, jawny kontekst zamiast stanu innych testów."""
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
-    frame.navigator = SimpleNamespace(active=SessionId.FILES)
+    frame.navigator = SimpleNamespace(
+        active=SessionId.FILES,
+        session=SimpleNamespace(library_view=None),
+    )
+    frame.client = None
     frame.messages = MessagePolicy()
     return frame
 

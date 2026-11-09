@@ -86,7 +86,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert "radioarchiwista" in public_text
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
-        if capability != "session.sonos"
+        if capability not in {"session.sonos", "sonos.local"}
     }
 
 
@@ -123,7 +123,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert 'capability != "session.sonos"' in source
+    assert 'capability is not ("session.sonos" or "sonos.local")' in source
     assert 'session != "sonos"' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
@@ -132,7 +132,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
     test_only = tuple(quoted.findall(test_only_match.group(1)))
     assert tuple(
         capability for capability in common + test_only
-        if capability != "session.sonos"
+        if capability not in {"session.sonos", "sonos.local"}
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities
 

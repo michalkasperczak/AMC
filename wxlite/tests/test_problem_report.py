@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 import io
 import json
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
 from amc_wx_lite.command_palette import entries_for_session
+from amc_wx_lite.menu_model import menus_for_session
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.problem_report import (
     MAX_REPORT_BYTES,
@@ -33,6 +35,9 @@ from amc_wx_lite.problem_report_transport import (
 from amc_wx_lite.release_profile import PUBLIC_PROFILE, TEST_PROFILE
 from amc_wx_lite.shortcuts import (
     Action,
+    Chord,
+    command_presentation,
+    resolve,
     SONOS_SUPPORTED_ACTIONS,
     SPOTIFY_SUPPORTED_ACTIONS,
     TIDAL_SUPPORTED_ACTIONS,
@@ -297,9 +302,14 @@ def test_report_command_has_one_name_in_menu_palette_help_and_dispatch() -> None
     for session in SessionId:
         entries = {entry.action: entry for entry in entries_for_session(session)}
         assert entries[action].name == "Zgłoś błąd lub sugestię…"
-        assert entries[action].shortcut is None
+        assert entries[action].shortcut == "Ctrl+Alt+Z"
     assert describe_action(action) == "Zgłoś błąd lub sugestię"
-    assert ("Bez skrótu", "Zgłoś błąd lub sugestię") in describe()
+    assert ("Ctrl+Alt+Z", "Zgłoś błąd lub sugestię") in describe()
+    presentation = command_presentation(action)
+    assert presentation is not None
+    assert presentation.shortcut == "Ctrl+Alt+Z"
+    for player_view in (False, True):
+        assert resolve(Chord("Z", ctrl=True, alt=True), player_view=player_view, radio_session=False) is action
     gui_source = (
         Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
     ).read_text(encoding="utf-8")
@@ -312,6 +322,38 @@ def test_report_command_has_one_name_in_menu_palette_help_and_dispatch() -> None
         SONOS_SUPPORTED_ACTIONS,
     ):
         assert action in supported
+
+
+def test_report_menu_help_and_shortcut_match_in_both_profiles() -> None:
+    previous = os.environ.get("AMC_RELEASE_PROFILE")
+    try:
+        for profile in (TEST_PROFILE, PUBLIC_PROFILE):
+            os.environ["AMC_RELEASE_PROFILE"] = profile.profile_id
+            for session in SessionId:
+                if session.value not in profile.session_ids:
+                    continue
+                help_items = [
+                    item for menu in menus_for_session(session)
+                    for item in menu.items
+                    if item.action is Action.REPORT_PROBLEM
+                ]
+                assert len(help_items) == 1
+                assert help_items[0].shortcut == "Ctrl+Alt+Z"
+                palette = {
+                    entry.action: entry for entry in entries_for_session(session)
+                }
+                assert palette[Action.REPORT_PROBLEM].shortcut == "Ctrl+Alt+Z"
+                for player_view in (False, True):
+                    assert resolve(
+                        Chord("Z", ctrl=True, alt=True),
+                        player_view=player_view,
+                        radio_session=session is SessionId.RADIO,
+                    ) is Action.REPORT_PROBLEM
+    finally:
+        if previous is None:
+            os.environ.pop("AMC_RELEASE_PROFILE", None)
+        else:
+            os.environ["AMC_RELEASE_PROFILE"] = previous
 
 
 def test_both_profiles_advertise_the_shared_report_command_without_secrets() -> None:

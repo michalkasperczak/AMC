@@ -17,6 +17,8 @@
              Link="PostUpdateLaunchContract.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.Core\ShellIntegration\ShellIntegrationRules.cs"
              Link="ShellIntegrationRules.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.PythonLauncher\UpdateInProgressGate.cs"
+             Link="UpdateInProgressGate.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.PythonLauncher\BundleContract.cs"
              Link="BundleContract.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.PythonLauncher\PythonLaunchPlan.cs"

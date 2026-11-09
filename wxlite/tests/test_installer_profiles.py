@@ -75,6 +75,13 @@ def test_installer_never_forces_running_amc_to_close() -> None:
     assert "AppMutex={#LauncherMutex}" in ISS
 
 
+def test_both_installer_profiles_remove_retired_librespot_files() -> None:
+    shared_install_delete = ISS[ISS.index("[InstallDelete]"):ISS.index('#if Profil == "public"', ISS.index("[InstallDelete]"))]
+    assert 'Type: filesandordirs; Name: "{app}\\host\\LibrespotHost"' in shared_install_delete
+    assert 'Type: filesandordirs; Name: "{app}\\host\\licenses\\librespot-dependencies"' in shared_install_delete
+    assert 'Type: files; Name: "{app}\\host\\licenses\\librespot-MIT.txt"' in shared_install_delete
+
+
 def test_installer_shortcuts_are_optional_and_noicons_is_effective() -> None:
     assert "DisableProgramGroupPage=auto" in ISS
     assert "AllowNoIcons=yes" in ISS
@@ -112,6 +119,12 @@ def test_installer_performs_full_post_install_integrity_check() -> None:
     assert "ResultCode <> 0" in ISS
     assert "RaiseException" in ISS
     assert ISS.index("--sprawdz-start-cicho") < ISS.index("RegisterShellIntegration;", ISS.index("procedure CurStepChanged"))
+
+
+def test_launcher_is_copied_before_runtime_during_silent_update() -> None:
+    files_section = ISS.split("[Files]", 1)[1].split("[InstallDelete]", 1)[0]
+    assert files_section.index('Source: "AMC.exe"') < files_section.index('Source: "*"')
+    assert 'Excludes: "AMC.exe"' in files_section
 
 
 def test_installer_refuses_to_overlay_another_or_historical_product() -> None:

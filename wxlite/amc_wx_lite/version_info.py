@@ -104,10 +104,22 @@ def window_title(root: str | Path | None = None) -> str:
     )
 
 
+def window_title_with_playback(base: str, playing_title: str, position: str) -> str:
+    """Compose a short NVDA+T label without changing the stable app identity."""
+
+    title = " ".join(playing_title.split())[:160].strip()
+    if not title or position == "off":
+        return base
+    if position == "before":
+        return f"{title} — {base}"
+    return f"{base} — {title}"
+
+
 def is_main_window_title(title: str) -> bool:
     """Rozpoznaj obecne i przejściowo starsze główne okno aplikacji."""
 
     return any(
-        title == name or title.startswith(name + " — ")
+        title == name or title.startswith(name + " — ") or title.endswith(" — " + name)
+        or (" — " + name + " — ") in title
         for name in (PRODUCT_NAME, *LEGACY_PRODUCT_NAMES)
     )

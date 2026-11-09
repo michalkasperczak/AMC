@@ -339,6 +339,7 @@ def test_engine_handshake_is_deferred_to_background(tmp_path):
     # odroczenie I/O, a nie wybor trybu, wiec deklarujemy zwykly start bez
     # zapisu (tak jak domyslny, wspolny profil tylko do odczytu).
     frame._queue_persistence_arguments = lambda: {}
+    frame._initialize_tidal_native_adapter = lambda _client: None
     try:
         gui.LiteFrame._start_engine(frame)
         assert not calls, "The GUI thread must not perform startup I/O"
@@ -429,6 +430,7 @@ def test_optional_profile_sync_failure_does_not_disable_the_audio_engine(tmp_pat
         _remember_local_playback_positions=True,
     )
     frame._queue_persistence_arguments = lambda: {}
+    frame._initialize_tidal_native_adapter = lambda _client: None
 
     original = gui.LiteHostClient
     gui.LiteHostClient = Client
