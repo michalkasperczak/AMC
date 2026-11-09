@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `AMC-20261109-SOLOIST-LOSSLESS` — **Test i Public alpha.487 opublikowane; instalacja, parowanie i odsłuch NVDA czekają** — Soloist w obu profilach żąda poziomu Lossless dla muzyki Premium. [Stan i ograniczenia](AMC-20261109-Soloist-Lossless-i-wydanie.md).
+
 - `RADIO-REC-20261109` — **W trakcie; kod i testy celowane zaliczone, bez instalacji i odbioru NVDA** — historia rozróżnia brak pliku, kopię do odzyskania i kolizję nazwy przy zapisie. [Szczegóły](RADIO-REC-20261109-status-i-kolizje.md).
 
 - `SEARCH-MEMBERSHIP-20261109` — **Kod i testy celowane gotowe; bez instalacji i odbioru NVDA** — `Ctrl+Shift+L` i `Ctrl+Shift+U` w wynikach wyszukiwania przełączają potwierdzony stan Biblioteki i Ulubionych w obsługiwanych sesjach. [Szczegóły](SEARCH-MEMBERSHIP-20261109-wyniki-ulubione-biblioteka.md).
@@ -10,7 +12,7 @@
 
 - `PRESET-20261106` — **W trakcie; krótsze etykiety i 25 testów zaliczonych, budowa, instalacja i odbiór NVDA odłożone do zbiorczej aktualizacji** — wiersze presetów podają numer, nazwę i skrót. [Szczegóły](PRESET-20261106-krotszy-odczyt-miejsc.md).
 - `AUTH-PUBLIC-20261106` — **Instrukcja Client ID Spotify dla Test i Public oraz przycisk panelu w źródłach; bez nowego buildu** — ten sam własny identyfikator może być wpisany do obu profili, z osobnym logowaniem. Zainstalowany Public alpha.486 pozostaje bez tej zmiany okna. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
-- `AMC-TEST-ALPHA487-SOLOIST` — **Kod, 204 testy Python i 6 sprawdzeń adaptera zaliczone; paczka i instalator zbudowane; instalacja oraz odbiór NVDA i Spotify czekają** — następny AMC Test z Soloist, Sygnalistą, lokalnym Sonosem i bez LibreSpot. [Stan i ograniczenia](AMC-Test-alpha487-Soloist-20261109.md).
+- `AMC-TEST-ALPHA487-SOLOIST` — **Kandydat zastąpiony wspólnym wydaniem Test/Public 9.11.2026** — wcześniejsza budowa Test z Soloist, Sygnalistą i lokalnym Sonosem. [Stan historyczny](AMC-Test-alpha487-Soloist-20261109.md).
 
 Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
 
