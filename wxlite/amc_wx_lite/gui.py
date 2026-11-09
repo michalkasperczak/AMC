@@ -32047,6 +32047,14 @@ class LiteFrame(wx.Frame):
             return
         duration = self._last_status.get("durationSeconds")
         if not isinstance(duration, (int, float)) or duration <= 0:
+            if (
+                self.navigator.active is SessionId.SPOTIFY
+                and self._last_status.get("preparing")
+            ):
+                self.announcer.say(
+                    "Spotify przygotowuje odtwarzanie. Spróbuj po rozpoczęciu utworu"
+                )
+                return
             # cs:546-551 -- brak czasu trwania to blad wykonania, mowiony
             # ZAWSZE, bo inaczej gest wygladalby na niedzialajacy.
             text = self.messages.percent_seek_text(
@@ -32649,7 +32657,12 @@ class LiteFrame(wx.Frame):
             # za nasza Spacja: odtwarzanie zaczete Enterem na liscie albo
             # zakonczony plik tez musza ja poprawic. Bez ogloszenia -- samo
             # odswiezenie statusu nie jest gestem uzytkownika.
-            if "paused" in payload and not remote_player:
+            if requested_session is SessionId.SPOTIFY:
+                self._set_transport_label(
+                    playing=bool(payload.get("playing")),
+                    preparing=bool(payload.get("preparing")),
+                )
+            elif "paused" in payload and not remote_player:
                 self._set_transport_label(playing=not bool(payload.get("paused")))
             self._apply_radio_activity_status()
             self._update_window_title()

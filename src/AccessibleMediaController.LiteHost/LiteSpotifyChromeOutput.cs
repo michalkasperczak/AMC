@@ -8,6 +8,7 @@ using System.Text.Json;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
+using AccessibleMediaController.LiteHost.Protocol;
 using AccessibleMediaController.Windows.Services;
 using NAudio.CoreAudioApi;
 
@@ -22,6 +23,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
 {
     private const string SdkOrigin = "https://sdk.scdn.co";
     private readonly Func<CancellationToken, Task<LiteSpotifyAccessToken>> credentials;
+    private readonly string profilePath;
     private readonly SemaphoreSlim startGate = new(1, 1);
     private readonly object stateGate = new();
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(20) };
@@ -51,8 +53,12 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
 
     internal LiteSpotifyChromeOutput(
         Func<CancellationToken, Task<LiteSpotifyAccessToken>> credentials,
-        string? selectedOutputId)
+        string? selectedOutputId, string? releaseProfile)
     {
+        this.profilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            LiteSpotifyReleaseProfile.ChromeDirectory(releaseProfile),
+            "spotify-chrome-profile");
         this.credentials = credentials;
         this.selectedOutputId = selectedOutputId;
     }
@@ -175,7 +181,9 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
             Console.Error.WriteLine($"[spotify-chrome] {stage}: {exception.GetType().Name}"
                 + (stage == "audio output" ? $" ({exception.Message})" : ""));
             Fail(item, playGeneration,
-                "Nie udało się uruchomić odtwarzacza Spotify w Chrome. Sprawdź konto Premium, Chrome i połączenie.");
+                stage == "Chrome startup" && exception is OperationCanceledException
+                    ? "Uruchomienie odtwarzacza Spotify w Chrome przekroczyło limit czasu. Spróbuj ponownie."
+                    : "Nie udało się uruchomić odtwarzacza Spotify w Chrome. Sprawdź konto Premium, Chrome i połączenie.");
         }
     }
 
@@ -448,7 +456,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
 
     private async Task<IReadOnlyList<Target>> ReadTargetsAsync(CancellationToken ct)
     {
-        var portFile = Path.Combine(ProfilePath, "DevToolsActivePort");
+        var portFile = Path.Combine(profilePath, "DevToolsActivePort");
         var lines = await File.ReadAllLinesAsync(portFile, ct).ConfigureAwait(false);
         if (lines.Length == 0 || !int.TryParse(lines[0], out var port))
             throw new IOException("Chrome nie udostępnił sterowania odtwarzaczem.");
@@ -466,11 +474,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
             .ToArray();
     }
 
-    private static string ProfilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AMC Test", "spotify-chrome-profile");
-
-    private async Task EnsureReadyAsync(CancellationToken ct)
+        private async Task EnsureReadyAsync(CancellationToken ct)
     {
         if (page is not null && chrome?.HasExited == false && deviceId is not null) return;
         await startGate.WaitAsync(ct).ConfigureAwait(false);
@@ -486,8 +490,8 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
             var port = ((IPEndPoint)listener.LocalEndpoint).Port;
             origin = $"http://127.0.0.1:{port}";
             serverTask = Task.Run(() => ServeAsync(listener, port, lifetime.Token), lifetime.Token);
-            Directory.CreateDirectory(ProfilePath);
-            var portFile = Path.Combine(ProfilePath, "DevToolsActivePort");
+            Directory.CreateDirectory(profilePath);
+            var portFile = Path.Combine(profilePath, "DevToolsActivePort");
             if (File.Exists(portFile)) File.Delete(portFile);
             var start = new ProcessStartInfo(executable)
             {
@@ -497,7 +501,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
             };
             foreach (var argument in new[]
             {
-                $"--user-data-dir={ProfilePath}", "--no-first-run", "--no-default-browser-check",
+                $"--user-data-dir={profilePath}", "--no-first-run", "--no-default-browser-check",
                 "--autoplay-policy=no-user-gesture-required", "--disable-background-media-suspend",
                 "--remote-debugging-port=0", "--headless=new", origin + "/"
             }) start.ArgumentList.Add(argument);
@@ -541,7 +545,7 @@ internal sealed class LiteSpotifyChromeOutput : IDisposable
                 "Google", "Chrome", "Application", "chrome.exe")
         })
             if (File.Exists(path)) return path;
-        throw new IOException("Zainstaluj Google Chrome, aby odtwarzać Spotify w AMC Test.");
+        throw new IOException("Zainstaluj Google Chrome, aby odtwarzać Spotify w AMC.");
     }
 
     private async Task ServeAsync(TcpListener server, int port, CancellationToken ct)

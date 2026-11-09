@@ -28,6 +28,7 @@ internal static class Program
         ("--tidal-catalog", TidalCatalogContractTests.Run),
         ("--tidal-playback-probe", TidalPlaybackProbeTests.Run),
         ("--spotify-catalog", SpotifyCatalogContractTests.Run),
+        ("--spotify-profile", SpotifyReleaseProfileTests.Run),
         ("--youtube-account", YouTubeAccountContractTests.Run),
         ("--account-settings", AccountSettingsStoreTests.Run),
         ("--wiim", WiiMContractTests.Run),

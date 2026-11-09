@@ -20,7 +20,7 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
     ILiteSpotifyAccountBackend,
     ILiteSpotifyPlaybackCredentialBackend
 {
-    private const string CatalogCredentialTarget = "AccessibleMediaController/Spotify";
+    private readonly string catalogCredentialTarget;
     private const string PlaybackCredentialTarget =
         "AccessibleMediaController/SpotifyLibrespot";
 
@@ -40,14 +40,16 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
     private Task? _pairingTask;
     private bool _pairingWasCancelled;
 
-    public LiteSpotifyWindowsCatalogBackend(string statePath)
+    public LiteSpotifyWindowsCatalogBackend(string statePath, string? releaseProfile = null)
     {
+        catalogCredentialTarget = LiteSpotifyReleaseProfile.CredentialTarget(releaseProfile);
         _statePath = Path.GetFullPath(statePath);
         _settings = ReadSettings(statePath);
         CachedCollection = _settings.CachedCollectionItems
             .Select(item => item.ToMediaItem())
             .ToArray();
-        _integration = new SpotifyIntegrationService(_settings);
+        _integration = new SpotifyIntegrationService(
+            _settings, credentialTarget: catalogCredentialTarget);
     }
 
     public async Task<LiteSpotifyAccessToken> GetPlaybackCredentialsAsync(
@@ -160,10 +162,10 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
 
     public LiteSpotifyAccountProbe ReadAccountStatus() => new(
         CatalogConfigured: _integration.IsConfigured,
-        CatalogConnected: ProbeCredential(CatalogCredentialTarget),
+        CatalogConnected: ProbeCredential(catalogCredentialTarget),
         AccountDisplayName: _settings.AccountDisplayName,
         AccountProduct: _settings.AccountProduct,
-        PlaybackConnected: ProbeCredential(CatalogCredentialTarget),
+        PlaybackConnected: ProbeCredential(catalogCredentialTarget),
         RedirectUri: _settings.RedirectUri);
 
     public async Task<LiteSpotifyCollectionRefresh> RefreshCollectionAsync(
@@ -459,7 +461,7 @@ internal sealed class LiteSpotifyWindowsCatalogBackend :
     {
         if (!_integration.IsConfigured)
             throw new LiteSpotifyBackendException(LiteSpotifyFailureReason.NotConfigured);
-        var stored = ProbeCredential(CatalogCredentialTarget);
+        var stored = ProbeCredential(catalogCredentialTarget);
         if (stored == false)
             throw new LiteSpotifyBackendException(LiteSpotifyFailureReason.NotConnected);
         if (stored is null)

@@ -12,7 +12,8 @@ namespace AccessibleMediaController.LiteHost;
 /// SDK działa w osobnym, ukrytym Chrome i publikuje ten sam kontrakt zdarzeń.
 /// </summary>
 internal sealed class LiteSpotifyPlaybackCoordinator(
-    Func<CancellationToken, Task<LiteSpotifyAccessToken>>? credentials = null) : IDisposable
+    Func<CancellationToken, Task<LiteSpotifyAccessToken>>? credentials = null,
+    string? releaseProfile = null) : IDisposable
 {
     private const string SessionId = LiteSpotifyCatalogContract.SessionId;
     private readonly object gate = new();
@@ -405,7 +406,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
         if (output is not null) return output;
         if (credentials is null)
             throw new LiteRequestException("Najpierw skonfiguruj i zaloguj konto Spotify.");
-        output = new LiteSpotifyChromeOutput(credentials, selectedDeviceName);
+        output = new LiteSpotifyChromeOutput(credentials, selectedDeviceName, releaseProfile);
         output.PlaybackPreparing += OnPlaybackPreparing;
         output.PlaybackStarted += OnPlaybackStarted;
         output.DurationAvailable += OnDurationAvailable;
