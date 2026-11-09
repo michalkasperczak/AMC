@@ -121,6 +121,8 @@ class LiteHostClient:
         library_db: str | Path | None = None,
         podcasts_db: str | Path | None = None,
         state_json: str | Path | None = None,
+        soloist_settings: str | Path | None = None,
+        soloist_data_dir: str | Path | None = None,
         release_profile: str | None = None,
         youtube_client_id: str | None = None,
         youtube_client_secret_file: str | Path | None = None,
@@ -147,6 +149,8 @@ class LiteHostClient:
         self.library_db = str(library_db) if library_db else None
         self.podcasts_db = str(podcasts_db) if podcasts_db else None
         self.state_json = str(state_json) if state_json else None
+        self.soloist_settings = str(soloist_settings) if soloist_settings else None
+        self.soloist_data_dir = str(soloist_data_dir) if soloist_data_dir else None
         self.release_profile = str(release_profile).strip() if release_profile else None
         self.youtube_client_id = (
             str(youtube_client_id).strip() if youtube_client_id else None
@@ -203,6 +207,10 @@ class LiteHostClient:
             command += ["--podcasts-db", self.podcasts_db]
         if self.state_json is not None:
             command += ["--state-json", self.state_json]
+        if self.soloist_settings is not None:
+            command += ["--soloist-settings", self.soloist_settings]
+        if self.soloist_data_dir is not None:
+            command += ["--soloist-data-dir", self.soloist_data_dir]
         if self.release_profile is not None:
             command += ["--release-profile", self.release_profile]
         if self.youtube_client_id is not None:

@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory)] [ValidateSet("public", "test")] [string]$Profile,
     [Parameter(Mandatory)] [string]$PythonRuntime,
     [Parameter(Mandatory)] [string]$OutputDirectory,
-    [string]$TidalSitePackages = ""
+    [string]$TidalSitePackages = "",
+    [string]$SonosSitePackages = ""
 )
 
 Set-StrictMode -Version Latest
@@ -35,6 +36,19 @@ if ($Profile -in @("test", "public")) {
     if (-not (Test-Path -LiteralPath $tidalSource -PathType Container)) {
         throw "Nie istnieje katalog zależności TIDAL: $tidalSource"
     }
+}
+$sonosSource = ""
+if ($Profile -eq "test") {
+    if ([string]::IsNullOrWhiteSpace($SonosSitePackages)) {
+        throw "Lokalny Sonos w AMC Test wymaga -SonosSitePackages z osobnego venv."
+    }
+    $sonosSource = [IO.Path]::GetFullPath($SonosSitePackages)
+    if (-not (Test-Path -LiteralPath $sonosSource -PathType Container)) {
+        throw "Nie istnieje katalog zależności Sonosa: $sonosSource"
+    }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($SonosSitePackages)) {
+    throw "Profil AMC Public nie przyjmuje zależności lokalnego Sonosa."
 }
 function Invoke-Checked {
     param(
@@ -133,6 +147,9 @@ try {
     )
     if ($Profile -in @("test", "public")) {
         $bundleArguments += @("--tidal-site-packages", $tidalSource)
+    }
+    if ($Profile -eq "test") {
+        $bundleArguments += @("--sonos-site-packages", $sonosSource)
     }
     Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments
 

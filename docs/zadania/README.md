@@ -10,6 +10,7 @@
 
 - `PRESET-20261106` — **W trakcie; krótsze etykiety i 25 testów zaliczonych, budowa, instalacja i odbiór NVDA odłożone do zbiorczej aktualizacji** — wiersze presetów podają numer, nazwę i skrót. [Szczegóły](PRESET-20261106-krotszy-odczyt-miejsc.md).
 - `AUTH-PUBLIC-20261106` — **Instrukcja Client ID Spotify dla Test i Public oraz przycisk panelu w źródłach; bez nowego buildu** — ten sam własny identyfikator może być wpisany do obu profili, z osobnym logowaniem. Zainstalowany Public alpha.486 pozostaje bez tej zmiany okna. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
+- `AMC-TEST-ALPHA487-SOLOIST` — **Kod, 204 testy Python i 6 sprawdzeń adaptera zaliczone; paczka i instalator zbudowane; instalacja oraz odbiór NVDA i Spotify czekają** — następny AMC Test z Soloist, Sygnalistą, lokalnym Sonosem i bez LibreSpot. [Stan i ograniczenia](AMC-Test-alpha487-Soloist-20261109.md).
 
 Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
 

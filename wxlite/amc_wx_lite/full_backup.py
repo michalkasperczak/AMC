@@ -315,6 +315,7 @@ def build_imported_ui_state(
 _TOP_LEVEL_SECTIONS = {
     "navigation": CONFIGURATION,
     "shortcut_overrides": CONFIGURATION,
+    "list_reading_overrides": CONFIGURATION,
     "session_overrides": CONFIGURATION,
     "audio_output_device_ids_by_session": CONFIGURATION,
     "shuffle_enabled_by_session": CONFIGURATION,
@@ -337,6 +338,7 @@ _TOP_LEVEL_SECTIONS = {
     "spotify_playlist_destination_ids": SERVICES,
     "service_picker_destination_ids": SERVICES,
     "spotify_playback_history": SERVICES,
+    "spotify_queue_items": SERVICES,
 }
 _OPTION_NAMES = {item.name for item in fields(Options)}
 

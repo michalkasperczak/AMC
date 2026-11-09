@@ -140,7 +140,8 @@ def test_account_window_stays_modeless_during_external_login() -> None:
     assert "i18n.localize_window_tree(dialog)" in section
 
 
-def test_opening_spotify_account_announces_current_status_without_login() -> None:
+def test_opening_spotify_account_announces_current_status_without_login(monkeypatch) -> None:
+    monkeypatch.setattr(gui_module.wx, "CallAfter", lambda callback, *args: callback(*args))
     spoken: list[str] = []
     shown: list[tuple[str, str]] = []
     configurations: list[dict] = []

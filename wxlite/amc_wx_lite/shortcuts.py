@@ -588,7 +588,7 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "spotify": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Konto Spotify",
-        "Otwórz konto Spotify, zapisz lub skopiuj Client ID, zaloguj albo wyloguj konto; jedno logowanie służy katalogowi i odtwarzaniu",
+        "Otwórz konto Spotify, zapisz lub skopiuj Client ID, zaloguj albo wyloguj konto oraz skonfiguruj odtwarzacz Soloist",
         "Ctrl+F5",
     ),
     "tidal": CommandPresentation(

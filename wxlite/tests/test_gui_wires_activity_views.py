@@ -119,6 +119,7 @@ _NON_SQLITE_VIEWS = (
     LibraryView.SPOTIFY_LIBRARY,
     LibraryView.SPOTIFY_CONTAINER,
     LibraryView.SPOTIFY_HISTORY,
+    LibraryView.SPOTIFY_QUEUE,
     # Historia WiiM i Sonosa jest prywatnym stanem AMC Python, oddzielnym
     # dla obu sesji; nie wolno odczytywać jej z biblioteki plików SQLite.
     LibraryView.SERVICE_HISTORY,
