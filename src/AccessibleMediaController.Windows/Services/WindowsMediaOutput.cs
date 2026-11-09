@@ -164,6 +164,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan EndOfFileGracePeriod = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan EndOfFilePositionTolerance = TimeSpan.FromMilliseconds(350);
+    private static readonly TimeSpan OutputDeviceRecoveryCooldown = TimeSpan.FromSeconds(15);
     internal static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromSeconds(4);
     private const long ManagedMp3FallbackMaximumBytes = 512L * 1024 * 1024;
     private PlaybackPipeline? _pipeline;
@@ -177,6 +178,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private int _interTrackSilenceMilliseconds;
     private PlaybackTempoAlgorithm _tempoAlgorithm = PlaybackTempoAlgorithm.SoundTouch;
     private string? _outputDeviceId;
+    private string? _lastOutputDeviceRecoverySource;
+    private DateTimeOffset _lastOutputDeviceRecoveryUtc;
     private Func<MediaItem, PlaybackAudioSettings>? _audioProcessingResolver;
     private DateTimeOffset _nextAutomaticStartNotBeforeUtc;
     private long _requestVersion;
@@ -975,7 +978,18 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                     $"Nie udało się w sposób ograniczony sprawdzić początku MP3: {path}; {exception.Message}");
             }
 
-            if (mp3DecoderMode == Mp3DecoderMode.Managed)
+            if (mp3DecoderMode == Mp3DecoderMode.Automatic
+                && !mayRequireRemoteAccess
+                && FfmpegLocalAudioWaveStream.TryOpen(
+                    path, out var ffmpegMp3Reader, limitMp3Peaks: true))
+            {
+                reader = ffmpegMp3Reader;
+                decoderKind = DecoderKind.FfmpegLocal;
+                DiagnosticLog.Info(
+                    "mp3-decoder",
+                    $"Lokalny MP3 otwarto jako float z ograniczeniem szczytów: {path}.");
+            }
+            else if (mp3DecoderMode == Mp3DecoderMode.Managed)
             {
                 if (!CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe))
                 {
@@ -1199,13 +1213,20 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         && probe is { ShouldUseSanitizedStream: true }
         && CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe);
 
-    private static bool IsDecoderFailure(Exception exception) =>
-        exception is IOException
+    internal static bool IsOutputDeviceInvalidation(Exception exception) =>
+        exception is System.Runtime.InteropServices.COMException
+        {
+            HResult: unchecked((int)0x88890004)
+        };
+
+    internal static bool IsDecoderFailure(Exception exception) =>
+        !IsOutputDeviceInvalidation(exception)
+        && (exception is IOException
             or InvalidDataException
             or NotSupportedException
             or ArgumentException
             or InvalidCastException
-            or System.Runtime.InteropServices.COMException;
+            or System.Runtime.InteropServices.COMException);
 
     public static bool TryReadMetadata(
         string path,
@@ -1713,6 +1734,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         }
         if (args.Exception is not null)
         {
+            if (TryBeginOutputDeviceRecovery(pipeline, args.Exception)) return;
             if (TryBeginMp3Recovery(pipeline, args.Exception)) return;
             DiagnosticLog.Error("playback", $"Błąd toru audio: {pipeline.Item.Title}.", args.Exception);
             StopPipelineAfterPlaybackFailure(
@@ -1879,6 +1901,43 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             LocalPreparationTimeout,
             mayRequireRemoteAccess: false);
         return true;
+    }
+
+    private bool TryBeginOutputDeviceRecovery(
+        PlaybackPipeline pipeline,
+        Exception exception)
+    {
+        if (!IsOutputDeviceInvalidation(exception)) return false;
+
+        int volume;
+        double rate;
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return false;
+            var now = DateTimeOffset.UtcNow;
+            if (string.Equals(
+                    _lastOutputDeviceRecoverySource,
+                    pipeline.Item.Source,
+                    StringComparison.OrdinalIgnoreCase)
+                && now - _lastOutputDeviceRecoveryUtc < OutputDeviceRecoveryCooldown)
+            {
+                return false;
+            }
+            _lastOutputDeviceRecoverySource = pipeline.Item.Source;
+            _lastOutputDeviceRecoveryUtc = now;
+            volume = _volume;
+            rate = _playbackRate;
+        }
+
+        DiagnosticLog.Warning(
+            "output-device-recovery",
+            $"Urządzenie audio stało się niedostępne; ponowne otwarcie wyjścia: {pipeline.Item.Title}.");
+        return RestartPipelineAfterResumeFailure(
+            pipeline,
+            pipeline.DecoderGuard.CachedCurrentTime,
+            volume,
+            rate,
+            exception);
     }
 
     private bool RestartPipelineAfterResumeFailure(

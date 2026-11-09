@@ -118,6 +118,7 @@ class LiteHostClient:
         timeshift_buffer_folder: str | Path | None = None,
         profile_dir: str | Path | None = None,
         queue_write: bool = False,
+        queue_data_dir: str | Path | None = None,
         library_db: str | Path | None = None,
         podcasts_db: str | Path | None = None,
         state_json: str | Path | None = None,
@@ -146,6 +147,7 @@ class LiteHostClient:
         # (``Program.cs`` -> ``LiteQueueStoreDenied``). Nie wysylamy polowy
         # kontraktu, zeby okno nie startowalo z gwarantowanym bledem.
         self.queue_write = bool(queue_write) and self.profile_dir is not None
+        self.queue_data_dir = str(queue_data_dir) if queue_data_dir else None
         self.library_db = str(library_db) if library_db else None
         self.podcasts_db = str(podcasts_db) if podcasts_db else None
         self.state_json = str(state_json) if state_json else None
@@ -201,6 +203,8 @@ class LiteHostClient:
             command += ["--profile-dir", self.profile_dir]
             if self.queue_write:
                 command.append("--queue-write")
+        if self.queue_data_dir is not None:
+            command += ["--queue-data-dir", self.queue_data_dir]
         if self.library_db is not None:
             command += ["--library-db", self.library_db]
         if self.podcasts_db is not None:

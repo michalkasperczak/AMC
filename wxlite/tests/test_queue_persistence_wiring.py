@@ -97,6 +97,13 @@ def test_write_mode_alone_is_not_sent() -> None:
     assert "--profile-dir" not in command
 
 
+def test_standalone_queue_directory_is_passed_without_profile_write() -> None:
+    command = _spawned_command(queue_data_dir=r"C:\AMC\file-queue")
+    assert command[command.index("--queue-data-dir") + 1] == r"C:\AMC\file-queue"
+    assert "--profile-dir" not in command
+    assert "--queue-write" not in command
+
+
 # ------------------------------------------------------------- wybor trybu
 
 
@@ -163,18 +170,19 @@ def test_private_copy_starts_a_persisting_host() -> None:
 
 
 def test_shared_profile_stays_read_only() -> None:
-    """Wspolny profil uzytkownika: ani sciezki, ani zgody na zapis.
-
-    Wlascicielem tych plikow jest pelne AMC (WPF). Nasza blokada pliku nie
-    chroni przed starym programem, wiec nie dotykamy go nawet z zamiarem.
-    """
+    """Baza biblioteki zostaje tylko do odczytu; kolejka ma własny plik."""
     with tempfile.TemporaryDirectory() as directory:
         base = Path(directory)
         (base / "library.db").write_bytes(b"")
         (base / "podcasts.db").write_bytes(b"")
-        kwargs = _start_with(read_only_mirror(local_dir=base, profile_dir=base))
+        layout = read_only_mirror(
+            local_dir=base, profile_dir=base,
+            lite_settings_dir=base / "own-settings",
+        )
+        kwargs = _start_with(layout)
     assert not kwargs.get("profile_dir")
     assert not kwargs.get("queue_write")
+    assert kwargs.get("queue_data_dir") == str(base / "own-settings" / "file-queue")
     assert kwargs.get("podcasts_db") == str(base / "podcasts.db")
 
 
@@ -221,6 +229,17 @@ def test_refused_write_is_announced_once_not_every_event() -> None:
     assert "zapisano" not in frame.said[0].lower().replace("nie zapisano", ""), (
         "odmowa nie moze brzmiec jak powodzenie"
     )
+
+
+def test_temporary_queue_is_announced_once_in_plain_language() -> None:
+    frame = _frame_for_error()
+    message = (
+        "Kolejka działa tylko do zamknięcia AMC. "
+        "Nie można otworzyć miejsca zapisu."
+    )
+    _note(frame, {"persistent": False, "persistError": message})
+    _note(frame, {"persistent": False, "persistError": message})
+    assert frame.said == [message]
 
 
 def test_a_new_reason_is_announced_again() -> None:

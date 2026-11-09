@@ -59,6 +59,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private readonly string _diagnosticSource;
     private readonly long _length;
     private readonly bool _liveStream;
+    private readonly bool _limitMp3Peaks;
     private Process? _process;
     private Stream? _audio;
     private StringBuilder? _decoderError;
@@ -89,11 +90,13 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         string path,
         TimeSpan duration,
         bool liveStream = false,
-        int outputSampleRate = OutputSampleRate)
+        int outputSampleRate = OutputSampleRate,
+        bool limitMp3Peaks = false)
     {
         _executable = executable;
         _path = path;
         _liveStream = liveStream;
+        _limitMp3Peaks = limitMp3Peaks;
         _diagnosticSource = Uri.TryCreate(path, UriKind.Absolute, out var networkUri)
             && networkUri.Scheme is "http" or "https"
                 ? networkUri.Host
@@ -149,7 +152,10 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     internal static bool ShouldPrefer(string path) =>
         PreferredExtensions.Contains(Path.GetExtension(path));
 
-    internal static bool TryOpen(string path, out FfmpegLocalAudioWaveStream reader)
+    internal static bool TryOpen(
+        string path,
+        out FfmpegLocalAudioWaveStream reader,
+        bool limitMp3Peaks = false)
     {
         reader = null!;
         var executable = FfmpegRadioWaveProvider.FindExecutable();
@@ -159,7 +165,8 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         {
             var duration = ProbeDuration(executable, path);
             if (duration <= TimeSpan.Zero) return false;
-            reader = new FfmpegLocalAudioWaveStream(executable, path, duration);
+            reader = new FfmpegLocalAudioWaveStream(
+                executable, path, duration, limitMp3Peaks: limitMp3Peaks);
             return true;
         }
         catch (Exception exception) when (exception is IOException
@@ -456,9 +463,18 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             start.ArgumentList.Add("-f");
             start.ArgumentList.Add("dash");
         }
+        start.ArgumentList.Add("-i");
+        start.ArgumentList.Add(_path);
+        if (_limitMp3Peaks)
+        {
+            // MP3 may decode above 0 dBFS. Limit the floating-point samples
+            // before SoundTouch/native tempo and the WASAPI endpoint can clip them.
+            // Disable automatic makeup gain, which would raise ordinary tracks.
+            start.ArgumentList.Add("-af");
+            start.ArgumentList.Add("alimiter=limit=0.98:level=false:latency=true");
+        }
         foreach (var argument in new[]
         {
-            "-i", _path,
             "-map", "0:a:0", "-vn",
             "-f", "f32le", "-acodec", "pcm_f32le",
             "-ar", WaveFormat.SampleRate.ToString(CultureInfo.InvariantCulture),

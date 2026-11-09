@@ -31,6 +31,7 @@ from amc_wx_lite.shortcuts import (
     PLAYER_VIEW,
     PODCAST_INBOX_LIST_VIEW,
     PODCAST_LIBRARY_LIST_VIEW,
+    PODCAST_LIST_VIEW,
     PODCAST_SESSION_VIEW,
     YOUTUBE_CHANNEL_LIST_VIEW,
     YOUTUBE_BROADCASTS_LIST_VIEW,
@@ -165,6 +166,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
         RADIOARCHIWISTA_SESSION_VIEW,
         PODCAST_LIBRARY_LIST_VIEW,
         PODCAST_INBOX_LIST_VIEW,
+        PODCAST_LIST_VIEW,
         PODCAST_SESSION_VIEW,
         YOUTUBE_CHANNEL_LIST_VIEW,
         YOUTUBE_BROADCASTS_LIST_VIEW,
@@ -471,7 +473,7 @@ def test_podcast_description_and_go_to_parent_have_precise_gates() -> None:
     assert spotify_description.shortcut == "Alt+D"
     assert spotify_description.needs_description_item
     assert not spotify_description.accelerator
-    assert go_to.shortcut is None
+    assert go_to.shortcut == "Right"
     assert go_to.needs_podcast_session
     assert go_to.needs_podcast_episode
     assert "podcast" in go_to.label.replace("&", "").casefold()

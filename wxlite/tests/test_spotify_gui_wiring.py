@@ -945,9 +945,10 @@ def test_spotify_right_arrow_uses_two_real_destinations_without_context_menu() -
     intent = ShowSpotifyRelations("Przejdź do", choices)
 
     class FakeWindow:
-        def __init__(self, _parent, *, title, labels, detailed_hints, finished):
+        def __init__(self, _parent, *, title, labels, names, links, service,
+                     copy_to_clipboard, detailed_hints, finished):
             self.finished = finished
-            created.append((title, labels, detailed_hints))
+            created.append((title, labels, names, links, service, detailed_hints))
             windows.append(self)
 
         @staticmethod
@@ -986,8 +987,10 @@ def test_spotify_right_arrow_uses_two_real_destinations_without_context_menu() -
         gui_module.RelationDestinationWindow = original_window
 
     assert created == [
-        ("Przejdź do", ("Album", "Wykonawca"), False),
-        ("Przejdź do", ("Album", "Wykonawca"), False),
+        ("Dokąd przejść", ("Album", "Wykonawca"),
+         ("Album", "Wykonawca"), ("", ""), "spotify", False),
+        ("Dokąd przejść", ("Album", "Wykonawca"),
+         ("Album", "Wykonawca"), ("", ""), "spotify", False),
     ]
     assert activated == [choices[0], choices[1]]
     assert run == [["Przejdź do albumu"], ["Przejdź do wykonawcy"]]
@@ -1009,9 +1012,10 @@ def test_spotify_right_arrow_waits_for_enter_on_one_podcast_destination() -> Non
     intent = ShowSpotifyRelations("Przejdź do", (choice,))
 
     class FakeWindow:
-        def __init__(self, _parent, *, title, labels, detailed_hints, finished):
+        def __init__(self, _parent, *, title, labels, names, links, service,
+                     copy_to_clipboard, detailed_hints, finished):
             self.finished = finished
-            created.append((title, labels, detailed_hints))
+            created.append((title, labels, names, links, service, detailed_hints))
             windows.append(self)
 
         @staticmethod
@@ -1046,7 +1050,10 @@ def test_spotify_right_arrow_waits_for_enter_on_one_podcast_destination() -> Non
     finally:
         gui_module.RelationDestinationWindow = original_window
 
-    assert created == [("Przejdź do", ("Podcast użytkowy",), False)]
+    assert created == [
+        ("Dokąd przejść", ("Podcast użytkowy, podcast",),
+         ("Podcast użytkowy",), ("",), "spotify", False)
+    ]
     assert activated == [choice]
     assert run == [["Przejdź do Podcast użytkowy"]]
     assert focused == []

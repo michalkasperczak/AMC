@@ -508,7 +508,8 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         (
             "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
             "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
-            "Ctrl+Enter album, a prawa strzałka najważniejsze działania"
+            "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
+            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music"
         ),
         "Ctrl+Alt+S",
         "Rozpoznan&e utwory…",
@@ -1796,6 +1797,11 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
 }
 
 
+PODCAST_LIST_VIEW: dict[str, Action] = {
+    "Right": Action.GO_TO_RELATED_PODCAST,
+}
+
+
 TIDAL_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+Shift+L": Action.TIDAL_TOGGLE_LIBRARY,
@@ -1961,6 +1967,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     YOUTUBE_BROADCASTS_LIST_VIEW,
     YOUTUBE_BROADCASTS_AGGREGATE_LIST_VIEW,
     PODCAST_SESSION_VIEW,
+    PODCAST_LIST_VIEW,
     TIDAL_SESSION_VIEW,
     TIDAL_COLLECTION_LIST_VIEW,
     TIDAL_LIST_VIEW,
@@ -2302,6 +2309,8 @@ def _resolve_default(
         and youtube_video_selection
     ):
         return Action.SAVE_YOUTUBE_VIDEO_AS
+    if podcast_session and not player_view and canonical in PODCAST_LIST_VIEW:
+        return PODCAST_LIST_VIEW[canonical]
     if podcast_session and canonical in PODCAST_SESSION_VIEW:
         return PODCAST_SESSION_VIEW[canonical]
     # Alt+1/2/3 w TIDAL sortuja tylko trzy rownorzedne korzenie kolekcji.
@@ -2590,9 +2599,12 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.VIEW_RADIO_RECOGNITION_HISTORY: (
             "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
             "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
-            "Ctrl+Enter album, a prawa strzałka najważniejsze działania"
+            "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
+            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music"
         ),
-        Action.GO_TO_RELATED_PODCAST: "Przejdź do podcastu wybranego odcinka",
+        Action.GO_TO_RELATED_PODCAST: (
+            "Pokaż podcast lub kanał wybranego odcinka. Enter otwiera cel"
+        ),
         Action.TOGGLE_PODCAST_FAVORITE: (
             "Dodaj zaznaczone podcasty lub odcinki do ulubionych albo je usuń"
         ),
@@ -2823,6 +2835,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         YOUTUBE_BROADCASTS_LIST_VIEW,
         YOUTUBE_BROADCASTS_AGGREGATE_LIST_VIEW,
         PODCAST_SESSION_VIEW,
+        PODCAST_LIST_VIEW,
         TIDAL_SESSION_VIEW,
         TIDAL_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
@@ -2856,6 +2869,12 @@ def _help_entries() -> list[tuple[str, str, Action]]:
                 label = f"{label} (Radio)"
             elif action is Action.IMPORT_PODCAST_OPML:
                 label = f"{label} (Podcasty i YouTube)"
+            elif action is Action.GO_TO_RELATED_PODCAST:
+                label = "Strzałka w prawo (Podcasty i YouTube)"
+            elif action is Action.TIDAL_RELATIONS:
+                label = "Strzałka w prawo (TIDAL)"
+            elif action is Action.SPOTIFY_RELATIONS:
+                label = "Strzałka w prawo (Spotify)"
             elif action is Action.VIEW_WIIM_NETWORK_STREAMS:
                 label = f"{label} (WiiM)"
             elif action is Action.SELECT_SONOS_TARGET:

@@ -38,6 +38,11 @@ if (args.Contains("--periodic-playback-checkpoint", StringComparer.Ordinal))
     PeriodicPlaybackCheckpointTests.Run();
     return 0;
 }
+if (args.Contains("--mp3-peaks-only", StringComparer.Ordinal))
+{
+    Mp3PeakPlaybackTests.Run();
+    return 0;
+}
 if (args.Contains("--reader-native-gestures", StringComparer.Ordinal))
 {
     NativeReaderGesturePassThroughTests.Run();

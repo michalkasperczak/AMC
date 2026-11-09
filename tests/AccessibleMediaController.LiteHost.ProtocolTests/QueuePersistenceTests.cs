@@ -87,6 +87,10 @@ internal static class QueuePersistenceTests
         Directory.CreateDirectory(_root);
         try
         {
+            OsobnaKolejkaPrzetrwaRestartBezBazyBiblioteki();
+            OsobnaPustaKolejkaNieOdradzaUtworow();
+            UszkodzonyZapisNieJestNadpisany();
+            OdmowaOtwarciaPozwalaNaKolejkeWPamieci();
             ZapisPrzetrwaZamkniecieWlascicielaIOdczytWNowym();
             KolejnoscICzlonkostwoWracajaDokladnie();
             ZuzycieNaturalnymKoncemDoZeraNieOdradzaPozycji();
@@ -129,6 +133,79 @@ internal static class QueuePersistenceTests
         {
             try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
         }
+    }
+
+    private static void OsobnaKolejkaPrzetrwaRestartBezBazyBiblioteki()
+    {
+        var directory = Path.Combine(_root, "standalone-test");
+        var media = Path.Combine(_root, "new-file.mp3");
+        File.WriteAllBytes(media, []);
+        using (var first = LiteQueueStore.OpenStandalone(directory))
+        {
+            var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+            queue.Set(Args($$"""
+                {"sessionId":"local","items":[
+                  {"id":"new:track","title":"Nowy utwor","path":{{Json(media)}},"isInQueue":true}
+                ],"order":["new:track"]}
+                """));
+            Assert.True(queue.PersistedWrites == 1, "odrębny magazyn zapisał nowy plik");
+        }
+        using (var second = LiteQueueStore.OpenStandalone(directory))
+        {
+            var queue = new LiteQueueCoordinator(new SilentOutput(), second);
+            Assert.True(queue.RestoredRows == 1, "nowy host przywrócił plik spoza biblioteki");
+            Assert.True(queue.Status().Rows[0].Title == "Nowy utwor", "tytuł wrócił po restarcie");
+        }
+        File.Delete(media);
+        using (var third = LiteQueueStore.OpenStandalone(directory))
+        {
+            var queue = new LiteQueueCoordinator(new SilentOutput(), third);
+            Assert.True(queue.RestoredRows == 1, "brakujący plik pozostaje widoczny do ręcznego usunięcia");
+        }
+    }
+
+    private static void OsobnaPustaKolejkaNieOdradzaUtworow()
+    {
+        var directory = Path.Combine(_root, "standalone-empty");
+        using (var first = LiteQueueStore.OpenStandalone(directory))
+        {
+            var queue = new LiteQueueCoordinator(new SilentOutput(), first);
+            queue.Set(Args("""{"sessionId":"local","items":[],"order":[]}"""));
+        }
+        using var second = LiteQueueStore.OpenStandalone(directory);
+        var restored = new LiteQueueCoordinator(new SilentOutput(), second);
+        Assert.True(restored.Status().Initialized, "zapisana pustka pozostaje zainicjalizowana");
+        Assert.True(restored.RestoredRows == 0, "pusta kolejka pozostaje pusta");
+    }
+
+    private static void UszkodzonyZapisNieJestNadpisany()
+    {
+        var directory = Path.Combine(_root, "standalone-broken");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "file-queue-v1.json");
+        File.WriteAllText(path, "{broken");
+        using var store = LiteQueueStore.OpenStandalone(directory);
+        var queue = new LiteQueueCoordinator(new SilentOutput(), store);
+        Assert.True(queue.LastPersistError is not null, "uszkodzenie jest jawne");
+        queue.Set(Args("""{"sessionId":"local","items":[],"order":[]}"""));
+        Assert.True(queue.LastPersistError is not null, "odmowa zapisu jest jawna");
+        Assert.True(File.ReadAllText(path) == "{broken", "oryginał nie został nadpisany");
+    }
+
+    private static void OdmowaOtwarciaPozwalaNaKolejkeWPamieci()
+    {
+        var directory = Path.Combine(_root, "standalone-denied");
+        File.WriteAllText(directory, "to jest plik, nie katalog");
+        var denied = false;
+        try { using var ignored = LiteQueueStore.OpenStandalone(directory); }
+        catch (IOException) { denied = true; }
+        Assert.True(denied, "magazyn nie może zostać otwarty");
+        var queue = new LiteQueueCoordinator(
+            new SilentOutput(), startupPersistError: "Kolejka działa tymczasowo.");
+        queue.Set(Args("""{"sessionId":"local","items":[],"order":[]}"""));
+        Assert.True(!queue.Status().Persistent, "kolejka nadal działa tylko w pamięci");
+        Assert.True(queue.Status().PersistError == "Kolejka działa tymczasowo.",
+            "odmowa zapisu jest widoczna w queue.status");
     }
 
     // ---------------------------------------------------------------- profil

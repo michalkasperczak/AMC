@@ -874,6 +874,8 @@ def build_menus(
             MenuItem(
                 "Przejdź do podcastu tego o&dcinka",
                 Action.GO_TO_RELATED_PODCAST,
+                shortcut="Right",
+                accelerator=False,
                 needs_podcast_session=True,
                 needs_podcast_episode=True,
                 visible_sessions=PODCASTS_ONLY,

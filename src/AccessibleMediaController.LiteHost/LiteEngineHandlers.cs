@@ -161,7 +161,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteSpotifyPlaybackCoordinator? spotifyPlayback = null,
         LiteCommonDataSnapshotCoordinator? commonDataSnapshot = null,
         bool enableTidalNativePlayback = false,
-        string? timeshiftBufferFolder = null)
+        string? timeshiftBufferFolder = null,
+        string? queueStartupError = null)
     {
         _radio = new RadioMediaOutput(
             timeshiftMinutes, timeshiftFolder: timeshiftBufferFolder);
@@ -193,7 +194,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _podcastChapters = podcastProgressStore is null || bookmarkStore is null
             ? null
             : new LitePodcastChapterCoordinator(podcastProgressStore, bookmarkStore);
-        _queue = new LiteQueueCoordinator(_files, queueStore);
+        _queue = new LiteQueueCoordinator(_files, queueStore, queueStartupError);
         _recognition = new LiteRadioRecognitionCoordinator(
             _radio,
             () =>

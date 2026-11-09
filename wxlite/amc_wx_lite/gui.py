@@ -393,6 +393,7 @@ from .recognition_actions import (
     service_label as recognition_service_label,
     store_match as store_recognition_match,
 )
+from .service_links import exact_service_link
 from .transport_parity import (
     DEFAULT_TEMPLATES,
     PLAYBACK_RATES,
@@ -4407,6 +4408,10 @@ class RelationDestinationWindow(wx.Frame):
         *,
         title: str,
         labels: tuple[str, ...],
+        names: tuple[str, ...],
+        links: tuple[str, ...],
+        service: str,
+        copy_to_clipboard: Callable[[str], bool],
         detailed_hints: bool,
         finished: Callable[[int | None], None],
     ) -> None:
@@ -4417,6 +4422,10 @@ class RelationDestinationWindow(wx.Frame):
         ) & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX | wx.MINIMIZE_BOX)
         super().__init__(parent, title=title, style=style)
         self._labels = labels
+        self._names = names
+        self._links = links
+        self._service = service
+        self._copy_to_clipboard = copy_to_clipboard
         self._finished = finished
         self._closing = False
 
@@ -4432,17 +4441,23 @@ class RelationDestinationWindow(wx.Frame):
         self.destinations.SetName(title)
         if detailed_hints:
             self.destinations.SetHelpText(
-                "Enter otwiera. Lewa strzałka lub Escape wraca."
+                "Enter otwiera. Ctrl+C kopiuje nazwę. Ctrl+Shift+C kopiuje "
+                "dokładny link, jeśli jest dostępny. Lewa strzałka lub "
+                "Escape wraca."
             )
         if labels:
             self.destinations.SetSelection(0)
         layout.Add(self.destinations, 1, wx.ALL | wx.EXPAND, 10)
+        self.status = wx.StaticText(panel, label="")
+        self.status.SetName("Stan kopiowania")
+        layout.Add(self.status, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
         panel.SetSizer(layout)
 
         self.SetMinSize((440, 150))
         self.Fit()
         self.CentreOnParent()
         self.destinations.Bind(wx.EVT_LISTBOX_DCLICK, self._accept)
+        self.destinations.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
@@ -4474,7 +4489,35 @@ class RelationDestinationWindow(wx.Frame):
     def _on_close(self, _event: wx.CloseEvent) -> None:
         self._finish(None)
 
+    def _copy_selected(self, *, link: bool) -> None:
+        index = self.selected_index
+        if index is None:
+            announce_status(self.status, "Wybierz miejsce docelowe")
+            return
+        value = self._links[index] if link else self._names[index]
+        if not value:
+            announce_status(self.status, "Ten cel nie ma dokładnego linku")
+            return
+        if self._copy_to_clipboard(value):
+            if link:
+                service_name = {
+                    "tidal": "TIDAL",
+                    "spotify": "Spotify",
+                    "podcasts": "do źródła",
+                }.get(self._service, "usługi")
+                announce_status(self.status, f"Skopiowano link {service_name}")
+            else:
+                announce_status(self.status, "Skopiowano nazwę")
+        self.destinations.SetFocus()
+
     def _on_key(self, event: wx.KeyEvent) -> None:
+        chord = chord_from_event(event).canonical
+        if chord == "Ctrl+C":
+            self._copy_selected(link=False)
+            return
+        if chord == "Ctrl+Shift+C":
+            self._copy_selected(link=True)
+            return
         if not event.ControlDown() and not event.AltDown() and not event.ShiftDown():
             key = event.GetKeyCode()
             if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
@@ -4511,6 +4554,56 @@ def relation_destination_labels(
         short = label[len(prefix):] if label.startswith(prefix) else label
         result.append(short[:1].upper() + short[1:] if short else label)
     return tuple(result)
+
+
+def relation_destination_details(
+    choices: tuple[TidalRelationChoice | SpotifyRelationChoice, ...],
+    *,
+    service: str,
+    detailed_hints: bool,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Speak actual destinations; keep names and exact links separate."""
+
+    fallbacks = relation_destination_labels(
+        tuple(choice.label for choice in choices),
+        detailed_hints=detailed_hints,
+    )
+    labels: list[str] = []
+    names: list[str] = []
+    links: list[str] = []
+    kinds = {
+        "album": "album",
+        "artist": "wykonawca",
+        "podcast": "podcast",
+    }
+    for choice, fallback in zip(choices, fallbacks):
+        target = choice.target
+        name = target.title.strip()
+        names.append(name or fallback)
+        links.append(exact_service_link(
+            service, target.kind, target.service_id, target.public_uri,
+        ))
+        # Sekcje wykonawcy są kategoriami, nie drugim wierszem wykonawcy.
+        section = (
+            target.artist_section
+            if isinstance(target, OpenTidalContainer)
+            else target.section
+        )
+        if section:
+            names[-1] = fallback
+            links[-1] = ""
+            labels.append(fallback)
+            continue
+        kind = kinds.get(target.kind)
+        if not kind or not name or name.casefold() == kind.casefold():
+            labels.append(fallback)
+            continue
+        parts = [name, kind]
+        if target.kind == "album" and target.artist:
+            if target.artist.casefold() != name.casefold():
+                parts.append(target.artist)
+        labels.append(", ".join(parts))
+    return tuple(labels), tuple(names), tuple(links)
 
 
 class ServiceAccountDialog(wx.Dialog):
@@ -7227,7 +7320,8 @@ class RecognitionActionsWindow(wx.Frame):
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
         hint = (
-            "Enter wykonuje działanie. Ctrl+C kopiuje nazwę działania, "
+            "Enter wykonuje działanie; dla Apple Music kopiuje link. "
+            "Ctrl+C kopiuje nazwę działania, "
             "Ctrl+Shift+C kopiuje jego łącze. Strzałka w lewo lub Escape wraca."
         )
         self.actions = wx.ListBox(panel, choices=[action.label for action in actions])
@@ -7287,6 +7381,9 @@ class RecognitionActionsWindow(wx.Frame):
         action = self._selected_action()
         if action is None:
             self._set_status("Brak wybranego działania")
+            return
+        if action.operation == "copy_link":
+            self._copy_link()
             return
         self._set_status("Sprawdzam dostępność działania")
 
@@ -7414,7 +7511,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         if self._internal_services:
             help_text = (
                 "Rozpoznane utwory. Enter otwiera utwór, Ctrl+Enter album w usłudze "
-                "domyślnej, prawa strzałka pokazuje działania, lewa podaje krótką "
+                "domyślnej, prawa strzałka pokazuje nazwane utwory i łącze Apple Music, "
+                "lewa podaje krótką "
                 "informację. Ctrl+C kopiuje opis, Ctrl+Shift+C dokładne łącze. "
                 "Alt+strzałka w górę lub w dół zmienia kolejność, Delete usuwa. "
                 "Tab przechodzi do filtra stacji."
@@ -7422,7 +7520,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         else:
             help_text = (
                 "Rozpoznane utwory. Enter wyszukuje utwór, Ctrl+Enter album na "
-                "stronie usługi domyślnej, prawa strzałka pokazuje działania, "
+                "stronie usługi domyślnej, prawa strzałka pokazuje nazwane utwory "
+                "i łącze Apple Music, "
                 "lewa podaje krótką informację. Ctrl+C kopiuje opis, "
                 "Ctrl+Shift+C łącze wyszukiwania. Alt+strzałka w górę lub w dół "
                 "zmienia kolejność, Delete usuwa. Tab przechodzi do filtra stacji."
@@ -7666,6 +7765,24 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         entry = self._selected_entry()
         if entry is None:
             self._set_status("Brak wybranego wpisu")
+            return
+        if action.operation == "copy_link":
+            service = recognition_service_label(action.service)
+
+            def copy_link(match: dict | None) -> None:
+                link = recognition_action_url(action, match)
+                exact = bool(link)
+                if not link:
+                    link = recognition_search_links(entry).get(service, "")
+                if link and self._copy_to_clipboard(link):
+                    self._set_status(
+                        f"Skopiowano link {service}" if exact
+                        else f"Skopiowano link wyszukiwania {service}"
+                    )
+                else:
+                    self._set_status(f"Nie udało się skopiować łącza {service}")
+
+            self._resolve_action(entry, action, copy_link, lambda _error: copy_link(None))
             return
         self._set_status("Sprawdzam dostępność działania")
 
@@ -10663,6 +10780,7 @@ class LiteFrame(wx.Frame):
             "Space": "Spacja",
             "Prior": "Page Up",
             "Next": "Page Down",
+            "Right": "strzałka w prawo",
         }
         head, _, key = chord.rpartition("+")
         return f"{head}+{names.get(key, key)}" if head else names.get(key, key)
@@ -11773,10 +11891,8 @@ class LiteFrame(wx.Frame):
 
         if entry.session_id is SessionId.SPOTIFY:
             choices = self.navigator._spotify_relation_choices(entry.row)
-            title = "Przejdź do"
         elif entry.session_id is SessionId.TIDAL:
             choices = self.navigator._tidal_relation_choices(entry.row)
-            title = "Przejdź do albumu lub wykonawcy TIDAL"
         else:
             search_dialog.announcer.say(
                 "Przejście do albumu, wykonawcy lub podcastu jest dostępne "
@@ -11788,13 +11904,15 @@ class LiteFrame(wx.Frame):
                 "Ten wynik nie ma dostępnego albumu, wykonawcy ani podcastu"
             )
             return None
+        labels, _, _ = relation_destination_details(
+            choices,
+            service=entry.session_id.value,
+            detailed_hints=self._detailed_hints,
+        )
         search_dialog.show_relation_choices(
             choices,
-            relation_destination_labels(
-                tuple(choice.label for choice in choices),
-                detailed_hints=self._detailed_hints,
-            ),
-            title=title,
+            labels,
+            title="Dokąd przejść",
         )
         return None
 
@@ -13438,23 +13556,12 @@ class LiteFrame(wx.Frame):
         return bool(self) and not self.IsBeingDeleted()
 
     def _queue_persistence_arguments(self) -> dict[str, object]:
-        """Czy TEN start okna ma byc pisarzem zapisanej kolejki.
-
-        Decyduje UKLAD PROFILU, nie zyczenie wywolujacego:
-
-        * ``PRIVATE_SANDBOX`` (wlasna pelna kopia) -- host dostaje sciezke i
-          jawna zgode na zapis. To jedyny tryb, w ktorym kolejka przezywa
-          zamkniecie okna.
-        * ``READ_ONLY_MIRROR`` (wspolny profil uzytkownika) -- NIC nie
-          wysylamy. Wlascicielem tych plikow jest pelne AMC (WPF), ktore nie
-          zna naszej blokady; nasz zamek nie chronilby go przed niczym.
-
-        Brak bazy w piaskownicy to zwykle przegladanie dysku: host zostaje w
-        pamieci, a stara sciezka plikow dziala bez zmian.
-        """
+        """Wybierz magazyn kolejki bez zapisu do wspolnej bazy biblioteki."""
         layout = getattr(self, "layout", None) or resolve_layout()
         if not layout.may_write_profile:
-            return {}
+            # Wlasny plik Test/Public. Host C# jest jedynym pisarzem, a
+            # biblioteka pozostaje otwarta przez Python tylko do odczytu.
+            return {"queue_data_dir": str(layout.lite_settings_dir / "file-queue")}
         if not layout.library_db.exists():
             return {}
         return {"profile_dir": str(layout.library_db.parent), "queue_write": True}
@@ -13463,7 +13570,9 @@ class LiteFrame(wx.Frame):
         persistence = self._queue_persistence_arguments()
         # Co obiecalismy uzytkownikowi: bez tej zgody ``persistent=false`` jest
         # stanem NORMALNYM, a nie awaria warta ogloszenia.
-        self._queue_write_requested = bool(persistence.get("queue_write"))
+        self._queue_write_requested = bool(
+            persistence.get("queue_write") or persistence.get("queue_data_dir")
+        )
         self._last_persist_error: str | None = None
         layout = getattr(self, "layout", None)
         library_db = getattr(layout, "library_db", None)
@@ -14294,7 +14403,10 @@ class LiteFrame(wx.Frame):
         if error == getattr(self, "_last_persist_error", None):
             return
         self._last_persist_error = error
-        self.announcer.say(f"Nie zapisałem kolejki: {error}")
+        self.announcer.say(
+            error if error.startswith("Kolejka działa tylko do zamknięcia AMC.")
+            else f"Nie zapisałem kolejki: {error}"
+        )
 
     def _handle_nvda_command(self, data: dict) -> None:
         """Wykonaj jedno polecenie istniejącego dodatku i odeślij wynik.
@@ -15027,19 +15139,15 @@ class LiteFrame(wx.Frame):
         """Show a keyboard-driven destination list without a menu/dialog role."""
         if not intent.choices:
             return
-        # Gdy istnieje tylko jeden jednoznaczny cel (np. album -> wykonawca),
-        # prawa strzalka wykonuje go od razu. Przy wielu celach zwykle
-        # wx.Menu dodawalo w mowie „menu kontekstowe”, a tytul wygladal jak
-        # trzecia pozycja. Natywna lista pokazuje wylacznie prawdziwe cele.
-        if len(intent.choices) == 1:
-            self._run(self.navigator.activate_tidal_relation(intent.choices[0]))
-            return
+        labels, names, links = relation_destination_details(
+            intent.choices, service="tidal", detailed_hints=self._detailed_hints,
+        )
         self._show_relation_destination_window(
-            title=intent.title,
-            labels=relation_destination_labels(
-                tuple(choice.label for choice in intent.choices),
-                detailed_hints=self._detailed_hints,
-            ),
+            title="Dokąd przejść",
+            labels=labels,
+            names=names,
+            links=links,
+            service="tidal",
             activate=lambda index: self._run(
                 self.navigator.activate_tidal_relation(intent.choices[index])
             ),
@@ -15050,11 +15158,18 @@ class LiteFrame(wx.Frame):
         *,
         title: str,
         labels: tuple[str, ...],
+        names: tuple[str, ...],
+        links: tuple[str, ...],
+        service: str,
         activate: Callable[[int], None],
     ) -> None:
         """Open one concise list and restore the originating list on cancel."""
 
         active_list = self._active_list()
+        try:
+            origin_focus = wx.Window.FindFocus() or active_list
+        except (AttributeError, RuntimeError):
+            origin_focus = active_list
         previous = getattr(self, "_relation_destination_window", None)
         if previous is not None:
             try:
@@ -15069,7 +15184,7 @@ class LiteFrame(wx.Frame):
             if getattr(self, "_relation_destination_window", None) is window:
                 self._relation_destination_window = None
             if index is None:
-                wx.CallAfter(active_list.SetFocus)
+                wx.CallAfter(origin_focus.SetFocus)
                 return
             activate(index)
 
@@ -15077,6 +15192,10 @@ class LiteFrame(wx.Frame):
             self,
             title=title,
             labels=labels,
+            names=names,
+            links=links,
+            service=service,
+            copy_to_clipboard=lambda value: self._to_clipboard(value),
             detailed_hints=self._detailed_hints,
             finished=finished,
         )
@@ -15391,12 +15510,15 @@ class LiteFrame(wx.Frame):
 
         if not intent.choices:
             return
+        labels, names, links = relation_destination_details(
+            intent.choices, service="spotify", detailed_hints=self._detailed_hints,
+        )
         self._show_relation_destination_window(
-            title=intent.title,
-            labels=relation_destination_labels(
-                tuple(choice.label for choice in intent.choices),
-                detailed_hints=self._detailed_hints,
-            ),
+            title="Dokąd przejść",
+            labels=labels,
+            names=names,
+            links=links,
+            service="spotify",
             activate=lambda index: self._run(
                 self.navigator.activate_spotify_relation(intent.choices[index])
             ),
@@ -25892,7 +26014,7 @@ class LiteFrame(wx.Frame):
         self.runner.submit("podcast-description", work, done, failed)
 
     def _go_to_related_podcast(self) -> None:
-        """Open the selected episode's parent and keep focus on the episode."""
+        """Offer the selected episode's parent before opening its contents."""
         if self.navigator.active is not SessionId.PODCASTS:
             self.announcer.say(
                 "Dla tego elementu nie znaleziono podcastu w Bibliotece"
@@ -25923,12 +26045,31 @@ class LiteFrame(wx.Frame):
                     "Dla tego elementu nie znaleziono podcastu w Bibliotece"
                 )
                 return
-            state.library_return_id = subscription.subscription_id
-            self._open_podcast_view(OpenPodcastView(
-                subscription_id=subscription.subscription_id,
-                subscription_title=subscription.title,
-                preferred_id=episode_id,
-            ))
+            label = f"{subscription.title}, {subscription.kind_label}"
+            link = exact_service_link(
+                "podcasts", "podcast", None, subscription.feed_url,
+            )
+
+            def activate(_index: int) -> None:
+                current = self.navigator.sessions[SessionId.PODCASTS].model.selected_row
+                if current is None or current.item_id != episode_id:
+                    self.announcer.say("Ten odcinek nie jest już zaznaczony")
+                    return
+                state.library_return_id = subscription.subscription_id
+                self._open_podcast_view(OpenPodcastView(
+                    subscription_id=subscription.subscription_id,
+                    subscription_title=subscription.title,
+                    preferred_id=episode_id,
+                ))
+
+            self._show_relation_destination_window(
+                title="Dokąd przejść",
+                labels=(label,),
+                names=(subscription.title,),
+                links=(link,),
+                service="podcasts",
+                activate=activate,
+            )
 
         def failed(error: Exception) -> None:
             self.announcer.say(
@@ -27119,20 +27260,35 @@ class LiteFrame(wx.Frame):
         ):
             self.announcer.say("Plik niedostępny. Ctrl+C skopiuje zapisaną ścieżkę")
             return
-        if any(not row.address for row in rows):
-            self.announcer.say(
-                "Ten element nie ma zapisanego adresu"
-                if len(rows) == 1
-                else "Co najmniej jeden zaznaczony element nie ma zapisanego adresu"
-            )
+        service = getattr(self.navigator.active, "value", "")
+        addresses = [
+            exact_service_link(service, row.kind, row.service_id, row.url)
+            if service in {"spotify", "tidal"}
+            else row.address
+            for row in rows
+        ]
+        if any(not address for address in addresses):
+            if service in {"spotify", "tidal"}:
+                message = (
+                    "Ten element nie ma dokładnego linku"
+                    if len(rows) == 1
+                    else "Co najmniej jeden element nie ma dokładnego linku"
+                )
+            else:
+                message = (
+                    "Ten element nie ma zapisanego adresu"
+                    if len(rows) == 1
+                    else "Co najmniej jeden zaznaczony element nie ma zapisanego adresu"
+                )
+            self.announcer.say(message)
             return
 
         entries: list[tuple[Row, str, str | None]] = []
-        for row in rows:
-            drop = self._file_drop_path(row.address)
+        for row, address in zip(rows, addresses):
+            drop = self._file_drop_path(address)
             # Tekst istniejacego pliku dostaje sprowadzona zwykla sciezke;
             # pozostale elementy zachowuja swoj bezposredni adres.
-            entries.append((row, drop or row.address, drop))
+            entries.append((row, drop or address, drop))
 
         file_paths: list[str] = []
         seen_paths: set[str] = set()
@@ -27150,8 +27306,11 @@ class LiteFrame(wx.Frame):
             return
 
         if len(rows) == 1:
-            self.announcer.say(copied_address_message(
-                rows[0], file_copied=bool(file_paths)))
+            self.announcer.say(
+                f"Skopiowano link {'Spotify' if service == 'spotify' else 'TIDAL'}"
+                if service in {"spotify", "tidal"}
+                else copied_address_message(rows[0], file_copied=bool(file_paths))
+            )
         elif all(entry[2] is not None for entry in entries):
             self.announcer.say(
                 f"Skopiowano pliki i pełne ścieżki: {format_file_count(len(file_paths))}"
@@ -30092,11 +30251,13 @@ class LiteFrame(wx.Frame):
             if not rows and not payload.get("initialized", False):
                 # Jeszcze nie wczytano żadnej kolejki do tego hosta.
                 self._run(self.navigator.open_library_view(LibraryView.SAVED_QUEUE))
+                self._note_queue_persistence(payload or {})
                 return
             current = payload.get("currentId")
             self._run(self.navigator.apply_live_queue(
                 rows, current_id=str(current) if current else None
             ))
+            self._note_queue_persistence(payload or {})
 
         def failed(error: Exception) -> None:
             # Brak odpowiedzi silnika nie moze skonczyc sie cisza ani pusta
@@ -34867,6 +35028,13 @@ class LiteFrame(wx.Frame):
                 "Otwórz Menedżer sesji skrótem Ctrl+Shift+S"
             )
             self._restore_focus_after_dialog()
+            return
+        if action.entity == "track":
+            result = SearchEntry(session_id, track)
+            if service == SPOTIFY:
+                self._open_spotify_search_result(result, relations=False)
+            else:
+                self._open_tidal_search_result(result, relations=False)
             return
         if action.entity == "artist":
             artist = self._recognition_artist_row(match)

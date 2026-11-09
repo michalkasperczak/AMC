@@ -196,10 +196,13 @@ internal sealed class LiteQueueCoordinator
     private bool? _rememberGloballyOverride;
     private ResumePositionMode? _sessionModeOverride;
 
-    public LiteQueueCoordinator(IMediaOutput output, LiteQueueStore? store = null)
+    public LiteQueueCoordinator(
+        IMediaOutput output, LiteQueueStore? store = null,
+        string? startupPersistError = null)
     {
         _output = output ?? throw new ArgumentNullException(nameof(output));
         _store = store;
+        _lastPersistError = startupPersistError;
         // ODCZYT przy starcie hosta. To jest cala "trwalosc" widziana z zewnatrz:
         // nowy proces hosta zastaje kolejke taka, jaka zapisal poprzedni.
         // Odczyt NIE odtwarza niczego i nie przejmuje transportu.
@@ -804,7 +807,7 @@ internal sealed class LiteQueueCoordinator
             var queued = session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray();
             var snapshot = TransientQueuePersistence.Capture(
                 LiteQueueStore.LocalSessionId, queued, session.QueueItemIds);
-            if (_store.Write(LiteQueueStore.LocalSessionId, snapshot)) _persistedWrites++;
+            if (_store.Write(LiteQueueStore.LocalSessionId, snapshot, session.Items)) _persistedWrites++;
             else _persistSkipped++;
             _lastPersistError = null;
         }

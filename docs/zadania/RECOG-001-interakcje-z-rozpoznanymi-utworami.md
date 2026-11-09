@@ -263,6 +263,69 @@ wtedy łącze wyszukiwania i ogłasza ten zakres jednoznacznie.
 
 ## Wersja i commit
 
+### Korekta z 09.11.2026 — nazwy i kolejność pod prawą strzałką
+
+Ta decyzja zastępuje wcześniejszą kolejność, w której pierwsze były wykonawca
+i album, a działania utworu miały ogólne nazwy usług.
+
+#### Materiał do dokumentacji użytkownika
+
+W oknie „Rozpoznane utwory” (`Ctrl+Alt+S`) prawa strzałka pokazuje najpierw
+rozpoznany tytuł i wykonawcę dla usługi domyślnej, potem dla drugiej usługi
+(Spotify albo TIDAL), a następnie „Kopiuj link Apple Music”. Na przykład:
+„Mosty, Anita Lipnicka, utwór — znajdź w TIDAL”. Enter na pozycji Spotify
+albo TIDAL wyszukuje zgodny utwór i otwiera go w AMC Test. Enter na pozycji
+Apple Music kopiuje dokładny link, jeśli uda się potwierdzić wynik, a w
+przeciwnym razie link wyszukiwania; komunikat rozróżnia te dwa przypadki.
+`Ctrl+C` w tym oknie kopiuje nazwę pozycji, a `Ctrl+Shift+C` jej łącze.
+Strzałka w lewo lub Escape wraca do historii. Jeśli rozpoznanie zawiera nazwę
+albumu, pojawia się także nazwany album usługi domyślnej. Bez tej nazwy
+album nie jest zgadywany z tytułu utworu. `Ctrl+Enter` i pełne menu
+kontekstowe nadal pozwalają znaleźć album na żądanie. Profil AMC Public
+pokazuje wyszukiwanie WWW Spotify/TIDAL zamiast otwierania ich sesji w AMC.
+
+#### Uzasadnienie i decyzje
+
+Historia rozpoznawania przechowuje tytuł i wykonawcę, a nazwa albumu może
+być nieobecna. Przesuwanie po liście działań korzysta wyłącznie z danych
+historii i nie łączy się z katalogami. Dopasowanie i dokładny link są
+rozwiązywane dopiero po Enter lub `Ctrl+Shift+C`; brak wyniku nie jest
+przedstawiany jako link do konkretnego utworu. Warianty tego samego utworu
+mogą występować na kilku albumach, więc sam wynik wyszukiwania utworu nie
+dopisuje albumu do krótkiej listy.
+
+#### Testy i wynik
+
+- Testy modelu i bezwidocznej obsługi okien: 20/20 zaliczonych. Obejmują
+  kolejność TIDAL/Spotify/Apple Music, profil Public, utwór bez albumu,
+  kopiowanie Apple Music z prawej strzałki i menu, link wyszukiwania oraz
+  otwarcie utworu zamiast albumu w obu sesjach.
+- Razem z testami rozpoznawania, radia, menu, palety i skrótów: 139/139
+  zaliczonych bez uruchamiania widocznego okna.
+- Kontrola składni Python: zaliczona. Pełna regresja, build, instalacja,
+  publikacja i ręczny odsłuch NVDA: nie wykonywano na tym etapie.
+
+#### Znane ograniczenia
+
+- Dopasowanie utworu w katalogu może nie znaleźć dokładnego wyniku.
+- Bez nazwy albumu z rozpoznawania krótka lista nie podaje albumu. Wyszukanie
+  go przez `Ctrl+Enter` lub pełne menu nadal może wskazać wariant utworu z
+  innym albumem; wymaga to sprawdzenia przez użytkownika.
+- Rzeczywistą wymowę NVDA, fokus, strzałki i ponowne otwarcie trzeba jeszcze
+  sprawdzić w uruchomionym AMC.
+
+#### Projekt opisu zmian
+
+> Prawa strzałka w historii rozpoznawania podaje tytuł i wykonawcę najpierw
+> dla usługi domyślnej, potem dla drugiej. Osobna pozycja kopiuje dokładne
+> łącze Apple Music albo wyraźnie nazwany link wyszukiwania. Album pojawia się
+> na krótkiej liście tylko wtedy, gdy rozpoznawanie podało jego nazwę.
+
+#### Wersja i commit
+
+Zmiany są w źródłach gałęzi roboczej; nie utworzono commitu ani nowej wersji.
+Build, instalacja i publikacja nie zostały wykonane.
+
 ### Korekta z 31.10.2026 — filtr stacji i fokus
 
 Wcześniejszy opis pojedynczego filtra „Wszystkie stacje” jest zastąpiony:

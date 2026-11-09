@@ -270,10 +270,11 @@ def test_okno_alt_d_uzywa_poczatku_opisu_zamiast_ogolnego_tytulu() -> None:
     assert "self.content.SetName(accessible_title)" in rendered
 
 
-def test_go_to_related_podcast_opens_parent_and_reselects_episode() -> None:
+def test_go_to_related_podcast_waits_for_enter_and_reselects_episode() -> None:
     row = Row("private-episode-id", "Wybrany odcinek", "episode")
     state = _state(row)
     opened = []
+    choices = []
     spoken: list[str] = []
     subscription = PodcastSubscription(
         "private-parent-id", "Audycja tygodnia", 0
@@ -287,14 +288,46 @@ def test_go_to_related_podcast_opens_parent_and_reselects_episode() -> None:
         runner=SimpleNamespace(submit=_sync_submit),
         announcer=SimpleNamespace(say=spoken.append),
         _open_podcast_view=opened.append,
+        _show_relation_destination_window=lambda **kwargs: choices.append(kwargs),
     )
 
     gui.LiteFrame._go_to_related_podcast(frame)
 
     assert spoken == []
+    assert len(choices) == 1
+    assert choices[0]["labels"] == ("Audycja tygodnia, podcast",)
+    assert choices[0]["names"] == ("Audycja tygodnia",)
+    assert choices[0]["links"] == ("",)
+    assert opened == []
+    choices[0]["activate"](0)
     assert state.library_return_id == "private-parent-id"
     assert len(opened) == 1
     assert opened[0].subscription_id == "private-parent-id"
     assert opened[0].subscription_title == "Audycja tygodnia"
     assert opened[0].preferred_id == "private-episode-id"
+
+
+def test_history_episode_names_its_youtube_channel_and_keeps_exact_feed_link() -> None:
+    row = Row("episode-id", "Odcinek", "episode")
+    subscription = PodcastSubscription(
+        "channel-id", "Kanał Ani", 2,
+        feed_url="https://www.youtube.com/feeds/videos.xml?channel_id=abc",
+    )
+    shown = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            sessions={SessionId.PODCASTS: _state(row)},
+        ),
+        podcasts=SimpleNamespace(related_podcast=lambda _id: subscription),
+        runner=SimpleNamespace(submit=_sync_submit),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _show_relation_destination_window=lambda **kwargs: shown.append(kwargs),
+    )
+
+    gui.LiteFrame._go_to_related_podcast(frame)
+
+    assert shown[0]["labels"] == ("Kanał Ani, kanał YouTube",)
+    assert shown[0]["names"] == ("Kanał Ani",)
+    assert shown[0]["links"] == (subscription.feed_url,)
 

@@ -1,5 +1,11 @@
 # Rejestr zadań AMC
 
+- `RELEASE-20261109-alpha488` — **W trakcie; Test i Public do zbudowania i publikacji, instalacja tylko Public** — zbiorcza aktualizacja ostatnich poprawek. [Plan i wyniki](RELEASE-20261109-alpha488.md).
+
+- `HIST-REL-20261109` — **Kod i testy celowane gotowe; bez instalacji i odbioru NVDA** — nazwy albumu, wykonawcy, podcastu i kanału pod prawą strzałką w historii oraz kopiowanie nazw i dokładnych linków. [Szczegóły](HIST-REL-20261109-nazwy-i-linki.md).
+
+- `HUBERT-20261109` — **W trakcie; kod i testy celowane gotowe, bez instalacji i odbioru NVDA** — przester MP3 oraz zapis zwykłej kolejki plików dla Test/Public. [Wynik](HUBERT-20261109-MP3-i-kolejka.md).
+
 - `AMC-20261109-SOLOIST-LOSSLESS` — **Test i Public alpha.487 opublikowane; instalacja, parowanie i odsłuch NVDA czekają** — Soloist w obu profilach żąda poziomu Lossless dla muzyki Premium. [Stan i ograniczenia](AMC-20261109-Soloist-Lossless-i-wydanie.md).
 
 - `RADIO-REC-20261109` — **W trakcie; kod i testy celowane zaliczone, bez instalacji i odbioru NVDA** — historia rozróżnia brak pliku, kopię do odzyskania i kolizję nazwy przy zapisie. [Szczegóły](RADIO-REC-20261109-status-i-kolizje.md).
@@ -254,7 +260,8 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   stabilnym `alpha.440`. Poprawka odświeżania otwartej historii po nowym
   rozpoznaniu jest zainstalowana w AMC Test 30.10.2026. Korekta listy,
   filtra stacji i komunikatu kopiowania z 31.10 jest w źródłach; pozostaje
-  ręczny odbiór NVDA** — prawa strzałka
+  ręczny odbiór NVDA. Korekta z 09.11 ustawia nazwany utwór usługi domyślnej
+  przed drugą usługą i kopią linku Apple Music; również jest w źródłach** — prawa strzałka
   od razu fokusuje pierwszy element, obie listy potwierdzają kopiowanie przez
   lokalny region aktywny, a historia jest dostępna z listy i odtwarzacza
   Plików lokalnych oraz Radia, lecz nie z pozostałych sesji. Pełne podmenu

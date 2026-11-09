@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from amc_wx_lite import apple_music_links, gui as gui_module, radio_recognition
-from amc_wx_lite.gui import LiteFrame, RecognitionActionsWindow
+from amc_wx_lite.gui import LiteFrame, RadioRecognitionHistoryDialog, RecognitionActionsWindow
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import Navigator, SessionId, View
 from amc_wx_lite.recognition_actions import (
@@ -60,12 +60,45 @@ def test_shared_action_model_keeps_right_arrow_short_and_context_complete() -> N
     complete = all_actions(entry, TIDAL)
     assert quick
     assert set(quick).issubset(set(complete))
-    assert quick[0].label == "Krystyna Prońko — wykonawca"
-    assert quick[1].label == "Osobista Kolekcja 2 — album"
+    assert [action.action_id for action in quick[:3]] == [
+        "tidal.amc.track", "spotify.amc.track", "apple.copy.track"
+    ]
+    assert quick[0].label == "Kto Dał Nam Deszcz (1980), Krystyna Prońko, utwór — znajdź w TIDAL"
+    assert quick[1].label == "Kto Dał Nam Deszcz (1980), Krystyna Prońko, utwór — znajdź w Spotify"
+    assert quick[2].label == "Kto Dał Nam Deszcz (1980), Krystyna Prońko, utwór — kopiuj link Apple Music"
+    assert any("Osobista Kolekcja 2, album" in action.label for action in quick)
     labels = {action.label for action in complete}
-    assert "Spotify — pokaż utwór w AMC" in labels
-    assert "TIDAL — pokaż utwór w AMC" in labels
+    assert quick[0].label in labels
+    assert quick[1].label in labels
     assert "Apple Music — wyszukaj w przeglądarce" in labels
+
+
+def test_right_arrow_uses_track_before_album_and_never_guesses_album_from_title() -> None:
+    entry = {"title": "Mosty", "artist": "Anita Lipnicka"}
+    actions = quick_actions(entry, TIDAL)
+    assert [action.action_id for action in actions[:3]] == [
+        "tidal.amc.track", "spotify.amc.track", "apple.copy.track"
+    ]
+    assert "Mosty, Anita Lipnicka" in actions[0].label
+    assert not any(action.entity == "album" for action in actions)
+    assert any(action.entity == "artist" for action in actions)
+    assert [action.service for action in quick_actions(entry, SPOTIFY)[:3]] == [
+        SPOTIFY, TIDAL, APPLE_MUSIC
+    ]
+
+
+def test_album_choice_uses_only_recognition_field_not_service_guess() -> None:
+    entry = _entry()
+    del entry["album"]
+    cached = match_from_row(SPOTIFY, _spotify_row())
+    assert store_match(entry, cached)
+    assert not any(action.entity == "album" for action in quick_actions(entry, TIDAL))
+    assert not any(action.entity == "album" for action in quick_actions(entry, SPOTIFY))
+    entry["album"] = "Inny album z rozpoznawania"
+    assert any(
+        action.entity == "album" and "Inny album z rozpoznawania" in action.label
+        for action in quick_actions(entry, TIDAL)
+    )
 
 
 def test_public_actions_offer_web_search_but_never_private_amc_sessions() -> None:
@@ -77,10 +110,10 @@ def test_public_actions_offer_web_search_but_never_private_amc_sessions() -> Non
     assert quick
     assert set(quick).issubset(set(complete))
     assert not any(action.operation in {"show_amc", "play_default"} for action in complete)
-    assert "Spotify — wyszukaj na stronie" in labels
-    assert "TIDAL — wyszukaj na stronie" in labels
-    assert "Spotify — pokaż utwór w AMC" not in labels
-    assert "TIDAL — pokaż utwór w AMC" not in labels
+    assert [action.service for action in quick[:3]] == [TIDAL, SPOTIFY, APPLE_MUSIC]
+    assert any("wyszukaj na stronie Spotify" in label for label in labels)
+    assert any("wyszukaj na stronie TIDAL" in label for label in labels)
+    assert not any(action.operation == "show_amc" for action in complete)
     assert any(
         action.service == SPOTIFY
         and action.operation == "open_url"
@@ -200,6 +233,77 @@ def test_right_arrow_copy_falls_back_to_named_album_search_if_exact_match_fails(
     assert len(copied) == 1
     assert "Osobista+Kolekcja+2" in copied[0]
     assert spoken == ["Skopiowano link wyszukiwania TIDAL"]
+
+
+def test_apple_music_enter_in_right_arrow_copies_link_and_keeps_window_open() -> None:
+    action = next(item for item in quick_actions(_entry(), TIDAL)
+                  if item.action_id == "apple.copy.track")
+    calls = []
+    window = SimpleNamespace(
+        _selected_action=lambda: action,
+        _copy_link=lambda: calls.append("copy"),
+        _finish=lambda executed: calls.append(("finish", executed)),
+    )
+    RecognitionActionsWindow._activate(window)
+    assert calls == ["copy"]
+
+    copied, spoken = [], []
+    window = SimpleNamespace(
+        _entry=_entry(),
+        _actions=[action],
+        _closing=False,
+        actions=SimpleNamespace(GetSelection=lambda: 0, SetFocus=lambda: None),
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=spoken.append,
+        _resolve_action=lambda _entry, _action, _ready, failed: failed(
+            LookupError("no catalogue match")
+        ),
+    )
+    window._selected_action = RecognitionActionsWindow._selected_action.__get__(
+        window, type(window)
+    )
+    RecognitionActionsWindow._copy_link(window)
+    assert copied[0].startswith("https://music.apple.com/search?term=")
+    assert spoken == ["Skopiowano link wyszukiwania Apple Music"]
+
+
+def test_apple_music_context_action_uses_same_copy_and_search_fallback() -> None:
+    entry = _entry()
+    action = next(item for item in all_actions(entry, TIDAL)
+                  if item.action_id == "apple.copy.track")
+    copied, spoken = [], []
+    dialog = SimpleNamespace(
+        _selected_entry=lambda: entry,
+        _copy_to_clipboard=lambda link: copied.append(link) or True,
+        _set_status=spoken.append,
+        _resolve_action=lambda _entry, _action, _ready, failed: failed(
+            LookupError("no catalogue match")
+        ),
+    )
+    RadioRecognitionHistoryDialog._request_action(dialog, action)
+    assert copied[0].startswith("https://music.apple.com/search?term=")
+    assert spoken == ["Skopiowano link wyszukiwania Apple Music"]
+
+
+def test_named_track_action_opens_track_in_selected_amc_service_not_album() -> None:
+    for service, session in ((SPOTIFY, SessionId.SPOTIFY), (TIDAL, SessionId.TIDAL)):
+        match = match_from_row(service, _spotify_row())
+        action = next(item for item in quick_actions(_entry(), service)
+                      if item.service == service and item.entity == "track")
+        calls = []
+        frame = SimpleNamespace(
+            options=SimpleNamespace(session_order=(SessionId.FILES, session)),
+            announcer=SimpleNamespace(say=lambda message: calls.append(("say", message))),
+            _open_spotify_search_result=lambda entry, *, relations: calls.append(
+                (SPOTIFY, entry.row.title, relations)
+            ),
+            _open_tidal_search_result=lambda entry, *, relations: calls.append(
+                (TIDAL, entry.row.title, relations)
+            ),
+            _restore_focus_after_dialog=lambda: calls.append(("focus",)),
+        )
+        LiteFrame._show_recognition_match_in_amc(frame, action, match)
+        assert calls == [(service, "Kto Dał Nam Deszcz (1980)", False)]
 
 
 def test_direct_album_handoff_does_not_start_competing_root_load() -> None:

@@ -577,7 +577,7 @@ def test_search_relation_picker_stays_owned_by_the_search_window() -> None:
         "Przejdź do wykonawcy",
     ]
     assert labels == ("Album", "Wykonawca")
-    assert title == "Przejdź do"
+    assert title == "Dokąd przejść"
 
 
 def test_single_search_relation_is_shown_before_it_can_be_opened() -> None:

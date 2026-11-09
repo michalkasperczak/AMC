@@ -36,6 +36,12 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _recognized_subject(entry: dict) -> str:
+    title = _text(entry.get("title"))
+    artist = _text(entry.get("artist"))
+    return ", ".join(value for value in (title, artist) if value) or "Rozpoznany utwór"
+
+
 def _safe_http_url(value: object, *, service: str | None = None) -> str:
     url = _text(value)
     if not url:
@@ -267,7 +273,7 @@ class RecognitionAction:
 
     @property
     def needs_match(self) -> bool:
-        return self.service in (SPOTIFY, TIDAL, APPLE_MUSIC) and self.entity in (
+        return self.operation != "open_url" and self.service in (SPOTIFY, TIDAL, APPLE_MUSIC) and self.entity in (
             "track", "album", "artist"
         )
 
@@ -282,48 +288,59 @@ def all_actions(
     internal = frozenset(internal_services).intersection(DEFAULT_SERVICES)
     artist = _text(entry.get("artist"))
     album = _text(entry.get("album"))
+    subject = _recognized_subject(entry)
     links = search_links(entry)
     actions: list[RecognitionAction] = []
     if artist and default in internal:
         actions.append(RecognitionAction(
-            "default.artist", f"{artist} — wykonawca", "show_amc", default, "artist", quick=True
+            "default.artist", f"{artist}, wykonawca — znajdź w {service_label(default)}",
+            "show_amc", default, "artist", quick=True
         ))
     if album and default in internal:
         actions.append(RecognitionAction(
-            "default.album", f"{album} — album", "show_amc", default, "album", quick=True
+            "default.album", (
+                f"{album}, album" + (f", {artist}" if artist else "")
+                + f" — znajdź w {service_label(default)}"
+            ),
+            "show_amc", default, "album", quick=True
         ))
     if SPOTIFY in internal:
         actions.extend((RecognitionAction(
-            "spotify.amc.track", "Spotify — pokaż utwór w AMC", "show_amc",
+            "spotify.amc.track", f"{subject}, utwór — znajdź w Spotify",
+            "show_amc",
             SPOTIFY, "track", quick=True,
         ),
         RecognitionAction(
             "spotify.external.track", "Spotify — otwórz w oryginalnej aplikacji",
-            "open_external", SPOTIFY, "track", quick=True,
+            "open_external", SPOTIFY, "track",
         )))
     else:
         actions.append(RecognitionAction(
-            "spotify.search", "Spotify — wyszukaj na stronie", "open_url",
-            SPOTIFY, url=links["Spotify"], quick=True,
+            "spotify.search", f"{subject}, utwór — wyszukaj na stronie Spotify", "open_url",
+            SPOTIFY, "track", url=links["Spotify"], quick=True,
         ))
     if TIDAL in internal:
         actions.extend((RecognitionAction(
-            "tidal.amc.track", "TIDAL — pokaż utwór w AMC", "show_amc",
+            "tidal.amc.track", f"{subject}, utwór — znajdź w TIDAL", "show_amc",
             TIDAL, "track", quick=True,
         ),
         RecognitionAction(
             "tidal.external.track", "TIDAL — otwórz w oryginalnej aplikacji",
-            "open_external", TIDAL, "track", quick=True,
+            "open_external", TIDAL, "track",
         )))
     else:
         actions.append(RecognitionAction(
-            "tidal.search", "TIDAL — wyszukaj na stronie", "open_url",
-            TIDAL, url=links["TIDAL"], quick=True,
+            "tidal.search", f"{subject}, utwór — wyszukaj na stronie TIDAL", "open_url",
+            TIDAL, "track", url=links["TIDAL"], quick=True,
         ))
+    actions.append(RecognitionAction(
+        "apple.copy.track", f"{subject}, utwór — kopiuj link Apple Music",
+        "copy_link", APPLE_MUSIC, "track", quick=True,
+    ))
     actions.append(
         RecognitionAction(
             "apple.external.track", "Apple Music — otwórz utwór", "open_external",
-            APPLE_MUSIC, "track", quick=True,
+            APPLE_MUSIC, "track",
         )
     )
     if SPOTIFY in internal:
@@ -379,7 +396,7 @@ def quick_actions(
     *,
     internal_services: tuple[str, ...] = DEFAULT_SERVICES,
 ) -> tuple[RecognitionAction, ...]:
-    return tuple(
+    actions = tuple(
         action
         for action in all_actions(
             entry,
@@ -388,6 +405,22 @@ def quick_actions(
         )
         if action.quick
     )
+    default = normalize_default_service(default_service)
+    other = TIDAL if default == SPOTIFY else SPOTIFY
+    order = {
+        default: 0,
+        other: 1,
+        APPLE_MUSIC: 2,
+    }
+    entity_order = {"track": 0, "album": 1, "artist": 2}
+    return tuple(sorted(
+        actions,
+        key=lambda action: (
+            0 if action.entity == "track" else 1,
+            order.get(action.service, 3),
+            entity_order.get(action.entity, 3),
+        ),
+    ))
 
 
 def action_url(action: RecognitionAction, match: dict | None) -> str:

@@ -92,16 +92,30 @@ internal static class Program
         // Bez --queue-write host tylko ODCZYTUJE zapisana kolejke. Domyslnie
         // (bez --profile-dir) nie dotyka profilu w ogole.
         LiteQueueStore? store;
+        string? queueStartupError = null;
         try
         {
             store = OpenQueueStore(args);
         }
-        catch (LiteQueueStoreDenied)
+        catch (LiteQueueStoreDenied denied)
         {
-            // Powod odmowy jest juz na stderr. Konczymy KODEM BLEDU, zeby
-            // wolajacy nie wzial cichego startu za udana trwalosc.
-            Console.SetOut(standardOutput);
-            return 2;
+            if (args.Contains("--queue-data-dir", StringComparer.Ordinal)
+                && !args.Contains("--profile-dir", StringComparer.Ordinal)
+                && !args.Contains("--queue-write", StringComparer.Ordinal))
+            {
+                // Niedostępny własny magazyn nie może wyłączyć odtwarzacza.
+                // Status powie prawdę, a interfejs przeczyta ją tylko raz.
+                Console.Error.WriteLine("[amc-lite-host] kolejka tymczasowa: " + denied.Message);
+                store = null;
+                queueStartupError =
+                    "Kolejka działa tylko do zamknięcia AMC. Nie można otworzyć miejsca zapisu.";
+            }
+            else
+            {
+                Console.Error.WriteLine("[amc-lite-host] ODMOWA magazynu kolejki: " + denied.Message);
+                Console.SetOut(standardOutput);
+                return 2;
+            }
         }
 
         LitePodcastProgressStore? podcastStore;
@@ -154,7 +168,8 @@ internal static class Program
             commonDataSnapshot,
             enableTidalNativePlayback: LiteTidalNativePlayRequest.IsEnabledForProfile(
                 ReadArgumentText(args, "--release-profile")),
-            timeshiftBufferFolder: timeshiftBufferFolder);
+            timeshiftBufferFolder: timeshiftBufferFolder,
+            queueStartupError: queueStartupError);
         using var nvdaRelay = new LiteNvdaRelay();
         using var nvdaBridge = new LiteNvdaBridge(nvdaRelay);
         var registeredHandlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(
@@ -339,13 +354,30 @@ internal static class Program
     private static LiteQueueStore? OpenQueueStore(string[] args)
     {
         string? profileDirectory = null;
+        string? standaloneDirectory = null;
         for (var index = 0; index < args.Length - 1; index++)
         {
+            if (string.Equals(args[index], "--queue-data-dir", StringComparison.Ordinal))
+                standaloneDirectory = args[index + 1];
             if (!string.Equals(args[index], "--profile-dir", StringComparison.Ordinal)) continue;
             profileDirectory = args[index + 1];
-            break;
         }
         var writable = args.Contains("--queue-write", StringComparer.Ordinal);
+
+        if (standaloneDirectory is not null)
+        {
+            if (profileDirectory is not null || writable)
+                throw new LiteQueueStoreDenied("Wybierz jeden magazyn kolejki.");
+            try
+            {
+                return LiteQueueStore.OpenStandalone(standaloneDirectory);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("[amc-lite-host] ODMOWA magazynu kolejki: " + exception.Message);
+                throw new LiteQueueStoreDenied("Nie udało się otworzyć magazynu kolejki: " + exception.Message);
+            }
+        }
 
         if (profileDirectory is null)
         {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using Microsoft.Data.Sqlite;
@@ -131,6 +132,23 @@ public sealed class LiteQueueStore : IDisposable
 
     private readonly object _gate = new();
     private readonly FileStream? _ownerLock;
+    private readonly bool _standalone;
+
+    private sealed class StandaloneQueueDocument
+    {
+        public int Version { get; set; } = 1;
+        public bool Saved { get; set; }
+        public List<LiteQueueStoredRow> Rows { get; set; } = [];
+        public string? CurrentItemId { get; set; }
+        public Dictionary<string, StandaloneResumeEntry> Resume { get; set; } = [];
+    }
+
+    private sealed class StandaloneResumeEntry
+    {
+        public long PositionTicks { get; set; }
+        public long? FileLength { get; set; }
+        public long? LastWriteUtcTicks { get; set; }
+    }
 
     /// <summary>
     /// Podpis stanu OSTATNIO ZAPISANEGO (albo odczytanego). Zapis automatyczny
@@ -149,12 +167,14 @@ public sealed class LiteQueueStore : IDisposable
         string profileDirectory,
         string databasePath,
         LiteQueueStoreMode mode,
-        FileStream? ownerLock)
+        FileStream? ownerLock,
+        bool standalone = false)
     {
         ProfileDirectory = profileDirectory;
         DatabasePath = databasePath;
         Mode = mode;
         _ownerLock = ownerLock;
+        _standalone = standalone;
     }
 
     public string ProfileDirectory { get; }
@@ -286,6 +306,35 @@ public sealed class LiteQueueStore : IDisposable
     }
 
     /// <summary>
+    /// Odrębny magazyn bieżącego AMC. Nie zapisuje do library.db i nie używa
+    /// historycznego profilu. Własna blokada zapobiega dwóm pisarzom.
+    /// </summary>
+    public static LiteQueueStore OpenStandalone(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+            throw new LiteQueueStoreDenied("Nie podano katalogu kolejki.");
+        var full = Path.GetFullPath(directory);
+        var production = ProductionProfileDirectory;
+        if (production.Length > 0 && IsSameDirectory(full, production))
+            throw new LiteQueueStoreDenied("Kolejka wymaga własnego katalogu poza profilem biblioteki.");
+        Directory.CreateDirectory(full);
+        FileStream ownerLock;
+        try
+        {
+            ownerLock = new FileStream(
+                Path.Combine(full, OwnerLockFileName), FileMode.OpenOrCreate,
+                FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (IOException exception)
+        {
+            throw new LiteQueueStoreDenied("Kolejka jest już otwarta w innym procesie: " + exception.Message);
+        }
+        return new LiteQueueStore(
+            full, Path.Combine(full, "file-queue-v1.json"),
+            LiteQueueStoreMode.Writable, ownerLock, standalone: true);
+    }
+
+    /// <summary>
     /// Odczyt ZAPISANEJ kolejki. Dziala w obu trybach -- to jest ta sama
     /// droga, ktora po restarcie hosta odtwarza kolejnosc i czlonkostwo.
     /// </summary>
@@ -294,6 +343,17 @@ public sealed class LiteQueueStore : IDisposable
         RequireLocalSession(sessionId);
         lock (_gate)
         {
+            if (_standalone)
+            {
+                var document = ReadStandalone();
+                _persistedSignature = document.Saved
+                    ? Signature(
+                        document.Rows.Select(row => row.Id).ToArray(),
+                        document.Rows.Where(row => row.IsInQueue).Select(row => row.Id).ToArray(),
+                        document.Rows.Where(row => row.IsPlayNext).Select(row => row.Id).ToArray())
+                    : null;
+                return new LiteQueueStoredState(document.Saved, document.Rows);
+            }
             using var connection = OpenConnection(DatabasePath, readOnly: true);
             var saved = ReadSavedMarker(connection, sessionId);
             var order = ReadOrder(connection, "queue_order", sessionId);
@@ -340,7 +400,9 @@ public sealed class LiteQueueStore : IDisposable
     /// Odmowa (tryb odczytu, brak wlasnosci) leci wyjatkiem -- nigdy nie
     /// udaje powodzenia.
     /// </summary>
-    public bool Write(string sessionId, QueuePersistenceSnapshot snapshot)
+    public bool Write(
+        string sessionId, QueuePersistenceSnapshot snapshot,
+        IReadOnlyCollection<MediaItem>? items = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         RequireLocalSession(sessionId);
@@ -364,6 +426,51 @@ public sealed class LiteQueueStore : IDisposable
         lock (_gate)
         {
             if (string.Equals(_persistedSignature, signature, StringComparison.Ordinal)) return false;
+
+            if (_standalone)
+            {
+                var document = ReadStandalone();
+                var byId = (items ?? []).ToDictionary(item => item.Id, StringComparer.Ordinal);
+                var regularIds = regular.ToHashSet(StringComparer.Ordinal);
+                var nextIds = playNext.ToHashSet(StringComparer.Ordinal);
+                var rows = new List<LiteQueueStoredRow>(order.Length);
+                var resume = new Dictionary<string, StandaloneResumeEntry>(StringComparer.Ordinal);
+                foreach (var id in order)
+                {
+                    if (!byId.TryGetValue(id, out var item))
+                        throw new LiteQueueStoreDenied("Brakuje danych pozycji kolejki; zapis przerwany.");
+                    rows.Add(new LiteQueueStoredRow(
+                        id, item.Title, item.Source, regularIds.Contains(id), nextIds.Contains(id)));
+                    if (!document.Resume.TryGetValue(id, out var entry))
+                        entry = new StandaloneResumeEntry();
+                    if (!string.IsNullOrWhiteSpace(item.Source))
+                    {
+                        try
+                        {
+                            var info = new FileInfo(item.Source);
+                            if (info.Exists)
+                            {
+                                entry.FileLength = info.Length;
+                                entry.LastWriteUtcTicks = info.LastWriteTimeUtc.Ticks;
+                            }
+                        }
+                        catch (Exception exception) when (exception is IOException or ArgumentException or NotSupportedException)
+                        {
+                            // Nieudostępniony plik zachowujemy w kolejce, bez
+                            // niezweryfikowanego odcisku do wznowienia.
+                        }
+                    }
+                    resume[id] = entry;
+                }
+                document.Saved = true;
+                document.Rows = rows;
+                document.Resume = resume;
+                if (document.CurrentItemId is not null && !resume.ContainsKey(document.CurrentItemId))
+                    document.CurrentItemId = null;
+                WriteStandalone(document);
+                _persistedSignature = signature;
+                return true;
+            }
 
             using var connection = OpenConnection(DatabasePath, readOnly: false);
             using var transaction = connection.BeginTransaction();
@@ -424,6 +531,21 @@ public sealed class LiteQueueStore : IDisposable
         RequireLocalSession(sessionId);
         lock (_gate)
         {
+            if (_standalone)
+            {
+                var document = ReadStandalone();
+                var standaloneEntries = document.Rows.ToDictionary(
+                    row => row.Id,
+                    row =>
+                    {
+                        document.Resume.TryGetValue(row.Id, out var resume);
+                        return new LiteResumeEntry(
+                            row.Id, row.Path, resume?.PositionTicks ?? 0,
+                            (int)ResumePositionMode.Inherit,
+                            resume?.FileLength, resume?.LastWriteUtcTicks);
+                    }, StringComparer.Ordinal);
+                return new LiteResumeState(document.CurrentItemId, standaloneEntries, [], []);
+            }
             using var connection = OpenConnection(DatabasePath, readOnly: true);
 
             string? currentItemId = null;
@@ -545,6 +667,24 @@ public sealed class LiteQueueStore : IDisposable
         {
             if (string.Equals(_resumeSignature, signature, StringComparison.Ordinal)) return false;
 
+            if (_standalone)
+            {
+                var document = ReadStandalone();
+                var known = document.Rows.Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+                foreach (var (id, position) in checkpoint.Positions)
+                {
+                    if (!known.Contains(id)) continue;
+                    if (!document.Resume.TryGetValue(id, out var entry))
+                        document.Resume[id] = entry = new StandaloneResumeEntry();
+                    entry.PositionTicks = Math.Max(0, position.Ticks);
+                }
+                document.CurrentItemId = checkpoint.CurrentItemId is { } current && known.Contains(current)
+                    ? current : null;
+                WriteStandalone(document);
+                _resumeSignature = signature;
+                return true;
+            }
+
             using var connection = OpenConnection(DatabasePath, readOnly: false);
             using var transaction = connection.BeginTransaction();
 
@@ -584,6 +724,65 @@ public sealed class LiteQueueStore : IDisposable
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => pair.Key + "=" + pair.Value.Ticks.ToString(CultureInfo.InvariantCulture)));
 
+    private StandaloneQueueDocument ReadStandalone()
+    {
+        if (!File.Exists(DatabasePath)) return new StandaloneQueueDocument();
+        try
+        {
+            var bytes = File.ReadAllBytes(DatabasePath);
+            if (bytes.Length > 16 * 1024 * 1024)
+                throw new LiteQueueStoreDenied("Plik kolejki jest zbyt duży; zapis zatrzymano.");
+            var document = JsonSerializer.Deserialize<StandaloneQueueDocument>(bytes);
+            if (document is null || document.Version != 1
+                || document.Rows is null || document.Resume is null
+                || document.Rows.Count > 100_000
+                || document.Rows.Any(row => string.IsNullOrWhiteSpace(row.Id))
+                || document.Rows.Select(row => row.Id).Distinct(StringComparer.Ordinal).Count() != document.Rows.Count)
+            {
+                throw new LiteQueueStoreDenied("Zapis kolejki jest uszkodzony; zachowano plik do odzyskania.");
+            }
+            return document;
+        }
+        catch (JsonException)
+        {
+            throw new LiteQueueStoreDenied("Zapis kolejki jest uszkodzony; zachowano plik do odzyskania.");
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            throw new LiteQueueStoreDenied("Nie można odczytać zapisanej kolejki: " + exception.Message);
+        }
+    }
+
+    private void WriteStandalone(StandaloneQueueDocument document)
+    {
+        var temporary = DatabasePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(document);
+            using (var stream = new FileStream(
+                       temporary, FileMode.CreateNew, FileAccess.Write,
+                       FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, DatabasePath, overwrite: true);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            throw new LiteQueueStoreDenied("Nie można zapisać kolejki: " + exception.Message);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
     /// <summary>
     /// Liczba rekordow w tabelach, ktorych ten magazyn NIE RUSZA. Sluzy do
     /// pomiaru PRZED/PO: biblioteka, Ulubione, zakladki, playlisty i historia
@@ -591,6 +790,7 @@ public sealed class LiteQueueStore : IDisposable
     /// </summary>
     public IReadOnlyDictionary<string, long> CountUntouchedTables()
     {
+        if (_standalone) return new Dictionary<string, long>();
         var tables = new[]
         {
             "local_items", "folder_sources", "bookmarks", "playback_history",
