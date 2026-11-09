@@ -1,5 +1,10 @@
 # SEARCH-001 — YouTube, Biblioteka i komunikaty wyszukiwania
 
+> Korekta z 9 listopada 2026 r.: opis zapisanej stacji Radia poniżej,
+> według którego wynik wyszukiwania tylko mówi „Stacja jest już w Bibliotece”,
+> został zastąpiony. Bieżący kontrakt przełączania Biblioteki i Ulubionych
+> opisuje `SEARCH-MEMBERSHIP-20261109-wyniki-ulubione-biblioteka.md`.
+
 - Status: `Wdrożone i zainstalowane w AMC Test; czeka na ręczny odbiór NVDA`
 - Utworzono: 18 października 2026
 - Obszar: wyszukiwanie Podcastów i YouTube, Biblioteka, NVDA i fokus

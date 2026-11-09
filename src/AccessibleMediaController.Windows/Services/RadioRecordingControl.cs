@@ -395,6 +395,7 @@ internal sealed class RadioRecordingControl
                 completedPath = backend.StopRecording();
                 lock (_gate)
                 {
+                    UpdateMarkerPaths(currentPath, completedPath);
                     AddCompletedPath(completedPath);
                     _currentPath = null;
                     if (_stopRequested)
@@ -533,10 +534,23 @@ internal sealed class RadioRecordingControl
         path ??= ExistingPublishedPath(expectedPath);
         lock (_gate)
         {
+            UpdateMarkerPaths(expectedPath, path);
             AddCompletedPath(path);
             _currentPath = null;
         }
         return path;
+    }
+
+    private void UpdateMarkerPaths(string? expectedPath, string? actualPath)
+    {
+        if (string.IsNullOrWhiteSpace(expectedPath)
+            || string.IsNullOrWhiteSpace(actualPath)
+            || string.Equals(expectedPath, actualPath, StringComparison.OrdinalIgnoreCase)) return;
+        for (var index = 0; index < _markers.Count; index++)
+        {
+            if (string.Equals(_markers[index].Path, expectedPath, StringComparison.OrdinalIgnoreCase))
+                _markers[index] = _markers[index] with { Path = actualPath };
+        }
     }
 
     private static string? ExistingPublishedPath(string? expectedPath)

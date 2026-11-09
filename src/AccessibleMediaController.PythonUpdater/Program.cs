@@ -29,6 +29,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         ReleaseProfileDescriptor? profile = null;
+        var alertAfterClosure = false;
         var silentRequested = args.Any(argument =>
             string.Equals(argument, "--silent", StringComparison.OrdinalIgnoreCase));
         try
@@ -138,6 +139,10 @@ internal static class Program
                 }
                 return AppStillRunning;
             }
+            // Po bezpiecznym zamknięciu GUI nie ma już kto przeczytać
+            // wyniku cichego pomocnika. Błąd musi mieć własny dostępny alert.
+            alertAfterClosure = options.Silent
+                && !string.IsNullOrWhiteSpace(options.Launch);
             PruneRescueTransactions(options.Target);
             if (options.Source is not null)
             {
@@ -147,13 +152,16 @@ internal static class Program
             }
             else
             {
-                RunInstaller(options.Installer!, options.Target);
+                RunInstaller(options.Installer!, options.Target, profile);
                 if (options.CleanupInstaller)
                     CleanupInstallerBestEffort(options.Installer!, options.Target);
             }
 
             if (!string.IsNullOrWhiteSpace(options.Launch))
             {
+                // Launcher nie może startować, gdy nadal posiadamy mutex
+                // aktualizacji. Pliki są już w tym miejscu zweryfikowane.
+                updaterInstance.Dispose();
                 var launch = ResolveInside(options.Target, options.Launch, mustExist: true);
                 var start = new ProcessStartInfo
                 {
@@ -180,7 +188,7 @@ internal static class Program
             Console.Error.WriteLine(
                 $"Nie udało się zainstalować aktualizacji {profile?.DisplayName ?? "AMC"}: "
                 + exception);
-            if (!silentRequested)
+            if (!silentRequested || alertAfterClosure)
                 Show(
                     profile,
                     $"Nie udało się zainstalować aktualizacji {profile?.DisplayName ?? "AMC"}: "
@@ -453,7 +461,8 @@ internal static class Program
             throw new InvalidDataException("niezgodna suma SHA-256 instalatora");
     }
 
-    private static void RunInstaller(string installer, string target)
+    private static void RunInstaller(
+        string installer, string target, ReleaseProfileDescriptor profile)
     {
         var start = new ProcessStartInfo
         {
@@ -476,12 +485,51 @@ internal static class Program
             ?? throw new IOException("nie udało się uruchomić instalatora");
         if (!process.WaitForExit((int)TimeSpan.FromMinutes(15).TotalMilliseconds))
             throw new IOException("instalator nie zakończył się w wyznaczonym czasie");
+        try
+        {
+            VerifyInstalledBundle(target, profile);
+        }
+        catch (Exception error) when (error is InvalidDataException or IOException)
+        {
+            throw new IOException(
+                $"Instalacja jest niekompletna (kod instalatora {process.ExitCode}). "
+                + "Zamknij AMC i uruchom ponownie ten sam instalator. "
+                + error.Message, error);
+        }
         if (process.ExitCode != 0)
             throw new IOException(
-                $"instalator zakończył się kodem {process.ExitCode}");
-        if (!File.Exists(Path.Combine(target, "AMC.exe"))
-            || !File.Exists(Path.Combine(target, "bundle-manifest.json")))
-            throw new IOException("instalator nie pozostawił kompletnej instalacji AMC");
+                $"instalator zakończył się kodem {process.ExitCode}; "
+                + "poprzednia instalacja pozostała kompletna");
+    }
+
+    internal static void VerifyInstalledBundle(
+        string target, ReleaseProfileDescriptor expectedProfile)
+    {
+        var manifest = ReadManifest(target);
+        var installedProfile = ResolveReleaseProfile(manifest);
+        if (!string.Equals(installedProfile.InstallId, expectedProfile.InstallId,
+                StringComparison.Ordinal))
+            throw new InvalidDataException("zainstalowano inny profil AMC");
+        if (manifest.Files is null || manifest.Files.Count == 0
+            || manifest.FileHashes is null
+            || manifest.FileHashes.Count != manifest.Files.Count
+            || manifest.FileSizes is null
+            || manifest.FileSizes.Count != manifest.Files.Count)
+            throw new InvalidDataException("manifest instalacji nie zawiera wszystkich plików");
+        foreach (var relative in manifest.Files)
+        {
+            var path = ResolveInside(target, relative, mustExist: true);
+            if (!manifest.FileSizes.TryGetValue(relative, out var size)
+                || size < 0 || new FileInfo(path).Length != size)
+                throw new InvalidDataException($"niezgodny rozmiar pliku {relative}");
+            if (!manifest.FileHashes.TryGetValue(relative, out var expected)
+                || expected.Length != 64 || expected.Any(character => !Uri.IsHexDigit(character)))
+                throw new InvalidDataException($"brak sumy SHA-256 pliku {relative}");
+            using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var actual = Convert.ToHexString(SHA256.HashData(input));
+            if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"niezgodna suma SHA-256 pliku {relative}");
+        }
     }
 
     private static void ValidateInstalledProfile(

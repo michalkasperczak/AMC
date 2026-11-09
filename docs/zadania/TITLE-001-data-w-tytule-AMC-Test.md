@@ -57,3 +57,17 @@ wersji. Ręczna próba NVDA wymaga osobnego odbioru.
 Kod tego przyrostu jest wydany i zainstalowany we wspólnej aktualizacji **AMC Test — 02.11.2026, 02:18**, technicznie `0.1.0-alpha.465`, commit `f2a91a208afd2495c5ebe9c78466771a89a4c0e0`. Ten wpis zastępuje wcześniejszy status „bez paczki/instalacji/publikacji”; zachowuje opisane ograniczenia oraz brakujące ręczne odbiory. Główna gałąź robocza pozostała nietknięta; wydanie scala przyrost z nowszą bazą instalacji w worktree wydania. Dokładne wyniki: [REL-20261102](REL-20261102-nocna-aktualizacja-test.md).
 
 https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.02.0218
+
+## Korekta użytkownika z 09.11.2026 — bieżący utwór w tytule
+
+Ta decyzja zastępuje ustalenie z 31.10.2026, że tytuł głównego okna pozostaje
+zawsze stały. Nazwa produktu i data kompilacji pozostają, ale podczas
+odtwarzania dochodzi bieżący tytuł. W Ustawieniach ogólnych użytkownik wybiera
+tytuł po nazwie i dacie AMC (domyślnie), przed nazwą AMC albo bez tytułu utworu.
+NVDA+T czyta tytuł okna, a NVDA+End zachowuje szczegółowy pasek stanu.
+
+Zmiany źródłowe: `version_info.py`, `state_store.py`, `gui.py` oraz testy
+`test_version_info.py`, `test_current_radio_broadcast.py`, `test_state_store.py`.
+86 testów celowanych kont i tytułu przeszło 09.11.2026. Brak nowej instalacji,
+odbioru NVDA, commitu i wydania. Szkic instrukcji: karta Ogólne → „Tytuł
+odtwarzanego utworu w tytule okna”; wybór trzech opisanych pozycji.

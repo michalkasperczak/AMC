@@ -71,7 +71,7 @@ internal static class RadioRecordingStagingStore
             lastFailure);
     }
 
-    public static void Publish(string stagingPath, string finalPath, bool overwrite = false)
+    public static string Publish(string stagingPath, string finalPath, bool overwrite = false, bool uniqueOnConflict = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stagingPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
@@ -86,23 +86,39 @@ internal static class RadioRecordingStagingStore
         // because both happen to have the same byte length.
         var publishingPath = finalPath + $".{Guid.NewGuid():N}.amc-publishing";
         Exception? lastFailure = null;
+        var destinationPath = finalPath;
+        var suffix = 2;
         for (var attempt = 1; attempt <= PublishAttempts; attempt++)
         {
             try
             {
-                if (!overwrite && File.Exists(finalPath))
-                    throw new IOException("Plik o tej nazwie już istnieje.");
                 if (!File.Exists(publishingPath))
                     File.Copy(stagingPath, publishingPath, overwrite: false);
-                File.Move(publishingPath, finalPath, overwrite);
-                File.Delete(stagingPath);
-                return;
+                if (!overwrite && uniqueOnConflict)
+                {
+                    while (File.Exists(destinationPath))
+                    {
+                        destinationPath = Path.Combine(destinationDirectory,
+                            $"{Path.GetFileNameWithoutExtension(finalPath)} ({suffix++}){Path.GetExtension(finalPath)}");
+                    }
+                }
+                // File.Move without overwrite resolves races with another recorder.
+                File.Move(publishingPath, destinationPath, overwrite);
+                try { File.Delete(stagingPath); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLog.Warning("radio-recording",
+                        $"Nie można usunąć kopii roboczej po zapisaniu pliku: {exception.GetType().Name}.");
+                }
+                return destinationPath;
             }
             catch (Exception exception) when (exception is IOException
                 or UnauthorizedAccessException)
             {
                 lastFailure = exception;
-                if (attempt < PublishAttempts) Thread.Sleep(RetryDelay);
+                if (attempt < PublishAttempts &&
+                    (!uniqueOnConflict || !File.Exists(destinationPath)))
+                    Thread.Sleep(RetryDelay);
             }
         }
 

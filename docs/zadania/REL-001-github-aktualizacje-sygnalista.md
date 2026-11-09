@@ -479,3 +479,70 @@ repozytorium, kanałami wydań i polityką prywatności.
 - Testy prywatności: zaliczone na poziomie kodu; ręczny NVDA po instalacji.
 - Wydanie: nie utworzono i nie opublikowano.
 
+
+## Aktualizacja 8 listopada 2026 — wznowienie po uwierzytelnieniu GitHub
+
+### Uzasadnienie i decyzje
+
+- Użytkownik wznowił zadanie w nowej rozmowie po ukończeniu uwierzytelnienia GitHub i polecił połączyć tę pracę z REL-001. Korekta ta zastępuje pauzę z 29 października spowodowaną problemem 2FA; nadal obowiązuje kolejność AMC Test przed AMC Public.
+- Uwierzytelnienie konta w Codex/GitHub nie jest sekretem Cloudflare Workera. Użytkownik potwierdził, że nie ma jeszcze osobnego tokenu fine-grained. Do aktywacji potrzebny jest token ograniczony do repozytoriów `michalkasperczak/AMC` i `michalkasperczak/amc-support-intake` oraz `Issues: read and write`. Token ma być wpisany wyłącznie w interaktywnym monicie Workera, bez przesyłania go przez czat lub plik.
+
+### Testy i wynik
+
+- Odczyt 8 listopada: `https://amc-sygnalista-test.amc-sygnalista-worker.workers.dev/health` zwrócił HTTP 503 i `Serwer zgłoszeń nie jest skonfigurowany`. Nie wykonywano żądania tworzącego issue.
+- Testy kodu Workera bez sieci: 11 zaliczonych (`node --test deploy/amc-sygnalista-worker/test/worker.test.mjs`).
+- Ukierunkowane testy klienta i kontraktu wdrożenia: 18 zaliczonych (`test_problem_report.py`, `test_sygnalista_deploy_script.py`) w przypiętym środowisku `python-test-envs/wxpython-4.3.1-cp314`. Pierwsza próba z runtime zainstalowanej aplikacji nie uruchomiła testów, ponieważ nie ma w nim pytest; nie jest to błąd kodu.
+- Odczyt pakietów AMC Test (`ed9d61ac`) i AMC Public (`ecd2f443`): oba zawierają formularz, żaden nie zawiera `problem-report-endpoint.txt`. Obie aplikacje były uruchomione. Nie zatrzymywano ich ani nie instalowano aktualizacji.
+- Nie zmieniono źródeł klienta ani Workera, nie wdrażano nowej wersji Workera, nie ustawiono sekretu, nie aktywowano endpointu i nie utworzono próbnego issue. Bieżący commit źródeł podczas odczytu: `19d08fd60da97736daa933a6cfc0d2ae901827a0`; repozytorium ma niezwiązane, niezapisane zmiany innych zadań, zachowane bez ingerencji.
+
+### Znane ograniczenia
+
+- Wysyłanie internetowe w AMC Test nadal czeka na osobny token i bezpieczne wpisanie go do Cloudflare, kontrolę gotowości Workera, aktywację endpointu, budowę i odbiór instalacji. Formularz lokalny działa w obecnych pakietach.
+- Ręczny odbiór NVDA i kontrolowane próbne zgłoszenie pozostają do wykonania po aktywacji. Wyniki testów kodu i odpowiedź `/health` nie potwierdzają jeszcze przepływu GitHub Issues.
+
+### Materiał do dokumentacji użytkownika
+
+- W menu Pomoc wybierz `Zgłoś błąd lub sugestię…` albo użyj palety `Ctrl+Shift+K`. Obecnie można obejrzeć zredagowany raport, skopiować go i zapisać lokalnie. Internetowy przycisk `Wyślij zgłoszenie` pojawi się dopiero w pakiecie z aktywnym, zweryfikowanym endpointem. Log pozostaje domyślnie wyłączony.
+
+### Wersja i commit
+
+- Etap odczytowy: repozytorium `19d08fd60da97736daa933a6cfc0d2ae901827a0`, bez nowego commitu, builda, instalacji i publikacji.
+
+## Aktualizacja 8 listopada 2026 — aktywacja testowego Workera
+
+Ta aktualizacja zastępuje powyższy stan odczytowy z tego samego dnia: token i endpoint testowy zostały już ustawione. Użytkownik utworzył token GitHub fine-grained dla `michalkasperczak/AMC` i `michalkasperczak/amc-support-intake` z uprawnieniem Issues: Read and write; ważność na formularzu GitHub ustawiono do 8 listopada 2027. Sekret przekazano ręcznie w interaktywnym monicie Wranglera do `GITHUB_TOKEN` Workera `amc-sygnalista-test`. Skrypt potwierdził obecność sekretu bez odczytu jego wartości. Wartość tokenu pojawiła się wcześniej w technicznym wyniku narzędzia podczas oglądania strony GitHub; użytkownik został o tym poinformowany i wyraźnie odmówił rotacji. Nie zapisano wartości w źródłach, tym raporcie ani w aplikacji.
+
+- Wdrożono testowego Workera `amc-sygnalista-test`, wersja `a034e335-c924-459e-ba45-9e293be293a1`. `GET /health` zwrócił HTTP 200 i `{"status":"ok","schemaVersion":1}`; `GET /v1/report` zwrócił oczekiwane HTTP 405. Są to kontrole gotowości, nie dowód utworzenia Issue.
+- Skrypt wdrożenia atomowo utworzył `wxlite/amc_wx_lite/problem-report-endpoint-test.txt` z adresem `https://amc-sygnalista-test.amc-sygnalista-worker.workers.dev/v1/report`. Jest to publiczny adres HTTPS bez sekretu. Profil publiczny nadal nie ma osobnego endpointu.
+- Właściwe wdrożenie wykonało `npm ci` i 11 testów Workera. Po aktywacji 2 testy pakowania endpointu w `test_bundle_layout.py` przeszły. Wcześniejsze 18 testów klienta i kontraktu wdrożenia także przeszło.
+- Zainstalowane AMC Test i AMC Public nie zostały przebudowane ani uruchomione ponownie. Obecny formularz w obu instalacjach nadal działa lokalnie bez przycisku wysyłania. Testowy endpoint jest aktywny wyłącznie w źródłach do następnej zweryfikowanej paczki AMC Test.
+- Kontrolowane próbne zgłoszenie i odczyt obu GitHub Issues czekają na osobną zgodę użytkownika, wymaganą przez instrukcję Sygnalisty. Nie utworzono jeszcze żadnego Issue. Ręczny odbiór NVDA i instalacji pozostaje otwarty.
+- Repozytorium nadal zawiera niezwiązane, niezapisane zmiany innych zadań. Nie scalać ich niejawnie z wydaniem Sygnalisty. Bieżący commit przy wdrożeniu: `19d08fd60da97736daa933a6cfc0d2ae901827a0`. Nie wykonano commitu, builda ani publikacji AMC.
+
+Materiał do instrukcji użytkownika po instalacji: menu Pomoc → `Zgłoś błąd lub sugestię…` lub paleta `Ctrl+Shift+K`. W AMC Test z endpointem pojawi się `Wyślij zgłoszenie`. Użytkownik przegląda tę samą zredagowaną treść, którą wysyła, a dołączenie logu jest domyślnie wyłączone. Po błędzie nadal może skopiować lub zapisać raport lokalnie. To jest szkic instrukcji do korekty i zatwierdzenia, bez publikacji.
+### Szkic listy zmian po odbiorze
+
+- AMC Test: formularz „Zgłoś błąd lub sugestię…” może przesłać zredagowany raport do opiekuna przez testowy serwer zgłoszeń, po sprawdzeniu podglądu przez użytkownika. Log jest domyślnie wyłączony.
+- Nadal dostępne są kopiowanie i zapis raportu lokalnie. Każde skuteczne wysłanie otrzymuje numer publicznego zgłoszenia.
+- Ten szkic opisuje planowane zachowanie paczki AMC Test z endpointem. Nie ogłasza jeszcze wydania ani instalacji; wymaga korekty i zatwierdzenia użytkownika po ręcznym odbiorze.
+### Kontrolowane zgłoszenie 8 listopada 2026
+
+Użytkownik zgodził się na jedno próbne zgłoszenie przez testowego Workera. Wysłano dokładnie jeden `POST /v1/report` z kanałem `test`, rodzajem `suggestion`, `includedLog=false` i identyfikatorem `d3a30180-5874-4a4f-9b96-8646b8c12996`. Worker zwrócił HTTP 201, `duplicate=false` i publiczne Issue #12. Odczyt GitHuba osobno potwierdził:
+
+- prywatne `michalkasperczak/amc-support-intake#1` — pełna, zredagowana treść testowa, bez logu;
+- publiczne `michalkasperczak/AMC#12` — krótkie podsumowanie, kanał, brak logu, odsyłacz opiekuna do prywatnego Issue i ten sam identyfikator;
+- oba Issues mają etykiety `enhancement`, `from-app` i `channel:test`.
+
+Nie było ponowienia ani drugiego żądania. To potwierdza przepływ testowego Workera do obu repozytoriów; nie potwierdza jeszcze zachowania formularza w zainstalowanej aplikacji. Użytkownik następnie autoryzował zbiorczą aktualizację AMC Test z najnowszymi poprawkami, lokalnym Sonosem i bez LibreSpot, choć odbiór na głośniku odbędzie się później. Instalacja, ręczny odbiór NVDA i publikacja wydania pozostają osobnymi etapami. AMC Public jest już osobno wydany i na razie nie włączono w nim internetowego Sygnalisty.
+### Czysty kandydat AMC Test po próbie GitHub
+
+Z opublikowanego wcześniej źródła `ecd2f4439ff19561dc1351baaf1a4735ac099b0c` przygotowano osobny, czysty checkout wydania. Przeniesiono dokładnie 17 plików: endpoint testowego Sygnalisty, lokalnego Sonosa, wycofanie LibreSpot z nowych paczek i instalatora oraz ich testy. Dodano poprawkę skryptu `Build-AMCBundle.ps1`, aby profil Test przekazywał przypięte zależności Sonosa; składnia PowerShell przeszła. Prywatny commit dokumentacyjny `19d08fd6` i pozostałe niezapisane zmiany z kanonicznego drzewa nie weszły do historii kandydata.
+
+- Testy w czystym checkoutcie: 94/94 dla pakowania, profili, Sonosa i Sygnalisty; 45/45 dla interfejsu Sonosa. Kontrola `git diff --check` i ograniczona kontrola wzorców sekretów przeszły.
+- Commity źródła: `1f57050aa9605db44fdc6863374c5675321bd223` i `066a61b33592de86fb1d9647cf0779e72826e6ab`. Gałąź `codex/amc-test-sygnalista-sonos-20261108` jest na GitHubie `michalkasperczak/AMC`; zdalny i lokalny HEAD zgodnie wskazują `066a61b3`.
+- To jest publikacja źródeł na gałęzi, nie wydanie GitHub Releases. Nie zbudowano jeszcze nowej kompletnej paczki ani instalatora, nie podmieniono AMC Test i nie wykonano ręcznego odbioru NVDA.
+- Użytkownik 8 listopada wieczorem polecił wrócić do instalacji jutro, ponieważ teraz będzie nagrywał. Otwarte okno wyboru źródeł podcastów w bieżącym AMC Test pozostawiono bez zmian. Pełną kompilację i instalację odłożono, aby nie konkurowały z nagraniem. Przed instalacją ponownie sprawdzić aktywne i bliskie planowane nagrania oraz bezpieczne zamknięcie okna użytkownika.
+
+### Korekta 9 listopada 2026 — skrót i odkrywanie polecenia
+
+Użytkownik zgłosił brak widocznego polecenia Sygnalisty w używanej instalacji. Stan źródeł z 8.11 (menu Pomoc i paleta bez skrótu) zastępuje nowa decyzja: `Ctrl+Alt+Z` ma otwierać formularz z listy i odtwarzacza Test/Public. Ten sam opis zasila menu Pomoc, F1, Ctrl+F1 i paletę. Public nadal nie ma aktywnego endpointu internetowego; lokalny formularz działa. Źródła i testy opisano w `UPDATE-20261109-hubert-kod5-i-sygnalista.md`; instalacja, publikacja i odbiór NVDA nie nastąpiły.

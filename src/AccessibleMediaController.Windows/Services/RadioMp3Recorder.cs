@@ -22,7 +22,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(30);
     private readonly QueuedWaveProvider _queue;
     private readonly Task _encoderTask;
-    private readonly string _finalPath;
+    private string _finalPath;
     private readonly string _temporaryPath;
     private readonly object _writeGate = new();
     private readonly int _averageBytesPerSecond;
@@ -237,7 +237,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             {
                 throw new InvalidDataException("Koder nie utworzył danych nagrania.");
             }
-            RadioRecordingStagingStore.Publish(_temporaryPath, _finalPath);
+            _finalPath = RadioRecordingStagingStore.Publish(_temporaryPath, _finalPath, uniqueOnConflict: true);
             return _finalPath;
         }
         catch (Exception exception) when (exception is IOException

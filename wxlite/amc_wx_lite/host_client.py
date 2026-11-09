@@ -857,6 +857,10 @@ class LiteHostClient:
         """Start OAuth only after an explicit user action in the account dialog."""
         return self.call("spotify.login", timeout=360.0)
 
+    def spotify_disconnect(self) -> Any:
+        """Remove the saved Spotify login only from this AMC profile."""
+        return self.call("spotify.disconnect", timeout=15.0)
+
     def spotify_configure(self, client_id: str) -> Any:
         """Store the user's public Spotify application identifier."""
         return self.call("spotify.configure", {"clientId": client_id}, timeout=15.0)

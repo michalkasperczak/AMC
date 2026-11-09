@@ -122,7 +122,8 @@ internal static class Program
         using var tidalCatalog = OpenTidalCatalog(args);
         using var spotifyCatalog = OpenSpotifyCatalog(args);
         using var spotifyPlayback = new LiteSpotifyPlaybackCoordinator(
-            spotifyCatalog is null ? null : spotifyCatalog.GetPlaybackCredentialsAsync);
+            spotifyCatalog is null ? null : spotifyCatalog.GetPlaybackCredentialsAsync,
+            ReadArgumentText(args, "--release-profile"));
         using var wiim = OpenWiiM(args);
         using var frontierSmart = OpenFrontierSmart(args);
         var componentUpdates = new LiteComponentUpdateCoordinator(
@@ -442,7 +443,8 @@ internal static class Program
         return state is null
             ? null
             : new LiteSpotifyCatalogCoordinator(
-                new LiteSpotifyWindowsCatalogBackend(state));
+                new LiteSpotifyWindowsCatalogBackend(
+                    state, ReadArgumentText(args, "--release-profile")));
     }
 
     private static LiteWiiMCoordinator? OpenWiiM(string[] args)

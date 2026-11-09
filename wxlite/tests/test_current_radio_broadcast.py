@@ -11,7 +11,7 @@ install_wx_stub()
 
 from amc_wx_lite import gui, menu_model  # noqa: E402
 from amc_wx_lite.shortcuts import Action, Chord, resolve  # noqa: E402
-from amc_wx_lite.navigation import PlayStation  # noqa: E402
+from amc_wx_lite.navigation import PlayStation, SessionId  # noqa: E402
 
 
 def test_alt_d_is_current_broadcast_in_both_radio_views() -> None:
@@ -240,8 +240,18 @@ def test_window_title_keeps_build_date_while_radio_plays(monkeypatch) -> None:
             self.title = title
 
     frame = Frame()
+    frame.navigator = SimpleNamespace(
+        active=SessionId.RADIO,
+        sessions={SessionId.RADIO: SimpleNamespace(now_playing_title="Radio Poznań")},
+    )
+    frame._playing_session = SessionId.RADIO
+    frame._playing_sessions = {SessionId.RADIO}
+    frame._transport_status_by_session = {
+        SessionId.RADIO: {"streamTitle": "Artysta - Utwór"}
+    }
+    frame.options = SimpleNamespace(window_title_playback_position="after")
     gui.LiteFrame._update_window_title(frame)
-    assert frame.title == expected
+    assert frame.title == expected + " — Artysta - Utwór"
     assert is_main_window_title(frame.title)
     gui.LiteFrame._update_window_title(frame)
-    assert frame.title == expected
+    assert frame.title == expected + " — Artysta - Utwór"

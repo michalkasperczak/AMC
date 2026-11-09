@@ -111,7 +111,10 @@ Name: "desktopicon"; Description: "Utwórz skrót na pulpicie"; \
     GroupDescription: "Dodatkowe skróty:"; Flags: unchecked
 
 [Files]
-Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Nowy launcher musi wejść jako pierwszy: od początku kopiowania rozpoznaje
+; mutex aktualizatora i nie uruchomi częściowo podmienionego runtime.
+Source: "AMC.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "*"; DestDir: "{app}"; Excludes: "AMC.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 #ifdef NvdaAddonPath
 Source: "{#NvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#NvdaAddonFileName}"; \
     Flags: ignoreversion deleteafterinstall
@@ -123,8 +126,13 @@ Source: "{#NvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#NvdaAddonFileName}"; 
 ; katalog. Bez tego wycofany moduł pozostawał po aktualizacji mimo jego braku
 ; w bundle-manifest.json. Frontier Smart jest obsługiwany przez profil
 ; publiczny, a wycofany z Public moduł Sonosa musi zniknąć przy aktualizacji.
-#if Profil == "public"
 [InstallDelete]
+; LibreSpot nie jest juz odtwarzaczem AMC. Usun stary host przy aktualizacji
+; obu profili; ustawienia i dane kont uzytkownika pozostaja nietkniete.
+Type: filesandordirs; Name: "{app}\host\LibrespotHost"
+Type: filesandordirs; Name: "{app}\host\licenses\librespot-dependencies"
+Type: files; Name: "{app}\host\licenses\librespot-MIT.txt"
+#if Profil == "public"
 Type: files; Name: "{app}\app\amc_wx_lite\sonos_source.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_playlist_dialog.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_source.py"

@@ -1,6 +1,15 @@
 # Rejestr zadań AMC
 
-- `AUTH-PUBLIC-20261106` — **Test v7 uruchomiony próbnie; znane częstotliwości 44,1/96/192 kHz zachowane, opis NVDA rozróżnia źródło i PCM** — testy dekodera i transportu 192 kHz przeszły. Dla „Sara” potwierdzono AAC 44,1 kHz, przy brakujących metadanych silnik nadal używa 48 kHz. Odbiór GUI Max, brakujące parametry, konto zewnętrzne i wydanie pozostają otwarte. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
+- `RADIO-REC-20261109` — **W trakcie; kod i testy celowane zaliczone, bez instalacji i odbioru NVDA** — historia rozróżnia brak pliku, kopię do odzyskania i kolizję nazwy przy zapisie. [Szczegóły](RADIO-REC-20261109-status-i-kolizje.md).
+
+- `SEARCH-MEMBERSHIP-20261109` — **Kod i testy celowane gotowe; bez instalacji i odbioru NVDA** — `Ctrl+Shift+L` i `Ctrl+Shift+U` w wynikach wyszukiwania przełączają potwierdzony stan Biblioteki i Ulubionych w obsługiwanych sesjach. [Szczegóły](SEARCH-MEMBERSHIP-20261109-wyniki-ulubione-biblioteka.md).
+
+- `PLAYLIST-20261107` — **Public alpha.485 zainstalowany i uruchomiony; odbiór NVDA w toku** — Delete w playlistach i dodawanie wybranych utworów z otwartego albumu TIDAL; pełny Test później. [Szczegóły](PLAYLIST-20261107-delete-i-zaznaczenie.md).
+
+- `RADIO-VIANNEY-20261107` — **Adres ulubionego poprawiony w profilu AMC Test; odsłuch w AMC i NVDA niepotwierdzony** — oficjalny kanał YouTube zastąpił niedostępny adres IP. [Szczegóły](RADIO-VIANNEY-20261107-poprawa-ulubionego.md).
+
+- `PRESET-20261106` — **W trakcie; krótsze etykiety i 25 testów zaliczonych, budowa, instalacja i odbiór NVDA odłożone do zbiorczej aktualizacji** — wiersze presetów podają numer, nazwę i skrót. [Szczegóły](PRESET-20261106-krotszy-odczyt-miejsc.md).
+- `AUTH-PUBLIC-20261106` — **Instrukcja Client ID Spotify dla Test i Public oraz przycisk panelu w źródłach; bez nowego buildu** — ten sam własny identyfikator może być wpisany do obu profili, z osobnym logowaniem. Zainstalowany Public alpha.486 pozostaje bez tej zmiany okna. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
 
 Korekta kandydata Public z 30.10.2026: [PUBLIC-20261030-uzupelnienie-poprawek-huberta.md](PUBLIC-20261030-uzupelnienie-poprawek-huberta.md). Obejmuje dodatkowe PR #7 i #8; zgłoszenie #5 ma osobne zadanie do następnej aktualizacji z Radioarchiwistą.
 
@@ -19,9 +28,9 @@ jawnym poleceniu użytkownika albo przez osobno uzgodniony harmonogram.
 
 ## Bieżący punkt wznowienia
 
-Najnowsza lokalna instalacja to **AMC Test — 05.11.2026, 12:48** (`0.1.0-alpha.472`), commit `5bce69ca7e3a050aa324a31cd0e3b5ee3e602cd3`. Wydanie testowe opublikowano na GitHubie; pełna kontrola 4194 plików instalacji oraz start jednej instancji przeszły. Ręczny odbiór NVDA i pomiar płynności list pozostają otwarte.
+Najnowsza lokalna instalacja to **AMC Test — 07.11.2026, 13:54** (`0.1.0-alpha.482`), commit `ed9d61acff8c71e517b5e25b5c454012b314397a`. Pełna kontrola 4196 plików instalacji oraz start jednej instancji ze stałej lokalizacji przeszły. To kandydat do ręcznego odbioru NVDA, bez publikacji alpha.482. Szczegóły i ograniczenia Public: `AUTH-PUBLIC-20261106`.
 
-Wydanie alpha.472 powstało z gałęzi `codex/konfigurowalne-skroty-20261026` i commitu `5bce69ca`. Późniejszy commit `88e7b484` aktualizuje wyłącznie dokumentację wydania. Przy kolejnej budowie zachować kompletny runtime obecnej instalacji, w tym zależności Cast i urządzeń sieciowych; prywatne zależności TIDAL są dołączane osobno.
+Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czystego zarządzanego checkoutu commita `ed9d61ac`. Niezakończone zmiany presetów w kanonicznym checkoutcie pozostają poza tą paczką. Przy kolejnej budowie zachować kompletny runtime obecnej instalacji, w tym zależności Cast i urządzeń sieciowych; zależności TIDAL są dołączane osobno.
 
 ## Zasady prowadzenia
 
@@ -102,6 +111,7 @@ Wydanie alpha.472 powstało z gałęzi `codex/konfigurowalne-skroty-20261026` i 
 
 - `SPOTIFY-OUTPUT-001` — **Zrobione jako badanie; brak potwierdzonego, wspieranego API do automatycznego wyboru fizycznego wyjścia oficjalnego Spotify** — `Shift+A` w AMC Test nadal rzeczywiście wybiera wyjście hosta Librespot (12 testów bez GUI zaliczonych). Oficjalna aplikacja może mieć wyjście ustawione ręcznie w Mikserze Windows; to nie jest wdrożenie `Shift+A`. [SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md](SPOTIFY-OUTPUT-001-wyjscie-oficjalnego-odtwarzacza.md).
 - `SPOTIFY-ISSUES-009-011` — **Poprawki źródeł i testy bez interfejsu, bez instalacji** — dodano konfigurację i parowanie z #9, naprawiono pobranie i zapis kolekcji z #10 oraz komunikat Librespot z #11. Nowe okno wymaga próby NVDA i odbioru na koncie. [SPOTIFY-ISSUES-009-011-20261030.md](SPOTIFY-ISSUES-009-011-20261030.md).
+- `SPOTIFY-LIBRESPOT-20261108` — **Wycofanie hosta z nowych paczek: kod i 61 testów zaliczone; bez instalacji i publikacji** — oba profile przestają kopiować stary host, a przyszły instalator usunie go z katalogu programu przy aktualizacji. [Szczegóły](SPOTIFY-LIBRESPOT-20261108-wycofanie-z-pakietu.md).
 
 - `MIRROR-001` — **Shift+M wydany w AMC Test alpha.466; 222 testy celowane zaliczone, 1 pominięty, odbiór NVDA i pomiar opóźnienia otwarte**. Jeden dodatkowy odbiornik Google Cast; AirPlay i drugie lokalne wyjście pozostają osobnymi etapami. [Opis i wyniki](MIRROR-001-dublowanie-dzwieku-cast-airplay.md).
 - `SESSION-003` — **poprawka Enter i natywnych presetów WiiM wydana w AMC Test alpha.466; ręczny odbiór NVDA otwarty**. [Opis i wyniki](SESSION-003-wiim-enter-i-presety.md).
@@ -640,16 +650,15 @@ zmian, wymagający korekty użytkownika:
 - `LIC-001` — **Oczekuje** — Radio Browser, licencja BASS i bezpieczna decyzja
   o dobrowolnych wpłatach. Szczegóły:
   [LIC-001-radio-browser-bass-darowizny.md](LIC-001-radio-browser-bass-darowizny.md).
-- `REL-001` — **W trakcie; lokalny formularz, klient HTTPS, Worker i samodzielna
-  bramka wdrożenia są gotowe; nieaktywny bootstrap istnieje, a aktywacja czeka
-  na subdomenę `workers.dev`, osobny token GitHuba i odbiór** — menu, F1 i
+- `REL-001` — **W trakcie; testowy Worker ma sekret i aktywny endpoint w źródłach;
+  zainstalowany AMC Test czeka na paczkę, próbne zgłoszenie i odbiór** — menu, F1 i
   paleta prowadzą do dostępnego formularza z pełnym
   podglądem, domyślnie wyłączonym logiem, redakcją danych oraz kopiowaniem lub
   atomowym zapisem w magazynie profilu. Po zweryfikowanym endpointcie ten sam
   formularz wysyła dokładnie widoczny raport w tle. Worker ma drugą redakcję,
-  limit, idempotencję i rozdziela prywatną treść od publicznego issue; nie
-  został wdrożony wyłącznie jako bootstrap bez sekretu i nie utworzył
-  prawdziwego zgłoszenia. Zależności
+  limit, idempotencję i rozdziela prywatną treść od publicznego issue; jest wdrożony
+  testowo z sekretem, ale nie utworzył jeszcze
+  próbnego zgłoszenia. Zależności
   Workera są przypięte, a skrypt wdrożenia wykonuje testy oraz dwa pakowania
   `--dry-run`. Jawny bootstrap przygotowuje migrację Durable Object bez sekretu,
   ustawienie tokenu i właściwe wdrożenie są osobnymi etapami, a skrypt nigdy sam
@@ -661,7 +670,7 @@ zmian, wymagający korekty użytkownika:
   bez publikowania roboczej historii i bez przełączania bieżącej gałęzi.
   Szczegóły:
   [REL-001-github-aktualizacje-sygnalista.md](REL-001-github-aktualizacje-sygnalista.md).
-- `TID-001` — **W trakcie; natywne odtwarzanie jest w zainstalowanym AMC Test alpha.470, użytkownik potwierdził dźwięk i przewijanie; poprawka cyfr i dalsza diagnostyka płynności są w źródłach** — sesja audio ma osobne logowanie i punkt powrotu do oryginalnego TIDALa. Pozostaje odbiór pełnego sterowania i NVDA oraz ustalenie źródła okresowego obciążenia hosta. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
+- `TID-001` — **W trakcie; poprawka wznowienia po zmianie sesji jest w źródłach, test audio i odbiór NVDA oczekują; zainstalowany Test pozostaje bez zmiany** — sesja audio ma osobne logowanie i punkt powrotu do oryginalnego TIDALa. Pozostaje odbiór pełnego sterowania i NVDA oraz ustalenie źródła okresowego obciążenia hosta. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
 - `STR-001` — **W trakcie; bezsekretny prototyp wydawania tokenów Apple Music
   ma 12/12 testów, ale prawdziwe wdrożenie jest wstrzymane do próby
   MusicKit/WebView2/NVDA i decyzji o właścicielu Apple Developer Team** —
@@ -682,3 +691,5 @@ Wystarczy powiedzieć na przykład: `Uruchom zadanie NVDA-001`. Agent ma wtedy
 odczytać rejestr oraz właściwy plik i wykonać wyłącznie wskazane zadanie.
 
 - `SPOTIFY-20261101` — **W trakcie; kod i testy bez instalacji i odsłuchu NVDA** — album `Ctrl+Enter`, prywatna kolejka `Ctrl+Q` / `Ctrl+Shift+Q`, ciszej przy Enter, otwarty odbiór `NVDA+End` i prawej strzałki w rozpoznanych utworach. [SPOTIFY-20261101-album-kolejka-komunikaty.md](SPOTIFY-20261101-album-kolejka-komunikaty.md).
+
+- `UPDATE-20261109` — **Źródła i testy celowane gotowe, bez instalatora i instalacji** — zgłoszenie Huberta #14 (kod 5 po starcie AMC podczas cichej instalacji), blokada startu, pełna kontrola plików oraz `Ctrl+Alt+Z` dla Sygnalisty w Test/Public. [UPDATE-20261109-hubert-kod5-i-sygnalista.md](UPDATE-20261109-hubert-kod5-i-sygnalista.md).

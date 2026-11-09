@@ -190,6 +190,15 @@ def test_real_host_tidal_transport_with_silent_loopback_flac(
             status = client.call("transport.status", {"sessionId": "tidal"})
             assert status["paused"] is True
 
+            # TIDAL is paused, then another local item replaces the shared
+            # decoder. Space in TIDAL must restore the saved stream/position.
+            other = tmp_path / "other-silent.flac"
+            other.write_bytes(_silent_flac(44100))
+            client.play_file(str(other), volume=0, rate=1.0)
+            remembered = client.call("transport.status", {"sessionId": "tidal"})
+            assert remembered["paused"] is True
+            assert abs(remembered["positionSeconds"] - paused_position) < 1.0
+
             resumed = client.call("transport.pauseResume", {"sessionId": "tidal"})
             assert resumed["paused"] is False
             _wait_for_position(client, 29.5)

@@ -266,3 +266,26 @@ Użytkownik zapytał, czy odtwarzanie TIDAL w AMC Test odpowiada najwyższej jak
 ### Korekta decyzji o jakości — 5 listopada 2026, po alpha.472
 
 Powyższe doprecyzowanie pozostaje prawdziwym opisem zainstalowanego wtedy alpha.472. Na nowe żądanie użytkownika przygotowano w źródłach kandydata alpha.473 z obsługą Max/HiRes FLAC i lokalnym proxy DASH. Wyniki rzeczywistego dekodowania, poprawki listy/historii i ograniczenia Spotify opisuje `TID-LIST-PLAYER-20261105-followup.md`. Sama zmiana źródeł nie oznacza jeszcze instalacji ani publikacji tego kandydata.
+
+
+### Korekta: wznowienie po przejściu między sesjami — 9 listopada 2026
+
+#### Uzasadnienie i decyzje
+
+Użytkownik zgłosił, że po pauzie albo wyciszeniu TIDAL, przejściu do innej sesji i powrocie Spacja czasem mówiła „Nie udało się zmienić pauzy TIDAL w AMC”. Host celowo zapominał krótkotrwały strumień TIDAL, gdy ten sam dekoder rozpoczynał inny lokalny materiał, mimo że interfejs nadal pamiętał utwór. Zmiana w źródłach zapamiętuje strumień i pozycję TIDAL na czas przełączenia lokalnego odtwarzania, a Spacja przywraca je do dekodera. Jawne zatrzymanie TIDAL usuwa zapamiętany strumień. Po samym przejściu do innej sesji bez rozpoczynania nowego materiału TIDAL nadal ma własny bieżący transport.
+
+#### Materiał do dokumentacji użytkownika
+
+W odtwarzaczu TIDAL w AMC Spacja wstrzymuje i wznawia utwór. Jeśli po pauzie przejdziesz do innej sesji i odtworzysz tam lokalny plik lub podcast, powrót do TIDAL i Spacja powinny wznowić wcześniejszy utwór z zapamiętanej pozycji. Wyciszenie pozostaje osobnym przełącznikiem dźwięku. Jeśli krótkotrwały strumień TIDAL wygasł i wznowienie nie jest możliwe, NVDA poda: „TIDAL nie przyjął polecenia Spacji. Wybierz utwór ponownie z listy”.
+
+#### Testy i wynik
+
+Host po ostatniej zmianie kompiluje się bez błędów i ostrzeżeń. Testy adaptera TIDAL i izolacji konta: 16/16; testy niezależnego transportu: 5/5. Składnia i kolekcja próby integracyjnej: zaliczone. Rozszerzono próbę integracyjną z syntetycznym, cichym FLAC o przejście TIDAL → lokalny plik → TIDAL. Tej próby audio nie uruchomiono jeszcze, ponieważ bieżący AMC Test może wykonywać pracę użytkownika; samo źródło i kompilacja nie potwierdzają wznowienia ani mowy NVDA.
+
+#### Znane ograniczenia
+
+Strumień TIDAL jest tymczasowy. Po jego wygaśnięciu może być konieczne ponowne wybranie utworu. Nie ma jeszcze zainstalowanej wersji Test/Public zawierającej tę poprawkę; jej włączenie do wydania wymaga testu integracyjnego i odbioru.
+
+#### Wersja i commit
+
+Źródła robocze bez commitu; bez nowej paczki, instalacji i publikacji.

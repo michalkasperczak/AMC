@@ -397,3 +397,67 @@ Osobny proces z prawdziwym runtime Public, wx.App i faktycznie odfiltrowanym kat
 ### Znane ograniczenia, wersja i commit
 
 Kandydat alpha.484 wymaga jeszcze builda i instalacji. Rzeczywisty odbiór okna przez użytkownika pozostaje otwarty. Nie resetować działającego logowania; przy podmianie zachować normalną kontrolę nagrywania i harmonogramu Public oraz nie zamykać Test. Wcześniejsze dwa braki pełnego katalogu angielskiego pozostają poza tym zakresem. Nie publikowano kandydata. Nowy commit ma zawierać wyłącznie tę korektę i dokumentację, bez niezależnych presetów. Limit przed budową: 50% wykorzystane, 50% pozostało, reset 11.11.2026 o 07:45 Europe/Warsaw.
+## Dodatkowe polecenie użytkownika — zachować zmiany i sprawdzić Test, 7.11.2026
+
+W trakcie przygotowywania alpha.484 użytkownik polecił sprawdzić ten sam błąd w Test i po potwierdzeniu działania TIDAL w Public przyjąć wszystkie poprawki TIDAL do pełnej wersji Test. To rozszerzenie bieżącej pracy; nie zastępuje naprawy Public.
+
+Sprawdzono zainstalowany Test alpha.482 w osobnym procesie dokładnego runtime `C:\Users\micha\AppData\Local\Programs\AMC Test\runtime\python.exe`, importując GUI wyłącznie z jego zainstalowanego app. Profil Test był wybrany przed importem. Obie klasy okna są dostępne i prawdziwy konstruktor wx okna TIDAL z fikcyjną playlistą przeszedł: installedProfile=test, tidalPickerImportsPresent=True, nativeTidalPickerConstructed=True. Nie uruchamiano hosta, logowania ani zapisu do konta; działający Test i jego procesy nie były zmieniane. Konkretny NameError brakującego importu dotyczy więc Public, w którym Spotify jest wyłączony. Ochronę przed innym błędem otwarcia otrzyma także Test po aktualizacji.
+
+Test odfiltrowanej paczki rozszerzono o dwa profile, każdy w świeżym procesie przed importem GUI. Wersja Test zachowuje prywatne moduły, Public ich nie ma, a oba korzystają ze wspólnego okna TIDAL. Cały aktualny plik test_tidal_picker_profile.py przeszedł 4/4. To późniejsze rozszerzenie testu nie zmienia kodu programu w zbudowanej paczce z dd8e6c03.
+
+Po odbiorze poprawionego Public należy z tych samych naprawionych źródeł zbudować pełny profil Test, zachowując Spotify, Sonosa, Radioarchiwistę i pozostałe możliwości Test oraz wszystkie dotychczasowe poprawki audio i logowania TIDAL. Nie kopiować ograniczonej paczki Public na instalację Test i nie przenosić sesji logowania. Przed instalacją Test uzyskać jego aktualny stan nagrań/harmonogramu. Niezakończone zmiany presetów nadal są zachowane w kanonicznym checkoutcie i należy je uwzględnić zgodnie z osobnymi ustaleniami zbiorczej aktualizacji, a nie nadpisywać przy budowie z czystego commita.
+## Instalacja alpha.484 i odbiór użytkownika, 7.11.2026
+
+Public alpha.484 zainstalowano ze źródeł dd8e6c031b62912664b9813ea9a45e796195f278. Instalator publish/public-tidal-picker-alpha484-20261107/AMC-Public-2026-11-07-1954.exe ma 133889558 bajtów; manifest profilu Public, sourceDirty=false i kontrola sekretów zaliczone. Instalacja zakończona kodem 0, log install-alpha484.log potwierdza sukces o 21:21:35, bez restartu. Pełna integralność 3144 plików instalacji: kod 0.
+
+Uruchomiono stabilny C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe; CUA potwierdziło okno „AMC Public — 07.11.2026, 19:54”, polskie menu i bibliotekę TIDAL (818 pozycji, pierwsze 150). Przed normalnym startem porównano stan i poświadczenia ze świeżą kopią DPAPI: publicTidalCredentialsUnchanged=true, publicTidalConnectionsPresent=2, publicStateUnchanged=true. Kopia D:\Projekty Codex\AMC - kopie prywatne\TIDAL-20261107\profil-przed-alpha484.dpapi, 46524054 bajty, 9 wpisów, zweryfikowane odszyfrowanie i sumy. Test pozostał uruchomiony w alpha.482.
+
+Późniejszy odbiór użytkownika potwierdza: „sam mechanizm działa, okno i tak dalej bardzo dobrze”. Zastępuje to wcześniejszy otwarty status samego otwarcia okna playlist. Nie dowodzi poprawnego zakresu zaznaczenia: użytkownik zgłosił dodanie całego albumu po wyborze jednego utworu oraz niedziałający Delete. Na jego prośbę dalsze naprawy i audyt wszystkich sesji otrzymują osobne zadanie PLAYLIST-20261107-delete-i-zaznaczenie.md. Nadal przygotować pełny Test ze wspólnej poprawionej bazy po uzgodnionym odbiorze. Nie opublikowano alpha.484. Odbiór przycisku przeglądarki, czasu My Mix i konta innej osoby pozostaje odrębnie otwarty.
+
+
+## Korekta użytkownika — Spotify Client ID w Public, 9.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+Public i Test trzymają Client ID i sesję osobno. Użytkownik może przepisać do Public ten sam Client ID swojej aplikacji Spotify z Test; adres powrotu obu profili jest identyczny. Następnie zapisuje identyfikator i loguje konto w Public oddzielnie. Osoba bez własnej aplikacji znajdzie w `Ctrl+F5` przycisk „Otwórz panel Spotify, aby utworzyć aplikację” w przyszłej wersji; wersja zainstalowana 8.11 pokazuje tylko adres do skopiowania. Instrukcja krok po kroku: `docs/public/SPOTIFY_CLIENT_ID_TEST_PUBLIC_2026-11-09.md`. Gdy Client ID jest puste, przyszłe okno skieruje fokus na to pole i poda wymagany krok zamiast zapowiadać logowanie w przeglądarce.
+
+### Uzasadnienie i decyzje
+
+Użytkownik poprosił o bezpośredni odnośnik do utworzenia aplikacji Spotify i dokładną instrukcję. Własny testowy identyfikator można wykorzystać w obu profilach, lecz nie udostępniać go nieograniczonej grupie odbiorców Public: Spotify ogranicza tryb deweloperski. Soloist nie zastępuje Web API katalogu. Oficjalny panel Spotify jest stabilnym adresem wejściowym; nie zakładamy działania nieudokumentowanego głębokiego adresu formularza.
+
+### Testy i wynik
+
+Weryfikacja składni `gui.py` przeszła. Testy okna konta: 8/8; testy okna konta, skrótów i palety łącznie wymagają ponowienia po aktualizacji oczekiwanego opisu `Ctrl+F5`. Zmiana źródeł nie jest instalacją ani wydaniem.
+
+### Znane ograniczenia
+
+Rzeczywisty odbiór przycisku w NVDA, logowanie na świeżym profilu i dostęp innej osoby pozostają otwarte. Starsze opisy Public bez Spotify są historyczne i nie dotyczą zainstalowanej alpha.486.
+
+### Wersja i commit
+
+Zainstalowany Public alpha.486 z 8.11.2026 pozostaje bez zmian. Nowa poprawka źródeł i instrukcji nie ma jeszcze nowego buildu, commitu ani instalacji.
+
+### Uzupełnienie weryfikacji, 9.11.2026
+
+Po aktualizacji testu zgodności opisu polecenia Ctrl+F5 pełny celowany zestaw okna konta, skrótów i palety przeszedł: 69/69. git diff --check dla zmienionych plików nie wykazał błędów. Nie uruchamiano rzeczywistej przeglądarki ani logowania; nie zbudowano, nie zainstalowano i nie wydano nowego Public.
+Szablon językowy po dodaniu pięciu nowych etykiet przeszedł test zgodności 1/1. Pełny test tłumaczeń ma nadal dwa niezaliczone przypadki inwentaryzacji innych, równoległych zmian interfejsu (m.in. Time Shift i podgląd transmisji); nie są wynikiem tej poprawki Spotify. Angielskie odpowiedniki nowych etykiet konta dodano do katalogu zgodności.
+9.11.2026 użytkownik zgłosił, że „wszystko działa”, bez wskazania profilu. Odczyt bez ujawniania wartości potwierdził prawidłowy format zapisanego Client ID w Test, natomiast bieżący plik stanu Public nadal nie zawiera Client ID ani nazwy konta i nie był aktualizowany od 7.11. Nie oznaczać logowania Public jako odebranego do czasu wskazania, który profil został sprawdzony. Nie zmieniano profili ani poświadczeń.
+
+## Korekta okien kont — 09.11.2026
+
+Po potwierdzeniu odsłuchu Spotify w Public poprawiono źródła wspólnego okna
+konta. Stan Spotify bierze teraz rzeczywisty wynik katalogu, zapisany Client
+ID można skopiować, a po zalogowaniu przycisk „Zaloguj” ustępuje
+„Wyloguj ze Spotify w AMC”. Wylogowanie usuwa token bieżącego profilu,
+zatrzymuje odtwarzanie Spotify i czyści pamięć katalogu, lecz zachowuje
+Client ID. TIDAL pokazuje po zalogowaniu „Wyloguj z katalogu TIDAL w AMC”;
+jego osobne poświadczenie natywnego odtwarzacza pozostaje odrębne. Sonos
+już wcześniej pokazywał „Wyloguj konto” tylko w stanie połączenia; nie
+zmieniano jego logowania, odbiór na sprzęcie czeka na czwartek 12.11.2026.
+
+Zmiany źródłowe i testy celowane: host C# zbudowany bez ostrzeżeń, 1 zestaw
+kontraktu Spotify i 86 testów Python kont/tytułu zaliczone. Test Sonos bez
+rzeczywistego wx: 9 zaliczonych; jedna sonda GUI nie uruchomiła się z powodu
+brakującego modułu wx w globalnym Pythonie. Nie wykonano wylogowania na
+rzeczywistym koncie, instalacji, odbioru NVDA ani wydania. Korekta zastępuje
+wcześniejszy opis stałego przycisku ponownego logowania w tym zadaniu.

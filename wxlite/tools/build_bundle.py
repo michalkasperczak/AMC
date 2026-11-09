@@ -84,6 +84,7 @@ LIBRESPOT_BUILD = (
 )
 PROFILE_GATED_SERVICE_MODULES = {
     "frontier_smart_source.py": "session.frontier-smart",
+    "sonos_local.py": "sonos.local",
     "sonos_source.py": "session.sonos",
     "spotify_playlist_dialog.py": "session.spotify",
     "spotify_source.py": "session.spotify",
@@ -111,6 +112,24 @@ TIDAL_SHARED_METADATA = (
     "urllib3-2.8.0.dist-info",
     "six-1.17.0.dist-info",
     "typing_extensions-4.16.0.dist-info",
+)
+
+# SoCo korzysta ze wspólnych requests/ifaddr obecnych już w prywatnym
+# runtime AMC Test. Z osobnego, przypiętego venv kopiujemy wyłącznie składniki,
+# których runtime wcześniej nie potrzebował.
+SONOS_LOCAL_TEST_PACKAGES = {
+    "soco": ("soco", "soco-0.32.2.dist-info"),
+    "xmltodict": ("xmltodict.py", "xmltodict-1.0.4.dist-info"),
+    "appdirs": ("appdirs.py", "appdirs-1.4.4.dist-info"),
+    "lxml": ("lxml", "lxml-6.1.3.dist-info"),
+}
+SONOS_LOCAL_SHARED_METADATA = (
+    "requests-2.34.2.dist-info",
+    "certifi-2026.10.23.dist-info",
+    "charset_normalizer-3.5.2.dist-info",
+    "idna-3.20.dist-info",
+    "urllib3-2.8.0.dist-info",
+    "ifaddr-0.2.0.dist-info",
 )
 
 
@@ -317,6 +336,14 @@ def copy_python_code(
             copied.append(tidal_requirements.name)
     elif tidal_requirements.is_file():
         tidal_requirements.unlink()
+    sonos_requirements = target / "requirements-sonos-local-test.txt"
+    if "sonos.local" in selected_profile.capabilities:
+        source = source_wxlite / sonos_requirements.name
+        if source.is_file():
+            shutil.copy2(source, sonos_requirements)
+            copied.append(sonos_requirements.name)
+    elif sonos_requirements.is_file():
+        sonos_requirements.unlink()
     return copied
 
 
@@ -595,6 +622,84 @@ def validate_tidal_test_dependencies(target: Path, profile: ReleaseProfile) -> N
         raise SystemExit("Istniejąca paczka AMC nie zawiera zależności TIDAL; wykonaj pełny build.")
 
 
+def copy_sonos_local_dependencies(
+    target: Path, profile: ReleaseProfile, source_site_packages: Path | None,
+) -> list[str]:
+    """Dołącz przypięty lokalny adapter Sonosa tylko do właściwego profilu."""
+
+    if "sonos.local" not in profile.capabilities:
+        return []
+    if source_site_packages is None:
+        raise SystemExit(
+            "Lokalny Sonos wymaga --sonos-site-packages z osobnego venv."
+        )
+    destination = target / "runtime" / "Lib" / "site-packages"
+    validate_sonos_dependency_sources(destination, source_site_packages)
+    copied: list[str] = []
+    for names in SONOS_LOCAL_TEST_PACKAGES.values():
+        for name in names:
+            source = source_site_packages / name
+            output = destination / name
+            if output.exists():
+                raise SystemExit(
+                    "Runtime AMC zawiera już składnik lokalnego Sonosa; "
+                    "sprawdź jego wersję."
+                )
+            if source.is_dir():
+                shutil.copytree(source, output)
+            elif source.is_file():
+                shutil.copy2(source, output)
+            else:
+                raise SystemExit(
+                    "Brakuje przypiętej zależności lokalnego Sonosa w prywatnym venv."
+                )
+            if output.is_file():
+                copied.append(output.relative_to(target).as_posix())
+            else:
+                copied.extend(
+                    path.relative_to(target).as_posix()
+                    for path in sorted(output.rglob("*")) if path.is_file()
+                )
+    return copied
+
+
+def validate_sonos_dependency_sources(
+    runtime_site_packages: Path, source_site_packages: Path,
+) -> None:
+    if any(
+        not (runtime_site_packages / name).is_dir()
+        for name in SONOS_LOCAL_SHARED_METADATA
+    ):
+        raise SystemExit(
+            "Runtime AMC Test nie zawiera zgodnych wspólnych zależności Sonosa."
+        )
+    if any(
+        not (source_site_packages / name).exists()
+        for pair in SONOS_LOCAL_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit(
+            "Prywatny venv nie zawiera przypiętych zależności lokalnego Sonosa."
+        )
+
+
+def validate_sonos_local_dependencies(
+    target: Path, profile: ReleaseProfile,
+) -> None:
+    """Odrzuć odświeżenie kodu, gdy stara paczka nie zawiera SoCo."""
+
+    if "sonos.local" not in profile.capabilities:
+        return
+    root = target / "runtime" / "Lib" / "site-packages"
+    if any(
+        not (root / name).exists()
+        for pair in SONOS_LOCAL_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit(
+            "Istniejąca paczka AMC nie zawiera zależności lokalnego Sonosa; "
+            "wykonaj pełny build."
+        )
+
+
 def copy_updater(target: Path, updater_dir: Path) -> list[str]:
     executable = updater_dir / "AMC-Python-Updater.exe"
     if not executable.is_file():
@@ -631,6 +736,21 @@ def profile_allows_librespot(profile: ReleaseProfile) -> bool:
     return "session.spotify" in profile.capabilities
 
 
+def is_sonos_local_dependency(relative: str) -> bool:
+    """Rozpoznaj wyłącznie przypięte składniki SoCo w site-packages."""
+
+    normalized = relative.replace("\\", "/").casefold()
+    prefix = "runtime/lib/site-packages/"
+    if not normalized.startswith(prefix):
+        return False
+    top_level = normalized[len(prefix):].split("/", 1)[0]
+    allowed = {
+        name.casefold()
+        for pair in SONOS_LOCAL_TEST_PACKAGES.values() for name in pair
+    }
+    return top_level in allowed
+
+
 def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
     """Odmow niejawnego pozostawienia prywatnej zaleznosci w publicznej paczce."""
 
@@ -644,8 +764,7 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
         for relative in files
         if (
             (
-                not profile_allows_librespot(profile)
-                and (
+                (
                     "/librespothost/"
                     in ("/" + relative.replace("\\", "/")).casefold()
                     or Path(relative).name.casefold()
@@ -658,6 +777,10 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
                 and relative.replace("\\", "/").casefold().startswith(
                     "runtime/lib/site-packages/tidalapi"
                 )
+            )
+            or (
+                "sonos.local" not in profile.capabilities
+                and is_sonos_local_dependency(relative)
             )
         )
     ]
@@ -767,6 +890,12 @@ def main() -> int:
         default=None,
         help="site-packages przypiętego, osobnego venv TIDAL tylko dla AMC Test",
     )
+    parser.add_argument(
+        "--sonos-site-packages",
+        type=Path,
+        default=None,
+        help="site-packages przypiętego, osobnego venv SoCo tylko dla AMC Test",
+    )
     parser.add_argument("--clean", action="store_true", help="wyczysc folder docelowy")
     parser.add_argument(
         "--refresh-python-only",
@@ -793,6 +922,7 @@ def main() -> int:
             )
         profile = profile_from_id(existing_profile_id)
         validate_tidal_test_dependencies(target, profile)
+        validate_sonos_local_dependencies(target, profile)
         manifest.update(profile.manifest_fields())
         files = list(manifest.get("files") or [])
         files += copy_python_code(target, profile)
@@ -836,10 +966,6 @@ def main() -> int:
 
     # Bramka jest przed --clean i przed pierwsza kopia: niespojna binarka albo
     # proweniencja nie moze nawet czesciowo przebudowac katalogu kandydata.
-    # Oba profile z aktywnym Spotify wymagaja przypietego hosta Librespot
-    # oraz licencji jego zaleznosci.
-    if profile_allows_librespot(profile):
-        validate_librespot_package_source()
     if "tidal.native-playback" in profile.capabilities:
         if args.tidal_site_packages is None:
             raise SystemExit("Odtwarzacz TIDAL wymaga --tidal-site-packages z osobnego venv.")
@@ -851,6 +977,22 @@ def main() -> int:
         for name in ("tidalapi", "tidalapi-0.8.11.dist-info")
     ):
         raise SystemExit("Runtime bez odtwarzacza TIDAL nie może zawierać tidalapi.")
+    if "sonos.local" in profile.capabilities:
+        if args.sonos_site_packages is None:
+            raise SystemExit(
+                "Lokalny Sonos wymaga --sonos-site-packages z osobnego venv."
+            )
+        validate_sonos_dependency_sources(
+            args.runtime / "Lib" / "site-packages",
+            args.sonos_site_packages,
+        )
+    elif any(
+        (args.runtime / "Lib" / "site-packages" / name).exists()
+        for pair in SONOS_LOCAL_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit(
+            "Runtime bez lokalnego Sonosa nie może zawierać składników SoCo."
+        )
 
     if args.clean and target.exists():
         shutil.rmtree(target)
@@ -864,20 +1006,15 @@ def main() -> int:
     manifest["files"] += copy_updater(target, args.updater)
     host_files, host_hashes = copy_host(target, args.host, args.host_subdir)
     manifest["files"] += host_files
-    if profile_allows_librespot(profile):
-        librespot_files, librespot_metadata = copy_librespot_host(
-            target,
-            args.host_subdir,
-        )
-        manifest["files"] += librespot_files
-        host_hashes[f"LibrespotHost/{LIBRESPOT_HOST_BINARY}"] = LIBRESPOT_HOST_SHA256
-        manifest["librespotHost"] = librespot_metadata
     manifest["hostHashes"] = host_hashes
     manifest["hostFolder"] = args.host_subdir
 
     manifest["files"] += copy_runtime(target, args.runtime)
     manifest["files"] += copy_tidal_test_dependencies(
         target, profile, args.tidal_site_packages
+    )
+    manifest["files"] += copy_sonos_local_dependencies(
+        target, profile, args.sonos_site_packages
     )
     manifest["runtime"] = "embedded"
 

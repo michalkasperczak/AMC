@@ -32,6 +32,10 @@ internal static class Program
         ("jedna instancja launchera", OnlyOneLauncherOwnsTheLease),
         ("osobne instancje launcherów profili", ReleaseProfilesHaveSeparateLauncherLeases),
         ("osobne instancje aktualizatorów profili", ReleaseProfilesHaveSeparateUpdaterLeases),
+        ("launcher blokuje start podczas aktualizacji właściwego profilu", LauncherBlocksStartDuringProfileUpdate),
+        ("kompletna instalacja przechodzi pełne sprawdzenie", InstalledBundlePassesFullVerification),
+        ("brak pliku po instalacji jest wykrywany", InstalledBundleDetectsMissingFile),
+        ("uszkodzony plik niestartowy po instalacji jest wykrywany", InstalledBundleDetectsCorruptNonStartupFile),
         ("launcher rozpoznaje obecną i starszą nazwę okna", LauncherRecognizesCurrentAndLegacyTitles),
         ("ta sama kompilacja tylko pokazuje okno", SameBuildOnlyActivates),
         ("nowa kompilacja prosi o bezpieczną podmianę", NewBuildRequestsSafeReplacement),
@@ -517,6 +521,63 @@ internal static class Program
             ReleaseProfileContract.Test,
             runtime,
             "AMC Python - techniczne okno pomocnicze"));
+    }
+
+    private static void LauncherBlocksStartDuringProfileUpdate()
+    {
+        using var test = BundleFixture.Create(profile: ReleaseProfileContract.Test);
+        using var publicBundle = BundleFixture.Create(profile: ReleaseProfileContract.Public);
+        using var ready = new ManualResetEventSlim();
+        using var finish = new ManualResetEventSlim();
+        var updater = new Thread(() =>
+        {
+            using var lease = UpdaterInstanceLease.TryAcquire(
+                ReleaseProfileContract.Test.UpdaterMutexName);
+            ready.Set();
+            finish.Wait();
+        });
+        updater.Start();
+        try
+        {
+            if (!ready.Wait(TimeSpan.FromSeconds(5)))
+                throw new InvalidOperationException("Mutex aktualizatora nie został zajęty");
+            Equal("test", UpdateInProgressGate.ActiveProfile(test.Root)?.ProfileId);
+            Equal(null, UpdateInProgressGate.ActiveProfile(publicBundle.Root));
+        }
+        finally
+        {
+            finish.Set();
+            updater.Join(TimeSpan.FromSeconds(5));
+        }
+        Equal(null, UpdateInProgressGate.ActiveProfile(test.Root));
+    }
+
+    private static void InstalledBundlePassesFullVerification()
+    {
+        using var test = BundleFixture.Create(profile: ReleaseProfileContract.Test);
+        using var publicBundle = BundleFixture.Create(profile: ReleaseProfileContract.Public);
+        AccessibleMediaController.PythonUpdater.Program.VerifyInstalledBundle(
+            test.Root, ReleaseProfileContract.Test);
+        AccessibleMediaController.PythonUpdater.Program.VerifyInstalledBundle(
+            publicBundle.Root, ReleaseProfileContract.Public);
+    }
+
+    private static void InstalledBundleDetectsMissingFile()
+    {
+        using var fixture = BundleFixture.Create(profile: ReleaseProfileContract.Test);
+        File.Delete(Path.Combine(fixture.Root, "runtime", "python.exe"));
+        Throws("brak pliku", () => AccessibleMediaController.PythonUpdater.Program
+            .VerifyInstalledBundle(fixture.Root, ReleaseProfileContract.Test));
+    }
+
+    private static void InstalledBundleDetectsCorruptNonStartupFile()
+    {
+        using var fixture = BundleFixture.Create(
+            profile: ReleaseProfileContract.Public,
+            extraPackageFile: "runtime/library.zip");
+        File.AppendAllText(Path.Combine(fixture.Root, "runtime", "library.zip"), "błąd");
+        Throws("rozmiar", () => AccessibleMediaController.PythonUpdater.Program
+            .VerifyInstalledBundle(fixture.Root, ReleaseProfileContract.Public));
     }
 
     private static void UpdaterAcceptsMatchingProfile()

@@ -33,6 +33,8 @@ Chrome korzysta z osobnego profilu w lokalnych danych AMC Test. Strona SDK dzia�
 
 Wymagany jest systemowy Google Chrome z Widevine. Web Playback SDK i wewnętrzny element audio ramki mogą się zmienić po aktualizacji Spotify lub Chrome; po takiej zmianie należy ponowić próbę wyjścia. Nie deklarujemy jakości bezstratnej ani trybu wyłącznego. Spotify Connect na inne urządzenia sieciowe pozostaje osobnym zagadnieniem; `Shift+A` wybiera fizyczne wyjścia komputera. Stary kod i binarium LibreSpot pozostają w pakiecie przejściowo, lecz bieżący tor Spotify ich nie uruchamia. Poprzednio zapamiętana nazwa wyjścia jest przyjmowana zgodnościowo.
 
+Korekta z 8 listopada 2026: przyszłe pełne paczki AMC Test i AMC Public przestają zawierać host LibreSpot; instalator obu profili usunie jego stare pliki z katalogu programu. Dotychczasowe instalacje pozostają bez zmian do aktualizacji. Historyczny kod i migracja ustawień pozostają w źródłach. Zobacz `SPOTIFY-LIBRESPOT-20261108-wycofanie-z-pakietu.md`.
+
 ## Wersja i commit
 
 AMC Test `0.1.0-alpha.459`, gałąź `codex/amc-test-spotify-chrome-alpha459`, podstawa poprzedniego wydania `acbe251960fce7fe15253f08d9a6fb0747999940`. Commit źródłowy paczki: `4217efff92e6cf685e9ab6ed569d4bae8f58e164`.
@@ -45,3 +47,19 @@ AMC Test `0.1.0-alpha.459`, gałąź `codex/amc-test-spotify-chrome-alpha459`, p
 ## Późniejsza korekta jakości — 31.10.2026
 
 Po publikacji źródeł i instalatora odczytano nowe [pomiary Huberta w #11](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6543596541). To zastępuje powyższe „brak potwierdzenia Lossless” bardziej konkretnym wynikiem: na jego koncie Premium i utworze `Refuse / Resist` ramka Web Playback SDK raportowała dekoder AAC, 44,1 kHz i wejście 16-bitowe. Bitrate nie był podany. W sprawdzonym torze Chrome gra więc **stratnie**, bez Lossless. Soloist 1.3.10 odtwarzał FLAC po wpisaniu dwóch nieudokumentowanych wartości do `prefs`; domyślnie grał Ogg Vorbis 160 kb/s. [Dodatkowa próba Huberta](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6543632323) wskazuje możliwość uniknięcia przeliczenia 44,1→48 kHz przy odpowiednim formacie wyjścia, ale dotyczy tylko jego urządzenia i utworu. Nie zmieniano toru AMC na Soloist w tym wydaniu. Opis GitHub i lokalny opis wydania zostały skorygowane, a [komentarz w #11](https://github.com/michalkasperczak/AMC/issues/11#issuecomment-6546199862) odczytowo potwierdzono; sam instalator nadal odpowiada commitowi `4217efff`.
+
+## Potwierdzenie użytkownika i korekta Public — 09.11.2026
+
+Użytkownik potwierdził, że Spotify odtwarza w AMC Public po własnym
+zalogowaniu. To zastępuje starsze zdania w tym pliku, że Public nie ma sesji
+Spotify lub że nie potwierdzono odsłuchu. Nie oznacza jeszcze pełnego odbioru
+wszystkich funkcji, kolejki, Sonosa ani NVDA. Bieżący tor to Web Playback SDK
+w ukrytym Chrome; Client ID służy katalogowi i temu odtwarzaniu. Szkic
+instrukcji tworzenia identyfikatora zaktualizowano w
+`docs/public/SPOTIFY_CLIENT_ID_TEST_PUBLIC_2026-11-09.md`.
+
+Oficjalny opis Spotify podaje dla web playera AAC 256 kb/s Premium, ale Web
+Playback SDK nie ujawnia AMC rzeczywistej przepływności pojedynczego utworu.
+Nie deklarujemy lossless ani dokładnego bitrate w AMC. Oficjalny Soloist
+deklaruje lossless do 24 bitów/44,1 kHz, lecz nie jest obecnym silnikiem AMC.
+To osobny kierunek oceny po ustabilizowaniu bieżącego wydania.

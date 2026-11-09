@@ -814,12 +814,48 @@ def test_missing_recording_is_visible_but_enter_refuses_honestly() -> None:
         }]}
     })
     row = recording_history_rows(entries, path_probe=lambda path: "missing")[0]
-    assert row.title == "Zatrzymane, brak pliku nagrania, brak"
+    assert row.title == "Brak pliku nagrania, brak"
     assert row.path is None
     nav = Navigator()
     nav.apply_library_view(LibraryView.RECORDED_RADIO_FILES, "Historia nagrywania", [row])
     message = nav.activate_selected()[0]
     assert "nie istnieje już na dysku" in message.text
+
+
+def test_recent_missing_recording_remains_visible_after_restart() -> None:
+    now = datetime.now(timezone.utc)
+    ticks = int((now - datetime(1, 1, 1, tzinfo=timezone.utc)).total_seconds() * 10_000_000)
+    entry = RadioRecordingHistoryEntry(
+        "moved", "radio", "Radio Test", r"D:\Nagrania\przeniesione.mp3",
+        "completed", "", "", ticks - 10_000_000, ticks, 1,
+    )
+    visible = recent_recording_history([], [entry], path_probe=lambda _: "missing")
+    assert visible == (entry,)
+    row = recording_history_rows(visible, path_probe=lambda _: "missing")[0]
+    assert row.title == "Brak pliku nagrania, przeniesione"
+    assert row.path is None
+    assert "nie istnieje już na dysku" in row.activation_message
+
+
+def test_recoverable_publication_failure_has_accurate_label() -> None:
+    entry = RadioRecordingHistoryEntry(
+        "recoverable", "radio", "Radio Test", r"D:\Nagrania\czesc.mp3",
+        "interrupted", "Nie można zapisać gotowego pliku w wybranym folderze. "
+        "Bezpieczna kopia pozostała w: C:\\kopie\\part.mp3.amc-partial",
+        "", 0, 1, 1,
+    )
+    row = recording_history_rows([entry], path_probe=lambda _: "available")[0]
+    assert row.title == "Kopia nagrania do odzyskania, czesc"
+
+    failed_first_part = RadioRecordingHistoryEntry(
+        "recoverable-first", "radio", "Radio Test", "", "failed",
+        entry.reason, "", 0, 2, 0,
+    )
+    failed_row = recording_history_rows(
+        [failed_first_part], path_probe=lambda _: "available"
+    )[0]
+    assert failed_row.title == "Kopia nagrania do odzyskania, Radio Test"
+    assert "nie powstało" not in failed_row.activation_message
 
 
 def test_recorded_files_merge_without_duplicates_and_include_outside_library() -> None:

@@ -22,15 +22,16 @@ internal sealed record SpotifyTokenSet(
 /// </summary>
 internal static class SpotifyCredentialStore
 {
-    private const string TargetName = "AccessibleMediaController/Spotify";
+    internal const string DefaultTargetName = "AccessibleMediaController/Spotify";
     private const uint CredentialTypeGeneric = 1;
     private const uint CredentialPersistLocalMachine = 2;
     private const int ErrorNotFound = 1168;
 
-    public static bool TryRead(out SpotifyTokenSet? tokens)
+    public static bool TryRead(
+        out SpotifyTokenSet? tokens, string targetName = DefaultTargetName)
     {
         tokens = null;
-        if (!CredRead(TargetName, CredentialTypeGeneric, 0, out var credentialPointer))
+        if (!CredRead(targetName, CredentialTypeGeneric, 0, out var credentialPointer))
         {
             var error = Marshal.GetLastWin32Error();
             if (error == ErrorNotFound) return false;
@@ -50,7 +51,7 @@ internal static class SpotifyCredentialStore
         }
         catch (JsonException)
         {
-            Delete();
+            Delete(targetName);
             return false;
         }
         finally
@@ -59,7 +60,8 @@ internal static class SpotifyCredentialStore
         }
     }
 
-    public static void Write(SpotifyTokenSet tokens)
+    public static void Write(
+        SpotifyTokenSet tokens, string targetName = DefaultTargetName)
     {
         ArgumentNullException.ThrowIfNull(tokens);
         var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(tokens));
@@ -70,7 +72,7 @@ internal static class SpotifyCredentialStore
             var credential = new NativeCredential
             {
                 Type = CredentialTypeGeneric,
-                TargetName = TargetName,
+                TargetName = targetName,
                 CredentialBlobSize = (uint)bytes.Length,
                 CredentialBlob = blob,
                 Persist = CredentialPersistLocalMachine,
@@ -89,9 +91,9 @@ internal static class SpotifyCredentialStore
         }
     }
 
-    public static void Delete()
+    public static void Delete(string targetName = DefaultTargetName)
     {
-        if (CredDelete(TargetName, CredentialTypeGeneric, 0)) return;
+        if (CredDelete(targetName, CredentialTypeGeneric, 0)) return;
         var error = Marshal.GetLastWin32Error();
         if (error != ErrorNotFound)
         {

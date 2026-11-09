@@ -94,6 +94,8 @@ internal static class LiteRadioLibraryMutation
 
                 if (updateExistingTitles)
                 {
+                    if (!Boolean(existing, "isInLibrary", "IsInLibrary"))
+                        promoted.Add(existingId);
                     existing["name"] = draft.Name;
                     existing["streamUrl"] = draft.Url;
                     existing["hasCustomTitle"] = true;

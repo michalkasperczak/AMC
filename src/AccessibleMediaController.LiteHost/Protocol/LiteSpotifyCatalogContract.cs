@@ -16,6 +16,7 @@ public static class LiteSpotifyCatalogContract
     public const string CapabilitiesOperation = "spotify.capabilities";
     public const string AccountStatusOperation = "spotify.accountStatus";
     public const string LoginOperation = "spotify.login";
+    public const string DisconnectOperation = "spotify.disconnect";
     public const string ConfigureOperation = "spotify.configure";
     public const string PairingStartOperation = "spotify.pairingStart";
     public const string PairingStatusOperation = "spotify.pairingStatus";
@@ -121,7 +122,8 @@ public static class LiteSpotifyCatalogContract
             SessionId, catalog, playback,
             string.IsNullOrWhiteSpace(probe.RedirectUri)
                 ? "http://127.0.0.1:43822/spotify/callback/"
-                : probe.RedirectUri);
+                : probe.RedirectUri,
+            probe.ClientId);
     }
 
     public static string ReadClientId(JsonElement args)
@@ -504,6 +506,7 @@ public static class LiteSpotifyCatalogContract
         _ => operation switch
         {
             LoginOperation => "Nie udało się zalogować konta Spotify.",
+            DisconnectOperation => "Nie udało się wylogować konta Spotify w AMC.",
             SearchOperation => "Nie udało się wyszukać w Spotify.",
             ContainerItemsOperation => "Nie udało się otworzyć zawartości Spotify.",
             CollectionViewOperation => "Nie udało się odświeżyć kolekcji Spotify.",
@@ -711,13 +714,15 @@ public sealed record LiteSpotifyAccountProbe(
     string AccountDisplayName,
     string AccountProduct,
     bool? PlaybackConnected,
-    string RedirectUri = "http://127.0.0.1:43822/spotify/callback/");
+    string RedirectUri = "http://127.0.0.1:43822/spotify/callback/",
+    string ClientId = "");
 
 public sealed record LiteSpotifyAccountStatusResult(
     [property: JsonPropertyName("sessionId")] string SessionId,
     [property: JsonPropertyName("catalog")] LiteSpotifyConnectionStatus Catalog,
     [property: JsonPropertyName("playback")] LiteSpotifyConnectionStatus Playback,
-    [property: JsonPropertyName("redirectUri")] string RedirectUri);
+    [property: JsonPropertyName("redirectUri")] string RedirectUri,
+    [property: JsonPropertyName("clientId")] string ClientId);
 
 public sealed record LiteSpotifyLoginResult(
     [property: JsonPropertyName("connected")] bool Connected,

@@ -118,6 +118,11 @@ if (args.Contains("--transient-flac-output", StringComparer.Ordinal))
     TransientFlacOutputTests.Run();
     return 0;
 }
+if (args.Contains("--radio-publish-only", StringComparer.Ordinal))
+{
+    TestRadioRecordingPublicationCollision();
+    return 0;
+}
 if (args.Contains("--radio-recording-stream-failure-only", StringComparer.Ordinal))
 {
     TestRadioRecordingControlKeepsPublishedFileAfterStreamFailure();
@@ -5942,6 +5947,32 @@ static void TestRadioRecordingSplitControl()
     Assert(control.CompletedPaths.Count == 0 && control.CurrentPath is null,
         "Odrzucony podział ujawnił nieistniejące pliki nagrania.");
     Console.WriteLine("OK: bezpieczne odrzucenie podziału niegotowego nagrania");
+}
+
+static void TestRadioRecordingPublicationCollision()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-radio-publish-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(root);
+    try
+    {
+        var final = Path.Combine(root, "nagranie.mp3");
+        File.WriteAllBytes(final, [1, 2, 3]);
+        var staging = Path.Combine(root, "roboczy.mp3");
+        File.WriteAllBytes(staging, [4, 5, 6, 7]);
+        var published = RadioRecordingStagingStore.Publish(staging, final, uniqueOnConflict: true);
+        Assert(published == Path.Combine(root, "nagranie (2).mp3"),
+            "Kolizja nazwy nie wybrała nowej ścieżki.");
+        Assert(File.ReadAllBytes(final).SequenceEqual(new byte[] { 1, 2, 3 }),
+            "Istniejące nagranie zostało nadpisane.");
+        Assert(File.ReadAllBytes(published).SequenceEqual(new byte[] { 4, 5, 6, 7 }),
+            "Nowe nagranie nie zostało zapisane w całości.");
+        Assert(!File.Exists(staging), "Pozostała niepotrzebna kopia robocza.");
+        Console.WriteLine("OK: kolizja nazwy zapisuje nowy plik bez nadpisania starego");
+    }
+    finally
+    {
+        if (Directory.Exists(root)) Directory.Delete(root, true);
+    }
 }
 
 static void TestRadioRecordingControlKeepsPublishedFileAfterStreamFailure()

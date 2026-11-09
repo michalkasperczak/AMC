@@ -2007,6 +2007,9 @@ def build_menus(
     )
 
     application_update = command_presentation(Action.CHECK_APPLICATION_UPDATE)
+    report_problem = command_presentation(Action.REPORT_PROBLEM)
+    if report_problem is None or report_problem.menu_label is None:
+        raise RuntimeError("Brak prezentacji polecenia zgłaszania błędu")
     if application_update is None or application_update.menu_label is None:
         raise RuntimeError("Brak prezentacji polecenia aktualizacji AMC")
 
@@ -2030,7 +2033,12 @@ def build_menus(
                 "Sprawdź i zaktualizuj składniki: FFmpeg i &yt-dlp",
                 Action.UPDATE_MEDIA_COMPONENTS,
             ),
-            MenuItem("Zgłoś &błąd lub sugestię…", Action.REPORT_PROBLEM),
+            MenuItem(
+                report_problem.menu_label,
+                Action.REPORT_PROBLEM,
+                shortcut=report_problem.shortcut,
+                accelerator=False,
+            ),
             MenuItem("&Wersja programu", Action.VERSION_INFO),
         ),
     )

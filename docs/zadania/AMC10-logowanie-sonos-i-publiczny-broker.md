@@ -2,19 +2,15 @@
 
 ## Status
 
-**W trakcie odbioru użytkownika — niezależny broker działa publicznie pod
-`https://sonos.stareaudycje.pl/`, a callback
-`https://sonos.stareaudycje.pl/login/callback` jest zapisany w Sonos
-Integration Manager. Poprawiony AMC Test został zbudowany, atomowo
-zainstalowany i uruchomiony z `D:\Projekty Codex\AMC Python`. Pierwsza prawdziwa
-próba dotarła do oficjalnej strony Sonosa, lecz po wybraniu „Kontynuuj” Sonos
-zwrócił błąd na etapie wyboru gospodarstwa domowego, przed powrotem do brokera.
-Do zakończenia pozostają: ponowienie na koncie przypisanym do systemu Sonos,
-udane logowanie, odmowa, odnowienie, odbiór sprzętu i NVDA. Pakiet zwrotny
-operatora nie został jeszcze odnaleziony na tym komputerze, więc jego treść i
-suma pozostają do lokalnej weryfikacji; nie blokuje to obecnej diagnozy błędu,
-który wystąpił po stronie Sonosa przed callbackiem. Nie wykonano publikacji
-GitHub ani wydania AMC Public.**
+**Kierunek zmieniony 08.11.2026 — dla publicznego instalatora wymagany jest
+lokalny Sonos każdego użytkownika, a nie zdalne sterowanie przez wspólny
+broker. Przygotować w AMC Test adapter SSDP/UPnP oparty na SoCo i podłączyć go
+pod istniejącą sesję, grupy, treści oraz presety. Publiczny broker
+`https://sonos.stareaudycje.pl/` działa technicznie, ale OAuth kończy się na
+stronie Sonosa przed callbackiem; dalsza praca nad tym torem zostaje odłożona.
+Nie usuwać brokera ani istniejącego kodu chmurowego przed odbiorem lokalnego
+wariantu na prawdziwym głośniku. Sprzęt będzie dostępny za kilka dni. Nie
+zmieniono jeszcze kodu produktu, instalacji AMC Test, AMC Public ani GitHuba.**
 
 Sterowanie Sonosem i WiiM było już przeszczepione i użytkownik ocenił je jako
 prawie gotowe. Ten etap nie zmienia adapterów, list, transportu ani WiiM.
@@ -776,6 +772,243 @@ działającego okna AMC. W sesji pozostaje jeden wiersz `Sprawdź logowanie do
 Sonos`; naciśnij Enter po zakończeniu albo odmowie w przeglądarce. `Ctrl+F5`
 otwiera zarządzanie kontem, a `Ctrl+Alt+Shift+R` zatrzymuje wszystkie nagrania
 niezależnie od bieżącej sesji.
+
+## Badanie niezależnego toru lokalnego — 08.11.2026
+
+### Wynik
+
+Obecny broker chmurowy pozostaje poprawną architekturą dla oficjalnego Sonos
+Control API: sekret integracji jest na serwerze, a aplikacja publiczna nie zna
+go i nie wymaga od użytkownika własnego konta deweloperskiego. Niezależna
+biblioteka nie naprawi jednak błędu występującego na stronie Sonosa przed
+callbackiem. Oficjalna dokumentacja nadal wymaga trójstronnego OAuth, publicznego
+callbacku HTTPS oraz serwerowej wymiany kodu z użyciem sekretu. Identyczny tekst
+„Oops, there was a problem” jest też zgłoszony w otwartej sprawie
+`jjlawren/sonos_cloud#58`, więc błąd nie jest swoisty dla AMC; nie jest to jednak
+dowód jednej konkretnej przyczyny po stronie Sonosa.
+
+Jest realny drugi tor: lokalne sterowanie Sonosem przez SSDP/UPnP, bez logowania
+do konta w AMC. Oficjalny Sonos określa UPnP jako protokół niewspierany, a
+oficjalny Control API na LAN nie jest dostępny do szerokiej dystrybucji. Mimo
+tego ten sam lokalny model działa w Home Assistant i aplikacji Sonos dla
+Windows/macOS. Sonos domyślnie włącza UPnP i dostęp gościa; użytkownik może je
+wyłączyć w `Konto > Prywatność i bezpieczeństwo > Bezpieczeństwo połączenia`.
+
+Najlepszym kandydatem do próby w AMC Test jest `SoCo`:
+
+- aktywnie utrzymywany Python, wydanie `0.32.2` z 06.11.2026, licencja MIT;
+- testy projektu obejmują Windows, a bieżący kod wspiera nowe wersje Pythona;
+- lokalne wykrywanie, grupy, transport, głośność, stan, kolejka, zdarzenia,
+  biblioteka lokalna, Sonos Favorites i Sonos Playlists;
+- brak OAuth Sonosa, client ID, sekretu, tokenu użytkownika i publicznego
+  serwera; komputer musi być w tej samej sieci co głośniki;
+- operacje sieciowe są synchroniczne, więc muszą działać poza wątkiem wxPython,
+  z ograniczonym timeoutem, anulowaniem i pamięcią podręczną ostatnich urządzeń.
+
+`SoCo-CLI` (Apache-2.0) jest wartościowym źródłem zachowania i wysokopoziomowych
+operacji, ale nie powinien być uruchamiany przez AMC jako zewnętrzne polecenie.
+Potwierdza lokalne odtwarzanie Sonos Favorites oraz linków udostępniania
+Spotify, TIDAL, Deezer i Apple Music. W przypadku Apple Music nie używa tokenu
+deweloperskiego AMC: Sonos odtwarza link przez usługę Apple Music już dodaną do
+systemu użytkownika. To daje wąski, ale zgodny praktycznie wariant „Apple Music
+na Sonosie”: odtworzenie zapisanego Ulubionego albo linku utworu, albumu lub
+playlisty. Nie zastępuje to pełnej sesji Apple Music w AMC, wyszukiwania całego
+katalogu ani dostępu do biblioteki konta Apple.
+
+Pozostałe kandydatury są słabsze dla bieżącej architektury:
+
+- `svrooij/sonos-net` jest eksperymentalny, niepełny, ma słabe wykrywanie i
+  licencję GPL-3.0; nie włączać go do AMC;
+- `svrooij/node-sonos-ts` jest dojrzalszy i ma licencję MIT, ale wymagałby
+  dołączenia Node.js albo nowego procesu pomocniczego, choć AMC ma już prywatny
+  runtime Python;
+- własny klient UPnP w C# może później ograniczyć zależności, a AMC ma już
+  sprawdzone SSDP/SOAP dla WiiM i Frontier Smart, lecz odtworzenie grup,
+  metadanych, ulubionych i wyjątków Sonosa byłoby większym kosztem utrzymania
+  niż odizolowanie SoCo za naszym kontraktem.
+
+### Korekta użytkownika i zalecany model publiczny — 08.11.2026
+
+Użytkownik doprecyzował, że „publiczny” oznacza instalator przekazywany wielu
+osobom, z których każda uruchamia AMC na komputerze w swojej sieci domowej obok
+własnego systemu Sonos. Nie chodzi o sterowanie Sonosem użytkownika z obcej
+sieci ani o wspólny zdalny dostęp. To doprecyzowanie zastępuje zalecenie, aby
+oba tory były potrzebne w pierwszym publicznym wydaniu.
+
+1. `Sonos lokalny` jest jedynym wymaganym torem dla AMC Test i przyszłego AMC
+   Public. Każda kopia aplikacji wykrywa Sonosy w sieci swojego użytkownika;
+   nie łączy się z siecią autora programu. Nie ma okna logowania, client ID,
+   sekretu, tokenu ani zależności od wspólnego serwera.
+2. Istniejący broker chmurowy zostaje zachowany w źródłach i na serwerze jako
+   bezpieczny punkt powrotu, ale dalsza praca nad nim zostaje odłożona. Nie jest
+   warunkiem publicznego Sonosa. Nie usuwać go przed rzeczywistym odbiorem toru
+   lokalnego na sprzęcie; później można świadomie zdecydować o jego utrzymaniu
+   albo wycofaniu.
+3. Tor chmurowy miałby wartość tylko dla sterowania własnym Sonosem spoza jego
+   sieci, dla sieci blokującej ruch lokalny albo jako oficjalnie wspierane API.
+   Użytkownik nie zgłosił takiej potrzeby, więc nie uzasadnia ona obecnej
+   złożoności logowania.
+4. Bieżący interfejs Sonosa — grupy, transport, Ulubione, playlisty, własne
+   stacje, kolejka i presety — pozostaje. Zmieniana jest warstwa transportu pod
+   istniejącym kontraktem, a nie projekt sesji i poleceń. Techniczne
+   identyfikatory UPnP nie mogą trafić do NVDA.
+
+Historyczny wariant z Hermesem również nie był lokalnym proxy do głośnika przez
+VPN. Zgodnie z audytem i commitem `2759b508` Hermes uczestniczył tylko w OAuth i
+odnawianiu tokenu, natomiast polecenia AMC szły do oficjalnego Sonos Control
+API w chmurze. To wyjaśnia, dlaczego stary wariant działał także przy rozbudowanym
+sterowaniu, ale nie daje dodatkowego kodu lokalnego do przeniesienia. Gotowy
+interfejs i logika sesji są już w AMC Test; lokalny adapter ma zastąpić wyłącznie
+źródło urządzeń, stanu i poleceń.
+
+### Najmniejszy bezpieczny eksperyment w AMC Test
+
+1. Dodać SoCo wyłącznie do prywatnego pakietu testowego i przygotować
+   bezokienną sondę: wykrywanie z limitem czasu, ręczny adres IP oraz lista
+   nazw głośników i grup. Niczego jeszcze nie odtwarzać.
+2. Na rzeczywistym systemie sprawdzić S1/S2, UPnP, dostęp gościa, zaporę
+   Windows, kilka kart sieciowych, brak multicastu i powrót po restarcie.
+3. Włączyć odczyt stanu oraz play/pause/stop, następny/poprzedni i głośność;
+   każda operacja w wątku roboczym, z anulowaniem i bez blokowania okna.
+4. Dopiero później dodać kolejkę, grupowanie, Sonos Favorites i test linku
+   Apple Music na koncie już podłączonym w Sonosie.
+5. Przed publicznym wydaniem wykonać parytet poleceń i pomocy, odbiór NVDA,
+   test zapory, test z wyłączonym UPnP, czysty instalator oraz macierz modeli
+   Sonos. Awaria lokalnego toru ma dawać krótki komunikat i nigdy nie otwierać
+   modala blokującego AMC.
+
+### Źródła sprawdzone 08.11.2026
+
+- `https://docs.sonos.com/docs/authorize`
+- `https://docs.sonos.com/docs/connected-home-architecture`
+- `https://support.sonos.com/en-gb/article/adjust-connection-security-settings`
+- `https://github.com/SoCo/SoCo`
+- `https://github.com/SoCo/SoCo/releases/tag/v0.32.2`
+- `https://github.com/SoCo/SoCo/blob/master/soco/plugins/sharelink.py`
+- `https://github.com/avantrec/soco-cli`
+- `https://www.home-assistant.io/integrations/sonos`
+- `https://github.com/jjlawren/sonos_cloud/issues/58`
+
+W tym etapie wykonano badanie źródeł i architektury oraz zapis dokumentacji.
+Nie zmieniono kodu produktu, zależności, serwera, integracji w portalu Sonos,
+instalacji AMC Test ani AMC Public; nie wykonano kompilacji ani publikacji.
+
+## Przyrost 08.11.2026 — lokalny Sonos w AMC Test
+
+### Korekta stanu
+
+Powyższe zdanie o braku zmian w kodzie opisuje wyłącznie wcześniejszy etap
+badawczy z 08.11.2026. Później tego samego dnia, za zgodą użytkownika, zostało
+zastąpione następującym stanem: lokalna obsługa Sonosa jest zaimplementowana,
+przetestowana bez sprzętu, skompilowana i złożona jako nieinstalowany kandydat
+AMC Test. AMC Public i serwerowy broker nie zostały zmienione.
+
+### Zachowanie użytkowe
+
+- AMC Test wykrywa Sonosy przez SSDP/UPnP w tej samej sieci lokalnej. Nie
+  wymaga konta Sonos, logowania w przeglądarce, tokenu OAuth ani publicznego
+  brokera.
+- Wejście do sesji Sonos automatycznie wczytuje lokalne grupy. `Ctrl+F5`
+  ponawia wyszukiwanie, a konfiguracja Sonosa w Menedżerze sesji prowadzi do
+  tego samego wyboru grup, nie do okna konta.
+- Stan w Menedżerze sesji brzmi `Wymaga wyszukania głośników`, a nie
+  `Wymaga zalogowania`.
+- Po wybraniu grupy pozostaje dotychczasowy interfejs AMC: odtwarzanie i pauza,
+  poprzedni/następny, głośność, wyciszenie, skok w czasie, stan odtwarzania,
+  Ulubione Sonos, Playlisty Sonos, Moje stacje i presety.
+- Lista grup i wszystkie kontrolki przekazują NVDA wyłącznie nazwy głośników,
+  nazwy materiałów i opisany stan. Adres IP, obiekty SoCo, identyfikatory domu,
+  grupy i odtwarzaczy pozostają w modelu i nie są etykietami dostępnymi.
+- Brak urządzeń daje użytkowy komunikat o tej samej sieci i lokalnym UPnP.
+  Jeden niedostępny albo przegrupowywany głośnik nie unieważnia pozostałych
+  poprawnie odczytanych grup.
+- Nie dodano nowego skrótu. Zmieniono zachowanie istniejącego `Ctrl+F5`, więc
+  menu, pomoc kontekstowa, pełna pomoc i paleta nadal korzystają ze wspólnego
+  modelu poleceń bez nowej, równoległej listy.
+
+### Realizacja i pakowanie
+
+- Nowy adapter: `wxlite/amc_wx_lite/sonos_local.py`.
+- Biblioteka SoCo jest importowana leniwie, a brak składnika daje kontrolowany
+  komunikat zamiast blokować start całego AMC.
+- `SoCo 0.32.2` i wszystkie zależności są przypięte wraz z SHA-256 w
+  `wxlite/requirements-sonos-local-test.txt`. Instalacja próbna z
+  `pip --require-hashes` zakończyła się poprawnie.
+- Profil możliwości otrzymał `sonos.local` wyłącznie w AMC Test. Budowa AMC
+  Public odrzuca zarówno moduł lokalnego Sonosa, jak i składniki SoCo w
+  prywatnym runtime.
+- Skrypt paczki kopiuje SoCo, `xmltodict`, `appdirs` i `lxml` tylko z osobnego,
+  przypiętego środowiska. Wspólne zależności są przed budową sprawdzane po
+  dokładnych wersjach.
+- `Moje stacje` pozostają częścią profilu AMC. LiteHost może je odczytać bez
+  domu znanego chmurowemu zapleczu Sonosa, po czym lokalny adapter uruchamia
+  adres strumienia bezpośrednio na wybranej grupie.
+- Dotychczasowy kod konta i brokera pozostaje jako nieaktywny wariant rezerwowy.
+  Nie usunięto go i nie zmieniono konfiguracji działającego serwera.
+
+### Wyniki automatycznej weryfikacji
+
+- adapter, profile wydania i układ paczki: **54/54** testy Pythona;
+- sesja Sonos, zachowanie klawiatury, stary ekran konta jako rezerwa i spójność
+  zmienionego katalogu językowego: **46/46** w prywatnym runtime wxPython;
+- ukierunkowane testy kontraktu Sonosa i `Moich stacji`: **2/2**;
+- testy profili launchera i aktualizatora: **39/39**;
+- kompilacja `AccessibleMediaController.LiteHost` w Release: **0 ostrzeżeń,
+  0 błędów**;
+- kontrola składni wszystkich zmienionych plików Pythona: zaliczona;
+- braki angielskiego katalogu dla tekstów zawierających `Sonos`: **0**;
+- instalacja zależności z obowiązkowymi sumami i import `SoCo 0.32.2`: zaliczone;
+- kandydat paczki: **4043** pliki z manifestu, kontrola
+  `AMC.exe --sprawdz-pakiet` zaliczona, import SoCo bezpośrednio z runtime
+  kandydata zaliczony.
+
+Pełny zastany test inwentaryzacji tłumaczeń nadal zgłasza wcześniejsze braki
+spoza Sonosa, między innymi z równoległych zmian TIDAL i Time Shift. Nie zostały
+one przedstawione jako regresja lokalnego Sonosa ani poprawiane w tym zadaniu.
+
+### Kandydat i rozdzielenie etapów
+
+- Źródła: zmienione i zweryfikowane w katalogu roboczym.
+- Build: zakończony powodzeniem.
+- Nieinstalowany kandydat:
+  `D:\Projekty Codex\AMC - integracja wxPython\.test-output\amc-test-sonos-local-20261108`.
+- Szkic instrukcji użytkownika i changelogu:
+  `docs/zadania/AMC10-lokalny-Sonos-instrukcja-i-zmiany-szkic.md`.
+- Identyfikator zawartości: `ab8f6843`; etykieta:
+  `2026.11.08-19d08fd60da97736daa933a6cfc0d2ae901827a0-ab8f6843-robocza`;
+  manifest ma `sourceDirty=true`, ponieważ jest to świadomy kandydat z
+  niezatwierdzonego katalogu roboczego.
+- SHA-256 manifestu:
+  `11c10fb8c7ae252bd0b23349afb0e69469f5865966d6dc439d80e779e2be7c7d`.
+- Rozmiar całego katalogu: 198 901 444 bajty, 4046 plików fizycznych.
+- Instalacja: **nie wykonana**.
+- Uruchomienie aplikacji: **nie wykonane**; wykonano wyłącznie bezokienkową
+  kontrolę integralności i import bibliotek.
+- Odbiór na prawdziwym Sonosie i ręczny odbiór NVDA: **niewykonane**, ponieważ
+  głośnik nie jest obecnie dostępny.
+- Wydanie AMC Public, publikacja instalatora i GitHub: **niewykonane**.
+- Gałąź: `codex/konfigurowalne-skroty-20261026`; commit przyrostu: brak — stan
+  roboczy oparty na `19d08fd60da97736daa933a6cfc0d2ae901827a0`.
+
+### Odbiór z głośnikiem
+
+1. Połączyć komputer i Sonos z tą samą siecią lokalną; profil sieci Windows
+   powinien zezwalać na wykrywanie urządzeń i multicast SSDP.
+2. Uruchomić kandydata dopiero po zwykłej bramce bezpieczeństwa instalacji,
+   przejść `Ctrl+6` do Sonosa i sprawdzić automatyczny odczyt grup.
+3. Nacisnąć `Ctrl+F5`, przejść strzałkami po grupach i sprawdzić z NVDA nazwę,
+   liczbę głośników, stan oraz powrót fokusu.
+4. Enterem wejść do grupy; sprawdzić pauzę/odtwarzanie, poprzedni/następny,
+   głośność, wyciszenie i skok w czasie.
+5. Sprawdzić `Ctrl+L`, `Ctrl+U`, `Ctrl+P`, Moje stacje i istniejące presety,
+   w tym ulubioną stację radiową oraz playlistę.
+6. Powtórzyć po przegrupowaniu lub wyłączeniu jednego głośnika i po ponownym
+   uruchomieniu AMC. Dopiero po tym odbiorze przygotować instalację użytkową.
+
+Znane ograniczenie tej ścieżki: automatyczne SSDP działa w tej samej podsieci.
+Nie dodano jeszcze ręcznego adresu IP ani obsługi Sonosa przez VPN. Sterowanie
+spoza domu nadal wymagałoby osobnego wariantu chmurowego i nie jest potrzebne
+do obecnego celu.
 
 ## Znane ograniczenia
 

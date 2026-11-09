@@ -786,9 +786,8 @@ def recent_recording_history(
     """Połącz bieżący host z prywatną historią bez skanowania całych folderów.
 
     Historia procesu LiteHost znika po restarcie. Prywatne wpisy pozwalają
-    nadal zobaczyć dzisiejsze nagrania, ale wcześniejsze poprawne nagranie
-    zostaje tylko wtedy, gdy jego konkretny plik nadal istnieje. Dzięki temu
-    widok nie odtwarza setek martwych wierszy z całej bazy Biblioteki.
+    nadal zobaczyć nagrania, a brakujące pliki z ostatnich 30 dni pozostają
+    widoczne z uczciwym stanem. Starsze martwe wpisy nie zaśmiecają listy.
     """
 
     current_ids = {entry.id for entry in current_entries}
@@ -804,11 +803,13 @@ def recent_recording_history(
     )
     merged: list[RadioRecordingHistoryEntry] = []
     maximum = max(1, int(limit))
+    recent_cutoff = int((datetime.now(timezone.utc) - timedelta(days=30) -
+                         datetime(1, 1, 1, tzinfo=timezone.utc)).total_seconds() * 10_000_000)
     for entry in candidates:
-        if entry.id not in current_ids:
-            if entry.outcome != "failed" and (
-                not entry.path or path_probe(entry.path) != "available"
-            ):
+        if entry.id not in current_ids and entry.outcome != "failed":
+            if not entry.path:
+                continue
+            if path_probe(entry.path) != "available" and entry.finished_utc_ticks < recent_cutoff:
                 continue
         merged.append(entry)
         if len(merged) >= maximum:
@@ -841,16 +842,17 @@ def recording_history_rows(
         playable = entry.outcome in ("completed", "stopped", "interrupted") and bool(entry.path)
         state = path_probe(entry.path) if playable else "missing"
         outcome = outcome_labels.get(entry.outcome, "Nagrane")
-        if playable and state == "missing":
-            outcome = (
-                "Brak pliku nagrania" if entry.outcome == "completed"
-                else f"{outcome}, brak pliku nagrania"
-            )
+        recovery_path = (
+            entry.reason.split("Bezpieczna kopia pozostała w:", 1)[1].strip()
+            if "Bezpieczna kopia pozostała w:" in entry.reason else ""
+        )
+        recoverable = bool(recovery_path and path_probe(recovery_path) == "available")
+        if recoverable:
+            outcome = "Kopia nagrania do odzyskania"
+        elif recovery_path or (playable and state == "missing"):
+            outcome = "Brak pliku nagrania"
         elif playable and state == "unavailable":
-            outcome = (
-                "Plik nagrania niedostępny" if entry.outcome == "completed"
-                else f"{outcome}, plik nagrania niedostępny"
-            )
+            outcome = "Plik nagrania niedostępny"
 
         file_name = _file_name(entry.path)
         # Zwykly wiersz jest lista PLIKOW, a nie raportem harmonogramu. Stacja,
@@ -859,7 +861,7 @@ def recording_history_rows(
         # proba bez pliku: wtedy stacja i powod sa jedynymi uzytecznymi danymi.
         if entry.outcome == "failed" and not file_name:
             parts = [outcome, station_name]
-            if entry.reason:
+            if entry.reason and not recovery_path:
                 parts.append(entry.reason.rstrip("."))
         elif entry.outcome == "completed" and state == "available":
             # Historia jest przede wszystkim lista plikow. Powtarzane
@@ -876,7 +878,13 @@ def recording_history_rows(
         path: str | None = entry.path if playable and state == "available" else None
         if not playable:
             reason = entry.reason.rstrip(".") or "Nie zapisano pliku"
-            if entry.outcome == "failed":
+            if recoverable:
+                activation_message = (
+                    f"Kopia nagrania {station_name} jest w folderze roboczym: {recovery_path}"
+                )
+            elif recovery_path:
+                activation_message = f"Plik nagrania {station_name} nie istnieje już na dysku"
+            elif entry.outcome == "failed":
                 activation_message = f"Nagranie {station_name} nie powstało. {reason}"
             else:
                 activation_message = f"Brak pliku nagrania {station_name}. {reason}"
