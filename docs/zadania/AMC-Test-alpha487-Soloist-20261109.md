@@ -30,7 +30,7 @@ Na prawdziwym koncie trzeba sprawdzić własny klucz, parowanie i odsłuch, opó
 
 ## Wersja, commit i stan publikacji
 
-Kod paczki i instalatora: `5b2d2263401a839f2162839c1427464445aa0a2f`. Techniczna wersja: `0.1.0-alpha.487`; nazwa użytkowa paczki: `AMC Test — 09.11.2026, 01:06`. Instalator ma 136490343 bajty, SHA-256 `a27d65730236027718f4947b9e3d469d02d6051248cacf09a2d86477f07e0143`. Stan: kod zapisany, testy zaliczone, paczka i instalator zbudowane; instalacja i wydanie GitHub oczekują.
+Kod paczki i instalatora: `5b2d2263401a839f2162839c1427464445aa0a2f`. Techniczna wersja: `0.1.0-alpha.487`; nazwa użytkowa paczki: `AMC Test — 09.11.2026, 01:06`. Instalator ma 136490343 bajty, SHA-256 `a27d65730236027718f4947b9e3d469d02d6051248cacf09a2d86477f07e0143`. Stan: kod zapisany, testy zaliczone, paczka i instalator zbudowane; źródła wysłane na gałąź `codex/amc-test-alpha487-soloist-20261109` i otwarto [roboczy PR #13](https://github.com/michalkasperczak/AMC/pull/13). Instalacja i wydanie GitHub oczekują.
 
 ## Materiał do dokumentacji użytkownika
 
