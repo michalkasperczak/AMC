@@ -350,3 +350,10 @@ def test_empty_library_folders_dialog_explains_the_next_action() -> None:
     assert message in dialog
     assert "elif not self._sources:" in dialog
     assert "self.add_button.SetFocus()" in dialog
+
+
+def test_both_profiles_remove_retired_librespot_files() -> None:
+    shared = ISS[ISS.index("[InstallDelete]"):ISS.index('#if Profil == "public"', ISS.index("[InstallDelete]"))]
+    assert 'Type: filesandordirs; Name: "{app}\\host\\LibrespotHost"' in shared
+    assert 'Type: filesandordirs; Name: "{app}\\host\\licenses\\librespot-dependencies"' in shared
+    assert 'Type: files; Name: "{app}\\host\\licenses\\librespot-MIT.txt"' in shared

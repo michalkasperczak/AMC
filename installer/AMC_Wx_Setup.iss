@@ -123,8 +123,12 @@ Source: "{#NvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#NvdaAddonFileName}"; 
 ; katalog. Bez tego wycofany moduł pozostawał po aktualizacji mimo jego braku
 ; w bundle-manifest.json. Frontier Smart jest obsługiwany przez profil
 ; publiczny, a wycofany z Public moduł Sonosa musi zniknąć przy aktualizacji.
-#if Profil == "public"
 [InstallDelete]
+; Wycofany host Spotify usuwamy z katalogu programu obu profili.
+Type: filesandordirs; Name: "{app}\host\LibrespotHost"
+Type: filesandordirs; Name: "{app}\host\licenses\librespot-dependencies"
+Type: files; Name: "{app}\host\licenses\librespot-MIT.txt"
+#if Profil == "public"
 Type: files; Name: "{app}\app\amc_wx_lite\sonos_source.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_playlist_dialog.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_source.py"

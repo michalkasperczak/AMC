@@ -625,12 +625,6 @@ def select_startup_files(files: list[str], host_subdir: str) -> list[str]:
     ]
 
 
-def profile_allows_librespot(profile: ReleaseProfile) -> bool:
-    """Dedykowany host Spotify trafia tylko do profilu, który go udostępnia."""
-
-    return "session.spotify" in profile.capabilities
-
-
 def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
     """Odmow niejawnego pozostawienia prywatnej zaleznosci w publicznej paczce."""
 
@@ -644,13 +638,10 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
         for relative in files
         if (
             (
-                not profile_allows_librespot(profile)
-                and (
-                    "/librespothost/"
-                    in ("/" + relative.replace("\\", "/")).casefold()
-                    or Path(relative).name.casefold()
-                    == LIBRESPOT_HOST_BINARY.casefold()
-                )
+                "/librespothost/"
+                in ("/" + relative.replace("\\", "/")).casefold()
+                or Path(relative).name.casefold()
+                == LIBRESPOT_HOST_BINARY.casefold()
             )
             or Path(relative).name.casefold() in forbidden_names
             or (
@@ -836,10 +827,6 @@ def main() -> int:
 
     # Bramka jest przed --clean i przed pierwsza kopia: niespojna binarka albo
     # proweniencja nie moze nawet czesciowo przebudowac katalogu kandydata.
-    # Oba profile z aktywnym Spotify wymagaja przypietego hosta Librespot
-    # oraz licencji jego zaleznosci.
-    if profile_allows_librespot(profile):
-        validate_librespot_package_source()
     if "tidal.native-playback" in profile.capabilities:
         if args.tidal_site_packages is None:
             raise SystemExit("Odtwarzacz TIDAL wymaga --tidal-site-packages z osobnego venv.")
@@ -864,14 +851,6 @@ def main() -> int:
     manifest["files"] += copy_updater(target, args.updater)
     host_files, host_hashes = copy_host(target, args.host, args.host_subdir)
     manifest["files"] += host_files
-    if profile_allows_librespot(profile):
-        librespot_files, librespot_metadata = copy_librespot_host(
-            target,
-            args.host_subdir,
-        )
-        manifest["files"] += librespot_files
-        host_hashes[f"LibrespotHost/{LIBRESPOT_HOST_BINARY}"] = LIBRESPOT_HOST_SHA256
-        manifest["librespotHost"] = librespot_metadata
     manifest["hostHashes"] = host_hashes
     manifest["hostFolder"] = args.host_subdir
 

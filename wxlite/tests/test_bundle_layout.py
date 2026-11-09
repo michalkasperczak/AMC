@@ -313,12 +313,18 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     )
 
 
-def test_public_profile_accepts_librespot_component():
-    public = bundle.profile_from_id("public")
-    bundle.validate_profile_files(
-        public,
-        ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
-    )
+def test_both_profiles_reject_retired_librespot_component():
+    for profile_id in ("public", "test"):
+        profile = bundle.profile_from_id(profile_id)
+        try:
+            bundle.validate_profile_files(
+                profile,
+                ["host/LibrespotHost/amc_spotify_librespot_host.exe"],
+            )
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(f"LibreSpot reached {profile_id}")
 
 
 def test_public_profile_rejects_any_listed_private_service_module():
@@ -692,44 +698,7 @@ def test_librespot_provenance_mismatch_refuses_before_writing_package():
         assert not target.exists()
 
 
-def test_full_bundle_validates_librespot_before_cleaning_existing_candidate():
-    with tempfile.TemporaryDirectory() as folder:
-        root = Path(folder)
-        target = root / "bundle"
-        runtime = root / "runtime"
-        target.mkdir()
-        runtime.mkdir()
-        marker = target / "do-not-touch.txt"
-        marker.write_text("poprzedni kandydat", encoding="utf-8")
-
-        original_argv = sys.argv
-        original_validator = bundle.validate_librespot_package_source
-        try:
-            sys.argv = [
-                str(path),
-                "--out", str(target),
-                "--runtime", str(runtime),
-                "--clean",
-            ]
-
-            def refuse(*_args, **_kwargs):
-                raise SystemExit("Niespojna proweniencja")
-
-            bundle.validate_librespot_package_source = refuse
-            try:
-                bundle.main()
-            except SystemExit as error:
-                assert "Niespojna proweniencja" in str(error)
-            else:
-                raise AssertionError("Pelna paczka musi odmowic niespojnego hosta")
-        finally:
-            bundle.validate_librespot_package_source = original_validator
-            sys.argv = original_argv
-
-        assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
-
-
-def test_full_test_bundle_requires_tidal_venv_before_cleaning_candidate():
+def test_full_bundle_requires_tidal_venv_before_cleaning_existing_candidate():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         target = root / "bundle"
@@ -749,13 +718,12 @@ def test_full_test_bundle_requires_tidal_venv_before_cleaning_candidate():
             except SystemExit as error:
                 assert "--tidal-site-packages" in str(error)
             else:
-                raise AssertionError("Test bez przypiętego venv musi odmówić")
+                raise AssertionError("Missing TIDAL dependency gate")
         finally:
             sys.argv = original_argv
         assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
 
-
-def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it():
+def test_full_bundle_omits_retired_librespot_host():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         host = root / "host-publish"
@@ -805,57 +773,13 @@ def test_full_bundle_places_pinned_librespot_relative_to_lite_host_and_hashes_it
             os.chdir(original_cwd)
             sys.argv = original_argv
 
-        manifest_path = target / "bundle-manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assert manifest_path.stat().st_size < 8 * 1024 * 1024
-        executable = (
-            "host-next/LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        )
-        provenance = (
-            "host-next/LibrespotHost/" + bundle.LIBRESPOT_HOST_PROVENANCE
-        )
-        librespot_manifest = manifest["librespotHost"]
-        assert librespot_manifest["executable"] == executable
-        assert librespot_manifest["pathFromLiteHostBase"] == (
-            "LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        )
-        assert librespot_manifest["sha256"] == bundle.LIBRESPOT_HOST_SHA256
-        assert librespot_manifest["bytes"] == bundle.LIBRESPOT_HOST_SIZE
-        assert librespot_manifest["provenance"] == provenance
-        assert manifest["hostHashes"][
-            "LibrespotHost/" + bundle.LIBRESPOT_HOST_BINARY
-        ] == bundle.LIBRESPOT_HOST_SHA256
-        for relative in (
-            executable,
-            provenance,
-            "host-next/licenses/librespot-MIT.txt",
-            "host-next/licenses/librespot-dependencies/INDEX.txt",
-            "host-next/licenses/librespot-dependencies/inventory.json",
-        ):
-            assert relative in manifest["files"]
-            assert relative in manifest["fileHashes"]
-            assert manifest["fileHashes"][relative] == bundle.sha256(target / relative)
-            if "/licenses/" in relative:
-                assert relative in librespot_manifest["licenseFiles"]
-        expected_license_count = 1 + sum(
-            1
-            for item in (
-                bundle.LIBRESPOT_LICENSES_SOURCE / "librespot-dependencies"
-            ).rglob("*")
-            if item.is_file()
-        )
-        assert len(librespot_manifest["licenseFiles"]) == expected_license_count
-        for relative in librespot_manifest["licenseFiles"]:
-            assert relative in manifest["files"]
-            assert manifest["fileHashes"][relative] == bundle.sha256(target / relative)
-        assert executable in manifest["startupFiles"]
-        assert provenance in manifest["startupFiles"]
-        assert (target / executable).read_bytes() == (
-            bundle.LIBRESPOT_HOST_SOURCE / bundle.LIBRESPOT_HOST_BINARY
-        ).read_bytes()
+        manifest = json.loads((target / "bundle-manifest.json").read_text(encoding="utf-8"))
+        assert "librespotHost" not in manifest
+        assert not any("librespot" in path.casefold() for path in manifest["files"])
+        assert (target / "host-next" / "amc_lite_host.exe").is_file()
 
 
-def test_full_public_bundle_includes_librespot_and_has_complete_sizes():
+def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         host = root / "host-publish"
@@ -907,8 +831,8 @@ def test_full_public_bundle_includes_librespot_and_has_complete_sizes():
             (target / "bundle-manifest.json").read_text(encoding="utf-8")
         )
         assert manifest["releaseProfile"] == "public"
-        assert manifest["librespotHost"]["sha256"] == bundle.LIBRESPOT_HOST_SHA256
-        assert any("librespot" in relative.casefold() for relative in manifest["files"])
+        assert "librespotHost" not in manifest
+        assert not any("librespot" in relative.casefold() for relative in manifest["files"])
         forbidden_modules = {
             name for name, capability in bundle.PROFILE_GATED_SERVICE_MODULES.items()
             if capability not in bundle.profile_from_id("public").capabilities

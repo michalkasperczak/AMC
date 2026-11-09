@@ -30,3 +30,7 @@ Kandydat `0.1.0-alpha.487`, commit, paczka, instalacja i publikacja: do uzupełn
 ## Szkic opisu zmian do korekty użytkownika
 
 AMC Public oddziela od AMC Test przeglądarkę odtwarzającą Spotify i zapisane logowanie. Odtwarzacz pokazuje rzeczywisty stan przygotowania i wyjaśnia brak skoku procentowego przed startem. To szkic, nie publikować go jako zatwierdzonego przewodnika.
+
+## Korekta pakietu LibreSpot — 9.11.2026
+
+Pierwsza zbudowana paczka techniczna miała jeszcze historyczny host LibreSpot i została odrzucona. Następny kandydat usuwa go z pakietu Public; instalator ma usunąć pozostałe pliki z istniejącej instalacji. Żadne dane konta ani profile nie są usuwane. Sam kod katalogu historycznego pozostaje w repozytorium przejściowo.
