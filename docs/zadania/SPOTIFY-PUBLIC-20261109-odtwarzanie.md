@@ -1,6 +1,6 @@
 # Spotify Public — izolacja odtwarzacza i logowania
 
-Data: 9.11.2026. Stan: poprawka źródłowa w kandydacie Public; odsłuch i odbiór NVDA wymagają próby użytkownika po instalacji.
+Data: 9.11.2026. Stan: Public alpha.487 zainstalowany; odsłuch Spotify i odbiór NVDA wymagają próby użytkownika.
 
 ## Uzasadnienie i decyzje
 
@@ -17,7 +17,7 @@ W AMC Public otwórz Spotify i naciśnij `Ctrl+F5`, aby po aktualizacji ponownie
 - Testy kontraktu profilów i katalogu Spotify w czystym checkoutcie: 2/2 zestawy zaliczone.
 - Testy Python etykiet odtwarzacza, klienta i transportu: 16/16 zaliczone.
 - Kompilacja hosta w głównym checkoutcie: 0 błędów, 0 ostrzeżeń; nie jest jeszcze kompilacją kandydata wydania.
-- Odsłuch, nawigacja NVDA, paczka i instalacja: do wykonania osobno.
+- Odsłuch i nawigacja NVDA: oczekują na użytkownika; budowę i instalację potwierdza osobna sekcja poniżej.
 
 ## Znane ograniczenia
 
@@ -25,7 +25,7 @@ Sama izolacja usuwa wykrytą kolizję, ale nie potwierdza jeszcze dźwięku na k
 
 ## Wersja i commit
 
-Kandydat `0.1.0-alpha.487`, commit, paczka, instalacja i publikacja: do uzupełnienia po wykonaniu każdego etapu.
+Kandydat `0.1.0-alpha.487`; commit i wynik instalacji podano poniżej. Wydanie stable oczekuje na odsłuch.
 
 ## Szkic opisu zmian do korekty użytkownika
 
@@ -34,3 +34,11 @@ AMC Public oddziela od AMC Test przeglądarkę odtwarzającą Spotify i zapisane
 ## Korekta pakietu LibreSpot — 9.11.2026
 
 Pierwsza zbudowana paczka techniczna miała jeszcze historyczny host LibreSpot i została odrzucona. Następny kandydat usuwa go z pakietu Public; instalator ma usunąć pozostałe pliki z istniejącej instalacji. Żadne dane konta ani profile nie są usuwane. Sam kod katalogu historycznego pozostaje w repozytorium przejściowo.
+
+## Budowa i instalacja kandydata — 9.11.2026
+
+Po odrzuceniu pierwszej paczki zawierającej LibreSpot zbudowano Public z czystego commitu `d2b5d2bb6e4f79201a0ef97e667ef46110c8e5d1`. Testy kontraktu Spotify: 2/2 zestawy; testy etykiet i transportu Python: 16/16; testy pakietu i instalatora bez LibreSpot: 58/58. Pełna paczka ma 3146 plików, `sourceDirty=false`, profil `public`, bez wpisu i plików LibreSpot. Dwie pełne kontrole integralności i kontrolowany start interfejsu/hosta zakończyły się powodzeniem.
+
+Instalator `AMC-Public-2026-11-09-1806.exe` ma 133881473 bajty i SHA-256 `b9ad15687f6f7d3556cba75e261ab608fcfa35480993456edd35411891bb90ec`; kontrola zgodności z `.integrity.json` i skan sekretów przeszły. Został uruchomiony cicho po potwierdzeniu braku procesu Public i utworzeniu zweryfikowanej, zaszyfrowanej kopii ustawień poza repozytorium. Instalacja zakończyła się kodem 0. Zainstalowany `AMC.exe` ma wersję `0.1.0-alpha.487`, manifest dokładnego commitu, 3146 plików i brak dawnego katalogu LibreSpot; pełna kontrola integralności zwróciła kod 0. Uruchomiono jeden egzemplarz Public. Działający AMC Test pozostawiono nienaruszony.
+
+Gałąź kandydata `codex/spotify-public-profile-20261109` została wypchnięta do autoryzowanego repozytorium GitHub `michalkasperczak/AMC`; odczyt GitHub potwierdził commit. Nie utworzono wydania stable ani nie wysłano instalatora jako zasobu Release przed użytkowym odsłuchem. Potwierdzenie dźwięku, skoku procentowego i wyjścia audio w zainstalowanym Public nadal oczekuje na użytkownika po ponownym logowaniu. Źródła, testy, paczka, instalacja i publikacja Release pozostają rozdzielonymi etapami.

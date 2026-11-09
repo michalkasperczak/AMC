@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `SPOTIFY-PUBLIC-20261109` — **Kandydat alpha.487; odsłuch Public oczekuje na użytkownika** — osobny profil Chrome i token Spotify, prawdziwy stan przygotowania oraz komunikat o przekroczonym czasie startu. [Szczegóły](SPOTIFY-PUBLIC-20261109-odtwarzanie.md).
+- `SPOTIFY-PUBLIC-20261109` — **Public alpha.487 zainstalowany; odsłuch Spotify oczekuje na użytkownika** — osobny profil Chrome i token Spotify, prawdziwy stan przygotowania oraz komunikat o przekroczonym czasie startu. [Szczegóły](SPOTIFY-PUBLIC-20261109-odtwarzanie.md).
 
 - `AUTH-PUBLIC-20261106` — **Test v7 uruchomiony próbnie; znane częstotliwości 44,1/96/192 kHz zachowane, opis NVDA rozróżnia źródło i PCM** — testy dekodera i transportu 192 kHz przeszły. Dla „Sara” potwierdzono AAC 44,1 kHz, przy brakujących metadanych silnik nadal używa 48 kHz. Odbiór GUI Max, brakujące parametry, konto zewnętrzne i wydanie pozostają otwarte. [Szczegóły](AUTH-PUBLIC-20261106-logowanie-tidal-spotify.md).
 
