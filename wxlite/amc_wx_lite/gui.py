@@ -23830,12 +23830,14 @@ class LiteFrame(wx.Frame):
         *,
         completion_message: str = "",
         after_refresh: Callable[[], None] | None = None,
+        announce_result: bool = True,
     ) -> None:
         if not intent.subscription_id:
             self._open_podcast_library(
                 preferred_id=intent.preferred_id,
                 completion_message=completion_message,
                 after_refresh=after_refresh,
+                announce_result=announce_result,
             )
             return
 
@@ -23855,7 +23857,7 @@ class LiteFrame(wx.Frame):
             return subscription, page
 
         def done(result) -> None:
-            if completion_message:
+            if completion_message or not announce_result:
                 state = self.navigator.sessions[SessionId.PODCASTS]
                 if (
                     self.navigator.active is not SessionId.PODCASTS
@@ -23881,8 +23883,10 @@ class LiteFrame(wx.Frame):
             if completion_message:
                 self._sync_views()
                 self.announcer.say(completion_message)
-            else:
+            elif announce_result:
                 self._apply_podcast_result(events)
+            else:
+                self._sync_views()
             if after_refresh is not None:
                 after_refresh()
 
@@ -24914,6 +24918,7 @@ class LiteFrame(wx.Frame):
         *,
         completion_message: str = "",
         announce_single_item: bool = False,
+        announce_result: bool = True,
     ) -> None:
         if intent.view not in (
             LibraryView.PODCAST_FAVORITES,
@@ -24969,7 +24974,7 @@ class LiteFrame(wx.Frame):
         def done(page) -> None:
             if not inbox_is_current():
                 return
-            if completion_message:
+            if completion_message or not announce_result:
                 state = self.navigator.sessions[SessionId.PODCASTS]
                 if (
                     self.navigator.active is not SessionId.PODCASTS
@@ -25009,7 +25014,9 @@ class LiteFrame(wx.Frame):
             count = sum(
                 1 for row in page.rows if row.kind in ("podcast", "episode")
             )
-            if completion_message:
+            if not announce_result and not completion_message:
+                self._sync_views()
+            elif completion_message:
                 # Wynik odswiezenia ma zastapic zwykly naglowek widoku. Lista
                 # zostaje najpierw podmieniona, a czytnik dostaje jeden,
                 # konkretny komunikat z licznikami -- rowniez gdy jest pusta.
@@ -33215,8 +33222,21 @@ class LiteFrame(wx.Frame):
                 self.status_bar.show(
                     f"Automatycznie dodano nowe odcinki: {added}"
                 )
-            if self.navigator.active is SessionId.PODCASTS:
-                self._refresh_profile_view()
+            if (
+                added
+                and self.navigator.active is SessionId.PODCASTS
+                and self.navigator.session.view is View.LIST
+                and self.navigator.session.library_view in (
+                    LibraryView.PODCAST_LIBRARY,
+                    LibraryView.PODCAST_EPISODES,
+                    LibraryView.PODCAST_FAVORITES,
+                    LibraryView.PODCAST_HISTORY,
+                    LibraryView.PODCAST_QUEUE,
+                    LibraryView.PODCAST_INBOX,
+                    LibraryView.PODCAST_DOWNLOADS,
+                )
+            ):
+                self._refresh_profile_view(announce_result=False)
 
         def failed(error: Exception) -> None:
             self._podcast_automatic_refresh_pending = False
@@ -33790,6 +33810,7 @@ class LiteFrame(wx.Frame):
         *,
         selected_ids: list[str] | None = None,
         after_refresh: Callable[[], None] | None = None,
+        announce_result: bool = True,
     ) -> None:
         """Wczytaj ponownie TEN SAM widok po wąskiej zmianie hosta."""
         state = self.navigator.session
@@ -33807,13 +33828,15 @@ class LiteFrame(wx.Frame):
             return
         if self.navigator.active is SessionId.PODCASTS:
             if state.library_view is LibraryView.PODCAST_LIBRARY:
-                self._open_podcast_library(preferred_id=preferred_id)
+                self._open_podcast_library(
+                    preferred_id=preferred_id, announce_result=announce_result
+                )
             elif state.library_view is LibraryView.PODCAST_EPISODES:
                 if state.library_playlist_id:
                     self._open_podcast_view(OpenPodcastView(
                         subscription_id=state.library_playlist_id,
                         preferred_id=preferred_id,
-                    ))
+                    ), announce_result=announce_result)
             elif state.library_view in (
                 LibraryView.PODCAST_FAVORITES,
                 LibraryView.PODCAST_HISTORY,
@@ -33824,7 +33847,7 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_aggregate(OpenPodcastAggregateView(
                     state.library_view,
                     preferred_id=preferred_id,
-                ))
+                ), announce_result=announce_result)
             elif state.library_view is LibraryView.PODCAST_PLAYLISTS:
                 self._open_podcast_playlist_view(
                     OpenPodcastPlaylistView(preferred_id=preferred_id),

@@ -73,6 +73,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
     frame = SimpleNamespace(
         navigator=SimpleNamespace(
             active=SessionId.PODCASTS,
+            session=state,
             sessions={SessionId.PODCASTS: state},
         ),
         client=SimpleNamespace(
@@ -112,7 +113,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
             (intent, completion_message)
         )
     )
-    frame._refresh_profile_view = lambda: refreshed_views.append(True)
+    frame._refresh_profile_view = lambda **kwargs: refreshed_views.append(kwargs)
     return frame
 
 
@@ -236,7 +237,7 @@ def test_automatic_refresh_waits_until_due_and_stays_silent() -> None:
     assert frame._podcast_automatic_refresh_due == 160.0
     assert frame.spoken == []
     assert frame.statuses == ["Automatycznie dodano nowe odcinki: 2"]
-    assert frame.refreshed_views == [True]
+    assert frame.refreshed_views == [{"announce_result": False}]
 
 
 def test_automatic_refresh_with_no_due_sources_does_not_change_the_view() -> None:
@@ -267,3 +268,25 @@ def test_automatic_refresh_does_not_report_an_error_without_a_podcast_database()
     assert frame.automatic_calls == []
     assert frame.statuses == []
     assert frame.spoken == []
+
+
+def test_automatic_refresh_with_no_new_items_does_not_reopen_or_announce() -> None:
+    frame = _frame()
+    frame.client.refresh_podcasts_automatically = lambda: {
+        "requested": 1, "addedEpisodes": 0,
+    }
+    frame._podcast_automatic_refresh_due = 0.0
+    gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    assert frame.refreshed_views == []
+    assert frame.spoken == []
+    assert frame.statuses == []
+
+
+def test_automatic_refresh_does_not_reopen_the_player() -> None:
+    frame = _frame()
+    frame.navigator.session.view = View.PLAYER
+    frame._podcast_automatic_refresh_due = 0.0
+    gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    assert frame.refreshed_views == []
+    assert frame.spoken == []
+    assert frame.statuses == ["Automatycznie dodano nowe odcinki: 2"]

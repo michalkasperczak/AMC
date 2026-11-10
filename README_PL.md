@@ -342,6 +342,8 @@ a ciężka przebudowa listy czeka, gdy użytkownik pozostaje w odtwarzaczu.
 `Ctrl+Shift+L` na odcinku dodaje lub usuwa jego podcast nadrzędny, ponieważ
 pojedynczy odcinek nie ma osobnej przynależności do Biblioteki.
 
+Automatyczne sprawdzanie źródeł w sesji Podcasty i YouTube nie odczytuje ponownie nagłówka listy, gdy nie przybyło odcinków. Gdy przybyły nowe pozycje, odświeża widoczną listę bez dodatkowego komunikatu; podczas odtwarzania pozostawia odtwarzacz na miejscu. Ręczne odświeżenie nadal podaje wynik użytkownikowi.
+
 W sesji WiiM `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
 importuje M3U, M3U8 albo PLS, a `Ctrl+E` eksportuje listę. `Ctrl+L` pozostaje
 skrótom Biblioteki i nie działa w WiiM, którego lokalne API nie udostępnia
