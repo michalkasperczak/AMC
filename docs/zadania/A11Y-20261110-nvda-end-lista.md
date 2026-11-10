@@ -45,4 +45,4 @@ Roboczy opis zmian do korekty użytkownika: poprawiono odnajdywanie paska stanu 
 
 ## Wersja i commit
 
-Gałąź `codex/amc-test-public-20261109`. Bieżąca instalacja AMC Test alpha.490 z commitu `ac606f04d5a1f12ef297b10c7dc225aa94f5c7d6`. Commit tej poprawki: do uzupełnienia po zapisie. Pakiet dodatku 0.4.1 jest lokalnym kandydatem; brak instalacji i publikacji.
+Gałąź `codex/amc-test-public-20261109`. Bieżąca instalacja AMC Test alpha.490 z commitu `ac606f04d5a1f12ef297b10c7dc225aa94f5c7d6`. Commit źródeł, testów i zapisu zadania: `5b29321c7eabf1f0105aee803d9151ae85f27a6c`. Pakiet dodatku 0.4.1 jest lokalnym kandydatem; brak instalacji i publikacji.
