@@ -275,3 +275,60 @@ def test_existing_message_field_and_announcer_survive() -> None:
     assert "self.status_field = wx.StaticText(" in build
     assert 'self.status_field.SetName("Komunikaty")' in build
     assert "self.announcer = Announcer(" in build
+
+
+def test_spotify_status_keeps_its_own_track_and_quality_on_list_and_player() -> None:
+    """NVDA+End ma ten sam aktualny opis w obu widokach Spotify."""
+    from types import SimpleNamespace
+
+    for view in (gui.View.LIST, gui.View.PLAYER):
+        bar = FakeNativeBar()
+        frame = SimpleNamespace(
+            navigator=SimpleNamespace(active=gui.SessionId.SPOTIFY, view=view),
+            status_bar=gui.NativeStatusBar(bar),
+            _last_status={},
+        )
+        gui.LiteFrame._update_native_playback_status(frame, {
+            "sessionId": "spotify",
+            "currentPlaybackText": "Komary, jakość Spotify Web: AAC 256 kb/s",
+        })
+        assert bar.GetStatusText(0) == "Komary, jakość Spotify Web: AAC 256 kb/s"
+        gui.LiteFrame._update_native_playback_status(frame, {
+            "sessionId": "podcasts",
+            "currentPlaybackText": "Ewangelie, Parafia",
+        })
+        assert bar.GetStatusText(0) == "Komary, jakość Spotify Web: AAC 256 kb/s"
+
+
+def test_spotify_poll_rejects_a_mislabeled_podcast_snapshot() -> None:
+    """Opóźniona odpowiedź innej sesji nie trafia do cache ani NVDA+End."""
+    from types import SimpleNamespace
+
+    bar = FakeNativeBar()
+    native = gui.NativeStatusBar(bar)
+    native.show("Komary, jakość Spotify Web: AAC 256 kb/s")
+    calls = []
+    payload = {
+        "sessionId": "podcasts",
+        "currentPlaybackText": "Ewangelie, Parafia",
+    }
+
+    class Runner:
+        def submit(self, _name, work, done, _failed):
+            done(work())
+
+    frame = SimpleNamespace(
+        client=SimpleNamespace(status=lambda session: calls.append(session) or payload),
+        navigator=SimpleNamespace(active=gui.SessionId.SPOTIFY),
+        runner=Runner(),
+        status_bar=native,
+        _status_poll_pending=False,
+        _transport_status_by_session={},
+        _last_status={},
+        _playing_sessions=set(),
+        _refresh_radio_transport_status=lambda: None,
+    )
+    gui.LiteFrame._refresh_status(frame)
+    assert calls == ["spotify"]
+    assert frame._transport_status_by_session == {}
+    assert bar.GetStatusText(0) == "Komary, jakość Spotify Web: AAC 256 kb/s"

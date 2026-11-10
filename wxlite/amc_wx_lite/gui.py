@@ -4329,7 +4329,7 @@ class RelationDestinationDialog(wx.Dialog):
 
         if detailed_hints:
             hint_text = (
-                "Wybierz, dokąd przejść. Enter otwiera, "
+                "Wybierz powiązany element. Enter otwiera, "
                 "strzałka w lewo lub Escape wraca."
             )
             hint = wx.StaticText(panel, label=hint_text)
@@ -4341,7 +4341,7 @@ class RelationDestinationDialog(wx.Dialog):
             choices=list(labels),
             style=wx.LB_SINGLE,
         )
-        self.destinations.SetName("Dokąd przejść")
+        self.destinations.SetName("Powiązania")
         if labels:
             self.destinations.SetSelection(0)
         layout.Add(self.destinations, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
@@ -11912,7 +11912,7 @@ class LiteFrame(wx.Frame):
         search_dialog.show_relation_choices(
             choices,
             labels,
-            title="Dokąd przejść",
+            title="Powiązania",
         )
         return None
 
@@ -15143,7 +15143,7 @@ class LiteFrame(wx.Frame):
             intent.choices, service="tidal", detailed_hints=self._detailed_hints,
         )
         self._show_relation_destination_window(
-            title="Dokąd przejść",
+            title="Powiązania",
             labels=labels,
             names=names,
             links=links,
@@ -15514,7 +15514,7 @@ class LiteFrame(wx.Frame):
             intent.choices, service="spotify", detailed_hints=self._detailed_hints,
         )
         self._show_relation_destination_window(
-            title="Dokąd przejść",
+            title="Powiązania",
             labels=labels,
             names=names,
             links=links,
@@ -17725,6 +17725,8 @@ class LiteFrame(wx.Frame):
     def _sync_views(self) -> None:
         """Odwzoruj stan nawigatora. Fokus ruszamy TYLKO przy zmianie widoku."""
         self._track_view_history()
+        previous_status_session = getattr(self, "_native_status_session", None)
+        self._native_status_session = self.navigator.active
         self._apply_native_playback_activity_status(self.navigator.active)
         session = self.navigator.session
         # Menu musi zgadzac sie z kontekstem, ktory wlasnie sie zmienil.
@@ -17886,6 +17888,15 @@ class LiteFrame(wx.Frame):
                     self._update_native_playback_status(snapshot)
                 else:
                     bar.show(self._nvda_now_playing_message())
+
+        if (
+            previous_status_session is not self.navigator.active
+            and self.navigator.active in (
+                SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+            )
+        ):
+            self._refresh_status()
 
         # Dzwiek TIDALa nie przechodzi przez AMC. Pozostawienie aktywnych
         # suwakow glosnosci i tempa zmienialoby ukryty lokalny silnik, choc
@@ -26063,7 +26074,7 @@ class LiteFrame(wx.Frame):
                 ))
 
             self._show_relation_destination_window(
-                title="Dokąd przejść",
+                title="Powiązania",
                 labels=(label,),
                 names=(subscription.title,),
                 links=(link,),
@@ -33064,6 +33075,11 @@ class LiteFrame(wx.Frame):
         surowych identyfikatorów ani nie zgaduje bitrate'u.
         """
         status = payload if isinstance(payload, dict) else self._last_status
+        active = getattr(getattr(self, "navigator", None), "active", None)
+        payload_session = str(status.get("sessionId") or "").strip()
+        if payload_session and active is not None and payload_session != active.value:
+            # Odpowiedź poprzedniej sesji nie może zastąpić opisu Spotify.
+            return
         text = str(
             status.get("currentPlaybackText")
             or status.get("currentBroadcastText")
@@ -33260,6 +33276,10 @@ class LiteFrame(wx.Frame):
         def done(payload: dict) -> None:
             self._status_poll_pending = False
             if not payload:
+                return
+            returned_session = str(payload.get("sessionId") or "").strip()
+            if returned_session and returned_session != requested_session.value:
+                # Odrzuć opóźnioną lub błędnie oznaczoną migawkę innej sesji.
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload

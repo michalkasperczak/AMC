@@ -987,9 +987,9 @@ def test_spotify_right_arrow_uses_two_real_destinations_without_context_menu() -
         gui_module.RelationDestinationWindow = original_window
 
     assert created == [
-        ("Dokąd przejść", ("Album", "Wykonawca"),
+        ("Powiązania", ("Album", "Wykonawca"),
          ("Album", "Wykonawca"), ("", ""), "spotify", False),
-        ("Dokąd przejść", ("Album", "Wykonawca"),
+        ("Powiązania", ("Album", "Wykonawca"),
          ("Album", "Wykonawca"), ("", ""), "spotify", False),
     ]
     assert activated == [choices[0], choices[1]]
@@ -1051,7 +1051,7 @@ def test_spotify_right_arrow_waits_for_enter_on_one_podcast_destination() -> Non
         gui_module.RelationDestinationWindow = original_window
 
     assert created == [
-        ("Dokąd przejść", ("Podcast użytkowy, podcast",),
+        ("Powiązania", ("Podcast użytkowy, podcast",),
          ("Podcast użytkowy",), ("",), "spotify", False)
     ]
     assert activated == [choice]
@@ -1192,6 +1192,7 @@ def test_spotify_playback_is_handed_to_librespot_without_committing_early() -> N
 def test_spotify_started_event_commits_the_pending_item() -> None:
     committed = []
     recorded = []
+    refreshed = []
     intent = PlaySpotifyItem("new", "Nowy utwór", "private", "track")
     confirmed = Row(
         "new", "Nowy utwór", "track",
@@ -1211,6 +1212,7 @@ def test_spotify_started_event_commits_the_pending_item() -> None:
             )
         ),
         _record_spotify_history=recorded.append,
+        _refresh_status=lambda: refreshed.append(True),
         announcer=SimpleNamespace(say=lambda _message: None),
     )
 
@@ -1226,10 +1228,12 @@ def test_spotify_started_event_commits_the_pending_item() -> None:
     assert frame._pending_playback_session is None
     assert frame._playing_session is SessionId.SPOTIFY
     assert frame._playing_sessions == {SessionId.SPOTIFY}
+    assert refreshed == [True]
 
 
 def test_spotify_started_event_announces_default_output_fallback_once() -> None:
     messages = []
+    refreshed = []
     frame = SimpleNamespace(
         _window_alive=lambda: True,
         _pending_spotify_playback=None,
@@ -1240,6 +1244,7 @@ def test_spotify_started_event_announces_default_output_fallback_once() -> None:
             note_spotify_playback_started=lambda _item_id, _title: None
         ),
         announcer=SimpleNamespace(say=messages.append),
+        _refresh_status=lambda: refreshed.append(True),
     )
 
     LiteFrame._handle_engine_event(frame, "playback.started", {
@@ -1256,6 +1261,7 @@ def test_spotify_started_event_announces_default_output_fallback_once() -> None:
         "(PMA-1700NE) jest niedostępne. Spotify odtwarza na "
         "domyślnym urządzeniu systemowym"
     ]
+    assert refreshed == [True]
 
 
 def test_ctrl_h_in_spotify_opens_its_own_history_not_local_files() -> None:

@@ -88,7 +88,7 @@ def test_relation_destinations_are_a_named_native_list_not_a_context_menu() -> N
     source = inspect.getsource(RelationDestinationDialog)
 
     assert "wx.ListBox" in source
-    assert 'SetName("Dokąd przejść")' in source
+    assert 'SetName("Powiązania")' in source
     assert "SetSelection(0)" in source
     assert "SetAccessible" not in source
     assert "PopupMenu" not in source
