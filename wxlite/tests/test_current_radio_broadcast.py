@@ -154,20 +154,21 @@ def test_play_station_passes_saved_audio_parameters_to_host(monkeypatch) -> None
     }
 
 
-def test_nvda_end_receives_playback_text_for_file_and_archive() -> None:
+def test_nvda_end_receives_playback_text_for_file_podcast_and_archive() -> None:
     shown: list[str] = []
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame._last_status = {}
     frame.status_bar = SimpleNamespace(show=shown.append)
 
-    for session in ("files", "radioarchiwista"):
+    for session in ("files", "podcasts", "radioarchiwista"):
+        frame.navigator = SimpleNamespace(active=gui.SessionId(session))
         frame._update_native_playback_status({
             "sessionId": session,
             "currentPlaybackText": "Nagranie, 192 kb/s, 44,1 kHz",
             "id": "rarch:rec:nie-czytaj",
         })
 
-    assert shown == ["Nagranie, 192 kb/s, 44,1 kHz"] * 2
+    assert shown == ["Nagranie, 192 kb/s, 44,1 kHz"] * 3
 
 
 def test_nvda_end_receives_measured_tidal_bitrate_before_sample_rate() -> None:
@@ -175,6 +176,7 @@ def test_nvda_end_receives_measured_tidal_bitrate_before_sample_rate() -> None:
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame._last_status = {}
     frame.status_bar = SimpleNamespace(show=shown.append)
+    frame.navigator = SimpleNamespace(active=gui.SessionId.TIDAL)
 
     frame._update_native_playback_status({
         "sessionId": "tidal",

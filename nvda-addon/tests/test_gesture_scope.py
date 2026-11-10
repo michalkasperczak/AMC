@@ -1,4 +1,4 @@
-"""AMC must not install an appModule or bind native NVDA gestures."""
+"""AMC may locate its status bar but must not bind native NVDA gestures."""
 import ast
 from pathlib import Path
 import unittest
@@ -25,9 +25,14 @@ def declared_gestures(root):
 
 
 class GestureScopeTests(unittest.TestCase):
-    def test_no_amc_app_module(self):
+    def test_status_bar_app_module_has_no_scripts(self):
         self.assertFalse((ADDON / 'appModules/accessiblemediacontroller.py').exists(),
                          'AMC must leave native NVDA commands to the reader')
+        module = ADDON / 'appModules/python.py'
+        self.assertTrue(module.exists())
+        tree = ast.parse(module.read_text(encoding='utf-8'))
+        self.assertFalse(any(isinstance(node, ast.FunctionDef) and node.name.startswith('script_')
+                             for node in ast.walk(tree)))
 
     def test_all_declared_gestures_require_control_and_windows(self):
         gestures = declared_gestures(ADDON)

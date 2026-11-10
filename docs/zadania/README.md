@@ -98,6 +98,7 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
 - `TITLE-001` — **W trakcie; kod i 17 testów zaliczonych, bez instalacji** — stała data kompilacji w tytule AMC Test; odtwarzanie czytane z NVDA+End. [TITLE-001-data-w-tytule-AMC-Test.md](TITLE-001-data-w-tytule-AMC-Test.md).
 
 - `A11Y-20261030` — **W trakcie; źródła, testy i kompilacja bez instalacji** — `NVDA+End` ma odczytywać aktualny pasek stanu na liście i w odtwarzaczu różnych sesji. Ręczna próba NVDA pozostaje do wykonania. [A11Y-20261030-nvda-end-pasek-stanu.md](A11Y-20261030-nvda-end-pasek-stanu.md).
+- `A11Y-20261110` — **W trakcie; źródła i 15 testów dodatku oraz 35 testów statusu zaliczone, paczka NVDA 0.4.1 zbudowana; instalacja i żywy odsłuch czekają** — NVDA+End mówi „Lista” zamiast bieżącego materiału i parametrów w TIDAL, Spotify oraz prawdopodobnie Podcastach. [Wynik](A11Y-20261110-nvda-end-lista.md).
 
 - `PERF-001` — **W trakcie; poprawka #6 opublikowana w AMC Public alpha.448; bez lokalnej instalacji i ręcznej próby NVDA** — pominięcie zbędnego przeliczania dużych list; osobny projekt dla przełączania widoku i Escape z odtwarzacza ze zgłoszenia #5. Szczegóły: [PERF-001-duze-listy-hubert.md](PERF-001-duze-listy-hubert.md).
 
