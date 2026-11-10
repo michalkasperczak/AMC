@@ -4,7 +4,7 @@ Data: 10 listopada 2026. Status: poprawka źródłowa, testy i paczka dodatku NV
 
 ## Zachowanie widoczne dla użytkownika
 
-Użytkownik zgłosił, że NVDA+End mówi „Lista” zamiast bitrate'u, parametrów nagrania i bieżącego utworu. Potwierdził TIDAL i Spotify, a Podcasty wskazał jako prawdopodobnie dotknięte. Spotify długo wczytywał; nie ustalono, czy ma to związek z połączeniem sieciowym albo Soloist.
+Użytkownik zgłosił, że NVDA+End mówi „Lista” zamiast bitrate'u, parametrów nagrania i bieżącego utworu. Potwierdził TIDAL i Spotify, a Podcasty wskazał jako prawdopodobnie dotknięte. Spotify długo wczytywał; nie ustalono, czy ma to związek z połączeniem sieciowym albo Soloist. Doprecyzowanie użytkownika z 10.11.2026: pytanie o poprawne działanie na listach TIDAL i Spotify dotyczyło zakresu przygotowanej wersji 0.4.1; nie było potwierdzeniem, że zainstalowany dodatek 0.4.0 już działa poprawnie.
 
 Dodatek NVDA 0.4.1 wskazuje czytnikowi natywny pasek stanu okna AMC Test lub AMC Public. Nie przejmuje skrótów NVDA. Odczyt na liście i w odtwarzaczu używa tego samego paska i istniejącego tekstu sesji. W innych programach korzystających z python.exe NVDA działa jak dotąd.
 
