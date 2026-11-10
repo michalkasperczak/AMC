@@ -2,9 +2,9 @@
 
 ## Stan 10.11.2026
 
-W trakcie. Pierwszy przyrost źródłowy jest zapisany, testy modelu i
-celowany test hosta zaliczone. Nie powstała paczka, instalacja ani wydanie;
-rzeczywisty odbiór NVDA i odsłuch stacji czekają.
+W trakcie. Kod jest zapisany, testy modelu i celowany test hosta zaliczone.
+Powstała zweryfikowana paczka próbna AMC Test. Instalacja i wydanie nie
+nastąpiły; rzeczywisty odbiór NVDA i odsłuch stacji czekają.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -103,6 +103,38 @@ Gałąź `codex/amc-test-public-20261109`, początkowa baza `49d1a85a`.
 Równoległe zadanie `RADIO-FAST-001` dodało commity w trakcie tego przyrostu,
 a następnie cofnęło zmianę źródłową w `7e36bdca`. Nasz zakres pozostaje
 oddzielony od tej decyzji.
-Kod i testy zapisano w commicie `535128c3` bez numeru wersji. Ten dokument
-i indeks zadań zostaną zapisane osobnym commitem. Paczka, instalacja i wydanie
-nie powstały.
+Kod i testy zapisano w commicie `535128c3`, poprawkę wyboru serwerów w
+`6af086af`. Pierwszy zapis dziennika i indeksu: `d6112e58`.
+
+## Kontynuacja 10.11.2026, po pierwszym punkcie kontrolnym
+
+- Oficjalne wskazówki Radio Browser nakazują rozwiązać adres zbiorczy przez
+  DNS, odczytać nazwy serwerów i używać ich przez HTTPS, przechodząc do
+  kolejnej przy błędzie. Poprzedni kod łączył się przez HTTPS z adresem
+  zbiorczym. Nowe przeglądanie stosuje DNS A/PTR, sprawdza sufiks domeny,
+  pomija obce nazwy i próbuje kolejnych serwerów. Przy braku wyniku DNS
+  korzysta z `de1.api.radio-browser.info`. Źródło:
+  https://api.radio-browser.info/ oraz https://www.radio-browser.info/faq.
+- Celowany test C# mapowania i przełączenia między serwerami — zaliczony.
+  Kompilacja LiteHost po poprawce — 0 błędów, 0 ostrzeżeń. Testy zgodności
+  menu, palety i skrótu — 6 zaliczonych po cofnięciu równoległej zmiany
+  `RADIO-FAST-001`.
+- Pierwszą paczkę z commita `d6112e58` zastępuje paczka z commita
+  `6af086af046a20d70f5d575d8f6122684e49e9ff`, zapisana w
+  `.test-output/radio-browser-mirrors-20261110`. Jej manifest: profil `test`,
+  `sourceDirty=false`, 3458 plików, identyfikator kompilacji
+  `2026.11.10-6af086af046a20d70f5d575d8f6122684e49e9ff-fd491cf4`.
+  Pełna kontrola paczki i kontrolowany start GUI oraz hosta przeszły.
+- Odczyt rzeczywistego katalogu na tym komputerze nie przeszedł: żądania do
+  aktualnego serwera Radio Browser kończyły się limitem czasu. DNS zwrócił
+  `91.98.4.78`, a PTR `de1.api.radio-browser.info`; ten sam serwer nie
+  odpowiedział bezpośrednio w próbie HTTPS. Nie ma potwierdzenia, że katalog
+  zadziała w sieci użytkownika; błąd jest jawnie komunikowany przez UI.
+- Aktualizator nie zmienił bieżącej instalacji. Kontrola wykryła działające
+  `C:\Users\micha\AppData\Local\Programs\AMC Test` z odtwarzaną stacją
+  „Tyflo”. Stan nagrywania nie został pewnie ustalony, więc nie zamknięto
+  programu. Zainstalowany manifest nadal wskazuje commit `4c898482`.
+- NVDA działa, lecz rzeczywista mowa nowego okna i odsłuch nie zostały
+  zweryfikowane. Paczka próbna nie jest instalatorem ani wydaniem.
+- Szkic instrukcji użytkownika i zmian do korekty zapisano w
+  `RADIOBROWSER-001-szkic-instrukcji-i-zmian.md`; nie opublikowano go.
