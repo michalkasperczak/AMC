@@ -1387,3 +1387,50 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
         kind="track",
         service_id="spotify-track",
     )
+
+
+def test_radio_player_context_names_stations_not_queue_tracks() -> None:
+    from amc_wx_lite import menu_model
+
+    items = {
+        item.action: item
+        for menu in menu_model.menus_for_session(SessionId.RADIO)
+        for item in menu.items
+        if item.action in {
+            Action.PLAY_PAUSE, Action.QUEUE_PREVIOUS, Action.QUEUE_NEXT
+        }
+    }
+
+    class Native:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        def IsEnabled(self):  # noqa: N802 - wx API
+            return True
+
+        def GetItemLabel(self):  # noqa: N802 - wx API
+            return self.label
+
+        def IsChecked(self):  # noqa: N802 - wx API
+            return False
+
+    frame = object.__new__(LiteFrame)
+    frame.navigator = types.SimpleNamespace(
+        active=SessionId.RADIO,
+        session=types.SimpleNamespace(model=types.SimpleNamespace(selected_row=None)),
+    )
+    frame._menu_items = [
+        (Native("&Pauza albo wznowienie (Spacja)"), items[Action.PLAY_PAUSE]),
+        (Native("Pop&rzednia stacja (Page Up)"), items[Action.QUEUE_PREVIOUS]),
+        (Native("&Następna stacja (Page Down)"), items[Action.QUEUE_NEXT]),
+    ]
+    frame._refresh_menu_state = lambda: None
+    frame._action_available_in_active_session = lambda _action: True
+
+    groups = frame._context_menu_command_groups(player=True)
+    labels = {
+        command.action: command.label
+        for group in groups for command in group
+    }
+    assert labels[Action.QUEUE_PREVIOUS] == "Poprzednia stacja (Page Up)"
+    assert labels[Action.QUEUE_NEXT] == "Następna stacja (Page Down)"

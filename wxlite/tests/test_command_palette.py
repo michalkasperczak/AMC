@@ -490,3 +490,64 @@ def test_spotify_tempo_is_absent_from_commands_but_podcasts_keep_it() -> None:
         chord = Chord(key, **modifiers)
         assert resolve(chord, player_view=True, radio_session=False, spotify_session=True) is None
         assert resolve(chord, player_view=True, radio_session=False, podcast_session=True) in tempo
+
+
+def test_radio_station_step_has_one_player_command_contract() -> None:
+    """Page keys describe stations in Radio, and never claim playback on a list."""
+    menu_items = {
+        item.action: item
+        for menu in menu_model.menus_for_session(SessionId.RADIO)
+        for item in menu.items
+        if item.action in {Action.QUEUE_PREVIOUS, Action.QUEUE_NEXT}
+    }
+    palette = {
+        item.action: item for item in entries_for_session(SessionId.RADIO)
+        if item.action in menu_items
+    }
+    for key, action, name, shortcut in (
+        ("Prior", Action.QUEUE_PREVIOUS, "Poprzednia stacja", "Page Up"),
+        ("Next", Action.QUEUE_NEXT, "Następna stacja", "Page Down"),
+    ):
+        item = menu_items[action]
+        assert item.label.replace("&", "") == name
+        assert item.needs_player_view and item.needs_playback
+        assert palette[action].name == describe_action(action, "Radio") == name
+        assert palette[action].shortcut == shortcut
+        assert dict(describe("Radio", {action}))[shortcut] == name
+        assert keyboard_help_announcement(
+            Chord(key), action, "Radio"
+        ) == f"{shortcut}. {name}. Radio"
+        assert resolve(Chord(key), player_view=True, radio_session=True) is action
+        assert resolve(Chord(key), player_view=False, radio_session=True) is None
+
+    assert all(
+        item.action not in {Action.QUEUE_PREVIOUS, Action.QUEUE_NEXT}
+        for menu in menu_model.menus_for_session(SessionId.PODCASTS)
+        for item in menu.items
+    )
+
+
+def test_radio_station_step_keeps_english_surfaces_consistent() -> None:
+    from amc_wx_lite import i18n
+
+    previous_language = i18n.active_language()
+    try:
+        i18n.configure(i18n.ENGLISH)
+        menu_items = {
+            item.action: item
+            for menu in menu_model.menus_for_session(SessionId.RADIO)
+            for item in menu.items
+            if item.action in {Action.QUEUE_PREVIOUS, Action.QUEUE_NEXT}
+        }
+        palette = {
+            item.action: item for item in entries_for_session(SessionId.RADIO)
+            if item.action in menu_items
+        }
+        for action, name in (
+            (Action.QUEUE_PREVIOUS, "Previous station"),
+            (Action.QUEUE_NEXT, "Next station"),
+        ):
+            assert menu_items[action].label.replace("&", "") == name
+            assert palette[action].name == describe_action(action, "Radio") == name
+    finally:
+        i18n.configure(previous_language)

@@ -2986,6 +2986,13 @@ def describe_action(
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
+    if (session_label or "").casefold() == "radio":
+        station_labels = {
+            Action.QUEUE_NEXT: "Następna stacja",
+            Action.QUEUE_PREVIOUS: "Poprzednia stacja",
+        }
+        if action in station_labels:
+            return i18n.ui_text(station_labels[action])
     if (session_label or "").casefold() == "radio archiwista":
         archive_labels = {
             Action.VIEW_LIBRARY: "Pokaż pełną listę stacji Radio Archiwisty",

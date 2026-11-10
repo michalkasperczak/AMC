@@ -380,7 +380,12 @@ def menus_for_session(
             localized_items = tuple(
                 replace(
                     item,
-                    label=i18n.menu_action_label(item.action.value, item.label),
+                    label=(
+                        "&" + describe_action(item.action, "Radio")
+                        if session_id is SessionId.RADIO
+                        and item.action in {Action.QUEUE_PREVIOUS, Action.QUEUE_NEXT}
+                        else i18n.menu_action_label(item.action.value, item.label)
+                    ),
                 )
                 if item.action is not None and not item.is_separator
                 else item
@@ -1302,6 +1307,12 @@ def build_menus(
             MenuItem("&Następny utwór TIDAL", Action.QUEUE_NEXT,
                      shortcut="Next", accelerator=False, needs_playback=True,
                      visible_sessions=TIDAL_ONLY),
+            MenuItem("Pop&rzednia stacja", Action.QUEUE_PREVIOUS,
+                     shortcut="Prior", accelerator=False, needs_playback=True,
+                     needs_player_view=True, visible_sessions=RADIO_ONLY),
+            MenuItem("&Następna stacja", Action.QUEUE_NEXT,
+                     shortcut="Next", accelerator=False, needs_playback=True,
+                     needs_player_view=True, visible_sessions=RADIO_ONLY),
             MenuItem(
                 "Wycisz albo włącz dźwięk bieżącej sesji (&V)",
                 Action.TOGGLE_MUTE,
