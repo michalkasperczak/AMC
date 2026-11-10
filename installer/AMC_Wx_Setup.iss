@@ -29,6 +29,14 @@
     #error "Podaj /DNvdaAddonVersion=<wersja dodatku NVDA>"
   #endif
 #endif
+#ifdef AmcNvdaAddonPath
+  #ifndef AmcNvdaAddonFileName
+    #error "Podaj /DAmcNvdaAddonFileName=<nazwa paczki dodatku AMC>"
+  #endif
+  #ifndef AmcNvdaAddonVersion
+    #error "Podaj /DAmcNvdaAddonVersion=<wersja dodatku AMC>"
+  #endif
+#endif
 
 #if Profil == "public"
   #define Produkt "AMC Public"
@@ -119,6 +127,10 @@ Source: "*"; DestDir: "{app}"; Excludes: "AMC.exe"; Flags: ignoreversion recurse
 Source: "{#NvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#NvdaAddonFileName}"; \
     Flags: ignoreversion deleteafterinstall
 #endif
+#ifdef AmcNvdaAddonPath
+Source: "{#AmcNvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#AmcNvdaAddonFileName}"; \
+    Flags: ignoreversion deleteafterinstall
+#endif
 
 ; Inno Setup kopiuje i nadpisuje pliki, ale sam nie usuwa plików, które były
 ; obecne w poprzedniej wersji paczki. Publiczna aktualizacja musi więc usunąć
@@ -161,6 +173,11 @@ Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#AppPat
 Filename: "{tmp}\{#NvdaAddonFileName}"; \
     Description: "Uruchom instalację dodatku NVDA Quick App Switcher {#NvdaAddonVersion}"; \
     Flags: shellexec postinstall skipifsilent; Check: ShouldOfferNvdaAddon
+#endif
+#ifdef AmcNvdaAddonPath
+Filename: "{tmp}\{#AmcNvdaAddonFileName}"; \
+    Description: "Uruchom instalację dodatku AMC do NVDA {#AmcNvdaAddonVersion}"; \
+    Flags: shellexec postinstall skipifsilent; Check: ShouldOfferAmcNvdaAddon
 #endif
 Filename: "{app}\AMC.exe"; Description: "Uruchom {#KrotkaNazwa} teraz"; \
     Flags: nowait postinstall skipifsilent
@@ -217,12 +234,16 @@ begin
   Result := Pos('"installId": "{#ExpectedInstallId}"', String(Manifest)) > 0;
 end;
 
-#ifdef NvdaAddonPath
 function NextVersionPart(var Value: string): Integer;
 var
   Separator: Integer;
   Part: string;
 begin
+  if Value = '' then
+  begin
+    Result := 0;
+    Exit;
+  end;
   Separator := Pos('.', Value);
   if Separator = 0 then
   begin
@@ -264,6 +285,7 @@ begin
   end;
 end;
 
+#ifdef NvdaAddonPath
 function InstalledQuickAppSwitcherVersion: string;
 var
   Manifest: AnsiString;
@@ -294,6 +316,40 @@ begin
   InstalledVersion := InstalledQuickAppSwitcherVersion;
   Result := (InstalledVersion = '') or
     (CompareDottedVersions(InstalledVersion, '{#NvdaAddonVersion}') < 0);
+end;
+#endif
+
+#ifdef AmcNvdaAddonPath
+function InstalledAmcNvdaAddonVersion: string;
+var
+  Manifest: AnsiString;
+  Text, Needle, Tail: string;
+  Start, LineEnd: Integer;
+begin
+  Result := '';
+  if not LoadStringFromFile(
+      ExpandConstant('{userappdata}\nvda\addons\amcController\manifest.ini'),
+      Manifest) then
+    Exit;
+  Text := #10 + String(Manifest);
+  Needle := #10 + 'version =';
+  Start := Pos(Needle, Text);
+  if Start = 0 then
+    Exit;
+  Tail := Copy(Text, Start + Length(Needle), Length(Text));
+  LineEnd := Pos(#10, Tail);
+  if LineEnd > 0 then
+    Delete(Tail, LineEnd, Length(Tail));
+  Result := Trim(Tail);
+end;
+
+function ShouldOfferAmcNvdaAddon: Boolean;
+var
+  InstalledVersion: string;
+begin
+  InstalledVersion := InstalledAmcNvdaAddonVersion;
+  Result := (InstalledVersion = '') or
+    (CompareDottedVersions(InstalledVersion, '{#AmcNvdaAddonVersion}') < 0);
 end;
 #endif
 

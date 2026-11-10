@@ -112,13 +112,35 @@ def test_test_installer_offers_verified_quick_app_switcher_without_silent_instal
     assert "restartreplace" not in run_section[addon_run:app_run]
 
 
+def test_amc_nvda_addon_is_verified_and_offered_for_both_profiles() -> None:
+    for required in (
+        '[string]$AmcNvdaAddonPath = ""',
+        '"amcController"',
+        '"AMC-NVDA-$amcAddonVersion.nvda-addon"',
+        'amcNvdaAddon = $amcNvdaAddon',
+        '/DAmcNvdaAddonPath=',
+        '/DAmcNvdaAddonVersion=',
+    ):
+        assert required in BUILD
+
+    for required in (
+        '#ifdef AmcNvdaAddonPath',
+        'Source: "{#AmcNvdaAddonPath}"; DestDir: "{tmp}"',
+        'Filename: "{tmp}\\{#AmcNvdaAddonFileName}"',
+        'Check: ShouldOfferAmcNvdaAddon',
+        'amcController\\manifest.ini',
+        "if Value = '' then",
+    ):
+        assert required in ISS
+
+
 def test_installer_performs_full_post_install_integrity_check() -> None:
-    assert "--sprawdz-pakiet-pelny-cicho" in ISS
-    assert "--sprawdz-start-cicho" in ISS
+    assert "--sprawdz-pakiet-instalatora-pelny-cicho" in ISS
+    assert "--sprawdz-start-instalatora-cicho" in ISS
     assert "ewWaitUntilTerminated" in ISS
     assert "ResultCode <> 0" in ISS
     assert "RaiseException" in ISS
-    assert ISS.index("--sprawdz-start-cicho") < ISS.index("RegisterShellIntegration;", ISS.index("procedure CurStepChanged"))
+    assert ISS.index("--sprawdz-start-instalatora-cicho") < ISS.index("RegisterShellIntegration;", ISS.index("procedure CurStepChanged"))
 
 
 def test_launcher_is_copied_before_runtime_during_silent_update() -> None:

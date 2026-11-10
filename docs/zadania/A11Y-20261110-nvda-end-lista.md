@@ -46,3 +46,16 @@ Roboczy opis zmian do korekty użytkownika: poprawiono odnajdywanie paska stanu 
 ## Wersja i commit
 
 Gałąź `codex/amc-test-public-20261109`. Bieżąca instalacja AMC Test alpha.490 z commitu `ac606f04d5a1f12ef297b10c7dc225aa94f5c7d6`. Commit źródeł, testów i zapisu zadania: `5b29321c7eabf1f0105aee803d9151ae85f27a6c`. Pakiet dodatku 0.4.1 jest lokalnym kandydatem; brak instalacji i publikacji.
+
+
+## Etap wydania 10.11.2026
+
+Użytkownik poprosił o dwie aktualizacje na GitHubie oraz aktualizację AMC Test po 12:30, kiedy nie będzie nagrywać. Pytanie, czy chodzi o wydania Test i Public czy o dodatek NVDA i Test, pozostaje otwarte. Mimo zapowiedzi o 12:33 w widoku „Nagrywane” był jeden aktywny plik `3 - 2026-11-10 12-30`; nie zamykano AMC ani NVDA. O 12:35 interfejs podał „Zakończono zaplanowane nagrywanie 3”, a późniejszy odczyt nie wykazał aktywnej pozycji. Stan trzeba ponownie sprawdzić tuż przed instalacją.
+
+Sam nowy instalator programu nie dostarczał poprawki 0.4.1, bo dotychczas dołączał jedynie Quick App Switcher. Dlatego w kodzie instalatora alpha.491 dodano możliwość sprawdzenia paczki AMC NVDA i zaproponowania jej przez standardową instalację NVDA po aktualizacji Test lub Public. Opcja nie uruchamia się po cichej instalacji, nie wymusza restartu czytnika i jest pokazywana tylko wtedy, gdy zainstalowana wersja dodatku jest starsza. Poprawiono porównanie równych wersji trzyczęściowych, które wcześniej traktowało brak czwartego składnika jako błąd. Zachowano odrębny etap Quick App Switcher dla Test.
+
+Zmiany źródeł: `Directory.Build.props`, `installer/AMC_Wx_Setup.iss`, `wxlite/tools/Build-AMCInstaller.ps1` oraz test `wxlite/tests/test_installer_profiles.py`. Testy pakowania i modułu statusu: 28 zaliczonych, dwa dodatkowe podtesty. Pierwszy przebieg ujawnił stare oczekiwania dwóch nazw kontroli instalatora po zmianie z alpha.490; zaktualizowano test do aktualnych nazw i ponowiono z wynikiem pozytywnym. To jest sprawdzenie źródeł, bez nowego bundle, instalatora, instalacji lub GitHub Release.
+
+### Materiał do dokumentacji użytkownika
+
+Po instalacji AMC Test lub AMC Public kreator może zaproponować uruchomienie instalacji dodatku AMC do NVDA 0.4.1. Ta propozycja pojawia się tylko przy starszej wersji dodatku. W celu sprawdzenia poprawki NVDA+End trzeba dokończyć instalację dodatku i restart czytnika, a następnie odczytać status na liście oraz w odtwarzaczu. Sama aktualizacja programu bez aktualizacji dodatku nie zmienia tego skrótu.

@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory)] [ValidatePattern('^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$')] [string]$Version,
     [Parameter(Mandatory)] [string]$OutputDirectory,
     [string]$NvdaAddonPath = "",
+    [string]$AmcNvdaAddonPath = "",
     [string]$IsccPath = ""
 )
 
@@ -19,6 +20,7 @@ $startupSmokeTool = Join-Path $repositoryRoot "wxlite\tools\Test-AMCBundleStartu
 $manifestPath = Join-Path $bundle "bundle-manifest.json"
 $launcher = Join-Path $bundle "AMC.exe"
 $nvdaAddon = $null
+$amcNvdaAddon = $null
 
 Push-Location $repositoryRoot
 try {
@@ -121,6 +123,60 @@ if (-not [string]::IsNullOrWhiteSpace($NvdaAddonPath)) {
         fileName = $addonFile.Name
         bytes = $addonFile.Length
         sha256 = (Get-FileHash -LiteralPath $resolvedAddon -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($AmcNvdaAddonPath)) {
+    $resolvedAmcAddon = [IO.Path]::GetFullPath($AmcNvdaAddonPath)
+    if (-not (Test-Path -LiteralPath $resolvedAmcAddon -PathType Leaf) -or
+        [IO.Path]::GetExtension($resolvedAmcAddon) -cne ".nvda-addon") {
+        throw "Nie znaleziono paczki dodatku AMC do NVDA."
+    }
+    $amcAddonFile = Get-Item -LiteralPath $resolvedAmcAddon
+    if ($amcAddonFile.Length -le 0 -or $amcAddonFile.Length -gt 64MB) {
+        throw "Paczka dodatku AMC do NVDA ma nieprawidłowy rozmiar."
+    }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($resolvedAmcAddon)
+    try {
+        $entries = @($archive.Entries | Where-Object {
+            $_.FullName.Replace("\", "/") -ceq "manifest.ini"
+        })
+        if ($entries.Count -ne 1 -or $entries[0].Length -le 0 -or
+            $entries[0].Length -gt 256KB) {
+            throw "Paczka dodatku AMC nie zawiera jednoznacznego manifest.ini."
+        }
+        $reader = [IO.StreamReader]::new(
+            $entries[0].Open(), [Text.UTF8Encoding]::new($false, $true), $true)
+        try {
+            $amcManifest = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+    $amcNameMatch = [Regex]::Match(
+        $amcManifest, '(?m)^name\s*=\s*(?<value>[^\r\n]+)\s*$')
+    $amcVersionMatch = [Regex]::Match(
+        $amcManifest, '(?m)^version\s*=\s*(?<value>\d+(?:\.\d+){1,3})\s*$')
+    if (-not $amcNameMatch.Success -or
+        $amcNameMatch.Groups["value"].Value.Trim() -cne "amcController" -or
+        -not $amcVersionMatch.Success) {
+        throw "Paczka NVDA nie jest dodatkiem AMC z prawidłową wersją."
+    }
+    $amcAddonVersion = $amcVersionMatch.Groups["value"].Value.Trim()
+    if ($amcAddonFile.Name -cne "AMC-NVDA-$amcAddonVersion.nvda-addon") {
+        throw "Nazwa paczki dodatku AMC nie zgadza się z wersją w manifest.ini."
+    }
+    $amcNvdaAddon = [ordered]@{
+        displayName = "AMC — sterowanie odtwarzaczem"
+        version = $amcAddonVersion
+        fileName = $amcAddonFile.Name
+        bytes = $amcAddonFile.Length
+        sha256 = (Get-FileHash -LiteralPath $resolvedAmcAddon -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
 
@@ -242,6 +298,13 @@ if ($null -ne $nvdaAddon) {
         ('/DNvdaAddonVersion="{0}"' -f $nvdaAddon.version)
     )
 }
+if ($null -ne $amcNvdaAddon) {
+    $compileArguments += @(
+        ('/DAmcNvdaAddonPath="{0}"' -f $resolvedAmcAddon),
+        ('/DAmcNvdaAddonFileName="{0}"' -f $amcNvdaAddon.fileName),
+        ('/DAmcNvdaAddonVersion="{0}"' -f $amcNvdaAddon.version)
+    )
+}
 $compileArguments += ('"{0}"' -f $installerScript)
 $compile = Start-Process -FilePath $IsccPath `
     -ArgumentList $compileArguments `
@@ -279,6 +342,7 @@ $integrity = [ordered]@{
     installerSourceRevision = $installerSourceRevision
     secretScan = "passed"
     nvdaAddon = $nvdaAddon
+    amcNvdaAddon = $amcNvdaAddon
 }
 $integrityPath = Join-Path $output ($baseName + ".integrity.json")
 $integrity | ConvertTo-Json | Set-Content -LiteralPath $integrityPath -Encoding utf8
