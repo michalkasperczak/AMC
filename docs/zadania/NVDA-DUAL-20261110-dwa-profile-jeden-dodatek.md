@@ -43,7 +43,7 @@ Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego 
 
 - Stan źródła przed zmianą: `4c89848245887397c2ef2c99055eb490b67783bf`, gałąź `codex/amc-test-public-20261109`; AMC `alpha.491`, dodatek `0.4.1`.
 - Kandydat źródłowy dodatku: `0.4.2`. Nie ma nowego pakietu `.nvda-addon` ani instalatora AMC. Numer AMC pozostaje `alpha.491` do osobnego, zweryfikowanego wydania.
-- Commit tej poprawki: do wpisania po zamknięciu zmian źródłowych.
+- Commit implementacji i testów: `c7f7eb11` na gałęzi `codex/amc-test-public-20261109`. Niniejszy wpis z numerem commitu jest osobnym zapisem dokumentacyjnym.
 
 ## Szkic opisu zmian do korekty użytkownika
 
