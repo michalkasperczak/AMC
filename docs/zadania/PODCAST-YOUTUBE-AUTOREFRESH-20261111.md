@@ -14,4 +14,4 @@ Kanał `youtube-channel:UCeUwjPt4VxhNI0ULHLZ54BQ` dodano do Biblioteki i wyboru 
 
 ## Testy, ograniczenia i wersja
 
-Ukierunkowany zestaw `test_podcast_refresh.py`, `test_radio_schedule_management.py`, `test_menu_exposes_existing_actions.py`, `test_shortcuts.py`: 112 testów przeszło. Nie uruchamiano GUI ani NVDA, nie budowano i nie instalowano nowego pakietu. Nie wykonano próby transmisji Dominikanów o 18:00. Zmiany źródeł nie są jeszcze obecne w instalacji. Zastane, niezwiązane zmiany GUI i rozpoznawania utworów pozostawiono.
+Ukierunkowany zestaw `test_podcast_refresh.py`, `test_radio_schedule_management.py`, `test_menu_exposes_existing_actions.py`, `test_shortcuts.py`: 112 testów przeszło. Nie uruchamiano GUI ani NVDA, nie budowano i nie instalowano nowego pakietu. Nie wykonano próby transmisji Dominikanów o 18:00. Zmiany źródeł zapisano w commicie `b17cf1c0`, lecz nie są jeszcze obecne w instalacji. Zastane, niezwiązane zmiany GUI i rozpoznawania utworów pozostawiono.
