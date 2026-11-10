@@ -1,6 +1,6 @@
 # NVDA-DUAL-20261110 — AMC Test i AMC Public z jednym dodatkiem
 
-Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego zaliczone. Instalacja obu profili, aktualizacja dodatku w działającym NVDA, ręczny odsłuch oraz publikacja nie zostały wykonane. Bieżący AMC Test i NVDA pozostały uruchomione. AMC Public nie był uruchomiony użytkowo.
+Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego zaliczone. Zbudowano kandydata dodatku NVDA. Instalacja obu profili, aktualizacja dodatku w działającym NVDA, ręczny odsłuch oraz publikacja nie zostały wykonane. Bieżący AMC Test i NVDA pozostały uruchomione. AMC Public nie był uruchomiony użytkowo.
 
 ## Korekta użytkownika i wcześniejsza decyzja
 
@@ -36,15 +36,17 @@ Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego 
 ## Znane ograniczenia i następny odbiór
 
 - Zainstalowany AMC Test nadal korzysta ze starszego wspólnego potoku; nowy kod został tylko skompilowany w repozytorium. Public i dodatek NVDA pozostają w dotychczasowych instalacjach. Aktualizację obu profili i dodatku trzeba skoordynować, gdy można bezpiecznie zatrzymać programy. Po instalacji sprawdzić start dwóch profili, skróty z każdego okna i spoza AMC, dialogi, powrót fokusu, ponowne otwarcie, restart NVDA oraz mowę/brajl. Nie wykonywać poleceń przełączających nagrywanie w teście na rzeczywistych nagraniach.
-- 10.11.2026 podczas pracy źródłowej działały AMC Test, host i NVDA. W oknie AMC Test widać było Radio Gdańsk, lecz samo okno nie potwierdzało jednoznacznie stanu wszystkich nagrań w tle. W katalogu `recording-staging` nie było pliku zmienionego w ostatnich 10 minutach przed testem. Procesów nie zamykano i niczego nie instalowano.
+- 10.11.2026 podczas pracy źródłowej działały AMC Test, host i NVDA. W oknie AMC Test widać było Radio Gdańsk. Późniejsze odczytanie żywego okna przez dostępność systemową ujawniło komunikat „Rozpoczynam nagrywanie w tle: Kolor”. To zastępuje wcześniejsze niejednoznaczne rozpoznanie na podstawie plików `recording-staging`: nagranie w tle było aktywne. Procesów nie zamykano i niczego nie instalowano. Przed budową pełnych paczek, instalacją i restartem należy ponownie ustalić stan nagrywania.
 - Część starszych instrukcji w katalogu głównym dotyczy historycznego AMC; aktualna pomoc dodatku jest w `nvda-addon/addon/doc/pl/readme.html`. Nie użyto starych instrukcji jako wzorca obecnego wydania.
 
 ## Wersja i commit
 
 - Stan źródła przed zmianą: `4c89848245887397c2ef2c99055eb490b67783bf`, gałąź `codex/amc-test-public-20261109`; AMC `alpha.491`, dodatek `0.4.1`.
-- Kandydat źródłowy dodatku: `0.4.2`. Nie ma nowego pakietu `.nvda-addon` ani instalatora AMC. Numer AMC pozostaje `alpha.491` do osobnego, zweryfikowanego wydania.
+- Kandydat dodatku: `0.4.2`; lokalny pakiet `AMC-NVDA-0.4.2.nvda-addon` ma 15 528 bajtów, poprawną strukturę ZIP i SHA-256 `22e211db6030c0c5c7e8b343066f2568647c72cf5bca8e66b3398418047a1ae9`. Nie został zainstalowany w działającym NVDA. Nowy kandydat AMC ma numer `0.1.0-alpha.492` w `Directory.Build.props`; pełnych paczek ani instalatorów tej wersji jeszcze nie ma.
 - Commit implementacji i testów: `c7f7eb11` na gałęzi `codex/amc-test-public-20261109`. Niniejszy wpis z numerem commitu jest osobnym zapisem dokumentacyjnym.
 
 ## Szkic opisu zmian do korekty użytkownika
 
 Dodatek NVDA rozróżnia teraz AMC Test i AMC Public uruchomione jednocześnie. Skróty działają w aktywnym profilu, a poza AMC w ostatnio używanym. Wybór pozostaje po restarcie NVDA. Polecenia nie przeskakują do drugiego profilu po zmianie okna. Gesty pozostały takie same. Aktualizacja wymaga nowych wersji obu hostów AMC i dodatku; instalacja oraz odbiór z żywym NVDA czekają.
+
+Osobne szkice do korekty użytkownika: `NVDA-DUAL-20261110-instrukcja-szkic.md` i `NVDA-DUAL-20261110-zmiany-szkic.md`. Nie zostały opublikowane jako gotowa instrukcja ani lista zmian.
