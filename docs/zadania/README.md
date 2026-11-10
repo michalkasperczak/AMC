@@ -1,5 +1,9 @@
 # Rejestr zadań AMC
 
+- `RADIO-FAST-001` — **Oczekuje** — sprawdzić Page Up/Page Down dla stacji w otwartym odtwarzaczu i zmierzyć, czy dalsze przyspieszenie jest potrzebne. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
+- `YT-006` — **Oczekuje** — dostępny wybór konkretnego wariantu pobrania pojedynczego materiału. [Szczegóły](YT-006-dokladny-wybor-wariantu-pobrania.md).
+- `RADIO-TRACK-001` — **Oczekuje: badanie wykonalności** — zapis rozpoznanego utworu z bufora radia do osobnego pliku. [Szczegóły](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
+
 - `NVDA-DUAL-20261110` — **Kod, test dwóch rzeczywistych hostów i kompilacje celowane zaliczone; bez instalacji, restartu NVDA i publikacji** — jeden dodatek kieruje skróty do AMC Test lub AMC Public przez osobne potoki. [Wynik i dalszy odbiór](NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md).
 
 - `RELEASE-20261109-alpha488` — **W trakcie; Test i Public do zbudowania i publikacji, instalacja tylko Public** — zbiorcza aktualizacja ostatnich poprawek. [Plan i wyniki](RELEASE-20261109-alpha488.md).
