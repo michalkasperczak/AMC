@@ -36028,6 +36028,39 @@ class LiteFrame(wx.Frame):
         self._reload_stations(preferred_id=station.id)
         self.announcer.say(f"Dodano {station.name}")
 
+    def _update_private_radio_schedules_for_station(
+        self, station_id: str, name: str, url: str
+    ) -> bool:
+        previous = self.state.radio_schedule_overrides
+        updated = radio_schedule_settings.replace_station_details(
+            previous, station_id, name, url
+        )
+        if updated == previous:
+            return True
+        self.state.radio_schedule_overrides = updated
+        try:
+            self.store.save(self.state)
+        except (OSError, TypeError, ValueError):
+            self.state.radio_schedule_overrides = previous
+            return False
+        snapshot = getattr(self, "_radio_snapshot", None)
+        client = getattr(self, "client", None)
+        if snapshot is not None and client is not None and any(
+            item.get("stationId") == station_id and item.get("enabled")
+            for item in updated or []
+        ):
+            payload = self._radio_schedule_sync_payload(snapshot, self.state)
+            self.runner.submit(
+                "radio-schedule-sync",
+                lambda: client.sync_radio_schedules(payload),
+                lambda _result: None,
+                lambda _error: self.announcer.say(
+                    "Adres zapisano w planie; uruchom ponownie AMC, "
+                    "aby odświeżyć aktywny harmonogram"
+                ),
+            )
+        return True
+
     def _station_edit(self) -> None:
         station = self._selected_station()
         if station is None:
@@ -36043,8 +36076,17 @@ class LiteFrame(wx.Frame):
                 return
 
             def done(_payload: object) -> None:
+                schedules_saved = self._update_private_radio_schedules_for_station(
+                    station.id, name, url
+                )
                 self._refresh_profile_view(preferred_id=station.id)
-                self.announcer.say(f"Zapisano nazwę i adres stacji: {name}")
+                if schedules_saved:
+                    self.announcer.say(f"Zapisano nazwę i adres stacji: {name}")
+                else:
+                    self.announcer.say(
+                        "Stację zapisano, ale nie udało się zaktualizować "
+                        "powiązanych planów nagrywania"
+                    )
 
             self.runner.submit(
                 "profile-edit",
@@ -36058,8 +36100,17 @@ class LiteFrame(wx.Frame):
         except ValueError as error:
             self.announcer.say(str(error))
             return
+        schedules_saved = self._update_private_radio_schedules_for_station(
+            station.id, name, url
+        )
         self._reload_stations(preferred_id=station.id)
-        self.announcer.say(f"Zapisano {name or url}")
+        if schedules_saved:
+            self.announcer.say(f"Zapisano {name or url}")
+        else:
+            self.announcer.say(
+                "Stację zapisano, ale nie udało się zaktualizować "
+                "powiązanych planów nagrywania"
+            )
 
     def _station_delete(self) -> None:
         station = self._selected_station()

@@ -266,6 +266,29 @@ def effective_schedules(
     return clone_schedules(overrides)
 
 
+def replace_station_details(
+    overrides: list[dict] | None, station_id: str, name: str, url: str
+) -> list[dict] | None:
+    """Keep private recording plans aligned with an edited station.
+
+    The core profile writer updates its own plans. Private wxPython
+    overrides must follow the same station ID or they will replay an old URL.
+    Timing, enabled state and unrelated plans are left untouched.
+    """
+    if overrides is None:
+        return None
+    name = name.strip()
+    url = url.strip()
+    if not station_id.strip() or not name or not is_http_url(url):
+        raise ValueError("Nieprawidłowe dane stacji dla harmonogramu")
+    return [
+        {**item, "stationName": name, "streamUrl": url}
+        if item.get("stationId") == station_id
+        else item
+        for item in overrides
+    ]
+
+
 def effective_wake(profile_value: bool, override: bool | None) -> bool:
     return profile_value if type(override) is not bool else override
 

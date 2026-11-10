@@ -225,7 +225,7 @@ def test_corrected_menu_labels_name_the_real_action() -> None:
         if item.action is Action.STATION_EDIT
     )
     assert search.label.replace("&", "") == "Szukaj w bieżącej usłudze"
-    assert station.label.replace("&", "") == "Zmień nazwę stacji"
+    assert station.label.replace("&", "") == "Zmień nazwę lub adres stacji"
 
 
 def test_account_or_device_menu_uses_ctrl_f5_only_in_matching_sessions() -> None:

@@ -15,6 +15,7 @@ from amc_wx_lite.radio_schedule_settings import (
     duplicate_schedule,
     effective_schedules,
     local_start_from_utc_ticks,
+    replace_station_details,
     sanitize_schedule,
     schedules_from_host_status,
     utc_ticks_from_local,
@@ -48,6 +49,52 @@ def sample_schedule(**changes) -> dict:
     }
     value.update(changes)
     return value
+
+
+def test_station_edit_updates_private_plans_without_changing_timing() -> None:
+    first = sample_schedule()
+    second = sample_schedule(id="plan-2", nextStartUtcTicks=123, enabled=False)
+    unrelated = sample_schedule(id="plan-3", stationId="radio-2")
+    updated = replace_station_details(
+        [first, second, unrelated],
+        "radio-1", "Radio Nowe", "https://example.invalid/new-live",
+    )
+    assert updated is not None
+    assert [item["streamUrl"] for item in updated] == [
+        "https://example.invalid/new-live",
+        "https://example.invalid/new-live",
+        unrelated["streamUrl"],
+    ]
+    assert [item["stationName"] for item in updated[:2]] == [
+        "Radio Nowe", "Radio Nowe"
+    ]
+    assert updated[1]["enabled"] is False
+    assert updated[1]["nextStartUtcTicks"] == 123
+    assert unrelated == updated[2]
+    assert first["streamUrl"] == "https://example.invalid/live.mp3"
+    assert replace_station_details(None, "radio-1", "Radio", "https://example.invalid") is None
+
+
+def test_station_edit_persists_private_plan_address(tmp_path) -> None:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from test_gui_logic import install_wx_stub
+
+    install_wx_stub()
+    from amc_wx_lite.gui import LiteFrame
+
+    store = StateStore(tmp_path)
+    state = LiteState(radio_schedule_overrides=[sample_schedule(enabled=False)])
+    frame = SimpleNamespace(state=state, store=store, client=None, _radio_snapshot=None)
+    assert LiteFrame._update_private_radio_schedules_for_station(
+        frame, "radio-1", "Radio Nowe", "https://example.invalid/new-live"
+    ) is True
+    saved = store.load().radio_schedule_overrides
+    assert saved is not None and len(saved) == 1
+    assert saved[0]["streamUrl"] == "https://example.invalid/new-live"
+    assert saved[0]["stationName"] == "Radio Nowe"
+    assert saved[0]["enabled"] is False
 
 
 def test_profile_is_mirrored_until_first_private_change() -> None:

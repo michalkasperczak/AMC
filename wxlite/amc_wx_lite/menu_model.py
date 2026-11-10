@@ -1191,7 +1191,7 @@ def build_menus(
         (
             MenuItem("&Dodaj stację", Action.STATION_ADD, shortcut="Ctrl+N",
                      accelerator=False, needs_radio_session=True),
-            MenuItem("&Zmień nazwę stacji", Action.STATION_EDIT, shortcut="F2",
+            MenuItem("&Zmień nazwę lub adres stacji", Action.STATION_EDIT, shortcut="F2",
                      needs_radio_session=True),
             MenuItem("&Usuń stację", Action.STATION_DELETE, shortcut="Delete",
                      accelerator=False, needs_radio_session=True),

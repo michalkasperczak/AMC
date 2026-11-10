@@ -29,3 +29,16 @@ Nie potwierdzono, czy w momencie próby nadawany był słyszalny dźwięk. Nie p
 ## Wersja i commit
 
 Zmiana dotyczyła danych profilu AMC Test, bez zmiany kodu źródłowego. Nie powstał commit, build, instalacja ani publikacja.
+
+
+## Korekta z 11.11.2026: harmonogram i Dominikanie Lublin
+
+Ta korekta zastępuje zdanie z 7.11.2026, że plan Vianneya pozostał wyłączony. Użytkownik polecił włączyć go codziennie 18:40–19:00. Obowiązujący prywatny plan AMC Test (`radio_schedule_overrides`, ID `0ebabbd653f245d6b69b57f49888ef30`) jest teraz włączony, ma regułę `Daily`, 20 minut, najbliższy start 11.11.2026 o 18:40 czasu Warszawy i adres `https://www.youtube.com/channel/UCwHcqK-ZyR0Uvzklq4AhpeA/live`. Wśród 52 planów zmieniono tylko ten wpis. Zachowano kopie stanu sprzed naprawy URL i sprzed włączenia planu w katalogu `C:\Users\micha\AppData\Roaming\AMC\ui`.
+
+Przyczyna rozbieżności: F2 zmienił adres stacji w Bibliotece i w profilu hosta, ale prywatna kopia harmonogramów interfejsu wxPython nadal zawierała poprzedni adres HLS. Ulubiona stacja i wpis Biblioteki miały ten sam identyfikator `radio:imported:c6285eff08c1417696d0704492c9dd0e`. Funkcja `effective_schedules` wybiera prywatną kopię, więc plan mógł nadal próbować starego serwera. Zmieniono prywatną kopię danych oraz kod F2, aby przyszła edycja nazwy lub adresu stacji aktualizowała wszystkie powiązane prywatne plany i synchronizowała włączone plany z hostem. Komunikat NVDA informuje o częściowej awarii zapisu planu lub potrzebie ponownego uruchomienia AMC po awarii synchronizacji.
+
+Zaktualizowano opis F2 w menu, pomocy skrótów oraz README_PL.md. Nie dodano nowego polecenia ani skrótu. Gdy AMC nie jest uruchomione, zapis prywatny zostanie odczytany po następnym starcie.
+
+Oficjalna strona Dominikanów Lublin prowadzi do `https://www.youtube.com/@DominikanieLublinYT/streams` i podaje transmisje od poniedziałku do soboty o 18:00 oraz w niedzielę o 12:00. Kanału nie było w bazie subskrypcji AMC. Dodano go do Biblioteki jako `youtube-channel:UCeUwjPt4VxhNI0ULHLZ54BQ`, pobrano 100 pozycji i dodano do wyboru kanałów zbiorczej listy transmisji na żywo. Nie jest to dowód widoczności transmisji o 18:00; wymaga sprawdzenia podczas emisji.
+
+Testy: 101 testów ukierunkowanych przeszło (`test_radio_schedule_management.py`, `test_menu_exposes_existing_actions.py`, `test_shortcuts.py`). Ponowny odczyt przez `effective_schedules` potwierdził jeden włączony plan Vianneya, adres YouTube, 18:40, 20 minut, `Daily`. Nie uruchamiano GUI, NVDA ani próbnego nagrywania. Zmieniono dane użytkownika i kod źródłowy, lecz nie budowano, nie instalowano i nie publikowano nowej wersji. Zmiany kodu nie mają jeszcze commita; w repozytorium były też zastane, niezwiązane zmiany GUI i rozpoznawania utworów, które pozostawiono.

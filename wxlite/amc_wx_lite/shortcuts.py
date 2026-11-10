@@ -2658,7 +2658,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.REMOVE_SELECTED: "Usuń zaznaczone pozycje z bieżącej listy lub playlisty bez usuwania materiału źródłowego",
         Action.RECYCLE_SELECTED: "Przenieś zaznaczone pliki do Kosza",
         Action.STATION_ADD: "Dodaj stacje",
-        Action.STATION_EDIT: "Zmień nazwę lub adres stacji",
+        Action.STATION_EDIT: "Zmień nazwę lub adres stacji i zaktualizuj powiązane plany nagrywania",
         Action.STATION_DELETE: "Usun stacje",
         Action.STATION_IMPORT: "Importuj liste stacji",
         Action.STATION_EXPORT_FAVORITES: "Eksportuj ulubione stacje do playlisty",
