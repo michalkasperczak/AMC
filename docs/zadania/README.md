@@ -1,5 +1,6 @@
 # Rejestr zadań AMC
 
+- `RADIOBROWSER-001` — **W trakcie; źródła, celowane testy modelu i kompilacja hosta gotowe, bez instalacji i odbioru NVDA** — `Ctrl+F5` w Radiu otwiera katalogi, Radio Browser prowadzi przez kontynenty, kraje i stronicowane stacje. [Szczegóły](RADIOBROWSER-001-przegladanie-katalogu.md).
 - `RADIO-FAST-001` — **Zrobione — wycofane 10.11.2026** — zachowano dotychczasowe Page Up/Page Down i odczyt nazwy stacji; dodatkowe nazwy poleceń cofnięto, bez optymalizacji wczytywania. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
 - `YT-006` — **Oczekuje** — dostępny wybór konkretnego wariantu pobrania pojedynczego materiału. [Szczegóły](YT-006-dokladny-wybor-wariantu-pobrania.md).
 - `RADIO-TRACK-001` — **Oczekuje: badanie wykonalności** — zapis rozpoznanego utworu z bufora radia do osobnego pliku. [Szczegóły](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
