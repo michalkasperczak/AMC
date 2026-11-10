@@ -856,8 +856,6 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
-    "Poprzednia stacja": "Previous station",
-    "Następna stacja": "Next station",
     "Tytuł odtwarzanego utworu w tytule okna:": "Playing title in the window title:",
     "Położenie tytułu odtwarzanego utworu w tytule okna": "Position of the playing title in the window title",
     "Zmienia odczyt NVDA+T. NVDA+End nadal czyta szczegóły odtwarzania.": "Changes what NVDA+T reads. NVDA+End still reads playback details.",

@@ -91,24 +91,3 @@ def test_saved_queue_still_delegates_page_keys_to_host_queue() -> None:
     nav.activate_selected()
 
     assert nav.step_playback_source(True) is None
-
-
-def test_page_up_in_radio_plays_previous_station_and_keeps_favorites() -> None:
-    nav = Navigator()
-    nav.switch_session(SessionId.RADIO)
-    nav.apply_radio_view(
-        LibraryView.FAVORITES, "Ulubione radia",
-        [_station("r1"), _station("r2"), _station("r3")], preferred_id="r2",
-    )
-    nav.activate_selected()
-
-    effects = nav.step_playback_source(False)
-
-    play = next(effect for effect in effects or [] if isinstance(effect, PlayStation))
-    assert play.item_id == "r1"
-    assert nav.session.now_playing_id == "r1"
-    assert nav.session.list_anchor_id == "r1"
-    assert nav.session.library_view is LibraryView.FAVORITES
-    assert nav.step_playback_source(False) == [
-        Announce("To pierwszy element listy źródłowej")
-    ]
