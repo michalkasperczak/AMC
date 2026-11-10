@@ -1,6 +1,6 @@
 # NVDA-DUAL-20261110 — AMC Test i AMC Public z jednym dodatkiem
 
-Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego zaliczone. Zbudowano kandydata dodatku NVDA. Instalacja obu profili, aktualizacja dodatku w działającym NVDA, ręczny odsłuch oraz publikacja nie zostały wykonane. Bieżący AMC Test i NVDA pozostały uruchomione. AMC Public nie był uruchomiony użytkowo.
+Stan 10.11.2026 po wydaniu: kod, testy celowane, pełne paczki i instalatory obu profili zaliczone. Wydania Test i Public opublikowano na GitHub. AMC Public zainstalowano lokalnie i sprawdzono cicho jego integralność. AMC Test i dodatek w działającym NVDA pozostawiono do aktualizacji użytkownika; ręczny odbiór z żywym NVDA nie został wykonany.
 
 ## Korekta użytkownika i wcześniejsza decyzja
 
@@ -35,14 +35,14 @@ Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego 
 
 ## Znane ograniczenia i następny odbiór
 
-- Zainstalowany AMC Test nadal korzysta ze starszego wspólnego potoku; nowy kod został tylko skompilowany w repozytorium. Public i dodatek NVDA pozostają w dotychczasowych instalacjach. Aktualizację obu profili i dodatku trzeba skoordynować, gdy można bezpiecznie zatrzymać programy. Po instalacji sprawdzić start dwóch profili, skróty z każdego okna i spoza AMC, dialogi, powrót fokusu, ponowne otwarcie, restart NVDA oraz mowę/brajl. Nie wykonywać poleceń przełączających nagrywanie w teście na rzeczywistych nagraniach.
+- Zainstalowany AMC Test nadal korzysta ze starszego wspólnego potoku; AMC Public jest już w wersji alpha.492. Dodatek NVDA pozostaje w dotychczasowej instalacji. Aktualizację Test i dodatku trzeba skoordynować, gdy można bezpiecznie zatrzymać nagrania i zrestartować NVDA. Po aktualizacji sprawdzić start dwóch profili, skróty z każdego okna i spoza AMC, dialogi, powrót fokusu, ponowne otwarcie, restart NVDA oraz mowę/brajl. Nie wykonywać poleceń przełączających nagrywanie w teście na rzeczywistych nagraniach.
 - 10.11.2026 podczas pracy źródłowej działały AMC Test, host i NVDA. W oknie AMC Test widać było Radio Gdańsk. Późniejsze odczytanie żywego okna przez dostępność systemową ujawniło komunikat „Rozpoczynam nagrywanie w tle: Kolor”. To zastępuje wcześniejsze niejednoznaczne rozpoznanie na podstawie plików `recording-staging`: nagranie w tle było aktywne. Procesów nie zamykano i niczego nie instalowano. Przed budową pełnych paczek, instalacją i restartem należy ponownie ustalić stan nagrywania.
 - Część starszych instrukcji w katalogu głównym dotyczy historycznego AMC; aktualna pomoc dodatku jest w `nvda-addon/addon/doc/pl/readme.html`. Nie użyto starych instrukcji jako wzorca obecnego wydania.
 
 ## Wersja i commit
 
 - Stan źródła przed zmianą: `4c89848245887397c2ef2c99055eb490b67783bf`, gałąź `codex/amc-test-public-20261109`; AMC `alpha.491`, dodatek `0.4.1`.
-- Kandydat dodatku: `0.4.2`; lokalny pakiet `AMC-NVDA-0.4.2.nvda-addon` ma 15 528 bajtów, poprawną strukturę ZIP i SHA-256 `22e211db6030c0c5c7e8b343066f2568647c72cf5bca8e66b3398418047a1ae9`. Nie został zainstalowany w działającym NVDA. Nowy kandydat AMC ma numer `0.1.0-alpha.492` w `Directory.Build.props`; pełnych paczek ani instalatorów tej wersji jeszcze nie ma.
+- Dodatek `0.4.2`: lokalny pakiet `AMC-NVDA-0.4.2.nvda-addon` ma 15 528 bajtów, poprawną strukturę ZIP i SHA-256 `22e211db6030c0c5c7e8b343066f2568647c72cf5bca8e66b3398418047a1ae9`. Nie został zainstalowany w działającym NVDA. AMC ma numer `0.1.0-alpha.492` w `Directory.Build.props`; oba instalatory tej wersji powstały i zostały wydane, jak zapisano niżej.
 - Commit implementacji i testów: `c7f7eb11` na gałęzi `codex/amc-test-public-20261109`. Niniejszy wpis z numerem commitu jest osobnym zapisem dokumentacyjnym.
 
 ## Szkic opisu zmian do korekty użytkownika
@@ -50,3 +50,15 @@ Stan 10.11.2026: kod, testy celowane oraz kompilacje hosta i programu testowego 
 Dodatek NVDA rozróżnia teraz AMC Test i AMC Public uruchomione jednocześnie. Skróty działają w aktywnym profilu, a poza AMC w ostatnio używanym. Wybór pozostaje po restarcie NVDA. Polecenia nie przeskakują do drugiego profilu po zmianie okna. Gesty pozostały takie same. Aktualizacja wymaga nowych wersji obu hostów AMC i dodatku; instalacja oraz odbiór z żywym NVDA czekają.
 
 Osobne szkice do korekty użytkownika: `NVDA-DUAL-20261110-instrukcja-szkic.md` i `NVDA-DUAL-20261110-zmiany-szkic.md`. Nie zostały opublikowane jako gotowa instrukcja ani lista zmian.
+
+## Wydanie i instalacja — 10.11.2026
+
+Użytkownik polecił opublikować wydania GitHub i samodzielnie zaktualizować AMC Test; wyraźnie zezwolił na lokalną instalację AMC Public. To zastępuje wcześniejszą decyzję o wstrzymaniu całego wydania do zakończenia nagrania. Działającego AMC Test ani NVDA nie zamykano. Odczyt okna przez Computer Use odrzuciła automatyczna kontrola po wcześniejszym zatrzymaniu tego narzędzia klawiszem Escape; nie ponawiano go ani nie wykonywano odbioru na żywo.
+
+- Źródło obu wydań: `f36c8a7ca8c40129283e4ff2bea421d3978ea5b2`, gałąź `codex/amc-test-public-20261109`, wysłana i odczytana na GitHub. Drzewo śledzonych plików było czyste przy tworzeniu instalatorów i publikacji.
+- `Build-AMCBundle.ps1` z osobnym runtime alpha.491 i przypiętymi zależnościami TIDAL oraz, dla Test, Sonos: Test 3456 plików, Public 3149. Obie paczki: `sourceDirty=false`, właściwy profil i wersja alpha.492, pełna kontrola integralności oraz kontrolowany start GUI i hosta zaliczone. Są w `publish/bundles/test-alpha492-20261110` i `publish/bundles/public-alpha492-20261110`.
+- `Build-AMCInstaller.ps1`: kontrolowany start paczek, kontrola sekretów `passed`, zgodność commitu i kompresja zaliczone. Instalatory zawierają opcjonalny dodatek AMC NVDA 0.4.2; Test dodatkowo Quick App Switcher 0.1.6.
+- Test: `publish/test-alpha492-20261110/AMC-Test-2026-11-10-1734.exe`, 136 499 695 bajtów, SHA-256 `e12847a24d137fb6e65455cf3528ce52c04b3e832a16e859ab2d0b2fda8fd55d`. GitHub `test-2026.11.10.1734`: wydanie wstępne, trzy zasoby ze stanem `uploaded`; zdalny digest instalatora i rozmiar zgodne z lokalnymi.
+- Public: `publish/public-alpha492-20261110/AMC-Public-2026-11-10-1737.exe`, 133 908 722 bajty, SHA-256 `6bfae7bda58e30b53d655898169a4e8c915d2135e06dabf8c736163c2f84028b`. GitHub `public-2026.11.10.1737`: zwykłe wydanie oznaczone `Latest`, trzy zasoby `uploaded`; zdalny digest instalatora i rozmiar zgodne z lokalnymi. Oba wydania wskazują commit źródłowy powyżej.
+- Instalator Public uruchomiono z `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`; kod wyjścia 0, log `work/NVDA-DUAL-20261110-install-public.log` zawiera `Installation process succeeded` i `Need to restart Windows? No`. Tryb cichy pominął opcjonalny instalator dodatku NVDA i start GUI. Zainstalowany `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe` ma wersję produktu alpha.492; jego manifest wskazuje `public` i commit `f36c8a7c`, a `--sprawdz-pakiet-pelny-cicho` zwrócił 0. Procesy AMC Test, jego hosta i NVDA po instalacji pozostały te same.
+- Nie instalowano AMC Test ani dodatku NVDA 0.4.2; Public nie został uruchomiony użytkowo. Wyniki budowy, publikacji i instalacji nie są dowodem ręcznej pracy dwóch okien z żywym NVDA. Lokalne paczki i instalatory zachowano do odbioru; nie czyszczono ich.

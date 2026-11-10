@@ -1,6 +1,6 @@
 # AMC Test i AMC Public z jednym dodatkiem NVDA — szkic instrukcji
 
-Status: szkic do korekty i zatwierdzenia przez użytkownika. Dotyczy kandydata AMC 0.1.0-alpha.492 i dodatku NVDA 0.4.2. Instalacja i odbiór na żywo nie zostały jeszcze wykonane.
+Status 10.11.2026: szkic do korekty i zatwierdzenia przez użytkownika. Wydania AMC 0.1.0-alpha.492 opublikowano; Public zainstalowano. Aktualizacja Test i dodatku NVDA 0.4.2 oraz odbiór na żywo pozostają do wykonania.
 
 ## Wybór profilu
 
