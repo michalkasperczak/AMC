@@ -1708,6 +1708,20 @@ class LiteHostClient:
             timeout=45.0,
         )
 
+    def browse_radio_countries(self) -> Any:
+        """Read country names and counts from the public Radio Browser catalog."""
+        return self.call("radio.browseCountries", {}, timeout=30.0)
+
+    def browse_radio_stations(
+        self, country_code: str, order: str, offset: int = 0,
+    ) -> Any:
+        """Read one bounded page; identifiers stay separate from spoken labels."""
+        return self.call(
+            "radio.browseStations",
+            {"countryCode": country_code, "order": order, "offset": offset},
+            timeout=30.0,
+        )
+
     def inspect_podcast_opml(self, path: str) -> Any:
         """Odczytaj bezpieczne etykiety źródeł przez wspólny parser AMC."""
         return self.call("podcast.opml.inspect", {"path": path}, timeout=30.0)

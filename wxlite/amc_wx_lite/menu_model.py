@@ -380,7 +380,12 @@ def menus_for_session(
             localized_items = tuple(
                 replace(
                     item,
-                    label=i18n.menu_action_label(item.action.value, item.label),
+                    label=(
+                        "&" + ctrl_f5_presentation("Radio").name
+                        if session_id is SessionId.RADIO
+                        and item.action is Action.SESSION_CONFIGURE_CURRENT
+                        else i18n.menu_action_label(item.action.value, item.label)
+                    ),
                 )
                 if item.action is not None and not item.is_separator
                 else item
@@ -437,7 +442,7 @@ def build_menus(
             MenuItem(
                 "&Odśwież stacje Radia",
                 Action.REFRESH_RADIO_STATIONS,
-                shortcut="Ctrl+F5",
+                shortcut="F5",
                 accelerator=False,
                 visible_sessions=RADIO_ONLY,
             ),
@@ -447,6 +452,7 @@ def build_menus(
                 shortcut="Ctrl+F5",
                 accelerator=False,
                 visible_sessions=(
+                    SessionId.RADIO,
                     SessionId.TIDAL,
                     SessionId.SPOTIFY,
                     SessionId.WIIM,

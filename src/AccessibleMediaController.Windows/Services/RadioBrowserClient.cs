@@ -1,9 +1,13 @@
+using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Windows.Services;
+
+public sealed record RadioBrowserCountry(string Code, string Name, int StationCount);
+public sealed record RadioBrowserStationPage(IReadOnlyList<MediaItem> Items, bool HasMore);
 
 public sealed class RadioBrowserClient : IDisposable
 {
@@ -54,9 +58,67 @@ public sealed class RadioBrowserClient : IDisposable
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<RadioBrowserCountry>> BrowseCountriesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var uri = new Uri($"{ApiRoot}/json/countrycodes?hidebroken=true");
+        var response = await _client.GetFromJsonAsync<CountryCodeRecord[]>(uri, cancellationToken)
+            .ConfigureAwait(false) ?? [];
+        return response
+            .Where(item => item.Name is { Length: 2 }
+                && item.Name.All(char.IsLetter)
+                && item.StationCount > 0)
+            .Select(item => new RadioBrowserCountry(
+                item.Name!.ToUpperInvariant(),
+                CountryDisplayName(item.Name!),
+                item.StationCount))
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+    }
+
+    public async Task<RadioBrowserStationPage> BrowseStationsAsync(
+        string countryCode,
+        string order,
+        int offset,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var code = countryCode.Trim().ToUpperInvariant();
+        if (code.Length != 2 || !code.All(char.IsLetter))
+            throw new ArgumentException("Nieprawidłowy kraj katalogu", nameof(countryCode));
+        if (order is not ("name" or "votes" or "changetimestamp"))
+            throw new ArgumentException("Nieprawidłowy porządek stacji", nameof(order));
+        if (offset < 0 || limit is < 1 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        var reverse = order == "name" ? "false" : "true";
+        var uri = new Uri($"{ApiRoot}/json/stations/search?countrycode={code}"
+            + $"&hidebroken=true&order={order}&reverse={reverse}"
+            + $"&offset={offset}&limit={limit}");
+        var found = await ReadStationsAsync(uri, cancellationToken, requireSuccess: true)
+            .ConfigureAwait(false);
+        var items = found
+            .Where(station => station.LastCheckOk != 0)
+            .Where(station => Uri.TryCreate(
+                FirstNonEmpty(station.UrlResolved, station.Url),
+                UriKind.Absolute,
+                out var streamUri)
+                && streamUri.Scheme is "http" or "https")
+            .Select(ToMediaItem)
+            .ToArray();
+        return new RadioBrowserStationPage(items, found.Count == limit);
+    }
+
+    private static string CountryDisplayName(string code)
+    {
+        if (code.Equals("XK", StringComparison.OrdinalIgnoreCase)) return "Kosowo";
+        try { return new RegionInfo(code).DisplayName; }
+        catch (ArgumentException) { return "Kraj bez nazwy w systemie"; }
+    }
+
     private async Task<IReadOnlyList<RadioBrowserStation>> ReadStationsAsync(
         Uri uri,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool requireSuccess = false)
     {
         try
         {
@@ -76,12 +138,14 @@ public sealed class RadioBrowserClient : IDisposable
             catch (HttpRequestException fallbackException)
             {
                 DiagnosticLog.Warning("radio-catalog", $"Katalog {fallback.Host} nie odpowiedział: {fallbackException.Message}");
+                if (requireSuccess) throw;
                 return [];
             }
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             DiagnosticLog.Warning("radio-catalog", $"Przekroczono czas odpowiedzi katalogu {uri.Host}.");
+            if (requireSuccess) throw;
             return [];
         }
     }
@@ -162,5 +226,15 @@ public sealed class RadioBrowserClient : IDisposable
 
         [JsonPropertyName("lastcheckok")]
         public int LastCheckOk { get; set; }
+    }
+
+    private sealed class CountryCodeRecord
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("stationcount")]
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public int StationCount { get; set; }
     }
 }

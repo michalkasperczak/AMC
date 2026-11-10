@@ -14,9 +14,74 @@ namespace AccessibleMediaController.LiteHost;
 internal sealed class LiteRadioDirectorySearchCoordinator : IDisposable
 {
     public const string Operation = "radio.searchDirectory";
+    public const string CountriesOperation = "radio.browseCountries";
+    public const string StationsOperation = "radio.browseStations";
     private const int MaximumQueryLength = 300;
 
     private readonly RadioBrowserClient _catalog = new();
+
+    public object BrowseCountries()
+    {
+        try
+        {
+            var countries = _catalog.BrowseCountriesAsync()
+                .GetAwaiter().GetResult();
+            return new
+            {
+                items = countries.Select(country => new
+                {
+                    code = country.Code,
+                    name = country.Name,
+                    stationCount = country.StationCount
+                }).ToArray()
+            };
+        }
+        catch (Exception exception) when (IsDirectoryFailure(exception))
+        {
+            throw new LiteRequestException(
+                "Nie można teraz pobrać krajów Radio Browser.");
+        }
+    }
+
+    public object BrowseStations(JsonElement args)
+    {
+        var code = LiteArgs.RequireText(args, "countryCode").Trim();
+        var order = LiteArgs.RequireText(args, "order").Trim();
+        if (!args.TryGetProperty("offset", out var rawOffset)
+            || rawOffset.ValueKind != JsonValueKind.Number
+            || !rawOffset.TryGetInt32(out var offset)
+            || offset < 0)
+            throw new LiteRequestException("Nieprawidłowa strona katalogu stacji.");
+        try
+        {
+            var page = _catalog.BrowseStationsAsync(code, order, offset)
+                .GetAwaiter().GetResult();
+            var knownAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var items = page.Items
+                .Where(item => TryPublicAddress(item.Source, out _))
+                .Where(item => knownAddresses.Add(NormalizeAddress(item.Source!)))
+                .Select(ToPayload)
+                .ToArray();
+            return new { items, nextOffset = page.HasMore ? offset + 100 : (int?)null };
+        }
+        catch (ArgumentException)
+        {
+            throw new LiteRequestException("Nieprawidłowy kraj lub porządek katalogu.");
+        }
+        catch (Exception exception) when (IsDirectoryFailure(exception))
+        {
+            throw new LiteRequestException(
+                "Nie można teraz pobrać stacji Radio Browser.");
+        }
+    }
+
+    private static bool IsDirectoryFailure(Exception exception) =>
+        exception is HttpRequestException
+            or InvalidDataException
+            or JsonException
+            or NotSupportedException
+            or TimeoutException
+            or OperationCanceledException;
 
     public object Search(JsonElement args)
     {

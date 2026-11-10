@@ -217,9 +217,9 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
             "files_session",
         ),
         SessionId.RADIO: (
-            Action.REFRESH_RADIO_STATIONS,
-            "Odśwież stacje Radia",
-            "Odśwież stacje i bieżący widok Radia",
+            Action.SESSION_CONFIGURE_CURRENT,
+            "Katalogi Radia",
+            "Otwórz katalogi stacji radiowych; Radio Browser pozwala przeglądać kontynenty, kraje i stacje",
             "radio_session",
         ),
         SessionId.PODCASTS: (
@@ -490,3 +490,26 @@ def test_spotify_tempo_is_absent_from_commands_but_podcasts_keep_it() -> None:
         chord = Chord(key, **modifiers)
         assert resolve(chord, player_view=True, radio_session=False, spotify_session=True) is None
         assert resolve(chord, player_view=True, radio_session=False, podcast_session=True) in tempo
+
+
+def test_radio_directories_have_one_english_command_name() -> None:
+    from amc_wx_lite import i18n
+
+    previous_language = i18n.active_language()
+    try:
+        i18n.configure(i18n.ENGLISH)
+        action = Action.SESSION_CONFIGURE_CURRENT
+        menu = next(
+            item for group in menu_model.menus_for_session(SessionId.RADIO)
+            for item in group.items if item.action is action
+        )
+        palette = next(
+            item for item in entries_for_session(SessionId.RADIO)
+            if item.action is action
+        )
+        assert menu.label.replace("&", "") == "Radio directories"
+        assert palette.name == "Radio directories"
+        assert describe_action(action, "Radio") == "Browse Radio Browser by continent, country and station"
+        assert palette.shortcut == "Ctrl+F5"
+    finally:
+        i18n.configure(previous_language)

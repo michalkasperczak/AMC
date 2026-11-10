@@ -150,6 +150,7 @@ from .playlist_dialog import (
     choices_from_payload as playlist_choices_from_payload,
 )
 from .problem_report_dialog import ProblemReportDialog
+from .radio_browser_dialog import RadioBrowserDialog, RadioDirectoriesDialog
 from .service_playlist_dialog import (
     ServicePlaylistDialog as SpotifyPlaylistDialog,
     ServicePlaylistChoice as SpotifyPlaylistChoice,
@@ -21073,7 +21074,10 @@ class LiteFrame(wx.Frame):
         if session_id is SessionId.FILES:
             wx.CallAfter(self._show_library_folders)
             return
-        if session_id in (SessionId.RADIO, SessionId.PODCASTS):
+        if session_id is SessionId.RADIO:
+            wx.CallAfter(self._show_radio_directories)
+            return
+        if session_id is SessionId.PODCASTS:
             wx.CallAfter(self._show_session_options)
             return
         if session_id in (SessionId.SPOTIFY, SessionId.TIDAL):
@@ -21093,6 +21097,70 @@ class LiteFrame(wx.Frame):
         if session_id is SessionId.SONOS:
             self._select_sonos_target()
             return
+
+    def _show_radio_directories(self) -> None:
+        chooser = RadioDirectoriesDialog(self)
+        try:
+            selected = chooser.ShowModal() == wx.ID_OK
+        finally:
+            chooser.Destroy()
+        if selected:
+            self._show_radio_browser()
+        else:
+            self._restore_focus_after_dialog()
+
+    def _show_radio_browser(self) -> None:
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik Radia nie działa. Nie można otworzyć Radio Browser")
+            self._restore_focus_after_dialog()
+            return
+
+        def usable(target: RadioBrowserDialog) -> bool:
+            return not target.IsBeingDeleted()
+
+        def load_countries(target: RadioBrowserDialog) -> None:
+            self.runner.submit(
+                "radio-browser-countries",
+                client.browse_radio_countries,
+                lambda payload: target.show_countries(payload) if usable(target) else None,
+                lambda _error: target.failed("Nie można teraz pobrać krajów Radio Browser")
+                if usable(target) else None,
+            )
+
+        def load_stations(
+            code: str, order: str, offset: int, target: RadioBrowserDialog,
+        ) -> None:
+            self.runner.submit(
+                "radio-browser-stations",
+                lambda: client.browse_radio_stations(code, order, offset),
+                lambda payload: target.show_stations(payload, offset) if usable(target) else None,
+                lambda _error: target.failed("Nie można teraz pobrać stacji Radio Browser")
+                if usable(target) else None,
+            )
+
+        dialog = RadioBrowserDialog(
+            self,
+            load_countries=load_countries,
+            load_stations=load_stations,
+            station_action=lambda entries, action, announce:
+                self._complete_remote_radio_search_result_action(
+                    entries, action, announce=announce,
+                ),
+            copy_text=self._to_clipboard,
+        )
+        try:
+            wx.CallAfter(dialog.start)
+            opened = dialog.ShowModal() == wx.ID_OK
+            station = dialog.selected_station
+        finally:
+            dialog.Destroy()
+        if opened and station is not None:
+            self._complete_remote_radio_search_result_action(
+                [station], SearchResultAction.OPEN,
+            )
+        else:
+            self._restore_focus_after_dialog()
 
     def _show_library_folders(self) -> None:
         client = self._profile_edit_client()

@@ -317,11 +317,14 @@ def test_ctrl_f5_opens_account_or_device_configuration_by_session() -> None:
         chord,
         player_view=False,
         radio_session=True,
-    ) is Action.REFRESH_RADIO_STATIONS
+    ) is Action.SESSION_CONFIGURE_CURRENT
     assert resolve(
         chord,
         player_view=True,
         radio_session=True,
+    ) is Action.SESSION_CONFIGURE_CURRENT
+    assert resolve(
+        Chord("F5"), player_view=False, radio_session=True,
     ) is Action.REFRESH_RADIO_STATIONS
     assert resolve(
         chord,

@@ -73,6 +73,11 @@ if (args.Contains("--radio-audio-metadata-only", StringComparer.Ordinal))
     TestRadioAudioMetadataValidation();
     return 0;
 }
+if (args.Contains("--radio-browser-browse-only", StringComparer.Ordinal))
+{
+    TestRadioBrowserBrowseMapping();
+    return 0;
+}
 if (args.Contains("--soundcloud-podcast-client", StringComparer.Ordinal))
 {
     TestSoundCloudPodcastClient();
@@ -5124,6 +5129,39 @@ static void TestRadioBrowserSearchMapping()
     Assert(!station.IsInLibrary && !station.IsFavorite,
         "Wynik wyszukiwania nie może samoczynnie trafić do Biblioteki lub Ulubionych.");
     Console.WriteLine("OK: wyszukiwanie i mapowanie katalogu Radio Browser");
+}
+
+static void TestRadioBrowserBrowseMapping()
+{
+    using var countryHttp = new HttpClient(new FixedJsonHandler(
+        """[{"name":"PL","stationcount":"42"},{"name":"XK","stationcount":1}]"""));
+    using var countryCatalog = new RadioBrowserClient(countryHttp);
+    var countries = countryCatalog.BrowseCountriesAsync().GetAwaiter().GetResult();
+    Assert(countries.Any(country => country.Code == "PL"
+        && country.StationCount == 42
+        && country.Name.Length > 2),
+        "Kraj katalogu nie zachował nazwy użytkowej i liczby stacji.");
+    Assert(countries.Any(country => country.Code == "XK" && country.Name == "Kosowo"),
+        "Nieznany systemowi kod kraju nie dostał użytkowej nazwy.");
+
+    const string stationResponse = """
+        [{"stationuuid":"station-1","name":"Radio Testowe",
+          "url":"http://example.test/live","url_resolved":"https://example.test/live",
+          "homepage":"https://example.test/","country":"Polska",
+          "codec":"AAC","bitrate":192,"lastcheckok":1}]
+        """;
+    using var stationHttp = new HttpClient(new FixedJsonHandler(stationResponse));
+    using var stationCatalog = new RadioBrowserClient(stationHttp);
+    var page = stationCatalog.BrowseStationsAsync("PL", "name", 0, 1)
+        .GetAwaiter().GetResult();
+    Assert(page.HasMore && page.Items.Count == 1,
+        "Stronicowany katalog nie zachował następnej strony.");
+    Assert(page.Items[0].Title == "Radio Testowe"
+        && page.Items[0].Source == "https://example.test/live"
+        && page.Items[0].BitrateKbps == 192
+        && !page.Items[0].IsInLibrary,
+        "Przeglądanie zmieniło metadane albo zapisało stację bez polecenia.");
+    Console.WriteLine("OK: kraje i stronicowane stacje Radio Browser");
 }
 
 static void TestRadioScheduleStationScope()

@@ -480,6 +480,21 @@ def test_radio_directory_search_uses_one_narrow_host_operation() -> None:
         client.close()
 
 
+def test_radio_browser_navigation_uses_bounded_read_only_operations() -> None:
+    client = make_client()
+    try:
+        countries = client.browse_radio_countries()
+        stations = client.browse_radio_stations("PL", "name", 100)
+        assert countries["op"] == "radio.browseCountries"
+        assert countries["args"] == {}
+        assert stations["op"] == "radio.browseStations"
+        assert stations["args"] == {
+            "countryCode": "PL", "order": "name", "offset": 100,
+        }
+    finally:
+        client.close()
+
+
 def test_podcast_opml_uses_named_narrow_host_operations() -> None:
     client = make_client()
     try:

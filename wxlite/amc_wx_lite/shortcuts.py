@@ -581,9 +581,9 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
         "Ctrl+F5",
     ),
     "radio": CommandPresentation(
-        Action.REFRESH_RADIO_STATIONS,
-        "Odśwież stacje Radia",
-        "Odśwież stacje i bieżący widok Radia",
+        Action.SESSION_CONFIGURE_CURRENT,
+        "Katalogi Radia",
+        "Otwórz katalogi stacji radiowych; Radio Browser pozwala przeglądać kontynenty, kraje i stacje",
         "Ctrl+F5",
     ),
     "spotify": CommandPresentation(
@@ -638,6 +638,13 @@ def ctrl_f5_presentation(session_label: str | None) -> CommandPresentation | Non
     )
     if presentation is None or i18n.active_language() == i18n.POLISH:
         return presentation
+    if normalized_label == "radio":
+        return CommandPresentation(
+            action=presentation.action,
+            name="Radio directories",
+            description="Browse Radio Browser by continent, country and station",
+            shortcut=presentation.shortcut,
+        )
     return CommandPresentation(
         action=presentation.action,
         name=i18n.command_name(presentation.action.value, presentation.name),
@@ -1505,7 +1512,8 @@ for _chord, _slot in PRESET_SHORTCUTS.items():
 
 # Dodatkowo w sesji radiowej: zarzadzanie wlasna lista stacji.
 RADIO_LIST_VIEW: dict[str, Action] = {
-    "Ctrl+F5": Action.REFRESH_RADIO_STATIONS,
+    "F5": Action.REFRESH_RADIO_STATIONS,
+    "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+N": Action.STATION_ADD,
     "F2": Action.STATION_EDIT,
     "Delete": Action.STATION_DELETE,
@@ -1539,7 +1547,8 @@ RADIO_COLLECTION_LIST_VIEW: dict[str, Action] = {
 # Litery bez modyfikatora sa bezpieczne tylko w odtwarzaczu Radia. Na liscie
 # T i R musza pozostac natywnej kontroli (wyszukiwanie przyrostowe).
 RADIO_PLAYER_VIEW: dict[str, Action] = {
-    "Ctrl+F5": Action.REFRESH_RADIO_STATIONS,
+    "F5": Action.REFRESH_RADIO_STATIONS,
+    "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+O": Action.STATION_IMPORT,
     "Ctrl+E": Action.STATION_EXPORT_FAVORITES,
     "R": Action.RECORD_TOGGLE,
@@ -2986,6 +2995,11 @@ def describe_action(
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
+    if (session_label or "").casefold() == "radio":
+        if action is Action.SESSION_CONFIGURE_CURRENT:
+            presentation = ctrl_f5_presentation("Radio")
+            if presentation is not None:
+                return presentation.description
     if (session_label or "").casefold() == "radio archiwista":
         archive_labels = {
             Action.VIEW_LIBRARY: "Pokaż pełną listę stacji Radio Archiwisty",

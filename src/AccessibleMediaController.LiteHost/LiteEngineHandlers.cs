@@ -553,6 +553,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _podcastDirectorySearch.Search(request.Args),
             [LiteRadioDirectorySearchCoordinator.Operation] = (request, _) =>
                 _radioDirectorySearch.Search(request.Args),
+            [LiteRadioDirectorySearchCoordinator.CountriesOperation] = (_, _) =>
+                _radioDirectorySearch.BrowseCountries(),
+            [LiteRadioDirectorySearchCoordinator.StationsOperation] = (request, _) =>
+                _radioDirectorySearch.BrowseStations(request.Args),
             [LitePodcastOpmlCoordinator.InspectOperation] = (request, _) =>
                 PodcastOpmlInspect(request.Args),
             [LitePodcastOpmlCoordinator.ImportOperation] = (request, _) =>
