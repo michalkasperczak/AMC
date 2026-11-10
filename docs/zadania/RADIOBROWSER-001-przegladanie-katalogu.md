@@ -138,3 +138,16 @@ Kod i testy zapisano w commicie `535128c3`, poprawkę wyboru serwerów w
   zweryfikowane. Paczka próbna nie jest instalatorem ani wydaniem.
 - Szkic instrukcji użytkownika i zmian do korekty zapisano w
   `RADIOBROWSER-001-szkic-instrukcji-i-zmian.md`; nie opublikowano go.
+
+## Odpowiedź użytkownika i doprecyzowanie, 10.11.2026, 23:42
+
+Użytkownik potwierdził, że bieżące AMC Test nagrywa albo wkrótce rozpocznie
+nagranie. Nie zamykać tej instancji, nie podmieniać instalacji i nie uruchamiać
+drugiego widocznego AMC podczas tej pracy. Paczka próbna pozostaje oddzielna.
+
+Użytkownik zwrócił uwagę, że HTTPS było już wcześniej. To prawda: wcześniejszy
+klient używał `https://all.api.radio-browser.info`. Korekta `6af086af`
+zmienia wybór nazwy serwera przez DNS i użycie konkretnego hosta HTTPS; nie
+„dodaje HTTPS” jako nowej funkcji. Zastępuje wcześniejsze nieprecyzyjne opisy
+tej zmiany. Rzeczywisty timeout do konkretnego serwera pozostał nieusunięty
+na tym komputerze.
