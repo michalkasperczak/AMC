@@ -63,7 +63,8 @@ public static class InstallerOfflineContractTests
                      "[Registry]",
                      "App Paths\\{#AppPathName}",
                      "CloseApplications=no",
-                     "--sprawdz-pakiet-pelny-cicho",
+                     "--sprawdz-pakiet-instalatora-pelny-cicho",
+                     "--sprawdz-start-instalatora-cicho",
                  })
         {
             Check(

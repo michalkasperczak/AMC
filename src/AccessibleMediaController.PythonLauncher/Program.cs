@@ -21,19 +21,22 @@ internal static class Program
         ReleaseProfileDescriptor? profile = null;
         var postUpdateLaunch = PostUpdateLaunchContract.Parse(args);
         args = postUpdateLaunch.ForwardedArguments;
-        var fullBundleCheck = args.Any(argument =>
+        var installerFullCheck = UpdateInProgressGate.IsInstallerFullCheck(args);
+        var installerStartCheck = UpdateInProgressGate.IsInstallerStartCheck(args);
+        var fullBundleCheck = installerFullCheck || args.Any(argument =>
             string.Equals(argument, "--sprawdz-pakiet-pelny", StringComparison.OrdinalIgnoreCase)
             || string.Equals(argument, "--sprawdz-pakiet-pelny-cicho", StringComparison.OrdinalIgnoreCase));
-        var silentBundleCheck = args.Any(argument =>
+        var silentBundleCheck = installerFullCheck || args.Any(argument =>
             string.Equals(argument, "--sprawdz-pakiet-cicho", StringComparison.OrdinalIgnoreCase)
             || string.Equals(argument, "--sprawdz-pakiet-pelny-cicho", StringComparison.OrdinalIgnoreCase));
-        var silentStartupCheck = args.Any(argument =>
+        var silentStartupCheck = installerStartCheck || args.Any(argument =>
             string.Equals(argument, "--sprawdz-start-cicho", StringComparison.OrdinalIgnoreCase));
         try
         {
             // Sprawdzamy przed odczytem pakietu: instalator może w tej
             // chwili podmieniać nawet manifest i pliki startowe.
-            if (UpdateInProgressGate.ActiveProfile(AppContext.BaseDirectory) is { } updating)
+            if (!UpdateInProgressGate.IsInstallerCheck(args)
+                && UpdateInProgressGate.ActiveProfile(AppContext.BaseDirectory) is { } updating)
             {
                 if (!silentBundleCheck && !silentStartupCheck)
                     Show(updating, $"Trwa aktualizacja {updating.DisplayName}. "
@@ -67,11 +70,12 @@ internal static class Program
             // omija zwykłą dzierżawę pojedynczej instancji.
             if (silentStartupCheck)
             {
-                if (UpdateInProgressGate.ActiveProfile(bundle.Root) is not null)
+                if (!installerStartCheck
+                    && UpdateInProgressGate.ActiveProfile(bundle.Root) is not null)
                     return UpdateInProgress;
                 return RunFrontend(
                     bundle,
-                    args,
+                    installerStartCheck ? ["--sprawdz-start-cicho"] : args,
                     new ShellLaunchRequest([], false),
                     suppressFailureDialog: true,
                     activateAfterStart: false);

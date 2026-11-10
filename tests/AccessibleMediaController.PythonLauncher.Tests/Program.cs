@@ -33,6 +33,7 @@ internal static class Program
         ("osobne instancje launcherów profili", ReleaseProfilesHaveSeparateLauncherLeases),
         ("osobne instancje aktualizatorów profili", ReleaseProfilesHaveSeparateUpdaterLeases),
         ("launcher blokuje start podczas aktualizacji właściwego profilu", LauncherBlocksStartDuringProfileUpdate),
+        ("kontrola instalatora omija blokadę tylko dla dwóch cichych prób", InstallerChecksAreNarrow),
         ("kompletna instalacja przechodzi pełne sprawdzenie", InstalledBundlePassesFullVerification),
         ("brak pliku po instalacji jest wykrywany", InstalledBundleDetectsMissingFile),
         ("uszkodzony plik niestartowy po instalacji jest wykrywany", InstalledBundleDetectsCorruptNonStartupFile),
@@ -550,6 +551,20 @@ internal static class Program
             updater.Join(TimeSpan.FromSeconds(5));
         }
         Equal(null, UpdateInProgressGate.ActiveProfile(test.Root));
+    }
+
+    private static void InstallerChecksAreNarrow()
+    {
+        Equal(true, UpdateInProgressGate.IsInstallerCheck(
+            [UpdateInProgressGate.InstallerFullCheck]));
+        Equal(true, UpdateInProgressGate.IsInstallerCheck(
+            [UpdateInProgressGate.InstallerStartCheck]));
+        Equal(false, UpdateInProgressGate.IsInstallerCheck([]));
+        Equal(false, UpdateInProgressGate.IsInstallerCheck(
+            ["--sprawdz-pakiet-pelny-cicho"]));
+        Equal(false, UpdateInProgressGate.IsInstallerCheck(
+            [UpdateInProgressGate.InstallerFullCheck, "--activate-after-update"]));
+        Equal(false, UpdateInProgressGate.IsInstallerCheck(["--sprawdz-start-cicho"]));
     }
 
     private static void InstalledBundlePassesFullVerification()

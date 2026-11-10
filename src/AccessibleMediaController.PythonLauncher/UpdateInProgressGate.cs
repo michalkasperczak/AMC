@@ -6,6 +6,23 @@ namespace AccessibleMediaController.PythonLauncher;
 /// <summary>Detects a profile update before the launcher reads replaceable files.</summary>
 internal static class UpdateInProgressGate
 {
+    internal const string InstallerFullCheck = "--sprawdz-pakiet-instalatora-pelny-cicho";
+    internal const string InstallerStartCheck = "--sprawdz-start-instalatora-cicho";
+
+    // Instalator uruchomiony przez aktualizator musi sprawdzić skopiowane pliki
+    // przy zajętym mutexie aktualizacji. Tylko te dwie operacje diagnostyczne
+    // mogą ominąć bramkę; normalny start nadal czeka na koniec aktualizacji.
+    internal static bool IsInstallerCheck(IReadOnlyList<string> args) =>
+        args.Count == 1 && (IsInstallerFullCheck(args) || IsInstallerStartCheck(args));
+
+    internal static bool IsInstallerFullCheck(IReadOnlyList<string> args) =>
+        args.Count == 1 && string.Equals(args[0], InstallerFullCheck,
+            StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsInstallerStartCheck(IReadOnlyList<string> args) =>
+        args.Count == 1 && string.Equals(args[0], InstallerStartCheck,
+            StringComparison.OrdinalIgnoreCase);
+
     internal static ReleaseProfileDescriptor? ActiveProfile(string installationRoot)
     {
         var selected = ReadProfile(installationRoot);

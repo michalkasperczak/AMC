@@ -471,7 +471,7 @@ begin
   begin
     if (not Exec(
           ExpandConstant('{app}\AMC.exe'),
-          '--sprawdz-pakiet-pelny-cicho',
+          '--sprawdz-pakiet-instalatora-pelny-cicho',
           ExpandConstant('{app}'),
           SW_HIDE,
           ewWaitUntilTerminated,
@@ -483,7 +483,7 @@ begin
     end;
     if (not Exec(
           ExpandConstant('{app}\AMC.exe'),
-          '--sprawdz-start-cicho',
+          '--sprawdz-start-instalatora-cicho',
           ExpandConstant('{app}'),
           SW_HIDE,
           ewWaitUntilTerminated,
