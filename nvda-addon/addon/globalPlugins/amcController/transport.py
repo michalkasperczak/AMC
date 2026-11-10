@@ -95,6 +95,27 @@ class BridgeError(Exception):
     pass
 
 
+def pipe_name(profile, session_id=None):
+    if profile not in ("test", "public"):
+        raise BridgeError("Wybierz okno AMC Test lub AMC Public.")
+    if session_id is None:
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.ProcessIdToSessionId.argtypes = [wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        session = wintypes.DWORD()
+        if not k.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
+            raise BridgeError("Nie można ustalić sesji Windows.")
+        session_id = session.value
+    return "AMC.NVDA.v1.%d.%s" % (session_id, profile)
+
+
+def pipe_available(profile):
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.WaitNamedPipeW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD]
+    k.WaitNamedPipeW.restype = wintypes.BOOL
+    path = "\\\\.\\pipe\\" + pipe_name(profile)
+    return bool(k.WaitNamedPipeW(path, 0)) or ctypes.get_last_error() in (121, 231)
+
+
 class Overlapped(ctypes.Structure):
     _fields_ = [("Internal", ctypes.c_size_t), ("InternalHigh", ctypes.c_size_t),
                 ("Offset", wintypes.DWORD), ("OffsetHigh", wintypes.DWORD), ("hEvent", wintypes.HANDLE)]
@@ -132,10 +153,7 @@ def exchange(command, pipe_name=None):
         getattr(k, name).argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
                                      ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(Overlapped)]
     if pipe_name is None:
-        session = wintypes.DWORD()
-        if not k.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
-            raise BridgeError("Nie można ustalić sesji Windows.")
-        pipe_name = "AMC.NVDA.v1.%d" % session.value
+        raise BridgeError("Wybierz okno AMC Test lub AMC Public.")
     # SQOS IDENTIFICATION prevents a pipe server from impersonating NVDA.
     connect_deadline = time.monotonic() + .4
     while True:
@@ -145,7 +163,9 @@ def exchange(command, pipe_name=None):
             break
         # Retry only opening the pipe, before sending any command bytes.
         if ctypes.get_last_error() not in (2, 231) or time.monotonic() >= connect_deadline:
-            raise BridgeError("Brak połączenia z AMC. Uruchom wersję alpha 342 lub nowszą; jeśli działa, spróbuj za chwilę.")
+            label = "AMC Test" if pipe_name.endswith(".test") else (
+                "AMC Public" if pipe_name.endswith(".public") else "AMC")
+            raise BridgeError("Brak połączenia z %s. Uruchom lub zaktualizuj ten profil i spróbuj ponownie." % label)
         time.sleep(.015)
     deadline = time.monotonic() + 2.5
 

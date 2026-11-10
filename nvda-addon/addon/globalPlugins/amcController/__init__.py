@@ -4,8 +4,11 @@ from scriptHandler import script
 from winAPI.sessionTracking import isLockScreenModeActive
 import ui
 import wx
+from pathlib import Path
 
 from .transport import BridgeError, exchange
+from .transport import pipe_name
+from .routing import ProfileRouter
 from .worker import CommandWorker
 
 
@@ -15,15 +18,20 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._closed = False
+        config_path = getattr(globalVars.appArgs, "configPath", None)
+        self._router = ProfileRouter(
+            Path(config_path) / "amc-controller-last-profile.txt" if config_path else None
+        )
         self._worker = CommandWorker(self._exchange, self._deliver)
 
     def _blocked(self):
         return self._closed or globalVars.appArgs.secure or isLockScreenModeActive()
 
-    def _exchange(self, command):
+    def _exchange(self, item):
         if self._blocked():
             return {"message": ""}
-        return exchange(command)
+        profile, command = item
+        return exchange(command, pipe_name(profile))
 
     def _deliver(self, message):
         if isinstance(message, BridgeError):
@@ -38,7 +46,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             ui.message(message)
 
     def _send(self, command):
-        if not self._blocked() and not self._worker.submit(command):
+        if self._blocked():
+            return
+        try:
+            profile = self._router.select()
+        except BridgeError as error:
+            ui.message(str(error))
+            return
+        if not self._worker.submit(command, target=profile):
             ui.message("AMC: poczekaj na poprzednie polecenie.")
 
     def terminate(self):

@@ -171,7 +171,8 @@ internal static class Program
             timeshiftBufferFolder: timeshiftBufferFolder,
             queueStartupError: queueStartupError);
         using var nvdaRelay = new LiteNvdaRelay();
-        using var nvdaBridge = new LiteNvdaBridge(nvdaRelay);
+        using var nvdaBridge = new LiteNvdaBridge(
+            nvdaRelay, ReadArgumentText(args, "--release-profile") ?? "test");
         var registeredHandlers = new Dictionary<string, Func<LiteRequest, LiteEventSink, object?>>(
             handlers.Build(), StringComparer.Ordinal);
         foreach (var entry in nvdaRelay.Handlers()) registeredHandlers.Add(entry.Key, entry.Value);

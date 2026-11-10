@@ -25,10 +25,11 @@ MAX_REPEAT = 24
 
 
 class _Pending:
-    __slots__ = ("command", "created", "count", "cancelled")
+    __slots__ = ("command", "target", "created", "count", "cancelled")
 
-    def __init__(self, command, created):
+    def __init__(self, command, target, created):
         self.command = command
+        self.target = target
         self.created = created
         self.count = 1
         self.cancelled = False
@@ -45,26 +46,27 @@ class CommandWorker:
         self._thread = threading.Thread(target=self._run, name="AMC controller", daemon=True)
         self._thread.start()
 
-    def submit(self, command):
+    def submit(self, command, target=None):
         if self._closed.is_set():
             return False
         now = time.monotonic()
+        key = (target, command)
         if command in REPEATABLE:
             with self._gate:
-                waiting = self._repeatable.get(command)
+                waiting = self._repeatable.get(key)
                 if waiting is not None and not waiting.cancelled and waiting.count < MAX_REPEAT:
                     # Krotnosc rosnie, kolejka sie NIE wydluza.
                     waiting.count += 1
                     waiting.created = now
                     return True
-        entry = _Pending(command, now)
+        entry = _Pending(command, target, now)
         try:
             self._queue.put_nowait(entry)
         except queue.Full:
             return False
         if command in REPEATABLE:
             with self._gate:
-                self._repeatable[command] = entry
+                self._repeatable[key] = entry
         return True
 
     def close(self):
@@ -74,8 +76,9 @@ class CommandWorker:
     def _take(self, entry):
         """Odbierz wpis z kolejki i domknij go dla scalania."""
         with self._gate:
-            if self._repeatable.get(entry.command) is entry:
-                del self._repeatable[entry.command]
+            key = (entry.target, entry.command)
+            if self._repeatable.get(key) is entry:
+                del self._repeatable[key]
             entry.cancelled = True
             return entry.count
 
@@ -97,7 +100,8 @@ class CommandWorker:
                 if self._closed.is_set():
                     return
                 try:
-                    response = self._exchange(entry.command)
+                    payload = entry.command if entry.target is None else (entry.target, entry.command)
+                    response = self._exchange(payload)
                     message = response["message"]
                 except Exception as error:
                     # Only intentional BridgeError labels may be spoken by the adapter.

@@ -135,10 +135,18 @@ internal sealed record NvdaReply(bool Ok, string Message);
 internal sealed class NvdaCommandServer : IDisposable
 {
     internal static string DefaultPipeName => $"AMC.NVDA.v1.{Process.GetCurrentProcess().SessionId}";
+    internal static string ProfilePipeName(string profile, int sessionId) => profile switch
+    {
+        "test" or "public" when sessionId >= 0 => $"AMC.NVDA.v1.{sessionId}.{profile}",
+        _ => throw new ArgumentException("Nieznany profil wydania AMC.", nameof(profile))
+    };
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly TaskCompletionSource<bool> _ready =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Func<string, CancellationToken, Task<NvdaReply>> _execute;
     private readonly string _pipeName;
     internal Task Completion { get; }
+    internal Task Ready => _ready.Task;
 
     internal NvdaCommandServer(Func<string, CancellationToken, Task<NvdaReply>> execute, string? pipeName = null)
     {
@@ -156,6 +164,7 @@ internal sealed class NvdaCommandServer : IDisposable
                 using var pipe = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 1,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly,
                     4096, 16384);
+                _ready.TrySetResult(true);
                 await pipe.WaitForConnectionAsync(_shutdown.Token);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
                 deadline.CancelAfter(TimeSpan.FromSeconds(2));
@@ -186,6 +195,7 @@ internal sealed class NvdaCommandServer : IDisposable
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (Exception exception)
         {
+            _ready.TrySetException(exception);
             DiagnosticLog.Error("nvda-bridge", "Połączenie z dodatkiem NVDA jest niedostępne; odtwarzacz działa dalej.", exception);
         }
     }

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.LiteHost;
 /// <c>CurrentUserOnly</c>, limit czasu i listę dozwolonych poleceń co pełny AMC.
 /// Samo wykonanie przekazuje właścicielowi interfejsu przez JSON-lines.
 /// </summary>
-internal sealed class LiteNvdaBridge(LiteNvdaRelay relay) : IDisposable
+internal sealed class LiteNvdaBridge(LiteNvdaRelay relay, string releaseProfile) : IDisposable
 {
     internal const string ConfigureOperation = "nvda.configure";
     private NvdaCommandServer? _server;
@@ -33,7 +33,9 @@ internal sealed class LiteNvdaBridge(LiteNvdaRelay relay) : IDisposable
     internal void Start(LiteEventSink events)
     {
         _events = events;
-        _server = new NvdaCommandServer(ExecuteAsync);
+        var pipeName = NvdaCommandServer.ProfilePipeName(
+            releaseProfile, System.Diagnostics.Process.GetCurrentProcess().SessionId);
+        _server = new NvdaCommandServer(ExecuteAsync, pipeName);
     }
 
     private async Task<NvdaReply> ExecuteAsync(string command, CancellationToken cancellation)

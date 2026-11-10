@@ -283,7 +283,7 @@ class ControllerTests(unittest.TestCase):
             for _ in range(worker.MAX_REPEAT + 30):
                 controller.submit("seekForward")
             with controller._gate:
-                waiting = controller._repeatable.get("seekForward")
+                waiting = controller._repeatable.get((None, "seekForward"))
             self.assertIsNotNone(waiting)
             self.assertLessEqual(waiting.count, worker.MAX_REPEAT)
             # Polecenia jednorazowe (przelaczniki, widoki) NIE moga sie scalac -

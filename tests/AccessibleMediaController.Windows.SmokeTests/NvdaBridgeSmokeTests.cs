@@ -463,6 +463,34 @@ internal static class NvdaBridgeSmokeTests
     private static async Task RunAsync()
     {
         await TestAsyncOrigin();
+        // Synthetic session token: never collide with an installed AMC pipe.
+        var session = Random.Shared.Next(100000, int.MaxValue);
+        var testPipe = NvdaCommandServer.ProfilePipeName("test", session);
+        var publicPipe = NvdaCommandServer.ProfilePipeName("public", session);
+        Check(testPipe != publicPipe, "AMC Test and Public need separate NVDA pipes");
+        foreach (var invalid in new[] { "", "other", "Test", "public/other" })
+        {
+            try { NvdaCommandServer.ProfilePipeName(invalid, session); throw new Exception("Accepted invalid profile"); }
+            catch (ArgumentException) { }
+        }
+        var profileCalls = new List<string>();
+        using (var testServer = new NvdaCommandServer((command, _) =>
+        {
+            profileCalls.Add("test:" + command);
+            return Task.FromResult(new NvdaReply(true, "AMC Test"));
+        }, testPipe))
+        using (var publicServer = new NvdaCommandServer((command, _) =>
+        {
+            profileCalls.Add("public:" + command);
+            return Task.FromResult(new NvdaReply(true, "AMC Public"));
+        }, publicPipe))
+        {
+            var testReply = await SendAsync(testPipe, "{\"version\":1,\"command\":\"status\"}\n");
+            var publicReply = await SendAsync(publicPipe, "{\"version\":1,\"command\":\"playPause\"}\n");
+            Check(testReply.GetProperty("message").GetString() == "AMC Test", "Test response belongs to Test");
+            Check(publicReply.GetProperty("message").GetString() == "AMC Public", "Public response belongs to Public");
+            Check(profileCalls.SequenceEqual(new[] { "test:status", "public:playPause" }), "No command crosses profiles");
+        }
         Check(NvdaCommands.Resolve("recordPause") == CommandIds.ToggleRadioRecordingPause, "Recording pause is not playback pause");
         Check(NvdaCommands.Resolve("showAudioOutput") == CommandIds.SelectAudioOutput, "Use canonical output-device selector");
         Check(NvdaCommands.OpensWindow("showSessions") && !NvdaCommands.OpensWindow("sessionNext"), "Explicit UI separated from background session control");
@@ -523,6 +551,7 @@ internal static class NvdaBridgeSmokeTests
     {
         using var server = new NvdaCommandServer((command, _) =>
             Task.FromResult(new NvdaReply(true, "Test połączenia: " + command)), pipeName);
+        server.Ready.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         Console.WriteLine("READY");
         Console.ReadLine();
     }

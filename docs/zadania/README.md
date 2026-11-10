@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `NVDA-DUAL-20261110` — **Kod, test dwóch rzeczywistych hostów i kompilacje celowane zaliczone; bez instalacji, restartu NVDA i publikacji** — jeden dodatek kieruje skróty do AMC Test lub AMC Public przez osobne potoki. [Wynik i dalszy odbiór](NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md).
+
 - `RELEASE-20261109-alpha488` — **W trakcie; Test i Public do zbudowania i publikacji, instalacja tylko Public** — zbiorcza aktualizacja ostatnich poprawek. [Plan i wyniki](RELEASE-20261109-alpha488.md).
 
 - `HIST-REL-20261109` — **Kod i testy celowane gotowe; bez instalacji i odbioru NVDA** — nazwy albumu, wykonawcy, podcastu i kanału pod prawą strzałką w historii oraz kopiowanie nazw i dokładnych linków. [Szczegóły](HIST-REL-20261109-nazwy-i-linki.md).
