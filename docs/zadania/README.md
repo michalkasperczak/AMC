@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `RADIO-FAST-001` — **Oczekuje** — sprawdzić Page Up/Page Down dla stacji w otwartym odtwarzaczu i zmierzyć, czy dalsze przyspieszenie jest potrzebne. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
+- `RADIO-FAST-001` — **W trakcie; kod i 10 testów celowanych gotowe, pomiar audio i odbiór NVDA czekają** — Page Up/Page Down w odtwarzaczu zmienia stację; menu, paleta i pomoc nazywają ją prawidłowo. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
 - `YT-006` — **Oczekuje** — dostępny wybór konkretnego wariantu pobrania pojedynczego materiału. [Szczegóły](YT-006-dokladny-wybor-wariantu-pobrania.md).
 - `RADIO-TRACK-001` — **Oczekuje: badanie wykonalności** — zapis rozpoznanego utworu z bufora radia do osobnego pliku. [Szczegóły](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
 
