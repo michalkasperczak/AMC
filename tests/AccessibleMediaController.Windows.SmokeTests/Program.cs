@@ -5133,8 +5133,8 @@ static void TestRadioBrowserSearchMapping()
 
 static void TestRadioBrowserBrowseMapping()
 {
-    using var countryHttp = new HttpClient(new FixedJsonHandler(
-        """[{"name":"PL","stationcount":"42"},{"name":"XK","stationcount":1}]"""));
+    const string countryResponse = """[{"name":"PL","stationcount":"42"},{"name":"XK","stationcount":1}]""";
+    using var countryHttp = new HttpClient(new FixedJsonHandler(countryResponse));
     using var countryCatalog = new RadioBrowserClient(countryHttp);
     var countries = countryCatalog.BrowseCountriesAsync().GetAwaiter().GetResult();
     Assert(countries.Any(country => country.Code == "PL"
@@ -5143,6 +5143,18 @@ static void TestRadioBrowserBrowseMapping()
         "Kraj katalogu nie zachował nazwy użytkowej i liczby stacji.");
     Assert(countries.Any(country => country.Code == "XK" && country.Name == "Kosowo"),
         "Nieznany systemowi kod kraju nie dostał użytkowej nazwy.");
+
+    var mirrorHandler = new FailingMirrorHandler(countryResponse);
+    using var mirrorHttp = new HttpClient(mirrorHandler);
+    using var mirrorCatalog = new RadioBrowserClient(mirrorHttp, _ =>
+        Task.FromResult<IReadOnlyList<string>>([
+            "untrusted.example", "de1.api.radio-browser.info", "de2.api.radio-browser.info"
+        ]));
+    var mirrorCountries = mirrorCatalog.BrowseCountriesAsync().GetAwaiter().GetResult();
+    Assert(mirrorCountries.Count == 2
+        && mirrorHandler.Hosts.SequenceEqual([
+            "de1.api.radio-browser.info", "de2.api.radio-browser.info"
+        ]), "Przeglądanie nie ominęło obcej nazwy lub nie przeszło do następnego serwera.");
 
     const string stationResponse = """
         [{"stationuuid":"station-1","name":"Radio Testowe",
@@ -8811,6 +8823,25 @@ sealed class FixedJsonHandler(string json) : HttpMessageHandler
         Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
         RequestMessage = request
     });
+}
+
+sealed class FailingMirrorHandler(string json) : HttpMessageHandler
+{
+    public List<string> Hosts { get; } = [];
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var host = request.RequestUri?.Host ?? "";
+        Hosts.Add(host);
+        if (host == "de1.api.radio-browser.info")
+            return Task.FromException<HttpResponseMessage>(new HttpRequestException("Serwer próbny niedostępny"));
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+            RequestMessage = request
+        });
+    }
 }
 
 sealed class FixedDurationWaveStream(TimeSpan duration) : WaveStream

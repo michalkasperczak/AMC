@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Sessions;
 
@@ -12,13 +14,20 @@ public sealed record RadioBrowserStationPage(IReadOnlyList<MediaItem> Items, boo
 public sealed class RadioBrowserClient : IDisposable
 {
     private const string ApiRoot = "https://all.api.radio-browser.info";
+    private const string DefaultMirror = "de1.api.radio-browser.info";
     private readonly HttpClient _client;
     private readonly bool _ownsClient;
+    private readonly Func<CancellationToken, Task<IReadOnlyList<string>>> _mirrorResolver;
 
-    public RadioBrowserClient(HttpClient? client = null)
+    public RadioBrowserClient(
+        HttpClient? client = null,
+        Func<CancellationToken, Task<IReadOnlyList<string>>>? mirrorResolver = null)
     {
         _ownsClient = client is null;
         _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        _mirrorResolver = mirrorResolver ?? (client is null
+            ? DiscoverMirrorsAsync
+            : _ => Task.FromResult<IReadOnlyList<string>>([DefaultMirror]));
         if (!_client.DefaultRequestHeaders.UserAgent.Any())
         {
             _client.DefaultRequestHeaders.UserAgent.ParseAdd("AccessibleMultimediaController/0.1");
@@ -61,9 +70,8 @@ public sealed class RadioBrowserClient : IDisposable
     public async Task<IReadOnlyList<RadioBrowserCountry>> BrowseCountriesAsync(
         CancellationToken cancellationToken = default)
     {
-        var uri = new Uri($"{ApiRoot}/json/countrycodes?hidebroken=true");
-        var response = await _client.GetFromJsonAsync<CountryCodeRecord[]>(uri, cancellationToken)
-            .ConfigureAwait(false) ?? [];
+        var response = await ReadBrowseJsonAsync<CountryCodeRecord[]>(
+            "/json/countrycodes?hidebroken=true", cancellationToken).ConfigureAwait(false);
         return response
             .Where(item => item.Name is { Length: 2 }
                 && item.Name.All(char.IsLetter)
@@ -91,11 +99,11 @@ public sealed class RadioBrowserClient : IDisposable
         if (offset < 0 || limit is < 1 or > 100)
             throw new ArgumentOutOfRangeException(nameof(offset));
         var reverse = order == "name" ? "false" : "true";
-        var uri = new Uri($"{ApiRoot}/json/stations/search?countrycode={code}"
+        var path = $"/json/stations/search?countrycode={code}"
             + $"&hidebroken=true&order={order}&reverse={reverse}"
-            + $"&offset={offset}&limit={limit}");
-        var found = await ReadStationsAsync(uri, cancellationToken, requireSuccess: true)
-            .ConfigureAwait(false);
+            + $"&offset={offset}&limit={limit}";
+        var found = await ReadBrowseJsonAsync<RadioBrowserStation[]>(
+            path, cancellationToken).ConfigureAwait(false);
         var items = found
             .Where(station => station.LastCheckOk != 0)
             .Where(station => Uri.TryCreate(
@@ -105,7 +113,73 @@ public sealed class RadioBrowserClient : IDisposable
                 && streamUri.Scheme is "http" or "https")
             .Select(ToMediaItem)
             .ToArray();
-        return new RadioBrowserStationPage(items, found.Count == limit);
+        return new RadioBrowserStationPage(items, found.Length == limit);
+    }
+
+    private async Task<T> ReadBrowseJsonAsync<T>(
+        string path, CancellationToken cancellationToken) where T : class
+    {
+        Exception? lastFailure = null;
+        var mirrors = await _mirrorResolver(cancellationToken).ConfigureAwait(false);
+        foreach (var host in mirrors.Where(IsTrustedMirror).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri($"https://{host}{path}");
+                return await _client.GetFromJsonAsync<T>(uri, cancellationToken)
+                    .ConfigureAwait(false) ?? throw new JsonException("Pusta odpowiedź katalogu.");
+            }
+            catch (Exception exception) when (
+                !cancellationToken.IsCancellationRequested
+                && exception is HttpRequestException or TaskCanceledException)
+            {
+                lastFailure = exception;
+                DiagnosticLog.Warning("radio-catalog", $"Serwer {host} nie odpowiedział: {exception.Message}");
+            }
+        }
+        throw lastFailure ?? new HttpRequestException("Brak serwerów Radio Browser.");
+    }
+
+    private static async Task<IReadOnlyList<string>> DiscoverMirrorsAsync(
+        CancellationToken cancellationToken)
+    {
+        var mirrors = new List<string>();
+        try
+        {
+            var addresses = await Dns.GetHostAddressesAsync(
+                "all.api.radio-browser.info", cancellationToken).ConfigureAwait(false);
+            foreach (var address in addresses.OrderBy(_ => Random.Shared.Next()))
+            {
+                try
+                {
+                    var entry = await Dns.GetHostEntryAsync(address)
+                        .WaitAsync(TimeSpan.FromSeconds(3), cancellationToken).ConfigureAwait(false);
+                    var host = entry.HostName.TrimEnd('.');
+                    if (IsTrustedMirror(host)) mirrors.Add(host);
+                }
+                catch (Exception exception) when (
+                    !cancellationToken.IsCancellationRequested
+                    && exception is System.Net.Sockets.SocketException or TimeoutException)
+                {
+                    DiagnosticLog.Warning("radio-catalog", $"Nie można nazwać serwera {address}: {exception.Message}");
+                }
+            }
+        }
+        catch (System.Net.Sockets.SocketException exception)
+        {
+            DiagnosticLog.Warning("radio-catalog", $"DNS Radio Browser nie odpowiedział: {exception.Message}");
+        }
+        if (mirrors.Count == 0) mirrors.Add(DefaultMirror);
+        return mirrors.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static bool IsTrustedMirror(string host)
+    {
+        const string suffix = ".api.radio-browser.info";
+        if (!host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return false;
+        var prefix = host[..^suffix.Length];
+        return prefix.Length > 0 && prefix.All(
+            character => char.IsAsciiLetterOrDigit(character) || character == '-');
     }
 
     private static string CountryDisplayName(string code)
