@@ -13,12 +13,13 @@ from amc_wx_lite.playback_history import (
     observed_wiim_row,
     record_row,
     normalize_histories,
+    update_tidal_bitrate,
 )
 from amc_wx_lite.shortcuts import (
     Action, Chord, resolve, FRONTIER_SMART_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS, TIDAL_SUPPORTED_ACTIONS,
 )
-from amc_wx_lite.state_store import LiteState
+from amc_wx_lite.state_store import LiteState, Options
 
 
 def test_wiim_and_sonos_observations_require_real_playback() -> None:
@@ -103,6 +104,91 @@ def test_confirmed_sonos_material_is_saved_as_replayable_history() -> None:
     assert restored[0].parent_id == "house-one"
     assert restored[0].service_id == "stream-one"
     assert saved == [True]
+
+
+def test_tidal_history_keeps_measured_bitrate_only_on_matching_play() -> None:
+    first = Row("tidal-one", "Pierwszy", "track", service_id="1",
+                artist_name="Wykonawca", related_album_title="Album")
+    second = Row("tidal-two", "Drugi", "track", service_id="2")
+    saved = record_row(record_row([], first, replay_supported=True), second,
+                       replay_supported=True)
+    unchanged = update_tidal_bitrate(saved, "tidal-one", 0)
+    assert unchanged == saved
+    updated = update_tidal_bitrate(saved, "tidal-one", 1411)
+    assert updated[0]["bitrateKbps"] == 0
+    assert updated[1]["bitrateKbps"] == 1411
+    assert "1411 kb/s" in history_rows("tidal", updated)[1].detail
+
+
+def test_tidal_history_left_arrow_reports_known_or_missing_bitrate() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    row = Row("tidal-one", "Pierwszy", "track", artist_name="Wykonawca",
+              related_album_title="Album")
+    navigator.apply_service_history(SessionId.TIDAL, [row])
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        state=SimpleNamespace(playback_history_by_session={
+            "tidal": [{"itemId": "tidal-one", "bitrateKbps": 1411}]
+        }, list_reading_overrides={}),
+        options=Options(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _description_target_row=lambda _session: row,
+    )
+    LiteFrame._announce_quick_information(frame)
+    assert "Wykonawca" in spoken[-1]
+    assert "Album" in spoken[-1]
+    assert "1411 kb/s" in spoken[-1]
+    frame.state.playback_history_by_session["tidal"][0].pop("bitrateKbps")
+    LiteFrame._announce_quick_information(frame)
+    assert "Bitrate niedostępny" in spoken[-1]
+
+
+def test_tidal_status_cannot_attach_another_tracks_bitrate() -> None:
+    navigator = Navigator()
+    navigator.sessions[SessionId.TIDAL].now_playing_id = "tidal-one"
+    history = record_row([], Row("tidal-one", "Pierwszy", "track"),
+                         replay_supported=True)
+    saves = []
+    frame = SimpleNamespace(
+        navigator=navigator, _tidal_native_has_playback=True,
+        _tidal_native_active_track_id="1",
+        state=SimpleNamespace(playback_history_by_session={"tidal": history}),
+        _queue_streamer_history_save=lambda: saves.append(True),
+    )
+    LiteFrame._remember_tidal_history_bitrate(
+        frame, {"id": "tidal:2", "bitrateKbps": 1411}
+    )
+    assert not saves
+    LiteFrame._remember_tidal_history_bitrate(
+        frame, {"id": "tidal:1", "bitrateKbps": 1411}
+    )
+    assert saves == [True]
+    assert frame.state.playback_history_by_session["tidal"][0]["bitrateKbps"] == 1411
+    LiteFrame._remember_tidal_history_bitrate(
+        frame, {"id": "tidal:1", "bitrateKbps": 1411}
+    )
+    assert saves == [True]
+
+
+def test_player_membership_targets_playing_track_not_hidden_list_selection() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    playing = Row("playing", "Grający", "track", service_id="1",
+                  related_album_service_id="album-1",
+                  related_album_title="Album grający")
+    old = Row("old", "Wcześniej zaznaczony", "track", service_id="2")
+    navigator.session.model.replace([old])
+    navigator.session.now_playing_id = playing.item_id
+    navigator.session.playback_source_rows = (playing,)
+    navigator.session.view = View.PLAYER
+    frame = SimpleNamespace(
+        navigator=navigator,
+        _active_list=lambda: SimpleNamespace(selected_rows=lambda: [old]),
+    )
+    assert LiteFrame._selected_action_rows(frame) == [playing]
+    assert LiteFrame._album_of_track(playing).service_id == "album-1"
 
 
 def test_streamer_history_is_newest_first_deduplicated_and_user_facing() -> None:

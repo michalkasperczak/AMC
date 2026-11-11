@@ -511,13 +511,13 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
             "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
             "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
             "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
-            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music"
+            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music. "
+            "W AMC Test Ctrl+Shift+L zmienia Bibliotekę albumu, Ctrl+Shift+U Ulubione utworu "
+            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania"
         ),
         "Ctrl+Alt+S",
         "Rozpoznan&e utwory…",
     ),
-    Action.VIEW_PODCAST_INBOX: CommandPresentation(
-        Action.VIEW_PODCAST_INBOX,
     Action.SELECT_YOUTUBE_VARIANT: CommandPresentation(
         Action.SELECT_YOUTUBE_VARIANT,
         "Wybierz wariant pobrania…",
@@ -525,6 +525,8 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         "",
         "Wybierz &wariant pobrania…",
     ),
+    Action.VIEW_PODCAST_INBOX: CommandPresentation(
+        Action.VIEW_PODCAST_INBOX,
         "Nowe odcinki i materiały",
         (
             "Otwórz nowe odcinki i materiały; w otwartej skrzynce "
@@ -2603,11 +2605,11 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Pobierz zaznaczone filmy YouTube, Facebooka lub Instagrama jako wideo"
         ),
         Action.SAVE_YOUTUBE_VIDEO_AS: "Zapisz jeden film internetowy jako plik wideo",
-        Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
-        Action.CURRENT_RADIO_BROADCAST_INFORMATION: (
         Action.SELECT_YOUTUBE_VARIANT: (
             "Wybierz dokładny wariant obrazu i dźwięku jednego filmu YouTube"
         ),
+        Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
+        Action.CURRENT_RADIO_BROADCAST_INFORMATION: (
             "Informacje o bieżącym odtwarzaniu"
         ),
         Action.RECOGNIZE_RADIO_TRACK: "Rozpoznaj utwór z odtwarzanej stacji",
@@ -2621,7 +2623,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Pokaż rozpoznane utwory. Fokus zaczyna na liście; Tab przechodzi "
             "do filtra stacji, Shift+Tab wraca do utworów. Enter otwiera utwór, "
             "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
-            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music"
+            "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music. "
+            "W AMC Test Ctrl+Shift+L zmienia Bibliotekę albumu, Ctrl+Shift+U Ulubione utworu "
+            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania"
         ),
         Action.GO_TO_RELATED_PODCAST: (
             "Pokaż podcast lub kanał wybranego odcinka. Enter otwiera cel"
@@ -2951,11 +2955,11 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.REFRESH_YOUTUBE_RADIO_STATION,
         Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
         Action.CHOOSE_PODCAST_INBOX_SOURCES,
+        Action.SELECT_YOUTUBE_VARIANT,
         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL,
         Action.FRONTIER_SMART_SELECT_MODE,
         Action.REFRESH_COMMON_DATA,
         Action.COMMON_DATA_STATUS,
-        Action.SELECT_YOUTUBE_VARIANT,
         Action.EXPORT_BACKUP,
         Action.IMPORT_BACKUP,
         Action.OPEN_CONTAINING_FOLDER,

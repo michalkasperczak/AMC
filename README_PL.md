@@ -890,8 +890,27 @@ spisie skrótów. Wyłączenie mowy jest potwierdzane jednoznacznym komunikatem.
 W oknie historii `Ctrl+Alt+S` fokus zaczyna na liście rozpoznanych utworów.
 `Tab` przechodzi do pola „Filtr stacji”, gdzie wpisanie części nazwy, np. „GDA”,
 od razu zawęża listę do pasujących stacji. `Shift+Tab` wraca do utworów.
-`Ctrl+Shift+C` kopiuje link wybranego utworu i po sukcesie potwierdza usługę,
-np. „Skopiowano link Spotify”, bez wcześniejszego komunikatu o przygotowaniu.
+`Ctrl+Shift+C` kopiuje dokładny link wybranego utworu, gdy dopasowanie jest
+potwierdzone, i po sukcesie podaje usługę, np. „Skopiowano link Spotify”.
+Gdy dokładnego łącza brak, kopiuje link wyszukiwania i mówi to wprost,
+np. „Skopiowano link wyszukiwania Spotify”.
+W AMC Test `Ctrl+Shift+L` na rozpoznanym utworze zapisuje jego dopasowany
+album w Bibliotece TIDAL lub Spotify, a `Ctrl+Shift+U` zmienia Ulubione samego
+utworu. Skróty działają również na liście działań pod prawą strzałką i w
+odtwarzaczu po otwarciu wyniku. Zapis wymaga potwierdzonego dopasowania;
+gdy go brak, program podaje przyczynę bez zmiany kolekcji. `Ctrl+Shift+C` na
+liście działań rozróżnia dokładne łącze od łącza wyszukiwania. W historii
+odtwarzania TIDAL `Ctrl+H` lewa strzałka podaje zmierzony bitrate, jeśli
+został zapisany dla tego odtworzenia; starszy wpis bez pomiaru mówi, że dane
+są niedostępne.
+
+Po rozpoznaniu utworu w historii dostępny jest przycisk **Sprawdź fragment…**
+oraz ta sama funkcja w menu kontekstowym. AMC pokazuje dostępny zakres bufora
+w sekundach względem początku próbki użytej do rozpoznania. Ustaw początek i
+koniec, odsłuchaj okolice obu granic i wybierz **Zapisz fragment…**. Wynikiem
+jest plik WAV z wybranego dźwięku. Rozpoznanie nie ustala dokładnych granic
+piosenki; po nadpisaniu bufora lub ponownym uruchomieniu trzeba ją rozpoznać
+jeszcze raz. Zapis nie zmienia stacji ani nie zatrzymuje nagrania.
 
 Wersja `alpha.208` naprawia przewijanie sieciowych odcinków Podcastów,
 pozostawia bieżący odcinek w Kolejce do zakończenia lub przejścia dalej,

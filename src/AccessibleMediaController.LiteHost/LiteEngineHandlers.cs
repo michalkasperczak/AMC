@@ -3809,6 +3809,9 @@ internal sealed class LiteEngineHandlers : IDisposable
                 : engine == "radio" ? _radio.LoadedItemId : _files.LoadedItemId,
             currentBroadcastText,
             currentPlaybackText,
+            // Wewnętrzna liczba dla Historii TIDAL. Frontend nie wyprowadza jej
+            // z gotowego tekstu NVDA ani nie myli z częstotliwością próbkowania.
+            bitrateKbps = target.SessionId == "tidal" ? item?.BitrateKbps : null,
             // Sam utwór dla tytułu okna (NVDA+T); pasek stanu ma pełny opis wyżej.
             streamTitle = engine == "radio" && item is not null ? CurrentRadioStreamTitle(item) : null
         };
@@ -3871,9 +3874,6 @@ internal sealed class LiteEngineHandlers : IDisposable
         (_podcastDownloads ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).SaveVideoAs(args, events);
 
-    private object PodcastOpmlImport(JsonElement args) =>
-        (_podcastOpml ?? throw new LiteRequestException(
-            "Host nie ma dostępu do bazy Podcastów i YouTube.")).Import(args);
     private object PodcastVideoVariants(JsonElement args) =>
         (_podcastDownloads ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).VideoVariants(args);
@@ -3882,6 +3882,9 @@ internal sealed class LiteEngineHandlers : IDisposable
         (_podcastDownloads ?? throw new LiteRequestException(
             "Host nie ma dostępu do bazy Podcastów i YouTube.")).SaveVideoVariantAs(args, events);
 
+    private object PodcastOpmlImport(JsonElement args) =>
+        (_podcastOpml ?? throw new LiteRequestException(
+            "Host nie ma dostępu do bazy Podcastów i YouTube.")).Import(args);
 
     private object PodcastOpmlExport(JsonElement args) =>
         (_podcastOpml ?? throw new LiteRequestException(

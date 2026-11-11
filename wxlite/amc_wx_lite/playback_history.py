@@ -104,6 +104,10 @@ def normalize_session_history(raw: object) -> list[dict]:
             continue
         seen.add(identity)
         item["durationSeconds"] = _number(raw_item.get("durationSeconds"))
+        bitrate = raw_item.get("bitrateKbps")
+        item["bitrateKbps"] = (
+            bitrate if type(bitrate) is int and 16 <= bitrate <= 30_000 else 0
+        )
         item["replaySupported"] = raw_item.get("replaySupported") is True
         result.append(item)
     return result
@@ -132,6 +136,8 @@ def _detail(item: dict) -> str:
             and all(existing.casefold() != text.casefold() for existing in parts)
         ):
             parts.append(text)
+    if item["bitrateKbps"]:
+        parts.append(f"{item['bitrateKbps']} kb/s")
     return ", ".join(parts)
 
 
@@ -214,6 +220,7 @@ def record_row(raw: object, row: Row, *, replay_supported: bool) -> list[dict]:
         "relatedArtistExternalId": row.related_artist_service_id or "",
         "relatedArtistName": row.related_artist_name,
         "durationSeconds": max(0.0, row.duration_ticks / 10_000_000),
+        "bitrateKbps": 0,
         "replaySupported": replay_supported,
     }
     identity = _identity(entry)
@@ -221,6 +228,19 @@ def record_row(raw: object, row: Row, *, replay_supported: bool) -> list[dict]:
         entry,
         *(item for item in current if _identity(item) != identity),
     ])
+
+
+def update_tidal_bitrate(raw: object, item_id: str, bitrate_kbps: object) -> list[dict]:
+    """Attach measured bitrate only to the already recorded TIDAL play."""
+    items = normalize_session_history(raw)
+    if (not item_id or type(bitrate_kbps) is not int
+            or not 16 <= bitrate_kbps <= 30_000):
+        return items
+    for item in items:
+        if item["itemId"] == item_id:
+            item["bitrateKbps"] = bitrate_kbps
+            break
+    return items
 
 
 def activity_rows(

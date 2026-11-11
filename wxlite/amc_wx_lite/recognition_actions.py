@@ -112,6 +112,7 @@ def select_catalog_match(entry: dict, candidates: list[dict]) -> dict | None:
     wanted_artist = _text(entry.get("artist"))
     wanted_album = _text(entry.get("album"))
     best: tuple[float, dict] | None = None
+    ambiguous = False
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
@@ -120,13 +121,22 @@ def select_catalog_match(entry: dict, candidates: list[dict]) -> dict | None:
         if title_score < 0.72 or (wanted_artist and artist_score < 0.50):
             continue
         album_score = _similarity(wanted_album, candidate.get("album")) if wanted_album else 0.0
+        # A known album distinguishes editions with the same title and artist.
+        # A different edition must not be announced as an exact track link.
+        if wanted_album and album_score < 0.72:
+            continue
         score = title_score * 60.0 + artist_score * 35.0 + album_score * 5.0
         minimum = 82.0 if wanted_artist else 55.0
         if score < minimum:
             continue
-        if best is None or score > best[0]:
+        if best is None or score > best[0] + 0.01:
             best = score, candidate
-    return best[1] if best is not None else None
+            ambiguous = False
+        elif best is not None and abs(score - best[0]) <= 0.01 and (
+            _text(candidate.get("serviceId")) != _text(best[1].get("serviceId"))
+        ):
+            ambiguous = True
+    return best[1] if best is not None and not ambiguous else None
 
 
 def _service_identifier(value: object, kind: str) -> str:
@@ -224,7 +234,11 @@ def cached_matches(entry: dict) -> dict[str, dict]:
     result: dict[str, dict] = {}
     for service in (SPOTIFY, TIDAL, APPLE_MUSIC):
         match = sanitize_match(raw.get(service), expected_service=service)
-        if match is not None:
+        if match is not None and (
+            service == APPLE_MUSIC or select_catalog_match(
+                entry, [{**match, "album": match["albumTitle"]}]
+            ) is not None
+        ):
             result[service] = match
     return result
 
@@ -258,6 +272,34 @@ def row_from_match(match: dict) -> Row | None:
         related_album_title=clean["albumTitle"],
         related_artist_service_id=clean["artistServiceId"] or None,
         related_artist_name=clean["artistName"],
+    )
+
+
+def membership_row(action: RecognitionAction, match: dict | None, *, favorite: bool) -> Row | None:
+    """Use a verified catalogue entity for collection commands, never a search URL."""
+    clean = sanitize_match(match, expected_service=action.service) if match else None
+    if clean is None or clean["service"] not in DEFAULT_SERVICES:
+        return None
+    if favorite:
+        return row_from_match(clean) if action.entity == "track" else None
+    if action.entity == "artist":
+        service_id, title, url, kind = (
+            clean["artistServiceId"], clean["artistName"] or clean["artist"],
+            clean["artistUrl"], "artist",
+        )
+    elif action.entity in ("track", "album"):
+        service_id, title, url, kind = (
+            clean["albumServiceId"], clean["albumTitle"], clean["albumUrl"], "album",
+        )
+    else:
+        return None
+    if not service_id or not title:
+        return None
+    return Row(
+        item_id=f"recognition:{action.service}:{kind}:{service_id}",
+        title=title, kind=kind, url=url or None,
+        service_id=service_id, service_kind=kind,
+        artist_name=clean["artist"],
     )
 
 

@@ -17,6 +17,7 @@ from amc_wx_lite.recognition_actions import (
     all_actions,
     cached_matches,
     match_from_row,
+    membership_row,
     quick_actions,
     select_catalog_match,
     store_match,
@@ -71,6 +72,87 @@ def test_shared_action_model_keeps_right_arrow_short_and_context_complete() -> N
     assert quick[0].label in labels
     assert quick[1].label in labels
     assert "Apple Music — wyszukaj w przeglądarce" in labels
+
+
+def test_recognized_membership_uses_album_for_library_and_track_for_favorites() -> None:
+    for service in (SPOTIFY, TIDAL):
+        match = match_from_row(service, _spotify_row())
+        action = next(item for item in quick_actions(_entry(), service)
+                      if item.service == service and item.entity == "track")
+        album = membership_row(action, match, favorite=False)
+        track = membership_row(action, match, favorite=True)
+        assert album is not None and album.kind == "album"
+        assert album.service_id == "album-1"
+        assert track is not None and track.kind == "track"
+        assert track.service_id == "track-1"
+        assert membership_row(action, None, favorite=True) is None
+        assert membership_row(action, match_from_row(
+            TIDAL if service == SPOTIFY else SPOTIFY, _spotify_row()
+        ), favorite=True) is None
+
+
+def test_recognized_match_rejects_other_album_and_ambiguous_editions() -> None:
+    known = _entry()
+    wrong_album = {"title": known["title"], "artist": known["artist"],
+                   "album": "Completely Different Album", "serviceId": "one"}
+    assert select_catalog_match(known, [wrong_album]) is None
+    unknown_album = {"title": known["title"], "artist": known["artist"]}
+    editions = [
+        {"title": known["title"], "artist": known["artist"],
+         "serviceId": identity, "album": album}
+        for identity, album in (("one", "Album A"), ("two", "Album B"))
+    ]
+    assert select_catalog_match(unknown_album, editions) is None
+
+
+def test_recognized_shortcuts_mutate_selected_service_without_opening_it() -> None:
+    calls = []
+    for service in (SPOTIFY, TIDAL):
+        action = next(item for item in quick_actions(_entry(), service)
+                      if item.service == service and item.entity == "track")
+        match = match_from_row(service, _spotify_row())
+        window = SimpleNamespace(
+            _selected_action=lambda: action,
+            _entry=_entry(), _closing=False,
+            _set_status=lambda message: calls.append(("status", message)),
+            _membership_status=lambda message: calls.append(("confirmed", message)),
+            _resolve_action=lambda _entry, _action, ready, _failed: ready(match),
+            _change_membership_action=lambda selected, resolved, **options:
+                calls.append((selected.service, resolved["serviceId"],
+                              options["favorite"])),
+        )
+        RecognitionActionsWindow._change_membership(window, favorite=False)
+        RecognitionActionsWindow._change_membership(window, favorite=True)
+    assert calls == [
+        (SPOTIFY, "track-1", False), (SPOTIFY, "track-1", True),
+        (TIDAL, "track-1", False), (TIDAL, "track-1", True),
+    ]
+
+
+def test_recognized_collection_command_uses_confirmed_search_mutation() -> None:
+    calls = []
+    frame = SimpleNamespace(
+        _complete_remote_search_result_action=lambda entries, action, **options:
+            calls.append((entries[0].session_id, entries[0].row.kind,
+                          entries[0].row.service_id, action.name,
+                          options["announce"])),
+    )
+    say = lambda message: calls.append(("spoken", message))
+    for service, session in ((SPOTIFY, SessionId.SPOTIFY),
+                             (TIDAL, SessionId.TIDAL)):
+        action = next(item for item in quick_actions(_entry(), service)
+                      if item.service == service and item.entity == "track")
+        match = match_from_row(service, _spotify_row())
+        LiteFrame._change_recognition_membership(
+            frame, action, match, favorite=False, announce=say
+        )
+        LiteFrame._change_recognition_membership(
+            frame, action, match, favorite=True, announce=say
+        )
+        assert calls[-2:] == [
+            (session, "album", "album-1", "LIBRARY", say),
+            (session, "track", "track-1", "FAVORITE", say),
+        ]
 
 
 def test_right_arrow_uses_track_before_album_and_never_guesses_album_from_title() -> None:
@@ -163,8 +245,8 @@ def test_copy_confirmations_use_the_active_recognition_window_live_region() -> N
     assert 'self._set_status("Skopiowano nazwę działania")' in window
     assert 'f"Skopiowano link {service}"' in window
     assert '"Skopiowano opis" if len(selected) == 1' in history
-    assert 'f"Skopiowano link {recognition_service_label(action.service)}"' in history
-    assert 'f"Skopiowano link wyszukiwania "' in history
+    assert 'f"Skopiowano link {service}"' in history
+    assert 'f"Skopiowano link wyszukiwania {service}"' in history
 
 
 def test_cached_copy_link_does_not_precede_confirmation_with_lookup_message() -> None:
@@ -233,6 +315,34 @@ def test_right_arrow_copy_falls_back_to_named_album_search_if_exact_match_fails(
     assert len(copied) == 1
     assert "Osobista+Kolekcja+2" in copied[0]
     assert spoken == ["Skopiowano link wyszukiwania TIDAL"]
+
+
+def test_history_copy_reports_exact_or_search_link_for_both_services() -> None:
+    for service, label in ((SPOTIFY, "Spotify"), (TIDAL, "TIDAL")):
+        entry = _entry()
+        match = match_from_row(service, _spotify_row())
+        for exact in (True, False):
+            copied, spoken = [], []
+            dialog = SimpleNamespace(
+                _selected_entry=lambda: entry,
+                _default_service=service,
+                _internal_services=(SPOTIFY, TIDAL),
+                _copy_to_clipboard=lambda link: copied.append(link) or True,
+                _set_status=spoken.append,
+                _resolve_action=(
+                    (lambda _entry, _action, ready, _failed: ready(match))
+                    if exact else
+                    (lambda _entry, _action, _ready, failed: failed(LookupError()))
+                ),
+            )
+            RadioRecognitionHistoryDialog._copy_track_link(dialog)
+            assert len(copied) == 1
+            assert copied[0].startswith("https://")
+            assert spoken == [
+                f"Skopiowano link {label}" if exact else
+                f"Skopiowano link wyszukiwania {label}"
+            ]
+            assert ("/search" in copied[0]) is not exact
 
 
 def test_apple_music_enter_in_right_arrow_copies_link_and_keeps_window_open() -> None:
@@ -522,6 +632,7 @@ def test_escape_returns_to_the_same_session_and_view_that_opened_history() -> No
                 _detailed_hints=False,
                 _to_clipboard=lambda _text: True,
                 _resolve_recognition_match=lambda *_args: None,
+                _change_recognition_membership=lambda *_args, **_kwargs: None,
                 _save_state=lambda: None,
                 _execute_recognition_action=lambda *_args: None,
             )

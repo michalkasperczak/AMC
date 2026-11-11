@@ -168,6 +168,7 @@ from .playback_history import (
     observed_wiim_row,
     record_row as record_streamer_history_row,
     remove_rows as remove_streamer_history_rows,
+    update_tidal_bitrate as update_tidal_history_bitrate,
 )
 from .playback_activity import (
     activity_rows as playback_activity_rows,
@@ -325,8 +326,8 @@ from .podcast_source import (
     is_supported_video_row,
     subscription_rows,
 )
-from .paging import load_more_row, requested_count
 from .youtube_variants import DownloadVariant, can_choose_variant, read_variants
+from .paging import load_more_row, requested_count
 from .quick_info import (
     HOST_ERROR_MESSAGE,
     NO_SOURCE_MESSAGE,
@@ -388,6 +389,7 @@ from .recognition_actions import (
     all_actions as recognition_all_actions,
     cached_matches as recognition_cached_matches,
     match_from_row as recognition_match_from_row,
+    membership_row as recognition_membership_row,
     normalize_default_service as normalize_recognition_default_service,
     quick_actions as recognition_quick_actions,
     quick_information as recognition_quick_information,
@@ -573,9 +575,9 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.SAVE_PODCAST_EPISODE_AS,
         Action.DOWNLOAD_YOUTUBE_VIDEOS,
         Action.SAVE_YOUTUBE_VIDEO_AS,
+        Action.SELECT_YOUTUBE_VARIANT,
         Action.SHOW_PODCAST_DESCRIPTION,
         Action.GO_TO_RELATED_PODCAST,
-        Action.SELECT_YOUTUBE_VARIANT,
         Action.PODCAST_PLAYBACK_OPTIONS,
         Action.CURRENT_RADIO_BROADCAST_INFORMATION,
         Action.RECORDING_OUTPUT_INFORMATION,
@@ -3096,8 +3098,6 @@ def podcast_add_error_message(error: Exception) -> str:
     )
 
 
-class PodcastSourceDialog(wx.Dialog):
-    """Natywny formularz dodawania RSS i źródeł internetowych."""
 class YouTubeVariantDialog(wx.Dialog):
     """One deliberate spoken label per selected yt-dlp format."""
 
@@ -3155,6 +3155,8 @@ class YouTubeVariantDialog(wx.Dialog):
             event.Skip()
 
 
+class PodcastSourceDialog(wx.Dialog):
+    """Natywny formularz dodawania RSS i źródeł internetowych."""
 
     def __init__(self, parent: wx.Window) -> None:
         super().__init__(
@@ -7359,6 +7361,7 @@ class RecognitionActionsWindow(wx.Frame):
         copy_to_clipboard: Callable[[str], bool],
         resolve_action,
         execute_action,
+        change_membership,
         detailed_hints: bool,
         finished: Callable[[bool], None],
     ) -> None:
@@ -7377,15 +7380,23 @@ class RecognitionActionsWindow(wx.Frame):
         self._copy_to_clipboard = copy_to_clipboard
         self._resolve_action = resolve_action
         self._execute_action = execute_action
+        self._change_membership_action = change_membership
         self._finished = finished
         self._closing = False
 
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
+        membership_hint = (
+            "Ctrl+Shift+L zapisuje album lub wykonawcę, "
+            "Ctrl+Shift+U zapisuje utwór w Ulubionych. "
+            if any(action.operation == "show_amc" and action.service in DEFAULT_SERVICES
+                   for action in actions) else ""
+        )
         hint = (
             "Enter wykonuje działanie; dla Apple Music kopiuje link. "
             "Ctrl+C kopiuje nazwę działania, "
-            "Ctrl+Shift+C kopiuje jego łącze. Strzałka w lewo lub Escape wraca."
+            "Ctrl+Shift+C kopiuje jego łącze. "
+            + membership_hint + "Strzałka w lewo lub Escape wraca."
         )
         self.actions = wx.ListBox(panel, choices=[action.label for action in actions])
         self.actions.SetName("Najważniejsze działania dla rozpoznanego utworu")
@@ -7428,6 +7439,10 @@ class RecognitionActionsWindow(wx.Frame):
     def _set_status(self, text: str) -> None:
         announce_status(self.status, text)
 
+    def _membership_status(self, text: str) -> None:
+        if not self._closing:
+            self._set_status(text)
+
     def _selected_action(self) -> RecognitionAction | None:
         index = self.actions.GetSelection()
         return self._actions[index] if 0 <= index < len(self._actions) else None
@@ -7467,6 +7482,30 @@ class RecognitionActionsWindow(wx.Frame):
         action = self._selected_action()
         if action is not None and self._copy_to_clipboard(action.label):
             self._set_status("Skopiowano nazwę działania")
+
+    def _change_membership(self, *, favorite: bool) -> None:
+        action = self._selected_action()
+        if (action is None or action.service not in DEFAULT_SERVICES
+                or action.operation != "show_amc"):
+            self._set_status("To działanie nie obsługuje Biblioteki ani Ulubionych")
+            return
+        if favorite and action.entity != "track":
+            self._set_status("Do Ulubionych wybierz utwór Spotify lub TIDAL")
+            return
+
+        def ready(match: dict | None) -> None:
+            if self._closing:
+                return
+            self._change_membership_action(
+                action, match, favorite=favorite, announce=self._membership_status
+            )
+
+        self._resolve_action(
+            self._entry, action, ready,
+            lambda _error: self._set_status(
+                f"Nie znaleziono dokładnego wyniku w {recognition_service_label(action.service)}"
+            ),
+        )
 
     def _copy_link(self) -> None:
         action = self._selected_action()
@@ -7523,6 +7562,10 @@ class RecognitionActionsWindow(wx.Frame):
         chord = chord_from_event(event).canonical
         if chord == "Ctrl+Shift+C":
             self._copy_link()
+        elif chord == "Ctrl+Shift+L":
+            self._change_membership(favorite=False)
+        elif chord == "Ctrl+Shift+U":
+            self._change_membership(favorite=True)
         elif chord == "Ctrl+C":
             self._copy_name()
         elif chord == "Return":
@@ -7712,6 +7755,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         default_service: str,
         submit,
         resolve_match,
+        change_membership,
         clip_info,
         clip_save,
         clip_preview,
@@ -7725,6 +7769,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         self._default_service = normalize_recognition_default_service(default_service)
         self._submit = submit
         self._resolve_match = resolve_match
+        self._change_membership_action = change_membership
         self._clip_info = clip_info
         self._clip_save = clip_save
         self._clip_preview = clip_preview
@@ -7747,7 +7792,10 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 "Rozpoznane utwory. Enter otwiera utwór, Ctrl+Enter album w usłudze "
                 "domyślnej, prawa strzałka pokazuje nazwane utwory i łącze Apple Music, "
                 "lewa podaje krótką "
-                "informację. Ctrl+C kopiuje opis, Ctrl+Shift+C dokładne łącze. "
+                "informację. Ctrl+C kopiuje opis, Ctrl+Shift+C dokładne łącze "
+                "albo nazwany link wyszukiwania. "
+                "Ctrl+Shift+L zapisuje album utworu w Bibliotece, "
+                "Ctrl+Shift+U zmienia Ulubione. "
                 "Przycisk Sprawdź fragment pozwala odsłuchać i zapisać dźwięk z bufora. "
                 "Alt+strzałka w górę lub w dół zmienia kolejność, Delete usuwa. "
                 "Tab przechodzi do filtra stacji."
@@ -7845,6 +7893,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         actions = self._actions_window
         self._actions_window = None
         if actions is not None:
+            actions._closing = True
             actions.Destroy()
         finished = self._finished
         self._finished = lambda: None
@@ -7922,6 +7971,10 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
     def _set_status(self, text: str) -> None:
         announce_status(self.status, text)
 
+    def _membership_status(self, text: str) -> None:
+        if not self._closing:
+            self._set_status(text)
+
     def _resolve_action(self, entry, action, ready, failed) -> None:
         if self._closing:
             return
@@ -7966,6 +8019,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         if entry is None:
             self._set_status("Brak wybranego wpisu")
             return
+        service = recognition_service_label(self._default_service)
         exact_link = self._default_service in self._internal_services
         action = RecognitionAction(
             "default.track.copy" if exact_link else "default.track.search.copy",
@@ -7976,31 +8030,56 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             url=(
                 ""
                 if exact_link
-                else recognition_search_links(entry)[
-                    recognition_service_label(self._default_service)
-                ]
+                else recognition_search_links(entry)[service]
             ),
         )
 
+        def fallback() -> None:
+            link = recognition_search_links(entry).get(service, "")
+            if link and self._copy_to_clipboard(link):
+                self._set_status(f"Skopiowano link wyszukiwania {service}")
+            else:
+                self._set_status("Nie udało się skopiować łącza")
+
         def ready(match: dict | None) -> None:
             link = recognition_action_url(action, match)
-            if link and self._copy_to_clipboard(link):
-                if exact_link:
-                    self._set_status(
-                        f"Skopiowano link {recognition_service_label(action.service)}"
-                    )
-                else:
-                    self._set_status(
-                        f"Skopiowano link wyszukiwania "
-                        f"{recognition_service_label(action.service)}"
-                    )
+            if not link:
+                fallback()
+            elif not self._copy_to_clipboard(link):
+                self._set_status("Nie udało się skopiować łącza")
+            elif exact_link:
+                self._set_status(f"Skopiowano link {service}")
             else:
-                self._set_status("Nie znaleziono dokładnego łącza do utworu")
+                self._set_status(f"Skopiowano link wyszukiwania {service}")
 
         self._resolve_action(
             entry,
             action,
             ready,
+            lambda _error: fallback(),
+        )
+
+    def _change_membership(self, *, favorite: bool) -> None:
+        entry = self._selected_entry()
+        if entry is None:
+            self._set_status("Brak wybranego wpisu")
+            return
+        if self._default_service not in self._internal_services:
+            self._set_status("Ta usługa nie obsługuje zapisu w bieżącym profilu AMC")
+            return
+        action = RecognitionAction(
+            "default.track.membership", "Rozpoznany utwór", "show_amc",
+            self._default_service, "track",
+        )
+
+        def ready(match: dict | None) -> None:
+            if not self._closing:
+                self._change_membership_action(
+                    action, match, favorite=favorite, announce=self._membership_status
+                )
+
+        self._resolve_action(
+            entry, action, ready,
             lambda _error: self._set_status(
                 f"Nie znaleziono dokładnego utworu w {recognition_service_label(action.service)}"
             ),
@@ -8126,6 +8205,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             copy_to_clipboard=self._copy_to_clipboard,
             resolve_action=self._resolve_action,
             execute_action=execute,
+            change_membership=self._change_membership_action,
             detailed_hints=self._detailed_hints,
             finished=finished,
         )
@@ -8238,6 +8318,11 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         add("Kopiuj opis\tCtrl+C", lambda _event: self._copy())
         add("Sprawdź i zapisz fragment radia…",
             lambda _event: self._show_clip())
+        if self._default_service in self._internal_services:
+            add("Zmień Bibliotekę albumu\tCtrl+Shift+L",
+                lambda _event: self._change_membership(favorite=False))
+            add("Zmień Ulubione utworu\tCtrl+Shift+U",
+                lambda _event: self._change_membership(favorite=True))
         add(
             (
                 "Kopiuj łącze do utworu\tCtrl+Shift+C"
@@ -8276,6 +8361,10 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         chord = chord_from_event(event).canonical
         if chord == "Ctrl+Shift+C":
             self._copy_track_link()
+        elif chord == "Ctrl+Shift+L":
+            self._change_membership(favorite=False)
+        elif chord == "Ctrl+Shift+U":
+            self._change_membership(favorite=True)
         elif chord == "Ctrl+C":
             self._copy()
         elif chord == "Alt+Up":
@@ -11198,6 +11287,7 @@ class LiteFrame(wx.Frame):
         single_youtube_video_item = (
             len(selected_action_rows) == 1 and youtube_video_items
         )
+        single_youtube_item = can_choose_variant(selected_action_rows)
         recording_status = getattr(self, "_last_recording_status", {}) or {}
         active_recordings = recording_status.get("recordings") or []
         radio_recording = bool(
@@ -11287,7 +11377,6 @@ class LiteFrame(wx.Frame):
             Action.SORT_SPOTIFY_COLLECTION_ALPHABETICAL: SORT_ALPHABETICAL,
             Action.SORT_SPOTIFY_COLLECTION_CATALOG: SORT_CUSTOM,
         }
-        single_youtube_item = can_choose_variant(selected_action_rows)
         wiim_sort_actions = {
             Action.SORT_WIIM_NETWORK_STREAMS_ADDED: SORT_ADDED_NEWEST,
             Action.SORT_WIIM_NETWORK_STREAMS_ALPHABETICAL: SORT_ALPHABETICAL,
@@ -11392,6 +11481,8 @@ class LiteFrame(wx.Frame):
                 and not single_youtube_video_item
             ):
                 enabled = False
+            if entry.needs_single_youtube_item and not single_youtube_item:
+                enabled = False
             if entry.excludes_youtube_video_item and youtube_video_items:
                 enabled = False
             if entry.needs_tidal_collection and not tidal_collection:
@@ -11480,8 +11571,6 @@ class LiteFrame(wx.Frame):
             if entry.needs_podcast_item and (
                 not podcasts or selected_kind not in ("podcast", "episode")
             ):
-                enabled = False
-            if entry.needs_single_youtube_item and not single_youtube_item:
                 enabled = False
             if entry.needs_description_item and not (
                 self.navigator.active in (SessionId.PODCASTS, SessionId.SPOTIFY)
@@ -26118,89 +26207,6 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("youtube-video-save-as-info", prepare, prepared, failed)
 
-    def _save_podcast_episode_as(self) -> None:
-        """Ctrl+S: jedna jawnie nazwana kopia, bez zmiany pola Pobrane."""
-        if self.navigator.active is not SessionId.PODCASTS:
-            self.announcer.say("Zapisywanie odcinka jest dostępne w sesji Podcasty i YouTube")
-            return
-        if self._podcast_download_pending:
-            self.announcer.say("Pobieranie odcinków już trwa")
-            return
-        client = self.client
-        if client is None:
-            self.announcer.say("Silnik nie działa, nie mogę zapisać odcinka")
-            return
-
-        rows = [row for row in self._selected_action_rows() if row.kind == "episode"]
-        if len(rows) != 1:
-            self.announcer.say(
-                "Zapisz jako działa dla jednego odcinka. Wybierz jeden odcinek i spróbuj ponownie"
-            )
-            return
-        row = rows[0]
-        self._podcast_download_pending = True
-        self.status_bar.show("Przygotowywanie zapisu odcinka")
-
-        def prepare() -> dict:
-            result = client.podcast_save_as_info(row.item_id)
-            return result if isinstance(result, dict) else {}
-
-        def prepared(info: dict) -> None:
-            suggested = str(
-                info.get("suggestedFileName") or "Odcinek podcastu.mp3"
-            ).strip()
-            initial_folder = str(info.get("initialFolder") or "").strip()
-            extension = Path(suggested).suffix or ".mp3"
-            with wx.FileDialog(
-                self,
-                message="Zapisz odcinek podcastu jako",
-                defaultDir=initial_folder,
-                defaultFile=suggested,
-                wildcard=(
-                    f"Plik audio (*{extension})|*{extension}|"
-                    "Wszystkie pliki (*.*)|*.*"
-                ),
-                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-            ) as picker:
-                if picker.ShowModal() != wx.ID_OK:
-                    self._podcast_download_pending = False
-                    return
-                destination = picker.GetPath()
-
-            started = f"Pobieranie odcinka: {row.title}"
-            self.status_field.SetLabel(started)
-            self.status_bar.show(started)
-            self.announcer.say("Pobieranie odcinka")
-
-            def work() -> dict:
-                result = client.save_podcast_episode_as(row.item_id, destination)
-                return result if isinstance(result, dict) else {}
-
-            def done(payload: dict) -> None:
-                self._podcast_download_pending = False
-                file_name = str(
-                    payload.get("fileName") or Path(destination).name
-                ).strip()
-                message = f"Zapisano odcinek jako: {file_name}"
-                self.status_field.SetLabel(message)
-                self.status_bar.show(message)
-                self.announcer.say(message)
-
-            self.runner.submit("podcast-save-as", work, done, failed)
-
-        def failed(error: Exception) -> None:
-            self._podcast_download_pending = False
-            message = (
-                str(error)
-                if isinstance(error, (HostError, HostUnavailable))
-                else "Nie udało się zapisać odcinka"
-            )
-            self.status_field.SetLabel(message)
-            self.status_bar.show(message)
-            self.announcer.say(message)
-
-        self.runner.submit("podcast-save-as-info", prepare, prepared, failed)
-
     def _select_youtube_variant(self) -> None:
         """Choose one fresh yt-dlp format; the host rechecks it before saving."""
         if self.navigator.active is not SessionId.PODCASTS:
@@ -26311,6 +26317,89 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("youtube-variant-list", prepare, prepared,
                            lambda error: failed(error, listing=True))
+
+    def _save_podcast_episode_as(self) -> None:
+        """Ctrl+S: jedna jawnie nazwana kopia, bez zmiany pola Pobrane."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say("Zapisywanie odcinka jest dostępne w sesji Podcasty i YouTube")
+            return
+        if self._podcast_download_pending:
+            self.announcer.say("Pobieranie odcinków już trwa")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę zapisać odcinka")
+            return
+
+        rows = [row for row in self._selected_action_rows() if row.kind == "episode"]
+        if len(rows) != 1:
+            self.announcer.say(
+                "Zapisz jako działa dla jednego odcinka. Wybierz jeden odcinek i spróbuj ponownie"
+            )
+            return
+        row = rows[0]
+        self._podcast_download_pending = True
+        self.status_bar.show("Przygotowywanie zapisu odcinka")
+
+        def prepare() -> dict:
+            result = client.podcast_save_as_info(row.item_id)
+            return result if isinstance(result, dict) else {}
+
+        def prepared(info: dict) -> None:
+            suggested = str(
+                info.get("suggestedFileName") or "Odcinek podcastu.mp3"
+            ).strip()
+            initial_folder = str(info.get("initialFolder") or "").strip()
+            extension = Path(suggested).suffix or ".mp3"
+            with wx.FileDialog(
+                self,
+                message="Zapisz odcinek podcastu jako",
+                defaultDir=initial_folder,
+                defaultFile=suggested,
+                wildcard=(
+                    f"Plik audio (*{extension})|*{extension}|"
+                    "Wszystkie pliki (*.*)|*.*"
+                ),
+                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+            ) as picker:
+                if picker.ShowModal() != wx.ID_OK:
+                    self._podcast_download_pending = False
+                    return
+                destination = picker.GetPath()
+
+            started = f"Pobieranie odcinka: {row.title}"
+            self.status_field.SetLabel(started)
+            self.status_bar.show(started)
+            self.announcer.say("Pobieranie odcinka")
+
+            def work() -> dict:
+                result = client.save_podcast_episode_as(row.item_id, destination)
+                return result if isinstance(result, dict) else {}
+
+            def done(payload: dict) -> None:
+                self._podcast_download_pending = False
+                file_name = str(
+                    payload.get("fileName") or Path(destination).name
+                ).strip()
+                message = f"Zapisano odcinek jako: {file_name}"
+                self.status_field.SetLabel(message)
+                self.status_bar.show(message)
+                self.announcer.say(message)
+
+            self.runner.submit("podcast-save-as", work, done, failed)
+
+        def failed(error: Exception) -> None:
+            self._podcast_download_pending = False
+            message = (
+                str(error)
+                if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się zapisać odcinka"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-save-as-info", prepare, prepared, failed)
 
     def _description_target_row(self, session_id: SessionId) -> Row | None:
         """Use the focused list row or the actual item shown in the player."""
@@ -27250,6 +27339,10 @@ class LiteFrame(wx.Frame):
         przywracania fokusu po zmianie widoku. Zakres zaznaczony Shiftem/Ctrl
         zyje w kontrolce i tylko stamtad moze zostac odczytany bez utraty.
         """
+        session = getattr(self.navigator, "session", None)
+        if session is not None and getattr(session, "view", None) is View.PLAYER:
+            row = LiteFrame._description_target_row(self, self.navigator.active)
+            return [row] if row is not None else []
         try:
             rows = self._active_list().selected_rows()
         except (AttributeError, TypeError):
@@ -27304,6 +27397,21 @@ class LiteFrame(wx.Frame):
             service_kind="album",
             artist_name=context.artist,
             url=context.public_uri,
+        )
+
+    @staticmethod
+    def _album_of_track(row: Row) -> Row | None:
+        """Use the catalogue album of the selected track as the library target."""
+        if (row.kind != "track" or not row.related_album_service_id
+                or not row.related_album_title):
+            return None
+        return Row(
+            item_id=f"{row.item_id}:album",
+            title=row.related_album_title,
+            kind="album",
+            service_id=row.related_album_service_id,
+            service_kind="album",
+            artist_name=row.artist_name,
         )
 
     def _clear_pending_external_moves(self) -> None:
@@ -27477,6 +27585,24 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.TIDAL:
             if row is None:
                 self.announcer.say("Lista TIDAL jest pusta")
+                return
+            if self.navigator.session.library_view is LibraryView.SERVICE_HISTORY:
+                history = self.state.playback_history_by_session.get("tidal", ())
+                saved = next((item for item in history
+                              if item.get("itemId") == row.item_id), {})
+                bitrate = saved.get("bitrateKbps")
+                parts = []
+                if row.duration_ticks > 0 and "duration" in left_fields:
+                    parts.append(format_duration(row.duration_ticks / 10_000_000))
+                for value in (row.artist_name, row.related_album_title):
+                    if value and value not in parts:
+                        parts.append(value)
+                parts.append(
+                    f"{bitrate} kb/s"
+                    if type(bitrate) is int and 16 <= bitrate <= 30_000
+                    else "Bitrate niedostępny dla tego odtworzenia"
+                )
+                self.announcer.say(", ".join(parts))
                 return
             parts: list[str] = []
             has_duration = row.duration_ticks > 0 and "duration" in left_fields
@@ -28770,6 +28896,8 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Silnik nie działa, nie mogę zmienić kolekcji TIDAL")
             return
         rows = self._selected_action_rows()
+        if not favorite:
+            rows = [LiteFrame._album_of_track(row) or row for row in rows]
         allowed = {"track", "video"} if favorite else {"album", "artist", "playlist"}
         rows = [
             row for row in rows
@@ -28860,6 +28988,8 @@ class LiteFrame(wx.Frame):
             )
             return
         rows = self._selected_action_rows()
+        if not favorite:
+            rows = [LiteFrame._album_of_track(row) or row for row in rows]
         allowed = {"track", "episode"} if favorite else {
             "album", "artist", "podcast", "episode"
         }
@@ -33567,6 +33697,23 @@ class LiteFrame(wx.Frame):
         if bar is not None:
             bar.show(text)
 
+    def _remember_tidal_history_bitrate(self, payload: dict) -> None:
+        """Keep measured bitrate with the confirmed play, never another track."""
+        if not getattr(self, "_tidal_native_has_playback", False):
+            return
+        track_id = getattr(self, "_tidal_native_active_track_id", None)
+        if not track_id or payload.get("id") != f"tidal:{track_id}":
+            return
+        item_id = self.navigator.sessions[SessionId.TIDAL].now_playing_id
+        histories = self.state.playback_history_by_session
+        previous = list(histories.get("tidal", ()))
+        updated = update_tidal_history_bitrate(
+            previous, item_id or "", payload.get("bitrateKbps")
+        )
+        if updated != previous:
+            histories["tidal"] = updated
+            self._queue_streamer_history_save()
+
     def _on_timer(self, _event: wx.TimerEvent) -> None:
         # Stan transportu i nagran odswiezamy takze na liscie: dzieki temu
         # wiersz stacji uczciwie mowi, czy jest odtwarzany albo nagrywany.
@@ -33773,6 +33920,8 @@ class LiteFrame(wx.Frame):
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload
+            if requested_session is SessionId.TIDAL:
+                self._remember_tidal_history_bitrate(payload)
             if self.navigator.active is requested_session:
                 self._update_native_playback_status(payload)
             remote_player = (
@@ -35451,6 +35600,7 @@ class LiteFrame(wx.Frame):
             default_service=self.options.radio_recognition_default_service,
             submit=self.runner.submit,
             resolve_match=self._resolve_recognition_match,
+            change_membership=self._change_recognition_membership,
             clip_info=lambda token: self.client.radio_recognition_clip_info(token),
             clip_save=lambda token, first, last, path:
                 self.client.save_radio_recognition_clip(token, first, last, path),
@@ -35476,6 +35626,37 @@ class LiteFrame(wx.Frame):
             str(entry.get(key) or "").strip()
             for key in ("artist", "title")
             if str(entry.get(key) or "").strip()
+        )
+
+    def _change_recognition_membership(
+        self, action: RecognitionAction, match: dict | None, *,
+        favorite: bool, announce: Callable[[str], None],
+    ) -> None:
+        """Apply the same confirmed catalogue mutation as a search result."""
+        if action.service not in DEFAULT_SERVICES:
+            announce("Ta usługa nie obsługuje zapisu w AMC")
+            return
+        capability = "session.spotify" if action.service == SPOTIFY else "session.tidal"
+        if capability not in current_profile().capabilities:
+            announce("Ta usługa nie jest dostępna w bieżącym profilu AMC")
+            return
+        row = recognition_membership_row(action, match, favorite=favorite)
+        if row is None:
+            announce(
+                "Brak dokładnego utworu do dodania do Ulubionych"
+                if favorite else
+                "Brak dokładnego albumu lub wykonawcy do dodania do Biblioteki"
+            )
+            return
+        session_id = SessionId.SPOTIFY if action.service == SPOTIFY else SessionId.TIDAL
+        entry = SearchEntry(
+            session_id, row,
+            remote_kind="spotifyCatalog" if session_id is SessionId.SPOTIFY else "tidalCatalog",
+        )
+        self._complete_remote_search_result_action(
+            [entry],
+            SearchResultAction.FAVORITE if favorite else SearchResultAction.LIBRARY,
+            announce=announce,
         )
 
     def _resolve_recognition_match(self, entry: dict, service: str) -> dict | None:
