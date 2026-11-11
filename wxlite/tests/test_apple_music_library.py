@@ -1,0 +1,244 @@
+"""The optional Apple library stays Test-only and returns sanitized records."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import SimpleNamespace
+import tempfile
+import unittest
+from pathlib import Path
+
+from amc_wx_lite.apple_music_credentials import AppleMusicWebCredentials
+from amc_wx_lite.apple_music_library import (
+    AppleMusicLibraryError,
+    AppleMusicNotConnected,
+    open_apple_music_library,
+)
+from amc_wx_lite.apple_music_source import records_from_resources
+from amc_wx_lite.profile_layout import private_sandbox
+from amc_wx_lite.release_profile import PUBLIC_PROFILE, TEST_PROFILE
+
+
+PRIVATE_TOKEN = "header.private.signature"
+PRIVATE_MEDIA_TOKEN = "private-media-user-token"
+PRIVATE_COOKIE = "media-user-token=private-session"
+
+
+class FakeStore:
+    def __init__(self, value: AppleMusicWebCredentials | None) -> None:
+        self.value = value
+
+    def read(self) -> AppleMusicWebCredentials | None:
+        return self.value
+
+
+@dataclass
+class ExternalCredentials:
+    developer_token: str
+    media_user_token: str
+    cookie_header: str
+
+
+class ExternalClient:
+    last_instance: "ExternalClient | None" = None
+
+    def __init__(self, credentials: ExternalCredentials, **options: object) -> None:
+        self.credentials = credentials
+        self.options = options
+        self.calls: list[object] = []
+        self.closed = False
+        ExternalClient.last_instance = self
+
+    @staticmethod
+    def _resource(kind: str, identifier: str, name: str) -> dict[str, object]:
+        return {
+            "id": identifier,
+            "type": kind,
+            "attributes": {"name": name},
+            "technical": PRIVATE_TOKEN,
+        }
+
+    def current_user_saved_tracks(self):
+        self.calls.append("songs")
+        return [self._resource("library-songs", "i.song", "Utwór")]
+
+    def current_user_saved_albums(self):
+        self.calls.append("albums")
+        return [self._resource("library-albums", "l.album", "Album")]
+
+    def current_user_saved_artists(self):
+        self.calls.append("artists")
+        return [self._resource("library-artists", "r.artist", "Wykonawca")]
+
+    def current_user_playlists(self):
+        self.calls.append("playlists")
+        return [self._resource("library-playlists", "p.list", "Moja lista")]
+
+    def playlist_tracks(self, playlist_id: str):
+        self.calls.append(("playlist", playlist_id))
+        return [self._resource("library-songs", "i.inside", "W playliście")]
+
+    def close(self) -> None:
+        self.closed = True
+
+
+MODULE = SimpleNamespace(
+    AppleMusicCredentials=ExternalCredentials,
+    AppleMusic=ExternalClient,
+)
+
+
+def credentials() -> AppleMusicWebCredentials:
+    return AppleMusicWebCredentials(
+        PRIVATE_TOKEN,
+        PRIVATE_MEDIA_TOKEN,
+        PRIVATE_COOKIE,
+    )
+
+
+class AppleMusicLibraryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.layout = private_sandbox(Path(self.temporary.name))
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+        ExternalClient.last_instance = None
+
+    def open(self):
+        return open_apple_music_library(
+            self.layout,
+            profile=TEST_PROFILE,
+            store=FakeStore(credentials()),
+            client_module=MODULE,
+        )
+
+    def test_open_builds_polish_client_without_exposing_credentials(self) -> None:
+        library = self.open()
+        external = ExternalClient.last_instance
+
+        self.assertIsNotNone(external)
+        self.assertEqual(external.options, {"language": "pl-PL"})
+        self.assertEqual(external.credentials.developer_token, PRIVATE_TOKEN)
+        self.assertNotIn(PRIVATE_TOKEN, str(library.view("songs").records[0]))
+
+    def test_each_read_only_view_calls_one_explicit_method(self) -> None:
+        library = self.open()
+        headings = []
+        labels = []
+        for view in ("songs", "albums", "artists", "playlists"):
+            result = library.view(view)
+            headings.append(result.heading)
+            labels.append(result.records[0].accessible_label)
+
+        self.assertEqual(
+            headings,
+            [
+                "Utwory Apple Music",
+                "Albumy Apple Music",
+                "Wykonawcy Apple Music",
+                "Playlisty Apple Music",
+            ],
+        )
+        self.assertEqual(
+            ExternalClient.last_instance.calls,
+            ["songs", "albums", "artists", "playlists"],
+        )
+        self.assertFalse(any(PRIVATE_TOKEN in label for label in labels))
+
+    def test_playlist_uses_private_id_but_heading_uses_only_name(self) -> None:
+        library = self.open()
+        playlist = library.view("playlists").records[0]
+
+        result = library.playlist_tracks(playlist)
+
+        self.assertEqual(result.heading, "Playlista: Moja lista")
+        self.assertEqual(result.records[0].row.title, "W playliście")
+        self.assertIn(("playlist", "p.list"), ExternalClient.last_instance.calls)
+        self.assertNotIn("p.list", result.heading)
+
+    def test_playlist_rejects_a_non_playlist_target(self) -> None:
+        library = self.open()
+        song = library.view("songs").records[0]
+
+        with self.assertRaises(AppleMusicLibraryError):
+            library.playlist_tracks(song)
+
+    def test_missing_connection_has_one_user_facing_message(self) -> None:
+        with self.assertRaises(AppleMusicNotConnected) as caught:
+            open_apple_music_library(
+                self.layout,
+                profile=TEST_PROFILE,
+                store=FakeStore(None),
+                client_module=MODULE,
+            )
+
+        self.assertEqual(str(caught.exception), "Apple Music nie jest zalogowane.")
+
+    def test_public_profile_refuses_before_touching_the_dependency(self) -> None:
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            open_apple_music_library(
+                self.layout,
+                profile=PUBLIC_PROFILE,
+                store=FakeStore(credentials()),
+                client_module=SimpleNamespace(),
+            )
+
+        self.assertEqual(
+            str(caught.exception),
+            "Nie udało się odczytać Biblioteki Apple Music.",
+        )
+
+    def test_provider_exception_never_reaches_user_message(self) -> None:
+        class FailingClient(ExternalClient):
+            def current_user_saved_tracks(self):
+                raise RuntimeError(PRIVATE_TOKEN + PRIVATE_COOKIE)
+
+        module = SimpleNamespace(
+            AppleMusicCredentials=ExternalCredentials,
+            AppleMusic=FailingClient,
+        )
+        library = open_apple_music_library(
+            self.layout,
+            profile=TEST_PROFILE,
+            store=FakeStore(credentials()),
+            client_module=module,
+        )
+
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            library.view("songs")
+
+        message = str(caught.exception)
+        self.assertNotIn(PRIVATE_TOKEN, message)
+        self.assertNotIn(PRIVATE_COOKIE, message)
+
+    def test_unknown_view_does_not_echo_technical_value(self) -> None:
+        library = self.open()
+
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            library.view("internal-view-with-" + PRIVATE_TOKEN)
+
+        self.assertNotIn(PRIVATE_TOKEN, str(caught.exception))
+
+    def test_context_manager_closes_the_private_client(self) -> None:
+        with self.open() as library:
+            library.view("albums")
+
+        self.assertTrue(ExternalClient.last_instance.closed)
+
+    def test_result_rows_are_plain_amc_rows_not_provider_records(self) -> None:
+        library = self.open()
+        result = library.view("artists")
+
+        self.assertEqual(result.rows[0].title, "Wykonawca")
+        self.assertNotIsInstance(result.rows[0], dict)
+        raw = records_from_resources([{
+            "id": "r.other",
+            "type": "library-artists",
+            "attributes": {"name": "Inny wykonawca"},
+        }])
+        self.assertEqual(raw[0].row.title, "Inny wykonawca")
+
+
+if __name__ == "__main__":
+    unittest.main()

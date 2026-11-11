@@ -52,6 +52,8 @@ def test_python_package_matches_isolated_runtime_app_path():
         assert "app/amc_wx_lite/locales/en_legacy.json" in copied
         assert (target / "requirements-tidal-test.txt").is_file()
         assert (target / "requirements-sonos-local-test.txt").is_file()
+        assert (target / "requirements-apple-music-test.txt").is_file()
+        assert (target / "app" / "amc_wx_lite" / "apple_music_source.py").is_file()
         assert not (target / "AMC-wx-Lite.cmd").exists()
 
 
@@ -92,6 +94,10 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
         assert "app/amc_wx_lite/gui.py" in copied
         assert (target / "requirements-tidal-test.txt").is_file()
         assert not (target / "requirements-sonos-local-test.txt").exists()
+        assert not (target / "requirements-apple-music-test.txt").exists()
+        assert not (package / "apple_music_credentials.py").exists()
+        assert not (package / "apple_music_library.py").exists()
+        assert not (package / "apple_music_source.py").exists()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
         assert not (package / "sonos_source.py").exists()
@@ -361,6 +367,37 @@ def test_public_profile_rejects_any_listed_private_service_module():
             raise AssertionError(
                 f"Publiczny profil nie moze zawierac prywatnego modulu {name}"
             )
+
+
+def test_apple_music_requirements_are_pinned_and_test_only():
+    requirements = (
+        Path(__file__).resolve().parents[1]
+        / "requirements-apple-music-test.txt"
+    ).read_text(encoding="utf-8")
+    assert (
+        "applemusic @ git+https://github.com/LunaParker/apple-music-py.git@"
+        "1d698359155d9b70d640234a1489165a06e6e01b"
+    ) in requirements
+    for requirement in (
+        "playwright==1.65.0",
+        "greenlet==3.5.6",
+        "httpx==0.28.1",
+        "httpcore==1.0.9",
+        "anyio==4.16.0",
+    ):
+        assert requirement in requirements
+    assert ">=" not in requirements
+
+    public = bundle.profile_from_id("public")
+    try:
+        bundle.validate_profile_files(
+            public,
+            ["requirements-apple-music-test.txt"],
+        )
+    except SystemExit as error:
+        assert "Publiczny pakiet AMC" in str(error)
+    else:
+        raise AssertionError("Zależności Apple Music nie mogą trafić do Public")
 
 
 def test_file_integrity_contains_hash_and_exact_size_for_every_file():

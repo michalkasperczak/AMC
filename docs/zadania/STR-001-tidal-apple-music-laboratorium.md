@@ -416,6 +416,11 @@ polecenia i komunikaty NVDA pozostaną w zwykłych kontrolkach AMC.
   pozostaje niedostępny w AMC Public. `python -m unittest
   wxlite.tests.test_apple_music_credentials -v` zaliczył 8/8, w tym prawdziwy
   DPAPI na Windows oraz syntetyczne ponowne użycie sesji bez przeglądarki.
+- Następny etap dodał bezpieczny model rekordów i adapter odczytu utworów,
+  albumów, wykonawców, playlist oraz ich zawartości. Trzy moduły Apple mają
+  28/28 testów, a celowany zestaw profili i paczek 84/84. Przypięty manifest
+  zależności oraz kod są wyłącznie w profilu Test; Chromium nie zostało jeszcze
+  pobrane ani dołączone do runtime.
 - Nie wykonano jeszcze logowania Apple, zapytania do Biblioteki, pełnego
   odtwarzania, testu DRM, NVDA, buildu, instalacji ani publikacji AMC.
 

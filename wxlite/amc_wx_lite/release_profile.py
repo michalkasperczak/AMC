@@ -110,6 +110,7 @@ TEST_PROFILE = ReleaseProfile(
         "sonos.local",
         "spotify.playlists",
         "youtube.account.readonly",
+        "apple-music.experimental",
     ),
 )
 
@@ -130,7 +131,11 @@ PUBLIC_PROFILE = ReleaseProfile(
     ),
     capabilities=tuple(
         capability for capability in TEST_PROFILE.capabilities
-        if capability not in {"session.sonos", "sonos.local"}
+        if capability not in {
+            "session.sonos",
+            "sonos.local",
+            "apple-music.experimental",
+        }
     ),
 )
 

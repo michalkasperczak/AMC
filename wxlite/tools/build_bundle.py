@@ -83,6 +83,9 @@ LIBRESPOT_BUILD = (
     "lokalna przypięta kompilacja Release offline dla AMC Test; bez publikacji"
 )
 PROFILE_GATED_SERVICE_MODULES = {
+    "apple_music_credentials.py": "apple-music.experimental",
+    "apple_music_library.py": "apple-music.experimental",
+    "apple_music_source.py": "apple-music.experimental",
     "frontier_smart_source.py": "session.frontier-smart",
     "sonos_local.py": "sonos.local",
     "sonos_source.py": "session.sonos",
@@ -344,6 +347,14 @@ def copy_python_code(
             copied.append(sonos_requirements.name)
     elif sonos_requirements.is_file():
         sonos_requirements.unlink()
+    apple_music_requirements = target / "requirements-apple-music-test.txt"
+    if "apple-music.experimental" in selected_profile.capabilities:
+        source = source_wxlite / apple_music_requirements.name
+        if source.is_file():
+            shutil.copy2(source, apple_music_requirements)
+            copied.append(apple_music_requirements.name)
+    elif apple_music_requirements.is_file():
+        apple_music_requirements.unlink()
     return copied
 
 
@@ -781,6 +792,11 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
             or (
                 "sonos.local" not in profile.capabilities
                 and is_sonos_local_dependency(relative)
+            )
+            or (
+                "apple-music.experimental" not in profile.capabilities
+                and Path(relative).name.casefold()
+                == "requirements-apple-music-test.txt"
             )
         )
     ]

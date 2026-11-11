@@ -70,6 +70,7 @@ internal static class ReleaseProfileContract
             "sonos.local",
             "spotify.playlists",
             "youtube.account.readonly",
+            "apple-music.experimental",
         ]).ToArray(),
         @"Local\AccessibleMultimediaController.PythonLauncher.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Test.SingleInstance",
@@ -79,7 +80,8 @@ internal static class ReleaseProfileContract
         ["AMC Test", "AMC Python"]);
 
     private static readonly string[] PublicCapabilities = Test.Capabilities
-        .Where(capability => capability is not ("session.sonos" or "sonos.local"))
+        .Where(capability => capability is not (
+            "session.sonos" or "sonos.local" or "apple-music.experimental"))
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Public = new(
