@@ -1,6 +1,6 @@
 # RADIO-TRACK-001 — zapis rozpoznanego utworu z radia
 
-Status: **Badanie kodu zakończone; pomiar żywego strumienia i prototyp osi czasu wymagane przed wdrożeniem**. Decyzja użytkownika: 10.11.2026. Badanie: 11.11.2026. Zastępuje status „Oczekuje” z 10.11.2026.
+Status: **Badanie zakończone, pierwszy prototyp kotwic PCM i test gotowe; pomiar żywego strumienia oraz granice utworu nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie i prototyp: 11.11.2026. Ten wynik zastępuje status „Badanie kodu zakończone” z 11.11.2026.
 
 ## Ustalenie użytkownika
 
@@ -43,4 +43,11 @@ Zbadać zapis rozpoznanego utworu do osobnego pliku, zainspirowany BlindRadio. R
 
 ## Wynik, ograniczenia i identyfikacja
 
-Badanie objęło kod AMC i dokumentację Icecast oraz wcześniejszy zapis `ECOSYSTEM-001` dotyczący BlindRadio. Nie analizowano ani nie kopiowano kodu BlindRadio w tej iteracji. Nie wykonano pomiaru żywego ICY/HLS, testu NVDA, testu eksportu, buildu, instalacji ani publikacji w ramach RADIO-TRACK-001. Wersja aplikacji: bez zmiany. Commit badania: `24535a81`.
+Badanie objęło kod AMC i dokumentację Icecast oraz wcześniejszy zapis `ECOSYSTEM-001` dotyczący BlindRadio. Nie analizowano ani nie kopiowano kodu BlindRadio w tej iteracji. Commit badania: `24535a81`. Wersja zainstalowanej aplikacji: bez zmiany.
+
+
+## Etap prototypu 11.11.2026
+
+- Każda próbka PCM skopiowana z pierścienia ma teraz identyfikator konkretnego bufora, początkową i końcową pozycję bajtową oraz oznaczenie osi odsłuchu albo odbioru. Pozycje powstają pod tą samą blokadą co kopia dźwięku. Dotychczasowy odbiorca próbki nadal dostaje te same bajty, format i długość; nie dodano polecenia użytkowego.
+- Test headless wymusił nadpisanie części pierścienia, oddzielne pozycje odsłuchu i odbioru oraz nowy identyfikator po utworzeniu drugiego bufora. Smoke test zakończył się kodem 0. Build SmokeTests Release i LiteHost Release przeszedł bez błędów i ostrzeżeń. Nie wykonano instalacji, testu NVDA ani eksportu dźwięku. Commit prototypu: 56cbe93b.
+- **Ograniczenie:** identyfikator obejmuje żywotność bufora. Po wymianie czytnika przy reconnect ten sam bufor może zawierać dźwięk sprzed i po przerwie; prototyp jeszcze tego nie oznacza. Kotwice nie są utrwalane w historii rozpoznania. Nie mierzono żywego ICY/HLS ani opóźnienia metadanych. Zapis całego rozpoznanego utworu pozostaje niedostępny.
