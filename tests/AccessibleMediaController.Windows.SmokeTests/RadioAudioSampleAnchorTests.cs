@@ -34,7 +34,10 @@ internal static class RadioAudioSampleAnchorTests
             if (!first.TryBounds(played, out var bounds) || bounds is null
                 || bounds.FirstByte != bytesPerSecond || bounds.LastByte != 6L * bytesPerSecond)
                 throw new Exception("Zakres eksportu nie odpowiada dostępnemu buforowi.");
+            var playbackPosition = first.PlaybackPosition;
             first.SaveClip(played, played.StartByte, played.EndByte, clipPath);
+            if (first.PlaybackPosition != playbackPosition)
+                throw new Exception("Eksport przesunął kursor odsłuchu radia.");
             using (var reader = new WaveFileReader(clipPath))
             {
                 if (reader.Length != 3L * bytesPerSecond)
@@ -104,6 +107,9 @@ internal static class RadioAudioSampleAnchorTests
 
         internal void MarkDiscontinuity() =>
             _type.GetMethod("MarkDiscontinuity", Flags)!.Invoke(_buffer, null);
+
+        internal TimeSpan PlaybackPosition => (TimeSpan)_type.GetProperty(
+            "PlaybackPosition", Flags)!.GetValue(_buffer)!;
 
         internal bool TryBounds(RadioAudioSampleAnchor anchor, out RadioAudioClipBounds? bounds)
         {

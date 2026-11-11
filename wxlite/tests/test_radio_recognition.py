@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 
 from amc_wx_lite import menu_model, radio_recognition
-from amc_wx_lite.gui import LiteFrame, RadioRecognitionHistoryDialog
+from amc_wx_lite.gui import LiteFrame, RadioClipDialog, RadioRecognitionHistoryDialog
 from amc_wx_lite.host_client import LiteHostClient
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.shortcuts import Action, Chord, resolve
@@ -72,6 +72,31 @@ def test_clip_token_refreshes_duplicate_but_is_not_persisted(tmp_path) -> None:
     store.save(LiteState(recognized_tracks=history))
     assert "clipToken" not in store.path.read_text(encoding="utf-8")
     assert "clipToken" not in store.load().recognized_tracks[0]
+
+
+def test_clip_window_rejects_reversed_bounds_before_save() -> None:
+    messages: list[str] = []
+    focused: list[str] = []
+    dialog = SimpleNamespace(
+        start=SimpleNamespace(GetValue=lambda: 12, SetFocus=lambda: focused.append("start")),
+        end=SimpleNamespace(GetValue=lambda: 4),
+        _set_status=messages.append,
+    )
+    assert RadioClipDialog._range(dialog) is None
+    assert messages == ["Początek musi być wcześniejszy niż koniec"]
+    assert focused == ["start"]
+
+
+def test_old_recognition_explains_why_clip_cannot_open() -> None:
+    messages: list[str] = []
+    dialog = SimpleNamespace(
+        _selected_entry=lambda: {"title": "Dawny utwór"},
+        _set_status=messages.append,
+    )
+    RadioRecognitionHistoryDialog._show_clip(dialog)
+    assert messages == [
+        "Próbka tego rozpoznania nie jest dostępna. Rozpoznaj utwór ponownie."
+    ]
 
 
 def test_provider_uri_and_malformed_records_do_not_leak() -> None:

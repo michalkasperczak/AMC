@@ -7536,6 +7536,170 @@ class RecognitionActionsWindow(wx.Frame):
         self._activate()
 
 
+class RadioClipDialog(wx.Dialog):
+    """Ręczny wybór zakresu z tego samego bufora co rozpoznana próbka."""
+
+    def __init__(self, history, entry, info, *, submit, save_clip, preview_clip):
+        super().__init__(history, title="Sprawdź i zapisz fragment radia", size=(650, 420))
+        self._history = history
+        self._entry = entry
+        self._token = str(entry.get("clipToken") or "")
+        self._submit = submit
+        self._save_clip = save_clip
+        self._preview_clip = preview_clip
+        self._busy = False
+        self._closed = False
+        earliest = int(info.get("earliestSecond", 0))
+        latest = int(info.get("latestSecond", 0))
+        sample_end = int(info.get("sampleSeconds", 0))
+
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        description = (
+            f"{radio_recognition.recognition_label(entry)}, "
+            f"stacja {entry.get('stationName') or 'Nieznana stacja'}. "
+            "Granice utworu nie są znane. Liczby oznaczają sekundy względem "
+            "początku próbki rozpoznania: ujemne są wcześniejsze. "
+            f"Dostępny zakres: od {earliest} do {latest} sekund. "
+            "Przed zapisaniem odsłuchaj obie granice. Odsłuch używa domyślnego "
+            "urządzenia dźwięku i może mieszać się z radiem."
+        )
+        label = wx.StaticText(panel, label=description)
+        label.SetName(description)
+        label.Wrap(600)
+        layout.Add(label, 0, wx.ALL | wx.EXPAND, 10)
+
+        start_label = wx.StaticText(panel, label="&Początek, sekundy względem próbki:")
+        self.start = wx.SpinCtrl(panel, min=earliest, max=max(earliest, latest - 1),
+                                 initial=max(earliest, min(-30, latest - 1)))
+        self.start.SetName("Początek fragmentu w sekundach względem próbki")
+        self.start.SetHelpText("Strzałki zmieniają początek o jedną sekundę.")
+        layout.Add(start_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.start, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+
+        end_label = wx.StaticText(panel, label="&Koniec, sekundy względem próbki:")
+        self.end = wx.SpinCtrl(panel, min=min(latest, earliest + 1), max=latest,
+                               initial=min(latest, max(sample_end + 30, earliest + 1)))
+        self.end.SetName("Koniec fragmentu w sekundach względem próbki")
+        self.end.SetHelpText("Strzałki zmieniają koniec o jedną sekundę.")
+        layout.Add(end_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.end, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+
+        self.status = wx.StaticText(panel, label="Sprawdź początek i koniec fragmentu")
+        self.status.SetName("Sprawdź początek i koniec fragmentu")
+        layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 10)
+        panel.SetSizer(layout)
+
+        buttons = wx.StdDialogButtonSizer()
+        play_start = wx.Button(self, label="Odtwórz &początek")
+        play_end = wx.Button(self, label="Odtwórz &koniec")
+        save = wx.Button(self, label="&Zapisz fragment…")
+        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
+        for button, name in ((play_start, "Odtwórz początek fragmentu"),
+                             (play_end, "Odtwórz koniec fragmentu"),
+                             (save, "Zapisz wybrany fragment do pliku WAV"),
+                             (cancel, "Anuluj wybór fragmentu")):
+            button.SetName(name)
+            buttons.AddButton(button)
+        buttons.Realize()
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, 1, wx.EXPAND)
+        outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizer(outer)
+        self.SetMinSize((580, 380))
+
+        play_start.Bind(wx.EVT_BUTTON, lambda _event: self._preview(True))
+        play_end.Bind(wx.EVT_BUTTON, lambda _event: self._preview(False))
+        save.Bind(wx.EVT_BUTTON, self._on_save)
+        cancel.Bind(wx.EVT_BUTTON, lambda _event: self.Close())
+        self.Bind(wx.EVT_CLOSE, self._on_close)
+        wx.CallAfter(self.start.SetFocus)
+
+    def _set_status(self, message: str) -> None:
+        announce_status(self.status, message)
+
+    def _range(self) -> tuple[int, int] | None:
+        first, last = self.start.GetValue(), self.end.GetValue()
+        if first >= last:
+            self._set_status("Początek musi być wcześniejszy niż koniec")
+            self.start.SetFocus()
+            return None
+        return first, last
+
+    def _preview(self, beginning: bool) -> None:
+        if self._busy or not (selected := self._range()):
+            return
+        first, last = selected
+        preview_first = first if beginning else max(first, last - 5)
+        preview_last = min(last, first + 5) if beginning else last
+        self._busy = True
+        self._set_status("Odtwarzam początek" if beginning else "Odtwarzam koniec")
+
+        def done(_result):
+            self._busy = False
+            if not self._closed:
+                self._set_status("Odsłuch zakończony")
+
+        def failed(error):
+            self._busy = False
+            if not self._closed:
+                self._set_status(f"Nie udało się odtworzyć: {error}")
+
+        self._submit("radio-clip-preview",
+                     lambda: self._preview_clip(self._token, preview_first, preview_last),
+                     done, failed)
+
+    def _on_save(self, _event) -> None:
+        if self._busy or not (selected := self._range()):
+            return
+        first, last = selected
+        entry = self._entry
+        name = " - ".join(str(entry.get(key) or "").strip()
+                          for key in ("artist", "title")).strip(" -") or "Fragment radia"
+        name = "".join("_" if char in '<>:"/\\|?*' or ord(char) < 32 else char
+                       for char in name).rstrip(" .")[:100] or "Fragment radia"
+        with wx.FileDialog(self, "Zapisz fragment radia", defaultFile=name + ".wav",
+                           wildcard="Dźwięk WAV (*.wav)|*.wav",
+                           style=wx.FD_SAVE) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                self.start.SetFocus()
+                return
+            path = dialog.GetPath()
+        if not Path(path).suffix:
+            path += ".wav"
+        if Path(path).exists():
+            self._set_status("Plik już istnieje. Wybierz inną nazwę.")
+            return
+        self._busy = True
+        self._set_status("Zapisuję fragment")
+
+        def done(_result):
+            self._busy = False
+            if not self._closed:
+                if not self._history._closing:
+                    self._history._set_status(f"Zapisano fragment: {Path(path).name}")
+                self.Close()
+
+        def failed(error):
+            self._busy = False
+            if not self._closed:
+                self._set_status(f"Nie udało się zapisać fragmentu: {error}")
+
+        self._submit("radio-clip-save",
+                     lambda: self._save_clip(self._token, first, last, path),
+                     done, failed)
+
+    def _on_close(self, event) -> None:
+        if self._busy:
+            event.Veto()
+            return
+        self._closed = True
+        self._history._clip_dialog = None
+        self.Destroy()
+        if not self._history._closing:
+            wx.CallAfter(self._history._focus_history)
+
+
 class RadioRecognitionHistoryDialog(wx.Dialog):
     """Native persistent history with one shared keyboard/menu action model."""
 
@@ -7548,6 +7712,9 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         default_service: str,
         submit,
         resolve_match,
+        clip_info,
+        clip_save,
+        clip_preview,
         detailed_hints: bool,
         finished: Callable[[], None],
         internal_services: tuple[str, ...] = DEFAULT_SERVICES,
@@ -7558,6 +7725,10 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         self._default_service = normalize_recognition_default_service(default_service)
         self._submit = submit
         self._resolve_match = resolve_match
+        self._clip_info = clip_info
+        self._clip_save = clip_save
+        self._clip_preview = clip_preview
+        self._clip_dialog: RadioClipDialog | None = None
         self._detailed_hints = detailed_hints
         self._internal_services = tuple(
             service for service in DEFAULT_SERVICES if service in internal_services
@@ -7577,6 +7748,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 "domyślnej, prawa strzałka pokazuje nazwane utwory i łącze Apple Music, "
                 "lewa podaje krótką "
                 "informację. Ctrl+C kopiuje opis, Ctrl+Shift+C dokładne łącze. "
+                "Przycisk Sprawdź fragment pozwala odsłuchać i zapisać dźwięk z bufora. "
                 "Alt+strzałka w górę lub w dół zmienia kolejność, Delete usuwa. "
                 "Tab przechodzi do filtra stacji."
             )
@@ -7586,7 +7758,9 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 "stronie usługi domyślnej, prawa strzałka pokazuje nazwane utwory "
                 "i łącze Apple Music, "
                 "lewa podaje krótką informację. Ctrl+C kopiuje opis, "
-                "Ctrl+Shift+C łącze wyszukiwania. Alt+strzałka w górę lub w dół "
+                "Ctrl+Shift+C łącze wyszukiwania. "
+                "Przycisk Sprawdź fragment pozwala odsłuchać i zapisać dźwięk z bufora. "
+                "Alt+strzałka w górę lub w dół "
                 "zmienia kolejność, Delete usuwa. Tab przechodzi do filtra stacji."
             )
         help_label = wx.StaticText(panel, label=help_text)
@@ -7619,11 +7793,13 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         copy_button.SetName("Kopiuj opis")
         export_button = wx.Button(self, label="&Eksportuj…")
         export_button.SetName("Eksportuj historię")
+        clip_button = wx.Button(self, label="Sprawdź &fragment…")
+        clip_button.SetName("Sprawdź i zapisz fragment radia")
         delete_button = wx.Button(self, label="&Usuń")
         delete_button.SetName("Usuń z historii")
         close_button = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
         close_button.SetName("Zamknij historię")
-        for button in (copy_button, export_button, delete_button, close_button):
+        for button in (copy_button, export_button, clip_button, delete_button, close_button):
             buttons.AddButton(button)
         buttons.Realize()
 
@@ -7639,6 +7815,7 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         self.history.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
         copy_button.Bind(wx.EVT_BUTTON, self._on_copy)
         export_button.Bind(wx.EVT_BUTTON, self._on_export)
+        clip_button.Bind(wx.EVT_BUTTON, lambda _event: self._show_clip())
         delete_button.Bind(wx.EVT_BUTTON, self._on_delete)
         close_button.Bind(wx.EVT_BUTTON, self._on_close_button)
         self.Bind(wx.EVT_CLOSE, self._on_close)
@@ -7660,6 +7837,11 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
         if self._closing:
             return
         self._closing = True
+        clip_dialog = self._clip_dialog
+        self._clip_dialog = None
+        if clip_dialog is not None:
+            clip_dialog._closed = True
+            clip_dialog.Destroy()
         actions = self._actions_window
         self._actions_window = None
         if actions is not None:
@@ -7992,6 +8174,45 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             else f"Usunięto wpisy z historii rozpoznawania: {len(selected)}"
         )
 
+    def _show_clip(self) -> None:
+        entry = self._selected_entry()
+        if entry is None:
+            self._set_status("Brak wybranego wpisu")
+            return
+        token = str(entry.get("clipToken") or "")
+        if not token:
+            self._set_status(
+                "Próbka tego rozpoznania nie jest dostępna. Rozpoznaj utwór ponownie."
+            )
+            return
+        if self._clip_dialog is not None and self._clip_dialog.IsShown():
+            self._clip_dialog.Raise()
+            return
+        self._set_status("Sprawdzam dostępny fragment radia")
+
+        def done(info):
+            if self._closing:
+                return
+            if not isinstance(info, dict) or (
+                int(info.get("latestSecond", 0))
+                <= int(info.get("earliestSecond", 0))
+            ):
+                self._set_status("Brak dostępnego fragmentu do zapisania")
+                return
+            dialog = RadioClipDialog(
+                self, entry, info, submit=self._submit,
+                save_clip=self._clip_save, preview_clip=self._clip_preview,
+            )
+            self._clip_dialog = dialog
+            dialog.Show()
+            dialog.Raise()
+
+        def failed(error):
+            if not self._closing:
+                self._set_status(f"Fragment niedostępny: {error}")
+
+        self._submit("radio-clip-info", lambda: self._clip_info(token), done, failed)
+
     def _show_context_menu(self) -> None:
         entry = self._selected_entry()
         if entry is None:
@@ -8015,6 +8236,8 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             )
         menu.AppendSeparator()
         add("Kopiuj opis\tCtrl+C", lambda _event: self._copy())
+        add("Sprawdź i zapisz fragment radia…",
+            lambda _event: self._show_clip())
         add(
             (
                 "Kopiuj łącze do utworu\tCtrl+Shift+C"
@@ -16821,6 +17044,8 @@ class LiteFrame(wx.Frame):
             self._download_youtube_videos()
         elif action is Action.SAVE_YOUTUBE_VIDEO_AS:
             self._save_youtube_video_as()
+        elif action is Action.SELECT_YOUTUBE_VARIANT:
+            self._select_youtube_variant()
         elif action is Action.SHOW_PODCAST_DESCRIPTION:
             self._show_podcast_description()
         elif action is Action.CURRENT_RADIO_BROADCAST_INFORMATION:
@@ -16910,8 +17135,6 @@ class LiteFrame(wx.Frame):
             self._show_playback_history_preview()
         elif action is Action.VIEW_SAVED_QUEUE:
             if self.navigator.active is SessionId.RADIOARCHIWISTA:
-        elif action is Action.SELECT_YOUTUBE_VARIANT:
-            self._select_youtube_variant()
                 self._open_radioarchiwista_queue()
             elif self.navigator.active is SessionId.PODCASTS:
                 self._transient_preview_return = None
@@ -25978,12 +26201,6 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("podcast-save-as-info", prepare, prepared, failed)
 
-    def _description_target_row(self, session_id: SessionId) -> Row | None:
-        """Use the focused list row or the actual item shown in the player."""
-
-        state = self.navigator.sessions[session_id]
-        if getattr(state, "view", View.LIST) is View.PLAYER:
-            playing_id = getattr(state, "now_playing_id", None)
     def _select_youtube_variant(self) -> None:
         """Choose one fresh yt-dlp format; the host rechecks it before saving."""
         if self.navigator.active is not SessionId.PODCASTS:
@@ -26095,6 +26312,12 @@ class LiteFrame(wx.Frame):
         self.runner.submit("youtube-variant-list", prepare, prepared,
                            lambda error: failed(error, listing=True))
 
+    def _description_target_row(self, session_id: SessionId) -> Row | None:
+        """Use the focused list row or the actual item shown in the player."""
+
+        state = self.navigator.sessions[session_id]
+        if getattr(state, "view", View.LIST) is View.PLAYER:
+            playing_id = getattr(state, "now_playing_id", None)
             for candidate in getattr(state, "playback_source_rows", ()):
                 if candidate.item_id == playing_id:
                     return candidate
@@ -35228,6 +35451,11 @@ class LiteFrame(wx.Frame):
             default_service=self.options.radio_recognition_default_service,
             submit=self.runner.submit,
             resolve_match=self._resolve_recognition_match,
+            clip_info=lambda token: self.client.radio_recognition_clip_info(token),
+            clip_save=lambda token, first, last, path:
+                self.client.save_radio_recognition_clip(token, first, last, path),
+            clip_preview=lambda token, first, last:
+                self.client.preview_radio_recognition_clip(token, first, last),
             detailed_hints=self._detailed_hints,
             finished=finished,
             internal_services=tuple(

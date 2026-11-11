@@ -131,7 +131,7 @@ def test_public_actions_offer_web_search_but_never_private_amc_sessions() -> Non
 def test_right_arrow_actions_match_concise_spotify_tidal_window_contract() -> None:
     source = GUI_SOURCE.read_text(encoding="utf-8")
     window = source.split("class RecognitionActionsWindow", 1)[1].split(
-        "class RadioRecognitionHistoryDialog", 1
+        "class RadioClipDialog", 1
     )[0]
     assert "(wx.Frame):" in window
     assert "wx.CallAfter(self.actions.SetFocus)" in window
