@@ -103,4 +103,5 @@ użytkownika i oddzielone od AMC Public.
 - `wxlite/tests/test_release_profile.py`
 - `wxlite/tests/test_bundle_layout.py`
 
-Commit etapu: do uzupełnienia po zapisie.
+Commit modelu, odczytu i izolacji paczek:
+`118913826c3a07195de682ca4c77b4fbe90b2681`.

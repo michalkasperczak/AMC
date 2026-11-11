@@ -439,4 +439,6 @@ polecenia i komunikaty NVDA pozostaną w zwykłych kontrolkach AMC.
 Stan źródła przed zmianą: gałąź `codex/amc-test-public-20261109`, commit
 `a51d90b44ab2fc43e65dc3ed5c872d4d3782c6ee`. Ten etap nie tworzy wersji,
 instalacji ani publikacji AMC. Commit kodu i zapisu etapu:
-`5e37190abd3cf76229447544b0bcef6190f7a66d`.
+`5e37190abd3cf76229447544b0bcef6190f7a66d`. Następny commit bezpiecznego
+modelu, odczytu i izolacji paczek:
+`118913826c3a07195de682ca4c77b4fbe90b2681`.
