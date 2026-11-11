@@ -1,6 +1,6 @@
 # RELEASE-20261111 — zbiorcza aktualizacja AMC
 
-Status: **W toku; instalacja testowa ujawniła i pozwoliła poprawić błąd restartu NVDA**.
+Status: **Wydanie Test/Public alpha.496 opublikowane i zainstalowane 11.11.2026; ręczny odsłuch gestów NVDA pozostaje do odbioru**.
 
 11.11.2026 użytkownik potwierdził, że nagrywanie ustało, i zezwolił na aktualizację całości. To zastępuje wcześniejszy stan niepewności nagrań; przed samą podmianą aktualizator nadal ma użyć własnej ochrony przed zamknięciem programu podczas nagrywania.
 
@@ -27,16 +27,16 @@ Status: **W toku; instalacja testowa ujawniła i pozwoliła poprawić błąd res
 
 ## Materiał do dokumentacji użytkownika
 
-W planowanej aktualizacji AMC Test historia TIDAL ma czytać bitrate konkretnego odtworzenia, a lista rozpoznanych utworów ma obsługiwać zapis dopasowanego albumu w Bibliotece (`Ctrl+Shift+L`), utworu w Ulubionych (`Ctrl+Shift+U`) i kopiowanie jednoznacznie nazwanego linku (`Ctrl+Shift+C`). Nowe okno radia ma pozwolić odsłuchać i ręcznie wybrać fragment przed zapisem. Ten opis dotyczy przygotowywanego wydania; bieżąca instalacja nie została tu potwierdzona jako zaktualizowana.
+W aktualizacji AMC Test historia TIDAL ma czytać bitrate konkretnego odtworzenia, a lista rozpoznanych utworów obsługuje zapis dopasowanego albumu w Bibliotece (`Ctrl+Shift+L`), utworu w Ulubionych (`Ctrl+Shift+U`) i kopiowanie jednoznacznie nazwanego linku (`Ctrl+Shift+C`). Nowe okno radia pozwala ręcznie wybrać fragment przed zapisem. Instalacja alpha.496 została potwierdzona manifestem i procesem; zachowanie w rzeczywistym koncie oraz odsłuch NVDA pozostają do odbioru.
 
 ## Testy i wynik
 
-W tym etapie sprawdzono stan źródeł i procedurę wydania. Nie uruchomiono budowy paczek, instalacji, publikacji ani odbioru NVDA. Wyniki testów poszczególnych funkcji są w ich rekordach.
+Testy instalatora, dodatku i mostka: **63 zaliczone, 68 podtestów zaliczonych, 1 test interoperacyjności z historycznym hostem .NET wyłączony**. Pełny przebieg bez wyłączenia: 63 zaliczone, 1 niezaliczony z powodu niedopasowania testowego hosta .NET, a nie profili wxPython. Obie paczki alpha.496 przeszły pełną kontrolę integralności i kontrolowany start; oba instalatory kontrolę sekretów i SHA-256. Ciche instalacje Test/Public zakończyły się w logach Inno komunikatem `Installation process succeeded`; oba procesy działają z właściwych katalogów. Osobny minimalny instalator z identyczną obsługą błędu po instalacji zwrócił kod **10**, gdy wymuszono wyjątek w `CurStepChanged(ssPostInstall)` i zaczekano na zamknięcie procesu. Pierwsza próba odczytu kodu przez bezpośrednie `&` w PowerShell była myląca, bo instalator GUI uruchomił się asynchronicznie; nie jest wynikiem testu. Polecenie odczytowe `status` przez dokładny protokół dodatku otrzymało `ok: true` z obu profili w jednej sesji. Gestów z klawiszem Windows nie wstrzykiwano automatycznie do aktywnego pulpitu użytkownika; ich rzeczywista mowa NVDA wymaga odsłuchu użytkownika.
 
 ## Znane ograniczenia
 
-Niezweryfikowany stan wszystkich aktywnych nagrań i równolegle zmieniany checkout blokują teraz bezpieczną instalację oraz zamknięcie zakresu wydania. Pomiar dwóch zmian sygnału nie dowodzi granic całej piosenki.
+Pomiar dwóch zmian sygnału nie dowodzi granic całej piosenki. Działanie skrótów NVDA sprawdzono testami mapy gestów i połączeniem protokołu, bez automatycznego naciśnięcia kombinacji Windows w aktywnym pulpicie.
 
 ## Wersja i commit
 
-Baza przygotowania: gałąź `codex/amc-test-public-20261109`, commit `a3072a4c`. Docelowa wersja, commit wydania, paczki, instalacja i publikacja: jeszcze nieustalone.
+Baza przygotowania: `a3072a4c`. Wydanie: gałąź `codex/amc-test-public-20261109`, commit `4e46c80b51cd96e95af41b0f3c999a8733164b63`, wersja `0.1.0-alpha.496`. Test: `test-2026.11.11.1922`, instalator 136 519 477 bajtów, SHA-256 `d2ce76398b2b8740edb99ae8550a3a5251c76b6a7597d7a0ef681b2755ff37ed`. Public: `public-2026.11.11.1925`, instalator 133 942 892 bajtów, SHA-256 `8b56a211f3a894dc61a3823ead103ccdd5fcf515d6aefc2fb806339a09f49b03`. Oba zdalne artefakty mają stan `uploaded`, identyczne rozmiary i skróty SHA-256. Dodatek NVDA 0.4.2 zainstalowany, poprzednia wersja zachowana w kopii. Limit Codex po zadaniu: 10% użyte, 90% pozostało, odnowienie 18.11.2026 07:46 czasu polskiego.
