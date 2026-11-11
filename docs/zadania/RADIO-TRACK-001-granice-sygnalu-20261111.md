@@ -40,4 +40,4 @@ Badano dwa przejścia jednej stacji. Dostępne narzędzia nie przekazują asyste
 
 ## Wersja i commit
 
-Zmiany dotyczą tylko próbnika w projekcie SmokeTests i niniejszego rekordu. Baza kodu: `0166930b71738d09244a327cd35fa5f55cd8b609`; commit tego pomiaru: jeszcze brak. Zbudowano projekt testowy, nie pakiet AMC. Zainstalowana aplikacja nie została zmieniona.
+Zmiany dotyczą tylko próbnika w projekcie SmokeTests i niniejszego rekordu. Baza kodu: `0166930b71738d09244a327cd35fa5f55cd8b609`; commit pomiaru: `a3072a4c`. Zbudowano projekt testowy, nie pakiet AMC. Zainstalowana aplikacja nie została zmieniona.
