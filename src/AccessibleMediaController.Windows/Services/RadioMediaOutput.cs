@@ -26,7 +26,7 @@ public sealed class AudioOutputFallbackEventArgs(MediaItem item) : EventArgs
 }
 
 internal enum RadioAudioSampleOrigin { Playback, Capture }
-internal sealed record RadioAudioSampleAnchor(Guid BufferId, long StartByte, long EndByte, RadioAudioSampleOrigin Origin);
+internal sealed record RadioAudioSampleAnchor(Guid BufferId, Guid SegmentId, long StartByte, long EndByte, RadioAudioSampleOrigin Origin);
 internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration, RadioAudioSampleAnchor? Anchor = null);
 
 /// <summary>
@@ -864,6 +864,7 @@ public sealed class RadioMediaOutput(
                         var decoderName = openedReader.DecoderName;
                         openedReader = null;
                         try { previousLifetime?.Dispose(); } catch (Exception) { }
+                        pipeline.Buffer.MarkDiscontinuity();
                         pipeline.Buffer.Write(initialAudio, 0, initialRead);
                         PublishPipelineStreamTitle(pipeline, pipeline.StreamTitle);
                         stableSince = Stopwatch.GetTimestamp();
@@ -1888,6 +1889,7 @@ public sealed class RadioMediaOutput(
         private readonly int _blockAlign;
         private readonly Action<Exception> _recordingFailed;
         private readonly Guid _bufferId = Guid.NewGuid();
+        private readonly List<(long StartByte, Guid Id)> _segments = new() { (0, Guid.NewGuid()) };
         private long _totalWritten;
         private long _readPosition;
         private IRadioRecorder? _recording;
@@ -1914,6 +1916,16 @@ public sealed class RadioMediaOutput(
         public bool BufferOnDisk => _ring.OnDisk;
 
         public void Dispose() => _ring.Dispose();
+
+        public void MarkDiscontinuity()
+        {
+            lock (_gate)
+            {
+                var segment = (_totalWritten, Guid.NewGuid());
+                if (_segments[^1].StartByte == _totalWritten) _segments[^1] = segment;
+                else _segments.Add(segment);
+            }
+        }
 
         public WaveFormat WaveFormat { get; }
 
@@ -2011,6 +2023,8 @@ public sealed class RadioMediaOutput(
                 _totalWritten += count;
                 var oldest = Math.Max(0, _totalWritten - _ring.Length);
                 if (_readPosition < oldest) _readPosition = oldest;
+                while (_segments.Count > 1 && _segments[1].StartByte <= oldest)
+                    _segments.RemoveAt(0);
             }
             if (failedRecording is not null && recordingException is not null)
             {
@@ -2107,8 +2121,16 @@ public sealed class RadioMediaOutput(
             var requestedBytes = Align((long)Math.Ceiling(
                 Math.Max(0, duration.TotalSeconds) * WaveFormat.AverageBytesPerSecond));
             var oldest = Math.Max(0, _totalWritten - _ring.Length);
-            var available = Align(Math.Max(0, Math.Min(end, _totalWritten) - oldest));
-            var length = Align(Math.Min(requestedBytes, available));
+            var sampleEnd = Math.Min(end, _totalWritten);
+            var available = Align(Math.Max(0, sampleEnd - oldest));
+            var segment = _segments[0];
+            foreach (var candidate in _segments)
+            {
+                if (candidate.StartByte >= sampleEnd) break;
+                segment = candidate;
+            }
+            var length = Align(Math.Min(requestedBytes,
+                Math.Min(available, Math.Max(0, sampleEnd - segment.StartByte))));
             if (length < Align(WaveFormat.AverageBytesPerSecond * 3L))
             {
                 snapshot = null;
@@ -2116,14 +2138,14 @@ public sealed class RadioMediaOutput(
             }
 
             var audio = new byte[checked((int)length)];
-            var start = Math.Min(end, _totalWritten) - length;
+            var start = sampleEnd - length;
             var readIndex = start % _ring.Length;
             var first = (int)Math.Min(audio.Length, _ring.Length - readIndex);
             _ring.Read(readIndex, audio, 0, first);
             if (first < audio.Length)
                 _ring.Read(0, audio, first, audio.Length - first);
             snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length),
-                new RadioAudioSampleAnchor(_bufferId, start, start + length, origin));
+                new RadioAudioSampleAnchor(_bufferId, segment.Id, start, sampleEnd, origin));
             return true;
         }
 

@@ -27,11 +27,26 @@ internal static class RadioAudioSampleAnchorTests
             || capture.Audio.Length != received.EndByte - received.StartByte)
             throw new Exception("Kotwica próbki nie odpowiada skopiowanym bajtom pierścienia.");
 
-        using var second = new BufferFixture(format);
-        second.WriteSeconds(3);
-        var next = second.Snapshot("TryGetRecentCapturedAudio", 3);
-        if (next.Anchor?.BufferId == received.BufferId)
-            throw new Exception("Nowe uruchomienie toru odziedziczyło poprzednią epokę PCM.");
+        using var second = new BufferFixture(format, capacitySeconds: 10);
+        second.WriteSeconds(6);
+        second.ReadSeconds(4);
+        var beforeReconnect = second.Snapshot("TryGetRecentCapturedAudio", 3);
+        second.MarkDiscontinuity();
+        second.WriteSeconds(1);
+        if (second.TrySnapshot("TryGetRecentCapturedAudio", 3) is not null)
+            throw new Exception("Próbka rozpoznania po reconnect przekroczyła granicę segmentu.");
+        var oldPlayback = second.Snapshot("TryGetRecentPlaybackAudio", 3);
+        if (oldPlayback.Anchor?.SegmentId != beforeReconnect.Anchor?.SegmentId)
+            throw new Exception("Odsłuch starej części bufora stracił właściwy segment.");
+        second.WriteSeconds(2);
+        var afterReconnect = second.Snapshot("TryGetRecentCapturedAudio", 3);
+        if (afterReconnect.Anchor is not { } after
+            || after.BufferId != beforeReconnect.Anchor?.BufferId
+            || after.BufferId == received.BufferId
+            || after.SegmentId == beforeReconnect.Anchor?.SegmentId
+            || after.StartByte != 6L * bytesPerSecond
+            || after.EndByte != 9L * bytesPerSecond)
+            throw new Exception("Nowy segment nie ma poprawnej granicy i tożsamości.");
     }
 
     private sealed class BufferFixture : IDisposable
@@ -42,13 +57,13 @@ internal static class RadioAudioSampleAnchorTests
         private readonly Type _type;
         private readonly WaveFormat _format;
 
-        internal BufferFixture(WaveFormat format)
+        internal BufferFixture(WaveFormat format, int capacitySeconds = 5)
         {
             _format = format;
             _type = typeof(RadioMediaOutput).GetNestedType(
                 "RadioTimeshiftWaveProvider", BindingFlags.NonPublic)!;
             _buffer = Activator.CreateInstance(_type, Flags, null,
-                new object?[] { format, 1, 5L * format.AverageBytesPerSecond,
+                new object?[] { format, 1, (long)capacitySeconds * format.AverageBytesPerSecond,
                     (Action<Exception>)(exception => throw exception), null }, null)!;
         }
 
@@ -65,13 +80,18 @@ internal static class RadioAudioSampleAnchorTests
             ((IWaveProvider)_buffer).Read(audio, 0, audio.Length);
         }
 
-        internal RadioAudioSnapshot Snapshot(string method, int seconds)
+        internal void MarkDiscontinuity() =>
+            _type.GetMethod("MarkDiscontinuity", Flags)!.Invoke(_buffer, null);
+
+        internal RadioAudioSnapshot Snapshot(string method, int seconds) =>
+            TrySnapshot(method, seconds)
+            ?? throw new Exception($"Nie udało się skopiować próbki: {method}.");
+
+        internal RadioAudioSnapshot? TrySnapshot(string method, int seconds)
         {
             var arguments = new object?[] { TimeSpan.FromSeconds(seconds), null };
-            if (_type.GetMethod(method, Flags)!.Invoke(_buffer, arguments) is not true
-                || arguments[1] is not RadioAudioSnapshot snapshot)
-                throw new Exception($"Nie udało się skopiować próbki: {method}.");
-            return snapshot;
+            return _type.GetMethod(method, Flags)!.Invoke(_buffer, arguments) is true
+                ? arguments[1] as RadioAudioSnapshot : null;
         }
 
         public void Dispose() => ((IDisposable)_buffer).Dispose();
