@@ -105,3 +105,9 @@ Użytkownik potwierdził, że `Ctrl+Windows+P` również nie działa, i polecił
 ### Wersja i commit
 
 - Zmiany w źródłach: `installer/AMC_Wx_Setup.iss`, `installer/update_amc_nvda_addon.py`, `wxlite/tools/Build-AMCInstaller.ps1`, testy instalatora, rejestr zadań oraz szkice instrukcji i listy zmian. Commit, pełna paczka, instalacja i publikacja: **jeszcze nie wykonane**.
+
+### Korekta po próbie instalacji — 11.11.2026
+
+Wersja `alpha.495` z commitu `c8bed6af` ujawniła błąd cichej aktualizacji: Windows odmówił uruchomienia `C:\Program Files\NVDA\nvda.exe -r` przez `CreateProcess` (WinError 740). Pomocnik prawidłowo przywrócił dodatek 0.4.1, lecz Inno zwróciło kod 0 po wyjątku w `CurStepChanged`, a aktualizator uruchomił AMC Test ze starym dodatkiem. Ta instalacja nie stanowi odbioru wydania.
+
+Zastąpiono restart wywołaniem ShellExecute i dodano `GetCustomSetupExitCode`, który zwraca 10 po błędzie kontroli instalacji albo aktualizacji dodatku. Testy celowane: 32 zaliczone. Ręczne uruchomienie poprawionego pomocnika po zwykłym zamknięciu AMC Test zainstalowało 0.4.2 i uruchomiło NVDA ponownie; stary dodatek 0.4.1 pozostawiono jako kopię w katalogu konfiguracji NVDA. Zmiany są przygotowane dla `alpha.496`; pełna instalacja i odbiór skrótów pozostają do wykonania.

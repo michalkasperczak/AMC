@@ -147,6 +147,10 @@ def test_silent_update_installs_older_amc_nvda_addon_automatically() -> None:
     assert "Source: \"{#AmcNvdaUpdateHelperPath}\"" in ISS
     assert "ewWaitUntilTerminated" in prepare
     assert "skipifsilent" in ISS[ISS.index("[Run]"):ISS.index("[Code]")]
+    assert "function GetCustomSetupExitCode: Integer" in ISS
+    assert "if PostInstallFailed then" in ISS
+    assert "Result := 10" in ISS
+    assert ISS.count("PostInstallFailed := True") == 3
 
 
 def test_installer_performs_full_post_install_integrity_check() -> None:

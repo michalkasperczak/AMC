@@ -1,6 +1,6 @@
 # RELEASE-20261111 — zbiorcza aktualizacja AMC
 
-Status: **Przygotowanie; wydanie, instalacja i odbiór jeszcze niewykonane**.
+Status: **W toku; instalacja testowa ujawniła i pozwoliła poprawić błąd restartu NVDA**.
 
 11.11.2026 użytkownik potwierdził, że nagrywanie ustało, i zezwolił na aktualizację całości. To zastępuje wcześniejszy stan niepewności nagrań; przed samą podmianą aktualizator nadal ma użyć własnej ochrony przed zamknięciem programu podczas nagrywania.
 
@@ -15,6 +15,8 @@ Status: **Przygotowanie; wydanie, instalacja i odbiór jeszcze niewykonane**.
 - W chwili przygotowania tego rekordu checkout zawierał niezapisane zmiany w kodzie radia, GUI i instalatora. Nie przygotowano z tego stanu paczki ani wydania GitHub. Instalator wymaga czystego, zatwierdzonego commitu zgodnego z manifestem paczki.
 - W używanym AMC Test zgłoszono zakończenie jednego nagrania, lecz nie potwierdzono braku innych nagrań. Użytkownik korzystał z okna równocześnie z próbą odczytu. Nie zamykano AMC ani NVDA.
 - W późniejszej wiadomości z 11.11 użytkownik potwierdził brak trwających nagrań i polecił przeprowadzić zbiorczą aktualizację. Ustalono wersję źródeł `0.1.0-alpha.495`; przed wydaniem testy instalatora, dodatku NVDA i mostka dały **63 zaliczone, 68 podtestów zaliczonych, 1 test interoperacyjności wyłączony**. Pierwszy przebieg wspólnych testów nie zebrał dwóch modułów bez projektowego `PYTHONPATH`; drugi, z poprawnym środowiskiem, przeszedł.
+- Paczki i instalatory Test/Public `alpha.495` z czystego `c8bed6af` przeszły kontrolę integralności, startu i sekretów. Próbna cicha instalacja Test skopiowała aplikację, ale nie zaktualizowała dodatku 0.4.1: `CreateProcess` przy restarcie NVDA zwróciło WinError 740. Inno zapisało wyjątek w `ssPostInstall`, lecz zwróciło kod 0, więc aktualizator uznał niepełną instalację za udaną. **Instalatory alpha.495 nie nadają się do publikacji.**
+- Korekta 11.11: restart NVDA przez Windows ShellExecute oraz jawny niezerowy kod wyjścia instalatora przy błędzie kontroli lub dodatku; docelowa wersja `alpha.496`. Testy celowane po zmianie: **32 zaliczone**. Pomocnik uruchomiony bez działającego AMC zaktualizował dodatek do 0.4.2, zachował kopię 0.4.1 i zrestartował NVDA; po 6 s pozostał jeden nowy proces NVDA. To jest odbiór instalacji dodatku, jeszcze nie ręczne sprawdzenie jego gestów.
 
 ## Warunki wydania i aktualizacji
 

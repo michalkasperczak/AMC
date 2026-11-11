@@ -205,6 +205,14 @@ var
   SelectedShellExtensions: string;
   ShellContextEnabled: Boolean;
   ShellOpenWithEnabled: Boolean;
+  PostInstallFailed: Boolean;
+
+function GetCustomSetupExitCode: Integer;
+begin
+  Result := 0;
+  if PostInstallFailed then
+    Result := 10;
+end;
 
 function DirectoryHasEntries(const Directory: string): Boolean;
 var
@@ -551,6 +559,7 @@ begin
           ewWaitUntilTerminated,
           ResultCode)) or (ResultCode <> 0) then
     begin
+      PostInstallFailed := True;
       RaiseException(
         'Pełna kontrola integralności zainstalowanego pakietu nie powiodła się. ' +
         'Instalacja nie może zostać uznana za zakończoną.');
@@ -563,6 +572,7 @@ begin
           ewWaitUntilTerminated,
           ResultCode)) or (ResultCode <> 0) then
     begin
+      PostInstallFailed := True;
       RaiseException(
         'Kontrolowany start interfejsu i silnika nie powiódł się. ' +
         'Program nie zostanie uruchomiony jako gotowa instalacja.');
@@ -582,9 +592,12 @@ begin
             SW_HIDE,
             ewWaitUntilTerminated,
             ResultCode)) or (ResultCode <> 0) then
+      begin
+        PostInstallFailed := True;
         RaiseException(
           'Aktualizacja dodatku AMC do NVDA nie powiodła się. ' +
           'AMC nie zostanie uruchomiony jako gotowa instalacja.');
+      end;
     end;
 #endif
     { Dopiero zweryfikowana instalacja zmienia wpisy TEGO profilu.

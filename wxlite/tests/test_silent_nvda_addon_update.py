@@ -33,19 +33,20 @@ def test_silent_update_replaces_addon_and_keeps_recovery_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle, addons = _fixture(tmp_path)
-    launches: list[list[str]] = []
+    launches: list[tuple[str, str]] = []
     monkeypatch.setattr(addon_update, "_amc_running", lambda: False)
     monkeypatch.setattr(addon_update, "_nvda_running", lambda: True)
     monkeypatch.setattr(addon_update, "_nvda_executable", lambda: Path("C:/NVDA/nvda.exe"))
     monkeypatch.setattr(
-        addon_update.subprocess, "Popen", lambda args, **kwargs: launches.append(args)
+        addon_update.os, "startfile", lambda path, *, arguments: launches.append((path, arguments)),
+        raising=False,
     )
 
     message = addon_update.install(bundle, "0.4.2", addons)
 
     assert "Uruchomiono ponownie NVDA" in message
     assert (addons / "amcController" / "manifest.ini").read_text().endswith("0.4.2\n")
-    assert launches == [["C:\\NVDA\\nvda.exe", "-r"]] or launches == [["C:/NVDA/nvda.exe", "-r"]]
+    assert launches == [("C:\\NVDA\\nvda.exe", "-r")] or launches == [("C:/NVDA/nvda.exe", "-r")]
     backups = list(addons.parent.glob("amcController-backup-*"))
     assert len(backups) == 1
     assert (backups[0] / "old.txt").read_text() == "keep for rollback"
@@ -73,9 +74,10 @@ def test_silent_update_installs_missing_addon_without_starting_nvda(
     monkeypatch.setattr(addon_update, "_amc_running", lambda: False)
     monkeypatch.setattr(addon_update, "_nvda_running", lambda: False)
     monkeypatch.setattr(
-        addon_update.subprocess,
-        "Popen",
+        addon_update.os,
+        "startfile",
         lambda *args, **kwargs: pytest.fail("NVDA must not start unexpectedly"),
+        raising=False,
     )
 
     message = addon_update.install(bundle, "0.4.2", addons)
@@ -96,7 +98,7 @@ def test_silent_update_rolls_back_if_nvda_cannot_restart(
     def fail(*args: object, **kwargs: object) -> None:
         raise OSError("NVDA cannot start")
 
-    monkeypatch.setattr(addon_update.subprocess, "Popen", fail)
+    monkeypatch.setattr(addon_update.os, "startfile", fail, raising=False)
     with pytest.raises(OSError, match="NVDA cannot start"):
         addon_update.install(bundle, "0.4.2", addons)
     assert (addons / "amcController" / "old.txt").read_text() == "keep for rollback"

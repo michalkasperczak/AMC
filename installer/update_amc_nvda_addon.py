@@ -168,11 +168,9 @@ def install(archive_path: Path, expected_version: str, addons_dir: Path) -> str:
                     moved_old = True
                 staged.replace(installed)
                 if nvda_exe is not None:
-                    subprocess.Popen(
-                        [str(nvda_exe), "-r"],
-                        cwd=str(nvda_exe.parent),
-                        close_fds=True,
-                    )
+                    # NVDA's installed launcher can require ShellExecute
+                    # (UIAccess/elevation); CreateProcess raises WinError 740.
+                    os.startfile(str(nvda_exe), arguments="-r")
             except Exception:
                 if moved_old:
                     if installed.exists():
