@@ -512,6 +512,12 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["radio.scheduleLabels"] = (request, _) => RadioScheduleLabels(request.Args),
             [LiteRadioRecognitionCoordinator.Operation] = (request, _) =>
                 _recognition.Run(request.Args),
+            [LiteRadioRecognitionCoordinator.ClipInfoOperation] = (request, _) =>
+                _recognition.ClipInfo(request.Args),
+            [LiteRadioRecognitionCoordinator.ClipSaveOperation] = (request, _) =>
+                _recognition.ClipSave(request.Args),
+            [LiteRadioRecognitionCoordinator.ClipPreviewOperation] = (request, _) =>
+                _recognition.ClipPreview(request.Args),
             ["transport.pauseResume"] = (request, _) => PauseResume(request.Args),
             ["transport.toggleMute"] = (request, _) => ToggleMute(request.Args),
             ["transport.stop"] = (request, _) => StopTransport(request.Args),

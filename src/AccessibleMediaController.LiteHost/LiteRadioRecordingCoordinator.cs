@@ -45,7 +45,8 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
                     active.StationId,
                     active.StationName,
                     active.StreamUrl,
-                    snapshot));
+                    snapshot,
+                    active.Control.GetMediaOutput()));
             }
             return result;
         }
@@ -711,4 +712,5 @@ internal sealed record LiteRadioRecognitionInput(
     string StationId,
     string StationName,
     string StreamUrl,
-    RadioAudioSnapshot Snapshot);
+    RadioAudioSnapshot Snapshot,
+    RadioMediaOutput? SourceOutput);

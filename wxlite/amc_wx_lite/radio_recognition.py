@@ -162,7 +162,17 @@ def merge_host_result(
             "providerUri": _provider_uri(raw.get("providerUri")),
             "recognizedUtcTicks": ticks,
         }
-        if any(_same_recent_track(old, entry, now_ticks=now_ticks) for old in existing):
+        clip_token = _text(raw.get("clipToken"))
+        if clip_token:
+            # Żeton żyje tylko w bieżącym procesie hosta. read_tracks go nie utrwala.
+            entry["clipToken"] = clip_token
+        duplicate = next(
+            (old for old in existing if _same_recent_track(old, entry, now_ticks=now_ticks)),
+            None,
+        )
+        if duplicate is not None:
+            if clip_token:
+                duplicate["clipToken"] = clip_token
             duplicates.append(entry)
             continue
         existing.insert(0, entry)

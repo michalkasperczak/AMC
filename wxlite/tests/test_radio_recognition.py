@@ -54,6 +54,26 @@ def test_host_result_is_persistable_and_recent_duplicate_is_not_added() -> None:
     )
 
 
+def test_clip_token_refreshes_duplicate_but_is_not_persisted(tmp_path) -> None:
+    now = radio_recognition.DOTNET_UNIX_EPOCH_TICKS + 900_000_000
+    history: list[dict] = []
+    first = _host_entry(ticks=now)
+    first["clipToken"] = "first-token"
+    radio_recognition.merge_host_result(
+        history, {"recognized": [first]}, current_ticks=now
+    )
+    second = dict(first, clipToken="fresh-token")
+    radio_recognition.merge_host_result(
+        history, {"recognized": [second]}, current_ticks=now + 10_000_000
+    )
+    assert len(history) == 1
+    assert history[0]["clipToken"] == "fresh-token"
+    store = StateStore(tmp_path)
+    store.save(LiteState(recognized_tracks=history))
+    assert "clipToken" not in store.path.read_text(encoding="utf-8")
+    assert "clipToken" not in store.load().recognized_tracks[0]
+
+
 def test_provider_uri_and_malformed_records_do_not_leak() -> None:
     ticks = radio_recognition.DOTNET_UNIX_EPOCH_TICKS + 10_000_000
     unsafe = _host_entry(ticks=ticks)

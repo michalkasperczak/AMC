@@ -226,6 +226,13 @@ internal sealed class RadioRecordingControl
         }
     }
 
+    internal RadioMediaOutput? GetMediaOutput()
+    {
+        lock (_gate)
+            return _backend is RadioMediaRecordingBackend media && media.IsRecording
+                ? media.Output : null;
+    }
+
     public RadioRecordingBookmarkTarget? CaptureBookmarkTarget()
     {
         if (!_operationGate.Wait(0)) return null;

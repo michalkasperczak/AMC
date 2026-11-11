@@ -2502,6 +2502,29 @@ class LiteHostClient:
             timeout=45.0,
         )
 
+    def radio_recognition_clip_info(self, clip_token: str) -> Any:
+        return self.call("radio.recognition.clipInfo", {"clipToken": clip_token}, timeout=10.0)
+
+    def save_radio_recognition_clip(
+        self, clip_token: str, first_second: int, last_second: int, path: str
+    ) -> Any:
+        return self.call(
+            "radio.recognition.clipSave",
+            {"clipToken": clip_token, "firstSecond": first_second,
+             "lastSecond": last_second, "path": path},
+            timeout=120.0,
+        )
+
+    def preview_radio_recognition_clip(
+        self, clip_token: str, first_second: int, last_second: int
+    ) -> Any:
+        return self.call(
+            "radio.recognition.clipPreview",
+            {"clipToken": clip_token, "firstSecond": first_second,
+             "lastSecond": last_second},
+            timeout=15.0,
+        )
+
     def configure_audio(self, **options: Any) -> Any:
         return self.call("audio.configure", options)
 

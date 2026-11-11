@@ -28,6 +28,7 @@ public sealed class AudioOutputFallbackEventArgs(MediaItem item) : EventArgs
 internal enum RadioAudioSampleOrigin { Playback, Capture }
 internal sealed record RadioAudioSampleAnchor(Guid BufferId, Guid SegmentId, long StartByte, long EndByte, RadioAudioSampleOrigin Origin);
 internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration, RadioAudioSampleAnchor? Anchor = null);
+internal sealed record RadioAudioClipBounds(long FirstByte, long LastByte, long SampleStartByte, long SampleEndByte, int BytesPerSecond, int BlockAlign);
 
 /// <summary>
 /// Live radio output with an in-memory decoded-audio ring. The decoder works
@@ -242,6 +243,22 @@ public sealed class RadioMediaOutput(
             }
             return _pipeline.Buffer.TryGetRecentCapturedAudio(duration, out snapshot);
         }
+    }
+
+    internal bool TryGetClipBounds(RadioAudioSampleAnchor anchor, out RadioAudioClipBounds? bounds)
+    {
+        RadioTimeshiftWaveProvider? buffer;
+        lock (_gate) buffer = _pipeline?.Buffer;
+        bounds = null;
+        return buffer is not null && buffer.TryGetClipBounds(anchor, out bounds);
+    }
+
+    internal void SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path)
+    {
+        RadioTimeshiftWaveProvider buffer;
+        lock (_gate) buffer = _pipeline?.Buffer
+            ?? throw new InvalidOperationException("Tor tej stacji nie jest już dostępny.");
+        buffer.SaveClip(anchor, firstByte, lastByte, path);
     }
 
     internal static async Task<RadioAudioMetadata?> TryReadStreamMetadataAsync(
@@ -1894,6 +1911,7 @@ public sealed class RadioMediaOutput(
         private long _readPosition;
         private IRadioRecorder? _recording;
         private string? _recordingPath;
+        private bool _disposed;
 
         public RadioTimeshiftWaveProvider(
             WaveFormat waveFormat,
@@ -1915,7 +1933,15 @@ public sealed class RadioMediaOutput(
         /// <summary>Czy bufor lezy na dysku (duzy) czy w pamieci (maly).</summary>
         public bool BufferOnDisk => _ring.OnDisk;
 
-        public void Dispose() => _ring.Dispose();
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _ring.Dispose();
+            }
+        }
 
         public void MarkDiscontinuity()
         {
@@ -2109,6 +2135,71 @@ public sealed class RadioMediaOutput(
             lock (_gate)
             {
                 return TryGetRecentAudioCore(duration, _totalWritten, RadioAudioSampleOrigin.Capture, out snapshot);
+            }
+        }
+
+        public bool TryGetClipBounds(RadioAudioSampleAnchor anchor, out RadioAudioClipBounds? bounds)
+        {
+            lock (_gate)
+            {
+                bounds = null;
+                if (_disposed || anchor.BufferId != _bufferId || anchor.StartByte >= anchor.EndByte)
+                    return false;
+                for (var index = 0; index < _segments.Count; index++)
+                {
+                    if (_segments[index].Id != anchor.SegmentId) continue;
+                    var first = Math.Max(_segments[index].StartByte,
+                        Math.Max(0, _totalWritten - _ring.Length));
+                    var last = index + 1 < _segments.Count
+                        ? _segments[index + 1].StartByte : _totalWritten;
+                    if (anchor.StartByte < first || anchor.EndByte > last)
+                        return false;
+                    bounds = new RadioAudioClipBounds(first, last,
+                        anchor.StartByte, anchor.EndByte,
+                        WaveFormat.AverageBytesPerSecond, _blockAlign);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        public void SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path)
+        {
+            if (firstByte >= lastByte || firstByte % _blockAlign != 0
+                || lastByte % _blockAlign != 0)
+                throw new InvalidOperationException("Nieprawidłowy zakres fragmentu.");
+            if (!TryGetClipBounds(anchor, out var initial) || initial is null
+                || firstByte < initial.FirstByte || lastByte > initial.LastByte)
+                throw new InvalidOperationException("Fragment zniknął z bufora albo zmienił się tor stacji.");
+            var temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var writer = new WaveFileWriter(temporaryPath, WaveFormat))
+                {
+                    var chunk = new byte[Math.Max(_blockAlign, 65536 / _blockAlign * _blockAlign)];
+                    for (var cursor = firstByte; cursor < lastByte;)
+                    {
+                        var count = (int)Math.Min(chunk.Length, lastByte - cursor);
+                        lock (_gate)
+                        {
+                            if (!TryGetClipBounds(anchor, out var current) || current is null
+                                || cursor < current.FirstByte || lastByte > current.LastByte)
+                                throw new InvalidOperationException("Bufor nadpisał fragment podczas zapisu. Spróbuj wybrać krótszy zakres.");
+                            var position = cursor % _ring.Length;
+                            var first = (int)Math.Min(count, _ring.Length - position);
+                            _ring.Read(position, chunk, 0, first);
+                            if (first < count)
+                                _ring.Read(0, chunk, first, count - first);
+                        }
+                        writer.Write(chunk, 0, count);
+                        cursor += count;
+                    }
+                }
+                File.Move(temporaryPath, path, false);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
             }
         }
 
