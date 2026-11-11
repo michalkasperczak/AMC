@@ -71,6 +71,8 @@ Dalszy, zakończony pomiar obejmuje cztery oficjalne strumienie, dwa uchwycone p
 
 ## Uzupełnienie: Time Shift i prywatny tor nagrania — 11.11.2026
 
+[Metoda, testy i ograniczenia pomiaru](RADIO-TRACK-001-pomiar-timeshift-prywatny-20261111.md).
+
 Po uwadze użytkownika, aby prowadzić pomiar bez pytań o każdy krok, próbniki działały dalej bez zatrzymywania zainstalowanego AMC Test. Rozszerzono `RadioLiveTimingProbe` o tryb bez kolejnych żądań Shazam po odpowiedzi 429, pomiar obu osi PCM, cofnięcie kursora o 20 s i powrót do transmisji na żywo. Log nowej sondy zapisuje domenę stacji zamiast pełnego adresu. `RadioPrivateRecordingProbe` sprawdza krótki, osobny, bezgłośny tor z rzeczywistym zapisem WAV i pobraniem próbki przez `RadioRecordingControl`.
 
 - ICY Złote Przeboje: 36/36 dostępnych próbek w 180 s; pierwsza miała 8,1 s, pozostałe osiągały 12 s. Jedyny niepusty tekst ICY był stałą nazwą stacji, bez zmiany utworu. Po cofnięciu kursor odsłuchu był o 20 s za odbiorem; po skoku na żywo różnica wyniosła 0,25 s. Bez żądania Shazam. Dane: `work/measurements/radio-samples-20261111-icy.jsonl`.
