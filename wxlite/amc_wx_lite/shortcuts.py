@@ -592,7 +592,7 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     "radio": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
         "Radio Browser",
-        "Otwórz Radio Browser i przeglądaj kontynenty, kraje oraz stacje",
+        "Otwórz Radio Browser; Enter odtwarza stację bez zamykania listy, a ponowne otwarcie wraca do ostatniego kraju",
         "Ctrl+F5",
     ),
     "spotify": CommandPresentation(
@@ -651,7 +651,7 @@ def ctrl_f5_presentation(session_label: str | None) -> CommandPresentation | Non
         return CommandPresentation(
             action=presentation.action,
             name="Radio Browser",
-            description="Browse Radio Browser by continent, country and station",
+            description="Browse stations; Enter plays without closing the list, and reopening returns to the last country",
             shortcut=presentation.shortcut,
         )
     return CommandPresentation(

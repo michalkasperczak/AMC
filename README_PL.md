@@ -1969,3 +1969,16 @@ Przy wielokrotnym zaznaczeniu działanie obejmuje wszystkie wybrane pliki.
 Jeżeli plik nie jest już dostępny, `Ctrl+C` nadal kopiuje zapisaną ścieżkę,
 a `Ctrl+Shift+C` informuje o braku pliku. W pozostałych widokach `Ctrl+C`
 nadal kopiuje nazwę elementu.
+
+## Radio Browser w sesji Radio
+
+`Ctrl+F5` otwiera Radio Browser. Enter prowadzi od kontynentu przez kraj i
+sposób sortowania do listy stacji. Na stacji Enter rozpoczyna odtwarzanie i
+pozostawia listę otwartą z tym samym zaznaczeniem, aby można było od razu
+sprawdzać następne stacje. Backspace lub Escape cofa o jeden poziom, a przycisk
+Zamknij kończy przeglądanie. Ponowne `Ctrl+F5` w tej samej sesji aplikacji wraca
+do ostatniego kraju i sposobu sortowania. Na liście stacji strzałka w lewo lub
+prawo podaje bitrate, `Ctrl+C` kopiuje adres strumienia, `Ctrl+Shift+C` kopiuje
+link do strony stacji, `Ctrl+Shift+L` zmienia stan Biblioteki, a
+`Ctrl+Shift+U` zmienia stan Ulubionych. Odtwarzanie nie zapisuje stacji
+automatycznie.

@@ -13152,6 +13152,7 @@ class LiteFrame(wx.Frame):
         action: SearchResultAction,
         *,
         announce: Callable[[str], None] | None = None,
+        open_player: bool | None = None,
     ) -> None:
         """Open a directory result transiently; save only on explicit request."""
 
@@ -13169,10 +13170,14 @@ class LiteFrame(wx.Frame):
             say("Pobieranie nie jest dostępne dla stacji radiowych")
             return
         if action is SearchResultAction.OPEN:
-            self._switch_session(SessionId.RADIO)
+            if self.navigator.active is not SessionId.RADIO:
+                self._switch_session(SessionId.RADIO)
             self._run(self.navigator.open_radio_search_result(
                 lead.row,
-                open_player=self._session_open_player_on_enter(SessionId.RADIO),
+                open_player=(
+                    self._session_open_player_on_enter(SessionId.RADIO)
+                    if open_player is None else open_player
+                ),
             ))
             return
         if getattr(self, "_radio_search_action_pending", False):
@@ -21209,21 +21214,21 @@ class LiteFrame(wx.Frame):
             station_action=lambda entries, action, announce:
                 self._complete_remote_radio_search_result_action(
                     entries, action, announce=announce,
+                    open_player=False if action is SearchResultAction.OPEN else None,
                 ),
             copy_text=self._to_clipboard,
+            resume=getattr(self, "_radio_browser_location", None),
         )
+        location = None
         try:
             wx.CallAfter(dialog.start)
-            opened = dialog.ShowModal() == wx.ID_OK
-            station = dialog.selected_station
+            dialog.ShowModal()
+            location = dialog.location
         finally:
             dialog.Destroy()
-        if opened and station is not None:
-            self._complete_remote_radio_search_result_action(
-                [station], SearchResultAction.OPEN,
-            )
-        else:
-            self._restore_focus_after_dialog()
+        if location is not None:
+            self._radio_browser_location = location
+        self._restore_focus_after_dialog()
 
     def _show_library_folders(self) -> None:
         client = self._profile_edit_client()

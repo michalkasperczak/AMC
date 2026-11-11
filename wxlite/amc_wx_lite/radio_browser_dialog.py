@@ -42,6 +42,7 @@ class RadioBrowserDialog(wx.Dialog):
         load_stations: Callable[[str, str, int, "RadioBrowserDialog"], None],
         station_action: Callable[[list[SearchEntry], SearchResultAction, Callable[[str], None]], None],
         copy_text: Callable[[str], bool],
+        resume: tuple[str, str, str] | None = None,
     ) -> None:
         super().__init__(parent, title="Radio Browser — AMC", size=(760, 560))
         self.SetName("Radio Browser — AMC")
@@ -49,6 +50,7 @@ class RadioBrowserDialog(wx.Dialog):
         self._load_stations = load_stations
         self._station_action = station_action
         self._copy_text = copy_text
+        self._resume = resume
         self._countries: tuple[Country, ...] = ()
         self._groups: dict[str, tuple[Country, ...]] = {}
         self._continent: str | None = None
@@ -59,14 +61,14 @@ class RadioBrowserDialog(wx.Dialog):
         self._next_offset: int | None = None
         self._level = "continents"
         self._loading = True
-        self.selected_station: SearchEntry | None = None
 
         self.heading = wx.StaticText(self, label="Regiony Radio Browser")
         self.heading.SetName("Regiony Radio Browser")
         self.items = wx.ListBox(self, choices=["Pobieranie krajów…"], style=wx.LB_SINGLE)
         self.items.SetName("Regiony Radio Browser")
         self.items.SetHelpText(
-            "Enter otwiera. Backspace lub Escape wraca. Na stacji strzałka "
+            "Enter otwiera, a na stacji rozpoczyna odtwarzanie bez zamykania listy. "
+            "Backspace lub Escape wraca. Na stacji strzałka "
             "w lewo lub prawo podaje bitrate; Ctrl+C kopiuje adres strumienia, "
             "Ctrl+Shift+C link do strony stacji, Ctrl+Shift+L zmienia Bibliotekę, "
             "Ctrl+Shift+U zmienia Ulubione."
@@ -92,6 +94,12 @@ class RadioBrowserDialog(wx.Dialog):
     def start(self) -> None:
         self._load_countries(self)
 
+    @property
+    def location(self) -> tuple[str, str, str] | None:
+        if self._continent is None or self._country is None:
+            return None
+        return self._continent, self._country.code, self._order
+
     def _set_items(
         self, title: str, labels: list[str], *, selected_index: int = 0,
         focus: bool = True,
@@ -116,6 +124,19 @@ class RadioBrowserDialog(wx.Dialog):
         if not self._groups:
             self.failed("Katalog Radio Browser nie zwrócił krajów ze stacjami")
             return
+        if self._resume is not None:
+            continent, country_code, order = self._resume
+            country = next((
+                item for item in self._groups.get(continent, ())
+                if item.code == country_code
+            ), None)
+            self._resume = None
+            if country is not None:
+                self._continent = continent
+                self._country = country
+                self._order = order if order in {value for _label, value in STATION_ORDERS} else "name"
+                self._request_stations()
+                return
         self._show_continents()
 
     def _show_continents(self) -> None:
@@ -227,9 +248,10 @@ class RadioBrowserDialog(wx.Dialog):
             if index == len(self._entries) and self._next_offset is not None:
                 self._request_stations(self._next_offset)
                 return
-            self.selected_station = self._selected_entry()
-            if self.selected_station is not None:
-                self.EndModal(wx.ID_OK)
+            entry = self._selected_entry()
+            if entry is not None:
+                self._station_action([entry], SearchResultAction.OPEN, self.announcer.say)
+                self.items.SetFocus()
 
     def _back(self) -> None:
         if self._loading:

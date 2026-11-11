@@ -219,7 +219,7 @@ def test_ctrl_f5_has_one_precise_contextual_contract_on_every_surface() -> None:
         SessionId.RADIO: (
             Action.SESSION_CONFIGURE_CURRENT,
             "Radio Browser",
-            "Otwórz Radio Browser i przeglądaj kontynenty, kraje oraz stacje",
+            "Otwórz Radio Browser; Enter odtwarza stację bez zamykania listy, a ponowne otwarcie wraca do ostatniego kraju",
             "radio_session",
         ),
         SessionId.PODCASTS: (
@@ -509,7 +509,9 @@ def test_radio_browser_has_one_english_command_name() -> None:
         )
         assert menu.label.replace("&", "") == "Radio Browser"
         assert palette.name == "Radio Browser"
-        assert describe_action(action, "Radio") == "Browse Radio Browser by continent, country and station"
+        assert describe_action(action, "Radio") == (
+            "Browse stations; Enter plays without closing the list, and reopening returns to the last country"
+        )
         assert palette.shortcut == "Ctrl+F5"
     finally:
         i18n.configure(previous_language)
