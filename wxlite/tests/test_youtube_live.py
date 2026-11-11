@@ -372,3 +372,100 @@ class YouTubeLiveTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_radio_broadcast_choice_prefers_live_then_nearest_upcoming() -> None:
+    from datetime import datetime, timezone
+    from amc_wx_lite.youtube_live import current_or_next_broadcast, is_youtube_station_url
+
+    now = datetime(2026, 11, 11, 17, 0, tzinfo=timezone.utc)
+    upcoming = {"title": "Później", "pageUrl": "https://www.youtube.com/watch?v=later",
+                "state": "upcoming", "scheduledStartUtc": "2026-11-11T19:00:00Z"}
+    nearest = {"title": "Najbliżej", "pageUrl": "https://www.youtube.com/watch?v=near",
+               "state": "upcoming", "scheduledStartUtc": "2026-11-11T18:00:00Z"}
+    live = {"title": "Teraz", "pageUrl": "https://www.youtube.com/watch?v=live",
+            "state": "live", "actualStartUtc": "2026-11-11T16:30:00Z"}
+    assert current_or_next_broadcast({"items": [upcoming, nearest]}, now=now).title == "Najbliżej"
+    assert current_or_next_broadcast({"items": [upcoming, live, nearest]}, now=now).title == "Teraz"
+    assert current_or_next_broadcast({"items": [{**nearest, "scheduledStartUtc": "2026-11-10T18:00:00Z"}]}, now=now) is None
+    assert is_youtube_station_url("https://www.youtube.com/watch?v=old")
+    assert is_youtube_station_url("https://www.youtube.com/@channel/live")
+    assert not is_youtube_station_url("https://youtube.com.evil.example/watch?v=old")
+
+
+def test_radio_youtube_update_is_in_menu_palette_and_help() -> None:
+    action = Action.REFRESH_YOUTUBE_RADIO_STATION
+    radio_menu = {
+        item.action: item
+        for menu in menu_model.menus_for_session(
+            SessionId.RADIO, youtube_account_available=True
+        )
+        for item in menu.items
+    }
+    radio_palette = {
+        entry.action: entry
+        for entry in entries_for_session(
+            SessionId.RADIO, youtube_account_available=True
+        )
+    }
+    assert action in radio_menu and action in radio_palette
+    assert radio_menu[action].needs_youtube_radio_station
+    assert radio_menu[action].shortcut is None
+    assert "transmisję" in describe_action(action, "Radio")
+    assert action not in {
+        item.action
+        for menu in menu_model.menus_for_session(
+            SessionId.RADIO, youtube_account_available=False
+        )
+        for item in menu.items
+    }
+
+
+def test_radio_youtube_update_replaces_station_and_linked_plans() -> None:
+    from amc_wx_lite.state_store import Station
+
+    station = Station(
+        id="kramer", name="Kramer",
+        url="https://www.youtube.com/watch?v=old",
+    )
+    calls = []
+    spoken = []
+    client = SimpleNamespace(
+        youtube_radio_broadcasts=lambda url, subscription_id=None: (
+            calls.append(("read", url, subscription_id))
+            or {"items": [{
+                "title": "Następna transmisja",
+                "pageUrl": "https://www.youtube.com/watch?v=new",
+                "state": "upcoming",
+                "scheduledStartUtc": "2099-01-01T18:00:00Z",
+            }]}
+        ),
+        edit_radio_station=lambda station_id, name, url: calls.append(
+            ("edit", station_id, name, url)
+        ),
+    )
+
+    def submit(_name, work, done, failed):
+        try:
+            done(work())
+        except Exception as error:
+            failed(error)
+
+    frame = SimpleNamespace(
+        _selected_station=lambda: station,
+        _youtube_account_available=True,
+        _youtube_channel_subscriptions=lambda: [],
+        radio=SimpleNamespace(may_edit=False),
+        client=client,
+        runner=SimpleNamespace(submit=submit),
+        announcer=SimpleNamespace(say=spoken.append),
+        _update_private_radio_schedules_for_station=lambda station_id, name, url: (
+            calls.append(("plans", station_id, name, url)) or True
+        ),
+        _refresh_profile_view=lambda **kwargs: calls.append(("view", kwargs)),
+    )
+    LiteFrame._refresh_selected_youtube_radio_station(frame)
+    assert calls[0] == ("read", station.url, None)
+    assert calls[1] == ("edit", "kramer", "Kramer", "https://www.youtube.com/watch?v=new")
+    assert calls[2] == ("plans", "kramer", "Kramer", "https://www.youtube.com/watch?v=new")
+    assert spoken[-1] == "Zapisano najbliższą zaplanowaną transmisję: Następna transmisja"

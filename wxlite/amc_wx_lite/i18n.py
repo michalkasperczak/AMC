@@ -795,6 +795,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "youtube.broadcasts.aggregate.recordNow": "Start or stop recording the YouTube broadcast",
     "youtube.broadcasts.aggregate.schedule": "Schedule a YouTube broadcast recording",
     "youtube.liveStation.add": "Add a dynamic YouTube live station",
+    "radio.refreshYouTubeBroadcast": "Update the station to the current or next YouTube broadcast",
     "tidal.library.toggle": "Add to or remove from the TIDAL Library",
     "tidal.favorite.toggle": "Add to or remove from TIDAL favorites",
     "tidal.collection.sort.added": "Sort the TIDAL collection by date added",

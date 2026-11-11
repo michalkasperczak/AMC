@@ -273,6 +273,7 @@ internal static class Program
                 LiteYouTubeAccountContract.LoginOperation,
                 LiteYouTubeAccountContract.SyncPreviewOperation,
                 LiteYouTubeAccountContract.SyncApplyOperation,
+                LiteYouTubeAccountContract.RadioBroadcastsOperation,
                 // Uruchomienie TIDALa i wczytanie strony albumu trwa nawet
                 // kilkadziesiat sekund. Radio, nagrywanie i status lokalnego
                 // odtwarzacza musza w tym czasie pozostac responsywne.

@@ -78,6 +78,7 @@ class MenuItem:
     needs_radio_collection: bool = False
     #: Wymaga wskazania prawdziwej stacji radiowej.
     needs_radio_station: bool = False
+    needs_youtube_radio_station: bool = False
     #: Dostępna wyłącznie dla lokalnych plików, np. zakładki materiału.
     needs_files_session: bool = False
     #: Dostępna tylko dla wskazanej stacji, która ma aktywny tor nagrywania.
@@ -1193,6 +1194,14 @@ def build_menus(
                      accelerator=False, needs_radio_session=True),
             MenuItem("&Zmień nazwę lub adres stacji", Action.STATION_EDIT, shortcut="F2",
                      needs_radio_session=True),
+            *(
+                (MenuItem("Zaktualizuj &transmisję YouTube tej stacji",
+                          Action.REFRESH_YOUTUBE_RADIO_STATION,
+                          needs_radio_station=True,
+                          needs_youtube_radio_station=True,
+                          visible_sessions=RADIO_ONLY),)
+                if youtube_account_available else ()
+            ),
             MenuItem("&Usuń stację", Action.STATION_DELETE, shortcut="Delete",
                      accelerator=False, needs_radio_session=True),
             SEPARATOR,

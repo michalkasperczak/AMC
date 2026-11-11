@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AccessibleMediaController.Core.YouTube;
+using AccessibleMediaController.Windows.Services;
 using AccessibleMediaController.LiteHost.Protocol;
 
 namespace AccessibleMediaController.LiteHost;
@@ -25,6 +26,8 @@ internal interface ILiteYouTubeAccountBackend : IDisposable
         string subscriptionId,
         bool forceRefresh,
         CancellationToken cancellationToken);
+    Task<IReadOnlyList<YouTubeBroadcast>> ReadChannelBroadcastsAsync(
+        string channelId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -113,7 +116,9 @@ internal sealed class LiteYouTubeAccountCoordinator(
             [LiteYouTubeAccountContract.PlaylistApplyOperation] = (request, _) =>
                 ApplyPlaylists(request.Args),
             [LiteYouTubeAccountContract.BroadcastsOperation] = (request, _) =>
-                Broadcasts(request.Args)
+                Broadcasts(request.Args),
+            [LiteYouTubeAccountContract.RadioBroadcastsOperation] = (request, _) =>
+                RadioBroadcasts(request.Args)
         };
 
     private object Status()
@@ -278,6 +283,57 @@ internal sealed class LiteYouTubeAccountCoordinator(
         catch (Exception exception)
         {
             throw SafeFailure(exception, "Nie udało się pobrać transmisji YouTube.");
+        }
+    }
+
+    private object RadioBroadcasts(JsonElement args)
+    {
+        var sourceUrl = LiteArgs.RequireText(args, "url");
+        if (!YouTubeSourceResolver.IsYouTubeUrl(sourceUrl))
+            throw new LiteRequestException("Ta stacja nie ma adresu YouTube.");
+        try
+        {
+            string? subscriptionId = null;
+            if (args.TryGetProperty("subscriptionId", out var subscription)
+                && subscription.ValueKind == JsonValueKind.String)
+                subscriptionId = subscription.GetString()?.Trim();
+            IReadOnlyList<YouTubeBroadcast> rows;
+            if (!string.IsNullOrEmpty(subscriptionId))
+            {
+                rows = _backend.ReadBroadcastsAsync(
+                    subscriptionId, true, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            else
+            {
+                var uri = new Uri(sourceUrl);
+                var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                var liveUrl = segments.Length >= 2
+                              && segments[0].Equals("channel", StringComparison.OrdinalIgnoreCase)
+                    ? YouTubeSourceResolver.TryBuildChannelLiveUrl(
+                        Uri.UnescapeDataString(segments[1]))
+                    : null;
+                liveUrl ??= YouTubeSourceResolver.TryResolveChannelLiveUrlAsync(
+                    YouTubeSourceResolver.FindExecutable()
+                    ?? throw new LiteRequestException(
+                        "Sprawdź składnik yt-dlp w menu Pomoc."),
+                    sourceUrl, CancellationToken.None).GetAwaiter().GetResult();
+                if (liveUrl is null)
+                    throw new LiteRequestException(
+                        "Nie udało się ustalić kanału YouTube tej stacji.");
+                var channelId = new Uri(liveUrl).AbsolutePath.Split(
+                    '/', StringSplitOptions.RemoveEmptyEntries)[1];
+                rows = _backend.ReadChannelBroadcastsAsync(
+                    channelId, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            return LiteYouTubeAccountContract.CreateBroadcasts(rows);
+        }
+        catch (LiteRequestException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw SafeFailure(exception, "Nie udało się znaleźć transmisji kanału YouTube.");
         }
     }
 

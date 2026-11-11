@@ -314,6 +314,7 @@ class Action(Enum):
     RECYCLE_SELECTED = "library.recycleSelected"
     STATION_ADD = "radio.add"
     STATION_EDIT = "radio.edit"
+    REFRESH_YOUTUBE_RADIO_STATION = "radio.refreshYouTubeBroadcast"
     STATION_DELETE = "radio.delete"
     STATION_IMPORT = "radio.import"
     STATION_EXPORT_FAVORITES = "radio.exportFavorites"
@@ -2659,6 +2660,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.RECYCLE_SELECTED: "Przenieś zaznaczone pliki do Kosza",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmień nazwę lub adres stacji i zaktualizuj powiązane plany nagrywania",
+        Action.REFRESH_YOUTUBE_RADIO_STATION: "Wybierz trwającą albo najbliższą zaplanowaną transmisję kanału YouTube i zaktualizuj stację oraz plany nagrywania",
         Action.STATION_DELETE: "Usun stacje",
         Action.STATION_IMPORT: "Importuj liste stacji",
         Action.STATION_EXPORT_FAVORITES: "Eksportuj ulubione stacje do playlisty",
@@ -2935,6 +2937,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.YOUTUBE_ACCOUNT,
         Action.YOUTUBE_BROADCASTS,
         Action.ADD_YOUTUBE_LIVE_STATION,
+        Action.REFRESH_YOUTUBE_RADIO_STATION,
         Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
         Action.CHOOSE_PODCAST_INBOX_SOURCES,
         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL,

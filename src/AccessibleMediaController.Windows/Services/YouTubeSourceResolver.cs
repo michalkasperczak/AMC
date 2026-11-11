@@ -187,7 +187,7 @@ internal static class YouTubeSourceResolver
         }
     }
 
-    private static async Task<string?> TryResolveChannelLiveUrlAsync(
+    internal static async Task<string?> TryResolveChannelLiveUrlAsync(
         string executable,
         string expiredVideoUrl,
         CancellationToken cancellationToken)

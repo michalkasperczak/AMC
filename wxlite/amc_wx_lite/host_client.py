@@ -861,6 +861,16 @@ class LiteHostClient:
             timeout=120.0,
         )
 
+    def youtube_radio_broadcasts(
+        self, url: str, *, subscription_id: str | None = None,
+    ) -> Any:
+        """Find broadcasts for a radio YouTube address; tokens stay in the host."""
+        return self.call(
+            "youtube.radioBroadcasts",
+            {"url": url, "subscriptionId": subscription_id},
+            timeout=150.0,
+        )
+
     def spotify_account_status(self) -> Any:
         """Read the separate catalogue and playback connection states."""
         return self.call("spotify.accountStatus", timeout=15.0)

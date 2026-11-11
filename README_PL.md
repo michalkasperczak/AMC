@@ -309,6 +309,8 @@ materiałów, nie używa logowania, cookies ani danych konta. Późniejsze
 odświeżenie scala nowe materiały z bazą AMC i nie usuwa starszych tylko dlatego,
 że nie mieszczą się już w bieżącym oknie YouTube.
 
+W Radiu na stacji YouTube menu kontekstowe zawiera polecenie **Zaktualizuj transmisję YouTube tej stacji**. AMC ustala kanał z zapisanego filmu, wybiera trwającą transmisję lub najbliższą zaplanowaną i zapisuje jej adres w stacji oraz powiązanych planach nagrywania. Gdy kanał nie ma takiej transmisji, adres pozostaje bez zmian. Polecenie wymaga dostępnego konta YouTube i jest widoczne tylko dla stacji YouTube.
+
 Kanały i playlisty YouTube są domyślnie sprawdzane co 60 minut. Automatyczny
 przebieg bierze najwyżej cztery zaległe źródła, a resztę pozostawia kolejnym
 przebiegom, aby duża Biblioteka nie zamroziła interfejsu. `F5` odświeża

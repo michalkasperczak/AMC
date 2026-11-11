@@ -49,3 +49,8 @@ Testy: 101 testów ukierunkowanych przeszło (`test_radio_schedule_management.py
 Użytkownik zgłosił także problem z niedzieli 8.11.2026 i potwierdził, że wcześniej zmienił adres stacji klawiszem F2, a w harmonogramie tylko ją włączył. Kontrola wykazała jeden plan Vianneya (ID `0ebabbd653f245d6b69b57f49888ef30`) w profilu hosta i jego prywatną kopię w stanie wxPython. To dwa zapisy jednego planu, nie dwa oddzielne harmonogramy. Przed naprawą prywatna kopia miała stary adres HLS. Historia profilu zawiera nieudane próby Vianneya z 18 i 19.09.2026 o 18:42; dostępna historia profilu i interfejsu nie zawiera zdarzenia z 8.11.2026 około 18:00. Stary adres jest wiarygodnym wyjaśnieniem, ale przyczyny konkretnej niedzielnej próby nie można potwierdzić z zachowanych wpisów.
 
 Powiązanie planu ze stacją opiera się na trwałym `stationId`, a nazwa jest etykietą dla użytkownika. Plan przechowuje własną kopię `streamUrl`. Sama jednakowa nazwa dwóch stacji nie gwarantuje ich tożsamości ani aktualizacji planu. Host przy F2 aktualizował plany w swoim profilu po `stationId`, lecz prywatna kopia planu w wxPython pozostała stara. Commit `0d1ec78f` poprawia tę drugą ścieżkę w źródłach, ale nie jest jeszcze zainstalowany. Do aktualizacji programu ponowna zmiana F2 może znów pozostawić dawny URL w prywatnym planie; obecnie plan Vianneya został skorygowany bezpośrednio w danych.
+
+
+## Korekta użytkownika z 11.11.2026: niedzielny plik
+
+Użytkownik wyjaśnił, że niedzielny plik nagrania istniał: odsłuchał go, a następnie przypadkowo usunął; nie ma go też w historii. To zastępuje wcześniejszą sugestię, że brak wpisu z 8.11.2026 może świadczyć o niewykonaniu planu. Sam brak pliku lub wpisu nie rozstrzyga, czy inne niedzielne próby miały błąd starego adresu.

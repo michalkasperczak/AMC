@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Mapping, Sequence
 from urllib.parse import unquote, urlsplit, urlunsplit
 
@@ -17,6 +17,50 @@ from .list_model import Row
 
 class YouTubeLivePayloadError(RuntimeError):
     """Odpowiedź hosta nie nadaje się do bezpiecznego pokazania."""
+
+
+def is_youtube_station_url(source_url: str) -> bool:
+    """Recognize a YouTube video or channel without accepting lookalike hosts."""
+
+    try:
+        parsed = urlsplit(source_url.strip())
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").casefold()
+    if parsed.scheme.casefold() not in {"http", "https"}:
+        return False
+    if host == "youtu.be":
+        return bool(parsed.path.strip("/"))
+    if host != "youtube.com" and not host.endswith(".youtube.com"):
+        return False
+    parts = [part for part in parsed.path.split("/") if part]
+    if parts == ["watch"]:
+        return "v=" in parsed.query
+    return bool(
+        len(parts) >= 2 and parts[0].casefold() == "channel"
+        or parts and parts[0].startswith("@")
+        or len(parts) == 2 and parts[0].casefold() == "live"
+    )
+
+
+def current_or_next_broadcast(payload: object, *, now: datetime | None = None) -> Row | None:
+    """Prefer a live event; otherwise choose the earliest future event."""
+
+    moment = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    rows = broadcast_rows(payload, subscription_id="radio-channel")
+    live = [row for row in rows if row.service_kind == "youtubeLive"]
+    if live:
+        return max(
+            live,
+            key=lambda row: _read_time(row.service_start_utc) or datetime.min.replace(tzinfo=timezone.utc),
+        )
+    upcoming = [
+        row for row in rows
+        if row.service_kind == "youtubeUpcoming"
+        and (start := _read_time(row.service_start_utc)) is not None
+        and start >= moment
+    ]
+    return min(upcoming, key=lambda row: _read_time(row.service_start_utc)) if upcoming else None
 
 
 def dynamic_live_url(source_url: str) -> str:

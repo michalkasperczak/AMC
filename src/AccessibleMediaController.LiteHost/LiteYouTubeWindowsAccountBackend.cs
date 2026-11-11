@@ -295,6 +295,23 @@ internal sealed class LiteYouTubeWindowsAccountBackend : ILiteYouTubeAccountBack
         }
     }
 
+    public async Task<IReadOnlyList<YouTubeBroadcast>> ReadChannelBroadcastsAsync(
+        string channelId, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var token = await _account.GetAccessTokenAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return await _broadcasts.ReadChannelAsync(token, channelId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private static bool TryReadChannelId(
         string source,
         string subscriptionId,

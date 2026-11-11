@@ -110,6 +110,8 @@ from .youtube_live import (
     aggregate_broadcast_rows as youtube_aggregate_broadcast_rows,
     broadcast_rows as youtube_broadcast_rows,
     dynamic_live_url as youtube_dynamic_live_url,
+    current_or_next_broadcast as youtube_current_or_next_broadcast,
+    is_youtube_station_url,
 )
 from .item_information import item_properties_text
 from .download_history import (
@@ -600,6 +602,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.RENAME_LIBRARY_ITEM,
         Action.RENAME_LOCAL_FILE,
         Action.STATION_EDIT,
+        Action.REFRESH_YOUTUBE_RADIO_STATION,
         Action.EDIT_WIIM_NETWORK_STREAM,
         Action.EDIT_SONOS_OWN_STREAM,
         Action.MOVE_LIST_ITEM_UP,
@@ -11059,6 +11062,11 @@ class LiteFrame(wx.Frame):
                 radio and selected_row is not None and selected_kind == "station"
             ):
                 enabled = False
+            if entry.needs_youtube_radio_station and not (
+                radio and selected_row is not None and selected_kind == "station"
+                and is_youtube_station_url(selected_row.url or "")
+            ):
+                enabled = False
             if entry.needs_files_session and not files:
                 enabled = False
             if entry.needs_radio_recording and not radio_recording:
@@ -16639,6 +16647,8 @@ class LiteFrame(wx.Frame):
             self._station_add()
         elif action is Action.STATION_EDIT:
             self._station_edit()
+        elif action is Action.REFRESH_YOUTUBE_RADIO_STATION:
+            self._refresh_selected_youtube_radio_station()
         elif action is Action.STATION_DELETE:
             if self.navigator.session.library_view is LibraryView.PLAYLIST_CONTENTS:
                 self._remove_selected_items()
@@ -23774,7 +23784,7 @@ class LiteFrame(wx.Frame):
 
         def done(result) -> None:
             subscriptions, order_matches_amc = result
-            if completion_message:
+            if completion_message or not announce_result:
                 state = self.navigator.sessions[SessionId.PODCASTS]
                 if (
                     self.navigator.active is not SessionId.PODCASTS
@@ -36134,6 +36144,73 @@ class LiteFrame(wx.Frame):
                 "Stację zapisano, ale nie udało się zaktualizować "
                 "powiązanych planów nagrywania"
             )
+
+    def _refresh_selected_youtube_radio_station(self) -> None:
+        station = self._selected_station()
+        if station is None or not is_youtube_station_url(station.url):
+            self.announcer.say("Wybierz stację radiową YouTube")
+            return
+        client = self.client
+        if client is None or not self._youtube_account_available:
+            self.announcer.say("Najpierw połącz konto YouTube w sesji Podcasty i YouTube")
+            return
+        subscription_id = None
+        try:
+            station_live_url = youtube_dynamic_live_url(station.url)
+        except YouTubeLivePayloadError:
+            station_live_url = None
+        if station_live_url is not None:
+            for subscription in self._youtube_channel_subscriptions():
+                try:
+                    if youtube_dynamic_live_url(subscription.feed_url) == station_live_url:
+                        subscription_id = subscription.subscription_id
+                        break
+                except YouTubeLivePayloadError:
+                    continue
+        profile_owned = not self.radio.may_edit
+        self.announcer.say("Sprawdzam transmisje kanału YouTube")
+
+        def work():
+            payload = client.youtube_radio_broadcasts(
+                station.url, subscription_id=subscription_id
+            )
+            broadcast = youtube_current_or_next_broadcast(payload)
+            if broadcast is None or not broadcast.url:
+                return None
+            if profile_owned and broadcast.url != station.url:
+                client.edit_radio_station(station.id, station.name, broadcast.url)
+            return broadcast
+
+        def done(broadcast) -> None:
+            if broadcast is None:
+                self.announcer.say("Kanał nie ma teraz trwającej ani przyszłej transmisji")
+                return
+            if broadcast.url != station.url:
+                if not profile_owned:
+                    try:
+                        self.stations.edit(station.id, station.name, broadcast.url)
+                    except ValueError as error:
+                        self.announcer.say(str(error))
+                        return
+                if not self._update_private_radio_schedules_for_station(
+                    station.id, station.name, broadcast.url
+                ):
+                    self.announcer.say(
+                        "Stację zaktualizowano, lecz nie udało się zapisać powiązanych planów"
+                    )
+                    return
+            if profile_owned:
+                self._refresh_profile_view(preferred_id=station.id)
+            else:
+                self._reload_stations(preferred_id=station.id)
+            state = "trwającą" if broadcast.service_kind == "youtubeLive" else "najbliższą zaplanowaną"
+            self.announcer.say(f"Zapisano {state} transmisję: {broadcast.title}")
+
+        def failed(error: Exception) -> None:
+            message = str(error).strip() if isinstance(error, HostError) else ""
+            self.announcer.say(message or "Nie udało się sprawdzić transmisji YouTube")
+
+        self.runner.submit("radio-youtube-broadcast", work, done, failed)
 
     def _station_delete(self) -> None:
         station = self._selected_station()

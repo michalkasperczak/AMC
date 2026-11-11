@@ -16,6 +16,7 @@ internal static class LiteYouTubeAccountContract
     internal const string PlaylistPreviewOperation = "youtube.playlistSyncPreview";
     internal const string PlaylistApplyOperation = "youtube.playlistSyncApply";
     internal const string BroadcastsOperation = "youtube.channelBroadcasts";
+    internal const string RadioBroadcastsOperation = "youtube.radioBroadcasts";
 
     internal static LiteYouTubeBroadcastRequest ReadBroadcastRequest(JsonElement args)
     {
