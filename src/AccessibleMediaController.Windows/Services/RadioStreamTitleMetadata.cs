@@ -44,7 +44,21 @@ internal static class RadioStreamTitleMetadata
         var quote = metadata[start] is '\'' or '"' ? metadata[start++] : '\0';
         var end = quote == '\0'
             ? metadata.IndexOf(';', start)
-            : metadata.IndexOf(quote, start);
+            : -1;
+        if (quote != '\0')
+        {
+            // An apostrophe inside a title is ordinary text. Only a quote
+            // terminating the ICY field (before ';' or at the end) closes it.
+            for (var index = start; index < metadata.Length; index++)
+            {
+                if (metadata[index] == quote
+                    && (index + 1 == metadata.Length || metadata[index + 1] == ';'))
+                {
+                    end = index;
+                    break;
+                }
+            }
+        }
         if (end < 0) end = metadata.Length;
         title = Normalize(metadata[start..end]);
         return true;

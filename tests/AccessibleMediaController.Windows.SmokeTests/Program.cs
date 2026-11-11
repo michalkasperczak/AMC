@@ -73,6 +73,16 @@ if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))
     TestYouTubeSourceResolver();
     return 0;
 }
+if (args.Length == 4 && args[0] == "--radio-live-timing-probe")
+{
+    RadioLiveTimingProbe.Run(args[1], int.Parse(args[2]), args[3]);
+    return 0;
+}
+if (args.Contains("--radio-stream-title-only", StringComparer.Ordinal))
+{
+    TestRadioStreamTitleMetadata();
+    return 0;
+}
 if (args.Contains("--radio-sample-anchors-only", StringComparer.Ordinal))
 {
     RadioAudioSampleAnchorTests.Run();
@@ -5640,6 +5650,11 @@ static void TestRadioStreamTitleMetadata()
         RadioStreamTitleMetadata.ParseIcyText(
             "StreamTitle='Wykonawca - Tytuł';StreamUrl='';") == "Wykonawca - Tytuł",
         "Nie odczytano tytułu z metadanych ICY.");
+    Assert(
+        RadioStreamTitleMetadata.ParseIcyText(
+            "StreamTitle='Apophis - On Prendra De L'avance Plus Ta';StreamUrl='';")
+            == "Apophis - On Prendra De L'avance Plus Ta",
+        "Apostrof wewnątrz tytułu ICY uciął nazwę utworu.");
     Assert(
         RadioStreamTitleMetadata.ParseIcyText("StreamTitle='';") is null,
         "Pusty tytuł ICY nie został wyczyszczony.");
