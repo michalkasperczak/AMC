@@ -5,7 +5,8 @@ using AccessibleMediaController.Windows.Services;
 
 internal static class RadioLiveTimingProbe
 {
-    internal static void Run(string url, int seconds, string outputPath)
+    internal static void Run(string url, int seconds, string outputPath,
+        bool recognize = true)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var source)
             || source.Scheme != Uri.UriSchemeHttps
@@ -47,7 +48,7 @@ internal static class RadioLiveTimingProbe
                 bytesPerSecond = sample?.Format.AverageBytesPerSecond
             });
         };
-        Log("opening", new { url });
+        Log("opening", new { source.Host, hls = url.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) });
         radio.Play(new MediaItem
         {
             Id = "radio-live-timing-probe",
@@ -64,6 +65,20 @@ internal static class RadioLiveTimingProbe
             {
                 var available = radio.TryGetRecentCapturedAudio(
                     TimeSpan.FromSeconds(12), out var sample);
+                if (tick == 60 && sample?.Anchor is not null)
+                {
+                    var capturedSeconds = sample.Anchor.EndByte
+                        / (double)sample.Format.AverageBytesPerSecond;
+                    radio.Seek(TimeSpan.FromSeconds(Math.Max(0, capturedSeconds - 20)));
+                    Log("seek", new { capturedSeconds, positionSeconds = radio.Position.TotalSeconds });
+                }
+                if (tick == 100 && sample?.Anchor is not null)
+                {
+                    radio.JumpToLive();
+                    Log("jumpToLive", new { positionSeconds = radio.Position.TotalSeconds });
+                }
+                var playbackAvailable = radio.TryGetRecentPlaybackAudio(
+                    TimeSpan.FromSeconds(12), out var playbackSample);
                 Log("sample", new
                 {
                     available,
@@ -71,9 +86,14 @@ internal static class RadioLiveTimingProbe
                     startByte = sample?.Anchor?.StartByte,
                     segmentId = sample?.Anchor?.SegmentId,
                     bytesPerSecond = sample?.Format.AverageBytesPerSecond,
-                    bufferedSeconds = radio.BufferedDuration.TotalSeconds
+                    bufferedSeconds = radio.BufferedDuration.TotalSeconds,
+                    playbackAvailable,
+                    playbackStartByte = playbackSample?.Anchor?.StartByte,
+                    playbackEndByte = playbackSample?.Anchor?.EndByte,
+                    behindLiveSeconds = radio.BehindLive.TotalSeconds
                 });
-                if (tick >= 30 && recognition is null && available && sample is not null)
+                if (recognize && tick >= 30 && recognition is null
+                    && available && sample is not null)
                 {
                     var captured = sample;
                     var requestStarted = watch.ElapsedMilliseconds;

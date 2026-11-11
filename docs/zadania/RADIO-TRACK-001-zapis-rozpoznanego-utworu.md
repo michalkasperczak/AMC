@@ -1,6 +1,6 @@
 # RADIO-TRACK-001 — zapis rozpoznanego utworu z radia
 
-Status: **W trakcie — kotwice PCM oraz pierwsze pomiary ICY i HLS gotowe; słyszalne granice, timeshift i tor nagrania nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie i prototyp: 11.11.2026. Pomiar HLS: 11.11.2026. Ten wynik zastępuje status „Badanie kodu zakończone” z 11.11.2026.
+Status: **Ręczny eksport fragmentu gotowy w źródłach; test NVDA, instalacja i słyszalne granice utworu nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie, prototyp, pomiary i implementacja: 11.11.2026. Ten wynik zastępuje wcześniejszy status o otwartym eksporcie z 11.11.2026. Rekord wdrożenia: [RADIO-TRACK-001-implementacja-20261111.md](RADIO-TRACK-001-implementacja-20261111.md).
 
 ## Ustalenie użytkownika
 
@@ -67,4 +67,15 @@ Kod próbnika zapisano w źródłach jako `0af00681`; nie zmieniono zainstalowan
 
 ## Pomiary ICY i porównanie z HLS — 11.11.2026
 
-Dalszy, zakończony pomiar obejmuje cztery oficjalne strumienie, dwa uchwycone przejścia tytułu ICY, kotwice PCM i działający HLS bez tytułu. Wyniki liczbowe, metoda, ograniczenia oraz lokalizacja surowych logów: [RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md](RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md). Poprzedni plan „następne pomiary: ICY” został tym etapem wykonany; nadal nie zmierzono słyszalnej granicy, odsłuchu z przesunięciem czasu ani prywatnego toru nagrania. Parser tytułu ICY zachowuje teraz apostrofy; źródło i test: `0af00681`. Instalacja i wydanie: bez zmian.
+Dalszy, zakończony pomiar obejmuje cztery oficjalne strumienie, dwa uchwycone przejścia tytułu ICY, kotwice PCM i działający HLS bez tytułu. Wyniki liczbowe, metoda, ograniczenia oraz lokalizacja surowych logów: [RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md](RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md). Poprzedni plan „następne pomiary: ICY” został tym etapem wykonany; ówczesne braki dotyczące Time Shift i toru nagrania uzupełnia sekcja poniżej. Nadal nie zmierzono słyszalnej granicy. Parser tytułu ICY zachowuje teraz apostrofy; źródło i test: `0af00681`. Instalacja i wydanie: bez zmian.
+
+## Uzupełnienie: Time Shift i prywatny tor nagrania — 11.11.2026
+
+Po uwadze użytkownika, aby prowadzić pomiar bez pytań o każdy krok, próbniki działały dalej bez zatrzymywania zainstalowanego AMC Test. Rozszerzono `RadioLiveTimingProbe` o tryb bez kolejnych żądań Shazam po odpowiedzi 429, pomiar obu osi PCM, cofnięcie kursora o 20 s i powrót do transmisji na żywo. Log nowej sondy zapisuje domenę stacji zamiast pełnego adresu. `RadioPrivateRecordingProbe` sprawdza krótki, osobny, bezgłośny tor z rzeczywistym zapisem WAV i pobraniem próbki przez `RadioRecordingControl`.
+
+- ICY Złote Przeboje: 36/36 dostępnych próbek w 180 s; pierwsza miała 8,1 s, pozostałe osiągały 12 s. Jedyny niepusty tekst ICY był stałą nazwą stacji, bez zmiany utworu. Po cofnięciu kursor odsłuchu był o 20 s za odbiorem; po skoku na żywo różnica wyniosła 0,25 s. Bez żądania Shazam. Dane: `work/measurements/radio-samples-20261111-icy.jsonl`.
+- ICY SomaFM Indie Pop Rocks!: 60/60 próbek przez 300 s, każda o długości 12 s, jeden segment. Przy zmianie nadawca przesłał komunikat stacji, a po 3,008 s tytuł nowego utworu. Zdarzenia miały pozycje końca odebranego PCM 213,60 s i 216,35 s; kolejna 12-sekundowa próbka obejmowała 205,35–217,35 s. Po cofnięciu różnica osi wyniosła 20 s, po powrocie na żywo 0,25 s. Bez żądania Shazam. Dane: `work/measurements/radio-samples-20261111-somafm.jsonl`. Odstęp zdarzeń metadanych nie jest pomiarem słyszalnego przejścia w dźwięku.
+- Prywatny tor nagrania: podczas odrębnego, bezgłośnego nagrania `RadioRecordingControl` zwrócił próbkę `Capture` o długości 12 s i 4 233 600 bajtach. Jej identyfikatory bufora i segmentu oraz zakres bajtowy były takie same jak w bezpośrednim odczycie odbioru z tego toru. Próbny WAV miał 5 512 546 bajtów. Raport i plik audio są w `work/measurements/private-recording-20261111/`, ignorowanym przez Git; to lokalny materiał diagnostyczny, nie wydanie.
+- Dwie kompilacje SmokeTests Release po rozszerzeniu sondy przeszły bez ostrzeżeń i błędów. Wszystkie trzy procesy zainstalowanego AMC Test (launcher, Python, host) nadal działały po pomiarach. Nie instalowano ani nie restartowano AMC.
+
+**Granica decyzji:** pomiar potwierdza tożsamość i długość próbek na żywo, różne osie Time Shift oraz poprawny tor próbki z nagrania. Nie potwierdza słyszalnego początku lub końca utworu. Bezpieczny eksport zakresu z pierścienia już jest w źródłach; przed funkcją „zapisz cały rozpoznany utwór” nadal potrzebny jest kontrolowany odsłuch przejścia i wiarygodne granice. Obecny interfejs obiecuje jedynie ręcznie sprawdzony fragment.
