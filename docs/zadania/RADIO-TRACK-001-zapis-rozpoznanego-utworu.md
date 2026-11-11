@@ -1,6 +1,6 @@
 # RADIO-TRACK-001 — zapis rozpoznanego utworu z radia
 
-Status: **Badanie zakończone, pierwszy prototyp kotwic PCM i test gotowe; pomiar żywego strumienia oraz granice utworu nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie i prototyp: 11.11.2026. Ten wynik zastępuje status „Badanie kodu zakończone” z 11.11.2026.
+Status: **W trakcie — kotwice PCM oraz pierwsze pomiary ICY i HLS gotowe; słyszalne granice, timeshift i tor nagrania nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie i prototyp: 11.11.2026. Pomiar HLS: 11.11.2026. Ten wynik zastępuje status „Badanie kodu zakończone” z 11.11.2026.
 
 ## Ustalenie użytkownika
 
@@ -51,4 +51,20 @@ Badanie objęło kod AMC i dokumentację Icecast oraz wcześniejszy zapis `ECOSY
 - Każda próbka PCM skopiowana z pierścienia ma teraz identyfikator konkretnego bufora, początkową i końcową pozycję bajtową oraz oznaczenie osi odsłuchu albo odbioru. Pozycje powstają pod tą samą blokadą co kopia dźwięku. Dotychczasowy odbiorca próbki nadal dostaje te same bajty, format i długość; nie dodano polecenia użytkowego.
 - Test headless wymusił nadpisanie części pierścienia, oddzielne pozycje odsłuchu i odbioru oraz nowy identyfikator po utworzeniu drugiego bufora. Smoke test zakończył się kodem 0. Build SmokeTests Release i LiteHost Release przeszedł bez błędów i ostrzeżeń. Nie wykonano instalacji, testu NVDA ani eksportu dźwięku. Commit prototypu: 56cbe93b.
 - Po reconnect nowy strumień dostaje osobny identyfikator segmentu w tym samym buforze. Próbka rozpoznawania nie przekracza tej granicy; do czasu zebrania trzech sekund nowego dźwięku rozpoznanie zwraca brak wystarczającej próbki. Odsłuch starszego zakresu zachowuje poprzedni identyfikator segmentu. Test headless potwierdził oba przypadki, a ponowny build SmokeTests Release i LiteHost Release przeszedł bez ostrzeżeń i błędów. Commit granicy reconnect: `4763a34b`.
-- **Pozostałe ograniczenia:** kotwice nie są utrwalane w historii rozpoznania. Nie mierzono żywego ICY/HLS ani opóźnienia metadanych. Nie ma jeszcze wiarygodnego początku i końca piosenki, testu NVDA, eksportu ani instalacji. Zapis całego rozpoznanego utworu pozostaje niedostępny.
+- **Ograniczenia na zakończenie prototypu (uzupełnione pomiarem poniżej):** kotwice nie są utrwalane w historii rozpoznania. Wtedy nie mierzono żywego ICY/HLS ani opóźnienia metadanych. Nie ma jeszcze wiarygodnego początku i końca piosenki, testu NVDA, eksportu ani instalacji. Zapis całego rozpoznanego utworu pozostaje niedostępny.
+
+## Pierwszy pomiar żywego strumienia — 11.11.2026
+
+Użytkownik doprecyzował, że można rozpocząć pomiar **próbek do rozpoznawania utworów**. Cichy próbnik `RadioLiveTimingProbe` uruchomiono jako osobny proces na publicznym strumieniu HLS z listy AMC, bez zatrzymywania zainstalowanego AMC Test i bez ingerowania w nagrania. Próbnik został zbudowany w profilu Release z kodu roboczego na bazie `2ffb4bfa`; kompilacja przeszła bez błędów i ostrzeżeń. Plik danych: `work/measurements/radio-samples-20261111-eska.jsonl`. Zawiera adres strumienia i zdarzenia diagnostyczne, więc pozostaje lokalnym materiałem roboczym, nie załącznikiem do wydania.
+
+- Trzyminutowy odczyt: 36 z 36 zapytań o próbkę zwróciło PCM. Pierwsza próbka miała 9,6 s, późniejsze osiągały 12 s; wszystkie były w jednym segmencie. Bufor próbnika miał 60 s. To potwierdza pobieranie zakotwiczonych próbek z żywego HLS, nie poprawność granic piosenki.
+- Próbnik zarejestrował trzy zdarzenia `NowPlayingChanged`, lecz żadne nie niosło tytułu utworu. Na tym strumieniu nie da się porównać granicy utworu z metadanymi. Zdarzenia początkowe i końcowe nie są dowodem zmiany piosenki.
+- Jedno żądanie rozpoznania po pierwszych 30 s zwróciło błąd HTTP 429 po 951 ms. Nie uzyskano poprawnego wyniku ani opóźnienia udanego rozpoznania; żądania nie ponawiano.
+- Następne pomiary: strumień ICY z tytułami, przesunięcie odsłuchu względem odbioru, tor prywatnego nagrania i zachowanie przy reconnect. Konieczny jest też odsłuch rzeczywistego przejścia utworów, bo sama próbka i tytuł nie wyznaczają pewnej granicy. Do czasu ustąpienia ograniczenia usługi należy mierzyć próbki lokalnie bez kolejnych żądań Shazam.
+
+Kod próbnika zapisano w źródłach jako `0af00681`; nie zmieniono zainstalowanej wersji, nie wykonano próby NVDA ani zapisu fragmentu utworu. Ten pomiar nie zastępuje wcześniejszych zastrzeżeń o braku gwarancji pełnego utworu.
+
+
+## Pomiary ICY i porównanie z HLS — 11.11.2026
+
+Dalszy, zakończony pomiar obejmuje cztery oficjalne strumienie, dwa uchwycone przejścia tytułu ICY, kotwice PCM i działający HLS bez tytułu. Wyniki liczbowe, metoda, ograniczenia oraz lokalizacja surowych logów: [RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md](RADIO-TRACK-001-pomiary-ICY-HLS-20261111.md). Poprzedni plan „następne pomiary: ICY” został tym etapem wykonany; nadal nie zmierzono słyszalnej granicy, odsłuchu z przesunięciem czasu ani prywatnego toru nagrania. Parser tytułu ICY zachowuje teraz apostrofy; źródło i test: `0af00681`. Instalacja i wydanie: bez zmian.
