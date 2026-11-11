@@ -20,6 +20,8 @@ Zmodyfikowane moduły Pythona przeszły kontrolę składni. Aktualizację przygo
 wersji użytkowej nie zainstalowano ani nie opublikowano. Nawigacja nowego pola
 formatu z NVDA wymaga odbioru po instalacji wersji testowej; nie wykonano jej
 na dotychczasowej wersji aplikacji, która pola jeszcze nie zawiera.
+Commit źródłowy: `f2797c07`. Wersja użytkowa pozostaje dotychczasowa do czasu
+zbiorczej aktualizacji AMC Test.
 
 ## Ręczny zapis dostępnego fragmentu — 11.11.2026
 
