@@ -36148,11 +36148,11 @@ class LiteFrame(wx.Frame):
     def _refresh_selected_youtube_radio_station(self) -> None:
         station = self._selected_station()
         if station is None or not is_youtube_station_url(station.url):
-            self.announcer.say("Wybierz stację radiową YouTube")
+            self.announcer.say(i18n.tr("radio.youtube.selectStation"))
             return
         client = self.client
         if client is None or not self._youtube_account_available:
-            self.announcer.say("Najpierw połącz konto YouTube w sesji Podcasty i YouTube")
+            self.announcer.say(i18n.tr("radio.youtube.connectAccount"))
             return
         subscription_id = None
         try:
@@ -36168,7 +36168,7 @@ class LiteFrame(wx.Frame):
                 except YouTubeLivePayloadError:
                     continue
         profile_owned = not self.radio.may_edit
-        self.announcer.say("Sprawdzam transmisje kanału YouTube")
+        self.announcer.say(i18n.tr("radio.youtube.checking"))
 
         def work():
             payload = client.youtube_radio_broadcasts(
@@ -36183,7 +36183,7 @@ class LiteFrame(wx.Frame):
 
         def done(broadcast) -> None:
             if broadcast is None:
-                self.announcer.say("Kanał nie ma teraz trwającej ani przyszłej transmisji")
+                self.announcer.say(i18n.tr("radio.youtube.none"))
                 return
             if broadcast.url != station.url:
                 if not profile_owned:
@@ -36196,19 +36196,23 @@ class LiteFrame(wx.Frame):
                     station.id, station.name, broadcast.url
                 ):
                     self.announcer.say(
-                        "Stację zaktualizowano, lecz nie udało się zapisać powiązanych planów"
+                        i18n.tr("radio.youtube.planSaveFailed")
                     )
                     return
             if profile_owned:
                 self._refresh_profile_view(preferred_id=station.id)
             else:
                 self._reload_stations(preferred_id=station.id)
-            state = "trwającą" if broadcast.service_kind == "youtubeLive" else "najbliższą zaplanowaną"
-            self.announcer.say(f"Zapisano {state} transmisję: {broadcast.title}")
+            message_key = (
+                "radio.youtube.updatedLive"
+                if broadcast.service_kind == "youtubeLive"
+                else "radio.youtube.updatedUpcoming"
+            )
+            self.announcer.say(i18n.tr(message_key, title=broadcast.title))
 
         def failed(error: Exception) -> None:
             message = str(error).strip() if isinstance(error, HostError) else ""
-            self.announcer.say(message or "Nie udało się sprawdzić transmisji YouTube")
+            self.announcer.say(message or i18n.tr("radio.youtube.failed"))
 
         self.runner.submit("radio-youtube-broadcast", work, done, failed)
 

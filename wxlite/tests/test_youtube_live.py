@@ -469,3 +469,52 @@ def test_radio_youtube_update_replaces_station_and_linked_plans() -> None:
     assert calls[1] == ("edit", "kramer", "Kramer", "https://www.youtube.com/watch?v=new")
     assert calls[2] == ("plans", "kramer", "Kramer", "https://www.youtube.com/watch?v=new")
     assert spoken[-1] == "Zapisano najbliższą zaplanowaną transmisję: Następna transmisja"
+
+
+def test_radio_youtube_command_language_parity() -> None:
+    from amc_wx_lite import i18n
+
+    action = Action.REFRESH_YOUTUBE_RADIO_STATION
+    try:
+        for language in ("pl", "en"):
+            i18n.configure(language)
+            item = next(
+                item for menu in menu_model.menus_for_session(
+                    SessionId.RADIO, youtube_account_available=True
+                ) for item in menu.items if item.action is action
+            )
+            palette = next(
+                entry for entry in entries_for_session(
+                    SessionId.RADIO, youtube_account_available=True
+                ) if entry.action is action
+            )
+            assert item.label.replace("&", "") == palette.name
+            assert item.shortcut == palette.shortcut is None
+            context = LiteFrame._context_menu_entry_label(
+                SimpleNamespace(
+                    navigator=SimpleNamespace(
+                        session=SimpleNamespace(
+                            model=SimpleNamespace(selected_row=None)
+                        )
+                    ),
+                    _in_download_history=lambda: False,
+                    _without_menu_mnemonic=LiteFrame._without_menu_mnemonic,
+                ),
+                item,
+                item.label,
+            )
+            assert context == palette.name
+            help_entry = dict(describe("Radio", {action}))["Bez skrótu"]
+            assert help_entry
+            if language == "en":
+                assert describe_action(action, "Radio") == i18n.english_action_name(action.value)
+                assert i18n.tr("radio.youtube.updatedUpcoming", title="Test") == (
+                    "Saved the next scheduled broadcast: Test"
+                )
+            else:
+                assert describe_action(action, "Radio").startswith("Wybierz trwającą")
+                assert i18n.tr("radio.youtube.updatedUpcoming", title="Próba") == (
+                    "Zapisano najbliższą zaplanowaną transmisję: Próba"
+                )
+    finally:
+        i18n.configure("pl")
