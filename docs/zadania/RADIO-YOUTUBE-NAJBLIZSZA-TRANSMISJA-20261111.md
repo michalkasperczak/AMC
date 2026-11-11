@@ -11,3 +11,8 @@ Stacja „Kramer” zapisana jako jeden URL `watch?v=...` nie przejdzie samoczyn
 ## Kod, testy i wydanie
 
 Zmieniono model poleceń, menu, pomoc, paletę, klienta hosta, wybór transmisji i bezokienny host C#. Testy wyboru, menu, pomocy i aktualizacji powiązanych planów: 111 testów i 2 subtesty przeszły. `dotnet build src/AccessibleMediaController.LiteHost/AccessibleMediaController.LiteHost.csproj --no-restore -v:q` zakończył się bez ostrzeżeń i błędów. Nie przeprowadzono testu NVDA ani próby podczas rzeczywistej transmisji. Zmiany źródeł zapisano w commicie `5011eb78`. Nie instalowano ani nie publikowano nowego pakietu. Zmiana źródeł i udany build nie są dowodem działania w zainstalowanej wersji.
+
+
+## Korekta językowa z 11.11.2026
+
+Użytkownik przypomniał, że polecenie ma być spójne w polskim i angielskim menu kontekstowym, palecie poleceń oraz opisie klawiszy. Commit `3fd97a96` dopisuje polskie i angielskie komunikaty wykonania i błędów nowej funkcji oraz test wspólnej etykiety w menu i palecie, obecności w pełnej pomocy i braku fikcyjnego skrótu. Przed rozszerzeniem testu ukierunkowana kontrola menu, pomocy i palety przeszła: 12 testów i 2 subtesty. Po rozszerzeniu testu narzędzie uruchamiania na komputerze nie zwracało wyniku z kilku prób; te próby przerwano i nie są zaliczone. Kontrola NVDA oraz test w zainstalowanej wersji pozostają do wykonania po aktualizacji aplikacji.
