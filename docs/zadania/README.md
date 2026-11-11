@@ -3,7 +3,7 @@
 - `RADIOBROWSER-001` — **W trakcie; źródła, celowane testy modelu i kompilacja hosta gotowe, bez instalacji i odbioru NVDA** — `Ctrl+F5` w Radiu otwiera Radio Browser, który prowadzi przez kontynenty, kraje i stronicowane stacje. TuneIn odłożono. [Szczegóły](RADIOBROWSER-001-przegladanie-katalogu.md).
 - `RADIO-FAST-001` — **Zrobione — wycofane 10.11.2026** — zachowano dotychczasowe Page Up/Page Down i odczyt nazwy stacji; dodatkowe nazwy poleceń cofnięto, bez optymalizacji wczytywania. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
 - `YT-006` — **Kod i testy celowane gotowe; instalacja i odbiór NVDA później** — wybór konkretnego wariantu pojedynczego filmu YouTube. [Szczegóły](YT-006-dokladny-wybor-wariantu-pobrania.md).
-- `RADIO-TRACK-001` — **Badanie i pierwszy prototyp kotwic PCM gotowe; czeka na pomiar strumieni** — przed zapisem utworu trzeba jeszcze ustalić granice i obsłużyć reconnect. [Szczegóły](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
+- `RADIO-TRACK-001` — **Badanie i pierwszy prototyp kotwic PCM gotowe; czeka na pomiar strumieni** — prototyp rozdziela dźwięk po reconnect; przed zapisem utworu trzeba jeszcze zmierzyć granice. [Szczegóły](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
 
 - `NVDA-DUAL-20261110` — **Kod, test dwóch rzeczywistych hostów i kompilacje celowane zaliczone; bez instalacji, restartu NVDA i publikacji** — jeden dodatek kieruje skróty do AMC Test lub AMC Public przez osobne potoki. [Wynik i dalszy odbiór](NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md).
 
