@@ -20951,7 +20951,11 @@ class LiteFrame(wx.Frame):
             added, rows = result
             if state.radioarchiwista_queue_active:
                 state.playback_source_rows = tuple(rows)
-            if state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE:
+            if (
+                self.navigator.active is SessionId.RADIOARCHIWISTA
+                and state.view is View.LIST
+                and state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
+            ):
                 self._run(self.navigator.apply_radioarchiwista_rows(
                     LibraryView.RADIOARCHIWISTA_QUEUE, rows,
                     preferred_id=row.item_id,
@@ -31648,7 +31652,11 @@ class LiteFrame(wx.Frame):
             self, "queue.removed" if remove else "queue.added", item=label,
         ))
         spotify_state = self.navigator.sessions[SessionId.SPOTIFY]
-        if spotify_state.library_view is LibraryView.SPOTIFY_QUEUE:
+        if (
+            self.navigator.active is SessionId.SPOTIFY
+            and spotify_state.view is View.LIST
+            and spotify_state.library_view is LibraryView.SPOTIFY_QUEUE
+        ):
             spotify_state.model.replace(
                 list(self._spotify_queue_rows),
                 preferred_id=None if remove else selected[0].item_id,
@@ -31677,23 +31685,21 @@ class LiteFrame(wx.Frame):
         existing = {row.item_id for row in self._tidal_queue_rows}
         remove = all(row.item_id in existing for row in selected)
         selected_ids = {row.item_id for row in selected}
-        if remove:
-            self._tidal_queue_rows = [
-                row for row in self._tidal_queue_rows
-                if row.item_id not in selected_ids
-            ]
-        else:
-            self._tidal_queue_rows.extend(
+        updated_rows = (
+            [row for row in self._tidal_queue_rows if row.item_id not in selected_ids]
+            if remove else self._tidal_queue_rows + [
                 row for row in selected if row.item_id not in existing
-            )
+            ]
+        )
         previous = list(self.state.tidal_queue_items)
-        self.state.tidal_queue_items = tidal_queue_payload(self._tidal_queue_rows)
+        self.state.tidal_queue_items = tidal_queue_payload(updated_rows)
         try:
             self.store.save(self.state)
         except OSError as error:
             self.state.tidal_queue_items = previous
             self.announcer.say(f"Nie zapisano kolejki TIDAL: {error}")
             return
+        self._tidal_queue_rows = updated_rows
         label = (
             selected[0].title if len(selected) == 1
             else format_item_count(len(selected))
@@ -31707,7 +31713,11 @@ class LiteFrame(wx.Frame):
             ),
         )
         state = self.navigator.sessions[SessionId.TIDAL]
-        if state.library_view is LibraryView.TIDAL_QUEUE:
+        if (
+            self.navigator.active is SessionId.TIDAL
+            and state.view is View.LIST
+            and state.library_view is LibraryView.TIDAL_QUEUE
+        ):
             self._open_tidal_queue(
                 preferred_id=None if remove else selected[0].item_id
             )
