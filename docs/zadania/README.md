@@ -691,13 +691,27 @@ zmian, wymagający korekty użytkownika:
   Szczegóły:
   [REL-001-github-aktualizacje-sygnalista.md](REL-001-github-aktualizacje-sygnalista.md).
 - `TID-001` — **W trakcie; poprawka wznowienia po zmianie sesji jest w źródłach, test audio i odbiór NVDA oczekują; zainstalowany Test pozostaje bez zmiany** — sesja audio ma osobne logowanie i punkt powrotu do oryginalnego TIDALa. Pozostaje odbiór pełnego sterowania i NVDA oraz ustalenie źródła okresowego obciążenia hosta. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
-- `STR-001` — **W trakcie; bezsekretny prototyp wydawania tokenów Apple Music
-  ma 12/12 testów, ale prawdziwe wdrożenie jest wstrzymane do próby
-  MusicKit/WebView2/NVDA i decyzji o właścicielu Apple Developer Team** —
-  osobne laboratorium TIDAL i Apple Music; Apple Music nie jest jeszcze sesją
-  AMC Test ani AMC Public.
+- `STR-001` — **W trakcie; 12.11 użytkownik uruchomił prywatny pilot bez konta
+  deweloperskiego: apple-music-py dla Biblioteki oraz izolowane
+  music.apple.com dla odtwarzania; logowanie, DRM i NVDA jeszcze nietestowane**
+  — Apple Music nie jest jeszcze sesją AMC Test ani AMC Public. Oficjalna droga
+  z istniejącym brokerem tokenów nadal wymaga zespołu Apple Developer.
   Szczegóły:
   [STR-001-tidal-apple-music-laboratorium.md](STR-001-tidal-apple-music-laboratorium.md).
+- `AM-001` — **W trakcie; bezpieczny magazyn i adapter zapisu mają 8/8 testów,
+  żywe logowanie oraz odczyt Biblioteki oczekują** — pierwszy etap
+  nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
+  [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
+- `AM-002` — **Oczekuje; wzorce Sidry i WinZapp sprawdzone, brak pilota DRM**
+  — osobny proces z prawdziwym music.apple.com i wąskim mostkiem transportu.
+  [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
+- `AM-003` — **Oczekuje na AM-001 i AM-002** — sesja Apple Music, dostępna
+  nawigacja, skróty, menu, pomoc, paleta i NVDA.
+  [Szczegóły](AM-003-sesja-i-dostepny-interfejs.md).
+- `AM-004` — **Oczekuje; bez zakupu konta przed wynikiem pilota** — oficjalny
+  MusicKit, istniejący broker tokenów, właściciel zespołu Apple Developer i
+  ewentualny profil publiczny.
+  [Szczegóły](AM-004-oficjalny-musickit-i-konto-developer.md).
 - `BLUOS-001` — **Oczekuje; opracowanie źródłowe jest gotowe, a pierwszy etap
   wymaga pomiaru na Playerze użytkownika** — osobna lokalna sesja BluOS do
   sterowania Playerami, grupami, kolejką, presetami i katalogiem udostępnionym

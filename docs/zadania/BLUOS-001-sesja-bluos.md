@@ -105,6 +105,24 @@ klawiaturę, menu, `Ctrl+F1`, pełną pomoc, paletę poleceń i dokumentację.
 
 ## Zapis źródła i bieżący wynik
 
+### Aktualizacja Apple Music — 12 listopada 2026
+
+- BluOS ogłosił 20.10.2026 natywną obsługę Apple Music, dostarczoną w
+  bezpłatnej aktualizacji platformy. To nowszy fakt niż pierwotne opracowanie
+  BLUOS-001 i zastępuje ewentualne założenie, że Apple Music jest dostępne
+  wyłącznie przez AirPlay.
+- Oficjalna pomoc potwierdza logowanie Apple Music z przekierowaniem
+  autoryzacyjnym; dokumentuje też, że konto trzeba połączyć osobno z każdym
+  Playerem. Nie oznacza to jeszcze, że publiczne Custom Integration API
+  udostępnia AMC pełne przeglądanie katalogu lub uruchomienie dowolnego
+  katalogowego identyfikatora.
+- Przy wznowieniu wykonać pomiar `/Browse`, wyszukiwania, kolejki, presetów i
+  transportu po zalogowaniu Apple Music na jednym Playerze. W odpowiedzi
+  diagnostycznej zapisać tylko strukturę możliwości i bezpieczne nazwy, bez
+  tokenów, prywatnych kluczy, pełnych actionURL i danych konta.
+- Źródła: https://bluos.io/2026/10/20/bluos-now-supports-apple-music/ oraz
+  https://support.bluos.net/hc/en-us/articles/44634833939095-Why-Can-t-I-Log-into-Apple-Music .
+
 - 23 października 2026 odczytano całe opracowanie
   `D:\Projekty Codex\Hermes\Nowe\BluOS-API-w-AMC.md`.
 - Użytkownik potwierdził odczyt pliku i zgodność jego sumy SHA-256; wartość sumy

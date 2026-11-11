@@ -1,8 +1,8 @@
 # STR-001 — laboratorium TIDAL i Apple Music
 
-- Status: `Wstrzymane — Apple Music ma bezsekretny prototyp serwerowy, ale
-  prawdziwy test i wdrożenie wymagają własnego zespołu Apple Developer
-  należącego do właściciela AMC`
+- Status: `W trakcie — 12.11.2026 użytkownik uruchomił prywatny pilot AMC Test
+  bez konta deweloperskiego: apple-music-py dla katalogu i Biblioteki oraz
+  izolowany odtwarzacz music.apple.com wzorowany architektonicznie na Sidrze`
 - Utworzono: 18 października 2026
 - Obszar: usługi strumieniowe i profil testowy
 - Polecenie uruchamiające: `Uruchom zadanie STR-001`
@@ -34,6 +34,19 @@ może zapaść osobna decyzja o wdrożeniu.
   korzystać z MusicKit dla Swift, ale jest to osobny adapter platformy.
 
 ## Korekty użytkownika
+
+- 2026-11-12: użytkownik zatwierdził prywatny wariant laboratoryjny bez konta
+  Apple Developer: nieoficjalne `apple-music-py` dla katalogu, Biblioteki,
+  playlist i zmian kolekcji oraz prawdziwe `music.apple.com` w osobnym,
+  możliwym do ukrycia procesie przeglądarkowym dla odtwarzania. Zastępuje to
+  wcześniejsze całkowite wstrzymanie wszelkiej rzeczywistej próby do czasu
+  zakupu członkostwa. Nie zastępuje decyzji, że wariant oficjalny i ewentualna
+  publikacja nadal wymagają zespołu Apple Developer oraz osobnej oceny umowy.
+- 2026-11-12: bieżący TIDAL w AMC Test odtwarza pełne utwory wewnętrznym
+  adapterem `tidalapi` i własnym torem audio AMC. Dawne przekazanie do
+  oryginalnego TIDAL-a jest tylko jawnym rozwiązaniem dodatkowym. Ta korekta
+  zastępuje wszystkie pozostające niżej historyczne opisy, które przedstawiają
+  zewnętrzną aplikację jako główny tor TIDAL.
 
 - 2026-10-25: użytkownik uruchomił równoległą pracę nad Sonosem i Apple Music
   oraz dopuścił użycie tego samego publicznego serwera. Następnie ustalił, że
@@ -281,3 +294,143 @@ To badanie nie zmieniło żadnego polecenia AMC, skrótu, menu, pomocy, komunika
 Wytyczne TIDAL przewidują pełną długość dla subskrybenta **wewnątrz TIDAL Embed**; poza Embed ograniczają odtwarzanie do 30 sekund. Kod oficjalnego `embed-player` wystawia do strony nadrzędnej stan, czas i długość oraz przyjmuje żądania `play` i `pause`. W sprawdzonym `message-bridge.js` nie ma komend `seek`, `next` ani `previous`. Pełna długość w Embed nie oznacza więc automatycznie pełnej klawiaturowej obsługi z AMC. To doprecyzowuje opis oficjalnego `@tidal-music/player` powyżej; nie sprawdzono, czy istnieje inny publiczny interfejs Embed dla tych poleceń.
 
 - https://github.com/tidal-music/embed-player/blob/main/src/client/js/message-bridge.js
+
+## Wznowienie Apple Music — 12 listopada 2026
+
+### Zatwierdzony kierunek AMC Test
+
+Pierwszy rzeczywisty pilot nie wymaga zakupu Apple Developer Program. Ma dwie
+odseparowane warstwy:
+
+1. `apple-music-py` odczytuje nieudokumentowane `amp-api.music.apple.com`,
+   używane przez zalogowane `music.apple.com`. Kandydat udostępnia Bibliotekę,
+   albumy, wykonawców, playlisty, wyszukiwanie i operacje zapisu, ale nie
+   odtwarza chronionego dźwięku.
+2. Osobny proces przeglądarkowy ładuje prawdziwe `music.apple.com`. Odtwarzanie
+   pozostaje w MusicKit/Chromium, a AMC przekazuje tylko wąskie, nazwane
+   polecenia i odbiera stan odtwarzacza. Logowanie i 2FA zawsze są widoczne;
+   dopiero po zakończeniu logowania okno może zostać ukryte.
+
+Wariant oficjalny pozostaje późniejszą drogą do stabilnego AMC Public. Nadal
+wymaga aktywnego zespołu Apple Developer, Media ID, klucza i istniejącego już
+brokera tokenów. Konto nie jest wymagane przed oceną nieoficjalnego pilota.
+
+### Wzorzec WinZapp i granica podobieństwa
+
+Sprawdzono `gabrielhhaber/WinZapp_Python` w rewizji dostępnej 12.11.2026.
+WinZapp nie osadza surowego obiektu Chromium w dostępnym interfejsie. Natywny
+klient Python/wxPython komunikuje się po lokalnym HTTP i Socket.IO z osobnym
+WPPConnect Serverem Node.js, który prowadzi własny profil WhatsApp Web w
+Puppeteer/Chromium. Standardowe kontrolki wx pozostają jedyną powierzchnią dla
+czytnika ekranu, a ciężka i niestabilna automatyzacja webowa jest za granicą
+procesu.
+
+AMC przejmuje ten podział odpowiedzialności, ale nie kod WinZapp. WinZapp jest
+na GPL-3.0 i dotyczy innej usługi. Dla Apple proces przeglądarkowy musi dodatkowo
+pozostać właścicielem chronionego audio i DRM; nie może być tylko bezgłośną
+bramką danych.
+
+Źródło: https://github.com/gabrielhhaber/WinZapp_Python
+
+### Wzorzec Sidry i kontrakt sterowania
+
+Sprawdzono `wimpysworld/sidra`, commit
+`76de8f3ca93b2d4b747510855ee5269c2f795b85` z 11.11.2026. Sidra ładuje
+`music.apple.com` w CastLabs Electron, czeka na `MusicKit.getInstance()`,
+obserwuje zdarzenia pozycji, stanu, metadanych, kolejki, głośności, powtarzania
+i losowania oraz wystawia do procesu nadrzędnego wyłącznie listę dozwolonych
+komend. Polecenia obejmują między innymi play, pause, stop, next, previous,
+seek, ustawienie głośności, repeat, shuffle, przejście do pozycji kolejki i
+otwarcie identyfikatora materiału.
+
+Przenosimy ideę: izolacja kontekstu, jawna allowlista komunikatów, odrzucanie
+zdarzeń z poprzedniej instancji strony i brak adresów mediów w protokole AMC.
+Nie kopiujemy kodu ani nie zakładamy, że zwykły WebView2 zapewni DRM. Wydania
+Sidry korzystają z podpisanego CastLabs Electron/Widevine VMP; własny proces
+AMC musi osobno przejść żywy test pełnego utworu na Windows.
+
+Źródło: https://github.com/wimpysworld/sidra
+
+### Ocena apple-music-py i bezpieczeństwa
+
+Sprawdzono `LunaParker/apple-music-py` 0.0.1, commit
+`1d698359155d9b70d640234a1489165a06e6e01b` z 26.10.2026. Biblioteka jest
+mała, na licencji MIT i w stadium Alpha. Logowanie Playwright przechwytuje
+developer JWT strony Apple, `media-user-token` oraz cały nagłówek cookies.
+
+Nie wolno użyć jej domyślnego magazynu w AMC na Windows: zapisuje
+`credentials.json` i `storage-state.json` zwykłym tekstem, a uprawnienie 0600
+ustawia tylko na POSIX. Pilot AMC musi podstawić magazyn szyfrowany DPAPI dla
+bieżącego użytkownika, oddzielny dla profilu Test, i nie może przekazywać
+tokenów, cookies, odpowiedzi HTTP ani surowych rekordów do GUI, historii,
+logów lub Sygnalisty.
+
+Źródło: https://github.com/LunaParker/apple-music-py
+
+### BluOS
+
+20.10.2026 BluOS ogłosił natywną obsługę Apple Music, dostarczoną bezpłatną
+aktualizacją. Jest to nowy, potencjalnie lepszy sprzętowy cel odtwarzania niż
+AirPlay. Osobne zadanie `BLUOS-001` ma już badać lokalne sterowanie Playerem.
+W tym etapie nie zakładamy jeszcze, że publiczne BluOS Custom Integration API
+potrafi przeglądać Apple Music albo uruchomić dowolny katalogowy identyfikator;
+trzeba to zmierzyć na urządzeniu po zalogowaniu każdego Playera.
+
+Źródła:
+
+- https://bluos.io/2026/10/20/bluos-now-supports-apple-music/
+- https://support.bluos.net/hc/en-us/articles/44634833939095-Why-Can-t-I-Log-into-Apple-Music
+- https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf
+
+### Materiał do dokumentacji użytkownika
+
+Apple Music nie jest jeszcze widoczną sesją AMC Test. Obecny etap przygotowuje
+bezpieczną próbę logowania, Biblioteki i pełnego odtwarzania, bez zakupu konta
+deweloperskiego. Podczas pierwszego logowania pojawi się prawdziwe okno Apple;
+AMC nie prosi o hasło w swoim oknie i nie zapisuje go. Po udanym logowaniu
+przeglądarka może działać w tle, natomiast cała docelowa nawigacja, listy,
+polecenia i komunikaty NVDA pozostaną w zwykłych kontrolkach AMC.
+
+### Uzasadnienie i decyzje
+
+- Proces webowy i adapter Biblioteki są osobnymi zdolnościami. Awaria jednego
+  nie może fałszywie oznaczać, że drugi jest zalogowany i gotowy.
+- Na początku tylko odczytujemy Bibliotekę i uruchamiamy jeden wskazany utwór.
+  Operacje usuwania, tworzenia playlist i ulubionych są odłożone do czasu
+  potwierdzenia tożsamości konta, świeżej autoryzacji i zachowania po restarcie.
+- Dostępność sesji, Enter, transport, menu, `Ctrl+F1`, pełna pomoc i
+  `Ctrl+Shift+K` będą pochodzić z jednego modelu zdolności. Nie dodajemy
+  martwego polecenia przed działającym zapleczem.
+- Publiczne AMC pozostaje bez Apple Music do osobnej decyzji, testu warunków,
+  DRM, aktualizacji zależności oraz ręcznego odbioru NVDA.
+
+### Testy i wynik
+
+- Odczyt aktualnych źródeł AMC potwierdził, że TIDAL jest dziś wewnętrznym
+  odtwarzaczem AMC, więc nie może być wzorcem dla prostego zewnętrznego
+  przekazania Apple Music.
+- Przegląd źródeł trzech projektów zewnętrznych wykonano bez instalowania i bez
+  uruchamiania ich programów, bez konta Apple i bez danych użytkownika.
+- Dodano profilowo izolowany magazyn DPAPI CurrentUser oraz adapter, który
+  przekierowuje zapis `apple-music-py`, wyłącza jawny `storage-state.json` i
+  pozostaje niedostępny w AMC Public. `python -m unittest
+  wxlite.tests.test_apple_music_credentials -v` zaliczył 8/8, w tym prawdziwy
+  DPAPI na Windows oraz syntetyczne ponowne użycie sesji bez przeglądarki.
+- Nie wykonano jeszcze logowania Apple, zapytania do Biblioteki, pełnego
+  odtwarzania, testu DRM, NVDA, buildu, instalacji ani publikacji AMC.
+
+### Znane ograniczenia
+
+- `apple-music-py` używa nieudokumentowanego API i może przestać działać po
+  zmianie strony, nagłówków albo tokenów Apple.
+- Nie ma jeszcze potwierdzenia, że Playwright Chromium dostarczany zwykłą drogą
+  odtworzy pełny chroniony utwór. Sidra dowodzi architektury tylko dla własnych,
+  podpisanych wydań CastLabs Electron.
+- Nie ustalono jeszcze, czy BluOS publicznie wystawia katalog Apple Music poza
+  oficjalnym kontrolerem.
+
+### Wersja i commit
+
+Stan źródła przed zmianą: gałąź `codex/amc-test-public-20261109`, commit
+`a51d90b44ab2fc43e65dc3ed5c872d4d3782c6ee`. Ten etap nie tworzy wersji,
+instalacji ani publikacji AMC. Commit zmian: do uzupełnienia.

@@ -105,6 +105,16 @@
 - Kanoniczny rejestr oczekujących, trwających i zakończonych prac znajduje się
   w `docs/zadania/README.md`. Szczegóły każdego większego zadania są w osobnym
   pliku w tym samym katalogu.
+- Projektuj zadania tak, aby można je było przenieść między Hermesem, Codexem i
+  innym wykonawcą bez historii czatu. Każdy plik zadania ma samodzielnie podać
+  cel, zakres i zależności, bieżący stan, wykonane pliki, rzeczywiste wyniki
+  testów, znane ograniczenia oraz jeden konkretny następny krok. Nie używaj
+  niejawnych odwołań typu „kontynuuj poprzednie” albo „jak ustaliliśmy wyżej”.
+- Większy rozwój AMC może być kontynuowany przez Hermesa na podstawie plików z
+  dysku D. Codex jest preferowany do działań na komputerze, diagnoz i małych
+  skryptów, a ChatGPT do rozmów i drobnych prac tekstowych. Ten podział nie
+  przenosi automatycznie danych między usługami; kanonicznym przekazaniem są
+  zapisane źródła, zadania, testy i dokumentacja w tym repozytorium.
 - Przed rozpoczęciem wskazanego zadania przeczytaj rejestr i jego plik. Nie
   uruchamiaj innych zapisanych zadań bez polecenia użytkownika.
 - Po wykonaniu zadania zaktualizuj jego status oraz zapisz w jego pliku wynik,
