@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Sessions;
@@ -24,7 +26,7 @@ public sealed class RadioBrowserClient : IDisposable
         Func<CancellationToken, Task<IReadOnlyList<string>>>? mirrorResolver = null)
     {
         _ownsClient = client is null;
-        _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        _client = client ?? CreateHttpClient();
         _mirrorResolver = mirrorResolver ?? (client is null
             ? DiscoverMirrorsAsync
             : _ => Task.FromResult<IReadOnlyList<string>>([DefaultMirror]));
@@ -32,6 +34,49 @@ public sealed class RadioBrowserClient : IDisposable
         {
             _client.DefaultRequestHeaders.UserAgent.ParseAdd("AccessibleMultimediaController/0.1");
         }
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        // Some radio-browser mirrors publish IPv6 even when the local route
+        // cannot reach it. Prefer IPv4, but keep the hostname in the request
+        // URI so HTTPS still verifies the mirror's certificate normally.
+        var handler = new SocketsHttpHandler
+        {
+            ConnectCallback = ConnectPreferIpv4Async
+        };
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
+    }
+
+    private static async ValueTask<Stream> ConnectPreferIpv4Async(
+        SocketsHttpConnectionContext context,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = context.DnsEndPoint;
+        var addresses = await Dns.GetHostAddressesAsync(
+            endpoint.Host, cancellationToken).ConfigureAwait(false);
+        Exception? lastFailure = null;
+        foreach (var address in addresses.OrderBy(address =>
+            address.AddressFamily == AddressFamily.InterNetwork ? 0 : 1))
+        {
+            var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                attempt.CancelAfter(TimeSpan.FromSeconds(5));
+                await socket.ConnectAsync(
+                    new IPEndPoint(address, endpoint.Port), attempt.Token).ConfigureAwait(false);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (Exception exception) when (exception is SocketException or OperationCanceledException)
+            {
+                socket.Dispose();
+                if (cancellationToken.IsCancellationRequested) throw;
+                lastFailure = exception;
+            }
+        }
+        throw new HttpRequestException(
+            $"Nie można połączyć z serwerem {endpoint.Host}.", lastFailure);
     }
 
     public async Task<IReadOnlyList<MediaItem>> SearchAsync(
