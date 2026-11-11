@@ -6,7 +6,7 @@ using AccessibleMediaController.Windows.Services;
 internal static class RadioLiveTimingProbe
 {
     internal static void Run(string url, int seconds, string outputPath,
-        bool recognize = true)
+        bool recognize = true, bool captureTransitions = false)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var source)
             || source.Scheme != Uri.UriSchemeHttps
@@ -33,6 +33,9 @@ internal static class RadioLiveTimingProbe
         }
 
         using var radio = new RadioMediaOutput(1, audible: false);
+        var pending = new List<(int Number, RadioAudioSampleAnchor Anchor,
+            int BytesPerSecond, long EventElapsedMs)>();
+        var titleCount = 0;
         var started = false;
         radio.PlaybackStarted += (_, _) => { started = true; Log("started"); };
         radio.PlaybackFailed += (_, eventArgs) =>
@@ -40,6 +43,16 @@ internal static class RadioLiveTimingProbe
         radio.NowPlayingChanged += (_, eventArgs) =>
         {
             radio.TryGetRecentCapturedAudio(TimeSpan.FromSeconds(3), out var sample);
+            if (captureTransitions && !string.IsNullOrWhiteSpace(eventArgs.StreamTitle))
+            {
+                lock (gate)
+                {
+                    titleCount++;
+                    if (titleCount > 1 && sample?.Anchor is { } anchor)
+                        pending.Add((titleCount - 1, anchor,
+                            sample.Format.AverageBytesPerSecond, watch.ElapsedMilliseconds));
+                }
+            }
             Log("title", new
             {
                 eventArgs.StreamTitle,
@@ -57,10 +70,54 @@ internal static class RadioLiveTimingProbe
             Kind = MediaItemKind.Station
         }, TimeSpan.Zero, 0, 1d);
 
+        void FlushPending()
+        {
+            (int Number, RadioAudioSampleAnchor Anchor, int BytesPerSecond,
+                long EventElapsedMs)[] waiting;
+            lock (gate) waiting = pending.ToArray();
+            foreach (var item in waiting)
+            {
+                var first = item.Anchor.EndByte - 12L * item.BytesPerSecond;
+                var last = item.Anchor.EndByte + 12L * item.BytesPerSecond;
+                if (!radio.TryGetClipBounds(item.Anchor, out var bounds) || bounds is null
+                    || first < bounds.FirstByte)
+                {
+                    Log("clipUnavailable", new { item.Number, item.EventElapsedMs });
+                }
+                else if (last > bounds.LastByte)
+                {
+                    continue;
+                }
+                else
+                {
+                    var folder = outputPath + ".clips";
+                    Directory.CreateDirectory(folder);
+                    var clipPath = Path.Combine(folder, $"transition-{item.Number}.wav");
+                    try
+                    {
+                        radio.SaveClip(item.Anchor, first, last, clipPath);
+                        Log("clipSaved", new
+                        {
+                            item.Number, item.EventElapsedMs, clipPath,
+                            firstByte = first, lastByte = last,
+                            sampleEndByte = item.Anchor.EndByte,
+                            item.BytesPerSecond
+                        });
+                    }
+                    catch (Exception exception)
+                    {
+                        Log("clipFailed", new { item.Number, exception.Message });
+                    }
+                }
+                lock (gate) pending.Remove(item);
+            }
+        }
+
         Task? recognition = null;
         for (var tick = 1; tick <= seconds; tick++)
         {
             Thread.Sleep(1000);
+            if (captureTransitions) FlushPending();
             if (tick % 5 == 0)
             {
                 var available = radio.TryGetRecentCapturedAudio(
@@ -132,6 +189,15 @@ internal static class RadioLiveTimingProbe
                 }
             }
             if (!started && tick >= (url.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) ? 95 : 35)) break;
+        }
+        if (captureTransitions)
+        {
+            for (var grace = 0; grace < 20; grace++)
+            {
+                lock (gate) { if (pending.Count == 0) break; }
+                Thread.Sleep(1000);
+                FlushPending();
+            }
         }
         radio.Stop();
         if (recognition is not null)

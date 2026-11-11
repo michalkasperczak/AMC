@@ -73,11 +73,13 @@ if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))
     TestYouTubeSourceResolver();
     return 0;
 }
-if ((args.Length == 4 || args.Length == 5 && args[4] == "--no-recognition")
+if ((args.Length == 4 || args.Length == 5 && args[4] == "--no-recognition"
+        || args.Length == 6 && args[4] == "--no-recognition"
+            && args[5] == "--capture-transitions")
     && args[0] == "--radio-live-timing-probe")
 {
     RadioLiveTimingProbe.Run(args[1], int.Parse(args[2]), args[3],
-        recognize: args.Length == 4);
+        recognize: args.Length == 4, captureTransitions: args.Length == 6);
     return 0;
 }
 if (args.Length == 3 && args[0] == "--radio-private-recording-probe")
