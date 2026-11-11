@@ -26044,8 +26044,11 @@ class LiteFrame(wx.Frame):
                     return
                 destination = destination_picker.GetPath()
 
-            self.status_bar.show(i18n.ui_text("Pobieranie wybranego wariantu"))
-            self.announcer.say(i18n.ui_text("Pobieranie wybranego wariantu"))
+            progress_message = (
+                f"{i18n.ui_text('Pobieranie wybranego wariantu')}: {choice.label}"
+            )
+            self.status_bar.show(progress_message)
+            self.announcer.say(progress_message)
 
             def work() -> dict:
                 value = client.save_youtube_variant_as(
