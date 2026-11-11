@@ -229,3 +229,11 @@ zawiera Quick App Switcher 0.1.6 i AMC NVDA 0.4.2. Nie był uruchamiany ani
 publikowany. Rzeczywisty odbiór Radio Browser i NVDA po instalacji nadal
 pozostaje otwarty. Wczorajsza informacja użytkownika o nagrywaniu wymaga
 świeżego potwierdzenia bezpieczeństwa aktualizacji.
+
+Po budowie ponowiono 11.11.2026 odczyt sieciowy z tego komputera. Żądanie GET
+do używanego przez AMC `https://de1.api.radio-browser.info/json/countrycodes?hidebroken=true`
+odpowiedziało HTTP 200 (7256 bajtów, 0,81 s), a zapytanie o jedną stację z
+Polski do `/json/stations/search?countrycode=PL&limit=1&hidebroken=true`
+odpowiedziało HTTP 200 (1106 bajtów, 1,06 s). To **zastępuje wcześniejszy
+wniosek o bieżącym braku łączności** z tym serwerem, lecz nie dowodzi jeszcze
+parsowania listy i odtwarzania w GUI. Nie pobierano ani nie zapisano muzyki.
