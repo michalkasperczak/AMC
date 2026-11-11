@@ -57,4 +57,5 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 ## Wersja i commit
 
-Brak kodu produkcyjnego, buildu, instalacji i wydania. Commit: do uzupełnienia.
+Brak kodu produkcyjnego, buildu, instalacji i wydania. Commit dokumentacji
+pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.

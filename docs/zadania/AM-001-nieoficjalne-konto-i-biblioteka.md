@@ -67,4 +67,4 @@ użytkownika i oddzielone od AMC Public.
 - Gałąź: `codex/amc-test-public-20261109`.
 - Stan bazowy: `a51d90b44ab2fc43e65dc3ed5c872d4d3782c6ee`.
 - Kod jest w źródłach i ma testy; bez buildu, instalacji i wydania.
-- Commit: do uzupełnienia.
+- Commit kodu i zapisu etapu: `5e37190abd3cf76229447544b0bcef6190f7a66d`.

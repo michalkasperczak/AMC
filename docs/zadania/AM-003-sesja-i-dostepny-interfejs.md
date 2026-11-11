@@ -55,4 +55,5 @@ Transport i kolejka zależą od AM-002. AMC Public jest poza tym zadaniem.
 
 ## Wersja i commit
 
-Brak zmian kodu i wersji. Commit: do uzupełnienia.
+Brak zmian kodu i wersji. Commit dokumentacji planu:
+`5e37190abd3cf76229447544b0bcef6190f7a66d`.

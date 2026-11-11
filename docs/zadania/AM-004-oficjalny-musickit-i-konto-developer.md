@@ -49,4 +49,5 @@ Nie używać klucza znajomego ani nie wkładać `.p8` do AMC.
 
 ## Wersja i commit
 
-Brak nowej wersji. Commit: do uzupełnienia.
+Brak nowej wersji. Commit dokumentacji planu:
+`5e37190abd3cf76229447544b0bcef6190f7a66d`.
