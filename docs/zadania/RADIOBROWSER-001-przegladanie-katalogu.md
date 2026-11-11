@@ -237,3 +237,58 @@ Polski do `/json/stations/search?countrycode=PL&limit=1&hidebroken=true`
 odpowiedziało HTTP 200 (1106 bajtów, 1,06 s). To **zastępuje wcześniejszy
 wniosek o bieżącym braku łączności** z tym serwerem, lecz nie dowodzi jeszcze
 parsowania listy i odtwarzania w GUI. Nie pobierano ani nie zapisano muzyki.
+
+## Korekta po instalacji, 11.11.2026
+
+`alpha.493` została zainstalowana w AMC Test po potwierdzeniu zakończenia
+nagrywania, lecz lista krajów nie ładowała się w aplikacji. `curl` przez IPv4
+otrzymał HTTP 200, a połączenie .NET z niedziałającym adresem IPv6 kończyło się
+limitem czasu. Poprawka klienta Radio Browser próbuje najpierw osiągalne adresy
+IPv4, zachowując zwykłą kontrolę TLS i adres HTTPS. Próba klienta zwróciła 227
+krajów i stację z Polski. Wersja `alpha.494` została zbudowana i zainstalowana;
+manifest instalacji wskazał `bundleId=e444716b`, rewizję izolowanego źródła
+`a5d1ccda`, 3458 plików, a pełna kontrola integralności zwróciła kod 0.
+`Ctrl+F5` w zainstalowanym programie załadował kontynenty. Dalszy test
+klawiatury został przerwany klawiszem Escape użytkownika; nie odnotowano wtedy
+odsłuchu stacji ani potwierdzenia NVDA.
+
+## Zgłoszenie użytkownika i poprawka, 11.11.2026
+
+Użytkownik sprawdził listę stacji i zgłosił, że Enter odtwarza, ale zamyka
+Radio Browser. Ponowne `Ctrl+F5` zaczynało od kontynentów. Ta korekta
+**zastępuje wcześniejszą decyzję** o zamykaniu okna po wyborze stacji.
+
+Od `alpha.495` Enter na stacji rozpoczyna odtwarzanie i pozostawia okno oraz
+zaznaczenie na liście stacji. Następny Enter pozwala od razu sprawdzić inną
+stację; odtwarzanie nie zapisuje jej automatycznie. Po ręcznym zamknięciu
+`Ctrl+F5` w tej samej sesji programu ponownie otwiera ostatni kraj i kolejność
+stacji. Pamiętany jest kraj i sortowanie, nie dokładny numer pozycji ani
+strona paginacji; po restarcie programu katalog zaczyna od kontynentów.
+Backspace i Escape nadal cofają o poziom, a przycisk Zamknij kończy okno.
+Pozostałe polecenia stacji (`←/→`, `Ctrl+C`, `Ctrl+Shift+C`,
+`Ctrl+Shift+L`, `Ctrl+Shift+U`) nie zmieniły znaczenia.
+
+Natywna lista ma zaktualizowaną wskazówkę klawiaturową; wspólny opis polecenia
+`Ctrl+F5` zasila menu, paletę i pomoc. Zaktualizowano również `README_PL.md`.
+Test natywnego dialogu sprawdził wywołanie odtwarzania bez `EndModal`,
+zachowanie zaznaczenia i powrót do listy Polski po ponownym otwarciu. Wynik:
+1/1. Testy katalogu i zgodności poleceń: 22/22. Kompilacja Python: bez błędu.
+Kod w głównej gałęzi: `2ffb4bfa`; izolowany odpowiednik do budowy:
+`efbad461`. Paczka `alpha.495` z izolowanego commitu przeszła kontrolowany
+start GUI i hosta. Instalator, instalacja i odbiór na żywo stanowią osobne
+etapy; na tym etapie nie są jeszcze potwierdzone.
+
+Instalator `alpha.495` powstał w
+`D:\Projekty Codex\AMC - integracja wxPython\.test-output\radio-browser-alpha495-installer-20261111\AMC-Test-2026-11-11-1423.exe`.
+Ma 136 527 578 bajtów i SHA-256
+`c8923a836b2e71bfd7d83311a37cb28fde7834f8d8058a504fcc87b79739aeaf`;
+ponowny odczyt pliku zgadza się z plikiem integralności. Manifest paczki:
+`sourceRevision=efbad461`, `sourceDirty=false`, `bundleId=d4ddaecc`, 3458
+plików. Skan sekretów przeszedł. Instalator zawiera Quick App Switcher 0.1.6
+i AMC NVDA 0.4.2. To wynik **budowy instalatora**, a nie instalacji.
+
+Bezpośrednio przed planowaną aktualizacją odczytano w działającym AMC Test
+widok „Nagrywane”: jedna aktywna pozycja „Kraków - 2026-11-11 13-39-28”.
+Dlatego nie zamykano aplikacji i nie uruchamiano instalatora. Odbiór na żywo,
+w tym zachowanie fokusu i mowy NVDA po Enterze, pozostaje do wykonania po
+zakończeniu tego nagrania.
