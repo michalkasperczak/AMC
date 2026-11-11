@@ -173,3 +173,33 @@ bazie wydzielono wyłącznie fragmenty Radio Browser i zapisano je w commicie
 Radio Browser przeszły. Ten wynik dotyczy źródeł, nie nowej paczki, instalacji
 ani odbioru NVDA. Wcześniejsza nieudana próba wydzielenia patcha i stan limitu
 sprzed resetu pozostają zapisem historycznym, nie stanem bieżącym.
+
+## Kandydat po usunięciu TuneIn, 11.11.2026
+
+Z czystego, odizolowanego checkoutu `9878fbb5` zbudowano paczkę AMC Test:
+`D:\Projekty Codex\AMC - integracja wxPython\.test-output\radio-browser-direct-20261111`.
+Manifest podaje profil `test`, `sourceDirty=false`, 3458 plików, commit
+`9878fbb5b1f242ad47b1d11a591480cc12cc028b` i identyfikator `c3604a9a`.
+Kompilacja hosta, uruchamiacza i aktualizatora .NET, pełna kontrola integralności
+oraz kontrolowany start GUI i hosta zakończyły się pomyślnie. Pierwsze dwie
+próby składania nie przeszły walidacji runtime: pierwszy miał już TIDAL, drugi
+nie miał zgodnych wspólnych zależności. Ostateczna budowa użyła odizolowanej
+kopii runtime ze sprawdzonej poprzedniej paczki, bez usług dodawanych przez
+skrypt z przypiętych zależności. Nie użyto niezapisanych zmian innych zadań.
+
+To **zbudowana paczka**, nie instalacja ani wydanie. Nie ma jeszcze odsłuchu
+żywej stacji, potwierdzenia serwera Radio Browser w sieci użytkownika ani
+rzeczywistego testu mowy i fokusu NVDA. Poprzednia odpowiedź użytkownika
+potwierdzała nagrywanie lub jego bliski start; przed zastąpieniem instalacji
+poproszono o świeże potwierdzenie końca nagrywania. Rejestr wyników paczki
+dodano w commicie dokumentacyjnym po `24535a81`.
+
+Z tej samej paczki utworzono lokalny instalator
+`.test-output/radio-browser-direct-installer-complete-20261111/AMC-Test-2026-11-11-1224.exe`,
+wersja `0.1.0-alpha.492`, 136 525 349 bajtów, SHA-256
+`d9679bf63a981f80cb27cf3de6b4d22b7f80ae0964c006a78d6a21e76436418c`.
+Plik integralności ma `bundleId=c3604a9a`, zgodny commit źródła i instalatora,
+`secretScan=passed` oraz paczki Quick App Switcher 0.1.6 i AMC NVDA 0.4.2.
+Odczytany ponownie hash rzeczywistego pliku jest zgodny. Pierwszy instalator
+pośredni nie zawierał AMC NVDA 0.4.2 i **nie jest kandydatem do instalacji**.
+Instalator kompletny pozostaje lokalny, nie został uruchomiony ani opublikowany.

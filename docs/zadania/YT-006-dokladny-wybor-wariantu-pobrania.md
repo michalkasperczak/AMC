@@ -40,4 +40,4 @@ Dostępny z klawiatury wybór konkretnego pliku lub strumienia YouTube, z czytel
 
 ## Wynik, ograniczenia i identyfikacja
 
-To projekt na podstawie przeglądu kodu AMC i dokumentacji yt-dlp, bez zmiany programu. Nie pobrano żywej oferty YouTube, nie przeprowadzono testu NVDA, buildu, instalacji ani publikacji dla YT-006. W szczególności wielkości i kontenery w przykładach etykiet są ilustracyjne, nie są wynikiem pomiaru. Wersja aplikacji: bez zmiany. Commit projektu: do uzupełnienia po zapisie.
+To projekt na podstawie przeglądu kodu AMC i dokumentacji yt-dlp, bez zmiany programu. Nie pobrano żywej oferty YouTube, nie przeprowadzono testu NVDA, buildu, instalacji ani publikacji dla YT-006. W szczególności wielkości i kontenery w przykładach etykiet są ilustracyjne, nie są wynikiem pomiaru. Wersja aplikacji: bez zmiany. Commit projektu: `24535a81`.

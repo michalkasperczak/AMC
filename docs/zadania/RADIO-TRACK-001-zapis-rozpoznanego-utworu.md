@@ -43,4 +43,4 @@ Zbadać zapis rozpoznanego utworu do osobnego pliku, zainspirowany BlindRadio. R
 
 ## Wynik, ograniczenia i identyfikacja
 
-Badanie objęło kod AMC i dokumentację Icecast oraz wcześniejszy zapis `ECOSYSTEM-001` dotyczący BlindRadio. Nie analizowano ani nie kopiowano kodu BlindRadio w tej iteracji. Nie wykonano pomiaru żywego ICY/HLS, testu NVDA, testu eksportu, buildu, instalacji ani publikacji w ramach RADIO-TRACK-001. Wersja aplikacji: bez zmiany. Commit badania: do uzupełnienia po zapisie.
+Badanie objęło kod AMC i dokumentację Icecast oraz wcześniejszy zapis `ECOSYSTEM-001` dotyczący BlindRadio. Nie analizowano ani nie kopiowano kodu BlindRadio w tej iteracji. Nie wykonano pomiaru żywego ICY/HLS, testu NVDA, testu eksportu, buildu, instalacji ani publikacji w ramach RADIO-TRACK-001. Wersja aplikacji: bez zmiany. Commit badania: `24535a81`.
