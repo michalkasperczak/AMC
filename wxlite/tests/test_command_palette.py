@@ -148,7 +148,8 @@ def test_recognition_history_has_one_contract_in_every_session() -> None:
         "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
         "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music. "
         "W AMC Test Ctrl+Shift+L zmienia Bibliotekę albumu, Ctrl+Shift+U Ulubione utworu "
-        "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania"
+        "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania. "
+        "Dostępny fragment radia można odsłuchać i zapisać jako WAV lub MP3"
     )
     chord = Chord("S", ctrl=True, alt=True)
     for session in SessionId:

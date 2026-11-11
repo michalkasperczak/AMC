@@ -1,5 +1,26 @@
 # RADIO-TRACK-001 — implementacja ręcznego zapisu fragmentu
 
+## Korekta 11.11.2026 — także MP3
+
+Użytkownik rozszerzył wcześniejszą decyzję o zapisie wyłącznie do WAV: w oknie
+fragmentu wybiera się teraz **WAV — bezstratny, większy plik** (ustawienie
+początkowe) lub **MP3 — 192 kb/s, mniejszy plik**. Zapis MP3 korzysta z tego
+samego bufora i istniejącego systemowego kodera Media Foundation; kompresja
+jest stratna. Rozszerzenie pliku musi odpowiadać wybranemu formatowi. Istniejący
+plik nie jest zastępowany, a kursor radia i nagranie pozostają bez zmian.
+Wcześniejsze stwierdzenia poniżej o wyborze samego WAV opisują pierwotny etap.
+
+**Weryfikacja korekty:** host LiteHost Release, silnik Windows Release i zestaw
+SmokeTests Release skompilowano bez ostrzeżeń i błędów. Test kotwic próbki
+`--radio-sample-anchors-only` zakończył się kodem 0: odczytał plik WAV i nowo
+zakodowany MP3 o wybranej długości oraz potwierdził niezmieniony kursor radia.
+`wxlite/tests/test_radio_recognition.py`: 18/18 testów, w tym przekazanie
+wybranego MP3 i nazwy do hosta. Testy skrótów, palety i menu: 106/106.
+Zmodyfikowane moduły Pythona przeszły kontrolę składni. Aktualizację przygotowano w źródłach; nowej
+wersji użytkowej nie zainstalowano ani nie opublikowano. Nawigacja nowego pola
+formatu z NVDA wymaga odbioru po instalacji wersji testowej; nie wykonano jej
+na dotychczasowej wersji aplikacji, która pola jeszcze nie zawiera.
+
 ## Ręczny zapis dostępnego fragmentu — 11.11.2026
 
 Po pomiarach ICY, HLS, Time Shift i prywatnego toru wdrożono funkcję **Sprawdź i zapisz fragment radia…** w historii rozpoznanych utworów. Nie nazywa pliku „całym utworem” i nie wyznacza granic z samego czasu odpowiedzi Shazam. To zastępuje wcześniejszą propozycję automatycznego wskazywania początku i końca na podstawie niezweryfikowanych metadanych. Użytkownik wybiera początek i koniec w sekundach względem początku 12-sekundowej próbki, odsłuchuje po pięć sekund przy obu punktach i wybiera plik WAV.

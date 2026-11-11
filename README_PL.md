@@ -908,7 +908,7 @@ Po rozpoznaniu utworu w historii dostępny jest przycisk **Sprawdź fragment…*
 oraz ta sama funkcja w menu kontekstowym. AMC pokazuje dostępny zakres bufora
 w sekundach względem początku próbki użytej do rozpoznania. Ustaw początek i
 koniec, odsłuchaj okolice obu granic i wybierz **Zapisz fragment…**. Wynikiem
-jest plik WAV z wybranego dźwięku. Rozpoznanie nie ustala dokładnych granic
+jest plik WAV bez kompresji albo MP3 (192 kb/s) z wybranego dźwięku, zgodnie z wyborem formatu w oknie. Rozpoznanie nie ustala dokładnych granic
 piosenki; po nadpisaniu bufora lub ponownym uruchomieniu trzeba ją rozpoznać
 jeszcze raz. Zapis nie zmienia stacji ani nie zatrzymuje nagrania.
 

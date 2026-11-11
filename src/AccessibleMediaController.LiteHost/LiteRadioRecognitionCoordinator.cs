@@ -171,21 +171,30 @@ internal sealed class LiteRadioRecognitionCoordinator
         if (first < bounds.FirstByte || last > bounds.LastByte)
             throw new LiteRequestException("Wybrany fragment nie mieści się już w buforze stacji.");
         if (last - first > 2_000_000_000L)
-            throw new LiteRequestException("Fragment jest za długi dla pliku WAV. Wybierz krótszy zakres.");
+            throw new LiteRequestException("Fragment jest za długi. Wybierz krótszy zakres.");
+        var formatName = LiteArgs.ReadText(args, "format") ?? "wav";
+        var format = formatName.ToLowerInvariant() switch
+        {
+            "wav" => RadioRecordingFormat.Wav,
+            "mp3" => RadioRecordingFormat.Mp3,
+            _ => throw new LiteRequestException("Wybierz format WAV albo MP3.")
+        };
+        var extension = format == RadioRecordingFormat.Mp3 ? ".mp3" : ".wav";
         var path = LiteArgs.ReadText(args, "path");
         if (string.IsNullOrWhiteSpace(path) ||
-            !string.Equals(Path.GetExtension(path), ".wav", StringComparison.OrdinalIgnoreCase))
-            throw new LiteRequestException("Wybierz nazwę pliku WAV.");
+            !string.Equals(Path.GetExtension(path), extension, StringComparison.OrdinalIgnoreCase))
+            throw new LiteRequestException($"Wybierz nazwę pliku {formatName.ToUpperInvariant()}.");
         path = Path.GetFullPath(path);
         if (File.Exists(path))
             throw new LiteRequestException("Plik już istnieje. Wybierz inną nazwę.");
         try
         {
-            output.SaveClip(anchor, first, last, path);
-            return new { path, seconds = lastSecond - firstSecond };
+            var savedPath = output.SaveClip(anchor, first, last, path, format);
+            return new { path = savedPath, seconds = lastSecond - firstSecond };
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException
-            or InvalidOperationException or ObjectDisposedException)
+            or InvalidOperationException or ObjectDisposedException or NotSupportedException
+            or TimeoutException)
         {
             throw new LiteRequestException(error.Message);
         }

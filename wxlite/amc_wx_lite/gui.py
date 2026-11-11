@@ -7583,7 +7583,7 @@ class RadioClipDialog(wx.Dialog):
     """Ręczny wybór zakresu z tego samego bufora co rozpoznana próbka."""
 
     def __init__(self, history, entry, info, *, submit, save_clip, preview_clip):
-        super().__init__(history, title="Sprawdź i zapisz fragment radia", size=(650, 420))
+        super().__init__(history, title="Sprawdź i zapisz fragment radia", size=(650, 470))
         self._history = history
         self._entry = entry
         self._token = str(entry.get("clipToken") or "")
@@ -7628,6 +7628,19 @@ class RadioClipDialog(wx.Dialog):
         layout.Add(end_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         layout.Add(self.end, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
 
+        format_label = wx.StaticText(panel, label="&Format zapisu:")
+        self.save_format = wx.Choice(panel, choices=(
+            "WAV — bezstratny, większy plik",
+            "MP3 — 192 kb/s, mniejszy plik",
+        ))
+        self.save_format.SetSelection(0)
+        self.save_format.SetName("Format zapisu fragmentu")
+        self.save_format.SetHelpText(
+            "WAV zachowuje dźwięk bez kompresji. MP3 zmniejsza plik przez kompresję stratną."
+        )
+        layout.Add(format_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        layout.Add(self.save_format, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+
         self.status = wx.StaticText(panel, label="Sprawdź początek i koniec fragmentu")
         self.status.SetName("Sprawdź początek i koniec fragmentu")
         layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 10)
@@ -7640,7 +7653,7 @@ class RadioClipDialog(wx.Dialog):
         cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
         for button, name in ((play_start, "Odtwórz początek fragmentu"),
                              (play_end, "Odtwórz koniec fragmentu"),
-                             (save, "Zapisz wybrany fragment do pliku WAV"),
+                             (save, "Zapisz wybrany fragment do pliku"),
                              (cancel, "Anuluj wybór fragmentu")):
             button.SetName(name)
             buttons.AddButton(button)
@@ -7649,7 +7662,7 @@ class RadioClipDialog(wx.Dialog):
         outer.Add(panel, 1, wx.EXPAND)
         outer.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
         self.SetSizer(outer)
-        self.SetMinSize((580, 380))
+        self.SetMinSize((580, 430))
 
         play_start.Bind(wx.EVT_BUTTON, lambda _event: self._preview(True))
         play_end.Bind(wx.EVT_BUTTON, lambda _event: self._preview(False))
@@ -7701,26 +7714,33 @@ class RadioClipDialog(wx.Dialog):
                           for key in ("artist", "title")).strip(" -") or "Fragment radia"
         name = "".join("_" if char in '<>:"/\\|?*' or ord(char) < 32 else char
                        for char in name).rstrip(" .")[:100] or "Fragment radia"
-        with wx.FileDialog(self, "Zapisz fragment radia", defaultFile=name + ".wav",
-                           wildcard="Dźwięk WAV (*.wav)|*.wav",
+        save_format = "mp3" if self.save_format.GetSelection() == 1 else "wav"
+        extension = "." + save_format
+        with wx.FileDialog(self, "Zapisz fragment radia", defaultFile=name + extension,
+                           wildcard=f"Dźwięk {save_format.upper()} (*{extension})|*{extension}",
                            style=wx.FD_SAVE) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 self.start.SetFocus()
                 return
             path = dialog.GetPath()
         if not Path(path).suffix:
-            path += ".wav"
+            path += extension
+        if Path(path).suffix.lower() != extension:
+            self._set_status(f"Wybierz nazwę pliku {save_format.upper()}.")
+            self.save_format.SetFocus()
+            return
         if Path(path).exists():
             self._set_status("Plik już istnieje. Wybierz inną nazwę.")
             return
         self._busy = True
         self._set_status("Zapisuję fragment")
 
-        def done(_result):
+        def done(result):
             self._busy = False
             if not self._closed:
                 if not self._history._closing:
-                    self._history._set_status(f"Zapisano fragment: {Path(path).name}")
+                    saved_path = result.get("path", path) if isinstance(result, dict) else path
+                    self._history._set_status(f"Zapisano fragment: {Path(saved_path).name}")
                 self.Close()
 
         def failed(error):
@@ -7729,7 +7749,7 @@ class RadioClipDialog(wx.Dialog):
                 self._set_status(f"Nie udało się zapisać fragmentu: {error}")
 
         self._submit("radio-clip-save",
-                     lambda: self._save_clip(self._token, first, last, path),
+                     lambda: self._save_clip(self._token, first, last, path, save_format),
                      done, failed)
 
     def _on_close(self, event) -> None:
@@ -35602,8 +35622,8 @@ class LiteFrame(wx.Frame):
             resolve_match=self._resolve_recognition_match,
             change_membership=self._change_recognition_membership,
             clip_info=lambda token: self.client.radio_recognition_clip_info(token),
-            clip_save=lambda token, first, last, path:
-                self.client.save_radio_recognition_clip(token, first, last, path),
+            clip_save=lambda token, first, last, path, save_format:
+                self.client.save_radio_recognition_clip(token, first, last, path, save_format),
             clip_preview=lambda token, first, last:
                 self.client.preview_radio_recognition_clip(token, first, last),
             detailed_hints=self._detailed_hints,

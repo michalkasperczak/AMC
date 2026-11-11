@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 from amc_wx_lite import menu_model, radio_recognition
+from amc_wx_lite import gui
 from amc_wx_lite.gui import LiteFrame, RadioClipDialog, RadioRecognitionHistoryDialog
 from amc_wx_lite.host_client import LiteHostClient
 from amc_wx_lite.navigation import SessionId
@@ -85,6 +86,40 @@ def test_clip_window_rejects_reversed_bounds_before_save() -> None:
     assert RadioClipDialog._range(dialog) is None
     assert messages == ["Początek musi być wcześniejszy niż koniec"]
     assert focused == ["start"]
+
+
+def test_clip_save_sends_selected_mp3_format_and_filename(monkeypatch, tmp_path) -> None:
+    selected_path = tmp_path / "Wybrany fragment.mp3"
+    requests: list[tuple] = []
+    class FileDialog:
+        def __init__(self, _parent, _title, *, defaultFile, wildcard, style):
+            assert defaultFile == "Wykonawca - Piosenka.mp3"
+            assert "MP3" in wildcard
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return None
+        def ShowModal(self):
+            return gui.wx.ID_OK
+        def GetPath(self):
+            return str(selected_path)
+
+    monkeypatch.setattr(gui.wx, "FileDialog", FileDialog)
+    dialog = SimpleNamespace(
+        _busy=False, _range=lambda: (0, 3),
+        _entry={"artist": "Wykonawca", "title": "Piosenka"},
+        save_format=SimpleNamespace(GetSelection=lambda: 1),
+        _token="clip-token", _set_status=lambda _message: None,
+        _save_clip=lambda *args: requests.append(args),
+        _submit=lambda _name, action, _done, _failed: action(),
+    )
+    RadioClipDialog._on_save(dialog, None)
+    assert requests == [("clip-token", 0, 3, str(selected_path), "mp3")]
+
+    host_requests: list[tuple] = []
+    host = SimpleNamespace(call=lambda *args, **kwargs: host_requests.append((args, kwargs)))
+    LiteHostClient.save_radio_recognition_clip(host, *requests[0])
+    assert host_requests[0][0][1]["format"] == "mp3"
 
 
 def test_old_recognition_explains_why_clip_cannot_open() -> None:

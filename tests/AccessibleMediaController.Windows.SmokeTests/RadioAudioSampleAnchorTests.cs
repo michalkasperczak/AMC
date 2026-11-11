@@ -1,4 +1,5 @@
 using System.Reflection;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
 
@@ -29,6 +30,7 @@ internal static class RadioAudioSampleAnchorTests
 
         var clipPath = Path.Combine(Path.GetTempPath(),
             "amc-radio-clip-test-" + Guid.NewGuid().ToString("N") + ".wav");
+        var mp3Path = Path.ChangeExtension(clipPath, ".mp3");
         try
         {
             if (!first.TryBounds(played, out var bounds) || bounds is null
@@ -43,6 +45,16 @@ internal static class RadioAudioSampleAnchorTests
                 if (reader.Length != 3L * bytesPerSecond)
                     throw new Exception("Eksport WAV ma inną długość niż wybrany zakres.");
             }
+            if (first.SaveClip(played, played.StartByte, played.EndByte, mp3Path,
+                    RadioRecordingFormat.Mp3) != mp3Path
+                || first.PlaybackPosition != playbackPosition)
+                throw new Exception("Eksport MP3 zmienił nazwę pliku lub kursor odsłuchu radia.");
+            using (var reader = new Mp3FileReader(mp3Path))
+            {
+                if (reader.TotalTime < TimeSpan.FromSeconds(2.5)
+                    || reader.TotalTime > TimeSpan.FromSeconds(3.5))
+                    throw new Exception("Eksport MP3 ma inną długość niż wybrany zakres.");
+            }
             first.WriteSeconds(5);
             if (first.TryBounds(played, out _))
                 throw new Exception("Nadpisana próbka nadal jest dostępna do eksportu.");
@@ -50,6 +62,7 @@ internal static class RadioAudioSampleAnchorTests
         finally
         {
             if (File.Exists(clipPath)) File.Delete(clipPath);
+            if (File.Exists(mp3Path)) File.Delete(mp3Path);
         }
 
         using var second = new BufferFixture(format, capacitySeconds: 10);
@@ -119,9 +132,10 @@ internal static class RadioAudioSampleAnchorTests
             return found;
         }
 
-        internal void SaveClip(RadioAudioSampleAnchor anchor, long first, long last, string path) =>
-            _type.GetMethod("SaveClip", Flags)!.Invoke(_buffer,
-                new object[] { anchor, first, last, path });
+        internal string SaveClip(RadioAudioSampleAnchor anchor, long first, long last, string path,
+            RadioRecordingFormat format = RadioRecordingFormat.Wav) =>
+            (string)_type.GetMethod("SaveClip", Flags)!.Invoke(_buffer,
+                new object[] { anchor, first, last, path, format })!;
 
         internal RadioAudioSnapshot Snapshot(string method, int seconds) =>
             TrySnapshot(method, seconds)

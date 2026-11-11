@@ -24,6 +24,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
     private readonly Task _encoderTask;
     private string _finalPath;
     private readonly string _temporaryPath;
+    private readonly bool _uniqueOnConflict;
     private readonly object _writeGate = new();
     private readonly int _averageBytesPerSecond;
     private long _acceptedBytes;
@@ -34,7 +35,8 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         string finalPath,
         WaveFormat sourceFormat,
         RadioRecordingFormat recordingFormat,
-        int bitRate)
+        int bitRate,
+        bool uniqueOnConflict)
     {
         if (sourceFormat.Channels is < 1 or > 2)
         {
@@ -42,6 +44,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         }
 
         _finalPath = finalPath;
+        _uniqueOnConflict = uniqueOnConflict;
         _temporaryPath = RadioRecordingStagingStore.CreatePath(finalPath);
         _averageBytesPerSecond = sourceFormat.AverageBytesPerSecond;
         _queue = new QueuedWaveProvider(sourceFormat);
@@ -125,7 +128,8 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         string finalPath,
         WaveFormat sourceFormat,
         RadioRecordingFormat recordingFormat,
-        int bitRateKbps)
+        int bitRateKbps,
+        bool uniqueOnConflict = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
         ArgumentNullException.ThrowIfNull(sourceFormat);
@@ -141,7 +145,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             throw new IOException("Plik nagrania o tej nazwie już istnieje.");
         }
         var bitRate = Math.Clamp(bitRateKbps, 64, 320) * 1000;
-        return new RadioMp3Recorder(finalPath, sourceFormat, recordingFormat, bitRate);
+        return new RadioMp3Recorder(finalPath, sourceFormat, recordingFormat, bitRate, uniqueOnConflict);
     }
 
     private static MediaFoundationResampler? CreateLossyEncodingResampler(
@@ -237,7 +241,8 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             {
                 throw new InvalidDataException("Koder nie utworzył danych nagrania.");
             }
-            _finalPath = RadioRecordingStagingStore.Publish(_temporaryPath, _finalPath, uniqueOnConflict: true);
+            _finalPath = RadioRecordingStagingStore.Publish(_temporaryPath, _finalPath,
+                uniqueOnConflict: _uniqueOnConflict);
             return _finalPath;
         }
         catch (Exception exception) when (exception is IOException

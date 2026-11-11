@@ -253,12 +253,13 @@ public sealed class RadioMediaOutput(
         return buffer is not null && buffer.TryGetClipBounds(anchor, out bounds);
     }
 
-    internal void SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path)
+    internal string SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path,
+        RadioRecordingFormat format = RadioRecordingFormat.Wav)
     {
         RadioTimeshiftWaveProvider buffer;
         lock (_gate) buffer = _pipeline?.Buffer
             ?? throw new InvalidOperationException("Tor tej stacji nie jest już dostępny.");
-        buffer.SaveClip(anchor, firstByte, lastByte, path);
+        return buffer.SaveClip(anchor, firstByte, lastByte, path, format);
     }
 
     internal static async Task<RadioAudioMetadata?> TryReadStreamMetadataAsync(
@@ -2163,7 +2164,8 @@ public sealed class RadioMediaOutput(
             }
         }
 
-        public void SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path)
+        public string SaveClip(RadioAudioSampleAnchor anchor, long firstByte, long lastByte, string path,
+            RadioRecordingFormat format = RadioRecordingFormat.Wav)
         {
             if (firstByte >= lastByte || firstByte % _blockAlign != 0
                 || lastByte % _blockAlign != 0)
@@ -2171,35 +2173,60 @@ public sealed class RadioMediaOutput(
             if (!TryGetClipBounds(anchor, out var initial) || initial is null
                 || firstByte < initial.FirstByte || lastByte > initial.LastByte)
                 throw new InvalidOperationException("Fragment zniknął z bufora albo zmienił się tor stacji.");
+            if (format == RadioRecordingFormat.Mp3)
+            {
+                using var recorder = RadioMp3Recorder.Start(path, WaveFormat,
+                    RadioRecordingFormat.Mp3, RadioMp3Recorder.DesiredBitRate / 1000,
+                    uniqueOnConflict: false);
+                try
+                {
+                    CopyClipChunks(anchor, firstByte, lastByte,
+                        (chunk, count) => recorder.Write(chunk, 0, count));
+                    return recorder.Stop();
+                }
+                catch
+                {
+                    recorder.Abort();
+                    throw;
+                }
+            }
+            if (format != RadioRecordingFormat.Wav)
+                throw new NotSupportedException("Wybrany format fragmentu nie jest obsługiwany.");
             var temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
                 using (var writer = new WaveFileWriter(temporaryPath, WaveFormat))
-                {
-                    var chunk = new byte[Math.Max(_blockAlign, 65536 / _blockAlign * _blockAlign)];
-                    for (var cursor = firstByte; cursor < lastByte;)
-                    {
-                        var count = (int)Math.Min(chunk.Length, lastByte - cursor);
-                        lock (_gate)
-                        {
-                            if (!TryGetClipBounds(anchor, out var current) || current is null
-                                || cursor < current.FirstByte || lastByte > current.LastByte)
-                                throw new InvalidOperationException("Bufor nadpisał fragment podczas zapisu. Spróbuj wybrać krótszy zakres.");
-                            var position = cursor % _ring.Length;
-                            var first = (int)Math.Min(count, _ring.Length - position);
-                            _ring.Read(position, chunk, 0, first);
-                            if (first < count)
-                                _ring.Read(0, chunk, first, count - first);
-                        }
-                        writer.Write(chunk, 0, count);
-                        cursor += count;
-                    }
-                }
+                    CopyClipChunks(anchor, firstByte, lastByte,
+                        (chunk, count) => writer.Write(chunk, 0, count));
                 File.Move(temporaryPath, path, false);
+                return path;
             }
             finally
             {
                 if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
+        }
+
+        private void CopyClipChunks(RadioAudioSampleAnchor anchor, long firstByte, long lastByte,
+            Action<byte[], int> write)
+        {
+            var chunk = new byte[Math.Max(_blockAlign, 65536 / _blockAlign * _blockAlign)];
+            for (var cursor = firstByte; cursor < lastByte;)
+            {
+                var count = (int)Math.Min(chunk.Length, lastByte - cursor);
+                lock (_gate)
+                {
+                    if (!TryGetClipBounds(anchor, out var current) || current is null
+                        || cursor < current.FirstByte || lastByte > current.LastByte)
+                        throw new InvalidOperationException("Bufor nadpisał fragment podczas zapisu. Spróbuj wybrać krótszy zakres.");
+                    var position = cursor % _ring.Length;
+                    var first = (int)Math.Min(count, _ring.Length - position);
+                    _ring.Read(position, chunk, 0, first);
+                    if (first < count)
+                        _ring.Read(0, chunk, first, count - first);
+                }
+                write(chunk, count);
+                cursor += count;
             }
         }
 

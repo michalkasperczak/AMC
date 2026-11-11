@@ -513,7 +513,8 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
             "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
             "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music. "
             "W AMC Test Ctrl+Shift+L zmienia Bibliotekę albumu, Ctrl+Shift+U Ulubione utworu "
-            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania"
+            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania. "
+            "Dostępny fragment radia można odsłuchać i zapisać jako WAV lub MP3"
         ),
         "Ctrl+Alt+S",
         "Rozpoznan&e utwory…",
@@ -2625,7 +2626,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Ctrl+Enter album, a prawa strzałka pokazuje nazwany utwór najpierw "
             "w usłudze domyślnej, potem w drugiej oraz kopiowanie linku Apple Music. "
             "W AMC Test Ctrl+Shift+L zmienia Bibliotekę albumu, Ctrl+Shift+U Ulubione utworu "
-            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania"
+            "Spotify lub TIDAL; Ctrl+Shift+C kopiuje dokładny albo nazwany link wyszukiwania. "
+            "Dostępny fragment radia można odsłuchać i zapisać jako WAV lub MP3"
         ),
         Action.GO_TO_RELATED_PODCAST: (
             "Pokaż podcast lub kanał wybranego odcinka. Enter otwiera cel"
