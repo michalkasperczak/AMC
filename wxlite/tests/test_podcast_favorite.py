@@ -196,12 +196,13 @@ def test_delete_on_episode_list_removes_episode_not_whole_podcast() -> None:
             session=SimpleNamespace(
                 library_view=LibraryView.PODCAST_EPISODES,
                 library_playlist_id="podcast-private",
+                model=SimpleNamespace(rows=[row]),
             ),
         ),
         _selected_action_rows=lambda: [row],
         _profile_edit_client=lambda: client,
         _current_profile_view_name=lambda: LibraryView.PODCAST_EPISODES.value,
-        _refresh_profile_view=lambda: calls.append("refresh"),
+        _refresh_profile_view=lambda **_kwargs: calls.append("refresh"),
         announcer=SimpleNamespace(say=spoken.append),
         runner=Runner(),
     )

@@ -52,7 +52,9 @@ def test_tidal_left_arrow_says_only_complementary_time_and_format() -> None:
         state=LiteState(), options=Options(),
         navigator=SimpleNamespace(
             active=SessionId.TIDAL,
-            session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
+            session=SimpleNamespace(
+                model=SimpleNamespace(selected_row=row), library_view=None
+            ),
         ),
         announcer=SimpleNamespace(say=spoken.append),
     )
@@ -564,7 +566,9 @@ def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
         state=LiteState(), options=Options(),
         navigator=SimpleNamespace(
             active=SessionId.TIDAL,
-            session=SimpleNamespace(model=SimpleNamespace(selected_row=row)),
+            session=SimpleNamespace(
+                model=SimpleNamespace(selected_row=row), library_view=None
+            ),
         ),
         announcer=SimpleNamespace(say=spoken.append),
     )

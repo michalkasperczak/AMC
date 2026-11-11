@@ -17,6 +17,7 @@ from amc_wx_lite.navigation import (
     SessionId,
     ShowSpotifyRelations,
     SpotifyRelationChoice,
+    View,
 )
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 from amc_wx_lite.state_store import LiteState
@@ -306,8 +307,53 @@ def test_library_shortcut_saves_open_album_instead_of_selected_track() -> None:
 
     assert requests[0][0][0]["kind"] == "album"
     assert requests[0][0][0]["externalId"] == "album-1"
-    assert requests[0][1:] == ("library", True)
+    assert requests[0][1:] == ("library", None)
     assert spoken == ["Dodano album do Biblioteki Spotify"]
+
+
+def test_spotify_player_shortcut_toggles_without_opening_saved_list() -> None:
+    spoken, requests, refreshed = [], [], []
+    member = False
+    album = Row(
+        "spotify:album:one", "Album", "album", service_id="album-one"
+    )
+    context = OpenSpotifyCollectionView(
+        "spotify-collection:albums", "albums", "Albumy"
+    )
+    navigator = Navigator()
+    navigator.active = SessionId.SPOTIFY
+    navigator.apply_spotify_collection_view(context, "Albumy Spotify", [album])
+    navigator.session.view = View.PLAYER
+
+    def change(_items, *, mode, add=None):
+        nonlocal member
+        requests.append((mode, add))
+        member = not member
+        return {
+            "added": member,
+            "message": (
+                "Dodano do" if member else "Usunięto z"
+            ) + " Biblioteki Spotify",
+        }
+
+    frame = SimpleNamespace(
+        navigator=navigator,
+        client=SimpleNamespace(spotify_collection_membership=change),
+        runner=ImmediateRunner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [album],
+        _spotify_membership_pending=False,
+        _open_spotify_collection_view=refreshed.append,
+    )
+
+    LiteFrame._toggle_spotify_membership(frame, favorite=False)
+    LiteFrame._toggle_spotify_membership(frame, favorite=False)
+
+    assert requests == [("library", None), ("library", None)]
+    assert spoken == [
+        "Dodano do Biblioteki Spotify", "Usunięto z Biblioteki Spotify"
+    ]
+    assert refreshed == []
 
 
 def test_spotify_library_shortcut_removes_a_saved_episode_and_refreshes_view() -> None:

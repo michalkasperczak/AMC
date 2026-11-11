@@ -28947,17 +28947,18 @@ class LiteFrame(wx.Frame):
             }
             for row in rows
         ]
-        active_view = self.navigator.sessions[SessionId.TIDAL].library_view
+        tidal_state = self.navigator.sessions[SessionId.TIDAL]
+        active_view = tidal_state.library_view
         preferred_id = rows[0].item_id
-        # W katalogu (także: wyszukiwanie -> wykonawca -> Albumy) polecenie
-        # oznacza jawne dodanie. Nie wolno opierać go na starszym cache profilu,
-        # bo wtedy nieobecny już album mógł zostać ponownie „usunięty”. W
-        # nazwanym widoku zapisanej kolekcji ten sam gest jawnie usuwa.
+        # W katalogu i odtwarzaczu kierunek ustala host ze stanu kolekcji po
+        # ostatnim potwierdzonym zapisie. Wymuszone dodanie tutaj sprawiało,
+        # że drugi skrót nigdy nie usuwał utworu ani albumu. Jedynie w liście
+        # zapisanej kolekcji wiersz sam potwierdza członkostwo i oznacza usunięcie.
         remove_from_current_collection = active_view in (
             {LibraryView.TIDAL_FAVORITES}
             if favorite else
             {LibraryView.TIDAL_LIBRARY, LibraryView.TIDAL_PLAYLISTS}
-        )
+        ) and getattr(tidal_state, "view", View.LIST) is View.LIST
         self._tidal_membership_pending = True
 
         def done(payload: dict) -> None:
@@ -28970,7 +28971,10 @@ class LiteFrame(wx.Frame):
                 if favorite else
                 {LibraryView.TIDAL_LIBRARY, LibraryView.TIDAL_PLAYLISTS}
             )
-            if active_view in relevant_views:
+            if (remove_from_current_collection and active_view in relevant_views
+                    and self.navigator.active is SessionId.TIDAL
+                    and getattr(tidal_state, "view", View.LIST) is View.LIST
+                    and tidal_state.library_view is active_view):
                 self._open_tidal_view(OpenTidalView(
                     active_view,
                     preferred_id=preferred_id if bool(result.get("added")) else None,
@@ -28987,7 +28991,7 @@ class LiteFrame(wx.Frame):
             lambda: client.tidal_collection_membership(
                 items,
                 mode="favorite" if favorite else "library",
-                add=not remove_from_current_collection,
+                add=False if remove_from_current_collection else None,
             ),
             done,
             failed,
@@ -29071,6 +29075,7 @@ class LiteFrame(wx.Frame):
         # przeładowanie bez działania.
         remove_from_current_collection = (
             isinstance(context, OpenSpotifyCollectionView)
+            and getattr(state, "view", View.LIST) is View.LIST
             and (
                 favorite and context.view in {"liked", "episodes"}
                 or not favorite
@@ -29089,7 +29094,8 @@ class LiteFrame(wx.Frame):
                 if bool(result.get("added"))
                 else f"Usunięto z {destination} Spotify"
             )
-            if not isinstance(context, OpenSpotifyCollectionView):
+            if (not isinstance(context, OpenSpotifyCollectionView)
+                    or getattr(state, "view", View.LIST) is not View.LIST):
                 self.announcer.say(completion)
                 return
             relevant = (
@@ -29145,14 +29151,7 @@ class LiteFrame(wx.Frame):
             )
 
         def work() -> dict:
-            kwargs = (
-                {"add": False}
-                if remove_from_current_collection
-                else {"add": True}
-                if not favorite and isinstance(context, OpenSpotifyContainer)
-                and context.kind == "album"
-                else {}
-            )
+            kwargs = {"add": False} if remove_from_current_collection else {}
             return client.spotify_collection_membership(
                 items,
                 mode="favorite" if favorite else "library",

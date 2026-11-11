@@ -774,6 +774,16 @@ def test_online_tidal_library_action_uses_tidal_membership_not_podcast_import() 
 
 def test_online_tidal_library_action_uses_confirmed_membership_toggle() -> None:
     calls = []
+    membership = False
+
+    def change(items, **kwargs):
+        nonlocal membership
+        calls.append((items, kwargs))
+        membership = not membership
+        return {
+            "added": membership,
+            "message": ("Dodano do" if membership else "Usunięto z") + " Biblioteki TIDAL",
+        }
 
     class Runner:
         @staticmethod
@@ -790,10 +800,7 @@ def test_online_tidal_library_action_uses_confirmed_membership_toggle() -> None:
     )
     frame = SimpleNamespace(
         client=SimpleNamespace(
-            tidal_collection_membership=lambda items, **kwargs: (
-                calls.append((items, kwargs))
-                or {"added": True, "message": "Dodano do Biblioteki TIDAL"}
-            )
+            tidal_collection_membership=change
         ),
         runner=Runner(),
         announcer=SimpleNamespace(say=lambda message: calls.append(("say", message))),
@@ -804,12 +811,20 @@ def test_online_tidal_library_action_uses_confirmed_membership_toggle() -> None:
         [SearchEntry(SessionId.TIDAL, row, remote_kind="tidalCatalog")],
         favorite=False,
     )
+    LiteFrame._change_tidal_search_result_membership(
+        frame,
+        [SearchEntry(SessionId.TIDAL, row, remote_kind="tidalCatalog")],
+        favorite=False,
+    )
 
     assert calls[0][1] == {"mode": "library", "add": None}
-    assert calls[-1] == ("say", "Dodano do Biblioteki TIDAL")
+    assert calls[2][1] == {"mode": "library", "add": None}
+    assert [call[1] for call in calls if call[0] == "say"] == [
+        "Dodano do Biblioteki TIDAL", "Usunięto z Biblioteki TIDAL",
+    ]
 
 
-def test_tidal_catalog_add_and_saved_library_remove_are_explicit() -> None:
+def test_tidal_catalog_toggles_and_saved_library_list_removes() -> None:
     requests = []
 
     class Runner:
@@ -854,9 +869,72 @@ def test_tidal_catalog_add_and_saved_library_remove_are_explicit() -> None:
     assert run_for(LibraryView.TIDAL_CONTAINER) is False
     assert run_for(LibraryView.TIDAL_LIBRARY) is False
     assert requests == [
-        {"mode": "library", "add": True},
+        {"mode": "library", "add": None},
         {"mode": "library", "add": False},
     ]
+
+
+@pytest.mark.parametrize(
+    "favorite,library_view,presentation",
+    [
+        (False, LibraryView.TIDAL_CONTAINER, View.LIST),
+        (False, LibraryView.TIDAL_LIBRARY, View.PLAYER),
+        (True, LibraryView.TIDAL_CONTAINER, View.LIST),
+        (True, LibraryView.TIDAL_FAVORITES, View.PLAYER),
+    ],
+)
+def test_tidal_shortcuts_alternate_on_catalog_and_player_without_leaving_view(
+    favorite: bool, library_view: LibraryView, presentation: View
+) -> None:
+    spoken, requests, refreshes = [], [], []
+    member = False
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def change(_items, *, mode, add):
+        nonlocal member
+        requests.append((mode, add))
+        assert add is None
+        member = not member
+        destination = "Ulubionych" if favorite else "Biblioteki"
+        return {
+            "added": member,
+            "message": f"{'Dodano do' if member else 'Usunięto z'} {destination} TIDAL",
+        }
+
+    row = Row(
+        "tidal:tracks:7" if favorite else "tidal:albums:7",
+        "Wybrany utwór" if favorite else "Wybrany album",
+        "track" if favorite else "album",
+        service_id="tracks:7" if favorite else "albums:7",
+    )
+    state = SimpleNamespace(library_view=library_view, view=presentation)
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            sessions={SessionId.TIDAL: state},
+        ),
+        client=SimpleNamespace(tidal_collection_membership=change),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [row],
+        _tidal_membership_pending=False,
+        _open_tidal_view=refreshes.append,
+    )
+
+    LiteFrame._toggle_tidal_membership(frame, favorite=favorite)
+    LiteFrame._toggle_tidal_membership(frame, favorite=favorite)
+
+    assert requests == [("favorite" if favorite else "library", None)] * 2
+    destination = "Ulubionych" if favorite else "Biblioteki"
+    assert spoken == [
+        f"Dodano do {destination} TIDAL",
+        f"Usunięto z {destination} TIDAL",
+    ]
+    assert refreshes == []
 
 
 def test_library_shortcut_saves_open_tidal_album_instead_of_selected_track() -> None:
@@ -890,7 +968,7 @@ def test_library_shortcut_saves_open_tidal_album_instead_of_selected_track() -> 
 
     assert requests[0][0][0]["kind"] == "album"
     assert requests[0][0][0]["externalId"] == "albums:44"
-    assert requests[0][1:] == ("library", True)
+    assert requests[0][1:] == ("library", None)
     assert spoken == ["Dodano album do Biblioteki TIDAL"]
 
 
@@ -907,6 +985,7 @@ def test_remote_radio_open_plays_without_profile_write() -> None:
         _switch_session=lambda session: calls.append(("session", session)),
         _session_open_player_on_enter=lambda session: False,
         navigator=SimpleNamespace(
+            active=SessionId.FILES,
             open_radio_search_result=lambda row, *, open_player: [row]
         ),
         _run=lambda values: intents.extend(values),
