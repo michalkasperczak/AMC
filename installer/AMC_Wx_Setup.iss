@@ -36,6 +36,9 @@
   #ifndef AmcNvdaAddonVersion
     #error "Podaj /DAmcNvdaAddonVersion=<wersja dodatku AMC>"
   #endif
+  #ifndef AmcNvdaUpdateHelperPath
+    #error "Podaj /DAmcNvdaUpdateHelperPath=<skrypt aktualizacji dodatku AMC>"
+  #endif
 #endif
 
 #if Profil == "public"
@@ -129,6 +132,8 @@ Source: "{#NvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#NvdaAddonFileName}"; 
 #endif
 #ifdef AmcNvdaAddonPath
 Source: "{#AmcNvdaAddonPath}"; DestDir: "{tmp}"; DestName: "{#AmcNvdaAddonFileName}"; \
+    Flags: ignoreversion deleteafterinstall
+Source: "{#AmcNvdaUpdateHelperPath}"; DestDir: "{tmp}"; DestName: "amc-nvda-update.py"; \
     Flags: ignoreversion deleteafterinstall
 #endif
 
@@ -358,6 +363,19 @@ var
   Target: string;
 begin
   Result := '';
+#ifdef AmcNvdaAddonPath
+  { Restart NVDA nie może przerwać pracy drugiego profilu AMC. }
+  if WizardSilent and ShouldOfferAmcNvdaAddon and
+     CheckForMutexes(
+       'Local\AccessibleMultimediaController.PythonLauncher.Public.SingleInstance,' +
+       'Local\AccessibleMultimediaController.PythonLauncher.SingleInstance') then
+  begin
+    Result :=
+      'Aktualizacja AMC i dodatku NVDA zaczeka, aż oba profile AMC będą zamknięte. ' +
+      'Zakończ nagrywanie i ponów aktualizację.';
+    Exit;
+  end;
+#endif
   Target := ExpandConstant('{app}');
   if (not DirExists(Target)) or (not DirectoryHasEntries(Target)) or
      ExistingDirectoryBelongsToThisProfile(Target) then
@@ -549,6 +567,26 @@ begin
         'Kontrolowany start interfejsu i silnika nie powiódł się. ' +
         'Program nie zostanie uruchomiony jako gotowa instalacja.');
     end;
+#ifdef AmcNvdaAddonPath
+    if WizardSilent and
+       DirExists(ExpandConstant('{userappdata}\nvda\addons')) and
+       ShouldOfferAmcNvdaAddon then
+    begin
+      if (not Exec(
+            ExpandConstant('{app}\runtime\python.exe'),
+            AddQuotes(ExpandConstant('{tmp}\amc-nvda-update.py')) + ' ' +
+            AddQuotes(ExpandConstant('{tmp}\{#AmcNvdaAddonFileName}')) + ' ' +
+            '{#AmcNvdaAddonVersion} ' +
+            AddQuotes(ExpandConstant('{userappdata}\nvda\addons')),
+            ExpandConstant('{app}'),
+            SW_HIDE,
+            ewWaitUntilTerminated,
+            ResultCode)) or (ResultCode <> 0) then
+        RaiseException(
+          'Aktualizacja dodatku AMC do NVDA nie powiodła się. ' +
+          'AMC nie zostanie uruchomiony jako gotowa instalacja.');
+    end;
+#endif
     { Dopiero zweryfikowana instalacja zmienia wpisy TEGO profilu.
       Odznaczenie zadania jest dzięki temu prawdziwym wyłączeniem, nie tylko
       brakiem nowych wpisów. }

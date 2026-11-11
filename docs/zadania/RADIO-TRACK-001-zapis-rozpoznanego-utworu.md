@@ -1,6 +1,6 @@
 # RADIO-TRACK-001 — zapis rozpoznanego utworu z radia
 
-Status: **Ręczny eksport fragmentu gotowy w źródłach; test NVDA, instalacja i słyszalne granice utworu nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie, prototyp, pomiary i implementacja: 11.11.2026. Ten wynik zastępuje wcześniejszy status o otwartym eksporcie z 11.11.2026. Rekord wdrożenia: [RADIO-TRACK-001-implementacja-20261111.md](RADIO-TRACK-001-implementacja-20261111.md).
+Status: **Ręczny eksport fragmentu gotowy w źródłach; zmiany sygnału wokół dwóch przejść zmierzone; test NVDA, instalacja i słyszalne granice utworu nadal otwarte**. Decyzja użytkownika: 10.11.2026. Badanie, prototyp, pomiary i implementacja: 11.11.2026. Ten wynik zastępuje wcześniejszy status o otwartym eksporcie z 11.11.2026. Rekord wdrożenia: [RADIO-TRACK-001-implementacja-20261111.md](RADIO-TRACK-001-implementacja-20261111.md).
 
 ## Ustalenie użytkownika
 
@@ -81,3 +81,7 @@ Po uwadze użytkownika, aby prowadzić pomiar bez pytań o każdy krok, próbnik
 - Dwie kompilacje SmokeTests Release po rozszerzeniu sondy przeszły bez ostrzeżeń i błędów. Wszystkie trzy procesy zainstalowanego AMC Test (launcher, Python, host) nadal działały po pomiarach. Nie instalowano ani nie restartowano AMC.
 
 **Granica decyzji:** pomiar potwierdza tożsamość i długość próbek na żywo, różne osie Time Shift oraz poprawny tor próbki z nagrania. Nie potwierdza słyszalnego początku lub końca utworu. Bezpieczny eksport zakresu z pierścienia już jest w źródłach; przed funkcją „zapisz cały rozpoznany utwór” nadal potrzebny jest kontrolowany odsłuch przejścia i wiarygodne granice. Obecny interfejs obiecuje jedynie ręcznie sprawdzony fragment.
+
+## Zmiana sygnału przy dwóch tytułach ICY — 11.11.2026
+
+Po dwóch 24-sekundowych eksportach z żywego bufora porównano spektrogram i proste miary pasmowe z kotwicą metadanych. Kandydaci zmiany dźwięku pojawili się około 1,2–3,5 s przed tytułem ICY, w różnym odstępie. Nie wykonano odsłuchu, więc to kandydaci, nie potwierdzone granice piosenek. Metoda, dane, wyniki i ograniczenia: [RADIO-TRACK-001-granice-sygnalu-20261111.md](RADIO-TRACK-001-granice-sygnalu-20261111.md). Ręczny wybór początku i końca pozostaje właściwym zachowaniem obecnej funkcji.

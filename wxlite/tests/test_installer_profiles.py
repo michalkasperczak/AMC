@@ -134,6 +134,21 @@ def test_amc_nvda_addon_is_verified_and_offered_for_both_profiles() -> None:
         assert required in ISS
 
 
+def test_silent_update_installs_older_amc_nvda_addon_automatically() -> None:
+    prepare = ISS[ISS.index("function PrepareToInstall"):]
+    assert "WizardSilent" in prepare
+    assert "ShouldOfferAmcNvdaAddon" in prepare
+    assert "CheckForMutexes(" in prepare
+    assert "Zakończ nagrywanie i ponów aktualizację" in prepare
+    assert "amc-nvda-update.py" in prepare
+    assert "runtime\\python.exe" in prepare
+    assert "DirExists(ExpandConstant('{userappdata}\\nvda\\addons'))" in prepare
+    assert "/DAmcNvdaUpdateHelperPath=" in BUILD
+    assert "Source: \"{#AmcNvdaUpdateHelperPath}\"" in ISS
+    assert "ewWaitUntilTerminated" in prepare
+    assert "skipifsilent" in ISS[ISS.index("[Run]"):ISS.index("[Code]")]
+
+
 def test_installer_performs_full_post_install_integrity_check() -> None:
     assert "--sprawdz-pakiet-instalatora-pelny-cicho" in ISS
     assert "--sprawdz-start-instalatora-cicho" in ISS

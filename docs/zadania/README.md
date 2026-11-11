@@ -4,11 +4,12 @@
 - `RADIOBROWSER-001` — **W trakcie; źródła, celowane testy modelu i kompilacja hosta gotowe, bez instalacji i odbioru NVDA** — `Ctrl+F5` w Radiu otwiera Radio Browser, który prowadzi przez kontynenty, kraje i stronicowane stacje. TuneIn odłożono. [Szczegóły](RADIOBROWSER-001-przegladanie-katalogu.md).
 - `RADIO-FAST-001` — **Zrobione — wycofane 10.11.2026** — zachowano dotychczasowe Page Up/Page Down i odczyt nazwy stacji; dodatkowe nazwy poleceń cofnięto, bez optymalizacji wczytywania. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).
 - `YT-006` — **Kod i testy celowane gotowe; instalacja i odbiór NVDA później** — wybór konkretnego wariantu pojedynczego filmu YouTube. [Szczegóły](YT-006-dokladny-wybor-wariantu-pobrania.md).
-- `RADIO-TRACK-001` — **Ręczny zapis fragmentu gotowy w źródłach, bez instalacji i odbioru NVDA; słyszalne granice otwarte** — próbki mają kotwice PCM, a metadane nie wyznaczają pewnej granicy utworu. [Wdrożenie](RADIO-TRACK-001-implementacja-20261111.md). [Pomiary](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
+- `RADIO-TRACK-001` — **Ręczny zapis fragmentu gotowy w źródłach, dwa przejścia dźwięku zmierzone; bez instalacji i odbioru NVDA, słyszalne granice otwarte** — kandydaci zmiany sygnału poprzedzają tytuł ICY o różny czas. [Wdrożenie](RADIO-TRACK-001-implementacja-20261111.md). [Pomiary](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md). [Przejścia](RADIO-TRACK-001-granice-sygnalu-20261111.md).
 
-- `NVDA-DUAL-20261110` — **Kod, test dwóch rzeczywistych hostów i kompilacje celowane zaliczone; bez instalacji, restartu NVDA i publikacji** — jeden dodatek kieruje skróty do AMC Test lub AMC Public przez osobne potoki. [Wynik i dalszy odbiór](NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md).
+- `NVDA-DUAL-20261110` — **Wydanie opublikowane; 11.11 wykryto niezgodność dodatku 0.4.1, przygotowano automatyczną podmianę w cichej aktualizacji; instalacja i odbiór czekają na koniec nagrywania** — jeden dodatek 0.4.2 kieruje skróty do AMC Test lub AMC Public przez osobne potoki. [Wynik i dalszy odbiór](NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md).
 
-- `RELEASE-20261109-alpha488` — **W trakcie; Test i Public do zbudowania i publikacji, instalacja tylko Public** — zbiorcza aktualizacja ostatnich poprawek. [Plan i wyniki](RELEASE-20261109-alpha488.md).
+- `RELEASE-20261111` — **Przygotowanie zbiorczej aktualizacji; wydanie i instalacja po zakończeniu bieżących zadań** — polecenie użytkownika z 11.11 obejmuje GitHub i lokalne AMC. [Stan i warunki](RELEASE-20261111-zbiorcza-aktualizacja.md).
+- `RELEASE-20261109-alpha488` — **Wydane 9.11; Public zainstalowany, Test nieinstalowany w tamtym etapie** — historyczny rekord wydania alpha.488. [Plan i wyniki](RELEASE-20261109-alpha488.md).
 
 - `HIST-REL-20261109` — **Kod i testy celowane gotowe; bez instalacji i odbioru NVDA** — nazwy albumu, wykonawcy, podcastu i kanału pod prawą strzałką w historii oraz kopiowanie nazw i dokładnych linków. [Szczegóły](HIST-REL-20261109-nazwy-i-linki.md).
 

@@ -16,6 +16,7 @@ $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $bundle = [IO.Path]::GetFullPath($BundleRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $installerScript = Join-Path $repositoryRoot "installer\AMC_Wx_Setup.iss"
+$amcNvdaUpdateHelper = Join-Path $repositoryRoot "installer\update_amc_nvda_addon.py"
 $startupSmokeTool = Join-Path $repositoryRoot "wxlite\tools\Test-AMCBundleStartup.ps1"
 $manifestPath = Join-Path $bundle "bundle-manifest.json"
 $launcher = Join-Path $bundle "AMC.exe"
@@ -299,10 +300,14 @@ if ($null -ne $nvdaAddon) {
     )
 }
 if ($null -ne $amcNvdaAddon) {
+    if (-not (Test-Path -LiteralPath $amcNvdaUpdateHelper -PathType Leaf)) {
+        throw "Brak pomocnika cichej aktualizacji dodatku AMC do NVDA."
+    }
     $compileArguments += @(
         ('/DAmcNvdaAddonPath="{0}"' -f $resolvedAmcAddon),
         ('/DAmcNvdaAddonFileName="{0}"' -f $amcNvdaAddon.fileName),
-        ('/DAmcNvdaAddonVersion="{0}"' -f $amcNvdaAddon.version)
+        ('/DAmcNvdaAddonVersion="{0}"' -f $amcNvdaAddon.version),
+        ('/DAmcNvdaUpdateHelperPath="{0}"' -f $amcNvdaUpdateHelper)
     )
 }
 $compileArguments += ('"{0}"' -f $installerScript)

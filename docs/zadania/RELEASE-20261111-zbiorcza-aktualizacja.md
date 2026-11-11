@@ -2,6 +2,8 @@
 
 Status: **Przygotowanie; wydanie, instalacja i odbiór jeszcze niewykonane**.
 
+11.11.2026 użytkownik potwierdził, że nagrywanie ustało, i zezwolił na aktualizację całości. To zastępuje wcześniejszy stan niepewności nagrań; przed samą podmianą aktualizator nadal ma użyć własnej ochrony przed zamknięciem programu podczas nagrywania.
+
 ## Decyzja użytkownika i zakres
 
 11.11.2026 użytkownik polecił po zakończeniu bieżących zadań wdrożyć całość, opublikować ją na GitHubie i zaktualizować lokalne AMC. Ta decyzja zastępuje ewentualne wcześniejsze oczekiwanie na osobne polecenie publikacji lub aktualizacji. Wydanie obejmie gotowe, zweryfikowane zmiany bieżącej gałęzi wxPython, w tym historię i rozpoznane utwory TIDAL/Spotify oraz ręczny zapis fragmentu radia. Profil Test i Public powstają z jednego commitu; funkcje prywatne pozostają ograniczone profilem.
@@ -12,6 +14,7 @@ Status: **Przygotowanie; wydanie, instalacja i odbiór jeszcze niewykonane**.
 - Ręczny zapis fragmentu radia jest w źródłach i przeszedł wcześniejsze testy celowane. Pomiar przejść ICY jest zapisany w `a3072a4c`, lecz nie potwierdza słyszalnych granic utworu. Brak odbioru NVDA i instalacji. Szczegóły: [RADIO-TRACK-001](RADIO-TRACK-001-zapis-rozpoznanego-utworu.md).
 - W chwili przygotowania tego rekordu checkout zawierał niezapisane zmiany w kodzie radia, GUI i instalatora. Nie przygotowano z tego stanu paczki ani wydania GitHub. Instalator wymaga czystego, zatwierdzonego commitu zgodnego z manifestem paczki.
 - W używanym AMC Test zgłoszono zakończenie jednego nagrania, lecz nie potwierdzono braku innych nagrań. Użytkownik korzystał z okna równocześnie z próbą odczytu. Nie zamykano AMC ani NVDA.
+- W późniejszej wiadomości z 11.11 użytkownik potwierdził brak trwających nagrań i polecił przeprowadzić zbiorczą aktualizację. Ustalono wersję źródeł `0.1.0-alpha.495`; przed wydaniem testy instalatora, dodatku NVDA i mostka dały **63 zaliczone, 68 podtestów zaliczonych, 1 test interoperacyjności wyłączony**. Pierwszy przebieg wspólnych testów nie zebrał dwóch modułów bez projektowego `PYTHONPATH`; drugi, z poprawnym środowiskiem, przeszedł.
 
 ## Warunki wydania i aktualizacji
 

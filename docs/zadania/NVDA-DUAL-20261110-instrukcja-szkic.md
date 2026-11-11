@@ -17,3 +17,9 @@ Gesty pozostały takie same. `Ctrl+Windows+I` odczytuje stan wybranego programu,
 Do równoczesnej pracy wymagane są nowe wersje AMC Test, AMC Public i dodatku NVDA. Starszy host AMC korzysta ze wspólnego kanału poleceń i nie obsłuży dodatku 0.4.2. Dane, ustawienia i nagrania obu profili pozostają oddzielne.
 
 Nie należy aktualizować ani restartować AMC lub NVDA w czasie nagrywania. Przed instalacją trzeba sprawdzić nagrania bieżące i zaplanowane w obu profilach.
+
+## Cicha aktualizacja — szkic dla następnego wydania
+
+W następnym wydaniu cicha aktualizacja AMC zainstaluje także dołączony dodatek AMC do NVDA, jeżeli dotychczasowy jest starszy lub go brakuje, a potem uruchomi ponownie NVDA. Przed aktualizacją oba profile AMC muszą być zamknięte. Zakończ trwające nagrania, a następnie ponów aktualizację. Ta poprawka jest obecnie przetestowana w źródłach, lecz nie została jeszcze zbudowana ani zainstalowana.
+
+Po aktualizacji `Ctrl+Windows+P` steruje odtwarzaniem, `Ctrl+Windows+Alt+P` otwiera presety, a `Ctrl+Windows+Shift+P` otwiera playlisty. Skróty są jednakowe w AMC Test i AMC Public.

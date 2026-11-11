@@ -62,3 +62,46 @@ Użytkownik polecił opublikować wydania GitHub i samodzielnie zaktualizować A
 - Public: `publish/public-alpha492-20261110/AMC-Public-2026-11-10-1737.exe`, 133 908 722 bajty, SHA-256 `6bfae7bda58e30b53d655898169a4e8c915d2135e06dabf8c736163c2f84028b`. GitHub `public-2026.11.10.1737`: zwykłe wydanie oznaczone `Latest`, trzy zasoby `uploaded`; zdalny digest instalatora i rozmiar zgodne z lokalnymi. Oba wydania wskazują commit źródłowy powyżej.
 - Instalator Public uruchomiono z `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`; kod wyjścia 0, log `work/NVDA-DUAL-20261110-install-public.log` zawiera `Installation process succeeded` i `Need to restart Windows? No`. Tryb cichy pominął opcjonalny instalator dodatku NVDA i start GUI. Zainstalowany `C:\Users\micha\AppData\Local\Programs\AMC Public\AMC.exe` ma wersję produktu alpha.492; jego manifest wskazuje `public` i commit `f36c8a7c`, a `--sprawdz-pakiet-pelny-cicho` zwrócił 0. Procesy AMC Test, jego hosta i NVDA po instalacji pozostały te same.
 - Nie instalowano AMC Test ani dodatku NVDA 0.4.2; Public nie został uruchomiony użytkowo. Wyniki budowy, publikacji i instalacji nie są dowodem ręcznej pracy dwóch okien z żywym NVDA. Lokalne paczki i instalatory zachowano do odbioru; nie czyszczono ich.
+
+## Zgłoszenie skrótu presetów — 11.11.2026
+
+Użytkownik zgłosił komunikat „Brak połączenia z AMC. Uruchom wersję alpha 342 lub nowszą; jeśli działa, spróbuj za chwilę” po skrócie z dodatku NVDA. Następnie potwierdził, że presety otworzyły się po użyciu skrótu z Alt. Mapa gestów w źródłach i zainstalowanym dodatku 0.4.1 pozostaje jednoznaczna: `Ctrl+Windows+Shift+P` otwiera playlisty, `Ctrl+Windows+Alt+P` otwiera presety. W samym AMC `Ctrl+Alt+P` otwiera presety, a `Ctrl+Alt+Shift+P` przypisuje bieżący element. Te funkcje nie wymagają zmiany gestów.
+
+Rzeczywista przyczyna komunikatu o połączeniu: działający AMC Test ma wersję `0.1.0-alpha.494` i wystawia potok `AMC.NVDA.v1.1.test`, podczas gdy zainstalowany dodatek NVDA `0.4.1` próbuje otworzyć dawny `AMC.NVDA.v1.1`. Dokładny tekst błędu znajduje się w jego zainstalowanym `transport.py`. Przygotowany pakiet dodatku `AMC-NVDA-0.4.2.nvda-addon` używa potoku profilu Test/Public; jego SHA-256 pozostaje `22e211db6030c0c5c7e8b343066f2568647c72cf5bca8e66b3398418047a1ae9`. Nie stwierdzono usterki w mapie poleceń źródeł.
+
+Testy bez widocznego interfejsu 11.11.2026: `test_profile_routing.py`, `test_gesture_scope.py`, `test_controller.py`, `test_nvda_bridge.py`, `test_nvda_bridge_gui.py` — **31 zaliczonych, 68 podtestów zaliczonych, 1 test interoperacyjności wyłączony**. Dodatkowe testy presetów Radia, Radio Archiwisty, WiiM, Sonosa i Frontier Smart — **32 zaliczone, 79 innych pominięto filtrem**. Pierwsze uruchomienie wspólnego zestawu nie zebrało dwóch modułów z powodu braku `wxlite` w `PYTHONPATH`; poprawiony przebieg przeszedł. Nie jest to dowód odsłuchu z żywym NVDA.
+
+Odczyt listy „Nagrywane” w bieżącym AMC Test pokazał **jedno trwające nagranie**. Nie zatrzymywano AMC, nie restartowano NVDA i nie instalowano dodatku. Po zakończeniu nagrywania trzeba zainstalować przygotowany dodatek 0.4.2, uruchomić NVDA ponownie i sprawdzić połączenie oraz skróty w aktywnych profilach i sesjach. Źródła, kompilacja i opublikowane wydanie z 10.11.2026 pozostają bez zmian; to zadanie dotyczy niedokończonej lokalnej instalacji i odbioru.
+
+## Korekta cichej aktualizacji — 11.11.2026
+
+Użytkownik potwierdził, że `Ctrl+Windows+P` również nie działa, i polecił, aby cicha aktualizacja AMC sama podmieniała starszy dodatek NVDA. Ta decyzja zastępuje wcześniejszy pomysł zatrzymywania cichego instalatora i kierowania użytkownika do ręcznej instalacji dodatku. Nie zmienia mapy gestów.
+
+### Materiał do dokumentacji użytkownika
+
+- Podczas następnej cichej aktualizacji AMC instalator porówna wersję dołączonego dodatku AMC z wersją w NVDA. Gdy dodatek jest starszy lub nieobecny, zainstaluje dołączoną wersję bez osobnego pytania i uruchomi ponownie NVDA. Gdy wersja jest aktualna lub nowsza, nie podmieni jej.
+- Aktualizacja zaczeka, jeśli nadal działa AMC Test albo AMC Public. Najpierw trzeba bezpiecznie zakończyć nagrywanie i zamknąć program. Po udanej aktualizacji `Ctrl+Windows+P` steruje odtwarzaniem, `Ctrl+Windows+Alt+P` otwiera presety, a `Ctrl+Windows+Shift+P` otwiera playlisty.
+- Poprzedni katalog dodatku jest zachowany w folderze konfiguracji NVDA jako kopia do odzyskania. Ustawienia NVDA, inne dodatki i dane AMC nie są podmieniane.
+
+### Uzasadnienie i decyzje
+
+- Dotychczasowy wpis `[Run]` miał `skipifsilent`, więc aktualizator instalował nowe AMC z pominięciem dołączonego dodatku. Nowa ścieżka cicha wywołuje pomocnika po kontrolowanym starcie i kontroli integralności AMC. Pomocnik sprawdza nazwę i wersję manifestu, sumy CRC, ścieżki w ZIP, limit rozmiaru oraz obecność zadań instalacyjnych. Podmienia wyłącznie `amcController` z kopią poprzedniego katalogu i cofa podmianę, jeśli nie uda się uruchomić restartu NVDA.
+- Przed kopiowaniem instalator sprawdza muteksy obu profili AMC. Pomocnik ponawia ten warunek bezpośrednio przed podmianą. Gdy drugi profil działa, instalacja zostaje wstrzymana przed zmianą programu. Cicha instalacja bez konfiguracji dodatków NVDA pomija ten etap.
+- Widoczny instalator nadal oferuje standardową instalację dodatku przez NVDA. Automatyczna podmiana dotyczy tylko cichego trybu aktualizacji i wyłącznie własnego dodatku AMC; Quick App Switcher pozostaje osobną, opcjonalną propozycją.
+
+### Testy i wynik
+
+- `python -m pytest wxlite/tests/test_silent_nvda_addon_update.py wxlite/tests/test_installer_profiles.py -q -p no:cacheprovider`: **32 zaliczone**. Testy obejmują aktualizację, zachowanie kopii, pominięcie aktualnej wersji, instalację brakującego dodatku, cofnięcie przy błędzie restartu, działający AMC i odrzucenie ścieżki wychodzącej poza ZIP.
+- Testowa kompilacja `ISCC.exe` instalatora AMC Test z minimalną paczką i dołączonym dodatkiem 0.4.2: **kod 0**; sprawdza składnię Inno i dołączenie pomocnika. Testowy instalator nie był uruchamiany.
+- Rzeczywista paczka `AMC-NVDA-0.4.2.nvda-addon` przeszła walidację nowego pomocnika: 7 wpisów. Odczytowe sprawdzenie na komputerze użytkownika wykryło uruchomione AMC, uruchomione NVDA i właściwą ścieżkę `C:\Program Files\NVDA\nvda.exe`.
+- Po sprawdzeniu składni usunięto wyłącznie testowy katalog `C:\Users\micha\Documents\Codex\2026-11-06\a\iscc-smoke-nvda` (około 2,1 MB). Zawierał odtwarzalną minimalną paczkę i testowy instalator; nie zawierał wydania ani danych użytkownika.
+- **Nie zbudowano pełnej paczki AMC i nie zainstalowano tej zmiany.** Żywe NVDA i AMC nie były restartowane, ponieważ nadal mogło trwać nagranie. Potrzebny odbiór cichej aktualizacji na bezpiecznej sesji oraz kontrola skrótów z obu profili.
+
+### Znane ograniczenia
+
+- Automatyczna ścieżka korzysta ze standardowego katalogu dodatków zainstalowanego NVDA w profilu bieżącego użytkownika. Instalacja przenośna NVDA z własnym katalogiem konfiguracji wymaga osobnego sprawdzenia.
+- Jeśli NVDA nie uruchomi się po wystartowaniu polecenia restartu, pomocnik nie może tego niezawodnie rozpoznać; pozostaje kopia starego dodatku do odzyskania. Po pierwszym wydaniu konieczny jest odbiór na żywym NVDA.
+
+### Wersja i commit
+
+- Zmiany w źródłach: `installer/AMC_Wx_Setup.iss`, `installer/update_amc_nvda_addon.py`, `wxlite/tools/Build-AMCInstaller.ps1`, testy instalatora, rejestr zadań oraz szkice instrukcji i listy zmian. Commit, pełna paczka, instalacja i publikacja: **jeszcze nie wykonane**.

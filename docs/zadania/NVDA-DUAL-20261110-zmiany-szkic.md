@@ -9,3 +9,11 @@ Status 10.11.2026: szkic do korekty użytkownika. Wydania Test i Public opubliko
 - Gesty nie zostały zmienione. Magazyny danych, nagrania i poświadczenia Test/Public pozostają oddzielne.
 
 Weryfikacja źródeł, testów, paczek, publikacji i instalacji Public jest zapisana w `NVDA-DUAL-20261110-dwa-profile-jeden-dodatek.md`. Odbiór z żywym NVDA czeka na bezpieczną aktualizację Test i dodatku.
+
+## Dopisek do następnego wydania — szkic 11.11.2026
+
+- Cicha aktualizacja AMC automatycznie podmienia starszy dodatek AMC do NVDA i ponownie uruchamia czytnik. Poprzedni katalog dodatku jest zachowywany do odzyskania.
+- Gdy działa AMC Test albo AMC Public, instalator czeka na bezpieczne zamknięcie obu programów. Nie przerywa nagrań.
+- Naprawia to przypadek, w którym nowe AMC było już zainstalowane, ale starszy dodatek 0.4.1 nadal próbował połączyć się z dawnym kanałem i nie działały skróty `Ctrl+Windows`, w tym `Ctrl+Windows+P`.
+
+Ten dopisek opisuje zmianę przetestowaną w źródłach. Pełna paczka, instalacja i odbiór z NVDA są jeszcze do wykonania; nie należy przypisywać tej poprawki opublikowanej wersji 0.1.0-alpha.492.
