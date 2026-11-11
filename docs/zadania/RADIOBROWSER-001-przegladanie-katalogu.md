@@ -203,3 +203,29 @@ Plik integralności ma `bundleId=c3604a9a`, zgodny commit źródła i instalator
 Odczytany ponownie hash rzeczywistego pliku jest zgodny. Pierwszy instalator
 pośredni nie zawierał AMC NVDA 0.4.2 i **nie jest kandydatem do instalacji**.
 Instalator kompletny pozostaje lokalny, nie został uruchomiony ani opublikowany.
+
+## Aktualny kandydat z osobną wersją, 11.11.2026
+
+Ponieważ opublikowane wcześniej AMC ma już numer `0.1.0-alpha.492`, wersję
+źródeł podniesiono do `0.1.0-alpha.493` w commicie `390b6f75`. Ten commit
+zawiera korektę Radio Browser `9878fbb5` i projekty YT-006 oraz
+RADIO-TRACK-001. **Zastępuje** dzisiejsze paczki i instalatory `alpha.492` jako
+kandydata do instalacji; identyczny numer wersji dwóch różnych kompilacji byłby
+mylący dla aktualizatora i użytkownika.
+
+Aktualna paczka to
+`D:\Projekty Codex\AMC - integracja wxPython\.test-output\radio-browser-alpha493-20261111`.
+Manifest: profil `test`, `sourceDirty=false`, 3458 plików, commit
+`390b6f7515c09cc9fbf014d16ef71789f83543c0`, `bundleId=03510627`.
+Kompilacja, pełna integralność i kontrolowany start GUI oraz hosta przeszły.
+
+Aktualny instalator to
+`D:\Projekty Codex\AMC - integracja wxPython\.test-output\radio-browser-alpha493-installer-20261111\AMC-Test-2026-11-11-1238.exe`.
+Ma 136 520 881 bajtów i SHA-256
+`c21fe5198a82aa72481e3ff5f8bf1479f0d20c06f24a3ec260d459e27196ce15`.
+Odczytany hash pliku zgadza się z plikiem integralności; wersja, commit paczki
+i instalatora oraz `bundleId` są zgodne. Skan sekretów przeszedł. Instalator
+zawiera Quick App Switcher 0.1.6 i AMC NVDA 0.4.2. Nie był uruchamiany ani
+publikowany. Rzeczywisty odbiór Radio Browser i NVDA po instalacji nadal
+pozostaje otwarty. Wczorajsza informacja użytkownika o nagrywaniu wymaga
+świeżego potwierdzenia bezpieczeństwa aktualizacji.
