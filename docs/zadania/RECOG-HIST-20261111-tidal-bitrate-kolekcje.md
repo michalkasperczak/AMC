@@ -42,4 +42,4 @@ Starsze wpisy historii nie zawierają zachowanego pomiaru bitrate. Rozpoznanie b
 
 ## Wersja i commit
 
-Zmiany są w niezatwierdzonym kodzie gałęzi `codex/amc-test-public-20261109` na bazie `24535a8189b5549ad7501cc48a2d3a659cb4dbcf`; commit tej poprawki: brak. Kod zmieniony i testy zaliczone; host skompilowany. Paczka nie została zbudowana, aplikacja nie została zaktualizowana, wydanie nie zostało opublikowane. Zaobserwowana wcześniej zainstalowana aplikacja nosiła nazwę `AMC Test — 10.11.2026, 12:52` i nie obejmuje tej poprawki.
+Zmiany zapisano na gałęzi `codex/amc-test-public-20261109` w commicie `cf0de877` na bazie `24535a8189b5549ad7501cc48a2d3a659cb4dbcf`. Kod zmieniony i testy celowane zaliczone; host skompilowany. Paczka tej poprawki nie została zbudowana, aplikacja nie została zaktualizowana, wydanie nie zostało opublikowane. Zaobserwowana wcześniej zainstalowana aplikacja nosiła nazwę `AMC Test — 10.11.2026, 12:52` i nie obejmuje tej poprawki.
