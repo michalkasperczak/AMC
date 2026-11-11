@@ -583,8 +583,8 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
     ),
     "radio": CommandPresentation(
         Action.SESSION_CONFIGURE_CURRENT,
-        "Katalogi Radia",
-        "Otwórz katalogi stacji radiowych; Radio Browser pozwala przeglądać kontynenty, kraje i stacje",
+        "Radio Browser",
+        "Otwórz Radio Browser i przeglądaj kontynenty, kraje oraz stacje",
         "Ctrl+F5",
     ),
     "spotify": CommandPresentation(
@@ -642,7 +642,7 @@ def ctrl_f5_presentation(session_label: str | None) -> CommandPresentation | Non
     if normalized_label == "radio":
         return CommandPresentation(
             action=presentation.action,
-            name="Radio directories",
+            name="Radio Browser",
             description="Browse Radio Browser by continent, country and station",
             shortcut=presentation.shortcut,
         )

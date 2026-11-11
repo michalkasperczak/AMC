@@ -31,58 +31,6 @@ class _DialogAnnouncer:
         announce_status(self._status, message)
 
 
-class RadioDirectoriesDialog(wx.Dialog):
-    """Ctrl+F5's provider choice, with only currently usable providers."""
-
-    def __init__(self, parent: wx.Window) -> None:
-        super().__init__(parent, title="Katalogi Radia — AMC", size=(440, 280))
-        self.SetName("Katalogi Radia — AMC")
-        heading = wx.StaticText(self, label="Wybierz katalog stacji:")
-        heading.SetName("Wybierz katalog stacji")
-        self.providers = wx.ListBox(
-            self, choices=["Radio Browser", "TuneIn — niedostępny"], style=wx.LB_SINGLE,
-        )
-        self.providers.SetName("Katalogi stacji")
-        self.providers.SetSelection(0)
-        self.providers.SetHelpText("Enter otwiera wybrany katalog. Escape wraca do Radia.")
-        self.information = wx.StaticText(
-            self,
-            label="TuneIn wymaga dostępu partnerskiego i nie jest jeszcze dostępny w AMC.",
-        )
-        self.information.SetName(self.information.GetLabel())
-        open_button = wx.Button(self, label="&Otwórz")
-        open_button.SetName("Otwórz katalog")
-        close_button = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
-        close_button.SetName("Zamknij katalogi Radia")
-        buttons = wx.BoxSizer(wx.HORIZONTAL)
-        buttons.Add(open_button, 0, wx.RIGHT, 8)
-        buttons.Add(close_button, 0)
-        layout = wx.BoxSizer(wx.VERTICAL)
-        layout.Add(heading, 0, wx.ALL, 12)
-        layout.Add(self.providers, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
-        layout.Add(self.information, 0, wx.ALL | wx.EXPAND, 12)
-        layout.Add(buttons, 0, wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
-        self.SetSizer(layout)
-        self.SetEscapeId(wx.ID_CANCEL)
-        self.providers.Bind(wx.EVT_LISTBOX_DCLICK, self._open_selected)
-        self.providers.Bind(wx.EVT_KEY_DOWN, self._on_key)
-        open_button.Bind(wx.EVT_BUTTON, self._open_selected)
-        self.providers.SetFocus()
-
-    def _open_selected(self, _event=None) -> None:
-        if self.providers.GetSelection() == 0:
-            self.EndModal(wx.ID_OK)
-        else:
-            announce_status(self.information, self.information.GetLabel())
-            self.providers.SetFocus()
-
-    def _on_key(self, event: wx.KeyEvent) -> None:
-        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
-            self._open_selected()
-        else:
-            event.Skip()
-
-
 class RadioBrowserDialog(wx.Dialog):
     """One native list for every directory level; no hidden focus handoffs."""
 

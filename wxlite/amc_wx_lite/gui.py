@@ -152,7 +152,7 @@ from .playlist_dialog import (
     choices_from_payload as playlist_choices_from_payload,
 )
 from .problem_report_dialog import ProblemReportDialog
-from .radio_browser_dialog import RadioBrowserDialog, RadioDirectoriesDialog
+from .radio_browser_dialog import RadioBrowserDialog
 from .service_playlist_dialog import (
     ServicePlaylistDialog as SpotifyPlaylistDialog,
     ServicePlaylistChoice as SpotifyPlaylistChoice,
@@ -21085,7 +21085,7 @@ class LiteFrame(wx.Frame):
             wx.CallAfter(self._show_library_folders)
             return
         if session_id is SessionId.RADIO:
-            wx.CallAfter(self._show_radio_directories)
+            wx.CallAfter(self._show_radio_browser)
             return
         if session_id is SessionId.PODCASTS:
             wx.CallAfter(self._show_session_options)
@@ -21107,17 +21107,6 @@ class LiteFrame(wx.Frame):
         if session_id is SessionId.SONOS:
             self._select_sonos_target()
             return
-
-    def _show_radio_directories(self) -> None:
-        chooser = RadioDirectoriesDialog(self)
-        try:
-            selected = chooser.ShowModal() == wx.ID_OK
-        finally:
-            chooser.Destroy()
-        if selected:
-            self._show_radio_browser()
-        else:
-            self._restore_focus_after_dialog()
 
     def _show_radio_browser(self) -> None:
         client = self.client

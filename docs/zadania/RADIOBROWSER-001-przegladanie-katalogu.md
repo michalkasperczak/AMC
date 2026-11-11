@@ -8,8 +8,8 @@ nastąpiły; rzeczywisty odbiór NVDA i odsłuch stacji czekają.
 
 ## Materiał do dokumentacji użytkownika
 
-W sesji Radio skrót `Ctrl+F5` otwiera „Katalogi Radia”. Po wybraniu
-„Radio Browser” można przechodzić klawiszem Enter przez kontynenty, kraje,
+W sesji Radio skrót `Ctrl+F5` otwiera bezpośrednio „Radio Browser”. Można
+przechodzić klawiszem Enter przez kontynenty, kraje,
 sposób uporządkowania i listę stacji. Wybór kolejności obejmuje A–Z,
 najpopularniejsze oraz ostatnio zmienione stacje. Lista pobiera do 100 pozycji
 na raz; „Wczytaj kolejne stacje” otwiera następną część. Backspace i Escape
@@ -25,10 +25,8 @@ Komunikaty NVDA obejmują m.in. „Wybierz kontynent”, „Wybierz kolejność 
 kolekcji. Nazwy krajów i stacji są tekstem użytkowym; kody dostawcy nie są
 częścią list ani nazw dostępnych.
 
-TuneIn jest drugą pozycją wyboru z oznaczeniem „niedostępny”. Jej wybór
-wyjaśnia, że oficjalna integracja wymaga dostępu partnerskiego; nie uruchamia
-Radio Browser ani pozorowanego logowania. Przeglądanie
-Radia nie wymaga posiadania playlisty. W profilach Test i Public funkcja ma
+TuneIn wycofano z wyboru katalogu 11.11.2026; nie ma pozorowanego logowania.
+Przeglądanie Radia nie wymaga posiadania playlisty. W profilach Test i Public funkcja ma
 ten sam zakres, ale jej paczkowanie i odbiór obu profili wymagają weryfikacji.
 
 ## Uzasadnienie i decyzje
@@ -74,8 +72,8 @@ Testy: `test_radio_browser_catalog.py`, `test_host_client.py`,
   odpowiedziach HTTP dla krajów, metadanych, stronicowania i braku zapisu.
 - Import okna przez interpreter `D:\Projekty Codex\AMC Python\runtime\python.exe`
   z wxPython — zaliczony. Nie zastępuje próby klawiatury i NVDA.
-- Izolowany test natywnych okien wxPython: wybór dostawcy wraz z niedostępnym
-  TuneIn, poziomy list,
+- Izolowany test natywnych okien wxPython pierwotnego wariantu: wybór dostawcy
+  wraz z niedostępnym TuneIn, poziomy list,
   powrót do wybranego kraju, bitrate i kopiowanie obu adresów — zaliczony.
 - Celowane testy zgodności `Ctrl+F5` w menu, palecie i pomocy po polsku i
   angielsku — 5 zaliczonych.
@@ -151,3 +149,26 @@ zmienia wybór nazwy serwera przez DNS i użycie konkretnego hosta HTTPS; nie
 „dodaje HTTPS” jako nowej funkcji. Zastępuje wcześniejsze nieprecyzyjne opisy
 tej zmiany. Rzeczywisty timeout do konkretnego serwera pozostał nieusunięty
 na tym komputerze.
+
+## Korekta użytkownika, 11.11.2026 — TuneIn
+
+Użytkownik zdecydował zrezygnować na teraz z TuneIn i potwierdził wdrożenie
+bez tej pozycji. Ta decyzja zastępuje wybór dwóch katalogów opisany
+10.11.2026. `Ctrl+F5` otwiera bezpośrednio Radio Browser. Nazwa i opis
+polecenia w menu, palecie i pomocy zostały dostosowane, a nieaktywny wybór
+TuneIn usunięty. Powrót do TuneIn wymaga dostępu partnerskiego i osobnej
+decyzji produktowej. Zmiana źródłowa jest jeszcze robocza; nie ma nowej
+paczki, instalacji ani odbioru NVDA dla tego wariantu.
+
+Celowane testy polskiej i angielskiej nazwy `Ctrl+F5` oraz menu: 3 zaliczone
+po zmianie źródeł. Parsowanie składni zmienionych plików Python: zaliczone.
+Izolowany test natywnej listy Radio Browser po usunięciu wyboru dostawcy:
+zaliczony; ukryta rama wx zgłosiła ostrzeżenie `SetFocus`, więc nie jest to
+odbiór rzeczywistego fokusu ani mowy NVDA. Ponowny przebieg tych samych testów
+po zmianie samej nazwy testu trwał zbyt długo i został przerwany bez wyniku.
+
+Równoległe zadania zmieniają `gui.py`, `i18n.py` i inne pliki; nie dodawać ich
+zmian do commita Radio Browser. Próba wydzielenia trzech hunków GUI do indeksu
+Git nie przeszła po zmianie bazy przez równoległy commit. Przed kolejną budową
+trzeba zatwierdzić spójny przyrost z aktualnego stanu. Limit Codex przy tej
+korekcie: 98% wykorzystane, 2% pozostałe; reset 11.11.2026 o 07:45.

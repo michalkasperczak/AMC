@@ -6,8 +6,7 @@ wydania: instalacja, odsłuch i odbiór NVDA pozostają do sprawdzenia.
 ## Szkic instrukcji
 
 1. Przejdź do sesji Radio. Lista może być pusta; playlista nie jest wymagana.
-2. Naciśnij `Ctrl+F5`, wybierz „Radio Browser” i naciśnij Enter.
-   Druga pozycja, „TuneIn — niedostępny”, wyjaśnia brak integracji.
+2. Naciśnij `Ctrl+F5`. Otworzy się Radio Browser.
 3. Wybierz kontynent, kraj i kolejność stacji. Dostępne są: alfabetycznie
    A–Z, najpopularniejsze oraz ostatnio zmienione. Każdy wybór potwierdź
    Enterem.
@@ -30,8 +29,8 @@ zapisuje stacji. `F5` w głównym widoku Radia odświeża bieżącą listę.
   Biblioteki i Ulubionych na stacjach katalogu.
 - Dodano wybór serwera Radio Browser zgodny z DNS i przejście do kolejnego
   serwera, gdy pierwszy nie odpowiada.
-- TuneIn jest widoczny jako niedostępny; integracja wymaga osobnego dostępu
-  partnerskiego.
+- TuneIn usunięto z wyboru katalogu; ewentualna integracja wymaga osobnego
+  dostępu partnerskiego.
 
 ## Do odbioru przed wydaniem
 
