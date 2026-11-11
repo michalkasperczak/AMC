@@ -167,8 +167,9 @@ zaliczony; ukryta rama wx zgłosiła ostrzeżenie `SetFocus`, więc nie jest to
 odbiór rzeczywistego fokusu ani mowy NVDA. Ponowny przebieg tych samych testów
 po zmianie samej nazwy testu trwał zbyt długo i został przerwany bez wyniku.
 
-Równoległe zadania zmieniają `gui.py`, `i18n.py` i inne pliki; nie dodawać ich
-zmian do commita Radio Browser. Próba wydzielenia trzech hunków GUI do indeksu
-Git nie przeszła po zmianie bazy przez równoległy commit. Przed kolejną budową
-trzeba zatwierdzić spójny przyrost z aktualnego stanu. Limit Codex przy tej
-korekcie: 98% wykorzystane, 2% pozostałe; reset 11.11.2026 o 07:45.
+Równoległe zadania zmieniały `gui.py`, `shortcuts.py` i inne pliki. Na aktualnej
+bazie wydzielono wyłącznie fragmenty Radio Browser i zapisano je w commicie
+`9878fbb5` 11.11.2026. Po korekcie 22 testy palety poleceń i katalogu
+Radio Browser przeszły. Ten wynik dotyczy źródeł, nie nowej paczki, instalacji
+ani odbioru NVDA. Wcześniejsza nieudana próba wydzielenia patcha i stan limitu
+sprzed resetu pozostają zapisem historycznym, nie stanem bieżącym.
