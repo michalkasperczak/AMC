@@ -25,7 +25,9 @@ public sealed class AudioOutputFallbackEventArgs(MediaItem item) : EventArgs
     public MediaItem Item { get; } = item;
 }
 
-internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration);
+internal enum RadioAudioSampleOrigin { Playback, Capture }
+internal sealed record RadioAudioSampleAnchor(Guid BufferId, long StartByte, long EndByte, RadioAudioSampleOrigin Origin);
+internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration, RadioAudioSampleAnchor? Anchor = null);
 
 /// <summary>
 /// Live radio output with an in-memory decoded-audio ring. The decoder works
@@ -1885,6 +1887,7 @@ public sealed class RadioMediaOutput(
         private readonly TimeshiftRingStorage _ring;
         private readonly int _blockAlign;
         private readonly Action<Exception> _recordingFailed;
+        private readonly Guid _bufferId = Guid.NewGuid();
         private long _totalWritten;
         private long _readPosition;
         private IRadioRecorder? _recording;
@@ -2081,7 +2084,7 @@ public sealed class RadioMediaOutput(
             lock (_gate)
             {
                 var end = Math.Min(_readPosition, _totalWritten);
-                return TryGetRecentAudioCore(duration, end, out snapshot);
+                return TryGetRecentAudioCore(duration, end, RadioAudioSampleOrigin.Playback, out snapshot);
             }
         }
 
@@ -2091,13 +2094,14 @@ public sealed class RadioMediaOutput(
         {
             lock (_gate)
             {
-                return TryGetRecentAudioCore(duration, _totalWritten, out snapshot);
+                return TryGetRecentAudioCore(duration, _totalWritten, RadioAudioSampleOrigin.Capture, out snapshot);
             }
         }
 
         private bool TryGetRecentAudioCore(
             TimeSpan duration,
             long end,
+            RadioAudioSampleOrigin origin,
             out RadioAudioSnapshot? snapshot)
         {
             var requestedBytes = Align((long)Math.Ceiling(
@@ -2118,7 +2122,8 @@ public sealed class RadioMediaOutput(
             _ring.Read(readIndex, audio, 0, first);
             if (first < audio.Length)
                 _ring.Read(0, audio, first, audio.Length - first);
-            snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length));
+            snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length),
+                new RadioAudioSampleAnchor(_bufferId, start, start + length, origin));
             return true;
         }
 

@@ -73,6 +73,11 @@ if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))
     TestYouTubeSourceResolver();
     return 0;
 }
+if (args.Contains("--radio-sample-anchors-only", StringComparer.Ordinal))
+{
+    RadioAudioSampleAnchorTests.Run();
+    return 0;
+}
 if (args.Contains("--radio-audio-metadata-only", StringComparer.Ordinal))
 {
     TestRadioAudioMetadataValidation();
