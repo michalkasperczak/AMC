@@ -369,6 +369,7 @@ class Action(Enum):
     SAVE_PODCAST_EPISODE_AS = "podcasts.download.saveAs"
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
     SAVE_YOUTUBE_VIDEO_AS = "podcasts.youtube.video.saveAs"
+    SELECT_YOUTUBE_VARIANT = "podcasts.youtube.video.selectVariant"
     SHOW_PODCAST_DESCRIPTION = "podcasts.description"
     CURRENT_RADIO_BROADCAST_INFORMATION = "radio.currentBroadcastInformation"
     RECOGNIZE_RADIO_TRACK = "radio.recognition.now"
@@ -517,6 +518,13 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     ),
     Action.VIEW_PODCAST_INBOX: CommandPresentation(
         Action.VIEW_PODCAST_INBOX,
+    Action.SELECT_YOUTUBE_VARIANT: CommandPresentation(
+        Action.SELECT_YOUTUBE_VARIANT,
+        "Wybierz wariant pobrania…",
+        "Wybierz dokładny wariant obrazu i dźwięku jednego filmu YouTube",
+        "",
+        "Wybierz &wariant pobrania…",
+    ),
         "Nowe odcinki i materiały",
         (
             "Otwórz nowe odcinki i materiały; w otwartej skrzynce "
@@ -2597,6 +2605,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SAVE_YOUTUBE_VIDEO_AS: "Zapisz jeden film internetowy jako plik wideo",
         Action.SHOW_PODCAST_DESCRIPTION: "Pokaż pełny opis podcastu lub odcinka",
         Action.CURRENT_RADIO_BROADCAST_INFORMATION: (
+        Action.SELECT_YOUTUBE_VARIANT: (
+            "Wybierz dokładny wariant obrazu i dźwięku jednego filmu YouTube"
+        ),
             "Informacje o bieżącym odtwarzaniu"
         ),
         Action.RECOGNIZE_RADIO_TRACK: "Rozpoznaj utwór z odtwarzanej stacji",
@@ -2944,6 +2955,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.FRONTIER_SMART_SELECT_MODE,
         Action.REFRESH_COMMON_DATA,
         Action.COMMON_DATA_STATUS,
+        Action.SELECT_YOUTUBE_VARIANT,
         Action.EXPORT_BACKUP,
         Action.IMPORT_BACKUP,
         Action.OPEN_CONTAINING_FOLDER,

@@ -63,6 +63,11 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
     SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
     throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
 }
+if (args.Contains("--youtube-format-variants-only", StringComparer.Ordinal))
+{
+    YouTubeFormatVariantTests.Run();
+    return 0;
+}
 if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))
 {
     TestYouTubeSourceResolver();

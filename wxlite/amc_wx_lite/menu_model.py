@@ -104,6 +104,7 @@ class MenuItem:
     needs_youtube_video_item: bool = False
     #: Wymaga dokładnie jednego materiału YouTube.
     needs_single_youtube_video_item: bool = False
+    needs_single_youtube_item: bool = False
     #: Polecenie audio pod Ctrl+S ustępuje zapisowi wideo dla YouTube.
     excludes_youtube_video_item: bool = False
     #: Aktywna wyłącznie w jednym z trzech głównych widoków kolekcji TIDAL.
@@ -662,6 +663,14 @@ def build_menus(
                 needs_podcast_session=True,
                 needs_youtube_video_item=True,
                 needs_single_youtube_video_item=True,
+                needs_selection=True,
+                visible_sessions=PODCASTS_ONLY,
+            ),
+            MenuItem(
+                "Wybierz warian&t pobrania…",
+                Action.SELECT_YOUTUBE_VARIANT,
+                needs_podcast_session=True,
+                needs_single_youtube_item=True,
                 needs_selection=True,
                 visible_sessions=PODCASTS_ONLY,
             ),

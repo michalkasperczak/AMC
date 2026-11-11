@@ -134,7 +134,8 @@ internal static class YouTubeMediaDownloader
         string destinationFolder,
         string? title,
         YouTubeVideoDownloadFormat format,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? selectedFormat = null)
     {
         if (!IsSupportedVideoUrl(pageUrl))
             throw new ArgumentException("Adres nie prowadzi do obsługiwanego filmu.", nameof(pageUrl));
@@ -152,7 +153,7 @@ internal static class YouTubeMediaDownloader
         var stagingDirectory = CreateStagingDirectory();
         var outputTemplate = Path.Combine(stagingDirectory, "media.%(ext)s");
         var start = ExternalToolProcess.Create(ytDlp);
-        foreach (var argument in BuildVideoArguments(outputTemplate, ffmpeg, format, pageUrl))
+        foreach (var argument in BuildVideoArguments(outputTemplate, ffmpeg, format, pageUrl, selectedFormat))
             start.ArgumentList.Add(argument);
 
         Process? process = null;
@@ -228,7 +229,8 @@ internal static class YouTubeMediaDownloader
         string outputTemplate,
         string ffmpeg,
         YouTubeVideoDownloadFormat format,
-        string pageUrl)
+        string pageUrl,
+        string? selectedFormat = null)
     {
         var arguments = new List<string>
         {
@@ -241,10 +243,12 @@ internal static class YouTubeMediaDownloader
             "--retries", "3",
             "--fragment-retries", "3",
             "--extractor-retries", "2",
-            "--format", "bv*+ba/b",
+            "--format", selectedFormat ?? "bv*+ba/b",
             "--extractor-args", "youtube:lang=pl"
         };
-        if (format == YouTubeVideoDownloadFormat.Mp4)
+        if (selectedFormat is not null && selectedFormat.Contains('+'))
+            arguments.AddRange(["--merge-output-format", "mkv"]);
+        if (selectedFormat is null && format == YouTubeVideoDownloadFormat.Mp4)
         {
             arguments.AddRange([
                 "--format-sort", "vcodec:h264,lang,quality,res,fps,hdr:12,acodec:aac",

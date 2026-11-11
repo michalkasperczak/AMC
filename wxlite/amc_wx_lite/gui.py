@@ -326,6 +326,7 @@ from .podcast_source import (
     subscription_rows,
 )
 from .paging import load_more_row, requested_count
+from .youtube_variants import DownloadVariant, can_choose_variant, read_variants
 from .quick_info import (
     HOST_ERROR_MESSAGE,
     NO_SOURCE_MESSAGE,
@@ -574,6 +575,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.SAVE_YOUTUBE_VIDEO_AS,
         Action.SHOW_PODCAST_DESCRIPTION,
         Action.GO_TO_RELATED_PODCAST,
+        Action.SELECT_YOUTUBE_VARIANT,
         Action.PODCAST_PLAYBACK_OPTIONS,
         Action.CURRENT_RADIO_BROADCAST_INFORMATION,
         Action.RECORDING_OUTPUT_INFORMATION,
@@ -3096,6 +3098,63 @@ def podcast_add_error_message(error: Exception) -> str:
 
 class PodcastSourceDialog(wx.Dialog):
     """Natywny formularz dodawania RSS i źródeł internetowych."""
+class YouTubeVariantDialog(wx.Dialog):
+    """One deliberate spoken label per selected yt-dlp format."""
+
+    def __init__(self, parent: wx.Window, title: str,
+                 variants: tuple[DownloadVariant, ...]) -> None:
+        super().__init__(parent, title=f"{i18n.ui_text('Wybierz wariant pobrania')}: {title}",
+                         size=(760, 470))
+        self._variants = variants
+        panel = wx.Panel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        self.variant_list = wx.ListBox(panel,
+            choices=[variant.label for variant in variants], style=wx.LB_SINGLE)
+        self.variant_list.SetName(i18n.ui_text("Warianty pobrania"))
+        self.variant_list.SetHelpText(i18n.ui_text(
+            "Strzałki wybierają wariant. Enter przechodzi do zapisu, Escape anuluje."))
+        self.variant_list.SetSelection(0)
+        layout.Add(self.variant_list, 1, wx.ALL | wx.EXPAND, 12)
+        panel.SetSizer(layout)
+        buttons = wx.StdDialogButtonSizer()
+        save = wx.Button(self, wx.ID_OK,
+                         label=i18n.ui_text("Zapisz wybrany wariant…"))
+        save.SetName(i18n.ui_text("Zapisz wybrany wariant…"))
+        save.SetDefault()
+        cancel = wx.Button(self, wx.ID_CANCEL,
+                           label=i18n.ui_text("Anuluj wybór wariantu"))
+        cancel.SetName(i18n.ui_text("Anuluj wybór wariantu"))
+        buttons.AddButton(save)
+        buttons.AddButton(cancel)
+        buttons.Realize()
+        shell = wx.BoxSizer(wx.VERTICAL)
+        shell.Add(panel, 1, wx.EXPAND)
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self.SetEscapeId(wx.ID_CANCEL)
+        self.variant_list.Bind(wx.EVT_KEY_DOWN, self._on_list_key)
+        self.variant_list.Bind(wx.EVT_LISTBOX_DCLICK, self._accept)
+        save.Bind(wx.EVT_BUTTON, self._accept)
+        self.variant_list.SetFocus()
+
+    @property
+    def selected_variant(self) -> DownloadVariant | None:
+        index = self.variant_list.GetSelection()
+        return self._variants[index] if 0 <= index < len(self._variants) else None
+
+    def _accept(self, _event: wx.Event) -> None:
+        if self.selected_variant is not None:
+            self.EndModal(wx.ID_OK)
+
+    def _on_list_key(self, event: wx.KeyEvent) -> None:
+        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._accept(event)
+        elif event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+        else:
+            event.Skip()
+
+
 
     def __init__(self, parent: wx.Window) -> None:
         super().__init__(
@@ -11005,6 +11064,7 @@ class LiteFrame(wx.Frame):
             Action.SORT_SPOTIFY_COLLECTION_ALPHABETICAL: SORT_ALPHABETICAL,
             Action.SORT_SPOTIFY_COLLECTION_CATALOG: SORT_CUSTOM,
         }
+        single_youtube_item = can_choose_variant(selected_action_rows)
         wiim_sort_actions = {
             Action.SORT_WIIM_NETWORK_STREAMS_ADDED: SORT_ADDED_NEWEST,
             Action.SORT_WIIM_NETWORK_STREAMS_ALPHABETICAL: SORT_ALPHABETICAL,
@@ -11197,6 +11257,8 @@ class LiteFrame(wx.Frame):
             if entry.needs_podcast_item and (
                 not podcasts or selected_kind not in ("podcast", "episode")
             ):
+                enabled = False
+            if entry.needs_single_youtube_item and not single_youtube_item:
                 enabled = False
             if entry.needs_description_item and not (
                 self.navigator.active in (SessionId.PODCASTS, SessionId.SPOTIFY)
@@ -16843,6 +16905,8 @@ class LiteFrame(wx.Frame):
             self._show_playback_history_preview()
         elif action is Action.VIEW_SAVED_QUEUE:
             if self.navigator.active is SessionId.RADIOARCHIWISTA:
+        elif action is Action.SELECT_YOUTUBE_VARIANT:
+            self._select_youtube_variant()
                 self._open_radioarchiwista_queue()
             elif self.navigator.active is SessionId.PODCASTS:
                 self._transient_preview_return = None
@@ -25915,6 +25979,114 @@ class LiteFrame(wx.Frame):
         state = self.navigator.sessions[session_id]
         if getattr(state, "view", View.LIST) is View.PLAYER:
             playing_id = getattr(state, "now_playing_id", None)
+    def _select_youtube_variant(self) -> None:
+        """Choose one fresh yt-dlp format; the host rechecks it before saving."""
+        if self.navigator.active is not SessionId.PODCASTS:
+            self.announcer.say(i18n.ui_text(
+                "Wybór wariantu jest dostępny w sesji Podcasty i YouTube"))
+            return
+        if self._podcast_download_pending:
+            self.announcer.say("Pobieranie odcinków lub wideo już trwa")
+            return
+        selected = self._selected_action_rows()
+        if not can_choose_variant(selected):
+            self.announcer.say(i18n.ui_text(
+                "Wybór wariantu jest dostępny dla jednego filmu YouTube"))
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say(i18n.ui_text(
+                "Silnik nie działa, nie mogę pobrać listy wariantów"))
+            return
+        row = selected[0]
+        self._podcast_download_pending = True
+        self.status_bar.show(i18n.ui_text("Pobieranie dostępnych wariantów"))
+
+        def prepare() -> dict:
+            value = client.youtube_video_variants(row.item_id)
+            return value if isinstance(value, dict) else {}
+
+        def prepared(info: dict) -> None:
+            variants = read_variants(info)
+            if not variants:
+                self._podcast_download_pending = False
+                retry = wx.MessageBox(
+                    i18n.ui_text("Nie ma dostępnych wariantów. Spróbować ponownie?"),
+                    i18n.ui_text("Brak wariantów pobrania"),
+                    wx.YES_NO | wx.ICON_INFORMATION, self,
+                )
+                self._restore_focus_after_dialog()
+                if retry == wx.YES:
+                    wx.CallAfter(self._select_youtube_variant)
+                return
+            with YouTubeVariantDialog(self, row.title, variants) as picker:
+                if picker.ShowModal() != wx.ID_OK:
+                    self._podcast_download_pending = False
+                    self._restore_focus_after_dialog()
+                    return
+                choice = picker.selected_variant
+            if choice is None:
+                self._podcast_download_pending = False
+                self._restore_focus_after_dialog()
+                return
+            base_name = str(info.get("suggestedBaseName") or "Film YouTube").strip()
+            initial_folder = str(info.get("initialFolder") or "").strip()
+            with wx.FileDialog(self,
+                message=i18n.ui_text("Zapisz wariant jako"),
+                defaultDir=initial_folder,
+                defaultFile=f"{base_name}.{choice.extension}",
+                wildcard=i18n.ui_text("Wszystkie pliki (*.*)") + "|*.*",
+                style=wx.FD_SAVE,
+            ) as destination_picker:
+                if destination_picker.ShowModal() != wx.ID_OK:
+                    self._podcast_download_pending = False
+                    self._restore_focus_after_dialog()
+                    return
+                destination = destination_picker.GetPath()
+
+            self.status_bar.show(i18n.ui_text("Pobieranie wybranego wariantu"))
+            self.announcer.say(i18n.ui_text("Pobieranie wybranego wariantu"))
+
+            def work() -> dict:
+                value = client.save_youtube_variant_as(
+                    row.item_id, destination, choice.selector, choice.signature)
+                return value if isinstance(value, dict) else {}
+
+            def done(payload: dict) -> None:
+                self._podcast_download_pending = False
+                if getattr(self, "_download_history", None) is not None:
+                    LiteFrame._record_download_results(
+                        self, payload, source="podcast_video")
+                file_name = str(payload.get("fileName") or Path(destination).name)
+                message = (
+                    f"Saved variant: {file_name}"
+                    if i18n.active_language() == i18n.ENGLISH
+                    else f"Zapisano wariant: {file_name}"
+                )
+                self.status_field.SetLabel(message)
+                self.status_bar.show(message)
+                self.announcer.say(message)
+                self._restore_focus_after_dialog()
+
+            self.runner.submit("youtube-variant-save", work, done, failed)
+
+        def failed(error: Exception, *, listing: bool = False) -> None:
+            self._podcast_download_pending = False
+            message = (
+                str(error) if isinstance(error, (HostError, HostUnavailable))
+                else i18n.ui_text(
+                    "Nie udało się pobrać listy wariantów" if listing
+                    else "Nie udało się zapisać wariantu"
+                )
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+            self._restore_focus_after_dialog()
+
+        self.runner.submit("youtube-variant-list", prepare, prepared,
+                           lambda error: failed(error, listing=True))
+
             for candidate in getattr(state, "playback_source_rows", ()):
                 if candidate.item_id == playing_id:
                     return candidate

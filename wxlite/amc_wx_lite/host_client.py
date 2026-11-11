@@ -1694,6 +1694,23 @@ class LiteHostClient:
             timeout=24 * 3600.0,
         )
 
+    def youtube_video_variants(self, episode_id: str) -> Any:
+        """Read a fresh offer of formats for one YouTube video."""
+        return self.call(
+            "podcast.videoVariants", {"episodeId": episode_id}, timeout=120.0,
+        )
+
+    def save_youtube_variant_as(
+        self, episode_id: str, path: str, selector: str, signature: str,
+    ) -> Any:
+        """Revalidate and save exactly the selected offer, without fallback."""
+        return self.call(
+            "podcast.videoVariantSaveAs",
+            {"episodeId": episode_id, "path": path,
+             "selector": selector, "signature": signature},
+            timeout=24 * 3600.0,
+        )
+
     def add_podcast_source(self, address: str, title: str = "") -> Any:
         """Sprawdź i dodaj RSS, kolekcję YouTube albo publiczne medium."""
         return self.call(

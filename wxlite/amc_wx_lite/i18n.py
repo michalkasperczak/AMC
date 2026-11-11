@@ -793,6 +793,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "podcasts.download.saveAs": "Save the episode as a file",
     "podcasts.youtube.video.download": "Download selected YouTube, Facebook or Instagram videos",
     "podcasts.youtube.video.saveAs": "Save one internet video as a file",
+    "podcasts.youtube.video.selectVariant": "Choose download variant…",
     "podcasts.goToRelated": "Go to the related podcast",
     "podcasts.library.toggle": "Add to or remove from the Podcast Library",
     "podcasts.playbackOptions": "Podcast playback options",
@@ -873,6 +874,23 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Warianty pobrania": "Download variants",
+    "Wybierz wariant pobrania": "Choose a download variant",
+    "Strzałki wybierają wariant. Enter przechodzi do zapisu, Escape anuluje.": "Use arrow keys to choose a variant. Enter continues to Save As; Escape cancels.",
+    "Zapisz wybrany wariant…": "Save selected variant…",
+    "Anuluj wybór wariantu": "Cancel variant selection",
+    "Zapisz wariant jako": "Save variant as",
+    "Wszystkie pliki (*.*)": "All files (*.*)",
+    "Pobieranie dostępnych wariantów": "Loading available variants",
+    "Nie ma dostępnych wariantów. Spróbować ponownie?": "No variants are available. Try again?",
+    "Brak wariantów pobrania": "No download variants",
+    "Nie udało się pobrać listy wariantów": "Could not load download variants",
+    "Pobieranie wybranego wariantu": "Downloading selected variant",
+    "Nie udało się zapisać wariantu": "Could not save the variant",
+    "Wybór wariantu jest dostępny dla jednego filmu YouTube": "Variant selection is available for one YouTube video",
+    "Wybór wariantu jest dostępny w sesji Podcasty i YouTube": "Variant selection is available in Podcasts and YouTube",
+    "Silnik nie działa, nie mogę pobrać listy wariantów": "The media host is unavailable; variants cannot be loaded",
+
     "Ta stacja nie ma adresu YouTube.": "This station does not have a YouTube address.",
     "Sprawdź składnik yt-dlp w menu Pomoc.": "Check the yt-dlp component in the Help menu.",
     "Nie udało się ustalić kanału YouTube tej stacji.": "Could not identify this station's YouTube channel.",
@@ -1630,5 +1648,6 @@ def menu_title(polish_title: str) -> str:
 def menu_action_label(action_value: str, polish_label: str) -> str:
     if _active_language == POLISH:
         return polish_label
-    suffix = "…" if polish_label.rstrip().endswith("…") else ""
-    return "&" + english_action_name(action_value) + suffix
+    name = english_action_name(action_value)
+    suffix = "…" if polish_label.rstrip().endswith("…") and not name.endswith("…") else ""
+    return "&" + name + suffix

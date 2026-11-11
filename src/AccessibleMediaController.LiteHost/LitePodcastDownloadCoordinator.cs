@@ -18,6 +18,8 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
     public const string VideoOperation = "podcast.videoDownload";
     public const string VideoSaveAsInfoOperation = "podcast.videoSaveAsInfo";
     public const string VideoSaveAsOperation = "podcast.videoSaveAs";
+    public const string VideoVariantsOperation = "podcast.videoVariants";
+    public const string VideoVariantSaveAsOperation = "podcast.videoVariantSaveAs";
     private const int MaximumBatchSize = 100;
 
     private readonly LitePodcastProgressStore _podcasts;
@@ -452,6 +454,116 @@ internal sealed class LitePodcastDownloadCoordinator : IDisposable
                 or NotSupportedException) { }
             Volatile.Write(ref _downloadInProgress, 0);
         }
+    }
+
+    public object VideoVariants(JsonElement args)
+    {
+        var target = GetSingleTarget(args);
+        RequireYouTubeTarget(target);
+        var variants = YouTubeDownloadVariantCatalog.ListAsync(
+                target.MediaUrl, _cancellation.Token)
+            .GetAwaiter().GetResult();
+        return new
+        {
+            title = target.Title,
+            suggestedBaseName = PodcastDownloadNaming.SuggestedVideoBaseName(target.Title),
+            initialFolder = PodcastDownloadFolderResolver.ResolveDialogInitialFolder(
+                target.ConfiguredDownloadsFolder),
+            variants = variants.Select(item => new
+            {
+                selector = item.Selector,
+                signature = item.Signature,
+                kind = item.Kind,
+                extension = item.Extension,
+                videoCodec = item.VideoCodec,
+                audioCodec = item.AudioCodec,
+                language = item.Language,
+                width = item.Width,
+                height = item.Height,
+                fps = item.Fps,
+                bitrateKbps = item.BitrateKbps,
+                sizeBytes = item.SizeBytes,
+                sizeApproximate = item.SizeApproximate,
+                needsMerge = item.NeedsMerge
+            }).ToArray()
+        };
+    }
+
+    public object SaveVideoVariantAs(JsonElement args, LiteEventSink events)
+    {
+        if (Interlocked.CompareExchange(ref _downloadInProgress, 1, 0) != 0)
+            throw new LiteRequestException("Pobieranie odcinków lub wideo już trwa.");
+        var temporaryDirectory = Path.Combine(Path.GetTempPath(),
+            "AccessibleMediaController", "save-video-variant",
+            Guid.NewGuid().ToString("N"));
+        try
+        {
+            var target = GetSingleTarget(args);
+            RequireYouTubeTarget(target);
+            var selector = LiteArgs.RequireText(args, "selector");
+            var signature = LiteArgs.RequireText(args, "signature");
+            var requestedPath = NormalizeDestination(LiteArgs.RequirePath(args, "path"));
+            var available = YouTubeDownloadVariantCatalog.ListAsync(
+                    target.MediaUrl, _cancellation.Token)
+                .GetAwaiter().GetResult();
+            var selected = YouTubeDownloadVariantCatalog.Match(
+                available, selector, signature);
+            if (selected is null || string.IsNullOrWhiteSpace(selected.Extension))
+                throw new LiteRequestException(
+                    "Wybrany wariant nie jest już dostępny. Otwórz listę i wybierz ponownie.");
+
+            Directory.CreateDirectory(temporaryDirectory);
+            PublishProgress(events, target, 0, 1, percent: 0);
+            var downloaded = YouTubeMediaDownloader.DownloadVideoAsync(
+                    target.MediaUrl, temporaryDirectory, target.Title,
+                    YouTubeVideoDownloadFormat.Original, _cancellation.Token,
+                    selected.Selector)
+                .GetAwaiter().GetResult();
+            var actualExtension = Path.GetExtension(downloaded.Path).TrimStart('.');
+            if (!actualExtension.Equals(selected.Extension, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    "Wynikowy format różni się od wybranego wariantu. Pliku nie zapisano.");
+            var destination = Path.ChangeExtension(requestedPath, "." + actualExtension);
+            if (File.Exists(destination))
+                throw new IOException("Plik o tej nazwie już istnieje. Wybierz inną nazwę.");
+            YouTubeMediaDownloader.PublishCompletedFileAsync(
+                    downloaded.Path, destination, overwrite: false, _cancellation.Token)
+                .GetAwaiter().GetResult();
+            PublishProgress(events, target, 0, 1, percent: 100);
+            return new
+            {
+                title = target.Title,
+                fileName = Path.GetFileName(destination),
+                bytesWritten = downloaded.BytesWritten,
+                files = new[] { new {
+                    episodeId = target.EpisodeId,
+                    title = target.Title,
+                    path = destination
+                } }
+            };
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception) when (exception is HttpRequestException
+            or IOException or UnauthorizedAccessException or InvalidDataException
+            or ArgumentException or NotSupportedException or TimeoutException)
+        {
+            throw new LiteRequestException("Nie można pobrać wariantu: " + exception.Message);
+        }
+        finally
+        {
+            try { Directory.Delete(temporaryDirectory, recursive: true); }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException) { }
+            Volatile.Write(ref _downloadInProgress, 0);
+        }
+    }
+
+    private static void RequireYouTubeTarget(PodcastDownloadTarget target)
+    {
+        if (!YouTubeSourceResolver.IsYouTubeUrl(target.MediaUrl))
+            throw new LiteRequestException(
+                "Wybór wariantu jest dostępny tylko dla filmu YouTube.");
     }
 
     private static YouTubeVideoDownloadFormat ReadVideoFormat(JsonElement args)
