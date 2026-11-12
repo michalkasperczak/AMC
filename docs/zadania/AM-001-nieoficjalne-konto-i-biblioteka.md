@@ -1,9 +1,9 @@
 # AM-001 — nieoficjalne konto i Biblioteka Apple Music
 
-- Status: `W trakcie — bezpieczny magazyn, model rekordów i adapter odczytu mają 28/28 testów Apple; przypięty manifest zależności jest tylko w Test; żywe logowanie oczekuje`
+- Status: `W trakcie — środowisko laboratoryjne i jawna sonda są gotowe; 35/35 testów Apple i 89/89 celowanych; żywe logowanie oczekuje na wyraźną zgodę użytkownika`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, konto, katalog, Biblioteka, playlisty
-- Punkt wznowienia: zbudować izolowany venv i Chromium z przypiętego manifestu, następnie wykonać jawny test logowania
+- Punkt wznowienia: po wyraźnej zgodzie użytkownika uruchomić widoczne logowanie Apple, następnie odczytać Bibliotekę bez zmian konta
 
 ## Cel
 
@@ -33,18 +33,24 @@ konta, odnowienia sesji i świeżej weryfikacji przed zapisem.
   zaszyfrowanej sesji, działa tylko w profilu Test i udostępnia obecnie
   wyłącznie odczyt utworów, albumów, wykonawców, playlist oraz ich zawartości.
 - Profil wydania otrzymał możliwość `apple-music.experimental`. Budowniczy
-  kopiuje trzy moduły i `requirements-apple-music-test.txt` wyłącznie do Test;
+  kopiuje moduły konta, poświadczeń, Biblioteki i rekordów oraz
+  `requirements-apple-music-test.txt` wyłącznie do Test;
   Public odrzuca je również podczas walidacji manifestu.
+- `apple_music_account.py` rozdziela bezpieczną kontrolę lokalnego stanu od
+  logowania. Kontrola stanu nie otwiera sieci ani Chromium. Tylko jawne
+  `connect_account` może wywołać widoczne logowanie.
+- Sonda `wxlite/tools/apple_music_library_probe.py` bez parametru wykonuje
+  wyłącznie kontrolę lokalną. Parametr `--login` jest jedyną drogą do
+  uruchomienia autoryzacji i nie wypisuje poświadczeń ani błędów dostawcy.
 
 ## Następne kroki
 
-1. Utworzyć osobny venv z `requirements-apple-music-test.txt` i przygotować
-   przypięte Chromium Playwrighta w projektowym katalogu roboczym.
-2. Dodać jawną sondę tylko do testu: bez parametru logowania nie może otworzyć
-   przeglądarki; z parametrem pokazuje prawdziwe okno Apple i nie drukuje
-   żadnych poświadczeń ani surowych odpowiedzi.
-3. Po zgodzie użytkownika wykonać jedno widoczne logowanie oraz odczyt
+1. Po wyraźnej zgodzie użytkownika wykonać jedno widoczne logowanie przez
+   sondę z `--login`. Nie otwierać go przy zwykłym sprawdzaniu stanu.
+2. Po udanym logowaniu wykonać odczyt
    storefrontu, listy playlist i kilku elementów Biblioteki bez zmian konta.
+3. Dopiero po rzeczywistym wyniku zaprojektować nieblokujące wywołanie z GUI
+   i wspólny model poleceń dla menu, palety oraz pomocy.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -55,8 +61,8 @@ użytkownika i oddzielone od AMC Public.
 
 ## Testy i wynik
 
-- Trzy celowane moduły Apple Music — 28/28: 8 magazynu i autoryzacji, 10
-  normalizacji rekordów oraz 10 adaptera Biblioteki.
+- Pięć celowanych obszarów Apple Music — 35/35: 8 magazynu i autoryzacji, 10
+  normalizacji rekordów, 10 adaptera Biblioteki, 5 konta i 2 sondy.
 - Zaliczone jest także rzeczywiste szyfrowanie i odszyfrowanie DPAPI CurrentUser
   w katalogu tymczasowym. Plik nie zawiera jawnych trzech wartości testowych.
 - Adapter opcjonalnej biblioteki jest wyłącznie w AMC Test, wymusza widoczne
@@ -65,8 +71,16 @@ użytkownika i oddzielone od AMC Public.
   biblioteki bez konta, sieci i przeglądarki.
 - `py_compile` modułu i testu — powodzenie.
 - `python wxlite/run_tests.py apple_music release_profile bundle_layout` —
-  84/84, bez pominięć. Zakres obejmuje izolację Test/Public, dokładne piny,
+  89/89, bez pominięć. Zakres obejmuje izolację Test/Public, dokładne piny,
   zawartość syntetycznych paczek i walidację wspólnego kontraktu profili.
+- Przypięte zależności zainstalowano z `--no-cache-dir` w
+  `work/AM-001-apple-music-venv`; `pip check` zgłosił brak uszkodzonych
+  zależności, a import potwierdził `applemusic 0.0.1` i Playwright 1.65.0.
+- Playwright pobrał Chromium 1254, wariant headless, FFmpeg i Winldd do
+  `work/AM-001-playwright-browsers`. Katalog zajmuje około 740 MiB. Nie
+  uruchamiano przeglądarki ani strony Apple.
+- Zwykłe uruchomienie sondy zwróciło „Apple Music: brak zapisanej sesji” oraz
+  potwierdzenie braku przeglądarki i połączenia z Apple.
 - `dotnet build` Launcher i Updater w `Release --no-restore` — oba powodzenie,
   0 ostrzeżeń i 0 błędów.
 - Nie wykonano logowania, zapytania sieciowego Apple ani testu NVDA. Nie
@@ -75,9 +89,9 @@ użytkownika i oddzielone od AMC Public.
 ## Znane ograniczenia
 
 - Adapter nie jest jeszcze wywoływany przez hosta ani interfejs AMC.
-- Manifest zależności jest przypięty i profilowo izolowany, ale pakiety Python
-  oraz Chromium Playwrighta nie zostały jeszcze dołączone do runtime. Sam plik
-  wymagań w paczce nie oznacza działającego logowania.
+- Pakiety Python i Chromium są przygotowane wyłącznie w projektowym katalogu
+  `work`. Nie zostały dołączone do paczki ani zainstalowanej wersji AMC Test;
+  gotowe laboratorium nie oznacza jeszcze działającej sesji programu.
 - Profil Chromium sam ma własne dane sesji; przed żywym testem trzeba ustalić,
   które pliki są konieczne i nie tworzyć dodatkowego jawnego storage state.
 - Nie ma dowodu, że bieżące nieudokumentowane endpointy działają na koncie
@@ -87,7 +101,8 @@ użytkownika i oddzielone od AMC Public.
 
 - Gałąź: `codex/amc-test-public-20261109`.
 - Stan bazowy: `a51d90b44ab2fc43e65dc3ed5c872d4d3782c6ee`.
-- Kod jest w źródłach i ma testy; bez buildu, instalacji i wydania.
+- Kod jest w źródłach i ma testy; izolowane zależności są przygotowane, ale bez
+  pełnego buildu, instalacji i wydania AMC.
 - Commit kodu i zapisu etapu: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
 
 ## Zmienione pliki — 12 listopada 2026, etap modelu i odczytu
@@ -105,3 +120,14 @@ użytkownika i oddzielone od AMC Public.
 
 Commit modelu, odczytu i izolacji paczek:
 `118913826c3a07195de682ca4c77b4fbe90b2681`.
+
+## Zmienione pliki — 12 listopada 2026, etap jawnej sondy
+
+- `wxlite/amc_wx_lite/apple_music_account.py`
+- `wxlite/tools/apple_music_library_probe.py`
+- `wxlite/tests/test_apple_music_account.py`
+- `wxlite/tests/test_apple_music_probe.py`
+- `wxlite/tools/build_bundle.py`
+- `wxlite/tests/test_bundle_layout.py`
+
+Commit jawnej bramki logowania: `964385fc`.
