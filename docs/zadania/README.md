@@ -693,14 +693,15 @@ zmian, wymagający korekty użytkownika:
 - `TID-001` — **W trakcie; poprawka wznowienia po zmianie sesji jest w źródłach, test audio i odbiór NVDA oczekują; zainstalowany Test pozostaje bez zmiany** — sesja audio ma osobne logowanie i punkt powrotu do oryginalnego TIDALa. Pozostaje odbiór pełnego sterowania i NVDA oraz ustalenie źródła okresowego obciążenia hosta. Szczegóły: [TID-001-pelne-odtwarzanie-w-AMC-Test.md](TID-001-pelne-odtwarzanie-w-AMC-Test.md).
 - `STR-001` — **W trakcie; 12.11 użytkownik uruchomił prywatny pilot bez konta
   deweloperskiego: apple-music-py dla Biblioteki oraz izolowane
-  music.apple.com dla odtwarzania; logowanie, DRM i NVDA jeszcze nietestowane**
+  music.apple.com dla odtwarzania; logowanie i żywa Biblioteka są potwierdzone,
+  DRM, odtwarzanie oraz NVDA jeszcze nietestowane**
   — Apple Music nie jest jeszcze sesją AMC Test ani AMC Public. Oficjalna droga
   z istniejącym brokerem tokenów nadal wymaga zespołu Apple Developer.
   Szczegóły:
   [STR-001-tidal-apple-music-laboratorium.md](STR-001-tidal-apple-music-laboratorium.md).
-- `AM-001` — **W trakcie; żywe logowanie i zaszyfrowany zapis sesji działają,
-  storefront odpowiada, lecz Apple odmawia Biblioteki z kategorią wymaganej
-  aktywnej subskrypcji; celowany zestaw 97/97** —
+- `AM-001` — **W trakcie; po aktywacji subskrypcji żywe logowanie, DPAPI,
+  cztery widoki Biblioteki, druga strona utworów i zawartość playlisty działają;
+  stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
 - `AM-002` — **Oczekuje; wzorce Sidry i WinZapp sprawdzone, brak pilota DRM**

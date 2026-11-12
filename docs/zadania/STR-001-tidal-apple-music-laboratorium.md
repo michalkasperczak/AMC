@@ -444,6 +444,27 @@ polecenia i komunikaty NVDA pozostaną w zwykłych kontrolkach AMC.
   97/97 testów. Nie zmieniono zainstalowanego AMC Test, nie wykonano pełnego
   buildu ani publikacji.
 
+### Aktualizacja po aktywacji subskrypcji — 12 listopada 2026
+
+Ten wynik zastępuje wcześniejszą diagnozę HTTP 400 jako bieżący stan konta.
+Po zakupie Apple Music web player zaczął zwracać HTTP 200 bez ponownego
+logowania. Adapter AMC odczytał pierwsze strony playlist, utworów, albumów i
+wykonawców — po 25 elementów, wszystkie z dalszymi stronami. Druga strona
+utworów również zwróciła 25 elementów.
+
+Pełna próba pobrania całej Biblioteki trwała ponad dwie minuty i została
+przerwana bez zmian konta. W odpowiedzi adapter otrzymał ograniczone
+stronicowanie widoków i zawartości playlist. Prywatny kursor nie jest tekstem
+wiersza ani NVDA, nie przyjmuje obcego hosta i jest związany z wybranym widokiem
+lub konkretną playlistą. Pierwsza sprawdzona playlista zwróciła 25 utworów i
+dalszą stronę.
+
+Celowany zestaw wykonał 100 testów poprawnie; jeden test paczki nie mógł
+posprzątać katalogu tymczasowego przez ograniczenie piaskownicy. Powtórzony
+poza nią przeszedł 1/1. Wynik unikalnych testów: 101/101. Kod stronicowania jest
+w źródłach, ale nie został zbudowany, zainstalowany ani podłączony do GUI AMC
+Test. Commit: `55935bb7`.
+
 ### Znane ograniczenia
 
 - `apple-music-py` używa nieudokumentowanego API i może przestać działać po
@@ -464,3 +485,4 @@ modelu, odczytu i izolacji paczek:
 `118913826c3a07195de682ca4c77b4fbe90b2681`.
 Jawna bramka konta i sonda: `964385fc`.
 Sondy żywego odczytu bez ujawniania danych: `71dcd385`.
+Stronicowana żywa Biblioteka: `55935bb7`.

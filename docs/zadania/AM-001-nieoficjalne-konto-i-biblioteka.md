@@ -1,9 +1,9 @@
 # AM-001 — nieoficjalne konto i Biblioteka Apple Music
 
-- Status: `W trakcie — żywe logowanie i bezpieczny zapis sesji działają; storefront działa, lecz Apple odmawia Biblioteki jako wymagającej aktywnej subskrypcji; 97/97 testów celowanych`
+- Status: `W trakcie — żywe logowanie, DPAPI i stronicowany odczyt Biblioteki działają na aktywnej subskrypcji; adapter nie jest jeszcze podłączony do GUI AMC Test; 101/101 testów celowanych po powtórzeniu jednego testu poza piaskownicą`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, konto, katalog, Biblioteka, playlisty
-- Punkt wznowienia: potwierdzić aktywną subskrypcję na użytym Apple ID; następnie ponowić odczyt Biblioteki bez zmian konta
+- Punkt wznowienia: podłączyć stronicowany odczyt do nieblokującej sesji GUI AMC Test, a odtwarzanie badać osobno w AM-002
 
 ## Cel
 
@@ -42,16 +42,20 @@ konta, odnowienia sesji i świeżej weryfikacji przed zapisem.
 - Sonda `wxlite/tools/apple_music_library_probe.py` bez parametru wykonuje
   wyłącznie kontrolę lokalną. Parametr `--login` jest jedyną drogą do
   uruchomienia autoryzacji i nie wypisuje poświadczeń ani błędów dostawcy.
+- Pełny odczyt wszystkich stron trwał ponad dwie minuty i został bezpiecznie
+  przerwany. Adapter otrzymał więc `view_page` i `playlist_tracks_page`:
+  domyślnie pobiera 25 pozycji, a nie całą kolekcję. Kursor jest modelem
+  prywatnym, ma neutralny tekst i nie może przejść do obcego hosta, innego
+  widoku ani innej playlisty.
 
 ## Następne kroki
 
-1. Użytkownik potwierdza, czy aktywna subskrypcja Apple Music należy do Apple
-   ID użytego w przeprowadzonej próbie. Samo konto Apple nie wystarcza.
-2. Jeżeli subskrypcja jest na innym koncie, wyczyścić wyłącznie sesję pilota i
-   wykonać widoczne logowanie właściwym kontem. Jeżeli jest na tym samym,
-   zbadać rozbieżność uprawnienia z web playerem bez operacji zapisu.
-3. Dopiero po udanym odczycie zaprojektować nieblokujące wywołanie z GUI
-   i wspólny model poleceń dla menu, palety oraz pomocy.
+1. Dodać usługę ładowania stron poza głównym wątkiem GUI, z pierwszą stroną
+   widoczną od razu, kontrolowanym doładowaniem i anulowaniem.
+2. Podłączyć wyłącznie odczyt do sesji Apple Music w AMC Test, wraz z cache
+   podzielonym według profilu i konta oraz przewidywalnym fokusem NVDA.
+3. Dopiero wtedy dodać sesję, menu, paletę i pomoc z jednego modelu poleceń.
+   Operacje zapisu pozostają wyłączone, a odtwarzanie należy do AM-002.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -99,6 +103,19 @@ użytkownika i oddzielone od AMC Public.
   Apple ID, abonament wygasł, czy prywatny endpoint ma błąd uprawnienia.
 - Po dodaniu sond bezpieczeństwa `python wxlite/run_tests.py apple_music
   release_profile bundle_layout` zaliczył 97/97, bez pominięć.
+- **Aktualizacja 12.11.2026 po zakupie subskrypcji — zastępuje wcześniejszy
+  wynik HTTP 400 jako bieżący stan:** web player zaczął zwracać HTTP 200 bez
+  ponownego logowania. Ograniczony adapter odczytał po 25 playlist, utworów,
+  albumów i wykonawców; każda kolekcja ma dalsze strony.
+- Pierwsza i druga strona utworów zwróciły po 25 pozycji. Przykładowa celowo
+  zbudowana etykieta drugiej strony: „Ach, cóż to za romans był, utwór,
+  Urszula Sipinska, 3:28”.
+- Pierwsza playlista „Billy Joel — niezbędnik” zwróciła 25 utworów i dalszą
+  stronę. Przykładowa etykieta: „Piano Man, utwór, Billy Joel, 5:39”.
+- Celowany przebieg wykonał 100 testów poprawnie, a jeden niezwiązany test
+  paczki nie mógł wrócić z katalogu tymczasowego na dysk D z powodu piaskownicy.
+  Powtórzony samodzielnie poza piaskownicą przeszedł 1/1. Ostateczny wynik
+  unikalnych testów: 101/101, bez błędu kodu i bez pominięć.
 - `dotnet build` Launcher i Updater w `Release --no-restore` — oba powodzenie,
   0 ostrzeżeń i 0 błędów.
 - Wykonano logowanie i kontrolowane zapytania odczytowe Apple. Nie wykonano
@@ -113,8 +130,8 @@ użytkownika i oddzielone od AMC Public.
   gotowe laboratorium nie oznacza jeszcze działającej sesji programu.
 - Profil Chromium sam ma własne dane sesji; przed żywym testem trzeba ustalić,
   które pliki są konieczne i nie tworzyć dodatkowego jawnego storage state.
-- Nie ma dowodu, że bieżące nieudokumentowane endpointy działają na koncie
-  użytkownika albo zachowają zgodność po aktualizacji Apple.
+- Bieżące nieudokumentowane endpointy zostały potwierdzone na koncie
+  użytkownika, ale nadal mogą zmienić się bez zapowiedzi Apple.
 - Zalogowanie nie oznacza automatycznie uprawnienia do spersonalizowanej
   Biblioteki. Oficjalna dokumentacja Apple wymaga dla niej aktywnego
   subskrybenta; bieżąca odpowiedź konta wskazuje właśnie tę bramkę.
@@ -162,3 +179,12 @@ Commit jawnej bramki logowania: `964385fc`.
 - `wxlite/tests/test_apple_music_web_request_probe.py`
 
 Commit sond bez ujawniania danych: `71dcd385`.
+
+## Zmienione pliki — 12 listopada 2026, aktywna Biblioteka i paginacja
+
+- `wxlite/amc_wx_lite/apple_music_library.py`
+- `wxlite/tools/apple_music_safe_diagnostic.py`
+- `wxlite/tests/test_apple_music_library.py`
+- `wxlite/tests/test_apple_music_safe_diagnostic.py`
+
+Commit stronicowanego odczytu: `55935bb7`.
