@@ -269,7 +269,7 @@ class Options:
     smooth_track_transitions: bool = False
     inter_track_silence_ms: int = 0
     tempo_algorithm: int = 1
-    #: Kolejność ustala Ctrl+1–9, listę sesji oraz Ctrl+Page Up/Down.
+    #: Kolejność ustala Ctrl+1–9/Ctrl+0, listę sesji oraz Ctrl+Page Up/Down.
     #: Zapis zawiera wyłącznie stabilne wartości modelu; GUI tworzy osobne,
     #: celowe etykiety użytkowe.
     session_order: list[str] = field(default_factory=lambda: [

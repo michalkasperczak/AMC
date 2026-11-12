@@ -13,7 +13,7 @@ Historyczny projekt został użyty tylko jako materiał do odczytu.
 ## Materiał do dokumentacji użytkownika
 
 - `Ctrl+Shift+S` otwiera jedną listę „Menedżer sesji”. Lista pokazuje najpierw
-  sesje włączone z ich aktualnymi numerami `Ctrl+1–9`, a następnie sesje
+  sesje włączone z ich aktualnymi skrótami `Ctrl+1–9`/`Ctrl+0`, a następnie sesje
   wyłączone. Każdy wiersz zawiera zwykłą nazwę, stan włączenia oraz znany
   aplikacji stan gotowości. W mowie nie pojawiają się identyfikatory ani nazwy
   klas.
@@ -65,7 +65,7 @@ Historyczny projekt został użyty tylko jako materiał do odczytu.
   której trwa wewnętrzne odtwarzanie, oczekiwanie na rozpoczęcie odtwarzania
   albo nagrywanie. Wyłączenie Sonosa lub WiiM zmienia tylko widoczność sesji;
   nie wysyła do urządzenia polecenia Stop.
-- `Ctrl+1–9`, `Ctrl+Page Up`, `Ctrl+Page Down`, menu Widok, pełna pomoc,
+- `Ctrl+1–9`, `Ctrl+0`, `Ctrl+Page Up`, `Ctrl+Page Down`, menu Widok, pełna pomoc,
   `Ctrl+F1`, dodatek NVDA i paleta `Ctrl+Shift+K` korzystają z tej samej
   aktywnej kolejności. Wyłączona sesja nie jest reklamowana w menu ani palecie.
 - Świeży profil ma: `Ctrl+1` Pliki lokalne, `Ctrl+2` Radio oraz `Ctrl+3`
@@ -109,6 +109,17 @@ Historyczny projekt został użyty tylko jako materiał do odczytu.
   ustalenie rozszerzono o Pliki lokalne. `Ctrl+F5` otwiera „Foldery
   Biblioteki” z dodawaniem, odświeżaniem i niedestrukcyjnym odłączaniem.
   Polecenia przeniesiono z ogólnego menu „Widok” do kontekstowego menu „Plik”.
+- **Korekta użytkownika z 12 listopada 2026, zastępująca limit dziewięciu
+  sesji i wcześniejszą decyzję o wolnym `Ctrl+0`:** po dodaniu Apple Music
+  wszystkie dziesięć sesji może być aktywnych jednocześnie. Pozycje 1–9 mają
+  `Ctrl+1–9`, a pozycja 10 ma `Ctrl+0`. Spacja na wyłączonej Apple Music
+  zapisuje ją jako dziesiątą sesję; Enter oraz `Ctrl+Page Up/Page Down`
+  korzystają z tej samej kolejności. Wynik Spacji jest dodatkowo ogłaszany
+  przez wspólny announcer po przywróceniu fokusu listy.
+- **Korekta użytkownika z 12 listopada 2026 — skróty Pomocy:** `F11` sprawdza
+  aktualizację AMC, a `Ctrl+F11` otwiera „Zgłoś błąd lub sugestię”. Menu,
+  paleta, pełna pomoc, pomoc klawiatury i wykonanie korzystają ze wspólnego
+  katalogu tych poleceń.
 - **Korekta użytkownika z 19 października 2026, najnowsza:** ogólne określenie
   „Konfiguruj konto lub urządzenie bieżącej sesji” nie jest już używane jako
   opis działającego `Ctrl+F5`. Zastąpiły je powyższe nazwy właściwe dla

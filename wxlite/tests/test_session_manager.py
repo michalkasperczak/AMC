@@ -100,6 +100,24 @@ def test_disabling_current_session_saves_valid_fallback_before_switching() -> No
     assert "Aktywna sesja: Podcasty i YouTube, Ctrl+2" in message
 
 
+def test_enabling_apple_music_as_tenth_session_is_saved_with_ctrl_zero() -> None:
+    first_nine = [
+        session.value
+        for session in SessionId
+        if session is not SessionId.APPLE_MUSIC
+    ]
+    frame = _frame(first_nine, SessionId.FILES)
+
+    changed, message = LiteFrame._toggle_session_enabled(frame, SessionId.APPLE_MUSIC)
+
+    assert len(changed) == 10
+    assert changed[-1] is SessionId.APPLE_MUSIC
+    assert message == "Włączono sesję Apple Music, Ctrl+0"
+    assert frame.options.session_order[-1] == "appleMusic"
+    assert frame.save_snapshots[-1][0][-1] == "appleMusic"
+    assert frame.menu_rebuilds == 1
+
+
 def test_internal_playback_and_recording_block_only_the_owned_sessions() -> None:
     frame = _frame(["files", "radio", "sonos", "wiim"], SessionId.FILES)
     frame._playing_sessions = {SessionId.FILES, SessionId.SONOS, SessionId.WIIM}
@@ -145,6 +163,7 @@ def test_manager_dialog_has_explicit_names_keys_and_focus_restoration_contract()
     assert "event.GetKeyCode() == wx.WXK_DOWN" in dialog
     assert "self._refresh_rows(selected)" in dialog
     assert "self.session_list.SetFocus()" in dialog
+    assert "wx.CallAfter(self._announce, message)" in dialog
     assert "selected is SessionId.FRONTIER_SMART" in dialog
     assert "self.configure_session = selected" in dialog
     assert "self.EndModal(wx.ID_APPLY)" in dialog

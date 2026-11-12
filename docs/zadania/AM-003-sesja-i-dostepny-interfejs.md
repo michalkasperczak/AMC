@@ -211,6 +211,15 @@ kolekcji co dotychczasowe główne widoki TIDAL. `Ctrl+Shift+A` i
 generowanej pomocy i palety. Polecenia Spotify nadal istnieją pod wspólnymi
 skrótami i w menu.
 
+**Korekta 12.11.2026 — włączenie Apple Music w istniejącym profilu:** wcześniejszy
+limit dziewięciu aktywnych sesji blokował Spację, gdy profil miał już wszystkie
+sesje sprzed Apple Music. Limit wynosi teraz dziesięć; dziesiąta pozycja ma
+`Ctrl+0`. Etykieta Menedżera, menu, paleta, pełna pomoc i router klawiatury
+korzystają z jednego tłumaczenia numeru pozycji na skrót. `Ctrl+Page Up` i
+`Ctrl+Page Down` obejmują Apple Music po jej włączeniu. Wynik Spacji jest
+jawnie wypowiadany, aby ponowny odczyt wiersza przez NVDA nie ukrywał błędu ani
+potwierdzenia.
+
 ## Testy i wynik
 
 - Źródła: sesja Apple Music, lokalne kategorie muzyczne, wspólne polecenia,
@@ -228,6 +237,11 @@ skrótami i w menu.
   Projekt testowy hosta wymagał uzupełnienia starej atrapy backendu i izolowanej
   atrapy resolvera YouTube po wcześniejszym rozszerzeniu interfejsu; nie zmienia
   to kodu wykonywanego przez aplikację.
+- Korekta dziesiątej sesji oraz skrótów Pomocy: 53/53 testy celowane zaliczone.
+  Szersza regresja powierzchni poleceń i GUI: 236 zaliczonych, jeden zastany
+  błąd atrapy czasu TIDAL (`SimpleNamespace` bez metody `status`), niezwiązany
+  z Menedżerem sesji, Apple Music ani skrótami Pomocy. Ręczny odbiór NVDA,
+  kompilacja, instalacja i publikacja tej korekty pozostają niewykonane.
 - Build `test-music-categories-d7563d1a-20261112`: 4225 plików, pełna kontrola
   integralności i kontrolowany start interfejsu oraz hosta — OK. Manifest jest
   czysty i wskazuje pełny commit `d7563d1a…`.

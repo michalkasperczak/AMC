@@ -108,10 +108,12 @@ dodatku NVDA; w mowie nie może pojawić się `SessionId`, nazwa klasy, rekord a
 identyfikator. Poprzedni i następny preset z dodatku mają pomijać puste miejsca
 i zawijać listę, nie otwierając po drodze okna presetów.
 
-`Ctrl+0` nie ma już żadnej funkcji. W Ustawieniach, na karcie Ogólne, zmień
-„Kolejność sesji i skrótów Ctrl+1–9” przyciskami albo przez Alt+strzałkę w górę
-i w dół. Po zapisaniu menu Widok, lista sesji, paleta poleceń oraz bezpośrednie
-skróty Ctrl+1–6 muszą od razu pokazywać i wykonywać tę samą kolejność.
+`Ctrl+1–9` przełącza pierwszych dziewięć aktywnych sesji, a `Ctrl+0` sesję
+dziesiątą. W Menedżerze sesji zmień kolejność przez Alt+strzałkę w górę i w
+dół. Po zmianie menu Widok, lista sesji, paleta poleceń oraz bezpośrednie
+skróty muszą od razu pokazywać i wykonywać tę samą kolejność. Na profilu z
+dziewięcioma wcześniejszymi sesjami włącz Apple Music Spacją: wiersz ma zmienić
+się na „Ctrl+0, Apple Music, włączona”, a komunikat wyniku ma zostać wypowiedziany.
 `Ctrl+Page Up` i `Ctrl+Page Down` przechodzą odpowiednio do poprzedniej i
 następnej sesji według tej kolejności, z zawijaniem na końcach.
 
@@ -1334,6 +1336,6 @@ Sonos i pozostałe urządzenia sieciowe wymagają osobnego odbioru na sprzęcie.
 
 ### AMC Test/Public — Sygnalista i instalacja po zgłoszeniu Huberta #14
 
-Po zainstalowaniu nowego kandydata przejdź kolejno do listy Plików, Radia, Spotify i TIDAL, a w Test także Sonosa. W każdej sesji naciśnij `Ctrl+Alt+Z`, sprawdź fokus na tytule raportu, przejście Tabem przez pola i powrót fokusu po Anuluj. Powtórz z odtwarzacza i po ponownym otwarciu. Porównaj nazwę i skrót w menu Pomoc, F1, pomocy klawiatury `Ctrl+F1` i palecie `Ctrl+Shift+K`. W Public sprawdź uczciwy tryb lokalny: podgląd, schowek i zapis, bez pozorowanej wysyłki. W Test zweryfikuj dostępność przycisku wysyłki, lecz nie twórz próbnego zgłoszenia bez osobnej zgody.
+Po zainstalowaniu nowego kandydata przejdź kolejno do listy Plików, Radia, Spotify i TIDAL, a w Test także Sonosa. W każdej sesji naciśnij `Ctrl+F11`, sprawdź fokus na tytule raportu, przejście Tabem przez pola i powrót fokusu po Anuluj. Powtórz z odtwarzacza i po ponownym otwarciu. `F11` ma osobno otworzyć sprawdzanie aktualizacji AMC. Porównaj obie nazwy i skróty w menu Pomoc, F1, pomocy klawiatury `Ctrl+F1` i palecie `Ctrl+Shift+K`. W Public sprawdź uczciwy tryb lokalny: podgląd, schowek i zapis, bez pozorowanej wysyłki. W Test zweryfikuj dostępność przycisku wysyłki, lecz nie twórz próbnego zgłoszenia bez osobnej zgody.
 
 Aktualizację sprawdzaj tylko na izolowanej, kompletnej kopii właściwego profilu. W chwili, gdy instalator podmienia runtime, uruchom skrót AMC z menu Start: powinien pojawić się komunikat o trwającej aktualizacji, bez startu Pythona. Po końcu potwierdź automatyczny start z właściwego folderu i pełną integralność manifestu. W osobnej sztucznie uszkodzonej kopii usuń jeden plik niestartowy po instalacji i sprawdź, że aktualizator nie restartuje AMC, zachowuje instalator i podaje jasny komunikat naprawy. Nie odtwarzaj awarii na działających instalacjach użytkownika.

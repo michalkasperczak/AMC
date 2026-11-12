@@ -445,7 +445,7 @@ def build_menus(
         MenuItem(
             session_order_model.SESSION_MENU_LABELS[session],
             session_order_model.SESSION_ACTIONS[session],
-            shortcut=f"Ctrl+{slot}",
+            shortcut=session_order_model.shortcut_for_slot(slot),
         )
         for slot, session in enumerate(ordered_sessions, start=1)
     )
@@ -2086,6 +2086,7 @@ def build_menus(
             MenuItem(
                 application_update.menu_label,
                 Action.CHECK_APPLICATION_UPDATE,
+                shortcut=application_update.shortcut,
             ),
             MenuItem(
                 "Sprawdź i zaktualizuj składniki: FFmpeg i &yt-dlp",

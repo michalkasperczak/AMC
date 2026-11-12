@@ -52,14 +52,15 @@ ktore ma. Warstwa okna to:
         Shift+OemComma  -> PlaybackRateDown
         Shift+OemPeriod -> PlaybackRateUp
         Ctrl+OemPeriod  -> PlaybackRateReset
-      => NIE ``Ctrl+Up/Down``. ``Ctrl+0`` nie jest już używane; listę sesji
-         otwiera wyłącznie ``Ctrl+Shift+S``.
+      => NIE ``Ctrl+Up/Down``. Menedżer sesji otwiera wyłącznie
+         ``Ctrl+Shift+S``; ``Ctrl+0`` przełącza dziesiątą aktywną sesję.
     21670 / 22188  Ctrl+Shift+G -> SettingsToggleSeekMessages
     21674-21676 / 22190-22192  Ctrl+Shift+E/R/T -> TimeElapsed/Remaining/Total
     21555-21557 / 22348-22350  cyfra BEZ modyfikatora -> SeekPercent(digit*10)
     21454-21456  Ctrl+cyfra -> SessionSlot, a dawniej Ctrl+0 -> SessionList
-      => w interfejsie Python pozostają Ctrl+1–9, a listę sesji otwiera
-         jednoznaczne ``Ctrl+Shift+S``.
+      => w interfejsie Python Ctrl+1–9 wybiera pierwsze dziewięć aktywnych
+         sesji, Ctrl+0 dziesiątą, a listę otwiera jednoznaczne
+         ``Ctrl+Shift+S``.
     21662  Ctrl+E -> ExportRadioFavorites
       => w oknie ``Ctrl+E`` nalezy do eksportu, wiec alias czasu byl bledem.
     20778-20785  F6 i Shift+F6: na LISCIE oba ida do ShowPlayerView, w
@@ -544,14 +545,14 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         Action.REPORT_PROBLEM,
         "Zgłoś błąd lub sugestię…",
         "Zgłoś błąd lub sugestię",
-        "Ctrl+Alt+Z",
+        "Ctrl+F11",
         "Zgłoś &błąd lub sugestię…",
     ),
     Action.CHECK_APPLICATION_UPDATE: CommandPresentation(
         Action.CHECK_APPLICATION_UPDATE,
         "Sprawdź aktualizację AMC",
         "Sprawdź i zainstaluj najnowsze wydanie z bieżącego kanału; podczas nagrywania i w jego zaplanowanym oknie instalacja nie rozpocznie się",
-        "",
+        "F11",
         "Sprawdź &aktualizację AMC…",
     ),
 }
@@ -1438,7 +1439,7 @@ class ShortcutDefinition:
 # natywnego ListCtrl, zeby czytnik ekranu i Narrator dzialaly bez dodatku.
 LIST_VIEW: dict[str, Action] = {
     "Ctrl+Shift+K": Action.COMMAND_PALETTE,
-    "Ctrl+Alt+Z": Action.REPORT_PROBLEM,
+    "Ctrl+F11": Action.REPORT_PROBLEM,
     "Ctrl+Shift+S": Action.SESSION_LIST,
     "Ctrl+Prior": Action.PREVIOUS_SESSION,
     "Ctrl+Next": Action.NEXT_SESSION,
@@ -1658,7 +1659,7 @@ RADIO_PLAYER_VIEW: dict[str, Action] = {
 # z profilu globalnego AMC (przewijanie i glosnosc).
 PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Shift+K": Action.COMMAND_PALETTE,
-    "Ctrl+Alt+Z": Action.REPORT_PROBLEM,
+    "Ctrl+F11": Action.REPORT_PROBLEM,
     "Ctrl+Shift+S": Action.SESSION_LIST,
     "Ctrl+Prior": Action.PREVIOUS_SESSION,
     "Ctrl+Next": Action.NEXT_SESSION,
@@ -1748,8 +1749,9 @@ PLAYER_VIEW: dict[str, Action] = {
     "Shift+Up": Action.VOLUME_UP_1,
     "Shift+Down": Action.VOLUME_DOWN_1,
     # Predkosc pod klawiszami ORYGINALU (cs:21595-21597, 22395-22397).
-    # Ctrl+Up/Down zostaly usuniete, bo oryginal ich nie ma. Ctrl+0 także nie
-    # jest używane; listę sesji otwiera Ctrl+Shift+S.
+    # Ctrl+Up/Down zostaly usuniete, bo oryginal ich nie ma. Ctrl+0 jest
+    # obsługiwane wyżej przez dynamiczny router dziesiątej sesji; listę sesji
+    # otwiera Ctrl+Shift+S.
     "Shift+,": Action.RATE_DOWN,
     "Shift+.": Action.RATE_UP,
     "Ctrl+.": Action.RATE_RESET,
@@ -1826,6 +1828,7 @@ MUSIC_CATEGORY_SHORTCUTS: dict[str, Action] = {
 for _table in (LIST_VIEW, PLAYER_VIEW):
     _table.update(GLOBAL_VIEW_SHORTCUTS)
     _table["Ctrl+Shift+H"] = Action.MANAGE_RADIO_SCHEDULES
+    _table["F11"] = Action.CHECK_APPLICATION_UPDATE
 
 
 PODCAST_INBOX_LIST_VIEW: dict[str, Action] = {
@@ -2143,6 +2146,7 @@ _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
     "Ctrl+Shift+Escape": "Menedżer zadań Windows",
     "Ctrl+Return": "Odtwórz album Spotify albo kontener TIDAL",
     **{f"Ctrl+{slot}": "Przełączanie sesji" for slot in range(1, 10)},
+    "Ctrl+0": "Przełączanie dziesiątej sesji",
 }
 
 
@@ -3037,6 +3041,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     # Polecenia bez własnego skrótu nadal należą do pełnej pomocy i palety.
     # Tekst „Bez skrótu” jest celową etykietą użytkową, nie identyfikatorem.
     for action in (
+        Action.SESSION_FRONTIER_SMART,
+        Action.SESSION_RADIOARCHIWISTA,
+        Action.SESSION_APPLE_MUSIC,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
         Action.TIDAL_STOP_NATIVE,

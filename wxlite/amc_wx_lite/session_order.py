@@ -1,4 +1,4 @@
-"""Prywatna kolejność sesji i wynikające z niej skróty ``Ctrl+1–9``.
+"""Prywatna kolejność sesji i wynikające z niej skróty ``Ctrl+1–9``/``Ctrl+0``.
 
 Wartości modelu pozostają oddzielone od tekstów dostępnościowych.  Ten moduł
 nie zna wx, dzięki czemu walidację zapisu, zawijanie kolejności i mapowanie
@@ -25,7 +25,10 @@ DEFAULT_SESSION_ORDER: tuple[SessionId, ...] = (
 )
 LEGACY_SESSION_ORDER: tuple[SessionId, ...] = tuple(SessionId)
 AVAILABLE_TEST_SESSIONS: tuple[SessionId, ...] = tuple(SessionId)
-MAX_ACTIVE_SESSIONS = 9
+# Dziesiąta pozycja używa Ctrl+0. Pozwala to zachować zwarte Ctrl+1–9 dla
+# pierwszych dziewięciu sesji i nie wyrzucać Apple Music z profilu, który miał
+# już włączone wszystkie wcześniejsze usługi.
+MAX_ACTIVE_SESSIONS = 10
 
 SESSION_ACTIONS: dict[SessionId, Action] = {
     SessionId.FILES: Action.SESSION_FILES,
@@ -139,6 +142,26 @@ def values(raw: object) -> list[str]:
     return [session.value for session in normalize(raw)]
 
 
+def shortcut_for_slot(slot: int) -> str | None:
+    """Zwróć użytkowy skrót pozycji: 1–9, a dla dziesiątej Ctrl+0."""
+
+    if 1 <= slot <= 9:
+        return f"Ctrl+{slot}"
+    if slot == 10:
+        return "Ctrl+0"
+    return None
+
+
+def slot_for_key(key: str) -> int | None:
+    """Przetłumacz cyfrę z Ctrl na numer pozycji Menedżera sesji."""
+
+    if key == "0":
+        return 10
+    if key in "123456789":
+        return int(key)
+    return None
+
+
 def migrated_values(raw: object) -> list[str]:
     """Wartości jednorazowej migracji starego zapisu kolejności."""
 
@@ -177,7 +200,7 @@ def adjacent(current: SessionId, direction: int, raw: object) -> SessionId:
 
 
 def enable(session: SessionId, raw: object) -> tuple[tuple[SessionId, ...], str]:
-    """Dopisz sesję na końcu bez naruszania limitu dziewięciu."""
+    """Dopisz sesję na końcu bez naruszania limitu dziesięciu."""
 
     ordered = list(normalize(raw))
     if session not in available_sessions():
@@ -194,14 +217,15 @@ def enable(session: SessionId, raw: object) -> tuple[tuple[SessionId, ...], str]
         return (
             tuple(ordered),
             _message(
-                "Można włączyć najwyżej dziewięć sesji. Najpierw wyłącz jedną z nich",
-                "At most nine sessions can be enabled. Disable one first",
+                "Można włączyć najwyżej dziesięć sesji. Najpierw wyłącz jedną z nich",
+                "At most ten sessions can be enabled. Disable one first",
             ),
         )
     ordered.append(session)
+    shortcut = shortcut_for_slot(len(ordered))
     return tuple(ordered), _message(
-        f"Włączono sesję {SESSION_NAMES[session]}, Ctrl+{len(ordered)}",
-        f"Enabled {session_name(session)}, Ctrl+{len(ordered)}",
+        f"Włączono sesję {SESSION_NAMES[session]}, {shortcut}",
+        f"Enabled {session_name(session)}, {shortcut}",
     )
 
 
@@ -267,7 +291,7 @@ def move(
     ordered[index], ordered[target] = ordered[target], ordered[index]
     return (
         tuple(ordered),
-        f"{session_name(session)}, Ctrl+{target + 1}",
+        f"{session_name(session)}, {shortcut_for_slot(target + 1)}",
     )
 
 
@@ -289,8 +313,8 @@ def manager_labels(
         result.append((
             session,
             _message(
-                f"Ctrl+{slot}, {SESSION_NAMES[session]}, włączona, {status.casefold()}",
-                f"Ctrl+{slot}, {session_name(session)}, enabled, {status.casefold()}",
+                f"{shortcut_for_slot(slot)}, {SESSION_NAMES[session]}, włączona, {status.casefold()}",
+                f"{shortcut_for_slot(slot)}, {session_name(session)}, enabled, {status.casefold()}",
             ),
         ))
     for session in inactive:
@@ -307,6 +331,6 @@ def manager_labels(
 
 def selection_labels(raw: object) -> tuple[str, ...]:
     return tuple(
-        f"Ctrl+{slot}, {session_name(session)}"
+        f"{shortcut_for_slot(slot)}, {session_name(session)}"
         for slot, session in enumerate(normalize(raw), start=1)
     )

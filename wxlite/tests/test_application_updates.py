@@ -118,7 +118,7 @@ def test_command_uses_one_presentation_in_menu_palette_help_and_dispatch() -> No
     presentation = command_presentation(action)
     assert presentation is not None
     assert presentation.name == "Sprawdź aktualizację AMC"
-    assert presentation.shortcut == ""
+    assert presentation.shortcut == "F11"
     for session in SessionId:
         menu_items = {
             item.action: item
@@ -130,7 +130,9 @@ def test_command_uses_one_presentation_in_menu_palette_help_and_dispatch() -> No
         assert action in menu_items
         assert action in palette
         assert palette[action].name == presentation.name
-    assert ("Bez skrótu", presentation.description) in describe()
+        assert menu_items[action].shortcut == "F11"
+        assert palette[action].shortcut == "F11"
+    assert ("F11", presentation.description) in describe()
     source = Path(gui.__file__).read_text(encoding="utf-8")
     assert "elif action is Action.CHECK_APPLICATION_UPDATE:" in source
     assert "self._check_application_update()" in source

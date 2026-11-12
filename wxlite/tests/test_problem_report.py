@@ -302,14 +302,18 @@ def test_report_command_has_one_name_in_menu_palette_help_and_dispatch() -> None
     for session in SessionId:
         entries = {entry.action: entry for entry in entries_for_session(session)}
         assert entries[action].name == "Zgłoś błąd lub sugestię…"
-        assert entries[action].shortcut == "Ctrl+Alt+Z"
+        assert entries[action].shortcut == "Ctrl+F11"
     assert describe_action(action) == "Zgłoś błąd lub sugestię"
-    assert ("Ctrl+Alt+Z", "Zgłoś błąd lub sugestię") in describe()
+    assert ("Ctrl+F11", "Zgłoś błąd lub sugestię") in describe()
     presentation = command_presentation(action)
     assert presentation is not None
-    assert presentation.shortcut == "Ctrl+Alt+Z"
+    assert presentation.shortcut == "Ctrl+F11"
     for player_view in (False, True):
-        assert resolve(Chord("Z", ctrl=True, alt=True), player_view=player_view, radio_session=False) is action
+        assert resolve(
+            Chord("F11", ctrl=True),
+            player_view=player_view,
+            radio_session=False,
+        ) is action
     gui_source = (
         Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
     ).read_text(encoding="utf-8")
@@ -338,14 +342,14 @@ def test_report_menu_help_and_shortcut_match_in_both_profiles() -> None:
                     if item.action is Action.REPORT_PROBLEM
                 ]
                 assert len(help_items) == 1
-                assert help_items[0].shortcut == "Ctrl+Alt+Z"
+                assert help_items[0].shortcut == "Ctrl+F11"
                 palette = {
                     entry.action: entry for entry in entries_for_session(session)
                 }
-                assert palette[Action.REPORT_PROBLEM].shortcut == "Ctrl+Alt+Z"
+                assert palette[Action.REPORT_PROBLEM].shortcut == "Ctrl+F11"
                 for player_view in (False, True):
                     assert resolve(
-                        Chord("Z", ctrl=True, alt=True),
+                        Chord("F11", ctrl=True),
                         player_view=player_view,
                         radio_session=session is SessionId.RADIO,
                     ) is Action.REPORT_PROBLEM

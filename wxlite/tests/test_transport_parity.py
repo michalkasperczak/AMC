@@ -620,7 +620,7 @@ def test_playback_rate_keys_are_the_keys_of_the_original() -> None:
 
 
 def test_invented_rate_keys_are_gone() -> None:
-    """``Ctrl+Up/Down`` nie sterują tempem, a ``Ctrl+0`` jest wolne."""
+    """``Ctrl+0`` nie jest tempem; nadrzędny router oddaje je sesji 10."""
     assert player("Up", ctrl=True) is None
     assert player("Down", ctrl=True) is None
     assert player("0", ctrl=True) is None

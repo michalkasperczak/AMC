@@ -503,11 +503,11 @@ Bibliotekę i stwarzała wrażenie, że zniknęła cała zawartość folderu.
 - Pierwszy, niebuforowany odczyt parametrów nowego pliku może nadal trwać tyle,
   ile rzeczywisty pomiar hosta. Poprawka usuwa powtarzanie tego kosztu i
   kumulowanie równoległych zadań, nie fałszuje wyniku szybszym przybliżeniem.
-- `Ctrl+0` nie ma w bieżącym AMC funkcji. Listę sesji otwiera `Ctrl+Shift+S`,
-  Historię odtwarzania `Ctrl+H`, aktywne nagrania `Alt+R`, a Historię
-  nagrywania `Alt+Shift+R`. Komunikat „zero elementów” po `Ctrl+0` nie jest
-  wynikiem polecenia Historii i wymaga osobnego żywego pomiaru, jeżeli nadal
-  wystąpi po zainstalowaniu następnego kandydata.
+- **Korekta z 12.11.2026, zastępująca wcześniejszą decyzję o wolnym
+  `Ctrl+0`:** po dodaniu dziesiątej sesji Apple Music `Ctrl+0` przełącza
+  dziesiątą aktywną sesję. Menedżer nadal otwiera `Ctrl+Shift+S`, Historię
+  odtwarzania `Ctrl+H`, aktywne nagrania `Alt+R`, a Historię nagrywania
+  `Alt+Shift+R`.
 - Pliki pozostają w systemowym Koszu do chwili decyzji użytkownika.
 
 #### Wersja i commit
@@ -544,7 +544,7 @@ Bibliotekę i stwarzała wrażenie, że zniknęła cała zawartość folderu.
   wydawanej wersji AMC Test; wyłączone są wyłącznie niedopracowane funkcje
   streamingowe. Sonos oraz każda inna ukończona wspólna sesja pozostają
   dostępne tak samo jak w AMC Test.
-- Ten sam model możliwości filtruje kolejność `Ctrl+1–9`, Menedżer sesji,
+- Ten sam model możliwości filtruje kolejność `Ctrl+1–9`/`Ctrl+0`, Menedżer sesji,
   menu, pomoc `Ctrl+F1`, pełną pomoc klawiatury, paletę `Ctrl+Shift+K`,
   wykonanie poleceń sesji i zakres wyszukiwania we wszystkich usługach.
 - Próba włączenia sesji niedopuszczonej w profilu jest odrzucana, a stary
