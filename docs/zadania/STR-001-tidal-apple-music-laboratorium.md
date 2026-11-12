@@ -424,8 +424,25 @@ polecenia i komunikaty NVDA pozostaną w zwykłych kontrolkach AMC.
   1254 z Playwright 1.65.0 w osobnym katalogu `work` o rozmiarze około 740 MiB.
   Sonda lokalna potwierdziła brak zapisanej sesji bez sieci i przeglądarki.
   Środowisko nie zostało dołączone do runtime ani zainstalowanego AMC Test.
-- Nie wykonano jeszcze logowania Apple, zapytania do Biblioteki, pełnego
-  odtwarzania, testu DRM, NVDA, buildu, instalacji ani publikacji AMC.
+- Wykonano logowanie Apple i kontrolowane zapytania do Biblioteki. Nie
+  wykonano pełnego odtwarzania, testu DRM, NVDA, buildu, instalacji ani
+  publikacji AMC.
+
+### Wynik żywego logowania — 12 listopada 2026
+
+- Użytkownik ukończył widoczne logowanie Apple i 2FA w izolowanym Chromium.
+  Sonda zapisała sesję przez DPAPI; nie powstały jawne `credentials.json` ani
+  `storage-state.json`.
+- Storefront odpowiada poprawnie, natomiast playlisty i utwory zwracają HTTP
+  400 również bez języka i limitu. Bezpieczny pomiar potwierdził, że analogiczne
+  żądanie samego web playera także dostaje 400.
+- Odpowiedź Apple została sklasyfikowana bez wypisywania jej treści jako
+  „wymagana aktywna subskrypcja”. Strona pozostaje zalogowana i nie pokazuje
+  oferty subskrypcji. Następny krok zależy od potwierdzenia, czy abonament jest
+  aktywny dokładnie na użytym Apple ID.
+- Po dodaniu sond diagnostycznych celowany zestaw Apple/profili/paczek ma
+  97/97 testów. Nie zmieniono zainstalowanego AMC Test, nie wykonano pełnego
+  buildu ani publikacji.
 
 ### Znane ograniczenia
 
@@ -446,3 +463,4 @@ instalacji ani publikacji AMC. Commit kodu i zapisu etapu:
 modelu, odczytu i izolacji paczek:
 `118913826c3a07195de682ca4c77b4fbe90b2681`.
 Jawna bramka konta i sonda: `964385fc`.
+Sondy żywego odczytu bez ujawniania danych: `71dcd385`.

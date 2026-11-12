@@ -698,9 +698,9 @@ zmian, wymagający korekty użytkownika:
   z istniejącym brokerem tokenów nadal wymaga zespołu Apple Developer.
   Szczegóły:
   [STR-001-tidal-apple-music-laboratorium.md](STR-001-tidal-apple-music-laboratorium.md).
-- `AM-001` — **W trakcie; magazyn, model rekordów, adapter odczytu i jawna
-  bramka konta mają 35/35 testów Apple, celowany zestaw 89/89; izolowany venv
-  oraz Chromium są gotowe, ale żywe logowanie oczekuje na wyraźną zgodę** —
+- `AM-001` — **W trakcie; żywe logowanie i zaszyfrowany zapis sesji działają,
+  storefront odpowiada, lecz Apple odmawia Biblioteki z kategorią wymaganej
+  aktywnej subskrypcji; celowany zestaw 97/97** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
 - `AM-002` — **Oczekuje; wzorce Sidry i WinZapp sprawdzone, brak pilota DRM**

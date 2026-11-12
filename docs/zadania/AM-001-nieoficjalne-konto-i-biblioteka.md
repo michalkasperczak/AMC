@@ -1,9 +1,9 @@
 # AM-001 — nieoficjalne konto i Biblioteka Apple Music
 
-- Status: `W trakcie — środowisko laboratoryjne i jawna sonda są gotowe; 35/35 testów Apple i 89/89 celowanych; żywe logowanie oczekuje na wyraźną zgodę użytkownika`
+- Status: `W trakcie — żywe logowanie i bezpieczny zapis sesji działają; storefront działa, lecz Apple odmawia Biblioteki jako wymagającej aktywnej subskrypcji; 97/97 testów celowanych`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, konto, katalog, Biblioteka, playlisty
-- Punkt wznowienia: po wyraźnej zgodzie użytkownika uruchomić widoczne logowanie Apple, następnie odczytać Bibliotekę bez zmian konta
+- Punkt wznowienia: potwierdzić aktywną subskrypcję na użytym Apple ID; następnie ponowić odczyt Biblioteki bez zmian konta
 
 ## Cel
 
@@ -45,11 +45,12 @@ konta, odnowienia sesji i świeżej weryfikacji przed zapisem.
 
 ## Następne kroki
 
-1. Po wyraźnej zgodzie użytkownika wykonać jedno widoczne logowanie przez
-   sondę z `--login`. Nie otwierać go przy zwykłym sprawdzaniu stanu.
-2. Po udanym logowaniu wykonać odczyt
-   storefrontu, listy playlist i kilku elementów Biblioteki bez zmian konta.
-3. Dopiero po rzeczywistym wyniku zaprojektować nieblokujące wywołanie z GUI
+1. Użytkownik potwierdza, czy aktywna subskrypcja Apple Music należy do Apple
+   ID użytego w przeprowadzonej próbie. Samo konto Apple nie wystarcza.
+2. Jeżeli subskrypcja jest na innym koncie, wyczyścić wyłącznie sesję pilota i
+   wykonać widoczne logowanie właściwym kontem. Jeżeli jest na tym samym,
+   zbadać rozbieżność uprawnienia z web playerem bez operacji zapisu.
+3. Dopiero po udanym odczycie zaprojektować nieblokujące wywołanie z GUI
    i wspólny model poleceń dla menu, palety oraz pomocy.
 
 ## Materiał do dokumentacji użytkownika
@@ -81,10 +82,28 @@ użytkownika i oddzielone od AMC Public.
   uruchamiano przeglądarki ani strony Apple.
 - Zwykłe uruchomienie sondy zwróciło „Apple Music: brak zapisanej sesji” oraz
   potwierdzenie braku przeglądarki i połączenia z Apple.
+- 12.11.2026 użytkownik jawnie uruchomił logowanie, odnalazł przycisk
+  „Zaloguj się” w web playerze, ukończył 2FA i wybrał zaufanie temu
+  izolowanemu profilowi. Sonda zakończyła się komunikatem o bezpiecznym
+  zapisaniu sesji.
+- Plik DPAPI istnieje i miał po próbie 3636 bajtów. Nie powstały jawne
+  `credentials.json` ani `storage-state.json`.
+- Odczyt storefrontu przeszedł. Odczyt playlist i utworów zwrócił HTTP 400;
+  ten sam wynik dały warianty bez parametrów, z samym limitem i z językiem
+  `en-US` lub `pl-PL`.
+- Bezpieczny pomiar żądania web playera potwierdził, że sam web player wysyła
+  wymagane parametry i dodatkowy nagłówek wersji klienta, lecz również dostaje
+  HTTP 400. Odpowiedź została zredukowana do kategorii „wymagana aktywna
+  subskrypcja”. Strona nie prosi ponownie o logowanie i nie pokazuje oferty
+  subskrypcji, dlatego wynik nie rozstrzyga jeszcze, czy użyto niewłaściwego
+  Apple ID, abonament wygasł, czy prywatny endpoint ma błąd uprawnienia.
+- Po dodaniu sond bezpieczeństwa `python wxlite/run_tests.py apple_music
+  release_profile bundle_layout` zaliczył 97/97, bez pominięć.
 - `dotnet build` Launcher i Updater w `Release --no-restore` — oba powodzenie,
   0 ostrzeżeń i 0 błędów.
-- Nie wykonano logowania, zapytania sieciowego Apple ani testu NVDA. Nie
-  zbudowano kompletnej paczki AMC, niczego nie instalowano i nie publikowano.
+- Wykonano logowanie i kontrolowane zapytania odczytowe Apple. Nie wykonano
+  testu NVDA, nie zbudowano kompletnej paczki AMC, niczego nie instalowano i
+  nie publikowano.
 
 ## Znane ograniczenia
 
@@ -96,6 +115,9 @@ użytkownika i oddzielone od AMC Public.
   które pliki są konieczne i nie tworzyć dodatkowego jawnego storage state.
 - Nie ma dowodu, że bieżące nieudokumentowane endpointy działają na koncie
   użytkownika albo zachowają zgodność po aktualizacji Apple.
+- Zalogowanie nie oznacza automatycznie uprawnienia do spersonalizowanej
+  Biblioteki. Oficjalna dokumentacja Apple wymaga dla niej aktywnego
+  subskrybenta; bieżąca odpowiedź konta wskazuje właśnie tę bramkę.
 
 ## Wersja i commit
 
@@ -131,3 +153,12 @@ Commit modelu, odczytu i izolacji paczek:
 - `wxlite/tests/test_bundle_layout.py`
 
 Commit jawnej bramki logowania: `964385fc`.
+
+## Zmienione pliki — 12 listopada 2026, etap żywego logowania
+
+- `wxlite/tools/apple_music_safe_diagnostic.py`
+- `wxlite/tools/apple_music_web_request_probe.py`
+- `wxlite/tests/test_apple_music_safe_diagnostic.py`
+- `wxlite/tests/test_apple_music_web_request_probe.py`
+
+Commit sond bez ujawniania danych: `71dcd385`.
