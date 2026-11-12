@@ -95,6 +95,12 @@ Widok; `Alt+P` prowadzi do menu Pliki. Skróty z `Ctrl+Alt` nie są dobrym
 zamiennikiem na polskiej klawiaturze, ponieważ ta kombinacja może być
 traktowana jak AltGr.
 
+Późniejsza propozycja użytkownika `Ctrl+Alt+U` została sprawdzona 12 listopada
+2026 na aktywnym układzie `00000415`, polski programisty. Sonda Windows
+`ToUnicodeEx` zwróciła jeden znak: `€`. Gest kolidowałby więc z wpisywaniem
+znaku euro i nie może być poleceniem widoku działającym także w filtrze lub
+wyszukiwaniu. Wynik ten zastępuje ogólne przypuszczenie konkretnym pomiarem.
+
 `Alt+1–3` nie ma dziś jednego znaczenia we wszystkich sesjach: w kolekcjach
 Spotify i TIDAL wybiera sposoby sortowania, w Podcastach inne porządki, a w
 głównej Bibliotece lokalnej część tych gestów otwiera nazwane widoki. Przed
