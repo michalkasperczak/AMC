@@ -707,8 +707,11 @@ zmian, wymagający korekty użytkownika:
 - `AM-002` — **Oczekuje; wzorce Sidry i WinZapp sprawdzone, brak pilota DRM**
   — osobny proces z prawdziwym music.apple.com i wąskim mostkiem transportu.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
-- `AM-003` — **Oczekuje na AM-001 i AM-002** — sesja Apple Music, dostępna
-  nawigacja, skróty, menu, pomoc, paleta i NVDA.
+- `AM-003` — **Projekt interfejsu gotowy do zatwierdzenia; odczytową sesję
+  Biblioteki można wdrożyć przed AM-002** — `Ctrl+L` oznacza Bibliotekę,
+  a `Ctrl+U` czteroczęściowe Ulubione Apple Music, nie tylko playlistę
+  ulubionych utworów. Odtwarzanie i polecenia zapisu nadal oczekują na osobne
+  potwierdzenie możliwości.
   [Szczegóły](AM-003-sesja-i-dostepny-interfejs.md).
 - `AM-004` — **Oczekuje; bez zakupu konta przed wynikiem pilota** — oficjalny
   MusicKit, istniejący broker tokenów, właściciel zespołu Apple Developer i
