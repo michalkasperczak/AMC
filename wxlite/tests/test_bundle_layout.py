@@ -751,6 +751,9 @@ def test_pinned_tidal_dependencies_are_copied_into_enabled_profiles():
         )
         assert "runtime/Lib/site-packages/tidalapi/__init__.py" in copied
         assert (runtime_site / "tidalapi-0.8.11.dist-info" / "METADATA").is_file()
+        assert bundle.copy_tidal_test_dependencies(
+            target, bundle.profile_from_id("test"), source_site
+        ) == []
         bundle.validate_tidal_test_dependencies(target, bundle.profile_from_id("test"))
         public_target = root / "bundle-public"
         public_site = public_target / "runtime" / "Lib" / "site-packages"
@@ -797,6 +800,9 @@ def test_pinned_sonos_dependencies_are_copied_only_into_test_profile():
         assert "runtime/Lib/site-packages/soco/__init__.py" in copied
         assert "runtime/Lib/site-packages/xmltodict.py" in copied
         assert (runtime_site / "lxml-6.1.3.dist-info" / "METADATA").is_file()
+        assert bundle.copy_sonos_local_dependencies(
+            target, bundle.profile_from_id("test"), source_site
+        ) == []
         bundle.validate_sonos_local_dependencies(
             target, bundle.profile_from_id("test")
         )

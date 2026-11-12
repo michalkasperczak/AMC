@@ -613,14 +613,21 @@ def copy_tidal_test_dependencies(
     validate_tidal_dependency_sources(destination, source_site_packages)
     copied: list[str] = []
     for module_name, metadata_name in TIDAL_TEST_PACKAGES.values():
+        names = (module_name, metadata_name)
+        present = [bool((destination / name).exists()) for name in names]
+        if all(present):
+            continue
+        if any(present):
+            raise SystemExit(
+                "Runtime AMC zawiera niepełny składnik TIDAL; "
+                "wykonaj czyste złożenie."
+            )
         source_module = source_site_packages / module_name
         source_metadata = source_site_packages / metadata_name
         if not source_module.is_dir() or not source_metadata.is_dir():
             raise SystemExit("Brakuje przypiętej zależności TIDAL w prywatnym venv.")
         for source in (source_module, source_metadata):
             output = destination / source.name
-            if output.exists():
-                raise SystemExit("Runtime AMC zawiera już składnik TIDAL; sprawdź jego wersję.")
             shutil.copytree(source, output)
             copied.extend(
                 p.relative_to(target).as_posix()
@@ -668,14 +675,17 @@ def copy_sonos_local_dependencies(
     validate_sonos_dependency_sources(destination, source_site_packages)
     copied: list[str] = []
     for names in SONOS_LOCAL_TEST_PACKAGES.values():
+        present = [bool((destination / name).exists()) for name in names]
+        if all(present):
+            continue
+        if any(present):
+            raise SystemExit(
+                "Runtime AMC zawiera niepełny składnik lokalnego Sonosa; "
+                "wykonaj czyste złożenie."
+            )
         for name in names:
             source = source_site_packages / name
             output = destination / name
-            if output.exists():
-                raise SystemExit(
-                    "Runtime AMC zawiera już składnik lokalnego Sonosa; "
-                    "sprawdź jego wersję."
-                )
             if source.is_dir():
                 shutil.copytree(source, output)
             elif source.is_file():
