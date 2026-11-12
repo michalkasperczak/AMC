@@ -1121,6 +1121,35 @@ o materiale oraz nieco wolną nawigację listy.
 - testy źródłowe i kompilacja składni nie są dowodem zbudowania, instalacji ani
   publikacji paczki. Stan tych etapów jest zapisywany osobno poniżej.
 
+### Build i instalacja z 13.11.2026
+
+- Lokalny przyrost Sonosa zapisano w commicie `29ce4390`; drugi commit
+  `5cc8e236` oddzielił fragmenty równoległej pracy nad Menedżerem sesji, które
+  pojawiły się w `gui.py` w chwili pierwszego commita. Równoległe pliki
+  robocze zachowano bez zatwierdzania i bez włączania do paczki Sonosa.
+- Czysty, odłączony worktree na rewizji
+  `5cc8e236b5f7f3f7d51f72d2fbf82617e6759e57` zbudował profil AMC Test na
+  zachowanym runtime bazowym. Trzy projekty .NET skompilowały się poprawnie.
+- Kandydat:
+  `D:\Projekty Codex\AMC worktrees\sonos-local-fix-20261112\.test-output\amc-test-sonos-fix-20261112`.
+  Etykieta `2026.11.12-5cc8e236b5f7f3f7d51f72d2fbf82617e6759e57-605b8721`,
+  identyfikator zawartości `605b8721`, `sourceDirty=false`, **4225** plików.
+- Pełna kontrola manifestu oraz kontrolowany start interfejsu i hosta kandydata
+  są zaliczone. SoCo w paczce ma wersję `0.32.2`.
+- Paczkę zainstalowano atomowo do `D:\Projekty Codex\AMC Python`; pełna
+  kontrola zainstalowanego pakietu potwierdziła tę samą etykietę, commit,
+  identyfikator i 4225 pliki. Nie wykonano publikacji GitHub ani AMC Public.
+- Pierwsze dwa ręczne wywołania aktualizatora nie zmieniły instalacji: jedno
+  dostało nieprawidłowo rozdzielone ścieżki i kod 2, a następne poprawnie
+  rozpoznało roboczą kopię pierwszego aktualizatora i zwróciło kod 6. Po jej
+  zakończeniu właściwe wywołanie z `ProcessStartInfo.ArgumentList` wykonało
+  jedną udaną transakcję.
+- Standardowy launcher uruchamiany przez krótkie polecenie narzędziowe był
+  kończony razem z drzewem tego polecenia. Do ręcznego odbioru uruchomiono ten
+  sam zainstalowany frontend bezpośrednio z prywatnego runtime, z hostem i
+  profilem `test`; proces pozostaje aktywny. Nie jest to jeszcze dowód wyniku
+  testu na głośniku ani odbioru NVDA.
+
 ### Szkic instrukcji użytkownika i changelogu
 
 - W sesji Sonos wybierz grupę, otwórz `Biblioteka`, następnie `Moje stacje` i
