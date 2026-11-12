@@ -73,6 +73,65 @@ Każda kategoria jest stronicowana. Wiersz listy ma tylko użytkową nazwę, rod
 i potrzebne szczegóły. Identyfikatory Apple, adresy API i reprezentacje
 obiektów pozostają wyłącznie w modelu.
 
+## Przełączanie rodzaju kolekcji — decyzja i brakujący gest
+
+Model ma dwie niezależne osie:
+
+- zakres: `Ctrl+L` — Biblioteka, `Ctrl+U` — Ulubione;
+- rodzaj materiału w bieżącym zakresie:
+  - `Ctrl+Shift+N` — Utwory; propozycja, „N” jak nagrania,
+  - `Ctrl+Shift+A` — Albumy; decyzja użytkownika z 12 listopada 2026,
+  - `Ctrl+Shift+W` — Wykonawcy; decyzja użytkownika z 12 listopada 2026,
+  - `Ctrl+P` — Playlisty; istniejący wspólny gest AMC.
+
+Przykład: `Ctrl+U`, następnie `Ctrl+Shift+A` otwiera ulubione albumy.
+`Ctrl+L`, następnie `Ctrl+Shift+A` otwiera albumy Biblioteki. Zmiana rodzaju
+nie przełącza samoczynnie Biblioteki na Ulubione ani odwrotnie.
+
+Wcześniejsza propozycja `Alt+4–7` została odrzucona po decyzji użytkownika,
+aby wykorzystać gesty, które już działają w Spotify. `Alt+U` i `Alt+W`
+również odpadają, ponieważ otwierają obecnie odpowiednio menu Ustawienia i
+Widok; `Alt+P` prowadzi do menu Pliki. Skróty z `Ctrl+Alt` nie są dobrym
+zamiennikiem na polskiej klawiaturze, ponieważ ta kombinacja może być
+traktowana jak AltGr.
+
+`Alt+1–3` nie ma dziś jednego znaczenia we wszystkich sesjach: w kolekcjach
+Spotify i TIDAL wybiera sposoby sortowania, w Podcastach inne porządki, a w
+głównej Bibliotece lokalnej część tych gestów otwiera nazwane widoki. Przed
+ujednoliceniem sortowania potrzebny jest osobny audyt wszystkich sesji.
+Ta rozbieżność nie blokuje osobnych, sesyjnych gestów rodzaju kolekcji Apple.
+
+Audyt bieżącego wxPython wykazał także rozbieżność dokumentacji z kodem:
+`Ctrl+Shift+A` działa obecnie jako Albumy Spotify, a `Ctrl+Shift+W` jako
+Wykonawcy Spotify. Starszy opis ogólny nadal nazywa `Ctrl+Shift+A` lokalnym
+widokiem Albumów, lecz taki wspólny lokalny rozkaz nie jest obecnie podłączony
+w kodzie wxPython. Wspólne polecenia Albumów i Wykonawców należy teraz
+zdefiniować w modelu możliwości, a nie kopiować dwie kolejne tabele skrótów.
+
+W sesji Apple `Ctrl+P` zachowuje bieżący zakres: po `Ctrl+L` pokazuje playlisty
+Biblioteki, a po `Ctrl+U` tylko ulubione playlisty. Użyty z centrum sesji,
+gdzie nie wybrano jeszcze zakresu, domyślnie otwiera playlisty Biblioteki.
+
+`Ctrl+Shift+T` byłby naturalny od angielskiego „tracks”, ale w AMC podaje czas
+całkowity. `Ctrl+Shift+U` zmienia stan Ulubionych, a `Ctrl+Shift+O` otwiera
+folder lub importuje strumienie. Z wolnych, niewchodzących w menu gestów
+`Ctrl+Shift+N` jest najczytelniejszą propozycją dla Utworów jako nagrań.
+
+## Presety Apple Music — osobny etap
+
+Presety nie są rodzajem Biblioteki ani playlist. Bieżący model AMC zapisuje
+osobno sesję, rodzaj celu, stabilną tożsamość i użytkową nazwę, dlatego nie
+potrzebuje oddzielnego „modułu presetów playlist”. Już teraz rozróżnia w
+Spotify między innymi utwór, album, playlistę i wykonawcę.
+
+Dla Apple Music w pierwszej kolejności sens mają grywalne cele: utwór, album
+i playlista. Preset wykonawcy powinien pojawić się dopiero po ustaleniu, czy
+Enter ma otwierać stronę wykonawcy, uruchamiać jego utwory, czy radio
+wykonawcy. Presety Apple pozostają wyłączone do czasu działającego AM-002,
+potwierdzenia stabilnych identyfikatorów po ponownym logowaniu i testu
+uruchomienia. Istniejące skróty presetów `Ctrl+Shift+1–0/-/=` nie kolidują z
+gestami rodzaju kolekcji.
+
 ## Rzeczywiste możliwości obecnego adaptera
 
 - Potwierdzony odczyt z konta: stronicowane Utwory, Albumy, Wykonawcy,
