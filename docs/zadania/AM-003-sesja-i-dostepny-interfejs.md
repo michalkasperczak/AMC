@@ -79,7 +79,7 @@ Model ma dwie niezależne osie:
 
 - zakres: `Ctrl+L` — Biblioteka, `Ctrl+U` — Ulubione;
 - rodzaj materiału w bieżącym zakresie:
-  - `Ctrl+Shift+N` — Utwory; propozycja, „N” jak nagrania,
+  - `Ctrl+Shift+Y` — Utwory; propozycja, ostatnia litera słowa „utwory”,
   - `Ctrl+Shift+A` — Albumy; decyzja użytkownika z 12 listopada 2026,
   - `Ctrl+Shift+W` — Wykonawcy; decyzja użytkownika z 12 listopada 2026,
   - `Ctrl+P` — Playlisty; istniejący wspólny gest AMC.
@@ -118,10 +118,13 @@ W sesji Apple `Ctrl+P` zachowuje bieżący zakres: po `Ctrl+L` pokazuje playlist
 Biblioteki, a po `Ctrl+U` tylko ulubione playlisty. Użyty z centrum sesji,
 gdzie nie wybrano jeszcze zakresu, domyślnie otwiera playlisty Biblioteki.
 
+`Ctrl+Shift+N` został odrzucony przez użytkownika 12 listopada 2026, ponieważ
+jednoznacznie kojarzy się z poleceniem „Nowy”, na przykład nowym folderem albo
+playlistą. Ta decyzja zastępuje wcześniejszą propozycję „N jak nagrania”.
 `Ctrl+Shift+T` byłby naturalny od angielskiego „tracks”, ale w AMC podaje czas
 całkowity. `Ctrl+Shift+U` zmienia stan Ulubionych, a `Ctrl+Shift+O` otwiera
-folder lub importuje strumienie. Z wolnych, niewchodzących w menu gestów
-`Ctrl+Shift+N` jest najczytelniejszą propozycją dla Utworów jako nagrań.
+folder lub importuje strumienie. Audyt bieżącego wxPython nie wykazał żadnego
+przypisania `Ctrl+Shift+Y`; pozostaje propozycją dla Utworów do potwierdzenia.
 
 ## Presety Apple Music — osobny etap
 
