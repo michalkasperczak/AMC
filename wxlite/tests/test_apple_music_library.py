@@ -12,6 +12,7 @@ from amc_wx_lite.apple_music_credentials import AppleMusicWebCredentials
 from amc_wx_lite.apple_music_library import (
     AppleMusicLibraryError,
     AppleMusicNotConnected,
+    AppleMusicPageCursor,
     open_apple_music_library,
 )
 from amc_wx_lite.apple_music_source import records_from_resources
@@ -77,6 +78,27 @@ class ExternalClient:
     def playlist_tracks(self, playlist_id: str):
         self.calls.append(("playlist", playlist_id))
         return [self._resource("library-songs", "i.inside", "W playliście")]
+
+    def _get(self, path: str, params=None):
+        self.calls.append(("page", path, params))
+        kind_by_path = {
+            "/v1/me/library/songs": ("library-songs", "Utwór stronicowany"),
+            "/v1/me/library/albums": ("library-albums", "Album stronicowany"),
+            "/v1/me/library/artists": ("library-artists", "Wykonawca stronicowany"),
+            "/v1/me/library/playlists": ("library-playlists", "Playlista stronicowana"),
+        }
+        base_path = path.split("?", 1)[0]
+        if base_path.endswith("/tracks"):
+            kind, name = "library-songs", "Utwór playlisty"
+        else:
+            kind, name = kind_by_path[base_path]
+        page = "2" if "offset=25" in path else "1"
+        result = {
+            "data": [self._resource(kind, "private." + page, name + " " + page)]
+        }
+        if page == "1":
+            result["next"] = base_path + "?offset=25&private=" + PRIVATE_TOKEN
+        return result
 
     def close(self) -> None:
         self.closed = True
@@ -145,6 +167,93 @@ class AppleMusicLibraryTests(unittest.TestCase):
             ["songs", "albums", "artists", "playlists"],
         )
         self.assertFalse(any(PRIVATE_TOKEN in label for label in labels))
+
+    def test_bounded_page_keeps_continuation_out_of_rows_and_labels(self) -> None:
+        library = self.open()
+
+        first = library.view_page("songs", page_size=25)
+        cursor = first.next_cursor
+        second = library.view_page("songs", cursor=cursor)
+
+        self.assertEqual(first.records[0].row.title, "Utwór stronicowany 1")
+        self.assertIsInstance(cursor, AppleMusicPageCursor)
+        self.assertEqual(str(cursor), "Dalsza strona Apple Music")
+        self.assertEqual(repr(cursor), "AppleMusicPageCursor()")
+        self.assertNotIn(PRIVATE_TOKEN, str(first.rows))
+        self.assertNotIn(PRIVATE_TOKEN, str(cursor))
+        self.assertEqual(second.records[0].row.title, "Utwór stronicowany 2")
+        self.assertIsNone(second.next_cursor)
+        self.assertIn(
+            ("page", "/v1/me/library/songs", {"l": "pl-PL", "limit": 25}),
+            ExternalClient.last_instance.calls,
+        )
+        self.assertIn(
+            (
+                "page",
+                "/v1/me/library/songs?offset=25&private=" + PRIVATE_TOKEN,
+                None,
+            ),
+            ExternalClient.last_instance.calls,
+        )
+
+    def test_page_rejects_wrong_view_size_and_external_cursor(self) -> None:
+        library = self.open()
+        wrong_view = AppleMusicPageCursor(
+            view="albums",
+            _path="/v1/me/library/albums?offset=25",
+            _base_path="/v1/me/library/albums",
+        )
+        for invalid_size in (True, 0, 101):
+            with self.subTest(size=invalid_size):
+                with self.assertRaises(AppleMusicLibraryError):
+                    library.view_page("songs", page_size=invalid_size)
+        with self.assertRaises(AppleMusicLibraryError):
+            library.view_page("songs", cursor=wrong_view)
+
+        class ExternalCursorClient(ExternalClient):
+            def _get(self, _path, _params=None):
+                return {
+                    "data": [],
+                    "next": "https://example.com/v1/me/library/songs?secret="
+                    + PRIVATE_TOKEN,
+                }
+
+        module = SimpleNamespace(
+            AppleMusicCredentials=ExternalCredentials,
+            AppleMusic=ExternalCursorClient,
+        )
+        guarded = open_apple_music_library(
+            self.layout,
+            profile=TEST_PROFILE,
+            store=FakeStore(credentials()),
+            client_module=module,
+        )
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            guarded.view_page("songs")
+        self.assertNotIn(PRIVATE_TOKEN, str(caught.exception))
+
+    def test_playlist_pages_are_tied_to_one_private_playlist(self) -> None:
+        library = self.open()
+        playlist = library.view("playlists").records[0]
+
+        first = library.playlist_tracks_page(playlist, page_size=25)
+        second = library.playlist_tracks_page(
+            playlist, cursor=first.next_cursor
+        )
+
+        self.assertEqual(first.heading, "Playlista: Moja lista")
+        self.assertEqual(first.records[0].row.title, "Utwór playlisty 1")
+        self.assertEqual(second.records[0].row.title, "Utwór playlisty 2")
+        self.assertIsNone(second.next_cursor)
+        self.assertNotIn("p.list", first.heading)
+
+        other_cursor = AppleMusicPageCursor(
+            view="playlist-tracks:p.other",
+            _path="/v1/me/library/playlists/p.other/tracks?offset=25",
+            _base_path="/v1/me/library/playlists/p.other/tracks",
+        )
+        with self.assertRaises(AppleMusicLibraryError):
+            library.playlist_tracks_page(playlist, cursor=other_cursor)
 
     def test_playlist_uses_private_id_but_heading_uses_only_name(self) -> None:
         library = self.open()

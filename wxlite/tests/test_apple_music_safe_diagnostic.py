@@ -46,8 +46,23 @@ class FakeClient:
 
 
 class FakeResponse:
+    def __init__(self, *, more: bool = False) -> None:
+        self.more = more
+
     def json(self):
-        return {"data": [{"private": PRIVATE_VALUE}, {"private": PRIVATE_VALUE}]}
+        envelope = {
+            "data": [{"private": PRIVATE_VALUE}, {"private": PRIVATE_VALUE}]
+        }
+        if self.more:
+            envelope["next"] = "/private/" + PRIVATE_VALUE
+        return envelope
+
+
+class FirstPageClient:
+    def _request(self, _method, path, *, params=None):
+        if params != {"l": "pl-PL", "limit": 25}:
+            raise AssertionError("Nieograniczone zapytanie")
+        return FakeResponse(more=path.endswith("/songs"))
 
 
 class AppleMusicSafeDiagnosticTests(unittest.TestCase):
@@ -84,6 +99,19 @@ class AppleMusicSafeDiagnosticTests(unittest.TestCase):
                 "Utwory, język pl-PL i limit 25: HTTP 400",
             ],
         )
+        self.assertFalse(any(PRIVATE_VALUE in message for message in messages))
+
+    def test_first_page_probe_never_follows_private_next_link(self) -> None:
+        messages: list[str] = []
+
+        result = DIAGNOSTIC.diagnose_first_pages(
+            FirstPageClient(), output=messages.append
+        )
+
+        self.assertTrue(result)
+        self.assertEqual(len(messages), 4)
+        self.assertEqual(messages[0], "Playlisty: pierwsza strona 2, to cała lista")
+        self.assertEqual(messages[1], "Utwory: pierwsza strona 2, są dalsze strony")
         self.assertFalse(any(PRIVATE_VALUE in message for message in messages))
 
 

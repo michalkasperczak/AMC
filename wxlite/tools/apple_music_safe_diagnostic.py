@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 from collections.abc import Callable
 from pathlib import Path
 import sys
@@ -73,10 +74,55 @@ def diagnose_library_parameters(client: object, *, output: Output = print) -> bo
     return any_ok
 
 
+def diagnose_first_pages(client: object, *, output: Output = print) -> bool:
+    """Read one bounded page from each core collection, never paginate."""
+
+    operations = (
+        ("Playlisty", "/v1/me/library/playlists"),
+        ("Utwory", "/v1/me/library/songs"),
+        ("Albumy", "/v1/me/library/albums"),
+        ("Wykonawcy", "/v1/me/library/artists"),
+    )
+    all_ok = True
+    request = getattr(client, "_request")
+    for label, path in operations:
+        try:
+            response = request(
+                "GET",
+                path,
+                params={"l": "pl-PL", "limit": 25},
+            )
+            envelope = response.json()
+            data = envelope.get("data", []) if isinstance(envelope, dict) else []
+            count = len(data) if isinstance(data, list) else 0
+            more = bool(envelope.get("next")) if isinstance(envelope, dict) else False
+            output(
+                f"{label}: pierwsza strona {count}, "
+                + ("są dalsze strony" if more else "to cała lista")
+            )
+        except Exception as error:
+            all_ok = False
+            status = getattr(error, "status_code", None)
+            if isinstance(status, int) and 0 <= status <= 999:
+                output(f"{label}: HTTP {status}")
+            else:
+                output(f"{label}: błąd bez szczegółów")
+    return all_ok
+
+
 def main() -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure):
-        reconfigure(encoding="utf-8")
+        reconfigure(encoding="utf-8", line_buffering=True)
+    parser = argparse.ArgumentParser(
+        description="Bezpieczna diagnostyka odczytu Apple Music."
+    )
+    parser.add_argument(
+        "--first-page",
+        action="store_true",
+        help="odczytaj najwyżej pierwsze 25 elementów bez paginacji",
+    )
+    options = parser.parse_args()
     try:
         from applemusic import AppleMusic, AppleMusicCredentials
 
@@ -94,6 +140,8 @@ def main() -> int:
             max_retries=0,
         )
         try:
+            if options.first_page:
+                return 0 if diagnose_first_pages(client) else 1
             regular_ok = diagnose_client(client)
             if regular_ok:
                 return 0
