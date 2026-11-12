@@ -183,6 +183,7 @@ from .navigation import (
     Announce,
     LIBRARY_VIEW_FOLDERS,
     LibraryView,
+    TIDAL_ROOT_VIEWS,
     Navigator,
     OpenFolder,
     OpenLibraryView,
@@ -370,8 +371,12 @@ from .search_sources import (
     TIDAL_VIEW_FAVORITES,
     TIDAL_VIEW_LIBRARY,
     TIDAL_VIEW_PLAYLISTS,
+    TIDAL_VIEW_SONGS,
+    TIDAL_VIEW_ALBUMS,
+    TIDAL_VIEW_ARTISTS,
     spotify_cached_entries,
 )
+
 from .speaker_content import (
     SPEAKER_SESSIONS,
     speaker_information_failure,
@@ -503,6 +508,15 @@ if "session.tidal" in _RELEASE_PROFILE.capabilities:
         queue_rows as tidal_queue_rows,
     )
 from .version_info import PRODUCT_NAME, is_main_window_title, window_title, window_title_with_playback
+
+_TIDAL_VIEW_SCOPES = {
+    LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
+    LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
+    LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
+    LibraryView.TIDAL_SONGS: TIDAL_VIEW_SONGS,
+    LibraryView.TIDAL_ALBUMS: TIDAL_VIEW_ALBUMS,
+    LibraryView.TIDAL_ARTISTS: TIDAL_VIEW_ARTISTS,
+}
 
 APP_NAME = PRODUCT_NAME
 
@@ -10608,11 +10622,7 @@ class LiteFrame(wx.Frame):
             self._tidal_queue_rows = list(tidal_queue_rows(state.tidal_queue_items))
             self._tidal_effective_sort_modes = {
                 scope: state.tidal_sort_modes.get(scope, SORT_ADDED_NEWEST)
-                for scope in (
-                    TIDAL_VIEW_LIBRARY,
-                    TIDAL_VIEW_FAVORITES,
-                    TIDAL_VIEW_PLAYLISTS,
-                )
+                for scope in _TIDAL_VIEW_SCOPES.values()
             }
         else:
             self._tidal_queue_rows = []
@@ -11274,12 +11284,7 @@ class LiteFrame(wx.Frame):
             else None
         )
         radio_collection = radio_scope is not None
-        tidal_view_scopes = {
-            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
-            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
-        }
-        tidal_scope = tidal_view_scopes.get(session.library_view)
+        tidal_scope = _TIDAL_VIEW_SCOPES.get(session.library_view)
         tidal_collection = (
             self.navigator.active is SessionId.TIDAL
             and session.view is View.LIST
@@ -13709,11 +13714,7 @@ class LiteFrame(wx.Frame):
             return
         if entry.session_id is SessionId.TIDAL:
             target = entry.source_view
-            if target not in (
-                LibraryView.TIDAL_LIBRARY,
-                LibraryView.TIDAL_FAVORITES,
-                LibraryView.TIDAL_PLAYLISTS,
-            ):
+            if target not in TIDAL_ROOT_VIEWS:
                 target = LibraryView.TIDAL_LIBRARY
             self._open_tidal_view(
                 OpenTidalView(target, preferred_id=item_id),
@@ -13937,11 +13938,7 @@ class LiteFrame(wx.Frame):
             tidal_paged = (
                 control is getattr(self, "tidal_list", None)
                 and self.navigator.active is SessionId.TIDAL
-                and self.navigator.session.library_view in (
-                    LibraryView.TIDAL_LIBRARY,
-                    LibraryView.TIDAL_FAVORITES,
-                    LibraryView.TIDAL_PLAYLISTS,
-                )
+                and self.navigator.session.library_view in TIDAL_ROOT_VIEWS
             )
             control.filter_query = (
                 wanted if control is self._active_list() and not tidal_paged else ""
@@ -15116,11 +15113,7 @@ class LiteFrame(wx.Frame):
         if getattr(self.navigator, "active", None) is SessionId.TIDAL:
             tidal_state = self.navigator.sessions[SessionId.TIDAL]
             tidal_view = tidal_state.library_view
-            if tidal_view not in (
-                LibraryView.TIDAL_LIBRARY,
-                LibraryView.TIDAL_FAVORITES,
-                LibraryView.TIDAL_PLAYLISTS,
-            ):
+            if tidal_view not in TIDAL_ROOT_VIEWS:
                 tidal_view = LibraryView.TIDAL_LIBRARY
             self._open_tidal_view(OpenTidalView(
                 tidal_view, preferred_id=tidal_state.list_anchor_id,
@@ -15360,11 +15353,7 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is not SessionId.TIDAL:
             return None
         state = self.navigator.sessions[SessionId.TIDAL]
-        scope = {
-            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
-            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
-        }.get(state.library_view)
+        scope = _TIDAL_VIEW_SCOPES.get(state.library_view)
         if scope is None or state.view is not View.LIST:
             return None
         result = self._tidal_view_cache.get(scope)
@@ -15402,12 +15391,7 @@ class LiteFrame(wx.Frame):
         after_refresh: Callable[[], None] | None = None,
     ) -> None:
         """Read one account collection view, with the saved cache as fallback."""
-        scopes = {
-            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
-            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
-        }
-        scope = scopes.get(intent.view)
+        scope = _TIDAL_VIEW_SCOPES.get(intent.view)
         if scope is None:
             self.announcer.say("Ten widok nie jest dostępny w TIDAL")
             return
@@ -16651,11 +16635,7 @@ class LiteFrame(wx.Frame):
         tidal_collection = (
             not player
             and self.navigator.active is SessionId.TIDAL
-            and self.navigator.session.library_view in (
-                LibraryView.TIDAL_LIBRARY,
-                LibraryView.TIDAL_FAVORITES,
-                LibraryView.TIDAL_PLAYLISTS,
-            )
+            and self.navigator.session.library_view in TIDAL_ROOT_VIEWS
         )
         spotify_collection = (
             not player
@@ -16746,7 +16726,7 @@ class LiteFrame(wx.Frame):
             spotify_collection=spotify_collection,
             music_collection_session=(
                 self.navigator.active
-                in (SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
+                in (SessionId.TIDAL, SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
             ),
             wiim_session=self.navigator.active is SessionId.WIIM,
             wiim_streams=(
@@ -17263,6 +17243,13 @@ class LiteFrame(wx.Frame):
                     spotify_view,
                     title,
                 ))
+            elif self.navigator.active is SessionId.TIDAL:
+                tidal_view = {
+                    "songs": LibraryView.TIDAL_SONGS,
+                    "albums": LibraryView.TIDAL_ALBUMS,
+                    "artists": LibraryView.TIDAL_ARTISTS,
+                }[view]
+                self._open_tidal_view(OpenTidalView(tidal_view))
             elif self.navigator.active is SessionId.APPLE_MUSIC:
                 self._open_apple_music_view(OpenAppleMusicView(view))
             elif self.navigator.active is SessionId.FILES:
@@ -22217,11 +22204,7 @@ class LiteFrame(wx.Frame):
                         and self.navigator.active is SessionId.TIDAL):
                     state = self.navigator.sessions[SessionId.TIDAL]
                     view = state.library_view
-                    if view not in (
-                        LibraryView.TIDAL_LIBRARY,
-                        LibraryView.TIDAL_FAVORITES,
-                        LibraryView.TIDAL_PLAYLISTS,
-                    ):
+                    if view not in TIDAL_ROOT_VIEWS:
                         view = LibraryView.TIDAL_LIBRARY
                     self._open_tidal_view(OpenTidalView(
                         view, preferred_id=state.list_anchor_id,
@@ -25464,20 +25447,15 @@ class LiteFrame(wx.Frame):
     def _set_tidal_collection_sort(self, action: Action) -> None:
         """Alt+1/2/3 for one TIDAL root, stored outside the shared profile."""
         state = self.navigator.sessions[SessionId.TIDAL]
-        scopes = {
-            LibraryView.TIDAL_LIBRARY: TIDAL_VIEW_LIBRARY,
-            LibraryView.TIDAL_FAVORITES: TIDAL_VIEW_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS: TIDAL_VIEW_PLAYLISTS,
-        }
-        scope = scopes.get(state.library_view)
+        scope = _TIDAL_VIEW_SCOPES.get(state.library_view)
         if (
             self.navigator.active is not SessionId.TIDAL
             or state.view is not View.LIST
             or scope is None
         ):
             self.announcer.say(
-                "Sortowanie Alt+1, Alt+2 i Alt+3 działa w Bibliotece, "
-                "Ulubionych i Playlistach TIDAL"
+                "Sortowanie Alt+1, Alt+2 i Alt+3 działa w głównych "
+                "widokach kolekcji TIDAL"
             )
             return
 
@@ -29264,9 +29242,14 @@ class LiteFrame(wx.Frame):
         # że drugi skrót nigdy nie usuwał utworu ani albumu. Jedynie w liście
         # zapisanej kolekcji wiersz sam potwierdza członkostwo i oznacza usunięcie.
         remove_from_current_collection = active_view in (
-            {LibraryView.TIDAL_FAVORITES}
+            {LibraryView.TIDAL_FAVORITES, LibraryView.TIDAL_SONGS}
             if favorite else
-            {LibraryView.TIDAL_LIBRARY, LibraryView.TIDAL_PLAYLISTS}
+            {
+                LibraryView.TIDAL_LIBRARY,
+                LibraryView.TIDAL_PLAYLISTS,
+                LibraryView.TIDAL_ALBUMS,
+                LibraryView.TIDAL_ARTISTS,
+            }
         ) and getattr(tidal_state, "view", View.LIST) is View.LIST
         self._tidal_membership_pending = True
 
@@ -29276,9 +29259,14 @@ class LiteFrame(wx.Frame):
             message = str(result.get("message") or "").strip()
             self.announcer.say(message or "Zmieniono kolekcję TIDAL")
             relevant_views = (
-                {LibraryView.TIDAL_FAVORITES}
+                {LibraryView.TIDAL_FAVORITES, LibraryView.TIDAL_SONGS}
                 if favorite else
-                {LibraryView.TIDAL_LIBRARY, LibraryView.TIDAL_PLAYLISTS}
+                {
+                    LibraryView.TIDAL_LIBRARY,
+                    LibraryView.TIDAL_PLAYLISTS,
+                    LibraryView.TIDAL_ALBUMS,
+                    LibraryView.TIDAL_ARTISTS,
+                }
             )
             if (remove_from_current_collection and active_view in relevant_views
                     and self.navigator.active is SessionId.TIDAL
@@ -34754,11 +34742,7 @@ class LiteFrame(wx.Frame):
             return
         if self.navigator.active is SessionId.TIDAL:
             view = state.library_view
-            if view not in (
-                LibraryView.TIDAL_LIBRARY,
-                LibraryView.TIDAL_FAVORITES,
-                LibraryView.TIDAL_PLAYLISTS,
-            ):
+            if view not in TIDAL_ROOT_VIEWS:
                 view = LibraryView.TIDAL_LIBRARY
             self._open_tidal_view(OpenTidalView(view, preferred_id=preferred_id))
             return
@@ -37363,11 +37347,7 @@ class LiteFrame(wx.Frame):
             tidal_collection=(
                 not player
                 and self.navigator.active is SessionId.TIDAL
-                and session.library_view in (
-                    LibraryView.TIDAL_LIBRARY,
-                    LibraryView.TIDAL_FAVORITES,
-                    LibraryView.TIDAL_PLAYLISTS,
-                )
+                and session.library_view in TIDAL_ROOT_VIEWS
             ),
             spotify_session=self.navigator.active is SessionId.SPOTIFY,
             spotify_collection=(
@@ -37380,7 +37360,7 @@ class LiteFrame(wx.Frame):
             ),
             music_collection_session=(
                 self.navigator.active
-                in (SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
+                in (SessionId.TIDAL, SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
             ),
             wiim_session=self.navigator.active is SessionId.WIIM,
             wiim_streams=(

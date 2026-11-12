@@ -198,6 +198,7 @@ public static class LiteTidalCatalogContract
     {
         var view = LiteArgs.RequireText(args, "view").Trim().ToLowerInvariant();
         return view is "library" or "favorites" or "playlists"
+            or "songs" or "albums" or "artists"
             ? view
             : throw new LiteRequestException("Nieznany widok kolekcji TIDAL.");
     }
@@ -212,8 +213,17 @@ public static class LiteTidalCatalogContract
             "favorites" => items.Where(item => item.IsAvailable
                 && TidalCollectionSemantics.UsesFavorites(item.Kind)
                 && item.IsFavorite),
+            "songs" => items.Where(item => item.IsAvailable
+                && item.Kind == MediaItemKind.Track
+                && item.IsFavorite),
             "playlists" => items.Where(item => item.IsAvailable
                 && item.Kind == MediaItemKind.Playlist
+                && item.IsInLibrary),
+            "albums" => items.Where(item => item.IsAvailable
+                && item.Kind == MediaItemKind.Album
+                && item.IsInLibrary),
+            "artists" => items.Where(item => item.IsAvailable
+                && item.Kind == MediaItemKind.Artist
                 && item.IsInLibrary),
             _ => items.Where(item => item.IsAvailable
                 && TidalCollectionSemantics.UsesLibrary(item.Kind)
@@ -223,6 +233,9 @@ public static class LiteTidalCatalogContract
         {
             "favorites" => "Ulubione TIDAL",
             "playlists" => "Playlisty TIDAL",
+            "songs" => "Utwory TIDAL",
+            "albums" => "Albumy TIDAL",
+            "artists" => "Wykonawcy TIDAL",
             _ => "Biblioteka TIDAL"
         };
         return new LiteTidalCollectionViewResult(

@@ -401,6 +401,14 @@ internal static class YouTubeAccountContractTests
             return Task.FromResult(Broadcasts);
         }
 
+        public Task<IReadOnlyList<YouTubeBroadcast>> ReadChannelBroadcastsAsync(
+            string channelId,
+            CancellationToken cancellationToken)
+        {
+            if (Failure is not null) throw Failure;
+            return Task.FromResult(Broadcasts);
+        }
+
         public void Dispose()
         {
             LoginStarted.Dispose();

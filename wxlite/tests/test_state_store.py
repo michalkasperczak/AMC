@@ -314,12 +314,18 @@ def test_round_trip_keeps_private_tidal_sort_per_collection_view() -> None:
         "library": "Alphabetical",
         "favorites": "AddedNewest",
         "playlists": "Custom",
+        "songs": "Alphabetical",
+        "albums": "Custom",
+        "artists": "AddedNewest",
     }))
 
     assert store.load().tidal_sort_modes == {
         "library": "Alphabetical",
         "favorites": "AddedNewest",
         "playlists": "Custom",
+        "songs": "Alphabetical",
+        "albums": "Custom",
+        "artists": "AddedNewest",
     }
 
 

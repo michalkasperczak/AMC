@@ -16,6 +16,9 @@ from amc_wx_lite.tidal_source import (
     VIEW_FAVORITES,
     VIEW_LIBRARY,
     VIEW_PLAYLISTS,
+    VIEW_SONGS,
+    VIEW_ALBUMS,
+    VIEW_ARTISTS,
     artist_overview_rows,
     build_view,
     queue_payload,
@@ -140,6 +143,19 @@ def test_tidal_library_and_favorites_follow_full_amc_membership_semantics() -> N
     assert "track-library" not in {row.item_id for row in library.rows}
     assert "album-favorite" not in {row.item_id for row in favorites.rows}
     assert "missing" not in {row.item_id for row in library.rows}
+
+
+def test_tidal_shared_music_categories_filter_real_account_collection() -> None:
+    songs = build_view(_state(), VIEW_SONGS)
+    albums = build_view(_state(), VIEW_ALBUMS)
+    artists = build_view(_state(), VIEW_ARTISTS)
+
+    assert songs.heading == "Utwory TIDAL"
+    assert [row.item_id for row in songs.rows] == ["track-1"]
+    assert albums.heading == "Albumy TIDAL"
+    assert [row.item_id for row in albums.rows] == ["album-1"]
+    assert artists.heading == "Wykonawcy TIDAL"
+    assert [row.item_id for row in artists.rows] == ["artist-1"]
 
 
 def test_tidal_playlist_view_uses_its_own_saved_custom_order() -> None:

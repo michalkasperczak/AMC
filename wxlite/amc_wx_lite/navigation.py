@@ -110,6 +110,9 @@ class LibraryView(Enum):
     TIDAL_LIBRARY = "tidalLibrary"
     TIDAL_FAVORITES = "tidalFavorites"
     TIDAL_PLAYLISTS = "tidalPlaylists"
+    TIDAL_SONGS = "tidalSongs"
+    TIDAL_ALBUMS = "tidalAlbums"
+    TIDAL_ARTISTS = "tidalArtists"
     TIDAL_QUEUE = "tidalQueue"
     #: Zawartosc albumu, playlisty albo jednej kategorii wykonawcy. To nadal
     #: sesja TIDAL, lecz Backspace ma tu odtworzyc dokladna poprzednia liste.
@@ -153,6 +156,16 @@ class LibraryView(Enum):
     RADIOARCHIWISTA_HOURS = "radioarchiwistaHours"
     RADIOARCHIWISTA_FAVORITES = "radioarchiwistaFavorites"
     RADIOARCHIWISTA_QUEUE = "radioarchiwistaQueue"
+
+
+TIDAL_ROOT_VIEWS = (
+    LibraryView.TIDAL_LIBRARY,
+    LibraryView.TIDAL_FAVORITES,
+    LibraryView.TIDAL_PLAYLISTS,
+    LibraryView.TIDAL_SONGS,
+    LibraryView.TIDAL_ALBUMS,
+    LibraryView.TIDAL_ARTISTS,
+)
 
 
 #: Wartosci ``_state.LocalMedia.LibraryView`` (``AppSettings.cs:1236``, domyslnie
@@ -1616,11 +1629,7 @@ class Navigator:
 
         if state.session_id is SessionId.TIDAL:
             if row.kind == "loadMore":
-                if state.library_view in (
-                    LibraryView.TIDAL_LIBRARY,
-                    LibraryView.TIDAL_FAVORITES,
-                    LibraryView.TIDAL_PLAYLISTS,
-                ):
+                if state.library_view in TIDAL_ROOT_VIEWS:
                     return [OpenTidalView(state.library_view, load_more=True)]
                 return [Announce("Nie można wczytać więcej w tym widoku TIDAL")]
             target = self._tidal_target_from_row(row)
@@ -4085,11 +4094,7 @@ class Navigator:
         preferred_id: str | None = None,
     ) -> list[object]:
         """Request one persisted TIDAL collection view."""
-        if view not in (
-            LibraryView.TIDAL_LIBRARY,
-            LibraryView.TIDAL_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS,
-        ):
+        if view not in TIDAL_ROOT_VIEWS:
             return [Announce("Ten widok nie jest dostępny w TIDAL")]
         return [OpenTidalView(view=view, preferred_id=preferred_id)]
 
@@ -4104,19 +4109,11 @@ class Navigator:
         total_count: int | None = None,
     ) -> list[object]:
         """Apply TIDAL rows without touching another session or exposing IDs."""
-        if view not in (
-            LibraryView.TIDAL_LIBRARY,
-            LibraryView.TIDAL_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS,
-        ):
+        if view not in TIDAL_ROOT_VIEWS:
             raise ValueError("To nie jest widok TIDAL")
         state = self.sessions[SessionId.TIDAL]
         previous = state.library_view
-        if previous in (
-            LibraryView.TIDAL_LIBRARY,
-            LibraryView.TIDAL_FAVORITES,
-            LibraryView.TIDAL_PLAYLISTS,
-        ) and state.model.selected_id:
+        if previous in TIDAL_ROOT_VIEWS and state.model.selected_id:
             state.view_selected_ids[previous.value] = state.model.selected_id
         remembered = state.view_selected_ids.get(view.value)
         state.library_view = view

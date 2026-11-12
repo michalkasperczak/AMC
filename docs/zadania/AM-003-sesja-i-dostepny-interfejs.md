@@ -73,35 +73,23 @@ Każda kategoria jest stronicowana. Wiersz listy ma tylko użytkową nazwę, rod
 i potrzebne szczegóły. Identyfikatory Apple, adresy API i reprezentacje
 obiektów pozostają wyłącznie w modelu.
 
-## Przełączanie rodzaju kolekcji — decyzja i brakujący gest
+## Przełączanie rodzaju kolekcji — decyzja końcowa
 
 > **Decyzja końcowa użytkownika z 12.11.2026 — zastępuje wszystkie propozycje
 > skrótów w tej sekcji:** `Ctrl+Alt+1` oznacza Utwory, `Ctrl+Alt+2` Albumy,
 > `Ctrl+Alt+3` Wykonawcy, a `Ctrl+P` Playlisty. Są to wspólne polecenia AMC,
-> rozpoznawane we wszystkich sesjach. Pliki lokalne, Spotify i Apple Music
-> mają już rzeczywiste wykonanie; pozostałe sesje odpowiadają jednoznacznie,
+> rozpoznawane we wszystkich sesjach. Pliki lokalne, Spotify, TIDAL i Apple
+> Music mają rzeczywiste wykonanie; pozostałe sesje odpowiadają jednoznacznie,
 > że dana kategoria nie jest dostępna, dopóki ich adapter jej nie udostępni.
-> Starsze `Ctrl+Shift+A/W` Spotify pozostają aliasami zgodności.
+>
+> **Korekta użytkownika z 12.11.2026:** wcześniejszą decyzję o zachowaniu
+> aliasów zgodności zastępuje ich usunięcie. `Ctrl+Shift+A` i `Ctrl+Shift+W`
+> nie są już skrótami kategorii Spotify ani wspólnymi skrótami AMC.
 
-Model ma dwie niezależne osie:
-
-- zakres: `Ctrl+L` — Biblioteka, `Ctrl+U` — Ulubione;
-- rodzaj materiału w bieżącym zakresie:
-  - `Ctrl+Shift+Y` — Utwory; propozycja, ostatnia litera słowa „utwory”,
-  - `Ctrl+Shift+A` — Albumy; decyzja użytkownika z 12 listopada 2026,
-  - `Ctrl+Shift+W` — Wykonawcy; decyzja użytkownika z 12 listopada 2026,
-  - `Ctrl+P` — Playlisty; istniejący wspólny gest AMC.
-
-Przykład: `Ctrl+U`, następnie `Ctrl+Shift+A` otwiera ulubione albumy.
-`Ctrl+L`, następnie `Ctrl+Shift+A` otwiera albumy Biblioteki. Zmiana rodzaju
-nie przełącza samoczynnie Biblioteki na Ulubione ani odwrotnie.
-
-Wcześniejsza propozycja `Alt+4–7` została odrzucona po decyzji użytkownika,
-aby wykorzystać gesty, które już działają w Spotify. `Alt+U` i `Alt+W`
-również odpadają, ponieważ otwierają obecnie odpowiednio menu Ustawienia i
-Widok; `Alt+P` prowadzi do menu Pliki. Skróty z `Ctrl+Alt` nie są dobrym
-zamiennikiem na polskiej klawiaturze, ponieważ ta kombinacja może być
-traktowana jak AltGr.
+Model ma dwie niezależne osie: `Ctrl+L` i `Ctrl+U` wybierają zakres kolekcji,
+a `Ctrl+Alt+1–3` wybierają rodzaj materiału. `Ctrl+P` otwiera Playlisty.
+Wspólna akcja i opis są używane przez klawiaturę, menu, pomoc kontekstową,
+pełną pomoc i paletę poleceń; adapter sesji odpowiada tylko za wykonanie.
 
 Późniejsza propozycja użytkownika `Ctrl+Alt+U` została sprawdzona 12 listopada
 2026 na aktywnym układzie `00000415`, polski programisty. Sonda Windows
@@ -109,30 +97,19 @@ Późniejsza propozycja użytkownika `Ctrl+Alt+U` została sprawdzona 12 listopa
 znaku euro i nie może być poleceniem widoku działającym także w filtrze lub
 wyszukiwaniu. Wynik ten zastępuje ogólne przypuszczenie konkretnym pomiarem.
 
-`Alt+1–3` nie ma dziś jednego znaczenia we wszystkich sesjach: w kolekcjach
+`Alt+1–3` (bez `Ctrl`) nie ma dziś jednego znaczenia we wszystkich sesjach: w kolekcjach
 Spotify i TIDAL wybiera sposoby sortowania, w Podcastach inne porządki, a w
 głównej Bibliotece lokalnej część tych gestów otwiera nazwane widoki. Przed
 ujednoliceniem sortowania potrzebny jest osobny audyt wszystkich sesji.
-Ta rozbieżność nie blokuje osobnych, sesyjnych gestów rodzaju kolekcji Apple.
-
-Audyt bieżącego wxPython wykazał także rozbieżność dokumentacji z kodem:
-`Ctrl+Shift+A` działa obecnie jako Albumy Spotify, a `Ctrl+Shift+W` jako
-Wykonawcy Spotify. Starszy opis ogólny nadal nazywa `Ctrl+Shift+A` lokalnym
-widokiem Albumów, lecz taki wspólny lokalny rozkaz nie jest obecnie podłączony
-w kodzie wxPython. Wspólne polecenia Albumów i Wykonawców należy teraz
-zdefiniować w modelu możliwości, a nie kopiować dwie kolejne tabele skrótów.
+Ta rozbieżność nie dotyczy wspólnych gestów `Ctrl+Alt+1–3`.
 
 W sesji Apple `Ctrl+P` zachowuje bieżący zakres: po `Ctrl+L` pokazuje playlisty
 Biblioteki, a po `Ctrl+U` tylko ulubione playlisty. Użyty z centrum sesji,
 gdzie nie wybrano jeszcze zakresu, domyślnie otwiera playlisty Biblioteki.
 
-`Ctrl+Shift+N` został odrzucony przez użytkownika 12 listopada 2026, ponieważ
-jednoznacznie kojarzy się z poleceniem „Nowy”, na przykład nowym folderem albo
-playlistą. Ta decyzja zastępuje wcześniejszą propozycję „N jak nagrania”.
-`Ctrl+Shift+T` byłby naturalny od angielskiego „tracks”, ale w AMC podaje czas
-całkowity. `Ctrl+Shift+U` zmienia stan Ulubionych, a `Ctrl+Shift+O` otwiera
-folder lub importuje strumienie. Audyt bieżącego wxPython nie wykazał żadnego
-przypisania `Ctrl+Shift+Y`; pozostaje propozycją dla Utworów do potwierdzenia.
+Odrzucone propozycje (`Ctrl+Shift+N`, `Ctrl+Shift+Y`, `Ctrl+Shift+A/W`) są
+zachowane wyłącznie jako historia decyzji; nie wolno ich reklamować ani
+obsługiwać w bieżącym interfejsie.
 
 ## Presety Apple Music — osobny etap
 
@@ -225,6 +202,15 @@ wywnioskowane z numerowanych plików w folderach oraz wykonawców wywnioskowanyc
 z katalogu nadrzędnego albumu. Enter otwiera wykonawcę, album i utwory albumu;
 Backspace wraca dokładnie do poprzedniego poziomu.
 
+**Korekta 12.11.2026 — TIDAL i usunięcie starych aliasów:** w sesji TIDAL
+`Ctrl+Alt+1` pokazuje wyłącznie ulubione utwory, `Ctrl+Alt+2` albumy zapisane w
+Bibliotece, a `Ctrl+Alt+3` zapisanych wykonawców. Widoki korzystają z tego samego
+stronicowania, filtrowania, sortowania `Alt+1–3`, pamięci fokusu i zapisu
+kolekcji co dotychczasowe główne widoki TIDAL. `Ctrl+Shift+A` i
+`Ctrl+Shift+W` zostały usunięte z aktywnej mapy Spotify oraz z automatycznie
+generowanej pomocy i palety. Polecenia Spotify nadal istnieją pod wspólnymi
+skrótami i w menu.
+
 ## Testy i wynik
 
 - Źródła: sesja Apple Music, lokalne kategorie muzyczne, wspólne polecenia,
@@ -235,6 +221,13 @@ Backspace wraca dokładnie do poprzedniego poziomu.
   2/2 zaliczone. Ogólny uruchamiacz użyty z prywatnym runtime zgłosił osobno
   brak zewnętrznego pakietu `pytest` w 21 modułach; nie były to nieudane
   wykonania testów tej zmiany.
+- Korekta TIDAL i skrótów: 109/109 celowanych testów Python zaliczonych. Zestaw
+  obejmował źródło i nawigację TIDAL, rzeczywisty dyspozytor wspólnych poleceń,
+  brak aliasów `Ctrl+Shift+A/W`, Spotify, lokalne kategorie, menu, stan sortowania
+  i etykiety skrótów. Wszystkie 32 zestawy kontraktu LiteHost również przeszły.
+  Projekt testowy hosta wymagał uzupełnienia starej atrapy backendu i izolowanej
+  atrapy resolvera YouTube po wcześniejszym rozszerzeniu interfejsu; nie zmienia
+  to kodu wykonywanego przez aplikację.
 - Build `test-apple-music-c6efcbda-20261112-v2`: 4225 plików, dwie pełne
   kontrole integralności i kontrolowany start interfejsu oraz hosta — OK.
 - Instalacja nie jest jeszcze ukończona. Aktualizator dwukrotnie bezpiecznie

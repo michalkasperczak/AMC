@@ -38,7 +38,17 @@ from .radio_source import (
 VIEW_LIBRARY = "library"
 VIEW_FAVORITES = "favorites"
 VIEW_PLAYLISTS = "playlists"
-TIDAL_VIEWS = (VIEW_LIBRARY, VIEW_FAVORITES, VIEW_PLAYLISTS)
+VIEW_SONGS = "songs"
+VIEW_ALBUMS = "albums"
+VIEW_ARTISTS = "artists"
+TIDAL_VIEWS = (
+    VIEW_LIBRARY,
+    VIEW_FAVORITES,
+    VIEW_PLAYLISTS,
+    VIEW_SONGS,
+    VIEW_ALBUMS,
+    VIEW_ARTISTS,
+)
 TIDAL_SORT_MODES = (SORT_ADDED_NEWEST, SORT_ALPHABETICAL, SORT_CUSTOM)
 
 _CONTAINER_KINDS = {"album", "artist", "playlist"}
@@ -56,11 +66,17 @@ _VIEW_HEADINGS = {
     VIEW_LIBRARY: "Biblioteka TIDAL",
     VIEW_FAVORITES: "Ulubione TIDAL",
     VIEW_PLAYLISTS: "Playlisty TIDAL",
+    VIEW_SONGS: "Utwory TIDAL",
+    VIEW_ALBUMS: "Albumy TIDAL",
+    VIEW_ARTISTS: "Wykonawcy TIDAL",
 }
 _PROFILE_VIEW_NAMES = {
     VIEW_LIBRARY: "Biblioteka",
     VIEW_FAVORITES: "Ulubione",
     VIEW_PLAYLISTS: "Playlisty",
+    VIEW_SONGS: "Utwory",
+    VIEW_ALBUMS: "Albumy",
+    VIEW_ARTISTS: "Wykonawcy",
 }
 
 
@@ -202,15 +218,26 @@ def items_from_amc_state(raw: object) -> tuple[TidalCachedItem, ...]:
 
 
 def _membership(items: Iterable[TidalCachedItem], view: str) -> list[TidalCachedItem]:
-    if view == VIEW_FAVORITES:
+    if view in (VIEW_FAVORITES, VIEW_SONGS):
         return [
             item for item in items
-            if item.is_available and item.kind in _PLAYABLE_KINDS and item.is_favorite
+            if item.is_available
+            and item.is_favorite
+            and (
+                item.kind == "track"
+                if view == VIEW_SONGS else item.kind in _PLAYABLE_KINDS
+            )
         ]
     if view == VIEW_PLAYLISTS:
         return [
             item for item in items
             if item.is_available and item.kind == "playlist" and item.is_in_library
+        ]
+    if view in (VIEW_ALBUMS, VIEW_ARTISTS):
+        kind = "album" if view == VIEW_ALBUMS else "artist"
+        return [
+            item for item in items
+            if item.is_available and item.kind == kind and item.is_in_library
         ]
     return [
         item for item in items
@@ -224,12 +251,12 @@ def _collection_orders(raw: object, view: str, *, custom: bool) -> tuple[str, ..
     orders = raw.get("collectionOrders")
     if not isinstance(orders, dict):
         return ()
-    if view == VIEW_FAVORITES:
+    if view in (VIEW_FAVORITES, VIEW_SONGS):
         field = "favoriteItemIdsBySession" if custom else "favoriteAddedItemIdsBySession"
         storage_key = "tidal"
     else:
         field = "libraryItemIdsBySession" if custom else "libraryAddedItemIdsBySession"
-        storage_key = "tidal" if view == VIEW_LIBRARY else "tidal|Playlisty"
+        storage_key = "tidal|Playlisty" if view == VIEW_PLAYLISTS else "tidal"
     by_session = orders.get(field)
     if not isinstance(by_session, dict):
         return ()

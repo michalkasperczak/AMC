@@ -24,6 +24,7 @@ internal static class TidalCatalogContractTests
         ReadsCollectionMembershipWithoutCredentials();
         RefusesWrongCollectionShortcutForKind();
         CollectionViewContainsOnlyIntentionalFields();
+        CollectionCategoriesHaveExactMembershipAndLabels();
         ReadsPlaylistWriteWithoutPrivateData();
         ReadsPlaylistRemovalOnlyWithEntryIds();
     }
@@ -339,6 +340,31 @@ internal static class TidalCatalogContractTests
             "widok zawiera pole źródła");
         Check(json.Contains("\"collectionAddedUtcTicks\":123456", StringComparison.Ordinal),
             "widok nie przekazuje czasu dodania potrzebnego do sortowania");
+    }
+
+    private static void CollectionCategoriesHaveExactMembershipAndLabels()
+    {
+        var items = new[]
+        {
+            new MediaItem { Id = "track", ExternalId = "tracks:1", Title = "Utwór",
+                Kind = MediaItemKind.Track, IsFavorite = true, IsAvailable = true },
+            new MediaItem { Id = "video", ExternalId = "videos:2", Title = "Wideo",
+                Kind = MediaItemKind.Video, IsFavorite = true, IsAvailable = true },
+            new MediaItem { Id = "album", ExternalId = "albums:3", Title = "Album",
+                Kind = MediaItemKind.Album, IsInLibrary = true, IsAvailable = true },
+            new MediaItem { Id = "artist", ExternalId = "artists:4", Title = "Wykonawca",
+                Kind = MediaItemKind.Artist, IsInLibrary = true, IsAvailable = true },
+        };
+
+        var songs = LiteTidalCatalogContract.CreateCollectionViewResult("songs", items);
+        var albums = LiteTidalCatalogContract.CreateCollectionViewResult("albums", items);
+        var artists = LiteTidalCatalogContract.CreateCollectionViewResult("artists", items);
+        Check(songs.Heading == "Utwory TIDAL" && songs.Items.Count == 1
+            && songs.Items[0].Id == "track", "Utwory TIDAL nie filtrują samych utworów");
+        Check(albums.Heading == "Albumy TIDAL" && albums.Items.Count == 1
+            && albums.Items[0].Id == "album", "Albumy TIDAL mają zły zakres");
+        Check(artists.Heading == "Wykonawcy TIDAL" && artists.Items.Count == 1
+            && artists.Items[0].Id == "artist", "Wykonawcy TIDAL mają zły zakres");
     }
 
     private static void ReadsPlaylistWriteWithoutPrivateData()

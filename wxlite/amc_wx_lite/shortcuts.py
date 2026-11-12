@@ -1942,8 +1942,6 @@ SPOTIFY_LIST_VIEW: dict[str, Action] = {
 SPOTIFY_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.SPOTIFY_VIEW_LIKED,
-    "Ctrl+Shift+A": Action.SPOTIFY_VIEW_ALBUMS,
-    "Ctrl+Shift+W": Action.SPOTIFY_VIEW_ARTISTS,
     "Ctrl+P": Action.SPOTIFY_VIEW_PLAYLISTS,
     "Ctrl+Alt+O": Action.SPOTIFY_VIEW_PODCASTS,
     "Ctrl+Alt+E": Action.SPOTIFY_VIEW_EPISODES,

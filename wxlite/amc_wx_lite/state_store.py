@@ -44,7 +44,14 @@ from .transport_parity import (
 
 
 _COLLECTION_SORT_MODES = {"AddedNewest", "Alphabetical", "Custom"}
-_TIDAL_SORT_VIEWS = {"library", "favorites", "playlists"}
+_TIDAL_SORT_VIEWS = {
+    "library",
+    "favorites",
+    "playlists",
+    "songs",
+    "albums",
+    "artists",
+}
 _SPOTIFY_SORT_VIEWS = {
     "liked", "albums", "artists", "playlists", "podcasts", "episodes",
 }

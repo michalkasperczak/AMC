@@ -387,6 +387,38 @@ def test_backspace_at_tidal_collection_root_is_silent_and_stays_in_tidal() -> No
     assert nav.active is SessionId.TIDAL
 
 
+def test_tidal_shared_category_roots_are_real_views_with_remembered_focus() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    rows = [Row("track-1", "Utwór", "track")]
+
+    assert nav.open_tidal_view(LibraryView.TIDAL_SONGS) == [
+        OpenTidalView(LibraryView.TIDAL_SONGS)
+    ]
+    nav.apply_tidal_view(LibraryView.TIDAL_SONGS, "Utwory TIDAL", rows)
+    assert nav.session.library_view is LibraryView.TIDAL_SONGS
+    assert nav.session.model.selected_row == rows[0]
+
+
+def test_tidal_shared_category_shortcuts_dispatch_to_exact_views() -> None:
+    received = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.TIDAL),
+        _open_tidal_view=received.append,
+        messages=SimpleNamespace(custom_seek_seconds=300),
+    )
+
+    LiteFrame._dispatch(frame, Action.VIEW_MUSIC_SONGS)
+    LiteFrame._dispatch(frame, Action.VIEW_MUSIC_ALBUMS)
+    LiteFrame._dispatch(frame, Action.VIEW_MUSIC_ARTISTS)
+
+    assert received == [
+        OpenTidalView(LibraryView.TIDAL_SONGS),
+        OpenTidalView(LibraryView.TIDAL_ALBUMS),
+        OpenTidalView(LibraryView.TIDAL_ARTISTS),
+    ]
+
+
 def test_backspace_from_direct_recognized_album_loads_tidal_root() -> None:
     nav = Navigator()
     nav.active = SessionId.TIDAL

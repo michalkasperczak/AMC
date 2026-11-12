@@ -84,11 +84,12 @@ def test_one_spotify_session_has_user_labels_and_contextual_arrow_shortcuts() ->
     } <= SPOTIFY_SUPPORTED_ACTIONS
 
 
-def test_spotify_categories_have_direct_session_shortcuts_in_both_views() -> None:
+def test_spotify_categories_use_shared_shortcuts_and_keep_service_commands() -> None:
     expected = {
         Chord("U", ctrl=True): Action.SPOTIFY_VIEW_LIKED,
-        Chord("A", ctrl=True, shift=True): Action.SPOTIFY_VIEW_ALBUMS,
-        Chord("W", ctrl=True, shift=True): Action.SPOTIFY_VIEW_ARTISTS,
+        Chord("1", ctrl=True, alt=True): Action.VIEW_MUSIC_SONGS,
+        Chord("2", ctrl=True, alt=True): Action.VIEW_MUSIC_ALBUMS,
+        Chord("3", ctrl=True, alt=True): Action.VIEW_MUSIC_ARTISTS,
         Chord("P", ctrl=True): Action.SPOTIFY_VIEW_PLAYLISTS,
         Chord("O", ctrl=True, alt=True): Action.SPOTIFY_VIEW_PODCASTS,
         Chord("E", ctrl=True, alt=True): Action.SPOTIFY_VIEW_EPISODES,
@@ -101,6 +102,13 @@ def test_spotify_categories_have_direct_session_shortcuts_in_both_views() -> Non
                 radio_session=False,
                 spotify_session=True,
             ) is action
+    for key in ("A", "W"):
+        assert resolve(
+            Chord(key, ctrl=True, shift=True),
+            player_view=False,
+            radio_session=False,
+            spotify_session=True,
+        ) is None
 
 
 def test_enter_on_artist_opens_overview_then_backspace_restores_exact_focus() -> None:

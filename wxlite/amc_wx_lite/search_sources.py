@@ -14,6 +14,9 @@ from .search_catalog import SearchEntry
 TIDAL_VIEW_LIBRARY = "library"
 TIDAL_VIEW_FAVORITES = "favorites"
 TIDAL_VIEW_PLAYLISTS = "playlists"
+TIDAL_VIEW_SONGS = "songs"
+TIDAL_VIEW_ALBUMS = "albums"
+TIDAL_VIEW_ARTISTS = "artists"
 
 
 def spotify_cached_entries(
