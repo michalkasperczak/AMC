@@ -395,6 +395,11 @@ Historyczny projekt został użyty tylko jako materiał do odczytu.
 
 ## Wersja i commit
 
+- Dziesiąta aktywna sesja pod `Ctrl+0`, dostępne ogłaszanie wyniku Spacji,
+  `F11` do aktualizacji i `Ctrl+F11` do Sygnalisty: commit `a5adbd6a`.
+  Źródła i testy celowane są potwierdzone. Kompilacja, instalacja i publikacja
+  tej korekty nie zostały jeszcze wykonane.
+
 - Pełne mapowanie `F1`–`F24` i nawigacji bloku numerycznego: commit
   `4d87189e` (`fix(amc): ujednolic klawisze i zachowaj nagranie po awarii`).
   Dokumentacja: `1df89b18`. Instalacja:

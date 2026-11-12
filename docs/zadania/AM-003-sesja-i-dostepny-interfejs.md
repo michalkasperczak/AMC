@@ -277,6 +277,8 @@ zweryfikowaną funkcją wydania.
   `c6efcbdae1686ac3d22e39fa20efa9a1d954f5e3`.
 - Korekta TIDAL i usunięcie aliasów: commit
   `d7563d1af12be68d75c6f9f76a56a782550b7098`.
+- Dziesiąta sesja, `Ctrl+0`, jawne ogłaszanie Spacji oraz skróty `F11` i
+  `Ctrl+F11`: commit `a5adbd6a`.
 - Etykieta zainstalowanej, zweryfikowanej paczki:
   `2026.11.12-d7563d1af12be68d75c6f9f76a56a782550b7098-82dec3ce`.
 - Kandydat lokalny:
