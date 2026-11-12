@@ -12,12 +12,14 @@ komunikatow sprawdzany po stronie silnika.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+import amc_wx_lite.host_client as host_client_module
 from amc_wx_lite.host_client import (
     HostError,
     HostUnavailable,
@@ -27,6 +29,55 @@ from amc_wx_lite.host_client import (
     classify,
     decode_line,
 )
+
+
+def _synthetic_bundle(
+    tmp_path: Path,
+    monkeypatch,
+    declared_host_directory: str,
+) -> tuple[Path, Path]:
+    package = tmp_path / "app" / "amc_wx_lite"
+    package.mkdir(parents=True)
+    synthetic_module = package / "host_client.py"
+    synthetic_module.write_text("# synthetic module location\n", encoding="utf-8")
+    name = (
+        "amc_lite_host.exe"
+        if host_client_module.os.name == "nt"
+        else "amc_lite_host"
+    )
+    current = tmp_path / declared_host_directory / name
+    stale = tmp_path / "host-next" / name
+    current.parent.mkdir(parents=True, exist_ok=True)
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    current.write_bytes(b"current")
+    stale.write_bytes(b"stale")
+    (tmp_path / "bundle-manifest.json").write_text(
+        json.dumps({"files": [f"{declared_host_directory}/{name}"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("AMC_LITE_HOST", raising=False)
+    monkeypatch.setattr(host_client_module, "__file__", str(synthetic_module))
+    return current, stale
+
+
+def test_default_host_path_uses_manifest_instead_of_stale_host_next(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    current, stale = _synthetic_bundle(tmp_path, monkeypatch, "host")
+
+    assert stale.is_file()
+    assert host_client_module.default_host_path() == current
+
+
+def test_default_host_path_keeps_declared_host_next_bundle(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    current, _stale = _synthetic_bundle(tmp_path, monkeypatch, "host-next")
+
+    assert host_client_module.default_host_path() == current
+
 
 # Atrapa SAMEGO TRANSPORTU (nie odtwarzania): mowi tym samym protokolem,
 # zeby dalo sie zmierzyc zachowanie klienta bez Windows i bez karty dzwiekowej.

@@ -2572,13 +2572,38 @@ def default_host_path() -> Path:
 
     here = Path(__file__).resolve()
     name = "amc_lite_host.exe" if os.name == "nt" else "amc_lite_host"
+    bundle_root = here.parent.parent.parent
+    manifest_path = bundle_root / "bundle-manifest.json"
+    if manifest_path.is_file():
+        # Aktualizator zachowuje dane użytkownika i może też pozostawić starszy
+        # katalog silnika, który nie należy już do bieżącej paczki. W gotowym
+        # pakiecie wybieramy więc wyłącznie wariant jawnie objęty zweryfikowanym
+        # manifestem. Samo istnienie dawnego host-next nie może przejąć startu.
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(manifest, dict):
+                raise ValueError("manifest pakietu nie jest obiektem")
+            declared = {
+                str(relative).replace("\\", "/").casefold()
+                for relative in manifest.get("files", [])
+            }
+            for directory in ("host-next-2", "host-next", "host"):
+                relative = f"{directory}/{name}"
+                candidate = bundle_root / directory / name
+                if relative.casefold() in declared and candidate.is_file():
+                    return candidate
+        except (OSError, TypeError, ValueError):
+            # Walidację integralności wykonuje launcher. Ten fallback zachowuje
+            # czytelny błąd starego przebiegu także przy ręcznym starcie źródeł.
+            pass
+
     candidates = [
         here.parent.parent / "host-next-2" / name,
-        here.parent.parent.parent / "host-next-2" / name,
+        bundle_root / "host-next-2" / name,
         here.parent.parent / "host-next" / name,
-        here.parent.parent.parent / "host-next" / name,
+        bundle_root / "host-next" / name,
         here.parent.parent / "host" / name,
-        here.parent.parent.parent / "host" / name,
+        bundle_root / "host" / name,
         here.parents[3]
         / "src"
         / "AccessibleMediaController.LiteHost"
