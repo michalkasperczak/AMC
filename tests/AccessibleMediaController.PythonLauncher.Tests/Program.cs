@@ -54,6 +54,7 @@ internal static class Program
         ("aktualizator przyjmuje pełny instalator właściwego profilu", UpdaterAcceptsMatchingInstaller),
         ("aktualizator odrzuca instalator innego profilu", UpdaterRejectsForeignInstaller),
         ("aktualizator odrzuca instalator o innej sumie", UpdaterRejectsInstallerWithWrongHash),
+        ("aktualizator usuwa stare pliki hosta spoza manifestu", UpdaterRemovesObsoleteHostFiles),
         ("aktualizator zachowuje dwie najnowsze kopie ratunkowe", UpdaterKeepsTwoNewestRescueTransactions),
         ("aktualizator chroni kopię bieżącej niepełnej transakcji", UpdaterProtectsCurrentRescueTransaction),
     ];
@@ -735,6 +736,55 @@ internal static class Program
                     new string('0', 64),
                     target.Root,
                     ReleaseProfileContract.Test)));
+    }
+
+    private static void UpdaterRemovesObsoleteHostFiles()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "amc-updater-obsolete-host-" + Guid.NewGuid().ToString("N"));
+        var source = Path.Combine(root, "source");
+        var target = Path.Combine(root, "target");
+        try
+        {
+            var currentHost = Path.Combine(source, "host", "amc_lite_host.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(currentHost)!);
+            File.WriteAllText(currentHost, "current");
+            File.WriteAllText(Path.Combine(source, "bundle-manifest.json"), "{}");
+
+            var installedHost = Path.Combine(target, "host", "amc_lite_host.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(installedHost)!);
+            File.WriteAllText(installedHost, "old");
+            File.WriteAllText(Path.Combine(target, "host", "old-runtime.dll"), "stale");
+            var oldNextHost = Path.Combine(target, "host-next", "amc_lite_host.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(oldNextHost)!);
+            File.WriteAllText(oldNextHost, "stale-next");
+            var credential = Path.Combine(
+                target,
+                "app",
+                "amc_wx_lite",
+                "youtube-oauth-client-secret.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(credential)!);
+            File.WriteAllText(credential, "preserve");
+
+            AccessibleMediaController.PythonUpdater.Program.ApplyPackage(
+                source,
+                target,
+                ["host/amc_lite_host.exe"]);
+
+            Equal("current", File.ReadAllText(installedHost));
+            Equal(false, File.Exists(Path.Combine(target, "host", "old-runtime.dll")));
+            Equal(false, File.Exists(oldNextHost));
+            Equal("preserve", File.ReadAllText(credential));
+            Equal(
+                0,
+                Directory.EnumerateDirectories(target, ".aktualizacja-*").Count());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void UpdaterKeepsTwoNewestRescueTransactions()

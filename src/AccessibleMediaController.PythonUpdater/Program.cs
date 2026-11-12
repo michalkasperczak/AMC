@@ -571,7 +571,7 @@ internal static class Program
             installed.Capabilities);
     }
 
-    private static void ApplyPackage(string source, string target, IReadOnlyList<string> files)
+    internal static void ApplyPackage(string source, string target, IReadOnlyList<string> files)
     {
         var transaction = Path.Combine(target, ".aktualizacja-" + Guid.NewGuid().ToString("N"));
         var staged = Path.Combine(transaction, "nowe");
@@ -586,6 +586,22 @@ internal static class Program
                 var prepared = ResolveInside(staged, relative, mustExist: false);
                 Directory.CreateDirectory(Path.GetDirectoryName(prepared)!);
                 File.Copy(input, prepared, overwrite: true);
+            }
+
+            // Katalogi hosta są w całości zarządzane przez paczkę. Pozostawiony
+            // host-next albo stare pliki samowystarczalnego .NET potrafią przejąć
+            // wybór silnika lub zmienić sposób ładowania DLL, mimo że wszystkie
+            // pliki z nowego manifestu są poprawne. Dane kont i ustawienia są w
+            // innych katalogach, więc nie należą do tego wąskiego porządku.
+            foreach (var obsolete in ObsoleteHostFiles(target, files))
+            {
+                var relative = Path.GetRelativePath(target, obsolete)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+                var saved = ResolveInside(backup, relative, mustExist: false);
+                Directory.CreateDirectory(Path.GetDirectoryName(saved)!);
+                File.Copy(obsolete, saved, overwrite: true);
+                replaced.Add((obsolete, saved));
+                File.Delete(obsolete);
             }
 
             foreach (var relative in files)
@@ -620,6 +636,7 @@ internal static class Program
                 Path.Combine(target, "bundle-manifest.json"),
                 overwrite: true);
             Directory.Delete(transaction, recursive: true);
+            RemoveEmptyObsoleteHostDirectories(target, files);
         }
         catch
         {
@@ -660,6 +677,65 @@ internal static class Program
                 target,
                 rollbackComplete ? null : transaction);
             throw;
+        }
+    }
+
+    internal static IReadOnlyList<string> ObsoleteHostFiles(
+        string target,
+        IReadOnlyList<string> files)
+    {
+        target = Path.GetFullPath(target);
+        var declared = new HashSet<string>(
+            files.Select(relative => relative.Replace('\\', '/')),
+            StringComparer.OrdinalIgnoreCase);
+        var obsolete = new List<string>();
+        foreach (var directoryName in new[] { "host", "host-next", "host-next-2" })
+        {
+            var directory = Path.Combine(target, directoryName);
+            if (!Directory.Exists(directory)) continue;
+            foreach (var path in Directory.EnumerateFiles(
+                         directory,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(target, path)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+                if (!declared.Contains(relative))
+                    obsolete.Add(path);
+            }
+        }
+        return obsolete;
+    }
+
+    private static void RemoveEmptyObsoleteHostDirectories(
+        string target,
+        IReadOnlyList<string> files)
+    {
+        var declared = new HashSet<string>(
+            files.Select(relative => relative.Replace('\\', '/')),
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var directoryName in new[] { "host-next-2", "host-next", "host" })
+        {
+            if (declared.Any(relative => relative.StartsWith(
+                    directoryName + "/",
+                    StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var directory = Path.Combine(target, directoryName);
+            try
+            {
+                if (Directory.Exists(directory)
+                    && !Directory.EnumerateFiles(
+                        directory,
+                        "*",
+                        SearchOption.AllDirectories).Any())
+                    Directory.Delete(directory, recursive: true);
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                // Puste katalogi nie wpływają na wybór hosta. Nie odwracamy
+                // poprawnej aktualizacji wyłącznie przez opóźnione sprzątanie.
+            }
         }
     }
 
