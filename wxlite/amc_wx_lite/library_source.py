@@ -186,6 +186,18 @@ class LibrarySource:
         with self._open() as db:
             if view == "all_files":
                 return library_views.all_files_rows(db, collation=self._collation)
+            if view == "local_albums":
+                return library_views.local_album_rows(db)
+            if view == "local_album_contents":
+                if not item_id:
+                    raise ValueError("local_album_contents wymaga albumu")
+                return library_views.local_album_track_rows(db, item_id)
+            if view == "local_artists":
+                return library_views.local_artist_rows(db)
+            if view == "local_artist_albums":
+                if not item_id:
+                    raise ValueError("local_artist_albums wymaga wykonawcy")
+                return library_views.local_artist_album_rows(db, item_id)
             if view == "favorites":
                 return library_views.favorite_rows(db)
             if view == "playlists":

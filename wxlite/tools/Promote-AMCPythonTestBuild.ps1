@@ -2,6 +2,8 @@
 param(
     [string]$InstallRoot = "D:\Projekty Codex\AMC Python",
     [string]$TidalSitePackages = "",
+    [string]$SonosSitePackages = "",
+    [string]$AppleMusicSitePackages = "",
     [switch]$SkipTests,
     [switch]$NoLaunch
 )
@@ -239,12 +241,28 @@ $tidalSource = [IO.Path]::GetFullPath($TidalSitePackages)
 if (-not (Test-Path -LiteralPath $tidalSource -PathType Container)) {
     throw "Nie istnieje katalog zależności TIDAL: $tidalSource"
 }
+if ([string]::IsNullOrWhiteSpace($SonosSitePackages)) {
+    throw "AMC Test wymaga -SonosSitePackages z osobnego venv."
+}
+$sonosSource = [IO.Path]::GetFullPath($SonosSitePackages)
+if (-not (Test-Path -LiteralPath $sonosSource -PathType Container)) {
+    throw "Nie istnieje katalog zależności Sonosa: $sonosSource"
+}
+if ([string]::IsNullOrWhiteSpace($AppleMusicSitePackages)) {
+    throw "AMC Test wymaga -AppleMusicSitePackages z osobnego venv."
+}
+$appleMusicSource = [IO.Path]::GetFullPath($AppleMusicSitePackages)
+if (-not (Test-Path -LiteralPath $appleMusicSource -PathType Container)) {
+    throw "Nie istnieje katalog zależności Apple Music: $appleMusicSource"
+}
 $bundleArguments = @(
     $BuildTool,
     "--out", $stagingRoot,
     "--profile", "test",
     "--runtime", (Join-Path $InstallRoot "runtime"),
     "--tidal-site-packages", $tidalSource,
+    "--sonos-site-packages", $sonosSource,
+    "--apple-music-site-packages", $appleMusicSource,
     "--clean"
 )
 Invoke-Checked -FilePath $RuntimePython -ArgumentList $bundleArguments -WorkingDirectory $WxliteRoot -Stage "Składanie paczki"

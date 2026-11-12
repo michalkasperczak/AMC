@@ -105,6 +105,7 @@ class Action(Enum):
     SESSION_SPOTIFY = "session.spotify"
     SESSION_FRONTIER_SMART = "session.frontierSmart"
     SESSION_RADIOARCHIWISTA = "session.radioarchiwista"
+    SESSION_APPLE_MUSIC = "session.appleMusic"
     SESSION_LIST = "session.list"
     SESSION_ENABLE = "session.enable"
     SESSION_DISABLE_CURRENT = "session.disableCurrent"
@@ -158,6 +159,9 @@ class Action(Enum):
     SPOTIFY_VIEW_PLAYLISTS = "spotify.view.playlists"
     SPOTIFY_VIEW_PODCASTS = "spotify.view.podcasts"
     SPOTIFY_VIEW_EPISODES = "spotify.view.episodes"
+    VIEW_MUSIC_SONGS = "music.view.songs"
+    VIEW_MUSIC_ALBUMS = "music.view.albums"
+    VIEW_MUSIC_ARTISTS = "music.view.artists"
     SEEK_BACK_10 = "seek.back10"
     SEEK_FORWARD_10 = "seek.forward10"
     # Shift to 30 s (MainWindow.xaml.cs:21585-21586). Dostarczona wersja
@@ -634,6 +638,12 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
         "Ustaw adres katalogu nagrań Radio Archiwisty",
         "Ctrl+F5",
     ),
+    "apple music": CommandPresentation(
+        Action.SESSION_CONFIGURE_CURRENT,
+        "Konto Apple Music",
+        "Sprawdź zapisaną sesję albo świadomie rozpocznij ponowne logowanie do Apple Music",
+        "Ctrl+F5",
+    ),
 }
 
 
@@ -675,6 +685,11 @@ SESSION_INDEPENDENT_ACTIONS = frozenset({
     Action.RECORD_STOP_ALL,
     Action.CHECK_APPLICATION_UPDATE,
     Action.REPORT_PROBLEM,
+    # Jeden wspólny kontrakt kategorii muzycznych. Adapter sesji wykonuje
+    # akcję albo zwraca uczciwy komunikat o braku tej kategorii.
+    Action.VIEW_MUSIC_SONGS,
+    Action.VIEW_MUSIC_ALBUMS,
+    Action.VIEW_MUSIC_ARTISTS,
 })
 
 
@@ -691,6 +706,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -864,6 +880,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -974,6 +991,11 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SPOTIFY_VIEW_PLAYLISTS,
     Action.SPOTIFY_VIEW_PODCASTS,
     Action.SPOTIFY_VIEW_EPISODES,
+    Action.VIEW_MUSIC_SONGS,
+    Action.VIEW_MUSIC_ALBUMS,
+    Action.VIEW_MUSIC_ARTISTS,
+    Action.VIEW_HISTORY,
+    Action.VIEW_DOWNLOADED_FILES,
     Action.SORT_SPOTIFY_COLLECTION_ADDED,
     Action.SORT_SPOTIFY_COLLECTION_ALPHABETICAL,
     Action.SORT_SPOTIFY_COLLECTION_CATALOG,
@@ -983,6 +1005,55 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.KEYBOARD_HELP,
     Action.UPDATE_MEDIA_COMPONENTS,
     Action.REPORT_PROBLEM,
+    Action.VERSION_INFO,
+})
+
+
+# Pierwszy etap Apple Music jest celowo tylko do odczytu. Lista nie zawiera
+# transportu, Ulubionych ani zapisów do konta, dopóki AM-002 nie ma
+# zweryfikowanego wykonawcy. Ten sam zbiór zasila menu, paletę i dispatcher.
+APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
+    *SESSION_INDEPENDENT_ACTIONS,
+    Action.SESSION_FILES,
+    Action.SESSION_RADIO,
+    Action.SESSION_PODCASTS,
+    Action.SESSION_TIDAL,
+    Action.SESSION_WIIM,
+    Action.SESSION_SONOS,
+    Action.SESSION_SPOTIFY,
+    Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_LIST,
+    Action.SESSION_ENABLE,
+    Action.SESSION_DISABLE_CURRENT,
+    Action.SESSION_CONFIGURE_CURRENT,
+    Action.PREVIOUS_SESSION,
+    Action.NEXT_SESSION,
+    Action.COMMAND_PALETTE,
+    Action.ACTIVATE,
+    Action.PARENT_FOLDER,
+    Action.CLOSE_LIST_PREVIEW,
+    Action.COPY_NAME,
+    Action.COPY_ADDRESS,
+    Action.FOCUS_FILTER,
+    Action.SEARCH_CURRENT,
+    Action.SEARCH_ALL,
+    Action.VIEW_LIBRARY,
+    Action.VIEW_PLAYLISTS,
+    Action.VIEW_MUSIC_SONGS,
+    Action.VIEW_MUSIC_ALBUMS,
+    Action.VIEW_MUSIC_ARTISTS,
+    Action.VIEW_HISTORY,
+    Action.VIEW_DOWNLOADED_FILES,
+    Action.GENERAL_SETTINGS,
+    Action.REFRESH_COMMON_DATA,
+    Action.COMMON_DATA_STATUS,
+    Action.EXPORT_BACKUP,
+    Action.IMPORT_BACKUP,
+    Action.HELP,
+    Action.KEYBOARD_HELP,
+    Action.UPDATE_MEDIA_COMPONENTS,
     Action.VERSION_INFO,
 })
 
@@ -1001,6 +1072,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1094,6 +1166,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1212,6 +1285,7 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1311,6 +1385,7 @@ _GLOBAL_PREVIEW_ACTIONS = frozenset({
 })
 TIDAL_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 SPOTIFY_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+APPLE_MUSIC_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 WIIM_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 SONOS_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 FRONTIER_SMART_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
@@ -1739,6 +1814,15 @@ GLOBAL_VIEW_SHORTCUTS: dict[str, Action] = {
     "Ctrl+L": Action.VIEW_LIBRARY,
     "Ctrl+Alt+S": Action.VIEW_RADIO_RECOGNITION_HISTORY,
 }
+
+# Wspólne wejścia do typów kolekcji muzycznej. Są rozstrzygane tylko w
+# sesjach, które naprawdę wystawiają wszystkie trzy widoki (dziś Spotify i
+# eksperymentalne Apple Music). Alt+1–3 pozostaje równoległym sortowaniem.
+MUSIC_CATEGORY_SHORTCUTS: dict[str, Action] = {
+    "Ctrl+Alt+1": Action.VIEW_MUSIC_SONGS,
+    "Ctrl+Alt+2": Action.VIEW_MUSIC_ALBUMS,
+    "Ctrl+Alt+3": Action.VIEW_MUSIC_ARTISTS,
+}
 for _table in (LIST_VIEW, PLAYER_VIEW):
     _table.update(GLOBAL_VIEW_SHORTCUTS)
     _table["Ctrl+Shift+H"] = Action.MANAGE_RADIO_SCHEDULES
@@ -1981,6 +2065,7 @@ SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {
 
 
 _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
+    MUSIC_CATEGORY_SHORTCUTS,
     FILES_SESSION_VIEW,
     PODCAST_LIBRARY_LIST_VIEW,
     PODCAST_INBOX_LIST_VIEW,
@@ -2032,6 +2117,7 @@ _PROTECTED_SHORTCUT_ACTIONS = frozenset({
     Action.SESSION_SPOTIFY,
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
+    Action.SESSION_APPLE_MUSIC,
     Action.SESSION_LIST,
     Action.PREVIOUS_SESSION,
     Action.NEXT_SESSION,
@@ -2236,6 +2322,7 @@ def _resolve_default(
     tidal_collection: bool = False,
     spotify_session: bool = False,
     spotify_collection: bool = False,
+    music_collection_session: bool = False,
     wiim_session: bool = False,
     wiim_streams: bool = False,
     frontier_smart_session: bool = False,
@@ -2248,6 +2335,8 @@ def _resolve_default(
     dla kontrolki (natywna nawigacja ma pierwszenstwo)."""
     table = PLAYER_VIEW if player_view else LIST_VIEW
     canonical = chord.canonical
+    if canonical in MUSIC_CATEGORY_SHORTCUTS:
+        return MUSIC_CATEGORY_SHORTCUTS[canonical]
     if spotify_session and canonical in {"Shift+,", "Shift+.", "Ctrl+."}:
         return None
     if canonical in {"Shift+C", "Shift+M"}:
@@ -2478,6 +2567,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_SPOTIFY: "Spotify",
         Action.SESSION_FRONTIER_SMART: "Frontier Smart",
         Action.SESSION_RADIOARCHIWISTA: "Radio Archiwista",
+        Action.SESSION_APPLE_MUSIC: "Apple Music",
         Action.SESSION_LIST: (
             "Menedżer sesji: Enter przełącza, Spacja włącza lub wyłącza, "
             "Alt+strzałka zmienia kolejność"
@@ -2532,6 +2622,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SPOTIFY_VIEW_PLAYLISTS: "Spotify: Playlisty",
         Action.SPOTIFY_VIEW_PODCASTS: "Spotify: Podcasty",
         Action.SPOTIFY_VIEW_EPISODES: "Spotify: Zapisane odcinki",
+        Action.VIEW_MUSIC_SONGS: "Pokaż utwory",
+        Action.VIEW_MUSIC_ALBUMS: "Pokaż albumy",
+        Action.VIEW_MUSIC_ARTISTS: "Pokaż wykonawców",
         Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń nagranie z ulubionych",
         Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
@@ -2856,6 +2949,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     seen: set[Action] = set()
     out: list[tuple[str, str, Action]] = []
     for table in (
+        MUSIC_CATEGORY_SHORTCUTS,
         FILES_SESSION_VIEW,
         PODCAST_LIBRARY_LIST_VIEW,
         PODCAST_INBOX_LIST_VIEW,

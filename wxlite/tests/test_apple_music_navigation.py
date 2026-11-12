@@ -1,0 +1,133 @@
+"""Apple Music Test session stays read-only and keyboard discoverable."""
+
+from __future__ import annotations
+
+from amc_wx_lite.list_model import Row
+from amc_wx_lite.navigation import (
+    Announce,
+    LibraryView,
+    Navigator,
+    OpenAppleMusicPlaylist,
+    OpenAppleMusicView,
+    SessionId,
+)
+from amc_wx_lite.shortcuts import Action, Chord, resolve
+
+
+def _resolve(chord: Chord, *, available: bool) -> Action | None:
+    return resolve(
+        chord,
+        player_view=False,
+        radio_session=False,
+        music_collection_session=available,
+    )
+
+
+def test_root_has_four_intentional_labels_and_no_provider_dump() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+
+    events = navigator.open_apple_music_root()
+    state = navigator.session
+
+    assert state.library_view is LibraryView.APPLE_MUSIC_LIBRARY
+    assert [row.title for row in state.model.rows] == [
+        "Utwory",
+        "Albumy",
+        "Wykonawcy",
+        "Playlisty",
+    ]
+    assert all(row.service_kind == "appleMusicCollection" for row in state.model.rows)
+    assert events == [Announce("Biblioteka Apple Music, 4 pozycje")]
+
+
+def test_enter_opens_category_playlist_and_load_more_without_playing() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+    navigator.open_apple_music_root()
+
+    assert navigator.session.model.select_id("appleMusic-collection:playlists")
+    assert navigator.activate_selected() == [OpenAppleMusicView("playlists")]
+
+    playlist = Row(
+        "appleMusic:library-playlists:private.list",
+        "Moja playlista",
+        "playlist",
+        service_kind="playlist",
+    )
+    load_more = Row("loadMore:apple", "Załaduj więcej", "loadMore")
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("playlists"),
+        "Playlisty Apple Music",
+        [playlist, load_more],
+    )
+    assert navigator.session.model.select_id(playlist.item_id)
+    assert navigator.activate_selected() == [
+        OpenAppleMusicPlaylist(playlist.item_id, "Moja playlista")
+    ]
+
+    track = Row("appleMusic:library-songs:private.song", "Utwór", "track")
+    navigator.apply_apple_music_playlist(
+        OpenAppleMusicPlaylist(playlist.item_id, playlist.title),
+        "Playlista: Moja playlista",
+        [track, load_more],
+    )
+    assert navigator.session.model.select_id(track.item_id)
+    assert navigator.activate_selected() == [Announce(
+        "Odtwarzanie Apple Music będzie dostępne w następnym etapie"
+    )]
+    assert navigator.session.model.select_id(load_more.item_id)
+    assert navigator.activate_selected() == [OpenAppleMusicPlaylist(
+        playlist.item_id,
+        "Moja playlista",
+        load_more=True,
+    )]
+
+
+def test_backspace_restores_playlist_collection_then_root() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+    navigator.open_apple_music_root()
+    playlist = Row(
+        "appleMusic:library-playlists:private.list",
+        "Moja playlista",
+        "playlist",
+        service_kind="playlist",
+    )
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("playlists"),
+        "Playlisty Apple Music",
+        [playlist],
+    )
+    navigator.session.apple_music_return_id = playlist.item_id
+    navigator.apply_apple_music_playlist(
+        OpenAppleMusicPlaylist(playlist.item_id, playlist.title),
+        "Playlista: Moja playlista",
+        [],
+    )
+
+    assert navigator.go_to_parent() == [OpenAppleMusicView(
+        "playlists",
+        preferred_id=playlist.item_id,
+    )]
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("playlists"),
+        "Playlisty Apple Music",
+        [playlist],
+        preferred_id=playlist.item_id,
+    )
+    navigator.go_to_parent()
+    assert navigator.session.library_view is LibraryView.APPLE_MUSIC_LIBRARY
+    assert navigator.session.model.selected_id == "appleMusic-collection:playlists"
+
+
+def test_ctrl_alt_digits_are_shared_globally() -> None:
+    expected = {
+        "1": Action.VIEW_MUSIC_SONGS,
+        "2": Action.VIEW_MUSIC_ALBUMS,
+        "3": Action.VIEW_MUSIC_ARTISTS,
+    }
+    for key, action in expected.items():
+        chord = Chord(key, ctrl=True, alt=True)
+        assert _resolve(chord, available=True) is action
+        assert _resolve(chord, available=False) is action

@@ -28,6 +28,7 @@ from amc_wx_lite.shortcuts import (
     FRONTIER_SMART_SESSION_VIEW,
     RADIOARCHIWISTA_SESSION_VIEW,
     LIST_VIEW,
+    MUSIC_CATEGORY_SHORTCUTS,
     PLAYER_VIEW,
     PODCAST_INBOX_LIST_VIEW,
     PODCAST_LIBRARY_LIST_VIEW,
@@ -161,6 +162,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
     """
     real: dict[str, set[Action]] = {}
     for table in (
+            MUSIC_CATEGORY_SHORTCUTS,
         FILES_SESSION_VIEW,
         FRONTIER_SMART_SESSION_VIEW,
         RADIOARCHIWISTA_SESSION_VIEW,
@@ -264,7 +266,8 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     # Podcastach pełny opis.
     assert set(duplicates) <= {
         "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+Shift+D", "Ctrl+S",
-        "Alt+1", "Alt+2", "Alt+3", "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
+        "Alt+1", "Alt+2", "Alt+3", "Ctrl+Alt+1", "Ctrl+Alt+2", "Ctrl+Alt+3",
+        "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
         "Alt+Up", "Alt+Down", "F2", "Delete", "Right",

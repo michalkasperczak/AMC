@@ -1,6 +1,6 @@
 # AM-001 — nieoficjalne konto i Biblioteka Apple Music
 
-- Status: `W trakcie — żywe logowanie, DPAPI i stronicowany odczyt Biblioteki działają na aktywnej subskrypcji; adapter nie jest jeszcze podłączony do GUI AMC Test; 101/101 testów celowanych po powtórzeniu jednego testu poza piaskownicą`
+- Status: `Kod GUI AMC Test gotowy i przetestowany — żywe logowanie, DPAPI, stronicowany odczyt Biblioteki, cztery kategorie i playlisty są podłączone; odtwarzanie pozostaje w AM-002`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, konto, katalog, Biblioteka, playlisty
 - Punkt wznowienia: podłączyć stronicowany odczyt do nieblokującej sesji GUI AMC Test, a odtwarzanie badać osobno w AM-002
@@ -56,6 +56,11 @@ konta, odnowienia sesji i świeżej weryfikacji przed zapisem.
    podzielonym według profilu i konta oraz przewidywalnym fokusem NVDA.
 3. Dopiero wtedy dodać sesję, menu, paletę i pomoc z jednego modelu poleceń.
    Operacje zapisu pozostają wyłączone, a odtwarzanie należy do AM-002.
+
+**Aktualizacja 12.11.2026 — zastępuje powyższą listę jako bieżący punkt
+wznowienia:** trzy kroki GUI zostały wykonane. Do zakończenia pozostaje
+zbudowanie i odbiór zainstalowanej paczki AMC Test oraz osobny AM-002.
+Zapisy Biblioteki i Ulubionych nadal są celowo wyłączone.
 
 ## Materiał do dokumentacji użytkownika
 

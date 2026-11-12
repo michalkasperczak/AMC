@@ -170,6 +170,11 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
     ),
+    # Etap AM-001 udostępnia wyłącznie listy. Bez silnika odtwarzania nie
+    # pokazujemy żadnej martwej opcji transportu ani dźwięku.
+    SessionId.APPLE_MUSIC: SessionCapabilities(
+        False, False, False, False,
+    ),
 }
 
 
@@ -452,6 +457,7 @@ SESSION_DISPLAY_NAMES: dict[SessionId, str] = {
     SessionId.SPOTIFY: "Spotify",
     SessionId.FRONTIER_SMART: "Frontier Smart",
     SessionId.RADIOARCHIWISTA: "Radio Archiwista",
+    SessionId.APPLE_MUSIC: "Apple Music",
 }
 
 

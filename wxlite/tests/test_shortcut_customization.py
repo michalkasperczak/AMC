@@ -159,7 +159,7 @@ def test_menu_palette_and_full_help_show_the_same_saved_shortcut() -> None:
     help_shortcut = next(
         shortcut
         for shortcut, name in describe(shortcut_overrides=overrides)
-        if name == "Ustawienia programu"
+        if name.startswith("Ustawienia programu")
     )
     assert menu_item.shortcut == "Ctrl+Alt+G"
     assert palette_item.shortcut == "Ctrl+Alt+G"

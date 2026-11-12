@@ -159,4 +159,5 @@ class SearchSources:
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.SPOTIFY: "Spotify",
             SessionId.RADIOARCHIWISTA: "Radio Archiwista",
+            SessionId.APPLE_MUSIC: "Apple Music",
         }[session_id]

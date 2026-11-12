@@ -35,6 +35,7 @@ from .profile_layout import common_data_commands_available
 from .release_profile import PUBLIC_PROFILE_ID, current_profile
 from .shortcuts import (
     Action,
+    APPLE_MUSIC_SUPPORTED_ACTIONS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     RECOGNITION_HISTORY_SESSIONS,
@@ -223,6 +224,7 @@ TIDAL_ONLY = (SessionId.TIDAL,)
 WIIM_ONLY = (SessionId.WIIM,)
 SONOS_ONLY = (SessionId.SONOS,)
 SPOTIFY_ONLY = (SessionId.SPOTIFY,)
+APPLE_MUSIC_ONLY = (SessionId.APPLE_MUSIC,)
 FRONTIER_SMART_ONLY = (SessionId.FRONTIER_SMART,)
 LOCAL_MEDIA = (SessionId.FILES, SessionId.PODCASTS)
 PLAYBACK_RATE_SESSIONS = LOCAL_MEDIA
@@ -274,6 +276,7 @@ def menus_for_session(
         SessionId.SPOTIFY: SPOTIFY_SUPPORTED_ACTIONS,
         SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
         SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+        SessionId.APPLE_MUSIC: APPLE_MUSIC_SUPPORTED_ACTIONS,
     }.get(session_id)
     menus: list[Menu] = []
     for described in build_menus(
@@ -298,6 +301,36 @@ def menus_for_session(
                 if items and not items[-1].is_separator:
                     items.append(entry)
                 continue
+            if entry.action in {
+                Action.VIEW_MUSIC_SONGS,
+                Action.VIEW_MUSIC_ALBUMS,
+                Action.VIEW_MUSIC_ARTISTS,
+            }:
+                # Te trzy polecenia są globalne, lecz każda sesja ma inne
+                # pozycje w Bibliotece. Dobieramy jawne, wolne klawisze
+                # dostępu, nie zmieniając właściwych skrótów Ctrl+Alt+1–3.
+                access_keys = {
+                    SessionId.FILES: "d12",
+                    SessionId.RADIO: "cgj",
+                    SessionId.PODCASTS: "gj2",
+                    SessionId.TIDAL: "cdf",
+                    SessionId.WIIM: "cdf",
+                    SessionId.SONOS: "cdf",
+                    SessionId.SPOTIFY: "gim",
+                    SessionId.FRONTIER_SMART: "abc",
+                    SessionId.RADIOARCHIWISTA: "bcf",
+                    SessionId.APPLE_MUSIC: "cde",
+                }[session_id]
+                index = {
+                    Action.VIEW_MUSIC_SONGS: 0,
+                    Action.VIEW_MUSIC_ALBUMS: 1,
+                    Action.VIEW_MUSIC_ARTISTS: 2,
+                }[entry.action]
+                base = entry.label.split(" (", 1)[0]
+                entry = replace(
+                    entry,
+                    label=f"{base} (&{access_keys[index]})",
+                )
             ctrl_f5 = ctrl_f5_presentation(
                 session_order_model.session_name(session_id)
             )
@@ -312,6 +345,7 @@ def menus_for_session(
                     SessionId.SONOS: "g",
                     SessionId.FRONTIER_SMART: "r",
                     SessionId.RADIOARCHIWISTA: "a",
+                    SessionId.APPLE_MUSIC: "m",
                 }[session_id]
                 key_index = ctrl_f5.name.casefold().find(access_key)
                 label = (
@@ -460,6 +494,7 @@ def build_menus(
                     SessionId.WIIM,
                     SessionId.FRONTIER_SMART,
                     SessionId.RADIOARCHIWISTA,
+                    SessionId.APPLE_MUSIC,
                 ),
             ),
             MenuItem(
@@ -768,25 +803,22 @@ def build_menus(
             MenuItem("&Ulubione", Action.VIEW_FAVORITES, shortcut="Ctrl+U"),
             MenuItem("&Playlisty", Action.VIEW_PLAYLISTS, shortcut="Ctrl+P"),
             MenuItem(
-                "Polubione &utwory Spotify",
-                Action.SPOTIFY_VIEW_LIKED,
-                shortcut="Ctrl+U",
+                "Utwory (&4)",
+                Action.VIEW_MUSIC_SONGS,
+                shortcut="Ctrl+Alt+1",
                 accelerator=False,
-                visible_sessions=SPOTIFY_ONLY,
             ),
             MenuItem(
-                "Albu&my Spotify",
-                Action.SPOTIFY_VIEW_ALBUMS,
-                shortcut="Ctrl+Shift+A",
+                "Albumy (&5)",
+                Action.VIEW_MUSIC_ALBUMS,
+                shortcut="Ctrl+Alt+2",
                 accelerator=False,
-                visible_sessions=SPOTIFY_ONLY,
             ),
             MenuItem(
-                "W&ykonawcy Spotify",
-                Action.SPOTIFY_VIEW_ARTISTS,
-                shortcut="Ctrl+Shift+W",
+                "Wykonawcy (&6)",
+                Action.VIEW_MUSIC_ARTISTS,
+                shortcut="Ctrl+Alt+3",
                 accelerator=False,
-                visible_sessions=SPOTIFY_ONLY,
             ),
             MenuItem(
                 "Playlis&ty Spotify",

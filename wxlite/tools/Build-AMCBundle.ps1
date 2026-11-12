@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)] [string]$PythonRuntime,
     [Parameter(Mandatory)] [string]$OutputDirectory,
     [string]$TidalSitePackages = "",
-    [string]$SonosSitePackages = ""
+    [string]$SonosSitePackages = "",
+    [string]$AppleMusicSitePackages = ""
 )
 
 Set-StrictMode -Version Latest
@@ -49,6 +50,19 @@ if ($Profile -eq "test") {
 }
 elseif (-not [string]::IsNullOrWhiteSpace($SonosSitePackages)) {
     throw "Profil AMC Public nie przyjmuje zależności lokalnego Sonosa."
+}
+$appleMusicSource = ""
+if ($Profile -eq "test") {
+    if ([string]::IsNullOrWhiteSpace($AppleMusicSitePackages)) {
+        throw "Apple Music w AMC Test wymaga -AppleMusicSitePackages z osobnego venv."
+    }
+    $appleMusicSource = [IO.Path]::GetFullPath($AppleMusicSitePackages)
+    if (-not (Test-Path -LiteralPath $appleMusicSource -PathType Container)) {
+        throw "Nie istnieje katalog zależności Apple Music: $appleMusicSource"
+    }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($AppleMusicSitePackages)) {
+    throw "Profil AMC Public nie przyjmuje zależności Apple Music."
 }
 function Invoke-Checked {
     param(
@@ -150,6 +164,7 @@ try {
     }
     if ($Profile -eq "test") {
         $bundleArguments += @("--sonos-site-packages", $sonosSource)
+        $bundleArguments += @("--apple-music-site-packages", $appleMusicSource)
     }
     Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments
 

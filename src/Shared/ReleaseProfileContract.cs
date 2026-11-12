@@ -59,7 +59,7 @@ internal static class ReleaseProfileContract
         "AMC-wx-Lite/cache",
         "AMC-wx-Lite/logs",
         "AccessibleMediaController.Test",
-        ["files", "radio", "podcasts", "tidal", "wiim", "sonos", "spotify", "frontierSmart", "radioarchiwista"],
+        ["files", "radio", "podcasts", "tidal", "wiim", "sonos", "spotify", "frontierSmart", "radioarchiwista", "appleMusic"],
         CommonCapabilities.Concat(
         [
             "session.spotify",
@@ -71,6 +71,7 @@ internal static class ReleaseProfileContract
             "spotify.playlists",
             "youtube.account.readonly",
             "apple-music.experimental",
+            "session.apple-music",
         ]).ToArray(),
         @"Local\AccessibleMultimediaController.PythonLauncher.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Test.SingleInstance",
@@ -81,7 +82,8 @@ internal static class ReleaseProfileContract
 
     private static readonly string[] PublicCapabilities = Test.Capabilities
         .Where(capability => capability is not (
-            "session.sonos" or "sonos.local" or "apple-music.experimental"))
+            "session.sonos" or "sonos.local" or "apple-music.experimental" or
+            "session.apple-music"))
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Public = new(
@@ -96,7 +98,7 @@ internal static class ReleaseProfileContract
         "AMC/cache",
         "AMC/logs",
         "AccessibleMediaController.Public",
-        Test.Sessions.Where(session => session != "sonos").ToArray(),
+        Test.Sessions.Where(session => session is not ("sonos" or "appleMusic")).ToArray(),
         PublicCapabilities,
         @"Local\AccessibleMultimediaController.PythonLauncher.Public.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Public.SingleInstance",

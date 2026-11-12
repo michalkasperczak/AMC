@@ -136,6 +136,25 @@ SONOS_LOCAL_SHARED_METADATA = (
     "ifaddr-0.2.0.dist-info",
 )
 
+# Cały mały, przypięty zestaw klienta Apple Music pochodzi z osobnego venv.
+# Playwright jest potrzebny wyłącznie do jawnego Ctrl+F5, ale ``applemusic``
+# importuje moduł auth przy starcie pakietu, więc jego biblioteka Pythona musi
+# być obecna także podczas zwykłego odczytu zapisanej sesji. Binaria Chromium
+# pozostają osobnym, niepublikowanym artefaktem laboratoryjnym.
+APPLE_MUSIC_TEST_PACKAGES = {
+    "applemusic": ("applemusic", "applemusic-0.0.1.dist-info"),
+    "playwright": ("playwright", "playwright-1.65.0.dist-info"),
+    "greenlet": ("greenlet", "greenlet-3.5.6.dist-info"),
+    "httpx": ("httpx", "httpx-0.28.1.dist-info"),
+    "httpcore": ("httpcore", "httpcore-1.0.9.dist-info"),
+    "h11": ("h11", "h11-0.16.0.dist-info"),
+    "anyio": ("anyio", "anyio-4.16.0.dist-info"),
+    "sniffio": ("sniffio", "sniffio-1.3.1.dist-info"),
+    "certifi": ("certifi", "certifi-2026.10.23.dist-info"),
+    "idna": ("idna", "idna-3.20.dist-info"),
+    "typing-extensions": ("typing_extensions.py", "typing_extensions-4.16.0.dist-info"),
+}
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -712,6 +731,74 @@ def validate_sonos_local_dependencies(
         )
 
 
+def validate_apple_music_dependency_sources(source_site_packages: Path) -> None:
+    if any(
+        not (source_site_packages / name).exists()
+        for pair in APPLE_MUSIC_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit(
+            "Prywatny venv nie zawiera przypiętych zależności Apple Music."
+        )
+
+
+def copy_apple_music_dependencies(
+    target: Path,
+    profile: ReleaseProfile,
+    source_site_packages: Path | None,
+) -> list[str]:
+    """Dołącz klienta biblioteki wyłącznie do pełnej paczki AMC Test."""
+
+    if "session.apple-music" not in profile.capabilities:
+        return []
+    if source_site_packages is None:
+        raise SystemExit(
+            "Apple Music wymaga --apple-music-site-packages z osobnego venv."
+        )
+    validate_apple_music_dependency_sources(source_site_packages)
+    destination = target / "runtime" / "Lib" / "site-packages"
+    copied: list[str] = []
+    for names in APPLE_MUSIC_TEST_PACKAGES.values():
+        present = [bool((destination / name).exists()) for name in names]
+        if all(present):
+            continue
+        if any(present):
+            raise SystemExit(
+                "Runtime AMC zawiera niepełny składnik Apple Music; "
+                "wykonaj czyste złożenie."
+            )
+        for name in names:
+            source = source_site_packages / name
+            output = destination / name
+            if source.is_dir():
+                shutil.copytree(source, output)
+                copied.extend(
+                    path.relative_to(target).as_posix()
+                    for path in sorted(output.rglob("*")) if path.is_file()
+                )
+            else:
+                shutil.copy2(source, output)
+                copied.append(output.relative_to(target).as_posix())
+    return copied
+
+
+def validate_apple_music_dependencies(
+    target: Path, profile: ReleaseProfile,
+) -> None:
+    """Odrzuć odświeżenie kodu, gdy runtime nie uruchomi sesji Apple Music."""
+
+    if "session.apple-music" not in profile.capabilities:
+        return
+    root = target / "runtime" / "Lib" / "site-packages"
+    if any(
+        not (root / name).exists()
+        for pair in APPLE_MUSIC_TEST_PACKAGES.values() for name in pair
+    ):
+        raise SystemExit(
+            "Istniejąca paczka AMC nie zawiera zależności Apple Music; "
+            "wykonaj pełny build."
+        )
+
+
 def copy_updater(target: Path, updater_dir: Path) -> list[str]:
     executable = updater_dir / "AMC-Python-Updater.exe"
     if not executable.is_file():
@@ -763,6 +850,21 @@ def is_sonos_local_dependency(relative: str) -> bool:
     return top_level in allowed
 
 
+def is_apple_music_dependency(relative: str) -> bool:
+    """Rozpoznaj unikalne składniki nieoficjalnego klienta Apple Music."""
+
+    normalized = relative.replace("\\", "/").casefold()
+    prefix = "runtime/lib/site-packages/"
+    if not normalized.startswith(prefix):
+        return False
+    top_level = normalized[len(prefix):].split("/", 1)[0]
+    return (
+        top_level in {"applemusic", "playwright"}
+        or top_level.startswith("applemusic-")
+        or top_level.startswith("playwright-")
+    )
+
+
 def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
     """Odmow niejawnego pozostawienia prywatnej zaleznosci w publicznej paczce."""
 
@@ -798,6 +900,10 @@ def validate_profile_files(profile: ReleaseProfile, files: list[str]) -> None:
                 "apple-music.experimental" not in profile.capabilities
                 and Path(relative).name.casefold()
                 == "requirements-apple-music-test.txt"
+            )
+            or (
+                "session.apple-music" not in profile.capabilities
+                and is_apple_music_dependency(relative)
             )
         )
     ]
@@ -913,6 +1019,15 @@ def main() -> int:
         default=None,
         help="site-packages przypiętego, osobnego venv SoCo tylko dla AMC Test",
     )
+    parser.add_argument(
+        "--apple-music-site-packages",
+        type=Path,
+        default=None,
+        help=(
+            "site-packages przypiętego, osobnego venv Apple Music "
+            "tylko dla AMC Test"
+        ),
+    )
     parser.add_argument("--clean", action="store_true", help="wyczysc folder docelowy")
     parser.add_argument(
         "--refresh-python-only",
@@ -940,6 +1055,7 @@ def main() -> int:
         profile = profile_from_id(existing_profile_id)
         validate_tidal_test_dependencies(target, profile)
         validate_sonos_local_dependencies(target, profile)
+        validate_apple_music_dependencies(target, profile)
         manifest.update(profile.manifest_fields())
         files = list(manifest.get("files") or [])
         files += copy_python_code(target, profile)
@@ -1010,6 +1126,14 @@ def main() -> int:
         raise SystemExit(
             "Runtime bez lokalnego Sonosa nie może zawierać składników SoCo."
         )
+    if "session.apple-music" in profile.capabilities:
+        if args.apple_music_site_packages is None:
+            raise SystemExit(
+                "Apple Music wymaga --apple-music-site-packages z osobnego venv."
+            )
+        validate_apple_music_dependency_sources(
+            args.apple_music_site_packages
+        )
 
     if args.clean and target.exists():
         shutil.rmtree(target)
@@ -1032,6 +1156,9 @@ def main() -> int:
     )
     manifest["files"] += copy_sonos_local_dependencies(
         target, profile, args.sonos_site_packages
+    )
+    manifest["files"] += copy_apple_music_dependencies(
+        target, profile, args.apple_music_site_packages
     )
     manifest["runtime"] = "embedded"
 

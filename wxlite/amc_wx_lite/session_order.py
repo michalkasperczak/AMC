@@ -37,6 +37,7 @@ SESSION_ACTIONS: dict[SessionId, Action] = {
     SessionId.SPOTIFY: Action.SESSION_SPOTIFY,
     SessionId.FRONTIER_SMART: Action.SESSION_FRONTIER_SMART,
     SessionId.RADIOARCHIWISTA: Action.SESSION_RADIOARCHIWISTA,
+    SessionId.APPLE_MUSIC: Action.SESSION_APPLE_MUSIC,
 }
 
 SESSION_NAMES: dict[SessionId, str] = {
@@ -49,6 +50,7 @@ SESSION_NAMES: dict[SessionId, str] = {
     SessionId.SPOTIFY: "Spotify",
     SessionId.FRONTIER_SMART: "Frontier Smart",
     SessionId.RADIOARCHIWISTA: "Radio Archiwista",
+    SessionId.APPLE_MUSIC: "Apple Music",
 }
 
 SESSION_MENU_LABELS: dict[SessionId, str] = {
@@ -61,6 +63,7 @@ SESSION_MENU_LABELS: dict[SessionId, str] = {
     SessionId.SPOTIFY: "Sesja: Spoti&fy",
     SessionId.FRONTIER_SMART: "Sesja: Frontier S&mart",
     SessionId.RADIOARCHIWISTA: "Sesja: Radio &Archiwista",
+    SessionId.APPLE_MUSIC: "Sesja: Apple &Music",
 }
 
 

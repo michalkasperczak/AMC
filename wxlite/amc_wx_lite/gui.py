@@ -196,6 +196,8 @@ from .navigation import (
     OpenRadioarchiwistaLevel,
     OpenRadioarchiwistaStations,
     OpenQueueView,
+    OpenAppleMusicPlaylist,
+    OpenAppleMusicView,
     OpenSpotifyCollectionView,
     OpenSpotifyContainer,
     OpenSpotifyView,
@@ -224,11 +226,13 @@ from .navigation import (
 )
 from .shortcuts import (
     Action,
+    APPLE_MUSIC_SUPPORTED_ACTIONS,
     Chord,
     DOWNLOAD_HISTORY_COPY_LABELS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
+    MUSIC_CATEGORY_SHORTCUTS,
     PRESET_SHORTCUTS,
     ASSIGN_PRESET_SHORTCUTS,
     assign_preset_slot,
@@ -273,6 +277,17 @@ if "session.radioarchiwista" in _RELEASE_PROFILE.capabilities:
     from . import radioarchiwista_source as _radioarchiwista_module
 else:
     _radioarchiwista_module = None
+if "session.apple-music" in _RELEASE_PROFILE.capabilities:
+    from .apple_music_account import (
+        AppleMusicAccountError,
+        connect_account as connect_apple_music_account,
+        stored_account_status as apple_music_account_status,
+    )
+    from .apple_music_library import (
+        AppleMusicLibraryError,
+        open_apple_music_library,
+    )
+    from .apple_music_source import AppleMusicRecord
 from .wiim_source import (
     WiiMOptionChoice,
     WiiMPresetChoice,
@@ -10625,12 +10640,17 @@ class LiteFrame(wx.Frame):
         # opuszczeniem sesji nie moze po powrocie podmienic nowszej listy.
         self._tidal_navigation_version = 0
         self._spotify_navigation_version = 0
+        self._apple_music_navigation_version = 0
         # Osobny licznik decyzji odtwarzania z presetów. Zwykłe Enter,
         # następny/poprzedni albo nowszy preset unieważniają czekające
         # pobranie albumu, ale nie zmieniają historii widoków Spotify.
         self._spotify_preset_playback_version = 0
         self._podcast_loaded_counts: dict[str, int] = {}
         self._spotify_loaded_counts: dict[str, int] = {}
+        # Obiekty dostawcy pozostają poza Row i kontrolką. Kluczem jest
+        # wyłącznie bezpieczne item_id, a kursory nigdy nie są wypowiadane.
+        self._apple_music_records: dict[str, AppleMusicRecord] = {}
+        self._apple_music_pages: dict[str, tuple[list[AppleMusicRecord], object]] = {}
         # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
         # pierwszego odczytu widoku trzymamy bezpieczny domysl; wynik strony
         # niesie potem faktycznie uzyty tryb i aktualizuje zaznaczenie menu.
@@ -10882,6 +10902,12 @@ class LiteFrame(wx.Frame):
             "Spotify",
             self.navigator.sessions[SessionId.SPOTIFY],
         )
+        self.apple_music_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.APPLE_MUSIC].model,
+            "Apple Music",
+            self.navigator.sessions[SessionId.APPLE_MUSIC],
+        )
         self.wiim_list = MediaListCtrl(
             self.list_panel,
             self.navigator.sessions[SessionId.WIIM].model,
@@ -10910,6 +10936,7 @@ class LiteFrame(wx.Frame):
         self.podcasts_list.Hide()
         self.tidal_list.Hide()
         self.spotify_list.Hide()
+        self.apple_music_list.Hide()
         self.wiim_list.Hide()
         self.frontier_smart_list.Hide()
         self.radioarchiwista_list.Hide()
@@ -10922,6 +10949,7 @@ class LiteFrame(wx.Frame):
         list_sizer.Add(self.podcasts_list, 1, wx.EXPAND)
         list_sizer.Add(self.tidal_list, 1, wx.EXPAND)
         list_sizer.Add(self.spotify_list, 1, wx.EXPAND)
+        list_sizer.Add(self.apple_music_list, 1, wx.EXPAND)
         list_sizer.Add(self.wiim_list, 1, wx.EXPAND)
         list_sizer.Add(self.frontier_smart_list, 1, wx.EXPAND)
         list_sizer.Add(self.radioarchiwista_list, 1, wx.EXPAND)
@@ -12153,6 +12181,7 @@ class LiteFrame(wx.Frame):
             self.podcasts_list,
             self.tidal_list,
             self.spotify_list,
+            self.apple_music_list,
             self.wiim_list,
             self.frontier_smart_list,
             self.radioarchiwista_list,
@@ -12220,7 +12249,7 @@ class LiteFrame(wx.Frame):
             "Ctrl+,",
             "F5",
             "Ctrl+F5",
-        } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
+        } | set(GLOBAL_VIEW_SHORTCUTS) | set(MUSIC_CATEGORY_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
             # Ctrl+C musi zostac zatrzymane PRZED natywnym SysListView32,
             # zeby gest wykonal tylko polecenie AMC. Sam zapis do schowka jest
             # odroczony w ``_copy_name`` za okno kontroli dodatku NVDA, więc
@@ -13900,6 +13929,8 @@ class LiteFrame(wx.Frame):
                 getattr(self, "radio_list", None),
                 getattr(self, "podcasts_list", None),
                 getattr(self, "tidal_list", None),
+                getattr(self, "spotify_list", None),
+                getattr(self, "apple_music_list", None),
             )
             if candidate is not None
         ):
@@ -15220,6 +15251,10 @@ class LiteFrame(wx.Frame):
 
     _VIEW_KEYS = {
         LibraryView.ALL_FILES: "all_files",
+        LibraryView.LOCAL_ALBUMS: "local_albums",
+        LibraryView.LOCAL_ALBUM_CONTENTS: "local_album_contents",
+        LibraryView.LOCAL_ARTISTS: "local_artists",
+        LibraryView.LOCAL_ARTIST_ALBUMS: "local_artist_albums",
         LibraryView.FAVORITES: "favorites",
         LibraryView.PLAYLISTS: "playlists",
         LibraryView.PLAYLIST_CONTENTS: "playlist_contents",
@@ -15227,6 +15262,10 @@ class LiteFrame(wx.Frame):
         LibraryView.SAVED_QUEUE: "saved_queue",
         LibraryView.ITEM_BOOKMARKS: "item_bookmarks",
         LibraryView.ALL_BOOKMARKS: "all_bookmarks",
+        # Apple Music ładuje dane własnym adapterem, ale nadal ma jawne,
+        # stabilne klucze widoków dla wspólnego kontraktu nawigacji.
+        LibraryView.APPLE_MUSIC_LIBRARY: "apple_music_library",
+        LibraryView.APPLE_MUSIC_CONTAINER: "apple_music_container",
     }
 
     def _open_radio_view(
@@ -15609,6 +15648,177 @@ class LiteFrame(wx.Frame):
         )
         self._relation_destination_window = window
         window.show_for_keyboard()
+
+    # --------------------------------------------------------- Apple Music
+
+    def _open_apple_music_view(self, intent: OpenAppleMusicView) -> None:
+        """Read one bounded, sanitized page of the Apple Music library."""
+
+        if "session.apple-music" not in _RELEASE_PROFILE.capabilities:
+            self.announcer.say("Apple Music nie jest dostępne w tym wydaniu")
+            return
+        self._apple_music_navigation_version += 1
+        version = self._apple_music_navigation_version
+        scope = intent.view
+        previous_records, cursor = self._apple_music_pages.get(
+            scope, ([], None)
+        )
+        if not intent.load_more:
+            previous_records, cursor = [], None
+        elif cursor is None:
+            self.announcer.say("Wczytano już całą tę listę Apple Music")
+            return
+
+        def work():
+            with open_apple_music_library(self.layout) as library:
+                return library.view_page(intent.view, cursor=cursor)
+
+        def done(result) -> None:
+            if (
+                version != self._apple_music_navigation_version
+                or self.navigator.active is not SessionId.APPLE_MUSIC
+            ):
+                return
+            records = [*previous_records, *result.records]
+            self._apple_music_pages[scope] = (records, result.next_cursor)
+            self._apple_music_records.update(
+                (record.row.item_id, record) for record in records
+            )
+            rows = [record.row for record in records]
+            preferred_id = intent.preferred_id
+            if intent.load_more and len(records) > len(previous_records):
+                preferred_id = records[len(previous_records)].row.item_id
+            if result.next_cursor is not None:
+                rows.append(load_more_row(
+                    f"appleMusic:{scope}",
+                    len(records),
+                ))
+            self._run(self.navigator.apply_apple_music_view(
+                intent,
+                result.heading,
+                rows,
+                preferred_id=preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            if (
+                version == self._apple_music_navigation_version
+                and self.navigator.active is SessionId.APPLE_MUSIC
+            ):
+                self.announcer.say(
+                    str(error)
+                    if isinstance(error, AppleMusicLibraryError)
+                    else "Nie udało się odczytać Biblioteki Apple Music."
+                )
+
+        self.runner.submit("apple-music-library", work, done, failed)
+
+    def _open_apple_music_playlist(
+        self, intent: OpenAppleMusicPlaylist
+    ) -> None:
+        """Read playlist tracks using the private record kept outside Row."""
+
+        playlist = self._apple_music_records.get(intent.item_id)
+        if playlist is None or playlist.row.kind != "playlist":
+            self.announcer.say("Nie można otworzyć tej playlisty Apple Music")
+            return
+        self._apple_music_navigation_version += 1
+        version = self._apple_music_navigation_version
+        scope = "playlist:" + intent.item_id
+        previous_records, cursor = self._apple_music_pages.get(
+            scope, ([], None)
+        )
+        if not intent.load_more:
+            previous_records, cursor = [], None
+        elif cursor is None:
+            self.announcer.say("Wczytano już całą tę playlistę Apple Music")
+            return
+
+        def work():
+            with open_apple_music_library(self.layout) as library:
+                return library.playlist_tracks_page(playlist, cursor=cursor)
+
+        def done(result) -> None:
+            if (
+                version != self._apple_music_navigation_version
+                or self.navigator.active is not SessionId.APPLE_MUSIC
+            ):
+                return
+            records = [*previous_records, *result.records]
+            self._apple_music_pages[scope] = (records, result.next_cursor)
+            self._apple_music_records.update(
+                (record.row.item_id, record) for record in records
+            )
+            rows = [record.row for record in records]
+            preferred_id = intent.preferred_id
+            if intent.load_more and len(records) > len(previous_records):
+                preferred_id = records[len(previous_records)].row.item_id
+            if result.next_cursor is not None:
+                rows.append(load_more_row(
+                    f"appleMusic:{scope}",
+                    len(records),
+                ))
+            self._run(self.navigator.apply_apple_music_playlist(
+                intent,
+                result.heading,
+                rows,
+                preferred_id=preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            if (
+                version == self._apple_music_navigation_version
+                and self.navigator.active is SessionId.APPLE_MUSIC
+            ):
+                self.announcer.say(
+                    str(error)
+                    if isinstance(error, AppleMusicLibraryError)
+                    else "Nie udało się odczytać playlisty Apple Music."
+                )
+
+        self.runner.submit("apple-music-playlist", work, done, failed)
+
+    def _show_apple_music_account(self) -> None:
+        """Expose login only after an explicit Ctrl+F5/menu action."""
+
+        try:
+            status = apple_music_account_status(self.layout)
+        except AppleMusicAccountError as error:
+            self.announcer.say(str(error))
+            return
+        prompt = (
+            status.message
+            + "\n\nCzy rozpocząć logowanie do Apple Music w widocznej przeglądarce?"
+        )
+        if wx.MessageBox(
+            prompt,
+            "Konto Apple Music",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+            self,
+        ) != wx.YES:
+            self._restore_focus_after_dialog()
+            self.announcer.say(status.message)
+            return
+        self._restore_focus_after_dialog()
+        self.announcer.say("Rozpoczynam logowanie do Apple Music")
+
+        def done(result) -> None:
+            self._apple_music_pages.clear()
+            self._apple_music_records.clear()
+            self.announcer.say(result.message)
+            if self.navigator.active is SessionId.APPLE_MUSIC:
+                self._run(self.navigator.open_apple_music_root())
+
+        self.runner.submit(
+            "apple-music-account",
+            lambda: connect_apple_music_account(self.layout),
+            done,
+            lambda error: self.announcer.say(
+                str(error)
+                if isinstance(error, AppleMusicAccountError)
+                else "Nie udało się połączyć konta Apple Music."
+            ),
+        )
 
     # ------------------------------------------------------------- Spotify
 
@@ -16336,7 +16546,7 @@ class LiteFrame(wx.Frame):
                 "Alt+Shift+R",
                 "Alt+Up",
                 "Alt+Down",
-            } | set(GLOBAL_VIEW_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
+            } | set(GLOBAL_VIEW_SHORTCUTS) | set(MUSIC_CATEGORY_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
                 self._on_key(event)
                 return
             event.Skip()
@@ -16534,6 +16744,10 @@ class LiteFrame(wx.Frame):
             tidal_collection=tidal_collection,
             spotify_session=self.navigator.active is SessionId.SPOTIFY,
             spotify_collection=spotify_collection,
+            music_collection_session=(
+                self.navigator.active
+                in (SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
+            ),
             wiim_session=self.navigator.active is SessionId.WIIM,
             wiim_streams=(
                 not player
@@ -16666,6 +16880,12 @@ class LiteFrame(wx.Frame):
                     i18n.tr("rarch.command.unavailable")
                 )
                 return
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            if action not in APPLE_MUSIC_SUPPORTED_ACTIONS:
+                self.announcer.say(
+                    "Ta funkcja nie jest jeszcze dostępna w sesji Apple Music"
+                )
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -16693,6 +16913,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_RADIOARCHIWISTA:
             self._transient_preview_return = None
             self._switch_session(SessionId.RADIOARCHIWISTA)
+        elif action is Action.SESSION_APPLE_MUSIC:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.APPLE_MUSIC)
         elif action is Action.SESSION_LIST:
             self._show_session_list()
         elif action is Action.SESSION_ENABLE:
@@ -17018,6 +17241,41 @@ class LiteFrame(wx.Frame):
                 view,
                 title,
             ))
+        elif action in {
+            Action.VIEW_MUSIC_SONGS,
+            Action.VIEW_MUSIC_ALBUMS,
+            Action.VIEW_MUSIC_ARTISTS,
+        }:
+            view = {
+                Action.VIEW_MUSIC_SONGS: "songs",
+                Action.VIEW_MUSIC_ALBUMS: "albums",
+                Action.VIEW_MUSIC_ARTISTS: "artists",
+            }[action]
+            if self.navigator.active is SessionId.SPOTIFY:
+                spotify_view = "liked" if view == "songs" else view
+                title = {
+                    "liked": "Polubione utwory",
+                    "albums": "Albumy",
+                    "artists": "Wykonawcy",
+                }[spotify_view]
+                self._open_spotify_collection_view(OpenSpotifyCollectionView(
+                    f"spotify-collection:{spotify_view}",
+                    spotify_view,
+                    title,
+                ))
+            elif self.navigator.active is SessionId.APPLE_MUSIC:
+                self._open_apple_music_view(OpenAppleMusicView(view))
+            elif self.navigator.active is SessionId.FILES:
+                local_view = {
+                    "songs": LibraryView.ALL_FILES,
+                    "albums": LibraryView.LOCAL_ALBUMS,
+                    "artists": LibraryView.LOCAL_ARTISTS,
+                }[view]
+                self._open_library_view(OpenLibraryView(local_view))
+            else:
+                self.announcer.say(
+                    "Ten typ kolekcji nie jest dostępny w bieżącej sesji"
+                )
         elif action is Action.COPY_NAME:
             self._copy_name()
         elif action is Action.COPY_ADDRESS:
@@ -17212,6 +17470,8 @@ class LiteFrame(wx.Frame):
                     LibraryView.SONOS_PLAYLISTS,
                     household_id=self._sonos_content_household_id(),
                 ))
+            elif self.navigator.active is SessionId.APPLE_MUSIC:
+                self._open_apple_music_view(OpenAppleMusicView("playlists"))
             else:
                 self._run(self.navigator.open_library_view(LibraryView.PLAYLISTS))
         elif action is Action.VIEW_FOLDERS:
@@ -17237,6 +17497,12 @@ class LiteFrame(wx.Frame):
                     preferred_id=self.navigator.sessions[
                         SessionId.SPOTIFY
                     ].library_return_id,
+                ))
+            elif self.navigator.active is SessionId.APPLE_MUSIC:
+                self._run(self.navigator.open_apple_music_root(
+                    preferred_id=self.navigator.sessions[
+                        SessionId.APPLE_MUSIC
+                    ].apple_music_return_id,
                 ))
             else:
                 self._return_to_library()
@@ -18023,6 +18289,10 @@ class LiteFrame(wx.Frame):
                 self._open_podcast_aggregate(intent)
             elif isinstance(intent, OpenPodcastPlaylistView):
                 self._open_podcast_playlist_view(intent)
+            elif isinstance(intent, OpenAppleMusicView):
+                self._open_apple_music_view(intent)
+            elif isinstance(intent, OpenAppleMusicPlaylist):
+                self._open_apple_music_playlist(intent)
             elif isinstance(intent, OpenSpotifyView):
                 self._open_spotify_view(intent)
             elif isinstance(intent, OpenSpotifyCollectionView):
@@ -18160,6 +18430,7 @@ class LiteFrame(wx.Frame):
             SessionId.SONOS: "Sonos",
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.RADIOARCHIWISTA: "Radio Archiwista",
+            SessionId.APPLE_MUSIC: "Apple Music",
         }[self.navigator.active]))
 
         active_list = self._active_list()
@@ -18173,6 +18444,10 @@ class LiteFrame(wx.Frame):
         # lecz NVDA nigdy go nie zobaczy; pozycję i licznik czyta natywna lista.
         view_label = {
             LibraryView.ALL_FILES: "Wszystkie pliki",
+            LibraryView.LOCAL_ALBUMS: "Albumy",
+            LibraryView.LOCAL_ALBUM_CONTENTS: "Album",
+            LibraryView.LOCAL_ARTISTS: "Wykonawcy",
+            LibraryView.LOCAL_ARTIST_ALBUMS: "Albumy wykonawcy",
             LibraryView.FAVORITES: "Ulubione",
             LibraryView.PLAYLISTS: "Playlisty",
             LibraryView.PLAYLIST_CONTENTS: "Playlista",
@@ -18192,6 +18467,8 @@ class LiteFrame(wx.Frame):
             LibraryView.SPOTIFY_CONTAINER: session.spotify_heading,
             LibraryView.SPOTIFY_HISTORY: "Spotify — Historia odtwarzania",
             LibraryView.SPOTIFY_QUEUE: "Kolejka Spotify",
+            LibraryView.APPLE_MUSIC_LIBRARY: "Biblioteka Apple Music",
+            LibraryView.APPLE_MUSIC_CONTAINER: session.apple_music_heading,
             LibraryView.YOUTUBE_BROADCASTS: "Transmisje YouTube na żywo i zaplanowane",
             LibraryView.YOUTUBE_BROADCASTS_AGGREGATE: (
                 "Transmisje wybranych kanałów YouTube"
@@ -18214,6 +18491,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "podcasts_list", None),
                 getattr(self, "tidal_list", None),
                 getattr(self, "spotify_list", None),
+                getattr(self, "apple_music_list", None),
                 getattr(self, "wiim_list", None),
                 getattr(self, "sonos_list", None),
                 getattr(self, "frontier_smart_list", None),
@@ -18393,6 +18671,8 @@ class LiteFrame(wx.Frame):
             return self.podcasts_list
         if self.navigator.active is SessionId.SPOTIFY:
             return self.spotify_list
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            return self.apple_music_list
         if self.navigator.active is SessionId.WIIM:
             return self.wiim_list
         if self.navigator.active is SessionId.SONOS:
@@ -20539,6 +20819,11 @@ class LiteFrame(wx.Frame):
             and session_id is not SessionId.SPOTIFY
         ):
             self._spotify_navigation_version += 1
+        if (
+            self.navigator.active is SessionId.APPLE_MUSIC
+            and session_id is not SessionId.APPLE_MUSIC
+        ):
+            self._apple_music_navigation_version += 1
         self._run(self.navigator.switch_session(session_id))
         rate_choice = getattr(self, "rate_choice", None)
         if rate_choice is not None:
@@ -20560,6 +20845,12 @@ class LiteFrame(wx.Frame):
             state = self.navigator.sessions[SessionId.SPOTIFY]
             if initialize_if_empty and not state.model.rows:
                 self._open_spotify_view(OpenSpotifyView(
+                    preferred_id=state.list_anchor_id,
+                ))
+        elif session_id is SessionId.APPLE_MUSIC:
+            state = self.navigator.sessions[SessionId.APPLE_MUSIC]
+            if initialize_if_empty and not state.model.rows:
+                self._run(self.navigator.open_apple_music_root(
                     preferred_id=state.list_anchor_id,
                 ))
         elif session_id is SessionId.WIIM:
@@ -20620,7 +20911,18 @@ class LiteFrame(wx.Frame):
                 else "Wymaga zalogowania"
             ),
             SessionId.TIDAL: "Wymaga zalogowania",
+            SessionId.APPLE_MUSIC: "Wymaga zalogowania",
         }
+        if "session.apple-music" in _RELEASE_PROFILE.capabilities:
+            try:
+                apple_status = apple_music_account_status(self.layout)
+            except AppleMusicAccountError:
+                pass
+            else:
+                if apple_status.stored_session:
+                    ready[SessionId.APPLE_MUSIC] = (
+                        "Połączona, Biblioteka tylko do odczytu"
+                    )
         try:
             cached = self.tidal.load_view(TIDAL_VIEW_LIBRARY)
         except (OSError, ValueError, TidalProfileError):
@@ -21508,6 +21810,9 @@ class LiteFrame(wx.Frame):
             return
         if session_id is SessionId.RADIOARCHIWISTA:
             wx.CallAfter(self._show_radioarchiwista_catalog_settings)
+            return
+        if session_id is SessionId.APPLE_MUSIC:
+            wx.CallAfter(self._show_apple_music_account)
             return
         if session_id is SessionId.SONOS:
             self._select_sonos_target()
@@ -37073,6 +37378,10 @@ class LiteFrame(wx.Frame):
                     OpenSpotifyCollectionView,
                 )
             ),
+            music_collection_session=(
+                self.navigator.active
+                in (SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
+            ),
             wiim_session=self.navigator.active is SessionId.WIIM,
             wiim_streams=(
                 not player
@@ -37186,6 +37495,7 @@ class LiteFrame(wx.Frame):
             SessionId.SONOS: SONOS_SUPPORTED_ACTIONS,
             SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
             SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
+            SessionId.APPLE_MUSIC: APPLE_MUSIC_SUPPORTED_ACTIONS,
         }.get(self.navigator.active)
         return supported is None or action in supported
 

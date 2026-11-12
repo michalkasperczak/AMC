@@ -12,6 +12,9 @@ wlasne zapytania na gotowym ``LibraryDatabase``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
+from pathlib import Path
+import re
 from typing import Sequence
 
 from .collation import COLLATION_ORDINAL_IGNORE_CASE, COLLATION_TITLE_IGNORE_CASE
@@ -204,6 +207,188 @@ def all_files_rows(
         rows=[_track_row(i) for i in ordered],
         heading=heading,
         order_matches_amc=True,
+        sees_live_writes=db.sees_live_writes,
+    )
+
+
+# ------------------------------------------------------- lokalna muzyka
+
+@dataclass(frozen=True, slots=True)
+class LocalAlbumGroup:
+    """Album wywnioskowany z folderu tak samo jak w pełnym AMC.
+
+    Ścieżka jest prywatnym celem modelu. Etykieta listy zawiera wyłącznie
+    nazwę albumu, wykonawcę, liczbę utworów i czas.
+    """
+
+    target: str
+    row_id: str
+    title: str
+    artist: str
+    tracks: tuple[LibraryItem, ...]
+    duration_ticks: int
+
+
+_TRACK_NUMBER = re.compile(r"^\s*(\d{1,2})(?=$|[ ._)\-])")
+
+
+def _track_number(path: str) -> int | None:
+    match = _TRACK_NUMBER.match(Path(path).stem)
+    if match is None:
+        return None
+    number = int(match.group(1))
+    return number if 1 <= number <= 99 else None
+
+
+def _path_key(path: str) -> str:
+    return str(Path(path).resolve(strict=False)).rstrip("\\/").casefold()
+
+
+def _album_id(folder: str) -> str:
+    digest = hashlib.sha256(_path_key(folder).encode("utf-8")).hexdigest()[:20]
+    return f"local-album:{digest}"
+
+
+def _format_track_count(count: int) -> str:
+    if count == 1:
+        return "1 utwór"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return f"{count} utwory"
+    return f"{count} utworów"
+
+
+def _local_albums(db: LibraryDatabase) -> list[LocalAlbumGroup]:
+    roots = tuple(_path_key(source.path) for source in db.folder_sources())
+    grouped: dict[str, list[LibraryItem]] = {}
+    original_folders: dict[str, str] = {}
+    for item in active_items(db):
+        if not item.path or not Path(item.path).is_absolute():
+            continue
+        folder = str(Path(item.path).parent)
+        key = _path_key(folder)
+        grouped.setdefault(key, []).append(item)
+        original_folders.setdefault(key, folder)
+
+    albums: list[LocalAlbumGroup] = []
+    for key, tracks in grouped.items():
+        numbered = [number for item in tracks if (number := _track_number(item.path))]
+        if len(tracks) < 2 or len(set(numbered)) < 2 or len(numbered) * 2 < len(tracks):
+            continue
+        folder = original_folders[key]
+        title = Path(folder).name.strip()
+        if not title:
+            continue
+        ordered = tuple(sorted(
+            tracks,
+            key=lambda item: (
+                0 if _track_number(item.path) is not None else 1,
+                _track_number(item.path) or 0,
+                Path(item.path).name.casefold(),
+            ),
+        ))
+        matching_roots = [root for root in roots if key == root or key.startswith(root + "\\")]
+        root = max(matching_roots, key=len, default="")
+        parent = Path(folder).parent
+        parent_key = _path_key(str(parent))
+        artist = ""
+        if root and key != root and parent_key != root:
+            artist = parent.name.strip()
+        duration = (
+            sum(item.duration_ticks for item in ordered)
+            if all(item.duration_ticks > 0 for item in ordered)
+            else 0
+        )
+        albums.append(LocalAlbumGroup(
+            target=folder,
+            row_id=_album_id(folder),
+            title=title,
+            artist=artist,
+            tracks=ordered,
+            duration_ticks=duration,
+        ))
+    return sorted(
+        albums,
+        key=lambda album: (
+            album.title.casefold(), album.artist.casefold(), _path_key(album.target)
+        ),
+    )
+
+
+def _album_row(album: LocalAlbumGroup) -> Row:
+    details = ["album"]
+    if album.artist:
+        details.append(album.artist)
+    details.append(_format_track_count(len(album.tracks)))
+    return Row(
+        item_id=album.row_id,
+        title=album.title,
+        kind="album",
+        detail=", ".join(details),
+        duration_ticks=album.duration_ticks,
+        service_id=album.target,
+        service_kind="localAlbum",
+        artist_name=album.artist,
+    )
+
+
+def local_album_rows(db: LibraryDatabase) -> LibraryViewResult:
+    return LibraryViewResult(
+        rows=[_album_row(album) for album in _local_albums(db)],
+        heading="Biblioteka — Albumy",
+        sees_live_writes=db.sees_live_writes,
+    )
+
+
+def local_album_track_rows(db: LibraryDatabase, target: str) -> LibraryViewResult:
+    wanted = _path_key(target)
+    album = next((item for item in _local_albums(db) if _path_key(item.target) == wanted), None)
+    if album is None:
+        return LibraryViewResult(
+            rows=[], heading="Album jest niedostępny", sees_live_writes=db.sees_live_writes
+        )
+    return LibraryViewResult(
+        rows=[_track_row(item) for item in album.tracks],
+        heading=f"Album — {album.title}",
+        sees_live_writes=db.sees_live_writes,
+    )
+
+
+def local_artist_rows(db: LibraryDatabase) -> LibraryViewResult:
+    grouped: dict[str, list[LocalAlbumGroup]] = {}
+    labels: dict[str, str] = {}
+    for album in _local_albums(db):
+        if not album.artist:
+            continue
+        key = album.artist.casefold()
+        grouped.setdefault(key, []).append(album)
+        labels.setdefault(key, album.artist)
+    rows = [
+        Row(
+            item_id=f"local-artist:{hashlib.sha256(key.encode('utf-8')).hexdigest()[:20]}",
+            title=labels[key],
+            kind="artist",
+            detail=f"wykonawca, {len(grouped[key])} "
+                   + ("album" if len(grouped[key]) == 1 else "albumy"),
+            service_id=labels[key],
+            service_kind="localArtist",
+        )
+        for key in sorted(grouped, key=lambda value: labels[value].casefold())
+    ]
+    return LibraryViewResult(
+        rows=rows,
+        heading="Biblioteka — Wykonawcy",
+        sees_live_writes=db.sees_live_writes,
+    )
+
+
+def local_artist_album_rows(db: LibraryDatabase, artist: str) -> LibraryViewResult:
+    rows = [
+        _album_row(album) for album in _local_albums(db)
+        if album.artist.casefold() == artist.casefold()
+    ]
+    return LibraryViewResult(
+        rows=rows,
+        heading=f"Albumy wykonawcy — {artist}",
         sees_live_writes=db.sees_live_writes,
     )
 

@@ -99,6 +99,7 @@ TEST_PROFILE = ReleaseProfile(
         "spotify",
         "frontierSmart",
         "radioarchiwista",
+        "appleMusic",
     ),
     capabilities=_COMMON_CAPABILITIES
     + (
@@ -111,6 +112,7 @@ TEST_PROFILE = ReleaseProfile(
         "spotify.playlists",
         "youtube.account.readonly",
         "apple-music.experimental",
+        "session.apple-music",
     ),
 )
 
@@ -127,7 +129,8 @@ PUBLIC_PROFILE = ReleaseProfile(
     log_folder="AMC/logs",
     credential_namespace="AccessibleMediaController.Public",
     session_ids=tuple(
-        session for session in TEST_PROFILE.session_ids if session != "sonos"
+        session for session in TEST_PROFILE.session_ids
+        if session not in {"sonos", "appleMusic"}
     ),
     capabilities=tuple(
         capability for capability in TEST_PROFILE.capabilities
@@ -135,6 +138,7 @@ PUBLIC_PROFILE = ReleaseProfile(
             "session.sonos",
             "sonos.local",
             "apple-music.experimental",
+            "session.apple-music",
         }
     ),
 )

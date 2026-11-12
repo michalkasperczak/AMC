@@ -74,7 +74,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session != "sonos"
+        if session not in {"sonos", "appleMusic"}
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
     assert "spotify" in public_text
@@ -92,6 +92,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
             "session.sonos",
             "sonos.local",
             "apple-music.experimental",
+                "session.apple-music",
         }
     }
 
@@ -130,10 +131,10 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
     assert (
-        '"session.sonos" or "sonos.local" or "apple-music.experimental"'
+        '"session.sonos" or "sonos.local" or "apple-music.experimental" or'
         in source
     )
-    assert 'session != "sonos"' in source
+    assert 'session is not ("sonos" or "appleMusic")' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
     quoted = re.compile(r'"([^"]+)"')
@@ -145,6 +146,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
             "session.sonos",
             "sonos.local",
             "apple-music.experimental",
+            "session.apple-music",
         }
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities

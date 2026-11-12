@@ -34,6 +34,19 @@ def _prepare_sonos_dependency_sources(
                 (path / marker).write_text("test", encoding="utf-8")
 
 
+def _prepare_apple_music_dependency_sources(source_site: Path) -> None:
+    source_site.mkdir(parents=True, exist_ok=True)
+    for names in bundle.APPLE_MUSIC_TEST_PACKAGES.values():
+        for name in names:
+            path = source_site / name
+            if name.endswith(".py"):
+                path.write_text("# synthetic test dependency\n", encoding="utf-8")
+            else:
+                path.mkdir()
+                marker = "METADATA" if name.endswith(".dist-info") else "__init__.py"
+                (path / marker).write_text("test", encoding="utf-8")
+
+
 def test_python_package_matches_isolated_runtime_app_path():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
@@ -333,7 +346,7 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     assert manifest["updateChannel"] == "stable"
     assert manifest["sessions"] == [
         session for session in bundle.profile_from_id("test").session_ids
-        if session != "sonos"
+        if session not in {"sonos", "appleMusic"}
     ]
     assert "spotify" in " ".join(manifest["capabilities"]).casefold()
     assert manifest["credentialNamespace"] != (
@@ -400,6 +413,63 @@ def test_apple_music_requirements_are_pinned_and_test_only():
         assert "Publiczny pakiet AMC" in str(error)
     else:
         raise AssertionError("Zależności Apple Music nie mogą trafić do Public")
+
+
+def test_public_profile_rejects_apple_music_runtime_dependencies():
+    public = bundle.profile_from_id("public")
+    for relative in (
+        "runtime/Lib/site-packages/applemusic/__init__.py",
+        "runtime/Lib/site-packages/applemusic-0.0.1.dist-info/METADATA",
+        "runtime/Lib/site-packages/playwright/__init__.py",
+        "runtime/Lib/site-packages/playwright-1.65.0.dist-info/METADATA",
+    ):
+        try:
+            bundle.validate_profile_files(public, [relative])
+        except SystemExit as error:
+            assert "Publiczny pakiet AMC" in str(error)
+        else:
+            raise AssertionError(f"Publiczny profil nie może zawierać {relative}")
+
+
+def test_test_profile_copies_complete_apple_music_dependencies():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source = root / "apple-music-venv" / "Lib" / "site-packages"
+        target = root / "bundle"
+        _prepare_apple_music_dependency_sources(source)
+
+        copied = bundle.copy_apple_music_dependencies(
+            target,
+            bundle.profile_from_id("test"),
+            source,
+        )
+
+        assert copied
+        destination = target / "runtime" / "Lib" / "site-packages"
+        for names in bundle.APPLE_MUSIC_TEST_PACKAGES.values():
+            for name in names:
+                assert (destination / name).exists()
+        bundle.validate_apple_music_dependencies(
+            target,
+            bundle.profile_from_id("test"),
+        )
+
+
+def test_public_profile_does_not_copy_apple_music_dependencies():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source = root / "apple-music-venv" / "Lib" / "site-packages"
+        target = root / "bundle"
+        _prepare_apple_music_dependency_sources(source)
+
+        copied = bundle.copy_apple_music_dependencies(
+            target,
+            bundle.profile_from_id("public"),
+            source,
+        )
+
+        assert copied == []
+        assert not (target / "runtime" / "Lib" / "site-packages").exists()
 
 
 def test_file_integrity_contains_hash_and_exact_size_for_every_file():
@@ -663,6 +733,11 @@ def test_pinned_tidal_dependencies_are_copied_into_enabled_profiles():
         source_site.mkdir(parents=True)
         for name in bundle.TIDAL_SHARED_METADATA:
             (runtime_site / name).mkdir()
+        for name in ("certifi", "idna"):
+            module = runtime_site / name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+        (runtime_site / "typing_extensions.py").write_text("", encoding="utf-8")
         for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
             module = source_site / module_name
             module.mkdir()
@@ -862,6 +937,48 @@ def test_full_test_bundle_requires_sonos_venv_before_cleaning_candidate():
         assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
 
 
+def test_full_test_bundle_requires_apple_music_venv_before_cleaning_candidate():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        target = root / "bundle"
+        runtime = root / "runtime"
+        runtime_site = runtime / "Lib" / "site-packages"
+        tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
+        sonos_site = root / "sonos-venv" / "Lib" / "site-packages"
+        target.mkdir()
+        runtime_site.mkdir(parents=True)
+        tidal_site.mkdir(parents=True)
+        marker = target / "do-not-touch.txt"
+        marker.write_text("poprzedni kandydat", encoding="utf-8")
+        for name in bundle.TIDAL_SHARED_METADATA:
+            (runtime_site / name).mkdir(exist_ok=True)
+        for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
+            module = tidal_site / module_name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+            metadata = tidal_site / metadata_name
+            metadata.mkdir()
+            (metadata / "METADATA").write_text("test", encoding="utf-8")
+        _prepare_sonos_dependency_sources(runtime_site, sonos_site)
+
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                str(path), "--out", str(target), "--runtime", str(runtime),
+                "--tidal-site-packages", str(tidal_site),
+                "--sonos-site-packages", str(sonos_site), "--clean",
+            ]
+            try:
+                bundle.main()
+            except SystemExit as error:
+                assert "--apple-music-site-packages" in str(error)
+            else:
+                raise AssertionError("Test bez przypiętego venv Apple Music musi odmówić")
+        finally:
+            sys.argv = original_argv
+        assert marker.read_text(encoding="utf-8") == "poprzedni kandydat"
+
+
 def test_full_bundle_omits_retired_librespot_host():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
@@ -871,6 +988,7 @@ def test_full_bundle_omits_retired_librespot_host():
         runtime = root / "runtime-source"
         tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
         sonos_site = root / "sonos-venv" / "Lib" / "site-packages"
+        apple_music_site = root / "apple-music-venv" / "Lib" / "site-packages"
         unrelated_cwd = root / "unrelated-cwd"
         target = root / "bundle"
         for directory in (host, launcher, updater, runtime, unrelated_cwd):
@@ -893,7 +1011,15 @@ def test_full_bundle_omits_retired_librespot_host():
             metadata = tidal_site / metadata_name
             metadata.mkdir()
             (metadata / "METADATA").write_text("test", encoding="utf-8")
+        # TIDAL deklaruje współdzielone metadane tych samych przypiętych
+        # zależności; syntetyczny runtime musi zawierać także ich moduły.
+        for name in ("certifi", "idna"):
+            module = runtime_site / name
+            module.mkdir()
+            (module / "__init__.py").write_text("", encoding="utf-8")
+        (runtime_site / "typing_extensions.py").write_text("", encoding="utf-8")
         _prepare_sonos_dependency_sources(runtime_site, sonos_site)
+        _prepare_apple_music_dependency_sources(apple_music_site)
 
         original_argv = sys.argv
         original_cwd = Path.cwd()
@@ -908,6 +1034,7 @@ def test_full_bundle_omits_retired_librespot_host():
                 "--runtime", str(runtime),
                 "--tidal-site-packages", str(tidal_site),
                 "--sonos-site-packages", str(sonos_site),
+                "--apple-music-site-packages", str(apple_music_site),
             ]
             os.chdir(unrelated_cwd)
             assert bundle.main() == 0

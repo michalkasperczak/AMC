@@ -1063,6 +1063,12 @@ Skrypt `wxlite\tools\Build-AMCBundle.ps1` przyjmuje ten sam katalog przez
 albo `-Profile public`;
 `Promote-AMCPythonTestBuild.ps1` również wymaga tego parametru.
 
+Pełna paczka AMC Test wymaga ponadto dwóch osobnych, przypiętych źródeł:
+`-SonosSitePackages <venv-SoCo\Lib\site-packages>` oraz
+`-AppleMusicSitePackages <venv-Apple-Music\Lib\site-packages>`. Składniki
+Apple Music są dołączane wyłącznie do profilu Test; profil Public odrzuca
+moduły, zależności oraz przypadkowy prywatny runtime zawierający te pakiety.
+
 ## Zanik wybranego urządzenia audio
 
 Podczas grającego radia odłącz urządzenie wybrane przez `Shift+A`. Sprawdź oba

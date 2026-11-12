@@ -35,6 +35,7 @@ class SessionId(Enum):
     SPOTIFY = "spotify"
     FRONTIER_SMART = "frontierSmart"
     RADIOARCHIWISTA = "radioarchiwista"
+    APPLE_MUSIC = "appleMusic"
 
 
 class LibraryView(Enum):
@@ -47,6 +48,10 @@ class LibraryView(Enum):
     """
 
     ALL_FILES = "allFiles"
+    LOCAL_ALBUMS = "localAlbums"
+    LOCAL_ALBUM_CONTENTS = "localAlbumContents"
+    LOCAL_ARTISTS = "localArtists"
+    LOCAL_ARTIST_ALBUMS = "localArtistAlbums"
     FAVORITES = "favorites"
     PLAYLISTS = "playlists"
     PLAYLIST_CONTENTS = "playlistContents"
@@ -117,6 +122,11 @@ class LibraryView(Enum):
     #: kompletna historia konta Spotify ani kolejny kontener katalogu.
     SPOTIFY_HISTORY = "spotifyHistory"
     SPOTIFY_QUEUE = "spotifyQueue"
+    #: Eksperymentalna, tylko do odczytu Biblioteka Apple Music w AMC Test.
+    #: Korzeń zawiera cztery jawne kategorie, a kontener jedną kategorię albo
+    #: zawartość playlisty. Odtwarzanie należy do osobnego etapu AM-002.
+    APPLE_MUSIC_LIBRARY = "appleMusicLibrary"
+    APPLE_MUSIC_CONTAINER = "appleMusicContainer"
     #: Prywatna, osobna historia sesji WiiM albo Sonos. Nie jest to lokalna
     #: tabela plików i nie może przełączać aktywnej sesji.
     SERVICE_HISTORY = "serviceHistory"
@@ -212,6 +222,10 @@ class SessionState:
     library_playlist_id: str | None = None
     #: Wiersz, na ktory wraca Backspace z zawartosci playlisty.
     library_return_id: str | None = None
+    #: Rodzic lokalnego albumu: lista wszystkich albumów albo albumy jednego
+    #: wykonawcy. Dzięki temu Backspace przywraca właściwy wiersz i poziom.
+    local_music_parent: "LibraryView | None" = None
+    local_music_artist: str = ""
     #: RZECZYWISTE Id pliku, ktorego zakladki ogladamy. Osobne od
     #: ``library_return_id``, bo powrot z zakladek celuje w TEN plik.
     library_item_id: str | None = None
@@ -281,6 +295,12 @@ class SessionState:
     spotify_heading: str = "Biblioteka Spotify"
     spotify_context: "OpenSpotifyContainer | OpenSpotifyCollectionView | None" = None
     spotify_history: list["SpotifyNavigationSnapshot"] = field(default_factory=list)
+    #: Stan nawigacji Apple Music nie przechowuje tokenów ani obiektów
+    #: dostawcy. ``apple_music_context`` to wyłącznie nazwa kategorii lub
+    #: bezpieczne Id wiersza playlisty potrzebne do powrotu.
+    apple_music_heading: str = "Biblioteka Apple Music"
+    apple_music_context: str = ""
+    apple_music_return_id: str | None = None
     #: Korzeń sesji WiiM i miejsce powrotu ze Strumieni sieciowych. Adresy
     #: urządzeń ani strumieni nie należą do tych wierszy.
     wiim_device_rows: tuple[Row, ...] = ()
@@ -451,6 +471,25 @@ class TidalNavigationSnapshot:
 class OpenSpotifyView:
     """Request the read-only root of the single Spotify session."""
 
+    preferred_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAppleMusicView:
+    """Open one read-only Apple Music collection category."""
+
+    view: str
+    load_more: bool = False
+    preferred_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAppleMusicPlaylist:
+    """Open tracks of the selected playlist without exposing provider IDs."""
+
+    item_id: str
+    title: str
+    load_more: bool = False
     preferred_id: str | None = None
 
 
@@ -882,6 +921,7 @@ class Navigator:
             SessionId.SPOTIFY: SessionState(SessionId.SPOTIFY),
             SessionId.FRONTIER_SMART: SessionState(SessionId.FRONTIER_SMART),
             SessionId.RADIOARCHIWISTA: SessionState(SessionId.RADIOARCHIWISTA),
+            SessionId.APPLE_MUSIC: SessionState(SessionId.APPLE_MUSIC),
         }
         self.active = SessionId.FILES
         # Plik z ``play_local_file``, na którego folder jeszcze czekamy.
@@ -1284,6 +1324,7 @@ class Navigator:
             SessionId.SPOTIFY: "Spotify",
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.RADIOARCHIWISTA: "Radio Archiwista",
+            SessionId.APPLE_MUSIC: "Apple Music",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:
@@ -1661,6 +1702,61 @@ class Navigator:
                 )
                 return [intent]
             return [Announce("Nie można otworzyć tego elementu Spotify")]
+
+        if state.session_id is SessionId.APPLE_MUSIC:
+            if row.kind == "loadMore":
+                context = state.apple_music_context
+                if context.startswith("playlist:"):
+                    item_id = context.removeprefix("playlist:")
+                    return [OpenAppleMusicPlaylist(
+                        item_id=item_id,
+                        title=state.apple_music_heading.removeprefix("Playlista: "),
+                        load_more=True,
+                    )]
+                if context in {"songs", "albums", "artists", "playlists"}:
+                    return [OpenAppleMusicView(context, load_more=True)]
+                return [Announce(
+                    "Nie wiadomo, dla którego widoku wczytać więcej Apple Music"
+                )]
+            if (
+                row.kind == "folder"
+                and row.service_kind == "appleMusicCollection"
+                and row.service_id in {"songs", "albums", "artists", "playlists"}
+            ):
+                state.apple_music_return_id = row.item_id
+                return [OpenAppleMusicView(row.service_id)]
+            if row.kind == "playlist" and row.service_kind == "playlist":
+                state.apple_music_return_id = row.item_id
+                return [OpenAppleMusicPlaylist(row.item_id, row.title)]
+            if row.activation_message:
+                return [Announce(row.activation_message)]
+            return [Announce(
+                "Odtwarzanie Apple Music będzie dostępne w następnym etapie"
+            )]
+
+        if state.session_id is SessionId.FILES:
+            if row.kind == "artist" and row.service_kind == "localArtist":
+                state.library_return_id = row.item_id
+                state.local_music_parent = LibraryView.LOCAL_ARTISTS
+                state.local_music_artist = row.service_id or row.title
+                return [OpenLibraryView(
+                    LibraryView.LOCAL_ARTIST_ALBUMS,
+                    item_id=state.local_music_artist,
+                )]
+            if row.kind == "album" and row.service_kind == "localAlbum":
+                state.library_return_id = row.item_id
+                state.local_music_parent = (
+                    state.library_view
+                    if state.library_view in (
+                        LibraryView.LOCAL_ALBUMS,
+                        LibraryView.LOCAL_ARTIST_ALBUMS,
+                    )
+                    else LibraryView.LOCAL_ALBUMS
+                )
+                return [OpenLibraryView(
+                    LibraryView.LOCAL_ALBUM_CONTENTS,
+                    item_id=row.service_id,
+                )]
 
         if row.activation_message:
             # Wiersz zostaje zaznaczony i widoczny. Kontenery TIDAL sa
@@ -2317,6 +2413,19 @@ class Navigator:
                     return [OpenSpotifyView()]
             # Korzeń jednej sesji Spotify jest końcem nawigacji.
             return []
+        if state.session_id is SessionId.APPLE_MUSIC:
+            context = state.apple_music_context
+            if context.startswith("playlist:"):
+                state.apple_music_context = "playlists"
+                return [OpenAppleMusicView(
+                    "playlists",
+                    preferred_id=state.apple_music_return_id,
+                )]
+            if context:
+                return self.open_apple_music_root(
+                    preferred_id=f"appleMusic-collection:{context}"
+                )
+            return []
         if state.session_id is SessionId.WIIM:
             if state.library_view is LibraryView.WIIM_NETWORK_STREAMS:
                 if state.wiim_streams_return_to_sources:
@@ -2700,6 +2809,11 @@ class Navigator:
             state.library_folder_path = state.folder_path
 
         state.library_view = view
+        if view in (LibraryView.LOCAL_ALBUMS, LibraryView.LOCAL_ARTISTS):
+            state.local_music_parent = None
+            state.local_music_artist = ""
+        elif view is LibraryView.LOCAL_ARTIST_ALBUMS:
+            state.local_music_artist = item_id or state.local_music_artist
         if view is LibraryView.ALL_FILES:
             state.library_return_view = LIBRARY_VIEW_ALL_FILES
         state.library_playlist_id = playlist_id
@@ -2846,6 +2960,8 @@ class Navigator:
             return []
         if state.library_view in (
             LibraryView.ALL_FILES,
+            LibraryView.LOCAL_ALBUMS,
+            LibraryView.LOCAL_ARTISTS,
             LibraryView.FAVORITES,
             LibraryView.PLAYLISTS,
             LibraryView.SAVED_QUEUE,
@@ -2854,6 +2970,21 @@ class Navigator:
             # To nie sa poziomy zagniezdzone. Escape/Backspace nie oznacza tu
             # "wroc do Biblioteki", bo sama Biblioteka jest widokiem obok.
             return []
+        if state.library_view is LibraryView.LOCAL_ALBUM_CONTENTS:
+            parent = state.local_music_parent or LibraryView.LOCAL_ALBUMS
+            return [OpenLibraryView(
+                parent,
+                preferred_id=state.library_return_id,
+                item_id=(
+                    state.local_music_artist
+                    if parent is LibraryView.LOCAL_ARTIST_ALBUMS else None
+                ),
+            )]
+        if state.library_view is LibraryView.LOCAL_ARTIST_ALBUMS:
+            return [OpenLibraryView(
+                LibraryView.LOCAL_ARTISTS,
+                preferred_id=state.library_return_id,
+            )]
         if state.session_id is SessionId.RADIO:
             if state.library_view is LibraryView.PLAYLIST_CONTENTS:
                 return [
@@ -3424,6 +3555,88 @@ class Navigator:
         return [Announce(
             f"Playlista — {playlist_title}, {count} {_items_word(count)}"
             if count else f"Playlista — {playlist_title}, zero elementów"
+        )]
+
+    # --------------------------------------------------------- Apple Music
+
+    def open_apple_music_root(
+        self, *, preferred_id: str | None = None
+    ) -> list[object]:
+        """Show the four deliberate read-only collection categories."""
+
+        state = self.sessions[SessionId.APPLE_MUSIC]
+        rows = [
+            Row(
+                f"appleMusic-collection:{view}",
+                title,
+                "folder",
+                service_id=view,
+                service_kind="appleMusicCollection",
+            )
+            for view, title in (
+                ("songs", "Utwory"),
+                ("albums", "Albumy"),
+                ("artists", "Wykonawcy"),
+                ("playlists", "Playlisty"),
+            )
+        ]
+        state.library_view = LibraryView.APPLE_MUSIC_LIBRARY
+        state.library_playlist_id = None
+        state.library_return_view = "Biblioteka Apple Music"
+        state.apple_music_heading = "Biblioteka Apple Music"
+        state.apple_music_context = ""
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        return [Announce("Biblioteka Apple Music, 4 pozycje")]
+
+    def apply_apple_music_view(
+        self,
+        intent: OpenAppleMusicView,
+        heading: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Apply one sanitized collection page without provider objects."""
+
+        if intent.view not in {"songs", "albums", "artists", "playlists"}:
+            raise ValueError("Nieznany widok Apple Music")
+        state = self.sessions[SessionId.APPLE_MUSIC]
+        state.library_view = LibraryView.APPLE_MUSIC_CONTAINER
+        state.library_playlist_id = None
+        state.library_return_view = heading
+        state.apple_music_heading = heading
+        state.apple_music_context = intent.view
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = sum(row.kind != "loadMore" for row in rows)
+        return [Announce(
+            f"{heading}, {count} {_items_word(count)}"
+            if count else f"{heading}, pusto"
+        )]
+
+    def apply_apple_music_playlist(
+        self,
+        intent: OpenAppleMusicPlaylist,
+        heading: str,
+        rows: list[Row],
+        *,
+        preferred_id: str | None = None,
+    ) -> list[object]:
+        """Apply playlist tracks while retaining the selected playlist."""
+
+        state = self.sessions[SessionId.APPLE_MUSIC]
+        state.library_view = LibraryView.APPLE_MUSIC_CONTAINER
+        state.library_playlist_id = intent.item_id
+        state.library_return_view = heading
+        state.apple_music_heading = heading
+        state.apple_music_context = "playlist:" + intent.item_id
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = sum(row.kind != "loadMore" for row in rows)
+        return [Announce(
+            f"{heading}, {count} {_items_word(count)}"
+            if count else f"{heading}, pusto"
         )]
 
     # ------------------------------------------------------------- Spotify

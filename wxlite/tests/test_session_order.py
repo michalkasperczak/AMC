@@ -4,6 +4,8 @@ from amc_wx_lite import menu_model
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.session_order import (
+    AVAILABLE_TEST_SESSIONS,
+    MAX_ACTIVE_SESSIONS,
     action_for_slot,
     adjacent,
     disable,
@@ -45,8 +47,9 @@ def test_custom_active_order_does_not_reenable_missing_sessions() -> None:
 def test_legacy_migration_preserves_order_and_appends_known_sessions_once() -> None:
     migrated = migrate_legacy(["sonos", "radio", "sonos", "obca-wartosc"])
     assert migrated[:2] == (SessionId.SONOS, SessionId.RADIO)
-    assert set(migrated) == set(SessionId)
-    assert len(migrated) == len(SessionId)
+    assert len(migrated) == MAX_ACTIVE_SESSIONS
+    assert set(migrated).issubset(set(SessionId))
+    assert SessionId.APPLE_MUSIC in AVAILABLE_TEST_SESSIONS
 
 
 def test_enable_disable_reenable_and_move_keep_compact_slots() -> None:

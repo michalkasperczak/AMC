@@ -1,6 +1,6 @@
 # AM-003 — sesja Apple Music i dostępny interfejs AMC
 
-- Status: `Projekt interfejsu gotowy do zatwierdzenia; odczyt Biblioteki AM-001 działa, odtwarzanie AM-002 nadal oczekuje`
+- Status: `Kod sesji i wspólnych kategorii gotowy, testy celowane przechodzą; odtwarzanie AM-002 nadal oczekuje`
 - Utworzono: 12 listopada 2026
 - Ostatnia korekta: 12 listopada 2026 — zastępuje wcześniejsze założenie, że
   całe zadanie musi czekać na odtwarzanie AM-002. Czytelną sesję Biblioteki
@@ -74,6 +74,14 @@ i potrzebne szczegóły. Identyfikatory Apple, adresy API i reprezentacje
 obiektów pozostają wyłącznie w modelu.
 
 ## Przełączanie rodzaju kolekcji — decyzja i brakujący gest
+
+> **Decyzja końcowa użytkownika z 12.11.2026 — zastępuje wszystkie propozycje
+> skrótów w tej sekcji:** `Ctrl+Alt+1` oznacza Utwory, `Ctrl+Alt+2` Albumy,
+> `Ctrl+Alt+3` Wykonawcy, a `Ctrl+P` Playlisty. Są to wspólne polecenia AMC,
+> rozpoznawane we wszystkich sesjach. Pliki lokalne, Spotify i Apple Music
+> mają już rzeczywiste wykonanie; pozostałe sesje odpowiadają jednoznacznie,
+> że dana kategoria nie jest dostępna, dopóki ich adapter jej nie udostępni.
+> Starsze `Ctrl+Shift+A/W` Spotify pozostają aliasami zgodności.
 
 Model ma dwie niezależne osie:
 
@@ -204,6 +212,18 @@ To jest projekt interfejsu, nie działająca funkcja w zainstalowanym AMC Test.
 Ostateczne nazwy i skróty zostaną pokazane dopiero razem z działającym
 zapleczem i testami parytetu. Ulubione Apple Music obejmują więcej niż utwory,
 dlatego AMC pokaże je według rodzaju materiału.
+
+**Aktualizacja 12.11.2026:** pierwsza sesja Apple Music jest już podłączona w
+źródłach AMC Test. `Ctrl+L` otwiera centrum Utwory, Albumy, Wykonawcy,
+Playlisty; `Ctrl+Alt+1–3` przełącza trzy pierwsze kategorie, a `Ctrl+P`
+playlisty. Listy są stronicowane, Enter na playliście otwiera jej utwory,
+Backspace wraca z zachowaniem zaznaczenia. Enter na materiale uczciwie
+informuje, że odtwarzanie należy do następnego etapu.
+
+W sesji lokalnej te same trzy skróty pokazują wszystkie utwory, albumy
+wywnioskowane z numerowanych plików w folderach oraz wykonawców wywnioskowanych
+z katalogu nadrzędnego albumu. Enter otwiera wykonawcę, album i utwory albumu;
+Backspace wraca dokładnie do poprzedniego poziomu.
 
 ## Testy i wynik
 
