@@ -6659,7 +6659,6 @@ class SessionSelectionDialog(wx.Dialog):
         toggle_session: Callable[[SessionId], tuple[object, str]] | None = None,
         move_session: Callable[[SessionId, int], tuple[object, str]] | None = None,
         settings_session: Callable[[SessionId, wx.Window], None] | None = None,
-        announce: Callable[[str], None] | None = None,
         focus_inactive: bool = False,
     ) -> None:
         super().__init__(parent, title="Menedżer sesji")
@@ -6669,7 +6668,6 @@ class SessionSelectionDialog(wx.Dialog):
         self._toggle_session = toggle_session
         self._move_session = move_session
         self._settings_session = settings_session
-        self._announce = announce
         self.configure_session: SessionId | None = None
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
@@ -6790,10 +6788,6 @@ class SessionSelectionDialog(wx.Dialog):
         message = i18n.ui_text(message)
         self.status.SetLabel(message)
         self.status.SetName(message)
-        if self._announce is not None:
-            # Po powrocie fokusu na listę komunikat musi zostać wypowiedziany
-            # jawnie; inaczej NVDA odczytuje tylko niezmieniony wiersz.
-            wx.CallAfter(self._announce, message)
 
     @property
     def selected_session(self) -> SessionId | None:
@@ -16694,12 +16688,10 @@ class LiteFrame(wx.Frame):
             chord.ctrl
             and not chord.alt
             and not chord.shift
-            and session_order.slot_for_key(chord.key) is not None
+            and chord.key in "123456789"
         ):
-            slot = session_order.slot_for_key(chord.key)
-            assert slot is not None
             action = session_order.action_for_slot(
-                slot, self.options.session_order
+                int(chord.key), self.options.session_order
             )
             if action is not None:
                 self._dispatch(action)
@@ -21759,7 +21751,7 @@ class LiteFrame(wx.Frame):
             slot = session_order.slot_for_session(new_current, changed)
             message += (
                 f". Aktywna sesja: {session_order.session_name(new_current)}, "
-                f"{session_order.shortcut_for_slot(slot or 0)}"
+                f"Ctrl+{slot}"
             )
         return changed, message
 
@@ -22677,7 +22669,6 @@ class LiteFrame(wx.Frame):
             settings_session=lambda session, parent: self._show_session_options(
                 session_id=session, parent=parent
             ),
-            announce=self.announcer.say,
             focus_inactive=focus_inactive,
         ) as dialog:
             result = dialog.ShowModal()
@@ -37324,12 +37315,10 @@ class LiteFrame(wx.Frame):
             chord.ctrl
             and not chord.alt
             and not chord.shift
-            and session_order.slot_for_key(chord.key) is not None
+            and chord.key in "123456789"
         ):
-            slot = session_order.slot_for_key(chord.key)
-            assert slot is not None
             return session_order.action_for_slot(
-                slot,
+                int(chord.key),
                 self.options.session_order,
             )
         return resolve(
@@ -37572,7 +37561,7 @@ class LiteFrame(wx.Frame):
             }
         shortcut_overrides = dict(getattr(self, "shortcut_overrides", {}))
         shortcut_overrides.update({
-            session_order.SESSION_ACTIONS[session]: session_order.shortcut_for_slot(slot)
+            session_order.SESSION_ACTIONS[session]: f"Ctrl+{slot}"
             for slot, session in enumerate(
                 session_order.normalize(self.options.session_order),
                 start=1,
