@@ -284,3 +284,42 @@ zweryfikowaną funkcją wydania.
 - Kandydat lokalny:
   `D:\Projekty Codex\AMC - integracja wxPython\publish\bundles\test-music-categories-d7563d1a-20261112`.
 - Profil Public nie był budowany, instalowany ani publikowany.
+
+## Instalacja i wydanie AMC Test — 13.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+- Apple Music można włączyć jako dziesiątą sesję w Menedżerze sesji. Spacja
+  ogłasza wynik zmiany, `Ctrl+0` przełącza dziesiątą aktywną sesję, a
+  `Ctrl+Page Up` i `Ctrl+Page Down` uwzględniają ją w kolejności.
+- `Ctrl+L` otwiera Bibliotekę Apple Music. `Ctrl+Alt+1`, `Ctrl+Alt+2` i
+  `Ctrl+Alt+3` pokazują Utwory, Albumy i Wykonawców, a `Ctrl+P` Playlisty.
+- Ta wersja jest nadal tylko do odczytu: Enter na materiale nie rozpoczyna
+  odtwarzania, a zmiany Biblioteki, Ulubionych i playlist pozostają wyłączone.
+
+### Testy i wynik
+
+- 53/53 celowane testy dziesiątej sesji, skrótów, menu, pomocy i palety:
+  zaliczone. Szerszy przebieg powierzchni poleceń miał 236 zaliczonych i jeden
+  zastany błąd atrapy czasu TIDAL, niezwiązany z Apple Music.
+- Końcowy kandydat oraz zainstalowana kopia przeszły pełną integralność i
+  kontrolowany start interfejsu oraz hosta.
+- Instalacja w `D:\Projekty Codex\AMC Python`: wykonana. Potwierdzono jeden
+  launcher, jeden prywatny runtime wxPython i jeden LiteHost oraz tytuł
+  `AMC Test — 13.11.2026, 00:28`.
+- Instalator i wydanie GitHub: wykonane oraz odczytowo zweryfikowane.
+
+### Znane ograniczenia
+
+Ręczny odbiór dziesiątej sesji z NVDA pozostaje po stronie użytkownika.
+Ponowne logowanie Apple Music w samowystarczalnej paczce i odtwarzanie wymagają
+osobnych etapów AM-001/AM-002. Profil Public nie otrzymał Apple Music.
+
+### Wersja i commit
+
+- Wersja techniczna: `0.1.0-alpha.497`.
+- Wersja użytkowa: `13.11.2026, 00:28`.
+- Commit wydania: `f38ea76803a01b095e06892866a31082613eca32`.
+- Paczka: `2026.11.13-f38ea76803a01b095e06892866a31082613eca32-c992d212`.
+- Wydanie: `test-2026.11.13.0028`.
+- Adres: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.

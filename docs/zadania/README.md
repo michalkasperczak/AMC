@@ -233,7 +233,8 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   z dawnej aplikacji WPF. Szczegóły:
   [I18N-001-wielojezyczny-interfejs-wxpython.md](I18N-001-wielojezyczny-interfejs-wxpython.md).
 
-- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.445` i stabilny Public
+- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.497` z 13.11.2026,
+  00:28 i stabilny Public
   z 29.10.2026, 19:24 są opublikowane i odczytowo zweryfikowane. Public powstał
   z najnowszej bazy Test i ma WiiM oraz Frontier Smart, bez Sonosa, Spotify i
   TIDAL-a; 231/231 celowanych testów Pythona, 38/38 Launchera/aktualizatora,
@@ -244,7 +245,10 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   Hubert potwierdził działanie Public i zamykanie aplikacji. Test zachowuje
   TIDAL, Spotify i eksperymentalny, nadal niedziałający Sonos; 205 testów
   Pythona, 3 testy M3U/ICY, 38 testów aktualizatora, paczka, instalator i
-  publikacja prerelease są zaliczone. Lokalnej instalacji nie zmieniono** — jedna
+  publikacja prerelease są zaliczone. Test alpha.497 dodaje dziesiątą sesję
+  Apple Music tylko do odczytu, F11, Ctrl+F11, poprawki lokalnego Sonosa i
+  sprzątanie starego hosta; kandydat, instalacja na D, start oraz wydanie
+  `test-2026.11.13.0028` są zweryfikowane** — jedna
   kanoniczna linia AMC Python,
   wydania AMC Test i AMC Public z tego samego commitu, dwa kanały aktualizacji,
   standardowa instalacja Windows oraz kontrolowane uporządkowanie starego C#,
@@ -486,7 +490,9 @@ zmian, wymagający korekty użytkownika:
   `Ctrl+F5`, precyzyjne nazwy dla każdej sesji oraz Foldery Biblioteki są
   zbudowane; po ręcznym wykryciu brakującego mapowania poprawiono całą rodzinę
   `F1`–`F24` i nawigację bloku numerycznego; najnowsza korekta jest
-  zainstalowana i czeka na ponowny odbiór NVDA** — dostępny
+  zainstalowana i czeka na ponowny odbiór NVDA. Wydanie z 13.11.2026 dodaje
+  dziesiątą sesję pod `Ctrl+0`, jawny wynik Spacji, F11 i Ctrl+F11; instalacja
+  oraz prerelease GitHub są zweryfikowane** — dostępny
   Menedżer sesji pod `Ctrl+Shift+S`, włączanie Spacją, zwarta kolejność
   `Ctrl+1–9`, zmiana kolejności `Alt+strzałkami`, stan gotowości i stała nazwa
   `Radio`. Ma działać już w AMC Test; profil publiczny będzie później filtrował
@@ -546,7 +552,8 @@ zmian, wymagający korekty użytkownika:
   dodaje radiowy tryb `Moich stacji`, bezpieczne Stop i ponowne uruchomienie
   ostatniego materiału, użyteczniejszy status NVDA+End bez zgadywania bitrate'u
   oraz rzadsze odpytywanie UPnP. Automatyczne testy 43/43 i 14/14 są zaliczone;
-  ponowny odbiór na głośniku, build i instalacja są zapisane osobno w zadaniu.
+  ponowny odbiór na głośniku pozostaje otwarty; build, instalacja i wydanie
+  `test-2026.11.13.0028` są zweryfikowane i zapisane w zadaniu.
   Ponowne otwarcie konta zachowuje w pamięci pierwotny adres tej samej próby i
   udostępnia „Otwórz stronę ponownie” oraz „Kopiuj adres logowania”.
   Po powrocie główne okno pozostaje dostępne, a jeden wiersz `Sprawdź logowanie
@@ -556,7 +563,7 @@ zmian, wymagający korekty użytkownika:
   gospodarstwa domowego, lecz Sonos zwrócił błąd przed callbackiem. Próba w
   oknie prywatnym wymaga powtórzenia z poprawnie skopiowanego adresu startowego.
   Pozostają ponowna próba na koncie przypisanym do systemu, udane logowanie, odmowa,
-  odnowienie, sprzęt i NVDA. GitHub i AMC Public pozostają bez zmian** — działające
+  odnowienie, sprzęt i NVDA. AMC Public pozostaje bez zmian** — działające
   sterowanie Sonosem i WiiM jest już przepisane i
   nie wymaga ponownej implementacji. `Ctrl+F5` wybiera dom i grupę, a przy braku
   połączenia prowadzi do konta zamiast kończyć się błędem. Okno udostępnia
@@ -713,8 +720,8 @@ zmian, wymagający korekty użytkownika:
 - `AM-002` — **Oczekuje; wzorce Sidry i WinZapp sprawdzone, brak pilota DRM**
   — osobny proces z prawdziwym music.apple.com i wąskim mostkiem transportu.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
-- `AM-003` — **Projekt interfejsu gotowy do zatwierdzenia; odczytową sesję
-  Biblioteki można wdrożyć przed AM-002** — `Ctrl+L` oznacza Bibliotekę,
+- `AM-003` — **Odczytowa sesja jest zainstalowana i opublikowana w AMC Test
+  `0.1.0-alpha.497`; ręczny odbiór NVDA pozostaje otwarty** — `Ctrl+L` oznacza Bibliotekę,
   a `Ctrl+U` czteroczęściowe Ulubione Apple Music, nie tylko playlistę
   ulubionych utworów. Odtwarzanie i polecenia zapisu nadal oczekują na osobne
   potwierdzenie możliwości.

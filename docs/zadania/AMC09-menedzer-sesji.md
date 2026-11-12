@@ -456,3 +456,33 @@ Historyczny projekt został użyty tylko jako materiał do odczytu.
   prawidłowo zapisuje testy etapu promowania jako „pominięte”, a nie jako
   zaliczone.
 - Publikacja: nie wykonana i nie jest częścią nocnego zadania.
+
+## Korekta stanu — 13.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+- Menedżer sesji obsługuje dziesięć aktywnych pozycji; dziesiąta używa
+  `Ctrl+0`. Spacja jawnie ogłasza włączenie lub wyłączenie sesji.
+- `F11` sprawdza aktualizację AMC, a `Ctrl+F11` otwiera „Zgłoś błąd lub
+  sugestię”. Menu, `Ctrl+F1`, pełna pomoc i paleta korzystają z tego samego
+  katalogu poleceń.
+
+### Testy i wynik
+
+- 53/53 celowane testy Menedżera, dziesiątej sesji i skrótów: zaliczone.
+- Zbudowano, zainstalowano i uruchomiono AMC Test
+  `13.11.2026, 00:28` z `D:\Projekty Codex\AMC Python`.
+- Wydanie GitHub `test-2026.11.13.0028` jest opublikowane jako prerelease;
+  commit, nazwy załączników, rozmiar i SHA-256 instalatora są zweryfikowane.
+
+### Znane ograniczenia
+
+Automatyczne testy nie zastępują ręcznego odbioru Spacji, `Ctrl+0`, F11 i
+Ctrl+F11 z NVDA. Ten odbiór pozostaje następnym krokiem.
+
+### Wersja i commit
+
+- Funkcja Menedżera i skrótów: `a5adbd6a`.
+- Commit wydania po poprawkach aktualizatora: `f38ea768`.
+- Instalacja: `2026.11.13-f38ea76803a01b095e06892866a31082613eca32-c992d212`.
+- GitHub: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.

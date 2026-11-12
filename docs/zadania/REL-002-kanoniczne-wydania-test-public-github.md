@@ -1064,3 +1064,49 @@ tych samych plików profilu.
   `https://github.com/michalkasperczak/AMC/releases/download/public-2026.10.29.1924/AMC-Public-2026-10-29-1924.exe`.
 - Instalatora nie uruchamiano ani nie instalowano; kanału AMC Test nie
   zmieniono.
+
+## Wydanie AMC Test 0.1.0-alpha.497 — 13.11.2026
+
+### Materiał do dokumentacji użytkownika
+
+- Wydanie dodaje dziesiątą sesję Apple Music tylko do odczytu, `Ctrl+0`, F11
+  do sprawdzania aktualizacji i `Ctrl+F11` do zgłoszeń, poprawki lokalnego
+  Sonosa oraz bezpieczniejsze przejście ze starszego układu silnika.
+- Aktualizator wybiera host zadeklarowany w zweryfikowanym manifeście i
+  transakcyjnie usuwa stare pliki wyłącznie z katalogów silnika. Dane kont,
+  ustawienia i lokalne pliki poświadczeń pozostają poza tym sprzątaniem.
+
+### Uzasadnienie i decyzje
+
+Pierwsza instalacja kandydata ujawniła, że stare `host-next` i biblioteki .NET
+pozostawione w `host` mogą zmienić wybór lub sposób ładowania silnika. Publikację
+zatrzymano. Wydanie powstało dopiero po dwóch poprawkach, testach regresji,
+ponownej czystej budowie, instalacji i zaliczonym starcie z katalogu użytkowego.
+
+### Testy i wynik
+
+- klient hosta: 44/44; test transakcyjnego usuwania starych plików: zaliczony;
+- mały zestaw launchera: 44/45; jedyny zastany błąd kanału przekazania do
+  działającej instancji powtórzył się dwukrotnie i nie dotyczy aktualizacji ani
+  hosta;
+- pełna integralność oraz kontrolowany start kandydata i instalacji: zaliczone;
+- zwykłe uruchomienie instalacji: jeden launcher, runtime i LiteHost, tytuł
+  `AMC Test — 13.11.2026, 00:28`;
+- sucha bramka wydania, push źródeł, publikacja prerelease i odczytowa
+  weryfikacja trzech załączników: zaliczone.
+
+### Znane ograniczenia
+
+Instalator nie był uruchamiany ręcznie po zbudowaniu, ponieważ bieżącą kopię
+zainstalował wcześniej ten sam zweryfikowany mechanizm pakietu. Ręczny odbiór
+nowych funkcji z NVDA oraz prawdziwym Sonosem pozostaje osobnym etapem.
+
+### Wersja i commit
+
+- wersja techniczna `0.1.0-alpha.497`, użytkowa `13.11.2026, 00:28`;
+- commit `f38ea76803a01b095e06892866a31082613eca32`;
+- paczka `c992d212`, 3767 plików, `sourceDirty=false`;
+- instalator `AMC-Test-2026-11-13-0028.exe`, 73 219 776 bajtów, SHA-256
+  `16542007d32c9a89c64127c06ccc91c5c58d44f0d43088fd76b273ad9229846e`;
+- tag `test-2026.11.13.0028`, prerelease, trzy załączniki `uploaded`;
+- `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.

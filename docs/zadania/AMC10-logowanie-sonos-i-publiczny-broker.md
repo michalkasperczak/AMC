@@ -1161,6 +1161,23 @@ o materiale oraz nieco wolną nawigację listy.
   zatrzymanie i ponowne uruchomienie źródeł bez pauzy, użyteczniejszy status
   NVDA+End i rzadsze odpytywanie UPnP podczas nawigacji.
 
+### Wydanie poprawki lokalnego Sonosa — 13.11.2026
+
+- Końcowy kandydat AMC Test oraz instalacja przeszły pełną integralność i
+  kontrolowany start. Zainstalowano wersję użytkową `13.11.2026, 00:28` w
+  `D:\Projekty Codex\AMC Python`.
+- Instalator `AMC-Test-2026-11-13-0028.exe` został zbudowany z commita
+  `f38ea768`; źródłowa poprawka Sonosa pozostaje w `29ce4390`.
+- Wydanie wstępne `test-2026.11.13.0028` opublikowano na GitHubie. Instalator
+  ma 73 219 776 bajtów i SHA-256
+  `16542007d32c9a89c64127c06ccc91c5c58d44f0d43088fd76b273ad9229846e`;
+  zdalny załącznik ma ten sam rozmiar i digest.
+- Ponowny odbiór na prawdziwym Sonosie nadal jest wymagany. Publikacja dowodzi
+  źródeł, automatycznych testów, buildu i dystrybucji, ale nie wyniku tej próby
+  sprzętowej.
+- Adres wydania:
+  `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.
+
 ## Wersja i commit
 
 - Korekta diagnostyczna z 25.10.2026: użytkownik nie pominął przycisku.
