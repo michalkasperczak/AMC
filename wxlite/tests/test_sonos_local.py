@@ -57,7 +57,9 @@ class _Coordinator(_Member):
         self.fixed_volume = False
         self.queue: list[object] = []
         self.played_queue_indices: list[int] = []
-        self.played_uris: list[tuple[str, str, bool]] = []
+        self.played_uris: list[tuple[str, str, bool, bool]] = []
+        self.pause_fails = False
+        self.stop_calls = 0
         self.seeks: list[str] = []
         reference = _Playlist("reference-private", "Treść ulubionego")
         self.music_library = _Library(
@@ -75,7 +77,13 @@ class _Coordinator(_Member):
         return {"channel": ""}
 
     def pause(self) -> None:
+        if self.pause_fails:
+            raise RuntimeError("pause unsupported")
         self.transport_state = "PAUSED_PLAYBACK"
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self.transport_state = "STOPPED"
 
     def play(self) -> None:
         self.transport_state = "PLAYING"
@@ -98,8 +106,10 @@ class _Coordinator(_Member):
         self.played_queue_indices.append(index)
         self.transport_state = "PLAYING"
 
-    def play_uri(self, *, uri: str, title: str, start: bool) -> None:
-        self.played_uris.append((uri, title, start))
+    def play_uri(
+        self, *, uri: str, title: str, start: bool, force_radio: bool
+    ) -> None:
+        self.played_uris.append((uri, title, start, force_radio))
         self.track["title"] = title
         self.track["artist"] = ""
         self.transport_state = "PLAYING"
@@ -282,8 +292,22 @@ def test_local_library_loads_favorites_playlists_and_profile_streams() -> None:
         "https://secret.example/live",
         "Radio domowe",
         True,
+        True,
     )]
     assert "secret.example" not in repr(stream_state)
     assert stream_state["message"] == "Uruchamianie: Radio domowe"
+
+
+def test_local_transport_stops_a_radio_when_pause_is_not_supported() -> None:
+    client, coordinator, _group, _host, _discovery = _client()
+    target = client.sonos_targets()["items"][0]
+    coordinator.pause_fails = True
+
+    state = client.sonos_transport(
+        target["householdId"], target["groupId"], "toggle"
+    )
+
+    assert coordinator.stop_calls == 1
+    assert state["playbackState"] == "idle"
 
 

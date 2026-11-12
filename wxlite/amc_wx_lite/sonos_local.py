@@ -208,7 +208,15 @@ class LocalSonosClient:
                     if _transport_state(coordinator) in {
                         "PLAYING", "TRANSITIONING"
                     }:
-                        coordinator.pause()
+                        try:
+                            coordinator.pause()
+                        except Exception:
+                            # Radio internetowe i część materiałów Music
+                            # Services nie udostępnia pauzy. Sonos przyjmuje
+                            # wtedy Stop; GUI zapamiętuje świadomie wybrany
+                            # materiał i po kolejnym Odtwórz uruchamia go
+                            # ponownie zamiast wysyłać niedozwolone Resume.
+                            coordinator.stop()
                     else:
                         coordinator.play()
                 elif command == "previous":
@@ -354,6 +362,11 @@ class LocalSonosClient:
                         uri=address,
                         title=material.title,
                         start=True,
+                        # SoCo rozróżnia zwykły plik HTTP od strumienia
+                        # radiowego. Bez tego argumentu Sonos odrzuca adresy
+                        # z profilu AMC, mimo że ten sam adres działa jako
+                        # Ulubione Sonos.
+                        force_radio=True,
                     )
                 else:
                     queueable = material.value

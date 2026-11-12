@@ -541,6 +541,12 @@ zmian, wymagający korekty użytkownika:
   uruchomiona z `D:\Projekty Codex\AMC Python`. Rozłączona sesja ma jeden
   wiersz logowania, Enter otwiera konto z jednym polem informacji, a
   `Rozpocznij logowanie` automatycznie otwiera oficjalną stronę i zamyka modal.
+  Lokalny wariant AMC Test został odebrany na prawdziwym głośniku częściowo:
+  wykrywa grupę oraz odtwarza Ulubione i Playlisty Sonos. Poprawka z 12.11.2026
+  dodaje radiowy tryb `Moich stacji`, bezpieczne Stop i ponowne uruchomienie
+  ostatniego materiału, użyteczniejszy status NVDA+End bez zgadywania bitrate'u
+  oraz rzadsze odpytywanie UPnP. Automatyczne testy 43/43 i 14/14 są zaliczone;
+  ponowny odbiór na głośniku, build i instalacja są zapisane osobno w zadaniu.
   Ponowne otwarcie konta zachowuje w pamięci pierwotny adres tej samej próby i
   udostępnia „Otwórz stronę ponownie” oraz „Kopiuj adres logowania”.
   Po powrocie główne okno pozostaje dostępne, a jeden wiersz `Sprawdź logowanie

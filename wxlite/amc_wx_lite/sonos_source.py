@@ -188,7 +188,7 @@ def _items(payload: object, error: str) -> list:
     return raw_items
 
 
-def now_playing_label(state: dict) -> str:
+def now_playing_label(state: dict, *, fallback_title: str = "") -> str:
     """Nazwa widoku odtwarzacza złożona wyłącznie z tekstów użytkowych."""
     parts: list[str] = []
     title = _text(state.get("title"))
@@ -197,10 +197,29 @@ def now_playing_label(state: dict) -> str:
     source = _text(state.get("source"))
     if source and source.casefold() not in {part.casefold() for part in parts}:
         parts.append(source)
+    fallback = _text(fallback_title)
+    if not parts and fallback:
+        parts.append(fallback)
     if not parts:
         parts.append(_text(state.get("groupTitle")) or "Sonos")
     if state.get("muted") is True:
         parts.append("wyciszone")
+    return ", ".join(parts)
+
+
+def playback_status_label(state: dict, *, fallback_title: str = "") -> str:
+    """Tekst natywnego paska stanu czytanego przez NVDA+End.
+
+    Lokalny interfejs Sonosa nie podaje wiarygodnego bitrate'u dla bieżącego
+    materiału. Pokazujemy tylko zmierzone dane: materiał lub źródło, stan,
+    pozycję i głośność. Nazwa grupy zostaje wyłącznie ostatnim ratunkiem, gdy
+    nie znamy nawet ostatniego materiału uruchomionego w AMC.
+    """
+    parts = [now_playing_label(state, fallback_title=fallback_title)]
+    for name in ("stateText", "positionText", "volumeText"):
+        value = _text(state.get(name))
+        if value and value.casefold() not in {part.casefold() for part in parts}:
+            parts.append(value)
     return ", ".join(parts)
 
 

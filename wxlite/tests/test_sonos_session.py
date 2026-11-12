@@ -25,6 +25,7 @@ from amc_wx_lite.sonos_source import (
     material_rows,
     now_playing_label,
     own_stream_edit_info,
+    playback_status_label,
     snapshot,
     target_rows,
 )
@@ -427,6 +428,24 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
     assert "token" not in state
     assert "runtimeObject" not in state
     assert "secret" not in repr(state)
+
+
+def test_sonos_nvda_end_uses_last_material_and_only_available_parameters() -> None:
+    state = snapshot({
+        "groupTitle": "Salon",
+        "title": "Brak informacji",
+        "source": "",
+        "stateText": "zatrzymane",
+        "volumeText": "głośność 35%",
+        "playbackState": "idle",
+        "volume": 35,
+    })
+
+    text = playback_status_label(state, fallback_title="Radio domowe")
+
+    assert text == "Radio domowe, zatrzymane, głośność 35%"
+    assert "Salon" not in text
+    assert "kb/s" not in text
 
 
 def test_sonos_command_gate_blocks_local_only_features() -> None:
@@ -999,6 +1018,41 @@ def test_sonos_timer_reads_playback_while_library_list_is_open() -> None:
 
     assert len(submissions) == 1
     assert submissions[0][0] == "sonos-status"
+
+
+def test_sonos_timer_limits_upnp_snapshots_to_one_per_three_seconds() -> None:
+    submissions: list = []
+    frame = _queued_sonos_frame(submissions, [])
+    frame.client.sonos_snapshot = lambda *_args: {}
+    frame._sonos_status_poll_due = float("inf")
+
+    LiteFrame._refresh_sonos_status(frame)
+
+    assert submissions == []
+
+
+def test_sonos_play_restarts_last_amc_material_after_stop() -> None:
+    played: list[PlaySonosMaterial] = []
+    transported: list[str] = []
+    intent = PlaySonosMaterial(
+        "item-1", "Radio domowe", "house-1", "ownStream", "stream-1"
+    )
+    frame = SimpleNamespace(
+        client=object(),
+        navigator=SimpleNamespace(active=SessionId.SONOS),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        _sonos_snapshot={"playbackState": "idle"},
+        _sonos_active_household_id="house-1",
+        _sonos_active_group_id="group-1",
+        _sonos_last_material=("house-1", "group-1", intent),
+        _play_sonos_material=played.append,
+        _sonos_transport=transported.append,
+    )
+
+    LiteFrame._play_pause(frame)
+
+    assert played == [intent]
+    assert transported == []
 
 
 def test_finishing_sonos_read_starts_one_waiting_command() -> None:

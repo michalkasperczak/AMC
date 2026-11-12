@@ -1077,6 +1077,61 @@ migracji.
 5. Dopiero wtedy przenieść funkcję z AMC Test do profilu publicznego, wykonać testy
    parytetu możliwości/pomocy/palety i rozważyć odsłonięcie Sonosa w AMC.
 
+## Odbiór lokalnego Sonosa i poprawki z 12.11.2026
+
+Ten wpis zastępuje wcześniejsze, wyłącznie bezsprzętowe założenie, że lokalny
+transport i `Moje stacje` są już odebrane. Użytkownik potwierdził na prawdziwym
+Sonosie: wykrywanie grup, Ulubione Sonos, Playlisty Sonos oraz playlistę z Apple
+Music. Jednocześnie zgłosił odrzucanie `Moich stacji`, nieskuteczne
+odtwarzanie/zatrzymywanie, odczyt nazwy grupy przez NVDA+End zamiast informacji
+o materiale oraz nieco wolną nawigację listy.
+
+### Zachowanie po poprawce
+
+- `Moje stacje` uruchamiają adres z profilu jako radio internetowe. SoCo dostaje
+  jawne `force_radio=True`; wcześniej traktował adres HTTP/HTTPS jak zwykły
+  plik i Sonos mógł go odrzucić.
+- Gdy bieżące źródło nie obsługuje pauzy, adapter próbuje `Stop`. Następne
+  `Odtwórz` nie wysyła niedozwolonego ogólnego wznowienia: ponownie uruchamia
+  ostatni materiał świadomie wybrany w AMC, ale tylko w tej samej grupie.
+- Gdy po zatrzymaniu AMC nie zna materiału, nie zgaduje ani nie uruchamia innego
+  źródła. NVDA podaje: `Sonos nie może wznowić tego źródła. Uruchom materiał
+  ponownie z listy Sonosa`.
+- NVDA+End otrzymuje nazwę lub źródło materiału, stan, dostępną pozycję i
+  głośność. Lokalna odpowiedź Sonosa nie zawiera wiarygodnego bitrate'u, więc
+  AMC go nie wymyśla. Nazwa ostatniego materiału wybranego w AMC ma
+  pierwszeństwo przed samą nazwą grupy.
+- Automatyczna migawka Sonosa jest pobierana najwyżej raz na trzy sekundy,
+  zamiast co sekundę. Jedna migawka wymaga kilku zapytań UPnP; ograniczenie
+  zmniejsza konkurencję z poleceniami i nawigacją, nie opóźniając odpowiedzi na
+  świadome polecenie użytkownika.
+- Przejrzano równoległy adapter WiiM. WiiM uruchamia zapisany strumień własnym,
+  urządzeniowym poleceniem i nie korzysta z semantyki `play_uri` SoCo; nie
+  wymaga analogicznej zmiany.
+
+### Weryfikacja i ograniczenia
+
+- testy lokalnego adaptera i sesji Sonos: **43/43 zaliczone**;
+- testy natywnego paska stanu NVDA+End: **14/14 zaliczone**;
+- kompilacja składni całego pakietu `amc_wx_lite`: zaliczona;
+- `git diff --check`: zaliczony;
+- nie wykonano jeszcze ponownego odbioru na prawdziwym głośniku po tej
+  poprawce; szczególnie trzeba sprawdzić stację HTTP i HTTPS, źródło bez pauzy,
+  ponowne `Odtwórz`, NVDA+End oraz szybkość strzałek;
+- testy źródłowe i kompilacja składni nie są dowodem zbudowania, instalacji ani
+  publikacji paczki. Stan tych etapów jest zapisywany osobno poniżej.
+
+### Szkic instrukcji użytkownika i changelogu
+
+- W sesji Sonos wybierz grupę, otwórz `Biblioteka`, następnie `Moje stacje` i
+  uruchom stację Enterem. Spacja zatrzymuje albo wstrzymuje, zależnie od
+  możliwości źródła; kolejna Spacja ponownie uruchamia ostatni materiał AMC.
+- NVDA+End podaje wyłącznie dane dostępne z głośnika. Brak bitrate'u w tym
+  komunikacie oznacza, że Sonos go nie zwrócił, a nie błąd obliczeń AMC.
+- Zmiany: poprawione uruchamianie własnych stacji radiowych, bezpieczne
+  zatrzymanie i ponowne uruchomienie źródeł bez pauzy, użyteczniejszy status
+  NVDA+End i rzadsze odpytywanie UPnP podczas nawigacji.
+
 ## Wersja i commit
 
 - Korekta diagnostyczna z 25.10.2026: użytkownik nie pominął przycisku.

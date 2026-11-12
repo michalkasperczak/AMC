@@ -310,6 +310,7 @@ if "session.sonos" in _RELEASE_PROFILE.capabilities:
         response_message as sonos_response_message,
         target_rows as sonos_target_rows,
         now_playing_label as sonos_now_playing_label,
+        playback_status_label as sonos_playback_status_label,
         snapshot as sonos_snapshot,
     )
 if "sonos.local" in _RELEASE_PROFILE.capabilities:
@@ -6658,6 +6659,7 @@ class SessionSelectionDialog(wx.Dialog):
         toggle_session: Callable[[SessionId], tuple[object, str]] | None = None,
         move_session: Callable[[SessionId, int], tuple[object, str]] | None = None,
         settings_session: Callable[[SessionId, wx.Window], None] | None = None,
+        announce: Callable[[str], None] | None = None,
         focus_inactive: bool = False,
     ) -> None:
         super().__init__(parent, title="Menedżer sesji")
@@ -6667,6 +6669,7 @@ class SessionSelectionDialog(wx.Dialog):
         self._toggle_session = toggle_session
         self._move_session = move_session
         self._settings_session = settings_session
+        self._announce = announce
         self.configure_session: SessionId | None = None
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
@@ -6787,6 +6790,10 @@ class SessionSelectionDialog(wx.Dialog):
         message = i18n.ui_text(message)
         self.status.SetLabel(message)
         self.status.SetName(message)
+        if self._announce is not None:
+            # Po powrocie fokusu na listę komunikat musi zostać wypowiedziany
+            # jawnie; inaczej NVDA odczytuje tylko niezmieniony wiersz.
+            wx.CallAfter(self._announce, message)
 
     @property
     def selected_session(self) -> SessionId | None:
@@ -10821,6 +10828,7 @@ class LiteFrame(wx.Frame):
         self._sonos_pending_move_ids: list[str] = []
         self._sonos_content_version = 0
         self._sonos_status_poll_pending = False
+        self._sonos_status_poll_due = 0.0
         # Jeden tor żądań Sonos. Odczyt początkowy, timer i polecenia nie mogą
         # zajmować równocześnie miejsc współbieżnych LiteHosta. Polecenie
         # naciśnięte podczas odczytu czeka tutaj i wykonuje się po nim.
@@ -10828,6 +10836,12 @@ class LiteFrame(wx.Frame):
         self._sonos_retry_pending = False
         self._sonos_pending_activation: ActivateSonosGroup | None = None
         self._sonos_pending_material: PlaySonosMaterial | None = None
+        # Ostatni materiał faktycznie uruchomiony przez AMC wraz z grupą.
+        # Nie trafia do profilu. Jest potrzebny, bo radio i część serwisów
+        # Sonosa po Stop nie przyjmują ogólnego polecenia Resume.
+        self._sonos_last_material: tuple[
+            str, str, PlaySonosMaterial
+        ] | None = None
         self._sonos_command_queue: list[
             tuple[str, str, str, int | None, float | None, int]
         ] = []
@@ -16680,10 +16694,12 @@ class LiteFrame(wx.Frame):
             chord.ctrl
             and not chord.alt
             and not chord.shift
-            and chord.key in "123456789"
+            and session_order.slot_for_key(chord.key) is not None
         ):
+            slot = session_order.slot_for_key(chord.key)
+            assert slot is not None
             action = session_order.action_for_slot(
-                int(chord.key), self.options.session_order
+                slot, self.options.session_order
             )
             if action is not None:
                 self._dispatch(action)
@@ -21743,7 +21759,7 @@ class LiteFrame(wx.Frame):
             slot = session_order.slot_for_session(new_current, changed)
             message += (
                 f". Aktywna sesja: {session_order.session_name(new_current)}, "
-                f"Ctrl+{slot}"
+                f"{session_order.shortcut_for_slot(slot or 0)}"
             )
         return changed, message
 
@@ -22661,6 +22677,7 @@ class LiteFrame(wx.Frame):
             settings_session=lambda session, parent: self._show_session_options(
                 session_id=session, parent=parent
             ),
+            announce=self.announcer.say,
             focus_inactive=focus_inactive,
         ) as dialog:
             result = dialog.ShowModal()
@@ -23617,13 +23634,19 @@ class LiteFrame(wx.Frame):
         )
         if callable(record_history):
             record_history(SessionId.SONOS, state)
-        label = sonos_now_playing_label(state)
+        session = self.navigator.sessions[SessionId.SONOS]
+        fallback_title = session.now_playing_title
+        label = sonos_now_playing_label(
+            state, fallback_title=fallback_title
+        )
         if self.now_playing.GetLabel() != label:
             self.now_playing.SetLabel(label)
         if self.navigator.active is SessionId.SONOS:
             bar = getattr(self, "status_bar", None)
             if bar is not None:
-                bar.show(label)
+                bar.show(sonos_playback_status_label(
+                    state, fallback_title=fallback_title
+                ))
         self.now_playing.SetName("Teraz odtwarzane")
         time_label = player_time_label(
             state.get("positionSeconds"), state.get("durationSeconds")
@@ -24364,6 +24387,7 @@ class LiteFrame(wx.Frame):
             session.now_playing_id = intent.item_id
             session.now_playing_title = intent.title
             session.current_material_id = intent.item_id
+            self._sonos_last_material = (household_id, group_id, intent)
             self._sonos_snapshot = state
             kind = {
                 "favorite": "sonosFavorite",
@@ -33193,6 +33217,22 @@ class LiteFrame(wx.Frame):
             self._wiim_transport("toggle")
             return
         if self.navigator.active is SessionId.SONOS:
+            snapshot = getattr(self, "_sonos_snapshot", {}) or {}
+            playback = str(snapshot.get("playbackState") or "").casefold()
+            if playback in {"idle", "stopped", "zatrzymane"}:
+                remembered = getattr(self, "_sonos_last_material", None)
+                if (
+                    remembered is not None
+                    and remembered[0] == self._sonos_active_household_id
+                    and remembered[1] == self._sonos_active_group_id
+                ):
+                    self._play_sonos_material(remembered[2])
+                else:
+                    self.announcer.say(
+                        "Sonos nie może wznowić tego źródła. "
+                        "Uruchom materiał ponownie z listy Sonosa"
+                    )
+                return
             self._sonos_transport("toggle")
             return
         if self.navigator.active is SessionId.FRONTIER_SMART:
@@ -34445,6 +34485,7 @@ class LiteFrame(wx.Frame):
         client = LiteFrame._sonos_control_client(self)
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
+        now = time.monotonic()
         if (
             client is None
             or not household_id
@@ -34455,8 +34496,13 @@ class LiteFrame(wx.Frame):
             or getattr(self, "_sonos_retry_pending", False)
             or getattr(self, "_sonos_pending_activation", None) is not None
             or bool(getattr(self, "_sonos_command_queue", ()))
+            or now < getattr(self, "_sonos_status_poll_due", 0.0)
         ):
             return
+        # Jedna migawka Sonosa to kilka zapytań UPnP. Co sekundę konkurowały
+        # one ze strzałkami i poleceniami; trzy sekundy nadal dają świeży stan,
+        # ale odciążają głośnik i tor roboczy podczas nawigacji listy.
+        self._sonos_status_poll_due = now + 3.0
         self._sonos_status_poll_pending = True
         self._sonos_request_pending = True
 
@@ -37278,10 +37324,12 @@ class LiteFrame(wx.Frame):
             chord.ctrl
             and not chord.alt
             and not chord.shift
-            and chord.key in "123456789"
+            and session_order.slot_for_key(chord.key) is not None
         ):
+            slot = session_order.slot_for_key(chord.key)
+            assert slot is not None
             return session_order.action_for_slot(
-                int(chord.key),
+                slot,
                 self.options.session_order,
             )
         return resolve(
@@ -37524,7 +37572,7 @@ class LiteFrame(wx.Frame):
             }
         shortcut_overrides = dict(getattr(self, "shortcut_overrides", {}))
         shortcut_overrides.update({
-            session_order.SESSION_ACTIONS[session]: f"Ctrl+{slot}"
+            session_order.SESSION_ACTIONS[session]: session_order.shortcut_for_slot(slot)
             for slot, session in enumerate(
                 session_order.normalize(self.options.session_order),
                 start=1,
