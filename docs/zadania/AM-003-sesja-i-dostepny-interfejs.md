@@ -227,11 +227,21 @@ Backspace wraca dokładnie do poprzedniego poziomu.
 
 ## Testy i wynik
 
-Brak nowego kodu GUI, testów GUI, buildu, instalacji i NVDA w AM-003. Odczyt
-AM-001 ma osobne zaliczone testy i żywe wyniki, ale nie dowodzi działania
-sesji. Kryteria AM-003 obejmą początkowy fokus, strzałki, Enter, Escape,
-anulowanie, powrót fokusu i ponowne otwarcie, a także zgodność nazw,
-widoczności, stanu enabled i wykonania na wszystkich powierzchniach poleceń.
+- Źródła: sesja Apple Music, lokalne kategorie muzyczne, wspólne polecenia,
+  menu, pomoc, paleta i izolacja profilu Public są zaimplementowane.
+- Celowany zestaw regresji sesji, poleceń, menu, profili, paczki i lokalnych
+  kategorii: 154/154 testy zaliczone, bez błędów i pominięć.
+- Dwa dodatkowe testy ponownego użycia kompletnego runtime TIDAL/Sonos:
+  2/2 zaliczone. Ogólny uruchamiacz użyty z prywatnym runtime zgłosił osobno
+  brak zewnętrznego pakietu `pytest` w 21 modułach; nie były to nieudane
+  wykonania testów tej zmiany.
+- Build `test-apple-music-c6efcbda-20261112-v2`: 4225 plików, dwie pełne
+  kontrole integralności i kontrolowany start interfejsu oraz hosta — OK.
+- Instalacja nie jest jeszcze ukończona. Aktualizator dwukrotnie bezpiecznie
+  odmówił podmiany działającego AMC Test, a kontrola UI podała dokładny powód:
+  „Nie zamykam AMC Test, ponieważ trwa nagrywanie”. Stary manifest
+  `2026.11.11-a51d90b4…` pozostał kompletny.
+- Nie wykonano jeszcze ręcznego testu NVDA na zainstalowanej wersji.
 
 ## Znane ograniczenia
 
@@ -240,8 +250,20 @@ destrukcyjnych testów pilota i potwierdzenia użytkownika. Transport i kolejka
 zależą od AM-002. AMC Public jest poza tym zadaniem. Pierwsza sesja nie będzie
 udawać dostępności nieukończonych funkcji.
 
+Paczka zawiera bibliotekę Playwright, ale nie zawiera około 740 MiB binariów
+Chromium z laboratorium AM-001. Zapisana sesja DPAPI wystarcza do bieżącego
+odczytu Biblioteki. Ponowne logowanie z `Ctrl+F5` w samowystarczalnej
+instalacji wymaga osobnego kontraktu dystrybucji przeglądarki i nie jest jeszcze
+zweryfikowaną funkcją wydania.
+
 ## Wersja i commit
 
-Brak zmian kodu i wersji AMC. Pierwotny commit dokumentacji planu:
-`5e37190abd3cf76229447544b0bcef6190f7a66d`. Bieżący kontrakt oczekuje na
-zatwierdzenie i osobny commit dokumentacji.
+- Kod sesji, wspólnych poleceń i lokalnych kategorii:
+  `df5e482997237bf811495616ae48bf3320c7713b`.
+- Idempotentny pełny build z już kompletnym runtime TIDAL/Sonos:
+  `c6efcbdae1686ac3d22e39fa20efa9a1d954f5e3`.
+- Etykieta zweryfikowanej paczki:
+  `2026.11.12-c6efcbdae1686ac3d22e39fa20efa9a1d954f5e3-a0608fbd`.
+- Kandydat lokalny:
+  `D:\Projekty Codex\AMC - integracja wxPython\publish\bundles\test-apple-music-c6efcbda-20261112-v2`.
+- Profil Public nie był budowany, instalowany ani publikowany.
