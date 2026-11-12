@@ -228,13 +228,19 @@ skrótami i w menu.
   Projekt testowy hosta wymagał uzupełnienia starej atrapy backendu i izolowanej
   atrapy resolvera YouTube po wcześniejszym rozszerzeniu interfejsu; nie zmienia
   to kodu wykonywanego przez aplikację.
-- Build `test-apple-music-c6efcbda-20261112-v2`: 4225 plików, dwie pełne
-  kontrole integralności i kontrolowany start interfejsu oraz hosta — OK.
-- Instalacja nie jest jeszcze ukończona. Aktualizator dwukrotnie bezpiecznie
-  odmówił podmiany działającego AMC Test, a kontrola UI podała dokładny powód:
-  „Nie zamykam AMC Test, ponieważ trwa nagrywanie”. Stary manifest
-  `2026.11.11-a51d90b4…` pozostał kompletny.
-- Nie wykonano jeszcze ręcznego testu NVDA na zainstalowanej wersji.
+- Build `test-music-categories-d7563d1a-20261112`: 4225 plików, pełna kontrola
+  integralności i kontrolowany start interfejsu oraz hosta — OK. Manifest jest
+  czysty i wskazuje pełny commit `d7563d1a…`.
+- **Korekta stanu instalacji z 12.11.2026, zastępująca wcześniejszy wpis o
+  blokadzie nagrywaniem:** po potwierdzeniu użytkownika i zwykłym zamknięciu
+  starego AMC Test zainstalowano kompilację
+  `2026.11.12-d7563d1a…-82dec3ce` w
+  `C:\Users\micha\AppData\Local\Programs\AMC Test`. Integralność i cichy start
+  zainstalowanej kopii przeszły. Uruchomiono dokładnie jeden launcher, jeden
+  runtime wxPython i jeden host z tego katalogu; tytuł okna runtime:
+  `AMC Test — 12.11.2026, 23:20`.
+- Nie wykonano jeszcze ręcznego testu nowych skrótów z NVDA; jest to następna
+  bramka użytkownika, a nie brak instalacji.
 
 ## Znane ograniczenia
 
@@ -255,8 +261,10 @@ zweryfikowaną funkcją wydania.
   `df5e482997237bf811495616ae48bf3320c7713b`.
 - Idempotentny pełny build z już kompletnym runtime TIDAL/Sonos:
   `c6efcbdae1686ac3d22e39fa20efa9a1d954f5e3`.
-- Etykieta zweryfikowanej paczki:
-  `2026.11.12-c6efcbdae1686ac3d22e39fa20efa9a1d954f5e3-a0608fbd`.
+- Korekta TIDAL i usunięcie aliasów: commit
+  `d7563d1af12be68d75c6f9f76a56a782550b7098`.
+- Etykieta zainstalowanej, zweryfikowanej paczki:
+  `2026.11.12-d7563d1af12be68d75c6f9f76a56a782550b7098-82dec3ce`.
 - Kandydat lokalny:
-  `D:\Projekty Codex\AMC - integracja wxPython\publish\bundles\test-apple-music-c6efcbda-20261112-v2`.
+  `D:\Projekty Codex\AMC - integracja wxPython\publish\bundles\test-music-categories-d7563d1a-20261112`.
 - Profil Public nie był budowany, instalowany ani publikowany.
