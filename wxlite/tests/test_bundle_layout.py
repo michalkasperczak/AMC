@@ -53,6 +53,7 @@ def test_python_package_matches_isolated_runtime_app_path():
         assert (target / "requirements-tidal-test.txt").is_file()
         assert (target / "requirements-sonos-local-test.txt").is_file()
         assert (target / "requirements-apple-music-test.txt").is_file()
+        assert (target / "app" / "amc_wx_lite" / "apple_music_account.py").is_file()
         assert (target / "app" / "amc_wx_lite" / "apple_music_source.py").is_file()
         assert not (target / "AMC-wx-Lite.cmd").exists()
 
@@ -95,6 +96,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
         assert (target / "requirements-tidal-test.txt").is_file()
         assert not (target / "requirements-sonos-local-test.txt").exists()
         assert not (target / "requirements-apple-music-test.txt").exists()
+        assert not (package / "apple_music_account.py").exists()
         assert not (package / "apple_music_credentials.py").exists()
         assert not (package / "apple_music_library.py").exists()
         assert not (package / "apple_music_source.py").exists()

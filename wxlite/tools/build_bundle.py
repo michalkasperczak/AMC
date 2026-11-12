@@ -83,6 +83,7 @@ LIBRESPOT_BUILD = (
     "lokalna przypięta kompilacja Release offline dla AMC Test; bez publikacji"
 )
 PROFILE_GATED_SERVICE_MODULES = {
+    "apple_music_account.py": "apple-music.experimental",
     "apple_music_credentials.py": "apple-music.experimental",
     "apple_music_library.py": "apple-music.experimental",
     "apple_music_source.py": "apple-music.experimental",
