@@ -169,8 +169,16 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   WinExe. Proces kończy się przed WebView i przed utworzeniem profilu.
   Poprawka źródeł alpha.501 otwiera jawne strumienie standardowe UTF-8
   zamiast ustawiać kodowanie konsoli. Dodano próbę przekierowanych potoków
-  bez uruchamiania okna, obowiązkową przy budowie paczki Test. Do czasu
-  zbudowania i uruchomienia tej próby poprawka nie jest potwierdzona.
+  bez uruchamiania okna, obowiązkową przy budowie paczki Test. Po commicie
+  `aaf44ea5` mała kompilacja pomocnika zakończyła się 0 błędów i 1 zastanym
+  ostrzeżeniem referencji WebView2/WindowsBase; próba `ping`/`pong` przeszła
+  zarówno z PowerShell, jak i z Pythona z `close_fds=True` oraz
+  `CREATE_NO_WINDOW`. Pierwsza próba kompilacji w nieodpowiednim wariancie
+  zasobów .NET zakończyła się błędem NETSDK1047, a druga została przerwana
+  po 60 s z powodu zablokowanego przechwytywania wyjścia; poprawiony przebieg
+  z równoczesnym odczytem zakończył się pomyślnie. Pełna paczka, WebView,
+  logowanie i dźwięk pozostają niezweryfikowane. Nagrywanie AMC trwało przez
+  małą kompilację; nie uruchomiono nowej instancji AMC ani procesu WebView.
 
 - Prototyp WebView2 uruchomił wskazany utwór z licznikiem ponad minutę;
   wydanie zintegrowane z AMC powstało później, ale nadal trzeba potwierdzić
