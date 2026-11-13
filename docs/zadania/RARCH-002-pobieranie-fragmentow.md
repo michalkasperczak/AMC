@@ -77,6 +77,12 @@ Uruchomienie ich po historycznych testach instalujących globalną atrapę `wx`
 dawało fałszywe błędy kolejności; osobny proces z przypiętym wxPython 4.3.1
 potwierdził prawidłowy kod produkcyjny.
 
+Korekta pracy w tle została wydana 13.11.2026 w AMC Test
+`0.1.0-alpha.498`, commit
+`6e34a3fedc78642ab86e83ab16202b707a1293b2`, paczka `8fce9c2a`, tag
+`test-2026.11.13.0217`. Wydanie opublikowano, zweryfikowano i zainstalowano
+w `D:\Projekty Codex\AMC Python`; kontrolowany oraz zwykły start zaliczono.
+
 Instalator lokalny:
 `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.457 fragmenty 2026-10-31\instalator\AMC-Test-2026-10-31-1438.exe`.
 

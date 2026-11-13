@@ -1,6 +1,6 @@
 # PLAYER-20261113 — Sonos, Spotify i łącze Apple Music
 
-- Status: **kod i testy celowane gotowe; wydanie w toku**.
+- Status: **wydane, zainstalowane i uruchomione w AMC Test alpha.498**.
 - Utworzono: 13 listopada 2026.
 - Obszar: wspólny odtwarzacz, fokus, głośność, NVDA, schowek.
 
@@ -54,6 +54,12 @@ i mówi, czy jest to link bezpośredni, czy link wyszukiwania.
 
 ## Wersja i commit
 
-Wersja docelowa: AMC Test `0.1.0-alpha.498`. Commit, paczka i wydanie zostaną
-dopisane po bramce wydania.
+- Wersja: AMC Test `0.1.0-alpha.498`, użytkowo `13.11.2026, 02:17`.
+- Commit źródłowy: `6e34a3fedc78642ab86e83ab16202b707a1293b2`.
+- Paczka: `8fce9c2a`, 4256 plików, `sourceDirty=false`.
+- Instalator: `AMC-Test-2026-11-13-0217.exe`, 165 818 571 bajtów,
+  SHA-256 `3f3c020db76f66bbbcf0c4f0df78032442a10f2bed839a534e63b88967d996ea`.
+- Wydanie: `test-2026.11.13.0217`, prerelease, opublikowane i zweryfikowane.
+- Instalacja i kontrolowany start w `D:\Projekty Codex\AMC Python`: zaliczone;
+  uruchomione okno ma tytuł `AMC Test — 13.11.2026, 02:17`.
 

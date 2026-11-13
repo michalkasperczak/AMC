@@ -1110,3 +1110,43 @@ nowych funkcji z NVDA oraz prawdziwym Sonosem pozostaje osobnym etapem.
   `16542007d32c9a89c64127c06ccc91c5c58d44f0d43088fd76b273ad9229846e`;
 - tag `test-2026.11.13.0028`, prerelease, trzy załączniki `uploaded`;
 - `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.
+
+## Wydanie AMC Test 0.1.0-alpha.498 — 13.11.2026
+
+### Zachowanie użytkowe
+
+- Ujednolicono wybór sąsiedniego wiersza i końcową mowę NVDA po zmianach
+  Biblioteki, Ulubionych, playlist oraz kolejek w TIDAL, Spotify, Radiu i
+  lokalnych kolekcjach.
+- Sonos po zmianie głośności mówi tylko wartość potwierdzoną przez urządzenie;
+  Spotify udostępnia działający suwak głośności w odtwarzaczu.
+- Apple Music `Ctrl+Shift+C` kopiuje publiczny URL albo nazwany link
+  wyszukiwania; `Ctrl+F` działa w obrębie wczytanej strony.
+- Pełne pobieranie i wycinki Radio Archiwisty nie przejmują fokusu i pozwalają
+  dalej używać AMC.
+
+### Testy i ograniczenia
+
+- Szeroka regresja: 2724 zaliczone, 117 pominiętych i 34 podtesty zaliczone;
+  izolowane GUI Radio Archiwisty: 3/3.
+- Dwie jawnie pozostawione kontrole kompletności angielskiego katalogu nie
+  przeszły z powodu wcześniejszego długu 127 tekstów i pięciu pól Ustawień.
+- Odtwarzanie, `Shift+A`, zapis i Ulubione Apple Music nie należą do tego
+  wydania; test oryginalnej aplikacji Apple Music odłożono decyzją użytkownika.
+
+### Wydanie i instalacja
+
+- commit źródłowy `6e34a3fedc78642ab86e83ab16202b707a1293b2`;
+- paczka `8fce9c2a`, 4256 plików, `sourceDirty=false`, wersja użytkowa
+  `13.11.2026, 02:17`;
+- instalator `AMC-Test-2026-11-13-0217.exe`, 165 818 571 bajtów, SHA-256
+  `3f3c020db76f66bbbcf0c4f0df78032442a10f2bed839a534e63b88967d996ea`;
+- GitHub prerelease `test-2026.11.13.0217`: tag wskazuje dokładny commit,
+  wszystkie trzy zasoby mają stan `uploaded`, a rozmiar i digest instalatora
+  są zgodne z plikiem lokalnym;
+- zainstalowano przez transakcyjny aktualizator w
+  `D:\Projekty Codex\AMC Python`; kontrolowany start zaliczony, a zwykły start
+  uruchomił po jednej instancji launchera, runtime i LiteHosta z tytułem
+  `AMC Test — 13.11.2026, 02:17`;
+- adres wydania:
+  `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0217`.

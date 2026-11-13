@@ -86,6 +86,12 @@ bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwark
 
 ## Wersja i commit
 
-Wersja docelowa: AMC Test `0.1.0-alpha.498`. Commit, paczka i wydanie zostaną
-dopisane po bramce wydania.
+- Wersja: AMC Test `0.1.0-alpha.498`, użytkowo `13.11.2026, 02:17`.
+- Commit źródłowy: `6e34a3fedc78642ab86e83ab16202b707a1293b2`.
+- Paczka: `8fce9c2a`, 4256 plików, `sourceDirty=false`; kontrolowany start
+  paczki i instalacji zaliczony.
+- Wydanie GitHub: prerelease `test-2026.11.13.0217`, trzy załączniki w stanie
+  `uploaded`, commit i SHA-256 instalatora zweryfikowane odczytowo.
+- Instalacja użytkowa: `D:\Projekty Codex\AMC Python`; uruchomione okno
+  potwierdziło tytuł `AMC Test — 13.11.2026, 02:17`.
 

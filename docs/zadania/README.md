@@ -244,8 +244,8 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   z dawnej aplikacji WPF. Szczegóły:
   [I18N-001-wielojezyczny-interfejs-wxpython.md](I18N-001-wielojezyczny-interfejs-wxpython.md).
 
-- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.497` z 13.11.2026,
-  00:28 i stabilny Public
+- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.498` z 13.11.2026,
+  02:17 i stabilny Public
   z 29.10.2026, 19:24 są opublikowane i odczytowo zweryfikowane. Public powstał
   z najnowszej bazy Test i ma WiiM oraz Frontier Smart, bez Sonosa, Spotify i
   TIDAL-a; 231/231 celowanych testów Pythona, 38/38 Launchera/aktualizatora,
@@ -256,10 +256,12 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   Hubert potwierdził działanie Public i zamykanie aplikacji. Test zachowuje
   TIDAL, Spotify i eksperymentalny, nadal niedziałający Sonos; 205 testów
   Pythona, 3 testy M3U/ICY, 38 testów aktualizatora, paczka, instalator i
-  publikacja prerelease są zaliczone. Test alpha.497 dodaje dziesiątą sesję
-  Apple Music tylko do odczytu, F11, Ctrl+F11, poprawki lokalnego Sonosa i
-  sprzątanie starego hosta; kandydat, instalacja na D, start oraz wydanie
-  `test-2026.11.13.0028` są zweryfikowane** — jedna
+  publikacja prerelease są zaliczone. Test alpha.498 zachowuje sesję Apple
+  Music tylko do odczytu, naprawia jej `Ctrl+Shift+C` i `Ctrl+F`, stabilizuje
+  fokus oraz mowę po zmianach kolekcji, udostępnia głośność Spotify, skraca
+  komunikat głośności Sonosa i przenosi pobieranie Radio Archiwisty w tło;
+  kandydat, instalacja na D, start oraz wydanie `test-2026.11.13.0217` są
+  zweryfikowane** — jedna
   kanoniczna linia AMC Python,
   wydania AMC Test i AMC Public z tego samego commitu, dwa kanały aktualizacji,
   standardowa instalacja Windows oraz kontrolowane uporządkowanie starego C#,
