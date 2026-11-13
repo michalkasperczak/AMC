@@ -382,6 +382,8 @@ internal static class Program
         Equal(true, ProductIdentity.IsMainWindowTitle(ReleaseProfileContract.Test,
             "AMC Test — 18.10.2026, 13:30"));
         Equal(true, ProductIdentity.IsMainWindowTitle(ReleaseProfileContract.Test,
+            "Radio Poznań — AMC Test — 13.11.2026, 19:52"));
+        Equal(true, ProductIdentity.IsMainWindowTitle(ReleaseProfileContract.Test,
             "AMC Python — 18.10.2026, 13:29"));
         Equal(false, ProductIdentity.IsMainWindowTitle(ReleaseProfileContract.Test,
             "AMC — 18.10.2026, 13:29"));
@@ -497,6 +499,11 @@ internal static class Program
             ReleaseProfileContract.Test,
             runtime,
             "AMC Test — 18.10.2026, 13:30"));
+        Equal(true, SafeApplicationStop.IsCandidateWindow(
+            root,
+            ReleaseProfileContract.Test,
+            runtime,
+            "Radio Poznań — AMC Test — 13.11.2026, 19:52"));
         Equal(true, SafeApplicationStop.IsCandidateWindow(
             root,
             ReleaseProfileContract.Test,

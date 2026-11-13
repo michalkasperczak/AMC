@@ -75,3 +75,20 @@ nieudanych. Test obejmuje atomowy zapis/odczyt migawki, odrzucenie
 niegrających i błędnych danych, dwa równoczesne tory, jednorazowe wznowienie
 Radia i natywnego TIDAL. Build, instalację, wydanie i odsłuch należy zapisać
 osobno po ich faktycznym wykonaniu.
+
+## Korekta 13.11.2026: tytuł okna blokował aktualizator
+
+Kandydat alpha.501 (`4e4f71cc`) przeszedł build i został opublikowany jako
+`test-2026.11.13.2155`, ale nie został zainstalowany. Aktualizator trzykrotnie
+odmówił z kodem 3, a stary AMC alpha.500 nadal grał. Odczyt błędu wykazał
+procesy starej instalacji, mimo że aktualizator poprosił okno o zamknięcie.
+Przyczyną jest porządek tytułu okna wybrany przez użytkownika: „Radio Poznań
+— AMC Test — 13.11.2026, 19:52”. Kontrakt rozpoznawał tylko tytuły
+zaczynające się od „AMC Test”, zatem nie wysłał WM_CLOSE do właściwego okna.
+
+Decyzję zastępuje alpha.502: kontrakt rozpoznaje nazwę produktu również po
+tytule odtwarzanego materiału, przy zachowaniu sprawdzenia, że okno należy do
+procesu z dokładnie tej instalacji. Testy launchera sprawdzają ten przypadek
+dla wykrywania instancji i aktualizatora. Przed instalacją nowej wersji trzeba
+ponownie zbudować paczkę oraz instalator; publikacja alpha.501 nie dowodzi
+lokalnej instalacji.

@@ -150,7 +150,11 @@ internal static class ReleaseProfileContract
     internal static bool IsWindowTitle(ReleaseProfileDescriptor profile, string title) =>
         profile.AcceptedWindowTitles.Any(productName =>
             string.Equals(title, productName, StringComparison.Ordinal)
-            || title.StartsWith(productName + " — ", StringComparison.Ordinal));
+            || title.StartsWith(productName + " — ", StringComparison.Ordinal)
+            // Użytkownik może umieścić tytuł odtwarzania przed nazwą AMC.
+            // Aktualizator nadal sprawdza ścieżkę procesu w instalacji.
+            || title.EndsWith(" — " + productName, StringComparison.Ordinal)
+            || title.Contains(" — " + productName + " — ", StringComparison.Ordinal));
 
     /// <summary>
     /// Validates the identity of an already installed older bundle. Release
