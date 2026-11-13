@@ -236,3 +236,40 @@ opublikowany i zainstalowany; działający AMC ma nowy manifest i uruchomił
 Radio „Poznań”. Nie przeprowadzono jeszcze słyszalnej próby Enter na utworze
 Apple Music, logowania w profilu zainstalowanego WebView2 ani odbioru NVDA.
 Próba wymaga uzgodnionego czasu, w którym użytkownik nie korzysta z komputera.
+
+## Korekta po próbie użytkownika 13.11.2026, późnym wieczorem
+
+Użytkownik w zainstalowanym alpha.502 wybrał utwór Apple Music. AMC zwrócił
+„Apple Music nie przyjęło odtwarzania wskazanego utworu”, lecz w ukrytym
+WebView rozpoczął się dźwięk innego materiału. Spacja uruchomiła lub
+zatrzymała w oryginalnej aplikacji inny utwór, w tym Whitney Houston, nie
+zatrzymując materiału słyszanego z ukrytego procesu. F6 nie otworzył
+odtwarzacza. Użytkownik uznał osadzony odtwarzacz za zbędny i odłożył dalsze
+próby do dnia, gdy będzie mógł zwolnić komputer. Ta relacja zastępuje
+wcześniejsze przypuszczenie, że naprawiony potok procesu wystarczy do
+działającego Entera. Wersja alpha.502 jest zainstalowana, ale odtwarzanie
+Apple Music w AMC nie działa zgodnie z wymaganiem.
+
+Analiza kodu bez kolejnej próby: `PlayerWindow.PlayAsync` klika wiersz albo
+wykonuje `music.setQueue` i `music.play`, następnie przy rozbieżności
+`nowPlayingItem.id` zwraca błąd **bez zatrzymania** rozpoczętej muzyki.
+`LiteFrame._play_apple_music_web` ustawia `_apple_music_web_active` tylko dla
+`handled=true`. Po błędzie Spacja przechodzi więc w
+`_apple_music_external_command` do oryginalnej aplikacji. F6 zależy od
+`Navigator.session.now_playing_id`, którego ścieżka Apple Web nie ustawia.
+Zamknięcie oryginalnej aplikacji nie zamyka odrębnego procesu WebView;
+`AppleMusicWebClient.close()` wywołuje dopiero zamknięcie AMC albo jawne
+otwarcie utworu w oryginalnym Apple Music przez AMC.
+
+Odczyt procesów potwierdził nadal działający
+`amc_apple_music_web_host.exe` PID 39344 jako dziecko Pythona AMC. Wysłano
+zwykłe zamknięcie wyłącznie do tego okna; proces zakończył się, a AMC
+pozostał uruchomiony. Nie odczytywano poświadczeń ani profilu WebView2.
+Bez dodatkowego śladu stanu MusicKit nie da się ustalić, który krok
+uruchomił niewłaściwy materiał ani jego dokładnego identyfikatora.
+
+Następna decyzja produktowa: wycofać automatyczny ukryty odtwarzacz i jego
+polecenia z Entera, menu, palety i pomocy; zachować przeglądanie biblioteki
+Apple Music i jawne otwieranie w oryginalnej aplikacji. Przed kolejnym
+wydaniem sprawdzić zgodność tych powierzchni oraz brak uruchamiania ukrytego
+procesu. Nie wykonywać dziś nowych prób odtwarzania ani instalacji.
