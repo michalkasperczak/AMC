@@ -23,6 +23,7 @@ from .audio_output import read_output_overrides
 from .i18n import POLISH, SUPPORTED_LANGUAGES, normalize_preference
 from .profile_presets import read_preset_overrides
 from .playback_history import normalize_histories
+from .post_update_playback import normalize_snapshot
 from .radio_activity import normalize_state_position
 from .radio_recognition import normalize_scope, read_tracks
 from .recognition_actions import normalize_default_service
@@ -618,6 +619,9 @@ class LiteState:
     options: Options = field(default_factory=Options)
     stations: list[Station] = field(default_factory=list)
     navigation: dict = field(default_factory=dict)
+    # Migawka żywych lokalnych torów na potrzeby restartu instalatora.
+    # Zwykły start nie odtwarza jej automatycznie.
+    playback_before_update: list[dict] = field(default_factory=list)
     #: Prywatne, użytkowe skróty AMC Python. Klucze techniczne nie trafiają
     #: do kontrolek; interfejs zawsze mapuje je na jawne nazwy poleceń.
     shortcut_overrides: dict[str, str] = field(default_factory=dict)
@@ -933,6 +937,7 @@ class StateStore:
             options=options,
             stations=stations,
             navigation=navigation if isinstance(navigation, dict) else {},
+            playback_before_update=normalize_snapshot(raw.get("playback_before_update")),
             shortcut_overrides=serialize_shortcut_overrides(
                 normalize_shortcut_overrides(raw.get("shortcut_overrides"))
             ),
@@ -1011,6 +1016,7 @@ class StateStore:
             "options": options_payload,
             "stations": [asdict(station) for station in state.stations],
             "navigation": state.navigation,
+            "playback_before_update": normalize_snapshot(state.playback_before_update),
             "shortcut_overrides": serialize_shortcut_overrides(
                 normalize_shortcut_overrides(state.shortcut_overrides)
             ),

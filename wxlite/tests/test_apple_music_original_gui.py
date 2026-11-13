@@ -115,7 +115,7 @@ def test_album_enter_loads_tracks_into_apple_music_list(monkeypatch) -> None:
             return AppleMusicLibraryResult("Album: Przykładowy album", (song,))
 
     monkeypatch.setattr(gui, "open_apple_music_library", lambda _layout: nullcontext(Library()))
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame._apple_music_records = {album.row.item_id: album}
     frame._apple_music_pages = {}
@@ -138,7 +138,7 @@ def test_album_enter_loads_tracks_into_apple_music_list(monkeypatch) -> None:
 
 def test_menu_and_help_availability_follow_selected_track(monkeypatch) -> None:
     record, navigator = _selected_song()
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame._apple_music_records = {record.row.item_id: record}
     frame._apple_music_web_client = SimpleNamespace(
@@ -170,7 +170,7 @@ def test_context_menu_has_explicit_user_facing_original_action() -> None:
         def GetItemLabel(self):  # noqa: N802 - wx API
             return self.label
 
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame._refresh_menu_state = lambda: None
     frame._menu_items = [
@@ -198,7 +198,7 @@ def test_apple_music_transport_uses_only_apple_session() -> None:
     commands: list[str] = []
     messages: list[str] = []
     refreshes: list[bool] = []
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame.client = SimpleNamespace(
         apple_music_external_transport=lambda command: (
@@ -250,7 +250,7 @@ def test_web_playback_transport_does_not_control_original_app() -> None:
     _record, navigator = _selected_song()
     web_commands: list[str] = []
     messages: list[str] = []
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame.client = SimpleNamespace(
         apple_music_external_transport=lambda _command: (
@@ -279,7 +279,7 @@ def test_web_playback_transport_does_not_control_original_app() -> None:
 
 def test_apple_music_nvda_status_does_not_claim_selected_song_is_playing() -> None:
     _record, navigator = _selected_song()
-    frame = object.__new__(gui.LiteFrame)
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame._apple_music_external_snapshot = {
         "hasSession": True,

@@ -41,6 +41,7 @@ internal sealed record PythonLaunchPlan(ProcessStartInfo StartInfo, bool ShowCap
         // przypadkowego interpretera ani PYTHONPATH z terminala użytkownika.
         start.Environment.Remove("PYTHONPATH");
         start.Environment.Remove("AMC_WX_LITE_PYTHON");
+        start.Environment.Remove("AMC_POST_UPDATE_RESUME");
         start.Environment["AMC_LITE_HOST"] = bundle.HostExecutable;
         start.Environment["AMC_RELEASE_PROFILE"] = bundle.Profile.ProfileId;
         start.Environment["AMC_SHELL_REQUESTS"] = "1";

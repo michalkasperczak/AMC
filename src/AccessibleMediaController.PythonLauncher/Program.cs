@@ -204,6 +204,8 @@ internal static class Program
         bool activateAfterStart = false)
     {
         var plan = PythonLaunchPlan.Create(bundle, args);
+        if (activateAfterStart)
+            plan.StartInfo.Environment["AMC_POST_UPDATE_RESUME"] = "1";
         using var process = Process.Start(plan.StartInfo)
             ?? throw new InvalidOperationException("nie uruchomiono procesu interfejsu");
         if (activateAfterStart)

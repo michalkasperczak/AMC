@@ -79,6 +79,7 @@ from .audio_output import (
     read_output_overrides,
     read_profile_outputs,
 )
+from .post_update_playback import normalize_snapshot
 from .collation import HostCollation
 from .cast_dialog import CastDeviceDialog
 from .mirror_dialog import MirrorDeviceDialog
@@ -10829,6 +10830,7 @@ class LiteFrame(wx.Frame):
         # jego transport; nie udaje stanu lokalnego WindowsMediaOutput.
         self._tidal_desktop_has_playback = False
         self._tidal_native_adapter = None
+        self._tidal_post_update_resume: dict | None = None
         self._tidal_native_has_playback = False
         self._tidal_native_item_id: str | None = None
         self._tidal_native_challenge_dialog: wx.Dialog | None = None
@@ -14432,6 +14434,7 @@ class LiteFrame(wx.Frame):
                 self._startup_smoke_ready = True
                 return
             self._load_initial_content()
+            self._resume_playback_after_update()
             self._schedule_automatic_application_update_check()
             # Oba profile korzystają z tych samych zweryfikowanych binariów,
             # ale z własnej polityki profilu. Kontrola działa w tle i nie
@@ -29637,6 +29640,29 @@ class LiteFrame(wx.Frame):
             self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
             self._playing_session = SessionId.TIDAL
             self._playing_sessions.add(SessionId.TIDAL)
+            resume = self._tidal_post_update_resume
+            self._tidal_post_update_resume = None
+            if resume is not None and resume.get("trackId") == track_id:
+                client = self.client
+                if client is not None:
+                    def restore_transport() -> None:
+                        client.set_volume(resume["volume"], SessionId.TIDAL.value)
+                        client.set_rate(resume["rate"], SessionId.TIDAL.value)
+                        if resume["positionSeconds"] > 0:
+                            client.seek_to_position(
+                                resume["positionSeconds"], SessionId.TIDAL.value
+                            )
+                        if resume["muted"]:
+                            client.toggle_mute(SessionId.TIDAL.value)
+
+                    self.runner.submit(
+                        "tidal-post-update-transport", restore_transport,
+                        lambda _value: None,
+                        lambda _error: self.announcer.say(
+                            "Utwór TIDAL wrócił, ale nie udało się przywrócić "
+                            "wszystkich ustawień odtwarzania"
+                        ),
+                    )
             self.announcer.say(
                 f"{self._tidal_native_pending_title}: {message}"
             )
@@ -38372,6 +38398,134 @@ class LiteFrame(wx.Frame):
 
     # -------------------------------------------------------- zapis i koniec
 
+    def _capture_playback_before_close(self) -> None:
+        """Ask the live host, not FFmpeg process names, what is playing."""
+        client = self.client
+        if client is None or not client.alive:
+            self.state.playback_before_update = []
+            return
+        snapshots: list[dict] = []
+        sessions = self._playing_sessions
+        for session in (
+            SessionId.RADIO, SessionId.FILES, SessionId.PODCASTS,
+            SessionId.RADIOARCHIWISTA, SessionId.TIDAL,
+        ):
+            if session not in sessions:
+                continue
+            try:
+                status = client.status(session.value)
+            except Exception as error:
+                _append_frontend_log(
+                    self.store,
+                    f"Nie odczytano odtwarzania przed zamknięciem: "
+                    f"{session.value}: {type(error).__name__}",
+                )
+                continue
+            if isinstance(status, dict):
+                if session is SessionId.TIDAL:
+                    status = {
+                        **status,
+                        "trackId": getattr(self, "_tidal_native_active_track_id", None),
+                        "id": self.navigator.sessions[SessionId.TIDAL].now_playing_id
+                        or status.get("id"),
+                        "title": self.navigator.sessions[SessionId.TIDAL].now_playing_title
+                        or status.get("title"),
+                    }
+                snapshots.append(status)
+        self.state.playback_before_update = normalize_snapshot(snapshots)
+
+    def _resume_playback_after_update(self) -> None:
+        """Resume saved local tracks only for the launch made by the updater."""
+        if os.environ.get("AMC_POST_UPDATE_RESUME") != "1":
+            return
+        snapshots = normalize_snapshot(self.state.playback_before_update)
+        self.state.playback_before_update = []
+        self._save_state()
+        client = self.client
+        if client is None or not snapshots:
+            return
+
+        def work() -> tuple[list[SessionId], list[str]]:
+            restored: list[SessionId] = []
+            failures: list[str] = []
+            for snapshot in snapshots:
+                if snapshot["sessionId"] == SessionId.TIDAL.value:
+                    continue
+                session = SessionId(snapshot["sessionId"])
+                source = snapshot["source"]
+                try:
+                    if session is SessionId.RADIO:
+                        client.play_station(
+                            source, volume=snapshot["volume"],
+                            item_id=snapshot["id"], title=snapshot["title"],
+                        )
+                    else:
+                        if session is SessionId.FILES and not Path(source).is_file():
+                            raise FileNotFoundError("pliku nie ma już w tej lokalizacji")
+                        session_options.configure_resume_preferences(
+                            client, self.state, self._remember_local_playback_positions
+                        )
+                        client.configure_audio(**session_options.resolve_audio_payload(
+                            self.options,
+                            session_options.effective_overrides(self.state, session),
+                        ))
+                        if session is SessionId.FILES:
+                            client.play_file(
+                                source, item_id=snapshot["id"],
+                                title=snapshot["title"],
+                                volume=snapshot["volume"], rate=snapshot["rate"],
+                                position_seconds=snapshot["positionSeconds"],
+                            )
+                        else:
+                            client.play_media(
+                                source, item_id=snapshot["id"],
+                                title=snapshot["title"],
+                                volume=snapshot["volume"], rate=snapshot["rate"],
+                                position_seconds=snapshot["positionSeconds"],
+                                session_id=session.value,
+                            )
+                    if session is SessionId.RADIO and snapshot["rate"] != 1.0:
+                        client.set_rate(snapshot["rate"], session.value)
+                    if snapshot["muted"]:
+                        client.toggle_mute(session.value)
+                    restored.append(session)
+                except Exception as error:
+                    failures.append(f"{snapshot['title']}: {error}")
+            return restored, failures
+
+        def done(result: tuple[list[SessionId], list[str]]) -> None:
+            restored, failures = result
+            for session in restored:
+                self._playing_sessions.add(session)
+                self._playing_session = session
+            if restored:
+                self._refresh_status()
+                self.announcer.say("Przywrócono odtwarzanie po aktualizacji")
+            if failures:
+                self.announcer.say(
+                    "Nie udało się przywrócić odtwarzania: " + "; ".join(failures)
+                )
+            tidal = next((
+                entry for entry in snapshots
+                if entry["sessionId"] == SessionId.TIDAL.value
+            ), None)
+            if tidal is not None:
+                row = Row(
+                    item_id=tidal["id"], title=tidal["title"], kind="track",
+                    service_id=f"tracks:{tidal['trackId']}", service_kind="track",
+                )
+                self._tidal_post_update_resume = tidal
+                if not self._play_tidal_native_row(row):
+                    self._tidal_post_update_resume = None
+                    self.announcer.say("Nie udało się przywrócić utworu TIDAL")
+
+        self.runner.submit(
+            "post-update-playback", work, done,
+            lambda error: self.announcer.say(
+                f"Nie udało się przywrócić odtwarzania: {error}"
+            ),
+        )
+
     def _save_state(self) -> bool:
         """Utrwal prywatny stan. ``False`` = dysk ODMOWIL zapisu.
 
@@ -38476,6 +38630,7 @@ class LiteFrame(wx.Frame):
                     # okna nie blokujemy osobnym komunikatem podczas wyjscia.
                     pass
         self.gate.cancel_all()
+        self._capture_playback_before_close()
         self._save_state()
         native_adapter = self._tidal_native_adapter
         if native_adapter is not None:

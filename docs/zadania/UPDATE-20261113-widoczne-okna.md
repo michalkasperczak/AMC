@@ -48,3 +48,30 @@ podczas pracy AMC.
 Kandydat źródłowy `0.1.0-alpha.501`; commit i identyfikator wydania należy
 uzupełnić po zapisie i publikacji. Poprzednie wydanie alpha.500 jest
 zainstalowane i uruchomione.
+
+## Korekta 13.11.2026: odtwarzanie a nagrywanie i wznowienie po aktualizacji
+
+Wcześniejszy wniosek asystenta, że działający FFmpeg oznacza aktywne
+nagrywanie, był błędny. Proces potomny hosta miał wyjście PCM do potoku i
+nie miał ścieżki zapisu nagrania; służył do odtwarzania. Blokadę aktualizacji
+wyznacza odpowiedź `radio.recordingStatus` właściciela nagrywania, a nie sama
+obecność FFmpeg. Użytkownik potwierdził brak nagrywania i upoważnił do
+instalacji bieżącego kandydata.
+
+Przed zamknięciem nowy AMC Test zapisuje tylko potwierdzone, grające źródła
+Radia, Plików, Podcastów, Radioarchiwisty i natywnego TIDAL. Launcher przekazuje
+znacznik wyłącznie po uruchomieniu przez aktualizator; wtedy AMC zużywa
+migawkę raz i wznawia źródło, głośność, tempo, wyciszenie oraz pozycję lokalnych
+materiałów i TIDAL. Dla radia wznowienie zaczyna się od bieżącej transmisji;
+bufor Time Shift nie jest przenoszony. Dla TIDAL zapisuje się identyfikator
+utworu, nigdy tymczasowy adres proxy. Zwykły start aplikacji nie uruchamia
+samoczynnie dźwięku. Pozostałe usługi nie mają tu lokalnego toru, który można
+bezpiecznie odtworzyć z tej migawki. Istniejąca wersja alpha.500 nie tworzy
+jeszcze takiej migawki; pierwsza instalacja wymaga osobnego rozpoznania
+obecnie grającego źródła.
+
+Testy ukierunkowane w Pythonie 3.14 i wxPython 4.3.1: 94 zaliczone, 0
+nieudanych. Test obejmuje atomowy zapis/odczyt migawki, odrzucenie
+niegrających i błędnych danych, dwa równoczesne tory, jednorazowe wznowienie
+Radia i natywnego TIDAL. Build, instalację, wydanie i odsłuch należy zapisać
+osobno po ich faktycznym wykonaniu.
