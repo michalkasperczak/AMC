@@ -39,5 +39,5 @@ W AMC Test przejdź do sesji Apple Music i otwórz „Utwory” albo playlistę.
 
 ## Wersja i commit
 
-- Zmiany źródłowe: niezatwierdzone.
+- Zmiany źródłowe i testy: commit `20c1cb3635d85cc6fa6cd461ace4e96d018ce41a`.
 - Build, instalacja i publikacja: niewykonane.
