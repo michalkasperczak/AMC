@@ -31,6 +31,8 @@
 
 W AMC Test przejdź do sesji Apple Music i otwórz „Utwory” albo playlistę. Na utworze Enter lub polecenie „Otwórz utwór w oryginalnym Apple Music” przekazuje go do zainstalowanej aplikacji Apple. Gdy utwór nie ma celu katalogowego, AMC powie o braku możliwości przekazania. Po przekazaniu sprawdź odtwarzanie w aplikacji Apple; AMC nie twierdzi jeszcze, że dźwięk sam się rozpoczął. Sesja AMC Public nie pokazuje tego polecenia. Pauza, seek, kolejka, wybór wyjścia i pełne odtwarzanie sterowane z AMC pozostają poza tym etapem.
 
+Roboczy tekst instrukcji i listy zmian: [AM-006-instrukcja-i-lista-zmian-szkic.md](AM-006-instrukcja-i-lista-zmian-szkic.md). Nie publikować przed odbiorem.
+
 ## Znane ograniczenia
 
 - Wymagany jest ręczny test otwarcia konkretnego utworu, pełnego odtwarzania i komunikatów NVDA w oficjalnej aplikacji.
