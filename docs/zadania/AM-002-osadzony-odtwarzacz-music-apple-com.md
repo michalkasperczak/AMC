@@ -80,5 +80,5 @@ Brak kodu produkcyjnego, buildu, instalacji i wydania. Commit dokumentacji
 pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
 
 Korekta 13 listopada 2026: kod transportu Windows i kompilacja hosta istnieją
-w aktualnych źródłach; nie ma zainstalowanego ani wydanego odtwarzacza Apple
-Music. Nowy commit zostanie dopisany po punkcie kontrolnym.
+w aktualnych źródłach w commicie `7c3b9a26`; nie ma zainstalowanego ani
+wydanego odtwarzacza Apple Music.

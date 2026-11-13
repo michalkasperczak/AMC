@@ -49,4 +49,4 @@ Roboczy tekst instrukcji i listy zmian: [AM-006-instrukcja-i-lista-zmian-szkic.m
 
 - Zmiany źródłowe i testy: commit `20c1cb3635d85cc6fa6cd461ace4e96d018ce41a`.
 - Build, instalacja i publikacja: niewykonane.
-- Transport SMTC, kolejność menu i aktualizacja dokumentacji: zmiany robocze z 13 listopada 2026; commit zostanie wpisany po zapisaniu punktu kontrolnego. Host zbudowany tylko w katalogu repozytorium, bez instalacji.
+- Transport SMTC, kolejność menu i aktualizacja dokumentacji: commit `7c3b9a26` z 13 listopada 2026. Host zbudowany tylko w katalogu repozytorium, bez instalacji.
