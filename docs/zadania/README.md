@@ -731,8 +731,8 @@ zmian, wymagający korekty użytkownika:
   stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
-- `AM-002` — **W trakcie; transport oficjalnej aplikacji zmierzony, brak pewnego wyboru utworu i pilota DRM**
-  — osobny proces z prawdziwym music.apple.com i wąskim mostkiem transportu.
+- `AM-002` — **W trakcie; osobny WebView2 wskazał ponad minutę wybranego utworu, odsłuch niepotwierdzony, Enter i sterowanie z AMC nie są jeszcze połączone**
+  — przed dalszą widoczną próbą uprzedzić użytkownika; okno nie może blokować AMC.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
 - `AM-003` — **Odczytowa sesja jest zainstalowana i opublikowana w AMC Test
   `0.1.0-alpha.497`; ręczny odbiór NVDA pozostaje otwarty** — `Ctrl+L` oznacza Bibliotekę,

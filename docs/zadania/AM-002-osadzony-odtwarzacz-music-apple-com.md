@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `W trakcie — transport oficjalnej aplikacji przez Windows potwierdzony; brak pewnego wyboru utworu i pilota DRM`
+- Status: `W trakcie — izolowany pilot WebView2 uruchomił wskazany utwór ponad minutę; odsłuch niepotwierdzony, brak integracji z AMC`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -30,6 +30,11 @@ automatyzować.
   linku z AM-006 nie realizuje tego celu. Oficjalna aplikacja Apple Music
   odtwarza dźwięk na komputerze użytkownika, ale jej interfejs Windows SMTC
   pozwala sterować tylko bieżącą sesją; nie ustawia katalogowego utworu.
+- Korekta użytkownika z 13 listopada 2026, po pilocie: okno próbne przejęło
+  sterowanie pulpitem i utrudniło korzystanie z AMC. Przed każdym kolejnym
+  widocznym testem trzeba uprzedzić użytkownika; podczas zwykłej pracy okno
+  odtwarzacza nie może zasłaniać ani blokować AMC. Ta korekta zastępuje
+  założenie, że samo widoczne okno pilota jest akceptowalnym stanem pracy.
 
 ## Plan pilota
 
@@ -51,7 +56,8 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 - Odczyt źródeł Sidry, commit `76de8f3ca93b2d4b747510855ee5269c2f795b85`.
 - Potwierdzona allowlista komend i zdarzeń MusicKit oraz izolacja kontekstu.
-- Nie uruchamiano Sidry, Chromium, Apple Music, DRM ani audio; brak testu NVDA.
+- Pierwotnie nie uruchamiano Sidry, Chromium, Apple Music, DRM ani audio; brak
+  testu NVDA. Poniższe próby z 13 listopada 2026 zastępują ten stan.
 - Korekta z 13 listopada 2026 zastępuje powyższy stan: uruchomiono oryginalne
   Apple Music i odczytano sesję Windows. Faktyczne przełączenie pauza–gra–pauza
   zadziałało przez `TryTogglePlayPauseAsync`; tytuł z sesji nie odpowiadał
@@ -59,20 +65,45 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   nie potwierdził zmiany tytułu na wskazany utwór. Użytkownik słyszał automatycznie
   uruchamiane utwory w sekwencji prób, ale nie wiadomo, która akcja je wywołała.
   `IsPlaybackPositionEnabled`
-  było `false`. Nie wykonano testu pełnego utworu ani pilota osadzonego DRM.
+  było `false`. Na tym etapie nie wykonano testu pełnego utworu ani pilota DRM.
 - Zbudowano bezokienny host z wąskim transportem Apple Music; test kontraktu
   zaliczony. Zmiany nie zostały zainstalowane ani opublikowane.
+- 13 listopada 2026: w odrębnym prototypie WinForms/WebView2 1.0.4191.47
+  otwarto katalogowy utwór Bruce Springsteen „A Prayer By The River
+  (Instrumental)”, ID `1804690076`. Użytkownik samodzielnie zalogował się w
+  widocznym oknie. Po zamknięciu ekranu powitalnego wybrano dokładnie ten
+  utwór; licznik przeszedł przez 42 s, 53 s, 1:00 i 1:28, bez oznaczenia
+  „PODGLĄD”. Pauza zatrzymała licznik na 53 s, wznowienie go uruchomiło.
+  Po minimalizacji licznik nadal rósł, utwór doszedł do końca i kolejny zaczął
+  grać. Prototyp pozwolił odczytać wyłącznie strukturę publicznego wiersza
+  wskazanego utworu; nie odczytywano cookies ani danych logowania.
+  To potwierdza wybór utworu i licznik wykraczający poza próbkę w WebView2
+  na tym komputerze. Nie potwierdzono osobno słyszalnego dźwięku, ponieważ
+  użytkownik korzystał równolegle z AMC. Test **nie** potwierdza działania
+  Enter, sterowania ani instalacji AMC.
+- Po uwadze użytkownika potwierdzono odczytowo: proces prototypu był już
+  zamknięty, proces AMC Test nadal działał. Nie uruchamiano kolejnej próby.
 
 ## Znane ograniczenia
 
-- Nie wiadomo jeszcze, który runtime da pełne DRM w wydaniu możliwym do
-  utrzymywania przez AMC.
+- WebView2 uruchomił wskazany utwór z licznikiem ponad minutę; nadal trzeba
+  potwierdzić słyszalny dźwięk i utrzymywalne wydanie zintegrowane z AMC.
 - Ukrycie okna nie może zatrzymywać odtwarzania ani usypiać zdarzeń MusicKit.
+- Minimalizacja okna została sprawdzona; całkowite ukrycie, praca w tle
+  podczas korzystania z AMC i brak przejmowania fokusu wymagają osobnego testu.
+- Profil logowania prototypu jest osobny i nie jest częścią repozytorium ani
+  zainstalowanego AMC. Nie wolno kopiować go do pakietu lub na GitHub.
 - Aktualizacja strony Apple może zmienić singleton, kolejkę lub zdarzenia.
 - Apple Music na Windows nie udostępnił w sprawdzonym interfejsie systemowym
   polecenia wyboru utworu. Warianty `/url`, `/play` i `music://` nie spełniły
   kryterium zgodności tytułu. Osadzony odtwarzacz webowy wymaga osobnej próby
   zgodnej z preferencją użytkownika dotyczącą przeglądarek i logowania.
+
+## Następny krok
+
+Połączyć wąskie polecenie wyboru utworu z prototypem WebView2 w profilu AMC Test
+bez przejmowania fokusu AMC. Przed pierwszą widoczną próbą uprzedzić użytkownika;
+sprawdzić słyszalny dźwięk, ukrycie okna, Enter i sterowanie z AMC z NVDA.
 
 ## Wersja i commit
 
