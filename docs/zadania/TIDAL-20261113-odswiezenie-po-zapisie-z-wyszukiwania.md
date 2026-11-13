@@ -48,7 +48,13 @@ lista AMC pozostająca pod oknem wyszukiwania.
 
 ## Stan dostarczenia
 
-- Źródła: zmienione, jeszcze niezatwierdzone.
-- Build, instalacja, GitHub: niewykonane dla tego przyrostu.
-- Zainstalowana alpha.498 nadal ma stare zachowanie do czasu aktualizacji.
-- Commit i wersja: do uzupełnienia po końcowej regresji.
+- Źródła: zatwierdzone w `8ef22969fed875e34f3759a0b3187bc93e4a38c6`;
+  końcowy commit wydania `7ef8396849eff477e618920dce39392371381e03`.
+- Build: paczka `cbf655af`, 3797 plików, `sourceDirty=false`; kontrolowany
+  start zaliczony.
+- Instalacja: AMC Test `0.1.0-alpha.499`, użytkowo `13.11.2026, 14:58`,
+  uruchomiona z `D:\Projekty Codex\AMC Python`.
+- GitHub: prerelease `test-2026.11.13.1458`, trzy zasoby `uploaded`; rozmiar i
+  SHA-256 instalatora zgodne z lokalnym plikiem integralności.
+- Automatyczne odświeżenie listy po zapisie wymaga jeszcze odbioru użytkownika
+  w rzeczywistym koncie TIDAL.

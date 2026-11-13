@@ -51,10 +51,10 @@ pozycji, więc lokalne `Alt+1–3` sortowałoby tylko fragment i podawało mylą
 wynik. Ulubione Apple pozostają wyłączone do czasu potwierdzenia rzeczywistego
 API.
 
-**Korekta 13.11.2026:** późniejszy przyrost AM-005 dodaje w źródłach
+**Korekta 13.11.2026:** późniejszy przyrost AM-005 dodaje
 dwukierunkowe `Ctrl+Shift+L` wyłącznie dla utworów i albumów. Wykorzystuje ten
-sam kontrakt sąsiedniego fokusu i końcowej mowy. Nie jest jeszcze częścią
-zainstalowanej alpha.498 i nie zmienia ograniczenia nowych Ulubionych Apple.
+sam kontrakt sąsiedniego fokusu i końcowej mowy. Został wydany i zainstalowany
+w alpha.499; nie zmienia ograniczenia nowych Ulubionych Apple.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -89,8 +89,8 @@ bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwark
   zaznaczenie z filtrem, szybka zmiana sesji podczas odpowiedzi i kolejki
   wszystkich dostawców.
 - Apple Music nie ma jeszcze Ulubionych, sortowania pełnej kolekcji ani
-  odtwarzacza. Zapis Biblioteki dla utworów i albumów jest gotowy dopiero w
-  niezatwierdzonych źródłach AM-005, nie w zainstalowanej alpha.498.
+  odtwarzacza. Zapis Biblioteki dla utworów i albumów jest dostępny od
+  zainstalowanej alpha.499.
 - `Ctrl+F` Apple Music nie wykonuje jeszcze zapytania katalogowego i nie
   pobiera automatycznie wszystkich stron.
 
@@ -104,4 +104,8 @@ bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwark
   `uploaded`, commit i SHA-256 instalatora zweryfikowane odczytowo.
 - Instalacja użytkowa: `D:\Projekty Codex\AMC Python`; uruchomione okno
   potwierdziło tytuł `AMC Test — 13.11.2026, 02:17`.
+
+**Późniejszy stan 13.11.2026:** AM-005 i odświeżanie kolekcji TIDAL wydano w
+AMC Test `0.1.0-alpha.499`, użytkowo `13.11.2026, 14:58`, z commita
+`7ef8396849eff477e618920dce39392371381e03` i paczki `cbf655af`.
 

@@ -1150,3 +1150,39 @@ nowych funkcji z NVDA oraz prawdziwym Sonosem pozostaje osobnym etapem.
   `AMC Test — 13.11.2026, 02:17`;
 - adres wydania:
   `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0217`.
+
+## Wydanie AMC Test 0.1.0-alpha.499 — 13.11.2026
+
+### Zachowanie użytkowe
+
+- Apple Music: `Ctrl+Shift+L` dodaje katalogowy utwór lub album do Biblioteki
+  i usuwa biblioteczny utwór albo album z bezpośredniej listy Utwory lub
+  Albumy. Menu, paleta, skrót i pomoc korzystają ze wspólnego polecenia.
+- TIDAL: po zapisie albumu, wykonawcy lub playlisty z wyszukiwania AMC
+  unieważnia tylko właściwą kolekcję i po zamknięciu wyszukiwarki odświeża
+  widoczną listę bez zbędnej mowy i bez utraty zaznaczenia.
+- Bramka instalatora przekazuje ścieżki ze spacjami do Inno Setup jako osobne
+  argumenty. Test strukturalny profili instalatora: 27/27 zaliczone.
+
+### Testy, build i instalacja
+
+- Szeroka regresja: 2731 testów i 34 podtesty zaliczone, 117 pominiętych;
+  sześć jawnych wyłączeń obejmowało dwa zastane długi językowe i cztery testy
+  prawdziwego wxPython wykonane osobno.
+- Commit funkcji `8ef22969fed875e34f3759a0b3187bc93e4a38c6`; końcowy commit wydania
+  `7ef8396849eff477e618920dce39392371381e03`.
+- Paczka `cbf655af`, 3797 plików, `sourceDirty=false`, wersja użytkowa
+  `13.11.2026, 14:58`; kontrolowany start paczki i stałej instalacji zaliczony.
+- Zainstalowano transakcyjnie i uruchomiono jedną instancję z
+  `D:\Projekty Codex\AMC Python`; tytuł okna
+  `AMC Test — 13.11.2026, 14:58`.
+
+### GitHub
+
+- Instalator `AMC-Test-2026-11-13-1458.exe`: 73 278 127 bajtów, SHA-256
+  `4cd16ddb1ce2273dfdff60c18bc3551bd239118fd3e69a84d2cea783bc56ea83`.
+- Prerelease `test-2026.11.13.1458` wskazuje końcowy commit. Instalator, plik
+  integralności i manifest kanału aktualizacji mają stan `uploaded`; zdalny
+  rozmiar i digest instalatora są zgodne z lokalnymi.
+- Adres wydania:
+  `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.1458`.

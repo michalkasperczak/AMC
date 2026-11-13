@@ -66,11 +66,16 @@ kierunku operacji; warunek usuwania uwzględnia także bieżący widok.
 
 ## Stan dostarczenia
 
-- Zmiany źródłowe: wykonane, jeszcze niezatwierdzone.
+- Zmiany źródłowe: zatwierdzone w `8ef22969fed875e34f3759a0b3187bc93e4a38c6`;
+  końcowy commit wydania `7ef8396849eff477e618920dce39392371381e03`
+  zawiera również poprawkę bramki instalatora.
 - Testy celowane: zaliczone.
 - Pełna regresja: wykonana z wyżej opisanymi, jawnymi wyłączeniami środowiska.
-- Build: niewykonany.
-- Instalacja lokalna: nadal alpha.498 z 13.11.2026, 02:17; ta funkcja nie jest
-  jeszcze obecna w zainstalowanym programie.
-- GitHub i wydanie: niewykonane.
-- Wersja i commit nowego przyrostu: do nadania po regresji i zatwierdzeniu.
+- Build: paczka `cbf655af`, 3797 plików, `sourceDirty=false`; kontrolowany
+  start paczki i instalacji zaliczony.
+- Instalacja lokalna: AMC Test `0.1.0-alpha.499`, użytkowo
+  `13.11.2026, 14:58`, uruchomiona z `D:\Projekty Codex\AMC Python`.
+- GitHub: prerelease `test-2026.11.13.1458`; trzy zasoby `uploaded`, tag,
+  rozmiar i SHA-256 instalatora zweryfikowane odczytowo.
+- Rzeczywisty zapis na koncie Apple Music nadal wymaga odbioru użytkownika;
+  build i testy kontraktu nie są przedstawiane jako potwierdzenie usługi.
