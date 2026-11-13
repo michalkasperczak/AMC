@@ -229,6 +229,16 @@ foreach ($project in $projects) {
         "-c", "Release", "-r", "win-x64", "--no-self-contained"
     ) -WorkingDirectory $RepositoryRoot -Stage "Budowanie $project"
 }
+$webHostOutput = Join-Path $RepositoryRoot (
+    "src\AccessibleMediaController.LiteHost\bin\Release\" +
+    "net8.0-windows10.0.19041.0\win-x64\publish\apple-music-web"
+)
+Invoke-Checked -FilePath $dotnet.Source -ArgumentList @(
+    "publish",
+    (Join-Path $RepositoryRoot "src\AccessibleMediaController.AppleMusicWebHost\AccessibleMediaController.AppleMusicWebHost.csproj"),
+    "-c", "Release", "-r", "win-x64", "--no-self-contained",
+    "-o", $webHostOutput
+) -WorkingDirectory $RepositoryRoot -Stage "Budowanie odtwarzacza Apple Music Test"
 
 New-Item -ItemType Directory -Path $TemporaryRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $TestOutputRoot -Force | Out-Null

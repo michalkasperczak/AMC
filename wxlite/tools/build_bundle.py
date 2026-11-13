@@ -86,7 +86,9 @@ PROFILE_GATED_SERVICE_MODULES = {
     "apple_music_account.py": "apple-music.experimental",
     "apple_music_credentials.py": "apple-music.experimental",
     "apple_music_library.py": "apple-music.experimental",
+    "apple_music_original.py": "apple-music.experimental",
     "apple_music_source.py": "apple-music.experimental",
+    "apple_music_web.py": "apple-music.experimental",
     "frontier_smart_source.py": "session.frontier-smart",
     "sonos_local.py": "sonos.local",
     "sonos_source.py": "session.sonos",
@@ -396,6 +398,8 @@ def copy_host(
     target: Path,
     host_dir: Path,
     host_subdir: str = "host",
+    *,
+    include_apple_music_web: bool = False,
 ) -> tuple[list[str], dict]:
     """Skopiuj silnik. Brak buildu to BLAD, nie cicha atrapa."""
     if not host_dir.exists():
@@ -413,6 +417,8 @@ def copy_host(
     for source in sorted(host_dir.rglob("*")):
         if source.is_file() and source.suffix.lower() in {".exe", ".dll", ".json", ".pdb", ".txt", ".md"}:
             relative = source.relative_to(host_dir)
+            if relative.parts[0].casefold() == "apple-music-web" and not include_apple_music_web:
+                continue
             output = destination / relative
             output.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -1155,7 +1161,10 @@ def main() -> int:
     manifest["files"] += copy_python_code(target, profile)
     manifest["files"] += copy_launcher(target, args.launcher)
     manifest["files"] += copy_updater(target, args.updater)
-    host_files, host_hashes = copy_host(target, args.host, args.host_subdir)
+    host_files, host_hashes = copy_host(
+        target, args.host, args.host_subdir,
+        include_apple_music_web="session.apple-music" in profile.capabilities,
+    )
     manifest["files"] += host_files
     manifest["hostHashes"] = host_hashes
     manifest["hostFolder"] = args.host_subdir

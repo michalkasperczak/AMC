@@ -134,6 +134,14 @@ try {
         "--artifacts-path", $hostArtifacts,
         "-p:NuGetAudit=false", "-o", $hostOutput
     )
+    if ($Profile -eq "test") {
+        Invoke-Checked -FilePath "dotnet" -Stage "Publikowanie odtwarzacza Apple Music" -ArgumentList @(
+            "publish", (Join-Path $repositoryRoot "src\AccessibleMediaController.AppleMusicWebHost\AccessibleMediaController.AppleMusicWebHost.csproj"),
+            "-c", "Release", "-r", "win-x64", "--self-contained", "true",
+            "--artifacts-path", (Join-Path $operationRoot "artifacts-apple-music-web"),
+            "-p:NuGetAudit=false", "-o", (Join-Path $hostOutput "apple-music-web")
+        )
+    }
     Invoke-Checked -FilePath "dotnet" -Stage "Publikowanie samowystarczalnego uruchamiacza" -ArgumentList @(
         "publish", (Join-Path $repositoryRoot "src\AccessibleMediaController.PythonLauncher\AccessibleMediaController.PythonLauncher.csproj"),
         "-c", "Release", "-r", "win-x64", "--self-contained", "true",

@@ -667,6 +667,28 @@ def test_dependency_licenses_are_not_dropped_from_host_package():
         assert "host/licenses/tempo-engines/license.txt" in copied
 
 
+def test_apple_music_web_helper_is_excluded_from_public_host_package():
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source = root / "source"
+        source.mkdir()
+        (source / "amc_lite_host.exe").write_bytes(b"SYNTHETIC_HOST")
+        web = source / "apple-music-web"
+        web.mkdir()
+        (web / "amc_apple_music_web_host.exe").write_bytes(b"SYNTHETIC_WEB")
+
+        public_files, _ = bundle.copy_host(root / "public", source)
+        assert not (root / "public" / "host" / "apple-music-web").exists()
+        assert not any("apple-music-web" in item for item in public_files)
+
+        test_files, _ = bundle.copy_host(
+            root / "test", source, include_apple_music_web=True,
+        )
+        assert (root / "test" / "host" / "apple-music-web"
+                / "amc_apple_music_web_host.exe").is_file()
+        assert "host/apple-music-web/amc_apple_music_web_host.exe" in test_files
+
+
 def test_host_can_be_staged_without_touching_running_host_folder():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)

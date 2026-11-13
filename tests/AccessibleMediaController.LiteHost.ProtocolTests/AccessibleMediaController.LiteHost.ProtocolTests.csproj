@@ -16,6 +16,8 @@
     <Compile Include="*.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\Protocol\**\*.cs"
              Link="Protocol\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\AccessibleMediaController.AppleMusicWebHost\WebCommand.cs"
+             Link="AppleMusicWebHost\WebCommand.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteBookmarkStore.cs"
              Link="LiteBookmarkStore.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LitePodcastProgressStore.cs"

@@ -909,6 +909,17 @@ def build_menus(
                 visible_sessions=APPLE_MUSIC_ONLY,
             ),
             MenuItem(
+                "Odtwórz utwór Apple Music &w AMC",
+                Action.APPLE_MUSIC_PLAY_WEB,
+                needs_selection=True,
+                visible_sessions=APPLE_MUSIC_ONLY,
+            ),
+            MenuItem(
+                "Pokaż okno odtwarzacza Apple Music",
+                Action.APPLE_MUSIC_SHOW_WEB,
+                visible_sessions=APPLE_MUSIC_ONLY,
+            ),
+            MenuItem(
                 "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,
                 shortcut="Ctrl+Return", accelerator=False,
                 needs_selection=True, needs_spotify_album=True,

@@ -27,6 +27,7 @@ internal static class Program
         ("--fresh-profile", FreshProfileInitializationTests.Run),
         ("--tidal-catalog", TidalCatalogContractTests.Run),
         ("--apple-music-external", AppleMusicExternalContractTests.Run),
+        ("--apple-music-web", AppleMusicWebCommandTests.Run),
         ("--tidal-playback-probe", TidalPlaybackProbeTests.Run),
         ("--spotify-catalog", SpotifyCatalogContractTests.Run),
         ("--spotify-profile", SpotifyReleaseProfileTests.Run),

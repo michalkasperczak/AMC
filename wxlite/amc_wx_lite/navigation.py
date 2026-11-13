@@ -515,6 +515,14 @@ class OpenAppleMusicOriginal:
 
 
 @dataclass(frozen=True, slots=True)
+class PlayAppleMusicWeb:
+    """Play the selected catalog track in AMC's isolated web player."""
+
+    item_id: str
+    title: str
+
+
+@dataclass(frozen=True, slots=True)
 class OpenSpotifyCollectionView:
     """Open one named, read-only part of the Spotify collection."""
 
@@ -1748,7 +1756,7 @@ class Navigator:
             if row.activation_message:
                 return [Announce(row.activation_message)]
             if row.kind == "track":
-                return [OpenAppleMusicOriginal(row.item_id, row.title)]
+                return [PlayAppleMusicWeb(row.item_id, row.title)]
             return [Announce(
                 "Nie można odtworzyć tego elementu Apple Music"
             )]
