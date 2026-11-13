@@ -287,16 +287,16 @@ New-Item -ItemType Directory -Path $output -Force | Out-Null
 $compileArguments = @(
     "/DProfil=$Profile",
     "/DWersja=$Version",
-    ('/DEtykietaUzytkowa="{0}"' -f $displayVersion),
+    "/DEtykietaUzytkowa=$displayVersion",
     "/DEtykietaPliku=$fileTimestamp",
-    ('/DZrodlo="{0}"' -f $bundle),
-    ('/DWyjscie="{0}"' -f $output)
+    "/DZrodlo=$bundle",
+    "/DWyjscie=$output"
 )
 if ($null -ne $nvdaAddon) {
     $compileArguments += @(
-        ('/DNvdaAddonPath="{0}"' -f $resolvedAddon),
-        ('/DNvdaAddonFileName="{0}"' -f $nvdaAddon.fileName),
-        ('/DNvdaAddonVersion="{0}"' -f $nvdaAddon.version)
+        "/DNvdaAddonPath=$resolvedAddon",
+        "/DNvdaAddonFileName=$($nvdaAddon.fileName)",
+        "/DNvdaAddonVersion=$($nvdaAddon.version)"
     )
 }
 if ($null -ne $amcNvdaAddon) {
@@ -304,18 +304,27 @@ if ($null -ne $amcNvdaAddon) {
         throw "Brak pomocnika cichej aktualizacji dodatku AMC do NVDA."
     }
     $compileArguments += @(
-        ('/DAmcNvdaAddonPath="{0}"' -f $resolvedAmcAddon),
-        ('/DAmcNvdaAddonFileName="{0}"' -f $amcNvdaAddon.fileName),
-        ('/DAmcNvdaAddonVersion="{0}"' -f $amcNvdaAddon.version),
-        ('/DAmcNvdaUpdateHelperPath="{0}"' -f $amcNvdaUpdateHelper)
+        "/DAmcNvdaAddonPath=$resolvedAmcAddon",
+        "/DAmcNvdaAddonFileName=$($amcNvdaAddon.fileName)",
+        "/DAmcNvdaAddonVersion=$($amcNvdaAddon.version)",
+        "/DAmcNvdaUpdateHelperPath=$amcNvdaUpdateHelper"
     )
 }
-$compileArguments += ('"{0}"' -f $installerScript)
-$compile = Start-Process -FilePath $IsccPath `
-    -ArgumentList $compileArguments `
-    -WorkingDirectory $repositoryRoot `
-    -Wait -PassThru -WindowStyle Hidden
+$compileArguments += $installerScript
+$compileStart = [Diagnostics.ProcessStartInfo]::new()
+$compileStart.FileName = $IsccPath
+$compileStart.WorkingDirectory = $repositoryRoot
+$compileStart.UseShellExecute = $false
+$compileStart.CreateNoWindow = $true
+foreach ($argument in $compileArguments) {
+    [void]$compileStart.ArgumentList.Add($argument)
+}
+$compile = [Diagnostics.Process]::Start($compileStart)
+if ($null -eq $compile) {
+    throw "Nie udało się uruchomić kompilatora Inno Setup."
+}
 try {
+    $compile.WaitForExit()
     if ($compile.ExitCode -ne 0) {
         throw "Kompilacja instalatora zakończyła się kodem $($compile.ExitCode)."
     }

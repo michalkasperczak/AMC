@@ -229,6 +229,17 @@ def test_build_helper_verifies_profile_clean_source_and_full_bundle() -> None:
     assert '$env:LOCALAPPDATA "Programs\\Inno Setup 6\\ISCC.exe"' in BUILD
 
 
+def test_installer_compiler_keeps_each_path_argument_atomic() -> None:
+    """Ścieżki ze spacjami nie mogą być ponownie składane przez Start-Process."""
+
+    assert "$compileStart.ArgumentList.Add($argument)" in BUILD
+    assert "$compileStart.UseShellExecute = $false" in BUILD
+    assert "$compile.WaitForExit()" in BUILD
+    assert "Start-Process -FilePath $IsccPath" not in BUILD
+    assert "'/DZrodlo=\"{0}\"'" not in BUILD
+    assert "$compileArguments += $installerScript" in BUILD
+
+
 def test_test_installer_requires_and_validates_quick_app_switcher_package() -> None:
     for required in (
         '[string]$NvdaAddonPath = ""',
