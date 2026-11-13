@@ -227,3 +227,12 @@ Commit dokumentacji pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
 Korekta 13 listopada 2026: kod transportu Windows i kompilacja hosta istnieją
 w aktualnych źródłach w commicie `7c3b9a26`; nie ma zainstalowanego ani
 wydanego odtwarzacza Apple Music.
+
+Korekta 13 listopada 2026, 22:27: powyższy stan zastępuje wydanie
+`test-2026.11.13.2214`, źródła `10aa46c1`, wersja `0.1.0-alpha.502`.
+Pełna paczka 4730 plików przeszła test potoku pomocnika Apple Music,
+kontrolowany start GUI/hosta i kontrolę integralności. Instalator został
+opublikowany i zainstalowany; działający AMC ma nowy manifest i uruchomił
+Radio „Poznań”. Nie przeprowadzono jeszcze słyszalnej próby Enter na utworze
+Apple Music, logowania w profilu zainstalowanego WebView2 ani odbioru NVDA.
+Próba wymaga uzgodnionego czasu, w którym użytkownik nie korzysta z komputera.

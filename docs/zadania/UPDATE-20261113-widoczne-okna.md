@@ -92,3 +92,28 @@ procesu z dokładnie tej instalacji. Testy launchera sprawdzają ten przypadek
 dla wykrywania instancji i aktualizatora. Przed instalacją nowej wersji trzeba
 ponownie zbudować paczkę oraz instalator; publikacja alpha.501 nie dowodzi
 lokalnej instalacji.
+
+## Wynik 13.11.2026, 22:27 — alpha.502
+
+Źródła `10aa46c173334bcd8bdc91b6dba3e740197cbaf6` wypchnięto i odczytano
+z GitHub. Paczka Test ma 4730 plików, `sourceDirty=false`; test potoku Apple
+Music, pełna integralność i kontrolowany start interfejsu z hostem przeszły.
+Instalator `AMC-Test-2026-11-13-2214.exe` ma 218494841 bajtów, SHA-256
+`541817d871ba5e45e22e967116daee8abe1d1d39eaca4e794680b77410be06e4`;
+kontrola sekretów ma wynik `passed`. Wydanie `test-2026.11.13.2214` zostało
+opublikowane i odczytowo zweryfikowane na GitHub.
+
+Nowy aktualizator zakończył instalację kodem 0. Manifest w
+`D:\Projekty Codex\AMC Python` wskazuje dokładnie ten commit; nowy launcher,
+Python i host pracują z tego katalogu. Użytkownik potwierdził, że przed
+podmianą grało Radio „Poznań”. Jednorazowy pomocnik zapisał tę stację dopiero
+po zamknięciu starego procesu i zachował kopię prywatnego stanu. Nowy AMC
+zużył migawkę, a dziennik hosta o 22:26:12 potwierdził połączenie i rozpoczęcie
+odbioru stacji „Poznań” w 48 kHz, stereo. Tytuł okna nowej wersji zawiera
+„Radio Poznan — AMC Test — 13.11.2026, 22:14”. To potwierdza wznowienie
+źródła i pracę toru audio, ale nie jest osobistym odsłuchem użytkownika.
+
+Windows odmówił launcherowi prawa ustawienia okna na pierwszym planie po
+restarcie; aktualizator zapisał taki komunikat na stderr mimo kodu 0.
+Samo zachowanie okna wyników F11 w NVDA i słyszalne Apple Music z nowej
+instalacji pozostają do próby, gdy użytkownik udostępni komputer.
