@@ -170,7 +170,7 @@ class AppleMusicSourceTests(unittest.TestCase):
         self.assertIsNone(record.target.catalog_id)
         self.assertEqual(
             record.row.activation_message,
-            "Ten materiał nie ma identyfikatora odtwarzania Apple Music",
+            "Apple Music nie podało danych potrzebnych do odtworzenia tego utworu w AMC",
         )
         self.assertNotIn(LIBRARY_ID, record.row.activation_message)
 

@@ -141,6 +141,8 @@ try {
             "--artifacts-path", (Join-Path $operationRoot "artifacts-apple-music-web"),
             "-p:NuGetAudit=false", "-o", (Join-Path $hostOutput "apple-music-web")
         )
+        & (Join-Path $PSScriptRoot "Test-AppleMusicWebPipe.ps1") `
+            -Executable (Join-Path $hostOutput "apple-music-web\amc_apple_music_web_host.exe")
     }
     Invoke-Checked -FilePath "dotnet" -Stage "Publikowanie samowystarczalnego uruchamiacza" -ArgumentList @(
         "publish", (Join-Path $repositoryRoot "src\AccessibleMediaController.PythonLauncher\AccessibleMediaController.PythonLauncher.csproj"),

@@ -352,6 +352,7 @@ def test_second_check_during_installer_reports_progress_and_failed_stop(
     announcements: list[str] = []
     installer_completion: list[object] = []
     launches: list[object] = []
+    notices: list[str] = []
 
     class Runner:
         @staticmethod
@@ -371,6 +372,7 @@ def test_second_check_during_installer_reports_progress_and_failed_stop(
         ),
         store=SimpleNamespace(directory=Path("nieuzywany")),
         _window_alive=lambda: True,
+        _present_application_update_notice=notices.append,
     )
     monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
     monkeypatch.setattr(
@@ -390,6 +392,7 @@ def test_second_check_during_installer_reports_progress_and_failed_stop(
     installer_completion[0](3)
     assert not frame._application_update_pending
     assert "zatrzymana" in announcements[-1]
+    assert notices == [announcements[-1]]
     assert "kodem 3" in logs[-1]
 
 
@@ -397,6 +400,7 @@ def test_update_does_not_launch_when_host_reports_recording(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     announcements: list[str] = []
+    notices: list[str] = []
 
     class Runner:
         @staticmethod
@@ -412,6 +416,8 @@ def test_update_does_not_launch_when_host_reports_recording(
         runner=Runner(),
         client=SimpleNamespace(radio_recording_status=lambda: {"count": 1}),
         store=SimpleNamespace(directory=Path("nieuzywany")),
+        _window_alive=lambda: True,
+        _present_application_update_notice=notices.append,
     )
     monkeypatch.setattr(gui, "prepare_application_update", lambda _check: object())
     monkeypatch.setattr(
@@ -424,6 +430,7 @@ def test_update_does_not_launch_when_host_reports_recording(
     gui.LiteFrame._download_application_update(frame, object())
     assert not frame._application_update_pending
     assert "Trwa nagrywanie" in announcements[-1]
+    assert notices == [announcements[-1]]
 
 
 def test_dialog_contract_names_controls_and_focuses_release_notes() -> None:
@@ -436,7 +443,38 @@ def test_dialog_contract_names_controls_and_focuses_release_notes() -> None:
     assert "wx.TE_READONLY" in source
     assert "self.information.SetFocus()" in source
     assert "self.information.SetInsertionPoint(0)" in source
+    assert "wx.STAY_ON_TOP" in source
+    assert "self.Raise()" in source
     assert "wx.ID_CANCEL" in source
+
+
+def test_failure_notice_stays_above_windows_and_returns_focus(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[object] = []
+
+    class Dialog:
+        def __init__(self, _parent, message, title, style):
+            events.append((message, title, style))
+
+        def ShowModal(self):
+            events.append("shown")
+
+        def Destroy(self):
+            events.append("destroyed")
+
+    monkeypatch.setattr(gui.wx, "STAY_ON_TOP", 0x8000, raising=False)
+    monkeypatch.setattr(gui.wx, "ICON_INFORMATION", 0x0100, raising=False)
+    monkeypatch.setattr(gui.wx, "MessageDialog", Dialog, raising=False)
+    frame = SimpleNamespace(
+        _window_alive=lambda: True,
+        _restore_focus_after_dialog=lambda: events.append("focus returned"),
+    )
+    gui.LiteFrame._present_application_update_notice(frame, "Trwa nagrywanie")
+
+    assert events[0][0:2] == ("Trwa nagrywanie", "Aktualizacja AMC")
+    assert events[0][2] & gui.wx.STAY_ON_TOP
+    assert events[1:] == ["shown", "destroyed", "focus returned"]
 
 
 def test_user_facing_failure_never_exposes_exception_path() -> None:
@@ -667,4 +705,81 @@ def test_completed_update_check_waits_until_history_window_closes(
     monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
     delayed.pop()()
     assert dialogs == [check]
+    assert not frame._application_update_pending
+
+
+def test_manual_check_opens_result_above_another_open_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check = application_update.ApplicationUpdateCheck(
+        PROFILES["test"], "29.10.2026, 19:05", True, None
+    )
+    frame, announcements, dialogs = _automatic_frame()
+    frame._automatic_application_update_check_call = None
+    frame._automatic_application_update_check_started = False
+    history = SimpleNamespace(IsShown=lambda: True)
+
+    class Dialog:
+        def __init__(self, _parent, received):
+            dialogs.append(received)
+
+        def ShowModal(self):
+            return gui.wx.ID_CANCEL
+
+        def Destroy(self):
+            return None
+
+    monkeypatch.setattr(gui, "check_for_application_update", lambda: check)
+    monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [history], raising=False)
+    monkeypatch.setattr(
+        gui.wx, "CallLater", lambda *_args: pytest.fail("Ręczny wynik nie może czekać"),
+        raising=False,
+    )
+
+    gui.LiteFrame._check_application_update(frame)
+
+    assert dialogs == [check]
+    assert announcements == ["Sprawdzanie aktualizacji AMC"]
+    assert not frame._application_update_pending
+    assert not frame._application_update_check_pending
+
+
+def test_manual_recheck_promotes_pending_automatic_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check = application_update.ApplicationUpdateCheck(
+        PROFILES["test"], "29.10.2026, 19:05", False, None
+    )
+    frame, announcements, dialogs = _automatic_frame()
+    frame._automatic_application_update_check_call = None
+    frame._automatic_application_update_check_started = False
+    completions: list[object] = []
+    frame.runner = SimpleNamespace(
+        submit=lambda _name, _work, done, _failed: completions.append(done)
+    )
+
+    class Dialog:
+        def __init__(self, _parent, received):
+            dialogs.append(received)
+
+        def ShowModal(self):
+            return gui.wx.ID_CANCEL
+
+        def Destroy(self):
+            return None
+
+    monkeypatch.setattr(gui, "ApplicationUpdateDialog", Dialog)
+    monkeypatch.setattr(gui.wx, "CallAfter", lambda work, *args: work(*args))
+    monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: [], raising=False)
+
+    gui.LiteFrame._check_application_update(frame, automatic=True)
+    gui.LiteFrame._check_application_update(frame)
+    completions[0](check)
+
+    assert dialogs == [check]
+    assert announcements == [
+        "Kończę sprawdzanie aktualizacji. Wynik pokażę na pierwszym planie"
+    ]
     assert not frame._application_update_pending

@@ -223,6 +223,63 @@ class AppleMusicLibraryClient:
         except Exception:
             raise AppleMusicLibraryError() from None
 
+    def album_tracks_page(
+        self,
+        album: AppleMusicRecord,
+        *,
+        cursor: AppleMusicPageCursor | None = None,
+        page_size: int = 25,
+    ) -> AppleMusicLibraryResult:
+        """Read one page of a library album's tracks through its relationship."""
+
+        target = album.target
+        if (
+            target.resource_type != "library-albums"
+            or not target.from_library
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 100
+        ):
+            raise AppleMusicLibraryError()
+        base_path = (
+            "/v1/me/library/albums/"
+            + quote(target.resource_id, safe="")
+            + "/tracks"
+        )
+        scope = "album-tracks:" + target.resource_id
+        if cursor is None:
+            path = base_path
+            params: dict[str, object] | None = {
+                "l": "pl-PL",
+                "limit": page_size,
+            }
+        else:
+            if (
+                not isinstance(cursor, AppleMusicPageCursor)
+                or cursor.view != scope
+                or cursor._base_path != base_path
+            ):
+                raise AppleMusicLibraryError()
+            path = cursor._path
+            params = None
+        try:
+            getter = getattr(self._client, "_get")
+            envelope = getter(path, params)
+            if not isinstance(envelope, dict):
+                raise AppleMusicLibraryError()
+            raw = envelope.get("data")
+            if not isinstance(raw, list):
+                raise AppleMusicLibraryError()
+            return AppleMusicLibraryResult(
+                heading=f"Album: {album.row.title}",
+                records=records_from_resources(raw),
+                next_cursor=_page_cursor(scope, envelope.get("next"), base_path),
+            )
+        except AppleMusicLibraryError:
+            raise
+        except Exception:
+            raise AppleMusicLibraryError() from None
+
     def playlist_tracks(self, playlist: AppleMusicRecord) -> AppleMusicLibraryResult:
         target = playlist.target
         if target.resource_type != "library-playlists" or not target.from_library:

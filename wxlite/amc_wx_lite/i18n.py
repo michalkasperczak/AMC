@@ -891,7 +891,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
-    "Otwórz kategorię lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC": "Open an Apple Music category or playlist; on a track, start playback in AMC",
+    "Otwórz kategorię, album lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC": "Open an Apple Music category, album or playlist; on a track, start playback in AMC",
     "Otwórz utwór w oryginalnym Apple &Music": "Open track in the original Apple &Music app",
     "Otwórz utwór w oryginalnym Apple Music": "Open track in the original Apple Music app",
     "Odtwórz utwór Apple Music w AMC": "Play Apple Music track in AMC",

@@ -265,6 +265,32 @@ class AppleMusicLibraryTests(unittest.TestCase):
         with self.assertRaises(AppleMusicLibraryError):
             library.playlist_tracks_page(playlist, cursor=other_cursor)
 
+    def test_album_pages_are_tied_to_one_private_album(self) -> None:
+        library = self.open()
+        album = library.view("albums").records[0]
+
+        first = library.album_tracks_page(album, page_size=25)
+        second = library.album_tracks_page(album, cursor=first.next_cursor)
+
+        self.assertEqual(first.heading, "Album: Album")
+        self.assertEqual(first.records[0].row.title, "Utwór playlisty 1")
+        self.assertEqual(second.records[0].row.title, "Utwór playlisty 2")
+        self.assertIsNone(second.next_cursor)
+        self.assertNotIn("l.album", first.heading)
+        self.assertIn(
+            ("page", "/v1/me/library/albums/l.album/tracks",
+             {"l": "pl-PL", "limit": 25}),
+            ExternalClient.last_instance.calls,
+        )
+
+        other_cursor = AppleMusicPageCursor(
+            view="album-tracks:l.other",
+            _path="/v1/me/library/albums/l.other/tracks?offset=25",
+            _base_path="/v1/me/library/albums/l.other/tracks",
+        )
+        with self.assertRaises(AppleMusicLibraryError):
+            library.album_tracks_page(album, cursor=other_cursor)
+
     def test_playlist_uses_private_id_but_heading_uses_only_name(self) -> None:
         library = self.open()
         playlist = library.view("playlists").records[0]

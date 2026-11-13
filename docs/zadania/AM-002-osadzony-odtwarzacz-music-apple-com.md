@@ -126,6 +126,52 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 ## Znane ograniczenia
 
+- **Korekta 13.11.2026 po ręcznej aktualizacji:** użytkownik zainstalował
+  wydanie `13.11.2026, 19:52` (`alpha.500`) i zgłosił brak odtwarzania po
+  Enter oraz brak polecenia oryginalnej aplikacji w menu kontekstowym.
+  Zainstalowany manifest wskazuje commit `16eb05b5`; oba składniki Apple Music
+  są obecne. Odczyt działającego okna po zgłoszeniu pokazał sesję **Radio**,
+  w której polecenia Apple Music są celowo ukryte. Apple Music pozostaje
+  włączone jako dziesiąta sesja (`Ctrl+0`). Ten odczyt nie ustala, w której
+  sesji użytkownik wcześniej naciskał Enter. Nie zaobserwowano jeszcze
+  uruchomienia zintegrowanego procesu webowego ani jego osobnego profilu.
+- Odczyt pierwszej strony rzeczywistej Biblioteki Apple Music bez odtwarzania:
+  21 z 25 utworów ma identyfikator katalogowy, 4 go nie mają. Pierwsza
+  sprawdzona playlista: 25 z 25 utworów ma taki identyfikator. Dla jednego
+  utworu z identyfikatorem zainstalowany kod udostępnia oba polecenia i
+  odnajduje plik procesu webowego. To jest kontrola danych i pakietu, nie
+  test Enter, logowania, dźwięku ani NVDA. Brak identyfikatora w 4 utworach
+  oznacza obecnie brak obu poleceń dla tych pozycji; Enter podaje powód.
+- Profil zintegrowanego procesu różni się od profilu wcześniejszego prototypu.
+  Samo wcześniejsze logowanie użytkownika do prototypu nie loguje nowego
+  procesu. Próba widocznego okna jest odłożona zgodnie z prośbą użytkownika
+  do czasu, gdy nie korzysta on z komputera.
+- **Korekta 13.11.2026 po próbie użytkownika:** użytkownik potwierdził, że
+  sprawdzał w sesji Apple Music, także na albumach i liście „Utwory”.
+  Wniosek wyprowadzony z późniejszego widoku Radio nie wyjaśnia wcześniejszej
+  próby. Enter na albumie nie miał dotąd nawigacji do jego utworów, a przy
+  części utworów Apple Music zgłaszało brak identyfikatora katalogowego.
+  Kod alpha.501 otwiera album, pobiera relację utworów stronami, umożliwia
+  Backspace do zaznaczonego albumu i poprawia komunikat NVDA dla utworu bez
+  danych odtwarzania. Celowane testy po zmianie: 68 zaliczonych i 3 podtesty;
+  osobny test parytetu Enter/Pomocy: 6 zaliczonych. Kod nie jest jeszcze
+  zbudowany, wydany ani zainstalowany. Nadal brak żywej próby odtwarzania
+  utworu z identyfikatorem przez zintegrowany proces.
+- Apple dopuszcza w osobistej bibliotece importowane utwory bez odpowiednika
+  w katalogu. Jedno sprawdzenie relacji katalogowej dla utworu bez
+  identyfikatora nie zwróciło odpowiednika. AMC nie zgaduje utworu po tytule.
+  Użytkownik poprosił, by w przyszłości wczytywać większe partie niż 25;
+  nie zmieniono rozmiaru stron w tym etapie.
+- **Próba Enter na utworze z poleceniem odtwarzania, 13.11.2026:** AMC mówi
+  „Osadzony odtwarzacz Apple Music nie odpowiada”. Dziennik aplikacji Windows
+  podaje nieobsłużony `System.IO.IOException` „Nieprawidłowe dojście” w
+  `Program.Main`, podczas ustawiania `Console.InputEncoding` w procesie
+  WinExe. Proces kończy się przed WebView i przed utworzeniem profilu.
+  Poprawka źródeł alpha.501 otwiera jawne strumienie standardowe UTF-8
+  zamiast ustawiać kodowanie konsoli. Dodano próbę przekierowanych potoków
+  bez uruchamiania okna, obowiązkową przy budowie paczki Test. Do czasu
+  zbudowania i uruchomienia tej próby poprawka nie jest potwierdzona.
+
 - Prototyp WebView2 uruchomił wskazany utwór z licznikiem ponad minutę;
   wydanie zintegrowane z AMC powstało później, ale nadal trzeba potwierdzić
   w nim słyszalny dźwięk i prawidłowe działanie po ręcznej instalacji.
@@ -154,7 +200,7 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 ## Następny krok
 
-Użytkownik samodzielnie aktualizuje AMC Test z wydania `alpha.500`. Po jego
+Użytkownik samodzielnie zaktualizował AMC Test do `alpha.500`. Po jego
 sygnale, że komputer jest wolny, uprzedzić o dokładnym początku próby i
 sprawdzić logowanie w osobnym profilu, słyszalny dźwięk, Enter, pauzę,
 wznowienie, minimalizację, fokus NVDA oraz widoczną informację o jakości
@@ -163,7 +209,8 @@ bieżącego strumienia, jeżeli strona Apple ją udostępnia.
 ## Wersja i commit
 
 AMC Test `0.1.0-alpha.500`, wersja użytkowa `13.11.2026, 19:52`, wydanie
-`test-2026.11.13.1952` opublikowane; lokalna instalacja pozostaje bez zmian.
+`test-2026.11.13.1952` opublikowane; lokalna instalacja została później
+zaktualizowana do tego wydania (korekta z 13.11.2026).
 Commit wydania: `16eb05b5976d57b42c48c3be8df11062f52a70ec`.
 Adres: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.1952
 Commit źródeł, testów i pakowania: `094188aa` z 13 listopada 2026.

@@ -239,6 +239,8 @@ Invoke-Checked -FilePath $dotnet.Source -ArgumentList @(
     "-c", "Release", "-r", "win-x64", "--no-self-contained",
     "-o", $webHostOutput
 ) -WorkingDirectory $RepositoryRoot -Stage "Budowanie odtwarzacza Apple Music Test"
+& (Join-Path $WxliteRoot "tools\Test-AppleMusicWebPipe.ps1") `
+    -Executable (Join-Path $webHostOutput "amc_apple_music_web_host.exe")
 
 New-Item -ItemType Directory -Path $TemporaryRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $TestOutputRoot -Force | Out-Null

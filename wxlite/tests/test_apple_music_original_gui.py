@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,8 +18,10 @@ import amc_wx_lite.gui as gui  # noqa: E402
 from amc_wx_lite import menu_model
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.apple_music_source import records_from_resources
+from amc_wx_lite.apple_music_library import AppleMusicLibraryResult
 from amc_wx_lite.navigation import (
-    Navigator, OpenAppleMusicOriginal, PlayAppleMusicWeb, SessionId,
+    Navigator, OpenAppleMusicAlbum, OpenAppleMusicOriginal,
+    PlayAppleMusicWeb, SessionId,
 )
 from amc_wx_lite.shortcuts import Action
 from amc_wx_lite.shortcuts import (
@@ -87,6 +90,50 @@ def test_enter_plays_in_amc_and_menu_opens_original(monkeypatch) -> None:
     assert messages[-1].startswith("Otworzono utwór w oryginalnym Apple Music")
     assert "private.song" not in messages[-1]
     assert "123456" not in messages[-1]
+
+
+def test_album_enter_loads_tracks_into_apple_music_list(monkeypatch) -> None:
+    album, song = records_from_resources([
+        {"id": "private.album", "type": "library-albums",
+         "attributes": {"name": "Przykładowy album"}},
+        {"id": "private.song", "type": "library-songs",
+         "attributes": {"name": "Przykładowy utwór",
+                        "playParams": {"catalogId": "123456"}}},
+    ])
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+    navigator.apply_apple_music_view(
+        gui.OpenAppleMusicView("albums"), "Albumy Apple Music", [album.row],
+    )
+    intent = navigator.activate_selected()[0]
+    assert intent == OpenAppleMusicAlbum(album.row.item_id, album.row.title)
+
+    class Library:
+        def album_tracks_page(self, received, *, cursor=None):
+            assert received is album
+            assert cursor is None
+            return AppleMusicLibraryResult("Album: Przykładowy album", (song,))
+
+    monkeypatch.setattr(gui, "open_apple_music_library", lambda _layout: nullcontext(Library()))
+    frame = object.__new__(gui.LiteFrame)
+    frame.navigator = navigator
+    frame._apple_music_records = {album.row.item_id: album}
+    frame._apple_music_pages = {}
+    frame._apple_music_navigation_version = 0
+    frame.layout = None
+    frame.announcer = SimpleNamespace(say=lambda _message: None)
+    frame.runner = SimpleNamespace(
+        submit=lambda _name, work, done, _failed: done(work())
+    )
+    announcements = []
+    frame._run = announcements.extend
+
+    frame._open_apple_music_album(intent)
+
+    assert navigator.session.apple_music_context == "album:" + album.row.item_id
+    assert navigator.session.model.selected_row == song.row
+    assert frame._apple_music_records[song.row.item_id] is song
+    assert announcements[0].text.startswith("Album: Przykładowy album")
 
 
 def test_menu_and_help_availability_follow_selected_track(monkeypatch) -> None:

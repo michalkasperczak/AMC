@@ -8,11 +8,12 @@ from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
     PlayAppleMusicWeb,
+    OpenAppleMusicAlbum,
     OpenAppleMusicPlaylist,
     OpenAppleMusicView,
     SessionId,
 )
-from amc_wx_lite.shortcuts import Action, Chord, resolve
+from amc_wx_lite.shortcuts import Action, Chord, describe_action, resolve
 
 
 def _resolve(chord: Chord, *, available: bool) -> Action | None:
@@ -121,6 +122,50 @@ def test_backspace_restores_playlist_collection_then_root() -> None:
     navigator.go_to_parent()
     assert navigator.session.library_view is LibraryView.APPLE_MUSIC_LIBRARY
     assert navigator.session.model.selected_id == "appleMusic-collection:playlists"
+
+
+def test_album_enter_opens_tracks_and_backspace_restores_album() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+    navigator.open_apple_music_root()
+    navigator.session.model.select_id("appleMusic-collection:albums")
+    assert navigator.activate_selected() == [OpenAppleMusicView("albums")]
+
+    album = Row(
+        "appleMusic:library-albums:private.album", "Album", "album",
+        service_kind="album",
+    )
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("albums"), "Albumy Apple Music", [album],
+    )
+    assert navigator.activate_selected() == [
+        OpenAppleMusicAlbum(album.item_id, "Album")
+    ]
+
+    song = Row("appleMusic:library-songs:private.song", "Utwór", "track")
+    more = Row("loadMore:album", "Załaduj więcej", "loadMore")
+    navigator.apply_apple_music_album(
+        OpenAppleMusicAlbum(album.item_id, album.title),
+        "Album: Album", [song, more],
+    )
+    navigator.session.model.select_id(song.item_id)
+    assert navigator.activate_selected() == [
+        PlayAppleMusicWeb(song.item_id, "Utwór")
+    ]
+    navigator.session.model.select_id(more.item_id)
+    assert navigator.activate_selected() == [
+        OpenAppleMusicAlbum(album.item_id, "Album", load_more=True)
+    ]
+    assert navigator.go_to_parent() == [
+        OpenAppleMusicView("albums", preferred_id=album.item_id)
+    ]
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("albums"), "Albumy Apple Music", [album],
+        preferred_id=album.item_id,
+    )
+    assert navigator.session.model.selected_id == album.item_id
+    assert "album" in describe_action(Action.ACTIVATE, "Apple Music")
+    assert _resolve(Chord("Return"), available=True) is Action.ACTIVATE
 
 
 def test_ctrl_alt_digits_are_shared_globally() -> None:

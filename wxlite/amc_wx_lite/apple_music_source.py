@@ -186,7 +186,7 @@ def _record(entry: object) -> AppleMusicRecord | None:
         activation_message=(
             None
             if not potentially_playable or can_play
-            else "Ten materiał nie ma identyfikatora odtwarzania Apple Music"
+            else "Apple Music nie podało danych potrzebnych do odtworzenia tego utworu w AMC"
         ),
         service_id=resource_id,
         service_kind=kind,

@@ -198,6 +198,7 @@ from .navigation import (
     OpenRadioarchiwistaStations,
     OpenQueueView,
     OpenAppleMusicPlaylist,
+    OpenAppleMusicAlbum,
     OpenAppleMusicOriginal,
     PlayAppleMusicWeb,
     OpenAppleMusicView,
@@ -10792,6 +10793,8 @@ class LiteFrame(wx.Frame):
         self._podcast_opml_pending = False
         self._playlist_membership_pending = False
         self._application_update_pending = False
+        self._application_update_check_pending = False
+        self._application_update_manual_requested = False
         self._automatic_application_update_check_started = False
         self._automatic_application_update_check_call = None
         self._component_update_pending = False
@@ -15990,6 +15993,62 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("apple-music-playlist", work, done, failed)
 
+    def _open_apple_music_album(
+        self, intent: OpenAppleMusicAlbum
+    ) -> None:
+        """Read the selected library album's tracks without changing playback."""
+
+        album = self._apple_music_records.get(intent.item_id)
+        if album is None or album.row.kind != "album":
+            self.announcer.say("Nie można otworzyć tego albumu Apple Music")
+            return
+        self._apple_music_navigation_version += 1
+        version = self._apple_music_navigation_version
+        scope = "album:" + intent.item_id
+        previous_records, cursor = self._apple_music_pages.get(scope, ([], None))
+        if not intent.load_more:
+            previous_records, cursor = [], None
+        elif cursor is None:
+            self.announcer.say("Wczytano już cały ten album Apple Music")
+            return
+
+        def work():
+            with open_apple_music_library(self.layout) as library:
+                return library.album_tracks_page(album, cursor=cursor)
+
+        def done(result) -> None:
+            if (
+                version != self._apple_music_navigation_version
+                or self.navigator.active is not SessionId.APPLE_MUSIC
+            ):
+                return
+            records = [*previous_records, *result.records]
+            self._apple_music_pages[scope] = (records, result.next_cursor)
+            self._apple_music_records.update(
+                (record.row.item_id, record) for record in records
+            )
+            rows = [record.row for record in records]
+            preferred_id = intent.preferred_id
+            if intent.load_more and len(records) > len(previous_records):
+                preferred_id = records[len(previous_records)].row.item_id
+            if result.next_cursor is not None:
+                rows.append(load_more_row(f"appleMusic:{scope}", len(records)))
+            self._run(self.navigator.apply_apple_music_album(
+                intent, result.heading, rows, preferred_id=preferred_id,
+            ))
+
+        def failed(error: Exception) -> None:
+            if (
+                version == self._apple_music_navigation_version
+                and self.navigator.active is SessionId.APPLE_MUSIC
+            ):
+                self.announcer.say(
+                    str(error) if isinstance(error, AppleMusicLibraryError)
+                    else "Nie udało się odczytać albumu Apple Music."
+                )
+
+        self.runner.submit("apple-music-album", work, done, failed)
+
     def _open_apple_music_original(self, intent: OpenAppleMusicOriginal) -> None:
         """Open one catalog song through Apple's Windows execution alias."""
 
@@ -17968,6 +18027,21 @@ class LiteFrame(wx.Frame):
             5000, start
         )
 
+    def _present_application_update_notice(self, message: str) -> None:
+        """Keep an update failure visible and readable until acknowledged."""
+
+        if not self._window_alive():
+            return
+        dialog = wx.MessageDialog(
+            self, message, "Aktualizacja AMC",
+            wx.OK | wx.ICON_INFORMATION | wx.STAY_ON_TOP,
+        )
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
+            self._restore_focus_after_dialog()
+
     def _check_application_update(self, *, automatic: bool = False) -> None:
         if not automatic:
             scheduled = self._automatic_application_update_check_call
@@ -17976,29 +18050,44 @@ class LiteFrame(wx.Frame):
             self._automatic_application_update_check_started = True
         if self._application_update_pending:
             if not automatic:
-                self.announcer.say("Sprawdzanie lub pobieranie aktualizacji już trwa")
+                if vars(self).get("_application_update_check_pending", False):
+                    self._application_update_manual_requested = True
+                    self.announcer.say(
+                        "Kończę sprawdzanie aktualizacji. Wynik pokażę na pierwszym planie"
+                    )
+                else:
+                    self.announcer.say("Pobieranie lub instalacja aktualizacji już trwa")
             return
 
         self._application_update_pending = True
+        self._application_update_check_pending = True
+        self._application_update_manual_requested = not automatic
         if not automatic:
             self.announcer.say("Sprawdzanie aktualizacji AMC")
 
         def done(check: ApplicationUpdateCheck) -> None:
-            if automatic and not check.available:
+            if automatic and not check.available and not vars(self).get(
+                "_application_update_manual_requested", False
+            ):
                 self._application_update_pending = False
+                self._application_update_check_pending = False
                 return
 
             def present_when_free() -> None:
                 if not self._window_alive():
                     self._application_update_pending = False
+                    self._application_update_check_pending = False
+                    self._application_update_manual_requested = False
                     return
-                if any(
+                if not vars(self).get("_application_update_manual_requested", False) and any(
                     window is not self and window.IsShown()
                     for window in wx.GetTopLevelWindows()
                 ):
                     wx.CallLater(500, present_when_free)
                     return
                 self._application_update_pending = False
+                self._application_update_check_pending = False
+                self._application_update_manual_requested = False
                 dialog = ApplicationUpdateDialog(self, check)
                 try:
                     decision = dialog.ShowModal()
@@ -18012,13 +18101,18 @@ class LiteFrame(wx.Frame):
 
         def failed(error: Exception) -> None:
             self._application_update_pending = False
+            manual_requested = vars(self).get("_application_update_manual_requested", False)
+            self._application_update_check_pending = False
+            self._application_update_manual_requested = False
             _append_frontend_log(
                 self.store,
                 "Sprawdzanie aktualizacji AMC nie powiodło się: "
                 f"{type(error).__name__}: {error}",
             )
-            if not automatic:
-                self.announcer.say(user_facing_update_error(error))
+            if manual_requested:
+                message = user_facing_update_error(error)
+                self.announcer.say(message)
+                self._present_application_update_notice(message)
 
         self.runner.submit(
             "application-update-check",
@@ -18109,6 +18203,8 @@ class LiteFrame(wx.Frame):
                         self.store, f"Aktualizator AMC zakończył się kodem {exit_code}",
                     )
                 self.announcer.say(message)
+                if exit_code != 0:
+                    self._present_application_update_notice(message)
 
             def monitoring_failed(error: Exception) -> None:
                 self._application_update_pending = False
@@ -18118,7 +18214,9 @@ class LiteFrame(wx.Frame):
                     f"{type(error).__name__}: {error}",
                 )
                 if self._window_alive():
-                    self.announcer.say("Nie udało się odczytać wyniku aktualizacji AMC")
+                    message = "Nie udało się odczytać wyniku aktualizacji AMC"
+                    self.announcer.say(message)
+                    self._present_application_update_notice(message)
 
             self.runner.submit(
                 "application-update-install",
@@ -18134,7 +18232,9 @@ class LiteFrame(wx.Frame):
                 "Pobieranie aktualizacji AMC nie powiodło się: "
                 f"{type(error).__name__}: {error}",
             )
-            self.announcer.say(user_facing_update_error(error))
+            message = user_facing_update_error(error)
+            self.announcer.say(message)
+            self._present_application_update_notice(message)
 
         self.runner.submit("application-update-download", work, done, failed)
 
@@ -18680,6 +18780,8 @@ class LiteFrame(wx.Frame):
                 self._open_apple_music_view(intent)
             elif isinstance(intent, OpenAppleMusicPlaylist):
                 self._open_apple_music_playlist(intent)
+            elif isinstance(intent, OpenAppleMusicAlbum):
+                self._open_apple_music_album(intent)
             elif isinstance(intent, OpenAppleMusicOriginal):
                 self._open_apple_music_original(intent)
             elif isinstance(intent, PlayAppleMusicWeb):

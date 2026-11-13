@@ -580,7 +580,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.CHECK_APPLICATION_UPDATE: CommandPresentation(
         Action.CHECK_APPLICATION_UPDATE,
         "Sprawdź aktualizację AMC",
-        "Sprawdź i zainstaluj najnowsze wydanie z bieżącego kanału; podczas nagrywania i w jego zaplanowanym oknie instalacja nie rozpocznie się",
+        "Sprawdź najnowsze wydanie z bieżącego kanału i pokaż wynik na pierwszym planie; podczas nagrywania i w jego zaplanowanym oknie instalacja nie rozpocznie się",
         "F11",
         "Sprawdź &aktualizację AMC…",
     ),
@@ -3176,7 +3176,7 @@ def describe_action(
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
     if (session_label or "").casefold() == "apple music" and action is Action.ACTIVATE:
         return i18n.ui_text(
-            "Otwórz kategorię lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC"
+            "Otwórz kategorię, album lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC"
         )
     if (session_label or "").casefold() == "apple music":
         apple_transport = {

@@ -14,7 +14,7 @@ class ApplicationUpdateDialog(wx.Dialog):
         super().__init__(
             parent,
             title=f"Aktualizacja {check.profile.display_name}",
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.STAY_ON_TOP,
         )
         panel = wx.Panel(self)
         outer = wx.BoxSizer(wx.VERTICAL)
@@ -58,5 +58,6 @@ class ApplicationUpdateDialog(wx.Dialog):
         event.Skip()
         if not event.IsShown():
             return
+        self.Raise()
         self.information.SetInsertionPoint(0)
         self.information.SetFocus()
