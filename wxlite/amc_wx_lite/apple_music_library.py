@@ -1,8 +1,9 @@
-"""Read-only Apple Music library adapter for the private AMC Test pilot.
+"""Apple Music library adapter for the private AMC Test pilot.
 
 The optional ``applemusic`` dependency is imported lazily.  Provider objects,
 exceptions and response dictionaries are reduced to the narrow contract from
 ``apple_music_source`` before a caller can hand anything to the interface.
+Only verified song/album membership changes are exposed beyond reading.
 """
 
 from __future__ import annotations
@@ -51,6 +52,13 @@ class AppleMusicNotConnected(AppleMusicLibraryError):
         return "Apple Music nie jest zalogowane."
 
 
+class AppleMusicLibraryMutationError(AppleMusicLibraryError):
+    """A sanitized failure specific to an account mutation."""
+
+    def __str__(self) -> str:
+        return "Nie udało się zmienić Biblioteki Apple Music."
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class AppleMusicPageCursor:
     """Opaque continuation owned by the adapter, never presentation text."""
@@ -75,6 +83,14 @@ class AppleMusicLibraryResult:
     @property
     def rows(self) -> tuple[Row, ...]:
         return tuple(record.row for record in self.records)
+
+
+@dataclass(frozen=True, slots=True)
+class AppleMusicLibraryMutation:
+    """Confirmed membership result without provider identifiers."""
+
+    added: bool
+    item_kind: str
 
 
 class AppleMusicLibraryClient:
@@ -222,6 +238,40 @@ class AppleMusicLibraryClient:
         except Exception:
             raise AppleMusicLibraryError() from None
 
+    def toggle_library(
+        self, record: AppleMusicRecord
+    ) -> AppleMusicLibraryMutation:
+        """Add a catalog song/album or remove its library counterpart.
+
+        Apple exposes separate identifiers for catalog and library resources.
+        Keep that distinction inside the adapter and support only the two
+        reversible kinds whose add and remove endpoints are both available.
+        """
+
+        if not isinstance(record, AppleMusicRecord):
+            raise AppleMusicLibraryMutationError()
+        target = record.target
+        try:
+            if target.resource_type == "library-songs" and target.from_library:
+                self._client.library_remove_song(target.resource_id)
+                return AppleMusicLibraryMutation(False, "track")
+            if target.resource_type == "library-albums" and target.from_library:
+                self._client.library_remove_album(target.resource_id)
+                return AppleMusicLibraryMutation(False, "album")
+            catalog_id = target.catalog_id
+            if not target.from_library and catalog_id:
+                if target.resource_type == "songs":
+                    self._client.library_add(songs=[catalog_id])
+                    return AppleMusicLibraryMutation(True, "track")
+                if target.resource_type == "albums":
+                    self._client.library_add(albums=[catalog_id])
+                    return AppleMusicLibraryMutation(True, "album")
+            raise AppleMusicLibraryMutationError()
+        except AppleMusicLibraryMutationError:
+            raise
+        except Exception:
+            raise AppleMusicLibraryMutationError() from None
+
     def close(self) -> None:
         try:
             close = getattr(self._client, "close")
@@ -234,6 +284,26 @@ class AppleMusicLibraryClient:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+def library_membership_direction(record: AppleMusicRecord | None) -> str | None:
+    """Return the supported direction without leaking provider identity."""
+
+    if not isinstance(record, AppleMusicRecord):
+        return None
+    target = record.target
+    if target.from_library and target.resource_type in {
+        "library-songs",
+        "library-albums",
+    }:
+        return "remove"
+    if (
+        not target.from_library
+        and bool(target.catalog_id)
+        and target.resource_type in {"songs", "albums"}
+    ):
+        return "add"
+    return None
 
 
 def open_apple_music_library(

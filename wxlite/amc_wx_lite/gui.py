@@ -286,6 +286,7 @@ if "session.apple-music" in _RELEASE_PROFILE.capabilities:
     )
     from .apple_music_library import (
         AppleMusicLibraryError,
+        library_membership_direction,
         open_apple_music_library,
     )
     from .apple_music_source import AppleMusicRecord
@@ -624,6 +625,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.TOGGLE_FAVORITE,
         Action.TOGGLE_PODCAST_LIBRARY,
         Action.TIDAL_TOGGLE_LIBRARY,
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY,
         Action.SPOTIFY_TOGGLE_LIBRARY,
         Action.SPOTIFY_TOGGLE_FAVORITE,
         Action.MANAGE_PLAYLIST_MEMBERSHIP,
@@ -10639,6 +10641,7 @@ class LiteFrame(wx.Frame):
         # receives at most one page and an explicit "Załaduj więcej" row.
         self._tidal_view_cache: dict[str, object] = {}
         self._tidal_loaded_counts: dict[tuple[str, str], int] = {}
+        self._tidal_dirty_scopes: set[str] = set()
         self._tidal_render_signature: tuple | None = None
         self._tidal_rendered_rows: object = None
         self._spotify_queue_rows = list(spotify_history_rows(
@@ -10669,6 +10672,7 @@ class LiteFrame(wx.Frame):
         # wyłącznie bezpieczne item_id, a kursory nigdy nie są wypowiadane.
         self._apple_music_records: dict[str, AppleMusicRecord] = {}
         self._apple_music_pages: dict[str, tuple[list[AppleMusicRecord], object]] = {}
+        self._apple_music_library_pending = False
         # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
         # pierwszego odczytu widoku trzymamy bezpieczny domysl; wynik strony
         # niesie potem faktycznie uzyty tryb i aktualizuje zaznaczenie menu.
@@ -11753,6 +11757,20 @@ class LiteFrame(wx.Frame):
                 )
             ):
                 enabled = False
+            if entry.needs_apple_music_library_item:
+                apple_record = (
+                    self._apple_music_records.get(selected_row.item_id)
+                    if self.navigator.active is SessionId.APPLE_MUSIC
+                    and selected_row is not None
+                    else None
+                )
+                apple_direction = library_membership_direction(apple_record)
+                if (
+                    apple_direction is None
+                    or apple_direction == "remove"
+                    and session.apple_music_context not in {"songs", "albums"}
+                ):
+                    enabled = False
             if entry.needs_spotify_favorite_item and not (
                 self.navigator.active is SessionId.SPOTIFY
                 and selected_row is not None
@@ -12326,6 +12344,7 @@ class LiteFrame(wx.Frame):
             selected_relation = dialog.selected_relation
         finally:
             dialog.Destroy()
+        LiteFrame._refresh_visible_dirty_tidal_collection(self)
         if result == wx.ID_OK and selected is not None:
             self._complete_search_result_action(
                 selected,
@@ -13454,6 +13473,9 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             self._tidal_membership_pending = False
+            LiteFrame._invalidate_tidal_membership_views(
+                self, rows, favorite=favorite
+            )
             message = str((payload or {}).get("message") or "").strip()
             say(message or "Nie otrzymano potwierdzenia zmiany kolekcji TIDAL")
 
@@ -15445,6 +15467,7 @@ class LiteFrame(wx.Frame):
         intent: OpenTidalView,
         *,
         after_refresh: Callable[[], None] | None = None,
+        announce_result: bool = True,
     ) -> None:
         """Read one account collection view, with the saved cache as fallback."""
         scope = _TIDAL_VIEW_SCOPES.get(intent.view)
@@ -15517,6 +15540,7 @@ class LiteFrame(wx.Frame):
                 return
             view_result, warning = result
             self._tidal_view_cache[scope] = view_result
+            getattr(self, "_tidal_dirty_scopes", set()).discard(scope)
             self._tidal_effective_sort_modes[scope] = view_result.sort_mode
             requested = requested_count(
                 self._tidal_loaded_counts.get((scope, ""), 0), load_more=False,
@@ -15547,8 +15571,10 @@ class LiteFrame(wx.Frame):
                     self._announce_after_list_update(
                         f"{intent.announcement}, {empty}"
                     )
-            else:
+            elif announce_result:
                 self._run(events)
+            else:
+                self._sync_views()
             self._refresh_menu_state()
             if warning:
                 self.announcer.say(warning)
@@ -15568,6 +15594,64 @@ class LiteFrame(wx.Frame):
             )
 
         self.runner.submit("tidal-view", work, done, failed)
+
+    @staticmethod
+    def _invalidate_tidal_membership_views(
+        frame: object,
+        rows: list[Row],
+        *,
+        favorite: bool,
+    ) -> set[str]:
+        """Forget only collection pages affected by a confirmed TIDAL write."""
+
+        scopes = {TIDAL_VIEW_FAVORITES} if favorite else {TIDAL_VIEW_LIBRARY}
+        kinds = {row.kind for row in rows}
+        if favorite and "track" in kinds:
+            scopes.add(TIDAL_VIEW_SONGS)
+        if not favorite:
+            if "album" in kinds:
+                scopes.add(TIDAL_VIEW_ALBUMS)
+            if "artist" in kinds:
+                scopes.add(TIDAL_VIEW_ARTISTS)
+            if "playlist" in kinds:
+                scopes.add(TIDAL_VIEW_PLAYLISTS)
+        cache = getattr(frame, "_tidal_view_cache", None)
+        if isinstance(cache, dict):
+            for scope in scopes:
+                cache.pop(scope, None)
+        counts = getattr(frame, "_tidal_loaded_counts", None)
+        if isinstance(counts, dict):
+            for key in tuple(counts):
+                if isinstance(key, tuple) and key and key[0] in scopes:
+                    counts.pop(key, None)
+        dirty = getattr(frame, "_tidal_dirty_scopes", None)
+        if not isinstance(dirty, set):
+            dirty = set()
+            setattr(frame, "_tidal_dirty_scopes", dirty)
+        dirty.update(scopes)
+        signature = getattr(frame, "_tidal_render_signature", None)
+        if isinstance(signature, tuple) and signature and signature[0] in scopes:
+            setattr(frame, "_tidal_render_signature", None)
+            setattr(frame, "_tidal_rendered_rows", None)
+        return scopes
+
+    def _refresh_visible_dirty_tidal_collection(self) -> None:
+        """Refresh a list changed behind a search dialog without extra speech."""
+
+        dirty = getattr(self, "_tidal_dirty_scopes", set())
+        if not dirty or self.navigator.active is not SessionId.TIDAL:
+            return
+        state = self.navigator.sessions[SessionId.TIDAL]
+        scope = _TIDAL_VIEW_SCOPES.get(state.library_view)
+        if state.view is not View.LIST or scope not in dirty:
+            return
+        self._open_tidal_view(
+            OpenTidalView(
+                state.library_view,
+                preferred_id=state.model.selected_id,
+            ),
+            announce_result=False,
+        )
 
     def _open_tidal_container(
         self, intent: OpenTidalContainer, *,
@@ -15693,7 +15777,13 @@ class LiteFrame(wx.Frame):
 
     # --------------------------------------------------------- Apple Music
 
-    def _open_apple_music_view(self, intent: OpenAppleMusicView) -> None:
+    def _open_apple_music_view(
+        self,
+        intent: OpenAppleMusicView,
+        *,
+        finished_message: str | None = None,
+        finished: Callable[[], None] | None = None,
+    ) -> None:
         """Read one bounded, sanitized page of the Apple Music library."""
 
         if "session.apple-music" not in _RELEASE_PROFILE.capabilities:
@@ -15720,6 +15810,10 @@ class LiteFrame(wx.Frame):
                 version != self._apple_music_navigation_version
                 or self.navigator.active is not SessionId.APPLE_MUSIC
             ):
+                if finished_message:
+                    self.announcer.say(finished_message)
+                if finished is not None:
+                    finished()
                 return
             records = [*previous_records, *result.records]
             self._apple_music_pages[scope] = (records, result.next_cursor)
@@ -15741,17 +15835,31 @@ class LiteFrame(wx.Frame):
                 rows,
                 preferred_id=preferred_id,
             ))
+            if finished_message:
+                self.announcer.say(finished_message)
+            if finished is not None:
+                finished()
 
         def failed(error: Exception) -> None:
+            message = (
+                str(error)
+                if isinstance(error, AppleMusicLibraryError)
+                else "Nie udało się odczytać Biblioteki Apple Music."
+            )
             if (
                 version == self._apple_music_navigation_version
                 and self.navigator.active is SessionId.APPLE_MUSIC
             ):
                 self.announcer.say(
-                    str(error)
-                    if isinstance(error, AppleMusicLibraryError)
-                    else "Nie udało się odczytać Biblioteki Apple Music."
+                    f"{i18n.ui_text(finished_message)} "
+                    f"{i18n.ui_text('Nie udało się odświeżyć listy.')}"
+                    if finished_message
+                    else message
                 )
+            elif finished_message:
+                self.announcer.say(finished_message)
+            if finished is not None:
+                finished()
 
         self.runner.submit("apple-music-library", work, done, failed)
 
@@ -15819,6 +15927,83 @@ class LiteFrame(wx.Frame):
                 )
 
         self.runner.submit("apple-music-playlist", work, done, failed)
+
+    def _toggle_apple_music_library(self) -> None:
+        """Change verified song/album membership without exposing IDs."""
+
+        if getattr(self, "_apple_music_library_pending", False):
+            self.announcer.say("Zmiana Biblioteki Apple Music już trwa")
+            return
+        rows = self._selected_action_rows()
+        if len(rows) != 1:
+            self.announcer.say(
+                "Wybierz jeden utwór albo album Apple Music"
+            )
+            return
+        row = rows[0]
+        record = self._apple_music_records.get(row.item_id)
+        direction = library_membership_direction(record)
+        if direction is None:
+            self.announcer.say(
+                "Tego elementu nie można zmienić w Bibliotece Apple Music"
+            )
+            return
+        state = self.navigator.sessions[SessionId.APPLE_MUSIC]
+        context = state.apple_music_context
+        if direction == "remove" and context not in {"songs", "albums"}:
+            self.announcer.say(
+                "Usuwanie z Biblioteki Apple Music jest dostępne na liście Utwory albo Albumy"
+            )
+            return
+        preferred_id = LiteFrame._preferred_item_after_removal(
+            list(getattr(getattr(state, "model", None), "rows", ())),
+            {row.item_id},
+        )
+        self._apple_music_library_pending = True
+
+        def clear_pending() -> None:
+            self._apple_music_library_pending = False
+
+        def work():
+            with open_apple_music_library(self.layout) as library:
+                return library.toggle_library(record)
+
+        def done(result) -> None:
+            kind = "utwór" if result.item_kind == "track" else "album"
+            message = (
+                f"Dodano {kind} do Biblioteki Apple Music"
+                if result.added
+                else f"Usunięto {kind} z Biblioteki Apple Music"
+            )
+            scope = "songs" if result.item_kind == "track" else "albums"
+            self._apple_music_pages.pop(scope, None)
+            if result.added:
+                clear_pending()
+                self.announcer.say(message)
+                return
+            self._apple_music_records.pop(row.item_id, None)
+            if (
+                self.navigator.active is SessionId.APPLE_MUSIC
+                and state.apple_music_context == scope
+            ):
+                self._open_apple_music_view(
+                    OpenAppleMusicView(scope, preferred_id=preferred_id),
+                    finished_message=message,
+                    finished=clear_pending,
+                )
+                return
+            clear_pending()
+            self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            clear_pending()
+            self.announcer.say(
+                str(error)
+                if isinstance(error, AppleMusicLibraryError)
+                else "Nie udało się zmienić Biblioteki Apple Music."
+            )
+
+        self.runner.submit("apple-music-library-membership", work, done, failed)
 
     def _show_apple_music_account(self) -> None:
         """Expose login only after an explicit Ctrl+F5/menu action."""
@@ -16784,6 +16969,7 @@ class LiteFrame(wx.Frame):
             tidal_collection=tidal_collection,
             spotify_session=self.navigator.active is SessionId.SPOTIFY,
             spotify_collection=spotify_collection,
+            apple_music_session=self.navigator.active is SessionId.APPLE_MUSIC,
             music_collection_session=(
                 self.navigator.active
                 in (SessionId.TIDAL, SessionId.SPOTIFY, SessionId.APPLE_MUSIC)
@@ -17213,6 +17399,8 @@ class LiteFrame(wx.Frame):
             self._toggle_spotify_membership(
                 favorite=action is Action.SPOTIFY_TOGGLE_FAVORITE
             )
+        elif action is Action.APPLE_MUSIC_TOGGLE_LIBRARY:
+            self._toggle_apple_music_library()
         elif (step := seek_step_seconds(action, custom_seconds=self.messages.custom_seek_seconds)) is not None:
             # Krok czyta parytet transportu: 10 / 30 / 60 s i czas z ustawien
             # AMC (MainWindow.xaml.cs:21583-21590, 22387-22394). Wartosc
@@ -29415,6 +29603,9 @@ class LiteFrame(wx.Frame):
         def done(payload: dict) -> None:
             self._tidal_membership_pending = False
             result = payload or {}
+            LiteFrame._invalidate_tidal_membership_views(
+                self, rows, favorite=favorite
+            )
             message = str(result.get("message") or "").strip()
             completion = message or "Zmieniono kolekcję TIDAL"
             relevant_views = (
@@ -37613,6 +37804,7 @@ class LiteFrame(wx.Frame):
                     OpenSpotifyCollectionView,
                 )
             ),
+            apple_music_session=self.navigator.active is SessionId.APPLE_MUSIC,
             music_collection_session=(
                 self.navigator.active
                 in (SessionId.TIDAL, SessionId.SPOTIFY, SessionId.APPLE_MUSIC)

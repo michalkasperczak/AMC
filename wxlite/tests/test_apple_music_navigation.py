@@ -20,6 +20,7 @@ def _resolve(chord: Chord, *, available: bool) -> Action | None:
         player_view=False,
         radio_session=False,
         music_collection_session=available,
+        apple_music_session=available,
     )
 
 
@@ -131,3 +132,10 @@ def test_ctrl_alt_digits_are_shared_globally() -> None:
         chord = Chord(key, ctrl=True, alt=True)
         assert _resolve(chord, available=True) is action
         assert _resolve(chord, available=False) is action
+
+
+def test_ctrl_shift_l_is_scoped_to_apple_music_session() -> None:
+    chord = Chord("L", ctrl=True, shift=True)
+
+    assert _resolve(chord, available=True) is Action.APPLE_MUSIC_TOGGLE_LIBRARY
+    assert _resolve(chord, available=False) is None

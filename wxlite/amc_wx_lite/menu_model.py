@@ -162,6 +162,9 @@ class MenuItem:
     needs_podcast_library_item: bool = False
     #: Wymaga kontenera obsługiwanego przez Bibliotekę TIDAL.
     needs_tidal_library_item: bool = False
+    #: Wymaga utworu lub albumu, dla którego adapter Apple Music ma zarówno
+    #: bezpieczny kierunek zmiany, jak i potwierdzony endpoint Biblioteki.
+    needs_apple_music_library_item: bool = False
     #: Eksperymentalny odtwarzacz AMC wymaga jednego utworu TIDAL.
     needs_tidal_native_track: bool = False
     #: Wymaga albumu, wykonawcy, podcastu albo odcinka zapisywalnego przez
@@ -959,6 +962,14 @@ def build_menus(
                 accelerator=False,
                 needs_spotify_library_item=True,
                 visible_sessions=SPOTIFY_ONLY,
+            ),
+            MenuItem(
+                "Dodaj lub usuń z Biblioteki Apple Music (&1)",
+                Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+                shortcut="Ctrl+Shift+L",
+                accelerator=False,
+                needs_apple_music_library_item=True,
+                visible_sessions=APPLE_MUSIC_ONLY,
             ),
             MenuItem(
                 "Z&mień stan ulubionych",

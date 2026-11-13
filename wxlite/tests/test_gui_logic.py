@@ -1271,6 +1271,7 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
             Action.TOGGLE_PODCAST_LIBRARY,
             Action.TIDAL_TOGGLE_LIBRARY,
             Action.SPOTIFY_TOGGLE_LIBRARY,
+            Action.APPLE_MUSIC_TOGGLE_LIBRARY,
         )
     }
 
@@ -1284,7 +1285,14 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
         def Enable(self, value):  # noqa: N802 - API wx
             self.enabled = value
 
-    def enabled(action: Action, active: SessionId, **row_values: object) -> bool:
+    def enabled(
+        action: Action,
+        active: SessionId,
+        *,
+        apple_resource_type: str | None = None,
+        apple_context: str = "songs",
+        **row_values: object,
+    ) -> bool:
         defaults = {
             "kind": "",
             "item_id": "item",
@@ -1294,7 +1302,22 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
             "related_album_service_id": "",
         }
         defaults.update(row_values)
-        row = types.SimpleNamespace(**defaults)
+        apple_record = None
+        if apple_resource_type is None:
+            row = types.SimpleNamespace(**defaults)
+        else:
+            from amc_wx_lite.apple_music_source import records_from_resources
+
+            apple_record = records_from_resources([{
+                "id": "library.song" if apple_resource_type.startswith("library-")
+                else "catalog.album",
+                "type": apple_resource_type,
+                "attributes": {
+                    "name": "Materiał Apple Music",
+                    "playParams": {"catalogId": "catalog.item"},
+                },
+            }])[0]
+            row = apple_record.row
         view = {
             SessionId.PODCASTS: LibraryView.PODCAST_LIBRARY,
             SessionId.TIDAL: LibraryView.TIDAL_LIBRARY,
@@ -1306,6 +1329,7 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
             library_playlist_id=None,
             model=types.SimpleNamespace(selected_row=row),
             spotify_context=None,
+            apple_music_context=apple_context,
         )
         frame = object.__new__(LiteFrame)
         frame.navigator = types.SimpleNamespace(
@@ -1318,6 +1342,9 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
         frame._transport_status_by_session = {}
         frame._podcast_inbox_sort_mode = ""
         frame._tidal_effective_sort_modes = {}
+        frame._apple_music_records = (
+            {row.item_id: apple_record} if apple_record is not None else {}
+        )
         frame._keyboard_help_active = False
         native = FakeMenuItem()
         frame._menu_items = [(native, entries[action])]
@@ -1386,4 +1413,22 @@ def test_membership_menu_gates_follow_the_selected_user_facing_item() -> None:
         SessionId.SPOTIFY,
         kind="track",
         service_id="spotify-track",
+    )
+    assert enabled(
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+        SessionId.APPLE_MUSIC,
+        apple_resource_type="albums",
+        apple_context="playlist:example",
+    )
+    assert enabled(
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+        SessionId.APPLE_MUSIC,
+        apple_resource_type="library-songs",
+        apple_context="songs",
+    )
+    assert not enabled(
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+        SessionId.APPLE_MUSIC,
+        apple_resource_type="library-songs",
+        apple_context="playlist:example",
     )

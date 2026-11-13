@@ -1,7 +1,6 @@
 # A11Y-COLLECTIONS-20261113 — fokus i mowa po zmianach kolekcji
 
-- Status: **kod oraz testy celowane gotowe; pełna regresja, paczka, instalacja
-  i publikacja w toku**.
+- Status: **wydane, zainstalowane i uruchomione w AMC Test alpha.498**.
 - Utworzono: 13 listopada 2026.
 - Obszar: TIDAL, Spotify, lokalne Ulubione, Biblioteka Radia, playlisty,
   kolejki, wyszukiwanie, NVDA.
@@ -33,6 +32,11 @@ wyniki wyszukiwania we wszystkich sesjach.
 - Apple Music `Ctrl+F` przeszukuje aktualnie wczytaną, bezpiecznie
   znormalizowaną stronę i po Enterze wraca do tego samego wiersza. Nie udaje
   przeszukiwania całej, niewczytanej biblioteki.
+- **Korekta użytkownika z 13.11.2026:** zapis albumu TIDAL z `Ctrl+F` albo
+  `Ctrl+Alt+S` dochodził do konta, lecz lista AMC pozostawała stara. Późniejszy
+  przyrost unieważnia właściwe strony kolekcji i po zamknięciu wyszukiwarki
+  odświeża widoczną listę bez odbierania fokusu i bez drugiej wypowiedzi NVDA.
+  Szczegóły: `TIDAL-20261113-odswiezenie-po-zapisie-z-wyszukiwania.md`.
 
 ## Uzasadnienie i decyzje
 
@@ -44,8 +48,13 @@ sąsiada przeniesiono do jednej funkcji i zastosowano w kolejnych ścieżkach.
 
 Sortowanie Apple Music nie zostało włączone. Adapter pobiera strony po 25
 pozycji, więc lokalne `Alt+1–3` sortowałoby tylko fragment i podawało mylący
-wynik. Ulubione oraz dwukierunkowy zapis Apple także pozostają wyłączone do
-czasu potwierdzenia rzeczywistego API.
+wynik. Ulubione Apple pozostają wyłączone do czasu potwierdzenia rzeczywistego
+API.
+
+**Korekta 13.11.2026:** późniejszy przyrost AM-005 dodaje w źródłach
+dwukierunkowe `Ctrl+Shift+L` wyłącznie dla utworów i albumów. Wykorzystuje ten
+sam kontrakt sąsiedniego fokusu i końcowej mowy. Nie jest jeszcze częścią
+zainstalowanej alpha.498 i nie zmienia ograniczenia nowych Ulubionych Apple.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -79,8 +88,9 @@ bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwark
 - Audyt wykazał dalsze miejsca do ręcznej próby NVDA: wielokrotne nieciągłe
   zaznaczenie z filtrem, szybka zmiana sesji podczas odpowiedzi i kolejki
   wszystkich dostawców.
-- Apple Music nie ma jeszcze Ulubionych, zapisu Biblioteki, sortowania pełnej
-  kolekcji ani odtwarzacza. Nie są one reklamowane jako gotowe.
+- Apple Music nie ma jeszcze Ulubionych, sortowania pełnej kolekcji ani
+  odtwarzacza. Zapis Biblioteki dla utworów i albumów jest gotowy dopiero w
+  niezatwierdzonych źródłach AM-005, nie w zainstalowanej alpha.498.
 - `Ctrl+F` Apple Music nie wykonuje jeszcze zapytania katalogowego i nie
   pobiera automatycznie wszystkich stron.
 

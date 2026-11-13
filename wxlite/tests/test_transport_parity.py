@@ -96,6 +96,7 @@ from pathlib import Path
 from amc_wx_lite import menu_model
 from amc_wx_lite.profile_layout import private_sandbox, read_only_mirror
 from amc_wx_lite.shortcuts import (
+    APPLE_MUSIC_SESSION_VIEW,
     FILES_SESSION_VIEW,
     FRONTIER_SMART_SESSION_VIEW,
     RADIOARCHIWISTA_SESSION_VIEW,
@@ -826,6 +827,7 @@ def test_menu_shortcut_labels_still_tell_the_truth() -> None:
         SPOTIFY_COLLECTION_LIST_VIEW,
         SPOTIFY_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
+        APPLE_MUSIC_SESSION_VIEW,
         TIDAL_COLLECTION_LIST_VIEW,
         TIDAL_SESSION_VIEW,
         PLAYER_VIEW,

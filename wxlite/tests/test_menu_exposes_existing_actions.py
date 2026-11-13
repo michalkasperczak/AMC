@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from amc_wx_lite import menu_model
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.shortcuts import (
+    APPLE_MUSIC_SESSION_VIEW,
     FILES_SESSION_VIEW,
     FRONTIER_SMART_SESSION_VIEW,
     RADIOARCHIWISTA_SESSION_VIEW,
@@ -179,6 +180,7 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
         SPOTIFY_COLLECTION_LIST_VIEW,
         SPOTIFY_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
+        APPLE_MUSIC_SESSION_VIEW,
         TIDAL_COLLECTION_LIST_VIEW,
         TIDAL_SESSION_VIEW,
         WIIM_SESSION_VIEW,
@@ -540,7 +542,7 @@ def test_spotify_delete_menu_is_limited_to_removable_saved_rows() -> None:
     assert "spotify" in item.label.replace("&", "").casefold()
 
 
-def test_library_membership_menu_is_specific_to_podcasts_and_tidal() -> None:
+def test_library_membership_menu_is_specific_to_each_provider() -> None:
     podcast = next(
         entry for entry in all_items()
         if entry.action is Action.TOGGLE_PODCAST_LIBRARY
@@ -549,14 +551,21 @@ def test_library_membership_menu_is_specific_to_podcasts_and_tidal() -> None:
         entry for entry in all_items()
         if entry.action is Action.TIDAL_TOGGLE_LIBRARY
     )
-    assert podcast.shortcut == tidal.shortcut == "Ctrl+Shift+L"
+    apple = next(
+        entry for entry in all_items()
+        if entry.action is Action.APPLE_MUSIC_TOGGLE_LIBRARY
+    )
+    assert podcast.shortcut == tidal.shortcut == apple.shortcut == "Ctrl+Shift+L"
     assert podcast.visible_sessions == (menu_model.SessionId.PODCASTS,)
     assert podcast.needs_podcast_library_item
     assert tidal.visible_sessions == (menu_model.SessionId.TIDAL,)
     assert tidal.needs_tidal_library_item
-    assert not podcast.accelerator and not tidal.accelerator
+    assert apple.visible_sessions == (menu_model.SessionId.APPLE_MUSIC,)
+    assert apple.needs_apple_music_library_item
+    assert not podcast.accelerator and not tidal.accelerator and not apple.accelerator
     assert "bibliotek" in podcast.label.replace("&", "").casefold()
     assert "bibliotek" in tidal.label.replace("&", "").casefold()
+    assert "bibliotek" in apple.label.replace("&", "").casefold()
 
 
 def test_queue_membership_menu_matches_supported_sessions() -> None:

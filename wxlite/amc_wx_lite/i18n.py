@@ -649,6 +649,7 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
 _ACTION_NAME_OVERRIDES: dict[str, str] = {
+    "appleMusic.library.toggle": "Add to or remove from Apple Music Library",
     "session.files": "Local files",
     "session.radio": "Radio",
     "session.podcasts": "Podcasts and YouTube",
@@ -887,6 +888,16 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Zmiana Biblioteki Apple Music już trwa": "An Apple Music Library change is already in progress",
+    "Wybierz jeden utwór albo album Apple Music": "Select one Apple Music song or album",
+    "Tego elementu nie można zmienić w Bibliotece Apple Music": "This item cannot be changed in Apple Music Library",
+    "Usuwanie z Biblioteki Apple Music jest dostępne na liście Utwory albo Albumy": "Removal from Apple Music Library is available in the Songs or Albums list",
+    "Dodano utwór do Biblioteki Apple Music": "Added the song to Apple Music Library",
+    "Dodano album do Biblioteki Apple Music": "Added the album to Apple Music Library",
+    "Usunięto utwór z Biblioteki Apple Music": "Removed the song from Apple Music Library",
+    "Usunięto album z Biblioteki Apple Music": "Removed the album from Apple Music Library",
+    "Nie udało się zmienić Biblioteki Apple Music.": "Could not change Apple Music Library.",
+    "Nie udało się odświeżyć listy.": "The list could not be refreshed.",
     "Warianty pobrania": "Download variants",
     "Wybierz wariant pobrania": "Choose a download variant",
     "Strzałki wybierają wariant. Enter przechodzi do zapisu, Escape anuluje.": "Use arrow keys to choose a variant. Enter continues to Save As; Escape cancels.",

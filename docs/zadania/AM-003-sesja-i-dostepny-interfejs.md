@@ -1,10 +1,10 @@
 # AM-003 — sesja Apple Music i dostępny interfejs AMC
 
-- Status: `Kod sesji i wspólnych kategorii gotowy, testy celowane przechodzą; odtwarzanie AM-002 nadal oczekuje`
+- Status: `Sesja i pierwszy zapis Biblioteki gotowe w źródłach; odtwarzanie AM-002 nadal oczekuje`
 - Utworzono: 12 listopada 2026
-- Ostatnia korekta: 12 listopada 2026 — zastępuje wcześniejsze założenie, że
-  całe zadanie musi czekać na odtwarzanie AM-002. Czytelną sesję Biblioteki
-  można wdrożyć wcześniej, bez pokazywania niedziałającego Enter.
+- Ostatnia korekta: 13 listopada 2026 — zastępuje wcześniejszą decyzję o
+  całkowicie odczytowym pierwszym GUI. `Ctrl+Shift+L` ma zweryfikowany,
+  ograniczony kontrakt dla utworów i albumów; pozostałe zapisy nadal czekają.
 - Obszar: sesje, nawigacja, klawiatura, menu, pomoc i NVDA
 
 ## Cel
@@ -139,11 +139,13 @@ gestami rodzaju kolekcji.
   ulubionych, lecz nie wolno wyprowadzać z tego niepotwierdzonej zdolności
   naszego nieoficjalnego adaptera.
 
-Z tego powodu pierwsze wdrożenie GUI ma być odczytowe. `Ctrl+Shift+L` i
-`Ctrl+Shift+U` nie mogą być aktywne ani reklamowane w pomocy, dopóki osobne
-testy zapisu nie potwierdzą świeżego stanu po operacji. Asymetryczne
-„dodajemy, ale nie umiemy niezawodnie usunąć” nie spełnia znaczenia słowa
-„przełącz”.
+**Korekta 13.11.2026, zastępująca powyższą decyzję o całkowicie odczytowym
+GUI:** osobne testy adaptera i powierzchni poleceń potwierdziły oba kierunki dla
+utworów i albumów. `Ctrl+Shift+L` jest więc gotowe w źródłach dla tych dwóch
+typów. Usuwanie jest ograniczone do bezpośrednich list Utwory i Albumy, po
+operacji lista się odświeża, fokus przechodzi na sąsiada, a potwierdzenie NVDA
+jest ostatnią wypowiedzią. `Ctrl+Shift+U`, wykonawcy oraz playlisty pozostają
+wyłączone. Szczegółowy rekord: `AM-005-czlonkostwo-biblioteki-apple-music.md`.
 
 ## Etapy wdrożenia
 

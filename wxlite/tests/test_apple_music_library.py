@@ -13,6 +13,7 @@ from amc_wx_lite.apple_music_library import (
     AppleMusicLibraryError,
     AppleMusicNotConnected,
     AppleMusicPageCursor,
+    library_membership_direction,
     open_apple_music_library,
 )
 from amc_wx_lite.apple_music_source import records_from_resources
@@ -78,6 +79,15 @@ class ExternalClient:
     def playlist_tracks(self, playlist_id: str):
         self.calls.append(("playlist", playlist_id))
         return [self._resource("library-songs", "i.inside", "W playliście")]
+
+    def library_add(self, **items):
+        self.calls.append(("library-add", items))
+
+    def library_remove_song(self, item_id: str):
+        self.calls.append(("library-remove-song", item_id))
+
+    def library_remove_album(self, item_id: str):
+        self.calls.append(("library-remove-album", item_id))
 
     def _get(self, path: str, params=None):
         self.calls.append(("page", path, params))
@@ -272,6 +282,56 @@ class AppleMusicLibraryTests(unittest.TestCase):
 
         with self.assertRaises(AppleMusicLibraryError):
             library.playlist_tracks(song)
+
+    def test_library_membership_adds_catalog_and_removes_library_records(self) -> None:
+        library = self.open()
+        library_song = records_from_resources([{
+            "id": "i.song",
+            "type": "library-songs",
+            "attributes": {
+                "name": "W Bibliotece",
+                "playParams": {"catalogId": "catalog.song"},
+            },
+        }])[0]
+        catalog_album = records_from_resources([{
+            "id": "catalog.album",
+            "type": "albums",
+            "attributes": {"name": "Z katalogu"},
+        }])[0]
+
+        removed = library.toggle_library(library_song)
+        added = library.toggle_library(catalog_album)
+
+        self.assertFalse(removed.added)
+        self.assertEqual(removed.item_kind, "track")
+        self.assertTrue(added.added)
+        self.assertEqual(added.item_kind, "album")
+        self.assertEqual(library_membership_direction(library_song), "remove")
+        self.assertEqual(library_membership_direction(catalog_album), "add")
+        self.assertIn(
+            ("library-remove-song", "i.song"),
+            ExternalClient.last_instance.calls,
+        )
+        self.assertIn(
+            ("library-add", {"albums": ["catalog.album"]}),
+            ExternalClient.last_instance.calls,
+        )
+
+    def test_library_membership_rejects_artist_and_hides_provider_failure(self) -> None:
+        library = self.open()
+        artist = records_from_resources([{
+            "id": "catalog.artist",
+            "type": "artists",
+            "attributes": {"name": "Wykonawca"},
+        }])[0]
+
+        self.assertIsNone(library_membership_direction(artist))
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            library.toggle_library(artist)
+        self.assertEqual(
+            str(caught.exception),
+            "Nie udało się zmienić Biblioteki Apple Music.",
+        )
 
     def test_missing_connection_has_one_user_facing_message(self) -> None:
         with self.assertRaises(AppleMusicNotConnected) as caught:

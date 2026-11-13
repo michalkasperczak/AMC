@@ -859,6 +859,76 @@ def test_online_tidal_library_action_uses_confirmed_membership_toggle() -> None:
     ]
 
 
+def test_tidal_search_membership_invalidates_only_affected_collection_views() -> None:
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    album = Row(
+        "tidal:albums:44",
+        "Nowy album",
+        "album",
+        service_id="albums:44",
+    )
+    frame = SimpleNamespace(
+        client=SimpleNamespace(tidal_collection_membership=lambda *_args, **_kwargs: {
+            "added": True,
+            "message": "Dodano do Biblioteki TIDAL",
+        }),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _tidal_membership_pending=False,
+        _tidal_view_cache={
+            "library": object(),
+            "albums": object(),
+            "artists": object(),
+        },
+        _tidal_loaded_counts={
+            ("albums", ""): 25,
+            ("artists", ""): 25,
+        },
+        _tidal_render_signature=("albums", object(), "", 25),
+        _tidal_rendered_rows=object(),
+    )
+
+    LiteFrame._change_tidal_search_result_membership(
+        frame,
+        [SearchEntry(SessionId.TIDAL, album, remote_kind="tidalCatalog")],
+        favorite=False,
+    )
+
+    assert set(frame._tidal_view_cache) == {"artists"}
+    assert set(frame._tidal_loaded_counts) == {("artists", "")}
+    assert frame._tidal_dirty_scopes == {"library", "albums"}
+    assert frame._tidal_render_signature is None
+    assert frame._tidal_rendered_rows is None
+
+
+def test_closing_search_refreshes_visible_dirty_tidal_list_without_extra_speech() -> None:
+    opened = []
+    state = SimpleNamespace(
+        library_view=LibraryView.TIDAL_ALBUMS,
+        view=View.LIST,
+        model=SimpleNamespace(selected_id="tidal:albums:old"),
+    )
+    frame = SimpleNamespace(
+        _tidal_dirty_scopes={"albums"},
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            sessions={SessionId.TIDAL: state},
+        ),
+        _open_tidal_view=lambda intent, **kwargs: opened.append((intent, kwargs)),
+    )
+
+    LiteFrame._refresh_visible_dirty_tidal_collection(frame)
+
+    assert len(opened) == 1
+    assert opened[0][0].view is LibraryView.TIDAL_ALBUMS
+    assert opened[0][0].preferred_id == "tidal:albums:old"
+    assert opened[0][1] == {"announce_result": False}
+
+
 def test_tidal_catalog_toggles_and_saved_library_list_removes() -> None:
     requests = []
 

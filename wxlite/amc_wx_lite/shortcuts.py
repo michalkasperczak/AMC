@@ -142,6 +142,7 @@ class Action(Enum):
     MANAGE_PLAYLIST_MEMBERSHIP = "action.playlists.membership"
     TIDAL_TOGGLE_LIBRARY = "tidal.library.toggle"
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
+    APPLE_MUSIC_TOGGLE_LIBRARY = "appleMusic.library.toggle"
     TIDAL_PLAY_NATIVE = "tidal.native.play"
     TIDAL_OPEN_ORIGINAL = "tidal.desktop.play"
     TIDAL_STOP_NATIVE = "tidal.native.stop"
@@ -468,6 +469,13 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.APPLE_MUSIC_TOGGLE_LIBRARY: CommandPresentation(
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+        "Dodaj lub usuń z Biblioteki Apple Music",
+        "Dodaj katalogowy utwór lub album do Biblioteki Apple Music albo usuń zaznaczony biblioteczny utwór lub album",
+        "Ctrl+Shift+L",
+        "Dodaj lub usuń z Biblioteki Apple &Music",
+    ),
     Action.REMOVE_SELECTED: CommandPresentation(
         Action.REMOVE_SELECTED,
         "Usuń z bieżącej listy",
@@ -1010,9 +1018,9 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
 })
 
 
-# Pierwszy etap Apple Music jest celowo tylko do odczytu. Lista nie zawiera
-# transportu, Ulubionych ani zapisów do konta, dopóki AM-002 nie ma
-# zweryfikowanego wykonawcy. Ten sam zbiór zasila menu, paletę i dispatcher.
+# Apple Music nadal nie wystawia transportu ani nowych Ulubionych. Jedyną
+# mutacją konta jest zweryfikowane członkostwo utworów i albumów w Bibliotece.
+# Ten sam zbiór zasila menu, paletę i dispatcher.
 APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
     Action.SESSION_FILES,
@@ -1045,6 +1053,7 @@ APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_MUSIC_SONGS,
     Action.VIEW_MUSIC_ALBUMS,
     Action.VIEW_MUSIC_ARTISTS,
+    Action.APPLE_MUSIC_TOGGLE_LIBRARY,
     Action.VIEW_HISTORY,
     Action.VIEW_DOWNLOADED_FILES,
     Action.GENERAL_SETTINGS,
@@ -1958,6 +1967,12 @@ SPOTIFY_SESSION_VIEW: dict[str, Action] = {
 }
 
 
+APPLE_MUSIC_SESSION_VIEW: dict[str, Action] = {
+    "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
+    "Ctrl+Shift+L": Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+}
+
+
 SPOTIFY_COLLECTION_LIST_VIEW: dict[str, Action] = {
     "Alt+1": Action.SORT_SPOTIFY_COLLECTION_ADDED,
     "Alt+2": Action.SORT_SPOTIFY_COLLECTION_ALPHABETICAL,
@@ -2079,6 +2094,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     TIDAL_COLLECTION_LIST_VIEW,
     TIDAL_LIST_VIEW,
     SPOTIFY_SESSION_VIEW,
+    APPLE_MUSIC_SESSION_VIEW,
     SPOTIFY_COLLECTION_LIST_VIEW,
     SPOTIFY_LIST_VIEW,
     WIIM_SESSION_VIEW,
@@ -2324,6 +2340,7 @@ def _resolve_default(
     tidal_collection: bool = False,
     spotify_session: bool = False,
     spotify_collection: bool = False,
+    apple_music_session: bool = False,
     music_collection_session: bool = False,
     wiim_session: bool = False,
     wiim_streams: bool = False,
@@ -2343,8 +2360,9 @@ def _resolve_default(
         return None
     if canonical in {"Shift+C", "Shift+M"}:
         action = Action.CAST_SESSION if canonical == "Shift+C" else Action.MIRROR_SESSION
-        return (action if not any((tidal_session, spotify_session, wiim_session,
-                sonos_session, frontier_smart_session, radioarchiwista_session)) else None)
+        return (action if not any((tidal_session, spotify_session,
+                apple_music_session, wiim_session, sonos_session,
+                frontier_smart_session, radioarchiwista_session)) else None)
     if canonical in GLOBAL_VIEW_SHORTCUTS:
         action = GLOBAL_VIEW_SHORTCUTS[canonical]
         if (
@@ -2451,6 +2469,8 @@ def _resolve_default(
         return SPOTIFY_SESSION_VIEW[canonical]
     if spotify_session and not player_view and canonical in SPOTIFY_LIST_VIEW:
         return SPOTIFY_LIST_VIEW[canonical]
+    if apple_music_session and canonical in APPLE_MUSIC_SESSION_VIEW:
+        return APPLE_MUSIC_SESSION_VIEW[canonical]
     if player_view and wiim_session and canonical in WIIM_PLAYER_VIEW:
         return WIIM_PLAYER_VIEW[canonical]
     if wiim_session and canonical in WIIM_SESSION_VIEW:
@@ -2607,6 +2627,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.MANAGE_PLAYLIST_MEMBERSHIP: "Zmień przynależność do playlist",
         Action.TIDAL_TOGGLE_LIBRARY: "Dodaj lub usuń z Biblioteki TIDAL",
         Action.TIDAL_TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych TIDAL",
+        Action.APPLE_MUSIC_TOGGLE_LIBRARY: (
+            "Dodaj lub usuń utwór albo album z Biblioteki Apple Music"
+        ),
         Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC",
         Action.TIDAL_OPEN_ORIGINAL: "Przekaż utwór do oryginalnego TIDALa",
         Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC",
@@ -2963,6 +2986,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         TIDAL_SESSION_VIEW,
         TIDAL_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
+        APPLE_MUSIC_SESSION_VIEW,
         SPOTIFY_COLLECTION_LIST_VIEW,
         SPOTIFY_LIST_VIEW,
         WIIM_SESSION_VIEW,
