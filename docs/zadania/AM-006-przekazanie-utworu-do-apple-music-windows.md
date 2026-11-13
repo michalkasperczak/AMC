@@ -1,13 +1,13 @@
 # AM-006 — przekazanie utworu do Apple Music dla Windows
 
-- Status: **kod przekazania i transportu w źródłach; dokładne odtwarzanie Enterem nie działa; instalacja i wydanie niewykonane**.
+- Status: **jawne przekazanie do oryginalnej aplikacji pozostaje w źródłach; Enter przekierowano w kandydacie źródłowym AM-002 do odtwarzacza webowego; instalacja i wydanie niewykonane**.
 - Utworzono: 13 listopada 2026.
 - Obszar: AMC Test, sesja Apple Music, Enter, menu, dostępność.
 - Zależność: odczyt Biblioteki z AM-001/AM-003. Pełny transport w AMC pozostaje zadaniem AM-002.
 
 ## Zachowanie użytkowe w źródłach
 
-- Enter na utworze oraz polecenie „Otwórz utwór w oryginalnym Apple Music” w menu Biblioteka i menu kontekstowym prowadzą do tej samej akcji.
+- W commicie `7c3b9a26` Enter na utworze oraz polecenie „Otwórz utwór w oryginalnym Apple Music” prowadziły do tej samej akcji. Korekta z 13 listopada 2026 w AM-002 zastępuje tę decyzję w bieżącym kandydacie źródłowym: Enter kieruje do webowego odtwarzacza w AMC, a oryginalna aplikacja pozostaje jawną, pierwszą pozycją menu kontekstowego.
 - AMC używa oficjalnego aliasu `AppleMusic.exe` i przełącznika `/url`, które zainstalowana aplikacja Apple deklaruje w manifeście. Nie używa domyślnej przeglądarki.
 - Pierwsza strona rzeczywistej Biblioteki zwróciła 25 rekordów: 21 z identyfikatorem katalogowym i zero z publicznym łączem. Dla numerycznego identyfikatora AMC tworzy łącze `music.apple.com/pl/song/...`; jeżeli Apple podało własne bezpieczne łącze, zachowuje je.
 - Polecenie jest dostępne tylko w AMC Test na utworze z poprawnym celem i przy zainstalowanej aplikacji Apple Music. Album, wykonawca, playlista i rekord bez celu nie są reklamowane jako odtwarzalne.
@@ -35,7 +35,7 @@
 
 ## Materiał do dokumentacji użytkownika
 
-Roboczy opis źródeł AMC Test: w sesji Apple Music wybierz „Utwory” albo playlistę. Pierwsza pozycja menu kontekstowego „Otwórz utwór w oryginalnym Apple Music” przekazuje link do oficjalnej aplikacji. Enter obecnie robi to samo, lecz **nie uruchamia pewnie wskazanego utworu** i musi zostać zmieniony przed uznaniem celu za wykonany. Jeżeli w Apple Music gra już materiał, Spacja w AMC przełącza pauzę i wznowienie, a Shift+Page Down/Up prosi o następny/poprzedni utwór w kolejce oficjalnej aplikacji. AMC odczytuje rzeczywisty tytuł z Windows. Funkcji nie ma w AMC Public. Przewijanie utworu nie jest dostępne przez tę sesję Windows.
+Roboczy opis ścieżki oryginalnej aplikacji w AMC Test: w sesji Apple Music wybierz „Utwory” albo playlistę. Pierwsza pozycja menu kontekstowego „Otwórz utwór w oryginalnym Apple Music” przekazuje link do oficjalnej aplikacji. Nie gwarantuje startu wskazanego utworu. Jeśli aktywne jest odtwarzanie webowe w AMC, wybór tej pozycji zamyka je. Spacja i Shift+Page Down/Up sterują potem bieżącą sesją oryginalnej aplikacji. AMC odczytuje jej rzeczywisty tytuł z Windows. Funkcji nie ma w AMC Public. Przewijanie utworu nie jest dostępne przez tę sesję Windows. Zachowanie Enter w kandydacie AM-002 ma osobny zapis i wymaga żywego odbioru.
 
 Roboczy tekst instrukcji i listy zmian: [AM-006-instrukcja-i-lista-zmian-szkic.md](AM-006-instrukcja-i-lista-zmian-szkic.md). Nie publikować przed odbiorem.
 

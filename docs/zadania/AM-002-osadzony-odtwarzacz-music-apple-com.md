@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `W trakcie — izolowany pilot WebView2 uruchomił wskazany utwór ponad minutę; odsłuch niepotwierdzony, brak integracji z AMC`
+- Status: `W trakcie — kod integracji Enter i sterowania w AMC Test jest kandydatem źródłowym; bez instalacji i żywego odbioru`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -35,6 +35,10 @@ automatyzować.
   widocznym testem trzeba uprzedzić użytkownika; podczas zwykłej pracy okno
   odtwarzacza nie może zasłaniać ani blokować AMC. Ta korekta zastępuje
   założenie, że samo widoczne okno pilota jest akceptowalnym stanem pracy.
+- Doprecyzowanie z 13 listopada 2026: użytkownik chce kontynuacji prac w tle,
+  a kolejne próby z widocznym oknem dopiero wtedy, gdy sam wskaże, że nie
+  korzysta z komputera. To zastępuje wcześniejszy plan natychmiastowego
+  wznowienia pilota po logowaniu. Testy źródeł nie otwierają okien.
 
 ## Plan pilota
 
@@ -83,6 +87,31 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   Enter, sterowania ani instalacji AMC.
 - Po uwadze użytkownika potwierdzono odczytowo: proces prototypu był już
   zamknięty, proces AMC Test nadal działał. Nie uruchamiano kolejnej próby.
+- 13 listopada 2026: dodano osobny proces WinForms/WebView2
+  `src/AccessibleMediaController.AppleMusicWebHost/` z profilem tylko dla AMC
+  Test i prywatnym protokołem JSON-lines. Przyjmuje numeryczny katalogowy
+  identyfikator utworu oraz stałą listę poleceń. Nie przyjmuje kodu strony,
+  adresów mediów, ciasteczek ani danych logowania. Startuje zminimalizowany;
+  widoczne okno można wywołać wyłącznie jawnym poleceniem menu „Pokaż okno
+  odtwarzacza Apple Music”.
+- W `wxlite/amc_wx_lite/apple_music_web.py`, `navigation.py`, `gui.py`,
+  `shortcuts.py`, `menu_model.py` i `i18n.py` Enter na utworze kieruje
+  polecenie odtwarzania do izolowanego procesu; Spacja i Shift+Page Down/Up
+  sterują aktywnym webowym odtwarzaczem. Pierwsza pozycja menu kontekstowego
+  nadal jawnie otwiera utwór w oryginalnym Apple Music. Przełączenie do niej
+  zamyka aktywny proces webowy, aby nie grały równolegle dwa źródła Apple.
+  Źródła i pomoc opisują tę różnicę. Nie ma zmiany zainstalowanego AMC.
+- `wxlite/tools/Build-AMCBundle.ps1`, `Promote-AMCPythonTestBuild.ps1` i
+  `build_bundle.py` uwzględniają proces webowy tylko dla profilu Test;
+  moduły i pliki hosta są filtrowane z Public. Testy Python z 13 listopada:
+  **67 zaliczonych** w obszarze Apple Music i układu pakietu. Test kontraktu
+  C# `--apple-music-web`: **1 zestaw zaliczony**. Kompilacja procesu Release:
+  **0 błędów, 1 ostrzeżenie** o konfliktujących referencjach WindowsBase
+  dodanych przez pakiet WebView2. `git diff --check` bez błędów białych znaków.
+- Kontrola katalogu tłumaczeń `test_i18n.py`: **12 zaliczonych, 1 pominięty,
+  2 niezaliczone**. Oba niezaliczenia dotyczą zastanego braku pełnego katalogu
+  angielskiego w innych obszarach; nowe etykiety Apple dodano do słownika.
+  Ten wynik nie jest pełnym zaliczeniem testów.
 
 ## Znane ograniczenia
 
@@ -94,6 +123,14 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 - Profil logowania prototypu jest osobny i nie jest częścią repozytorium ani
   zainstalowanego AMC. Nie wolno kopiować go do pakietu lub na GitHub.
 - Aktualizacja strony Apple może zmienić singleton, kolejkę lub zdarzenia.
+- Nowy proces nie był jeszcze uruchomiony z AMC ani z pakietu. Nie potwierdzono
+  działania Enter, słyszalnego dźwięku, pauzy, wznowienia, fokusu NVDA ani
+  logowania w jego osobnym profilu. Prototyp ma inny profil niż nowy proces,
+  więc pierwsze logowanie może być potrzebne ponownie. Nie skopiowano profilu.
+- Wywołanie `setQueue` i kontrola tytułu/identyfikatora w MusicKit są
+  kandydatem implementacji; tylko żywa próba potwierdzi, czy strona Apple
+  przyjmuje te polecenia w zminimalizowanym WebView2. Przewijanie, stop,
+  głośność, repeat i shuffle nie mają jeszcze pełnego sterowania w AMC.
 - Apple Music na Windows nie udostępnił w sprawdzonym interfejsie systemowym
   polecenia wyboru utworu. Warianty `/url`, `/play` i `music://` nie spełniły
   kryterium zgodności tytułu. Osadzony odtwarzacz webowy wymaga osobnej próby
@@ -101,14 +138,17 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 ## Następny krok
 
-Połączyć wąskie polecenie wyboru utworu z prototypem WebView2 w profilu AMC Test
-bez przejmowania fokusu AMC. Przed pierwszą widoczną próbą uprzedzić użytkownika;
-sprawdzić słyszalny dźwięk, ukrycie okna, Enter i sterowanie z AMC z NVDA.
+Zaczekać na sygnał użytkownika, że komputer jest wolny. Wtedy przygotować
+oddzielny pakiet próbny Test, uprzedzić o dokładnym początku próby, sprawdzić
+logowanie w osobnym profilu, słyszalny dźwięk, Enter, pauzę, wznowienie,
+minimalizację i fokus NVDA. Do tego momentu nie instalować ani nie uruchamiać
+nowego procesu na pulpicie użytkownika.
 
 ## Wersja i commit
 
-Brak kodu produkcyjnego, buildu, instalacji i wydania. Commit dokumentacji
-pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
+Kandydat źródłowy i kompilacja procesu istnieją; brak instalacji i wydania.
+Commit źródeł, testów i pakowania: `094188aa` z 13 listopada 2026.
+Commit dokumentacji pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
 
 Korekta 13 listopada 2026: kod transportu Windows i kompilacja hosta istnieją
 w aktualnych źródłach w commicie `7c3b9a26`; nie ma zainstalowanego ani

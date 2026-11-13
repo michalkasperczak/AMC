@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `AM-006` — **transport bieżącej sesji Apple Music działa w żywej próbie; Enter nie uruchamia pewnie wybranego utworu; instalacja i wydanie niewykonane** — pierwsza pozycja menu kontekstowego otwiera link, Spacja i Shift+Page Up/Down sterują bieżącą sesją w źródłach. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
+- `AM-006` — **przekazanie do oryginalnej aplikacji pozostaje jawne; Enter przeniesiono do kandydata źródłowego AM-002; instalacja i wydanie niewykonane** — pierwsza pozycja menu kontekstowego otwiera link, a transport oficjalnej aplikacji steruje jej bieżącą sesją. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **kod i testy celowane gotowe; wydanie w toku**
   — wspólny wybór sąsiada i końcowa mowa NVDA po zmianach TIDAL, lokalnych
   Ulubionych, Biblioteki Radia, list i playlist; pamięć tylko potwierdzonych
@@ -731,7 +731,7 @@ zmian, wymagający korekty użytkownika:
   stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
-- `AM-002` — **W trakcie; osobny WebView2 wskazał ponad minutę wybranego utworu, odsłuch niepotwierdzony, Enter i sterowanie z AMC nie są jeszcze połączone**
+- `AM-002` — **W trakcie; Enter i sterowanie z AMC połączone w kandydacie źródłowym Test, bez instalacji i żywego odbioru; kolejne widoczne próby po sygnale użytkownika**
   — przed dalszą widoczną próbą uprzedzić użytkownika; okno nie może blokować AMC.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
 - `AM-003` — **Odczytowa sesja jest zainstalowana i opublikowana w AMC Test
