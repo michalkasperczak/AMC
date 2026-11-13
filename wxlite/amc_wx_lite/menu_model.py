@@ -903,6 +903,12 @@ def build_menus(
                 visible_sessions=TIDAL_ONLY,
             ),
             MenuItem(
+                "Otwórz utwór w oryginalnym Apple &Music",
+                Action.APPLE_MUSIC_OPEN_ORIGINAL,
+                needs_selection=True,
+                visible_sessions=APPLE_MUSIC_ONLY,
+            ),
+            MenuItem(
                 "Odtwórz &cały album Spotify", Action.PLAY_SPOTIFY_ALBUM,
                 shortcut="Ctrl+Return", accelerator=False,
                 needs_selection=True, needs_spotify_album=True,

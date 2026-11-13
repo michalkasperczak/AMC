@@ -7,6 +7,7 @@ from amc_wx_lite.navigation import (
     Announce,
     LibraryView,
     Navigator,
+    OpenAppleMusicOriginal,
     OpenAppleMusicPlaylist,
     OpenAppleMusicView,
     SessionId,
@@ -42,7 +43,7 @@ def test_root_has_four_intentional_labels_and_no_provider_dump() -> None:
     assert events == [Announce("Biblioteka Apple Music, 4 pozycje")]
 
 
-def test_enter_opens_category_playlist_and_load_more_without_playing() -> None:
+def test_enter_opens_category_playlist_and_original_song() -> None:
     navigator = Navigator()
     navigator.active = SessionId.APPLE_MUSIC
     navigator.open_apple_music_root()
@@ -74,9 +75,9 @@ def test_enter_opens_category_playlist_and_load_more_without_playing() -> None:
         [track, load_more],
     )
     assert navigator.session.model.select_id(track.item_id)
-    assert navigator.activate_selected() == [Announce(
-        "Odtwarzanie Apple Music będzie dostępne w następnym etapie"
-    )]
+    assert navigator.activate_selected() == [
+        OpenAppleMusicOriginal(track.item_id, "Utwór")
+    ]
     assert navigator.session.model.select_id(load_more.item_id)
     assert navigator.activate_selected() == [OpenAppleMusicPlaylist(
         playlist.item_id,

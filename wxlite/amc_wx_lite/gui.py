@@ -198,6 +198,7 @@ from .navigation import (
     OpenRadioarchiwistaStations,
     OpenQueueView,
     OpenAppleMusicPlaylist,
+    OpenAppleMusicOriginal,
     OpenAppleMusicView,
     OpenSpotifyCollectionView,
     OpenSpotifyContainer,
@@ -279,6 +280,11 @@ if "session.radioarchiwista" in _RELEASE_PROFILE.capabilities:
 else:
     _radioarchiwista_module = None
 if "session.apple-music" in _RELEASE_PROFILE.capabilities:
+    from .apple_music_original import (
+        AppleMusicOriginalUnavailable,
+        available as apple_music_original_available,
+        open_in_original as open_apple_music_original,
+    )
     from .apple_music_account import (
         AppleMusicAccountError,
         connect_account as connect_apple_music_account,
@@ -591,6 +597,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.ACTIVATE,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
+        Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.QUICK_INFORMATION,
         Action.ITEM_PROPERTIES,
     ),
@@ -11575,6 +11582,11 @@ class LiteFrame(wx.Frame):
                 and bool(selected_row.related_album_service_id)
             ):
                 enabled = False
+            if (
+                entry.action is Action.APPLE_MUSIC_OPEN_ORIGINAL
+                and not self._action_available_in_active_session(entry.action)
+            ):
+                enabled = False
             if (self.navigator.active is SessionId.TIDAL
                     and entry.action in TIDAL_NATIVE_ONLY_ACTIONS
                     and not self._tidal_native_has_playback):
@@ -12160,6 +12172,9 @@ class LiteFrame(wx.Frame):
 
         def restore_focus() -> None:
             try:
+                if getattr(self, "_apple_music_handoff", False):
+                    self._apple_music_handoff = False
+                    return
                 if self.navigator.view is not expected_view:
                     return
                 target = control if player else self._active_list()
@@ -12168,6 +12183,7 @@ class LiteFrame(wx.Frame):
                 # A command may close or replace its original control.
                 return
 
+        self._apple_music_handoff = False
         try:
             position = self._context_menu_position(control, event)
             if position is None:
@@ -15928,6 +15944,26 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("apple-music-playlist", work, done, failed)
 
+    def _open_apple_music_original(self, intent: OpenAppleMusicOriginal) -> None:
+        """Open one catalog song through Apple's Windows execution alias."""
+
+        record = self._apple_music_records.get(intent.item_id)
+        if not apple_music_original_available(record):
+            self.announcer.say(
+                "Nie można otworzyć tego utworu w oryginalnym Apple Music"
+            )
+            return
+        try:
+            open_apple_music_original(record)
+        except AppleMusicOriginalUnavailable as error:
+            self.announcer.say(str(error))
+            return
+        self._apple_music_handoff = True
+        self.announcer.say(
+            "Otworzono utwór w oryginalnym Apple Music. "
+            "Sprawdź odtwarzanie w aplikacji Apple Music."
+        )
+
     def _toggle_apple_music_library(self) -> None:
         """Change verified song/album membership without exposing IDs."""
 
@@ -17370,6 +17406,14 @@ class LiteFrame(wx.Frame):
             self._play_tidal_native_selected()
         elif action is Action.TIDAL_OPEN_ORIGINAL:
             self._play_tidal_original_selected()
+        elif action is Action.APPLE_MUSIC_OPEN_ORIGINAL:
+            row = self.navigator.session.model.selected_row
+            if row is not None and row.kind == "track":
+                self._open_apple_music_original(
+                    OpenAppleMusicOriginal(row.item_id, row.title)
+                )
+            else:
+                self.announcer.say("Wybierz utwór Apple Music")
         elif action is Action.TIDAL_STOP_NATIVE:
             self._stop_tidal_native()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
@@ -18528,6 +18572,8 @@ class LiteFrame(wx.Frame):
                 self._open_apple_music_view(intent)
             elif isinstance(intent, OpenAppleMusicPlaylist):
                 self._open_apple_music_playlist(intent)
+            elif isinstance(intent, OpenAppleMusicOriginal):
+                self._open_apple_music_original(intent)
             elif isinstance(intent, OpenSpotifyView):
                 self._open_spotify_view(intent)
             elif isinstance(intent, OpenSpotifyCollectionView):
@@ -37833,6 +37879,16 @@ class LiteFrame(wx.Frame):
     def _action_available_in_active_session(self, action: Action) -> bool:
         if self.navigator.active is SessionId.RADIO and action is Action.SEEK_INPUT_TIME:
             return False
+        if action is Action.APPLE_MUSIC_OPEN_ORIGINAL:
+            if self.navigator.active is not SessionId.APPLE_MUSIC:
+                return False
+            row = self.navigator.session.model.selected_row
+            return bool(
+                row is not None
+                and apple_music_original_available(
+                    self._apple_music_records.get(row.item_id)
+                )
+            )
         if self.navigator.active is SessionId.TIDAL:
             if action is Action.TIDAL_PLAY_NATIVE:
                 row = self.navigator.session.model.selected_row

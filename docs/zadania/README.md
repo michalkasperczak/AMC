@@ -1,5 +1,6 @@
 # Rejestr zadań AMC
 
+- `AM-006` — **kod i testy celowane gotowe; bez żywego potwierdzenia dźwięku, instalacji i wydania** — Enter i menu przekazują wskazany utwór do oficjalnej aplikacji Apple Music. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **kod i testy celowane gotowe; wydanie w toku**
   — wspólny wybór sąsiada i końcowa mowa NVDA po zmianach TIDAL, lokalnych
   Ulubionych, Biblioteki Radia, list i playlist; pamięć tylko potwierdzonych

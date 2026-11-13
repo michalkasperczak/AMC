@@ -143,6 +143,7 @@ class Action(Enum):
     TIDAL_TOGGLE_LIBRARY = "tidal.library.toggle"
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     APPLE_MUSIC_TOGGLE_LIBRARY = "appleMusic.library.toggle"
+    APPLE_MUSIC_OPEN_ORIGINAL = "appleMusic.original.open"
     TIDAL_PLAY_NATIVE = "tidal.native.play"
     TIDAL_OPEN_ORIGINAL = "tidal.desktop.play"
     TIDAL_STOP_NATIVE = "tidal.native.stop"
@@ -475,6 +476,12 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         "Dodaj katalogowy utwór lub album do Biblioteki Apple Music albo usuń zaznaczony biblioteczny utwór lub album",
         "Ctrl+Shift+L",
         "Dodaj lub usuń z Biblioteki Apple &Music",
+    ),
+    Action.APPLE_MUSIC_OPEN_ORIGINAL: CommandPresentation(
+        Action.APPLE_MUSIC_OPEN_ORIGINAL,
+        "Otwórz utwór w oryginalnym Apple Music",
+        "Otwórz zaznaczony utwór w oficjalnej aplikacji Apple Music na tym komputerze; Enter na utworze wykonuje tę samą czynność",
+        "",
     ),
     Action.REMOVE_SELECTED: CommandPresentation(
         Action.REMOVE_SELECTED,
@@ -1054,6 +1061,7 @@ APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_MUSIC_ALBUMS,
     Action.VIEW_MUSIC_ARTISTS,
     Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+    Action.APPLE_MUSIC_OPEN_ORIGINAL,
     Action.VIEW_HISTORY,
     Action.VIEW_DOWNLOADED_FILES,
     Action.GENERAL_SETTINGS,
@@ -2630,6 +2638,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.APPLE_MUSIC_TOGGLE_LIBRARY: (
             "Dodaj lub usuń utwór albo album z Biblioteki Apple Music"
         ),
+        Action.APPLE_MUSIC_OPEN_ORIGINAL: "Otwórz utwór w oryginalnym Apple Music",
         Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC",
         Action.TIDAL_OPEN_ORIGINAL: "Przekaż utwór do oryginalnego TIDALa",
         Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC",
@@ -3068,6 +3077,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_FRONTIER_SMART,
         Action.SESSION_RADIOARCHIWISTA,
         Action.SESSION_APPLE_MUSIC,
+        Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
         Action.TIDAL_STOP_NATIVE,
@@ -3139,6 +3149,10 @@ def describe_action(
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
+    if (session_label or "").casefold() == "apple music" and action is Action.ACTIVATE:
+        return i18n.ui_text(
+            "Otwórz kategorię lub playlistę Apple Music; na utworze otwórz go w oryginalnej aplikacji"
+        )
     if (session_label or "").casefold() == "radio":
         if action is Action.SESSION_CONFIGURE_CURRENT:
             presentation = ctrl_f5_presentation("Radio")

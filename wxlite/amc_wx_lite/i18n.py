@@ -650,6 +650,7 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "appleMusic.library.toggle": "Add to or remove from Apple Music Library",
+    "appleMusic.original.open": "Open track in the original Apple Music app",
     "session.files": "Local files",
     "session.radio": "Radio",
     "session.podcasts": "Podcasts and YouTube",
@@ -888,6 +889,13 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Otwórz kategorię lub playlistę Apple Music; na utworze otwórz go w oryginalnej aplikacji": "Open an Apple Music category or playlist; on a track, open it in the original app",
+    "Otwórz utwór w oryginalnym Apple &Music": "Open track in the original Apple &Music app",
+    "Otwórz utwór w oryginalnym Apple Music": "Open track in the original Apple Music app",
+    "Nie można otworzyć tego utworu w oryginalnym Apple Music": "This track cannot be opened in the original Apple Music app",
+    "Otworzono utwór w oryginalnym Apple Music. Sprawdź odtwarzanie w aplikacji Apple Music.": "Opened the track in the original Apple Music app. Check playback in the Apple Music app.",
+    "Wybierz utwór Apple Music": "Select an Apple Music track",
+    "Nie można odtworzyć tego elementu Apple Music": "This Apple Music item cannot be played",
     "Zmiana Biblioteki Apple Music już trwa": "An Apple Music Library change is already in progress",
     "Wybierz jeden utwór albo album Apple Music": "Select one Apple Music song or album",
     "Tego elementu nie można zmienić w Bibliotece Apple Music": "This item cannot be changed in Apple Music Library",

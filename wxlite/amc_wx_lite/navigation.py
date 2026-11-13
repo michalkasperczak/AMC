@@ -507,6 +507,14 @@ class OpenAppleMusicPlaylist:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenAppleMusicOriginal:
+    """Hand a selected track to the installed Apple Music Windows app."""
+
+    item_id: str
+    title: str
+
+
+@dataclass(frozen=True, slots=True)
 class OpenSpotifyCollectionView:
     """Open one named, read-only part of the Spotify collection."""
 
@@ -1739,8 +1747,10 @@ class Navigator:
                 return [OpenAppleMusicPlaylist(row.item_id, row.title)]
             if row.activation_message:
                 return [Announce(row.activation_message)]
+            if row.kind == "track":
+                return [OpenAppleMusicOriginal(row.item_id, row.title)]
             return [Announce(
-                "Odtwarzanie Apple Music będzie dostępne w następnym etapie"
+                "Nie można odtworzyć tego elementu Apple Music"
             )]
 
         if state.session_id is SessionId.FILES:
