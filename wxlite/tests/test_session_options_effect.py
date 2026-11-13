@@ -391,7 +391,9 @@ def test_nowy_proces_dostaje_wybory_sesji_a_nie_sam_global():
         {
             "LiteHostClient": lambda *a, **kw: client,
             "default_host_path": lambda: Path("synthetic-host"),
-            "current_profile": lambda: SimpleNamespace(profile_id="test"),
+            "current_profile": lambda: SimpleNamespace(
+                profile_id="test", capabilities=frozenset()
+            ),
             "common_data_snapshot_path": lambda: Path("synthetic-snapshot"),
             "HostCollation": lambda _call: object(),
             "_startup_smoke_mode": lambda: False,
@@ -440,7 +442,9 @@ def test_diagnostyka_hosta_trafia_do_dziennika_frontendu():
         {
             "LiteHostClient": make_client,
             "default_host_path": lambda: Path("synthetic-host"),
-            "current_profile": lambda: SimpleNamespace(profile_id="public"),
+            "current_profile": lambda: SimpleNamespace(
+                profile_id="public", capabilities=frozenset()
+            ),
             "common_data_snapshot_path": lambda: Path("synthetic-snapshot"),
             "HostCollation": lambda _call: object(),
             "_startup_smoke_mode": lambda: False,

@@ -235,7 +235,18 @@ def test_spotify_playlist_flow_caches_created_playlist_and_last_destinations() -
         },
         spotify_playlist_add_items=lambda playlist_ids, _items: (
             added_to.append(list(playlist_ids))
-            or {"message": "Dodano pozycję do playlist Spotify."}
+            or {
+                "message": "Dodano pozycję do playlist Spotify.",
+                "playlists": [
+                    {
+                        "playlistId": playlist_id,
+                        "added": 1,
+                        "alreadyPresent": 0,
+                        "failed": 0,
+                    }
+                    for playlist_id in playlist_ids
+                ],
+            }
         ),
     )
 

@@ -267,6 +267,10 @@ def make_tidal_frame(payload: dict):
     frame.announcer = SimpleNamespace(say=spoken.append)
     frame.messages = MessagePolicy()
     frame.navigator = SimpleNamespace(active=SessionId.TIDAL)
+    # Ten scenariusz mierzy świadomie zewnętrzny fallback SMTC. Natywny
+    # odtwarzacz TIDAL ma osobny kontrakt i nie może odziedziczyć stanu po
+    # innym teście wykonującym LiteFrame bez pełnego __init__.
+    frame._tidal_native_has_playback = False
     frame._tidal_desktop_has_playback = True
     frame.client = SimpleNamespace(tidal_external_state=lambda: payload)
     frame.runner = FakeRunner(payload)

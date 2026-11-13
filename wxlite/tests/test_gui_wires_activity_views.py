@@ -109,6 +109,10 @@ _NON_SQLITE_VIEWS = (
     LibraryView.TIDAL_LIBRARY,
     LibraryView.TIDAL_FAVORITES,
     LibraryView.TIDAL_PLAYLISTS,
+    # Rozdzielone kolekcje TIDAL również przychodzą z hosta, nie z profilu.
+    LibraryView.TIDAL_SONGS,
+    LibraryView.TIDAL_ALBUMS,
+    LibraryView.TIDAL_ARTISTS,
     # Zawartosc kontenera pochodzi z oficjalnego katalogu przez host C#.
     LibraryView.TIDAL_CONTAINER,
     # Prywatna kolejka TIDAL jest zapisana w state.json AMC-wx-Lite.
@@ -376,7 +380,7 @@ def test_tidal_sort_is_private_preserves_selection_and_orders_fresh_rows() -> No
     loader_source = ast.get_source_segment(SOURCE, loader) or ""
     assert "self.tidal.order_rows" in loader_source
     assert "sort_mode=sort_override" in loader_source
-    assert "self.announcer.say(intent.announcement)" in loader_source
+    assert "self._announce_after_list_update(intent.announcement)" in loader_source
 
 
 def test_tidal_right_arrow_uses_a_named_list_and_restores_list_focus() -> None:
@@ -396,10 +400,12 @@ def test_tidal_right_arrow_uses_a_named_list_and_restores_list_focus() -> None:
         and node.name == "_show_tidal_relations"
     )
     presenter_source = ast.get_source_segment(SOURCE, presenter) or ""
-    assert "len(intent.choices) == 1" in presenter_source
-    assert "self.navigator.activate_tidal_relation(intent.choices[0])" in presenter_source
+    # Nawet pojedynczy cel pozostaje jawną, nazwaną listą. Dzięki temu NVDA
+    # nie uruchamia relacji bez potwierdzenia użytkownika.
+    assert "len(intent.choices) == 1" not in presenter_source
+    assert "self.navigator.activate_tidal_relation(intent.choices[index])" in presenter_source
     assert "self._show_relation_destination_window(" in presenter_source
-    assert "choice.label" in presenter_source
+    assert "relation_destination_details(" in presenter_source
     assert "PopupMenu" not in presenter_source
 
 
@@ -416,20 +422,22 @@ def test_bookmark_view_asks_the_data_layer_for_the_file_id() -> None:
     assert "bookmark_targets=result.bookmark_targets" in SOURCE
 
 
-def test_tidal_external_player_is_wired_without_reusing_local_transport_state() -> None:
+def test_tidal_native_player_is_wired_with_an_explicit_external_fallback() -> None:
     run = next(
         node for node in ast.walk(TREE)
         if isinstance(node, ast.FunctionDef) and node.name == "_run"
     )
     run_source = ast.get_source_segment(SOURCE, run) or ""
     assert "isinstance(intent, PlayTidalTrack)" in run_source
-    assert "self._play_tidal_track(intent)" in run_source
+    assert "self._play_tidal_native_intent(intent)" in run_source
 
     play_pause = next(
         node for node in ast.walk(TREE)
         if isinstance(node, ast.FunctionDef) and node.name == "_play_pause"
     )
     play_pause_source = ast.get_source_segment(SOURCE, play_pause) or ""
+    assert "self._tidal_native_has_playback" in play_pause_source
+    assert "client.pause_resume(SessionId.TIDAL.value)" in play_pause_source
     assert 'tidal_external_transport("toggle")' in play_pause_source
     assert "self.navigator.active is SessionId.TIDAL" in play_pause_source
 
@@ -442,7 +450,22 @@ def test_tidal_external_player_is_wired_without_reusing_local_transport_state() 
     assert "self.navigator.active is SessionId.WIIM" in refresh_source
 
 
-def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
+def test_spotify_player_keeps_volume_enabled_but_rate_disabled() -> None:
+    sync = next(
+        node for node in ast.walk(TREE)
+        if isinstance(node, ast.FunctionDef) and node.name == "_sync_views"
+    )
+    sync_source = ast.get_source_segment(SOURCE, sync) or ""
+
+    assert "spotify_read_only =" not in sync_source
+    volume_block, rate_block = sync_source.split(
+        "self.volume_slider.Enable(", 1
+    )[1].split("self.rate_choice.Enable(", 1)
+    assert "SessionId.SPOTIFY" not in volume_block
+    assert "SessionId.SPOTIFY" in rate_block
+
+
+def test_tidal_list_navigation_and_native_transport_have_separate_keys() -> None:
     on_key_source = next(
         source
         for node in ast.walk(TREE)
@@ -451,25 +474,20 @@ def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
             source := ast.get_source_segment(SOURCE, node) or ""
         )
     )
-    assert '"Prior", "Next", "Shift+Prior", "Shift+Next"' in on_key_source
+    assert 'chord.canonical in ("Prior", "Next")' in on_key_source
+    assert 'chord.canonical in ("Shift+Prior", "Shift+Next")' in on_key_source
+    assert "self._tidal_native_has_playback" in on_key_source
     assert "self._tidal_external_skip(forward)" in on_key_source
     assert "self._queue_step(forward)" in on_key_source
     assert 'chord.canonical == "Ctrl+Return"' in on_key_source
     assert "play_selected_tidal_container()" in on_key_source
-
-    dispatch = next(
-        node for node in ast.walk(TREE)
-        if isinstance(node, ast.FunctionDef) and node.name == "_dispatch"
-    )
-    dispatch_source = ast.get_source_segment(SOURCE, dispatch) or ""
-    assert "nie ma " in dispatch_source
-    assert "odtwarzacza AMC" in dispatch_source
 
     announce = next(
         node for node in ast.walk(TREE)
         if isinstance(node, ast.FunctionDef) and node.name == "_announce_tidal_time"
     )
     announce_source = ast.get_source_segment(SOURCE, announce) or ""
+    assert "client.status(SessionId.TIDAL.value)" in announce_source
     assert "client.tidal_external_state" in announce_source
 
     run = next(
@@ -477,5 +495,7 @@ def test_tidal_stays_on_the_list_and_exposes_only_external_transport() -> None:
         if isinstance(node, ast.FunctionDef) and node.name == "_run"
     )
     run_source = ast.get_source_segment(SOURCE, run) or ""
+    assert "isinstance(intent, PlayTidalTrack)" in run_source
+    assert "self._play_tidal_native_intent(intent)" in run_source
     assert "isinstance(intent, PlayTidalContainer)" in run_source
     assert "self._play_tidal_container(intent)" in run_source

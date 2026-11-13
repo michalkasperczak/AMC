@@ -223,6 +223,81 @@ def test_spotify_queue_switches_twice_from_player_without_refreshing_list() -> N
     assert synced == []
 
 
+def test_spotify_queue_removal_keeps_the_next_visible_row_and_speaks_after_sync() -> None:
+    rows = [
+        Row(f"track-{index}", title, "track", service_id=f"spotify-{index}")
+        for index, title in enumerate(("Pierwszy", "Drugi", "Trzeci"), 1)
+    ]
+    selected = rows[1]
+    order: list[str] = []
+    preferred: list[str | None] = []
+
+    def replace(_rows, *, preferred_id=None):
+        preferred.append(preferred_id)
+        order.append("replace")
+
+    state = SimpleNamespace(
+        view=View.LIST,
+        library_view=LibraryView.SPOTIFY_QUEUE,
+        model=SimpleNamespace(replace=replace),
+    )
+    frame: Any = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.SPOTIFY,
+            sessions={SessionId.SPOTIFY: state},
+        ),
+        _selected_action_rows=lambda: [selected],
+        _spotify_queue_rows=list(rows),
+        state=SimpleNamespace(spotify_queue_items=gui.spotify_queue_payload(rows)),
+        store=SimpleNamespace(save=lambda _state: None),
+        announcer=SimpleNamespace(say=lambda text: order.append(f"say:{text}")),
+        _sync_views=lambda: order.append("sync"),
+        _announce_after_list_update=lambda text: order.append(f"defer:{text}"),
+    )
+
+    gui.LiteFrame._toggle_spotify_queue(frame)
+
+    assert preferred == [rows[2].item_id]
+    assert order == [
+        "replace",
+        "sync",
+        "defer:Usunięto z kolejki: Drugi",
+    ]
+
+
+def test_tidal_queue_removal_keeps_the_next_visible_row_and_speaks_after_refresh() -> None:
+    rows = [
+        Row(
+            f"track-{index}", title, "track",
+            service_id=f"tidal-{index}",
+            related_album_service_id="album-1",
+        )
+        for index, title in enumerate(("Pierwszy", "Drugi", "Trzeci"), 1)
+    ]
+    selected = rows[1]
+    opened: list[str | None] = []
+    deferred: list[str] = []
+    state = SimpleNamespace(view=View.LIST, library_view=LibraryView.TIDAL_QUEUE)
+    frame: Any = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            sessions={SessionId.TIDAL: state},
+        ),
+        _selected_action_rows=lambda: [selected],
+        _tidal_queue_rows=list(rows),
+        state=SimpleNamespace(tidal_queue_items=gui.tidal_queue_payload(rows)),
+        store=SimpleNamespace(save=lambda _state: None),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        _open_tidal_queue=lambda *, preferred_id=None: opened.append(preferred_id),
+        _announce_after_list_update=deferred.append,
+    )
+
+    gui.LiteFrame._toggle_tidal_queue(frame)
+
+    assert opened == [rows[2].item_id]
+    assert deferred == ["Usunięto z kolejki: Drugi"]
+
+
 def test_saved_youtube_video_queue_switches_twice_from_player() -> None:
     row = Row(
         "youtube-episode-1", "Film YouTube", "episode",

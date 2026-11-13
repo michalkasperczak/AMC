@@ -375,6 +375,7 @@ from .search_sources import (
     TIDAL_VIEW_SONGS,
     TIDAL_VIEW_ALBUMS,
     TIDAL_VIEW_ARTISTS,
+    apple_music_cached_entries,
     spotify_cached_entries,
 )
 
@@ -12648,6 +12649,16 @@ class LiteFrame(wx.Frame):
                 self.navigator.sessions[SessionId.SPOTIFY].model.rows
             )
             spotify_history_snapshot = list(self.state.spotify_playback_history)
+        apple_music_snapshot: tuple[Row, ...] = ()
+        apple_music_source_view: LibraryView | None = None
+        if (
+            SessionId.APPLE_MUSIC in sessions
+            and getattr(self, "navigator", None) is not None
+            and SessionId.APPLE_MUSIC in self.navigator.sessions
+        ):
+            apple_state = self.navigator.sessions[SessionId.APPLE_MUSIC]
+            apple_music_snapshot = tuple(apple_state.model.rows)
+            apple_music_source_view = apple_state.library_view
         cached = dialog.catalog
 
         def work() -> tuple[
@@ -12674,8 +12685,20 @@ class LiteFrame(wx.Frame):
                     )
                     if SessionId.SPOTIFY in sessions else ()
                 )
+                known_apple_music_entries = (
+                    apple_music_cached_entries(
+                        apple_music_snapshot,
+                        apple_music_source_view,
+                    )
+                    if SessionId.APPLE_MUSIC in sessions else ()
+                )
                 collected = SearchCollection(
-                    (*base.entries, *loaded_speaker_entries, *known_spotify_entries),
+                    (
+                        *base.entries,
+                        *loaded_speaker_entries,
+                        *known_spotify_entries,
+                        *known_apple_music_entries,
+                    ),
                     base.warnings,
                 )
             results = search_entries(list(collected.entries), query)
@@ -13743,6 +13766,25 @@ class LiteFrame(wx.Frame):
             else:
                 self._open_radioarchiwista_stations(preferred_id=item_id)
             complete()
+            return
+        if entry.session_id is SessionId.APPLE_MUSIC:
+            state = self.navigator.sessions[SessionId.APPLE_MUSIC]
+            if state.library_view is not entry.source_view:
+                self.announcer.say(
+                    "Wczytana lista Apple Music zmieniła się. "
+                    "Wykonaj wyszukiwanie ponownie"
+                )
+                return
+            if not state.model.select_id(item_id):
+                self.announcer.say(
+                    "Tego wyniku nie ma już na wczytanej liście Apple Music"
+                )
+                return
+            self._sync_views()
+            complete()
+            active = self._active_list()
+            active.SetFocus()
+            active.sync_cursor()
             return
         if entry.session_id in SPEAKER_SESSIONS:
             state = self.navigator.sessions[entry.session_id]
@@ -15496,13 +15538,15 @@ class LiteFrame(wx.Frame):
             if intent.announcement:
                 self._sync_views()
                 if view_result.rows:
-                    self.announcer.say(intent.announcement)
+                    self._announce_after_list_update(intent.announcement)
                 else:
                     empty = next(
                         (event.text for event in events if isinstance(event, Announce)),
                         view_result.heading,
                     )
-                    self.announcer.say(f"{intent.announcement}, {empty}")
+                    self._announce_after_list_update(
+                        f"{intent.announcement}, {empty}"
+                    )
             else:
                 self._run(events)
             self._refresh_menu_state()
@@ -18596,7 +18640,6 @@ class LiteFrame(wx.Frame):
         # uzytkownik jest w odtwarzaczu TIDAL. Przycisk gra/pauza pozostaje
         # aktywny, bo jest jawnie kierowany do sesji systemowej TIDALa.
         tidal_external = self.navigator.active is SessionId.TIDAL
-        spotify_read_only = self.navigator.active is SessionId.SPOTIFY
         wiim_remote = self.navigator.active is SessionId.WIIM
         sonos_remote = self.navigator.active is SessionId.SONOS
         frontier_smart_remote = (
@@ -18630,14 +18673,16 @@ class LiteFrame(wx.Frame):
             and self._frontier_smart_snapshot.get("volume") is not None
         )
         self.volume_slider.Enable(
-            not (tidal_external or spotify_read_only) and wiim_ready
+            # Spotify ma zdalne setVolume w hoscie. Dawna bramka
+            # ``spotify_read_only`` wylaczala jedyny drugi Tab-stop i
+            # zostawiala w odtwarzaczu tylko przycisk Anuluj/Wstrzymaj.
+            not tidal_external and wiim_ready
             and (not sonos_remote or sonos_volume)
             and (not frontier_smart_remote or frontier_smart_volume)
         )
         self.rate_choice.Enable(not (
             tidal_external
             or self.navigator.active is SessionId.SPOTIFY
-            or spotify_read_only
             or wiim_remote
             or sonos_remote
             or frontier_smart_remote
@@ -21349,7 +21394,11 @@ class LiteFrame(wx.Frame):
         cancel_button.Bind(wx.EVT_BUTTON, on_cancel)
         dialog.Bind(wx.EVT_CLOSE, on_close)
         dialog.Show()
-        cancel_button.SetFocus()
+        # Okno postępu jest modeless. Pobieranie nie może zabierać użytkownika
+        # z listy ani odtwarzacza tylko po to, aby fokus czekał na Anuluj.
+        # Dialog pozostaje dostępny przez przełączanie okien i nadal pozwala
+        # przerwać operację, ale zwykła praca w AMC trwa od razu dalej.
+        wx.CallAfter(self._restore_focus_after_dialog)
         self.status_field.SetLabel(i18n.tr("rarch.download.waiting"))
         self.status_bar.show(i18n.tr("rarch.download.waiting"))
 
@@ -21535,7 +21584,7 @@ class LiteFrame(wx.Frame):
         cancel_button.Bind(wx.EVT_BUTTON, lambda _event: cancel())
         dialog.Bind(wx.EVT_CLOSE, on_close)
         dialog.Show()
-        cancel_button.SetFocus()
+        wx.CallAfter(self._restore_focus_after_dialog)
         set_status(waiting)
 
         def show_download_progress(percent: int) -> None:
@@ -21655,7 +21704,7 @@ class LiteFrame(wx.Frame):
         self._radioarchiwista_downloads.add(row.item_id)
         self._radioarchiwista_fragment_progress = show_export_progress
         log_stage("rozpoczęto")
-        self.announcer.say("Rozpoczęto pobieranie fragmentu Radio Archiwisty")
+        self.announcer.say(i18n.tr("rarch.fragment.startedBackground"))
         self.runner.submit("radioarchiwista.fragment", work, done, failed)
 
     def _refresh_radioarchiwista_view(self) -> None:
@@ -23738,7 +23787,28 @@ class LiteFrame(wx.Frame):
                 return
             self._sonos_snapshot = state
             if self.navigator.active is SessionId.SONOS:
-                self._apply_sonos_snapshot(state, announce=True)
+                # Migawka zasila pasek stanu i pelny opis dla NVDA+End, ale
+                # odpowiedz na strzalki glosnosci ma mowic tylko potwierdzona
+                # wartosc. Pelne ``message`` zawiera m.in. tytul, czas i stan,
+                # przez co po Up/Down NVDA czytal np. „Brak informacji, 3:57,
+                # zatrzymane, glosnosc 3%”.
+                self._apply_sonos_snapshot(state, announce=False)
+                if command in {
+                    "volumeUp5",
+                    "volumeDown5",
+                    "volumeUp1",
+                    "volumeDown1",
+                    "setVolume",
+                }:
+                    confirmed_volume = state.get("volume")
+                    if isinstance(confirmed_volume, int):
+                        text = self.messages.volume_text(confirmed_volume)
+                        if text is not None and self.messages.speaks_routine:
+                            self.announcer.say(text)
+                else:
+                    message = str(state.get("message") or "").strip()
+                    if message:
+                        self.announcer.say(message)
             self._finish_sonos_request()
 
         def failed(error: Exception) -> None:
@@ -27699,6 +27769,32 @@ class LiteFrame(wx.Frame):
         return [] if row is None else [row]
 
     @staticmethod
+    def _preferred_item_after_removal(
+        rows: list[Row] | tuple[Row, ...], removed_ids: set[str],
+    ) -> str | None:
+        """Choose the next visible row, or the previous one at list end.
+
+        Mutations use the order actually exposed to the user. ``loadMore`` is
+        a command row and can never become the focus fallback after deleting
+        media from a collection.
+        """
+
+        visible = [row for row in rows if row.kind != "loadMore"]
+        indexes = [
+            index for index, row in enumerate(visible)
+            if row.item_id in removed_ids
+        ]
+        if not indexes:
+            return None
+        first_index = min(indexes)
+        remaining = [
+            row for row in visible if row.item_id not in removed_ids
+        ]
+        if not remaining:
+            return None
+        return remaining[min(first_index, len(remaining) - 1)].item_id
+
+    @staticmethod
     def _open_service_album_row(session_id: SessionId, state) -> Row | None:
         """The album is the collection target while its track list is open."""
         if state is None:
@@ -28205,13 +28301,31 @@ class LiteFrame(wx.Frame):
         ):
             self.announcer.say("Plik niedostępny. Ctrl+C skopiuje zapisaną ścieżkę")
             return
-        service = getattr(self.navigator.active, "value", "")
-        addresses = [
-            exact_service_link(service, row.kind, row.service_id, row.url)
-            if service in {"spotify", "tidal"}
-            else row.address
-            for row in rows
-        ]
+        # Lekkie widoki/testy mogą mieć tylko ``session`` bez identyfikatora
+        # aktywnej sesji. Brak tej informacji oznacza zwykły lokalny adres,
+        # nigdy błąd kopiowania ani techniczny identyfikator w mowie NVDA.
+        active_session = getattr(self.navigator, "active", None)
+        service = getattr(active_session, "value", "")
+        apple_link_modes: list[str] = []
+        if service == "appleMusic":
+            addresses = []
+            for row in rows:
+                if row.url:
+                    addresses.append(row.url)
+                    apple_link_modes.append("exact")
+                else:
+                    addresses.append(recognition_search_links({
+                        "artist": row.artist_name,
+                        "title": row.title,
+                    })["Apple Music"])
+                    apple_link_modes.append("search")
+        else:
+            addresses = [
+                exact_service_link(service, row.kind, row.service_id, row.url)
+                if service in {"spotify", "tidal"}
+                else row.address
+                for row in rows
+            ]
         if any(not address for address in addresses):
             if service in {"spotify", "tidal"}:
                 message = (
@@ -28251,11 +28365,20 @@ class LiteFrame(wx.Frame):
             return
 
         if len(rows) == 1:
-            self.announcer.say(
-                f"Skopiowano link {'Spotify' if service == 'spotify' else 'TIDAL'}"
-                if service in {"spotify", "tidal"}
-                else copied_address_message(rows[0], file_copied=bool(file_paths))
-            )
+            if service in {"spotify", "tidal"}:
+                self.announcer.say(
+                    f"Skopiowano link {'Spotify' if service == 'spotify' else 'TIDAL'}"
+                )
+            elif service == "appleMusic":
+                self.announcer.say(
+                    "Skopiowano link Apple Music"
+                    if apple_link_modes == ["exact"]
+                    else "Skopiowano link wyszukiwania Apple Music"
+                )
+            else:
+                self.announcer.say(copied_address_message(
+                    rows[0], file_copied=bool(file_paths)
+                ))
         elif all(entry[2] is not None for entry in entries):
             self.announcer.say(
                 f"Skopiowano pliki i pełne ścieżki: {format_file_count(len(file_paths))}"
@@ -28270,7 +28393,14 @@ class LiteFrame(wx.Frame):
                 f"Skopiowano bezpośrednie adresy: {format_item_count(len(rows))}"
             )
         else:
-            self.announcer.say(f"Skopiowano adresy: {format_item_count(len(rows))}")
+            if service == "appleMusic":
+                self.announcer.say(
+                    f"Skopiowano linki Apple Music: {format_item_count(len(rows))}"
+                )
+            else:
+                self.announcer.say(
+                    f"Skopiowano adresy: {format_item_count(len(rows))}"
+                )
 
     @staticmethod
     def _file_drop_path(address: str) -> str | None:
@@ -29261,6 +29391,11 @@ class LiteFrame(wx.Frame):
         tidal_state = self.navigator.sessions[SessionId.TIDAL]
         active_view = tidal_state.library_view
         preferred_id = rows[0].item_id
+        selected_ids = {row.item_id for row in rows}
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            list(getattr(getattr(tidal_state, "model", None), "rows", ())),
+            selected_ids,
+        )
         # W katalogu i odtwarzaczu kierunek ustala host ze stanu kolekcji po
         # ostatnim potwierdzonym zapisie. Wymuszone dodanie tutaj sprawiało,
         # że drugi skrót nigdy nie usuwał utworu ani albumu. Jedynie w liście
@@ -29281,7 +29416,7 @@ class LiteFrame(wx.Frame):
             self._tidal_membership_pending = False
             result = payload or {}
             message = str(result.get("message") or "").strip()
-            self.announcer.say(message or "Zmieniono kolekcję TIDAL")
+            completion = message or "Zmieniono kolekcję TIDAL"
             relevant_views = (
                 {LibraryView.TIDAL_FAVORITES, LibraryView.TIDAL_SONGS}
                 if favorite else
@@ -29298,8 +29433,15 @@ class LiteFrame(wx.Frame):
                     and tidal_state.library_view is active_view):
                 self._open_tidal_view(OpenTidalView(
                     active_view,
-                    preferred_id=preferred_id if bool(result.get("added")) else None,
+                    preferred_id=(
+                        preferred_id
+                        if bool(result.get("added"))
+                        else removal_preferred_id
+                    ),
+                    announcement=completion,
                 ))
+                return
+            self.announcer.say(completion)
 
         def failed(error: Exception) -> None:
             self._tidal_membership_pending = False
@@ -29369,25 +29511,10 @@ class LiteFrame(wx.Frame):
         state = self.navigator.sessions[SessionId.SPOTIFY]
         context = state.spotify_context
         preferred_id = rows[0].item_id
-        model_rows = [
-            row
-            for row in getattr(getattr(state, "model", None), "rows", ())
-            if row.kind != "loadMore"
-        ]
         selected_ids = {row.item_id for row in rows}
-        first_index = min(
-            (
-                index for index, row in enumerate(model_rows)
-                if row.item_id in selected_ids
-            ),
-            default=0,
-        )
-        remaining = [
-            row for row in model_rows if row.item_id not in selected_ids
-        ]
-        removal_preferred_id = (
-            remaining[min(first_index, len(remaining) - 1)].item_id
-            if remaining else None
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            list(getattr(getattr(state, "model", None), "rows", ())),
+            selected_ids,
         )
         # W nazwanym widoku zapisanej kolekcji członkostwo wybranego wiersza
         # jest już częścią kontraktu listy. Ctrl+Shift+L/U ma go wtedy jawnie
@@ -31676,6 +31803,7 @@ class LiteFrame(wx.Frame):
                     except Exception as error:
                         failures.append(f"Nie utworzono playlisty {name}: {error}")
                 selected = list(dict.fromkeys(selected))
+                confirmed_selected: list[str] = []
                 if selected:
                     try:
                         result = client.spotify_playlist_add_items(selected, items)
@@ -31683,13 +31811,23 @@ class LiteFrame(wx.Frame):
                             message = str(result.get("message") or "").strip()
                             if message:
                                 messages.append(message)
+                            outcomes = result.get("playlists")
+                            if isinstance(outcomes, list):
+                                confirmed_selected = list(dict.fromkeys(
+                                    str(outcome.get("playlistId") or "").strip()
+                                    for outcome in outcomes
+                                    if isinstance(outcome, dict)
+                                    and int(outcome.get("failed") or 0) == 0
+                                    and str(outcome.get("playlistId") or "").strip()
+                                    in selected
+                                ))
                     except Exception as error:
                         failures.append(f"Nie dodano pozycji do playlist: {error}")
                 return {
                     "messages": messages,
                     "failures": failures,
                     "createdPlaylists": created_playlists,
-                    "selectedPlaylistIds": selected,
+                    "confirmedPlaylistIds": confirmed_selected,
                 }
 
             def saved(result: object) -> None:
@@ -31718,7 +31856,7 @@ class LiteFrame(wx.Frame):
                     )
                 selected_ids = [
                     str(value).strip()
-                    for value in data.get("selectedPlaylistIds", [])
+                    for value in data.get("confirmedPlaylistIds", [])
                     if isinstance(value, str) and value.strip()
                 ]
                 state = getattr(self, "state", None)
@@ -31817,6 +31955,13 @@ class LiteFrame(wx.Frame):
             selected_rows.append(row)
         item_ids = [row.item_id for row in selected_rows]
         preferred_id = item_ids[0]
+        current_state = getattr(self.navigator, "session", None)
+        if current_state is None:
+            current_state = getattr(self.navigator, "sessions", {}).get(active)
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            list(getattr(getattr(current_state, "model", None), "rows", ())),
+            set(item_ids),
+        )
         source_paths = (
             [row.path or "" for row in selected_rows]
             if active is SessionId.FILES
@@ -31849,13 +31994,26 @@ class LiteFrame(wx.Frame):
             # SQLite; ogólne odświeżenie przełączało go na pustą Bibliotekę i
             # przykrywało właściwy komunikat wynikiem „zero elementów”.
             if self.navigator.session.library_view is LibraryView.FAVORITES:
+                completion = (
+                    message
+                    if changed <= 0
+                    else LiteFrame._routine_completion_text(self, message)
+                )
+
+                def announce_after_refresh() -> None:
+                    deferred = getattr(
+                        self, "_announce_after_list_update", None
+                    )
+                    if callable(deferred):
+                        deferred(completion)
+                    elif completion:
+                        self.announcer.say(completion)
+
                 self._refresh_profile_view(
-                    preferred_id=preferred_id,
-                    after_refresh=lambda: (
-                        self.announcer.say(message)
-                        if changed <= 0
-                        else LiteFrame._announce_routine_text(self, message)
+                    preferred_id=(
+                        preferred_id if favorite else removal_preferred_id
                     ),
+                    after_refresh=announce_after_refresh,
                 )
                 return
             if changed <= 0:
@@ -31900,6 +32058,15 @@ class LiteFrame(wx.Frame):
             return
         item_ids = list(dict.fromkeys(row.item_id for row in rows))
         preferred_id = item_ids[0]
+        current_state = getattr(self.navigator, "session", None)
+        if current_state is None:
+            current_state = getattr(self.navigator, "sessions", {}).get(
+                SessionId.RADIO
+            )
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            list(getattr(getattr(current_state, "model", None), "rows", ())),
+            set(item_ids),
+        )
 
         def done(payload: dict) -> None:
             result = payload or {}
@@ -31915,9 +32082,19 @@ class LiteFrame(wx.Frame):
             if self.navigator.session.view is View.PLAYER:
                 self.announcer.say(message)
                 return
+
+            def announce_after_refresh() -> None:
+                deferred = getattr(self, "_announce_after_list_update", None)
+                if callable(deferred):
+                    deferred(message)
+                else:
+                    self.announcer.say(message)
+
             self._refresh_profile_view(
-                preferred_id=preferred_id,
-                after_refresh=lambda: self.announcer.say(message),
+                preferred_id=(
+                    preferred_id if in_library else removal_preferred_id
+                ),
+                after_refresh=announce_after_refresh,
             )
 
         self.runner.submit(
@@ -31947,6 +32124,10 @@ class LiteFrame(wx.Frame):
         existing = {row.service_id for row in previous_rows}
         remove = all(row.service_id in existing for row in selected)
         selected_ids = {row.service_id for row in selected}
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            previous_rows,
+            {row.item_id for row in selected},
+        )
         updated = (
             [row for row in previous_rows if row.service_id not in selected_ids]
             if remove else previous_rows + [
@@ -31965,9 +32146,9 @@ class LiteFrame(wx.Frame):
             self.state.spotify_queue_items
         ))
         label = selected[0].title if len(selected) == 1 else format_item_count(len(selected))
-        LiteFrame._announce_routine_text(self, LiteFrame._routine_template_text(
+        message = LiteFrame._routine_template_text(
             self, "queue.removed" if remove else "queue.added", item=label,
-        ))
+        )
         spotify_state = self.navigator.sessions[SessionId.SPOTIFY]
         if (
             self.navigator.active is SessionId.SPOTIFY
@@ -31976,9 +32157,19 @@ class LiteFrame(wx.Frame):
         ):
             spotify_state.model.replace(
                 list(self._spotify_queue_rows),
-                preferred_id=None if remove else selected[0].item_id,
+                preferred_id=(
+                    removal_preferred_id if remove else selected[0].item_id
+                ),
             )
             self._sync_views()
+            completion = LiteFrame._routine_completion_text(self, message)
+            deferred = getattr(self, "_announce_after_list_update", None)
+            if completion and callable(deferred):
+                deferred(completion)
+            elif completion:
+                self.announcer.say(completion)
+            return
+        LiteFrame._announce_routine_text(self, message)
 
     def _open_tidal_queue(self, preferred_id: str | None = None) -> None:
         self._transient_preview_return = None
@@ -31999,9 +32190,14 @@ class LiteFrame(wx.Frame):
                 "Do kolejki TIDAL wybierz utwór, który ma dane albumu"
             )
             return
-        existing = {row.item_id for row in self._tidal_queue_rows}
+        previous_rows = list(self._tidal_queue_rows)
+        existing = {row.item_id for row in previous_rows}
         remove = all(row.item_id in existing for row in selected)
         selected_ids = {row.item_id for row in selected}
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            previous_rows,
+            selected_ids,
+        )
         updated_rows = (
             [row for row in self._tidal_queue_rows if row.item_id not in selected_ids]
             if remove else self._tidal_queue_rows + [
@@ -32021,13 +32217,10 @@ class LiteFrame(wx.Frame):
             selected[0].title if len(selected) == 1
             else format_item_count(len(selected))
         )
-        LiteFrame._announce_routine_text(
+        message = LiteFrame._routine_template_text(
             self,
-            LiteFrame._routine_template_text(
-                self,
-                "queue.removed" if remove else "queue.added",
-                item=label,
-            ),
+            "queue.removed" if remove else "queue.added",
+            item=label,
         )
         state = self.navigator.sessions[SessionId.TIDAL]
         if (
@@ -32036,8 +32229,18 @@ class LiteFrame(wx.Frame):
             and state.library_view is LibraryView.TIDAL_QUEUE
         ):
             self._open_tidal_queue(
-                preferred_id=None if remove else selected[0].item_id
+                preferred_id=(
+                    removal_preferred_id if remove else selected[0].item_id
+                )
             )
+            completion = LiteFrame._routine_completion_text(self, message)
+            deferred = getattr(self, "_announce_after_list_update", None)
+            if completion and callable(deferred):
+                deferred(completion)
+            elif completion:
+                self.announcer.say(completion)
+            return
+        LiteFrame._announce_routine_text(self, message)
 
     def _refresh_live_queue(self) -> None:
         """Odśwież już otwartą kolejkę bez nawigacji i przejmowania fokusu."""
@@ -35240,21 +35443,14 @@ class LiteFrame(wx.Frame):
         titles = [row.title for row in rows]
         selected_ids = set(item_ids)
         model_rows = list(self.navigator.session.model.rows)
-        first_index = min(
-            (index for index, row in enumerate(model_rows)
-             if row.item_id in selected_ids), default=0,
-        )
-        remaining = [row for row in model_rows if row.item_id not in selected_ids]
-        preferred_id = (
-            remaining[min(first_index, len(remaining) - 1)].item_id
-            if remaining else None
+        preferred_id = LiteFrame._preferred_item_after_removal(
+            model_rows, selected_ids,
         )
 
         def done(_payload: object) -> None:
             if isinstance(_payload, dict) and int(_payload.get("removedCount") or 0) == 0:
                 self.announcer.say("Lista pozostała bez zmian")
                 return
-            self._refresh_profile_view(preferred_id=preferred_id)
             label = titles[0] if len(titles) == 1 else format_item_count(len(titles))
             if view in (
                 LibraryView.HISTORY.value,
@@ -35283,7 +35479,18 @@ class LiteFrame(wx.Frame):
                 )
             else:
                 message = f"Usunięto stację: {label}"
-            self.announcer.say(message)
+
+            def announce_after_refresh() -> None:
+                deferred = getattr(self, "_announce_after_list_update", None)
+                if callable(deferred):
+                    deferred(message)
+                else:
+                    self.announcer.say(message)
+
+            self._refresh_profile_view(
+                preferred_id=preferred_id,
+                after_refresh=announce_after_refresh,
+            )
 
         self.runner.submit(
             "profile-edit",

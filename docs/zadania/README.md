@@ -1,5 +1,16 @@
 # Rejestr zadań AMC
 
+- `A11Y-COLLECTIONS-20261113` — **kod i testy celowane gotowe; wydanie w toku**
+  — wspólny wybór sąsiada i końcowa mowa NVDA po zmianach TIDAL, lokalnych
+  Ulubionych, Biblioteki Radia, list i playlist; pamięć tylko potwierdzonych
+  playlist Spotify oraz działające wyszukiwanie wczytanej strony Apple Music.
+  [Szczegóły](A11Y-COLLECTIONS-20261113-fokus-mowa-sortowanie.md).
+- `PLAYER-20261113` — **kod i testy celowane gotowe; wydanie w toku** — Sonos
+  mówi tylko potwierdzoną głośność, Spotify udostępnia suwak przez Tab, a
+  `Ctrl+Shift+C` Apple Music kopiuje bezpośredni lub nazwany link wyszukiwania.
+  Odtwarzanie i `Shift+A` Apple odłożono do jutrzejszej próby oficjalnej
+  aplikacji. [Szczegóły](PLAYER-20261113-sonos-spotify-apple-link.md).
+
 - `RECOG-HIST-20261111` — **W trakcie; kod, testy celowane i kompilacja hosta zaliczone, bez instalacji i odbioru NVDA** — bitrate w historii TIDAL, Biblioteka i Ulubione rozpoznanego utworu oraz jednoznaczne kopiowanie łącza. [Szczegóły](RECOG-HIST-20261111-tidal-bitrate-kolekcje.md).
 - `RADIOBROWSER-001` — **W trakcie; źródła, celowane testy modelu i kompilacja hosta gotowe, bez instalacji i odbioru NVDA** — `Ctrl+F5` w Radiu otwiera Radio Browser, który prowadzi przez kontynenty, kraje i stronicowane stacje. TuneIn odłożono. [Szczegóły](RADIOBROWSER-001-przegladanie-katalogu.md).
 - `RADIO-FAST-001` — **Zrobione — wycofane 10.11.2026** — zachowano dotychczasowe Page Up/Page Down i odczyt nazwy stacji; dodatkowe nazwy poleceń cofnięto, bez optymalizacji wczytywania. [Szczegóły](RADIO-FAST-001-pageup-pagedown-w-odtwarzaczu.md).

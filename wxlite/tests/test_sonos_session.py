@@ -955,6 +955,10 @@ def _queued_sonos_frame(submissions: list, spoken: list[str]) -> SimpleNamespace
         ),
         navigator=SimpleNamespace(active=SessionId.SONOS, view=View.PLAYER),
         announcer=SimpleNamespace(say=spoken.append),
+        messages=SimpleNamespace(
+            volume_text=lambda value: f"{value}%",
+            speaks_routine=True,
+        ),
         runner=SimpleNamespace(
             submit=lambda *args: submissions.append(args)
         ),
@@ -974,6 +978,55 @@ def _queued_sonos_frame(submissions: list, spoken: list[str]) -> SimpleNamespace
         LiteFrame._finish_sonos_request, frame
     )
     return frame
+
+
+def test_sonos_volume_response_speaks_only_confirmed_volume() -> None:
+    submissions: list = []
+    spoken: list[str] = []
+    applied: list[tuple[dict, bool]] = []
+    frame = _queued_sonos_frame(submissions, spoken)
+    frame._apply_sonos_snapshot = (
+        lambda state, *, announce=False: applied.append((state, announce))
+    )
+
+    LiteFrame._sonos_transport(frame, "volumeUp5")
+    submissions[0][2]({
+        "householdId": "house-1",
+        "groupId": "group-1",
+        "playbackState": "paused",
+        "positionText": "3:57",
+        "volume": 8,
+        "message": "Brak informacji, 3:57, zatrzymane, głośność 8%",
+    })
+
+    assert spoken == ["8%"]
+    assert applied[0][1] is False
+
+
+def test_sonos_volume_response_honours_disabled_routine_messages() -> None:
+    submissions: list = []
+    spoken: list[str] = []
+    applied: list[tuple[dict, bool]] = []
+    frame = _queued_sonos_frame(submissions, spoken)
+    frame.messages = SimpleNamespace(
+        volume_text=lambda _value: None,
+        speaks_routine=True,
+    )
+    frame._apply_sonos_snapshot = (
+        lambda state, *, announce=False: applied.append((state, announce))
+    )
+
+    LiteFrame._sonos_transport(frame, "setVolume", volume=12)
+    submissions[0][2]({
+        "householdId": "house-1",
+        "groupId": "group-1",
+        "volume": 11,
+        "message": "Głośność 11%",
+    })
+
+    assert spoken == []
+    assert applied[0][0]["volume"] == 11
+    assert applied[0][1] is False
 
 
 def test_sonos_command_waits_while_snapshot_is_pending() -> None:

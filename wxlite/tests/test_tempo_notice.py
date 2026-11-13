@@ -79,7 +79,12 @@ def test_history_is_recorded_from_confirmed_engine_start_for_all_local_engines()
     ]
 
     assert "TryRecordPlaybackHistory" in files_started
-    assert 'MediaItemKind.Episode ? "podcasts" : "local"' in files_started
+    # Bieżący host zapamiętuje sesję silnika przy potwierdzonym starcie, także
+    # gdy następny element uruchomiła kolejka, a dopiero potem mapuje ``files``
+    # na historyczne ``local``. Stary test oczekiwał usuniętego skrótu, który
+    # pomijał ten stan kolejki.
+    assert "_filesSessionId = e.Item.Kind == MediaItemKind.Episode" in files_started
+    assert 'sessionId == "podcasts" ? "podcasts" : "local"' in files_started
     assert 'TryRecordPlaybackHistory("radio", e.Item.Id)' in radio_started
     assert "historyError" in files_started and "historyError" in radio_started
 

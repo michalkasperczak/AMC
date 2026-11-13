@@ -202,7 +202,10 @@ def test_delete_on_episode_list_removes_episode_not_whole_podcast() -> None:
         _selected_action_rows=lambda: [row],
         _profile_edit_client=lambda: client,
         _current_profile_view_name=lambda: LibraryView.PODCAST_EPISODES.value,
-        _refresh_profile_view=lambda **_kwargs: calls.append("refresh"),
+        _refresh_profile_view=lambda **kwargs: (
+            calls.append("refresh"),
+            kwargs["after_refresh"](),
+        ),
         announcer=SimpleNamespace(say=spoken.append),
         runner=Runner(),
     )

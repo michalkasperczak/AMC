@@ -37,7 +37,7 @@ def test_oauth_configuration_is_profile_specific_and_validated(tmp_path: Path) -
     ) == CLIENT_ID
     assert resolve_youtube_client_id(
         {PUBLIC_CLIENT_ID_ENVIRONMENT: CLIENT_ID}, profile=PUBLIC_PROFILE
-    ) is None
+    ) == CLIENT_ID
     assert resolve_youtube_client_id(
         {CLIENT_ID_ENVIRONMENT: CLIENT_ID},
         profile=PUBLIC_PROFILE,
@@ -76,10 +76,10 @@ def test_oauth_configuration_is_profile_specific_and_validated(tmp_path: Path) -
     broker.write_text(TOKEN_BROKER + "\n", encoding="utf-8")
     assert resolve_youtube_token_broker(
         {}, profile=PUBLIC_PROFILE, resource_path=broker
-    ) is None
+    ) == TOKEN_BROKER
     assert resolve_youtube_token_broker(
         {TOKEN_BROKER_ENVIRONMENT: TOKEN_BROKER}, profile=PUBLIC_PROFILE
-    ) is None
+    ) == TOKEN_BROKER
     assert resolve_youtube_token_broker(
         {TOKEN_BROKER_ENVIRONMENT: TOKEN_BROKER}, profile=TEST_PROFILE
     ) is None

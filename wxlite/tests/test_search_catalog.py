@@ -3,7 +3,11 @@ from __future__ import annotations
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, SessionId
 from amc_wx_lite.search_catalog import SearchEntry, query_words, record_query, search
-from amc_wx_lite.search_sources import SearchSources, spotify_cached_entries
+from amc_wx_lite.search_sources import (
+    SearchSources,
+    apple_music_cached_entries,
+    spotify_cached_entries,
+)
 from amc_wx_lite.spotify_source import record_history_row
 
 
@@ -174,6 +178,27 @@ def test_spotify_cached_search_includes_history_and_deduplicates_loaded_row() ->
     assert len(entries) == 1
     assert entries[0].kind_label == "utwór"
     assert entries[0].remote_kind == "spotifyCatalog"
+
+
+def test_apple_music_search_uses_only_current_sanitized_page() -> None:
+    song = Row(
+        "appleMusic:library-songs:private",
+        "Znany utwór",
+        "track",
+        artist_name="Wykonawca",
+    )
+    load_more = Row("loadMore:apple", "Załaduj więcej", "loadMore")
+
+    entries = apple_music_cached_entries(
+        (song, load_more),
+        LibraryView.APPLE_MUSIC_CONTAINER,
+    )
+
+    assert len(entries) == 1
+    assert entries[0].row is song
+    assert entries[0].source_view is LibraryView.APPLE_MUSIC_CONTAINER
+    assert entries[0].remote_kind == "appleMusicLibrary"
+    assert "private" not in entries[0].accessible_label
 
 
 def test_one_source_failure_does_not_erase_other_global_results() -> None:

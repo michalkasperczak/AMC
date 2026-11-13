@@ -35,7 +35,7 @@ def test_remote_payload_creates_only_intentional_accessible_text() -> None:
     assert result.remote_kind == "youtubeChannel"
     assert result.source_view is LibraryView.PODCAST_LIBRARY
     assert result.accessible_label == (
-        "Kanał techniczny, Autor, podcast, kanał YouTube, Podcasty i YouTube"
+        "Kanał techniczny, podcast, Autor, kanał YouTube, Podcasty i YouTube"
     )
     assert "private-channel-id" not in result.accessible_label
     assert "SearchEntry" not in result.accessible_label
@@ -118,7 +118,7 @@ def test_remote_video_has_episode_semantics_without_speaking_model_kind() -> Non
     assert result.source_view is LibraryView.PODCAST_EPISODES
     assert result.row.duration_ticks == 123
     assert result.accessible_label == (
-        "Transmisja, Kanał, odcinek, YouTube, transmisja na żywo, "
+        "Transmisja, odcinek, Kanał, YouTube, transmisja na żywo, "
         "Podcasty i YouTube"
     )
 
@@ -148,7 +148,7 @@ def test_soundcloud_directory_result_is_an_explicit_podcast_not_a_web_link() -> 
     assert result.row.service_kind == "soundcloudPodcast"
     assert result.source_view is LibraryView.PODCAST_LIBRARY
     assert result.accessible_label == (
-        "Audycja z SoundCloud, Redakcja, podcast, podcast SoundCloud, "
+        "Audycja z SoundCloud, podcast, Redakcja, podcast SoundCloud, "
         "Podcasty i YouTube"
     )
     assert "private-id" not in result.accessible_label

@@ -57,6 +57,26 @@ https://github.com/radioarchiwista/radioarchiwista.github.io/blob/main/assets/pl
   `AMC.exe`, `python.exe` i `amc_lite_host.exe` z katalogu instalacji.
 - Ręczny odbiór z NVDA: oczekuje na próbę użytkownika po instalacji.
 
+## Korekta 13.11.2026 — praca w tle i fokus
+
+Ta decyzja zastępuje wcześniejsze zachowanie, w którym modeless okno postępu
+ustawiało fokus na przycisku „Anuluj” i praktycznie zmuszało do czekania.
+Pełne nagranie `Ctrl+D` oraz fragment `Ctrl+Shift+D` nadal są pobierane przez
+wątek roboczy i pokazują postęp, lecz po rozpoczęciu fokus natychmiast wraca do
+listy lub odtwarzacza. NVDA mówi, że pobieranie rozpoczęło się w tle i że można
+dalej korzystać z AMC. Okno postępu pozostaje dostępne przez przełączanie
+okien, a przycisk „Anuluj” nadal zatrzymuje operację.
+
+Testy celowane 13.11.2026: **10 zaliczonych** dla pełnego pobierania,
+fragmentu, postępu, anulowania oraz zwrotu fokusu. Pełna regresja, wersja,
+commit, paczka, instalacja i publikacja zostaną dopisane po wspólnej bramce
+wydania.
+
+Końcowa izolowana próba dwóch plików GUI Radio Archiwisty: **3/3 zaliczone**.
+Uruchomienie ich po historycznych testach instalujących globalną atrapę `wx`
+dawało fałszywe błędy kolejności; osobny proces z przypiętym wxPython 4.3.1
+potwierdził prawidłowy kod produkcyjny.
+
 Instalator lokalny:
 `D:\Projekty Codex\AMC aktualizacje\AMC Test 0.1.0-alpha.457 fragmenty 2026-10-31\instalator\AMC-Test-2026-10-31-1438.exe`.
 

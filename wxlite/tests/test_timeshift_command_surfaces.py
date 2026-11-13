@@ -15,7 +15,8 @@ from amc_wx_lite.shortcuts import (
 def test_timeshift_folder_is_described_in_settings_command_surfaces():
     description = (
         "Ustawienia programu; na karcie Komunikaty dostępności ustawisz "
-        "odczyt listy strzałkami, a na karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
+        "odczyt listy strzałkami i kolejność pól przez Alt+góra/dół, a na "
+        "karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
     )
     for session in (SessionId.RADIO, SessionId.FILES):
         menu = next(

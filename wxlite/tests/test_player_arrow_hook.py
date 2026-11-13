@@ -11,7 +11,10 @@ from types import SimpleNamespace
 from typing import Any
 
 from amc_wx_lite.shortcuts import (
-    ASSIGN_PRESET_SHORTCUTS, GLOBAL_VIEW_SHORTCUTS, PRESET_SHORTCUTS,
+    ASSIGN_PRESET_SHORTCUTS,
+    GLOBAL_VIEW_SHORTCUTS,
+    MUSIC_CATEGORY_SHORTCUTS,
+    PRESET_SHORTCUTS,
 )
 
 SOURCE = Path(__file__).parents[1] / "amc_wx_lite" / "gui.py"
@@ -58,6 +61,7 @@ def _call(*, player=True, arrow=True, foreign=False, time_key=False,
         "wx": wx,
         "View": view,
         "GLOBAL_VIEW_SHORTCUTS": GLOBAL_VIEW_SHORTCUTS,
+        "MUSIC_CATEGORY_SHORTCUTS": MUSIC_CATEGORY_SHORTCUTS,
         "PRESET_SHORTCUTS": PRESET_SHORTCUTS,
         "ASSIGN_PRESET_SHORTCUTS": ASSIGN_PRESET_SHORTCUTS,
         "chord_from_event": lambda _event: SimpleNamespace(canonical=list_chord),
@@ -111,6 +115,7 @@ def test_wewnetrzny_hook_listy_przekazuje_tylko_gola_spacje():
         ns: dict[str, Any] = {
             "chord_from_event": lambda _event: SimpleNamespace(canonical=chord),
             "GLOBAL_VIEW_SHORTCUTS": GLOBAL_VIEW_SHORTCUTS,
+            "MUSIC_CATEGORY_SHORTCUTS": MUSIC_CATEGORY_SHORTCUTS,
             "PRESET_SHORTCUTS": PRESET_SHORTCUTS,
             "ASSIGN_PRESET_SHORTCUTS": ASSIGN_PRESET_SHORTCUTS,
         }
@@ -260,7 +265,9 @@ def _volume_key(chord: str, current: int = 50) -> list[int]:
         "wx": wx,
         "View": view,
         "GLOBAL_VIEW_SHORTCUTS": GLOBAL_VIEW_SHORTCUTS,
+        "MUSIC_CATEGORY_SHORTCUTS": MUSIC_CATEGORY_SHORTCUTS,
         "PRESET_SHORTCUTS": PRESET_SHORTCUTS,
+        "ASSIGN_PRESET_SHORTCUTS": ASSIGN_PRESET_SHORTCUTS,
         "chord_from_event": lambda _event: SimpleNamespace(canonical=chord),
     }
     exec(compile(ast.Module(body=[method], type_ignores=[]), str(SOURCE), "exec"), ns)

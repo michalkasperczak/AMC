@@ -59,17 +59,18 @@ def setup(monkeypatch, tmp_path: Path):
     frame.layout = SimpleNamespace(lite_settings_dir=tmp_path)
     frame.status_field = wx.StaticText(frame)
     frame.status_bar = SimpleNamespace(show=lambda _message: None)
-    frame.announcer = SimpleNamespace(say=lambda _message: None)
+    spoken = []
+    frame.announcer = SimpleNamespace(say=spoken.append)
     focused = []
     frame._restore_focus_after_dialog = lambda: focused.append(True)
     frame.runner = Runner()
     frame.saved = []
     frame._record_download = lambda path, **kwargs: frame.saved.append((path, kwargs)) or True
-    return app, frame, dialogs, focused
+    return app, frame, dialogs, focused, spoken
 
 
 def test_excerpt_progress_transfer_export_and_finish(monkeypatch, tmp_path: Path) -> None:
-    app, frame, dialogs, focused = setup(monkeypatch, tmp_path)
+    app, frame, dialogs, focused, spoken = setup(monkeypatch, tmp_path)
     destination = tmp_path / "fragment.mp3"
     operation_ids = []
     frame.client = SimpleNamespace(
@@ -92,6 +93,9 @@ def test_excerpt_progress_transfer_export_and_finish(monkeypatch, tmp_path: Path
         gui.LiteFrame._download_radioarchiwista_fragment(frame)
         assert len(dialogs) == 1
         assert "rozmiar pliku nieznany" in dialogs[0].GetChildren()[0].GetChildren()[-1].GetName()
+        app.Yield()
+        assert focused == [True, True]
+        assert any("w tle" in message for message in spoken)
         result = frame.runner.jobs["radioarchiwista.fragment"][0]()
         # Host may publish progress before the queued stage transition runs.
         frame._radioarchiwista_fragment_progress({
@@ -105,7 +109,7 @@ def test_excerpt_progress_transfer_export_and_finish(monkeypatch, tmp_path: Path
         frame.runner.jobs["radioarchiwista.fragment"][1](result)
         assert "_radioarchiwista_fragment_progress" not in frame.__dict__
         assert frame._radioarchiwista_downloads == set()
-        assert focused
+        assert focused == [True, True, True]
         assert frame.saved == [(destination, {"title": "Audycja", "source": "archive"})]
     finally:
         frame.Destroy()
@@ -113,7 +117,7 @@ def test_excerpt_progress_transfer_export_and_finish(monkeypatch, tmp_path: Path
 
 
 def test_excerpt_cancel_while_exporting_requests_host_stop(monkeypatch, tmp_path: Path) -> None:
-    app, frame, dialogs, _focused = setup(monkeypatch, tmp_path)
+    app, frame, dialogs, _focused, _spoken = setup(monkeypatch, tmp_path)
     destination = tmp_path / "fragment.mp3"
     export_ids = []
     frame.client = SimpleNamespace(

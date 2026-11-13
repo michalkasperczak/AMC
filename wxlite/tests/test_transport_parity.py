@@ -122,6 +122,7 @@ from amc_wx_lite.shortcuts import (
     Action,
     Chord,
     describe,
+    describe_action,
     resolve,
 )
 from amc_wx_lite.transport_parity import (
@@ -779,7 +780,7 @@ def test_ctrl_comma_otwiera_ustawienia_z_listy_i_odtwarzacza() -> None:
     chord = Chord(",", ctrl=True)
     assert resolve(chord, player_view=False, radio_session=False) is Action.GENERAL_SETTINGS
     assert resolve(chord, player_view=True, radio_session=False) is Action.GENERAL_SETTINGS
-    assert dict(describe())["Ctrl+,"] == "Ustawienia programu"
+    assert dict(describe())["Ctrl+,"] == describe_action(Action.GENERAL_SETTINGS)
 
 
 def test_shift_r_nie_jest_polykany_przez_wylaczony_akcelerator_menu() -> None:

@@ -107,8 +107,25 @@ def test_removing_the_last_visible_favorite_announces_after_refresh() -> None:
         ["local-1"],
         ["D:/jedyny.mp3"],
     )]
-    assert frame.refreshed == ["local-1"]
+    assert frame.refreshed == [None]
     assert frame.spoken == ["Usunięto z ulubionych: Jedyny ulubiony"]
+
+
+def test_removal_focus_uses_next_then_previous_and_skips_load_more() -> None:
+    first = Row("first", "Pierwszy", "track")
+    middle = Row("middle", "Środkowy", "track")
+    last = Row("last", "Ostatni", "track")
+    load_more = Row("more", "Załaduj więcej", "loadMore")
+
+    assert gui.LiteFrame._preferred_item_after_removal(
+        [first, middle, last, load_more], {middle.item_id}
+    ) == last.item_id
+    assert gui.LiteFrame._preferred_item_after_removal(
+        [first, middle, last, load_more], {last.item_id}
+    ) == middle.item_id
+    assert gui.LiteFrame._preferred_item_after_removal(
+        [last, load_more], {last.item_id}
+    ) is None
 
 
 def test_radio_uses_station_names_and_does_not_leave_player() -> None:

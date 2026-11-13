@@ -21,7 +21,11 @@ regresja dostepnosci, wiec ``resolve`` nie wolno pytac w dialogu.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import ListModel, Row, rows_from_stations
+from amc_wx_lite.navigation import SessionId, View
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 
 URL = "http://stream.example.com:8000/live/nadajnik.mp3"
@@ -66,6 +70,35 @@ def test_track_address_is_the_file_path() -> None:
 def test_parent_row_has_no_address_to_copy() -> None:
     row = Row(item_id="p", title="..", kind="parent", path=None)
     assert row.address == ""
+
+
+def test_apple_music_without_public_url_copies_named_search_link() -> None:
+    copied, spoken = [], []
+    row = Row(
+        "appleMusic:library-songs:private",
+        "Pierwszy utwór",
+        "track",
+        artist_name="Przykładowy wykonawca",
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.APPLE_MUSIC,
+            view=View.LIST,
+        ),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [row],
+        _file_drop_path=lambda _address: None,
+        _clear_pending_external_moves=lambda: None,
+        _to_clipboard=lambda text, **_kwargs: copied.append(text) or True,
+    )
+
+    LiteFrame._copy_address(frame)
+
+    assert copied == [
+        "https://music.apple.com/search?term="
+        "Przyk%C5%82adowy+wykonawca+Pierwszy+utw%C3%B3r"
+    ]
+    assert spoken == ["Skopiowano link wyszukiwania Apple Music"]
 
 
 def test_copy_actions_are_described_in_help() -> None:

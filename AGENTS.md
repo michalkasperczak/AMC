@@ -71,6 +71,14 @@
   zamknięciem poprzednich instancji. Przed takim działaniem sprawdź, czy AMC
   nie nagrywa (także w tle lub z harmonogramu). Gdy nie da się tego potwierdzić,
   nie zamykaj programów i zapytaj. Sama publikacja nie wymaga restartu.
+- Korekta użytkownika z 13 listopada 2026 r. zastępuje powyższe pytanie o
+  zgodę w zwykłym przebiegu wydania AMC Test. Przed lokalną aktualizacją
+  sprawdź stan nagrywania odczytowo. Gdy nic nie nagrywa, po zaliczonych
+  testach i kompilacji opublikuj wydanie GitHub, zaktualizuj instalację na D i
+  uruchom AMC Test bez dodatkowego pytania. Gdy nagrywanie trwa, nadal wolno
+  opublikować zweryfikowane wydanie GitHub, ale nie zamykaj ani nie podmieniaj
+  lokalnej aplikacji; instalację odłóż. Pytaj tylko wtedy, gdy stanu nagrywania
+  rzeczywiście nie da się bezpiecznie ustalić albo wystąpi inna nowa blokada.
 - Po publikacji wydania usuń jego lokalny ZIP z `publish` dopiero po
   zweryfikowaniu, że odpowiadający mu załącznik GitHub Releases został
   skutecznie wysłany i jest dostępny (nazwa, rozmiar i, gdy dostępny, SHA-256).

@@ -209,7 +209,7 @@ def test_radio_library_and_favorite_commands_write_and_announce_result():
     frame.runner.done(frame.runner.work())
     assert calls[-1] == ("favorite", "radio", ["radio-1"])
     assert messages[-1] == "Dodano do ulubionych: Jedynka"
-    assert all(item["preferred_id"] == "radio-1" for item in refreshes)
+    assert [item["preferred_id"] for item in refreshes] == [None]
 
 
 def test_radio_sort_command_persists_refreshes_and_announces_user_label():

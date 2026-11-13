@@ -132,7 +132,13 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.download.cancel.progress": "Anuluj pobieranie, pobrano {percent} procent",
         "rarch.download.cancelling": "Anulowanie pobierania…",
         "rarch.download.cancelled": "Anulowano pobieranie nagrania",
-        "rarch.download.started": "Pobieram nagranie",
+        "rarch.download.started": (
+            "Rozpoczęto pobieranie nagrania w tle. Możesz dalej korzystać z AMC"
+        ),
+        "rarch.fragment.startedBackground": (
+            "Rozpoczęto pobieranie fragmentu Radio Archiwisty w tle. "
+            "Możesz dalej korzystać z AMC"
+        ),
         "rarch.download.done": "Pobrano nagranie do: {path}",
         "rarch.download.failed": "Nie udało się pobrać nagrania: {error}",
         "rarch.recording.noAudio": "To nagranie nie ma dostępnego pliku audio",
@@ -360,7 +366,14 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.download.cancel.progress": "Cancel download, {percent} percent downloaded",
         "rarch.download.cancelling": "Cancelling download…",
         "rarch.download.cancelled": "Recording download cancelled",
-        "rarch.download.started": "Downloading recording",
+        "rarch.download.started": (
+            "Started downloading the recording in the background. "
+            "You can continue using AMC"
+        ),
+        "rarch.fragment.startedBackground": (
+            "Started downloading the Radio Archiwista fragment in the background. "
+            "You can continue using AMC"
+        ),
         "rarch.download.done": "Recording downloaded to: {path}",
         "rarch.download.failed": "Could not download the recording: {error}",
         "rarch.recording.noAudio": "This recording has no audio file available",

@@ -35,6 +35,9 @@ LEFT_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "wiim": ("duration", "bitrate", "format", "sampleRate", "artist", "other"),
     "sonos": ("duration", "bitrate", "format", "sampleRate", "artist", "other"),
     "frontierSmart": ("other",),
+    # Apple Music udostępnia tylko metadane już obecne w załadowanym wierszu.
+    # Nie sondować sieci podczas nawigacji strzałkami.
+    "appleMusic": ("duration", "artist", "other"),
 }
 
 

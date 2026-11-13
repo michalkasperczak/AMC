@@ -103,6 +103,41 @@ def test_tidal_result_returns_to_collection_it_came_from() -> None:
     assert intent.preferred_id == "tidal-1"
 
 
+def test_apple_music_search_result_returns_to_loaded_row() -> None:
+    nav = Navigator()
+    nav.active = SessionId.APPLE_MUSIC
+    first = Row("appleMusic:one", "Pierwszy", "track")
+    second = Row("appleMusic:two", "Drugi", "track")
+    nav.apply_apple_music_view(
+        gui_module.OpenAppleMusicView("songs"),
+        "Utwory Apple Music",
+        [first, second],
+    )
+    controls = SimpleNamespace(
+        SetFocus=lambda: None,
+        sync_cursor=lambda: None,
+    )
+    frame = SimpleNamespace(
+        navigator=nav,
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _transient_preview_return="search",
+        _switch_session=lambda session: setattr(nav, "active", session),
+        _sync_views=lambda: None,
+        _active_list=lambda: controls,
+    )
+    result = SearchEntry(
+        SessionId.APPLE_MUSIC,
+        second,
+        LibraryView.APPLE_MUSIC_CONTAINER,
+        remote_kind="appleMusicLibrary",
+    )
+
+    LiteFrame._open_search_result(frame, result)
+
+    assert nav.session.model.selected_id == second.item_id
+    assert frame._transient_preview_return is None
+
+
 def test_search_from_player_is_refused_with_the_full_amc_message() -> None:
     messages = []
     frame = SimpleNamespace(
@@ -872,6 +907,54 @@ def test_tidal_catalog_toggles_and_saved_library_list_removes() -> None:
         {"mode": "library", "add": None},
         {"mode": "library", "add": False},
     ]
+
+
+def test_tidal_removal_keeps_logical_neighbour_and_defers_announcement() -> None:
+    refreshes, spoken = [], []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    before = Row(
+        "tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1"
+    )
+    selected = Row(
+        "tidal:tracks:2", "Drugi", "track", service_id="tracks:2"
+    )
+    after = Row(
+        "tidal:tracks:3", "Trzeci", "track", service_id="tracks:3"
+    )
+    state = SimpleNamespace(
+        library_view=LibraryView.TIDAL_FAVORITES,
+        view=View.LIST,
+        model=SimpleNamespace(rows=(before, selected, after)),
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            sessions={SessionId.TIDAL: state},
+        ),
+        client=SimpleNamespace(
+            tidal_collection_membership=lambda *_args, **_kwargs: {
+                "added": False,
+                "message": "Usunięto z Ulubionych TIDAL",
+            }
+        ),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _selected_action_rows=lambda: [selected],
+        _tidal_membership_pending=False,
+        _open_tidal_view=refreshes.append,
+    )
+
+    LiteFrame._toggle_tidal_membership(frame, favorite=True)
+
+    assert spoken == []
+    assert len(refreshes) == 1
+    assert refreshes[0].preferred_id == after.item_id
+    assert refreshes[0].announcement == "Usunięto z Ulubionych TIDAL"
 
 
 @pytest.mark.parametrize(

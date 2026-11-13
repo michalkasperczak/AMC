@@ -69,12 +69,15 @@ def test_progress_reaches_100_without_native_completion_dialog(monkeypatch, tmp_
         button = next(child for child in dialog.GetChildren()[0].GetChildren()
                       if isinstance(child, wx.Button))
         assert "rozmiar pliku nieznany" in button.GetName()
+        app.Yield()
+        assert focused == [True]
+        assert any("w tle" in message for message in spoken)
         result = frame.runner.work()
         app.Yield()
         assert "100 procent" in button.GetName()
         assert "100 procent" in frame.status_field.GetLabel()
         frame.runner.done(result)
-        assert focused == [True]
+        assert focused == [True, True]
         assert frame._radioarchiwista_downloads == set()
         assert any("Pobrano nagranie" in message for message in spoken)
         assert saved == [(destination, {"title": "Audycja", "source": "archive"})]
