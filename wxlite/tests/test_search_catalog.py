@@ -197,7 +197,7 @@ def test_apple_music_search_uses_only_current_sanitized_page() -> None:
     assert len(entries) == 1
     assert entries[0].row is song
     assert entries[0].source_view is LibraryView.APPLE_MUSIC_CONTAINER
-    assert entries[0].remote_kind == "appleMusicLibrary"
+    assert entries[0].remote_kind is None
     assert "private" not in entries[0].accessible_label
 
 

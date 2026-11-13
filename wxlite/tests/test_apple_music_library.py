@@ -91,6 +91,15 @@ class ExternalClient:
 
     def _get(self, path: str, params=None):
         self.calls.append(("page", path, params))
+        if path == "/v1/me/library/search":
+            return {"results": {
+                "library-songs": {"data": [self._resource(
+                    "library-songs", "i.outside", "Utwór spoza strony"
+                )]},
+                "library-albums": {"data": [self._resource(
+                    "library-albums", "l.outside", "Album spoza strony"
+                )]},
+            }}
         kind_by_path = {
             "/v1/me/library/songs": ("library-songs", "Utwór stronicowany"),
             "/v1/me/library/albums": ("library-albums", "Album stronicowany"),
@@ -203,6 +212,31 @@ class AppleMusicLibraryTests(unittest.TestCase):
                 "/v1/me/library/songs?offset=25&private=" + PRIVATE_TOKEN,
                 None,
             ),
+            ExternalClient.last_instance.calls,
+        )
+
+    def test_default_page_has_one_hundred_items_and_search_uses_server(self) -> None:
+        library = self.open()
+        library.view_page("songs")
+        results = library.search_library("Spoza")
+
+        self.assertEqual(
+            [record.row.title for record in results],
+            ["Utwór spoza strony", "Album spoza strony"],
+        )
+        self.assertEqual(results[0].row.kind, "track")
+        self.assertNotIn(PRIVATE_TOKEN, str(results))
+        self.assertIn(
+            ("page", "/v1/me/library/songs", {"l": "pl-PL", "limit": 100}),
+            ExternalClient.last_instance.calls,
+        )
+        self.assertIn(
+            ("page", "/v1/me/library/search", {
+                "term": "Spoza",
+                "types": "library-songs,library-albums,library-artists,library-playlists",
+                "limit": 25,
+                "l": "pl-PL",
+            }),
             ExternalClient.last_instance.calls,
         )
 

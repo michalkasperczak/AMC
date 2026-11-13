@@ -121,7 +121,7 @@ class AppleMusicLibraryClient:
         view: str,
         *,
         cursor: AppleMusicPageCursor | None = None,
-        page_size: int = 25,
+        page_size: int = 100,
     ) -> AppleMusicLibraryResult:
         """Read one bounded page and keep the provider cursor outside rows."""
 
@@ -166,12 +166,51 @@ class AppleMusicLibraryClient:
         except Exception:
             raise AppleMusicLibraryError() from None
 
+    def search_library(self, query: str) -> tuple[AppleMusicRecord, ...]:
+        """Search the account library, including items outside loaded pages."""
+
+        term = query.strip() if isinstance(query, str) else ""
+        if not term or len(term) > 256:
+            raise AppleMusicLibraryError()
+        types = (
+            "library-songs",
+            "library-albums",
+            "library-artists",
+            "library-playlists",
+        )
+        try:
+            getter = getattr(self._client, "_get")
+            envelope = getter(
+                "/v1/me/library/search",
+                {"term": term, "types": ",".join(types), "limit": 25, "l": "pl-PL"},
+            )
+            groups = envelope.get("results") if isinstance(envelope, dict) else None
+            if not isinstance(groups, dict):
+                raise AppleMusicLibraryError()
+            found: list[AppleMusicRecord] = []
+            seen: set[str] = set()
+            for kind in types:
+                group = groups.get(kind)
+                if group is None:
+                    continue
+                if not isinstance(group, dict):
+                    raise AppleMusicLibraryError()
+                for record in records_from_resources(group.get("data")):
+                    if record.row.item_id not in seen:
+                        seen.add(record.row.item_id)
+                        found.append(record)
+            return tuple(found)
+        except AppleMusicLibraryError:
+            raise
+        except Exception:
+            raise AppleMusicLibraryError() from None
+
     def playlist_tracks_page(
         self,
         playlist: AppleMusicRecord,
         *,
         cursor: AppleMusicPageCursor | None = None,
-        page_size: int = 25,
+        page_size: int = 100,
     ) -> AppleMusicLibraryResult:
         """Read one bounded page tied to exactly one library playlist."""
 
@@ -228,7 +267,7 @@ class AppleMusicLibraryClient:
         album: AppleMusicRecord,
         *,
         cursor: AppleMusicPageCursor | None = None,
-        page_size: int = 25,
+        page_size: int = 100,
     ) -> AppleMusicLibraryResult:
         """Read one page of a library album's tracks through its relationship."""
 

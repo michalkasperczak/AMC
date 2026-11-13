@@ -2515,12 +2515,22 @@ class SearchDialog(wx.Dialog):
         self.results.InsertColumn(2, "Szczegóły", width=270)
         self.results.SetLabel("Wyniki wyszukiwania")
         self.results.SetName("Wyniki wyszukiwania")
+        apple_results_help = (
+            "Strzałki wybierają wynik. Enter pokazuje wynik na liście "
+            "Apple Music. Alt+Enter podaje informacje o wyniku. "
+            "Ctrl+L otwiera Bibliotekę. Escape zamyka okno."
+        )
         self.results.SetHelpText(
-            "Strzałki wybierają wynik. Enter przechodzi do wyniku na "
-            "właściwej liście. Prawa strzałka pokazuje dostępne "
-            "relacje. Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
-            "wyników. Ctrl+Shift+U zmienia stan Ulubionych. "
-            "Ctrl+L zamyka wyszukiwanie i otwiera Bibliotekę. Escape zamyka okno."
+            (
+                apple_results_help
+                if not all_services and current_session_label == "Apple Music"
+                else "Strzałki wybierają wynik. Enter przechodzi do wyniku na "
+                "właściwej liście. Prawa strzałka pokazuje dostępne "
+                "relacje. Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
+                "wyników. Ctrl+Shift+U zmienia stan Ulubionych tam, gdzie jest to "
+                "dostępne. Ctrl+L zamyka wyszukiwanie i otwiera Bibliotekę. "
+                "Escape zamyka okno."
+            )
             if detailed_hints
             else ""
         )
@@ -10688,6 +10698,7 @@ class LiteFrame(wx.Frame):
         # Obiekty dostawcy pozostają poza Row i kontrolką. Kluczem jest
         # wyłącznie bezpieczne item_id, a kursory nigdy nie są wypowiadane.
         self._apple_music_records: dict[str, AppleMusicRecord] = {}
+        self._apple_music_search_rows: tuple[Row, ...] = ()
         self._apple_music_web_client = None
         self._apple_music_web_active = False
         self._apple_music_external_snapshot: dict[str, object] = {}
@@ -12727,6 +12738,7 @@ class LiteFrame(wx.Frame):
             SearchCollection,
             list[SearchEntry],
             tuple[str, ...],
+            tuple[AppleMusicRecord, ...],
         ]:
             if cached is not None:
                 collected = cached
@@ -12765,6 +12777,24 @@ class LiteFrame(wx.Frame):
                 )
             results = search_entries(list(collected.entries), query)
             warnings = list(collected.warnings)
+            apple_music_records: tuple[AppleMusicRecord, ...] = ()
+            if SessionId.APPLE_MUSIC in sessions and not all_services:
+                try:
+                    with open_apple_music_library(self.layout) as library:
+                        apple_music_records = library.search_library(query)
+                    known = {candidate.row.item_id for candidate in results}
+                    for record in apple_music_records:
+                        if record.row.item_id in known:
+                            continue
+                        known.add(record.row.item_id)
+                        results.append(SearchEntry(
+                            SessionId.APPLE_MUSIC,
+                            record.row,
+                            LibraryView.APPLE_MUSIC_CONTAINER,
+                            remote_kind="appleMusicSearch",
+                        ))
+                except AppleMusicLibraryError:
+                    warnings.append("Nie udało się przeszukać Biblioteki Apple Music")
             if SessionId.RADIO in sessions:
                 client = self.client
                 if client is None:
@@ -12888,14 +12918,25 @@ class LiteFrame(wx.Frame):
                         SpotifyContainerPayloadError,
                     ):
                         warnings.append("Nie udało się przeszukać katalogu Spotify")
-            return collected, results, tuple(dict.fromkeys(warnings))
+            return (
+                collected, results, tuple(dict.fromkeys(warnings)),
+                apple_music_records,
+            )
 
         def done(result: tuple[
             SearchCollection,
             list[SearchEntry],
             tuple[str, ...],
+            tuple[AppleMusicRecord, ...],
         ]) -> None:
             if self._search_dialog_alive(dialog):
+                if SessionId.APPLE_MUSIC in sessions and not all_services:
+                    self._apple_music_records.update(
+                        (record.row.item_id, record) for record in result[3]
+                    )
+                    self._apple_music_search_rows = tuple(
+                        record.row for record in result[3]
+                    )
                 dialog.catalog = result[0]
                 dialog.show_results(result[1], result[2])
 
@@ -12916,6 +12957,20 @@ class LiteFrame(wx.Frame):
         relation: object | None = None,
     ) -> None:
         """Open the real list, then run the same command as that list uses."""
+
+        if entry.session_id is SessionId.APPLE_MUSIC:
+            if action is SearchResultAction.OPEN:
+                if entry.remote_kind == "appleMusicSearch":
+                    self._open_apple_music_search_result(entry)
+                else:
+                    self._open_search_result(entry)
+            elif action is SearchResultAction.INFORMATION:
+                self.announcer.say(entry.accessible_label)
+            else:
+                self.announcer.say(
+                    "To działanie nie jest dostępne dla wyniku Apple Music"
+                )
+            return
 
         if (
             entry.session_id is SessionId.TIDAL
@@ -13039,6 +13094,23 @@ class LiteFrame(wx.Frame):
             open_player=self._session_open_player_on_enter(SessionId.SPOTIFY),
         ))
 
+    def _open_apple_music_search_result(self, entry: SearchEntry) -> None:
+        """Select a server hit in an Apple Music list without starting playback."""
+
+        record = self._apple_music_records.get(entry.row.item_id)
+        if record is None:
+            self.announcer.say("Wynik Apple Music jest nieaktualny. Wyszukaj ponownie")
+            return
+        rows = self._apple_music_search_rows
+        if not any(row.item_id == entry.row.item_id for row in rows):
+            rows = (record.row,)
+        self._transient_preview_return = None
+        self._switch_session(SessionId.APPLE_MUSIC)
+        self._apple_music_navigation_version += 1
+        self._run(self.navigator.show_apple_music_search_results(
+            list(rows), preferred_id=entry.row.item_id,
+        ))
+
     def _perform_search_result_action(
         self,
         entry: SearchEntry,
@@ -13093,6 +13165,12 @@ class LiteFrame(wx.Frame):
             return
         say = announce if announce is not None else self.announcer.say
         lead = entries[0]
+        if lead.session_id is SessionId.APPLE_MUSIC:
+            if action is SearchResultAction.INFORMATION:
+                say(lead.accessible_label)
+            else:
+                say("To działanie nie jest dostępne dla wyniku Apple Music")
+            return
         if lead.session_id is SessionId.RADIO:
             self._complete_remote_radio_search_result_action(
                 entries,

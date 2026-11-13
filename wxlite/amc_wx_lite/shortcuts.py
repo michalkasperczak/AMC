@@ -3174,6 +3174,11 @@ def describe_action(
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
+    if (
+        (session_label or "").casefold() == "apple music"
+        and action is Action.SEARCH_CURRENT
+    ):
+        return i18n.ui_text("Szukaj w całej Bibliotece Apple Music")
     if (session_label or "").casefold() == "apple music" and action is Action.ACTIVATE:
         return i18n.ui_text(
             "Otwórz kategorię, album lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC"

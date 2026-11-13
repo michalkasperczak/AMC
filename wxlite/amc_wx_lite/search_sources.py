@@ -49,10 +49,8 @@ def apple_music_cached_entries(
 ) -> tuple[SearchEntry, ...]:
     """Search the currently loaded, sanitized Apple Music page.
 
-    The unofficial adapter is paged and read-only.  This contract therefore
-    promises exactly the rows already visible in AMC, never a fictitious full
-    online catalogue.  Provider objects and identifiers remain outside the
-    search presentation.
+    These rows already exist on the active list and can be selected there.
+    Provider objects and identifiers remain outside the search presentation.
     """
 
     return tuple(
@@ -60,7 +58,6 @@ def apple_music_cached_entries(
             SessionId.APPLE_MUSIC,
             row,
             source_view,
-            remote_kind="appleMusicLibrary",
         )
         for row in loaded_rows
         if row.kind != "loadMore" and bool(row.item_id) and bool(row.title)

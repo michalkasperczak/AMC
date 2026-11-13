@@ -3666,6 +3666,24 @@ class Navigator:
             if count else f"{heading}, pusto"
         )]
 
+    def show_apple_music_search_results(
+        self, rows: list[Row], *, preferred_id: str
+    ) -> list[object]:
+        """Show server search hits as a transient Apple Music list."""
+
+        state = self.sessions[SessionId.APPLE_MUSIC]
+        state.library_view = LibraryView.APPLE_MUSIC_CONTAINER
+        state.library_playlist_id = None
+        state.library_return_view = "Wyniki wyszukiwania Apple Music"
+        state.apple_music_heading = state.library_return_view
+        state.apple_music_context = "search"
+        state.model.replace(rows, preferred_id=preferred_id)
+        state.view = View.LIST
+        count = len(rows)
+        return [Announce(
+            f"Wyniki wyszukiwania Apple Music, {count} {_items_word(count)}"
+        )]
+
     def apply_apple_music_playlist(
         self,
         intent: OpenAppleMusicPlaylist,

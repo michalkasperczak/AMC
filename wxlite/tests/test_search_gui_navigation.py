@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
 import amc_wx_lite.gui as gui_module
 import pytest
 from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.apple_music_source import records_from_resources
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     LibraryView,
@@ -129,13 +131,125 @@ def test_apple_music_search_result_returns_to_loaded_row() -> None:
         SessionId.APPLE_MUSIC,
         second,
         LibraryView.APPLE_MUSIC_CONTAINER,
-        remote_kind="appleMusicLibrary",
     )
 
     LiteFrame._open_search_result(frame, result)
 
     assert nav.session.model.selected_id == second.item_id
     assert frame._transient_preview_return is None
+
+
+def test_apple_music_server_result_opens_transient_list_without_playback() -> None:
+    record = records_from_resources([{
+        "id": "i.outside",
+        "type": "library-songs",
+        "attributes": {"name": "Poza pierwszą stroną"},
+    }])[0]
+    nav = Navigator()
+    frame = SimpleNamespace(
+        navigator=nav,
+        _apple_music_records={record.row.item_id: record},
+        _apple_music_search_rows=(record.row,),
+        _apple_music_navigation_version=0,
+        _transient_preview_return="old",
+        _switch_session=lambda session: setattr(nav, "active", session),
+        _run=lambda _effects: None,
+        announcer=SimpleNamespace(say=lambda _message: None),
+    )
+    entry = SearchEntry(
+        SessionId.APPLE_MUSIC,
+        record.row,
+        LibraryView.APPLE_MUSIC_CONTAINER,
+        remote_kind="appleMusicSearch",
+    )
+
+    LiteFrame._open_apple_music_search_result(frame, entry)
+
+    assert nav.active is SessionId.APPLE_MUSIC
+    assert nav.session.model.selected_id == record.row.item_id
+    assert nav.session.apple_music_context == "search"
+    assert nav.session.view is View.LIST
+    assert frame._apple_music_navigation_version == 1
+
+
+def test_apple_music_ctrl_f_adds_server_hits_outside_loaded_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = records_from_resources([{
+        "id": "i.outside",
+        "type": "library-songs",
+        "attributes": {"name": "Poza stroną"},
+    }])[0]
+    nav = Navigator()
+    nav.active = SessionId.APPLE_MUSIC
+    nav.apply_apple_music_view(
+        gui_module.OpenAppleMusicView("songs"),
+        "Utwory Apple Music",
+        [Row("appleMusic:one", "Pierwszy", "track")],
+    )
+    searched = []
+    monkeypatch.setattr(
+        gui_module, "open_apple_music_library",
+        lambda _layout: nullcontext(SimpleNamespace(
+            search_library=lambda query: searched.append(query) or (record,)
+        )),
+    )
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    shown = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        layout=object(),
+        search_sources=SimpleNamespace(
+            collect=lambda _sessions: SearchCollection((), ())
+        ),
+        runner=Runner(),
+        _search_dialog_alive=lambda _dialog: True,
+        _apple_music_records={},
+        _apple_music_search_rows=(),
+    )
+    dialog = SimpleNamespace(
+        catalog=None,
+        show_results=lambda entries, warnings: shown.append((entries, warnings)),
+    )
+
+    LiteFrame._run_search_query(
+        frame, "Poza", dialog,
+        all_services=False,
+        session_before=SessionId.APPLE_MUSIC,
+    )
+
+    assert searched == ["Poza"]
+    assert [entry.row.title for entry in shown[0][0]] == ["Poza stroną"]
+    assert shown[0][0][0].remote_kind == "appleMusicSearch"
+    assert shown[0][1] == ()
+    assert frame._apple_music_records[record.row.item_id] is record
+
+
+def test_apple_music_search_enter_never_uses_podcast_result_handler() -> None:
+    entry = SearchEntry(
+        SessionId.APPLE_MUSIC,
+        Row("appleMusic:library-songs:i.outside", "Poza stroną", "track"),
+        LibraryView.APPLE_MUSIC_CONTAINER,
+        remote_kind="appleMusicSearch",
+    )
+    calls = []
+    frame = SimpleNamespace(
+        _open_apple_music_search_result=lambda selected: calls.append(selected),
+        _complete_remote_search_result_action=lambda *_args: pytest.fail(
+            "Apple Music nie może trafić do obsługi podcastów"
+        ),
+    )
+
+    LiteFrame._complete_search_result_action(
+        frame, entry, [entry], SearchResultAction.OPEN
+    )
+
+    assert calls == [entry]
 
 
 def test_search_from_player_is_refused_with_the_full_amc_message() -> None:
