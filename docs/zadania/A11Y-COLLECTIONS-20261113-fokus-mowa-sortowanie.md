@@ -1,6 +1,8 @@
 # A11Y-COLLECTIONS-20261113 — fokus i mowa po zmianach kolekcji
 
 - Status: **wydane, zainstalowane i uruchomione w AMC Test alpha.498**.
+- Nowe zgłoszenie `Ctrl+F` Apple Music z 13.11.2026: **poprawka źródeł,
+  bez wydania i bez próby NVDA**.
 - Utworzono: 13 listopada 2026.
 - Obszar: TIDAL, Spotify, lokalne Ulubione, Biblioteka Radia, playlisty,
   kolejki, wyszukiwanie, NVDA.
@@ -29,7 +31,7 @@ wyniki wyszukiwania we wszystkich sesjach.
 - Spotify zapisuje ostatnio wybrane playlisty wyłącznie dla wyników, których
   pole `failed` wynosi zero. Niepotwierdzony cel częściowej operacji nie wróci
   jako pozornie poprawny wybór.
-- Apple Music `Ctrl+F` przeszukuje aktualnie wczytaną, bezpiecznie
+- W wydanej alpha.498 Apple Music `Ctrl+F` przeszukiwało aktualnie wczytaną, bezpiecznie
   znormalizowaną stronę i po Enterze wraca do tego samego wiersza. Nie udaje
   przeszukiwania całej, niewczytanej biblioteki.
 - **Korekta użytkownika z 13.11.2026:** zapis albumu TIDAL z `Ctrl+F` albo
@@ -61,8 +63,9 @@ w alpha.499; nie zmienia ograniczenia nowych Ulubionych Apple.
 Po usunięciu utworu, stacji lub wpisu z otwartej listy fokus pozostaje w tym
 samym miejscu listy: przechodzi na następny element, a na końcu listy na
 poprzedni. Końcowy komunikat o dodaniu lub usunięciu jest ostatnią wypowiedzią
-NVDA. W Apple Music `Ctrl+F` obejmuje obecnie tylko pozycje już wczytane w
-bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwarki.
+NVDA. W wydanej alpha.502 Apple Music `Ctrl+F` obejmuje tylko pozycje już
+wczytane w bieżącym widoku; `Ctrl+K` filtruje tę listę bez otwierania
+wyszukiwarki. Poniższa korekta źródeł nie jest jeszcze wydana.
 
 ## Testy i wynik
 
@@ -91,8 +94,62 @@ bieżącym widoku; `Ctrl+K` nadal filtruje tę listę bez otwierania wyszukiwark
 - Apple Music nie ma jeszcze Ulubionych, sortowania pełnej kolekcji ani
   odtwarzacza. Zapis Biblioteki dla utworów i albumów jest dostępny od
   zainstalowanej alpha.499.
-- `Ctrl+F` Apple Music nie wykonuje jeszcze zapytania katalogowego i nie
-  pobiera automatycznie wszystkich stron.
+- W wydanej alpha.502 `Ctrl+F` Apple Music nie wykonuje zapytania do Biblioteki
+  konta i nie pobiera automatycznie wszystkich stron. Korekta źródeł poniżej
+  zmienia pierwsze z tych ograniczeń, ale czeka na próbę w aplikacji.
+
+## Zgłoszenie użytkownika 13.11.2026 — Ctrl+F w Apple Music
+
+Użytkownik potwierdził, że `Ctrl+F` otwiera okno, ale Enter odpowiada brakiem
+wyników dla pozycji spoza wczytanej strony. Zgłosił także, że strony po około
+25 pozycji i osobny wiersz „Więcej” są zbyt małe. Ta korekta zastępuje
+wcześniejsze założenie, że wyszukiwanie wczytanej strony jest wystarczające.
+Nie wykonywano próby na żywej aplikacji, ponieważ użytkownik odłożył dalsze
+testy Apple Music do czasu, gdy komputer będzie wolny.
+
+Przyczyna w alpha.502: `apple_music_cached_entries` obejmowało wyłącznie
+aktualnie wczytane wiersze, a `_run_search_query` nie pytało serwera o
+Bibliotekę. Dodatkowo wczytany wiersz miał oznaczenie wyniku zdalnego, co
+kierowało jego Enter do niewłaściwej wspólnej obsługi. Gdy fokus jest w polu
+filtra listy, `Ctrl+F` nadal nie otwiera wyszukiwarki; użytkownik potwierdził
+jednak, że zgłoszenie dotyczy okna, które się otwiera.
+
+Korekta źródeł: `Ctrl+F` w sesji Apple Music odpytuje Bibliotekę konta o
+utwory, albumy, wykonawców i playlisty niezależnie od wczytanej strony.
+Wynik można otworzyć jako listę Apple Music bez automatycznego odtwarzania.
+Wczytany wiersz wraca do właściwej listy. Domyślna strona Biblioteki,
+playlisty i albumu wzrosła z 25 do 100 pozycji; dalsza strona jest nadal
+dostępna przez „Załaduj więcej”. Pomoc klawiatury nazywa dokładnie zakres
+Apple Music. Nazwa w menu i palecie pozostaje wspólnym poleceniem „Szukaj w
+bieżącej usłudze”, bo wykonuje tę samą akcję.
+
+Testy izolowane: 172 zaliczone oraz 3 podtesty w modułach adaptera Apple,
+wyszukiwania, nawigacji GUI i skrótów; po doprecyzowaniu podpowiedzi okna
+99 testów nawigacji wyszukiwania ponownie zaliczonych. Osobny przebieg
+nawigacji Apple i menu: 48 zaliczonych, 2 zastane błędy menu osadzonego
+odtwarzacza (`APPLE_MUSIC_SHOW_WEB` bez klawisza dostępu); ten plik menu nie
+był zmieniany. Nie przeprowadzono próby konta Apple, NVDA, budowy, instalacji
+ani publikacji. Wydana alpha.502 nadal ma starą funkcję. Wyszukiwanie
+serwerowe zwraca na razie pierwszą grupę dopasowań dla każdego typu; pełne
+stronicowanie wyników wymaga późniejszej decyzji.
+
+Następny krok: dokończyć testy jednostkowe, sprawdzić wynik na koncie Apple
+i NVDA w uzgodnionym czasie, a dopiero potem budować i wydawać aktualizację
+razem z rozwiązaniem usterki ukrytego odtwarzacza.
+
+Commit korekty źródeł i testów: `0b68908d`. Brak nowej wersji, pakietu,
+instalacji i wydania GitHub; zainstalowana pozostaje alpha.502.
+
+### Materiał do dokumentacji użytkownika — projekt aktualizacji
+
+W sesji Apple Music `Ctrl+F` otwiera wyszukiwanie osobistej Biblioteki
+Apple Music, także wśród utworów niewczytanych jeszcze na bieżącej liście.
+Po wybraniu wyniku Enter przenosi do listy Apple Music bez automatycznego
+odtwarzania. `Alt+Enter` odczytuje informacje. W widokach Utwory, Albumy,
+Playlisty oraz zawartości albumów i playlist jedna strona obejmuje do 100 pozycji;
+„Załaduj więcej” pobiera następną. `Ctrl+K` nadal filtruje wyłącznie już
+wczytaną listę. Opis dotyczy przygotowanych źródeł i zacznie obowiązywać
+po sprawdzonej instalacji, nie w obecnej alpha.502.
 
 ## Wersja i commit
 

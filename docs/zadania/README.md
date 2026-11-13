@@ -1,10 +1,11 @@
 # Rejestr zadań AMC
 
 - `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
-- `A11Y-COLLECTIONS-20261113` — **kod i testy celowane gotowe; wydanie w toku**
-  — wspólny wybór sąsiada i końcowa mowa NVDA po zmianach TIDAL, lokalnych
-  Ulubionych, Biblioteki Radia, list i playlist; pamięć tylko potwierdzonych
-  playlist Spotify oraz działające wyszukiwanie wczytanej strony Apple Music.
+- `A11Y-COLLECTIONS-20261113` — **pierwotny etap wydany w alpha.498;
+  korekta Ctrl+F Apple Music gotowa w źródłach i testach celowanych, bez
+  instalacji i odbioru NVDA** — wyszukiwanie Biblioteki Apple także poza
+  wczytaną stroną oraz strony po 100 pozycji. Wydana alpha.502 nadal ma stare
+  wyszukiwanie; usterka osadzonego odtwarzacza wymaga osobnego rozwiązania.
   [Szczegóły](A11Y-COLLECTIONS-20261113-fokus-mowa-sortowanie.md).
 - `PLAYER-20261113` — **kod i testy celowane gotowe; wydanie w toku** — Sonos
   mówi tylko potwierdzoną głośność, Spotify udostępnia suwak przez Tab, a
