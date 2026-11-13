@@ -1,6 +1,6 @@
 # AM-002 i AM-006 — projekt instrukcji i listy zmian
 
-**Roboczy tekst do korekty użytkownika. Funkcja nie jest jeszcze zainstalowana ani wydana.**
+**Roboczy tekst do korekty użytkownika. AMC Test alpha.500 jest wydany; użytkownik aktualizuje lokalną instalację samodzielnie. Odtwarzanie wymaga żywego odbioru.**
 
 ## Instrukcja
 
@@ -20,4 +20,4 @@ Spacja w AMC ma wstrzymywać lub wznawiać aktywny odtwarzacz Apple Music; Shift
 - Dla utworów Biblioteki bez gotowego łącza AMC tworzy bezpieczny publiczny adres z identyfikatora katalogowego.
 - Komunikaty i dostępność polecenia uwzględniają rodzaj zaznaczenia i obecność oryginalnej aplikacji.
 
-**Przed wydaniem jako odtwarzania Apple Music:** po sygnale użytkownika, że komputer jest wolny, uruchomić dokładnie wskazany utwór bez przełączania okna, sprawdzić słyszalny dźwięk, pełną długość i komunikaty NVDA, a następnie zbudować i przetestować pakiet. Dotychczasowa kompilacja źródeł nie zalicza tej bramki.
+**Odbiór wydanego kandydata:** po ręcznej aktualizacji i sygnale użytkownika, że komputer jest wolny, uruchomić dokładnie wskazany utwór bez przełączania okna, sprawdzić słyszalny dźwięk, pełną długość, komunikaty NVDA oraz informację o aktywnej jakości, jeżeli strona ją udostępnia. Sam test startu paczki nie potwierdza odtwarzania.

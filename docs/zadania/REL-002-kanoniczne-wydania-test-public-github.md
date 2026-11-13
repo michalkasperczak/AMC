@@ -2,13 +2,11 @@
 
 ## Status
 
-W trakcie. Najnowsze, siódme wydanie AMC Test w kanale testowym opublikowano
-29.10.2026 jako `test-2026.10.29.0057`. Jest to wersja techniczna
-`0.1.0-alpha.442` z poprawkami natychmiastowej zmiany języka i nazw list.
-GitHub potwierdził tag na commicie `2b772d06`, instalator, manifest aktualizacji,
-plik integralności oraz ich sumy SHA-256. Instalator zawiera Quick App
-Switcher 0.1.6. Nie został uruchomiony ani zainstalowany; ręczna aktualizacja
-i odbiór z NVDA pozostają po stronie użytkownika.
+W trakcie. Najnowsze wydanie AMC Test to `0.1.0-alpha.500`, prerelease
+`test-2026.11.13.1952` na commicie `16eb05b5`. GitHub potwierdził instalator,
+manifest aktualizacji, plik integralności i sumę SHA-256. Użytkownik wybrał
+samodzielną aktualizację zainstalowanego `alpha.499`; żywy odbiór Apple Music
+i NVDA pozostaje otwarty. Szczegóły bieżącego wydania są na końcu pliku.
 
 ## Nadrzędna korekta użytkownika z 26.10.2026
 
@@ -1186,3 +1184,30 @@ nowych funkcji z NVDA oraz prawdziwym Sonosem pozostaje osobnym etapem.
   rozmiar i digest instalatora są zgodne z lokalnymi.
 - Adres wydania:
   `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.1458`.
+
+## Wydanie AMC Test 0.1.0-alpha.500 — 13.11.2026
+
+- Użytkownik poprosił o publikację GitHub, a następnie wybrał samodzielną
+  aktualizację. Działającej instalacji `D:\Projekty Codex\AMC Python` nie
+  zamykano, nie podmieniano i nie uruchamiano ponownie.
+- Zakres od poprzednio zainstalowanego `alpha.499`: jawne otwieranie utworu w
+  oryginalnym Apple Music, transport jego bieżącej sesji oraz kandydat
+  odtwarzania po Enterze w izolowanym WebView2. Funkcja Apple Music jest tylko
+  w profilu Test. Rzeczywisty dźwięk, fokus NVDA i jakość strumienia wymagają
+  osobnej żywej próby, gdy użytkownik zwolni komputer.
+- Celowane testy Apple Music i pakowania: 67/67; kontrakt C#: 1 zestaw.
+  `test_i18n.py`: 12 zaliczonych, 1 pominięty, 2 zastane błędy kompletności
+  angielskiego katalogu. Kompilacja WebView2: 0 błędów, 1 ostrzeżenie
+  `WindowsBase`. Pełna kontrola integralności paczki i ukryty start interfejsu
+  oraz hosta: zaliczone. Instalatora ani prawdziwego odtwarzania nie uruchamiano.
+- Commit wydania: `16eb05b5976d57b42c48c3be8df11062f52a70ec`;
+  paczka `288c4699`, 4729 plików, `sourceDirty=false`, profil Test,
+  wersja użytkowa `13.11.2026, 19:52`.
+- Instalator `AMC-Test-2026-11-13-1952.exe`: 218 486 032 bajty, SHA-256
+  `ff33a276c1161e94b03f56f7437530d08e4885096bdca04eb7300e5fd01fe65f`;
+  kontrola sekretów przeszła. Dodatki NVDA pozostały w wersjach Quick App
+  Switcher 0.1.6 i AMC NVDA 0.4.2.
+- Sucha bramka publikacji i właściwa publikacja przeszły. Prerelease
+  `test-2026.11.13.1952` wskazuje dokładny commit; trzy zasoby mają stan
+  `uploaded`. Zdalny rozmiar i digest instalatora odpowiadają lokalnemu.
+  Adres: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.1952

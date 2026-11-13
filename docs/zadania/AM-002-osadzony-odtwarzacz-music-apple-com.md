@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `W trakcie — kod integracji Enter i sterowania w AMC Test jest kandydatem źródłowym; bez instalacji i żywego odbioru`
+- Status: `W trakcie — AMC Test alpha.500 opublikowany na GitHubie; użytkownik aktualizuje ręcznie, żywy odbiór odłożony`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -112,11 +112,23 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   2 niezaliczone**. Oba niezaliczenia dotyczą zastanego braku pełnego katalogu
   angielskiego w innych obszarach; nowe etykiety Apple dodano do słownika.
   Ten wynik nie jest pełnym zaliczeniem testów.
+- 13 listopada 2026: zbudowano samowystarczalną paczkę AMC Test z commitu
+  `16eb05b5` (`sourceDirty=false`, 4729 plików, profil Test, proces webowy
+  obecny w manifeście). Pełna kontrola integralności i ukryty start interfejsu
+  oraz hosta przeszły. Instalator `AMC-Test-2026-11-13-1952.exe` ma
+  218 486 032 bajty i sumę SHA-256
+  `ff33a276c1161e94b03f56f7437530d08e4885096bdca04eb7300e5fd01fe65f`;
+  kontrola sekretów przeszła. GitHub prerelease `test-2026.11.13.1952`
+  wskazuje ten sam commit; instalator, plik integralności i manifest kanału
+  Test mają stan `uploaded`, a zdalny rozmiar i digest instalatora zgadzają
+  się z lokalnymi. Użytkownik wybrał samodzielną aktualizację; instalatora
+  nie uruchamiano, działająca instalacja AMC nadal ma poprzednią wersję.
 
 ## Znane ograniczenia
 
-- WebView2 uruchomił wskazany utwór z licznikiem ponad minutę; nadal trzeba
-  potwierdzić słyszalny dźwięk i utrzymywalne wydanie zintegrowane z AMC.
+- Prototyp WebView2 uruchomił wskazany utwór z licznikiem ponad minutę;
+  wydanie zintegrowane z AMC powstało później, ale nadal trzeba potwierdzić
+  w nim słyszalny dźwięk i prawidłowe działanie po ręcznej instalacji.
 - Ukrycie okna nie może zatrzymywać odtwarzania ani usypiać zdarzeń MusicKit.
 - Minimalizacja okna została sprawdzona; całkowite ukrycie, praca w tle
   podczas korzystania z AMC i brak przejmowania fokusu wymagają osobnego testu.
@@ -127,6 +139,10 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   działania Enter, słyszalnego dźwięku, pauzy, wznowienia, fokusu NVDA ani
   logowania w jego osobnym profilu. Prototyp ma inny profil niż nowy proces,
   więc pierwsze logowanie może być potrzebne ponownie. Nie skopiowano profilu.
+- Nie ustalono rzeczywistego kodeka, przepływności ani aktywnego wariantu
+  Lossless. Proces webowy nie wybiera jakości i nie odczytuje jej ze strony.
+  Oficjalna dokumentacja Apple mówi o możliwości Lossless na stronie, lecz
+  nie dowodzi jakości konkretnego strumienia w WebView2.
 - Wywołanie `setQueue` i kontrola tytułu/identyfikatora w MusicKit są
   kandydatem implementacji; tylko żywa próba potwierdzi, czy strona Apple
   przyjmuje te polecenia w zminimalizowanym WebView2. Przewijanie, stop,
@@ -138,15 +154,18 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 
 ## Następny krok
 
-Zaczekać na sygnał użytkownika, że komputer jest wolny. Wtedy przygotować
-oddzielny pakiet próbny Test, uprzedzić o dokładnym początku próby, sprawdzić
-logowanie w osobnym profilu, słyszalny dźwięk, Enter, pauzę, wznowienie,
-minimalizację i fokus NVDA. Do tego momentu nie instalować ani nie uruchamiać
-nowego procesu na pulpicie użytkownika.
+Użytkownik samodzielnie aktualizuje AMC Test z wydania `alpha.500`. Po jego
+sygnale, że komputer jest wolny, uprzedzić o dokładnym początku próby i
+sprawdzić logowanie w osobnym profilu, słyszalny dźwięk, Enter, pauzę,
+wznowienie, minimalizację, fokus NVDA oraz widoczną informację o jakości
+bieżącego strumienia, jeżeli strona Apple ją udostępnia.
 
 ## Wersja i commit
 
-Kandydat źródłowy i kompilacja procesu istnieją; brak instalacji i wydania.
+AMC Test `0.1.0-alpha.500`, wersja użytkowa `13.11.2026, 19:52`, wydanie
+`test-2026.11.13.1952` opublikowane; lokalna instalacja pozostaje bez zmian.
+Commit wydania: `16eb05b5976d57b42c48c3be8df11062f52a70ec`.
+Adres: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.1952
 Commit źródeł, testów i pakowania: `094188aa` z 13 listopada 2026.
 Commit dokumentacji pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
 

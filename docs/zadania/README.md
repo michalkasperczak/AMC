@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `AM-006` — **przekazanie do oryginalnej aplikacji pozostaje jawne; Enter przeniesiono do kandydata źródłowego AM-002; instalacja i wydanie niewykonane** — pierwsza pozycja menu kontekstowego otwiera link, a transport oficjalnej aplikacji steruje jej bieżącą sesją. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
+- `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **kod i testy celowane gotowe; wydanie w toku**
   — wspólny wybór sąsiada i końcowa mowa NVDA po zmianach TIDAL, lokalnych
   Ulubionych, Biblioteki Radia, list i playlist; pamięć tylko potwierdzonych
@@ -245,9 +245,10 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   z dawnej aplikacji WPF. Szczegóły:
   [I18N-001-wielojezyczny-interfejs-wxpython.md](I18N-001-wielojezyczny-interfejs-wxpython.md).
 
-- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.498` z 13.11.2026,
-  02:17 i stabilny Public
-  z 29.10.2026, 19:24 są opublikowane i odczytowo zweryfikowane. Public powstał
+- `REL-002` — **W trakcie; najnowszy Test `0.1.0-alpha.500` z 13.11.2026,
+  19:52 jest opublikowany i zweryfikowany na GitHubie, lecz lokalna instalacja
+  czeka na ręczną aktualizację użytkownika. Stabilny Public z 29.10.2026,
+  19:24 jest opublikowany i odczytowo zweryfikowany. Public powstał
   z najnowszej bazy Test i ma WiiM oraz Frontier Smart, bez Sonosa, Spotify i
   TIDAL-a; 231/231 celowanych testów Pythona, 38/38 Launchera/aktualizatora,
   paczka `89473955`, cichy start, instalator, skan sekretów i zdalny SHA-256 są
@@ -731,7 +732,7 @@ zmian, wymagający korekty użytkownika:
   stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
-- `AM-002` — **W trakcie; Enter i sterowanie z AMC połączone w kandydacie źródłowym Test, bez instalacji i żywego odbioru; kolejne widoczne próby po sygnale użytkownika**
+- `AM-002` — **AMC Test alpha.500 opublikowany; użytkownik aktualizuje ręcznie, żywy odbiór odłożony do sygnału, że komputer jest wolny**
   — przed dalszą widoczną próbą uprzedzić użytkownika; okno nie może blokować AMC.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
 - `AM-003` — **Odczytowa sesja jest zainstalowana i opublikowana w AMC Test

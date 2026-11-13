@@ -1,6 +1,6 @@
 # AM-006 — przekazanie utworu do Apple Music dla Windows
 
-- Status: **jawne przekazanie do oryginalnej aplikacji pozostaje w źródłach; Enter przekierowano w kandydacie źródłowym AM-002 do odtwarzacza webowego; instalacja i wydanie niewykonane**.
+- Status: **jawne przekazanie do oryginalnej aplikacji i nowy Enter w AM-002 opublikowano w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór odłożony**.
 - Utworzono: 13 listopada 2026.
 - Obszar: AMC Test, sesja Apple Music, Enter, menu, dostępność.
 - Zależność: odczyt Biblioteki z AM-001/AM-003. Pełny transport w AMC pozostaje zadaniem AM-002.
@@ -50,3 +50,6 @@ Roboczy tekst instrukcji i listy zmian: [AM-006-instrukcja-i-lista-zmian-szkic.m
 - Zmiany źródłowe i testy: commit `20c1cb3635d85cc6fa6cd461ace4e96d018ce41a`.
 - Build, instalacja i publikacja: niewykonane.
 - Transport SMTC, kolejność menu i aktualizacja dokumentacji: commit `7c3b9a26` z 13 listopada 2026. Host zbudowany tylko w katalogu repozytorium, bez instalacji.
+- Wspólne wydanie z AM-002: prerelease `test-2026.11.13.1952` na commicie
+  `16eb05b5`, instalator zweryfikowany i opublikowany; lokalnej instalacji
+  nie wykonano, użytkownik wybrał samodzielną aktualizację.
