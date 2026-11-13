@@ -1191,6 +1191,16 @@ class LiteHostClient:
             timeout=15.0,
         )
 
+    def apple_music_external_transport(self, command: str) -> Any:
+        """Control only the official Apple Music Windows media session."""
+        if command not in {"toggle", "next", "previous", "stop", "state"}:
+            raise ValueError("Nieznane polecenie Apple Music")
+        return self.call(
+            "appleMusic.externalTransport",
+            {"command": command},
+            timeout=15.0,
+        )
+
     def wiim_devices(self) -> Any:
         """List configured WiiM devices without exposing their IP addresses."""
         return self.call("wiim.devices", timeout=15.0)

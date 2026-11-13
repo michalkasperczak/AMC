@@ -1375,6 +1375,12 @@ def build_menus(
             MenuItem("&Następny utwór TIDAL", Action.QUEUE_NEXT,
                      shortcut="Next", accelerator=False, needs_playback=True,
                      visible_sessions=TIDAL_ONLY),
+            MenuItem("Pop&rzedni utwór Apple Music", Action.QUEUE_PREVIOUS,
+                     shortcut="Shift+Prior", accelerator=False, needs_playback=True,
+                     visible_sessions=APPLE_MUSIC_ONLY),
+            MenuItem("&Następny utwór Apple Music", Action.QUEUE_NEXT,
+                     shortcut="Shift+Next", accelerator=False, needs_playback=True,
+                     visible_sessions=APPLE_MUSIC_ONLY),
             MenuItem(
                 "Wycisz albo włącz dźwięk bieżącej sesji (&V)",
                 Action.TOGGLE_MUTE,

@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `Oczekuje — architektura Sidry sprawdzona; brak uruchomionego pilota DRM`
+- Status: `W trakcie — transport oficjalnej aplikacji przez Windows potwierdzony; brak pewnego wyboru utworu i pilota DRM`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -25,6 +25,11 @@ automatyzować.
   zawartości cookies, kodu strony ani dowolnego `executeJavaScript` z GUI.
 - Pierwsza bramka sukcesu to słyszalny pełny utwór dłuższy niż 30 sekund,
   prawdziwy czas, pauza, wznowienie i seek. Sam stan „playing” nie wystarcza.
+- Korekta celu użytkownika z 13 listopada 2026: Enter w AMC ma rozpocząć
+  odtwarzanie dokładnie wybranego utworu w tle, sterowane z AMC. Etap przekazania
+  linku z AM-006 nie realizuje tego celu. Oficjalna aplikacja Apple Music
+  odtwarza dźwięk na komputerze użytkownika, ale jej interfejs Windows SMTC
+  pozwala sterować tylko bieżącą sesją; nie ustawia katalogowego utworu.
 
 ## Plan pilota
 
@@ -47,6 +52,16 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
 - Odczyt źródeł Sidry, commit `76de8f3ca93b2d4b747510855ee5269c2f795b85`.
 - Potwierdzona allowlista komend i zdarzeń MusicKit oraz izolacja kontekstu.
 - Nie uruchamiano Sidry, Chromium, Apple Music, DRM ani audio; brak testu NVDA.
+- Korekta z 13 listopada 2026 zastępuje powyższy stan: uruchomiono oryginalne
+  Apple Music i odczytano sesję Windows. Faktyczne przełączenie pauza–gra–pauza
+  zadziałało przez `TryTogglePlayPauseAsync`; tytuł z sesji nie odpowiadał
+  wskazanemu przez AMC utworowi. Odczyt po otwarciu oficjalnego linku katalogowego
+  nie potwierdził zmiany tytułu na wskazany utwór. Użytkownik słyszał automatycznie
+  uruchamiane utwory w sekwencji prób, ale nie wiadomo, która akcja je wywołała.
+  `IsPlaybackPositionEnabled`
+  było `false`. Nie wykonano testu pełnego utworu ani pilota osadzonego DRM.
+- Zbudowano bezokienny host z wąskim transportem Apple Music; test kontraktu
+  zaliczony. Zmiany nie zostały zainstalowane ani opublikowane.
 
 ## Znane ograniczenia
 
@@ -54,8 +69,16 @@ po zalogowaniu, a nie w dekoderze PCM AMC takim jak obecny TIDAL.
   utrzymywania przez AMC.
 - Ukrycie okna nie może zatrzymywać odtwarzania ani usypiać zdarzeń MusicKit.
 - Aktualizacja strony Apple może zmienić singleton, kolejkę lub zdarzenia.
+- Apple Music na Windows nie udostępnił w sprawdzonym interfejsie systemowym
+  polecenia wyboru utworu. Warianty `/url`, `/play` i `music://` nie spełniły
+  kryterium zgodności tytułu. Osadzony odtwarzacz webowy wymaga osobnej próby
+  zgodnej z preferencją użytkownika dotyczącą przeglądarek i logowania.
 
 ## Wersja i commit
 
 Brak kodu produkcyjnego, buildu, instalacji i wydania. Commit dokumentacji
 pilota: `5e37190abd3cf76229447544b0bcef6190f7a66d`.
+
+Korekta 13 listopada 2026: kod transportu Windows i kompilacja hosta istnieją
+w aktualnych źródłach; nie ma zainstalowanego ani wydanego odtwarzacza Apple
+Music. Nowy commit zostanie dopisany po punkcie kontrolnym.

@@ -4,14 +4,16 @@
 
 ## Instrukcja
 
-W sesji Apple Music otwórz „Utwory” lub playlistę i zaznacz utwór. Naciśnij Enter albo z menu Biblioteka bądź menu kontekstowego wybierz „Otwórz utwór w oryginalnym Apple Music”. AMC przekazuje utwór do zainstalowanej aplikacji Apple Music. Po przełączeniu do niej sprawdź, czy rozpoczęła odtwarzanie. Gdy utwór nie ma identyfikatora katalogowego, AMC poinformuje, że nie może go otworzyć.
+W sesji Apple Music otwórz „Utwory” lub playlistę i zaznacz utwór. Pierwsza pozycja menu kontekstowego „Otwórz utwór w oryginalnym Apple Music” przekazuje link do zainstalowanej aplikacji. Apple Music może wtedy pokazać album bez uruchomienia zaznaczonego utworu. Obecne działanie Entera jest takie samo; wymaga jeszcze zmiany, aby spełniało oczekiwanie odtwarzania w tle. Gdy utwór nie ma identyfikatora katalogowego, AMC poinformuje, że nie może go otworzyć.
 
-Polecenie jest dostępne tylko w AMC Test. Otwieranie utworu w oficjalnej aplikacji nie daje jeszcze AMC przycisków pauzy, przewijania, kolejki ani wyboru jej wyjścia audio.
+Jeśli w oryginalnym Apple Music gra już muzyka, Spacja w AMC wstrzymuje lub wznawia odtwarzanie, Shift+Page Down przechodzi do następnego utworu, a Shift+Page Up do poprzedniego. Odczyt stanu podaje tytuł zgłoszony przez oryginalną aplikację. Przewijanie do wskazanego czasu nie jest dostępne. Funkcja jest przeznaczona tylko dla AMC Test i pozostaje niezainstalowana.
 
 ## Lista zmian
 
-- Dodano otwieranie utworu Apple Music przez Enter oraz równoważne polecenie menu i palety.
+- Polecenie otwierania utworu Apple Music jest pierwszą pozycją menu kontekstowego; Enter obecnie korzysta z tego samego przekazania linku.
+- Dodano sterowanie bieżącą sesją oficjalnej aplikacji przez Spację i Shift+Page Down/Up.
+- Odczyt „Teraz odtwarzane” pochodzi z rzeczywistego stanu Windows, a nie z zaznaczonego wiersza AMC.
 - Dla utworów Biblioteki bez gotowego łącza AMC tworzy bezpieczny publiczny adres z identyfikatora katalogowego.
 - Komunikaty i dostępność polecenia uwzględniają rodzaj zaznaczenia i obecność oryginalnej aplikacji.
 
-**Przed wydaniem:** sprawdzić, czy wskazany utwór rzeczywiście otwiera się i gra w aplikacji Apple, odsłuchać komunikaty NVDA i zbudować oraz przetestować pakiet.
+**Przed wydaniem jako odtwarzania Apple Music:** uruchomić dokładnie wskazany utwór bez przełączania okna, sprawdzić pełną długość i komunikaty NVDA, a następnie zbudować i przetestować pakiet. Dotychczasowe przekazanie linku nie zalicza tej bramki.

@@ -13,9 +13,16 @@ install_wx_stub()
 
 import amc_wx_lite.gui as gui  # noqa: E402
 from amc_wx_lite import menu_model
+from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.apple_music_source import records_from_resources
 from amc_wx_lite.navigation import Navigator, OpenAppleMusicOriginal, SessionId
 from amc_wx_lite.shortcuts import Action
+from amc_wx_lite.shortcuts import (
+    APPLE_MUSIC_SUPPORTED_ACTIONS,
+    chord_from_canonical,
+    describe_action,
+    resolve,
+)
 
 
 def _selected_song():
@@ -91,3 +98,72 @@ def test_context_menu_has_explicit_user_facing_original_action() -> None:
     groups = frame._context_menu_command_groups(player=False)
     labels = [command.label for group in groups for command in group]
     assert labels == ["Otwórz utwór w oryginalnym Apple Music"]
+    assert gui._LIST_CONTEXT_ACTION_GROUPS[0][0] is Action.APPLE_MUSIC_OPEN_ORIGINAL
+
+
+def test_apple_music_transport_uses_only_apple_session() -> None:
+    _record, navigator = _selected_song()
+    commands: list[str] = []
+    messages: list[str] = []
+    refreshes: list[bool] = []
+    frame = object.__new__(gui.LiteFrame)
+    frame.navigator = navigator
+    frame.client = SimpleNamespace(
+        apple_music_external_transport=lambda command: (
+            commands.append(command) or {"handled": True, "message": "Wstrzymano"}
+        )
+    )
+    frame.runner = SimpleNamespace(
+        submit=lambda _name, work, done, _failed: done(work())
+    )
+    frame.announcer = SimpleNamespace(say=messages.append)
+    frame._refresh_apple_music_external_state = lambda **_kwargs: refreshes.append(True)
+
+    frame._play_pause()
+    frame._queue_step(True)
+    frame._queue_step(False)
+
+    assert commands == ["toggle", "next", "previous"]
+    assert messages == ["Wstrzymano"] * 3
+    assert len(refreshes) == 3
+    assert {Action.PLAY_PAUSE, Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS} <= (
+        APPLE_MUSIC_SUPPORTED_ACTIONS
+    )
+    assert "oryginalnym Apple Music" in describe_action(
+        Action.PLAY_PAUSE, "Apple Music"
+    )
+    for key, action in (
+        ("Space", Action.PLAY_PAUSE),
+        ("Shift+Next", Action.QUEUE_NEXT),
+        ("Shift+Prior", Action.QUEUE_PREVIOUS),
+    ):
+        chord = chord_from_canonical(key)
+        assert chord is not None
+        assert resolve(
+            chord, player_view=False, radio_session=False,
+            apple_music_session=True,
+        ) is action
+    palette = {entry.action: entry for entry in entries_for_session(
+        SessionId.APPLE_MUSIC
+    )}
+    assert palette[Action.QUEUE_NEXT].label == (
+        "Następny utwór Apple Music, Shift+Page Down"
+    )
+    assert palette[Action.QUEUE_PREVIOUS].label == (
+        "Poprzedni utwór Apple Music, Shift+Page Up"
+    )
+
+
+def test_apple_music_nvda_status_does_not_claim_selected_song_is_playing() -> None:
+    _record, navigator = _selected_song()
+    frame = object.__new__(gui.LiteFrame)
+    frame.navigator = navigator
+    frame._apple_music_external_snapshot = {
+        "hasSession": True,
+        "title": "Prawdziwy utwór w aplikacji Apple",
+        "isPlaying": False,
+    }
+    assert "Prawdziwy utwór w aplikacji Apple, Apple Music, pauza" in (
+        frame._nvda_status_message()
+    )
+    assert frame._nvda_now_playing_message() == "Prawdziwy utwór w aplikacji Apple"

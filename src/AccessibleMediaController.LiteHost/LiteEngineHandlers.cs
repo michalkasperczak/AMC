@@ -77,7 +77,9 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteSpotifyPlaybackCoordinator? _spotifyPlayback;
     private readonly LiteCommonDataSnapshotCoordinator? _commonDataSnapshot;
     private readonly bool _enableTidalNativePlayback;
+    private readonly bool _enableAppleMusicExternal;
     private readonly LiteTidalDesktopCoordinator _tidalDesktop = new();
+    private readonly LiteAppleMusicExternalCoordinator _appleMusicExternal = new();
     private readonly LiteWiiMCoordinator? _wiim;
     private readonly LiteFrontierSmartCoordinator? _frontierSmart;
     private readonly LiteSonosCoordinator? _sonos;
@@ -161,6 +163,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteSpotifyPlaybackCoordinator? spotifyPlayback = null,
         LiteCommonDataSnapshotCoordinator? commonDataSnapshot = null,
         bool enableTidalNativePlayback = false,
+        bool enableAppleMusicExternal = false,
         string? timeshiftBufferFolder = null,
         string? queueStartupError = null)
     {
@@ -176,6 +179,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _spotifyPlayback = spotifyPlayback;
         _commonDataSnapshot = commonDataSnapshot;
         _enableTidalNativePlayback = enableTidalNativePlayback;
+        _enableAppleMusicExternal = enableAppleMusicExternal;
         _wiim = wiim;
         _frontierSmart = frontierSmart;
         _sonos = sonos;
@@ -641,6 +645,11 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _tidalDesktop.Play(request.Args),
             [LiteTidalDesktopContract.TransportOperation] = (request, _) =>
                 _tidalDesktop.Transport(request.Args),
+            [LiteAppleMusicExternalContract.TransportOperation] = (request, _) =>
+                _enableAppleMusicExternal
+                    ? _appleMusicExternal.Transport(request.Args)
+                    : throw new LiteRequestException(
+                        "Apple Music nie jest dostępne w tym wydaniu."),
             [LiteWiiMContract.DevicesOperation] = (_, _) =>
                 RequireWiiM().ListDevices(),
             [LiteWiiMContract.SnapshotOperation] = (request, _) =>

@@ -168,6 +168,8 @@ internal static class Program
             commonDataSnapshot,
             enableTidalNativePlayback: LiteTidalNativePlayRequest.IsEnabledForProfile(
                 ReadArgumentText(args, "--release-profile")),
+            enableAppleMusicExternal: LiteAppleMusicExternalContract.IsEnabledForProfile(
+                ReadArgumentText(args, "--release-profile")),
             timeshiftBufferFolder: timeshiftBufferFolder,
             queueStartupError: queueStartupError);
         using var nvdaRelay = new LiteNvdaRelay();
@@ -279,6 +281,7 @@ internal static class Program
                 // odtwarzacza musza w tym czasie pozostac responsywne.
                 LiteTidalDesktopContract.PlayOperation,
                 LiteTidalDesktopContract.TransportOperation,
+                LiteAppleMusicExternalContract.TransportOperation,
                 // Urzadzenie sieciowe moze odpowiadac kilka sekund. Nie moze
                 // w tym czasie blokowac lokalnego radia ani nagrywania.
                 LiteWiiMContract.SnapshotOperation,

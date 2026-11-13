@@ -594,10 +594,10 @@ class _ContextMenuCommand:
 # state or dispatch logic.  Empty groups are removed before the popup is built.
 _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
+        Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.ACTIVATE,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
-        Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.QUICK_INFORMATION,
         Action.ITEM_PROPERTIES,
     ),
@@ -10678,6 +10678,9 @@ class LiteFrame(wx.Frame):
         # Obiekty dostawcy pozostają poza Row i kontrolką. Kluczem jest
         # wyłącznie bezpieczne item_id, a kursory nigdy nie są wypowiadane.
         self._apple_music_records: dict[str, AppleMusicRecord] = {}
+        self._apple_music_external_snapshot: dict[str, object] = {}
+        self._apple_music_external_state_pending = False
+        self._apple_music_external_state_checked_at = 0.0
         self._apple_music_pages: dict[str, tuple[list[AppleMusicRecord], object]] = {}
         self._apple_music_library_pending = False
         # ``None`` w stanie prywatnym dziedziczy wybor glownego AMC. Do czasu
@@ -11264,6 +11267,10 @@ class LiteFrame(wx.Frame):
                 getattr(self, "_tidal_desktop_has_playback", False)
                 or getattr(self, "_tidal_native_has_playback", False)
             )
+        elif self.navigator.active is SessionId.APPLE_MUSIC:
+            playing = bool(getattr(
+                self, "_apple_music_external_snapshot", {}
+            ).get("hasSession"))
         elif self.navigator.active is SessionId.WIIM:
             playing = bool(getattr(self, "_wiim_active_device_id", ""))
         elif self.navigator.active is SessionId.SONOS:
@@ -11481,7 +11488,8 @@ class LiteFrame(wx.Frame):
                 # action available on TIDAL lists without claiming a key that
                 # now belongs to native page navigation.
                 shown_entry = (
-                    entry if shortcut_enabled_in_view(
+                    entry if self.navigator.active is SessionId.APPLE_MUSIC
+                    or shortcut_enabled_in_view(
                         entry.action, player_view=session.view is View.PLAYER
                     ) else replace(entry, shortcut=None)
                 )
@@ -15050,6 +15058,13 @@ class LiteFrame(wx.Frame):
     def _nvda_status_message(self) -> str:
         session = self.navigator.session
         session_name = SESSION_LABELS[self.navigator.active]
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            state = getattr(self, "_apple_music_external_snapshot", {})
+            if not state.get("hasSession"):
+                return "Apple Music, brak bieżącego odtwarzania w oryginalnej aplikacji."
+            title = str(state.get("title") or "utwór").strip()
+            playback = "odtwarzanie" if state.get("isPlaying") else "pauza"
+            return f"{title}, Apple Music, {playback} w oryginalnej aplikacji."
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
                 snapshot = self._nvda_playback_snapshot()
@@ -15124,6 +15139,11 @@ class LiteFrame(wx.Frame):
         return f"{session_name}, {label}"
 
     def _nvda_now_playing_message(self) -> str:
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            state = getattr(self, "_apple_music_external_snapshot", {})
+            if state.get("hasSession"):
+                return str(state.get("title") or "Utwór Apple Music").strip()
+            return "Apple Music, brak bieżącego utworu w oryginalnej aplikacji."
         snapshot = self._nvda_playback_snapshot()
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
@@ -21135,6 +21155,7 @@ class LiteFrame(wx.Frame):
                 self._run(self.navigator.open_apple_music_root(
                     preferred_id=state.list_anchor_id,
                 ))
+            self._refresh_apple_music_external_state(force=True)
         elif session_id is SessionId.WIIM:
             state = self.navigator.sessions[SessionId.WIIM]
             if not state.model.rows:
@@ -32554,6 +32575,11 @@ class LiteFrame(wx.Frame):
         Dawniej każde naciśnięcie szło do ``queue.*`` i zwykły plik albo stacja
         kończyły komunikatem „początek/koniec kolejki”.
         """
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            self._apple_music_external_command(
+                "next" if forward else "previous"
+            )
+            return
         if self.navigator.active is SessionId.WIIM:
             self._wiim_transport("next" if forward else "previous")
             return
@@ -32649,6 +32675,59 @@ class LiteFrame(wx.Frame):
                 f"Nie mogę sterować oryginalnym TIDALem: {error}"
             ),
         )
+
+    def _apple_music_external_command(self, command: str) -> None:
+        """Control Apple's current session without claiming a selected track plays."""
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa")
+            return
+
+        def done(payload: dict) -> None:
+            result = payload or {}
+            self.announcer.say(str(
+                result.get("message") or "Oryginalny Apple Music nie odpowiada"
+            ))
+            self._refresh_apple_music_external_state(force=True)
+
+        self.runner.submit(
+            "apple-music-transport",
+            lambda: client.apple_music_external_transport(command),
+            done,
+            lambda _error: self.announcer.say(
+                "Nie mogę sterować oryginalnym Apple Music"
+            ),
+        )
+
+    def _refresh_apple_music_external_state(self, *, force: bool = False) -> None:
+        client = self.client
+        if client is None or self._apple_music_external_state_pending:
+            return
+        now = time.monotonic()
+        if not force and now - self._apple_music_external_state_checked_at < 5.0:
+            return
+        self._apple_music_external_state_pending = True
+
+        def done(payload: dict) -> None:
+            self._apple_music_external_state_pending = False
+            self._apple_music_external_state_checked_at = time.monotonic()
+            state = payload or {}
+            self._apple_music_external_snapshot = state
+            if self.navigator.active is SessionId.APPLE_MUSIC:
+                self._set_transport_label(playing=bool(state.get("isPlaying")))
+                self._refresh_menu_state()
+
+        self.runner.submit(
+            "apple-music-state",
+            lambda: client.apple_music_external_transport("state"),
+            done,
+            lambda _error: self._apple_music_external_state_failed(),
+        )
+
+    def _apple_music_external_state_failed(self) -> None:
+        self._apple_music_external_state_pending = False
+        self._apple_music_external_state_checked_at = time.monotonic()
+        self._apple_music_external_snapshot = {}
 
     def _play_station(self, intent: PlayStation) -> None:
         client = self.client
@@ -33612,6 +33691,10 @@ class LiteFrame(wx.Frame):
     def _play_pause(self) -> None:
         client = self.client
         if client is None:
+            return
+
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            self._apple_music_external_command("toggle")
             return
 
         if self.navigator.active is SessionId.TIDAL:
@@ -34686,6 +34769,8 @@ class LiteFrame(wx.Frame):
         self.announcer.say(f"Nie zapisano postępu odcinka: {cleaned}")
 
     def _refresh_status(self) -> None:
+        if self.navigator.active is SessionId.APPLE_MUSIC:
+            self._refresh_apple_music_external_state()
         client = self.client
         if client is None or getattr(self, "_status_poll_pending", False):
             return

@@ -1025,9 +1025,9 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
 })
 
 
-# Apple Music nadal nie wystawia transportu ani nowych Ulubionych. Jedyną
-# mutacją konta jest zweryfikowane członkostwo utworów i albumów w Bibliotece.
-# Ten sam zbiór zasila menu, paletę i dispatcher.
+# Oficjalna aplikacja Apple Music wystawia bieżący transport przez Windows,
+# lecz nie przyjmuje w tym kanale wyboru konkretnego utworu z AMC. Ten sam
+# zbiór zasila menu, paletę i dispatcher.
 APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     *SESSION_INDEPENDENT_ACTIONS,
     Action.SESSION_FILES,
@@ -1048,6 +1048,9 @@ APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     Action.NEXT_SESSION,
     Action.COMMAND_PALETTE,
     Action.ACTIVATE,
+    Action.PLAY_PAUSE,
+    Action.QUEUE_NEXT,
+    Action.QUEUE_PREVIOUS,
     Action.PARENT_FOLDER,
     Action.CLOSE_LIST_PREVIEW,
     Action.COPY_NAME,
@@ -1978,6 +1981,8 @@ SPOTIFY_SESSION_VIEW: dict[str, Action] = {
 APPLE_MUSIC_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+Shift+L": Action.APPLE_MUSIC_TOGGLE_LIBRARY,
+    "Shift+Prior": Action.QUEUE_PREVIOUS,
+    "Shift+Next": Action.QUEUE_NEXT,
 }
 
 
@@ -3153,6 +3158,14 @@ def describe_action(
         return i18n.ui_text(
             "Otwórz kategorię lub playlistę Apple Music; na utworze otwórz go w oryginalnej aplikacji"
         )
+    if (session_label or "").casefold() == "apple music":
+        apple_transport = {
+            Action.PLAY_PAUSE: "Wstrzymaj lub wznów bieżący utwór w oryginalnym Apple Music",
+            Action.QUEUE_NEXT: "Przejdź do następnego utworu w oryginalnym Apple Music",
+            Action.QUEUE_PREVIOUS: "Przejdź do poprzedniego utworu w oryginalnym Apple Music",
+        }
+        if action in apple_transport:
+            return i18n.ui_text(apple_transport[action])
     if (session_label or "").casefold() == "radio":
         if action is Action.SESSION_CONFIGURE_CURRENT:
             presentation = ctrl_f5_presentation("Radio")

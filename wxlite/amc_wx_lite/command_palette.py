@@ -84,6 +84,10 @@ def entries_for_session(
                 if shared is not None
                 else _plain_label(item.label)
             )
+            if session is SessionId.APPLE_MUSIC and item.action in {
+                Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS
+            }:
+                name = _plain_label(item.label)
             if not name:
                 continue
             seen.add(item.action)
