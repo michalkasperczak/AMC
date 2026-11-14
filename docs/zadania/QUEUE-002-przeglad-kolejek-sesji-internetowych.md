@@ -136,7 +136,11 @@ nawigacji i komunikatów playlist.
 - Zainstalowany Test uruchomiono z
   `D:\Projekty Codex\AMC Python\AMC.exe`. Potwierdzono okno
   `AMC Test — 14.11.2026, 03:29`, proces GUI i hosta. Proces GUI odpowiada.
-  Odczyt drzewa dostępności po przejściu do Plików nie zwrócił danych,
-  a kolejne wywołanie skrótu przekroczyło czas narzędzia. Nie potwierdzono
-  więc głosem NVDA komunikatu alpha.504 ani zachowania na rzeczywistych
-  kontach internetowych. Odbiór użytkownika pozostaje otwarty.
+  Duża lista lokalnych plików chwilowo opóźniła odczyt dostępności.
+  Po jej załadowaniu `Ctrl+Q` otworzył zapisaną kolejkę i udostępnił tekst:
+  „Biblioteka — Kolejka (zapisana), 6 pozycji, łączny czas trwania 4 godz.
+  56 min”. Po skierowaniu fokusu na natywną listę ponowne `Ctrl+Q`
+  zachowało fokus; sprawdzono strzałki w dół i w górę bez zmiany danych.
+  Początkowy fokus po uruchomieniu programu pozostawał na oknie, a nie na
+  liście; wymaga to osobnego odbioru z NVDA. Nie przechwycono rzeczywistej
+  wypowiedzi NVDA ani działania na kontach internetowych. Odbiór otwarty.
