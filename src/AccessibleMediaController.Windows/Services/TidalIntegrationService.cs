@@ -23,6 +23,10 @@ internal sealed record TidalPlaybackCredentials(
     IReadOnlyList<string> Scopes,
     string UserId);
 
+internal sealed record TidalPlaylistAddOperationResult(
+    TidalPlaylistAddResult Addition,
+    IReadOnlyList<MediaItem>? Items);
+
 internal sealed class TidalIntegrationService(
     TidalSettings settings,
     TidalApiClient? apiClient = null,
@@ -252,14 +256,26 @@ internal sealed class TidalIntegrationService(
         IReadOnlyList<MediaItem> items,
         CancellationToken cancellationToken)
     {
+        var result = await AddPlaylistItemsWithResultAsync(playlist, items, cancellationToken)
+            .ConfigureAwait(false);
+        return result.Items ?? throw new InvalidOperationException(
+            "TIDAL przyjął zmianę, ale nie udało się odświeżyć playlisty.");
+    }
+
+    public async Task<TidalPlaylistAddOperationResult> AddPlaylistItemsWithResultAsync(
+        MediaItem playlist,
+        IReadOnlyList<MediaItem> items,
+        CancellationToken cancellationToken)
+    {
         await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
             EnsurePlaylistWriteScope(tokens.Scope);
+            TidalPlaylistAddResult addition;
             try
             {
-                await api.AddPlaylistItemsAsync(
+                addition = await api.AddPlaylistItemsAsync(
                     tokens.AccessToken,
                     playlist,
                     items,
@@ -269,12 +285,21 @@ internal sealed class TidalIntegrationService(
             {
                 throw PlaylistWriteDenied(exception);
             }
-            return await api.GetContainerItemsAsync(
-                tokens.AccessToken,
-                settings.CountryCode,
-                playlist,
-                collectionExternalIds,
-                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var refreshed = await api.GetContainerItemsAsync(
+                    tokens.AccessToken,
+                    settings.CountryCode,
+                    playlist,
+                    collectionExternalIds,
+                    cancellationToken).ConfigureAwait(false);
+                return new TidalPlaylistAddOperationResult(addition, refreshed);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Odczyt po zapisie nie może cofnąć potwierdzenia z odpowiedzi POST.
+                return new TidalPlaylistAddOperationResult(addition, null);
+            }
         }
         finally
         {

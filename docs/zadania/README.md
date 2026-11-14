@@ -754,6 +754,8 @@ zmian, wymagający korekty użytkownika:
 
 ## Krótkie polecenia użytkownika
 
+- `PLAYLIST-BULK-20261114` — **Źródła i testy celowane gotowe; instalacja i publikacja osobnymi etapami** — wielokrotne zaznaczenie dla playlist w pięciu sesjach, potwierdzona liczba dodatków TIDAL oraz brak łącznego czasu dla playlist radia. [PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md](PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md).
+
 Wystarczy powiedzieć na przykład: `Uruchom zadanie NVDA-001`. Agent ma wtedy
 odczytać rejestr oraz właściwy plik i wykonać wyłącznie wskazane zadanie.
 

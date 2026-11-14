@@ -16,6 +16,11 @@ public sealed record TidalCollectionSyncResult(
 
 public sealed record TidalAccountIdentity(string UserId, string? DisplayName);
 
+public sealed record TidalPlaylistAddResult(int RequestedCount, int AddedCount, int SkippedCount)
+{
+    public int UnconfirmedCount => Math.Max(0, RequestedCount - AddedCount);
+}
+
 public sealed class TidalApiException(
     string message,
     HttpStatusCode statusCode,
@@ -224,7 +229,7 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task AddPlaylistItemsAsync(
+    public async Task<TidalPlaylistAddResult> AddPlaylistItemsAsync(
         string accessToken,
         MediaItem playlist,
         IReadOnlyList<MediaItem> items,
@@ -235,6 +240,8 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
         if (resources.Count == 0)
             throw new InvalidOperationException("Brak utworów lub materiałów wideo możliwych do dodania do playlisty TIDAL.");
 
+        var addedCount = 0;
+        var skippedCount = 0;
         foreach (var batch in resources.Chunk(50))
         {
             var payload = JsonSerializer.Serialize(new
@@ -246,9 +253,17 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
                 accessToken,
                 playlistId,
                 payload,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                response =>
+                {
+                    var confirmed = ConfirmedPlaylistAddCount(response, batch);
+                    addedCount += confirmed.Added;
+                    skippedCount += confirmed.Skipped;
+                })
+                .ConfigureAwait(false);
             await Task.Delay(250, cancellationToken).ConfigureAwait(false);
         }
+        return new TidalPlaylistAddResult(resources.Count, addedCount, skippedCount);
     }
 
     public async Task<MediaItem> CreatePlaylistAsync(
@@ -585,7 +600,8 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
         string accessToken,
         string playlistId,
         string payload,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<JsonElement>? onSuccess = null)
     {
         var address = new Uri(
             ApiBaseAddress,
@@ -618,12 +634,83 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
                     UserFacingHttpError(response.StatusCode),
                     response.StatusCode,
                     response.Headers.RetryAfter?.Delta);
+            if (onSuccess is not null)
+            {
+                try
+                {
+                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    using var document = await JsonDocument.ParseAsync(stream,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    onSuccess(document.RootElement);
+                }
+                catch (JsonException exception)
+                {
+                    throw new InvalidOperationException(
+                        "TIDAL przyjął żądanie, ale nie potwierdził liczby dodanych utworów. Odśwież playlistę.",
+                        exception);
+                }
+            }
             return;
         }
 
         throw new TidalApiException(
             "TIDAL ograniczył liczbę zapytań. Spróbuj ponownie za chwilę.",
             HttpStatusCode.TooManyRequests);
+    }
+
+    private static (int Added, int Skipped) ConfirmedPlaylistAddCount(
+        JsonElement response,
+        IReadOnlyList<PlaylistMutationItem> requested)
+    {
+        if (response.ValueKind != JsonValueKind.Object
+            || !response.TryGetProperty("data", out var data)
+            || data.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException(
+                "TIDAL przyjął żądanie, ale nie potwierdził liczby dodanych utworów. Odśwież playlistę.");
+
+        var remaining = requested.GroupBy(item => (item.Type, item.Id))
+            .ToDictionary(group => group.Key, group => group.Count());
+        static bool TryIdentity(JsonElement entry, out (string Type, string Id) identity)
+        {
+            identity = default;
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("type", out var type)
+                || type.ValueKind != JsonValueKind.String
+                || !entry.TryGetProperty("id", out var id)
+                || id.ValueKind != JsonValueKind.String)
+                return false;
+            identity = (type.GetString() ?? string.Empty, id.GetString() ?? string.Empty);
+            return true;
+        }
+
+        var added = 0;
+        foreach (var entry in data.EnumerateArray())
+        {
+            if (!TryIdentity(entry, out var identity)
+                || !remaining.TryGetValue(identity, out var count)
+                || count == 0)
+                continue;
+            remaining[identity] = count - 1;
+            added++;
+        }
+        var skipped = 0;
+        if (response.TryGetProperty("meta", out var meta)
+            && meta.ValueKind == JsonValueKind.Object
+            && meta.TryGetProperty("skipped", out var skippedItems)
+            && skippedItems.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in skippedItems.EnumerateArray())
+            {
+                if (!TryIdentity(entry, out var identity)
+                    || !remaining.TryGetValue(identity, out var count)
+                    || count == 0)
+                    continue;
+                remaining[identity] = count - 1;
+                skipped++;
+            }
+        }
+        return (added, skipped);
     }
 
     private static string ParsePlaylistId(MediaItem playlist)

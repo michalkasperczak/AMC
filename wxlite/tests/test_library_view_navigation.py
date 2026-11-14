@@ -34,6 +34,7 @@ from amc_wx_lite.navigation import (  # noqa: E402
     Navigator,
     OpenLibraryView,
     OpenPodcastPlaylistView,
+    PlayStation,
     SessionId,
     View,
 )
@@ -240,6 +241,24 @@ def test_radio_playlist_enter_and_backspace_stay_in_radio_session() -> None:
     assert request.view is LibraryView.PLAYLISTS
     assert request.preferred_id == "playlist:88"
     assert request.target_session_id is SessionId.RADIO
+
+
+def test_radio_playlist_has_no_duration_and_plays_selected_station() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.RADIO)
+    announced = nav.apply_radio_view(
+        LibraryView.PLAYLIST_CONTENTS,
+        "Playlista — Stacje",
+        [Row("station-1", "Radio Test", "station",
+             url="https://example.invalid", duration_ticks=36_000_000_000)],
+        playlist_id="radio-list",
+    )
+
+    assert [item.text for item in announced if isinstance(item, Announce)] == [
+        "Playlista — Stacje"
+    ]
+    playback = nav.activate_selected()
+    assert any(isinstance(item, PlayStation) for item in playback)
 
 
 def test_vanished_radio_playlist_falls_back_inside_radio() -> None:

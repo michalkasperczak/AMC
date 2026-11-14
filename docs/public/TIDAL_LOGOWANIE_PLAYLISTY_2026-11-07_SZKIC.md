@@ -26,7 +26,7 @@ Gdy AMC ma skonfigurowany identyfikator swojej aplikacji katalogu, użytkownik l
 
 ## Dodawanie do playlist — Ctrl+Shift+P
 
-Na utworze, zaznaczeniu albo otwartym albumie naciśnij Ctrl+Shift+P. Lista zawiera nazwy playlist i stan zaznaczenia, np. „Ulubione, niezaznaczona”. W TIDAL przed każdą nazwą nie ma już powtarzanego „Playlista TIDAL”.
+Na utworze albo kilku zaznaczonych utworach naciśnij Ctrl+Shift+P. Z otwartego albumu dodawane są wskazane utwory; aby dodać cały album, zaznacz sam album na liście albumów. Korekta z 14.11.2026 zastępuje wcześniejszy opis sugerujący, że samo otwarcie albumu wybiera wszystkie utwory. Lista zawiera nazwy playlist i stan zaznaczenia, np. „Ulubione, niezaznaczona”. W TIDAL przed każdą nazwą nie ma już powtarzanego „Playlista TIDAL”.
 
 - Strzałki wybierają wiersz, a litery służą do przejścia do nazwy, np. U do „Ulubione”.
 - Enter na liście dodaje wybrane materiały do wskazanej playlisty. Nie musisz najpierw zaznaczać jej Spacją ani przechodzić Tabem do przycisku.
@@ -36,6 +36,8 @@ Na utworze, zaznaczeniu albo otwartym albumie naciśnij Ctrl+Shift+P. Lista zawi
 - Po udanym dodaniu AMC zapamiętuje potwierdzone playlisty. Ponowne otwarcie ustawia kursor na pierwszym zapamiętanym celu. Przy pojedynczym celu wrócisz na ostatnio używaną playlistę.
 
 Utworzona i potwierdzona playlista trafia do pamięci listy. Ponowne otwarcie korzysta z migawki z tej sesji aplikacji; zmiany z innych programów mogą wymagać odświeżenia lub ponownego uruchomienia. Serwer sprawdza uprawnienia ponownie przy dodawaniu. Częściowy błąd nie jest przedstawiany jako powodzenie dla wszystkich celów. Wspólne okno Spotify ma takie same zasady Enter i Spacji.
+
+Korekta z 14.11.2026: po zapisie TIDAL komunikat podaje liczbę pozycji potwierdzonych przez usługę oraz osobno pozycje pominięte lub niepotwierdzone. Ten punkt jest szkicem dla następnego wydania; nie opisuje jeszcze zainstalowanej wersji.
 
 ## Powrót do odtwarzacza i język
 

@@ -293,14 +293,27 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath, string profi
             var completed = new List<string>();
             var completedIds = new List<string>();
             var failed = new List<string>();
+            var addedCount = 0;
             foreach (var playlist in playlists)
             {
                 try
                 {
-                    integration.AddPlaylistItemsAsync(playlist, tracks, CancellationToken.None)
+                    var outcome = integration.AddPlaylistItemsWithResultAsync(
+                            playlist, tracks, CancellationToken.None)
                         .GetAwaiter().GetResult();
-                    completed.Add(playlist.Title);
-                    completedIds.Add(playlist.ExternalId!);
+                    addedCount += outcome.Addition.AddedCount;
+                    if (outcome.Addition.AddedCount > 0)
+                    {
+                        completed.Add(playlist.Title);
+                        completedIds.Add(playlist.ExternalId!);
+                    }
+                    if (outcome.Addition.SkippedCount > 0)
+                        failed.Add($"{playlist.Title}: pozycje pominięte przez TIDAL: {outcome.Addition.SkippedCount}");
+                    var unknown = outcome.Addition.UnconfirmedCount - outcome.Addition.SkippedCount;
+                    if (unknown > 0)
+                        failed.Add($"{playlist.Title}: pozycje bez potwierdzenia: {unknown}");
+                    if (outcome.Items is null)
+                        failed.Add($"{playlist.Title}: nie udało się odświeżyć widoku playlisty");
                 }
                 catch (Exception exception)
                 {
@@ -310,14 +323,14 @@ internal sealed class LiteTidalCatalogCoordinator(string statePath, string profi
                     failed.Add($"{playlist.Title}: {reason}");
                 }
             }
-            var message = completed.Count > 0
-                ? $"Dodano {tracks.Count} utworów do {completed.Count} playlist TIDAL."
-                : "Nie dodano utworów do playlist TIDAL.";
+            var message = addedCount > 0
+                ? $"Dodane pozycje: {addedCount}. Zmienione playlisty TIDAL: {completed.Count}."
+                : "Nie dodano pozycji do playlist TIDAL.";
             if (failed.Count > 0)
                 message += $" Niepowodzenie: {string.Join("; ", failed)}";
             return new
             {
-                added = completed.Count > 0 ? tracks.Count : 0,
+                added = addedCount,
                 playlists = completed.Count,
                 succeededPlaylistExternalIds = completedIds,
                 message

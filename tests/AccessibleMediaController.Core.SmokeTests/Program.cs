@@ -27,6 +27,11 @@ if (args.Length == 1 && args[0] == "--podcast-download-naming")
     try { TestPodcastDownloadNaming(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--tidal-playlist-add")
+{
+    try { TestTidalIntegrationFoundation(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--spotify-membership")
 {
     try { SpotifyMembershipWriteTests.Run(); return 0; }
@@ -661,8 +666,12 @@ static void TestTidalIntegrationFoundation()
         Equal("album-1", resource.GetProperty("id").GetString());
     }
 
-    api.AddPlaylistItemsAsync("token", playlist, [playlistItems[1]], CancellationToken.None)
+    var addition = api.AddPlaylistItemsAsync(
+            "token", playlist, [playlistItems[1], playlistItems[0]], CancellationToken.None)
         .GetAwaiter().GetResult();
+    Equal(2, addition.RequestedCount);
+    Equal(1, addition.AddedCount);
+    Equal(1, addition.SkippedCount);
     var playlistAdd = handler.RequestDetails.Last(detail =>
         detail.Method == "POST"
         && detail.Uri.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal));
@@ -671,9 +680,11 @@ static void TestTidalIntegrationFoundation()
         "Dodawanie do playlisty TIDAL musi mieć klucz idempotencji.");
     using (var payload = JsonDocument.Parse(playlistAdd.Body))
     {
-        var resource = payload.RootElement.GetProperty("data")[0];
-        Equal("tracks", resource.GetProperty("type").GetString());
-        Equal("track-b", resource.GetProperty("id").GetString());
+        var resources = payload.RootElement.GetProperty("data");
+        Equal(2, resources.GetArrayLength());
+        Equal("tracks", resources[0].GetProperty("type").GetString());
+        Equal("track-b", resources[0].GetProperty("id").GetString());
+        Equal("track-a", resources[1].GetProperty("id").GetString());
     }
 
     api.RemovePlaylistItemsAsync("token", playlist, [playlistItems[2]], CancellationToken.None)
@@ -8392,6 +8403,9 @@ sealed class TidalApiRequestHandler : HttpMessageHandler
             : address.AbsolutePath.EndsWith("/albums/album-1/relationships/items", StringComparison.Ordinal)
               ? AlbumItems()
             : address.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal)
+              && request.Method == HttpMethod.Post
+              ? PlaylistAddResult()
+            : address.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal)
               && request.Method == HttpMethod.Get
               ? PlaylistItems()
             : address.AbsolutePath.EndsWith(
@@ -8417,6 +8431,17 @@ sealed class TidalApiRequestHandler : HttpMessageHandler
         trackNextPageReturned = true;
         return """{"data":[],"included":[],"links":{"next":"/userCollectionTracks/me/relationships/items?include=items.artists&page%5Bcursor%5D=20"}}""";
     }
+
+    private static string PlaylistAddResult() =>
+        """
+        {
+          "data": [
+            { "type": "tracks", "id": "track-b", "meta": { "itemId": "entry-b", "addedAt": "2026-11-14T12:00:00Z" } }
+          ],
+          "meta": { "skipped": [ { "type": "tracks", "id": "track-a", "reason": "NOT_FOUND" } ] },
+          "links": {}
+        }
+        """;
 
     private static string AlbumItems() =>
         """
