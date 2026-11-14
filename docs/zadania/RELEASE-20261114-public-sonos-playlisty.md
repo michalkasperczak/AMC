@@ -13,6 +13,7 @@ Użytkownik 14.11.2026 polecił przygotować Public z działającym lokalnym Son
 
 - Python: `test_release_profile.py`, `test_bundle_layout.py`, `test_installer_profiles.py`: **82 zaliczone**.
 - .NET: `AccessibleMediaController.PythonLauncher.Tests`: **46 zaliczonych**, w tym migracja Public bez Sonosa.
+- Po zapisie równoległej zmiany Apple Music: menu i klawisze dostępu **44 zaliczone** po poprawieniu dwóch pozycji usuwania z kolejki; playlisty na atrapach wx **34 zaliczone**; Sonos i Frontier Smart w rzeczywistym wx **61 zaliczonych**. Pierwsza próba połączenia testów prawdziwego wx i dialogów na atrapach w jednym procesie dała błąd konstrukcji atrapy; osobny proces przeszedł. Wspólne menu wykryło realny brak `&` w dwóch pozycjach kolejki, już poprawiony.
 - Szkic instalatora Test z wcześniejszego czystego commitu przeszedł kontrolę paczki; nowy wspólny zestaw źródeł będzie wymagał osobnych paczek i instalatorów. Nie przypisywać starego wyniku do nowej wersji.
 
 ## Ryzyko instalacji
