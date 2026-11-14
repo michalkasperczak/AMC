@@ -7,7 +7,7 @@ Użytkownik 14.11.2026 polecił przygotować Public z działającym lokalnym Son
 - Sesja Sonos pojawia się także w AMC Public jako istniejąca pozycja Menedżera sesji, menu Widok, pełnej pomocy, pomocy kontekstowej i palety. Dostępność wynika ze wspólnego modelu możliwości.
 - Public zawiera `sonos_source.py` i przypięte zależności SoCo. Instalator Public nie usuwa już tego modułu przy aktualizacji. Apple Music pozostaje poza Public.
 - Stan Test i Public, katalogi ustawień, przestrzenie poświadczeń, identyfikatory instalacji oraz kanały aktualizacji nadal są odrębne. Migracja starszego Public bez Sonosa jest akceptowana przez aktualizator.
-- Wydanie ma zawierać poprawkę dodawania wielu pozycji do playlist, potwierdzenie odpowiedzi TIDAL, zmiany kolejek i wcześniej zapisane prace nad YouTube oraz podcastami. Dokładny commit i wersję ustalić po zakończeniu równoległych zmian źródeł.
+- Wydanie `0.1.0-alpha.507` ma zawierać poprawkę dodawania wielu pozycji do playlist, potwierdzenie odpowiedzi TIDAL, zmiany kolejek i wcześniej zapisane prace nad YouTube oraz podcastami. Dokładny commit ustalić po zakończeniu równoległych zmian źródeł. Numer 507 jest wyższy od zainstalowanego w projektowym Test alpha.506.
 
 ## Weryfikacja bieżąca
 

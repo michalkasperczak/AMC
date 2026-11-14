@@ -1,6 +1,6 @@
 # AMC Test i Public — szkic następnego wydania
 
-Szkic z 14.11.2026. Wersja, data i identyfikatory instalatorów wymagają uzupełnienia po zbudowaniu z jednego commitu. Tekst do korekty użytkownika przed publikacją.
+Szkic z 14.11.2026 dla wersji `0.1.0-alpha.507`. Data i identyfikatory instalatorów wymagają uzupełnienia po zbudowaniu z jednego commitu. Tekst do korekty użytkownika przed publikacją.
 
 ## Co się zmienia
 
