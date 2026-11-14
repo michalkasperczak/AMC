@@ -25,3 +25,36 @@ Starsze AMC Test nadal działa z `C:\Users\micha\AppData\Local\Programs\AMC Test
 **Instrukcja:** W Menedżerze sesji AMC Public włącz Sonos. Wybierz lokalny głośnik, a następnie steruj odtwarzaniem i przeglądaj dostępne źródła. `Ctrl+Shift+P` dodaje kilka zaznaczonych pozycji do playlist zgodnie z bieżącą sesją; w Radiu playlista stacji nie podaje łącznego czasu.
 
 **Lista zmian:** Dodano lokalnego Sonosa do Public. Zachowano osobne profile Test/Public. Sprawdzono migrację starszego Public. Do wspólnego wydania wchodzą potwierdzone poprawki playlist i zapisane zmiany YouTube oraz podcastów. Ten tekst jest szkicem do korekty użytkownika, bez automatycznej publikacji.
+
+## Korekta 14.11.2026 — pełne wyłączenie Apple Music w Public
+
+Użytkownik polecił aktualizację obu profili: Test ze wszystkimi ostatnimi
+zmianami, Public z Sonosem, YouTube, kolejkami i podcastami, bez Apple Music.
+Podczas kontroli pierwszej paczki Public wykryto, że brak sesji nie usuwał
+publicznego wyszukiwania linku Apple Music z historii rozpoznawania utworów.
+Ta korekta doprecyzowuje wcześniejsze zdanie „Apple Music pozostaje poza
+Public”: Public nie pokazuje także działań Apple Music w szybkiej liście ani
+menu kontekstowym rozpoznanego utworu, a moduł wyszukiwania linku nie trafia
+do paczki. Test zachowuje te działania. Spotify, TIDAL i pozostałe linki
+historii rozpoznawania pozostają dostępne w obu profilach.
+
+Wspólny model działań historii rozpoznawania przyjmuje możliwość z aktywnego
+profilu. Import modułu linków Apple Music następuje tylko w Test; próba
+rozwiązania takiego linku w Public kończy się bez uruchomienia usługi.
+Zmieniono `recognition_actions.py`, `gui.py` i `build_bundle.py` oraz testy
+`test_recognition_actions.py` i `test_bundle_layout.py`.
+
+Testy przed tą korektą: **208 zaliczonych i 3 podtesty** dla profili, Apple
+Music, podcastów, kolejek i menu; **123 zaliczone i 2 podtesty** dla Sonosa,
+YouTube, podcastów i kolejek; **46 zaliczonych** samodzielnych testów .NET
+launchera i aktualizatora. Po korekcie: testy rozpoznawania, profilu, pakietu
+i menu **125 zaliczonych**. Pierwsze paczki z commitu `6e708c11` przeszły
+kontrolę integralności i cichy start, ale są nieaktualne wobec tej poprawki
+i nie mogą być użyte do instalacji ani publikacji. Nowe buildy, instalatory,
+instalacja i NVDA wymagają osobnego potwierdzenia.
+
+Materiał do dokumentacji użytkownika — projekt: AMC Public pokazuje Sonosa,
+zmiany YouTube, kolejek i podcastów. W historii rozpoznawania utworów można
+korzystać z działań Spotify i TIDAL; działania Apple Music są dostępne tylko
+w AMC Test. Opis jest projektem do korekty po odbiorze, nie opublikowaną
+instrukcją.

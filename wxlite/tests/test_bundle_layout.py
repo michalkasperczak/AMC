@@ -113,6 +113,7 @@ def test_public_python_package_contains_frontier_sonos_and_omits_apple_music():
         assert not (package / "apple_music_credentials.py").exists()
         assert not (package / "apple_music_library.py").exists()
         assert not (package / "apple_music_source.py").exists()
+        assert not (package / "apple_music_links.py").exists()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
         assert (package / "sonos_source.py").is_file()

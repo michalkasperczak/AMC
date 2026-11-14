@@ -74,6 +74,18 @@ def test_shared_action_model_keeps_right_arrow_short_and_context_complete() -> N
     assert "Apple Music — wyszukaj w przeglądarce" in labels
 
 
+def test_public_profile_omits_apple_music_from_recognition_actions() -> None:
+    entry = _entry()
+    quick = quick_actions(entry, TIDAL, apple_music_enabled=False)
+    complete = all_actions(entry, TIDAL, apple_music_enabled=False)
+    assert quick
+    assert set(quick).issubset(set(complete))
+    assert all(action.service != APPLE_MUSIC for action in complete)
+    assert all("Apple Music" not in action.label for action in complete)
+    assert any(action.service == SPOTIFY for action in complete)
+    assert any(action.service == TIDAL for action in complete)
+
+
 def test_recognized_membership_uses_album_for_library_and_track_for_favorites() -> None:
     for service in (SPOTIFY, TIDAL):
         match = match_from_row(service, _spotify_row())

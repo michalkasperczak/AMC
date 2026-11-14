@@ -409,7 +409,8 @@ from .radio_activity import (
     state_position_value,
 )
 from . import radio_recognition
-from . import apple_music_links
+if "session.apple-music" in _RELEASE_PROFILE.capabilities:
+    from . import apple_music_links
 from .recognition_actions import (
     APPLE_MUSIC,
     DEFAULT_SERVICES,
@@ -8279,6 +8280,9 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
                 entry,
                 self._default_service,
                 internal_services=self._internal_services,
+                apple_music_enabled=(
+                    "session.apple-music" in current_profile().capabilities
+                ),
             ),
             copy_to_clipboard=self._copy_to_clipboard,
             resolve_action=self._resolve_action,
@@ -8414,6 +8418,9 @@ class RadioRecognitionHistoryDialog(wx.Dialog):
             entry,
             self._default_service,
             internal_services=self._internal_services,
+            apple_music_enabled=(
+                "session.apple-music" in current_profile().capabilities
+            ),
         ):
             item_id = int(wx.NewIdRef())
             services.Append(item_id, action.label)
@@ -37041,6 +37048,8 @@ class LiteFrame(wx.Frame):
         if cached is not None:
             return cached
         if service == APPLE_MUSIC:
+            if "session.apple-music" not in current_profile().capabilities:
+                return None
             return apple_music_links.resolve_public_links(entry)
         client = self.client
         if client is None:

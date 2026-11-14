@@ -86,6 +86,7 @@ PROFILE_GATED_SERVICE_MODULES = {
     "apple_music_account.py": "apple-music.experimental",
     "apple_music_credentials.py": "apple-music.experimental",
     "apple_music_library.py": "apple-music.experimental",
+    "apple_music_links.py": "apple-music.experimental",
     "apple_music_original.py": "apple-music.experimental",
     "apple_music_source.py": "apple-music.experimental",
     "apple_music_web.py": "apple-music.experimental",

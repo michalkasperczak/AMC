@@ -325,6 +325,7 @@ def all_actions(
     default_service: object,
     *,
     internal_services: tuple[str, ...] = DEFAULT_SERVICES,
+    apple_music_enabled: bool = True,
 ) -> tuple[RecognitionAction, ...]:
     default = normalize_default_service(default_service)
     internal = frozenset(internal_services).intersection(DEFAULT_SERVICES)
@@ -375,16 +376,14 @@ def all_actions(
             "tidal.search", f"{subject}, utwór — wyszukaj na stronie TIDAL", "open_url",
             TIDAL, "track", url=links["TIDAL"], quick=True,
         ))
-    actions.append(RecognitionAction(
-        "apple.copy.track", f"{subject}, utwór — kopiuj link Apple Music",
-        "copy_link", APPLE_MUSIC, "track", quick=True,
-    ))
-    actions.append(
-        RecognitionAction(
+    if apple_music_enabled:
+        actions.extend((RecognitionAction(
+            "apple.copy.track", f"{subject}, utwór — kopiuj link Apple Music",
+            "copy_link", APPLE_MUSIC, "track", quick=True,
+        ), RecognitionAction(
             "apple.external.track", "Apple Music — otwórz utwór", "open_external",
             APPLE_MUSIC, "track",
-        )
-    )
+        )))
     if SPOTIFY in internal:
         actions.extend((RecognitionAction(
             "spotify.amc.album", "Spotify — pokaż album w AMC", "show_amc",
@@ -403,15 +402,16 @@ def all_actions(
             "tidal.external.album", "TIDAL — otwórz album", "open_external",
             TIDAL, "album",
         )))
-    actions.extend((
-        RecognitionAction(
+    if apple_music_enabled:
+        actions.extend((RecognitionAction(
             "apple.external.album", "Apple Music — otwórz album", "open_external",
             APPLE_MUSIC, "album",
         ),
         RecognitionAction(
             "apple.search", "Apple Music — wyszukaj w przeglądarce", "open_url",
             url=links["Apple Music"],
-        ),
+        )))
+    actions.extend((
         RecognitionAction(
             "youtube.search", "YouTube Music — wyszukaj", "open_url",
             url=links["YouTube Music"],
@@ -437,6 +437,7 @@ def quick_actions(
     default_service: object,
     *,
     internal_services: tuple[str, ...] = DEFAULT_SERVICES,
+    apple_music_enabled: bool = True,
 ) -> tuple[RecognitionAction, ...]:
     actions = tuple(
         action
@@ -444,6 +445,7 @@ def quick_actions(
             entry,
             default_service,
             internal_services=internal_services,
+            apple_music_enabled=apple_music_enabled,
         )
         if action.quick
     )
