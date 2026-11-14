@@ -1,6 +1,8 @@
 # QUEUE-002 — kolejki AMC Test i Public
 
-Stan: 14.11.2026. Użytkownik zlecił przegląd aktywnego AMC Test wxPython,
+Stan: 14.11.2026. Test i Public alpha.503 wydane oraz zainstalowane;
+odbiór własnym odsłuchem NVDA i kont internetowych pozostaje otwarty.
+Użytkownik zlecił przegląd aktywnego AMC Test wxPython,
 z którego powstaje AMC Public. To zastępuje planistyczną decyzję z 30.10.2026
 o odłożeniu przeglądu. Historyczny kod WPF nie należy do tego zadania.
 
@@ -31,8 +33,12 @@ o odłożeniu przeglądu. Historyczny kod WPF nie należy do tego zadania.
   komunikatów czasu, odczytu długości, przenoszenia/Delete i skrótów.
 - Test silnika `--queue`: zaliczony po dodaniu przypadków przestawienia,
   Delete następnego oraz Delete grającego wpisu i dalszego przestawienia.
-- Kompilacja LiteHost: zaliczona. Testy pełne, paczki, instalatory,
-  instalacja, publikacja i ręczny odsłuch NVDA: odnotować po wykonaniu.
+- Kompilacja LiteHost: zaliczona. Pełny zestaw protokołu: 34 zestawy zaliczone.
+- Pełny zestaw Python w środowisku offline bez prawdziwego wxPython: 2754
+  zaliczone, 23 nieudane, 117 pominiętych, 34 podtesty zaliczone. Niepowodzenia
+  obejmują starsze założenia testów profilu, ustawień, menu i GUI; dotyczący
+  kolejki stary test opisu Page Down poprawiono i zaliczono ponownie.
+  Nie traktować pełnego zestawu jako zielonego.
 
 ## Szkic instrukcji i listy zmian do korekty użytkownika
 
@@ -50,6 +56,45 @@ utworem po Delete.
 
 ## Wersja i ograniczenia
 
-Planowana wersja: `0.1.0-alpha.503`. Commit i wynik wydania do uzupełnienia.
+Wydana wersja: `0.1.0-alpha.503`. Commit paczek i instalatorów:
+`5299b856361248538070de010ba85adc0aa736ce`.
 Ręczne potwierdzenie NVDA oraz rzeczywiste konta Spotify/TIDAL/Radio
 Archiwisty wymagają odbioru na zainstalowanej aplikacji.
+
+## Wynik wydania i instalacji — 14.11.2026
+
+- GitHub potwierdził commit źródła na gałęzi
+  `codex/amc-test-public-20261109`. Obie paczki mają `sourceDirty=false`,
+  Test 4730 plików, Public 3153. Pełna integralność i kontrolowany start GUI
+  i hosta przeszły osobno dla obu paczek oraz po instalacji.
+- Test: `D:\Projekty Codex\AMC - integracja wxPython\publish\test-queue-alpha503-20261114\AMC-Test-2026-11-14-0259.exe`,
+  218499811 bajtów, SHA-256
+  `19a6695b89351eda6499665d9191feb7b45942893cd3563e6cefb1fd8c546eba`.
+  GitHub prerelease `test-2026.11.14.0259` zawiera instalator, plik
+  integralności i manifest aktualizacji. Zdalna nazwa, rozmiar, stan
+  `uploaded` oraz SHA-256 instalatora są zgodne z lokalnym plikiem.
+- Public: `D:\Projekty Codex\AMC - integracja wxPython\publish\public-queue-alpha503-20261114\AMC-Public-2026-11-14-0304.exe`,
+  133954042 bajty, SHA-256
+  `7397751fd4126a4a48f4c6ac2a529bd441b18b6d009e74c547e5def29542c6eb`.
+  GitHub stabilne wydanie `public-2026.11.14.0304` zawiera te same trzy typy
+  plików; zdalna nazwa, rozmiar, stan i SHA-256 są zgodne.
+- Przed aktualizacją Test w widoku aktywnych nagrań pokazał „zero elementów”.
+  Zamknięto go zwykłą drogą. Cztery pliki profilu Test i cztery Public
+  skopiowano do osobnych folderów pod
+  `D:\Projekty Codex\AMC - kopie prywatne` i zweryfikowano SHA-256.
+  Instalatory zakończyły się kodem 0. Wszystkie osiem plików profili po
+  instalacji jest bajtowo zgodnych z kopiami.
+- Test uruchomiono dokładnie z `D:\Projekty Codex\AMC Python\AMC.exe`.
+  Okno `AMC Test — 14.11.2026, 02:59`, GUI
+  `D:\Projekty Codex\AMC Python\runtime\python.exe` oraz host z tego
+  samego folderu zostały potwierdzone. Public pozostał zamknięty, tak jak
+  przed aktualizacją; jego zainstalowana paczka przeszła kontrolowany start
+  z izolowanym profilem.
+- Na rzeczywistym oknie Test `Ctrl+Q` w Plikach otworzył zapisaną kolejkę,
+  ustawił fokus na natywnej liście i podał dostępny tekst:
+  „Biblioteka — Kolejka (zapisana), 6 pozycji, łączny czas trwania 4 godz. 56 min”.
+  Nie zmieniano wpisów użytkownika. Faktycznej wypowiedzi NVDA i działania
+  na kontach Spotify/TIDAL/Radio Archiwisty nie przechwycono; odbiór otwarty.
+
+Szkic instrukcji i listy zmian powyżej pozostaje materiałem do korekty
+użytkownika, nie jest osobno opublikowanym podręcznikiem.
