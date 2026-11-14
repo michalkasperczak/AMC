@@ -39,17 +39,14 @@ if ($Profile -in @("test", "public")) {
     }
 }
 $sonosSource = ""
-if ($Profile -eq "test") {
+if ($Profile -in @("test", "public")) {
     if ([string]::IsNullOrWhiteSpace($SonosSitePackages)) {
-        throw "Lokalny Sonos w AMC Test wymaga -SonosSitePackages z osobnego venv."
+        throw "Lokalny Sonos wymaga -SonosSitePackages z osobnego venv."
     }
     $sonosSource = [IO.Path]::GetFullPath($SonosSitePackages)
     if (-not (Test-Path -LiteralPath $sonosSource -PathType Container)) {
         throw "Nie istnieje katalog zależności Sonosa: $sonosSource"
     }
-}
-elseif (-not [string]::IsNullOrWhiteSpace($SonosSitePackages)) {
-    throw "Profil AMC Public nie przyjmuje zależności lokalnego Sonosa."
 }
 $appleMusicSource = ""
 if ($Profile -eq "test") {
@@ -172,8 +169,10 @@ try {
     if ($Profile -in @("test", "public")) {
         $bundleArguments += @("--tidal-site-packages", $tidalSource)
     }
-    if ($Profile -eq "test") {
+    if ($Profile -in @("test", "public")) {
         $bundleArguments += @("--sonos-site-packages", $sonosSource)
+    }
+    if ($Profile -eq "test") {
         $bundleArguments += @("--apple-music-site-packages", $appleMusicSource)
     }
     Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments

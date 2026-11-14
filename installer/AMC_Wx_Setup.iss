@@ -141,8 +141,8 @@ Source: "{#AmcNvdaUpdateHelperPath}"; DestDir: "{tmp}"; DestName: "amc-nvda-upda
 ; obecne w poprzedniej wersji paczki. Publiczna aktualizacja musi więc usunąć
 ; źródła usług niedostępnych w tym profilu także przy instalacji na istniejący
 ; katalog. Bez tego wycofany moduł pozostawał po aktualizacji mimo jego braku
-; w bundle-manifest.json. Frontier Smart jest obsługiwany przez profil
-; publiczny, a wycofany z Public moduł Sonosa musi zniknąć przy aktualizacji.
+; w bundle-manifest.json. Frontier Smart i lokalny Sonos są obsługiwane przez
+; profil publiczny.
 [InstallDelete]
 ; LibreSpot nie jest juz odtwarzaczem AMC. Usun stary host przy aktualizacji
 ; obu profili; ustawienia i dane kont uzytkownika pozostaja nietkniete.
@@ -150,11 +150,9 @@ Type: filesandordirs; Name: "{app}\host\LibrespotHost"
 Type: filesandordirs; Name: "{app}\host\licenses\librespot-dependencies"
 Type: files; Name: "{app}\host\licenses\librespot-MIT.txt"
 #if Profil == "public"
-Type: files; Name: "{app}\app\amc_wx_lite\sonos_source.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_playlist_dialog.py"
 Type: files; Name: "{app}\app\amc_wx_lite\spotify_source.py"
 Type: files; Name: "{app}\app\amc_wx_lite\tidal_source.py"
-Type: files; Name: "{app}\app\amc_wx_lite\__pycache__\sonos_source.*.pyc"
 Type: files; Name: "{app}\app\amc_wx_lite\__pycache__\spotify_playlist_dialog.*.pyc"
 Type: files; Name: "{app}\app\amc_wx_lite\__pycache__\spotify_source.*.pyc"
 Type: files; Name: "{app}\app\amc_wx_lite\__pycache__\tidal_source.*.pyc"

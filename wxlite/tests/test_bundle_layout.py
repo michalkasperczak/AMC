@@ -95,7 +95,7 @@ def test_python_package_replaces_stale_locale_resources():
         assert "app/amc_wx_lite/locales/en.json" in copied
 
 
-def test_public_python_package_contains_frontier_and_omits_disabled_services():
+def test_public_python_package_contains_frontier_sonos_and_omits_apple_music():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
         package = target / "app" / "amc_wx_lite"
@@ -107,7 +107,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
 
         assert "app/amc_wx_lite/gui.py" in copied
         assert (target / "requirements-tidal-test.txt").is_file()
-        assert not (target / "requirements-sonos-local-test.txt").exists()
+        assert (target / "requirements-sonos-local-test.txt").is_file()
         assert not (target / "requirements-apple-music-test.txt").exists()
         assert not (package / "apple_music_account.py").exists()
         assert not (package / "apple_music_credentials.py").exists()
@@ -115,7 +115,7 @@ def test_public_python_package_contains_frontier_and_omits_disabled_services():
         assert not (package / "apple_music_source.py").exists()
         profile = bundle.profile_from_id("public")
         assert (package / "frontier_smart_source.py").is_file()
-        assert not (package / "sonos_source.py").exists()
+        assert (package / "sonos_source.py").is_file()
         for name, capability in bundle.PROFILE_GATED_SERVICE_MODULES.items():
             if capability in profile.capabilities:
                 assert (package / name).is_file()
@@ -293,7 +293,7 @@ def test_public_package_rejects_all_google_login_configuration():
         assert not (test_package / bundle.YOUTUBE_OAUTH_PUBLIC_BROKER_RESOURCE).exists()
 
 
-def test_public_gui_imports_with_spotify_and_without_sonos():
+def test_public_gui_imports_with_spotify_and_sonos():
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder)
         bundle.copy_python_code(target, bundle.profile_from_id("public"))
@@ -321,7 +321,7 @@ def test_public_gui_imports_with_spotify_and_without_sonos():
                     "assert gui.SpotifyPlaylistDialog.__module__ == 'amc_wx_lite.service_playlist_dialog'; "
                     "assert 'amc_wx_lite.spotify_playlist_dialog' not in sys.modules; "
                     "assert 'amc_wx_lite.spotify_source' in sys.modules; "
-                    "assert not hasattr(gui, 'SonosPayloadError'); "
+                    "assert hasattr(gui, 'SonosPayloadError'); "
                     "assert hasattr(gui, 'FrontierSmartPayloadError')"
                 ),
             ],
@@ -346,7 +346,7 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     assert manifest["updateChannel"] == "stable"
     assert manifest["sessions"] == [
         session for session in bundle.profile_from_id("test").session_ids
-        if session not in {"sonos", "appleMusic"}
+        if session != "appleMusic"
     ]
     assert "spotify" in " ".join(manifest["capabilities"]).casefold()
     assert manifest["credentialNamespace"] != (
@@ -808,7 +808,7 @@ def test_tidal_dependency_gate_rejects_missing_from_both_profiles():
         )
 
 
-def test_pinned_sonos_dependencies_are_copied_only_into_test_profile():
+def test_pinned_sonos_dependencies_are_copied_into_both_profiles():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         target = root / "bundle"
@@ -830,25 +830,24 @@ def test_pinned_sonos_dependencies_are_copied_only_into_test_profile():
         )
 
         public_target = root / "bundle-public"
+        public_runtime = public_target / "runtime" / "Lib" / "site-packages"
+        public_runtime.mkdir(parents=True)
+        for name in bundle.SONOS_LOCAL_SHARED_METADATA:
+            (public_runtime / name).mkdir()
         public_copied = bundle.copy_sonos_local_dependencies(
             public_target, bundle.profile_from_id("public"), source_site
         )
-        assert public_copied == []
+        assert "runtime/Lib/site-packages/soco/__init__.py" in public_copied
         bundle.validate_sonos_local_dependencies(
             public_target, bundle.profile_from_id("public")
         )
 
 
-def test_public_profile_rejects_local_sonos_dependencies():
-    try:
-        bundle.validate_profile_files(
-            bundle.profile_from_id("public"),
-            ["runtime/Lib/site-packages/soco/core.py"],
-        )
-    except SystemExit as error:
-        assert "niedozwolone składniki" in str(error)
-    else:
-        raise AssertionError("Publiczny profil nie może zawierać SoCo")
+def test_public_profile_accepts_local_sonos_dependencies():
+    bundle.validate_profile_files(
+        bundle.profile_from_id("public"),
+        ["runtime/Lib/site-packages/soco/core.py"],
+    )
 
 
 def test_pinned_librespot_source_matches_local_provenance_and_license_inventory():
@@ -1091,10 +1090,12 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
             directory.mkdir()
         runtime_site = runtime / "Lib" / "site-packages"
         tidal_site = root / "tidal-venv" / "Lib" / "site-packages"
+        sonos_site = root / "sonos-venv" / "Lib" / "site-packages"
         runtime_site.mkdir(parents=True)
         tidal_site.mkdir(parents=True)
+        _prepare_sonos_dependency_sources(runtime_site, sonos_site)
         for name in bundle.TIDAL_SHARED_METADATA:
-            (runtime_site / name).mkdir()
+            (runtime_site / name).mkdir(exist_ok=True)
         for module_name, metadata_name in bundle.TIDAL_TEST_PACKAGES.values():
             module = tidal_site / module_name
             module.mkdir()
@@ -1116,6 +1117,7 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
                 "--out", str(target),
                 "--profile", "public",
                 "--tidal-site-packages", str(tidal_site),
+                "--sonos-site-packages", str(sonos_site),
                 "--host", str(host),
                 "--launcher", str(launcher),
                 "--updater", str(updater),
@@ -1131,6 +1133,8 @@ def test_full_public_bundle_omits_librespot_and_has_complete_sizes():
             (target / "bundle-manifest.json").read_text(encoding="utf-8")
         )
         assert manifest["releaseProfile"] == "public"
+        assert "sonos" in manifest["sessions"]
+        assert "sonos.local" in manifest["capabilities"]
         assert "librespotHost" not in manifest
         assert not any("librespot" in relative.casefold() for relative in manifest["files"])
         forbidden_modules = {

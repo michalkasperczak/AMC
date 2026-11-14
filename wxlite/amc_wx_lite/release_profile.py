@@ -130,13 +130,11 @@ PUBLIC_PROFILE = ReleaseProfile(
     credential_namespace="AccessibleMediaController.Public",
     session_ids=tuple(
         session for session in TEST_PROFILE.session_ids
-        if session not in {"sonos", "appleMusic"}
+        if session != "appleMusic"
     ),
     capabilities=tuple(
         capability for capability in TEST_PROFILE.capabilities
         if capability not in {
-            "session.sonos",
-            "sonos.local",
             "apple-music.experimental",
             "session.apple-music",
         }

@@ -184,7 +184,6 @@ def test_public_update_removes_modules_disabled_for_that_profile() -> None:
     install_delete = ISS[section_start : ISS.index("#endif", section_start)]
 
     for stale_name in (
-        "sonos_source.py",
         "spotify_playlist_dialog.py",
         "spotify_source.py",
         "tidal_source.py",
@@ -193,6 +192,7 @@ def test_public_update_removes_modules_disabled_for_that_profile() -> None:
         assert stale_name.removesuffix(".py") + ".*.pyc" in install_delete
 
     assert "frontier_smart_source" not in install_delete
+    assert "sonos_source" not in install_delete
 
 
 def test_installer_refuses_local_oauth_secrets() -> None:
@@ -316,8 +316,8 @@ def test_successful_update_restarts_without_confirmation_and_requests_foreground
 def test_bundle_builder_embeds_dotnet_and_private_python_runtime() -> None:
     assert "$hostOutput" in BUNDLE_BUILD
     assert "$host =" not in BUNDLE_BUILD
-    assert BUNDLE_BUILD.count('"--self-contained", "true"') == 3
-    assert BUNDLE_BUILD.count('"--artifacts-path"') == 3
+    assert BUNDLE_BUILD.count('"--self-contained", "true"') == 4
+    assert BUNDLE_BUILD.count('"--artifacts-path"') == 4
     assert '"--profile", $Profile' in BUNDLE_BUILD
     assert '"--runtime", $runtime' in BUNDLE_BUILD
     assert "--sprawdz-pakiet-pelny-cicho" in BUNDLE_BUILD

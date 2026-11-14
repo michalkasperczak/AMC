@@ -82,8 +82,7 @@ internal static class ReleaseProfileContract
 
     private static readonly string[] PublicCapabilities = Test.Capabilities
         .Where(capability => capability is not (
-            "session.sonos" or "sonos.local" or "apple-music.experimental" or
-            "session.apple-music"))
+            "apple-music.experimental" or "session.apple-music"))
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Public = new(
@@ -98,7 +97,7 @@ internal static class ReleaseProfileContract
         "AMC/cache",
         "AMC/logs",
         "AccessibleMediaController.Public",
-        Test.Sessions.Where(session => session is not ("sonos" or "appleMusic")).ToArray(),
+        Test.Sessions.Where(session => session is not "appleMusic").ToArray(),
         PublicCapabilities,
         @"Local\AccessibleMultimediaController.PythonLauncher.Public.SingleInstance",
         @"Local\AccessibleMultimediaController.PythonUpdater.Public.SingleInstance",

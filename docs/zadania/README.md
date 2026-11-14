@@ -754,6 +754,7 @@ zmian, wymagający korekty użytkownika:
 
 ## Krótkie polecenia użytkownika
 
+- `RELEASE-20261114-PUBLIC-SONOS` — **Zakres Public skorygowany przez użytkownika; kod profilu i testy migracji gotowe, nowe paczki oraz instalacja w toku** — lokalny Sonos w Public, wraz z poprawkami playlist i zapisanymi zmianami YouTube/podcastów. [RELEASE-20261114-public-sonos-playlisty.md](RELEASE-20261114-public-sonos-playlisty.md).
 - `PLAYLIST-BULK-20261114` — **Źródła i testy celowane gotowe; instalacja i publikacja osobnymi etapami** — wielokrotne zaznaczenie dla playlist w pięciu sesjach, potwierdzona liczba dodatków TIDAL oraz brak łącznego czasu dla playlist radia. [PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md](PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md).
 
 Wystarczy powiedzieć na przykład: `Uruchom zadanie NVDA-001`. Agent ma wtedy

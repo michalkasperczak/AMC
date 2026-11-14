@@ -77,6 +77,8 @@ wariantem chmurowym.
 
 ### Zakres wydania
 
+Korekta użytkownika z 14.11.2026: lokalny Sonos ma być dostępny również w AMC Public. Zastępuje to poniższe wcześniejsze ograniczenie do Test; historyczny opis pozostaje zapisem poprzedniego kandydata. Szczegóły bieżącego wydania: `RELEASE-20261114-public-sonos-playlisty.md`.
+
 - funkcja jest włączona wyłącznie w AMC Test;
 - AMC Public nie zawiera modułu ani zależności lokalnego Sonosa;
 - kod, kompilacja, paczka i testy automatyczne są gotowe;

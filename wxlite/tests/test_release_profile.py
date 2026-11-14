@@ -74,14 +74,15 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session not in {"sonos", "appleMusic"}
+        if session != "appleMusic"
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
     assert "spotify" in public_text
     assert "session.tidal" in public_text
     assert "tidal.native-playback" in public_text
     assert "youtube.account.readonly" in public_text
-    assert "sonos" not in public_text
+    assert "session.sonos" in PUBLIC_PROFILE.capabilities
+    assert "sonos.local" in PUBLIC_PROFILE.capabilities
     assert "frontier-smart" in public_text
     assert "radioarchiwista" in public_text
     assert "apple-music" not in public_text
@@ -89,10 +90,8 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
         if capability not in {
-            "session.sonos",
-            "sonos.local",
             "apple-music.experimental",
-                "session.apple-music",
+            "session.apple-music",
         }
     }
 
@@ -130,11 +129,8 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert (
-        '"session.sonos" or "sonos.local" or "apple-music.experimental" or'
-        in source
-    )
-    assert 'session is not ("sonos" or "appleMusic")' in source
+    assert '"apple-music.experimental" or "session.apple-music"' in source
+    assert 'session is not "appleMusic"' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
     quoted = re.compile(r'"([^"]+)"')
@@ -143,8 +139,6 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
     assert tuple(
         capability for capability in common + test_only
         if capability not in {
-            "session.sonos",
-            "sonos.local",
             "apple-music.experimental",
             "session.apple-music",
         }
@@ -318,6 +312,7 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             SessionId.PODCASTS,
             SessionId.TIDAL,
             SessionId.WIIM,
+            SessionId.SONOS,
             SessionId.SPOTIFY,
             SessionId.FRONTIER_SMART,
             SessionId.RADIOARCHIWISTA,
@@ -325,7 +320,7 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
         assert normalize(raw) == available_sessions()
         rows = dict(manager_labels(raw))
         assert set(rows) == set(available_sessions())
-        unchanged, message = enable(SessionId.SONOS, raw)
+        unchanged, message = enable(SessionId.APPLE_MUSIC, raw)
         assert unchanged == available_sessions()
         assert message == "Ta sesja nie jest dostępna w tym wydaniu AMC"
 
@@ -340,6 +335,7 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
             Action.SESSION_PODCASTS,
             Action.SESSION_TIDAL,
             Action.SESSION_WIIM,
+            Action.SESSION_SONOS,
             Action.SESSION_SPOTIFY,
             Action.SESSION_FRONTIER_SMART,
             Action.SESSION_RADIOARCHIWISTA,
@@ -350,5 +346,5 @@ def test_public_capability_model_filters_execution_manager_menu_and_palette() ->
         assert visible_session_actions <= palette_actions
         assert Action.SESSION_SPOTIFY in palette_actions
         assert Action.SESSION_TIDAL in palette_actions
-        assert Action.SESSION_SONOS not in palette_actions
+        assert Action.SESSION_SONOS in palette_actions
         assert Action.SESSION_FRONTIER_SMART in palette_actions

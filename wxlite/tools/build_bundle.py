@@ -291,7 +291,7 @@ def copy_python_code(
 ) -> list[str]:
     """Skopiuj wyłącznie moduły dozwolone przez profil wydania.
 
-    AMC Public zachowuje moduły wszystkich włączonych usług poza Sonos. Przy
+    AMC Public zachowuje moduły wszystkich włączonych usług. Przy
     odświeżeniu istniejącej paczki usuwamy dokładnie znane, niedozwolone pliki,
     aby stary kandydat nie zachował ich przez przypadek.
     """

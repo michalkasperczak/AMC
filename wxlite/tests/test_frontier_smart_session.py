@@ -36,13 +36,14 @@ from amc_wx_lite.shortcuts import (
 )
 
 
-def test_frontier_smart_exists_in_both_profiles_and_sonos_not_in_public() -> None:
+def test_frontier_smart_and_sonos_exist_in_both_profiles() -> None:
     assert "frontierSmart" in TEST_PROFILE.session_ids
     assert "session.frontier-smart" in TEST_PROFILE.capabilities
     assert "frontierSmart" in PUBLIC_PROFILE.session_ids
     assert "session.frontier-smart" in PUBLIC_PROFILE.capabilities
-    assert "sonos" not in PUBLIC_PROFILE.session_ids
-    assert "session.sonos" not in PUBLIC_PROFILE.capabilities
+    assert "sonos" in PUBLIC_PROFILE.session_ids
+    assert "session.sonos" in PUBLIC_PROFILE.capabilities
+    assert "sonos.local" in PUBLIC_PROFILE.capabilities
 
 
 def test_frontier_smart_device_activation_keeps_ids_out_of_spoken_rows() -> None:

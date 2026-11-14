@@ -47,7 +47,8 @@ internal static class Program
         ("aktualizator przyjmuje zgodny profil", UpdaterAcceptsMatchingProfile),
         ("aktualizator przyjmuje starszą nazwę AMC Public", UpdaterAcceptsLegacyPublicName),
         ("aktualizator rozszerza starszy AMC Public o nowe sesje", UpdaterAcceptsOlderPublicSubset),
-        ("aktualizator migruje starszy AMC Public z Sonosa na Frontier Smart", UpdaterAcceptsLegacyPublicSonosProfile),
+        ("aktualizator zachowuje starszy Sonos w AMC Public", UpdaterAcceptsLegacyPublicSonosProfile),
+        ("aktualizator rozszerza AMC Public o lokalnego Sonosa", UpdaterAcceptsPublicSonosExpansion),
         ("aktualizator przyjmuje starszy zakres tego samego profilu", UpdaterAcceptsKnownProfileExpansion),
         ("aktualizator odrzuca nieznany zakres starego profilu", UpdaterRejectsUnknownInstalledCapability),
         ("aktualizator odrzuca obcy profil", UpdaterRejectsDifferentProfile),
@@ -652,11 +653,25 @@ internal static class Program
         using var target = BundleFixture.Create(
             profile: ReleaseProfileContract.Public,
             sessionsOverride: ReleaseProfileContract.Public.Sessions
-                .Where(value => value != "frontierSmart")
-                .Append("sonos").ToArray(),
+                .Where(value => value != "frontierSmart").ToArray(),
             capabilitiesOverride: ReleaseProfileContract.Public.Capabilities
-                .Where(value => value != "session.frontier-smart")
-                .Append("session.sonos").ToArray());
+                .Where(value => value != "session.frontier-smart").ToArray());
+        var manifest = AccessibleMediaController.PythonUpdater.Program.LoadAndVerify(
+            source.Root,
+            target.Root,
+            ReleaseProfileContract.Public);
+        Equal("public", manifest.ReleaseProfile);
+    }
+
+    private static void UpdaterAcceptsPublicSonosExpansion()
+    {
+        using var source = BundleFixture.Create(profile: ReleaseProfileContract.Public);
+        using var target = BundleFixture.Create(
+            profile: ReleaseProfileContract.Public,
+            sessionsOverride: ReleaseProfileContract.Public.Sessions
+                .Where(value => value != "sonos").ToArray(),
+            capabilitiesOverride: ReleaseProfileContract.Public.Capabilities
+                .Where(value => value is not ("session.sonos" or "sonos.local")).ToArray());
         var manifest = AccessibleMediaController.PythonUpdater.Program.LoadAndVerify(
             source.Root,
             target.Root,
