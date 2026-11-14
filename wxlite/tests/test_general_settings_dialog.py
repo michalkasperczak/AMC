@@ -82,6 +82,7 @@ def test_settings_pages_and_storage_controls_follow_the_user_workflow() -> None:
     podcast_order = [
         "self.podcast_folder = FocusableReadOnlyTextCtrl(",
         "self.youtube_video_format = wx.Choice(",
+        "self.podcast_automatic_interval = wx.SpinCtrl(",
         "self.podcast_rss_interval = wx.SpinCtrl(",
         "self.podcast_youtube_interval = wx.SpinCtrl(",
         "self.podcast_refresh_batch = wx.SpinCtrl(",
@@ -251,6 +252,9 @@ def test_update_page_uses_focusable_status_fields_and_the_shared_command() -> No
 
 def test_podcast_settings_reach_the_database_owner_and_automatic_refresh() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    assert 'self.podcast_automatic_interval.SetName(' in source
+    assert '"zero oznacza tylko ręczne odświeżanie"' in source
+    assert 'self.podcast_automatic_interval.GetValue()' in source
     assert '"Liczba źródeł sprawdzanych w &jednym przebiegu:"' in source
     assert '"Liczba źródeł sprawdzanych &jednocześnie:"' not in source
     assert "client.configure_podcast_global_settings(" in source

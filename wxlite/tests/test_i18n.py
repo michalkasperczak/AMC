@@ -32,6 +32,26 @@ def test_ui_catalogs_have_exactly_the_same_nonempty_keys() -> None:
         assert all(isinstance(value, str) and value for value in catalog.values())
 
 
+def test_podcast_manual_refresh_setting_has_english_control_labels() -> None:
+    try:
+        i18n.configure("en")
+        assert i18n.ui_text(
+            "Automatyczny przebieg co &ile minut (0 = tylko na żądanie):"
+        ) == "Automatic run every how many &minutes (0 = on demand only):"
+        assert i18n.ui_text(
+            "Odstęp automatycznych przebiegów podcastów i YouTube w minutach; "
+            "zero oznacza tylko ręczne odświeżanie"
+        ) == (
+            "Automatic podcast and YouTube run interval in minutes; "
+            "zero means manual refresh only"
+        )
+        assert "manual refresh only" in i18n.command_description(
+            "settings.general", "Ustawienia programu"
+        )
+    finally:
+        i18n.configure("pl")
+
+
 def test_system_language_resolution_and_preference_validation() -> None:
     assert i18n.resolve_language("system", system_locale="pl_PL") == "pl"
     assert i18n.resolve_language("system", system_locale="Polish_Poland") == "pl"

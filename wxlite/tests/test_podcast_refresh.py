@@ -71,6 +71,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
         }
 
     frame = SimpleNamespace(
+        options=SimpleNamespace(podcast_automatic_refresh_interval_minutes=5),
         navigator=SimpleNamespace(
             active=SessionId.PODCASTS,
             session=state,
@@ -240,6 +241,32 @@ def test_automatic_refresh_waits_until_due_and_stays_silent() -> None:
     assert frame.spoken == []
     assert frame.statuses == ["Automatycznie dodano nowe odcinki: 2"]
     assert frame.refreshed_views == [{"announce_result": False}]
+
+
+def test_manual_only_setting_skips_automatic_refresh_without_blocking_f5() -> None:
+    frame = _frame()
+    frame.options.podcast_automatic_refresh_interval_minutes = 0
+    frame._podcast_automatic_refresh_due = 0.0
+
+    gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    gui.LiteFrame._refresh_podcasts(frame, refresh_all=False)
+
+    assert frame.automatic_calls == []
+    assert frame.calls == ["subscription-private-id"]
+
+
+def test_configured_automatic_interval_schedules_the_next_run() -> None:
+    frame = _frame()
+    frame.options.podcast_automatic_refresh_interval_minutes = 30
+    original = gui.time.monotonic
+    try:
+        gui.time.monotonic = lambda: 100.0
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    finally:
+        gui.time.monotonic = original
+
+    assert frame.automatic_calls == [True]
+    assert frame._podcast_automatic_refresh_due == 1900.0
 
 
 def test_automatic_refresh_waits_for_recording_to_finish() -> None:

@@ -381,6 +381,7 @@ class Options:
     podcast_separate_source_folders: bool = False
     podcast_rss_refresh_interval_minutes: int | None = None
     podcast_youtube_refresh_interval_minutes: int | None = None
+    podcast_automatic_refresh_interval_minutes: int = 5
     podcast_automatic_refresh_batch_size: int | None = None
     podcast_youtube_video_format: str = "mp4"
 
@@ -598,6 +599,16 @@ class Options:
                 setattr(self, name, max(0, min(10_080, int(value))))
             except (TypeError, ValueError, OverflowError):
                 setattr(self, name, None)
+        value = self.podcast_automatic_refresh_interval_minutes
+        if isinstance(value, bool):
+            self.podcast_automatic_refresh_interval_minutes = 5
+        else:
+            try:
+                self.podcast_automatic_refresh_interval_minutes = max(
+                    0, min(10_080, int(value))
+                )
+            except (TypeError, ValueError, OverflowError):
+                self.podcast_automatic_refresh_interval_minutes = 5
         if self.podcast_automatic_refresh_batch_size is not None:
             value = self.podcast_automatic_refresh_batch_size
             if isinstance(value, bool):

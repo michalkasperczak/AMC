@@ -5120,10 +5120,10 @@ class PodcastInboxSourcesDialog(wx.Dialog):
         explanation = wx.StaticText(
             self,
             label=text(
-                "Zaznaczone źródła AMC pokazuje pod Ctrl+I. Podcasty i kanały "
-                "YouTube sprawdza automatycznie; strony Facebooka sprawdza się ręcznie. "
-                "Pozostałe źródła możesz sprawdzić przez F5. Zapisane materiały "
-                "pozostają w Bibliotece."
+                "Zaznaczone źródła AMC pokazuje pod Ctrl+I. Automatyczne "
+                "sprawdzanie podcastów i YouTube ustawisz w Ustawieniach programu; "
+                "strony Facebooka sprawdza się ręcznie. Źródła możesz też "
+                "sprawdzić przez F5. Zapisane materiały pozostają w Bibliotece."
             ),
         )
         explanation.SetName(text("Informacja o źródłach skrzynki podcastów"))
@@ -9215,8 +9215,20 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             podcast_refresh_heading, 0, wx.BOTTOM | wx.EXPAND, 8
         )
 
+        automatic_interval_label = wx.StaticText(
+            podcasts,
+            label="Automatyczny przebieg co &ile minut (0 = tylko na żądanie):",
+        )
+        self.podcast_automatic_interval = wx.SpinCtrl(
+            podcasts, min=0, max=10_080,
+            initial=options.podcast_automatic_refresh_interval_minutes,
+        )
+        self.podcast_automatic_interval.SetName(
+            "Odstęp automatycznych przebiegów podcastów i YouTube w minutach; "
+            "zero oznacza tylko ręczne odświeżanie"
+        )
         rss_label = wx.StaticText(
-            podcasts, label="Odstęp dla &podcastów w minutach:"
+            podcasts, label="Domyślny odstęp nowego &podcastu w minutach:"
         )
         self.podcast_rss_interval = wx.SpinCtrl(
             podcasts, min=0, max=10_080,
@@ -9227,10 +9239,10 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             ),
         )
         self.podcast_rss_interval.SetName(
-            "Odstęp automatycznego sprawdzania podcastów w minutach; zero wyłącza"
+            "Domyślny minimalny odstęp nowego podcastu w minutach; zero wyłącza"
         )
         youtube_label = wx.StaticText(
-            podcasts, label="Odstęp dla kanałów &YouTube w minutach:"
+            podcasts, label="Domyślny odstęp nowego kanału &YouTube w minutach:"
         )
         self.podcast_youtube_interval = wx.SpinCtrl(
             podcasts, min=0, max=10_080,
@@ -9241,7 +9253,8 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             ),
         )
         self.podcast_youtube_interval.SetName(
-            "Odstęp automatycznego sprawdzania kanałów YouTube w minutach; zero wyłącza"
+            "Domyślny minimalny odstęp nowego kanału YouTube w minutach; "
+            "zero wyłącza"
         )
         batch_label = wx.StaticText(
             podcasts, label="Liczba źródeł sprawdzanych w &jednym przebiegu:"
@@ -9258,6 +9271,7 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "Liczba źródeł sprawdzanych w jednym przebiegu"
         )
         for label, control in (
+            (automatic_interval_label, self.podcast_automatic_interval),
             (rss_label, self.podcast_rss_interval),
             (youtube_label, self.podcast_youtube_interval),
             (batch_label, self.podcast_refresh_batch),
@@ -10524,6 +10538,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "podcast_youtube_refresh_interval_minutes": (
                 self.podcast_youtube_interval.GetValue()
             ),
+            "podcast_automatic_refresh_interval_minutes": (
+                self.podcast_automatic_interval.GetValue()
+            ),
             "podcast_youtube_video_format": self._youtube_video_format_values[
                 max(0, self.youtube_video_format.GetSelection())
             ],
@@ -10786,7 +10803,11 @@ class LiteFrame(wx.Frame):
         self._last_local_resume_error: str | None = None
         self._podcast_refresh_pending = False
         self._podcast_automatic_refresh_pending = False
-        self._podcast_automatic_refresh_due = time.monotonic() + 300.0
+        automatic_interval = self.options.podcast_automatic_refresh_interval_minutes
+        self._podcast_automatic_refresh_due = (
+            time.monotonic() + automatic_interval * 60.0
+            if automatic_interval > 0 else float("inf")
+        )
         self._last_automatic_podcast_error: str | None = None
         self._radio_recognition_pending = False
         self._radio_recognition_history_dialog: RadioRecognitionHistoryDialog | None = None
@@ -33802,6 +33823,15 @@ class LiteFrame(wx.Frame):
             self.state.shortcut_overrides = previous_shortcuts
             self.state.options = self.options
             return
+        if (
+            previous["podcast_automatic_refresh_interval_minutes"]
+            != self.options.podcast_automatic_refresh_interval_minutes
+        ):
+            automatic_interval = self.options.podcast_automatic_refresh_interval_minutes
+            self._podcast_automatic_refresh_due = (
+                time.monotonic() + automatic_interval * 60.0
+                if automatic_interval > 0 else float("inf")
+            )
         previous_interface_language = i18n.active_language()
         current_interface_language = i18n.reconfigure_window_tree(
             self,
@@ -35129,20 +35159,22 @@ class LiteFrame(wx.Frame):
         self._recognize_radio_track(automatic=True)
 
     def _refresh_due_podcasts_automatically(self) -> None:
-        """Co piec minut sprawdz nalezne zrodla, poza czasem nagrywania."""
+        """Sprawdz nalezne zrodla wedlug ustawionego taktu, poza nagrywaniem."""
         client = self.client
         now = time.monotonic()
+        automatic_interval = self.options.podcast_automatic_refresh_interval_minutes
         recording_status = getattr(self, "_last_recording_status", {}) or {}
         if (
             client is None
             or not self.podcasts.is_available
+            or automatic_interval <= 0
             or self._podcast_refresh_pending
             or self._podcast_automatic_refresh_pending
             or now < self._podcast_automatic_refresh_due
             or recording_blocks_application_update(recording_status)
         ):
             return
-        self._podcast_automatic_refresh_due = now + 300.0
+        self._podcast_automatic_refresh_due = now + automatic_interval * 60.0
         self._podcast_automatic_refresh_pending = True
         self._podcast_refresh_pending = True
 

@@ -358,16 +358,19 @@ a ciężka przebudowa listy czeka, gdy użytkownik pozostaje w odtwarzaczu.
 `Ctrl+Shift+L` na odcinku dodaje lub usuwa jego podcast nadrzędny, ponieważ
 pojedynczy odcinek nie ma osobnej przynależności do Biblioteki.
 
-Automatyczne sprawdzanie źródeł w sesji Podcasty i YouTube wykonuje jeden
-przebieg co pięć minut, obejmujący najwyżej liczbę źródeł ustawioną w
-Ustawieniach ogólnych. Nowy przebieg czeka podczas nagrywania oraz zanim AMC
-pozna stan nagrywania; rozpoczęta wcześniej porcja może się dokończyć. Przy
-dużej liczbie źródeł odstęp wpisany dla pojedynczego
-podcastu lub kanału jest minimalnym odstępem, a następny przebieg może wypaść
-później. Kanały pozostają w Bibliotece; F5 i Ctrl+F5 nadal pozwalają odświeżyć
-je ręcznie. Automat nie odczytuje ponownie nagłówka listy, gdy nie przybyło
-odcinków. Gdy przybyły nowe pozycje, odświeża widoczną listę bez dodatkowego
-komunikatu; podczas odtwarzania pozostawia odtwarzacz na miejscu.
+W **Ustawieniach programu → Podcasty i YouTube → Automatyczne odświeżanie**
+ustawisz odstęp automatycznych przebiegów w minutach. Wartość domyślna to 5;
+`0` oznacza tylko odświeżanie na żądanie. F5 sprawdza wybrane źródło, a
+Ctrl+F5 wszystkie źródła, również przy wyłączonym automacie. Jeden przebieg
+obejmuje najwyżej ustawioną liczbę źródeł. Osobne odstępy RSS i YouTube są
+wartościami domyślnymi dla nowych źródeł; zapisane już źródła zachowują własny
+minimalny odstęp. Dlatego przy dużej Bibliotece źródło może zostać sprawdzone
+później niż po ustawionym czasie. Nowy przebieg czeka podczas nagrywania oraz
+zanim AMC pozna jego stan; rozpoczęta wcześniej porcja może się dokończyć.
+Także zmiana ustawienia na `0` nie przerywa przebiegu, który już trwa.
+Automat nie odczytuje ponownie nagłówka listy, gdy nie przybyło odcinków. Gdy
+przybyły nowe pozycje, odświeża widoczną listę bez dodatkowego komunikatu;
+podczas odtwarzania pozostawia odtwarzacz na miejscu.
 
 W sesji WiiM `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
 importuje M3U, M3U8 albo PLS, a `Ctrl+E` eksportuje listę. `Ctrl+L` pozostaje

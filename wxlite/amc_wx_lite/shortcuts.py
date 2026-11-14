@@ -2980,9 +2980,11 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Następne dostępne urządzenie audio bieżącej sesji"
         ),
         Action.GENERAL_SETTINGS: (
-            "Ustawienia programu; na karcie Komunikaty dostępności ustawisz "
-            "odczyt listy strzałkami i kolejność pól przez Alt+góra/dół, "
-            "a na karcie Radio i nagrywanie długość oraz folder bufora Time Shift"
+            "Ustawienia programu; na karcie Podcasty i YouTube ustawisz "
+            "automatyczne przebiegi lub tylko ręczne odświeżanie, "
+            "na karcie Komunikaty dostępności odczyt listy strzałkami "
+            "i kolejność pól przez Alt+góra/dół, a na karcie Radio i nagrywanie "
+            "długość oraz folder bufora Time Shift"
         ),
         Action.REFRESH_COMMON_DATA: "Odśwież dane z AMC Test",
         Action.COMMON_DATA_STATUS: "Stan synchronizacji danych z AMC Test",

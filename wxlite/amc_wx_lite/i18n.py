@@ -1087,11 +1087,13 @@ _UI_TEXT_EN: dict[str, str] = {
     "Zapisz źródła skrzynki podcastów": "Save podcast inbox sources",
     "Anuluj wybór źródeł skrzynki podcastów": "Cancel podcast inbox source selection",
     "Silnik nie działa, nie mogę zapisać źródeł skrzynki": "The engine is unavailable; podcast inbox sources cannot be saved",
-    "Zaznaczone źródła AMC pokazuje pod Ctrl+I. Podcasty i kanały YouTube sprawdza automatycznie; strony Facebooka sprawdza się ręcznie. Pozostałe źródła możesz sprawdzić przez F5. Zapisane materiały pozostają w Bibliotece.": "Selected sources appear under Ctrl+I. Podcasts and YouTube channels refresh automatically; Facebook Pages are checked manually. You can check other sources with F5. Saved media remain in the Library.",
-    "Odstęp dla &podcastów w minutach:": "&Podcast interval in minutes:",
-    "Odstęp automatycznego sprawdzania podcastów w minutach; zero wyłącza": "Automatic podcast check interval in minutes; zero disables it",
-    "Odstęp dla kanałów &YouTube w minutach:": "&YouTube channel interval in minutes:",
-    "Odstęp automatycznego sprawdzania kanałów YouTube w minutach; zero wyłącza": "Automatic YouTube channel check interval in minutes; zero disables it",
+    "Zaznaczone źródła AMC pokazuje pod Ctrl+I. Automatyczne sprawdzanie podcastów i YouTube ustawisz w Ustawieniach programu; strony Facebooka sprawdza się ręcznie. Źródła możesz też sprawdzić przez F5. Zapisane materiały pozostają w Bibliotece.": "Selected sources appear under Ctrl+I. Set automatic podcast and YouTube checks in Program Settings; Facebook Pages are checked manually. You can also check sources with F5. Saved media remain in the Library.",
+    "Automatyczny przebieg co &ile minut (0 = tylko na żądanie):": "Automatic run every how many &minutes (0 = on demand only):",
+    "Odstęp automatycznych przebiegów podcastów i YouTube w minutach; zero oznacza tylko ręczne odświeżanie": "Automatic podcast and YouTube run interval in minutes; zero means manual refresh only",
+    "Domyślny odstęp nowego &podcastu w minutach:": "Default interval for a new &podcast in minutes:",
+    "Domyślny minimalny odstęp nowego podcastu w minutach; zero wyłącza": "Default minimum interval for a new podcast in minutes; zero disables it",
+    "Domyślny odstęp nowego kanału &YouTube w minutach:": "Default interval for a new &YouTube channel in minutes:",
+    "Domyślny minimalny odstęp nowego kanału YouTube w minutach; zero wyłącza": "Default minimum interval for a new YouTube channel in minutes; zero disables it",
     "Liczba źródeł sprawdzanych w &jednym przebiegu:": "Sources checked in one &run:",
     "Liczba źródeł sprawdzanych w jednym przebiegu": "Sources checked in one run",
     "Pokazuj &szczegółowe podpowiedzi klawiatury przy polach i listach": "Show &detailed keyboard hints for fields and lists",
@@ -1667,6 +1669,11 @@ def command_name(action_value: str, polish_text: str) -> str:
 def command_description(action_value: str, polish_text: str) -> str:
     if _active_language == POLISH:
         return polish_text
+    if action_value == "settings.general":
+        return (
+            "Program Settings; choose automatic podcast and YouTube runs "
+            "or manual refresh only on the Podcasts and YouTube page"
+        )
     # A concise, stable command name is preferable to a Polish fallback or a
     # technical identifier. More detailed English descriptions can be added
     # as catalog entries without changing the Action model.

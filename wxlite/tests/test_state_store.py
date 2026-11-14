@@ -63,6 +63,16 @@ def test_round_trip_keeps_options_and_stations() -> None:
     assert [s.url for s in loaded.stations] == ["http://a/1"]
 
 
+def test_podcast_automatic_interval_round_trips_and_zero_means_manual_only() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(options=Options(podcast_automatic_refresh_interval_minutes=0)))
+
+    assert store.load().options.podcast_automatic_refresh_interval_minutes == 0
+    assert Options(podcast_automatic_refresh_interval_minutes=30).clamp().podcast_automatic_refresh_interval_minutes == 30
+    assert Options(podcast_automatic_refresh_interval_minutes=-1).clamp().podcast_automatic_refresh_interval_minutes == 0
+    assert Options(podcast_automatic_refresh_interval_minutes=True).clamp().podcast_automatic_refresh_interval_minutes == 5
+
+
 def test_window_title_preference_round_trips_and_rejects_unknown_value() -> None:
     store, _ = temp_store()
     store.save(LiteState(options=Options(window_title_playback_position="before")))

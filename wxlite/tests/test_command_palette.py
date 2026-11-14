@@ -105,6 +105,32 @@ def test_opcje_sesji_maja_jeden_kontrakt_menu_pomocy_i_palety() -> None:
         assert palette_entry.name == "Ustawienia sesji…"
 
 
+def test_general_settings_describes_manual_podcast_refresh_in_help_and_palette() -> None:
+    chord = Chord(",", ctrl=True)
+    expected = dict(describe("Podcasty i YouTube", {Action.GENERAL_SETTINGS}))[
+        "Ctrl+,"
+    ]
+    assert resolve(chord, player_view=False, radio_session=False) is Action.GENERAL_SETTINGS
+    assert "tylko ręczne odświeżanie" in expected
+    assert keyboard_help_announcement(
+        chord, Action.GENERAL_SETTINGS, "Podcasty i YouTube"
+    ) == f"Ctrl+,. {expected}. Podcasty i YouTube"
+
+    menu_entry = next(
+        item
+        for menu in menu_model.menus_for_session(SessionId.PODCASTS)
+        for item in menu.items
+        if item.action is Action.GENERAL_SETTINGS
+    )
+    palette_entry = next(
+        item
+        for item in entries_for_session(SessionId.PODCASTS)
+        if item.action is Action.GENERAL_SETTINGS
+    )
+    assert menu_entry.shortcut == palette_entry.shortcut == "Ctrl+,"
+    assert menu_entry.label.replace("&", "") == palette_entry.name
+
+
 def test_global_stop_recordings_has_one_contract_in_every_session() -> None:
     expected = "Zatrzymaj wszystkie nagrania radia"
     chord = Chord("R", ctrl=True, alt=True, shift=True)
