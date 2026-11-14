@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `QUEUE-002` — **14.11.2026: alpha.503 wydane; korekta czasu playlist w alpha.504 w przygotowaniu** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
+- `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **pierwotny etap wydany w alpha.498;
@@ -136,9 +136,6 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   `Ctrl+Shift+U`, odświeżanie `F5`, globalne wyszukiwanie bez sieci.
   Bez sterowania nagrywaniem. Szczegóły:
   [RARCH-001-integracja-radioarchiwista.md](RARCH-001-integracja-radioarchiwista.md).
-- `QUEUE-002` — **W trakcie: Spotify; pozostałe sesje oczekują** — kolejki Podcastów/YouTube,
-  Spotify i TIDAL; bez zmian tych sesji w przyroście Radio Archiwisty.
-  Szczegóły: [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 - [UNDO-001 — przywracanie pozycji kolekcji](UNDO-001-przywracanie-pozycji-kolekcji.md): przegląd Ctrl+Z, trwałych porządków Ulubionych i kolejek oraz kontrakt cofania.
 - [RARCH-002 — pobieranie wycinka i diagnostyka awarii](RARCH-002-pobieranie-fragmentow.md): Ctrl+Shift+D w Radio Archiwiście, postęp dwóch etapów, analiza zrzutów wx, presety.
 - `SPOTIFY-ACCESS-001` — **Zrobione jako pakiet do recenzji, bez wysyłki** — uczciwe wstępne zapytanie o publiczny dostęp Spotify Web API dla pełnej sesji AMC, polskie streszczenie, potwierdzone fakty i zakresy, lista danych właściciela, dowodów oraz plan późniejszego formalnego wniosku. Aktualny kanał kontaktu i status kwotowy Client ID wymagają potwierdzenia; nie kontaktowano się ze Spotify. [SPOTIFY-ACCESS-001-zapytanie-o-publiczne-web-api.md](SPOTIFY-ACCESS-001-zapytanie-o-publiczne-web-api.md).
@@ -173,9 +170,6 @@ Alpha.482 powstała na gałęzi `codex/konfigurowalne-skroty-20261026`, z czyste
   połączone z podstawą `alpha.457`; pozostałe sprawdzone nowości były już
   w tej podstawie. [Wyniki i ograniczenia](TEST-20261031-spotify-alpha458.md).
 
-- `QUEUE-002` — **Oczekuje na osobny przegląd** — kolejki Podcastów i YouTube,
-  Spotify oraz TIDAL nie wchodzą do poprawki Radio Archiwisty. Szczegóły:
-  [QUEUE-002-przeglad-kolejek-sesji-internetowych.md](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `EDIT-001` — **Zrobione w źródłach; 3 testy kontraktu, celowany test
   rzeczywistego wycinania oraz kompilacja LiteHosta są zaliczone; poprawka nie

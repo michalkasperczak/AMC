@@ -1,7 +1,7 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
 Wersja `alpha.504` dodaje czas trwania po otwarciu playlist Podcastów,
-Spotify, TIDAL i Apple Music. Przy stronicowaniu mówi o czasie wczytanej
+Spotify, TIDAL i Apple Music (tylko AMC Test). Przy stronicowaniu mówi o czasie wczytanej
 części playlisty. Zastępuje zakres ograniczony do lokalnej playlisty w
 `alpha.503`.
 
