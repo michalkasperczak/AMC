@@ -360,8 +360,9 @@ pojedynczy odcinek nie ma osobnej przynależności do Biblioteki.
 
 Automatyczne sprawdzanie źródeł w sesji Podcasty i YouTube wykonuje jeden
 przebieg co pięć minut, obejmujący najwyżej liczbę źródeł ustawioną w
-Ustawieniach ogólnych. Podczas nagrywania oraz zanim AMC pozna stan nagrywania
-sprawdzanie czeka. Przy dużej liczbie źródeł odstęp wpisany dla pojedynczego
+Ustawieniach ogólnych. Nowy przebieg czeka podczas nagrywania oraz zanim AMC
+pozna stan nagrywania; rozpoczęta wcześniej porcja może się dokończyć. Przy
+dużej liczbie źródeł odstęp wpisany dla pojedynczego
 podcastu lub kanału jest minimalnym odstępem, a następny przebieg może wypaść
 później. Kanały pozostają w Bibliotece; F5 i Ctrl+F5 nadal pozwalają odświeżyć
 je ręcznie. Automat nie odczytuje ponownie nagłówka listy, gdy nie przybyło
