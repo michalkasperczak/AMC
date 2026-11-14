@@ -1,6 +1,6 @@
 # POD-PERF-20261114 — obciążenie odświeżania dużej biblioteki podcastów
 
-Status: W trakcie. Zmiany źródeł i celowane testy przygotowane 14.11.2026. Zbudowano i zweryfikowano odizolowaną paczkę oraz instalator AMC Test 0.1.0-alpha.505; nie zainstalowano go. O 04:32 decyzję o odłożeniu instalacji oparto na dwóch krótkotrwałych procesach `yt-dlp.exe`; korekta tej oceny z 14.11 znajduje się poniżej. Użytkownik planuje nagrywanie od 07:00 czasu polskiego; po tej godzinie nie instalować ani nie restartować AMC.
+Status: W trakcie. Zmiany źródeł i celowane testy przygotowane 14.11.2026. Zbudowano i zweryfikowano odizolowaną paczkę oraz instalator AMC Test 0.1.0-alpha.505; nie zainstalowano go. Później dodano w źródłach alpha.506 wybór automatu lub odświeżania tylko na żądanie; alpha.505 nie zawiera tego ustawienia. O 04:32 decyzję o odłożeniu instalacji oparto na dwóch krótkotrwałych procesach `yt-dlp.exe`; korekta tej oceny z 14.11 znajduje się poniżej. Użytkownik planuje nagrywanie od 07:00 czasu polskiego; po tej godzinie nie instalować ani nie restartować AMC.
 
 ## Cel i zakres
 
@@ -24,7 +24,7 @@ Zmniejszyć okresowe zużycie CPU i dysku przez automatyczne odświeżanie 507 z
 
 ## Materiał do dokumentacji użytkownika
 
-W Ustawieniach ogólnych, w sekcji **Podcasty i YouTube → Automatyczne odświeżanie**, można nadal wybrać odstęp dla podcastów i kanałów YouTube oraz liczbę źródeł sprawdzanych w jednym przebiegu. AMC Test rozpoczyna taki przebieg co pięć minut i odkłada go, jeśli trwa nagrywanie. Przy dużej bibliotece kanał może być sprawdzony później niż wpisany dla niego odstęp. Jego miejsce w Bibliotece i wszystkie zapisane odcinki pozostają bez zmian. W sesji **Podcasty i YouTube** F5 odświeża wybrany podcast lub kanał, a Ctrl+F5 wszystkie źródła na żądanie. Automat nie podaje rutynowych komunikatów NVDA i nie wyrywa fokusu z odtwarzacza; gdy pojawią się nowe odcinki, pasek stanu podaje ich liczbę. Lista kanału pokazuje pierwsze 150 odcinków i pełną liczbę pozycji; Enter na **Załaduj więcej odcinków** dobiera następną porcję. Nie ma różnicy w tym zachowaniu między sesjami Test/Public tam, gdzie Podcasty i YouTube są dostępne.
+W **Ustawieniach programu → Podcasty i YouTube → Automatyczne odświeżanie** można ustawić odstęp automatycznych przebiegów w minutach. Domyślnie wynosi 5; `0` oznacza tylko odświeżanie na żądanie. Pozostałe pola określają domyślny minimalny odstęp nowego źródła RSS lub YouTube oraz liczbę źródeł sprawdzanych w jednym przebiegu. Już zapisane źródła zachowują własny minimalny odstęp, więc przy dużej Bibliotece kanał może być sprawdzony później niż wpisany czas. AMC odkłada przebieg podczas nagrywania; już rozpoczętego nie przerywa po zmianie ustawienia na `0`. W sesji **Podcasty i YouTube** F5 odświeża wybrany podcast lub kanał, a Ctrl+F5 wszystkie źródła na żądanie, także przy wyłączonym automacie. Automat nie podaje rutynowych komunikatów NVDA i nie wyrywa fokusu z odtwarzacza; gdy pojawią się nowe odcinki, pasek stanu podaje ich liczbę. Lista kanału pokazuje pierwsze 150 odcinków i pełną liczbę pozycji; Enter na **Załaduj więcej odcinków** dobiera następną porcję. Nie ma różnicy w tym zachowaniu między sesjami Test/Public tam, gdzie Podcasty i YouTube są dostępne.
 
 ## Testy i wynik
 
@@ -39,15 +39,17 @@ W Ustawieniach ogólnych, w sekcji **Podcasty i YouTube → Automatyczne odświe
 
 ## Zmienione pliki
 
-- `wxlite/amc_wx_lite/gui.py` — pięciominutowy takt, wstrzymanie automatu przy nagrywaniu i świeży odczyt stanu przed porcją.
+- `wxlite/amc_wx_lite/gui.py` — konfigurowalny takt z `0` dla odświeżania na żądanie, wstrzymanie automatu przy nagrywaniu i świeży odczyt stanu przed porcją.
 - `wxlite/amc_wx_lite/podcast_source.py` — licznik oraz pierwsza strona w jednej migawce, bez okna SQL liczącego każdy wiersz.
-- `wxlite/tests/test_podcast_refresh.py` — terminy, aktywne nagrywanie i nieznany status.
-- `README_PL.md` — zachowanie automatu i opóźnienia przy dużej bibliotece.
+- `wxlite/amc_wx_lite/state_store.py` — zapis i normalizacja nowej opcji bez migracji bazy.
+- `wxlite/amc_wx_lite/i18n.py` i `shortcuts.py` — polskie i angielskie etykiety oraz opis Ustawień programu w pomocy.
+- `wxlite/tests/test_podcast_refresh.py`, `test_state_store.py`, `test_general_settings_dialog.py`, `test_command_palette.py`, `test_i18n.py` — celowane testy nowej opcji i opisów.
+- `Directory.Build.props` — numer źródeł alpha.506; `README_PL.md` — działanie obu trybów i opóźnienia przy dużej Bibliotece.
 - `docs/zadania/README.md` oraz ten rekord — status, pomiary i decyzje.
 
 ## Znane ograniczenia i następny krok
 
-Najważniejsze ograniczenie: źródła są teraz sprawdzane rzadziej. Zysk kosztu pełnego zapisu bazy jest prognozą na podstawie ograniczenia liczby przebiegów; rzeczywisty wynik po instalacji wymaga nowego pomiaru. Skok CPU Pythona z 02:38 nie ma potwierdzonej przyczyny. Rozpoczęty przebieg automatu może jeszcze trwać po rozpoczęciu nowego nagrania. Następny krok: w następnym bezpiecznym oknie ponownie potwierdzić brak nagrywania, pobierania i bliskich harmonogramów, a dopiero potem zainstalować już przygotowany instalator. Po instalacji porównać liczbę prób, I/O hosta, czas listy i fokus NVDA; decyzję o wydaniu podjąć na tych wynikach.
+Najważniejsze ograniczenie: przy wartości domyślnej źródła są sprawdzane rzadziej niż przed zmianą; użytkownik może wybrać inny takt albo wyłączyć automat. Zysk kosztu pełnego zapisu bazy jest prognozą na podstawie ograniczenia liczby przebiegów; rzeczywisty wynik po instalacji wymaga nowego pomiaru. Skok CPU Pythona z 02:38 nie ma potwierdzonej przyczyny. Rozpoczęty przebieg automatu może jeszcze trwać po rozpoczęciu nowego nagrania lub po wybraniu `0`. Następny krok: po zakończeniu okna nagrywania zbudować i zweryfikować alpha.506, a przed lokalną instalacją ponownie potwierdzić brak nagrywania, pobierania i bliskich harmonogramów. Po instalacji porównać liczbę prób, I/O hosta, czas listy i fokus NVDA; decyzję o wydaniu podjąć na tych wynikach.
 
 ## Korekta 14.11.2026, po 14:00 czasu polskiego
 
@@ -55,12 +57,24 @@ Użytkownik wyjaśnił, że o 04:32 nic nie nagrywał. Dwa zaobserwowane `yt-dlp
 
 Odczyt procesu po 14:00 pokazał działające AMC Test z `C:\Users\micha\AppData\Local\Programs\AMC Test`, z manifestem commita `d7563d1af12be68d75c6f9f76a56a782550b7098` z 12.11.2026. Nie jest to kandydat alpha.505 z commita `c54089fe110c19fab1fe77a8afa6a7ada95b48c9`. Wcześniejszy odczyt z 04:32 dotyczył działającej wówczas instalacji w `D:\Projekty Codex\AMC Python`, która miała alpha.504. Nie zmieniano żadnej z tych instalacji w ramach tego zadania.
 
+## Korekta 14.11.2026 — wybór taktu lub tylko odświeżania na żądanie
+
+Na prośbę użytkownika wcześniejszą decyzję o stałym pięciominutowym takcie zastępuje ustawienie **Ustawienia programu → Podcasty i YouTube → Automatyczne odświeżanie → Automatyczny przebieg co ile minut**. Domyślna wartość istniejących profili pozostaje 5. `0` wyłącza nowe automatyczne przebiegi; dodatnia wartość od 1 do 10 080 minut wyznacza odstęp między ich startami. Po zapisaniu zmiana działa od razu: włączenie planuje następny przebieg za wybraną liczbę minut, wyłączenie nie przerywa już rozpoczętej porcji. F5 dla wybranego źródła i Ctrl+F5 dla wszystkich działają także przy `0`. Automat nadal czeka przy aktywnym lub niepotwierdzonym stanie nagrywania.
+
+Każdy przebieg bierze najwyżej ustawioną liczbę należnych źródeł. Zapisane źródła zachowują własne minimalne odstępy. Dawne pola RSS i YouTube opisano w oknie jako **domyślne odstępy nowych źródeł**, aby nie sugerowały wyłączenia automatu dla wszystkich już zapisanych pozycji. Wartość `0` w nowym polu oznacza tylko ręczne sprawdzanie całej sesji. Nie ma migracji bazy ani zmiany danych źródeł; brak nowej opcji w starym prywatnym stanie oznacza domyślne 5 minut.
+
+Nowy `wx.SpinCtrl` ma celowy opis dostępności: „Odstęp automatycznych przebiegów podcastów i YouTube w minutach; zero oznacza tylko ręczne odświeżanie”. Przetłumaczono widoczny podpis i nazwę dostępną w angielskim interfejsie. Opis Ustawień programu w pomocy skrótów i palecie uwzględnia wybór automatu, a tekst okna źródeł skrzynki nie obiecuje już automatycznego sprawdzania przy `0`. Zapis i Anuluj nadal używają istniejącej drogi przywracania fokusu; odbiór nowego pola przez NVDA w zainstalowanej wersji pozostaje do wykonania.
+
+Testy źródeł alpha.506: celowany zestaw timera, stanu, okna ustawień, zgodności pomocy/menu/palety i angielskich etykiet: **80 zaliczonych**. Testy potwierdzają ręczne F5 przy `0`, termin kolejnego przebiegu przy 30 minutach, zapis/odczyt i normalizację opcji. Szerszy `test_i18n.py` miał 91 zaliczonych, 1 pominięty i 2 niepowodzenia w globalnej kompletności starszego katalogu tekstów; wszystkie sześć nowych etykiet sprawdzono osobno w katalogu. Nie wykonano nowego buildu, instalacji ani odbioru NVDA po 07:00 z uwagi na zapowiedziane nagrywanie.
+
 ## Wersja i commit
 
 Źródła: gałąź `codex/amc-test-public-20261109`, wyjściowy commit `ea5a8bd0f4dcafee107e395dd2d618d954a348ca`, zmiany kodu `7b4b0f132374984ffce8a998bfb87be08b38f479` i `348023552cb50a49cb17292d1af17efe628d4914`, numer alpha.505 w `c54089fe110c19fab1fe77a8afa6a7ada95b48c9`. Testy: 41 celowanych zaliczonych; dodatkowy niepowiązany test w szerszym zestawie pozostaje niezgodny już na wyjściowym commicie. Build: paczka `publish/bundles/test-podcast-alpha505-20261114` z czystego commita `c54089fe`, identyfikator zawartości `adcd0c55`, 4699 plików, pełna kontrola i cichy test startu zaliczone. Instalator: `publish/test-podcast-alpha505-20261114/AMC-Test-2026-11-14-0420.exe`, 218 448 094 bajty; plik `.integrity.json` potwierdza wersję, profil, commit, identyfikator paczki, skan sekretów i oba dodatki NVDA. Ponowny SHA-256 i rozmiar instalatora zgadzały się z metadanymi. Instalacja: nie wykonano, działające AMC Test z `D:\Projekty Codex\AMC Python` pozostawiono bez zmian po ostrożnej, później skorygowanej ocenie procesów `yt-dlp`. Publikacja: nie wykonano.
 
+Nowsze źródła alpha.506: commit `4f0b17f2713c1e61a0f69d31fe8afe29b43321b6` dodaje wybór taktu lub odświeżania tylko na żądanie. Testy celowane: 80 zaliczonych. Build alpha.506: nie wykonano. Instalacja alpha.506: nie wykonano. Odbiór NVDA alpha.506: nie wykonano. Publikacja alpha.506: nie wykonano. Gotowy instalator alpha.505 ma starszą zawartość i nie potwierdza nowej opcji.
+
 ## Szkic instrukcji i listy zmian do zatwierdzenia
 
-Instrukcja: W Ustawieniach ogólnych otwórz Podcasty i YouTube, aby ustawić odstęp oraz wielkość przebiegu. AMC sprawdza należne źródła co pięć minut, a podczas nagrywania czeka. F5 i Ctrl+F5 pozostają ręcznymi sposobami odświeżenia. Na liście odcinków Enter na „Załaduj więcej odcinków” doładowuje kolejne pozycje.
+Instrukcja: W Ustawieniach programu otwórz Podcasty i YouTube. W polu „Automatyczny przebieg co ile minut” wpisz `0`, aby sprawdzać źródła tylko ręcznie, albo wybierz odstęp w minutach. AMC sprawdza najwyżej ustawioną liczbę źródeł w przebiegu i czeka podczas nagrywania. F5 odświeża wybrane źródło, a Ctrl+F5 wszystkie. Na liście odcinków Enter na „Załaduj więcej odcinków” doładowuje kolejne pozycje.
 
-Lista zmian: Ograniczono częstotliwość automatycznego odświeżania dużej biblioteki i wstrzymano je podczas nagrywania. Pierwsza strona odcinków otwiera się bez liczenia pełnej listy w tym samym zapytaniu. Ten szkic wymaga korekty i zatwierdzenia użytkownika przed publikacją.
+Lista zmian: Dodano wybór taktu automatycznego odświeżania lub trybu tylko na żądanie. Ograniczono domyślną częstotliwość automatu i wstrzymano go podczas nagrywania. Pierwsza strona odcinków otwiera się bez liczenia pełnej listy w tym samym zapytaniu. Ten szkic wymaga korekty i zatwierdzenia użytkownika przed publikacją.

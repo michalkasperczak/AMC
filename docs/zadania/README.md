@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-- `POD-PERF-20261114` — **W trakcie; paczka i instalator Test alpha.505 zweryfikowane, bez instalacji i publikacji** — pięciominutowy takt automatycznego odświeżania, wstrzymanie podczas nagrywania oraz szybsza strona odcinków. Zapisano korektę: samo pojawienie się `yt-dlp` nie dowodziło pobierania. [Pomiary i decyzje](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
+- `POD-PERF-20261114` — **W trakcie; nowa opcja alpha.506 w źródłach i testach, bez buildu, instalacji i publikacji** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Poprzedni instalator alpha.505 jest zweryfikowany, ale nie zawiera tej opcji. [Pomiary, korekty i wyniki](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
 
 - `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
