@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `POD-PERF-20261114` — **W trakcie; źródła i testy celowane bez okien, bez buildu, instalacji i publikacji** — pięciominutowy takt automatycznego odświeżania, wstrzymanie podczas nagrywania oraz szybsza strona odcinków. [Pomiary i decyzje](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
+
 - `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
