@@ -98,3 +98,13 @@ Archiwisty wymagają odbioru na zainstalowanej aplikacji.
 
 Szkic instrukcji i listy zmian powyżej pozostaje materiałem do korekty
 użytkownika, nie jest osobno opublikowanym podręcznikiem.
+
+## Korekta zakresu — 14.11.2026
+
+Po instalacji alpha.503 przegląd wykazał, że komunikat łącznego czasu
+obejmował playlistę lokalną, lecz nie obejmował otwartych playlist Podcastów,
+Spotify, TIDAL i Apple Music. Ta korekta rozszerza wcześniejszą decyzję
+alpha.503 o wszystkie te widoki. Gdy playlista ma kolejne strony, komunikat
+wyraźnie określa czas wczytanej części. Wersja następcza: alpha.504. Przed wydaniem 122 celowane testy nawigacji
+i komunikatów playlist zaliczono; wynik paczek, instalacji i publikacji
+do uzupełnienia.

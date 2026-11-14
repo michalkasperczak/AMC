@@ -36,6 +36,15 @@ def _with_duration(message: str, rows: list[Row]) -> str:
     return f"{message}, {_duration_summary(rows)}" if rows else message
 
 
+def _playlist_duration(rows: list[Row]) -> str:
+    """Describe loaded playlist length without implying that later pages are loaded."""
+    loaded = [row for row in rows if row.kind != "loadMore"]
+    summary = _duration_summary(loaded)
+    if any(row.kind == "loadMore" for row in rows):
+        return f"wczytana część playlisty: {summary}"
+    return summary
+
+
 class View(Enum):
     """Ktory widok jest na wierzchu. Odpowiada _playerViewActive w pelnym AMC."""
 
@@ -3626,9 +3635,11 @@ class Navigator:
         state.library_return_view = playlist_title
         state.model.replace(rows, preferred_id=preferred_id or remembered)
         state.view = View.LIST
-        count = sum(1 for row in rows if row.kind == "episode")
+        episodes = [row for row in rows if row.kind == "episode"]
+        count = len(episodes)
         return [Announce(
-            f"Playlista — {playlist_title}, {count} {_items_word(count)}"
+            f"Playlista — {playlist_title}, {count} {_items_word(count)}, "
+            f"{_playlist_duration(episodes)}"
             if count else f"Playlista — {playlist_title}, zero elementów"
         )]
 
@@ -3728,7 +3739,7 @@ class Navigator:
         state.view = View.LIST
         count = sum(row.kind != "loadMore" for row in rows)
         return [Announce(
-            f"{heading}, {count} {_items_word(count)}"
+            f"{heading}, {count} {_items_word(count)}, {_playlist_duration(rows)}"
             if count else f"{heading}, pusto"
         )]
 
@@ -3878,10 +3889,13 @@ class Navigator:
         state.model.replace(rows, preferred_id=preferred_id)
         state.view = View.LIST
         count = sum(row.kind != "loadMore" for row in rows)
-        return [Announce(
+        message = (
             f"{heading}, {count} {_items_word(count)}"
             if count else f"{heading}, pusto"
-        )]
+        )
+        if count and intent.kind == "playlist":
+            message = f"{message}, {_playlist_duration(rows)}"
+        return [Announce(message)]
 
     def apply_spotify_collection_view(
         self,
@@ -4266,6 +4280,8 @@ class Navigator:
             f"{heading}, {len(rows)} {_items_word(len(rows))}"
             if rows else f"{heading}, pusto"
         )
+        if rows and intent.kind == "playlist":
+            message = f"{message}, {_playlist_duration(rows)}"
         return [Announce(message)]
 
     def apply_tidal_queue(

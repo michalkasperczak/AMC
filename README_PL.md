@@ -1,5 +1,10 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.504` dodaje czas trwania po otwarciu playlist Podcastów,
+Spotify, TIDAL i Apple Music. Przy stronicowaniu mówi o czasie wczytanej
+części playlisty. Zastępuje zakres ograniczony do lokalnej playlisty w
+`alpha.503`.
+
 Wersja `alpha.503` ujednolica obsługę kolejek w AMC Test i Public.
 `Ctrl+Q` podaje liczbę pozycji i znany łączny czas trwania; przy brakujących
 długościach mówi o danych częściowych lub nieznanych. W otwartej kolejce
