@@ -1,6 +1,6 @@
 # PLAYLIST-BULK — wielokrotne zaznaczenie i potwierdzenie TIDAL
 
-Stan z 14.11.2026: poprawka w źródłach AMC Test, testy celowane zaliczone. Wersja źródeł `0.1.0-alpha.506`; identyfikator commitu dopisać po zapisie. Instalacja i publikacja nie są tym zapisem potwierdzone.
+Stan z 14.11.2026: poprawka w źródłach AMC Test, testy celowane zaliczone. Wersja źródeł `0.1.0-alpha.506`, commit `9a08cab9`. Instalacja i publikacja nie są tym zapisem potwierdzone.
 
 ## Zachowanie użytkownika
 
