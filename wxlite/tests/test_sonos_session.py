@@ -1061,7 +1061,7 @@ def test_sonos_timer_does_not_overlap_a_read_or_waiting_command() -> None:
     assert submissions == []
 
 
-def test_sonos_timer_reads_playback_while_library_list_is_open() -> None:
+def test_sonos_timer_does_not_poll_while_library_list_is_open() -> None:
     submissions: list = []
     frame = _queued_sonos_frame(submissions, [])
     frame.navigator.view = View.LIST
@@ -1069,8 +1069,8 @@ def test_sonos_timer_reads_playback_while_library_list_is_open() -> None:
 
     LiteFrame._refresh_sonos_status(frame)
 
-    assert len(submissions) == 1
-    assert submissions[0][0] == "sonos-status"
+    assert submissions == []
+    assert frame._sonos_status_poll_pending is False
 
 
 def test_sonos_timer_limits_upnp_snapshots_to_one_per_three_seconds() -> None:
@@ -1106,6 +1106,25 @@ def test_sonos_play_restarts_last_amc_material_after_stop() -> None:
 
     assert played == [intent]
     assert transported == []
+
+
+def test_sonos_play_asks_device_to_resume_unknown_stopped_material() -> None:
+    transported: list[str] = []
+    frame = SimpleNamespace(
+        client=object(),
+        navigator=SimpleNamespace(active=SessionId.SONOS),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        _sonos_snapshot={"playbackState": "idle"},
+        _sonos_active_household_id="house-1",
+        _sonos_active_group_id="group-1",
+        _sonos_last_material=None,
+        _play_sonos_material=lambda _intent: None,
+        _sonos_transport=transported.append,
+    )
+
+    LiteFrame._play_pause(frame)
+
+    assert transported == ["toggle"]
 
 
 def test_finishing_sonos_read_starts_one_waiting_command() -> None:

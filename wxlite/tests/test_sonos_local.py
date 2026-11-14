@@ -58,6 +58,7 @@ class _Coordinator(_Member):
         self.queue: list[object] = []
         self.played_queue_indices: list[int] = []
         self.played_uris: list[tuple[str, str, bool, bool]] = []
+        self.reject_forced_radio = False
         self.pause_fails = False
         self.stop_calls = 0
         self.seeks: list[str] = []
@@ -110,6 +111,8 @@ class _Coordinator(_Member):
         self, *, uri: str, title: str, start: bool, force_radio: bool
     ) -> None:
         self.played_uris.append((uri, title, start, force_radio))
+        if force_radio and self.reject_forced_radio:
+            raise RuntimeError("forced radio URI rejected")
         self.track["title"] = title
         self.track["artist"] = ""
         self.transport_state = "PLAYING"
@@ -309,5 +312,22 @@ def test_local_transport_stops_a_radio_when_pause_is_not_supported() -> None:
 
     assert coordinator.stop_calls == 1
     assert state["playbackState"] == "idle"
+
+
+def test_own_stream_retries_as_direct_uri_when_radio_uri_is_rejected() -> None:
+    client, coordinator, _group, _host, _discovery = _client()
+    target = client.sonos_targets()["items"][0]
+    streams = client.sonos_materials(target["householdId"], "ownStream")
+    coordinator.reject_forced_radio = True
+
+    state = client.sonos_load_material(
+        target["householdId"],
+        target["groupId"],
+        "ownStream",
+        streams["items"][0]["materialId"],
+    )
+
+    assert [call[3] for call in coordinator.played_uris] == [True, False]
+    assert state["playbackState"] == "playing"
 
 

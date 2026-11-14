@@ -34280,12 +34280,11 @@ class LiteFrame(wx.Frame):
                     and remembered[1] == self._sonos_active_group_id
                 ):
                     self._play_sonos_material(remembered[2])
-                else:
-                    self.announcer.say(
-                        "Sonos nie może wznowić tego źródła. "
-                        "Uruchom materiał ponownie z listy Sonosa"
-                    )
-                return
+                    return
+                # Materiał mógł zostać zatrzymany w aplikacji Sonos albo na
+                # głośniku, więc AMC nie ma jego rekordu. Najpierw pozwól
+                # urządzeniu wznowić własne bieżące źródło. Adapter poda
+                # czytelny błąd, jeśli konkretnego źródła wznowić się nie da.
             self._sonos_transport("toggle")
             return
         if self.navigator.active is SessionId.FRONTIER_SMART:
@@ -35561,6 +35560,7 @@ class LiteFrame(wx.Frame):
             or not household_id
             or not group_id
             or self.navigator.active is not SessionId.SONOS
+            or self.navigator.view is not View.PLAYER
             or getattr(self, "_sonos_status_poll_pending", False)
             or getattr(self, "_sonos_request_pending", False)
             or getattr(self, "_sonos_retry_pending", False)

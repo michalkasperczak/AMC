@@ -358,16 +358,27 @@ class LocalSonosClient:
                         raise LocalSonosError(
                             "Nie można odnaleźć adresu tej stacji Sonos."
                         )
-                    coordinator.play_uri(
-                        uri=address,
-                        title=material.title,
-                        start=True,
-                        # SoCo rozróżnia zwykły plik HTTP od strumienia
-                        # radiowego. Bez tego argumentu Sonos odrzuca adresy
-                        # z profilu AMC, mimo że ten sam adres działa jako
-                        # Ulubione Sonos.
-                        force_radio=True,
-                    )
+                    try:
+                        coordinator.play_uri(
+                            uri=address,
+                            title=material.title,
+                            start=True,
+                            # SoCo rozróżnia zwykły plik HTTP od strumienia
+                            # radiowego. To jest właściwy pierwszy wariant dla
+                            # typowej stacji internetowej zapisanej w AMC.
+                            force_radio=True,
+                        )
+                    except Exception:
+                        # Część odbiorników albo adresów HLS odrzuca prefiks
+                        # radiowy dodawany przez SoCo, chociaż przyjmuje ten sam
+                        # bezpośredni URI. Druga próba nie zmienia zapisu stacji
+                        # ani nie ujawnia adresu w interfejsie.
+                        coordinator.play_uri(
+                            uri=address,
+                            title=material.title,
+                            start=True,
+                            force_radio=False,
+                        )
                 else:
                     queueable = material.value
                     if kind == "favorite":
