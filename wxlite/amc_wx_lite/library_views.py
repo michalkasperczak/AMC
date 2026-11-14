@@ -688,6 +688,7 @@ def playlist_rows(
             title=entry.name,
             kind="playlist",
             detail=detail,
+            duration_ticks=duration_ticks,
         )
         rows.append(row)
         entries.append(

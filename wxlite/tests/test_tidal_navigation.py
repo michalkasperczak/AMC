@@ -582,7 +582,7 @@ def test_tidal_queue_is_its_own_accessible_view() -> None:
 
     events = nav.apply_tidal_queue([track])
 
-    assert events == [Announce("Kolejka TIDAL, 1 pozycja")]
+    assert events == [Announce("Kolejka TIDAL, 1 pozycja, czas trwania nieznany")]
     assert nav.session.library_view is LibraryView.TIDAL_QUEUE
     assert nav.session.model.selected_row == track
     assert isinstance(nav.activate_selected()[0], PlayTidalTrack)

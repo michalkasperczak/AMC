@@ -177,6 +177,7 @@ class MenuItem:
     needs_spotify_saved_item: bool = False
     #: Delete usuwa wyłącznie wpisy otwartej playlisty konta TIDAL.
     needs_tidal_playlist_entry: bool = False
+    needs_queue_view: bool = False
     #: Delete usuwa stację z otwartej lokalnej playlisty Radia.
     needs_radio_playlist_entry: bool = False
     #: Wpis prywatnej Historii sesji sieciowej, bez zmiany źródła.
@@ -1093,6 +1094,12 @@ def build_menus(
             MenuItem("Usuń z playlisty &TIDAL", Action.REMOVE_SELECTED,
                      shortcut="Delete", accelerator=False, needs_selection=True,
                      needs_tidal_playlist_entry=True, visible_sessions=TIDAL_ONLY),
+            MenuItem("Usuń z kolejki TIDAL", Action.REMOVE_SELECTED,
+                     shortcut="Delete", accelerator=False, needs_selection=True,
+                     needs_queue_view=True, visible_sessions=TIDAL_ONLY),
+            MenuItem("Usuń z kolejki Radio Archiwisty", Action.REMOVE_SELECTED,
+                     shortcut="Delete", accelerator=False, needs_selection=True,
+                     needs_queue_view=True, visible_sessions=RADIOARCHIWISTA_ONLY),
             MenuItem("Usuń z Histor&ii odtwarzania", Action.REMOVE_SELECTED,
                      shortcut="Delete", accelerator=False, needs_selection=True,
                      needs_service_history_item=True,

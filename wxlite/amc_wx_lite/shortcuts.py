@@ -500,7 +500,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.REMOVE_SELECTED: CommandPresentation(
         Action.REMOVE_SELECTED,
         "Usuń z bieżącej listy",
-        "Usuń zaznaczone pozycje z bieżącej listy lub playlisty bez usuwania materiału źródłowego",
+        "Usuń zaznaczone pozycje z bieżącej listy, kolejki lub playlisty bez usuwania materiału źródłowego",
         "Delete",
     ),
     Action.TIDAL_PLAY_NATIVE: CommandPresentation(
@@ -1427,6 +1427,10 @@ WIIM_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 SONOS_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 FRONTIER_SMART_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+for _queue_actions in (Action.MOVE_LIST_ITEM_UP, Action.MOVE_LIST_ITEM_DOWN):
+    TIDAL_SUPPORTED_ACTIONS |= {_queue_actions}
+    SPOTIFY_SUPPORTED_ACTIONS |= {_queue_actions}
+    RADIOARCHIWISTA_SUPPORTED_ACTIONS |= {_queue_actions}
 
 
 def shortcut_enabled_in_view(action: Action, *, player_view: bool) -> bool:
@@ -2817,13 +2821,13 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Wytnij plik albo zaznacz element ręcznej kolejności do przeniesienia"
         ),
         Action.PASTE_OR_MOVE: "Wstaw przenoszone pozycje przed bieżącym elementem",
-        Action.MOVE_LIST_ITEM_UP: "Przenieś zaznaczenie wyżej na liście",
-        Action.MOVE_LIST_ITEM_DOWN: "Przenieś zaznaczenie niżej na liście",
+        Action.MOVE_LIST_ITEM_UP: "Przenieś zaznaczenie wyżej w otwartej playliście lub kolejce",
+        Action.MOVE_LIST_ITEM_DOWN: "Przenieś zaznaczenie niżej w otwartej playliście lub kolejce",
         Action.RENAME_LIBRARY_ITEM: (
             "Zmień nazwę pliku w Bibliotece, playlisty, podcastu lub kanału"
         ),
         Action.RENAME_LOCAL_FILE: "Zmień nazwę pliku na dysku",
-        Action.REMOVE_SELECTED: "Usuń zaznaczone pozycje z bieżącej listy lub playlisty bez usuwania materiału źródłowego",
+        Action.REMOVE_SELECTED: "Usuń zaznaczone pozycje z bieżącej listy, kolejki lub playlisty bez usuwania materiału źródłowego",
         Action.RECYCLE_SELECTED: "Przenieś zaznaczone pliki do Kosza",
         Action.STATION_ADD: "Dodaj stacje",
         Action.STATION_EDIT: "Zmień nazwę lub adres stacji i zaktualizuj powiązane plany nagrywania",
@@ -3018,7 +3022,6 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         TIDAL_SESSION_VIEW,
         TIDAL_LIST_VIEW,
         SPOTIFY_SESSION_VIEW,
-        APPLE_MUSIC_SESSION_VIEW,
         SPOTIFY_COLLECTION_LIST_VIEW,
         SPOTIFY_LIST_VIEW,
         WIIM_SESSION_VIEW,
@@ -3031,6 +3034,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         RADIO_LIST_VIEW,
         RADIO_PLAYER_VIEW,
         PLAYER_VIEW,
+        APPLE_MUSIC_SESSION_VIEW,
     ):
         for chord, action in table.items():
             if action in seen:
@@ -3153,6 +3157,12 @@ def describe(
                 if action in overrides
                 else ctrl_f5.shortcut
                 if ctrl_f5 is not None and ctrl_f5.action is action
+                else "Shift+Page Down"
+                if (session_label or "").casefold() == "apple music"
+                and action is Action.QUEUE_NEXT
+                else "Shift+Page Up"
+                if (session_label or "").casefold() == "apple music"
+                and action is Action.QUEUE_PREVIOUS
                 else chord
             ),
             describe_action(action, session_label, downloaded_files=downloaded_files),

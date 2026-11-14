@@ -95,6 +95,8 @@ internal sealed class LiteQueueCoordinator
         bool Added,
         int Changed);
 
+    internal sealed record QueueMoveResult(QueueStatus Status, string Outcome);
+
     private readonly IMediaOutput _output;
     private readonly object _gate = new();
 
@@ -957,6 +959,12 @@ internal sealed class LiteQueueCoordinator
         return ChangeMembership(args, playNext: false, requestedAdd: true);
     }
 
+    /// <summary>Delete removes exactly the selected queue entries.</summary>
+    public QueueMutationResult RemoveMembership(JsonElement args)
+    {
+        return ChangeMembership(args, playNext: false, requestedAdd: false);
+    }
+
     private QueueMutationResult ChangeMembership(
         JsonElement args,
         bool playNext,
@@ -1071,9 +1079,20 @@ internal sealed class LiteQueueCoordinator
             session.SetQueueOrder(previousOrder.Concat(add
                 ? candidates.Select(candidate => candidate.Id)
                 : []));
+            if (created || (changed > 0 && _leading))
+            {
+                // Zmiana czlonkostwa musi dotrzec do silnika. Gdy Delete
+                // usuwa grajacy wpis, dzwiek trwa do konca; jego Id zachowujemy
+                // w kontekście przed pozostalymi, aby Nastepny i naturalny
+                // koniec mogly przejsc do pierwszej nadal kolejkowanej pozycji.
+                var context = BuildStatus(session).Rows.Select(row => row.Id).ToList();
+                if (_leading && session.HasCurrentItem
+                    && !context.Contains(session.CurrentItem.Id, StringComparer.Ordinal))
+                    context.Insert(0, session.CurrentItem.Id);
+                session.SetPlaybackContext(context, isQueueContext: true);
+            }
             if (created)
             {
-                session.SetPlaybackContext(session.QueueItemIds, isQueueContext: true);
                 // Publikujemy nowa sesje dopiero PO calej walidacji. Odmowa
                 // (np. brak sciezki nowego pliku) nie moze po cichu zamienic
                 // stanu "nigdy nie wczytano" na pusty obiekt kolejki.
@@ -1085,6 +1104,37 @@ internal sealed class LiteQueueCoordinator
             _initialized = true;
             if (changed > 0) PersistLocked(session);
             return new QueueMutationResult(BuildStatus(session), add, changed);
+        }
+    }
+
+    /// <summary>Move one entry within its priority group without restarting audio.</summary>
+    public QueueMoveResult Move(string itemId, int direction)
+    {
+        if (direction is not (-1 or 1))
+            throw new LiteRequestException("Nieprawidłowy kierunek zmiany kolejności.");
+        lock (_gate)
+        {
+            var session = _session ?? throw new LiteRequestException("Kolejka jest pusta.");
+            var status = BuildStatus(session);
+            var rows = status.Rows.ToList();
+            var index = rows.FindIndex(row => string.Equals(row.Id, itemId, StringComparison.Ordinal));
+            if (index < 0) return new(status, "missing");
+            var adjacent = index + direction;
+            if (adjacent < 0 || adjacent >= rows.Count) return new(status, "boundary");
+            if (_leading && (rows[index].IsCurrent || rows[adjacent].IsCurrent))
+                return new(status, "playing");
+            if (rows[index].IsPlayNext != rows[adjacent].IsPlayNext)
+                return new(status, "priority");
+            (rows[index], rows[adjacent]) = (rows[adjacent], rows[index]);
+            var order = rows.Select(row => row.Id).ToArray();
+            session.SetQueueOrder(order);
+            var context = order.ToList();
+            if (_leading && session.HasCurrentItem
+                && !context.Contains(session.CurrentItem.Id, StringComparer.Ordinal))
+                context.Insert(0, session.CurrentItem.Id);
+            session.SetPlaybackContext(context, isQueueContext: true);
+            PersistLocked(session);
+            return new(BuildStatus(session), "moved");
         }
     }
 

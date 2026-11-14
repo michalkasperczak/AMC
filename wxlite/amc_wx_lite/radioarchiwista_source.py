@@ -1082,6 +1082,24 @@ class RadioarchiwistaSource:
                 recording, play_next=play_next, current_id=current_id,
             )
 
+    def move_queue(self, item_id: str, direction: int) -> str:
+        """Move one saved recording; a missing or edge entry is unchanged."""
+        with self._queue_lock:
+            queue = self.load_queue()
+            index = next((i for i, item in enumerate(queue)
+                          if _clean_text(item.get("item_id")) == item_id), -1)
+            adjacent = index + direction
+            if index < 0:
+                return "missing"
+            if adjacent < 0 or adjacent >= len(queue):
+                return "boundary"
+            queue[index], queue[adjacent] = queue[adjacent], queue[index]
+            self._dir.mkdir(parents=True, exist_ok=True)
+            temporary = self._queue_path.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(queue, ensure_ascii=False, indent=2), encoding="utf-8")
+            temporary.replace(self._queue_path)
+            return "moved"
+
     def _toggle_queue_locked(
         self, recording: ArchiveRecording, *, play_next: bool,
         current_id: str | None,

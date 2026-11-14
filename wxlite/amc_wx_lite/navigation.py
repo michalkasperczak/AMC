@@ -18,6 +18,24 @@ from . import i18n
 from .list_model import ListModel, Row
 
 
+def _duration_summary(rows: list[Row]) -> str:
+    """Do not present missing lengths as zero in a queue total."""
+    known = [row.duration_ticks for row in rows if row.duration_ticks > 0]
+    if not known:
+        return "czas trwania nieznany"
+    seconds = sum(known) // 10_000_000
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    length = f"{hours} godz. {minutes} min" if hours else f"{minutes} min {seconds} s"
+    if len(known) == len(rows):
+        return f"łączny czas trwania {length}"
+    return f"znany czas trwania {length}, część bez danych"
+
+
+def _with_duration(message: str, rows: list[Row]) -> str:
+    return f"{message}, {_duration_summary(rows)}" if rows else message
+
+
 class View(Enum):
     """Ktory widok jest na wierzchu. Odpowiada _playerViewActive w pelnym AMC."""
 
@@ -2911,6 +2929,8 @@ class Navigator:
             parts = [f"{heading}, {len(rows)} {_items_word(len(rows))}"]
         else:
             parts = [heading]
+        if view in (LibraryView.SAVED_QUEUE, LibraryView.PLAYLIST_CONTENTS) and rows:
+            parts.append(_duration_summary(rows))
         if not order_matches_amc:
             # Uczciwie, tak jak LibrarySnapshot: bez kluczy hosta kolejnosc
             # jest zastepcza i nie udajemy zgodnosci 1:1.
@@ -2959,7 +2979,7 @@ class Navigator:
             # ostatnim utworze kolejka jest naprawde pusta. Mowimy to wprost,
             # zamiast podstawiac zapisany porzadek i udawac, ze cos zostalo.
             return [Announce(f"{heading}, pusto")]
-        return [Announce(f"{heading}, {len(rows)} {_items_word(len(rows))}")]
+        return [Announce(_with_duration(f"{heading}, {len(rows)} {_items_word(len(rows))}", rows))]
 
     def _enter_playlist(self, row: Row) -> list[object]:
         """Enter na ``Row(kind="playlist")``: NAWIGACJA, nie odtwarzanie.
@@ -3327,6 +3347,8 @@ class Navigator:
             message = i18n.tr("rarch.view.count", heading=heading, phrase=phrase)
         else:
             message = i18n.tr("rarch.view.empty", heading=heading)
+        if view is LibraryView.RADIOARCHIWISTA_QUEUE and count:
+            message = _with_duration(message, rows)
         return [Announce(message)]
 
     def apply_radioarchiwista_message(self, message: str) -> list[object]:
@@ -3554,6 +3576,8 @@ class Navigator:
             message = "Pobrane, brak pobranych odcinków"
         else:
             message = f"{heading}, {count} {_items_word(count)}"
+        if view is LibraryView.PODCAST_QUEUE and count:
+            message = _with_duration(message, [row for row in rows if row.kind == "episode"])
         if not order_matches_amc:
             message = f"{message}, kolejność zastępcza"
         return [Announce(message)]
@@ -3780,7 +3804,7 @@ class Navigator:
         state.view = View.LIST
         count = len(rows)
         return [Announce(
-            f"Kolejka Spotify, {count} {_items_word(count)}"
+             _with_duration(f"Kolejka Spotify, {count} {_items_word(count)}", rows)
             if count else "Kolejka Spotify, zero elementów"
         )]
 
@@ -4262,7 +4286,7 @@ class Navigator:
         state.view = View.LIST
         count = len(rows)
         return [Announce(
-            f"Kolejka TIDAL, {count} {_items_word(count)}"
+             _with_duration(f"Kolejka TIDAL, {count} {_items_word(count)}", rows)
             if count else "Kolejka TIDAL, zero elementów"
         )]
 

@@ -11862,9 +11862,24 @@ class LiteFrame(wx.Frame):
                     and selected_kind in {"track", "episode"}
                     and bool(selected_row.service_id)
                 )
+                spotify_queue_item = bool(
+                    self.navigator.active is SessionId.SPOTIFY
+                    and session.library_view is LibraryView.SPOTIFY_QUEUE
+                    and selected_row is not None
+                    and selected_kind in {"track", "episode"}
+                )
                 if not (spotify_history_item or spotify_collection_item
-                        or spotify_playlist_item):
+                        or spotify_playlist_item or spotify_queue_item):
                     enabled = False
+            if entry.needs_queue_view and not (
+                selected_row is not None and (
+                    self.navigator.active is SessionId.TIDAL
+                    and session.library_view is LibraryView.TIDAL_QUEUE
+                    or self.navigator.active is SessionId.RADIOARCHIWISTA
+                    and session.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
+                )
+            ):
+                enabled = False
             if entry.needs_tidal_playlist_entry and not (
                 self.navigator.active is SessionId.TIDAL
                 and session.library_view is LibraryView.TIDAL_CONTAINER
@@ -11889,8 +11904,16 @@ class LiteFrame(wx.Frame):
                 session.library_view is LibraryView.PLAYLIST_CONTENTS
             ):
                 enabled = False
+            if entry.action in (Action.MOVE_LIST_ITEM_UP, Action.MOVE_LIST_ITEM_DOWN) and not self._action_available_in_active_session(entry.action):
+                enabled = False
             if entry.needs_manual_order_context and not (
                 playlist_contents or radio_collection
+                or entry.action in (Action.MOVE_LIST_ITEM_UP, Action.MOVE_LIST_ITEM_DOWN)
+                and session.library_view in (
+                    LibraryView.LIVE_QUEUE, LibraryView.SAVED_QUEUE,
+                    LibraryView.PODCAST_QUEUE, LibraryView.SPOTIFY_QUEUE,
+                    LibraryView.TIDAL_QUEUE, LibraryView.RADIOARCHIWISTA_QUEUE,
+                )
             ):
                 enabled = False
             if entry.needs_podcast_episode and (
@@ -28537,6 +28560,17 @@ class LiteFrame(wx.Frame):
         )
         if row is not None and not left_fields:
             return
+        if (
+            row is not None and row.kind == "playlist"
+            and self.navigator.active is SessionId.FILES
+            and self.navigator.session.library_view is LibraryView.PLAYLISTS
+        ):
+            if "duration" in left_fields:
+                self.announcer.say(
+                    f"Czas trwania playlisty: {list_reading.duration_text(row.duration_ticks)}"
+                    if row.duration_ticks > 0 else "Czas trwania playlisty nieznany"
+                )
+            return
         if self.navigator.active is SessionId.TIDAL:
             if row is None:
                 self.announcer.say("Lista TIDAL jest pusta")
@@ -29040,7 +29074,14 @@ class LiteFrame(wx.Frame):
         return rows, visible_ids
 
     def _move_playlist_selection(self, direction: int) -> None:
-        """Alt+Up/Down: ciągły blok o jedną pozycję jak w głównym AMC."""
+        """Alt+Up/Down in an open playlist or queue."""
+        if self.navigator.session.library_view in {
+            LibraryView.LIVE_QUEUE, LibraryView.SAVED_QUEUE,
+            LibraryView.PODCAST_QUEUE, LibraryView.SPOTIFY_QUEUE,
+            LibraryView.TIDAL_QUEUE, LibraryView.RADIOARCHIWISTA_QUEUE,
+        }:
+            self._move_queue_selection(direction)
+            return
         if LiteFrame._radio_manual_order_context(self) is not None:
             LiteFrame._move_radio_collection_selection(self, direction)
             return
@@ -29125,6 +29166,134 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie zmieniono kolejności playlisty: {error}")
 
         self.runner.submit("playlist-order-move", work, done, failed)
+
+    def _move_queue_selection(self, direction: int) -> None:
+        state = self.navigator.session
+        view = state.library_view
+        selected = self._selected_action_rows()
+        if len(selected) != 1:
+            self.announcer.say("Wybierz jedną pozycję kolejki do przeniesienia")
+            return
+        row = selected[0]
+        rows = list(state.model.rows)
+        index = next((i for i, item in enumerate(rows)
+                      if item.item_id == row.item_id), -1)
+        adjacent = index + direction
+        if index < 0:
+            self.announcer.say("Nie ma tej pozycji w kolejce")
+            return
+        if adjacent < 0 or adjacent >= len(rows):
+            self.announcer.say("To początek kolejki" if direction < 0 else "To koniec kolejki")
+            return
+        message = f"Przeniesiono {row.title} {'wyżej' if direction < 0 else 'niżej'}"
+
+        if view in (LibraryView.SPOTIFY_QUEUE, LibraryView.TIDAL_QUEUE):
+            queue_rows = list(
+                self._spotify_queue_rows if view is LibraryView.SPOTIFY_QUEUE
+                else self._tidal_queue_rows
+            )
+            queue_rows[index], queue_rows[adjacent] = queue_rows[adjacent], queue_rows[index]
+            if view is LibraryView.SPOTIFY_QUEUE:
+                previous = list(self.state.spotify_queue_items)
+                self.state.spotify_queue_items = spotify_queue_payload(queue_rows)
+            else:
+                previous = list(self.state.tidal_queue_items)
+                self.state.tidal_queue_items = tidal_queue_payload(queue_rows)
+            try:
+                self.store.save(self.state)
+            except OSError as error:
+                if view is LibraryView.SPOTIFY_QUEUE:
+                    self.state.spotify_queue_items = previous
+                else:
+                    self.state.tidal_queue_items = previous
+                self.announcer.say(f"Nie zapisano kolejności: {error}")
+                return
+            if view is LibraryView.SPOTIFY_QUEUE:
+                self._spotify_queue_rows = queue_rows
+            else:
+                self._tidal_queue_rows = queue_rows
+            state.model.replace(queue_rows, preferred_id=row.item_id)
+            self._sync_views()
+            self._announce_after_native_list_update(message)
+            return
+
+        if view is LibraryView.RADIOARCHIWISTA_QUEUE:
+            source = self._radioarchiwista_source()
+            if source is None:
+                self.announcer.say("Kolejka Radio Archiwisty jest niedostępna")
+                return
+
+            def work_archive() -> tuple[str, list[Row]]:
+                outcome = source.move_queue(row.item_id, direction)
+                return outcome, source.queue_rows()
+
+            def done_archive(result: tuple[str, list[Row]]) -> None:
+                outcome, updated = result
+                if outcome != "moved":
+                    self.announcer.say("Nie można przenieść tej pozycji")
+                    return
+                if state.radioarchiwista_queue_active:
+                    state.playback_source_rows = tuple(updated)
+                self._run(self.navigator.apply_radioarchiwista_rows(
+                    LibraryView.RADIOARCHIWISTA_QUEUE, updated,
+                    preferred_id=row.item_id,
+                ))
+                self._announce_after_native_list_update(message)
+
+            self.runner.submit(
+                "radioarchiwista.queue.move", work_archive, done_archive,
+                lambda error: self.announcer.say(f"Nie zmieniono kolejności: {error}"),
+            )
+            return
+
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        if view is LibraryView.LIVE_QUEUE:
+            def done_live(payload: dict) -> None:
+                outcome = str((payload or {}).get("reorderStatus") or "")
+                if outcome != "moved":
+                    self.announcer.say({
+                        "playing": "Nie można przestawić aktualnie odtwarzanej pozycji",
+                        "priority": "Pozycje Odtwórz jako następne mają pierwszeństwo",
+                        "boundary": "To granica kolejki",
+                    }.get(outcome, "Nie można zmienić kolejności kolejki"))
+                    return
+                lengths = {item.item_id: item.duration_ticks for item in rows}
+                updated = [replace(item, duration_ticks=lengths.get(item.item_id, 0))
+                           for item in rows_from_queue_status(payload)]
+                state.model.replace(updated, preferred_id=row.item_id)
+                self._sync_views()
+                self._announce_after_native_list_update(message)
+
+            self.runner.submit(
+                "queue-move", lambda: client.queue_move(row.item_id, direction),
+                done_live,
+                lambda error: self.announcer.say(f"Nie zmieniono kolejności: {error}"),
+            )
+            return
+
+        session_id = "podcasts" if view is LibraryView.PODCAST_QUEUE else "local"
+
+        def done_profile(payload: dict) -> None:
+            outcome = str((payload or {}).get("status") or "")
+            if outcome != "moved":
+                self.announcer.say(
+                    "Pozycje Odtwórz jako następne mają pierwszeństwo"
+                    if outcome == "priority" else "Nie można przenieść tej pozycji"
+                )
+                return
+            self._refresh_profile_view(preferred_id=row.item_id)
+            self._announce_after_native_list_update(message)
+
+        self.runner.submit(
+            "profile-queue-move",
+            lambda: client.move_profile_queue_items(
+                session_id, [row.item_id], [item.item_id for item in rows], direction,
+            ),
+            done_profile,
+            lambda error: self.announcer.say(f"Nie zmieniono kolejności: {error}"),
+        )
 
     def _paste_internal_playlist_move(self) -> None:
         """Ctrl+V: wstaw wcześniej wycięty blok przed bieżącym wierszem."""
@@ -31871,6 +32040,25 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
+    def _queue_status_with_durations(self) -> dict:
+        """Join live queue order with known local lengths in a worker thread."""
+        client = self.client
+        if client is None:
+            return {}
+        payload = client.queue_status()
+        library = getattr(self, "library", None)
+        if library is not None and library.is_available and isinstance(payload, dict):
+            entries = payload.get("rows") or []
+            try:
+                lengths = library.duration_ticks_for_ids([
+                    str(entry.get("id")) for entry in entries if entry.get("id")
+                ])
+            except (OSError, ValueError):
+                lengths = {}
+            for entry in entries:
+                entry["durationTicks"] = lengths.get(str(entry.get("id")), 0)
+        return payload
+
     def _open_queue_view(self) -> None:
         """Ctrl+Q: stan hosta, także po zużyciu ostatniego wiersza.
 
@@ -31883,7 +32071,7 @@ class LiteFrame(wx.Frame):
             return
 
         def work() -> dict:
-            return client.queue_status()
+            return self._queue_status_with_durations()
 
         def done(payload: dict) -> None:
             rows = rows_from_queue_status(payload or {})
@@ -32796,7 +32984,7 @@ class LiteFrame(wx.Frame):
             return
         LiteFrame._announce_routine_text(self, message)
 
-    def _refresh_live_queue(self) -> None:
+    def _refresh_live_queue(self, *, preferred_id: str | None = None) -> None:
         """Odśwież już otwartą kolejkę bez nawigacji i przejmowania fokusu."""
         state = self.navigator.session
         if state.library_view is not LibraryView.LIVE_QUEUE or self.client is None:
@@ -32815,14 +33003,14 @@ class LiteFrame(wx.Frame):
             rows = rows_from_queue_status(payload or {})
             if rows == state.model.rows:
                 return
-            state.model.replace(rows, preferred_id=state.model.selected_id)
+            state.model.replace(rows, preferred_id=preferred_id or state.model.selected_id)
             self._sync_views()
 
         def failed(error: Exception) -> None:
             if current():
                 self.announcer.say(f"Nie mogę odświeżyć kolejki: {error}")
 
-        self.runner.submit("queue-refresh", client.queue_status, done, failed)
+        self.runner.submit("queue-refresh", self._queue_status_with_durations, done, failed)
 
     def _play_queue_at(self, intent: PlayQueueAt) -> None:
         """Enter w ZYWYM widoku: start od wiersza kolejki, ktora host juz ma.
@@ -35984,6 +36172,19 @@ class LiteFrame(wx.Frame):
             pass
 
     def _remove_selected_items(self) -> None:
+        view = self.navigator.session.library_view
+        if self.navigator.active is SessionId.FILES and view is LibraryView.LIVE_QUEUE:
+            self._remove_live_queue_items()
+            return
+        if self.navigator.active is SessionId.SPOTIFY and view is LibraryView.SPOTIFY_QUEUE:
+            self._toggle_spotify_queue()
+            return
+        if self.navigator.active is SessionId.TIDAL and view is LibraryView.TIDAL_QUEUE:
+            self._toggle_tidal_queue()
+            return
+        if self.navigator.active is SessionId.RADIOARCHIWISTA and view is LibraryView.RADIOARCHIWISTA_QUEUE:
+            self._toggle_radioarchiwista_queue(play_next=False)
+            return
         if (
             self.navigator.active is SessionId.TIDAL
             and self.navigator.session.library_view is LibraryView.TIDAL_CONTAINER
@@ -36136,6 +36337,35 @@ class LiteFrame(wx.Frame):
             ),
             done,
             lambda error: self.announcer.say(f"Nie usunięto: {error}"),
+        )
+
+    def _remove_live_queue_items(self) -> None:
+        rows = [row for row in self._selected_action_rows() if row.kind == "track"]
+        if not rows:
+            self.announcer.say("Wybierz pozycję kolejki do usunięcia")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        selected_ids = {row.item_id for row in rows}
+        preferred_id = LiteFrame._preferred_item_after_removal(
+            list(self.navigator.session.model.rows), selected_ids,
+        )
+
+        def done(payload: dict) -> None:
+            changed = int((payload or {}).get("changed") or 0)
+            if not changed:
+                self.announcer.say("Kolejka bez zmian")
+                return
+            self._refresh_live_queue(preferred_id=preferred_id)
+            label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+            self.announcer.say(f"Usunięto z kolejki: {label}")
+
+        self.runner.submit(
+            "queue-remove",
+            lambda: client.queue_remove_membership([row.item_id for row in rows]),
+            done,
+            lambda error: self.announcer.say(f"Nie usunięto z kolejki: {error}"),
         )
 
     def _remove_tidal_playlist_items(self) -> None:
@@ -38357,6 +38587,16 @@ class LiteFrame(wx.Frame):
                 self.options.session_order
             )
         if (
+            action in (Action.MOVE_LIST_ITEM_UP, Action.MOVE_LIST_ITEM_DOWN)
+            and self.navigator.active in (
+                SessionId.TIDAL, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+            )
+        ):
+            return self.navigator.session.library_view in (
+                LibraryView.TIDAL_QUEUE, LibraryView.SPOTIFY_QUEUE,
+                LibraryView.RADIOARCHIWISTA_QUEUE,
+            )
+        if (
             self.navigator.active in (
                 SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
                 SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
@@ -38366,6 +38606,10 @@ class LiteFrame(wx.Frame):
             return (
                 self.navigator.session.library_view
                 is LibraryView.SERVICE_HISTORY
+                or self.navigator.active is SessionId.TIDAL
+                and self.navigator.session.library_view is LibraryView.TIDAL_QUEUE
+                or self.navigator.active is SessionId.RADIOARCHIWISTA
+                and self.navigator.session.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
                 or self.navigator.active is SessionId.TIDAL
                 and self.navigator.session.library_view is LibraryView.TIDAL_CONTAINER
                 and isinstance(self.navigator.session.tidal_context, OpenTidalContainer)
@@ -38379,6 +38623,7 @@ class LiteFrame(wx.Frame):
             return bool(
                 self.navigator.session.library_view
                 is LibraryView.SPOTIFY_HISTORY
+                or self.navigator.session.library_view is LibraryView.SPOTIFY_QUEUE
                 or isinstance(context, OpenSpotifyCollectionView)
                 and context.view in {
                     "liked", "albums", "artists", "podcasts", "episodes"

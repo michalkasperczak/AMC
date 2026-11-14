@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.503` ujednolica obsługę kolejek w AMC Test i Public.
+`Ctrl+Q` podaje liczbę pozycji i znany łączny czas trwania; przy brakujących
+długościach mówi o danych częściowych lub nieznanych. W otwartej kolejce
+`Alt+strzałka w górę/w dół` przestawia zaznaczony utwór, a `Delete` usuwa
+wybrane wpisy. Grający utwór nie jest przestawiany; usunięcie go z kolejki
+nie przerywa dźwięku. Otwarta lokalna playlista też podaje łączny czas,
+a lewa strzałka na jej pozycji czyta długość utworu, jeżeli jest znana.
+
+
 ## AMC Test alpha.467 — przygotowanie dublowania dźwięku
 
 W Plikach, Radiu i Podcastach `Shift+M` otwiera listę drugich wyjść AMC:

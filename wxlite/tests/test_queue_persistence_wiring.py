@@ -111,6 +111,7 @@ class _Client:
     """Atrapa klienta: zapamietuje argumenty konstruktora."""
 
     last_kwargs: dict = {}
+    executable = Path("AMC.Host.exe")
 
     def __init__(self, *args, **kwargs) -> None:
         type(self).last_kwargs = kwargs

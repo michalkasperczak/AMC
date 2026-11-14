@@ -2039,6 +2039,17 @@ class LiteHostClient:
             timeout=60.0,
         )
 
+    def move_profile_queue_items(
+        self, session_id: str, selected_item_ids: list[str],
+        visible_item_ids: list[str], direction: int,
+    ) -> Any:
+        return self.call(
+            "library.queue.move",
+            {"sessionId": session_id, "selectedItemIds": selected_item_ids,
+             "visibleItemIds": visible_item_ids, "direction": direction},
+            timeout=30.0,
+        )
+
     def move_profile_playlist_items(
         self,
         session_id: str,
@@ -2363,6 +2374,20 @@ class LiteHostClient:
         return self.call(
             "queue.addMembership",
             {"sessionId": session_id, "items": items},
+            timeout=60.0,
+        )
+
+    def queue_move(self, item_id: str, direction: int) -> Any:
+        """Move one live entry while retaining the current playback."""
+        return self.call(
+            "queue.move", {"itemId": item_id, "direction": direction}, timeout=30.0,
+        )
+
+    def queue_remove_membership(self, item_ids: list[str]) -> Any:
+        """Remove selected live entries without changing the active playback."""
+        return self.call(
+            "queue.removeMembership",
+            {"sessionId": "local", "items": [{"id": item_id} for item_id in item_ids]},
             timeout=60.0,
         )
 

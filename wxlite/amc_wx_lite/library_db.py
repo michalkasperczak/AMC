@@ -290,6 +290,22 @@ class LibraryDatabase:
 
     # ------------------------------------------------------------ liczniki
 
+    def duration_ticks_for_ids(self, item_ids: list[str]) -> dict[str, int]:
+        """Read queue lengths by ID without loading or sorting the whole library."""
+        result: dict[str, int] = {}
+        for start in range(0, len(item_ids), 500):
+            batch = item_ids[start:start + 500]
+            if not batch:
+                continue
+            placeholders = ", ".join("?" for _ in batch)
+            rows = self.connection.execute(
+                f"SELECT id, duration_ticks FROM local_items WHERE id IN ({placeholders})",
+                batch,
+            )
+            for row in rows:
+                result[str(row["id"])] = max(0, int(row["duration_ticks"] or 0))
+        return result
+
     def count_items(self) -> int:
         return self.connection.execute("SELECT COUNT(*) FROM local_items").fetchone()[0]
 

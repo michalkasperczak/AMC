@@ -339,10 +339,8 @@ def rows_from_queue_status(payload: dict) -> list[Row]:
     trafia do tekstu wiersza: biezacy material ma wlasne miejsce w oknie, a
     powtarzanie go w liscie bylo by tym drugim odczytem tego samego.
 
-    ``path`` jest tu PUSTA i tak ma byc: ``QueuePayload`` jej nie oddaje
-    (``LiteEngineHandlers.QueuePayload`` -> ``id``/``title``/``playNext``/
-    ``current``). Enter w tym widoku nie potrzebuje sciezki, bo nie sklada
-    kolejki od nowa -- woła ``queue.playAt`` po samym Id, a material zna host.
+    Host podaje sciezke i identyfikator. Enter nie sklada kolejki od nowa:
+    wywoluje ``queue.playAt`` po Id, a material zna host.
     """
     rows: list[Row] = []
     for entry in payload.get("rows", ()) or ():
@@ -350,6 +348,13 @@ def rows_from_queue_status(payload: dict) -> list[Row]:
         if not item_id:
             # Wiersz bez tozsamosci nie da sie ani wybrac, ani odtworzyc.
             continue
+        duration = entry.get("durationTicks")
+        # A missing length may be represented by a test or remote-client sentinel.
+        # It must never leak into the spoken label or break queue navigation.
+        try:
+            duration_ticks = max(0, int(duration))
+        except (TypeError, ValueError):
+            duration_ticks = 0
         rows.append(
             Row(
                 item_id=item_id,
@@ -357,6 +362,7 @@ def rows_from_queue_status(payload: dict) -> list[Row]:
                 kind="track",
                 path=entry.get("path"),
                 detail="odtwórz następne" if entry.get("playNext") else "",
+                duration_ticks=duration_ticks,
             )
         )
     return rows

@@ -133,7 +133,65 @@ internal static class QueueCoordinatorTests
         StaryEventNiePrzeskakujeDwochUtworow();
         PustaKolejkaIZleIdOdmawiajaUczciwie();
         ZapowiedzPrzejsciaZgadzaSieZFaktem();
+        PrzestawienieKolejkiZachowujeDzwiekIZmieniaNastepny();
+        DeleteUsuwaTylkoWybranyWpisKolejki();
         Console.WriteLine("QueueCoordinatorTests: OK");
+    }
+
+    private static void PrzestawienieKolejkiZachowujeDzwiekIZmieniaNastepny()
+    {
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        queue.Set(Args(ThreeRows));
+        queue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+
+        var moved = queue.Move("file:C.wav", -1);
+        Assert.True(moved.Outcome == "moved", "C mozna przesunac nad A");
+        Assert.True(moved.Status.Rows.Select(row => row.Id).SequenceEqual(
+            new[] { "file:B.wav", "file:C.wav", "file:A.wav" }),
+            "po ruchu widok pokazuje B, C, A");
+        Assert.True(output.Plays.Count == 1 && output.Stops == 0,
+            "przestawienie nie uruchamia i nie zatrzymuje dzwieku");
+        Assert.True(queue.Move("file:B.wav", 1).Outcome == "playing",
+            "grajacy wiersz pozostaje na miejscu");
+        Assert.True(queue.PlayRelative(1), "Nastepny po przestawieniu dziala");
+        Assert.True(output.Plays.Last().Id == "file:C.wav",
+            "silnik odtwarza C jako nastepny po przestawieniu");
+    }
+
+    private static void DeleteUsuwaTylkoWybranyWpisKolejki()
+    {
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        queue.Set(Args(ThreeRows));
+        queue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+
+        var removed = queue.RemoveMembership(Args("""
+            {"sessionId":"local","items":[{"id":"file:A.wav"}]}
+            """));
+        Assert.True(removed.Changed == 1, "Delete usuwa wskazana pozycje");
+        Assert.True(removed.Status.Rows.Select(row => row.Id).SequenceEqual(
+            new[] { "file:B.wav", "file:C.wav" }),
+            "B i C pozostaja w kolejce");
+        Assert.True(output.Plays.Count == 1 && output.Stops == 0,
+            "Delete nie przerywa grajacego B");
+        Assert.True(queue.PlayRelative(1) && output.Plays.Last().Id == "file:C.wav",
+            "Nastepny omija usuniete A");
+
+        var currentOutput = new RecordingOutput();
+        var currentQueue = new LiteQueueCoordinator(currentOutput);
+        currentQueue.Set(Args(ThreeRows));
+        currentQueue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+        currentQueue.RemoveMembership(Args("""
+            {"sessionId":"local","items":[{"id":"file:B.wav"}]}
+            """));
+        Assert.True(currentOutput.Stops == 0,
+            "usuniecie grajacego wpisu nie przerywa utworu");
+        Assert.True(currentQueue.Move("file:C.wav", -1).Outcome == "moved",
+            "po usunieciu grajacego wpisu pozostala kolejke mozna przestawiac");
+        Assert.True(currentQueue.PlayRelative(1)
+            && currentOutput.Plays.Last().Id == "file:C.wav",
+            "Nastepny idzie do C po usunieciu grajacego wpisu i przestawieniu");
     }
 
     /// <summary>

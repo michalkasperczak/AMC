@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `QUEUE-002` — **14.11.2026: kod i testy celowane gotowe; wydanie Test/Public w przygotowaniu** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
+
 - `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **pierwotny etap wydany w alpha.498;
   korekta Ctrl+F Apple Music gotowa w źródłach i testach celowanych, bez

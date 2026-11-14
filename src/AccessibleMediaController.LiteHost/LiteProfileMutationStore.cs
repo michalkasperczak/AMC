@@ -1479,6 +1479,48 @@ internal sealed class LiteProfileMutationStore
     /// kolejność widoczną, ponieważ zapis playlisty może zawierać także
     /// chwilowo niedostępne elementy. Algorytm Core zachowuje ich miejsca.
     /// </summary>
+    public object MoveQueueItems(
+        string sessionId,
+        IReadOnlyList<string> selectedItemIds,
+        IReadOnlyList<string> visibleItemIds,
+        int direction)
+    {
+        var session = sessionId.Trim().ToLowerInvariant();
+        if (session is not ("local" or "podcasts"))
+            throw new LiteRequestException("Ta kolejka nie pozwala na zmianę kolejności.");
+        var selected = CleanDistinctIds(selectedItemIds, "Wybierz pozycję kolejki.");
+        var visible = CleanDistinctIds(visibleItemIds, "Kolejka jest pusta.");
+        if (direction is not (-1 or 1))
+            throw new LiteRequestException("Nieprawidłowy kierunek zmiany kolejności.");
+        EnsureMayWrite();
+        lock (_gate)
+        {
+            using var connection = OpenDatabase(_libraryDatabasePath);
+            using var transaction = connection.BeginTransaction();
+            var order = ReadOrder(connection, transaction, "queue_order", session);
+            var playNext = ReadOrder(connection, transaction, "queue_play_next_order", session)
+                .ToHashSet(StringComparer.Ordinal);
+            var index = Array.IndexOf(visible, selected[0]);
+            var adjacent = index + direction;
+            if (selected.Length != 1 || index < 0)
+                return new { status = "selection" };
+            if (adjacent < 0 || adjacent >= visible.Length)
+                return new { status = "boundary" };
+            if (playNext.Contains(selected[0]) != playNext.Contains(visible[adjacent]))
+                return new { status = "priority" };
+            var result = LocalLibraryManualOrder.MoveVisibleBlock(
+                order, visible, selected, direction);
+            if (result == ManualOrderMoveResult.Moved)
+            {
+                RewriteOrder(connection, transaction, "queue_order", session, order);
+                TouchMetadata(connection, transaction);
+            }
+            transaction.Commit();
+            return new { status = result == ManualOrderMoveResult.Moved
+                ? "moved" : "boundary" };
+        }
+    }
+
     public object MovePlaylistItems(
         string sessionId,
         string playlistId,

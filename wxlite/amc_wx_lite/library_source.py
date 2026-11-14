@@ -114,6 +114,10 @@ class LibrarySource:
         with self._open() as db:
             return db.local_state().library_view
 
+    def duration_ticks_for_ids(self, item_ids: list[str]) -> dict[str, int]:
+        with self._open() as db:
+            return db.duration_ticks_for_ids(item_ids)
+
     def recorded_radio_items(self) -> list[LibraryItem]:
         """Pliki nagran radia, takze dostepne poza zwykla Biblioteka."""
         with self._open() as db:

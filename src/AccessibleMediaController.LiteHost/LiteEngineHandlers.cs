@@ -792,6 +792,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["library.playlists"] = (request, _) => GetProfilePlaylists(request.Args),
             ["library.playlists.replace"] = (request, _) => ReplaceProfilePlaylists(request.Args),
             ["library.playlist.move"] = (request, _) => MoveProfilePlaylistItems(request.Args),
+            ["library.queue.move"] = (request, _) => MoveProfileQueueItems(request.Args),
             ["library.playlist.placeBefore"] = (request, _) => PlaceProfilePlaylistItems(request.Args),
             ["library.remove"] = (request, _) => RemoveProfileItems(request.Args),
             ["library.recycle"] = (request, _) => RecycleLocalFiles(request.Args),
@@ -843,6 +844,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.set"] = (request, _) => QueueSet(request.Args),
             ["queue.toggleMembership"] = (request, _) => QueueToggleMembership(request.Args, playNext: false),
             ["queue.addMembership"] = (request, _) => QueueAddMembership(request.Args),
+            ["queue.removeMembership"] = (request, _) => QueueRemoveMembership(request.Args),
+            ["queue.move"] = (request, _) => QueueMove(request.Args),
             ["queue.togglePlayNext"] = (request, _) => QueueToggleMembership(request.Args, playNext: true),
             ["queue.status"] = (_, _) => QueueStatusPayload(),
             ["queue.playAt"] = (request, events) =>
@@ -987,6 +990,13 @@ internal sealed class LiteEngineHandlers : IDisposable
             playlist,
             "itemIds",
             "Playlista nie zawiera listy elementów.");
+
+    private object MoveProfileQueueItems(JsonElement args) =>
+        RequireProfileMutations().MoveQueueItems(
+            LiteArgs.RequireText(args, "sessionId"),
+            ReadRequiredIdArray(args, "selectedItemIds", "Nie wskazano pozycji kolejki."),
+            ReadRequiredIdArray(args, "visibleItemIds", "Nie przekazano kolejności kolejki."),
+            ReadMoveDirection(args));
 
     private object MoveProfilePlaylistItems(JsonElement args) =>
         RequireProfileMutations().MovePlaylistItems(
@@ -2022,6 +2032,19 @@ internal sealed class LiteEngineHandlers : IDisposable
         return QueuePayload(result.Status, added: result.Added, changed: result.Changed);
     }
 
+    private object QueueRemoveMembership(JsonElement args)
+    {
+        var result = _queue.RemoveMembership(args);
+        return QueuePayload(result.Status, added: false, changed: result.Changed);
+    }
+
+    private object QueueMove(JsonElement args)
+    {
+        var result = _queue.Move(
+            LiteArgs.RequireText(args, "itemId"), ReadMoveDirection(args));
+        return QueuePayload(result.Status, reorderStatus: result.Outcome);
+    }
+
     private object QueuePlayAt(JsonElement args, LiteEventSink events)
     {
         _events = events;
@@ -2107,7 +2130,8 @@ internal sealed class LiteEngineHandlers : IDisposable
         LiteQueueCoordinator.QueueStatus status,
         bool? moved = null,
         bool? added = null,
-        int? changed = null) =>
+        int? changed = null,
+        string? reorderStatus = null) =>
         new
         {
             rows = status.Rows
@@ -2115,11 +2139,13 @@ internal sealed class LiteEngineHandlers : IDisposable
                 {
                     id = row.Id,
                     title = row.Title,
+                    path = row.Path,
                     playNext = row.IsPlayNext,
                     current = row.IsCurrent
                 })
                 .ToArray(),
             count = status.Rows.Count,
+            reorderStatus,
             currentId = status.CurrentId,
             currentTitle = status.CurrentTitle,
             playing = status.Playing,
