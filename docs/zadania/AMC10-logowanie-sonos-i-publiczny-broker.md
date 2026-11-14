@@ -1215,8 +1215,9 @@ zastępczym; wartości bitrate'u nie wolno zgadywać.
   `test_speaker_content_contract.py`: **56/56 zaliczonych** bez widocznego GUI;
 - pierwsza próba testów nie zebrała modułów z powodu brakującego `PYTHONPATH`;
   po uruchomieniu z właściwym katalogiem pakietu identyczne testy przeszły;
-- źródła są poprawione i testy celowane są zaliczone. Build, instalacja,
-  publikacja GitHub oraz ponowny odsłuch na głośniku nie zostały jeszcze
+- źródła są poprawione i testy celowane są zaliczone. Czysty kandydat oraz
+  stała instalacja przeszły kontrolę integralności i kontrolowany start;
+  ponowny odsłuch na głośniku oraz publikacja GitHub nie zostały jeszcze
   wykonane dla tej korekty.
 
 ### Profil Public sprawdzony 14.11.2026
@@ -1239,11 +1240,23 @@ lokalnym API Sonosa.
 
 ### Wersja i commit korekty
 
-- stan źródeł: zmieniony i przetestowany;
+- stan źródeł: zmieniony, przetestowany, zbudowany i zainstalowany;
 - commit źródeł i testów: `a92ab963861a2b16413a3159142457a66399ccd0`;
-- build, instalacja i publikacja: niewykonane;
-- następny krok: zbudować i zainstalować nowe AMC Test, a następnie powtórzyć
-  na głośniku `Moje stacje`, Spację, `NVDA+End` i szybkość strzałek.
+- commit dokumentujący odbiór: `1eff98e50eeca6df63b393859f012dd154bf73d5`;
+- zbudowana i atomowo zainstalowana paczka AMC Test:
+  `2026.11.14-1eff98e50eeca6df63b393859f012dd154bf73d5-c5e46a82`,
+  `sourceDirty=false`, 3812 plików, katalog
+  `D:\Projekty Codex\AMC Python`;
+- kandydat i stała instalacja przeszły integralność oraz kontrolowany start
+  interfejsu i hosta. Zwykły start widocznego okna z tej instalacji został
+  przechwycony przez starszą, już otwartą instalację `AMC Test — 12.11.2026,
+  23:20`, w której użytkownik ma niedokończone okno „Dodaj dynamiczną stację
+  YouTube”; tej instancji nie zamykano, aby nie utracić wpisanych danych;
+- build i instalacja: wykonane; publikacja GitHub i odbiór na głośniku:
+  niewykonane;
+- następny krok: po bezpiecznym zakończeniu starszej instancji uruchomić nowe
+  AMC Test, a następnie powtórzyć na głośniku `Moje stacje`, Spację,
+  `NVDA+End` i szybkość strzałek.
 
 ## Wersja i commit
 
