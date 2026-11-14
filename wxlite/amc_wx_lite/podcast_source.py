@@ -900,11 +900,18 @@ class PodcastSource:
             order = "published_utc_ticks DESC, title COLLATE NOCASE, id"
         try:
             with closing(self._open()) as connection:
+                # COUNT(*) OVER() forces SQLite to materialize and sort every
+                # episode before LIMIT can return the first page. Keep both
+                # reads in one snapshot, but let the page query stop early.
+                connection.execute("BEGIN")
+                total_count = int(connection.execute(
+                    "SELECT COUNT(*) FROM podcast_episodes WHERE subscription_id = ?",
+                    (subscription_id,),
+                ).fetchone()[0])
                 records = connection.execute(
                     f"""
                     SELECT id, title, published_utc_ticks, is_new, is_started,
-                           is_played, download_path, payload_json,
-                           COUNT(*) OVER() AS total_count
+                           is_played, download_path, payload_json
                     FROM podcast_episodes
                     WHERE subscription_id = ?
                     ORDER BY {order}
@@ -917,7 +924,6 @@ class PodcastSource:
                 f"Nie można odczytać odcinków: {error}"
             ) from error
 
-        total_count = _as_int(records[0]["total_count"]) if records else 0
         has_more = len(records) > requested
         visible = records[:requested]
         rows: list[Row] = []

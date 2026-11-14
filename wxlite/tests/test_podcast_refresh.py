@@ -87,6 +87,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
         _podcast_refresh_pending=False,
         _podcast_automatic_refresh_pending=False,
         _podcast_automatic_refresh_due=100.0,
+        _last_recording_status={"count": 0, "recordings": []},
         _last_automatic_podcast_error=None,
         calls=calls,
         automatic_calls=automatic_calls,
@@ -234,10 +235,41 @@ def test_automatic_refresh_waits_until_due_and_stays_silent() -> None:
     assert frame.automatic_calls == [True]
     assert frame._podcast_refresh_pending is False
     assert frame._podcast_automatic_refresh_pending is False
-    assert frame._podcast_automatic_refresh_due == 160.0
+    assert frame._podcast_automatic_refresh_due == 400.0
     assert frame.spoken == []
     assert frame.statuses == ["Automatycznie dodano nowe odcinki: 2"]
     assert frame.refreshed_views == [{"announce_result": False}]
+
+
+def test_automatic_refresh_waits_for_recording_to_finish() -> None:
+    frame = _frame()
+    frame._last_recording_status = {"count": 1, "recordings": [{"state": "recording"}]}
+    original = gui.time.monotonic
+    try:
+        gui.time.monotonic = lambda: 100.0
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+        assert frame.automatic_calls == []
+        assert frame._podcast_automatic_refresh_due == 100.0
+
+        frame._last_recording_status = {"count": 0, "recordings": []}
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    finally:
+        gui.time.monotonic = original
+    assert frame.automatic_calls == [True]
+    assert frame._podcast_automatic_refresh_due == 400.0
+
+
+def test_automatic_refresh_waits_for_known_recording_status() -> None:
+    frame = _frame()
+    frame._last_recording_status = {}
+    original = gui.time.monotonic
+    try:
+        gui.time.monotonic = lambda: 100.0
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    finally:
+        gui.time.monotonic = original
+    assert frame.automatic_calls == []
+    assert frame._podcast_automatic_refresh_due == 100.0
 
 
 def test_automatic_refresh_with_no_due_sources_does_not_change_the_view() -> None:

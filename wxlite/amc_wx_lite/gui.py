@@ -10786,7 +10786,7 @@ class LiteFrame(wx.Frame):
         self._last_local_resume_error: str | None = None
         self._podcast_refresh_pending = False
         self._podcast_automatic_refresh_pending = False
-        self._podcast_automatic_refresh_due = time.monotonic() + 60.0
+        self._podcast_automatic_refresh_due = time.monotonic() + 300.0
         self._last_automatic_podcast_error: str | None = None
         self._radio_recognition_pending = False
         self._radio_recognition_history_dialog: RadioRecognitionHistoryDialog | None = None
@@ -35129,18 +35129,20 @@ class LiteFrame(wx.Frame):
         self._recognize_radio_track(automatic=True)
 
     def _refresh_due_podcasts_automatically(self) -> None:
-        """Co minute zlec hostowi tylko nalezne zrodla, bez rutynowej mowy."""
+        """Co piec minut sprawdz nalezne zrodla, poza czasem nagrywania."""
         client = self.client
         now = time.monotonic()
+        recording_status = getattr(self, "_last_recording_status", {}) or {}
         if (
             client is None
             or not self.podcasts.is_available
             or self._podcast_refresh_pending
             or self._podcast_automatic_refresh_pending
             or now < self._podcast_automatic_refresh_due
+            or recording_blocks_application_update(recording_status)
         ):
             return
-        self._podcast_automatic_refresh_due = now + 60.0
+        self._podcast_automatic_refresh_due = now + 300.0
         self._podcast_automatic_refresh_pending = True
         self._podcast_refresh_pending = True
 

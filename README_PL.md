@@ -358,7 +358,15 @@ a ciężka przebudowa listy czeka, gdy użytkownik pozostaje w odtwarzaczu.
 `Ctrl+Shift+L` na odcinku dodaje lub usuwa jego podcast nadrzędny, ponieważ
 pojedynczy odcinek nie ma osobnej przynależności do Biblioteki.
 
-Automatyczne sprawdzanie źródeł w sesji Podcasty i YouTube nie odczytuje ponownie nagłówka listy, gdy nie przybyło odcinków. Gdy przybyły nowe pozycje, odświeża widoczną listę bez dodatkowego komunikatu; podczas odtwarzania pozostawia odtwarzacz na miejscu. Ręczne odświeżenie nadal podaje wynik użytkownikowi.
+Automatyczne sprawdzanie źródeł w sesji Podcasty i YouTube wykonuje jeden
+przebieg co pięć minut, obejmujący najwyżej liczbę źródeł ustawioną w
+Ustawieniach ogólnych. Podczas nagrywania oraz zanim AMC pozna stan nagrywania
+sprawdzanie czeka. Przy dużej liczbie źródeł odstęp wpisany dla pojedynczego
+podcastu lub kanału jest minimalnym odstępem, a następny przebieg może wypaść
+później. Kanały pozostają w Bibliotece; F5 i Ctrl+F5 nadal pozwalają odświeżyć
+je ręcznie. Automat nie odczytuje ponownie nagłówka listy, gdy nie przybyło
+odcinków. Gdy przybyły nowe pozycje, odświeża widoczną listę bez dodatkowego
+komunikatu; podczas odtwarzania pozostawia odtwarzacz na miejscu.
 
 W sesji WiiM `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
 importuje M3U, M3U8 albo PLS, a `Ctrl+E` eksportuje listę. `Ctrl+L` pozostaje
