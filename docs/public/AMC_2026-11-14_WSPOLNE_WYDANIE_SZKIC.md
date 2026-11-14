@@ -1,6 +1,9 @@
-# AMC Test i Public — szkic następnego wydania
+# AMC Test i Public alpha.507 — szkic instrukcji i listy zmian
 
-Szkic z 14.11.2026 dla wersji `0.1.0-alpha.507`. Data i identyfikatory instalatorów wymagają uzupełnienia po zbudowaniu z jednego commitu. Tekst do korekty użytkownika przed publikacją.
+Szkic z 14.11.2026 dla wersji `0.1.0-alpha.507`. Test i Public powstały z
+commitu `aafa2bc3`, zostały opublikowane i zainstalowane; Test działa z
+kanonicznego katalogu D. Tekst pozostaje projektem instrukcji do korekty
+użytkownika; nie został opublikowany jako oficjalny podręcznik.
 
 ## Co się zmienia
 
@@ -13,4 +16,12 @@ Szkic z 14.11.2026 dla wersji `0.1.0-alpha.507`. Data i identyfikatory instalato
 
 ## Aktualizacja i odbiór
 
-Test i Public muszą powstać z tego samego czystego commitu i otrzymać instalatory z potwierdzoną integralnością oraz kontrolowanym startem. Przed podmianą działającego AMC Test trzeba zakończyć niedokończony formularz w starszej instancji z katalogu C:. Po instalacji sprawdzić rzeczywisty proces, ścieżkę, wersję, odczyt NVDA i zapis na żywych kontach.
+Test i Public mają instalatory z potwierdzoną integralnością i przeszły
+kontrolowany start. Starszy proces Test z C: został zamknięty po potwierdzeniu
+końca nagrywania; skróty i działający proces prowadzą do
+`D:\Projekty Codex\AMC Python\AMC.exe`. Public jest zainstalowany w
+`D:\Projekty Codex\AMC Public`. Po starcie Test pokazuje sesję Radio i
+„Nic nie jest odtwarzane”; dźwięk nie został automatycznie wznowiony, bo
+przed zamknięciem starsza aplikacja pokazywała inną stację niż wcześniej
+wskazany Poznań. Nadal trzeba sprawdzić odczyt NVDA, działania na żywych
+kontach i wydajność dużej Biblioteki podcastów.

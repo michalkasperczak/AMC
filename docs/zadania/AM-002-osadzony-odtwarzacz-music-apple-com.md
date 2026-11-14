@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `14.11.2026 — wycofanie wadliwego osadzonego odtwarzania gotowe w źródłach i testach celowanych; bez nowej instalacji, wydania i odbioru NVDA`
+- Status: `14.11.2026 — wycofanie osadzonego odtwarzania opublikowane w AMC Test alpha.507, zainstalowane i uruchomione; bez odbioru Apple Music z NVDA`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -345,3 +345,14 @@ zmiany. Odczyt 14.11 wykazał działający proces z
 commit `d7563d1a`. Osobna instalacja w `D:\Projekty Codex\AMC Python`
 z 14.11.2026, 15:03 ma commit `1eff98e5` i wcześniejszą poprawkę
 wyszukiwania, ale nie wycofanie WebView.
+
+## Aktualizacja stanu 14.11.2026, po 17:55
+
+Powyższy opis instalacji i brak wydania są historyczne. Użytkownik pozwolił
+zamknąć starsze AMC po zakończeniu nagrywania. Wydanie Test
+`test-2026.11.14.1642` z commitu `aafa2bc3` opublikowano, zainstalowano
+w `D:\Projekty Codex\AMC Python` i uruchomiono. Tytuł działającego okna:
+„AMC Test — 14.11.2026, 16:42”. Instalacja przeszła pełną kontrolę
+integralności i cichy start. Nie uruchamiano Apple Music ani NVDA w tym
+odbiorze; działanie Entera, menu oryginalnej aplikacji i brak osadzonego
+odtwarzania wymagają ręcznej próby, gdy użytkownik będzie gotowy.

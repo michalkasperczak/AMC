@@ -2,8 +2,8 @@
 
 - Status: **wydane, zainstalowane i uruchomione w AMC Test alpha.498**.
 - Nowe zgłoszenie `Ctrl+F` Apple Music z 13.11.2026: **pierwsza poprawka
-  znajduje się w instalacji D; działający proces C jest starszy, a naprawa
-  dalszych stron pozostaje tylko w źródłach; bez próby NVDA**.
+  i naprawa dalszych stron są w AMC Test alpha.507 zainstalowanym na D
+  i uruchomionym 14.11; bez próby NVDA w Apple Music**.
 - Utworzono: 13 listopada 2026.
 - Obszar: TIDAL, Spotify, lokalne Ulubione, Biblioteka Radia, playlisty,
   kolejki, wyszukiwanie, NVDA.
@@ -178,6 +178,12 @@ Materiał do dokumentacji użytkownika — projekt: po sprawdzonej aktualizacji
 „Załaduj więcej” będzie pobierać kolejne strony po 100 pozycji, a Enter na
 wyniku wyszukiwania otworzy listę bez przenoszenia filtra z poprzedniego
 widoku. Nie jest to jeszcze potwierdzone przez NVDA na działającym AMC.
+
+Korekta stanu 14.11.2026, po 17:55: powyższy odczyt starszego procesu C
+jest historyczny. AMC Test alpha.507 z commitu `aafa2bc3` jest zainstalowany
+i uruchomiony z `D:\Projekty Codex\AMC Python`. Kontrola paczki i cichy start
+przeszły, lecz `Ctrl+F` i doładowanie dalszych stron Apple Music nie były
+jeszcze sprawdzone z NVDA na żywym koncie.
 
 ## Wersja i commit
 

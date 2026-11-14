@@ -53,3 +53,12 @@ Roboczy tekst instrukcji i listy zmian: [AM-006-instrukcja-i-lista-zmian-szkic.m
 - Wspólne wydanie z AM-002: prerelease `test-2026.11.13.1952` na commicie
   `16eb05b5`, instalator zweryfikowany i opublikowany; lokalnej instalacji
   nie wykonano, użytkownik wybrał samodzielną aktualizację.
+
+## Korekta stanu 14.11.2026 po 17:55
+
+Powyższy brak lokalnej instalacji dotyczył starszego wydania. Polecenie
+otwierania w oryginalnym Apple Music jest teraz w opublikowanym,
+zainstalowanym i uruchomionym AMC Test alpha.507 z commitu `aafa2bc3`.
+Enter na utworze nie wybiera utworu w oficjalnej aplikacji; podpowiada menu
+kontekstowe. Instalacja przeszła pełną kontrolę i cichy start, lecz przekazanie
+konkretnego utworu oraz mowa NVDA nie zostały ponownie sprawdzone na żywo.

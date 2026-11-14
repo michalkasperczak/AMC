@@ -27,3 +27,12 @@ Nie wykonano zapisu na żywym koncie TIDAL lub Spotify ani odbioru NVDA w nowej 
 ## Szkic listy zmian do zatwierdzenia
 
 Wybór kilku pozycji do playlist jest sprawdzony w plikach, radiu, podcastach, TIDAL i Spotify. TIDAL odczytuje potwierdzenie usługi i zgłasza pominięte pozycje. Playlista radia nie zapowiada łącznego czasu trwania; wybrane stacje nadal można odtwarzać.
+
+## Aktualizacja wydania 14.11.2026 po 17:55
+
+Powyższe ograniczenie „uruchomiona kopia jest starsza” i bramka „przed
+wydaniem” opisują stan sprzed wspólnej aktualizacji. Test i Public
+`0.1.0-alpha.507` z commitu `aafa2bc3` są opublikowane i zainstalowane;
+Test został uruchomiony z kanonicznego katalogu D. Paczki i instalacje
+przeszły pełną kontrolę integralności oraz cichy start. Zapis playlist na
+żywych kontach i mowa NVDA nadal nie były odebrane po instalacji.

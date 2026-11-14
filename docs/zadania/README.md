@@ -1,16 +1,15 @@
 # Rejestr zadań AMC
 
-- `POD-PERF-20261114` — **W trakcie; nowa opcja alpha.506 w źródłach i testach, bez buildu, instalacji i publikacji** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Audyt po zgłoszeniu spowolnienia Ctrl+3 potwierdził pozostały koszt pełnego wczytania i przeliczenia około 92 tys. odcinków przy zapisie porcji odświeżenia; czasu natywnej listy i NVDA jeszcze nie zmierzono. Poprzedni instalator alpha.505 nie zawiera nowej opcji. [Pomiary, porównanie i ograniczenia](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
+- `POD-PERF-20261114` — **alpha.507 opublikowana i zainstalowana w Test i Public; odbiór wydajności oraz NVDA otwarty** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Pozostaje koszt pełnego wczytania i przeliczenia około 92 tys. odcinków przy zapisie porcji odświeżenia; czasu natywnej listy i NVDA jeszcze nie zmierzono. [Pomiary, porównanie i ograniczenia](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
 
 - `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
-- `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
-- `A11Y-COLLECTIONS-20261113` — **pierwsza korekta Ctrl+F Apple Music jest w
-  instalacji D z 14.11; działający proces C jest starszy; dalsze strony po
-  100 naprawione tylko w źródłach, bez odbioru NVDA** — wyszukiwanie Biblioteki
+- `AM-006` — **jawne otwieranie w oryginalnym Apple Music jest w zainstalowanym AMC Test alpha.507; odbiór NVDA otwarty** — menu kontekstowe otwiera oryginalną aplikację; Enter na utworze wskazuje to polecenie bez uruchamiania ukrytego odtwarzacza. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
+- `A11Y-COLLECTIONS-20261113` — **Ctrl+F Apple Music i dalsze strony po 100
+  są w działającym AMC Test alpha.507; bez odbioru NVDA** — wyszukiwanie Biblioteki
   Apple poza wczytaną stroną i osobny kontekst filtra wyników.
   [Szczegóły](A11Y-COLLECTIONS-20261113-fokus-mowa-sortowanie.md).
-- `PLAYER-20261113` — **kod i testy celowane gotowe; wydanie w toku** — Sonos
+- `PLAYER-20261113` — **zmiany w wydanym i zainstalowanym Test/Public alpha.507; odbiór NVDA otwarty** — Sonos
   mówi tylko potwierdzoną głośność, Spotify udostępnia suwak przez Tab, a
   `Ctrl+Shift+C` Apple Music kopiuje bezpośredni lub nazwany link wyszukiwania.
   Odtwarzanie i `Shift+A` Apple odłożono do jutrzejszej próby oficjalnej
@@ -731,8 +730,8 @@ zmian, wymagający korekty użytkownika:
   stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
-- `AM-002` — **14.11: wycofanie ukrytego odtwarzacza gotowe w źródłach i
-  testach celowanych; bez buildu, instalacji i odbioru NVDA podczas nagrywania**
+- `AM-002` — **14.11: wycofanie ukrytego odtwarzacza w wydanym,
+  zainstalowanym i uruchomionym AMC Test alpha.507; bez odbioru NVDA**
   — Enter na utworze wskazuje jawne otwarcie w oryginalnym Apple Music;
   Spacja steruje tylko bieżącym utworem w oryginalnej aplikacji.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
@@ -755,8 +754,8 @@ zmian, wymagający korekty użytkownika:
 
 ## Krótkie polecenia użytkownika
 
-- `RELEASE-20261114-PUBLIC-SONOS` — **Test i Public alpha.507 opublikowane; Public zainstalowany i sprawdzony, Test oczekuje na bezpieczne zamknięcie starszej instancji** — lokalny Sonos w Public oraz poprawki playlist, YouTube, kolejek i podcastów; Public bez Apple Music. [RELEASE-20261114-public-sonos-playlisty.md](RELEASE-20261114-public-sonos-playlisty.md).
-- `PLAYLIST-BULK-20261114` — **Źródła i testy celowane gotowe; instalacja i publikacja osobnymi etapami** — wielokrotne zaznaczenie dla playlist w pięciu sesjach, potwierdzona liczba dodatków TIDAL oraz brak łącznego czasu dla playlist radia. [PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md](PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md).
+- `RELEASE-20261114-PUBLIC-SONOS` — **Test i Public alpha.507 opublikowane, zainstalowane i sprawdzone; Test uruchomiony z D** — lokalny Sonos w Public oraz poprawki playlist, YouTube, kolejek i podcastów; Public bez Apple Music. [RELEASE-20261114-public-sonos-playlisty.md](RELEASE-20261114-public-sonos-playlisty.md).
+- `PLAYLIST-BULK-20261114` — **w wydanym i zainstalowanym Test/Public alpha.507; odbiór NVDA otwarty** — wielokrotne zaznaczenie dla playlist w pięciu sesjach, potwierdzona liczba dodatków TIDAL oraz brak łącznego czasu dla playlist radia. [PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md](PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md).
 
 Wystarczy powiedzieć na przykład: `Uruchom zadanie NVDA-001`. Agent ma wtedy
 odczytać rejestr oraz właściwy plik i wykonać wyłącznie wskazane zadanie.

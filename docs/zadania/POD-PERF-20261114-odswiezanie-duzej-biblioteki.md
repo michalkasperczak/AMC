@@ -1,6 +1,6 @@
 # POD-PERF-20261114 — obciążenie odświeżania dużej biblioteki podcastów
 
-Status: W trakcie. Zmiany źródeł i celowane testy przygotowane 14.11.2026. Zbudowano i zweryfikowano odizolowaną paczkę oraz instalator AMC Test 0.1.0-alpha.505; nie zainstalowano go. Później dodano w źródłach alpha.506 wybór automatu lub odświeżania tylko na żądanie; alpha.505 nie zawiera tego ustawienia. O 04:32 decyzję o odłożeniu instalacji oparto na dwóch krótkotrwałych procesach `yt-dlp.exe`; korekta tej oceny z 14.11 znajduje się poniżej. Użytkownik planuje nagrywanie od 07:00 czasu polskiego; po tej godzinie nie instalować ani nie restartować AMC.
+Status: W trakcie odbioru. Wcześniejsze instalatory alpha.505 i źródła alpha.506 opisano poniżej historycznie. Wspólna alpha.507 z wyborem taktu lub trybu tylko na żądanie jest opublikowana w Test i Public; oba profile zainstalowano 14.11 po potwierdzeniu przez użytkownika końca nagrywania. Nie wykonano jeszcze pomiaru wydajności ani NVDA na nowej instalacji.
 
 ## Cel i zakres
 
@@ -105,3 +105,17 @@ Powiązane polecenie Radia z commita `5011eb78` jest obecne w źródłach i przo
 Odczyt własnego `state.json` AMC z 14.11 o 15:33 ujawnił **dwie** stacje „Kramer”: starszą stację z pojedynczym adresem `watch?v=...`, do której przypięty jest włączony plan nagrywania, oraz osobną ulubioną stację dynamiczną `https://www.youtube.com/channel/UCnzVSDm4ibFryfVW1m3KzDw/live`. Polecenie aktualizacji działa na zaznaczonej stacji, więc wybór ulubionej dynamicznej nie zaktualizuje planu starszej stacji. Dla nieistniejącego filmu sam `yt-dlp` może już nie ustalić kanału; obecna implementacja nie ma trwałego zapasowego ID kanału dla starszej stacji. Bezpieczna procedura użytkownika: w Radiu wybrać starszą stację Kramer, w F2 ustawić jej adres na znany adres kanału `/live`, zapisać, a potem z menu kontekstowego wybrać aktualizację transmisji. Adres `/channel/…/live` pozwala hostowi ustalić kanał bez odczytu wygasłego filmu. F2 w istniejącym kodzie aktualizuje powiązane prywatne plany. Nie wykonano tej edycji na działającym profilu. Trwała poprawa powinna zachować identyfikator kanału przy wyborze konkretnej transmisji, żeby kolejne odświeżenie nie zależało od dostępności starego filmu.
 
 Późniejsza korekta stanu wydania z 14.11: w osobnym zadaniu przygotowano zweryfikowane paczki i instalator Test alpha.506, ale nie wykonano instalacji z tej paczki. Wspólna aktualizacja Test/Public została następnie oznaczona jako alpha.507. Wcześniejsze zdania „nie zbudowano alpha.506” opisują stan w chwili pierwszego audytu, a nie końcowy stan dnia.
+
+## Korekta 14.11.2026 po 17:55 — alpha.507 zainstalowana
+
+Wersję `0.1.0-alpha.507` z commitu źródłowego `aafa2bc3` opublikowano w
+obu kanałach i zainstalowano jako AMC Test w `D:\Projekty Codex\AMC Python`
+oraz AMC Public w `D:\Projekty Codex\AMC Public`. Obie instalacje przeszły
+pełną kontrolę integralności i cichy start. Test został dodatkowo uruchomiony
+z kanonicznego launchera; jego okno ma tytuł „AMC Test — 14.11.2026, 16:42”.
+Ta informacja zastępuje wcześniejszy stan „alpha.506 tylko w źródłach” i
+wcześniejsze ograniczenie czasowe instalacji: użytkownik jawnie potwierdził
+koniec nagrywania i wolny komputer przed podmianą. Pomiary Ctrl+3, kosztu
+odświeżania, nawigacji NVDA oraz zachowanie pola `0` na żywym profilu nadal
+nie zostały wykonane; koszt pełnego zapisu biblioteki pozostaje znanym
+ograniczeniem.

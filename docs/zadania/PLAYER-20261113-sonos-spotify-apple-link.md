@@ -63,3 +63,14 @@ i mówi, czy jest to link bezpośredni, czy link wyszukiwania.
 - Instalacja i kontrolowany start w `D:\Projekty Codex\AMC Python`: zaliczone;
   uruchomione okno ma tytuł `AMC Test — 13.11.2026, 02:17`.
 
+## Nowszy stan wydania 14.11.2026
+
+Wspólne wydanie Test/Public `0.1.0-alpha.507`, commit źródłowy `aafa2bc3`,
+zawiera te zmiany wraz z późniejszymi poprawkami. Oba profile opublikowano
+i zainstalowano; Test działa z `D:\Projekty Codex\AMC Python`, tytuł
+„AMC Test — 14.11.2026, 16:42”. Public nie ma sesji ani działań Apple Music.
+Pełna kontrola obu instalacji i cichy start przeszły. Sprawdzenie NVDA
+w odtwarzaczu, Sonosa na głośniku oraz linków Apple Music w Test pozostaje
+otwarte. Ta sekcja aktualizuje powyższe dane alpha.498, nie zastępuje
+historycznego wyniku tamtego wydania.
+

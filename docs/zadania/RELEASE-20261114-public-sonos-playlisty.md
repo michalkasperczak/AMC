@@ -86,3 +86,27 @@ odłożona: starsze AMC Test z C: działało, a narzędzie wykryło aktywność
 użytkownika w jego oknie podczas sprawdzania. Widok nagrań pokazał zero
 pozycji; nie zamknięto procesu bez pewności, że użytkownik skończył pracę.
 Nie wykonano jeszcze ręcznego odbioru NVDA ani prób na żywych kontach.
+
+### Korekta stanu instalacji 14.11.2026, po 17:55
+
+Użytkownik potwierdził, że nagrywanie się zakończyło, niedokończony formularz
+można zamknąć i AMC jest wolne. W starszej instancji z C: widok nagrań pokazał
+„zero elementów”; wcześniejszy pasek stanu podał zakończenie nagrywania
+„Dominikanie Poznań — YouTube na żywo”. Starsze okno zamknięto przez Alt+F4;
+launcher, Python i host z tej instalacji zniknęły przed podmianą. To zastępuje
+powyższy stan „lokalna instalacja Test odłożona”.
+
+Instalator Test zakończył się kodem 0 w `D:\Projekty Codex\AMC Python`.
+Zainstalowany manifest ma profil `test`, etykietę `14.11.2026, 16:42`, commit
+`aafa2bc3a6cbacaf892df96b1414f7ef3d50b589`, identyfikator `b05f3f66`
+i `sourceDirty=false`. Pełna kontrola integralności zwróciła 0, cichy start
+interfejsu i hosta przeszedł. Uruchomiono dokładnie
+`D:\Projekty Codex\AMC Python\AMC.exe`; procesy launchera, Pythona i hosta
+pochodzą z tego katalogu, bez starej instancji C. Start Menu i skrót pulpitu
+`AMC Test` wskazują ten launcher. Okno ma tytuł
+„AMC Test — 14.11.2026, 16:42”, otworzyło sesję Radio i podało
+„Nic nie jest odtwarzane”. Przed zamknięciem starsza aplikacja pokazywała
+inną nazwę stacji niż wcześniej wskazany przez użytkownika Poznań; nie
+uruchomiono automatycznie niepewnego źródła. Wznowienie dźwięku i wybranego
+źródła po aktualizacji pozostaje osobnym zadaniem. Odbiór NVDA, Apple Music,
+Sonosa oraz nowych ustawień podcastów na żywych danych nadal jest otwarty.
