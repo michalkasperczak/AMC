@@ -1,6 +1,6 @@
 # POD-PERF-20261114 — obciążenie odświeżania dużej biblioteki podcastów
 
-Status: W trakcie. Zmiany źródeł i celowane testy bez okien przygotowane 14.11.2026; działająca instalacja pozostaje nienaruszona. Dodatkowa informacja z 14.11: użytkownik planuje nagrywanie od 07:00 czasu polskiego, więc 07:00 nie jest terminem automatycznej instalacji.
+Status: W trakcie. Zmiany źródeł i celowane testy przygotowane 14.11.2026. Zbudowano i zweryfikowano odizolowaną paczkę oraz instalator AMC Test 0.1.0-alpha.505. Działająca instalacja alpha.504 pozostaje nienaruszona: bezpośrednio przed planowanym zamknięciem pojawiły się dwa procesy `yt-dlp.exe`, więc zgodnie z warunkiem użytkownika nie przerywano aktywnej pracy. Użytkownik planuje nagrywanie od 07:00 czasu polskiego; po tej godzinie nie instalować ani nie restartować AMC.
 
 ## Cel i zakres
 
@@ -32,7 +32,10 @@ W Ustawieniach ogólnych, w sekcji **Podcasty i YouTube → Automatyczne odświe
 - `python -m pytest -q tests/test_podcast_source.py tests/test_podcast_refresh.py tests/test_general_settings_dialog.py::test_podcast_settings_reach_the_database_owner_and_automatic_refresh` uruchomione z `wxlite` po końcowej poprawce: **41 zaliczonych**, 4,32 s.
 - Poszerzony przebieg całego `test_general_settings_dialog.py`: 54 zaliczone, 1 niepowodzenie w niepowiązanym `test_local_resume_setting_reaches_start_save_and_background_checkpoint`. Test oczekuje 7 wystąpień `session_options.configure_resume_preferences(`, podczas gdy wyjściowy commit `ea5a8bd0` już zawierał 8; potwierdzono `git show HEAD`. Nie zmieniano wznowienia ani tego testu w tym zadaniu.
 - Prawdziwa baza odczytowo, po zmianie: największa lista RSS 3551 odcinków — mediana trzech otwarć 0,0126 s, 150 widocznych pozycji; największa lista YouTube 558 odcinków — 0,0170 s, także 150 pozycji. Te czasy obejmują metodę Pythona, nie synchronizację wx/NVDA.
-- Nie uruchamiano widocznego GUI, NVDA, pełnej regresji ani drugiej instancji AMC w oknie nagrywania.
+- Cichy test startu odizolowanej paczki potwierdził interfejs i host bez otwierania drugiej widocznej instancji. Pełna kontrola integralności paczki zakończyła się pomyślnie. Nie wykonano pełnej regresji ani odbioru NVDA nowej wersji.
+- Odczyt uruchomionej alpha.504 przez `Alt+R` pokazał zero trwających nagrań; `Escape` przywrócił poprzednią listę plików lokalnych i fokus. Pasek stanu wskazywał brak odtwarzania. Zapisany prywatny harmonogram miał najbliższy włączony termin 14.11.2026 o 07:13 czasu polskiego; odczyt pliku nie zastępuje żywego statusu hosta.
+- Tuż przed planowanym zamknięciem, o 04:32 czasu polskiego, odczyt procesów wykazał dwa `yt-dlp.exe` z katalogu składników AMC. Procesy były krótkotrwałe i zniknęły przy następnym odczycie, ale w chwili decyzji oznaczały aktywną pracę. Nie zamykano AMC, nie instalowano i nie restartowano NVDA. Dla pobierania odcinków bez `yt-dlp` nie ma w tym przebiegu bezpośredniego odczytu flagi w pamięci interfejsu.
+- W zaobserwowanej alpha.504 po powrocie z pustego podglądu nagrań lista plików lokalnych i fokus wróciły, lecz tekst pomocniczy listy nadal mówił „zero elementów” mimo sześciu pozycji. To osobna obserwacja dostępności starej instalacji, bez przypisania do tej zmiany.
 
 ## Zmienione pliki
 
@@ -44,11 +47,11 @@ W Ustawieniach ogólnych, w sekcji **Podcasty i YouTube → Automatyczne odświe
 
 ## Znane ograniczenia i następny krok
 
-Najważniejsze ograniczenie: źródła są teraz sprawdzane rzadziej. Zysk kosztu pełnego zapisu bazy jest prognozą na podstawie ograniczenia liczby przebiegów; rzeczywisty wynik po instalacji wymaga nowego pomiaru. Skok CPU Pythona z 02:38 nie ma potwierdzonej przyczyny. Rozpoczęty przebieg automatu może jeszcze trwać po rozpoczęciu nowego nagrania. Następny krok: po potwierdzonym zakończeniu nagrywania i bezpiecznym oknie odczytowo sprawdzić nagrania i harmonogramy, a dopiero potem rozważyć build oraz lokalną instalację. Po instalacji porównać liczbę prób, I/O hosta, czas listy i fokus NVDA; decyzję o wydaniu podjąć na tych wynikach.
+Najważniejsze ograniczenie: źródła są teraz sprawdzane rzadziej. Zysk kosztu pełnego zapisu bazy jest prognozą na podstawie ograniczenia liczby przebiegów; rzeczywisty wynik po instalacji wymaga nowego pomiaru. Skok CPU Pythona z 02:38 nie ma potwierdzonej przyczyny. Rozpoczęty przebieg automatu może jeszcze trwać po rozpoczęciu nowego nagrania. Następny krok: w następnym bezpiecznym oknie ponownie potwierdzić brak nagrywania, pobierania i bliskich harmonogramów, a dopiero potem zainstalować już przygotowany instalator. Po instalacji porównać liczbę prób, I/O hosta, czas listy i fokus NVDA; decyzję o wydaniu podjąć na tych wynikach.
 
 ## Wersja i commit
 
-Źródła: bieżąca gałąź `codex/amc-test-public-20261109`, wyjściowy commit `ea5a8bd0f4dcafee107e395dd2d618d954a348ca`, zmiana kodu i README w commitach `7b4b0f132374984ffce8a998bfb87be08b38f479` oraz `348023552cb50a49cb17292d1af17efe628d4914`. Testy: 41 celowanych zaliczonych; dodatkowy niepowiązany test w szerszym zestawie pozostaje niezgodny już na wyjściowym commicie. Build: nie wykonano. Instalacja: nie wykonano, działające AMC Test z `D:\Projekty Codex\AMC Python` pozostawiono bez zmian. Publikacja: nie wykonano.
+Źródła: gałąź `codex/amc-test-public-20261109`, wyjściowy commit `ea5a8bd0f4dcafee107e395dd2d618d954a348ca`, zmiany kodu `7b4b0f132374984ffce8a998bfb87be08b38f479` i `348023552cb50a49cb17292d1af17efe628d4914`, numer alpha.505 w `c54089fe110c19fab1fe77a8afa6a7ada95b48c9`. Testy: 41 celowanych zaliczonych; dodatkowy niepowiązany test w szerszym zestawie pozostaje niezgodny już na wyjściowym commicie. Build: paczka `publish/bundles/test-podcast-alpha505-20261114` z czystego commita `c54089fe`, identyfikator zawartości `adcd0c55`, 4699 plików, pełna kontrola i cichy test startu zaliczone. Instalator: `publish/test-podcast-alpha505-20261114/AMC-Test-2026-11-14-0420.exe`, 218 448 094 bajty; plik `.integrity.json` potwierdza wersję, profil, commit, identyfikator paczki, skan sekretów i oba dodatki NVDA. Ponowny SHA-256 i rozmiar instalatora zgadzały się z metadanymi. Instalacja: nie wykonano, działające AMC Test z `D:\Projekty Codex\AMC Python` pozostawiono bez zmian z powodu aktywnego `yt-dlp`. Publikacja: nie wykonano.
 
 ## Szkic instrukcji i listy zmian do zatwierdzenia
 
