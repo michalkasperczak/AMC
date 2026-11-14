@@ -58,3 +58,31 @@ zmiany YouTube, kolejek i podcastów. W historii rozpoznawania utworów można
 korzystać z działań Spotify i TIDAL; działania Apple Music są dostępne tylko
 w AMC Test. Opis jest projektem do korekty po odbiorze, nie opublikowaną
 instrukcją.
+
+## Wynik wydania 14.11.2026 — commit `aafa2bc3`
+
+Po powyższej korekcie obie paczki zbudowano ponownie z jednego czystego commitu
+`aafa2bc3a6cbacaf892df96b1414f7ef3d50b589`, wersja techniczna
+`0.1.0-alpha.507`. Test: etykieta `14.11.2026, 16:42`, identyfikator paczki
+`b05f3f66`, 4730 plików. Public: `14.11.2026, 16:45`, identyfikator `17e5c5c5`,
+3459 plików. Obie paczki przeszły pełną kontrolę i cichy start interfejsu oraz
+hosta. Manifest Public nie zawiera żadnego pliku Apple Music; zawiera Sonosa.
+
+Instalator Test: `AMC-Test-2026-11-14-1642.exe`, 218 473 592 bajty,
+SHA-256 `61e17c890631055fea84840eceb6c68f9019d8d48c499e472fd48b1b9e63642c`.
+Instalator Public: `AMC-Public-2026-11-14-1645.exe`, 136 533 154 bajty,
+SHA-256 `d262c0073dfc060a58e272c96ba2a277783851b4b79200c6a811df618c7cd8c0`.
+Oba pliki integralności potwierdzają brak sekretów. Wydania GitHub:
+`test-2026.11.14.1642` jako prerelease i `public-2026.11.14.1645` jako
+stable. Załączniki instalatorów, manifesty aktualizacji i pliki integralności
+zostały odczytowo potwierdzone na GitHubie z właściwymi nazwami i rozmiarami.
+
+Public zainstalowano w `D:\Projekty Codex\AMC Public`: kod instalatora 0,
+manifest `aafa2bc3`, pełna kontrola integralności 0 i cichy start zaliczony.
+W katalogu instalacji nie pozostały moduł linków Apple Music, klient biblioteki,
+zależności `applemusic` ani `playwright`, ani host WebView. Test opublikowano,
+lecz lokalna instalacja w `D:\Projekty Codex\AMC Python` jest jeszcze
+odłożona: starsze AMC Test z C: działało, a narzędzie wykryło aktywność
+użytkownika w jego oknie podczas sprawdzania. Widok nagrań pokazał zero
+pozycji; nie zamknięto procesu bez pewności, że użytkownik skończył pracę.
+Nie wykonano jeszcze ręcznego odbioru NVDA ani prób na żywych kontach.
