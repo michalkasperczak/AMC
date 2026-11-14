@@ -1,4 +1,4 @@
-"""Enter plays in AMC; the original app remains an explicit menu action."""
+"""Apple Music songs never start hidden playback; original app is explicit."""
 
 from __future__ import annotations
 
@@ -20,8 +20,7 @@ from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.apple_music_source import records_from_resources
 from amc_wx_lite.apple_music_library import AppleMusicLibraryResult
 from amc_wx_lite.navigation import (
-    Navigator, OpenAppleMusicAlbum, OpenAppleMusicOriginal,
-    PlayAppleMusicWeb, SessionId,
+    Announce, Navigator, OpenAppleMusicAlbum, OpenAppleMusicOriginal, SessionId,
 )
 from amc_wx_lite.shortcuts import Action
 from amc_wx_lite.shortcuts import (
@@ -47,46 +46,28 @@ def _selected_song():
     return record, navigator
 
 
-def test_enter_plays_in_amc_and_menu_opens_original(monkeypatch) -> None:
+def test_enter_does_not_play_and_menu_opens_original(monkeypatch) -> None:
     record, navigator = _selected_song()
     messages: list[str] = []
     opened = []
-    played = []
-    closed = []
     owner = SimpleNamespace(
         navigator=navigator,
         _apple_music_records={record.row.item_id: record},
         announcer=SimpleNamespace(say=messages.append),
         _apple_music_handoff=False,
-        _apple_music_web_active=False,
-        _apple_music_web_client=SimpleNamespace(
-            executable=SimpleNamespace(is_file=lambda: True),
-            play=lambda song_id: (
-                played.append(song_id) or {"handled": True}
-            ),
-            close=lambda: closed.append(True),
-        ),
-        runner=SimpleNamespace(
-            submit=lambda _name, work, done, _failed: done(work())
-        ),
-        _refresh_apple_music_external_state=lambda **_kwargs: None,
     )
     monkeypatch.setattr(gui, "apple_music_original_available", lambda value: value is record)
     monkeypatch.setattr(gui, "open_apple_music_original", opened.append)
 
-    intent = navigator.activate_selected()[0]
-    assert intent == PlayAppleMusicWeb(record.row.item_id, record.row.title)
-    gui.LiteFrame._play_apple_music_web(owner, intent)
-    assert played == ["123456"]
-    assert owner._apple_music_web_active is True
+    assert navigator.activate_selected() == [Announce(
+        "Ten utwór można otworzyć w oryginalnym Apple Music z menu kontekstowego"
+    )]
     gui.LiteFrame._open_apple_music_original(
         owner, OpenAppleMusicOriginal(record.row.item_id, record.row.title)
     )
 
     assert opened == [record]
-    assert closed == [True]
     assert owner._apple_music_handoff is True
-    assert owner._apple_music_web_active is False
     assert messages[-1].startswith("Otworzono utwór w oryginalnym Apple Music")
     assert "private.song" not in messages[-1]
     assert "123456" not in messages[-1]
@@ -141,20 +122,12 @@ def test_menu_and_help_availability_follow_selected_track(monkeypatch) -> None:
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame._apple_music_records = {record.row.item_id: record}
-    frame._apple_music_web_client = SimpleNamespace(
-        executable=SimpleNamespace(is_file=lambda: True),
-        is_running=True,
-    )
     monkeypatch.setattr(gui, "apple_music_original_available", lambda value: value is record)
     action = Action.APPLE_MUSIC_OPEN_ORIGINAL
 
     assert frame._action_available_in_active_session(action)
-    assert frame._action_available_in_active_session(Action.APPLE_MUSIC_PLAY_WEB)
-    assert frame._action_available_in_active_session(Action.APPLE_MUSIC_SHOW_WEB)
     navigator.session.model.replace([])
     assert not frame._action_available_in_active_session(action)
-    assert not frame._action_available_in_active_session(Action.APPLE_MUSIC_PLAY_WEB)
-    assert frame._action_available_in_active_session(Action.APPLE_MUSIC_SHOW_WEB)
 
 
 def test_context_menu_has_explicit_user_facing_original_action() -> None:
@@ -177,19 +150,14 @@ def test_context_menu_has_explicit_user_facing_original_action() -> None:
         (Native(label), menu_model.MenuItem(
             label, action, visible_sessions=(SessionId.APPLE_MUSIC,),
         ))
-        for label, action in (
-            ("Otwórz utwór w oryginalnym Apple &Music",
-             Action.APPLE_MUSIC_OPEN_ORIGINAL),
-            ("Odtwórz utwór Apple Music &w AMC",
-             Action.APPLE_MUSIC_PLAY_WEB),
-        )
+        for label, action in ((
+            "Otwórz utwór w oryginalnym Apple &Music",
+            Action.APPLE_MUSIC_OPEN_ORIGINAL,
+        ),)
     ]
     groups = frame._context_menu_command_groups(player=False)
     labels = [command.label for group in groups for command in group]
-    assert labels[:2] == [
-        "Otwórz utwór w oryginalnym Apple Music",
-        "Odtwórz utwór Apple Music w AMC",
-    ]
+    assert labels == ["Otwórz utwór w oryginalnym Apple Music"]
     assert gui._LIST_CONTEXT_ACTION_GROUPS[0][0] is Action.APPLE_MUSIC_OPEN_ORIGINAL
 
 
@@ -216,12 +184,12 @@ def test_apple_music_transport_uses_only_apple_session() -> None:
     frame._queue_step(False)
 
     assert commands == ["toggle", "next", "previous"]
-    assert messages == ["Wstrzymano"] * 3
+    assert messages == ["Oryginalny Apple Music: Wstrzymano"] * 3
     assert len(refreshes) == 3
     assert {Action.PLAY_PAUSE, Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS} <= (
         APPLE_MUSIC_SUPPORTED_ACTIONS
     )
-    assert "bieżący utwór Apple Music" in describe_action(
+    assert "bieżący utwór w oryginalnym Apple Music" in describe_action(
         Action.PLAY_PAUSE, "Apple Music"
     )
     for key, action in (
@@ -238,6 +206,17 @@ def test_apple_music_transport_uses_only_apple_session() -> None:
     palette = {entry.action: entry for entry in entries_for_session(
         SessionId.APPLE_MUSIC
     )}
+    assert palette[Action.ACTIVATE].label == (
+        "Otwórz element lub pokaż sposób otwarcia utworu, Enter"
+    )
+    apple_activate = [
+        item for menu in menu_model.menus_for_session(SessionId.APPLE_MUSIC)
+        for item in menu.items if item.action is Action.ACTIVATE
+    ]
+    assert len(apple_activate) == 1
+    assert apple_activate[0].label == (
+        "&Otwórz element lub pokaż sposób otwarcia utworu"
+    )
     assert palette[Action.QUEUE_NEXT].label == (
         "Następny utwór Apple Music, Shift+Page Down"
     )
@@ -246,24 +225,22 @@ def test_apple_music_transport_uses_only_apple_session() -> None:
     )
 
 
-def test_web_playback_transport_does_not_control_original_app() -> None:
+def test_transport_ignores_stale_web_state_and_controls_original_app() -> None:
     _record, navigator = _selected_song()
-    web_commands: list[str] = []
+    original_commands: list[str] = []
     messages: list[str] = []
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     frame.navigator = navigator
     frame.client = SimpleNamespace(
-        apple_music_external_transport=lambda _command: (
-            pytest.fail("original app transport called")
+        apple_music_external_transport=lambda command: (
+            original_commands.append(command) or
+            {"handled": True, "message": "Wstrzymano"}
         )
     )
     frame._apple_music_web_active = True
     frame._apple_music_web_client = SimpleNamespace(
         is_running=True,
-        transport=lambda command: (
-            web_commands.append(command) or
-            {"handled": True, "message": "Wstrzymano"}
-        ),
+        transport=lambda _command: pytest.fail("ukryty odtwarzacz został użyty"),
     )
     frame.runner = SimpleNamespace(
         submit=lambda _name, work, done, _failed: done(work())
@@ -273,8 +250,11 @@ def test_web_playback_transport_does_not_control_original_app() -> None:
 
     frame._play_pause()
     frame._queue_step(True)
-    assert web_commands == ["toggle", "next"]
-    assert messages == ["Wstrzymano", "Wstrzymano"]
+    assert original_commands == ["toggle", "next"]
+    assert messages == [
+        "Oryginalny Apple Music: Wstrzymano",
+        "Oryginalny Apple Music: Wstrzymano",
+    ]
 
 
 def test_apple_music_nvda_status_does_not_claim_selected_song_is_playing() -> None:

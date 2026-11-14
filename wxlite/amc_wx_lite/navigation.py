@@ -552,14 +552,6 @@ class OpenAppleMusicOriginal:
 
 
 @dataclass(frozen=True, slots=True)
-class PlayAppleMusicWeb:
-    """Play the selected catalog track in AMC's isolated web player."""
-
-    item_id: str
-    title: str
-
-
-@dataclass(frozen=True, slots=True)
 class OpenSpotifyCollectionView:
     """Open one named, read-only part of the Spotify collection."""
 
@@ -895,6 +887,7 @@ def view_context(state: SessionState) -> tuple:
         state.library_playlist_id,
         state.library_item_id,
         state.folder_path,
+        state.apple_music_context if state.session_id is SessionId.APPLE_MUSIC else "",
     )
 
 
@@ -1799,10 +1792,13 @@ class Navigator:
             if row.kind == "album" and row.service_kind == "album":
                 state.apple_music_return_id = row.item_id
                 return [OpenAppleMusicAlbum(row.item_id, row.title)]
+            if row.kind == "track":
+                return [Announce(
+                    "Ten utwór można otworzyć w oryginalnym Apple Music "
+                    "z menu kontekstowego"
+                )]
             if row.activation_message:
                 return [Announce(row.activation_message)]
-            if row.kind == "track":
-                return [PlayAppleMusicWeb(row.item_id, row.title)]
             return [Announce(
                 "Nie można odtworzyć tego elementu Apple Music"
             )]

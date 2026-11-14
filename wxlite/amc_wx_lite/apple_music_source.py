@@ -184,9 +184,9 @@ def _record(entry: object) -> AppleMusicRecord | None:
         url=_public_url(attributes.get("url")),
         detail=", ".join(details),
         activation_message=(
-            None
-            if not potentially_playable or can_play
-            else "Apple Music nie podało danych potrzebnych do odtworzenia tego utworu w AMC"
+            "Odtwarzanie w AMC jest niedostępne. "
+            "Otwórz utwór w oryginalnym Apple Music z menu kontekstowego"
+            if potentially_playable else None
         ),
         service_id=resource_id,
         service_kind=kind,

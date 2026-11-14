@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from amc_wx_lite.list_model import Row
+from amc_wx_lite.list_filter import FilterState
 from amc_wx_lite.navigation import (
     Announce,
     LibraryView,
     Navigator,
-    PlayAppleMusicWeb,
     OpenAppleMusicAlbum,
     OpenAppleMusicPlaylist,
     OpenAppleMusicView,
     SessionId,
+    view_context,
 )
 from amc_wx_lite.shortcuts import Action, Chord, describe_action, resolve
 
@@ -44,7 +45,7 @@ def test_root_has_four_intentional_labels_and_no_provider_dump() -> None:
     assert events == [Announce("Biblioteka Apple Music, 4 pozycje")]
 
 
-def test_enter_opens_category_playlist_and_plays_song_in_amc() -> None:
+def test_enter_opens_category_playlist_and_explains_original_app_for_song() -> None:
     navigator = Navigator()
     navigator.active = SessionId.APPLE_MUSIC
     navigator.open_apple_music_root()
@@ -77,7 +78,7 @@ def test_enter_opens_category_playlist_and_plays_song_in_amc() -> None:
     )
     assert navigator.session.model.select_id(track.item_id)
     assert navigator.activate_selected() == [
-        PlayAppleMusicWeb(track.item_id, "Utwór")
+        Announce("Ten utwór można otworzyć w oryginalnym Apple Music z menu kontekstowego")
     ]
     assert navigator.session.model.select_id(load_more.item_id)
     assert navigator.activate_selected() == [OpenAppleMusicPlaylist(
@@ -150,7 +151,7 @@ def test_album_enter_opens_tracks_and_backspace_restores_album() -> None:
     )
     navigator.session.model.select_id(song.item_id)
     assert navigator.activate_selected() == [
-        PlayAppleMusicWeb(song.item_id, "Utwór")
+        Announce("Ten utwór można otworzyć w oryginalnym Apple Music z menu kontekstowego")
     ]
     navigator.session.model.select_id(more.item_id)
     assert navigator.activate_selected() == [
@@ -178,6 +179,27 @@ def test_ctrl_alt_digits_are_shared_globally() -> None:
         chord = Chord(key, ctrl=True, alt=True)
         assert _resolve(chord, available=True) is action
         assert _resolve(chord, available=False) is action
+
+
+def test_search_results_have_distinct_filter_context_from_songs() -> None:
+    navigator = Navigator()
+    navigator.active = SessionId.APPLE_MUSIC
+    song = Row("appleMusic:library-songs:i.one", "Jeden", "track")
+    navigator.apply_apple_music_view(
+        OpenAppleMusicView("songs"), "Utwory Apple Music", [song]
+    )
+    songs_context = view_context(navigator.session)
+    filters = FilterState()
+    filters.set_for_view(songs_context, "Niewidoczny na wyniku")
+
+    navigator.show_apple_music_search_results(
+        [song], preferred_id=song.item_id,
+    )
+
+    assert view_context(navigator.session) != songs_context
+    assert filters.text_for_view(view_context(navigator.session)) == ""
+    assert filters.text_for_view(songs_context) == "Niewidoczny na wyniku"
+    assert navigator.session.model.selected_id == song.item_id
 
 
 def test_ctrl_shift_l_is_scoped_to_apple_music_session() -> None:

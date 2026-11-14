@@ -424,6 +424,11 @@ def menus_for_session(
                         "&" + ctrl_f5_presentation("Radio").name
                         if session_id is SessionId.RADIO
                         and item.action is Action.SESSION_CONFIGURE_CURRENT
+                        else i18n.ui_text(
+                            "&Otwórz element lub pokaż sposób otwarcia utworu"
+                        )
+                        if session_id is SessionId.APPLE_MUSIC
+                        and item.action is Action.ACTIVATE
                         else i18n.menu_action_label(item.action.value, item.label)
                     ),
                 )
@@ -907,17 +912,6 @@ def build_menus(
                 "Otwórz utwór w oryginalnym Apple &Music",
                 Action.APPLE_MUSIC_OPEN_ORIGINAL,
                 needs_selection=True,
-                visible_sessions=APPLE_MUSIC_ONLY,
-            ),
-            MenuItem(
-                "Odtwórz utwór Apple Music &w AMC",
-                Action.APPLE_MUSIC_PLAY_WEB,
-                needs_selection=True,
-                visible_sessions=APPLE_MUSIC_ONLY,
-            ),
-            MenuItem(
-                "Pokaż okno odtwarzacza Apple Music",
-                Action.APPLE_MUSIC_SHOW_WEB,
                 visible_sessions=APPLE_MUSIC_ONLY,
             ),
             MenuItem(

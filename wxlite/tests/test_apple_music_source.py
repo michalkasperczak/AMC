@@ -161,7 +161,7 @@ class AppleMusicSourceTests(unittest.TestCase):
         self.assertIsNone(foreign.row.url)
         self.assertIsNone(credentials.row.url)
 
-    def test_playable_without_catalog_id_has_honest_activation_message(self) -> None:
+    def test_song_with_or_without_catalog_id_cannot_start_amc_playback(self) -> None:
         record = records_from_resources([
             library_song(playParams={})
         ])[0]
@@ -170,9 +170,15 @@ class AppleMusicSourceTests(unittest.TestCase):
         self.assertIsNone(record.target.catalog_id)
         self.assertEqual(
             record.row.activation_message,
-            "Apple Music nie podało danych potrzebnych do odtworzenia tego utworu w AMC",
+            "Odtwarzanie w AMC jest niedostępne. Otwórz utwór w oryginalnym Apple Music z menu kontekstowego",
         )
         self.assertNotIn(LIBRARY_ID, record.row.activation_message)
+        with_catalog_id = records_from_resources([library_song()])[0]
+        self.assertTrue(with_catalog_id.target.can_play)
+        self.assertEqual(
+            with_catalog_id.row.activation_message,
+            record.row.activation_message,
+        )
 
     def test_catalog_resource_uses_its_id_only_as_private_target(self) -> None:
         record = records_from_resources([{

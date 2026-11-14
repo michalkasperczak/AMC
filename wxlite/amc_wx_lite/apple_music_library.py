@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import importlib
-from urllib.parse import quote
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 from .apple_music_credentials import (
     AppleMusicCredentialStore,
@@ -66,6 +65,7 @@ class AppleMusicPageCursor:
     view: str
     _path: str
     _base_path: str
+    _page_size: int = 100
 
     def __repr__(self) -> str:
         return "AppleMusicPageCursor()"
@@ -138,14 +138,20 @@ class AppleMusicLibraryClient:
         heading, _method_name = spec
         if cursor is None:
             path = base_path
+            effective_size = page_size
             params: dict[str, object] | None = {
                 "l": "pl-PL",
                 "limit": page_size,
             }
         else:
-            if not isinstance(cursor, AppleMusicPageCursor) or cursor.view != view:
+            if (
+                not isinstance(cursor, AppleMusicPageCursor)
+                or cursor.view != view
+                or cursor._base_path != base_path
+            ):
                 raise AppleMusicLibraryError()
-            path = cursor._path
+            effective_size = cursor._page_size
+            path = _continuation_path(cursor, base_path)
             params = None
         try:
             getter = getattr(self._client, "_get")
@@ -155,7 +161,9 @@ class AppleMusicLibraryClient:
             raw = envelope.get("data")
             if not isinstance(raw, list):
                 raise AppleMusicLibraryError()
-            next_cursor = _page_cursor(view, envelope.get("next"), base_path)
+            next_cursor = _page_cursor(
+                view, envelope.get("next"), base_path, effective_size
+            )
             return AppleMusicLibraryResult(
                 heading=heading,
                 records=records_from_resources(raw),
@@ -231,6 +239,7 @@ class AppleMusicLibraryClient:
         scope = "playlist-tracks:" + target.resource_id
         if cursor is None:
             path = base_path
+            effective_size = page_size
             params: dict[str, object] | None = {
                 "l": "pl-PL",
                 "limit": page_size,
@@ -242,7 +251,8 @@ class AppleMusicLibraryClient:
                 or cursor._base_path != base_path
             ):
                 raise AppleMusicLibraryError()
-            path = cursor._path
+            effective_size = cursor._page_size
+            path = _continuation_path(cursor, base_path)
             params = None
         try:
             getter = getattr(self._client, "_get")
@@ -255,7 +265,9 @@ class AppleMusicLibraryClient:
             return AppleMusicLibraryResult(
                 heading=f"Playlista: {playlist.row.title}",
                 records=records_from_resources(raw),
-                next_cursor=_page_cursor(scope, envelope.get("next"), base_path),
+                next_cursor=_page_cursor(
+                    scope, envelope.get("next"), base_path, effective_size
+                ),
             )
         except AppleMusicLibraryError:
             raise
@@ -288,6 +300,7 @@ class AppleMusicLibraryClient:
         scope = "album-tracks:" + target.resource_id
         if cursor is None:
             path = base_path
+            effective_size = page_size
             params: dict[str, object] | None = {
                 "l": "pl-PL",
                 "limit": page_size,
@@ -299,7 +312,8 @@ class AppleMusicLibraryClient:
                 or cursor._base_path != base_path
             ):
                 raise AppleMusicLibraryError()
-            path = cursor._path
+            effective_size = cursor._page_size
+            path = _continuation_path(cursor, base_path)
             params = None
         try:
             getter = getattr(self._client, "_get")
@@ -312,7 +326,9 @@ class AppleMusicLibraryClient:
             return AppleMusicLibraryResult(
                 heading=f"Album: {album.row.title}",
                 records=records_from_resources(raw),
-                next_cursor=_page_cursor(scope, envelope.get("next"), base_path),
+                next_cursor=_page_cursor(
+                    scope, envelope.get("next"), base_path, effective_size
+                ),
             )
         except AppleMusicLibraryError:
             raise
@@ -441,6 +457,7 @@ def _page_cursor(
     view: str,
     value: object,
     base_path: str,
+    page_size: int = 100,
 ) -> AppleMusicPageCursor | None:
     """Accept only same-host continuation paths for the selected collection."""
 
@@ -465,4 +482,28 @@ def _page_cursor(
     path = parsed.path
     if parsed.query:
         path += "?" + parsed.query
-    return AppleMusicPageCursor(view=view, _path=path, _base_path=base_path)
+    return AppleMusicPageCursor(
+        view=view,
+        _path=path,
+        _base_path=base_path,
+        _page_size=page_size,
+    )
+
+
+def _continuation_path(cursor: AppleMusicPageCursor, base_path: str) -> str:
+    """Keep Apple's opaque offset while repeating the chosen page size."""
+
+    if (
+        type(cursor._page_size) is not int
+        or not 1 <= cursor._page_size <= 100
+        or _page_cursor(cursor.view, cursor._path, base_path) is None
+    ):
+        raise AppleMusicLibraryError()
+    parsed = urlsplit(cursor._path)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key not in ("limit", "l")
+    ]
+    query.extend((("limit", str(cursor._page_size)), ("l", "pl-PL")))
+    return base_path + "?" + urlencode(query)

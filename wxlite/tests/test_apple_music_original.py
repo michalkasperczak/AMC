@@ -78,8 +78,6 @@ def test_missing_app_does_not_open_a_browser() -> None:
 
 def test_command_is_scoped_to_apple_music_menu_and_capability() -> None:
     assert Action.APPLE_MUSIC_OPEN_ORIGINAL in APPLE_MUSIC_SUPPORTED_ACTIONS
-    assert Action.APPLE_MUSIC_PLAY_WEB in APPLE_MUSIC_SUPPORTED_ACTIONS
-    assert Action.APPLE_MUSIC_SHOW_WEB in APPLE_MUSIC_SUPPORTED_ACTIONS
     apple = menus_for_session(SessionId.APPLE_MUSIC)
     tidal = menus_for_session(SessionId.TIDAL)
     assert any(
@@ -90,16 +88,9 @@ def test_command_is_scoped_to_apple_music_menu_and_capability() -> None:
         item.action is Action.APPLE_MUSIC_OPEN_ORIGINAL
         for menu in tidal for item in menu.items
     )
-    assert any(
-        item.action is Action.APPLE_MUSIC_PLAY_WEB
-        for menu in apple for item in menu.items
-    )
     assert not any(
-        item.action is Action.APPLE_MUSIC_PLAY_WEB
-        for menu in tidal for item in menu.items
-    )
-    assert any(
-        item.action is Action.APPLE_MUSIC_SHOW_WEB
+        "odtwarzacz Apple Music" in item.label.casefold()
+        or "Apple Music w AMC" in item.label
         for menu in apple for item in menu.items
     )
     presentation = command_presentation(Action.APPLE_MUSIC_OPEN_ORIGINAL)
@@ -114,23 +105,8 @@ def test_command_is_scoped_to_apple_music_menu_and_capability() -> None:
     assert ("Bez skrótu", presentation.description) in describe(
         "Apple Music", {Action.APPLE_MUSIC_OPEN_ORIGINAL}
     )
-    web = command_presentation(Action.APPLE_MUSIC_PLAY_WEB)
-    assert web is not None and web.shortcut == ""
-    assert any(
-        entry.action is Action.APPLE_MUSIC_PLAY_WEB and entry.name == web.name
-        for entry in entries_for_session(SessionId.APPLE_MUSIC)
-    )
-    assert ("Bez skrótu", web.description) in describe(
-        "Apple Music", {Action.APPLE_MUSIC_PLAY_WEB}
-    )
-    show = command_presentation(Action.APPLE_MUSIC_SHOW_WEB)
-    assert show is not None and show.shortcut == ""
-    assert any(
-        entry.action is Action.APPLE_MUSIC_SHOW_WEB and entry.name == show.name
-        for entry in entries_for_session(SessionId.APPLE_MUSIC)
-    )
     enter_help = dict(describe("Apple Music", {Action.ACTIVATE}))["Enter"]
-    assert "odtwarzanie w AMC" in enter_help
+    assert "oryginalnej aplikacji" in enter_help
     assert enter_help in keyboard_help_announcement(
         Chord("Return"), Action.ACTIVATE, "Apple Music"
     )

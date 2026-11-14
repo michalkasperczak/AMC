@@ -201,7 +201,6 @@ from .navigation import (
     OpenAppleMusicPlaylist,
     OpenAppleMusicAlbum,
     OpenAppleMusicOriginal,
-    PlayAppleMusicWeb,
     OpenAppleMusicView,
     OpenSpotifyCollectionView,
     OpenSpotifyContainer,
@@ -283,12 +282,6 @@ if "session.radioarchiwista" in _RELEASE_PROFILE.capabilities:
 else:
     _radioarchiwista_module = None
 if "session.apple-music" in _RELEASE_PROFILE.capabilities:
-    from .apple_music_web import (
-        AppleMusicWebClient,
-        AppleMusicWebUnavailable,
-        catalog_song_id as apple_music_catalog_song_id,
-        helper_for_host as apple_music_web_helper_for_host,
-    )
     from .apple_music_original import (
         AppleMusicOriginalUnavailable,
         available as apple_music_original_available,
@@ -604,7 +597,6 @@ class _ContextMenuCommand:
 _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
-        Action.APPLE_MUSIC_PLAY_WEB,
         Action.ACTIVATE,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
@@ -10716,8 +10708,6 @@ class LiteFrame(wx.Frame):
         # wyłącznie bezpieczne item_id, a kursory nigdy nie są wypowiadane.
         self._apple_music_records: dict[str, AppleMusicRecord] = {}
         self._apple_music_search_rows: tuple[Row, ...] = ()
-        self._apple_music_web_client = None
-        self._apple_music_web_active = False
         self._apple_music_external_snapshot: dict[str, object] = {}
         self._apple_music_external_state_pending = False
         self._apple_music_external_state_checked_at = 0.0
@@ -11638,11 +11628,7 @@ class LiteFrame(wx.Frame):
             ):
                 enabled = False
             if (
-                entry.action in {
-                    Action.APPLE_MUSIC_OPEN_ORIGINAL,
-                    Action.APPLE_MUSIC_PLAY_WEB,
-                    Action.APPLE_MUSIC_SHOW_WEB,
-                }
+                entry.action is Action.APPLE_MUSIC_OPEN_ORIGINAL
                 and not self._action_available_in_active_session(entry.action)
             ):
                 enabled = False
@@ -14348,10 +14334,6 @@ class LiteFrame(wx.Frame):
             **persistence,  # type: ignore[arg-type]
         )
         self.client = client
-        if "session.apple-music" in release_profile.capabilities:
-            self._apple_music_web_client = AppleMusicWebClient(
-                apple_music_web_helper_for_host(client.executable)
-            )
         local_sonos_factory = globals().get("LocalSonosClient")
         self._sonos_local_client = (
             local_sonos_factory(client)
@@ -15206,15 +15188,11 @@ class LiteFrame(wx.Frame):
         session_name = SESSION_LABELS[self.navigator.active]
         if self.navigator.active is SessionId.APPLE_MUSIC:
             state = getattr(self, "_apple_music_external_snapshot", {})
-            location = (
-                "w AMC" if vars(self).get("_apple_music_web_active", False)
-                else "w oryginalnej aplikacji"
-            )
             if not state.get("hasSession"):
-                return f"Apple Music, brak bieżącego odtwarzania {location}."
+                return "Apple Music, brak bieżącego odtwarzania w oryginalnej aplikacji."
             title = str(state.get("title") or "utwór").strip()
             playback = "odtwarzanie" if state.get("isPlaying") else "pauza"
-            return f"{title}, Apple Music, {playback} {location}."
+            return f"{title}, Apple Music, {playback} w oryginalnej aplikacji."
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
                 snapshot = self._nvda_playback_snapshot()
@@ -15293,11 +15271,7 @@ class LiteFrame(wx.Frame):
             state = getattr(self, "_apple_music_external_snapshot", {})
             if state.get("hasSession"):
                 return str(state.get("title") or "Utwór Apple Music").strip()
-            location = (
-                "w AMC" if vars(self).get("_apple_music_web_active", False)
-                else "w oryginalnej aplikacji"
-            )
-            return f"Apple Music, brak bieżącego utworu {location}."
+            return "Apple Music, brak bieżącego utworu w oryginalnej aplikacji."
         snapshot = self._nvda_playback_snapshot()
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
@@ -16188,62 +16162,10 @@ class LiteFrame(wx.Frame):
         except AppleMusicOriginalUnavailable as error:
             self.announcer.say(str(error))
             return
-        web_player = vars(self).get("_apple_music_web_client")
-        if vars(self).get("_apple_music_web_active", False) and web_player is not None:
-            web_player.close()
-        self._apple_music_web_active = False
         self._apple_music_handoff = True
         self.announcer.say(
             "Otworzono utwór w oryginalnym Apple Music. "
             "Sprawdź odtwarzanie w aplikacji Apple Music."
-        )
-
-    def _play_apple_music_web(self, intent: PlayAppleMusicWeb) -> None:
-        """Send only one validated catalog ID to the isolated Test player."""
-
-        record = self._apple_music_records.get(intent.item_id)
-        song_id = apple_music_catalog_song_id(record)
-        player = self._apple_music_web_client
-        if song_id is None or player is None or not player.executable.is_file():
-            self.announcer.say("Nie można odtworzyć tego utworu Apple Music w AMC")
-            return
-
-        def done(payload: dict) -> None:
-            result = payload or {}
-            if result.get("handled") is True:
-                self._apple_music_web_active = True
-                self.announcer.say("Polecenie odtwarzania wysłane do Apple Music")
-                self._refresh_apple_music_external_state(force=True)
-            else:
-                self.announcer.say(str(
-                    result.get("message") or "Apple Music nie rozpoczął odtwarzania"
-                ))
-                if result.get("loginRequired") is True:
-                    self._refresh_menu_state()
-
-        self.runner.submit(
-            "apple-music-web-play",
-            lambda: player.play(song_id),
-            done,
-            lambda _error: self.announcer.say(
-                "Osadzony odtwarzacz Apple Music nie odpowiada"
-            ),
-        )
-
-    def _show_apple_music_web(self) -> None:
-        player = vars(self).get("_apple_music_web_client")
-        if player is None or not player.is_running:
-            self.announcer.say("Osadzony odtwarzacz Apple Music nie działa")
-            return
-        self.runner.submit(
-            "apple-music-web-show",
-            lambda: player.transport("show"),
-            lambda result: self.announcer.say(str(
-                (result or {}).get("message") or "Pokazano okno Apple Music"
-            )),
-            lambda _error: self.announcer.say(
-                "Osadzony odtwarzacz Apple Music nie odpowiada"
-            ),
         )
 
     def _toggle_apple_music_library(self) -> None:
@@ -17696,16 +17618,6 @@ class LiteFrame(wx.Frame):
                 )
             else:
                 self.announcer.say("Wybierz utwór Apple Music")
-        elif action is Action.APPLE_MUSIC_PLAY_WEB:
-            row = self.navigator.session.model.selected_row
-            if row is not None and row.kind == "track":
-                self._play_apple_music_web(
-                    PlayAppleMusicWeb(row.item_id, row.title)
-                )
-            else:
-                self.announcer.say("Wybierz utwór Apple Music")
-        elif action is Action.APPLE_MUSIC_SHOW_WEB:
-            self._show_apple_music_web()
         elif action is Action.TIDAL_STOP_NATIVE:
             self._stop_tidal_native()
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
@@ -18909,8 +18821,6 @@ class LiteFrame(wx.Frame):
                 self._open_apple_music_album(intent)
             elif isinstance(intent, OpenAppleMusicOriginal):
                 self._open_apple_music_original(intent)
-            elif isinstance(intent, PlayAppleMusicWeb):
-                self._play_apple_music_web(intent)
             elif isinstance(intent, OpenSpotifyView):
                 self._open_spotify_view(intent)
             elif isinstance(intent, OpenSpotifyCollectionView):
@@ -33182,7 +33092,7 @@ class LiteFrame(wx.Frame):
         )
 
     def _apple_music_external_command(self, command: str) -> None:
-        """Control the active web player or the official Windows session."""
+        """Control only the current song in the official Windows app."""
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie działa")
@@ -33190,22 +33100,15 @@ class LiteFrame(wx.Frame):
 
         def done(payload: dict) -> None:
             result = payload or {}
-            self.announcer.say(str(
-                result.get("message") or "Oryginalny Apple Music nie odpowiada"
-            ))
+            message = str(result.get("message") or "nie odpowiada")
+            if not message.startswith("Oryginalny Apple Music"):
+                message = f"Oryginalny Apple Music: {message}"
+            self.announcer.say(message)
             self._refresh_apple_music_external_state(force=True)
 
-        web_player = vars(self).get("_apple_music_web_client")
-        use_web = bool(
-            vars(self).get("_apple_music_web_active", False)
-            and web_player is not None and web_player.is_running
-        )
-        if vars(self).get("_apple_music_web_active", False) and not use_web:
-            self._apple_music_web_active = False
         self.runner.submit(
             "apple-music-transport",
-            (lambda: web_player.transport(command)) if use_web
-            else (lambda: client.apple_music_external_transport(command)),
+            lambda: client.apple_music_external_transport(command),
             done,
             lambda _error: self.announcer.say(
                 "Nie mogę sterować Apple Music"
@@ -33230,17 +33133,9 @@ class LiteFrame(wx.Frame):
                 self._set_transport_label(playing=bool(state.get("isPlaying")))
                 self._refresh_menu_state()
 
-        web_player = vars(self).get("_apple_music_web_client")
-        use_web = bool(
-            vars(self).get("_apple_music_web_active", False)
-            and web_player is not None and web_player.is_running
-        )
-        if vars(self).get("_apple_music_web_active", False) and not use_web:
-            self._apple_music_web_active = False
         self.runner.submit(
             "apple-music-state",
-            (lambda: web_player.transport("state")) if use_web
-            else (lambda: client.apple_music_external_transport("state")),
+            lambda: client.apple_music_external_transport("state"),
             done,
             lambda _error: self._apple_music_external_state_failed(),
         )
@@ -38561,25 +38456,6 @@ class LiteFrame(wx.Frame):
                     self._apple_music_records.get(row.item_id)
                 )
             )
-        if action is Action.APPLE_MUSIC_PLAY_WEB:
-            if self.navigator.active is not SessionId.APPLE_MUSIC:
-                return False
-            row = self.navigator.session.model.selected_row
-            player = vars(self).get("_apple_music_web_client")
-            return bool(
-                row is not None
-                and apple_music_catalog_song_id(
-                    self._apple_music_records.get(row.item_id)
-                )
-                and player is not None
-                and player.executable.is_file()
-            )
-        if action is Action.APPLE_MUSIC_SHOW_WEB:
-            player = vars(self).get("_apple_music_web_client")
-            return bool(
-                self.navigator.active is SessionId.APPLE_MUSIC
-                and player is not None and player.is_running
-            )
         if self.navigator.active is SessionId.TIDAL:
             if action is Action.TIDAL_PLAY_NATIVE:
                 row = self.navigator.session.model.selected_row
@@ -39012,9 +38888,6 @@ class LiteFrame(wx.Frame):
                 pass
         if self.client is not None:
             self.client.close()
-        web_player = vars(self).get("_apple_music_web_client")
-        if web_player is not None:
-            web_player.close()
         self._windows_preset_10_hotkey.unregister()
         self._windows_preset_10_hook.uninstall()
         event.Skip()

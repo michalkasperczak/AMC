@@ -144,8 +144,6 @@ class Action(Enum):
     TIDAL_TOGGLE_FAVORITE = "tidal.favorite.toggle"
     APPLE_MUSIC_TOGGLE_LIBRARY = "appleMusic.library.toggle"
     APPLE_MUSIC_OPEN_ORIGINAL = "appleMusic.original.open"
-    APPLE_MUSIC_PLAY_WEB = "appleMusic.web.play"
-    APPLE_MUSIC_SHOW_WEB = "appleMusic.web.show"
     TIDAL_PLAY_NATIVE = "tidal.native.play"
     TIDAL_OPEN_ORIGINAL = "tidal.desktop.play"
     TIDAL_STOP_NATIVE = "tidal.native.stop"
@@ -483,18 +481,6 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
         "Otwórz utwór w oryginalnym Apple Music",
         "Otwórz zaznaczony utwór w oficjalnej aplikacji Apple Music na tym komputerze",
-        "",
-    ),
-    Action.APPLE_MUSIC_PLAY_WEB: CommandPresentation(
-        Action.APPLE_MUSIC_PLAY_WEB,
-        "Odtwórz utwór Apple Music w AMC",
-        "Odtwórz zaznaczony utwór przez osadzony odtwarzacz Apple Music; Enter na utworze wykonuje tę samą czynność",
-        "",
-    ),
-    Action.APPLE_MUSIC_SHOW_WEB: CommandPresentation(
-        Action.APPLE_MUSIC_SHOW_WEB,
-        "Pokaż okno odtwarzacza Apple Music",
-        "Pokaż uruchomione okno Apple Music do logowania lub kontroli odtwarzania",
         "",
     ),
     Action.REMOVE_SELECTED: CommandPresentation(
@@ -1079,8 +1065,6 @@ APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     Action.VIEW_MUSIC_ARTISTS,
     Action.APPLE_MUSIC_TOGGLE_LIBRARY,
     Action.APPLE_MUSIC_OPEN_ORIGINAL,
-    Action.APPLE_MUSIC_PLAY_WEB,
-    Action.APPLE_MUSIC_SHOW_WEB,
     Action.VIEW_HISTORY,
     Action.VIEW_DOWNLOADED_FILES,
     Action.GENERAL_SETTINGS,
@@ -2664,8 +2648,6 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Dodaj lub usuń utwór albo album z Biblioteki Apple Music"
         ),
         Action.APPLE_MUSIC_OPEN_ORIGINAL: "Otwórz utwór w oryginalnym Apple Music",
-        Action.APPLE_MUSIC_PLAY_WEB: "Odtwórz utwór Apple Music w AMC",
-        Action.APPLE_MUSIC_SHOW_WEB: "Pokaż okno odtwarzacza Apple Music",
         Action.TIDAL_PLAY_NATIVE: "Odtwórz utwór TIDAL w AMC",
         Action.TIDAL_OPEN_ORIGINAL: "Przekaż utwór do oryginalnego TIDALa",
         Action.TIDAL_STOP_NATIVE: "Zatrzymaj utwór TIDAL w AMC",
@@ -3107,8 +3089,6 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_RADIOARCHIWISTA,
         Action.SESSION_APPLE_MUSIC,
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
-        Action.APPLE_MUSIC_PLAY_WEB,
-        Action.APPLE_MUSIC_SHOW_WEB,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
         Action.TIDAL_STOP_NATIVE,
@@ -3193,13 +3173,13 @@ def describe_action(
         return i18n.ui_text("Szukaj w całej Bibliotece Apple Music")
     if (session_label or "").casefold() == "apple music" and action is Action.ACTIVATE:
         return i18n.ui_text(
-            "Otwórz kategorię, album lub playlistę Apple Music; na utworze rozpocznij odtwarzanie w AMC"
+            "Otwórz kategorię, album lub playlistę Apple Music; na utworze pokaż sposób otwarcia w oryginalnej aplikacji"
         )
     if (session_label or "").casefold() == "apple music":
         apple_transport = {
-            Action.PLAY_PAUSE: "Wstrzymaj lub wznów bieżący utwór Apple Music",
-            Action.QUEUE_NEXT: "Przejdź do następnego utworu Apple Music",
-            Action.QUEUE_PREVIOUS: "Przejdź do poprzedniego utworu Apple Music",
+            Action.PLAY_PAUSE: "Wstrzymaj lub wznów bieżący utwór w oryginalnym Apple Music",
+            Action.QUEUE_NEXT: "Przejdź do następnego utworu w oryginalnym Apple Music",
+            Action.QUEUE_PREVIOUS: "Przejdź do poprzedniego utworu w oryginalnym Apple Music",
         }
         if action in apple_transport:
             return i18n.ui_text(apple_transport[action])

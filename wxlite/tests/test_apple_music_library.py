@@ -209,7 +209,8 @@ class AppleMusicLibraryTests(unittest.TestCase):
         self.assertIn(
             (
                 "page",
-                "/v1/me/library/songs?offset=25&private=" + PRIVATE_TOKEN,
+                "/v1/me/library/songs?offset=25&private=" + PRIVATE_TOKEN
+                + "&limit=25&l=pl-PL",
                 None,
             ),
             ExternalClient.last_instance.calls,
@@ -217,7 +218,8 @@ class AppleMusicLibraryTests(unittest.TestCase):
 
     def test_default_page_has_one_hundred_items_and_search_uses_server(self) -> None:
         library = self.open()
-        library.view_page("songs")
+        first_page = library.view_page("songs")
+        library.view_page("songs", cursor=first_page.next_cursor)
         results = library.search_library("Spoza")
 
         self.assertEqual(
@@ -228,6 +230,11 @@ class AppleMusicLibraryTests(unittest.TestCase):
         self.assertNotIn(PRIVATE_TOKEN, str(results))
         self.assertIn(
             ("page", "/v1/me/library/songs", {"l": "pl-PL", "limit": 100}),
+            ExternalClient.last_instance.calls,
+        )
+        self.assertIn(
+            ("page", "/v1/me/library/songs?offset=25&private=" + PRIVATE_TOKEN
+             + "&limit=100&l=pl-PL", None),
             ExternalClient.last_instance.calls,
         )
         self.assertIn(
@@ -253,6 +260,13 @@ class AppleMusicLibraryTests(unittest.TestCase):
                     library.view_page("songs", page_size=invalid_size)
         with self.assertRaises(AppleMusicLibraryError):
             library.view_page("songs", cursor=wrong_view)
+        forged_cursor = AppleMusicPageCursor(
+            view="songs",
+            _path="https://example.com/v1/me/library/songs?offset=25",
+            _base_path="/v1/me/library/songs",
+        )
+        with self.assertRaises(AppleMusicLibraryError):
+            library.view_page("songs", cursor=forged_cursor)
 
         class ExternalCursorClient(ExternalClient):
             def _get(self, _path, _params=None):
@@ -290,6 +304,11 @@ class AppleMusicLibraryTests(unittest.TestCase):
         self.assertEqual(second.records[0].row.title, "Utwór playlisty 2")
         self.assertIsNone(second.next_cursor)
         self.assertNotIn("p.list", first.heading)
+        self.assertIn(
+            ("page", "/v1/me/library/playlists/p.list/tracks?offset=25&private="
+             + PRIVATE_TOKEN + "&limit=25&l=pl-PL", None),
+            ExternalClient.last_instance.calls,
+        )
 
         other_cursor = AppleMusicPageCursor(
             view="playlist-tracks:p.other",
@@ -314,6 +333,11 @@ class AppleMusicLibraryTests(unittest.TestCase):
         self.assertIn(
             ("page", "/v1/me/library/albums/l.album/tracks",
              {"l": "pl-PL", "limit": 25}),
+            ExternalClient.last_instance.calls,
+        )
+        self.assertIn(
+            ("page", "/v1/me/library/albums/l.album/tracks?offset=25&private="
+             + PRIVATE_TOKEN + "&limit=25&l=pl-PL", None),
             ExternalClient.last_instance.calls,
         )
 
