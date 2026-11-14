@@ -1,6 +1,6 @@
 # AM-002 — izolowany odtwarzacz music.apple.com
 
-- Status: `W trakcie — AMC Test alpha.500 opublikowany na GitHubie; użytkownik aktualizuje ręcznie, żywy odbiór odłożony`
+- Status: `14.11.2026 — wycofanie wadliwego osadzonego odtwarzania gotowe w źródłach i testach celowanych; bez nowej instalacji, wydania i odbioru NVDA`
 - Utworzono: 12 listopada 2026
 - Obszar: AMC Test, odtwarzanie, DRM, osobny proces
 - Zależność: bezpieczny profil i logowanie z AM-001 mogą być współdzielone tylko przez jawny kontrakt
@@ -273,3 +273,75 @@ polecenia z Entera, menu, palety i pomocy; zachować przeglądanie biblioteki
 Apple Music i jawne otwieranie w oryginalnej aplikacji. Przed kolejnym
 wydaniem sprawdzić zgodność tych powierzchni oraz brak uruchamiania ukrytego
 procesu. Nie wykonywać dziś nowych prób odtwarzania ani instalacji.
+
+## Korekta 14.11.2026 — wycofanie odtwarzania osadzonego w źródłach
+
+Ta decyzja zastępuje cel uruchamiania ukrytego WebView Enterem oraz wcześniejszy
+projekt instrukcji, według którego Enter miał odtwarzać w AMC. Użytkownik
+potwierdził, że trwa nagrywanie, dlatego wykonano tylko prace źródłowe i
+izolowane testy; nie zamykano ani nie aktualizowano działającej aplikacji.
+
+### Zachowanie użytkowe i polecenia
+
+- Enter na kategorii, albumie albo playliście nadal otwiera zawartość.
+  Enter na utworze mówi: „Ten utwór można otworzyć w oryginalnym Apple Music
+  z menu kontekstowego”. Nie uruchamia ukrytego procesu ani dźwięku.
+- Menu kontekstowe utworu zachowuje „Otwórz utwór w oryginalnym Apple Music”.
+  Jest to jawne przekazanie adresu do oficjalnej aplikacji; AMC nie potwierdza,
+  że oryginalna aplikacja wybrała lub odtworzyła dokładnie ten utwór.
+- Spacja oraz skróty poprzedniego/następnego utworu sterują tylko bieżącą sesją
+  oryginalnego Apple Music. Komunikaty i pomoc wskazują tę aplikację, nie AMC.
+- Usunięto polecenia odtwarzania w WebView i pokazywania jego okna z
+  dyspozytora, menu, palety, pomocy i listy wspieranych akcji. Nazwa Entera w
+  menu i palecie wyjaśnia działanie zależne od rodzaju wiersza.
+- `Ctrl+F` i listy Apple Music pozostają niezależne od wycofanego odtwarzacza.
+  Wynik serwera ma osobny kontekst filtra, dzięki czemu stary filtr `Ctrl+K`
+  nie ukrywa wybranego wyniku. Kontynuacja strony zachowuje limit 100 pozycji.
+
+### Uzasadnienie i decyzje
+
+Zgłoszona próba dowiodła, że ukryty WebView może grać inny materiał i nie daje
+AMC pewnej kontroli zatrzymania. Ścieżki GUI nie importują już klienta WebView,
+nie tworzą go i nie wywołują. Pomocnik i jego kod pozostały w repozytorium
+i dotychczasowym procesie pakowania jako nieużywany składnik; to wymaga
+osobnej decyzji o porządkach pakietu, ale nie jest wejściem do odtwarzania
+z interfejsu AMC. Wersja działająca u użytkownika nadal może mieć starsze
+zachowanie do czasu bezpiecznej aktualizacji.
+
+### Testy i wynik
+
+Izolowane testy Apple Music, wyszukiwania, nawigacji, skrótów i etykiet:
+**188 zaliczonych, 3 podtesty zaliczone**. Po usunięciu dublującej pozycji
+Entera test menu i GUI miał początkowo **49 zaliczonych, 2 niezaliczone**
+z powodu pozycji „Usuń z kolejki TIDAL” bez klawisza dostępu. Równoległa
+poprawka TIDAL w commicie `d46e5a75` usunęła ten błąd; ponowiony zestaw:
+**51 zaliczonych**. `git diff --check` bez błędów.
+Nie uruchomiono AMC, NVDA, WebView, buildu ani instalatora. Nie potwierdzono
+zachowania na żywym koncie Apple Music po tej korekcie.
+
+### Materiał do dokumentacji użytkownika — projekt
+
+W Apple Music Enter otwiera kategorię, album albo playlistę. Na utworze
+podpowiada polecenie menu kontekstowego „Otwórz utwór w oryginalnym Apple Music”.
+Spacja steruje bieżącym odtwarzaniem w oryginalnej aplikacji; nie wybiera
+utworu zaznaczonego w AMC. Ten opis zacznie obowiązywać po sprawdzonej
+aktualizacji, nie w aktualnie działającym starszym AMC.
+
+### Znane ograniczenia i następny krok
+
+Oficjalna aplikacja Windows nie potwierdziła przyjęcia wskazanego utworu przez
+`/url`; nie wolno przedstawiać tego jako gwarantowanego odtwarzania wyboru.
+Po zakończeniu nagrywania odczytać stan aplikacji, zbudować i sprawdzić paczkę,
+zainstalować właściwą kopię AMC Test oraz sprawdzić z NVDA Enter, menu,
+Spację, wyszukiwanie i brak uruchomienia hosta WebView. Przed próbą przejmującą
+fokus uprzedzić użytkownika.
+
+### Wersja i commit
+
+Kod i testy: `7321f39a`, źródła AMC Test alpha.506 na gałęzi
+`codex/amc-test-public-20261109`. Nie powstał nowy pakiet ani wydanie z tej
+zmiany. Odczyt 14.11 wykazał działający proces z
+`C:\Users\micha\AppData\Local\Programs\AMC Test`, manifest z 12.11.2026,
+commit `d7563d1a`. Osobna instalacja w `D:\Projekty Codex\AMC Python`
+z 14.11.2026, 15:03 ma commit `1eff98e5` i wcześniejszą poprawkę
+wyszukiwania, ale nie wycofanie WebView.

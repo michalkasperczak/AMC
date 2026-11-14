@@ -1,15 +1,14 @@
 # Rejestr zadań AMC
 
-- `POD-PERF-20261114` — **W trakcie; nowa opcja alpha.506 w źródłach i testach, bez buildu, instalacji i publikacji** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Poprzedni instalator alpha.505 jest zweryfikowany, ale nie zawiera tej opcji. [Pomiary, korekty i wyniki](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
+- `POD-PERF-20261114` — **W trakcie; nowa opcja alpha.506 w źródłach i testach, bez buildu, instalacji i publikacji** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Audyt po zgłoszeniu spowolnienia Ctrl+3 potwierdził pozostały koszt pełnego wczytania i przeliczenia około 92 tys. odcinków przy zapisie porcji odświeżenia; czasu natywnej listy i NVDA jeszcze nie zmierzono. Poprzedni instalator alpha.505 nie zawiera nowej opcji. [Pomiary, porównanie i ograniczenia](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
 
 - `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `AM-006` — **wydane w AMC Test alpha.500; użytkownik aktualizuje ręcznie, odbiór otwarty** — pierwsza pozycja menu kontekstowego otwiera oryginalną aplikację; Enter należy do kandydata AM-002. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
-- `A11Y-COLLECTIONS-20261113` — **pierwotny etap wydany w alpha.498;
-  korekta Ctrl+F Apple Music gotowa w źródłach i testach celowanych, bez
-  instalacji i odbioru NVDA** — wyszukiwanie Biblioteki Apple także poza
-  wczytaną stroną oraz strony po 100 pozycji. Wydana alpha.502 nadal ma stare
-  wyszukiwanie; usterka osadzonego odtwarzacza wymaga osobnego rozwiązania.
+- `A11Y-COLLECTIONS-20261113` — **pierwsza korekta Ctrl+F Apple Music jest w
+  instalacji D z 14.11; działający proces C jest starszy; dalsze strony po
+  100 naprawione tylko w źródłach, bez odbioru NVDA** — wyszukiwanie Biblioteki
+  Apple poza wczytaną stroną i osobny kontekst filtra wyników.
   [Szczegóły](A11Y-COLLECTIONS-20261113-fokus-mowa-sortowanie.md).
 - `PLAYER-20261113` — **kod i testy celowane gotowe; wydanie w toku** — Sonos
   mówi tylko potwierdzoną głośność, Spotify udostępnia suwak przez Tab, a
@@ -732,8 +731,10 @@ zmian, wymagający korekty użytkownika:
   stronicowanie ma 101/101 testów, ale nie jest jeszcze podłączone do GUI** —
   pierwszy etap nieoficjalnego katalogu i Biblioteki tylko w AMC Test.
   [Szczegóły](AM-001-nieoficjalne-konto-i-biblioteka.md).
-- `AM-002` — **AMC Test alpha.500 opublikowany; użytkownik aktualizuje ręcznie, żywy odbiór odłożony do sygnału, że komputer jest wolny**
-  — przed dalszą widoczną próbą uprzedzić użytkownika; okno nie może blokować AMC.
+- `AM-002` — **14.11: wycofanie ukrytego odtwarzacza gotowe w źródłach i
+  testach celowanych; bez buildu, instalacji i odbioru NVDA podczas nagrywania**
+  — Enter na utworze wskazuje jawne otwarcie w oryginalnym Apple Music;
+  Spacja steruje tylko bieżącym utworem w oryginalnej aplikacji.
   [Szczegóły](AM-002-osadzony-odtwarzacz-music-apple-com.md).
 - `AM-003` — **Odczytowa sesja jest zainstalowana i opublikowana w AMC Test
   `0.1.0-alpha.497`; ręczny odbiór NVDA pozostaje otwarty** — `Ctrl+L` oznacza Bibliotekę,

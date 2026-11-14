@@ -1,8 +1,9 @@
 # A11Y-COLLECTIONS-20261113 — fokus i mowa po zmianach kolekcji
 
 - Status: **wydane, zainstalowane i uruchomione w AMC Test alpha.498**.
-- Nowe zgłoszenie `Ctrl+F` Apple Music z 13.11.2026: **poprawka źródeł,
-  bez wydania i bez próby NVDA**.
+- Nowe zgłoszenie `Ctrl+F` Apple Music z 13.11.2026: **pierwsza poprawka
+  znajduje się w instalacji D; działający proces C jest starszy, a naprawa
+  dalszych stron pozostaje tylko w źródłach; bez próby NVDA**.
 - Utworzono: 13 listopada 2026.
 - Obszar: TIDAL, Spotify, lokalne Ulubione, Biblioteka Radia, playlisty,
   kolejki, wyszukiwanie, NVDA.
@@ -150,6 +151,33 @@ Playlisty oraz zawartości albumów i playlist jedna strona obejmuje do 100 pozy
 „Załaduj więcej” pobiera następną. `Ctrl+K` nadal filtruje wyłącznie już
 wczytaną listę. Opis dotyczy przygotowanych źródeł i zacznie obowiązywać
 po sprawdzonej instalacji, nie w obecnej alpha.502.
+
+## Korekta 14.11.2026 — rozmiar dalszych stron i aktywna instalacja
+
+Powyższe zdanie o „obecnej alpha.502” jest historyczne. Instalacja na
+`D:\Projekty Codex\AMC Python` ma manifest z 14.11.2026, 15:03,
+commit `1eff98e5` i zawiera pierwszą poprawkę `Ctrl+F` oraz stron po 100.
+Jednak proces aktualnie działający na komputerze pochodzi z osobnej starszej
+instalacji `C:\Users\micha\AppData\Local\Programs\AMC Test`, manifest
+12.11.2026, 23:20, commit `d7563d1a`; nie zawiera nowego wyszukiwania.
+Stwierdzono to odczytowo, bez zamykania programu. Użytkownik potwierdził
+trwające nagrywanie, więc instalacji ani przełączenia nie wykonywano.
+
+Audyt adaptera wykazał błąd: Apple nie przenosi żądanego limitu do adresu
+`next`, przez co po pierwszej stronie 100 kolejna wracała do domyślnego
+rozmiaru. Korekta źródeł `7321f39a` przechowuje limit w prywatnym kursorze
+i dopisuje go do następnego adresu, zachowując offset. Dopisano kontrolę
+niedozwolonego adresu kursora. Testy adaptera: 17 zaliczonych i 3 podtesty.
+Ponadto wyniki serwera dostają osobny kontekst filtra od listy Utworów,
+z testem zachowania fokusu. Wspólny zestaw Apple Music, wyszukiwania i skrótów:
+188 zaliczonych i 3 podtesty. Źródła nie były jeszcze testowane na koncie,
+budowane ani instalowane. `Ctrl+F` nadal pokazuje pierwszych 25 dopasowań
+każdego typu; stronicowanie wyników wyszukiwania pozostaje do dopracowania.
+
+Materiał do dokumentacji użytkownika — projekt: po sprawdzonej aktualizacji
+„Załaduj więcej” będzie pobierać kolejne strony po 100 pozycji, a Enter na
+wyniku wyszukiwania otworzy listę bez przenoszenia filtra z poprzedniego
+widoku. Nie jest to jeszcze potwierdzone przez NVDA na działającym AMC.
 
 ## Wersja i commit
 
