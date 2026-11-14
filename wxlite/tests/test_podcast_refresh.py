@@ -79,6 +79,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
         client=SimpleNamespace(
             refresh_podcasts=refresh,
             refresh_podcasts_automatically=refresh_automatically,
+            radio_recording_status=lambda: {"count": 0, "recordings": []},
         ),
         podcasts=SimpleNamespace(is_available=True),
         runner=SimpleNamespace(submit=submit),
@@ -270,6 +271,40 @@ def test_automatic_refresh_waits_for_known_recording_status() -> None:
         gui.time.monotonic = original
     assert frame.automatic_calls == []
     assert frame._podcast_automatic_refresh_due == 100.0
+
+
+def test_automatic_refresh_checks_fresh_recording_status() -> None:
+    frame = _frame()
+    frame.client.radio_recording_status = lambda: {
+        "count": 1, "recordings": [{"state": "recording"}]
+    }
+    original = gui.time.monotonic
+    try:
+        gui.time.monotonic = lambda: 100.0
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    finally:
+        gui.time.monotonic = original
+    assert frame.automatic_calls == []
+    assert frame.statuses == []
+    assert frame._podcast_refresh_pending is False
+
+
+def test_automatic_refresh_defers_when_recording_status_fails() -> None:
+    frame = _frame()
+
+    def unavailable():
+        raise RuntimeError("status unavailable")
+
+    frame.client.radio_recording_status = unavailable
+    original = gui.time.monotonic
+    try:
+        gui.time.monotonic = lambda: 100.0
+        gui.LiteFrame._refresh_due_podcasts_automatically(frame)
+    finally:
+        gui.time.monotonic = original
+    assert frame.automatic_calls == []
+    assert frame.statuses == []
+    assert frame._podcast_refresh_pending is False
 
 
 def test_automatic_refresh_with_no_due_sources_does_not_change_the_view() -> None:

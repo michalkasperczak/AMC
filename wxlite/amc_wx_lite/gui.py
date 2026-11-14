@@ -35182,9 +35182,20 @@ class LiteFrame(wx.Frame):
                 self._last_automatic_podcast_error = message
                 self.status_bar.show(message)
 
+        def work() -> dict:
+            # Migawka widoku mogła się zestarzeć między taktami timera.
+            # Stan nieznany lub rozpoczęte nagrywanie odkłada całą porcję.
+            try:
+                status = client.radio_recording_status()
+            except Exception:
+                return {"requested": 0}
+            if recording_blocks_application_update(status):
+                return {"requested": 0}
+            return client.refresh_podcasts_automatically()
+
         self.runner.submit(
             "podcast-auto-refresh",
-            client.refresh_podcasts_automatically,
+            work,
             done,
             failed,
         )
