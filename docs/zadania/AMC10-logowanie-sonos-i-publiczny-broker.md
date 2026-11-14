@@ -1178,6 +1178,73 @@ o materiale oraz nieco wolną nawigację listy.
 - Adres wydania:
   `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.
 
+## Odbiór na prawdziwym głośniku i korekta — 14.11.2026
+
+### Korekta użytkownika zastępująca wcześniejsze założenie odbioru
+
+Użytkownik potwierdził, że lokalny AMC Test w tej samej sieci poprawnie
+wykrywa grupę, odtwarza Ulubione Sonos, Playlisty Sonos oraz playlistę opartą
+na Apple Music. Nie zadziałały natomiast `Moje stacje Sonos` oraz
+odtwarzanie/zatrzymanie w części stanów. Nawigacja listy była odczuwalnie
+wolna. `NVDA+End` podał nazwę grupy, bez bitrate'u. To jest pierwszy odbiór na
+rzeczywistym głośniku po wydaniu `test-2026.11.13.0028` i zastępuje wcześniejszy
+stan „odbiór sprzętowy niewykonany”.
+
+Brak bitrate'u nie jest obecnie regresją obliczeń: lokalne API Sonosa nie
+zwraca AMC wiarygodnego bitrate'u bieżącego materiału. Gdy urządzenie nie
+zwraca też tytułu ani źródła, nazwa grupy pozostaje uczciwym tekstem
+zastępczym; wartości bitrate'u nie wolno zgadywać.
+
+### Zmiany źródłowe
+
+- automatyczna migawka UPnP działa tylko w widoku odtwarzacza; chodzenie po
+  Bibliotece i listach Sonosa nie uruchamia już odpytywania co trzy sekundy;
+- przy stanie `zatrzymane`, gdy materiał uruchomiono poza AMC i nie ma go w
+  pamięci bieżącego procesu, Spacja przekazuje próbę wznowienia do głośnika
+  zamiast blokować ją z góry;
+- `Moje stacje` najpierw zachowują radiowy wariant URI SoCo, a po jego
+  odrzuceniu wykonują jedną bezpośrednią próbę tego samego adresu. Adres nie
+  trafia do komunikatu NVDA ani logiki etykiet;
+- działające Ulubione i Playlisty Sonos nie zostały zmienione;
+- przejrzano równoległy adapter WiiM: nie używa cyklicznej migawki SoCo ani
+  dwóch wariantów `play_uri`, więc nie wymaga analogicznej poprawki.
+
+### Testy i wynik
+
+- `test_sonos_local.py`, `test_sonos_session.py` i
+  `test_speaker_content_contract.py`: **56/56 zaliczonych** bez widocznego GUI;
+- pierwsza próba testów nie zebrała modułów z powodu brakującego `PYTHONPATH`;
+  po uruchomieniu z właściwym katalogiem pakietu identyczne testy przeszły;
+- źródła są poprawione i testy celowane są zaliczone. Build, instalacja,
+  publikacja GitHub oraz ponowny odsłuch na głośniku nie zostały jeszcze
+  wykonane dla tej korekty.
+
+### Profil Public sprawdzony 14.11.2026
+
+Nocne wydanie `public-2026.11.14.0329`, opublikowane 14.11.2026 o 03:36 czasu
+polskiego z rewizji `ea5a8bd0`, **nie zawiera Sonosa**. Profil wydania usuwa
+sesję `sonos` oraz możliwości `session.sonos` i `sonos.local`, a skrypt budowy
+odrzuca zależności SoCo dla AMC Public. Sonos pozostaje na tym etapie wyłącznie
+w AMC Test; samo opublikowanie nocnego aktualizatora Public nie jest dowodem
+włączenia tej funkcji.
+
+### Materiał do dokumentacji użytkownika
+
+W sesji Sonos listy Biblioteki nie są już w tle odpytywane o stan głośnika.
+Spacja próbuje wznowić także materiał zatrzymany wcześniej poza AMC. W
+`Biblioteka > Moje stacje Sonos` Enter próbuje dwóch zgodnych lokalnych sposobów
+przekazania adresu, bez pokazywania technicznych danych. `NVDA+End` podaje tylko
+dane zwrócone przez głośnik; brak bitrate'u oznacza brak takiej informacji w
+lokalnym API Sonosa.
+
+### Wersja i commit korekty
+
+- stan źródeł: zmieniony i przetestowany;
+- commit źródeł i testów: `a92ab963861a2b16413a3159142457a66399ccd0`;
+- build, instalacja i publikacja: niewykonane;
+- następny krok: zbudować i zainstalować nowe AMC Test, a następnie powtórzyć
+  na głośniku `Moje stacje`, Spację, `NVDA+End` i szybkość strzałek.
+
 ## Wersja i commit
 
 - Korekta diagnostyczna z 25.10.2026: użytkownik nie pominął przycisku.

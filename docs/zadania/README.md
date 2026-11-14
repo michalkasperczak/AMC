@@ -562,12 +562,13 @@ zmian, wymagający korekty użytkownika:
   wiersz logowania, Enter otwiera konto z jednym polem informacji, a
   `Rozpocznij logowanie` automatycznie otwiera oficjalną stronę i zamyka modal.
   Lokalny wariant AMC Test został odebrany na prawdziwym głośniku częściowo:
-  wykrywa grupę oraz odtwarza Ulubione i Playlisty Sonos. Poprawka z 12.11.2026
-  dodaje radiowy tryb `Moich stacji`, bezpieczne Stop i ponowne uruchomienie
-  ostatniego materiału, użyteczniejszy status NVDA+End bez zgadywania bitrate'u
-  oraz rzadsze odpytywanie UPnP. Automatyczne testy 43/43 i 14/14 są zaliczone;
-  ponowny odbiór na głośniku pozostaje otwarty; build, instalacja i wydanie
-  `test-2026.11.13.0028` są zweryfikowane i zapisane w zadaniu.
+  wykrywa grupę oraz odtwarza Ulubione i Playlisty Sonos, ale 14.11 użytkownik
+  potwierdził błąd `Moich stacji`, części transportu i wolniejszą listę.
+  Następna korekta wyłącza odpytywanie UPnP na listach, pozwala spróbować
+  wznowić materiał zatrzymany poza AMC i dodaje bezpośredni wariant URI po
+  odrzuceniu radiowego. Testy celowane **56/56** są zaliczone; build, instalacja,
+  publikacja i ponowny odbiór tej korekty pozostają otwarte. Zweryfikowane
+  nocne wydanie `public-2026.11.14.0329` nadal jawnie wyklucza Sonosa.
   Ponowne otwarcie konta zachowuje w pamięci pierwotny adres tej samej próby i
   udostępnia „Otwórz stronę ponownie” oraz „Kopiuj adres logowania”.
   Po powrocie główne okno pozostaje dostępne, a jeden wiersz `Sprawdź logowanie
