@@ -80,6 +80,18 @@ def test_installer_hook_scans_bundle_before_canonical_checks() -> None:
     assert INSTALLER.index(bundle_hook) < INSTALLER.index("& $startupSmokeTool -BundleRoot $bundle")
 
 
+def test_nvda_output_and_sdk_follow_actual_repository_contracts() -> None:
+    assert "actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9" in WORKFLOW
+    assert "dotnet-version: 8.0.423" in WORKFLOW
+    assert "Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter 'AMC-NVDA-*.nvda-addon'" in WORKFLOW
+    assert '"Budowa AMC NVDA zakończyła się kodem $LASTEXITCODE"' not in WORKFLOW
+    assert "final-defender-audit" in WORKFLOW
+    for preference in ("$pref", "$preference"):
+        for field in ("ExclusionPath", "ExclusionProcess", "ExclusionExtension"):
+            assert f"@({preference}.{field}).Count" not in WORKFLOW
+    assert WORKFLOW.index("final-defender-audit") < WORKFLOW.index("name: Zachowaj instalator")
+
+
 def test_workflow_is_not_an_intentional_unconditional_stop() -> None:
     forbidden = "throw 'Brak oczekiwanej bramki bezpieczeństwa w skrypcie kanonicznym; nie wolno kontynuować.'"
     assert forbidden not in WORKFLOW
