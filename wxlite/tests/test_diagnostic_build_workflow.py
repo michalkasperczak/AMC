@@ -16,10 +16,10 @@ INSTALLER = (ROOT / "wxlite" / "tools" / "Build-AMCInstaller.ps1").read_text(
 
 def test_diagnostic_workflow_has_one_shot_read_only_build_path() -> None:
     for required in (
-        "codex/amc-diagnostic-gh-protected-20261118",
+        "codex/amc-diagnostic-gh-protected-20261118-verified",
         "github.run_attempt == '1'",
         "github.event.before == '0000000000000000000000000000000000000000'",
-        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118'",
+        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118-verified'",
         "runs-on: windows-2025",
         "contents: read",
         "persist-credentials: false",
@@ -82,6 +82,8 @@ def test_installer_hook_scans_bundle_before_canonical_checks() -> None:
 
 
 def test_nvda_output_and_sdk_follow_actual_repository_contracts() -> None:
+    assert "GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false) -cne 'Pyrsys B.V.'" in WORKFLOW
+    assert "JRSoftware|Jordan Russell" not in WORKFLOW
     assert "actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9" in WORKFLOW
     assert "dotnet-version: 8.0.423" in WORKFLOW
     assert "Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter 'AMC-NVDA-*.nvda-addon'" in WORKFLOW

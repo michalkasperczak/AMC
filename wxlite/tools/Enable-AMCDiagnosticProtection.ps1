@@ -2,7 +2,7 @@
 param([Parameter(Mandatory=$true)][string]$EvidenceDirectory)
 $ErrorActionPreference = 'Stop'
 # This narrowly authorized operation must never run on Hermes or a user PC.
-if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or $env:RUNNER_OS -cne 'Windows' -or $env:GITHUB_REF -cne 'refs/heads/codex/amc-diagnostic-gh-protected-20261118') {
+if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or $env:RUNNER_OS -cne 'Windows' -or $env:GITHUB_REF -cne 'refs/heads/codex/amc-diagnostic-gh-protected-20261118-verified') {
     throw 'Protection setup is restricted to the authorized GitHub-hosted Windows job.'
 }
 $diagWarnings=@()

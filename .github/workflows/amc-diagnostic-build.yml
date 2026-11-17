@@ -3,7 +3,7 @@ name: AMC — jednorazowa kontrolowana budowa diagnostyczna
 on:
   push:
     branches:
-      - codex/amc-diagnostic-gh-protected-20261118
+      - codex/amc-diagnostic-gh-protected-20261118-verified
     paths:
       - .github/workflows/amc-diagnostic-build.yml
       - wxlite/tools/Build-AMCBundle.ps1
@@ -25,7 +25,7 @@ jobs:
     if: >-
       github.run_attempt == '1' &&
       github.event.before == '0000000000000000000000000000000000000000' &&
-      github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118'
+      github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118-verified'
     runs-on: windows-2025
     timeout-minutes: 90
 
@@ -140,7 +140,7 @@ jobs:
           $stage='inno-provenance'; $reportPath=Join-Path $env:AMC_DIAGNOSTIC_EVIDENCE "$stage.json"; $report=[ordered]@{stage=$stage; startedUtc=[DateTime]::UtcNow.ToString('o'); finishedUtc=$null; exitCode=1; installer=$null; signature=$null; error=$null}
           try {
             $inno=Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'; Invoke-WebRequest -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $inno -ErrorAction Stop; $hash=(Get-FileHash -LiteralPath $inno -Algorithm SHA256).Hash.ToLowerInvariant(); if ($hash -cne '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732') { throw 'Niezgodny SHA-256 oficjalnego Inno Setup 6.7.3.' }
-            Invoke-DefenderGate -Target $inno -Stage 'inno-installer-before-execution'; $signature=Get-AuthenticodeSignature -LiteralPath $inno; $report.signature=[ordered]@{status=[string]$signature.Status; subject=$signature.SignerCertificate.Subject; thumbprint=$signature.SignerCertificate.Thumbprint}; if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'JRSoftware|Jordan Russell') { throw 'Nieprawidłowy podpis lub nieoczekiwany signer oficjalnego Inno Setup.' }
+            Invoke-DefenderGate -Target $inno -Stage 'inno-installer-before-execution'; $signature=Get-AuthenticodeSignature -LiteralPath $inno; $report.signature=[ordered]@{status=[string]$signature.Status; subject=$signature.SignerCertificate.Subject; thumbprint=$signature.SignerCertificate.Thumbprint}; if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false) -cne 'Pyrsys B.V.') { throw 'Nieprawidłowy podpis lub nieoczekiwany signer oficjalnego Inno Setup.' }
             $installDir=Join-Path $env:RUNNER_TEMP 'InnoSetup-6.7.3'; $process=Start-Process -FilePath $inno -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir") -Wait -PassThru; if ($process.ExitCode -ne 0) { throw "Instalator narzędzia Inno zakończył się kodem $($process.ExitCode)" }; $iscc=Join-Path $installDir 'ISCC.exe'; if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) { throw 'Instalacja Inno nie dostarczyła ISCC.exe.' }; Invoke-DefenderGate -Target $installDir -Stage 'installed-inno-before-compiler-use'
             $report.installer=[ordered]@{url='https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe'; version='6.7.3'; sha256=$hash}; $report.exitCode=0; "AMC_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           } catch { $report.error=$_.Exception.Message; throw } finally { $report.finishedUtc=[DateTime]::UtcNow.ToString('o'); $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $reportPath -Encoding utf8 }
