@@ -1,0 +1,194 @@
+name: AMC — jednorazowa diagnostyka bez pakietowania
+
+on:
+  push:
+    branches:
+      - codex/amc-diagnostic-gh-20261117
+    paths:
+      - .github/workflows/amc-diagnostic-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    # Tylko pierwsze utworzenie dokładnie tej gałęzi może uruchomić job.
+    # Późniejszy push, re-run i workflow_dispatch nie są drogą obejścia bramek.
+    if: >-
+      github.run_attempt == '1' &&
+      github.event.before == '0000000000000000000000000000000000000000' &&
+      github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117'
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Pobierz dokładne źródła bez poświadczeń
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Utwórz mały katalog dowodów
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'amc-diagnostic-evidence'
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          $source = [ordered]@{
+            capturedUtc = [DateTime]::UtcNow.ToString('o')
+            sourceSha = (git rev-parse HEAD).Trim()
+            sourceStatus = @(& git status --porcelain=v1 --untracked-files=no)
+            runner = $env:RUNNER_NAME
+            ref = $env:GITHUB_REF
+            sha = $env:GITHUB_SHA
+          }
+          $source | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding utf8
+          "AMC_DIAGNOSTIC_EVIDENCE=$evidence" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Bramka Defendera i skan źródeł — fail closed
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'defender-source-preflight'
+          $reportPath = Join-Path $env:AMC_DIAGNOSTIC_EVIDENCE "$stage.json"
+          $report = [ordered]@{
+            stage = $stage
+            startedUtc = [DateTime]::UtcNow.ToString('o')
+            finishedUtc = $null
+            exitCode = $null
+            sourceSha = (git rev-parse HEAD).Trim()
+            status = $null
+            preference = $null
+            events1116_1117 = @()
+            error = $null
+          }
+          $exitCode = 1
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            $preference = Get-MpPreference -ErrorAction Stop
+            $report.status = [ordered]@{
+              antivirusEnabled = $status.AntivirusEnabled
+              realTimeProtectionEnabled = $status.RealTimeProtectionEnabled
+              amRunningMode = $status.AMRunningMode
+              amProductVersion = $status.AMProductVersion
+              amEngineVersion = $status.AMEngineVersion
+              antivirusSignatureVersion = $status.AntivirusSignatureVersion
+              antivirusSignatureLastUpdated = $status.AntivirusSignatureLastUpdated
+            }
+            $report.preference = [ordered]@{
+              disableRealtimeMonitoring = $preference.DisableRealtimeMonitoring
+              disableBehaviorMonitoring = $preference.DisableBehaviorMonitoring
+              disableIOAVProtection = $preference.DisableIOAVProtection
+              exclusionPathCount = @($preference.ExclusionPath).Count
+              exclusionProcessCount = @($preference.ExclusionProcess).Count
+              exclusionExtensionCount = @($preference.ExclusionExtension).Count
+            }
+            if (-not $status.AntivirusEnabled -or
+                -not $status.RealTimeProtectionEnabled -or
+                $status.AMRunningMode -ne 'Normal' -or
+                $preference.DisableRealtimeMonitoring -or
+                $preference.DisableBehaviorMonitoring -or
+                $preference.DisableIOAVProtection) {
+              throw 'Defender nie jest aktywny w wymaganym trybie ochrony rzeczywistej.'
+            }
+            $scanStarted = [DateTime]::UtcNow
+            Start-MpScan -ScanPath $env:GITHUB_WORKSPACE -ErrorAction Stop
+            $events = @(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1116,1117; StartTime=$scanStarted} -ErrorAction Stop |
+              ForEach-Object { [ordered]@{ timeUtc=$_.TimeCreated.ToUniversalTime().ToString('o'); id=$_.Id; message=$_.Message } })
+            $report.events1116_1117 = $events
+            if ($events.Count -gt 0) { throw 'Defender zgłosił wykrycie lub działanie ochronne po rozpoczęciu skanu źródeł.' }
+            $exitCode = 0
+          }
+          catch {
+            $report.error = $_.Exception.Message
+            throw
+          }
+          finally {
+            $report.finishedUtc = [DateTime]::UtcNow.ToString('o')
+            $report.exitCode = $exitCode
+            $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
+          }
+
+      - name: Zweryfikuj źródło Inno Setup 6.7.3 bez uruchamiania go
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'inno-provenance'
+          $reportPath = Join-Path $env:AMC_DIAGNOSTIC_EVIDENCE "$stage.json"
+          $report = [ordered]@{ stage=$stage; startedUtc=[DateTime]::UtcNow.ToString('o'); finishedUtc=$null; exitCode=$null; sourceSha=(git rev-parse HEAD).Trim(); installer=$null; signature=$null; events1116_1117=@(); error=$null }
+          $exitCode = 1
+          try {
+            $file = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+            Invoke-WebRequest -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $file -ErrorAction Stop
+            $actual = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expected = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+            if ($actual -cne $expected) { throw "Niezgodny SHA-256 oficjalnego instalatora Inno Setup: $actual" }
+            $signature = Get-AuthenticodeSignature -LiteralPath $file
+            $report.installer = [ordered]@{ url='https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe'; version='6.7.3'; sha256=$actual }
+            $report.signature = [ordered]@{ status=[string]$signature.Status; subject=$signature.SignerCertificate.Subject; thumbprint=$signature.SignerCertificate.Thumbprint }
+            if ($signature.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($signature.SignerCertificate.Subject)) { throw 'Podpis Authenticode oficjalnego instalatora Inno Setup nie jest prawidłowy.' }
+            $scanStarted = [DateTime]::UtcNow
+            Start-MpScan -ScanPath $file -ErrorAction Stop
+            $events = @(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1116,1117; StartTime=$scanStarted} -ErrorAction Stop |
+              ForEach-Object { [ordered]@{ timeUtc=$_.TimeCreated.ToUniversalTime().ToString('o'); id=$_.Id; message=$_.Message } })
+            $report.events1116_1117 = $events
+            if ($events.Count -gt 0) { throw 'Defender zgłosił wykrycie lub działanie ochronne po rozpoczęciu skanu instalatora Inno Setup.' }
+            $exitCode = 0
+          }
+          catch {
+            $report.error = $_.Exception.Message
+            throw
+          }
+          finally {
+            $report.finishedUtc = [DateTime]::UtcNow.ToString('o')
+            $report.exitCode = $exitCode
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $reportPath -Encoding utf8
+          }
+
+      - name: "Zatrzymaj przed budową: wejścia nie są jeszcze zamknięte"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'closed-inputs-and-execution-order'
+          $reportPath = Join-Path $env:AMC_DIAGNOSTIC_EVIDENCE "$stage.json"
+          $report = [ordered]@{ stage=$stage; startedUtc=[DateTime]::UtcNow.ToString('o'); finishedUtc=$null; exitCode=$null; sourceSha=(git rev-parse HEAD).Trim(); unclosedInputs=@(); canonicalStartupBeforePostBuildScan=$false; error=$null }
+          $exitCode = 1
+          try {
+            foreach ($relative in @('wxlite/requirements-tidal-test.txt', 'wxlite/requirements-apple-music-test.txt', 'wxlite/requirements-sonos-local-test.txt')) {
+              $lineNumber = 0
+              foreach ($line in Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE $relative)) {
+                $lineNumber++
+                $trimmed = $line.Trim()
+                if ($trimmed -and -not $trimmed.StartsWith('#') -and $trimmed -notmatch '--hash=sha256:') {
+                  $report.unclosedInputs += "$($relative) line ${lineNumber}: $trimmed"
+                }
+              }
+            }
+            $bundleScript = Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'wxlite/tools/Build-AMCBundle.ps1') -Raw
+            $report.canonicalStartupBeforePostBuildScan = $bundleScript.Contains('Invoke-FullBundleCheck') -and $bundleScript.Contains('Test-AMCBundleStartup.ps1')
+            if ($report.unclosedInputs.Count -gt 0) {
+              throw 'Zależności Test nie są w całości zabezpieczone hashami; nie pobierano ani nie budowano payloadu.'
+            }
+            if ($report.canonicalStartupBeforePostBuildScan) {
+              throw 'Kanoniczna budowa uruchamia AMC przed możliwym skanem gotowej paczki; ta jednorazowa diagnostyka nie może ominąć tej bramki.'
+            }
+            throw 'Brak oczekiwanej bramki bezpieczeństwa w skrypcie kanonicznym; nie wolno kontynuować.'
+          }
+          catch {
+            $report.error = $_.Exception.Message
+            throw
+          }
+          finally {
+            $report.finishedUtc = [DateTime]::UtcNow.ToString('o')
+            $report.exitCode = $exitCode
+            $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $reportPath -Encoding utf8
+          }
+
+      - name: Zachowaj wyłącznie raporty diagnostyczne
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: amc-diagnostic-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/amc-diagnostic-evidence/
+          if-no-files-found: error
+          retention-days: 30

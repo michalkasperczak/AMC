@@ -33,8 +33,38 @@ Brak uprawnień ani logowanie nie są już aktualną blokadą. Porównanie dost�
 `2b6b061db22523ed9cfb66d26e2808b3d7bf00a7`) zakończono. Oryginalne pliki
 pobrano i SHA potwierdzono; rodzina formatu Inno wspólna. Starego payloadu
 nie wyodrębniono — oba dostępne czytniki nie obsłużyły formatu. Brak dowodu
-przyczyny detekcji lub fałszywego alarmu. Żywy odbiór Windows/NVDA nadal otwarty; główny
+Brak dowodu przyczyny detekcji lub fałszywego alarmu. Żywy odbiór Windows/NVDA nadal otwarty; główny
 komputer pozostaje nietykalny, użytkownik aktualizuje go ręcznie.
+
+### Jednorazowa diagnostyka GitHub-hosted — zgoda użytkownika 17.11.2026
+
+Użytkownik wyraził jawną zgodę wyłącznie na **jedną** diagnostyczną próbę w
+nowej, efemerycznej VM Windows dostarczonej przez GitHub Actions. Nie ma zgody
+na budowę, pakowanie, instalację, uruchomienie AMC lub instalatora ani pobranie
+dużych artefaktów na Hermesie, WSL, hoście Windows czy głównym komputerze.
+Publikacja, instalacja i zwykłe wydanie Public/Test pozostają wstrzymane.
+
+Przygotowano lokalnie (bez pushu i bez uruchomienia) workflow
+`.github/workflows/amc-diagnostic-build.yml` na izolowanej gałęzi
+`codex/amc-diagnostic-gh-20261117`. Wykonuje się tylko przy pierwszym pushu
+tej gałęzi i tylko po zmianie tego pliku; ma `permissions: contents: read`,
+nie używa sekretów, cache, publikacji, release ani self-hosted runnera.
+Zachowuje wyłącznie małe raporty diagnostyczne. Najpierw wymaga aktywnego
+Defendera z ochroną rzeczywistą, aktualnym stanem silnika/sygnatur i skanem
+źródeł, a błędny cmdlet, ostrzeżenie lub zdarzenie 1116/1117 przerywa przebieg.
+Oficjalny Inno Setup 6.7.3 jest pobierany wyłącznie z release
+`jrsoftware/issrc`, sprawdzany hash
+`9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732` i
+podpis Authenticode, ale nie jest instalowany ani uruchamiany.
+
+Workflow celowo kończy się fail-closed **przed** pobraniem zależności,
+pakietowaniem lub ISCC: bieżące wejścia Test nie są jeszcze całkowicie
+hashowane (`requirements-tidal-test.txt` oraz `requirements-apple-music-test.txt`),
+a kanoniczny `Build-AMCBundle.ps1` uruchamia kontrolę/start `AMC.exe` przed
+możliwym skanem gotowej paczki. Nie wolno omijać tych bramek przez zmianę
+skryptu startowego, zastępczy instalator ani wyłączenie ochrony. Wynik takiej
+jednej próby jest dowodem środowiska i blokad, nie wydaniem ani klasyfikacją
+wcześniejszego alertu Defendera.
 
 Historyczny punkt poniższego planu z 13.11.2026: AMC Test
 `0.1.0-alpha.500`, prerelease `test-2026.11.13.1952`, commit `16eb05b5`.
