@@ -47,14 +47,15 @@ def test_diagnostic_workflow_has_one_shot_read_only_build_path() -> None:
 def test_defender_scans_are_custom_fail_closed_and_cover_job_lifetime() -> None:
     assert "Start-MpScan -ScanType CustomScan" in WORKFLOW
     assert WORKFLOW.count("Invoke-DefenderGate -Target") >= 5
-    assert "-ErrorAction Stop -WarningAction Stop" in WORKFLOW
+    assert "-WarningAction Stop" not in WORKFLOW
+    assert "-WarningAction Continue -WarningVariable +diagWarnings" in WORKFLOW
+    assert "if ($diagWarnings.Count -gt 0)" in WORKFLOW
     assert "NoMatchingEventsFound" in WORKFLOW
     assert "$jobStarted" in WORKFLOW
-    assert "Get-MpComputerStatus -ErrorAction Stop -WarningAction Stop" in WORKFLOW
-    assert "Get-MpPreference -ErrorAction Stop -WarningAction Stop" in WORKFLOW
-    assert "Get-MpThreat -ErrorAction Stop -WarningAction Stop" in WORKFLOW
-    assert "Get-MpThreatDetection -ErrorAction Stop -WarningAction Stop" in WORKFLOW
-    assert "Get-MpComputerStatus -ErrorAction Stop -WarningAction Stop" in WORKFLOW
+    assert "Get-MpComputerStatus -ErrorAction Stop -WarningAction Continue" in WORKFLOW
+    assert "Get-MpPreference -ErrorAction Stop -WarningAction Continue" in WORKFLOW
+    assert "Get-MpThreat -ErrorAction Stop -WarningAction Continue" in WORKFLOW
+    assert "Get-MpThreatDetection -ErrorAction Stop -WarningAction Continue" in WORKFLOW
     assert "exclusionPathCount" in WORKFLOW
     assert "Defender" in WORKFLOW
 
