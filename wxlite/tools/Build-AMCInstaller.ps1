@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory)] [string]$OutputDirectory,
     [string]$NvdaAddonPath = "",
     [string]$AmcNvdaAddonPath = "",
-    [string]$IsccPath = ""
+    [string]$IsccPath = "",
+    [scriptblock]$BeforeCandidateExecution = $null
 )
 
 Set-StrictMode -Version Latest
@@ -23,6 +24,23 @@ $manifestPath = Join-Path $bundle "bundle-manifest.json"
 $launcher = Join-Path $bundle "AMC.exe"
 $nvdaAddon = $null
 $amcNvdaAddon = $null
+
+function Invoke-BeforeCandidateExecution {
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [Parameter(Mandatory)] [string]$Stage
+    )
+
+    if ($null -eq $BeforeCandidateExecution) {
+        return
+    }
+    try {
+        & $BeforeCandidateExecution -Path $Path -Stage $Stage
+    }
+    catch {
+        throw "Walidator przed wykonaniem kandydata ($Stage) zakończył się błędem: $($_.Exception.Message)"
+    }
+}
 
 Push-Location $repositoryRoot
 try {
@@ -244,6 +262,8 @@ if ($launcherVersion -ne $Version) {
         "programu $launcherVersion. Najpierw ustaw i zbuduj jedną wersję źródeł."
     )
 }
+
+Invoke-BeforeCandidateExecution -Path $bundle -Stage "bundle-before-installer-checks"
 
 $check = Start-Process -FilePath $launcher `
     -ArgumentList @("--sprawdz-pakiet-pelny-cicho") `

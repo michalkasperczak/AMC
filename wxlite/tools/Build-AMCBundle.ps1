@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory)] [string]$OutputDirectory,
     [string]$TidalSitePackages = "",
     [string]$SonosSitePackages = "",
-    [string]$AppleMusicSitePackages = ""
+    [string]$AppleMusicSitePackages = "",
+    [scriptblock]$BeforeCandidateExecution = $null
 )
 
 Set-StrictMode -Version Latest
@@ -90,6 +91,23 @@ function Invoke-FullBundleCheck {
     }
 }
 
+function Invoke-BeforeCandidateExecution {
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [Parameter(Mandatory)] [string]$Stage
+    )
+
+    if ($null -eq $BeforeCandidateExecution) {
+        return
+    }
+    try {
+        & $BeforeCandidateExecution -Path $Path -Stage $Stage
+    }
+    catch {
+        throw "Walidator przed wykonaniem kandydata ($Stage) zakończył się błędem: $($_.Exception.Message)"
+    }
+}
+
 function Assert-ManifestCoversAllFiles {
     param([Parameter(Mandatory)] [string]$BundleRoot)
 
@@ -138,6 +156,7 @@ try {
             "--artifacts-path", (Join-Path $operationRoot "artifacts-apple-music-web"),
             "-p:NuGetAudit=false", "-o", (Join-Path $hostOutput "apple-music-web")
         )
+        Invoke-BeforeCandidateExecution -Path $hostOutput -Stage "components-before-apple-music-web-pipe"
         & (Join-Path $PSScriptRoot "Test-AppleMusicWebPipe.ps1") `
             -Executable (Join-Path $hostOutput "apple-music-web\amc_apple_music_web_host.exe")
     }
@@ -177,6 +196,7 @@ try {
     }
     Invoke-Checked -FilePath $python -Stage "Składanie zweryfikowanej paczki" -ArgumentList $bundleArguments
 
+    Invoke-BeforeCandidateExecution -Path $candidate -Stage "candidate-before-first-execution"
     Invoke-FullBundleCheck -LauncherPath (Join-Path $candidate "AMC.exe")
     & $startupSmokeTool -BundleRoot $candidate
     Assert-ManifestCoversAllFiles -BundleRoot $candidate

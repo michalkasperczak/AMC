@@ -1,14 +1,15 @@
 # Rejestr zadań AMC
 
 - `REL-002` — **W trakcie; przygotowano bez uruchomienia jednorazową,
-  fail-closed diagnostykę GitHub-hosted Windows dla AMC Test** — użytkownik
-  17.11.2026 zgodził się wyłącznie na jedną VM GitHub po review i pushu rodzica;
-  nie ma zgody na buildy lokalne, instalację, publikację ani ponowne uruchamianie
-  kandydatów. Workflow nie ma sekretów ani uprawnień zapisu, zapisuje tylko małe
-  raporty i zatrzymuje się przed pakietowaniem, gdy Defender nie działa, wejścia
-  nie są zamknięte hashami albo kanoniczny bundle wymaga uruchomienia AMC przed
-  skanem gotowej paczki. **Nie wykonano jeszcze pushu ani runu.** Szczegóły i
-  bezpieczeństwo: [REL-002-kanoniczne-wydania-test-public-github.md](REL-002-kanoniczne-wydania-test-public-github.md).
+  kontrolowaną budowę diagnostyczną GitHub-hosted Windows dla AMC Test** —
+  użytkownik 17.11.2026 zgodził się wyłącznie na jedną VM GitHub po review i
+  pushu rodzica; nie ma zgody na buildy lokalne, instalację, publikację ani
+  ponowne uruchamianie kandydatów. Workflow nie ma sekretów ani uprawnień
+  zapisu, a po pozytywnych bramkach AV buduje jeden installer ze źródeł w VM.
+  Przy wykryciu zatrzymuje się i zachowuje tylko małe raporty; przy czystym
+  przebiegu artefakt Actions może zawierać installer i sidecar integralności.
+  **Nie wykonano jeszcze pushu ani runu.** Szczegóły i bezpieczeństwo:
+  [REL-002-kanoniczne-wydania-test-public-github.md](REL-002-kanoniczne-wydania-test-public-github.md).
 
 - `YT-007` — **Źródła zintegrowane, celowane testy zaliczone; wydanie i odbiór użytkowy wstrzymane** — #19/#20 autora `HubertMeyer`: import plików i typowanie OPML, archiwa z polskimi tytułami oraz ograniczona publiczna lista live/upcoming bez konta. Po review poprawiono rozróżnianie ID i ochronę istniejących metadanych. Brak nieoficjalnego logowania TV; bez nowego instalatora i zamykania zgłoszeń. [Plan, kryteria i wyniki](YT-007-zgloszenia-19-20-import-i-transmisje.md).
 

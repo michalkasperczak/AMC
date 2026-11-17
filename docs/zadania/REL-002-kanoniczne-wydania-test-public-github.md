@@ -47,24 +47,35 @@ Publikacja, instalacja i zwykłe wydanie Public/Test pozostają wstrzymane.
 Przygotowano lokalnie (bez pushu i bez uruchomienia) workflow
 `.github/workflows/amc-diagnostic-build.yml` na izolowanej gałęzi
 `codex/amc-diagnostic-gh-20261117`. Wykonuje się tylko przy pierwszym pushu
-tej gałęzi i tylko po zmianie tego pliku; ma `permissions: contents: read`,
-nie używa sekretów, cache, publikacji, release ani self-hosted runnera.
-Zachowuje wyłącznie małe raporty diagnostyczne. Najpierw wymaga aktywnego
-Defendera z ochroną rzeczywistą, aktualnym stanem silnika/sygnatur i skanem
-źródeł, a błędny cmdlet, ostrzeżenie lub zdarzenie 1116/1117 przerywa przebieg.
-Oficjalny Inno Setup 6.7.3 jest pobierany wyłącznie z release
-`jrsoftware/issrc`, sprawdzany hash
-`9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732` i
-podpis Authenticode, ale nie jest instalowany ani uruchamiany.
+tej gałęzi; ma `permissions: contents: read`, nie używa sekretów, cache,
+release ani self-hosted runnera. Jest to **autoryzowana kontrolowana budowa**
+jednego instalatora diagnostycznego AMC Test na efemerycznej VM, a nie
+publikacja ani odbiór wydania. W razie czystego pełnego przebiegu zachowa
+installer oraz jego sidecar integralności jako artefakt Actions; przy błędzie
+lub wykryciu zachowa wyłącznie małe raporty diagnostyczne.
 
-Workflow celowo kończy się fail-closed **przed** pobraniem zależności,
-pakietowaniem lub ISCC: bieżące wejścia Test nie są jeszcze całkowicie
-hashowane (`requirements-tidal-test.txt` oraz `requirements-apple-music-test.txt`),
-a kanoniczny `Build-AMCBundle.ps1` uruchamia kontrolę/start `AMC.exe` przed
-możliwym skanem gotowej paczki. Nie wolno omijać tych bramek przez zmianę
-skryptu startowego, zastępczy instalator ani wyłączenie ochrony. Wynik takiej
-jednej próby jest dowodem środowiska i blokad, nie wydaniem ani klasyfikacją
-wcześniejszego alertu Defendera.
+Przed wejściem do każdej kolejnej fazy workflow wymaga aktywnego Defendera z
+ochroną rzeczywistą, świeżą sygnaturą/silnikiem oraz niezmienionymi
+preferencjami. Wykluczenia, wyłączona ochrona, brak cmdletu, ostrzeżenie,
+aktualne zagrożenie lub zdarzenie 1116/1117 od początku jobu zatrzymują
+przebieg. Nie zmienia ustawień Defendera. Hash-verified poprzedni AMC Test
+`test-2026.11.15.2036` jest wyłącznie immutable inputem: na VM jest skanowany
+i rozpakowywany przez także hash-verified `innoextract`, nigdy uruchamiany jako
+instalator. Workflow używa tylko potwierdzonej struktury `app/runtime`,
+`runtime/Lib/site-packages` i dodatku QAS. Oficjalny Inno Setup 6.7.3 jest
+pobierany wyłącznie z release `jrsoftware/issrc`, sprawdzany hash
+`9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732`,
+skanowany przed uruchomieniem i wymaga ważnego podpisu oczekiwanego signera
+JRSoftware/Jordan Russell. Jest instalowany wyłącznie jako kompilator na VM.
+
+Kanoniczne `Build-AMCBundle.ps1` i `Build-AMCInstaller.ps1` zachowują
+domyślne zachowanie poza diagnostyką. Ich opcjonalny hook
+`BeforeCandidateExecution` uruchamia bramkę AV przed testem Apple Music Web
+Pipe, pełną kontrolą/startem gotowego bundle i kontrolami instalatora;
+nie zastępuje ani nie omija kontroli kanonicznych. Wszystkie komponenty,
+GUI i dodatek AMC NVDA są budowane z bieżących źródeł w VM. Wynik jednej próby
+jest dowodem środowiska i blokad, nie wydaniem ani klasyfikacją wcześniejszego
+alertu Defendera.
 
 Historyczny punkt poniższego planu z 13.11.2026: AMC Test
 `0.1.0-alpha.500`, prerelease `test-2026.11.13.1952`, commit `16eb05b5`.
