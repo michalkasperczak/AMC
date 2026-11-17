@@ -3,7 +3,7 @@ name: AMC — jednorazowa kontrolowana budowa diagnostyczna
 on:
   push:
     branches:
-      - codex/amc-diagnostic-gh-20261117
+      - codex/amc-diagnostic-gh-20261117-r2
     paths:
       - .github/workflows/amc-diagnostic-build.yml
       - wxlite/tools/Build-AMCBundle.ps1
@@ -25,7 +25,7 @@ jobs:
     if: >-
       github.run_attempt == '1' &&
       github.event.before == '0000000000000000000000000000000000000000' &&
-      github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117'
+      github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117-r2'
     runs-on: windows-2025
     timeout-minutes: 90
 

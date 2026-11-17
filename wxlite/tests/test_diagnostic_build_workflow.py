@@ -16,10 +16,10 @@ INSTALLER = (ROOT / "wxlite" / "tools" / "Build-AMCInstaller.ps1").read_text(
 
 def test_diagnostic_workflow_has_one_shot_read_only_build_path() -> None:
     for required in (
-        "codex/amc-diagnostic-gh-20261117",
+        "codex/amc-diagnostic-gh-20261117-r2",
         "github.run_attempt == '1'",
         "github.event.before == '0000000000000000000000000000000000000000'",
-        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117'",
+        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117-r2'",
         "runs-on: windows-2025",
         "contents: read",
         "persist-credentials: false",
