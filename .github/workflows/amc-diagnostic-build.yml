@@ -3,7 +3,7 @@ name: AMC — jednorazowa kontrolowana budowa diagnostyczna
 on:
   push:
     branches:
-      - codex/amc-diagnostic-gh-20261117-r2
+      - codex/amc-diagnostic-gh-protected-20261118
     paths:
       - .github/workflows/amc-diagnostic-build.yml
       - wxlite/tools/Build-AMCBundle.ps1
@@ -25,7 +25,7 @@ jobs:
     if: >-
       github.run_attempt == '1' &&
       github.event.before == '0000000000000000000000000000000000000000' &&
-      github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117-r2'
+      github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118'
     runs-on: windows-2025
     timeout-minutes: 90
 
@@ -55,6 +55,12 @@ jobs:
           $source | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding utf8
           "AMC_DIAGNOSTIC_EVIDENCE=$evidence" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "AMC_DIAGNOSTIC_JOB_STARTED=$($jobStarted.ToString('o'))" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Włącz ochronę wyłącznie na zatwierdzonej tymczasowej VM
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\wxlite\tools\Enable-AMCDiagnosticProtection.ps1 -EvidenceDirectory $env:AMC_DIAGNOSTIC_EVIDENCE
 
       - name: Defender source preflight — fail closed
         shell: pwsh

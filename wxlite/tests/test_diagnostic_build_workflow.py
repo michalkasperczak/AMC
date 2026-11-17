@@ -16,10 +16,10 @@ INSTALLER = (ROOT / "wxlite" / "tools" / "Build-AMCInstaller.ps1").read_text(
 
 def test_diagnostic_workflow_has_one_shot_read_only_build_path() -> None:
     for required in (
-        "codex/amc-diagnostic-gh-20261117-r2",
+        "codex/amc-diagnostic-gh-protected-20261118",
         "github.run_attempt == '1'",
         "github.event.before == '0000000000000000000000000000000000000000'",
-        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-20261117-r2'",
+        "github.ref == 'refs/heads/codex/amc-diagnostic-gh-protected-20261118'",
         "runs-on: windows-2025",
         "contents: read",
         "persist-credentials: false",
@@ -91,6 +91,24 @@ def test_nvda_output_and_sdk_follow_actual_repository_contracts() -> None:
         for field in ("ExclusionPath", "ExclusionProcess", "ExclusionExtension"):
             assert f"@({preference}.{field}).Count" not in WORKFLOW
     assert WORKFLOW.index("final-defender-audit") < WORKFLOW.index("name: Zachowaj instalator")
+
+
+def test_authorized_protection_setup_precedes_scan_and_build() -> None:
+    setup = ROOT / 'wxlite/tools/Enable-AMCDiagnosticProtection.ps1'
+    assert setup.exists()
+    source = setup.read_text(encoding='utf-8')
+    assert WORKFLOW.index('Enable-AMCDiagnosticProtection.ps1') < WORKFLOW.index('Defender source preflight')
+    for token in ('RUNNER_ENVIRONMENT', 'github-hosted', 'RUNNER_OS', 'Windows',
+                  'Set-MpPreference', 'Remove-MpPreference', 'Update-MpSignature',
+                  'RealTimeProtectionEnabled', 'BehaviorMonitorEnabled', 'IoavProtectionEnabled',
+                  'DisableRealtimeMonitoring=$false', 'DisableBehaviorMonitoring=$false',
+                  'DisableIOAVProtection=$false', 'DisableScriptScanning=$false',
+                  'DisableArchiveScanning=$false', 'protection-setup.json'):
+        assert token in source
+    assert source.index('github-hosted') < source.index('Set-MpPreference')
+    assert 'DisableRealtimeMonitoring=$true' not in source
+    assert 'Add-MpPreference' not in source
+    assert "-WarningAction Stop" not in source
 
 
 def test_workflow_is_not_an_intentional_unconditional_stop() -> None:
