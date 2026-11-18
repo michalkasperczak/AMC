@@ -125,8 +125,9 @@ jobs:
             python3 - "$tag" "$profile" "$prerelease" "$latest" "$directory/release-notes.md" > "create-$profile.json" <<'PY'
           import json, sys
           tag, profile, prerelease, latest, notes = sys.argv[1:]
+          from pathlib import Path
           title = ('AMC Public' if profile == 'public' else 'AMC Test') + (' — 18.11.2026, 03:29' if profile == 'public' else ' — 18.11.2026, 03:37')
-          print(json.dumps({'tag_name': tag, 'target_commitish': '1723786c4557ef68bb3922189a028099ce96db31', 'name': title, 'body': open(notes, encoding='utf-8').read(), 'draft': True, 'prerelease': prerelease == 'true', 'make_latest': latest == 'true'}))
+          print(json.dumps({'tag_name': tag, 'target_commitish': '1723786c4557ef68bb3922189a028099ce96db31', 'name': title, 'body': Path(notes).read_text(encoding='utf-8'), 'draft': True, 'prerelease': prerelease == 'true', 'make_latest': latest}))
           PY
             gh api --method POST "repos/$AMC_REPOSITORY/releases" --input "create-$profile.json" > "created-$profile.json"
             local release_id
@@ -140,10 +141,11 @@ jobs:
               "$directory/$installer" \
               "$directory/$installer.integrity.json" \
               "$directory/amc-update-$profile.json"; do
-              gh api --hostname uploads.github.com --method POST \
-                -H 'Content-Type: application/octet-stream' \
-                "repos/$AMC_REPOSITORY/releases/$release_id/assets?name=$(basename "$asset")" \
-                --input "$asset" > /dev/null
+              curl --fail-with-body --silent --show-error --request POST \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'Content-Type: application/octet-stream' \
+                "https://uploads.github.com/repos/$AMC_REPOSITORY/releases/$release_id/assets?name=$(basename "$asset")" \
+                --data-binary "@$asset" > /dev/null
             done
             gh api "repos/$AMC_REPOSITORY/releases/$release_id" > "draft-$profile.json"
             local asset_id
@@ -164,9 +166,9 @@ jobs:
               --downloaded-installer "$directory/$installer.downloaded" \
               --draft true
             gh api --method PATCH "repos/$AMC_REPOSITORY/releases/$release_id" \
-              -f draft=false \
+              -F draft=false \
               -F prerelease="$prerelease" \
-              -F make_latest="$latest" > "published-$profile.json"
+              -f make_latest="$latest" > "published-$profile.json"
             gh api "repos/$AMC_REPOSITORY/releases/$release_id" > "published-readback-$profile.json"
             python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" verify-release-readback \
               --release-json "published-readback-$profile.json" \

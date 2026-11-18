@@ -39,9 +39,9 @@ attemptu, artefaktu, profilu, pliku, rozmiaru, sumy lub wyniku bramki.
 
 ## Opis użytkowy w release
 
-Opis ogranicza się do zintegrowanego #21 oraz ostatniego etapu Hubert/YouTube:
-komunikatów i nazw Folderów Biblioteki, importu subskrypcji oraz publicznych
-transmisji YouTube. Test jawnie mówi, że Apple Music ma wyszukiwanie i dodawanie
+Opis ogranicza się do zintegrowanego #21: komunikatów i nazw Folderów
+Biblioteki. Nie przedstawia otwartych odbiorów YouTube jako zakończonych.
+Test jawnie mówi, że Apple Music ma wyszukiwanie i dodawanie
 do Biblioteki, ale bez odtwarzania; Public Apple Music nie zawiera.
 
 Nie domniemywa odbioru instalacji lub NVDA. Zapisuje, że nowe instalatory
@@ -68,6 +68,28 @@ odbioru.
 
 Fixture to jawnie małe, syntetyczne EXE/ZIP i atrapy API; nie jest wynikiem
 chmury ani testem rzeczywistych binariów.
+
+## Przegląd rodzica przed wysłaniem
+
+W pierwszej wersji cztery syntetyczne fixture przechodziły, ale rzeczywisty
+mały evidence ZIP był odrzucany: zawiera także `protection-setup.json`.
+Odtworzono RED na tym dokładnym ZIP-ie oraz na fixture z 13 raportami.
+Po poprawce weryfikator przyjmuje dokładnie 13 plików i dodatkowo sprawdza
+włączenie ochrony oraz brak wykluczeń po przygotowaniu runnera. Te same
+prawdziwe raporty przechodzą bez modyfikowania ich treści lub sumy ZIP-a.
+
+Drugi RED wykazał zły typ `make_latest` z rzeczywistego producenta JSON
+w workflow. Poprawiono na wymagany string `true`/`false`, `draft=false`
+w PATCH jest booleanem, a upload używa dokładnego release ID i jawnie
+uwierzytelnionego endpointu uploads, bez zgadywania obsługi innego hosta
+przez `gh api`. Dodano test producenta JSON i kontraktu PATCH.
+
+Stan po korektach: **6 testów unittest PASS**, rzeczywisty evidence ZIP
+**13 raportów PASS**, odczyt YAML oraz `bash -n` wszystkich bloków PASS,
+`git diff --check` PASS. Opis release ograniczono do #21 i jawnego zakresu
+Apple Music w Test, bez reklamowania otwartych odbiorów YouTube.
+Niezależny read-only review aktualnych plików: `deleg_ecf8745b` — w toku.
+Nie jest to jeszcze wynik publikacji.
 
 ## Znane ograniczenia i następny krok
 

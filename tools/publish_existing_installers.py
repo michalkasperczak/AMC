@@ -18,7 +18,7 @@ import sys
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping
+from typing import Any, Mapping, NoReturn
 
 REPOSITORY = "michalkasperczak/AMC"
 SOURCE_REVISION = "1723786c4557ef68bb3922189a028099ce96db31"
@@ -107,7 +107,7 @@ CONTRACT = VerificationContract(
 )
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     raise VerificationError(message)
 
 
@@ -241,6 +241,7 @@ def _validate_defender(payload: Mapping[str, Any], *, final: bool) -> None:
 def _validate_evidence(archive: zipfile.ZipFile, members: Mapping[str, zipfile.ZipInfo], contract: VerificationContract) -> None:
     expected = {
         "source.json",
+        "protection-setup.json",
         "defender-source-preflight.json",
         "closed-inputs.json",
         "inno-provenance.json",
@@ -258,6 +259,16 @@ def _validate_evidence(archive: zipfile.ZipFile, members: Mapping[str, zipfile.Z
     source = _read_json(archive, "source.json")
     if source.get("sourceSha") != contract.source_revision or source.get("sourceVersion") != contract.version or source.get("sourceStatus") != []:
         _fail("Dowód źródeł nie odpowiada zamrożonemu buildowi")
+    protection = _read_json(archive, "protection-setup.json")
+    after = protection.get("after")
+    if protection.get("stage") != "authorized-protection-setup" or protection.get("exitCode") != 0 or not isinstance(after, dict):
+        _fail("Brakuje poprawnego dowodu włączenia ochrony")
+    if any(after.get(name) is not True for name in ("antivirusEnabled", "realTimeProtectionEnabled", "behaviorMonitorEnabled", "ioavProtectionEnabled", "onAccessProtectionEnabled")):
+        _fail("Po przygotowaniu runnera ochrona nie była aktywna")
+    if any(after.get(name) is not False for name in ("disableRealtimeMonitoring", "disableBehaviorMonitoring", "disableIOAVProtection", "disableArchiveScanning", "disableScriptScanning")):
+        _fail("Po przygotowaniu runnera pozostała wyłączona ochrona")
+    if after.get("exclusionPaths") != [] or any(after.get(name) != 0 for name in ("exclusionProcessCount", "exclusionExtensionCount")):
+        _fail("Po przygotowaniu runnera pozostały wykluczenia")
     _validate_defender(_read_json(archive, "defender-source-preflight.json"), final=False)
     _validate_defender(_read_json(archive, "final-defender-audit.json"), final=True)
     for name in ("closed-inputs.json", "inno-provenance.json", "amc-nvda-addon.json"):
@@ -282,7 +293,7 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "- Foldery Biblioteki: komunikat po dodaniu, odświeżeniu lub błędzie jest przekazywany jeden raz przez aktywny dialog. Przy konflikcie wskazywana jest ścieżka istniejącego folderu.",
         "- Foldery o tej samej nazwie są rozróżniane dopiskiem folderu nadrzędnego; ich ścieżki, identyfikatory i dane nie są zmieniane.",
-        "- Podcasty i YouTube: Ctrl+O prowadzi przez wybór i import obsługiwanych subskrypcji bez automatycznego pobierania. Ctrl+T pokazuje publiczne transmisje trwające lub zaplanowane bez logowania, a Ctrl+Shift+I obejmuje do 20 wybranych kanałów.",
+
     ]
     if profile.profile == "test":
         lines.extend([
@@ -296,7 +307,7 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "- Instalator pochodzi z chronionej budowy GitHub; raport tej budowy wskazuje aktywną ochronę Defendera bez wykryć. Nie jest to odbiór instalacji ani żywy odbiór NVDA.",
         "- Wcześniejszy lokalny alert RCX pozostaje bez analizy historycznych próbek przez Microsoft. Nie jest to werdykt o tym wydaniu.",
-        "- Publiczne transmisje zależą od YouTube i yt-dlp; lista nie gwarantuje kompletności wszystkich wydarzeń. Nie ma nieoficjalnego logowania TV, importu historii oglądania ani prywatnych playlist.",
+
         "",
         "## Instalator",
         "",
@@ -350,7 +361,7 @@ def verify_archives(binary_zip: Path, evidence_zip: Path, contract: Verification
                 sidecar = _read_json(binaries, f"{root}.integrity.json")
                 _validate_sidecar(sidecar, definition, executable, contract)
                 digest = hashlib.sha256(executable).hexdigest()
-                summary = "Foldery Biblioteki oraz import i publiczne transmisje YouTube."
+                summary = "Foldery Biblioteki: pojedyncze komunikaty, rozróżnianie nazw i wskazanie istniejącej ścieżki przy konflikcie."
                 if profile == "test":
                     summary += " Apple Music: wyszukiwanie i dodawanie do Biblioteki; brak odtwarzania."
                 manifest = _update_manifest(definition, digest, len(executable), contract, summary)

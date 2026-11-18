@@ -117,6 +117,25 @@ def _make_archives(tmp_path: Path) -> tuple[Path, Path]:
                 "events1116_1117": [],
             },
         )
+        _write_json(archive, "protection-setup.json", {
+            "stage": "authorized-protection-setup",
+            "exitCode": 0,
+            "after": {
+                "antivirusEnabled": True,
+                "realTimeProtectionEnabled": True,
+                "behaviorMonitorEnabled": True,
+                "ioavProtectionEnabled": True,
+                "onAccessProtectionEnabled": True,
+                "disableRealtimeMonitoring": False,
+                "disableBehaviorMonitoring": False,
+                "disableIOAVProtection": False,
+                "disableArchiveScanning": False,
+                "disableScriptScanning": False,
+                "exclusionPaths": [],
+                "exclusionProcessCount": 0,
+                "exclusionExtensionCount": 0,
+            },
+        })
         _write_json(archive, "closed-inputs.json", {"exitCode": 0})
         _write_json(archive, "inno-provenance.json", {"exitCode": 0})
         _write_json(archive, "amc-nvda-addon.json", {"exitCode": 0})
@@ -212,6 +231,47 @@ class PublishExistingInstallerTests(unittest.TestCase):
             assets[-1]["digest"] = "sha256:" + "0" * 64
             with self.assertRaisesRegex(VerificationError, "Metadane assetu"):
                 verify_release_readback(release, verified["public"], downloaded, draft=True)
+
+    def test_github_request_field_types(self) -> None:
+        # Exercise the real inline payload producer, not a copied JSON fixture.
+        import contextlib
+        import io
+        import unittest.mock
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/amc-publish-existing-installers.yml").read_text()
+        marker = "          import json, sys\n          tag, profile, prerelease, latest, notes = sys.argv[1:]"
+        code = workflow[workflow.index(marker):].split("\n          PY", 1)[0]
+        import textwrap
+        with tempfile.TemporaryDirectory() as temporary:
+            notes = Path(temporary) / "notes.md"
+            notes.write_text("fixture notes", encoding="utf-8")
+            stdout = io.StringIO()
+            with unittest.mock.patch.object(sys, "argv", ["-", CONTRACT.profiles["public"].tag, "public", "false", "true", str(notes)]), contextlib.redirect_stdout(stdout):
+                exec(compile(textwrap.dedent(code), "workflow-create-payload", "exec"), {})
+            payload = json.loads(stdout.getvalue())
+        self.assertIs(payload["draft"], True)
+        self.assertIs(payload["prerelease"], False)
+        self.assertEqual(payload["make_latest"], "true")
+        self.assertIsInstance(payload["make_latest"], str)
+        self.assertEqual(payload["target_commitish"], CONTRACT.source_revision)
+        self.assertIn("-F draft=false", workflow)
+        self.assertIn('-f make_latest="$latest"', workflow)
+        self.assertNotIn("--hostname uploads.github.com", workflow)
+
+    def test_protection_setup_rejects_disabled_after_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary_zip, evidence_zip = _make_archives(root)
+            replacement = root / "disabled-protection.zip"
+            with zipfile.ZipFile(evidence_zip) as source, zipfile.ZipFile(replacement, "w") as target:
+                for info in source.infolist():
+                    payload = source.read(info.filename)
+                    if info.filename == "protection-setup.json":
+                        value = json.loads(payload)
+                        value["after"]["realTimeProtectionEnabled"] = False
+                        payload = json.dumps(value).encode()
+                    target.writestr(info, payload)
+            with self.assertRaisesRegex(VerificationError, "ochrona nie była aktywna"):
+                verify_archives(binary_zip, replacement, _contract_for_fixture(binary_zip, replacement))
 
     def test_fixture_archives_reject_wrong_profile_compiler_argv(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
