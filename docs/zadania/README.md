@@ -1,5 +1,25 @@
 # Rejestr zadań AMC
 
+**Nowe zlecenie Michała — 18.11.2026:** najpierw usunąć gubienie miejsca na
+liście po `Ctrl+Shift+L` i sprawdzić pokrewne ścieżki Biblioteki, Ulubionych,
+kolejek i playlist; zmieniać tylko potwierdzone błędy. Następnie zbadać dawną
+próbę odtwarzania Apple Music, bibliotekę GitHub i błędne identyfikatory.
+Źródła poprawki fokusu zintegrowane i niezależnie sprawdzone, także z filtrem;
+13 celowanych przypadków headless zaliczonych, bez żywego NVDA i instalatora.
+Rekonesans Apple zakończony; rzeczywista próba czeka na uzgodnione warunki
+interaktywne. Bez zmian instalacji na głównym PC, nowego lokalnego buildu
+Windows i bez zakupu konta. Raport zapisano i odczytano na `MICHAL` w notatkach.
+[Zakres, kryteria i wyniki](AMC-20261118-fokus-kolekcji-i-apple-playback.md).
+
+**Porządek materiałów na głównym PC — 18.11.2026:** zapisano podsumowanie
+własnych zgłoszeń Michała i mapę folderów w istniejącym `AMC - notatki`.
+Oryginał `Hubert zgłoszenia 2026-11-16.md` zachowany bez zmiany; dodano
+skróty do notatek i poniedziałkowego pliku w `Hermes\AMC` oraz wejście
+z głównego folderu projektów. Trzy dokumenty i trzy skróty odczytano ponownie.
+Bez kasowania dawnych kopii/worktree, synchronizacji kodu i bez instalacji.
+Test na głównym PC ma źródła nowego wydania; zainstalowany Public pozostaje
+starszy. [Zakres, stan i dowody](DOC-20261118-porzadek-materialow-na-glownym-PC.md).
+
 **Najnowsze polecenie 18.11.2026: „To instaluj w sensie na GH”.** Po informacji
 o sukcesie nowych Public/Test, braku detekcji w nowym przebiegu oraz nadal
 nierozstrzygniętym dawnym RCX i braku odbioru NVDA, Michał zlecił publikację
