@@ -1,5 +1,17 @@
 # Rejestr zadań AMC
 
+**Aktywne zadanie — wyszukiwanie, 18.11.2026:** po zintegrowaniu Ctrl+C dodać
+`Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.
+Aktywność sesji i zgoda na wyszukiwanie to osobne warunki; czasowo wyłączona
+sesja jest pomijana, ale pamięta zaznaczenie na ponowne włączenie.
+[Pełny kontrakt i kryteria](SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md).
+
+**Ctrl+C w Podcastach — 18.11.2026, zintegrowane w źródłach (`d7627f2`):** pełny opis,
+następnie strona odcinka, bezpośredni plik audio, na końcu strona podcastu.
+`Ctrl+Shift+C` bez zmian; pozostałe sesje i YouTube bez przebudowy.
+Celowane RED/GREEN, 128 testów i kontrola produkcyjnych dróg kopiowania, bez nowej
+instalacji lub wydania. [Zakres i wynik](PODCAST-COPY-20261118-opis-i-kolejnosc-linkow.md).
+
 **Nowe zlecenie Michała — 18.11.2026:** najpierw usunąć gubienie miejsca na
 liście po `Ctrl+Shift+L` i sprawdzić pokrewne ścieżki Biblioteki, Ulubionych,
 kolejek i playlist; zmieniać tylko potwierdzone błędy. Następnie zbadać dawną

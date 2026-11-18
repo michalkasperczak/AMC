@@ -1,5 +1,18 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Przygotowywane kopiowanie odcinków Podcastów — 18.11.2026
+
+W źródłach wxPython `Ctrl+C` na zapisanym odcinku Podcastów kopiuje tytuł,
+pełny opis, stronę odcinka, bezpośredni adres pliku audio, a na końcu stronę
+podcastu. Brakujące pola są pomijane, bez zgadywania adresów. Dotyczy też
+zapisanych odcinków w wynikach wyszukiwania; zaznaczone odcinki zachowują
+kolejność listy. `Ctrl+Shift+C` nadal kopiuje sam dotychczasowy adres.
+Zwykłe kopiowanie nazw w pozostałych sesjach i dla YouTube pozostaje bez zmian.
+
+Zmiana jest zintegrowana w źródłach i sprawdzona testami handlerów; nie jest
+nowym wydaniem ani aktualizacją zainstalowanego programu. Odbiór schowka Windows
+i NVDA pozostaje osobnym krokiem. [Stan i kryteria](docs/zadania/PODCAST-COPY-20261118-opis-i-kolejnosc-linkow.md).
+
 ## Przygotowywany import subskrypcji YouTube — 17.11.2026
 
 W źródłach wxPython `Ctrl+O` w sesji **Podcasty i YouTube** otwiera wspólny
