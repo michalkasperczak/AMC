@@ -9,9 +9,13 @@ uruchomiono na GitHubie po review: run `44221728197`, commit
 `failure`: poprawna kontrola Public odrzuciła Apple Music skopiowane
 z wejściowego runtime Test. Defender w tym przebiegu nie wykrył zagrożenia;
 brak instalatorów i publikacji. Odczytano 8 raportów, hash ZIP zgodny z API.
-Przez openai-codex zlecono wąską naprawę fizycznego kopiowania zależności
-Public/Test z testem RED/GREEN; przygotowanie nowej jednorazowej gałęzi r2
-nie obejmuje pushu ani uruchomienia. Starego runu nie ponawiano.
+Poprawkę rozdzielającą fizyczne kopiowanie Public/Test odebrano przez
+niezależny RED/GREEN oraz sprawdzenie pięciu blobów #21. Nowy chroniony
+run `44229055217` z commita `1723786c4557ef68bb3922189a028099ce96db31`
+na dokładnej gałęzi r2 jest `in_progress`; ma już zaliczone włączenie ochrony
+i preflight źródeł. To nie gotowy instalator. Monitor zachowa tylko małe
+raporty po zakończeniu; bez lokalnego pobierania EXE i instalacji.
+Starego runu nie ponawiano.
 Apple Music: użytkownik potwierdza sprawne wyszukiwanie/dodawanie do Biblioteki,
 bez odtwarzania; kolejne poprawki wyszukiwania pozostają poza zakresem.
 

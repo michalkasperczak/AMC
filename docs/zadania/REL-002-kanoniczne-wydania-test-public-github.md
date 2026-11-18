@@ -36,14 +36,27 @@ SHA-256 archiwum `9b7348b12812e6f6ace23d3aa4bab5383e102d32180f19d2ff143b47a55886
 lokalna suma jest zgodna z API. Dowody: profil AMC,
 `state/github-public-test-44221728197`. Artefaktów binarnych brak; bez lokalnego
 pobierania dużych plików, instalacji i zmian AV.
-Zlecono przez openai-codex wąską naprawę z RED/GREEN na małych fixture:
-czysty fizyczny runtime Public, kompletność Apple Music w Test, nienaruszone
-wejście, współdzielone zależności, manifest/hashes i końcowy guard. Delegacja
-`deleg_a324d5b0`, nowy izolowany worktree `amc-public-runtime-20261118-r2`,
-gałąź `codex/amc-protected-public-test-20261118-issue21-r2`. Worker ma tylko
-przygotować lokalny commit i bramki nowej jednorazowej gałęzi — **bez pushu**.
-Nie ponowiono starego runu. Rodzic ma odebrać dowody i poprawkę przed nowym
-kontrolowanym startem; nie tworzyć automatycznej pętli buildów.
+Naprawę z RED/GREEN odebrano niezależnie: profil Public fizycznie pomija
+unikalne `applemusic`/`playwright`, Test je zachowuje, wejście nie zmienia się,
+a współdzielone zależności oraz integralność pozostają. Bazowy builder
+rzeczywiście odtworzył błąd; poprawiony zaliczył tę samą granicę. Worker
+`0432e27` oraz parent `1723786` nie zmienili pięciu odebranych blobów #21.
+W review poprawiono też pominięty dokładny ref r2 w ochronie (RED/GREEN);
+6 kontraktów, parser PS i 5 wyizolowanych kontekstów guard PASS. YAML
+naprawdę odczytano przez `ruamel.yaml`, bez instalowania narzędzi.
+
+**Nowy kontrolowany run `44229055217`, source
+`1723786c4557ef68bb3922189a028099ce96db31`, gałąź
+`codex/amc-protected-public-test-20261118-issue21-r2`, attempt 1 —
+`in_progress`.** Nową gałąź wysłano raz; starego runu nie ponawiano.
+Readback potwierdził dokładny SHA oraz trzy zmienione bloby produkcyjne.
+Jeden odczyt drzewa GitHuba przerwał błąd sieci; ponowiono tylko odczyt
+konkretnych blobów, nie push ani build. Job `134549324896` zaliczył setup
+aktywnej ochrony i preflight źródeł, obecnie przygotowuje zamknięte wejścia.
+To nie zaliczenie końcowych paczek. Monitor `proc_4ae581d9d30d` po zakończeniu
+pobierze tylko małe raporty z kontrolą SHA ZIP do profilu AMC,
+`state/github-public-test-44229055217`; nie pobiera EXE ani nie instaluje.
+Nie publikowano nowego release. Nie tworzyć automatycznej pętli buildów.
 Po review pięć statycznych kontraktów przeszło; cztery scenariusze natywnego
 PowerShell na atrapach potwierdziły odrzucenie wykluczeń, detekcji i błędów
 odczytu oraz zachowanie dowodów kompilatora przy błędzie. Nie były to prawdziwe
