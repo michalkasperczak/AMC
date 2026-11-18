@@ -3196,6 +3196,14 @@ def describe_action(
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
     if (
+        (session_label or "").casefold() == "podcasty i youtube"
+        and action is Action.COPY_NAME
+    ):
+        return i18n.command_description(
+            action.value,
+            "Skopiuj tytuł, pełny opis oraz zapisane linki odcinka i podcastu",
+        )
+    if (
         (session_label or "").casefold() == "apple music"
         and action is Action.SEARCH_CURRENT
     ):

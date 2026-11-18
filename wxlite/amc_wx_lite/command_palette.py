@@ -90,6 +90,8 @@ def entries_for_session(
                 Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS
             }:
                 name = _plain_label(item.label)
+            if session is SessionId.PODCASTS and item.action is Action.COPY_NAME:
+                name = "Skopiuj szczegóły odcinka"
             if not name:
                 continue
             seen.add(item.action)

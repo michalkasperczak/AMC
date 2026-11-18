@@ -2465,6 +2465,7 @@ class SearchDialog(wx.Dialog):
         copy_text: Callable[[str], bool],
         history: list[str],
         record_query: Callable[[str], list[str]],
+        podcast_clipboard_blocks: Callable[[list[Row]], list[str]] | None = None,
         playback_label: Callable[[SearchEntry], str] | None = None,
         quick_information: Callable[[SearchEntry], str] | None = None,
         detailed_hints: bool = False,
@@ -2482,6 +2483,7 @@ class SearchDialog(wx.Dialog):
         self._execute_direct_action = execute_direct_action
         self._open_library = open_library
         self._copy_text = copy_text
+        self._podcast_clipboard_blocks = podcast_clipboard_blocks
         self._history = list(history)
         self._record_query = record_query
         self._playback_label = playback_label or (lambda _entry: "")
@@ -2539,7 +2541,9 @@ class SearchDialog(wx.Dialog):
                 "właściwej liście. Prawa strzałka pokazuje dostępne "
                 "relacje. Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
                 "wyników. Ctrl+Shift+U zmienia stan Ulubionych tam, gdzie jest to "
-                "dostępne. Ctrl+L zamyka wyszukiwanie i otwiera Bibliotekę. "
+                "dostępne. Ctrl+C na zapisanym odcinku Podcastów kopiuje tytuł, "
+                "pełny opis i zapisane linki; Ctrl+Shift+C kopiuje sam adres. "
+                "Ctrl+L zamyka wyszukiwanie i otwiera Bibliotekę. "
                 "Escape zamyka okno."
             )
             if detailed_hints
@@ -2836,9 +2840,30 @@ class SearchDialog(wx.Dialog):
         self._complete_selected(SearchResultAction.OPEN)
 
     def _copy(self, *, addresses: bool) -> None:
+        selected = self._selected_entries()
+        podcast_blocks: iter[str] | None = None
+        if not addresses and self._podcast_clipboard_blocks is not None:
+            podcast_rows = [
+                entry.row for entry in selected
+                if entry.session_id is SessionId.PODCASTS
+            ]
+            try:
+                blocks = self._podcast_clipboard_blocks(podcast_rows)
+            except PodcastProfileError:
+                self.announcer.say("Nie udało się odczytać danych odcinka do skopiowania")
+                return
+            if len(blocks) == len(podcast_rows):
+                podcast_blocks = iter(blocks)
         values = []
-        for entry in self._selected_entries():
-            value = entry.row.address if addresses else entry.row.title
+        for entry in selected:
+            value = (
+                entry.row.address if addresses
+                else next(podcast_blocks) if (
+                    entry.session_id is SessionId.PODCASTS
+                    and podcast_blocks is not None
+                )
+                else entry.row.title
+            )
             if value:
                 values.append(value)
         if not values:
@@ -11662,8 +11687,13 @@ class LiteFrame(wx.Frame):
                 if item.GetItemLabel() != native_label:
                     item.SetItemLabel(native_label)
             if entry.action in {Action.COPY_NAME, Action.COPY_ADDRESS}:
-                label = (DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
-                         if self._in_download_history() else entry.label)
+                label = (
+                    DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
+                    if self._in_download_history()
+                    else "Skopiuj szczegóły odcinka"
+                    if podcasts and entry.action is Action.COPY_NAME
+                    else entry.label
+                )
                 native_label = self._menu_native_label(entry, label)
                 if item.GetItemLabel() != native_label:
                     item.SetItemLabel(native_label)
@@ -12565,6 +12595,7 @@ class LiteFrame(wx.Frame):
             execute_direct_action=self._execute_search_dialog_action,
             open_library=lambda: self._dispatch(Action.VIEW_LIBRARY),
             copy_text=self._to_clipboard,
+            podcast_clipboard_blocks=self.podcasts.clipboard_blocks,
             history=list(self.state.search_history.get(
                 "global" if all_services else session_before.value,
                 [],
@@ -28726,6 +28757,23 @@ class LiteFrame(wx.Frame):
                     "Skopiowano pełną ścieżkę"
                     if len(paths) == 1 else
                     f"Skopiowano pełne ścieżki: {format_file_count(len(paths))}"
+                )
+            return
+        if getattr(self.navigator, "active", None) is SessionId.PODCASTS:
+            try:
+                blocks = self.podcasts.clipboard_blocks(rows)
+            except PodcastProfileError:
+                self.announcer.say("Nie udało się odczytać danych odcinka do skopiowania")
+                return
+            text = (os.linesep * 2).join(block for block in blocks if block)
+            if not text:
+                self.announcer.say("Nie ma czego skopiować")
+                return
+            if self._to_clipboard(text):
+                self.announcer.say(
+                    "Skopiowano szczegóły odcinka"
+                    if len(rows) == 1
+                    else f"Skopiowano szczegóły odcinków: {format_item_count(len(rows))}"
                 )
             return
         text = os.linesep.join(row.title for row in rows)

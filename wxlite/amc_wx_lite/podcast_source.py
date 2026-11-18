@@ -880,6 +880,64 @@ class PodcastSource:
             youtube_fallback=fallback if youtube and not description else "",
         )
 
+    def clipboard_blocks(self, rows: list[Row]) -> list[str]:
+        """Return Ctrl+C text blocks for selected podcast-session rows.
+
+        The display row remains authoritative for the direct address: it is
+        exactly what ``Row.address`` exposes to Ctrl+Shift+C.  SQLite supplies
+        only fields not carried by the list row (full description, episode
+        page, and the parent podcast homepage).  YouTube rows deliberately
+        retain the ordinary Ctrl+C title-only behaviour.
+        """
+
+        episode_ids = [
+            row.item_id for row in rows
+            if row.kind == "episode" and row.item_id
+        ]
+        by_id: dict[str, sqlite3.Row] = {}
+        if episode_ids:
+            placeholders = ", ".join("?" for _ in episode_ids)
+            try:
+                with closing(self._open()) as connection:
+                    records = connection.execute(
+                        f"""
+                        SELECT e.id, e.payload_json,
+                               s.payload_json AS parent_payload_json
+                        FROM podcast_episodes AS e
+                        LEFT JOIN podcast_subscriptions AS s
+                          ON s.id = e.subscription_id
+                        WHERE e.id IN ({placeholders})
+                        """,
+                        episode_ids,
+                    ).fetchall()
+            except sqlite3.Error as error:
+                raise PodcastProfileError(
+                    f"Nie można odczytać danych do skopiowania: {error}"
+                ) from error
+            by_id = {str(record["id"]): record for record in records}
+
+        blocks: list[str] = []
+        for row in rows:
+            record = by_id.get(row.item_id)
+            if row.kind != "episode" or record is None:
+                blocks.append(row.title)
+                continue
+            parent_payload = _payload(record["parent_payload_json"])
+            if _source_kind(parent_payload) in (2, 3):
+                blocks.append(row.title)
+                continue
+            payload = _payload(record["payload_json"])
+            values = (
+                row.title.strip(),
+                _long_text(_get(payload, "Description", "")),
+                str(_get(payload, "PageUrl", "") or "").strip(),
+                row.address,
+                str(_get(parent_payload, "HomepageUrl", "") or "").strip(),
+            )
+            block = "\n".join(value for value in values if value)
+            blocks.append(block)
+        return blocks
+
     def episodes(self, subscription_id: str, *, loaded_count: int = PAGE_SIZE) -> PodcastEpisodePage:
         subscription = self.subscription(subscription_id)
         if subscription is None:
