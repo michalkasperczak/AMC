@@ -2,8 +2,13 @@
 
 ## Status
 
-Przygotowanie lokalne do niezależnego review. Ten dokument i workflow **nie
-wykonały pushu, publikacji, instalacji ani uruchomienia EXE**.
+**Wykonano publikację 18.11.2026:** po niezależnym review wysłano raz nową
+gałąź (publisher `2b72e9a1b4bedcf13625b3a5fb3490be9e15877e`). Run
+`44292203528`, attempt 1, zakończył się sukcesem. Oba wydania, sześć assetów,
+źródła tagów, SHA/rozmiary i zgodność z rzeczywistym walidatorem aktualizatora
+potwierdzono świeżym odczytem. Public release `449870446`, Test `449870638`.
+Nie wykonano instalacji ani uruchomienia EXE. Poniższy opis przygotowania jest
+historią sprzed uruchomienia; pełny wynik i sumy instalatorów są w REL-002.
 
 ## Zakres
 

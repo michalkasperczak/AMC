@@ -2,6 +2,52 @@
 
 ## Status
 
+### Wykonano: oba wydania GitHub opublikowane i odczytane ponownie
+
+18.11.2026 jednorazowy publisher `44292203528`, attempt 1, zakończył się
+`success` (wszystkie etapy, także cleanup). Wysłano raz nową gałąź
+`codex/amc-publish-existing-20261118`, publisher commit
+`2b72e9a1b4bedcf13625b3a5fb3490be9e15877e`; odczyt refa i trzech blobów
+potwierdził tożsamość. Niezależny review `deleg_ecf8745b` nie wykazał dodatkowych
+blokerów po poprawkach rodzica. Nie uruchomiono nowej kompilacji Windows.
+
+Publikacja użyła wyłącznie zatwierdzonych archiwów z runu `44229055217`.
+Oba tagi wskazują **źródła instalatorów**
+`1723786c4557ef68bb3922189a028099ce96db31`, nie publisher commit.
+
+- Public: tag `public-2026.11.18.0329`, release ID `449870446`,
+  `prerelease=false`, `draft=false`; `AMC-Public-2026-11-18-0329.exe`,
+  **134028130 B**, SHA-256
+  `9d5e2d62caa3ae831705e96bd97e6d26668bb1b3b026e5e367c852760fbec566`.
+- Test: tag `test-2026.11.18.0337`, release ID `449870638`,
+  `prerelease=true`, `draft=false`; `AMC-Test-2026-11-18-0337.exe`,
+  **214563326 B**, SHA-256
+  `a3ce0e2bc9fabc5afce0076736946dc273fa324ecae63a391c929ef9a5efb4ff`.
+
+Każde wydanie ma dokładnie trzy załączniki: EXE, oryginalny sidecar integralności
+oraz `amc-update-<profil>.json` (łącznie sześć). Runner zweryfikował wejściowy
+ZIP, realne 13 raportów, sidecary, hash EXE, przesłane assety oraz ponownie
+pobrane EXE z draftów przed publikacją. Log przygotowania zawiera powyższe sumy
+EXE; etapy odczytu draft/public i endpointu aktualizatora zakończyły się sukcesem.
+
+Rodzic odczytał następnie świeże release API i tagi, sprawdził nazwy, stany,
+rozmiary i digest wszystkich sześciu assetów. Pobrał tylko cztery małe JSON-y,
+porównał ich bajty/hash z API oraz zgodność EXE SHA/rozmiaru między API,
+sidecarem i manifestem. Faktyczne funkcje aktualizatora
+`_latest_channel_release` i `_validated_release` zaakceptowały oba kanały
+oraz wskazały właściwe nowe instalatory. To dowód wykrywalności wydań,
+nie wykonanej aktualizacji na Windows.
+
+Dowody: profil AMC `state/github-existing-publish-44292203528/` — run/jobs,
+pełny log, świeże release JSON, cztery małe załączniki, lista dla aktualizatora
+i agregat `verified-releases.json`. Dużych EXE nie pobierano do WSL, niczego
+nie instalowano ani nie uruchamiano na Hermesie lub głównym PC. Nie zmieniano
+Defendera, nie wykonywano skanu Offline ani restartu. Historyczny RCX nadal
+bez analizy Microsoftu. Żywy odbiór instalacji/Windows/NVDA pozostaje otwarty;
+żadnego issue nie zamknięto. Test zawiera Apple Music jako bibliotekę,
+wyszukiwanie/dodawanie bez odtwarzania; Public fizycznie nie zawiera Apple Music.
+
+
 ### Najnowsza decyzja: publikacja istniejących nowych instalatorów na GH
 
 18.11.2026, po meldunku o sukcesie obu chronionych budów, braku nowej detekcji,

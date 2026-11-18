@@ -55,4 +55,11 @@ Po integracji prowadzący wykonał:
 
 Początkowa próba pytest bez jawnego `PYTHONPATH` zakończyła się błędem zbierania `ModuleNotFoundError`; poprawne polecenie powyżej usuwa błąd aparatury. Nie jest to defekt produktu ani wynik RED.
 Uzupełniono materiał użytkowy w `MEDIA_CONTROLLER_PL.md`. Nie zmieniono komend, menu, palety ani skrótów.
-Żywy NVDA i finalny instalator nadal bez odbioru. Następny uzgodniony etap: wydanie instalatora na GitHubie, z zachowaniem bramek REL-002; nie instalacja na głównym komputerze Michała.
+18.11.2026 etap publikacji wykonano: nowe Public `public-2026.11.18.0329`
+i Test `test-2026.11.18.0337` zawierają tę poprawkę ze źródeł
+`1723786c4557ef68bb3922189a028099ce96db31`. Publikacja istniejących instalatorów
+zakończyła się w runie `44292203528` sukcesem; świeży odczyt release/tag/assets
+oraz rzeczywisty walidator aktualizatora potwierdziły oba wydania. Szczegóły,
+rozmiary i SHA w REL-002. Nie było kolejnego Windows buildu ani instalacji.
+Żywy NVDA i finalny instalator nadal bez odbioru; issue #21 pozostaje otwarte.
+Historyczny RCX nadal bez formalnej analizy. Nie instalowano na głównym PC.

@@ -4,10 +4,14 @@
 o sukcesie nowych Public/Test, braku detekcji w nowym przebiegu oraz nadal
 nierozstrzygniętym dawnym RCX i braku odbioru NVDA, Michał zlecił publikację
 nowych instalatorów na GitHubie. Bez instalacji na głównym PC, kolejnego
-buildu i lokalnych dużych pobrań. Przygotowywany jednorazowy publisher przeniesie
-istniejący artifact `14395074212` po weryfikacji na runnerze; opisy zachowają
-powyższe ograniczenia. Nie jest to zaliczenie odbioru ani werdykt o dawnym
-alercie. Stan publikacji musi zostać potwierdzony odczytem wydania i załączników.
+buildu i lokalnych dużych pobrań. **Wykonano:** publisher `44292203528`
+zakończył się sukcesem; opublikowano Public `public-2026.11.18.0329`
+(release `449870446`) i Test `test-2026.11.18.0337` (release `449870638`).
+Oba tagi wskazują source `1723786c4557ef68bb3922189a028099ce96db31`.
+Świeży odczyt potwierdził sześć załączników, ich rozmiary i SHA oraz zgodność
+z faktycznym walidatorem aktualizatora. Nie pobrano lokalnie EXE, nie wykonano
+instalacji/żywego NVDA ani restartu. Historyczny RCX nie ma werdyktu Microsoftu.
+Szczegóły i sumy EXE: REL-002. Poniższa chronologia zachowuje wcześniejsze stany.
 
 Wcześniejsza dyspozycja po naprawie #21: wydać na GitHubie **Public i Test
 z Apple Music**, bez nowych lokalnych Windows/VM/Sandboxów. „Testowy Windows”
@@ -27,7 +31,7 @@ Odczytano 13 raportów; hash małego ZIP-a zgodny z API. Końcowy Defender:
 aktywna ochrona, brak wykluczeń, detekcji i zdarzeń 1116/1117.
 Instalatory oraz sidecary są w Actions artifact `14395074212`; nie pobrano
 ich lokalnie. Hash tego archiwum nie jest sumą konkretnego EXE.
-**Nie ma jeszcze release ani odbioru instalacji/Windows/NVDA.** Dawny alert
+**Po samej budowie, przed opisanym wyżej publisherem, nie było release; nadal brak odbioru instalacji/Windows/NVDA.** Dawny alert
 RCX pozostaje nierozstrzygnięty; nowy poprawny przebieg sam go nie rozstrzyga.
 Monitor zakończony, starego runu nie ponawiano; bez kolejnej budowy.
 Apple Music: użytkownik potwierdza sprawne wyszukiwanie/dodawanie do Biblioteki,
@@ -43,7 +47,7 @@ Poprzednia interpretacja „wdrażaj, poprawiaj i sprawdzaj” jako polecenia
 odbioru instalatora jest nieaktualna. Niedobór miejsca Windows nie blokuje
 rozwoju źródeł i nie zmienia pierwszeństwa #21.
 
-- `LIB-021` — **Źródła naprawione, zintegrowane i wysłane na GitHub (`ca9d1b2`); bez wydania i żywego odbioru NVDA.** Dialog ogłasza wyniki własnym announcerem, odmowa wskazuje ścieżkę konfliktu, a identyczne nazwy korzeni są rozróżniane dopiskiem rodzica. PL/EN i callbacki sprawdzone; 6 celowanych Python oraz wydzielony zestaw Core zaliczone. [Plan i dowody](LIB-021-foldery-biblioteki-komunikaty-i-nazwy.md). Wrócono do etapu wydania: publikację nadal blokuje bezpieczeństwo i niezaliczony odbiór paczki (REL-002), nie brak zgody użytkownika. Świeży odczyt C: 553693184 B wolnego, nie wcześniejsze 23 MB.
+- `LIB-021` — **Źródła naprawione; poprawka opublikowana 18.11 w Public i Test z source `1723786`, bez żywego odbioru NVDA.** Dialog ogłasza wyniki własnym announcerem, odmowa wskazuje ścieżkę konfliktu, a identyczne nazwy korzeni są rozróżniane dopiskiem rodzica. PL/EN i callbacki sprawdzone; 6 celowanych Python oraz wydzielony zestaw Core zaliczone. [Plan i dowody](LIB-021-foldery-biblioteki-komunikaty-i-nazwy.md). Publikacja na GitHubie wykonana po jawnej decyzji Michała o nowych artefaktach i ograniczeniach (REL-002); osobno pozostaje odbiór Windows/NVDA i analiza historycznego RCX. Nie jest to instalacja u użytkownika.
 
 Poprzedni wynik diagnostyczny REL-002 (18.11.2026): **instalator diagnostyczny z chronionej
 VM GitHuba powstał**, run `44197448182`, źródła `9739fe3`, SUCCESS.
