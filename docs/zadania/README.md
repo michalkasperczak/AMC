@@ -1,6 +1,15 @@
 # Rejestr zadań AMC
 
-Najnowsza dyspozycja po naprawie #21: wydać na GitHubie **Public i Test
+**Najnowsze polecenie 18.11.2026: „To instaluj w sensie na GH”.** Po informacji
+o sukcesie nowych Public/Test, braku detekcji w nowym przebiegu oraz nadal
+nierozstrzygniętym dawnym RCX i braku odbioru NVDA, Michał zlecił publikację
+nowych instalatorów na GitHubie. Bez instalacji na głównym PC, kolejnego
+buildu i lokalnych dużych pobrań. Przygotowywany jednorazowy publisher przeniesie
+istniejący artifact `14395074212` po weryfikacji na runnerze; opisy zachowają
+powyższe ograniczenia. Nie jest to zaliczenie odbioru ani werdykt o dawnym
+alercie. Stan publikacji musi zostać potwierdzony odczytem wydania i załączników.
+
+Wcześniejsza dyspozycja po naprawie #21: wydać na GitHubie **Public i Test
 z Apple Music**, bez nowych lokalnych Windows/VM/Sandboxów. „Testowy Windows”
 w poprzednim meldunku oznaczał zwykły Windows komputera HERMES, nie nowy
 zainstalowany system. Chroniony workflow obu profili z poprawką #21
