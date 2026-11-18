@@ -1,5 +1,15 @@
 # Rejestr zadań AMC
 
+**Nowe zlecenie i doprecyzowanie — 19.11.2026, w realizacji:** pamięć pozycji
+skrzynki `Ctrl+I`, wspólne oznaczanie faktycznie odtwarzanego materiału tekstem,
+dźwiękiem albo oboma we wszystkich właściwych listach sesji/usług (również
+kolejki i zawartość playlist) oraz parametry przed nazwą w `NVDA+End`.
+Po zakończeniu i odbiorze wszystkich poprawek: nowe wydania **Public i Test
+na GitHubie**, bez automatycznej instalacji na głównym PC. Nie ponawiać
+starych buildów ani nie relabelować binariów z 18.11. Bramki bezpieczeństwa,
+integralności i rzetelnego raportowania odbioru nadal obowiązują.
+[Plan całości, decyzje i następny krok](RELEASE-20261119-odtwarzany-skrzynka-status.md).
+
 **Wyszukiwanie — 18.11.2026, zintegrowane w źródłach (`bb3fdcd`):** dodano
 `Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.
 Aktywność sesji i zgoda na wyszukiwanie to osobne warunki; czasowo wyłączona
