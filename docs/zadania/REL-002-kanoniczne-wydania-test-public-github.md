@@ -27,6 +27,30 @@ przez openai-codex (`deleg_df9a76b1`), bez płatnego API i bez prawa workerowi
 do pushu/publikacji. Rodzic odbierze wynik i uruchomi publikację po review.
 Samo przygotowanie workflow nie oznacza publikacji.
 
+**Dodatkowa opinia Huberta z 18.11.2026:** Michał przekazał jego przegląd
+z Claude: najbardziej prawdopodobny jest fałszywy alarm przy modyfikacji
+zasobów `Setup.e32` przez ISCC, a nie złośliwa biblioteka AMC. Hubert deklaruje
+też czyste własne skany starszej instalacji i narzędzi; to jego pomiar,
+nie wykonany przez nas. Dwa wskazane wątki rzeczywiście opisują podobne
+problemy RCX/antywirusa i fałszywe alarmy Inno, lecz nie klasyfikują naszych
+niezachowanych próbek.[^rcx-ags][^rcx-inno] To wzmacnia hipotezę, nie jest
+formalnym wynikiem Microsoftu. Dokumentacja Microsoftu określa sufiksy `!…`
+jako wewnętrzne oznaczenia; samo `!pz` nie dowodzi heurystyki ani błędu
+klasyfikacji.[^rcx-naming]
+
+Publikacja nowych, czysto zbudowanych artefaktów GitHuba pozostaje aktualną
+dyspozycją. Nie uruchamiać z tej cytowanej rekomendacji skanu Offline:
+wymaga restartu i osobnego uzgodnienia przerwy (także sprawdzenia nagrywania,
+WinRE i BitLockera). Offline nie jest tym samym co pełny skan działającego
+Windows.[^rcx-offline] Nie kopiować wykrywanego RCX w wyścigu z kwarantanną,
+nie osłabiać ochrony; ewentualne dalsze dowody zbierać wspieraną, odrębnie
+uzgodnioną metodą. Nie ponawiać lokalnej budowy dla odtworzenia próbki.
+
+[^rcx-ags]: [AGS — Compiling errors due to virus scanner](https://www.adventuregamestudio.co.uk/forums/beginners-technical-questions/compiling-errors-due-to-virus-scanner), odczyt 18.11.2026; zgłoszenie błędów BeginUpdateResource i RCX*.tmp z inną nazwą detekcji.
+[^rcx-inno]: [Inno Setup — Installer being detected as malware](https://groups.google.com/g/innosetup/c/lvsb2vWhklk), odczyt 18.11.2026; dyskusja o nieprecyzyjnych sygnaturach oraz zgłoszeniu fałszywych alarmów producentowi antywirusa.
+[^rcx-naming]: [Microsoft — How Microsoft names malware](https://learn.microsoft.com/en-us/defender-xdr/malware-naming), odczyt 18.11.2026: „A suffix that begins with ! is an indicator used by Microsoft internally.”
+[^rcx-offline]: [Microsoft — Run and review the results of a Microsoft Defender Offline scan](https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-offline), odczyt 18.11.2026; skan poza normalnym Windows, restart, wymagania WinRE i uwaga o BitLockerze.
+
 ### Chronologia po odbiorze źródeł #21
 
 Michał polecił wydać obie wersje na GitHubie: **Public** oraz **Test z Apple
