@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 import sys
 import types
 
@@ -18,7 +19,7 @@ except ModuleNotFoundError:
     wx.version = None
     sys.modules["wx"] = wx
 
-from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.gui import LiteFrame, SearchDialog
 from amc_wx_lite.navigation import LibraryView, SessionId, View
 from amc_wx_lite.radioarchiwista_source import (
     RadioarchiwistaSource,
@@ -202,3 +203,58 @@ def test_disabled_but_remembered_source_does_not_collect_or_start_io() -> None:
     )
 
     assert shown == [([], ("Nie wybrano źródeł wyszukiwania globalnego",))]
+
+
+def test_global_search_does_not_reuse_a_catalog_from_a_different_scope() -> None:
+    from amc_wx_lite.list_model import Row
+    from amc_wx_lite.search_catalog import SearchEntry
+
+    previous = SearchEntry(SessionId.RADIOARCHIWISTA, Row("old-station", "Szukane archiwum", "station"))
+    current = SearchEntry(SessionId.FILES, Row("current-file", "Szukane nagranie", "track"))
+    collected, shown = [], []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    frame = SimpleNamespace(
+        options=Options(session_order=[SessionId.FILES.value],
+                        global_search_session_ids=[SessionId.FILES.value]),
+        search_sources=SimpleNamespace(collect=lambda sessions: collected.append(sessions) or SearchCollection((current,))),
+        runner=Runner(), _search_dialog_alive=lambda _dialog: True,
+    )
+    dialog = SimpleNamespace(
+        catalog=SearchCollection((previous,)),
+        catalog_sessions=(SessionId.RADIOARCHIWISTA,),
+        show_results=lambda entries, warnings: shown.append(entries),
+    )
+    LiteFrame._run_search_query(cast(LiteFrame, frame), "Szukane", cast(SearchDialog, dialog), all_services=True, session_before=SessionId.FILES)
+    assert shown == [[current]]
+    assert collected == [(SessionId.FILES,)]
+    assert dialog.catalog_sessions == (SessionId.FILES,)
+    LiteFrame._run_search_query(cast(LiteFrame, frame), "nagranie", cast(SearchDialog, dialog), all_services=True, session_before=SessionId.FILES)
+    assert collected == [(SessionId.FILES,)]  # Same scope reuses the valid snapshot.
+
+
+def test_explicit_opt_out_remains_after_disable_restart_and_reenable(tmp_path) -> None:
+    store = StateStore(tmp_path)
+    store.save(LiteState(options=Options(
+        session_order=[SessionId.FILES.value],
+        global_search_session_ids=[SessionId.FILES.value],
+    )))
+    state = store.load()
+    state.options.session_order = [SessionId.FILES.value, SessionId.RADIOARCHIWISTA.value]
+    assert LiteFrame._global_search_sessions(SimpleNamespace(options=state.options)) == (SessionId.FILES,)
+
+
+def test_manifest_exclusions_override_a_stored_search_preference(monkeypatch) -> None:
+    from amc_wx_lite import session_order
+    monkeypatch.setattr(session_order, "current_profile", lambda: SimpleNamespace(
+        session_ids=(SessionId.FILES.value, SessionId.RADIOARCHIWISTA.value),
+    ))
+    options = Options(
+        session_order=[SessionId.FILES.value, SessionId.APPLE_MUSIC.value],
+        global_search_session_ids=[SessionId.FILES.value, SessionId.APPLE_MUSIC.value],
+    )
+    assert LiteFrame._global_search_sessions(SimpleNamespace(options=options)) == (SessionId.FILES,)

@@ -2503,6 +2503,7 @@ class SearchDialog(wx.Dialog):
         self._applying_history = False
         self._entries: list[SearchEntry] = []
         self.catalog: SearchCollection | None = None
+        self.catalog_sessions: tuple[SessionId, ...] | None = None
         self.selected_result: SearchEntry | None = None
         self.selected_results: list[SearchEntry] = []
         self.selected_action = SearchResultAction.OPEN
@@ -8803,7 +8804,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             options, "global_search_session_ids", None,
         )
         if remembered_global_sources is None:
-            selected_global_sources = set(self._session_order)
+            # None means no opt-out yet, including temporarily disabled services.
+            # The effective search scope still intersects the active session order.
+            selected_global_sources = set(self._global_search_source_ids)
         else:
             selected_global_sources = {
                 session
@@ -8812,24 +8815,11 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 if value == session.value
             }
         active_sessions = set(self._session_order)
-        self.global_search_sources = wx.CheckListBox(
-            general,
-            choices=[
-                session_order.session_name(session)
-                + (" (wyłączona w Menedżerze sesji)" if session not in active_sessions else "")
-                for session in self._global_search_source_ids
-            ],
-            style=wx.LB_SINGLE,
-        )
-        self.global_search_sources.SetName(
-            "Uwzględniaj przy wyszukiwaniu we wszystkich usługach (Ctrl+Shift+F)"
-        )
-        self.global_search_sources.SetHelpText(
-            "Wyłączone sesje są pokazane dla zachowania wyboru, ale nie są przeszukiwane."
-        )
-        for index, session in enumerate(self._global_search_source_ids):
-            self.global_search_sources.Check(index, session in selected_global_sources)
-            self.global_search_sources.Enable(index, session in active_sessions)
+        available_global_ids = {session.value for session in self._global_search_source_ids}
+        self._unavailable_global_search_ids = [
+            value for value in (remembered_global_sources or ())
+            if value not in available_global_ids
+        ]
         global_search_label = wx.StaticText(
             general,
             label="Uwzględniaj przy wyszukiwaniu we wszystkich usługach (Ctrl+Shift+F):",
@@ -8838,9 +8828,22 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "Wybór źródeł wyszukiwania we wszystkich usługach"
         )
         general_layout.Add(global_search_label, 0, wx.TOP | wx.BOTTOM, 4)
-        general_layout.Add(
-            self.global_search_sources, 0, wx.BOTTOM | wx.EXPAND, 12
-        )
+        # Native checkboxes expose a genuine per-service disabled state to NVDA.
+        # wx.CheckListBox.Enable() enables the whole window, not an indexed item.
+        self.global_search_sources = {}
+        for session in self._global_search_source_ids:
+            label = session_order.session_name(session)
+            if session not in active_sessions:
+                label += " (wyłączona w Menedżerze sesji)"
+            control = wx.CheckBox(general, label=label)
+            control.SetName(f"Uwzględniaj w wyszukiwaniu globalnym: {label}")
+            control.SetHelpText(
+                "Wybór jest pamiętany także po wyłączeniu sesji; wyłączona sesja nie jest przeszukiwana."
+            )
+            control.SetValue(session in selected_global_sources)
+            control.Enable(session in active_sessions)
+            self.global_search_sources[session] = control
+            general_layout.Add(control, 0, wx.BOTTOM | wx.EXPAND, 4)
 
         custom_seek_label = wx.StaticText(
             general,
@@ -10617,9 +10620,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             "pause_on_player_exit": self.pause.GetValue(),
             "session_order": [session.value for session in self._session_order],
             "global_search_session_ids": [
-                session.value
-                for index, session in enumerate(self._global_search_source_ids)
-                if self.global_search_sources.IsChecked(index)
+                *self._unavailable_global_search_ids,
+                *(session.value for session in self._global_search_source_ids
+                  if self.global_search_sources[session].GetValue()),
             ],
             "follow_playback_on_player_exit": self.follow.GetValue(),
             "open_player_when_activating_preset": self.open_preset.GetValue(),
@@ -13122,7 +13125,11 @@ class LiteFrame(wx.Frame):
             apple_state = self.navigator.sessions[SessionId.APPLE_MUSIC]
             apple_music_snapshot = tuple(apple_state.model.rows)
             apple_music_source_view = apple_state.library_view
-        cached = dialog.catalog
+        cached = (
+            dialog.catalog
+            if getattr(dialog, "catalog_sessions", None) == sessions
+            else None
+        )
 
         def work() -> tuple[
             SearchCollection,
@@ -13379,6 +13386,7 @@ class LiteFrame(wx.Frame):
                         record.row for record in result[3]
                     )
                 dialog.catalog = result[0]
+                dialog.catalog_sessions = sessions
                 dialog.show_results(result[1], result[2])
 
         def failed(_error: Exception) -> None:

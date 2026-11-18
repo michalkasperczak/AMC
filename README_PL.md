@@ -1,5 +1,26 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Przygotowywane wyszukiwanie Radio Archiwisty i wybór usług — 18.11.2026
+
+`Ctrl+F` w Radio Archiwiście wyszukuje stacje z publicznego katalogu serwisu,
+również gdy nie były jeszcze otwierane w AMC. Jest to odpowiednik pola
+„Filtr stacji” na stronie, nie wyszukiwanie treści audycji ani transkrypcji.
+Enter przenosi do wybranej stacji na zwykłej liście; dalej wybiera się rok,
+miesiąc, dzień i godzinę nagrania. Wyszukiwanie nie pobiera całej historii.
+
+W Ustawieniach ogólnych lista „Uwzględniaj przy wyszukiwaniu we wszystkich
+usługach (Ctrl+Shift+F)” pozwala zaznaczyć usługi do wspólnego wyszukiwania.
+Tab przechodzi między dostępnymi polami, a Spacja zmienia zaznaczenie.
+Wyłączona w Menedżerze sesja jest nieaktywna i pomijana, ale zachowuje swój
+wybór. Po ponownym włączeniu wraca poprzednie „tak” albo „nie”, także po
+restarcie AMC. Zapisanie Ogólnych nie zeruje wyboru nieaktywnych sesji.
+Nie zmienia to lokalnego `Ctrl+F` w bieżącej usłudze. Gdy nie wybrano żadnej
+aktywnej usługi, AMC podaje komunikat zamiast przeszukiwać inne źródła.
+
+To zmiana źródłowa w odbiorze, bez nowego instalatora ani aktualizacji
+zainstalowanego programu. Testy bez okien nie zastępują odbioru Windows/NVDA.
+[Zakres i wyniki](docs/zadania/SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md).
+
 ## Przygotowywane kopiowanie odcinków Podcastów — 18.11.2026
 
 W źródłach wxPython `Ctrl+C` na zapisanym odcinku Podcastów kopiuje tytuł,

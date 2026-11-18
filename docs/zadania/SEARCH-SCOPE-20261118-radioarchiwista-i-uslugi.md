@@ -115,5 +115,42 @@ uruchamia wyszukiwania. Ta opcja nie zmienia `Ctrl+F` w bieżącej usłudze.
 
 ## Wersja i następny krok
 
+### Kontrola rodzica przed integracją
+
+Odczytano rzeczywisty log wykonawcy: `224 passed in 1.79s` w pięciu wskazanych
+plikach, nie pełna bateria repozytorium. Niezależne review `deleg_65b990c2`
+dotyczy niezmiennego kandydata `339a904`; wynik oczekuje.
+
+Własna próba publicznego katalogu na zimnym, tymczasowym profilu rzeczywiście
+pobrała tylko `https://radioarchiwista.github.io/data/stations.json`: 43 stacje,
+zapytania „Nowy Świat” i „357” znalazły odpowiednio `rns` i `radio357`.
+Nie pobrano żadnego fragmentu historii rocznej/miesięcznej/dziennej.
+Osobno potwierdzono dla obu skrótów resolver, zbiór obsługiwanych akcji, menu,
+paletę i pomoc klawiatury. Instrukcję użytkownika uzupełniono w `README_PL.md`.
+
+Przed integracją wykryto nieprawidłowe natywne API: `CheckListBox.Enable`
+przyjmuje jeden stan całego okna, nie `(indeks, stan)`. Test wykonujący
+rzeczywisty blok budowy nowej części Ogólnych ze ścisłą sygnaturą API dał
+`3 failed` na TypeError. Zastąpiono kontrolkę listą natywnych `wx.CheckBox`,
+z faktycznym stanem nieaktywności osobno dla każdej wyłączonej sesji.
+To kontrakt kontrolki bez GUI, nie dowód odczytu NVDA.
+
+Domyślne `None` nie oznacza rezygnacji z czasowo wyłączonych usług: przy
+zapisie Ogólnych zachowujemy dla nich domyślne „tak”, ale efektywne wykonanie
+nadal przecina aktywne sesje. Jawne `[]` pozostaje „nic”. Zachowujemy także
+preferencje identyfikatorów niedostępnych w bieżącym manifeście, bez ich
+pokazywania lub uruchamiania.
+
+Drugi produkcyjny RED pokazał powrót wyniku wykluczonej usługi z migawki innego
+zakresu. Migawka okna jest teraz związana z `catalog_sessions`; inny zestaw
+wymaga nowego zbierania, a ten sam może być ponownie użyty.
+
+Po poprawkach wykonano ograniczony przebieg na produkcyjnych handlerach,
+kontrolkach ustawień ze ścisłym API, sąsiedniej nawigacji wyszukiwania oraz
+kopiowaniu Podcastów: `124 passed in 3.20s`. Obejmuje także zachowanie
+zapamiętanego „nie” po ponownym włączeniu oraz wykluczenie usługi przez manifest.
+Log: `amc-search-scope-20261118-parent-acceptance.log` w katalogu scratch profilu.
+Nie sumować go z 224 testami wykonawcy — zestawy częściowo się pokrywają.
+
 Brak nowego pakietu/instalacji/publikacji. Kod ma przejść zwykły review i
 odbiór dostępnościowy z NVDA po osobnym zleceniu.
