@@ -1,0 +1,204 @@
+name: AMC — publish verified existing Public and Test installers
+
+on:
+  push:
+    branches:
+      - codex/amc-publish-existing-20261118
+
+permissions: {}
+
+jobs:
+  publish-existing-installers:
+    # Only the first push which creates this exact branch can publish these fixed inputs.
+    if: >-
+      github.run_attempt == '1' &&
+      github.event.before == '0000000000000000000000000000000000000000' &&
+      github.ref == 'refs/heads/codex/amc-publish-existing-20261118'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AMC_REPOSITORY: michalkasperczak/AMC
+      AMC_SOURCE_REVISION: 1723786c4557ef68bb3922189a028099ce96db31
+      AMC_RUN_ID: '44229055217'
+      AMC_BINARY_ARTIFACT_ID: '14395074212'
+      AMC_EVIDENCE_ARTIFACT_ID: '14395482588'
+      AMC_PUBLIC_TAG: public-2026.11.18.0329
+      AMC_TEST_TAG: test-2026.11.18.0337
+
+    steps:
+      - name: Check out the exact publisher commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Reject any event outside the closed one-push contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "${{ github.event.after }}"
+          test "$GITHUB_EVENT_NAME" = push
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "${{ github.event.before }}" = 0000000000000000000000000000000000000000
+          test "${{ github.ref }}" = refs/heads/codex/amc-publish-existing-20261118
+
+      - name: Read immutable run and artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/amc-existing-release"
+          cd "$RUNNER_TEMP/amc-existing-release"
+          gh api "repos/$AMC_REPOSITORY/actions/runs/$AMC_RUN_ID" > run.json
+          gh api "repos/$AMC_REPOSITORY/actions/artifacts/$AMC_BINARY_ARTIFACT_ID" > binary-artifact.json
+          gh api "repos/$AMC_REPOSITORY/actions/artifacts/$AMC_EVIDENCE_ARTIFACT_ID" > evidence-artifact.json
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path('.')
+          source = os.environ['AMC_SOURCE_REVISION']
+          run = json.loads((root / 'run.json').read_text())
+          if (run.get('id'), run.get('head_sha'), run.get('run_attempt'), run.get('status'), run.get('conclusion')) != (int(os.environ['AMC_RUN_ID']), source, 1, 'completed', 'success'):
+              raise SystemExit('fail-closed: source run is not the approved successful first attempt')
+          expected = {
+              'binary-artifact.json': (14395074212, 'amc-protected-public-test-installers-' + source, 347586692, 'sha256:8c6a7d6daa5a621eb9231ea5204b6930006b55e9e535fdda4ec9191eeec1a5f3'),
+              'evidence-artifact.json': (14395482588, 'amc-protected-public-test-evidence-' + source, 5995, 'sha256:24f0f8ff72139f328d28e37a70ccd549eae24d865df790b0419c833cedc95682'),
+          }
+          for file_name, (artifact_id, name, size, digest) in expected.items():
+              artifact = json.loads((root / file_name).read_text())
+              if (artifact.get('id'), artifact.get('name'), artifact.get('size_in_bytes'), artifact.get('digest'), artifact.get('expired')) != (artifact_id, name, size, digest, False):
+                  raise SystemExit(f'fail-closed: artifact metadata mismatch: {file_name}')
+              workflow_run = artifact.get('workflow_run') or {}
+              if workflow_run.get('id') != int(os.environ['AMC_RUN_ID']) or workflow_run.get('head_sha') != source:
+                  raise SystemExit(f'fail-closed: artifact source mismatch: {file_name}')
+          PY
+
+      - name: Refuse existing release or tag names
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/amc-existing-release"
+          gh api "repos/$AMC_REPOSITORY/releases?per_page=100" > existing-releases.json
+          for tag in "$AMC_PUBLIC_TAG" "$AMC_TEST_TAG"; do
+            gh api "repos/$AMC_REPOSITORY/git/matching-refs/tags/$tag" > "refs-$tag.json"
+          done
+          python3 - <<'PY'
+          import json, pathlib, os
+          root = pathlib.Path('.')
+          tags = {os.environ['AMC_PUBLIC_TAG'], os.environ['AMC_TEST_TAG']}
+          releases = json.loads((root / 'existing-releases.json').read_text())
+          if any(item.get('tag_name') in tags for item in releases):
+              raise SystemExit('fail-closed: a requested release already exists')
+          for tag in tags:
+              if json.loads((root / f'refs-{tag}.json').read_text()):
+                  raise SystemExit(f'fail-closed: tag already exists: {tag}')
+          PY
+
+      - name: Download only the approved Actions archives on this runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/amc-existing-release"
+          gh api "repos/$AMC_REPOSITORY/actions/artifacts/$AMC_BINARY_ARTIFACT_ID/zip" > installers.zip
+          gh api "repos/$AMC_REPOSITORY/actions/artifacts/$AMC_EVIDENCE_ARTIFACT_ID/zip" > evidence.zip
+          python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" prepare \
+            --binary-zip installers.zip \
+            --evidence-zip evidence.zip \
+            --output prepared
+
+      - name: Create drafts, upload exactly three assets, and verify them
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/amc-existing-release"
+          publish_one() {
+            local profile="$1" tag="$2" prerelease="$3" latest="$4"
+            local directory="prepared/$profile"
+            local installer
+            installer="$(python3 - "$directory/verified-release-input.json" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1], encoding='utf-8'))['installer']['fileName'])
+          PY
+            )"
+            python3 - "$tag" "$profile" "$prerelease" "$latest" "$directory/release-notes.md" > "create-$profile.json" <<'PY'
+          import json, sys
+          tag, profile, prerelease, latest, notes = sys.argv[1:]
+          title = ('AMC Public' if profile == 'public' else 'AMC Test') + (' — 18.11.2026, 03:29' if profile == 'public' else ' — 18.11.2026, 03:37')
+          print(json.dumps({'tag_name': tag, 'target_commitish': '1723786c4557ef68bb3922189a028099ce96db31', 'name': title, 'body': open(notes, encoding='utf-8').read(), 'draft': True, 'prerelease': prerelease == 'true', 'make_latest': latest == 'true'}))
+          PY
+            gh api --method POST "repos/$AMC_REPOSITORY/releases" --input "create-$profile.json" > "created-$profile.json"
+            local release_id
+            release_id="$(python3 - "$profile" <<'PY'
+          import json, sys
+          release = json.load(open(f'created-{sys.argv[1]}.json', encoding='utf-8'))
+          print(release['id'])
+          PY
+            )"
+            for asset in \
+              "$directory/$installer" \
+              "$directory/$installer.integrity.json" \
+              "$directory/amc-update-$profile.json"; do
+              gh api --hostname uploads.github.com --method POST \
+                -H 'Content-Type: application/octet-stream' \
+                "repos/$AMC_REPOSITORY/releases/$release_id/assets?name=$(basename "$asset")" \
+                --input "$asset" > /dev/null
+            done
+            gh api "repos/$AMC_REPOSITORY/releases/$release_id" > "draft-$profile.json"
+            local asset_id
+            asset_id="$(python3 - "$profile" "$installer" <<'PY'
+          import json, sys
+          release = json.load(open(f'draft-{sys.argv[1]}.json', encoding='utf-8'))
+          assets = [a for a in release['assets'] if a['name'] == sys.argv[2]]
+          if len(assets) != 1:
+              raise SystemExit('fail-closed: installer asset is not unique')
+          print(assets[0]['id'])
+          PY
+            )"
+            gh api -H 'Accept: application/octet-stream' "repos/$AMC_REPOSITORY/releases/assets/$asset_id" > "$directory/downloaded-$installer"
+            mv "$directory/downloaded-$installer" "$directory/$installer.downloaded"
+            python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" verify-release-readback \
+              --release-json "draft-$profile.json" \
+              --profile "$profile" \
+              --downloaded-installer "$directory/$installer.downloaded" \
+              --draft true
+            gh api --method PATCH "repos/$AMC_REPOSITORY/releases/$release_id" \
+              -f draft=false \
+              -F prerelease="$prerelease" \
+              -F make_latest="$latest" > "published-$profile.json"
+            gh api "repos/$AMC_REPOSITORY/releases/$release_id" > "published-readback-$profile.json"
+            python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" verify-release-readback \
+              --release-json "published-readback-$profile.json" \
+              --profile "$profile" \
+              --downloaded-installer "$directory/$installer.downloaded" \
+              --draft false
+            gh api "repos/$AMC_REPOSITORY/git/ref/tags/$tag" > "tag-$profile.json"
+            python3 - "$profile" "$tag" <<'PY'
+          import json, os, sys
+          tag = json.load(open(f'tag-{sys.argv[1]}.json', encoding='utf-8'))
+          if tag.get('object', {}).get('type') != 'commit' or tag.get('object', {}).get('sha') != os.environ['AMC_SOURCE_REVISION']:
+              raise SystemExit(f'fail-closed: tag {sys.argv[2]} does not point at the approved source commit')
+          PY
+          }
+          publish_one public "$AMC_PUBLIC_TAG" false true
+          publish_one test "$AMC_TEST_TAG" true false
+
+      - name: Verify the updater's actual release-list endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/amc-existing-release"
+          gh api "repos/$AMC_REPOSITORY/releases?per_page=30" > updater-releases.json
+          python3 - <<'PY'
+          import json, re
+          releases = json.load(open('updater-releases.json', encoding='utf-8'))
+          for profile, tag, prerelease in (('public', 'public-2026.11.18.0329', False), ('test', 'test-2026.11.18.0337', True)):
+              prefix = 'public-' if profile == 'public' else 'test-'
+              selected = next((entry for entry in releases if not entry.get('draft') and entry.get('prerelease') is prerelease and re.fullmatch(prefix + r'\d{4}\.\d{2}\.\d{2}\.\d{4}', entry.get('tag_name', ''))), None)
+              if selected is None or selected.get('tag_name') != tag:
+                  raise SystemExit(f'fail-closed: updater endpoint does not select {tag}')
+              names = {asset.get('name') for asset in selected.get('assets', [])}
+              if f'amc-update-{profile}.json' not in names:
+                  raise SystemExit(f'fail-closed: updater manifest absent for {profile}')
+          PY
