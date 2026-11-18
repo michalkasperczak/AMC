@@ -1,6 +1,7 @@
 # SEARCH-SCOPE-20261118 — Radio Archiwista i zakres wyszukiwania globalnego
 
-Status: w toku; poprzedzająca zmiana Ctrl+C została zintegrowana jako `d7627f2`.
+Status: zaimplementowane i sprawdzone testami headless 18.11.2026; bez instalacji,
+publikacji ani odbioru NVDA.
 Jawne zlecenie Michała z 18.11.2026; wykonanie po odbiorze poprzednika,
 bez potrzeby dodatkowego polecenia „kontynuuj”.
 
@@ -98,14 +99,21 @@ pewny skutek wymagania to niewywoływanie wyłączonych źródeł.
 
 ## Materiał do dokumentacji użytkownika
 
-`Ctrl+F` szuka w bieżącej sesji. `Ctrl+Shift+F` uwzględnia tylko usługi,
-które są aktywne i zaznaczone w Ustawieniach ogólnych. Gdy wyłączysz sesję,
-AMC pomija ją w globalnym wyszukiwaniu, ale pamięta Twój wybór na później.
-Po ponownym włączeniu sesji jej poprzednie ustawienie wraca automatycznie.
-Ta opcja nie zmienia zwykłego wyszukiwania `Ctrl+F` w bieżącej usłudze.
-To docelowy kontrakt; implementacja i pomiary oczekują.
+`Ctrl+F` szuka w bieżącej sesji. W Radio Archiwista wyszukuje publiczny katalog
+**stacji**, tak jak pole „Filtr stacji” strony: pobiera wyłącznie
+`data/stations.json`, bez pobierania historii nagrań. Wybierz wynik Enterem,
+a następnie przejdź w zwykłej liście przez rok, miesiąc, dzień i godzinę.
+Funkcja nie wyszukuje treści dźwięku ani transkrypcji.
+
+`Ctrl+Shift+F` uwzględnia tylko usługi aktywne i zaznaczone w Ustawieniach
+ogólnych, na liście „Uwzględniaj przy wyszukiwaniu we wszystkich usługach
+(Ctrl+Shift+F)”. Wyłączona w Menedżerze sesji pozycja ma osobną etykietę,
+nie jest przeszukiwana i nie wywołuje źródła ani sieci, lecz program pamięta
+jej zaznaczenie. Po ponownym włączeniu wraca poprzednie „tak” albo „nie”.
+Gdy nie zaznaczono żadnego aktywnego źródła, AMC krótko to komunikuje i nie
+uruchamia wyszukiwania. Ta opcja nie zmienia `Ctrl+F` w bieżącej usłudze.
 
 ## Wersja i następny krok
 
-Brak nowego pakietu/instalacji/publikacji. Wdrożyć dwa powiązane elementy
-tego zadania; poprzedzający odbiór źródeł Ctrl+C został zakończony.
+Brak nowego pakietu/instalacji/publikacji. Kod ma przejść zwykły review i
+odbiór dostępnościowy z NVDA po osobnym zleceniu.

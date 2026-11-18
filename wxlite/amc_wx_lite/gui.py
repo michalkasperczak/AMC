@@ -8798,6 +8798,50 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         )
         general_layout.Add(session_manager_note, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 8)
 
+        self._global_search_source_ids = tuple(session_order.available_sessions())
+        remembered_global_sources = getattr(
+            options, "global_search_session_ids", None,
+        )
+        if remembered_global_sources is None:
+            selected_global_sources = set(self._session_order)
+        else:
+            selected_global_sources = {
+                session
+                for value in remembered_global_sources
+                for session in self._global_search_source_ids
+                if value == session.value
+            }
+        active_sessions = set(self._session_order)
+        self.global_search_sources = wx.CheckListBox(
+            general,
+            choices=[
+                session_order.session_name(session)
+                + (" (wyłączona w Menedżerze sesji)" if session not in active_sessions else "")
+                for session in self._global_search_source_ids
+            ],
+            style=wx.LB_SINGLE,
+        )
+        self.global_search_sources.SetName(
+            "Uwzględniaj przy wyszukiwaniu we wszystkich usługach (Ctrl+Shift+F)"
+        )
+        self.global_search_sources.SetHelpText(
+            "Wyłączone sesje są pokazane dla zachowania wyboru, ale nie są przeszukiwane."
+        )
+        for index, session in enumerate(self._global_search_source_ids):
+            self.global_search_sources.Check(index, session in selected_global_sources)
+            self.global_search_sources.Enable(index, session in active_sessions)
+        global_search_label = wx.StaticText(
+            general,
+            label="Uwzględniaj przy wyszukiwaniu we wszystkich usługach (Ctrl+Shift+F):",
+        )
+        global_search_label.SetName(
+            "Wybór źródeł wyszukiwania we wszystkich usługach"
+        )
+        general_layout.Add(global_search_label, 0, wx.TOP | wx.BOTTOM, 4)
+        general_layout.Add(
+            self.global_search_sources, 0, wx.BOTTOM | wx.EXPAND, 12
+        )
+
         custom_seek_label = wx.StaticText(
             general,
             label="Dłuższy przeskok pod Ctrl+Alt+strzałką w &lewo i w prawo:",
@@ -10572,6 +10616,11 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             ],
             "pause_on_player_exit": self.pause.GetValue(),
             "session_order": [session.value for session in self._session_order],
+            "global_search_session_ids": [
+                session.value
+                for index, session in enumerate(self._global_search_source_ids)
+                if self.global_search_sources.IsChecked(index)
+            ],
             "follow_playback_on_player_exit": self.follow.GetValue(),
             "open_player_when_activating_preset": self.open_preset.GetValue(),
             "stay_on_list_after_radio_enter": self.radio_enter.GetValue(),
@@ -13000,6 +13049,34 @@ class LiteFrame(wx.Frame):
         except RuntimeError:
             return False
 
+    @staticmethod
+    def _global_search_sessions(
+        self,
+        active_sessions: tuple[SessionId, ...] | None = None,
+    ) -> tuple[SessionId, ...]:
+        """Intersect release, session-manager and saved global-search scope."""
+
+        if active_sessions is not None:
+            active = active_sessions
+        elif not hasattr(self, "options"):
+            # Headless adapters without persisted options retain the former,
+            # release-limited scope; LiteFrame itself always has Options.
+            active = session_order.available_sessions()
+        else:
+            active = tuple(session_order.normalize(self.options.session_order))
+        options = getattr(self, "options", None)
+        saved = getattr(options, "global_search_session_ids", None)
+        if saved is None:
+            # Profile sprzed opcji: widoczne aktywne sesje pozostają domyślne.
+            return active
+        selected: set[SessionId] = set()
+        for value in saved:
+            try:
+                selected.add(SessionId(value))
+            except (TypeError, ValueError):
+                continue
+        return tuple(session for session in active if session in selected)
+
     def _run_search_query(
         self,
         query: str,
@@ -13009,10 +13086,13 @@ class LiteFrame(wx.Frame):
         session_before: SessionId,
     ) -> None:
         sessions = (
-            session_order.available_sessions()
+            LiteFrame._global_search_sessions(self)
             if all_services
             else (session_before,)
         )
+        if all_services and not sessions:
+            dialog.show_results([], ("Nie wybrano źródeł wyszukiwania globalnego",))
+            return
         speaker_snapshots = {
             session_id: (
                 tuple(self.navigator.sessions[session_id].model.rows),
@@ -13076,14 +13156,35 @@ class LiteFrame(wx.Frame):
                     )
                     if SessionId.APPLE_MUSIC in sessions else ()
                 )
+                archive_station_entries: tuple[SearchEntry, ...] = ()
+                archive_warnings: tuple[str, ...] = ()
+                if SessionId.RADIOARCHIWISTA in sessions:
+                    archive_source = getattr(
+                        self.search_sources, "radioarchiwista", None,
+                    )
+                    if archive_source is not None:
+                        try:
+                            archive_station_entries = tuple(
+                                SearchEntry(
+                                    SessionId.RADIOARCHIWISTA,
+                                    row,
+                                    LibraryView.RADIOARCHIWISTA_STATIONS,
+                                )
+                                for row in archive_source.search_station_rows()
+                            )
+                        except _radioarchiwista_module.RadioarchiwistaError:
+                            archive_warnings = (
+                                "Nie udało się pobrać publicznego katalogu Radio Archiwisty",
+                            )
                 collected = SearchCollection(
                     (
                         *base.entries,
                         *loaded_speaker_entries,
                         *known_spotify_entries,
                         *known_apple_music_entries,
+                        *archive_station_entries,
                     ),
-                    base.warnings,
+                    (*base.warnings, *archive_warnings),
                 )
             results = search_entries(list(collected.entries), query)
             warnings = list(collected.warnings)
@@ -17998,6 +18099,10 @@ class LiteFrame(wx.Frame):
             self._cycle_audio_output(1)
         elif action is Action.GENERAL_SETTINGS:
             self._show_general_playback_options()
+        elif action is Action.SEARCH_CURRENT:
+            self._show_search(all_services=False)
+        elif action is Action.SEARCH_ALL:
+            self._show_search(all_services=True)
         elif action is Action.REFRESH_COMMON_DATA:
             self._refresh_common_data_from_test()
         elif action is Action.COMMON_DATA_STATUS:

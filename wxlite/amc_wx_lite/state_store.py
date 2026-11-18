@@ -22,6 +22,7 @@ from .audio_clip import read_clip_selections
 from .audio_output import read_output_overrides
 from .i18n import POLISH, SUPPORTED_LANGUAGES, normalize_preference
 from .profile_presets import read_preset_overrides
+from .navigation import SessionId
 from .playback_history import normalize_histories
 from .post_update_playback import normalize_snapshot
 from .radio_activity import normalize_state_position
@@ -276,6 +277,10 @@ class Options:
     session_order: list[str] = field(default_factory=lambda: [
         "files", "radio", "podcasts"
     ])
+    #: Stabilne identyfikatory usług wybranych do Ctrl+Shift+F. ``None``
+    #: oznacza profil sprzed tej opcji: domyślnie przeszukujemy sesje aktywne,
+    #: a nie wszystkie ukryte usługi. Pusta lista jest świadomym wyborem.
+    global_search_session_ids: list[str] | None = None
     last_folder: str | None = None
     #: Czy wyjscie z odtwarzacza (Escape, F6) ma wstrzymac odtwarzanie.
     #:
@@ -416,6 +421,18 @@ class Options:
         if self.window_title_playback_position not in ("after", "before", "off"):
             self.window_title_playback_position = "after"
         self.session_order = normalized_session_order_values(self.session_order)
+        if self.global_search_session_ids is not None:
+            raw_global_search_ids = self.global_search_session_ids
+            if not isinstance(raw_global_search_ids, (list, tuple)):
+                raw_global_search_ids = ()
+            known_session_ids = {session.value for session in SessionId}
+            selected: list[str] = []
+            for value in raw_global_search_ids:
+                if not isinstance(value, str) or value not in known_session_ids:
+                    continue
+                if value not in selected:
+                    selected.append(value)
+            self.global_search_session_ids = selected
         # STRICT ``is not bool``, nie ``bool(...)``: napis z recznie
         # poprawionego pliku nie moze po cichu zmienic zachowania Escape.
         if type(self.pause_on_player_exit) is not bool:
@@ -887,6 +904,11 @@ class StateStore:
                 # ``clamp`` usunie duplikaty i obce identyfikatory.
                 options.session_order = (
                     list(value) if isinstance(value, (list, tuple)) else []
+                )
+                continue
+            if key == "global_search_session_ids":
+                options.global_search_session_ids = (
+                    list(value) if isinstance(value, (list, tuple)) else None
                 )
                 continue
             if key in ("list_updown_fields", "list_left_fields"):

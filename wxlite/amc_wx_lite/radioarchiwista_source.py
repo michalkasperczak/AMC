@@ -1078,6 +1078,18 @@ class RadioarchiwistaSource:
         ))
         return rows
 
+    def search_station_rows(self) -> list[Row]:
+        """Pobierz wyłącznie indeks stacji dla Ctrl+F.
+
+        Publiczny odtwarzacz Radio Archiwisty filtruje właśnie listę stacji,
+        a dopiero po wyborze stacji pyta o rok, miesiąc, dzień i godzinę.
+        Nie wolno więc przy wyszukiwaniu AMC rozwijać archiwów ani pobierać
+        historii nagrań wszystkich stacji.
+        """
+
+        index, _from_cache = self.stations(force=False)
+        return station_rows(index)
+
     def load_favorites(self) -> list[dict]:
         try:
             data = json.loads(self._favorites_path.read_text(encoding="utf-8"))
