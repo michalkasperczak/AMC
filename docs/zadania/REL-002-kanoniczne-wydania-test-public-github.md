@@ -48,15 +48,40 @@ naprawdę odczytano przez `ruamel.yaml`, bez instalowania narzędzi.
 **Nowy kontrolowany run `44229055217`, source
 `1723786c4557ef68bb3922189a028099ce96db31`, gałąź
 `codex/amc-protected-public-test-20261118-issue21-r2`, attempt 1 —
-`in_progress`.** Nową gałąź wysłano raz; starego runu nie ponawiano.
-Readback potwierdził dokładny SHA oraz trzy zmienione bloby produkcyjne.
-Jeden odczyt drzewa GitHuba przerwał błąd sieci; ponowiono tylko odczyt
-konkretnych blobów, nie push ani build. Job `134549324896` zaliczył setup
-aktywnej ochrony i preflight źródeł, obecnie przygotowuje zamknięte wejścia.
-To nie zaliczenie końcowych paczek. Monitor `proc_4ae581d9d30d` po zakończeniu
-pobierze tylko małe raporty z kontrolą SHA ZIP do profilu AMC,
-`state/github-public-test-44229055217`; nie pobiera EXE ani nie instaluje.
-Nie publikowano nowego release. Nie tworzyć automatycznej pętli buildów.
+`success`, completed.** GitHub API potwierdziło source SHA i attempt 1;
+job `134549324896` wraz z cleanup zakończył się `2026-11-18T03:43:37Z`.
+Nową gałąź wysłano raz; starego runu nie ponawiano. Readback potwierdził
+SHA i trzy zmienione bloby produkcyjne; przejściowy błąd odczytu drzewa
+nie spowodował dodatkowego pushu ani buildu.
+
+**Oba kanoniczne instalatory powstały**, wersja `0.1.0-alpha.511`, z #21.
+Public: bundle i installer exit 0, ISCC `/DProfil=public`, etykieta pliku
+`2026-11-18-0329`. Test: bundle i installer exit 0, ISCC `/DProfil=test`,
+etykieta `2026-11-18-0337`. Zachowane pełne argv kompilatora i state `exited`;
+żadne argumenty nie pomijają bramek. Są to nowe wyjścia kanonicznych wrapperów,
+nie przemianowany dawny diagnostyczny Test. Potwierdzono wszystkie 13 małych
+raportów (12 wyników z exit 0 oraz rekord czystych źródeł).
+Rzeczywisty końcowy Defender: AV/real-time/behavior/IOAV/on-access aktywne,
+0 wykluczeń ścieżek/procesów/rozszerzeń, 0 detekcji i 0 zdarzeń 1116/1117.
+To wynik nowego przebiegu, **nie werdykt o dawnych RCX**.
+
+- Evidence artifact `14395482588`, 5995 B ZIP,
+  SHA-256 `24f0f8ff72139f328d28e37a70ccd549eae24d865df790b0419c833cedc95682`.
+  Lokalną sumę ponownie porównano z GitHub API; dowody w profilu AMC,
+  `state/github-public-test-44229055217`.
+- Binary artifact `14395074212`, 347586692 B ZIP,
+  SHA-256 archiwum z GitHub API:
+  `8c6a7d6daa5a621eb9231ea5204b6930006b55e9e535fdda4ec9191eeec1a5f3`.
+  Workflow zachowuje oba EXE i ich `.integrity.json`. **Nie pobrano tego ZIP-a
+  ani EXE lokalnie**; nie znamy jeszcze niezależnie odczytanych sum samych EXE
+  ani pełnej zawartości payloadów. Suma archiwum nie jest sumą instalatora.
+
+Monitor `proc_4ae581d9d30d` zakończony exit 0. Nie powtarzać budowy.
+**Wydanie nadal wstrzymane**: historyczny alert RCX nie ma rozstrzygnięcia,
+nowe instalatory nie przeszły instalacji ani żywego odbioru Windows/NVDA.
+Nie publikowano release, nie uruchamiano kandydatów lokalnie, nie zmieniano
+lokalnego AV i nie dotykano głównego PC. Odbiór nowej paczki nie może być
+zastąpiony samym zielonym Actions ani dawnymi instalacjami alpha.511.
 Po review pięć statycznych kontraktów przeszło; cztery scenariusze natywnego
 PowerShell na atrapach potwierdziły odrzucenie wykluczeń, detekcji i błędów
 odczytu oraz zachowanie dowodów kompilatora przy błędzie. Nie były to prawdziwe

@@ -12,10 +12,15 @@ brak instalatorów i publikacji. Odczytano 8 raportów, hash ZIP zgodny z API.
 Poprawkę rozdzielającą fizyczne kopiowanie Public/Test odebrano przez
 niezależny RED/GREEN oraz sprawdzenie pięciu blobów #21. Nowy chroniony
 run `44229055217` z commita `1723786c4557ef68bb3922189a028099ce96db31`
-na dokładnej gałęzi r2 jest `in_progress`; ma już zaliczone włączenie ochrony
-i preflight źródeł. To nie gotowy instalator. Monitor zachowa tylko małe
-raporty po zakończeniu; bez lokalnego pobierania EXE i instalacji.
-Starego runu nie ponawiano.
+na dokładnej gałęzi r2 zakończył się **success**. Powstały oba kanoniczne
+instalatory alpha.511 z #21; Public i Test mają osobne dowody ISCC exit 0.
+Odczytano 13 raportów; hash małego ZIP-a zgodny z API. Końcowy Defender:
+aktywna ochrona, brak wykluczeń, detekcji i zdarzeń 1116/1117.
+Instalatory oraz sidecary są w Actions artifact `14395074212`; nie pobrano
+ich lokalnie. Hash tego archiwum nie jest sumą konkretnego EXE.
+**Nie ma jeszcze release ani odbioru instalacji/Windows/NVDA.** Dawny alert
+RCX pozostaje nierozstrzygnięty; nowy poprawny przebieg sam go nie rozstrzyga.
+Monitor zakończony, starego runu nie ponawiano; bez kolejnej budowy.
 Apple Music: użytkownik potwierdza sprawne wyszukiwanie/dodawanie do Biblioteki,
 bez odtwarzania; kolejne poprawki wyszukiwania pozostają poza zakresem.
 
