@@ -3201,7 +3201,7 @@ def describe_action(
     ):
         return i18n.command_description(
             action.value,
-            "Skopiuj tytuł, pełny opis oraz zapisane linki odcinka i podcastu",
+            "Skopiuj nazwę; dla odcinka podcastu także pełny opis i zapisane linki",
         )
     if (
         (session_label or "").casefold() == "apple music"

@@ -175,14 +175,14 @@ def test_search_copy_uses_the_same_podcast_blocks_without_changing_other_session
         SearchDialog._copy(dialog, addresses=False)
 
     assert copied == [
-        "Radio bez zmian\n"
+        "Radio bez zmian\n\n"
         "Pełny odcinek\n"
         "Pierwszy akapit.\n\nDrugi akapit.\n"
         "https://example.invalid/episode\n"
         "https://cdn.example.invalid/audio.mp3\n"
         "https://example.invalid/podcast"
     ]
-    assert spoken == ["Skopiowano nazwy: 2 elementów"]
+    assert spoken == ["Skopiowano nazwy i szczegóły odcinków: 2 elementy"]
 
 
 def test_search_copy_reports_a_safe_message_when_podcast_data_cannot_be_read() -> None:
@@ -211,10 +211,53 @@ def test_search_copy_reports_a_safe_message_when_podcast_data_cannot_be_read() -
 
 def test_podcast_copy_presentation_describes_details_in_help_and_palette() -> None:
     assert describe_action(Action.COPY_NAME, "Podcasty i YouTube") == (
-        "Skopiuj tytuł, pełny opis oraz zapisane linki odcinka i podcastu"
+        "Skopiuj nazwę; dla odcinka podcastu także pełny opis i zapisane linki"
     )
     entry = next(
         item for item in entries_for_session(SessionId.PODCASTS)
         if item.action is Action.COPY_NAME
     )
-    assert entry.name == "Skopiuj szczegóły odcinka"
+    assert entry.name == "Skopiuj nazwę; dla odcinka podcastu także pełny opis i zapisane linki"
+
+
+def test_search_copy_separates_two_podcast_blocks_and_announces_details() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        source = _source(Path(folder))
+        rows = source.episodes("podcast-1").rows
+        copied, spoken = [], []
+        dialog = SearchDialog.__new__(SearchDialog)
+        dialog._selected_entries = lambda: [SearchEntry(SessionId.PODCASTS, row) for row in rows]
+        dialog._podcast_clipboard_blocks = source.clipboard_blocks
+        dialog._copy_text = lambda text: copied.append(text) or True
+        setattr(dialog, "announcer", SimpleNamespace(say=spoken.append))
+        SearchDialog._copy(dialog, addresses=False)
+    assert "https://example.invalid/podcast\n\nSam tytuł" in copied[0]
+    assert spoken == ["Skopiowano szczegóły odcinków: 2 elementy"]
+
+
+def test_podcast_headers_and_youtube_copy_names_with_name_only_messages() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        base = Path(folder)
+        source = _source(base)
+        with sqlite3.connect(base / "podcasts.db") as connection:
+            connection.execute(
+                "UPDATE podcast_subscriptions SET payload_json = ?",
+                (json.dumps({"SourceKind": 2}),),
+            )
+        youtube = source.episodes("podcast-1").rows[0]
+        header = Row("podcast-1", "Podcast", "podcast")
+        rows = [header, youtube]
+        copied, spoken = [], []
+        frame = _frame(source, rows, copied, spoken)
+        LiteFrame._copy_name(frame)
+        expected = "\n".join(row.title for row in rows)
+        assert copied == [expected]
+        assert spoken == ["Skopiowano nazwy: 2 elementy"]
+        dialog = SearchDialog.__new__(SearchDialog)
+        dialog._selected_entries = lambda: [SearchEntry(SessionId.PODCASTS, row) for row in rows]
+        dialog._podcast_clipboard_blocks = source.clipboard_blocks
+        dialog._copy_text = lambda text: copied.append(text) or True
+        setattr(dialog, "announcer", SimpleNamespace(say=spoken.append))
+        SearchDialog._copy(dialog, addresses=False)
+        assert copied == [expected, expected]
+        assert spoken[-1] == "Skopiowano nazwy: 2 elementów"

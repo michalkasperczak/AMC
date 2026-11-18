@@ -14,7 +14,7 @@ from . import menu_model
 from . import session_order as session_order_model
 from .navigation import SessionId
 from .search_catalog import normalize_search_text, query_words
-from .shortcuts import Action, command_presentation, ctrl_f5_presentation
+from .shortcuts import Action, command_presentation, ctrl_f5_presentation, describe_action
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +91,7 @@ def entries_for_session(
             }:
                 name = _plain_label(item.label)
             if session is SessionId.PODCASTS and item.action is Action.COPY_NAME:
-                name = "Skopiuj szczegóły odcinka"
+                name = describe_action(Action.COPY_NAME, "Podcasty i YouTube")
             if not name:
                 continue
             seen.add(item.action)

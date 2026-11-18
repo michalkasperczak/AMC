@@ -232,6 +232,7 @@ from .navigation import (
 )
 from .shortcuts import (
     Action,
+    describe_action,
     APPLE_MUSIC_SUPPORTED_ACTIONS,
     Chord,
     DOWNLOAD_HISTORY_COPY_LABELS,
@@ -1346,6 +1347,15 @@ def format_item_count(count: int) -> str:
         else "elementów"
     )
     return f"{count} {suffix}"
+
+
+def _podcast_copy_message(count: int, details_count: int) -> str:
+    if not details_count:
+        return COPIED_NAME_MESSAGE if count == 1 else f"Skopiowano nazwy: {format_item_count(count)}"
+    if count == 1:
+        return "Skopiowano szczegóły odcinka"
+    label = "szczegóły odcinków" if details_count == count else "nazwy i szczegóły odcinków"
+    return f"Skopiowano {label}: {format_item_count(count)}"
 
 
 def format_file_count(count: int) -> str:
@@ -2841,7 +2851,8 @@ class SearchDialog(wx.Dialog):
 
     def _copy(self, *, addresses: bool) -> None:
         selected = self._selected_entries()
-        podcast_blocks: iter[str] | None = None
+        podcast_blocks = None
+        details_count = 0
         if not addresses and self._podcast_clipboard_blocks is not None:
             podcast_rows = [
                 entry.row for entry in selected
@@ -2854,6 +2865,10 @@ class SearchDialog(wx.Dialog):
                 return
             if len(blocks) == len(podcast_rows):
                 podcast_blocks = iter(blocks)
+                details_count = sum(
+                    bool(block) and block != row.title
+                    for row, block in zip(podcast_rows, blocks)
+                )
         values = []
         for entry in selected:
             value = (
@@ -2871,10 +2886,11 @@ class SearchDialog(wx.Dialog):
                 "Wybrane wyniki nie mają adresu" if addresses else "Nie ma czego skopiować"
             )
             return
-        text = os.linesep.join(values)
+        text = (os.linesep * (2 if details_count else 1)).join(values)
         success_message = (
             "Skopiowano adres" if addresses and len(values) == 1
             else f"Skopiowano adresy: {len(values)} elementów" if addresses
+            else _podcast_copy_message(len(values), details_count) if details_count
             else COPIED_NAME_MESSAGE if len(values) == 1
             else f"Skopiowano nazwy: {len(values)} elementów"
         )
@@ -11690,7 +11706,7 @@ class LiteFrame(wx.Frame):
                 label = (
                     DOWNLOAD_HISTORY_COPY_LABELS[entry.action]
                     if self._in_download_history()
-                    else "Skopiuj szczegóły odcinka"
+                    else describe_action(Action.COPY_NAME, "Podcasty i YouTube")
                     if podcasts and entry.action is Action.COPY_NAME
                     else entry.label
                 )
@@ -28765,16 +28781,17 @@ class LiteFrame(wx.Frame):
             except PodcastProfileError:
                 self.announcer.say("Nie udało się odczytać danych odcinka do skopiowania")
                 return
-            text = (os.linesep * 2).join(block for block in blocks if block)
+            details_count = sum(
+                bool(block) and block != row.title
+                for row, block in zip(rows, blocks)
+            )
+            values = [block for block in blocks if block]
+            text = (os.linesep * (2 if details_count else 1)).join(values)
             if not text:
                 self.announcer.say("Nie ma czego skopiować")
                 return
             if self._to_clipboard(text):
-                self.announcer.say(
-                    "Skopiowano szczegóły odcinka"
-                    if len(rows) == 1
-                    else f"Skopiowano szczegóły odcinków: {format_item_count(len(rows))}"
-                )
+                self.announcer.say(_podcast_copy_message(len(values), details_count))
             return
         text = os.linesep.join(row.title for row in rows)
         success_message = (
