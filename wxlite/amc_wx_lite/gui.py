@@ -28200,6 +28200,18 @@ class LiteFrame(wx.Frame):
             self.announcer.say("Zaznacz podcast albo odcinek")
             return
         label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        removal_preferred_id = (
+            LiteFrame._preferred_item_after_removal(
+                list(getattr(getattr(state, "model", None), "rows", ())),
+                set(subscription_ids),
+            )
+            if (
+                state.view is View.LIST
+                and state.library_view is LibraryView.PODCAST_LIBRARY
+            )
+            else None
+        )
         self._podcast_library_pending = True
 
         def done(payload: dict) -> None:
@@ -28229,7 +28241,9 @@ class LiteFrame(wx.Frame):
                 return
             if state.library_view is LibraryView.PODCAST_LIBRARY:
                 self._open_podcast_library(
-                    preferred_id=subscription_ids[0] if added else None,
+                    preferred_id=(
+                        subscription_ids[0] if added else removal_preferred_id
+                    ),
                     completion_message=message,
                 )
                 return

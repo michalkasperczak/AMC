@@ -15,6 +15,7 @@ install_wx_stub()
 import amc_wx_lite.gui as gui  # noqa: E402
 from amc_wx_lite.list_model import ListModel, Row  # noqa: E402
 from amc_wx_lite.navigation import LibraryView, SessionId, View  # noqa: E402
+from amc_wx_lite.podcast_source import PodcastSubscription  # noqa: E402
 
 
 def _submit(_name, work, done, failed):
@@ -61,6 +62,138 @@ def test_ctrl_shift_l_on_episodes_targets_each_parent_once() -> None:
 
     assert calls == [["podcast-1", "podcast-2"]]
     assert reloaded == [("episode-1", "Dodano do Biblioteki: 3 elementy")]
+    assert not frame._podcast_library_pending
+
+
+def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected() -> None:
+    """Removing a source refreshes the real model onto its visible neighbour."""
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            try:
+                done(work())
+            except Exception as error:  # pragma: no cover - fixture safety
+                failed(error)
+
+    before = Row("podcast-1", "Pierwszy", "podcast")
+    removed = Row("podcast-2", "Usuwany kanał", "podcast")
+    after = Row("podcast-3", "Następny kanał", "podcast")
+    navigator = gui.Navigator()
+    navigator.active = SessionId.PODCASTS
+    navigator.apply_podcast_library([before, removed, after])
+    navigator.session.model.select_id(removed.item_id)
+    spoken = []
+
+    subscriptions_after_removal = [
+        PodcastSubscription(before.item_id, before.title, 0),
+        PodcastSubscription(after.item_id, after.title, 2),
+    ]
+    frame = SimpleNamespace(
+        navigator=navigator,
+        client=SimpleNamespace(
+            toggle_podcast_library=lambda ids: (
+                {"added": False, "changed": len(ids)}
+            )
+        ),
+        podcasts=SimpleNamespace(
+            is_available=True,
+            ordered_subscriptions=lambda *_args, **_kwargs: (
+                subscriptions_after_removal,
+                True,
+            ),
+        ),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _podcast_library_pending=False,
+        _selected_action_rows=lambda: [navigator.session.model.selected_row],
+        _sync_views=lambda: None,
+    )
+    frame._open_podcast_library = lambda **kwargs: gui.LiteFrame._open_podcast_library(
+        frame, **kwargs
+    )
+
+    gui.LiteFrame._toggle_podcast_library(frame)
+
+    assert navigator.session.model.selected_id == after.item_id
+    assert spoken == ["Usunięto z Biblioteki: Usuwany kanał"]
+    assert not frame._podcast_library_pending
+
+
+def test_ctrl_shift_l_late_success_after_session_change_does_not_restore_podcast_list() -> None:
+    """A completed background write must not reclaim focus from another session."""
+
+    queued = []
+
+    class DeferredRunner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            queued.append((work, done, failed))
+
+    row = Row("podcast-1", "Kanał", "podcast")
+    navigator = gui.Navigator()
+    navigator.active = SessionId.PODCASTS
+    navigator.apply_podcast_library([row])
+    spoken = []
+
+    def unexpected_refresh(**_kwargs):
+        raise AssertionError("stale refresh")
+
+    frame = SimpleNamespace(
+        navigator=navigator,
+        client=SimpleNamespace(
+            toggle_podcast_library=lambda _ids: {"added": False, "changed": 1}
+        ),
+        runner=DeferredRunner(),
+        announcer=SimpleNamespace(say=spoken.append),
+        _podcast_library_pending=False,
+        _selected_action_rows=lambda: [row],
+        _open_podcast_library=unexpected_refresh,
+    )
+
+    gui.LiteFrame._toggle_podcast_library(frame)
+    navigator.active = SessionId.FILES
+    work, done, _failed = queued.pop()
+    done(work())
+
+    assert navigator.active is SessionId.FILES
+    assert navigator.sessions[SessionId.PODCASTS].model.selected_id == row.item_id
+    assert spoken == ["Usunięto z Biblioteki: Kanał"]
+    assert not frame._podcast_library_pending
+
+
+def test_ctrl_shift_l_failed_write_keeps_selection_and_announces_once() -> None:
+    """A refused write leaves the model untouched and reports one failure."""
+
+    row = Row("podcast-1", "Kanał", "podcast")
+    model = ListModel()
+    model.replace([row])
+    state = SimpleNamespace(
+        view=View.LIST,
+        library_view=LibraryView.PODCAST_LIBRARY,
+        model=model,
+    )
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            sessions={SessionId.PODCASTS: state},
+        ),
+        client=SimpleNamespace(
+            toggle_podcast_library=lambda _ids: (_ for _ in ()).throw(
+                RuntimeError("odmowa")
+            )
+        ),
+        runner=SimpleNamespace(submit=_submit),
+        announcer=SimpleNamespace(say=spoken.append),
+        _podcast_library_pending=False,
+        _selected_action_rows=lambda: [row],
+    )
+
+    gui.LiteFrame._toggle_podcast_library(frame)
+
+    assert model.selected_id == row.item_id
+    assert spoken == ["Nie udało się zmienić Biblioteki: odmowa"]
     assert not frame._podcast_library_pending
 
 
