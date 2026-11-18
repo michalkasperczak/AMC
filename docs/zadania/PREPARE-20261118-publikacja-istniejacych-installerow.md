@@ -88,7 +88,12 @@ Stan po korektach: **6 testów unittest PASS**, rzeczywisty evidence ZIP
 **13 raportów PASS**, odczyt YAML oraz `bash -n` wszystkich bloków PASS,
 `git diff --check` PASS. Opis release ograniczono do #21 i jawnego zakresu
 Apple Music w Test, bez reklamowania otwartych odbiorów YouTube.
-Niezależny read-only review aktualnych plików: `deleg_ecf8745b` — w toku.
+Niezależny read-only review aktualnych plików: `deleg_ecf8745b` — zakończony,
+bez dodatkowych krytycznych blokerów. Reviewer potwierdził realny evidence,
+kontrakt z kanonicznym builderem i aktualizatorem, typy payloadu oraz 6/6 testów.
+Bezpośredni odczyt GitHuba przed wysłaniem potwierdził oba zatwierdzone
+artefakty (ID, źródła, rozmiary, digest, brak wygaśnięcia) oraz brak obu
+planowanych tagów, wydań i nowej gałęzi publishera.
 Nie jest to jeszcze wynik publikacji.
 
 ## Znane ograniczenia i następny krok
