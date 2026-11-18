@@ -28203,7 +28203,11 @@ class LiteFrame(wx.Frame):
         state = self.navigator.sessions[SessionId.PODCASTS]
         removal_preferred_id = (
             LiteFrame._preferred_item_after_removal(
-                list(getattr(getattr(state, "model", None), "rows", ())),
+                list_filter.filter_rows(
+                    list(getattr(getattr(state, "model", None), "rows", ())),
+                    self.filter_box.GetValue()
+                    if getattr(self, "filter_box", None) is not None else "",
+                ),
                 set(subscription_ids),
             )
             if (

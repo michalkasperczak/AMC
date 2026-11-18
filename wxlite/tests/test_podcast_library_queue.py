@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_gui_logic import install_wx_stub  # noqa: E402
@@ -65,7 +67,8 @@ def test_ctrl_shift_l_on_episodes_targets_each_parent_once() -> None:
     assert not frame._podcast_library_pending
 
 
-def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected() -> None:
+@pytest.mark.parametrize("filter_query", ["", "match"])
+def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected(filter_query) -> None:
     """Removing a source refreshes the real model onto its visible neighbour."""
 
     class Runner:
@@ -76,18 +79,20 @@ def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected
             except Exception as error:  # pragma: no cover - fixture safety
                 failed(error)
 
-    before = Row("podcast-1", "Pierwszy", "podcast")
-    removed = Row("podcast-2", "Usuwany kanał", "podcast")
-    after = Row("podcast-3", "Następny kanał", "podcast")
+    before = Row("podcast-1", "Pierwszy match", "podcast")
+    removed = Row("podcast-2", "Usuwany kanał match", "podcast")
+    after = Row("podcast-3", "Następny kanał match", "podcast")
+    hidden = Row("podcast-hidden", "Inny kanał", "podcast")
+    library_rows = [before, removed, hidden, after] if filter_query else [before, removed, after]
     navigator = gui.Navigator()
     navigator.active = SessionId.PODCASTS
-    navigator.apply_podcast_library([before, removed, after])
+    navigator.apply_podcast_library(library_rows)
     navigator.session.model.select_id(removed.item_id)
     spoken = []
 
     subscriptions_after_removal = [
-        PodcastSubscription(before.item_id, before.title, 0),
-        PodcastSubscription(after.item_id, after.title, 2),
+        PodcastSubscription(row.item_id, row.title, rank)
+        for rank, row in enumerate(library_rows) if row is not removed
     ]
     frame = SimpleNamespace(
         navigator=navigator,
@@ -106,6 +111,7 @@ def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected
         runner=Runner(),
         announcer=SimpleNamespace(say=spoken.append),
         _podcast_library_pending=False,
+        filter_box=SimpleNamespace(GetValue=lambda: filter_query),
         _selected_action_rows=lambda: [navigator.session.model.selected_row],
         _sync_views=lambda: None,
     )
@@ -116,7 +122,7 @@ def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected
     gui.LiteFrame._toggle_podcast_library(frame)
 
     assert navigator.session.model.selected_id == after.item_id
-    assert spoken == ["Usunięto z Biblioteki: Usuwany kanał"]
+    assert spoken == ["Usunięto z Biblioteki: Usuwany kanał match"]
     assert not frame._podcast_library_pending
 
 
