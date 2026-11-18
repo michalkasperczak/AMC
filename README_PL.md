@@ -1,6 +1,6 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
-## Przygotowywane wyszukiwanie Radio Archiwisty i wybór usług — 18.11.2026
+## Wyszukiwanie Radio Archiwisty i wybór usług w źródłach — 18.11.2026
 
 `Ctrl+F` w Radio Archiwiście wyszukuje stacje z publicznego katalogu serwisu,
 również gdy nie były jeszcze otwierane w AMC. Jest to odpowiednik pola
@@ -17,7 +17,7 @@ restarcie AMC. Zapisanie Ogólnych nie zeruje wyboru nieaktywnych sesji.
 Nie zmienia to lokalnego `Ctrl+F` w bieżącej usłudze. Gdy nie wybrano żadnej
 aktywnej usługi, AMC podaje komunikat zamiast przeszukiwać inne źródła.
 
-To zmiana źródłowa w odbiorze, bez nowego instalatora ani aktualizacji
+Zmiana jest zintegrowana w źródłach, bez nowego instalatora ani aktualizacji
 zainstalowanego programu. Testy bez okien nie zastępują odbioru Windows/NVDA.
 [Zakres i wyniki](docs/zadania/SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md).
 

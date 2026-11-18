@@ -1,9 +1,11 @@
 # Rejestr zadań AMC
 
-**Aktywne zadanie — wyszukiwanie, 18.11.2026:** po zintegrowaniu Ctrl+C dodać
+**Wyszukiwanie — 18.11.2026, zintegrowane w źródłach (`bb3fdcd`):** dodano
 `Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.
 Aktywność sesji i zgoda na wyszukiwanie to osobne warunki; czasowo wyłączona
 sesja jest pomijana, ale pamięta zaznaczenie na ponowne włączenie.
+Żywy publiczny katalog potwierdzony; 124 celowane testy po poprawkach,
+po integracji 14 testów zmienionej granicy. Bez instalacji, publikacji i NVDA.
 [Pełny kontrakt i kryteria](SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md).
 
 **Ctrl+C w Podcastach — 18.11.2026, zintegrowane w źródłach (`d7627f2`):** pełny opis,

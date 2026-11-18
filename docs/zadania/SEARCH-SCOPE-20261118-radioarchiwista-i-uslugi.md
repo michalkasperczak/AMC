@@ -1,7 +1,7 @@
 # SEARCH-SCOPE-20261118 — Radio Archiwista i zakres wyszukiwania globalnego
 
-Status: zaimplementowane i sprawdzone testami headless 18.11.2026; bez instalacji,
-publikacji ani odbioru NVDA.
+Status: zintegrowane w źródłach i sprawdzone testami headless 18.11.2026;
+bez instalacji, publikacji ani odbioru NVDA. Kod: `bb3fdcd3284aa94847b6b45e6dc6215aa89d29e7`.
 Jawne zlecenie Michała z 18.11.2026; wykonanie po odbiorze poprzednika,
 bez potrzeby dodatkowego polecenia „kontynuuj”.
 
@@ -115,11 +115,15 @@ uruchamia wyszukiwania. Ta opcja nie zmienia `Ctrl+F` w bieżącej usłudze.
 
 ## Wersja i następny krok
 
-### Kontrola rodzica przed integracją
+### Kontrola i integracja
 
 Odczytano rzeczywisty log wykonawcy: `224 passed in 1.79s` w pięciu wskazanych
 plikach, nie pełna bateria repozytorium. Niezależne review `deleg_65b990c2`
-dotyczy niezmiennego kandydata `339a904`; wynik oczekuje.
+dotyczyło niezmiennego kandydata `339a904`: odrzuciło niewłaściwe API listy,
+nie zgłosiło uwag bezpieczeństwa i zaakceptowało pozostały kontrakt źródeł,
+zapisu oraz wykluczenia niedostępnych usług. Bloker odtworzono i usunięto
+w kolejnym commicie `bb3fdcd`, zgodnie z zaleceniem użycia natywnych pól
+wyboru per sesja; cztery testy ścisłego API ustawień przeszły.
 
 Własna próba publicznego katalogu na zimnym, tymczasowym profilu rzeczywiście
 pobrała tylko `https://radioarchiwista.github.io/data/stations.json`: 43 stacje,
@@ -152,5 +156,11 @@ zapamiętanego „nie” po ponownym włączeniu oraz wykluczenie usługi przez 
 Log: `amc-search-scope-20261118-parent-acceptance.log` w katalogu scratch profilu.
 Nie sumować go z 224 testami wykonawcy — zestawy częściowo się pokrywają.
 
-Brak nowego pakietu/instalacji/publikacji. Kod ma przejść zwykły review i
-odbiór dostępnościowy z NVDA po osobnym zleceniu.
+Po kontroli czystego głównego checkoutu i gałęzi wykonano fast-forward do
+`bb3fdcd`. Wszystkie osiem przychodzących plików porównano bajtowo z Gitem.
+Po integracji krótki test zmienionej granicy: `14 passed in 2.91s`.
+
+Brak nowego pakietu, instalacji i publikacji; zainstalowany AMC pozostaje
+niezmieniony. Pozostaje odbiór natywnego okna, klawiatury, fokusu i komunikatów
+z żywym NVDA w uzgodnionym oknie testowym. Testów bez GUI nie uznawać za ten
+odbiór. Implementacja źródłowa i jej ograniczony odbiór automatyczny zakończone.
