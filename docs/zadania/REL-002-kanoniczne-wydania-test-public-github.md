@@ -2,7 +2,32 @@
 
 ## Status
 
-### Najnowsza dyspozycja po odbiorze źródeł #21
+### Najnowsza decyzja: publikacja istniejących nowych instalatorów na GH
+
+18.11.2026, po meldunku o sukcesie obu chronionych budów, braku nowej detekcji,
+nierozstrzygniętym historycznym RCX oraz braku instalacji/żywego odbioru NVDA,
+Michał polecił: **„To instaluj w sensie na GH”**. Zakres to publikacja nowych
+Public/Test z `1723786c4557ef68bb3922189a028099ce96db31`, nie instalowanie
+na jego komputerze ani uruchamianie lokalnych kandydatów. To nowa decyzja
+publikacyjna po wskazaniu ograniczeń, nie werdykt Microsoftu i nie zaliczenie
+odbioru. Nie zmieniać historycznej klasyfikacji RCX na fałszywy alarm.
+
+Publikować wyłącznie istniejący artifact `14395074212` z runu `44229055217`:
+bez kolejnego buildu, lokalnych dużych pobrań, instalacji i zmian Defendera.
+Przeniesienie i statyczne sprawdzenie plików ma nastąpić na efemerycznym
+runnerze Linux. Przed publikacją sprawdzić ZIP digest, dokładne EXE/sidecary,
+sumy i rozmiary EXE, źródła oraz manifesty aktualizacji obu osobnych kanałów.
+Public pozostaje stable, Test prerelease; tagi wskazują źródła kompilacji,
+nie commit narzędzia publikacji. Nie nadpisywać istniejących wydań.
+Opisy mają jawnie wskazywać brak próby instalacji/żywego NVDA i nadal otwartą
+analizę historycznego alertu, obok pozytywnych wyników nowej budowy.
+
+Przygotowanie zamkniętego jednorazowego publishera z małymi testami zlecono
+przez openai-codex (`deleg_df9a76b1`), bez płatnego API i bez prawa workerowi
+do pushu/publikacji. Rodzic odbierze wynik i uruchomi publikację po review.
+Samo przygotowanie workflow nie oznacza publikacji.
+
+### Chronologia po odbiorze źródeł #21
 
 Michał polecił wydać obie wersje na GitHubie: **Public** oraz **Test z Apple
 Music**. Nie tworzyć ani nie wznawiać lokalnego Windows/QEMU/Sandboxu.
