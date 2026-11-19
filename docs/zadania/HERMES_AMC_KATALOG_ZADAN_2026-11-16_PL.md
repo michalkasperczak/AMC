@@ -13,8 +13,10 @@ Kanoniczny rejestr to [README.md](README.md).
 [Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
 Analiza zakończona; Michał następnie zatwierdził realizację po kolei.
 #25 dane/trwałość odebrano i zintegrowano w `adf6e51`: cztery celowane trasy
-Windows, build i niezależny przegląd zaliczone. Teraz ograniczony catch-up
-i harmonogram #25; potem #26/#28. Bez instalacji i publikacji.
+Windows, build i niezależny przegląd zaliczone. Harmonogram #25 również odebrano
+i zintegrowano w `d113fae`; zgodność no-arg, kontrolowany timer anulowania,
+rzeczywisty dispatcher i niezależny review zaliczone. Teraz #26, potem #28.
+Bez instalacji i publikacji. [Odbiór harmonogramu](HUBERT25-SCHEDULE-20261119-akceptacja.md).
 [Odbiór P0 i dokładne granice](HUBERT25-P0-20261119-akceptacja.md).
 PR #27/#29 nadal otwarte, niewłączone.
 

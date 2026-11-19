@@ -4,6 +4,10 @@
 
 **Status bieżący: W REALIZACJI.** Michał polecił „po kolei wdrażaj, poprawiaj”,
 a następnie jednoznacznie potwierdził „Tak, zgadzam się na realizację. Oczywiście”.
+**#25 zakończony w źródłach:** dane/trwałość `adf6e51`, harmonogram `d113fae`.
+Niezależny przegląd korekty i końcowy kontrolowany test anulowania zaliczone.
+Teraz #26/PR #27; następnie #28/PR #29. Bez instalacji i publikacji.
+[Odbiór harmonogramu i ograniczenia](HUBERT25-SCHEDULE-20261119-akceptacja.md).
 Poniższa analiza pozostaje materiałem wejściowym, a jej dawne ograniczenie do
 odczytu nie oznacza już braku zgody na realizację zaakceptowanych poprawek.
 
@@ -78,10 +82,21 @@ uzyskał PRZYJĄĆ bez blockera; rodzic przeczytał pełny raport i potwierdził
 niezmienność odebranych źródeł. Merge kanoniczny: `adf6e51c6880a03335fc082e6881e0363273c824`.
 Wszystkie 12 przeniesionych plików jest bajtowo zgodnych z przetestowanym
 `ec34b3b`. Nie publikowano ani nie instalowano.
-Następny etap to ograniczony catch-up i harmonogram #25; po nim #26/#28.
+Po odbiorze P0 nastąpił ograniczony catch-up i harmonogram #25, odebrany poniżej.
 Nie rozpoczynano tych wdrożeń przed odbiorem danych/trwałości.
 
-## Etap #25 harmonogram — kandydat w odbiorze
+## Etap #25 harmonogram — ODEBRANY; niżej historia odbioru
+
+Końcowy kandydat `dd01bcb` zintegrowano w `d113fae` po niezależnym
+PRZYJĄĆ korekty `5f0242f` i GREEN kontrolowanego timera. Rodzic odczytał
+pełne dwa raporty i diff aparatury, potwierdził brak zmiany produkcji od
+przejrzanego `5f0242f`, 3049 plików stagingu i bajtową zgodność 13 plików kodu.
+Niezależny końcowy Windows Protocol `--podcast-progress`: exit 0, 1 zestaw PASS.
+Wszystkie 16 plików merge jest identyczne z kandydatem; zachowano dokumentację.
+Ograniczenie testu wejścia do SQLite pozostaje jawne, nie blokuje kodu.
+[Pełne dowody i granice](HUBERT25-SCHEDULE-20261119-akceptacja.md).
+
+Poniższe wstrzymania i zlecenia są chronologią, nie aktualną blokadą #25.
 
 Wykonawca dostarczył czysty `c3e140401aad1eb08bfee8a597cc073abcb50ef8`,
 baza `ac203b6`, w izolowanym `codex/amc-hubert25-schedule-20261119`.
@@ -162,6 +177,11 @@ przyjęciu pierwszego źródła, bez zależności od zimnego JIT/tempa CPU i bez
 zmiany produkcji. Nie zlecono ponownej szerokiej suite ani budowy produktu.
 
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
+
+Po zamknięciu #25 rozpoczynamy [wykonanie #26](HUBERT26-CHAPTERS-20261119-plan.md).
+Świeży odczyt GitHub potwierdza niezmienione głowy PR #27 `d46e4c8` i #29
+`aedb5f0`: OPEN, mergedAt=null, brak checków (nie zielone CI). Przeczytano
+ponownie pełny opis i komentarz #26 oraz pełny opis PR #27.
 
 Przegląd #27/#29 zakończony: przed integracją rozdziałów trzeba odróżnić awarię
 yt-dlp/uszkodzony JSON od prawidłowego braku rozdziałów i ograniczyć stdout

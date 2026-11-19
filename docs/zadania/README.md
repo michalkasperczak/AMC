@@ -4,9 +4,13 @@
 daty przed limitem, bezpieczne „nowe”, poprawny fallback bez RSS i wąski trwały
 zapis po kanale są zintegrowane w `adf6e51`. Cztery celowane trasy Windows,
 build LiteHost i niezależny przegląd zaliczone; brak instalacji/publikacji.
-Następny etap w realizacji: ograniczony catch-up i harmonogram #25,
-bez zmiany interwałów użytkownika i blokady nagrywania. Dalej #26 / PR #27
-(rozdziały YouTube), #28 / PR #29 (wznowienie bez zerowania toru).
+Harmonogram #25 również odebrano i zintegrowano w `d113fae`: catch-up do 30 s,
+adaptacyjna porcja, kooperacyjny budżet 75 s, zgodne starsze API i anulowanie
+przyjęcia próby przed commitem. Zapisane interwały i blokady nagrywania zachowane.
+Niezależny review PRZYJĄĆ; końcowy test kontrolowanego timera i rzeczywisty
+dispatcher PASS. [Odbiór i granice](HUBERT25-SCHEDULE-20261119-akceptacja.md).
+Teraz #26 / PR #27 (rozdziały YouTube), potem #28 / PR #29 (wznowienie bez zerowania toru).
+[Wykonawczy plan rozdziałów #26](HUBERT26-CHAPTERS-20261119-plan.md).
 Oba PR są nadal OPEN, nie scalone i nie wydane; przed wdrożeniem wymagają
 weryfikacji Windows. Chrome zostaje. Kod CDP już ponawia tempo przy nowym
 starcie, ale GUI Spotify blokuje zmianę; potrzebny ograniczony eksperyment,
