@@ -65,6 +65,16 @@ o krótkiej operacji zapisu tylko jednego kanału. Zlecono wąski RED/GREEN
 ograniczonej operacji DB na `codex/amc-hubert25-target-store-20261119`,
 baza `6f55a14b`; trwałość pierwszego sukcesu przed następnym fetchem ma zostać.
 [Werdykt, dowody i warunki odbioru](HUBERT25-DATA-20261119-review.md).
+
+Korekta DB dostarczona jako `9611e8513c90b751bbe458320e588889650afa38`:
+odczyt i zapis ograniczony do celu; zachowane ordinale istniejących wierszy,
+postęp i stan innych kanałów. Wykonawca uzyskał deterministyczny RED/GREEN
+na globalnej deserializacji, testy obu callerów i build rzeczywistego hosta.
+Rodzic przygotował osobno wspólny kandydat `ec34b3b` (trzy zmiany), uruchomił
+cztery celowane trasy Windows oraz build LiteHost Release: wszystkie exit 0,
+build bez błędów i ostrzeżeń. [Kwity i granice odbioru](HUBERT25-P0-20261119-akceptacja.md).
+**Jeszcze nie włączono produkcji do gałęzi kanonicznej:** trwa jeden niezależny
+przegląd wyłącznie delta-diff korekty DB, bez ponawiania pełnej suite.
 Etap harmonogramu i #26/#28 pozostają następne — ich wdrożenia nie rozpoczęto
 przed odebraniem danych/trwałości.
 
