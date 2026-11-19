@@ -17340,6 +17340,12 @@ class LiteFrame(wx.Frame):
     ) -> None:
         """Zapisz wyłącznie potwierdzony stan grającego urządzenia."""
 
+        # WiiM/Sonos may now expose a verified material identity.  Their
+        # history is handled by ``_apply_streamer_observed_material_identity``
+        # from the matching loaded source row, never from a device title.
+        if session_id in (SessionId.WIIM, SessionId.SONOS):
+            return
+
         row = (
             observed_wiim_row(snapshot)
             if session_id is SessionId.WIIM
@@ -17422,6 +17428,90 @@ class LiteFrame(wx.Frame):
         session.model.replace(rows, preferred_id=selected_id)
         if self.navigator.active is session_id and session.view is View.LIST:
             self._sync_views()
+
+    def _streamer_observed_material_id(
+        self, session_id: SessionId, snapshot: dict
+    ) -> str:
+        """Return only a fresh, host-proven material ID for this device context.
+
+        A play acknowledgement, a device/group ``itemId``, titles and old
+        selection are deliberately not inputs.  The host extension supplies
+        the mapping proof; the GUI merely verifies its narrow contract.
+        """
+
+        playback = str(snapshot.get("playbackState") or "").strip().casefold()
+        if playback not in {
+            "playing", "play", "buffering", "odtwarzanie",
+            "paused", "pause", "wstrzymane",
+        }:
+            return ""
+        observed = str(snapshot.get("observedMaterialId") or "").strip()
+        provenance = str(snapshot.get("identityProvenance") or "").strip()
+        if session_id is SessionId.WIIM:
+            if (
+                snapshot.get("deviceId") != getattr(self, "_wiim_active_device_id", "")
+                or provenance != "uriMatch"
+                or not observed.startswith("wiim-stream:")
+            ):
+                return ""
+        elif session_id is SessionId.SONOS:
+            if (
+                snapshot.get("householdId")
+                != getattr(self, "_sonos_active_household_id", "")
+                or snapshot.get("groupId") != getattr(self, "_sonos_active_group_id", "")
+                or provenance != "playbackItemId"
+                or not observed.startswith("sonos-ownStream:")
+            ):
+                return ""
+        else:
+            return ""
+        return observed
+
+    def _streamer_observed_history_row(
+        self, session_id: SessionId, material_id: str
+    ) -> Row | None:
+        """Find the exact loaded saved-stream row without title-based fallback."""
+
+        session = self.navigator.sessions[session_id]
+        if session_id is SessionId.WIIM:
+            expected_kind = "wiimNetworkStream"
+            expected_parent = getattr(self, "_wiim_active_device_id", "")
+        else:
+            expected_kind = "sonosOwnStream"
+            expected_parent = getattr(self, "_sonos_active_household_id", "")
+        matches = [
+            row for row in session.model.rows
+            if (
+                row.item_id == material_id
+                and row.kind == expected_kind
+                and row.parent_id == expected_parent
+            )
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    def _apply_streamer_observed_material_identity(
+        self, session_id: SessionId, snapshot: dict
+    ) -> None:
+        """Commit material identity only from current verified device status."""
+
+        material_id = LiteFrame._streamer_observed_material_id(
+            self, session_id, snapshot
+        )
+        if not material_id:
+            LiteFrame._clear_streamer_material_identity(self, session_id)
+            return
+        session = self.navigator.sessions[session_id]
+        session.current_material_id = material_id
+        session.pending_material_id = ""
+        playback = str(snapshot.get("playbackState") or "").strip().casefold()
+        if playback in {"playing", "play", "buffering", "odtwarzanie"}:
+            row = LiteFrame._streamer_observed_history_row(
+                self, session_id, material_id
+            )
+            if row is not None:
+                LiteFrame._record_streamer_history_row(
+                    self, session_id, row, replay_supported=True
+                )
 
     def _clear_streamer_material_identity(self, session_id: SessionId) -> None:
         """Remove a requested streamer item until status proves its identity."""
@@ -20418,6 +20508,10 @@ class LiteFrame(wx.Frame):
                 ),
                 return_to_sources=return_to_sources,
             ))
+            # A list may arrive after the confirmed player snapshot.  Apply
+            # that status to this freshly loaded view without inferring an ID
+            # from the selected/requested stream.
+            self._apply_streamer_activity_status(SessionId.WIIM)
             if announcement:
                 self.announcer.say(announcement)
 
@@ -24055,6 +24149,9 @@ class LiteFrame(wx.Frame):
         self, state: dict, *, announce: bool = False
     ) -> None:
         """Pokaż migawkę WiiM bez przepuszczania repr, adresu ani Id."""
+        LiteFrame._apply_streamer_observed_material_identity(
+            self, SessionId.WIIM, state
+        )
         record_history = getattr(
             self, "_record_streamer_history_snapshot", None
         )
@@ -24846,6 +24943,9 @@ class LiteFrame(wx.Frame):
         self, state: dict, *, announce: bool = False
     ) -> None:
         """Pokaż tylko jawne etykiety stanu, bez identyfikatorów Sonosa."""
+        LiteFrame._apply_streamer_observed_material_identity(
+            self, SessionId.SONOS, state
+        )
         record_history = getattr(
             self, "_record_streamer_history_snapshot", None
         )
@@ -25132,6 +25232,9 @@ class LiteFrame(wx.Frame):
             except SonosPayloadError as error:
                 self.announcer.say(str(error))
                 return
+            # Favorites and playlists cannot be materialised from a status;
+            # this marks only a matching loaded own-stream row.
+            self._apply_streamer_activity_status(SessionId.SONOS)
             if self.navigator.active is SessionId.SONOS:
                 self._run(events)
                 if intent.view is not LibraryView.SONOS_LIBRARY:
@@ -36198,6 +36301,10 @@ class LiteFrame(wx.Frame):
             try:
                 state = wiim_snapshot(payload)
             except WiiMPayloadError:
+                if device_id == self._wiim_active_device_id:
+                    LiteFrame._clear_streamer_material_identity(
+                        self, SessionId.WIIM
+                    )
                 return
             if (
                 self.navigator.active is not SessionId.WIIM
@@ -36209,6 +36316,8 @@ class LiteFrame(wx.Frame):
 
         def failed(_error: Exception) -> None:
             self._wiim_status_poll_pending = False
+            if device_id == self._wiim_active_device_id:
+                LiteFrame._clear_streamer_material_identity(self, SessionId.WIIM)
 
         self.runner.submit(
             "wiim-status",
@@ -36288,6 +36397,13 @@ class LiteFrame(wx.Frame):
             try:
                 state = sonos_snapshot(payload)
             except SonosPayloadError:
+                if (
+                    household_id == self._sonos_active_household_id
+                    and group_id == self._sonos_active_group_id
+                ):
+                    LiteFrame._clear_streamer_material_identity(
+                        self, SessionId.SONOS
+                    )
                 self._finish_sonos_request()
                 return
             if (
@@ -36303,6 +36419,11 @@ class LiteFrame(wx.Frame):
 
         def failed(_error: Exception) -> None:
             self._sonos_status_poll_pending = False
+            if (
+                household_id == self._sonos_active_household_id
+                and group_id == self._sonos_active_group_id
+            ):
+                LiteFrame._clear_streamer_material_identity(self, SessionId.SONOS)
             self._finish_sonos_request()
 
         self.runner.submit(
@@ -36489,6 +36610,8 @@ class LiteFrame(wx.Frame):
             SessionId.SPOTIFY,
             SessionId.TIDAL,
             SessionId.RADIOARCHIWISTA,
+            SessionId.WIIM,
+            SessionId.SONOS,
         ):
             return ""
         state = self.navigator.sessions[entry.session_id]
@@ -36498,6 +36621,24 @@ class LiteFrame(wx.Frame):
             session_id=entry.session_id.value,
         ):
             return ""
+        if entry.session_id in (SessionId.WIIM, SessionId.SONOS):
+            snapshot = (
+                getattr(self, "_wiim_snapshot", {})
+                if entry.session_id is SessionId.WIIM
+                else getattr(self, "_sonos_snapshot", {})
+            )
+            if not isinstance(snapshot, dict) or (
+                LiteFrame._streamer_observed_material_id(
+                    self, entry.session_id, snapshot
+                ) != state.current_material_id
+            ):
+                return ""
+            playback = str(snapshot.get("playbackState") or "").casefold()
+            paused = playback in {"paused", "pause", "wstrzymane"}
+            playing = paused or playback in {
+                "playing", "play", "buffering", "odtwarzanie",
+            }
+            return playback_state_label(playing=playing, paused=paused)
         playing, paused = self._native_playback_snapshot(entry.session_id)
         return playback_state_label(playing=playing, paused=paused)
 
@@ -36510,6 +36651,8 @@ class LiteFrame(wx.Frame):
             SessionId.SPOTIFY,
             SessionId.TIDAL,
             SessionId.RADIOARCHIWISTA,
+            SessionId.WIIM,
+            SessionId.SONOS,
         ):
             return
         state = self.navigator.sessions[entry.session_id]
@@ -36518,6 +36661,23 @@ class LiteFrame(wx.Frame):
             current_item_id=state.current_material_id,
             session_id=entry.session_id.value,
         ):
+            return
+        if entry.session_id in (SessionId.WIIM, SessionId.SONOS):
+            snapshot = (
+                getattr(self, "_wiim_snapshot", {})
+                if entry.session_id is SessionId.WIIM
+                else getattr(self, "_sonos_snapshot", {})
+            )
+            if not isinstance(snapshot, dict) or (
+                LiteFrame._streamer_observed_material_id(
+                    self, entry.session_id, snapshot
+                ) != state.current_material_id
+            ):
+                return
+            if str(snapshot.get("playbackState") or "").casefold() in {
+                "playing", "play", "buffering", "odtwarzanie",
+            }:
+                self._play_activity_cue(replace(entry.row, playback_activity=True))
             return
         playing, _paused = self._native_playback_snapshot(entry.session_id)
         if playing:

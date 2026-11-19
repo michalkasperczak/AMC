@@ -35,18 +35,25 @@ Jeden autor wspólnego `gui.py`; wspólny resolver `row_matches_material()` oddz
 
 ## Testy i wynik
 
-- RED: nowy test pamięci skrzynki zakończył się `exit 1`, a test dokładnej tożsamości TIDAL przed przygotowaniem atrapy `wx` zakończył się `exit 4`; po minimalnych poprawkach są GREEN.
-- GREEN: `PYTHONPATH=wxlite:wxlite/tests uv run --python 3.11 --with pytest python -m pytest -q --tb=short wxlite/tests/test_playback_activity.py wxlite/tests/test_streamer_playback_history.py wxlite/tests/test_radio_activity_presentation.py wxlite/tests/test_podcast_navigation.py wxlite/tests/test_podcast_refresh.py wxlite/tests/test_transient_preview_policy.py` — **82 passed in 1.25s**.
-- Wcześniejszy kontrolny zestaw skrzynki i TIDAL: **2 passed in 0.76s**. Testy są headless i nie uruchamiają aplikacji ani pulpitu.
+- RED (rzeczywisty, nie `exit 4`): dwa nowe testy produkcyjnego resolvera WiiM/Sonos zakończyły się `exit 1`, `AttributeError: LiteFrame has no attribute _apply_streamer_observed_material_identity`; test etykiety wyniku wyszukiwania WiiM zakończył się `exit 1`, bo zwracał pusty tekst zamiast `Wstrzymane`.
+- GREEN: `PYTHONPATH=wxlite:wxlite/tests uv run --offline --python 3.11 --with pytest python -m pytest -q --tb=short wxlite/tests/test_playback_activity.py wxlite/tests/test_streamer_playback_history.py wxlite/tests/test_wiim_session.py wxlite/tests/test_sonos_session.py` — **101 passed in 0.52s**. Testy są headless i nie uruchamiają aplikacji ani pulpitu.
+- Pokrycie kontraktu: whitelisty statusu przekazują wyłącznie `observedMaterialId` i `identityProvenance`, bez URL; resolver przyjmuje WiiM tylko jako `wiim-stream:*` + `uriMatch` dla aktywnego urządzenia, Sonos tylko jako `sonos-ownStream:*` + `playbackItemId` dla aktywnej grupy. Historia powstaje tylko dla dokładnego, załadowanego wiersza zapisanej stacji; tytuł z urządzenia nie zastępuje wiersza.
 
 ## Znane ograniczenia
 
-Brak żywego NVDA i odsłuchu; headless nie dowodzi ich odbioru. Statusy WiiM/Sonos korzystają z istniejącego potwierdzonego `current_material_id`; Frontier Smart udostępnia status urządzenia, ale nie potwierdzone mapowanie materiału do wierszy, więc nie dodano fałszywego oznaczenia. Apple Music również nie ma w tym torze potwierdzonego material-ID ze stanu. To konkretne luki integracyjne, nie wyłączenie zakresu: wymagają rozszerzenia kontraktu hosta o ID materiału i sesji. Nie kopiować poświadczeń, nie zmieniać AV, nie wykorzystywać profili użytkownika.
+Brak żywego NVDA i odsłuchu; headless nie dowodzi ich odbioru. Cztery jawne granice kontraktu:
+
+1. **WiiM:** oznaczenie i historia działają dopiero, gdy host zwróci dokładnie unikalne znormalizowane URI jako `wiim-stream:*` z pochodzeniem `uriMatch`; odpowiedź bez tych pól czyści oznaczenie. Python nie odtwarza mapowania URI ani nie korzysta z zapamiętanego wyboru.
+2. **Sonos:** tylko zapisany własny strumień (`sonos-ownStream:*`, `playbackItemId`) w bieżącej grupie i gospodarstwie może być oznaczony lub wejść do historii. Ulubione, kontener playlisty i dziecko playlisty pozostają celowo nieoznaczone — nie ma ich wiarygodnej tożsamości odtwarzanego materiału.
+3. **Frontier Smart:** status urządzenia nie daje potwierdzonego mapowania materiału do istniejącego wiersza; nie dodano sztucznego `material_id` ani historii.
+4. **Apple Music:** nie ma w tym torze statusowego material-ID i sesji; wynik/zakładka nie może otrzymać oznaczenia przez tytuł lub intencję.
+
+To konkretne luki kontraktowe, nie wyłączenie zabezpieczenia: wymagają rozszerzenia hosta. Nie kopiować poświadczeń, nie zmieniać AV, nie wykorzystywać profili użytkownika.
 
 ## Wersja i commit
 
-Baza: `0b522c000335c7476e8e2cd6b4b35c2121e65d22`. Kod/testy/dokumentacja: lokalny commit na gałęzi `codex/amc-inbox-playing-20261119`; jego SHA należy odczytać z logu przed integracją. Pakiet/instalacja/publikacja: brak; publikacja Test/Public należy do parenta po integracji i review.
+Baza funkcjonalna: `17e677aec46affe4868af0b732c7aaf1b9a8374b`; zachowano jej korektę prezentacji i ustawień. Kod/testy/dokumentacja: lokalny commit na gałęzi `codex/amc-inbox-playing-20261119`; jego SHA należy odczytać z logu przed integracją. Pakiet/instalacja/publikacja: brak; publikacja Test/Public należy do parenta po integracji i review.
 
 ## Następny krok
 
-Review i integracja przez parenta; przed publikacją osobny odbiór GUI/NVDA oraz uzupełnienie kontraktów hosta Frontier/Apple Music.
+Review i integracja przez parenta; przed publikacją osobny odbiór GUI/NVDA oraz uzupełnienie kontraktów hosta Frontier/Apple Music. Kontrakt statusu WiiM/Sonos po stronie hosta jest osobnym zadaniem; Python pozostaje kompatybilny z jego brakiem i wtedy uczciwie nie oznacza materiału.

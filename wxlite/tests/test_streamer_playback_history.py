@@ -9,6 +9,7 @@ install_wx_stub()
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId, View
+from amc_wx_lite.search_catalog import SearchEntry
 from amc_wx_lite.playback_history import (
     activity_rows,
     history_rows,
@@ -79,6 +80,108 @@ def test_streamer_list_marks_only_confirmed_material_as_playing() -> None:
     )
     assert all(not row.state_detail for row in cleared)
     assert all(not row.playback_activity for row in cleared)
+
+
+def test_verified_streamer_status_sets_identity_marks_and_records_loaded_row() -> None:
+    """A device status, not the requested play, is the source of identity."""
+    saved: list[bool] = []
+    wiim = SimpleNamespace(
+        model=__import__("amc_wx_lite.list_model", fromlist=["ListModel"]).ListModel([
+            Row(
+                "wiim-stream:stream-7", "Radio Poznań", "wiimNetworkStream",
+                parent_id="device-1", service_id="stream-7",
+            )
+        ]),
+        current_material_id="",
+        pending_material_id="requested-but-unconfirmed",
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(sessions={SessionId.WIIM: wiim}),
+        _wiim_active_device_id="device-1",
+        _queue_streamer_history_save=lambda: saved.append(True),
+        state=LiteState(),
+    )
+    snapshot = {
+        "deviceId": "device-1",
+        "playbackState": "playing",
+        "observedMaterialId": "wiim-stream:stream-7",
+        "identityProvenance": "uriMatch",
+        # A title from a device must never replace the loaded/saved row in history.
+        "title": "Inny tytuł urządzenia",
+    }
+
+    LiteFrame._apply_streamer_observed_material_identity(
+        frame, SessionId.WIIM, snapshot
+    )
+
+    assert wiim.current_material_id == "wiim-stream:stream-7"
+    assert wiim.pending_material_id == ""
+    marked = activity_rows(
+        wiim.model.rows,
+        current_item_id=wiim.current_material_id,
+        playback_state="playing",
+        session_id="wiim",
+    )
+    assert marked[0].playback_activity is True
+    history = history_rows("wiim", frame.state.playback_history_by_session["wiim"])
+    assert [row.title for row in history] == ["Radio Poznań"]
+    assert saved == [True]
+
+
+def test_unverified_or_idle_streamer_status_clears_identity_without_history() -> None:
+    sonos = SimpleNamespace(
+        model=__import__("amc_wx_lite.list_model", fromlist=["ListModel"]).ListModel([
+            Row(
+                "sonos-ownStream:stream-7", "Radio domowe", "sonosOwnStream",
+                parent_id="house-1", service_id="stream-7",
+            )
+        ]),
+        current_material_id="sonos-ownStream:stream-7",
+        pending_material_id="sonos-ownStream:stream-7",
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(sessions={SessionId.SONOS: sonos}),
+        _sonos_active_household_id="house-1",
+        _sonos_active_group_id="group-1",
+        state=LiteState(),
+        _queue_streamer_history_save=lambda: None,
+    )
+
+    LiteFrame._apply_streamer_observed_material_identity(
+        frame,
+        SessionId.SONOS,
+        {
+            "householdId": "house-1", "groupId": "group-1",
+            "playbackState": "playing",
+            "observedMaterialId": "sonos-ownStream:stream-7",
+            "identityProvenance": "uriMatch",
+        },
+    )
+
+    assert sonos.current_material_id == ""
+    assert sonos.pending_material_id == ""
+    assert frame.state.playback_history_by_session == {}
+
+
+def test_search_uses_verified_wiim_identity_and_paused_label() -> None:
+    row = Row("wiim-stream:stream-7", "Radio Poznań", "wiimNetworkStream")
+    frame = SimpleNamespace(
+        options=SimpleNamespace(radio_playback_state_position="before"),
+        navigator=SimpleNamespace(sessions={
+            SessionId.WIIM: SimpleNamespace(current_material_id=row.item_id),
+        }),
+        _wiim_active_device_id="device-1",
+        _wiim_snapshot={
+            "deviceId": "device-1", "playbackState": "paused",
+            "observedMaterialId": row.item_id,
+            "identityProvenance": "uriMatch",
+        },
+        _sonos_snapshot={},
+    )
+
+    assert LiteFrame._search_playback_label(
+        frame, SearchEntry(SessionId.WIIM, row)
+    ) == "Wstrzymane"
 
 
 def test_sonos_playlist_container_is_never_the_playing_material() -> None:
@@ -237,7 +340,7 @@ def test_streamer_history_is_newest_first_deduplicated_and_user_facing() -> None
     assert "observed" not in rows[0].detail
 
 
-def test_snapshot_recorder_keeps_sessions_separate_and_ignores_duplicates() -> None:
+def test_snapshot_recorder_rejects_unidentified_wiim_and_sonos_titles() -> None:
     queued_saves: list[bool] = []
     frame = SimpleNamespace(
         state=LiteState(),
@@ -259,10 +362,8 @@ def test_snapshot_recorder_keeps_sessions_separate_and_ignores_duplicates() -> N
     LiteFrame._record_streamer_history_snapshot(frame, SessionId.WIIM, wiim)
     LiteFrame._record_streamer_history_snapshot(frame, SessionId.SONOS, sonos)
 
-    assert set(frame.state.playback_history_by_session) == {"wiim", "sonos"}
-    assert len(frame.state.playback_history_by_session["wiim"]) == 1
-    assert len(frame.state.playback_history_by_session["sonos"]) == 1
-    assert queued_saves == [True, True]
+    assert frame.state.playback_history_by_session == {}
+    assert queued_saves == []
 
 
 def test_ctrl_h_keeps_each_streamer_in_its_own_session() -> None:

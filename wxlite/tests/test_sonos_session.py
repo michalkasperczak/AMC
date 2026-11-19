@@ -461,6 +461,8 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
         "volumeText": "głośność 35%",
         "positionText": "1:01 z 10:00",
         "playbackState": "playing",
+        "observedMaterialId": "sonos-ownStream:stream-7",
+        "identityProvenance": "playbackItemId",
         "volume": 35,
         "muted": False,
         "fixedVolume": False,
@@ -468,6 +470,7 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
         "durationSeconds": 600,
         "message": "Audycja, odtwarzanie",
         "token": "secret",
+        "streamUrl": "https://secret.example/live",
         "runtimeObject": "SonosGroup { Id = group-1 }",
     })
 
@@ -475,6 +478,9 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
     assert "token" not in state
     assert "runtimeObject" not in state
     assert "secret" not in repr(state)
+    assert state["observedMaterialId"] == "sonos-ownStream:stream-7"
+    assert state["identityProvenance"] == "playbackItemId"
+    assert "streamUrl" not in state
 
 
 def test_sonos_nvda_end_uses_last_material_and_only_available_parameters() -> None:
