@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
@@ -43,21 +44,38 @@ internal static class Program
     {
         var wavePath = Path.Combine(root, "same-item.wav");
         WriteWave(wavePath);
-        var outputs = new List<FakeWavePlayer>();
+        var outputs = new ConcurrentQueue<FakeWavePlayer>();
+        using var initialOutputCreated = new ManualResetEventSlim();
+        using var previousDisposeEntered = new ManualResetEventSlim();
+        using var releasePreviousDispose = new ManualResetEventSlim();
+        using var fallbackPublished = new ManualResetEventSlim();
+        var outputCount = 0;
         using var factory = AudioOutputDeviceCatalog.OverrideOutputFactoryForTesting((_, _) =>
         {
-            var replacement = new FakeWavePlayer();
-            outputs.Add(replacement);
+            var ordinal = Interlocked.Increment(ref outputCount);
+            var replacement = ordinal == 1
+                ? new FakeWavePlayer(previousDisposeEntered, releasePreviousDispose)
+                : new FakeWavePlayer();
+            outputs.Enqueue(replacement);
+            if (ordinal == 1) initialOutputCreated.Set();
             return new AudioOutputDeviceLease(
                 replacement,
                 device: null,
-                usesDefaultDevice: outputs.Count > 1,
-                endpointId: outputs.Count > 1 ? "default-speakers" : "denon");
+                usesDefaultDevice: ordinal > 1,
+                endpointId: ordinal > 1 ? "default-speakers" : "denon");
         });
         using var handlers = new LiteEngineHandlers(0);
         var operations = handlers.Build();
-        var sink = new LiteEventSink(_ => { });
+        var sink = new LiteEventSink(line =>
+        {
+            using var envelope = JsonDocument.Parse(line);
+            if (envelope.RootElement.TryGetProperty("event", out var name)
+                && name.GetString() == "audio.outputFallback") fallbackPublished.Set();
+        });
 
+        // host.hello jest produkcyjną rejestracją kanału zdarzeń; bez niej
+        // LiteEngineHandlers celowo nie ma gdzie opublikować fallbacku.
+        Dispatch(operations, "host.hello", "{}", sink);
         Dispatch(operations, "audio.configure", "{\"pauseOnOutputFallback\":true}", sink);
         Dispatch(operations, "files.play", JsonSerializer.Serialize(new
         {
@@ -68,25 +86,56 @@ internal static class Program
             volume = 37,
             rate = 1d
         }), sink);
-        Assert.True(SpinWait.SpinUntil(() => outputs.Count == 1 && outputs[0].PlayCalls == 1,
-            TimeSpan.FromSeconds(5)),
+        Assert.True(initialOutputCreated.Wait(TimeSpan.FromSeconds(5)),
+            "host nie utworzył początkowego wyjścia pliku przez produkcyjny dispatcher");
+        var initial = OutputAt(outputs, 0);
+        Assert.True(initial.Played.Wait(TimeSpan.FromSeconds(5)),
             "host nie uruchomił początkowego toru pliku przez produkcyjny dispatcher");
 
-        outputs[0].RaiseStopped(new COMException("Urządzenie odłączone", unchecked((int)0x88890004)));
-        Assert.True(SpinWait.SpinUntil(() => outputs.Count == 2, TimeSpan.FromSeconds(5)),
-            "utrata wyjścia nie zbudowała fallbacku przez produkcyjny host");
-        Assert.Equal(0, outputs[1].PlayCalls,
+        initial.RaiseStopped(new COMException("Urządzenie odłączone", unchecked((int)0x88890004)));
+        Assert.True(previousDisposeEntered.Wait(TimeSpan.FromSeconds(5)),
+            "podmiana wyjścia nie doszła do kontrolowanej bramy Dispose");
+        var replacement = OutputAt(outputs, 1);
+        Assert.Equal(0, replacement.PlayCalls,
             "ochronny fallback uruchomił dźwięk przed jawnym wznowieniem transportu");
 
+        // Fabryka dodaje drugi output przed Dispose starego. To kontrolowany
+        // przeplot graniczny: wczesny toggle ma pozostać pauzą, a po publikacji
+        // ukończonego fallbacku kolejny jawny toggle musi wznowić tę samą pozycję.
+        var early = Dispatch(operations, "transport.pauseResume", "{\"sessionId\":\"files\"}", sink);
+        Assert.True(Paused(early),
+            "wczesny transport przed publikacją fallbacku nie zachował bezpiecznej pauzy");
+        Assert.Equal(0, replacement.PlayCalls,
+            "wczesny transport uruchomił dźwięk przed ukończeniem ochronnego fallbacku");
+
+        releasePreviousDispose.Set();
+        Assert.True(fallbackPublished.Wait(TimeSpan.FromSeconds(5)),
+            "host nie opublikował ukończonego ochronnego fallbacku przez rzeczywisty LiteEventSink");
+        Assert.Equal(0, replacement.PlayCalls,
+            "ukończony ochronny fallback uruchomił dźwięk bez jawnego wznowienia");
+
         var resumed = Dispatch(operations, "transport.pauseResume", "{\"sessionId\":\"files\"}", sink);
-        using var response = JsonDocument.Parse(JsonSerializer.Serialize(resumed));
-        Assert.True(!response.RootElement.GetProperty("paused").GetBoolean(),
+        Assert.True(!Paused(resumed),
             "transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku");
-        Assert.True(SpinWait.SpinUntil(() => outputs[1].PlayCalls == 1, TimeSpan.FromSeconds(5)),
+        Assert.True(replacement.Played.Wait(TimeSpan.FromSeconds(5)),
             "transport.pauseResume nie wznowił tej samej pozycji na fallbacku");
         Assert.Equal(2, outputs.Count,
             "wznowienie po fallbacku otworzyło nowy dekoder zamiast użyć podmienionego wyjścia");
         Dispatch(operations, "transport.stop", "{\"sessionId\":\"files\"}", sink);
+    }
+
+    private static FakeWavePlayer OutputAt(ConcurrentQueue<FakeWavePlayer> outputs, int index)
+    {
+        var snapshot = outputs.ToArray();
+        if (snapshot.Length <= index)
+            throw new InvalidOperationException($"Brak wyjścia audio o indeksie {index}.");
+        return snapshot[index];
+    }
+
+    private static bool Paused(object? response)
+    {
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(response));
+        return json.RootElement.GetProperty("paused").GetBoolean();
     }
 
     private static object? Dispatch(
@@ -182,23 +231,37 @@ internal static class Program
         update.ExecuteNonQuery();
     }
 
-    private sealed class FakeWavePlayer : IWavePlayer
+    private sealed class FakeWavePlayer(
+        ManualResetEventSlim? disposeEntered = null,
+        ManualResetEventSlim? releaseDispose = null) : IWavePlayer
     {
         public event EventHandler<StoppedEventArgs>? PlaybackStopped;
         public PlaybackState PlaybackState { get; private set; } = PlaybackState.Stopped;
         public float Volume { get; set; }
         public WaveFormat OutputWaveFormat { get; private set; } = WaveFormat.CreateIeeeFloatWaveFormat(8_000, 1);
-        public int PlayCalls { get; private set; }
+        private int _playCalls;
+        public int PlayCalls => Volatile.Read(ref _playCalls);
+        public ManualResetEventSlim Played { get; } = new();
 
         public void Init(IWaveProvider waveProvider)
         {
             ArgumentNullException.ThrowIfNull(waveProvider);
             OutputWaveFormat = waveProvider.WaveFormat;
         }
-        public void Play() { ++PlayCalls; PlaybackState = PlaybackState.Playing; }
+        public void Play()
+        {
+            Interlocked.Increment(ref _playCalls);
+            PlaybackState = PlaybackState.Playing;
+            Played.Set();
+        }
         public void Pause() => PlaybackState = PlaybackState.Paused;
         public void Stop() => PlaybackState = PlaybackState.Stopped;
-        public void Dispose() => PlaybackState = PlaybackState.Stopped;
+        public void Dispose()
+        {
+            disposeEntered?.Set();
+            releaseDispose?.Wait(TimeSpan.FromSeconds(5));
+            PlaybackState = PlaybackState.Stopped;
+        }
         public void RaiseStopped(Exception exception)
         {
             PlaybackState = PlaybackState.Stopped;
