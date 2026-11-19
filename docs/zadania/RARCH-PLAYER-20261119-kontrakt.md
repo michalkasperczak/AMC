@@ -41,7 +41,12 @@ Testować faktyczne produkcyjne handlery i producentów danych, nie tylko resolv
 
 Bez instalacji, zamykania/restartu AMC, GUI/NVDA/audio, dostępu do głównego PC, kont i poświadczeń. Nie publikować, pushować ani zamykać zgłoszeń. Nie zakłócać nagrywania. Praca wyłącznie przez Codex/openai-codex; brak zgody na osobno płatny klucz API.
 
-Wykonawca dostanie oddzielny worktree. Nie edytuje wspólnych rejestrów ani pliku nawigacji godzin prowadzonego przez rodzica; raport szczegółowy może dopisać w tym własnym dokumencie. Jeśli potrzebuje zmiany tej samej drogi klawisza co wykonawca listy, najpierw zgłasza dokładny punkt integracji zamiast nadpisywać jego pracę.
+Wykonawca Codex `sa-0-101dad7b`, delegacja `deleg_fd163488`, pracuje w
+`/home/michal/.hermes/profiles/amc/cache/scratch/amc-radioarchiwista-player-20261119`,
+gałąź `codex/amc-radioarchiwista-player-20261119`, baza
+`7bebd00419c8febbce50b5f8fbeded9ed70df03d` (zapis niniejszego planu).
+Nie edytuje wspólnych rejestrów ani pliku nawigacji godzin prowadzonego przez rodzica;
+raport szczegółowy może dopisać w tym własnym dokumencie. Jeśli potrzebuje zmiany tej samej drogi klawisza co wykonawca listy, najpierw zgłasza dokładny punkt integracji zamiast nadpisywać jego pracę.
 
 ## Materiał do dokumentacji użytkownika
 

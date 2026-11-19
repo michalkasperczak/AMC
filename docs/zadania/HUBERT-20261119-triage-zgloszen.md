@@ -1,5 +1,14 @@
 # Analiza zgłoszeń Huberta #11, #25, #26 i #28 — 19.11.2026
 
+## Nowe #30 / PR #31 — odczyt i opis, bez wdrożenia
+
+Na nowe polecenie Michała sprawdzono zgłoszenie o pozostawaniu dźwięku na
+głośnikach po podłączeniu słuchawek oraz opóźnionym odzyskaniu YouTube po
+odłączeniu. PR #31 wymienia samo wyjście audio i śledzi domyślne urządzenie.
+Świeży odczyt: OPEN, nie scalony, brak check-runs; pomiary Huberta nie są
+niezależnym odbiorem. Nie dodano automatycznie do realizacji #25/#26/#28.
+[Opis, zakres, kod i granice dowodu](HUBERT30-OUTPUT-20261119-ocena.md).
+
 ## Decyzja wykonawcza Michała — 19.11.2026, po analizie
 
 **Status bieżący: W REALIZACJI.** Michał polecił „po kolei wdrażaj, poprawiaj”,
