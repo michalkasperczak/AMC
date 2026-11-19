@@ -2,10 +2,41 @@
 
 ## Werdykt rodzica — 20.11.2026
 
-**Minimalny kandydat `7b0a60b` przeszedł kontrolowany GREEN również u rodzica.
-Nie jest jeszcze przyjęty do integracji: trwa niezależny review granic hosta.**
+**NIE do integracji `7b0a60b`: review wskazał brakujące granice nowej flagi
+w kolejce. Zachowany GREEN bezpośredniego fallbacku nie obejmuje tych ścieżek.
+Trwa drugi i ostatni uzgodniony cykl, najpierw RED publicznego hosta.**
 
-## Wynik minimalnej poprawki i bramka przed integracją
+## Wynik review i bieżący krok
+
+`deleg_9a50915b`, `sa-0-09aa1278`, zakończył niezależny review zamrożonego `7b0a60b`.
+Prześledził host, LiteQueueCoordinator, DemoMediaSession i WindowsMediaOutput.
+Rodzic sprawdził wskazane bloki kodu i brak resetów flagi. Ustalenia statyczne:
+
+- Naturalny `PlaybackEnded(A)` blokuje flagę i gasi `_filesPlaying`, a następnie
+  `HandlePlaybackEnded → ContinueAfterPlaybackEnded → Play(B)` uruchamia B.
+  Host po przejściu nie odblokowuje flagi; `PlaybackStarted(B)` nie ustawia
+  playing=true. Sam zielony bezpośredni `files.play` tego nie sprawdza.
+- `StopFilesPlayback` w gałęzi kolejki zatrzymuje silnik i gasi playing, lecz
+  nie blokuje późnego PlaybackStarted. Bezpośredni Stop miał tę blokadę.
+- `QueueRelative` odblokowuje flagę po PlayRelative i SyncCurrentFromQueue.
+  To za późna granica dla startu B dostarczonego przed powrotem PlayRelative,
+  gdy poprzedni stan był zablokowany. Odmowa ruchu nie może przypadkiem
+  odblokować starego materiału.
+
+**Nowych scenariuszy RED jeszcze nie wykonano.** Reviewer ponownie uruchomił
+tylko istniejący bezpośredni late-start GREEN. Powyższe są konkretnymi brakami
+call graph/stanu, nie twierdzeniem o zmierzonym dźwięku lub wykonanym nowym RED.
+
+Codex `deleg_c4e52a18`, `sa-0-b81cfb83`, pracuje w izolowanym worktree
+`amc-output-late-start-c2-20261120`, gałąź
+`codex/amc-output-late-start-c2-20261120`, baza `7b0a60b`. To **drugi i ostatni
+cykl**, nie wyzerowanie poprzedniego limitu. Najpierw kontrolowane testy
+publicznych handlerów queue A→B i queue Stop + późny Started; dopiero po RED
+minimalna korekta. Zachować pierwotny late-fallback GREEN i zdrowe starty/ruch
+kolejki, bez osłabiania asercji. Jeśli ten cykl nie wystarczy, zakończyć blokadą.
+Kanonicznych źródeł, Spotify, sprzętu, GUI i instalacji nadal nie ruszano.
+
+## Wynik pierwszej minimalnej poprawki — historia kandydata `7b0a60b`
 
 Codex `deleg_de2324a4` zakończył jeden celowany cykl commitem
 `7b0a60b8566fc68673969505e955658dd499c0cf`. Produkcyjnie zmienił tylko
@@ -99,7 +130,7 @@ Faktyczne położenie dowodów wykonawcy po przeniesieniu:
 commicie wskazuje dawne położenie wewnątrz worktree; nie używać go jako
 aktualnego adresu plików dowodowych.
 
-## Zakres zleconej minimalnej poprawki — zakończona implementacja, trwa review
+## Zakres pierwszej minimalnej poprawki — implementacja zakończona, review NIE
 
 Codex `deleg_de2324a4`, `sa-0-fcabf63e`, zakończył implementację w osobnym worktree
 `amc-output-late-start-fix-20261120`, gałąź
@@ -123,6 +154,7 @@ następne i nie jest przez tę diagnozę rozwiązane.
 
 Znaleziono przyczynę sytuacji, w której po utracie wyjścia AMC pozostaje cichy,
 lecz następna Spacja zachowuje się jak ponowna pauza: spóźnione potwierdzenie
-startu nadpisuje ochronny stan. Minimalna poprawka przechodzi kontrolowany test
-również u rodzica; trwa sprawdzenie sąsiednich granic hosta przed integracją.
-Nie jest to jeszcze nowa wersja do instalacji ani potwierdzenie działania na sprzęcie.
+startu nadpisuje ochronny stan. Pierwsza poprawka przechodzi ten konkretny test,
+ale kontrola ujawniła luki w stanach kolejki przy końcu i Stop. Nie została
+przyjęta; trwa ostatni uzgodniony cykl testów odtwarzających luki i minimalnej
+korekty. Nie jest to nowa wersja do instalacji ani pomiar na sprzęcie.

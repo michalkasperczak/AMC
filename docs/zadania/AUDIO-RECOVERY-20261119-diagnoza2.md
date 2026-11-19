@@ -9,8 +9,10 @@ stagingu i własnym uruchomieniem potwierdził późny start jako RED exit 1.
 Macierz źródeł/konfiguracji nie potwierdziła stałej winy Release ani #26.
 [Aktualny odbiór diagnozy i etap RED/GREEN](AUDIO-RECOVERY-20261120-late-start-odbior.md):
 `deleg_de2324a4`, osobne worktree od `6c70141`, maksymalnie dwa celowane cykle.
-Kandydat `7b0a60b` ma GREEN późnego startu również u rodzica; review granic hosta
-`deleg_9a50915b` trwa przed akceptacją integracji. Nie ma nowego wydania.
+Review `deleg_9a50915b` zakończony **NIE** dla `7b0a60b`: brak granic flagi
+przy końcu/Stop kolejki i późny reset next/previous. Nowych RED jeszcze brak;
+`deleg_c4e52a18` prowadzi drugi i ostatni uzgodniony cykl od testów hosta.
+Nie ma integracji ani nowego wydania.
 To nowsza decyzja niż zatrzymanie po poprzednim limicie cykli. Nie oznacza
 nieograniczonych prób zmian, zgody na API, GUI, fizyczne audio ani instalację.
 Zadanie zapisu/wycinania nagrań pozostaje osobnym następnym zadaniem.

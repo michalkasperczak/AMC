@@ -10,8 +10,9 @@ odebrany #26. Późniejszy `6c70141` dowiódł przyczyny: spóźnione PlaybackSt
 nadpisuje ochronną pauzę hosta. Rodzic porównał 749 źródeł sondy i niezależnie
 odtworzył późny start — exit 1 na zachowanej asercji publicznego wznowienia.
 [Odbiór diagnozy i minimalna poprawka](AUDIO-RECOVERY-20261120-late-start-odbior.md):
-`7b0a60b` przeszedł późny start również u rodzica. Przed scalaniem trwa review
-`deleg_9a50915b` resetów nowej flagi przy zdrowym starcie i przejściu kolejki.
+`7b0a60b` przeszedł późny start również u rodzica, lecz review `deleg_9a50915b`
+dał NIE: niepełne granice flagi w kolejce. `deleg_c4e52a18` prowadzi drugi i ostatni
+cykl od testów RED publicznego hosta. Nie scalać pierwszego kandydata.
 Polityka Spotify `7a26f3a` ma potwierdzony przez rodzica build i test Release offline,
 ale pozostaje odrębnym kandydatem bez integracji.
 [Odbiór Spotify i granice dowodu](AUDIO-RECOVERY-20261119-spotify-parent-check.md).

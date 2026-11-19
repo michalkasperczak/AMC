@@ -83,8 +83,10 @@ nie odebrano; poprzedni limit cykli wyczerpano bez ponowień w ciemno.
 Michał ponownie polecił badać przełączanie audio. `deleg_12ac386e` dowiódł
 w `6c70141`, że spóźniony PlaybackStarted nadpisuje ochronną pauzę hosta;
 rodzic potwierdził kontrolowany RED i późniejszy GREEN kandydata `7b0a60b`,
-po sprawdzeniu 749 źródeł. Przed akceptacją integracji trwa review
-`deleg_9a50915b` nowej flagi hosta na granicach zwykłego startu i kolejki.
+po sprawdzeniu 749 źródeł. Review `deleg_9a50915b` dał NIE do integracji:
+braki flagi przy końcu i Stop kolejki, za późny reset next/previous.
+`deleg_c4e52a18` prowadzi drugi i ostatni cykl, najpierw nowe RED hosta.
+Nie wykonywano jeszcze tych nowych RED i nie scala się pierwszego kandydata.
 [Dowód przyczyny i bieżący etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
 exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome

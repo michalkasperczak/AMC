@@ -21,9 +21,12 @@ zwrócił exit 1 na `transport.pauseResume`. Integrację cofnięto w `8d1da71`;
 przyczyna została następnie potwierdzona w `6c70141`: spóźnione PlaybackStarted
 resetuje ochronną pauzę w stanie hosta. Rodzic niezależnie odtworzył kontrolowany
 RED z późnym startem po sprawdzeniu 749 źródeł stagingu.
-Kandydat `7b0a60b` przeszedł późny start również u rodzica, bez zmiany asercji.
-Przed integracją trwa review `deleg_9a50915b` zwykłego startu/kolejki i resetów
-nowej flagi hosta. [Aktualny odbiór](AUDIO-RECOVERY-20261120-late-start-odbior.md).
+Kandydat `7b0a60b` ma GREEN bezpośredniego fallbacku również u rodzica, ale
+review `deleg_9a50915b` dał **NIE do integracji**: brak resetów flagi przy
+naturalnym przejściu kolejki i queue Stop, za późny reset w next/previous.
+Nowych RED tych ścieżek jeszcze nie wykonano. `deleg_c4e52a18` prowadzi drugi,
+ostatni uzgodniony cykl, od testów publicznego hosta przed korektą produktu.
+[Aktualny odbiór](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Spotify `7a26f3a` ma potwierdzony przez rodzica świeży build i test Release
 adaptera/polityki offline. Kandydat pozostaje osobno, bez wspólnej integracji.
 Wpięcie natywnych callbacków przeczytano w kodzie, nie wykonano zdarzenia
