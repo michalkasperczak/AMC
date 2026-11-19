@@ -1,9 +1,26 @@
 # YT-007 — zgłoszenia Huberta #19 i #20: import i transmisje
 
-- Status: `Źródła zintegrowane i celowane testy zaliczone; odbiór użytkowy i wydanie wstrzymane bramką bezpieczeństwa`.
+- Status: `#20 zamknięte 19.11.2026 jako wykonane w wydaniu z 18.11; #19 pozostaje otwarte. Nowe problemy odświeżania i scalania są w #25. Odbiór użytkowy pozostałego zakresu osobno`.
 - Rozpoczęcie i integracja: 17 listopada 2026.
 - Polecenie: „To Hubert znowu? Sprawdź oba zgłoszenia, wdrożyc je”. Pełne zgłoszenia i komentarze odczytano; oba napisał `HubertMeyer`.
 - Repozytorium: `michalkasperczak/AMC`, gałąź `codex/amc-test-public-20261109`, baza `cbad568eaabcea7f733dcb1e62e43ed232b1afcb`.
+
+## Porządek GitHub — 19.11.2026, decyzja nadrzędna
+
+Michał polecił zamykać faktycznie wykonane zgłoszenia. Odczytano pełne bodies,
+komentarze, oba opublikowane wydania i ich tagi. Public
+`public-2026.11.18.0329` oraz Test `test-2026.11.18.0337` wskazują
+`1723786c4557ef68bb3922189a028099ce96db31`. Git potwierdził, że zmiany archiwów
+`743582b`, końcowej integracji `b531fc3` oraz importu `c5e5e50`/`0cf8ce7`
+są przodkami tego źródła wydania. Starsze zapisy poniżej o braku publikacji
+opisują stan z 17.11 i nie są aktualnym statusem tych artefaktów.
+
+Zamknięto #20 z powodem `completed` i komentarzem `7007772800`; osobny odczyt
+API potwierdził komentarz i stan. Oryginalny problem odrzucania zakończonych
+transmisji przez polską lokalizację został usunięty. Nowe problemy opóźnień,
+datowania, zalewu starych „nowych” i wypierania filmów pozostają w #25;
+nie uznano ich za naprawione. Nie zamknięto całego #19, bo brak pełnego odbioru
+importu i pozostałych scenariuszy. Nie dodano logowania cudzym klientem TV.
 
 ## Potwierdzenie Michała — 19.11.2026
 

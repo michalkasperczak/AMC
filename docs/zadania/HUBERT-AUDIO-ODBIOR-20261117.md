@@ -1,5 +1,19 @@
 # Odbiór bezokienny #15 i #16 — 2026-11-17
 
+## Aktualny stan GitHub — 19.11.2026
+
+**#16 zamknięte jako wykonane i wydane.** Pomiar dwóch rzeczywistych procesów
+poniżej oraz źródła `9b77369` są objęte opublikowanymi Public
+`public-2026.11.18.0329` i Test `test-2026.11.18.0337` ze źródeł
+`1723786c4557ef68bb3922189a028099ce96db31`. Komentarz `7007925567` i osobny
+odczyt API potwierdziły `closed/completed`. Nie wykonano widocznego restartu
+GUI ani odbioru NVDA i nie przypisuje się ich temu wynikowi.
+
+**#15 pozostaje otwarte.** Poniższy pomiar rzeczywistego PCM jest ważny,
+ale nie zastępuje odsłuchu wskazanego materiału w instalacji ani odbioru
+wyjścia audio. Nie zamknięto słyszalnego przesteru wyłącznie na podstawie
+syntetycznego MP3. Pełny rejestr decyzji: `GH-TRIAGE-20261119-zamkniecie-wykonanych-zgloszen.md`.
+
 ## Zakres i materiał
 
 Odbiór wykonano na detached worktree:
