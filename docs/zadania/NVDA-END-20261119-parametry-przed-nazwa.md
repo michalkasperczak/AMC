@@ -90,6 +90,28 @@ Kompilacja rzeczywistego projektu LiteHost na Linuxie nie została wykonana: off
 - Commit zadania: `fb6ee2e` (zaktualizowany po uzupełnieniu tego wpisu).
 - Instalacja, publikacja i release: nie wykonano.
 
+## Odbiór źródłowy i integracja
+
+Niezależny przegląd niezmiennego `a51b69ed53b449f1a574f079f4be35110c5fe718`
+nie znalazł blokera w zmienionym źródle. Potwierdzono rzeczywiste podłączenie
+formatera w generalnym statusie i koordynatorze Spotify, zachowanie Radia
+oraz stanu bez odtwarzania. Recenzent uruchomił rzeczywisty formatter TIDAL:
+jeden zestaw zaliczony. Test helpera z etykietą Spotify nie jest testem całego
+koordynatora Spotify.
+
+Zintegrowano źródła do głównej gałęzi commitem
+`d4a298c787d8225576045f7681717a0ac4afc177`. Porównanie Git potwierdziło
+identyczność pięciu plików kodu/testów z odebranym kandydatem. Po integracji:
+
+- `test_native_status_bar_for_nvda_end.py` i `test_current_radio_broadcast.py`:
+  **28 passed in 4.26s**, bez widocznego interfejsu, z atrapą wx;
+- `dotnet run --no-restore ...ProtocolTests.csproj -- --tidal-native`:
+  `TidalNativePlayRequestTests: OK`, jeden zestaw zaliczony;
+- `git diff --check`: czysto.
+
+To odbiór i integracja źródeł, nie pełny build LiteHost, instalacja,
+publikacja ani żywy odczyt NVDA. Ich ograniczenia pozostają aktualne.
+
 ## Materiał do dokumentacji użytkownika
 
 W odtwarzanym pliku lub materiale naciśnij `NVDA+End`, aby usłyszeć gotowy pasek stanu. AMC podaje najpierw dostępne parametry dźwięku, na przykład bitrate i częstotliwość lub znaną jakość usługi, a potem nazwę materiału. Gdy źródło nie udostępnia parametrów, AMC podaje samą nazwę i nie zgaduje brakujących wartości.

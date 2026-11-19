@@ -76,7 +76,8 @@ NVDA-END-20261119. Trwałe doprecyzowanie użytkownika: Hyperspace 1795045295.
 
 ## Testy i wynik
 
-Odebrano dwa lokalne kandydaty, bez integracji i bez nowego wydania:
+Odebrano dwa lokalne kandydaty; NVDA+End po niezależnym przeglądzie
+zintegrowano, Skrzynka/oznaczanie pozostają osobnym kandydatem. Brak nowego wydania:
 
 - Skrzynka/oznaczanie: `547b904a8d2113766e11cfbf45396a00c9827951`.
   Wykonawca zgłasza 82 celowane testy zaliczone; nie jest to pełny odbiór
@@ -92,7 +93,10 @@ Odebrano dwa lokalne kandydaty, bez integracji i bez nowego wydania:
   błędów i ostrzeżeń oraz trzy zaliczone zestawy. Test helpera z etykietą
   Spotify nie jest testem całego koordynatora Spotify. Pełny LiteHost offline
   blokują brakujące Windows reference packs; nie pobierano ich. Niezależny
-  przegląd tego niezmiennego kandydata trwa, bez lokalnego buildu Windows.
+  przegląd zakończył się bez blokera źródłowego. Zintegrowano jako
+  `d4a298c787d8225576045f7681717a0ac4afc177`; porównano identyczność kodu
+  z kandydatem. Po integracji: 28 testów Python statusu/Radia zaliczonych
+  oraz jeden zestaw C# TIDAL zaliczony. Bez lokalnego buildu Windows.
 
 Nie ma jeszcze zintegrowanego i zamrożonego wspólnego source SHA, nowej
 budowy, instalacji ani odbioru żywym NVDA. Nie oznaczać planu jako
@@ -140,9 +144,9 @@ odczytem, nie rezerwacją.
 
 ## Znane ograniczenia i następny krok
 
-Następny krok: zakończyć niezależne przeglądy obu niezmiennych kandydatów,
+Następny krok: zakończyć niezależny przegląd Skrzynki/oznaczania,
 usunąć potwierdzone luki bez zawężania uzgodnionego zakresu, następnie
-zintegrować odebrane źródła. Przygotowanie chronionej drogi wydania nie
+zintegrować odebrane źródła z już przyjętym NVDA+End. Przygotowanie chronionej drogi wydania nie
 upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
 ## Uzasadnienie i decyzje

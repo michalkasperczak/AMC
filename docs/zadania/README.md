@@ -10,6 +10,12 @@ starych buildów ani nie relabelować binariów z 18.11. Bramki bezpieczeństwa,
 integralności i rzetelnego raportowania odbioru nadal obowiązują.
 [Plan całości, decyzje i następny krok](RELEASE-20261119-odtwarzany-skrzynka-status.md).
 
+**NVDA+End — 19.11.2026, źródła zintegrowane (`d4a298c`):** parametry audio
+przed nazwą materiału, bez zmiany Radia i dodatku NVDA. Niezależny przegląd
+bez blokera źródłowego; po integracji 28 testów statusu/Radia i jeden zestaw
+C# TIDAL zaliczone. Pełny LiteHost i żywy NVDA nadal do odbioru; brak nowego
+wydania. [Kontrakt i dowody](NVDA-END-20261119-parametry-przed-nazwa.md).
+
 **Wyszukiwanie — 18.11.2026, zintegrowane w źródłach (`bb3fdcd`):** dodano
 `Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.
 Aktywność sesji i zgoda na wyszukiwanie to osobne warunki; czasowo wyłączona
