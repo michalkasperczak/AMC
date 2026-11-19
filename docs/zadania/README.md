@@ -1,14 +1,25 @@
 # Rejestr zadań AMC
 
+**Zapis i wycinanie nagrań — nowe zgłoszenie Michała, 19.11.2026:**
+potwierdzono na głównym PC brak obu pierwotnych plików Dwójki po cięciu,
+pozostawione wyniki pod technicznymi nazwami oraz log sukcesu zapisu/usunięcia
+kopii przed późniejszym FileNotFoundException. Jeden wynik Michał sam przemianował.
+Odczyt zakończony, przyczyna jeszcze nieustalona; osobne następne zadanie na
+prywatnych fixture. Nie zmieniać nagrań użytkownika i nie obwiniać iCloud bez
+dowodu. Nie ma poprawki, instalacji ani odbioru GUI.
+[Zlecenie, fakty, granice i kryteria](AUDIO-EDIT-20261119-znikajace-nagrania.md).
+
 **Wyjścia audio — nowe zlecenie 19.11.2026:** podążanie za domyślnym Windows
 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify; niezależnie sprawdzić
 martwe wznowienie tej samej stacji po utracie zapamiętanego urządzenia.
 Pauza ochronna zostaje; jawna Spacja/Enter ma odzyskać dostępne wyjście bez
 zmiany stacji. Niezależny odbiór `4a791c2` potwierdził i naprawił ciszę przy
 wyłączonej ochronie (RED/GREEN), dodał test hostowego wznowienia i odmowy Spotify.
-Rodzic potwierdził zgodność 747 źródeł stagingu, ale jego test hosta zwrócił
-exit 1 na stanie `transport.pauseResume`; nie przyjęto jeszcze integracji.
-Przyczynę aparatura/produkt rozstrzyga `deleg_96958dcb`, jeden końcowy cykl.
+Końcowy `3948aec` synchronizuje aparaturę: rodzic potwierdził 747 źródeł
+bez różnic i Debug exit 0. Jednak świeży wspólny Release `aef4626` ponownie
+zwrócił exit 1 na `transport.pauseResume`. Integrację cofnięto w `8d1da71`;
+przyczyna ostatniego upadku pozostaje otwarta, limit cykli wyczerpany.
+Nie ponawiać w ciemno ani nie przyjmować tej integracji jako odebranej.
 Przyrost Chrome `06bb4b0` osobno odbiera `deleg_fd64ca45`: odróżnienie zwykłej
 zmiany domyślnego od utraty oraz sygnał utraty ręcznego wyjścia bez zmiany
 systemowego domyślnego. Brak API sinka Soloist pozostaje jawnym ograniczeniem.

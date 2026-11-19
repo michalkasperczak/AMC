@@ -2,10 +2,12 @@
 
 ## Status i zlecenie
 
-W toku: odebrano niezależny przyrost `4a791c2` i politykę Chrome `06bb4b0`.
-Integracja wstrzymana: własny pomiar rodzica zakończył test hostowego wznowienia
-błędem; przyczyna aparatura/produkt nie została jeszcze rozstrzygnięta.
-Polityka Chrome ma dwie konkretne luki wymagające celowanego odtworzenia.
+**BLOKADA lokalnego audio po końcowym cyklu; próbna integracja cofnięta.**
+`3948aec` poprawia synchronizację testu i przechodzi w Debug także u rodzica,
+lecz świeżo zbudowany wspólny Release `aef4626` ponownie daje HandlerTests exit 1
+na wznowieniu. Revert `8d1da71` przywrócił wcześniejsze `src/tests`, zachowując
+odebrany #26. Przyczyna ostatniego upadku nierozstrzygnięta; nie ma trzeciego
+cyklu zmian ani retry-until-green. Polityka Chrome nadal ma osobny odbiór.
 Bez instalacji, publikacji i GUI w tym etapie.
 
 Michał 19.11.2026 polecił wdrożyć zmianę ze zgłoszenia Huberta #30/PR #31 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify. Następnie zgłosił dokładny scenariusz: po wyłączeniu zapamiętanego interfejsu Denon poprawna jest cisza wynikająca z opcji wstrzymania po utracie urządzenia, ale późniejsza Spacja lub Enter na tej samej stacji nie odzyskuje odtwarzania. Dopiero wybór innej stacji i powrót przywracają dźwięk na domyślnych głośnikach. Wspomniał także odciszanie sesji: należy prześledzić tę ścieżkę bez utożsamiania wyciszenia z pauzą.

@@ -10,12 +10,17 @@ Bieżące priorytety i stan wydania są w
 Kanoniczny rejestr to [README.md](README.md).
 
 **Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
+[Zapis/cięcie: brak pliku i wyniki pod technicznymi nazwami](AUDIO-EDIT-20261119-znikajace-nagrania.md)
+— nowe osobne zadanie Michała, odczyt logów i metadanych na głównym PC
+potwierdził incydent; bez modyfikacji nagrań, przyczyna i poprawka do odtworzenia.
+
 [Wyjścia audio: domyślne Windows, TIDAL/Spotify i jawne wznowienie po utracie](AUDIO-RECOVERY-20261119-kontrakt.md)
 — nowe zlecenie wdrożenia #30 oraz scenariusza zapamiętanego Denona; pauza
 ochronna zostaje, ponowna Spacja/Enter bez zmiany stacji ma odzyskać wyjście.
 Niezależny `4a791c2` naprawił potwierdzoną ciszę przy wyłączonej ochronie.
-Rodzic zweryfikował 747 źródeł, ale test hosta zwrócił exit 1; integracja
-wstrzymana do rozstrzygnięcia przez `deleg_96958dcb`. Politykę Chrome
+Końcowy test `3948aec` przeszedł Debug u rodzica (747 źródeł zgodnych), ale
+nowy wspólny Release `aef4626` ponownie upadł na wznowieniu. Próbne scalenie
+cofnięto w `8d1da71`; brak końcowego odbioru lokalnego audio. Politykę Chrome
 `06bb4b0` celowanie odbiera `deleg_fd64ca45`: zwykła zmiana a utrata wyjścia
 oraz sygnał utraty ręcznego endpointu. Bez odbioru sprzętu, GUI i instalatora.
 

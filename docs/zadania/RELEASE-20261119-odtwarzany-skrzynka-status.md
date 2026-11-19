@@ -75,7 +75,11 @@ potwierdził i naprawił ciszę przy wyłączonej ochronie, dodał test hostoweg
 wznowienia i asercje zachowania ręcznej preferencji Spotify (RED/GREEN).
 Rodzic porównał 747 źródeł stagingu z tym commitem: bez różnic, lecz jego
 uruchomienie testu hosta zwróciło exit 1 na `transport.pauseResume`.
-Integracja wstrzymana: przyczynę aparatura/produkt rozstrzyga `deleg_96958dcb`.
+Końcowy `3948aec` poprawił synchronizację testu, Debug u rodzica exit 0 po
+porównaniu 747 źródeł. Jednak świeża wspólna kompilacja Release `aef4626`
+ponownie daje test hosta exit 1 na wznowieniu. Próbne scalenie cofnięto w
+`8d1da71`, przywracając wcześniejsze źródła i zachowując #26. Lokalnego audio
+nie odebrano; limit cykli wyczerpany, bez dalszych ponowień w ciemno.
 Nowa polityka Chrome `06bb4b0` przechodzi osobny celowany odbiór
 `deleg_fd64ca45`: zwykła zmiana domyślnego a utrata urządzenia oraz sygnał
 utraty ręcznego endpointu, gdy domyślne ID się nie zmienia.
@@ -95,6 +99,17 @@ Nie wykonywano żywego YouTube, GUI ani audio.
 Kolejny etap #28 dotyka wspólnego WindowsMediaOutput: uwzględnić kończony
 odbiór lokalnego recovery i czas ochronnej pauzy. Nie jest to zamrożenie wspólnego
 kandydata wydania ani usunięcie pozostałych bramek tego planu.
+
+## Nowe osobne zadanie — zapis po wycinaniu nagrania
+
+Michał zgłosił brak plików Dwójki po udanym z pozoru cięciu i pozostawione
+wyniki pod technicznymi nazwami z kropką. Odczyt na głównym PC potwierdził
+incydent w wydanej wersji `1723786`; nagrań nie modyfikowano. Dziennik podaje
+weryfikację zapisu i usunięcie kopii, następnie FileNotFoundException, a wyniki
+znajdują się nadal na dysku pod innymi nazwami. To odrębne następne zadanie,
+nie zgoda na publikację lub naprawę plików użytkownika. Reprodukcja i poprawka
+na fixture; do tego czasu nie nazywać ścieżki zapisu/cięcia naprawioną.
+[Pełne zlecenie i dowody](AUDIO-EDIT-20261119-znikajace-nagrania.md).
 
 ## Stan początkowy i koordynacja
 

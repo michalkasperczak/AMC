@@ -2,9 +2,47 @@
 
 ## Werdykt
 
-**Wstrzymać integrację do wyjaśnienia rzeczywistego upadku testu hosta.**
-Werdykt wykonawcy „TAK do integracji” nie zastępuje tego wyniku. Nie ustalono
-jeszcze, czy przyczyną jest synchronizacja testu, czy zachowanie produktu.
+**BLOKADA wspólnego kandydata; próbna integracja cofnięta.**
+Poprawiona aparatura `3948aec` przeszła w Debug u wykonawcy i rodzica, lecz
+świeży wspólny build Release ponownie upadł na tej samej asercji wznowienia.
+Nie ustalono ostatecznej przyczyny. Werdykt wykonawcy „TAK” nie jest odbiorem
+zintegrowanego kodu; szczegółowy końcowy wynik jest poniżej.
+
+## Końcowy cykl i wspólna kompilacja — 19.11 po 23:03
+
+1. Codex `deleg_96958dcb` dostarczył `3948aecc0aac374da79120ba205829d791799222`,
+   zmieniając wyłącznie test hosta. Bramy fake outputów i event `audio.outputFallback`
+   zamiast samej liczby outputów; produkcji nie zmieniał. Debug u wykonawcy PASS.
+2. Rodzic przeczytał pełną deltę i dowód. Porównał 747 plików źródłowych/projektów
+   stagingu z `3948aec`, bez różnic; SHA Program.cs
+   `c85c6e74000864bf9143236adefeae256d40ca30802f634686ff3ab7e5e044aa`.
+   Wykonał tam Windows `amc_lite_host_handler_tests.dll` w Debug: exit 0,
+   komunikat `LiteHost automatic refresh dispatcher and protected output transport: OK`.
+3. Próbne scalenie do bieżącej bazy z #26 utworzyło `aef4626a0034e3dde098c642794edba314e31650`.
+   Źródła tego commita wyeksportowano do nowego, pustego katalogu NTFS
+   `amc-output-integrated-aef4626`; manifest sprawdził obecność wszystkich
+   3085 śledzonych plików. Restore exit 0; Release build hosta i HandlerTests
+   exit 0, zero ostrzeżeń i błędów.
+4. Faktyczne uruchomienie tej nowo zbudowanej DLL: **exit 1**, po 4,30 s,
+   `transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku`,
+   `Program.cs:117`. Pipeline przerwano; planowany kolejny Windows smoke nie
+   został zbudowany ani uruchomiony w tym wspólnym przebiegu.
+5. Nie zmieniano asercji, nie wykonywano retry ani trzeciego cyklu produktu.
+   Nie ustalono, czy różnicę powoduje konfiguracja Debug/Release, skład wspólnego
+   commita czy wciąż niepełny kontrakt synchronizacji. Zielony Debug nie rozstrzyga
+   tej przyczyny; końcowy werdykt wykonawcy nie utrzymał się dla integracji.
+6. Próbne scalenie cofnięto przez `8d1da7124bcaadcff881f6c20929ce6a9407c9e0`.
+   `git diff 8dd7278 -- src tests` po revert jest pusty: poprzednie źródła
+   i odebrany #26 zostały zachowane. Commit kandydata i dowody nadal istnieją.
+   Uwaga: merge i revert są w historii; ponowny zwykły merge tego samego SHA
+   nie przywróci usuniętej treści. Nie wykonywać takiej operacji w ciemno.
+
+Dowody rodzica, wyłącznie lokalnie:
+`/home/michal/.hermes/profiles/amc/cache/scratch/amc-output-boundary-parent-20261119/`.
+`source-verification.json`, `handler-parent.json` (Debug PASS),
+`integrated-source.json`, `integrated-results.json` (świeży Release FAIL),
+surowe stdout/stderr i skrypty rzeczywistego wykonania. Nie jest to odbiór
+GUI, odsłuchu, aktywnego Spotify, instalatora ani wydania.
 
 ## Tożsamość kandydata i dowodu
 
