@@ -55,6 +55,8 @@
              Link="Engine\AudioOutputDeviceCatalog.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\AudioOutputPauseGuard.cs"
              Link="Engine\AudioOutputPauseGuard.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\DefaultAudioOutputWatcher.cs"
+             Link="Engine\DefaultAudioOutputWatcher.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\DiagnosticLog.cs"
              Link="Engine\DiagnosticLog.cs" />
     <!-- Ten sam zabezpieczony potok i ta sama lista dozwolonych komend co w
