@@ -82,6 +82,20 @@ utraty ręcznego endpointu, gdy domyślne ID się nie zmienia.
 Kandydaci nie rozstrzygają #28/PR #29; pozostaje sprawdzenie nakładających się
 zmian WindowsMediaOutput. Pozostałe bramki i ograniczenia wydania bez zmian.
 
+## Rozdziały YouTube — odbiór źródeł zakończony
+
+#26/PR #27 przyjęto na bieżącej bazie jako `36ba1fed868aa655d38974ee93ec8af80932aeb7`,
+z poprawką odbiorową `516e5b3`. Kontrolowany proces-fixture potwierdził RED/GREEN
+zawieszenia po wyjściu rodzica; finalny runner obejmuje deadline również dla
+stdout/stderr i kończy własne procesy przez Windows Job Object. Rodzic porównał
+9 źródeł finalnego stagingu, całe `src/tests` po integracji i uruchomił celowany
+Windows smoke: exit 0. Wcześniejszy niezależny zestaw koordynatora również PASS.
+Nie wykonywano żywego YouTube, GUI ani audio.
+[Szczegóły i granice](HUBERT26-CHAPTERS-20261119-plan.md).
+Kolejny etap #28 dotyka wspólnego WindowsMediaOutput: uwzględnić kończony
+odbiór lokalnego recovery i czas ochronnej pauzy. Nie jest to zamrożenie wspólnego
+kandydata wydania ani usunięcie pozostałych bramek tego planu.
+
 ## Stan początkowy i koordynacja
 
 Główny checkout: `/home/michal/projekty/AMC`, gałąź

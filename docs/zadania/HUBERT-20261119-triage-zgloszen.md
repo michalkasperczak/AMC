@@ -25,7 +25,11 @@ niezależnym odbiorem. Nie dodano automatycznie do realizacji #25/#26/#28.
 a następnie jednoznacznie potwierdził „Tak, zgadzam się na realizację. Oczywiście”.
 **#25 zakończony w źródłach:** dane/trwałość `adf6e51`, harmonogram `d113fae`.
 Niezależny przegląd korekty i końcowy kontrolowany test anulowania zaliczone.
-Teraz #26/PR #27; następnie #28/PR #29. Bez instalacji i publikacji.
+#26/PR #27 odebrano i zintegrowano jako `36ba1fed868aa655d38974ee93ec8af80932aeb7`
+z poprawką odbiorową `516e5b3`: proces potomny nie może utrzymywać odczytu
+po zakończeniu rodzica. Potwierdzony RED/GREEN rzeczywistego procesu Windows;
+rodzic po integracji `--youtube-chapters-only` exit 0. Następny etap #28/PR #29,
+z uwzględnieniem równoległego odbioru wspólnego audio. Bez instalacji i publikacji.
 [Odbiór harmonogramu i ograniczenia](HUBERT25-SCHEDULE-20261119-akceptacja.md).
 Poniższa analiza pozostaje materiałem wejściowym, a jej dawne ograniczenie do
 odczytu nie oznacza już braku zgody na realizację zaakceptowanych poprawek.

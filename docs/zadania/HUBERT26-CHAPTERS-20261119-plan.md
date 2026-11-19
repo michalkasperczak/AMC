@@ -1,6 +1,6 @@
 # Hubert #26 — rozdziały YouTube, wykonanie po odbiorze #25
 
-**Status: W ODBIORZE — wykonawca dostarczył kod i dowody; niezależny przegląd w toku.**
+**Status: ODEBRANY KOD I ZINTEGROWANY — `36ba1fed868aa655d38974ee93ec8af80932aeb7`, z poprawką procesu `516e5b3`.**
 
 ## Decyzja i zależności
 
@@ -36,15 +36,22 @@ Bez GUI, żywego audio, sieci YouTube, kont, cookies, tokenów, instalatora, AV 
 
 ## Materiał do dokumentacji użytkownika
 
-Cel: w istniejącej liście rozdziałów filmu YouTube będą dostępne rozdziały udostępnione przez twórcę. Brak rozdziałów ma być odróżniony od przejściowego błędu pobierania. Nie jest to jeszcze opis wydanej funkcji. Wykonawca uzupełni dokładne istniejące polecenie, zakres sesji i komunikaty na podstawie produkcyjnej ścieżki, bez wymyślania nowych skrótów.
+Materiał do instrukcji: w istniejącej liście „Pokaż rozdziały bieżącego materiału”
+(`Ctrl+Alt+B` w bieżącym katalogu poleceń) kod pobiera także rozdziały filmu
+YouTube udostępnione przez twórcę. Nie dodano nowego skrótu ani osobnego widoku.
+Prawidłowy brak rozdziałów jest odróżniany od przejściowego błędu pobierania,
+po którym można spróbować ponownie. Zachowano istniejące polecenia poprzedniego
+i następnego rozdziału (`Ctrl+Shift+Left` / `Ctrl+Shift+Right`). Mowy NVDA ani
+fizycznego działania tych skrótów w tym odbiorze nie mierzono.
 
 ## Wersja i następny krok
 
 Źródła #25: merge `d113fae9895a214d8782a524cbfe797902be2dfa`. Gałąź wykonawcza: `codex/amc-hubert26-chapters-20261119`. Dokładną bazę po zapisaniu niniejszej dokumentacji utrwali raport wykonawcy.
 
-Następny krok: odebrać niezależny werdykt `deleg_371395e2`, ewentualne celowane
-poprawki i dopiero wtedy zintegrować potwierdzony przyrost do bieżącej bazy.
-Po przyjęciu przejść do uzgodnionego #28. Nie scalać całej starej bazy PR.
+Następny etap: uzgodnione #28/PR #29. Przed integracją jego zmian
+WindowsMediaOutput uwzględnić trwający odbiór wspólnego audio (`4a791c2`,
+`deleg_96958dcb`) i czas ochronnej pauzy. Nie scalać całej starej bazy PR.
+Odbiór #26 nie wymaga już kolejnego powtórzenia niezmienionych zestawów.
 
 ## Odebrane dowody i kontrola rodzica — 19.11.2026
 
@@ -80,7 +87,37 @@ potomkiem trzymającym odziedziczone pipe'y może ominąć timeout czytników.
 To HIPOTEZA do falsyfikacji, nie wykryty błąd; maksymalnie dwa cykle
 celowanej korekty, bez rozszerzania do pełnego audytu.
 
-Przyrost nie zmienia odtwarzania ani nagrywania; są równoległe prace audio
-na `e758ae4`. Ich LiteEngineHandlers/csproj mogą wymagać wspólnego odbioru
-przy integracji, nie nadpisywania plików. Produkcja kanoniczna pozostaje
-dotąd bez przyrostu #26; brak GUI, sieci YouTube, kont i publikacji w tym odbiorze.
+Powyższa sekcja opisuje stan przed werdyktem. Przyrost nie zmienia odtwarzania
+ani nagrywania; równoległe prace audio na `e758ae4`/`4a791c2` wymagają później
+zwykłego scalenia zmian LiteEngineHandlers/csproj, nie podmiany całych plików.
+
+## Końcowy odbiór i integracja
+
+Niezależny Codex potwierdził blocker: po wyjściu rodzica dziecko mogło utrzymywać
+stdout/stderr bez respektowania deadline. Kontrolowany rzeczywisty Windows
+apphost dał RED exit 1; poprawka `516e5b3495707fc05c90c82d435d4f9a4d18f7f8`
+dodała Windows Job Object z `KILL_ON_JOB_CLOSE` i deadline także dla odczytu
+obu strumieni. Regresja sprawdza zakończenie PID rodzica i dziecka. GREEN:
+celowany smoke exit 0, Release buildy Windows smoke oraz LiteHost exit 0.
+[Pełny niezależny raport](HUBERT26-CHAPTERS-20261119-independent-review.md).
+
+Rodzic odczytał pełny runner, diff regresji i raport, sprawdził statusy RED/GREEN
+oraz porównał dziewięć zmienionych źródeł finalnego stagingu z blobami `516e5b3`:
+zero różnic. SHA-256 źródła runnera:
+`bbce563ff93229cd40f74f0645e4572333573b39cc774faeb4b99b506cafc5eb`.
+
+Zintegrowano czysty branch odbioru do `codex/amc-test-public-20261109` jako
+`36ba1fed868aa655d38974ee93ec8af80932aeb7`. `git diff --exit-code 516e5b3 -- src tests`
+nie wykazał żadnej różnicy; `git diff --check` przeszedł. Nie scalano starej
+chronionej gałęzi PR. Po integracji rodzic uruchomił wyłącznie zmienioną granicę:
+`Windows.SmokeTests --youtube-chapters-only` na zweryfikowanym stagingu —
+**exit 0, stdout i stderr puste**, czas 1,347 s. Nie powtarzano niezmienionego
+zestawu protokołu ani całych buildów. To wykonanie istniejącego zbudowanego
+runnera, a nie nowa budowa wydania z commita integracyjnego.
+
+Surowe logi i JSON wyniku rodzica:
+`/home/michal/.hermes/profiles/amc/cache/scratch/hubert26-integrated-parent-20261119/`.
+
+Odbiór kodu/offline zakończony. Nie wykonywano prawdziwego YouTube/yt-dlp,
+sieci, kont, Chrome, GUI, NVDA, odsłuchu, instalacji, publikacji ani zamykania
+zgłoszeń. Te granice nie są objęte powyższym werdyktem.

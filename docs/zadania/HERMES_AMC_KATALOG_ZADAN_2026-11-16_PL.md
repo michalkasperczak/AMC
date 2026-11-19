@@ -32,12 +32,15 @@ Analiza zakończona; Michał następnie zatwierdził realizację po kolei.
 #25 dane/trwałość odebrano i zintegrowano w `adf6e51`: cztery celowane trasy
 Windows, build i niezależny przegląd zaliczone. Harmonogram #25 również odebrano
 i zintegrowano w `d113fae`; zgodność no-arg, kontrolowany timer anulowania,
-rzeczywisty dispatcher i niezależny review zaliczone. Teraz odbiór #26
-(`6263329` + `39357ef`, rodzic 1 protocol PASS, niezależny `deleg_371395e2`),
-potem #28. [Stan rozdziałów i dowody](HUBERT26-CHAPTERS-20261119-plan.md).
+rzeczywisty dispatcher i niezależny review zaliczone. #26 odebrano i zintegrowano
+w `36ba1fe` z poprawką `516e5b3` (dziecko utrzymujące pipe'y po wyjściu rodzica).
+Rodzic: dziewięć źródeł finalnego stagingu zgodnych, po integracji celowany
+Windows smoke exit 0. Dalej #28, z uwzględnieniem odbioru wspólnego audio.
+[Stan rozdziałów i dowody](HUBERT26-CHAPTERS-20261119-plan.md).
 Bez instalacji i publikacji. [Odbiór harmonogramu](HUBERT25-SCHEDULE-20261119-akceptacja.md).
 [Odbiór P0 i dokładne granice](HUBERT25-P0-20261119-akceptacja.md).
-PR #27/#29 nadal otwarte, niewłączone.
+Starych gałęzi PR #27/#29 nie scalano; rozwiązanie #26 jest już w bieżącej bazie,
+a #28 pozostaje odrębnym zadaniem.
 
 Łącznie: 179 plików w 70 grupach: 173 zastanych i 6 jawnie oznaczonych rekonstrukcji.
 
