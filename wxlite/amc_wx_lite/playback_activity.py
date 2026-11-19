@@ -117,12 +117,12 @@ def activity_rows(
             row if (
                 row.playback_state == prefix
                 and row.state_detail == detail
-                and row.playback_activity == active
+                and row.playback_activity == (active and not paused)
             ) else replace(
                 row,
                 playback_state=prefix,
                 state_detail=detail,
-                playback_activity=active,
+                playback_activity=active and not paused,
             )
         )
     return result

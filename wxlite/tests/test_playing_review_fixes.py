@@ -240,6 +240,18 @@ def test_paused_native_search_result_has_label_but_no_activity_cue() -> None:
     assert cues == []
 
 
+def test_paused_native_rows_keep_text_without_audio_activity() -> None:
+    from amc_wx_lite.playback_activity import activity_rows
+
+    row = Row("episode:paused", "Odcinek", "episode")
+    rendered = activity_rows(
+        [row], current_item_id=row.item_id, playing=True, paused=True,
+        session_id=SessionId.PODCASTS.value, position="before",
+    )[0]
+    assert rendered.playback_state == "Wstrzymane"
+    assert rendered.playback_activity is False
+
+
 def test_csharp_observed_material_fixture_drives_real_python_loaders_and_gui() -> None:
     """Read each C#-mapped case; rows are host producer payloads, never test rows."""
     raw_path = os.environ.get("AMC_OBSERVED_MATERIAL_FIXTURE")
@@ -284,7 +296,19 @@ def test_csharp_observed_material_fixture_drives_real_python_loaders_and_gui() -
             **context,
         )
 
+        frame._sync_views = lambda: None
         LiteFrame._apply_streamer_observed_material_identity(frame, session_id, state)
+        LiteFrame._apply_streamer_activity_status(frame, session_id)
+        rendered_rows = navigator.session.model.rows
+        if expected_id:
+            rendered = next(row for row in rendered_rows if row.item_id == expected_id)
+            paused = str(state["playbackState"]).casefold() in {
+                "paused", "pause", "pauza", "wstrzymane",
+            }
+            assert rendered.state_prefix, case["name"]
+            assert rendered.playback_activity is not paused, case["name"]
+        else:
+            assert not any(row.playback_activity for row in rendered_rows), case["name"]
         assert navigator.session.current_material_id == (expected_id or ""), case["name"]
         playback = str(state["playbackState"]).casefold()
         if expected_id is None:

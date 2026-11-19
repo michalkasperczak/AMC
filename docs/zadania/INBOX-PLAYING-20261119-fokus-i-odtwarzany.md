@@ -27,7 +27,11 @@ Przeczytano AMC05-odtwarzany-element-na-listach.md i POD-20261105-wydajnosc-skrz
 
 ## Materiał do dokumentacji użytkownika
 
-Do uzupełnienia po potwierdzonej implementacji. Nie dodawać nowego skrótu ani nowego niezależnego ustawienia, jeśli obecne obejmuje zachowanie.
+Po powrocie Ctrl+I skrzynka pamięta ostatni odcinek niezależnie od Biblioteki. Ponowne Ctrl+I w otwartej skrzynce nadal doładowuje kolejne odcinki. Dotychczasowe ustawienia oznaczenia odtwarzania obejmują tekst przed/po nazwie lub brak tekstu oraz niezależny sygnał dźwiękowy. Wyszukiwanie respektuje tę samą kolejność. Pauza pozostawia informację o wstrzymaniu, bez sygnału odtwarzania. Dla WiiM i własnych strumieni Sonos wymagane jest potwierdzenie materiału przez urządzenie; brak identyfikatora nie może oznaczyć zaznaczonego ani ostatnio żądanego elementu. Znane ograniczenia usług są wymienione poniżej. To opis źródeł kandydata, nie potwierdzenie instalacji ani pomiaru NVDA.
+
+### Końcowa kontrola rodzica — pauza na rzeczywistej liście
+
+Rodzic ponownie uruchomił cztery zestawy C# i eksport dziesięciu rzeczywistych wyników mapperów (pięć WiiM, pięć Sonos), następnie dziewięć celowanych testów korekty: PASS. Rozszerzenie tego samego testu kontraktu o produkcyjne `_apply_streamer_activity_status` ujawniło brak etykiety dla hostowego `pauza` (RED `wiim-paused`), a osobny test wiersza natywnego ujawnił flagę sygnału podczas pauzy (RED `True is False`). Minimalna korekta wspólnych dekoratorów zachowuje tekst pauzy i ustawia flagę sygnału tylko podczas odtwarzania; nie zmienia silników, fokusu ani Radia. Końcowy, celowany wybór `test_playing_review_fixes`, `test_playback_activity`, `test_streamer_playback_history`, `test_radio_activity_presentation`: **51 passed in 0.50s**, z prawdziwym eksportem C# i bez pominięcia kontraktu. Wyników nakładających się wyborów nie sumować.
 
 ## Uzasadnienie i decyzje
 

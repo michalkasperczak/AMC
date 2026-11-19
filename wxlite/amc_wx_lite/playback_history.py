@@ -257,11 +257,12 @@ def activity_rows(
     state = _text(playback_state).casefold()
     label = (
         "odtwarzane"
-        if state in {"playing", "play", "buffering", "odtwarzanie"}
+        if state in {"playing", "play", "odtwarzanie"}
         else "odtwarzanie wstrzymane"
-        if state in {"paused", "pause", "wstrzymane"}
+        if state in {"paused", "pause", "pauza", "wstrzymane"}
         else ""
     )
+    audible = state in {"playing", "play", "odtwarzanie"}
     placement = normalize_state_position(position)
     result: list[Row] = []
     for row in rows:
@@ -287,13 +288,13 @@ def activity_rows(
             if (
                 row.state_prefix == prefix
                 and row.state_detail == detail
-                and row.playback_activity == active
+                and row.playback_activity == (active and audible)
             )
             else replace(
                 row,
                 state_prefix=prefix,
                 state_detail=detail,
-                playback_activity=active,
+                playback_activity=active and audible,
             )
         )
     return result
