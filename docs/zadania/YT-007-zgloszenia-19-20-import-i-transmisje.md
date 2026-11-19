@@ -5,6 +5,17 @@
 - Polecenie: „To Hubert znowu? Sprawdź oba zgłoszenia, wdrożyc je”. Pełne zgłoszenia i komentarze odczytano; oba napisał `HubertMeyer`.
 - Repozytorium: `michalkasperczak/AMC`, gałąź `codex/amc-test-public-20261109`, baza `cbad568eaabcea7f733dcb1e62e43ed232b1afcb`.
 
+## Potwierdzenie Michała — 19.11.2026
+
+„Potwierdzam, YouTube jest znacznie lepiej, są transmisje, które wcześniej
+były pomijane.” To odbiór poprawy widoczności transmisji w używanym przez niego
+AMC, nie benchmark ani potwierdzenie wszystkich kryteriów #19/#20. W tej
+wiadomości nie podał wersji, SHA ani konkretnych kanałów; nie przypisujemy
+obserwacji do niezweryfikowanego artefaktu. Import, natywny wx/NVDA i pozostałe
+scenariusze zachowują osobny stan odbioru. Nie przebudowywać działającej drogi
+listowania z powodu tego pozytywnego potwierdzenia. Starsze informacje niżej
+o braku odbioru użytkowego nie obejmują już tego potwierdzonego zakresu.
+
 ## Zakres i kryteria odbioru
 
 1. Import CSV/ZIP Takeout, JSON NewPipe i tekstowego FreeTube profiles.db zgodnego z eksportem AMC; świadomy wybór przed zapisem, stabilne ID, ochrona istniejących danych i brak masowego pobierania.
