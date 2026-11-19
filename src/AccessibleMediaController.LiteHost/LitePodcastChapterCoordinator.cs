@@ -25,30 +25,36 @@ internal sealed class LitePodcastChapterCoordinator : IDisposable
         _fetchProvider;
     private readonly Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>>
         _fetchPage;
+    private readonly Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>>?
+        _fetchYouTube;
     private readonly SemaphoreSlim _preparationGate = new(1, 1);
     private readonly HashSet<string> _emptyPageChecks = new(StringComparer.Ordinal);
 
     public LitePodcastChapterCoordinator(
         LitePodcastProgressStore podcasts,
-        LiteBookmarkStore bookmarks)
+        LiteBookmarkStore bookmarks,
+        Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>>? fetchYouTube = null)
     {
         _podcasts = podcasts ?? throw new ArgumentNullException(nameof(podcasts));
         _bookmarks = bookmarks ?? throw new ArgumentNullException(nameof(bookmarks));
         _client = new PodcastChapterClient();
         _fetchProvider = _client.FetchAsync;
         _fetchPage = _client.FetchFromEpisodePageAsync;
+        _fetchYouTube = fetchYouTube;
     }
 
     internal LitePodcastChapterCoordinator(
         LitePodcastProgressStore podcasts,
         LiteBookmarkStore bookmarks,
         Func<Uri, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>> fetchProvider,
-        Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>> fetchPage)
+        Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>> fetchPage,
+        Func<Uri, TimeSpan, CancellationToken, Task<IReadOnlyList<ProviderChapterPoint>>>? fetchYouTube = null)
     {
         _podcasts = podcasts ?? throw new ArgumentNullException(nameof(podcasts));
         _bookmarks = bookmarks ?? throw new ArgumentNullException(nameof(bookmarks));
         _fetchProvider = fetchProvider ?? throw new ArgumentNullException(nameof(fetchProvider));
         _fetchPage = fetchPage ?? throw new ArgumentNullException(nameof(fetchPage));
+        _fetchYouTube = fetchYouTube;
     }
 
     public LitePodcastChapterPreparation Prepare(MediaItem item, TimeSpan duration)
@@ -124,9 +130,16 @@ internal sealed class LitePodcastChapterCoordinator : IDisposable
                 && !_emptyPageChecks.Contains(pageKey)
                 && Uri.TryCreate(pageUrl, UriKind.Absolute, out var pageAddress))
             {
+                // Odcinek z kanału YouTube nie ma opisu (lista kanału idzie przez
+                // --flat-playlist), a strona watch trzyma opis w skryptach. Jego
+                // rozdziały, takie jak pokazuje YouTube, daje dopiero yt-dlp.
+                var youTube = _fetchYouTube is not null
+                    && YouTubeSourceResolver.IsYouTubeUrl(pageAddress.AbsoluteUri);
                 try
                 {
-                    var chapters = _fetchPage(pageAddress, duration, CancellationToken.None)
+                    var chapters = (youTube
+                            ? _fetchYouTube!(pageAddress, duration, CancellationToken.None)
+                            : _fetchPage(pageAddress, duration, CancellationToken.None))
                         .GetAwaiter()
                         .GetResult();
                     if (chapters.Count > 0)
@@ -135,7 +148,7 @@ internal sealed class LitePodcastChapterCoordinator : IDisposable
                             "podcasts",
                             "Podcasty i YouTube",
                             ItemWithDuration(item, duration),
-                            "podcast-page",
+                            youTube ? "youtube" : "podcast-page",
                             chapters,
                             DateTime.UtcNow);
                     }
@@ -177,7 +190,8 @@ internal sealed class LitePodcastChapterCoordinator : IDisposable
         or InvalidDataException
         or ArgumentException
         or OperationCanceledException
-        or TaskCanceledException;
+        or TaskCanceledException
+        or TimeoutException;
 
     public void Dispose()
     {

@@ -87,6 +87,79 @@ public static partial class PodcastJsonChapterParser
     }
 }
 
+/// <summary>
+/// Reads the chapter list printed by yt-dlp with <c>--print "%(chapters)j"</c>:
+/// a JSON array of <c>start_time</c>/<c>title</c> objects, or <c>NA</c> when
+/// the video has no chapters. These are the chapters YouTube itself shows,
+/// taken from the description or set by the creator.
+/// </summary>
+public static class YouTubeChapterParser
+{
+    public const int MaximumOutputCharacters = 1 * 1024 * 1024;
+
+    public static IReadOnlyList<ProviderChapterPoint> Parse(string output, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        var text = output.Trim();
+        if (text.Length == 0 || text[0] != '[') return [];
+        if (text.Length > MaximumOutputCharacters)
+            throw new InvalidDataException("Lista rozdziałów YouTube jest zbyt duża.");
+
+        using var document = JsonDocument.Parse(text, new JsonDocumentOptions
+        {
+            AllowTrailingCommas = false,
+            CommentHandling = JsonCommentHandling.Disallow,
+            MaxDepth = 16
+        });
+        var result = new List<ProviderChapterPoint>();
+        var number = 0;
+        foreach (var chapter in document.RootElement.EnumerateArray())
+        {
+            if (result.Count >= ChapterIndex.MaximumProviderChaptersPerItem) break;
+            number++;
+            if (chapter.ValueKind != JsonValueKind.Object
+                || !chapter.TryGetProperty("start_time", out var startElement)
+                || startElement.ValueKind != JsonValueKind.Number
+                || !startElement.TryGetDouble(out var seconds)
+                || !double.IsFinite(seconds)
+                || seconds < 0
+                || seconds > TimeSpan.MaxValue.TotalSeconds)
+            {
+                continue;
+            }
+            var start = TimeSpan.FromSeconds(seconds);
+            if (duration > TimeSpan.Zero && start >= duration) continue;
+
+            var title = chapter.TryGetProperty("title", out var titleElement)
+                && titleElement.ValueKind == JsonValueKind.String
+                    ? PodcastJsonChapterParser.NormalizeTitle(ReadTitle(titleElement))
+                    : string.Empty;
+            if (title.Length == 0) title = $"Rozdział {number}";
+            result.Add(new ProviderChapterPoint(
+                $"chapter:{number}:{seconds.ToString("R", CultureInfo.InvariantCulture)}:{title}",
+                title,
+                start));
+        }
+
+        return PodcastJsonChapterParser.Normalize(result);
+    }
+
+    // Python's json.dumps writes a lone UTF-16 surrogate as an escape such
+    // as \ud83d. JsonDocument accepts it, but GetString() then throws, which
+    // would discard every chapter of the video because of one bad title.
+    private static string ReadTitle(JsonElement element)
+    {
+        try
+        {
+            return element.GetString() ?? string.Empty;
+        }
+        catch (InvalidOperationException)
+        {
+            return string.Empty;
+        }
+    }
+}
+
 public static partial class PodcastDescriptionChapterParser
 {
     public static IReadOnlyList<ProviderChapterPoint> Parse(string description, TimeSpan duration)

@@ -1397,6 +1397,38 @@ static void TestPodcastProviderChapters()
         "<p>Odtwarzacz 01:23:45</p><p>Komentarz o 12:30</p>",
         TimeSpan.FromHours(2)).Count);
 
+    // yt-dlp --print "%(chapters)j": tablica rozdzialow albo NA bez rozdzialow.
+    const string youTubeChapters = """
+        [{"start_time": 0, "title": "Wst\u0119p", "end_time": 62.0},
+         {"start_time": 62.0, "title": "GPT 6.2 Astra i Sol", "end_time": 198.0},
+         {"start_time": 198, "title": "  ", "end_time": 228.0},
+         {"start_time": 9000, "title": "Po końcu filmu"},
+         {"title": "Bez czasu"}]
+        """;
+    var youTube = YouTubeChapterParser.Parse(youTubeChapters, TimeSpan.FromMinutes(26) + TimeSpan.FromSeconds(39));
+    Equal(3, youTube.Count);
+    Equal("Wstęp", youTube[0].Name);
+    Equal(TimeSpan.FromSeconds(62), youTube[1].Start);
+    Equal("Rozdział 3", youTube[2].Name);
+    Equal(0, YouTubeChapterParser.Parse("NA" + Environment.NewLine, TimeSpan.FromHours(1)).Count);
+    Equal(0, YouTubeChapterParser.Parse("", TimeSpan.FromHours(1)).Count);
+    // Niesparowany surogat w jednym tytule nie odbiera pozostalych rozdzialow.
+    var loneSurrogate = YouTubeChapterParser.Parse(
+        """[{"start_time": 0, "title": "\ud83d"}, {"start_time": 5, "title": "B"}]""",
+        TimeSpan.Zero);
+    Equal(2, loneSurrogate.Count);
+    Equal("Rozdział 1", loneSurrogate[0].Name);
+    var malformedRejected = false;
+    try
+    {
+        YouTubeChapterParser.Parse("""[{"start_time": 0""", TimeSpan.Zero);
+    }
+    catch (JsonException)
+    {
+        malformedRejected = true;
+    }
+    True(malformedRejected, "Uszkodzona lista rozdzialow YouTube musi zglosic JsonException.");
+
     const string psc = """
         <rss xmlns:psc="http://podlove.org/simple-chapters" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>PSC</title><item>
           <guid>psc-1</guid><title>Odcinek</title><enclosure url="https://example.test/a.mp3" />

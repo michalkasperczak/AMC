@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 
 namespace AccessibleMediaController.Windows.Services;
 
@@ -184,6 +186,120 @@ internal static class YouTubeSourceResolver
         finally
         {
             process?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Chapters of one public YouTube video, as YouTube shows them. Channel
+    /// lists come from <c>--flat-playlist</c> without descriptions, and the
+    /// watch page keeps its description in scripts, so neither the description
+    /// parser nor the episode page parser can see them. Returns an empty list
+    /// when yt-dlp is missing or the video has no chapters. A failed or timed
+    /// out run throws, so the caller does not remember it as "no chapters".
+    /// </summary>
+    internal static async Task<IReadOnlyList<ProviderChapterPoint>> ReadChaptersAsync(
+        Uri pageUrl,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pageUrl);
+        if (!IsYouTubeUrl(pageUrl.AbsoluteUri)) return [];
+        var executable = FindExecutable();
+        if (executable is null) return [];
+
+        var start = ExternalToolProcess.Create(executable);
+        foreach (var argument in new[]
+        {
+            "--ignore-config",
+            "--no-playlist",
+            // Link odcinka RSS moze prowadzic do kanalu albo playlisty. Bez
+            // tych dwoch opcji yt-dlp odczytywalby kazdy film kanalu az do
+            // limitu czasu; z nimi konczy sie po jednym wpisie wynikiem NA.
+            // Pojedynczego filmu opcje nie zmieniaja.
+            "--flat-playlist",
+            "--playlist-items", "1",
+            "--no-warnings",
+            "--skip-download",
+            "--ignore-no-formats-error",
+            "--force-ipv4",
+            "--socket-timeout", "20",
+            "--retries", "2",
+            "--extractor-retries", "2",
+            "--extractor-args", "youtube:player_client=default,android",
+            "--print", "%(chapters)j",
+            "--",
+            pageUrl.AbsoluteUri
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        Process? process = null;
+        string output;
+        try
+        {
+            process = Process.Start(start);
+            if (process is null) return [];
+            process.StandardInput.Close();
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            // Klient wx czeka na chapter.prepare 40 s; yt-dlp musi skonczyc
+            // wczesniej, inaczej uzytkownik slyszy brak odpowiedzi silnika.
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            using var termination = timeout.Token.Register(
+                static state =>
+                {
+                    try
+                    {
+                        var running = (Process)state!;
+                        if (!running.HasExited) running.Kill(entireProcessTree: true);
+                    }
+                    catch (Exception)
+                    {
+                    }
+                },
+                process);
+            var outputTask = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(timeout.Token);
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+            if (process.ExitCode != 0)
+            {
+                DiagnosticLog.Warning(
+                    "youtube",
+                    $"Nie udalo sie odczytac rozdzialow {pageUrl.AbsoluteUri}: {error.Trim()}");
+                throw new InvalidDataException(YouTubeErrorTranslator.Describe(error));
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            DiagnosticLog.Warning(
+                "youtube",
+                $"Odczyt rozdzialow przekroczyl bezpieczny czas: {pageUrl.AbsoluteUri}.");
+            throw new TimeoutException("YouTube nie odpowiedział w bezpiecznym czasie.");
+        }
+        catch (Win32Exception exception)
+        {
+            DiagnosticLog.Warning(
+                "youtube",
+                $"Nie udalo sie uruchomic yt-dlp dla rozdzialow {pageUrl.AbsoluteUri}: {exception.Message}");
+            return [];
+        }
+        finally
+        {
+            process?.Dispose();
+        }
+
+        try
+        {
+            return YouTubeChapterParser.Parse(output, duration);
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        {
+            DiagnosticLog.Warning(
+                "youtube",
+                $"yt-dlp zwrocil nieprawidlowa liste rozdzialow {pageUrl.AbsoluteUri}: {exception.Message}");
+            return [];
         }
     }
 

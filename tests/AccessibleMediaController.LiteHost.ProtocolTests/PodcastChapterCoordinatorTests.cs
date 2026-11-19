@@ -46,6 +46,25 @@ internal static class PodcastChapterCoordinatorTests
                         "Odcinek ze stroną",
                         "Opis bez znaczników czasu",
                         new Uri("https://example.invalid/ep-page"),
+                        null),
+                    // Odcinek z kanału YouTube: lista kanału nie niesie opisu.
+                    Episode(
+                        "ep-youtube",
+                        "Film z rozdziałami",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=j-bG9NWRdeA"),
+                        null),
+                    Episode(
+                        "ep-youtube-empty",
+                        "Film bez rozdziałów",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=00000000000"),
+                        null),
+                    Episode(
+                        "ep-youtube-retry",
+                        "Film po chwilowym błędzie",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=retry000001"),
                         null)
                 ]);
             podcasts.AddSource(feed, null, PodcastSourceKind.Rss);
@@ -53,6 +72,7 @@ internal static class PodcastChapterCoordinatorTests
             var bookmarks = new LiteBookmarkStore(bookmarkDatabase, () => false);
             var providerCalls = 0;
             var pageCalls = 0;
+            var youTubeCalls = new List<string>();
             using var coordinator = new LitePodcastChapterCoordinator(
                 podcasts,
                 bookmarks,
@@ -81,6 +101,27 @@ internal static class PodcastChapterCoordinatorTests
                         new("page-1", "Otwarcie", TimeSpan.Zero),
                         new("page-2", "Podsumowanie", TimeSpan.FromMinutes(8))
                     ]);
+                },
+                (address, _, _) =>
+                {
+                    youTubeCalls.Add(address.AbsoluteUri);
+                    if (address.AbsoluteUri.EndsWith("retry000001", StringComparison.Ordinal))
+                    {
+                        // Pierwsza próba kończy się chwilowym błędem yt-dlp, druga daje wynik.
+                        return youTubeCalls.Count(call => call == address.AbsoluteUri) == 1
+                            ? Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new TimeoutException("YouTube nie odpowiedział w bezpiecznym czasie."))
+                            : Task.FromResult<IReadOnlyList<ProviderChapterPoint>>(
+                                [new("chapter:1:0:Start", "Start", TimeSpan.Zero)]);
+                    }
+                    return Task.FromResult<IReadOnlyList<ProviderChapterPoint>>(
+                        address.AbsoluteUri.EndsWith("j-bG9NWRdeA", StringComparison.Ordinal)
+                            ?
+                            [
+                                new("chapter:1:0:Wstęp", "Wstęp", TimeSpan.Zero),
+                                new("chapter:2:62:GPT", "GPT 6.2 Astra i Sol", TimeSpan.FromSeconds(62))
+                            ]
+                            : []);
                 });
 
             var json = coordinator.Prepare(Item("ep-json", "Odcinek JSON"), TimeSpan.FromMinutes(20));
@@ -111,6 +152,36 @@ internal static class PodcastChapterCoordinatorTests
                 TimeSpan.FromMinutes(20));
             Assert.True(page.ChapterCount == 2 && pageCalls == 1,
                 "gdy JSON i opis nie wystarczają, host używa strony bieżącego odcinka");
+
+            var youTube = coordinator.Prepare(
+                Item("ep-youtube", "Film z rozdziałami"),
+                TimeSpan.FromMinutes(20));
+            var youTubeChapters = bookmarks.GetChapters(
+                "podcasts", "ep-youtube", TimeSpan.FromMinutes(20));
+            Assert.True(youTube.ChapterCount == 2
+                && youTube.ImportedCount == 2
+                && youTubeChapters[1].Name == "GPT 6.2 Astra i Sol"
+                && youTubeChapters.All(chapter =>
+                    chapter.Entry.ChapterSourceId?.StartsWith("youtube:", StringComparison.Ordinal) == true),
+                "film YouTube bez opisu dostaje rozdziały z yt-dlp, takie jak pokazuje YouTube");
+            Assert.True(pageCalls == 1 && youTubeCalls.Count == 1,
+                "strona watch nie jest pobierana, bo nie daje się jej odczytać bez skryptów");
+
+            var noChapters = coordinator.Prepare(
+                Item("ep-youtube-empty", "Film bez rozdziałów"),
+                TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-empty", "Film bez rozdziałów"), TimeSpan.FromMinutes(20));
+            Assert.True(noChapters.ChapterCount == 0 && youTubeCalls.Count == 2,
+                "film bez rozdziałów nie uruchamia yt-dlp ponownie przy kolejnym poleceniu");
+
+            var failed = coordinator.Prepare(
+                Item("ep-youtube-retry", "Film po chwilowym błędzie"),
+                TimeSpan.FromMinutes(20));
+            var retried = coordinator.Prepare(
+                Item("ep-youtube-retry", "Film po chwilowym błędzie"),
+                TimeSpan.FromMinutes(20));
+            Assert.True(failed.ChapterCount == 0 && retried.ChapterCount == 1 && youTubeCalls.Count == 4,
+                "chwilowy błąd yt-dlp nie jest zapamiętywany jako brak rozdziałów");
         }
         finally
         {
