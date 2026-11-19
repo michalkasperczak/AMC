@@ -159,12 +159,50 @@ jako wejścia nowej budowy. Przed docelowym pushem ponowić odczyt zdalnej
 rezerwacji wersji i istnienia refu/runów; wyniki wykonawcy były chwilowym
 odczytem, nie rezerwacją.
 
+## Korekta prezentacji i obserwowalność urządzeń
+
+Odebrano lokalną korektę `17e677aec46affe4868af0b732c7aaf1b9a8374b`
+na gałęzi Skrzynki/oznaczania, bez integracji. Rodzic odczytał pełny diff
+produkcji względem `547b904`: położenie tekstu trafia do renderera i cache,
+handler ustawień odświeża wszystkie obsługiwane sesje, SearchDialog wiąże
+fokus z callbackiem sygnału. Wykonawca raportuje **121 passed, 12 skipped**
+w sześciu plikach; pominięć nie wliczać do zaliczeń. Niezależny, ograniczony
+przegląd tej korekty trwa w oddzielnym, zamrożonym worktree.
+
+Korekta usunęła przypisywanie żądanego materiału i jego historii w WiiM/Sonos.
+To usuwa fałszywe potwierdzenie, ale samo wyłączenie oznaczeń nie realizuje
+zlecenia. Odczyt hosta potwierdził konkretną, małą drogę do obserwowanego ID:
+
+- WiiM: urządzenie zwraca ContentUri; host już porównuje je z zapisanymi
+  strumieniami, ale późniejszy resolver może zachować pamiętany zamiar.
+  Do oznaczania wolno użyć tylko jednoznacznego, dokładnego URI match,
+  nie `rememberedStreamId`, przekierowania ani podobnego tytułu.
+- Sonos: rzeczywisty odczyt playback zawiera ItemId; obecna migawka go
+  odrzuca i wystawia ID grupy. Dla własnego strumienia istnieje tożsamość
+  URL/ID wyliczana przez SonosOwnStreamIdentity. Potwierdzony odczyt można
+  dopasować do własnego strumienia, nie automatycznie do ulubionej/playlisty.
+- Frontier: dostępne metadane/stan nie zawierają stabilnego URI ani ID
+  materiału. ID urządzenia i hash tytułu nie są tożsamością wiersza.
+- Apple Music: SMTC potwierdza oryginalną aplikację, tytuł, autora i stan,
+  ale nie catalog/library ID/URI. Nie oznaczać zaznaczonego utworu AMC
+  na podstawie tych danych ani nie udawać własnego odtwarzacza AMC.
+
+Zlecono minimalne rozszerzenie hosta i podłączenie GUI w rozdzielonych
+zakresach autorów: opcjonalne `observedMaterialId` i `identityProvenance`.
+WiiM: `uriMatch`; Sonos własne strumienie: `playbackItemId`. Brak
+wiarygodnego dopasowania daje null i usuwa znacznik, nigdy fallback zamiaru.
+Pole `itemId` urządzenia/grupy pozostaje kompatybilne. Każdy nowy odczyt
+musi nadal należeć do właściwego urządzenia/grupy i sesji; idle/stop/error
+nie mogą zostawiać oznaczenia. To rozszerzenie statusu, nie przebudowa silników,
+kont ani logowania. Brak mapowania Sonos ulubionych/dzieci playlist oraz
+Frontier/Apple pozostaje jawną luką, nie zaliczeniem pełnego zakresu.
+
 ## Znane ograniczenia i następny krok
 
-Następny krok: odebrać korektę po odrzuconym przeglądzie Skrzynki/oznaczania
-oraz odczyt pochodzenia tożsamości hosta. Potwierdzone luki zamknąć bez
-zawężania uzgodnionego zakresu; niezależnie zweryfikować zmienione granice,
-następnie zintegrować odebrane źródła z już przyjętym NVDA+End.
+Następny krok: odebrać niezależny przegląd korekty `17e677a`, implementację
+opcjonalnego obserwowanego ID hosta oraz jego podłączenie GUI. Zweryfikować
+wspólnie producenta i konsumenta, następnie zintegrować wyłącznie przyjęte
+źródła z już przyjętym NVDA+End. Braki obserwowalności usług pozostają jawne.
 Przygotowanie chronionej drogi wydania nie
 upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
