@@ -1,59 +1,93 @@
-# Radio Archiwista — pełny kontrakt wspólnego odtwarzacza
+# Radio Archiwista — ograniczony odbiór wspólnego odtwarzacza
 
-**Status: WERYFIKACJA W TOKU; brak deklaracji pełnego odbioru i nowego wydania.**
+**Status: zakończony ograniczony odbiór kodu i testów offline (19.11.2026).**
 
-## Zlecenie Michała — 19.11.2026
+Nie był to odbiór GUI/NVDA ani odtwarzania audio. Nie utworzono wydania, instalacji ani publikacji.
 
-Sprawdzić, czy w Radio Archiwiście działają historia Ctrl+H, zakładki, skok procentowy oraz pozostałe zwykłe funkcje odtwarzacza. Jeśli czegoś brakuje, uzupełnić w istniejącej wspólnej implementacji. Nie tworzyć osobnego uproszczonego odtwarzacza dla tego źródła.
+## Granice i niezmieniony kontrakt
 
-Nadrzędne rozdzielenie kontekstów: lista audycji z serwera jest zwykłą listą nazw plików — litery i cyfry służą do wyboru po nazwie. W widoku odtwarzacza cyfry zachowują istniejące znaczenie skoków procentowych. Nie wprowadzać specjalnego interpretowania godzin, aliasu 7 → 07 ani nowego skrótu. Nawigacja listy nie uruchamia odtwarzania. Szczegóły i korekta wcześniejszej diagnozy: [nawigacja i Ctrl+F](RARCH-HOURS-20261119-diagnoza.md).
+Lista audycji Radio Archiwisty jest zwykłą listą nazw plików z serwera: litery i cyfry pozostają literalnym wybieraniem nazwy. Zaznaczenie nie uruchamia odtwarzania ani przewijania. W widoku odtwarzacza cyfry `0`–`9` oznaczają odpowiednio `0%`–`90%`. Nie dodano interpretowania godzin, aliasu `7 → 07`, osobnego selektora godzin ani funkcji live/time-shift.
 
-## Stan wejściowy i dowody źródłowe
+Sprawdzano tylko gotowe nagrania Radio Archiwisty i wspólne mechanizmy Plików/Podcastów: bez kont, urządzeń, rozdziałów dostawcy, GUI, NVDA, audio i sieci.
 
-Kanoniczny checkout `/home/michal/projekty/AMC`, gałąź `codex/amc-test-public-20261109`, wejściowy HEAD `e09d705`; przed pracą czysty. Pozostali wykonawcy pracują wyłącznie w oddzielnych worktree #26 i nawigacji listy.
+## Stan wejściowy
 
-- `shortcuts.py`, `RADIOARCHIWISTA_SUPPORTED_ACTIONS`: historia, zakładki zwykłe i nazwane, ich nawigacja, skoki procentowe i wspólny transport są przewidziane w katalogu poleceń. Sama obecność na liście nie dowodzi wykonania.
-- `gui.py`, `_show_playback_history_preview`: Radio Archiwista ma własną historię `playback_history_by_session`, przekazaną przez `streamer_history_rows` i `apply_service_history`, nie historię plików lokalnych. Sprawdzić także zapis, ponowne otwarcie i aktywację pozycji.
-- `gui.py`, `_add_bookmark` i `_navigate_bookmark`: sesja Radio Archiwista jest dopuszczona. Istnieje test przejścia dodawania do wspólnego klienta z `session_id=radioarchiwista` i stabilnym `rarch:rec:*`.
-- `gui.py`, `_seek_percent`: po znanym czasie trwania wywołuje `seek_to_position` z jawną sesją. Zweryfikować faktyczną drogę od klawisza i izolację kontekstu.
-- `LiteTransportRouting.cs`: `radioarchiwista` jawnie trafia na silnik `files`, bez zmiany tożsamości sesji.
-- `BookmarkStoreTests.cs` ma scenariusz zapisu/odczytu zakładki Radio Archiwisty i braku przecieku do `local`. Jest to istniejący test źródłowy, nie wynik nowego wykonania C#.
+- izolowany worktree: `/home/michal/.hermes/profiles/amc/cache/scratch/amc-radioarchiwista-player-20261119`
+- gałąź: `codex/amc-radioarchiwista-player-20261119`
+- baza: `7bebd00419c8febbce50b5f8fbeded9ed70df03d`
+- LiteHost: `LiteTransportRouting.cs` jawnie mapuje `radioarchiwista` na silnik `files`, zachowując identyfikator sesji; nie ma drugiego odtwarzacza Archiwisty.
 
-## Pierwszy rzeczywisty przebieg rodzica
+## Macierz funkcji i dowodów
 
-`PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest wxlite/tests/test_radioarchiwista_followup.py -q --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/rarch-player-parent -p no:cacheprovider`
+| Obszar | Rzeczywista ścieżka / dowód | Wynik ograniczonego odbioru |
+|---|---|---|
+| Historia `Ctrl+H` | resolver `shortcuts.resolve` → `LiteFrame._dispatch(Action.VIEW_HISTORY)` → `_show_playback_history_preview` → `streamer_history_rows` / `Navigator.apply_service_history` | Jest. Nowy test prowadzi `Ctrl+H` z listy i odtwarzacza do historii **radioarchiwista**, bez przełączenia na Pliki. |
+| Historia: trwałość, deduplikacja, Enter, Escape | `test_streamer_playback_history.py`: `record_row`, `normalize_histories`, `history_rows`, `Navigator.activate_selected`, `_restore_transient_preview` | Jest: wpis replayable ma URL, Enter tworzy `PlayMedia`, Escape wraca do tej samej sesji i zaznaczenia. C# `--playback-history` zielony. |
+| Zakładka szybka | `LiteFrame._add_bookmark` → `client.add_bookmark(item_id, item_title, session_id, name)` | Jest. Test sprawdza stabilne `rarch:rec:*` i `session_id="radioarchiwista"`. |
+| Zakładki nazwane / dalej-wstecz / tylko nazwane | resolver → `_dispatch` → `_navigate_bookmark` → `client.navigate_bookmark(direction, session_id, named_only)` | Jest. Nowy test wykonuje dispatcher i sprawdza `(1, "radioarchiwista", True)` oraz pozycję zwróconą przez wspólny host. C# `--bookmarks` zielony. |
+| Izolacja magazynu zakładek | wspólny `BookmarkStore`, testy C# `BookmarkStoreTests` | Jest. Host nie zamienia sesji na `local`; nie wprowadzono osobnej bazy Archiwisty. |
+| Cyfry w odtwarzaczu | resolver (tylko `player_view=True`) → `_dispatch` → `_seek_percent` → `client.seek_to_position(target, session_id)` | Jest. Nowy test prowadzi `50%` z 600 s do `seek_to_position(300.0, "radioarchiwista")`. |
+| Cyfry na liście | resolver dla `player_view=False` zwraca `None` | Jest. Nowa regresja obejmuje wszystkie cyfry `0`–`9`: nie powstaje akcja play/seek, więc klawisz pozostaje natywnej liście dla przyrostowego wyboru nazwy. |
+| Skok bez długości | `_seek_percent` zatrzymuje się przed wywołaniem hosta i używa `percent_seek_text` | Jest. Nowy test w sesji Archiwisty potwierdza brak requestu i komunikat „Skok procentowy niedostępny: czas trwania jest nieznany”, nawet przy wyłączonych komunikatach rutynowych. |
+| Start/pauza/stop, względny/bezwzględny seek, początek/koniec, czas/status | wspólny `LiteFrame` przekazuje `navigator.active.value`; LiteHost routuje sesję do `files` | Brak potwierdzonej rozbieżności Archiwisty. Parytet transportu zweryfikowano testami GUI bez okna oraz C# routingiem, ale nie jest to odtwarzanie audio. |
+| Głośność, mute, tempo i wspólne ustawienia audio | wspólne handlery `set_volume`, `toggle_mute`, `set_rate` z jawnym `session_id`; `test_transport_parity_gui_wiring.py` | Brak potwierdzonej rozbieżności Archiwisty. Test atrapy uzupełniono o rzeczywisty prerekwizyt `LiteState`, wymagany przez wspólną ścieżkę tempa. |
+| Kolejka i resume | `RadioarchiwistaSource.toggle_queue`, `continue_radioarchiwista_queue_after_end`, zapis pozycji przy pauzie | Jest w zakresie nagrań zdalnych: kolejka trwała, następne nagranie używa zdalnego URL; pamięć pozycji nie dostała osobnego magazynu. |
+| Menu, paleta i opisy | `RADIOARCHIWISTA_SUPPORTED_ACTIONS`, `menu_model.menus_for_session`, `entries_for_session`, `describe_action` | Nie zmieniano źródła prawdy: odkryte akcje są dopuszczone i dispatcher je obsługuje. Test istniejący obejmuje menu/paletę kolejki i linku; nie stwierdzono martwej pozycji dla badanych funkcji. |
 
-Wynik: **11 passed, 1 failed in 1.50s**, exit 1. Nie przedstawiać zestawu jako zielonego.
+## RED/GREEN i poprawki
 
-Niepowodzenie: `test_open_archive_day_list_relocalizes_through_saved_language_change` przy zmianie języka. `SimpleNamespace` testowego okna nie ma `_native_playback_snapshot`, wywoływanego przez odświeżanie wspólnych oznaczeń. Przed jakąkolwiek zmianą produkcji ustalić, czy to niekompletne wyposażenie atrapy po wcześniejszej integracji. Nie maskować awarii przez usunięcie asercji ani zmieniać zachowania aplikacji dla samej atrapy. Nie jest to na tym etapie dowód uszkodzonej historii/zakładek/procentów.
+Nie wykryto funkcjonalnej luki odtwarzacza Radio Archiwisty, więc zgodnie z zakresem nie zmieniono produkcyjnego `gui.py`, klienta hosta, nawigacji ani C# LiteHost.
 
-## Zakres ograniczonego odbioru
+Jedyny potwierdzony RED był testowym prerekwizytem po wspólnym przyroście GUI, nie usterką funkcji:
 
-1. Historia: rzeczywista droga Ctrl+H, poprawna sesja i źródło danych, zapis tylko potwierdzonego odtwarzania, deduplikacja i trwałość, Enter ponownie otwiera właściwe nagranie, Escape przywraca poprzednią listę/wybór/filtr.
-2. Zakładki: zwykłe i nazwane, poprzednia/następna, tylko nazwane, właściwe ID nagrania i sesja, zapis i ponowny odczyt, brak przecieku do Plików/Podcastów. Korzystać ze wspólnego store/transportu, nie tworzyć drugiej bazy.
-3. Skoki: cyfry 0–9 w odtwarzaczu odpowiadają 0–90%, poprawna pozycja i `session_id`, obsługa braku długości bez fałszywego sukcesu. Na liście i w edytorze brak procentowego seek/play jako skutku wybierania nazwy.
-4. Wspólne polecenia materiału skończonego: start/pauza/stop, względny i bezwzględny seek, początek/koniec, czas/pozycja/status, głośność/wyciszenie, tempo/pozostałe istniejące ustawienia audio, kolejka i pamięć pozycji. Ustalić na podstawie istniejącego kontraktu Plików/Podcastów, które akcje są wspólne. Nie dodawać kont, sprzętu, funkcji strumienia live ani rozdziałów dostawcy, których źródło nie oferuje.
-5. Menu, paleta Ctrl+Shift+K, Ctrl+F1 i pełna pomoc, instrukcja oraz metadane: zgodność z rzeczywistą dostępnością i wykonaniem, bez martwych pozycji. Aktualizować wspólne źródło prawdy przy zmianie, nie kopiować ręcznie list skrótów.
+1. **RED:** pierwszy przebieg `test_radioarchiwista_followup.py`: `11 passed, 1 failed`, exit `1`; `test_open_archive_day_list_relocalizes_through_saved_language_change` nie wyposażał atrapy w `_native_playback_snapshot` (a po dalszym przebiegu także snapshoty WiiM/Sonos), których wymaga odświeżenie wspólnych oznaczeń odtwarzania.
+2. **GREEN:** atrapa otrzymała neutralny stan tych snapshotów; asercji nie usunięto i produkcji nie dostosowano do atrapy.
+3. Podczas rozszerzania dowodów faktyczny runner ujawnił jeszcze dwie niepełne atrapy: nowe sondy dispatchera muszą być instancją `LiteFrame` bez `__init__`, a wspólny fixture parytetu tempa musi mieć `LiteState`, tak jak prawdziwa ramka. To także były błędy wyposażenia testu, nie RED funkcji odtwarzacza.
 
-Testować faktyczne produkcyjne handlery i producentów danych, nie tylko resolvery/stałe ani idealnie dopasowane atrapy. Gdy zachowanie działa, nie przepisywać produkcji. Dla potwierdzonego braku obowiązuje pionowe RED → minimalna implementacja → GREEN. Jedna proporcjonalna seria sąsiednich regresji, niezależny przegląd krytycznych granic przed integracją. Nie powtarzać pełnej suite ani dawnych odbiorów bez potrzeby.
+Dodane regresje mierzą pełne drogi, nie same stałe: `Ctrl+H` resolver → dispatcher → historia sesji; nawigację nazwanych zakładek dispatcher → klient; skok procentowy dispatcher → klient; brak długości oraz brak seeka na liście.
 
-## Bezpieczeństwo i koordynacja
+## Wykonane polecenia i wyniki
 
-Bez instalacji, zamykania/restartu AMC, GUI/NVDA/audio, dostępu do głównego PC, kont i poświadczeń. Nie publikować, pushować ani zamykać zgłoszeń. Nie zakłócać nagrywania. Praca wyłącznie przez Codex/openai-codex; brak zgody na osobno płatny klucz API.
+Python (offline, bez GUI):
 
-Wykonawca Codex `sa-0-101dad7b`, delegacja `deleg_fd163488`, pracuje w
-`/home/michal/.hermes/profiles/amc/cache/scratch/amc-radioarchiwista-player-20261119`,
-gałąź `codex/amc-radioarchiwista-player-20261119`, baza
-`7bebd00419c8febbce50b5f8fbeded9ed70df03d` (zapis niniejszego planu).
-Nie edytuje wspólnych rejestrów ani pliku nawigacji godzin prowadzonego przez rodzica;
-raport szczegółowy może dopisać w tym własnym dokumencie. Jeśli potrzebuje zmiany tej samej drogi klawisza co wykonawca listy, najpierw zgłasza dokładny punkt integracji zamiast nadpisywać jego pracę.
+```text
+PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest \
+  wxlite/tests/test_radioarchiwista_followup.py \
+  wxlite/tests/test_streamer_playback_history.py \
+  wxlite/tests/test_transport_parity_gui_wiring.py \
+  wxlite/tests/test_quick_bookmark.py \
+  -q --tb=short \
+  --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/rarch-player-contract-py-final \
+  -p no:cacheprovider
+```
 
-## Materiał do dokumentacji użytkownika
+Wynik: **73 passed in 0.71s**, exit `0`.
 
-Radio Archiwista ma korzystać z normalnego odtwarzacza AMC: historia Ctrl+H, szybkie i nazwane zakładki, przewijanie oraz skoki procentowe w widoku odtwarzacza. Na liście nagrań wpisywane litery i cyfry wybierają nazwę; samo zaznaczenie nie odtwarza ani nie przewija. Dokładne pozostałe skróty brać ze wspólnego katalogu, a nie tworzyć odmienną wersję dla Archiwisty.
+C# (prywatny, już dostępny SDK Windows `8.0.423`, staging NTFS; bez instalacji):
 
-To zapis wymagań i odnalezionej implementacji, nie deklaracja nowego wydania lub żywego odbioru NVDA.
+```text
+/mnt/c/Users/Michal/AppData/Local/AMC-BuildTools/dotnet/dotnet.exe build \
+  src\\AccessibleMediaController.LiteHost\\AccessibleMediaController.LiteHost.csproj --no-restore -v:minimal
+```
 
-## Wersja i następny krok
+Wynik: kompilacja LiteHost udana, `0` ostrzeżeń, `0` błędów, exit `0`.
 
-Nowy artefakt/instalacja/publikacja: brak. Odebrać macierz funkcji, rzeczywiste wyniki, ewentualny czysty commit i niezależny przegląd; dopiero potem integracja z poprawką zwykłej nawigacji listy i wspólnym kandydatem Public/Test.
+```text
+/mnt/c/Users/Michal/AppData/Local/AMC-BuildTools/dotnet/dotnet.exe run --project \
+  tests\\AccessibleMediaController.LiteHost.ProtocolTests\\AccessibleMediaController.LiteHost.ProtocolTests.csproj \
+  --no-restore -- --transport-routing --bookmarks --playback-history
+```
+
+Wynik: `TransportRoutingTests: OK`, `PlaybackHistoryMutationTests: OK`, `Wszystkie zestawy przeszly (3)`, exit `0`. Zestaw zakładek jest trzecią wybraną suite; jego runner nie emituje własnej linii sukcesu.
+
+## Zmienione pliki
+
+- `wxlite/tests/test_radioarchiwista_followup.py` — naprawa niepełnej atrapy oraz regresje rzeczywistych dróg historii, zakładek i skoku procentowego.
+- `wxlite/tests/test_transport_parity_gui_wiring.py` — `LiteState` w istniejącym fixture wspólnej ścieżki tempa.
+- `docs/zadania/RARCH-PLAYER-20261119-kontrakt.md` — ten raport/macierzy dowodów.
+
+Nie zmieniono kodu produkcyjnego. Nie uruchomiono GUI, NVDA, audio ani odtwarzania. Nie wykonano instalacji, push, merge, cherrypick, wydania, publikacji ani zmian kont/sekretów.
+
+## Integracja
+
+Nie ma zmiany wspólnej metody do ręcznej integracji z pracą nawigacji listy ani rozdziałów YouTube. Zmiany testów i dokumentu można brać niezależnie; funkcjonalny routing klawiszy godzinowych nie został dotknięty.

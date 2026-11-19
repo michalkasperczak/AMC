@@ -26,6 +26,7 @@ install_wx_stub()
 from amc_wx_lite import gui  # noqa: E402  (zastepnik wx musi byc pierwszy)
 from amc_wx_lite.navigation import SessionId  # noqa: E402
 from amc_wx_lite.shortcuts import Action  # noqa: E402
+from amc_wx_lite.state_store import LiteState  # noqa: E402
 from amc_wx_lite.transport_parity import MessagePolicy, PercentAnnouncement  # noqa: E402
 
 
@@ -61,6 +62,10 @@ def make_frame(
     }
     frame.runner = FakeRunner(payload)
     frame.navigator = SimpleNamespace(active=SessionId.FILES)
+    # ``_session_default_rate`` reads per-session overrides from the persisted
+    # profile. The real frame always has this object; this fixture must mirror
+    # that prerequisite after the shared rate path began using it.
+    frame.state = LiteState()
     seeks: list[dict] = []
     frame.client = SimpleNamespace(
         seek_by=lambda seconds, _session_id=None: seeks.append({"delta": seconds}),

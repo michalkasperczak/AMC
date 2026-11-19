@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 import types
+from typing import Any, cast
 
 try:
     import wx
@@ -37,6 +38,7 @@ from amc_wx_lite.shortcuts import (
     Action, RADIOARCHIWISTA_SUPPORTED_ACTIONS, chord_from_canonical,
     describe_action, readable_shortcut, resolve,
 )
+from amc_wx_lite.transport_parity import MessagePolicy
 
 
 def recording(item_id: str) -> ArchiveRecording:
@@ -70,11 +72,19 @@ def test_archive_shortcuts_route_in_list_and_player() -> None:
             assert action in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     for digit in range(10):
         action = Action[f"SEEK_PERCENT_{digit * 10}"]
+        digit_chord = chord_from_canonical(str(digit))
+        assert digit_chord is not None
         assert resolve(
-            chord_from_canonical(str(digit)), player_view=True, radio_session=False,
+            digit_chord, player_view=True, radio_session=False,
             radioarchiwista_session=True,
         ) is action
         assert action in RADIOARCHIWISTA_SUPPORTED_ACTIONS
+        # Lista audycji zostawia cyfrę natywnej liście: literalny wybór nazwy,
+        # bez startu albo skoku w aktualnym nagraniu.
+        assert resolve(
+            digit_chord, player_view=False, radio_session=False,
+            radioarchiwista_session=True,
+        ) is None
     assert Action.ADD_BOOKMARK in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     assert Action.NEXT_BOOKMARK in RADIOARCHIWISTA_SUPPORTED_ACTIONS
     for key, action in (
@@ -133,7 +143,7 @@ def test_archive_player_context_menu_contains_copy_link() -> None:
         IsEnabled=lambda: True,
         GetItemLabel=lambda: "Skopiuj &link do nagrania\tCtrl+Shift+C",
     )
-    frame = LiteFrame.__new__(LiteFrame)
+    frame = cast(Any, LiteFrame.__new__(LiteFrame))
     frame.navigator = SimpleNamespace(
         session=SimpleNamespace(model=SimpleNamespace(selected_row=recording_row)),
     )
@@ -178,6 +188,130 @@ def test_archive_bookmark_reaches_shared_writer() -> None:
         "name": None,
     }]
     assert messages == ["Dodano zakładkę: 2:00"]
+
+
+def test_archive_player_dispatches_named_bookmark_navigation_to_shared_host() -> None:
+    """Nie wystarcza wpis w resolverze: akcja odtwarzacza niesie sesję do hosta."""
+    requests: list[tuple[int, str, bool]] = []
+    spoken: list[str] = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed) -> None:
+            done(work())
+
+    frame = cast(Any, LiteFrame.__new__(LiteFrame))
+    frame.navigator = SimpleNamespace(active=SessionId.RADIOARCHIWISTA)
+    frame.client = SimpleNamespace(
+        navigate_bookmark=lambda direction, session_id, named_only: (
+            requests.append((direction, session_id, named_only))
+            or {"found": True, "positionSeconds": 120, "name": "Wstęp"}
+        ),
+    )
+    frame.runner = Runner()
+    frame.announcer = SimpleNamespace(say=spoken.append, show=lambda _text: None)
+    frame.messages = MessagePolicy()
+    frame._last_status = {}
+
+    LiteFrame._dispatch(frame, Action.NEXT_NAMED_BOOKMARK)
+
+    assert requests == [(1, "radioarchiwista", True)]
+    assert spoken == ["Wstęp, 2:00"]
+    assert frame._last_status["positionSeconds"] == 120.0
+
+
+def test_archive_player_dispatches_percent_seek_to_shared_host() -> None:
+    """Cyfra w odtwarzaczu daje absolutny seek z rarch session_id, nie radio live."""
+    requests: list[tuple[float, str]] = []
+    spoken: list[str] = []
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed) -> None:
+            done(work())
+
+    frame = cast(Any, LiteFrame.__new__(LiteFrame))
+    frame.navigator = SimpleNamespace(active=SessionId.RADIOARCHIWISTA)
+    frame.client = SimpleNamespace(
+        seek_to_position=lambda seconds, session_id: (
+            requests.append((seconds, session_id))
+            or {"positionSeconds": seconds}
+        ),
+    )
+    frame.runner = Runner()
+    frame.announcer = SimpleNamespace(say=spoken.append)
+    frame.messages = MessagePolicy()
+    frame._last_status = {"positionSeconds": 0.0, "durationSeconds": 600.0}
+
+    LiteFrame._dispatch(frame, Action.SEEK_PERCENT_50)
+
+    assert requests == [(300.0, "radioarchiwista")]
+    assert spoken == ["50%"]
+
+
+def test_archive_player_percent_seek_without_duration_never_calls_host() -> None:
+    """Brak długości nagrania jest komunikowany; cyfra nie udaje sukcesu."""
+    requests: list[tuple[float, str]] = []
+    spoken: list[str] = []
+
+    frame = cast(Any, LiteFrame.__new__(LiteFrame))
+    frame.navigator = SimpleNamespace(active=SessionId.RADIOARCHIWISTA)
+    frame.client = SimpleNamespace(
+        seek_to_position=lambda seconds, session_id: requests.append((seconds, session_id)),
+    )
+    frame.announcer = SimpleNamespace(say=spoken.append)
+    frame.messages = MessagePolicy(enabled=False, percentage_seek_messages=False)
+    frame._last_status = {"positionSeconds": 10.0, "durationSeconds": None}
+
+    LiteFrame._dispatch(frame, Action.SEEK_PERCENT_50)
+
+    assert requests == []
+    assert spoken == ["Skok procentowy niedostępny: czas trwania jest nieznany"]
+
+
+def test_archive_ctrl_h_dispatches_to_own_history_from_list_and_player() -> None:
+    """Ctrl+H przechodzi resolver i dispatcher; nie miesza historii Plików."""
+    for player_view in (False, True):
+        navigator = Navigator()
+        navigator.active = SessionId.RADIOARCHIWISTA
+        navigator.session.view = View.PLAYER if player_view else View.LIST
+        history_events: list[list[object]] = []
+        frame = cast(Any, LiteFrame.__new__(LiteFrame))
+        frame.navigator = navigator
+        frame.state = LiteState(playback_history_by_session={
+            "radioarchiwista": [{
+                "itemId": "rarch:rec:history",
+                "title": "Nagranie z historii",
+                "kind": "recording",
+                "url": "https://archive.org/history.mp3",
+                "replaySupported": True,
+            }]
+        })
+        frame._global_transient_previews = False
+        frame.messages = MessagePolicy()
+        frame.announcer = SimpleNamespace(say=lambda _text: None)
+        frame._transient_preview_return = None
+        frame._announce_transient_preview = history_events.append
+        frame._begin_transient_preview = (
+            lambda current=frame: LiteFrame._begin_transient_preview(current)
+        )
+        frame._show_playback_history_preview = (
+            lambda current=frame: LiteFrame._show_playback_history_preview(current)
+        )
+
+        action = resolve(
+            chord_from_canonical("Ctrl+H"),
+            player_view=player_view,
+            radio_session=False,
+            radioarchiwista_session=True,
+        )
+        assert action is Action.VIEW_HISTORY
+        LiteFrame._dispatch(frame, action)
+
+        assert navigator.active is SessionId.RADIOARCHIWISTA
+        assert navigator.session.library_view is LibraryView.SERVICE_HISTORY
+        assert navigator.session.model.selected_row.title == "Nagranie z historii"
+        assert len(history_events) == 1
 
 
 def test_archive_queue_persists_and_reorders(tmp_path: Path) -> None:
@@ -382,6 +516,12 @@ def test_open_archive_day_list_relocalizes_through_saved_language_change(
             _update_window_title=lambda: None,
             _apply_detailed_hints=lambda: None,
             _apply_radio_activity_status=lambda: None,
+            # _show_general_playback_options odświeża teraz też prezentacje
+            # natywnego odtwarzania; to neutralny stan tej atrapy, nie test
+            # silnika ani listy Radio Archiwisty.
+            _native_playback_snapshot=lambda _session_id: (False, False),
+            _wiim_snapshot={},
+            _sonos_snapshot={},
             _build_menu=lambda: None,
             _sync_views=lambda: sync_calls.append("sync"),
             Layout=lambda: None,
